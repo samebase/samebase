@@ -95,6 +95,8 @@ import path from 'node:path'
 
 const DEFAULT_LABEL = 'research'
 const DEFAULT_INTERVAL_SECONDS = 60
+const SAFE_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+const ALLOWED_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh']
 const MARKER_PREFIX = '<!-- noter-origin:v1 '
 const MARKER_SUFFIX = ' -->'
 const HELP_TEXT = `Usage: scripts/noter-pr-connect.js [options]
@@ -453,10 +455,11 @@ function normalizePullRequestSummary(value) {
   const record = /** @type {Record<string, unknown>} */ (value)
   const head = normalizePullRequestHead(record['head'])
   const labels = normalizePullRequestLabels(record['labels'])
+  const body = record['body']
   if (
     typeof record['number'] !== 'number' ||
     typeof record['title'] !== 'string' ||
-    typeof record['body'] !== 'string' ||
+    (body !== null && typeof body !== 'string') ||
     typeof record['html_url'] !== 'string' ||
     typeof record['draft'] !== 'boolean'
   ) {
@@ -466,7 +469,7 @@ function normalizePullRequestSummary(value) {
   return {
     number: record['number'],
     title: record['title'],
-    body: record['body'],
+    body: body ?? '',
     headRefName: head.headRefName,
     headRefOid: head.headRefOid,
     headRepository: head.headRepository,
@@ -648,6 +651,22 @@ function validateOriginMarker(pullRequest) {
         ok: false,
         reason: `noter-origin marker is missing required string field "${fieldName}"`,
       }
+    }
+  }
+
+  const requestedModel = String(marker['requestedModel'])
+  if (!SAFE_MODEL_PATTERN.test(requestedModel)) {
+    return {
+      ok: false,
+      reason: `noter-origin requestedModel "${requestedModel}" contains unsupported characters`,
+    }
+  }
+
+  const requestedReasoningEffort = String(marker['requestedReasoningEffort'])
+  if (!ALLOWED_REASONING_EFFORTS.includes(requestedReasoningEffort)) {
+    return {
+      ok: false,
+      reason: `noter-origin requestedReasoningEffort "${requestedReasoningEffort}" is unsupported`,
     }
   }
 
@@ -1346,7 +1365,7 @@ function extractOriginMarkerJson(body) {
   let insideCodeFence = false
   for (const line of lines) {
     const trimmedLine = line.trim()
-    if (trimmedLine.startsWith('```')) {
+    if (trimmedLine.startsWith('```') || trimmedLine.startsWith('~~~')) {
       insideCodeFence = !insideCodeFence
       continue
     }
