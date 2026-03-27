@@ -3,8 +3,9 @@
 ## Status
 
 - Research
-- Last updated: 2026-03-26
+- Last updated: 2026-03-27
 - Follow-on accepted implementation plan:
+  - `specs/072_CONNECTED_MACHINE_PHONE_MVP_SPEC.md`
   - `specs/070_CONNECTED_MACHINE_CODEX_THREAD_STORAGE_SPEC.md`
 
 ## Question
@@ -36,7 +37,8 @@ The stronger product direction is:
 
 Recommendation:
 
-- MVP control plane: Convex-backed connected-machine agent
+- MVP control plane: Convex-backed connected-machine agent as defined in
+  `specs/072_CONNECTED_MACHINE_PHONE_MVP_SPEC.md`
 - Long-term low-latency fanout option: Cloudflare Durable Objects
 - Large transcript and artifact storage: Cloudflare R2
 - Use Cloudflare Tunnel only as an optional transport for direct HTTP access,

@@ -4,17 +4,29 @@
 
 - Status: Accepted
 - Owner: connected machine control plane + Codex thread storage
-- Last updated: 2026-03-26
+- Last updated: 2026-03-27
 - Related docs:
+  - `specs/072_CONNECTED_MACHINE_PHONE_MVP_SPEC.md`
   - `rfcs/071_CONNECTED_MACHINES_AND_REMOTE_THREAD_CONTROL_RESEARCH.md`
   - `specs/069_LOCAL_PROVIDER_THREAD_INVENTORY_RESEARCH_SURFACE_SPEC.md`
 
 ## Summary
 
-Noter will let a signed-in user view and drive Codex running on their own
-machine from `https://noter.md`, including from a phone.
+This spec is not the narrowest phase-1 rollout.
 
-To do that without overloading Convex or shipping a slow web UI:
+The accepted phase-1 plan is `specs/072_CONNECTED_MACHINE_PHONE_MVP_SPEC.md`.
+That MVP focuses on:
+
+1. machine presence
+2. thread summary sync
+3. command delivery from `noter.md`
+4. on-demand thread detail reads from the connector
+
+This document defines the accepted storage shape that follows that MVP once
+Noter starts keeping normalized cloud thread history instead of only presence,
+summary rows, and command results.
+
+In that post-MVP storage phase:
 
 1. the local machine connector remains the source of truth for live provider
    execution
@@ -24,9 +36,18 @@ To do that without overloading Convex or shipping a slow web UI:
 4. raw provider JSONL and other bulky logs remain local for now and move to R2
    later
 
-This spec accepts a Convex-first storage model for normalized thread data. It
-does not require direct browser reads from the local connector just to render
-thread history.
+This spec accepts a Convex-first storage model for normalized thread data in the
+post-MVP storage phase. It does not require direct browser reads from the local
+connector just to render thread history once that later storage layer exists.
+
+## Relationship To 072 Phone MVP
+
+1. `072_CONNECTED_MACHINE_PHONE_MVP_SPEC.md` is the required first
+   implementation plan.
+2. Phase 1 may keep detailed thread reads on the connector/command-result path
+   instead of persisting paged turn rows in Convex.
+3. This spec starts when Noter needs durable normalized cloud thread history,
+   paged turn storage, and richer cross-device continuity.
 
 ## Problem Statement
 
@@ -63,7 +84,7 @@ Conclusion:
 3. the main optimization target is query shape and reactive fanout, not whether
    Convex can hold text at all
 
-## Product Decisions (Locked)
+## Product Decisions (Locked For Post-MVP Storage)
 
 1. Noter stores normalized machine-thread data in Convex.
 2. The web UI reads machine-thread data from Convex, not by directly asking the
