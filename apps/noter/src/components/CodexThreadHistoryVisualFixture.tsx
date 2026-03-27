@@ -76,12 +76,11 @@ export function CodexThreadHistoryVisualFixture({
   mode: CodexThreadHistoryVisualMode;
 }) {
   return (
-    <div
-      data-testid="codex-thread-history-visual-fixture"
-      data-mode={mode}
-      className="min-h-screen bg-slate-100 p-8 text-slate-950"
-    >
-      <div className="mx-auto grid max-w-4xl gap-6">
+    <div data-mode={mode} className="bg-slate-100 p-8 text-slate-950">
+      <div
+        data-testid="codex-thread-history-visual-fixture"
+        className="mx-auto grid max-w-4xl gap-6"
+      >
         <header className="grid gap-2 border border-slate-300 bg-white p-5">
           <h1 className="text-2xl font-semibold tracking-tight">
             Codex Thread History Visual Fixture

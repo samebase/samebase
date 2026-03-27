@@ -35,6 +35,8 @@ type CodexThreadBrowserViewProps = {
   detailState: CodexThreadBrowserDetailState;
   errorMessage?: string | null;
   isBusy: boolean;
+  fillViewport?: boolean;
+  relativeTimeReferenceMs?: number;
   labHref?: string;
   onBrowserModeChange?: (mode: CodexThreadBrowserMode) => void;
   onSearchTermChange?: (value: string) => void;
@@ -61,8 +63,11 @@ function formatDateTime(value: number | null | undefined): string {
  * Use a compact relative label so the grouped sidebar stays close to the Codex
  * mental model without flooding the left rail with full timestamps.
  */
-function formatRelativeTime(value: number): string {
-  const now = Date.now();
+function formatRelativeTime(
+  value: number,
+  referenceTimeMs: number = Date.now(),
+): string {
+  const now = referenceTimeMs;
   const diffMs = Math.max(0, now - normalizeTimestampToMilliseconds(value));
   const minuteMs = 60_000;
   const hourMs = 60 * minuteMs;
@@ -132,6 +137,7 @@ function ThreadRow(props: {
   isSelected: boolean;
   isLoaded: boolean;
   projectLabel?: string | null;
+  relativeTimeReferenceMs?: number;
   onSelect?: (threadId: string) => void;
 }) {
   const preview = readThreadPreview(props.thread);
@@ -176,7 +182,10 @@ function ThreadRow(props: {
             props.isSelected ? "text-slate-300" : "text-slate-500",
           )}
         >
-          {formatRelativeTime(props.thread.updatedAt)}
+          {formatRelativeTime(
+            props.thread.updatedAt,
+            props.relativeTimeReferenceMs,
+          )}
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-[11px]">
@@ -246,6 +255,7 @@ function PinnedSection(props: {
   threads: CodexAppServerThread[];
   loadedThreadIds: string[];
   selectedThreadId: string | null;
+  relativeTimeReferenceMs?: number;
   onThreadSelect?: (threadId: string) => void;
 }) {
   return (
@@ -271,6 +281,7 @@ function PinnedSection(props: {
             isSelected={thread.id === props.selectedThreadId}
             isLoaded={props.loadedThreadIds.includes(thread.id)}
             projectLabel={thread.project.label}
+            relativeTimeReferenceMs={props.relativeTimeReferenceMs}
             onSelect={props.onThreadSelect}
           />
         ))}
@@ -283,6 +294,7 @@ function GroupSection(props: {
   group: CodexThreadBrowserGroup;
   loadedThreadIds: string[];
   selectedThreadId: string | null;
+  relativeTimeReferenceMs?: number;
   onThreadSelect?: (threadId: string) => void;
 }) {
   return (
@@ -315,6 +327,7 @@ function GroupSection(props: {
             thread={thread}
             isSelected={thread.id === props.selectedThreadId}
             isLoaded={props.loadedThreadIds.includes(thread.id)}
+            relativeTimeReferenceMs={props.relativeTimeReferenceMs}
             onSelect={props.onThreadSelect}
           />
         ))}
@@ -333,6 +346,7 @@ function EmptyState(props: { title: string; body: string }) {
 }
 
 export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
+  const fillViewport = props.fillViewport ?? true;
   const selectedThreadIsArchived =
     props.selectedThread !== null && threadIsArchived(props.selectedThread);
   const selectedThreadIsLoaded =
@@ -343,7 +357,12 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
     props.groups.reduce((total, group) => total + group.count, 0);
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,_#f8fafc_0%,_#e2e8f0_100%)] text-slate-950">
+    <div
+      className={clsx(
+        "bg-[linear-gradient(180deg,_#f8fafc_0%,_#e2e8f0_100%)] text-slate-950",
+        fillViewport ? "min-h-screen" : null,
+      )}
+    >
       <div
         className="mx-auto grid max-w-[1680px] gap-4 px-4 py-4 md:px-6"
         data-testid="codex-thread-browser-view"
@@ -435,6 +454,7 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
                   threads={props.pinnedThreads}
                   loadedThreadIds={props.loadedThreadIds}
                   selectedThreadId={props.selectedThreadId}
+                  relativeTimeReferenceMs={props.relativeTimeReferenceMs}
                   onThreadSelect={props.onThreadSelect}
                 />
               ) : null}
@@ -444,6 +464,7 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
                   group={group}
                   loadedThreadIds={props.loadedThreadIds}
                   selectedThreadId={props.selectedThreadId}
+                  relativeTimeReferenceMs={props.relativeTimeReferenceMs}
                   onThreadSelect={props.onThreadSelect}
                 />
               ))}

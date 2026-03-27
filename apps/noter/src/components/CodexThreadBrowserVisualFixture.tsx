@@ -5,6 +5,7 @@ import {
 } from "@/lib/codexAppServerResearch";
 
 export type CodexThreadBrowserVisualMode = "codex-thread-browser";
+const FIXTURE_RELATIVE_TIME_REFERENCE_MS = 1_774_541_762_000;
 
 const FIXTURE_TURN: CodexAppServerThreadTurn = {
   id: "turn-fixture-1",
@@ -154,28 +155,35 @@ export function CodexThreadBrowserVisualFixture({
   mode satisfies CodexThreadBrowserVisualMode;
 
   return (
-    <div data-testid="codex-thread-browser-visual-fixture">
-      <CodexThreadBrowserView
-        browserMode="active"
-        pinnedThreads={[ACTIVE_THREADS[0]]}
-        groups={[
-          {
-            id: "/Users/nicu/dev/my/noter",
-            label: "noter",
-            detail: "/Users/nicu/dev/my/noter",
-            count: 2,
-            loadedCount: 0,
-            threads: [ACTIVE_THREADS[1], ACTIVE_THREADS[2]],
-          },
-        ]}
-        searchTerm=""
-        loadedThreadIds={["thread-browser-active"]}
-        selectedThreadId="thread-browser-active"
-        selectedThread={ACTIVE_THREADS[0]}
-        detailState={{ kind: "ready" }}
-        errorMessage={null}
-        isBusy={false}
-      />
+    <div className="bg-slate-100 p-8 text-slate-950">
+      <div
+        data-testid="codex-thread-browser-visual-fixture"
+        className="w-[1280px]"
+      >
+        <CodexThreadBrowserView
+          browserMode="active"
+          pinnedThreads={[ACTIVE_THREADS[0]]}
+          groups={[
+            {
+              id: "/Users/nicu/dev/my/noter",
+              label: "noter",
+              detail: "/Users/nicu/dev/my/noter",
+              count: 2,
+              loadedCount: 0,
+              threads: [ACTIVE_THREADS[1], ACTIVE_THREADS[2]],
+            },
+          ]}
+          searchTerm=""
+          loadedThreadIds={["thread-browser-active"]}
+          selectedThreadId="thread-browser-active"
+          selectedThread={ACTIVE_THREADS[0]}
+          detailState={{ kind: "ready" }}
+          errorMessage={null}
+          isBusy={false}
+          fillViewport={false}
+          relativeTimeReferenceMs={FIXTURE_RELATIVE_TIME_REFERENCE_MS}
+        />
+      </div>
     </div>
   );
 }
