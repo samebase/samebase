@@ -8,6 +8,7 @@ import {
   CODEX_APP_SERVER_RESEARCH_API_BASE,
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   codexThreadPathIsArchived,
+  type CodexAppServerEventsResponse,
   type CodexAppServerLoadedThreadsResponse,
   type CodexAppServerRuntimeSnapshot,
   type CodexAppServerThread,
@@ -16,12 +17,16 @@ import {
 } from "@/lib/codexAppServerResearch";
 import {
   buildPathWithQuery,
+  buildSearchString,
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
+import { useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const THREAD_LIST_LIMIT = 100;
+const SELECTED_THREAD_QUERY_PARAM = "threadId";
+const ACTIVE_THREAD_REFRESH_INTERVAL_MS = 1_500;
 
 type ThreadActionResponse = {
   result?: unknown;
@@ -164,13 +169,25 @@ function buildThreadsPath(args: {
   });
 }
 
+function readSelectedThreadId(searchParams: URLSearchParams): string | null {
+  const selectedThreadId = searchParams
+    .get(SELECTED_THREAD_QUERY_PARAM)
+    ?.trim();
+  return selectedThreadId && selectedThreadId.length > 0
+    ? selectedThreadId
+    : null;
+}
+
 export function CodexAppServerThreadBrowserResearchPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [browserMode, setBrowserMode] =
     useState<CodexThreadBrowserMode>("active");
   const [threads, setThreads] = useState<CodexAppServerThread[]>([]);
   const [pinnedThreadIds, setPinnedThreadIds] = useState<string[]>([]);
   const [loadedThreadIds, setLoadedThreadIds] = useState<string[]>([]);
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(() =>
+    readSelectedThreadId(searchParams),
+  );
   const [selectedThreadDetail, setSelectedThreadDetail] =
     useState<CodexAppServerThread | null>(null);
   const [detailState, setDetailState] = useState<CodexThreadBrowserDetailState>(
@@ -182,7 +199,10 @@ export function CodexAppServerThreadBrowserResearchPage() {
   const [turnDraft, setTurnDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [hasLoadedThreadInventory, setHasLoadedThreadInventory] =
+    useState(false);
   const selectedThreadRequestRef = useRef(0);
+  const nextEventCursorRef = useRef(0);
 
   const refreshThreads = useCallback(
     async (mode: CodexThreadBrowserMode = browserMode, term = searchTerm) => {
@@ -191,6 +211,7 @@ export function CodexAppServerThreadBrowserResearchPage() {
       });
       setThreads(response.threads);
       setPinnedThreadIds(response.pinnedThreadIds);
+      setHasLoadedThreadInventory(true);
       return response;
     },
     [browserMode, searchTerm],
@@ -201,6 +222,14 @@ export function CodexAppServerThreadBrowserResearchPage() {
       path: "/threads/loaded?limit=200",
     });
     setLoadedThreadIds(Array.from(new Set(response.threadIds)));
+    return response;
+  }, []);
+
+  const refreshEvents = useCallback(async () => {
+    const response = await requestJson<CodexAppServerEventsResponse>({
+      path: `/events?since=${nextEventCursorRef.current}`,
+    });
+    nextEventCursorRef.current = response.nextCursor;
     return response;
   }, []);
 
@@ -267,8 +296,36 @@ export function CodexAppServerThreadBrowserResearchPage() {
       buildThreadGroups({ threads: unpinnedVisibleThreads, loadedThreadIds }),
     [loadedThreadIds, unpinnedVisibleThreads],
   );
+  const currentSearch = buildSearchString(searchParams);
 
   useEffect(() => {
+    const nextSelectedThreadId = readSelectedThreadId(searchParams);
+    setSelectedThreadId((current) =>
+      current === nextSelectedThreadId ? current : nextSelectedThreadId,
+    );
+  }, [searchParams]);
+
+  useEffect(() => {
+    const nextSearchParams = updateQueryParams(searchParams, (nextParams) => {
+      setQueryParam(
+        nextParams,
+        SELECTED_THREAD_QUERY_PARAM,
+        selectedThreadId ?? null,
+      );
+    });
+    const nextSearch = buildSearchString(nextSearchParams);
+    if (nextSearch === currentSearch) {
+      return;
+    }
+
+    setSearchParams(nextSearchParams, { replace: true });
+  }, [currentSearch, searchParams, selectedThreadId, setSearchParams]);
+
+  useEffect(() => {
+    if (!hasLoadedThreadInventory) {
+      return;
+    }
+
     if (
       selectedThreadId &&
       uniqueThreads.some((thread) => thread.id === selectedThreadId)
@@ -282,7 +339,7 @@ export function CodexAppServerThreadBrowserResearchPage() {
     }
 
     setSelectedThreadId(uniqueThreads[0]?.id ?? null);
-  }, [selectedThreadId, uniqueThreads]);
+  }, [hasLoadedThreadInventory, selectedThreadId, uniqueThreads]);
 
   useEffect(() => {
     setTurnDraft("");
@@ -352,10 +409,23 @@ export function CodexAppServerThreadBrowserResearchPage() {
     [browserMode, refreshLoadedThreadIds, refreshThreads, searchTerm],
   );
 
+  const refreshSelectedThreadRef = useRef(refreshSelectedThread);
+  const refreshAllRef = useRef(refreshAll);
+  const refreshEventsRef = useRef(refreshEvents);
+  const selectedThreadSummaryRef = useRef(selectedThreadSummary);
+
+  refreshSelectedThreadRef.current = refreshSelectedThread;
+  refreshAllRef.current = refreshAll;
+  refreshEventsRef.current = refreshEvents;
+  selectedThreadSummaryRef.current = selectedThreadSummary;
+
   useEffect(() => {
     const hydrate = async () => {
       try {
-        await refreshAll(browserMode, searchTerm);
+        await Promise.all([
+          refreshAll(browserMode, searchTerm),
+          refreshEvents(),
+        ]);
         setError(null);
       } catch (nextError) {
         setError(
@@ -367,11 +437,59 @@ export function CodexAppServerThreadBrowserResearchPage() {
     };
 
     void hydrate();
-  }, [browserMode, refreshAll, searchTerm]);
+  }, [browserMode, refreshAll, refreshEvents, searchTerm]);
 
   useEffect(() => {
     void refreshSelectedThread(selectedThreadSummary);
   }, [refreshSelectedThread, selectedThreadSummary]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let inFlight = false;
+
+    const hydrate = async () => {
+      if (cancelled || inFlight) {
+        return;
+      }
+
+      inFlight = true;
+      try {
+        const eventsResponse = await refreshEventsRef.current();
+        if (eventsResponse.events.length === 0) {
+          return;
+        }
+
+        const threadsResponse = await refreshAllRef.current(
+          browserMode,
+          searchTerm,
+        );
+        const refreshedThread =
+          selectedThreadId === null
+            ? null
+            : threadsResponse.threads.find(
+                (thread) => thread.id === selectedThreadId,
+              ) ??
+              selectedThreadSummaryRef.current ??
+              null;
+        await refreshSelectedThreadRef.current(refreshedThread);
+      } catch {
+        // Keep the last rendered state and let the existing page error surface
+        // handle action failures instead of replacing the detail pane on poll.
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    void hydrate();
+    const intervalId = window.setInterval(() => {
+      void hydrate();
+    }, ACTIVE_THREAD_REFRESH_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [browserMode, searchTerm, selectedThreadId]);
 
   const runAction = useCallback(async (action: () => Promise<void>) => {
     setIsBusy(true);
