@@ -53,8 +53,6 @@ import {
 } from "react";
 import { isInIframe } from "@/authClient";
 import { UserMenu } from "@/components/UserMenu";
-import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
-import { useSidebar } from "@/hooks/use-sidebar";
 import {
   Dialog,
   DialogContent,
@@ -2569,21 +2567,7 @@ function VaultDashboardContent() {
 export function VaultDashboard() {
   return (
     <SidebarProvider className="h-full min-h-0">
-      <VaultDashboardWithSwipe />
+      <VaultDashboardContent />
     </SidebarProvider>
   );
-}
-
-function VaultDashboardWithSwipe() {
-  const { isMobile, openMobile, setOpenMobile } = useSidebar();
-
-  const handleSwipeOpen = useCallback(() => {
-    if (isMobile && !openMobile) {
-      setOpenMobile(true);
-    }
-  }, [isMobile, openMobile, setOpenMobile]);
-
-  useSwipeToOpenSidebar(handleSwipeOpen);
-
-  return <VaultDashboardContent />;
 }

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME } from "@/components/editorChatLayout";
@@ -7,6 +8,7 @@ import { ResizeGripLines } from "@/components/ResizeGripLines";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
 import { VaultBranchLinkRow } from "@/components/VaultDashboard";
+import { useSidebar } from "@/hooks/use-sidebar";
 import { cn } from "@/lib/utils";
 import { GitHubLogoIcon, PersonIcon } from "@radix-ui/react-icons";
 import { Plus, X } from "lucide-react";
@@ -15,6 +17,7 @@ export type VaultDashboardVisualMode =
   | "dashboard-layout-minimal"
   | "dashboard-provider-sidebar-wrap"
   | "dashboard-shared-sidebar"
+  | "dashboard-shared-sidebar-mobile-open"
   | "dashboard-shared-sidebar-mobile-chat"
   | "vault-branch-filters"
   | "vault-branch-pr-labels"
@@ -114,6 +117,15 @@ function FixtureProvidersSidebarContent() {
   );
 }
 
+function OpenMobileSidebarOnMount() {
+  const { setOpenMobile } = useSidebar();
+
+  useEffect(() => {
+    setOpenMobile(true);
+  }, [setOpenMobile]);
+
+  return null;
+}
 function fakeVaultId(): Parameters<typeof VaultBranchLinkRow>[0]["vaultId"] {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
@@ -546,6 +558,68 @@ export function VaultDashboardVisualFixture({
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          </DashboardWorkspaceLayout>
+        </SidebarProvider>
+      </div>
+    );
+  }
+
+  if (mode === "dashboard-shared-sidebar-mobile-open") {
+    const sidebarHeader = (
+      <SidebarAccountSection dataTestId="dashboard-layout-account-section">
+        <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
+          <span className="block min-w-0 truncate">nicu.chiciuc@noter.md</span>
+          <Button
+            variant="secondary"
+            size="icon"
+            className="h-8 w-8 rounded-ui md:h-6 md:w-6"
+          >
+            <PersonIcon className="h-4 w-4 md:h-3 md:w-3" />
+            <span className="sr-only">Open user menu</span>
+          </Button>
+        </div>
+      </SidebarAccountSection>
+    );
+
+    return (
+      <div className="min-h-screen bg-stone-100 p-0 text-stone-950">
+        <SidebarProvider
+          defaultOpen={false}
+          className="mx-auto h-[932px] min-h-0 w-full max-w-[430px] bg-background text-foreground"
+        >
+          <OpenMobileSidebarOnMount />
+          <DashboardWorkspaceLayout
+            dataTestId="vault-dashboard-visual-fixture"
+            sidebarHeader={sidebarHeader}
+            sidebarContent={<div className="flex-1" />}
+            headerContent={
+              <div className="flex items-center gap-3 p-4">
+                <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
+                <div className="flex min-w-0 items-center gap-2">
+                  <GitHubLogoIcon className="h-4 w-4 shrink-0" />
+                  <span className="truncate text-sm font-medium">
+                    Your Vaults
+                  </span>
+                </div>
+              </div>
+            }
+            bodyClassName="min-h-0 overflow-y-auto p-4"
+          >
+            <div className="space-y-3">
+              <div className="corner-notch-1 border border-border bg-background p-4">
+                <div className="text-sm font-medium">Providers</div>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  GitHub, Convex, and Cloudflare are connected.
+                </div>
+              </div>
+              <div className="corner-notch-1 border border-border bg-background p-4">
+                <div className="text-sm text-muted-foreground">noter-md/</div>
+                <div className="mt-1 text-lg font-semibold">noter</div>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  Updated 12s ago
                 </div>
               </div>
             </div>

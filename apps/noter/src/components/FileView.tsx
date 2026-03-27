@@ -34,7 +34,6 @@ import {
   useRef,
   useLayoutEffect,
 } from "react";
-import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { UserMenu } from "@/components/UserMenu";
 import { linkStyle } from "./styles";
@@ -3415,21 +3414,8 @@ export function FileView() {
   return (
     <DialogProvider>
       <SidebarProvider className="h-full min-h-0">
-        <FileViewWithSwipe />
+        <FileViewWrapper />
       </SidebarProvider>
     </DialogProvider>
   );
-}
-
-// Component with sidebar context and mobile edge swipe gesture
-function FileViewWithSwipe() {
-  const { isMobile, openMobile, setOpenMobile } = useSidebar();
-
-  useSwipeToOpenSidebar(() => {
-    if (isMobile && !openMobile) {
-      setOpenMobile(true);
-    }
-  });
-
-  return <FileViewWrapper />;
 }
