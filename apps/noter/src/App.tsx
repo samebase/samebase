@@ -2,6 +2,10 @@ import { Layout } from "@/Layout";
 import { clearAuthFlag, setAuthFlag, useAutoSignIn } from "@/authClient";
 import { McpConsentSignInView } from "@/McpConsentSignInView";
 import { SignInForm } from "@/SignInForm";
+import {
+  CODEX_APP_SERVER_RESEARCH_ROUTE,
+  CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
+} from "@/lib/codexAppServerResearch";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -79,6 +83,16 @@ const LogoTransitionTransformsLabPage = lazy(async () => {
 const PitchDeckPage = lazy(async () => {
   const module = await import("@/components/PitchDeckPage");
   return { default: module.PitchDeckPage };
+});
+const CodexAppServerResearchPage = lazy(async () => {
+  const module = await import("@/components/CodexAppServerResearchPage");
+  return { default: module.CodexAppServerResearchPage };
+});
+const CodexAppServerThreadBrowserResearchPage = lazy(async () => {
+  const module = await import(
+    "@/components/CodexAppServerThreadBrowserResearchPage"
+  );
+  return { default: module.CodexAppServerThreadBrowserResearchPage };
 });
 
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
@@ -357,6 +371,10 @@ export default function App() {
     location.pathname === "/logo-transition-lab-transforms";
   const pitchDeckMode = resolvePitchDeckMode(location.pathname);
   const showPitchDeckPage = pitchDeckMode !== null;
+  const showCodexAppServerResearchPage =
+    location.pathname === CODEX_APP_SERVER_RESEARCH_ROUTE;
+  const showCodexAppServerThreadBrowserResearchPage =
+    location.pathname === CODEX_APP_SERVER_THREAD_BROWSER_ROUTE;
   const showPublicLandingWithoutAuthGate =
     !isAuthenticated && shouldRenderPublicLandingWithoutAuthGate(location);
 
@@ -429,6 +447,20 @@ export default function App() {
     return (
       <Suspense fallback={null}>
         <PitchDeckPage mode={pitchDeckMode} />
+      </Suspense>
+    );
+  }
+  if (showCodexAppServerResearchPage) {
+    return (
+      <Suspense fallback={null}>
+        <CodexAppServerResearchPage />
+      </Suspense>
+    );
+  }
+  if (showCodexAppServerThreadBrowserResearchPage) {
+    return (
+      <Suspense fallback={null}>
+        <CodexAppServerThreadBrowserResearchPage />
       </Suspense>
     );
   }

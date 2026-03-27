@@ -100,6 +100,14 @@ export function resolveAppPageTitle(pathname: string): string {
     return PITCH_DECK_MOBILE_PRINT_PAGE_METADATA.title;
   }
 
+  if (pathname === "/research/codex-app-server") {
+    return "Codex App Server Research | noter";
+  }
+
+  if (pathname === "/research/codex-app-server/browser") {
+    return "Codex Thread Browser Research | noter";
+  }
+
   if (pathname.startsWith("/vault/")) {
     return "Workspace | noter";
   }
