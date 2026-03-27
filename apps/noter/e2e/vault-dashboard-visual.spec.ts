@@ -16,6 +16,27 @@ test("vault dashboard fixture (shared sidebar)", async ({ page }) => {
   });
 });
 
+test("vault dashboard fixture (provider sidebar wraps actions)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 720 });
+  await page.goto("/visual-fixture.html?mode=dashboard-provider-sidebar-wrap", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture).toHaveScreenshot(
+    "vault-dashboard-provider-sidebar-wrap.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
+});
+
 test("vault dashboard fixture (shared sidebar narrow)", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 760 });
   await page.goto("/visual-fixture.html?mode=dashboard-shared-sidebar", {

@@ -13,6 +13,7 @@ import { Plus, X } from "lucide-react";
 
 export type VaultDashboardVisualMode =
   | "dashboard-layout-minimal"
+  | "dashboard-provider-sidebar-wrap"
   | "dashboard-shared-sidebar"
   | "dashboard-shared-sidebar-mobile-chat"
   | "vault-branch-filters"
@@ -125,6 +126,33 @@ export function VaultDashboardVisualFixture({
           <div data-testid="dashboard-layout-minimal-body" className="h-full" />
         </DashboardWorkspaceLayout>
       </SidebarProvider>
+    );
+  }
+
+  if (mode === "dashboard-provider-sidebar-wrap") {
+    return (
+      <div
+        data-testid="vault-dashboard-visual-fixture"
+        data-mode={mode}
+        className="flex w-full justify-center bg-stone-100 p-4 text-foreground"
+      >
+        <div className="w-[272px] overflow-hidden border border-border bg-background">
+          <SidebarAccountSection dataTestId="dashboard-layout-account-section">
+            <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
+              <span className="block min-w-0 truncate">nicu@noter.md</span>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="h-8 w-8 rounded-ui"
+              >
+                <PersonIcon className="h-4 w-4" />
+                <span className="sr-only">Open user menu</span>
+              </Button>
+            </div>
+          </SidebarAccountSection>
+          <FixtureProvidersSidebarContent />
+        </div>
+      </div>
     );
   }
 
