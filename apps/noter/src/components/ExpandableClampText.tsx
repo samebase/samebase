@@ -1,11 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { clsx } from "clsx";
 import { ChevronDown } from "lucide-react";
-import { type MouseEvent } from "react";
+import { type KeyboardEvent, type MouseEvent } from "react";
 
 type ExpandableClampToggleButtonProps = {
   isExpanded: boolean;
   onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void;
 };
 
 export function ExpandableClampToggleButton(
@@ -22,6 +23,7 @@ export function ExpandableClampToggleButton(
       }
       className="h-6 w-6 shrink-0 p-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
       onClick={props.onClick}
+      onKeyDown={props.onKeyDown}
     >
       <ChevronDown
         className={clsx(

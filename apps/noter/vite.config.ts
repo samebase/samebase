@@ -17,6 +17,7 @@ import {
   readEnvFileValue,
   resolveDaytonaConvexProxyTarget,
 } from "./daytonaConvexProxy";
+import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearchBridge";
 
 const gitRoot = path.resolve(__dirname, "..", "..");
 const DAYTONA_CONVEX_PROXY_PATH = "/__noter_daytona_convex";
@@ -275,6 +276,9 @@ export default defineConfig({
     syncStaticLogoSvgAssetPlugin(),
     syncStaticInstallIconSvgAssetPlugin(),
     syncStaticLegalPageAssetsPlugin(),
+    codexAppServerResearchBridgePlugin({
+      workspaceRoot: gitRoot,
+    }),
     react(),
   ],
   resolve: {

@@ -2,6 +2,10 @@ import { Layout } from "@/Layout";
 import { clearAuthFlag, setAuthFlag, useAutoSignIn } from "@/authClient";
 import { McpConsentSignInView } from "@/McpConsentSignInView";
 import { SignInForm } from "@/SignInForm";
+import {
+  CODEX_APP_SERVER_RESEARCH_ROUTE,
+  CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
+} from "@/lib/codexAppServerResearch";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -79,6 +83,16 @@ const LogoTransitionTransformsLabPage = lazy(async () => {
 const PitchDeckPage = lazy(async () => {
   const module = await import("@/components/PitchDeckPage");
   return { default: module.PitchDeckPage };
+});
+const CodexAppServerResearchPage = lazy(async () => {
+  const module = await import("@/components/CodexAppServerResearchPage");
+  return { default: module.CodexAppServerResearchPage };
+});
+const CodexAppServerThreadBrowserResearchPage = lazy(async () => {
+  const module = await import(
+    "@/components/CodexAppServerThreadBrowserResearchPage"
+  );
+  return { default: module.CodexAppServerThreadBrowserResearchPage };
 });
 
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
@@ -328,6 +342,24 @@ function McpConsentView({ requestId }: { requestId: string }) {
   );
 }
 
+function ResearchRouteUnavailablePage(props: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <Layout>
+      <div className="container my-auto">
+        <div className="mx-auto flex max-w-[420px] flex-col items-center gap-3 py-16 text-center">
+          <h2 className="text-xl font-semibold tracking-tight">
+            {props.title}
+          </h2>
+          <p className="text-sm text-muted-foreground">{props.description}</p>
+        </div>
+      </div>
+    </Layout>
+  );
+}
+
 export default function App() {
   useAutoSignIn();
   const location = useLocation();
@@ -357,6 +389,11 @@ export default function App() {
     location.pathname === "/logo-transition-lab-transforms";
   const pitchDeckMode = resolvePitchDeckMode(location.pathname);
   const showPitchDeckPage = pitchDeckMode !== null;
+  const showCodexAppServerResearchPage =
+    location.pathname === CODEX_APP_SERVER_RESEARCH_ROUTE;
+  const showCodexAppServerThreadBrowserResearchPage =
+    location.pathname === CODEX_APP_SERVER_THREAD_BROWSER_ROUTE;
+  const isCodexAppServerResearchRuntimeAvailable = import.meta.env.DEV;
   const showPublicLandingWithoutAuthGate =
     !isAuthenticated && shouldRenderPublicLandingWithoutAuthGate(location);
 
@@ -429,6 +466,36 @@ export default function App() {
     return (
       <Suspense fallback={null}>
         <PitchDeckPage mode={pitchDeckMode} />
+      </Suspense>
+    );
+  }
+  if (showCodexAppServerResearchPage) {
+    if (!isCodexAppServerResearchRuntimeAvailable) {
+      return (
+        <ResearchRouteUnavailablePage
+          title="Codex research unavailable"
+          description="This research surface only runs in the local development server."
+        />
+      );
+    }
+    return (
+      <Suspense fallback={null}>
+        <CodexAppServerResearchPage />
+      </Suspense>
+    );
+  }
+  if (showCodexAppServerThreadBrowserResearchPage) {
+    if (!isCodexAppServerResearchRuntimeAvailable) {
+      return (
+        <ResearchRouteUnavailablePage
+          title="Codex thread browser unavailable"
+          description="This research surface only runs in the local development server."
+        />
+      );
+    }
+    return (
+      <Suspense fallback={null}>
+        <CodexAppServerThreadBrowserResearchPage />
       </Suspense>
     );
   }
