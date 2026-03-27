@@ -1,8 +1,8 @@
 # Privacy Policy
 
-Last updated: March 23, 2026
+Last updated: March 27, 2026
 
-Reviewed and updated by Codex (GPT-5.4 "Extra High") on March 23, 2026, based on
+Reviewed and updated by Codex (GPT-5.4 "Extra High") on March 27, 2026, based on
 the current Noter source code.
 
 This Privacy Policy describes how Noter handles information in the current app
@@ -16,9 +16,10 @@ claiming features or controls that are not in the product yet.
   needed to identify you and operate login, including your name, email address,
   profile image, email verification time, approval state, and the auth/session
   records required by the current auth system.
-- Waitlist data. If you join the waitlist, Noter stores your email address and
-  the time you joined. If waitlist notifications are configured, that email
-  address is also sent through Resend to notify the team.
+- Public landing submissions. If you use the public landing form, Noter stores
+  the message you send, the time you sent it, and any email address you choose
+  to include. If landing-submission notifications are configured, that message
+  and optional email address are also sent through Resend to notify the team.
 - Connected provider credentials and related identifiers. If you connect GitHub,
   Convex, Cloudflare, or Codex, Noter stores the credentials and metadata needed
   to operate that integration, such as OAuth access tokens, refresh tokens, API
@@ -51,8 +52,8 @@ claiming features or controls that are not in the product yet.
 - IndexedDB. The app caches some Convex query results in browser IndexedDB under
   the `convexQueryCache` database so screens can render faster. Those cached
   results can include workspace data.
-- Temporary in-memory landing state. The public landing page keeps the waitlist
-  email draft in memory during the shell-to-app handoff.
+- Temporary in-memory landing state. The public landing page keeps the landing
+  message and optional email draft in memory during the shell-to-app handoff.
 
 Depending on the sign-in flow you use, third-party identity providers such as
 Google may also set their own cookies or session state as part of
@@ -61,7 +62,7 @@ authentication.
 ## How Noter Uses Information
 
 - To authenticate users, maintain sessions, and enforce access controls such as
-  waitlist approval.
+  early-access approval.
 - To connect to external providers and perform the actions you ask Noter to
   perform, including reading repositories, staging edits, proposing commits,
   creating repositories, and provisioning infrastructure.
@@ -97,7 +98,7 @@ and the integrations described on this page to run the product.
   Noter to provision or operate related infrastructure.
 - With Polar when you start checkout or open the billing portal, and when
   subscription state is synchronized by webhook.
-- With Resend if waitlist email notifications are configured.
+- With Resend if public landing submission notifications are configured.
 - With MCP clients that you explicitly authorize through Noter's MCP OAuth flow.
 
 If you ask Noter to create hosted previews or production infrastructure,
@@ -108,8 +109,9 @@ as part of that workflow.
 
 - The current codebase does not implement one global auto-deletion schedule for
   all personal data.
-- Account, workspace, billing, waitlist, and audit records generally remain
-  until they are removed through product actions or operational cleanup.
+- Account, workspace, billing, public landing submission, and audit records
+  generally remain until they are removed through product actions or operational
+  cleanup.
 - Some short-lived records, including OAuth state and certain token records, are
   created with expiration timestamps and are intended to expire automatically.
 - You can disconnect connected providers, which removes the corresponding

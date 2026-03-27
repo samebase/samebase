@@ -22,24 +22,30 @@ import {
 import { shouldRenderFastLandingShell } from "@/lib/publicLandingAuthState";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "@/lib/fastLandingBoot";
 import { landingPageMarkdown } from "@/lib/landingCopy";
+import {
+  PUBLIC_LANDING_INTAKE_BUTTON_LABEL,
+  PUBLIC_LANDING_INTAKE_EMAIL_INPUT_ID,
+  PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER,
+  PUBLIC_LANDING_INTAKE_HELP_TEXT,
+  PUBLIC_LANDING_INTAKE_MESSAGE_INPUT_ID,
+  PUBLIC_LANDING_INTAKE_MESSAGE_PLACEHOLDER,
+  PUBLIC_LANDING_INTAKE_PLACEHOLDER_TEST_ID,
+  PUBLIC_LANDING_INTAKE_PROMPT,
+  PUBLIC_LANDING_INTAKE_SUBMIT_BUTTON_ID,
+} from "@/lib/publicLandingIntake";
+import { writePublicLandingIntakeDraft } from "@/lib/publicLandingIntakeDraft";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "@/lib/publicLanding";
 import { renderLandingCopyShellHtml } from "@/lib/landingCopyShell";
-import { writePublicLandingWaitlistDraft } from "@/lib/publicLandingWaitlistDraft";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 
 const GOOGLE_AUTH_BUTTON_ID = "public-landing-google-button";
 const PUBLIC_LANDING_DEV_TOGGLE_ID = "public-landing-dev-toggle";
 const PUBLIC_LANDING_CONTENT_TEST_ID = "public-landing-content";
 const THEME_STORAGE_KEY = "theme";
-const PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID = "public-landing-waitlist-email";
-const PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID =
-  "public-landing-waitlist-placeholder";
-const PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID =
-  "public-landing-waitlist-submit";
 const UNKNOWN_SHORT_COMMIT_PLACEHOLDER = "xxxxxxx";
 
 let appLoadPromise: Promise<void> | null = null;
-let restoreHydratedWaitlistFocus = false;
+let restoreHydratedLandingIntakeFocusTarget: "message" | "email" | null = null;
 
 function escapeHtml(value: string): string {
   return value
@@ -143,7 +149,7 @@ function ensureAppLoaded(): Promise<void> {
     appLoadPromise = import("./main")
       .then((module) => {
         module.mountApp();
-        flushHydratedWaitlistFocusRestore();
+        flushHydratedLandingIntakeFocusRestore();
       })
       .catch((error: unknown) => {
         appLoadPromise = null;
@@ -152,7 +158,7 @@ function ensureAppLoaded(): Promise<void> {
   }
 
   return appLoadPromise.then(() => {
-    flushHydratedWaitlistFocusRestore();
+    flushHydratedLandingIntakeFocusRestore();
   });
 }
 
@@ -218,55 +224,76 @@ function beginLandingDevToggleFromShell(event: MouseEvent) {
   void ensureAppLoaded();
 }
 
-function focusHydratedWaitlistInput(attempt = 0) {
+function focusHydratedLandingIntakeField(
+  target: "message" | "email",
+  attempt = 0,
+) {
   if (document.querySelector('[data-testid="public-landing-shell"]') !== null) {
     if (attempt < 10) {
       window.setTimeout(() => {
-        focusHydratedWaitlistInput(attempt + 1);
+        focusHydratedLandingIntakeField(target, attempt + 1);
       }, 16);
     }
     return;
   }
 
-  const waitlistInput = document.querySelector<HTMLInputElement>(
-    `[data-testid="${PUBLIC_LANDING_CONTENT_TEST_ID}"] input[placeholder="email@example.com"]`,
+  const landingIntakeSelector =
+    target === "message"
+      ? `#${PUBLIC_LANDING_INTAKE_MESSAGE_INPUT_ID}`
+      : `#${PUBLIC_LANDING_INTAKE_EMAIL_INPUT_ID}`;
+  const landingIntakeField = document.querySelector<
+    HTMLTextAreaElement | HTMLInputElement
+  >(
+    `[data-testid="${PUBLIC_LANDING_CONTENT_TEST_ID}"] ${landingIntakeSelector}`,
   );
-  if (!waitlistInput) {
+  if (!landingIntakeField) {
     if (attempt < 10) {
       window.setTimeout(() => {
-        focusHydratedWaitlistInput(attempt + 1);
+        focusHydratedLandingIntakeField(target, attempt + 1);
       }, 16);
     }
     return;
   }
 
-  waitlistInput.focus();
-  if (document.activeElement !== waitlistInput && attempt < 10) {
+  landingIntakeField.focus();
+  if (document.activeElement !== landingIntakeField && attempt < 10) {
     window.setTimeout(() => {
-      focusHydratedWaitlistInput(attempt + 1);
+      focusHydratedLandingIntakeField(target, attempt + 1);
     }, 16);
   }
 }
 
-function flushHydratedWaitlistFocusRestore() {
-  if (!restoreHydratedWaitlistFocus) {
+function flushHydratedLandingIntakeFocusRestore() {
+  const focusTarget = restoreHydratedLandingIntakeFocusTarget;
+  if (!focusTarget) {
     return;
   }
 
-  restoreHydratedWaitlistFocus = false;
+  restoreHydratedLandingIntakeFocusTarget = null;
   globalThis.requestAnimationFrame(() => {
-    focusHydratedWaitlistInput();
+    focusHydratedLandingIntakeField(focusTarget);
   });
 }
 
-function beginWaitlistInteraction() {
-  const shellInput = document.getElementById(
-    PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID,
+function syncShellLandingIntakeDraft() {
+  const shellMessageField = document.getElementById(
+    PUBLIC_LANDING_INTAKE_MESSAGE_INPUT_ID,
   );
-  if (shellInput instanceof HTMLInputElement) {
-    writePublicLandingWaitlistDraft(shellInput.value);
-  }
+  const shellEmailField = document.getElementById(
+    PUBLIC_LANDING_INTAKE_EMAIL_INPUT_ID,
+  );
+  writePublicLandingIntakeDraft({
+    message:
+      shellMessageField instanceof HTMLTextAreaElement
+        ? shellMessageField.value
+        : "",
+    email:
+      shellEmailField instanceof HTMLInputElement ? shellEmailField.value : "",
+  });
+}
 
+function beginLandingIntakeInteraction() {
+  syncShellLandingIntakeDraft();
   void ensureAppLoaded();
 }
 
@@ -335,24 +362,33 @@ function renderFastLandingShell() {
               </button>
             </div>
             <div
-              data-testid="${PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID}"
+              data-testid="${PUBLIC_LANDING_INTAKE_PLACEHOLDER_TEST_ID}"
               class="flex flex-col gap-2 border-t pt-2"
             >
-              <div class="flex gap-2">
-                <input
-                  id="${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}"
-                  type="email"
-                  placeholder="email@example.com"
-                  class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-                />
-                <button
-                  id="${PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID}"
-                  type="button"
-                  class="inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-                >
-                  Join Waitlist
-                </button>
-              </div>
+              <p class="text-sm">${escapeHtml(PUBLIC_LANDING_INTAKE_PROMPT)}</p>
+              <p class="text-xs text-muted-foreground">
+                ${escapeHtml(PUBLIC_LANDING_INTAKE_HELP_TEXT)}
+              </p>
+              <textarea
+                id="${PUBLIC_LANDING_INTAKE_MESSAGE_INPUT_ID}"
+                aria-label="${escapeHtml(PUBLIC_LANDING_INTAKE_PROMPT)}"
+                placeholder="${escapeHtml(PUBLIC_LANDING_INTAKE_MESSAGE_PLACEHOLDER)}"
+                class="flex min-h-[96px] w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              ></textarea>
+              <input
+                id="${PUBLIC_LANDING_INTAKE_EMAIL_INPUT_ID}"
+                type="email"
+                aria-label="${escapeHtml(PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER)}"
+                placeholder="${escapeHtml(PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER)}"
+                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+              />
+              <button
+                id="${PUBLIC_LANDING_INTAKE_SUBMIT_BUTTON_ID}"
+                type="button"
+                class="inline-flex h-9 self-start items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+              >
+                ${escapeHtml(PUBLIC_LANDING_INTAKE_BUTTON_LABEL)}
+              </button>
             </div>
             <div class="border-t pt-2 text-center text-xs text-muted-foreground">
               <a href="/terms" class="transition-colors hover:text-foreground">
@@ -375,32 +411,42 @@ function renderFastLandingShell() {
   root
     .querySelector<HTMLButtonElement>(`#${GOOGLE_AUTH_BUTTON_ID}`)
     ?.addEventListener("click", beginGoogleSignInFromShell);
-  const shellWaitlistInput = root.querySelector<HTMLInputElement>(
-    `#${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}`,
+  const shellLandingMessageField = root.querySelector<HTMLTextAreaElement>(
+    `#${PUBLIC_LANDING_INTAKE_MESSAGE_INPUT_ID}`,
+  );
+  const shellLandingEmailField = root.querySelector<HTMLInputElement>(
+    `#${PUBLIC_LANDING_INTAKE_EMAIL_INPUT_ID}`,
   );
 
-  shellWaitlistInput?.addEventListener("focus", () => {
-    restoreHydratedWaitlistFocus = true;
+  shellLandingMessageField?.addEventListener("focus", () => {
+    restoreHydratedLandingIntakeFocusTarget = "message";
   });
-  shellWaitlistInput?.addEventListener("blur", (event) => {
+  shellLandingMessageField?.addEventListener("blur", (event) => {
     if (event.relatedTarget instanceof HTMLElement) {
-      restoreHydratedWaitlistFocus = false;
+      restoreHydratedLandingIntakeFocusTarget = null;
     }
   });
-  shellWaitlistInput?.addEventListener("input", (event) => {
-    const shellInput = event.currentTarget;
-    if (!(shellInput instanceof HTMLInputElement)) {
-      return;
+  shellLandingMessageField?.addEventListener("input", () => {
+    syncShellLandingIntakeDraft();
+    void ensureAppLoaded();
+  });
+  shellLandingEmailField?.addEventListener("focus", () => {
+    restoreHydratedLandingIntakeFocusTarget = "email";
+  });
+  shellLandingEmailField?.addEventListener("blur", (event) => {
+    if (event.relatedTarget instanceof HTMLElement) {
+      restoreHydratedLandingIntakeFocusTarget = null;
     }
-
-    writePublicLandingWaitlistDraft(shellInput.value);
+  });
+  shellLandingEmailField?.addEventListener("input", () => {
+    syncShellLandingIntakeDraft();
     void ensureAppLoaded();
   });
   root
     .querySelector<HTMLButtonElement>(
-      `#${PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID}`,
+      `#${PUBLIC_LANDING_INTAKE_SUBMIT_BUTTON_ID}`,
     )
-    ?.addEventListener("click", beginWaitlistInteraction);
+    ?.addEventListener("click", beginLandingIntakeInteraction);
 }
 
 function applyBootstrapPageMetadata(

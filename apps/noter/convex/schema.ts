@@ -675,10 +675,11 @@ export default defineSchema({
     .index("by_threadId", ["threadId"]),
 
   /**
-   * Waitlist for invite-only access.
+   * Legacy waitlist records plus the current public landing submissions.
    */
   waitlist: defineTable({
-    email: v.string(),
+    email: v.optional(v.string()),
+    message: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_email", ["email"]),
 

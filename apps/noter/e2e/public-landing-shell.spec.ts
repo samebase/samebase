@@ -20,6 +20,11 @@ const {
   defaultBrowserType: _mobileLandingDefaultBrowserType,
   ...mobileLandingDevice
 } = devices["iPhone 13"];
+const PUBLIC_LANDING_INTAKE_TEST_ID = "public-landing-intake-placeholder";
+const PUBLIC_LANDING_INTAKE_PROMPT =
+  "What are you trying to make with noter.md?";
+const PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER = "Email for a reply (optional)";
+const PUBLIC_LANDING_INTAKE_BUTTON_LABEL = "Share idea";
 
 async function readNavigationTiming(page: Parameters<typeof test>[0]["page"]) {
   return page.evaluate(() => {
@@ -181,14 +186,16 @@ test("public landing shell renders before the full app UI takes over", async ({
 
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
   await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
-  await expect(
-    page.getByTestId("public-landing-waitlist-placeholder"),
-  ).toBeVisible();
+  await expect(page.getByTestId(PUBLIC_LANDING_INTAKE_TEST_ID)).toBeVisible();
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
-  await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
-  await expect(page.getByPlaceholder("email@example.com")).toBeEditable();
+  await expect(page.getByText(PUBLIC_LANDING_INTAKE_PROMPT)).toBeVisible();
+  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toBeVisible();
+  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toBeEditable();
   await expect(
-    page.getByRole("button", { name: "Join Waitlist" }),
+    page.getByPlaceholder(PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: PUBLIC_LANDING_INTAKE_BUTTON_LABEL }),
   ).toBeEnabled();
 });
 
@@ -260,7 +267,7 @@ test("pre-hydration landing dev toggle ignores duplicate taps", async ({
   await expect(page).toHaveURL(/\/$/);
 });
 
-test("shell waitlist input preserves typed email through handoff", async ({
+test("shell landing note preserves typed message through handoff", async ({
   page,
 }) => {
   await page.addInitScript((bootDelayMs) => {
@@ -275,41 +282,88 @@ test("shell waitlist input preserves typed email through handoff", async ({
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
-  const waitlistInput = page.getByPlaceholder("email@example.com");
+  const messageField = page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT);
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
-  await waitlistInput.fill("shell@example.com");
+  await messageField.fill("A publishing-aware repo notes surface.");
   await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
-  await expect(page.getByPlaceholder("email@example.com")).toBeEditable();
-  await expect(page.getByPlaceholder("email@example.com")).toHaveValue(
-    "shell@example.com",
+  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toBeEditable();
+  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toHaveValue(
+    "A publishing-aware repo notes surface.",
   );
 });
 
-test("shell waitlist focus survives the scheduled handoff", async ({
+test("shell landing note preserves typed optional email through handoff", async ({
   page,
 }) => {
+  await page.addInitScript((bootDelayMs) => {
+    const originalSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = (handler, timeout, ...args) => {
+      if (timeout === bootDelayMs) {
+        return originalSetTimeout(handler, 600, ...args);
+      }
+      return originalSetTimeout(handler, timeout, ...args);
+    };
+  }, FAST_LANDING_APP_BOOT_DELAY_MS);
+
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
-  const waitlistInput = page.getByPlaceholder("email@example.com");
+  const emailField = page.getByPlaceholder(
+    PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER,
+  );
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
-  await waitlistInput.click();
+  await emailField.fill("shell@example.com");
   await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
-  await expect(page.getByPlaceholder("email@example.com")).toBeFocused();
+  await expect(
+    page.getByPlaceholder(PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER),
+  ).toBeEditable();
+  await expect(
+    page.getByPlaceholder(PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER),
+  ).toHaveValue("shell@example.com");
 });
 
-test("shell waitlist blur clears pending focus restore intent", async ({
+test("shell landing note message focus survives the scheduled handoff", async ({
   page,
 }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
-  const waitlistInput = page.getByPlaceholder("email@example.com");
-  const waitlistButton = page.getByRole("button", { name: "Join Waitlist" });
+  const messageField = page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT);
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await messageField.click();
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toBeFocused();
+});
+
+test("shell landing note email focus survives the scheduled handoff", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const emailField = page.getByPlaceholder(
+    PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER,
+  );
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await emailField.click();
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+  await expect(
+    page.getByPlaceholder(PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER),
+  ).toBeFocused();
+});
+
+test("shell landing note blur clears pending focus restore intent", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const messageField = page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT);
+  const submitButton = page.getByRole("button", {
+    name: PUBLIC_LANDING_INTAKE_BUTTON_LABEL,
+  });
 
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
-  await waitlistInput.click();
-  await waitlistButton.click();
+  await messageField.click();
+  await submitButton.click();
   await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
-  await expect(page.getByPlaceholder("email@example.com")).not.toBeFocused();
+  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).not.toBeFocused();
 });
 
 test("public landing handoff keeps the card height stable", async ({
@@ -325,10 +379,11 @@ test("public landing handoff keeps the card height stable", async ({
     Math.round(element.getBoundingClientRect().height),
   );
 
+  await expect(page.getByTestId(PUBLIC_LANDING_INTAKE_TEST_ID)).toBeVisible();
+  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toBeVisible();
   await expect(
-    page.getByTestId("public-landing-waitlist-placeholder"),
+    page.getByPlaceholder(PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER),
   ).toBeVisible();
-  await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
 
   const fullAppHeight = await landingContent.evaluate((element) =>
     Math.round(element.getBoundingClientRect().height),
@@ -543,7 +598,10 @@ test("prod-ui mode hides developer password auth controls", async ({
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
 
-  await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
+  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toBeVisible();
+  await expect(
+    page.getByPlaceholder(PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER),
+  ).toBeVisible();
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Autofill & sign in" }),
@@ -554,7 +612,10 @@ test("prod-ui mode hides developer password auth controls", async ({
 test("prod-ui mode overrides the landing dev editor", async ({ page }) => {
   await page.goto("/?prod-ui&dev", { waitUntil: "domcontentloaded" });
 
-  await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
+  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toBeVisible();
+  await expect(
+    page.getByPlaceholder(PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER),
+  ).toBeVisible();
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
   await expect(
     page.locator(

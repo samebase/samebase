@@ -147,10 +147,10 @@ function ApprovalGate({ children }: { children: React.ReactNode }) {
       <div className="container my-auto">
         <div className="max-w-[384px] mx-auto flex flex-col items-center gap-4 py-16 text-center">
           <h2 className="font-semibold text-xl tracking-tight">
-            You're on the waitlist
+            Early access is still limited
           </h2>
           <p className="text-muted-foreground text-sm">
-            We'll let you know when your spot opens up.
+            You're signed in, but access isn't enabled yet.
           </p>
           <Button
             variant="outline"

@@ -3,16 +3,27 @@ import { LandingCopy } from "@/components/LandingCopy";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/input";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { landingPageMarkdown } from "@/lib/landingCopy";
+import {
+  buildPublicLandingIntakeSuccessMessage,
+  PUBLIC_LANDING_INTAKE_BUTTON_LABEL,
+  PUBLIC_LANDING_INTAKE_EMAIL_INPUT_ID,
+  PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER,
+  PUBLIC_LANDING_INTAKE_HELP_TEXT,
+  PUBLIC_LANDING_INTAKE_MESSAGE_INPUT_ID,
+  PUBLIC_LANDING_INTAKE_MESSAGE_PLACEHOLDER,
+  PUBLIC_LANDING_INTAKE_PROMPT,
+} from "@/lib/publicLandingIntake";
+import {
+  clearPublicLandingIntakeDraft,
+  readPublicLandingIntakeDraft,
+  writePublicLandingIntakeDraft,
+} from "@/lib/publicLandingIntakeDraft";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "@/lib/publicLanding";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
-import {
-  clearPublicLandingWaitlistDraft,
-  readPublicLandingWaitlistDraft,
-  writePublicLandingWaitlistDraft,
-} from "@/lib/publicLandingWaitlistDraft";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
 import { type ReactNode, useEffect, useState } from "react";
@@ -66,7 +77,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
           <SignInWithGoogle />
           {showPasswordAuth ? <PasswordAuthForm /> : null}
         </div>
-        <WaitlistForm />
+        <PublicLandingIntakeForm />
         <div className="border-t pt-2 text-center text-xs text-muted-foreground">
           <Link to="/terms" className="transition-colors hover:text-foreground">
             /terms
@@ -84,53 +95,111 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
   );
 }
 
-function WaitlistForm() {
-  const joinWaitlist = useMutation(api.waitlist.joinWaitlist);
-  const [email, setEmail] = useState(readPublicLandingWaitlistDraft);
-  const [submitted, setSubmitted] = useState(false);
+function PublicLandingIntakeForm() {
+  const submitLandingIntake = useMutation(api.waitlist.joinWaitlist);
+  const [landingDraft, setLandingDraft] = useState(
+    readPublicLandingIntakeDraft,
+  );
+  const [submittedWithEmail, setSubmittedWithEmail] = useState<boolean | null>(
+    null,
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
-    writePublicLandingWaitlistDraft(email);
-  }, [email]);
+    writePublicLandingIntakeDraft(landingDraft);
+  }, [landingDraft]);
 
   useEffect(() => {
     return () => {
-      clearPublicLandingWaitlistDraft();
+      clearPublicLandingIntakeDraft();
     };
   }, []);
 
-  if (submitted) {
+  if (submittedWithEmail !== null) {
     return (
       <p className="text-sm text-muted-foreground text-center">
-        You're on the waitlist. We'll reach out when a spot opens up.
+        {buildPublicLandingIntakeSuccessMessage(submittedWithEmail)}
       </p>
     );
   }
 
   return (
     <div className="flex flex-col gap-2 pt-2 border-t">
+      <p className="text-sm">{PUBLIC_LANDING_INTAKE_PROMPT}</p>
+      <p className="text-xs text-muted-foreground">
+        {PUBLIC_LANDING_INTAKE_HELP_TEXT}
+      </p>
       <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!email.trim()) return;
-          void joinWaitlist({ email: email.trim() }).then(() => {
-            clearPublicLandingWaitlistDraft();
-            setSubmitted(true);
-          });
+        className="flex flex-col gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+
+          const nextMessage = landingDraft.message.trim();
+          const nextEmail = landingDraft.email.trim();
+          if (!nextMessage) {
+            return;
+          }
+
+          setSubmitting(true);
+          setSubmitError(null);
+          void submitLandingIntake({
+            message: nextMessage,
+            email: nextEmail || undefined,
+          })
+            .then(() => {
+              clearPublicLandingIntakeDraft();
+              setSubmittedWithEmail(nextEmail.length > 0);
+            })
+            .catch((submitLandingIntakeError: unknown) => {
+              setSubmitError(
+                submitLandingIntakeError instanceof Error
+                  ? submitLandingIntakeError.message
+                  : "Couldn't send your note right now.",
+              );
+            })
+            .finally(() => {
+              setSubmitting(false);
+            });
         }}
       >
-        <Input
-          type="email"
-          placeholder="email@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+        <Textarea
+          id={PUBLIC_LANDING_INTAKE_MESSAGE_INPUT_ID}
+          aria-label={PUBLIC_LANDING_INTAKE_PROMPT}
+          placeholder={PUBLIC_LANDING_INTAKE_MESSAGE_PLACEHOLDER}
+          value={landingDraft.message}
+          onChange={(event) =>
+            setLandingDraft((current) => ({
+              ...current,
+              message: event.target.value,
+            }))
+          }
           required
+          disabled={submitting}
+          className="min-h-[96px] resize-none"
         />
-        <Button type="submit" variant="outline" className="shrink-0">
-          Join Waitlist
+        <Input
+          id={PUBLIC_LANDING_INTAKE_EMAIL_INPUT_ID}
+          type="email"
+          autoComplete="email"
+          aria-label={PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER}
+          placeholder={PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER}
+          value={landingDraft.email}
+          onChange={(event) =>
+            setLandingDraft((current) => ({
+              ...current,
+              email: event.target.value,
+            }))
+          }
+          disabled={submitting}
+        />
+        <Button type="submit" variant="outline" className="self-start">
+          {submitting ? "Sharing..." : PUBLIC_LANDING_INTAKE_BUTTON_LABEL}
         </Button>
       </form>
+      {submitError ? (
+        <p className="text-xs text-red-600">{submitError}</p>
+      ) : null}
     </div>
   );
 }

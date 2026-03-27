@@ -4,6 +4,8 @@ import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { Resend } from "resend";
 
+const { null: nullValidator, optional, string } = v;
+
 function inferConvexDeploymentLabel(): "prod" | "dev" {
   const convexDeployment = process.env.CONVEX_DEPLOYMENT?.trim() ?? "";
   const deploymentPrefix =
@@ -18,21 +20,35 @@ function inferConvexDeploymentLabel(): "prod" | "dev" {
 }
 
 export const notifyAdmin = internalAction({
-  args: { email: v.string() },
-  returns: v.null(),
+  args: {
+    email: optional(string()),
+    message: string(),
+  },
+  returns: nullValidator(),
   handler: async (_ctx, args) => {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-      console.warn("RESEND_API_KEY not set, skipping waitlist notification");
+      console.warn(
+        "RESEND_API_KEY not set, skipping public landing intake notification",
+      );
       return null;
     }
     const env = inferConvexDeploymentLabel();
     const resend = new Resend(apiKey);
     await resend.emails.send({
-      from: "Noter Waitlist <onboarding@resend.dev>",
+      from: "Noter Landing <onboarding@resend.dev>",
       to: "nicuchiciuc@gmail.com",
-      subject: `[${env}] New waitlist signup: ${args.email}`,
-      text: `[${env}] Someone just joined the noter waitlist: ${args.email}`,
+      subject: args.email
+        ? `[${env}] New noter landing note from ${args.email}`
+        : `[${env}] New anonymous noter landing note`,
+      text: [
+        `[${env}] New noter landing submission`,
+        "",
+        `Email: ${args.email ?? "(not provided)"}`,
+        "",
+        "Message:",
+        args.message,
+      ].join("\n"),
     });
     return null;
   },
