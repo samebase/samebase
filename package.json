@@ -29,6 +29,7 @@
     "dev:starter": "turbo run dev --filter=noter-starter-template",
     "build:starter": "turbo run build --filter=noter-starter-template",
     "lint:starter": "turbo run lint --filter=noter-starter-template",
+    "connected-machine:connector": "node scripts/connected-machine-connector.js",
     "prepare": "husky",
     "daytona:refresh": "bash scripts/daytona-refresh.sh",
     "daytona:runtime:manifest": "node scripts/daytona-runtime-manifest.js",

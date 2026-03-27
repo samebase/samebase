@@ -517,6 +517,8 @@ Auth:
 - For this operator, do not let local changes sit too long; commit progress in
   reasonably small chunks from time to time instead of batching everything into
   one late commit.
+- For this operator, push committed changes promptly so work is not stranded
+  only in the local worktree.
 - For this operator, default to additive minimalism in copy and visuals: start
   from an empty canvas, add only what is clearly needed for the current goal,
   and avoid filler copy or decorative chrome unless explicitly requested.

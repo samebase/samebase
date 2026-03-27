@@ -10,6 +10,10 @@ import {
   mcpTokenHealthStatusValidator,
   mcpTokenHealthValidator,
 } from "./mcpTokenHealth";
+import {
+  connectedMachineRowValidator,
+  machineThreadRowValidator,
+} from "./connectedMachineModel";
 
 // Helper function to omit keys from an object
 function omit<T extends Record<string, any>, K extends keyof T>(
@@ -321,6 +325,20 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_kind", ["userId", "kind"])
     .index("by_kind_method", ["kind", "auth.method"]),
+
+  connectedMachines: defineTable(connectedMachineRowValidator)
+    .index("by_user", ["userId"])
+    .index("by_user_machine_id", ["userId", "machineId"]),
+
+  machineThreads: defineTable(machineThreadRowValidator)
+    .index("by_user", ["userId"])
+    .index("by_user_and_machine", ["userId", "machineId"])
+    .index("by_user_machine_provider_thread", [
+      "userId",
+      "machineId",
+      "provider",
+      "providerThreadId",
+    ]),
 
   dashboardSettings: defineTable({
     userId: v.id("users"),
