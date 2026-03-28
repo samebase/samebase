@@ -32,12 +32,53 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function getViewportWidthPx() {
+function getViewportWidthPx(viewportElement: HTMLElement | null | undefined) {
+  if (viewportElement) {
+    return Math.max(
+      0,
+      Math.round(viewportElement.getBoundingClientRect().width),
+    );
+  }
+
   if (typeof window === "undefined") {
     return DEFAULT_VIEWPORT_WIDTH_PX;
   }
 
   return window.innerWidth;
+}
+
+function getViewportBounds(
+  viewportElement: HTMLElement | null | undefined,
+  fallbackWidthPx: number,
+) {
+  if (viewportElement) {
+    const rect = viewportElement.getBoundingClientRect();
+    return {
+      bottom: rect.bottom,
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      width: rect.width,
+    };
+  }
+
+  if (typeof window === "undefined") {
+    return {
+      bottom: 0,
+      left: 0,
+      right: fallbackWidthPx,
+      top: 0,
+      width: fallbackWidthPx,
+    };
+  }
+
+  return {
+    bottom: window.innerHeight,
+    left: 0,
+    right: window.innerWidth,
+    top: 0,
+    width: window.innerWidth,
+  };
 }
 
 function releasePointerCapture(
@@ -65,26 +106,29 @@ export function useMobileSidebarDrag({
   openDragRegion = "edge",
   open,
   onOpenChange,
+  viewportRef,
 }: {
   enabled?: boolean;
   openDragRegion?: MobileSidebarOpenDragRegion;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  viewportRef?: React.RefObject<HTMLElement | null>;
 }) {
   const sessionRef = React.useRef<DragSession | null>(null);
   const [drawerWidthPx, setDrawerWidthPx] = React.useState(
     DEFAULT_DRAWER_WIDTH_PX,
   );
-  const [viewportWidthPx, setViewportWidthPx] =
-    React.useState(getViewportWidthPx);
+  const [viewportWidthPx, setViewportWidthPx] = React.useState(() =>
+    getViewportWidthPx(viewportRef?.current),
+  );
   const [isDragging, setIsDragging] = React.useState(false);
   const [revealPx, setRevealPx] = React.useState(
     enabled && open ? DEFAULT_DRAWER_WIDTH_PX : 0,
   );
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     const updateDrawerWidth = () => {
-      const nextViewportWidthPx = getViewportWidthPx();
+      const nextViewportWidthPx = getViewportWidthPx(viewportRef?.current);
       setViewportWidthPx(nextViewportWidthPx);
       setDrawerWidthPx(
         Math.max(
@@ -98,9 +142,21 @@ export function useMobileSidebarDrag({
     };
 
     updateDrawerWidth();
+    const viewportElement = viewportRef?.current ?? null;
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(updateDrawerWidth);
+
+    if (resizeObserver && viewportElement) {
+      resizeObserver.observe(viewportElement);
+    }
     window.addEventListener("resize", updateDrawerWidth);
-    return () => window.removeEventListener("resize", updateDrawerWidth);
-  }, []);
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateDrawerWidth);
+    };
+  }, [viewportRef]);
 
   React.useEffect(() => {
     if (!enabled) {
@@ -336,11 +392,20 @@ export function useMobileSidebarDrag({
         : Math.min(MOBILE_SIDEBAR_DRAG_START_MAX_X_PX, drawerWidthPx / 2);
 
     const handleDocumentPointerDown = (event: PointerEvent) => {
+      const viewportBounds = getViewportBounds(
+        viewportRef?.current,
+        viewportWidthPx,
+      );
+      const localX = event.clientX - viewportBounds.left;
       if (
         sessionRef.current ||
         !event.isPrimary ||
         event.button !== 0 ||
-        event.clientX > dragStartMaxXPx
+        event.clientX < viewportBounds.left ||
+        event.clientX > viewportBounds.right ||
+        event.clientY < viewportBounds.top ||
+        event.clientY > viewportBounds.bottom ||
+        localX > dragStartMaxXPx
       ) {
         return;
       }
@@ -446,7 +511,18 @@ export function useMobileSidebarDrag({
       }
 
       const touch = event.touches[0];
-      if (touch.clientX > dragStartMaxXPx) {
+      const viewportBounds = getViewportBounds(
+        viewportRef?.current,
+        viewportWidthPx,
+      );
+      const localX = touch.clientX - viewportBounds.left;
+      if (
+        touch.clientX < viewportBounds.left ||
+        touch.clientX > viewportBounds.right ||
+        touch.clientY < viewportBounds.top ||
+        touch.clientY > viewportBounds.bottom ||
+        localX > dragStartMaxXPx
+      ) {
         return;
       }
 
@@ -566,6 +642,7 @@ export function useMobileSidebarDrag({
     open,
     openDragRegion,
     updateDrag,
+    viewportRef,
     viewportWidthPx,
   ]);
 

@@ -27,10 +27,13 @@ test("mobile sidebar click translates the workspace without shrinking its width"
   );
   await page.waitForLoadState("networkidle");
 
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   const header = page.getByTestId("dashboard-layout-header");
   const sidebarPanel = page.getByTestId("dashboard-shell-sidebar-panel");
+  const fixtureRect = await getClientRect(fixture);
   const initialHeaderRect = await getClientRect(header);
 
+  expect(Math.abs(initialHeaderRect.width - fixtureRect.width)).toBeLessThan(2);
   await expect
     .poll(async () => (await getClientRect(header)).x)
     .toBeLessThan(4);
@@ -51,6 +54,11 @@ test("mobile sidebar click translates the workspace without shrinking its width"
       Math.abs((await getClientRect(header)).width - initialHeaderRect.width),
     )
     .toBeLessThan(2);
+  await expect
+    .poll(async () =>
+      Math.abs((await getClientRect(header)).width - fixtureRect.width),
+    )
+    .toBeLessThan(2);
 });
 
 test("mobile shell fixture keeps the translated mobile behavior on desktop-width windows", async ({
@@ -65,11 +73,14 @@ test("mobile shell fixture keeps the translated mobile behavior on desktop-width
   );
   await page.waitForLoadState("networkidle");
 
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   const header = page.getByTestId("dashboard-layout-header");
   const sidebarPanel = page.getByTestId("dashboard-shell-sidebar-panel");
+  const fixtureRect = await getClientRect(fixture);
   const initialHeaderRect = await getClientRect(header);
   const initialSidebarRect = await getClientRect(sidebarPanel);
 
+  expect(Math.abs(initialHeaderRect.width - fixtureRect.width)).toBeLessThan(2);
   await getSidebarTrigger(page).click();
 
   await expect
@@ -78,6 +89,11 @@ test("mobile shell fixture keeps the translated mobile behavior on desktop-width
   await expect
     .poll(async () =>
       Math.abs((await getClientRect(header)).width - initialHeaderRect.width),
+    )
+    .toBeLessThan(2);
+  await expect
+    .poll(async () =>
+      Math.abs((await getClientRect(header)).width - fixtureRect.width),
     )
     .toBeLessThan(2);
   await expect

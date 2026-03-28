@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode } from "react";
+import { useRef, type CSSProperties, type ReactNode } from "react";
 import { useMobileSidebarDrag } from "@/hooks/use-mobile-sidebar-drag";
 import { useSidebar } from "@/hooks/use-sidebar";
 
@@ -19,6 +19,7 @@ export function MobileSidebarViewport({
 }) {
   const { openMobile, setOpenMobile } = useSidebar();
   const hasSidebar = sidebar !== null && sidebar !== undefined;
+  const viewportRef = useRef<HTMLDivElement | null>(null);
 
   const {
     closeHandleWidthPx,
@@ -29,12 +30,12 @@ export function MobileSidebarViewport({
     onCloseHandlePointerUp,
     revealProgress,
     trackStyle,
-    viewportWidthPx,
   } = useMobileSidebarDrag({
     enabled: hasSidebar,
     openDragRegion,
     open: openMobile,
     onOpenChange: setOpenMobile,
+    viewportRef,
   });
 
   if (!hasSidebar) {
@@ -48,22 +49,24 @@ export function MobileSidebarViewport({
   const sidebarIsVisible = revealProgress > 0;
   const translatedTrackStyle = {
     ...trackStyle,
-    // The track is wider than the viewport by the drawer width, which lets the
-    // main pane keep its full layout width while sliding right to reveal the
-    // sidebar.
-    width: `${viewportWidthPx + drawerWidthPx}px`,
+    width: `calc(100% + ${drawerWidthPx}px)`,
   } satisfies CSSProperties;
   const sidebarStyle = {
-    flex: `0 0 ${drawerWidthPx}px`,
+    flexBasis: `${drawerWidthPx}px`,
+    flexGrow: 0,
+    flexShrink: 0,
     width: `${drawerWidthPx}px`,
   } satisfies CSSProperties;
   const mainStyle = {
-    flex: `0 0 ${viewportWidthPx}px`,
-    width: `${viewportWidthPx}px`,
+    flexBasis: `calc(100% - ${drawerWidthPx}px)`,
+    flexGrow: 0,
+    flexShrink: 0,
+    width: `calc(100% - ${drawerWidthPx}px)`,
   } satisfies CSSProperties;
 
   return (
     <div
+      ref={viewportRef}
       data-testid={dataTestId}
       className="relative h-full w-full overflow-hidden"
     >
