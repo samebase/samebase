@@ -25,6 +25,7 @@ type DragSession = {
   startRevealPx: number;
   startX: number;
   startY: number;
+  tapCloses: boolean;
   velocityPxPerMs: number;
 };
 
@@ -115,6 +116,7 @@ export function useMobileSidebarDrag({
   viewportRef?: React.RefObject<HTMLElement | null>;
 }) {
   const sessionRef = React.useRef<DragSession | null>(null);
+  const consumeNextDismissSurfaceClickRef = React.useRef(false);
   const [drawerWidthPx, setDrawerWidthPx] = React.useState(
     DEFAULT_DRAWER_WIDTH_PX,
   );
@@ -177,6 +179,11 @@ export function useMobileSidebarDrag({
       target: EventTarget | null,
       pointerId: number | null,
       finalRevealPx?: number,
+      {
+        closePendingTap = true,
+      }: {
+        closePendingTap?: boolean;
+      } = {},
     ) => {
       const session = sessionRef.current;
       sessionRef.current = null;
@@ -191,6 +198,17 @@ export function useMobileSidebarDrag({
         pointerId ?? (session.input === "pointer" ? session.sessionId : null);
 
       releasePointerCapture(releaseTarget, releasePointerId);
+
+      if (
+        session.tapCloses &&
+        session.intent === "pending" &&
+        closePendingTap
+      ) {
+        consumeNextDismissSurfaceClickRef.current = true;
+        setRevealPx(0);
+        onOpenChange(false);
+        return;
+      }
 
       const resolvedRevealPx = clamp(
         finalRevealPx ?? session.revealPx,
@@ -220,6 +238,7 @@ export function useMobileSidebarDrag({
       startRevealPx,
       startX,
       startY,
+      tapCloses = false,
     }: {
       input: DragInput;
       sessionId: number;
@@ -227,6 +246,7 @@ export function useMobileSidebarDrag({
       captureTarget: EventTarget | null;
       startX: number;
       startY: number;
+      tapCloses?: boolean;
     }) => {
       if (sessionRef.current) {
         return;
@@ -242,6 +262,7 @@ export function useMobileSidebarDrag({
         startRevealPx,
         startX,
         startY,
+        tapCloses,
         velocityPxPerMs: 0,
       };
     },
@@ -280,7 +301,9 @@ export function useMobileSidebarDrag({
         }
 
         if (Math.abs(deltaY) > Math.abs(deltaX)) {
-          completeDrag(target, pointerId, session.startRevealPx);
+          completeDrag(target, pointerId, session.startRevealPx, {
+            closePendingTap: false,
+          });
           return;
         }
 
@@ -310,6 +333,11 @@ export function useMobileSidebarDrag({
   function beginDrag(
     event: React.PointerEvent<HTMLDivElement>,
     startRevealPx: number,
+    {
+      tapCloses = false,
+    }: {
+      tapCloses?: boolean;
+    } = {},
   ) {
     if (event.button !== 0) {
       return;
@@ -323,6 +351,7 @@ export function useMobileSidebarDrag({
       captureTarget: event.currentTarget,
       startX: event.clientX,
       startY: event.clientY,
+      tapCloses,
     });
   }
 
@@ -378,11 +407,12 @@ export function useMobileSidebarDrag({
       event.currentTarget,
       event.pointerId,
       open ? drawerWidthPx : 0,
+      { closePendingTap: false },
     );
   }
 
   React.useEffect(() => {
-    if (!enabled || open) {
+    if (!enabled) {
       return;
     }
 
@@ -392,6 +422,10 @@ export function useMobileSidebarDrag({
         : Math.min(MOBILE_SIDEBAR_DRAG_START_MAX_X_PX, drawerWidthPx / 2);
 
     const handleDocumentPointerDown = (event: PointerEvent) => {
+      if (open) {
+        return;
+      }
+
       const viewportBounds = getViewportBounds(
         viewportRef?.current,
         viewportWidthPx,
@@ -475,7 +509,7 @@ export function useMobileSidebarDrag({
         return;
       }
 
-      completeDrag(null, null, 0);
+      completeDrag(null, null, 0, { closePendingTap: false });
     };
 
     document.addEventListener("pointerdown", handleDocumentPointerDown, true);
@@ -506,6 +540,10 @@ export function useMobileSidebarDrag({
     };
 
     const handleTouchStart = (event: TouchEvent) => {
+      if (open) {
+        return;
+      }
+
       if (sessionRef.current || event.touches.length !== 1) {
         return;
       }
@@ -589,7 +627,7 @@ export function useMobileSidebarDrag({
         if (event.changedTouches.length === 0) {
           return;
         }
-        completeDrag(null, null, 0);
+        completeDrag(null, null, 0, { closePendingTap: false });
         return;
       }
 
@@ -598,7 +636,7 @@ export function useMobileSidebarDrag({
         return;
       }
 
-      completeDrag(null, null, 0);
+      completeDrag(null, null, 0, { closePendingTap: false });
     };
 
     document.addEventListener("touchstart", handleTouchStart, {
@@ -655,6 +693,24 @@ export function useMobileSidebarDrag({
   return {
     closeHandleWidthPx: MOBILE_SIDEBAR_CLOSE_HANDLE_WIDTH_PX,
     drawerWidthPx,
+    onDismissSurfaceClickCapture: (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!consumeNextDismissSurfaceClickRef.current) {
+        return;
+      }
+
+      consumeNextDismissSurfaceClickRef.current = false;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    onDismissSurfacePointerCancel: handlePointerCancel,
+    onDismissSurfacePointerDown: (
+      event: React.PointerEvent<HTMLDivElement>,
+    ) => {
+      consumeNextDismissSurfaceClickRef.current = false;
+      beginDrag(event, drawerWidthPx, { tapCloses: true });
+    },
+    onDismissSurfacePointerMove: handlePointerMove,
+    onDismissSurfacePointerUp: handlePointerUp,
     onCloseHandlePointerCancel: handlePointerCancel,
     onCloseHandlePointerDown: (event: React.PointerEvent<HTMLDivElement>) =>
       beginDrag(event, drawerWidthPx),

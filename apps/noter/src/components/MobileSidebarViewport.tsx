@@ -24,6 +24,11 @@ export function MobileSidebarViewport({
   const {
     closeHandleWidthPx,
     drawerWidthPx,
+    onDismissSurfaceClickCapture,
+    onDismissSurfacePointerCancel,
+    onDismissSurfacePointerDown,
+    onDismissSurfacePointerMove,
+    onDismissSurfacePointerUp,
     onCloseHandlePointerCancel,
     onCloseHandlePointerDown,
     onCloseHandlePointerMove,
@@ -63,6 +68,12 @@ export function MobileSidebarViewport({
     flexShrink: 0,
     width: `calc(100% - ${drawerWidthPx}px)`,
   } satisfies CSSProperties;
+  const dismissibleMainStyle = openMobile
+    ? ({
+        ...mainStyle,
+        touchAction: "pan-y",
+      } satisfies CSSProperties)
+    : mainStyle;
 
   return (
     <div
@@ -97,7 +108,14 @@ export function MobileSidebarViewport({
         <div
           data-sidebar="mobile-viewport-main"
           className="h-full min-w-0 shrink-0"
-          style={mainStyle}
+          onClickCapture={openMobile ? onDismissSurfaceClickCapture : undefined}
+          onPointerCancel={
+            openMobile ? onDismissSurfacePointerCancel : undefined
+          }
+          onPointerDown={openMobile ? onDismissSurfacePointerDown : undefined}
+          onPointerMove={openMobile ? onDismissSurfacePointerMove : undefined}
+          onPointerUp={openMobile ? onDismissSurfacePointerUp : undefined}
+          style={dismissibleMainStyle}
         >
           {children}
         </div>

@@ -15,6 +15,10 @@ function getSidebarTrigger(page: Page) {
   return page.locator('button[data-sidebar="trigger"]');
 }
 
+function getMobileMainSurface(page: Page) {
+  return page.locator('[data-sidebar="mobile-viewport-main"]');
+}
+
 test("mobile sidebar click translates the workspace without shrinking its width", async ({
   page,
 }) => {
@@ -205,4 +209,92 @@ test("mobile dashboard drag can open from the middle of the page", async ({
   await expect
     .poll(async () => (await getClientRect(sidebarPanel)).right)
     .toBeGreaterThan(120);
+});
+
+test("clicking the visible main pane closes the mobile sidebar", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 430, height: 932 });
+  await page.goto(
+    "/visual-fixture.html?mode=dashboard-shared-sidebar-mobile-shell",
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
+  await page.waitForLoadState("networkidle");
+
+  const header = page.getByTestId("dashboard-layout-header");
+  const sidebarPanel = page.getByTestId("dashboard-shell-sidebar-panel");
+  const mainSurface = getMobileMainSurface(page);
+
+  await getSidebarTrigger(page).click();
+
+  await expect
+    .poll(async () => (await getClientRect(header)).x)
+    .toBeGreaterThan(120);
+
+  await mainSurface.click({
+    position: {
+      x: 100,
+      y: 120,
+    },
+  });
+
+  await expect
+    .poll(async () => (await getClientRect(header)).x)
+    .toBeLessThan(20);
+  await expect
+    .poll(async () => (await getClientRect(sidebarPanel)).right)
+    .toBeLessThan(20);
+});
+
+test("dragging the visible main pane closes the mobile sidebar", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 430, height: 932 });
+  await page.goto(
+    "/visual-fixture.html?mode=dashboard-shared-sidebar-mobile-shell",
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
+  await page.waitForLoadState("networkidle");
+
+  const header = page.getByTestId("dashboard-layout-header");
+  const sidebarPanel = page.getByTestId("dashboard-shell-sidebar-panel");
+  const initialHeaderRect = await getClientRect(header);
+
+  await getSidebarTrigger(page).click();
+
+  await expect
+    .poll(async () => (await getClientRect(header)).x)
+    .toBeGreaterThan(120);
+  const openHeaderRect = await getClientRect(header);
+  const dragStartX = openHeaderRect.x + 112;
+  const dragEndX = 80;
+
+  await page.mouse.move(dragStartX, 220);
+  await page.mouse.down();
+  await page.mouse.move(dragEndX, 220, { steps: 12 });
+
+  await expect
+    .poll(async () => (await getClientRect(header)).x)
+    .toBeLessThan(openHeaderRect.x - 120);
+  await expect
+    .poll(async () => (await getClientRect(sidebarPanel)).right)
+    .toBeLessThan(openHeaderRect.x);
+  await expect
+    .poll(async () =>
+      Math.abs((await getClientRect(header)).width - initialHeaderRect.width),
+    )
+    .toBeLessThan(2);
+
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => (await getClientRect(header)).x)
+    .toBeLessThan(20);
+  await expect
+    .poll(async () => (await getClientRect(sidebarPanel)).right)
+    .toBeLessThan(20);
 });

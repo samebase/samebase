@@ -55,6 +55,10 @@ async function getToggleSidebarButtonLeft(page: Page) {
   return box.x;
 }
 
+function getMobileMainSurface(page: Page) {
+  return page.locator('[data-sidebar="mobile-viewport-main"]');
+}
+
 async function createTouchEventClient(page: Page): Promise<TouchEventClient> {
   return page.context().newCDPSession(page);
 }
@@ -109,7 +113,12 @@ test.describe("mobile workspace sidebar live flow", () => {
       .poll(async () => getToggleSidebarButtonLeft(page))
       .toBeGreaterThan(120);
 
-    await page.keyboard.press("Escape");
+    await getMobileMainSurface(page).tap({
+      position: {
+        x: 100,
+        y: 160,
+      },
+    });
 
     await expect
       .poll(async () => getToggleSidebarButtonLeft(page))
@@ -192,5 +201,47 @@ test.describe("mobile workspace sidebar live flow", () => {
     await expect
       .poll(async () => getToggleSidebarButtonLeft(page))
       .toBeGreaterThan(120);
+  });
+
+  test("dragging the visible main pane closes the workspace sidebar", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "chromium-mobile",
+      "This live check targets the mobile Chromium project.",
+    );
+
+    await goToWorkspace(page);
+    await page.getByRole("button", { name: "Toggle Sidebar" }).tap();
+
+    await expect
+      .poll(async () => getToggleSidebarButtonLeft(page))
+      .toBeGreaterThan(120);
+
+    const openLeft = await getToggleSidebarButtonLeft(page);
+    const touchClient = await createTouchEventClient(page);
+
+    await dispatchTouchEvent(touchClient, {
+      type: "touchStart",
+      x: 380,
+      y: 220,
+    });
+    await dispatchTouchEvent(touchClient, {
+      type: "touchMove",
+      x: 48,
+      y: 220,
+    });
+
+    await expect
+      .poll(async () => getToggleSidebarButtonLeft(page))
+      .toBeLessThan(openLeft - 120);
+
+    await dispatchTouchEvent(touchClient, {
+      type: "touchEnd",
+    });
+
+    await expect
+      .poll(async () => getToggleSidebarButtonLeft(page))
+      .toBeLessThan(20);
   });
 });
