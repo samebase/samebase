@@ -78,6 +78,28 @@ test("vault dashboard fixture (mobile chat dock)", async ({ page }) => {
   );
 });
 
+test("vault dashboard fixture (mobile shell)", async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 932 });
+  await page.goto(
+    "/visual-fixture.html?mode=dashboard-shared-sidebar-mobile-shell",
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture).toHaveScreenshot(
+    "vault-dashboard-shared-sidebar-mobile-shell.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
+});
+
 test("vault dashboard fixture (shared sidebar mobile open)", async ({
   page,
 }) => {

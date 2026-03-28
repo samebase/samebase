@@ -4,6 +4,7 @@ async function getClientRect(locator: Locator) {
   return locator.evaluate((element) => {
     const rect = element.getBoundingClientRect();
     return {
+      right: rect.right,
       width: rect.width,
       x: rect.x,
     };
@@ -15,7 +16,7 @@ test("mobile sidebar click translates the workspace without shrinking its width"
 }) => {
   await page.setViewportSize({ width: 430, height: 932 });
   await page.goto(
-    "/visual-fixture.html?mode=dashboard-shared-sidebar-mobile-chat",
+    "/visual-fixture.html?mode=dashboard-shared-sidebar-mobile-shell",
     {
       waitUntil: "domcontentloaded",
     },
@@ -23,16 +24,23 @@ test("mobile sidebar click translates the workspace without shrinking its width"
   await page.waitForLoadState("networkidle");
 
   const header = page.getByTestId("dashboard-layout-header");
+  const sidebarPanel = page.getByTestId("dashboard-shell-sidebar-panel");
   const initialHeaderRect = await getClientRect(header);
 
   await expect
     .poll(async () => (await getClientRect(header)).x)
+    .toBeLessThan(4);
+  await expect
+    .poll(async () => (await getClientRect(sidebarPanel)).right)
     .toBeLessThan(4);
 
   await page.getByRole("button", { name: "Toggle Sidebar" }).click();
 
   await expect
     .poll(async () => (await getClientRect(header)).x)
+    .toBeGreaterThan(120);
+  await expect
+    .poll(async () => (await getClientRect(sidebarPanel)).right)
     .toBeGreaterThan(120);
   await expect
     .poll(async () =>
@@ -46,7 +54,7 @@ test("mobile sidebar drag opens when the gesture starts from the page body", asy
 }) => {
   await page.setViewportSize({ width: 430, height: 932 });
   await page.goto(
-    "/visual-fixture.html?mode=dashboard-shared-sidebar-mobile-chat",
+    "/visual-fixture.html?mode=dashboard-shared-sidebar-mobile-shell",
     {
       waitUntil: "domcontentloaded",
     },
@@ -54,10 +62,14 @@ test("mobile sidebar drag opens when the gesture starts from the page body", asy
   await page.waitForLoadState("networkidle");
 
   const header = page.getByTestId("dashboard-layout-header");
+  const sidebarPanel = page.getByTestId("dashboard-shell-sidebar-panel");
   const initialHeaderRect = await getClientRect(header);
 
   await expect
     .poll(async () => (await getClientRect(header)).x)
+    .toBeLessThan(4);
+  await expect
+    .poll(async () => (await getClientRect(sidebarPanel)).right)
     .toBeLessThan(4);
 
   await page.mouse.move(96, 220);
@@ -66,6 +78,9 @@ test("mobile sidebar drag opens when the gesture starts from the page body", asy
 
   await expect
     .poll(async () => (await getClientRect(header)).x)
+    .toBeGreaterThan(40);
+  await expect
+    .poll(async () => (await getClientRect(sidebarPanel)).right)
     .toBeGreaterThan(40);
   await expect
     .poll(async () =>
@@ -79,6 +94,9 @@ test("mobile sidebar drag opens when the gesture starts from the page body", asy
     .poll(async () => (await getClientRect(header)).x)
     .toBeGreaterThan(120);
   await expect
+    .poll(async () => (await getClientRect(sidebarPanel)).right)
+    .toBeGreaterThan(120);
+  await expect
     .poll(async () =>
       Math.abs((await getClientRect(header)).width - initialHeaderRect.width),
     )
@@ -90,7 +108,7 @@ test("mobile dashboard drag can open from the middle of the page", async ({
 }) => {
   await page.setViewportSize({ width: 430, height: 932 });
   await page.goto(
-    "/visual-fixture.html?mode=dashboard-shared-sidebar-mobile-chat",
+    "/visual-fixture.html?mode=dashboard-shared-sidebar-mobile-shell",
     {
       waitUntil: "domcontentloaded",
     },
@@ -98,10 +116,14 @@ test("mobile dashboard drag can open from the middle of the page", async ({
   await page.waitForLoadState("networkidle");
 
   const header = page.getByTestId("dashboard-layout-header");
+  const sidebarPanel = page.getByTestId("dashboard-shell-sidebar-panel");
   const initialHeaderRect = await getClientRect(header);
 
   await expect
     .poll(async () => (await getClientRect(header)).x)
+    .toBeLessThan(4);
+  await expect
+    .poll(async () => (await getClientRect(sidebarPanel)).right)
     .toBeLessThan(4);
 
   await page.mouse.move(220, 220);
@@ -110,6 +132,9 @@ test("mobile dashboard drag can open from the middle of the page", async ({
 
   await expect
     .poll(async () => (await getClientRect(header)).x)
+    .toBeGreaterThan(40);
+  await expect
+    .poll(async () => (await getClientRect(sidebarPanel)).right)
     .toBeGreaterThan(40);
   await expect
     .poll(async () =>
@@ -121,5 +146,8 @@ test("mobile dashboard drag can open from the middle of the page", async ({
 
   await expect
     .poll(async () => (await getClientRect(header)).x)
+    .toBeGreaterThan(120);
+  await expect
+    .poll(async () => (await getClientRect(sidebarPanel)).right)
     .toBeGreaterThan(120);
 });
