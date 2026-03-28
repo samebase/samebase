@@ -155,7 +155,7 @@ test.describe("mobile workspace sidebar live flow", () => {
       .toBeGreaterThan(120);
   });
 
-  test("dashboard page drag opens the sidebar from the page body", async ({
+  test("dashboard page drag opens the sidebar from the middle of the page", async ({
     page,
   }, testInfo) => {
     test.skip(
@@ -164,20 +164,30 @@ test.describe("mobile workspace sidebar live flow", () => {
     );
 
     await goToDashboard(page);
+    const touchClient = await createTouchEventClient(page);
 
     await expect
       .poll(async () => getToggleSidebarButtonLeft(page))
       .toBeLessThan(20);
 
-    await page.mouse.move(96, 220);
-    await page.mouse.down();
-    await page.mouse.move(180, 220, { steps: 8 });
+    await dispatchTouchEvent(touchClient, {
+      type: "touchStart",
+      x: 220,
+      y: 220,
+    });
+    await dispatchTouchEvent(touchClient, {
+      type: "touchMove",
+      x: 410,
+      y: 220,
+    });
 
     await expect
       .poll(async () => getToggleSidebarButtonLeft(page))
       .toBeGreaterThan(40);
 
-    await page.mouse.up();
+    await dispatchTouchEvent(touchClient, {
+      type: "touchEnd",
+    });
 
     await expect
       .poll(async () => getToggleSidebarButtonLeft(page))

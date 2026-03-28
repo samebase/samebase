@@ -8,10 +8,12 @@ import { useSidebar } from "@/hooks/use-sidebar";
  */
 export function MobileSidebarViewport({
   dataTestId,
+  openDragRegion,
   sidebar,
   children,
 }: {
   dataTestId?: string;
+  openDragRegion?: "edge" | "viewport";
   sidebar: ReactNode;
   children: ReactNode;
 }) {
@@ -30,6 +32,7 @@ export function MobileSidebarViewport({
     viewportWidthPx,
   } = useMobileSidebarDrag({
     enabled: hasSidebar,
+    openDragRegion,
     open: openMobile,
     onOpenChange: setOpenMobile,
   });

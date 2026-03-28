@@ -40,7 +40,11 @@ export function DashboardWorkspaceLayout({
 
   if (isMobile) {
     return (
-      <MobileSidebarViewport dataTestId={dataTestId} sidebar={mobileSidebar}>
+      <MobileSidebarViewport
+        dataTestId={dataTestId}
+        openDragRegion="viewport"
+        sidebar={mobileSidebar}
+      >
         <div className="flex h-full min-h-0 min-w-0 flex-col bg-background">
           <div
             data-testid="dashboard-layout-header"

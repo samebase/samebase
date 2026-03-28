@@ -12,6 +12,7 @@ const DEFAULT_VIEWPORT_WIDTH_PX =
 
 type DragIntent = "pending" | "dragging";
 type DragInput = "pointer" | "touch";
+type MobileSidebarOpenDragRegion = "edge" | "viewport";
 
 type DragSession = {
   captureTarget: EventTarget | null;
@@ -61,10 +62,12 @@ function releasePointerCapture(
  */
 export function useMobileSidebarDrag({
   enabled = true,
+  openDragRegion = "edge",
   open,
   onOpenChange,
 }: {
   enabled?: boolean;
+  openDragRegion?: MobileSidebarOpenDragRegion;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -327,10 +330,10 @@ export function useMobileSidebarDrag({
       return;
     }
 
-    const dragStartMaxXPx = Math.min(
-      MOBILE_SIDEBAR_DRAG_START_MAX_X_PX,
-      drawerWidthPx / 2,
-    );
+    const dragStartMaxXPx =
+      openDragRegion === "viewport"
+        ? viewportWidthPx
+        : Math.min(MOBILE_SIDEBAR_DRAG_START_MAX_X_PX, drawerWidthPx / 2);
 
     const handleDocumentPointerDown = (event: PointerEvent) => {
       if (
@@ -561,7 +564,9 @@ export function useMobileSidebarDrag({
     drawerWidthPx,
     enabled,
     open,
+    openDragRegion,
     updateDrag,
+    viewportWidthPx,
   ]);
 
   const revealProgress = drawerWidthPx === 0 ? 0 : revealPx / drawerWidthPx;
