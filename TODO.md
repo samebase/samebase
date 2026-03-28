@@ -2,15 +2,10 @@
 
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] specifically left blank
-
 - [ ] related to https://youtu.be/l9CPmPk2R-M?si=aBkwhdpB77T9A0ac&t=568 ; give people just a terminal drawer that uses prosemark!!!
-
 - [ ] market just the cloudflare tunnel aspect, basically share your localhost as long as your laptop is open, use github to save it for ever
-
 - [ ] change codex and draft/ branch naming convention to make phrases use _ instead of - inside; but replace / with -    the general idea is to not have to url encode and we need an alternative, maybe something better?
-
 - [ ] create extractor shooter where end game is just a lot of damage, but you can wait it over
-
 - [ ] instead of making the user choose between draft/push, just push to main, and an agent can pick it up and start working on it in a separate pr, but the initila idea is already on main; that way it's more async and you get instand knowledge for all other parallel branches, pretty fast (rebase.md)
 
 - [ ] use Firefox Tree Style Tab as the reference UI for branch/PR representation: branches become collapsible tree items, draft PRs hang off the branch as child nodes, and activity/unread state should stay visible without opening each branch
