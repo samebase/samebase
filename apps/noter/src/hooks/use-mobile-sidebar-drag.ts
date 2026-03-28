@@ -7,14 +7,17 @@ const DRAG_INTENT_THRESHOLD_PX = 12;
 const DRAG_VELOCITY_THRESHOLD_PX_PER_MS = 0.45;
 const MOBILE_SIDEBAR_EDGE_HANDLE_WIDTH_PX = 20;
 const MOBILE_SIDEBAR_CLOSE_HANDLE_WIDTH_PX = 24;
+const MOBILE_SIDEBAR_TOUCH_DRAG_START_MAX_X_PX = 64;
 
 type DragIntent = "pending" | "dragging";
+type DragInput = "pointer" | "touch";
 
 type DragSession = {
+  input: DragInput;
   intent: DragIntent;
   lastTimeMs: number;
   lastX: number;
-  pointerId: number;
+  sessionId: number;
   revealPx: number;
   startRevealPx: number;
   startX: number;
@@ -24,6 +27,22 @@ type DragSession = {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function releasePointerCapture(
+  target: EventTarget | null,
+  pointerId: number | null,
+) {
+  if (pointerId === null) {
+    return;
+  }
+  if (!(target instanceof Element)) {
+    return;
+  }
+  if (!target.hasPointerCapture(pointerId)) {
+    return;
+  }
+  target.releasePointerCapture(pointerId);
 }
 
 /**
@@ -72,51 +91,133 @@ export function useMobileSidebarDrag({
     setRevealPx(open ? drawerWidthPx : 0);
   }, [drawerWidthPx, isDragging, open]);
 
-  function releasePointerCapture(
-    target: EventTarget | null,
-    pointerId: number,
-  ) {
-    if (!(target instanceof Element)) {
-      return;
-    }
-    if (!target.hasPointerCapture(pointerId)) {
-      return;
-    }
-    target.releasePointerCapture(pointerId);
-  }
+  const completeDrag = React.useCallback(
+    (
+      target: EventTarget | null,
+      pointerId: number | null,
+      finalRevealPx?: number,
+    ) => {
+      releasePointerCapture(target, pointerId);
 
-  function completeDrag(
-    target: EventTarget | null,
-    pointerId: number,
-    finalRevealPx?: number,
-  ) {
-    releasePointerCapture(target, pointerId);
+      const session = sessionRef.current;
+      sessionRef.current = null;
+      setIsDragging(false);
 
-    const session = sessionRef.current;
-    sessionRef.current = null;
-    setIsDragging(false);
+      if (!session) {
+        return;
+      }
 
-    if (!session) {
-      return;
-    }
+      const resolvedRevealPx = clamp(
+        finalRevealPx ?? session.revealPx,
+        0,
+        drawerWidthPx,
+      );
+      const revealProgress =
+        drawerWidthPx === 0 ? 0 : resolvedRevealPx / drawerWidthPx;
+      const shouldOpen =
+        session.velocityPxPerMs > DRAG_VELOCITY_THRESHOLD_PX_PER_MS
+          ? true
+          : session.velocityPxPerMs < -DRAG_VELOCITY_THRESHOLD_PX_PER_MS
+            ? false
+            : revealProgress >= DRAG_COMMIT_THRESHOLD;
 
-    const resolvedRevealPx = clamp(
-      finalRevealPx ?? session.revealPx,
-      0,
-      drawerWidthPx,
-    );
-    const revealProgress =
-      drawerWidthPx === 0 ? 0 : resolvedRevealPx / drawerWidthPx;
-    const shouldOpen =
-      session.velocityPxPerMs > DRAG_VELOCITY_THRESHOLD_PX_PER_MS
-        ? true
-        : session.velocityPxPerMs < -DRAG_VELOCITY_THRESHOLD_PX_PER_MS
-          ? false
-          : revealProgress >= DRAG_COMMIT_THRESHOLD;
+      setRevealPx(shouldOpen ? drawerWidthPx : 0);
+      onOpenChange(shouldOpen);
+    },
+    [drawerWidthPx, onOpenChange],
+  );
 
-    setRevealPx(shouldOpen ? drawerWidthPx : 0);
-    onOpenChange(shouldOpen);
-  }
+  const beginDragSession = React.useCallback(
+    ({
+      input,
+      sessionId,
+      startRevealPx,
+      startX,
+      startY,
+    }: {
+      input: DragInput;
+      sessionId: number;
+      startRevealPx: number;
+      startX: number;
+      startY: number;
+    }) => {
+      if (sessionRef.current) {
+        return;
+      }
+      sessionRef.current = {
+        input,
+        intent: "pending",
+        lastTimeMs: performance.now(),
+        lastX: startX,
+        sessionId,
+        revealPx: startRevealPx,
+        startRevealPx,
+        startX,
+        startY,
+        velocityPxPerMs: 0,
+      };
+    },
+    [],
+  );
+
+  const updateDrag = React.useCallback(
+    (
+      {
+        currentX,
+        currentY,
+        target,
+        pointerId,
+      }: {
+        currentX: number;
+        currentY: number;
+        target: EventTarget | null;
+        pointerId: number | null;
+      },
+      preventDefault?: () => void,
+    ) => {
+      const session = sessionRef.current;
+      if (!session) {
+        return;
+      }
+
+      const deltaX = currentX - session.startX;
+      const deltaY = currentY - session.startY;
+
+      if (session.intent === "pending") {
+        if (
+          Math.abs(deltaX) < DRAG_INTENT_THRESHOLD_PX &&
+          Math.abs(deltaY) < DRAG_INTENT_THRESHOLD_PX
+        ) {
+          return;
+        }
+
+        if (Math.abs(deltaY) > Math.abs(deltaX)) {
+          completeDrag(target, pointerId, session.startRevealPx);
+          return;
+        }
+
+        session.intent = "dragging";
+        setIsDragging(true);
+      }
+
+      preventDefault?.();
+
+      const nextRevealPx = clamp(
+        session.startRevealPx + deltaX,
+        0,
+        drawerWidthPx,
+      );
+      const nowMs = performance.now();
+      const elapsedMs = Math.max(nowMs - session.lastTimeMs, 1);
+
+      session.velocityPxPerMs = (currentX - session.lastX) / elapsedMs;
+      session.lastTimeMs = nowMs;
+      session.lastX = currentX;
+      session.revealPx = nextRevealPx;
+      setRevealPx(nextRevealPx);
+    },
+    [completeDrag, drawerWidthPx],
+  );
 
   function beginDrag(
     event: React.PointerEvent<HTMLDivElement>,
@@ -127,71 +228,47 @@ export function useMobileSidebarDrag({
     }
 
     event.currentTarget.setPointerCapture(event.pointerId);
-    sessionRef.current = {
-      intent: "pending",
-      lastTimeMs: performance.now(),
-      lastX: event.clientX,
-      pointerId: event.pointerId,
-      revealPx: startRevealPx,
+    beginDragSession({
+      input: "pointer",
+      sessionId: event.pointerId,
       startRevealPx,
       startX: event.clientX,
       startY: event.clientY,
-      velocityPxPerMs: 0,
-    };
+    });
   }
 
   function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
     const session = sessionRef.current;
-    if (!session || session.pointerId !== event.pointerId) {
+    if (
+      !session ||
+      session.input !== "pointer" ||
+      session.sessionId !== event.pointerId
+    ) {
       return;
     }
 
-    const deltaX = event.clientX - session.startX;
-    const deltaY = event.clientY - session.startY;
-
-    if (session.intent === "pending") {
-      if (
-        Math.abs(deltaX) < DRAG_INTENT_THRESHOLD_PX &&
-        Math.abs(deltaY) < DRAG_INTENT_THRESHOLD_PX
-      ) {
-        return;
-      }
-
-      if (Math.abs(deltaY) > Math.abs(deltaX)) {
-        completeDrag(
-          event.currentTarget,
-          event.pointerId,
-          session.startRevealPx,
-        );
-        return;
-      }
-
-      session.intent = "dragging";
-      setIsDragging(true);
-    }
-
-    if (event.cancelable) {
-      event.preventDefault();
-    }
-
-    const nextRevealPx = clamp(
-      session.startRevealPx + deltaX,
-      0,
-      drawerWidthPx,
+    updateDrag(
+      {
+        currentX: event.clientX,
+        currentY: event.clientY,
+        target: event.currentTarget,
+        pointerId: event.pointerId,
+      },
+      () => {
+        if (event.cancelable) {
+          event.preventDefault();
+        }
+      },
     );
-    const nowMs = performance.now();
-    const elapsedMs = Math.max(nowMs - session.lastTimeMs, 1);
-
-    session.velocityPxPerMs = (event.clientX - session.lastX) / elapsedMs;
-    session.lastTimeMs = nowMs;
-    session.lastX = event.clientX;
-    session.revealPx = nextRevealPx;
-    setRevealPx(nextRevealPx);
   }
 
   function handlePointerUp(event: React.PointerEvent<HTMLDivElement>) {
     const session = sessionRef.current;
-    if (!session || session.pointerId !== event.pointerId) {
+    if (
+      !session ||
+      session.input !== "pointer" ||
+      session.sessionId !== event.pointerId
+    ) {
       return;
     }
 
@@ -200,7 +277,11 @@ export function useMobileSidebarDrag({
 
   function handlePointerCancel(event: React.PointerEvent<HTMLDivElement>) {
     const session = sessionRef.current;
-    if (!session || session.pointerId !== event.pointerId) {
+    if (
+      !session ||
+      session.input !== "pointer" ||
+      session.sessionId !== event.pointerId
+    ) {
       return;
     }
 
@@ -210,6 +291,186 @@ export function useMobileSidebarDrag({
       open ? drawerWidthPx : 0,
     );
   }
+
+  React.useEffect(() => {
+    if (open) {
+      return;
+    }
+
+    const handleDocumentPointerDown = (event: PointerEvent) => {
+      if (
+        sessionRef.current ||
+        event.pointerType !== "touch" ||
+        !event.isPrimary ||
+        event.button !== 0 ||
+        event.clientX > MOBILE_SIDEBAR_TOUCH_DRAG_START_MAX_X_PX
+      ) {
+        return;
+      }
+
+      beginDragSession({
+        input: "pointer",
+        sessionId: event.pointerId,
+        startRevealPx: 0,
+        startX: event.clientX,
+        startY: event.clientY,
+      });
+    };
+
+    const handleDocumentPointerMove = (event: PointerEvent) => {
+      const session = sessionRef.current;
+      if (
+        !session ||
+        session.input !== "pointer" ||
+        session.sessionId !== event.pointerId
+      ) {
+        return;
+      }
+
+      updateDrag(
+        {
+          currentX: event.clientX,
+          currentY: event.clientY,
+          target: null,
+          pointerId: null,
+        },
+        () => {
+          if (event.cancelable) {
+            event.preventDefault();
+          }
+        },
+      );
+    };
+
+    const handleDocumentPointerUp = (event: PointerEvent) => {
+      const session = sessionRef.current;
+      if (
+        !session ||
+        session.input !== "pointer" ||
+        session.sessionId !== event.pointerId
+      ) {
+        return;
+      }
+
+      completeDrag(null, null);
+    };
+
+    const handleDocumentPointerCancel = (event: PointerEvent) => {
+      const session = sessionRef.current;
+      if (
+        !session ||
+        session.input !== "pointer" ||
+        session.sessionId !== event.pointerId
+      ) {
+        return;
+      }
+
+      completeDrag(null, null, 0);
+    };
+
+    document.addEventListener("pointerdown", handleDocumentPointerDown);
+    document.addEventListener("pointermove", handleDocumentPointerMove, {
+      passive: false,
+    });
+    document.addEventListener("pointerup", handleDocumentPointerUp);
+    document.addEventListener("pointercancel", handleDocumentPointerCancel);
+
+    const findTrackedTouch = (touchList: TouchList) => {
+      const session = sessionRef.current;
+      if (!session || session.input !== "touch") {
+        return null;
+      }
+
+      for (const touch of Array.from(touchList)) {
+        if (touch.identifier === session.sessionId) {
+          return touch;
+        }
+      }
+
+      return null;
+    };
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (sessionRef.current || event.touches.length !== 1) {
+        return;
+      }
+
+      const touch = event.touches[0];
+      if (touch.clientX > MOBILE_SIDEBAR_TOUCH_DRAG_START_MAX_X_PX) {
+        return;
+      }
+
+      beginDragSession({
+        input: "touch",
+        sessionId: touch.identifier,
+        startRevealPx: 0,
+        startX: touch.clientX,
+        startY: touch.clientY,
+      });
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const touch = findTrackedTouch(event.touches);
+      if (!touch) {
+        return;
+      }
+
+      updateDrag(
+        {
+          currentX: touch.clientX,
+          currentY: touch.clientY,
+          target: null,
+          pointerId: null,
+        },
+        () => {
+          if (event.cancelable) {
+            event.preventDefault();
+          }
+        },
+      );
+    };
+
+    const handleTouchEnd = (event: TouchEvent) => {
+      const touch = findTrackedTouch(event.changedTouches);
+      if (!touch) {
+        return;
+      }
+
+      completeDrag(null, null);
+    };
+
+    const handleTouchCancel = (event: TouchEvent) => {
+      const touch = findTrackedTouch(event.changedTouches);
+      if (!touch) {
+        return;
+      }
+
+      completeDrag(null, null, 0);
+    };
+
+    document.addEventListener("touchstart", handleTouchStart, {
+      passive: true,
+    });
+    document.addEventListener("touchmove", handleTouchMove, {
+      passive: false,
+    });
+    document.addEventListener("touchend", handleTouchEnd);
+    document.addEventListener("touchcancel", handleTouchCancel);
+
+    return () => {
+      document.removeEventListener("pointerdown", handleDocumentPointerDown);
+      document.removeEventListener("pointermove", handleDocumentPointerMove);
+      document.removeEventListener("pointerup", handleDocumentPointerUp);
+      document.removeEventListener(
+        "pointercancel",
+        handleDocumentPointerCancel,
+      );
+      document.removeEventListener("touchstart", handleTouchStart);
+      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("touchend", handleTouchEnd);
+      document.removeEventListener("touchcancel", handleTouchCancel);
+    };
+  }, [beginDragSession, completeDrag, open, updateDrag]);
 
   const revealProgress = drawerWidthPx === 0 ? 0 : revealPx / drawerWidthPx;
   const drawerStyle = {

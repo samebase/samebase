@@ -2,6 +2,26 @@ import { expect, type Page, test } from "@playwright/test";
 import { signInIfNeeded } from "./liveHelpers";
 
 const WORKSPACE_FILE_ROUTE = "/vault/noter-md/noter/main/README.md";
+const TOUCH_POINT_RADIUS_PX = 1;
+const TOUCH_POINT_FORCE = 1;
+const SIDEBAR_TOUCH_ID = 1;
+
+type TouchEventClient = {
+  send: (
+    method: "Input.dispatchTouchEvent",
+    params: {
+      type: "touchStart" | "touchMove" | "touchEnd";
+      touchPoints: Array<{
+        force: number;
+        id: number;
+        radiusX: number;
+        radiusY: number;
+        x: number;
+        y: number;
+      }>;
+    },
+  ) => Promise<unknown>;
+};
 
 async function goToWorkspace(page: Page) {
   await page.goto("/?dev", { waitUntil: "domcontentloaded" });
@@ -53,6 +73,40 @@ async function expectSidebarVisibility(page: Page, visible: boolean) {
     .toBe(visible ? "false" : "true");
 }
 
+async function createTouchEventClient(page: Page): Promise<TouchEventClient> {
+  return page.context().newCDPSession(page);
+}
+
+async function dispatchTouchEvent(
+  client: TouchEventClient,
+  {
+    type,
+    x,
+    y,
+  }: {
+    type: "touchStart" | "touchMove" | "touchEnd";
+    x?: number;
+    y?: number;
+  },
+) {
+  await client.send("Input.dispatchTouchEvent", {
+    type,
+    touchPoints:
+      type === "touchEnd" || x === undefined || y === undefined
+        ? []
+        : [
+            {
+              x,
+              y,
+              radiusX: TOUCH_POINT_RADIUS_PX,
+              radiusY: TOUCH_POINT_RADIUS_PX,
+              force: TOUCH_POINT_FORCE,
+              id: SIDEBAR_TOUCH_ID,
+            },
+          ],
+  });
+}
+
 test.describe("mobile workspace sidebar live flow", () => {
   test("tap opens and closes the workspace sidebar on mobile", async ({
     page,
@@ -83,7 +137,7 @@ test.describe("mobile workspace sidebar live flow", () => {
       .toBeLessThan(-250);
   });
 
-  test("edge drag reveals the workspace sidebar before release", async ({
+  test("page drag reveals the workspace sidebar before release", async ({
     page,
   }, testInfo) => {
     test.skip(
@@ -97,15 +151,26 @@ test.describe("mobile workspace sidebar live flow", () => {
       .poll(async () => getSidebarTranslateX(page))
       .toBeLessThan(-250);
 
-    await page.mouse.move(8, 220);
-    await page.mouse.down();
-    await page.mouse.move(180, 220, { steps: 8 });
+    const touchClient = await createTouchEventClient(page);
+
+    await dispatchTouchEvent(touchClient, {
+      type: "touchStart",
+      x: 36,
+      y: 220,
+    });
+    await dispatchTouchEvent(touchClient, {
+      type: "touchMove",
+      x: 180,
+      y: 220,
+    });
 
     await expect
       .poll(async () => getSidebarTranslateX(page))
       .toBeGreaterThan(-250);
 
-    await page.mouse.up();
+    await dispatchTouchEvent(touchClient, {
+      type: "touchEnd",
+    });
 
     await expectSidebarVisibility(page, true);
     await expect
