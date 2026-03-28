@@ -1,59 +1,9 @@
 # AGENTS.md
+if worktree then necessary to run
+```
+make anon-once
+```
 
-This file provides guidance to AI agents (Claude Code, Cursor, etc.) when
-working with this repository.
-
-## startup
-
-<!-- tell here that `make bootstrap-anon`  probably has run -->
-
-<!-- tell to run `make anon` so the worktree is setup, since it probably runs a worktree
-maybe add single command that runs either of these depending on current situation (includign daytona?)
--->
-
-## Project Structure
-
-noter is a Turborepo monorepo (PNPM + Node 24) with two apps:
-
-- **`apps/noter`**: React + Vite + Convex collaborative code editor with GitHub
-  integration
-- **`apps/noter-starter-template`**: canonical seeded starter snapshots used by
-  `vaultActions.createRepository`
-- Uses `@prosemark/core` from npm for markdown editing
-
-## Session Bootstrap (Read Order)
-
-When starting a fresh chat for implementation/debugging, read in this order:
-
-1. `AGENTS.md` (this file)
-2. `README.md` (product/dev overview)
-   <!-- dumb -->
-   <!-- 3. `apps/noter-starter-template/AGENTS.md` +
-      `apps/noter-starter-template/scripts/export-template-manifest.mjs` (starter
-      regeneration contract + manifest export) -->
-      <!-- research if it's actually necessary to read specs or just mention that they exist if needed (skill?) -->
-3. `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md` (vault infra lifecycle)
-4. `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md` (approval-first prod reads)
-5. `specs/001_CODESPACE_CONNECTION_SPEC.md` (codespace architecture)
-
-<!-- it has almost 1000 lines, do not read and the schema would've been one of the most important
-things -->
-
-7. `apps/noter/convex/schema.ts` (source of truth for data model)
-   <!-- and these are completely irrelefant -->
-   <!-- 8. `apps/noter/convex/vaultActions.ts` +
-      `apps/noter/convex/infraProvisioning.ts` (vault creation + infra
-      provisioning)
-8. `apps/noter/convex/chat/index.ts` + `apps/noter/convex/chat/actions.ts`
-   (chat + approval flows)
-9. `apps/noter/src/components/VaultDashboard.tsx` +
-   `apps/noter/src/components/ChatFab.tsx` (user-visible controls) -->
-
-Low-signal/historical docs (do not treat as source of truth):
-
-<!-- do we just need to delete these files? -->
-<!-- - `LUMINA_PROJECT_ANALYSIS.md`
-- `apps/noter/src/components/Untitled-1.md` -->
 
 ## Spec Organization
 
@@ -73,32 +23,6 @@ Low-signal/historical docs (do not treat as source of truth):
   reality or has been replaced by a newer source of truth.
 - During active branch churn, avoid bulk doc-folder migrations. Reclassify docs
   in small batches and update references/fixtures in the same change.
-
-## Development Commands
-
-<!-- idk, maybe just explain where it runs and about `make anon` so it doesn't do all this? -->
-
-```bash
-# From root
-pnpm install          # Install dependencies
-pnpm dev              # Start noter app development
-pnpm dev:starter      # Run starter template app explicitly
-pnpm build:starter    # Build starter template app explicitly
-pnpm lint:starter     # Lint starter template app explicitly
-
-# From apps/noter
-npm run dev           # Runs both frontend (Vite) and backend (Convex) in parallel
-npm run dev:frontend  # Vite dev server only
-npm run dev:backend   # Convex dev server only
-npm run build         # TypeScript compile + Vite build
-npm run lint          # TypeScript + ESLint check
-
-# Worktree bootstrap (required in git worktrees)
-make anon             # Full startup in worktrees (Convex + frontend with anon wiring)
-make anon-once        # One-shot bootstrap for lint/codegen/hook commands in worktrees
-make connect          # Poll labeled noter-origin PRs and launch local Codex research runs
-make connect-once     # Run one local noter-origin polling cycle
-```
 
 ### Local Environment Notes
 
