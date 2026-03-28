@@ -516,7 +516,7 @@ export function useMobileSidebarDrag({
   }
 
   React.useEffect(() => {
-    if (!enabled) {
+    if (!enabled || open) {
       return;
     }
 
@@ -526,10 +526,6 @@ export function useMobileSidebarDrag({
         : Math.min(MOBILE_SIDEBAR_DRAG_START_MAX_X_PX, drawerWidthPx / 2);
 
     const handleDocumentPointerDown = (event: PointerEvent) => {
-      if (open) {
-        return;
-      }
-
       const viewportBounds = getViewportBounds(
         viewportRef?.current,
         viewportWidthPx,
@@ -629,10 +625,6 @@ export function useMobileSidebarDrag({
     );
 
     const handleTouchStart = (event: TouchEvent) => {
-      if (open) {
-        return;
-      }
-
       if (sessionRef.current || event.touches.length !== 1) {
         return;
       }
