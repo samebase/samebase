@@ -35,42 +35,24 @@ async function goToWorkspace(page: Page) {
   });
 }
 
-async function getSidebarTranslateX(page: Page) {
-  return page
-    .locator('[data-sidebar="sidebar"][data-mobile="true"]')
-    .evaluate((element) => {
-      const transform = window.getComputedStyle(element).transform;
-      if (transform === "none") {
-        return 0;
-      }
-
-      const matrixMatch = transform.match(/^matrix\((.+)\)$/);
-      if (!matrixMatch) {
-        throw new Error(`Unsupported transform: ${transform}`);
-      }
-
-      const values = matrixMatch[1]?.split(",").map((value) => Number(value));
-      const translateX = values?.[4];
-      if (translateX === undefined || Number.isNaN(translateX)) {
-        throw new Error(`Missing translateX in transform: ${transform}`);
-      }
-
-      return translateX;
-    });
+async function goToDashboard(page: Page) {
+  await page.goto("/?dev", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(page);
+  await page.getByRole("button", { name: "Toggle Sidebar" }).waitFor({
+    state: "visible",
+    timeout: 30_000,
+  });
 }
 
-async function expectSidebarVisibility(page: Page, visible: boolean) {
-  await expect
-    .poll(
-      async () =>
-        page
-          .locator('[data-sidebar="sidebar"][data-mobile="true"]')
-          .getAttribute("aria-hidden"),
-      {
-        timeout: 10_000,
-      },
-    )
-    .toBe(visible ? "false" : "true");
+async function getToggleSidebarButtonLeft(page: Page) {
+  const box = await page
+    .getByRole("button", { name: "Toggle Sidebar" })
+    .boundingBox();
+  if (!box) {
+    throw new Error("Expected toggle sidebar button to have a bounding box.");
+  }
+
+  return box.x;
 }
 
 async function createTouchEventClient(page: Page): Promise<TouchEventClient> {
@@ -117,24 +99,21 @@ test.describe("mobile workspace sidebar live flow", () => {
     );
 
     await goToWorkspace(page);
-    await expectSidebarVisibility(page, false);
     await expect
-      .poll(async () => getSidebarTranslateX(page))
-      .toBeLessThan(-250);
+      .poll(async () => getToggleSidebarButtonLeft(page))
+      .toBeLessThan(20);
 
     await page.getByRole("button", { name: "Toggle Sidebar" }).tap();
 
-    await expectSidebarVisibility(page, true);
     await expect
-      .poll(async () => getSidebarTranslateX(page))
-      .toBeGreaterThan(-2);
+      .poll(async () => getToggleSidebarButtonLeft(page))
+      .toBeGreaterThan(120);
 
     await page.keyboard.press("Escape");
 
-    await expectSidebarVisibility(page, false);
     await expect
-      .poll(async () => getSidebarTranslateX(page))
-      .toBeLessThan(-250);
+      .poll(async () => getToggleSidebarButtonLeft(page))
+      .toBeLessThan(20);
   });
 
   test("page drag reveals the workspace sidebar before release", async ({
@@ -146,10 +125,9 @@ test.describe("mobile workspace sidebar live flow", () => {
     );
 
     await goToWorkspace(page);
-    await expectSidebarVisibility(page, false);
     await expect
-      .poll(async () => getSidebarTranslateX(page))
-      .toBeLessThan(-250);
+      .poll(async () => getToggleSidebarButtonLeft(page))
+      .toBeLessThan(20);
 
     const touchClient = await createTouchEventClient(page);
 
@@ -165,16 +143,44 @@ test.describe("mobile workspace sidebar live flow", () => {
     });
 
     await expect
-      .poll(async () => getSidebarTranslateX(page))
-      .toBeGreaterThan(-250);
+      .poll(async () => getToggleSidebarButtonLeft(page))
+      .toBeGreaterThan(40);
 
     await dispatchTouchEvent(touchClient, {
       type: "touchEnd",
     });
 
-    await expectSidebarVisibility(page, true);
     await expect
-      .poll(async () => getSidebarTranslateX(page))
-      .toBeGreaterThan(-2);
+      .poll(async () => getToggleSidebarButtonLeft(page))
+      .toBeGreaterThan(120);
+  });
+
+  test("dashboard page drag opens the sidebar from the page body", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "chromium-mobile",
+      "This live check targets the mobile Chromium project.",
+    );
+
+    await goToDashboard(page);
+
+    await expect
+      .poll(async () => getToggleSidebarButtonLeft(page))
+      .toBeLessThan(20);
+
+    await page.mouse.move(96, 220);
+    await page.mouse.down();
+    await page.mouse.move(180, 220, { steps: 8 });
+
+    await expect
+      .poll(async () => getToggleSidebarButtonLeft(page))
+      .toBeGreaterThan(40);
+
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => getToggleSidebarButtonLeft(page))
+      .toBeGreaterThan(120);
   });
 });

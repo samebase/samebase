@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
+import { MobileSidebarViewport } from "@/components/MobileSidebarViewport";
 import { Button } from "@/components/ui/button";
 import { Sidebar, SidebarContent, SidebarTrigger } from "@/components/sidebar";
 import { useSidebar } from "@/hooks/use-sidebar";
@@ -29,6 +30,12 @@ export function RepositoryWorkspaceFrame({
   const { isMobile, open } = useSidebar();
   const hasSidebarHeader =
     sidebarHeader !== undefined && sidebarHeader !== null;
+  const mobileSidebar = (
+    <Sidebar variant="sidebar" className="border-r border-border/50">
+      {hasSidebarHeader ? sidebarHeader : null}
+      <SidebarContent className="p-0">{sidebarContent}</SidebarContent>
+    </Sidebar>
+  );
   // Keep the desktop sidebar mounted while collapsed so file-tree scroll
   // position and any sidebar-local state survive toggle cycles.
   const desktopSidebarCellClassName = cn(
@@ -38,13 +45,8 @@ export function RepositoryWorkspaceFrame({
 
   if (isMobile) {
     return (
-      <div data-testid={dataTestId} className="flex h-full w-full">
-        <Sidebar variant="sidebar" className="border-r border-border/50">
-          {hasSidebarHeader ? sidebarHeader : null}
-          <SidebarContent className="p-0">{sidebarContent}</SidebarContent>
-        </Sidebar>
-
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
+      <MobileSidebarViewport dataTestId={dataTestId} sidebar={mobileSidebar}>
+        <div className="flex h-full min-h-0 min-w-0 flex-col bg-background">
           <div
             data-testid={headerTestId}
             className="flex items-center justify-between border-b border-border/50 p-3"
@@ -84,7 +86,7 @@ export function RepositoryWorkspaceFrame({
             {children}
           </div>
         </div>
-      </div>
+      </MobileSidebarViewport>
     );
   }
 

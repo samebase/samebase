@@ -1,4 +1,5 @@
 import { type CSSProperties, type ReactNode } from "react";
+import { MobileSidebarViewport } from "@/components/MobileSidebarViewport";
 import { Sidebar, SidebarContent } from "@/components/sidebar";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { cn } from "@/lib/utils";
@@ -25,22 +26,22 @@ export function DashboardWorkspaceLayout({
     sidebarHeader !== undefined && sidebarHeader !== null;
   const hasSidebarContent =
     sidebarContent !== undefined && sidebarContent !== null;
+  const mobileSidebar =
+    hasSidebarHeader || hasSidebarContent ? (
+      <Sidebar variant="sidebar" className="border-r border-border/50">
+        {hasSidebarHeader ? sidebarHeader : null}
+        {hasSidebarContent ? (
+          <SidebarContent className="gap-0 p-0">
+            {sidebarContent}
+          </SidebarContent>
+        ) : null}
+      </Sidebar>
+    ) : null;
 
   if (isMobile) {
     return (
-      <div data-testid={dataTestId} className="flex h-full w-full">
-        {hasSidebarHeader || hasSidebarContent ? (
-          <Sidebar variant="sidebar" className="border-r border-border/50">
-            {hasSidebarHeader ? sidebarHeader : null}
-            {hasSidebarContent ? (
-              <SidebarContent className="gap-0 p-0">
-                {sidebarContent}
-              </SidebarContent>
-            ) : null}
-          </Sidebar>
-        ) : null}
-
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
+      <MobileSidebarViewport dataTestId={dataTestId} sidebar={mobileSidebar}>
+        <div className="flex h-full min-h-0 min-w-0 flex-col bg-background">
           <div
             data-testid="dashboard-layout-header"
             className="border-b border-border/50"
@@ -55,7 +56,7 @@ export function DashboardWorkspaceLayout({
             {children}
           </div>
         </div>
-      </div>
+      </MobileSidebarViewport>
     );
   }
 

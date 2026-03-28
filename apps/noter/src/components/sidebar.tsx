@@ -6,7 +6,6 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { useMobileSidebarDrag } from "@/hooks/use-mobile-sidebar-drag";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { cn } from "@/lib/utils";
 
@@ -26,32 +25,13 @@ const Sidebar = React.forwardRef<
     ref,
   ) => {
     const { isMobile, openMobile, setOpenMobile } = useSidebar();
-    const usesMobileDrawer =
+    const usesMobileViewportSidebar =
       isMobile && side === "left" && collapsible !== "none";
     const drawerRef = React.useRef<HTMLDivElement | null>(null);
     const previousFocusedElementRef = React.useRef<HTMLElement | null>(null);
-    const {
-      closeHandleWidthPx,
-      drawerStyle,
-      edgeHandleWidthPx,
-      isDragging,
-      onCloseHandlePointerCancel,
-      onCloseHandlePointerDown,
-      onCloseHandlePointerMove,
-      onCloseHandlePointerUp,
-      onOpenHandlePointerCancel,
-      onOpenHandlePointerDown,
-      onOpenHandlePointerMove,
-      onOpenHandlePointerUp,
-      overlayOpacity,
-      revealProgress,
-    } = useMobileSidebarDrag({
-      open: openMobile,
-      onOpenChange: setOpenMobile,
-    });
 
     React.useEffect(() => {
-      if (!usesMobileDrawer) {
+      if (!usesMobileViewportSidebar) {
         return;
       }
       if (!openMobile) {
@@ -73,9 +53,9 @@ const Sidebar = React.forwardRef<
 
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [openMobile, setOpenMobile, usesMobileDrawer]);
+    }, [openMobile, setOpenMobile, usesMobileViewportSidebar]);
 
-    if (!usesMobileDrawer) {
+    if (!usesMobileViewportSidebar) {
       return (
         <BaseSidebar
           ref={ref}
@@ -90,74 +70,28 @@ const Sidebar = React.forwardRef<
       );
     }
 
-    const drawerIsVisible = revealProgress > 0;
-
     return (
-      <>
-        <div
-          aria-hidden="true"
-          className="fixed inset-0 z-40 bg-black/80 md:hidden"
-          onClick={() => setOpenMobile(false)}
-          style={{
-            opacity: overlayOpacity,
-            pointerEvents: openMobile ? "auto" : "none",
-            transition: isDragging ? "none" : "opacity 200ms ease",
-          }}
-        />
-        <div
-          ref={(node) => {
-            drawerRef.current = node;
-            if (typeof ref === "function") {
-              ref(node);
-            } else if (ref) {
-              ref.current = node;
-            }
-          }}
-          role="dialog"
-          tabIndex={-1}
-          data-mobile="true"
-          data-sidebar="sidebar"
-          aria-hidden={!openMobile}
-          aria-modal={openMobile}
-          className={cn(
-            "fixed inset-y-0 left-0 z-50 flex h-svh flex-col border-r border-border/50 bg-sidebar p-0 text-sidebar-foreground shadow-lg outline-none md:hidden",
-            className,
-          )}
-          style={{
-            ...drawerStyle,
-            pointerEvents: openMobile ? "auto" : "none",
-          }}
-          {...props}
-        >
-          <div
-            aria-hidden="true"
-            className="absolute inset-y-0 right-0 z-10"
-            onPointerCancel={onCloseHandlePointerCancel}
-            onPointerDown={onCloseHandlePointerDown}
-            onPointerMove={onCloseHandlePointerMove}
-            onPointerUp={onCloseHandlePointerUp}
-            style={{
-              touchAction: "pan-y",
-              width: `${closeHandleWidthPx}px`,
-            }}
-          />
-          <div className="flex h-full w-full flex-col">{children}</div>
-        </div>
-        <div
-          aria-hidden="true"
-          className="fixed inset-y-0 left-0 z-30 md:hidden"
-          onPointerCancel={onOpenHandlePointerCancel}
-          onPointerDown={onOpenHandlePointerDown}
-          onPointerMove={onOpenHandlePointerMove}
-          onPointerUp={onOpenHandlePointerUp}
-          style={{
-            opacity: drawerIsVisible ? 0 : 1,
-            pointerEvents: drawerIsVisible ? "none" : "auto",
-            touchAction: "pan-y",
-            width: `${edgeHandleWidthPx}px`,
-          }}
-        />
-      </>
+      <div
+        ref={(node) => {
+          drawerRef.current = node;
+          if (typeof ref === "function") {
+            ref(node);
+          } else if (ref) {
+            ref.current = node;
+          }
+        }}
+        tabIndex={-1}
+        data-mobile="true"
+        data-sidebar="sidebar"
+        aria-hidden={!openMobile}
+        className={cn(
+          "flex h-full w-full flex-col border-r border-border/50 bg-sidebar p-0 text-sidebar-foreground outline-none md:hidden",
+          className,
+        )}
+        {...props}
+      >
+        <div className="flex h-full min-w-0 flex-col">{children}</div>
+      </div>
     );
   },
 );
