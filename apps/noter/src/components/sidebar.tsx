@@ -3,11 +3,55 @@ import {
   Sidebar as BaseSidebar,
   SidebarContent,
   SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
+  SidebarProvider as BaseSidebarProvider,
 } from "@/components/ui/sidebar";
+import { ForcedMobileSidebarProvider } from "@/components/ForcedMobileSidebarProvider";
+import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { cn } from "@/lib/utils";
+import { PanelLeft } from "lucide-react";
+
+const SidebarProvider = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentProps<typeof BaseSidebarProvider> & {
+    forceMobile?: boolean;
+  }
+>(({ children, forceMobile, ...props }, ref) => {
+  return (
+    <ForcedMobileSidebarProvider forceMobile={forceMobile}>
+      <BaseSidebarProvider ref={ref} {...props}>
+        {children}
+      </BaseSidebarProvider>
+    </ForcedMobileSidebarProvider>
+  );
+});
+SidebarProvider.displayName = "SidebarProvider";
+
+const SidebarTrigger = React.forwardRef<
+  React.ElementRef<typeof Button>,
+  React.ComponentProps<typeof Button>
+>(({ className, onClick, ...props }, ref) => {
+  const { toggleSidebar } = useSidebar();
+
+  return (
+    <Button
+      ref={ref}
+      data-sidebar="trigger"
+      variant="ghost"
+      size="icon"
+      className={cn("h-7 w-7", className)}
+      onClick={(event) => {
+        onClick?.(event);
+        toggleSidebar();
+      }}
+      {...props}
+    >
+      <PanelLeft />
+      <span className="sr-only">Toggle Sidebar</span>
+    </Button>
+  );
+});
+SidebarTrigger.displayName = "SidebarTrigger";
 
 const Sidebar = React.forwardRef<
   React.ElementRef<typeof BaseSidebar>,
@@ -85,7 +129,7 @@ const Sidebar = React.forwardRef<
         data-sidebar="sidebar"
         aria-hidden={!openMobile}
         className={cn(
-          "flex h-full w-full flex-col border-r border-border/50 bg-sidebar p-0 text-sidebar-foreground outline-none md:hidden",
+          "flex h-full w-full flex-col border-r border-border/50 bg-sidebar p-0 text-sidebar-foreground outline-none",
           className,
         )}
         {...props}

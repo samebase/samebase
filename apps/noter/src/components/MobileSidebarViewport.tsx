@@ -39,7 +39,7 @@ export function MobileSidebarViewport({
 
   if (!hasSidebar) {
     return (
-      <div data-testid={dataTestId} className="flex h-full w-full md:hidden">
+      <div data-testid={dataTestId} className="flex h-full w-full">
         {children}
       </div>
     );
@@ -65,7 +65,7 @@ export function MobileSidebarViewport({
   return (
     <div
       data-testid={dataTestId}
-      className="relative h-full w-full overflow-hidden md:hidden"
+      className="relative h-full w-full overflow-hidden"
     >
       <div
         data-sidebar="mobile-viewport-track"

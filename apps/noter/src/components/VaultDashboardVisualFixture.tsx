@@ -468,6 +468,7 @@ export function VaultDashboardVisualFixture({
       <div className="min-h-screen bg-stone-100 p-0 text-stone-950">
         <SidebarProvider
           defaultOpen={false}
+          forceMobile={true}
           className="mx-auto h-[932px] min-h-0 w-full max-w-[430px] bg-background text-foreground"
         >
           <DashboardWorkspaceLayout
@@ -577,6 +578,7 @@ export function VaultDashboardVisualFixture({
       <div className="min-h-screen bg-stone-100 p-0 text-stone-950">
         <SidebarProvider
           defaultOpen={false}
+          forceMobile={true}
           className="mx-auto h-[932px] min-h-0 w-full max-w-[430px] bg-background text-foreground"
         >
           <VaultDashboardWorkspaceScene {...mobileShellViewModel} />
@@ -590,6 +592,7 @@ export function VaultDashboardVisualFixture({
       <div className="min-h-screen bg-stone-100 p-0 text-stone-950">
         <SidebarProvider
           defaultOpen={false}
+          forceMobile={true}
           className="mx-auto h-[932px] min-h-0 w-full max-w-[430px] bg-background text-foreground"
         >
           <OpenMobileSidebarOnMount />
