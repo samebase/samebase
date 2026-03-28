@@ -916,6 +916,9 @@ function VaultDashboardContent() {
   >(null);
   const providersPanelPendingRef = useRef<boolean | null>(null);
   const cloudflareAutoCheckInFlightRef = useRef(false);
+  const initialCloudflareMcpTokenCheckedAtRef = useRef<
+    number | undefined | null
+  >(null);
 
   useEffect(() => {
     if (dashboardProvidersPanelOpen === undefined) {
@@ -931,6 +934,24 @@ function VaultDashboardContent() {
     }
     setProvidersPanelOpenState(serverValue);
   }, [dashboardProvidersPanelOpen]);
+
+  useEffect(() => {
+    const isCloudflareMcpConnected =
+      cloudflareConnection?.connected === true &&
+      cloudflareConnection.authMethod === "mcp_oauth";
+    if (!isCloudflareMcpConnected) {
+      initialCloudflareMcpTokenCheckedAtRef.current = null;
+      return;
+    }
+    if (initialCloudflareMcpTokenCheckedAtRef.current === null) {
+      initialCloudflareMcpTokenCheckedAtRef.current =
+        cloudflareConnection.mcpTokenCheckedAt;
+    }
+  }, [
+    cloudflareConnection?.authMethod,
+    cloudflareConnection?.connected,
+    cloudflareConnection?.mcpTokenCheckedAt,
+  ]);
 
   useEffect(() => {
     const expectedOrigin = window.location.origin;
@@ -1406,8 +1427,19 @@ function VaultDashboardContent() {
     typeof cloudflareMcpTokenExpiresAt === "number"
       ? cloudflareMcpTokenExpiresAt - CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS
       : undefined;
+  // Keep the create warning quiet until this page load has observed a fresh
+  // token-health check, so a stale invalid status does not flash on startup.
+  const isAwaitingInitialCloudflareTokenCheck =
+    cloudflareConnection?.connected === true &&
+    cloudflareConnection.authMethod === "mcp_oauth" &&
+    initialCloudflareMcpTokenCheckedAtRef.current !== null &&
+    cloudflareMcpTokenCheckedAt ===
+      initialCloudflareMcpTokenCheckedAtRef.current;
   const showCloudflareCreateWarning =
     cloudflareConnected &&
+    !isAwaitingInitialCloudflareTokenCheck &&
+    !isCheckingCloudflareToken &&
+    !isAutoCheckingCloudflareToken &&
     (cloudflareMcpTokenStatus === "invalid" ||
       cloudflareMcpTokenStatus === "expired");
   const canCreateRepo = Boolean(
@@ -1613,8 +1645,8 @@ function VaultDashboardContent() {
     });
   };
 
-  const connectionPanel = (
-    <div className="corner-notch-1 border border-border bg-background p-4">
+  const providersSidebarSection = (
+    <div className="border-b border-border/50 p-3">
       <Collapsible
         className="space-y-3"
         open={resolvedProvidersPanelOpen}
@@ -1640,9 +1672,9 @@ function VaultDashboardContent() {
               return (
                 <div
                   key={provider}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3"
+                  className="flex flex-wrap items-start gap-3"
                 >
-                  <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-3">
                     <div className="flex h-5 w-11 shrink-0 items-center justify-center">
                       <Icon className="max-h-full max-w-full" />
                     </div>
@@ -1657,11 +1689,12 @@ function VaultDashboardContent() {
                   </div>
                   {providerState.connected ? (
                     providerState.showTokenCheck ? (
-                      <div className="flex shrink-0 flex-wrap justify-end gap-2 self-start">
+                      <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => void handleCheckCloudflareToken()}
+                          className="h-auto max-w-full whitespace-normal py-2 text-left"
                           disabled={
                             disconnectingProvider !== null ||
                             isCheckingCloudflareToken ||
@@ -1681,6 +1714,7 @@ function VaultDashboardContent() {
                           variant="outline"
                           size="sm"
                           onClick={() => void handleDisconnect(provider)}
+                          className="h-auto max-w-full whitespace-normal py-2 text-left"
                           disabled={
                             disconnectingProvider !== null ||
                             isCheckingCloudflareToken ||
@@ -1698,11 +1732,12 @@ function VaultDashboardContent() {
                         </Button>
                       </div>
                     ) : (
-                      <div className="flex shrink-0 justify-end self-start">
+                      <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => void handleDisconnect(provider)}
+                          className="h-auto max-w-full whitespace-normal py-2 text-left"
                           disabled={disconnectingProvider !== null}
                         >
                           {disconnectingProvider === provider ? (
@@ -1717,11 +1752,12 @@ function VaultDashboardContent() {
                       </div>
                     )
                   ) : (
-                    <div className="flex shrink-0 flex-wrap justify-end gap-2 self-start">
+                    <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => void handleConnect(provider)}
+                        className="h-auto max-w-full whitespace-normal py-2 text-left"
                         disabled={disconnectingProvider !== null}
                       >
                         {providerMetadata.oauthButtonLabel}
@@ -1731,6 +1767,7 @@ function VaultDashboardContent() {
                           variant="outline"
                           size="sm"
                           onClick={() => openApiKeyDialog(apiKeyProvider)}
+                          className="h-auto max-w-full whitespace-normal py-2 text-left"
                           disabled={disconnectingProvider !== null}
                         >
                           Use API key
@@ -1852,7 +1889,11 @@ function VaultDashboardContent() {
     </SidebarAccountSection>
   ) : null;
 
-  const sidebarContent = <div className="flex-1" />;
+  const sidebarContent = (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {providersSidebarSection}
+    </div>
+  );
 
   const dashboardScrollStyle: CSSProperties | undefined =
     mobileEditorChatDockInset
@@ -1897,16 +1938,12 @@ function VaultDashboardContent() {
             </p>
           </div>
 
-          <div className="space-y-4">
-            {connectionPanel}
-            <div className="flex justify-center">{createControl}</div>
-          </div>
+          <div className="flex justify-center">{createControl}</div>
         </div>
       </div>
     ) : (
       <div className="container py-6">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>{connectionPanel}</div>
+        <div className="mb-6 flex justify-start lg:justify-end">
           <div className="w-full lg:w-auto">{createControl}</div>
         </div>
         <div className="space-y-2">

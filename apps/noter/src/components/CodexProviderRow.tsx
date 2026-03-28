@@ -326,8 +326,8 @@ export function CodexProviderRow() {
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-        <div className="flex min-w-0 items-start gap-3">
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-3">
           <div className="flex h-5 w-11 shrink-0 items-center justify-center">
             <CodexProviderLogo className="max-h-full max-w-full" />
           </div>
@@ -338,7 +338,7 @@ export function CodexProviderRow() {
             </div>
           </div>
         </div>
-        <div className="flex w-full shrink-0 flex-col gap-2 self-start sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
+        <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
           {isReady ? (
             <>
               <Button
@@ -351,7 +351,7 @@ export function CodexProviderRow() {
                   isDisconnecting ||
                   isClosingTerminal
                 }
-                className="w-full sm:w-auto"
+                className="h-auto max-w-full whitespace-normal py-2 text-left"
               >
                 {isPreparing ? (
                   <>
@@ -372,7 +372,7 @@ export function CodexProviderRow() {
                   isDisconnecting ||
                   isClosingTerminal
                 }
-                className="w-full sm:w-auto"
+                className="h-auto max-w-full whitespace-normal py-2 text-left"
               >
                 {isVerifying ? (
                   <>
@@ -393,7 +393,7 @@ export function CodexProviderRow() {
                   isDisconnecting ||
                   isClosingTerminal
                 }
-                className="w-full sm:w-auto"
+                className="h-auto max-w-full whitespace-normal py-2 text-left"
               >
                 {isDisconnecting ? (
                   <>
@@ -417,7 +417,7 @@ export function CodexProviderRow() {
                   isDisconnecting ||
                   isClosingTerminal
                 }
-                className="w-full sm:w-auto"
+                className="h-auto max-w-full whitespace-normal py-2 text-left"
               >
                 {isPreparing ? (
                   <>
@@ -440,7 +440,7 @@ export function CodexProviderRow() {
                       isDisconnecting ||
                       isClosingTerminal
                     }
-                    className="w-full sm:w-auto"
+                    className="h-auto max-w-full whitespace-normal py-2 text-left"
                   >
                     {isVerifying ? (
                       <>
@@ -461,7 +461,7 @@ export function CodexProviderRow() {
                       isDisconnecting ||
                       isClosingTerminal
                     }
-                    className="w-full sm:w-auto"
+                    className="h-auto max-w-full whitespace-normal py-2 text-left"
                   >
                     {isDisconnecting ? (
                       <>

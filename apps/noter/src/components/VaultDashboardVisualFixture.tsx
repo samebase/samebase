@@ -13,6 +13,7 @@ import { Plus, X } from "lucide-react";
 
 export type VaultDashboardVisualMode =
   | "dashboard-layout-minimal"
+  | "dashboard-provider-sidebar-wrap"
   | "dashboard-shared-sidebar"
   | "dashboard-shared-sidebar-mobile-chat"
   | "vault-branch-filters"
@@ -26,6 +27,89 @@ function FixtureResizeGrip() {
   return (
     <div className="flex h-4 w-full items-center justify-center corner-notch-1 text-foreground/80">
       <ResizeGripLines />
+    </div>
+  );
+}
+
+function FixtureCloudflareProviderLogo({ className }: { className?: string }) {
+  return (
+    <span className={cn("inline-flex items-center justify-center", className)}>
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 64 32"
+        className="h-4 w-auto"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          fill="#FAAE40"
+          d="M14.2 25.3a4.8 4.8 0 0 1 4.8-4.8c.4 0 .8 0 1.2.1a7.4 7.4 0 0 1 7.1-5.4c3 0 5.8 1.8 7 4.5.4-.1.9-.2 1.4-.2 2.2 0 4.1 1.6 4.5 3.8H14.2Z"
+        />
+        <path
+          fill="#F38020"
+          d="M9.2 25.3a7 7 0 0 1 7-7c.6 0 1.3.1 1.9.2A11.6 11.6 0 0 1 29.2 9c5.2 0 9.8 3.2 11.7 8a7.5 7.5 0 0 1 1.3-.1c3.8 0 7 2.9 7.4 6.6l.1 1.8H9.2v-.1Z"
+        />
+        <path
+          fill="#F38020"
+          d="M43.5 22.7a5.3 5.3 0 0 1 5.2-4.6c2.8 0 5.1 2.1 5.4 4.8l.2 2.4h-10l-.8-2.6Z"
+        />
+      </svg>
+    </span>
+  );
+}
+
+function FixtureProvidersSidebarContent() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="border-b border-border/50 p-3">
+        <div className="text-sm font-medium">Providers</div>
+        <div className="mt-3 space-y-3">
+          <div className="flex flex-wrap items-start gap-3">
+            <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-3">
+              <div className="flex h-5 w-11 shrink-0 items-center justify-center">
+                <GitHubLogoIcon className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 text-left">
+                <div className="text-sm font-medium">GitHub</div>
+                <div className="break-words text-xs leading-5 text-muted-foreground">
+                  Connected as GitHub user (API key)
+                </div>
+              </div>
+            </div>
+            <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-auto max-w-full whitespace-normal py-2 text-left"
+              >
+                Disconnect
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-start gap-3">
+            <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-3">
+              <div className="flex h-5 w-11 shrink-0 items-center justify-center">
+                <FixtureCloudflareProviderLogo className="max-h-full max-w-full" />
+              </div>
+              <div className="min-w-0 text-left">
+                <div className="text-sm font-medium">Cloudflare</div>
+                <div className="break-words text-xs leading-5 text-muted-foreground">
+                  Not connected
+                </div>
+              </div>
+            </div>
+            <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-auto max-w-full whitespace-normal py-2 text-left"
+              >
+                Cloudflare MCP OAuth
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -71,6 +155,33 @@ export function VaultDashboardVisualFixture({
     );
   }
 
+  if (mode === "dashboard-provider-sidebar-wrap") {
+    return (
+      <div
+        data-testid="vault-dashboard-visual-fixture"
+        data-mode={mode}
+        className="flex w-full justify-center bg-stone-100 p-4 text-foreground"
+      >
+        <div className="w-[272px] overflow-hidden border border-border bg-background">
+          <SidebarAccountSection dataTestId="dashboard-layout-account-section">
+            <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
+              <span className="block min-w-0 truncate">nicu@noter.md</span>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="h-8 w-8 rounded-ui"
+              >
+                <PersonIcon className="h-4 w-4" />
+                <span className="sr-only">Open user menu</span>
+              </Button>
+            </div>
+          </SidebarAccountSection>
+          <FixtureProvidersSidebarContent />
+        </div>
+      </div>
+    );
+  }
+
   if (mode === "dashboard-shared-sidebar") {
     const sidebarHeader = (
       <SidebarAccountSection dataTestId="dashboard-layout-account-section">
@@ -87,7 +198,7 @@ export function VaultDashboardVisualFixture({
         </div>
       </SidebarAccountSection>
     );
-    const sidebarContent = <div className="flex-1" />;
+    const sidebarContent = <FixtureProvidersSidebarContent />;
     const headerContent = (
       <div className="flex items-center gap-3 p-3">
         <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
@@ -111,13 +222,7 @@ export function VaultDashboardVisualFixture({
           bodyClassName="min-h-0 overflow-y-auto p-0"
         >
           <div className="container py-6">
-            <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="corner-notch-1 border border-border bg-background p-4 lg:flex-1">
-                <div className="text-sm font-medium">Providers</div>
-                <div className="mt-3 text-xs text-muted-foreground">
-                  GitHub, Convex, and Cloudflare are connected.
-                </div>
-              </div>
+            <div className="mb-6 flex justify-start lg:justify-end">
               <div className="w-full max-w-[480px] corner-notch-1 border border-border bg-background px-3 py-2 text-sm font-medium lg:w-auto">
                 Create control
               </div>
@@ -329,7 +434,7 @@ export function VaultDashboardVisualFixture({
         </div>
       </SidebarAccountSection>
     );
-    const sidebarContent = <div className="flex-1" />;
+    const sidebarContent = <FixtureProvidersSidebarContent />;
     const headerContent = (
       <div className="px-4 py-4">
         <div className="mb-4">
@@ -338,13 +443,6 @@ export function VaultDashboardVisualFixture({
         <div className="mb-4 corner-notch-1 border border-border bg-background p-4">
           <div className="text-sm text-muted-foreground">Vaults</div>
           <div className="mt-1 text-xl font-semibold">Your Vaults</div>
-        </div>
-
-        <div className="corner-notch-1 border border-border bg-background p-4">
-          <div className="text-sm font-medium">Providers</div>
-          <div className="mt-2 text-xs text-muted-foreground">
-            GitHub, Convex, and Cloudflare are connected.
-          </div>
         </div>
       </div>
     );
