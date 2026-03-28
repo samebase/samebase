@@ -33,6 +33,29 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
+type TouchLike = {
+  clientX: number;
+  clientY: number;
+  identifier: number;
+};
+
+function findTouchById(
+  touchList: {
+    item: (index: number) => TouchLike | null;
+    length: number;
+  },
+  identifier: number,
+) {
+  for (let index = 0; index < touchList.length; index += 1) {
+    const touch = touchList.item(index);
+    if (touch && touch.identifier === identifier) {
+      return touch;
+    }
+  }
+
+  return null;
+}
+
 function getViewportWidthPx(viewportElement: HTMLElement | null | undefined) {
   if (viewportElement) {
     return Math.max(
@@ -355,6 +378,31 @@ export function useMobileSidebarDrag({
     });
   }
 
+  function beginTouchDrag(
+    event: React.TouchEvent<HTMLDivElement>,
+    startRevealPx: number,
+    {
+      tapCloses = false,
+    }: {
+      tapCloses?: boolean;
+    } = {},
+  ) {
+    if (sessionRef.current || event.touches.length !== 1) {
+      return;
+    }
+
+    const touch = event.touches[0];
+    beginDragSession({
+      input: "touch",
+      sessionId: touch.identifier,
+      startRevealPx,
+      captureTarget: event.currentTarget,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      tapCloses,
+    });
+  }
+
   function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
     const session = sessionRef.current;
     if (
@@ -380,6 +428,32 @@ export function useMobileSidebarDrag({
     );
   }
 
+  function handleTouchMove(event: React.TouchEvent<HTMLDivElement>) {
+    const session = sessionRef.current;
+    if (!session || session.input !== "touch") {
+      return;
+    }
+
+    const touch = findTouchById(event.touches, session.sessionId);
+    if (!touch) {
+      return;
+    }
+
+    updateDrag(
+      {
+        currentX: touch.clientX,
+        currentY: touch.clientY,
+        target: event.currentTarget,
+        pointerId: null,
+      },
+      () => {
+        if (event.cancelable) {
+          event.preventDefault();
+        }
+      },
+    );
+  }
+
   function handlePointerUp(event: React.PointerEvent<HTMLDivElement>) {
     const session = sessionRef.current;
     if (
@@ -391,6 +465,20 @@ export function useMobileSidebarDrag({
     }
 
     completeDrag(event.currentTarget, event.pointerId);
+  }
+
+  function handleTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
+    const session = sessionRef.current;
+    if (!session || session.input !== "touch") {
+      return;
+    }
+
+    const touch = findTouchById(event.changedTouches, session.sessionId);
+    if (!touch) {
+      return;
+    }
+
+    completeDrag(event.currentTarget, null);
   }
 
   function handlePointerCancel(event: React.PointerEvent<HTMLDivElement>) {
@@ -409,6 +497,22 @@ export function useMobileSidebarDrag({
       open ? drawerWidthPx : 0,
       { closePendingTap: false },
     );
+  }
+
+  function handleTouchCancel(event: React.TouchEvent<HTMLDivElement>) {
+    const session = sessionRef.current;
+    if (!session || session.input !== "touch") {
+      return;
+    }
+
+    const touch = findTouchById(event.changedTouches, session.sessionId);
+    if (!touch) {
+      return;
+    }
+
+    completeDrag(event.currentTarget, null, open ? drawerWidthPx : 0, {
+      closePendingTap: false,
+    });
   }
 
   React.useEffect(() => {
@@ -524,21 +628,6 @@ export function useMobileSidebarDrag({
       true,
     );
 
-    const findTrackedTouch = (touchList: TouchList) => {
-      const session = sessionRef.current;
-      if (!session || session.input !== "touch") {
-        return null;
-      }
-
-      for (const touch of Array.from(touchList)) {
-        if (touch.identifier === session.sessionId) {
-          return touch;
-        }
-      }
-
-      return null;
-    };
-
     const handleTouchStart = (event: TouchEvent) => {
       if (open) {
         return;
@@ -575,7 +664,12 @@ export function useMobileSidebarDrag({
     };
 
     const handleTouchMove = (event: TouchEvent) => {
-      const touch = findTrackedTouch(event.touches);
+      const session = sessionRef.current;
+      if (!session || session.input !== "touch") {
+        return;
+      }
+
+      const touch = findTouchById(event.touches, session.sessionId);
       if (!touch) {
         return;
       }
@@ -609,7 +703,7 @@ export function useMobileSidebarDrag({
         return;
       }
 
-      const touch = findTrackedTouch(event.changedTouches);
+      const touch = findTouchById(event.changedTouches, session.sessionId);
       if (!touch) {
         return;
       }
@@ -631,7 +725,7 @@ export function useMobileSidebarDrag({
         return;
       }
 
-      const touch = findTrackedTouch(event.changedTouches);
+      const touch = findTouchById(event.changedTouches, session.sessionId);
       if (!touch) {
         return;
       }
@@ -710,11 +804,23 @@ export function useMobileSidebarDrag({
       beginDrag(event, drawerWidthPx, { tapCloses: true });
     },
     onDismissSurfacePointerMove: handlePointerMove,
+    onDismissSurfaceTouchCancel: handleTouchCancel,
+    onDismissSurfaceTouchEnd: handleTouchEnd,
+    onDismissSurfaceTouchMove: handleTouchMove,
+    onDismissSurfaceTouchStart: (event: React.TouchEvent<HTMLDivElement>) => {
+      consumeNextDismissSurfaceClickRef.current = false;
+      beginTouchDrag(event, drawerWidthPx, { tapCloses: true });
+    },
     onDismissSurfacePointerUp: handlePointerUp,
     onCloseHandlePointerCancel: handlePointerCancel,
     onCloseHandlePointerDown: (event: React.PointerEvent<HTMLDivElement>) =>
       beginDrag(event, drawerWidthPx),
     onCloseHandlePointerMove: handlePointerMove,
+    onCloseHandleTouchCancel: handleTouchCancel,
+    onCloseHandleTouchEnd: handleTouchEnd,
+    onCloseHandleTouchMove: handleTouchMove,
+    onCloseHandleTouchStart: (event: React.TouchEvent<HTMLDivElement>) =>
+      beginTouchDrag(event, drawerWidthPx),
     onCloseHandlePointerUp: handlePointerUp,
     revealProgress,
     trackStyle,

@@ -29,10 +29,18 @@ export function MobileSidebarViewport({
     onDismissSurfacePointerDown,
     onDismissSurfacePointerMove,
     onDismissSurfacePointerUp,
+    onDismissSurfaceTouchCancel,
+    onDismissSurfaceTouchEnd,
+    onDismissSurfaceTouchMove,
+    onDismissSurfaceTouchStart,
     onCloseHandlePointerCancel,
     onCloseHandlePointerDown,
     onCloseHandlePointerMove,
     onCloseHandlePointerUp,
+    onCloseHandleTouchCancel,
+    onCloseHandleTouchEnd,
+    onCloseHandleTouchMove,
+    onCloseHandleTouchStart,
     revealProgress,
     trackStyle,
   } = useMobileSidebarDrag({
@@ -99,6 +107,10 @@ export function MobileSidebarViewport({
             onPointerDown={onCloseHandlePointerDown}
             onPointerMove={onCloseHandlePointerMove}
             onPointerUp={onCloseHandlePointerUp}
+            onTouchCancel={onCloseHandleTouchCancel}
+            onTouchEnd={onCloseHandleTouchEnd}
+            onTouchMove={onCloseHandleTouchMove}
+            onTouchStart={onCloseHandleTouchStart}
             style={{
               touchAction: "pan-y",
               width: `${closeHandleWidthPx}px`,
@@ -115,6 +127,10 @@ export function MobileSidebarViewport({
           onPointerDown={openMobile ? onDismissSurfacePointerDown : undefined}
           onPointerMove={openMobile ? onDismissSurfacePointerMove : undefined}
           onPointerUp={openMobile ? onDismissSurfacePointerUp : undefined}
+          onTouchCancel={openMobile ? onDismissSurfaceTouchCancel : undefined}
+          onTouchEnd={openMobile ? onDismissSurfaceTouchEnd : undefined}
+          onTouchMove={openMobile ? onDismissSurfaceTouchMove : undefined}
+          onTouchStart={openMobile ? onDismissSurfaceTouchStart : undefined}
           style={dismissibleMainStyle}
         >
           {children}
