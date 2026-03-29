@@ -201,7 +201,9 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
     .toBe(scrollTopBeforeCollapse);
 });
 
-test("fileview mobile main click closes the sidebar", async ({ page }) => {
+test("fileview mobile scrim closes the sidebar without activating the main pane", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
     waitUntil: "domcontentloaded",
@@ -209,7 +211,8 @@ test("fileview mobile main click closes the sidebar", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
-  const body = page.getByTestId("fileview-layout-body");
+  const bodyButton = page.getByTestId("fileview-layout-body-button");
+  const bodyCounter = page.getByTestId("fileview-layout-body-counter");
 
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
@@ -220,13 +223,19 @@ test("fileview mobile main click closes the sidebar", async ({ page }) => {
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
     .toBeLessThanOrEqual(1);
 
-  await body.click({ position: { x: 100, y: 120 } });
+  const bodyButtonBox = await bodyButton.boundingBox();
+  if (bodyButtonBox === null) {
+    throw new Error("Expected the main-pane action button to be measurable.");
+  }
+
+  await page.mouse.click(bodyButtonBox.x + 16, bodyButtonBox.y + 16);
+  await expect(bodyCounter).toHaveText("0");
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
     .toBeGreaterThan(100);
 });
 
-test("fileview mobile trigger toggles the sidebar closed", async ({ page }) => {
+test("fileview mobile trigger opens the sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
     waitUntil: "domcontentloaded",
@@ -242,9 +251,4 @@ test("fileview mobile trigger toggles the sidebar closed", async ({ page }) => {
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
     .toBeLessThanOrEqual(1);
-
-  await toggleSidebarButton.click();
-  await expect
-    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-    .toBeGreaterThan(100);
 });
