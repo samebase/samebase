@@ -134,6 +134,53 @@ function getMobileMainScrimProgress(
 }
 
 /**
+ * Measure one mobile sidebar lane so the shared carousel can snap to concrete
+ * pane widths even when the rendered sidebar content changes size.
+ */
+function useSidebarWidth(
+  isMobile: boolean,
+  hasSidebar: boolean,
+  measureRef: React.RefObject<HTMLDivElement | null>,
+) {
+  const [widthPx, setWidthPx] = React.useState(0);
+
+  React.useLayoutEffect(() => {
+    if (!isMobile || !hasSidebar) {
+      setWidthPx(0);
+      return;
+    }
+
+    const measuredNode = measureRef.current;
+    if (!measuredNode) {
+      return;
+    }
+
+    const updateSidebarWidth = () => {
+      setWidthPx(
+        Math.max(0, Math.round(measuredNode.getBoundingClientRect().width)),
+      );
+    };
+
+    updateSidebarWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateSidebarWidth);
+      return () => window.removeEventListener("resize", updateSidebarWidth);
+    }
+
+    const resizeObserver = new ResizeObserver(updateSidebarWidth);
+    resizeObserver.observe(measuredNode);
+    window.addEventListener("resize", updateSidebarWidth);
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateSidebarWidth);
+    };
+  }, [hasSidebar, isMobile, measureRef]);
+
+  return widthPx;
+}
+
+/**
  * Renders one shared workspace shell for desktop and mobile. Desktop reserves
  * up to three columns, while mobile treats the same structure as a horizontal
  * carousel with left, main, and right panes.
@@ -178,78 +225,20 @@ export function WorkspaceSidebarShell({
   const mobileRightSidebarMeasureRef = React.useRef<HTMLDivElement | null>(
     null,
   );
-  const [leftSidebarWidthPx, setLeftSidebarWidthPx] = React.useState(0);
-  const [rightSidebarWidthPx, setRightSidebarWidthPx] = React.useState(0);
+  const leftSidebarWidthPx = useSidebarWidth(
+    isMobile,
+    hasLeftSidebar,
+    mobileLeftSidebarMeasureRef,
+  );
+  const rightSidebarWidthPx = useSidebarWidth(
+    isMobile,
+    hasRightSidebar,
+    mobileRightSidebarMeasureRef,
+  );
   const [mobileMainScrimProgress, setMobileMainScrimProgress] =
     React.useState(0);
   const hasInitializedMobileScrollRef = React.useRef(false);
   const skipNextMobileScrollSyncRef = React.useRef(false);
-
-  React.useLayoutEffect(() => {
-    if (!isMobile || !hasLeftSidebar) {
-      setLeftSidebarWidthPx(0);
-      return;
-    }
-
-    const measuredNode = mobileLeftSidebarMeasureRef.current;
-    if (!measuredNode) {
-      return;
-    }
-
-    const updateSidebarWidth = () => {
-      setLeftSidebarWidthPx(
-        Math.max(0, Math.round(measuredNode.getBoundingClientRect().width)),
-      );
-    };
-
-    updateSidebarWidth();
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", updateSidebarWidth);
-      return () => window.removeEventListener("resize", updateSidebarWidth);
-    }
-
-    const resizeObserver = new ResizeObserver(updateSidebarWidth);
-    resizeObserver.observe(measuredNode);
-    window.addEventListener("resize", updateSidebarWidth);
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", updateSidebarWidth);
-    };
-  }, [hasLeftSidebar, isMobile]);
-
-  React.useLayoutEffect(() => {
-    if (!isMobile || !hasRightSidebar) {
-      setRightSidebarWidthPx(0);
-      return;
-    }
-
-    const measuredNode = mobileRightSidebarMeasureRef.current;
-    if (!measuredNode) {
-      return;
-    }
-
-    const updateSidebarWidth = () => {
-      setRightSidebarWidthPx(
-        Math.max(0, Math.round(measuredNode.getBoundingClientRect().width)),
-      );
-    };
-
-    updateSidebarWidth();
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", updateSidebarWidth);
-      return () => window.removeEventListener("resize", updateSidebarWidth);
-    }
-
-    const resizeObserver = new ResizeObserver(updateSidebarWidth);
-    resizeObserver.observe(measuredNode);
-    window.addEventListener("resize", updateSidebarWidth);
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", updateSidebarWidth);
-    };
-  }, [hasRightSidebar, isMobile]);
 
   const isMobileLayoutMeasured =
     !isMobile ||
