@@ -116,6 +116,9 @@ export function getSettledMobilePane(
   const mainPaneScrollLeft = leftSidebarWidthPx;
   const oppositeSidebarWidthPx =
     currentPane === "left" ? rightSidebarWidthPx : leftSidebarWidthPx;
+  if (!Number.isFinite(oppositeSidebarWidthPx) || oppositeSidebarWidthPx <= 0) {
+    return "main";
+  }
   const distanceIntoOppositeSidebarPx =
     currentPane === "left"
       ? scrollLeft - mainPaneScrollLeft

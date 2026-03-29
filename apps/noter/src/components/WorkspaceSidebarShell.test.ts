@@ -21,6 +21,12 @@ describe("getSettledMobilePane", () => {
     );
   });
 
+  it("fails closed when the opposite sidebar width is invalid", () => {
+    expect(getSettledMobilePane("left", 450, true, 280, true, 0, 1.5)).toBe(
+      "main",
+    );
+  });
+
   it("keeps the behavior symmetric from the right sidebar", () => {
     expect(getSettledMobilePane("right", 130, true, 280, true, 280, 0.7)).toBe(
       "main",
