@@ -127,12 +127,14 @@ export function RepositoryMediaVisualFixture({
   return (
     <SidebarProvider
       defaultOpen={true}
+      defaultRightOpen={true}
       className="h-screen min-h-0 bg-background text-foreground"
     >
       <RepositoryWorkspaceFrame
         dataTestId="repository-media-visual-fixture"
-        sidebarHeader={sidebarHeader}
-        sidebarContent={sidebarContent}
+        leftSidebarHeader={sidebarHeader}
+        leftSidebarContent={sidebarContent}
+        rightSidebarContent={<div className="min-h-0 flex-1 bg-background" />}
         headerTitle={
           fixture.selectedFile.split("/").slice(0, -1).join("/") || "/"
         }

@@ -135,15 +135,22 @@ export function VaultDashboardVisualFixture({
     return (
       <SidebarProvider
         defaultOpen={true}
+        defaultRightOpen={true}
         className="h-[240px] min-h-0 bg-background text-foreground"
       >
         <DashboardWorkspaceLayout
           dataTestId="vault-dashboard-visual-fixture"
-          sidebarHeader={sidebarHeader}
-          sidebarContent={
+          leftSidebarHeader={sidebarHeader}
+          leftSidebarContent={
             <div
               data-testid="dashboard-layout-sidebar-body"
               className="h-full min-h-0 bg-muted/10"
+            />
+          }
+          rightSidebarContent={
+            <div
+              data-testid="dashboard-layout-right-sidebar-body"
+              className="h-full min-h-0 bg-background"
             />
           }
           headerContent={<div className="p-3 text-sm font-medium">Header</div>}
@@ -212,12 +219,14 @@ export function VaultDashboardVisualFixture({
     return (
       <SidebarProvider
         defaultOpen={true}
+        defaultRightOpen={true}
         className="h-[720px] min-h-0 bg-background text-foreground"
       >
         <DashboardWorkspaceLayout
           dataTestId="vault-dashboard-visual-fixture"
-          sidebarHeader={sidebarHeader}
-          sidebarContent={sidebarContent}
+          leftSidebarHeader={sidebarHeader}
+          leftSidebarContent={sidebarContent}
+          rightSidebarContent={<div className="min-h-0 flex-1 bg-background" />}
           headerContent={headerContent}
           bodyClassName="min-h-0 overflow-y-auto p-0"
         >
@@ -451,12 +460,16 @@ export function VaultDashboardVisualFixture({
       <div className="min-h-screen bg-stone-100 p-0 text-stone-950">
         <SidebarProvider
           defaultOpen={false}
+          defaultRightOpen={true}
           className="mx-auto h-[932px] min-h-0 w-full max-w-[430px] bg-background text-foreground"
         >
           <DashboardWorkspaceLayout
             dataTestId="vault-dashboard-visual-fixture"
-            sidebarHeader={sidebarHeader}
-            sidebarContent={sidebarContent}
+            leftSidebarHeader={sidebarHeader}
+            leftSidebarContent={sidebarContent}
+            rightSidebarContent={
+              <div className="min-h-0 flex-1 bg-background" />
+            }
             headerContent={headerContent}
             bodyClassName="flex min-h-0 flex-col p-0"
           >

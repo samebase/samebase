@@ -99,7 +99,7 @@ export function useVaultDashboardVisualMobileShellViewModel(): VaultDashboardWor
 
   return {
     dataTestId: "vault-dashboard-visual-fixture",
-    sidebarHeader: (
+    leftSidebarHeader: (
       <VaultDashboardSidebarAccountHeader>
         <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
           <span className="block min-w-0 truncate">nicu.chiciuc@noter.md</span>
@@ -114,7 +114,7 @@ export function useVaultDashboardVisualMobileShellViewModel(): VaultDashboardWor
         </div>
       </VaultDashboardSidebarAccountHeader>
     ),
-    sidebarContent: (
+    leftSidebarContent: (
       <div className="flex min-h-0 flex-1 flex-col">
         <VaultDashboardProvidersSection
           open={true}
@@ -123,7 +123,13 @@ export function useVaultDashboardVisualMobileShellViewModel(): VaultDashboardWor
         />
       </div>
     ),
-    headerContent: <VaultDashboardHeaderBar showTitle={true} />,
+    rightSidebarContent: <div className="min-h-0 flex-1 bg-background" />,
+    headerContent: (
+      <VaultDashboardHeaderBar
+        showTitle={true}
+        showRightSidebarTrigger={true}
+      />
+    ),
     workspacePaneClassName: "bg-background",
     workspaceBody: (
       <VaultDashboardRepositoryList

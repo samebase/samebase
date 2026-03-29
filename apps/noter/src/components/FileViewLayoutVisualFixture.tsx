@@ -23,12 +23,13 @@ export function FileViewLayoutVisualFixture({
   return (
     <SidebarProvider
       defaultOpen={true}
+      defaultRightOpen={true}
       className="h-[720px] min-h-0 bg-background text-foreground"
     >
       <RepositoryWorkspaceFrame
         dataTestId="fileview-layout-visual-fixture"
         headerTestId="fileview-layout-header"
-        sidebarHeader={
+        leftSidebarHeader={
           <SidebarAccountSection dataTestId="fileview-layout-account-section">
             <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
               <span className="block min-w-0 truncate">nicu@noter.md</span>
@@ -43,7 +44,7 @@ export function FileViewLayoutVisualFixture({
             </div>
           </SidebarAccountSection>
         }
-        sidebarContent={
+        leftSidebarContent={
           mode === "fileview-layout" ? (
             <div
               data-testid="fileview-layout-sidebar-body"
@@ -86,6 +87,12 @@ export function FileViewLayoutVisualFixture({
               </div>
             </div>
           )
+        }
+        rightSidebarContent={
+          <div
+            data-testid="fileview-layout-right-sidebar-body"
+            className="min-h-0 flex-1 bg-background"
+          />
         }
         headerTitle="/"
         headerRight={

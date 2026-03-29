@@ -37,17 +37,34 @@ export function VaultDashboardSidebarAccountHeader({
   return <SidebarAccountSection>{children}</SidebarAccountSection>;
 }
 
-export function VaultDashboardHeaderBar({ showTitle }: { showTitle: boolean }) {
+export function VaultDashboardHeaderBar({
+  showTitle,
+  showRightSidebarTrigger = false,
+}: {
+  showTitle: boolean;
+  showRightSidebarTrigger?: boolean;
+}) {
   return (
-    <div className="flex items-center gap-3 p-3">
-      <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
-      {showTitle ? (
-        <div className="flex min-w-0 items-center gap-2">
-          <GitHubLogoIcon className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
-          <span className="truncate text-sm font-medium sm:text-base">
-            Your Vaults
-          </span>
-        </div>
+    <div className="flex items-center justify-between gap-3 p-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <SidebarTrigger
+          className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
+          side="left"
+        />
+        {showTitle ? (
+          <div className="flex min-w-0 items-center gap-2">
+            <GitHubLogoIcon className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
+            <span className="truncate text-sm font-medium sm:text-base">
+              Your Vaults
+            </span>
+          </div>
+        ) : null}
+      </div>
+      {showRightSidebarTrigger ? (
+        <SidebarTrigger
+          className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
+          side="right"
+        />
       ) : null}
     </div>
   );

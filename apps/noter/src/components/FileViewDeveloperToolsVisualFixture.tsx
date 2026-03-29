@@ -29,11 +29,12 @@ export function FileViewDeveloperToolsVisualFixture({
   return (
     <SidebarProvider
       defaultOpen={true}
+      defaultRightOpen={true}
       className="h-[780px] min-h-0 bg-background text-foreground"
     >
       <RepositoryWorkspaceFrame
         dataTestId="file-view-developer-tools-visual-fixture"
-        sidebarHeader={
+        leftSidebarHeader={
           <SidebarAccountSection>
             <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
               <span className="block min-w-0 truncate">nicu@noter.md</span>
@@ -48,7 +49,7 @@ export function FileViewDeveloperToolsVisualFixture({
             </div>
           </SidebarAccountSection>
         }
-        sidebarContent={
+        leftSidebarContent={
           <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
             <div className="border-b p-3 text-xs text-muted-foreground">
               noter-md/noter
@@ -58,6 +59,7 @@ export function FileViewDeveloperToolsVisualFixture({
             </div>
           </div>
         }
+        rightSidebarContent={<div className="min-h-0 flex-1 bg-background" />}
         headerTitle="src/components/FileView.tsx"
         headerRight={
           <div className="font-mono text-xs text-muted-foreground">74f9c18</div>

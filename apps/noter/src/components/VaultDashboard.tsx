@@ -1836,6 +1836,9 @@ function VaultDashboardContent() {
       />
     </div>
   );
+  const rightSidebarContent = (
+    <div className="flex min-h-0 flex-1 bg-background" />
+  );
 
   const dashboardScrollStyle: CSSProperties | undefined =
     mobileEditorChatDockInset
@@ -1848,7 +1851,10 @@ function VaultDashboardContent() {
       : undefined;
 
   const dashboardHeaderContent = (
-    <VaultDashboardHeaderBar showTitle={vaults.length > 0} />
+    <VaultDashboardHeaderBar
+      showTitle={vaults.length > 0}
+      showRightSidebarTrigger={true}
+    />
   );
 
   const dashboardBody =
@@ -2155,8 +2161,9 @@ function VaultDashboardContent() {
     <>
       <VaultDashboardWorkspaceScene
         dataTestId="vault-dashboard"
-        sidebarHeader={sidebarHeader}
-        sidebarContent={sidebarContent}
+        leftSidebarHeader={sidebarHeader}
+        leftSidebarContent={sidebarContent}
+        rightSidebarContent={rightSidebarContent}
         headerContent={dashboardHeaderContent}
         workspaceBody={dashboardBody}
         workspaceScrollStyle={dashboardScrollStyle}
@@ -2447,7 +2454,7 @@ function VaultDashboardContent() {
 
 export function VaultDashboard() {
   return (
-    <SidebarProvider className="h-full min-h-0">
+    <SidebarProvider defaultRightOpen={true} className="h-full min-h-0">
       <VaultDashboardContent />
     </SidebarProvider>
   );
