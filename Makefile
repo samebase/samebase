@@ -1,8 +1,10 @@
 # set default  to be `make run`
 # .PHONY ensures targets run even if a file with the same name exists.
-.PHONY: bootstrap bootstrap-anon run anon anon-once connect connect-once daytona-local daytona-local-once update-fixtures playwright-open record-start record-stop
+.PHONY: bootstrap bootstrap-anon run anon anon-once kill-port connect connect-once daytona-local daytona-local-once update-fixtures playwright-open record-start record-stop
 
 ANON_SETUP_ONCE_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --once --codegen=enable --tail-logs=disable --typecheck=disable
+# Allow `make kill-port 13124` by treating the extra make goal as the port.
+KILL_PORT_GOAL = $(firstword $(filter-out kill-port,$(MAKECMDGOALS)))
 ANON_ALLOW_MISSING_SOURCE_ENV_ARG = $(if $(strip $(ANON_ALLOW_MISSING_SOURCE_ENV)),--allow-missing-source-env,)
 ANON_VALIDATE_SOURCE_ENV_CMD = $(if $(strip $(ANON_SOURCE_DEPLOY_KEY)),CONVEX_DEPLOY_KEY="$(ANON_SOURCE_DEPLOY_KEY)" ,)node ./scripts/convex-sync-dev-env.js --check-prereqs $(ANON_ALLOW_MISSING_SOURCE_ENV_ARG) $(if $(strip $(ANON_SOURCE_ENV)),--source-env "$(ANON_SOURCE_ENV)",)
 ANON_SYNC_ENV_CMD = $(if $(strip $(ANON_SOURCE_DEPLOY_KEY)),CONVEX_DEPLOY_KEY="$(ANON_SOURCE_DEPLOY_KEY)" ,)node ./scripts/convex-sync-dev-env.js $(ANON_ALLOW_MISSING_SOURCE_ENV_ARG) $(if $(strip $(ANON_SOURCE_ENV)),--source-env "$(ANON_SOURCE_ENV)",)
@@ -52,6 +54,21 @@ anon-once:
 	$(ANON_SYNC_ENV_CMD)
 	$(ANON_SEED_PASSWORD_ACCOUNT_CMD)
 	$(ANON_REFRESH_AUTH_KEYS_CMD)
+
+# Send SIGTERM to whatever is listening on a specific port.
+kill-port:
+	@test -n "$(KILL_PORT_GOAL)" || { echo "Usage: make kill-port 13124"; exit 1; }
+	@pids="$$(lsof -tiTCP:$(KILL_PORT_GOAL) -sTCP:LISTEN)"; \
+	[ -n "$$pids" ] || { echo "Nothing listening on $(KILL_PORT_GOAL)."; exit 0; }; \
+	kill -TERM $$pids; \
+	echo "Sent SIGTERM to $$pids on port $(KILL_PORT_GOAL)."
+
+# Swallow the extra positional goal (`13124`) so make does not try to build a
+# target with that name after running `kill-port`.
+ifneq ($(filter kill-port,$(MAKECMDGOALS)),)
+%:
+	@:
+endif
 
 # Poll GitHub for explicit noter-origin PRs and launch local Codex runs.
 connect:
