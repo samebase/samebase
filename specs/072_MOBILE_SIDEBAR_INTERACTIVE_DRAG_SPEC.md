@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Implemented
 - Owner: Noter frontend
 - Last updated: 2026-03-29
 - Depends on:
@@ -10,18 +10,24 @@
   - `apps/noter/src/components/RepositoryWorkspaceFrame.tsx`
   - `apps/noter/src/components/FileView.tsx`
   - `apps/noter/src/components/VaultDashboard.tsx`
+  - `apps/noter/src/components/WorkspaceSidebarShell.tsx`
   - `rfcs/067_DASHBOARD_SHARED_SIDEBAR_SPEC.md`
 
 ## Summary
 
 Mobile sidebar interaction should feel like dragging a horizontally pannable
-workspace, not like triggering a modal drawer that only appears after the drag
-has already finished.
+workspace, not like triggering a drawer that only appears after the drag has
+already finished.
 
 The sidebar and main view should live on the same visual plane inside one shared
 workspace shell. On mobile, dragging should rely on the same immediate,
 continuous motion as native scrolling, with only two snap positions: closed and
 open.
+
+When the sidebar is open, the main pane should render through a lightweight
+scrim that sits above it. That scrim should absorb taps before they reach the
+main view and add a subtle transparent black tint so the open state reads like a
+standard mobile sidebar instead of an accidental half-pan.
 
 The implementation should get simpler as this lands:
 
@@ -45,6 +51,12 @@ much complexity in the process:
 - fixture-heavy and screenshot-heavy validation that does not clearly protect
   the intended behavior
 
+At the same time, the current shell still relies on click-capture logic on the
+main header and body to close the sidebar. That works mechanically, but it does
+not make the interaction explicit in the DOM, and it gives no visual signal that
+the main pane should be considered temporarily inactive while the sidebar is
+open.
+
 This spec resets the direction around a simpler model that keeps the good part,
 the live translation, while removing the unnecessary machinery.
 
@@ -53,12 +65,14 @@ the live translation, while removing the unnecessary machinery.
 1. Make the sidebar move immediately with the finger during drag.
 2. Keep the sidebar and main view on the same level in the layout.
 3. Use one shared shell structure across desktop and mobile.
-4. Reduce implementation complexity by deleting custom gesture and modal code.
-5. Preserve a simple committed state: sidebar open or closed.
+4. Block accidental main-view interaction while the mobile sidebar is open.
+5. Add subtle dimming so the open state reads like a standard sidebar.
+6. Reduce implementation complexity by deleting custom gesture and modal code.
+7. Preserve a simple committed state: sidebar open or closed.
 
 ## Non-Goals
 
-- Introducing modal overlay behavior for the mobile sidebar.
+- Introducing a separate modal drawer primitive for the mobile sidebar.
 - Trapping focus or making background content inert while the sidebar is open.
 - Maintaining separate mobile-only layout trees for dashboard and file view.
 - Expanding screenshot fixtures as the main form of validation.
@@ -74,6 +88,9 @@ the live translation, while removing the unnecessary machinery.
 - Recent work improved the visual feel by translating the workspace during drag,
   but it did so with a large custom gesture layer and multiple structural
   branches.
+- The shared shell now uses click-capture on the main header/body to close the
+  sidebar, but there is no dedicated scrim element that owns pointer blocking or
+  visual dimming for the open state.
 
 The core insight to preserve is the translation motion itself, not the custom
 gesture system built around it.
@@ -140,23 +157,50 @@ Custom velocity thresholds, touch session tracking, and document-level pointer
 capture should be avoided unless a much smaller implementation truly cannot
 deliver the required feel.
 
-### 4. Same-Level Sidebar Semantics
+### 4. Main-Pane Scrim While Open
 
-The sidebar is not an overlay and should not be treated like one.
+When the mobile sidebar is open, the main pane should render under a dedicated
+scrim element.
 
 Required behavior:
 
-- no modal overlay
+- the scrim sits above the main header/body surface, not above the sidebar
+- the scrim absorbs pointer input before the main pane can receive it
+- the scrim uses a subtle transparent black tint so the open state looks like a
+  standard sidebar
+- the scrim can close the sidebar when tapped
+- the scrim is part of the shared workspace shell, not a separate drawer surface
+
+Preferred styling:
+
+- start from a light tint, roughly in the `bg-black/10` to `bg-black/20` range
+- keep the main pane visible beneath it
+- allow opacity to follow sidebar reveal progress during drag if that keeps the
+  motion feeling more natural
+
+This replaces "close on capture" as the primary interaction boundary. Capture
+handlers may still exist as a defensive fallback during refactor, but the
+shipped UI should make the blocked main pane explicit with a real scrim layer.
+
+### 5. Same-Level Sidebar Semantics
+
+The sidebar should not be treated like a separate modal drawer, even though the
+main pane now uses a scrim while the sidebar is open.
+
+Required behavior:
+
+- no full-screen sheet-style overlay that owns the whole viewport
 - no background inerting
 - no focus trap
-- no special modal semantics layered on top of the translated track
+- no special dialog semantics layered on top of the translated track
 
 The sidebar and main view are sibling surfaces on the same plane. When the
-sidebar is open, the main view remains part of the same workspace composition.
+sidebar is open, the main view remains part of the same workspace composition
+under the scrim.
 
 Normal document focus order is sufficient for this interaction.
 
-### 5. State Contract
+### 6. State Contract
 
 The committed sidebar state remains boolean: open or closed.
 
@@ -166,11 +210,12 @@ track offset, for example:
 - current horizontal offset
 - reveal progress
 - snapping/settling status
+- scrim opacity / pointer-enabled state
 
 That transient state exists only to render the live motion and settle to a snap
 position. It should not grow into a separate mobile-only state machine.
 
-### 6. Desktop Uses the Same Shell
+### 7. Desktop Uses the Same Shell
 
 Desktop should continue to present the sidebar as a stable layout column, but it
 should do so using the same shell structure as mobile.
@@ -187,7 +232,7 @@ Not allowed:
 - separate desktop and mobile markup trees for the same workspace shell
 - dashboard-specific or file-view-specific mobile interaction models
 
-### 7. Implementation Direction
+### 8. Implementation Direction
 
 Preferred direction:
 
@@ -195,12 +240,15 @@ Preferred direction:
 2. Express mobile-vs-desktop differences through CSS and a small amount of
    state, not separate JSX trees.
 3. Prefer native horizontal scroll plus snap positions over a custom drag hook.
-4. Keep JavaScript responsibilities narrow:
+4. Add a dedicated scrim element above the main pane whenever the mobile sidebar
+   is meaningfully open.
+5. Keep JavaScript responsibilities narrow:
    - button-driven open/close
+   - toggling the scrim's interactivity/opacity from reveal state
    - syncing committed open state
    - optionally settling to the nearest snap position if native snap alone is
      insufficient
-5. Delete mobile-specific abstractions that exist only to support fixture or
+6. Delete mobile-specific abstractions that exist only to support fixture or
    gesture complexity.
 
 Specifically, avoid:
@@ -218,6 +266,10 @@ When implementation lands:
   during the drag, before release
 - verify releasing the drag settles to closed or open snap positions
 - verify button-triggered open/close lands on the correct snap positions
+- verify taps on the visible main pane do not activate underlying controls while
+  the scrim is present
+- verify the scrim appears with a subtle dark tint only while the mobile sidebar
+  is open or meaningfully revealed
 - verify dashboard and file view share the same shell behavior
 - verify desktop still renders and toggles correctly through the same shell
 
@@ -234,7 +286,9 @@ Testing guidance:
 - Sidebar and main render through one shared workspace shell structure.
 - On mobile, dragging moves the workspace immediately before release.
 - Mobile interaction settles to open or closed snap positions.
-- The sidebar is not implemented as a modal overlay surface.
+- When the mobile sidebar is open, a lightweight main-pane scrim blocks
+  underlying clicks and adds subtle dimming.
+- The sidebar is not implemented as a separate modal drawer surface.
 - Dashboard and file view do not maintain separate mobile-only shell models.
 - Desktop continues to work through the same shell with simpler, static
   presentation.

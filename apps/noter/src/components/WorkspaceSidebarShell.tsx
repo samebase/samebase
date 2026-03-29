@@ -3,6 +3,8 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
 const MOBILE_SCROLL_SETTLE_DELAY_MS = 140;
+const MOBILE_MAIN_SCRIM_MAX_OPACITY = 0.16;
+const MOBILE_MAIN_SCRIM_INTERACTION_THRESHOLD = 0.01;
 
 type WorkspaceSidebarShellProps = {
   bodyClassName?: string;
@@ -17,6 +19,22 @@ type WorkspaceSidebarShellProps = {
   sidebarHeader?: React.ReactNode;
   sidebarHeaderTestId?: string;
 };
+
+/**
+ * Derive a normalized sidebar reveal progress from the shared mobile scroll
+ * position so the scrim can track the live pan without its own gesture state.
+ */
+function getMobileSidebarRevealProgress(
+  scrollLeft: number,
+  mobileSidebarWidthPx: number,
+) {
+  if (mobileSidebarWidthPx <= 0) {
+    return 0;
+  }
+
+  const rawRevealProgress = 1 - scrollLeft / mobileSidebarWidthPx;
+  return Math.min(1, Math.max(0, rawRevealProgress));
+}
 
 /**
  * Renders one workspace shell for both desktop and mobile. Desktop pins the
@@ -45,12 +63,15 @@ export function WorkspaceSidebarShell({
   const mobileScrollRef = React.useRef<HTMLDivElement | null>(null);
   const mobileSidebarMeasureRef = React.useRef<HTMLDivElement | null>(null);
   const [mobileSidebarWidthPx, setMobileSidebarWidthPx] = React.useState(0);
+  const [mobileSidebarRevealProgress, setMobileSidebarRevealProgress] =
+    React.useState(0);
   const hasInitializedMobileScrollRef = React.useRef(false);
   const skipNextMobileScrollSyncRef = React.useRef(false);
 
   React.useLayoutEffect(() => {
     if (!isMobile || !hasSidebar) {
       setMobileSidebarWidthPx(0);
+      setMobileSidebarRevealProgress(0);
       return;
     }
 
@@ -96,6 +117,9 @@ export function WorkspaceSidebarShell({
     const targetScrollLeft = openMobile ? 0 : mobileSidebarWidthPx;
     if (!hasInitializedMobileScrollRef.current) {
       scrollNode.scrollLeft = targetScrollLeft;
+      setMobileSidebarRevealProgress(
+        getMobileSidebarRevealProgress(targetScrollLeft, mobileSidebarWidthPx),
+      );
       hasInitializedMobileScrollRef.current = true;
       return;
     }
@@ -106,6 +130,12 @@ export function WorkspaceSidebarShell({
     }
 
     if (Math.abs(scrollNode.scrollLeft - targetScrollLeft) <= 1) {
+      setMobileSidebarRevealProgress(
+        getMobileSidebarRevealProgress(
+          scrollNode.scrollLeft,
+          mobileSidebarWidthPx,
+        ),
+      );
       return;
     }
 
@@ -136,6 +166,13 @@ export function WorkspaceSidebarShell({
 
     let settleTimeoutId: number | null = null;
     const handleScroll = () => {
+      setMobileSidebarRevealProgress(
+        getMobileSidebarRevealProgress(
+          scrollNode.scrollLeft,
+          mobileSidebarWidthPx,
+        ),
+      );
+
       if (settleTimeoutId !== null) {
         window.clearTimeout(settleTimeoutId);
       }
@@ -184,6 +221,12 @@ export function WorkspaceSidebarShell({
         hidden: true,
       }
     : {};
+  const mobileMainScrimOpacity =
+    mobileSidebarRevealProgress * MOBILE_MAIN_SCRIM_MAX_OPACITY;
+  const mobileMainScrimIsInteractive =
+    isMobile &&
+    hasSidebar &&
+    mobileSidebarRevealProgress > MOBILE_MAIN_SCRIM_INTERACTION_THRESHOLD;
 
   const shellStyle: React.CSSProperties & {
     "--workspace-sidebar-width"?: string;
@@ -291,6 +334,32 @@ export function WorkspaceSidebarShell({
         >
           {children}
         </div>
+
+        {isMobile && hasSidebar ? (
+          <>
+            {/* Keep a real scrim over the visible main pane so taps close the
+            sidebar before they reach the underlying main-view controls. */}
+            <div
+              aria-hidden="true"
+              data-testid="workspace-sidebar-main-scrim"
+              className={cn(
+                "pointer-events-none col-start-2 row-start-1 row-span-2 min-h-0 min-w-0",
+                mobileMainScrimIsInteractive ? "z-10" : "",
+              )}
+            >
+              <div
+                className={cn(
+                  "h-full w-full bg-black transition-opacity duration-200 ease-linear",
+                  mobileMainScrimIsInteractive
+                    ? "pointer-events-auto"
+                    : "pointer-events-none",
+                )}
+                style={{ opacity: mobileMainScrimOpacity }}
+                onClick={() => setOpenMobile(false)}
+              />
+            </div>
+          </>
+        ) : null}
       </div>
     </div>
   );

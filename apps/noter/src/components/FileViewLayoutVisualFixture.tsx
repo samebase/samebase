@@ -15,6 +15,7 @@ export function FileViewLayoutVisualFixture({
   mode: FileViewLayoutVisualMode;
 }) {
   const [clickCount, setClickCount] = useState(0);
+  const [bodyClickCount, setBodyClickCount] = useState(0);
   const scrollRows = Array.from({ length: 40 }, (_, index) => index + 1);
 
   mode satisfies FileViewLayoutVisualMode;
@@ -95,8 +96,27 @@ export function FileViewLayoutVisualFixture({
       >
         <div
           data-testid="fileview-layout-body"
-          className="h-full min-h-0 bg-muted/10"
-        />
+          className="h-full min-h-0 bg-muted/10 p-3"
+        >
+          <div className="flex flex-col items-start gap-3">
+            <Button
+              data-testid="fileview-layout-body-button"
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                setBodyClickCount((currentCount) => currentCount + 1)
+              }
+            >
+              Main action
+            </Button>
+            <span
+              data-testid="fileview-layout-body-counter"
+              className="text-sm text-foreground"
+            >
+              {bodyClickCount}
+            </span>
+          </div>
+        </div>
       </RepositoryWorkspaceFrame>
     </SidebarProvider>
   );
