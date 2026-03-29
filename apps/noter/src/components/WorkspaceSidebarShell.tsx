@@ -151,6 +151,7 @@ export function WorkspaceSidebarShell({
   const hasRightSidebar = hasRightSidebarHeader || hasRightSidebarContent;
   const hasAnySidebar = hasLeftSidebar || hasRightSidebar;
   const mobileScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const mobileTrackRef = React.useRef<HTMLDivElement | null>(null);
   const mobileLeftSidebarMeasureRef = React.useRef<HTMLDivElement | null>(null);
   const mobileRightSidebarMeasureRef = React.useRef<HTMLDivElement | null>(
     null,
@@ -174,13 +175,59 @@ export function WorkspaceSidebarShell({
     lastTimestampMs: 0,
     peakSwipeVelocityPxPerMs: 0,
   });
+  const isDelegatedMobileDragActiveRef = React.useRef(false);
   const pendingMobileDragFrameRef = React.useRef<number | null>(null);
   const pendingMobileDragScrollLeftRef = React.useRef<number | null>(null);
+  const pendingMobileDragSnapRestoreFrameRef = React.useRef<number | null>(
+    null,
+  );
 
   const isMobileLayoutMeasured =
     !isMobile ||
     ((!hasLeftSidebar || leftSidebarWidthPx > 0) &&
       (!hasRightSidebar || rightSidebarWidthPx > 0));
+
+  const setDelegatedMobileDragSnapDisabled = React.useCallback(
+    (isDisabled: boolean) => {
+      if (isDelegatedMobileDragActiveRef.current === isDisabled) {
+        return;
+      }
+
+      // Apply the snap override immediately from the gesture handler. Waiting
+      // for a React re-render lets Chromium snap the shell back to the current
+      // pane before the next touchmove arrives.
+      const snapType = isDisabled ? "none" : "";
+      isDelegatedMobileDragActiveRef.current = isDisabled;
+      if (mobileScrollRef.current !== null) {
+        mobileScrollRef.current.style.scrollSnapType = snapType;
+      }
+      if (mobileTrackRef.current !== null) {
+        mobileTrackRef.current.style.scrollSnapType = snapType;
+      }
+    },
+    [],
+  );
+
+  const clearPendingMobileDragSnapRestore = React.useCallback(() => {
+    if (pendingMobileDragSnapRestoreFrameRef.current === null) {
+      return;
+    }
+    window.cancelAnimationFrame(pendingMobileDragSnapRestoreFrameRef.current);
+    pendingMobileDragSnapRestoreFrameRef.current = null;
+  }, []);
+
+  const scheduleDelegatedMobileDragSnapRestore = React.useCallback(() => {
+    clearPendingMobileDragSnapRestore();
+    if (!isDelegatedMobileDragActiveRef.current) {
+      return;
+    }
+    pendingMobileDragSnapRestoreFrameRef.current = window.requestAnimationFrame(
+      () => {
+        pendingMobileDragSnapRestoreFrameRef.current = null;
+        setDelegatedMobileDragSnapDisabled(false);
+      },
+    );
+  }, [clearPendingMobileDragSnapRestore, setDelegatedMobileDragSnapDisabled]);
 
   /**
    * Keep pane settling owned by the shell so descendant surfaces can reuse the
@@ -188,11 +235,13 @@ export function WorkspaceSidebarShell({
    */
   const settleMobileShell = React.useCallback(() => {
     if (!isMobile || !hasAnySidebar || !isMobileLayoutMeasured) {
+      scheduleDelegatedMobileDragSnapRestore();
       return;
     }
 
     const scrollNode = mobileScrollRef.current;
     if (!scrollNode) {
+      scheduleDelegatedMobileDragSnapRestore();
       return;
     }
 
@@ -225,6 +274,7 @@ export function WorkspaceSidebarShell({
     }
 
     if (Math.abs(scrollNode.scrollLeft - targetScrollLeft) <= 1) {
+      scheduleDelegatedMobileDragSnapRestore();
       return;
     }
 
@@ -232,6 +282,7 @@ export function WorkspaceSidebarShell({
       left: targetScrollLeft,
       behavior: "smooth",
     });
+    scheduleDelegatedMobileDragSnapRestore();
   }, [
     hasAnySidebar,
     hasLeftSidebar,
@@ -241,6 +292,7 @@ export function WorkspaceSidebarShell({
     leftSidebarWidthPx,
     mobilePane,
     rightSidebarWidthPx,
+    scheduleDelegatedMobileDragSnapRestore,
     setMobilePane,
   ]);
 
@@ -271,6 +323,8 @@ export function WorkspaceSidebarShell({
         return;
       }
 
+      clearPendingMobileDragSnapRestore();
+      setDelegatedMobileDragSnapDisabled(true);
       if (pendingMobileDragFrameRef.current !== null) {
         window.cancelAnimationFrame(pendingMobileDragFrameRef.current);
         pendingMobileDragFrameRef.current = null;
@@ -324,8 +378,10 @@ export function WorkspaceSidebarShell({
       hasRightSidebar,
       isMobile,
       isMobileLayoutMeasured,
+      clearPendingMobileDragSnapRestore,
       leftSidebarWidthPx,
       rightSidebarWidthPx,
+      setDelegatedMobileDragSnapDisabled,
     ],
   );
 
@@ -352,9 +408,16 @@ export function WorkspaceSidebarShell({
         window.cancelAnimationFrame(pendingMobileDragFrameRef.current);
         pendingMobileDragFrameRef.current = null;
       }
+      if (pendingMobileDragSnapRestoreFrameRef.current !== null) {
+        window.cancelAnimationFrame(
+          pendingMobileDragSnapRestoreFrameRef.current,
+        );
+        pendingMobileDragSnapRestoreFrameRef.current = null;
+      }
       pendingMobileDragScrollLeftRef.current = null;
+      setDelegatedMobileDragSnapDisabled(false);
     };
-  }, []);
+  }, [setDelegatedMobileDragSnapDisabled]);
 
   React.useEffect(() => {
     if (!isMobile || !hasAnySidebar || !isMobileLayoutMeasured) {
@@ -592,6 +655,7 @@ export function WorkspaceSidebarShell({
         )}
       >
         <div
+          ref={mobileTrackRef}
           data-sidebar-track={isMobile ? "pannable" : "static"}
           className={cn(
             "grid h-full min-h-0",
@@ -612,7 +676,9 @@ export function WorkspaceSidebarShell({
             >
               <div
                 ref={
-                  !hasLeftSidebarContent ? mobileLeftSidebarMeasureRef : undefined
+                  !hasLeftSidebarContent
+                    ? mobileLeftSidebarMeasureRef
+                    : undefined
                 }
                 className="min-w-0 overflow-hidden"
                 style={{ width: "var(--workspace-left-sidebar-width)" }}

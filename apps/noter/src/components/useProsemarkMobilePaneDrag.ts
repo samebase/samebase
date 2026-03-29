@@ -136,10 +136,7 @@ export function useProsemarkMobilePaneDrag(
       if (!isEnabled || !isMainPaneActive || !event.isPrimary) {
         return;
       }
-      if (event.pointerType === "touch") {
-        return;
-      }
-      if (event.button !== 0) {
+      if (event.pointerType === "mouse" && event.button !== 0) {
         return;
       }
       dragStateRef.current = {
@@ -288,6 +285,9 @@ export function useProsemarkMobilePaneDrag(
       return;
     }
 
+    // Touch-capable browsers do not agree on whether a drag continues as
+    // `pointermove`, `touchmove`, or a mix of both after `pointerdown`, so keep
+    // the touch listeners active even when Pointer Events are available.
     container.addEventListener("touchstart", handleTouchStart, {
       capture: true,
       passive: false,

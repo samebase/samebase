@@ -8,6 +8,7 @@ import { useProsemarkMobilePaneDrag } from "@/components/useProsemarkMobilePaneD
 
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
+const originalPointerEvent = globalThis.PointerEvent;
 
 function createTouch(identifier: number, clientX: number, clientY: number) {
   return {
@@ -49,6 +50,66 @@ function dispatchTouchEvent(
   Object.defineProperty(event, "changedTouches", { value: changedTouches });
 
   target.dispatchEvent(event);
+}
+
+function dispatchPointerEvent(
+  target: HTMLElement,
+  type: string,
+  args: {
+    button?: number;
+    clientX: number;
+    clientY: number;
+    isPrimary?: boolean;
+    pointerId: number;
+    pointerType: string;
+  },
+) {
+  const event = new Event(type, {
+    bubbles: true,
+    cancelable: true,
+  });
+
+  Object.defineProperty(event, "button", {
+    value: args.button ?? 0,
+  });
+  Object.defineProperty(event, "clientX", {
+    value: args.clientX,
+  });
+  Object.defineProperty(event, "clientY", {
+    value: args.clientY,
+  });
+  Object.defineProperty(event, "isPrimary", {
+    value: args.isPrimary ?? true,
+  });
+  Object.defineProperty(event, "pointerId", {
+    value: args.pointerId,
+  });
+  Object.defineProperty(event, "pointerType", {
+    value: args.pointerType,
+  });
+
+  target.dispatchEvent(event);
+}
+
+function installPointerCaptureMocks(target: HTMLElement) {
+  const capturedPointerIds = new Set<number>();
+
+  Object.defineProperty(target, "setPointerCapture", {
+    configurable: true,
+    value: vi.fn((pointerId: number) => {
+      capturedPointerIds.add(pointerId);
+    }),
+  });
+  Object.defineProperty(target, "releasePointerCapture", {
+    configurable: true,
+    value: vi.fn((pointerId: number) => {
+      capturedPointerIds.delete(pointerId);
+    }),
+  });
+  Object.defineProperty(target, "hasPointerCapture", {
+    configurable: true,
+    value: vi.fn((pointerId: number) => capturedPointerIds.has(pointerId)),
+  });
 }
 
 function TestSurface({ enabled = true }: { enabled?: boolean }) {
@@ -106,11 +167,126 @@ describe("useProsemarkMobilePaneDrag", () => {
     }
     rootElement?.remove();
     rootElement = null;
+    Reflect.set(globalThis, "PointerEvent", originalPointerEvent);
   });
 
-  it("delegates horizontal touch drags into the workspace shell", () => {
+  it("delegates horizontal touch pointer drags into the workspace shell", () => {
     const dragMobileShellBy = vi.fn();
     const settleMobileShell = vi.fn();
+    Reflect.set(globalThis, "PointerEvent", Event);
+
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+    const mountedRoot = root;
+
+    act(() => {
+      mountedRoot.render(
+        <TestHarness
+          dragMobileShellBy={dragMobileShellBy}
+          settleMobileShell={settleMobileShell}
+        />,
+      );
+    });
+
+    const host = rootElement.querySelector<HTMLElement>(
+      '[data-testid="mobile-pane-drag-host"]',
+    );
+    expect(host).not.toBeNull();
+    if (host === null) {
+      return;
+    }
+    installPointerCaptureMocks(host);
+
+    act(() => {
+      dispatchPointerEvent(host, "pointerdown", {
+        clientX: 100,
+        clientY: 120,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+      dispatchPointerEvent(host, "pointermove", {
+        clientX: 140,
+        clientY: 122,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+      dispatchPointerEvent(host, "pointermove", {
+        clientX: 185,
+        clientY: 124,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+      dispatchPointerEvent(host, "pointerup", {
+        clientX: 185,
+        clientY: 124,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+    });
+
+    expect(dragMobileShellBy).toHaveBeenNthCalledWith(1, 40);
+    expect(dragMobileShellBy).toHaveBeenNthCalledWith(2, 45);
+    expect(settleMobileShell).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves vertical touch pointer gestures to the editor surface", () => {
+    const dragMobileShellBy = vi.fn();
+    const settleMobileShell = vi.fn();
+    Reflect.set(globalThis, "PointerEvent", Event);
+
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+    const mountedRoot = root;
+
+    act(() => {
+      mountedRoot.render(
+        <TestHarness
+          dragMobileShellBy={dragMobileShellBy}
+          settleMobileShell={settleMobileShell}
+        />,
+      );
+    });
+
+    const host = rootElement.querySelector<HTMLElement>(
+      '[data-testid="mobile-pane-drag-host"]',
+    );
+    expect(host).not.toBeNull();
+    if (host === null) {
+      return;
+    }
+    installPointerCaptureMocks(host);
+
+    act(() => {
+      dispatchPointerEvent(host, "pointerdown", {
+        clientX: 100,
+        clientY: 120,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+      dispatchPointerEvent(host, "pointermove", {
+        clientX: 112,
+        clientY: 170,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+      dispatchPointerEvent(host, "pointerup", {
+        clientX: 112,
+        clientY: 170,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+    });
+
+    expect(dragMobileShellBy).not.toHaveBeenCalled();
+    expect(settleMobileShell).not.toHaveBeenCalled();
+  });
+
+  it("falls back to legacy touch events when Pointer Events are unavailable", () => {
+    const dragMobileShellBy = vi.fn();
+    const settleMobileShell = vi.fn();
+    Reflect.deleteProperty(globalThis, "PointerEvent");
 
     rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -143,24 +319,20 @@ describe("useProsemarkMobilePaneDrag", () => {
         touches: [createTouch(1, 140, 122)],
         changedTouches: [createTouch(1, 140, 122)],
       });
-      dispatchTouchEvent(host, "touchmove", {
-        touches: [createTouch(1, 185, 124)],
-        changedTouches: [createTouch(1, 185, 124)],
-      });
       dispatchTouchEvent(host, "touchend", {
         touches: [],
-        changedTouches: [createTouch(1, 185, 124)],
+        changedTouches: [createTouch(1, 140, 122)],
       });
     });
 
-    expect(dragMobileShellBy).toHaveBeenNthCalledWith(1, 40);
-    expect(dragMobileShellBy).toHaveBeenNthCalledWith(2, 45);
+    expect(dragMobileShellBy).toHaveBeenCalledWith(40);
     expect(settleMobileShell).toHaveBeenCalledTimes(1);
   });
 
-  it("leaves vertical touch gestures to the editor surface", () => {
+  it("handles mixed touch sequences that start with pointerdown and continue with touchmove", () => {
     const dragMobileShellBy = vi.fn();
     const settleMobileShell = vi.fn();
+    Reflect.set(globalThis, "PointerEvent", Event);
 
     rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -185,21 +357,27 @@ describe("useProsemarkMobilePaneDrag", () => {
     }
 
     act(() => {
+      dispatchPointerEvent(host, "pointerdown", {
+        clientX: 100,
+        clientY: 120,
+        pointerId: 1,
+        pointerType: "touch",
+      });
       dispatchTouchEvent(host, "touchstart", {
         touches: [createTouch(1, 100, 120)],
         changedTouches: [createTouch(1, 100, 120)],
       });
       dispatchTouchEvent(host, "touchmove", {
-        touches: [createTouch(1, 112, 170)],
-        changedTouches: [createTouch(1, 112, 170)],
+        touches: [createTouch(1, 145, 123)],
+        changedTouches: [createTouch(1, 145, 123)],
       });
       dispatchTouchEvent(host, "touchend", {
         touches: [],
-        changedTouches: [createTouch(1, 112, 170)],
+        changedTouches: [createTouch(1, 145, 123)],
       });
     });
 
-    expect(dragMobileShellBy).not.toHaveBeenCalled();
-    expect(settleMobileShell).not.toHaveBeenCalled();
+    expect(dragMobileShellBy).toHaveBeenCalledWith(45);
+    expect(settleMobileShell).toHaveBeenCalledTimes(1);
   });
 });
