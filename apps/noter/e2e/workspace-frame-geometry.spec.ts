@@ -132,9 +132,10 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
   const header = page.getByTestId("fileview-layout-header");
+  const counterButton = page.getByTestId("fileview-layout-counter-button");
   const scrollContainer = page.getByTestId("fileview-layout-sidebar-scroll");
 
-  await page.getByTestId("fileview-layout-counter-button").click();
+  await counterButton.click();
   await expect(page.getByTestId("fileview-layout-counter-value")).toHaveText(
     "1",
   );
@@ -160,6 +161,7 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
       return headerBox.x - fixtureBox.x;
     })
     .toBeLessThanOrEqual(1);
+  await expect(counterButton).toBeHidden();
 
   await page.getByRole("button", { name: "Toggle Sidebar" }).click();
   await expect
@@ -174,6 +176,22 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
       return headerBox.x - fixtureBox.x;
     })
     .toBeGreaterThan(100);
+  await expect(counterButton).toBeVisible();
+
+  {
+    const fixtureBox = await fixture.boundingBox();
+    const headerBox = await header.boundingBox();
+
+    if (fixtureBox === null || headerBox === null) {
+      throw new Error("Expected fileview fixture and header boxes to exist.");
+    }
+
+    expectClose(
+      headerBox.x + headerBox.width,
+      fixtureBox.x + fixtureBox.width,
+      "fileview open header right edge",
+    );
+  }
 
   await expect(page.getByTestId("fileview-layout-counter-value")).toHaveText(
     "1",
@@ -181,4 +199,52 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
   await expect
     .poll(async () => scrollContainer.evaluate((element) => element.scrollTop))
     .toBe(scrollTopBeforeCollapse);
+});
+
+test("fileview mobile main click closes the sidebar", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const body = page.getByTestId("fileview-layout-body");
+
+  await expect
+    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
+    .toBeGreaterThan(100);
+
+  await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+  await expect
+    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
+    .toBeLessThanOrEqual(1);
+
+  await body.click({ position: { x: 100, y: 120 } });
+  await expect
+    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
+    .toBeGreaterThan(100);
+});
+
+test("fileview mobile trigger toggles the sidebar closed", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const toggleSidebarButton = page.getByRole("button", {
+    name: "Toggle Sidebar",
+  });
+
+  await toggleSidebarButton.click();
+  await expect
+    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
+    .toBeLessThanOrEqual(1);
+
+  await toggleSidebarButton.click();
+  await expect
+    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
+    .toBeGreaterThan(100);
 });

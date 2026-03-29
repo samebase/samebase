@@ -34,7 +34,6 @@ import {
   useRef,
   useLayoutEffect,
 } from "react";
-import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { UserMenu } from "@/components/UserMenu";
 import { linkStyle } from "./styles";
@@ -362,18 +361,29 @@ function FileViewWrapper() {
     [search],
   );
 
+  /**
+   * Clear `storageBackedSelection` whenever we switch to a different vault or
+   * branch. This map only exists to remember "we already tried to stage this
+   * file and got a storage-backed-file error" for the current branch.
+   */
   useEffect(() => {
     if (vaultId) {
       setStorageBackedSelection({});
     }
   }, [vaultId, branch]);
 
+  /** If the repository lookup returns `null`, leave this screen and go back to the dashboard. */
   useEffect(() => {
     if (vault === null) {
       void navigate("/", { replace: true });
     }
   }, [vault, navigate]);
 
+  /**
+   * If the branch from the URL no longer exists, replace it with
+   * `vault.resolvedBranch` so the address bar points at the branch the server
+   * actually resolved.
+   */
   useEffect(() => {
     if (!owner || !repoName || !branchParam || !vault?.branchNotFound) {
       return;
@@ -397,6 +407,10 @@ function FileViewWrapper() {
     navigate,
   ]);
 
+  /**
+   * Old routes could omit the branch segment. Once we know the real branch,
+   * rewrite `/vault/:owner/:repo` into `/vault/:owner/:repo/:branch`.
+   */
   useEffect(() => {
     if (!owner || !repoName || !branch || branchParam) {
       return;
@@ -416,6 +430,10 @@ function FileViewWrapper() {
     navigate,
   ]);
 
+  /**
+   * If we recovered a file path from an old branchless URL, rewrite the URL to
+   * the canonical `/vault/:owner/:repo/:branch/:file` form.
+   */
   useEffect(() => {
     if (
       !owner ||
@@ -477,8 +495,11 @@ function FileViewWrapper() {
     ],
   );
 
-  // Refresh tree from GitHub when the page regains focus (debounced to 2 min).
-  // Initial page-load refreshes use a shorter server-side debounce window.
+  /**
+   * Refresh the repository tree when this tab becomes visible or focused again,
+   * and also do one initial refresh if the vault loads while the tab is already
+   * active. This keeps file/branch metadata in sync with GitHub.
+   */
   useEffect(() => {
     if (!vaultId || !owner || !repoName) return;
 
@@ -505,7 +526,10 @@ function FileViewWrapper() {
     };
   }, [vaultId, owner, repoName, refreshTreeIfNeeded]);
 
-  // Auto-redirect to best file when no file is selected
+  /**
+   * When the tree is loaded and the route does not name a file, pick the best
+   * initial file and navigate to it automatically.
+   */
   useEffect(() => {
     if (
       isCompareRequested ||
@@ -553,7 +577,11 @@ function FileViewWrapper() {
       : "skip",
   );
 
-  // If a selected file path does not exist in this vault, redirect to the best initial file.
+  /**
+   * If the selected file is missing from both staging and the repository tree,
+   * the current URL is stale. Redirect to the best remaining file, or to the
+   * branch root when no file can be opened.
+   */
   useEffect(() => {
     if (isCompareRequested) return;
     if (!selectedFile || !vault || !owner || !repoName || !branch) return;
@@ -598,7 +626,12 @@ function FileViewWrapper() {
     navigate,
   ]);
 
-  // If file not staged,
+  /**
+   * If the selected file exists in the repo but has no staged editing document
+   * yet, create one with `firstDocAction`. If that fails with a
+   * storage-backed-file error, remember the file key in `storageBackedSelection`
+   * so we do not retry on every render.
+   */
   useEffect(() => {
     if (
       !isCompareRequested &&
@@ -962,7 +995,7 @@ function FileViewInner({
     : currentPullRequestUrl;
   const hasCurrentBranchPullRequest = currentBranchPullRequestUrl != null;
 
-  // Add command palette keyboard shortcut handler
+  /** Listen for Cmd/Ctrl + P and open the file view command palette. */
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
@@ -1005,6 +1038,11 @@ function FileViewInner({
   });
   const [viewModeHydrated, setViewModeHydrated] = useState(false);
 
+  /**
+   * When the user switches vaults or branches, clear the cached `.noter.md`
+   * data and hydration flags so the new branch loads its own config from
+   * scratch.
+   */
   useEffect(() => {
     setRepositoryNoterContent(null);
     setDidAttemptRepositoryNoterLoad(false);
@@ -1012,6 +1050,7 @@ function FileViewInner({
     setSidebarModeHydrated(false);
   }, [vault._id, branch]);
 
+  /** Read the saved graph/editor mode for this vault from localStorage. */
   useEffect(() => {
     setViewModeHydrated(false);
     const storedMode = readGraphViewMode(graphViewStorageKey);
@@ -1019,6 +1058,7 @@ function FileViewInner({
     setViewModeHydrated(true);
   }, [graphViewStorageKey]);
 
+  /** Write the current graph/editor mode back to localStorage after hydration finishes. */
   useEffect(() => {
     if (!viewModeHydrated) {
       return;
@@ -1030,18 +1070,24 @@ function FileViewInner({
     }
   }, [graphViewStorageKey, viewMode, viewModeHydrated]);
 
+  /** Close the preview pane when the user switches to graph view. */
   useEffect(() => {
     if (viewMode === "graph" && isPreviewOpen) {
       setIsPreviewOpen(false);
     }
   }, [viewMode, isPreviewOpen]);
 
+  /** If commit review is active, force the main view back to `editor` because graph view cannot review diffs. */
   useEffect(() => {
     if (commitReviewMode === "review" && viewMode !== "editor") {
       setViewMode("editor");
     }
   }, [commitReviewMode, setViewMode, viewMode]);
 
+  /**
+   * Load `.noter.md` from the repository only when staging has not already
+   * supplied a staged copy or a staged deletion for that same file.
+   */
   useEffect(() => {
     if (
       !shouldLoadRepositorySimpleViewConfig(
@@ -1087,6 +1133,11 @@ function FileViewInner({
     stagedNoterFile,
   ]);
 
+  /**
+   * Once we know whether a simple-view config exists, load the saved sidebar
+   * mode from localStorage. If there is no saved value, default to `simple`
+   * when config exists and `all` when it does not.
+   */
   useEffect(() => {
     if (!didResolveSimpleViewConfigSource) {
       return;
@@ -1112,6 +1163,7 @@ function FileViewInner({
     sidebarModeStorageKey,
   ]);
 
+  /** Save the current sidebar mode (`simple` or `all`) after the initial load completes. */
   useEffect(() => {
     if (!didResolveSimpleViewConfigSource || !sidebarModeHydrated) {
       return;
@@ -2170,6 +2222,7 @@ function FileViewInner({
     flushPendingInlinePreviewSaveRef.current = flushPendingInlinePreviewSave;
   }, [flushPendingInlinePreviewSave]);
 
+  /** Before unmounting, flush any pending inline preview save so the last edit is not lost. */
   useEffect(() => {
     return () => {
       flushPendingInlinePreviewSaveRef.current?.();
@@ -2177,6 +2230,12 @@ function FileViewInner({
     };
   }, []);
 
+  /**
+   * Keep the local inline-preview draft synced with the persisted staged file.
+   * If the active staging record changes, fully reset the draft state. If only
+   * the persisted content/version changes, copy them over only when there are
+   * no unsaved local edits.
+   */
   useEffect(() => {
     if (inlinePreviewDraftStagingId !== activePreviewStagingId) {
       setInlinePreviewDraftStagingId(activePreviewStagingId);
@@ -2210,11 +2269,17 @@ function FileViewInner({
     inlinePreviewDraftStagingId,
   ]);
 
+  /** Hide the inline preview diff views when the user switches to a different file. */
   useEffect(() => {
     setShowInlinePreviewPatch(false);
     setShowInlinePreviewSideBySide(false);
   }, [selectedFile]);
 
+  /**
+   * While commit review is open, debounce inline preview saves for 350ms and
+   * flush the latest change during cleanup so fast navigation does not drop the
+   * last edit.
+   */
   useEffect(() => {
     if (
       commitReviewMode !== "review" ||
@@ -2557,6 +2622,7 @@ function FileViewInner({
     };
   }, [branchComparePreview, branchComparePreviewError, isCompareRequested]);
 
+  /** Update the "compare has been loading for X ms" counter while compare data is loading. */
   useEffect(() => {
     if (branchCompareLoadingStartedAt === null) {
       setBranchCompareLoadingElapsedMs(0);
@@ -2577,6 +2643,10 @@ function FileViewInner({
     };
   }, [branchCompareLoadingStartedAt]);
 
+  /**
+   * Detect when the user navigates to a different `branch + selectedFile` route
+   * and reset the auto-exit-review guard for that new route.
+   */
   useEffect(() => {
     const nextRouteKey = `${branch}:${selectedFile}`;
     if (reviewRouteKeyRef.current === nextRouteKey) {
@@ -2588,6 +2658,7 @@ function FileViewInner({
     );
   }, [branch, selectedFile, commitReviewMode]);
 
+  /** If review mode is open and there are no staged changes left, switch the URL back to editor mode. */
   useEffect(() => {
     if (
       !didResolveStagedFiles ||
@@ -2608,6 +2679,11 @@ function FileViewInner({
     setReviewModeInQuery,
   ]);
 
+  /**
+   * Dashboard links can land here with `?review`. Wait until staged files are
+   * resolved, then rewrite the URL to the canonical mode: `review` if there are
+   * staged changes, otherwise `editor`.
+   */
   useEffect(() => {
     if (
       !reviewOnMountRequested ||
@@ -2633,6 +2709,7 @@ function FileViewInner({
     setReviewModeInQuery,
   ]);
 
+  /** Load or refresh the commit preview whenever review mode is active and staged changes exist. */
   useEffect(() => {
     if (commitReviewMode !== "review" || !hasChangesToCommit) return;
     void loadCommitPreview();
@@ -2643,12 +2720,18 @@ function FileViewInner({
     loadCommitPreview,
   ]);
 
+  /** Cancel any pending compare-preview reload timer when this component unmounts. */
   useEffect(() => {
     return () => {
       clearBranchComparePreviewReloadTimeout();
     };
   }, [clearBranchComparePreviewReloadTimeout]);
 
+  /**
+   * Keep the branch compare preview up to date. Target-branch changes reload it
+   * immediately; staged-file churn reloads it after a debounce so we do not
+   * refetch on every tiny local edit.
+   */
   useEffect(() => {
     if (!isCompareRequested) {
       clearBranchComparePreviewReloadTimeout();
@@ -2718,6 +2801,10 @@ function FileViewInner({
     loadBranchComparePreview,
   ]);
 
+  /**
+   * If the currently selected file is not present in the compare result, move
+   * the user to the first compared file so compare mode always shows real data.
+   */
   useEffect(() => {
     if (!isCompareRequested || !branchComparePreview) {
       return;
@@ -3415,21 +3502,8 @@ export function FileView() {
   return (
     <DialogProvider>
       <SidebarProvider className="h-full min-h-0">
-        <FileViewWithSwipe />
+        <FileViewWrapper />
       </SidebarProvider>
     </DialogProvider>
   );
-}
-
-// Component with sidebar context and mobile edge swipe gesture
-function FileViewWithSwipe() {
-  const { isMobile, openMobile, setOpenMobile } = useSidebar();
-
-  useSwipeToOpenSidebar(() => {
-    if (isMobile && !openMobile) {
-      setOpenMobile(true);
-    }
-  });
-
-  return <FileViewWrapper />;
 }

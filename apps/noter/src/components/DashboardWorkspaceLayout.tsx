@@ -1,6 +1,5 @@
 import { type CSSProperties, type ReactNode } from "react";
-import { Sidebar, SidebarContent } from "@/components/sidebar";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { WorkspaceSidebarShell } from "@/components/WorkspaceSidebarShell";
 import { cn } from "@/lib/utils";
 
 export function DashboardWorkspaceLayout({
@@ -20,89 +19,19 @@ export function DashboardWorkspaceLayout({
   bodyClassName?: string;
   bodyStyle?: CSSProperties;
 }) {
-  const { isMobile, open } = useSidebar();
-  const hasSidebarHeader =
-    sidebarHeader !== undefined && sidebarHeader !== null;
-  const hasSidebarContent =
-    sidebarContent !== undefined && sidebarContent !== null;
-
-  if (isMobile) {
-    return (
-      <div data-testid={dataTestId} className="flex h-full w-full">
-        {hasSidebarHeader || hasSidebarContent ? (
-          <Sidebar variant="sidebar" className="border-r border-border/50">
-            {hasSidebarHeader ? sidebarHeader : null}
-            {hasSidebarContent ? (
-              <SidebarContent className="gap-0 p-0">
-                {sidebarContent}
-              </SidebarContent>
-            ) : null}
-          </Sidebar>
-        ) : null}
-
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
-          <div
-            data-testid="dashboard-layout-header"
-            className="border-b border-border/50"
-          >
-            {headerContent}
-          </div>
-          <div
-            data-testid="dashboard-layout-body"
-            className={cn("min-h-0 flex-1", bodyClassName)}
-            style={bodyStyle}
-          >
-            {children}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div
-      data-testid={dataTestId}
-      className="grid h-full w-full min-h-0 transition-[grid-template-columns] duration-200 ease-linear"
-      style={{
-        gridTemplateColumns:
-          open && (hasSidebarHeader || hasSidebarContent)
-            ? "var(--sidebar-width) minmax(0, 1fr)"
-            : "0 minmax(0, 1fr)",
-        gridTemplateRows: "auto minmax(0, 1fr)",
-      }}
+    <WorkspaceSidebarShell
+      dataTestId={dataTestId}
+      sidebarHeader={sidebarHeader}
+      sidebarContent={sidebarContent}
+      sidebarContentTestId="dashboard-layout-sidebar-content"
+      headerTestId="dashboard-layout-header"
+      headerContent={headerContent}
+      bodyTestId="dashboard-layout-body"
+      bodyClassName={cn("min-h-0 flex-1", bodyClassName)}
+      bodyStyle={bodyStyle}
     >
-      {open && hasSidebarHeader ? (
-        <div
-          data-testid="dashboard-layout-sidebar-header"
-          className="min-w-0 overflow-hidden border-r border-border/50"
-        >
-          {sidebarHeader}
-        </div>
-      ) : null}
-
-      {open && hasSidebarContent ? (
-        <div
-          data-testid="dashboard-layout-sidebar-content"
-          className="row-start-2 min-h-0 min-w-0 overflow-hidden border-r border-border/50"
-        >
-          <div className="flex h-full min-h-0 flex-col">{sidebarContent}</div>
-        </div>
-      ) : null}
-
-      <div
-        data-testid="dashboard-layout-header"
-        className="col-start-2 row-start-1 min-w-0 border-b border-border/50"
-      >
-        {headerContent}
-      </div>
-
-      <div
-        data-testid="dashboard-layout-body"
-        className={cn("col-start-2 row-start-2 min-h-0 min-w-0", bodyClassName)}
-        style={bodyStyle}
-      >
-        {children}
-      </div>
-    </div>
+      {children}
+    </WorkspaceSidebarShell>
   );
 }
