@@ -3,16 +3,20 @@ import { WorkspaceSidebarShell } from "@/components/WorkspaceSidebarShell";
 import { cn } from "@/lib/utils";
 
 export function DashboardWorkspaceLayout({
-  sidebarHeader,
-  sidebarContent,
+  leftSidebarHeader,
+  leftSidebarContent,
+  rightSidebarHeader,
+  rightSidebarContent,
   headerContent,
   children,
   dataTestId,
   bodyClassName,
   bodyStyle,
 }: {
-  sidebarHeader?: ReactNode;
-  sidebarContent?: ReactNode;
+  leftSidebarHeader?: ReactNode;
+  leftSidebarContent?: ReactNode;
+  rightSidebarHeader?: ReactNode;
+  rightSidebarContent?: ReactNode;
   headerContent: ReactNode;
   children: ReactNode;
   dataTestId?: string;
@@ -22,9 +26,12 @@ export function DashboardWorkspaceLayout({
   return (
     <WorkspaceSidebarShell
       dataTestId={dataTestId}
-      sidebarHeader={sidebarHeader}
-      sidebarContent={sidebarContent}
-      sidebarContentTestId="dashboard-layout-sidebar-content"
+      leftSidebarHeader={leftSidebarHeader}
+      leftSidebarContent={leftSidebarContent}
+      leftSidebarContentTestId="dashboard-layout-sidebar-content"
+      rightSidebarHeader={rightSidebarHeader}
+      rightSidebarContent={rightSidebarContent}
+      rightSidebarContentTestId="dashboard-layout-right-sidebar-content"
       headerTestId="dashboard-layout-header"
       headerContent={headerContent}
       bodyTestId="dashboard-layout-body"

@@ -1,7 +1,221 @@
-export {
-  Sidebar,
-  SidebarContent,
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+import * as React from "react";
+import { PanelLeft } from "lucide-react";
+import {
+  SidebarContext,
+  type SidebarContextProps,
+  type MobileSidebarPane,
+  type SidebarSide,
+  useSidebar,
+} from "@/hooks/use-sidebar";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+
+const SIDEBAR_COOKIE_NAME = "sidebar_state";
+const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
+const SIDEBAR_WIDTH = "16rem";
+const SIDEBAR_WIDTH_ICON = "3rem";
+const SIDEBAR_KEYBOARD_SHORTCUT = "b";
+
+function resolveNextState<T>(
+  currentValue: T,
+  nextValue: React.SetStateAction<T>,
+) {
+  return nextValue instanceof Function ? nextValue(currentValue) : nextValue;
+}
+
+export const SidebarProvider = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentProps<"div"> & {
+    defaultOpen?: boolean;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    defaultRightOpen?: boolean;
+    rightOpen?: boolean;
+    onRightOpenChange?: (open: boolean) => void;
+  }
+>(
+  (
+    {
+      defaultOpen = true,
+      open: openProp,
+      onOpenChange: setOpenProp,
+      defaultRightOpen = false,
+      rightOpen: rightOpenProp,
+      onRightOpenChange: setRightOpenProp,
+      className,
+      style,
+      children,
+      ...props
+    },
+    ref,
+  ) => {
+    const isMobile = useIsMobile();
+    const [mobilePane, setMobilePane] =
+      React.useState<MobileSidebarPane>("main");
+    const [internalLeftDesktopOpen, setInternalLeftDesktopOpen] =
+      React.useState(defaultOpen);
+    const [internalRightDesktopOpen, setInternalRightDesktopOpen] =
+      React.useState(defaultRightOpen);
+    const leftDesktopOpen = openProp ?? internalLeftDesktopOpen;
+    const rightDesktopOpen = rightOpenProp ?? internalRightDesktopOpen;
+
+    const setLeftDesktopOpen = React.useCallback(
+      (value: React.SetStateAction<boolean>) => {
+        const nextValue = resolveNextState(leftDesktopOpen, value);
+        if (setOpenProp) {
+          setOpenProp(nextValue);
+        } else {
+          setInternalLeftDesktopOpen(nextValue);
+        }
+
+        // Preserve the existing left-sidebar cookie contract while the dual
+        // sidebar implementation is still intentionally light on persistence.
+        document.cookie = `${SIDEBAR_COOKIE_NAME}=${nextValue}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+      },
+      [leftDesktopOpen, setOpenProp],
+    );
+
+    const setRightDesktopOpen = React.useCallback(
+      (value: React.SetStateAction<boolean>) => {
+        const nextValue = resolveNextState(rightDesktopOpen, value);
+        if (setRightOpenProp) {
+          setRightOpenProp(nextValue);
+        } else {
+          setInternalRightDesktopOpen(nextValue);
+        }
+      },
+      [rightDesktopOpen, setRightOpenProp],
+    );
+
+    const toggleLeftSidebar = React.useCallback(() => {
+      if (isMobile) {
+        setMobilePane((currentPane) =>
+          currentPane === "left" ? "main" : "left",
+        );
+        return;
+      }
+
+      setLeftDesktopOpen((currentOpen) => !currentOpen);
+    }, [isMobile, setLeftDesktopOpen]);
+
+    const toggleRightSidebar = React.useCallback(() => {
+      if (isMobile) {
+        setMobilePane((currentPane) =>
+          currentPane === "right" ? "main" : "right",
+        );
+        return;
+      }
+
+      setRightDesktopOpen((currentOpen) => !currentOpen);
+    }, [isMobile, setRightDesktopOpen]);
+
+    React.useEffect(() => {
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (
+          event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
+          (event.metaKey || event.ctrlKey)
+        ) {
+          event.preventDefault();
+          toggleLeftSidebar();
+        }
+      };
+
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [toggleLeftSidebar]);
+
+    const contextValue = React.useMemo<SidebarContextProps>(
+      () => ({
+        isMobile,
+        leftDesktopOpen,
+        setLeftDesktopOpen,
+        rightDesktopOpen,
+        setRightDesktopOpen,
+        mobilePane,
+        setMobilePane,
+        toggleLeftSidebar,
+        toggleRightSidebar,
+        state: leftDesktopOpen ? "expanded" : "collapsed",
+        open: leftDesktopOpen,
+        setOpen: setLeftDesktopOpen,
+        openMobile: mobilePane === "left",
+        setOpenMobile: (nextOpen: boolean) =>
+          setMobilePane(nextOpen ? "left" : "main"),
+        toggleSidebar: toggleLeftSidebar,
+      }),
+      [
+        isMobile,
+        leftDesktopOpen,
+        setLeftDesktopOpen,
+        rightDesktopOpen,
+        setRightDesktopOpen,
+        mobilePane,
+        setMobilePane,
+        toggleLeftSidebar,
+        toggleRightSidebar,
+      ],
+    );
+
+    const sidebarWrapperStyle: React.CSSProperties & {
+      "--sidebar-width": string;
+      "--sidebar-width-icon": string;
+    } = {
+      "--sidebar-width": SIDEBAR_WIDTH,
+      "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+      ...style,
+    };
+
+    return (
+      <SidebarContext.Provider value={contextValue}>
+        <div
+          style={sidebarWrapperStyle}
+          className={cn(
+            "group/sidebar-wrapper flex min-h-svh w-full",
+            className,
+          )}
+          ref={ref}
+          {...props}
+        >
+          {children}
+        </div>
+      </SidebarContext.Provider>
+    );
+  },
+);
+SidebarProvider.displayName = "SidebarProvider";
+
+export const SidebarTrigger = React.forwardRef<
+  React.ElementRef<typeof Button>,
+  React.ComponentProps<typeof Button> & {
+    side?: SidebarSide;
+  }
+>(({ className, onClick, side = "left", ...props }, ref) => {
+  const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
+  const toggleSidebar =
+    side === "right" ? toggleRightSidebar : toggleLeftSidebar;
+  const label =
+    side === "right" ? "Toggle Right Sidebar" : "Toggle Left Sidebar";
+
+  return (
+    <Button
+      ref={ref}
+      data-sidebar="trigger"
+      data-side={side}
+      variant="ghost"
+      size="icon"
+      className={cn("h-7 w-7", className)}
+      aria-label={props["aria-label"] ?? label}
+      title={props.title ?? label}
+      onClick={(event) => {
+        onClick?.(event);
+        toggleSidebar();
+      }}
+      {...props}
+    >
+      <PanelLeft className={cn(side === "right" ? "rotate-180" : "")} />
+      <span className="sr-only">{label}</span>
+    </Button>
+  );
+});
+SidebarTrigger.displayName = "SidebarTrigger";

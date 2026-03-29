@@ -704,7 +704,7 @@ function FileViewInner({
   repoName: string;
   stagedFile: (typeof api.fileStaging.getByNewPath)["_returnType"];
 }) {
-  const { setOpenMobile } = useSidebar();
+  const { setMobilePane } = useSidebar();
 
   const navigate = useNavigate();
   const { search, state } = useLocation();
@@ -1379,11 +1379,11 @@ function FileViewInner({
           { state },
         );
 
-        // close the sidebar
-        setOpenMobile(false);
+        // Return the mobile carousel to the center pane after selection.
+        setMobilePane("main");
       }
     },
-    [buildVaultFileUrl, navigate, owner, repoName, setOpenMobile, state],
+    [buildVaultFileUrl, navigate, owner, repoName, setMobilePane, state],
   );
 
   const handleOpenFileFromGraph = useCallback(
@@ -3007,11 +3007,16 @@ function FileViewInner({
     />
   ) : null;
 
+  const rightSidebarContent = (
+    <div className="flex min-h-0 flex-1 bg-background" />
+  );
+
   return (
     <>
       <RepositoryWorkspaceFrame
-        sidebarHeader={sidebarHeader}
-        sidebarContent={sidebarContent}
+        leftSidebarHeader={sidebarHeader}
+        leftSidebarContent={sidebarContent}
+        rightSidebarContent={rightSidebarContent}
         headerTitle={headerTitle}
         onQuickOpen={() => setIsCommandPaletteOpen(true)}
         contentClassName="flex-1 min-h-0 p-0"
@@ -3501,7 +3506,7 @@ function FileViewInner({
 export function FileView() {
   return (
     <DialogProvider>
-      <SidebarProvider className="h-full min-h-0">
+      <SidebarProvider defaultRightOpen={true} className="h-full min-h-0">
         <FileViewWrapper />
       </SidebarProvider>
     </DialogProvider>

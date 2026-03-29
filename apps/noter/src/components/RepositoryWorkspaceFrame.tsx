@@ -6,8 +6,10 @@ import { SidebarTrigger } from "@/components/sidebar";
 import { cn } from "@/lib/utils";
 
 export function RepositoryWorkspaceFrame({
-  sidebarHeader,
-  sidebarContent,
+  leftSidebarHeader,
+  leftSidebarContent,
+  rightSidebarHeader,
+  rightSidebarContent,
   headerTitle,
   headerRight,
   onQuickOpen,
@@ -16,8 +18,10 @@ export function RepositoryWorkspaceFrame({
   headerTestId,
   contentClassName,
 }: {
-  sidebarHeader?: ReactNode;
-  sidebarContent: ReactNode;
+  leftSidebarHeader?: ReactNode;
+  leftSidebarContent: ReactNode;
+  rightSidebarHeader?: ReactNode;
+  rightSidebarContent?: ReactNode;
   headerTitle?: ReactNode;
   headerRight?: ReactNode;
   onQuickOpen?: () => void;
@@ -26,16 +30,24 @@ export function RepositoryWorkspaceFrame({
   headerTestId?: string;
   contentClassName?: string;
 }) {
+  const hasRightSidebar =
+    rightSidebarHeader !== undefined || rightSidebarContent !== undefined;
+
   return (
     <WorkspaceSidebarShell
       dataTestId={dataTestId}
-      sidebarHeader={sidebarHeader}
-      sidebarContent={sidebarContent}
+      leftSidebarHeader={leftSidebarHeader}
+      leftSidebarContent={leftSidebarContent}
+      rightSidebarHeader={rightSidebarHeader}
+      rightSidebarContent={rightSidebarContent}
       headerTestId={headerTestId}
       headerContent={
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-3">
-            <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
+            <SidebarTrigger
+              className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
+              side="left"
+            />
             {onQuickOpen ? (
               <Button
                 variant="ghost"
@@ -57,7 +69,15 @@ export function RepositoryWorkspaceFrame({
             ) : null}
           </div>
 
-          {headerRight}
+          <div className="flex items-center gap-2">
+            {headerRight}
+            {hasRightSidebar ? (
+              <SidebarTrigger
+                className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
+                side="right"
+              />
+            ) : null}
+          </div>
         </div>
       }
       bodyClassName={cn("min-h-0", contentClassName ?? "overflow-auto p-4")}

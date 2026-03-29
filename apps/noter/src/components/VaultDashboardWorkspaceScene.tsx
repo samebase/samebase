@@ -5,9 +5,11 @@ import { cn } from "@/lib/utils";
 export type VaultDashboardWorkspaceSceneViewModel = {
   dataTestId?: string;
   headerContent: ReactNode;
+  leftSidebarContent?: ReactNode;
+  leftSidebarHeader?: ReactNode;
   overlayContent?: ReactNode;
-  sidebarContent?: ReactNode;
-  sidebarHeader?: ReactNode;
+  rightSidebarContent?: ReactNode;
+  rightSidebarHeader?: ReactNode;
   workspaceBody: ReactNode;
   workspacePaneClassName?: string;
   workspaceScrollClassName?: string;
@@ -21,9 +23,11 @@ export type VaultDashboardWorkspaceSceneViewModel = {
 export function VaultDashboardWorkspaceScene({
   dataTestId,
   headerContent,
+  leftSidebarContent,
+  leftSidebarHeader,
   overlayContent,
-  sidebarContent,
-  sidebarHeader,
+  rightSidebarContent,
+  rightSidebarHeader,
   workspaceBody,
   workspacePaneClassName,
   workspaceScrollClassName,
@@ -32,8 +36,10 @@ export function VaultDashboardWorkspaceScene({
   return (
     <DashboardWorkspaceLayout
       dataTestId={dataTestId}
-      sidebarHeader={sidebarHeader}
-      sidebarContent={sidebarContent}
+      leftSidebarHeader={leftSidebarHeader}
+      leftSidebarContent={leftSidebarContent}
+      rightSidebarHeader={rightSidebarHeader}
+      rightSidebarContent={rightSidebarContent}
       headerContent={headerContent}
       bodyClassName={cn("flex min-h-0 flex-col", workspacePaneClassName)}
     >
