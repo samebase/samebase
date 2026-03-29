@@ -4,185 +4,237 @@
 
 - Status: Proposed
 - Owner: Noter frontend
-- Last updated: 2026-03-28
+- Last updated: 2026-03-29
 - Depends on:
-  - `apps/noter/src/components/ui/sidebar.tsx`
-  - `apps/noter/src/components/ui/sheet.tsx`
-  - `apps/noter/src/hooks/use-touch-gestures.ts`
+  - `apps/noter/src/components/DashboardWorkspaceLayout.tsx`
+  - `apps/noter/src/components/RepositoryWorkspaceFrame.tsx`
   - `apps/noter/src/components/FileView.tsx`
   - `apps/noter/src/components/VaultDashboard.tsx`
   - `rfcs/067_DASHBOARD_SHARED_SIDEBAR_SPEC.md`
 
 ## Summary
 
-Mobile sidebar open should feel attached to the finger instead of waiting for
-the swipe to finish and then playing an entrance animation.
+Mobile sidebar interaction should feel like dragging a horizontally pannable
+workspace, not like triggering a modal drawer that only appears after the drag
+has already finished.
 
-The mobile sidebar should be rendered off-canvas on the left at all times,
-hidden with a transform when closed. An edge drag should reveal that already
-mounted surface interactively, then settle open or closed on release.
+The sidebar and main view should live on the same visual plane inside one shared
+workspace shell. On mobile, dragging should rely on the same immediate,
+continuous motion as native scrolling, with only two snap positions: closed and
+open.
 
-CSS remains responsible for the visual motion, but CSS alone is not sufficient
-for this interaction. A small pointer-driven state layer must update the drawer
-offset while the gesture is in progress.
+The implementation should get simpler as this lands:
+
+- one shared shell instead of separate mobile and desktop markup
+- native pan/scroll behavior instead of a custom gesture engine
+- a small amount of snap/open state instead of many mobile-only branches
 
 ## Problem
 
-Today mobile sidebar open is triggered by `useSwipeToOpenSidebar`, which only
-calls `onOpen` during `touchend`. The actual sidebar surface is a Radix `Sheet`,
-so the visible motion begins only after the gesture has already finished.
+The original UX problem was straightforward: mobile drag felt delayed because
+the sidebar became visible only after the gesture completed. That made the
+interaction look like it was stuttering or catching up to the finger.
 
-That makes the interaction feel delayed and indirect:
+The attempted fix addressed the right symptom, live motion, but introduced too
+much complexity in the process:
 
-- the drawer does not track the finger during the swipe
-- the user gets no progressive reveal feedback while deciding whether to commit
-- the interaction feels more like a post-gesture animation than a drag
+- custom document-level drag listeners
+- separate mobile-specific shell markup
+- many mobile-vs-desktop branches in layout components
+- modal-drawer behavior layered onto a surface that is not conceptually modal
+- fixture-heavy and screenshot-heavy validation that does not clearly protect
+  the intended behavior
+
+This spec resets the direction around a simpler model that keeps the good part,
+the live translation, while removing the unnecessary machinery.
 
 ## Goals
 
-1. Make mobile sidebar open feel continuous with the user’s finger movement.
-2. Reuse the existing left sidebar content for file view and dashboard.
-3. Keep the implementation dependency-light and compatible with the existing
-   sidebar provider model.
-4. Preserve accessible modal drawer behavior once the sidebar is committed open.
+1. Make the sidebar move immediately with the finger during drag.
+2. Keep the sidebar and main view on the same level in the layout.
+3. Use one shared shell structure across desktop and mobile.
+4. Reduce implementation complexity by deleting custom gesture and modal code.
+5. Preserve a simple committed state: sidebar open or closed.
 
 ## Non-Goals
 
-- Redesigning desktop sidebar behavior.
-- Adding a gesture library just for this interaction.
-- Introducing a second sidebar model separate from the existing provider state.
-- Changing sidebar content structure in file view or dashboard.
+- Introducing modal overlay behavior for the mobile sidebar.
+- Trapping focus or making background content inert while the sidebar is open.
+- Maintaining separate mobile-only layout trees for dashboard and file view.
+- Expanding screenshot fixtures as the main form of validation.
+- Adding a gesture library unless the remaining implementation still proves too
+  complex after simplification.
 
 ## Current State
 
-- Desktop sidebar already behaves like an off-canvas surface: it stays mounted
-  and moves offscreen when collapsed.
-- Mobile sidebar does not use that model. It switches to a `Sheet` that mounts
-  portal content and animates between closed and open states.
-- Mobile edge swipe is attached only in `FileView` and `VaultDashboard`.
-- The gesture hook detects a horizontal swipe, but it does not expose live drag
-  progress. It only decides at release time whether to call `onOpen`.
+- Desktop layout relies on a static workspace structure with a sidebar column
+  and main content area.
+- Mobile historically behaved more like a drawer: a gesture finished first, and
+  only then did the sidebar visibly appear.
+- Recent work improved the visual feel by translating the workspace during drag,
+  but it did so with a large custom gesture layer and multiple structural
+  branches.
+
+The core insight to preserve is the translation motion itself, not the custom
+gesture system built around it.
 
 ## Proposal
 
-### 1. Always-mounted mobile drawer
+### 1. One Shared Workspace Shell
 
-On mobile, the sidebar should render as a fixed left drawer that remains mounted
-even while closed.
+Dashboard and file view should render through one shared shell structure in both
+desktop and mobile modes.
 
-Closed state:
+Preferred shape:
 
-- drawer is translated fully offscreen to the left
-- overlay is visually hidden and non-interactive
-- drawer content is inert and hidden from focus navigation
+```tsx
+<div className="workspace-shell">
+  <div className="workspace-track">
+    <aside className="workspace-sidebar" />
+    <div className="workspace-main">
+      <header />
+      <main />
+    </div>
+  </div>
+</div>
+```
 
-Open state:
+This does not require identical CSS across breakpoints, but it does require one
+shared DOM structure and one shared mental model.
 
-- drawer is translated to `0`
-- overlay is visible
-- drawer content is interactive and focusable
+If a layout component needs a large `if (isMobile) ... else ...` block with
+different trees, that is a sign the implementation is drifting away from this
+spec.
 
-Desktop continues to use the existing sidebar implementation unchanged.
+### 2. Drag Should Behave Like Native Horizontal Scrolling
 
-### 2. Interactive edge drag
+On mobile, the workspace shell should behave like a horizontally pannable
+surface.
 
-Replace the current open-only swipe detection with a drag session that tracks
-pointer movement from the left screen edge.
+Preferred interaction model:
 
-Interaction model:
+- the user drags horizontally
+- the track moves immediately with the finger
+- motion is driven by native pan/scroll behavior rather than custom pointer math
+- release settles to one of two snap positions
 
-- a drag may begin only when the initial pointer down lands within a narrow left
-  edge hit area
-- once horizontal intent is clear, the drawer reveal follows the finger
-  continuously
-- the overlay opacity should scale with the reveal progress
-- on release, the drawer snaps open or closed based on revealed distance and
-  release velocity
+The desired feel is "like scrolling the page, but sideways," with only one extra
+rule: we snap to closed or open instead of resting at arbitrary offsets.
 
-This should support both:
+### 3. Snap Points, Not Gesture Heuristics
 
-- swipe-open from the closed state
-- swipe-close from the open state
+The mobile interaction should have two meaningful resting positions:
 
-### 3. JS + CSS responsibility split
+- closed
+- open
 
-This interaction should not be described as "CSS-only."
+Implementation should prefer browser-native scroll and snap mechanics where
+possible:
 
-Required split:
+- horizontal overflow container
+- track containing sidebar and main
+- CSS scroll snap or an equivalent minimal settle mechanism
+- programmatic `scrollTo(...)` for button-driven open/close
 
-- JS owns ephemeral gesture state such as drag start, delta, velocity, and
-  release threshold resolution
-- CSS owns the actual rendering of the drawer and overlay via `transform`,
-  opacity, transitions, and pointer-events gates
+Custom velocity thresholds, touch session tracking, and document-level pointer
+capture should be avoided unless a much smaller implementation truly cannot
+deliver the required feel.
 
-The drawer should be positioned with `transform`, not `left`, so the drag path
-stays on the compositor-friendly path and avoids layout churn.
+### 4. Same-Level Sidebar Semantics
 
-### 4. Sidebar state contract
-
-The existing committed mobile state remains boolean: open or closed.
-
-During a drag, the implementation may keep additional transient state such as:
-
-- drag status
-- reveal progress
-- current translate offset
-
-That transient state must not replace `openMobile`; it exists only to render the
-interactive motion before the release settles to the normal committed state.
-
-### 5. Accessibility and modal behavior
-
-The drawer must preserve the accessibility expectations currently provided by
-the mobile `Sheet` once the drawer is committed open.
+The sidebar is not an overlay and should not be treated like one.
 
 Required behavior:
 
-- escape closes the drawer when a keyboard is present
-- tapping the overlay closes the drawer
-- background content is not focusable while the drawer is open
-- body/page scroll should not fight the drawer while it is actively dragging or
-  open
+- no modal overlay
+- no background inerting
+- no focus trap
+- no special modal semantics layered on top of the translated track
 
-While the drawer is only partially revealed during an opening drag, it may be
-treated as a visual transition state rather than a fully interactive modal
-surface.
+The sidebar and main view are sibling surfaces on the same plane. When the
+sidebar is open, the main view remains part of the same workspace composition.
 
-### 6. Implementation direction
+Normal document focus order is sufficient for this interaction.
+
+### 5. State Contract
+
+The committed sidebar state remains boolean: open or closed.
+
+During motion, the UI may use transient state derived from scroll position or
+track offset, for example:
+
+- current horizontal offset
+- reveal progress
+- snapping/settling status
+
+That transient state exists only to render the live motion and settle to a snap
+position. It should not grow into a separate mobile-only state machine.
+
+### 6. Desktop Uses the Same Shell
+
+Desktop should continue to present the sidebar as a stable layout column, but it
+should do so using the same shell structure as mobile.
+
+Allowed differences on desktop:
+
+- panning disabled
+- track pinned in place
+- static grid or equivalent CSS that presents the same shell without horizontal
+  interaction
+
+Not allowed:
+
+- separate desktop and mobile markup trees for the same workspace shell
+- dashboard-specific or file-view-specific mobile interaction models
+
+### 7. Implementation Direction
 
 Preferred direction:
 
-1. Keep the existing `SidebarProvider` and `openMobile` state shape.
-2. Replace the current mobile `Sheet` branch inside `Sidebar` with an app-owned
-   mobile drawer surface that stays mounted.
-3. Replace `useSwipeToOpenSidebar` with a pointer-driven hook that exposes live
-   drag progress instead of only an end-of-gesture callback.
-4. Drive drawer position and overlay opacity through CSS variables or inline
-   styles derived from that transient drag state.
+1. Unify dashboard and file-view workspace shells around one structure.
+2. Express mobile-vs-desktop differences through CSS and a small amount of
+   state, not separate JSX trees.
+3. Prefer native horizontal scroll plus snap positions over a custom drag hook.
+4. Keep JavaScript responsibilities narrow:
+   - button-driven open/close
+   - syncing committed open state
+   - optionally settling to the nearest snap position if native snap alone is
+     insufficient
+5. Delete mobile-specific abstractions that exist only to support fixture or
+   gesture complexity.
 
-This slice should avoid introducing a new dependency unless the in-house
-pointer-based implementation proves materially more complex than expected.
+Specifically, avoid:
+
+- document-level pointer/touch gesture engines
+- screen-specific drag region modes
+- modal drawer primitives for the mobile sidebar
+- fixture-only force-mobile state layers
 
 ## Validation
 
 When implementation lands:
 
-- add or update a mobile Playwright interaction test that performs an edge drag
-  and verifies the drawer tracks during the gesture rather than only after
-  release
-- verify swipe-open and swipe-close in both `FileView` and `VaultDashboard`
-- verify overlay tap, escape key, and trigger-button open/close still work
-- verify vertical page scrolling near the edge does not incorrectly capture into
-  a drawer drag
+- add or update a mobile interaction test that verifies the track visibly moves
+  during the drag, before release
+- verify releasing the drag settles to closed or open snap positions
+- verify button-triggered open/close lands on the correct snap positions
+- verify dashboard and file view share the same shell behavior
+- verify desktop still renders and toggles correctly through the same shell
+
+Testing guidance:
+
+- prefer behavior-oriented interaction tests over large screenshot suites
+- keep screenshot coverage minimal and representative when a shipped visual
+  surface materially changes
+- do not add fixture complexity solely to prove the existence of the mobile
+  shell model
 
 ## Acceptance Criteria
 
-- Mobile sidebar can be rendered closed while already mounted off-canvas on the
-  left.
-- A left-edge drag progressively reveals the drawer before release.
-- Releasing the drag settles the drawer open or closed according to threshold
-  and velocity, not just a binary swipe detector.
-- The drawer uses transform-driven motion rather than layout-driven `left`
-  updates for the interactive path.
-- File view and dashboard share the same improved mobile sidebar behavior.
-- Desktop sidebar behavior remains unchanged.
+- Sidebar and main render through one shared workspace shell structure.
+- On mobile, dragging moves the workspace immediately before release.
+- Mobile interaction settles to open or closed snap positions.
+- The sidebar is not implemented as a modal overlay surface.
+- Dashboard and file view do not maintain separate mobile-only shell models.
+- Desktop continues to work through the same shell with simpler, static
+  presentation.

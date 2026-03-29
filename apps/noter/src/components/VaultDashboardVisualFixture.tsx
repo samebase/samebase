@@ -5,10 +5,8 @@ import { SidebarProvider, SidebarTrigger } from "@/components/sidebar";
 import { DashboardWorkspaceLayout } from "@/components/DashboardWorkspaceLayout";
 import { ResizeGripLines } from "@/components/ResizeGripLines";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
-import { VaultDashboardWorkspaceScene } from "@/components/VaultDashboardWorkspaceScene";
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
 import { VaultBranchLinkRow } from "@/components/VaultDashboard";
-import { useVaultDashboardVisualMobileShellViewModel } from "@/hooks/use-vault-dashboard-visual-mobile-shell-view-model";
 import { cn } from "@/lib/utils";
 import { GitHubLogoIcon, PersonIcon } from "@radix-ui/react-icons";
 import { Plus, X } from "lucide-react";
@@ -17,7 +15,6 @@ export type VaultDashboardVisualMode =
   | "dashboard-layout-minimal"
   | "dashboard-provider-sidebar-wrap"
   | "dashboard-shared-sidebar"
-  | "dashboard-shared-sidebar-mobile-shell"
   | "dashboard-shared-sidebar-mobile-chat"
   | "vault-branch-filters"
   | "vault-branch-pr-labels"
@@ -128,8 +125,6 @@ export function VaultDashboardVisualFixture({
 }: {
   mode: VaultDashboardVisualMode;
 }) {
-  const mobileShellViewModel = useVaultDashboardVisualMobileShellViewModel();
-
   if (mode === "dashboard-layout-minimal") {
     const sidebarHeader = (
       <SidebarAccountSection dataTestId="dashboard-layout-account-section">
@@ -456,7 +451,6 @@ export function VaultDashboardVisualFixture({
       <div className="min-h-screen bg-stone-100 p-0 text-stone-950">
         <SidebarProvider
           defaultOpen={false}
-          forceMobile={true}
           className="mx-auto h-[932px] min-h-0 w-full max-w-[430px] bg-background text-foreground"
         >
           <DashboardWorkspaceLayout
@@ -556,20 +550,6 @@ export function VaultDashboardVisualFixture({
               </div>
             </div>
           </DashboardWorkspaceLayout>
-        </SidebarProvider>
-      </div>
-    );
-  }
-
-  if (mode === "dashboard-shared-sidebar-mobile-shell") {
-    return (
-      <div className="min-h-screen bg-stone-100 p-0 text-stone-950">
-        <SidebarProvider
-          defaultOpen={false}
-          forceMobile={true}
-          className="mx-auto h-[932px] min-h-0 w-full max-w-[430px] bg-background text-foreground"
-        >
-          <VaultDashboardWorkspaceScene {...mobileShellViewModel} />
         </SidebarProvider>
       </div>
     );

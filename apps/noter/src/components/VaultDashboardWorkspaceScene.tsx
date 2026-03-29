@@ -16,7 +16,7 @@ export type VaultDashboardWorkspaceSceneViewModel = {
 
 /**
  * Centralizes the shared dashboard workspace chrome so both the live screen
- * and static visual fixtures render through the same translated mobile track.
+ * and static visual fixtures render through the same workspace shell.
  */
 export function VaultDashboardWorkspaceScene({
   dataTestId,

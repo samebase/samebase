@@ -182,3 +182,28 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
     .poll(async () => scrollContainer.evaluate((element) => element.scrollTop))
     .toBe(scrollTopBeforeCollapse);
 });
+
+test("fileview mobile main click closes the sidebar", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const body = page.getByTestId("fileview-layout-body");
+
+  await expect
+    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
+    .toBeGreaterThan(100);
+
+  await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+  await expect
+    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
+    .toBeLessThanOrEqual(1);
+
+  await body.click({ position: { x: 100, y: 120 } });
+  await expect
+    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
+    .toBeGreaterThan(100);
+});
