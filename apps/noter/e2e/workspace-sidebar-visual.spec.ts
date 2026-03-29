@@ -14,6 +14,16 @@ test("fileview mobile sidebar scrim", async ({ page }) => {
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
     .toBeLessThanOrEqual(1);
+  const scrim = page
+    .getByTestId("workspace-sidebar-main-scrim")
+    .locator("div")
+    .first();
+
+  await expect
+    .poll(async () =>
+      scrim.evaluate((element) => window.getComputedStyle(element).touchAction),
+    )
+    .toBe("pan-x");
 
   await expect(fixture).toHaveScreenshot("fileview-layout-mobile-scrim.png", {
     animations: "disabled",

@@ -1,5 +1,9 @@
 import * as React from "react";
-import { useSidebar, type MobileSidebarPane } from "@/hooks/use-sidebar";
+import { useSidebar } from "@/hooks/use-sidebar";
+import {
+  getMobilePaneScrollLeft,
+  getSettledMobilePane,
+} from "@/lib/workspaceSidebar";
 import { cn } from "@/lib/utils";
 
 const MOBILE_SCROLL_SETTLE_DELAY_MS = 140;
@@ -23,81 +27,6 @@ type WorkspaceSidebarShellProps = {
   rightSidebarHeader?: React.ReactNode;
   rightSidebarHeaderTestId?: string;
 };
-
-type MobilePaneAnchor = {
-  pane: MobileSidebarPane;
-  scrollLeft: number;
-};
-
-function getMobilePaneAnchors(
-  hasLeftSidebar: boolean,
-  leftSidebarWidthPx: number,
-  hasRightSidebar: boolean,
-  rightSidebarWidthPx: number,
-) {
-  const mainPaneScrollLeft = hasLeftSidebar ? leftSidebarWidthPx : 0;
-  const anchors: MobilePaneAnchor[] = [];
-
-  if (hasLeftSidebar) {
-    anchors.push({ pane: "left", scrollLeft: 0 });
-  }
-
-  anchors.push({ pane: "main", scrollLeft: mainPaneScrollLeft });
-
-  if (hasRightSidebar) {
-    anchors.push({
-      pane: "right",
-      scrollLeft: mainPaneScrollLeft + rightSidebarWidthPx,
-    });
-  }
-
-  return anchors;
-}
-
-function getMobilePaneScrollLeft(
-  pane: MobileSidebarPane,
-  hasLeftSidebar: boolean,
-  leftSidebarWidthPx: number,
-  hasRightSidebar: boolean,
-  rightSidebarWidthPx: number,
-) {
-  const anchor = getMobilePaneAnchors(
-    hasLeftSidebar,
-    leftSidebarWidthPx,
-    hasRightSidebar,
-    rightSidebarWidthPx,
-  ).find((candidateAnchor) => candidateAnchor.pane === pane);
-
-  return anchor?.scrollLeft ?? (hasLeftSidebar ? leftSidebarWidthPx : 0);
-}
-
-function getNearestMobilePane(
-  scrollLeft: number,
-  hasLeftSidebar: boolean,
-  leftSidebarWidthPx: number,
-  hasRightSidebar: boolean,
-  rightSidebarWidthPx: number,
-) {
-  const anchors = getMobilePaneAnchors(
-    hasLeftSidebar,
-    leftSidebarWidthPx,
-    hasRightSidebar,
-    rightSidebarWidthPx,
-  );
-
-  let nearestAnchor = anchors[0];
-  let nearestDistance = Math.abs(scrollLeft - nearestAnchor.scrollLeft);
-
-  for (const anchor of anchors.slice(1)) {
-    const distance = Math.abs(scrollLeft - anchor.scrollLeft);
-    if (distance < nearestDistance) {
-      nearestAnchor = anchor;
-      nearestDistance = distance;
-    }
-  }
-
-  return nearestAnchor.pane;
-}
 
 /**
  * Derive a normalized scrim opacity from the mobile carousel position. The
@@ -239,6 +168,11 @@ export function WorkspaceSidebarShell({
     React.useState(0);
   const hasInitializedMobileScrollRef = React.useRef(false);
   const skipNextMobileScrollSyncRef = React.useRef(false);
+  const mobileScrollVelocityRef = React.useRef({
+    lastScrollLeft: 0,
+    lastTimestampMs: 0,
+    peakSwipeVelocityPxPerMs: 0,
+  });
 
   const isMobileLayoutMeasured =
     !isMobile ||
@@ -323,16 +257,23 @@ export function WorkspaceSidebarShell({
     if (!scrollNode) {
       return;
     }
+    const mobileScrollVelocityState = mobileScrollVelocityRef.current;
 
     const settleScrollPosition = () => {
-      const nextMobilePane = getNearestMobilePane(
+      const { peakSwipeVelocityPxPerMs } = mobileScrollVelocityState;
+      const nextMobilePane = getSettledMobilePane(
+        mobilePane,
         scrollNode.scrollLeft,
         hasLeftSidebar,
         leftSidebarWidthPx,
         hasRightSidebar,
         rightSidebarWidthPx,
+        peakSwipeVelocityPxPerMs,
       );
 
+      mobileScrollVelocityState.peakSwipeVelocityPxPerMs = 0;
+      mobileScrollVelocityState.lastScrollLeft = scrollNode.scrollLeft;
+      mobileScrollVelocityState.lastTimestampMs = 0;
       if (nextMobilePane !== mobilePane) {
         skipNextMobileScrollSyncRef.current = true;
         setMobilePane(nextMobilePane);
@@ -341,6 +282,28 @@ export function WorkspaceSidebarShell({
 
     let settleTimeoutId: number | null = null;
     const handleScroll = () => {
+      const timestampMs = performance.now();
+      const previousScrollSample = mobileScrollVelocityState;
+      if (previousScrollSample.lastTimestampMs === 0) {
+        mobileScrollVelocityState.lastScrollLeft = scrollNode.scrollLeft;
+        mobileScrollVelocityState.lastTimestampMs = timestampMs;
+      }
+      const elapsedMs = timestampMs - previousScrollSample.lastTimestampMs;
+
+      if (previousScrollSample.lastTimestampMs !== 0 && elapsedMs > 0) {
+        const velocityPxPerMs =
+          Math.abs(
+            scrollNode.scrollLeft - previousScrollSample.lastScrollLeft,
+          ) / elapsedMs;
+        mobileScrollVelocityState.peakSwipeVelocityPxPerMs = Math.max(
+          previousScrollSample.peakSwipeVelocityPxPerMs,
+          velocityPxPerMs,
+        );
+      }
+
+      mobileScrollVelocityState.lastScrollLeft = scrollNode.scrollLeft;
+      mobileScrollVelocityState.lastTimestampMs = timestampMs;
+
       setMobileMainScrimProgress(
         getMobileMainScrimProgress(
           scrollNode.scrollLeft,
@@ -364,6 +327,8 @@ export function WorkspaceSidebarShell({
     scrollNode.addEventListener("scroll", handleScroll, { passive: true });
     scrollNode.addEventListener("scrollend", settleScrollPosition);
     return () => {
+      mobileScrollVelocityState.peakSwipeVelocityPxPerMs = 0;
+      mobileScrollVelocityState.lastTimestampMs = 0;
       scrollNode.removeEventListener("scroll", handleScroll);
       scrollNode.removeEventListener("scrollend", settleScrollPosition);
       if (settleTimeoutId !== null) {
@@ -602,11 +567,13 @@ export function WorkspaceSidebarShell({
               mobileMainScrimIsInteractive ? "z-10" : "",
             )}
           >
+            {/* Restrict scrim gestures to horizontal pans so tall main panes like
+                FileView do not rubber-band vertically while a sidebar is open. */}
             <div
               className={cn(
                 "h-full w-full bg-black transition-opacity duration-200 ease-linear",
                 mobileMainScrimIsInteractive
-                  ? "pointer-events-auto"
+                  ? "pointer-events-auto touch-pan-x"
                   : "pointer-events-none",
               )}
               style={{ opacity: mobileMainScrimOpacity }}
