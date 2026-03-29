@@ -66,10 +66,12 @@ async function createTouchEventClient(page: Page): Promise<TouchEventClient> {
 async function dispatchTouchEvent(
   client: TouchEventClient,
   {
+    id = SIDEBAR_TOUCH_ID,
     type,
     x,
     y,
   }: {
+    id?: number;
     type: "touchStart" | "touchMove" | "touchEnd";
     x?: number;
     y?: number;
@@ -87,9 +89,41 @@ async function dispatchTouchEvent(
               radiusX: TOUCH_POINT_RADIUS_PX,
               radiusY: TOUCH_POINT_RADIUS_PX,
               force: TOUCH_POINT_FORCE,
-              id: SIDEBAR_TOUCH_ID,
+              id,
             },
           ],
+  });
+}
+
+async function dragOpenSidebarWithTouch(
+  client: TouchEventClient,
+  {
+    endX,
+    id,
+    startX,
+    y,
+  }: {
+    endX: number;
+    id: number;
+    startX: number;
+    y: number;
+  },
+) {
+  await dispatchTouchEvent(client, {
+    id,
+    type: "touchStart",
+    x: startX,
+    y,
+  });
+  await dispatchTouchEvent(client, {
+    id,
+    type: "touchMove",
+    x: endX,
+    y,
+  });
+  await dispatchTouchEvent(client, {
+    id,
+    type: "touchEnd",
   });
 }
 
@@ -243,5 +277,45 @@ test.describe("mobile workspace sidebar live flow", () => {
     await expect
       .poll(async () => getToggleSidebarButtonLeft(page))
       .toBeLessThan(20);
+  });
+
+  test("dashboard touch drag can reopen the sidebar repeatedly", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "chromium-mobile",
+      "This live check targets the mobile Chromium project.",
+    );
+
+    await goToDashboard(page);
+    const touchClient = await createTouchEventClient(page);
+
+    for (const cycle of [1, 2, 3, 4, 5]) {
+      await expect
+        .poll(async () => getToggleSidebarButtonLeft(page))
+        .toBeLessThan(20);
+
+      await dragOpenSidebarWithTouch(touchClient, {
+        endX: 300,
+        id: cycle,
+        startX: 140,
+        y: 220,
+      });
+
+      await expect
+        .poll(async () => getToggleSidebarButtonLeft(page))
+        .toBeGreaterThan(120);
+
+      await getMobileMainSurface(page).tap({
+        position: {
+          x: 40,
+          y: 160,
+        },
+      });
+
+      await expect
+        .poll(async () => getToggleSidebarButtonLeft(page))
+        .toBeLessThan(20);
+    }
   });
 });

@@ -47,10 +47,12 @@ async function createTouchEventClient(page: Page): Promise<TouchEventClient> {
 async function dispatchTouchEvent(
   client: TouchEventClient,
   {
+    id = SIDEBAR_TOUCH_ID,
     type,
     x,
     y,
   }: {
+    id?: number;
     type: "touchStart" | "touchMove" | "touchEnd";
     x?: number;
     y?: number;
@@ -64,13 +66,54 @@ async function dispatchTouchEvent(
         : [
             {
               force: TOUCH_POINT_FORCE,
-              id: SIDEBAR_TOUCH_ID,
+              id,
               radiusX: TOUCH_POINT_RADIUS_PX,
               radiusY: TOUCH_POINT_RADIUS_PX,
               x,
               y,
             },
           ],
+  });
+}
+
+async function dragOpenSidebarWithTouch(
+  client: TouchEventClient,
+  {
+    endX,
+    id,
+    startX,
+    y,
+  }: {
+    endX: number;
+    id: number;
+    startX: number;
+    y: number;
+  },
+) {
+  await dispatchTouchEvent(client, {
+    id,
+    type: "touchStart",
+    x: startX,
+    y,
+  });
+  await dispatchTouchEvent(client, {
+    id,
+    type: "touchMove",
+    x: endX,
+    y,
+  });
+  await dispatchTouchEvent(client, {
+    id,
+    type: "touchEnd",
+  });
+}
+
+async function clickVisibleMainSurfaceToClose(page: Page) {
+  await getMobileMainSurface(page).click({
+    position: {
+      x: 40,
+      y: 160,
+    },
   });
 }
 
@@ -411,4 +454,53 @@ test("touch dragging the visible main pane closes the mobile sidebar", async ({
   await expect
     .poll(async () => (await getClientRect(sidebarPanel)).right)
     .toBeLessThan(20);
+});
+
+test("touch dragging can reopen the mobile sidebar repeatedly on the same page", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto(
+    "/visual-fixture.html?mode=dashboard-shared-sidebar-mobile-shell",
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
+  await page.waitForLoadState("networkidle");
+
+  const header = page.getByTestId("dashboard-layout-header");
+  const sidebarPanel = page.getByTestId("dashboard-shell-sidebar-panel");
+  const touchClient = await createTouchEventClient(page);
+
+  for (const cycle of [1, 2, 3, 4, 5]) {
+    await expect
+      .poll(async () => (await getClientRect(header)).x)
+      .toBeLessThan(20);
+    await expect
+      .poll(async () => (await getClientRect(sidebarPanel)).right)
+      .toBeLessThan(20);
+
+    await dragOpenSidebarWithTouch(touchClient, {
+      endX: 300,
+      id: cycle,
+      startX: 140,
+      y: 220,
+    });
+
+    await expect
+      .poll(async () => (await getClientRect(header)).x)
+      .toBeGreaterThan(120);
+    await expect
+      .poll(async () => (await getClientRect(sidebarPanel)).right)
+      .toBeGreaterThan(120);
+
+    await clickVisibleMainSurfaceToClose(page);
+
+    await expect
+      .poll(async () => (await getClientRect(header)).x)
+      .toBeLessThan(20);
+    await expect
+      .poll(async () => (await getClientRect(sidebarPanel)).right)
+      .toBeLessThan(20);
+  }
 });
