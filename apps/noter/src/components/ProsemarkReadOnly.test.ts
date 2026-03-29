@@ -9,6 +9,10 @@ import {
   foldExtension,
   prosemarkMarkdownSyntaxExtensions,
 } from "@prosemark/core";
+import {
+  TRAILING_BLANK_LINE_COLLAPSED_CLASS_NAME,
+  buildTrailingBlankLineCollapseDecorations,
+} from "@/components/prosemarkTrailingBlankLine";
 
 function hasWidgetDecorationAt(decorations: DecorationSet, pos: number) {
   let found = false;
@@ -18,6 +22,23 @@ function hasWidgetDecorationAt(decorations: DecorationSet, pos: number) {
       return;
     }
     if (spec.widget == null) return;
+    found = true;
+  });
+  return found;
+}
+
+function hasLineDecorationClassAt(
+  decorations: DecorationSet,
+  pos: number,
+  className: string,
+) {
+  let found = false;
+  decorations.between(pos, pos + 1, (_from, _to, value) => {
+    const spec = value.spec;
+    if (typeof spec !== "object" || spec === null || !("class" in spec)) {
+      return;
+    }
+    if (spec.class !== className) return;
     found = true;
   });
   return found;
@@ -73,5 +94,58 @@ describe("ProsemarkReadOnly selection folding", () => {
     const decorations = state.field(foldExtension);
     expect(hasWidgetDecorationAt(decorations, firstDash)).toBe(true);
     expect(hasWidgetDecorationAt(decorations, secondDash)).toBe(true);
+  });
+});
+
+describe("ProsemarkReadOnly trailing newline collapse", () => {
+  it("collapses the synthetic trailing blank line in read-only mode", () => {
+    const state = createState("First line\nSecond line\n", 0);
+    const lastLine = state.doc.line(state.doc.lines);
+    const decorations = buildTrailingBlankLineCollapseDecorations({
+      doc: state.doc,
+      editable: false,
+    });
+
+    expect(
+      hasLineDecorationClassAt(
+        decorations,
+        lastLine.from,
+        TRAILING_BLANK_LINE_COLLAPSED_CLASS_NAME,
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps the trailing blank line available in editable mode", () => {
+    const state = createState("First line\n", 0);
+    const lastLine = state.doc.line(state.doc.lines);
+    const decorations = buildTrailingBlankLineCollapseDecorations({
+      doc: state.doc,
+      editable: true,
+    });
+
+    expect(
+      hasLineDecorationClassAt(
+        decorations,
+        lastLine.from,
+        TRAILING_BLANK_LINE_COLLAPSED_CLASS_NAME,
+      ),
+    ).toBe(false);
+  });
+
+  it("does not add a collapse decoration when the document has no trailing blank line", () => {
+    const state = createState("First line\nSecond line", 0);
+    const lastLine = state.doc.line(state.doc.lines);
+    const decorations = buildTrailingBlankLineCollapseDecorations({
+      doc: state.doc,
+      editable: false,
+    });
+
+    expect(
+      hasLineDecorationClassAt(
+        decorations,
+        lastLine.from,
+        TRAILING_BLANK_LINE_COLLAPSED_CLASS_NAME,
+      ),
+    ).toBe(false);
   });
 });

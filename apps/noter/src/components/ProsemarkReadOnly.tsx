@@ -39,6 +39,10 @@ import {
   prosemarkLandingCopyDarkSelectionTheme,
   prosemarkSurfaceTheme,
 } from "@/components/prosemarkSurface";
+import {
+  TRAILING_BLANK_LINE_COLLAPSED_CLASS_NAME,
+  buildTrailingBlankLineCollapseDecorations,
+} from "@/components/prosemarkTrailingBlankLine";
 
 type ProsemarkReadOnlyProps = {
   value: string;
@@ -117,6 +121,38 @@ function createLineHighlightExtension(
   );
 }
 
+function createTrailingBlankLineCollapseExtension(
+  editable: boolean,
+): Extension {
+  if (editable) {
+    return [];
+  }
+
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+
+      constructor(view: EditorView) {
+        this.decorations = buildTrailingBlankLineCollapseDecorations({
+          doc: view.state.doc,
+          editable,
+        });
+      }
+
+      update(update: ViewUpdate) {
+        if (!update.docChanged) return;
+        this.decorations = buildTrailingBlankLineCollapseDecorations({
+          doc: update.state.doc,
+          editable,
+        });
+      }
+    },
+    {
+      decorations: (plugin) => plugin.decorations,
+    },
+  );
+}
+
 function buildLandingCopyLineDecorations(
   doc: EditorState["doc"],
 ): DecorationSet {
@@ -178,6 +214,15 @@ const prosemarkReadOnlyTheme = EditorView.theme({
   ".cm-line.cm-line-highlight-remove": {
     backgroundColor: "rgba(244, 63, 94, 0.1)",
   },
+  [`.cm-line.${TRAILING_BLANK_LINE_COLLAPSED_CLASS_NAME}`]: {
+    height: "0 !important",
+    minHeight: "0 !important",
+    lineHeight: "0 !important",
+    fontSize: "0 !important",
+    paddingTop: "0 !important",
+    paddingBottom: "0 !important",
+    overflow: "hidden",
+  },
 });
 
 const externalValueSyncAnnotation = Annotation.define<boolean>();
@@ -228,6 +273,7 @@ export function ProsemarkReadOnly({
   const cursorCompartmentRef = useRef(new Compartment());
   const decorationsCompartmentRef = useRef(new Compartment());
   const styleVariantCompartmentRef = useRef(new Compartment());
+  const trailingBlankLineCompartmentRef = useRef(new Compartment());
   const lineHighlightToneRef = useRef(lineHighlightTone);
   const lastWidthRef = useRef<number | null>(null);
   const onChangeRef = useRef(onChange);
@@ -316,6 +362,9 @@ export function ProsemarkReadOnly({
             lineHighlightToneRef.current,
           ),
         ),
+        trailingBlankLineCompartmentRef.current.of(
+          createTrailingBlankLineCollapseExtension(editableRef.current),
+        ),
         styleVariantCompartmentRef.current.of(
           getStyleVariantExtension(
             styleVariantRef.current,
@@ -376,6 +425,9 @@ export function ProsemarkReadOnly({
           EditorState.readOnly.of(!editable),
           EditorView.editable.of(editable),
         ]),
+        trailingBlankLineCompartmentRef.current.reconfigure(
+          createTrailingBlankLineCollapseExtension(editable),
+        ),
         cursorCompartmentRef.current.reconfigure(
           !editable ? prosemarkHiddenCursorTheme : [],
         ),
