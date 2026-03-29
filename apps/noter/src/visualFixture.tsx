@@ -53,6 +53,10 @@ import {
   type FileViewDeveloperToolsVisualMode,
 } from "@/components/FileViewDeveloperToolsVisualFixture";
 import {
+  FileViewProsemarkDragVisualFixture,
+  type FileViewProsemarkDragVisualMode,
+} from "@/components/FileViewProsemarkDragVisualFixture";
+import {
   FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
   isFileViewPushActionsVisualMode,
   type FileViewPushActionsVisualMode,
@@ -94,6 +98,7 @@ type VisualFixtureMode =
   | CommitReviewVisualMode
   | FileViewCompareVisualMode
   | FileViewDeveloperToolsVisualMode
+  | FileViewProsemarkDragVisualMode
   | FileViewLayoutVisualMode
   | FileViewPushActionsVisualMode
   | EditorChatVisualMode
@@ -219,6 +224,11 @@ const FILE_VIEW_DEVELOPER_TOOLS_VISUAL_MODES = [
   "file-view-developer-tools-graph",
 ] as const satisfies readonly FileViewDeveloperToolsVisualMode[];
 
+const FILE_VIEW_PROSEMARK_DRAG_VISUAL_MODES = [
+  "fileview-prosemark-drag-editable",
+  "fileview-prosemark-drag-read-only",
+] as const satisfies readonly FileViewProsemarkDragVisualMode[];
+
 const MISC_VISUAL_MODES = [
   "codex-thread-browser",
   "codex-thread-history",
@@ -239,6 +249,7 @@ const VISUAL_FIXTURE_GROUPS = [
       ...FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
       ...FILE_VIEW_COMPARE_VISUAL_MODES,
       ...FILE_VIEW_DEVELOPER_TOOLS_VISUAL_MODES,
+      ...FILE_VIEW_PROSEMARK_DRAG_VISUAL_MODES,
     ],
   },
   {
@@ -422,6 +433,13 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "file-view-developer-tools-graph"
   ) {
     return <FileViewDeveloperToolsVisualFixture mode={mode} />;
+  }
+
+  if (
+    mode === "fileview-prosemark-drag-editable" ||
+    mode === "fileview-prosemark-drag-read-only"
+  ) {
+    return <FileViewProsemarkDragVisualFixture mode={mode} />;
   }
 
   if (mode === "vault-dashboard-branch-pr-title") {

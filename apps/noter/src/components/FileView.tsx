@@ -2075,6 +2075,7 @@ function FileViewInner({
           value={beforeValue}
           highlightedLineNumbers={inlinePreviewSplitDiffHighlights.oldLines}
           lineHighlightTone="remove"
+          mobilePaneDragEnabled
           className="text-sm leading-6"
         />
       </div>
@@ -2086,6 +2087,7 @@ function FileViewInner({
           value={afterValue}
           highlightedLineNumbers={inlinePreviewSplitDiffHighlights.newLines}
           lineHighlightTone="add"
+          mobilePaneDragEnabled
           className="text-sm leading-6"
         />
       </div>
@@ -3361,6 +3363,7 @@ function FileViewInner({
                                         baseValue={selectedPreviewBaseContent}
                                         options={inlinePreviewOptions}
                                         editable={inlinePreviewEditable}
+                                        mobilePaneDragEnabled
                                         onChange={handleInlinePreviewChange}
                                         className="text-sm leading-6"
                                       />
@@ -3425,6 +3428,7 @@ function FileViewInner({
                         baseValue={selectedComparedFile?.richOldContent ?? ""}
                         options={inlinePreviewOptions}
                         editable={false}
+                        mobilePaneDragEnabled
                         className="text-sm leading-6"
                       />
                     )}

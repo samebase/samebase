@@ -35,6 +35,7 @@ import {
   prosemarkHiddenCursorTheme,
   prosemarkSurfaceTheme,
 } from "@/components/prosemarkSurface";
+import { useProsemarkMobilePaneDrag } from "@/components/useProsemarkMobilePaneDrag";
 
 export type ProsemarkMergeEditorOptions = {
   allowInlineDiffs: boolean;
@@ -46,6 +47,7 @@ type ProsemarkMergeEditorProps = {
   baseValue: string;
   className?: string;
   editable?: boolean;
+  mobilePaneDragEnabled?: boolean;
   options: ProsemarkMergeEditorOptions;
   onChange?: (value: string) => void;
 };
@@ -118,6 +120,7 @@ export function ProsemarkMergeEditor({
   baseValue,
   className,
   editable = false,
+  mobilePaneDragEnabled = false,
   options,
   onChange,
 }: ProsemarkMergeEditorProps) {
@@ -125,8 +128,11 @@ export function ProsemarkMergeEditor({
   const effectiveTheme = theme === "system" ? systemTheme : theme;
   const isDark = effectiveTheme === "dark";
   const { allowInlineDiffs, syntaxHighlightDeletions } = options;
-
   const containerRef = useRef<HTMLDivElement>(null);
+  const mobilePaneDrag = useProsemarkMobilePaneDrag(
+    mobilePaneDragEnabled,
+    containerRef,
+  );
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const lastValueRef = useRef(value);
@@ -346,7 +352,12 @@ export function ProsemarkMergeEditor({
   }, [resizeToContent, value]);
 
   return (
-    <div ref={containerRef} className={cn("min-h-[1rem]", className)}>
+    <div
+      ref={containerRef}
+      className={cn("min-h-[1rem]", className)}
+      style={{ touchAction: mobilePaneDrag.touchAction }}
+      {...mobilePaneDrag.containerProps}
+    >
       <div ref={hostRef} />
     </div>
   );

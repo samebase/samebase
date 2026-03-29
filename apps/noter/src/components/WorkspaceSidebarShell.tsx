@@ -1,4 +1,5 @@
 import * as React from "react";
+import { WorkspaceMobilePaneDragProvider } from "@/components/workspaceMobilePaneDrag";
 import { useSidebar } from "@/hooks/use-sidebar";
 import {
   getMobilePaneScrollLeft,
@@ -173,11 +174,187 @@ export function WorkspaceSidebarShell({
     lastTimestampMs: 0,
     peakSwipeVelocityPxPerMs: 0,
   });
+  const pendingMobileDragFrameRef = React.useRef<number | null>(null);
+  const pendingMobileDragScrollLeftRef = React.useRef<number | null>(null);
 
   const isMobileLayoutMeasured =
     !isMobile ||
     ((!hasLeftSidebar || leftSidebarWidthPx > 0) &&
       (!hasRightSidebar || rightSidebarWidthPx > 0));
+
+  /**
+   * Keep pane settling owned by the shell so descendant surfaces can reuse the
+   * current left/main/right anchor model instead of reproducing it locally.
+   */
+  const settleMobileShell = React.useCallback(() => {
+    if (!isMobile || !hasAnySidebar || !isMobileLayoutMeasured) {
+      return;
+    }
+
+    const scrollNode = mobileScrollRef.current;
+    if (!scrollNode) {
+      return;
+    }
+
+    const mobileScrollVelocityState = mobileScrollVelocityRef.current;
+    const { peakSwipeVelocityPxPerMs } = mobileScrollVelocityState;
+    const nextMobilePane = getSettledMobilePane(
+      mobilePane,
+      scrollNode.scrollLeft,
+      hasLeftSidebar,
+      leftSidebarWidthPx,
+      hasRightSidebar,
+      rightSidebarWidthPx,
+      peakSwipeVelocityPxPerMs,
+    );
+    const targetScrollLeft = getMobilePaneScrollLeft(
+      nextMobilePane,
+      hasLeftSidebar,
+      leftSidebarWidthPx,
+      hasRightSidebar,
+      rightSidebarWidthPx,
+    );
+
+    mobileScrollVelocityState.peakSwipeVelocityPxPerMs = 0;
+    mobileScrollVelocityState.lastScrollLeft = scrollNode.scrollLeft;
+    mobileScrollVelocityState.lastTimestampMs = 0;
+
+    if (nextMobilePane !== mobilePane) {
+      skipNextMobileScrollSyncRef.current = true;
+      setMobilePane(nextMobilePane);
+    }
+
+    if (Math.abs(scrollNode.scrollLeft - targetScrollLeft) <= 1) {
+      return;
+    }
+
+    scrollNode.scrollTo({
+      left: targetScrollLeft,
+      behavior: "smooth",
+    });
+  }, [
+    hasAnySidebar,
+    hasLeftSidebar,
+    hasRightSidebar,
+    isMobile,
+    isMobileLayoutMeasured,
+    leftSidebarWidthPx,
+    mobilePane,
+    rightSidebarWidthPx,
+    setMobilePane,
+  ]);
+
+  const dragMobileShellBy = React.useCallback(
+    (pointerDeltaX: number) => {
+      if (!isMobile || !hasAnySidebar || !isMobileLayoutMeasured) {
+        return;
+      }
+
+      const scrollNode = mobileScrollRef.current;
+      if (!scrollNode) {
+        return;
+      }
+
+      const maxScrollLeft = getMobilePaneScrollLeft(
+        hasRightSidebar ? "right" : "main",
+        hasLeftSidebar,
+        leftSidebarWidthPx,
+        hasRightSidebar,
+        rightSidebarWidthPx,
+      );
+      const nextScrollLeft = Math.min(
+        maxScrollLeft,
+        Math.max(0, scrollNode.scrollLeft - pointerDeltaX),
+      );
+
+      if (Math.abs(nextScrollLeft - scrollNode.scrollLeft) <= 0.5) {
+        return;
+      }
+
+      if (pendingMobileDragFrameRef.current !== null) {
+        window.cancelAnimationFrame(pendingMobileDragFrameRef.current);
+        pendingMobileDragFrameRef.current = null;
+      }
+
+      pendingMobileDragScrollLeftRef.current = nextScrollLeft;
+      scrollNode.scrollLeft = nextScrollLeft;
+
+      if (Math.abs(scrollNode.scrollLeft - nextScrollLeft) > 0.5) {
+        pendingMobileDragFrameRef.current = window.requestAnimationFrame(() => {
+          pendingMobileDragFrameRef.current = null;
+          const pendingScrollLeft = pendingMobileDragScrollLeftRef.current;
+          pendingMobileDragScrollLeftRef.current = null;
+          if (pendingScrollLeft === null) {
+            return;
+          }
+
+          const pendingScrollNode = mobileScrollRef.current;
+          if (!pendingScrollNode) {
+            return;
+          }
+
+          pendingScrollNode.scrollLeft = pendingScrollLeft;
+          setMobileMainScrimProgress(
+            getMobileMainScrimProgress(
+              pendingScrollLeft,
+              hasLeftSidebar,
+              leftSidebarWidthPx,
+              hasRightSidebar,
+              rightSidebarWidthPx,
+            ),
+          );
+        });
+        return;
+      }
+
+      pendingMobileDragScrollLeftRef.current = null;
+      setMobileMainScrimProgress(
+        getMobileMainScrimProgress(
+          nextScrollLeft,
+          hasLeftSidebar,
+          leftSidebarWidthPx,
+          hasRightSidebar,
+          rightSidebarWidthPx,
+        ),
+      );
+    },
+    [
+      hasAnySidebar,
+      hasLeftSidebar,
+      hasRightSidebar,
+      isMobile,
+      isMobileLayoutMeasured,
+      leftSidebarWidthPx,
+      rightSidebarWidthPx,
+    ],
+  );
+
+  const mobilePaneDragContextValue = React.useMemo(
+    () => ({
+      dragMobileShellBy,
+      isAvailable: isMobile && hasAnySidebar && isMobileLayoutMeasured,
+      isMainPaneActive: mobilePane === "main",
+      settleMobileShell,
+    }),
+    [
+      dragMobileShellBy,
+      hasAnySidebar,
+      isMobile,
+      isMobileLayoutMeasured,
+      mobilePane,
+      settleMobileShell,
+    ],
+  );
+
+  React.useEffect(() => {
+    return () => {
+      if (pendingMobileDragFrameRef.current !== null) {
+        window.cancelAnimationFrame(pendingMobileDragFrameRef.current);
+        pendingMobileDragFrameRef.current = null;
+      }
+      pendingMobileDragScrollLeftRef.current = null;
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!isMobile || !hasAnySidebar || !isMobileLayoutMeasured) {
@@ -259,27 +436,6 @@ export function WorkspaceSidebarShell({
     }
     const mobileScrollVelocityState = mobileScrollVelocityRef.current;
 
-    const settleScrollPosition = () => {
-      const { peakSwipeVelocityPxPerMs } = mobileScrollVelocityState;
-      const nextMobilePane = getSettledMobilePane(
-        mobilePane,
-        scrollNode.scrollLeft,
-        hasLeftSidebar,
-        leftSidebarWidthPx,
-        hasRightSidebar,
-        rightSidebarWidthPx,
-        peakSwipeVelocityPxPerMs,
-      );
-
-      mobileScrollVelocityState.peakSwipeVelocityPxPerMs = 0;
-      mobileScrollVelocityState.lastScrollLeft = scrollNode.scrollLeft;
-      mobileScrollVelocityState.lastTimestampMs = 0;
-      if (nextMobilePane !== mobilePane) {
-        skipNextMobileScrollSyncRef.current = true;
-        setMobilePane(nextMobilePane);
-      }
-    };
-
     let settleTimeoutId: number | null = null;
     const handleScroll = () => {
       const timestampMs = performance.now();
@@ -319,18 +475,18 @@ export function WorkspaceSidebarShell({
       }
 
       settleTimeoutId = window.setTimeout(
-        settleScrollPosition,
+        settleMobileShell,
         MOBILE_SCROLL_SETTLE_DELAY_MS,
       );
     };
 
     scrollNode.addEventListener("scroll", handleScroll, { passive: true });
-    scrollNode.addEventListener("scrollend", settleScrollPosition);
+    scrollNode.addEventListener("scrollend", settleMobileShell);
     return () => {
       mobileScrollVelocityState.peakSwipeVelocityPxPerMs = 0;
       mobileScrollVelocityState.lastTimestampMs = 0;
       scrollNode.removeEventListener("scroll", handleScroll);
-      scrollNode.removeEventListener("scrollend", settleScrollPosition);
+      scrollNode.removeEventListener("scrollend", settleMobileShell);
       if (settleTimeoutId !== null) {
         window.clearTimeout(settleTimeoutId);
       }
@@ -342,9 +498,8 @@ export function WorkspaceSidebarShell({
     isMobile,
     isMobileLayoutMeasured,
     leftSidebarWidthPx,
-    mobilePane,
     rightSidebarWidthPx,
-    setMobilePane,
+    settleMobileShell,
   ]);
 
   const handleMainViewClickCapture = React.useCallback(
@@ -423,165 +578,168 @@ export function WorkspaceSidebarShell({
   );
 
   return (
-    <div
-      ref={isMobile ? mobileScrollRef : undefined}
-      data-testid={dataTestId}
-      data-sidebar-shell={isMobile ? "mobile" : "desktop"}
-      className={cn(
-        "h-full w-full min-h-0",
-        isMobile
-          ? "overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          : "overflow-hidden",
-      )}
-    >
+    <WorkspaceMobilePaneDragProvider value={mobilePaneDragContextValue}>
       <div
-        data-sidebar-track={isMobile ? "pannable" : "static"}
+        ref={isMobile ? mobileScrollRef : undefined}
+        data-testid={dataTestId}
+        data-mobile-pane={isMobile ? mobilePane : undefined}
+        data-sidebar-shell={isMobile ? "mobile" : "desktop"}
         className={cn(
-          "grid h-full min-h-0",
+          "h-full w-full min-h-0",
           isMobile
-            ? "snap-x snap-mandatory"
-            : "transition-[grid-template-columns] duration-200 ease-linear",
+            ? "overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            : "overflow-hidden",
         )}
-        style={shellStyle}
       >
-        {hasLeftSidebarHeader ? (
-          <div
-            data-testid={leftSidebarHeaderTestId}
-            {...hiddenLeftDesktopSidebarProps}
-            className={cn(
-              leftSidebarCellClassName,
-              isMobile ? "snap-start" : "",
-            )}
-          >
-            <div
-              ref={
-                !hasLeftSidebarContent ? mobileLeftSidebarMeasureRef : undefined
-              }
-              className="min-w-0 overflow-hidden"
-              style={{ width: "var(--workspace-left-sidebar-width)" }}
-            >
-              {leftSidebarHeader}
-            </div>
-          </div>
-        ) : null}
-
-        {hasLeftSidebarContent ? (
-          <div
-            data-testid={leftSidebarContentTestId}
-            {...hiddenLeftDesktopSidebarProps}
-            className={cn(
-              leftSidebarCellClassName,
-              hasLeftSidebarHeader
-                ? "row-start-2 min-h-0"
-                : "row-span-2 min-h-0",
-              isMobile ? "snap-start" : "",
-            )}
-          >
-            <div
-              ref={mobileLeftSidebarMeasureRef}
-              className="flex h-full min-h-0 flex-col overflow-hidden"
-              style={{ width: "var(--workspace-left-sidebar-width)" }}
-            >
-              {leftSidebarContent}
-            </div>
-          </div>
-        ) : null}
-
         <div
-          data-testid={headerTestId}
-          onClickCapture={handleMainViewClickCapture}
+          data-sidebar-track={isMobile ? "pannable" : "static"}
           className={cn(
-            "col-start-2 row-start-1 min-w-0 border-b border-border/50",
-            isMobile ? "snap-start" : "",
+            "grid h-full min-h-0",
+            isMobile
+              ? "snap-x snap-mandatory"
+              : "transition-[grid-template-columns] duration-200 ease-linear",
           )}
+          style={shellStyle}
         >
-          {headerContent}
-        </div>
-
-        <div
-          data-testid={bodyTestId}
-          onClickCapture={handleMainViewClickCapture}
-          className={cn(
-            "col-start-2 row-start-2 min-h-0 min-w-0",
-            bodyClassName,
-            isMobile ? "snap-start" : "",
-          )}
-          style={bodyStyle}
-        >
-          {children}
-        </div>
-
-        {hasRightSidebarHeader ? (
-          <div
-            data-testid={rightSidebarHeaderTestId}
-            {...hiddenRightDesktopSidebarProps}
-            className={cn(
-              "col-start-3",
-              rightSidebarCellClassName,
-              isMobile ? "snap-start" : "",
-            )}
-          >
+          {hasLeftSidebarHeader ? (
             <div
-              ref={
-                !hasRightSidebarContent
-                  ? mobileRightSidebarMeasureRef
-                  : undefined
-              }
-              className="min-w-0 overflow-hidden"
-              style={{ width: "var(--workspace-right-sidebar-width)" }}
-            >
-              {rightSidebarHeader}
-            </div>
-          </div>
-        ) : null}
-
-        {hasRightSidebarContent ? (
-          <div
-            data-testid={rightSidebarContentTestId}
-            {...hiddenRightDesktopSidebarProps}
-            className={cn(
-              "col-start-3",
-              rightSidebarCellClassName,
-              hasRightSidebarHeader
-                ? "row-start-2 min-h-0"
-                : "row-span-2 min-h-0",
-              isMobile ? "snap-start" : "",
-            )}
-          >
-            <div
-              ref={mobileRightSidebarMeasureRef}
-              className="flex h-full min-h-0 flex-col overflow-hidden"
-              style={{ width: "var(--workspace-right-sidebar-width)" }}
-            >
-              {rightSidebarContent}
-            </div>
-          </div>
-        ) : null}
-
-        {isMobile && hasAnySidebar ? (
-          <div
-            aria-hidden="true"
-            data-testid="workspace-sidebar-main-scrim"
-            className={cn(
-              "pointer-events-none col-start-2 row-start-1 row-span-2 min-h-0 min-w-0",
-              mobileMainScrimIsInteractive ? "z-10" : "",
-            )}
-          >
-            {/* Restrict scrim gestures to horizontal pans so tall main panes like
-                FileView do not rubber-band vertically while a sidebar is open. */}
-            <div
+              data-testid={leftSidebarHeaderTestId}
+              {...hiddenLeftDesktopSidebarProps}
               className={cn(
-                "h-full w-full bg-black transition-opacity duration-200 ease-linear",
-                mobileMainScrimIsInteractive
-                  ? "pointer-events-auto touch-pan-x"
-                  : "pointer-events-none",
+                leftSidebarCellClassName,
+                isMobile ? "snap-start" : "",
               )}
-              style={{ opacity: mobileMainScrimOpacity }}
-              onClick={() => setMobilePane("main")}
-            />
+            >
+              <div
+                ref={
+                  !hasLeftSidebarContent ? mobileLeftSidebarMeasureRef : undefined
+                }
+                className="min-w-0 overflow-hidden"
+                style={{ width: "var(--workspace-left-sidebar-width)" }}
+              >
+                {leftSidebarHeader}
+              </div>
+            </div>
+          ) : null}
+
+          {hasLeftSidebarContent ? (
+            <div
+              data-testid={leftSidebarContentTestId}
+              {...hiddenLeftDesktopSidebarProps}
+              className={cn(
+                leftSidebarCellClassName,
+                hasLeftSidebarHeader
+                  ? "row-start-2 min-h-0"
+                  : "row-span-2 min-h-0",
+                isMobile ? "snap-start" : "",
+              )}
+            >
+              <div
+                ref={mobileLeftSidebarMeasureRef}
+                className="flex h-full min-h-0 flex-col overflow-hidden"
+                style={{ width: "var(--workspace-left-sidebar-width)" }}
+              >
+                {leftSidebarContent}
+              </div>
+            </div>
+          ) : null}
+
+          <div
+            data-testid={headerTestId}
+            onClickCapture={handleMainViewClickCapture}
+            className={cn(
+              "col-start-2 row-start-1 min-w-0 border-b border-border/50",
+              isMobile ? "snap-start" : "",
+            )}
+          >
+            {headerContent}
           </div>
-        ) : null}
+
+          <div
+            data-testid={bodyTestId}
+            onClickCapture={handleMainViewClickCapture}
+            className={cn(
+              "col-start-2 row-start-2 min-h-0 min-w-0",
+              bodyClassName,
+              isMobile ? "snap-start" : "",
+            )}
+            style={bodyStyle}
+          >
+            {children}
+          </div>
+
+          {hasRightSidebarHeader ? (
+            <div
+              data-testid={rightSidebarHeaderTestId}
+              {...hiddenRightDesktopSidebarProps}
+              className={cn(
+                "col-start-3",
+                rightSidebarCellClassName,
+                isMobile ? "snap-start" : "",
+              )}
+            >
+              <div
+                ref={
+                  !hasRightSidebarContent
+                    ? mobileRightSidebarMeasureRef
+                    : undefined
+                }
+                className="min-w-0 overflow-hidden"
+                style={{ width: "var(--workspace-right-sidebar-width)" }}
+              >
+                {rightSidebarHeader}
+              </div>
+            </div>
+          ) : null}
+
+          {hasRightSidebarContent ? (
+            <div
+              data-testid={rightSidebarContentTestId}
+              {...hiddenRightDesktopSidebarProps}
+              className={cn(
+                "col-start-3",
+                rightSidebarCellClassName,
+                hasRightSidebarHeader
+                  ? "row-start-2 min-h-0"
+                  : "row-span-2 min-h-0",
+                isMobile ? "snap-start" : "",
+              )}
+            >
+              <div
+                ref={mobileRightSidebarMeasureRef}
+                className="flex h-full min-h-0 flex-col overflow-hidden"
+                style={{ width: "var(--workspace-right-sidebar-width)" }}
+              >
+                {rightSidebarContent}
+              </div>
+            </div>
+          ) : null}
+
+          {isMobile && hasAnySidebar ? (
+            <div
+              aria-hidden="true"
+              data-testid="workspace-sidebar-main-scrim"
+              className={cn(
+                "pointer-events-none col-start-2 row-start-1 row-span-2 min-h-0 min-w-0",
+                mobileMainScrimIsInteractive ? "z-10" : "",
+              )}
+            >
+              {/* Restrict scrim gestures to horizontal pans so tall main panes like
+                  FileView do not rubber-band vertically while a sidebar is open. */}
+              <div
+                className={cn(
+                  "h-full w-full bg-black transition-opacity duration-200 ease-linear",
+                  mobileMainScrimIsInteractive
+                    ? "pointer-events-auto touch-pan-x"
+                    : "pointer-events-none",
+                )}
+                style={{ opacity: mobileMainScrimOpacity }}
+                onClick={() => setMobilePane("main")}
+              />
+            </div>
+          ) : null}
+        </div>
       </div>
-    </div>
+    </WorkspaceMobilePaneDragProvider>
   );
 }
