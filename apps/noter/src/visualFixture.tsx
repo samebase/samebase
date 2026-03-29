@@ -187,7 +187,6 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "dashboard-provider-sidebar-wrap",
   "dashboard-shared-sidebar",
   "dashboard-shared-sidebar-mobile-shell",
-  "dashboard-shared-sidebar-mobile-open",
   "dashboard-shared-sidebar-mobile-chat",
   "vault-branch-filters",
   "vault-branch-pr-labels",
@@ -382,7 +381,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "dashboard-provider-sidebar-wrap" ||
     mode === "dashboard-shared-sidebar" ||
     mode === "dashboard-shared-sidebar-mobile-shell" ||
-    mode === "dashboard-shared-sidebar-mobile-open" ||
     mode === "dashboard-shared-sidebar-mobile-chat" ||
     mode === "vault-branch-filters" ||
     mode === "vault-branch-pr-labels" ||

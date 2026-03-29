@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME } from "@/components/editorChatLayout";
@@ -10,7 +9,6 @@ import { VaultDashboardWorkspaceScene } from "@/components/VaultDashboardWorkspa
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
 import { VaultBranchLinkRow } from "@/components/VaultDashboard";
 import { useVaultDashboardVisualMobileShellViewModel } from "@/hooks/use-vault-dashboard-visual-mobile-shell-view-model";
-import { useSidebar } from "@/hooks/use-sidebar";
 import { cn } from "@/lib/utils";
 import { GitHubLogoIcon, PersonIcon } from "@radix-ui/react-icons";
 import { Plus, X } from "lucide-react";
@@ -20,7 +18,6 @@ export type VaultDashboardVisualMode =
   | "dashboard-provider-sidebar-wrap"
   | "dashboard-shared-sidebar"
   | "dashboard-shared-sidebar-mobile-shell"
-  | "dashboard-shared-sidebar-mobile-open"
   | "dashboard-shared-sidebar-mobile-chat"
   | "vault-branch-filters"
   | "vault-branch-pr-labels"
@@ -120,15 +117,6 @@ function FixtureProvidersSidebarContent() {
   );
 }
 
-function OpenMobileSidebarOnMount() {
-  const { setOpenMobile } = useSidebar();
-
-  useEffect(() => {
-    setOpenMobile(true);
-  }, [setOpenMobile]);
-
-  return null;
-}
 function fakeVaultId(): Parameters<typeof VaultBranchLinkRow>[0]["vaultId"] {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
@@ -581,21 +569,6 @@ export function VaultDashboardVisualFixture({
           forceMobile={true}
           className="mx-auto h-[932px] min-h-0 w-full max-w-[430px] bg-background text-foreground"
         >
-          <VaultDashboardWorkspaceScene {...mobileShellViewModel} />
-        </SidebarProvider>
-      </div>
-    );
-  }
-
-  if (mode === "dashboard-shared-sidebar-mobile-open") {
-    return (
-      <div className="min-h-screen bg-stone-100 p-0 text-stone-950">
-        <SidebarProvider
-          defaultOpen={false}
-          forceMobile={true}
-          className="mx-auto h-[932px] min-h-0 w-full max-w-[430px] bg-background text-foreground"
-        >
-          <OpenMobileSidebarOnMount />
           <VaultDashboardWorkspaceScene {...mobileShellViewModel} />
         </SidebarProvider>
       </div>

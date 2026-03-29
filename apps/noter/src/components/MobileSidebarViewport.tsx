@@ -64,12 +64,14 @@ export function MobileSidebarViewport({
     ...trackStyle,
     width: `calc(100% + ${drawerWidthPx}px)`,
   } satisfies CSSProperties;
+
   const sidebarStyle = {
     flexBasis: `${drawerWidthPx}px`,
     flexGrow: 0,
     flexShrink: 0,
     width: `${drawerWidthPx}px`,
   } satisfies CSSProperties;
+
   const mainStyle = {
     flexBasis: `calc(100% - ${drawerWidthPx}px)`,
     flexGrow: 0,

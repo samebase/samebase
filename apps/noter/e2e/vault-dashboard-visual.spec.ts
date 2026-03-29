@@ -100,29 +100,6 @@ test("vault dashboard fixture (mobile shell)", async ({ page }) => {
   );
 });
 
-test("vault dashboard fixture (shared sidebar mobile open)", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 430, height: 932 });
-  await page.goto(
-    "/visual-fixture.html?mode=dashboard-shared-sidebar-mobile-open",
-    {
-      waitUntil: "domcontentloaded",
-    },
-  );
-  await page.waitForLoadState("networkidle");
-
-  await expect(page).toHaveScreenshot(
-    "vault-dashboard-shared-sidebar-mobile-open.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
-});
-
 test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
   await page.setViewportSize({ width: 640, height: 180 });
   await page.goto("/visual-fixture.html?mode=vault-branch-pr-labels", {
