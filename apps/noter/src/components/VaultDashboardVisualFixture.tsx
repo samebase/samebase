@@ -208,12 +208,17 @@ export function VaultDashboardVisualFixture({
     );
     const sidebarContent = <FixtureProvidersSidebarContent />;
     const headerContent = (
-      <div className="flex items-center gap-3 p-3">
-        <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
-        <div className="flex min-w-0 items-center gap-2">
-          <GitHubLogoIcon className="h-4 w-4 shrink-0" />
-          <span className="truncate text-sm font-medium">Your Vaults</span>
+      <div className="flex items-center justify-between gap-3 p-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
+          <div className="flex min-w-0 items-center gap-2">
+            <GitHubLogoIcon className="h-4 w-4 shrink-0" />
+            <span className="truncate text-sm font-medium">Your Vaults</span>
+          </div>
         </div>
+        <Button variant="outline" size="sm">
+          Connect machine
+        </Button>
       </div>
     );
 
@@ -448,8 +453,11 @@ export function VaultDashboardVisualFixture({
     const sidebarContent = <FixtureProvidersSidebarContent />;
     const headerContent = (
       <div className="px-4 py-4">
-        <div className="mb-4">
+        <div className="mb-4 flex items-center justify-between gap-3">
           <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
+          <Button variant="outline" size="sm">
+            Connect machine
+          </Button>
         </div>
         <div className="mb-4 corner-notch-1 border border-border bg-background p-4">
           <div className="text-sm text-muted-foreground">Vaults</div>

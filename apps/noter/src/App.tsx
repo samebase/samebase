@@ -94,6 +94,10 @@ const CodexAppServerThreadBrowserResearchPage = lazy(async () => {
   );
   return { default: module.CodexAppServerThreadBrowserResearchPage };
 });
+const MachineConnectPage = lazy(async () => {
+  const module = await import("@/components/MachineConnectPage");
+  return { default: module.MachineConnectPage };
+});
 
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   const { isAuthenticated } = useConvexAuth();
@@ -527,6 +531,10 @@ export default function App() {
               <Suspense fallback={null}>
                 <Routes>
                   <Route path="/" element={<VaultDashboard />} />
+                  <Route
+                    path="/machines/connect"
+                    element={<MachineConnectPage />}
+                  />
                   <Route path="/pricing" element={<PricingPage />} />
                   <Route path="/add" element={<AddRepository />} />
                   <Route

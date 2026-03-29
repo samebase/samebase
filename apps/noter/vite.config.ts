@@ -61,6 +61,11 @@ const staticInstallIconSvgAssetPath = path.resolve(
   __dirname,
   "public/install-icon.svg",
 );
+const noterSyncPackageScriptPath = path.resolve(
+  gitRoot,
+  "packages/sync/noter.js",
+);
+const staticNoterSyncScriptPath = path.resolve(__dirname, "public/noter.js");
 const privacyPolicyMarkdownPath = path.resolve(
   __dirname,
   "src/content/privacy-policy.md",
@@ -117,11 +122,49 @@ function syncStaticInstallIconSvgAsset() {
   );
 }
 
-async function formatGeneratedHtml(args: { htmlPath: string; html: string }) {
-  const formattedHtml = await formatWithPrettier(args.html, {
-    filepath: args.htmlPath,
+/**
+ * The public script is checked into a different path than the package entrypoint,
+ * so normalize the copied source through Prettier using the public filepath
+ * before writing it. That keeps future Vite syncs aligned with the file shape
+ * that commit hooks actually enforce for `public/noter.js`.
+ */
+async function syncStaticNoterSyncScriptAsset() {
+  const nextNoterSyncScript = readFileSync(noterSyncPackageScriptPath, "utf8")
+    .replace(/\r\n/g, "\n")
+    .trimEnd();
+  const nextNoterSyncScriptWithNewline = await formatGeneratedFileContents({
+    filepath: staticNoterSyncScriptPath,
+    content: nextNoterSyncScript,
   });
-  return formattedHtml.endsWith("\n") ? formattedHtml : `${formattedHtml}\n`;
+  const currentNoterSyncScript = (() => {
+    try {
+      return readFileSync(staticNoterSyncScriptPath, "utf8");
+    } catch {
+      return null;
+    }
+  })();
+
+  if (currentNoterSyncScript === nextNoterSyncScriptWithNewline) {
+    return;
+  }
+
+  writeFileSync(
+    staticNoterSyncScriptPath,
+    nextNoterSyncScriptWithNewline,
+    "utf8",
+  );
+}
+
+async function formatGeneratedFileContents(args: {
+  content: string;
+  filepath: string;
+}) {
+  const formattedContents = await formatWithPrettier(args.content, {
+    filepath: args.filepath,
+  });
+  return formattedContents.endsWith("\n")
+    ? formattedContents
+    : `${formattedContents}\n`;
 }
 
 async function syncStaticLegalPageAsset(args: {
@@ -130,9 +173,9 @@ async function syncStaticLegalPageAsset(args: {
   metadata: PageMetadata;
 }) {
   const markdown = readFileSync(args.markdownPath, "utf8");
-  const nextHtml = await formatGeneratedHtml({
-    htmlPath: args.htmlPath,
-    html: renderStaticLegalPageHtml({
+  const nextHtml = await formatGeneratedFileContents({
+    filepath: args.htmlPath,
+    content: renderStaticLegalPageHtml({
       metadata: args.metadata,
       markdown,
     }),
@@ -217,6 +260,29 @@ function syncStaticInstallIconSvgAssetPlugin() {
   };
 }
 
+function syncStaticNoterSyncScriptAssetPlugin() {
+  let hasSyncedStaticNoterSyncScriptAsset = false;
+
+  const syncOnce = async () => {
+    if (hasSyncedStaticNoterSyncScriptAsset) {
+      return;
+    }
+
+    hasSyncedStaticNoterSyncScriptAsset = true;
+    await syncStaticNoterSyncScriptAsset();
+  };
+
+  return {
+    name: "sync-static-noter-sync-script-asset",
+    async buildStart() {
+      await syncOnce();
+    },
+    async configureServer() {
+      await syncOnce();
+    },
+  };
+}
+
 function syncStaticLegalPageAssetsPlugin() {
   let hasSyncedStaticLegalPageAssets = false;
 
@@ -275,6 +341,7 @@ export default defineConfig({
   plugins: [
     syncStaticLogoSvgAssetPlugin(),
     syncStaticInstallIconSvgAssetPlugin(),
+    syncStaticNoterSyncScriptAssetPlugin(),
     syncStaticLegalPageAssetsPlugin(),
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,

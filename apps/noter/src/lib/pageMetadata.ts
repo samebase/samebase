@@ -2,6 +2,7 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "./codexAppServerResearch";
+import { MACHINE_CONNECT_ROUTE } from "./noterSync";
 
 export type PageMetadata = {
   title: string;
@@ -76,6 +77,15 @@ export const APP_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const MACHINE_CONNECT_PAGE_METADATA: PageMetadata = {
+  title: "Connect This Machine | noter",
+  description:
+    "Connect a Codex machine to noter with a deploy-scoped bootstrap command.",
+  canonicalPath: MACHINE_CONNECT_ROUTE,
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
 export function resolveAppPageTitle(pathname: string): string {
   if (pathname === "/") {
     return "Vaults | noter";
@@ -113,6 +123,10 @@ export function resolveAppPageTitle(pathname: string): string {
     return "Codex Thread Browser Research | noter";
   }
 
+  if (pathname === MACHINE_CONNECT_ROUTE) {
+    return MACHINE_CONNECT_PAGE_METADATA.title;
+  }
+
   if (pathname.startsWith("/vault/")) {
     return "Workspace | noter";
   }
@@ -143,6 +157,11 @@ export function resolvePageMetadata(args: {
   if (args.pathname === "/pitch/print/mobile") {
     return PITCH_DECK_MOBILE_PRINT_PAGE_METADATA;
   }
+
+  if (args.pathname === MACHINE_CONNECT_ROUTE) {
+    return MACHINE_CONNECT_PAGE_METADATA;
+  }
+
   if (!args.isAuthenticated && args.pathname === "/") {
     return HOME_PAGE_METADATA;
   }
@@ -174,6 +193,11 @@ export function resolveBootstrapPageMetadata(pathname: string): PageMetadata {
   if (pathname === "/pitch/print/mobile") {
     return PITCH_DECK_MOBILE_PRINT_PAGE_METADATA;
   }
+
+  if (pathname === MACHINE_CONNECT_ROUTE) {
+    return MACHINE_CONNECT_PAGE_METADATA;
+  }
+
   return {
     ...APP_PAGE_METADATA,
     canonicalPath: pathname,
