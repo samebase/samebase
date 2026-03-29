@@ -215,7 +215,7 @@ Verdict:
 
 Example shape:
 
-1. `node https://<current-deploy>/noter.mjs`
+1. `node https://<current-deploy>/noter.js`
 2. the hosted script performs machine registration and connector setup
 
 Pros:
@@ -241,7 +241,7 @@ Verdict:
 
 Example shape:
 
-1. `npx @noter-md/sync connect --from https://<current-deploy>/noter.mjs`
+1. `npx @noter-md/sync connect --from https://<current-deploy>/noter.js`
 2. or `npm install -g @noter-md/sync`
 3. wrapper internally downloads or delegates to the provided URL
 
@@ -269,12 +269,12 @@ Verdict:
 
 Example shape:
 
-1. `curl -fsSL https://<current-deploy>/noter.mjs | node --input-type=module -`
+1. `curl -fsSL https://<current-deploy>/noter.js | node --input-type=module -`
 
 Pros:
 
 1. works with current Node
-2. keeps the visible public artifact at `https://<current-deploy>/noter.mjs`
+2. keeps the visible public artifact at `https://<current-deploy>/noter.js`
 3. avoids introducing npm package branding into the main install instruction
 
 Cons:
@@ -335,13 +335,13 @@ After successful MCP auth from Codex:
 Recommended command shape:
 
 ```bash
-npx @noter-md/sync connect --from https://<current-deploy>/noter.mjs
+npx @noter-md/sync connect --from https://<current-deploy>/noter.js
 ```
 
 Canonical hosted installer artifact:
 
 ```text
-https://<current-deploy>/noter.mjs
+https://<current-deploy>/noter.js
 ```
 
 The installer should then:
@@ -462,7 +462,7 @@ not need the full monorepo release shape used there.
 Recommended packaging shape:
 
 1. package name: `@noter-md/sync`
-2. one executable source file: `noter.mjs`
+2. one executable source file: `noter.js`
 3. one `package.json` with `type: "module"`, `publishConfig.access: "public"`,
    and a single `bin` entry
 4. no runtime dependencies unless the installer truly needs them
@@ -470,7 +470,7 @@ Recommended packaging shape:
 Recommended invocation:
 
 ```bash
-npx @noter-md/sync connect --from https://<current-deploy>/noter.mjs
+npx @noter-md/sync connect --from https://<current-deploy>/noter.js
 ```
 
 Recommended reason:
@@ -479,7 +479,7 @@ Recommended reason:
 2. it works with stock Node today
 3. it keeps environment selection URL-scoped for previews and worktrees
 4. it avoids `curl ... | node` trust concerns as the primary instruction
-5. it is much simpler than asking users to copy a local `noter.mjs` file by hand
+5. it is much simpler than asking users to copy a local `noter.js` file by hand
 
 Suggested release automation:
 
@@ -495,13 +495,15 @@ Implementation decision:
 1. keep the source in a private repo if desired
 2. publish the npm tarball publicly
 3. treat everything inside the tarball as public knowledge by design
+4. use `noter.js` with module-mode configuration instead of relying on a `.mjs`
+   extension
 
 ## Proposed MVP Package Layout
 
 The first shipped package should stay intentionally small:
 
 1. `package.json`
-2. `noter.mjs`
+2. `noter.js`
 3. `README.md`
 
 Recommended `package.json` shape:
@@ -531,7 +533,7 @@ The first implementation should work like this:
 3. the page shows one command:
 
 ```bash
-npx @noter-md/sync connect --from https://<current-deploy>/noter.mjs
+npx @noter-md/sync connect --from https://<current-deploy>/noter.js
 ```
 
 4. the CLI verifies local prerequisites such as Node and Codex availability
@@ -558,7 +560,7 @@ Preview-scoped install URLs are a feature, not just a convenience.
 Rules:
 
 1. every production deploy and every preview deploy should be able to serve its
-   own `noter.mjs`
+   own `noter.js`
 2. the machine-connect UI should derive the copyable install command from the
    current page origin
 3. machine-local state should record the install origin so multiple worktrees or
@@ -634,8 +636,8 @@ What Noter should not copy in this slice:
 
 ## Open Questions
 
-1. Should `https://<current-deploy>/noter.mjs` serve the literal bundled file,
-   or should it redirect to versioned output or an install manifest?
+1. Should `https://<current-deploy>/noter.js` serve the literal bundled file, or
+   should it redirect to versioned output or an install manifest?
 2. What is the right machine-local state key for allowing multiple connected
    worktrees on one laptop without confusing the UI?
 3. When should we add OS-native auto-start and service installation after the
@@ -661,7 +663,7 @@ Ship this in two layers:
    - the same guidance also lives on a shared machine-connect screen in the app
 2. Installer:
    - default to
-     `npx @noter-md/sync connect --from https://<current-deploy>/noter.mjs`
+     `npx @noter-md/sync connect --from https://<current-deploy>/noter.js`
    - keep the package intentionally small and dependency-light
    - treat the published tarball as public by design
    - let the current deploy URL choose the target environment or worktree
