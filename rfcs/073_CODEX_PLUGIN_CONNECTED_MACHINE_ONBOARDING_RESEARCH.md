@@ -36,15 +36,19 @@ Recommendation:
 
 1. Do not ask the user to edit a repo `package.json`.
 2. Do not make Homebrew the default onboarding path.
-3. Short term, ship a standalone machine-scoped installer with a canonical
-   hosted bootstrap script at `https://noter.md/noter.mjs`.
-4. Because stock Node does not execute `https:` entrypoints directly today, the
-   first runnable command should still be a thin wrapper around that hosted
-   script rather than bare `node https://noter.md/noter.mjs`.
-5. The simplest hosted-script wrapper is something like
-   `curl -fsSL https://noter.md/noter.mjs | node --input-type=module -`, as long
-   as the bootstrap stays a single-file script.
-6. Long term, replace that with a native desktop companion/daemon installer.
+3. Short term, make the installer origin URL-scoped so every production deploy
+   and every preview deploy can serve its own install entrypoint.
+4. Use a thin machine-scoped Node executor, but let the current page URL choose
+   which environment or worktree the installer targets.
+5. Because stock Node does not execute `https:` entrypoints directly today, the
+   first runnable command should be a thin wrapper such as
+   `npx @noter-md/sync connect --from <url>` rather than bare
+   `node https://...`.
+6. A direct `curl -fsSL <url> | node --input-type=module -` form is acceptable
+   for internal or preview workflows, as long as the bootstrap stays a
+   single-file script.
+7. Long term, replace the wrapper with a native desktop companion/daemon while
+   preserving URL-scoped environment selection.
 
 The key product truth is:
 
@@ -211,7 +215,7 @@ Verdict:
 
 Example shape:
 
-1. `node https://noter.md/noter.mjs`
+1. `node https://<current-deploy>/noter.mjs`
 2. the hosted script performs machine registration and connector setup
 
 Pros:
@@ -237,9 +241,9 @@ Verdict:
 
 Example shape:
 
-1. `npx @noter-md/sync connect`
+1. `npx @noter-md/sync connect --from https://<current-deploy>/noter.mjs`
 2. or `npm install -g @noter-md/sync`
-3. wrapper internally downloads or delegates to `https://noter.md/noter.mjs`
+3. wrapper internally downloads or delegates to the provided URL
 
 Pros:
 
@@ -247,13 +251,15 @@ Pros:
 2. cross-platform where Node is available
 3. no repo modification
 4. actually runnable with current Node
-5. easiest way to ship quickly from the current Node-based connector code
-6. can later install a background service / launch agent
+5. allows every preview deploy to provide its own install source
+6. easiest way to ship quickly from the current Node-based connector code
+7. can later install a background service / launch agent
 
 Cons:
 
 1. still assumes Node is available
 2. first-run command-line UX is not as polished as a native companion app
+3. the CLI contract must stay explicit about which URL it trusts and executes
 
 Verdict:
 
@@ -263,12 +269,12 @@ Verdict:
 
 Example shape:
 
-1. `curl -fsSL https://noter.md/noter.mjs | node --input-type=module -`
+1. `curl -fsSL https://<current-deploy>/noter.mjs | node --input-type=module -`
 
 Pros:
 
 1. works with current Node
-2. keeps the visible public artifact at `https://noter.md/noter.mjs`
+2. keeps the visible public artifact at `https://<current-deploy>/noter.mjs`
 3. avoids introducing npm package branding into the main install instruction
 
 Cons:
@@ -276,7 +282,7 @@ Cons:
 1. pipe-from-network commands have worse trust optics than a local file or
    package install
 2. the script should be bundled into one file because relative imports will
-   resolve against the current working directory, not `https://noter.md/`
+   resolve against the current working directory, not the remote deploy origin
 3. depends on `curl` being present
 
 Verdict:
@@ -329,13 +335,13 @@ After successful MCP auth from Codex:
 Recommended command shape:
 
 ```bash
-npx @noter-md/sync connect
+npx @noter-md/sync connect --from https://<current-deploy>/noter.mjs
 ```
 
 Canonical hosted installer artifact:
 
 ```text
-https://noter.md/noter.mjs
+https://<current-deploy>/noter.mjs
 ```
 
 The installer should then:
@@ -422,7 +428,7 @@ The core message should be:
 1. "Noter is authenticated."
 2. "To browse and continue local Codex threads, connect this machine."
 3. "This installs a small local connector for your machine, not for your repo."
-4. "The public installer lives at `https://noter.md/noter.mjs`."
+4. "This install command is specific to the current Noter deploy."
 
 Avoid saying:
 
@@ -464,15 +470,16 @@ Recommended packaging shape:
 Recommended invocation:
 
 ```bash
-npx @noter-md/sync connect
+npx @noter-md/sync connect --from https://<current-deploy>/noter.mjs
 ```
 
 Recommended reason:
 
 1. it preserves the "single polished script" feeling
 2. it works with stock Node today
-3. it avoids `curl ... | node` trust concerns as the primary instruction
-4. it is much simpler than asking users to copy a local `noter.mjs` file by hand
+3. it keeps environment selection URL-scoped for previews and worktrees
+4. it avoids `curl ... | node` trust concerns as the primary instruction
+5. it is much simpler than asking users to copy a local `noter.mjs` file by hand
 
 Suggested release automation:
 
@@ -510,7 +517,9 @@ Recommended execution model:
 1. `connect` is the only supported public command in the first release
 2. the same file may contain internal subcommands for the long-running connector
    process, but the product docs should only expose `connect`
-3. the package should be bundled or written as one file so install and review
+3. the executor should accept an explicit source URL, so preview deploys and
+   production can share the same binary while selecting different environments
+4. the package should be bundled or written as one file so install and review
    stay simple
 
 ## Proposed MVP Connect Flow
@@ -522,7 +531,7 @@ The first implementation should work like this:
 3. the page shows one command:
 
 ```bash
-npx @noter-md/sync connect
+npx @noter-md/sync connect --from https://<current-deploy>/noter.mjs
 ```
 
 4. the CLI verifies local prerequisites such as Node and Codex availability
@@ -541,6 +550,45 @@ Phase 1 constraint:
    public release
 2. trusted reconnect and auto-start can follow once the basic connect flow is
    proven
+
+## Preview Deploy And Multi-Worktree Behavior
+
+Preview-scoped install URLs are a feature, not just a convenience.
+
+Rules:
+
+1. every production deploy and every preview deploy should be able to serve its
+   own `noter.mjs`
+2. the machine-connect UI should derive the copyable install command from the
+   current page origin
+3. machine-local state should record the install origin so multiple worktrees or
+   preview environments can coexist on the same laptop
+4. the installer should not assume one global machine target per account if the
+   operator intentionally connects multiple worktrees
+
+Rationale:
+
+1. this makes branch previews and worktree testing much easier
+2. it lets one laptop connect multiple experimental environments without
+   republishing npm packages for every branch
+3. it keeps the install experience aligned with Cloudflare Pages preview URLs
+   that already exist in Noter workflows
+
+## Local Port And Tunnel Rules
+
+Preview-scoped installers create local routing concerns, so the first design
+should avoid overcommitting to fixed localhost assumptions.
+
+Rules:
+
+1. do not require one fixed localhost port per connected machine environment
+2. prefer outbound connector traffic plus browser token handoff over inbound
+   local callbacks when possible
+3. if a loopback callback is needed, prefer an ephemeral port instead of a
+   hard-coded one
+4. use Cloudflare Tunnel only when a preview or local environment truly needs
+   inbound addressability from a stable URL
+5. Cloudflare Tunnel is an escape hatch, not the default control plane
 
 ## Public And Private Boundary
 
@@ -586,11 +634,13 @@ What Noter should not copy in this slice:
 
 ## Open Questions
 
-1. Should `https://noter.md/noter.mjs` serve the literal published file, or
-   should it redirect to versioned bundled output?
-2. When should we add OS-native auto-start and service installation after the
+1. Should `https://<current-deploy>/noter.mjs` serve the literal bundled file,
+   or should it redirect to versioned output or an install manifest?
+2. What is the right machine-local state key for allowing multiple connected
+   worktrees on one laptop without confusing the UI?
+3. When should we add OS-native auto-start and service installation after the
    first public `connect` release?
-3. Do we want QR pairing only for phone-originated machine connection, while
+4. Do we want QR pairing only for phone-originated machine connection, while
    desktop-originated flow uses browser token handoff instead?
 
 ## Acceptance Criteria For The Future Implementation
@@ -610,9 +660,11 @@ Ship this in two layers:
    - MCP auth success branches into `Connect this machine` when needed
    - the same guidance also lives on a shared machine-connect screen in the app
 2. Installer:
-   - default to `npx @noter-md/sync connect`
+   - default to
+     `npx @noter-md/sync connect --from https://<current-deploy>/noter.mjs`
    - keep the package intentionally small and dependency-light
    - treat the published tarball as public by design
+   - let the current deploy URL choose the target environment or worktree
 
 Then later replace the installer layer with a native desktop companion without
 changing the product model.
