@@ -157,13 +157,33 @@ export function WorkspaceSidebarShell({
     };
   }, [hasSidebar, isMobile, mobileSidebarWidthPx, openMobile, setOpenMobile]);
 
-  const handleMainViewClickCapture = React.useCallback(() => {
-    if (!isMobile || !openMobile) {
-      return;
-    }
+  const handleMainViewClickCapture = React.useCallback(
+    (event: React.MouseEvent<HTMLElement>) => {
+      if (!isMobile || !openMobile) {
+        return;
+      }
 
-    setOpenMobile(false);
-  }, [isMobile, openMobile, setOpenMobile]);
+      // Let the dedicated toggle button own its own state change so a header
+      // click does not get "close on capture" followed by "re-open on bubble".
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[data-sidebar="trigger"]') !== null
+      ) {
+        return;
+      }
+
+      setOpenMobile(false);
+    },
+    [isMobile, openMobile, setOpenMobile],
+  );
+
+  const collapsedDesktopSidebar = !isMobile && !open;
+  const hiddenDesktopSidebarProps = collapsedDesktopSidebar
+    ? {
+        "aria-hidden": true as const,
+        hidden: true,
+      }
+    : {};
 
   const shellStyle: React.CSSProperties & {
     "--workspace-sidebar-width"?: string;
@@ -215,7 +235,7 @@ export function WorkspaceSidebarShell({
         {hasSidebarHeader ? (
           <div
             data-testid={sidebarHeaderTestId}
-            aria-hidden={isMobile ? undefined : !open}
+            {...hiddenDesktopSidebarProps}
             className={cn(sidebarCellClassName, isMobile ? "snap-start" : "")}
           >
             <div
@@ -231,7 +251,7 @@ export function WorkspaceSidebarShell({
         {hasSidebarContent ? (
           <div
             data-testid={sidebarContentTestId}
-            aria-hidden={isMobile ? undefined : !open}
+            {...hiddenDesktopSidebarProps}
             className={cn(
               sidebarCellClassName,
               hasSidebarHeader ? "row-start-2 min-h-0" : "row-span-2 min-h-0",
