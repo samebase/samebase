@@ -175,6 +175,21 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
     })
     .toBeGreaterThan(100);
 
+  {
+    const fixtureBox = await fixture.boundingBox();
+    const headerBox = await header.boundingBox();
+
+    if (fixtureBox === null || headerBox === null) {
+      throw new Error("Expected fileview fixture and header boxes to exist.");
+    }
+
+    expectClose(
+      headerBox.x + headerBox.width,
+      fixtureBox.x + fixtureBox.width,
+      "fileview open header right edge",
+    );
+  }
+
   await expect(page.getByTestId("fileview-layout-counter-value")).toHaveText(
     "1",
   );

@@ -167,22 +167,20 @@ export function WorkspaceSidebarShell({
 
   const shellStyle: React.CSSProperties & {
     "--workspace-sidebar-width"?: string;
-    transform?: string;
   } = {
-    // Keep one track model everywhere: the main pane is always one full viewport
-    // wide, and the sidebar lives just to its left.
+    // Keep one shared shell tree everywhere. Mobile pans across the full track;
+    // desktop keeps the track fixed and collapses just the left column.
     gridTemplateColumns: hasSidebar
-      ? "var(--workspace-sidebar-width) minmax(0, 1fr)"
+      ? isMobile
+        ? "var(--workspace-sidebar-width) minmax(0, 1fr)"
+        : `${open ? "var(--workspace-sidebar-width)" : "0px"} minmax(0, 1fr)`
       : "0 minmax(0, 1fr)",
     gridTemplateRows: "auto minmax(0, 1fr)",
-    width: hasSidebar ? "calc(100% + var(--workspace-sidebar-width))" : "100%",
+    width:
+      isMobile && hasSidebar
+        ? "calc(100% + var(--workspace-sidebar-width))"
+        : "100%",
     "--workspace-sidebar-width": "var(--sidebar-width)",
-    transform:
-      !isMobile && hasSidebar
-        ? open
-          ? "translateX(0)"
-          : "translateX(calc(var(--workspace-sidebar-width) * -1))"
-        : undefined,
   };
 
   const sidebarCellClassName = cn(
@@ -210,7 +208,7 @@ export function WorkspaceSidebarShell({
           "grid h-full min-h-0",
           isMobile
             ? "snap-x snap-mandatory"
-            : "transition-transform duration-200 ease-linear",
+            : "transition-[grid-template-columns] duration-200 ease-linear",
         )}
         style={shellStyle}
       >
