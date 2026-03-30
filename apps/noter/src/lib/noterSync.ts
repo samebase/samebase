@@ -12,7 +12,7 @@ export function buildNoterSyncConnectCommand(origin: string): string {
     "# default published package",
     "npx @noter-md/sync connect",
     "# direct single-file install for this deploy",
-    `curl -fsSL ${scriptUrl} | node --input-type=module - connect --from ${scriptUrl}`,
+    `curl -fsSL ${scriptUrl} | node --input-type=module - connect`,
   ].join("\n");
 }
 

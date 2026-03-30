@@ -27,8 +27,8 @@ function resolveCurrentOrigin(): string {
 }
 
 /**
- * The CLI echoes its source URL back into the browser handoff so preview
- * installs stay pinned to the exact deploy that launched them.
+ * The CLI echoes its installer source back into the browser handoff so the
+ * app can describe which hosted file launched the machine-connect flow.
  */
 function resolveDeployOrigin(sourceUrl: string | null, fallbackOrigin: string) {
   if (!sourceUrl) {
@@ -91,7 +91,7 @@ export function MachineConnectPageContent({
           <p className="max-w-2xl text-sm text-muted-foreground">
             Run the command on the machine that already has Codex installed. The
             normal user path is just the published <code>@noter-md/sync</code>{" "}
-            package, while this deploy still exposes its own single-file{" "}
+            package, while this deploy still exposes its own inspectable{" "}
             <code>noter.js</code> artifact below for preview and local testing.
           </p>
         </div>
@@ -122,8 +122,8 @@ export function MachineConnectPageContent({
               <h2 className="text-sm font-medium">Install command</h2>
               <p className="text-sm text-muted-foreground">
                 The first line is the normal user path. The second line is the
-                direct-file fallback for this exact deploy when you want to test
-                a preview or local implementation without publishing first.
+                direct-file path for this exact deploy when you want to test a
+                preview or local implementation without publishing first.
               </p>
             </div>
             <Button
@@ -173,9 +173,9 @@ export function MachineConnectPageContent({
               {sourceUrl ?? scriptUrl}
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
-              Advanced path: download this single file directly when you want to
-              test a preview or local implementation without publishing a new
-              package first.
+              Advanced path: this hosted file is the direct-install source when
+              you want to test a preview or local implementation without
+              publishing a new package first.
             </p>
           </section>
         </div>
@@ -184,7 +184,7 @@ export function MachineConnectPageContent({
           <h2 className="text-sm font-medium">What happens next</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             The bootstrap checks that Codex is available, writes a local
-            installation record keyed by the selected source URL, and then opens
+            installation record keyed by the installer source, and then opens
             Noter back on this route so the browser can finish the machine
             registration flow.
           </p>

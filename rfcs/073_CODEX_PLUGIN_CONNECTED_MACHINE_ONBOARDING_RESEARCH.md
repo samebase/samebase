@@ -44,8 +44,8 @@ Recommendation:
    first runnable command should be the thin wrapper
    `npx @noter-md/sync connect`.
 6. Keep `https://<current-deploy>/noter.js` as the single-file public artifact
-   for internal, preview, and local workflows, with optional `--from <url>`
-   override support when the operator wants to target a non-default deploy.
+   for internal, preview, and local workflows. The hosted file itself should be
+   the direct-install source instead of teaching users a CLI override flag.
 7. A direct `curl -fsSL <url> | node --input-type=module -` form is acceptable
    for internal or preview workflows, as long as the bootstrap stays a
    single-file script.
@@ -103,6 +103,24 @@ It does not yet prove or create any of the following:
 
 The authenticated MCP session and the connected-machine session are separate
 things.
+
+### How auth should extend for machine connect
+
+The MCP auth flow is still the right browser-side primitive to reuse, but not
+the exact credential to hand to a machine.
+
+Recommendation:
+
+1. Reuse the signed-in Noter browser session and consent-style UI for machine
+   approval.
+2. Do not reuse MCP OAuth access tokens or auth-request rows as the machine's
+   long-lived credential.
+3. Treat machine connect as a device-style registration handshake: the CLI opens
+   the browser, the browser proves the current user, the user approves the
+   install, and Noter issues a machine-specific bootstrap credential for the
+   local connector to store.
+4. Keep machine revocation separate from MCP client revocation so a user can
+   disconnect one machine without breaking the hosted MCP plugin.
 
 ### What local thread control already exists
 
@@ -245,10 +263,7 @@ Example shape:
 
 1. `npx @noter-md/sync connect`
 2. or `npm install -g @noter-md/sync`
-3. optional override:
-   `npx @noter-md/sync connect --from https://<current-deploy>/noter.js`
-4. wrapper internally defaults to the production installer URL while still
-   allowing explicit preview or local override URLs
+3. the hosted `noter.js` file remains the direct internal/preview artifact
 
 Pros:
 
@@ -265,8 +280,8 @@ Cons:
 
 1. still assumes Node is available
 2. first-run command-line UX is not as polished as a native companion app
-3. the CLI contract must stay explicit about when it is using the default
-   production source versus an override URL
+3. the hosted-file path still needs a clear provenance story for preview and
+   local builds
 
 Verdict:
 
@@ -276,7 +291,7 @@ Verdict:
 
 Example shape:
 
-1. `curl -fsSL https://<current-deploy>/noter.js | node --input-type=module -`
+1. `curl -fsSL https://<current-deploy>/noter.js | node --input-type=module - connect`
 
 Pros:
 
@@ -675,11 +690,11 @@ Ship this in two layers:
    - MCP auth success branches into `Connect this machine` when needed
    - the same guidance also lives on a shared machine-connect screen in the app
 2. Installer:
-   - default to
-     `npx @noter-md/sync connect --from https://<current-deploy>/noter.js`
+   - default to `npx @noter-md/sync connect`
    - keep the package intentionally small and dependency-light
    - treat the published tarball as public by design
-   - let the current deploy URL choose the target environment or worktree
+   - let each hosted `noter.js` file identify the target environment or worktree
+     instead of adding a CLI override flag
 
 Then later replace the installer layer with a native desktop companion without
 changing the product model.

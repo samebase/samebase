@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// The file you run is the installer source. Preview or local deploys can ship
+// their own hosted copy without teaching users a separate targeting flag.
 
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -10,7 +12,7 @@ import { pathToFileURL } from 'node:url'
 export const NOTER_SYNC_SCRIPT_PATHNAME = '/noter.js'
 export const MACHINE_CONNECT_ROUTE = '/machines/connect'
 export const NOTER_SYNC_STATE_DIRECTORY_NAME = '.noter/sync/installations'
-export const DEFAULT_NOTER_SYNC_SOURCE_URL = 'https://noter.md/noter.js'
+export const NOTER_SYNC_SOURCE_URL = 'https://noter.md/noter.js'
 
 /**
  * Parse the tiny public CLI surface without pulling in a dependency. The first
@@ -26,21 +28,12 @@ export function parseCliArgs(argv) {
     throw new Error(`Unknown command: ${argv[0]}`)
   }
 
-  let sourceUrl = null
   for (let index = 1; index < argv.length; index += 1) {
     const arg = argv[index]
-    if (arg === '--from') {
-      sourceUrl = argv[index + 1] ?? null
-      index += 1
-      continue
-    }
     throw new Error(`Unknown option: ${arg}`)
   }
 
-  return {
-    command: 'connect',
-    sourceUrl,
-  }
+  return { command: 'connect' }
 }
 
 export function validateSourceUrl(value) {
@@ -53,12 +46,12 @@ export function validateSourceUrl(value) {
       sourceUrl.hostname === '[::1]')
   if (sourceUrl.protocol !== 'https:' && !isLoopbackHttp) {
     throw new Error(
-      'The --from URL must use https, except for explicit localhost testing.',
+      'The installer source URL must use https, except for explicit localhost testing.',
     )
   }
   if (sourceUrl.pathname !== NOTER_SYNC_SCRIPT_PATHNAME) {
     throw new Error(
-      `The --from URL must point to ${NOTER_SYNC_SCRIPT_PATHNAME}.`,
+      `The installer source URL must point to ${NOTER_SYNC_SCRIPT_PATHNAME}.`,
     )
   }
   return sourceUrl
@@ -165,13 +158,12 @@ export function openBrowser(url) {
 export function formatHelpText() {
   return [
     'Usage:',
-    '  noter-sync connect [--from https://<current-deploy>/noter.js]',
+    '  noter-sync connect',
     '',
     'Examples:',
     '  npx @noter-md/sync connect',
-    '  npx @noter-md/sync connect --from https://preview.noter.md/noter.js',
     '  node ./noter.js connect',
-    '  curl -fsSL https://noter.md/noter.js | node --input-type=module - connect --from https://noter.md/noter.js',
+    '  curl -fsSL https://noter.md/noter.js | node --input-type=module - connect',
   ].join('\n')
 }
 
@@ -182,9 +174,7 @@ export async function main(argv) {
     return
   }
 
-  const sourceUrl = validateSourceUrl(
-    parsedArgs.sourceUrl ?? DEFAULT_NOTER_SYNC_SOURCE_URL,
-  ).toString()
+  const sourceUrl = validateSourceUrl(NOTER_SYNC_SOURCE_URL).toString()
   const codexVersion = detectCodexVersion()
   const installationId = buildInstallationId(sourceUrl)
   const machineConnectUrl = buildMachineConnectUrl({

@@ -19,7 +19,7 @@ describe("noterSync", () => {
         "# default published package",
         "npx @noter-md/sync connect",
         "# direct single-file install for this deploy",
-        "curl -fsSL https://preview.noter.md/noter.js | node --input-type=module - connect --from https://preview.noter.md/noter.js",
+        "curl -fsSL https://preview.noter.md/noter.js | node --input-type=module - connect",
       ].join("\n"),
     );
   });

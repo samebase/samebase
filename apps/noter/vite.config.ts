@@ -1,8 +1,9 @@
-import { defineConfig } from "vite";
+import { defineConfig, type ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { format as formatWithPrettier } from "prettier";
 import { readPackageVersion } from "../../scripts/readPackageVersion.js";
 import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
@@ -13,6 +14,10 @@ import {
   TERMS_PAGE_METADATA,
 } from "./src/lib/pageMetadata";
 import { renderStaticLegalPageHtml } from "./src/lib/staticLegalPage";
+import {
+  buildNoterSyncPublicScript,
+  resolveNoterSyncPublicScriptSourceUrl,
+} from "./noterSyncPublicScript";
 import {
   readEnvFileValue,
   resolveDaytonaConvexProxyTarget,
@@ -43,6 +48,7 @@ const appCommit =
 
 const appRepoUrl = "https://github.com/noter-md/noter";
 const daytonaSdkVersion = readPackageVersion("@daytonaio/sdk", import.meta.url);
+const cloudflarePagesUrl = process.env.CF_PAGES_URL ?? null;
 const daytonaLocalEnvPath = path.resolve(__dirname, ".env.local");
 const daytonaConvexProxyTarget = resolveDaytonaConvexProxyTarget({
   devOrigin: process.env.DEV_ENV_ORIGIN,
@@ -79,6 +85,19 @@ const staticPrivacyHtmlPath = path.resolve(
   "public/privacy/index.html",
 );
 const staticTermsHtmlPath = path.resolve(__dirname, "public/terms/index.html");
+
+function readNoterSyncPackageScript(): string {
+  return readFileSync(noterSyncPackageScriptPath, "utf8")
+    .replace(/\r\n/g, "\n")
+    .trimEnd();
+}
+
+function getRuntimeNoterSyncSourceUrl(): string {
+  return resolveNoterSyncPublicScriptSourceUrl({
+    devOrigin: process.env.DEV_ENV_ORIGIN,
+    pagesUrl: cloudflarePagesUrl,
+  });
+}
 
 function syncStaticLogoSvgAsset() {
   const nextStaticLogoSvgMarkup = createStaticLogoSvgMarkup().trim();
@@ -129,9 +148,10 @@ function syncStaticInstallIconSvgAsset() {
  * that commit hooks actually enforce for `public/noter.js`.
  */
 async function syncStaticNoterSyncScriptAsset() {
-  const nextNoterSyncScript = readFileSync(noterSyncPackageScriptPath, "utf8")
-    .replace(/\r\n/g, "\n")
-    .trimEnd();
+  const nextNoterSyncScript = buildNoterSyncPublicScript({
+    packageScript: readNoterSyncPackageScript(),
+    sourceUrl: resolveNoterSyncPublicScriptSourceUrl(),
+  });
   const nextNoterSyncScriptWithNewline = await formatGeneratedFileContents({
     filepath: staticNoterSyncScriptPath,
     content: nextNoterSyncScript,
@@ -153,6 +173,16 @@ async function syncStaticNoterSyncScriptAsset() {
     nextNoterSyncScriptWithNewline,
     "utf8",
   );
+}
+
+async function buildRuntimeNoterSyncScript(args: { filepath: string }) {
+  return formatGeneratedFileContents({
+    filepath: args.filepath,
+    content: buildNoterSyncPublicScript({
+      packageScript: readNoterSyncPackageScript(),
+      sourceUrl: getRuntimeNoterSyncSourceUrl(),
+    }),
+  });
 }
 
 async function formatGeneratedFileContents(args: {
@@ -277,8 +307,56 @@ function syncStaticNoterSyncScriptAssetPlugin() {
     async buildStart() {
       await syncOnce();
     },
-    async configureServer() {
+    async configureServer(server: ViteDevServer) {
       await syncOnce();
+
+      // Serve a deploy-stamped installer in dev without dirtying the tracked
+      // `public/noter.js` file away from its production default.
+      server.middlewares.use(
+        (
+          request: IncomingMessage,
+          response: ServerResponse<IncomingMessage>,
+          next: (error?: Error) => void,
+        ) => {
+          const requestPath = (() => {
+            if (!request.url) {
+              return null;
+            }
+
+            try {
+              return new URL(request.url, "http://vite.local").pathname;
+            } catch {
+              return null;
+            }
+          })();
+
+          if (requestPath !== "/noter.js") {
+            next();
+            return;
+          }
+
+          void buildRuntimeNoterSyncScript({
+            filepath: staticNoterSyncScriptPath,
+          })
+            .then((runtimeScript) => {
+              response.statusCode = 200;
+              response.setHeader(
+                "Content-Type",
+                "application/javascript; charset=utf-8",
+              );
+              response.end(runtimeScript);
+            })
+            .catch(next);
+        },
+      );
+    },
+    async closeBundle() {
+      const builtScriptPath = path.resolve(__dirname, "dist/noter.js");
+      const runtimeScript = await buildRuntimeNoterSyncScript({
+        filepath: builtScriptPath,
+      });
+      mkdirSync(path.dirname(builtScriptPath), { recursive: true });
+      writeFileSync(builtScriptPath, runtimeScript, "utf8");
     },
   };
 }

@@ -3,29 +3,19 @@ import { describe, expect, it } from 'vitest'
 import {
   buildInstallationId,
   buildMachineConnectUrl,
-  DEFAULT_NOTER_SYNC_SOURCE_URL,
   formatHelpText,
   getInstallationStatePath,
+  NOTER_SYNC_SOURCE_URL,
   parseCliArgs,
   validateSourceUrl,
 } from './noter.js'
 
 describe('@noter-md/sync', () => {
-  it('defaults the public connect command to noter.md when no source override is provided', () => {
+  it('defaults the public connect command to noter.md with no extra CLI override', () => {
     expect(parseCliArgs(['connect'])).toEqual({
       command: 'connect',
-      sourceUrl: null,
     })
-    expect(DEFAULT_NOTER_SYNC_SOURCE_URL).toBe('https://noter.md/noter.js')
-  })
-
-  it('parses the optional preview source override', () => {
-    expect(
-      parseCliArgs(['connect', '--from', 'https://preview.noter.md/noter.js']),
-    ).toEqual({
-      command: 'connect',
-      sourceUrl: 'https://preview.noter.md/noter.js',
-    })
+    expect(NOTER_SYNC_SOURCE_URL).toBe('https://noter.md/noter.js')
   })
 
   it('accepts https deploy URLs and localhost http URLs', () => {
@@ -39,7 +29,7 @@ describe('@noter-md/sync', () => {
 
   it('rejects non-https non-localhost source URLs', () => {
     expect(() => validateSourceUrl('http://example.com/noter.js')).toThrow(
-      'The --from URL must use https, except for explicit localhost testing.',
+      'The installer source URL must use https, except for explicit localhost testing.',
     )
   })
 
@@ -69,12 +59,9 @@ describe('@noter-md/sync', () => {
 
   it('documents the simple npm command and advanced direct-file flows', () => {
     expect(formatHelpText()).toContain('npx @noter-md/sync connect')
-    expect(formatHelpText()).toContain(
-      'npx @noter-md/sync connect --from https://preview.noter.md/noter.js',
-    )
     expect(formatHelpText()).toContain('node ./noter.js connect')
     expect(formatHelpText()).toContain(
-      'curl -fsSL https://noter.md/noter.js | node --input-type=module - connect --from https://noter.md/noter.js',
+      'curl -fsSL https://noter.md/noter.js | node --input-type=module - connect',
     )
   })
 })
