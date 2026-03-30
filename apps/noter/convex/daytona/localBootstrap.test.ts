@@ -369,11 +369,10 @@ setInterval(() => {}, 1000);`,
       stdio: ["ignore", "pipe", "inherit"],
     },
   );
-  if (child.stdout === null) {
-    throw new Error("Expected child stdout to capture the listening port.");
-  }
-
-  const [portChunk] = (await once(child.stdout, "data")) as [Buffer];
+  const portChunk = await new Promise<Buffer>((resolve, reject) => {
+    child.stdout.once("data", (chunk: Buffer) => resolve(chunk));
+    child.once("error", reject);
+  });
   const port = Number(String(portChunk).trim());
 
   return {
