@@ -7,6 +7,7 @@ import {
 import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { SidebarProvider } from "@/components/sidebar";
+import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
 
 export type FileViewDeveloperToolsVisualMode =
   | "file-view-developer-tools-collapsed"
@@ -25,47 +26,60 @@ export function FileViewDeveloperToolsVisualFixture({
 }) {
   const viewMode = getFixtureViewMode(mode);
   const showEditorActions = viewMode === "editor";
+  const sidebarHeader = (
+    <SidebarAccountSection>
+      <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
+        <span className="block min-w-0 truncate">nicu@noter.md</span>
+        <Button
+          variant="secondary"
+          size="icon"
+          className="h-8 w-8 rounded-ui md:h-6 md:w-6"
+        >
+          <PersonIcon className="h-4 w-4 md:h-3 md:w-3" />
+          <span className="sr-only">Open user menu</span>
+        </Button>
+      </div>
+    </SidebarAccountSection>
+  );
+  const sidebarContent = (
+    <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
+      <div className="border-b p-3 text-xs text-muted-foreground">
+        noter-md/noter
+      </div>
+      <div className="flex min-h-0 flex-1 items-center justify-center p-3 text-xs text-muted-foreground">
+        File tree
+      </div>
+    </div>
+  );
+  const repositoryWorkspaceSidebarProps =
+    FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
+      ? {
+          leftSidebarHeader: sidebarHeader,
+          leftSidebarContent: sidebarContent,
+          rightSidebarContent: <div className="min-h-0 flex-1 bg-background" />,
+        }
+      : {
+          rightSidebarHeader: sidebarHeader,
+          rightSidebarContent: sidebarContent,
+        };
 
   return (
     <SidebarProvider
       defaultOpen={true}
       defaultRightOpen={true}
+      shortcutSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
       className="h-[780px] min-h-0 bg-background text-foreground"
     >
       <RepositoryWorkspaceFrame
         dataTestId="file-view-developer-tools-visual-fixture"
-        leftSidebarHeader={
-          <SidebarAccountSection>
-            <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
-              <span className="block min-w-0 truncate">nicu@noter.md</span>
-              <Button
-                variant="secondary"
-                size="icon"
-                className="h-8 w-8 rounded-ui md:h-6 md:w-6"
-              >
-                <PersonIcon className="h-4 w-4 md:h-3 md:w-3" />
-                <span className="sr-only">Open user menu</span>
-              </Button>
-            </div>
-          </SidebarAccountSection>
-        }
-        leftSidebarContent={
-          <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
-            <div className="border-b p-3 text-xs text-muted-foreground">
-              noter-md/noter
-            </div>
-            <div className="flex min-h-0 flex-1 items-center justify-center p-3 text-xs text-muted-foreground">
-              File tree
-            </div>
-          </div>
-        }
-        rightSidebarContent={<div className="min-h-0 flex-1 bg-background" />}
+        mobileLeadingSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
         headerTitle="src/components/FileView.tsx"
         headerRight={
           <div className="font-mono text-xs text-muted-foreground">74f9c18</div>
         }
         onQuickOpen={() => {}}
         contentClassName="flex-1 min-h-0 p-0"
+        {...repositoryWorkspaceSidebarProps}
       >
         <div className="flex h-full min-h-0 flex-col">
           <div className="max-w-none flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4">

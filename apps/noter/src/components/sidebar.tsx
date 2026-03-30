@@ -33,6 +33,7 @@ export const SidebarProvider = React.forwardRef<
     defaultRightOpen?: boolean;
     rightOpen?: boolean;
     onRightOpenChange?: (open: boolean) => void;
+    shortcutSidebarSide?: SidebarSide;
   }
 >(
   (
@@ -43,6 +44,7 @@ export const SidebarProvider = React.forwardRef<
       defaultRightOpen = false,
       rightOpen: rightOpenProp,
       onRightOpenChange: setRightOpenProp,
+      shortcutSidebarSide = "left",
       className,
       style,
       children,
@@ -69,11 +71,13 @@ export const SidebarProvider = React.forwardRef<
           setInternalLeftDesktopOpen(nextValue);
         }
 
-        // Preserve the existing left-sidebar cookie contract while the dual
-        // sidebar implementation is still intentionally light on persistence.
-        document.cookie = `${SIDEBAR_COOKIE_NAME}=${nextValue}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+        if (shortcutSidebarSide === "left") {
+          // Preserve the existing single-sidebar cookie contract while the dual
+          // sidebar implementation is still intentionally light on persistence.
+          document.cookie = `${SIDEBAR_COOKIE_NAME}=${nextValue}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+        }
       },
-      [leftDesktopOpen, setOpenProp],
+      [leftDesktopOpen, setOpenProp, shortcutSidebarSide],
     );
 
     const setRightDesktopOpen = React.useCallback(
@@ -84,8 +88,12 @@ export const SidebarProvider = React.forwardRef<
         } else {
           setInternalRightDesktopOpen(nextValue);
         }
+
+        if (shortcutSidebarSide === "right") {
+          document.cookie = `${SIDEBAR_COOKIE_NAME}=${nextValue}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+        }
       },
-      [rightDesktopOpen, setRightOpenProp],
+      [rightDesktopOpen, setRightOpenProp, shortcutSidebarSide],
     );
 
     const toggleLeftSidebar = React.useCallback(() => {
@@ -117,13 +125,26 @@ export const SidebarProvider = React.forwardRef<
           (event.metaKey || event.ctrlKey)
         ) {
           event.preventDefault();
+          if (shortcutSidebarSide === "right") {
+            toggleRightSidebar();
+            return;
+          }
           toggleLeftSidebar();
         }
       };
 
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [toggleLeftSidebar]);
+    }, [shortcutSidebarSide, toggleLeftSidebar, toggleRightSidebar]);
+
+    const primaryDesktopOpen =
+      shortcutSidebarSide === "right" ? rightDesktopOpen : leftDesktopOpen;
+    const setPrimaryDesktopOpen =
+      shortcutSidebarSide === "right"
+        ? setRightDesktopOpen
+        : setLeftDesktopOpen;
+    const togglePrimarySidebar =
+      shortcutSidebarSide === "right" ? toggleRightSidebar : toggleLeftSidebar;
 
     const contextValue = React.useMemo<SidebarContextProps>(
       () => ({
@@ -136,13 +157,13 @@ export const SidebarProvider = React.forwardRef<
         setMobilePane,
         toggleLeftSidebar,
         toggleRightSidebar,
-        state: leftDesktopOpen ? "expanded" : "collapsed",
-        open: leftDesktopOpen,
-        setOpen: setLeftDesktopOpen,
-        openMobile: mobilePane === "left",
+        state: primaryDesktopOpen ? "expanded" : "collapsed",
+        open: primaryDesktopOpen,
+        setOpen: setPrimaryDesktopOpen,
+        openMobile: mobilePane === shortcutSidebarSide,
         setOpenMobile: (nextOpen: boolean) =>
-          setMobilePane(nextOpen ? "left" : "main"),
-        toggleSidebar: toggleLeftSidebar,
+          setMobilePane(nextOpen ? shortcutSidebarSide : "main"),
+        toggleSidebar: togglePrimarySidebar,
       }),
       [
         isMobile,
@@ -154,6 +175,10 @@ export const SidebarProvider = React.forwardRef<
         setMobilePane,
         toggleLeftSidebar,
         toggleRightSidebar,
+        primaryDesktopOpen,
+        setPrimaryDesktopOpen,
+        shortcutSidebarSide,
+        togglePrimarySidebar,
       ],
     );
 

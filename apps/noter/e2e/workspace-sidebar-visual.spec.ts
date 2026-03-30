@@ -9,7 +9,7 @@ test("fileview mobile sidebar scrim", async ({ page }) => {
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
   await page
-    .getByRole("button", { name: "Toggle Left Sidebar" })
+    .getByRole("button", { name: "Toggle Right Sidebar" })
     .press("Enter");
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))

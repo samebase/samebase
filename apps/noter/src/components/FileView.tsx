@@ -62,6 +62,7 @@ import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/co
 import { claimRefreshDebounce } from "@/lib/treeRefreshDebounce";
 import { buildFileViewRefreshDebounceKey } from "@/lib/fileViewRefresh";
 import { getAncestorFolderPaths } from "@/lib/fileTreeState";
+import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
 import { type GithubTreeType } from "convex/schema";
 import { formatStopwatchDuration } from "@/lib/stopwatch";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
@@ -3008,20 +3009,25 @@ function FileViewInner({
       className="flex-1 min-h-0"
     />
   ) : null;
-
-  const rightSidebarContent = (
-    <div className="flex min-h-0 flex-1 bg-background" />
-  );
+  const repositoryWorkspaceSidebarProps =
+    FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
+      ? {
+          leftSidebarHeader: sidebarHeader,
+          leftSidebarContent: sidebarContent,
+        }
+      : {
+          rightSidebarHeader: sidebarHeader,
+          rightSidebarContent: sidebarContent,
+        };
 
   return (
     <>
       <RepositoryWorkspaceFrame
-        leftSidebarHeader={sidebarHeader}
-        leftSidebarContent={sidebarContent}
-        rightSidebarContent={rightSidebarContent}
+        mobileLeadingSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
         headerTitle={headerTitle}
         onQuickOpen={() => setIsCommandPaletteOpen(true)}
         contentClassName="flex-1 min-h-0 p-0"
+        {...repositoryWorkspaceSidebarProps}
       >
         <div className="flex h-full min-h-0 flex-col">
           <div
@@ -3510,7 +3516,11 @@ function FileViewInner({
 export function FileView() {
   return (
     <DialogProvider>
-      <SidebarProvider defaultRightOpen={true} className="h-full min-h-0">
+      <SidebarProvider
+        defaultRightOpen={true}
+        shortcutSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
+        className="h-full min-h-0"
+      >
         <FileViewWrapper />
       </SidebarProvider>
     </DialogProvider>

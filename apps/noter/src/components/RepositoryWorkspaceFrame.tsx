@@ -3,11 +3,13 @@ import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { WorkspaceSidebarShell } from "@/components/WorkspaceSidebarShell";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/sidebar";
+import type { SidebarSide } from "@/hooks/use-sidebar";
 import { cn } from "@/lib/utils";
 
 export function RepositoryWorkspaceFrame({
   leftSidebarHeader,
   leftSidebarContent,
+  mobileLeadingSidebarSide,
   rightSidebarHeader,
   rightSidebarContent,
   headerTitle,
@@ -19,7 +21,8 @@ export function RepositoryWorkspaceFrame({
   contentClassName,
 }: {
   leftSidebarHeader?: ReactNode;
-  leftSidebarContent: ReactNode;
+  leftSidebarContent?: ReactNode;
+  mobileLeadingSidebarSide?: SidebarSide;
   rightSidebarHeader?: ReactNode;
   rightSidebarContent?: ReactNode;
   headerTitle?: ReactNode;
@@ -30,6 +33,8 @@ export function RepositoryWorkspaceFrame({
   headerTestId?: string;
   contentClassName?: string;
 }) {
+  const hasLeftSidebar =
+    leftSidebarHeader !== undefined || leftSidebarContent !== undefined;
   const hasRightSidebar =
     rightSidebarHeader !== undefined || rightSidebarContent !== undefined;
 
@@ -38,16 +43,19 @@ export function RepositoryWorkspaceFrame({
       dataTestId={dataTestId}
       leftSidebarHeader={leftSidebarHeader}
       leftSidebarContent={leftSidebarContent}
+      mobileLeadingSidebarSide={mobileLeadingSidebarSide}
       rightSidebarHeader={rightSidebarHeader}
       rightSidebarContent={rightSidebarContent}
       headerTestId={headerTestId}
       headerContent={
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-3">
-            <SidebarTrigger
-              className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
-              side="left"
-            />
+            {hasLeftSidebar ? (
+              <SidebarTrigger
+                className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
+                side="left"
+              />
+            ) : null}
             {onQuickOpen ? (
               <Button
                 variant="ghost"

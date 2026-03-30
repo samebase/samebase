@@ -146,14 +146,14 @@ test("fileview minimal frame lines stay aligned", async ({ page }) => {
     "fileview minimal account/header divider y",
   );
   expectClose(
-    accountSection.x + accountSection.width,
-    header.x,
-    "fileview minimal sidebar/header divider x",
+    header.x + header.width,
+    accountSection.x,
+    "fileview minimal header/sidebar divider x",
   );
   expectClose(
-    header.x + header.width,
+    accountSection.x,
     rightSidebar.x,
-    "fileview minimal header/right sidebar divider x",
+    "fileview minimal right sidebar x",
   );
 });
 
@@ -184,7 +184,7 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
   expect(scrollTopBeforeCollapse).toBe(180);
 
   await page
-    .getByRole("button", { name: "Toggle Left Sidebar" })
+    .getByRole("button", { name: "Toggle Right Sidebar" })
     .press("Enter");
   await expect
     .poll(async () => {
@@ -195,13 +195,13 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
         return Number.NaN;
       }
 
-      return headerBox.x - fixtureBox.x;
+      return fixtureBox.x + fixtureBox.width - (headerBox.x + headerBox.width);
     })
     .toBeLessThanOrEqual(1);
   await expect(counterButton).toBeHidden();
 
   await page
-    .getByRole("button", { name: "Toggle Left Sidebar" })
+    .getByRole("button", { name: "Toggle Right Sidebar" })
     .press("Enter");
   await expect
     .poll(async () => {
@@ -212,7 +212,7 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
         return Number.NaN;
       }
 
-      return headerBox.x - fixtureBox.x;
+      return fixtureBox.x + fixtureBox.width - (headerBox.x + headerBox.width);
     })
     .toBeGreaterThan(100);
   await expect(counterButton).toBeVisible();
@@ -305,7 +305,7 @@ test("fileview mobile scrim closes the sidebar without activating the main pane"
     .toBeGreaterThan(100);
 
   await page
-    .getByRole("button", { name: "Toggle Left Sidebar" })
+    .getByRole("button", { name: "Toggle Right Sidebar" })
     .press("Enter");
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
@@ -334,7 +334,7 @@ test("fileview mobile accessible control opens the sidebar", async ({
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
   const toggleSidebarButton = page.getByRole("button", {
-    name: "Toggle Left Sidebar",
+    name: "Toggle Right Sidebar",
   });
 
   await toggleSidebarButton.press("Enter");
