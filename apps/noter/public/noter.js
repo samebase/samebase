@@ -1,12 +1,24 @@
 #!/usr/bin/env node
 // source-url: https://noter.md/noter.js
-// source-version: b4567b019333
+// source-version: b4d37a34d4f7
+// No dependencies by design: this file should stay easy to inspect, easy to
+// reason about, and easy to mirror into hosted `/noter.js`.
+//
+// Audit guide:
+// 1. Validate that this file was served from `/noter.js` on `https:` (or
+//    explicit localhost `http:` during local testing).
+// 2. Run `codex --version` to confirm Codex is installed.
+// 3. Write one JSON installation record under `~/.noter/sync/installations/`.
+// 4. Open Noter's `/machines/connect` page in the default browser.
+//
+// It does not install background services, modify project files, or download
+// and execute any other code after this file starts running.
 // The file you run is the installer source. Preview or local deploys can ship
 // their own hosted copy without teaching users a separate targeting flag.
 
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -14,6 +26,8 @@ import { pathToFileURL } from "node:url";
 export const NOTER_SYNC_SCRIPT_PATHNAME = "/noter.js";
 export const MACHINE_CONNECT_ROUTE = "/machines/connect";
 export const NOTER_SYNC_STATE_DIRECTORY_NAME = ".noter/sync/installations";
+// The public build stamps this constant per deploy so the file always knows
+// which hosted origin it came from.
 export const NOTER_SYNC_SOURCE_URL = "https://noter.md/noter.js";
 
 /**
@@ -38,6 +52,11 @@ export function parseCliArgs(argv) {
   return { command: "connect" };
 }
 
+/**
+ * The installer only trusts the exact hosted file shape we expect. Keeping the
+ * source URL narrow makes the browser handoff and the stored installation
+ * record easier to reason about.
+ */
 export function validateSourceUrl(value) {
   const sourceUrl = new URL(value);
   const isLoopbackHttp =
@@ -69,6 +88,10 @@ export function validateSourceUrl(value) {
   return sourceUrl;
 }
 
+/**
+ * We only need proof that Codex exists locally. `codex --version` is the
+ * smallest safe command that gives us that signal.
+ */
 export function detectCodexVersion() {
   const result = spawnSync("codex", ["--version"], {
     encoding: "utf8",
@@ -83,6 +106,10 @@ export function detectCodexVersion() {
   return (result.stdout || result.stderr).trim();
 }
 
+/**
+ * The install id is derived from the exact source URL so one laptop can keep
+ * separate state for production, previews, and local worktrees.
+ */
 export function buildInstallationId(sourceUrl) {
   const source = new URL(sourceUrl);
   const hostFragment = source.host.replace(/[^a-z0-9.-]+/gi, "-");
@@ -93,6 +120,10 @@ export function buildInstallationId(sourceUrl) {
   return `${hostFragment}-${sourceDigest}`;
 }
 
+/**
+ * All installer state lives under the user's home directory, never inside a
+ * project checkout.
+ */
 export function getInstallationStatePath(args = {}) {
   const homeDirectory = args.homeDirectory ?? homedir();
   const installationId =
@@ -104,14 +135,25 @@ export function getInstallationStatePath(args = {}) {
   );
 }
 
+/**
+ * The browser handoff needs just enough information to continue the flow:
+ * which hosted file launched it, which local installation record it maps to,
+ * and whether the page was opened by the CLI.
+ */
 export function buildMachineConnectUrl(args) {
   const machineConnectUrl = new URL(MACHINE_CONNECT_ROUTE, args.sourceUrl);
-  machineConnectUrl.searchParams.set("source", args.sourceUrl);
-  machineConnectUrl.searchParams.set("installation", args.installationId);
-  machineConnectUrl.search = `${machineConnectUrl.searchParams.toString()}&openedByCli`;
+  const query = new URLSearchParams({
+    source: args.sourceUrl,
+    installation: args.installationId,
+  }).toString();
+  machineConnectUrl.search = `${query}&openedByCli`;
   return machineConnectUrl.toString();
 }
 
+/**
+ * Keep one small JSON record so the installer can be rerun safely without
+ * losing the original install timestamp.
+ */
 export function writeInstallationState(args) {
   const installationPath = getInstallationStatePath({
     homeDirectory: args.homeDirectory,
@@ -119,9 +161,6 @@ export function writeInstallationState(args) {
     sourceUrl: args.sourceUrl,
   });
   const existingRecord = (() => {
-    if (!existsSync(installationPath)) {
-      return null;
-    }
     try {
       return JSON.parse(readFileSync(installationPath, "utf8"));
     } catch {
@@ -152,6 +191,10 @@ export function writeInstallationState(args) {
   return installationPath;
 }
 
+/**
+ * Automatic browser open is a convenience, not a hard dependency. Failures are
+ * reported but do not invalidate the bootstrap record we already wrote.
+ */
 export function openBrowser(url) {
   const openerCommand =
     platform() === "darwin"
@@ -195,8 +238,8 @@ Examples:
 }
 
 /**
- * Emit machine-readable markdown so terminal transcripts stay easy to parse for
- * both humans and LLMs while the browser handles the actual registration UI.
+ * Emit machine-readable markdown so a person can read the output directly and
+ * an LLM can explain what happened from a terminal transcript.
  */
 export function formatBootstrapReadyMarkdown(args) {
   return `# noter sync bootstrap ready
@@ -207,6 +250,14 @@ export function formatBootstrapReadyMarkdown(args) {
 - next: ${args.machineConnectUrl}`;
 }
 
+/**
+ * Happy path:
+ * 1. Validate the hosted source URL.
+ * 2. Confirm Codex exists locally.
+ * 3. Persist one local installation record.
+ * 4. Print a markdown summary.
+ * 5. Hand off to the browser for approval.
+ */
 export async function main(argv) {
   const parsedArgs = parseCliArgs(argv);
   if (parsedArgs.command === "help") {
@@ -249,6 +300,10 @@ export async function main(argv) {
   }
 }
 
+/**
+ * Support both `node ./noter.js` and stdin execution from
+ * `curl ... | node --input-type=module -`.
+ */
 function isDirectExecution() {
   const entrypoint = process.argv[1];
   if (!entrypoint) {
