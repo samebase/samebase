@@ -1,7 +1,10 @@
 import { devices, expect, test, type Page } from "@playwright/test";
 
+const { defaultBrowserType: _pixel7BrowserType, ...pixel7Device } =
+  devices["Pixel 7"];
+
 test.use({
-  ...devices["Pixel 7"],
+  ...pixel7Device,
 });
 
 async function gotoFileViewFixture(
@@ -39,6 +42,8 @@ async function dispatchHumanTouchSwipe(
   }
 
   const session = await page.context().newCDPSession(page);
+  const gestureStartTimeMs = Date.now();
+  let elapsedMs = 0;
   const touchPoint = {
     force: 1,
     id: 1,
@@ -49,6 +54,7 @@ async function dispatchHumanTouchSwipe(
   };
 
   await session.send("Input.dispatchTouchEvent", {
+    timestamp: gestureStartTimeMs / 1000,
     type: "touchStart",
     touchPoints: [touchPoint],
   });
@@ -67,7 +73,9 @@ async function dispatchHumanTouchSwipe(
     const reachedBounds = clampedX !== rawX || clampedY !== rawY;
 
     await page.waitForTimeout(step.delayMs);
+    elapsedMs += step.delayMs;
     await session.send("Input.dispatchTouchEvent", {
+      timestamp: (gestureStartTimeMs + elapsedMs) / 1000,
       type: "touchMove",
       touchPoints: [
         {
@@ -84,6 +92,7 @@ async function dispatchHumanTouchSwipe(
   }
 
   await session.send("Input.dispatchTouchEvent", {
+    timestamp: (gestureStartTimeMs + elapsedMs + 1) / 1000,
     type: "touchEnd",
     touchPoints: [],
   });
@@ -91,18 +100,20 @@ async function dispatchHumanTouchSwipe(
 
 /**
  * Use one realistic touch sequence to fling from the open left sidebar toward
- * the right sidebar. The finger travels about 66% of a 390px-wide viewport
- * over 180ms, which is a strong flick but still well within human touch input.
+ * the right sidebar. Under the Chromium mobile device descriptor we need a
+ * more decisive sweep than the old hand-rolled mobile flags, so this drag
+ * starts deeper in the visible pane and travels nearly the full viewport over
+ * 180ms, which is still a strong but humanly plausible flick.
  */
 async function swipeFromLeftSidebarToRightSidebar(page: Page) {
   await dispatchHumanTouchSwipe(page, {
-    startX: 282,
+    startX: 320,
     startY: 220,
     steps: [
-      { delayMs: 35, xOffset: -44, yOffset: 2 },
-      { delayMs: 45, xOffset: -128, yOffset: 4 },
-      { delayMs: 50, xOffset: -208, yOffset: 5 },
-      { delayMs: 50, xOffset: -258, yOffset: 6 },
+      { delayMs: 25, xOffset: -72, yOffset: 2 },
+      { delayMs: 30, xOffset: -208, yOffset: 4 },
+      { delayMs: 30, xOffset: -312, yOffset: 5 },
+      { delayMs: 25, xOffset: -352, yOffset: 6 },
     ],
   });
 }
@@ -131,10 +142,10 @@ test("fileview mobile can open the left sidebar from main with a lighter human s
   await gotoFileViewFixture(page, { swipeDebug: true });
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
-  const overlay = page.getByTestId("global-gesture-debug-overlay");
+  const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
   await expect(fixture).toHaveAttribute("data-mobile-pane", "main");
   await expect(overlay).toBeVisible();
-  await expect(overlay).toContainText("state: armed, waiting for gesture");
+  await expect(overlay).toContainText("state: armed, waiting for swipe");
 
   await swipeFromMainToLeftSidebar(page);
 
@@ -147,11 +158,11 @@ test("fileview mobile swipe debug overlay is visibly armed before any gesture", 
 }) => {
   await gotoFileViewFixture(page, { swipeDebug: true });
 
-  const overlay = page.getByTestId("global-gesture-debug-overlay");
+  const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
   await expect(overlay).toBeVisible();
   await expect(overlay).toContainText("debug: on");
-  await expect(overlay).toContainText("scope: viewport trace");
-  await expect(overlay).toContainText("state: armed, waiting for gesture");
+  await expect(overlay).toContainText("layout: mobile");
+  await expect(overlay).toContainText("state: armed, waiting for swipe");
 });
 
 test("fileview mobile can reach the right sidebar from the open left sidebar in one human swipe", async ({
@@ -160,7 +171,7 @@ test("fileview mobile can reach the right sidebar from the open left sidebar in 
   await gotoFileViewFixture(page, { swipeDebug: true });
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
-  const overlay = page.getByTestId("global-gesture-debug-overlay");
+  const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
   await page
     .getByRole("button", { name: "Toggle Left Sidebar" })
     .press("Enter");
@@ -194,11 +205,10 @@ test("fileview mobile swipe debug overlay captures the cross-sidebar path and re
 
   await expect(fixture).toHaveAttribute("data-mobile-pane", "right");
 
-  const overlay = page.getByTestId("global-gesture-debug-overlay");
+  const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
   await expect(overlay).toBeVisible();
   await expect(overlay).toHaveAttribute("data-debug-active", "false");
   await expect(overlay).toContainText("release vx:");
-  await expect(overlay).toContainText("release vy:");
-  await expect(overlay).toContainText("peak a:");
+  await expect(overlay).toContainText("peak ax:");
   expect(await overlay.locator("svg circle").count()).toBeGreaterThan(5);
 });

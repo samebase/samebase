@@ -5,6 +5,10 @@ function formatSignedNumber(value: number, fractionDigits: number): string {
   return `${value >= 0 ? "+" : ""}${value.toFixed(fractionDigits)}`;
 }
 
+function formatDurationMs(value: number): string {
+  return `${Math.round(value / 5) * 5}ms`;
+}
+
 export function MobileSidebarGestureDebugOverlay({
   currentPane,
   isMobile,
@@ -17,7 +21,7 @@ export function MobileSidebarGestureDebugOverlay({
   const path = (snapshot?.pathPoints ?? [])
     .map(
       (point, index) =>
-        `${index === 0 ? "M" : "L"} ${point.localX.toFixed(1)} ${point.localY.toFixed(1)}`,
+        `${index === 0 ? "M" : "L"} ${point.clientX.toFixed(1)} ${point.clientY.toFixed(1)}`,
     )
     .join(" ");
   const startPoint = snapshot?.pathPoints[0] ?? null;
@@ -37,7 +41,7 @@ export function MobileSidebarGestureDebugOverlay({
       data-debug-active={snapshot?.isActive ? "true" : "false"}
       data-debug-settled-pane={snapshot?.settledPane ?? "pending"}
       data-debug-start-pane={snapshot?.startPane ?? currentPane}
-      className="pointer-events-none absolute inset-0 z-30"
+      className="pointer-events-none fixed inset-0 z-[10001]"
     >
       <svg className="absolute inset-0 h-full w-full overflow-visible">
         {path.length > 0 ? (
@@ -54,24 +58,24 @@ export function MobileSidebarGestureDebugOverlay({
         {(snapshot?.pathPoints ?? []).map((point, index) => (
           <circle
             key={`${point.timeMs}-${index}`}
-            cx={point.localX}
-            cy={point.localY}
+            cx={point.clientX}
+            cy={point.clientY}
             fill="rgb(253 186 116 / 0.55)"
             r={2}
           />
         ))}
         {startPoint !== null ? (
           <circle
-            cx={startPoint.localX}
-            cy={startPoint.localY}
+            cx={startPoint.clientX}
+            cy={startPoint.clientY}
             fill="rgb(34 197 94)"
             r={6}
           />
         ) : null}
         {endPoint !== null ? (
           <circle
-            cx={endPoint.localX}
-            cy={endPoint.localY}
+            cx={endPoint.clientX}
+            cy={endPoint.clientY}
             fill="rgb(239 68 68)"
             r={6}
           />
@@ -96,7 +100,7 @@ export function MobileSidebarGestureDebugOverlay({
           </div>
         ) : null}
         {snapshot !== null ? (
-          <div>duration: {snapshot.durationMs.toFixed(0)}ms</div>
+          <div>duration: {formatDurationMs(snapshot.durationMs)}</div>
         ) : null}
         {snapshot !== null ? <div>samples: {snapshot.sampleCount}</div> : null}
         {snapshot !== null ? (
@@ -118,7 +122,7 @@ export function MobileSidebarGestureDebugOverlay({
         {snapshot !== null ? (
           <div>
             release vx:{" "}
-            {formatSignedNumber(snapshot.releaseFingerVelocityXPxPerMs, 3)}
+            {formatSignedNumber(snapshot.releaseFingerVelocityXPxPerMs, 2)}
             px/ms
           </div>
         ) : null}
@@ -128,22 +132,22 @@ export function MobileSidebarGestureDebugOverlay({
             far vx:{" "}
             {formatSignedNumber(
               snapshot.crossSwipeVelocityTowardOppositePxPerMs ?? 0,
-              3,
+              2,
             )}
-            /{snapshot.crossSwipeVelocityThresholdPxPerMs.toFixed(3)} px/ms
+            /{snapshot.crossSwipeVelocityThresholdPxPerMs.toFixed(2)} px/ms
           </div>
         ) : null}
         {snapshot !== null ? (
           <div>
             peak vx:{" "}
-            {formatSignedNumber(snapshot.peakFingerVelocityXPxPerMs, 3)}
+            {formatSignedNumber(snapshot.peakFingerVelocityXPxPerMs, 2)}
             px/ms
           </div>
         ) : null}
         {snapshot !== null ? (
           <div>
             peak ax:{" "}
-            {formatSignedNumber(snapshot.peakFingerAccelerationXPxPerMs2, 4)}
+            {formatSignedNumber(snapshot.peakFingerAccelerationXPxPerMs2, 2)}
             px/ms²
           </div>
         ) : null}

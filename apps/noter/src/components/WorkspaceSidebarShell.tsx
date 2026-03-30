@@ -75,19 +75,28 @@ function getLocalTouchPoint(
   };
 }
 
+function clampClientPointToViewport(clientX: number, clientY: number) {
+  return {
+    clientX: Math.min(Math.max(clientX, 0), window.innerWidth),
+    clientY: Math.min(Math.max(clientY, 0), window.innerHeight),
+  };
+}
+
 function buildMobileTouchSample(
   node: HTMLElement,
   touch: Touch,
   timeMs: number,
 ): MobileTouchSample {
+  const { clientX: clampedClientX, clientY: clampedClientY } =
+    clampClientPointToViewport(touch.clientX, touch.clientY);
   const { localX, localY } = getLocalTouchPoint(
     node,
-    touch.clientX,
-    touch.clientY,
+    clampedClientX,
+    clampedClientY,
   );
   return {
-    clientX: touch.clientX,
-    clientY: touch.clientY,
+    clientX: clampedClientX,
+    clientY: clampedClientY,
     localX,
     localY,
     timeMs,
@@ -148,6 +157,32 @@ function findTouchByIdentifier(
   }
 
   return null;
+}
+
+function getEventTimeMs(event: Event): number {
+  return typeof event.timeStamp === "number"
+    ? event.timeStamp
+    : performance.now();
+}
+
+function getReleaseVelocityReferenceSample(
+  samples: readonly MobileTouchSample[],
+  resolvedSample: MobileTouchSample,
+) {
+  const releaseWindowStartTimeMs =
+    resolvedSample.timeMs - MOBILE_RELEASE_VELOCITY_WINDOW_MS;
+  const releaseWindowSamples = samples.filter(
+    (recentSample) => recentSample.timeMs >= releaseWindowStartTimeMs,
+  );
+  const hasMeaningfulMovement = (candidateSample: MobileTouchSample) =>
+    Math.abs(resolvedSample.clientX - candidateSample.clientX) > 0.5 ||
+    Math.abs(resolvedSample.clientY - candidateSample.clientY) > 0.5;
+
+  return (
+    releaseWindowSamples.find(hasMeaningfulMovement) ??
+    [...samples].reverse().find(hasMeaningfulMovement) ??
+    samples[0]
+  );
 }
 
 /**
@@ -407,12 +442,10 @@ export function WorkspaceSidebarShell({
           resolvedSample.timeMs - recentSample.timeMs <=
           MOBILE_RELEASE_VELOCITY_SAMPLE_RETENTION_MS,
       );
-      const velocityWindowStartTimeMs =
-        resolvedSample.timeMs - MOBILE_RELEASE_VELOCITY_WINDOW_MS;
-      const oldestVelocitySample =
-        samples.find(
-          (recentSample) => recentSample.timeMs >= velocityWindowStartTimeMs,
-        ) ?? samples[0];
+      const oldestVelocitySample = getReleaseVelocityReferenceSample(
+        samples,
+        resolvedSample,
+      );
       const elapsedMs = Math.max(
         1,
         resolvedSample.timeMs - oldestVelocitySample.timeMs,
@@ -777,14 +810,14 @@ export function WorkspaceSidebarShell({
         return;
       }
 
-      const timeMs = performance.now();
+      const timeMs = getEventTimeMs(event);
       const initialSample = buildMobileTouchSample(scrollNode, touch, timeMs);
       activeMobileTouchGestureRef.current = {
-        lastClientX: touch.clientX,
-        lastClientY: touch.clientY,
+        lastClientX: initialSample.clientX,
+        lastClientY: initialSample.clientY,
         pathPoints: [initialSample],
         recentSamples: [initialSample],
-        startClientX: touch.clientX,
+        startClientX: initialSample.clientX,
         startScrollLeft: scrollNode.scrollLeft,
         startPane: mobilePane,
         touchIdentifier: touch.identifier,
@@ -819,7 +852,7 @@ export function WorkspaceSidebarShell({
       }
 
       appendMobileTouchSample(
-        buildMobileTouchSample(scrollNode, touch, performance.now()),
+        buildMobileTouchSample(scrollNode, touch, getEventTimeMs(event)),
       );
     };
 
@@ -847,8 +880,14 @@ export function WorkspaceSidebarShell({
         findTouchByIdentifier(event.touches, activeGesture.touchIdentifier);
       finalizeMobileTouchGesture(
         touch === null
-          ? undefined
-          : buildMobileTouchSample(scrollNode, touch, performance.now()),
+          ? {
+              clientX: activeGesture.lastClientX,
+              clientY: activeGesture.lastClientY,
+              localX: activeGesture.pathPoints.at(-1)?.localX ?? 0,
+              localY: activeGesture.pathPoints.at(-1)?.localY ?? 0,
+              timeMs: getEventTimeMs(event),
+            }
+          : buildMobileTouchSample(scrollNode, touch, getEventTimeMs(event)),
       );
     };
 
@@ -1198,10 +1237,7 @@ export function WorkspaceSidebarShell({
             </div>
           ) : null}
         </div>
-        {hasAnySidebar &&
-        mobileSidebarDebugEnabled &&
-        typeof window !== "undefined" &&
-        window.location.pathname === "/visual-fixture.html" ? (
+        {hasAnySidebar && mobileSidebarDebugEnabled ? (
           <MobileSidebarGestureDebugOverlay
             currentPane={mobilePane}
             isMobile={isMobile}

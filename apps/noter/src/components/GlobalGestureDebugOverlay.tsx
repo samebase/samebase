@@ -28,8 +28,48 @@ type ActiveGestureTrace = {
   touchIdentifier?: number;
 };
 
+const RELEASE_VELOCITY_WINDOW_MS = 80;
+
 function formatSignedNumber(value: number, fractionDigits: number): string {
   return `${value >= 0 ? "+" : ""}${value.toFixed(fractionDigits)}`;
+}
+
+function getEventTimeMs(event: Event): number {
+  return typeof event.timeStamp === "number"
+    ? event.timeStamp
+    : performance.now();
+}
+
+function formatDurationMs(value: number): string {
+  return `${Math.round(value / 5) * 5}ms`;
+}
+
+function clampPointToViewport(clientX: number, clientY: number) {
+  const clampedClientX = Math.min(Math.max(clientX, 0), window.innerWidth);
+  const clampedClientY = Math.min(Math.max(clientY, 0), window.innerHeight);
+  return {
+    clientX: clampedClientX,
+    clientY: clampedClientY,
+  };
+}
+
+function getReleaseVelocityReferencePoint(
+  pathPoints: readonly GestureTracePoint[],
+  endPoint: GestureTracePoint,
+) {
+  const releaseWindowStartTimeMs = endPoint.timeMs - RELEASE_VELOCITY_WINDOW_MS;
+  const releaseWindowPoints = pathPoints.filter(
+    (point) => point.timeMs >= releaseWindowStartTimeMs,
+  );
+  const hasMeaningfulMovement = (candidatePoint: GestureTracePoint) =>
+    Math.abs(endPoint.clientX - candidatePoint.clientX) > 0.5 ||
+    Math.abs(endPoint.clientY - candidatePoint.clientY) > 0.5;
+
+  return (
+    releaseWindowPoints.find(hasMeaningfulMovement) ??
+    [...pathPoints].reverse().find(hasMeaningfulMovement) ??
+    pathPoints[0]
+  );
 }
 
 function findTouchByIdentifier(
@@ -74,8 +114,6 @@ function buildGestureTraceSnapshot(args: {
 
   let peakVelocityPxPerMs = 0;
   let peakAccelerationPxPerMs2 = 0;
-  let releaseVelocityXPxPerMs = 0;
-  let releaseVelocityYPxPerMs = 0;
   const velocitySamples: Array<{
     timeMs: number;
     velocityXPxPerMs: number;
@@ -98,9 +136,20 @@ function buildGestureTraceSnapshot(args: {
       velocityYPxPerMs,
     });
     peakVelocityPxPerMs = Math.max(peakVelocityPxPerMs, velocityPxPerMs);
-    releaseVelocityXPxPerMs = velocityXPxPerMs;
-    releaseVelocityYPxPerMs = velocityYPxPerMs;
   }
+
+  const releaseWindowStartPoint = getReleaseVelocityReferencePoint(
+    args.pathPoints,
+    endPoint,
+  );
+  const releaseElapsedMs = Math.max(
+    1,
+    endPoint.timeMs - releaseWindowStartPoint.timeMs,
+  );
+  const releaseVelocityXPxPerMs =
+    (endPoint.clientX - releaseWindowStartPoint.clientX) / releaseElapsedMs;
+  const releaseVelocityYPxPerMs =
+    (endPoint.clientY - releaseWindowStartPoint.clientY) / releaseElapsedMs;
 
   for (let index = 1; index < velocitySamples.length; index += 1) {
     const previousSample = velocitySamples[index - 1];
@@ -136,6 +185,28 @@ export function GlobalGestureDebugOverlay() {
   const [snapshot, setSnapshot] = React.useState<GestureTraceSnapshot | null>(
     null,
   );
+  const [isSuppressedByWorkspaceSidebar, setIsSuppressedByWorkspaceSidebar] =
+    React.useState(false);
+
+  React.useEffect(() => {
+    const updateSuppressionState = () => {
+      setIsSuppressedByWorkspaceSidebar(
+        document.querySelector(
+          '[data-testid="workspace-sidebar-debug-overlay"]',
+        ) !== null,
+      );
+    };
+
+    updateSuppressionState();
+    const observer = new MutationObserver(updateSuppressionState);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   const updateActiveSnapshot = React.useCallback(
     (pathPoints: GestureTracePoint[], inputType: GestureTraceInputType) => {
@@ -177,11 +248,14 @@ export function GlobalGestureDebugOverlay() {
       clientX: number,
       clientY: number,
       timeMs: number,
-    ): GestureTracePoint => ({
-      clientX,
-      clientY,
-      timeMs,
-    });
+    ): GestureTracePoint => {
+      const clampedPoint = clampPointToViewport(clientX, clientY);
+      return {
+        clientX: clampedPoint.clientX,
+        clientY: clampedPoint.clientY,
+        timeMs,
+      };
+    };
 
     const handleTouchStart = (event: TouchEvent) => {
       if (event.touches.length !== 1) {
@@ -197,7 +271,7 @@ export function GlobalGestureDebugOverlay() {
       const point = createPoint(
         touch.clientX,
         touch.clientY,
-        performance.now(),
+        getEventTimeMs(event),
       );
       activeGestureRef.current = {
         inputType: "touch",
@@ -225,7 +299,7 @@ export function GlobalGestureDebugOverlay() {
       const point = createPoint(
         touch.clientX,
         touch.clientY,
-        performance.now(),
+        getEventTimeMs(event),
       );
       const pathPoints = [...activeGesture.pathPoints, point];
       activeGesture.lastPoint = point;
@@ -251,7 +325,7 @@ export function GlobalGestureDebugOverlay() {
       finalizeGesture(
         touch === null
           ? undefined
-          : createPoint(touch.clientX, touch.clientY, performance.now()),
+          : createPoint(touch.clientX, touch.clientY, getEventTimeMs(event)),
       );
     };
 
@@ -263,7 +337,7 @@ export function GlobalGestureDebugOverlay() {
       const point = createPoint(
         event.clientX,
         event.clientY,
-        performance.now(),
+        getEventTimeMs(event),
       );
       activeGestureRef.current = {
         inputType: "mouse",
@@ -282,7 +356,7 @@ export function GlobalGestureDebugOverlay() {
       const point = createPoint(
         event.clientX,
         event.clientY,
-        performance.now(),
+        getEventTimeMs(event),
       );
       const pathPoints = [...activeGesture.pathPoints, point];
       activeGesture.lastPoint = point;
@@ -297,7 +371,7 @@ export function GlobalGestureDebugOverlay() {
       }
 
       finalizeGesture(
-        createPoint(event.clientX, event.clientY, performance.now()),
+        createPoint(event.clientX, event.clientY, getEventTimeMs(event)),
       );
     };
 
@@ -333,6 +407,10 @@ export function GlobalGestureDebugOverlay() {
       : snapshot.isActive
         ? "capturing"
         : "captured";
+
+  if (isSuppressedByWorkspaceSidebar) {
+    return null;
+  }
 
   return (
     <div
@@ -385,7 +463,7 @@ export function GlobalGestureDebugOverlay() {
         <div>state: {statusLabel}</div>
         <div>input: {snapshot?.inputType ?? "none"}</div>
         {snapshot !== null ? (
-          <div>duration: {snapshot.durationMs.toFixed(0)}ms</div>
+          <div>duration: {formatDurationMs(snapshot.durationMs)}</div>
         ) : null}
         {snapshot !== null ? (
           <div>samples: {snapshot.pathPoints.length}</div>
@@ -399,25 +477,25 @@ export function GlobalGestureDebugOverlay() {
         {snapshot !== null ? (
           <div>
             release vx:{" "}
-            {formatSignedNumber(snapshot.releaseVelocityXPxPerMs, 3)}
+            {formatSignedNumber(snapshot.releaseVelocityXPxPerMs, 2)}
             px/ms
           </div>
         ) : null}
         {snapshot !== null ? (
           <div>
             release vy:{" "}
-            {formatSignedNumber(snapshot.releaseVelocityYPxPerMs, 3)}
+            {formatSignedNumber(snapshot.releaseVelocityYPxPerMs, 2)}
             px/ms
           </div>
         ) : null}
         {snapshot !== null ? (
           <div>
-            peak v: {formatSignedNumber(snapshot.peakVelocityPxPerMs, 3)} px/ms
+            peak v: {formatSignedNumber(snapshot.peakVelocityPxPerMs, 2)} px/ms
           </div>
         ) : null}
         {snapshot !== null ? (
           <div>
-            peak a: {formatSignedNumber(snapshot.peakAccelerationPxPerMs2, 4)}{" "}
+            peak a: {formatSignedNumber(snapshot.peakAccelerationPxPerMs2, 2)}{" "}
             px/ms²
           </div>
         ) : null}
