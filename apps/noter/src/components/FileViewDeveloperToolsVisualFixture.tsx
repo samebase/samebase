@@ -72,7 +72,6 @@ export function FileViewDeveloperToolsVisualFixture({
     >
       <RepositoryWorkspaceFrame
         dataTestId="file-view-developer-tools-visual-fixture"
-        mobileLeadingSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
         headerTitle="src/components/FileView.tsx"
         headerRight={
           <div className="font-mono text-xs text-muted-foreground">74f9c18</div>

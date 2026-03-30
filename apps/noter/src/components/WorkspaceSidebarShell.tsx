@@ -1,6 +1,6 @@
 import * as React from "react";
 import { WorkspaceMobilePaneDragProvider } from "@/components/workspaceMobilePaneDrag";
-import { type SidebarSide, useSidebar } from "@/hooks/use-sidebar";
+import { useSidebar } from "@/hooks/use-sidebar";
 import {
   getMobilePaneScrollLeft,
   getSettledMobilePane,
@@ -23,7 +23,6 @@ type WorkspaceSidebarShellProps = {
   leftSidebarContentTestId?: string;
   leftSidebarHeader?: React.ReactNode;
   leftSidebarHeaderTestId?: string;
-  mobileLeadingSidebarSide?: SidebarSide;
   rightSidebarContent?: React.ReactNode;
   rightSidebarContentTestId?: string;
   rightSidebarHeader?: React.ReactNode;
@@ -41,46 +40,26 @@ function getMobileMainScrimProgress(
   leftSidebarWidthPx: number,
   hasRightSidebar: boolean,
   rightSidebarWidthPx: number,
-  mobileLeadingSidebarSide: SidebarSide,
 ) {
-  const mainPaneScrollLeft = getMobilePaneScrollLeft(
-    "main",
-    hasLeftSidebar,
-    leftSidebarWidthPx,
-    hasRightSidebar,
-    rightSidebarWidthPx,
-    mobileLeadingSidebarSide,
-  );
-  const leadingSidebarWidthPx =
-    mobileLeadingSidebarSide === "left"
-      ? leftSidebarWidthPx
-      : rightSidebarWidthPx;
-  const trailingSidebarWidthPx =
-    mobileLeadingSidebarSide === "left"
-      ? rightSidebarWidthPx
-      : leftSidebarWidthPx;
-  const hasLeadingSidebar =
-    mobileLeadingSidebarSide === "left" ? hasLeftSidebar : hasRightSidebar;
-  const hasTrailingSidebar =
-    mobileLeadingSidebarSide === "left" ? hasRightSidebar : hasLeftSidebar;
+  const mainPaneScrollLeft = hasLeftSidebar ? leftSidebarWidthPx : 0;
 
   if (scrollLeft <= mainPaneScrollLeft) {
-    if (!hasLeadingSidebar || leadingSidebarWidthPx <= 0) {
+    if (!hasLeftSidebar || leftSidebarWidthPx <= 0) {
       return 0;
     }
     return Math.min(
       1,
-      Math.max(0, (mainPaneScrollLeft - scrollLeft) / leadingSidebarWidthPx),
+      Math.max(0, (mainPaneScrollLeft - scrollLeft) / leftSidebarWidthPx),
     );
   }
 
-  if (!hasTrailingSidebar || trailingSidebarWidthPx <= 0) {
+  if (!hasRightSidebar || rightSidebarWidthPx <= 0) {
     return 0;
   }
 
   return Math.min(
     1,
-    Math.max(0, (scrollLeft - mainPaneScrollLeft) / trailingSidebarWidthPx),
+    Math.max(0, (scrollLeft - mainPaneScrollLeft) / rightSidebarWidthPx),
   );
 }
 
@@ -148,7 +127,6 @@ export function WorkspaceSidebarShell({
   leftSidebarContentTestId,
   leftSidebarHeader,
   leftSidebarHeaderTestId,
-  mobileLeadingSidebarSide = "left",
   rightSidebarContent,
   rightSidebarContentTestId,
   rightSidebarHeader,
@@ -276,7 +254,6 @@ export function WorkspaceSidebarShell({
       leftSidebarWidthPx,
       hasRightSidebar,
       rightSidebarWidthPx,
-      mobileLeadingSidebarSide,
       peakSwipeVelocityPxPerMs,
     );
     const targetScrollLeft = getMobilePaneScrollLeft(
@@ -285,7 +262,6 @@ export function WorkspaceSidebarShell({
       leftSidebarWidthPx,
       hasRightSidebar,
       rightSidebarWidthPx,
-      mobileLeadingSidebarSide,
     );
 
     mobileScrollVelocityState.peakSwipeVelocityPxPerMs = 0;
@@ -316,7 +292,6 @@ export function WorkspaceSidebarShell({
     leftSidebarWidthPx,
     mobilePane,
     rightSidebarWidthPx,
-    mobileLeadingSidebarSide,
     scheduleDelegatedMobileDragSnapRestore,
     setMobilePane,
   ]);
@@ -333,18 +308,11 @@ export function WorkspaceSidebarShell({
       }
 
       const maxScrollLeft = getMobilePaneScrollLeft(
-        mobileLeadingSidebarSide === "left"
-          ? hasRightSidebar
-            ? "right"
-            : "main"
-          : hasLeftSidebar
-            ? "left"
-            : "main",
+        hasRightSidebar ? "right" : "main",
         hasLeftSidebar,
         leftSidebarWidthPx,
         hasRightSidebar,
         rightSidebarWidthPx,
-        mobileLeadingSidebarSide,
       );
       const nextScrollLeft = Math.min(
         maxScrollLeft,
@@ -387,7 +355,6 @@ export function WorkspaceSidebarShell({
               leftSidebarWidthPx,
               hasRightSidebar,
               rightSidebarWidthPx,
-              mobileLeadingSidebarSide,
             ),
           );
         });
@@ -402,7 +369,6 @@ export function WorkspaceSidebarShell({
           leftSidebarWidthPx,
           hasRightSidebar,
           rightSidebarWidthPx,
-          mobileLeadingSidebarSide,
         ),
       );
       return true;
@@ -416,7 +382,6 @@ export function WorkspaceSidebarShell({
       clearPendingMobileDragSnapRestore,
       leftSidebarWidthPx,
       rightSidebarWidthPx,
-      mobileLeadingSidebarSide,
       setDelegatedMobileDragSnapDisabled,
     ],
   );
@@ -474,7 +439,6 @@ export function WorkspaceSidebarShell({
       leftSidebarWidthPx,
       hasRightSidebar,
       rightSidebarWidthPx,
-      mobileLeadingSidebarSide,
     );
 
     if (!hasInitializedMobileScrollRef.current) {
@@ -486,7 +450,6 @@ export function WorkspaceSidebarShell({
           leftSidebarWidthPx,
           hasRightSidebar,
           rightSidebarWidthPx,
-          mobileLeadingSidebarSide,
         ),
       );
       hasInitializedMobileScrollRef.current = true;
@@ -506,7 +469,6 @@ export function WorkspaceSidebarShell({
           leftSidebarWidthPx,
           hasRightSidebar,
           rightSidebarWidthPx,
-          mobileLeadingSidebarSide,
         ),
       );
       return;
@@ -525,7 +487,6 @@ export function WorkspaceSidebarShell({
     leftSidebarWidthPx,
     mobilePane,
     rightSidebarWidthPx,
-    mobileLeadingSidebarSide,
   ]);
 
   React.useEffect(() => {
@@ -570,7 +531,6 @@ export function WorkspaceSidebarShell({
           leftSidebarWidthPx,
           hasRightSidebar,
           rightSidebarWidthPx,
-          mobileLeadingSidebarSide,
         ),
       );
 
@@ -603,7 +563,6 @@ export function WorkspaceSidebarShell({
     isMobileLayoutMeasured,
     leftSidebarWidthPx,
     rightSidebarWidthPx,
-    mobileLeadingSidebarSide,
     settleMobileShell,
   ]);
 
@@ -645,21 +604,6 @@ export function WorkspaceSidebarShell({
     isMobile &&
     hasAnySidebar &&
     mobileMainScrimProgress > MOBILE_MAIN_SCRIM_INTERACTION_THRESHOLD;
-  const mobileLeadingSidebarWidthVar =
-    mobileLeadingSidebarSide === "left"
-      ? "var(--workspace-left-sidebar-width)"
-      : "var(--workspace-right-sidebar-width)";
-  const mobileTrailingSidebarWidthVar =
-    mobileLeadingSidebarSide === "left"
-      ? "var(--workspace-right-sidebar-width)"
-      : "var(--workspace-left-sidebar-width)";
-  const leftSidebarColumnClassName =
-    isMobile && mobileLeadingSidebarSide === "right" ? "col-start-3" : "";
-  const rightSidebarColumnClassName = isMobile
-    ? mobileLeadingSidebarSide === "right"
-      ? "col-start-1"
-      : "col-start-3"
-    : "col-start-3";
 
   const shellStyle: React.CSSProperties & {
     "--workspace-left-sidebar-width"?: string;
@@ -669,7 +613,7 @@ export function WorkspaceSidebarShell({
     // three-pane track; desktop pins the track and collapses side columns
     // independently.
     gridTemplateColumns: isMobile
-      ? `${mobileLeadingSidebarWidthVar} minmax(0, 1fr) ${mobileTrailingSidebarWidthVar}`
+      ? "var(--workspace-left-sidebar-width) minmax(0, 1fr) var(--workspace-right-sidebar-width)"
       : `${hasLeftSidebar && leftDesktopOpen ? "var(--workspace-left-sidebar-width)" : "0px"} minmax(0, 1fr) ${hasRightSidebar && rightDesktopOpen ? "var(--workspace-right-sidebar-width)" : "0px"}`,
     gridTemplateRows: "auto minmax(0, 1fr)",
     width:
@@ -728,7 +672,6 @@ export function WorkspaceSidebarShell({
               {...hiddenLeftDesktopSidebarProps}
               className={cn(
                 leftSidebarCellClassName,
-                leftSidebarColumnClassName,
                 isMobile ? "snap-start" : "",
               )}
             >
@@ -752,7 +695,6 @@ export function WorkspaceSidebarShell({
               {...hiddenLeftDesktopSidebarProps}
               className={cn(
                 leftSidebarCellClassName,
-                leftSidebarColumnClassName,
                 hasLeftSidebarHeader
                   ? "row-start-2 min-h-0"
                   : "row-span-2 min-h-0",
@@ -798,8 +740,8 @@ export function WorkspaceSidebarShell({
               data-testid={rightSidebarHeaderTestId}
               {...hiddenRightDesktopSidebarProps}
               className={cn(
+                "col-start-3",
                 rightSidebarCellClassName,
-                rightSidebarColumnClassName,
                 isMobile ? "snap-start" : "",
               )}
             >
@@ -822,8 +764,8 @@ export function WorkspaceSidebarShell({
               data-testid={rightSidebarContentTestId}
               {...hiddenRightDesktopSidebarProps}
               className={cn(
+                "col-start-3",
                 rightSidebarCellClassName,
-                rightSidebarColumnClassName,
                 hasRightSidebarHeader
                   ? "row-start-2 min-h-0"
                   : "row-span-2 min-h-0",

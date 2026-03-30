@@ -3,13 +3,11 @@ import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { WorkspaceSidebarShell } from "@/components/WorkspaceSidebarShell";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/sidebar";
-import type { SidebarSide } from "@/hooks/use-sidebar";
 import { cn } from "@/lib/utils";
 
 export function RepositoryWorkspaceFrame({
   leftSidebarHeader,
   leftSidebarContent,
-  mobileLeadingSidebarSide,
   rightSidebarHeader,
   rightSidebarContent,
   headerTitle,
@@ -22,7 +20,6 @@ export function RepositoryWorkspaceFrame({
 }: {
   leftSidebarHeader?: ReactNode;
   leftSidebarContent?: ReactNode;
-  mobileLeadingSidebarSide?: SidebarSide;
   rightSidebarHeader?: ReactNode;
   rightSidebarContent?: ReactNode;
   headerTitle?: ReactNode;
@@ -43,7 +40,6 @@ export function RepositoryWorkspaceFrame({
       dataTestId={dataTestId}
       leftSidebarHeader={leftSidebarHeader}
       leftSidebarContent={leftSidebarContent}
-      mobileLeadingSidebarSide={mobileLeadingSidebarSide}
       rightSidebarHeader={rightSidebarHeader}
       rightSidebarContent={rightSidebarContent}
       headerTestId={headerTestId}

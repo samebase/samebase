@@ -297,30 +297,30 @@ test("fileview mobile scrim closes the sidebar without activating the main pane"
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
-  const bodyButton = page.getByTestId("fileview-layout-body-button");
   const bodyCounter = page.getByTestId("fileview-layout-body-counter");
+  const header = page.getByTestId("fileview-layout-header");
 
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-    .toBeGreaterThan(100);
+    .toBeLessThanOrEqual(1);
 
   await page
     .getByRole("button", { name: "Toggle Right Sidebar" })
     .press("Enter");
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-    .toBeLessThanOrEqual(1);
+    .toBeGreaterThan(100);
 
-  const bodyButtonBox = await bodyButton.boundingBox();
-  if (bodyButtonBox === null) {
-    throw new Error("Expected the main-pane action button to be measurable.");
+  const headerBox = await header.boundingBox();
+  if (headerBox === null) {
+    throw new Error("Expected the main-pane header to be measurable.");
   }
 
-  await page.mouse.click(bodyButtonBox.x + 16, bodyButtonBox.y + 16);
+  await page.mouse.click(headerBox.x + headerBox.width - 16, headerBox.y + 16);
   await expect(bodyCounter).toHaveText("0");
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-    .toBeGreaterThan(100);
+    .toBeLessThanOrEqual(1);
 });
 
 test("fileview mobile accessible control opens the sidebar", async ({
@@ -340,5 +340,5 @@ test("fileview mobile accessible control opens the sidebar", async ({
   await toggleSidebarButton.press("Enter");
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-    .toBeLessThanOrEqual(1);
+    .toBeGreaterThan(100);
 });

@@ -111,7 +111,6 @@ export function FileViewLayoutVisualFixture({
       <RepositoryWorkspaceFrame
         dataTestId="fileview-layout-visual-fixture"
         headerTestId="fileview-layout-header"
-        mobileLeadingSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
         headerTitle="/"
         headerRight={
           <div className="font-mono text-xs text-muted-foreground">e4c2a91</div>
