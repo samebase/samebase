@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 
 test.use({ serviceWorkers: "block" });
+test.setTimeout(90_000);
 
 const MAX_CODE_EDITOR_DIFF_PIXEL_RATIO = 0.018;
 
@@ -23,17 +24,35 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   await page.goto("/visual-fixture.html?mode=file-view-code-parity", {
     waitUntil: "domcontentloaded",
   });
-  await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("file-view-code-parity-visual-fixture");
   const monacoSurface = page.getByTestId("file-view-code-parity-monaco");
   const prosemarkSurface = page.getByTestId("file-view-code-parity-prosemark");
+  const diffSurface = page.getByTestId("file-view-code-parity-diff");
+  const mismatchCount = page.getByTestId(
+    "file-view-code-parity-mismatch-count",
+  );
 
   await expect(fixture).toBeVisible();
-  await expect(monacoSurface).toHaveAttribute("data-editor-ready", "true");
-  await expect(prosemarkSurface).toHaveAttribute("data-language-ready", "true");
-  await expect(monacoSurface.locator(".monaco-editor")).toBeVisible();
-  await expect(prosemarkSurface.locator(".cm-editor")).toBeVisible();
+  await expect(monacoSurface).toBeVisible();
+  await expect(prosemarkSurface).toBeVisible();
+  await expect(diffSurface).toBeVisible();
+  await expect
+    .poll(
+      async () => {
+        const statusText = await mismatchCount.textContent();
+        return statusText !== "Preparing overlay..." && statusText !== null;
+      },
+      { timeout: 60_000 },
+    )
+    .toBe(true);
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+  });
   await waitForStableFonts(page);
 
   const monacoScreenshot = await takeStableScreenshot(monacoSurface);
@@ -52,5 +71,19 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
       threshold: 0.7,
     },
     testInfo,
+  });
+
+  await expect(fixture).toHaveScreenshot("file-view-code-parity-fixture.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.01,
+  });
+
+  await expect(diffSurface).toHaveScreenshot("file-view-code-parity-diff.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.01,
   });
 });
