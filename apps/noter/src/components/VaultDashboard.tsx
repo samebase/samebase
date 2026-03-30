@@ -2163,6 +2163,7 @@ function VaultDashboardContent() {
         dataTestId="vault-dashboard"
         leftSidebarHeader={sidebarHeader}
         leftSidebarContent={sidebarContent}
+        rightSidebarHeader={null}
         rightSidebarContent={rightSidebarContent}
         headerContent={dashboardHeaderContent}
         workspaceBody={dashboardBody}

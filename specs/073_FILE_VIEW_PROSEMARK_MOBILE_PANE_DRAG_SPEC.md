@@ -90,8 +90,13 @@ Relevant implementation points:
 
 - `WorkspaceSidebarShell` tracks mobile pane anchors and nearest-pane settling.
 - `RepositoryWorkspaceFrame` renders both left and right sidebar triggers.
-- `FileView` already mounts a right sidebar slot, even if the content is still a
-  lightweight placeholder.
+- `FileView` can mount both sidebars at once: the left rail keeps account header
+  chrome, while the file tree content can live in the right rail.
+- Sidebar header/content slots are passed explicitly with `null` for empty
+  zones, so layout presence is decided by content instead of omitted props.
+- Sidebar columns keep distinct header and content rows even when one zone is
+  visually empty, so the shell still paints the same 1px header/content divider
+  across all workspace columns.
 
 ### FileView ProseMark
 

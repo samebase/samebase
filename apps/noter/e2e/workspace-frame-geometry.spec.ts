@@ -65,6 +65,11 @@ test("dashboard minimal frame lines stay aligned", async ({ page }) => {
     "dashboard minimal right column lower row start",
   );
   expectClose(
+    body.y,
+    rightSidebarContent.y,
+    "dashboard minimal right sidebar lower row start",
+  );
+  expectClose(
     header.x + header.width,
     rightSidebarContent.x,
     "dashboard minimal header/right sidebar divider x",
@@ -118,6 +123,11 @@ test("dashboard shared sidebar lines stay aligned", async ({ page }) => {
     "dashboard shared right column lower row start",
   );
   expectClose(
+    body.y,
+    rightSidebarContent.y,
+    "dashboard shared right sidebar lower row start",
+  );
+  expectClose(
     header.x + header.width,
     rightSidebarContent.x,
     "dashboard shared header/right sidebar divider x",
@@ -135,26 +145,59 @@ test("fileview minimal frame lines stay aligned", async ({ page }) => {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
 
   const accountSection = await getBox(page, "fileview-layout-account-section");
-  const header = await getBox(page, "fileview-layout-header");
-  const rightSidebar = await getBox(page, "fileview-layout-right-sidebar-body");
+  const header = page.getByTestId("fileview-layout-header");
+  const leftSidebar = page.getByTestId("fileview-layout-left-sidebar-body");
+  const rightSidebar = page.getByTestId("fileview-layout-right-sidebar-body");
+  const headerBox = await getBox(page, "fileview-layout-header");
 
   expectClose(
     accountSection.y + accountSection.height,
-    header.y + header.height,
+    headerBox.y + headerBox.height,
     "fileview minimal account/header divider y",
   );
-  expectClose(
-    accountSection.x + accountSection.width,
-    header.x,
-    "fileview minimal sidebar/header divider x",
-  );
-  expectClose(
-    header.x + header.width,
-    rightSidebar.x,
-    "fileview minimal header/right sidebar divider x",
-  );
+  await expect
+    .poll(async () => {
+      const nextHeaderBox = await header.boundingBox();
+
+      if (nextHeaderBox === null) {
+        return Number.NaN;
+      }
+
+      return Math.abs(
+        accountSection.x + accountSection.width - nextHeaderBox.x,
+      );
+    })
+    .toBeLessThanOrEqual(1);
+  await expect
+    .poll(async () => {
+      const leftSidebarBox = await leftSidebar.boundingBox();
+
+      if (leftSidebarBox === null) {
+        return Number.NaN;
+      }
+
+      return Math.abs(
+        accountSection.y + accountSection.height - leftSidebarBox.y,
+      );
+    })
+    .toBeLessThanOrEqual(1);
+  await expect
+    .poll(async () => {
+      const nextHeaderBox = await header.boundingBox();
+      const rightSidebarBox = await rightSidebar.boundingBox();
+
+      if (nextHeaderBox === null || rightSidebarBox === null) {
+        return Number.NaN;
+      }
+
+      return Math.abs(
+        nextHeaderBox.x + nextHeaderBox.width - rightSidebarBox.x,
+      );
+    })
+    .toBeLessThanOrEqual(1);
 });
 
 test("fileview sidebar keeps local state across collapse", async ({ page }) => {
@@ -184,7 +227,7 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
   expect(scrollTopBeforeCollapse).toBe(180);
 
   await page
-    .getByRole("button", { name: "Toggle Left Sidebar" })
+    .getByRole("button", { name: "Toggle Right Sidebar" })
     .press("Enter");
   await expect
     .poll(async () => {
@@ -195,13 +238,13 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
         return Number.NaN;
       }
 
-      return headerBox.x - fixtureBox.x;
+      return fixtureBox.x + fixtureBox.width - (headerBox.x + headerBox.width);
     })
     .toBeLessThanOrEqual(1);
   await expect(counterButton).toBeHidden();
 
   await page
-    .getByRole("button", { name: "Toggle Left Sidebar" })
+    .getByRole("button", { name: "Toggle Right Sidebar" })
     .press("Enter");
   await expect
     .poll(async () => {
@@ -212,30 +255,35 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
         return Number.NaN;
       }
 
-      return headerBox.x - fixtureBox.x;
+      return fixtureBox.x + fixtureBox.width - (headerBox.x + headerBox.width);
     })
     .toBeGreaterThan(100);
   await expect(counterButton).toBeVisible();
 
-  {
-    const fixtureBox = await fixture.boundingBox();
-    const headerBox = await header.boundingBox();
+  await expect
+    .poll(async () => {
+      const headerBox = await header.boundingBox();
+      const rightSidebarBox = await rightSidebar.boundingBox();
 
-    if (fixtureBox === null || headerBox === null) {
-      throw new Error("Expected fileview fixture and header boxes to exist.");
-    }
+      if (headerBox === null || rightSidebarBox === null) {
+        return Number.NaN;
+      }
 
-    const rightSidebarBox = await rightSidebar.boundingBox();
-    if (rightSidebarBox === null) {
-      throw new Error("Expected the right sidebar to be measurable.");
-    }
+      return Math.abs(headerBox.x + headerBox.width - rightSidebarBox.x);
+    })
+    .toBeLessThanOrEqual(1);
+  await expect
+    .poll(async () => {
+      const headerBox = await header.boundingBox();
+      const rightSidebarBox = await rightSidebar.boundingBox();
 
-    expectClose(
-      headerBox.x + headerBox.width,
-      rightSidebarBox.x,
-      "fileview open header/right sidebar divider x",
-    );
-  }
+      if (headerBox === null || rightSidebarBox === null) {
+        return Number.NaN;
+      }
+
+      return Math.abs(headerBox.y + headerBox.height - rightSidebarBox.y);
+    })
+    .toBeLessThanOrEqual(1);
 
   await expect(page.getByTestId("fileview-layout-counter-value")).toHaveText(
     "1",
@@ -287,6 +335,87 @@ test("fileview right sidebar collapses independently", async ({ page }) => {
     .toBeGreaterThan(100);
 });
 
+test("fileview empty left sidebar opens independently", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 760 });
+  await page.goto("/visual-fixture.html?mode=fileview-layout", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const header = page.getByTestId("fileview-layout-header");
+  const accountSection = page.getByTestId("fileview-layout-account-section");
+  const leftSidebar = page.getByTestId("fileview-layout-left-sidebar-body");
+  const rightSidebar = page.getByTestId("fileview-layout-right-sidebar-body");
+  const openUserMenuButton = page.getByRole("button", {
+    name: "Open user menu",
+  });
+
+  await expect(accountSection).toBeHidden();
+  await expect(leftSidebar).toBeHidden();
+  await expect(rightSidebar).toBeVisible();
+  await expect(openUserMenuButton).toBeHidden();
+
+  await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
+  await expect(accountSection).toBeVisible();
+  await expect(leftSidebar).toBeVisible();
+  await expect(rightSidebar).toBeVisible();
+  await expect(openUserMenuButton).toBeVisible();
+  await expect
+    .poll(async () => {
+      const fixtureBox = await fixture.boundingBox();
+      const headerBox = await header.boundingBox();
+
+      if (fixtureBox === null || headerBox === null) {
+        return Number.NaN;
+      }
+
+      return headerBox.x - fixtureBox.x;
+    })
+    .toBeGreaterThan(100);
+  await expect
+    .poll(async () => {
+      const accountSectionBox = await accountSection.boundingBox();
+      const leftSidebarBox = await leftSidebar.boundingBox();
+      const headerBox = await header.boundingBox();
+      const rightSidebarBox = await rightSidebar.boundingBox();
+
+      if (
+        accountSectionBox === null ||
+        leftSidebarBox === null ||
+        headerBox === null ||
+        rightSidebarBox === null
+      ) {
+        return Number.NaN;
+      }
+
+      return Math.max(
+        Math.abs(
+          accountSectionBox.y + accountSectionBox.height - leftSidebarBox.y,
+        ),
+        Math.abs(headerBox.y + headerBox.height - rightSidebarBox.y),
+      );
+    })
+    .toBeLessThanOrEqual(1);
+
+  await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
+  await expect(accountSection).toBeHidden();
+  await expect(leftSidebar).toBeHidden();
+  await expect(openUserMenuButton).toBeHidden();
+  await expect
+    .poll(async () => {
+      const fixtureBox = await fixture.boundingBox();
+      const headerBox = await header.boundingBox();
+
+      if (fixtureBox === null || headerBox === null) {
+        return Number.NaN;
+      }
+
+      return headerBox.x - fixtureBox.x;
+    })
+    .toBeLessThanOrEqual(1);
+});
+
 test("fileview mobile scrim closes the sidebar without activating the main pane", async ({
   page,
 }) => {
@@ -297,30 +426,28 @@ test("fileview mobile scrim closes the sidebar without activating the main pane"
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
-  const bodyButton = page.getByTestId("fileview-layout-body-button");
   const bodyCounter = page.getByTestId("fileview-layout-body-counter");
+  const scrim = page
+    .getByTestId("workspace-sidebar-main-scrim")
+    .locator("div")
+    .first();
+  const initialScrollLeft = await fixture.evaluate(
+    (element) => element.scrollLeft,
+  );
 
-  await expect
-    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-    .toBeGreaterThan(100);
+  expect(initialScrollLeft).toBeGreaterThan(100);
 
   await page
-    .getByRole("button", { name: "Toggle Left Sidebar" })
+    .getByRole("button", { name: "Toggle Right Sidebar" })
     .press("Enter");
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-    .toBeLessThanOrEqual(1);
-
-  const bodyButtonBox = await bodyButton.boundingBox();
-  if (bodyButtonBox === null) {
-    throw new Error("Expected the main-pane action button to be measurable.");
-  }
-
-  await page.mouse.click(bodyButtonBox.x + 16, bodyButtonBox.y + 16);
+    .toBeGreaterThan(initialScrollLeft);
+  await scrim.click();
   await expect(bodyCounter).toHaveText("0");
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-    .toBeGreaterThan(100);
+    .toBe(initialScrollLeft);
 });
 
 test("fileview mobile accessible control opens the sidebar", async ({
@@ -334,11 +461,11 @@ test("fileview mobile accessible control opens the sidebar", async ({
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
   const toggleSidebarButton = page.getByRole("button", {
-    name: "Toggle Left Sidebar",
+    name: "Toggle Right Sidebar",
   });
 
   await toggleSidebarButton.press("Enter");
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-    .toBeLessThanOrEqual(1);
+    .toBeGreaterThan(100);
 });

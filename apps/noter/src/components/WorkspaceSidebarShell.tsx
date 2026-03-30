@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const MOBILE_SCROLL_SETTLE_DELAY_MS = 140;
 const MOBILE_MAIN_SCRIM_MAX_OPACITY = 0.16;
 const MOBILE_MAIN_SCRIM_INTERACTION_THRESHOLD = 0.01;
+type SidebarSlot = Exclude<React.ReactNode, undefined>;
 
 type WorkspaceSidebarShellProps = {
   bodyClassName?: string;
@@ -19,13 +20,15 @@ type WorkspaceSidebarShellProps = {
   dataTestId?: string;
   headerContent: React.ReactNode;
   headerTestId?: string;
-  leftSidebarContent?: React.ReactNode;
+  // Callers must always pass explicit slot values so shell layout is driven by
+  // deliberate nullability instead of omitted props.
+  leftSidebarContent: SidebarSlot;
   leftSidebarContentTestId?: string;
-  leftSidebarHeader?: React.ReactNode;
+  leftSidebarHeader: SidebarSlot;
   leftSidebarHeaderTestId?: string;
-  rightSidebarContent?: React.ReactNode;
+  rightSidebarContent: SidebarSlot;
   rightSidebarContentTestId?: string;
-  rightSidebarHeader?: React.ReactNode;
+  rightSidebarHeader: SidebarSlot;
   rightSidebarHeaderTestId?: string;
 };
 
@@ -139,15 +142,11 @@ export function WorkspaceSidebarShell({
     rightDesktopOpen,
     setMobilePane,
   } = useSidebar();
-  const hasLeftSidebarHeader =
-    leftSidebarHeader !== undefined && leftSidebarHeader !== null;
-  const hasLeftSidebarContent =
-    leftSidebarContent !== undefined && leftSidebarContent !== null;
+  const hasLeftSidebarHeader = leftSidebarHeader !== null;
+  const hasLeftSidebarContent = leftSidebarContent !== null;
   const hasLeftSidebar = hasLeftSidebarHeader || hasLeftSidebarContent;
-  const hasRightSidebarHeader =
-    rightSidebarHeader !== undefined && rightSidebarHeader !== null;
-  const hasRightSidebarContent =
-    rightSidebarContent !== undefined && rightSidebarContent !== null;
+  const hasRightSidebarHeader = rightSidebarHeader !== null;
+  const hasRightSidebarContent = rightSidebarContent !== null;
   const hasRightSidebar = hasRightSidebarHeader || hasRightSidebarContent;
   const hasAnySidebar = hasLeftSidebar || hasRightSidebar;
   const mobileScrollRef = React.useRef<HTMLDivElement | null>(null);
@@ -640,6 +639,10 @@ export function WorkspaceSidebarShell({
       ? "border-l border-border/50"
       : "pointer-events-none border-l border-transparent",
   );
+  // Reserve a real sidebar header row even when a route leaves that zone empty
+  // so the shell keeps one aligned header/content grid across all three columns.
+  const emptySidebarHeaderClassName =
+    "h-full min-h-0 border-b border-border/50 bg-background";
 
   return (
     <WorkspaceMobilePaneDragProvider value={mobilePaneDragContextValue}>
@@ -666,7 +669,7 @@ export function WorkspaceSidebarShell({
           )}
           style={shellStyle}
         >
-          {hasLeftSidebarHeader ? (
+          {hasLeftSidebar ? (
             <div
               data-testid={leftSidebarHeaderTestId}
               {...hiddenLeftDesktopSidebarProps}
@@ -681,10 +684,17 @@ export function WorkspaceSidebarShell({
                     ? mobileLeftSidebarMeasureRef
                     : undefined
                 }
-                className="min-w-0 overflow-hidden"
+                className="h-full min-h-0 min-w-0 overflow-hidden"
                 style={{ width: "var(--workspace-left-sidebar-width)" }}
               >
-                {leftSidebarHeader}
+                {hasLeftSidebarHeader ? (
+                  leftSidebarHeader
+                ) : (
+                  <div
+                    aria-hidden="true"
+                    className={emptySidebarHeaderClassName}
+                  />
+                )}
               </div>
             </div>
           ) : null}
@@ -695,9 +705,7 @@ export function WorkspaceSidebarShell({
               {...hiddenLeftDesktopSidebarProps}
               className={cn(
                 leftSidebarCellClassName,
-                hasLeftSidebarHeader
-                  ? "row-start-2 min-h-0"
-                  : "row-span-2 min-h-0",
+                "row-start-2 min-h-0",
                 isMobile ? "snap-start" : "",
               )}
             >
@@ -735,7 +743,7 @@ export function WorkspaceSidebarShell({
             {children}
           </div>
 
-          {hasRightSidebarHeader ? (
+          {hasRightSidebar ? (
             <div
               data-testid={rightSidebarHeaderTestId}
               {...hiddenRightDesktopSidebarProps}
@@ -751,10 +759,17 @@ export function WorkspaceSidebarShell({
                     ? mobileRightSidebarMeasureRef
                     : undefined
                 }
-                className="min-w-0 overflow-hidden"
+                className="h-full min-h-0 min-w-0 overflow-hidden"
                 style={{ width: "var(--workspace-right-sidebar-width)" }}
               >
-                {rightSidebarHeader}
+                {hasRightSidebarHeader ? (
+                  rightSidebarHeader
+                ) : (
+                  <div
+                    aria-hidden="true"
+                    className={emptySidebarHeaderClassName}
+                  />
+                )}
               </div>
             </div>
           ) : null}
@@ -766,9 +781,7 @@ export function WorkspaceSidebarShell({
               className={cn(
                 "col-start-3",
                 rightSidebarCellClassName,
-                hasRightSidebarHeader
-                  ? "row-start-2 min-h-0"
-                  : "row-span-2 min-h-0",
+                "row-start-2 min-h-0",
                 isMobile ? "snap-start" : "",
               )}
             >

@@ -147,6 +147,7 @@ export function VaultDashboardVisualFixture({
               className="h-full min-h-0 bg-muted/10"
             />
           }
+          rightSidebarHeader={null}
           rightSidebarContent={
             <div
               data-testid="dashboard-layout-right-sidebar-body"
@@ -226,6 +227,7 @@ export function VaultDashboardVisualFixture({
           dataTestId="vault-dashboard-visual-fixture"
           leftSidebarHeader={sidebarHeader}
           leftSidebarContent={sidebarContent}
+          rightSidebarHeader={null}
           rightSidebarContent={<div className="min-h-0 flex-1 bg-background" />}
           headerContent={headerContent}
           bodyClassName="min-h-0 overflow-y-auto p-0"
@@ -467,6 +469,7 @@ export function VaultDashboardVisualFixture({
             dataTestId="vault-dashboard-visual-fixture"
             leftSidebarHeader={sidebarHeader}
             leftSidebarContent={sidebarContent}
+            rightSidebarHeader={null}
             rightSidebarContent={
               <div className="min-h-0 flex-1 bg-background" />
             }

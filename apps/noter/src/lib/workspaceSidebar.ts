@@ -9,25 +9,44 @@ type MobilePaneAnchor = {
   scrollLeft: number;
 };
 
+function getSidebarWidths(
+  hasLeftSidebar: boolean,
+  leftSidebarWidthPx: number,
+  hasRightSidebar: boolean,
+  rightSidebarWidthPx: number,
+) {
+  return {
+    left: hasLeftSidebar ? leftSidebarWidthPx : 0,
+    right: hasRightSidebar ? rightSidebarWidthPx : 0,
+  };
+}
+
 function getMobilePaneAnchors(
   hasLeftSidebar: boolean,
   leftSidebarWidthPx: number,
   hasRightSidebar: boolean,
   rightSidebarWidthPx: number,
 ) {
-  const mainPaneScrollLeft = hasLeftSidebar ? leftSidebarWidthPx : 0;
+  const sidebarWidths = getSidebarWidths(
+    hasLeftSidebar,
+    leftSidebarWidthPx,
+    hasRightSidebar,
+    rightSidebarWidthPx,
+  );
+  let scrollLeft = 0;
   const anchors: MobilePaneAnchor[] = [];
 
-  if (hasLeftSidebar) {
-    anchors.push({ pane: "left", scrollLeft: 0 });
+  if (sidebarWidths.left > 0) {
+    anchors.push({ pane: "left", scrollLeft });
+    scrollLeft += sidebarWidths.left;
   }
 
-  anchors.push({ pane: "main", scrollLeft: mainPaneScrollLeft });
+  anchors.push({ pane: "main", scrollLeft });
 
-  if (hasRightSidebar) {
+  if (sidebarWidths.right > 0) {
     anchors.push({
       pane: "right",
-      scrollLeft: mainPaneScrollLeft + rightSidebarWidthPx,
+      scrollLeft: scrollLeft + sidebarWidths.right,
     });
   }
 
@@ -41,14 +60,20 @@ export function getMobilePaneScrollLeft(
   hasRightSidebar: boolean,
   rightSidebarWidthPx: number,
 ) {
-  const anchor = getMobilePaneAnchors(
+  const anchors = getMobilePaneAnchors(
     hasLeftSidebar,
     leftSidebarWidthPx,
     hasRightSidebar,
     rightSidebarWidthPx,
-  ).find((candidateAnchor) => candidateAnchor.pane === pane);
+  );
 
-  return anchor?.scrollLeft ?? (hasLeftSidebar ? leftSidebarWidthPx : 0);
+  return (
+    anchors.find((candidateAnchor) => candidateAnchor.pane === pane)
+      ?.scrollLeft ??
+    anchors.find((candidateAnchor) => candidateAnchor.pane === "main")
+      ?.scrollLeft ??
+    0
+  );
 }
 
 function getNearestMobilePane(
@@ -113,14 +138,32 @@ export function getSettledMobilePane(
     return nearestPane;
   }
 
-  const mainPaneScrollLeft = leftSidebarWidthPx;
-  const oppositeSidebarWidthPx =
-    currentPane === "left" ? rightSidebarWidthPx : leftSidebarWidthPx;
+  const sidebarWidths = getSidebarWidths(
+    hasLeftSidebar,
+    leftSidebarWidthPx,
+    hasRightSidebar,
+    rightSidebarWidthPx,
+  );
+  const anchors = getMobilePaneAnchors(
+    hasLeftSidebar,
+    leftSidebarWidthPx,
+    hasRightSidebar,
+    rightSidebarWidthPx,
+  );
+  const mainPaneScrollLeft =
+    anchors.find((anchor) => anchor.pane === "main")?.scrollLeft ?? 0;
+  const oppositeSidebarSide = currentPane === "left" ? "right" : "left";
+  const oppositeSidebarWidthPx = sidebarWidths[oppositeSidebarSide];
+
   if (!Number.isFinite(oppositeSidebarWidthPx) || oppositeSidebarWidthPx <= 0) {
     return "main";
   }
+
+  const oppositeSidebarScrollLeft =
+    anchors.find((anchor) => anchor.pane === oppositeSidebarSide)?.scrollLeft ??
+    mainPaneScrollLeft;
   const distanceIntoOppositeSidebarPx =
-    currentPane === "left"
+    oppositeSidebarScrollLeft >= mainPaneScrollLeft
       ? scrollLeft - mainPaneScrollLeft
       : mainPaneScrollLeft - scrollLeft;
   const oppositeSidebarProgress = Math.min(

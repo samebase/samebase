@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/sidebar";
 import { cn } from "@/lib/utils";
 
+type SidebarSlot = Exclude<ReactNode, undefined>;
+
 export function RepositoryWorkspaceFrame({
   leftSidebarHeader,
   leftSidebarContent,
@@ -18,10 +20,10 @@ export function RepositoryWorkspaceFrame({
   headerTestId,
   contentClassName,
 }: {
-  leftSidebarHeader?: ReactNode;
-  leftSidebarContent: ReactNode;
-  rightSidebarHeader?: ReactNode;
-  rightSidebarContent?: ReactNode;
+  leftSidebarHeader: SidebarSlot;
+  leftSidebarContent: SidebarSlot;
+  rightSidebarHeader: SidebarSlot;
+  rightSidebarContent: SidebarSlot;
   headerTitle?: ReactNode;
   headerRight?: ReactNode;
   onQuickOpen?: () => void;
@@ -30,8 +32,10 @@ export function RepositoryWorkspaceFrame({
   headerTestId?: string;
   contentClassName?: string;
 }) {
+  const hasLeftSidebar =
+    leftSidebarHeader !== null || leftSidebarContent !== null;
   const hasRightSidebar =
-    rightSidebarHeader !== undefined || rightSidebarContent !== undefined;
+    rightSidebarHeader !== null || rightSidebarContent !== null;
 
   return (
     <WorkspaceSidebarShell
@@ -44,10 +48,12 @@ export function RepositoryWorkspaceFrame({
       headerContent={
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-3">
-            <SidebarTrigger
-              className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
-              side="left"
-            />
+            {hasLeftSidebar ? (
+              <SidebarTrigger
+                className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
+                side="left"
+              />
+            ) : null}
             {onQuickOpen ? (
               <Button
                 variant="ghost"

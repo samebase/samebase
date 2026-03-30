@@ -123,6 +123,7 @@ export function useVaultDashboardVisualMobileShellViewModel(): VaultDashboardWor
         />
       </div>
     ),
+    rightSidebarHeader: null,
     rightSidebarContent: <div className="min-h-0 flex-1 bg-background" />,
     headerContent: (
       <VaultDashboardHeaderBar
