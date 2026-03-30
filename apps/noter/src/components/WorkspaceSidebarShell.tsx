@@ -240,7 +240,6 @@ export function WorkspaceSidebarShell({
     }
 
     const nextMobilePane = getSettledMobilePane(
-      mobilePane,
       scrollNode.scrollLeft,
       hasLeftSidebar,
       leftSidebarWidthPx,
@@ -486,6 +485,10 @@ export function WorkspaceSidebarShell({
       return;
     }
 
+    // Browsers that already emit `scrollend` should own the native swipe
+    // finish signal. The timeout fallback exists only for older engines that
+    // never dispatch that event.
+    const supportsScrollEnd = "onscrollend" in scrollNode;
     let settleTimeoutId: number | null = null;
     const handleScroll = () => {
       setMobileMainScrimProgress(
@@ -498,21 +501,27 @@ export function WorkspaceSidebarShell({
         ),
       );
 
-      if (settleTimeoutId !== null) {
-        window.clearTimeout(settleTimeoutId);
-      }
+      if (!supportsScrollEnd) {
+        if (settleTimeoutId !== null) {
+          window.clearTimeout(settleTimeoutId);
+        }
 
-      settleTimeoutId = window.setTimeout(
-        settleMobileShell,
-        MOBILE_SCROLL_SETTLE_DELAY_MS,
-      );
+        settleTimeoutId = window.setTimeout(
+          settleMobileShell,
+          MOBILE_SCROLL_SETTLE_DELAY_MS,
+        );
+      }
     };
 
     scrollNode.addEventListener("scroll", handleScroll, { passive: true });
-    scrollNode.addEventListener("scrollend", settleMobileShell);
+    if (supportsScrollEnd) {
+      scrollNode.addEventListener("scrollend", settleMobileShell);
+    }
     return () => {
       scrollNode.removeEventListener("scroll", handleScroll);
-      scrollNode.removeEventListener("scrollend", settleMobileShell);
+      if (supportsScrollEnd) {
+        scrollNode.removeEventListener("scrollend", settleMobileShell);
+      }
       if (settleTimeoutId !== null) {
         window.clearTimeout(settleTimeoutId);
       }

@@ -1,7 +1,5 @@
 import type { MobileSidebarPane } from "@/hooks/use-sidebar";
 
-const MOBILE_OPPOSITE_SIDEBAR_COMMIT_PROGRESS_THRESHOLD = 0.9;
-
 type MobilePaneAnchor = {
   pane: MobileSidebarPane;
   scrollLeft: number;
@@ -103,56 +101,21 @@ function getNearestMobilePane(
 }
 
 /**
- * Keep the center pane easier to land on when a swipe starts from either
- * sidebar. Casual overshoots should land on `main`, but a swipe that travels
- * very deep into the far sidebar may still commit there directly.
+ * Let the shell settle to whichever pane anchor the browser actually finished
+ * closest to after the swipe.
  */
 export function getSettledMobilePane(
-  currentPane: MobileSidebarPane,
   scrollLeft: number,
   hasLeftSidebar: boolean,
   leftSidebarWidthPx: number,
   hasRightSidebar: boolean,
   rightSidebarWidthPx: number,
 ) {
-  const nearestPane = getNearestMobilePane(
+  return getNearestMobilePane(
     scrollLeft,
     hasLeftSidebar,
     leftSidebarWidthPx,
     hasRightSidebar,
     rightSidebarWidthPx,
   );
-
-  if (currentPane === "main" || !hasLeftSidebar || !hasRightSidebar) {
-    return nearestPane;
-  }
-
-  const isOppositeSidebarTransition =
-    (currentPane === "left" && nearestPane === "right") ||
-    (currentPane === "right" && nearestPane === "left");
-
-  if (!isOppositeSidebarTransition) {
-    return nearestPane;
-  }
-
-  const mainPaneScrollLeft = leftSidebarWidthPx;
-  const oppositeSidebarWidthPx =
-    currentPane === "left" ? rightSidebarWidthPx : leftSidebarWidthPx;
-  if (!Number.isFinite(oppositeSidebarWidthPx) || oppositeSidebarWidthPx <= 0) {
-    return "main";
-  }
-
-  const distanceIntoOppositeSidebarPx =
-    currentPane === "left"
-      ? scrollLeft - mainPaneScrollLeft
-      : mainPaneScrollLeft - scrollLeft;
-  const oppositeSidebarProgress = Math.min(
-    1,
-    Math.max(0, distanceIntoOppositeSidebarPx / oppositeSidebarWidthPx),
-  );
-
-  return oppositeSidebarProgress >=
-    MOBILE_OPPOSITE_SIDEBAR_COMMIT_PROGRESS_THRESHOLD
-    ? nearestPane
-    : "main";
 }
