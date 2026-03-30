@@ -40,6 +40,13 @@ Do not squash-merge this slice until:
       throttling; use a deployment-global rate-limit bucket instead
 - [x] Expire older pending handoffs when a newer connect request is created so
       stale approvals cannot survive equal-timestamp races
+- [x] Replace prior stored credentials when ownership of a machine is approved
+      again so older machine secrets stop working immediately
+- [x] Bound installer and runtime fetch calls with an explicit timeout so
+      `connect` and `run` do not hang forever on dead network paths
+- [x] Reset the machine-page approval error state when the browser handoff
+      `requestId` changes
+- [x] Cover the approval-error banner in the machine connect visual fixture
 
 ## Open `P1` Blockers
 

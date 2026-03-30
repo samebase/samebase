@@ -206,19 +206,15 @@ export const approveMachineRegistrationRequest = mutation({
       userId,
     });
 
-    const existingCredential = await ctx.db
+    const existingMachineCredentials = await ctx.db
       .query("machineCredentials")
-      .withIndex("by_user_machine_id", (q) =>
-        q.eq("userId", userId).eq("machineId", request.machineId),
-      )
-      .first();
+      .withIndex("by_machine_id", (q) => q.eq("machineId", request.machineId))
+      .collect();
 
-    if (existingCredential) {
-      await ctx.db.patch(existingCredential._id, {
-        createdAt: now,
-        credentialHash: request.credentialHash,
-      });
-      return null;
+    // Keep exactly one live credential per machine so an older approval cannot
+    // leave prior bearer secrets valid after ownership changes.
+    for (const existingMachineCredential of existingMachineCredentials) {
+      await ctx.db.delete(existingMachineCredential._id);
     }
 
     await ctx.db.insert("machineCredentials", {

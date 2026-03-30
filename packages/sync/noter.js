@@ -40,6 +40,7 @@ export const CONNECTED_MACHINE_HEARTBEAT_PATHNAME =
   '/connected-machines/heartbeat'
 export const CONNECTED_MACHINE_HEARTBEAT_INTERVAL_MS = 15_000
 export const CONNECTED_MACHINE_CAPABILITIES = ['presence']
+export const NETWORK_TIMEOUT_MS = 15_000
 // When the command does not pass an explicit source URL, default to production.
 export const NOTER_SYNC_SOURCE_URL = 'https://noter.md/noter.js'
 
@@ -334,13 +335,40 @@ async function readJsonResponse(response) {
   }
 }
 
+/**
+ * Bound installer/runtime requests so dead network paths fail clearly instead
+ * of hanging the terminal forever.
+ */
+async function fetchWithTimeout(resource, init, timeoutLabel) {
+  const signal = AbortSignal.timeout(NETWORK_TIMEOUT_MS)
+
+  try {
+    return await fetch(resource, {
+      ...init,
+      signal,
+    })
+  } catch (error) {
+    if (signal.aborted) {
+      throw new Error(
+        `${timeoutLabel} timed out after ${NETWORK_TIMEOUT_MS / 1000} seconds.`,
+      )
+    }
+
+    throw error
+  }
+}
+
 async function fetchNoterConnectConfig(sourceUrl) {
   const configUrl = buildNoterConnectConfigUrl(sourceUrl)
-  const response = await fetch(configUrl, {
-    headers: {
-      accept: 'application/json',
+  const response = await fetchWithTimeout(
+    configUrl,
+    {
+      headers: {
+        accept: 'application/json',
+      },
     },
-  })
+    `Could not download ${NOTER_CONNECT_CONFIG_PATHNAME}`,
+  )
 
   if (!response.ok) {
     throw new Error(
@@ -368,16 +396,20 @@ async function fetchNoterConnectConfig(sourceUrl) {
 }
 
 async function postJson(args) {
-  const response = await fetch(args.url, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      ...(args.authorization
-        ? { authorization: `Bearer ${args.authorization}` }
-        : {}),
+  const response = await fetchWithTimeout(
+    args.url,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(args.authorization
+          ? { authorization: `Bearer ${args.authorization}` }
+          : {}),
+      },
+      body: JSON.stringify(args.body),
     },
-    body: JSON.stringify(args.body),
-  })
+    args.timeoutLabel,
+  )
 
   const { parsed, text } = await readJsonResponse(response)
   if (!response.ok) {
@@ -399,6 +431,7 @@ async function createMachineRegistration(args) {
 
   await postJson({
     url: buildBootstrapUrl(convexSiteUrl),
+    timeoutLabel: 'Machine bootstrap request',
     body: {
       connectorVersion: args.connectorVersion,
       credentialHash,
@@ -421,6 +454,7 @@ async function publishMachineHeartbeat(args) {
     await postJson({
       url: args.heartbeatUrl,
       authorization: args.machineCredential,
+      timeoutLabel: 'Machine heartbeat request',
       body: {
         allowedRoots: [],
         capabilities: CONNECTED_MACHINE_CAPABILITIES,

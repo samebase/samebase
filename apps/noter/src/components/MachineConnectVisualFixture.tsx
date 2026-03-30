@@ -7,7 +7,7 @@ export function MachineConnectVisualFixture() {
       className="min-h-screen bg-background text-foreground"
     >
       <MachineConnectPageContent
-        approvalError={null}
+        approvalError="Machine registration request expired."
         connectedMachines={[
           {
             allowedRoots: ["/Users/nicu/.codex/worktrees/6f41/noter"],
@@ -31,9 +31,10 @@ export function MachineConnectVisualFixture() {
         packageConnectCommand="npx @noter-md/sync connect"
         packageRunCommand="npx @noter-md/sync run"
         requestState={{
-          kind: "approved",
-          connectorVersion: "codex 0.1.2",
+          kind: "pending",
+          connectorVersion: "noter-sync (codex 0.1.2)",
           displayName: "Nicu MacBook Pro",
+          expiresAt: 1_775_379_420_000,
           hostname: "nicu-mbp.local",
           machineId: "machine_123",
           os: "macos",

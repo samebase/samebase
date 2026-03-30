@@ -450,6 +450,11 @@ export function MachineConnectPage() {
     });
   const heartbeatLog = useConnectedMachineHeartbeatLog(connectedMachines);
 
+  useEffect(() => {
+    setApprovalError(null);
+    setIsApproving(false);
+  }, [bootstrapSearch.requestId]);
+
   const handleApprove = async () => {
     if (!bootstrapSearch.requestId || isApproving) {
       return;

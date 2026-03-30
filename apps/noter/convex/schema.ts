@@ -343,6 +343,7 @@ export default defineSchema({
   ).index("by_fingerprint", ["fingerprint"]),
 
   machineCredentials: defineTable(machineCredentialRowValidator)
+    .index("by_machine_id", ["machineId"])
     .index("by_user_machine_id", ["userId", "machineId"])
     .index("by_credential_hash", ["credentialHash"]),
 
