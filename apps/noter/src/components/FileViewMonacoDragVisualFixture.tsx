@@ -1,10 +1,9 @@
 import { PersonIcon } from "@radix-ui/react-icons";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
-import { MonacoEditorSurface } from "@/components/MonacoEditor";
+import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
 import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
 import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
-import { type Id } from "../../convex/_generated/dataModel";
 
 export type FileViewMonacoDragVisualMode = "fileview-monaco-drag";
 
@@ -24,13 +23,7 @@ export const fixtureNotes = {
   right: "Drag left for review",
 };`;
 
-function getFixtureVaultId(): Id<"vaults"> {
-  // @ts-expect-error Visual fixtures only need a stable string here. The empty
-  // tree keeps Monaco from loading project files through the vault API.
-  return "fixture-monaco-pane-drag-vault";
-}
-
-const FIXTURE_VAULT_ID = getFixtureVaultId();
+const FIXTURE_VAULT_KEY = "fixture-monaco-pane-drag-vault";
 
 export function FileViewMonacoDragVisualFixture({
   mode: _mode,
@@ -118,7 +111,7 @@ export function FileViewMonacoDragVisualFixture({
                   onMount={() => {}}
                   showMobileLineNumbers={false}
                   syncError={null}
-                  vaultId={FIXTURE_VAULT_ID}
+                  vaultKey={FIXTURE_VAULT_KEY}
                 />
               </div>
             </div>
