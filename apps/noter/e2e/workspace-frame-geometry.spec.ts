@@ -496,7 +496,21 @@ test("fileview mobile keeps a far cross-swipe on the far pane", async ({
     element
       .querySelector<HTMLElement>('[data-sidebar-track="pannable"]')
       ?.style.setProperty("scroll-snap-type", "none");
-    element.scrollLeft = 450;
+    const leftSidebarWidth =
+      element
+        .querySelector<HTMLElement>(
+          '[data-testid="fileview-layout-left-sidebar-body"]',
+        )
+        ?.getBoundingClientRect().width ?? 0;
+    const rightSidebarWidth =
+      element
+        .querySelector<HTMLElement>(
+          '[data-testid="fileview-layout-right-sidebar-body"]',
+        )
+        ?.getBoundingClientRect().width ?? 0;
+    const deepCrossSwipeScrollLeft =
+      leftSidebarWidth + rightSidebarWidth * 0.75;
+    element.scrollLeft = deepCrossSwipeScrollLeft;
     element.dispatchEvent(new Event("scroll"));
     element.dispatchEvent(new Event("scrollend"));
   });

@@ -253,6 +253,12 @@ export function GlobalGestureDebugOverlay() {
   }, []);
 
   React.useEffect(() => {
+    if (isSuppressedByWorkspaceSidebar) {
+      activeGestureRef.current = null;
+      setSnapshot(null);
+      return;
+    }
+
     const createPoint = (
       clientX: number,
       clientY: number,
@@ -414,7 +420,7 @@ export function GlobalGestureDebugOverlay() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [finalizeGesture, updateActiveSnapshot]);
+  }, [finalizeGesture, isSuppressedByWorkspaceSidebar, updateActiveSnapshot]);
 
   const path = (snapshot?.pathPoints ?? [])
     .map(

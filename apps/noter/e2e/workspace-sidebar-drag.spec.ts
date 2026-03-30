@@ -301,3 +301,25 @@ test("global swipe debug overlay stops the trace as soon as touch leaves the vie
   await expect(overlay).toContainText("samples: 3");
   await expect(overlay).toContainText("dy: +8.0px");
 });
+
+test("bootstrap gesture debug overlay follows query param changes without reload", async ({
+  page,
+}) => {
+  await page.goto("/privacy", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const overlay = page.getByTestId("global-gesture-debug-overlay");
+  await expect(overlay).toHaveCount(0);
+
+  await page.evaluate(() => {
+    window.history.pushState(window.history.state, "", "/privacy?swipe-debug");
+  });
+  await expect(overlay).toBeVisible();
+
+  await page.evaluate(() => {
+    window.history.pushState(window.history.state, "", "/privacy");
+  });
+  await expect(overlay).toHaveCount(0);
+});
