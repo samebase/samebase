@@ -53,6 +53,15 @@ function clampPointToViewport(clientX: number, clientY: number) {
   };
 }
 
+function isPointOutsideViewport(clientX: number, clientY: number) {
+  return (
+    clientX < 0 ||
+    clientX > window.innerWidth ||
+    clientY < 0 ||
+    clientY > window.innerHeight
+  );
+}
+
 function getReleaseVelocityReferencePoint(
   pathPoints: readonly GestureTracePoint[],
   endPoint: GestureTracePoint,
@@ -296,6 +305,13 @@ export function GlobalGestureDebugOverlay() {
         return;
       }
 
+      if (isPointOutsideViewport(touch.clientX, touch.clientY)) {
+        finalizeGesture(
+          createPoint(touch.clientX, touch.clientY, getEventTimeMs(event)),
+        );
+        return;
+      }
+
       const point = createPoint(
         touch.clientX,
         touch.clientY,
@@ -350,6 +366,13 @@ export function GlobalGestureDebugOverlay() {
     const handleMouseMove = (event: MouseEvent) => {
       const activeGesture = activeGestureRef.current;
       if (activeGesture === null || activeGesture.inputType !== "mouse") {
+        return;
+      }
+
+      if (isPointOutsideViewport(event.clientX, event.clientY)) {
+        finalizeGesture(
+          createPoint(event.clientX, event.clientY, getEventTimeMs(event)),
+        );
         return;
       }
 

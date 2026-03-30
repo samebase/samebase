@@ -21,6 +21,70 @@ async function gotoFileViewFixture(
   await page.waitForLoadState("networkidle");
 }
 
+async function gotoVisualFixtureDirectory(
+  page: Page,
+  options?: { swipeDebug?: boolean },
+) {
+  const debugQuery = options?.swipeDebug ? "?swipe-debug" : "";
+  await page.goto(`/visual-fixture.html${debugQuery}`, {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+}
+
+async function dispatchViewportTouchSwipe(
+  page: Page,
+  args: {
+    startX: number;
+    startY: number;
+    steps: ReadonlyArray<{
+      delayMs: number;
+      xOffset: number;
+      yOffset: number;
+    }>;
+  },
+) {
+  const session = await page.context().newCDPSession(page);
+  const gestureStartTimeMs = Date.now();
+  let elapsedMs = 0;
+  const touchPoint = {
+    force: 1,
+    id: 1,
+    radiusX: 4,
+    radiusY: 4,
+    x: args.startX,
+    y: args.startY,
+  };
+
+  await session.send("Input.dispatchTouchEvent", {
+    timestamp: gestureStartTimeMs / 1000,
+    type: "touchStart",
+    touchPoints: [touchPoint],
+  });
+
+  for (const step of args.steps) {
+    await page.waitForTimeout(step.delayMs);
+    elapsedMs += step.delayMs;
+    await session.send("Input.dispatchTouchEvent", {
+      timestamp: (gestureStartTimeMs + elapsedMs) / 1000,
+      type: "touchMove",
+      touchPoints: [
+        {
+          ...touchPoint,
+          x: args.startX + step.xOffset,
+          y: args.startY + step.yOffset,
+        },
+      ],
+    });
+  }
+
+  await session.send("Input.dispatchTouchEvent", {
+    timestamp: (gestureStartTimeMs + elapsedMs + 1) / 1000,
+    type: "touchEnd",
+    touchPoints: [],
+  });
+}
+
 async function dispatchHumanTouchSwipe(
   page: Page,
   args: {
@@ -211,4 +275,29 @@ test("fileview mobile swipe debug overlay captures the cross-sidebar path and re
   await expect(overlay).toContainText("release vx:");
   await expect(overlay).toContainText("peak ax:");
   expect(await overlay.locator("svg circle").count()).toBeGreaterThan(5);
+});
+
+test("global swipe debug overlay stops the trace as soon as touch leaves the viewport", async ({
+  page,
+}) => {
+  await gotoVisualFixtureDirectory(page, { swipeDebug: true });
+
+  const overlay = page.getByTestId("global-gesture-debug-overlay");
+  await expect(overlay).toBeVisible();
+  await expect(overlay).toContainText("scope: viewport trace");
+
+  await dispatchViewportTouchSwipe(page, {
+    startX: 120,
+    startY: 220,
+    steps: [
+      { delayMs: 50, xOffset: 120, yOffset: 4 },
+      { delayMs: 50, xOffset: 420, yOffset: 8 },
+      { delayMs: 200, xOffset: 430, yOffset: 220 },
+    ],
+  });
+
+  await expect(overlay).toContainText("state: captured");
+  await expect(overlay).toContainText("duration: 100ms");
+  await expect(overlay).toContainText("samples: 3");
+  await expect(overlay).toContainText("dy: +8.0px");
 });

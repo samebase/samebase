@@ -82,6 +82,15 @@ function clampClientPointToViewport(clientX: number, clientY: number) {
   };
 }
 
+function isPointOutsideViewport(clientX: number, clientY: number) {
+  return (
+    clientX < 0 ||
+    clientX > window.innerWidth ||
+    clientY < 0 ||
+    clientY > window.innerHeight
+  );
+}
+
 function buildMobileTouchSample(
   node: HTMLElement,
   touch: Touch,
@@ -848,6 +857,23 @@ export function WorkspaceSidebarShell({
         activeGesture.touchIdentifier,
       );
       if (touch === null) {
+        return;
+      }
+
+      if (isPointOutsideViewport(touch.clientX, touch.clientY)) {
+        if (
+          Math.abs(scrollNode.scrollLeft - activeGesture.startScrollLeft) <= 1
+        ) {
+          activeMobileTouchGestureRef.current = null;
+          pendingMobileReleaseGestureRef.current = null;
+          pendingMobileGestureDebugRef.current = null;
+          setMobileGestureDebugSnapshot(null);
+          return;
+        }
+
+        finalizeMobileTouchGesture(
+          buildMobileTouchSample(scrollNode, touch, getEventTimeMs(event)),
+        );
         return;
       }
 
