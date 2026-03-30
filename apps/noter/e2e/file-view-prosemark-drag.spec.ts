@@ -96,7 +96,9 @@ test("editable ProseMark mobile drag fixture", async ({ page }) => {
       animations: "disabled",
       caret: "hide",
       scale: "css",
-      maxDiffPixelRatio: 0.03,
+      // ProseMark text rasterization shifts slightly between local macOS runs
+      // and the Linux CI browser, while the overall shell layout stays stable.
+      maxDiffPixelRatio: 0.05,
     },
   );
 });
