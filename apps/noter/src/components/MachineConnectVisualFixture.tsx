@@ -4,14 +4,14 @@ import {
   buildNoterSyncScriptUrl,
 } from "@/lib/noterSync";
 
-const FIXTURE_DEPLOY_ORIGIN = "https://preview.noter.md";
+const FIXTURE_DEPLOY_ORIGIN = "https://noter.md";
 
 export function MachineConnectVisualFixture() {
   const scriptUrl = buildNoterSyncScriptUrl(FIXTURE_DEPLOY_ORIGIN);
 
   return (
     <MachineConnectPageContent
-      command={buildNoterSyncConnectCommand()}
+      command={buildNoterSyncConnectCommand(scriptUrl)}
       openedByCli={true}
       scriptUrl={scriptUrl}
       testId="machine-connect-visual-fixture"

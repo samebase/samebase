@@ -39,6 +39,8 @@ describe("noter sync public script", () => {
 
     expect(publicScript).not.toBe(formattedPackageScript);
     expect(publicScript).toBe(formattedPublicScript);
+    expect(publicScript).toContain("// source-url: https://noter.md/noter.js");
+    expect(publicScript).toMatch(/\/\/ source-version: [a-f0-9]{12}/);
   });
 
   it("prefers explicit dev or Pages origins when resolving the hosted script source URL", () => {

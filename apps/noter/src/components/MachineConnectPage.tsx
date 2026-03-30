@@ -3,6 +3,7 @@ import {
   buildNoterSyncConnectCommand,
   buildNoterSyncScriptUrl,
   readMachineConnectBootstrapSearch,
+  resolveMachineConnectScriptOrigin,
 } from "@/lib/noterSync";
 import { Check, Copy, ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -21,22 +22,6 @@ function resolveCurrentOrigin(): string {
   }
 
   return window.location.origin;
-}
-
-/**
- * The CLI echoes its installer source back into the browser handoff so the
- * app can describe which hosted file launched the machine-connect flow.
- */
-function resolveDeployOrigin(sourceUrl: string | null, fallbackOrigin: string) {
-  if (!sourceUrl) {
-    return fallbackOrigin;
-  }
-
-  try {
-    return new URL(sourceUrl).origin;
-  } catch {
-    return fallbackOrigin;
-  }
 }
 
 export function MachineConnectPageContent({
@@ -101,7 +86,7 @@ export function MachineConnectPageContent({
             <div className="space-y-1">
               <h2 className="text-sm font-medium">Run this</h2>
               <p className="text-sm text-muted-foreground">
-                This is the normal user path.
+                Copy this on the machine that already has Codex installed.
               </p>
             </div>
             <Button
@@ -125,7 +110,6 @@ export function MachineConnectPageContent({
             {command}
           </code>
           <p className="mt-3 text-sm text-muted-foreground">
-            Need the hosted file instead?{" "}
             <a
               href={scriptUrl}
               target="_blank"
@@ -146,7 +130,7 @@ export function MachineConnectPage() {
   const location = useLocation();
   const bootstrapSearch = readMachineConnectBootstrapSearch(location.search);
   const currentOrigin = resolveCurrentOrigin();
-  const deployOrigin = resolveDeployOrigin(
+  const deployOrigin = resolveMachineConnectScriptOrigin(
     bootstrapSearch.sourceUrl,
     currentOrigin,
   );
@@ -154,7 +138,7 @@ export function MachineConnectPage() {
 
   return (
     <MachineConnectPageContent
-      command={buildNoterSyncConnectCommand()}
+      command={buildNoterSyncConnectCommand(scriptUrl)}
       openedByCli={bootstrapSearch.openedByCli}
       scriptUrl={scriptUrl}
     />

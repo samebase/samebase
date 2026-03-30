@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { NOTER_SYNC_PUBLIC_SCRIPT_PATH } from "./src/lib/noterSync";
 
 const DEFAULT_NOTER_SYNC_SOURCE_ORIGIN = "https://noter.md";
@@ -23,9 +25,15 @@ export function buildNoterSyncPublicScript(args: {
   packageScript: string;
   sourceUrl: string;
 }): string {
+  const sourceVersion = createHash("sha256")
+    .update(args.packageScript)
+    .update("\0")
+    .update(args.sourceUrl)
+    .digest("hex")
+    .slice(0, 12);
   const withSourceComment = args.packageScript.replace(
     /^#!\/usr\/bin\/env node\n/,
-    `#!/usr/bin/env node\n// source-url: ${args.sourceUrl}\n`,
+    `#!/usr/bin/env node\n// source-url: ${args.sourceUrl}\n// source-version: ${sourceVersion}\n`,
   );
 
   return withSourceComment.replace(

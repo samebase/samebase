@@ -34,6 +34,17 @@ describe('@noter-md/sync', () => {
     )
   })
 
+  it('rejects installer source URLs with query params or hashes', () => {
+    expect(() =>
+      validateSourceUrl('https://noter.md/noter.js?preview=1'),
+    ).toThrow(
+      'The installer source URL must not include credentials, query params, or hashes.',
+    )
+    expect(() => validateSourceUrl('https://noter.md/noter.js#branch')).toThrow(
+      'The installer source URL must not include credentials, query params, or hashes.',
+    )
+  })
+
   it('builds a stable multi-worktree installation file path', () => {
     const installationId = buildInstallationId(
       'https://preview.noter.md/noter.js',
@@ -54,7 +65,7 @@ describe('@noter-md/sync', () => {
         sourceUrl: 'https://preview.noter.md/noter.js',
       }),
     ).toBe(
-      'https://preview.noter.md/machines/connect?source=https%3A%2F%2Fpreview.noter.md%2Fnoter.js&installation=preview-installation&openedByCli=1',
+      'https://preview.noter.md/machines/connect?source=https%3A%2F%2Fpreview.noter.md%2Fnoter.js&installation=preview-installation&openedByCli',
     )
   })
 

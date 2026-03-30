@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // source-url: https://noter.md/noter.js
+// source-version: b4567b019333
 // The file you run is the installer source. Preview or local deploys can ship
 // their own hosted copy without teaching users a separate targeting flag.
 
@@ -55,6 +56,16 @@ export function validateSourceUrl(value) {
       `The installer source URL must point to ${NOTER_SYNC_SCRIPT_PATHNAME}.`,
     );
   }
+  if (
+    sourceUrl.username.length > 0 ||
+    sourceUrl.password.length > 0 ||
+    sourceUrl.search.length > 0 ||
+    sourceUrl.hash.length > 0
+  ) {
+    throw new Error(
+      "The installer source URL must not include credentials, query params, or hashes.",
+    );
+  }
   return sourceUrl;
 }
 
@@ -97,7 +108,7 @@ export function buildMachineConnectUrl(args) {
   const machineConnectUrl = new URL(MACHINE_CONNECT_ROUTE, args.sourceUrl);
   machineConnectUrl.searchParams.set("source", args.sourceUrl);
   machineConnectUrl.searchParams.set("installation", args.installationId);
-  machineConnectUrl.searchParams.set("openedByCli", "1");
+  machineConnectUrl.search = `${machineConnectUrl.searchParams.toString()}&openedByCli`;
   return machineConnectUrl.toString();
 }
 
@@ -149,23 +160,38 @@ export function openBrowser(url) {
         ? { command: "cmd", args: ["/c", "start", "", url] }
         : { command: "xdg-open", args: [url] };
 
-  const child = spawn(openerCommand.command, openerCommand.args, {
-    detached: true,
-    stdio: "ignore",
+  return new Promise((resolve, reject) => {
+    const child = spawn(openerCommand.command, openerCommand.args, {
+      detached: true,
+      stdio: "ignore",
+    });
+    const handleError = (error) => {
+      reject(
+        new Error(
+          `Could not open a browser automatically with ${openerCommand.command}: ${error.message}`,
+        ),
+      );
+    };
+    child.once("error", handleError);
+    child.once("spawn", () => {
+      child.off("error", handleError);
+      child.unref();
+      resolve();
+    });
   });
-  child.unref();
 }
 
 export function formatHelpText() {
-  return [
-    "Usage:",
-    "  noter-sync connect",
-    "",
-    "Examples:",
-    "  npx @noter-md/sync connect",
-    "  node ./noter.js connect",
-    "  curl -fsSL https://noter.md/noter.js | node --input-type=module - connect",
-  ].join("\n");
+  return `Usage:
+  noter-sync connect
+
+Examples:
+  # published package path (after publish)
+  npx @noter-md/sync connect
+  # local file
+  node ./noter.js connect
+  # direct hosted file today
+  curl -fsSL https://noter.md/noter.js | node --input-type=module - connect`;
 }
 
 /**
@@ -212,7 +238,7 @@ export async function main(argv) {
   );
 
   try {
-    openBrowser(machineConnectUrl);
+    await openBrowser(machineConnectUrl);
     console.log("opened machine connect page in your browser");
   } catch (error) {
     console.warn(

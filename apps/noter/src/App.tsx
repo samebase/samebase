@@ -6,6 +6,7 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "@/lib/codexAppServerResearch";
+import { MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -532,7 +533,7 @@ export default function App() {
                 <Routes>
                   <Route path="/" element={<VaultDashboard />} />
                   <Route
-                    path="/machines/connect"
+                    path={MACHINE_CONNECT_ROUTE}
                     element={<MachineConnectPage />}
                   />
                   <Route path="/pricing" element={<PricingPage />} />
