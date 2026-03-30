@@ -54,18 +54,6 @@ export function FileViewDeveloperToolsVisualFixture({
   const emptySidebarContent = (
     <div aria-hidden="true" className="min-h-0 flex-1 bg-background" />
   );
-  const repositoryWorkspaceSidebarProps =
-    FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
-      ? {
-          leftSidebarHeader: sidebarHeader,
-          leftSidebarContent: sidebarContent,
-          rightSidebarContent: <div className="min-h-0 flex-1 bg-background" />,
-        }
-      : {
-          leftSidebarHeader: sidebarHeader,
-          leftSidebarContent: emptySidebarContent,
-          rightSidebarContent: sidebarContent,
-        };
 
   return (
     <SidebarProvider
@@ -82,7 +70,20 @@ export function FileViewDeveloperToolsVisualFixture({
         }
         onQuickOpen={() => {}}
         contentClassName="flex-1 min-h-0 p-0"
-        {...repositoryWorkspaceSidebarProps}
+        leftSidebarHeader={sidebarHeader}
+        leftSidebarContent={
+          FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
+            ? sidebarContent
+            : emptySidebarContent
+        }
+        rightSidebarHeader={null}
+        rightSidebarContent={
+          FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? (
+            sidebarContent
+          ) : (
+            <div className="min-h-0 flex-1 bg-background" />
+          )
+        }
       >
         <div className="flex h-full min-h-0 flex-col">
           <div className="max-w-none flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4">

@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const MOBILE_SCROLL_SETTLE_DELAY_MS = 140;
 const MOBILE_MAIN_SCRIM_MAX_OPACITY = 0.16;
 const MOBILE_MAIN_SCRIM_INTERACTION_THRESHOLD = 0.01;
+type SidebarSlot = Exclude<React.ReactNode, undefined>;
 
 type WorkspaceSidebarShellProps = {
   bodyClassName?: string;
@@ -19,13 +20,15 @@ type WorkspaceSidebarShellProps = {
   dataTestId?: string;
   headerContent: React.ReactNode;
   headerTestId?: string;
-  leftSidebarContent?: React.ReactNode;
+  // Callers must always pass explicit slot values so shell layout is driven by
+  // deliberate nullability instead of omitted props.
+  leftSidebarContent: SidebarSlot;
   leftSidebarContentTestId?: string;
-  leftSidebarHeader?: React.ReactNode;
+  leftSidebarHeader: SidebarSlot;
   leftSidebarHeaderTestId?: string;
-  rightSidebarContent?: React.ReactNode;
+  rightSidebarContent: SidebarSlot;
   rightSidebarContentTestId?: string;
-  rightSidebarHeader?: React.ReactNode;
+  rightSidebarHeader: SidebarSlot;
   rightSidebarHeaderTestId?: string;
 };
 
@@ -139,15 +142,11 @@ export function WorkspaceSidebarShell({
     rightDesktopOpen,
     setMobilePane,
   } = useSidebar();
-  const hasLeftSidebarHeader =
-    leftSidebarHeader !== undefined && leftSidebarHeader !== null;
-  const hasLeftSidebarContent =
-    leftSidebarContent !== undefined && leftSidebarContent !== null;
+  const hasLeftSidebarHeader = leftSidebarHeader !== null;
+  const hasLeftSidebarContent = leftSidebarContent !== null;
   const hasLeftSidebar = hasLeftSidebarHeader || hasLeftSidebarContent;
-  const hasRightSidebarHeader =
-    rightSidebarHeader !== undefined && rightSidebarHeader !== null;
-  const hasRightSidebarContent =
-    rightSidebarContent !== undefined && rightSidebarContent !== null;
+  const hasRightSidebarHeader = rightSidebarHeader !== null;
+  const hasRightSidebarContent = rightSidebarContent !== null;
   const hasRightSidebar = hasRightSidebarHeader || hasRightSidebarContent;
   const hasAnySidebar = hasLeftSidebar || hasRightSidebar;
   const mobileScrollRef = React.useRef<HTMLDivElement | null>(null);

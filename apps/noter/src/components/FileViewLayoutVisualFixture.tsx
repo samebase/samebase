@@ -84,30 +84,6 @@ export function FileViewLayoutVisualFixture({
       data-testid="fileview-layout-left-sidebar-body"
     />
   );
-  const repositoryWorkspaceSidebarProps =
-    FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
-      ? {
-          leftSidebarHeader: sidebarHeader,
-          leftSidebarContent: sidebarContent,
-          rightSidebarContent: (
-            <div
-              data-testid="fileview-layout-right-sidebar-body"
-              className="min-h-0 flex-1 bg-background"
-            />
-          ),
-        }
-      : {
-          leftSidebarHeader: sidebarHeader,
-          leftSidebarContent: emptySidebarContent,
-          rightSidebarContent: (
-            <div
-              data-testid="fileview-layout-right-sidebar-body"
-              className="flex min-h-0 flex-1 flex-col bg-muted/10"
-            >
-              {sidebarContent}
-            </div>
-          ),
-        };
 
   return (
     <SidebarProvider
@@ -125,7 +101,28 @@ export function FileViewLayoutVisualFixture({
         }
         onQuickOpen={() => {}}
         contentClassName="flex-1 min-h-0 p-0"
-        {...repositoryWorkspaceSidebarProps}
+        leftSidebarHeader={sidebarHeader}
+        leftSidebarContent={
+          FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
+            ? sidebarContent
+            : emptySidebarContent
+        }
+        rightSidebarHeader={null}
+        rightSidebarContent={
+          FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? (
+            <div
+              data-testid="fileview-layout-right-sidebar-body"
+              className="flex min-h-0 flex-1 flex-col bg-muted/10"
+            >
+              {sidebarContent}
+            </div>
+          ) : (
+            <div
+              data-testid="fileview-layout-right-sidebar-body"
+              className="min-h-0 flex-1 bg-background"
+            />
+          )
+        }
       >
         <div
           data-testid="fileview-layout-body"

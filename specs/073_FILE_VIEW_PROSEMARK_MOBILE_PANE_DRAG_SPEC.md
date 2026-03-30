@@ -92,6 +92,8 @@ Relevant implementation points:
 - `RepositoryWorkspaceFrame` renders both left and right sidebar triggers.
 - `FileView` can mount both sidebars at once: the left rail keeps account header
   chrome, while the file tree content can live in the right rail.
+- Sidebar header/content slots are passed explicitly with `null` for empty
+  zones, so layout presence is decided by content instead of omitted props.
 - Sidebar columns keep distinct header and content rows even when one zone is
   visually empty, so the shell still paints the same 1px header/content divider
   across all workspace columns.

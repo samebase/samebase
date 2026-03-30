@@ -2,6 +2,8 @@ import { type CSSProperties, type ReactNode } from "react";
 import { WorkspaceSidebarShell } from "@/components/WorkspaceSidebarShell";
 import { cn } from "@/lib/utils";
 
+type SidebarSlot = Exclude<ReactNode, undefined>;
+
 export function DashboardWorkspaceLayout({
   leftSidebarHeader,
   leftSidebarContent,
@@ -13,10 +15,10 @@ export function DashboardWorkspaceLayout({
   bodyClassName,
   bodyStyle,
 }: {
-  leftSidebarHeader?: ReactNode;
-  leftSidebarContent?: ReactNode;
-  rightSidebarHeader?: ReactNode;
-  rightSidebarContent?: ReactNode;
+  leftSidebarHeader: SidebarSlot;
+  leftSidebarContent: SidebarSlot;
+  rightSidebarHeader: SidebarSlot;
+  rightSidebarContent: SidebarSlot;
   headerContent: ReactNode;
   children: ReactNode;
   dataTestId?: string;

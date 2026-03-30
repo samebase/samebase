@@ -3012,19 +3012,6 @@ function FileViewInner({
   const emptySidebarContent = (
     <div aria-hidden="true" className="min-h-0 flex-1 bg-background" />
   );
-  const repositoryWorkspaceSidebarProps =
-    FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
-      ? {
-          leftSidebarHeader: sidebarHeader,
-          leftSidebarContent: sidebarContent,
-        }
-      : {
-          // Keep the account chrome on the left while the tree itself lives on
-          // the right.
-          leftSidebarHeader: sidebarHeader,
-          leftSidebarContent: emptySidebarContent,
-          rightSidebarContent: sidebarContent,
-        };
 
   return (
     <>
@@ -3032,7 +3019,18 @@ function FileViewInner({
         headerTitle={headerTitle}
         onQuickOpen={() => setIsCommandPaletteOpen(true)}
         contentClassName="flex-1 min-h-0 p-0"
-        {...repositoryWorkspaceSidebarProps}
+        leftSidebarHeader={sidebarHeader}
+        leftSidebarContent={
+          FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
+            ? sidebarContent
+            : emptySidebarContent
+        }
+        rightSidebarHeader={null}
+        rightSidebarContent={
+          FILE_VIEW_TREE_SIDEBAR_SIDE === "right"
+            ? sidebarContent
+            : emptySidebarContent
+        }
       >
         <div className="flex h-full min-h-0 flex-col">
           <div

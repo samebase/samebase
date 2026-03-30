@@ -2,14 +2,16 @@ import { type CSSProperties, type ReactNode } from "react";
 import { DashboardWorkspaceLayout } from "@/components/DashboardWorkspaceLayout";
 import { cn } from "@/lib/utils";
 
+type SidebarSlot = Exclude<ReactNode, undefined>;
+
 export type VaultDashboardWorkspaceSceneViewModel = {
   dataTestId?: string;
   headerContent: ReactNode;
-  leftSidebarContent?: ReactNode;
-  leftSidebarHeader?: ReactNode;
+  leftSidebarContent: SidebarSlot;
+  leftSidebarHeader: SidebarSlot;
   overlayContent?: ReactNode;
-  rightSidebarContent?: ReactNode;
-  rightSidebarHeader?: ReactNode;
+  rightSidebarContent: SidebarSlot;
+  rightSidebarHeader: SidebarSlot;
   workspaceBody: ReactNode;
   workspacePaneClassName?: string;
   workspaceScrollClassName?: string;

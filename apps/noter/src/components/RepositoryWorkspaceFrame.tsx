@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/sidebar";
 import { cn } from "@/lib/utils";
 
+type SidebarSlot = Exclude<ReactNode, undefined>;
+
 export function RepositoryWorkspaceFrame({
   leftSidebarHeader,
   leftSidebarContent,
@@ -18,10 +20,10 @@ export function RepositoryWorkspaceFrame({
   headerTestId,
   contentClassName,
 }: {
-  leftSidebarHeader?: ReactNode;
-  leftSidebarContent?: ReactNode;
-  rightSidebarHeader?: ReactNode;
-  rightSidebarContent?: ReactNode;
+  leftSidebarHeader: SidebarSlot;
+  leftSidebarContent: SidebarSlot;
+  rightSidebarHeader: SidebarSlot;
+  rightSidebarContent: SidebarSlot;
   headerTitle?: ReactNode;
   headerRight?: ReactNode;
   onQuickOpen?: () => void;
@@ -31,9 +33,9 @@ export function RepositoryWorkspaceFrame({
   contentClassName?: string;
 }) {
   const hasLeftSidebar =
-    leftSidebarHeader !== undefined || leftSidebarContent !== undefined;
+    leftSidebarHeader !== null || leftSidebarContent !== null;
   const hasRightSidebar =
-    rightSidebarHeader !== undefined || rightSidebarContent !== undefined;
+    rightSidebarHeader !== null || rightSidebarContent !== null;
 
   return (
     <WorkspaceSidebarShell
