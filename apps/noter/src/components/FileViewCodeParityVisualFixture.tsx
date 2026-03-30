@@ -64,6 +64,7 @@ type ParityForegroundBoundsMetrics = {
     bounds: ParityForegroundBounds;
     label: string;
   };
+  captureScale: number;
   deltaX: number;
   deltaY: number;
   expected: {
@@ -119,6 +120,7 @@ function isParityForegroundBoundsMetrics(
   const expected = Reflect.get(value, "expected");
 
   return (
+    typeof Reflect.get(value, "captureScale") === "number" &&
     typeof Reflect.get(value, "deltaX") === "number" &&
     typeof Reflect.get(value, "deltaY") === "number" &&
     typeof actual === "object" &&
@@ -673,17 +675,23 @@ export function FileViewCodeParityVisualFixture({
                         : `Foreground bounds delta: x ${boundsMetrics.deltaX}px, y ${boundsMetrics.deltaY}px`}
                   </div>
                   <div className="text-xs text-muted-foreground">
+                    {boundsMetricsState === "ready" && boundsMetrics
+                      ? `Recorded from ${boundsMetrics.captureScale}x source-resolution captures before this preview zoom.`
+                      : "Recorded source resolution pending"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
                     These bounds ignore the shell border and focus on the first
                     non-background editor pixels, so use them for placement. The
                     pixel diff below still includes rasterization and
                     syntax-color noise, but the color strength now reflects how
                     large each mismatch is.
                   </div>
-                  <div className="min-h-0 flex-1 overflow-auto border bg-white">
+                  <div className="flex min-h-0 flex-1 items-start justify-center overflow-auto border bg-white p-4">
                     <img
                       alt="Latest recorded parity pixel diff"
                       src={parityDiffPreviewUrl ?? parityDiffUrl}
-                      className="block h-full w-full object-contain"
+                      className="block max-w-none"
+                      style={{ imageRendering: "pixelated" }}
                     />
                   </div>
                 </div>

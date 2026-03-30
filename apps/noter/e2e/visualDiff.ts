@@ -4,6 +4,10 @@ import { expect, type Locator, type TestInfo } from "@playwright/test";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 
+type StableScreenshotOptions = {
+  scale?: "css" | "device";
+};
+
 type ScreenshotDiffParams = {
   actual: Buffer;
   expected: Buffer;
@@ -259,8 +263,14 @@ function buildDirectionalMaskDiffPng(args: {
   };
 }
 
-export async function takeStableScreenshot(locator: Locator): Promise<Buffer> {
-  return locator.screenshot(STABLE_SCREENSHOT_OPTIONS);
+export async function takeStableScreenshot(
+  locator: Locator,
+  options?: StableScreenshotOptions,
+): Promise<Buffer> {
+  return locator.screenshot({
+    ...STABLE_SCREENSHOT_OPTIONS,
+    scale: options?.scale ?? STABLE_SCREENSHOT_OPTIONS.scale,
+  });
 }
 
 export async function expectScreenshotsToMatch({

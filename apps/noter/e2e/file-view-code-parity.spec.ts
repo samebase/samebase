@@ -11,6 +11,7 @@ test.use({ serviceWorkers: "block" });
 test.setTimeout(90_000);
 
 const MAX_CODE_EDITOR_DIFF_PIXEL_RATIO = 0.018;
+const PARITY_CAPTURE_DEVICE_SCALE_FACTOR = 2;
 const PARITY_DIFF_COLOR_MONACO = [255, 59, 48] as const;
 const PARITY_DIFF_COLOR_PROSEMARK = [0, 122, 255] as const;
 const PARITY_PIXEL_DIFF_OUTPUT_PATH = fileURLToPath(
@@ -25,6 +26,8 @@ const PARITY_METRICS_OUTPUT_PATH = fileURLToPath(
     import.meta.url,
   ),
 );
+
+test.use({ deviceScaleFactor: PARITY_CAPTURE_DEVICE_SCALE_FACTOR });
 
 async function waitForStableFonts(page: Page) {
   await page.evaluate(async () => {
@@ -55,6 +58,44 @@ async function waitForParityEditors(page: Page) {
     },
   );
   await waitForStableFonts(page);
+}
+
+function scaleForegroundBoundsMetricsToCssPixels(
+  metrics: ReturnType<typeof measureScreenshotForegroundBoundsDelta>,
+) {
+  if (!metrics) {
+    return null;
+  }
+
+  const scale = PARITY_CAPTURE_DEVICE_SCALE_FACTOR;
+
+  return {
+    actual: {
+      bounds: {
+        height: metrics.actual.bounds.height / scale,
+        maxX: metrics.actual.bounds.maxX / scale,
+        maxY: metrics.actual.bounds.maxY / scale,
+        minX: metrics.actual.bounds.minX / scale,
+        minY: metrics.actual.bounds.minY / scale,
+        width: metrics.actual.bounds.width / scale,
+      },
+      label: metrics.actual.label,
+    },
+    captureScale: scale,
+    deltaX: metrics.deltaX / scale,
+    deltaY: metrics.deltaY / scale,
+    expected: {
+      bounds: {
+        height: metrics.expected.bounds.height / scale,
+        maxX: metrics.expected.bounds.maxX / scale,
+        maxY: metrics.expected.bounds.maxY / scale,
+        minX: metrics.expected.bounds.minX / scale,
+        minY: metrics.expected.bounds.minY / scale,
+        width: metrics.expected.bounds.width / scale,
+      },
+      label: metrics.expected.label,
+    },
+  };
 }
 
 test("file view code parity fixture keeps ProseMark close to Monaco", async ({
@@ -88,14 +129,20 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   await expect(diffSurface).toBeVisible();
   await waitForParityEditors(page);
 
-  const monacoScreenshot = await takeStableScreenshot(monacoCapture);
-  const prosemarkScreenshot = await takeStableScreenshot(prosemarkCapture);
-  const foregroundBoundsDelta = measureScreenshotForegroundBoundsDelta({
-    actual: prosemarkScreenshot,
-    actualLabel: "ProseMark",
-    expected: monacoScreenshot,
-    expectedLabel: "Monaco",
+  const monacoScreenshot = await takeStableScreenshot(monacoCapture, {
+    scale: "device",
   });
+  const prosemarkScreenshot = await takeStableScreenshot(prosemarkCapture, {
+    scale: "device",
+  });
+  const foregroundBoundsDelta = scaleForegroundBoundsMetricsToCssPixels(
+    measureScreenshotForegroundBoundsDelta({
+      actual: prosemarkScreenshot,
+      actualLabel: "ProseMark",
+      expected: monacoScreenshot,
+      expectedLabel: "Monaco",
+    }),
+  );
 
   await writeFile(
     PARITY_METRICS_OUTPUT_PATH,
