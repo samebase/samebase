@@ -108,7 +108,22 @@ export function useProsemarkMobilePaneDrag(
           clearDragState();
           return false;
         }
+      }
 
+      const deltaX = clientX - dragState.lastX;
+      dragState.lastX = clientX;
+      if (deltaX === 0) {
+        return false;
+      }
+
+      // Keep the gesture pending until the shell actually moves so blocked
+      // swipes at a carousel edge can still fall back to normal editor input.
+      const didMoveShell = dragMobileShellBy(deltaX);
+      if (!didMoveShell) {
+        return false;
+      }
+
+      if (dragState.type === "pending") {
         dragState.type = "shell";
         if (
           dragState.source === "pointer" &&
@@ -119,13 +134,6 @@ export function useProsemarkMobilePaneDrag(
         }
       }
 
-      const deltaX = clientX - dragState.lastX;
-      dragState.lastX = clientX;
-      if (deltaX === 0) {
-        return true;
-      }
-
-      dragMobileShellBy(deltaX);
       return true;
     },
     [clearDragState, dragMobileShellBy],
@@ -134,6 +142,9 @@ export function useProsemarkMobilePaneDrag(
   const handlePointerDownCapture = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (!isEnabled || !isMainPaneActive || !event.isPrimary) {
+        return;
+      }
+      if (event.pointerType !== "mouse" && event.pointerType !== "touch") {
         return;
       }
       if (event.pointerType === "mouse" && event.button !== 0) {

@@ -299,12 +299,12 @@ export function WorkspaceSidebarShell({
   const dragMobileShellBy = React.useCallback(
     (pointerDeltaX: number) => {
       if (!isMobile || !hasAnySidebar || !isMobileLayoutMeasured) {
-        return;
+        return false;
       }
 
       const scrollNode = mobileScrollRef.current;
       if (!scrollNode) {
-        return;
+        return false;
       }
 
       const maxScrollLeft = getMobilePaneScrollLeft(
@@ -320,7 +320,7 @@ export function WorkspaceSidebarShell({
       );
 
       if (Math.abs(nextScrollLeft - scrollNode.scrollLeft) <= 0.5) {
-        return;
+        return false;
       }
 
       clearPendingMobileDragSnapRestore();
@@ -358,7 +358,7 @@ export function WorkspaceSidebarShell({
             ),
           );
         });
-        return;
+        return true;
       }
 
       pendingMobileDragScrollLeftRef.current = null;
@@ -371,6 +371,7 @@ export function WorkspaceSidebarShell({
           rightSidebarWidthPx,
         ),
       );
+      return true;
     },
     [
       hasAnySidebar,

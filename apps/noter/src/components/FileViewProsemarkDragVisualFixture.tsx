@@ -17,23 +17,20 @@ const EDITOR_OPTIONS = {
 
 const BASE_DOCUMENT = `# header 1 text
 
-Mobile pane dragging should still feel attached to the workspace even when the pointer starts inside ProseMark.
-
-- preserve taps
-- preserve vertical scrolling
-- keep the shell as the source of truth
+- keep taps local
+- keep scroll vertical
+- let the shell drive panes
+- keep prose lines wrapped
 `;
 
 const NEXT_DOCUMENT = `# header 1 text
 
-Mobile pane dragging should still feel attached to the workspace even when the pointer starts inside ProseMark.
-
-Dragging horizontally from anywhere in the main pane should move the shared left/main/right shell instead of getting stuck inside the editor surface.
-
-- preserve taps
-- preserve vertical scrolling
-- support the left sidebar
-- support the right sidebar
+- keep taps local
+- keep scroll vertical
+- drag right for files
+- drag left for review
+- let the shell drive panes
+- keep prose lines wrapped
 `;
 
 export function FileViewProsemarkDragVisualFixture({

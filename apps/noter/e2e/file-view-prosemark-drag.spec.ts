@@ -6,17 +6,27 @@ test.use({
 });
 
 async function gotoEditableFixture(page: Page) {
+  await gotoFixture(page, "fileview-prosemark-drag-editable");
+}
+
+async function gotoReadOnlyFixture(page: Page) {
+  await gotoFixture(page, "fileview-prosemark-drag-read-only");
+}
+
+async function gotoFixture(
+  page: Page,
+  mode:
+    | "fileview-prosemark-drag-editable"
+    | "fileview-prosemark-drag-read-only",
+) {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(
-    "/visual-fixture.html?mode=fileview-prosemark-drag-editable",
-    {
-      waitUntil: "domcontentloaded",
-    },
-  );
+  await page.goto(`/visual-fixture.html?mode=${mode}`, {
+    waitUntil: "domcontentloaded",
+  });
   await page.waitForLoadState("networkidle");
 }
 
-async function dragEditableProsemarkSurfaceRight(page: Page) {
+async function dragProsemarkSurfaceRight(page: Page) {
   const surface = page
     .getByTestId("fileview-prosemark-drag-surface")
     .locator('div[style*="touch-action"]');
@@ -97,7 +107,18 @@ test("editable ProseMark drag can open the left pane", async ({ page }) => {
   const shell = page.getByTestId("fileview-prosemark-drag-shell");
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 
-  await dragEditableProsemarkSurfaceRight(page);
+  await dragProsemarkSurfaceRight(page);
+
+  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
+});
+
+test("read-only ProseMark drag can open the left pane", async ({ page }) => {
+  await gotoReadOnlyFixture(page);
+
+  const shell = page.getByTestId("fileview-prosemark-drag-shell");
+  await expect(shell).toHaveAttribute("data-mobile-pane", "main");
+
+  await dragProsemarkSurfaceRight(page);
 
   await expect(shell).toHaveAttribute("data-mobile-pane", "left");
 });

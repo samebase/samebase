@@ -134,7 +134,7 @@ function TestHarness({
   settleMobileShell,
 }: {
   enabled?: boolean;
-  dragMobileShellBy: (deltaX: number) => void;
+  dragMobileShellBy: (deltaX: number) => boolean;
   isAvailable?: boolean;
   isMainPaneActive?: boolean;
   settleMobileShell: () => void;
@@ -171,7 +171,7 @@ describe("useProsemarkMobilePaneDrag", () => {
   });
 
   it("delegates horizontal touch pointer drags into the workspace shell", () => {
-    const dragMobileShellBy = vi.fn();
+    const dragMobileShellBy = vi.fn(() => true);
     const settleMobileShell = vi.fn();
     Reflect.set(globalThis, "PointerEvent", Event);
 
@@ -231,7 +231,7 @@ describe("useProsemarkMobilePaneDrag", () => {
   });
 
   it("leaves vertical touch pointer gestures to the editor surface", () => {
-    const dragMobileShellBy = vi.fn();
+    const dragMobileShellBy = vi.fn(() => true);
     const settleMobileShell = vi.fn();
     Reflect.set(globalThis, "PointerEvent", Event);
 
@@ -284,7 +284,7 @@ describe("useProsemarkMobilePaneDrag", () => {
   });
 
   it("falls back to legacy touch events when Pointer Events are unavailable", () => {
-    const dragMobileShellBy = vi.fn();
+    const dragMobileShellBy = vi.fn(() => true);
     const settleMobileShell = vi.fn();
     Reflect.deleteProperty(globalThis, "PointerEvent");
 
@@ -330,7 +330,7 @@ describe("useProsemarkMobilePaneDrag", () => {
   });
 
   it("handles mixed touch sequences that start with pointerdown and continue with touchmove", () => {
-    const dragMobileShellBy = vi.fn();
+    const dragMobileShellBy = vi.fn(() => true);
     const settleMobileShell = vi.fn();
     Reflect.set(globalThis, "PointerEvent", Event);
 
@@ -379,5 +379,111 @@ describe("useProsemarkMobilePaneDrag", () => {
 
     expect(dragMobileShellBy).toHaveBeenCalledWith(45);
     expect(settleMobileShell).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps blocked horizontal drags on the editor surface when the shell cannot move", () => {
+    const dragMobileShellBy = vi.fn(() => false);
+    const settleMobileShell = vi.fn();
+    Reflect.set(globalThis, "PointerEvent", Event);
+
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+    const mountedRoot = root;
+
+    act(() => {
+      mountedRoot.render(
+        <TestHarness
+          dragMobileShellBy={dragMobileShellBy}
+          settleMobileShell={settleMobileShell}
+        />,
+      );
+    });
+
+    const host = rootElement.querySelector<HTMLElement>(
+      '[data-testid="mobile-pane-drag-host"]',
+    );
+    expect(host).not.toBeNull();
+    if (host === null) {
+      return;
+    }
+    installPointerCaptureMocks(host);
+
+    act(() => {
+      dispatchPointerEvent(host, "pointerdown", {
+        clientX: 100,
+        clientY: 120,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+      dispatchPointerEvent(host, "pointermove", {
+        clientX: 145,
+        clientY: 122,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+      dispatchPointerEvent(host, "pointerup", {
+        clientX: 145,
+        clientY: 122,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+    });
+
+    expect(dragMobileShellBy).toHaveBeenCalledWith(45);
+    expect(settleMobileShell).not.toHaveBeenCalled();
+  });
+
+  it("ignores pen pointers so stylus input stays with the editor", () => {
+    const dragMobileShellBy = vi.fn(() => true);
+    const settleMobileShell = vi.fn();
+    Reflect.set(globalThis, "PointerEvent", Event);
+
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+    const mountedRoot = root;
+
+    act(() => {
+      mountedRoot.render(
+        <TestHarness
+          dragMobileShellBy={dragMobileShellBy}
+          settleMobileShell={settleMobileShell}
+        />,
+      );
+    });
+
+    const host = rootElement.querySelector<HTMLElement>(
+      '[data-testid="mobile-pane-drag-host"]',
+    );
+    expect(host).not.toBeNull();
+    if (host === null) {
+      return;
+    }
+    installPointerCaptureMocks(host);
+
+    act(() => {
+      dispatchPointerEvent(host, "pointerdown", {
+        clientX: 100,
+        clientY: 120,
+        pointerId: 1,
+        pointerType: "pen",
+      });
+      dispatchPointerEvent(host, "pointermove", {
+        clientX: 150,
+        clientY: 122,
+        pointerId: 1,
+        pointerType: "pen",
+      });
+      dispatchPointerEvent(host, "pointerup", {
+        clientX: 150,
+        clientY: 122,
+        pointerId: 1,
+        pointerType: "pen",
+      });
+    });
+
+    expect(dragMobileShellBy).not.toHaveBeenCalled();
+    expect(settleMobileShell).not.toHaveBeenCalled();
   });
 });
