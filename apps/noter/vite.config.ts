@@ -179,29 +179,29 @@ function readNoterConnectConvexSiteUrl(): string {
     return configuredSiteUrl;
   }
 
-  const configuredConvexUrl = process.env.VITE_CONVEX_URL?.trim();
+  const configuredViteSiteUrl = process.env.VITE_CONVEX_SITE_URL?.trim();
   if (
-    configuredConvexUrl &&
-    (configuredConvexUrl.startsWith("https://") ||
-      configuredConvexUrl.startsWith("http://"))
+    configuredViteSiteUrl &&
+    (configuredViteSiteUrl.startsWith("https://") ||
+      configuredViteSiteUrl.startsWith("http://"))
   ) {
-    return configuredConvexUrl;
+    return configuredViteSiteUrl;
   }
 
-  const localEnvConvexUrl = readEnvFileValue(
+  const localEnvSiteUrl = readEnvFileValue(
     daytonaLocalEnvPath,
-    "VITE_CONVEX_URL",
+    "VITE_CONVEX_SITE_URL",
   );
   if (
-    localEnvConvexUrl &&
-    (localEnvConvexUrl.startsWith("https://") ||
-      localEnvConvexUrl.startsWith("http://"))
+    localEnvSiteUrl &&
+    (localEnvSiteUrl.startsWith("https://") ||
+      localEnvSiteUrl.startsWith("http://"))
   ) {
-    return localEnvConvexUrl;
+    return localEnvSiteUrl;
   }
 
   throw new Error(
-    "Missing CONVEX_SITE_URL or an absolute VITE_CONVEX_URL for noter-connect.json.",
+    "Missing CONVEX_SITE_URL or an absolute VITE_CONVEX_SITE_URL for noter-connect.json.",
   );
 }
 
