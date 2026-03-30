@@ -191,6 +191,58 @@ const prosemarkDarkSelectionTheme = EditorView.theme(
 
 export const prosemarkDarkTheme = [oneDark, prosemarkDarkSelectionTheme];
 
+const prosemarkCodeSurfaceTypographyTheme = EditorView.theme({
+  ".cm-editor, .cm-content, .cm-scroller": {
+    fontFamily:
+      "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace",
+    fontSize: "0.875rem",
+    lineHeight: "1.6",
+  },
+});
+
+const prosemarkVsCodeLightTheme = EditorView.theme({
+  ".cm-content": {
+    "--pm-syntax-link": "#0451a5",
+    "--pm-syntax-keyword": "#0000ff",
+    "--pm-syntax-atom": "#098658",
+    "--pm-syntax-literal": "#098658",
+    "--pm-syntax-string": "#a31515",
+    "--pm-syntax-regexp": "#811f3f",
+    "--pm-syntax-definition-variable": "#795e26",
+    "--pm-syntax-local-variable": "#001080",
+    "--pm-syntax-type-namespace": "#267f99",
+    "--pm-syntax-class-name": "#267f99",
+    "--pm-syntax-special-variable-macro": "#af00db",
+    "--pm-syntax-definition-property": "#001080",
+    "--pm-syntax-comment": "#008000",
+    "--pm-syntax-invalid": "#cd3131",
+    color: "#1f1f1f",
+  },
+});
+
+const prosemarkVsCodeDarkTheme = EditorView.theme(
+  {
+    ".cm-content": {
+      "--pm-syntax-link": "#4fc1ff",
+      "--pm-syntax-keyword": "#569cd6",
+      "--pm-syntax-atom": "#b5cea8",
+      "--pm-syntax-literal": "#b5cea8",
+      "--pm-syntax-string": "#ce9178",
+      "--pm-syntax-regexp": "#d16969",
+      "--pm-syntax-definition-variable": "#dcdcaa",
+      "--pm-syntax-local-variable": "#9cdcfe",
+      "--pm-syntax-type-namespace": "#4ec9b0",
+      "--pm-syntax-class-name": "#4ec9b0",
+      "--pm-syntax-special-variable-macro": "#c586c0",
+      "--pm-syntax-definition-property": "#9cdcfe",
+      "--pm-syntax-comment": "#6a9955",
+      "--pm-syntax-invalid": "#f44747",
+      color: "#d4d4d4",
+    },
+  },
+  { dark: true },
+);
+
 export const prosemarkHiddenCursorTheme = EditorView.theme({
   ".cm-cursor": {
     display: "none",
@@ -210,3 +262,18 @@ export const prosemarkLandingCopyDarkSelectionTheme = EditorView.theme(
   },
   { dark: true },
 );
+
+export function getProsemarkFileThemeExtensions(args: {
+  isDark: boolean;
+  languageKind: "markdown" | "code" | "plain";
+}) {
+  if (args.languageKind === "markdown") {
+    return args.isDark ? prosemarkDarkTheme : [];
+  }
+
+  return [
+    prosemarkCodeSurfaceTypographyTheme,
+    args.isDark ? prosemarkVsCodeDarkTheme : prosemarkVsCodeLightTheme,
+    ...(args.isDark ? [prosemarkDarkSelectionTheme] : []),
+  ];
+}

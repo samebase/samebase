@@ -2074,6 +2074,7 @@ function FileViewInner({
         </div>
         <ProsemarkReadOnly
           value={beforeValue}
+          filePath={selectedFile}
           highlightedLineNumbers={inlinePreviewSplitDiffHighlights.oldLines}
           lineHighlightTone="remove"
           mobilePaneDragEnabled
@@ -2086,6 +2087,7 @@ function FileViewInner({
         </div>
         <ProsemarkReadOnly
           value={afterValue}
+          filePath={selectedFile}
           highlightedLineNumbers={inlinePreviewSplitDiffHighlights.newLines}
           lineHighlightTone="add"
           mobilePaneDragEnabled
@@ -3370,6 +3372,7 @@ function FileViewInner({
                                         key={`${selectedFile}:${activePreviewStagingId ?? "inline"}`}
                                         value={inlinePreviewEditorContent}
                                         baseValue={selectedPreviewBaseContent}
+                                        filePath={selectedFile}
                                         options={inlinePreviewOptions}
                                         editable={inlinePreviewEditable}
                                         mobilePaneDragEnabled
@@ -3435,6 +3438,7 @@ function FileViewInner({
                         key={`${selectedFile}:compare`}
                         value={selectedComparedFile?.richNewContent ?? ""}
                         baseValue={selectedComparedFile?.richOldContent ?? ""}
+                        filePath={selectedFile}
                         options={inlinePreviewOptions}
                         editable={false}
                         mobilePaneDragEnabled

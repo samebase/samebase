@@ -208,6 +208,7 @@ export function FileViewCompareVisualFixture({
                         </div>
                         <ProsemarkReadOnly
                           value={COMPARE_TEXT_BASE}
+                          filePath="src/lib/reviewDiffControls.ts"
                           highlightedLineNumbers={splitDiffHighlights.oldLines}
                           lineHighlightTone="remove"
                           className="text-sm leading-6"
@@ -219,6 +220,7 @@ export function FileViewCompareVisualFixture({
                         </div>
                         <ProsemarkReadOnly
                           value={COMPARE_TEXT_NEXT}
+                          filePath="src/lib/reviewDiffControls.ts"
                           highlightedLineNumbers={splitDiffHighlights.newLines}
                           lineHighlightTone="add"
                           className="text-sm leading-6"

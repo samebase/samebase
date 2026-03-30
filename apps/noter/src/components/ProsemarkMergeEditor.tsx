@@ -11,15 +11,8 @@ import {
   dropCursor,
   rectangularSelection,
 } from "@codemirror/view";
-import { markdown } from "@codemirror/lang-markdown";
-import { languages } from "@codemirror/language-data";
-import { GFM } from "@lezer/markdown";
 import { unifiedMergeView } from "@codemirror/merge";
-import {
-  prosemarkBaseThemeSetup,
-  prosemarkBasicSetup,
-  prosemarkMarkdownSyntaxExtensions,
-} from "@prosemark/core";
+import { prosemarkBaseThemeSetup, prosemarkBasicSetup } from "@prosemark/core";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import {
@@ -31,11 +24,17 @@ import {
   blurOnOutsidePointerDownExtension,
   collapseSelectionOnBlurExtension,
   findInitialSafeSelectionAnchor,
-  prosemarkDarkTheme,
+  getProsemarkFileThemeExtensions,
   prosemarkHiddenCursorTheme,
   prosemarkSurfaceTheme,
 } from "@/components/prosemarkSurface";
 import { useProsemarkMobilePaneDrag } from "@/components/useProsemarkMobilePaneDrag";
+import {
+  getCodeMirrorFileLanguageKind,
+  getInitialCodeMirrorLanguageExtension,
+  loadCodeMirrorLanguageExtension,
+  type CodeMirrorFileLanguageKind,
+} from "@/lib/codemirrorLanguage";
 
 export type ProsemarkMergeEditorOptions = {
   allowInlineDiffs: boolean;
@@ -47,6 +46,7 @@ type ProsemarkMergeEditorProps = {
   baseValue: string;
   className?: string;
   editable?: boolean;
+  filePath?: string;
   mobilePaneDragEnabled?: boolean;
   options: ProsemarkMergeEditorOptions;
   onChange?: (value: string) => void;
@@ -120,6 +120,7 @@ export function ProsemarkMergeEditor({
   baseValue,
   className,
   editable = false,
+  filePath,
   mobilePaneDragEnabled = false,
   options,
   onChange,
@@ -138,7 +139,12 @@ export function ProsemarkMergeEditor({
   const lastValueRef = useRef(value);
   const lastBaseValueRef = useRef(baseValue);
   const lastThemeIsDarkRef = useRef(isDark);
+  const filePathRef = useRef(filePath);
   const lastOptionsRef = useRef<ProsemarkMergeEditorOptions>(options);
+  const languageKindRef = useRef<CodeMirrorFileLanguageKind>(
+    getCodeMirrorFileLanguageKind(filePath),
+  );
+  const languageCompartmentRef = useRef(new Compartment());
   const editableRef = useRef(editable);
   const themeCompartmentRef = useRef(new Compartment());
   const interactionCompartmentRef = useRef(new Compartment());
@@ -177,6 +183,11 @@ export function ProsemarkMergeEditor({
   }, [isDark]);
 
   useEffect(() => {
+    filePathRef.current = filePath;
+    languageKindRef.current = getCodeMirrorFileLanguageKind(filePath);
+  }, [filePath]);
+
+  useEffect(() => {
     lastOptionsRef.current = options;
   }, [options]);
 
@@ -197,10 +208,9 @@ export function ProsemarkMergeEditor({
         findInitialSafeSelectionAnchor(lastValueRef.current),
       ),
       extensions: [
-        markdown({
-          codeLanguages: languages,
-          extensions: [GFM, prosemarkMarkdownSyntaxExtensions],
-        }),
+        languageCompartmentRef.current.of(
+          getInitialCodeMirrorLanguageExtension(filePathRef.current),
+        ),
         EditorView.lineWrapping,
         prosemarkBasicSetup(),
         prosemarkBaseThemeSetup(),
@@ -233,7 +243,10 @@ export function ProsemarkMergeEditor({
           onChangeRef.current?.(lastValueRef.current);
         }),
         themeCompartmentRef.current.of(
-          lastThemeIsDarkRef.current ? prosemarkDarkTheme : [],
+          getProsemarkFileThemeExtensions({
+            isDark: lastThemeIsDarkRef.current,
+            languageKind: languageKindRef.current,
+          }),
         ),
       ],
     });
@@ -257,10 +270,49 @@ export function ProsemarkMergeEditor({
     if (!view) return;
     view.dispatch({
       effects: themeCompartmentRef.current.reconfigure(
-        isDark ? prosemarkDarkTheme : [],
+        getProsemarkFileThemeExtensions({
+          isDark,
+          languageKind: languageKindRef.current,
+        }),
       ),
     });
   }, [isDark]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    const nextLanguageKind = getCodeMirrorFileLanguageKind(filePath);
+    languageKindRef.current = nextLanguageKind;
+
+    view.dispatch({
+      effects: themeCompartmentRef.current.reconfigure(
+        getProsemarkFileThemeExtensions({
+          isDark,
+          languageKind: nextLanguageKind,
+        }),
+      ),
+    });
+
+    let isCurrent = true;
+
+    // Merge view keeps one editor instance alive, so reconfigure the parser in
+    // place once the filename-based language loader resolves.
+    void loadCodeMirrorLanguageExtension(filePath).then((languageExtension) => {
+      if (!isCurrent || !viewRef.current) {
+        return;
+      }
+
+      viewRef.current.dispatch({
+        effects: languageCompartmentRef.current.reconfigure(languageExtension),
+      });
+      resizeToContent();
+    });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [filePath, isDark, resizeToContent]);
 
   useEffect(() => {
     const view = viewRef.current;
