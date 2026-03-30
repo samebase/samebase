@@ -486,4 +486,57 @@ describe("useProsemarkMobilePaneDrag", () => {
     expect(dragMobileShellBy).not.toHaveBeenCalled();
     expect(settleMobileShell).not.toHaveBeenCalled();
   });
+
+  it("ignores mouse pointers so drag selection stays with the editor", () => {
+    const dragMobileShellBy = vi.fn(() => true);
+    const settleMobileShell = vi.fn();
+    Reflect.set(globalThis, "PointerEvent", Event);
+
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+    const mountedRoot = root;
+
+    act(() => {
+      mountedRoot.render(
+        <TestHarness
+          dragMobileShellBy={dragMobileShellBy}
+          settleMobileShell={settleMobileShell}
+        />,
+      );
+    });
+
+    const host = rootElement.querySelector<HTMLElement>(
+      '[data-testid="mobile-pane-drag-host"]',
+    );
+    expect(host).not.toBeNull();
+    if (host === null) {
+      return;
+    }
+    installPointerCaptureMocks(host);
+
+    act(() => {
+      dispatchPointerEvent(host, "pointerdown", {
+        clientX: 100,
+        clientY: 120,
+        pointerId: 1,
+        pointerType: "mouse",
+      });
+      dispatchPointerEvent(host, "pointermove", {
+        clientX: 150,
+        clientY: 122,
+        pointerId: 1,
+        pointerType: "mouse",
+      });
+      dispatchPointerEvent(host, "pointerup", {
+        clientX: 150,
+        clientY: 122,
+        pointerId: 1,
+        pointerType: "mouse",
+      });
+    });
+
+    expect(dragMobileShellBy).not.toHaveBeenCalled();
+    expect(settleMobileShell).not.toHaveBeenCalled();
+  });
 });

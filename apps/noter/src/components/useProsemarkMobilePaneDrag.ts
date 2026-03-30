@@ -144,10 +144,7 @@ export function useProsemarkMobilePaneDrag(
       if (!isEnabled || !isMainPaneActive || !event.isPrimary) {
         return;
       }
-      if (event.pointerType !== "mouse" && event.pointerType !== "touch") {
-        return;
-      }
-      if (event.pointerType === "mouse" && event.button !== 0) {
+      if (event.pointerType !== "touch") {
         return;
       }
       dragStateRef.current = {
