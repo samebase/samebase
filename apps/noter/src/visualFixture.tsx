@@ -73,6 +73,10 @@ import {
   type CodexThreadBrowserVisualMode,
 } from "@/components/CodexThreadBrowserVisualFixture";
 import {
+  CodexAppServerResearchVisualFixture,
+  type CodexAppServerResearchVisualMode,
+} from "@/components/CodexAppServerResearchVisualFixture";
+import {
   CodexThreadHistoryVisualFixture,
   type CodexThreadHistoryVisualMode,
 } from "@/components/CodexThreadHistoryVisualFixture";
@@ -121,6 +125,7 @@ type VisualFixtureMode =
   | VaultDashboardVisualMode
   | VaultBranchPreviewVisualMode
   | VaultSyncStatusVisualMode
+  | CodexAppServerResearchVisualMode
   | CodexThreadBrowserVisualMode
   | CodexThreadHistoryVisualMode
   | "machine-connect"
@@ -243,6 +248,7 @@ const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
 ] as const satisfies readonly FileViewMonacoDragVisualMode[];
 
 const MISC_VISUAL_MODES = [
+  "codex-app-server-research",
   "codex-thread-browser",
   "codex-thread-history",
   "machine-connect",
@@ -468,6 +474,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "codex-thread-history") {
     return <CodexThreadHistoryVisualFixture mode={mode} />;
+  }
+
+  if (mode === "codex-app-server-research") {
+    return <CodexAppServerResearchVisualFixture mode={mode} />;
   }
 
   if (mode === "codex-thread-browser") {
