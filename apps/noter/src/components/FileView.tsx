@@ -14,7 +14,10 @@ import { Label } from "@/components/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
 import { FileViewPushActions } from "@/components/FileViewPushActions";
 import { ChangedFilesLoadingState } from "@/components/ChangedFilesLoadingState";
-import { FileViewDeveloperTools } from "@/components/FileViewDeveloperTools";
+import {
+  FileViewDeveloperTools,
+  type FileViewEditorOverride,
+} from "@/components/FileViewDeveloperTools";
 
 import { GitHubLogoIcon, PlusIcon, FilePlusIcon } from "@radix-ui/react-icons";
 import { SidebarProvider } from "@/components/sidebar";
@@ -838,6 +841,8 @@ function FileViewInner({
   const [showInlinePreviewSideBySide, setShowInlinePreviewSideBySide] =
     useState(DEFAULT_SHOW_INLINE_PREVIEW_SIDE_BY_SIDE);
   const [developerToolsOpen, setDeveloperToolsOpen] = useState(false);
+  const [editorOverride, setEditorOverride] =
+    useState<FileViewEditorOverride>("default");
   const [inlinePreviewSaveError, setInlinePreviewSaveError] = useState<
     string | null
   >(null);
@@ -2997,6 +3002,11 @@ function FileViewInner({
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
     : undefined;
   const developerToolsVisible = viewMode === "graph" || developerToolsOpen;
+  const showEditorOverrideControl =
+    viewMode === "editor" &&
+    commitReviewMode === "editor" &&
+    !selectedFileIsRenderableMedia &&
+    Boolean(stagedFile);
   const showCompareBackToEditor = shouldShowCompareBackToEditor({
     commitReviewMode,
     isCompareRequested,
@@ -3165,6 +3175,12 @@ function FileViewInner({
                   }}
                   viewMode={viewMode}
                   onViewModeChange={setViewMode}
+                  editorOverride={
+                    showEditorOverrideControl ? editorOverride : undefined
+                  }
+                  onEditorOverrideChange={
+                    showEditorOverrideControl ? setEditorOverride : undefined
+                  }
                 >
                   {!DAYTONA_PAUSED ? (
                     <>
@@ -3416,6 +3432,7 @@ function FileViewInner({
                     tree={vault.treeData.tree}
                     treeSHA={vault.treeSHA}
                     showMobileLineNumbers={showMobileEditorLineNumbers}
+                    editorOverride={editorOverride}
                   />
                 ) : isCompareRequested &&
                   selectedComparedFileCanRenderInline ? (

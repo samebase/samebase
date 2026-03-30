@@ -235,6 +235,7 @@ const FILE_VIEW_COMPARE_VISUAL_MODES = [
 
 const FILE_VIEW_DEVELOPER_TOOLS_VISUAL_MODES = [
   "file-view-developer-tools-collapsed",
+  "file-view-developer-tools-codemirror",
   "file-view-developer-tools-graph",
 ] as const satisfies readonly FileViewDeveloperToolsVisualMode[];
 
@@ -451,6 +452,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (
     mode === "file-view-developer-tools-collapsed" ||
+    mode === "file-view-developer-tools-codemirror" ||
     mode === "file-view-developer-tools-graph"
   ) {
     return <FileViewDeveloperToolsVisualFixture mode={mode} />;

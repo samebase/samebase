@@ -2,9 +2,8 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
 /* eslint-disable prefer-const */
 import { useRef, useEffect, useState } from "react";
-import { ChangeSet, EditorState } from "@codemirror/state";
+import { ChangeSet, Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "codemirror";
-import { languages } from "@codemirror/language-data";
 // Note: closeBrackets functionality requires @codemirror/autocomplete package
 // which is not installed in this project
 import {
@@ -28,7 +27,6 @@ import {
   ViewPlugin,
   ViewUpdate,
 } from "@codemirror/view";
-import { markdown } from "@codemirror/lang-markdown";
 import { useTheme } from "next-themes";
 import {
   collab,
@@ -39,20 +37,20 @@ import {
 } from "@codemirror/collab";
 import { client } from "@/main";
 import { api } from "../../convex/_generated/api";
-import { GFM } from "@lezer/markdown";
-import {
-  prosemarkBaseThemeSetup,
-  prosemarkBasicSetup,
-  prosemarkMarkdownSyntaxExtensions,
-} from "@prosemark/core";
+import { prosemarkBaseThemeSetup, prosemarkBasicSetup } from "@prosemark/core";
 import { printTree } from "@lezer-unofficial/printer";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
-import { prosemarkDarkTheme } from "@/components/prosemarkSurface";
+import { getProsemarkFileThemeExtensions } from "@/components/prosemarkSurface";
 import { Id } from "../../convex/_generated/dataModel";
 import { type GithubTreeType } from "convex/schema";
 import { MonacoEditor } from "./MonacoEditor";
 import { useProsemarkMobilePaneDrag } from "@/components/useProsemarkMobilePaneDrag";
+import {
+  getCodeMirrorFileLanguageKind,
+  getInitialCodeMirrorLanguageExtension,
+  loadCodeMirrorLanguageExtension,
+} from "@/lib/codemirrorLanguage";
 
 // Temporary:
 // const tempVaultId = "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"vaults">;
@@ -287,11 +285,19 @@ const customBasicSetup = [
 ];
 // Prose files: use ProseMark/CodeMirror. Everything else: Monaco.
 const PROSE_EXTENSIONS = new Set(["md", "mdx", "mdc", "txt", "markdown"]);
+type CodeEditorOverride = "default" | "codemirror";
 
 function isProseFile(filePath: string): boolean {
   const ext = filePath.split(".").pop()?.toLowerCase();
   // Default to prose if no extension (or unknown)
   return !ext || PROSE_EXTENSIONS.has(ext);
+}
+
+function shouldUseCodeMirrorEditor(args: {
+  filePath: string;
+  editorOverride: CodeEditorOverride;
+}) {
+  return args.editorOverride === "codemirror" || isProseFile(args.filePath);
 }
 
 export function CodeEditorWrapper({
@@ -303,6 +309,7 @@ export function CodeEditorWrapper({
   tree,
   treeSHA,
   showMobileLineNumbers = false,
+  editorOverride = "default",
 }: {
   repositoryFullName: string;
   branch: string;
@@ -314,8 +321,9 @@ export function CodeEditorWrapper({
   tree: GithubTreeType[];
   treeSHA: string;
   showMobileLineNumbers?: boolean;
+  editorOverride?: CodeEditorOverride;
 }) {
-  if (isProseFile(filePath)) {
+  if (shouldUseCodeMirrorEditor({ filePath, editorOverride })) {
     return (
       <CodeEditor
         key={`${repositoryFullName}-${branch}-${filePath}`}
@@ -353,10 +361,10 @@ export function CodeEditor({
   branch: string;
   filePath: string;
 }) {
-  const fileName = filePath.split("/").pop();
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const pendingLanguageLoadRef = useRef<symbol | null>(null);
   const pullRef = useRef<
     ((updates: readonly Update[], version: number) => void) | null
   >(null);
@@ -391,17 +399,18 @@ export function CodeEditor({
   }, [updates]);
 
   useEffect(() => {
-    let cancelled = false;
     let editor: EditorView | null = null;
+    const languageLoadKey = Symbol("code-editor-language-load");
+    const languageCompartment = new Compartment();
+    const themeCompartment = new Compartment();
 
     const func = async () => {
       if (!editorRef.current) return;
 
-      if (cancelled) return;
-
       // Determine if we should use dark theme
       const effectiveTheme = theme === "system" ? systemTheme : theme;
       const isDark = effectiveTheme === "dark";
+      const languageKind = getCodeMirrorFileLanguageKind(filePath);
 
       // editor = createProseMarkEditor({
       //   content: firstDoc.content,
@@ -416,13 +425,12 @@ export function CodeEditor({
 
       const extensions = [
         ...customBasicSetup,
-        markdown({
-          codeLanguages: languages,
-          extensions: [GFM, prosemarkMarkdownSyntaxExtensions],
-        }),
-        EditorView.lineWrapping,
+        languageCompartment.of(getInitialCodeMirrorLanguageExtension(filePath)),
         prosemarkBasicSetup(),
         prosemarkBaseThemeSetup(),
+        themeCompartment.of(
+          getProsemarkFileThemeExtensions({ isDark, languageKind }),
+        ),
         peerExtension({
           startVersion: firstDoc.version,
           repositoryFullName,
@@ -449,11 +457,6 @@ export function CodeEditor({
         ]),
       ];
 
-      // Add dark theme if requested
-      if (isDark) {
-        extensions.push(...prosemarkDarkTheme);
-      }
-
       editor = new EditorView({
         extensions,
         doc: firstDoc.content,
@@ -461,20 +464,32 @@ export function CodeEditor({
       });
 
       viewRef.current = editor;
+      pendingLanguageLoadRef.current = languageLoadKey;
 
-      (window as any).editor = editor;
+      Reflect.set(window, "editor", editor);
+
+      const languageExtension = await loadCodeMirrorLanguageExtension(filePath);
+      if (pendingLanguageLoadRef.current !== languageLoadKey) {
+        return;
+      }
+
+      editor.dispatch({
+        effects: languageCompartment.reconfigure(languageExtension),
+      });
     };
 
     func();
     // Cleanup function
     return () => {
       console.log("Cleaning up editor");
-      cancelled = true;
+      if (pendingLanguageLoadRef.current === languageLoadKey) {
+        pendingLanguageLoadRef.current = null;
+      }
       editor?.destroy();
       viewRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fileName, theme, systemTheme]); // Re-create editor when theme or filename changes (value intentionally excluded to prevent recreation on every keystroke)
+  }, [filePath, theme, systemTheme]); // Re-create editor when the file path or theme changes (value intentionally excluded to prevent recreation on every keystroke)
 
   useEffect(() => {
     setSyncError(null);

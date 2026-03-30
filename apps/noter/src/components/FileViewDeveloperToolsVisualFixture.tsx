@@ -2,6 +2,7 @@ import { PersonIcon } from "@radix-ui/react-icons";
 import { Button } from "@/components/ui/button";
 import {
   FileViewDeveloperTools,
+  type FileViewEditorOverride,
   type FileViewMode,
 } from "@/components/FileViewDeveloperTools";
 import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
@@ -11,6 +12,7 @@ import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
 
 export type FileViewDeveloperToolsVisualMode =
   | "file-view-developer-tools-collapsed"
+  | "file-view-developer-tools-codemirror"
   | "file-view-developer-tools-graph";
 
 function getFixtureViewMode(
@@ -19,12 +21,28 @@ function getFixtureViewMode(
   return mode === "file-view-developer-tools-graph" ? "graph" : "editor";
 }
 
+function getFixtureDeveloperToolsOpen(
+  mode: FileViewDeveloperToolsVisualMode,
+): boolean {
+  return mode !== "file-view-developer-tools-collapsed";
+}
+
+function getFixtureEditorOverride(
+  mode: FileViewDeveloperToolsVisualMode,
+): FileViewEditorOverride | undefined {
+  return mode === "file-view-developer-tools-codemirror"
+    ? "codemirror"
+    : undefined;
+}
+
 export function FileViewDeveloperToolsVisualFixture({
   mode,
 }: {
   mode: FileViewDeveloperToolsVisualMode;
 }) {
   const viewMode = getFixtureViewMode(mode);
+  const developerToolsOpen = getFixtureDeveloperToolsOpen(mode);
+  const editorOverride = getFixtureEditorOverride(mode);
   const showEditorActions = viewMode === "editor";
   const sidebarHeader = (
     <SidebarAccountSection>
@@ -129,10 +147,12 @@ export function FileViewDeveloperToolsVisualFixture({
                   </Button>
                 </div>
                 <FileViewDeveloperTools
-                  open={viewMode === "graph"}
+                  open={developerToolsOpen}
                   onOpenChange={() => {}}
                   viewMode={viewMode}
                   onViewModeChange={() => {}}
+                  editorOverride={editorOverride}
+                  onEditorOverrideChange={() => {}}
                 >
                   {null}
                 </FileViewDeveloperTools>
