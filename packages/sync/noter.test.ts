@@ -106,7 +106,10 @@ describe('@noter-md/sync', () => {
     expect(formatHelpText()).toContain('npx @noter-md/sync connect')
     expect(formatHelpText()).toContain('node ./noter.js connect')
     expect(formatHelpText()).toContain(
-      "curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
+      "curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect",
+    )
+    expect(formatHelpText()).toContain(
+      `SCRIPT_URL='https://preview.noter.md/noter.js'; curl -fsSL "$SCRIPT_URL" | node --input-type=module - connect "$SCRIPT_URL"`,
     )
   })
 

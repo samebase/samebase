@@ -113,13 +113,13 @@ This is the current first-user and iteration path.
 Shape:
 
 ```bash
-curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
+curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect
 ```
 
 Preview or local iteration uses the same shape with a different origin:
 
 ```bash
-curl -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'
+SCRIPT_URL='https://preview.noter.md/noter.js'; curl -fsSL "$SCRIPT_URL" | node --input-type=module - connect "$SCRIPT_URL"
 ```
 
 Why this is the right first step:
@@ -169,7 +169,8 @@ Rules:
 2. each preview deploy serves its own `https://<preview>/noter.js`
 3. local dev can serve `http://127.0.0.1:5174/noter.js`
 4. the hosted file should stay byte-for-byte identical to the package entrypoint
-5. preview or local targeting should come from the direct command itself, not
+5. production direct execution should rely on the built-in default source URL
+6. preview or local targeting should come from the direct command itself, not
    from mutating the file contents per deploy
 
 This keeps the audit story simpler:
@@ -177,7 +178,8 @@ This keeps the audit story simpler:
 1. a user can inspect one canonical script shape
 2. Codex or another reviewer does not need to reason about a separately stamped
    hosted variant
-3. preview and worktree targeting stays explicit in the direct shell command
+3. preview and worktree targeting stays explicit only when the operator opts
+   into the override form
 
 ## MVP Trust And Provenance
 
@@ -332,6 +334,10 @@ Rules:
 4. the operator can iterate on prod, preview, or local worktrees without
    republishing npm, but only one source URL is active in the local config at a
    time
+
+For now, the machine-connect UI may continue to show the explicit-URL form even
+though production users can use the shorter default command. That is only a UI
+copy choice, not a different runtime model.
 
 This keeps the iteration story strong without forcing multi-install complexity
 into the MVP.

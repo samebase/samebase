@@ -209,8 +209,10 @@ Examples:
   npx @noter-md/sync connect
   # local file
   node ./noter.js connect
-  # direct hosted file today
-  curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`
+  # direct hosted file in production
+  curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect
+  # preview or local explicit override
+  SCRIPT_URL='https://preview.noter.md/noter.js'; curl -fsSL "$SCRIPT_URL" | node --input-type=module - connect "$SCRIPT_URL"`
 }
 
 /**

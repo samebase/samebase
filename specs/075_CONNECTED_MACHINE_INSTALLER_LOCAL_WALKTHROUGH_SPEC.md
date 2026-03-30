@@ -97,6 +97,15 @@ Expected result:
 1. no output
 2. exit code `0`
 
+For production, the shorter direct hosted-file command is:
+
+```bash
+curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect
+```
+
+The explicit source-URL form below is still the right one for local and preview
+testing.
+
 ## 4. Run The Direct Local Bootstrap
 
 Use the local hosted file directly:
