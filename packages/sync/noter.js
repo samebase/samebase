@@ -468,7 +468,7 @@ export function openBrowser(url) {
 }
 
 function buildDirectRunCommand(sourceUrl) {
-  return `SCRIPT_URL='${sourceUrl}'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - run`
+  return `curl -fsSL '${sourceUrl}' | node --input-type=module - run`
 }
 
 export function formatHelpText() {
@@ -484,10 +484,10 @@ Examples:
   node ./noter.js connect
   node ./noter.js run
   # direct hosted file in production
-  SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - connect
-  SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - run
+  curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
+  curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run
   # preview or local explicit override
-  SCRIPT_URL='https://preview.noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - connect "$SCRIPT_URL"`
+  curl -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'`
 }
 
 /**

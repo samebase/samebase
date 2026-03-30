@@ -139,13 +139,13 @@ describe('@noter-md/sync', () => {
     expect(formatHelpText()).toContain('node ./noter.js connect')
     expect(formatHelpText()).toContain('node ./noter.js run')
     expect(formatHelpText()).toContain(
-      `SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - connect`,
+      `curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
     )
     expect(formatHelpText()).toContain(
-      `SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - run`,
+      `curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
     )
     expect(formatHelpText()).toContain(
-      `SCRIPT_URL='https://preview.noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - connect "$SCRIPT_URL"`,
+      `curl -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'`,
     )
   })
 
@@ -176,7 +176,7 @@ describe('@noter-md/sync', () => {
         machineConnectUrl:
           'https://noter.md/machines/connect?openedByCli&requestId=request_123',
         machineId: 'machine_123',
-        runCommand: `SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - run`,
+        runCommand: `curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
         sourceUrl: 'https://noter.md/noter.js',
       }),
     ).toBe(`# noter sync bootstrap ready
@@ -186,6 +186,6 @@ describe('@noter-md/sync', () => {
 - machine: machine_123
 - state: /Users/noter/.noter/config.json
 - next: https://noter.md/machines/connect?openedByCli&requestId=request_123
-- run: SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - run`)
+- run: curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`)
   })
 })

@@ -100,7 +100,7 @@ Expected result:
 For production, the direct hosted-file command is:
 
 ```bash
-SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\n' "$SCRIPT_CONTENT" | node --input-type=module - connect
+curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
 ```
 
 The explicit source-URL form below is still the right one for local and preview
@@ -111,7 +111,7 @@ testing.
 Use the local hosted file directly:
 
 ```bash
-SCRIPT_URL='http://127.0.0.1:5174/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\n' "$SCRIPT_CONTENT" | node --input-type=module - connect "$SCRIPT_URL"
+curl -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - connect 'http://127.0.0.1:5174/noter.js'
 ```
 
 What this currently does:

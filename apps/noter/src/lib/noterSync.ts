@@ -19,12 +19,12 @@ export function buildPublishedNoterSyncRunCommand(): string {
 
 export function buildDirectNoterSyncConnectCommand(scriptUrl: string): string {
   const quotedScriptUrl = quoteShellArg(scriptUrl);
-  return `SCRIPT_URL=${quotedScriptUrl}; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - connect "$SCRIPT_URL"`;
+  return `curl -fsSL ${quotedScriptUrl} | node --input-type=module - connect ${quotedScriptUrl}`;
 }
 
 export function buildDirectNoterSyncRunCommand(scriptUrl: string): string {
   const quotedScriptUrl = quoteShellArg(scriptUrl);
-  return `SCRIPT_URL=${quotedScriptUrl}; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - run`;
+  return `curl -fsSL ${quotedScriptUrl} | node --input-type=module - run`;
 }
 
 export function readMachineConnectBootstrapSearch(search: string): {

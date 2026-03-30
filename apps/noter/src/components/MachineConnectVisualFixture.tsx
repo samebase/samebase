@@ -16,8 +16,8 @@ export function MachineConnectVisualFixture() {
             status: "online",
           },
         ]}
-        directConnectCommand={`SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - connect "$SCRIPT_URL"`}
-        directRunCommand={`SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - run`}
+        directConnectCommand={`curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`}
+        directRunCommand={`curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`}
         isApproving={false}
         openedByCli
         packageConnectCommand="npx @noter-md/sync connect"

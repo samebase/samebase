@@ -30,13 +30,13 @@ describe("noterSync", () => {
     expect(
       buildDirectNoterSyncConnectCommand("https://noter.md/noter.js"),
     ).toBe(
-      `SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - connect "$SCRIPT_URL"`,
+      `curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
     );
   });
 
   it("builds the direct hosted-file run command", () => {
     expect(buildDirectNoterSyncRunCommand("https://noter.md/noter.js")).toBe(
-      `SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - run`,
+      `curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
     );
   });
 

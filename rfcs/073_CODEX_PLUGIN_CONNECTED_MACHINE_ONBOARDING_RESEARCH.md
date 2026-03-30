@@ -114,13 +114,13 @@ This is the current first-user and iteration path.
 Shape:
 
 ```bash
-SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\n' "$SCRIPT_CONTENT" | node --input-type=module - connect
+curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
 ```
 
 Preview or local iteration uses the same shape with a different origin:
 
 ```bash
-SCRIPT_URL='https://preview.noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\n' "$SCRIPT_CONTENT" | node --input-type=module - connect "$SCRIPT_URL"
+curl -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'
 ```
 
 Why this is the right first step:
