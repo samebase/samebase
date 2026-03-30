@@ -1,15 +1,13 @@
-import { expect, test, type Page } from "@playwright/test";
+import { devices, expect, test, type Page } from "@playwright/test";
 
 test.use({
-  hasTouch: true,
-  isMobile: true,
+  ...devices["Pixel 7"],
 });
 
 async function gotoFileViewFixture(
   page: Page,
   options?: { swipeDebug?: boolean },
 ) {
-  await page.setViewportSize({ width: 390, height: 844 });
   const debugQuery = options?.swipeDebug ? "&swipe-debug" : "";
   await page.goto(
     `/visual-fixture.html?mode=fileview-layout-persistence${debugQuery}`,
@@ -20,12 +18,18 @@ async function gotoFileViewFixture(
   await page.waitForLoadState("networkidle");
 }
 
-/**
- * Use one realistic touch sequence to fling from the open left sidebar toward
- * the right sidebar. The finger travels about 66% of a 390px-wide viewport
- * over 180ms, which is a strong flick but still well within human touch input.
- */
-async function swipeFromLeftSidebarToRightSidebar(page: Page) {
+async function dispatchHumanTouchSwipe(
+  page: Page,
+  args: {
+    startX: number;
+    startY: number;
+    steps: ReadonlyArray<{
+      delayMs: number;
+      xOffset: number;
+      yOffset: number;
+    }>;
+  },
+) {
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
   const bounds = await fixture.boundingBox();
 
@@ -34,16 +38,14 @@ async function swipeFromLeftSidebarToRightSidebar(page: Page) {
     return;
   }
 
-  const startX = bounds.x + 282;
-  const startY = bounds.y + 220;
   const session = await page.context().newCDPSession(page);
   const touchPoint = {
     force: 1,
     id: 1,
     radiusX: 4,
     radiusY: 4,
-    x: startX,
-    y: startY,
+    x: bounds.x + args.startX,
+    y: bounds.y + args.startY,
   };
 
   await session.send("Input.dispatchTouchEvent", {
@@ -51,23 +53,34 @@ async function swipeFromLeftSidebarToRightSidebar(page: Page) {
     touchPoints: [touchPoint],
   });
 
-  for (const step of [
-    { delayMs: 35, xOffset: -44, yOffset: 2 },
-    { delayMs: 45, xOffset: -128, yOffset: 4 },
-    { delayMs: 50, xOffset: -208, yOffset: 5 },
-    { delayMs: 50, xOffset: -258, yOffset: 6 },
-  ]) {
+  for (const step of args.steps) {
+    const rawX = bounds.x + args.startX + step.xOffset;
+    const rawY = bounds.y + args.startY + step.yOffset;
+    const clampedX = Math.min(
+      Math.max(rawX, bounds.x),
+      bounds.x + bounds.width,
+    );
+    const clampedY = Math.min(
+      Math.max(rawY, bounds.y),
+      bounds.y + bounds.height,
+    );
+    const reachedBounds = clampedX !== rawX || clampedY !== rawY;
+
     await page.waitForTimeout(step.delayMs);
     await session.send("Input.dispatchTouchEvent", {
       type: "touchMove",
       touchPoints: [
         {
           ...touchPoint,
-          x: startX + step.xOffset,
-          y: startY + step.yOffset,
+          x: clampedX,
+          y: clampedY,
         },
       ],
     });
+
+    if (reachedBounds) {
+      break;
+    }
   }
 
   await session.send("Input.dispatchTouchEvent", {
@@ -77,58 +90,38 @@ async function swipeFromLeftSidebarToRightSidebar(page: Page) {
 }
 
 /**
+ * Use one realistic touch sequence to fling from the open left sidebar toward
+ * the right sidebar. The finger travels about 66% of a 390px-wide viewport
+ * over 180ms, which is a strong flick but still well within human touch input.
+ */
+async function swipeFromLeftSidebarToRightSidebar(page: Page) {
+  await dispatchHumanTouchSwipe(page, {
+    startX: 282,
+    startY: 220,
+    steps: [
+      { delayMs: 35, xOffset: -44, yOffset: 2 },
+      { delayMs: 45, xOffset: -128, yOffset: 4 },
+      { delayMs: 50, xOffset: -208, yOffset: 5 },
+      { delayMs: 50, xOffset: -258, yOffset: 6 },
+    ],
+  });
+}
+
+/**
  * Use a shorter, lighter swipe from the main pane to the left sidebar. This is
  * about 44% of the viewport over 240ms, so it should be easier than the direct
  * left-to-right cross-swipe above.
  */
 async function swipeFromMainToLeftSidebar(page: Page) {
-  const fixture = page.getByTestId("fileview-layout-visual-fixture");
-  const bounds = await fixture.boundingBox();
-
-  expect(bounds).not.toBeNull();
-  if (bounds === null) {
-    return;
-  }
-
-  const startX = bounds.x + 150;
-  const startY = bounds.y + 220;
-  const session = await page.context().newCDPSession(page);
-  const touchPoint = {
-    force: 1,
-    id: 1,
-    radiusX: 4,
-    radiusY: 4,
-    x: startX,
-    y: startY,
-  };
-
-  await session.send("Input.dispatchTouchEvent", {
-    type: "touchStart",
-    touchPoints: [touchPoint],
-  });
-
-  for (const step of [
-    { delayMs: 50, xOffset: 28, yOffset: 2 },
-    { delayMs: 60, xOffset: 74, yOffset: 4 },
-    { delayMs: 60, xOffset: 126, yOffset: 5 },
-    { delayMs: 70, xOffset: 174, yOffset: 6 },
-  ]) {
-    await page.waitForTimeout(step.delayMs);
-    await session.send("Input.dispatchTouchEvent", {
-      type: "touchMove",
-      touchPoints: [
-        {
-          ...touchPoint,
-          x: startX + step.xOffset,
-          y: startY + step.yOffset,
-        },
-      ],
-    });
-  }
-
-  await session.send("Input.dispatchTouchEvent", {
-    type: "touchEnd",
-    touchPoints: [],
+  await dispatchHumanTouchSwipe(page, {
+    startX: 150,
+    startY: 220,
+    steps: [
+      { delayMs: 50, xOffset: 28, yOffset: 2 },
+      { delayMs: 60, xOffset: 74, yOffset: 4 },
+      { delayMs: 60, xOffset: 126, yOffset: 5 },
+      { delayMs: 70, xOffset: 174, yOffset: 6 },
+    ],
   });
 }
 

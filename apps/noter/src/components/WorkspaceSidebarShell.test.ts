@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { getSettledMobilePane } from "@/lib/workspaceSidebar";
+import {
+  getSettledMobilePane,
+  MOBILE_CROSS_SWIPE_TRAVEL_THRESHOLD_RATIO,
+  MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS,
+} from "@/lib/workspaceSidebar";
+
+const SIDEBAR_WIDTH_PX = 280;
+const MAIN_SCROLL_LEFT_PX = SIDEBAR_WIDTH_PX;
+const CROSS_SWIPE_REQUIRED_TRAVEL_PX =
+  SIDEBAR_WIDTH_PX * MOBILE_CROSS_SWIPE_TRAVEL_THRESHOLD_RATIO;
+const JUST_BELOW_THRESHOLD_DELTA = 0.01;
 
 describe("getSettledMobilePane", () => {
   it("keeps a left-originated swipe on main when it finishes nearest to main", () => {
@@ -55,5 +65,79 @@ describe("getSettledMobilePane", () => {
     expect(getSettledMobilePane("main", 430, true, 280, true, 280)).toBe(
       "right",
     );
+  });
+
+  it("keeps mirrored just-below-threshold cross swipes on main from either sidebar", () => {
+    expect(
+      getSettledMobilePane(
+        "left",
+        MAIN_SCROLL_LEFT_PX,
+        true,
+        SIDEBAR_WIDTH_PX,
+        true,
+        SIDEBAR_WIDTH_PX,
+        {
+          releaseFingerVelocityXPxPerMs: -(
+            MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS + 0.01
+          ),
+          startPane: "left",
+          totalFingerDeltaXPx: -(
+            CROSS_SWIPE_REQUIRED_TRAVEL_PX - JUST_BELOW_THRESHOLD_DELTA
+          ),
+        },
+      ),
+    ).toBe("main");
+    expect(
+      getSettledMobilePane(
+        "right",
+        MAIN_SCROLL_LEFT_PX,
+        true,
+        SIDEBAR_WIDTH_PX,
+        true,
+        SIDEBAR_WIDTH_PX,
+        {
+          releaseFingerVelocityXPxPerMs:
+            MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS + 0.01,
+          startPane: "right",
+          totalFingerDeltaXPx:
+            CROSS_SWIPE_REQUIRED_TRAVEL_PX - JUST_BELOW_THRESHOLD_DELTA,
+        },
+      ),
+    ).toBe("main");
+  });
+
+  it("promotes mirrored at-threshold cross swipes from either sidebar", () => {
+    expect(
+      getSettledMobilePane(
+        "left",
+        MAIN_SCROLL_LEFT_PX,
+        true,
+        SIDEBAR_WIDTH_PX,
+        true,
+        SIDEBAR_WIDTH_PX,
+        {
+          releaseFingerVelocityXPxPerMs:
+            -MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS,
+          startPane: "left",
+          totalFingerDeltaXPx: -CROSS_SWIPE_REQUIRED_TRAVEL_PX,
+        },
+      ),
+    ).toBe("right");
+    expect(
+      getSettledMobilePane(
+        "right",
+        MAIN_SCROLL_LEFT_PX,
+        true,
+        SIDEBAR_WIDTH_PX,
+        true,
+        SIDEBAR_WIDTH_PX,
+        {
+          releaseFingerVelocityXPxPerMs:
+            MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS,
+          startPane: "right",
+          totalFingerDeltaXPx: CROSS_SWIPE_REQUIRED_TRAVEL_PX,
+        },
+      ),
+    ).toBe("left");
   });
 });
