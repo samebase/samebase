@@ -3,6 +3,7 @@ import { WorkspaceMobilePaneDragProvider } from "@/components/workspaceMobilePan
 import { useSidebar } from "@/hooks/use-sidebar";
 import {
   getMobilePaneScrollLeft,
+  type MobilePaneReleaseGesture,
   getSettledMobilePane,
 } from "@/lib/workspaceSidebar";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,8 @@ const MOBILE_SCROLL_SETTLE_DELAY_MS = 140;
 const MOBILE_MAIN_SCRIM_MAX_OPACITY = 0.16;
 const MOBILE_MAIN_SCRIM_INTERACTION_THRESHOLD = 0.01;
 type SidebarSlot = Exclude<React.ReactNode, undefined>;
+const MOBILE_RELEASE_VELOCITY_WINDOW_MS = 80;
+const MOBILE_RELEASE_VELOCITY_SAMPLE_RETENTION_MS = 160;
 
 type WorkspaceSidebarShellProps = {
   bodyClassName?: string;
@@ -31,6 +34,33 @@ type WorkspaceSidebarShellProps = {
   rightSidebarHeader: SidebarSlot;
   rightSidebarHeaderTestId?: string;
 };
+
+type MobileTouchSample = {
+  clientX: number;
+  timeMs: number;
+};
+
+type ActiveMobileTouchGesture = {
+  lastClientX: number;
+  recentSamples: MobileTouchSample[];
+  startClientX: number;
+  startPane: MobilePaneReleaseGesture["startPane"];
+  touchIdentifier: number;
+};
+
+function findTouchByIdentifier(
+  touchList: TouchList,
+  identifier: number,
+): Touch | null {
+  for (let index = 0; index < touchList.length; index += 1) {
+    const touch = touchList.item(index);
+    if (touch?.identifier === identifier) {
+      return touch;
+    }
+  }
+
+  return null;
+}
 
 /**
  * Derive a normalized scrim opacity from the mobile carousel position. The
@@ -175,6 +205,10 @@ export function WorkspaceSidebarShell({
   const pendingMobileDragSnapRestoreFrameRef = React.useRef<number | null>(
     null,
   );
+  const activeMobileTouchGestureRef =
+    React.useRef<ActiveMobileTouchGesture | null>(null);
+  const pendingMobileReleaseGestureRef =
+    React.useRef<MobilePaneReleaseGesture | null>(null);
 
   const isMobileLayoutMeasured =
     !isMobile ||
@@ -223,6 +257,54 @@ export function WorkspaceSidebarShell({
     );
   }, [clearPendingMobileDragSnapRestore, setDelegatedMobileDragSnapDisabled]);
 
+  const appendMobileTouchSample = React.useCallback((clientX: number) => {
+    const activeGesture = activeMobileTouchGestureRef.current;
+    if (activeGesture === null) {
+      return;
+    }
+
+    const timeMs = performance.now();
+    activeGesture.lastClientX = clientX;
+    activeGesture.recentSamples = [
+      ...activeGesture.recentSamples,
+      { clientX, timeMs },
+    ].filter(
+      (sample) =>
+        timeMs - sample.timeMs <= MOBILE_RELEASE_VELOCITY_SAMPLE_RETENTION_MS,
+    );
+  }, []);
+
+  const finalizeMobileTouchGesture = React.useCallback((clientX?: number) => {
+    const activeGesture = activeMobileTouchGestureRef.current;
+    if (activeGesture === null) {
+      return;
+    }
+
+    const resolvedClientX = clientX ?? activeGesture.lastClientX;
+    const timeMs = performance.now();
+    const samples = [
+      ...activeGesture.recentSamples,
+      { clientX: resolvedClientX, timeMs },
+    ].filter(
+      (sample) =>
+        timeMs - sample.timeMs <= MOBILE_RELEASE_VELOCITY_SAMPLE_RETENTION_MS,
+    );
+    const velocityWindowStartTimeMs =
+      timeMs - MOBILE_RELEASE_VELOCITY_WINDOW_MS;
+    const oldestVelocitySample =
+      samples.find((sample) => sample.timeMs >= velocityWindowStartTimeMs) ??
+      samples[0];
+    const elapsedMs = Math.max(1, timeMs - oldestVelocitySample.timeMs);
+
+    pendingMobileReleaseGestureRef.current = {
+      releaseFingerVelocityXPxPerMs:
+        (resolvedClientX - oldestVelocitySample.clientX) / elapsedMs,
+      startPane: activeGesture.startPane,
+      totalFingerDeltaXPx: resolvedClientX - activeGesture.startClientX,
+    };
+    activeMobileTouchGestureRef.current = null;
+  }, []);
+
   /**
    * Keep pane settling owned by the shell so descendant surfaces can reuse the
    * current left/main/right anchor model instead of reproducing it locally.
@@ -239,12 +321,16 @@ export function WorkspaceSidebarShell({
       return;
     }
 
+    const releaseGesture = pendingMobileReleaseGestureRef.current;
+    pendingMobileReleaseGestureRef.current = null;
     const nextMobilePane = getSettledMobilePane(
+      mobilePane,
       scrollNode.scrollLeft,
       hasLeftSidebar,
       leftSidebarWidthPx,
       hasRightSidebar,
       rightSidebarWidthPx,
+      releaseGesture,
     );
     const targetScrollLeft = getMobilePaneScrollLeft(
       nextMobilePane,
@@ -402,6 +488,8 @@ export function WorkspaceSidebarShell({
         pendingMobileDragSnapRestoreFrameRef.current = null;
       }
       pendingMobileDragScrollLeftRef.current = null;
+      activeMobileTouchGestureRef.current = null;
+      pendingMobileReleaseGestureRef.current = null;
       setDelegatedMobileDragSnapDisabled(false);
     };
   }, [setDelegatedMobileDragSnapDisabled]);
@@ -410,6 +498,8 @@ export function WorkspaceSidebarShell({
     if (!isMobile || !hasAnySidebar || !isMobileLayoutMeasured) {
       hasInitializedMobileScrollRef.current = false;
       skipNextMobileScrollSyncRef.current = false;
+      activeMobileTouchGestureRef.current = null;
+      pendingMobileReleaseGestureRef.current = null;
       setMobileMainScrimProgress(0);
       return;
     }
@@ -473,6 +563,96 @@ export function WorkspaceSidebarShell({
     leftSidebarWidthPx,
     mobilePane,
     rightSidebarWidthPx,
+  ]);
+
+  React.useEffect(() => {
+    if (!isMobile || !hasAnySidebar || !isMobileLayoutMeasured) {
+      return;
+    }
+
+    const scrollNode = mobileScrollRef.current;
+    if (!scrollNode) {
+      return;
+    }
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1) {
+        activeMobileTouchGestureRef.current = null;
+        return;
+      }
+
+      const touch = event.touches.item(0);
+      if (touch === null) {
+        return;
+      }
+
+      const timeMs = performance.now();
+      activeMobileTouchGestureRef.current = {
+        lastClientX: touch.clientX,
+        recentSamples: [{ clientX: touch.clientX, timeMs }],
+        startClientX: touch.clientX,
+        startPane: mobilePane,
+        touchIdentifier: touch.identifier,
+      };
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const activeGesture = activeMobileTouchGestureRef.current;
+      if (activeGesture === null) {
+        return;
+      }
+
+      const touch = findTouchByIdentifier(
+        event.touches,
+        activeGesture.touchIdentifier,
+      );
+      if (touch === null) {
+        return;
+      }
+
+      appendMobileTouchSample(touch.clientX);
+    };
+
+    const finishTouchGesture = (event: TouchEvent) => {
+      const activeGesture = activeMobileTouchGestureRef.current;
+      if (activeGesture === null) {
+        return;
+      }
+
+      const touch =
+        findTouchByIdentifier(
+          event.changedTouches,
+          activeGesture.touchIdentifier,
+        ) ??
+        findTouchByIdentifier(event.touches, activeGesture.touchIdentifier);
+      finalizeMobileTouchGesture(touch?.clientX);
+    };
+
+    scrollNode.addEventListener("touchstart", handleTouchStart, {
+      passive: true,
+    });
+    scrollNode.addEventListener("touchmove", handleTouchMove, {
+      passive: true,
+    });
+    scrollNode.addEventListener("touchend", finishTouchGesture, {
+      passive: true,
+    });
+    scrollNode.addEventListener("touchcancel", finishTouchGesture, {
+      passive: true,
+    });
+    return () => {
+      scrollNode.removeEventListener("touchstart", handleTouchStart);
+      scrollNode.removeEventListener("touchmove", handleTouchMove);
+      scrollNode.removeEventListener("touchend", finishTouchGesture);
+      scrollNode.removeEventListener("touchcancel", finishTouchGesture);
+    };
+  }, [
+    appendMobileTouchSample,
+    finalizeMobileTouchGesture,
+    hasAnySidebar,
+    isMobile,
+    isMobileLayoutMeasured,
+    mobilePane,
   ]);
 
   React.useEffect(() => {

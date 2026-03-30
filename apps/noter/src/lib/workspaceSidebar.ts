@@ -1,5 +1,8 @@
 import type { MobileSidebarPane } from "@/hooks/use-sidebar";
 
+const MOBILE_CROSS_SWIPE_TRAVEL_THRESHOLD_RATIO = 0.85;
+const MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS = 1.25;
+
 type MobilePaneAnchor = {
   pane: MobileSidebarPane;
   scrollLeft: number;
@@ -16,7 +19,11 @@ function getSidebarWidths(
     right: hasRightSidebar ? rightSidebarWidthPx : 0,
   };
 }
-
+export type MobilePaneReleaseGesture = {
+  releaseFingerVelocityXPxPerMs: number;
+  startPane: MobileSidebarPane;
+  totalFingerDeltaXPx: number;
+};
 function getMobilePaneAnchors(
   hasLeftSidebar: boolean,
   leftSidebarWidthPx: number,
@@ -102,20 +109,55 @@ function getNearestMobilePane(
 
 /**
  * Let the shell settle to whichever pane anchor the browser actually finished
- * closest to after the swipe.
+ * closest to after the swipe, while still honoring a deliberate fast
+ * cross-sidebar fling that started from one sidebar and clearly continued past
+ * the center pane.
  */
 export function getSettledMobilePane(
+  currentPane: MobileSidebarPane,
   scrollLeft: number,
   hasLeftSidebar: boolean,
   leftSidebarWidthPx: number,
   hasRightSidebar: boolean,
   rightSidebarWidthPx: number,
+  releaseGesture?: MobilePaneReleaseGesture | null,
 ) {
-  return getNearestMobilePane(
+  const nearestPane = getNearestMobilePane(
     scrollLeft,
     hasLeftSidebar,
     leftSidebarWidthPx,
     hasRightSidebar,
     rightSidebarWidthPx,
   );
+
+  if (currentPane === "main" || !hasLeftSidebar || !hasRightSidebar) {
+    return nearestPane;
+  }
+
+  const oppositePane = currentPane === "left" ? "right" : "left";
+  if (nearestPane === oppositePane || nearestPane === currentPane) {
+    return nearestPane;
+  }
+
+  if (nearestPane !== "main" || releaseGesture?.startPane !== currentPane) {
+    return nearestPane;
+  }
+
+  const requiredTravelPx =
+    (currentPane === "left" ? rightSidebarWidthPx : leftSidebarWidthPx) *
+    MOBILE_CROSS_SWIPE_TRAVEL_THRESHOLD_RATIO;
+  const travelTowardOppositePx =
+    currentPane === "left"
+      ? -releaseGesture.totalFingerDeltaXPx
+      : releaseGesture.totalFingerDeltaXPx;
+  const releaseTowardOppositeVelocityPxPerMs =
+    currentPane === "left"
+      ? -releaseGesture.releaseFingerVelocityXPxPerMs
+      : releaseGesture.releaseFingerVelocityXPxPerMs;
+
+  return travelTowardOppositePx >= requiredTravelPx &&
+    releaseTowardOppositeVelocityPxPerMs >=
+      MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS
+    ? oppositePane
+    : nearestPane;
 }
