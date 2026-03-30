@@ -18,8 +18,6 @@ import {
 import { cn } from "@/lib/utils";
 
 const MOBILE_SCROLL_SETTLE_DELAY_MS = 140;
-const MOBILE_MAIN_SCRIM_MAX_OPACITY = 0.16;
-const MOBILE_MAIN_SCRIM_INTERACTION_THRESHOLD = 0.01;
 type SidebarSlot = Exclude<React.ReactNode, undefined>;
 const MOBILE_RELEASE_VELOCITY_WINDOW_MS = 80;
 const MOBILE_RELEASE_VELOCITY_SAMPLE_RETENTION_MS = 160;
@@ -195,40 +193,6 @@ function getReleaseVelocityReferenceSample(
 }
 
 /**
- * Derive a normalized scrim opacity from the mobile carousel position. The
- * center pane owns the main content, so the scrim simply reflects how far the
- * current scroll position is from that center anchor.
- */
-function getMobileMainScrimProgress(
-  scrollLeft: number,
-  hasLeftSidebar: boolean,
-  leftSidebarWidthPx: number,
-  hasRightSidebar: boolean,
-  rightSidebarWidthPx: number,
-) {
-  const mainPaneScrollLeft = hasLeftSidebar ? leftSidebarWidthPx : 0;
-
-  if (scrollLeft <= mainPaneScrollLeft) {
-    if (!hasLeftSidebar || leftSidebarWidthPx <= 0) {
-      return 0;
-    }
-    return Math.min(
-      1,
-      Math.max(0, (mainPaneScrollLeft - scrollLeft) / leftSidebarWidthPx),
-    );
-  }
-
-  if (!hasRightSidebar || rightSidebarWidthPx <= 0) {
-    return 0;
-  }
-
-  return Math.min(
-    1,
-    Math.max(0, (scrollLeft - mainPaneScrollLeft) / rightSidebarWidthPx),
-  );
-}
-
-/**
  * Measure one mobile sidebar lane so the shared carousel can snap to concrete
  * pane widths even when the rendered sidebar content changes size.
  */
@@ -327,8 +291,6 @@ export function WorkspaceSidebarShell({
     hasRightSidebar,
     mobileRightSidebarMeasureRef,
   );
-  const [mobileMainScrimProgress, setMobileMainScrimProgress] =
-    React.useState(0);
   const hasInitializedMobileScrollRef = React.useRef(false);
   const skipNextMobileScrollSyncRef = React.useRef(false);
   const isDelegatedMobileDragActiveRef = React.useRef(false);
@@ -641,29 +603,11 @@ export function WorkspaceSidebarShell({
           }
 
           pendingScrollNode.scrollLeft = pendingScrollLeft;
-          setMobileMainScrimProgress(
-            getMobileMainScrimProgress(
-              pendingScrollLeft,
-              hasLeftSidebar,
-              leftSidebarWidthPx,
-              hasRightSidebar,
-              rightSidebarWidthPx,
-            ),
-          );
         });
         return true;
       }
 
       pendingMobileDragScrollLeftRef.current = null;
-      setMobileMainScrimProgress(
-        getMobileMainScrimProgress(
-          nextScrollLeft,
-          hasLeftSidebar,
-          leftSidebarWidthPx,
-          hasRightSidebar,
-          rightSidebarWidthPx,
-        ),
-      );
       return true;
     },
     [
@@ -733,7 +677,6 @@ export function WorkspaceSidebarShell({
       pendingMobileReleaseGestureRef.current = null;
       pendingMobileGestureDebugRef.current = null;
       setMobileGestureDebugSnapshot(null);
-      setMobileMainScrimProgress(0);
       return;
     }
 
@@ -752,15 +695,6 @@ export function WorkspaceSidebarShell({
 
     if (!hasInitializedMobileScrollRef.current) {
       scrollNode.scrollLeft = targetScrollLeft;
-      setMobileMainScrimProgress(
-        getMobileMainScrimProgress(
-          targetScrollLeft,
-          hasLeftSidebar,
-          leftSidebarWidthPx,
-          hasRightSidebar,
-          rightSidebarWidthPx,
-        ),
-      );
       hasInitializedMobileScrollRef.current = true;
       return;
     }
@@ -771,15 +705,6 @@ export function WorkspaceSidebarShell({
     }
 
     if (Math.abs(scrollNode.scrollLeft - targetScrollLeft) <= 1) {
-      setMobileMainScrimProgress(
-        getMobileMainScrimProgress(
-          scrollNode.scrollLeft,
-          hasLeftSidebar,
-          leftSidebarWidthPx,
-          hasRightSidebar,
-          rightSidebarWidthPx,
-        ),
-      );
       return;
     }
 
@@ -961,16 +886,6 @@ export function WorkspaceSidebarShell({
     const supportsScrollEnd = "onscrollend" in scrollNode;
     let settleTimeoutId: number | null = null;
     const handleScroll = () => {
-      setMobileMainScrimProgress(
-        getMobileMainScrimProgress(
-          scrollNode.scrollLeft,
-          hasLeftSidebar,
-          leftSidebarWidthPx,
-          hasRightSidebar,
-          rightSidebarWidthPx,
-        ),
-      );
-
       if (!supportsScrollEnd) {
         if (settleTimeoutId !== null) {
           window.clearTimeout(settleTimeoutId);
@@ -1007,6 +922,11 @@ export function WorkspaceSidebarShell({
     settleMobileShell,
   ]);
 
+  /**
+   * Let the visible main-pane slice keep receiving taps when a mobile sidebar
+   * is open. Capturing the click here still recenters the shell, but we avoid
+   * a separate scrim layer that would block the content underneath.
+   */
   const handleMainViewClickCapture = React.useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
       if (!isMobile || mobilePane === "main") {
@@ -1039,12 +959,6 @@ export function WorkspaceSidebarShell({
           hidden: true,
         }
       : {};
-  const mobileMainScrimOpacity =
-    mobileMainScrimProgress * MOBILE_MAIN_SCRIM_MAX_OPACITY;
-  const mobileMainScrimIsInteractive =
-    isMobile &&
-    hasAnySidebar &&
-    mobileMainScrimProgress > MOBILE_MAIN_SCRIM_INTERACTION_THRESHOLD;
 
   const shellStyle: React.CSSProperties & {
     "--workspace-left-sidebar-width"?: string;
@@ -1236,30 +1150,6 @@ export function WorkspaceSidebarShell({
               >
                 {rightSidebarContent}
               </div>
-            </div>
-          ) : null}
-
-          {isMobile && hasAnySidebar ? (
-            <div
-              aria-hidden="true"
-              data-testid="workspace-sidebar-main-scrim"
-              className={cn(
-                "pointer-events-none col-start-2 row-start-1 row-span-2 min-h-0 min-w-0",
-                mobileMainScrimIsInteractive ? "z-10" : "",
-              )}
-            >
-              {/* Restrict scrim gestures to horizontal pans so tall main panes like
-                  FileView do not rubber-band vertically while a sidebar is open. */}
-              <div
-                className={cn(
-                  "h-full w-full bg-black transition-opacity duration-200 ease-linear",
-                  mobileMainScrimIsInteractive
-                    ? "pointer-events-auto touch-pan-x"
-                    : "pointer-events-none",
-                )}
-                style={{ opacity: mobileMainScrimOpacity }}
-                onClick={() => setMobilePane("main")}
-              />
             </div>
           ) : null}
         </div>
