@@ -216,7 +216,7 @@ export function VaultDashboardVisualFixture({
             <span className="truncate text-sm font-medium">Your Vaults</span>
           </div>
         </div>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" className="h-6 px-2">
           Connect machine
         </Button>
       </div>
@@ -455,7 +455,7 @@ export function VaultDashboardVisualFixture({
       <div className="px-4 py-4">
         <div className="mb-4 flex items-center justify-between gap-3">
           <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" className="h-6 px-2">
             Connect machine
           </Button>
         </div>
