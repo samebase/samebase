@@ -1,16 +1,26 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
 import {
+  buildNoterConnectConfigUrl,
   buildMachineConnectUrl,
   formatBootstrapReadyMarkdown,
   formatHelpText,
   getNoterConfigPath,
   NOTER_SYNC_SOURCE_URL,
   parseCliArgs,
+  readLocalConfig,
+  resolveEntrypointUrl,
   validateSourceUrl,
   writeLocalConfig,
 } from './noter.js'
@@ -22,6 +32,12 @@ describe('@noter-md/sync', () => {
       sourceUrl: null,
     })
     expect(NOTER_SYNC_SOURCE_URL).toBe('https://noter.md/noter.js')
+  })
+
+  it('accepts the run command with no extra CLI override', () => {
+    expect(parseCliArgs(['run'])).toEqual({
+      command: 'run',
+    })
   })
 
   it('accepts an optional explicit source URL argument for direct hosted execution', () => {
@@ -82,13 +98,17 @@ describe('@noter-md/sync', () => {
         writeLocalConfig({
           codexVersion: 'codex 0.1.2',
           homeDirectory,
+          machineCredential: 'mmc_123',
+          machineId: 'machine_123',
           sourceUrl: 'https://preview.noter.md/noter.js',
         }),
       ).toBe(configPath)
 
-      expect(JSON.parse(readFileSync(configPath, 'utf8'))).toMatchObject({
+      expect(readLocalConfig({ homeDirectory })).toMatchObject({
         codexVersion: 'codex 0.1.2',
         installedAt: '2026-03-01T00:00:00.000Z',
+        machineCredential: 'mmc_123',
+        machineId: 'machine_123',
         sourceUrl: 'https://preview.noter.md/noter.js',
       })
     } finally {
@@ -96,36 +116,76 @@ describe('@noter-md/sync', () => {
     }
   })
 
-  it('builds the browser handoff URL for the current deploy', () => {
-    expect(buildMachineConnectUrl('https://preview.noter.md/noter.js')).toBe(
-      'https://preview.noter.md/machines/connect?openedByCli',
+  it('builds the browser handoff URL for the current deploy and request id', () => {
+    expect(
+      buildMachineConnectUrl(
+        'https://preview.noter.md/noter.js',
+        'request_123',
+      ),
+    ).toBe(
+      'https://preview.noter.md/machines/connect?openedByCli&requestId=request_123',
     )
   })
 
-  it('documents the simple npm command and advanced direct-file flows', () => {
+  it('builds the deploy-scoped runtime config URL', () => {
+    expect(
+      buildNoterConnectConfigUrl('https://preview.noter.md/noter.js'),
+    ).toBe('https://preview.noter.md/noter-connect.json')
+  })
+
+  it('documents the simple npm commands and advanced direct-file flows', () => {
     expect(formatHelpText()).toContain('npx @noter-md/sync connect')
+    expect(formatHelpText()).toContain('npx @noter-md/sync run')
     expect(formatHelpText()).toContain('node ./noter.js connect')
+    expect(formatHelpText()).toContain('node ./noter.js run')
     expect(formatHelpText()).toContain(
-      "curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect",
+      `SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - connect`,
     )
     expect(formatHelpText()).toContain(
-      `SCRIPT_URL='https://preview.noter.md/noter.js'; curl -fsSL "$SCRIPT_URL" | node --input-type=module - connect "$SCRIPT_URL"`,
+      `SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - run`,
+    )
+    expect(formatHelpText()).toContain(
+      `SCRIPT_URL='https://preview.noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - connect "$SCRIPT_URL"`,
     )
   })
+
+  it.runIf(process.platform !== 'win32')(
+    'resolves symlinked entrypoints before checking direct execution',
+    () => {
+      const tempDirectory = path.join(tmpdir(), `noter-sync-link-${Date.now()}`)
+      mkdirSync(tempDirectory, { recursive: true })
+      const symlinkPath = path.join(tempDirectory, 'noter-sync')
+
+      try {
+        symlinkSync(path.resolve('packages/sync/noter.js'), symlinkPath)
+
+        expect(resolveEntrypointUrl(symlinkPath)).toBe(
+          pathToFileURL(path.resolve('packages/sync/noter.js')).href,
+        )
+      } finally {
+        rmSync(tempDirectory, { force: true, recursive: true })
+      }
+    },
+  )
 
   it('formats bootstrap status as markdown for terminal and LLM consumption', () => {
     expect(
       formatBootstrapReadyMarkdown({
         codexVersion: 'codex 0.1.2',
         configPath: '/Users/noter/.noter/config.json',
-        machineConnectUrl: 'https://noter.md/machines/connect?openedByCli',
+        machineConnectUrl:
+          'https://noter.md/machines/connect?openedByCli&requestId=request_123',
+        machineId: 'machine_123',
+        runCommand: `SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - run`,
         sourceUrl: 'https://noter.md/noter.js',
       }),
     ).toBe(`# noter sync bootstrap ready
 
 - source: https://noter.md/noter.js
 - codex: codex 0.1.2
+- machine: machine_123
 - state: /Users/noter/.noter/config.json
-- next: https://noter.md/machines/connect?openedByCli`)
+- next: https://noter.md/machines/connect?openedByCli&requestId=request_123
+- run: SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\\n' "$SCRIPT_CONTENT" | node --input-type=module - run`)
   })
 })

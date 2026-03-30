@@ -8,7 +8,7 @@
 - Related docs:
   - `rfcs/071_CONNECTED_MACHINES_AND_REMOTE_THREAD_CONTROL_RESEARCH.md`
   - `rfcs/070_NOTER_UI_PR_TRIGGERED_CODEX_LOCAL_AUTOMATION_RESEARCH.md`
-  - `specs/072_CONNECTED_MACHINE_PHONE_MVP_SPEC.md`
+  - `specs/076_CONNECTED_MACHINE_REGISTRATION_AND_PRESENCE_ROLLOUT_SPEC.md`
   - `specs/070_CONNECTED_MACHINE_CODEX_THREAD_STORAGE_SPEC.md`
 
 ## Summary
@@ -249,9 +249,9 @@ But it must preserve the boundary required for that future work:
 1. local provider thread id is opaque
 2. Noter thread identity will be modeled separately later
 3. the bridge contract should be reusable by a future local connector process
-4. `072_CONNECTED_MACHINE_PHONE_MVP_SPEC.md` reuses this contract for machine
-   presence, thread-summary sync, and on-demand thread reads before the fuller
-   cloud thread storage from spec 070 exists
+4. `076_CONNECTED_MACHINE_REGISTRATION_AND_PRESENCE_ROLLOUT_SPEC.md` reuses this
+   contract for machine presence, thread-summary sync, and later on-demand
+   thread reads before the fuller cloud thread storage from spec 070 exists
 
 ## Non-Goals
 

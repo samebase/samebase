@@ -68,6 +68,11 @@ const noterSyncPackageScriptPath = path.resolve(
   "packages/sync/noter.js",
 );
 const staticNoterSyncScriptPath = path.resolve(__dirname, "public/noter.js");
+const noterConnectConfigPathname = "/noter-connect.json";
+const runtimeNoterConnectConfigPath = path.resolve(
+  __dirname,
+  `dist${noterConnectConfigPathname}`,
+);
 const privacyPolicyMarkdownPath = path.resolve(
   __dirname,
   "src/content/privacy-policy.md",
@@ -166,6 +171,51 @@ async function buildRuntimeNoterSyncScript() {
     packageScript: readNoterSyncPackageScript(),
   });
   return script.endsWith("\n") ? script : `${script}\n`;
+}
+
+function readNoterConnectConvexSiteUrl(): string {
+  const configuredSiteUrl = process.env.CONVEX_SITE_URL?.trim();
+  if (configuredSiteUrl) {
+    return configuredSiteUrl;
+  }
+
+  const configuredConvexUrl = process.env.VITE_CONVEX_URL?.trim();
+  if (
+    configuredConvexUrl &&
+    (configuredConvexUrl.startsWith("https://") ||
+      configuredConvexUrl.startsWith("http://"))
+  ) {
+    return configuredConvexUrl;
+  }
+
+  const localEnvConvexUrl = readEnvFileValue(
+    daytonaLocalEnvPath,
+    "VITE_CONVEX_URL",
+  );
+  if (
+    localEnvConvexUrl &&
+    (localEnvConvexUrl.startsWith("https://") ||
+      localEnvConvexUrl.startsWith("http://"))
+  ) {
+    return localEnvConvexUrl;
+  }
+
+  throw new Error(
+    "Missing CONVEX_SITE_URL or an absolute VITE_CONVEX_URL for noter-connect.json.",
+  );
+}
+
+async function buildRuntimeNoterConnectConfig() {
+  return await formatGeneratedFileContents({
+    filepath: "noter-connect.json",
+    content: JSON.stringify(
+      {
+        convexSiteUrl: readNoterConnectConvexSiteUrl(),
+      },
+      null,
+      2,
+    ),
+  });
 }
 
 async function formatGeneratedFileContents(args: {
@@ -340,6 +390,58 @@ function syncStaticNoterSyncScriptAssetPlugin() {
   };
 }
 
+function syncRuntimeNoterConnectConfigAssetPlugin() {
+  const writeRuntimeConfig = async () => {
+    const runtimeConfig = await buildRuntimeNoterConnectConfig();
+    mkdirSync(path.dirname(runtimeNoterConnectConfigPath), { recursive: true });
+    writeFileSync(runtimeNoterConnectConfigPath, runtimeConfig, "utf8");
+  };
+
+  return {
+    name: "sync-runtime-noter-connect-config-asset",
+    async configureServer(server: ViteDevServer) {
+      server.middlewares.use(
+        (
+          request: IncomingMessage,
+          response: ServerResponse<IncomingMessage>,
+          next: (error?: Error) => void,
+        ) => {
+          const requestPath = (() => {
+            if (!request.url) {
+              return null;
+            }
+
+            try {
+              return new URL(request.url, "http://vite.local").pathname;
+            } catch {
+              return null;
+            }
+          })();
+
+          if (requestPath !== noterConnectConfigPathname) {
+            next();
+            return;
+          }
+
+          void buildRuntimeNoterConnectConfig()
+            .then((runtimeConfig) => {
+              response.statusCode = 200;
+              response.setHeader(
+                "Content-Type",
+                "application/json; charset=utf-8",
+              );
+              response.end(runtimeConfig);
+            })
+            .catch(next);
+        },
+      );
+    },
+    async closeBundle() {
+      await writeRuntimeConfig();
+    },
+  };
+}
+
 function syncStaticLegalPageAssetsPlugin() {
   let hasSyncedStaticLegalPageAssets = false;
 
@@ -399,6 +501,7 @@ export default defineConfig({
     syncStaticLogoSvgAssetPlugin(),
     syncStaticInstallIconSvgAssetPlugin(),
     syncStaticNoterSyncScriptAssetPlugin(),
+    syncRuntimeNoterConnectConfigAssetPlugin(),
     syncStaticLegalPageAssetsPlugin(),
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,

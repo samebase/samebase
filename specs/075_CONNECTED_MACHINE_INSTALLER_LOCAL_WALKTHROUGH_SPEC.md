@@ -3,7 +3,7 @@
 ## Status
 
 - Current behavior walkthrough
-- Scope: this branch only
+- Scope: current merged installer and browser-handoff slice on `main`
 
 ## Goal
 
@@ -97,10 +97,10 @@ Expected result:
 1. no output
 2. exit code `0`
 
-For production, the shorter direct hosted-file command is:
+For production, the direct hosted-file command is:
 
 ```bash
-curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect
+SCRIPT_URL='https://noter.md/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\n' "$SCRIPT_CONTENT" | node --input-type=module - connect
 ```
 
 The explicit source-URL form below is still the right one for local and preview
@@ -111,7 +111,7 @@ testing.
 Use the local hosted file directly:
 
 ```bash
-curl -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - connect 'http://127.0.0.1:5174/noter.js'
+SCRIPT_URL='http://127.0.0.1:5174/noter.js'; SCRIPT_CONTENT="$(curl -fsSL "$SCRIPT_URL")" && printf '%s\n' "$SCRIPT_CONTENT" | node --input-type=module - connect "$SCRIPT_URL"
 ```
 
 What this currently does:
@@ -182,22 +182,17 @@ hosted-file fetch step while keeping the same bootstrap behavior.
 
 Useful files:
 
-1. route registration:
-   [App.tsx](/Users/nicu/.codex/worktrees/ce6d/noter/apps/noter/src/App.tsx)
-2. machine-connect page:
-   [MachineConnectPage.tsx](/Users/nicu/.codex/worktrees/ce6d/noter/apps/noter/src/components/MachineConnectPage.tsx)
-3. dashboard entry point:
-   [VaultDashboard.tsx](/Users/nicu/.codex/worktrees/ce6d/noter/apps/noter/src/components/VaultDashboard.tsx)
-4. shared installer URL and command helpers:
-   [noterSync.ts](/Users/nicu/.codex/worktrees/ce6d/noter/apps/noter/src/lib/noterSync.ts)
-5. canonical installer source:
-   [noter.js](/Users/nicu/.codex/worktrees/ce6d/noter/packages/sync/noter.js)
-6. hosted mirrored copy:
-   [noter.js](/Users/nicu/.codex/worktrees/ce6d/noter/apps/noter/public/noter.js)
+1. route registration: `apps/noter/src/App.tsx`
+2. machine-connect page: `apps/noter/src/components/MachineConnectPage.tsx`
+3. dashboard entry point: `apps/noter/src/components/VaultDashboard.tsx`
+4. shared installer URL and command helpers: `apps/noter/src/lib/noterSync.ts`
+5. canonical installer source: `packages/sync/noter.js`
+6. hosted mirrored copy: `apps/noter/public/noter.js`
 
 ## 9. What To Conclude From This Slice
 
-If all of the steps above work, then the current branch successfully proves:
+If all of the steps above work, then the current merged slice successfully
+proves:
 
 1. Noter can expose a machine-connect entry point in the main app
 2. Noter can serve a single hosted installer artifact at `/noter.js`
@@ -207,5 +202,5 @@ If all of the steps above work, then the current branch successfully proves:
 5. the installer can hand off into the browser on the correct route
 
 If you are asking "can I already connect a machine fully and see it online in
-Noter?", the answer for this branch is still no. This is the installer and
+Noter?", the answer for this slice is still no. This is the installer and
 handoff slice, not the full registration and sync slice.
