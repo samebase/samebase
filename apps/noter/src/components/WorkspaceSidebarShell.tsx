@@ -169,11 +169,6 @@ export function WorkspaceSidebarShell({
     React.useState(0);
   const hasInitializedMobileScrollRef = React.useRef(false);
   const skipNextMobileScrollSyncRef = React.useRef(false);
-  const mobileScrollVelocityRef = React.useRef({
-    lastScrollLeft: 0,
-    lastTimestampMs: 0,
-    peakSwipeVelocityPxPerMs: 0,
-  });
   const isDelegatedMobileDragActiveRef = React.useRef(false);
   const pendingMobileDragFrameRef = React.useRef<number | null>(null);
   const pendingMobileDragScrollLeftRef = React.useRef<number | null>(null);
@@ -244,8 +239,6 @@ export function WorkspaceSidebarShell({
       return;
     }
 
-    const mobileScrollVelocityState = mobileScrollVelocityRef.current;
-    const { peakSwipeVelocityPxPerMs } = mobileScrollVelocityState;
     const nextMobilePane = getSettledMobilePane(
       mobilePane,
       scrollNode.scrollLeft,
@@ -253,7 +246,6 @@ export function WorkspaceSidebarShell({
       leftSidebarWidthPx,
       hasRightSidebar,
       rightSidebarWidthPx,
-      peakSwipeVelocityPxPerMs,
     );
     const targetScrollLeft = getMobilePaneScrollLeft(
       nextMobilePane,
@@ -262,10 +254,6 @@ export function WorkspaceSidebarShell({
       hasRightSidebar,
       rightSidebarWidthPx,
     );
-
-    mobileScrollVelocityState.peakSwipeVelocityPxPerMs = 0;
-    mobileScrollVelocityState.lastScrollLeft = scrollNode.scrollLeft;
-    mobileScrollVelocityState.lastTimestampMs = 0;
 
     if (nextMobilePane !== mobilePane) {
       skipNextMobileScrollSyncRef.current = true;
@@ -497,32 +485,9 @@ export function WorkspaceSidebarShell({
     if (!scrollNode) {
       return;
     }
-    const mobileScrollVelocityState = mobileScrollVelocityRef.current;
 
     let settleTimeoutId: number | null = null;
     const handleScroll = () => {
-      const timestampMs = performance.now();
-      const previousScrollSample = mobileScrollVelocityState;
-      if (previousScrollSample.lastTimestampMs === 0) {
-        mobileScrollVelocityState.lastScrollLeft = scrollNode.scrollLeft;
-        mobileScrollVelocityState.lastTimestampMs = timestampMs;
-      }
-      const elapsedMs = timestampMs - previousScrollSample.lastTimestampMs;
-
-      if (previousScrollSample.lastTimestampMs !== 0 && elapsedMs > 0) {
-        const velocityPxPerMs =
-          Math.abs(
-            scrollNode.scrollLeft - previousScrollSample.lastScrollLeft,
-          ) / elapsedMs;
-        mobileScrollVelocityState.peakSwipeVelocityPxPerMs = Math.max(
-          previousScrollSample.peakSwipeVelocityPxPerMs,
-          velocityPxPerMs,
-        );
-      }
-
-      mobileScrollVelocityState.lastScrollLeft = scrollNode.scrollLeft;
-      mobileScrollVelocityState.lastTimestampMs = timestampMs;
-
       setMobileMainScrimProgress(
         getMobileMainScrimProgress(
           scrollNode.scrollLeft,
@@ -546,8 +511,6 @@ export function WorkspaceSidebarShell({
     scrollNode.addEventListener("scroll", handleScroll, { passive: true });
     scrollNode.addEventListener("scrollend", settleMobileShell);
     return () => {
-      mobileScrollVelocityState.peakSwipeVelocityPxPerMs = 0;
-      mobileScrollVelocityState.lastTimestampMs = 0;
       scrollNode.removeEventListener("scroll", handleScroll);
       scrollNode.removeEventListener("scrollend", settleMobileShell);
       if (settleTimeoutId !== null) {
@@ -643,6 +606,11 @@ export function WorkspaceSidebarShell({
   // so the shell keeps one aligned header/content grid across all three columns.
   const emptySidebarHeaderClassName =
     "h-full min-h-0 border-b border-border/50 bg-background";
+  /**
+   * Keep each mobile pane as a hard snap stop so the shell's `snap-x
+   * snap-mandatory` track still settles through one full pane at a time.
+   */
+  const mobileSnapCellClassName = isMobile ? "snap-start snap-always" : "";
 
   return (
     <WorkspaceMobilePaneDragProvider value={mobilePaneDragContextValue}>
@@ -673,10 +641,7 @@ export function WorkspaceSidebarShell({
             <div
               data-testid={leftSidebarHeaderTestId}
               {...hiddenLeftDesktopSidebarProps}
-              className={cn(
-                leftSidebarCellClassName,
-                isMobile ? "snap-start" : "",
-              )}
+              className={cn(leftSidebarCellClassName, mobileSnapCellClassName)}
             >
               <div
                 ref={
@@ -706,7 +671,7 @@ export function WorkspaceSidebarShell({
               className={cn(
                 leftSidebarCellClassName,
                 "row-start-2 min-h-0",
-                isMobile ? "snap-start" : "",
+                mobileSnapCellClassName,
               )}
             >
               <div
@@ -724,7 +689,7 @@ export function WorkspaceSidebarShell({
             onClickCapture={handleMainViewClickCapture}
             className={cn(
               "col-start-2 row-start-1 min-w-0 border-b border-border/50",
-              isMobile ? "snap-start" : "",
+              mobileSnapCellClassName,
             )}
           >
             {headerContent}
@@ -736,7 +701,7 @@ export function WorkspaceSidebarShell({
             className={cn(
               "col-start-2 row-start-2 min-h-0 min-w-0",
               bodyClassName,
-              isMobile ? "snap-start" : "",
+              mobileSnapCellClassName,
             )}
             style={bodyStyle}
           >
@@ -750,7 +715,7 @@ export function WorkspaceSidebarShell({
               className={cn(
                 "col-start-3",
                 rightSidebarCellClassName,
-                isMobile ? "snap-start" : "",
+                mobileSnapCellClassName,
               )}
             >
               <div
@@ -782,7 +747,7 @@ export function WorkspaceSidebarShell({
                 "col-start-3",
                 rightSidebarCellClassName,
                 "row-start-2 min-h-0",
-                isMobile ? "snap-start" : "",
+                mobileSnapCellClassName,
               )}
             >
               <div

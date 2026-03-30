@@ -40,12 +40,20 @@ test("fileview mobile sidebar scrim", async ({ page }) => {
     .getByTestId("workspace-sidebar-main-scrim")
     .locator("div")
     .first();
+  const header = page.getByTestId("fileview-layout-header");
 
   await expect
     .poll(async () =>
       scrim.evaluate((element) => window.getComputedStyle(element).touchAction),
     )
     .toBe("pan-x");
+  await expect
+    .poll(async () =>
+      header.evaluate(
+        (element) => window.getComputedStyle(element).scrollSnapStop,
+      ),
+    )
+    .toBe("always");
 
   await expect(fixture).toHaveScreenshot("fileview-layout-mobile-scrim.png", {
     animations: "disabled",
