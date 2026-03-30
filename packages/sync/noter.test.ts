@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildInstallationId,
   buildMachineConnectUrl,
+  DEFAULT_NOTER_SYNC_SOURCE_URL,
   formatHelpText,
   getInstallationStatePath,
   parseCliArgs,
@@ -10,7 +11,15 @@ import {
 } from './noter.js'
 
 describe('@noter-md/sync', () => {
-  it('parses the public connect command shape', () => {
+  it('defaults the public connect command to noter.md when no source override is provided', () => {
+    expect(parseCliArgs(['connect'])).toEqual({
+      command: 'connect',
+      sourceUrl: null,
+    })
+    expect(DEFAULT_NOTER_SYNC_SOURCE_URL).toBe('https://noter.md/noter.js')
+  })
+
+  it('parses the optional preview source override', () => {
     expect(
       parseCliArgs(['connect', '--from', 'https://preview.noter.md/noter.js']),
     ).toEqual({
@@ -58,10 +67,12 @@ describe('@noter-md/sync', () => {
     )
   })
 
-  it('documents both the npm and pipe-to-node entry forms', () => {
+  it('documents the simple npm command and advanced direct-file flows', () => {
+    expect(formatHelpText()).toContain('npx @noter-md/sync connect')
     expect(formatHelpText()).toContain(
-      'npx @noter-md/sync connect --from https://noter.md/noter.js',
+      'npx @noter-md/sync connect --from https://preview.noter.md/noter.js',
     )
+    expect(formatHelpText()).toContain('node ./noter.js connect')
     expect(formatHelpText()).toContain(
       'curl -fsSL https://noter.md/noter.js | node --input-type=module - connect --from https://noter.md/noter.js',
     )

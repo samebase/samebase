@@ -5,9 +5,8 @@ export function buildNoterSyncScriptUrl(origin: string): string {
   return new URL(NOTER_SYNC_PUBLIC_SCRIPT_PATH, origin).toString();
 }
 
-export function buildNoterSyncConnectCommand(origin: string): string {
-  const scriptUrl = buildNoterSyncScriptUrl(origin);
-  return `npx @noter-md/sync connect --from ${scriptUrl}`;
+export function buildNoterSyncConnectCommand(): string {
+  return "npx @noter-md/sync connect";
 }
 
 export function readMachineConnectBootstrapSearch(search: string): {

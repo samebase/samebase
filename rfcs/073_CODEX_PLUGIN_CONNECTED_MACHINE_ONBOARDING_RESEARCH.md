@@ -41,13 +41,15 @@ Recommendation:
 4. Use a thin machine-scoped Node executor, but let the current page URL choose
    which environment or worktree the installer targets.
 5. Because stock Node does not execute `https:` entrypoints directly today, the
-   first runnable command should be a thin wrapper such as
-   `npx @noter-md/sync connect --from <url>` rather than bare
-   `node https://...`.
-6. A direct `curl -fsSL <url> | node --input-type=module -` form is acceptable
+   first runnable command should be the thin wrapper
+   `npx @noter-md/sync connect`.
+6. Keep `https://<current-deploy>/noter.js` as the single-file public artifact
+   for internal, preview, and local workflows, with optional `--from <url>`
+   override support when the operator wants to target a non-default deploy.
+7. A direct `curl -fsSL <url> | node --input-type=module -` form is acceptable
    for internal or preview workflows, as long as the bootstrap stays a
    single-file script.
-7. Long term, replace the wrapper with a native desktop companion/daemon while
+8. Long term, replace the wrapper with a native desktop companion/daemon while
    preserving URL-scoped environment selection.
 
 The key product truth is:
@@ -241,9 +243,12 @@ Verdict:
 
 Example shape:
 
-1. `npx @noter-md/sync connect --from https://<current-deploy>/noter.js`
+1. `npx @noter-md/sync connect`
 2. or `npm install -g @noter-md/sync`
-3. wrapper internally downloads or delegates to the provided URL
+3. optional override:
+   `npx @noter-md/sync connect --from https://<current-deploy>/noter.js`
+4. wrapper internally defaults to the production installer URL while still
+   allowing explicit preview or local override URLs
 
 Pros:
 
@@ -251,15 +256,17 @@ Pros:
 2. cross-platform where Node is available
 3. no repo modification
 4. actually runnable with current Node
-5. allows every preview deploy to provide its own install source
-6. easiest way to ship quickly from the current Node-based connector code
-7. can later install a background service / launch agent
+5. keeps the main user command short and memorable
+6. still allows every preview deploy to provide its own install source
+7. easiest way to ship quickly from the current Node-based connector code
+8. can later install a background service / launch agent
 
 Cons:
 
 1. still assumes Node is available
 2. first-run command-line UX is not as polished as a native companion app
-3. the CLI contract must stay explicit about which URL it trusts and executes
+3. the CLI contract must stay explicit about when it is using the default
+   production source versus an override URL
 
 Verdict:
 
@@ -335,7 +342,7 @@ After successful MCP auth from Codex:
 Recommended command shape:
 
 ```bash
-npx @noter-md/sync connect --from https://<current-deploy>/noter.js
+npx @noter-md/sync connect
 ```
 
 Canonical hosted installer artifact:
@@ -470,14 +477,15 @@ Recommended packaging shape:
 Recommended invocation:
 
 ```bash
-npx @noter-md/sync connect --from https://<current-deploy>/noter.js
+npx @noter-md/sync connect
 ```
 
 Recommended reason:
 
 1. it preserves the "single polished script" feeling
 2. it works with stock Node today
-3. it keeps environment selection URL-scoped for previews and worktrees
+3. it keeps the main user command simple while still allowing URL-scoped
+   environment selection for previews and worktrees
 4. it avoids `curl ... | node` trust concerns as the primary instruction
 5. it is much simpler than asking users to copy a local `noter.js` file by hand
 
@@ -519,9 +527,12 @@ Recommended execution model:
 1. `connect` is the only supported public command in the first release
 2. the same file may contain internal subcommands for the long-running connector
    process, but the product docs should only expose `connect`
-3. the executor should accept an explicit source URL, so preview deploys and
-   production can share the same binary while selecting different environments
-4. the package should be bundled or written as one file so install and review
+3. the executor should default to the production installer URL for the simple
+   `npx @noter-md/sync connect` path
+4. the executor should also accept an explicit source URL, so preview deploys
+   and production can share the same binary while selecting different
+   environments
+5. the package should be bundled or written as one file so install and review
    stay simple
 
 ## Proposed MVP Connect Flow
@@ -533,17 +544,19 @@ The first implementation should work like this:
 3. the page shows one command:
 
 ```bash
-npx @noter-md/sync connect --from https://<current-deploy>/noter.js
+npx @noter-md/sync connect
 ```
 
-4. the CLI verifies local prerequisites such as Node and Codex availability
-5. the CLI opens the signed-in Noter browser flow or consumes a short-lived
+4. the page also exposes `https://<current-deploy>/noter.js` as the direct
+   single-file artifact for preview or local testing
+5. the CLI verifies local prerequisites such as Node and Codex availability
+6. the CLI opens the signed-in Noter browser flow or consumes a short-lived
    machine-registration token
-6. the CLI creates a machine identity and stores Noter-owned local state under a
+7. the CLI creates a machine identity and stores Noter-owned local state under a
    Noter-owned directory outside repos
-7. the CLI starts the connector immediately so the first heartbeat and thread
+8. the CLI starts the connector immediately so the first heartbeat and thread
    sync happen during setup
-8. once the first sync succeeds, Noter redirects or refreshes into the connected
+9. once the first sync succeeds, Noter redirects or refreshes into the connected
    machine view
 
 Phase 1 constraint:

@@ -13,10 +13,8 @@ describe("noterSync", () => {
     );
   });
 
-  it("builds the npm executor command from the current deploy origin", () => {
-    expect(buildNoterSyncConnectCommand("https://preview.noter.md")).toBe(
-      "npx @noter-md/sync connect --from https://preview.noter.md/noter.js",
-    );
+  it("builds the default npm executor command", () => {
+    expect(buildNoterSyncConnectCommand()).toBe("npx @noter-md/sync connect");
   });
 
   it("reads the optional machine-connect bootstrap query params", () => {

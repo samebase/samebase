@@ -10,6 +10,7 @@ import { pathToFileURL } from "node:url";
 export const NOTER_SYNC_SCRIPT_PATHNAME = "/noter.js";
 export const MACHINE_CONNECT_ROUTE = "/machines/connect";
 export const NOTER_SYNC_STATE_DIRECTORY_NAME = ".noter/sync/installations";
+export const DEFAULT_NOTER_SYNC_SOURCE_URL = "https://noter.md/noter.js";
 
 /**
  * Parse the tiny public CLI surface without pulling in a dependency. The first
@@ -34,10 +35,6 @@ export function parseCliArgs(argv) {
       continue;
     }
     throw new Error(`Unknown option: ${arg}`);
-  }
-
-  if (!sourceUrl) {
-    throw new Error("Missing required --from <url> option.");
   }
 
   return {
@@ -168,10 +165,12 @@ export function openBrowser(url) {
 export function formatHelpText() {
   return [
     "Usage:",
-    "  noter-sync connect --from https://<current-deploy>/noter.js",
+    "  noter-sync connect [--from https://<current-deploy>/noter.js]",
     "",
     "Examples:",
-    "  npx @noter-md/sync connect --from https://noter.md/noter.js",
+    "  npx @noter-md/sync connect",
+    "  npx @noter-md/sync connect --from https://preview.noter.md/noter.js",
+    "  node ./noter.js connect",
     "  curl -fsSL https://noter.md/noter.js | node --input-type=module - connect --from https://noter.md/noter.js",
   ].join("\n");
 }
@@ -183,7 +182,9 @@ export async function main(argv) {
     return;
   }
 
-  const sourceUrl = validateSourceUrl(parsedArgs.sourceUrl).toString();
+  const sourceUrl = validateSourceUrl(
+    parsedArgs.sourceUrl ?? DEFAULT_NOTER_SYNC_SOURCE_URL,
+  ).toString();
   const codexVersion = detectCodexVersion();
   const installationId = buildInstallationId(sourceUrl);
   const machineConnectUrl = buildMachineConnectUrl({

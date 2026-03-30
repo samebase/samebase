@@ -90,9 +90,9 @@ export function MachineConnectPageContent({
           </h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
             Run the command on the machine that already has Codex installed. The
-            deploy URL inside the command keeps preview installs isolated by
-            origin, so one laptop can connect multiple worktrees without mixing
-            them together.
+            normal user path is just the published <code>@noter-md/sync</code>{" "}
+            package, while this deploy still exposes its own single-file{" "}
+            <code>noter.js</code> artifact below for preview and local testing.
           </p>
         </div>
 
@@ -121,8 +121,8 @@ export function MachineConnectPageContent({
             <div className="space-y-1">
               <h2 className="text-sm font-medium">Install command</h2>
               <p className="text-sm text-muted-foreground">
-                Copy this exact command for{" "}
-                <span className="font-medium">{deployOrigin}</span>.
+                Copy the normal user command. It defaults to noter.md, so people
+                do not need to think about deploy URLs.
               </p>
             </div>
             <Button
@@ -171,6 +171,11 @@ export function MachineConnectPageContent({
             <p className="mt-2 break-all text-sm text-muted-foreground">
               {sourceUrl ?? scriptUrl}
             </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Advanced path: download this single file directly when you want to
+              test a preview or local implementation without publishing a new
+              package first.
+            </p>
           </section>
         </div>
 
@@ -178,7 +183,7 @@ export function MachineConnectPageContent({
           <h2 className="text-sm font-medium">What happens next</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             The bootstrap checks that Codex is available, writes a local
-            installation record keyed by this deploy origin, and then opens
+            installation record keyed by the selected source URL, and then opens
             Noter back on this route so the browser can finish the machine
             registration flow.
           </p>
@@ -200,7 +205,7 @@ export function MachineConnectPage() {
 
   return (
     <MachineConnectPageContent
-      command={buildNoterSyncConnectCommand(deployOrigin)}
+      command={buildNoterSyncConnectCommand()}
       deployOrigin={deployOrigin}
       installationId={bootstrapSearch.installationId}
       openedByCli={bootstrapSearch.openedByCli}
