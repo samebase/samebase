@@ -62,8 +62,8 @@ export function FileViewDeveloperToolsVisualFixture({
           rightSidebarContent: <div className="min-h-0 flex-1 bg-background" />,
         }
       : {
+          leftSidebarHeader: sidebarHeader,
           leftSidebarContent: emptySidebarContent,
-          rightSidebarHeader: sidebarHeader,
           rightSidebarContent: sidebarContent,
         };
 

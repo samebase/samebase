@@ -97,8 +97,8 @@ export function FileViewLayoutVisualFixture({
           ),
         }
       : {
+          leftSidebarHeader: sidebarHeader,
           leftSidebarContent: emptySidebarContent,
-          rightSidebarHeader: sidebarHeader,
           rightSidebarContent: (
             <div
               data-testid="fileview-layout-right-sidebar-body"

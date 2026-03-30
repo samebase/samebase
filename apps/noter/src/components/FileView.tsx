@@ -3019,10 +3019,10 @@ function FileViewInner({
           leftSidebarContent: sidebarContent,
         }
       : {
-          // Keep the opposite rail mounted so its trigger still opens an empty
-          // pane when the tree lives on the right.
+          // Keep the account chrome on the left while the tree itself lives on
+          // the right.
+          leftSidebarHeader: sidebarHeader,
           leftSidebarContent: emptySidebarContent,
-          rightSidebarHeader: sidebarHeader,
           rightSidebarContent: sidebarContent,
         };
 

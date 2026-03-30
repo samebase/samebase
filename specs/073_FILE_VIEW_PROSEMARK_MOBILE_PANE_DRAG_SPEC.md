@@ -90,8 +90,8 @@ Relevant implementation points:
 
 - `WorkspaceSidebarShell` tracks mobile pane anchors and nearest-pane settling.
 - `RepositoryWorkspaceFrame` renders both left and right sidebar triggers.
-- `FileView` already mounts a right sidebar slot, even if the content is still a
-  lightweight placeholder.
+- `FileView` can mount both sidebars at once: the left rail keeps account header
+  chrome, while the file tree content can live in the right rail.
 
 ### FileView ProseMark
 
