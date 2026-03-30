@@ -8,6 +8,7 @@
 - Related docs:
   - `rfcs/073_CODEX_PLUGIN_CONNECTED_MACHINE_ONBOARDING_RESEARCH.md`
   - `specs/075_CONNECTED_MACHINE_INSTALLER_LOCAL_WALKTHROUGH_SPEC.md`
+  - `specs/077_CONNECTED_MACHINE_PRESENCE_MERGE_CHECKLIST_SPEC.md`
   - `specs/069_LOCAL_PROVIDER_THREAD_INVENTORY_RESEARCH_SURFACE_SPEC.md`
 
 ## Summary
@@ -31,6 +32,9 @@ The next rollout should **not** revive `#359` as a PR.
 Instead, Noter should treat `#359` as a code quarry and ship the remaining work
 in fresh follow-up PRs on top of current `main`, starting with machine
 registration and presence.
+
+The active blocker checklist for the current slice lives in
+`specs/077_CONNECTED_MACHINE_PRESENCE_MERGE_CHECKLIST_SPEC.md`.
 
 ## Why `#359` Is Superseded
 
