@@ -493,10 +493,37 @@ test("fileview mobile keeps a far cross-swipe on the far pane", async ({
 
   await fixture.evaluate((element) => {
     element.style.scrollSnapType = "none";
-    element
-      .querySelector<HTMLElement>('[data-sidebar-track="pannable"]')
-      ?.style.setProperty("scroll-snap-type", "none");
-    element.scrollLeft = 450;
+    const pannableTrack = element.querySelector<HTMLElement>(
+      '[data-sidebar-track="pannable"]',
+    );
+    if (pannableTrack === null) {
+      throw new Error("Expected the mobile pannable track to exist");
+    }
+
+    const leftSidebar = element.querySelector<HTMLElement>(
+      '[data-testid="fileview-layout-left-sidebar-body"]',
+    );
+    if (leftSidebar === null) {
+      throw new Error(
+        "Expected the left sidebar body to exist for the cross-swipe test",
+      );
+    }
+
+    const rightSidebar = element.querySelector<HTMLElement>(
+      '[data-testid="fileview-layout-right-sidebar-body"]',
+    );
+    if (rightSidebar === null) {
+      throw new Error(
+        "Expected the right sidebar body to exist for the cross-swipe test",
+      );
+    }
+
+    pannableTrack.style.setProperty("scroll-snap-type", "none");
+    const leftSidebarWidth = leftSidebar.getBoundingClientRect().width;
+    const rightSidebarWidth = rightSidebar.getBoundingClientRect().width;
+    const deepCrossSwipeScrollLeft =
+      leftSidebarWidth + rightSidebarWidth * 0.75;
+    element.scrollLeft = deepCrossSwipeScrollLeft;
     element.dispatchEvent(new Event("scroll"));
     element.dispatchEvent(new Event("scrollend"));
   });

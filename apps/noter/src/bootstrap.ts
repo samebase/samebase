@@ -43,10 +43,14 @@ const PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID =
 const UNKNOWN_SHORT_COMMIT_PLACEHOLDER = "xxxxxxx";
 const GLOBAL_GESTURE_DEBUG_OVERLAY_ROOT_ID =
   "global-gesture-debug-overlay-root";
+const GESTURE_DEBUG_OVERLAY_LOCATION_EVENT =
+  "noter:gesture-debug-location-change";
 
 let appLoadPromise: Promise<void> | null = null;
 let restoreHydratedWaitlistFocus = false;
 let gestureDebugOverlayMounted = false;
+let gestureDebugOverlayRoot: ReactDOM.Root | null = null;
+let gestureDebugHistoryPatched = false;
 
 function escapeHtml(value: string): string {
   return value
@@ -429,10 +433,7 @@ function mountBootstrapGestureDebugOverlay() {
   const isLocalDebugHost =
     window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1";
-  const shouldMountOverlay =
-    isMobileSidebarDebugEnabled(window.location.search) &&
-    (import.meta.env.DEV || isLocalDebugHost);
-  if (!shouldMountOverlay) {
+  if (!import.meta.env.DEV && !isLocalDebugHost) {
     return;
   }
 
@@ -445,13 +446,49 @@ function mountBootstrapGestureDebugOverlay() {
     document.body.appendChild(overlayRoot);
   }
 
-  ReactDOM.createRoot(overlayRoot).render(
-    React.createElement(
-      React.StrictMode,
-      null,
-      React.createElement(GlobalGestureDebugOverlay),
-    ),
+  gestureDebugOverlayRoot = ReactDOM.createRoot(overlayRoot);
+  // Keep the bootstrap-owned React root mounted and toggle the overlay with the
+  // query param so debug sessions can turn it on and off without a full reload.
+  const renderGestureDebugOverlay = () => {
+    gestureDebugOverlayRoot?.render(
+      React.createElement(
+        React.StrictMode,
+        null,
+        isMobileSidebarDebugEnabled(window.location.search)
+          ? React.createElement(GlobalGestureDebugOverlay)
+          : null,
+      ),
+    );
+  };
+
+  if (!gestureDebugHistoryPatched) {
+    // React Router navigation updates history without triggering popstate, so
+    // mirror those writes into a custom event for this bootstrap-mounted overlay.
+    const originalPushState = window.history.pushState.bind(window.history);
+    const originalReplaceState = window.history.replaceState.bind(
+      window.history,
+    );
+    const dispatchGestureDebugLocationChange = () => {
+      window.dispatchEvent(new Event(GESTURE_DEBUG_OVERLAY_LOCATION_EVENT));
+    };
+
+    window.history.pushState = function pushState(...args) {
+      originalPushState(...args);
+      dispatchGestureDebugLocationChange();
+    };
+    window.history.replaceState = function replaceState(...args) {
+      originalReplaceState(...args);
+      dispatchGestureDebugLocationChange();
+    };
+    gestureDebugHistoryPatched = true;
+  }
+
+  window.addEventListener("popstate", renderGestureDebugOverlay);
+  window.addEventListener(
+    GESTURE_DEBUG_OVERLAY_LOCATION_EVENT,
+    renderGestureDebugOverlay,
   );
+  renderGestureDebugOverlay();
   gestureDebugOverlayMounted = true;
 }
 
