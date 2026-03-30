@@ -37,19 +37,85 @@ export function describePaneDrag(direction: PaneDirection) {
 // Keep this comment green.`;
 
 const FIXTURE_VAULT_KEY = "fixture-file-view-code-parity";
+const PARITY_METRICS_PUBLIC_PATH =
+  "/visual-fixtures/file-view-code-parity-metrics.json";
 const PARITY_PIXEL_DIFF_PUBLIC_PATH =
   "/visual-fixtures/file-view-code-parity-pixel-diff.png";
 const PARITY_MONACO_DIFF_COLOR = "#ff3b30";
 const PARITY_PROSEMARK_DIFF_COLOR = "#007aff";
 
+type ParityForegroundBounds = {
+  height: number;
+  maxX: number;
+  maxY: number;
+  minX: number;
+  minY: number;
+  width: number;
+};
+
+type ParityForegroundBoundsMetrics = {
+  actual: {
+    bounds: ParityForegroundBounds;
+    label: string;
+  };
+  deltaX: number;
+  deltaY: number;
+  expected: {
+    bounds: ParityForegroundBounds;
+    label: string;
+  };
+};
+
 function ignoreParitySurfaceReadyChange(_ready: boolean) {}
 
-function buildParityDiffAssetUrl() {
+function buildParityArtifactUrl(args: {
+  pathname: string;
+  refreshKey: number;
+}) {
   return buildPathWithUpdatedQuery(
-    { pathname: PARITY_PIXEL_DIFF_PUBLIC_PATH },
+    { pathname: args.pathname },
     (nextSearchParams) => {
-      setQueryParam(nextSearchParams, "t", `${Date.now()}`);
+      setQueryParam(nextSearchParams, "t", `${args.refreshKey}`);
     },
+  );
+}
+
+function isParityForegroundBounds(
+  value: unknown,
+): value is ParityForegroundBounds {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof Reflect.get(value, "height") === "number" &&
+    typeof Reflect.get(value, "maxX") === "number" &&
+    typeof Reflect.get(value, "maxY") === "number" &&
+    typeof Reflect.get(value, "minX") === "number" &&
+    typeof Reflect.get(value, "minY") === "number" &&
+    typeof Reflect.get(value, "width") === "number"
+  );
+}
+
+function isParityForegroundBoundsMetrics(
+  value: unknown,
+): value is ParityForegroundBoundsMetrics {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const actual = Reflect.get(value, "actual");
+  const expected = Reflect.get(value, "expected");
+
+  return (
+    typeof Reflect.get(value, "deltaX") === "number" &&
+    typeof Reflect.get(value, "deltaY") === "number" &&
+    typeof actual === "object" &&
+    actual !== null &&
+    typeof Reflect.get(actual, "label") === "string" &&
+    isParityForegroundBounds(Reflect.get(actual, "bounds")) &&
+    typeof expected === "object" &&
+    expected !== null &&
+    typeof Reflect.get(expected, "label") === "string" &&
+    isParityForegroundBounds(Reflect.get(expected, "bounds"))
   );
 }
 
@@ -135,7 +201,11 @@ function StaticCodeMirrorParitySurface({
       data-language-ready={languageReady ? "true" : "false"}
       className="h-[250px] overflow-hidden border bg-background"
     >
-      <div ref={containerRef} className="h-full min-h-0 w-full" />
+      <div
+        ref={containerRef}
+        data-testid="file-view-code-parity-prosemark-capture"
+        className="h-full min-h-0 w-full"
+      />
     </div>
   );
 }
@@ -145,11 +215,82 @@ export function FileViewCodeParityVisualFixture({
 }: {
   mode: FileViewCodeParityVisualMode;
 }) {
+  const [artifactRefreshKey, setArtifactRefreshKey] = useState(() =>
+    Date.now(),
+  );
+  const [boundsMetrics, setBoundsMetrics] =
+    useState<ParityForegroundBoundsMetrics | null>(null);
+  const [boundsMetricsState, setBoundsMetricsState] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
   const [monacoReady, setMonacoReady] = useState(false);
   const [parityDiffImageState, setParityDiffImageState] = useState<
     "loading" | "ready" | "error"
   >("loading");
-  const [parityDiffUrl] = useState(buildParityDiffAssetUrl);
+  const parityDiffUrl = buildParityArtifactUrl({
+    pathname: PARITY_PIXEL_DIFF_PUBLIC_PATH,
+    refreshKey: artifactRefreshKey,
+  });
+  const parityMetricsUrl = buildParityArtifactUrl({
+    pathname: PARITY_METRICS_PUBLIC_PATH,
+    refreshKey: artifactRefreshKey,
+  });
+
+  useEffect(() => {
+    const onRefreshArtifacts = () => {
+      setArtifactRefreshKey(Date.now());
+      setBoundsMetricsState("loading");
+      setParityDiffImageState("loading");
+    };
+
+    window.addEventListener(
+      "file-view-code-parity-refresh-artifacts",
+      onRefreshArtifacts,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "file-view-code-parity-refresh-artifacts",
+        onRefreshArtifacts,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setBoundsMetricsState("loading");
+
+    void fetch(parityMetricsUrl)
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("Parity metrics missing");
+        }
+
+        const nextValue: unknown = await response.json();
+        if (!isParityForegroundBoundsMetrics(nextValue)) {
+          throw new Error("Parity metrics invalid");
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        setBoundsMetrics(nextValue);
+        setBoundsMetricsState("ready");
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+
+        setBoundsMetrics(null);
+        setBoundsMetricsState("error");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [parityMetricsUrl]);
 
   return (
     <SidebarProvider
@@ -228,16 +369,21 @@ export function FileViewCodeParityVisualFixture({
                     data-editor-ready={monacoReady ? "true" : "false"}
                     className="h-[250px] overflow-hidden border bg-background"
                   >
-                    <MonacoEditorSurface
-                      branch="main"
-                      defaultValue={FIXTURE_DOCUMENT}
-                      filePath={FIXTURE_FILE_PATH}
-                      onMount={() => {
-                        setMonacoReady(true);
-                      }}
-                      syncError={null}
-                      vaultKey={FIXTURE_VAULT_KEY}
-                    />
+                    <div
+                      data-testid="file-view-code-parity-monaco-capture"
+                      className="h-full min-h-0 w-full"
+                    >
+                      <MonacoEditorSurface
+                        branch="main"
+                        defaultValue={FIXTURE_DOCUMENT}
+                        filePath={FIXTURE_FILE_PATH}
+                        onMount={() => {
+                          setMonacoReady(true);
+                        }}
+                        syncError={null}
+                        vaultKey={FIXTURE_VAULT_KEY}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -296,6 +442,22 @@ export function FileViewCodeParityVisualFixture({
                       />
                       <span>ProseMark darker / extra</span>
                     </div>
+                  </div>
+                  <div
+                    data-testid="file-view-code-parity-bounds-delta"
+                    className="text-xs text-muted-foreground"
+                  >
+                    {boundsMetricsState === "loading"
+                      ? "Foreground bounds pending"
+                      : boundsMetricsState === "error" || !boundsMetrics
+                        ? "Foreground bounds unavailable"
+                        : `Foreground bounds delta: x ${boundsMetrics.deltaX}px, y ${boundsMetrics.deltaY}px`}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    These bounds ignore the shell border and focus on the first
+                    non-background editor pixels, so use them for placement. The
+                    pixel diff below still includes rasterization and
+                    syntax-color noise.
                   </div>
                   <div className="min-h-0 flex-1 overflow-hidden border bg-white">
                     <img

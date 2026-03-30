@@ -1,6 +1,11 @@
+import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
-import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
+import {
+  expectScreenshotsToMatch,
+  measureScreenshotForegroundBoundsDelta,
+  takeStableScreenshot,
+} from "./visualDiff";
 
 test.use({ serviceWorkers: "block" });
 test.setTimeout(90_000);
@@ -11,6 +16,12 @@ const PARITY_DIFF_COLOR_PROSEMARK = [0, 122, 255] as const;
 const PARITY_PIXEL_DIFF_OUTPUT_PATH = fileURLToPath(
   new URL(
     "../public/visual-fixtures/file-view-code-parity-pixel-diff.png",
+    import.meta.url,
+  ),
+);
+const PARITY_METRICS_OUTPUT_PATH = fileURLToPath(
+  new URL(
+    "../public/visual-fixtures/file-view-code-parity-metrics.json",
     import.meta.url,
   ),
 );
@@ -56,20 +67,40 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
 
   const fixture = page.getByTestId("file-view-code-parity-visual-fixture");
   const monacoSurface = page.getByTestId("file-view-code-parity-monaco");
+  const monacoCapture = page.getByTestId(
+    "file-view-code-parity-monaco-capture",
+  );
   const prosemarkSurface = page.getByTestId("file-view-code-parity-prosemark");
+  const prosemarkCapture = page.getByTestId(
+    "file-view-code-parity-prosemark-capture",
+  );
   const diffSurface = page.getByTestId("file-view-code-parity-diff");
+  const boundsDelta = page.getByTestId("file-view-code-parity-bounds-delta");
   const mismatchCount = page.getByTestId(
     "file-view-code-parity-mismatch-count",
   );
 
   await expect(fixture).toBeVisible();
   await expect(monacoSurface).toBeVisible();
+  await expect(monacoCapture).toBeVisible();
   await expect(prosemarkSurface).toBeVisible();
+  await expect(prosemarkCapture).toBeVisible();
   await expect(diffSurface).toBeVisible();
   await waitForParityEditors(page);
 
-  const monacoScreenshot = await takeStableScreenshot(monacoSurface);
-  const prosemarkScreenshot = await takeStableScreenshot(prosemarkSurface);
+  const monacoScreenshot = await takeStableScreenshot(monacoCapture);
+  const prosemarkScreenshot = await takeStableScreenshot(prosemarkCapture);
+  const foregroundBoundsDelta = measureScreenshotForegroundBoundsDelta({
+    actual: prosemarkScreenshot,
+    actualLabel: "ProseMark",
+    expected: monacoScreenshot,
+    expectedLabel: "Monaco",
+  });
+
+  await writeFile(
+    PARITY_METRICS_OUTPUT_PATH,
+    JSON.stringify(foregroundBoundsDelta, null, 2),
+  );
 
   await expectScreenshotsToMatch({
     actual: prosemarkScreenshot,
@@ -93,16 +124,12 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   });
 
   await page.evaluate(() => {
-    const diffImage = document.querySelector(
-      '[data-testid="file-view-code-parity-diff"] img',
+    window.dispatchEvent(
+      new CustomEvent("file-view-code-parity-refresh-artifacts"),
     );
-    if (!(diffImage instanceof HTMLImageElement)) {
-      return;
-    }
-
-    diffImage.src = `/visual-fixtures/file-view-code-parity-pixel-diff.png?t=${Date.now()}`;
   });
   await expect(mismatchCount).toHaveText("Latest recorded pixel diff");
+  await expect(boundsDelta).not.toHaveText("Foreground bounds pending");
   const diffImage = diffSurface.getByAltText(
     "Latest recorded parity pixel diff",
   );

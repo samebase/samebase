@@ -34,6 +34,105 @@ const STABLE_SCREENSHOT_OPTIONS = {
   scale: "css",
 } as const;
 
+export type ScreenshotForegroundBounds = {
+  height: number;
+  maxX: number;
+  maxY: number;
+  minX: number;
+  minY: number;
+  width: number;
+};
+
+const DEFAULT_FOREGROUND_BACKGROUND_CHANNEL_THRESHOLD = 245;
+
+export function measureScreenshotForegroundBounds(
+  screenshot: Buffer,
+  options?: {
+    backgroundChannelThreshold?: number;
+    ignoreEdgeInsetPx?: number;
+  },
+): ScreenshotForegroundBounds | null {
+  const png = PNG.sync.read(screenshot);
+  const backgroundChannelThreshold =
+    options?.backgroundChannelThreshold ??
+    DEFAULT_FOREGROUND_BACKGROUND_CHANNEL_THRESHOLD;
+  const ignoreEdgeInsetPx = options?.ignoreEdgeInsetPx ?? 0;
+  let minX = png.width;
+  let minY = png.height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = ignoreEdgeInsetPx; y < png.height - ignoreEdgeInsetPx; y += 1) {
+    for (let x = ignoreEdgeInsetPx; x < png.width - ignoreEdgeInsetPx; x += 1) {
+      const index = (y * png.width + x) * 4;
+      const r = png.data[index];
+      const g = png.data[index + 1];
+      const b = png.data[index + 2];
+      const a = png.data[index + 3];
+      const isBackground =
+        a === 0 ||
+        (r >= backgroundChannelThreshold &&
+          g >= backgroundChannelThreshold &&
+          b >= backgroundChannelThreshold);
+
+      if (isBackground) continue;
+
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    return null;
+  }
+
+  return {
+    height: png.height,
+    maxX,
+    maxY,
+    minX,
+    minY,
+    width: png.width,
+  };
+}
+
+export function measureScreenshotForegroundBoundsDelta(args: {
+  actual: Buffer;
+  actualLabel: string;
+  backgroundChannelThreshold?: number;
+  expected: Buffer;
+  expectedLabel: string;
+  ignoreEdgeInsetPx?: number;
+}) {
+  const actualBounds = measureScreenshotForegroundBounds(args.actual, {
+    backgroundChannelThreshold: args.backgroundChannelThreshold,
+    ignoreEdgeInsetPx: args.ignoreEdgeInsetPx,
+  });
+  const expectedBounds = measureScreenshotForegroundBounds(args.expected, {
+    backgroundChannelThreshold: args.backgroundChannelThreshold,
+    ignoreEdgeInsetPx: args.ignoreEdgeInsetPx,
+  });
+
+  if (!actualBounds || !expectedBounds) {
+    return null;
+  }
+
+  return {
+    actual: {
+      bounds: actualBounds,
+      label: args.actualLabel,
+    },
+    deltaX: actualBounds.minX - expectedBounds.minX,
+    deltaY: actualBounds.minY - expectedBounds.minY,
+    expected: {
+      bounds: expectedBounds,
+      label: args.expectedLabel,
+    },
+  };
+}
+
 function buildWeightedRedDiffPng(expectedPng: PNG, actualPng: PNG): PNG {
   const diffPng = new PNG({
     width: expectedPng.width,
