@@ -1,4 +1,5 @@
 import { Badge } from "@/components/badge";
+import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachineHeartbeatLog";
 import {
   Card,
   CardContent,
@@ -33,8 +34,11 @@ import {
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
+import { useConnectedMachineHeartbeatLog } from "@/lib/connectedMachineHeartbeatLog";
 import { clsx } from "clsx";
+import { useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
+import { api } from "../../convex/_generated/api";
 
 type RuntimeFormState = {
   cwd: string;
@@ -480,6 +484,9 @@ export function CodexAppServerSelectedThreadCard(props: {
 }
 
 export function CodexAppServerResearchPage() {
+  const connectedMachinesQuery = useQuery(
+    api.connectedMachines.listConnectedMachines,
+  );
   const [status, setStatus] = useState<CodexAppServerStatusResponse | null>(
     null,
   );
@@ -681,6 +688,14 @@ export function CodexAppServerResearchPage() {
   const refreshEventsRef = useRef(refreshEvents);
   const refreshThreadsRef = useRef(refreshThreads);
   const refreshSelectedThreadRef = useRef(refreshSelectedThread);
+  const connectedMachines = (connectedMachinesQuery ?? []).map((machine) => ({
+    displayName: machine.displayName,
+    hostname: machine.hostname,
+    lastSeenAt: machine.lastSeenAt,
+    machineId: machine.machineId,
+    status: machine.status,
+  }));
+  const heartbeatLog = useConnectedMachineHeartbeatLog(connectedMachines);
 
   refreshStatusRef.current = refreshStatus;
   refreshRequestsRef.current = refreshRequests;
@@ -766,6 +781,10 @@ export function CodexAppServerResearchPage() {
             </span>
           </div>
         </div>
+
+        {connectedMachines.length > 0 ? (
+          <ConnectedMachineHeartbeatLogSection heartbeatLog={heartbeatLog} />
+        ) : null}
 
         {error ? (
           <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

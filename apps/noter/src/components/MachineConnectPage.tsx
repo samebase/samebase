@@ -1,5 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachineHeartbeatLog";
+import {
+  formatConnectedMachineHeartbeatTimestamp,
+  useConnectedMachineHeartbeatLog,
+  type ConnectedMachineHeartbeatMachine,
+} from "@/lib/connectedMachineHeartbeatLog";
 import {
   buildDirectNoterSyncConnectCommand,
   buildDirectNoterSyncRunCommand,
@@ -10,7 +15,7 @@ import {
 } from "@/lib/noterSync";
 import { useMutation, useQuery } from "convex/react";
 import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 
@@ -22,12 +27,7 @@ type CopyableCommandBlockProps = {
 
 type ConnectedMachineItem = {
   connectorVersion: string;
-  displayName: string;
-  hostname: string;
-  lastSeenAt: number;
-  machineId: string;
-  status: "offline" | "online";
-};
+} & ConnectedMachineHeartbeatMachine;
 
 type MachineApprovalState =
   | {
@@ -88,80 +88,6 @@ function resolveCurrentOrigin(): string {
   }
 
   return window.location.origin;
-}
-
-const MAX_HEARTBEAT_LOG_LINES = 40;
-
-function formatHeartbeatTimestamp(value: number): string {
-  return new Date(value).toLocaleTimeString();
-}
-
-function buildHeartbeatLogLine(args: {
-  machine: ConnectedMachineItem;
-  kind: "discovered" | "heartbeat" | "status";
-}) {
-  const timestamp = formatHeartbeatTimestamp(args.machine.lastSeenAt);
-  const summary = `${args.machine.displayName} (${args.machine.hostname})`;
-
-  switch (args.kind) {
-    case "discovered":
-      return `[${timestamp}] observing ${summary}; last ping seen, currently ${args.machine.status}.`;
-    case "status":
-      return `[${timestamp}] ${summary} is now ${args.machine.status}.`;
-    case "heartbeat":
-      return `[${timestamp}] heartbeat from ${summary}.`;
-  }
-}
-
-function useHeartbeatLog(machines: ConnectedMachineItem[]): string {
-  const [lines, setLines] = useState<string[]>([]);
-  const previousMachinesRef = useRef(
-    new Map<
-      string,
-      { lastSeenAt: number; status: ConnectedMachineItem["status"] }
-    >(),
-  );
-
-  useEffect(() => {
-    const previousMachines = previousMachinesRef.current;
-    const nextMachines = new Map<
-      string,
-      { lastSeenAt: number; status: ConnectedMachineItem["status"] }
-    >();
-    const nextLines: string[] = [];
-
-    for (const machine of machines) {
-      nextMachines.set(machine.machineId, {
-        lastSeenAt: machine.lastSeenAt,
-        status: machine.status,
-      });
-
-      const previousMachine = previousMachines.get(machine.machineId);
-      if (!previousMachine) {
-        nextLines.push(buildHeartbeatLogLine({ machine, kind: "discovered" }));
-        continue;
-      }
-
-      if (machine.lastSeenAt > previousMachine.lastSeenAt) {
-        nextLines.push(buildHeartbeatLogLine({ machine, kind: "heartbeat" }));
-      }
-
-      if (machine.status !== previousMachine.status) {
-        nextLines.push(buildHeartbeatLogLine({ machine, kind: "status" }));
-      }
-    }
-
-    previousMachinesRef.current = nextMachines;
-    if (nextLines.length === 0) {
-      return;
-    }
-
-    setLines((current) =>
-      [...current, ...nextLines].slice(-MAX_HEARTBEAT_LOG_LINES),
-    );
-  }, [machines]);
-
-  return lines.join("\n");
 }
 
 function CopyableCommandBlock({
@@ -369,7 +295,8 @@ function ConnectedMachineList({
                   {machine.connectorVersion}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Last ping {formatHeartbeatTimestamp(machine.lastSeenAt)}
+                  Last ping{" "}
+                  {formatConnectedMachineHeartbeatTimestamp(machine.lastSeenAt)}
                 </p>
               </div>
               <div className="text-sm font-medium">
@@ -414,21 +341,7 @@ export function MachineConnectPageContent({
         </div>
 
         {connectedMachines.length > 0 ? (
-          <section className="space-y-3">
-            <div className="space-y-1">
-              <h2 className="text-sm font-medium">Live heartbeat log</h2>
-              <p className="text-sm text-muted-foreground">
-                New lines appear here while this page stays open and the local
-                connector keeps pinging noter.
-              </p>
-            </div>
-            <Textarea
-              readOnly
-              rows={2}
-              value={heartbeatLog}
-              className="min-h-0 resize-y font-mono text-xs"
-            />
-          </section>
+          <ConnectedMachineHeartbeatLogSection heartbeatLog={heartbeatLog} />
         ) : null}
 
         {openedByCli ? (
@@ -503,7 +416,7 @@ export function MachineConnectPage() {
     machineId: machine.machineId,
     status: machine.status,
   }));
-  const heartbeatLog = useHeartbeatLog(connectedMachines);
+  const heartbeatLog = useConnectedMachineHeartbeatLog(connectedMachines);
 
   const handleApprove = async () => {
     if (!bootstrapSearch.requestId || isApproving) {

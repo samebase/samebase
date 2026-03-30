@@ -1,3 +1,4 @@
+import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachineHeartbeatLog";
 import { CodexAppServerSelectedThreadCard } from "@/components/CodexAppServerResearchPage";
 import {
   type CodexAppServerThread,
@@ -82,8 +83,13 @@ export function CodexAppServerResearchVisualFixture({
     <div className="bg-[radial-gradient(circle_at_top_left,_rgba(148,163,184,0.18),_transparent_30%),linear-gradient(180deg,_#f8fafc_0%,_#e2e8f0_100%)] p-8 text-slate-950">
       <div
         data-testid="codex-app-server-research-visual-fixture"
-        className="w-[1240px]"
+        className="grid w-[1240px] gap-6"
       >
+        <ConnectedMachineHeartbeatLogSection
+          heartbeatLog={`[10:20:00 AM] observing Nicu MacBook Pro (nicu-mbp.local); last ping seen, currently online.
+[10:20:15 AM] heartbeat from Nicu MacBook Pro (nicu-mbp.local).
+[10:20:30 AM] heartbeat from Nicu MacBook Pro (nicu-mbp.local).`}
+        />
         <CodexAppServerSelectedThreadCard
           threadsCount={24}
           hasMoreThreads
