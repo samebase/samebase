@@ -39,6 +39,8 @@ export function describePaneDrag(direction: PaneDirection) {
 const FIXTURE_VAULT_KEY = "fixture-file-view-code-parity";
 const PARITY_PIXEL_DIFF_PUBLIC_PATH =
   "/visual-fixtures/file-view-code-parity-pixel-diff.png";
+const PARITY_MONACO_DIFF_COLOR = "#ff3b30";
+const PARITY_PROSEMARK_DIFF_COLOR = "#007aff";
 
 function ignoreParitySurfaceReadyChange(_ready: boolean) {}
 
@@ -278,6 +280,22 @@ export function FileViewCodeParityVisualFixture({
                     The diff below comes from the latest Playwright parity run.
                     Re-run the parity snapshot test to refresh it after styling
                     changes.
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="h-3 w-3 border"
+                        style={{ backgroundColor: PARITY_MONACO_DIFF_COLOR }}
+                      />
+                      <span>Monaco darker / extra</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="h-3 w-3 border"
+                        style={{ backgroundColor: PARITY_PROSEMARK_DIFF_COLOR }}
+                      />
+                      <span>ProseMark darker / extra</span>
+                    </div>
                   </div>
                   <div className="min-h-0 flex-1 overflow-hidden border bg-white">
                     <img

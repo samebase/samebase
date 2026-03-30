@@ -14,8 +14,14 @@ type ScreenshotDiffParams = {
     diffMask?: string;
     expected?: string;
   };
+  diffVisualization?: "directional-mask" | "weighted-red";
   maxDiffPixelRatio: number;
   pixelmatchOptions?: {
+    aaColor?: [number, number, number];
+    alpha?: number;
+    diffColor?: [number, number, number];
+    diffColorAlt?: [number, number, number];
+    diffMask?: boolean;
     includeAA?: boolean;
     threshold?: number;
   };
@@ -59,6 +65,59 @@ function buildWeightedRedDiffPng(expectedPng: PNG, actualPng: PNG): PNG {
   return diffPng;
 }
 
+function buildDirectionalMaskDiffPng(args: {
+  actualPng: PNG;
+  expectedPng: PNG;
+  pixelmatchOptions: NonNullable<ScreenshotDiffParams["pixelmatchOptions"]>;
+}) {
+  const diffMaskPng = new PNG({
+    width: args.expectedPng.width,
+    height: args.expectedPng.height,
+  });
+  pixelmatch(
+    args.expectedPng.data,
+    args.actualPng.data,
+    diffMaskPng.data,
+    args.expectedPng.width,
+    args.expectedPng.height,
+    {
+      ...args.pixelmatchOptions,
+      diffMask: true,
+    },
+  );
+
+  const displayPng = new PNG({
+    width: args.expectedPng.width,
+    height: args.expectedPng.height,
+  });
+
+  for (let index = 0; index < diffMaskPng.data.length; index += 4) {
+    const hasDiff =
+      diffMaskPng.data[index] !== 0 ||
+      diffMaskPng.data[index + 1] !== 0 ||
+      diffMaskPng.data[index + 2] !== 0 ||
+      diffMaskPng.data[index + 3] !== 0;
+
+    if (!hasDiff) {
+      displayPng.data[index] = 255;
+      displayPng.data[index + 1] = 255;
+      displayPng.data[index + 2] = 255;
+      displayPng.data[index + 3] = 255;
+      continue;
+    }
+
+    displayPng.data[index] = diffMaskPng.data[index];
+    displayPng.data[index + 1] = diffMaskPng.data[index + 1];
+    displayPng.data[index + 2] = diffMaskPng.data[index + 2];
+    displayPng.data[index + 3] = 255;
+  }
+
+  return {
+    diffMaskPng,
+    displayPng,
+  };
+}
+
 export async function takeStableScreenshot(locator: Locator): Promise<Buffer> {
   return locator.screenshot(STABLE_SCREENSHOT_OPTIONS);
 }
@@ -68,6 +127,7 @@ export async function expectScreenshotsToMatch({
   expected,
   artifactPrefix,
   artifactWritePaths,
+  diffVisualization = "weighted-red",
   maxDiffPixelRatio,
   pixelmatchOptions,
   testInfo,
@@ -91,9 +151,19 @@ export async function expectScreenshotsToMatch({
     pixelmatchOptions,
   );
   const diffPixelRatio = diffPixels / (expectedPng.width * expectedPng.height);
-  const weightedDiffPng = buildWeightedRedDiffPng(expectedPng, actualPng);
-  const weightedDiffBuffer = PNG.sync.write(weightedDiffPng);
-  const diffMaskBuffer = PNG.sync.write(diffPng);
+  const diffVisualizationResult =
+    diffVisualization === "directional-mask"
+      ? buildDirectionalMaskDiffPng({
+          actualPng,
+          expectedPng,
+          pixelmatchOptions: pixelmatchOptions ?? {},
+        })
+      : {
+          diffMaskPng: diffPng,
+          displayPng: buildWeightedRedDiffPng(expectedPng, actualPng),
+        };
+  const weightedDiffBuffer = PNG.sync.write(diffVisualizationResult.displayPng);
+  const diffMaskBuffer = PNG.sync.write(diffVisualizationResult.diffMaskPng);
 
   if (artifactWritePaths) {
     const artifactWrites = [

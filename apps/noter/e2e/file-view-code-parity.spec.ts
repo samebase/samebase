@@ -6,6 +6,8 @@ test.use({ serviceWorkers: "block" });
 test.setTimeout(90_000);
 
 const MAX_CODE_EDITOR_DIFF_PIXEL_RATIO = 0.018;
+const PARITY_DIFF_COLOR_MONACO = [255, 59, 48] as const;
+const PARITY_DIFF_COLOR_PROSEMARK = [0, 122, 255] as const;
 const PARITY_PIXEL_DIFF_OUTPUT_PATH = fileURLToPath(
   new URL(
     "../public/visual-fixtures/file-view-code-parity-pixel-diff.png",
@@ -76,11 +78,14 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
     artifactWritePaths: {
       diff: PARITY_PIXEL_DIFF_OUTPUT_PATH,
     },
+    diffVisualization: "directional-mask",
     maxDiffPixelRatio: MAX_CODE_EDITOR_DIFF_PIXEL_RATIO,
     // Monaco and CodeMirror still rasterize identical glyphs a little
     // differently, so keep the overall mismatch ratio tight while relaxing the
     // per-pixel sensitivity enough to focus this check on layout and palette.
     pixelmatchOptions: {
+      diffColor: PARITY_DIFF_COLOR_MONACO,
+      diffColorAlt: PARITY_DIFF_COLOR_PROSEMARK,
       includeAA: false,
       threshold: 0.7,
     },
