@@ -1,10 +1,9 @@
-# 073 Codex Plugin Connected Machine Onboarding Research
+# 073 Connected Machine Installer And Approval
 
-## Document Control
+## Status
 
-- Status: Proposed implementation
-- Owner: connected machine onboarding UX
-- Last updated: 2026-03-30
+- Proposed implementation
+- Scope: first-user internal MVP with a clear path to public npm distribution
 - Related docs:
   - `specs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`
   - `specs/062_MCP_DUAL_ORIGIN_CONSENT_LOGIN_REDIRECT_SPEC.md`
@@ -14,687 +13,374 @@
   - `rfcs/070_NOTER_UI_PR_TRIGGERED_CODEX_LOCAL_AUTOMATION_RESEARCH.md`
   - `rfcs/074_EXTERNAL_CODEX_REMOTE_CONTROL_RESEARCH.md`
 
-## Summary
+## Decision Summary
 
-Noter now has three adjacent but different pieces:
+Noter should treat hosted MCP auth and local machine connect as two separate
+steps:
 
-1. hosted MCP auth and consent for the Noter plugin/server
-2. a local-only Codex app-server browser research surface
+1. MCP auth gives the user access to hosted Noter tools.
+2. Machine connect registers one local machine as a Noter execution target.
+
+The first-user installer model should be:
+
+1. machine-scoped, not repo-scoped
+2. a single hosted `noter.js` file per deploy
+3. directly runnable from the current deploy for internal, preview, and local
+   iteration
+4. later publishable as `@noter-md/sync`, using the same underlying file
+
+The machine-connect page should stay intentionally small. Its job is not to
+teach the whole system. Its job is to act as the browser-side checkpoint
+between:
+
+1. local bootstrap
+2. signed-in Noter session
+3. machine approval and credential issuance
+
+## Problem
+
+Noter now has three adjacent capabilities:
+
+1. hosted MCP auth and consent for the Noter plugin
+2. a local-only Codex app-server research browser
 3. a connected-machine foundation that syncs machine presence and thread
    summaries into Convex
 
-What is still missing is the user-facing bridge between them:
+The user-facing bridge between them is still missing.
 
-1. a Codex user can authenticate Noter today
-2. that does not automatically connect the local machine runtime to Noter
-3. there is no repo-owned onboarding step yet that says what the user must
-   install or run next
+Today, a user can:
 
-This RFC answers that gap.
+1. install the `noter.md` plugin in Codex
+2. click `Authenticate`
+3. sign in to Noter successfully
 
-Recommendation:
+That does not yet mean:
 
-1. Do not ask the user to edit a repo `package.json`.
-2. Do not make Homebrew the default onboarding path.
-3. Short term, make the installer origin URL-scoped so every production deploy
-   and every preview deploy can serve its own install entrypoint.
-4. Use a thin machine-scoped Node executor, but let the current page URL choose
-   which environment or worktree the installer targets.
-5. Because stock Node does not execute `https:` entrypoints directly today, the
-   first runnable command should be the thin wrapper
-   `npx @noter-md/sync connect`.
-6. Keep `https://<current-deploy>/noter.js` as the single-file public artifact
-   for internal, preview, and local workflows. The hosted file itself should be
-   the direct-install source instead of teaching users a CLI override flag.
-7. A direct `curl -fsSL <url> | node --input-type=module -` form is acceptable
-   for internal or preview workflows, as long as the bootstrap stays a
-   single-file script.
-8. Long term, replace the wrapper with a native desktop companion/daemon while
-   preserving URL-scoped environment selection.
+1. this laptop is registered as a Noter machine
+2. Noter may sync local Codex thread inventory from this laptop
+3. Noter may later send remote work to this laptop
+4. a local connector is installed and running
 
-The key product truth is:
+The onboarding gap is: what exactly should happen after plugin auth so the user
+can actually see and control local Codex threads?
 
-1. MCP authentication grants access to Noter's hosted tools
-2. connected-machine control requires a second, explicit machine registration
-3. that registration should feel machine-centric, not repo-centric
-
-## User Question This RFC Answers
-
-If a user:
-
-1. uses the Codex app
-2. adds the `noter.md` plugin / MCP server
-3. clicks `Authenticate`
-4. logs into Noter successfully
-
-What should happen next so they can actually see and control local Codex
-threads?
-
-Specifically:
-
-1. do we ask them to install something?
-2. if yes, is it a repo dependency, a package manager install, or something
-   else?
-3. where should that onboarding live?
-
-## Current State
-
-### What authentication already solves
-
-The MCP/OAuth specs already define the hosted auth flow:
-
-1. the MCP client starts OAuth against Noter
-2. the browser lands on `https://noter.md/oauth/mcp/consent?...`
-3. the user signs in and approves the MCP client
-4. the MCP client receives OAuth credentials for the hosted Noter MCP surface
-
-That is real and useful.
-
-It means the user can access hosted Noter capabilities through the plugin.
-
-### What authentication does not solve
-
-It does not yet prove or create any of the following:
-
-1. that this laptop is a registered Noter execution target
-2. that Noter may read local Codex thread inventory from this machine
-3. that Noter may send turns or commands to this machine
-4. that a connector/daemon is installed and running locally
-
-The authenticated MCP session and the connected-machine session are separate
-things.
-
-### How auth should extend for machine connect
-
-The MCP auth flow is still the right browser-side primitive to reuse, but not
-the exact credential to hand to a machine.
-
-Recommendation:
-
-1. Reuse the signed-in Noter browser session and consent-style UI for machine
-   approval.
-2. Do not reuse MCP OAuth access tokens or auth-request rows as the machine's
-   long-lived credential.
-3. Treat machine connect as a device-style registration handshake: the CLI opens
-   the browser, the browser proves the current user, the user approves the
-   install, and Noter issues a machine-specific bootstrap credential for the
-   local connector to store.
-4. Keep machine revocation separate from MCP client revocation so a user can
-   disconnect one machine without breaking the hosted MCP plugin.
-
-### What local thread control already exists
-
-`specs/069_LOCAL_PROVIDER_THREAD_INVENTORY_RESEARCH_SURFACE_SPEC.md` and merged
-PR `#358` provide a local dev-only browser route that can:
-
-1. list local Codex threads
-2. read thread detail
-3. resume/archive/unarchive threads
-4. send a prompt to a selected thread
-
-But that surface talks directly to a local dev bridge. It is not a production
-user onboarding flow.
-
-### What connected-machine work already exists
-
-PR `#359` adds the initial cloud-side connected-machine foundation:
-
-1. `connectedMachines`
-2. `machineThreads`
-3. machine heartbeat sync
-4. machine thread-summary sync
-
-It still does not provide the user install story or the machine registration
-story.
-
-## Product Boundary
+## Product Model
 
 The correct mental model is:
 
-1. MCP plugin connection is account-level and hosted
-2. connected-machine connection is machine-level and local
+1. plugin auth is account-level and hosted
+2. machine connect is machine-level and local
 
-Those should compose, but they should not be confused.
+These compose, but they are not the same action and they must not share the same
+long-lived credential.
 
-The user should not be expected to infer:
+Implications:
 
-1. that successful MCP auth means their local machine is now connected
-2. that they need to edit a project repo to make machine sync work
-3. which package manager they should use
+1. do not tell the user that successful plugin auth means the machine is now
+   connected
+2. do not ask the user to edit a repo `package.json`
+3. do not make Homebrew the default
+4. do not reuse MCP OAuth access tokens as machine credentials
 
-Noter must tell them explicitly what the next step is.
+## Why The Installer Is Not Repo-Scoped
 
-## Why `package.json` Is The Wrong Install Surface
-
-Do not ask the user to add the connector to a repo `package.json`.
+The connected-machine connector does not belong in an application repo.
 
 Reasons:
 
-1. The connector is machine-scoped, not repo-scoped.
-2. A single machine may serve many repos and many Codex threads.
-3. Asking the user to install into every repo creates duplication and drift.
-4. A repo dependency implies the connector belongs to application runtime or
-   project dev tooling, which is false.
-5. Connected-machine state belongs under user or machine storage, not inside an
-   arbitrary project checkout.
+1. it is machine-scoped, not repo-scoped
+2. one machine may serve many repos and many Codex threads
+3. asking the user to install it in each repo creates drift and duplication
+4. repo dependencies imply app-runtime or repo-tooling ownership, which is false
+   here
+5. machine state belongs in a Noter-owned directory outside repos
 
 Conclusion:
 
-1. `package.json` is the wrong abstraction for this feature.
+1. `package.json` is the wrong install surface for the first-user flow
 
-## Homebrew As Default
+## Distribution Model
 
-Homebrew could be a distribution option, but it should not be the default
-onboarding path.
+We want one underlying installer file with two distribution channels.
 
-Pros:
+### Channel A: Hosted `noter.js`
 
-1. familiar for many macOS developers
-2. good for a long-running background daemon tool
-3. easy to update on macOS
+This is the current first-user and iteration path.
 
-Cons:
+Shape:
 
-1. macOS-only by default
-2. not every Codex desktop user has Homebrew installed
-3. it makes the first-run flow feel more operator-heavy than product-grade
-4. it does not help Windows or Linux
+```bash
+curl -fsSL https://noter.md/noter.js | node --input-type=module - connect
+```
+
+Preview or local iteration uses the same shape, just with a different origin:
+
+```bash
+curl -fsSL https://<current-deploy>/noter.js | node --input-type=module - connect
+```
+
+Why this is the right first step:
+
+1. it lets one deploy own its own installer artifact
+2. it makes preview and worktree iteration easy
+3. it avoids waiting on npm publishing before the flow is usable
+4. it keeps the real source artifact visible and inspectable
+
+### Channel B: Published npm package
+
+This is the later public path once the package is actually published.
+
+Shape:
+
+```bash
+npx @noter-md/sync connect
+```
+
+The important rule is that the npm package should remain a thin wrapper around
+the same installer logic that powers the hosted file. We do not want separate
+implementations.
+
+## Why Homebrew Is Not The Default
+
+Homebrew can exist as an optional install channel later, but it should not be
+the default.
+
+Reasons:
+
+1. it is macOS-first
+2. it assumes more operator setup than a product-owned bootstrap script
+3. it does not help preview deploy iteration
+4. it is a worse fit than Node for the current single-file installer direction
 
 Conclusion:
 
-1. Homebrew is acceptable as an optional install channel
-2. it is not the best default instruction
+1. Homebrew is optional, not primary
 
-## Candidate Install Surfaces
+## Hosted Script Requirements
 
-### Option A: Repo dependency
-
-Example shape:
-
-1. `pnpm add -D @noter-md/sync`
-2. add a repo script
-3. run from inside one checkout
-
-Verdict:
-
-1. reject
-
-### Option B: Homebrew formula
-
-Example shape:
-
-1. `brew install noter/tap/noter-machine`
-2. `noter-machine connect`
-
-Verdict:
-
-1. fine as one channel
-2. not default
-
-### Option C: Hosted ESM bootstrap script
-
-Example shape:
-
-1. `node https://<current-deploy>/noter.js`
-2. the hosted script performs machine registration and connector setup
-
-Pros:
-
-1. memorable and presentable
-2. makes the install surface feel product-owned instead of package-manager-owned
-3. keeps the bootstrap logic machine-scoped and repo-independent
-4. gives Noter one canonical public entry script to document and improve
-
-Cons:
-
-1. stock Node does not support `https:` URLs as a normal positional entrypoint
-2. Node's `--entry-url` flag is experimental and still does not make `https:`
-   entrypoints work with the default loader
-3. the first shipped experience still needs a wrapper or launcher
-
-Verdict:
-
-1. strong canonical artifact
-2. not yet the first runnable command in stock Node
-
-### Option D: Standalone npm package / Node wrapper CLI
-
-Example shape:
-
-1. `npx @noter-md/sync connect`
-2. or `npm install -g @noter-md/sync`
-3. the hosted `noter.js` file remains the direct internal/preview artifact
-
-Pros:
-
-1. machine-scoped
-2. cross-platform where Node is available
-3. no repo modification
-4. actually runnable with current Node
-5. keeps the main user command short and memorable
-6. still allows every preview deploy to provide its own install source
-7. easiest way to ship quickly from the current Node-based connector code
-8. can later install a background service / launch agent
-
-Cons:
-
-1. still assumes Node is available
-2. first-run command-line UX is not as polished as a native companion app
-3. the hosted-file path still needs a clear provenance story for preview and
-   local builds
-
-Verdict:
-
-1. best short-term default
-
-### Option D1: Hosted pipe-to-Node bootstrap
-
-Example shape:
-
-1. `curl -fsSL https://<current-deploy>/noter.js | node --input-type=module - connect`
-
-Pros:
-
-1. works with current Node
-2. keeps the visible public artifact at `https://<current-deploy>/noter.js`
-3. avoids introducing npm package branding into the main install instruction
-
-Cons:
-
-1. pipe-from-network commands have worse trust optics than a local file or
-   package install
-2. the script should be bundled into one file because relative imports will
-   resolve against the current working directory, not the remote deploy origin
-3. depends on `curl` being present
-
-Verdict:
-
-1. acceptable for internal or early adopter flow
-2. likely too rough as the long-term primary install instruction
-
-### Option E: Native desktop companion
-
-Example shape:
-
-1. user clicks `Connect this machine`
-2. Noter downloads or launches a signed desktop helper
-3. helper installs a background service and registers the machine
-
-Pros:
-
-1. best product UX
-2. least CLI friction
-3. best fit for trusted reconnect and background presence
-
-Cons:
-
-1. most implementation work
-2. distribution/signing/update story required
-
-Verdict:
-
-1. best long-term path
-2. not the fastest path to MVP
-
-## Recommended User Flow
-
-### Phase 1: Short-term shipped flow
-
-After successful MCP auth from Codex:
-
-1. Noter should not pretend the machine is connected.
-2. The browser should land on a Noter page that checks whether the account has
-   any connected machines.
-3. If none exist, the page should say:
-   - you authenticated Noter successfully
-   - your local machine is not connected yet
-   - to browse or continue local Codex threads, connect this machine now
-4. The page should provide one primary CTA:
-   - `Connect this machine`
-5. Clicking that CTA should reveal a single copy-paste command, not a menu of
-   package-manager choices.
-
-Recommended command shape:
-
-```bash
-npx @noter-md/sync connect
-```
-
-Canonical hosted installer artifact:
-
-```text
-https://<current-deploy>/noter.js
-```
-
-The installer should then:
-
-1. verify Codex is installed locally
-2. verify the user can run the local connector
-3. open a browser handoff or consume a short-lived registration token from the
-   current signed-in Noter page
-4. create a machine identity
-5. store machine-local state outside repos
-6. start heartbeats and thread-summary sync in the current setup flow
-7. defer OS-native background startup to a follow-up phase
-
-After that:
-
-1. Noter redirects to the connected-machine browser route
-2. the machine appears online
-3. the user can browse local threads
-
-### Phase 2: Better trusted reconnect
-
-After first install:
-
-1. the connector should auto-start on login
-2. the machine should reconnect without repeating browser auth
-3. Noter should remember this device as a connected machine
-
-This aligns with the useful parts of Remodex's trusted reconnect model without
-requiring a custom relay stack in MVP.
-
-### Phase 3: Native companion
-
-Replace the `npx` onboarding with a proper desktop helper while preserving the
-same product model:
-
-1. account auth in browser
-2. machine registration on device
-3. trusted reconnect afterward
-
-## Where The Flow Should Live
-
-The onboarding must live in product UI, not only in docs.
-
-Required surfaces:
-
-1. MCP post-auth success page
-2. connected-machines empty state in the web app
-3. a short docs page linked from both
-
-### Post-auth success page
-
-After MCP consent succeeds, the browser should not just say "connected".
-
-It should branch:
-
-1. If the account already has a connected machine:
-   - offer `Open connected machines`
-2. If the account has no connected machines:
-   - explain that hosted MCP auth succeeded
-   - explain that local machine control needs one more install step
-   - present the install CTA
-
-### Connected-machines empty state
-
-If the user later visits the machine surface with no machines:
-
-1. repeat the same guidance
-2. use the same primary install command
-3. avoid diverging instructions
-
-### Docs page
-
-Docs should exist, but as reinforcement:
-
-1. `How to connect your Codex machine to Noter`
-2. explain what this install does
-3. show troubleshooting
-4. explain that this is machine-scoped, not repo-scoped
-
-## Recommended Copy Direction
-
-The core message should be:
-
-1. "Noter is authenticated."
-2. "To browse and continue local Codex threads, connect this machine."
-3. "This installs a small local connector for your machine, not for your repo."
-4. "This install command is specific to the current Noter deploy."
-
-Avoid saying:
-
-1. "Add this to your package.json"
-2. "Install the Noter SDK in your repo"
-3. "Your machine is already connected" immediately after MCP auth
-
-## Registration Mechanics
-
-The install command should avoid manual token copy/paste if possible.
-
-Preferred pattern:
-
-1. browser issues a short-lived machine-registration token or URL
-2. local installer consumes it
-3. installer exchanges it for durable machine credentials
-
-Acceptable fallback:
-
-1. copy a one-time code from Noter into the CLI
-
-This is still better than repo-level setup because it is explicit and
-machine-scoped.
-
-## Minimal Publish Shape
-
-The current `public_ts` repo proves that a GitHub Actions based npm publish flow
-works fine for scoped public packages, but the connected-machine installer does
-not need the full monorepo release shape used there.
-
-Recommended packaging shape:
-
-1. package name: `@noter-md/sync`
-2. one executable source file: `noter.js`
-3. one `package.json` with `type: "module"`, `publishConfig.access: "public"`,
-   and a single `bin` entry
-4. no runtime dependencies unless the installer truly needs them
-
-Recommended invocation:
-
-```bash
-npx @noter-md/sync connect
-```
-
-Recommended reason:
-
-1. it preserves the "single polished script" feeling
-2. it works with stock Node today
-3. it keeps the main user command simple while still allowing URL-scoped
-   environment selection for previews and worktrees
-4. it avoids `curl ... | node` trust concerns as the primary instruction
-5. it is much simpler than asking users to copy a local `noter.js` file by hand
-
-Suggested release automation:
-
-1. keep the package in its own small package folder or repo
-2. publish from GitHub Actions when the package version changes or when a tag is
-   pushed
-3. use `npm publish --access public` or an equivalent publish action
-4. avoid introducing Turbo/workspace complexity unless more packages actually
-   appear
-
-Implementation decision:
-
-1. keep the source in a private repo if desired
-2. publish the npm tarball publicly
-3. treat everything inside the tarball as public knowledge by design
-4. use `noter.js` with module-mode configuration instead of relying on a `.mjs`
-   extension
-
-## Proposed MVP Package Layout
-
-The first shipped package should stay intentionally small:
-
-1. `package.json`
-2. `noter.js`
-3. `README.md`
-
-Recommended `package.json` shape:
-
-1. `name: "@noter-md/sync"`
-2. `type: "module"`
-3. `publishConfig.access: "public"`
-4. exactly one `bin` entry so `npx @noter-md/sync connect` resolves cleanly
-5. no runtime dependencies unless they are unavoidable
-
-Recommended execution model:
-
-1. `connect` is the only supported public command in the first release
-2. the same file may contain internal subcommands for the long-running connector
-   process, but the product docs should only expose `connect`
-3. the executor should default to the production installer URL for the simple
-   `npx @noter-md/sync connect` path
-4. the executor should also accept an explicit source URL, so preview deploys
-   and production can share the same binary while selecting different
-   environments
-5. the package should be bundled or written as one file so install and review
-   stay simple
-
-## Proposed MVP Connect Flow
-
-The first implementation should work like this:
-
-1. user authenticates Noter from Codex
-2. Noter lands them on a post-auth success page or `/machines/connect`
-3. the page shows one command:
-
-```bash
-npx @noter-md/sync connect
-```
-
-4. the page also exposes `https://<current-deploy>/noter.js` as the direct
-   single-file artifact for preview or local testing
-5. the CLI verifies local prerequisites such as Node and Codex availability
-6. the CLI opens the signed-in Noter browser flow or consumes a short-lived
-   machine-registration token
-7. the CLI creates a machine identity and stores Noter-owned local state under a
-   Noter-owned directory outside repos
-8. the CLI starts the connector immediately so the first heartbeat and thread
-   sync happen during setup
-9. once the first sync succeeds, Noter redirects or refreshes into the connected
-   machine view
-
-Phase 1 constraint:
-
-1. OS-native background service installation is not required for the first
-   public release
-2. trusted reconnect and auto-start can follow once the basic connect flow is
-   proven
-
-## Preview Deploy And Multi-Worktree Behavior
-
-Preview-scoped install URLs are a feature, not just a convenience.
+Each deploy should serve its own `noter.js`.
 
 Rules:
 
-1. every production deploy and every preview deploy should be able to serve its
-   own `noter.js`
-2. the machine-connect UI should derive the copyable install command from the
-   current page origin
-3. machine-local state should record the install origin so multiple worktrees or
-   preview environments can coexist on the same laptop
-4. the installer should not assume one global machine target per account if the
-   operator intentionally connects multiple worktrees
+1. production serves `https://noter.md/noter.js`
+2. each preview deploy serves its own `https://<preview>/noter.js`
+3. local dev can serve `http://127.0.0.1:5174/noter.js`
+4. the script must identify its own source origin
+5. the script must carry a visible version marker in a top-of-file comment
 
-Rationale:
+For the first-user internal MVP, that version marker does not need to be a full
+artifact-signing system. A deterministic in-file version label is enough. A
+content hash is acceptable now. npm semver can layer on top later when the
+package becomes public.
 
-1. this makes branch previews and worktree testing much easier
-2. it lets one laptop connect multiple experimental environments without
-   republishing npm packages for every branch
-3. it keeps the install experience aligned with Cloudflare Pages preview URLs
-   that already exist in Noter workflows
+Recommended top-of-file metadata:
 
-## Local Port And Tunnel Rules
+```js
+// source-url: https://noter.md/noter.js
+// source-version: <deterministic version marker>
+```
 
-Preview-scoped installers create local routing concerns, so the first design
-should avoid overcommitting to fixed localhost assumptions.
+This gives us:
+
+1. a script the user can inspect directly
+2. a stable way to tell which build they are running
+3. a deploy-specific artifact for preview and worktree iteration
+
+## MVP Trust And Provenance
+
+For this first-user slice, the trust model is intentionally pragmatic.
+
+We are not trying to solve full public artifact provenance yet.
+
+The current assumption is:
+
+1. the first user is the operator building the flow
+2. downloading directly from `https://noter.md/noter.js` or a trusted preview
+   deploy is acceptable for now
+3. the script should be transparent about where it came from and what version it
+   is
+
+This RFC does not require:
+
+1. signed artifacts
+2. checksum verification UX
+3. detached provenance manifests
+4. package-signing policy
+
+Those can be added later if public distribution or broader trust requirements
+justify them.
+
+## Machine Auth And Approval
+
+Machine auth should reuse the browser session, not the MCP OAuth token.
+
+Recommended flow:
+
+1. the local script opens a browser handoff into Noter
+2. the browser uses the existing signed-in Noter session
+3. the user explicitly approves this machine
+4. Noter issues a machine-specific bootstrap credential
+5. the local connector stores that credential under Noter-owned machine state
+
+Do not:
+
+1. reuse MCP OAuth access tokens as machine credentials
+2. treat an MCP auth-request row as the machine identity
+3. couple machine revocation to plugin revocation
+
+The right mental model is closer to device auth than to repo auth.
+
+## Connect Flow
+
+### Current first-user flow
+
+1. user authenticates the Noter plugin in Codex
+2. Noter shows `Connect this machine`
+3. the user runs the hosted `noter.js` from the deploy they care about
+4. the script:
+   - validates its own source URL
+   - checks that `codex` is installed
+   - writes Noter-owned local machine state outside repos
+   - prints markdown status to the terminal
+   - opens `/machines/connect?...&openedByCli`
+5. the browser page uses the current session to continue approval
+6. Noter issues machine credentials
+7. the connector starts and performs first heartbeat plus thread sync
+8. the machine appears in Noter
+
+### Later public flow
+
+Once `@noter-md/sync` is published, the same flow becomes:
+
+1. user runs `npx @noter-md/sync connect`
+2. the package executes the same installer logic
+3. if needed, the package can still point the user back to the hosted `noter.js`
+   as the canonical inspectable artifact
+
+## What The Machine-Connect Page Is For
+
+The page exists for product flow control, not for long-form explanation.
+
+It gives us:
+
+1. a stable URL the CLI can open after bootstrap
+2. a signed-in browser checkpoint for machine approval
+3. an in-app starting point when the user initiates from the dashboard instead
+   of the terminal
+
+It should remain intentionally thin:
+
+1. one short sentence
+2. the command snippet
+3. an optional direct link to `noter.js`
+4. approval UI once the browser handoff is active
+
+It should not become a long documentation page.
+
+## Multi-Worktree And Preview Behavior
+
+This design is intentionally deploy-scoped.
 
 Rules:
 
-1. do not require one fixed localhost port per connected machine environment
-2. prefer outbound connector traffic plus browser token handoff over inbound
-   local callbacks when possible
-3. if a loopback callback is needed, prefer an ephemeral port instead of a
-   hard-coded one
-4. use Cloudflare Tunnel only when a preview or local environment truly needs
-   inbound addressability from a stable URL
-5. Cloudflare Tunnel is an escape hatch, not the default control plane
+1. the file you run determines the target deploy
+2. there is no `--from` override flag in the public CLI contract
+3. machine-local state should record the source URL that launched the install
+4. one laptop may connect multiple preview or worktree installs at the same time
+
+This is one of the main reasons the hosted-file model matters: it makes preview
+testing and worktree iteration straightforward without republishing npm for
+every branch.
+
+## Local State
+
+The installer should write state to a Noter-owned machine directory outside any
+repo.
+
+Minimum state for the first slice:
+
+1. machine installation id
+2. source URL
+3. source origin
+4. machine-connect browser URL
+5. Codex version
+6. install/update timestamps
+
+The state key should be derived from the source URL so one machine can host
+multiple connected installations safely.
 
 ## Public And Private Boundary
 
-The package should be transparent about what it does without exposing more than
-it must.
+The published or hosted installer file is public by definition.
 
 Public by design:
 
-1. installer and bootstrap logic
+1. bootstrap logic
 2. machine registration client flow
 3. connector startup behavior
-4. user-visible logging and status messages
+4. terminal status output
 
-Must remain server-side or otherwise non-client:
+Keep server-side:
 
-1. token minting rules
+1. token issuance rules
 2. auth validation and revocation logic
-3. abuse controls, rate limits, and fraud checks
-4. operator-only admin paths
-5. internal heuristics that do not need to run on the user's machine
+3. abuse controls and rate limits
+4. admin-only operations
+5. internal heuristics that do not need to execute on the user machine
 
-Design rule:
+Rule:
 
-1. if the user's machine must execute it, assume it is inspectable
-2. if it must stay secret, move it behind a server boundary
+1. if the machine must execute it, assume the user can inspect it
+2. if it must stay secret, keep it server-side
 
 ## Relationship To Remodex
 
-Remodex is useful here as a validation source, not as an architecture template.
+Remodex is useful as validation, not as a blueprint.
 
-Relevant takeaways:
+Useful takeaways:
 
-1. machine-centric onboarding is correct
-2. trusted reconnect after first registration is important
+1. machine-centric onboarding is the right model
+2. trusted reconnect matters
 3. local bridge ownership should be explicit
-4. rollout/session files can enrich later UX
+4. session or rollout files can enrich later UX
 
-What Noter should not copy in this slice:
+What we should not copy for this slice:
 
-1. custom relay-first architecture
-2. custom E2EE transport as a prerequisite for the first install UX
-3. iPhone-first product complexity before desktop machine onboarding is solid
+1. a custom relay-first architecture
+2. custom E2EE as an MVP prerequisite
+3. a broader mobile-control product before the machine bootstrap is solid
 
-## Open Questions
+## Out Of Scope For This RFC
 
-1. Should `https://<current-deploy>/noter.js` serve the literal bundled file, or
-   should it redirect to versioned output or an install manifest?
-2. What is the right machine-local state key for allowing multiple connected
-   worktrees on one laptop without confusing the UI?
-3. When should we add OS-native auto-start and service installation after the
-   first public `connect` release?
-4. Do we want QR pairing only for phone-originated machine connection, while
-   desktop-originated flow uses browser token handoff instead?
+1. signed artifact distribution
+2. full package publishing automation
+3. OS-native auto-start or service installation
+4. QR pairing
+5. remote command execution details beyond the bootstrap and approval contract
 
-## Acceptance Criteria For The Future Implementation
+## Acceptance Criteria
 
-1. A user who authenticates Noter from Codex can tell whether they have only
-   authenticated the plugin or also connected the machine.
-2. The UI provides one clear next step for connecting the machine.
-3. The default instruction does not require editing any repo `package.json`.
-4. The default instruction is not Homebrew-only.
-5. After first install, the machine appears in Noter and syncs thread summaries.
+1. A user can tell the difference between authenticating the plugin and
+   connecting the machine.
+2. The first-user path works without publishing npm first.
+3. The installer is machine-scoped and does not require repo edits.
+4. The hosted file is inspectable and self-identifies with source metadata.
+5. The browser handoff is positioned as machine approval, not generic docs.
+6. The same underlying installer logic can later ship through `@noter-md/sync`.
 
 ## Recommendation
 
 Ship this in two layers:
 
-1. Product UX:
-   - MCP auth success branches into `Connect this machine` when needed
-   - the same guidance also lives on a shared machine-connect screen in the app
-2. Installer:
-   - default to `npx @noter-md/sync connect`
-   - keep the package intentionally small and dependency-light
-   - treat the published tarball as public by design
-   - let each hosted `noter.js` file identify the target environment or worktree
-     instead of adding a CLI override flag
+1. Internal MVP now:
+   - use the hosted `noter.js` file directly
+   - keep the machine-connect page thin
+   - use browser-backed machine approval
+   - stamp the hosted file with `source-url` and `source-version`
+2. Public distribution next:
+   - publish `@noter-md/sync`
+   - keep it as a thin wrapper over the same file
+   - let npm provide the cleaner public command once the package actually exists
 
-Then later replace the installer layer with a native desktop companion without
-changing the product model.
+This keeps the first-user path fast and iteratable while preserving the public
+product shape we want later.
