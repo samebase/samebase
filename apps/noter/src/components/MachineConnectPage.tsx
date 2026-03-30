@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   buildDirectNoterSyncConnectCommand,
   buildDirectNoterSyncRunCommand,
@@ -9,7 +10,7 @@ import {
 } from "@/lib/noterSync";
 import { useMutation, useQuery } from "convex/react";
 import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 
@@ -23,6 +24,7 @@ type ConnectedMachineItem = {
   connectorVersion: string;
   displayName: string;
   hostname: string;
+  lastSeenAt: number;
   machineId: string;
   status: "offline" | "online";
 };
@@ -69,6 +71,7 @@ type MachineConnectPageContentProps = {
   connectedMachines: ConnectedMachineItem[];
   directConnectCommand: string;
   directRunCommand: string;
+  heartbeatLog: string;
   isApproving: boolean;
   openedByCli: boolean;
   packageConnectCommand: string;
@@ -85,6 +88,80 @@ function resolveCurrentOrigin(): string {
   }
 
   return window.location.origin;
+}
+
+const MAX_HEARTBEAT_LOG_LINES = 40;
+
+function formatHeartbeatTimestamp(value: number): string {
+  return new Date(value).toLocaleTimeString();
+}
+
+function buildHeartbeatLogLine(args: {
+  machine: ConnectedMachineItem;
+  kind: "discovered" | "heartbeat" | "status";
+}) {
+  const timestamp = formatHeartbeatTimestamp(args.machine.lastSeenAt);
+  const summary = `${args.machine.displayName} (${args.machine.hostname})`;
+
+  switch (args.kind) {
+    case "discovered":
+      return `[${timestamp}] observing ${summary}; last ping seen, currently ${args.machine.status}.`;
+    case "status":
+      return `[${timestamp}] ${summary} is now ${args.machine.status}.`;
+    case "heartbeat":
+      return `[${timestamp}] heartbeat from ${summary}.`;
+  }
+}
+
+function useHeartbeatLog(machines: ConnectedMachineItem[]): string {
+  const [lines, setLines] = useState<string[]>([]);
+  const previousMachinesRef = useRef(
+    new Map<
+      string,
+      { lastSeenAt: number; status: ConnectedMachineItem["status"] }
+    >(),
+  );
+
+  useEffect(() => {
+    const previousMachines = previousMachinesRef.current;
+    const nextMachines = new Map<
+      string,
+      { lastSeenAt: number; status: ConnectedMachineItem["status"] }
+    >();
+    const nextLines: string[] = [];
+
+    for (const machine of machines) {
+      nextMachines.set(machine.machineId, {
+        lastSeenAt: machine.lastSeenAt,
+        status: machine.status,
+      });
+
+      const previousMachine = previousMachines.get(machine.machineId);
+      if (!previousMachine) {
+        nextLines.push(buildHeartbeatLogLine({ machine, kind: "discovered" }));
+        continue;
+      }
+
+      if (machine.lastSeenAt > previousMachine.lastSeenAt) {
+        nextLines.push(buildHeartbeatLogLine({ machine, kind: "heartbeat" }));
+      }
+
+      if (machine.status !== previousMachine.status) {
+        nextLines.push(buildHeartbeatLogLine({ machine, kind: "status" }));
+      }
+    }
+
+    previousMachinesRef.current = nextMachines;
+    if (nextLines.length === 0) {
+      return;
+    }
+
+    setLines((current) =>
+      [...current, ...nextLines].slice(-MAX_HEARTBEAT_LOG_LINES),
+    );
+  }, [machines]);
+
+  return lines.join("\n");
 }
 
 function CopyableCommandBlock({
@@ -291,6 +368,9 @@ function ConnectedMachineList({
                 <p className="text-sm text-muted-foreground">
                   {machine.connectorVersion}
                 </p>
+                <p className="text-sm text-muted-foreground">
+                  Last ping {formatHeartbeatTimestamp(machine.lastSeenAt)}
+                </p>
               </div>
               <div className="text-sm font-medium">
                 {machine.status === "online" ? "Online" : "Offline"}
@@ -307,6 +387,7 @@ export function MachineConnectPageContent({
   connectedMachines,
   directConnectCommand,
   directRunCommand,
+  heartbeatLog,
   isApproving,
   openedByCli,
   packageConnectCommand,
@@ -374,6 +455,23 @@ export function MachineConnectPageContent({
         </p>
 
         <ConnectedMachineList machines={connectedMachines} />
+
+        {connectedMachines.length > 0 ? (
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-sm font-medium">Live heartbeat log</h2>
+              <p className="text-sm text-muted-foreground">
+                New lines appear here while this page stays open and the local
+                connector keeps pinging noter.
+              </p>
+            </div>
+            <Textarea
+              readOnly
+              value={heartbeatLog}
+              className="min-h-[180px] font-mono text-xs"
+            />
+          </section>
+        ) : null}
       </div>
     </div>
   );
@@ -396,6 +494,15 @@ export function MachineConnectPage() {
       ? { requestId: bootstrapSearch.requestId }
       : "skip",
   );
+  const connectedMachines = (connectedMachinesQuery ?? []).map((machine) => ({
+    connectorVersion: machine.connectorVersion,
+    displayName: machine.displayName,
+    hostname: machine.hostname,
+    lastSeenAt: machine.lastSeenAt,
+    machineId: machine.machineId,
+    status: machine.status,
+  }));
+  const heartbeatLog = useHeartbeatLog(connectedMachines);
 
   const handleApprove = async () => {
     if (!bootstrapSearch.requestId || isApproving) {
@@ -442,15 +549,10 @@ export function MachineConnectPage() {
 
   return (
     <MachineConnectPageContent
-      connectedMachines={(connectedMachinesQuery ?? []).map((machine) => ({
-        connectorVersion: machine.connectorVersion,
-        displayName: machine.displayName,
-        hostname: machine.hostname,
-        machineId: machine.machineId,
-        status: machine.status,
-      }))}
+      connectedMachines={connectedMachines}
       directConnectCommand={buildDirectNoterSyncConnectCommand(scriptUrl)}
       directRunCommand={buildDirectNoterSyncRunCommand(scriptUrl)}
+      heartbeatLog={heartbeatLog}
       isApproving={isApproving}
       openedByCli={bootstrapSearch.openedByCli}
       onApprove={
