@@ -3009,6 +3009,9 @@ function FileViewInner({
       className="flex-1 min-h-0"
     />
   ) : null;
+  const emptySidebarContent = (
+    <div aria-hidden="true" className="min-h-0 flex-1 bg-background" />
+  );
   const repositoryWorkspaceSidebarProps =
     FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
       ? {
@@ -3016,6 +3019,9 @@ function FileViewInner({
           leftSidebarContent: sidebarContent,
         }
       : {
+          // Keep the opposite rail mounted so its trigger still opens an empty
+          // pane when the tree lives on the right.
+          leftSidebarContent: emptySidebarContent,
           rightSidebarHeader: sidebarHeader,
           rightSidebarContent: sidebarContent,
         };
@@ -3516,6 +3522,7 @@ export function FileView() {
   return (
     <DialogProvider>
       <SidebarProvider
+        defaultOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "left"}
         defaultRightOpen={true}
         shortcutSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
         className="h-full min-h-0"

@@ -8,12 +8,15 @@ test("fileview mobile sidebar scrim", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const initialScrollLeft = await fixture.evaluate(
+    (element) => element.scrollLeft,
+  );
   await page
     .getByRole("button", { name: "Toggle Right Sidebar" })
     .press("Enter");
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-    .toBeLessThanOrEqual(1);
+    .toBeGreaterThan(initialScrollLeft);
   const scrim = page
     .getByTestId("workspace-sidebar-main-scrim")
     .locator("div")

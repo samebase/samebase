@@ -51,6 +51,9 @@ export function FileViewDeveloperToolsVisualFixture({
       </div>
     </div>
   );
+  const emptySidebarContent = (
+    <div aria-hidden="true" className="min-h-0 flex-1 bg-background" />
+  );
   const repositoryWorkspaceSidebarProps =
     FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
       ? {
@@ -59,13 +62,14 @@ export function FileViewDeveloperToolsVisualFixture({
           rightSidebarContent: <div className="min-h-0 flex-1 bg-background" />,
         }
       : {
+          leftSidebarContent: emptySidebarContent,
           rightSidebarHeader: sidebarHeader,
           rightSidebarContent: sidebarContent,
         };
 
   return (
     <SidebarProvider
-      defaultOpen={true}
+      defaultOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "left"}
       defaultRightOpen={true}
       shortcutSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
       className="h-[780px] min-h-0 bg-background text-foreground"

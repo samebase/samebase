@@ -217,25 +217,18 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
     .toBeGreaterThan(100);
   await expect(counterButton).toBeVisible();
 
-  {
-    const fixtureBox = await fixture.boundingBox();
-    const headerBox = await header.boundingBox();
+  await expect
+    .poll(async () => {
+      const headerBox = await header.boundingBox();
+      const rightSidebarBox = await rightSidebar.boundingBox();
 
-    if (fixtureBox === null || headerBox === null) {
-      throw new Error("Expected fileview fixture and header boxes to exist.");
-    }
+      if (headerBox === null || rightSidebarBox === null) {
+        return Number.NaN;
+      }
 
-    const rightSidebarBox = await rightSidebar.boundingBox();
-    if (rightSidebarBox === null) {
-      throw new Error("Expected the right sidebar to be measurable.");
-    }
-
-    expectClose(
-      headerBox.x + headerBox.width,
-      rightSidebarBox.x,
-      "fileview open header/right sidebar divider x",
-    );
-  }
+      return Math.abs(headerBox.x + headerBox.width - rightSidebarBox.x);
+    })
+    .toBeLessThanOrEqual(1);
 
   await expect(page.getByTestId("fileview-layout-counter-value")).toHaveText(
     "1",
@@ -287,6 +280,53 @@ test("fileview right sidebar collapses independently", async ({ page }) => {
     .toBeGreaterThan(100);
 });
 
+test("fileview empty left sidebar opens independently", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 760 });
+  await page.goto("/visual-fixture.html?mode=fileview-layout", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const header = page.getByTestId("fileview-layout-header");
+  const leftSidebar = page.getByTestId("fileview-layout-left-sidebar-body");
+  const rightSidebar = page.getByTestId("fileview-layout-right-sidebar-body");
+
+  await expect(leftSidebar).toBeHidden();
+  await expect(rightSidebar).toBeVisible();
+
+  await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
+  await expect(leftSidebar).toBeVisible();
+  await expect(rightSidebar).toBeVisible();
+  await expect
+    .poll(async () => {
+      const fixtureBox = await fixture.boundingBox();
+      const headerBox = await header.boundingBox();
+
+      if (fixtureBox === null || headerBox === null) {
+        return Number.NaN;
+      }
+
+      return headerBox.x - fixtureBox.x;
+    })
+    .toBeGreaterThan(100);
+
+  await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
+  await expect(leftSidebar).toBeHidden();
+  await expect
+    .poll(async () => {
+      const fixtureBox = await fixture.boundingBox();
+      const headerBox = await header.boundingBox();
+
+      if (fixtureBox === null || headerBox === null) {
+        return Number.NaN;
+      }
+
+      return headerBox.x - fixtureBox.x;
+    })
+    .toBeLessThanOrEqual(1);
+});
+
 test("fileview mobile scrim closes the sidebar without activating the main pane", async ({
   page,
 }) => {
@@ -298,29 +338,27 @@ test("fileview mobile scrim closes the sidebar without activating the main pane"
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
   const bodyCounter = page.getByTestId("fileview-layout-body-counter");
-  const header = page.getByTestId("fileview-layout-header");
+  const scrim = page
+    .getByTestId("workspace-sidebar-main-scrim")
+    .locator("div")
+    .first();
+  const initialScrollLeft = await fixture.evaluate(
+    (element) => element.scrollLeft,
+  );
 
-  await expect
-    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-    .toBeLessThanOrEqual(1);
+  expect(initialScrollLeft).toBeGreaterThan(100);
 
   await page
     .getByRole("button", { name: "Toggle Right Sidebar" })
     .press("Enter");
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-    .toBeGreaterThan(100);
-
-  const headerBox = await header.boundingBox();
-  if (headerBox === null) {
-    throw new Error("Expected the main-pane header to be measurable.");
-  }
-
-  await page.mouse.click(headerBox.x + headerBox.width - 16, headerBox.y + 16);
+    .toBeGreaterThan(initialScrollLeft);
+  await scrim.click();
   await expect(bodyCounter).toHaveText("0");
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-    .toBeLessThanOrEqual(1);
+    .toBe(initialScrollLeft);
 });
 
 test("fileview mobile accessible control opens the sidebar", async ({
