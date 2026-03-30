@@ -342,3 +342,38 @@ test("fileview mobile accessible control opens the sidebar", async ({
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
     .toBeLessThanOrEqual(1);
 });
+
+test("fileview mobile left-sidebar overshoot still settles back to main", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const mainScrollLeft = await fixture.evaluate(
+    (element) => element.scrollLeft,
+  );
+
+  await page
+    .getByRole("button", { name: "Toggle Left Sidebar" })
+    .press("Enter");
+  await expect
+    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
+    .toBeLessThanOrEqual(1);
+
+  await fixture.evaluate((element) => {
+    element.scrollLeft = element.scrollWidth;
+    element.dispatchEvent(new Event("scroll"));
+    element.dispatchEvent(new Event("scrollend"));
+  });
+
+  await expect
+    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
+    .toBeGreaterThan(mainScrollLeft - 2);
+  await expect
+    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
+    .toBeLessThan(mainScrollLeft + 2);
+});

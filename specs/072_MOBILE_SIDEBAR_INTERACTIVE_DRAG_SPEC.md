@@ -4,7 +4,7 @@
 
 - Status: Implemented
 - Owner: Noter frontend
-- Last updated: 2026-03-29
+- Last updated: 2026-03-30
 - Depends on:
   - `apps/noter/src/components/DashboardWorkspaceLayout.tsx`
   - `apps/noter/src/components/RepositoryWorkspaceFrame.tsx`
@@ -21,8 +21,12 @@ already finished.
 
 The sidebar and main view should live on the same visual plane inside one shared
 workspace shell. On mobile, dragging should rely on the same immediate,
-continuous motion as native scrolling, with only two snap positions: closed and
-open.
+continuous motion as native scrolling, with the shell settling to the nearest
+available anchor:
+
+- `left` when a left sidebar exists
+- `main`
+- `right` when a right sidebar exists
 
 When the sidebar is open, the main pane should render through a lightweight
 scrim that sits above it. That scrim should absorb taps before they reach the
@@ -33,7 +37,7 @@ The implementation should get simpler as this lands:
 
 - one shared shell instead of separate mobile and desktop markup
 - native pan/scroll behavior instead of a custom gesture engine
-- a small amount of snap/open state instead of many mobile-only branches
+- a small amount of pane/snap state instead of many mobile-only branches
 
 ## Problem
 
@@ -68,7 +72,7 @@ the live translation, while removing the unnecessary machinery.
 4. Block accidental main-view interaction while the mobile sidebar is open.
 5. Add subtle dimming so the open state reads like a standard sidebar.
 6. Reduce implementation complexity by deleting custom gesture and modal code.
-7. Preserve a simple committed state: sidebar open or closed.
+7. Preserve a simple committed mobile state: `left`, `main`, or `right`.
 
 ## Non-Goals
 
@@ -133,17 +137,19 @@ Preferred interaction model:
 - the user drags horizontally
 - the track moves immediately with the finger
 - motion is driven by native pan/scroll behavior rather than custom pointer math
-- release settles to one of two snap positions
+- release settles to the nearest allowed pane anchor
 
 The desired feel is "like scrolling the page, but sideways," with only one extra
-rule: we snap to closed or open instead of resting at arbitrary offsets.
+rule: we snap to the available pane anchors instead of resting at arbitrary
+offsets.
 
-### 3. Snap Points, Not Gesture Heuristics
+### 3. Anchors And Minimal Settle Rules
 
-The mobile interaction should have two meaningful resting positions:
+The mobile interaction should settle to the available pane anchors:
 
-- closed
-- open
+- `left` when the left sidebar exists
+- `main`
+- `right` when the right sidebar exists
 
 Implementation should prefer browser-native scroll and snap mechanics where
 possible:
@@ -153,9 +159,20 @@ possible:
 - CSS scroll snap or an equivalent minimal settle mechanism
 - programmatic `scrollTo(...)` for button-driven open/close
 
-Custom velocity thresholds, touch session tracking, and document-level pointer
-capture should be avoided unless a much smaller implementation truly cannot
-deliver the required feel.
+Minimal settle heuristics are acceptable when the browser-native scroll position
+alone does not produce the intended anchor choice, but they should stay narrow
+and predictable rather than growing into a custom drag engine.
+
+Required settling rule for cross-sidebar motion:
+
+- mobile settles one screen at a time
+- a swipe that starts on `left` must settle to either `left` or `main`
+- a swipe that starts on `right` must settle to either `right` or `main`
+- reaching the far sidebar always requires a second swipe that begins from
+  `main`
+
+This keeps `main` easy to land on and prevents accidental skips across the
+center pane.
 
 ### 4. Main-Pane Scrim While Open
 
@@ -202,7 +219,11 @@ Normal document focus order is sufficient for this interaction.
 
 ### 6. State Contract
 
-The committed sidebar state remains boolean: open or closed.
+The committed mobile pane state is the current active anchor:
+
+- `left`
+- `main`
+- `right`
 
 During motion, the UI may use transient state derived from scroll position or
 track offset, for example:
@@ -245,7 +266,7 @@ Preferred direction:
 5. Keep JavaScript responsibilities narrow:
    - button-driven open/close
    - toggling the scrim's interactivity/opacity from reveal state
-   - syncing committed open state
+   - syncing committed pane state
    - optionally settling to the nearest snap position if native snap alone is
      insufficient
 6. Delete mobile-specific abstractions that exist only to support fixture or
@@ -264,7 +285,10 @@ When implementation lands:
 
 - add or update a mobile interaction test that verifies the track visibly moves
   during the drag, before release
-- verify releasing the drag settles to closed or open snap positions
+- verify releasing the drag settles to the expected left/main/right anchor
+  positions
+- verify swipes that start from a sidebar cannot settle directly onto the far
+  sidebar in one release
 - verify button-triggered open/close lands on the correct snap positions
 - verify taps on the visible main pane do not activate underlying controls while
   the scrim is present
@@ -285,7 +309,7 @@ Testing guidance:
 
 - Sidebar and main render through one shared workspace shell structure.
 - On mobile, dragging moves the workspace immediately before release.
-- Mobile interaction settles to open or closed snap positions.
+- Mobile interaction settles to the available left/main/right anchor positions.
 - When the mobile sidebar is open, a lightweight main-pane scrim blocks
   underlying clicks and adds subtle dimming.
 - The sidebar is not implemented as a separate modal drawer surface.

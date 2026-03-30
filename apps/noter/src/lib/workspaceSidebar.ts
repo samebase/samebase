@@ -1,9 +1,5 @@
 import type { MobileSidebarPane } from "@/hooks/use-sidebar";
 
-const MOBILE_OPPOSITE_SIDEBAR_SNAP_PROGRESS_THRESHOLD = 0.9;
-const MOBILE_OPPOSITE_SIDEBAR_FLING_PROGRESS_THRESHOLD = 0.58;
-const MOBILE_OPPOSITE_SIDEBAR_FLING_VELOCITY_THRESHOLD_PX_PER_MS = 1.35;
-
 type MobilePaneAnchor = {
   pane: MobileSidebarPane;
   scrollLeft: number;
@@ -81,8 +77,9 @@ function getNearestMobilePane(
 
 /**
  * Keep the center pane easier to land on when a swipe starts from either
- * sidebar. Light overshoots settle to `main`, while direct cross-sidebar jumps
- * still work for deep swipes or a clearly deliberate fast fling.
+ * sidebar. Mobile settles one screen at a time, so a swipe that starts from
+ * either sidebar must land on `main` before the far sidebar can become the next
+ * committed pane.
  */
 export function getSettledMobilePane(
   currentPane: MobileSidebarPane,
@@ -91,7 +88,6 @@ export function getSettledMobilePane(
   leftSidebarWidthPx: number,
   hasRightSidebar: boolean,
   rightSidebarWidthPx: number,
-  peakSwipeVelocityPxPerMs = 0,
 ) {
   const nearestPane = getNearestMobilePane(
     scrollLeft,
@@ -109,39 +105,5 @@ export function getSettledMobilePane(
     (currentPane === "left" && nearestPane === "right") ||
     (currentPane === "right" && nearestPane === "left");
 
-  if (!isOppositeSidebarTransition) {
-    return nearestPane;
-  }
-
-  const mainPaneScrollLeft = leftSidebarWidthPx;
-  const oppositeSidebarWidthPx =
-    currentPane === "left" ? rightSidebarWidthPx : leftSidebarWidthPx;
-  if (!Number.isFinite(oppositeSidebarWidthPx) || oppositeSidebarWidthPx <= 0) {
-    return "main";
-  }
-  const distanceIntoOppositeSidebarPx =
-    currentPane === "left"
-      ? scrollLeft - mainPaneScrollLeft
-      : mainPaneScrollLeft - scrollLeft;
-  const oppositeSidebarProgress = Math.min(
-    1,
-    Math.max(0, distanceIntoOppositeSidebarPx / oppositeSidebarWidthPx),
-  );
-  const swipeIsFastEnough =
-    peakSwipeVelocityPxPerMs >=
-    MOBILE_OPPOSITE_SIDEBAR_FLING_VELOCITY_THRESHOLD_PX_PER_MS;
-
-  if (
-    oppositeSidebarProgress >= MOBILE_OPPOSITE_SIDEBAR_SNAP_PROGRESS_THRESHOLD
-  ) {
-    return nearestPane;
-  }
-
-  if (
-    oppositeSidebarProgress >= MOBILE_OPPOSITE_SIDEBAR_FLING_PROGRESS_THRESHOLD
-  ) {
-    return swipeIsFastEnough ? nearestPane : "main";
-  }
-
-  return "main";
+  return isOppositeSidebarTransition ? "main" : nearestPane;
 }

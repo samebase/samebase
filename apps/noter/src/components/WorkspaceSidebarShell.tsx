@@ -167,12 +167,9 @@ export function WorkspaceSidebarShell({
   const [mobileMainScrimProgress, setMobileMainScrimProgress] =
     React.useState(0);
   const hasInitializedMobileScrollRef = React.useRef(false);
-  const skipNextMobileScrollSyncRef = React.useRef(false);
-  const mobileScrollVelocityRef = React.useRef({
-    lastScrollLeft: 0,
-    lastTimestampMs: 0,
-    peakSwipeVelocityPxPerMs: 0,
-  });
+  const pendingProgrammaticMobileScrollLeftRef = React.useRef<number | null>(
+    null,
+  );
 
   const isMobileLayoutMeasured =
     !isMobile ||
@@ -182,7 +179,7 @@ export function WorkspaceSidebarShell({
   React.useEffect(() => {
     if (!isMobile || !hasAnySidebar || !isMobileLayoutMeasured) {
       hasInitializedMobileScrollRef.current = false;
-      skipNextMobileScrollSyncRef.current = false;
+      pendingProgrammaticMobileScrollLeftRef.current = null;
       setMobileMainScrimProgress(0);
       return;
     }
@@ -212,15 +209,12 @@ export function WorkspaceSidebarShell({
         ),
       );
       hasInitializedMobileScrollRef.current = true;
-      return;
-    }
-
-    if (skipNextMobileScrollSyncRef.current) {
-      skipNextMobileScrollSyncRef.current = false;
+      pendingProgrammaticMobileScrollLeftRef.current = null;
       return;
     }
 
     if (Math.abs(scrollNode.scrollLeft - targetScrollLeft) <= 1) {
+      pendingProgrammaticMobileScrollLeftRef.current = null;
       setMobileMainScrimProgress(
         getMobileMainScrimProgress(
           scrollNode.scrollLeft,
@@ -233,6 +227,7 @@ export function WorkspaceSidebarShell({
       return;
     }
 
+    pendingProgrammaticMobileScrollLeftRef.current = targetScrollLeft;
     scrollNode.scrollTo({
       left: targetScrollLeft,
       behavior: "smooth",
@@ -257,10 +252,29 @@ export function WorkspaceSidebarShell({
     if (!scrollNode) {
       return;
     }
-    const mobileScrollVelocityState = mobileScrollVelocityRef.current;
+
+    const isProgrammaticScrollStillSettling = () => {
+      const pendingProgrammaticScrollLeft =
+        pendingProgrammaticMobileScrollLeftRef.current;
+      if (pendingProgrammaticScrollLeft === null) {
+        return false;
+      }
+
+      if (
+        Math.abs(scrollNode.scrollLeft - pendingProgrammaticScrollLeft) <= 1
+      ) {
+        pendingProgrammaticMobileScrollLeftRef.current = null;
+        return false;
+      }
+
+      return true;
+    };
 
     const settleScrollPosition = () => {
-      const { peakSwipeVelocityPxPerMs } = mobileScrollVelocityState;
+      if (isProgrammaticScrollStillSettling()) {
+        return;
+      }
+
       const nextMobilePane = getSettledMobilePane(
         mobilePane,
         scrollNode.scrollLeft,
@@ -268,42 +282,32 @@ export function WorkspaceSidebarShell({
         leftSidebarWidthPx,
         hasRightSidebar,
         rightSidebarWidthPx,
-        peakSwipeVelocityPxPerMs,
       );
 
-      mobileScrollVelocityState.peakSwipeVelocityPxPerMs = 0;
-      mobileScrollVelocityState.lastScrollLeft = scrollNode.scrollLeft;
-      mobileScrollVelocityState.lastTimestampMs = 0;
+      const targetScrollLeft = getMobilePaneScrollLeft(
+        nextMobilePane,
+        hasLeftSidebar,
+        leftSidebarWidthPx,
+        hasRightSidebar,
+        rightSidebarWidthPx,
+      );
+
       if (nextMobilePane !== mobilePane) {
-        skipNextMobileScrollSyncRef.current = true;
         setMobilePane(nextMobilePane);
+        return;
+      }
+
+      if (Math.abs(scrollNode.scrollLeft - targetScrollLeft) > 1) {
+        pendingProgrammaticMobileScrollLeftRef.current = targetScrollLeft;
+        scrollNode.scrollTo({
+          left: targetScrollLeft,
+          behavior: "smooth",
+        });
       }
     };
 
     let settleTimeoutId: number | null = null;
     const handleScroll = () => {
-      const timestampMs = performance.now();
-      const previousScrollSample = mobileScrollVelocityState;
-      if (previousScrollSample.lastTimestampMs === 0) {
-        mobileScrollVelocityState.lastScrollLeft = scrollNode.scrollLeft;
-        mobileScrollVelocityState.lastTimestampMs = timestampMs;
-      }
-      const elapsedMs = timestampMs - previousScrollSample.lastTimestampMs;
-
-      if (previousScrollSample.lastTimestampMs !== 0 && elapsedMs > 0) {
-        const velocityPxPerMs =
-          Math.abs(
-            scrollNode.scrollLeft - previousScrollSample.lastScrollLeft,
-          ) / elapsedMs;
-        mobileScrollVelocityState.peakSwipeVelocityPxPerMs = Math.max(
-          previousScrollSample.peakSwipeVelocityPxPerMs,
-          velocityPxPerMs,
-        );
-      }
-
-      mobileScrollVelocityState.lastScrollLeft = scrollNode.scrollLeft;
-      mobileScrollVelocityState.lastTimestampMs = timestampMs;
-
       setMobileMainScrimProgress(
         getMobileMainScrimProgress(
           scrollNode.scrollLeft,
@@ -313,6 +317,13 @@ export function WorkspaceSidebarShell({
           rightSidebarWidthPx,
         ),
       );
+
+      if (isProgrammaticScrollStillSettling()) {
+        if (settleTimeoutId !== null) {
+          window.clearTimeout(settleTimeoutId);
+        }
+        return;
+      }
 
       if (settleTimeoutId !== null) {
         window.clearTimeout(settleTimeoutId);
@@ -327,8 +338,7 @@ export function WorkspaceSidebarShell({
     scrollNode.addEventListener("scroll", handleScroll, { passive: true });
     scrollNode.addEventListener("scrollend", settleScrollPosition);
     return () => {
-      mobileScrollVelocityState.peakSwipeVelocityPxPerMs = 0;
-      mobileScrollVelocityState.lastTimestampMs = 0;
+      pendingProgrammaticMobileScrollLeftRef.current = null;
       scrollNode.removeEventListener("scroll", handleScroll);
       scrollNode.removeEventListener("scrollend", settleScrollPosition);
       if (settleTimeoutId !== null) {
