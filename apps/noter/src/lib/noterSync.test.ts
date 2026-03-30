@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildNoterSyncConnectCommand,
+  buildDirectNoterSyncConnectCommand,
+  buildPublishedNoterSyncConnectCommand,
   buildNoterSyncScriptUrl,
   readMachineConnectBootstrapSearch,
   resolveMachineConnectScriptOrigin,
@@ -14,12 +15,17 @@ describe("noterSync", () => {
     );
   });
 
-  it("builds the npm and direct hosted install commands together", () => {
-    expect(buildNoterSyncConnectCommand("https://noter.md/noter.js")).toBe(
-      `# published package path (after publish)
-npx @noter-md/sync connect
-# direct hosted file today
-curl -fsSL https://noter.md/noter.js | node --input-type=module - connect`,
+  it("builds the published package command", () => {
+    expect(buildPublishedNoterSyncConnectCommand()).toBe(
+      "npx @noter-md/sync connect",
+    );
+  });
+
+  it("builds the direct hosted-file command", () => {
+    expect(
+      buildDirectNoterSyncConnectCommand("https://noter.md/noter.js"),
+    ).toBe(
+      "curl -fsSL https://noter.md/noter.js | node --input-type=module - connect",
     );
   });
 

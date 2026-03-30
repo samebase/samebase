@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import {
-  buildNoterSyncConnectCommand,
+  buildDirectNoterSyncConnectCommand,
+  buildPublishedNoterSyncConnectCommand,
   buildNoterSyncScriptUrl,
   readMachineConnectBootstrapSearch,
   resolveMachineConnectScriptOrigin,
@@ -9,9 +10,16 @@ import { Check, Copy, ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
-type MachineConnectPageContentProps = {
+type CopyableCommandBlockProps = {
   command: string;
+  description: string;
+  label: string;
+};
+
+type MachineConnectPageContentProps = {
+  directCommand: string;
   openedByCli: boolean;
+  packageCommand: string;
   scriptUrl: string;
   testId?: string;
 };
@@ -24,12 +32,11 @@ function resolveCurrentOrigin(): string {
   return window.location.origin;
 }
 
-export function MachineConnectPageContent({
+function CopyableCommandBlock({
   command,
-  openedByCli,
-  scriptUrl,
-  testId,
-}: MachineConnectPageContentProps) {
+  description,
+  label,
+}: CopyableCommandBlockProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
     "idle",
   );
@@ -58,6 +65,44 @@ export function MachineConnectPageContent({
   };
 
   return (
+    <section className="corner-notch-1 border border-border p-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-sm font-medium">{label}</h2>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void handleCopyClick()}
+        >
+          {copyState === "copied" ? (
+            <Check className="h-4 w-4" />
+          ) : (
+            <Copy className="h-4 w-4" />
+          )}
+          {copyState === "copied"
+            ? "Copied"
+            : copyState === "failed"
+              ? "Copy failed"
+              : "Copy"}
+        </Button>
+      </div>
+      <code className="mt-4 block overflow-x-auto whitespace-pre-wrap break-all bg-muted/40 px-3 py-3 text-sm">
+        {command}
+      </code>
+    </section>
+  );
+}
+
+export function MachineConnectPageContent({
+  directCommand,
+  openedByCli,
+  packageCommand,
+  scriptUrl,
+  testId,
+}: MachineConnectPageContentProps) {
+  return (
     <div className="container max-w-3xl py-6" data-testid={testId}>
       <div className="space-y-6">
         <div className="space-y-2">
@@ -68,7 +113,7 @@ export function MachineConnectPageContent({
             Connect this machine
           </h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Run this on the machine that already has Codex installed.
+            Run one of these on the machine that already has Codex installed.
           </p>
         </div>
 
@@ -81,46 +126,29 @@ export function MachineConnectPageContent({
           </section>
         ) : null}
 
-        <section className="corner-notch-1 border border-border p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div className="space-y-1">
-              <h2 className="text-sm font-medium">Run this</h2>
-              <p className="text-sm text-muted-foreground">
-                Copy this on the machine that already has Codex installed.
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleCopyClick()}
-            >
-              {copyState === "copied" ? (
-                <Check className="h-4 w-4" />
-              ) : (
-                <Copy className="h-4 w-4" />
-              )}
-              {copyState === "copied"
-                ? "Copied"
-                : copyState === "failed"
-                  ? "Copy failed"
-                  : "Copy"}
-            </Button>
-          </div>
-          <code className="mt-4 block overflow-x-auto whitespace-pre-wrap break-all bg-muted/40 px-3 py-3 text-sm">
-            {command}
-          </code>
-          <p className="mt-3 text-sm text-muted-foreground">
-            <a
-              href={scriptUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
-            >
-              Open <code>noter.js</code>
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          </p>
-        </section>
+        <CopyableCommandBlock
+          label="Published package"
+          description="Use this once `@noter-md/sync` is published."
+          command={packageCommand}
+        />
+
+        <CopyableCommandBlock
+          label="Direct hosted file"
+          description="Use this today for prod, preview, or local deploy testing."
+          command={directCommand}
+        />
+
+        <p className="text-sm text-muted-foreground">
+          <a
+            href={scriptUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+          >
+            Open <code>noter.js</code>
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        </p>
       </div>
     </div>
   );
@@ -138,8 +166,9 @@ export function MachineConnectPage() {
 
   return (
     <MachineConnectPageContent
-      command={buildNoterSyncConnectCommand(scriptUrl)}
+      directCommand={buildDirectNoterSyncConnectCommand(scriptUrl)}
       openedByCli={bootstrapSearch.openedByCli}
+      packageCommand={buildPublishedNoterSyncConnectCommand()}
       scriptUrl={scriptUrl}
     />
   );

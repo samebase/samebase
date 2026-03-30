@@ -1,20 +1,18 @@
-import { MachineConnectPageContent } from "@/components/MachineConnectPage";
-import {
-  buildNoterSyncConnectCommand,
-  buildNoterSyncScriptUrl,
-} from "@/lib/noterSync";
-
-const FIXTURE_DEPLOY_ORIGIN = "https://noter.md";
+import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
+import machineConnectVisualFixtureMarkdown from "../content/machine-connect-visual-fixture.md?raw";
 
 export function MachineConnectVisualFixture() {
-  const scriptUrl = buildNoterSyncScriptUrl(FIXTURE_DEPLOY_ORIGIN);
-
   return (
-    <MachineConnectPageContent
-      command={buildNoterSyncConnectCommand(scriptUrl)}
-      openedByCli={true}
-      scriptUrl={scriptUrl}
-      testId="machine-connect-visual-fixture"
-    />
+    <div
+      data-testid="machine-connect-visual-fixture"
+      className="min-h-screen bg-background px-8 py-12 text-foreground"
+    >
+      <div className="mx-auto max-w-3xl">
+        <ProsemarkReadOnly
+          value={machineConnectVisualFixtureMarkdown}
+          className="text-sm"
+        />
+      </div>
+    </div>
   );
 }

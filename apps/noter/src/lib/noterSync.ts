@@ -42,11 +42,12 @@ export function buildNoterSyncScriptUrl(origin: string): string {
   return new URL(NOTER_SYNC_PUBLIC_SCRIPT_PATH, origin).toString();
 }
 
-export function buildNoterSyncConnectCommand(scriptUrl: string): string {
-  return `# published package path (after publish)
-npx @noter-md/sync connect
-# direct hosted file today
-curl -fsSL ${scriptUrl} | node --input-type=module - connect`;
+export function buildPublishedNoterSyncConnectCommand(): string {
+  return "npx @noter-md/sync connect";
+}
+
+export function buildDirectNoterSyncConnectCommand(scriptUrl: string): string {
+  return `curl -fsSL ${scriptUrl} | node --input-type=module - connect`;
 }
 
 export function resolveMachineConnectScriptOrigin(
