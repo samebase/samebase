@@ -117,6 +117,9 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   );
   const diffSurface = page.getByTestId("file-view-code-parity-diff");
   const boundsDelta = page.getByTestId("file-view-code-parity-bounds-delta");
+  const resolutionScaleSlider = page.getByRole("slider", {
+    name: "Parity resolution scale",
+  });
   const mismatchCount = page.getByTestId(
     "file-view-code-parity-mismatch-count",
   );
@@ -175,12 +178,10 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
       new CustomEvent("file-view-code-parity-refresh-artifacts"),
     );
   });
-  await expect(mismatchCount).toHaveText("Latest recorded pixel diff");
+  await expect(mismatchCount).not.toHaveText("Rendering live diff...");
   await expect(diffSurface).toHaveAttribute("data-preview-ready", "true");
   await expect(boundsDelta).not.toHaveText("Foreground bounds pending");
-  const diffImage = diffSurface.getByAltText(
-    "Latest recorded parity pixel diff",
-  );
+  const diffImage = diffSurface.getByAltText("Live parity pixel diff");
   await expect(diffImage).toBeVisible();
   await expect
     .poll(async () => {
@@ -204,4 +205,18 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
     scale: "css",
     maxDiffPixelRatio: 0.01,
   });
+
+  const initialDiffNaturalWidth = await diffImage.evaluate((image) => {
+    return image.naturalWidth;
+  });
+  await resolutionScaleSlider.press("ArrowRight");
+  await expect(diffSurface).toHaveAttribute("data-preview-ready", "true");
+  await expect(
+    page.getByText("Live diff captured at 2x resolution."),
+  ).toBeVisible();
+  await expect
+    .poll(async () => {
+      return diffImage.evaluate((image) => image.naturalWidth);
+    })
+    .toBeGreaterThan(initialDiffNaturalWidth);
 });
