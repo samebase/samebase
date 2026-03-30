@@ -1,7 +1,9 @@
 import {
+  chmodSync,
   mkdirSync,
   readFileSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
@@ -115,6 +117,37 @@ describe('@noter-md/sync', () => {
       rmSync(homeDirectory, { force: true, recursive: true })
     }
   })
+
+  it.runIf(process.platform !== 'win32')(
+    'writes the local config file with owner-only permissions, including rewrites',
+    () => {
+      const homeDirectory = path.join(tmpdir(), `noter-sync-${Date.now()}`)
+      const configPath = getNoterConfigPath({ homeDirectory })
+
+      try {
+        writeLocalConfig({
+          codexVersion: 'codex 0.1.2',
+          homeDirectory,
+          machineCredential: 'mmc_123',
+          machineId: 'machine_123',
+          sourceUrl: 'https://preview.noter.md/noter.js',
+        })
+        expect(statSync(configPath).mode & 0o777).toBe(0o600)
+
+        chmodSync(configPath, 0o644)
+        writeLocalConfig({
+          codexVersion: 'codex 0.1.3',
+          homeDirectory,
+          machineCredential: 'mmc_456',
+          machineId: 'machine_123',
+          sourceUrl: 'https://preview.noter.md/noter.js',
+        })
+        expect(statSync(configPath).mode & 0o777).toBe(0o600)
+      } finally {
+        rmSync(homeDirectory, { force: true, recursive: true })
+      }
+    },
+  )
 
   it('builds the browser handoff URL for the current deploy and request id', () => {
     expect(

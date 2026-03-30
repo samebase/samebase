@@ -19,7 +19,13 @@
 // mirror it exactly instead of stamping deploy-specific metadata.
 
 import { spawn, spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs'
 import { homedir, hostname, platform } from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -252,7 +258,11 @@ export function writeLocalConfig(args) {
   }
 
   mkdirSync(path.dirname(configPath), { recursive: true })
-  writeFileSync(configPath, `${JSON.stringify(nextRecord, null, 2)}\n`, 'utf8')
+  writeFileSync(configPath, `${JSON.stringify(nextRecord, null, 2)}\n`, {
+    encoding: 'utf8',
+    mode: 0o600,
+  })
+  chmodSync(configPath, 0o600)
 
   return configPath
 }

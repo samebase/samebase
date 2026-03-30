@@ -3,7 +3,6 @@ import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachi
 import {
   formatConnectedMachineHeartbeatTimestamp,
   useConnectedMachineHeartbeatLog,
-  type ConnectedMachineHeartbeatMachine,
 } from "@/lib/connectedMachineHeartbeatLog";
 import {
   buildDirectNoterSyncConnectCommand,
@@ -17,6 +16,7 @@ import { useMutation, useQuery } from "convex/react";
 import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
 import { api } from "../../convex/_generated/api";
 
 type CopyableCommandBlockProps = {
@@ -25,9 +25,7 @@ type CopyableCommandBlockProps = {
   label: string;
 };
 
-type ConnectedMachineItem = {
-  connectorVersion: string;
-} & ConnectedMachineHeartbeatMachine;
+type ConnectedMachineItem = ConnectedMachineView;
 
 type MachineApprovalState =
   | {
@@ -408,14 +406,8 @@ export function MachineConnectPage() {
       ? { requestId: bootstrapSearch.requestId }
       : "skip",
   );
-  const connectedMachines = (connectedMachinesQuery ?? []).map((machine) => ({
-    connectorVersion: machine.connectorVersion,
-    displayName: machine.displayName,
-    hostname: machine.hostname,
-    lastSeenAt: machine.lastSeenAt,
-    machineId: machine.machineId,
-    status: machine.status,
-  }));
+  const connectedMachines: ConnectedMachineItem[] =
+    connectedMachinesQuery ?? [];
   const heartbeatLog = useConnectedMachineHeartbeatLog(connectedMachines);
 
   const handleApprove = async () => {
@@ -454,11 +446,13 @@ export function MachineConnectPage() {
       case "approved":
       case "expired":
         return machineRegistrationRequest;
+      default: {
+        const unexpectedRequest: never = machineRegistrationRequest;
+        throw new Error(
+          `Unexpected machine registration request state: ${JSON.stringify(unexpectedRequest)}`,
+        );
+      }
     }
-
-    return {
-      kind: "not_found",
-    };
   })();
 
   return (

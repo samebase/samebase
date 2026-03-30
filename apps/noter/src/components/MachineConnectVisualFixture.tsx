@@ -9,11 +9,14 @@ export function MachineConnectVisualFixture() {
       <MachineConnectPageContent
         connectedMachines={[
           {
+            allowedRoots: ["/Users/nicu/.codex/worktrees/6f41/noter"],
+            capabilities: ["presence"],
             connectorVersion: "noter-sync 0.1.0",
             displayName: "Nicu MacBook Pro",
             hostname: "nicu-mbp.local",
             lastSeenAt: 1_775_379_520_000,
             machineId: "machine_123",
+            os: "macos",
             status: "online",
           },
         ]}
