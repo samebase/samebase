@@ -685,7 +685,7 @@ export function WorkspaceSidebarShell({
                     ? mobileLeftSidebarMeasureRef
                     : undefined
                 }
-                className="min-w-0 overflow-hidden"
+                className="h-full min-h-0 min-w-0 overflow-hidden"
                 style={{ width: "var(--workspace-left-sidebar-width)" }}
               >
                 {hasLeftSidebarHeader ? (
@@ -760,7 +760,7 @@ export function WorkspaceSidebarShell({
                     ? mobileRightSidebarMeasureRef
                     : undefined
                 }
-                className="min-w-0 overflow-hidden"
+                className="h-full min-h-0 min-w-0 overflow-hidden"
                 style={{ width: "var(--workspace-right-sidebar-width)" }}
               >
                 {hasRightSidebarHeader ? (
