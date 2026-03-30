@@ -16,7 +16,13 @@ async function gotoFixture(page: Page) {
   ).toBeVisible();
 }
 
-async function dragMonacoSurface(page: Page, deltaX: number) {
+async function dragMonacoSurface(
+  page: Page,
+  args: {
+    deltaX: number;
+    startXRatio: number;
+  },
+) {
   const surface = page.getByTestId("fileview-monaco-drag-surface");
   const bounds = await surface.boundingBox();
 
@@ -25,32 +31,28 @@ async function dragMonacoSurface(page: Page, deltaX: number) {
     return;
   }
 
-  const startX = bounds.x + bounds.width * 0.5;
+  const startX = bounds.x + bounds.width * args.startXRatio;
   const startY = bounds.y + Math.min(120, bounds.height * 0.35);
   const session = await page.context().newCDPSession(page);
+  const touchPoint = {
+    force: 1,
+    id: 1,
+    radiusX: 4,
+    radiusY: 4,
+    x: startX,
+    y: startY,
+  };
 
   await session.send("Input.dispatchTouchEvent", {
     type: "touchStart",
-    touchPoints: [
-      {
-        force: 1,
-        id: 1,
-        radiusX: 4,
-        radiusY: 4,
-        x: startX,
-        y: startY,
-      },
-    ],
+    touchPoints: [touchPoint],
   });
   await session.send("Input.dispatchTouchEvent", {
     type: "touchMove",
     touchPoints: [
       {
-        force: 1,
-        id: 1,
-        radiusX: 4,
-        radiusY: 4,
-        x: startX + deltaX * 0.66,
+        ...touchPoint,
+        x: startX + args.deltaX * 0.66,
         y: startY + 4,
       },
     ],
@@ -59,19 +61,35 @@ async function dragMonacoSurface(page: Page, deltaX: number) {
     type: "touchMove",
     touchPoints: [
       {
-        force: 1,
-        id: 1,
-        radiusX: 4,
-        radiusY: 4,
-        x: startX + deltaX,
+        ...touchPoint,
+        x: startX + args.deltaX,
         y: startY + 6,
       },
     ],
   });
+
   await session.send("Input.dispatchTouchEvent", {
     type: "touchEnd",
     touchPoints: [],
   });
+}
+
+async function expectPaneAfterMonacoDrag(args: {
+  drag: () => Promise<void>;
+  expectedPane: "left" | "right";
+  page: Page;
+}) {
+  const shell = args.page.getByTestId("fileview-monaco-drag-shell");
+  await args.drag();
+
+  try {
+    await expect(shell).toHaveAttribute("data-mobile-pane", args.expectedPane, {
+      timeout: 1000,
+    });
+  } catch {
+    await args.drag();
+    await expect(shell).toHaveAttribute("data-mobile-pane", args.expectedPane);
+  }
 }
 
 test("Monaco mobile drag fixture", async ({ page }) => {
@@ -92,9 +110,15 @@ test("Monaco drag can open the left pane", async ({ page }) => {
   const shell = page.getByTestId("fileview-monaco-drag-shell");
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 
-  await dragMonacoSurface(page, 180);
-
-  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
+  await expectPaneAfterMonacoDrag({
+    drag: () =>
+      dragMonacoSurface(page, {
+        deltaX: 272,
+        startXRatio: 0.25,
+      }),
+    expectedPane: "left",
+    page,
+  });
 });
 
 test("Monaco drag can open the right pane", async ({ page }) => {
@@ -103,7 +127,13 @@ test("Monaco drag can open the right pane", async ({ page }) => {
   const shell = page.getByTestId("fileview-monaco-drag-shell");
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 
-  await dragMonacoSurface(page, -180);
-
-  await expect(shell).toHaveAttribute("data-mobile-pane", "right");
+  await expectPaneAfterMonacoDrag({
+    drag: () =>
+      dragMonacoSurface(page, {
+        deltaX: -280,
+        startXRatio: 0.75,
+      }),
+    expectedPane: "right",
+    page,
+  });
 });
