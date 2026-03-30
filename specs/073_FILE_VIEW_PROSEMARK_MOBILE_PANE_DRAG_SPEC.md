@@ -92,6 +92,8 @@ Relevant implementation points:
 - `RepositoryWorkspaceFrame` renders both left and right sidebar triggers.
 - `FileView` can mount both sidebars at once: the left rail keeps account header
   chrome, while the file tree content can live in the right rail.
+- Sidebar columns keep distinct header and content rows even when one zone is
+  visually empty, so shared dividers stay aligned across the workspace.
 
 ### FileView ProseMark
 

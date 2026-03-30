@@ -640,6 +640,10 @@ export function WorkspaceSidebarShell({
       ? "border-l border-border/50"
       : "pointer-events-none border-l border-transparent",
   );
+  // Reserve a real sidebar header row even when a route leaves that zone empty
+  // so the shell keeps one aligned header/content grid across all three columns.
+  const emptySidebarHeaderClassName =
+    "h-full min-h-0 border-b border-border/50 bg-background";
 
   return (
     <WorkspaceMobilePaneDragProvider value={mobilePaneDragContextValue}>
@@ -666,7 +670,7 @@ export function WorkspaceSidebarShell({
           )}
           style={shellStyle}
         >
-          {hasLeftSidebarHeader ? (
+          {hasLeftSidebar ? (
             <div
               data-testid={leftSidebarHeaderTestId}
               {...hiddenLeftDesktopSidebarProps}
@@ -684,7 +688,14 @@ export function WorkspaceSidebarShell({
                 className="min-w-0 overflow-hidden"
                 style={{ width: "var(--workspace-left-sidebar-width)" }}
               >
-                {leftSidebarHeader}
+                {hasLeftSidebarHeader ? (
+                  leftSidebarHeader
+                ) : (
+                  <div
+                    aria-hidden="true"
+                    className={emptySidebarHeaderClassName}
+                  />
+                )}
               </div>
             </div>
           ) : null}
@@ -695,9 +706,7 @@ export function WorkspaceSidebarShell({
               {...hiddenLeftDesktopSidebarProps}
               className={cn(
                 leftSidebarCellClassName,
-                hasLeftSidebarHeader
-                  ? "row-start-2 min-h-0"
-                  : "row-span-2 min-h-0",
+                "row-start-2 min-h-0",
                 isMobile ? "snap-start" : "",
               )}
             >
@@ -735,7 +744,7 @@ export function WorkspaceSidebarShell({
             {children}
           </div>
 
-          {hasRightSidebarHeader ? (
+          {hasRightSidebar ? (
             <div
               data-testid={rightSidebarHeaderTestId}
               {...hiddenRightDesktopSidebarProps}
@@ -754,7 +763,14 @@ export function WorkspaceSidebarShell({
                 className="min-w-0 overflow-hidden"
                 style={{ width: "var(--workspace-right-sidebar-width)" }}
               >
-                {rightSidebarHeader}
+                {hasRightSidebarHeader ? (
+                  rightSidebarHeader
+                ) : (
+                  <div
+                    aria-hidden="true"
+                    className={emptySidebarHeaderClassName}
+                  />
+                )}
               </div>
             </div>
           ) : null}
@@ -766,9 +782,7 @@ export function WorkspaceSidebarShell({
               className={cn(
                 "col-start-3",
                 rightSidebarCellClassName,
-                hasRightSidebarHeader
-                  ? "row-start-2 min-h-0"
-                  : "row-span-2 min-h-0",
+                "row-start-2 min-h-0",
                 isMobile ? "snap-start" : "",
               )}
             >
