@@ -14,7 +14,10 @@ type ScreenshotDiffParams = {
     diffMask?: string;
     expected?: string;
   };
-  diffVisualization?: "directional-mask" | "weighted-red";
+  diffVisualization?:
+    | "directional-mask"
+    | "directional-weighted"
+    | "weighted-red";
   maxDiffPixelRatio: number;
   pixelmatchOptions?: {
     aaColor?: [number, number, number];
@@ -44,6 +47,7 @@ export type ScreenshotForegroundBounds = {
 };
 
 const DEFAULT_FOREGROUND_BACKGROUND_CHANNEL_THRESHOLD = 245;
+const MAX_RGBA_DELTA_DISTANCE = Math.hypot(255, 255, 255, 255);
 
 export function measureScreenshotForegroundBounds(
   screenshot: Buffer,
@@ -133,6 +137,34 @@ export function measureScreenshotForegroundBoundsDelta(args: {
   };
 }
 
+function getVisualizedPixelDiffIntensity(args: {
+  actualPng: PNG;
+  expectedPng: PNG;
+  index: number;
+}) {
+  const redDelta = Math.abs(
+    args.expectedPng.data[args.index] - args.actualPng.data[args.index],
+  );
+  const greenDelta = Math.abs(
+    args.expectedPng.data[args.index + 1] - args.actualPng.data[args.index + 1],
+  );
+  const blueDelta = Math.abs(
+    args.expectedPng.data[args.index + 2] - args.actualPng.data[args.index + 2],
+  );
+  const alphaDelta = Math.abs(
+    args.expectedPng.data[args.index + 3] - args.actualPng.data[args.index + 3],
+  );
+  const normalizedDelta =
+    Math.hypot(redDelta, greenDelta, blueDelta, alphaDelta) /
+    MAX_RGBA_DELTA_DISTANCE;
+
+  return normalizedDelta === 0 ? 0 : Math.sqrt(normalizedDelta);
+}
+
+function blendDiffChannel(baseChannel: number, intensity: number) {
+  return Math.round(255 - (255 - baseChannel) * intensity);
+}
+
 function buildWeightedRedDiffPng(expectedPng: PNG, actualPng: PNG): PNG {
   const diffPng = new PNG({
     width: expectedPng.width,
@@ -140,20 +172,12 @@ function buildWeightedRedDiffPng(expectedPng: PNG, actualPng: PNG): PNG {
   });
 
   for (let index = 0; index < expectedPng.data.length; index += 4) {
-    const redDelta = Math.abs(expectedPng.data[index] - actualPng.data[index]);
-    const greenDelta = Math.abs(
-      expectedPng.data[index + 1] - actualPng.data[index + 1],
-    );
-    const blueDelta = Math.abs(
-      expectedPng.data[index + 2] - actualPng.data[index + 2],
-    );
-    const alphaDelta = Math.abs(
-      expectedPng.data[index + 3] - actualPng.data[index + 3],
-    );
-    const normalizedDelta =
-      Math.max(redDelta, greenDelta, blueDelta, alphaDelta) / 255;
-    const intensity = normalizedDelta === 0 ? 0 : Math.sqrt(normalizedDelta);
-    const fadedChannel = Math.round(255 * (1 - intensity));
+    const intensity = getVisualizedPixelDiffIntensity({
+      actualPng,
+      expectedPng,
+      index,
+    });
+    const fadedChannel = blendDiffChannel(0, intensity);
 
     diffPng.data[index] = 255;
     diffPng.data[index + 1] = fadedChannel;
@@ -168,6 +192,7 @@ function buildDirectionalMaskDiffPng(args: {
   actualPng: PNG;
   expectedPng: PNG;
   pixelmatchOptions: NonNullable<ScreenshotDiffParams["pixelmatchOptions"]>;
+  weighted: boolean;
 }) {
   const diffMaskPng = new PNG({
     width: args.expectedPng.width,
@@ -205,9 +230,26 @@ function buildDirectionalMaskDiffPng(args: {
       continue;
     }
 
-    displayPng.data[index] = diffMaskPng.data[index];
-    displayPng.data[index + 1] = diffMaskPng.data[index + 1];
-    displayPng.data[index + 2] = diffMaskPng.data[index + 2];
+    const intensity = args.weighted
+      ? getVisualizedPixelDiffIntensity({
+          actualPng: args.actualPng,
+          expectedPng: args.expectedPng,
+          index,
+        })
+      : 1;
+
+    displayPng.data[index] = blendDiffChannel(
+      diffMaskPng.data[index],
+      intensity,
+    );
+    displayPng.data[index + 1] = blendDiffChannel(
+      diffMaskPng.data[index + 1],
+      intensity,
+    );
+    displayPng.data[index + 2] = blendDiffChannel(
+      diffMaskPng.data[index + 2],
+      intensity,
+    );
     displayPng.data[index + 3] = 255;
   }
 
@@ -256,11 +298,19 @@ export async function expectScreenshotsToMatch({
           actualPng,
           expectedPng,
           pixelmatchOptions: pixelmatchOptions ?? {},
+          weighted: false,
         })
-      : {
-          diffMaskPng: diffPng,
-          displayPng: buildWeightedRedDiffPng(expectedPng, actualPng),
-        };
+      : diffVisualization === "directional-weighted"
+        ? buildDirectionalMaskDiffPng({
+            actualPng,
+            expectedPng,
+            pixelmatchOptions: pixelmatchOptions ?? {},
+            weighted: true,
+          })
+        : {
+            diffMaskPng: diffPng,
+            displayPng: buildWeightedRedDiffPng(expectedPng, actualPng),
+          };
   const weightedDiffBuffer = PNG.sync.write(diffVisualizationResult.displayPng);
   const diffMaskBuffer = PNG.sync.write(diffVisualizationResult.diffMaskPng);
 

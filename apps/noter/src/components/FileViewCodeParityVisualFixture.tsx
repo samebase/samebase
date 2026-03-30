@@ -8,6 +8,7 @@ import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
 import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { SidebarProvider } from "@/components/sidebar";
+import { Input } from "@/components/input";
 import { Button } from "@/components/ui/button";
 import { getProsemarkFileThemeExtensions } from "@/components/prosemarkSurface";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
@@ -44,8 +45,10 @@ const PARITY_PIXEL_DIFF_PUBLIC_PATH =
 const PARITY_MONACO_DIFF_COLOR = "#ff3b30";
 const PARITY_PROSEMARK_DIFF_COLOR = "#007aff";
 const PARITY_DIFF_BACKGROUND_CHANNEL_THRESHOLD = 245;
+const PARITY_DIFF_PREVIEW_DEFAULT_SCALE = 2;
 const PARITY_DIFF_PREVIEW_PADDING_PX = 12;
-const PARITY_DIFF_PREVIEW_SCALE = 3;
+const PARITY_DIFF_PREVIEW_SCALE_MAX = 8;
+const PARITY_DIFF_PREVIEW_SCALE_MIN = 1;
 
 type ParityForegroundBounds = {
   height: number;
@@ -80,6 +83,13 @@ function buildParityArtifactUrl(args: {
     (nextSearchParams) => {
       setQueryParam(nextSearchParams, "t", `${args.refreshKey}`);
     },
+  );
+}
+
+function clampParityDiffPreviewScale(value: number) {
+  return Math.min(
+    PARITY_DIFF_PREVIEW_SCALE_MAX,
+    Math.max(PARITY_DIFF_PREVIEW_SCALE_MIN, Math.round(value)),
   );
 }
 
@@ -183,7 +193,12 @@ function measureParityDiffForegroundBounds(image: HTMLImageElement) {
   };
 }
 
-function buildParityDiffPreviewUrl(image: HTMLImageElement) {
+function buildParityDiffPreviewUrl(args: {
+  image: HTMLImageElement;
+  scale: number;
+}) {
+  const scale = clampParityDiffPreviewScale(args.scale);
+  const { image } = args;
   const bounds = measureParityDiffForegroundBounds(image);
   if (!bounds) {
     return null;
@@ -202,8 +217,8 @@ function buildParityDiffPreviewUrl(image: HTMLImageElement) {
   const cropWidth = cropMaxX - cropMinX + 1;
   const cropHeight = cropMaxY - cropMinY + 1;
   const canvas = document.createElement("canvas");
-  canvas.width = cropWidth * PARITY_DIFF_PREVIEW_SCALE;
-  canvas.height = cropHeight * PARITY_DIFF_PREVIEW_SCALE;
+  canvas.width = cropWidth * scale;
+  canvas.height = cropHeight * scale;
   const context = canvas.getContext("2d");
   if (!context) {
     return null;
@@ -333,6 +348,9 @@ export function FileViewCodeParityVisualFixture({
   const [parityDiffImageState, setParityDiffImageState] = useState<
     "loading" | "ready" | "error"
   >("loading");
+  const [parityDiffPreviewScale, setParityDiffPreviewScale] = useState(
+    PARITY_DIFF_PREVIEW_DEFAULT_SCALE,
+  );
   const [parityDiffPreviewUrl, setParityDiffPreviewUrl] = useState<
     string | null
   >(null);
@@ -403,6 +421,46 @@ export function FileViewCodeParityVisualFixture({
       cancelled = true;
     };
   }, [parityMetricsUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setParityDiffImageState("loading");
+    setParityDiffPreviewLoaded(false);
+    setParityDiffPreviewUrl(null);
+
+    const artifactImage = new Image();
+    artifactImage.decoding = "async";
+    artifactImage.onload = () => {
+      if (cancelled) {
+        return;
+      }
+
+      setParityDiffImageState("ready");
+      setParityDiffPreviewUrl(
+        buildParityDiffPreviewUrl({
+          image: artifactImage,
+          scale: parityDiffPreviewScale,
+        }),
+      );
+      setParityDiffPreviewLoaded(true);
+    };
+    artifactImage.onerror = () => {
+      if (cancelled) {
+        return;
+      }
+
+      setParityDiffImageState("error");
+      setParityDiffPreviewUrl(null);
+      setParityDiffPreviewLoaded(false);
+    };
+    artifactImage.src = parityDiffUrl;
+
+    return () => {
+      cancelled = true;
+      artifactImage.onload = null;
+      artifactImage.onerror = null;
+    };
+  }, [parityDiffPreviewScale, parityDiffUrl]);
 
   return (
     <SidebarProvider
@@ -512,19 +570,63 @@ export function FileViewCodeParityVisualFixture({
               </div>
 
               <div className="corner-notch-1 border bg-background p-3">
-                <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="mb-3 grid gap-3 xl:grid-cols-[1fr_auto] xl:items-center">
                   <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Diff
                   </div>
-                  <div
-                    data-testid="file-view-code-parity-mismatch-count"
-                    className="text-xs tabular-nums text-muted-foreground"
-                  >
-                    {parityDiffImageState === "loading"
-                      ? "Loading recorded diff..."
-                      : parityDiffImageState === "error"
-                        ? "Diff missing"
-                        : "Latest recorded pixel diff"}
+                  <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <label htmlFor="file-view-code-parity-diff-zoom">
+                        Zoom
+                      </label>
+                      <input
+                        aria-label="Diff zoom"
+                        type="range"
+                        min={PARITY_DIFF_PREVIEW_SCALE_MIN}
+                        max={PARITY_DIFF_PREVIEW_SCALE_MAX}
+                        step={1}
+                        value={parityDiffPreviewScale}
+                        onChange={(event) => {
+                          setParityDiffPreviewScale(
+                            clampParityDiffPreviewScale(
+                              Number(event.currentTarget.value),
+                            ),
+                          );
+                        }}
+                        className="h-2 w-32 accent-foreground"
+                      />
+                      <Input
+                        id="file-view-code-parity-diff-zoom"
+                        type="number"
+                        inputMode="numeric"
+                        min={PARITY_DIFF_PREVIEW_SCALE_MIN}
+                        max={PARITY_DIFF_PREVIEW_SCALE_MAX}
+                        step={1}
+                        value={parityDiffPreviewScale}
+                        onChange={(event) => {
+                          const nextValue = Number(event.currentTarget.value);
+                          if (!Number.isFinite(nextValue)) {
+                            return;
+                          }
+
+                          setParityDiffPreviewScale(
+                            clampParityDiffPreviewScale(nextValue),
+                          );
+                        }}
+                        className="h-8 w-16 bg-background px-2 py-1 text-right font-mono text-xs"
+                      />
+                      <span>{parityDiffPreviewScale}x</span>
+                    </div>
+                    <div
+                      data-testid="file-view-code-parity-mismatch-count"
+                      className="text-xs tabular-nums text-muted-foreground"
+                    >
+                      {parityDiffImageState === "loading"
+                        ? "Loading recorded diff..."
+                        : parityDiffImageState === "error"
+                          ? "Diff missing"
+                          : "Latest recorded pixel diff"}
+                    </div>
                   </div>
                 </div>
                 <div
@@ -557,6 +659,8 @@ export function FileViewCodeParityVisualFixture({
                       />
                       <span>ProseMark darker / extra</span>
                     </div>
+                    <div>Paler pixels mean smaller mismatches.</div>
+                    <div>More saturated pixels mean larger mismatches.</div>
                   </div>
                   <div
                     data-testid="file-view-code-parity-bounds-delta"
@@ -572,43 +676,14 @@ export function FileViewCodeParityVisualFixture({
                     These bounds ignore the shell border and focus on the first
                     non-background editor pixels, so use them for placement. The
                     pixel diff below still includes rasterization and
-                    syntax-color noise.
+                    syntax-color noise, but the color strength now reflects how
+                    large each mismatch is.
                   </div>
                   <div className="min-h-0 flex-1 overflow-auto border bg-white">
                     <img
                       alt="Latest recorded parity pixel diff"
                       src={parityDiffPreviewUrl ?? parityDiffUrl}
                       className="block h-full w-full object-contain"
-                      onError={() => {
-                        setParityDiffImageState("error");
-                      }}
-                      onLoad={(event) => {
-                        setParityDiffImageState("ready");
-                        if (
-                          event.currentTarget.currentSrc.startsWith(
-                            "data:image/",
-                          )
-                        ) {
-                          setParityDiffPreviewLoaded(true);
-                          return;
-                        }
-
-                        if (parityDiffPreviewUrl !== null) {
-                          setParityDiffPreviewLoaded(true);
-                          return;
-                        }
-
-                        const previewUrl = buildParityDiffPreviewUrl(
-                          event.currentTarget,
-                        );
-                        if (!previewUrl) {
-                          setParityDiffPreviewLoaded(true);
-                          return;
-                        }
-
-                        setParityDiffPreviewLoaded(false);
-                        setParityDiffPreviewUrl(previewUrl);
-                      }}
                     />
                   </div>
                 </div>
