@@ -1,6 +1,8 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -303,12 +305,80 @@ describe("daytonaLocalBootstrap", () => {
       "node ./scripts/convex-sync-dev-env.js --check-prereqs",
     );
     expect(makefile).toContain("--allow-missing-source-env");
+    expect(makefile).toContain(
+      "KILLPORT_GOAL = $(firstword $(filter-out killport,$(MAKECMDGOALS)))",
+    );
+    expect(makefile).toContain("apps/noter/.env.local");
     expect(makefile).toMatch(
-      /^anon:\s*\n\s*\$\(ANON_VALIDATE_SOURCE_ENV_CMD\)/m,
+      /^anon:\s*\n\s*\$\(MAKE\) killport\n\s*\$\(ANON_VALIDATE_SOURCE_ENV_CMD\)/m,
     );
     expect(makefile).toMatch(
-      /^anon-once:\s*\n\s*\$\(ANON_VALIDATE_SOURCE_ENV_CMD\)/m,
+      /^anon-once:\s*\n\s*\$\(MAKE\) killport\n\s*\$\(ANON_VALIDATE_SOURCE_ENV_CMD\)/m,
     );
+    expect(makefile).toMatch(/^killport:\s*$/m);
+    expect(makefile).not.toContain("kill-port:");
     expect(makefile).toContain("ANON_ALLOW_MISSING_SOURCE_ENV=1; \\");
   });
+
+  it("killport reads the stored anon backend port from apps/noter/.env.local", async () => {
+    const killportDir = mkdtempSync(path.join(testDir, "killport-"));
+    const envDir = path.join(killportDir, "apps", "noter");
+    mkdirSync(envDir, { recursive: true });
+
+    const listener = await startListeningChild();
+    try {
+      writeFileSync(
+        path.join(envDir, ".env.local"),
+        `VITE_CONVEX_URL=http://127.0.0.1:${listener.port}\n`,
+      );
+
+      const result = spawnSync("make", ["-f", makefilePath, "killport"], {
+        cwd: killportDir,
+        encoding: "utf8",
+        env: buildIsolatedChildEnv(),
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain(
+        `Sent SIGTERM to ${listener.pid} on port ${listener.port}.`,
+      );
+      await listener.exited;
+    } finally {
+      listener.child.kill("SIGKILL");
+      await listener.exited;
+      rmSync(killportDir, { recursive: true, force: true });
+    }
+  });
 });
+
+const startListeningChild = async () => {
+  const child = spawn(
+    process.execPath,
+    [
+      "-e",
+      `import { createServer } from "node:net";
+const server = createServer();
+process.on("SIGTERM", () => process.exit(0));
+server.listen(0, "127.0.0.1", () => {
+  const address = server.address();
+  if (address && typeof address !== "string") console.log(address.port);
+});
+setInterval(() => {}, 1000);`,
+    ],
+    {
+      stdio: ["ignore", "pipe", "inherit"],
+    },
+  );
+  const portChunk = await new Promise<Buffer>((resolve, reject) => {
+    child.stdout.once("data", (chunk: Buffer) => resolve(chunk));
+    child.once("error", reject);
+  });
+  const port = Number(String(portChunk).trim());
+
+  return {
+    child,
+    pid: child.pid ?? -1,
+    port,
+    exited: once(child, "exit").then(() => undefined),
+  };
+};
