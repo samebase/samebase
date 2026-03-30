@@ -52,6 +52,7 @@ import { prosemarkDarkTheme } from "@/components/prosemarkSurface";
 import { Id } from "../../convex/_generated/dataModel";
 import { type GithubTreeType } from "convex/schema";
 import { MonacoEditor } from "./MonacoEditor";
+import { useProsemarkMobilePaneDrag } from "@/components/useProsemarkMobilePaneDrag";
 
 // Temporary:
 // const tempVaultId = "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"vaults">;
@@ -353,6 +354,7 @@ export function CodeEditor({
   filePath: string;
 }) {
   const fileName = filePath.split("/").pop();
+  const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const pullRef = useRef<
@@ -361,6 +363,7 @@ export function CodeEditor({
   const { theme, systemTheme } = useTheme();
   const [version, setVersion] = useState(firstDoc.version);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const mobilePaneDrag = useProsemarkMobilePaneDrag(true, containerRef);
 
   const updates = useQuery(
     api.collaborative.pullUpdates,
@@ -478,7 +481,12 @@ export function CodeEditor({
   }, [repositoryFullName, branch, filePath]);
 
   return (
-    <div className="relative h-full min-h-0 w-full">
+    <div
+      ref={containerRef}
+      className="relative h-full min-h-0 w-full"
+      style={{ touchAction: mobilePaneDrag.touchAction }}
+      {...mobilePaneDrag.containerProps}
+    >
       <div
         ref={editorRef}
         className="notranslate h-full min-h-0 w-full"
