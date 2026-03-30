@@ -1,8 +1,9 @@
-import { defineConfig } from "vite";
+import { defineConfig, type ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { format as formatWithPrettier } from "prettier";
 import { readPackageVersion } from "../../scripts/readPackageVersion.js";
 import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
@@ -13,6 +14,7 @@ import {
   TERMS_PAGE_METADATA,
 } from "./src/lib/pageMetadata";
 import { renderStaticLegalPageHtml } from "./src/lib/staticLegalPage";
+import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import {
   readEnvFileValue,
   resolveDaytonaConvexProxyTarget,
@@ -61,6 +63,11 @@ const staticInstallIconSvgAssetPath = path.resolve(
   __dirname,
   "public/install-icon.svg",
 );
+const noterSyncPackageScriptPath = path.resolve(
+  gitRoot,
+  "packages/sync/noter.js",
+);
+const staticNoterSyncScriptPath = path.resolve(__dirname, "public/noter.js");
 const privacyPolicyMarkdownPath = path.resolve(
   __dirname,
   "src/content/privacy-policy.md",
@@ -74,6 +81,12 @@ const staticPrivacyHtmlPath = path.resolve(
   "public/privacy/index.html",
 );
 const staticTermsHtmlPath = path.resolve(__dirname, "public/terms/index.html");
+
+function readNoterSyncPackageScript(): string {
+  return readFileSync(noterSyncPackageScriptPath, "utf8")
+    .replace(/\r\n/g, "\n")
+    .trimEnd();
+}
 
 function syncStaticLogoSvgAsset() {
   const nextStaticLogoSvgMarkup = createStaticLogoSvgMarkup().trim();
@@ -117,11 +130,54 @@ function syncStaticInstallIconSvgAsset() {
   );
 }
 
-async function formatGeneratedHtml(args: { htmlPath: string; html: string }) {
-  const formattedHtml = await formatWithPrettier(args.html, {
-    filepath: args.htmlPath,
+/**
+ * Mirror the package entrypoint into `public/noter.js` without any mutation so
+ * the hosted file stays byte-for-byte identical to the source a user can audit
+ * in the package.
+ */
+async function syncStaticNoterSyncScriptAsset() {
+  const nextNoterSyncScript = buildNoterSyncPublicScript({
+    packageScript: readNoterSyncPackageScript(),
   });
-  return formattedHtml.endsWith("\n") ? formattedHtml : `${formattedHtml}\n`;
+  const nextNoterSyncScriptWithNewline = nextNoterSyncScript.endsWith("\n")
+    ? nextNoterSyncScript
+    : `${nextNoterSyncScript}\n`;
+  const currentNoterSyncScript = (() => {
+    try {
+      return readFileSync(staticNoterSyncScriptPath, "utf8");
+    } catch {
+      return null;
+    }
+  })();
+
+  if (currentNoterSyncScript === nextNoterSyncScriptWithNewline) {
+    return;
+  }
+
+  writeFileSync(
+    staticNoterSyncScriptPath,
+    nextNoterSyncScriptWithNewline,
+    "utf8",
+  );
+}
+
+async function buildRuntimeNoterSyncScript() {
+  const script = buildNoterSyncPublicScript({
+    packageScript: readNoterSyncPackageScript(),
+  });
+  return script.endsWith("\n") ? script : `${script}\n`;
+}
+
+async function formatGeneratedFileContents(args: {
+  content: string;
+  filepath: string;
+}) {
+  const formattedContents = await formatWithPrettier(args.content, {
+    filepath: args.filepath,
+  });
+  return formattedContents.endsWith("\n")
+    ? formattedContents
+    : `${formattedContents}\n`;
 }
 
 async function syncStaticLegalPageAsset(args: {
@@ -130,9 +186,9 @@ async function syncStaticLegalPageAsset(args: {
   metadata: PageMetadata;
 }) {
   const markdown = readFileSync(args.markdownPath, "utf8");
-  const nextHtml = await formatGeneratedHtml({
-    htmlPath: args.htmlPath,
-    html: renderStaticLegalPageHtml({
+  const nextHtml = await formatGeneratedFileContents({
+    filepath: args.htmlPath,
+    content: renderStaticLegalPageHtml({
       metadata: args.metadata,
       markdown,
     }),
@@ -217,6 +273,73 @@ function syncStaticInstallIconSvgAssetPlugin() {
   };
 }
 
+function syncStaticNoterSyncScriptAssetPlugin() {
+  let hasSyncedStaticNoterSyncScriptAsset = false;
+
+  const syncOnce = async () => {
+    if (hasSyncedStaticNoterSyncScriptAsset) {
+      return;
+    }
+
+    hasSyncedStaticNoterSyncScriptAsset = true;
+    await syncStaticNoterSyncScriptAsset();
+  };
+
+  return {
+    name: "sync-static-noter-sync-script-asset",
+    async buildStart() {
+      await syncOnce();
+    },
+    async configureServer(server: ViteDevServer) {
+      await syncOnce();
+
+      // Serve a deploy-stamped installer in dev without dirtying the tracked
+      // `public/noter.js` file away from its production default.
+      server.middlewares.use(
+        (
+          request: IncomingMessage,
+          response: ServerResponse<IncomingMessage>,
+          next: (error?: Error) => void,
+        ) => {
+          const requestPath = (() => {
+            if (!request.url) {
+              return null;
+            }
+
+            try {
+              return new URL(request.url, "http://vite.local").pathname;
+            } catch {
+              return null;
+            }
+          })();
+
+          if (requestPath !== "/noter.js") {
+            next();
+            return;
+          }
+
+          void buildRuntimeNoterSyncScript()
+            .then((runtimeScript) => {
+              response.statusCode = 200;
+              response.setHeader(
+                "Content-Type",
+                "application/javascript; charset=utf-8",
+              );
+              response.end(runtimeScript);
+            })
+            .catch(next);
+        },
+      );
+    },
+    async closeBundle() {
+      const builtScriptPath = path.resolve(__dirname, "dist/noter.js");
+      const runtimeScript = await buildRuntimeNoterSyncScript();
+      mkdirSync(path.dirname(builtScriptPath), { recursive: true });
+      writeFileSync(builtScriptPath, runtimeScript, "utf8");
+    },
+  };
+}
+
 function syncStaticLegalPageAssetsPlugin() {
   let hasSyncedStaticLegalPageAssets = false;
 
@@ -275,6 +398,7 @@ export default defineConfig({
   plugins: [
     syncStaticLogoSvgAssetPlugin(),
     syncStaticInstallIconSvgAssetPlugin(),
+    syncStaticNoterSyncScriptAssetPlugin(),
     syncStaticLegalPageAssetsPlugin(),
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,

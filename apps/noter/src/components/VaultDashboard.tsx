@@ -106,6 +106,7 @@ import {
   normalizeVaultBranchFilters,
   type VaultBranchFilters as VaultBranchFiltersState,
 } from "@/lib/vaultBranchFilters";
+import { MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
 import { toast } from "@/components/ui/use-toast";
 
 const formatInfraState = (
@@ -1852,6 +1853,11 @@ function VaultDashboardContent() {
 
   const dashboardHeaderContent = (
     <VaultDashboardHeaderBar
+      actions={
+        <Button variant="outline" size="sm" className="h-6 px-2" asChild>
+          <Link to={MACHINE_CONNECT_ROUTE}>Connect machine</Link>
+        </Button>
+      }
       showTitle={vaults.length > 0}
       showRightSidebarTrigger={true}
     />

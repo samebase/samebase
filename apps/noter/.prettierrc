@@ -1,4 +1,15 @@
 {
   "printWidth": 80,
-  "proseWrap": "always"
+  "proseWrap": "always",
+  "overrides": [
+    {
+      "files": "public/noter.js",
+      "options": {
+        "semi": false,
+        "singleQuote": true,
+        "trailingComma": "all",
+        "arrowParens": "avoid"
+      }
+    }
+  ]
 }

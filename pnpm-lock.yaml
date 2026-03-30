@@ -424,6 +424,8 @@ importers:
         specifier: ^8.57.0
         version: 8.57.1
 
+  packages/sync: {}
+
 packages:
 
   '@ai-sdk/anthropic@2.0.66':

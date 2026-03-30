@@ -6,6 +6,7 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "@/lib/codexAppServerResearch";
+import { MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -93,6 +94,10 @@ const CodexAppServerThreadBrowserResearchPage = lazy(async () => {
     "@/components/CodexAppServerThreadBrowserResearchPage"
   );
   return { default: module.CodexAppServerThreadBrowserResearchPage };
+});
+const MachineConnectPage = lazy(async () => {
+  const module = await import("@/components/MachineConnectPage");
+  return { default: module.MachineConnectPage };
 });
 
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
@@ -527,6 +532,10 @@ export default function App() {
               <Suspense fallback={null}>
                 <Routes>
                   <Route path="/" element={<VaultDashboard />} />
+                  <Route
+                    path={MACHINE_CONNECT_ROUTE}
+                    element={<MachineConnectPage />}
+                  />
                   <Route path="/pricing" element={<PricingPage />} />
                   <Route path="/add" element={<AddRepository />} />
                   <Route

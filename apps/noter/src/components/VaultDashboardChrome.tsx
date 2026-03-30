@@ -38,9 +38,11 @@ export function VaultDashboardSidebarAccountHeader({
 }
 
 export function VaultDashboardHeaderBar({
+  actions,
   showTitle,
   showRightSidebarTrigger = false,
 }: {
+  actions?: ReactNode;
   showTitle: boolean;
   showRightSidebarTrigger?: boolean;
 }) {
@@ -60,12 +62,15 @@ export function VaultDashboardHeaderBar({
           </div>
         ) : null}
       </div>
-      {showRightSidebarTrigger ? (
-        <SidebarTrigger
-          className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
-          side="right"
-        />
-      ) : null}
+      <div className="flex items-center gap-2">
+        {actions}
+        {showRightSidebarTrigger ? (
+          <SidebarTrigger
+            className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
+            side="right"
+          />
+        ) : null}
+      </div>
     </div>
   );
 }

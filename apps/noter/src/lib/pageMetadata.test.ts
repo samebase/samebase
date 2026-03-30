@@ -223,6 +223,12 @@ describe("page metadata", () => {
     }
   });
 
+  it("returns a dedicated title for the machine connect route", () => {
+    expect(resolveAppPageTitle("/machines/connect")).toBe(
+      "Connect This Machine | noter",
+    );
+  });
+
   it("gives the codex research route a dedicated app title", () => {
     expect(resolveAppPageTitle("/research/codex-app-server")).toBe(
       "Codex App Server Research | noter",

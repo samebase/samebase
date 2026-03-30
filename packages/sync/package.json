@@ -1,0 +1,14 @@
+{
+  "name": "@noter-md/sync",
+  "version": "0.0.0",
+  "type": "module",
+  "bin": {
+    "noter-sync": "./noter.js"
+  },
+  "files": [
+    "noter.js"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

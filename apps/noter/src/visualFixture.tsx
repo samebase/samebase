@@ -29,6 +29,7 @@ import {
   VaultDashboardVisualFixture,
   type VaultDashboardVisualMode,
 } from "@/components/VaultDashboardVisualFixture";
+import { MachineConnectVisualFixture } from "@/components/MachineConnectVisualFixture";
 import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture";
 import {
   LogoThreeVisualFixture,
@@ -122,6 +123,7 @@ type VisualFixtureMode =
   | VaultSyncStatusVisualMode
   | CodexThreadBrowserVisualMode
   | CodexThreadHistoryVisualMode
+  | "machine-connect"
   | "vault-dashboard-branch-pr-title"
   | "button"
   | "corner-notch"
@@ -243,6 +245,7 @@ const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
 const MISC_VISUAL_MODES = [
   "codex-thread-browser",
   "codex-thread-history",
+  "machine-connect",
   "vault-dashboard-branch-pr-title",
   "button",
   "corner-notch",
@@ -469,6 +472,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "codex-thread-browser") {
     return <CodexThreadBrowserVisualFixture mode={mode} />;
+  }
+
+  if (mode === "machine-connect") {
+    return <MachineConnectVisualFixture />;
   }
 
   if (mode === "button") {
