@@ -50,6 +50,10 @@ import {
   type FileViewCompareVisualMode,
 } from "@/components/FileViewCompareVisualFixture";
 import {
+  FileViewCodeParityVisualFixture,
+  type FileViewCodeParityVisualMode,
+} from "@/components/FileViewCodeParityVisualFixture";
+import {
   FileViewDeveloperToolsVisualFixture,
   type FileViewDeveloperToolsVisualMode,
 } from "@/components/FileViewDeveloperToolsVisualFixture";
@@ -108,6 +112,7 @@ import "./index.css";
 type VisualFixtureMode =
   | CommitReviewVisualMode
   | FileViewCompareVisualMode
+  | FileViewCodeParityVisualMode
   | FileViewDeveloperToolsVisualMode
   | FileViewMonacoDragVisualMode
   | FileViewProsemarkDragVisualMode
@@ -233,6 +238,10 @@ const FILE_VIEW_COMPARE_VISUAL_MODES = [
   "file-view-compare-loading",
 ] as const satisfies readonly FileViewCompareVisualMode[];
 
+const FILE_VIEW_CODE_PARITY_VISUAL_MODES = [
+  "file-view-code-parity",
+] as const satisfies readonly FileViewCodeParityVisualMode[];
+
 const FILE_VIEW_DEVELOPER_TOOLS_VISUAL_MODES = [
   "file-view-developer-tools-collapsed",
   "file-view-developer-tools-codemirror",
@@ -269,6 +278,7 @@ const VISUAL_FIXTURE_GROUPS = [
     modes: [
       ...FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
       ...FILE_VIEW_COMPARE_VISUAL_MODES,
+      ...FILE_VIEW_CODE_PARITY_VISUAL_MODES,
       ...FILE_VIEW_DEVELOPER_TOOLS_VISUAL_MODES,
       ...FILE_VIEW_MONACO_DRAG_VISUAL_MODES,
       ...FILE_VIEW_PROSEMARK_DRAG_VISUAL_MODES,
@@ -448,6 +458,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "file-view-compare-loading"
   ) {
     return <FileViewCompareVisualFixture mode={mode} />;
+  }
+
+  if (mode === "file-view-code-parity") {
+    return <FileViewCodeParityVisualFixture mode={mode} />;
   }
 
   if (

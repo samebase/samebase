@@ -1,6 +1,11 @@
 import { EditorSelection, type Text } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
+import {
+  CODE_SURFACE_FONT_FAMILY,
+  CODE_SURFACE_FONT_SIZE_PX,
+  CODE_SURFACE_LINE_HEIGHT_PX,
+} from "@/lib/codeSurfaceTypography";
 
 function isBlankLineText(text: string): boolean {
   return text.trim().length === 0;
@@ -192,11 +197,19 @@ const prosemarkDarkSelectionTheme = EditorView.theme(
 export const prosemarkDarkTheme = [oneDark, prosemarkDarkSelectionTheme];
 
 const prosemarkCodeSurfaceTypographyTheme = EditorView.theme({
+  ".cm-line": {
+    fontFamily: `${CODE_SURFACE_FONT_FAMILY} !important`,
+    fontSize: `${CODE_SURFACE_FONT_SIZE_PX}px !important`,
+    lineHeight: `${CODE_SURFACE_LINE_HEIGHT_PX}px !important`,
+    fontVariantLigatures: "none",
+    paddingLeft: "0",
+    paddingRight: "0",
+  },
   ".cm-editor, .cm-content, .cm-scroller": {
-    fontFamily:
-      "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace",
-    fontSize: "0.875rem",
-    lineHeight: "1.6",
+    fontFamily: `${CODE_SURFACE_FONT_FAMILY} !important`,
+    fontSize: `${CODE_SURFACE_FONT_SIZE_PX}px !important`,
+    lineHeight: `${CODE_SURFACE_LINE_HEIGHT_PX}px !important`,
+    fontVariantLigatures: "none",
   },
 });
 
@@ -208,12 +221,12 @@ const prosemarkVsCodeLightTheme = EditorView.theme({
     "--pm-syntax-literal": "#098658",
     "--pm-syntax-string": "#a31515",
     "--pm-syntax-regexp": "#811f3f",
-    "--pm-syntax-definition-variable": "#795e26",
-    "--pm-syntax-local-variable": "#001080",
+    "--pm-syntax-definition-variable": "#1f1f1f",
+    "--pm-syntax-local-variable": "#1f1f1f",
     "--pm-syntax-type-namespace": "#267f99",
     "--pm-syntax-class-name": "#267f99",
     "--pm-syntax-special-variable-macro": "#af00db",
-    "--pm-syntax-definition-property": "#001080",
+    "--pm-syntax-definition-property": "#1f1f1f",
     "--pm-syntax-comment": "#008000",
     "--pm-syntax-invalid": "#cd3131",
     color: "#1f1f1f",

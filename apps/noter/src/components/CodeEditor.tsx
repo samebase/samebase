@@ -2,31 +2,11 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
 /* eslint-disable prefer-const */
 import { useRef, useEffect, useState } from "react";
-import { ChangeSet, Compartment, EditorState } from "@codemirror/state";
+import { ChangeSet, Compartment } from "@codemirror/state";
 import { EditorView } from "codemirror";
-// Note: closeBrackets functionality requires @codemirror/autocomplete package
-// which is not installed in this project
-import {
-  defaultKeymap,
-  history,
-  historyKeymap,
-  indentWithTab,
-} from "@codemirror/commands";
-import {
-  bracketMatching,
-  indentOnInput,
-  syntaxHighlighting,
-  defaultHighlightStyle,
-  foldKeymap,
-  syntaxTree,
-} from "@codemirror/language";
-import {
-  dropCursor,
-  rectangularSelection,
-  keymap,
-  ViewPlugin,
-  ViewUpdate,
-} from "@codemirror/view";
+import { indentWithTab } from "@codemirror/commands";
+import { syntaxTree } from "@codemirror/language";
+import { keymap, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { useTheme } from "next-themes";
 import {
   collab,
@@ -51,6 +31,7 @@ import {
   getInitialCodeMirrorLanguageExtension,
   loadCodeMirrorLanguageExtension,
 } from "@/lib/codemirrorLanguage";
+import { fileCodeMirrorBaseExtensions } from "@/lib/fileCodeMirrorBaseExtensions";
 
 // Temporary:
 // const tempVaultId = "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"vaults">;
@@ -223,66 +204,6 @@ function peerExtension({
   return [collab({ startVersion }), plugin];
 }
 
-// Custom basic setup without line numbers and with minimal borders
-const customBasicSetup = [
-  history(),
-  dropCursor(),
-  EditorState.allowMultipleSelections.of(true),
-  indentOnInput(),
-  bracketMatching(),
-  rectangularSelection(),
-  EditorView.lineWrapping,
-  syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-  keymap.of([...defaultKeymap, ...historyKeymap, ...foldKeymap]),
-  // Custom theme to remove all borders
-  EditorView.theme({
-    "&": {
-      height: "100%",
-      minHeight: "0",
-      border: "none !important",
-      outline: "none !important",
-      boxShadow: "none !important",
-    },
-    ".cm-editor": {
-      height: "100%",
-      minHeight: "0",
-      border: "none !important",
-      outline: "none !important",
-      boxShadow: "none !important",
-    },
-    ".cm-editor.cm-focused": {
-      outline: "none !important",
-      border: "none !important",
-      boxShadow: "none !important",
-    },
-    ".cm-focused": {
-      outline: "none !important",
-      border: "none !important",
-      boxShadow: "none !important",
-    },
-    ".cm-scroller": {
-      minHeight: "0",
-      overflowY: "auto !important",
-      overflowX: "auto !important",
-      overscrollBehavior: "contain",
-      border: "none !important",
-      outline: "none !important",
-    },
-    ".cm-content": {
-      // Keep the final line clear of mobile insets / floating controls.
-      paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
-      border: "none !important",
-      outline: "none !important",
-    },
-    ".cm-gutters": {
-      border: "none !important",
-      borderRight: "none !important",
-    },
-    ".cm-line": {
-      border: "none !important",
-    },
-  }),
-];
 // Prose files: use ProseMark/CodeMirror. Everything else: Monaco.
 const PROSE_EXTENSIONS = new Set(["md", "mdx", "mdc", "txt", "markdown"]);
 type CodeEditorOverride = "default" | "codemirror";
@@ -424,7 +345,7 @@ export function CodeEditor({
       // Custom basic setup without line numbers and with minimal borders
 
       const extensions = [
-        ...customBasicSetup,
+        ...fileCodeMirrorBaseExtensions,
         languageCompartment.of(getInitialCodeMirrorLanguageExtension(filePath)),
         prosemarkBasicSetup(),
         prosemarkBaseThemeSetup(),

@@ -7,6 +7,10 @@ type ScreenshotDiffParams = {
   expected: Buffer;
   artifactPrefix: string;
   maxDiffPixelRatio: number;
+  pixelmatchOptions?: {
+    includeAA?: boolean;
+    threshold?: number;
+  };
   testInfo: TestInfo;
 };
 
@@ -56,6 +60,7 @@ export async function expectScreenshotsToMatch({
   expected,
   artifactPrefix,
   maxDiffPixelRatio,
+  pixelmatchOptions,
   testInfo,
 }: ScreenshotDiffParams) {
   const expectedPng = PNG.sync.read(expected);
@@ -74,6 +79,7 @@ export async function expectScreenshotsToMatch({
     diffPng.data,
     expectedPng.width,
     expectedPng.height,
+    pixelmatchOptions,
   );
   const diffPixelRatio = diffPixels / (expectedPng.width * expectedPng.height);
 

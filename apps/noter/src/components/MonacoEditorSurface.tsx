@@ -5,6 +5,11 @@ import { useTheme } from "next-themes";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { buildMonacoFileUri } from "@/lib/monacoFileUri";
 import { useProsemarkMobilePaneDrag } from "@/components/useProsemarkMobilePaneDrag";
+import {
+  CODE_SURFACE_FONT_FAMILY,
+  CODE_SURFACE_FONT_SIZE_PX,
+  CODE_SURFACE_LINE_HEIGHT_PX,
+} from "@/lib/codeSurfaceTypography";
 
 export interface MonacoEditorSurfaceProps {
   branch: string;
@@ -27,7 +32,7 @@ export function MonacoEditorSurface({
   defaultValue,
   filePath,
   onMount,
-  showMobileLineNumbers = false,
+  showMobileLineNumbers: _showMobileLineNumbers = false,
   syncError,
   vaultKey,
 }: MonacoEditorSurfaceProps) {
@@ -37,11 +42,6 @@ export function MonacoEditorSurface({
   const isMobileViewport = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const mobilePaneDrag = useProsemarkMobilePaneDrag(true, containerRef);
-  const lineNumbersMode = isMobileViewport
-    ? showMobileLineNumbers
-      ? "on"
-      : "off"
-    : "on";
 
   return (
     <div
@@ -77,13 +77,20 @@ export function MonacoEditorSurface({
           hideCursorInOverviewRuler: true,
           scrollBeyondLastLine: false,
           wordWrap: "on",
-          fontSize: 14,
+          fontFamily: CODE_SURFACE_FONT_FAMILY,
+          fontLigatures: false,
+          fontSize: CODE_SURFACE_FONT_SIZE_PX,
+          lineHeight: CODE_SURFACE_LINE_HEIGHT_PX,
           tabSize: 2,
-          lineNumbers: lineNumbersMode,
-          lineNumbersMinChars: isMobileViewport ? 2 : 3,
+          lineNumbers: "off",
+          lineNumbersMinChars: 0,
           glyphMargin: false,
-          folding: !isMobileViewport,
-          lineDecorationsWidth: isMobileViewport ? 0 : 10,
+          folding: false,
+          lineDecorationsWidth: 0,
+          padding: {
+            top: 0,
+            bottom: 0,
+          },
         }}
       />
       {syncError ? (
