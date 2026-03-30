@@ -285,6 +285,7 @@ test("global swipe debug overlay stops the trace as soon as touch leaves the vie
   const overlay = page.getByTestId("global-gesture-debug-overlay");
   await expect(overlay).toBeVisible();
   await expect(overlay).toContainText("scope: viewport trace");
+  const initialScrollY = await page.evaluate(() => window.scrollY);
 
   await dispatchViewportTouchSwipe(page, {
     startX: 120,
@@ -300,4 +301,7 @@ test("global swipe debug overlay stops the trace as soon as touch leaves the vie
   await expect(overlay).toContainText("duration: 100ms");
   await expect(overlay).toContainText("samples: 3");
   await expect(overlay).toContainText("dy: +8.0px");
+  await expect
+    .poll(() => page.evaluate(() => window.scrollY))
+    .toBe(initialScrollY);
 });

@@ -191,6 +191,7 @@ function buildGestureTraceSnapshot(args: {
 
 export function GlobalGestureDebugOverlay() {
   const activeGestureRef = React.useRef<ActiveGestureTrace | null>(null);
+  const suppressNativeTouchMoveRef = React.useRef(false);
   const [snapshot, setSnapshot] = React.useState<GestureTraceSnapshot | null>(
     null,
   );
@@ -267,6 +268,7 @@ export function GlobalGestureDebugOverlay() {
     };
 
     const handleTouchStart = (event: TouchEvent) => {
+      suppressNativeTouchMoveRef.current = false;
       if (event.touches.length !== 1) {
         finalizeGesture();
         return;
@@ -306,6 +308,7 @@ export function GlobalGestureDebugOverlay() {
       }
 
       if (isPointOutsideViewport(touch.clientX, touch.clientY)) {
+        suppressNativeTouchMoveRef.current = true;
         finalizeGesture(
           createPoint(touch.clientX, touch.clientY, getEventTimeMs(event)),
         );
@@ -325,6 +328,7 @@ export function GlobalGestureDebugOverlay() {
 
     const handleTouchEnd = (event: TouchEvent) => {
       const activeGesture = activeGestureRef.current;
+      suppressNativeTouchMoveRef.current = false;
       if (activeGesture === null || activeGesture.inputType !== "touch") {
         return;
       }
@@ -343,6 +347,33 @@ export function GlobalGestureDebugOverlay() {
           ? undefined
           : createPoint(touch.clientX, touch.clientY, getEventTimeMs(event)),
       );
+    };
+
+    const handleTouchMoveCapture = (event: TouchEvent) => {
+      const activeGesture = activeGestureRef.current;
+      if (activeGesture === null || activeGesture.inputType !== "touch") {
+        return;
+      }
+
+      const touch = findTouchByIdentifier(
+        event.touches,
+        activeGesture.touchIdentifier ?? -1,
+      );
+      if (touch === null) {
+        return;
+      }
+
+      if (suppressNativeTouchMoveRef.current) {
+        event.preventDefault();
+        return;
+      }
+
+      if (!isPointOutsideViewport(touch.clientX, touch.clientY)) {
+        return;
+      }
+
+      suppressNativeTouchMoveRef.current = true;
+      event.preventDefault();
     };
 
     const handleMouseDown = (event: MouseEvent) => {
@@ -399,6 +430,10 @@ export function GlobalGestureDebugOverlay() {
     };
 
     window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    window.addEventListener("touchmove", handleTouchMoveCapture, {
+      capture: true,
+      passive: false,
+    });
     window.addEventListener("touchmove", handleTouchMove, { passive: true });
     window.addEventListener("touchend", handleTouchEnd, { passive: true });
     window.addEventListener("touchcancel", handleTouchEnd, { passive: true });
@@ -407,6 +442,7 @@ export function GlobalGestureDebugOverlay() {
     window.addEventListener("mouseup", handleMouseUp, { passive: true });
     return () => {
       window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchmove", handleTouchMoveCapture, true);
       window.removeEventListener("touchmove", handleTouchMove);
       window.removeEventListener("touchend", handleTouchEnd);
       window.removeEventListener("touchcancel", handleTouchEnd);
