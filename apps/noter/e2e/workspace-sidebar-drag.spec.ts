@@ -135,14 +135,18 @@ async function swipeFromMainToLeftSidebar(page: Page) {
 test("fileview mobile can open the left sidebar from main with a lighter human swipe", async ({
   page,
 }) => {
-  await gotoFileViewFixture(page);
+  await gotoFileViewFixture(page, { swipeDebug: true });
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const overlay = page.getByTestId("global-gesture-debug-overlay");
   await expect(fixture).toHaveAttribute("data-mobile-pane", "main");
+  await expect(overlay).toBeVisible();
+  await expect(overlay).toContainText("state: armed, waiting for gesture");
 
   await swipeFromMainToLeftSidebar(page);
 
   await expect(fixture).toHaveAttribute("data-mobile-pane", "left");
+  await expect(overlay).toContainText("duration:");
 });
 
 test("fileview mobile swipe debug overlay is visibly armed before any gesture", async ({
@@ -160,9 +164,10 @@ test("fileview mobile swipe debug overlay is visibly armed before any gesture", 
 test("fileview mobile can reach the right sidebar from the open left sidebar in one human swipe", async ({
   page,
 }) => {
-  await gotoFileViewFixture(page);
+  await gotoFileViewFixture(page, { swipeDebug: true });
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const overlay = page.getByTestId("global-gesture-debug-overlay");
   await page
     .getByRole("button", { name: "Toggle Left Sidebar" })
     .press("Enter");
@@ -170,10 +175,12 @@ test("fileview mobile can reach the right sidebar from the open left sidebar in 
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
     .toBeLessThanOrEqual(1);
   await expect(fixture).toHaveAttribute("data-mobile-pane", "left");
+  await expect(overlay).toBeVisible();
 
   await swipeFromLeftSidebarToRightSidebar(page);
 
   await expect(fixture).toHaveAttribute("data-mobile-pane", "right");
+  await expect(overlay).toContainText("duration:");
 });
 
 test("fileview mobile swipe debug overlay captures the cross-sidebar path and release metrics", async ({
