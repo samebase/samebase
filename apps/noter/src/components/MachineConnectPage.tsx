@@ -413,6 +413,24 @@ export function MachineConnectPageContent({
           </p>
         </div>
 
+        {connectedMachines.length > 0 ? (
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-sm font-medium">Live heartbeat log</h2>
+              <p className="text-sm text-muted-foreground">
+                New lines appear here while this page stays open and the local
+                connector keeps pinging noter.
+              </p>
+            </div>
+            <Textarea
+              readOnly
+              rows={2}
+              value={heartbeatLog}
+              className="min-h-0 resize-y font-mono text-xs"
+            />
+          </section>
+        ) : null}
+
         {openedByCli ? (
           <section className="corner-notch-1 border border-border p-4">
             <p className="text-sm text-muted-foreground">
@@ -455,23 +473,6 @@ export function MachineConnectPageContent({
         </p>
 
         <ConnectedMachineList machines={connectedMachines} />
-
-        {connectedMachines.length > 0 ? (
-          <section className="space-y-3">
-            <div className="space-y-1">
-              <h2 className="text-sm font-medium">Live heartbeat log</h2>
-              <p className="text-sm text-muted-foreground">
-                New lines appear here while this page stays open and the local
-                connector keeps pinging noter.
-              </p>
-            </div>
-            <Textarea
-              readOnly
-              value={heartbeatLog}
-              className="min-h-[180px] font-mono text-xs"
-            />
-          </section>
-        ) : null}
       </div>
     </div>
   );
