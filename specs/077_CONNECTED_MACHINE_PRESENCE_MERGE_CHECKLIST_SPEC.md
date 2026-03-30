@@ -34,6 +34,8 @@ Do not squash-merge this slice until:
 - [x] Use backend `ConnectedMachineView` on the machine page instead of a
       duplicated local frontend shape
 - [x] Make the machine-registration state switch exhaustive on the machine page
+- [x] Surface machine-approval mutation failures in the browser instead of
+      dropping rejected promises from the click path
 
 ## Open `P1` Blockers
 

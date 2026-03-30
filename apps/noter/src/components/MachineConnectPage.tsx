@@ -73,6 +73,7 @@ type MachineApprovalState =
     };
 
 type MachineConnectPageContentProps = {
+  approvalError: string | null;
   connectedMachines: ConnectedMachineItem[];
   directConnectCommand: string;
   directRunCommand: string;
@@ -316,6 +317,7 @@ function ConnectedMachineList({
 }
 
 export function MachineConnectPageContent({
+  approvalError,
   connectedMachines,
   directConnectCommand,
   directRunCommand,
@@ -366,6 +368,12 @@ export function MachineConnectPageContent({
           requestState,
         })}
 
+        {approvalError ? (
+          <section className="corner-notch-1 border border-red-200 bg-red-50 p-4">
+            <p className="text-sm text-red-700">{approvalError}</p>
+          </section>
+        ) : null}
+
         <CopyableCommandBlock
           label="Published package connect"
           description="Use this once `@noter-md/sync` is published."
@@ -399,6 +407,7 @@ export function MachineConnectPageContent({
 export function MachineConnectPage() {
   const location = useLocation();
   const [isApproving, setIsApproving] = useState(false);
+  const [approvalError, setApprovalError] = useState<string | null>(null);
   const bootstrapSearch = readMachineConnectBootstrapSearch(location.search);
   const scriptUrl = buildNoterSyncScriptUrl(resolveCurrentOrigin());
   const connectedMachinesQuery = useQuery(
@@ -446,11 +455,16 @@ export function MachineConnectPage() {
       return;
     }
 
+    setApprovalError(null);
     setIsApproving(true);
     try {
       await approveMachineRegistrationRequest({
         requestId: bootstrapSearch.requestId,
       });
+    } catch (error) {
+      setApprovalError(
+        error instanceof Error ? error.message : "Could not approve machine.",
+      );
     } finally {
       setIsApproving(false);
     }
@@ -501,6 +515,7 @@ export function MachineConnectPage() {
 
   return (
     <MachineConnectPageContent
+      approvalError={approvalError}
       connectedMachines={connectedMachines}
       directConnectCommand={buildDirectNoterSyncConnectCommand(scriptUrl)}
       directRunCommand={buildDirectNoterSyncRunCommand(scriptUrl)}

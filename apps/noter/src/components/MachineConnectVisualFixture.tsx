@@ -7,6 +7,7 @@ export function MachineConnectVisualFixture() {
       className="min-h-screen bg-background text-foreground"
     >
       <MachineConnectPageContent
+        approvalError={null}
         connectedMachines={[
           {
             allowedRoots: ["/Users/nicu/.codex/worktrees/6f41/noter"],
