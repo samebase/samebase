@@ -58,6 +58,7 @@ type ActiveMobileTouchGesture = {
   pathPoints: MobileSidebarGestureDebugPoint[];
   recentSamples: MobileTouchSample[];
   startClientX: number;
+  startScrollLeft: number;
   startPane: MobilePaneReleaseGesture["startPane"];
   touchIdentifier: number;
 };
@@ -784,6 +785,7 @@ export function WorkspaceSidebarShell({
         pathPoints: [initialSample],
         recentSamples: [initialSample],
         startClientX: touch.clientX,
+        startScrollLeft: scrollNode.scrollLeft,
         startPane: mobilePane,
         touchIdentifier: touch.identifier,
       };
@@ -824,6 +826,16 @@ export function WorkspaceSidebarShell({
     const finishTouchGesture = (event: TouchEvent) => {
       const activeGesture = activeMobileTouchGestureRef.current;
       if (activeGesture === null) {
+        return;
+      }
+
+      if (
+        Math.abs(scrollNode.scrollLeft - activeGesture.startScrollLeft) <= 1
+      ) {
+        activeMobileTouchGestureRef.current = null;
+        pendingMobileReleaseGestureRef.current = null;
+        pendingMobileGestureDebugRef.current = null;
+        setMobileGestureDebugSnapshot(null);
         return;
       }
 

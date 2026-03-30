@@ -185,7 +185,7 @@ export function GlobalGestureDebugOverlay() {
 
     const handleTouchStart = (event: TouchEvent) => {
       if (event.touches.length !== 1) {
-        activeGestureRef.current = null;
+        finalizeGesture();
         return;
       }
 
