@@ -214,15 +214,15 @@ const prosemarkCodeSurfaceTypographyTheme = EditorView.theme({
 });
 
 const PROSEMARK_CODE_SURFACE_ALIGNMENT_OFFSET_PX = {
-  x: -6,
+  x: 0,
   y: -4,
 } as const;
 
 const prosemarkCodeSurfaceAlignmentTheme = EditorView.theme({
   ".cm-content": {
-    // Monaco still lands the same code block noticeably higher and farther
-    // left than CodeMirror in file view, so keep a shared nudge here while we
-    // tune parity between the two renderers.
+    // Monaco still lands the same code block a touch higher than CodeMirror
+    // in file view, so keep a small shared upward nudge here while we tune
+    // parity between the two renderers.
     marginLeft: `${PROSEMARK_CODE_SURFACE_ALIGNMENT_OFFSET_PX.x}px`,
     marginTop: `${PROSEMARK_CODE_SURFACE_ALIGNMENT_OFFSET_PX.y}px`,
     paddingBottom: `${Math.abs(PROSEMARK_CODE_SURFACE_ALIGNMENT_OFFSET_PX.y)}px`,
