@@ -85,11 +85,17 @@ function readBearerToken(authorizationHeader: string | null): string | null {
 }
 
 /**
- * This HTTP action does not currently have a trusted caller identity surface,
- * so a deployment-global window is safer than trusting spoofable forwarded-IP
- * headers from arbitrary clients.
+ * Cloudflare populates `cf-connecting-ip` for public traffic through the Convex
+ * HTTP surface. We only trust that proxy-managed identity signal here and fall
+ * back to a broader deployment bucket when local/dev traffic does not expose
+ * it.
  */
-function readBootstrapFingerprint(): string {
+function readBootstrapFingerprint(request: Request): string {
+  const clientIp = request.headers.get("cf-connecting-ip")?.trim();
+  if (typeof clientIp === "string" && clientIp.length > 0) {
+    return `ip:${clientIp}`;
+  }
+
   return "connected-machine-bootstrap-global";
 }
 
@@ -132,7 +138,7 @@ export const createMachineRegistrationRequest = httpAction(
       await ctx.runMutation(
         internal.connectedMachines.createMachineRegistrationRequest,
         {
-          bootstrapFingerprint: readBootstrapFingerprint(),
+          bootstrapFingerprint: readBootstrapFingerprint(request),
           requestId,
           credentialHash,
           machineId,
