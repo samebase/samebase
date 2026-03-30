@@ -58,6 +58,8 @@ anon-once:
 	$(ANON_REFRESH_AUTH_KEYS_CMD)
 
 # Send SIGTERM to the explicit port or the current anon backend port from apps/noter/.env.local.
+# This is intentionally Mac-first for now: the local operator flow relies on
+# `lsof`, and we can revisit cross-platform probing if we need Linux support.
 killport:
 	@port="$(KILLPORT_GOAL)"; \
 	if [ -z "$$port" ] && [ -f "apps/noter/.env.local" ]; then \
