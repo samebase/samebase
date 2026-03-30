@@ -469,3 +469,34 @@ test("fileview mobile accessible control opens the sidebar", async ({
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
     .toBeGreaterThan(100);
 });
+
+test("fileview mobile keeps a far cross-swipe on the far pane", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("fileview-layout-visual-fixture");
+
+  await page
+    .getByRole("button", { name: "Toggle Left Sidebar" })
+    .press("Enter");
+  await expect
+    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
+    .toBeLessThanOrEqual(1);
+  await expect(fixture).toHaveAttribute("data-mobile-pane", "left");
+
+  await fixture.evaluate((element) => {
+    element.style.scrollSnapType = "none";
+    element
+      .querySelector<HTMLElement>('[data-sidebar-track="pannable"]')
+      ?.style.setProperty("scroll-snap-type", "none");
+    element.scrollLeft = 450;
+    element.dispatchEvent(new Event("scroll"));
+    element.dispatchEvent(new Event("scrollend"));
+  });
+  await expect(fixture).toHaveAttribute("data-mobile-pane", "right");
+});
