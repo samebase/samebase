@@ -43,6 +43,9 @@ const PARITY_PIXEL_DIFF_PUBLIC_PATH =
   "/visual-fixtures/file-view-code-parity-pixel-diff.png";
 const PARITY_MONACO_DIFF_COLOR = "#ff3b30";
 const PARITY_PROSEMARK_DIFF_COLOR = "#007aff";
+const PARITY_DIFF_BACKGROUND_CHANNEL_THRESHOLD = 245;
+const PARITY_DIFF_PREVIEW_PADDING_PX = 12;
+const PARITY_DIFF_PREVIEW_SCALE = 3;
 
 type ParityForegroundBounds = {
   height: number;
@@ -117,6 +120,109 @@ function isParityForegroundBoundsMetrics(
     typeof Reflect.get(expected, "label") === "string" &&
     isParityForegroundBounds(Reflect.get(expected, "bounds"))
   );
+}
+
+function measureParityDiffForegroundBounds(image: HTMLImageElement) {
+  if (image.naturalWidth === 0 || image.naturalHeight === 0) {
+    return null;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+
+  context.drawImage(image, 0, 0);
+  const imageData = context.getImageData(
+    0,
+    0,
+    image.naturalWidth,
+    image.naturalHeight,
+  );
+  let minX = image.naturalWidth;
+  let minY = image.naturalHeight;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < image.naturalHeight; y += 1) {
+    for (let x = 0; x < image.naturalWidth; x += 1) {
+      const index = (y * image.naturalWidth + x) * 4;
+      const red = imageData.data[index];
+      const green = imageData.data[index + 1];
+      const blue = imageData.data[index + 2];
+      const alpha = imageData.data[index + 3];
+      const isBackground =
+        alpha === 0 ||
+        (red >= PARITY_DIFF_BACKGROUND_CHANNEL_THRESHOLD &&
+          green >= PARITY_DIFF_BACKGROUND_CHANNEL_THRESHOLD &&
+          blue >= PARITY_DIFF_BACKGROUND_CHANNEL_THRESHOLD);
+
+      if (isBackground) {
+        continue;
+      }
+
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    return null;
+  }
+
+  return {
+    maxX,
+    maxY,
+    minX,
+    minY,
+  };
+}
+
+function buildParityDiffPreviewUrl(image: HTMLImageElement) {
+  const bounds = measureParityDiffForegroundBounds(image);
+  if (!bounds) {
+    return null;
+  }
+
+  const cropMinX = Math.max(0, bounds.minX - PARITY_DIFF_PREVIEW_PADDING_PX);
+  const cropMinY = Math.max(0, bounds.minY - PARITY_DIFF_PREVIEW_PADDING_PX);
+  const cropMaxX = Math.min(
+    image.naturalWidth - 1,
+    bounds.maxX + PARITY_DIFF_PREVIEW_PADDING_PX,
+  );
+  const cropMaxY = Math.min(
+    image.naturalHeight - 1,
+    bounds.maxY + PARITY_DIFF_PREVIEW_PADDING_PX,
+  );
+  const cropWidth = cropMaxX - cropMinX + 1;
+  const cropHeight = cropMaxY - cropMinY + 1;
+  const canvas = document.createElement("canvas");
+  canvas.width = cropWidth * PARITY_DIFF_PREVIEW_SCALE;
+  canvas.height = cropHeight * PARITY_DIFF_PREVIEW_SCALE;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+
+  context.imageSmoothingEnabled = false;
+  context.drawImage(
+    image,
+    cropMinX,
+    cropMinY,
+    cropWidth,
+    cropHeight,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  );
+
+  return canvas.toDataURL("image/png");
 }
 
 function StaticCodeMirrorParitySurface({
@@ -227,6 +333,10 @@ export function FileViewCodeParityVisualFixture({
   const [parityDiffImageState, setParityDiffImageState] = useState<
     "loading" | "ready" | "error"
   >("loading");
+  const [parityDiffPreviewUrl, setParityDiffPreviewUrl] = useState<
+    string | null
+  >(null);
+  const [parityDiffPreviewLoaded, setParityDiffPreviewLoaded] = useState(false);
   const parityDiffUrl = buildParityArtifactUrl({
     pathname: PARITY_PIXEL_DIFF_PUBLIC_PATH,
     refreshKey: artifactRefreshKey,
@@ -241,6 +351,8 @@ export function FileViewCodeParityVisualFixture({
       setArtifactRefreshKey(Date.now());
       setBoundsMetricsState("loading");
       setParityDiffImageState("loading");
+      setParityDiffPreviewUrl(null);
+      setParityDiffPreviewLoaded(false);
     };
 
     window.addEventListener(
@@ -420,7 +532,10 @@ export function FileViewCodeParityVisualFixture({
                   data-diff-ready={
                     parityDiffImageState === "ready" ? "true" : "false"
                   }
-                  className="grid h-[250px] gap-3 overflow-hidden border bg-white p-4"
+                  data-preview-ready={
+                    parityDiffPreviewLoaded ? "true" : "false"
+                  }
+                  className="grid h-[420px] gap-3 overflow-hidden border bg-white p-4"
                 >
                   <div className="text-sm text-muted-foreground">
                     The diff below comes from the latest Playwright parity run.
@@ -459,16 +574,40 @@ export function FileViewCodeParityVisualFixture({
                     pixel diff below still includes rasterization and
                     syntax-color noise.
                   </div>
-                  <div className="min-h-0 flex-1 overflow-hidden border bg-white">
+                  <div className="min-h-0 flex-1 overflow-auto border bg-white">
                     <img
                       alt="Latest recorded parity pixel diff"
-                      src={parityDiffUrl}
+                      src={parityDiffPreviewUrl ?? parityDiffUrl}
                       className="block h-full w-full object-contain"
                       onError={() => {
                         setParityDiffImageState("error");
                       }}
-                      onLoad={() => {
+                      onLoad={(event) => {
                         setParityDiffImageState("ready");
+                        if (
+                          event.currentTarget.currentSrc.startsWith(
+                            "data:image/",
+                          )
+                        ) {
+                          setParityDiffPreviewLoaded(true);
+                          return;
+                        }
+
+                        if (parityDiffPreviewUrl !== null) {
+                          setParityDiffPreviewLoaded(true);
+                          return;
+                        }
+
+                        const previewUrl = buildParityDiffPreviewUrl(
+                          event.currentTarget,
+                        );
+                        if (!previewUrl) {
+                          setParityDiffPreviewLoaded(true);
+                          return;
+                        }
+
+                        setParityDiffPreviewLoaded(false);
+                        setParityDiffPreviewUrl(previewUrl);
                       }}
                     />
                   </div>

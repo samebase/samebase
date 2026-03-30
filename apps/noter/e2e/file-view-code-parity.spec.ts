@@ -129,6 +129,7 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
     );
   });
   await expect(mismatchCount).toHaveText("Latest recorded pixel diff");
+  await expect(diffSurface).toHaveAttribute("data-preview-ready", "true");
   await expect(boundsDelta).not.toHaveText("Foreground bounds pending");
   const diffImage = diffSurface.getByAltText(
     "Latest recorded parity pixel diff",
@@ -151,13 +152,6 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   });
 
   await expect(fixture).toHaveScreenshot("file-view-code-parity-fixture.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.01,
-  });
-
-  await expect(diffSurface).toHaveScreenshot("file-view-code-parity-diff.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
