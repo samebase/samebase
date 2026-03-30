@@ -163,10 +163,11 @@ test.describe("fileview mobile", () => {
     ...pixel7Device,
   });
 
-  test("sidebar scrim", async ({ page }) => {
+  test("sidebar keeps the visible main pane unobscured", async ({ page }) => {
     await gotoFileViewFixture(page);
 
     const fixture = page.getByTestId("fileview-layout-visual-fixture");
+    const bodyButton = page.getByTestId("fileview-layout-body-button");
     const initialScrollLeft = await fixture.evaluate(
       (element) => element.scrollLeft,
     );
@@ -176,19 +177,12 @@ test.describe("fileview mobile", () => {
     await expect
       .poll(async () => fixture.evaluate((element) => element.scrollLeft))
       .toBeGreaterThan(initialScrollLeft);
-    const scrim = page
-      .getByTestId("workspace-sidebar-main-scrim")
-      .locator("div")
-      .first();
     const header = page.getByTestId("fileview-layout-header");
 
-    await expect
-      .poll(async () =>
-        scrim.evaluate(
-          (element) => window.getComputedStyle(element).touchAction,
-        ),
-      )
-      .toBe("pan-x");
+    await expect(page.getByTestId("workspace-sidebar-main-scrim")).toHaveCount(
+      0,
+    );
+    await expect(bodyButton).toBeVisible();
     await expect
       .poll(async () =>
         header.evaluate(
@@ -197,12 +191,15 @@ test.describe("fileview mobile", () => {
       )
       .toBe("always");
 
-    await expect(fixture).toHaveScreenshot("fileview-layout-mobile-scrim.png", {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    });
+    await expect(fixture).toHaveScreenshot(
+      "fileview-layout-mobile-sidebar-open.png",
+      {
+        animations: "disabled",
+        caret: "hide",
+        scale: "css",
+        maxDiffPixelRatio: 0.03,
+      },
+    );
   });
 
   test("swipe debug overlay path from main to left", async ({ page }) => {

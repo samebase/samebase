@@ -416,7 +416,7 @@ test("fileview empty left sidebar opens independently", async ({ page }) => {
     .toBeLessThanOrEqual(1);
 });
 
-test("fileview mobile scrim closes the sidebar without activating the main pane", async ({
+test("fileview mobile main-pane taps close the sidebar and reach the main pane", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -426,11 +426,8 @@ test("fileview mobile scrim closes the sidebar without activating the main pane"
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const bodyButton = page.getByTestId("fileview-layout-body-button");
   const bodyCounter = page.getByTestId("fileview-layout-body-counter");
-  const scrim = page
-    .getByTestId("workspace-sidebar-main-scrim")
-    .locator("div")
-    .first();
   const initialScrollLeft = await fixture.evaluate(
     (element) => element.scrollLeft,
   );
@@ -443,11 +440,16 @@ test("fileview mobile scrim closes the sidebar without activating the main pane"
   await expect
     .poll(async () => fixture.evaluate((element) => element.scrollLeft))
     .toBeGreaterThan(initialScrollLeft);
-  await scrim.click();
-  await expect(bodyCounter).toHaveText("0");
+  await bodyButton.click();
+  await expect(bodyCounter).toHaveText("1");
   await expect
-    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-    .toBe(initialScrollLeft);
+    .poll(async () =>
+      Math.abs(
+        (await fixture.evaluate((element) => element.scrollLeft)) -
+          initialScrollLeft,
+      ),
+    )
+    .toBeLessThanOrEqual(1);
 });
 
 test("fileview mobile accessible control opens the sidebar", async ({
