@@ -447,6 +447,8 @@ function mountBootstrapGestureDebugOverlay() {
   }
 
   gestureDebugOverlayRoot = ReactDOM.createRoot(overlayRoot);
+  // Keep the bootstrap-owned React root mounted and toggle the overlay with the
+  // query param so debug sessions can turn it on and off without a full reload.
   const renderGestureDebugOverlay = () => {
     gestureDebugOverlayRoot?.render(
       React.createElement(
@@ -460,6 +462,8 @@ function mountBootstrapGestureDebugOverlay() {
   };
 
   if (!gestureDebugHistoryPatched) {
+    // React Router navigation updates history without triggering popstate, so
+    // mirror those writes into a custom event for this bootstrap-mounted overlay.
     const originalPushState = window.history.pushState.bind(window.history);
     const originalReplaceState = window.history.replaceState.bind(
       window.history,
