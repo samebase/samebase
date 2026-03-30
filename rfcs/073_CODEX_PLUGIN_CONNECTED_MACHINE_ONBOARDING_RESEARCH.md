@@ -190,6 +190,21 @@ The current assumption is:
 3. the script should be transparent about what it does and keep the hosted copy
    identical to the package source
 
+If we want a visible version marker later, it should be a small manual comment
+inside the installer source itself, for example:
+
+```js
+// noter-sync-version: <sha-or-tag>
+```
+
+Rules for that marker:
+
+1. it should change only when the installer file itself changes
+2. it should describe the installer artifact, not the whole app deploy
+3. it should not be auto-stamped per deploy, preview, or unrelated repo commit
+4. the hosted file and the package file should still mirror that exact comment
+   byte-for-byte
+
 This RFC does not require:
 
 1. signed artifacts
@@ -199,6 +214,11 @@ This RFC does not require:
 
 Those can be added later if public distribution or broader trust requirements
 justify them.
+
+This also means npm package versioning can come later without changing the core
+hosted-file-first model. The package may eventually expose its own semver, but
+the first-user/internal path should continue to treat the file itself as the
+primary artifact.
 
 ## Machine Auth And Approval
 

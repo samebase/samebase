@@ -13,6 +13,9 @@
 // and execute any other code after this file starts running.
 // The file you run is the installer source. Preview or local deploys can ship
 // their own hosted copy without teaching users a separate targeting flag.
+// If we add a visible installer version comment later, it should be updated
+// manually only when this installer file changes, and the hosted copy should
+// mirror it exactly instead of stamping deploy-specific metadata.
 
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
