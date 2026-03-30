@@ -10,6 +10,7 @@ import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { getProsemarkFileThemeExtensions } from "@/components/prosemarkSurface";
+import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import {
   getCodeMirrorFileLanguageKind,
   getInitialCodeMirrorLanguageExtension,
@@ -36,115 +37,27 @@ export function describePaneDrag(direction: PaneDirection) {
 // Keep this comment green.`;
 
 const FIXTURE_VAULT_KEY = "fixture-file-view-code-parity";
+const PARITY_PIXEL_DIFF_PUBLIC_PATH =
+  "/visual-fixtures/file-view-code-parity-pixel-diff.png";
 
-type ParityDiffState =
-  | {
-      status: "loading";
-    }
-  | {
-      monacoSnapshotUrl: string;
-      prosemarkSnapshotUrl: string;
-      snapshotHeight: number;
-      snapshotWidth: number;
-      status: "ready";
-    }
-  | {
-      message: string;
-      status: "error";
-    };
+function ignoreParitySurfaceReadyChange(_ready: boolean) {}
 
-/**
- * ForeignObject snapshots need fully inlined styles because the cloned DOM no
- * longer inherits the app's stylesheet cascade once it is serialized into an
- * SVG image for diffing.
- */
-function cloneNodeWithInlineStyles(node: Node): Node {
-  const clone = node.cloneNode(false);
-
-  if (node instanceof HTMLCanvasElement && clone instanceof HTMLCanvasElement) {
-    clone.width = node.width;
-    clone.height = node.height;
-    const context = clone.getContext("2d");
-    if (context && node.width > 0 && node.height > 0) {
-      context.drawImage(node, 0, 0);
-    }
-  }
-
-  if (node instanceof HTMLInputElement && clone instanceof HTMLInputElement) {
-    clone.value = node.value;
-  }
-
-  if (
-    node instanceof HTMLTextAreaElement &&
-    clone instanceof HTMLTextAreaElement
-  ) {
-    clone.value = node.value;
-  }
-
-  if (node instanceof Element && clone instanceof Element) {
-    const computedStyle = window.getComputedStyle(node);
-    for (const propertyName of computedStyle) {
-      clone.setAttribute(
-        "style",
-        `${clone.getAttribute("style") ?? ""}${propertyName}:${computedStyle.getPropertyValue(propertyName)};`,
-      );
-    }
-  }
-
-  for (const child of Array.from(node.childNodes)) {
-    clone.appendChild(cloneNodeWithInlineStyles(child));
-  }
-
-  return clone;
-}
-
-/**
- * The live diff view shows a browser-native blend overlay, so it snapshots the
- * editor panes into standalone SVG images that can be layered without needing
- * to read any pixels back from a canvas.
- */
-function serializeElementToSvgSnapshot(element: HTMLElement): {
-  snapshotHeight: number;
-  snapshotUrl: string;
-  snapshotWidth: number;
-} {
-  const bounds = element.getBoundingClientRect();
-  const width = Math.max(1, Math.round(bounds.width));
-  const height = Math.max(1, Math.round(bounds.height));
-  const serializedWrapper = document.createElement("div");
-  serializedWrapper.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
-  serializedWrapper.style.width = `${width}px`;
-  serializedWrapper.style.height = `${height}px`;
-  serializedWrapper.style.overflow = "hidden";
-
-  const clonedElement = cloneNodeWithInlineStyles(element);
-  if (!(clonedElement instanceof HTMLElement)) {
-    throw new Error("Parity fixture failed to clone the editor surface.");
-  }
-
-  clonedElement.style.width = `${width}px`;
-  clonedElement.style.height = `${height}px`;
-  serializedWrapper.appendChild(clonedElement);
-
-  const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><foreignObject width="100%" height="100%">${new XMLSerializer().serializeToString(serializedWrapper)}</foreignObject></svg>`;
-  return {
-    snapshotHeight: height,
-    snapshotUrl: URL.createObjectURL(
-      new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" }),
-    ),
-    snapshotWidth: width,
-  };
+function buildParityDiffAssetUrl() {
+  return buildPathWithUpdatedQuery(
+    { pathname: PARITY_PIXEL_DIFF_PUBLIC_PATH },
+    (nextSearchParams) => {
+      setQueryParam(nextSearchParams, "t", `${Date.now()}`);
+    },
+  );
 }
 
 function StaticCodeMirrorParitySurface({
   filePath,
   onLanguageReadyChange,
-  surfaceRef,
   value,
 }: {
   filePath: string;
   onLanguageReadyChange: (ready: boolean) => void;
-  surfaceRef: { current: HTMLDivElement | null };
   value: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -219,7 +132,6 @@ function StaticCodeMirrorParitySurface({
       data-testid="file-view-code-parity-prosemark"
       data-language-ready={languageReady ? "true" : "false"}
       className="h-[250px] overflow-hidden border bg-background"
-      ref={surfaceRef}
     >
       <div ref={containerRef} className="h-full min-h-0 w-full" />
     </div>
@@ -231,87 +143,11 @@ export function FileViewCodeParityVisualFixture({
 }: {
   mode: FileViewCodeParityVisualMode;
 }) {
-  const monacoSurfaceRef = useRef<HTMLDivElement>(null);
-  const prosemarkSurfaceRef = useRef<HTMLDivElement>(null);
   const [monacoReady, setMonacoReady] = useState(false);
-  const [prosemarkReady, setProsemarkReady] = useState(false);
-  const [diffState, setDiffState] = useState<ParityDiffState>({
-    status: "loading",
-  });
-  const isDiffReady = diffState.status === "ready";
-
-  useEffect(() => {
-    if (diffState.status !== "ready") {
-      return;
-    }
-
-    return () => {
-      URL.revokeObjectURL(diffState.monacoSnapshotUrl);
-      URL.revokeObjectURL(diffState.prosemarkSnapshotUrl);
-    };
-  }, [diffState]);
-
-  useEffect(() => {
-    if (!monacoReady || !prosemarkReady) {
-      setDiffState({ status: "loading" });
-      return;
-    }
-
-    let cancelled = false;
-
-    const renderDiff = async () => {
-      const monacoSurface = monacoSurfaceRef.current;
-      const prosemarkSurface = prosemarkSurfaceRef.current;
-      if (!monacoSurface || !prosemarkSurface) {
-        return;
-      }
-
-      await document.fonts.ready;
-      await new Promise<void>((resolve) => {
-        window.requestAnimationFrame(() => {
-          window.requestAnimationFrame(() => resolve());
-        });
-      });
-
-      try {
-        const monacoSnapshot = serializeElementToSvgSnapshot(monacoSurface);
-        const prosemarkSnapshot =
-          serializeElementToSvgSnapshot(prosemarkSurface);
-
-        if (cancelled) {
-          URL.revokeObjectURL(monacoSnapshot.snapshotUrl);
-          URL.revokeObjectURL(prosemarkSnapshot.snapshotUrl);
-          return;
-        }
-
-        setDiffState({
-          monacoSnapshotUrl: monacoSnapshot.snapshotUrl,
-          prosemarkSnapshotUrl: prosemarkSnapshot.snapshotUrl,
-          snapshotHeight: monacoSnapshot.snapshotHeight,
-          snapshotWidth: monacoSnapshot.snapshotWidth,
-          status: "ready",
-        });
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
-        setDiffState({
-          message:
-            error instanceof Error && error.message.length > 0
-              ? error.message
-              : "Parity diff rendering failed.",
-          status: "error",
-        });
-      }
-    };
-
-    void renderDiff();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [monacoReady, prosemarkReady]);
+  const [parityDiffImageState, setParityDiffImageState] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
+  const [parityDiffUrl] = useState(buildParityDiffAssetUrl);
 
   return (
     <SidebarProvider
@@ -366,8 +202,8 @@ export function FileViewCodeParityVisualFixture({
             <div className="grid gap-2 p-3 text-sm text-muted-foreground">
               <div>Match CodeMirror to Monaco styling.</div>
               <div>
-                Compare the same TypeScript file in both editors and the live
-                diff.
+                Compare the same TypeScript file in both editors and the latest
+                recorded pixel diff.
               </div>
             </div>
           </div>
@@ -389,7 +225,6 @@ export function FileViewCodeParityVisualFixture({
                     data-testid="file-view-code-parity-monaco"
                     data-editor-ready={monacoReady ? "true" : "false"}
                     className="h-[250px] overflow-hidden border bg-background"
-                    ref={monacoSurfaceRef}
                   >
                     <MonacoEditorSurface
                       branch="main"
@@ -410,8 +245,7 @@ export function FileViewCodeParityVisualFixture({
                   </div>
                   <StaticCodeMirrorParitySurface
                     filePath={FIXTURE_FILE_PATH}
-                    onLanguageReadyChange={setProsemarkReady}
-                    surfaceRef={prosemarkSurfaceRef}
+                    onLanguageReadyChange={ignoreParitySurfaceReadyChange}
                     value={FIXTURE_DOCUMENT}
                   />
                 </div>
@@ -426,40 +260,38 @@ export function FileViewCodeParityVisualFixture({
                     data-testid="file-view-code-parity-mismatch-count"
                     className="text-xs tabular-nums text-muted-foreground"
                   >
-                    {diffState.status === "loading"
-                      ? "Preparing overlay..."
-                      : diffState.status === "error"
-                        ? "Diff unavailable"
-                        : `${diffState.snapshotWidth}x${diffState.snapshotHeight} blend`}
+                    {parityDiffImageState === "loading"
+                      ? "Loading recorded diff..."
+                      : parityDiffImageState === "error"
+                        ? "Diff missing"
+                        : "Latest recorded pixel diff"}
                   </div>
                 </div>
                 <div
                   data-testid="file-view-code-parity-diff"
-                  data-diff-ready={isDiffReady ? "true" : "false"}
-                  className="relative h-[250px] overflow-hidden border bg-white"
+                  data-diff-ready={
+                    parityDiffImageState === "ready" ? "true" : "false"
+                  }
+                  className="grid h-[250px] gap-3 overflow-hidden border bg-white p-4"
                 >
-                  {diffState.status === "error" ? (
-                    <div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">
-                      {diffState.message}
-                    </div>
-                  ) : diffState.status === "loading" ? (
-                    <div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">
-                      Preparing blend diff...
-                    </div>
-                  ) : (
-                    <>
-                      <img
-                        alt=""
-                        src={diffState.monacoSnapshotUrl}
-                        className="absolute inset-0 h-full w-full object-fill"
-                      />
-                      <img
-                        alt=""
-                        src={diffState.prosemarkSnapshotUrl}
-                        className="absolute inset-0 h-full w-full object-fill mix-blend-difference"
-                      />
-                    </>
-                  )}
+                  <div className="text-sm text-muted-foreground">
+                    The diff below comes from the latest Playwright parity run.
+                    Re-run the parity snapshot test to refresh it after styling
+                    changes.
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-hidden border bg-white">
+                    <img
+                      alt="Latest recorded parity pixel diff"
+                      src={parityDiffUrl}
+                      className="block h-full w-full object-contain"
+                      onError={() => {
+                        setParityDiffImageState("error");
+                      }}
+                      onLoad={() => {
+                        setParityDiffImageState("ready");
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

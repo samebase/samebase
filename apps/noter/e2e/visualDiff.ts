@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { expect, type Locator, type TestInfo } from "@playwright/test";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
@@ -6,6 +8,12 @@ type ScreenshotDiffParams = {
   actual: Buffer;
   expected: Buffer;
   artifactPrefix: string;
+  artifactWritePaths?: {
+    actual?: string;
+    diff?: string;
+    diffMask?: string;
+    expected?: string;
+  };
   maxDiffPixelRatio: number;
   pixelmatchOptions?: {
     includeAA?: boolean;
@@ -59,6 +67,7 @@ export async function expectScreenshotsToMatch({
   actual,
   expected,
   artifactPrefix,
+  artifactWritePaths,
   maxDiffPixelRatio,
   pixelmatchOptions,
   testInfo,
@@ -82,9 +91,47 @@ export async function expectScreenshotsToMatch({
     pixelmatchOptions,
   );
   const diffPixelRatio = diffPixels / (expectedPng.width * expectedPng.height);
+  const weightedDiffPng = buildWeightedRedDiffPng(expectedPng, actualPng);
+  const weightedDiffBuffer = PNG.sync.write(weightedDiffPng);
+  const diffMaskBuffer = PNG.sync.write(diffPng);
+
+  if (artifactWritePaths) {
+    const artifactWrites = [
+      artifactWritePaths.actual
+        ? {
+            body: actual,
+            path: artifactWritePaths.actual,
+          }
+        : null,
+      artifactWritePaths.diff
+        ? {
+            body: weightedDiffBuffer,
+            path: artifactWritePaths.diff,
+          }
+        : null,
+      artifactWritePaths.diffMask
+        ? {
+            body: diffMaskBuffer,
+            path: artifactWritePaths.diffMask,
+          }
+        : null,
+      artifactWritePaths.expected
+        ? {
+            body: expected,
+            path: artifactWritePaths.expected,
+          }
+        : null,
+    ].filter((artifactWrite) => artifactWrite !== null);
+
+    await Promise.all(
+      artifactWrites.map(async (artifactWrite) => {
+        await mkdir(dirname(artifactWrite.path), { recursive: true });
+        await writeFile(artifactWrite.path, artifactWrite.body);
+      }),
+    );
+  }
 
   if (diffPixelRatio > maxDiffPixelRatio) {
-    const weightedDiffPng = buildWeightedRedDiffPng(expectedPng, actualPng);
     await testInfo.attach(`${artifactPrefix}-expected`, {
       body: expected,
       contentType: "image/png",
@@ -94,11 +141,11 @@ export async function expectScreenshotsToMatch({
       contentType: "image/png",
     });
     await testInfo.attach(`${artifactPrefix}-diff`, {
-      body: PNG.sync.write(weightedDiffPng),
+      body: weightedDiffBuffer,
       contentType: "image/png",
     });
     await testInfo.attach(`${artifactPrefix}-diff-mask`, {
-      body: PNG.sync.write(diffPng),
+      body: diffMaskBuffer,
       contentType: "image/png",
     });
   }
