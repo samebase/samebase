@@ -276,6 +276,11 @@ export const createMachineRegistrationRequest = internalMutation({
       throw new Error("Machine registration request id collision.");
     }
 
+    const machineRequests = await ctx.db
+      .query("machineRegistrationRequests")
+      .withIndex("by_machine_id", (q) => q.eq("machineId", args.machineId))
+      .collect();
+
     if (existingRateLimit) {
       await ctx.db.patch(existingRateLimit._id, {
         requestCount: existingWindowStillActive
@@ -290,6 +295,16 @@ export const createMachineRegistrationRequest = internalMutation({
         fingerprint: args.bootstrapFingerprint,
         requestCount: 1,
         windowStartedAt: args.createdAt,
+      });
+    }
+
+    for (const machineRequest of machineRequests) {
+      if (typeof machineRequest.approvedAt === "number") {
+        continue;
+      }
+
+      await ctx.db.patch(machineRequest._id, {
+        expiresAt: args.createdAt,
       });
     }
 

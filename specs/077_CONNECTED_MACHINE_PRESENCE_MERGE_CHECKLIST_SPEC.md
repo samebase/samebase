@@ -36,6 +36,10 @@ Do not squash-merge this slice until:
 - [x] Make the machine-registration state switch exhaustive on the machine page
 - [x] Surface machine-approval mutation failures in the browser instead of
       dropping rejected promises from the click path
+- [x] Stop trusting caller-supplied forwarded-IP headers for bootstrap
+      throttling; use a deployment-global rate-limit bucket instead
+- [x] Expire older pending handoffs when a newer connect request is created so
+      stale approvals cannot survive equal-timestamp races
 
 ## Open `P1` Blockers
 

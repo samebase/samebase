@@ -84,24 +84,13 @@ function readBearerToken(authorizationHeader: string | null): string | null {
   return token;
 }
 
-function readBootstrapFingerprint(request: Request, machineId: string): string {
-  const forwardedForHeader = request.headers.get("x-forwarded-for");
-  const forwardedFor =
-    typeof forwardedForHeader === "string"
-      ? forwardedForHeader
-          .split(",")
-          .map((value) => value.trim())
-          .find((value) => value.length > 0)
-      : null;
-  const ipAddress =
-    request.headers.get("cf-connecting-ip")?.trim() ||
-    request.headers.get("x-real-ip")?.trim() ||
-    forwardedFor ||
-    null;
-
-  return typeof ipAddress === "string" && ipAddress.length > 0
-    ? `ip:${ipAddress}`
-    : `machine:${machineId}`;
+/**
+ * This HTTP action does not currently have a trusted caller identity surface,
+ * so a deployment-global window is safer than trusting spoofable forwarded-IP
+ * headers from arbitrary clients.
+ */
+function readBootstrapFingerprint(): string {
+  return "connected-machine-bootstrap-global";
 }
 
 export const createMachineRegistrationRequest = httpAction(
@@ -143,7 +132,7 @@ export const createMachineRegistrationRequest = httpAction(
       await ctx.runMutation(
         internal.connectedMachines.createMachineRegistrationRequest,
         {
-          bootstrapFingerprint: readBootstrapFingerprint(request, machineId),
+          bootstrapFingerprint: readBootstrapFingerprint(),
           requestId,
           credentialHash,
           machineId,
