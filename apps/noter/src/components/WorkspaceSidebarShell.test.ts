@@ -9,9 +9,9 @@ describe("getSettledMobilePane", () => {
     );
   });
 
-  it("forces a left-sidebar swipe through main before it can reach the right sidebar", () => {
+  it("allows a direct cross-sidebar jump after a very deep swipe", () => {
     expect(getSettledMobilePane("left", 540, true, 280, true, 280)).toBe(
-      "main",
+      "right",
     );
   });
 
@@ -26,9 +26,9 @@ describe("getSettledMobilePane", () => {
       "main",
     );
     expect(getSettledMobilePane("right", 20, true, 280, true, 280)).toBe(
-      "main",
+      "left",
     );
-    expect(getSettledMobilePane("right", 0, true, 280, true, 280)).toBe("main");
+    expect(getSettledMobilePane("right", 0, true, 280, true, 280)).toBe("left");
     expect(getSettledMobilePane("right", 80, true, 280, true, 280)).toBe(
       "main",
     );

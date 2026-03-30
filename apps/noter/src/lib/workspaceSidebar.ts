@@ -1,5 +1,7 @@
 import type { MobileSidebarPane } from "@/hooks/use-sidebar";
 
+const MOBILE_OPPOSITE_SIDEBAR_COMMIT_PROGRESS_THRESHOLD = 0.9;
+
 type MobilePaneAnchor = {
   pane: MobileSidebarPane;
   scrollLeft: number;
@@ -102,8 +104,8 @@ function getNearestMobilePane(
 
 /**
  * Keep the center pane easier to land on when a swipe starts from either
- * sidebar. Mobile should settle screen-by-screen, so a swipe that starts on one
- * sidebar cannot commit directly to the far sidebar in the same release.
+ * sidebar. Casual overshoots should land on `main`, but a swipe that travels
+ * very deep into the far sidebar may still commit there directly.
  */
 export function getSettledMobilePane(
   currentPane: MobileSidebarPane,
@@ -129,5 +131,28 @@ export function getSettledMobilePane(
     (currentPane === "left" && nearestPane === "right") ||
     (currentPane === "right" && nearestPane === "left");
 
-  return isOppositeSidebarTransition ? "main" : nearestPane;
+  if (!isOppositeSidebarTransition) {
+    return nearestPane;
+  }
+
+  const mainPaneScrollLeft = leftSidebarWidthPx;
+  const oppositeSidebarWidthPx =
+    currentPane === "left" ? rightSidebarWidthPx : leftSidebarWidthPx;
+  if (!Number.isFinite(oppositeSidebarWidthPx) || oppositeSidebarWidthPx <= 0) {
+    return "main";
+  }
+
+  const distanceIntoOppositeSidebarPx =
+    currentPane === "left"
+      ? scrollLeft - mainPaneScrollLeft
+      : mainPaneScrollLeft - scrollLeft;
+  const oppositeSidebarProgress = Math.min(
+    1,
+    Math.max(0, distanceIntoOppositeSidebarPx / oppositeSidebarWidthPx),
+  );
+
+  return oppositeSidebarProgress >=
+    MOBILE_OPPOSITE_SIDEBAR_COMMIT_PROGRESS_THRESHOLD
+    ? nearestPane
+    : "main";
 }
