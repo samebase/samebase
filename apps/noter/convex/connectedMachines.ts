@@ -1,16 +1,17 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Infer, v } from "convex/values";
+import { resolveMachineRegistrationState } from "../shared/connectedMachinePresence";
 import { internalMutation, mutation, query } from "./_generated/server";
 import {
   approveMachineRegistrationRequestReturns,
-  CONNECTED_MACHINE_STALE_AFTER_MS,
   connectedMachineViewValidator,
   connectorHeartbeatArgsValidator,
   createMachineRegistrationRequestArgsValidator,
+  MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_MAX_REQUESTS,
+  MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_WINDOW_MS,
   machineRegistrationBrowserViewValidator,
   type ConnectedMachineCapability,
   type ConnectedMachineRow,
-  type ConnectedMachineStatus,
   type MachineRegistrationBrowserView,
   type MachineRegistrationRequestRow,
   type ValidateMachineCredentialResult,
@@ -60,38 +61,13 @@ function readUniqueRoots(values: string[]): string[] {
   );
 }
 
-/**
- * Treat stale heartbeats as offline so the browser never keeps showing a dead
- * connector as available after the process disappears without a clean exit.
- */
-function resolveConnectedMachineStatus(args: {
-  lastSeenAt: number;
-  status: ConnectedMachineStatus;
-  now: number;
-}): ConnectedMachineStatus {
-  if (args.status === "offline") {
-    return "offline";
-  }
-
-  return args.lastSeenAt + CONNECTED_MACHINE_STALE_AFTER_MS >= args.now
-    ? "online"
-    : "offline";
-}
-
-function buildConnectedMachineView(args: {
-  row: ConnectedMachineRow;
-  now: number;
-}) {
+function buildConnectedMachineView(args: { row: ConnectedMachineRow }) {
   return {
     machineId: args.row.machineId,
     displayName: args.row.displayName,
     hostname: args.row.hostname,
     os: args.row.os,
-    status: resolveConnectedMachineStatus({
-      lastSeenAt: args.row.lastSeenAt,
-      status: args.row.status,
-      now: args.now,
-    }),
+    status: args.row.status,
     lastSeenAt: args.row.lastSeenAt,
     connectorVersion: args.row.connectorVersion,
     capabilities: args.row.capabilities,
@@ -99,20 +75,8 @@ function buildConnectedMachineView(args: {
   };
 }
 
-function resolveMachineRegistrationState(args: {
-  request: MachineRegistrationRequestRow;
-  now: number;
-}): "pending" | "approved" | "expired" {
-  if (args.request.expiresAt <= args.now) {
-    return "expired";
-  }
-
-  return typeof args.request.approvedAt === "number" ? "approved" : "pending";
-}
-
 function buildMachineRegistrationBrowserView(args: {
   request: MachineRegistrationRequestRow;
-  now: number;
 }): MachineRegistrationBrowserView {
   const commonFields = {
     requestId: args.request.requestId,
@@ -122,21 +86,11 @@ function buildMachineRegistrationBrowserView(args: {
     os: args.request.os,
     connectorVersion: args.request.connectorVersion,
   };
-  const state = resolveMachineRegistrationState(args);
-
-  if (state === "approved") {
+  if (typeof args.request.approvedAt === "number") {
     return {
       kind: "approved",
       ...commonFields,
-      approvedAt: args.request.approvedAt ?? args.now,
-    };
-  }
-
-  if (state === "expired") {
-    return {
-      kind: "expired",
-      ...commonFields,
-      expiresAt: args.request.expiresAt,
+      approvedAt: args.request.approvedAt,
     };
   }
 
@@ -160,15 +114,9 @@ export const listConnectedMachines = query({
       .query("connectedMachines")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-    const now = Date.now();
 
     return rows
-      .map((row) =>
-        buildConnectedMachineView({
-          row,
-          now,
-        }),
-      )
+      .map((row) => buildConnectedMachineView({ row }))
       .sort((left, right) => {
         if (left.status !== right.status) {
           return left.status === "online" ? -1 : 1;
@@ -211,10 +159,7 @@ export const getMachineRegistrationRequestForBrowser = query({
       };
     }
 
-    return buildMachineRegistrationBrowserView({
-      request,
-      now: Date.now(),
-    });
+    return buildMachineRegistrationBrowserView({ request });
   },
 });
 
@@ -223,6 +168,7 @@ export const approveMachineRegistrationRequest = mutation({
   returns: approveMachineRegistrationRequestReturns,
   handler: async (ctx, args: ApproveMachineRegistrationRequestArgs) => {
     const userId = await getUserId(ctx);
+    const now = Date.now();
     const request = await ctx.db
       .query("machineRegistrationRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
@@ -233,11 +179,28 @@ export const approveMachineRegistrationRequest = mutation({
     if (request.userId && request.userId !== userId) {
       throw new Error("Machine registration request not found.");
     }
-    if (request.expiresAt <= Date.now()) {
+    if (
+      resolveMachineRegistrationState({
+        approvedAt: request.approvedAt,
+        expiresAt: request.expiresAt,
+        now,
+      }) === "expired"
+    ) {
       throw new Error("Machine registration request expired.");
     }
 
-    const now = Date.now();
+    const newerRequest = (
+      await ctx.db
+        .query("machineRegistrationRequests")
+        .withIndex("by_machine_id", (q) => q.eq("machineId", request.machineId))
+        .collect()
+    ).find((candidate) => candidate.createdAt > request.createdAt);
+    if (newerRequest) {
+      throw new Error(
+        "A newer machine registration request already exists for this machine. Approve the latest browser handoff instead.",
+      );
+    }
+
     await ctx.db.patch(request._id, {
       approvedAt: now,
       userId,
@@ -272,6 +235,39 @@ export const createMachineRegistrationRequest = internalMutation({
   args: createMachineRegistrationRequestArgsValidator,
   returns: vNull(),
   handler: async (ctx, args) => {
+    const requestRow = {
+      requestId: args.requestId,
+      credentialHash: args.credentialHash,
+      machineId: args.machineId,
+      displayName: args.displayName,
+      hostname: args.hostname,
+      os: args.os,
+      connectorVersion: args.connectorVersion,
+      createdAt: args.createdAt,
+      expiresAt: args.expiresAt,
+    } satisfies MachineRegistrationRequestRow;
+    const existingRateLimit = await ctx.db
+      .query("machineRegistrationBootstrapRateLimits")
+      .withIndex("by_fingerprint", (q) =>
+        q.eq("fingerprint", args.bootstrapFingerprint),
+      )
+      .first();
+    const existingWindowStillActive =
+      typeof existingRateLimit?.windowStartedAt === "number" &&
+      existingRateLimit.windowStartedAt +
+        MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_WINDOW_MS >
+        args.createdAt;
+    const existingRequestCount = existingRateLimit?.requestCount ?? 0;
+    if (
+      existingWindowStillActive &&
+      existingRequestCount >=
+        MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_MAX_REQUESTS
+    ) {
+      throw new Error(
+        "Too many machine registration requests from this machine. Wait a few minutes and try again.",
+      );
+    }
+
     const existing = await ctx.db
       .query("machineRegistrationRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
@@ -280,7 +276,24 @@ export const createMachineRegistrationRequest = internalMutation({
       throw new Error("Machine registration request id collision.");
     }
 
-    await ctx.db.insert("machineRegistrationRequests", args);
+    if (existingRateLimit) {
+      await ctx.db.patch(existingRateLimit._id, {
+        requestCount: existingWindowStillActive
+          ? existingRateLimit.requestCount + 1
+          : 1,
+        windowStartedAt: existingWindowStillActive
+          ? existingRateLimit.windowStartedAt
+          : args.createdAt,
+      });
+    } else {
+      await ctx.db.insert("machineRegistrationBootstrapRateLimits", {
+        fingerprint: args.bootstrapFingerprint,
+        requestCount: 1,
+        windowStartedAt: args.createdAt,
+      });
+    }
+
+    await ctx.db.insert("machineRegistrationRequests", requestRow);
     return null;
   },
 });

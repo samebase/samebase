@@ -1,4 +1,8 @@
 import { Infer, v } from "convex/values";
+import {
+  CONNECTED_MACHINE_STALE_AFTER_MS,
+  MACHINE_REGISTRATION_REQUEST_TTL_MS,
+} from "../shared/connectedMachinePresence";
 
 const {
   array,
@@ -12,8 +16,13 @@ const {
   union,
 } = v;
 
-export const CONNECTED_MACHINE_STALE_AFTER_MS = 45_000;
-export const MACHINE_REGISTRATION_REQUEST_TTL_MS = 10 * 60 * 1000;
+export {
+  CONNECTED_MACHINE_STALE_AFTER_MS,
+  MACHINE_REGISTRATION_REQUEST_TTL_MS,
+};
+export const MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_MAX_REQUESTS = 10;
+export const MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_WINDOW_MS =
+  MACHINE_REGISTRATION_REQUEST_TTL_MS;
 
 export const connectedMachineCapabilityValidator = union(literal("presence"));
 export type ConnectedMachineCapability = Infer<
@@ -88,6 +97,15 @@ export const machineCredentialRowValidator = object({
 });
 export type MachineCredentialRow = Infer<typeof machineCredentialRowValidator>;
 
+export const machineRegistrationBootstrapRateLimitRowValidator = object({
+  fingerprint: string(),
+  requestCount: number(),
+  windowStartedAt: number(),
+});
+export type MachineRegistrationBootstrapRateLimitRow = Infer<
+  typeof machineRegistrationBootstrapRateLimitRowValidator
+>;
+
 export const connectorHeartbeatArgsValidator = object({
   userId: id("users"),
   machineId: string(),
@@ -104,6 +122,7 @@ export type ConnectorHeartbeatArgs = Infer<
 >;
 
 export const createMachineRegistrationRequestArgsValidator = object({
+  bootstrapFingerprint: string(),
   requestId: string(),
   credentialHash: string(),
   machineId: string(),

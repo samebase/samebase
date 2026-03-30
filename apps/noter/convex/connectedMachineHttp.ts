@@ -4,6 +4,9 @@ import { httpAction } from "./_generated/server";
 import { MACHINE_REGISTRATION_REQUEST_TTL_MS } from "./connectedMachineModel";
 import { sha256Hex } from "./mcp/tokens";
 
+const MACHINE_REGISTRATION_RATE_LIMIT_ERROR =
+  "Too many machine registration requests from this machine. Wait a few minutes and try again.";
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -46,12 +49,15 @@ function readConnectedMachineCapabilities(
     return null;
   }
 
-  const capabilities = Array.from(new Set(value));
-  if (capabilities.some((entry) => entry !== "presence")) {
-    return null;
+  const capabilities: Array<"presence"> = [];
+  for (const entry of Array.from(new Set(value))) {
+    if (entry !== "presence") {
+      return null;
+    }
+    capabilities.push(entry);
   }
 
-  return capabilities as Array<"presence">;
+  return capabilities;
 }
 
 function readStringArray(value: unknown): string[] | null {
@@ -76,6 +82,26 @@ function readBearerToken(authorizationHeader: string | null): string | null {
   }
 
   return token;
+}
+
+function readBootstrapFingerprint(request: Request, machineId: string): string {
+  const forwardedForHeader = request.headers.get("x-forwarded-for");
+  const forwardedFor =
+    typeof forwardedForHeader === "string"
+      ? forwardedForHeader
+          .split(",")
+          .map((value) => value.trim())
+          .find((value) => value.length > 0)
+      : null;
+  const ipAddress =
+    request.headers.get("cf-connecting-ip")?.trim() ||
+    request.headers.get("x-real-ip")?.trim() ||
+    forwardedFor ||
+    null;
+
+  return typeof ipAddress === "string" && ipAddress.length > 0
+    ? `ip:${ipAddress}`
+    : `machine:${machineId}`;
 }
 
 export const createMachineRegistrationRequest = httpAction(
@@ -113,20 +139,31 @@ export const createMachineRegistrationRequest = httpAction(
 
     const now = Date.now();
     const expiresAt = now + MACHINE_REGISTRATION_REQUEST_TTL_MS;
-    await ctx.runMutation(
-      internal.connectedMachines.createMachineRegistrationRequest,
-      {
-        requestId,
-        credentialHash,
-        machineId,
-        displayName,
-        hostname,
-        os,
-        connectorVersion,
-        createdAt: now,
-        expiresAt,
-      },
-    );
+    try {
+      await ctx.runMutation(
+        internal.connectedMachines.createMachineRegistrationRequest,
+        {
+          bootstrapFingerprint: readBootstrapFingerprint(request, machineId),
+          requestId,
+          credentialHash,
+          machineId,
+          displayName,
+          hostname,
+          os,
+          connectorVersion,
+          createdAt: now,
+          expiresAt,
+        },
+      );
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === MACHINE_REGISTRATION_RATE_LIMIT_ERROR
+      ) {
+        return errorResponse(429, error.message);
+      }
+      throw error;
+    }
 
     return jsonResponse({
       expiresAt,

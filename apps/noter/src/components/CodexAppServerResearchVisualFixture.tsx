@@ -39,14 +39,14 @@ const FIXTURE_THREAD: CodexAppServerThread = {
   name: "Connected machines thread sync follow-up",
   preview:
     "We already have the dedicated browser view for thread discovery, so the research page should keep only the selected thread detail and controls.",
-  cwd: "/Users/nicu/.codex/worktrees/6f41/noter",
+  cwd: "/workspace/noter",
   project: {
-    id: "/Users/nicu/dev/my/noter",
+    id: "project:noter",
     label: "noter",
-    rootCwd: "/Users/nicu/dev/my/noter",
+    rootCwd: "/workspace/noter",
   },
   workspace: {
-    label: "6f41",
+    label: "research",
     isProjectRoot: false,
   },
   createdAt: 1_775_379_420,
@@ -65,7 +65,7 @@ const FIXTURE_THREAD: CodexAppServerThread = {
     originUrl: "git@github.com:noter-md/noter.git",
     sha: "f4b9f7280a4bc7a74f3de83f7afc3d62f14f17f8",
   },
-  path: "/Users/nicu/.codex/sessions/2026/03/31/research-thread-selected.jsonl",
+  path: "/workspace/.codex/sessions/2026/03/31/research-thread-selected.jsonl",
   agentNickname: null,
   agentRole: null,
   turns: [FIXTURE_TURN],
@@ -86,9 +86,9 @@ export function CodexAppServerResearchVisualFixture({
         className="grid w-[1240px] gap-6"
       >
         <ConnectedMachineHeartbeatLogSection
-          heartbeatLog={`[10:20:00 AM] observing Nicu MacBook Pro (nicu-mbp.local); last ping seen, currently online.
-[10:20:15 AM] heartbeat from Nicu MacBook Pro (nicu-mbp.local).
-[10:20:30 AM] heartbeat from Nicu MacBook Pro (nicu-mbp.local).`}
+          heartbeatLog={`[10:20:00 AM] observing Research MacBook Pro (research-mbp.local); last ping seen, currently online.
+[10:20:15 AM] heartbeat from Research MacBook Pro (research-mbp.local).
+[10:20:30 AM] heartbeat from Research MacBook Pro (research-mbp.local).`}
         />
         <CodexAppServerSelectedThreadCard
           threadsCount={24}

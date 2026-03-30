@@ -35,9 +35,12 @@ import {
   updateQueryParams,
 } from "@/lib/queryParams";
 import { useConnectedMachineHeartbeatLog } from "@/lib/connectedMachineHeartbeatLog";
+import { useNow } from "@/hooks/useNow";
 import { clsx } from "clsx";
 import { useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { resolveConnectedMachineStatus } from "../../shared/connectedMachinePresence";
 import { api } from "../../convex/_generated/api";
 
 type RuntimeFormState = {
@@ -150,15 +153,26 @@ function readProtocolRequestPath(args: {
   });
 }
 
-function buildThreadBrowserHref(selectedThreadId: string | null): string {
-  const searchParams = updateQueryParams(undefined, (nextSearchParams) => {
-    setQueryParam(nextSearchParams, "threadId", selectedThreadId);
-  });
+function buildThreadBrowserHref(args: {
+  currentSearch: string;
+  selectedThreadId: string | null;
+}): string {
+  const searchParams = updateQueryParams(
+    args.currentSearch,
+    (nextSearchParams) => {
+      setQueryParam(nextSearchParams, "threadId", args.selectedThreadId);
+    },
+  );
 
   return buildPathWithQuery({
     pathname: CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
     search: searchParams,
   });
+}
+
+function readRequestedThreadId(search: string): string | null {
+  const threadId = new URLSearchParams(search).get("threadId");
+  return typeof threadId === "string" && threadId.length > 0 ? threadId : null;
 }
 
 function RuntimeStatusBadge(props: {
@@ -484,9 +498,14 @@ export function CodexAppServerSelectedThreadCard(props: {
 }
 
 export function CodexAppServerResearchPage() {
+  const location = useLocation();
   const connectedMachinesQuery = useQuery(
     api.connectedMachines.listConnectedMachines,
   );
+  const now = useNow({
+    enabled: (connectedMachinesQuery?.length ?? 0) > 0,
+    intervalMs: 1_000,
+  });
   const [status, setStatus] = useState<CodexAppServerStatusResponse | null>(
     null,
   );
@@ -494,7 +513,9 @@ export function CodexAppServerResearchPage() {
   const [requests, setRequests] = useState<CodexAppServerApprovalRequest[]>([]);
   const [threads, setThreads] = useState<CodexAppServerThread[]>([]);
   const [nextThreadCursor, setNextThreadCursor] = useState<string | null>(null);
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(() =>
+    readRequestedThreadId(location.search),
+  );
   const [selectedThread, setSelectedThread] =
     useState<CodexAppServerThread | null>(null);
   const [selectedThreadError, setSelectedThreadError] = useState<string | null>(
@@ -693,7 +714,11 @@ export function CodexAppServerResearchPage() {
     hostname: machine.hostname,
     lastSeenAt: machine.lastSeenAt,
     machineId: machine.machineId,
-    status: machine.status,
+    status: resolveConnectedMachineStatus({
+      lastSeenAt: machine.lastSeenAt,
+      now,
+      status: machine.status,
+    }),
   }));
   const heartbeatLog = useConnectedMachineHeartbeatLog(connectedMachines);
 
@@ -702,7 +727,17 @@ export function CodexAppServerResearchPage() {
   refreshEventsRef.current = refreshEvents;
   refreshThreadsRef.current = refreshThreads;
   refreshSelectedThreadRef.current = refreshSelectedThread;
-  const browserViewHref = buildThreadBrowserHref(selectedThreadId);
+  const browserViewHref = buildThreadBrowserHref({
+    currentSearch: location.search,
+    selectedThreadId,
+  });
+
+  useEffect(() => {
+    const requestedThreadId = readRequestedThreadId(location.search);
+    if (typeof requestedThreadId === "string") {
+      setSelectedThreadId(requestedThreadId);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     let cancelled = false;

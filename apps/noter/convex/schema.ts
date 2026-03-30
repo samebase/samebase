@@ -13,6 +13,7 @@ import {
 import {
   connectedMachineRowValidator,
   machineCredentialRowValidator,
+  machineRegistrationBootstrapRateLimitRowValidator,
   machineRegistrationRequestRowValidator,
 } from "./connectedMachineModel";
 
@@ -333,7 +334,13 @@ export default defineSchema({
 
   machineRegistrationRequests: defineTable(
     machineRegistrationRequestRowValidator,
-  ).index("by_request_id", ["requestId"]),
+  )
+    .index("by_request_id", ["requestId"])
+    .index("by_machine_id", ["machineId"]),
+
+  machineRegistrationBootstrapRateLimits: defineTable(
+    machineRegistrationBootstrapRateLimitRowValidator,
+  ).index("by_fingerprint", ["fingerprint"]),
 
   machineCredentials: defineTable(machineCredentialRowValidator)
     .index("by_user_machine_id", ["userId", "machineId"])

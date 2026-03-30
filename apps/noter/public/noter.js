@@ -43,6 +43,15 @@ export const CONNECTED_MACHINE_CAPABILITIES = ['presence']
 // When the command does not pass an explicit source URL, default to production.
 export const NOTER_SYNC_SOURCE_URL = 'https://noter.md/noter.js'
 
+function isLoopbackHostname(hostname) {
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '::1' ||
+    hostname === '[::1]'
+  )
+}
+
 function base64UrlEncode(bytes) {
   return Buffer.from(bytes)
     .toString('base64')
@@ -137,11 +146,7 @@ export function parseCliArgs(argv) {
 export function validateSourceUrl(value) {
   const sourceUrl = new URL(value)
   const isLoopbackHttp =
-    sourceUrl.protocol === 'http:' &&
-    (sourceUrl.hostname === 'localhost' ||
-      sourceUrl.hostname === '127.0.0.1' ||
-      sourceUrl.hostname === '::1' ||
-      sourceUrl.hostname === '[::1]')
+    sourceUrl.protocol === 'http:' && isLoopbackHostname(sourceUrl.hostname)
   if (sourceUrl.protocol !== 'https:' && !isLoopbackHttp) {
     throw new Error(
       'The installer source URL must use https, except for explicit localhost testing.',
@@ -298,16 +303,23 @@ function readStoredMachineConfig(args = {}) {
   }
 }
 
-function validateConvexSiteUrl(value) {
+export function validateConvexSiteUrl(value) {
   const convexSiteUrl = new URL(value)
-  if (
-    convexSiteUrl.protocol !== 'https:' &&
-    convexSiteUrl.protocol !== 'http:'
-  ) {
-    throw new Error('The runtime Convex site URL must use http or https.')
+  const isLoopbackHttp =
+    convexSiteUrl.protocol === 'http:' &&
+    isLoopbackHostname(convexSiteUrl.hostname)
+  if (convexSiteUrl.protocol !== 'https:' && !isLoopbackHttp) {
+    throw new Error(
+      'The runtime Convex site URL must use https, except for explicit localhost testing.',
+    )
   }
   if (convexSiteUrl.username || convexSiteUrl.password) {
     throw new Error('The runtime Convex site URL must not include credentials.')
+  }
+  if (convexSiteUrl.search.length > 0 || convexSiteUrl.hash.length > 0) {
+    throw new Error(
+      'The runtime Convex site URL must not include query params or hashes.',
+    )
   }
   convexSiteUrl.hash = ''
   return convexSiteUrl
@@ -405,11 +417,9 @@ async function createMachineRegistration(args) {
 }
 
 async function publishMachineHeartbeat(args) {
-  const convexSiteUrl = await fetchNoterConnectConfig(args.sourceUrl)
-
   try {
     await postJson({
-      url: buildHeartbeatUrl(convexSiteUrl),
+      url: args.heartbeatUrl,
       authorization: args.machineCredential,
       body: {
         allowedRoots: [],
@@ -582,16 +592,24 @@ async function runHeartbeatLoop(args) {
 
   try {
     for (;;) {
-      await publishMachineHeartbeat({
-        connectorVersion: args.connectorVersion,
-        displayName: args.displayName,
-        hostname: args.hostname,
-        machineCredential: args.machineCredential,
-        machineId: args.machineId,
-        os: args.os,
-        sourceUrl: args.sourceUrl,
-        status: 'online',
-      })
+      try {
+        await publishMachineHeartbeat({
+          connectorVersion: args.connectorVersion,
+          displayName: args.displayName,
+          heartbeatUrl: args.heartbeatUrl,
+          hostname: args.hostname,
+          machineCredential: args.machineCredential,
+          machineId: args.machineId,
+          os: args.os,
+          status: 'online',
+        })
+      } catch (error) {
+        console.warn(
+          error instanceof Error
+            ? error.message
+            : 'Could not publish the online heartbeat.',
+        )
+      }
 
       const wakeReason = await Promise.race([
         sleep(CONNECTED_MACHINE_HEARTBEAT_INTERVAL_MS).then(() => 'tick'),
@@ -609,11 +627,11 @@ async function runHeartbeatLoop(args) {
       await publishMachineHeartbeat({
         connectorVersion: args.connectorVersion,
         displayName: args.displayName,
+        heartbeatUrl: args.heartbeatUrl,
         hostname: args.hostname,
         machineCredential: args.machineCredential,
         machineId: args.machineId,
         os: args.os,
-        sourceUrl: args.sourceUrl,
         status: 'offline',
       })
     } catch (error) {
@@ -629,6 +647,7 @@ async function runHeartbeatLoop(args) {
 async function runConnectorCommand() {
   const codexVersion = detectCodexVersion()
   const storedConfig = readStoredMachineConfig()
+  const convexSiteUrl = await fetchNoterConnectConfig(storedConfig.sourceUrl)
   const displayName = hostname()
   const os = normalizeMachineOs(platform())
   const connectorVersion = buildConnectorVersion(codexVersion)
@@ -642,11 +661,11 @@ async function runConnectorCommand() {
   await runHeartbeatLoop({
     connectorVersion,
     displayName,
+    heartbeatUrl: buildHeartbeatUrl(convexSiteUrl),
     hostname: displayName,
     machineCredential: storedConfig.machineCredential,
     machineId: storedConfig.machineId,
     os,
-    sourceUrl: storedConfig.sourceUrl,
   })
 }
 

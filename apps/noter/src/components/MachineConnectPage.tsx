@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachineHeartbeatLog";
+import { useNow } from "@/hooks/useNow";
 import {
   formatConnectedMachineHeartbeatTimestamp,
   useConnectedMachineHeartbeatLog,
@@ -12,6 +13,10 @@ import {
   buildPublishedNoterSyncRunCommand,
   readMachineConnectBootstrapSearch,
 } from "@/lib/noterSync";
+import {
+  resolveConnectedMachineStatus,
+  resolveMachineRegistrationState,
+} from "../../shared/connectedMachinePresence";
 import { useMutation, useQuery } from "convex/react";
 import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -44,6 +49,7 @@ type MachineApprovalState =
       kind: "pending";
       connectorVersion: string;
       displayName: string;
+      expiresAt: number;
       hostname: string;
       machineId: string;
       os: "linux" | "macos" | "windows";
@@ -60,6 +66,7 @@ type MachineApprovalState =
       kind: "expired";
       connectorVersion: string;
       displayName: string;
+      expiresAt: number;
       hostname: string;
       machineId: string;
       os: "linux" | "macos" | "windows";
@@ -397,6 +404,12 @@ export function MachineConnectPage() {
   const connectedMachinesQuery = useQuery(
     api.connectedMachines.listConnectedMachines,
   );
+  const now = useNow({
+    enabled:
+      Boolean(bootstrapSearch.requestId) ||
+      (connectedMachinesQuery?.length ?? 0) > 0,
+    intervalMs: 1_000,
+  });
   const approveMachineRegistrationRequest = useMutation(
     api.connectedMachines.approveMachineRegistrationRequest,
   );
@@ -406,8 +419,26 @@ export function MachineConnectPage() {
       ? { requestId: bootstrapSearch.requestId }
       : "skip",
   );
-  const connectedMachines: ConnectedMachineItem[] =
-    connectedMachinesQuery ?? [];
+  const connectedMachines: ConnectedMachineItem[] = (
+    connectedMachinesQuery ?? []
+  )
+    .map((machine) => ({
+      ...machine,
+      status: resolveConnectedMachineStatus({
+        lastSeenAt: machine.lastSeenAt,
+        now,
+        status: machine.status,
+      }),
+    }))
+    .sort((left, right) => {
+      if (left.status !== right.status) {
+        return left.status === "online" ? -1 : 1;
+      }
+      if (left.lastSeenAt !== right.lastSeenAt) {
+        return right.lastSeenAt - left.lastSeenAt;
+      }
+      return left.displayName.localeCompare(right.displayName);
+    });
   const heartbeatLog = useConnectedMachineHeartbeatLog(connectedMachines);
 
   const handleApprove = async () => {
@@ -442,9 +473,22 @@ export function MachineConnectPage() {
       case "sign_in_required":
       case "not_found":
         return machineRegistrationRequest;
-      case "pending":
-      case "approved":
       case "expired":
+        return machineRegistrationRequest;
+      case "pending": {
+        const state = resolveMachineRegistrationState({
+          approvedAt: undefined,
+          expiresAt: machineRegistrationRequest.expiresAt,
+          now,
+        });
+        return state === "expired"
+          ? {
+              ...machineRegistrationRequest,
+              kind: "expired",
+            }
+          : machineRegistrationRequest;
+      }
+      case "approved":
         return machineRegistrationRequest;
       default: {
         const unexpectedRequest: never = machineRegistrationRequest;

@@ -23,6 +23,7 @@ import {
   parseCliArgs,
   readLocalConfig,
   resolveEntrypointUrl,
+  validateConvexSiteUrl,
   validateSourceUrl,
   writeLocalConfig,
 } from './noter.js'
@@ -63,6 +64,18 @@ describe('@noter-md/sync', () => {
   it('rejects non-https non-localhost source URLs', () => {
     expect(() => validateSourceUrl('http://example.com/noter.js')).toThrow(
       'The installer source URL must use https, except for explicit localhost testing.',
+    )
+  })
+
+  it('accepts https and localhost runtime Convex URLs only', () => {
+    expect(validateConvexSiteUrl('https://demo.convex.site').toString()).toBe(
+      'https://demo.convex.site/',
+    )
+    expect(validateConvexSiteUrl('http://127.0.0.1:3210').toString()).toBe(
+      'http://127.0.0.1:3210/',
+    )
+    expect(() => validateConvexSiteUrl('http://example.com')).toThrow(
+      'The runtime Convex site URL must use https, except for explicit localhost testing.',
     )
   })
 
