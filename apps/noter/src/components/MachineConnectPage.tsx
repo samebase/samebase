@@ -121,8 +121,9 @@ export function MachineConnectPageContent({
             <div className="space-y-1">
               <h2 className="text-sm font-medium">Install command</h2>
               <p className="text-sm text-muted-foreground">
-                Copy the normal user command. It defaults to noter.md, so people
-                do not need to think about deploy URLs.
+                The first line is the normal user path. The second line is the
+                direct-file fallback for this exact deploy when you want to test
+                a preview or local implementation without publishing first.
               </p>
             </div>
             <Button
@@ -205,7 +206,7 @@ export function MachineConnectPage() {
 
   return (
     <MachineConnectPageContent
-      command={buildNoterSyncConnectCommand()}
+      command={buildNoterSyncConnectCommand(deployOrigin)}
       deployOrigin={deployOrigin}
       installationId={bootstrapSearch.installationId}
       openedByCli={bootstrapSearch.openedByCli}
