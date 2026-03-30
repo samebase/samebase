@@ -4,7 +4,6 @@ import {
   buildPublishedNoterSyncConnectCommand,
   buildNoterSyncScriptUrl,
   readMachineConnectBootstrapSearch,
-  resolveMachineConnectScriptOrigin,
 } from "@/lib/noterSync";
 import { Check, Copy, ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -157,12 +156,7 @@ export function MachineConnectPageContent({
 export function MachineConnectPage() {
   const location = useLocation();
   const bootstrapSearch = readMachineConnectBootstrapSearch(location.search);
-  const currentOrigin = resolveCurrentOrigin();
-  const deployOrigin = resolveMachineConnectScriptOrigin(
-    bootstrapSearch.sourceUrl,
-    currentOrigin,
-  );
-  const scriptUrl = buildNoterSyncScriptUrl(deployOrigin);
+  const scriptUrl = buildNoterSyncScriptUrl(resolveCurrentOrigin());
 
   return (
     <MachineConnectPageContent

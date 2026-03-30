@@ -5,7 +5,6 @@ import {
   buildPublishedNoterSyncConnectCommand,
   buildNoterSyncScriptUrl,
   readMachineConnectBootstrapSearch,
-  resolveMachineConnectScriptOrigin,
 } from "@/lib/noterSync";
 
 describe("noterSync", () => {
@@ -25,28 +24,13 @@ describe("noterSync", () => {
     expect(
       buildDirectNoterSyncConnectCommand("https://noter.md/noter.js"),
     ).toBe(
-      "curl -fsSL https://noter.md/noter.js | node --input-type=module - connect https://noter.md/noter.js",
+      "curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
     );
   });
 
   it("reads the optional machine-connect bootstrap query params", () => {
-    expect(
-      readMachineConnectBootstrapSearch(
-        "?source=https%3A%2F%2Fpreview.noter.md%2Fnoter.js&installation=install-123&openedByCli",
-      ),
-    ).toEqual({
-      installationId: "install-123",
+    expect(readMachineConnectBootstrapSearch("?openedByCli")).toEqual({
       openedByCli: true,
-      sourceUrl: "https://preview.noter.md/noter.js",
     });
-  });
-
-  it("falls back to the current origin when the bootstrap source URL is invalid", () => {
-    expect(
-      resolveMachineConnectScriptOrigin(
-        "https://example.com/noter.js?spoofed=1",
-        "https://noter.md",
-      ),
-    ).toBe("https://noter.md");
   });
 });

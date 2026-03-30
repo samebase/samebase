@@ -1,14 +1,18 @@
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import {
-  buildInstallationId,
   buildMachineConnectUrl,
   formatBootstrapReadyMarkdown,
   formatHelpText,
-  getInstallationStatePath,
+  getNoterConfigPath,
   NOTER_SYNC_SOURCE_URL,
   parseCliArgs,
   validateSourceUrl,
+  writeLocalConfig,
 } from './noter.js'
 
 describe('@noter-md/sync', () => {
@@ -55,27 +59,46 @@ describe('@noter-md/sync', () => {
     )
   })
 
-  it('builds a stable multi-worktree installation file path', () => {
-    const installationId = buildInstallationId(
-      'https://preview.noter.md/noter.js',
-    )
+  it('stores bootstrap state in one local config file', () => {
     expect(
-      getInstallationStatePath({
+      getNoterConfigPath({
         homeDirectory: '/Users/noter',
-        installationId,
-        sourceUrl: 'https://preview.noter.md/noter.js',
       }),
-    ).toBe(`/Users/noter/.noter/sync/installations/${installationId}.json`)
+    ).toBe('/Users/noter/.noter/config.json')
+  })
+
+  it('keeps the first install timestamp when rewriting the local config file', () => {
+    const homeDirectory = path.join(tmpdir(), `noter-sync-${Date.now()}`)
+    const configPath = getNoterConfigPath({ homeDirectory })
+    mkdirSync(path.dirname(configPath), { recursive: true })
+    writeFileSync(
+      configPath,
+      `${JSON.stringify({ installedAt: '2026-03-01T00:00:00.000Z' }, null, 2)}\n`,
+      'utf8',
+    )
+
+    try {
+      expect(
+        writeLocalConfig({
+          codexVersion: 'codex 0.1.2',
+          homeDirectory,
+          sourceUrl: 'https://preview.noter.md/noter.js',
+        }),
+      ).toBe(configPath)
+
+      expect(JSON.parse(readFileSync(configPath, 'utf8'))).toMatchObject({
+        codexVersion: 'codex 0.1.2',
+        installedAt: '2026-03-01T00:00:00.000Z',
+        sourceUrl: 'https://preview.noter.md/noter.js',
+      })
+    } finally {
+      rmSync(homeDirectory, { force: true, recursive: true })
+    }
   })
 
   it('builds the browser handoff URL for the current deploy', () => {
-    expect(
-      buildMachineConnectUrl({
-        installationId: 'preview-installation',
-        sourceUrl: 'https://preview.noter.md/noter.js',
-      }),
-    ).toBe(
-      'https://preview.noter.md/machines/connect?source=https%3A%2F%2Fpreview.noter.md%2Fnoter.js&installation=preview-installation&openedByCli',
+    expect(buildMachineConnectUrl('https://preview.noter.md/noter.js')).toBe(
+      'https://preview.noter.md/machines/connect?openedByCli',
     )
   })
 
@@ -83,7 +106,7 @@ describe('@noter-md/sync', () => {
     expect(formatHelpText()).toContain('npx @noter-md/sync connect')
     expect(formatHelpText()).toContain('node ./noter.js connect')
     expect(formatHelpText()).toContain(
-      'curl -fsSL https://noter.md/noter.js | node --input-type=module - connect https://noter.md/noter.js',
+      "curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
     )
   })
 
@@ -91,15 +114,15 @@ describe('@noter-md/sync', () => {
     expect(
       formatBootstrapReadyMarkdown({
         codexVersion: 'codex 0.1.2',
-        installationPath: '/Users/noter/.noter/sync/installations/demo.json',
-        machineConnectUrl: 'https://noter.md/machines/connect?openedByCli=1',
+        configPath: '/Users/noter/.noter/config.json',
+        machineConnectUrl: 'https://noter.md/machines/connect?openedByCli',
         sourceUrl: 'https://noter.md/noter.js',
       }),
     ).toBe(`# noter sync bootstrap ready
 
 - source: https://noter.md/noter.js
 - codex: codex 0.1.2
-- state: /Users/noter/.noter/sync/installations/demo.json
-- next: https://noter.md/machines/connect?openedByCli=1`)
+- state: /Users/noter/.noter/config.json
+- next: https://noter.md/machines/connect?openedByCli`)
   })
 })

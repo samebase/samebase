@@ -15,19 +15,22 @@
 
 ## Decision Summary
 
-Noter should treat hosted MCP auth and local machine connect as two separate
+Noter should treat hosted plugin auth and local machine connect as two separate
 steps:
 
-1. MCP auth gives the user access to hosted Noter tools.
-2. Machine connect registers one local machine as a Noter execution target.
+1. plugin auth gives the user access to hosted Noter tools
+2. machine connect registers one local Codex instance as a Noter execution
+   target
 
-The first-user installer model should be:
+The installer model for this MVP should be:
 
 1. machine-scoped, not repo-scoped
-2. a single hosted `noter.js` file per deploy
-3. a canonical installer source mirrored byte-for-byte into both the npm package
-   and the hosted file
-4. later publishable as `@noter-md/sync`, using the same underlying file
+2. one canonical `noter.js` source file
+3. that same file mirrored byte-for-byte into both the npm package entrypoint
+   and the hosted `/noter.js` asset
+4. one local config file per Codex instance at `~/.noter/config.json`
+5. hosted-file-first for the first user, with `@noter-md/sync` added later as a
+   thin public wrapper
 
 The machine-connect page should stay intentionally small. Its job is not to
 teach the whole system. Its job is to act as the browser-side checkpoint
@@ -110,13 +113,13 @@ This is the current first-user and iteration path.
 Shape:
 
 ```bash
-curl -fsSL https://noter.md/noter.js | node --input-type=module - connect https://noter.md/noter.js
+curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
 ```
 
-Preview or local iteration uses the same shape, just with a different origin:
+Preview or local iteration uses the same shape with a different origin:
 
 ```bash
-curl -fsSL https://<current-deploy>/noter.js | node --input-type=module - connect https://<current-deploy>/noter.js
+curl -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'
 ```
 
 Why this is the right first step:
@@ -166,8 +169,8 @@ Rules:
 2. each preview deploy serves its own `https://<preview>/noter.js`
 3. local dev can serve `http://127.0.0.1:5174/noter.js`
 4. the hosted file should stay byte-for-byte identical to the package entrypoint
-5. preview or local targeting should come from the shell command, not from
-   mutating the file contents per deploy
+5. preview or local targeting should come from the direct command itself, not
+   from mutating the file contents per deploy
 
 This keeps the audit story simpler:
 
@@ -215,10 +218,37 @@ This RFC does not require:
 Those can be added later if public distribution or broader trust requirements
 justify them.
 
-This also means npm package versioning can come later without changing the core
-hosted-file-first model. The package may eventually expose its own semver, but
-the first-user/internal path should continue to treat the file itself as the
-primary artifact.
+## Local Config Model
+
+For the MVP, one Codex instance should map to one local Noter installation.
+
+The installer should write a single config file:
+
+```text
+~/.noter/config.json
+```
+
+Minimum state for the first slice:
+
+1. `sourceUrl`
+2. `codexVersion`
+3. `installedAt`
+4. `updatedAt`
+
+Important behavior:
+
+1. rerunning the bootstrap updates the same file
+2. the config records the current installer source URL
+3. switching from prod to a preview or local deploy should overwrite that one
+   config file, not create parallel installation records
+4. derivable values such as `sourceOrigin` or the machine-connect URL do not
+   need to be stored in the file
+
+This keeps the MVP aligned with the user mental model:
+
+1. one Codex instance
+2. one Noter installation
+3. one local config file
 
 ## Machine Auth And Approval
 
@@ -250,9 +280,9 @@ The right mental model is closer to device auth than to repo auth.
 4. the script:
    - validates its own source URL
    - checks that `codex` is installed
-   - writes Noter-owned local machine state outside repos
+   - writes or updates `~/.noter/config.json`
    - prints markdown status to the terminal
-   - opens `/machines/connect?...&openedByCli`
+   - opens `/machines/connect?openedByCli`
 5. the browser page uses the current session to continue approval
 6. Noter issues machine credentials
 7. the connector starts and performs first heartbeat plus thread sync
@@ -281,44 +311,30 @@ It gives us:
 It should remain intentionally thin:
 
 1. one short sentence
-2. the command snippet
-3. an optional direct link to `noter.js`
-4. approval UI once the browser handoff is active
+2. the package command
+3. the direct hosted-file command
+4. an optional direct link to `noter.js`
+5. approval UI once the browser handoff is active
 
 It should not become a long documentation page.
 
-## Multi-Worktree And Preview Behavior
+## Preview And Worktree Iteration
 
-This design is intentionally deploy-scoped.
+This design is still deploy-scoped, but the local state is intentionally not
+multi-install.
 
 Rules:
 
-1. the deploy URL passed to `connect` determines the target deploy for the
-   direct hosted-file path
+1. the direct hosted-file command determines which deploy the bootstrap targets
 2. there is no `--from` override flag in the public CLI contract
-3. machine-local state should record the source URL that launched the install
-4. one laptop may connect multiple preview or worktree installs at the same time
+3. rerunning the bootstrap against another deploy updates `~/.noter/config.json`
+   to that new source URL
+4. the operator can iterate on prod, preview, or local worktrees without
+   republishing npm, but only one source URL is active in the local config at a
+   time
 
-This is one of the main reasons the hosted-file model matters: it makes preview
-testing and worktree iteration straightforward without republishing npm for
-every branch.
-
-## Local State
-
-The installer should write state to a Noter-owned machine directory outside any
-repo.
-
-Minimum state for the first slice:
-
-1. machine installation id
-2. source URL
-3. source origin
-4. machine-connect browser URL
-5. Codex version
-6. install/update timestamps
-
-The state key should be derived from the source URL so one machine can host
-multiple connected installations safely.
+This keeps the iteration story strong without forcing multi-install complexity
+into the MVP.
 
 ## Public And Private Boundary
 
@@ -377,8 +393,9 @@ What we should not copy for this slice:
 3. The installer is machine-scoped and does not require repo edits.
 4. The hosted file is inspectable and stays byte-for-byte identical to the
    package entrypoint.
-5. The browser handoff is positioned as machine approval, not generic docs.
-6. The same underlying installer logic can later ship through `@noter-md/sync`.
+5. The local bootstrap state lives in one config file at `~/.noter/config.json`.
+6. The browser handoff is positioned as machine approval, not generic docs.
+7. The same underlying installer logic can later ship through `@noter-md/sync`.
 
 ## Recommendation
 
@@ -388,8 +405,7 @@ Ship this in two layers:
    - use the hosted `noter.js` file directly
    - keep the machine-connect page thin
    - use browser-backed machine approval
-   - keep the hosted file identical to the package entrypoint and pass preview
-     targeting explicitly in the direct command
+   - store one local config file per Codex instance
 2. Public distribution next:
    - publish `@noter-md/sync`
    - keep it as a thin wrapper over the same file

@@ -6,7 +6,7 @@
 // 1. Validate that this file was served from `/noter.js` on `https:` (or
 //    explicit localhost `http:` during local testing).
 // 2. Run `codex --version` to confirm Codex is installed.
-// 3. Write one JSON installation record under `~/.noter/sync/installations/`.
+// 3. Write one JSON config file under `~/.noter/config.json`.
 // 4. Open Noter's `/machines/connect` page in the default browser.
 //
 // It does not install background services, modify project files, or download
@@ -18,7 +18,6 @@
 // mirror it exactly instead of stamping deploy-specific metadata.
 
 import { spawn, spawnSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir, platform } from 'node:os'
 import path from 'node:path'
@@ -26,7 +25,7 @@ import { pathToFileURL } from 'node:url'
 
 export const NOTER_SYNC_SCRIPT_PATHNAME = '/noter.js'
 export const MACHINE_CONNECT_ROUTE = '/machines/connect'
-export const NOTER_SYNC_STATE_DIRECTORY_NAME = '.noter/sync/installations'
+export const NOTER_CONFIG_PATHNAME = '.noter/config.json'
 // When the command does not pass an explicit source URL, default to production.
 export const NOTER_SYNC_SOURCE_URL = 'https://noter.md/noter.js'
 
@@ -56,8 +55,8 @@ export function parseCliArgs(argv) {
 
 /**
  * The installer only trusts the exact hosted file shape we expect. Keeping the
- * source URL narrow makes the browser handoff and the stored installation
- * record easier to reason about.
+ * source URL narrow makes the browser handoff and the stored config easier to
+ * reason about.
  */
 export function validateSourceUrl(value) {
   const sourceUrl = new URL(value)
@@ -109,62 +108,35 @@ export function detectCodexVersion() {
 }
 
 /**
- * The install id is derived from the exact source URL so one laptop can keep
- * separate state for production, previews, and local worktrees.
- */
-export function buildInstallationId(sourceUrl) {
-  const source = new URL(sourceUrl)
-  const hostFragment = source.host.replace(/[^a-z0-9.-]+/gi, '-')
-  const sourceDigest = createHash('sha256')
-    .update(source.toString())
-    .digest('hex')
-    .slice(0, 12)
-  return `${hostFragment}-${sourceDigest}`
-}
-
-/**
  * All installer state lives under the user's home directory, never inside a
  * project checkout.
  */
-export function getInstallationStatePath(args = {}) {
+export function getNoterConfigPath(args = {}) {
   const homeDirectory = args.homeDirectory ?? homedir()
-  const installationId =
-    args.installationId ?? buildInstallationId(args.sourceUrl)
-  return path.join(
-    homeDirectory,
-    NOTER_SYNC_STATE_DIRECTORY_NAME,
-    `${installationId}.json`,
-  )
+  return path.join(homeDirectory, NOTER_CONFIG_PATHNAME)
 }
 
 /**
- * The browser handoff needs just enough information to continue the flow:
- * which hosted file launched it, which local installation record it maps to,
- * and whether the page was opened by the CLI.
+ * The browser handoff only needs a stable destination and a key-only bootstrap
+ * flag. The hosted page can derive its own script URL from the current origin.
  */
-export function buildMachineConnectUrl(args) {
-  const machineConnectUrl = new URL(MACHINE_CONNECT_ROUTE, args.sourceUrl)
-  const query = new URLSearchParams({
-    source: args.sourceUrl,
-    installation: args.installationId,
-  }).toString()
-  machineConnectUrl.search = `${query}&openedByCli`
+export function buildMachineConnectUrl(sourceUrl) {
+  const machineConnectUrl = new URL(MACHINE_CONNECT_ROUTE, sourceUrl)
+  machineConnectUrl.search = 'openedByCli'
   return machineConnectUrl.toString()
 }
 
 /**
- * Keep one small JSON record so the installer can be rerun safely without
- * losing the original install timestamp.
+ * Keep one small JSON config file per Codex instance. Re-running the bootstrap
+ * updates the current source URL while preserving the original install time.
  */
-export function writeInstallationState(args) {
-  const installationPath = getInstallationStatePath({
+export function writeLocalConfig(args) {
+  const configPath = getNoterConfigPath({
     homeDirectory: args.homeDirectory,
-    installationId: args.installationId,
-    sourceUrl: args.sourceUrl,
   })
   const existingRecord = (() => {
     try {
-      return JSON.parse(readFileSync(installationPath, 'utf8'))
+      return JSON.parse(readFileSync(configPath, 'utf8'))
     } catch {
       return null
     }
@@ -176,21 +148,14 @@ export function writeInstallationState(args) {
       typeof existingRecord?.installedAt === 'string'
         ? existingRecord.installedAt
         : nowIso,
-    installationId: args.installationId,
-    machineConnectUrl: args.machineConnectUrl,
-    sourceOrigin: new URL(args.sourceUrl).origin,
     sourceUrl: args.sourceUrl,
     updatedAt: nowIso,
   }
 
-  mkdirSync(path.dirname(installationPath), { recursive: true })
-  writeFileSync(
-    installationPath,
-    `${JSON.stringify(nextRecord, null, 2)}\n`,
-    'utf8',
-  )
+  mkdirSync(path.dirname(configPath), { recursive: true })
+  writeFileSync(configPath, `${JSON.stringify(nextRecord, null, 2)}\n`, 'utf8')
 
-  return installationPath
+  return configPath
 }
 
 /**
@@ -202,7 +167,10 @@ export function openBrowser(url) {
     platform() === 'darwin'
       ? { command: 'open', args: [url] }
       : platform() === 'win32'
-        ? { command: 'cmd', args: ['/c', 'start', '', url] }
+        ? {
+            command: 'cmd',
+            args: ['/d', '/s', '/c', `start "" "${url.replaceAll('"', '""')}"`],
+          }
         : { command: 'xdg-open', args: [url] }
 
   return new Promise((resolve, reject) => {
@@ -210,16 +178,22 @@ export function openBrowser(url) {
       detached: true,
       stdio: 'ignore',
     })
-    const handleError = error => {
+    child.once('error', error => {
       reject(
         new Error(
           `Could not open a browser automatically with ${openerCommand.command}: ${error.message}`,
         ),
       )
-    }
-    child.once('error', handleError)
-    child.once('spawn', () => {
-      child.off('error', handleError)
+    })
+    child.once('exit', code => {
+      if (code !== 0) {
+        reject(
+          new Error(
+            `Could not open a browser automatically with ${openerCommand.command}: exited with code ${code}.`,
+          ),
+        )
+        return
+      }
       child.unref()
       resolve()
     })
@@ -236,7 +210,7 @@ Examples:
   # local file
   node ./noter.js connect
   # direct hosted file today
-  curl -fsSL https://noter.md/noter.js | node --input-type=module - connect https://noter.md/noter.js`
+  curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`
 }
 
 /**
@@ -248,7 +222,7 @@ export function formatBootstrapReadyMarkdown(args) {
 
 - source: ${args.sourceUrl}
 - codex: ${args.codexVersion}
-- state: ${args.installationPath}
+- state: ${args.configPath}
 - next: ${args.machineConnectUrl}`
 }
 
@@ -256,7 +230,7 @@ export function formatBootstrapReadyMarkdown(args) {
  * Happy path:
  * 1. Validate the hosted source URL.
  * 2. Confirm Codex exists locally.
- * 3. Persist one local installation record.
+ * 3. Persist one local config file.
  * 4. Print a markdown summary.
  * 5. Hand off to the browser for approval.
  */
@@ -271,22 +245,16 @@ export async function main(argv) {
     parsedArgs.sourceUrl ?? NOTER_SYNC_SOURCE_URL,
   ).toString()
   const codexVersion = detectCodexVersion()
-  const installationId = buildInstallationId(sourceUrl)
-  const machineConnectUrl = buildMachineConnectUrl({
-    installationId,
-    sourceUrl,
-  })
-  const installationPath = writeInstallationState({
+  const machineConnectUrl = buildMachineConnectUrl(sourceUrl)
+  const configPath = writeLocalConfig({
     codexVersion,
-    installationId,
-    machineConnectUrl,
     sourceUrl,
   })
 
   console.log(
     formatBootstrapReadyMarkdown({
       codexVersion,
-      installationPath,
+      configPath,
       machineConnectUrl,
       sourceUrl,
     }),
