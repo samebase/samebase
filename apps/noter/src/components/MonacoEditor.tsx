@@ -1,7 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from "react";
-import Editor from "@monaco-editor/react";
 import type { OnMount, Monaco } from "@monaco-editor/react";
-import { useTheme } from "next-themes";
 import { ChangeSet, EditorState } from "@codemirror/state";
 import {
   collab,
@@ -20,10 +18,10 @@ import {
   parseTsConfig,
   applyTsConfigToMonaco,
 } from "./monaco/setupEditor";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useProjectFiles, type ProjectFile } from "@/hooks/useProjectFiles";
 import { buildMonacoAppliedCacheKey } from "@/lib/editorCacheKeys";
 import { buildMonacoFileUri } from "@/lib/monacoFileUri";
+import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
 
 // ---------------------------------------------------------------------------
 // Collab helpers (shared logic with CodeEditor.tsx)
@@ -154,11 +152,6 @@ export function MonacoEditor({
   treeSHA: string;
   showMobileLineNumbers?: boolean;
 }) {
-  const { theme, systemTheme } = useTheme();
-  const effectiveTheme = theme === "system" ? systemTheme : theme;
-  const isDark = effectiveTheme === "dark";
-  const isMobileViewport = useIsMobile();
-
   // ---- Project files for import resolution ----
   const { files: projectFiles, scopePrefix } = useProjectFiles(
     vaultId,
@@ -373,54 +366,15 @@ export function MonacoEditor({
     });
   };
 
-  const lineNumbersMode = isMobileViewport
-    ? showMobileLineNumbers
-      ? "on"
-      : "off"
-    : "on";
-
   return (
-    <div
-      className="notranslate relative"
-      translate="no"
-      style={{
-        height: "100%",
-        minHeight: "400px",
-      }}
-    >
-      <Editor
-        height="100%"
-        path={buildMonacoFileUri({ vaultId, branch, filePath })}
-        defaultValue={firstDoc.content}
-        theme={isDark ? "vs-dark" : "vs"}
-        onMount={handleMount}
-        options={{
-          minimap: { enabled: false },
-          scrollbar: {
-            alwaysConsumeMouseWheel: false,
-            vertical: isMobileViewport ? "hidden" : "auto",
-            verticalScrollbarSize: isMobileViewport ? 0 : 10,
-            horizontalScrollbarSize: 10,
-          },
-          overviewRulerLanes: isMobileViewport ? 0 : 2,
-          overviewRulerBorder: false,
-          hideCursorInOverviewRuler: true,
-          scrollBeyondLastLine: false,
-          wordWrap: "on",
-          fontSize: 14,
-          tabSize: 2,
-          lineNumbers: lineNumbersMode,
-          lineNumbersMinChars: isMobileViewport ? 2 : 3,
-          glyphMargin: false,
-          folding: !isMobileViewport,
-          lineDecorationsWidth: isMobileViewport ? 0 : 10,
-        }}
-      />
-      {syncError ? (
-        <div className="pointer-events-none absolute bottom-2 right-2 corner-notch-1 bg-red-600/90 px-2 py-1 text-[11px] text-white">
-          {syncError}
-        </div>
-      ) : null}
-    </div>
+    <MonacoEditorSurface
+      branch={branch}
+      defaultValue={firstDoc.content}
+      filePath={filePath}
+      onMount={handleMount}
+      showMobileLineNumbers={showMobileLineNumbers}
+      syncError={syncError}
+      vaultKey={vaultId}
+    />
   );
 }
