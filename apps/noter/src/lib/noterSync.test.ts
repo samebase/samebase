@@ -13,15 +13,8 @@ describe("noterSync", () => {
     );
   });
 
-  it("builds the default npm command plus the direct-file fallback for the current deploy", () => {
-    expect(buildNoterSyncConnectCommand("https://preview.noter.md")).toBe(
-      [
-        "# default published package",
-        "npx @noter-md/sync connect",
-        "# direct single-file install for this deploy",
-        "curl -fsSL https://preview.noter.md/noter.js | node --input-type=module - connect",
-      ].join("\n"),
-    );
+  it("builds the default npm connect command", () => {
+    expect(buildNoterSyncConnectCommand()).toBe("npx @noter-md/sync connect");
   });
 
   it("reads the optional machine-connect bootstrap query params", () => {

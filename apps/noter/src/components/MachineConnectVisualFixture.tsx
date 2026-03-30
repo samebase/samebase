@@ -11,12 +11,9 @@ export function MachineConnectVisualFixture() {
 
   return (
     <MachineConnectPageContent
-      command={buildNoterSyncConnectCommand(FIXTURE_DEPLOY_ORIGIN)}
-      deployOrigin={FIXTURE_DEPLOY_ORIGIN}
-      installationId="preview-nicuchiciuc-noter-md-1a2b3c4d5e6f"
+      command={buildNoterSyncConnectCommand()}
       openedByCli={true}
       scriptUrl={scriptUrl}
-      sourceUrl={scriptUrl}
       testId="machine-connect-visual-fixture"
     />
   );
