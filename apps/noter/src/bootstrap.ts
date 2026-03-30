@@ -1,4 +1,7 @@
+import React from "react";
+import ReactDOM from "react-dom/client";
 import { isInIframe, openAuthPopup } from "@/authClient";
+import { GlobalGestureDebugOverlay } from "@/components/GlobalGestureDebugOverlay";
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import {
   buildLandingDevToggleHref,
@@ -22,6 +25,7 @@ import {
 import { shouldRenderFastLandingShell } from "@/lib/publicLandingAuthState";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "@/lib/fastLandingBoot";
 import { landingPageMarkdown } from "@/lib/landingCopy";
+import { isMobileSidebarDebugEnabled } from "@/lib/mobileSidebarGestureDebug";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "@/lib/publicLanding";
 import { renderLandingCopyShellHtml } from "@/lib/landingCopyShell";
 import { writePublicLandingWaitlistDraft } from "@/lib/publicLandingWaitlistDraft";
@@ -37,9 +41,12 @@ const PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID =
 const PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID =
   "public-landing-waitlist-submit";
 const UNKNOWN_SHORT_COMMIT_PLACEHOLDER = "xxxxxxx";
+const GLOBAL_GESTURE_DEBUG_OVERLAY_ROOT_ID =
+  "global-gesture-debug-overlay-root";
 
 let appLoadPromise: Promise<void> | null = null;
 let restoreHydratedWaitlistFocus = false;
+let gestureDebugOverlayMounted = false;
 
 function escapeHtml(value: string): string {
   return value
@@ -414,7 +421,42 @@ function applyBootstrapPageMetadata(
   applyPageMetadata(resolveBootstrapPageMetadata(location.pathname));
 }
 
+function mountBootstrapGestureDebugOverlay() {
+  if (gestureDebugOverlayMounted) {
+    return;
+  }
+
+  const isLocalDebugHost =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1";
+  const shouldMountOverlay =
+    isMobileSidebarDebugEnabled(window.location.search) &&
+    (import.meta.env.DEV || isLocalDebugHost);
+  if (!shouldMountOverlay) {
+    return;
+  }
+
+  let overlayRoot = document.getElementById(
+    GLOBAL_GESTURE_DEBUG_OVERLAY_ROOT_ID,
+  );
+  if (overlayRoot === null) {
+    overlayRoot = document.createElement("div");
+    overlayRoot.id = GLOBAL_GESTURE_DEBUG_OVERLAY_ROOT_ID;
+    document.body.appendChild(overlayRoot);
+  }
+
+  ReactDOM.createRoot(overlayRoot).render(
+    React.createElement(
+      React.StrictMode,
+      null,
+      React.createElement(GlobalGestureDebugOverlay),
+    ),
+  );
+  gestureDebugOverlayMounted = true;
+}
+
 applyBootstrapThemeClass();
+mountBootstrapGestureDebugOverlay();
 const fastLandingRoute = shouldRenderFastLandingShell(window.location);
 
 applyBootstrapPageMetadata(window.location, fastLandingRoute);

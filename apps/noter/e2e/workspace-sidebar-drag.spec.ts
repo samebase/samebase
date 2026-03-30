@@ -5,11 +5,18 @@ test.use({
   isMobile: true,
 });
 
-async function gotoFileViewFixture(page: Page) {
+async function gotoFileViewFixture(
+  page: Page,
+  options?: { swipeDebug?: boolean },
+) {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
-    waitUntil: "domcontentloaded",
-  });
+  const debugQuery = options?.swipeDebug ? "&swipe-debug" : "";
+  await page.goto(
+    `/visual-fixture.html?mode=fileview-layout-persistence${debugQuery}`,
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
   await page.waitForLoadState("networkidle");
 }
 
@@ -138,6 +145,18 @@ test("fileview mobile can open the left sidebar from main with a lighter human s
   await expect(fixture).toHaveAttribute("data-mobile-pane", "left");
 });
 
+test("fileview mobile swipe debug overlay is visibly armed before any gesture", async ({
+  page,
+}) => {
+  await gotoFileViewFixture(page, { swipeDebug: true });
+
+  const overlay = page.getByTestId("global-gesture-debug-overlay");
+  await expect(overlay).toBeVisible();
+  await expect(overlay).toContainText("debug: on");
+  await expect(overlay).toContainText("scope: viewport trace");
+  await expect(overlay).toContainText("state: armed, waiting for gesture");
+});
+
 test("fileview mobile can reach the right sidebar from the open left sidebar in one human swipe", async ({
   page,
 }) => {
@@ -155,4 +174,31 @@ test("fileview mobile can reach the right sidebar from the open left sidebar in 
   await swipeFromLeftSidebarToRightSidebar(page);
 
   await expect(fixture).toHaveAttribute("data-mobile-pane", "right");
+});
+
+test("fileview mobile swipe debug overlay captures the cross-sidebar path and release metrics", async ({
+  page,
+}) => {
+  await gotoFileViewFixture(page, { swipeDebug: true });
+
+  const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  await page
+    .getByRole("button", { name: "Toggle Left Sidebar" })
+    .press("Enter");
+  await expect
+    .poll(async () => fixture.evaluate((element) => element.scrollLeft))
+    .toBeLessThanOrEqual(1);
+  await expect(fixture).toHaveAttribute("data-mobile-pane", "left");
+
+  await swipeFromLeftSidebarToRightSidebar(page);
+
+  await expect(fixture).toHaveAttribute("data-mobile-pane", "right");
+
+  const overlay = page.getByTestId("global-gesture-debug-overlay");
+  await expect(overlay).toBeVisible();
+  await expect(overlay).toHaveAttribute("data-debug-active", "false");
+  await expect(overlay).toContainText("release vx:");
+  await expect(overlay).toContainText("release vy:");
+  await expect(overlay).toContainText("peak a:");
+  expect(await overlay.locator("svg circle").count()).toBeGreaterThan(5);
 });

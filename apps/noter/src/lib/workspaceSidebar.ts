@@ -1,7 +1,7 @@
 import type { MobileSidebarPane } from "@/hooks/use-sidebar";
 
-const MOBILE_CROSS_SWIPE_TRAVEL_THRESHOLD_RATIO = 0.85;
-const MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS = 1.25;
+export const MOBILE_CROSS_SWIPE_TRAVEL_THRESHOLD_RATIO = 0.85;
+export const MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS = 1.25;
 
 type MobilePaneAnchor = {
   pane: MobileSidebarPane;

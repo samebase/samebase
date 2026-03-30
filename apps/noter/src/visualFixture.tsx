@@ -95,6 +95,8 @@ import {
   ThreadHistoryVisualFixture,
   type ThreadHistoryVisualMode,
 } from "@/components/ThreadHistoryVisualFixture";
+import { GlobalGestureDebugOverlay } from "@/components/GlobalGestureDebugOverlay";
+import { isMobileSidebarDebugEnabled } from "@/lib/mobileSidebarGestureDebug";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import "./index.css";
 
@@ -546,11 +548,15 @@ function renderVisualFixtureModeDirectory({
 }
 
 const selection = readSelection();
+const showGestureDebugOverlay = isMobileSidebarDebugEnabled(
+  window.location.search,
+);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <DialogProvider>
+        {showGestureDebugOverlay ? <GlobalGestureDebugOverlay /> : null}
         {selection.status === "missing"
           ? renderVisualFixtureModeDirectory({})
           : selection.status === "invalid"
