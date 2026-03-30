@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildInstallationId,
   buildMachineConnectUrl,
+  formatBootstrapReadyMarkdown,
   formatHelpText,
   getInstallationStatePath,
   NOTER_SYNC_SOURCE_URL,
@@ -63,5 +64,21 @@ describe('@noter-md/sync', () => {
     expect(formatHelpText()).toContain(
       'curl -fsSL https://noter.md/noter.js | node --input-type=module - connect',
     )
+  })
+
+  it('formats bootstrap status as markdown for terminal and LLM consumption', () => {
+    expect(
+      formatBootstrapReadyMarkdown({
+        codexVersion: 'codex 0.1.2',
+        installationPath: '/Users/noter/.noter/sync/installations/demo.json',
+        machineConnectUrl: 'https://noter.md/machines/connect?openedByCli=1',
+        sourceUrl: 'https://noter.md/noter.js',
+      }),
+    ).toBe(`# noter sync bootstrap ready
+
+- source: https://noter.md/noter.js
+- codex: codex 0.1.2
+- state: /Users/noter/.noter/sync/installations/demo.json
+- next: https://noter.md/machines/connect?openedByCli=1`)
   })
 })

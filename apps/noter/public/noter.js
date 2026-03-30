@@ -168,6 +168,19 @@ export function formatHelpText() {
   ].join("\n");
 }
 
+/**
+ * Emit machine-readable markdown so terminal transcripts stay easy to parse for
+ * both humans and LLMs while the browser handles the actual registration UI.
+ */
+export function formatBootstrapReadyMarkdown(args) {
+  return `# noter sync bootstrap ready
+
+- source: ${args.sourceUrl}
+- codex: ${args.codexVersion}
+- state: ${args.installationPath}
+- next: ${args.machineConnectUrl}`;
+}
+
 export async function main(argv) {
   const parsedArgs = parseCliArgs(argv);
   if (parsedArgs.command === "help") {
@@ -189,11 +202,14 @@ export async function main(argv) {
     sourceUrl,
   });
 
-  console.log(`noter sync bootstrap ready`);
-  console.log(`source: ${sourceUrl}`);
-  console.log(`codex: ${codexVersion}`);
-  console.log(`state: ${installationPath}`);
-  console.log(`next: ${machineConnectUrl}`);
+  console.log(
+    formatBootstrapReadyMarkdown({
+      codexVersion,
+      installationPath,
+      machineConnectUrl,
+      sourceUrl,
+    }),
+  );
 
   try {
     openBrowser(machineConnectUrl);
