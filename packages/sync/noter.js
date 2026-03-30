@@ -24,8 +24,7 @@ import { pathToFileURL } from 'node:url'
 export const NOTER_SYNC_SCRIPT_PATHNAME = '/noter.js'
 export const MACHINE_CONNECT_ROUTE = '/machines/connect'
 export const NOTER_SYNC_STATE_DIRECTORY_NAME = '.noter/sync/installations'
-// The public build stamps this constant per deploy so the file always knows
-// which hosted origin it came from.
+// When the command does not pass an explicit source URL, default to production.
 export const NOTER_SYNC_SOURCE_URL = 'https://noter.md/noter.js'
 
 /**
@@ -42,12 +41,14 @@ export function parseCliArgs(argv) {
     throw new Error(`Unknown command: ${argv[0]}`)
   }
 
-  for (let index = 1; index < argv.length; index += 1) {
-    const arg = argv[index]
-    throw new Error(`Unknown option: ${arg}`)
+  if (argv.length > 2) {
+    throw new Error(`Unknown option: ${argv[2]}`)
   }
 
-  return { command: 'connect' }
+  return {
+    command: 'connect',
+    sourceUrl: argv[1] ?? null,
+  }
 }
 
 /**
@@ -232,7 +233,7 @@ Examples:
   # local file
   node ./noter.js connect
   # direct hosted file today
-  curl -fsSL https://noter.md/noter.js | node --input-type=module - connect`
+  curl -fsSL https://noter.md/noter.js | node --input-type=module - connect https://noter.md/noter.js`
 }
 
 /**
@@ -263,7 +264,9 @@ export async function main(argv) {
     return
   }
 
-  const sourceUrl = validateSourceUrl(NOTER_SYNC_SOURCE_URL).toString()
+  const sourceUrl = validateSourceUrl(
+    parsedArgs.sourceUrl ?? NOTER_SYNC_SOURCE_URL,
+  ).toString()
   const codexVersion = detectCodexVersion()
   const installationId = buildInstallationId(sourceUrl)
   const machineConnectUrl = buildMachineConnectUrl({

@@ -14,10 +14,7 @@ import {
   TERMS_PAGE_METADATA,
 } from "./src/lib/pageMetadata";
 import { renderStaticLegalPageHtml } from "./src/lib/staticLegalPage";
-import {
-  buildNoterSyncPublicScript,
-  resolveNoterSyncPublicScriptSourceUrl,
-} from "./noterSyncPublicScript";
+import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import {
   readEnvFileValue,
   resolveDaytonaConvexProxyTarget,
@@ -48,7 +45,6 @@ const appCommit =
 
 const appRepoUrl = "https://github.com/noter-md/noter";
 const daytonaSdkVersion = readPackageVersion("@daytonaio/sdk", import.meta.url);
-const cloudflarePagesUrl = process.env.CF_PAGES_URL ?? null;
 const daytonaLocalEnvPath = path.resolve(__dirname, ".env.local");
 const daytonaConvexProxyTarget = resolveDaytonaConvexProxyTarget({
   devOrigin: process.env.DEV_ENV_ORIGIN,
@@ -90,13 +86,6 @@ function readNoterSyncPackageScript(): string {
   return readFileSync(noterSyncPackageScriptPath, "utf8")
     .replace(/\r\n/g, "\n")
     .trimEnd();
-}
-
-function getRuntimeNoterSyncSourceUrl(): string {
-  return resolveNoterSyncPublicScriptSourceUrl({
-    devOrigin: process.env.DEV_ENV_ORIGIN,
-    pagesUrl: cloudflarePagesUrl,
-  });
 }
 
 function syncStaticLogoSvgAsset() {
@@ -142,20 +131,17 @@ function syncStaticInstallIconSvgAsset() {
 }
 
 /**
- * The public script is checked into a different path than the package entrypoint,
- * so normalize the copied source through Prettier using the public filepath
- * before writing it. That keeps future Vite syncs aligned with the file shape
- * that commit hooks actually enforce for `public/noter.js`.
+ * Mirror the package entrypoint into `public/noter.js` without any mutation so
+ * the hosted file stays byte-for-byte identical to the source a user can audit
+ * in the package.
  */
 async function syncStaticNoterSyncScriptAsset() {
   const nextNoterSyncScript = buildNoterSyncPublicScript({
     packageScript: readNoterSyncPackageScript(),
-    sourceUrl: resolveNoterSyncPublicScriptSourceUrl(),
   });
-  const nextNoterSyncScriptWithNewline = await formatGeneratedFileContents({
-    filepath: staticNoterSyncScriptPath,
-    content: nextNoterSyncScript,
-  });
+  const nextNoterSyncScriptWithNewline = nextNoterSyncScript.endsWith("\n")
+    ? nextNoterSyncScript
+    : `${nextNoterSyncScript}\n`;
   const currentNoterSyncScript = (() => {
     try {
       return readFileSync(staticNoterSyncScriptPath, "utf8");
@@ -175,14 +161,11 @@ async function syncStaticNoterSyncScriptAsset() {
   );
 }
 
-async function buildRuntimeNoterSyncScript(args: { filepath: string }) {
-  return formatGeneratedFileContents({
-    filepath: args.filepath,
-    content: buildNoterSyncPublicScript({
-      packageScript: readNoterSyncPackageScript(),
-      sourceUrl: getRuntimeNoterSyncSourceUrl(),
-    }),
+async function buildRuntimeNoterSyncScript() {
+  const script = buildNoterSyncPublicScript({
+    packageScript: readNoterSyncPackageScript(),
   });
+  return script.endsWith("\n") ? script : `${script}\n`;
 }
 
 async function formatGeneratedFileContents(args: {
@@ -335,9 +318,7 @@ function syncStaticNoterSyncScriptAssetPlugin() {
             return;
           }
 
-          void buildRuntimeNoterSyncScript({
-            filepath: staticNoterSyncScriptPath,
-          })
+          void buildRuntimeNoterSyncScript()
             .then((runtimeScript) => {
               response.statusCode = 200;
               response.setHeader(
@@ -352,9 +333,7 @@ function syncStaticNoterSyncScriptAssetPlugin() {
     },
     async closeBundle() {
       const builtScriptPath = path.resolve(__dirname, "dist/noter.js");
-      const runtimeScript = await buildRuntimeNoterSyncScript({
-        filepath: builtScriptPath,
-      });
+      const runtimeScript = await buildRuntimeNoterSyncScript();
       mkdirSync(path.dirname(builtScriptPath), { recursive: true });
       writeFileSync(builtScriptPath, runtimeScript, "utf8");
     },

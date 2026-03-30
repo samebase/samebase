@@ -25,7 +25,7 @@ describe("noterSync", () => {
     expect(
       buildDirectNoterSyncConnectCommand("https://noter.md/noter.js"),
     ).toBe(
-      "curl -fsSL https://noter.md/noter.js | node --input-type=module - connect",
+      "curl -fsSL https://noter.md/noter.js | node --input-type=module - connect https://noter.md/noter.js",
     );
   });
 

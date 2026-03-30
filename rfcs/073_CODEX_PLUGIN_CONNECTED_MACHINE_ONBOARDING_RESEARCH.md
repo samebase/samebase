@@ -25,8 +25,8 @@ The first-user installer model should be:
 
 1. machine-scoped, not repo-scoped
 2. a single hosted `noter.js` file per deploy
-3. directly runnable from the current deploy for internal, preview, and local
-   iteration
+3. a canonical installer source mirrored byte-for-byte into both the npm package
+   and the hosted file
 4. later publishable as `@noter-md/sync`, using the same underlying file
 
 The machine-connect page should stay intentionally small. Its job is not to
@@ -110,18 +110,18 @@ This is the current first-user and iteration path.
 Shape:
 
 ```bash
-curl -fsSL https://noter.md/noter.js | node --input-type=module - connect
+curl -fsSL https://noter.md/noter.js | node --input-type=module - connect https://noter.md/noter.js
 ```
 
 Preview or local iteration uses the same shape, just with a different origin:
 
 ```bash
-curl -fsSL https://<current-deploy>/noter.js | node --input-type=module - connect
+curl -fsSL https://<current-deploy>/noter.js | node --input-type=module - connect https://<current-deploy>/noter.js
 ```
 
 Why this is the right first step:
 
-1. it lets one deploy own its own installer artifact
+1. it lets one deploy own its own installer URL
 2. it makes preview and worktree iteration easy
 3. it avoids waiting on npm publishing before the flow is usable
 4. it keeps the real source artifact visible and inspectable
@@ -165,26 +165,16 @@ Rules:
 1. production serves `https://noter.md/noter.js`
 2. each preview deploy serves its own `https://<preview>/noter.js`
 3. local dev can serve `http://127.0.0.1:5174/noter.js`
-4. the script must identify its own source origin
-5. the script must carry a visible version marker in a top-of-file comment
+4. the hosted file should stay byte-for-byte identical to the package entrypoint
+5. preview or local targeting should come from the shell command, not from
+   mutating the file contents per deploy
 
-For the first-user internal MVP, that version marker does not need to be a full
-artifact-signing system. A deterministic in-file version label is enough. A
-content hash is acceptable now. npm semver can layer on top later when the
-package becomes public.
+This keeps the audit story simpler:
 
-Recommended top-of-file metadata:
-
-```js
-// source-url: https://noter.md/noter.js
-// source-version: <deterministic version marker>
-```
-
-This gives us:
-
-1. a script the user can inspect directly
-2. a stable way to tell which build they are running
-3. a deploy-specific artifact for preview and worktree iteration
+1. a user can inspect one canonical script shape
+2. Codex or another reviewer does not need to reason about a separately stamped
+   hosted variant
+3. preview and worktree targeting stays explicit in the direct shell command
 
 ## MVP Trust And Provenance
 
@@ -197,8 +187,8 @@ The current assumption is:
 1. the first user is the operator building the flow
 2. downloading directly from `https://noter.md/noter.js` or a trusted preview
    deploy is acceptable for now
-3. the script should be transparent about where it came from and what version it
-   is
+3. the script should be transparent about what it does and keep the hosted copy
+   identical to the package source
 
 This RFC does not require:
 
@@ -283,7 +273,8 @@ This design is intentionally deploy-scoped.
 
 Rules:
 
-1. the file you run determines the target deploy
+1. the deploy URL passed to `connect` determines the target deploy for the
+   direct hosted-file path
 2. there is no `--from` override flag in the public CLI contract
 3. machine-local state should record the source URL that launched the install
 4. one laptop may connect multiple preview or worktree installs at the same time
@@ -364,7 +355,8 @@ What we should not copy for this slice:
    connecting the machine.
 2. The first-user path works without publishing npm first.
 3. The installer is machine-scoped and does not require repo edits.
-4. The hosted file is inspectable and self-identifies with source metadata.
+4. The hosted file is inspectable and stays byte-for-byte identical to the
+   package entrypoint.
 5. The browser handoff is positioned as machine approval, not generic docs.
 6. The same underlying installer logic can later ship through `@noter-md/sync`.
 
@@ -376,7 +368,8 @@ Ship this in two layers:
    - use the hosted `noter.js` file directly
    - keep the machine-connect page thin
    - use browser-backed machine approval
-   - stamp the hosted file with `source-url` and `source-version`
+   - keep the hosted file identical to the package entrypoint and pass preview
+     targeting explicitly in the direct command
 2. Public distribution next:
    - publish `@noter-md/sync`
    - keep it as a thin wrapper over the same file

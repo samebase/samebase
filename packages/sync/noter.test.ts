@@ -15,8 +15,18 @@ describe('@noter-md/sync', () => {
   it('defaults the public connect command to noter.md with no extra CLI override', () => {
     expect(parseCliArgs(['connect'])).toEqual({
       command: 'connect',
+      sourceUrl: null,
     })
     expect(NOTER_SYNC_SOURCE_URL).toBe('https://noter.md/noter.js')
+  })
+
+  it('accepts an optional explicit source URL argument for direct hosted execution', () => {
+    expect(
+      parseCliArgs(['connect', 'https://preview.noter.md/noter.js']),
+    ).toEqual({
+      command: 'connect',
+      sourceUrl: 'https://preview.noter.md/noter.js',
+    })
   })
 
   it('accepts https deploy URLs and localhost http URLs', () => {
@@ -73,7 +83,7 @@ describe('@noter-md/sync', () => {
     expect(formatHelpText()).toContain('npx @noter-md/sync connect')
     expect(formatHelpText()).toContain('node ./noter.js connect')
     expect(formatHelpText()).toContain(
-      'curl -fsSL https://noter.md/noter.js | node --input-type=module - connect',
+      'curl -fsSL https://noter.md/noter.js | node --input-type=module - connect https://noter.md/noter.js',
     )
   })
 

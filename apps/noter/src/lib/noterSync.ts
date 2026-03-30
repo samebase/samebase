@@ -47,7 +47,7 @@ export function buildPublishedNoterSyncConnectCommand(): string {
 }
 
 export function buildDirectNoterSyncConnectCommand(scriptUrl: string): string {
-  return `curl -fsSL ${scriptUrl} | node --input-type=module - connect`;
+  return `curl -fsSL ${scriptUrl} | node --input-type=module - connect ${scriptUrl}`;
 }
 
 export function resolveMachineConnectScriptOrigin(

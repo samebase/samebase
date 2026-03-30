@@ -15,5 +15,5 @@ npx @noter-md/sync connect
 Use this today for prod, preview, or local deploy testing.
 
 ```bash
-curl -fsSL https://noter.md/noter.js | node --input-type=module - connect
+curl -fsSL https://noter.md/noter.js | node --input-type=module - connect https://noter.md/noter.js
 ```
