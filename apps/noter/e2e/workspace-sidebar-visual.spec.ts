@@ -94,6 +94,25 @@ async function dispatchHumanTouchSwipe(
   });
 }
 
+async function getFixtureViewportClip(page: Page) {
+  const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const bounds = await fixture.boundingBox();
+
+  expect(bounds).not.toBeNull();
+  if (bounds === null) {
+    throw new Error(
+      "Expected fileview layout fixture bounds for screenshot clip",
+    );
+  }
+
+  return {
+    x: Math.round(bounds.x),
+    y: Math.round(bounds.y),
+    width: Math.round(bounds.width),
+    height: Math.round(bounds.height),
+  };
+}
+
 async function swipeFromLeftSidebarToRightSidebar(page: Page) {
   await dispatchHumanTouchSwipe(page, {
     startX: 320,
@@ -201,6 +220,7 @@ test.describe("fileview mobile", () => {
       {
         animations: "disabled",
         caret: "hide",
+        clip: await getFixtureViewportClip(page),
         fullPage: false,
         scale: "css",
         maxDiffPixelRatio: 0.03,
@@ -232,6 +252,7 @@ test.describe("fileview mobile", () => {
       {
         animations: "disabled",
         caret: "hide",
+        clip: await getFixtureViewportClip(page),
         fullPage: false,
         scale: "css",
         maxDiffPixelRatio: 0.03,
