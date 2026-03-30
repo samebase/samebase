@@ -39,6 +39,7 @@ import {
   prosemarkLandingCopyDarkSelectionTheme,
   prosemarkSurfaceTheme,
 } from "@/components/prosemarkSurface";
+import { useProsemarkMobilePaneDrag } from "@/components/useProsemarkMobilePaneDrag";
 
 type ProsemarkReadOnlyProps = {
   value: string;
@@ -46,6 +47,7 @@ type ProsemarkReadOnlyProps = {
   editable?: boolean;
   highlightedLineNumbers?: number[];
   lineHighlightTone?: "add" | "remove";
+  mobilePaneDragEnabled?: boolean;
   styleVariant?: "default" | "landingCopy";
   onChange?: (value: string) => void;
 };
@@ -209,6 +211,7 @@ export function ProsemarkReadOnly({
   editable = false,
   highlightedLineNumbers = [],
   lineHighlightTone = "add",
+  mobilePaneDragEnabled = false,
   styleVariant = "default",
   onChange,
 }: ProsemarkReadOnlyProps) {
@@ -217,6 +220,10 @@ export function ProsemarkReadOnly({
   const isDark = effectiveTheme === "dark";
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const mobilePaneDrag = useProsemarkMobilePaneDrag(
+    mobilePaneDragEnabled,
+    containerRef,
+  );
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const lastValueRef = useRef(value);
@@ -297,6 +304,7 @@ export function ProsemarkReadOnly({
           codeLanguages: languages,
           extensions: [GFM, prosemarkMarkdownSyntaxExtensions],
         }),
+        EditorView.lineWrapping,
         prosemarkBasicSetup(),
         prosemarkBaseThemeSetup(),
         blurOnOutsidePointerDownExtension,
@@ -440,7 +448,12 @@ export function ProsemarkReadOnly({
   }, [value, resizeToContent]);
 
   return (
-    <div ref={containerRef} className={cn("min-h-[1rem]", className)}>
+    <div
+      ref={containerRef}
+      className={cn("min-h-[1rem]", className)}
+      style={{ touchAction: mobilePaneDrag.touchAction }}
+      {...mobilePaneDrag.containerProps}
+    >
       <div ref={hostRef} />
     </div>
   );
