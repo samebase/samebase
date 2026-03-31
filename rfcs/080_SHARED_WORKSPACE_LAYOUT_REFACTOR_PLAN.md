@@ -4,7 +4,7 @@
 
 - Status: Proposed
 - Owner: Noter frontend
-- Last updated: 2026-04-01
+- Last updated: 2026-03-31
 - Depends on:
   - `apps/noter/src/components/WorkspaceSidebarShell.tsx`
   - `apps/noter/src/components/RepositoryWorkspaceFrame.tsx`
