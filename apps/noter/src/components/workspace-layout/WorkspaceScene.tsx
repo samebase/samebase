@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export type WorkspaceBottomDockRenderProps = {
@@ -28,6 +28,14 @@ export function WorkspaceScene({
   const [mobileBottomDockInset, setMobileBottomDockInset] = useState<
     string | undefined
   >(undefined);
+
+  useEffect(() => {
+    if (bottomDock === undefined) {
+      // Routes can remove the dock entirely as state changes, so clear any
+      // previously reported mobile inset instead of leaving stale scroll space.
+      setMobileBottomDockInset(undefined);
+    }
+  }, [bottomDock]);
 
   const mergedWorkspaceScrollStyle: CSSProperties | undefined =
     mobileBottomDockInset
