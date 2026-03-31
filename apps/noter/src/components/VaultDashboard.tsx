@@ -42,7 +42,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type CSSProperties,
   type ComponentType,
   type MutableRefObject,
 } from "react";
@@ -86,7 +85,7 @@ import {
   VaultDashboardSidebarAccountHeader,
   type VaultDashboardProviderRowViewModel,
 } from "@/components/VaultDashboardChrome";
-import { VaultDashboardWorkspaceScene } from "@/components/VaultDashboardWorkspaceScene";
+import { VaultDashboardWorkspaceScene } from "@/components/workspace-layout/VaultDashboardWorkspaceScene";
 import {
   useApiKeyConnectDialog,
   type ApiKeyProvider,
@@ -1723,9 +1722,6 @@ function VaultDashboardContent() {
     } satisfies VaultDashboardProviderRowViewModel;
   });
 
-  const [mobileEditorChatDockInset, setMobileEditorChatDockInset] = useState<
-    string | undefined
-  >(undefined);
   const [
     pendingVaultBranchFiltersByVaultId,
     setPendingVaultBranchFiltersByVaultId,
@@ -1840,16 +1836,6 @@ function VaultDashboardContent() {
   const rightSidebarContent = (
     <div className="flex min-h-0 flex-1 bg-background" />
   );
-
-  const dashboardScrollStyle: CSSProperties | undefined =
-    mobileEditorChatDockInset
-      ? {
-          // Mirror the editor route so the fixed mobile dock does not cover the
-          // dashboard list or empty-state controls underneath it.
-          paddingBottom: mobileEditorChatDockInset,
-          scrollPaddingBottom: mobileEditorChatDockInset,
-        }
-      : undefined;
 
   const dashboardHeaderContent = (
     <VaultDashboardHeaderBar
@@ -2173,13 +2159,12 @@ function VaultDashboardContent() {
         rightSidebarContent={rightSidebarContent}
         headerContent={dashboardHeaderContent}
         workspaceBody={dashboardBody}
-        workspaceScrollStyle={dashboardScrollStyle}
-        overlayContent={
+        bottomDock={({ onMobileDockInsetChange }) => (
           <EditorChatDock
             desktopMode="inline"
-            onMobileDockInsetChange={setMobileEditorChatDockInset}
+            onMobileDockInsetChange={onMobileDockInsetChange}
           />
-        }
+        )}
       />
 
       <Dialog

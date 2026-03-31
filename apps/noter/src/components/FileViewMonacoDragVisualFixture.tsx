@@ -1,9 +1,9 @@
 import { PersonIcon } from "@radix-ui/react-icons";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
-import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
 import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
+import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
 
 export type FileViewMonacoDragVisualMode = "fileview-monaco-drag";
 

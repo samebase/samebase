@@ -1,10 +1,10 @@
 import { PersonIcon } from "@radix-ui/react-icons";
 import { ProsemarkMergeEditor } from "@/components/ProsemarkMergeEditor";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
-import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
+import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
 
 export type FileViewProsemarkDragVisualMode =
   | "fileview-prosemark-drag-editable"

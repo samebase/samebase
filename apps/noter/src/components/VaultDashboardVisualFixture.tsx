@@ -2,7 +2,7 @@ import { MemoryRouter } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME } from "@/components/editorChatLayout";
 import { SidebarProvider, SidebarTrigger } from "@/components/sidebar";
-import { DashboardWorkspaceLayout } from "@/components/DashboardWorkspaceLayout";
+import { DashboardWorkspaceLayout } from "@/components/workspace-layout/DashboardWorkspaceLayout";
 import { ResizeGripLines } from "@/components/ResizeGripLines";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";

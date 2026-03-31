@@ -5,10 +5,10 @@ import {
   type FileViewEditorOverride,
   type FileViewMode,
 } from "@/components/FileViewDeveloperTools";
-import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { SidebarProvider } from "@/components/sidebar";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
+import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
 
 export type FileViewDeveloperToolsVisualMode =
   | "file-view-developer-tools-collapsed"

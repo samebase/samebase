@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type React from "react";
-import { useWorkspaceMobilePaneDrag } from "@/components/useWorkspaceMobilePaneDrag";
+import { useWorkspaceMobilePaneDrag } from "@/components/workspace-layout/useWorkspaceMobilePaneDrag";
 
 const MOBILE_PANE_DRAG_SLOP_PX = 10;
 

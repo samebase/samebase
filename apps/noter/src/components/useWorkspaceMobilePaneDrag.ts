@@ -1,6 +1,1 @@
-import * as React from "react";
-import { WorkspaceMobilePaneDragContext } from "@/components/workspaceMobilePaneDragContext";
-
-export function useWorkspaceMobilePaneDrag() {
-  return React.useContext(WorkspaceMobilePaneDragContext);
-}
+export { useWorkspaceMobilePaneDrag } from "@/components/workspace-layout/useWorkspaceMobilePaneDrag";
