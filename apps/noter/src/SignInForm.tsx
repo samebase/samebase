@@ -11,7 +11,10 @@ import {
   PUBLIC_LANDING_COPY_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
 } from "@/lib/publicLanding";
-import { consumePendingPublicLandingScrollTop } from "@/lib/publicLandingScrollState";
+import {
+  clearPendingPublicLandingScrollTop,
+  readPendingPublicLandingScrollTop,
+} from "@/lib/publicLandingScrollState";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
 import {
   clearPublicLandingWaitlistDraft,
@@ -51,12 +54,19 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
     useState(landingPageMarkdown);
 
   useLayoutEffect(() => {
-    const scrollTop = consumePendingPublicLandingScrollTop();
+    const scrollTop = readPendingPublicLandingScrollTop();
     if (scrollTop === null || scrollShellRef.current === null) {
       return;
     }
 
     scrollShellRef.current.scrollTop = scrollTop;
+    const animationFrameId = window.requestAnimationFrame(() => {
+      clearPendingPublicLandingScrollTop(scrollTop);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+    };
   }, []);
 
   return (

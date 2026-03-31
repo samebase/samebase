@@ -9,11 +9,24 @@ export function setPendingPublicLandingScrollTop(scrollTop: number) {
 }
 
 /**
- * The pre-hydration shell only hands its scroll position to one hydrated route
- * mount, so the pending value is consumed exactly once.
+ * Read the pending fast-shell scroll offset without clearing it so a dev-only
+ * StrictMode probe mount cannot discard the handoff before the real mount.
  */
-export function consumePendingPublicLandingScrollTop() {
-  const nextScrollTop = pendingPublicLandingScrollTop;
+export function readPendingPublicLandingScrollTop() {
+  return pendingPublicLandingScrollTop;
+}
+
+/**
+ * Clear the pending handoff only after the hydrated scroll shell has applied
+ * it; the optional guard avoids wiping out a newer handoff value.
+ */
+export function clearPendingPublicLandingScrollTop(expectedScrollTop?: number) {
+  if (
+    expectedScrollTop !== undefined &&
+    pendingPublicLandingScrollTop !== expectedScrollTop
+  ) {
+    return;
+  }
+
   pendingPublicLandingScrollTop = null;
-  return nextScrollTop;
 }
