@@ -221,31 +221,10 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
     });
   });
 
-  // Snapshot only the stable visual regions. The surrounding explainer copy
-  // can wrap differently across environments, but the shipped editor panels
-  // and diff preview are the surfaces we need to keep visually aligned.
-  await expect(editorPanels).toHaveScreenshot(
-    "file-view-code-parity-editors.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      // The panel-level snapshot is meant to guard the overall fixture shell.
-      // Monaco and CodeMirror glyph rasterization differ noticeably between the
-      // macOS and Linux runners even when the dedicated parity assertion above
-      // still passes, so keep this screenshot tolerant of cross-OS text AA.
-      maxDiffPixelRatio: 0.04,
-    },
-  );
-  await expect(diffPreview).toHaveScreenshot(
-    "file-view-code-parity-diff-preview.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.01,
-    },
-  );
+  // This fixture exists to compare Monaco and ProseMark in the same runtime.
+  // Baseline screenshots across macOS and Linux add a second, unrelated source
+  // of glyph-antialiasing drift, so rely on the environment-local screenshot
+  // diff above instead of checked-in panel snapshots here.
 
   const initialDiffNaturalWidth = await diffImage.evaluate((image) => {
     return image.naturalWidth;
