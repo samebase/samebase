@@ -12,10 +12,16 @@ describe("codemirrorLanguage", () => {
 
   it("resolves known code files to language-aware mode", async () => {
     expect(getCodeMirrorFileLanguageKind("src/file.tsx")).toBe("code");
+    expect(getCodeMirrorFileLanguageKind("src/Component.TSX")).toBe("code");
+    expect(getCodeMirrorFileLanguageKind("infra/Dockerfile")).toBe("code");
 
     const extension = await loadCodeMirrorLanguageExtension("src/file.tsx");
     expect(Array.isArray(extension)).toBe(true);
     expect(extension).not.toHaveLength(0);
+
+    await expect(
+      loadCodeMirrorLanguageExtension("infra/Dockerfile"),
+    ).resolves.not.toEqual([]);
   });
 
   it("falls back to plain text when no file language matches", async () => {

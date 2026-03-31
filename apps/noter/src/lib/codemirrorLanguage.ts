@@ -15,10 +15,13 @@ const MARKDOWN_FILE_EXTENSIONS = new Set([
 
 export type CodeMirrorFileLanguageKind = "markdown" | "code" | "plain";
 
-function getFileExtension(filePath: string): string | null {
+function getFileName(filePath: string): string {
   const lastSlashIndex = filePath.lastIndexOf("/");
-  const fileName =
-    lastSlashIndex >= 0 ? filePath.slice(lastSlashIndex + 1) : filePath;
+  return lastSlashIndex >= 0 ? filePath.slice(lastSlashIndex + 1) : filePath;
+}
+
+function getFileExtension(filePath: string): string | null {
+  const fileName = getFileName(filePath);
   const lastDotIndex = fileName.lastIndexOf(".");
 
   if (lastDotIndex <= 0 || lastDotIndex === fileName.length - 1) {
@@ -38,7 +41,26 @@ function isMarkdownFilePath(filePath?: string): boolean {
 }
 
 function getMatchingLanguage(filePath: string) {
-  return LanguageDescription.matchFilename(languages, filePath) ?? null;
+  const fileName = getFileName(filePath);
+  const matchingLanguageCandidates = [
+    fileName,
+    filePath,
+    fileName.toLowerCase(),
+    filePath.toLowerCase(),
+  ];
+
+  // `@codemirror/language-data` mixes extension-driven matchers like `.tsx`
+  // with basename-only entries like `Dockerfile`, so try both forms and a
+  // lowercased fallback before giving up on syntax highlighting.
+  for (const candidate of matchingLanguageCandidates) {
+    const matchingLanguage =
+      LanguageDescription.matchFilename(languages, candidate) ?? null;
+    if (matchingLanguage) {
+      return matchingLanguage;
+    }
+  }
+
+  return null;
 }
 
 export function createProsemarkMarkdownExtension(): Extension {
