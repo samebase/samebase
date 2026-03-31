@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // No dependencies by design: this file should stay easy to inspect, easy to
 // reason about, and easy to mirror into hosted `/noter.js`.
 //
@@ -57,6 +56,8 @@ const MACHINE_CONTROL_INTROSPECTION_TIMEOUT_MS = 2_000
 const MACHINE_CONTROL_INTROSPECTION_BACKOFF_MS = [200, 500]
 const MACHINE_CONTROL_INTROSPECTION_PATHNAME =
   '/connected-machines/control/introspect'
+const CLOUDFLARED_TUNNEL_START_TIMEOUT_MS = 30_000
+const CLOUDFLARED_TUNNEL_SHUTDOWN_TIMEOUT_MS = 5_000
 const CODEX_RPC_TIMEOUT_MS = 120_000
 const CODEX_INIT_TIMEOUT_MS = 30_000
 const CODEX_EVENT_BUFFER_SIZE = 500
@@ -227,6 +228,91 @@ function buildMachineControlIntrospectionUrl(convexSiteUrl) {
   ).toString()
 }
 
+function createInitialLiveControlState() {
+  return {
+    controlStatus: 'unavailable',
+    controlStatusDetail: 'Live control is unavailable.',
+    controlUrl: null,
+    controlUrlUpdatedAt: Date.now(),
+  }
+}
+
+function updateLiveControlState(state, updates) {
+  const nextControlStatus =
+    typeof updates.controlStatus === 'string'
+      ? updates.controlStatus
+      : state.controlStatus
+  const nextControlStatusDetail =
+    typeof updates.controlStatusDetail === 'string'
+      ? updates.controlStatusDetail
+      : updates.controlStatusDetail === null
+        ? null
+        : state.controlStatusDetail
+  const nextControlUrl =
+    typeof updates.controlUrl === 'string'
+      ? updates.controlUrl
+      : updates.controlUrl === null
+        ? null
+        : state.controlUrl
+  const nextUpdatedAt =
+    typeof updates.controlUrlUpdatedAt === 'number'
+      ? updates.controlUrlUpdatedAt
+      : nextControlStatus !== state.controlStatus ||
+          nextControlStatusDetail !== state.controlStatusDetail ||
+          nextControlUrl !== state.controlUrl
+        ? Date.now()
+        : state.controlUrlUpdatedAt
+
+  state.controlStatus = nextControlStatus
+  state.controlStatusDetail = nextControlStatusDetail
+  state.controlUrl = nextControlUrl
+  state.controlUrlUpdatedAt = nextUpdatedAt
+}
+
+function buildHeartbeatCapabilities(controlStatus) {
+  return controlStatus === 'ready'
+    ? ['presence', 'liveControl']
+    : CONNECTED_MACHINE_CAPABILITIES
+}
+
+export function buildMachineHeartbeatBody(args) {
+  const liveControlState =
+    typeof args.readLiveControlState === 'function'
+      ? args.readLiveControlState()
+      : null
+  const controlStatus =
+    typeof liveControlState?.controlStatus === 'string'
+      ? liveControlState.controlStatus
+      : undefined
+  const controlStatusDetail =
+    typeof liveControlState?.controlStatusDetail === 'string'
+      ? liveControlState.controlStatusDetail
+      : undefined
+  const controlUrl =
+    typeof liveControlState?.controlUrl === 'string'
+      ? liveControlState.controlUrl
+      : undefined
+  const controlUrlUpdatedAt =
+    typeof liveControlState?.controlUrlUpdatedAt === 'number'
+      ? liveControlState.controlUrlUpdatedAt
+      : undefined
+
+  return {
+    allowedRoots: [],
+    capabilities: buildHeartbeatCapabilities(controlStatus),
+    connectorVersion: args.connectorVersion,
+    displayName: args.displayName,
+    hostname: args.hostname,
+    machineId: args.machineId,
+    os: args.os,
+    status: args.status,
+    ...(controlStatus ? { controlStatus } : {}),
+    ...(controlStatusDetail ? { controlStatusDetail } : {}),
+    ...(controlUrl ? { controlUrl } : {}),
+    ...(typeof controlUrlUpdatedAt === 'number' ? { controlUrlUpdatedAt } : {}),
+  }
+}
+
 /**
  * We only need proof that Codex exists locally. `codex --version` is the
  * smallest safe command that gives us that signal.
@@ -386,6 +472,16 @@ function readHttpErrorStatusCode(error) {
   return typeof error?.statusCode === 'number' ? error.statusCode : 500
 }
 
+function describeProcessExit(code, signal) {
+  if (typeof code === 'number') {
+    return `code=${code}`
+  }
+  if (typeof signal === 'string') {
+    return `signal=${signal}`
+  }
+  return 'unknown exit status'
+}
+
 function asRecord(value) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return null
@@ -506,6 +602,15 @@ function machineControlErrorIsRetryable(error) {
   }
 
   return error instanceof TypeError || error?.name === 'AbortError'
+}
+
+export function parseCloudflaredQuickTunnelUrl(line) {
+  if (typeof line !== 'string') {
+    return null
+  }
+
+  const match = line.match(/https:\/\/[a-z0-9.-]+\.trycloudflare\.com\b/i)
+  return match?.[0] ?? null
 }
 
 function normalizePathForDisplay(value) {
@@ -1484,6 +1589,18 @@ function buildCodexLocalControlStatus(args) {
       routeBasePath: args.routeBasePath,
     },
   }
+}
+
+export function localControlStatusIsReady(status, machineId) {
+  const statusRecord = asRecord(status)
+  const serviceRecord = asRecord(statusRecord?.service)
+  const authRecord = asRecord(serviceRecord?.auth)
+
+  return (
+    serviceRecord?.loopbackOnly === true &&
+    authRecord?.enforced === true &&
+    authRecord?.machineId === machineId
+  )
 }
 
 async function readFilesRecursively(args) {
@@ -2752,9 +2869,12 @@ async function fetchWithTimeout(
     })
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(
-        `${timeoutLabel} timed out after ${NETWORK_TIMEOUT_MS / 1000} seconds.`,
+      const timeoutError = new Error(
+        `${timeoutLabel} timed out after ${timeoutMs / 1000} seconds.`,
       )
+      timeoutError.name = 'AbortError'
+      timeoutError.retryable = true
+      throw timeoutError
     }
 
     throw error
@@ -2797,6 +2917,208 @@ async function fetchNoterConnectConfig(sourceUrl) {
         ? error.message
         : `Invalid ${NOTER_CONNECT_CONFIG_PATHNAME}: ${text}`,
     )
+  }
+}
+
+async function readLocalControlStatus(localControlOrigin) {
+  const response = await fetchWithTimeout(
+    `${localControlOrigin}/status`,
+    {
+      headers: {
+        accept: 'application/json',
+      },
+    },
+    'Local control status request',
+  )
+
+  if (!response.ok) {
+    throw new Error(
+      `Local control status request failed: HTTP ${response.status}.`,
+    )
+  }
+
+  const { parsed, text } = await readJsonResponse(response)
+  const status = asRecord(parsed)
+  if (!status) {
+    throw new Error(`Local control status response is invalid: ${text}`)
+  }
+
+  return status
+}
+
+async function ensureCloudflaredBinary() {
+  try {
+    const { stdout, stderr } = await execFileAsync(
+      'cloudflared',
+      ['--version'],
+      {
+        cwd: process.cwd(),
+        timeout: 10_000,
+      },
+    )
+    const version = `${stdout ?? ''}${stderr ?? ''}`.trim()
+    if (version.length === 0) {
+      throw new Error('cloudflared --version returned an empty response')
+    }
+    return version
+  } catch (error) {
+    throw new Error(
+      error instanceof Error &&
+      error.message.includes('spawn cloudflared ENOENT')
+        ? 'The `cloudflared` command was not found. Install cloudflared before using mobile live control.'
+        : describeError(error),
+    )
+  }
+}
+
+async function stopChildProcess(childProcess, signal = 'SIGTERM') {
+  if (childProcess.exitCode !== null || childProcess.killed) {
+    return
+  }
+
+  await new Promise(resolve => {
+    let completed = false
+    const finish = () => {
+      if (completed) {
+        return
+      }
+      completed = true
+      resolve()
+    }
+
+    const timeoutId = setTimeout(() => {
+      if (childProcess.exitCode === null) {
+        childProcess.kill('SIGKILL')
+      }
+      finish()
+    }, CLOUDFLARED_TUNNEL_SHUTDOWN_TIMEOUT_MS)
+    timeoutId.unref?.()
+
+    childProcess.once('exit', () => {
+      clearTimeout(timeoutId)
+      finish()
+    })
+
+    childProcess.kill(signal)
+  })
+}
+
+function startCloudflaredQuickTunnel(args) {
+  const childProcess = spawn(
+    'cloudflared',
+    [
+      'tunnel',
+      '--no-autoupdate',
+      '--url',
+      args.localControlOrigin,
+      '--metrics',
+      'localhost:0',
+      '--loglevel',
+      'info',
+    ],
+    {
+      cwd: args.workspaceRoot,
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
+
+  let isClosing = false
+  let sawQuickTunnelUrl = false
+  let lastQuickTunnelUrl = null
+
+  const startTimeoutId = setTimeout(() => {
+    if (sawQuickTunnelUrl || isClosing) {
+      return
+    }
+
+    updateLiveControlState(args.liveControlState, {
+      controlStatus: 'unavailable',
+      controlStatusDetail:
+        'Timed out waiting for Cloudflare quick tunnel readiness.',
+      controlUrl: null,
+    })
+    void stopChildProcess(childProcess)
+  }, CLOUDFLARED_TUNNEL_START_TIMEOUT_MS)
+  startTimeoutId.unref?.()
+
+  const handleLine = line => {
+    const quickTunnelUrl = parseCloudflaredQuickTunnelUrl(line)
+    if (!quickTunnelUrl || quickTunnelUrl === lastQuickTunnelUrl) {
+      return
+    }
+
+    sawQuickTunnelUrl = true
+    lastQuickTunnelUrl = quickTunnelUrl
+    clearTimeout(startTimeoutId)
+    updateLiveControlState(args.liveControlState, {
+      controlStatus: 'ready',
+      controlStatusDetail: 'Live control ready.',
+      controlUrl: quickTunnelUrl,
+    })
+    console.log(`cloudflared quick tunnel ready: ${quickTunnelUrl}`)
+  }
+
+  for (const stream of [childProcess.stdout, childProcess.stderr]) {
+    let buffer = ''
+    stream.on('data', chunk => {
+      buffer += chunk.toString()
+      let newlineIndex = buffer.indexOf('\n')
+      while (newlineIndex !== -1) {
+        const line = buffer.slice(0, newlineIndex).trim()
+        buffer = buffer.slice(newlineIndex + 1)
+        if (line.length > 0) {
+          handleLine(line)
+        }
+        newlineIndex = buffer.indexOf('\n')
+      }
+    })
+  }
+
+  childProcess.on('error', error => {
+    clearTimeout(startTimeoutId)
+    if (isClosing) {
+      return
+    }
+
+    updateLiveControlState(args.liveControlState, {
+      controlStatus: 'unavailable',
+      controlStatusDetail: `cloudflared failed: ${describeError(error)}`,
+      controlUrl: null,
+    })
+  })
+
+  childProcess.on('exit', (code, signal) => {
+    clearTimeout(startTimeoutId)
+    if (isClosing) {
+      return
+    }
+
+    updateLiveControlState(args.liveControlState, {
+      controlStatus: 'unavailable',
+      controlStatusDetail: sawQuickTunnelUrl
+        ? `cloudflared exited (${describeProcessExit(code, signal)}).`
+        : `cloudflared exited before publishing a quick tunnel URL (${describeProcessExit(code, signal)}).`,
+      controlUrl: null,
+    })
+    console.warn(
+      sawQuickTunnelUrl
+        ? `cloudflared exited unexpectedly (${describeProcessExit(code, signal)}).`
+        : `cloudflared exited before readiness (${describeProcessExit(code, signal)}).`,
+    )
+  })
+
+  return {
+    async close() {
+      isClosing = true
+      clearTimeout(startTimeoutId)
+      updateLiveControlState(args.liveControlState, {
+        controlStatus: 'unavailable',
+        controlStatusDetail: 'Live control stopped.',
+        controlUrl: null,
+      })
+      await stopChildProcess(childProcess)
+    },
   }
 }
 
@@ -2860,16 +3182,7 @@ async function publishMachineHeartbeat(args) {
       url: args.heartbeatUrl,
       authorization: args.machineCredential,
       timeoutLabel: 'Machine heartbeat request',
-      body: {
-        allowedRoots: [],
-        capabilities: CONNECTED_MACHINE_CAPABILITIES,
-        connectorVersion: args.connectorVersion,
-        displayName: args.displayName,
-        hostname: args.hostname,
-        machineId: args.machineId,
-        os: args.os,
-        status: args.status,
-      },
+      body: buildMachineHeartbeatBody(args),
     })
   } catch (error) {
     if (
@@ -3043,6 +3356,7 @@ export async function runHeartbeatLoop(args) {
           machineCredential: args.machineCredential,
           machineId: args.machineId,
           os: args.os,
+          readLiveControlState: args.readLiveControlState,
           status: 'online',
         })
       } catch (error) {
@@ -3083,6 +3397,7 @@ export async function runHeartbeatLoop(args) {
           machineCredential: args.machineCredential,
           machineId: args.machineId,
           os: args.os,
+          readLiveControlState: args.readLiveControlState,
           status: 'offline',
         })
       } catch (error) {
@@ -3103,6 +3418,7 @@ async function runConnectorCommand() {
   const displayName = hostname()
   const os = normalizeMachineOs(platform())
   const connectorVersion = buildConnectorVersion(codexVersion)
+  const liveControlState = createInitialLiveControlState()
   const localControlServer = await startLocalCodexControlServer({
     machineControlAuth: {
       allowedOrigins: [new URL(storedConfig.sourceUrl).origin],
@@ -3111,13 +3427,62 @@ async function runConnectorCommand() {
     },
     workspaceRoot: process.cwd(),
   })
+  let quickTunnelHandle = null
 
   try {
+    let localControlStatus = null
+    try {
+      localControlStatus = await readLocalControlStatus(
+        localControlServer.origin,
+      )
+    } catch (error) {
+      updateLiveControlState(liveControlState, {
+        controlStatus: 'unavailable',
+        controlStatusDetail: `Local control status probe failed: ${describeError(error)}`,
+        controlUrl: null,
+      })
+    }
+
+    if (
+      localControlStatus &&
+      !localControlStatusIsReady(localControlStatus, storedConfig.machineId)
+    ) {
+      updateLiveControlState(liveControlState, {
+        controlStatus: 'unavailable',
+        controlStatusDetail:
+          'Local control auth is not ready for live tunnel publication.',
+        controlUrl: null,
+      })
+    }
+
+    if (localControlStatusIsReady(localControlStatus, storedConfig.machineId)) {
+      try {
+        await ensureCloudflaredBinary()
+        updateLiveControlState(liveControlState, {
+          controlStatus: 'starting',
+          controlStatusDetail: 'Starting Cloudflare quick tunnel.',
+          controlUrl: null,
+        })
+        quickTunnelHandle = startCloudflaredQuickTunnel({
+          liveControlState,
+          localControlOrigin: localControlServer.origin,
+          workspaceRoot: process.cwd(),
+        })
+      } catch (error) {
+        updateLiveControlState(liveControlState, {
+          controlStatus: 'unavailable',
+          controlStatusDetail: describeError(error),
+          controlUrl: null,
+        })
+      }
+    }
+
     console.log(`# noter sync connector running
 
 - source: ${storedConfig.sourceUrl}
 - machine: ${storedConfig.machineId}
 - local-control: ${localControlServer.origin}
+- live-control: ${liveControlState.controlStatus}
 - status: publishing heartbeats until this process exits`)
 
     await runHeartbeatLoop({
@@ -3128,8 +3493,10 @@ async function runConnectorCommand() {
       machineCredential: storedConfig.machineCredential,
       machineId: storedConfig.machineId,
       os,
+      readLiveControlState: () => liveControlState,
     })
   } finally {
+    await quickTunnelHandle?.close()
     await localControlServer.close()
   }
 }
@@ -3181,7 +3548,7 @@ function isDirectExecution() {
   }
 
   if (entrypoint === '-') {
-    return true
+    return /\[eval\d+\]$/.test(new URL(import.meta.url).pathname)
   }
 
   return import.meta.url === resolveEntrypointUrl(entrypoint)

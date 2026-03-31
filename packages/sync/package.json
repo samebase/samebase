@@ -3,9 +3,10 @@
   "version": "0.0.0",
   "type": "module",
   "bin": {
-    "noter-sync": "./noter.js"
+    "noter-sync": "./cli.js"
   },
   "files": [
+    "cli.js",
     "noter.js"
   ],
   "publishConfig": {

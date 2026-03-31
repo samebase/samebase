@@ -15,14 +15,17 @@ import { pathToFileURL } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  buildMachineHeartbeatBody,
   buildNoterConnectConfigUrl,
   buildMachineConnectUrl,
   createCodexLocalControlRouter,
   formatBootstrapReadyMarkdown,
   formatHelpText,
   getNoterConfigPath,
+  localControlStatusIsReady,
   NOTER_SYNC_SOURCE_URL,
   parseCliArgs,
+  parseCloudflaredQuickTunnelUrl,
   readLocalConfig,
   resolveEntrypointUrl,
   runHeartbeatLoop,
@@ -98,6 +101,46 @@ describe('@noter-md/sync', () => {
     expect(() => validateSourceUrl('https://noter.md/noter.js#branch')).toThrow(
       'The installer source URL must not include credentials, query params, or hashes.',
     )
+  })
+
+  it('extracts a quick tunnel URL from cloudflared log lines', () => {
+    expect(
+      parseCloudflaredQuickTunnelUrl(
+        '2026-03-31T12:47:50Z INF |  https://municipal-forests-homeless-highland.trycloudflare.com  |',
+      ),
+    ).toBe('https://municipal-forests-homeless-highland.trycloudflare.com')
+    expect(parseCloudflaredQuickTunnelUrl('no tunnel here')).toBeNull()
+  })
+
+  it('recognizes auth-gated local control status readiness', () => {
+    expect(
+      localControlStatusIsReady(
+        {
+          service: {
+            auth: {
+              enforced: true,
+              machineId: 'machine_123',
+            },
+            loopbackOnly: true,
+          },
+        },
+        'machine_123',
+      ),
+    ).toBe(true)
+    expect(
+      localControlStatusIsReady(
+        {
+          service: {
+            auth: {
+              enforced: true,
+              machineId: 'machine_other',
+            },
+            loopbackOnly: true,
+          },
+        },
+        'machine_123',
+      ),
+    ).toBe(false)
   })
 
   it('stores bootstrap state in one local config file', () => {
@@ -243,6 +286,38 @@ describe('@noter-md/sync', () => {
 - state: /Users/noter/.noter/config.json
 - next: https://noter.md/machines/connect?openedByCli&requestId=request_123
 - run: curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`)
+  })
+
+  it('builds heartbeat payloads that advertise live-control readiness', () => {
+    expect(
+      buildMachineHeartbeatBody({
+        connectorVersion: 'noter-sync (codex 0.1.2)',
+        displayName: 'Research MacBook Pro',
+        hostname: 'research-mbp.local',
+        machineId: 'machine_123',
+        os: 'macos',
+        readLiveControlState: () => ({
+          controlStatus: 'ready',
+          controlStatusDetail: 'Live control ready.',
+          controlUrl: 'https://research-machine.trycloudflare.com',
+          controlUrlUpdatedAt: 1_775_379_530_000,
+        }),
+        status: 'online',
+      }),
+    ).toEqual({
+      allowedRoots: [],
+      capabilities: ['presence', 'liveControl'],
+      connectorVersion: 'noter-sync (codex 0.1.2)',
+      controlStatus: 'ready',
+      controlStatusDetail: 'Live control ready.',
+      controlUrl: 'https://research-machine.trycloudflare.com',
+      controlUrlUpdatedAt: 1_775_379_530_000,
+      displayName: 'Research MacBook Pro',
+      hostname: 'research-mbp.local',
+      machineId: 'machine_123',
+      os: 'macos',
+      status: 'online',
+    })
   })
 
   it.runIf(process.platform !== 'win32')(

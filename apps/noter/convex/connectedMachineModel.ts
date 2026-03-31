@@ -26,7 +26,10 @@ export const MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_WINDOW_MS =
   MACHINE_REGISTRATION_REQUEST_TTL_MS;
 export const MACHINE_CONTROL_TOKEN_TTL_MS = 15 * 60 * 1000;
 
-export const connectedMachineCapabilityValidator = union(literal("presence"));
+export const connectedMachineCapabilityValidator = union(
+  literal("presence"),
+  literal("liveControl"),
+);
 export type ConnectedMachineCapability = Infer<
   typeof connectedMachineCapabilityValidator
 >;
@@ -39,12 +42,28 @@ export type ConnectedMachineStatus = Infer<
   typeof connectedMachineStatusValidator
 >;
 
+export const connectedMachineControlStatusValidator = union(
+  literal("unavailable"),
+  literal("starting"),
+  literal("ready"),
+);
+export type ConnectedMachineControlStatus = Infer<
+  typeof connectedMachineControlStatusValidator
+>;
+
 export const connectedMachineOsValidator = union(
   literal("linux"),
   literal("macos"),
   literal("windows"),
 );
 export type ConnectedMachineOs = Infer<typeof connectedMachineOsValidator>;
+
+const connectedMachineLiveControlFields = {
+  controlStatus: optional(connectedMachineControlStatusValidator),
+  controlStatusDetail: optional(string()),
+  controlUrl: optional(string()),
+  controlUrlUpdatedAt: optional(number()),
+};
 
 export const connectedMachineRowValidator = object({
   userId: id("users"),
@@ -57,6 +76,7 @@ export const connectedMachineRowValidator = object({
   connectorVersion: string(),
   capabilities: array(connectedMachineCapabilityValidator),
   allowedRoots: array(string()),
+  ...connectedMachineLiveControlFields,
 });
 export type ConnectedMachineRow = Infer<typeof connectedMachineRowValidator>;
 
@@ -70,6 +90,7 @@ export const connectedMachineViewValidator = object({
   connectorVersion: string(),
   capabilities: array(connectedMachineCapabilityValidator),
   allowedRoots: array(string()),
+  ...connectedMachineLiveControlFields,
 });
 export type ConnectedMachineView = Infer<typeof connectedMachineViewValidator>;
 
@@ -132,6 +153,7 @@ export const publishHeartbeatFromConnectorArgsValidator = object({
   connectorVersion: string(),
   capabilities: array(connectedMachineCapabilityValidator),
   allowedRoots: array(string()),
+  ...connectedMachineLiveControlFields,
 });
 export type PublishHeartbeatFromConnectorArgs = Infer<
   typeof publishHeartbeatFromConnectorArgsValidator

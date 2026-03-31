@@ -32,6 +32,13 @@ export const issueMachineControlToken = mutation({
     if (machine.status !== "online") {
       throw new Error("Connected machine is offline.");
     }
+    if (
+      machine.controlStatus !== "ready" ||
+      typeof machine.controlUrl !== "string" ||
+      !machine.capabilities.includes("liveControl")
+    ) {
+      throw new Error("Connected machine live control is not ready.");
+    }
 
     const now = Date.now();
     const token = createMachineControlTokenValue();
@@ -90,7 +97,13 @@ export const introspectMachineControlToken = internalMutation({
         q.eq("userId", token.userId).eq("machineId", args.machineId),
       )
       .first();
-    if (!machine || machine.status !== "online") {
+    if (
+      !machine ||
+      machine.status !== "online" ||
+      machine.controlStatus !== "ready" ||
+      typeof machine.controlUrl !== "string" ||
+      !machine.capabilities.includes("liveControl")
+    ) {
       return {
         active: false,
       };

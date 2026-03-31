@@ -1,4 +1,4 @@
-import { asRecord, readString } from "./jsonUtils";
+import { asRecord, readNumber, readString } from "./jsonUtils";
 import { internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { MACHINE_REGISTRATION_REQUEST_TTL_MS } from "./connectedMachineModel";
@@ -44,20 +44,32 @@ function readConnectedMachineOs(
 
 function readConnectedMachineCapabilities(
   value: unknown,
-): Array<"presence"> | null {
+): Array<"presence" | "liveControl"> | null {
   if (!Array.isArray(value)) {
     return null;
   }
 
-  const capabilities: Array<"presence"> = [];
+  const capabilities: Array<"presence" | "liveControl"> = [];
   for (const entry of Array.from(new Set(value))) {
-    if (entry !== "presence") {
+    if (entry !== "presence" && entry !== "liveControl") {
       return null;
     }
     capabilities.push(entry);
   }
 
   return capabilities;
+}
+
+function readConnectedMachineControlStatus(
+  value: string | undefined,
+): "ready" | "starting" | "unavailable" | undefined | null {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === "ready" || value === "starting" || value === "unavailable") {
+    return value;
+  }
+  return null;
 }
 
 function readStringArray(value: unknown): string[] | null {
@@ -196,8 +208,22 @@ export const publishMachineHeartbeat = httpAction(async (ctx, request) => {
       : statusValue === "online" || statusValue === "offline"
         ? statusValue
         : null;
+  const controlStatus = readConnectedMachineControlStatus(
+    readString(body, "controlStatus"),
+  );
+  const controlStatusDetail = readString(body, "controlStatusDetail");
+  const controlUrl = readString(body, "controlUrl");
+  const controlUrlUpdatedAt =
+    body.controlUrlUpdatedAt === undefined
+      ? undefined
+      : readNumber(body, "controlUrlUpdatedAt") ?? null;
   const capabilities = readConnectedMachineCapabilities(body.capabilities);
   const allowedRoots = readStringArray(body.allowedRoots);
+  const hasLiveControlPayload =
+    controlStatus !== undefined ||
+    controlStatusDetail !== undefined ||
+    controlUrl !== undefined ||
+    controlUrlUpdatedAt !== undefined;
 
   if (
     !machineId ||
@@ -206,8 +232,16 @@ export const publishMachineHeartbeat = httpAction(async (ctx, request) => {
     !os ||
     !connectorVersion ||
     status === null ||
+    controlStatus === null ||
+    controlUrlUpdatedAt === null ||
     capabilities === null ||
-    allowedRoots === null
+    allowedRoots === null ||
+    (hasLiveControlPayload && controlStatus === undefined) ||
+    (controlStatus !== undefined && controlUrlUpdatedAt === undefined) ||
+    (controlStatus === "ready" && controlUrl === undefined) ||
+    (controlStatus !== undefined &&
+      controlStatus !== "ready" &&
+      controlUrl !== undefined)
   ) {
     return errorResponse(400, "missing machine heartbeat fields");
   }
@@ -225,6 +259,10 @@ export const publishMachineHeartbeat = httpAction(async (ctx, request) => {
       connectorVersion,
       capabilities,
       allowedRoots,
+      controlStatus,
+      controlStatusDetail,
+      controlUrl,
+      controlUrlUpdatedAt,
       status,
     },
   );

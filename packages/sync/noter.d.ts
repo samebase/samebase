@@ -3,6 +3,28 @@ import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 export const LOCAL_CODEX_CONTROL_HOST: '127.0.0.1'
 export const LOCAL_CODEX_CONTROL_PORT: 0
 
+export function buildMachineHeartbeatBody(args: {
+  connectorVersion: string
+  displayName: string
+  hostname: string
+  machineId: string
+  os: string
+  readLiveControlState?: () => {
+    controlStatus?: string
+    controlStatusDetail?: string | null
+    controlUrl?: string | null
+    controlUrlUpdatedAt?: number | null
+  } | null
+  status: string
+}): Record<string, unknown>
+
+export function localControlStatusIsReady(
+  status: unknown,
+  machineId: string,
+): boolean
+
+export function parseCloudflaredQuickTunnelUrl(line: string): string | null
+
 export type CodexLocalControlProtocolMode = 'json-schema' | 'ts'
 
 export interface CodexLocalControlRuntimeSnapshot {

@@ -167,32 +167,44 @@ export type CodexAppServerProtocolResponse = {
   files: CodexAppServerProtocolArtifact[];
 };
 
+export class CodexAppServerRequestError extends Error {
+  readonly status: number;
+
+  constructor(args: { message: string; status: number }) {
+    super(args.message);
+    this.name = "CodexAppServerRequestError";
+    this.status = args.status;
+  }
+}
+
 export async function requestCodexAppServerJson<T>(args: {
+  baseUrl?: string;
   path: string;
   method?: "GET" | "POST";
   body?: Record<string, unknown>;
+  headers?: HeadersInit;
 }): Promise<T> {
-  const response = await fetch(
-    `${CODEX_APP_SERVER_RESEARCH_API_BASE}${args.path}`,
-    {
-      method: args.method ?? "GET",
-      headers:
-        args.body !== undefined
-          ? {
-              "Content-Type": "application/json",
-            }
-          : undefined,
-      body: args.body !== undefined ? JSON.stringify(args.body) : undefined,
-    },
-  );
+  const baseUrl = args.baseUrl ?? CODEX_APP_SERVER_RESEARCH_API_BASE;
+  const headers = new Headers(args.headers);
+  if (args.body !== undefined && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const response = await fetch(`${baseUrl}${args.path}`, {
+    method: args.method ?? "GET",
+    headers,
+    body: args.body !== undefined ? JSON.stringify(args.body) : undefined,
+  });
 
   const payload = await response.json();
   if (!response.ok) {
-    throw new Error(
-      typeof payload.error === "string"
-        ? payload.error
-        : `Request failed: ${response.status}`,
-    );
+    throw new CodexAppServerRequestError({
+      message:
+        typeof payload.error === "string"
+          ? payload.error
+          : `Request failed: ${response.status}`,
+      status: response.status,
+    });
   }
   return payload;
 }

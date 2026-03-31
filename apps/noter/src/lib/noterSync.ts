@@ -1,4 +1,5 @@
 export const MACHINE_CONNECT_ROUTE = "/machines/connect";
+export const MACHINE_LIVE_CONTROL_ROUTE = "/machines/:machineId/live";
 export const NOTER_SYNC_PUBLIC_SCRIPT_PATH = "/noter.js";
 
 function quoteShellArg(value: string): string {
@@ -7,6 +8,23 @@ function quoteShellArg(value: string): string {
 
 export function buildNoterSyncScriptUrl(origin: string): string {
   return new URL(NOTER_SYNC_PUBLIC_SCRIPT_PATH, origin).toString();
+}
+
+export function buildMachineLiveControlPath(machineId: string): string {
+  return `/machines/${encodeURIComponent(machineId)}/live`;
+}
+
+export function readMachineLiveControlPath(pathname: string): {
+  machineId: string;
+} | null {
+  const match = pathname.match(/^\/machines\/([^/]+)\/live$/);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    machineId: decodeURIComponent(match[1]),
+  };
 }
 
 export function buildPublishedNoterSyncConnectCommand(): string {
