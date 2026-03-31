@@ -172,6 +172,11 @@ function ensureAppLoaded(): Promise<void> {
   });
 }
 
+/**
+ * Capture the fast-shell scroll offset right before hydration so the mounted
+ * landing route can restore the same position without reading from a missing
+ * pre-hydration node.
+ */
 function syncPendingPublicLandingScrollTop() {
   const shellMain = document.querySelector(
     `[data-testid="${PUBLIC_LANDING_SHELL_MAIN_TEST_ID}"]`,
