@@ -114,14 +114,15 @@ function readControlStatusRank(
   return status ? CONTROL_STATUS_RANK[status] : 3;
 }
 
-function NodeRequirementSection() {
+function LocalRequirementsSection() {
   return (
     <section className="corner-notch-1 border border-border p-4">
       <div className="space-y-2">
-        <p className="text-sm font-medium">Node.js required</p>
+        <p className="text-sm font-medium">Local requirements</p>
         <p className="text-sm text-muted-foreground">
-          These commands need <code>node</code> on your PATH first. Check with{" "}
-          <code>node --version</code>.
+          These commands need both <code>node</code> and the Codex CLI{" "}
+          <code>codex</code> on your PATH. Check with{" "}
+          <code>node --version</code> and <code>codex --version</code>.
         </p>
         <p className="text-sm text-muted-foreground">
           macOS: if you want <code>nvm</code>, use the official installer, then
@@ -143,6 +144,12 @@ function NodeRequirementSection() {
             nodejs.org
           </a>
           .
+        </p>
+        <p className="text-sm text-muted-foreground">
+          If <code>codex</code> is missing, install the official Codex CLI with{" "}
+          <code>npm install -g @openai/codex</code>. The Codex desktop app alone
+          does not guarantee that the shell command exists on this machine, and
+          OpenAI currently documents native Windows CLI support as experimental.
         </p>
       </div>
     </section>
@@ -489,8 +496,8 @@ export function MachineConnectPageContent({
             Connect this machine
           </h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Run the connect command on the machine that already has Codex
-            installed, then approve the browser handoff here.
+            Run the connect command on the machine that already has Node.js and
+            the Codex CLI on PATH, then approve the browser handoff here.
           </p>
         </div>
 
@@ -513,7 +520,7 @@ export function MachineConnectPageContent({
           </div>
         </section>
 
-        <NodeRequirementSection />
+        <LocalRequirementsSection />
 
         {connectedMachines.length > 0 ? (
           <ConnectedMachineHeartbeatLogSection heartbeatLog={heartbeatLog} />

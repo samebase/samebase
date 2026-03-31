@@ -61,10 +61,14 @@ describe("MachineConnectPageContent", () => {
 
     expect(markup).toContain("Machine registration request expired.");
     expect(markup).toContain("border-red-200");
-    expect(markup).toContain("Node.js required");
+    expect(markup).toContain("Local requirements");
     expect(markup).toContain("node --version");
+    expect(markup).toContain("codex --version");
     expect(markup).toContain("nvm install --lts");
     expect(markup).toContain("OpenJS.NodeJS.LTS");
+    expect(markup).toContain("npm install -g @openai/codex");
+    expect(markup).toContain("desktop app alone does not guarantee");
+    expect(markup).toContain("native Windows CLI support as experimental");
   });
 
   it("shows a live-control entrypoint for ready machines", () => {

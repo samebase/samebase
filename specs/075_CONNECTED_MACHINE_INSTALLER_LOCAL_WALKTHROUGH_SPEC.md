@@ -28,15 +28,16 @@ Today this slice still does **not** give you:
 
 That next step is tracked in `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`.
 
-## Node Prerequisite
+## Local Prerequisites
 
-The direct hosted-file flow needs `node` on `PATH` before you run any `noter.js`
-command.
+The direct hosted-file flow needs both `node` and the Codex CLI command `codex`
+on `PATH` before you run any `noter.js` command.
 
 Quick check:
 
 ```bash
 node --version
+codex --version
 ```
 
 Truthful install guidance for the current repo state:
@@ -51,6 +52,12 @@ Truthful install guidance for the current repo state:
    `winget install --id OpenJS.NodeJS.LTS -e`
 5. if someone prefers installers instead of shell package managers, send them to
    the current Node.js LTS download page on `nodejs.org`
+6. the Codex desktop app alone does not guarantee that the `codex` shell command
+   exists on the machine
+7. if `codex` is missing, install the official Codex CLI with
+   `npm install -g @openai/codex`
+8. OpenAI's current Codex CLI docs describe native Windows support as
+   experimental
 
 ## Fastest Path
 
@@ -136,7 +143,7 @@ curl.exe -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - con
 What this does today:
 
 1. validates that the source URL points to `/noter.js`
-2. runs `codex --version`
+2. runs `codex --version` to confirm the Codex CLI is on `PATH`
 3. creates a machine registration request in Noter
 4. writes or updates `~/.noter/config.json`
 5. prints a markdown status block to stdout

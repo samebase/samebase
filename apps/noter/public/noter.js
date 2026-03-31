@@ -4,7 +4,7 @@
 // Audit guide:
 // 1. Validate that this file was served from `/noter.js` on `https:` (or
 //    explicit localhost `http:` during local testing).
-// 2. Run `codex --version` to confirm Codex is installed.
+// 2. Run `codex --version` to confirm the Codex CLI is on PATH.
 // 3. Write one JSON config file under `~/.noter/config.json`.
 // 4. Open Noter's `/machines/connect` page in the default browser.
 // 5. Reuse the stored machine credential for later heartbeat publishing.
@@ -314,18 +314,43 @@ export function buildMachineHeartbeatBody(args) {
   }
 }
 
+function buildCodexCliMissingMessage() {
+  return 'The `codex` command was not found. This flow needs the Codex CLI on your PATH. The Codex desktop app alone does not guarantee that the shell command exists. After Node.js is available, run `npm install -g @openai/codex` and retry.'
+}
+
+function codexCommandWasNotFound(error) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'ENOENT'
+  )
+}
+
 /**
- * We only need proof that Codex exists locally. `codex --version` is the
- * smallest safe command that gives us that signal.
+ * We only need proof that the Codex CLI exists locally and is callable from
+ * PATH. `codex --version` is the smallest safe command that gives us that
+ * signal.
  */
 export function detectCodexVersion() {
   const result = spawnSync('codex', ['--version'], {
     encoding: 'utf8',
   })
 
-  if (result.error || result.status !== 0) {
+  if (codexCommandWasNotFound(result.error)) {
+    throw new Error(buildCodexCliMissingMessage())
+  }
+
+  if (result.error) {
+    throw result.error
+  }
+
+  if (result.status !== 0) {
+    const commandOutput = (result.stderr || result.stdout).trim()
     throw new Error(
-      'The `codex` command was not found. Install Codex before running noter sync.',
+      commandOutput.length > 0
+        ? `codex --version failed: ${commandOutput}`
+        : 'codex --version failed.',
     )
   }
 
@@ -1944,13 +1969,23 @@ export class CodexLocalControlRuntime {
   }
 
   async ensureCodexBinary() {
-    const { stdout } = await execFileAsync('codex', ['--version'], {
-      cwd: this.workspaceRoot,
-      timeout: 10_000,
-    })
+    let stdout = ''
+    try {
+      ;({ stdout } = await execFileAsync('codex', ['--version'], {
+        cwd: this.workspaceRoot,
+        timeout: 10_000,
+      }))
+    } catch (error) {
+      if (codexCommandWasNotFound(error)) {
+        throw new Error(buildCodexCliMissingMessage())
+      }
+      throw error
+    }
     const version = stdout.trim()
     if (version.length === 0) {
-      throw new Error('codex --version returned an empty response')
+      throw new Error(
+        'codex --version returned an empty response. Confirm that the Codex CLI is available on PATH.',
+      )
     }
     return version
   }
@@ -3611,7 +3646,7 @@ async function runConnectorCommand() {
 /**
  * Happy path:
  * 1. Validate the hosted source URL.
- * 2. Confirm Codex exists locally.
+ * 2. Confirm the Codex CLI exists locally and is available on PATH.
  * 3. Persist one local config file.
  * 4. Print a markdown summary.
  * 5. Hand off to the browser for approval.

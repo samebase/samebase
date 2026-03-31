@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: connected machine onboarding + presence
-- Last updated: 2026-03-31
+- Last updated: 2026-04-01
 - Related docs:
   - `rfcs/073_CODEX_PLUGIN_CONNECTED_MACHINE_ONBOARDING_RESEARCH.md`
   - `specs/075_CONNECTED_MACHINE_INSTALLER_LOCAL_WALKTHROUGH_SPEC.md`
@@ -47,7 +47,8 @@ Noter now has:
 
 ### Installer and approval flow
 
-1. `noter-sync connect` validates its source URL and checks `codex --version`.
+1. `noter-sync connect` validates its source URL and checks `codex --version` so
+   the Codex CLI is available on `PATH`.
 2. The CLI creates a machine registration request and writes
    `~/.noter/config.json`.
 3. The browser handoff page lets the signed-in user approve the pending machine.

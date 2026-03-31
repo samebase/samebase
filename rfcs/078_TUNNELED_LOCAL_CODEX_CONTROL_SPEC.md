@@ -4,7 +4,7 @@
 
 - Status: Proposed
 - Owner: connected machine local control
-- Last updated: 2026-03-31
+- Last updated: 2026-04-01
 - Related docs:
   - `specs/069_LOCAL_PROVIDER_THREAD_INVENTORY_RESEARCH_SURFACE_SPEC.md`
   - `specs/075_CONNECTED_MACHINE_INSTALLER_LOCAL_WALKTHROUGH_SPEC.md`
@@ -112,8 +112,9 @@ curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 
 ### 2. Bootstrap the local machine
 
 1. The operator runs the install command on the machine they want to control.
-2. The CLI validates the `sourceUrl`, checks `codex --version`, creates a
-   pending machine registration request, and writes `~/.noter/config.json`.
+2. The CLI validates the `sourceUrl`, checks `codex --version` so the Codex CLI
+   is available on `PATH`, creates a pending machine registration request, and
+   writes `~/.noter/config.json`.
 3. The CLI opens the browser to:
 
 `https://noter.md/machines/connect?openedByCli&requestId=...`
