@@ -97,6 +97,20 @@ function readBearerToken(authorizationHeader: string | null): string | null {
 }
 
 /**
+ * Only heartbeats that explicitly advertise the live-control capability may
+ * publish a "ready" control surface. This keeps the UI and token-minting path
+ * aligned with what the connector says it can actually serve.
+ */
+export function machineHeartbeatHasConsistentLiveControlState(args: {
+  capabilities: Array<"presence" | "liveControl">;
+  controlStatus: "ready" | "starting" | "unavailable" | undefined;
+}): boolean {
+  return (
+    args.controlStatus !== "ready" || args.capabilities.includes("liveControl")
+  );
+}
+
+/**
  * Cloudflare populates `cf-connecting-ip` for public traffic through the Convex
  * HTTP surface. We only trust that proxy-managed identity signal here and fall
  * back to a broader deployment bucket when local/dev traffic does not expose
@@ -239,6 +253,10 @@ export const publishMachineHeartbeat = httpAction(async (ctx, request) => {
     (hasLiveControlPayload && controlStatus === undefined) ||
     (controlStatus !== undefined && controlUrlUpdatedAt === undefined) ||
     (controlStatus === "ready" && controlUrl === undefined) ||
+    !machineHeartbeatHasConsistentLiveControlState({
+      capabilities,
+      controlStatus,
+    }) ||
     (controlStatus !== undefined &&
       controlStatus !== "ready" &&
       controlUrl !== undefined)

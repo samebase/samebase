@@ -120,6 +120,7 @@ describe('@noter-md/sync', () => {
             auth: {
               enforced: true,
               machineId: 'machine_123',
+              readinessProbePassed: true,
             },
             loopbackOnly: true,
           },
@@ -134,6 +135,7 @@ describe('@noter-md/sync', () => {
             auth: {
               enforced: true,
               machineId: 'machine_other',
+              readinessProbePassed: true,
             },
             loopbackOnly: true,
           },
@@ -148,6 +150,7 @@ describe('@noter-md/sync', () => {
             auth: {
               enforced: true,
               machineId: null,
+              readinessProbePassed: true,
             },
             loopbackOnly: true,
           },
@@ -155,6 +158,20 @@ describe('@noter-md/sync', () => {
         'machine_123',
       ),
     ).toBe(true)
+    expect(
+      localControlStatusIsReady(
+        {
+          service: {
+            auth: {
+              enforced: true,
+              machineId: 'machine_123',
+            },
+            loopbackOnly: true,
+          },
+        },
+        'machine_123',
+      ),
+    ).toBe(false)
   })
 
   it('stores bootstrap state in one local config file', () => {
@@ -576,6 +593,186 @@ describe('@noter-md/sync', () => {
     } finally {
       await new Promise((resolve, reject) => {
         server.close(error => {
+          if (error) {
+            reject(error)
+            return
+          }
+
+          resolve(undefined)
+        })
+      })
+    }
+  })
+
+  it('rejects synthetic bearer tokens on /status before exposing runtime metadata', async () => {
+    const runtime = {
+      getStatus: vi.fn().mockResolvedValue({
+        runtime: {
+          running: true,
+        },
+        workspaceRoot: '/repo',
+      }),
+    }
+    const introspectionServer = createServer((_req, res) => {
+      res.setHeader('content-type', 'application/json; charset=utf-8')
+      res.end(
+        JSON.stringify({
+          active: false,
+        }),
+      )
+    })
+
+    await new Promise((resolve, reject) => {
+      introspectionServer.once('error', reject)
+      introspectionServer.listen(0, '127.0.0.1', () => {
+        introspectionServer.removeListener('error', reject)
+        resolve(undefined)
+      })
+    })
+
+    const introspectionAddress = introspectionServer.address()
+    if (!introspectionAddress || typeof introspectionAddress === 'string') {
+      throw new Error('Expected a TCP introspection server address')
+    }
+
+    const router = createCodexLocalControlRouter({
+      machineControlAuth: {
+        allowedOrigins: ['https://noter.md'],
+        introspectionUrl: `http://127.0.0.1:${introspectionAddress.port}/introspect`,
+        machineId: 'machine_123',
+      },
+      runtime,
+    })
+    const server = createServer((req, res) => {
+      void router(req, res)
+    })
+
+    await new Promise((resolve, reject) => {
+      server.once('error', reject)
+      server.listen(0, '127.0.0.1', () => {
+        server.removeListener('error', reject)
+        resolve(undefined)
+      })
+    })
+
+    try {
+      const address = server.address()
+      if (!address || typeof address === 'string') {
+        throw new Error('Expected a TCP server address')
+      }
+
+      const response = await fetch(`http://127.0.0.1:${address.port}/status`, {
+        headers: {
+          Authorization: 'Bearer mmct_readiness_probe',
+          Origin: 'https://noter.md',
+        },
+      })
+      expect(response.status).toBe(401)
+      expect(await response.json()).toEqual({
+        error: 'Machine control token is inactive.',
+      })
+      expect(runtime.getStatus).not.toHaveBeenCalled()
+    } finally {
+      await new Promise((resolve, reject) => {
+        server.close(error => {
+          if (error) {
+            reject(error)
+            return
+          }
+
+          resolve(undefined)
+        })
+      })
+      await new Promise((resolve, reject) => {
+        introspectionServer.close(error => {
+          if (error) {
+            reject(error)
+            return
+          }
+
+          resolve(undefined)
+        })
+      })
+    }
+  })
+
+  it('returns 503 from /status when machine-control introspection is unavailable', async () => {
+    const runtime = {
+      getStatus: vi.fn(),
+    }
+    const introspectionServer = createServer((_req, res) => {
+      res.statusCode = 503
+      res.setHeader('content-type', 'application/json; charset=utf-8')
+      res.end(
+        JSON.stringify({
+          error: 'temporarily unavailable',
+        }),
+      )
+    })
+
+    await new Promise((resolve, reject) => {
+      introspectionServer.once('error', reject)
+      introspectionServer.listen(0, '127.0.0.1', () => {
+        introspectionServer.removeListener('error', reject)
+        resolve(undefined)
+      })
+    })
+
+    const introspectionAddress = introspectionServer.address()
+    if (!introspectionAddress || typeof introspectionAddress === 'string') {
+      throw new Error('Expected a TCP introspection server address')
+    }
+
+    const router = createCodexLocalControlRouter({
+      machineControlAuth: {
+        allowedOrigins: ['https://noter.md'],
+        introspectionUrl: `http://127.0.0.1:${introspectionAddress.port}/introspect`,
+        machineId: 'machine_123',
+      },
+      runtime,
+    })
+    const server = createServer((req, res) => {
+      void router(req, res)
+    })
+
+    await new Promise((resolve, reject) => {
+      server.once('error', reject)
+      server.listen(0, '127.0.0.1', () => {
+        server.removeListener('error', reject)
+        resolve(undefined)
+      })
+    })
+
+    try {
+      const address = server.address()
+      if (!address || typeof address === 'string') {
+        throw new Error('Expected a TCP server address')
+      }
+
+      const response = await fetch(`http://127.0.0.1:${address.port}/status`, {
+        headers: {
+          Authorization: 'Bearer mmct_readiness_probe',
+          Origin: 'https://noter.md',
+        },
+      })
+      expect(response.status).toBe(503)
+      expect(await response.json()).toEqual({
+        error: 'Machine control introspection failed: HTTP 503.',
+      })
+      expect(runtime.getStatus).not.toHaveBeenCalled()
+    } finally {
+      await new Promise((resolve, reject) => {
+        server.close(error => {
+          if (error) {
+            reject(error)
+            return
+          }
+
+          resolve(undefined)
+        })
+      })
+      await new Promise((resolve, reject) => {
+        introspectionServer.close(error => {
           if (error) {
             reject(error)
             return

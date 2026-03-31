@@ -7,6 +7,8 @@ export function MachineConnectVisualFixture() {
       <div
         data-testid="machine-connect-visual-fixture"
         className="min-h-screen bg-background text-foreground"
+        // Pin the fixture bounds so Linux and macOS capture the same screenshot.
+        style={{ minHeight: 1341 }}
       >
         <MachineConnectPageContent
           approvalError="Machine registration request expired."

@@ -56,6 +56,7 @@ const MACHINE_CONTROL_INTROSPECTION_TIMEOUT_MS = 2_000
 const MACHINE_CONTROL_INTROSPECTION_BACKOFF_MS = [200, 500]
 const MACHINE_CONTROL_INTROSPECTION_PATHNAME =
   '/connected-machines/control/introspect'
+const MACHINE_CONTROL_READINESS_PROBE_TOKEN = 'mmct_readiness_probe'
 const CLOUDFLARED_TUNNEL_START_TIMEOUT_MS = 30_000
 const CLOUDFLARED_TUNNEL_SHUTDOWN_TIMEOUT_MS = 5_000
 const CODEX_RPC_TIMEOUT_MS = 120_000
@@ -1618,6 +1619,7 @@ export function localControlStatusIsReady(status, machineId) {
   return (
     serviceRecord?.loopbackOnly === true &&
     authRecord?.enforced === true &&
+    authRecord?.readinessProbePassed === true &&
     (authRecord?.machineId === machineId ||
       authRecord?.machineId === null ||
       typeof authRecord?.machineId === 'undefined')
@@ -2993,7 +2995,44 @@ async function readLocalControlStatus(localControlOrigin) {
     throw new Error(`Local control status response is invalid: ${text}`)
   }
 
-  return status
+  // Prove the auth path is live before we publish a public tunnel. A fake
+  // bearer token should fail closed with 401; anything else means the
+  // connector is not actually ready for remote traffic yet.
+  const authProbeResponse = await fetchWithTimeout(
+    `${localControlOrigin}/status`,
+    {
+      headers: {
+        accept: 'application/json',
+        authorization: `Bearer ${MACHINE_CONTROL_READINESS_PROBE_TOKEN}`,
+      },
+    },
+    'Local control auth probe',
+  )
+
+  if (authProbeResponse.status !== 401) {
+    if (authProbeResponse.ok) {
+      throw new Error(
+        'Local control auth probe unexpectedly accepted a synthetic bearer token.',
+      )
+    }
+
+    throw new Error(
+      `Local control auth probe failed: HTTP ${authProbeResponse.status}.`,
+    )
+  }
+
+  const serviceRecord = asRecord(status.service)
+  const authRecord = asRecord(serviceRecord?.auth)
+  return {
+    ...status,
+    service: {
+      ...(serviceRecord ?? {}),
+      auth: {
+        ...(authRecord ?? {}),
+        readinessProbePassed: true,
+      },
+    },
+  }
 }
 
 async function ensureCloudflaredBinary() {
