@@ -2,10 +2,12 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
+// Force the desktop branch so the static markup stays stable in this test.
 vi.mock("@/hooks/use-mobile", () => ({
   useIsMobile: () => false,
 }));
 
+// Replace portal-backed dialog primitives with passthrough shells for SSR assertions.
 vi.mock("@/components/dialog", () => ({
   Dialog: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   DialogContent: ({ children }: { children?: ReactNode }) => (
@@ -19,6 +21,7 @@ vi.mock("@/components/dialog", () => ({
   ),
 }));
 
+// Mirror the sheet API with inert wrappers so mobile-only structure stays simple here.
 vi.mock("@/components/sheet", () => ({
   Sheet: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   SheetContent: ({ children }: { children?: ReactNode }) => (
@@ -30,6 +33,7 @@ vi.mock("@/components/sheet", () => ({
   SheetTitle: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
+// Keep the button primitive minimal while preserving disabled-state assertions.
 vi.mock("@/components/ui/button", () => ({
   Button: ({
     children,
@@ -40,6 +44,7 @@ vi.mock("@/components/ui/button", () => ({
   }) => <button disabled={disabled}>{children}</button>,
 }));
 
+// Keep input markup inspectable without pulling in interactive wrapper behavior.
 vi.mock("@/components/input", () => ({
   Input: ({
     id,

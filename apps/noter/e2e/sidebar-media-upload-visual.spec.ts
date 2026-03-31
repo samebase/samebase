@@ -25,10 +25,11 @@ for (const scenario of SCENARIOS) {
     });
 
     const fixture = page.getByTestId("sidebar-media-upload-visual-fixture");
+    const footerTrigger = page.getByText("Drop file or click");
 
     await expect(fixture).toBeVisible();
     if (scenario.expectsFooterVisible) {
-      await expect(page.getByText("Drop file or click")).toBeVisible();
+      await expect(footerTrigger).toBeVisible();
     }
     await expect(
       page.getByText("This replaces the existing file"),
@@ -40,7 +41,7 @@ for (const scenario of SCENARIOS) {
     const screenshotTarget =
       scenario.screenshotTarget === "dialog"
         ? page.getByTestId("media-upload-dialog-content")
-        : page;
+        : fixture;
     const screenshot = await screenshotTarget.screenshot({
       animations: "disabled",
       caret: "hide",

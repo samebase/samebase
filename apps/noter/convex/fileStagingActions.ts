@@ -36,6 +36,13 @@ type HeaderMap = Record<string, HeaderValue>;
 type CreateTreeEntry = NonNullable<
   RestEndpointMethodTypes["git"]["createTree"]["parameters"]["tree"]
 >[number];
+type EditableFileState = {
+  content: string;
+  parentCommitSha: string | null;
+  lastEditTime: number;
+  branch: string;
+  version: number;
+};
 
 const githubRateLimitResetByUser = new Map<string, number>();
 const PULL_REQUEST_COMPARE_FILE_LIST_LIMIT = 3_000;
@@ -213,6 +220,61 @@ function readMatchingOpenPullRequestForBranch(args: {
         baseBranch: latestMatch.baseBranch,
       }
     : null;
+}
+
+function readEditableFileState(
+  stagedFile: EditableFileState,
+): EditableFileState {
+  return {
+    content: stagedFile.content,
+    parentCommitSha: stagedFile.parentCommitSha,
+    lastEditTime: stagedFile.lastEditTime,
+    branch: stagedFile.branch,
+    version: stagedFile.version,
+  };
+}
+
+/**
+ * Repository-backed binary files need to flow through the same staging path as
+ * fresh uploads so previews, conflict handling, and commits all resolve one
+ * binary source of truth.
+ */
+async function stageRepositoryBinaryBlobForEditing(args: {
+  ctx: ActionCtx;
+  vaultId: Id<"vaults">;
+  originalFilePath: string;
+  targetBranch: string;
+  filePath: string;
+  fileSha: string;
+  userId: Id<"users">;
+  storageId: Id<"_storage"> | null | undefined;
+  mime: string | null | undefined;
+  size: number;
+  missingStorageError: string;
+}): Promise<EditableFileState> {
+  if (getRepositoryMediaKind(args.filePath) === null) {
+    throw new Error("File content is stored in storage-backed binary form.");
+  }
+  if (typeof args.storageId !== "string") {
+    throw new Error(args.missingStorageError);
+  }
+
+  const stagedFile = await args.ctx.runMutation(
+    internal.fileStaging.saveBinaryUploadToStaging,
+    {
+      vaultId: args.vaultId,
+      filePath: args.originalFilePath,
+      branch: args.targetBranch,
+      storageId: args.storageId,
+      mime: args.mime ?? guessMime(args.filePath),
+      size: args.size,
+      stagedBlobSha: args.fileSha,
+      replaceExisting: true,
+      userId: args.userId,
+    },
+  );
+
+  return readEditableFileState(stagedFile);
 }
 
 export function readOpenPullRequestForBranch(args: {
@@ -1937,16 +1999,7 @@ export const getFileForEditing = action({
     branch: v.optional(v.string()),
   },
 
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{
-    content: string;
-    parentCommitSha: string | null;
-    lastEditTime: number;
-    branch: string;
-    version: number;
-  }> => {
+  handler: async (ctx, args): Promise<EditableFileState> => {
     const userId = await getUserId(ctx);
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
@@ -2020,37 +2073,19 @@ export const getFileForEditing = action({
 
       if (cachedBlob) {
         if (typeof cachedBlob.text !== "string") {
-          if (getRepositoryMediaKind(filePath) === null) {
-            throw new Error(
-              "File content is stored in storage-backed binary form.",
-            );
-          }
-          if (typeof cachedBlob.storageId !== "string") {
-            throw new Error("Cached binary blob is missing storage data.");
-          }
-
-          const stagedFile = await ctx.runMutation(
-            internal.fileStaging.saveBinaryUploadToStaging,
-            {
-              vaultId: vault._id,
-              filePath: args.originalFilePath,
-              branch: targetBranch,
-              storageId: cachedBlob.storageId,
-              mime: cachedBlob.mime ?? guessMime(filePath),
-              size: file.data.size,
-              stagedBlobSha: fileSha,
-              replaceExisting: true,
-              userId,
-            },
-          );
-
-          return {
-            content: stagedFile.content,
-            parentCommitSha: stagedFile.parentCommitSha,
-            lastEditTime: stagedFile.lastEditTime,
-            branch: stagedFile.branch,
-            version: stagedFile.version,
-          };
+          return stageRepositoryBinaryBlobForEditing({
+            ctx,
+            vaultId: vault._id,
+            originalFilePath: args.originalFilePath,
+            targetBranch,
+            filePath,
+            fileSha,
+            userId,
+            storageId: cachedBlob.storageId,
+            mime: cachedBlob.mime,
+            size: file.data.size,
+            missingStorageError: "Cached binary blob is missing storage data.",
+          });
         }
 
         const stagedFile = await ctx.runMutation(
@@ -2065,13 +2100,7 @@ export const getFileForEditing = action({
           },
         );
 
-        return {
-          content: stagedFile.content,
-          parentCommitSha: stagedFile.parentCommitSha,
-          lastEditTime: stagedFile.lastEditTime,
-          branch: stagedFile.branch,
-          version: stagedFile.version,
-        };
+        return readEditableFileState(stagedFile);
       }
 
       const blobResponse = await octokit.rest.git.getBlob({
@@ -2129,37 +2158,19 @@ export const getFileForEditing = action({
       }
 
       if (typeof savedBlob.text !== "string") {
-        if (getRepositoryMediaKind(filePath) === null) {
-          throw new Error(
-            "File content is stored in storage-backed binary form.",
-          );
-        }
-        if (typeof savedBlob.storageId !== "string") {
-          throw new Error("Saved binary blob is missing storage data.");
-        }
-
-        const stagedFile = await ctx.runMutation(
-          internal.fileStaging.saveBinaryUploadToStaging,
-          {
-            vaultId: vault._id,
-            filePath: args.originalFilePath,
-            branch: targetBranch,
-            storageId: savedBlob.storageId,
-            mime,
-            size: file.data.size,
-            stagedBlobSha: fileSha,
-            replaceExisting: true,
-            userId,
-          },
-        );
-
-        return {
-          content: stagedFile.content,
-          parentCommitSha: stagedFile.parentCommitSha,
-          lastEditTime: stagedFile.lastEditTime,
-          branch: stagedFile.branch,
-          version: stagedFile.version,
-        };
+        return stageRepositoryBinaryBlobForEditing({
+          ctx,
+          vaultId: vault._id,
+          originalFilePath: args.originalFilePath,
+          targetBranch,
+          filePath,
+          fileSha,
+          userId,
+          storageId: savedBlob.storageId,
+          mime,
+          size: file.data.size,
+          missingStorageError: "Saved binary blob is missing storage data.",
+        });
       }
 
       const stagedFile = await ctx.runMutation(
@@ -2174,13 +2185,7 @@ export const getFileForEditing = action({
         },
       );
 
-      return {
-        content: stagedFile.content,
-        parentCommitSha: stagedFile.parentCommitSha,
-        lastEditTime: stagedFile.lastEditTime,
-        branch: stagedFile.branch,
-        version: stagedFile.version,
-      };
+      return readEditableFileState(stagedFile);
     } catch (error) {
       console.error("error", error);
       throw error;
@@ -2188,6 +2193,12 @@ export const getFileForEditing = action({
   },
 });
 
+/**
+ * Stages a newly uploaded image by computing the same Git blob SHA GitHub will
+ * use later, then persisting the upload through binary staging so previews and
+ * commit generation stay deterministic. `replaceExisting` only applies to an
+ * existing target path, and an omitted branch falls back to the repo default.
+ */
 export const stageUploadedMedia = action({
   args: {
     repositoryFullName: string(),
