@@ -9,21 +9,23 @@ export function getPreviewBaseFilePath(args: {
   comparedPreviousPath?: string;
   currentFilePath: string;
   previewPreviousPath?: string;
+  stagedCurrentFilePath?: string;
   stagedInitialFilePath?: string;
 }): string {
   if (args.comparedPreviousPath) {
     return args.comparedPreviousPath;
   }
 
+  if (args.previewPreviousPath) {
+    return args.previewPreviousPath;
+  }
+
   if (
+    args.stagedCurrentFilePath === args.currentFilePath &&
     args.stagedInitialFilePath &&
     args.stagedInitialFilePath !== args.currentFilePath
   ) {
     return args.stagedInitialFilePath;
-  }
-
-  if (args.previewPreviousPath) {
-    return args.previewPreviousPath;
   }
 
   return args.currentFilePath;

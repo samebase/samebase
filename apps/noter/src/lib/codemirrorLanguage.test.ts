@@ -8,12 +8,14 @@ describe("codemirrorLanguage", () => {
   it("keeps markdown files on the markdown parser path", () => {
     expect(getCodeMirrorFileLanguageKind("README.md")).toBe("markdown");
     expect(getCodeMirrorFileLanguageKind("rfcs/spec.mdx")).toBe("markdown");
+    expect(getCodeMirrorFileLanguageKind("README")).toBe("markdown");
   });
 
   it("resolves known code files to language-aware mode", async () => {
     expect(getCodeMirrorFileLanguageKind("src/file.tsx")).toBe("code");
     expect(getCodeMirrorFileLanguageKind("src/Component.TSX")).toBe("code");
     expect(getCodeMirrorFileLanguageKind("infra/Dockerfile")).toBe("code");
+    expect(getCodeMirrorFileLanguageKind("Dockerfile")).toBe("code");
 
     const extension = await loadCodeMirrorLanguageExtension("src/file.tsx");
     expect(Array.isArray(extension)).toBe(true);

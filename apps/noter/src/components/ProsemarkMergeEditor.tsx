@@ -268,23 +268,8 @@ export function ProsemarkMergeEditor({
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
-    view.dispatch({
-      effects: themeCompartmentRef.current.reconfigure(
-        getProsemarkFileThemeExtensions({
-          isDark,
-          languageKind: languageKindRef.current,
-        }),
-      ),
-    });
-  }, [isDark]);
-
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view) return;
-
     const nextLanguageKind = getCodeMirrorFileLanguageKind(filePath);
     languageKindRef.current = nextLanguageKind;
-
     view.dispatch({
       effects: themeCompartmentRef.current.reconfigure(
         getProsemarkFileThemeExtensions({
@@ -293,26 +278,58 @@ export function ProsemarkMergeEditor({
         }),
       ),
     });
+  }, [filePath, isDark]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    const nextLanguageKind = getCodeMirrorFileLanguageKind(filePath);
+    languageKindRef.current = nextLanguageKind;
+    const initialLanguageExtension =
+      getInitialCodeMirrorLanguageExtension(filePath);
+
+    // Reset to the synchronous parser immediately so merge surfaces do not
+    // briefly highlight the next file with the previous grammar.
+    view.dispatch({
+      effects: languageCompartmentRef.current.reconfigure(
+        initialLanguageExtension,
+      ),
+    });
 
     let isCurrent = true;
 
     // Merge view keeps one editor instance alive, so reconfigure the parser in
     // place once the filename-based language loader resolves.
-    void loadCodeMirrorLanguageExtension(filePath).then((languageExtension) => {
-      if (!isCurrent || !viewRef.current) {
-        return;
-      }
+    void loadCodeMirrorLanguageExtension(filePath)
+      .then((languageExtension) => {
+        if (!isCurrent || !viewRef.current) {
+          return;
+        }
 
-      viewRef.current.dispatch({
-        effects: languageCompartmentRef.current.reconfigure(languageExtension),
+        viewRef.current.dispatch({
+          effects:
+            languageCompartmentRef.current.reconfigure(languageExtension),
+        });
+        resizeToContent();
+      })
+      .catch(() => {
+        if (!isCurrent) {
+          return;
+        }
+
+        view.dispatch({
+          effects: languageCompartmentRef.current.reconfigure(
+            initialLanguageExtension,
+          ),
+        });
+        resizeToContent();
       });
-      resizeToContent();
-    });
 
     return () => {
       isCurrent = false;
     };
-  }, [filePath, isDark, resizeToContent]);
+  }, [filePath, resizeToContent]);
 
   useEffect(() => {
     const view = viewRef.current;

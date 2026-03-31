@@ -381,23 +381,8 @@ export function ProsemarkReadOnly({
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
-    view.dispatch({
-      effects: themeCompartmentRef.current.reconfigure(
-        getProsemarkFileThemeExtensions({
-          isDark,
-          languageKind: languageKindRef.current,
-        }),
-      ),
-    });
-  }, [isDark]);
-
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view) return;
-
     const nextLanguageKind = getCodeMirrorFileLanguageKind(filePath);
     languageKindRef.current = nextLanguageKind;
-
     view.dispatch({
       effects: themeCompartmentRef.current.reconfigure(
         getProsemarkFileThemeExtensions({
@@ -406,26 +391,59 @@ export function ProsemarkReadOnly({
         }),
       ),
     });
+  }, [filePath, isDark]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    const nextLanguageKind = getCodeMirrorFileLanguageKind(filePath);
+    languageKindRef.current = nextLanguageKind;
+    const initialLanguageExtension =
+      getInitialCodeMirrorLanguageExtension(filePath);
+
+    // Swap to the safe synchronous parser immediately so file switches do not
+    // keep tokenizing with the previous document's grammar while the lazy
+    // language chunk is still loading.
+    view.dispatch({
+      effects: languageCompartmentRef.current.reconfigure(
+        initialLanguageExtension,
+      ),
+    });
 
     let isCurrent = true;
 
     // CodeMirror language-data resolves code languages asynchronously, so the
     // rich diff surface starts with a safe parser and upgrades in place.
-    void loadCodeMirrorLanguageExtension(filePath).then((languageExtension) => {
-      if (!isCurrent || !viewRef.current) {
-        return;
-      }
+    void loadCodeMirrorLanguageExtension(filePath)
+      .then((languageExtension) => {
+        if (!isCurrent || !viewRef.current) {
+          return;
+        }
 
-      viewRef.current.dispatch({
-        effects: languageCompartmentRef.current.reconfigure(languageExtension),
+        viewRef.current.dispatch({
+          effects:
+            languageCompartmentRef.current.reconfigure(languageExtension),
+        });
+        resizeToContent();
+      })
+      .catch(() => {
+        if (!isCurrent) {
+          return;
+        }
+
+        view.dispatch({
+          effects: languageCompartmentRef.current.reconfigure(
+            initialLanguageExtension,
+          ),
+        });
+        resizeToContent();
       });
-      resizeToContent();
-    });
 
     return () => {
       isCurrent = false;
     };
-  }, [filePath, isDark, resizeToContent]);
+  }, [filePath, resizeToContent]);
 
   useEffect(() => {
     const view = viewRef.current;

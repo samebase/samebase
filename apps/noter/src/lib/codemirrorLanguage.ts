@@ -79,7 +79,14 @@ export function getCodeMirrorFileLanguageKind(
     return "markdown";
   }
 
-  return getMatchingLanguage(filePath) ? "code" : "plain";
+  if (getMatchingLanguage(filePath)) {
+    return "code";
+  }
+
+  // Extensionless prose files like `README` still route through ProseMark
+  // surfaces, so keep their parser/theme on the Markdown path unless a
+  // filename-based language like `Dockerfile` matched above.
+  return getFileExtension(filePath) === null ? "markdown" : "plain";
 }
 
 export function getInitialCodeMirrorLanguageExtension(
@@ -118,7 +125,13 @@ export async function loadCodeMirrorLanguageExtension(
 
   const nextExtension = matchingLanguage
     .load()
-    .then((languageSupport) => languageSupport.extension);
+    .then((languageSupport) => languageSupport.extension)
+    .catch((error: unknown) => {
+      // Lazy language chunks can fail transiently during deploy races, so
+      // avoid pinning the cache to a rejected promise forever.
+      languageExtensionCache.delete(cacheKey);
+      throw error;
+    });
   languageExtensionCache.set(cacheKey, nextExtension);
   return nextExtension;
 }

@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
-/* eslint-disable @typescript-eslint/no-floating-promises */
 /* eslint-disable prefer-const */
 import { useRef, useEffect, useState } from "react";
 import { ChangeSet, Compartment } from "@codemirror/state";
@@ -286,6 +285,7 @@ export function CodeEditor({
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const pendingLanguageLoadRef = useRef<symbol | null>(null);
+  const themeCompartmentRef = useRef(new Compartment());
   const pullRef = useRef<
     ((updates: readonly Update[], version: number) => void) | null
   >(null);
@@ -323,7 +323,6 @@ export function CodeEditor({
     let editor: EditorView | null = null;
     const languageLoadKey = Symbol("code-editor-language-load");
     const languageCompartment = new Compartment();
-    const themeCompartment = new Compartment();
 
     const func = async () => {
       if (!editorRef.current) return;
@@ -349,7 +348,7 @@ export function CodeEditor({
         languageCompartment.of(getInitialCodeMirrorLanguageExtension(filePath)),
         prosemarkBasicSetup(),
         prosemarkBaseThemeSetup(),
-        themeCompartment.of(
+        themeCompartmentRef.current.of(
           getProsemarkFileThemeExtensions({ isDark, languageKind }),
         ),
         peerExtension({
@@ -387,19 +386,29 @@ export function CodeEditor({
       viewRef.current = editor;
       pendingLanguageLoadRef.current = languageLoadKey;
 
-      Reflect.set(window, "editor", editor);
+      try {
+        const languageExtension =
+          await loadCodeMirrorLanguageExtension(filePath);
+        if (pendingLanguageLoadRef.current !== languageLoadKey) {
+          return;
+        }
 
-      const languageExtension = await loadCodeMirrorLanguageExtension(filePath);
-      if (pendingLanguageLoadRef.current !== languageLoadKey) {
-        return;
+        pendingLanguageLoadRef.current = null;
+        editor.dispatch({
+          effects: languageCompartment.reconfigure(languageExtension),
+        });
+      } catch {
+        if (pendingLanguageLoadRef.current !== languageLoadKey) {
+          return;
+        }
+
+        // The editor already mounted with the synchronous fallback parser, so
+        // keep it stable instead of surfacing an unhandled rejection.
+        pendingLanguageLoadRef.current = null;
       }
-
-      editor.dispatch({
-        effects: languageCompartment.reconfigure(languageExtension),
-      });
     };
 
-    func();
+    void func();
     // Cleanup function
     return () => {
       console.log("Cleaning up editor");
@@ -410,7 +419,23 @@ export function CodeEditor({
       viewRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filePath, theme, systemTheme]); // Re-create editor when the file path or theme changes (value intentionally excluded to prevent recreation on every keystroke)
+  }, [filePath]); // Re-create only when the routed file changes; theme updates reconfigure in place below.
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) {
+      return;
+    }
+
+    const effectiveTheme = theme === "system" ? systemTheme : theme;
+    const isDark = effectiveTheme === "dark";
+    const languageKind = getCodeMirrorFileLanguageKind(filePath);
+    view.dispatch({
+      effects: themeCompartmentRef.current.reconfigure(
+        getProsemarkFileThemeExtensions({ isDark, languageKind }),
+      ),
+    });
+  }, [filePath, systemTheme, theme]);
 
   useEffect(() => {
     setSyncError(null);

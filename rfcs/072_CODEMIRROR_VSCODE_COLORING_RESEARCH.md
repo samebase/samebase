@@ -4,7 +4,7 @@
 
 - Status: Draft research
 - Owner: Noter frontend/editor
-- Last updated: 2026-03-29
+- Last updated: 2026-03-30
 - Depends on:
   - `apps/noter/src/components/CodeEditor.tsx`
   - `apps/noter/src/components/MonacoEditor.tsx`

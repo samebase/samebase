@@ -284,7 +284,7 @@ export function getProsemarkFileThemeExtensions(args: {
   isDark: boolean;
   languageKind: CodeMirrorFileLanguageKind;
 }) {
-  if (args.languageKind === "markdown") {
+  if (args.languageKind !== "code") {
     return args.isDark ? prosemarkDarkTheme : [];
   }
 

@@ -43,10 +43,16 @@ const PARITY_EDITOR_RESOLUTION_SCALE_MAX = 4;
 const PARITY_EDITOR_RESOLUTION_SCALE_MIN = 1;
 const PARITY_MONACO_DIFF_COLOR = "#ff3b30";
 const PARITY_PROSEMARK_DIFF_COLOR = "#007aff";
-const PARITY_DIFF_BACKGROUND_CHANNEL_THRESHOLD = 245;
+const PARITY_BACKGROUND_COLOR_DELTA_THRESHOLD = 18;
 const PARITY_DIFF_PREVIEW_PADDING_PX = 12;
 const PARITY_LIVE_DIFF_INTENSITY_THRESHOLD = 0.045;
 const PARITY_MAX_RGBA_DELTA_DISTANCE = Math.hypot(255, 255, 255, 255);
+
+type ParityBackgroundColor = {
+  blue: number;
+  green: number;
+  red: number;
+};
 
 type ParityForegroundBounds = {
   height: number;
@@ -98,6 +104,7 @@ function scaleParityForegroundBounds(
 }
 
 function measureParityForegroundBounds(args: {
+  backgroundColor: ParityBackgroundColor;
   data: Uint8ClampedArray;
   height: number;
   width: number;
@@ -118,11 +125,14 @@ function measureParityForegroundBounds(args: {
       const green = args.data[index + 1];
       const blue = args.data[index + 2];
       const alpha = args.data[index + 3];
+      const backgroundDelta = Math.hypot(
+        red - args.backgroundColor.red,
+        green - args.backgroundColor.green,
+        blue - args.backgroundColor.blue,
+      );
       const isBackground =
         alpha === 0 ||
-        (red >= PARITY_DIFF_BACKGROUND_CHANNEL_THRESHOLD &&
-          green >= PARITY_DIFF_BACKGROUND_CHANNEL_THRESHOLD &&
-          blue >= PARITY_DIFF_BACKGROUND_CHANNEL_THRESHOLD);
+        backgroundDelta <= PARITY_BACKGROUND_COLOR_DELTA_THRESHOLD;
 
       if (isBackground) {
         continue;
@@ -149,14 +159,54 @@ function measureParityForegroundBounds(args: {
   };
 }
 
+function sampleParityCanvasBackgroundColor(canvas: HTMLCanvasElement) {
+  if (canvas.width === 0 || canvas.height === 0) {
+    return null;
+  }
+
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) {
+    return null;
+  }
+
+  const samplePoints = [
+    [0, 0],
+    [canvas.width - 1, 0],
+    [0, canvas.height - 1],
+    [canvas.width - 1, canvas.height - 1],
+  ] as const;
+  let totalRed = 0;
+  let totalGreen = 0;
+  let totalBlue = 0;
+
+  for (const [x, y] of samplePoints) {
+    const pixel = context.getImageData(x, y, 1, 1).data;
+    totalRed += pixel[0];
+    totalGreen += pixel[1];
+    totalBlue += pixel[2];
+  }
+
+  return {
+    blue: Math.round(totalBlue / samplePoints.length),
+    green: Math.round(totalGreen / samplePoints.length),
+    red: Math.round(totalRed / samplePoints.length),
+  } satisfies ParityBackgroundColor;
+}
+
 function measureParityCanvasForegroundBounds(canvas: HTMLCanvasElement) {
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) {
     return null;
   }
 
+  const backgroundColor = sampleParityCanvasBackgroundColor(canvas);
+  if (!backgroundColor) {
+    return null;
+  }
+
   const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
   return measureParityForegroundBounds({
+    backgroundColor,
     data: imageData.data,
     height: canvas.height,
     width: canvas.width,
@@ -641,7 +691,6 @@ export function FileViewCodeParityVisualFixture({
         setLiveMismatchPixels(liveDiff.mismatchPixels);
         setParityDiffImageState("ready");
         setParityDiffPreviewUrl(liveDiff.previewUrl);
-        setParityDiffPreviewLoaded(true);
       })
       .catch(() => {
         if (shouldIgnoreResult()) {
@@ -902,6 +951,12 @@ export function FileViewCodeParityVisualFixture({
                         src={parityDiffPreviewUrl ?? undefined}
                         className="block max-w-none"
                         style={{ imageRendering: "pixelated" }}
+                        onLoad={() => {
+                          setParityDiffPreviewLoaded(true);
+                        }}
+                        onError={() => {
+                          setParityDiffPreviewLoaded(false);
+                        }}
                       />
                     </div>
                   </div>

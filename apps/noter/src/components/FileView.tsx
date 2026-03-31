@@ -1960,6 +1960,7 @@ function FileViewInner({
     comparedPreviousPath: selectedComparedFile?.previousPath,
     currentFilePath: selectedFile,
     previewPreviousPath: selectedPreviewFile?.previousPath,
+    stagedCurrentFilePath: selectedPreviewStagedFile?.filePath,
     stagedInitialFilePath: selectedPreviewStagedFile?.initialFilePath,
   });
   const selectedComparedFileCanRenderInline = Boolean(
