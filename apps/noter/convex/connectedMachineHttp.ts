@@ -234,3 +234,48 @@ export const publishMachineHeartbeat = httpAction(async (ctx, request) => {
 
   return jsonResponse({ ok: true });
 });
+
+export const introspectMachineControlToken = httpAction(
+  async (ctx, request) => {
+    if (!hasJsonContentType(request)) {
+      return errorResponse(415, "content-type must be application/json");
+    }
+
+    let body: Record<string, unknown>;
+    try {
+      body = await readJsonBody(request);
+    } catch {
+      return errorResponse(400, "invalid json body");
+    }
+
+    const machineId = readString(body, "machineId");
+    const token = readString(body, "token");
+    if (!machineId || !token) {
+      return errorResponse(400, "missing machine control token fields");
+    }
+
+    const tokenHash = await sha256Hex(token);
+    const introspection = await ctx.runMutation(
+      internal.connectedMachineControl.introspectMachineControlToken,
+      {
+        machineId,
+        now: Date.now(),
+        tokenHash,
+      },
+    );
+
+    if (!introspection.active) {
+      return jsonResponse({
+        active: false,
+      });
+    }
+
+    return jsonResponse({
+      active: true,
+      audience: introspection.audience,
+      expiresAt: introspection.expiresAt,
+      machineId: introspection.machineId,
+      userId: `${introspection.userId}`,
+    });
+  },
+);

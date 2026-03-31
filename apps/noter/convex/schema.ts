@@ -12,6 +12,7 @@ import {
 } from "./mcpTokenHealth";
 import {
   connectedMachineRowValidator,
+  machineControlTokenRowValidator,
   machineCredentialRowValidator,
   machineRegistrationBootstrapRateLimitRowValidator,
   machineRegistrationRequestRowValidator,
@@ -347,6 +348,11 @@ export default defineSchema({
     .index("by_machine_id", ["machineId"])
     .index("by_user_machine_id", ["userId", "machineId"])
     .index("by_credential_hash", ["credentialHash"]),
+
+  machineControlTokens: defineTable(machineControlTokenRowValidator)
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_user_machine_id", ["userId", "machineId"])
+    .index("by_expires_at", ["expiresAt"]),
 
   dashboardSettings: defineTable({
     userId: v.id("users"),
