@@ -330,6 +330,7 @@ export default defineSchema({
 
   connectedMachines: defineTable(connectedMachineRowValidator)
     .index("by_user", ["userId"])
+    .index("by_machine_id", ["machineId"])
     .index("by_user_machine_id", ["userId", "machineId"]),
 
   machineRegistrationRequests: defineTable(

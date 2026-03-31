@@ -323,6 +323,11 @@ export function validateConvexSiteUrl(value) {
       'The runtime Convex site URL must not include query params or hashes.',
     )
   }
+  if (convexSiteUrl.pathname !== '/') {
+    throw new Error(
+      'The runtime Convex site URL must be an origin with no path.',
+    )
+  }
   convexSiteUrl.hash = ''
   return convexSiteUrl
 }

@@ -214,31 +214,23 @@ export const publishMachineHeartbeat = httpAction(async (ctx, request) => {
 
   const credentialHash = await sha256Hex(bearerToken);
   const validation = await ctx.runMutation(
-    internal.connectedMachines.validateMachineCredential,
+    internal.connectedMachines.publishHeartbeatFromConnector,
     {
       credentialHash,
+      displayName,
+      hostname,
       machineId,
+      os,
       now: Date.now(),
+      connectorVersion,
+      capabilities,
+      allowedRoots,
+      status,
     },
   );
   if (!validation.ok) {
     return errorResponse(401, "invalid machine credential");
   }
-
-  await ctx.runMutation(
-    internal.connectedMachines.upsertHeartbeatFromConnector,
-    {
-      userId: validation.userId,
-      machineId,
-      displayName,
-      hostname,
-      os,
-      status,
-      connectorVersion,
-      capabilities,
-      allowedRoots,
-    },
-  );
 
   return jsonResponse({ ok: true });
 });

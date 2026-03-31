@@ -51,6 +51,12 @@ Do not squash-merge this slice until:
       raw browser clock
 - [x] Exit `noter-sync run` on invalid machine credential errors instead of
       looping forever without establishing presence
+- [x] Delete stale connected-machine presence rows when a machine changes owners
+      so old owners do not keep ghost machine cards
+- [x] Validate a heartbeat credential and write presence in one internal
+      mutation so a TOCTOU gap cannot appear between auth and upsert
+- [x] Reject runtime `convexSiteUrl` values that include a path segment instead
+      of silently resolving endpoints relative to a nested path
 
 ## Open `P1` Blockers
 

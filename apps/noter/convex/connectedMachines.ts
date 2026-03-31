@@ -5,21 +5,22 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import {
   approveMachineRegistrationRequestReturns,
   connectedMachineViewValidator,
-  connectorHeartbeatArgsValidator,
   createMachineRegistrationRequestArgsValidator,
   MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_MAX_REQUESTS,
   MACHINE_REGISTRATION_BOOTSTRAP_RATE_LIMIT_WINDOW_MS,
   machineRegistrationBrowserViewValidator,
+  publishHeartbeatFromConnectorArgsValidator,
   type ConnectedMachineCapability,
   type ConnectedMachineRow,
   type MachineRegistrationBrowserView,
   type MachineRegistrationRequestRow,
+  type PublishHeartbeatFromConnectorArgs,
   type ValidateMachineCredentialResult,
   validateMachineCredentialResultValidator,
 } from "./connectedMachineModel";
 import { getUserId } from "./common";
 
-const { array, null: vNull, number, object, string } = v;
+const { array, null: vNull, object, string } = v;
 
 const listConnectedMachinesArgs = object({});
 const listConnectedMachinesReturns = array(connectedMachineViewValidator);
@@ -36,15 +37,6 @@ const approveMachineRegistrationRequestArgs = object({
 });
 type ApproveMachineRegistrationRequestArgs = Infer<
   typeof approveMachineRegistrationRequestArgs
->;
-
-const validateMachineCredentialArgs = object({
-  credentialHash: string(),
-  machineId: string(),
-  now: number(),
-});
-type ValidateMachineCredentialArgs = Infer<
-  typeof validateMachineCredentialArgs
 >;
 
 function readUniqueCapabilities(
@@ -212,6 +204,17 @@ export const approveMachineRegistrationRequest = mutation({
       userId,
     });
 
+    const existingMachinePresenceRows = await ctx.db
+      .query("connectedMachines")
+      .withIndex("by_machine_id", (q) => q.eq("machineId", request.machineId))
+      .collect();
+
+    // A machine can change owners over time. Drop any stale presence rows before
+    // minting the next credential so the browser never shows ghost ownership.
+    for (const existingMachinePresenceRow of existingMachinePresenceRows) {
+      await ctx.db.delete(existingMachinePresenceRow._id);
+    }
+
     const existingMachineCredentials = await ctx.db
       .query("machineCredentials")
       .withIndex("by_machine_id", (q) => q.eq("machineId", request.machineId))
@@ -315,12 +318,12 @@ export const createMachineRegistrationRequest = internalMutation({
   },
 });
 
-export const validateMachineCredential = internalMutation({
-  args: validateMachineCredentialArgs,
+export const publishHeartbeatFromConnector = internalMutation({
+  args: publishHeartbeatFromConnectorArgsValidator,
   returns: validateMachineCredentialResultValidator,
   handler: async (
     ctx,
-    args: ValidateMachineCredentialArgs,
+    args: PublishHeartbeatFromConnectorArgs,
   ): Promise<ValidateMachineCredentialResult> => {
     const credential = await ctx.db
       .query("machineCredentials")
@@ -345,23 +348,10 @@ export const validateMachineCredential = internalMutation({
       lastUsedAt: args.now,
     });
 
-    return {
-      ok: true,
-      userId: credential.userId,
-      machineId: credential.machineId,
-    };
-  },
-});
-
-export const upsertHeartbeatFromConnector = internalMutation({
-  args: connectorHeartbeatArgsValidator,
-  returns: vNull(),
-  handler: async (ctx, args) => {
-    const now = Date.now();
     const existing = await ctx.db
       .query("connectedMachines")
       .withIndex("by_user_machine_id", (q) =>
-        q.eq("userId", args.userId).eq("machineId", args.machineId),
+        q.eq("userId", credential.userId).eq("machineId", args.machineId),
       )
       .first();
     const nextRow = {
@@ -370,7 +360,7 @@ export const upsertHeartbeatFromConnector = internalMutation({
       hostname: args.hostname,
       os: args.os,
       status: args.status ?? "online",
-      lastSeenAt: now,
+      lastSeenAt: args.now,
       connectorVersion: args.connectorVersion,
       capabilities: readUniqueCapabilities(args.capabilities),
       allowedRoots: readUniqueRoots(args.allowedRoots),
@@ -378,13 +368,21 @@ export const upsertHeartbeatFromConnector = internalMutation({
 
     if (existing) {
       await ctx.db.patch(existing._id, nextRow);
-      return null;
+      return {
+        ok: true,
+        userId: credential.userId,
+        machineId: credential.machineId,
+      };
     }
 
     await ctx.db.insert("connectedMachines", {
-      userId: args.userId,
+      userId: credential.userId,
       ...nextRow,
     });
-    return null;
+    return {
+      ok: true,
+      userId: credential.userId,
+      machineId: credential.machineId,
+    };
   },
 });

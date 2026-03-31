@@ -80,6 +80,12 @@ describe('@noter-md/sync', () => {
     )
   })
 
+  it('rejects runtime Convex URLs with a path segment', () => {
+    expect(() => validateConvexSiteUrl('https://demo.convex.site/api')).toThrow(
+      'The runtime Convex site URL must be an origin with no path.',
+    )
+  })
+
   it('rejects installer source URLs with query params or hashes', () => {
     expect(() =>
       validateSourceUrl('https://noter.md/noter.js?preview=1'),

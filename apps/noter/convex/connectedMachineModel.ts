@@ -106,8 +106,9 @@ export type MachineRegistrationBootstrapRateLimitRow = Infer<
   typeof machineRegistrationBootstrapRateLimitRowValidator
 >;
 
-export const connectorHeartbeatArgsValidator = object({
-  userId: id("users"),
+export const publishHeartbeatFromConnectorArgsValidator = object({
+  credentialHash: string(),
+  now: number(),
   machineId: string(),
   displayName: string(),
   hostname: string(),
@@ -117,8 +118,8 @@ export const connectorHeartbeatArgsValidator = object({
   capabilities: array(connectedMachineCapabilityValidator),
   allowedRoots: array(string()),
 });
-export type ConnectorHeartbeatArgs = Infer<
-  typeof connectorHeartbeatArgsValidator
+export type PublishHeartbeatFromConnectorArgs = Infer<
+  typeof publishHeartbeatFromConnectorArgsValidator
 >;
 
 export const createMachineRegistrationRequestArgsValidator = object({
