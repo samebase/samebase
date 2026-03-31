@@ -87,6 +87,51 @@ const staticPrivacyHtmlPath = path.resolve(
 );
 const staticTermsHtmlPath = path.resolve(__dirname, "public/terms/index.html");
 
+function isLoopbackHostname(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "[::1]"
+  );
+}
+
+function parseValidatedNoterConnectConvexSiteUrl(value: string): string {
+  try {
+    const convexSiteUrl = new URL(value);
+    const isLoopbackHttp =
+      convexSiteUrl.protocol === "http:" &&
+      isLoopbackHostname(convexSiteUrl.hostname);
+    if (convexSiteUrl.protocol !== "https:" && !isLoopbackHttp) {
+      throw new Error(
+        "The runtime Convex site URL must use https, except for explicit localhost testing.",
+      );
+    }
+    if (convexSiteUrl.username || convexSiteUrl.password) {
+      throw new Error(
+        "The runtime Convex site URL must not include credentials.",
+      );
+    }
+    if (convexSiteUrl.search.length > 0 || convexSiteUrl.hash.length > 0) {
+      throw new Error(
+        "The runtime Convex site URL must not include query params or hashes.",
+      );
+    }
+    if (convexSiteUrl.pathname !== "/") {
+      throw new Error(
+        "The runtime Convex site URL must be an origin with no path.",
+      );
+    }
+    return convexSiteUrl.toString();
+  } catch (error) {
+    throw new Error(
+      error instanceof Error
+        ? `Invalid noter-connect.json convexSiteUrl: ${error.message}`
+        : "Invalid noter-connect.json convexSiteUrl.",
+    );
+  }
+}
+
 function readNoterSyncPackageScript(): string {
   return readFileSync(noterSyncPackageScriptPath, "utf8")
     .replace(/\r\n/g, "\n")
@@ -176,7 +221,7 @@ async function buildRuntimeNoterSyncScript() {
 function readNoterConnectConvexSiteUrl(): string {
   const configuredSiteUrl = process.env.CONVEX_SITE_URL?.trim();
   if (configuredSiteUrl) {
-    return configuredSiteUrl;
+    return parseValidatedNoterConnectConvexSiteUrl(configuredSiteUrl);
   }
 
   const configuredViteSiteUrl = process.env.VITE_CONVEX_SITE_URL?.trim();
@@ -185,7 +230,7 @@ function readNoterConnectConvexSiteUrl(): string {
     (configuredViteSiteUrl.startsWith("https://") ||
       configuredViteSiteUrl.startsWith("http://"))
   ) {
-    return configuredViteSiteUrl;
+    return parseValidatedNoterConnectConvexSiteUrl(configuredViteSiteUrl);
   }
 
   const localEnvSiteUrl = readEnvFileValue(
@@ -197,7 +242,7 @@ function readNoterConnectConvexSiteUrl(): string {
     (localEnvSiteUrl.startsWith("https://") ||
       localEnvSiteUrl.startsWith("http://"))
   ) {
-    return localEnvSiteUrl;
+    return parseValidatedNoterConnectConvexSiteUrl(localEnvSiteUrl);
   }
 
   throw new Error(

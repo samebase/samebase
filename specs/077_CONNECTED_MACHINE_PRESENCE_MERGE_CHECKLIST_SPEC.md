@@ -57,6 +57,10 @@ Do not squash-merge this slice until:
       mutation so a TOCTOU gap cannot appear between auth and upsert
 - [x] Reject runtime `convexSiteUrl` values that include a path segment instead
       of silently resolving endpoints relative to a nested path
+- [x] Return `expired` directly from the backend browser-handoff view instead of
+      relying only on client-side derivation
+- [x] Validate `noter-connect.json` runtime URLs during build so invalid deploy
+      config fails fast before shipping
 
 ## Open `P1` Blockers
 

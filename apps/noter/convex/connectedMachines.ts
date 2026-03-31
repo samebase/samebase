@@ -87,6 +87,14 @@ function buildMachineRegistrationBrowserView(args: {
     };
   }
 
+  if (args.request.expiresAt < args.serverNow) {
+    return {
+      kind: "expired",
+      ...commonFields,
+      expiresAt: args.request.expiresAt,
+    };
+  }
+
   return {
     kind: "pending",
     ...commonFields,
