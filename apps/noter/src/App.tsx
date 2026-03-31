@@ -7,6 +7,7 @@ import {
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "@/lib/codexAppServerResearch";
 import { MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
+import { canAccessCodexResearch } from "@/lib/codexResearchAccess";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -398,7 +399,11 @@ export default function App() {
     location.pathname === CODEX_APP_SERVER_RESEARCH_ROUTE;
   const showCodexAppServerThreadBrowserResearchPage =
     location.pathname === CODEX_APP_SERVER_THREAD_BROWSER_ROUTE;
-  const isCodexAppServerResearchRuntimeAvailable = import.meta.env.DEV;
+  const viewer = useQuery(api.users.viewer);
+  const isCodexAppServerResearchRuntimeAvailable = canAccessCodexResearch({
+    email: viewer?.email,
+    isDev: import.meta.env.DEV,
+  });
   const showPublicLandingWithoutAuthGate =
     !isAuthenticated && shouldRenderPublicLandingWithoutAuthGate(location);
 
