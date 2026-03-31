@@ -25,7 +25,6 @@ import {
   SimpleViewVisualFixture,
   type SimpleViewVisualMode,
 } from "@/components/SimpleViewVisualFixture";
-import { AppPageScrollShellVisualFixture } from "@/components/AppPageScrollShellVisualFixture";
 import {
   VaultDashboardVisualFixture,
   type VaultDashboardVisualMode,
@@ -135,7 +134,6 @@ type VisualFixtureMode =
   | CodexAppServerResearchVisualMode
   | CodexThreadBrowserVisualMode
   | CodexThreadHistoryVisualMode
-  | "app-page-scroll-shell"
   | "machine-live-control"
   | "machine-connect"
   | "vault-dashboard-branch-pr-title"
@@ -262,7 +260,6 @@ const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
 ] as const satisfies readonly FileViewMonacoDragVisualMode[];
 
 const MISC_VISUAL_MODES = [
-  "app-page-scroll-shell",
   "codex-app-server-research",
   "codex-thread-browser",
   "codex-thread-history",
@@ -508,10 +505,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "machine-connect") {
     return <MachineConnectVisualFixture />;
-  }
-
-  if (mode === "app-page-scroll-shell") {
-    return <AppPageScrollShellVisualFixture />;
   }
 
   if (mode === "machine-live-control") {
