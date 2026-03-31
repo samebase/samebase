@@ -421,20 +421,37 @@ function StaticCodeMirrorParitySurface({
     viewRef.current = view;
     pendingLanguageLoadRef.current = languageLoadKey;
 
-    void loadCodeMirrorLanguageExtension(filePath).then((languageExtension) => {
-      if (
-        pendingLanguageLoadRef.current !== languageLoadKey ||
-        viewRef.current !== view
-      ) {
-        return;
-      }
+    void loadCodeMirrorLanguageExtension(filePath)
+      .then((languageExtension) => {
+        if (
+          pendingLanguageLoadRef.current !== languageLoadKey ||
+          viewRef.current !== view
+        ) {
+          return;
+        }
 
-      view.dispatch({
-        effects: languageCompartment.reconfigure(languageExtension),
+        pendingLanguageLoadRef.current = null;
+        view.dispatch({
+          effects: languageCompartment.reconfigure(languageExtension),
+        });
+        setLanguageReady(true);
+        onLanguageReadyChange(true);
+      })
+      .catch(() => {
+        if (
+          pendingLanguageLoadRef.current !== languageLoadKey ||
+          viewRef.current !== view
+        ) {
+          return;
+        }
+
+        // The fixture already mounted with the synchronous fallback language
+        // extension, so treat lazy-loader failures as non-fatal and keep the
+        // parity surface measurable instead of hanging the readiness gate.
+        pendingLanguageLoadRef.current = null;
+        setLanguageReady(true);
+        onLanguageReadyChange(true);
       });
-      setLanguageReady(true);
-      onLanguageReadyChange(true);
-    });
 
     return () => {
       onLanguageReadyChange(false);

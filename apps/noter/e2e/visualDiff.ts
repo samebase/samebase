@@ -53,6 +53,18 @@ export type ScreenshotForegroundBounds = {
 const DEFAULT_FOREGROUND_BACKGROUND_CHANNEL_THRESHOLD = 245;
 const MAX_RGBA_DELTA_DISTANCE = Math.hypot(255, 255, 255, 255);
 
+/**
+ * Recorded visual diff artifacts are only meant to change during explicit
+ * snapshot refreshes. Normal verification runs should stay read-only so CI and
+ * local checks do not dirty the worktree with rasterization noise.
+ */
+function shouldWriteScreenshotArtifacts(testInfo: TestInfo) {
+  return (
+    testInfo.config.updateSnapshots === "all" ||
+    testInfo.config.updateSnapshots === "changed"
+  );
+}
+
 export function measureScreenshotForegroundBounds(
   screenshot: Buffer,
   options?: {
@@ -324,7 +336,7 @@ export async function expectScreenshotsToMatch({
   const weightedDiffBuffer = PNG.sync.write(diffVisualizationResult.displayPng);
   const diffMaskBuffer = PNG.sync.write(diffVisualizationResult.diffMaskPng);
 
-  if (artifactWritePaths) {
+  if (artifactWritePaths && shouldWriteScreenshotArtifacts(testInfo)) {
     const artifactWrites = [
       artifactWritePaths.actual
         ? {

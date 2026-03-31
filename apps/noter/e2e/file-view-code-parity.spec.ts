@@ -1,6 +1,7 @@
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import {
   expectScreenshotsToMatch,
   measureScreenshotForegroundBoundsDelta,
@@ -60,6 +61,18 @@ async function waitForParityEditors(page: Page) {
   await waitForStableFonts(page);
 }
 
+/**
+ * The parity page can refresh its live diff in memory at any time, but the
+ * checked-in artifact files should only move during an explicit snapshot update
+ * run so regular verification stays read-only.
+ */
+function shouldWriteParityArtifacts(testInfo: TestInfo) {
+  return (
+    testInfo.config.updateSnapshots === "all" ||
+    testInfo.config.updateSnapshots === "changed"
+  );
+}
+
 function scaleForegroundBoundsMetricsToCssPixels(
   metrics: ReturnType<typeof measureScreenshotForegroundBoundsDelta>,
 ) {
@@ -101,6 +114,8 @@ function scaleForegroundBoundsMetricsToCssPixels(
 test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   page,
 }, testInfo) => {
+  const shouldWriteRecordedArtifacts = shouldWriteParityArtifacts(testInfo);
+
   await page.setViewportSize({ width: 1600, height: 1100 });
   await page.goto("/visual-fixture.html?mode=file-view-code-parity", {
     waitUntil: "domcontentloaded",
@@ -151,10 +166,13 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
     }),
   );
 
-  await writeFile(
-    PARITY_METRICS_OUTPUT_PATH,
-    JSON.stringify(foregroundBoundsDelta, null, 2),
-  );
+  if (shouldWriteRecordedArtifacts) {
+    await mkdir(dirname(PARITY_METRICS_OUTPUT_PATH), { recursive: true });
+    await writeFile(
+      PARITY_METRICS_OUTPUT_PATH,
+      JSON.stringify(foregroundBoundsDelta, null, 2),
+    );
+  }
 
   await expectScreenshotsToMatch({
     actual: prosemarkScreenshot,
