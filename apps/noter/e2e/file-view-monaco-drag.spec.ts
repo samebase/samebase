@@ -5,11 +5,20 @@ test.use({
   isMobile: true,
 });
 
-async function gotoFixture(page: Page) {
+async function gotoFixture(
+  page: Page,
+  options?: {
+    swipeDebug?: boolean;
+  },
+) {
+  const debugQuery = options?.swipeDebug ? "&swipe-debug" : "";
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/visual-fixture.html?mode=fileview-monaco-drag", {
-    waitUntil: "domcontentloaded",
-  });
+  await page.goto(
+    `/visual-fixture.html?mode=fileview-monaco-drag${debugQuery}`,
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
   await page.waitForLoadState("networkidle");
   await expect(
     page.getByTestId("fileview-monaco-drag-surface").locator(".monaco-editor"),
@@ -20,7 +29,7 @@ async function dragMonacoSurface(
   page: Page,
   args: {
     deltaX: number;
-    startXRatio: number;
+    startX: "center" | "right-edge";
   },
 ) {
   const surface = page.getByTestId("fileview-monaco-drag-surface");
@@ -31,7 +40,11 @@ async function dragMonacoSurface(
     return;
   }
 
-  const startX = bounds.x + bounds.width * args.startXRatio;
+  const viewportWidth = page.viewportSize()?.width ?? 390;
+  const startX =
+    args.startX === "right-edge"
+      ? Math.min(bounds.x + bounds.width - 28, viewportWidth - 20)
+      : bounds.x + bounds.width * 0.5;
   const startY = bounds.y + Math.min(120, bounds.height * 0.35);
   const session = await page.context().newCDPSession(page);
   const touchPoint = {
@@ -76,7 +89,7 @@ async function dragMonacoSurface(
 
 async function expectPaneAfterMonacoDrag(args: {
   drag: () => Promise<void>;
-  expectedPane: "left" | "right";
+  expectedPane: "left" | "main" | "right";
   page: Page;
 }) {
   const shell = args.page.getByTestId("fileview-monaco-drag-shell");
@@ -114,7 +127,7 @@ test("Monaco drag can open the left pane", async ({ page }) => {
     drag: () =>
       dragMonacoSurface(page, {
         deltaX: 272,
-        startXRatio: 0.25,
+        startX: "center",
       }),
     expectedPane: "left",
     page,
@@ -131,9 +144,51 @@ test("Monaco drag can open the right pane", async ({ page }) => {
     drag: () =>
       dragMonacoSurface(page, {
         deltaX: -280,
-        startXRatio: 0.75,
+        startX: "center",
       }),
     expectedPane: "right",
     page,
   });
+});
+
+test("Monaco drag can return from the open left pane to main", async ({
+  page,
+}) => {
+  await gotoFixture(page, { swipeDebug: true });
+
+  const shell = page.getByTestId("fileview-monaco-drag-shell");
+  const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
+  const leftSidebarOnlyItem = page.getByText("src/notes.ts");
+  await expect(shell).toHaveAttribute("data-mobile-pane", "main");
+  await page
+    .getByRole("button", { name: "Toggle Left Sidebar" })
+    .press("Enter");
+  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
+  await expect(overlay).toBeVisible();
+  await expect(leftSidebarOnlyItem).toBeInViewport();
+
+  await expectPaneAfterMonacoDrag({
+    drag: () =>
+      dragMonacoSurface(page, {
+        deltaX: -132,
+        startX: "right-edge",
+      }),
+    expectedPane: "main",
+    page,
+  });
+
+  await expect(overlay).toContainText("start: left");
+  await expect(overlay).toContainText("settled: main");
+  await expect(leftSidebarOnlyItem).not.toBeInViewport();
+
+  const fixture = page.getByTestId("fileview-monaco-drag-visual-fixture");
+  await expect(fixture).toHaveScreenshot(
+    "fileview-monaco-drag-return-main.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.05,
+    },
+  );
 });

@@ -627,7 +627,6 @@ export function WorkspaceSidebarShell({
     () => ({
       dragMobileShellBy,
       isAvailable: isMobile && hasAnySidebar && isMobileLayoutMeasured,
-      isMainPaneActive: mobilePane === "main",
       settleMobileShell,
     }),
     [
@@ -635,7 +634,6 @@ export function WorkspaceSidebarShell({
       hasAnySidebar,
       isMobile,
       isMobileLayoutMeasured,
-      mobilePane,
       settleMobileShell,
     ],
   );

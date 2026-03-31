@@ -18,15 +18,25 @@ async function gotoFixture(
   mode:
     | "fileview-prosemark-drag-editable"
     | "fileview-prosemark-drag-read-only",
+  options?: {
+    swipeDebug?: boolean;
+  },
 ) {
+  const debugQuery = options?.swipeDebug ? "&swipe-debug" : "";
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/visual-fixture.html?mode=${mode}`, {
+  await page.goto(`/visual-fixture.html?mode=${mode}${debugQuery}`, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
 }
 
-async function dragProsemarkSurfaceRight(page: Page) {
+async function dragProsemarkSurface(
+  page: Page,
+  args: {
+    deltaX: number;
+    startX: "center" | "right-edge";
+  },
+) {
   const surface = page
     .getByTestId("fileview-prosemark-drag-surface")
     .locator('div[style*="touch-action"]');
@@ -37,7 +47,11 @@ async function dragProsemarkSurfaceRight(page: Page) {
     return;
   }
 
-  const startX = bounds.x + bounds.width * 0.5;
+  const viewportWidth = page.viewportSize()?.width ?? 390;
+  const startX =
+    args.startX === "right-edge"
+      ? Math.min(bounds.x + bounds.width - 28, viewportWidth - 20)
+      : bounds.x + bounds.width * 0.5;
   const startY = bounds.y + Math.min(120, bounds.height * 0.35);
   const session = await page.context().newCDPSession(page);
 
@@ -62,7 +76,7 @@ async function dragProsemarkSurfaceRight(page: Page) {
         id: 1,
         radiusX: 4,
         radiusY: 4,
-        x: startX + 120,
+        x: startX + args.deltaX * 0.66,
         y: startY + 4,
       },
     ],
@@ -75,7 +89,7 @@ async function dragProsemarkSurfaceRight(page: Page) {
         id: 1,
         radiusX: 4,
         radiusY: 4,
-        x: startX + 180,
+        x: startX + args.deltaX,
         y: startY + 6,
       },
     ],
@@ -84,6 +98,24 @@ async function dragProsemarkSurfaceRight(page: Page) {
     type: "touchEnd",
     touchPoints: [],
   });
+}
+
+async function expectPaneAfterProsemarkDrag(args: {
+  drag: () => Promise<void>;
+  expectedPane: "left" | "main";
+  page: Page;
+}) {
+  const shell = args.page.getByTestId("fileview-prosemark-drag-shell");
+  await args.drag();
+
+  try {
+    await expect(shell).toHaveAttribute("data-mobile-pane", args.expectedPane, {
+      timeout: 1000,
+    });
+  } catch {
+    await args.drag();
+    await expect(shell).toHaveAttribute("data-mobile-pane", args.expectedPane);
+  }
 }
 
 test("editable ProseMark mobile drag fixture", async ({ page }) => {
@@ -109,9 +141,15 @@ test("editable ProseMark drag can open the left pane", async ({ page }) => {
   const shell = page.getByTestId("fileview-prosemark-drag-shell");
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 
-  await dragProsemarkSurfaceRight(page);
-
-  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
+  await expectPaneAfterProsemarkDrag({
+    drag: () =>
+      dragProsemarkSurface(page, {
+        deltaX: 180,
+        startX: "center",
+      }),
+    expectedPane: "left",
+    page,
+  });
 });
 
 test("read-only ProseMark drag can open the left pane", async ({ page }) => {
@@ -120,7 +158,46 @@ test("read-only ProseMark drag can open the left pane", async ({ page }) => {
   const shell = page.getByTestId("fileview-prosemark-drag-shell");
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 
-  await dragProsemarkSurfaceRight(page);
+  await expectPaneAfterProsemarkDrag({
+    drag: () =>
+      dragProsemarkSurface(page, {
+        deltaX: 180,
+        startX: "center",
+      }),
+    expectedPane: "left",
+    page,
+  });
+});
 
+test("editable ProseMark drag can return from the open left pane to main", async ({
+  page,
+}) => {
+  await gotoFixture(page, "fileview-prosemark-drag-editable", {
+    swipeDebug: true,
+  });
+
+  const shell = page.getByTestId("fileview-prosemark-drag-shell");
+  const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
+  const leftSidebarOnlyItem = page.getByText("docs/notes.md");
+  await expect(shell).toHaveAttribute("data-mobile-pane", "main");
+  await page
+    .getByRole("button", { name: "Toggle Left Sidebar" })
+    .press("Enter");
   await expect(shell).toHaveAttribute("data-mobile-pane", "left");
+  await expect(overlay).toBeVisible();
+  await expect(leftSidebarOnlyItem).toBeInViewport();
+
+  await expectPaneAfterProsemarkDrag({
+    drag: () =>
+      dragProsemarkSurface(page, {
+        deltaX: -132,
+        startX: "right-edge",
+      }),
+    expectedPane: "main",
+    page,
+  });
+
+  await expect(overlay).toContainText("start: left");
+  await expect(overlay).toContainText("settled: main");
+  await expect(leftSidebarOnlyItem).not.toBeInViewport();
 });
