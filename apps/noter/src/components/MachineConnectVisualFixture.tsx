@@ -1,15 +1,25 @@
 import { MachineConnectPageContent } from "@/components/MachineConnectPage";
 import { MemoryRouter } from "react-router-dom";
 
+const MACHINE_CONNECT_VISUAL_FIXTURE_FONT_RULES = `
+  [data-machine-connect-visual-fixture-font],
+  [data-machine-connect-visual-fixture-font] * {
+    font-family: "IBM Plex Sans", sans-serif !important;
+    font-synthesis: none;
+  }
+`;
+
 export function MachineConnectVisualFixture() {
   return (
     <MemoryRouter>
       <div
         data-testid="machine-connect-visual-fixture"
+        data-machine-connect-visual-fixture-font
         className="min-h-screen bg-background text-foreground"
         // Pin the fixture bounds so Linux and macOS capture the same screenshot.
         style={{ minHeight: 1341 }}
       >
+        <style>{MACHINE_CONNECT_VISUAL_FIXTURE_FONT_RULES}</style>
         <MachineConnectPageContent
           approvalError="Machine registration request expired."
           connectedMachines={[
