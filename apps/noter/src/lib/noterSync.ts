@@ -48,37 +48,6 @@ export function buildPublishedNoterSyncRunCommand(): string {
   return "npx @noter-md/sync run";
 }
 
-/**
- * Prefer an explicit machine OS when the handoff already knows it, otherwise
- * fall back to the current browser platform so copied commands work in
- * PowerShell too.
- */
-export function resolveDirectNoterSyncCommandTargetOs(
-  preferredOs?: NoterSyncCommandTargetOs | null,
-): NoterSyncCommandTargetOs | null {
-  if (preferredOs) {
-    return preferredOs;
-  }
-
-  if (typeof navigator === "undefined") {
-    return null;
-  }
-
-  const platform =
-    navigator.platform.length > 0 ? navigator.platform : navigator.userAgent;
-  if (/windows/i.test(platform)) {
-    return "windows";
-  }
-  if (/mac/i.test(platform)) {
-    return "macos";
-  }
-  if (/linux|x11/i.test(platform)) {
-    return "linux";
-  }
-
-  return null;
-}
-
 export function buildDirectNoterSyncConnectCommand(
   scriptUrl: string,
   targetOs?: NoterSyncCommandTargetOs | null,

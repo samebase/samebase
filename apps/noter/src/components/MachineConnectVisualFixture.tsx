@@ -29,8 +29,38 @@ export function MachineConnectVisualFixture() {
               status: "online",
             },
           ]}
-          directConnectCommand={`curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`}
-          directRunCommand={`curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`}
+          directConnectCommands={[
+            {
+              command:
+                "curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
+              description:
+                "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+              label: "Direct hosted file connect (Unix/macOS)",
+            },
+            {
+              command:
+                "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
+              description:
+                "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias.",
+              label: "Direct hosted file connect (Windows PowerShell)",
+            },
+          ]}
+          directRunCommands={[
+            {
+              command:
+                "curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run",
+              description:
+                "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+              label: "Direct hosted file run (Unix/macOS)",
+            },
+            {
+              command:
+                "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run",
+              description:
+                "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias.",
+              label: "Direct hosted file run (Windows PowerShell)",
+            },
+          ]}
           heartbeatLog={`[10:20:00 AM] observing Nicu Windows Workstation (nicu-win.local); last ping seen, currently online.
 [10:20:15 AM] heartbeat from Nicu Windows Workstation (nicu-win.local).
 [10:20:30 AM] heartbeat from Nicu Windows Workstation (nicu-win.local).`}
@@ -39,10 +69,9 @@ export function MachineConnectVisualFixture() {
           packageConnectCommand="npx @noter-md/sync connect"
           packageRunCommand="npx @noter-md/sync run"
           requestState={{
-            kind: "pending",
+            kind: "approved",
             connectorVersion: "noter-sync (codex 0.1.2)",
             displayName: "Nicu Windows Workstation",
-            expiresAt: 1_775_379_420_000,
             hostname: "nicu-win.local",
             machineId: "machine_123",
             os: "windows",

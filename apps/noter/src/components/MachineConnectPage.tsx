@@ -14,7 +14,6 @@ import {
   buildPublishedNoterSyncConnectCommand,
   buildPublishedNoterSyncRunCommand,
   readMachineConnectBootstrapSearch,
-  resolveDirectNoterSyncCommandTargetOs,
 } from "@/lib/noterSync";
 import {
   resolveAuthoritativeNow,
@@ -33,6 +32,8 @@ type CopyableCommandBlockProps = {
   description: string;
   label: string;
 };
+
+type DirectCommandVariant = CopyableCommandBlockProps;
 
 type ConnectedMachineItem = ConnectedMachineView;
 
@@ -79,8 +80,8 @@ type MachineApprovalState =
 type MachineConnectPageContentProps = {
   approvalError: string | null;
   connectedMachines: ConnectedMachineItem[];
-  directConnectCommand: string;
-  directRunCommand: string;
+  directConnectCommands: DirectCommandVariant[];
+  directRunCommands: DirectCommandVariant[];
   heartbeatLog: string;
   isApproving: boolean;
   openedByCli: boolean;
@@ -114,33 +115,32 @@ function readControlStatusRank(
 }
 
 /**
- * Keep the inline explanation in sync with the copied command when the page
- * switches from `curl` to `curl.exe` for PowerShell.
+ * Show both shell variants explicitly so the browser never has to guess which
+ * command the operator wants to copy.
  */
-function readDirectCommandDescription(command: string): string {
-  if (command.startsWith("curl.exe ")) {
-    return "Use this today for prod, preview, or local deploy testing. On Windows PowerShell this uses curl.exe so the command avoids the Invoke-WebRequest alias.";
-  }
+function buildDirectCommandVariants(args: {
+  action: "connect" | "run";
+  scriptUrl: string;
+}): DirectCommandVariant[] {
+  const commandBuilder =
+    args.action === "connect"
+      ? buildDirectNoterSyncConnectCommand
+      : buildDirectNoterSyncRunCommand;
 
-  return "Use this today for prod, preview, or local deploy testing.";
-}
-
-function readRequestedMachineOs(
-  requestState: MachineApprovalState,
-): "linux" | "macos" | "windows" | null {
-  switch (requestState.kind) {
-    case "pending":
-    case "approved":
-    case "expired":
-      return requestState.os;
-    case "idle":
-    case "loading":
-    case "sign_in_required":
-    case "not_found":
-      return null;
-    default:
-      return requestState satisfies never;
-  }
+  return [
+    {
+      command: commandBuilder(args.scriptUrl, "macos"),
+      description:
+        "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+      label: `Direct hosted file ${args.action} (Unix/macOS)`,
+    },
+    {
+      command: commandBuilder(args.scriptUrl, "windows"),
+      description:
+        "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias.",
+      label: `Direct hosted file ${args.action} (Windows PowerShell)`,
+    },
+  ];
 }
 
 function CopyableCommandBlock({
@@ -207,7 +207,7 @@ function CopyableCommandBlock({
 }
 
 function renderMachineApprovalState(args: {
-  directRunCommand: string;
+  directRunCommands: DirectCommandVariant[];
   isApproving: boolean;
   onApprove?: () => void;
   packageRunCommand: string;
@@ -304,11 +304,14 @@ function renderMachineApprovalState(args: {
               command={args.packageRunCommand}
             />
 
-            <CopyableCommandBlock
-              label="Direct hosted file run"
-              description={readDirectCommandDescription(args.directRunCommand)}
-              command={args.directRunCommand}
-            />
+            {args.directRunCommands.map((commandVariant) => (
+              <CopyableCommandBlock
+                key={commandVariant.label}
+                label={commandVariant.label}
+                description={commandVariant.description}
+                command={commandVariant.command}
+              />
+            ))}
           </div>
         </section>
       );
@@ -426,8 +429,8 @@ function ConnectedMachineList({
 export function MachineConnectPageContent({
   approvalError,
   connectedMachines,
-  directConnectCommand,
-  directRunCommand,
+  directConnectCommands,
+  directRunCommands,
   heartbeatLog,
   isApproving,
   openedByCli,
@@ -439,8 +442,6 @@ export function MachineConnectPageContent({
   onApprove,
 }: MachineConnectPageContentProps) {
   const connectedMachinesAnchor = `#${CONNECTED_MACHINES_SECTION_ID}`;
-  const directCommandDescription =
-    readDirectCommandDescription(directConnectCommand);
 
   return (
     <div className="container max-w-3xl py-6" data-testid={testId}>
@@ -491,7 +492,7 @@ export function MachineConnectPageContent({
         ) : null}
 
         {renderMachineApprovalState({
-          directRunCommand,
+          directRunCommands,
           isApproving,
           onApprove,
           packageRunCommand,
@@ -510,11 +511,14 @@ export function MachineConnectPageContent({
           command={packageConnectCommand}
         />
 
-        <CopyableCommandBlock
-          label="Direct hosted file connect"
-          description={directCommandDescription}
-          command={directConnectCommand}
-        />
+        {directConnectCommands.map((commandVariant) => (
+          <CopyableCommandBlock
+            key={commandVariant.label}
+            label={commandVariant.label}
+            description={commandVariant.description}
+            command={commandVariant.command}
+          />
+        ))}
 
         <p className="text-sm text-muted-foreground">
           <a
@@ -699,23 +703,20 @@ export function MachineConnectPage() {
       }
     }
   })();
-  const directCommandTargetOs = resolveDirectNoterSyncCommandTargetOs(
-    readRequestedMachineOs(requestState),
-  );
 
   return (
     <AppPageScrollShell>
       <MachineConnectPageContent
         approvalError={approvalError}
         connectedMachines={connectedMachines}
-        directConnectCommand={buildDirectNoterSyncConnectCommand(
+        directConnectCommands={buildDirectCommandVariants({
+          action: "connect",
           scriptUrl,
-          directCommandTargetOs,
-        )}
-        directRunCommand={buildDirectNoterSyncRunCommand(
+        })}
+        directRunCommands={buildDirectCommandVariants({
+          action: "run",
           scriptUrl,
-          directCommandTargetOs,
-        )}
+        })}
         heartbeatLog={heartbeatLog}
         isApproving={isApproving}
         openedByCli={bootstrapSearch.openedByCli}
