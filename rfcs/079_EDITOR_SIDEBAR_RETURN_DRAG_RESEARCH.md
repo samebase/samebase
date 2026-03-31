@@ -99,20 +99,23 @@ outer `WorkspaceSidebarShell` scroll container continues to own those touches.
 
 ## Failing Coverage
 
-`apps/noter/src/components/useProsemarkMobilePaneDrag.test.tsx` now includes a
-failing regression case that documents the expected editor-originated return
-drag after a sidebar has opened.
+The failing coverage now lives in the real Playwright fixture specs instead of a
+hook-only unit test:
 
-The failing expectation is intentional in this research PR: it captures the
-current mismatch between the user-visible shell behavior introduced by
-[#382](https://github.com/noter-md/noter/pull/382) and the editor drag guard
-that still assumes the main pane must already be the active shell pane.
+- `apps/noter/e2e/file-view-prosemark-drag.spec.ts`
+- `apps/noter/e2e/file-view-monaco-drag.spec.ts`
 
-The focused command is:
+Each spec opens the left sidebar, starts the return drag from the live editor
+surface with `?swipe-debug` enabled, waits for the viewport trace to be
+captured, and then expects the shell to return to `main`.
+
+The focused commands are:
 
 ```bash
 cd apps/noter
-pnpm exec vitest --run src/components/useProsemarkMobilePaneDrag.test.tsx
+PLAYWRIGHT_USE_DEV_SERVER=1 PLAYWRIGHT_REUSE_EXISTING_SERVER=1 PLAYWRIGHT_VITE_PORT=4173 \
+  pnpm exec playwright test -c playwright.config.ts e2e/file-view-prosemark-drag.spec.ts \
+  e2e/file-view-monaco-drag.spec.ts --grep "return from the open left pane to main"
 ```
 
 ## Likely Fix Direction
