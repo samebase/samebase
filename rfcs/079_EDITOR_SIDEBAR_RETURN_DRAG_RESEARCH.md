@@ -107,7 +107,10 @@ hook-only unit test:
 
 Each spec opens the left sidebar, starts the return drag from the live editor
 surface with `?swipe-debug` enabled, waits for the viewport trace to be
-captured, and then expects the shell to return to `main`.
+captured, and then expects sidebar-only content to leave the viewport before
+asserting that the shell returns to `main`. Today both failures stop at the
+stronger viewport assertion because the left sidebar is still visibly on-screen
+after the drag.
 
 The focused commands are:
 

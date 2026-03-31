@@ -158,12 +158,14 @@ test("Monaco drag can return from the open left pane to main", async ({
 
   const shell = page.getByTestId("fileview-monaco-drag-shell");
   const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
+  const leftSidebarOnlyItem = page.getByText("src/notes.ts");
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
   await page
     .getByRole("button", { name: "Toggle Left Sidebar" })
     .press("Enter");
   await expect(shell).toHaveAttribute("data-mobile-pane", "left");
   await expect(overlay).toBeVisible();
+  await expect(leftSidebarOnlyItem).toBeInViewport();
 
   await dragMonacoSurface(page, {
     deltaX: -132,
@@ -171,5 +173,6 @@ test("Monaco drag can return from the open left pane to main", async ({
   });
 
   await expect(overlay).toContainText("state: captured");
+  await expect(leftSidebarOnlyItem).not.toBeInViewport();
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 });

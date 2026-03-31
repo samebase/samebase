@@ -154,12 +154,14 @@ test("editable ProseMark drag can return from the open left pane to main", async
 
   const shell = page.getByTestId("fileview-prosemark-drag-shell");
   const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
+  const leftSidebarOnlyItem = page.getByText("docs/notes.md");
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
   await page
     .getByRole("button", { name: "Toggle Left Sidebar" })
     .press("Enter");
   await expect(shell).toHaveAttribute("data-mobile-pane", "left");
   await expect(overlay).toBeVisible();
+  await expect(leftSidebarOnlyItem).toBeInViewport();
 
   await dragProsemarkSurface(page, {
     deltaX: -132,
@@ -167,5 +169,6 @@ test("editable ProseMark drag can return from the open left pane to main", async
   });
 
   await expect(overlay).toContainText("state: captured");
+  await expect(leftSidebarOnlyItem).not.toBeInViewport();
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 });
