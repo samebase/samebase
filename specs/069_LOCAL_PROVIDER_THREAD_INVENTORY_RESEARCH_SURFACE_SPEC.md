@@ -4,12 +4,12 @@
 
 - Status: Accepted
 - Owner: local machine connector + Codex research surface
-- Last updated: 2026-03-27
+- Last updated: 2026-03-31
 - Related docs:
-  - `rfcs/071_CONNECTED_MACHINES_AND_REMOTE_THREAD_CONTROL_RESEARCH.md`
   - `rfcs/070_NOTER_UI_PR_TRIGGERED_CODEX_LOCAL_AUTOMATION_RESEARCH.md`
+  - `rfcs/073_CODEX_PLUGIN_CONNECTED_MACHINE_ONBOARDING_RESEARCH.md`
   - `specs/076_CONNECTED_MACHINE_REGISTRATION_AND_PRESENCE_ROLLOUT_SPEC.md`
-  - `specs/070_CONNECTED_MACHINE_CODEX_THREAD_STORAGE_SPEC.md`
+  - `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`
 
 ## Summary
 
@@ -35,7 +35,7 @@ is based on real runtime behavior rather than guesses.
 The original research page at `/research/codex-app-server` only exposes one
 `currentThreadId` plus start/resume controls.
 
-That is too narrow for the direction already agreed in RFC 071:
+That is too narrow for the current connected-machine direction:
 
 1. one local machine process should be able to service multiple threads
 2. Noter must eventually map its own cloud thread ids onto machine-local
@@ -235,29 +235,32 @@ The detail panel should show at least:
 must treat it as an implementation detail rather than the canonical thread data
 source.
 
-### Boundary to future Convex work
+### Boundary to future connector work
 
-This phase intentionally does not add:
+This spec intentionally does not define:
 
-1. `connectedMachines`
-2. `machineThreads`
-3. `machineCommands`
-4. a Noter-thread to provider-thread binding record
+1. machine approval or heartbeat publishing
+2. tunnel lifecycle
+3. machine-control token brokerage
+4. a phone-facing Noter control route
+5. cloud transcript storage
 
-But it must preserve the boundary required for that future work:
+But it must preserve the boundary required for follow-on machine work:
 
 1. local provider thread id is opaque
-2. Noter thread identity will be modeled separately later
-3. the bridge contract should be reusable by a future local connector process
-4. `076_CONNECTED_MACHINE_REGISTRATION_AND_PRESENCE_ROLLOUT_SPEC.md` reuses this
-   contract for machine presence, thread-summary sync, and later on-demand
-   thread reads before the fuller cloud thread storage from spec 070 exists
+2. the extracted local control service can reuse these thread list and detail
+   shapes later
+3. the bridge contract should stay reusable by a future local connector process
+4. `specs/076_CONNECTED_MACHINE_REGISTRATION_AND_PRESENCE_ROLLOUT_SPEC.md`
+   remains the current foundation for approved machines and presence
+5. `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md` uses this contract as the
+   extraction target for tunneled local control
 
 ## Non-Goals
 
 - remote machine pairing
-- Convex-backed machine presence
-- manual start/resume from the phone UI
+- machine approval or heartbeat publishing
+- tunneled phone control
 - cloud transcript storage
 - multi-provider runtime support in this phase
 - replacing the PR-triggered `make connect` flow

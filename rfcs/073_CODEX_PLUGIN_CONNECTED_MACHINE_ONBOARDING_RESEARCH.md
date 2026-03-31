@@ -2,7 +2,11 @@
 
 ## Status
 
-- Proposed implementation
+- Research note with merged outcomes
+- Current merged outcome: installer, browser approval, durable machine
+  credentials, and presence are now on `main`
+- Follow-on phone-control direction:
+  `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`
 - Scope: first-user internal MVP with a clear path to public npm distribution
 - Related docs:
   - `specs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`
@@ -11,8 +15,8 @@
   - `specs/069_LOCAL_PROVIDER_THREAD_INVENTORY_RESEARCH_SURFACE_SPEC.md`
   - `specs/075_CONNECTED_MACHINE_INSTALLER_LOCAL_WALKTHROUGH_SPEC.md`
   - `specs/076_CONNECTED_MACHINE_REGISTRATION_AND_PRESENCE_ROLLOUT_SPEC.md`
+  - `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`
   - `rfcs/070_NOTER_UI_PR_TRIGGERED_CODEX_LOCAL_AUTOMATION_RESEARCH.md`
-  - `rfcs/071_CONNECTED_MACHINES_AND_REMOTE_THREAD_CONTROL_RESEARCH.md`
 
 ## Decision Summary
 
@@ -47,8 +51,8 @@ Noter now has three adjacent capabilities:
 
 1. hosted MCP auth and consent for the Noter plugin
 2. a local-only Codex app-server research browser
-3. a connected-machine foundation that syncs machine presence and thread
-   summaries into Convex
+3. a connected-machine foundation that now ships machine approval, durable
+   credentials, and presence in Convex
 
 The user-facing bridge between them is still missing.
 
@@ -288,7 +292,7 @@ The right mental model is closer to device auth than to repo auth.
    - opens `/machines/connect?openedByCli`
 5. the browser page uses the current session to continue approval
 6. Noter issues machine credentials
-7. the connector starts and performs first heartbeat plus thread sync
+7. the connector starts and performs first heartbeat publishing
 8. the machine appears in Noter
 
 ### Later public flow

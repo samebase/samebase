@@ -6,6 +6,7 @@ import {
   useConnectedMachineHeartbeatLog,
 } from "@/lib/connectedMachineHeartbeatLog";
 import {
+  buildMachineLiveControlPath,
   buildDirectNoterSyncConnectCommand,
   buildDirectNoterSyncRunCommand,
   buildNoterSyncScriptUrl,
@@ -21,7 +22,7 @@ import {
 import { useMutation, useQuery } from "convex/react";
 import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
 import { api } from "../../convex/_generated/api";
 
@@ -89,12 +90,25 @@ type MachineConnectPageContentProps = {
   onApprove?: () => void;
 };
 
+const CONTROL_STATUS_RANK = {
+  ready: 0,
+  starting: 1,
+  unavailable: 2,
+} as const;
+const CONNECTED_MACHINES_SECTION_ID = "connected-machines";
+
 function resolveCurrentOrigin(): string {
   if (typeof window === "undefined") {
     return "https://noter.md";
   }
 
   return window.location.origin;
+}
+
+function readControlStatusRank(
+  status: ConnectedMachineItem["controlStatus"] | undefined,
+): number {
+  return status ? CONTROL_STATUS_RANK[status] : 3;
 }
 
 function CopyableCommandBlock({
@@ -269,6 +283,42 @@ function renderMachineApprovalState(args: {
   }
 }
 
+function readMachineLiveControlSummary(machine: ConnectedMachineItem): {
+  detail: string | null;
+  label: string;
+} {
+  if (machine.controlStatus === "ready") {
+    return {
+      detail:
+        typeof machine.controlUrlUpdatedAt === "number"
+          ? `Published ${formatConnectedMachineHeartbeatTimestamp(
+              machine.controlUrlUpdatedAt,
+            )}`
+          : null,
+      label: "Live control ready",
+    };
+  }
+
+  if (machine.controlStatus === "starting") {
+    return {
+      detail: machine.controlStatusDetail ?? null,
+      label: "Starting live control",
+    };
+  }
+
+  if (machine.controlStatus === "unavailable") {
+    return {
+      detail: machine.controlStatusDetail ?? null,
+      label: "Live control unavailable",
+    };
+  }
+
+  return {
+    detail: null,
+    label: "Presence only",
+  };
+}
+
 function ConnectedMachineList({
   machines,
 }: {
@@ -279,7 +329,7 @@ function ConnectedMachineList({
   }
 
   return (
-    <section className="space-y-3">
+    <section id={CONNECTED_MACHINES_SECTION_ID} className="space-y-3">
       <div className="space-y-1">
         <h2 className="text-sm font-medium">Connected machines</h2>
         <p className="text-sm text-muted-foreground">
@@ -287,31 +337,55 @@ function ConnectedMachineList({
         </p>
       </div>
       <div className="grid gap-3">
-        {machines.map((machine) => (
-          <section
-            key={machine.machineId}
-            className="corner-notch-1 border border-border p-4"
-          >
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">{machine.displayName}</p>
-                <p className="text-sm text-muted-foreground">
-                  {machine.hostname}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {machine.connectorVersion}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Last ping{" "}
-                  {formatConnectedMachineHeartbeatTimestamp(machine.lastSeenAt)}
-                </p>
+        {machines.map((machine) => {
+          const liveControl = readMachineLiveControlSummary(machine);
+
+          return (
+            <section
+              key={machine.machineId}
+              className="corner-notch-1 border border-border p-4"
+            >
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">{machine.displayName}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {machine.hostname}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {machine.connectorVersion}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Last ping{" "}
+                    {formatConnectedMachineHeartbeatTimestamp(
+                      machine.lastSeenAt,
+                    )}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {liveControl.label}
+                  </p>
+                  {liveControl.detail ? (
+                    <p className="text-sm text-muted-foreground">
+                      {liveControl.detail}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="text-sm font-medium">
+                  <div>
+                    {machine.status === "online" ? "Online" : "Offline"}
+                  </div>
+                  {machine.status === "online" &&
+                  machine.controlStatus === "ready" ? (
+                    <Button asChild className="mt-3" size="sm">
+                      <Link to={buildMachineLiveControlPath(machine.machineId)}>
+                        Open live control
+                      </Link>
+                    </Button>
+                  ) : null}
+                </div>
               </div>
-              <div className="text-sm font-medium">
-                {machine.status === "online" ? "Online" : "Offline"}
-              </div>
-            </div>
-          </section>
-        ))}
+            </section>
+          );
+        })}
       </div>
     </section>
   );
@@ -332,6 +406,8 @@ export function MachineConnectPageContent({
   testId,
   onApprove,
 }: MachineConnectPageContentProps) {
+  const connectedMachinesAnchor = `#${CONNECTED_MACHINES_SECTION_ID}`;
+
   return (
     <div className="container max-w-3xl py-6" data-testid={testId}>
       <div className="space-y-6">
@@ -347,6 +423,25 @@ export function MachineConnectPageContent({
             installed, then approve the browser handoff here.
           </p>
         </div>
+
+        <section className="corner-notch-1 border border-border p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">
+                Your machine list lives on this page
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Once <code>noter-sync run</code> is publishing heartbeats,
+                scroll down to Connected machines here to open live control.
+              </p>
+            </div>
+            {connectedMachines.length > 0 ? (
+              <Button asChild variant="outline" size="sm">
+                <a href={connectedMachinesAnchor}>Jump to connected machines</a>
+              </Button>
+            ) : null}
+          </div>
+        </section>
 
         {connectedMachines.length > 0 ? (
           <ConnectedMachineHeartbeatLogSection heartbeatLog={heartbeatLog} />
@@ -449,6 +544,11 @@ export function MachineConnectPage() {
     .sort((left, right) => {
       if (left.status !== right.status) {
         return left.status === "online" ? -1 : 1;
+      }
+      const leftControlRank = readControlStatusRank(left.controlStatus);
+      const rightControlRank = readControlStatusRank(right.controlStatus);
+      if (leftControlRank !== rightControlRank) {
+        return leftControlRank - rightControlRank;
       }
       if (left.lastSeenAt !== right.lastSeenAt) {
         return right.lastSeenAt - left.lastSeenAt;

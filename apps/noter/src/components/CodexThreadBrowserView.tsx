@@ -50,6 +50,10 @@ type CodexThreadBrowserViewProps = {
   fillViewport?: boolean;
   relativeTimeReferenceMs?: number;
   labHref?: string;
+  allowArchivedMode?: boolean;
+  headingEyebrow?: string;
+  headingTitle?: string;
+  headingDescription?: string;
   onBrowserModeChange?: (mode: CodexThreadBrowserMode) => void;
   onSearchTermChange?: (value: string) => void;
   onThreadSelect?: (threadId: string) => void;
@@ -464,6 +468,12 @@ function TurnHistoryCard(props: {
 
 export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
   const fillViewport = props.fillViewport ?? true;
+  const allowArchivedMode = props.allowArchivedMode ?? true;
+  const headingEyebrow = props.headingEyebrow ?? "Local control";
+  const headingTitle = props.headingTitle ?? "Codex threads";
+  const headingDescription =
+    props.headingDescription ??
+    "Browse local Codex threads, inspect hydrated turns, and continue work from the browser.";
   const [expandedTurnIds, setExpandedTurnIds] = useState<string[]>(() =>
     readDefaultExpandedTurnIds(props.selectedThread),
   );
@@ -503,37 +513,42 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
         <div className="flex flex-wrap items-center justify-between gap-3 border border-slate-200 bg-white/90 px-4 py-3 backdrop-blur">
           <div className="grid gap-1">
             <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Research Surface
+              {headingEyebrow}
             </div>
             <div className="font-mono text-xl font-semibold">
-              Codex Thread Browser
+              {headingTitle}
             </div>
-            <div className="text-sm text-slate-600">
-              A Codex-style thread browser driven by the local{" "}
-              <code>codex app-server</code> inventory.
-            </div>
+            <div className="text-sm text-slate-600">{headingDescription}</div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant={props.browserMode === "active" ? "default" : "outline"}
-              size="sm"
-              disabled={props.isBusy}
-              onClick={() => {
-                props.onBrowserModeChange?.("active");
-              }}
-            >
-              Active
-            </Button>
-            <Button
-              variant={props.browserMode === "archived" ? "default" : "outline"}
-              size="sm"
-              disabled={props.isBusy}
-              onClick={() => {
-                props.onBrowserModeChange?.("archived");
-              }}
-            >
-              Archived
-            </Button>
+            {allowArchivedMode ? (
+              <>
+                <Button
+                  variant={
+                    props.browserMode === "active" ? "default" : "outline"
+                  }
+                  size="sm"
+                  disabled={props.isBusy}
+                  onClick={() => {
+                    props.onBrowserModeChange?.("active");
+                  }}
+                >
+                  Active
+                </Button>
+                <Button
+                  variant={
+                    props.browserMode === "archived" ? "default" : "outline"
+                  }
+                  size="sm"
+                  disabled={props.isBusy}
+                  onClick={() => {
+                    props.onBrowserModeChange?.("archived");
+                  }}
+                >
+                  Archived
+                </Button>
+              </>
+            ) : null}
             {props.labHref ? (
               <Button asChild variant="outline" size="sm">
                 <a href={props.labHref}>Open protocol lab</a>
@@ -638,36 +653,44 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
                   >
                     Refresh
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={
-                      props.isBusy ||
-                      props.selectedThreadId === null ||
-                      selectedThreadIsArchived
-                    }
-                    onClick={props.onResumeSelected}
-                  >
-                    Resume
-                  </Button>
-                  {selectedThreadIsArchived ? (
-                    <Button
-                      size="sm"
-                      disabled={props.isBusy || props.selectedThreadId === null}
-                      onClick={props.onUnarchiveSelected}
-                    >
-                      Unarchive
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={props.isBusy || props.selectedThreadId === null}
-                      onClick={props.onArchiveSelected}
-                    >
-                      Archive
-                    </Button>
-                  )}
+                  {allowArchivedMode ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                          props.isBusy ||
+                          props.selectedThreadId === null ||
+                          selectedThreadIsArchived
+                        }
+                        onClick={props.onResumeSelected}
+                      >
+                        Resume
+                      </Button>
+                      {selectedThreadIsArchived ? (
+                        <Button
+                          size="sm"
+                          disabled={
+                            props.isBusy || props.selectedThreadId === null
+                          }
+                          onClick={props.onUnarchiveSelected}
+                        >
+                          Unarchive
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={
+                            props.isBusy || props.selectedThreadId === null
+                          }
+                          onClick={props.onArchiveSelected}
+                        >
+                          Archive
+                        </Button>
+                      )}
+                    </>
+                  ) : null}
                 </div>
               </div>
             </CardHeader>
@@ -764,8 +787,7 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
                           Continue thread
                         </div>
                         <div className="text-sm text-slate-600">
-                          Send a prompt to the selected Codex thread through the
-                          local app-server bridge.
+                          Send a prompt to the selected Codex thread.
                         </div>
                       </div>
                       <div className="text-xs text-slate-500">

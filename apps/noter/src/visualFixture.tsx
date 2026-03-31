@@ -80,6 +80,7 @@ import {
   CodexAppServerResearchVisualFixture,
   type CodexAppServerResearchVisualMode,
 } from "@/components/CodexAppServerResearchVisualFixture";
+import { MachineLiveControlVisualFixture } from "@/components/MachineLiveControlVisualFixture";
 import {
   CodexThreadHistoryVisualFixture,
   type CodexThreadHistoryVisualMode,
@@ -133,6 +134,7 @@ type VisualFixtureMode =
   | CodexAppServerResearchVisualMode
   | CodexThreadBrowserVisualMode
   | CodexThreadHistoryVisualMode
+  | "machine-live-control"
   | "machine-connect"
   | "vault-dashboard-branch-pr-title"
   | "button"
@@ -261,6 +263,7 @@ const MISC_VISUAL_MODES = [
   "codex-app-server-research",
   "codex-thread-browser",
   "codex-thread-history",
+  "machine-live-control",
   "machine-connect",
   "vault-dashboard-branch-pr-title",
   "button",
@@ -502,6 +505,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "machine-connect") {
     return <MachineConnectVisualFixture />;
+  }
+
+  if (mode === "machine-live-control") {
+    return <MachineLiveControlVisualFixture />;
   }
 
   if (mode === "button") {

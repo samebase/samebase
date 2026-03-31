@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { normalizeCodexAppServerEvent } from "./codexAppServerResearch";
+import {
+  CodexAppServerRequestError,
+  normalizeCodexAppServerEvent,
+  requestCodexAppServerJson,
+} from "./codexAppServerResearch";
 
 describe("normalizeCodexAppServerEvent", () => {
   it("maps runtime readiness into a stable category", () => {
@@ -167,5 +171,93 @@ describe("normalizeCodexAppServerEvent", () => {
       title: "thread/resumed",
       summary: "thread-1",
     });
+  });
+});
+
+describe("requestCodexAppServerJson", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("supports custom base URLs and headers for tunneled machine requests", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        status: 200,
+      }),
+    );
+
+    await expect(
+      requestCodexAppServerJson<{ ok: boolean }>({
+        baseUrl: "https://machine-live-control.trycloudflare.com",
+        headers: {
+          Authorization: "Bearer machine-token",
+        },
+        path: "/status",
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://machine-live-control.trycloudflare.com/status",
+      expect.objectContaining({
+        headers: expect.any(Headers),
+        method: "GET",
+      }),
+    );
+    const fetchHeaders = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(fetchHeaders.get("Authorization")).toBe("Bearer machine-token");
+  });
+
+  it("throws a typed error with status when the request fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({ error: "Machine control token expired." }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 401,
+        },
+      ),
+    );
+
+    await expect(
+      requestCodexAppServerJson({
+        baseUrl: "https://machine-live-control.trycloudflare.com",
+        path: "/threads",
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<CodexAppServerRequestError>({
+        message: "Machine control token expired.",
+        name: "CodexAppServerRequestError",
+        status: 401,
+      }),
+    );
+  });
+
+  it("falls back to a typed error when the tunnel returns non-JSON", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("<html>bad gateway</html>", {
+        headers: {
+          "Content-Type": "text/html",
+        },
+        status: 502,
+      }),
+    );
+
+    await expect(
+      requestCodexAppServerJson({
+        baseUrl: "https://machine-live-control.trycloudflare.com",
+        path: "/threads",
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<CodexAppServerRequestError>({
+        message: "<html>bad gateway</html>",
+        name: "CodexAppServerRequestError",
+        status: 502,
+      }),
+    );
   });
 });

@@ -1,4 +1,4 @@
-import { asRecord, readString } from "./jsonUtils";
+import { asRecord, readNumber, readString } from "./jsonUtils";
 import { internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { MACHINE_REGISTRATION_REQUEST_TTL_MS } from "./connectedMachineModel";
@@ -44,20 +44,32 @@ function readConnectedMachineOs(
 
 function readConnectedMachineCapabilities(
   value: unknown,
-): Array<"presence"> | null {
+): Array<"presence" | "liveControl"> | null {
   if (!Array.isArray(value)) {
     return null;
   }
 
-  const capabilities: Array<"presence"> = [];
+  const capabilities: Array<"presence" | "liveControl"> = [];
   for (const entry of Array.from(new Set(value))) {
-    if (entry !== "presence") {
+    if (entry !== "presence" && entry !== "liveControl") {
       return null;
     }
     capabilities.push(entry);
   }
 
   return capabilities;
+}
+
+function readConnectedMachineControlStatus(
+  value: string | undefined,
+): "ready" | "starting" | "unavailable" | undefined | null {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === "ready" || value === "starting" || value === "unavailable") {
+    return value;
+  }
+  return null;
 }
 
 function readStringArray(value: unknown): string[] | null {
@@ -82,6 +94,20 @@ function readBearerToken(authorizationHeader: string | null): string | null {
   }
 
   return token;
+}
+
+/**
+ * Only heartbeats that explicitly advertise the live-control capability may
+ * publish a "ready" control surface. This keeps the UI and token-minting path
+ * aligned with what the connector says it can actually serve.
+ */
+export function machineHeartbeatHasConsistentLiveControlState(args: {
+  capabilities: Array<"presence" | "liveControl">;
+  controlStatus: "ready" | "starting" | "unavailable" | undefined;
+}): boolean {
+  return (
+    args.controlStatus !== "ready" || args.capabilities.includes("liveControl")
+  );
 }
 
 /**
@@ -196,8 +222,22 @@ export const publishMachineHeartbeat = httpAction(async (ctx, request) => {
       : statusValue === "online" || statusValue === "offline"
         ? statusValue
         : null;
+  const controlStatus = readConnectedMachineControlStatus(
+    readString(body, "controlStatus"),
+  );
+  const controlStatusDetail = readString(body, "controlStatusDetail");
+  const controlUrl = readString(body, "controlUrl");
+  const controlUrlUpdatedAt =
+    body.controlUrlUpdatedAt === undefined
+      ? undefined
+      : readNumber(body, "controlUrlUpdatedAt") ?? null;
   const capabilities = readConnectedMachineCapabilities(body.capabilities);
   const allowedRoots = readStringArray(body.allowedRoots);
+  const hasLiveControlPayload =
+    controlStatus !== undefined ||
+    controlStatusDetail !== undefined ||
+    controlUrl !== undefined ||
+    controlUrlUpdatedAt !== undefined;
 
   if (
     !machineId ||
@@ -206,8 +246,20 @@ export const publishMachineHeartbeat = httpAction(async (ctx, request) => {
     !os ||
     !connectorVersion ||
     status === null ||
+    controlStatus === null ||
+    controlUrlUpdatedAt === null ||
     capabilities === null ||
-    allowedRoots === null
+    allowedRoots === null ||
+    (hasLiveControlPayload && controlStatus === undefined) ||
+    (controlStatus !== undefined && controlUrlUpdatedAt === undefined) ||
+    (controlStatus === "ready" && controlUrl === undefined) ||
+    !machineHeartbeatHasConsistentLiveControlState({
+      capabilities,
+      controlStatus,
+    }) ||
+    (controlStatus !== undefined &&
+      controlStatus !== "ready" &&
+      controlUrl !== undefined)
   ) {
     return errorResponse(400, "missing machine heartbeat fields");
   }
@@ -225,6 +277,10 @@ export const publishMachineHeartbeat = httpAction(async (ctx, request) => {
       connectorVersion,
       capabilities,
       allowedRoots,
+      controlStatus,
+      controlStatusDetail,
+      controlUrl,
+      controlUrlUpdatedAt,
       status,
     },
   );
@@ -234,3 +290,48 @@ export const publishMachineHeartbeat = httpAction(async (ctx, request) => {
 
   return jsonResponse({ ok: true });
 });
+
+export const introspectMachineControlToken = httpAction(
+  async (ctx, request) => {
+    if (!hasJsonContentType(request)) {
+      return errorResponse(415, "content-type must be application/json");
+    }
+
+    let body: Record<string, unknown>;
+    try {
+      body = await readJsonBody(request);
+    } catch {
+      return errorResponse(400, "invalid json body");
+    }
+
+    const machineId = readString(body, "machineId");
+    const token = readString(body, "token");
+    if (!machineId || !token) {
+      return errorResponse(400, "missing machine control token fields");
+    }
+
+    const tokenHash = await sha256Hex(token);
+    const introspection = await ctx.runMutation(
+      internal.connectedMachineControl.introspectMachineControlToken,
+      {
+        machineId,
+        now: Date.now(),
+        tokenHash,
+      },
+    );
+
+    if (!introspection.active) {
+      return jsonResponse({
+        active: false,
+      });
+    }
+
+    return jsonResponse({
+      active: true,
+      audience: introspection.audience,
+      expiresAt: introspection.expiresAt,
+      machineId: introspection.machineId,
+      userId: `${introspection.userId}`,
+    });
+  },
+);

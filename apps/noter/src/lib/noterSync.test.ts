@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildMachineLiveControlPath,
   buildDirectNoterSyncConnectCommand,
   buildDirectNoterSyncRunCommand,
   buildNoterSyncScriptUrl,
   buildPublishedNoterSyncConnectCommand,
   buildPublishedNoterSyncRunCommand,
+  readMachineLiveControlPath,
   readMachineConnectBootstrapSearch,
 } from "@/lib/noterSync";
 
@@ -13,6 +15,12 @@ describe("noterSync", () => {
   it("builds the deploy-scoped noter sync script URL", () => {
     expect(buildNoterSyncScriptUrl("https://preview.noter.md")).toBe(
       "https://preview.noter.md/noter.js",
+    );
+  });
+
+  it("builds the machine live-control route", () => {
+    expect(buildMachineLiveControlPath("machine:123")).toBe(
+      "/machines/machine%3A123/live",
     );
   });
 
@@ -51,5 +59,13 @@ describe("noterSync", () => {
       openedByCli: false,
       requestId: null,
     });
+  });
+
+  it("reads the machine id from a live-control route pathname", () => {
+    expect(readMachineLiveControlPath("/machines/machine%3A123/live")).toEqual({
+      machineId: "machine:123",
+    });
+    expect(readMachineLiveControlPath("/machines/%ZZ/live")).toBeNull();
+    expect(readMachineLiveControlPath("/machines/connect")).toBeNull();
   });
 });

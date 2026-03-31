@@ -7,6 +7,7 @@ import {
 import { finishConvexOAuth, startConvexOAuth } from "./convexOAuth";
 import {
   createMachineRegistrationRequest,
+  introspectMachineControlToken,
   publishMachineHeartbeat,
 } from "./connectedMachineHttp";
 import { finishGithubOAuth, startGithubOAuth } from "./githubOAuth";
@@ -71,6 +72,12 @@ http.route({
   path: "/connected-machines/heartbeat",
   method: "POST",
   handler: publishMachineHeartbeat,
+});
+
+http.route({
+  path: "/connected-machines/control/introspect",
+  method: "POST",
+  handler: introspectMachineControlToken,
 });
 
 http.route({

@@ -64,6 +64,10 @@ function buildConnectedMachineView(args: { row: ConnectedMachineRow }) {
     connectorVersion: args.row.connectorVersion,
     capabilities: args.row.capabilities,
     allowedRoots: args.row.allowedRoots,
+    controlStatus: args.row.controlStatus,
+    controlStatusDetail: args.row.controlStatusDetail,
+    controlUrl: args.row.controlUrl,
+    controlUrlUpdatedAt: args.row.controlUrlUpdatedAt,
   };
 }
 
@@ -372,6 +376,10 @@ export const publishHeartbeatFromConnector = internalMutation({
       connectorVersion: args.connectorVersion,
       capabilities: readUniqueCapabilities(args.capabilities),
       allowedRoots: readUniqueRoots(args.allowedRoots),
+      controlStatus: args.controlStatus,
+      controlStatusDetail: args.controlStatusDetail,
+      controlUrl: args.controlUrl,
+      controlUrlUpdatedAt: args.controlUrlUpdatedAt,
     } satisfies Omit<ConnectedMachineRow, "userId">;
 
     if (existing) {

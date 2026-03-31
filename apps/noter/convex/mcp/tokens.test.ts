@@ -3,19 +3,22 @@ import { createCodeChallenge } from "../oauthUtils";
 import {
   createAccessTokenValue,
   createAuthorizationCodeValue,
+  createMachineControlTokenValue,
   createRefreshTokenValue,
   sha256Hex,
   verifyPkceS256,
 } from "./tokens";
 
 describe("opaque token creators", () => {
-  it("creates prefixed authorization, access, and refresh tokens", () => {
+  it("creates prefixed authorization, access, refresh, and machine-control tokens", () => {
     const authCode = createAuthorizationCodeValue();
     const accessToken = createAccessTokenValue();
+    const machineControlToken = createMachineControlTokenValue();
     const refreshToken = createRefreshTokenValue();
 
     expect(authCode.startsWith("mcpac_")).toBe(true);
     expect(accessToken.startsWith("mcpat_")).toBe(true);
+    expect(machineControlToken.startsWith("mmct_")).toBe(true);
     expect(refreshToken.startsWith("mcprt_")).toBe(true);
   });
 });
