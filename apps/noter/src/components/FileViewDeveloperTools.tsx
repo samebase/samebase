@@ -6,15 +6,25 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/collapsible";
+import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
 import { Tabs, TabsList, TabsTrigger } from "@/components/tabs";
 
 export type FileViewMode = "editor" | "graph";
+export type FileViewEditorOverride = "default" | "codemirror";
+
+function isFileViewEditorOverride(
+  value: string,
+): value is FileViewEditorOverride {
+  return value === "default" || value === "codemirror";
+}
 
 type FileViewDeveloperToolsProps = {
   open: boolean;
   onOpenChange: (isOpen: boolean) => void;
   viewMode: FileViewMode;
   onViewModeChange: (viewMode: FileViewMode) => void;
+  editorOverride?: FileViewEditorOverride;
+  onEditorOverrideChange?: (editorOverride: FileViewEditorOverride) => void;
   children: ReactNode;
   contentTestId?: string;
 };
@@ -30,6 +40,8 @@ export function FileViewDeveloperTools({
   onOpenChange,
   viewMode,
   onViewModeChange,
+  editorOverride,
+  onEditorOverrideChange,
   children,
   contentTestId,
 }: FileViewDeveloperToolsProps) {
@@ -71,6 +83,35 @@ export function FileViewDeveloperTools({
             </TabsTrigger>
           </TabsList>
         </Tabs>
+        {editorOverride !== undefined && onEditorOverrideChange ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui border bg-muted/20 px-2 py-1.5">
+            <div className="text-[11px] font-medium text-muted-foreground">
+              Editor engine
+            </div>
+            <ToggleGroup
+              type="single"
+              value={editorOverride}
+              variant="outline"
+              size="sm"
+              className="justify-start"
+              onValueChange={(nextEditorOverride) => {
+                if (isFileViewEditorOverride(nextEditorOverride)) {
+                  onEditorOverrideChange(nextEditorOverride);
+                }
+              }}
+            >
+              <ToggleGroupItem value="default" className="h-6 px-2 text-[11px]">
+                Auto
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="codemirror"
+                className="h-6 px-2 text-[11px]"
+              >
+                CodeMirror
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+        ) : null}
         {children}
       </CollapsibleContent>
     </Collapsible>

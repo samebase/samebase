@@ -5,10 +5,17 @@ import { useTheme } from "next-themes";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { buildMonacoFileUri } from "@/lib/monacoFileUri";
 import { useProsemarkMobilePaneDrag } from "@/components/useProsemarkMobilePaneDrag";
+import {
+  CODE_SURFACE_FONT_FAMILY,
+  CODE_SURFACE_FONT_SIZE_PX,
+  CODE_SURFACE_LINE_HEIGHT_PX,
+} from "@/lib/codeSurfaceTypography";
 
 export interface MonacoEditorSurfaceProps {
   branch: string;
   defaultValue: string;
+  disableFolding?: boolean;
+  disableLineNumbers?: boolean;
   filePath: string;
   onMount: OnMount;
   showMobileLineNumbers?: boolean;
@@ -25,6 +32,8 @@ export interface MonacoEditorSurfaceProps {
 export function MonacoEditorSurface({
   branch,
   defaultValue,
+  disableFolding = false,
+  disableLineNumbers = false,
   filePath,
   onMount,
   showMobileLineNumbers = false,
@@ -37,11 +46,9 @@ export function MonacoEditorSurface({
   const isMobileViewport = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const mobilePaneDrag = useProsemarkMobilePaneDrag(true, containerRef);
-  const lineNumbersMode = isMobileViewport
-    ? showMobileLineNumbers
-      ? "on"
-      : "off"
-    : "on";
+  const showLineNumbers =
+    !disableLineNumbers && (!isMobileViewport || showMobileLineNumbers);
+  const showFolding = !disableFolding && !isMobileViewport;
 
   return (
     <div
@@ -77,13 +84,24 @@ export function MonacoEditorSurface({
           hideCursorInOverviewRuler: true,
           scrollBeyondLastLine: false,
           wordWrap: "on",
-          fontSize: 14,
+          fontFamily: CODE_SURFACE_FONT_FAMILY,
+          fontLigatures: false,
+          fontSize: CODE_SURFACE_FONT_SIZE_PX,
+          lineHeight: CODE_SURFACE_LINE_HEIGHT_PX,
           tabSize: 2,
-          lineNumbers: lineNumbersMode,
-          lineNumbersMinChars: isMobileViewport ? 2 : 3,
+          lineNumbers: showLineNumbers ? "on" : "off",
+          lineNumbersMinChars: showLineNumbers ? 3 : 0,
           glyphMargin: false,
-          folding: !isMobileViewport,
-          lineDecorationsWidth: isMobileViewport ? 0 : 10,
+          folding: showFolding,
+          ...(showLineNumbers
+            ? {}
+            : {
+                lineDecorationsWidth: 0,
+              }),
+          padding: {
+            top: 0,
+            bottom: 0,
+          },
         }}
       />
       {syncError ? (

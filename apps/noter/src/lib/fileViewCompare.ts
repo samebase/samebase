@@ -1,6 +1,37 @@
 export type BranchComparePreviewReloadMode = "none" | "immediate" | "debounced";
 
 /**
+ * Compare/review previews can render the previous revision of a renamed file.
+ * Prefer the recorded old path for the "before" side so syntax and theming
+ * follow the original extension instead of the current renamed path.
+ */
+export function getPreviewBaseFilePath(args: {
+  comparedPreviousPath?: string;
+  currentFilePath: string;
+  previewPreviousPath?: string;
+  stagedCurrentFilePath?: string;
+  stagedInitialFilePath?: string;
+}): string {
+  if (args.comparedPreviousPath) {
+    return args.comparedPreviousPath;
+  }
+
+  if (args.previewPreviousPath) {
+    return args.previewPreviousPath;
+  }
+
+  if (
+    args.stagedCurrentFilePath === args.currentFilePath &&
+    args.stagedInitialFilePath &&
+    args.stagedInitialFilePath !== args.currentFilePath
+  ) {
+    return args.stagedInitialFilePath;
+  }
+
+  return args.currentFilePath;
+}
+
+/**
  * Builds a deterministic, order-independent refresh key for staged file rows.
  * The key captures each row's `_id`, `version`, `filePath`,
  * `initialFilePath`, `fileDeleted`, and `parentCommitSha` (with `null`

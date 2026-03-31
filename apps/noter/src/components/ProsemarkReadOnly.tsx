@@ -20,31 +20,31 @@ import {
   ViewPlugin,
   ViewUpdate,
 } from "@codemirror/view";
-import { markdown } from "@codemirror/lang-markdown";
-import { languages } from "@codemirror/language-data";
-import { GFM } from "@lezer/markdown";
-import {
-  prosemarkBaseThemeSetup,
-  prosemarkBasicSetup,
-  prosemarkMarkdownSyntaxExtensions,
-} from "@prosemark/core";
+import { prosemarkBaseThemeSetup, prosemarkBasicSetup } from "@prosemark/core";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import {
-  prosemarkDarkTheme,
   blurOnOutsidePointerDownExtension,
   collapseSelectionOnBlurExtension,
   findInitialSafeSelectionAnchor,
+  getProsemarkFileThemeExtensions,
   prosemarkHiddenCursorTheme,
   prosemarkLandingCopyDarkSelectionTheme,
   prosemarkSurfaceTheme,
 } from "@/components/prosemarkSurface";
 import { useProsemarkMobilePaneDrag } from "@/components/useProsemarkMobilePaneDrag";
+import {
+  getCodeMirrorFileLanguageKind,
+  getInitialCodeMirrorLanguageExtension,
+  loadCodeMirrorLanguageExtension,
+  type CodeMirrorFileLanguageKind,
+} from "@/lib/codemirrorLanguage";
 
 type ProsemarkReadOnlyProps = {
   value: string;
   className?: string;
   editable?: boolean;
+  filePath?: string;
   highlightedLineNumbers?: number[];
   lineHighlightTone?: "add" | "remove";
   mobilePaneDragEnabled?: boolean;
@@ -209,6 +209,7 @@ export function ProsemarkReadOnly({
   value,
   className,
   editable = false,
+  filePath,
   highlightedLineNumbers = [],
   lineHighlightTone = "add",
   mobilePaneDragEnabled = false,
@@ -229,7 +230,12 @@ export function ProsemarkReadOnly({
   const lastValueRef = useRef(value);
   const editableRef = useRef(editable);
   const isDarkRef = useRef(isDark);
+  const filePathRef = useRef(filePath);
   const styleVariantRef = useRef(styleVariant);
+  const languageKindRef = useRef<CodeMirrorFileLanguageKind>(
+    getCodeMirrorFileLanguageKind(filePath),
+  );
+  const languageCompartmentRef = useRef(new Compartment());
   const themeCompartmentRef = useRef(new Compartment());
   const interactionCompartmentRef = useRef(new Compartment());
   const cursorCompartmentRef = useRef(new Compartment());
@@ -274,6 +280,11 @@ export function ProsemarkReadOnly({
   }, [editable]);
 
   useEffect(() => {
+    filePathRef.current = filePath;
+    languageKindRef.current = getCodeMirrorFileLanguageKind(filePath);
+  }, [filePath]);
+
+  useEffect(() => {
     styleVariantRef.current = styleVariant;
   }, [styleVariant]);
 
@@ -300,10 +311,9 @@ export function ProsemarkReadOnly({
         findInitialSafeSelectionAnchor(lastValueRef.current),
       ),
       extensions: [
-        markdown({
-          codeLanguages: languages,
-          extensions: [GFM, prosemarkMarkdownSyntaxExtensions],
-        }),
+        languageCompartmentRef.current.of(
+          getInitialCodeMirrorLanguageExtension(filePathRef.current),
+        ),
         EditorView.lineWrapping,
         prosemarkBasicSetup(),
         prosemarkBaseThemeSetup(),
@@ -347,7 +357,10 @@ export function ProsemarkReadOnly({
           onChangeRef.current?.(lastValueRef.current);
         }),
         themeCompartmentRef.current.of(
-          isDarkRef.current ? prosemarkDarkTheme : [],
+          getProsemarkFileThemeExtensions({
+            isDark: isDarkRef.current,
+            languageKind: languageKindRef.current,
+          }),
         ),
       ],
     });
@@ -368,12 +381,69 @@ export function ProsemarkReadOnly({
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
+    const nextLanguageKind = getCodeMirrorFileLanguageKind(filePath);
+    languageKindRef.current = nextLanguageKind;
     view.dispatch({
       effects: themeCompartmentRef.current.reconfigure(
-        isDark ? prosemarkDarkTheme : [],
+        getProsemarkFileThemeExtensions({
+          isDark,
+          languageKind: nextLanguageKind,
+        }),
       ),
     });
-  }, [isDark]);
+  }, [filePath, isDark]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    const nextLanguageKind = getCodeMirrorFileLanguageKind(filePath);
+    languageKindRef.current = nextLanguageKind;
+    const initialLanguageExtension =
+      getInitialCodeMirrorLanguageExtension(filePath);
+
+    // Swap to the safe synchronous parser immediately so file switches do not
+    // keep tokenizing with the previous document's grammar while the lazy
+    // language chunk is still loading.
+    view.dispatch({
+      effects: languageCompartmentRef.current.reconfigure(
+        initialLanguageExtension,
+      ),
+    });
+
+    let isCurrent = true;
+
+    // CodeMirror language-data resolves code languages asynchronously, so the
+    // rich diff surface starts with a safe parser and upgrades in place.
+    void loadCodeMirrorLanguageExtension(filePath)
+      .then((languageExtension) => {
+        if (!isCurrent || !viewRef.current) {
+          return;
+        }
+
+        viewRef.current.dispatch({
+          effects:
+            languageCompartmentRef.current.reconfigure(languageExtension),
+        });
+        resizeToContent();
+      })
+      .catch(() => {
+        if (!isCurrent) {
+          return;
+        }
+
+        view.dispatch({
+          effects: languageCompartmentRef.current.reconfigure(
+            initialLanguageExtension,
+          ),
+        });
+        resizeToContent();
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [filePath, resizeToContent]);
 
   useEffect(() => {
     const view = viewRef.current;

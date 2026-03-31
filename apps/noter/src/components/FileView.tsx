@@ -14,7 +14,10 @@ import { Label } from "@/components/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
 import { FileViewPushActions } from "@/components/FileViewPushActions";
 import { ChangedFilesLoadingState } from "@/components/ChangedFilesLoadingState";
-import { FileViewDeveloperTools } from "@/components/FileViewDeveloperTools";
+import {
+  FileViewDeveloperTools,
+  type FileViewEditorOverride,
+} from "@/components/FileViewDeveloperTools";
 
 import { GitHubLogoIcon, PlusIcon, FilePlusIcon } from "@radix-ui/react-icons";
 import { SidebarProvider } from "@/components/sidebar";
@@ -82,6 +85,7 @@ import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 import {
   buildStagingPreviewRefreshKey,
   getBranchComparePreviewReloadMode,
+  getPreviewBaseFilePath,
 } from "@/lib/fileViewCompare";
 import {
   shouldClearCompareOnReviewExit,
@@ -838,6 +842,8 @@ function FileViewInner({
   const [showInlinePreviewSideBySide, setShowInlinePreviewSideBySide] =
     useState(DEFAULT_SHOW_INLINE_PREVIEW_SIDE_BY_SIDE);
   const [developerToolsOpen, setDeveloperToolsOpen] = useState(false);
+  const [editorOverride, setEditorOverride] =
+    useState<FileViewEditorOverride>("default");
   const [inlinePreviewSaveError, setInlinePreviewSaveError] = useState<
     string | null
   >(null);
@@ -1950,6 +1956,13 @@ function FileViewInner({
       : selectedPreviewStagedFile?.initialContent ??
         selectedPreviewFile?.richOldContent ??
         "";
+  const selectedPreviewBaseFilePath = getPreviewBaseFilePath({
+    comparedPreviousPath: selectedComparedFile?.previousPath,
+    currentFilePath: selectedFile,
+    previewPreviousPath: selectedPreviewFile?.previousPath,
+    stagedCurrentFilePath: selectedPreviewStagedFile?.filePath,
+    stagedInitialFilePath: selectedPreviewStagedFile?.initialFilePath,
+  });
   const selectedComparedFileCanRenderInline = Boolean(
     selectedComparedFile &&
       typeof selectedComparedFile.richOldContent === "string" &&
@@ -2066,7 +2079,11 @@ function FileViewInner({
       </div>
     </div>
   );
-  const renderSplitPreview = (beforeValue: string, afterValue: string) => (
+  const renderSplitPreview = (
+    beforeValue: string,
+    afterValue: string,
+    beforeFilePath: string,
+  ) => (
     <div className="grid gap-3 p-3 md:grid-cols-2">
       <div className="min-w-0 corner-notch-1 border bg-background p-3">
         <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
@@ -2074,6 +2091,7 @@ function FileViewInner({
         </div>
         <ProsemarkReadOnly
           value={beforeValue}
+          filePath={beforeFilePath}
           highlightedLineNumbers={inlinePreviewSplitDiffHighlights.oldLines}
           lineHighlightTone="remove"
           mobilePaneDragEnabled
@@ -2086,6 +2104,7 @@ function FileViewInner({
         </div>
         <ProsemarkReadOnly
           value={afterValue}
+          filePath={selectedFile}
           highlightedLineNumbers={inlinePreviewSplitDiffHighlights.newLines}
           lineHighlightTone="add"
           mobilePaneDragEnabled
@@ -2995,6 +3014,11 @@ function FileViewInner({
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
     : undefined;
   const developerToolsVisible = viewMode === "graph" || developerToolsOpen;
+  const showEditorOverrideControl =
+    viewMode === "editor" &&
+    commitReviewMode === "editor" &&
+    !selectedFileIsRenderableMedia &&
+    Boolean(stagedFile);
   const showCompareBackToEditor = shouldShowCompareBackToEditor({
     commitReviewMode,
     isCompareRequested,
@@ -3163,6 +3187,12 @@ function FileViewInner({
                   }}
                   viewMode={viewMode}
                   onViewModeChange={setViewMode}
+                  editorOverride={
+                    showEditorOverrideControl ? editorOverride : undefined
+                  }
+                  onEditorOverrideChange={
+                    showEditorOverrideControl ? setEditorOverride : undefined
+                  }
                 >
                   {!DAYTONA_PAUSED ? (
                     <>
@@ -3364,12 +3394,14 @@ function FileViewInner({
                                       renderSplitPreview(
                                         selectedPreviewBaseContent,
                                         inlinePreviewEditorContent,
+                                        selectedPreviewBaseFilePath,
                                       )
                                     ) : (
                                       <ProsemarkMergeEditor
                                         key={`${selectedFile}:${activePreviewStagingId ?? "inline"}`}
                                         value={inlinePreviewEditorContent}
                                         baseValue={selectedPreviewBaseContent}
+                                        filePath={selectedFile}
                                         options={inlinePreviewOptions}
                                         editable={inlinePreviewEditable}
                                         mobilePaneDragEnabled
@@ -3413,6 +3445,7 @@ function FileViewInner({
                     tree={vault.treeData.tree}
                     treeSHA={vault.treeSHA}
                     showMobileLineNumbers={showMobileEditorLineNumbers}
+                    editorOverride={editorOverride}
                   />
                 ) : isCompareRequested &&
                   selectedComparedFileCanRenderInline ? (
@@ -3429,12 +3462,14 @@ function FileViewInner({
                       renderSplitPreview(
                         selectedPreviewBaseContent,
                         inlinePreviewEditorContent,
+                        selectedPreviewBaseFilePath,
                       )
                     ) : (
                       <ProsemarkMergeEditor
                         key={`${selectedFile}:compare`}
                         value={selectedComparedFile?.richNewContent ?? ""}
                         baseValue={selectedComparedFile?.richOldContent ?? ""}
+                        filePath={selectedFile}
                         options={inlinePreviewOptions}
                         editable={false}
                         mobilePaneDragEnabled

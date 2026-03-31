@@ -6,6 +6,10 @@ const SCENARIOS = [
     snapshotName: "file-view-developer-tools-collapsed.png",
   },
   {
+    mode: "file-view-developer-tools-codemirror",
+    snapshotName: "file-view-developer-tools-codemirror.png",
+  },
+  {
     mode: "file-view-developer-tools-graph",
     snapshotName: "file-view-developer-tools-graph.png",
   },

@@ -1,0 +1,27 @@
+{
+  "actual": {
+    "bounds": {
+      "height": 248,
+      "maxX": 432.5,
+      "maxY": 247.5,
+      "minX": 0.5,
+      "minY": 5,
+      "width": 496
+    },
+    "label": "ProseMark"
+  },
+  "captureScale": 2,
+  "deltaX": 0.5,
+  "deltaY": 5,
+  "expected": {
+    "bounds": {
+      "height": 248,
+      "maxX": 495.5,
+      "maxY": 247.5,
+      "minX": 0,
+      "minY": 0,
+      "width": 496
+    },
+    "label": "Monaco"
+  }
+}
