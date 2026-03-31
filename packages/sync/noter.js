@@ -394,7 +394,9 @@ function buildWindowsCodexCommandLine(args) {
  * attached to a shell wrapper process.
  */
 function resolveWindowsPathCommand(command, env = process.env) {
-  const searchPath = env.Path ?? env.PATH ?? ''
+  const searchPath = [env.Path, env.PATH]
+    .filter(value => typeof value === 'string' && value.length > 0)
+    .join(';')
   const pathExtensions = env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD'
   const commandHasExtension = path.extname(command).length > 0
   const executableExtensions = commandHasExtension

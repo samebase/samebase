@@ -364,6 +364,7 @@ describe('@noter-md/sync', () => {
       'cli.js',
     )
     const originalPath = process.env.PATH
+    const originalWindowsPath = process.env.Path
     const originalPathext = process.env.PATHEXT
 
     mkdirSync(path.dirname(scriptPath), { recursive: true })
@@ -374,6 +375,7 @@ describe('@noter-md/sync', () => {
     )
     writeFileSync(scriptPath, 'console.log("codex")\n', 'utf8')
     process.env.PATH = binDirectory
+    process.env.Path = binDirectory
     process.env.PATHEXT = '.CMD;.EXE'
 
     try {
@@ -388,6 +390,7 @@ describe('@noter-md/sync', () => {
       })
     } finally {
       process.env.PATH = originalPath
+      process.env.Path = originalWindowsPath
       process.env.PATHEXT = originalPathext
       rmSync(tempRoot, { force: true, recursive: true })
     }
