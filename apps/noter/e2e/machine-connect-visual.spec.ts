@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
+/**
+ * Wait for app fonts plus two paint frames so the visual fixture settles
+ * before the screenshot capture compares Linux and macOS text layout.
+ */
 async function waitForStableFonts(page: Page) {
   await page.evaluate(async () => {
     await document.fonts.ready;

@@ -120,9 +120,10 @@ function LocalRequirementsSection() {
       <div className="space-y-2">
         <p className="text-sm font-medium">Local requirements</p>
         <p className="text-sm text-muted-foreground">
-          These commands need <code>node</code>, the Codex CLI{" "}
-          <code>codex</code>, and <code>curl</code> on your PATH. Check with{" "}
-          <code>node --version</code>, <code>codex --version</code>, and{" "}
+          These commands need <code>node</code> and the Codex CLI{" "}
+          <code>codex</code> on your PATH. Check with{" "}
+          <code>node --version</code> and <code>codex --version</code>. The
+          direct hosted-file examples also need <code>curl</code>; check with{" "}
           <code>curl --version</code>. In Windows PowerShell, you can also run{" "}
           <code>curl.exe --version</code> to bypass the built-in{" "}
           <code>Invoke-WebRequest</code> alias.
