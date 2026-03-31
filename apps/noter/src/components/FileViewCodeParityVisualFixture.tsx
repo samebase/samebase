@@ -710,7 +710,10 @@ export function FileViewCodeParityVisualFixture({
             focus on typography, spacing, and syntax color.
           </div>
           <div className="p-3">
-            <div className="grid gap-4">
+            <div
+              data-testid="file-view-code-parity-snapshot"
+              className="grid gap-4"
+            >
               <div className="grid gap-4 xl:grid-cols-2">
                 <div className="corner-notch-1 border bg-background p-3">
                   <div className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">

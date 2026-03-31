@@ -107,6 +107,7 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   });
 
   const fixture = page.getByTestId("file-view-code-parity-visual-fixture");
+  const paritySnapshot = page.getByTestId("file-view-code-parity-snapshot");
   const monacoSurface = page.getByTestId("file-view-code-parity-monaco");
   const monacoCapture = page.getByTestId(
     "file-view-code-parity-monaco-capture",
@@ -125,6 +126,7 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   );
 
   await expect(fixture).toBeVisible();
+  await expect(paritySnapshot).toBeVisible();
   await expect(monacoSurface).toBeVisible();
   await expect(monacoCapture).toBeVisible();
   await expect(prosemarkSurface).toBeVisible();
@@ -199,12 +201,17 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
     });
   });
 
-  await expect(fixture).toHaveScreenshot("file-view-code-parity-fixture.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.01,
-  });
+  // Snapshot the parity content instead of the full workspace shell because
+  // the shared frame uses viewport-height chrome that drifts slightly in CI.
+  await expect(paritySnapshot).toHaveScreenshot(
+    "file-view-code-parity-panels.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.01,
+    },
+  );
 
   const initialDiffNaturalWidth = await diffImage.evaluate((image) => {
     return image.naturalWidth;
