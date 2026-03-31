@@ -248,6 +248,19 @@ function CopyableCommandBlock({
   );
 }
 
+function renderDirectCommandVariants(
+  commandVariants: DirectCommandVariant[],
+): JSX.Element[] {
+  return commandVariants.map((commandVariant) => (
+    <CopyableCommandBlock
+      key={commandVariant.label}
+      label={commandVariant.label}
+      description={commandVariant.description}
+      command={commandVariant.command}
+    />
+  ));
+}
+
 function renderMachineApprovalState(args: {
   directRunCommands: DirectCommandVariant[];
   isApproving: boolean;
@@ -346,14 +359,7 @@ function renderMachineApprovalState(args: {
               command={args.packageRunCommand}
             />
 
-            {args.directRunCommands.map((commandVariant) => (
-              <CopyableCommandBlock
-                key={commandVariant.label}
-                label={commandVariant.label}
-                description={commandVariant.description}
-                command={commandVariant.command}
-              />
-            ))}
+            {renderDirectCommandVariants(args.directRunCommands)}
           </div>
         </section>
       );
@@ -555,14 +561,7 @@ export function MachineConnectPageContent({
           command={packageConnectCommand}
         />
 
-        {directConnectCommands.map((commandVariant) => (
-          <CopyableCommandBlock
-            key={commandVariant.label}
-            label={commandVariant.label}
-            description={commandVariant.description}
-            command={commandVariant.command}
-          />
-        ))}
+        {renderDirectCommandVariants(directConnectCommands)}
 
         <p className="text-sm text-muted-foreground">
           <a

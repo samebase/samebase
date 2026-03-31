@@ -25,7 +25,7 @@ export function MachineConnectVisualFixture() {
               hostname: "nicu-win.local",
               lastSeenAt: 1_775_379_520_000,
               machineId: "machine_123",
-              os: "macos",
+              os: "windows",
               status: "online",
             },
           ]}
