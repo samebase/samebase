@@ -314,6 +314,8 @@ describe('@noter-md/sync', () => {
   })
 
   it('routes Windows Codex CLI launches through cmd.exe so args keep their spaces', () => {
+    const windowsShell = process.env.ComSpec ?? 'cmd.exe'
+
     expect(
       buildCodexSpawnInvocation(
         [
@@ -330,11 +332,11 @@ describe('@noter-md/sync', () => {
         '/c',
         '"codex" "app-server" "--out" "C:\\Users\\Nicu Test\\R&D\\100%%\\AppData\\Local\\Temp"',
       ],
-      command: 'cmd.exe',
+      command: windowsShell,
     })
     expect(buildCodexSpawnInvocation(['--version'], 'windows')).toEqual({
       args: ['/d', '/v:off', '/c', '"codex" "--version"'],
-      command: 'cmd.exe',
+      command: windowsShell,
     })
     expect(buildCodexSpawnInvocation(['--version'], 'darwin')).toEqual({
       args: ['--version'],

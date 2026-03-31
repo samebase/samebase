@@ -2255,8 +2255,9 @@ export class CodexLocalControlRuntime {
 
   async ensureCodexBinary() {
     let stdout = ''
+    let stderr = ''
     try {
-      ;({ stdout } = await runCodexCommand(['--version'], {
+      ;({ stdout, stderr } = await runCodexCommand(['--version'], {
         cwd: this.workspaceRoot,
         timeout: 10_000,
       }))
@@ -2266,7 +2267,7 @@ export class CodexLocalControlRuntime {
       }
       throw error
     }
-    const version = stdout.trim()
+    const version = readCommandOutput(stdout, stderr)
     if (version.length === 0) {
       throw new Error(
         'codex --version returned an empty response. Confirm that the Codex CLI is available on PATH.',
