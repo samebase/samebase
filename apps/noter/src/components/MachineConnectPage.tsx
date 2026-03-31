@@ -179,7 +179,7 @@ function buildDirectCommandVariants(args: {
     {
       command: commandBuilder(args.scriptUrl, "windows"),
       description:
-        "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias.",
+        "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
       label: `Direct hosted file ${args.action} (Windows PowerShell)`,
     },
   ];

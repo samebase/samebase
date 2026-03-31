@@ -17,6 +17,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   buildMachineHeartbeatBody,
   buildNoterConnectConfigUrl,
+  buildCodexSpawnOptions,
   buildDirectConnectCommand,
   buildDirectRunCommand,
   buildMachineConnectUrl,
@@ -299,6 +300,16 @@ describe('@noter-md/sync', () => {
     expect(buildDirectRunCommand('https://noter.md/noter.js', 'win32')).toBe(
       `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
     )
+  })
+
+  it('routes Windows Codex CLI launches through a shell so npm cmd wrappers work', () => {
+    expect(buildCodexSpawnOptions({ cwd: '/tmp/noter' }, 'win32')).toEqual({
+      cwd: '/tmp/noter',
+      shell: true,
+    })
+    expect(buildCodexSpawnOptions({ cwd: '/tmp/noter' }, 'darwin')).toEqual({
+      cwd: '/tmp/noter',
+    })
   })
 
   it.runIf(process.platform !== 'win32')(

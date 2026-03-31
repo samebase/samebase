@@ -41,7 +41,7 @@ export function MachineConnectVisualFixture() {
               command:
                 "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
               description:
-                "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias.",
+                "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
               label: "Direct hosted file connect (Windows PowerShell)",
             },
           ]}
@@ -57,7 +57,7 @@ export function MachineConnectVisualFixture() {
               command:
                 "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run",
               description:
-                "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias.",
+                "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
               label: "Direct hosted file run (Windows PowerShell)",
             },
           ]}

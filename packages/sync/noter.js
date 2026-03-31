@@ -327,15 +327,91 @@ function codexCommandWasNotFound(error) {
   )
 }
 
+function codexShellOutputWasNotFound(output) {
+  return /not recognized as an internal or external command/i.test(output)
+}
+
+function readCommandOutput(stdout, stderr) {
+  return `${stdout ?? ''}${stderr ?? ''}`.trim()
+}
+
+/**
+ * npm installs the Windows Codex CLI entrypoint as a `.cmd` wrapper. Node's
+ * child_process docs require `.cmd` launches to go through a shell, so keep
+ * direct child processes on Unix and opt into `shell: true` only on Windows.
+ */
+export function buildCodexSpawnOptions(
+  options = {},
+  currentPlatform = process.platform,
+) {
+  return currentPlatform === 'win32' ? { ...options, shell: true } : options
+}
+
+function runCodexCommand(args, options = {}) {
+  return new Promise((resolve, reject) => {
+    let stdout = ''
+    let stderr = ''
+    const processHandle = spawn(
+      'codex',
+      args,
+      buildCodexSpawnOptions({
+        ...options,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }),
+    )
+
+    processHandle.stdout?.on('data', chunk => {
+      stdout += chunk.toString()
+    })
+    processHandle.stderr?.on('data', chunk => {
+      stderr += chunk.toString()
+    })
+    processHandle.once('error', error => {
+      reject(
+        codexCommandWasNotFound(error)
+          ? new Error(buildCodexCliMissingMessage())
+          : error,
+      )
+    })
+    processHandle.once('close', (code, signal) => {
+      if (code === 0) {
+        resolve({ stderr, stdout })
+        return
+      }
+
+      const commandOutput = readCommandOutput(stdout, stderr)
+      if (codexShellOutputWasNotFound(commandOutput)) {
+        reject(new Error(buildCodexCliMissingMessage()))
+        return
+      }
+
+      reject(
+        new Error(
+          commandOutput.length > 0
+            ? `codex ${args.join(' ')} failed: ${commandOutput}`
+            : signal
+              ? `codex ${args.join(' ')} failed with signal ${signal}.`
+              : `codex ${args.join(' ')} failed.`,
+        ),
+      )
+    })
+  })
+}
+
 /**
  * We only need proof that the Codex CLI exists locally and is callable from
  * PATH. `codex --version` is the smallest safe command that gives us that
  * signal.
  */
 export function detectCodexVersion() {
-  const result = spawnSync('codex', ['--version'], {
-    encoding: 'utf8',
-  })
+  const result = spawnSync(
+    'codex',
+    ['--version'],
+    buildCodexSpawnOptions({
+      encoding: 'utf8',
+    }),
+  )
+  const commandOutput = readCommandOutput(result.stdout, result.stderr)
 
   if (codexCommandWasNotFound(result.error)) {
     throw new Error(buildCodexCliMissingMessage())
@@ -346,7 +422,10 @@ export function detectCodexVersion() {
   }
 
   if (result.status !== 0) {
-    const commandOutput = (result.stderr || result.stdout).trim()
+    if (codexShellOutputWasNotFound(commandOutput)) {
+      throw new Error(buildCodexCliMissingMessage())
+    }
+
     throw new Error(
       commandOutput.length > 0
         ? `codex --version failed: ${commandOutput}`
@@ -1971,7 +2050,7 @@ export class CodexLocalControlRuntime {
   async ensureCodexBinary() {
     let stdout = ''
     try {
-      ;({ stdout } = await execFileAsync('codex', ['--version'], {
+      ;({ stdout } = await runCodexCommand(['--version'], {
         cwd: this.workspaceRoot,
         timeout: 10_000,
       }))
@@ -2068,11 +2147,11 @@ export class CodexLocalControlRuntime {
       const processHandle = spawn(
         'codex',
         ['app-server', '--listen', 'stdio://'],
-        {
+        buildCodexSpawnOptions({
           cwd: this.workspaceRoot,
           env: process.env,
           stdio: ['pipe', 'pipe', 'pipe'],
-        },
+        }),
       )
 
       this.process = processHandle
@@ -2594,7 +2673,7 @@ export class CodexLocalControlRuntime {
         commandArgs.push('--experimental')
       }
 
-      await execFileAsync('codex', commandArgs, {
+      await runCodexCommand(commandArgs, {
         cwd: this.workspaceRoot,
         timeout: 60_000,
       })

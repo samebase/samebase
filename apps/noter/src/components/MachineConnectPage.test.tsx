@@ -21,7 +21,7 @@ describe("MachineConnectPageContent", () => {
             command:
               "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
             description:
-              "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias.",
+              "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
             label: "Direct hosted file connect (Windows PowerShell)",
           },
         ]}
@@ -37,7 +37,7 @@ describe("MachineConnectPageContent", () => {
             command:
               "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run",
             description:
-              "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias.",
+              "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
             label: "Direct hosted file run (Windows PowerShell)",
           },
         ]}
@@ -69,6 +69,7 @@ describe("MachineConnectPageContent", () => {
     expect(markup).toContain("npm install -g @openai/codex");
     expect(markup).toContain("desktop app alone does not guarantee");
     expect(markup).toContain("native Windows CLI support as experimental");
+    expect(markup).toContain("replace the single quotes with double quotes");
   });
 
   it("shows a live-control entrypoint for ready machines", () => {
@@ -105,7 +106,7 @@ describe("MachineConnectPageContent", () => {
               command:
                 "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
               description:
-                "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias.",
+                "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
               label: "Direct hosted file connect (Windows PowerShell)",
             },
           ]}
@@ -121,7 +122,7 @@ describe("MachineConnectPageContent", () => {
               command:
                 "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run",
               description:
-                "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias.",
+                "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
               label: "Direct hosted file run (Windows PowerShell)",
             },
           ]}
@@ -159,7 +160,7 @@ describe("MachineConnectPageContent", () => {
             command:
               "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
             description:
-              "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias.",
+              "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
             label: "Direct hosted file connect (Windows PowerShell)",
           },
         ]}
@@ -175,7 +176,7 @@ describe("MachineConnectPageContent", () => {
             command:
               "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run",
             description:
-              "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias.",
+              "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
             label: "Direct hosted file run (Windows PowerShell)",
           },
         ]}
