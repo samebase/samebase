@@ -176,4 +176,15 @@ test("Monaco drag can return from the open left pane to main", async ({
   await expect(overlay).toContainText("settled: main");
   await expect(leftSidebarOnlyItem).not.toBeInViewport();
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
+
+  const fixture = page.getByTestId("fileview-monaco-drag-visual-fixture");
+  await expect(fixture).toHaveScreenshot(
+    "fileview-monaco-drag-return-main.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.05,
+    },
+  );
 });
