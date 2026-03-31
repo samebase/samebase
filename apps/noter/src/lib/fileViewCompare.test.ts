@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildStagingPreviewRefreshKey,
   getBranchComparePreviewReloadMode,
+  getPreviewBaseFilePath,
 } from "@/lib/fileViewCompare";
 
 describe("getBranchComparePreviewReloadMode", () => {
@@ -136,5 +137,36 @@ describe("buildStagingPreviewRefreshKey", () => {
         },
       ]),
     );
+  });
+});
+
+describe("getPreviewBaseFilePath", () => {
+  it("prefers the compare preview previous path when available", () => {
+    expect(
+      getPreviewBaseFilePath({
+        comparedPreviousPath: "docs/guide.ts",
+        currentFilePath: "docs/guide.md",
+        previewPreviousPath: "docs/guide.txt",
+        stagedInitialFilePath: "docs/guide.js",
+      }),
+    ).toBe("docs/guide.ts");
+  });
+
+  it("falls back to the staged initial path for renamed staged files", () => {
+    expect(
+      getPreviewBaseFilePath({
+        currentFilePath: "src/guide.md",
+        stagedInitialFilePath: "src/guide.ts",
+      }),
+    ).toBe("src/guide.ts");
+  });
+
+  it("uses the current path when no older path is recorded", () => {
+    expect(
+      getPreviewBaseFilePath({
+        currentFilePath: "src/guide.ts",
+        stagedInitialFilePath: "src/guide.ts",
+      }),
+    ).toBe("src/guide.ts");
   });
 });

@@ -14,6 +14,8 @@ import {
 export interface MonacoEditorSurfaceProps {
   branch: string;
   defaultValue: string;
+  disableFolding?: boolean;
+  disableLineNumbers?: boolean;
   filePath: string;
   onMount: OnMount;
   showMobileLineNumbers?: boolean;
@@ -30,9 +32,11 @@ export interface MonacoEditorSurfaceProps {
 export function MonacoEditorSurface({
   branch,
   defaultValue,
+  disableFolding = false,
+  disableLineNumbers = false,
   filePath,
   onMount,
-  showMobileLineNumbers: _showMobileLineNumbers = false,
+  showMobileLineNumbers = false,
   syncError,
   vaultKey,
 }: MonacoEditorSurfaceProps) {
@@ -42,6 +46,9 @@ export function MonacoEditorSurface({
   const isMobileViewport = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const mobilePaneDrag = useProsemarkMobilePaneDrag(true, containerRef);
+  const showLineNumbers =
+    !disableLineNumbers && (!isMobileViewport || showMobileLineNumbers);
+  const showFolding = !disableFolding && !isMobileViewport;
 
   return (
     <div
@@ -82,11 +89,15 @@ export function MonacoEditorSurface({
           fontSize: CODE_SURFACE_FONT_SIZE_PX,
           lineHeight: CODE_SURFACE_LINE_HEIGHT_PX,
           tabSize: 2,
-          lineNumbers: "off",
-          lineNumbersMinChars: 0,
+          lineNumbers: showLineNumbers ? "on" : "off",
+          lineNumbersMinChars: showLineNumbers ? 3 : 0,
           glyphMargin: false,
-          folding: false,
-          lineDecorationsWidth: 0,
+          folding: showFolding,
+          ...(showLineNumbers
+            ? {}
+            : {
+                lineDecorationsWidth: 0,
+              }),
           padding: {
             top: 0,
             bottom: 0,

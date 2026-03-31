@@ -85,6 +85,7 @@ import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 import {
   buildStagingPreviewRefreshKey,
   getBranchComparePreviewReloadMode,
+  getPreviewBaseFilePath,
 } from "@/lib/fileViewCompare";
 import {
   shouldClearCompareOnReviewExit,
@@ -1955,6 +1956,12 @@ function FileViewInner({
       : selectedPreviewStagedFile?.initialContent ??
         selectedPreviewFile?.richOldContent ??
         "";
+  const selectedPreviewBaseFilePath = getPreviewBaseFilePath({
+    comparedPreviousPath: selectedComparedFile?.previousPath,
+    currentFilePath: selectedFile,
+    previewPreviousPath: selectedPreviewFile?.previousPath,
+    stagedInitialFilePath: selectedPreviewStagedFile?.initialFilePath,
+  });
   const selectedComparedFileCanRenderInline = Boolean(
     selectedComparedFile &&
       typeof selectedComparedFile.richOldContent === "string" &&
@@ -2071,7 +2078,11 @@ function FileViewInner({
       </div>
     </div>
   );
-  const renderSplitPreview = (beforeValue: string, afterValue: string) => (
+  const renderSplitPreview = (
+    beforeValue: string,
+    afterValue: string,
+    beforeFilePath: string,
+  ) => (
     <div className="grid gap-3 p-3 md:grid-cols-2">
       <div className="min-w-0 corner-notch-1 border bg-background p-3">
         <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
@@ -2079,7 +2090,7 @@ function FileViewInner({
         </div>
         <ProsemarkReadOnly
           value={beforeValue}
-          filePath={selectedFile}
+          filePath={beforeFilePath}
           highlightedLineNumbers={inlinePreviewSplitDiffHighlights.oldLines}
           lineHighlightTone="remove"
           mobilePaneDragEnabled
@@ -3382,6 +3393,7 @@ function FileViewInner({
                                       renderSplitPreview(
                                         selectedPreviewBaseContent,
                                         inlinePreviewEditorContent,
+                                        selectedPreviewBaseFilePath,
                                       )
                                     ) : (
                                       <ProsemarkMergeEditor
@@ -3449,6 +3461,7 @@ function FileViewInner({
                       renderSplitPreview(
                         selectedPreviewBaseContent,
                         inlinePreviewEditorContent,
+                        selectedPreviewBaseFilePath,
                       )
                     ) : (
                       <ProsemarkMergeEditor

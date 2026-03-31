@@ -729,6 +729,8 @@ export function FileViewCodeParityVisualFixture({
                       <MonacoEditorSurface
                         branch="main"
                         defaultValue={FIXTURE_DOCUMENT}
+                        disableFolding={true}
+                        disableLineNumbers={true}
                         filePath={FIXTURE_FILE_PATH}
                         onMount={() => {
                           setMonacoReady(true);
