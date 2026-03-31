@@ -26,7 +26,11 @@ import { shouldRenderFastLandingShell } from "@/lib/publicLandingAuthState";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "@/lib/fastLandingBoot";
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import { isMobileSidebarDebugEnabled } from "@/lib/mobileSidebarGestureDebug";
-import { PUBLIC_LANDING_COPY_TEST_ID } from "@/lib/publicLanding";
+import {
+  PUBLIC_LANDING_COPY_TEST_ID,
+  PUBLIC_LANDING_SHELL_MAIN_TEST_ID,
+} from "@/lib/publicLanding";
+import { setPendingPublicLandingScrollTop } from "@/lib/publicLandingScrollState";
 import { renderLandingCopyShellHtml } from "@/lib/landingCopyShell";
 import { writePublicLandingWaitlistDraft } from "@/lib/publicLandingWaitlistDraft";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
@@ -150,6 +154,7 @@ function scheduleBackgroundAppLoad() {
 }
 
 function ensureAppLoaded(): Promise<void> {
+  syncPendingPublicLandingScrollTop();
   if (appLoadPromise === null) {
     appLoadPromise = import("./main")
       .then((module) => {
@@ -165,6 +170,22 @@ function ensureAppLoaded(): Promise<void> {
   return appLoadPromise.then(() => {
     flushHydratedWaitlistFocusRestore();
   });
+}
+
+/**
+ * Capture the fast-shell scroll offset right before hydration so the mounted
+ * landing route can restore the same position without reading from a missing
+ * pre-hydration node.
+ */
+function syncPendingPublicLandingScrollTop() {
+  const shellMain = document.querySelector(
+    `[data-testid="${PUBLIC_LANDING_SHELL_MAIN_TEST_ID}"]`,
+  );
+  if (!(shellMain instanceof HTMLElement)) {
+    return;
+  }
+
+  setPendingPublicLandingScrollTop(shellMain.scrollTop);
 }
 
 function beginGoogleSignInFromShell() {
@@ -308,7 +329,7 @@ function renderFastLandingShell() {
           ${commitMarkup}
         </div>
       </div>
-      <main class="flex grow min-h-0 flex-col overflow-x-hidden overflow-y-auto">
+      <main data-testid="${PUBLIC_LANDING_SHELL_MAIN_TEST_ID}" class="flex grow min-h-0 flex-col overflow-x-hidden overflow-y-auto">
         <div class="container my-auto">
           <div data-testid="${PUBLIC_LANDING_CONTENT_TEST_ID}" class="mx-auto flex max-w-[384px] flex-col gap-4 pb-8">
             <div class="${PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME}">
@@ -379,6 +400,20 @@ function renderFastLandingShell() {
       </main>
     </div>
   `;
+
+  const shellMain = root.querySelector<HTMLElement>(
+    `[data-testid="${PUBLIC_LANDING_SHELL_MAIN_TEST_ID}"]`,
+  );
+  if (shellMain !== null) {
+    setPendingPublicLandingScrollTop(shellMain.scrollTop);
+    shellMain.addEventListener(
+      "scroll",
+      () => {
+        setPendingPublicLandingScrollTop(shellMain.scrollTop);
+      },
+      { passive: true },
+    );
+  }
 
   root
     .querySelector<HTMLAnchorElement>(`#${PUBLIC_LANDING_DEV_TOGGLE_ID}`)

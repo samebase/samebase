@@ -1,6 +1,10 @@
 import { devices, expect, test, type Locator } from "@playwright/test";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "../src/lib/fastLandingBoot";
 import {
+  PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
+  PUBLIC_LANDING_SHELL_MAIN_TEST_ID,
+} from "../src/lib/publicLanding";
+import {
   PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
   PUBLIC_LANDING_LOGO_TEST_ID,
@@ -190,6 +194,47 @@ test("public landing shell renders before the full app UI takes over", async ({
   await expect(
     page.getByRole("button", { name: "Join Waitlist" }),
   ).toBeEnabled();
+});
+
+test("landing preserves scroll position across the shell handoff", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 320 });
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+  const shellMain = page.getByTestId(PUBLIC_LANDING_SHELL_MAIN_TEST_ID);
+  await shellMain.waitFor({ state: "visible" });
+
+  const shellScrollTop = await shellMain.evaluate((element) => {
+    if (!(element instanceof HTMLElement)) {
+      throw new Error("Expected pre-hydration landing scroll container");
+    }
+
+    element.scrollTop = 160;
+    return element.scrollTop;
+  });
+  expect(shellScrollTop).toBeGreaterThan(0);
+
+  await page.getByTestId("public-landing-shell").waitFor({
+    state: "detached",
+    timeout: 10_000,
+  });
+
+  const hydratedScrollShell = page.getByTestId(
+    PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
+  );
+  await expect(hydratedScrollShell).toBeVisible();
+  await expect
+    .poll(() =>
+      hydratedScrollShell.evaluate((element) => {
+        if (!(element instanceof HTMLElement)) {
+          throw new Error("Expected hydrated landing scroll shell");
+        }
+
+        return element.scrollTop;
+      }),
+    )
+    .toBe(shellScrollTop);
 });
 
 test.describe("mobile landing dev toggle", () => {
