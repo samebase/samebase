@@ -573,6 +573,27 @@ export function isRepositoryMediaPreviewTooLarge(
   return typeof size === "number" && size > MAX_REPOSITORY_MEDIA_BYTES;
 }
 
+function getRepositoryMediaErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "";
+  }
+
+  return error.message;
+}
+
+function isRepositoryMediaTooLargeError(error: unknown): boolean {
+  if (getRepositoryMediaErrorStatus(error) !== 403) {
+    return false;
+  }
+
+  const message = getRepositoryMediaErrorMessage(error).toLowerCase();
+  return (
+    message.includes("too large") ||
+    message.includes("too_large") ||
+    message.includes("blobs up to 1 mb")
+  );
+}
+
 function getRepositoryMediaTooLargeAsset(): RepositoryMediaUnavailableAsset {
   return {
     found: false,
@@ -1523,7 +1544,7 @@ export async function resolveStagedRepositoryMediaAsset(args: {
   loadCachedBlobBySha: (sha: string) => Promise<CachedRepositoryBlob | null>;
   stagedFile: StagedRepositoryMediaAssetCandidate;
   filePath: string;
-  mediaKind: "image";
+  mediaKind: RepositoryMediaKind;
   fileName: string;
 }): Promise<RepositoryMediaAsset> {
   if (args.stagedFile.fileDeleted) {

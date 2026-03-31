@@ -37,8 +37,8 @@ const FOLDER_EXPANSION_STATES = [
 export type SidebarMediaUploadVisualMode = "sidebar-media-upload";
 
 export function SidebarMediaUploadVisualFixture() {
-  const sidebarContent = (
-    <div className="flex h-full min-h-0 flex-col">
+  const sidebarHeader = (
+    <>
       <div className="border-b border-border/50 p-3">
         <div className="text-sm font-medium text-foreground">Noter</div>
         <div className="mt-1 text-xs text-muted-foreground">
@@ -54,7 +54,11 @@ export function SidebarMediaUploadVisualFixture() {
           </span>
         </div>
       </div>
+    </>
+  );
 
+  const sidebarContent = (
+    <div className="flex h-full min-h-0 flex-col">
       <div className="flex-1 overflow-auto">
         <FileTree
           items={TREE_ITEMS}
@@ -81,7 +85,10 @@ export function SidebarMediaUploadVisualFixture() {
     >
       <RepositoryWorkspaceFrame
         dataTestId="sidebar-media-upload-visual-fixture"
-        sidebarContent={sidebarContent}
+        leftSidebarHeader={sidebarHeader}
+        leftSidebarContent={sidebarContent}
+        rightSidebarHeader={null}
+        rightSidebarContent={<div className="min-h-0 flex-1 bg-background" />}
         headerTitle="assets"
       >
         <div className="flex h-full min-h-0 flex-col p-6">

@@ -85,10 +85,7 @@ import { WorkspaceScene } from "@/components/workspace-layout/WorkspaceScene";
 import { DAYTONA_PAUSED } from "../../shared/daytonaPause";
 import { MediaUploadDialog } from "./MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
-import {
-  getStagedFileStatus as getSharedStagedFileStatus,
-  hasStagedFileChanges,
-} from "../../shared/stagedFiles";
+import { getStagedFileStatus as getSharedStagedFileStatus } from "../../shared/stagedFiles";
 import { isStaleBaseVersionError } from "../../shared/stagingErrors";
 import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
