@@ -95,6 +95,7 @@ const CONTROL_STATUS_RANK = {
   starting: 1,
   unavailable: 2,
 } as const;
+const CONNECTED_MACHINES_SECTION_ID = "connected-machines";
 
 function resolveCurrentOrigin(): string {
   if (typeof window === "undefined") {
@@ -328,7 +329,7 @@ function ConnectedMachineList({
   }
 
   return (
-    <section className="space-y-3">
+    <section id={CONNECTED_MACHINES_SECTION_ID} className="space-y-3">
       <div className="space-y-1">
         <h2 className="text-sm font-medium">Connected machines</h2>
         <p className="text-sm text-muted-foreground">
@@ -405,6 +406,8 @@ export function MachineConnectPageContent({
   testId,
   onApprove,
 }: MachineConnectPageContentProps) {
+  const connectedMachinesAnchor = `#${CONNECTED_MACHINES_SECTION_ID}`;
+
   return (
     <div className="container max-w-3xl py-6" data-testid={testId}>
       <div className="space-y-6">
@@ -420,6 +423,25 @@ export function MachineConnectPageContent({
             installed, then approve the browser handoff here.
           </p>
         </div>
+
+        <section className="corner-notch-1 border border-border p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">
+                Your machine list lives on this page
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Once <code>noter-sync run</code> is publishing heartbeats,
+                scroll down to Connected machines here to open live control.
+              </p>
+            </div>
+            {connectedMachines.length > 0 ? (
+              <Button asChild variant="outline" size="sm">
+                <a href={connectedMachinesAnchor}>Jump to connected machines</a>
+              </Button>
+            ) : null}
+          </div>
+        </section>
 
         {connectedMachines.length > 0 ? (
           <ConnectedMachineHeartbeatLogSection heartbeatLog={heartbeatLog} />

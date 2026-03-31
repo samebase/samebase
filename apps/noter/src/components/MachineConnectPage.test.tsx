@@ -70,5 +70,7 @@ describe("MachineConnectPageContent", () => {
 
     expect(markup).toContain("Open live control");
     expect(markup).toContain("/machines/machine_fixture/live");
+    expect(markup).toContain("Your machine list lives on this page");
+    expect(markup).toContain('href="#connected-machines"');
   });
 });
