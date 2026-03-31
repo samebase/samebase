@@ -40,7 +40,11 @@ function isMarkdownFilePath(filePath?: string): boolean {
   return extension !== null && MARKDOWN_FILE_EXTENSIONS.has(extension);
 }
 
-function getMatchingLanguage(filePath: string) {
+function getMatchingLanguage(filePath?: string) {
+  if (!filePath) {
+    return null;
+  }
+
   const fileName = getFileName(filePath);
   const matchingLanguageCandidates = [
     fileName,
@@ -105,10 +109,6 @@ export async function loadCodeMirrorLanguageExtension(
   const languageKind = getCodeMirrorFileLanguageKind(filePath);
 
   if (languageKind === "markdown") {
-    return createProsemarkMarkdownExtension();
-  }
-
-  if (!filePath) {
     return createProsemarkMarkdownExtension();
   }
 

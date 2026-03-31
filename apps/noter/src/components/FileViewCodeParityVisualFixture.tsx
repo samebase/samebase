@@ -54,6 +54,12 @@ type ParityBackgroundColor = {
   red: number;
 };
 
+type ParityDiffColorChannels = {
+  blue: number;
+  green: number;
+  red: number;
+};
+
 type ParityForegroundBounds = {
   height: number;
   maxX: number;
@@ -88,6 +94,23 @@ function clampParityEditorResolutionScale(value: number) {
     Math.max(PARITY_EDITOR_RESOLUTION_SCALE_MIN, Math.round(value)),
   );
 }
+
+function getParityDiffColorChannels(
+  color: `#${string}`,
+): ParityDiffColorChannels {
+  const red = Number.parseInt(color.slice(1, 3), 16);
+  const green = Number.parseInt(color.slice(3, 5), 16);
+  const blue = Number.parseInt(color.slice(5, 7), 16);
+
+  return { blue, green, red };
+}
+
+const PARITY_MONACO_DIFF_CHANNELS = getParityDiffColorChannels(
+  PARITY_MONACO_DIFF_COLOR,
+);
+const PARITY_PROSEMARK_DIFF_CHANNELS = getParityDiffColorChannels(
+  PARITY_PROSEMARK_DIFF_COLOR,
+);
 
 function scaleParityForegroundBounds(
   bounds: ParityForegroundBounds,
@@ -387,11 +410,19 @@ function buildLiveParityDiff(args: {
     const monacoDominates =
       getParityPixelLuminance(expectedData, index) <=
       getParityPixelLuminance(actualData, index);
-    const [red, green, blue] = monacoDominates ? [255, 59, 48] : [0, 122, 255];
+    const channels = monacoDominates
+      ? PARITY_MONACO_DIFF_CHANNELS
+      : PARITY_PROSEMARK_DIFF_CHANNELS;
 
-    diffImage.data[index] = blendParityDiffChannel(red, intensity);
-    diffImage.data[index + 1] = blendParityDiffChannel(green, intensity);
-    diffImage.data[index + 2] = blendParityDiffChannel(blue, intensity);
+    diffImage.data[index] = blendParityDiffChannel(channels.red, intensity);
+    diffImage.data[index + 1] = blendParityDiffChannel(
+      channels.green,
+      intensity,
+    );
+    diffImage.data[index + 2] = blendParityDiffChannel(
+      channels.blue,
+      intensity,
+    );
     diffImage.data[index + 3] = 255;
   }
 
