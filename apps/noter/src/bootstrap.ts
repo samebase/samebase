@@ -308,7 +308,7 @@ function renderFastLandingShell() {
           ${commitMarkup}
         </div>
       </div>
-      <main class="flex grow flex-col overflow-hidden">
+      <main class="flex grow min-h-0 flex-col overflow-x-hidden overflow-y-auto">
         <div class="container my-auto">
           <div data-testid="${PUBLIC_LANDING_CONTENT_TEST_ID}" class="mx-auto flex max-w-[384px] flex-col gap-4 pb-8">
             <div class="${PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME}">

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachineHeartbeatLog";
-import { MachinePageScrollShell } from "@/components/MachinePageScrollShell";
+import { AppPageScrollShell } from "@/components/AppPageScrollShell";
 import { useNow } from "@/hooks/useNow";
 import {
   formatConnectedMachineHeartbeatTimestamp,
@@ -668,7 +668,7 @@ export function MachineConnectPage() {
   })();
 
   return (
-    <MachinePageScrollShell>
+    <AppPageScrollShell>
       <MachineConnectPageContent
         approvalError={approvalError}
         connectedMachines={connectedMachines}
@@ -687,6 +687,6 @@ export function MachineConnectPage() {
         requestState={requestState}
         scriptUrl={scriptUrl}
       />
-    </MachinePageScrollShell>
+    </AppPageScrollShell>
   );
 }

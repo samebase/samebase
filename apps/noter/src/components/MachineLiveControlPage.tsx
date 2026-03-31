@@ -1,5 +1,5 @@
 import { CodexThreadBrowserView } from "@/components/CodexThreadBrowserView";
-import { MachinePageScrollShell } from "@/components/MachinePageScrollShell";
+import { AppPageScrollShell } from "@/components/AppPageScrollShell";
 import { Button } from "@/components/ui/button";
 import { useNow } from "@/hooks/useNow";
 import {
@@ -686,12 +686,12 @@ export function MachineLiveControlPage() {
 
   if (!machineId) {
     return (
-      <MachinePageScrollShell>
+      <AppPageScrollShell>
         <MachineLiveControlUnavailable
           description="This route is missing the connected machine id."
           machine={null}
         />
-      </MachinePageScrollShell>
+      </AppPageScrollShell>
     );
   }
 
@@ -701,30 +701,30 @@ export function MachineLiveControlPage() {
 
   if (machine === null) {
     return (
-      <MachinePageScrollShell>
+      <AppPageScrollShell>
         <MachineLiveControlUnavailable
           description="This connected machine is no longer available on your account."
           machine={null}
         />
-      </MachinePageScrollShell>
+      </AppPageScrollShell>
     );
   }
 
   if (machineStatusReason !== null) {
     return (
-      <MachinePageScrollShell>
+      <AppPageScrollShell>
         <MachineLiveControlUnavailable
           description={machineStatusReason}
           machine={machine}
         />
-      </MachinePageScrollShell>
+      </AppPageScrollShell>
     );
   }
 
   const readyMachine = machine;
 
   return (
-    <MachinePageScrollShell>
+    <AppPageScrollShell>
       <CodexThreadBrowserView
         allowArchivedMode={false}
         browserMode="active"
@@ -780,6 +780,6 @@ export function MachineLiveControlPage() {
           });
         }}
       />
-    </MachinePageScrollShell>
+    </AppPageScrollShell>
   );
 }
