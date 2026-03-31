@@ -3,8 +3,8 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { WorkspaceMobilePaneDragProvider } from "@/components/workspaceMobilePaneDrag";
 import { useProsemarkMobilePaneDrag } from "@/components/useProsemarkMobilePaneDrag";
+import { WorkspaceMobilePaneDragProvider } from "@/components/workspace-layout";
 
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);

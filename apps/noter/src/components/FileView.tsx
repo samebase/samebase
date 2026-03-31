@@ -75,9 +75,11 @@ import { DaytonaSnapshotBanner } from "./DaytonaSnapshotBanner";
 import { DraftPullRequestFeedbackBanner } from "./DraftPullRequestFeedbackBanner";
 import { VaultSyncStatus } from "./VaultSyncStatus";
 import { RepositoryMediaViewer } from "./RepositoryMediaViewer";
-import { RepositoryWorkspaceFrame } from "./RepositoryWorkspaceFrame";
 import { SidebarAccountSection } from "./SidebarAccountSection";
-import { WorkspaceScene } from "@/components/workspace-layout/WorkspaceScene";
+import {
+  RepositoryWorkspaceFrame,
+  WorkspaceScene,
+} from "@/components/workspace-layout";
 import { DAYTONA_PAUSED } from "../../shared/daytonaPause";
 import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
 import { isStaleBaseVersionError } from "../../shared/stagingErrors";

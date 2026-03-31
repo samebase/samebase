@@ -5,7 +5,7 @@ import {
   RepositoryMediaPreviewPanel,
   type RepositoryMediaAsset,
 } from "@/components/RepositoryMediaViewer";
-import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
+import { RepositoryWorkspaceFrame } from "@/components/workspace-layout";
 
 export type RepositoryMediaVisualMode = "media-png" | "media-svg" | "media-vox";
 

@@ -6,11 +6,11 @@ import { toCanvas } from "html-to-image";
 import { prosemarkBaseThemeSetup, prosemarkBasicSetup } from "@prosemark/core";
 import { useTheme } from "next-themes";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
-import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
+import { RepositoryWorkspaceFrame } from "@/components/workspace-layout";
 import { getProsemarkFileThemeExtensions } from "@/components/prosemarkSurface";
 import {
   getCodeMirrorFileLanguageKind,

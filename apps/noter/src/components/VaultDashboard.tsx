@@ -85,7 +85,7 @@ import {
   VaultDashboardSidebarAccountHeader,
   type VaultDashboardProviderRowViewModel,
 } from "@/components/VaultDashboardChrome";
-import { VaultDashboardWorkspaceScene } from "@/components/VaultDashboardWorkspaceScene";
+import { VaultDashboardWorkspaceScene } from "@/components/workspace-layout";
 import {
   useApiKeyConnectDialog,
   type ApiKeyProvider,
