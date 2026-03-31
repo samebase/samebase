@@ -1,6 +1,7 @@
 import { EditorSelection, type Text } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
+import type { CodeMirrorFileLanguageKind } from "@/lib/codemirrorLanguage";
 import {
   CODE_SURFACE_FONT_FAMILY,
   CODE_SURFACE_FONT_SIZE_PX,
@@ -281,7 +282,7 @@ export const prosemarkLandingCopyDarkSelectionTheme = EditorView.theme(
 
 export function getProsemarkFileThemeExtensions(args: {
   isDark: boolean;
-  languageKind: "markdown" | "code" | "plain";
+  languageKind: CodeMirrorFileLanguageKind;
 }) {
   if (args.languageKind === "markdown") {
     return args.isDark ? prosemarkDarkTheme : [];

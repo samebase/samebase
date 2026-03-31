@@ -33,7 +33,7 @@ function getFileExtension(filePath: string): string | null {
 
 function isMarkdownFilePath(filePath?: string): boolean {
   if (!filePath) {
-    return true;
+    return false;
   }
 
   const extension = getFileExtension(filePath);
@@ -75,11 +75,7 @@ export function getCodeMirrorFileLanguageKind(
 ): CodeMirrorFileLanguageKind {
   // Historical callers without a file path are prose-first surfaces like chat
   // messages and landing copy, so keep them on the markdown parser.
-  if (isMarkdownFilePath(filePath)) {
-    return "markdown";
-  }
-
-  if (!filePath) {
+  if (!filePath || isMarkdownFilePath(filePath)) {
     return "markdown";
   }
 

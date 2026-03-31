@@ -68,12 +68,12 @@ It also contains the repo's TypeScript-specific Monaco setup:
 That means Monaco is not just a paint choice today. It already owns some
 language-service behavior for code files.
 
-### 2. Diff/compare mode already hydrates non-markdown code files into the rich CodeMirror pipeline
+### 2. Diff/compare mode already hydrates non-Markdown code files into the rich CodeMirror pipeline
 
 The frontend diff/compare surfaces use `ProsemarkMergeEditor` and
 `ProsemarkReadOnly` from `apps/noter/src/components/FileView.tsx`.
 
-The backend explicitly hydrates rich old/new content for non-markdown text files
+The backend explicitly hydrates rich old/new content for non-Markdown text files
 too:
 
 - `buildCommitPreviewFromStagedFiles(...)` passes `hydrateRichContent: true`
@@ -82,7 +82,7 @@ too:
   `hydrateRichContent: true`
 
 That means code files like `src/file.ts` can already land in the same rich diff
-surface as markdown files. This is not theoretical.
+surface as Markdown files. This is not theoretical.
 
 ### 3. The current CodeMirror rich surfaces are still hard-wired to Markdown parsing
 
@@ -96,12 +96,12 @@ markdown({
 })
 ```
 
-That is correct for markdown documents, but it means a file like `src/file.ts`
-is still parsed as a markdown document, not as TypeScript.
+That is correct for Markdown documents, but it means a file like `src/file.ts`
+is still parsed as a Markdown document, not as TypeScript.
 
 Important consequence:
 
-- code fences inside markdown can be syntax-highlighted
+- code fences inside Markdown can be syntax-highlighted
 - plain code files rendered through these surfaces are not getting true
   file-language parsing
 
@@ -247,9 +247,9 @@ Likely implementation shape:
    `LanguageDescription.matchFilename(languages, filePath)`.
 3. Load `LanguageSupport` asynchronously and cache it.
 4. Add a `Compartment` to `ProsemarkMergeEditor` and `ProsemarkReadOnly`.
-5. For markdown files, keep the existing markdown parser.
-6. For non-markdown code/text files, reconfigure the editor to the resolved
-   language support instead of markdown.
+5. For Markdown files, keep the existing Markdown parser.
+6. For non-Markdown code/text files, reconfigure the editor to the resolved
+   language support instead of Markdown.
 7. Pass `selectedFile` into these components from `FileView`.
 
 Expected files:
@@ -269,7 +269,7 @@ Assessment:
 Main risks:
 
 - asynchronous language loading without an ugly flash
-- making sure markdown files keep the current ProseMark behavior
+- making sure Markdown files keep the current ProseMark behavior
 - choosing the right fallback for unknown text files
 - preserving the existing ProseMark mobile pane-drag behavior while changing
   editor configuration
@@ -288,7 +288,7 @@ Likely implementation shape:
    ProseMark syntax color variables with a Monaco-like palette.
 2. Use a light palette close to Monaco `vs`.
 3. Use a dark palette close to Monaco `vs-dark` / VS Code Dark+.
-4. Keep markdown presentation styles intact where possible.
+4. Keep Markdown presentation styles intact where possible.
 
 Assessment:
 
@@ -346,13 +346,13 @@ decision about two supported code editors.
 
 This gives the highest-value result for the smallest amount of code churn:
 
-- code files in compare/review stop looking like plain markdown paragraphs
+- code files in compare/review stop looking like plain Markdown paragraphs
 - deleted code lines can inherit real language-aware highlighting
 - Monaco stays the default editor, so no main-editor regression risk
 
 ### Recommendation 2. Only do Option B after Option A is working
 
-If the language is still markdown, theme work will not solve the core problem.
+If the language is still Markdown, theme work will not solve the core problem.
 
 Correct parser selection should come first. Palette tuning comes second.
 
