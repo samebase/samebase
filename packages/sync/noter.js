@@ -3330,8 +3330,22 @@ export function openBrowser(url) {
   })
 }
 
-function buildDirectRunCommand(sourceUrl) {
-  return `curl -fsSL '${sourceUrl}' | node --input-type=module - run`
+function readDirectDownloadCommand(currentPlatform = process.platform) {
+  return currentPlatform === 'win32' ? 'curl.exe -fsSL' : 'curl -fsSL'
+}
+
+export function buildDirectConnectCommand(
+  sourceUrl,
+  currentPlatform = process.platform,
+) {
+  return `${readDirectDownloadCommand(currentPlatform)} '${sourceUrl}' | node --input-type=module - connect '${sourceUrl}'`
+}
+
+export function buildDirectRunCommand(
+  sourceUrl,
+  currentPlatform = process.platform,
+) {
+  return `${readDirectDownloadCommand(currentPlatform)} '${sourceUrl}' | node --input-type=module - run`
 }
 
 export function formatHelpText() {
@@ -3346,11 +3360,15 @@ Examples:
   # local file
   node ./noter.js connect
   node ./noter.js run
-  # direct hosted file in production
-  curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
-  curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run
+  # direct hosted file in production (macOS/Linux shell)
+  ${buildDirectConnectCommand('https://noter.md/noter.js', 'darwin')}
+  ${buildDirectRunCommand('https://noter.md/noter.js', 'darwin')}
+  # direct hosted file in production (Windows PowerShell)
+  ${buildDirectConnectCommand('https://noter.md/noter.js', 'win32')}
+  ${buildDirectRunCommand('https://noter.md/noter.js', 'win32')}
   # preview or local explicit override
-  curl -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'`
+  ${buildDirectConnectCommand('https://preview.noter.md/noter.js', 'darwin')}
+  ${buildDirectConnectCommand('https://preview.noter.md/noter.js', 'win32')}`
 }
 
 /**

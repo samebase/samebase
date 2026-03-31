@@ -103,6 +103,12 @@ set -o pipefail
 curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
 ```
 
+In Windows PowerShell the direct-download form should use:
+
+```powershell
+curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
+```
+
 ### 2. Bootstrap the local machine
 
 1. The operator runs the install command on the machine they want to control.
@@ -123,6 +129,12 @@ curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'htt
 ```bash
 set -o pipefail
 curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run
+```
+
+In Windows PowerShell:
+
+```powershell
+curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run
 ```
 
 ### 4. Start live control on the machine

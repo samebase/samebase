@@ -73,4 +73,25 @@ describe("MachineConnectPageContent", () => {
     expect(markup).toContain("Your machine list lives on this page");
     expect(markup).toContain('href="#connected-machines"');
   });
+
+  it("explains the PowerShell-specific curl.exe command shape", () => {
+    const markup = renderToStaticMarkup(
+      <MachineConnectPageContent
+        approvalError={null}
+        connectedMachines={[]}
+        directConnectCommand="curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'"
+        directRunCommand="curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run"
+        heartbeatLog=""
+        isApproving={false}
+        openedByCli={false}
+        packageConnectCommand="npx @noter-md/sync connect"
+        packageRunCommand="npx @noter-md/sync run"
+        requestState={{ kind: "idle" }}
+        scriptUrl="https://noter.md/noter.js"
+      />,
+    );
+
+    expect(markup).toContain("On Windows PowerShell this uses curl.exe");
+    expect(markup).toContain("curl.exe -fsSL");
+  });
 });

@@ -65,7 +65,8 @@ Open:
 What to look for:
 
 1. a `Published package connect` block for the eventual public npm path
-2. a `Direct hosted file connect` block for prod, preview, or local testing
+2. a `Direct hosted file connect` block for prod, preview, or local testing that
+   switches to `curl.exe` when the machine is Windows
 3. a link to open `noter.js`
 4. a machine list section if any machines are already connected
 
@@ -99,6 +100,13 @@ Use the hosted local file directly:
 ```bash
 set -o pipefail
 curl -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - connect 'http://127.0.0.1:5174/noter.js'
+```
+
+On Windows PowerShell use `curl.exe` so the command does not hit the
+`Invoke-WebRequest` alias:
+
+```powershell
+curl.exe -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - connect 'http://127.0.0.1:5174/noter.js'
 ```
 
 What this does today:
@@ -156,6 +164,12 @@ Use the direct hosted-file run command:
 ```bash
 set -o pipefail
 curl -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - run
+```
+
+On Windows PowerShell:
+
+```powershell
+curl.exe -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - run
 ```
 
 What this does today:

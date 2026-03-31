@@ -14,6 +14,7 @@ import {
   buildPublishedNoterSyncConnectCommand,
   buildPublishedNoterSyncRunCommand,
   readMachineConnectBootstrapSearch,
+  resolveDirectNoterSyncCommandTargetOs,
 } from "@/lib/noterSync";
 import {
   resolveAuthoritativeNow,
@@ -110,6 +111,36 @@ function readControlStatusRank(
   status: ConnectedMachineItem["controlStatus"] | undefined,
 ): number {
   return status ? CONTROL_STATUS_RANK[status] : 3;
+}
+
+/**
+ * Keep the inline explanation in sync with the copied command when the page
+ * switches from `curl` to `curl.exe` for PowerShell.
+ */
+function readDirectCommandDescription(command: string): string {
+  if (command.startsWith("curl.exe ")) {
+    return "Use this today for prod, preview, or local deploy testing. On Windows PowerShell this uses curl.exe so the command avoids the Invoke-WebRequest alias.";
+  }
+
+  return "Use this today for prod, preview, or local deploy testing.";
+}
+
+function readRequestedMachineOs(
+  requestState: MachineApprovalState,
+): "linux" | "macos" | "windows" | null {
+  switch (requestState.kind) {
+    case "pending":
+    case "approved":
+    case "expired":
+      return requestState.os;
+    case "idle":
+    case "loading":
+    case "sign_in_required":
+    case "not_found":
+      return null;
+    default:
+      return requestState satisfies never;
+  }
 }
 
 function CopyableCommandBlock({
@@ -275,7 +306,7 @@ function renderMachineApprovalState(args: {
 
             <CopyableCommandBlock
               label="Direct hosted file run"
-              description="Use this today for prod, preview, or local deploy testing."
+              description={readDirectCommandDescription(args.directRunCommand)}
               command={args.directRunCommand}
             />
           </div>
@@ -408,6 +439,8 @@ export function MachineConnectPageContent({
   onApprove,
 }: MachineConnectPageContentProps) {
   const connectedMachinesAnchor = `#${CONNECTED_MACHINES_SECTION_ID}`;
+  const directCommandDescription =
+    readDirectCommandDescription(directConnectCommand);
 
   return (
     <div className="container max-w-3xl py-6" data-testid={testId}>
@@ -479,7 +512,7 @@ export function MachineConnectPageContent({
 
         <CopyableCommandBlock
           label="Direct hosted file connect"
-          description="Use this today for prod, preview, or local deploy testing."
+          description={directCommandDescription}
           command={directConnectCommand}
         />
 
@@ -666,14 +699,23 @@ export function MachineConnectPage() {
       }
     }
   })();
+  const directCommandTargetOs = resolveDirectNoterSyncCommandTargetOs(
+    readRequestedMachineOs(requestState),
+  );
 
   return (
     <AppPageScrollShell>
       <MachineConnectPageContent
         approvalError={approvalError}
         connectedMachines={connectedMachines}
-        directConnectCommand={buildDirectNoterSyncConnectCommand(scriptUrl)}
-        directRunCommand={buildDirectNoterSyncRunCommand(scriptUrl)}
+        directConnectCommand={buildDirectNoterSyncConnectCommand(
+          scriptUrl,
+          directCommandTargetOs,
+        )}
+        directRunCommand={buildDirectNoterSyncRunCommand(
+          scriptUrl,
+          directCommandTargetOs,
+        )}
         heartbeatLog={heartbeatLog}
         isApproving={isApproving}
         openedByCli={bootstrapSearch.openedByCli}

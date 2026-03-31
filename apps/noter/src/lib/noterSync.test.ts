@@ -9,6 +9,7 @@ import {
   buildPublishedNoterSyncRunCommand,
   readMachineLiveControlPath,
   readMachineConnectBootstrapSearch,
+  resolveDirectNoterSyncCommandTargetOs,
 } from "@/lib/noterSync";
 
 describe("noterSync", () => {
@@ -46,6 +47,43 @@ describe("noterSync", () => {
     expect(buildDirectNoterSyncRunCommand("https://noter.md/noter.js")).toBe(
       `curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
     );
+  });
+
+  it("builds PowerShell-safe direct hosted-file commands for Windows", () => {
+    expect(
+      buildDirectNoterSyncConnectCommand(
+        "https://noter.md/noter.js",
+        "windows",
+      ),
+    ).toBe(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
+    );
+    expect(
+      buildDirectNoterSyncRunCommand("https://noter.md/noter.js", "windows"),
+    ).toBe(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+    );
+  });
+
+  it("prefers the explicit machine OS over the current browser platform", () => {
+    const originalNavigator = globalThis.navigator;
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: {
+        platform: "MacIntel",
+        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+      },
+    });
+
+    try {
+      expect(resolveDirectNoterSyncCommandTargetOs("windows")).toBe("windows");
+      expect(resolveDirectNoterSyncCommandTargetOs()).toBe("macos");
+    } finally {
+      Object.defineProperty(globalThis, "navigator", {
+        configurable: true,
+        value: originalNavigator,
+      });
+    }
   });
 
   it("reads the optional machine-connect bootstrap query params", () => {

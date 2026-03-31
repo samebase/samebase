@@ -17,6 +17,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   buildMachineHeartbeatBody,
   buildNoterConnectConfigUrl,
+  buildDirectConnectCommand,
+  buildDirectRunCommand,
   buildMachineConnectUrl,
   createCodexLocalControlRouter,
   formatBootstrapReadyMarkdown,
@@ -277,6 +279,26 @@ describe('@noter-md/sync', () => {
     expect(formatHelpText()).toContain(
       `curl -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'`,
     )
+    expect(formatHelpText()).toContain(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
+    )
+    expect(formatHelpText()).toContain(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+    )
+    expect(formatHelpText()).toContain(
+      `curl.exe -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'`,
+    )
+  })
+
+  it('builds Windows-safe direct hosted-file commands', () => {
+    expect(
+      buildDirectConnectCommand('https://noter.md/noter.js', 'win32'),
+    ).toBe(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
+    )
+    expect(buildDirectRunCommand('https://noter.md/noter.js', 'win32')).toBe(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+    )
   })
 
   it.runIf(process.platform !== 'win32')(
@@ -299,6 +321,7 @@ describe('@noter-md/sync', () => {
   )
 
   it('formats bootstrap status as markdown for terminal and LLM consumption', () => {
+    const runCommand = buildDirectRunCommand('https://noter.md/noter.js')
     expect(
       formatBootstrapReadyMarkdown({
         codexVersion: 'codex 0.1.2',
@@ -306,7 +329,7 @@ describe('@noter-md/sync', () => {
         machineConnectUrl:
           'https://noter.md/machines/connect?openedByCli&requestId=request_123',
         machineId: 'machine_123',
-        runCommand: `curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+        runCommand,
         sourceUrl: 'https://noter.md/noter.js',
       }),
     ).toBe(`# noter sync bootstrap ready
@@ -316,7 +339,7 @@ describe('@noter-md/sync', () => {
 - machine: machine_123
 - state: /Users/noter/.noter/config.json
 - next: https://noter.md/machines/connect?openedByCli&requestId=request_123
-- run: curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`)
+- run: ${runCommand}`)
   })
 
   it('builds heartbeat payloads that advertise live-control readiness', () => {

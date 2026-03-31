@@ -121,6 +121,13 @@ Shape:
 curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
 ```
 
+On Windows PowerShell the same bootstrap needs `curl.exe` because `curl`
+resolves to `Invoke-WebRequest` there:
+
+```powershell
+curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
+```
+
 Preview or local iteration uses the same shape with a different origin:
 
 ```bash
@@ -133,6 +140,8 @@ Why this is the right first step:
 2. it makes preview and worktree iteration easy
 3. it avoids waiting on npm publishing before the flow is usable
 4. it keeps the real source artifact visible and inspectable
+5. it still works in Windows PowerShell once the transport command switches to
+   `curl.exe`
 
 ### Channel B: Published npm package
 
