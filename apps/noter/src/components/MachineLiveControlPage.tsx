@@ -1,4 +1,5 @@
 import { CodexThreadBrowserView } from "@/components/CodexThreadBrowserView";
+import { MachinePageScrollShell } from "@/components/MachinePageScrollShell";
 import { Button } from "@/components/ui/button";
 import { useNow } from "@/hooks/useNow";
 import {
@@ -685,10 +686,12 @@ export function MachineLiveControlPage() {
 
   if (!machineId) {
     return (
-      <MachineLiveControlUnavailable
-        description="This route is missing the connected machine id."
-        machine={null}
-      />
+      <MachinePageScrollShell>
+        <MachineLiveControlUnavailable
+          description="This route is missing the connected machine id."
+          machine={null}
+        />
+      </MachinePageScrollShell>
     );
   }
 
@@ -698,78 +701,84 @@ export function MachineLiveControlPage() {
 
   if (machine === null) {
     return (
-      <MachineLiveControlUnavailable
-        description="This connected machine is no longer available on your account."
-        machine={null}
-      />
+      <MachinePageScrollShell>
+        <MachineLiveControlUnavailable
+          description="This connected machine is no longer available on your account."
+          machine={null}
+        />
+      </MachinePageScrollShell>
     );
   }
 
   if (machineStatusReason !== null) {
     return (
-      <MachineLiveControlUnavailable
-        description={machineStatusReason}
-        machine={machine}
-      />
+      <MachinePageScrollShell>
+        <MachineLiveControlUnavailable
+          description={machineStatusReason}
+          machine={machine}
+        />
+      </MachinePageScrollShell>
     );
   }
 
   const readyMachine = machine;
 
   return (
-    <CodexThreadBrowserView
-      allowArchivedMode={false}
-      browserMode="active"
-      detailState={detailState}
-      errorMessage={error}
-      groups={groups}
-      headingDescription={`${readyMachine.hostname} · live control ready`}
-      headingEyebrow="Connected machine"
-      headingTitle={readyMachine.displayName}
-      isBusy={isBusy}
-      loadedThreadIds={loadedThreadIds}
-      pinnedThreads={pinnedThreads}
-      relativeTimeReferenceMs={now}
-      searchTerm={searchTerm}
-      selectedThread={selectedThreadDetail ?? selectedThreadSummary}
-      selectedThreadId={selectedThreadId}
-      turnDraft={turnDraft}
-      onRefresh={() => {
-        void runAction(async () => {
-          const threadsResponse = await refreshAll(searchTerm);
-          const refreshedThread =
-            threadsResponse.threads.find(
-              (thread) => thread.id === selectedThreadId,
-            ) ?? null;
-          await refreshSelectedThread(refreshedThread);
-        });
-      }}
-      onSearchTermChange={setSearchTerm}
-      onThreadSelect={setSelectedThreadId}
-      onTurnDraftChange={setTurnDraft}
-      onTurnSubmit={() => {
-        if (!selectedThreadId || turnDraft.trim().length === 0) {
-          return;
-        }
-
-        void runAction(async () => {
-          await requestMachineControlJson<ThreadActionResponse>({
-            body: {
-              text: turnDraft.trim(),
-              threadId: selectedThreadId,
-            },
-            method: "POST",
-            path: "/turn/start",
+    <MachinePageScrollShell>
+      <CodexThreadBrowserView
+        allowArchivedMode={false}
+        browserMode="active"
+        detailState={detailState}
+        errorMessage={error}
+        groups={groups}
+        headingDescription={`${readyMachine.hostname} · live control ready`}
+        headingEyebrow="Connected machine"
+        headingTitle={readyMachine.displayName}
+        isBusy={isBusy}
+        loadedThreadIds={loadedThreadIds}
+        pinnedThreads={pinnedThreads}
+        relativeTimeReferenceMs={now}
+        searchTerm={searchTerm}
+        selectedThread={selectedThreadDetail ?? selectedThreadSummary}
+        selectedThreadId={selectedThreadId}
+        turnDraft={turnDraft}
+        onRefresh={() => {
+          void runAction(async () => {
+            const threadsResponse = await refreshAll(searchTerm);
+            const refreshedThread =
+              threadsResponse.threads.find(
+                (thread) => thread.id === selectedThreadId,
+              ) ?? null;
+            await refreshSelectedThread(refreshedThread);
           });
-          setTurnDraft("");
-          const threadsResponse = await refreshAll(searchTerm);
-          const refreshedThread =
-            threadsResponse.threads.find(
-              (thread) => thread.id === selectedThreadId,
-            ) ?? null;
-          await refreshSelectedThread(refreshedThread);
-        });
-      }}
-    />
+        }}
+        onSearchTermChange={setSearchTerm}
+        onThreadSelect={setSelectedThreadId}
+        onTurnDraftChange={setTurnDraft}
+        onTurnSubmit={() => {
+          if (!selectedThreadId || turnDraft.trim().length === 0) {
+            return;
+          }
+
+          void runAction(async () => {
+            await requestMachineControlJson<ThreadActionResponse>({
+              body: {
+                text: turnDraft.trim(),
+                threadId: selectedThreadId,
+              },
+              method: "POST",
+              path: "/turn/start",
+            });
+            setTurnDraft("");
+            const threadsResponse = await refreshAll(searchTerm);
+            const refreshedThread =
+              threadsResponse.threads.find(
+                (thread) => thread.id === selectedThreadId,
+              ) ?? null;
+            await refreshSelectedThread(refreshedThread);
+          });
+        }}
+      />
+    </MachinePageScrollShell>
   );
 }
