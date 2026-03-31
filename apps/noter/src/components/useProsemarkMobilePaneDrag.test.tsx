@@ -539,4 +539,58 @@ describe("useProsemarkMobilePaneDrag", () => {
     expect(dragMobileShellBy).not.toHaveBeenCalled();
     expect(settleMobileShell).not.toHaveBeenCalled();
   });
+
+  it("keeps delegating horizontal drags after a sidebar opens so the visible editor slice can return to main", () => {
+    const dragMobileShellBy = vi.fn(() => true);
+    const settleMobileShell = vi.fn();
+    Reflect.set(globalThis, "PointerEvent", Event);
+
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+    const mountedRoot = root;
+
+    act(() => {
+      mountedRoot.render(
+        <TestHarness
+          dragMobileShellBy={dragMobileShellBy}
+          isMainPaneActive={false}
+          settleMobileShell={settleMobileShell}
+        />,
+      );
+    });
+
+    const host = rootElement.querySelector<HTMLElement>(
+      '[data-testid="mobile-pane-drag-host"]',
+    );
+    expect(host).not.toBeNull();
+    if (host === null) {
+      return;
+    }
+    installPointerCaptureMocks(host);
+
+    act(() => {
+      dispatchPointerEvent(host, "pointerdown", {
+        clientX: 320,
+        clientY: 180,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+      dispatchPointerEvent(host, "pointermove", {
+        clientX: 262,
+        clientY: 184,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+      dispatchPointerEvent(host, "pointerup", {
+        clientX: 262,
+        clientY: 184,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+    });
+
+    expect(dragMobileShellBy).toHaveBeenCalledWith(-58);
+    expect(settleMobileShell).toHaveBeenCalledTimes(1);
+  });
 });
