@@ -760,9 +760,10 @@ function isBinaryStagedFile(file: Pick<StagedFileForCommit, "kind">): boolean {
 
 export function shouldAdvanceBinaryPullParentCommit(args: {
   stagedBlobSha?: string | null;
+  fileDeleted?: boolean;
   upstreamSha: string;
 }): boolean {
-  return args.stagedBlobSha === args.upstreamSha;
+  return args.fileDeleted !== true && args.stagedBlobSha === args.upstreamSha;
 }
 
 function computeGitBlobShaFromBuffer(buffer: Uint8Array): string {
@@ -2824,6 +2825,7 @@ export const pullFromGitHubInternal = internalAction({
           if (
             shouldAdvanceBinaryPullParentCommit({
               stagedBlobSha: staged.stagedBlobSha,
+              fileDeleted: staged.fileDeleted,
               upstreamSha: newSha,
             })
           ) {

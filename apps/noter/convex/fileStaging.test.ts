@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest";
 import { internal } from "./_generated/api";
 
 import {
+  buildDeletionSnapshotSeed,
   buildDeletedFileRestoreCandidate,
   buildClearAllStagingPlan,
   canAccessVaultStaging,
   clearMatchingStagingSnapshotImpl,
   clearAllStagingImpl,
+  isPendingUploadBlobProtected,
+  isPendingUploadBlobReferencedByStaging,
   selectRepositoryTreeForBranch,
+  shouldDeleteSupersededStagedBinaryUpload,
   summarizeStagedFilesByBranch,
 } from "./fileStaging";
 
@@ -626,5 +630,103 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         },
       },
     ]);
+  });
+});
+
+describe("buildDeletionSnapshotSeed", () => {
+  it("preserves the base blob sha for binary deletion seeds", () => {
+    expect(
+      buildDeletionSnapshotSeed({
+        parentCommitSha: "blob-sha",
+        blob: {
+          mime: "image/png",
+          size: 42,
+        },
+      }),
+    ).toEqual({
+      initialContent: "",
+      kind: "binary",
+      mime: "image/png",
+      size: 42,
+      stagedBlobSha: "blob-sha",
+    });
+  });
+
+  it("keeps inline text content for text deletion seeds", () => {
+    expect(
+      buildDeletionSnapshotSeed({
+        parentCommitSha: "blob-sha",
+        blob: {
+          text: "hello\n",
+        },
+      }),
+    ).toEqual({
+      initialContent: "hello\n",
+      kind: "text",
+    });
+  });
+});
+
+describe("isPendingUploadBlobReferencedByStaging", () => {
+  it("blocks cleanup when a staged row still points at the uploaded blob", () => {
+    expect(
+      isPendingUploadBlobReferencedByStaging({
+        storageId: "storage-1",
+        stagedFiles: [{ storageId: "storage-1" }, { storageId: "storage-2" }],
+      }),
+    ).toBe(true);
+  });
+
+  it("allows cleanup when staging no longer references the blob", () => {
+    expect(
+      isPendingUploadBlobReferencedByStaging({
+        storageId: "storage-3",
+        stagedFiles: [{ storageId: "storage-1" }, { storageId: undefined }],
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("isPendingUploadBlobProtected", () => {
+  it("blocks cleanup when a committed blob cache row still points at the storage id", () => {
+    expect(
+      isPendingUploadBlobProtected({
+        storageId: "storage-4",
+        stagedFiles: [],
+        cachedBlobs: [{ storageId: "storage-4" }],
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("shouldDeleteSupersededStagedBinaryUpload", () => {
+  it("cleans up superseded uploaded blobs that are no longer referenced", () => {
+    expect(
+      shouldDeleteSupersededStagedBinaryUpload({
+        existingStaging: {
+          kind: "binary",
+          storageId: "storage-old",
+          stagedBlobSha: "uploaded-sha",
+          parentCommitSha: "base-sha",
+        },
+        nextStorageId: "storage-new",
+        storageReferenceCount: 1,
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps repository-backed binary blobs in place during replacements", () => {
+    expect(
+      shouldDeleteSupersededStagedBinaryUpload({
+        existingStaging: {
+          kind: "binary",
+          storageId: "storage-old",
+          stagedBlobSha: "base-sha",
+          parentCommitSha: "base-sha",
+        },
+        nextStorageId: "storage-new",
+        storageReferenceCount: 1,
+      }),
+    ).toBe(false);
   });
 });

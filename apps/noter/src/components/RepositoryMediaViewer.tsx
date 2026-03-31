@@ -88,10 +88,12 @@ export function RepositoryMediaViewer({
   repositoryFullName,
   filePath,
   branch,
+  skipStaging = false,
 }: {
   repositoryFullName: string;
   filePath: string;
   branch: string;
+  skipStaging?: boolean;
 }) {
   const loadMediaAsset = useAction(api.github.getRepositoryMediaAsset);
   const [asset, setAsset] = useState<RepositoryMediaAsset | null>(null);
@@ -119,6 +121,7 @@ export function RepositoryMediaViewer({
       repositoryFullName,
       filePath,
       branch,
+      skipStaging,
     })
       .then((result) => {
         if (cancelled) {
@@ -147,7 +150,7 @@ export function RepositoryMediaViewer({
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [branch, filePath, loadMediaAsset, repositoryFullName]);
+  }, [branch, filePath, loadMediaAsset, repositoryFullName, skipStaging]);
 
   if (showLoading) {
     return (

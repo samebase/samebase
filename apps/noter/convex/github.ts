@@ -556,6 +556,7 @@ type StagedRepositoryMediaAssetCandidate = {
   storageId?: string | null;
   stagedBlobSha?: string | null;
   mime?: string;
+  size?: number;
   content: string;
 };
 const CLOUDFLARE_PREVIEW_COMMENT_CONCURRENCY = 5;
@@ -1537,6 +1538,30 @@ async function resolveCachedRepositoryMediaAsset(
   return null;
 }
 
+async function getRepositoryBlobShaForBranchPath(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  branch: string;
+  filePath: string;
+}): Promise<string | null> {
+  const tree = await args.octokit.rest.git.getTree({
+    owner: args.owner,
+    repo: args.repo,
+    tree_sha: toGitTreeRef(args.branch),
+    recursive: "1",
+  });
+  const targetFile = tree.data.tree.find(
+    (item) =>
+      item.type === "blob" &&
+      item.path === args.filePath &&
+      typeof item.sha === "string" &&
+      item.sha.length > 0,
+  );
+
+  return targetFile?.sha ?? null;
+}
+
 export async function resolveStagedRepositoryMediaAsset(args: {
   storage: {
     getUrl(storageId: string): Promise<string | null>;
@@ -1558,6 +1583,7 @@ export async function resolveStagedRepositoryMediaAsset(args: {
       storageId: args.stagedFile.storageId,
       text: args.stagedFile.content,
       mime: args.stagedFile.mime,
+      size: args.stagedFile.size,
     },
     args.filePath,
     args.mediaKind,
@@ -1742,6 +1768,7 @@ export const getRepositoryMediaAsset = action({
     repositoryFullName: string(),
     filePath: string(),
     branch: optional(string()),
+    skipStaging: optional(boolean()),
   },
   returns: repositoryMediaAssetResult,
   handler: async (ctx, args): Promise<RepositoryMediaAsset> => {
@@ -1762,8 +1789,9 @@ export const getRepositoryMediaAsset = action({
     }
 
     const fileName = getRepositoryMediaFileName(args.filePath);
+    const shouldSkipStaging = args.skipStaging === true;
 
-    if (requestedBranch) {
+    if (requestedBranch && !shouldSkipStaging) {
       const stagedFile = await ctx.runQuery(
         internal.fileStaging.getByNewPathInternal,
         {
@@ -1845,17 +1873,16 @@ export const getRepositoryMediaAsset = action({
 
     try {
       if (requestedBranch) {
-        const targetFile = await octokit.rest.repos.getContent({
+        targetFileSha = await getRepositoryBlobShaForBranchPath({
+          octokit,
           owner: vault.ghRepoOwner,
           repo: vault.ghRepoName,
-          path: args.filePath,
-          ref: requestedBranch,
+          branch: requestedBranch,
+          filePath: args.filePath,
         });
-        if (Array.isArray(targetFile.data) || targetFile.data.type !== "file") {
+        if (targetFileSha === null) {
           return { found: false, reason: "missing" };
         }
-
-        targetFileSha = targetFile.data.sha;
         const cachedBlob = await ctx.runQuery(
           internal.gitOperations.getBlobBySha,
           {

@@ -39,7 +39,7 @@ for (const scenario of SCENARIOS) {
 
     const screenshotTarget =
       scenario.screenshotTarget === "dialog"
-        ? page.getByTestId("media-upload-dialog-form")
+        ? page.getByTestId("media-upload-dialog-content")
         : page;
     const screenshot = await screenshotTarget.screenshot({
       animations: "disabled",

@@ -83,7 +83,7 @@ describe("MediaUploadDialog", () => {
       />,
     );
 
-    const labelMatch = markup.match(/<label for="([^"]+)"/);
+    const labelMatch = markup.match(/<label\b[^>]*\bfor=["']([^"']+)["']/);
     expect(labelMatch?.[1]).toBeTruthy();
     expect(markup).toContain(`id="${labelMatch?.[1]}"`);
     expect(markup).not.toContain('<span tabindex="0"></span>');

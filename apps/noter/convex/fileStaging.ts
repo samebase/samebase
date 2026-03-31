@@ -335,6 +335,100 @@ export function buildDeletedFileRestoreCandidate(
   };
 }
 
+export function buildDeletionSnapshotSeed(args: {
+  parentCommitSha: string | null;
+  blob: {
+    text?: string;
+    mime?: string;
+    size?: number;
+  } | null;
+}): {
+  initialContent: string;
+  kind: "text" | "binary";
+  mime?: string;
+  size?: number;
+  stagedBlobSha?: string;
+} {
+  if (!args.parentCommitSha || !args.blob) {
+    return {
+      initialContent: "",
+      kind: "text",
+    };
+  }
+
+  if (typeof args.blob.text === "string") {
+    return {
+      initialContent: args.blob.text,
+      kind: "text",
+    };
+  }
+
+  return {
+    initialContent: "",
+    kind: "binary",
+    mime: args.blob.mime,
+    size: args.blob.size,
+    stagedBlobSha: args.parentCommitSha,
+  };
+}
+
+export function isPendingUploadBlobReferencedByStaging(args: {
+  stagedFiles: Array<{
+    storageId?: string | null;
+  }>;
+  storageId: string;
+}): boolean {
+  return args.stagedFiles.some((file) => file.storageId === args.storageId);
+}
+
+export function isPendingUploadBlobProtected(args: {
+  stagedFiles: Array<{
+    storageId?: string | null;
+  }>;
+  cachedBlobs: Array<{
+    storageId?: string | null;
+  }>;
+  storageId: string;
+}): boolean {
+  return (
+    isPendingUploadBlobReferencedByStaging(args) ||
+    args.cachedBlobs.some((blob) => blob.storageId === args.storageId)
+  );
+}
+
+export function shouldDeleteSupersededStagedBinaryUpload(args: {
+  existingStaging: {
+    kind?: "text" | "binary";
+    storageId?: string | null;
+    stagedBlobSha?: string | null;
+    parentCommitSha: string | null;
+  };
+  nextStorageId: string;
+  storageReferenceCount: number;
+}): boolean {
+  if (readStagedFileKind(args.existingStaging.kind) !== "binary") {
+    return false;
+  }
+
+  if (
+    typeof args.existingStaging.storageId !== "string" ||
+    args.existingStaging.storageId === args.nextStorageId
+  ) {
+    return false;
+  }
+
+  if (
+    typeof args.existingStaging.stagedBlobSha !== "string" ||
+    args.storageReferenceCount !== 1
+  ) {
+    return false;
+  }
+
+  return (
+    args.existingStaging.stagedBlobSha !== args.existingStaging.parentCommitSha
+  );
+}
+
 async function readDeletionSnapshotSeed(
   ctx: MutationCtx,
   parentCommitSha: string | null,
@@ -343,38 +437,18 @@ async function readDeletionSnapshotSeed(
   kind: "text" | "binary";
   mime?: string;
   size?: number;
+  stagedBlobSha?: string;
 }> {
-  if (!parentCommitSha) {
-    return {
-      initialContent: "",
-      kind: "text",
-    };
-  }
+  const blob = parentCommitSha
+    ? await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+        sha: parentCommitSha,
+      })
+    : null;
 
-  const blob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-    sha: parentCommitSha,
+  return buildDeletionSnapshotSeed({
+    parentCommitSha,
+    blob,
   });
-
-  if (!blob) {
-    return {
-      initialContent: "",
-      kind: "text",
-    };
-  }
-
-  if (typeof blob.text === "string") {
-    return {
-      initialContent: blob.text,
-      kind: "text",
-    };
-  }
-
-  return {
-    initialContent: "",
-    kind: "binary",
-    mime: blob.mime,
-    size: blob.size,
-  };
 }
 
 // MARK: Public
@@ -415,6 +489,26 @@ export const deletePendingUploadBlob = mutation({
       })
     ) {
       throw new Error("Unauthorized");
+    }
+
+    const stagedFiles = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+    const cachedBlobs = await ctx.db
+      .query("blobs")
+      .filter((q) => q.eq(q.field("vaultId"), args.vaultId))
+      .collect();
+    if (
+      isPendingUploadBlobProtected({
+        stagedFiles,
+        cachedBlobs,
+        storageId: args.storageId,
+      })
+    ) {
+      throw new Error(
+        "Cannot delete a blob that is already attached to staging.",
+      );
     }
 
     await ctx.storage.delete(args.storageId);
@@ -990,6 +1084,7 @@ export const markFileForDeletion = mutation({
         initialContent: snapshotSeed.initialContent,
         mime: snapshotSeed.mime,
         size: snapshotSeed.size,
+        stagedBlobSha: snapshotSeed.stagedBlobSha,
         parentCommitSha: args.parentCommitSha,
         lastEditTime: currentTimestamp,
         lastEditUserId: userId,
@@ -1290,6 +1385,7 @@ export const internalMarkFileForDeletion = internalMutation({
         initialContent: snapshotSeed.initialContent,
         mime: snapshotSeed.mime,
         size: snapshotSeed.size,
+        stagedBlobSha: snapshotSeed.stagedBlobSha,
         parentCommitSha: args.parentCommitSha,
         lastEditTime: currentTimestamp,
         lastEditUserId: args.userId,
@@ -1370,6 +1466,25 @@ export const saveBinaryUploadToStaging = internalMutation({
     }
 
     if (existingStaging) {
+      const previousStorageId = existingStaging.storageId;
+      let shouldDeletePreviousStorage = false;
+      if (
+        typeof previousStorageId === "string" &&
+        previousStorageId !== args.storageId
+      ) {
+        const stagedFilesByVault = await ctx.db
+          .query("fileStaging")
+          .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+          .collect();
+        const storageReferenceCount = stagedFilesByVault.filter(
+          (file) => file.storageId === previousStorageId,
+        ).length;
+        shouldDeletePreviousStorage = shouldDeleteSupersededStagedBinaryUpload({
+          existingStaging,
+          nextStorageId: args.storageId,
+          storageReferenceCount,
+        });
+      }
       const preservedParentCommitSha =
         parentCommitSha ?? existingStaging.parentCommitSha;
 
@@ -1394,6 +1509,23 @@ export const saveBinaryUploadToStaging = internalMutation({
       const updatedStaging = await ctx.db.get(existingStaging._id);
       if (!updatedStaging) {
         throw new Error("Staged binary upload disappeared while saving");
+      }
+
+      if (
+        shouldDeletePreviousStorage &&
+        typeof previousStorageId === "string"
+      ) {
+        try {
+          await ctx.storage.delete(previousStorageId);
+        } catch (error) {
+          console.warn("Failed to delete superseded staged upload blob", {
+            vaultId: args.vaultId,
+            branch: args.branch,
+            filePath: args.filePath,
+            previousStorageId,
+            error,
+          });
+        }
       }
 
       return updatedStaging;

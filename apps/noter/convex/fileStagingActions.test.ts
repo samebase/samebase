@@ -1738,4 +1738,14 @@ describe("shouldAdvanceBinaryPullParentCommit", () => {
       }),
     ).toBe(false);
   });
+
+  it("preserves the previous base for deleted binary rows even when the blob matches upstream", () => {
+    expect(
+      shouldAdvanceBinaryPullParentCommit({
+        stagedBlobSha: "upstream-sha",
+        fileDeleted: true,
+        upstreamSha: "upstream-sha",
+      }),
+    ).toBe(false);
+  });
 });

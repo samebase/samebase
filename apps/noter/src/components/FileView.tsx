@@ -3544,13 +3544,14 @@ function FileViewInner({
                                             repositoryFullName={
                                               repositoryFullName
                                             }
-                                            filePath={
-                                              selectedRebaseConflictFile.upstreamPath ??
-                                              selectedRebaseConflictFile.path
-                                            }
-                                            branch={branch}
-                                          />
-                                        </div>
+                                          filePath={
+                                            selectedRebaseConflictFile.upstreamPath ??
+                                            selectedRebaseConflictFile.path
+                                          }
+                                          branch={branch}
+                                          skipStaging={true}
+                                        />
+                                      </div>
                                       ) : (
                                         <div className="grid min-h-0 md:grid-cols-2 md:divide-x">
                                           <div className="min-h-0">

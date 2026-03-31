@@ -356,6 +356,33 @@ describe("resolveStagedRepositoryMediaAsset", () => {
     });
   });
 
+  it("applies the preview size guard to directly staged binary uploads", async () => {
+    const result = await resolveStagedRepositoryMediaAsset({
+      storage: {
+        getUrl: async () => {
+          throw new Error("Should not fetch storage for oversized media");
+        },
+      },
+      loadCachedBlobBySha: async () => null,
+      stagedFile: {
+        fileDeleted: false,
+        kind: "binary",
+        content: "",
+        size: 1_000_001,
+        storageId: "storage-1",
+      },
+      filePath: "assets/cover.png",
+      mediaKind: "image",
+      fileName: "cover.png",
+    });
+
+    expect(result).toEqual({
+      found: false,
+      reason: "unavailable",
+      message: "Preview unavailable for files larger than 1 MB.",
+    });
+  });
+
   it("returns missing for deleted staged media", async () => {
     const result = await resolveStagedRepositoryMediaAsset({
       storage: {
