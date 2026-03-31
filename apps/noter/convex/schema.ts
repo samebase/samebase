@@ -10,6 +10,12 @@ import {
   mcpTokenHealthStatusValidator,
   mcpTokenHealthValidator,
 } from "./mcpTokenHealth";
+import {
+  connectedMachineRowValidator,
+  machineCredentialRowValidator,
+  machineRegistrationBootstrapRateLimitRowValidator,
+  machineRegistrationRequestRowValidator,
+} from "./connectedMachineModel";
 
 // Helper function to omit keys from an object
 function omit<T extends Record<string, any>, K extends keyof T>(
@@ -321,6 +327,26 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_kind", ["userId", "kind"])
     .index("by_kind_method", ["kind", "auth.method"]),
+
+  connectedMachines: defineTable(connectedMachineRowValidator)
+    .index("by_user", ["userId"])
+    .index("by_machine_id", ["machineId"])
+    .index("by_user_machine_id", ["userId", "machineId"]),
+
+  machineRegistrationRequests: defineTable(
+    machineRegistrationRequestRowValidator,
+  )
+    .index("by_request_id", ["requestId"])
+    .index("by_machine_id", ["machineId"]),
+
+  machineRegistrationBootstrapRateLimits: defineTable(
+    machineRegistrationBootstrapRateLimitRowValidator,
+  ).index("by_fingerprint", ["fingerprint"]),
+
+  machineCredentials: defineTable(machineCredentialRowValidator)
+    .index("by_machine_id", ["machineId"])
+    .index("by_user_machine_id", ["userId", "machineId"])
+    .index("by_credential_hash", ["credentialHash"]),
 
   dashboardSettings: defineTable({
     userId: v.id("users"),

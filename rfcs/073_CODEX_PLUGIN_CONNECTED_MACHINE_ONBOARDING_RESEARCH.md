@@ -9,9 +9,10 @@
   - `specs/062_MCP_DUAL_ORIGIN_CONSENT_LOGIN_REDIRECT_SPEC.md`
   - `specs/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md`
   - `specs/069_LOCAL_PROVIDER_THREAD_INVENTORY_RESEARCH_SURFACE_SPEC.md`
-  - `specs/072_CONNECTED_MACHINE_PHONE_MVP_SPEC.md`
+  - `specs/075_CONNECTED_MACHINE_INSTALLER_LOCAL_WALKTHROUGH_SPEC.md`
+  - `specs/076_CONNECTED_MACHINE_REGISTRATION_AND_PRESENCE_ROLLOUT_SPEC.md`
   - `rfcs/070_NOTER_UI_PR_TRIGGERED_CODEX_LOCAL_AUTOMATION_RESEARCH.md`
-  - `rfcs/074_EXTERNAL_CODEX_REMOTE_CONTROL_RESEARCH.md`
+  - `rfcs/071_CONNECTED_MACHINES_AND_REMOTE_THREAD_CONTROL_RESEARCH.md`
 
 ## Decision Summary
 
@@ -113,13 +114,13 @@ This is the current first-user and iteration path.
 Shape:
 
 ```bash
-curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect
+curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
 ```
 
 Preview or local iteration uses the same shape with a different origin:
 
 ```bash
-SCRIPT_URL='https://preview.noter.md/noter.js'; curl -fsSL "$SCRIPT_URL" | node --input-type=module - connect "$SCRIPT_URL"
+curl -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'
 ```
 
 Why this is the right first step:

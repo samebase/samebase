@@ -5,6 +5,10 @@ import {
   startCloudflareMcpOAuth,
 } from "./cloudflareMcpOAuth";
 import { finishConvexOAuth, startConvexOAuth } from "./convexOAuth";
+import {
+  createMachineRegistrationRequest,
+  publishMachineHeartbeat,
+} from "./connectedMachineHttp";
 import { finishGithubOAuth, startGithubOAuth } from "./githubOAuth";
 import {
   authorizeMcpOauthRequest,
@@ -55,6 +59,18 @@ http.route({
   path: "/oauth/github/callback",
   method: "GET",
   handler: finishGithubOAuth,
+});
+
+http.route({
+  path: "/connected-machines/bootstrap",
+  method: "POST",
+  handler: createMachineRegistrationRequest,
+});
+
+http.route({
+  path: "/connected-machines/heartbeat",
+  method: "POST",
+  handler: publishMachineHeartbeat,
 });
 
 http.route({

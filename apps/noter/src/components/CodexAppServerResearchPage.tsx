@@ -1,6 +1,12 @@
 import { Badge } from "@/components/badge";
-import { CodexAppServerThreadInventoryCard } from "@/components/CodexAppServerThreadInventoryCard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
+import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachineHeartbeatLog";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/card";
 import { CodexAppServerThreadHistoryItemCard } from "@/components/CodexAppServerThreadHistoryItemCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { Button } from "@/components/ui/button";
@@ -28,8 +34,14 @@ import {
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
+import { useConnectedMachineHeartbeatLog } from "@/lib/connectedMachineHeartbeatLog";
+import { useNow } from "@/hooks/useNow";
 import { clsx } from "clsx";
+import { useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { resolveConnectedMachineStatus } from "../../shared/connectedMachinePresence";
+import { api } from "../../convex/_generated/api";
 
 type RuntimeFormState = {
   cwd: string;
@@ -66,6 +78,10 @@ type ThreadActionResponse = {
 const DEFAULT_TURN_PROMPT =
   "Reply with exactly the word READY and nothing else.";
 const THREAD_LIST_LIMIT = 100;
+const DEFAULT_THREAD_LIST_QUERY: ThreadListQueryState = {
+  searchTerm: "",
+  sortKey: "updated_at",
+};
 type ProtocolMode = "json-schema" | "ts";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -135,6 +151,28 @@ function readProtocolRequestPath(args: {
       args.mode === "json-schema" ? "/protocol/json-schema" : "/protocol/ts",
     search: searchParams,
   });
+}
+
+function buildThreadBrowserHref(args: {
+  currentSearch: string;
+  selectedThreadId: string | null;
+}): string {
+  const searchParams = updateQueryParams(
+    args.currentSearch,
+    (nextSearchParams) => {
+      setQueryParam(nextSearchParams, "threadId", args.selectedThreadId);
+    },
+  );
+
+  return buildPathWithQuery({
+    pathname: CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
+    search: searchParams,
+  });
+}
+
+function readRequestedThreadId(search: string): string | null {
+  const threadId = new URLSearchParams(search).get("threadId");
+  return typeof threadId === "string" && threadId.length > 0 ? threadId : null;
 }
 
 function RuntimeStatusBadge(props: {
@@ -238,100 +276,6 @@ function ProtocolFilesViewer(props: {
   );
 }
 
-function ThreadInventoryPanel(props: {
-  threads: CodexAppServerThread[];
-  selectedThreadId: string | null;
-  nextCursor: string | null;
-  queryForm: ThreadListQueryState;
-  onQueryFormChange: (
-    updater: (current: ThreadListQueryState) => ThreadListQueryState,
-  ) => void;
-  onLoadThreads: () => void;
-  onSelectThread: (threadId: string) => void;
-  isBusy: boolean;
-}) {
-  return (
-    <div className="grid gap-3 border border-border bg-white p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Local provider threads
-        </div>
-        <Button
-          variant="outline"
-          disabled={props.isBusy}
-          onClick={props.onLoadThreads}
-        >
-          Load threads
-        </Button>
-      </div>
-
-      <div className="grid gap-3">
-        <Input
-          placeholder="Search first prompt"
-          value={props.queryForm.searchTerm}
-          onChange={(event) => {
-            props.onQueryFormChange((current) => ({
-              ...current,
-              searchTerm: event.target.value,
-            }));
-          }}
-        />
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant={
-              props.queryForm.sortKey === "updated_at" ? "default" : "outline"
-            }
-            onClick={() => {
-              props.onQueryFormChange((current) => ({
-                ...current,
-                sortKey: "updated_at",
-              }));
-            }}
-          >
-            Sort by updated
-          </Button>
-          <Button
-            variant={
-              props.queryForm.sortKey === "created_at" ? "default" : "outline"
-            }
-            onClick={() => {
-              props.onQueryFormChange((current) => ({
-                ...current,
-                sortKey: "created_at",
-              }));
-            }}
-          >
-            Sort by created
-          </Button>
-        </div>
-      </div>
-
-      <div className="text-xs text-slate-500">
-        {props.threads.length} loaded
-        {props.nextCursor ? " · more threads available" : ""}
-      </div>
-
-      <div className="grid max-h-[540px] gap-2 overflow-auto">
-        {props.threads.length === 0 ? (
-          <div className="border border-dashed border-border px-4 py-8 text-sm text-muted-foreground">
-            No threads loaded yet.
-          </div>
-        ) : null}
-        {props.threads.map((thread) => (
-          <CodexAppServerThreadInventoryCard
-            key={thread.id}
-            isSelected={thread.id === props.selectedThreadId}
-            onSelectThread={props.onSelectThread}
-            statusBadge={<ThreadStatusBadge thread={thread} />}
-            thread={thread}
-            updatedAtLabel={formatDateTime(thread.updatedAt)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function SelectedThreadDetailPanel(props: {
   thread: CodexAppServerThread | null;
   selectedThreadId: string | null;
@@ -339,6 +283,7 @@ function SelectedThreadDetailPanel(props: {
   error: string | null;
   onRefresh: () => void;
   isBusy: boolean;
+  browserViewHref: string;
 }) {
   return (
     <div className="grid gap-4 border border-border bg-white p-4">
@@ -357,7 +302,15 @@ function SelectedThreadDetailPanel(props: {
 
       {!props.selectedThreadId ? (
         <div className="border border-dashed border-border px-4 py-8 text-sm text-muted-foreground">
-          Select a local provider thread to inspect it.
+          Use the{" "}
+          <a
+            href={props.browserViewHref}
+            className="font-medium text-slate-900 underline underline-offset-2"
+          >
+            browser view
+          </a>{" "}
+          to choose a local provider thread, then return here for detail and
+          control actions.
         </div>
       ) : null}
 
@@ -498,7 +451,61 @@ function SelectedThreadDetailPanel(props: {
   );
 }
 
+export function CodexAppServerSelectedThreadCard(props: {
+  threadsCount: number;
+  hasMoreThreads: boolean;
+  browserViewHref: string;
+  thread: CodexAppServerThread | null;
+  selectedThreadId: string | null;
+  isLoading: boolean;
+  error: string | null;
+  onRefresh: () => void;
+  isBusy: boolean;
+}) {
+  const loadedThreadSummary = `${props.threadsCount} loaded thread${
+    props.threadsCount === 1 ? "" : "s"
+  }${props.hasMoreThreads ? " with more available" : ""}.`;
+
+  return (
+    <Card cornerNotch={0}>
+      <CardHeader>
+        <CardTitle className="font-mono text-base">Selected thread</CardTitle>
+        <CardDescription className="max-w-4xl text-sm leading-6">
+          {loadedThreadSummary} Use the{" "}
+          <a
+            href={props.browserViewHref}
+            className="font-medium text-slate-900 underline underline-offset-2"
+          >
+            browser view
+          </a>{" "}
+          to browse and switch threads; this page stays focused on detailed
+          inspection and runtime controls.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <SelectedThreadDetailPanel
+          thread={props.thread}
+          selectedThreadId={props.selectedThreadId}
+          isLoading={props.isLoading}
+          error={props.error}
+          onRefresh={props.onRefresh}
+          isBusy={props.isBusy}
+          browserViewHref={props.browserViewHref}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
 export function CodexAppServerResearchPage() {
+  const location = useLocation();
+  const connectedMachinesQuery = useQuery(
+    api.connectedMachines.listConnectedMachines,
+  );
+  const now = useNow({
+    enabled: (connectedMachinesQuery?.length ?? 0) > 0,
+    intervalMs: 1_000,
+  });
   const [status, setStatus] = useState<CodexAppServerStatusResponse | null>(
     null,
   );
@@ -506,7 +513,9 @@ export function CodexAppServerResearchPage() {
   const [requests, setRequests] = useState<CodexAppServerApprovalRequest[]>([]);
   const [threads, setThreads] = useState<CodexAppServerThread[]>([]);
   const [nextThreadCursor, setNextThreadCursor] = useState<string | null>(null);
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(() =>
+    readRequestedThreadId(location.search),
+  );
   const [selectedThread, setSelectedThread] =
     useState<CodexAppServerThread | null>(null);
   const [selectedThreadError, setSelectedThreadError] = useState<string | null>(
@@ -532,14 +541,6 @@ export function CodexAppServerResearchPage() {
     persistExtendedHistory: false,
   });
   const [resumeThreadId, setResumeThreadId] = useState("");
-  const [threadListForm, setThreadListForm] = useState<ThreadListQueryState>({
-    searchTerm: "",
-    sortKey: "updated_at",
-  });
-  const [threadListQuery, setThreadListQuery] = useState<ThreadListQueryState>({
-    searchTerm: "",
-    sortKey: "updated_at",
-  });
   const [turnForm, setTurnForm] = useState<TurnFormState>({
     threadId: "",
     prompt: DEFAULT_TURN_PROMPT,
@@ -614,7 +615,7 @@ export function CodexAppServerResearchPage() {
   }
 
   const refreshThreads = async (
-    query: ThreadListQueryState = threadListQuery,
+    query: ThreadListQueryState = DEFAULT_THREAD_LIST_QUERY,
   ) => {
     const response = await requestJson<CodexAppServerThreadsResponse>({
       path: buildThreadsPath(query),
@@ -708,12 +709,35 @@ export function CodexAppServerResearchPage() {
   const refreshEventsRef = useRef(refreshEvents);
   const refreshThreadsRef = useRef(refreshThreads);
   const refreshSelectedThreadRef = useRef(refreshSelectedThread);
+  const connectedMachines = (connectedMachinesQuery ?? []).map((machine) => ({
+    displayName: machine.displayName,
+    hostname: machine.hostname,
+    lastSeenAt: machine.lastSeenAt,
+    machineId: machine.machineId,
+    status: resolveConnectedMachineStatus({
+      lastSeenAt: machine.lastSeenAt,
+      now,
+      status: machine.status,
+    }),
+  }));
+  const heartbeatLog = useConnectedMachineHeartbeatLog(connectedMachines);
 
   refreshStatusRef.current = refreshStatus;
   refreshRequestsRef.current = refreshRequests;
   refreshEventsRef.current = refreshEvents;
   refreshThreadsRef.current = refreshThreads;
   refreshSelectedThreadRef.current = refreshSelectedThread;
+  const browserViewHref = buildThreadBrowserHref({
+    currentSearch: location.search,
+    selectedThreadId,
+  });
+
+  useEffect(() => {
+    const requestedThreadId = readRequestedThreadId(location.search);
+    if (typeof requestedThreadId === "string") {
+      setSelectedThreadId(requestedThreadId);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     let cancelled = false;
@@ -724,7 +748,7 @@ export function CodexAppServerResearchPage() {
           refreshStatusRef.current(),
           refreshRequestsRef.current(),
           refreshEventsRef.current(),
-          refreshThreadsRef.current(threadListQuery),
+          refreshThreadsRef.current(),
         ]);
         if (!cancelled) {
           setError(null);
@@ -749,7 +773,7 @@ export function CodexAppServerResearchPage() {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [threadListQuery]);
+  }, []);
 
   useEffect(() => {
     void refreshSelectedThreadRef.current(selectedThreadId);
@@ -770,9 +794,7 @@ export function CodexAppServerResearchPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button asChild variant="outline" size="sm">
-                <a href={CODEX_APP_SERVER_THREAD_BROWSER_ROUTE}>
-                  Open browser view
-                </a>
+                <a href={browserViewHref}>Open browser view</a>
               </Button>
               <RuntimeStatusBadge status={status} />
             </div>
@@ -794,6 +816,10 @@ export function CodexAppServerResearchPage() {
             </span>
           </div>
         </div>
+
+        {connectedMachines.length > 0 ? (
+          <ConnectedMachineHeartbeatLogSection heartbeatLog={heartbeatLog} />
+        ) : null}
 
         {error ? (
           <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -1073,57 +1099,23 @@ export function CodexAppServerResearchPage() {
           </div>
 
           <div className="grid gap-6">
-            <Card cornerNotch={0}>
-              <CardHeader>
-                <CardTitle className="font-mono text-base">
-                  Thread inventory
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
-                <ThreadInventoryPanel
-                  threads={threads}
-                  selectedThreadId={selectedThreadId}
-                  nextCursor={nextThreadCursor}
-                  queryForm={threadListForm}
-                  onQueryFormChange={(updater) => {
-                    setThreadListForm((current) => updater(current));
-                  }}
-                  onLoadThreads={() => {
-                    void runAction(async () => {
-                      const nextQuery = { ...threadListForm };
-                      setThreadListQuery(nextQuery);
-                      const response = await refreshThreads(nextQuery);
-                      const activeThreadId =
-                        typeof selectedThreadId === "string"
-                          ? selectedThreadId
-                          : response.threads[0]?.id ?? null;
-                      if (activeThreadId) {
-                        await refreshSelectedThread(activeThreadId);
-                      }
-                      return response;
-                    });
-                  }}
-                  onSelectThread={(threadId) => {
-                    setSelectedThreadId(threadId);
-                  }}
-                  isBusy={isBusy}
-                />
-                <SelectedThreadDetailPanel
-                  thread={selectedThread}
-                  selectedThreadId={selectedThreadId}
-                  isLoading={isSelectedThreadLoading}
-                  error={selectedThreadError}
-                  onRefresh={() => {
-                    void runAction(async () => {
-                      const response =
-                        await refreshSelectedThread(selectedThreadId);
-                      return response;
-                    });
-                  }}
-                  isBusy={isBusy}
-                />
-              </CardContent>
-            </Card>
+            <CodexAppServerSelectedThreadCard
+              threadsCount={threads.length}
+              hasMoreThreads={nextThreadCursor !== null}
+              browserViewHref={browserViewHref}
+              thread={selectedThread}
+              selectedThreadId={selectedThreadId}
+              isLoading={isSelectedThreadLoading}
+              error={selectedThreadError}
+              onRefresh={() => {
+                void runAction(async () => {
+                  const response =
+                    await refreshSelectedThread(selectedThreadId);
+                  return response;
+                });
+              }}
+              isBusy={isBusy}
+            />
 
             <Card cornerNotch={0}>
               <CardHeader>
@@ -1158,7 +1150,7 @@ export function CodexAppServerResearchPage() {
                               },
                             });
                           const nextThreadId = response.runtime.currentThreadId;
-                          await refreshThreads(threadListQuery);
+                          await refreshThreads();
                           if (nextThreadId) {
                             setSelectedThreadId(nextThreadId);
                             await refreshSelectedThread(nextThreadId);
@@ -1199,7 +1191,7 @@ export function CodexAppServerResearchPage() {
                           const nextThreadId =
                             response.runtime.currentThreadId ??
                             resumeThreadId.trim();
-                          await refreshThreads(threadListQuery);
+                          await refreshThreads();
                           setSelectedThreadId(nextThreadId);
                           await refreshSelectedThread(nextThreadId);
                           return response;
@@ -1294,7 +1286,7 @@ export function CodexAppServerResearchPage() {
                           });
                           const nextThreadId =
                             targetThreadId ?? readCurrentThreadId(response);
-                          await refreshThreads(threadListQuery);
+                          await refreshThreads();
                           if (nextThreadId) {
                             setSelectedThreadId(nextThreadId);
                             await refreshSelectedThread(nextThreadId);
