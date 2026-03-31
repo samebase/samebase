@@ -89,7 +89,7 @@ async function dragMonacoSurface(
 
 async function expectPaneAfterMonacoDrag(args: {
   drag: () => Promise<void>;
-  expectedPane: "left" | "right";
+  expectedPane: "left" | "main" | "right";
   page: Page;
 }) {
   const shell = args.page.getByTestId("fileview-monaco-drag-shell");
@@ -167,15 +167,19 @@ test("Monaco drag can return from the open left pane to main", async ({
   await expect(overlay).toBeVisible();
   await expect(leftSidebarOnlyItem).toBeInViewport();
 
-  await dragMonacoSurface(page, {
-    deltaX: -132,
-    startX: "right-edge",
+  await expectPaneAfterMonacoDrag({
+    drag: () =>
+      dragMonacoSurface(page, {
+        deltaX: -132,
+        startX: "right-edge",
+      }),
+    expectedPane: "main",
+    page,
   });
 
   await expect(overlay).toContainText("start: left");
   await expect(overlay).toContainText("settled: main");
   await expect(leftSidebarOnlyItem).not.toBeInViewport();
-  await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 
   const fixture = page.getByTestId("fileview-monaco-drag-visual-fixture");
   await expect(fixture).toHaveScreenshot(
