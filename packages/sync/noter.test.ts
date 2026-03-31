@@ -2,6 +2,7 @@ import { createServer } from 'node:http'
 import {
   chmodSync,
   mkdirSync,
+  realpathSync,
   readFileSync,
   rmSync,
   statSync,
@@ -16,6 +17,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   buildCodexSpawnInvocation,
+  buildCodexRuntimeSpawnInvocation,
   buildMachineHeartbeatBody,
   buildNoterConnectConfigUrl,
   buildCodexSpawnOptions,
@@ -325,14 +327,13 @@ describe('@noter-md/sync', () => {
       args: [
         '/d',
         '/v:off',
-        '/s',
         '/c',
         '"codex" "app-server" "--out" "C:\\Users\\Nicu Test\\R&D\\100%%\\AppData\\Local\\Temp"',
       ],
       command: 'cmd.exe',
     })
     expect(buildCodexSpawnInvocation(['--version'], 'windows')).toEqual({
-      args: ['/d', '/v:off', '/s', '/c', '"codex" "--version"'],
+      args: ['/d', '/v:off', '/c', '"codex" "--version"'],
       command: 'cmd.exe',
     })
     expect(buildCodexSpawnInvocation(['--version'], 'darwin')).toEqual({
@@ -346,6 +347,48 @@ describe('@noter-md/sync', () => {
     expect(buildCodexSpawnOptions({ cwd: '/tmp/noter' })).toEqual({
       cwd: '/tmp/noter',
     })
+  })
+
+  it('runs the Windows Codex app-server through the shim target instead of cmd.exe', () => {
+    const tempRoot = path.join(tmpdir(), `noter-codex-shim-${Date.now()}`)
+    const binDirectory = path.join(tempRoot, 'bin')
+    const shimPath = path.join(binDirectory, 'codex.cmd')
+    const scriptPath = path.join(
+      binDirectory,
+      'node_modules',
+      '@openai',
+      'codex',
+      'dist',
+      'cli.js',
+    )
+    const originalPath = process.env.PATH
+    const originalPathext = process.env.PATHEXT
+
+    mkdirSync(path.dirname(scriptPath), { recursive: true })
+    writeFileSync(
+      shimPath,
+      `@ECHO off\r\n"%_prog%" "%dp0%\\node_modules\\@openai\\codex\\dist\\cli.js" %*\r\n`,
+      'utf8',
+    )
+    writeFileSync(scriptPath, 'console.log("codex")\n', 'utf8')
+    process.env.PATH = binDirectory
+    process.env.PATHEXT = '.CMD;.EXE'
+
+    try {
+      expect(
+        buildCodexRuntimeSpawnInvocation(
+          ['app-server', '--listen', 'stdio://'],
+          'win32',
+        ),
+      ).toEqual({
+        args: [realpathSync(scriptPath), 'app-server', '--listen', 'stdio://'],
+        command: process.execPath,
+      })
+    } finally {
+      process.env.PATH = originalPath
+      process.env.PATHEXT = originalPathext
+      rmSync(tempRoot, { force: true, recursive: true })
+    }
   })
 
   it.runIf(process.platform !== 'win32')(

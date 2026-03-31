@@ -23,6 +23,7 @@ import {
   mkdirSync,
   readFileSync,
   realpathSync,
+  statSync,
   writeFileSync,
 } from 'node:fs'
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
@@ -362,7 +363,7 @@ export function buildCodexSpawnInvocation(
 ) {
   return normalizeRuntimePlatform(currentPlatform) === 'win32'
     ? {
-        args: ['/d', '/v:off', '/s', '/c', buildWindowsCodexCommandLine(args)],
+        args: ['/d', '/v:off', '/c', buildWindowsCodexCommandLine(args)],
         command: process.env.ComSpec ?? 'cmd.exe',
       }
     : {
@@ -385,6 +386,103 @@ function escapeWindowsCmdArgument(value) {
 
 function buildWindowsCodexCommandLine(args) {
   return ['codex', ...args].map(escapeWindowsCmdArgument).join(' ')
+}
+
+/**
+ * Mirror Windows PATH lookup locally so the runtime can resolve the same npm
+ * shim that `cmd.exe` would have found without keeping the long-lived server
+ * attached to a shell wrapper process.
+ */
+function resolveWindowsPathCommand(command, env = process.env) {
+  const searchPath = env.Path ?? env.PATH ?? ''
+  const pathExtensions = env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD'
+  const commandHasExtension = path.extname(command).length > 0
+  const executableExtensions = commandHasExtension
+    ? ['']
+    : pathExtensions
+        .split(';')
+        .map(extension => extension.trim())
+        .filter(extension => extension.length > 0)
+
+  for (const rawDirectory of searchPath.split(';')) {
+    const directory = rawDirectory.trim().replace(/^"(.*)"$/, '$1')
+    if (directory.length === 0) {
+      continue
+    }
+
+    for (const extension of executableExtensions) {
+      const candidate = path.join(
+        directory,
+        extension.length > 0 ? `${command}${extension}` : command,
+      )
+      try {
+        if (statSync(candidate).isFile()) {
+          return candidate
+        }
+      } catch {}
+    }
+  }
+
+  return null
+}
+
+/**
+ * npm's Windows global bins are `.cmd` shims that point at the real JS file.
+ * Read that target so the runtime can launch the Codex server under the
+ * current Node process tree and stop it reliably later.
+ */
+function readWindowsCmdShimTarget(shimPath) {
+  const matches = readFileSync(shimPath, 'utf8').match(
+    /"%(?:~dp0|dp0%)\\([^"]+?)"\s+%[*]/,
+  )
+  return matches?.[1] ?? null
+}
+
+/**
+ * One-off Windows Codex commands can go through `cmd.exe`, but the long-lived
+ * app-server should run as the real child process so restart and shutdown do
+ * not strand an orphaned shell wrapper.
+ */
+export function buildCodexRuntimeSpawnInvocation(
+  args,
+  currentPlatform = process.platform,
+) {
+  if (normalizeRuntimePlatform(currentPlatform) !== 'win32') {
+    return {
+      args,
+      command: 'codex',
+    }
+  }
+
+  const codexPath = resolveWindowsPathCommand('codex')
+  if (codexPath === null) {
+    throw new Error(buildCodexCliMissingMessage())
+  }
+
+  const extension = path.extname(codexPath).toLowerCase()
+  if (extension === '.cmd' || extension === '.bat') {
+    const shimTarget = readWindowsCmdShimTarget(codexPath)
+    if (shimTarget === null) {
+      throw new Error(
+        `${buildCodexCliMissingMessage()} The Windows CLI shim could not be resolved to its script entrypoint.`,
+      )
+    }
+
+    return {
+      args: [
+        realpathSync(
+          path.resolve(path.dirname(codexPath), ...shimTarget.split(/[\\/]+/)),
+        ),
+        ...args,
+      ],
+      command: process.execPath,
+    }
+  }
+
+  return {
+    args,
+    command: codexPath,
+  }
 }
 
 function stopCodexProcess(processHandle, args = {}) {
@@ -2258,7 +2356,7 @@ export class CodexLocalControlRuntime {
       this.pushEvent('codex/runtime_stderr', {
         line: `Launching codex app-server (${version})`,
       })
-      const invocation = buildCodexSpawnInvocation([
+      const invocation = buildCodexRuntimeSpawnInvocation([
         'app-server',
         '--listen',
         'stdio://',

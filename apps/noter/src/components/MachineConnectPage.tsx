@@ -254,7 +254,7 @@ function CopyableCommandBlock({
               : "Copy"}
         </Button>
       </div>
-      <code className="mt-4 block overflow-x-auto whitespace-pre-wrap break-all bg-muted/40 px-3 py-3 text-sm">
+      <code className="mt-4 block overflow-x-auto whitespace-pre-wrap break-all bg-muted/40 px-3 py-3 font-mono text-xs leading-5 md:whitespace-pre md:break-normal">
         {command}
       </code>
     </section>
