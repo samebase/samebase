@@ -730,6 +730,7 @@ export function MachineLiveControlPage() {
         browserMode="active"
         detailState={detailState}
         errorMessage={error}
+        fillViewport={false}
         groups={groups}
         headingDescription={`${readyMachine.hostname} · live control ready`}
         headingEyebrow="Connected machine"
