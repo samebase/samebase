@@ -4,7 +4,7 @@ import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
-import { RepositoryWorkspaceFrame } from "@/components/workspace-layout";
+import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
 
 export type FileViewProsemarkDragVisualMode =
   | "fileview-prosemark-drag-editable"

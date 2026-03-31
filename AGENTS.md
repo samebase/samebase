@@ -1,9 +1,10 @@
 # AGENTS.md
+
 if worktree then necessary to run
+
 ```
 make anon-once
 ```
-
 
 ## Spec Organization
 
@@ -171,6 +172,8 @@ use `--env-file` or an explicit deployment selector instead.
 - **Delete incomplete extractions** - if a refactor extracts a helper but the
   runtime path does not call it yet, remove the helper instead of leaving dead
   scaffolding behind
+- **Avoid barrel files** - do not add directory-level `index.ts` barrel files
+  for app code; prefer importing from the concrete module path directly
 - **Keep config surfaces minimal** - allowlists and config maps should contain
   only entries that are currently used by this repo; do not add placeholders for
   possible future integrations

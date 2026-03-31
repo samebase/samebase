@@ -3,7 +3,7 @@ import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
 import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
-import { RepositoryWorkspaceFrame } from "@/components/workspace-layout";
+import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
 
 export type FileViewMonacoDragVisualMode = "fileview-monaco-drag";
 

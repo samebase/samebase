@@ -10,7 +10,7 @@ import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
-import { RepositoryWorkspaceFrame } from "@/components/workspace-layout";
+import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
 import { getProsemarkFileThemeExtensions } from "@/components/prosemarkSurface";
 import {
   getCodeMirrorFileLanguageKind,
@@ -808,9 +808,10 @@ export function FileViewCodeParityVisualFixture({
           </div>
           <div className="p-3">
             <div className="grid gap-4">
+              {/* Keep the parity capture area bounded so 2x live diff refreshes stay fast in CI. */}
               <div
                 data-testid="file-view-code-parity-editor-panels"
-                className="grid gap-4 xl:grid-cols-2"
+                className="grid max-w-[960px] gap-4 xl:grid-cols-2"
               >
                 <div className="corner-notch-1 border bg-background p-3">
                   <div className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">

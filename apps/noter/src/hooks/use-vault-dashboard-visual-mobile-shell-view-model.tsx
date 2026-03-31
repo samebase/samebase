@@ -7,7 +7,7 @@ import {
   VaultDashboardSidebarAccountHeader,
   type VaultDashboardProviderRowViewModel,
 } from "@/components/VaultDashboardChrome";
-import type { VaultDashboardWorkspaceSceneViewModel } from "@/components/workspace-layout";
+import type { VaultDashboardWorkspaceSceneViewModel } from "@/components/workspace-layout/VaultDashboardWorkspaceScene";
 import { cn } from "@/lib/utils";
 import { GitHubLogoIcon, PersonIcon } from "@radix-ui/react-icons";
 

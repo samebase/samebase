@@ -3,7 +3,7 @@ import { PersonIcon } from "@radix-ui/react-icons";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
-import { RepositoryWorkspaceFrame } from "@/components/workspace-layout";
+import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
 
 export type FileViewLayoutVisualMode =
