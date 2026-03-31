@@ -65,6 +65,7 @@ describe("noterSync", () => {
     expect(readMachineLiveControlPath("/machines/machine%3A123/live")).toEqual({
       machineId: "machine:123",
     });
+    expect(readMachineLiveControlPath("/machines/%ZZ/live")).toBeNull();
     expect(readMachineLiveControlPath("/machines/connect")).toBeNull();
   });
 });

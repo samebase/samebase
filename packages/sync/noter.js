@@ -1339,7 +1339,15 @@ function createMachineControlAuth(args = {}) {
         })
       },
       async authorizeRequest() {},
-      getStatus() {
+      getStatus(options = {}) {
+        if (options.includeSensitive === false) {
+          return {
+            enforced: false,
+            machineId: null,
+            mode: 'disabled',
+          }
+        }
+
         return {
           allowedOrigins,
           enforced: false,
@@ -1364,12 +1372,15 @@ function createMachineControlAuth(args = {}) {
   async function introspectMachineControlToken(token) {
     const now = Date.now()
     const cachedValidation = positiveValidationCache.get(token)
-    if (
-      cachedValidation &&
-      cachedValidation.cacheExpiresAt > now &&
-      cachedValidation.expiresAt > now
-    ) {
-      return cachedValidation
+    if (cachedValidation) {
+      if (
+        cachedValidation.cacheExpiresAt > now &&
+        cachedValidation.expiresAt > now
+      ) {
+        return cachedValidation
+      }
+
+      positiveValidationCache.delete(token)
     }
 
     let lastInfrastructureError = null
@@ -1558,7 +1569,15 @@ function createMachineControlAuth(args = {}) {
 
       await introspectMachineControlToken(bearerToken)
     },
-    getStatus() {
+    getStatus(options = {}) {
+      if (options.includeSensitive === false) {
+        return {
+          enforced: true,
+          machineId: null,
+          mode: 'machine-control',
+        }
+      }
+
       return {
         allowedOrigins,
         enforced: true,
@@ -1582,9 +1601,9 @@ function createMachineControlAuth(args = {}) {
 
 function buildCodexLocalControlStatus(args) {
   return {
-    ...args.runtimeStatus,
+    ...(args.runtimeStatus ?? {}),
     service: {
-      auth: args.auth.getStatus(),
+      auth: args.authStatus,
       loopbackOnly: args.loopbackOnly,
       routeBasePath: args.routeBasePath,
     },
@@ -1599,7 +1618,9 @@ export function localControlStatusIsReady(status, machineId) {
   return (
     serviceRecord?.loopbackOnly === true &&
     authRecord?.enforced === true &&
-    authRecord?.machineId === machineId
+    (authRecord?.machineId === machineId ||
+      authRecord?.machineId === null ||
+      typeof authRecord?.machineId === 'undefined')
   )
 }
 
@@ -2590,11 +2611,40 @@ export function createCodexLocalControlRouter(args) {
       machineControlAuth.applyCors(req, res)
 
       if (req.method === 'GET' && routePath === '/status') {
+        const authStatus = machineControlAuth.getStatus({
+          includeSensitive: false,
+        })
+        const authIsEnforced = authStatus.enforced === true
+        const bearerToken = readBearerToken(
+          readHeaderValue(req.headers.authorization),
+        )
+
+        if (authIsEnforced && !bearerToken) {
+          // Keep the loopback readiness probe working without exposing runtime
+          // snapshots or workspace metadata through the public tunnel.
+          sendJson(
+            res,
+            200,
+            buildCodexLocalControlStatus({
+              authStatus,
+              loopbackOnly: serviceStatus.loopbackOnly,
+              routeBasePath,
+            }),
+          )
+          return
+        }
+
+        if (authIsEnforced) {
+          await machineControlAuth.authorizeRequest(req)
+        }
+
         sendJson(
           res,
           200,
           buildCodexLocalControlStatus({
-            auth: machineControlAuth,
+            authStatus: machineControlAuth.getStatus({
+              includeSensitive: true,
+            }),
             loopbackOnly: serviceStatus.loopbackOnly,
             routeBasePath,
             runtimeStatus: await args.runtime.getStatus(),

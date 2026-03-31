@@ -90,12 +90,24 @@ type MachineConnectPageContentProps = {
   onApprove?: () => void;
 };
 
+const CONTROL_STATUS_RANK = {
+  ready: 0,
+  starting: 1,
+  unavailable: 2,
+} as const;
+
 function resolveCurrentOrigin(): string {
   if (typeof window === "undefined") {
     return "https://noter.md";
   }
 
   return window.location.origin;
+}
+
+function readControlStatusRank(
+  status: ConnectedMachineItem["controlStatus"] | undefined,
+): number {
+  return status ? CONTROL_STATUS_RANK[status] : 3;
 }
 
 function CopyableCommandBlock({
@@ -511,22 +523,8 @@ export function MachineConnectPage() {
       if (left.status !== right.status) {
         return left.status === "online" ? -1 : 1;
       }
-      const leftControlRank =
-        left.controlStatus === "ready"
-          ? 0
-          : left.controlStatus === "starting"
-            ? 1
-            : left.controlStatus === "unavailable"
-              ? 2
-              : 3;
-      const rightControlRank =
-        right.controlStatus === "ready"
-          ? 0
-          : right.controlStatus === "starting"
-            ? 1
-            : right.controlStatus === "unavailable"
-              ? 2
-              : 3;
+      const leftControlRank = readControlStatusRank(left.controlStatus);
+      const rightControlRank = readControlStatusRank(right.controlStatus);
       if (leftControlRank !== rightControlRank) {
         return leftControlRank - rightControlRank;
       }

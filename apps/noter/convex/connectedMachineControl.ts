@@ -9,6 +9,7 @@ import {
   machineControlTokenIntrospectionResultValidator,
 } from "./connectedMachineModel";
 import { createMachineControlTokenValue, sha256Hex } from "./mcp/tokens";
+import { resolveConnectedMachineStatus } from "../shared/connectedMachinePresence";
 
 /**
  * Machine-control tokens are intentionally short-lived and scoped to one
@@ -29,7 +30,14 @@ export const issueMachineControlToken = mutation({
     if (!machine) {
       throw new Error("Connected machine not found.");
     }
-    if (machine.status !== "online") {
+    const now = Date.now();
+    if (
+      resolveConnectedMachineStatus({
+        lastSeenAt: machine.lastSeenAt,
+        now,
+        status: machine.status,
+      }) !== "online"
+    ) {
       throw new Error("Connected machine is offline.");
     }
     if (
@@ -40,7 +48,6 @@ export const issueMachineControlToken = mutation({
       throw new Error("Connected machine live control is not ready.");
     }
 
-    const now = Date.now();
     const token = createMachineControlTokenValue();
     const tokenHash = await sha256Hex(token);
     const expiresAt = now + MACHINE_CONTROL_TOKEN_TTL_MS;
@@ -97,9 +104,17 @@ export const introspectMachineControlToken = internalMutation({
         q.eq("userId", token.userId).eq("machineId", args.machineId),
       )
       .first();
+    if (!machine) {
+      return {
+        active: false,
+      };
+    }
     if (
-      !machine ||
-      machine.status !== "online" ||
+      resolveConnectedMachineStatus({
+        lastSeenAt: machine.lastSeenAt,
+        now: args.now,
+        status: machine.status,
+      }) !== "online" ||
       machine.controlStatus !== "ready" ||
       typeof machine.controlUrl !== "string" ||
       !machine.capabilities.includes("liveControl")

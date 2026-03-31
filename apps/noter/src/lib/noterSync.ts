@@ -22,9 +22,13 @@ export function readMachineLiveControlPath(pathname: string): {
     return null;
   }
 
-  return {
-    machineId: decodeURIComponent(match[1]),
-  };
+  try {
+    return {
+      machineId: decodeURIComponent(match[1]),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function buildPublishedNoterSyncConnectCommand(): string {

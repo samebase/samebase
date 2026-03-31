@@ -236,4 +236,28 @@ describe("requestCodexAppServerJson", () => {
       }),
     );
   });
+
+  it("falls back to a typed error when the tunnel returns non-JSON", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("<html>bad gateway</html>", {
+        headers: {
+          "Content-Type": "text/html",
+        },
+        status: 502,
+      }),
+    );
+
+    await expect(
+      requestCodexAppServerJson({
+        baseUrl: "https://machine-live-control.trycloudflare.com",
+        path: "/threads",
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<CodexAppServerRequestError>({
+        message: "<html>bad gateway</html>",
+        name: "CodexAppServerRequestError",
+        status: 502,
+      }),
+    );
+  });
 });

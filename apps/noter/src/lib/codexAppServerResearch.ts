@@ -196,17 +196,24 @@ export async function requestCodexAppServerJson<T>(args: {
     body: args.body !== undefined ? JSON.stringify(args.body) : undefined,
   });
 
-  const payload = await response.json();
   if (!response.ok) {
+    const text = await response.text();
+    let errorMessage = text.trim() || `Request failed: ${response.status}`;
+    try {
+      const payload = JSON.parse(text);
+      if (typeof payload?.error === "string") {
+        errorMessage = payload.error;
+      }
+    } catch {
+      // Non-JSON error responses still need a stable typed error.
+    }
+
     throw new CodexAppServerRequestError({
-      message:
-        typeof payload.error === "string"
-          ? payload.error
-          : `Request failed: ${response.status}`,
+      message: errorMessage,
       status: response.status,
     });
   }
-  return payload;
+  return await response.json();
 }
 
 export function normalizeCodexPathForDisplay(value: string): string {
