@@ -710,11 +710,11 @@ export function FileViewCodeParityVisualFixture({
             focus on typography, spacing, and syntax color.
           </div>
           <div className="p-3">
-            <div
-              data-testid="file-view-code-parity-snapshot"
-              className="grid gap-4"
-            >
-              <div className="grid gap-4 xl:grid-cols-2">
+            <div className="grid gap-4">
+              <div
+                data-testid="file-view-code-parity-editor-panels"
+                className="grid gap-4 xl:grid-cols-2"
+              >
                 <div className="corner-notch-1 border bg-background p-3">
                   <div className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Monaco
@@ -875,7 +875,10 @@ export function FileViewCodeParityVisualFixture({
                     syntax-color noise, but the color strength now reflects how
                     large each mismatch is.
                   </div>
-                  <div className="overflow-visible border bg-white p-4">
+                  <div
+                    data-testid="file-view-code-parity-diff-preview"
+                    className="overflow-visible border bg-white p-4"
+                  >
                     <div className="w-fit">
                       <img
                         alt="Live parity pixel diff"

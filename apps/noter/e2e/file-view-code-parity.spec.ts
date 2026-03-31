@@ -107,7 +107,7 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   });
 
   const fixture = page.getByTestId("file-view-code-parity-visual-fixture");
-  const paritySnapshot = page.getByTestId("file-view-code-parity-snapshot");
+  const editorPanels = page.getByTestId("file-view-code-parity-editor-panels");
   const monacoSurface = page.getByTestId("file-view-code-parity-monaco");
   const monacoCapture = page.getByTestId(
     "file-view-code-parity-monaco-capture",
@@ -124,14 +124,16 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   const mismatchCount = page.getByTestId(
     "file-view-code-parity-mismatch-count",
   );
+  const diffPreview = page.getByTestId("file-view-code-parity-diff-preview");
 
   await expect(fixture).toBeVisible();
-  await expect(paritySnapshot).toBeVisible();
+  await expect(editorPanels).toBeVisible();
   await expect(monacoSurface).toBeVisible();
   await expect(monacoCapture).toBeVisible();
   await expect(prosemarkSurface).toBeVisible();
   await expect(prosemarkCapture).toBeVisible();
   await expect(diffSurface).toBeVisible();
+  await expect(diffPreview).toBeVisible();
   await waitForParityEditors(page);
 
   const monacoScreenshot = await takeStableScreenshot(monacoCapture, {
@@ -201,10 +203,20 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
     });
   });
 
-  // Snapshot the parity content instead of the full workspace shell because
-  // the shared frame uses viewport-height chrome that drifts slightly in CI.
-  await expect(paritySnapshot).toHaveScreenshot(
-    "file-view-code-parity-panels.png",
+  // Snapshot only the stable visual regions. The surrounding explainer copy
+  // can wrap differently across environments, but the shipped editor panels
+  // and diff preview are the surfaces we need to keep visually aligned.
+  await expect(editorPanels).toHaveScreenshot(
+    "file-view-code-parity-editors.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.01,
+    },
+  );
+  await expect(diffPreview).toHaveScreenshot(
+    "file-view-code-parity-diff-preview.png",
     {
       animations: "disabled",
       caret: "hide",
