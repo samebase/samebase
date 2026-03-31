@@ -823,7 +823,7 @@ export function FileViewCodeParityVisualFixture({
                   data-preview-ready={
                     parityDiffPreviewLoaded ? "true" : "false"
                   }
-                  className="grid h-[420px] gap-3 overflow-hidden border bg-white p-4"
+                  className="grid gap-3 border bg-white p-4"
                 >
                   <div className="text-sm text-muted-foreground">
                     The diff below is generated from the current live Monaco and
@@ -870,13 +870,15 @@ export function FileViewCodeParityVisualFixture({
                     syntax-color noise, but the color strength now reflects how
                     large each mismatch is.
                   </div>
-                  <div className="flex min-h-0 flex-1 items-start justify-center overflow-auto border bg-white p-4">
-                    <img
-                      alt="Live parity pixel diff"
-                      src={parityDiffPreviewUrl ?? undefined}
-                      className="block max-w-none"
-                      style={{ imageRendering: "pixelated" }}
-                    />
+                  <div className="overflow-visible border bg-white p-4">
+                    <div className="w-fit">
+                      <img
+                        alt="Live parity pixel diff"
+                        src={parityDiffPreviewUrl ?? undefined}
+                        className="block max-w-none"
+                        style={{ imageRendering: "pixelated" }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
