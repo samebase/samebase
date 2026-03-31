@@ -97,20 +97,19 @@ The regression is scoped to editor-originated gestures. Starting the same drag
 from sidebar chrome or from non-editor main-pane content still works because the
 outer `WorkspaceSidebarShell` scroll container continues to own those touches.
 
-## Failing Coverage
+## Regression Coverage
 
-The failing coverage now lives in the real Playwright fixture specs instead of a
-hook-only unit test:
+The regression coverage now lives in the real Playwright fixture specs instead
+of a hook-only unit test:
 
 - `apps/noter/e2e/file-view-prosemark-drag.spec.ts`
 - `apps/noter/e2e/file-view-monaco-drag.spec.ts`
 
 Each spec opens the left sidebar, starts the return drag from the live editor
-surface with `?swipe-debug` enabled, waits for the viewport trace to be
-captured, and then expects sidebar-only content to leave the viewport before
-asserting that the shell returns to `main`. Today both failures stop at the
-stronger viewport assertion because the left sidebar is still visibly on-screen
-after the drag.
+surface with `?swipe-debug` enabled, verifies that the debug overlay starts on
+`left` and settles on `main`, and then expects sidebar-only content to leave the
+viewport before asserting that the shell returns to `main`. These specs now pass
+and guard the return-drag regression for both Monaco and ProseMark.
 
 The focused commands are:
 
@@ -121,12 +120,13 @@ PLAYWRIGHT_USE_DEV_SERVER=1 PLAYWRIGHT_REUSE_EXISTING_SERVER=1 PLAYWRIGHT_VITE_P
   e2e/file-view-monaco-drag.spec.ts --grep "return from the open left pane to main"
 ```
 
-## Likely Fix Direction
+## Fix
 
-The drag bridge needs a visibility-aware gate instead of a strict
+The drag bridge needed a visibility-aware gate instead of a strict
 `isMainPaneActive` requirement. The important constraint is not "the shell is on
 main" but "the gesture started from editor content that should be allowed to
-drive the shared shell."
+drive the shared shell." The fix removes the editor-side `isMainPaneActive`
+precondition and lets the shell decide whether the swipe can actually move.
 
 Any implementation should keep the existing protections that:
 

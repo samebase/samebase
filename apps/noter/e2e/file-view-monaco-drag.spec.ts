@@ -172,7 +172,8 @@ test("Monaco drag can return from the open left pane to main", async ({
     startX: "right-edge",
   });
 
-  await expect(overlay).toContainText("state: captured");
+  await expect(overlay).toContainText("start: left");
+  await expect(overlay).toContainText("settled: main");
   await expect(leftSidebarOnlyItem).not.toBeInViewport();
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 });

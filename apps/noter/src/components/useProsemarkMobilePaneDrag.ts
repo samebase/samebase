@@ -41,17 +41,16 @@ function findTouchByIdentifier(
 /**
  * Delegates clear horizontal drags from a ProseMark surface into the shared
  * mobile workspace carousel while leaving taps and vertical gestures alone.
+ * The shell decides whether a given swipe can move, so the editor must arm the
+ * gesture even when a sidebar is currently open in order to support return
+ * drags back to the main pane.
  */
 export function useProsemarkMobilePaneDrag(
   enabled: boolean,
   containerRef: React.RefObject<HTMLDivElement | null>,
 ) {
-  const {
-    dragMobileShellBy,
-    isAvailable,
-    isMainPaneActive,
-    settleMobileShell,
-  } = useWorkspaceMobilePaneDrag();
+  const { dragMobileShellBy, isAvailable, settleMobileShell } =
+    useWorkspaceMobilePaneDrag();
   const dragStateRef = useRef<ProsemarkPaneDragState | null>(null);
   const isEnabled = enabled && isAvailable;
 
@@ -141,7 +140,7 @@ export function useProsemarkMobilePaneDrag(
 
   const handlePointerDownCapture = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      if (!isEnabled || !isMainPaneActive || !event.isPrimary) {
+      if (!isEnabled || !event.isPrimary) {
         return;
       }
       if (event.pointerType !== "touch") {
@@ -156,7 +155,7 @@ export function useProsemarkMobilePaneDrag(
         type: "pending",
       };
     },
-    [isEnabled, isMainPaneActive],
+    [isEnabled],
   );
 
   const handlePointerMoveCapture = useCallback(
@@ -209,7 +208,7 @@ export function useProsemarkMobilePaneDrag(
 
   const handleTouchStart = useCallback(
     (event: TouchEvent) => {
-      if (!isEnabled || !isMainPaneActive || event.touches.length !== 1) {
+      if (!isEnabled || event.touches.length !== 1) {
         return;
       }
 
@@ -227,7 +226,7 @@ export function useProsemarkMobilePaneDrag(
         type: "pending",
       };
     },
-    [isEnabled, isMainPaneActive],
+    [isEnabled],
   );
 
   const handleTouchMove = useCallback(

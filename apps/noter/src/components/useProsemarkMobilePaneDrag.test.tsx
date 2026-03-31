@@ -130,13 +130,11 @@ function TestHarness({
   enabled = true,
   dragMobileShellBy,
   isAvailable = true,
-  isMainPaneActive = true,
   settleMobileShell,
 }: {
   enabled?: boolean;
   dragMobileShellBy: (deltaX: number) => boolean;
   isAvailable?: boolean;
-  isMainPaneActive?: boolean;
   settleMobileShell: () => void;
 }) {
   return (
@@ -144,7 +142,6 @@ function TestHarness({
       value={{
         dragMobileShellBy,
         isAvailable,
-        isMainPaneActive,
         settleMobileShell,
       }}
     >
