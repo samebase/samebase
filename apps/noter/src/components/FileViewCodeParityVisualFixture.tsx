@@ -648,7 +648,7 @@ export function FileViewCodeParityVisualFixture({
     <SidebarProvider
       defaultOpen={true}
       defaultRightOpen={true}
-      className="h-[760px] min-h-0 bg-background text-foreground"
+      className="bg-background text-foreground"
     >
       <RepositoryWorkspaceFrame
         dataTestId="file-view-code-parity-visual-fixture"
@@ -657,7 +657,7 @@ export function FileViewCodeParityVisualFixture({
           <div className="font-mono text-xs text-muted-foreground">2489719</div>
         }
         onQuickOpen={() => {}}
-        contentClassName="min-h-0 p-0"
+        contentClassName="p-0"
         leftSidebarHeader={
           <SidebarAccountSection>
             <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
@@ -704,12 +704,12 @@ export function FileViewCodeParityVisualFixture({
           </div>
         }
       >
-        <div className="flex h-full min-h-0 flex-col bg-muted/10">
+        <div className="flex flex-col bg-muted/10">
           <div className="border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
             Monaco line numbers are temporarily disabled so the parity diff can
             focus on typography, spacing, and syntax color.
           </div>
-          <div className="min-h-0 flex-1 overflow-auto p-3">
+          <div className="p-3">
             <div className="grid gap-4">
               <div className="grid gap-4 xl:grid-cols-2">
                 <div className="corner-notch-1 border bg-background p-3">
