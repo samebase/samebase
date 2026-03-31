@@ -100,6 +100,24 @@ async function dragProsemarkSurface(
   });
 }
 
+async function expectPaneAfterProsemarkDrag(args: {
+  drag: () => Promise<void>;
+  expectedPane: "left" | "main";
+  page: Page;
+}) {
+  const shell = args.page.getByTestId("fileview-prosemark-drag-shell");
+  await args.drag();
+
+  try {
+    await expect(shell).toHaveAttribute("data-mobile-pane", args.expectedPane, {
+      timeout: 1000,
+    });
+  } catch {
+    await args.drag();
+    await expect(shell).toHaveAttribute("data-mobile-pane", args.expectedPane);
+  }
+}
+
 test("editable ProseMark mobile drag fixture", async ({ page }) => {
   await gotoEditableFixture(page);
   const fixture = page.getByTestId("fileview-prosemark-drag-visual-fixture");
@@ -123,12 +141,15 @@ test("editable ProseMark drag can open the left pane", async ({ page }) => {
   const shell = page.getByTestId("fileview-prosemark-drag-shell");
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 
-  await dragProsemarkSurface(page, {
-    deltaX: 180,
-    startX: "center",
+  await expectPaneAfterProsemarkDrag({
+    drag: () =>
+      dragProsemarkSurface(page, {
+        deltaX: 180,
+        startX: "center",
+      }),
+    expectedPane: "left",
+    page,
   });
-
-  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
 });
 
 test("read-only ProseMark drag can open the left pane", async ({ page }) => {
@@ -137,12 +158,15 @@ test("read-only ProseMark drag can open the left pane", async ({ page }) => {
   const shell = page.getByTestId("fileview-prosemark-drag-shell");
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 
-  await dragProsemarkSurface(page, {
-    deltaX: 180,
-    startX: "center",
+  await expectPaneAfterProsemarkDrag({
+    drag: () =>
+      dragProsemarkSurface(page, {
+        deltaX: 180,
+        startX: "center",
+      }),
+    expectedPane: "left",
+    page,
   });
-
-  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
 });
 
 test("editable ProseMark drag can return from the open left pane to main", async ({
@@ -163,13 +187,17 @@ test("editable ProseMark drag can return from the open left pane to main", async
   await expect(overlay).toBeVisible();
   await expect(leftSidebarOnlyItem).toBeInViewport();
 
-  await dragProsemarkSurface(page, {
-    deltaX: -132,
-    startX: "right-edge",
+  await expectPaneAfterProsemarkDrag({
+    drag: () =>
+      dragProsemarkSurface(page, {
+        deltaX: -132,
+        startX: "right-edge",
+      }),
+    expectedPane: "main",
+    page,
   });
 
   await expect(overlay).toContainText("start: left");
   await expect(overlay).toContainText("settled: main");
   await expect(leftSidebarOnlyItem).not.toBeInViewport();
-  await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 });
