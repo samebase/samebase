@@ -3,38 +3,41 @@
 ## Status
 
 - Current behavior walkthrough
-- Scope: current merged installer and browser-handoff slice on `main`
+- Scope: current merged installer, approval, and presence flow on `main`
 
 ## Goal
 
-This walkthrough explains how to try the current connected-machine installer
-slice locally and what you should expect to see at each step.
+This walkthrough explains how to try the current connected-machine foundation
+locally and what you should expect to see at each step.
 
-The current slice does **not** complete full machine registration yet. It gives
-you:
+Today this slice already gives you:
 
-1. a dashboard entry point
-2. a machine-connect page
-3. a hosted `noter.js` installer artifact
-4. a local bootstrap flow that writes one machine-local config file and opens
-   the browser handoff
+1. a machine-connect page in the app
+2. a hosted `/noter.js` installer artifact
+3. a mirrored package entrypoint at `packages/sync/noter.js`
+4. browser-backed machine approval
+5. one durable machine credential in `~/.noter/config.json`
+6. a `noter-sync run` command that publishes online and offline heartbeats
+7. a live machine list in Noter
 
-The current slice does **not** yet give you:
+Today this slice still does **not** give you:
 
-1. durable machine auth credentials
-2. a long-running connector service
-3. heartbeats or thread sync started from the installer
-4. a finished "machine connected" end-to-end flow
+1. remote thread browsing from the phone
+2. remote prompt sending
+3. Cloudflare-tunneled local control
+
+That next step is tracked in `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`.
 
 ## Fastest Path
 
-If you just want to understand what was added, do these four things:
+If you want the smallest end-to-end verification, do these steps:
 
 1. start the app in this worktree
 2. open `/machines/connect`
-3. open `/noter.js`
-4. run the direct local installer command once and inspect
-   `~/.noter/config.json`
+3. run the direct local `connect` command
+4. approve the machine in the browser
+5. run the direct local `run` command
+6. watch the machine appear online
 
 ## 1. Start The Local App
 
@@ -44,34 +47,27 @@ From this worktree:
 make anon
 ```
 
-In this repo's worktree flow, that is the correct startup command.
-
 Expected result:
 
-1. the local app runs on [http://127.0.0.1:5174/](http://127.0.0.1:5174/)
-2. the local hosted installer file is available at
+1. the app runs on [http://127.0.0.1:5174/](http://127.0.0.1:5174/)
+2. the hosted installer is available at
    [http://127.0.0.1:5174/noter.js](http://127.0.0.1:5174/noter.js)
 
-If your worktree is using another port, substitute that local origin in the
+If this worktree chose another frontend port, substitute that origin in the
 commands below.
 
-## 2. Open The New UI Entry Points
+## 2. Open The Machine-Connect Page
 
-Open the dashboard:
+Open:
 
-- [http://127.0.0.1:5174/](http://127.0.0.1:5174/)
+- [http://127.0.0.1:5174/machines/connect](http://127.0.0.1:5174/machines/connect)
 
 What to look for:
 
-1. a `Connect machine` button in the dashboard header
-2. clicking it should take you to
-   [http://127.0.0.1:5174/machines/connect](http://127.0.0.1:5174/machines/connect)
-
-On the machine-connect page, verify that you see:
-
-1. one block for the future published package flow
-2. one block for the direct hosted-file flow
+1. a `Published package connect` block for the eventual public npm path
+2. a `Direct hosted file connect` block for prod, preview, or local testing
 3. a link to open `noter.js`
+4. a machine list section if any machines are already connected
 
 ## 3. Inspect The Hosted Installer File
 
@@ -82,11 +78,10 @@ Open:
 What to verify:
 
 1. it is a single readable Node script
-2. it is heavily commented
-3. it has no runtime dependencies
-4. it matches `packages/sync/noter.js` exactly
+2. it has no runtime dependencies
+3. it matches `packages/sync/noter.js` exactly
 
-If you want to confirm the exact-copy contract locally:
+To confirm the exact-copy contract locally:
 
 ```bash
 git diff --no-index -- packages/sync/noter.js apps/noter/public/noter.js
@@ -94,113 +89,127 @@ git diff --no-index -- packages/sync/noter.js apps/noter/public/noter.js
 
 Expected result:
 
-1. no output
+1. no diff output
 2. exit code `0`
 
-For production, the direct hosted-file command is:
+## 4. Run The Direct Local Connect Command
 
-```bash
-curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
-```
-
-The explicit source-URL form below is still the right one for local and preview
-testing.
-
-## 4. Run The Direct Local Bootstrap
-
-Use the local hosted file directly:
+Use the hosted local file directly:
 
 ```bash
 curl -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - connect 'http://127.0.0.1:5174/noter.js'
 ```
 
-What this currently does:
+What this does today:
 
-1. validates that the installer source URL points to `/noter.js`
+1. validates that the source URL points to `/noter.js`
 2. runs `codex --version`
-3. writes or updates `~/.noter/config.json`
-4. prints a markdown summary to stdout
-5. opens the browser to `/machines/connect?openedByCli`
+3. creates a machine registration request in Noter
+4. writes or updates `~/.noter/config.json`
+5. prints a markdown status block to stdout
+6. opens the browser to `/machines/connect?openedByCli&requestId=...`
 
-What it does **not** currently do:
+## 5. Approve The Machine In The Browser
 
-1. create a machine in Convex
-2. issue durable machine credentials
-3. start a background sync process
+After the CLI opens the browser, the machine-connect page should show the CLI
+handoff state for the new `requestId`.
 
-## 5. Inspect The Local Config File
+Expected result:
 
-After running the bootstrap, inspect the generated state:
+1. the page shows the machine summary
+2. the page shows an `Approve machine` button while the request is pending
+3. approving the request transitions the page to `Machine approved`
+4. the page now shows `run` commands for both the future published package path
+   and the direct hosted-file path
+
+If the installer opened a different browser than the one where you are signed
+in, open the same URL in your signed-in browser and approve the machine there.
+
+## 6. Inspect The Local Config File
+
+After the connect flow, inspect:
 
 ```bash
 sed -n '1,200p' ~/.noter/config.json
 ```
 
-Expected contents:
+Expected fields:
 
 1. `sourceUrl`
 2. `codexVersion`
 3. `installedAt`
 4. `updatedAt`
+5. `machineId`
+6. `machineCredential`
 
-This is the main concrete artifact the current installer creates.
+Important behavior:
 
-If you rerun the bootstrap against another deploy, the same file should be
-updated to that new `sourceUrl` instead of creating parallel installation
-records.
+1. the config is machine-scoped, not repo-scoped
+2. rerunning `connect` updates the same file instead of creating parallel local
+   installs
 
-## 6. Verify The Browser Handoff
+## 7. Start The Heartbeat Publisher
 
-After the CLI opens the browser, the machine-connect page should show the CLI
-handoff banner because the URL now contains `openedByCli`.
+Use the direct hosted-file run command:
+
+```bash
+curl -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - run
+```
+
+What this does today:
+
+1. reads `~/.noter/config.json`
+2. resolves the current Noter backend URL from `noter-connect.json`
+3. reuses the stored machine credential
+4. publishes `online` heartbeats until the process exits
+5. publishes one final `offline` heartbeat when it shuts down cleanly
+
+## 8. Verify Presence In The Browser
+
+With the `run` command still active, refresh
+[http://127.0.0.1:5174/machines/connect](http://127.0.0.1:5174/machines/connect).
 
 Expected result:
 
-1. the same `/machines/connect` page
-2. a message saying the bootstrap already ran on this machine and opened the
-   browser here
-3. the same two command blocks and `noter.js` link
+1. the approved machine appears in the machine list
+2. the machine status resolves to `online`
+3. stopping the `run` process eventually flips the same machine back to
+   `offline`
 
-If the installer opened a different browser from the one where you are already
-signed in, opening the same URL in your signed-in browser should still show the
-banner. That only proves the bootstrap ran and opened the handoff page. It does
-**not** mean the machine is fully registered yet.
+## 9. Optional Package-Style Local Execution
 
-## 7. Optional Direct File Execution
-
-If you want to inspect the script first and run it without `curl`, you can use
-the checked-in source file directly:
+When debugging the script itself, you can run the checked-in source directly:
 
 ```bash
 node packages/sync/noter.js connect 'http://127.0.0.1:5174/noter.js'
+node packages/sync/noter.js run
 ```
 
-This is useful when debugging the installer itself because it bypasses the
-hosted-file fetch step while keeping the same bootstrap behavior.
+That bypasses `curl` while keeping the same runtime behavior.
 
-## 8. Where The Main Pieces Live
+## 10. Where The Main Pieces Live
 
 Useful files:
 
-1. route registration: `apps/noter/src/App.tsx`
-2. machine-connect page: `apps/noter/src/components/MachineConnectPage.tsx`
-3. dashboard entry point: `apps/noter/src/components/VaultDashboard.tsx`
-4. shared installer URL and command helpers: `apps/noter/src/lib/noterSync.ts`
-5. canonical installer source: `packages/sync/noter.js`
+1. machine-connect page: `apps/noter/src/components/MachineConnectPage.tsx`
+2. machine approval and presence backend:
+   `apps/noter/convex/connectedMachines.ts`
+3. machine HTTP entrypoints: `apps/noter/convex/connectedMachineHttp.ts`
+4. machine row and credential models:
+   `apps/noter/convex/connectedMachineModel.ts`
+5. canonical installer and runner: `packages/sync/noter.js`
 6. hosted mirrored copy: `apps/noter/public/noter.js`
 
-## 9. What To Conclude From This Slice
+## 11. What To Conclude From This Slice
 
-If all of the steps above work, then the current merged slice successfully
-proves:
+If all of the steps above work, the current merged foundation proves:
 
-1. Noter can expose a machine-connect entry point in the main app
-2. Noter can serve a single hosted installer artifact at `/noter.js`
-3. the installer artifact can be audited directly
-4. the installer can persist machine-local bootstrap state in
-   `~/.noter/config.json`
-5. the installer can hand off into the browser on the correct route
+1. Noter can bootstrap and approve a machine from a thin browser handoff page
+2. Noter can persist machine-scoped local state at `~/.noter/config.json`
+3. Noter can keep a connected machine visible as online or offline
+4. the machine-scoped `run` command is now the right place to grow future local
+   control behavior
 
-If you are asking "can I already connect a machine fully and see it online in
-Noter?", the answer for this slice is still no. This is the installer and
-handoff slice, not the full registration and sync slice.
+If you are asking "can I already browse and control Codex from my phone?", the
+answer is still no. This slice ships machine approval and presence, not remote
+Codex control.
