@@ -114,6 +114,41 @@ function readControlStatusRank(
   return status ? CONTROL_STATUS_RANK[status] : 3;
 }
 
+function NodeRequirementSection() {
+  return (
+    <section className="corner-notch-1 border border-border p-4">
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Node.js required</p>
+        <p className="text-sm text-muted-foreground">
+          These commands need <code>node</code> on your PATH first. Check with{" "}
+          <code>node --version</code>.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          macOS: if you want <code>nvm</code>, use the official installer, then
+          run <code>nvm install --lts</code>. The <code>nvm</code> project does
+          not support Homebrew-installed <code>nvm</code>.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Windows PowerShell: if <code>winget</code> is available, run{" "}
+          <code>winget install --id OpenJS.NodeJS.LTS -e</code>.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          If you prefer an installer, use the current Node.js LTS download from{" "}
+          <a
+            href="https://nodejs.org/en/download"
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-4 transition-colors hover:text-foreground"
+          >
+            nodejs.org
+          </a>
+          .
+        </p>
+      </div>
+    </section>
+  );
+}
+
 /**
  * Show both shell variants explicitly so the browser never has to guess which
  * command the operator wants to copy.
@@ -477,6 +512,8 @@ export function MachineConnectPageContent({
             ) : null}
           </div>
         </section>
+
+        <NodeRequirementSection />
 
         {connectedMachines.length > 0 ? (
           <ConnectedMachineHeartbeatLogSection heartbeatLog={heartbeatLog} />

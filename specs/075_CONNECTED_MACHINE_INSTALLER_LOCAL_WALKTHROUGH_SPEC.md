@@ -28,6 +28,30 @@ Today this slice still does **not** give you:
 
 That next step is tracked in `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`.
 
+## Node Prerequisite
+
+The direct hosted-file flow needs `node` on `PATH` before you run any `noter.js`
+command.
+
+Quick check:
+
+```bash
+node --version
+```
+
+Truthful install guidance for the current repo state:
+
+1. this repo is currently pinned to Node `24` via root `package.json` engines
+   and `.nvmrc`
+2. if you want `nvm` on macOS, use the official `nvm` installer and then run
+   `nvm install --lts`
+3. do **not** recommend Homebrew-installed `nvm`; the `nvm` project marks that
+   path unsupported
+4. on Windows PowerShell, if `winget` is available, use
+   `winget install --id OpenJS.NodeJS.LTS -e`
+5. if someone prefers installers instead of shell package managers, send them to
+   the current Node.js LTS download page on `nodejs.org`
+
 ## Fastest Path
 
 If you want the smallest end-to-end verification, do these steps:
@@ -65,8 +89,8 @@ Open:
 What to look for:
 
 1. a `Published package connect` block for the eventual public npm path
-2. a `Direct hosted file connect` block for prod, preview, or local testing that
-   switches to `curl.exe` when the machine is Windows
+2. two `Direct hosted file connect` blocks: one for `Unix/macOS` and one for
+   `Windows PowerShell`
 3. a link to open `noter.js`
 4. a machine list section if any machines are already connected
 

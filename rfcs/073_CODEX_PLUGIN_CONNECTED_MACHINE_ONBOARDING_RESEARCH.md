@@ -115,6 +115,16 @@ We want one underlying installer file with two distribution channels.
 
 This is the current first-user and iteration path.
 
+Prerequisite:
+
+1. `node` must already exist on `PATH`
+2. if we recommend `nvm` on macOS, it should use the official `nvm` installer
+   plus `nvm install --lts`
+3. we should not recommend Homebrew-installed `nvm`, because the `nvm`
+   maintainers explicitly mark that path unsupported
+4. on Windows PowerShell, a truthful package-manager path is
+   `winget install --id OpenJS.NodeJS.LTS -e` when `winget` is present
+
 Shape:
 
 ```bash
