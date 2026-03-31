@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachineHeartbeatLog";
+import { AppPageScrollShell } from "@/components/AppPageScrollShell";
 import { useNow } from "@/hooks/useNow";
 import {
   formatConnectedMachineHeartbeatTimestamp,
@@ -667,21 +668,25 @@ export function MachineConnectPage() {
   })();
 
   return (
-    <MachineConnectPageContent
-      approvalError={approvalError}
-      connectedMachines={connectedMachines}
-      directConnectCommand={buildDirectNoterSyncConnectCommand(scriptUrl)}
-      directRunCommand={buildDirectNoterSyncRunCommand(scriptUrl)}
-      heartbeatLog={heartbeatLog}
-      isApproving={isApproving}
-      openedByCli={bootstrapSearch.openedByCli}
-      onApprove={
-        requestState.kind === "pending" ? () => void handleApprove() : undefined
-      }
-      packageConnectCommand={buildPublishedNoterSyncConnectCommand()}
-      packageRunCommand={buildPublishedNoterSyncRunCommand()}
-      requestState={requestState}
-      scriptUrl={scriptUrl}
-    />
+    <AppPageScrollShell>
+      <MachineConnectPageContent
+        approvalError={approvalError}
+        connectedMachines={connectedMachines}
+        directConnectCommand={buildDirectNoterSyncConnectCommand(scriptUrl)}
+        directRunCommand={buildDirectNoterSyncRunCommand(scriptUrl)}
+        heartbeatLog={heartbeatLog}
+        isApproving={isApproving}
+        openedByCli={bootstrapSearch.openedByCli}
+        onApprove={
+          requestState.kind === "pending"
+            ? () => void handleApprove()
+            : undefined
+        }
+        packageConnectCommand={buildPublishedNoterSyncConnectCommand()}
+        packageRunCommand={buildPublishedNoterSyncRunCommand()}
+        requestState={requestState}
+        scriptUrl={scriptUrl}
+      />
+    </AppPageScrollShell>
   );
 }

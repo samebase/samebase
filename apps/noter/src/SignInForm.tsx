@@ -1,4 +1,5 @@
 import { setAuthProvider } from "@/authClient";
+import { AppPageScrollShell } from "@/components/AppPageScrollShell";
 import { LandingCopy } from "@/components/LandingCopy";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
@@ -39,48 +40,56 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
     useState(landingPageMarkdown);
 
   return (
-    <div className="container my-auto">
-      <div
-        data-testid="public-landing-content"
-        className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8"
-      >
-        {topNotice}
-        <PublicLandingLogo
-          autoRotate={isLandingCopyEditable}
-          enableViewSnapping={!landingDevModeEnabled}
-        />
-        <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
-          {isLandingCopyEditable ? (
-            <ProsemarkReadOnly
-              value={landingMarkdownDraft}
-              className="text-sm"
-              editable
-              styleVariant="landingCopy"
-              onChange={setLandingMarkdownDraft}
-            />
-          ) : (
-            <LandingCopy className="text-sm" markdown={landingMarkdownDraft} />
-          )}
-        </div>
-        <div className="flex flex-col gap-2">
-          <SignInWithGoogle />
-          {showPasswordAuth ? <PasswordAuthForm /> : null}
-        </div>
-        <WaitlistForm />
-        <div className="border-t pt-2 text-center text-xs text-muted-foreground">
-          <Link to="/terms" className="transition-colors hover:text-foreground">
-            /terms
-          </Link>
-          <span className="px-2">·</span>
-          <Link
-            to="/privacy"
-            className="transition-colors hover:text-foreground"
-          >
-            /privacy
-          </Link>
+    <AppPageScrollShell>
+      <div className="container my-auto">
+        <div
+          data-testid="public-landing-content"
+          className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8"
+        >
+          {topNotice}
+          <PublicLandingLogo
+            autoRotate={isLandingCopyEditable}
+            enableViewSnapping={!landingDevModeEnabled}
+          />
+          <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
+            {isLandingCopyEditable ? (
+              <ProsemarkReadOnly
+                value={landingMarkdownDraft}
+                className="text-sm"
+                editable
+                styleVariant="landingCopy"
+                onChange={setLandingMarkdownDraft}
+              />
+            ) : (
+              <LandingCopy
+                className="text-sm"
+                markdown={landingMarkdownDraft}
+              />
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <SignInWithGoogle />
+            {showPasswordAuth ? <PasswordAuthForm /> : null}
+          </div>
+          <WaitlistForm />
+          <div className="border-t pt-2 text-center text-xs text-muted-foreground">
+            <Link
+              to="/terms"
+              className="transition-colors hover:text-foreground"
+            >
+              /terms
+            </Link>
+            <span className="px-2">·</span>
+            <Link
+              to="/privacy"
+              className="transition-colors hover:text-foreground"
+            >
+              /privacy
+            </Link>
+          </div>
         </div>
       </div>
-    </div>
+    </AppPageScrollShell>
   );
 }
 
