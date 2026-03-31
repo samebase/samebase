@@ -97,6 +97,7 @@ Expected result:
 Use the hosted local file directly:
 
 ```bash
+set -o pipefail
 curl -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - connect 'http://127.0.0.1:5174/noter.js'
 ```
 
@@ -153,6 +154,7 @@ Important behavior:
 Use the direct hosted-file run command:
 
 ```bash
+set -o pipefail
 curl -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - run
 ```
 

@@ -95,9 +95,11 @@ This is the intended happy path after this RFC ships.
 
 1. The operator logs in to `noter.md` on a desktop browser.
 2. The operator opens `/machines/connect`.
-3. The page shows a `Connect machine` flow and the install command:
+3. The page shows a `Connect machine` flow and the install command. Run it in a
+   shell with `pipefail` enabled so a failed download does not look successful:
 
 ```bash
+set -o pipefail
 curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
 ```
 
@@ -115,22 +117,30 @@ curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'htt
 1. The machine-connect page shows the pending machine summary.
 2. The operator clicks `Approve machine`.
 3. Noter activates the machine and issues a machine-scoped credential.
-4. The page then shows the long-running command:
+4. For live control, the machine also needs `cloudflared` available on `PATH`.
+5. The page then shows the long-running command, again with `pipefail` enabled:
 
 ```bash
+set -o pipefail
 curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run
 ```
 
 ### 4. Start live control on the machine
 
 1. The operator runs the `run` command on the connected machine.
-2. `noter-sync run` reads `~/.noter/config.json` and starts:
+2. `noter-sync run` reads `~/.noter/config.json`, verifies that `cloudflared` is
+   available, and starts:
    - the heartbeat loop
    - the local control service
    - the Cloudflare quick tunnel process
-3. The connector only publishes live-control metadata after the local service is
-   enforcing machine-control auth correctly.
-4. Until that happens, the machine may still appear as plain online presence
+3. The local control service binds loopback only, and the tunnel becomes the
+   only remote ingress path.
+4. The connector only publishes live-control metadata after the local service is
+   enforcing machine-control auth correctly and reporting that state through
+   `/status`.
+5. If `cloudflared` is missing or unhealthy, `noter-sync run` may keep
+   publishing plain presence while marking live control unavailable.
+6. Until that happens, the machine may still appear as plain online presence
    without advertising live control.
 
 ### 5. Open the machine from a phone
@@ -141,9 +151,11 @@ curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run
 
 `/machines/:machineId/live`
 
-4. That page requests a short-lived machine-control token for the selected
+4. That page reads the current machine view, including `controlUrl` and
+   live-control readiness.
+5. The page requests a short-lived machine-control token for the selected
    machine.
-5. Noter only issues the token if the signed-in user owns the machine and the
+6. Noter only issues the token if the signed-in user owns the machine and the
    machine is currently live-control ready.
 
 ### 6. Browse threads and send prompts
@@ -167,7 +179,9 @@ curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run
    non-live-control state.
 2. If the tunnel dies or auth introspection is unhealthy, Noter must stop
    advertising the machine as live-control ready.
-3. The phone must not keep working through stale tunnel metadata or stale auth.
+3. On connection or stream failure, the phone refetches the machine view before
+   retrying so stale quick-tunnel URLs are not reused blindly.
+4. The phone must not keep working through stale tunnel metadata or stale auth.
 
 ## Locked Decisions
 
@@ -236,6 +250,10 @@ The next slice should extend it rather than invent a separate launcher.
 If the control service or tunnel is unavailable, `run` may continue publishing
 plain presence while withholding the live-control capability.
 
+Before publishing `controlUrl`, `run` should probe local `/status` and confirm
+that the control service is both loopback-bound and running with auth
+enforcement enabled.
+
 ### 2. Extract the local control service out of the Vite plugin
 
 The current research bridge is the right logic source, but not the right final
@@ -245,7 +263,8 @@ Recommendation:
 
 1. move the reusable runtime and HTTP handlers into `packages/sync`
 2. keep plain Node HTTP primitives for the first slice
-3. keep the existing research page working by talking to the extracted service
+3. bind the extracted service to loopback only instead of `0.0.0.0`
+4. keep the existing research page working by talking to the extracted service
    through a thin adapter during development
 
 The extraction target is the contract already proven in
@@ -284,6 +303,11 @@ Recommended token model:
    - `machineId`
    - `audience = machine-control`
    - `expiresAt`
+5. the maximum token lifetime is `15 minutes`
+6. Noter may revoke a token before expiry, and introspection must then return it
+   as inactive
+7. the local service reads its own `machineId` from `~/.noter/config.json` at
+   startup and rejects introspection results for any other machine
 
 The local service validates the token with a Noter introspection endpoint over
 outbound HTTPS.
@@ -298,8 +322,11 @@ That page should:
 
 1. read the current machine view from Noter
 2. request a short-lived machine-control token from Noter
-3. call the tunneled local JSON API directly with that bearer token
-4. render thread inventory, thread detail, and turn sending using Noter-owned
+3. call the tunneled local JSON API directly with that bearer token and the
+   current `controlUrl`
+4. refetch the machine view and refresh the token on recoverable connection
+   failures
+5. render thread inventory, thread detail, and turn sending using Noter-owned
    components
 
 This keeps product UX, session handling, and future review and debug surfaces on
@@ -323,7 +350,14 @@ The local service must also:
 
 1. answer CORS preflight requests
 2. allow only explicit Noter origins, not `*`
+   - `https://noter.md`
+   - approved preview or staging Noter origins
+   - localhost dev origins during local development
 3. reject requests without `Authorization: Bearer <machine-control-token>`
+4. expose `/status` fields that let `noter-sync run` confirm:
+   - auth is enforced
+   - the service is loopback-bound
+   - tunnel prerequisites are healthy
 
 ## Auth Failure Semantics
 
@@ -346,7 +380,9 @@ Required behavior:
    - `403`
    - `404`
    - malformed introspection payloads
-5. positive validation may be cached only briefly and never past token expiry
+5. positive validation may be cached for at most `30 seconds` and never past
+   token expiry
+6. negative validation should not be cached across requests
 
 Required response semantics from the local service:
 
@@ -380,12 +416,15 @@ Scope:
 
 1. move the reusable runtime out of the Vite-only bridge
 2. keep the local research page working against the extracted service
-3. let `noter-sync run` start the service locally without any tunnel yet
+3. bind the extracted service to loopback only
+4. let `noter-sync run` start the service locally without any tunnel yet
 
 Exit criteria:
 
 1. the local service can run without Vite
 2. the research page becomes a thin dev adapter over that service
+3. the service is reachable only from the local machine
+4. Slice 1 launches no tunnel and publishes no remote URL
 
 ### Slice 2: Machine-control auth and service hardening
 
@@ -394,28 +433,34 @@ Scope:
 1. add Noter-issued opaque machine-control tokens
 2. add Noter introspection for the local service
 3. enforce CORS and fail-closed auth behavior
-4. extend machine capabilities to represent live control readiness
+4. enforce local `machineId` matching against `~/.noter/config.json`
+5. extend machine capabilities to represent live control readiness
 
 Exit criteria:
 
 1. the local service rejects every unauthenticated request
 2. Noter can mint a short-lived token only for the owning user
 3. the service can validate that token safely
+4. `/status` exposes whether auth enforcement is active
 
 ### Slice 3: Cloudflare tunnel lifecycle and machine metadata
 
 Scope:
 
 1. start and supervise a Cloudflare quick tunnel from `noter-sync run`
-2. publish the live tunnel URL on the connected machine record
-3. surface live-control availability in Noter
+2. preflight `cloudflared` before attempting live control
+3. publish the live tunnel URL on the connected machine record
+4. surface live-control availability in Noter
 
 Exit criteria:
 
 1. a live-control-capable machine advertises one current tunnel URL
 2. the URL is withdrawn or ignored when the machine is offline or control is
    unhealthy
-3. Noter does not advertise a URL unless Slice 2 auth enforcement is active
+3. Noter does not advertise a URL unless `/status` confirms Slice 2 auth
+   enforcement is active
+4. missing `cloudflared` leaves the machine in presence-only mode with a clear
+   live-control-unavailable state
 
 ### Slice 4: Phone control UI on `noter.md`
 
