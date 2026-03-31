@@ -120,18 +120,30 @@ function LocalRequirementsSection() {
       <div className="space-y-2">
         <p className="text-sm font-medium">Local requirements</p>
         <p className="text-sm text-muted-foreground">
-          These commands need both <code>node</code> and the Codex CLI{" "}
-          <code>codex</code> on your PATH. Check with{" "}
-          <code>node --version</code> and <code>codex --version</code>.
+          These commands need <code>node</code>, the Codex CLI{" "}
+          <code>codex</code>, and <code>curl</code> on your PATH. Check with{" "}
+          <code>node --version</code>, <code>codex --version</code>, and{" "}
+          <code>curl --version</code>. In Windows PowerShell, you can also run{" "}
+          <code>curl.exe --version</code> to bypass the built-in{" "}
+          <code>Invoke-WebRequest</code> alias.
         </p>
         <p className="text-sm text-muted-foreground">
           macOS: if you want <code>nvm</code>, use the official installer, then
           run <code>nvm install --lts</code>. The <code>nvm</code> project does
-          not support Homebrew-installed <code>nvm</code>.
+          not support Homebrew-installed <code>nvm</code>. macOS already ships
+          with <code>curl</code>; if it is missing or too old, install it with{" "}
+          <code>brew install curl</code>.
         </p>
         <p className="text-sm text-muted-foreground">
           Windows PowerShell: if <code>winget</code> is available, run{" "}
-          <code>winget install --id OpenJS.NodeJS.LTS -e</code>.
+          <code>winget install --id OpenJS.NodeJS.LTS -e</code>. Recent Windows
+          versions usually already include <code>curl.exe</code>; if yours does
+          not, install curl with <code>winget</code> or another package manager.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Linux: install Node.js with your preferred setup, then make sure the{" "}
+          <code>curl</code> package is present too, for example{" "}
+          <code>apt install curl</code> or <code>dnf install curl</code>.
         </p>
         <p className="text-sm text-muted-foreground">
           If you prefer an installer, use the current Node.js LTS download from{" "}

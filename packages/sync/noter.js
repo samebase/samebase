@@ -336,6 +336,22 @@ function readCommandOutput(stdout, stderr) {
 }
 
 /**
+ * Browser/UI code uses repo-style OS names while Node exposes platform ids
+ * like `win32` and `darwin`, so normalize once before branching on runtime
+ * behavior that needs the Windows `.cmd` path or `curl.exe`.
+ */
+function normalizeRuntimePlatform(currentPlatform = process.platform) {
+  switch (currentPlatform) {
+    case 'windows':
+      return 'win32'
+    case 'macos':
+      return 'darwin'
+    default:
+      return currentPlatform
+  }
+}
+
+/**
  * npm installs the Windows Codex CLI entrypoint as a `.cmd` wrapper. Node's
  * child_process docs require `.cmd` launches to go through a shell, so keep
  * direct child processes on Unix and opt into `shell: true` only on Windows.
@@ -344,7 +360,9 @@ export function buildCodexSpawnOptions(
   options = {},
   currentPlatform = process.platform,
 ) {
-  return currentPlatform === 'win32' ? { ...options, shell: true } : options
+  return normalizeRuntimePlatform(currentPlatform) === 'win32'
+    ? { ...options, shell: true }
+    : options
 }
 
 function runCodexCommand(args, options = {}) {
@@ -3445,7 +3463,9 @@ export function openBrowser(url) {
 }
 
 function readDirectDownloadCommand(currentPlatform = process.platform) {
-  return currentPlatform === 'win32' ? 'curl.exe -fsSL' : 'curl -fsSL'
+  return normalizeRuntimePlatform(currentPlatform) === 'win32'
+    ? 'curl.exe -fsSL'
+    : 'curl -fsSL'
 }
 
 export function buildDirectConnectCommand(

@@ -64,8 +64,14 @@ describe("MachineConnectPageContent", () => {
     expect(markup).toContain("Local requirements");
     expect(markup).toContain("node --version");
     expect(markup).toContain("codex --version");
+    expect(markup).toContain("curl --version");
+    expect(markup).toContain("curl.exe --version");
     expect(markup).toContain("nvm install --lts");
+    expect(markup).toContain("brew install curl");
     expect(markup).toContain("OpenJS.NodeJS.LTS");
+    expect(markup).toContain("already include");
+    expect(markup).toContain("apt install curl");
+    expect(markup).toContain("dnf install curl");
     expect(markup).toContain("npm install -g @openai/codex");
     expect(markup).toContain("desktop app alone does not guarantee");
     expect(markup).toContain("native Windows CLI support as experimental");

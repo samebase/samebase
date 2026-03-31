@@ -297,7 +297,15 @@ describe('@noter-md/sync', () => {
     ).toBe(
       `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
     )
+    expect(
+      buildDirectConnectCommand('https://noter.md/noter.js', 'windows'),
+    ).toBe(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
+    )
     expect(buildDirectRunCommand('https://noter.md/noter.js', 'win32')).toBe(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+    )
+    expect(buildDirectRunCommand('https://noter.md/noter.js', 'windows')).toBe(
       `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
     )
   })
@@ -307,7 +315,14 @@ describe('@noter-md/sync', () => {
       cwd: '/tmp/noter',
       shell: true,
     })
+    expect(buildCodexSpawnOptions({ cwd: '/tmp/noter' }, 'windows')).toEqual({
+      cwd: '/tmp/noter',
+      shell: true,
+    })
     expect(buildCodexSpawnOptions({ cwd: '/tmp/noter' }, 'darwin')).toEqual({
+      cwd: '/tmp/noter',
+    })
+    expect(buildCodexSpawnOptions({ cwd: '/tmp/noter' }, 'macos')).toEqual({
       cwd: '/tmp/noter',
     })
   })
