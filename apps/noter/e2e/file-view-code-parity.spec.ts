@@ -230,13 +230,36 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
     return image.naturalWidth;
   });
   await resolutionScaleSlider.press("ArrowRight");
-  await expect(diffSurface).toHaveAttribute("data-preview-ready", "true");
-  await expect(
-    page.getByText("Live diff captured at 2x resolution."),
-  ).toBeVisible();
   await expect
-    .poll(async () => {
-      return diffImage.evaluate((image) => image.naturalWidth);
-    })
+    .poll(
+      async () => {
+        return diffImage.evaluate((image) => image.naturalWidth);
+      },
+      {
+        // The resolution slider kicks off a fresh canvas capture plus image
+        // decode, which is noticeably slower on CI than on a local laptop.
+        timeout: 15_000,
+      },
+    )
     .toBeGreaterThan(initialDiffNaturalWidth);
+  await expect
+    .poll(
+      async () => {
+        return diffSurface.getAttribute("data-diff-ready");
+      },
+      {
+        timeout: 15_000,
+      },
+    )
+    .toBe("true");
+  await expect
+    .poll(
+      async () => {
+        return boundsDelta.textContent();
+      },
+      {
+        timeout: 15_000,
+      },
+    )
+    .not.toContain("Foreground bounds pending");
 });
