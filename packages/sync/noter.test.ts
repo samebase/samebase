@@ -15,6 +15,7 @@ import { pathToFileURL } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  buildCodexSpawnInvocation,
   buildMachineHeartbeatBody,
   buildNoterConnectConfigUrl,
   buildCodexSpawnOptions,
@@ -310,19 +311,36 @@ describe('@noter-md/sync', () => {
     )
   })
 
-  it('routes Windows Codex CLI launches through a shell so npm cmd wrappers work', () => {
-    expect(buildCodexSpawnOptions({ cwd: '/tmp/noter' }, 'win32')).toEqual({
-      cwd: '/tmp/noter',
-      shell: true,
+  it('routes Windows Codex CLI launches through cmd.exe so args keep their spaces', () => {
+    expect(
+      buildCodexSpawnInvocation(
+        ['app-server', '--out', 'C:\\Users\\Nicu Test\\AppData\\Local\\Temp'],
+        'win32',
+      ),
+    ).toEqual({
+      args: [
+        '/d',
+        '/c',
+        'codex',
+        'app-server',
+        '--out',
+        'C:\\Users\\Nicu Test\\AppData\\Local\\Temp',
+      ],
+      command: 'cmd.exe',
     })
-    expect(buildCodexSpawnOptions({ cwd: '/tmp/noter' }, 'windows')).toEqual({
-      cwd: '/tmp/noter',
-      shell: true,
+    expect(buildCodexSpawnInvocation(['--version'], 'windows')).toEqual({
+      args: ['/d', '/c', 'codex', '--version'],
+      command: 'cmd.exe',
     })
-    expect(buildCodexSpawnOptions({ cwd: '/tmp/noter' }, 'darwin')).toEqual({
-      cwd: '/tmp/noter',
+    expect(buildCodexSpawnInvocation(['--version'], 'darwin')).toEqual({
+      args: ['--version'],
+      command: 'codex',
     })
-    expect(buildCodexSpawnOptions({ cwd: '/tmp/noter' }, 'macos')).toEqual({
+    expect(buildCodexSpawnInvocation(['--version'], 'macos')).toEqual({
+      args: ['--version'],
+      command: 'codex',
+    })
+    expect(buildCodexSpawnOptions({ cwd: '/tmp/noter' })).toEqual({
       cwd: '/tmp/noter',
     })
   })

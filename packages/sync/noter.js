@@ -352,26 +352,37 @@ function normalizeRuntimePlatform(currentPlatform = process.platform) {
 }
 
 /**
- * npm installs the Windows Codex CLI entrypoint as a `.cmd` wrapper. Node's
- * child_process docs require `.cmd` launches to go through a shell, so keep
- * direct child processes on Unix and opt into `shell: true` only on Windows.
+ * npm installs the Windows Codex CLI entrypoint as a `.cmd` wrapper. Launch it
+ * through `cmd.exe` on Windows so the wrapper resolves via PATHEXT while Node
+ * still keeps argument boundaries intact for paths that contain spaces.
  */
-export function buildCodexSpawnOptions(
-  options = {},
+export function buildCodexSpawnInvocation(
+  args,
   currentPlatform = process.platform,
 ) {
   return normalizeRuntimePlatform(currentPlatform) === 'win32'
-    ? { ...options, shell: true }
-    : options
+    ? {
+        args: ['/d', '/c', 'codex', ...args],
+        command: process.env.ComSpec ?? 'cmd.exe',
+      }
+    : {
+        args,
+        command: 'codex',
+      }
+}
+
+export function buildCodexSpawnOptions(options = {}) {
+  return options
 }
 
 function runCodexCommand(args, options = {}) {
   return new Promise((resolve, reject) => {
     let stdout = ''
     let stderr = ''
+    const invocation = buildCodexSpawnInvocation(args)
     const processHandle = spawn(
-      'codex',
-      args,
+      invocation.command,
+      invocation.args,
       buildCodexSpawnOptions({
         ...options,
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -422,9 +433,10 @@ function runCodexCommand(args, options = {}) {
  * signal.
  */
 export function detectCodexVersion() {
+  const invocation = buildCodexSpawnInvocation(['--version'])
   const result = spawnSync(
-    'codex',
-    ['--version'],
+    invocation.command,
+    invocation.args,
     buildCodexSpawnOptions({
       encoding: 'utf8',
     }),
@@ -2161,10 +2173,15 @@ export class CodexLocalControlRuntime {
       this.pushEvent('codex/runtime_stderr', {
         line: `Launching codex app-server (${version})`,
       })
+      const invocation = buildCodexSpawnInvocation([
+        'app-server',
+        '--listen',
+        'stdio://',
+      ])
 
       const processHandle = spawn(
-        'codex',
-        ['app-server', '--listen', 'stdio://'],
+        invocation.command,
+        invocation.args,
         buildCodexSpawnOptions({
           cwd: this.workspaceRoot,
           env: process.env,
