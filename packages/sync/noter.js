@@ -362,7 +362,7 @@ export function buildCodexSpawnInvocation(
 ) {
   return normalizeRuntimePlatform(currentPlatform) === 'win32'
     ? {
-        args: ['/d', '/c', 'codex', ...args],
+        args: ['/d', '/v:off', '/s', '/c', buildWindowsCodexCommandLine(args)],
         command: process.env.ComSpec ?? 'cmd.exe',
       }
     : {
@@ -375,19 +375,83 @@ export function buildCodexSpawnOptions(options = {}) {
   return options
 }
 
+/**
+ * `cmd.exe` still expands `%VAR%` even inside double quotes, so quote every
+ * token and double percent signs before handing Windows a command line.
+ */
+function escapeWindowsCmdArgument(value) {
+  return `"${value.replaceAll('"', '""').replaceAll('%', '%%')}"`
+}
+
+function buildWindowsCodexCommandLine(args) {
+  return ['codex', ...args].map(escapeWindowsCmdArgument).join(' ')
+}
+
+function stopCodexProcess(processHandle, args = {}) {
+  return new Promise(resolve => {
+    if (!processHandle || processHandle.exitCode !== null) {
+      resolve()
+      return
+    }
+
+    const runtimePlatform = normalizeRuntimePlatform(args.currentPlatform)
+    if (runtimePlatform === 'win32' && typeof processHandle.pid === 'number') {
+      const taskkillArgs = ['/PID', String(processHandle.pid), '/T']
+      if (args.force === true) {
+        taskkillArgs.push('/F')
+      }
+
+      const killer = spawn('taskkill', taskkillArgs, {
+        stdio: 'ignore',
+      })
+      killer.once('error', () => {
+        try {
+          processHandle.kill(args.force === true ? 'SIGKILL' : 'SIGTERM')
+        } catch {}
+        resolve()
+      })
+      killer.once('exit', () => {
+        resolve()
+      })
+      return
+    }
+
+    try {
+      processHandle.kill(args.force === true ? 'SIGKILL' : 'SIGTERM')
+    } catch {}
+    resolve()
+  })
+}
+
 function runCodexCommand(args, options = {}) {
   return new Promise((resolve, reject) => {
     let stdout = ''
     let stderr = ''
+    let timedOut = false
     const invocation = buildCodexSpawnInvocation(args)
+    const timeoutMs =
+      typeof options.timeout === 'number' && Number.isFinite(options.timeout)
+        ? options.timeout
+        : null
     const processHandle = spawn(
       invocation.command,
       invocation.args,
       buildCodexSpawnOptions({
         ...options,
         stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: undefined,
       }),
     )
+    const timeoutId =
+      timeoutMs === null
+        ? null
+        : setTimeout(() => {
+            timedOut = true
+            void stopCodexProcess(processHandle, {
+              currentPlatform: process.platform,
+              force: true,
+            })
+          }, timeoutMs)
 
     processHandle.stdout?.on('data', chunk => {
       stdout += chunk.toString()
@@ -396,6 +460,9 @@ function runCodexCommand(args, options = {}) {
       stderr += chunk.toString()
     })
     processHandle.once('error', error => {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId)
+      }
       reject(
         codexCommandWasNotFound(error)
           ? new Error(buildCodexCliMissingMessage())
@@ -403,6 +470,17 @@ function runCodexCommand(args, options = {}) {
       )
     })
     processHandle.once('close', (code, signal) => {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId)
+      }
+
+      if (timedOut && timeoutMs !== null) {
+        reject(
+          new Error(`codex ${args.join(' ')} timed out after ${timeoutMs}ms.`),
+        )
+        return
+      }
+
       if (code === 0) {
         resolve({ stderr, stdout })
         return
@@ -2128,6 +2206,7 @@ export class CodexLocalControlRuntime {
     const processToStop = this.process
     await new Promise(resolve => {
       let completed = false
+      const runtimePlatform = normalizeRuntimePlatform()
       const finish = () => {
         if (completed) {
           return
@@ -2138,7 +2217,11 @@ export class CodexLocalControlRuntime {
 
       const timeoutId = setTimeout(() => {
         if (processToStop.exitCode === null) {
-          processToStop.kill('SIGKILL')
+          void stopCodexProcess(processToStop, {
+            currentPlatform: runtimePlatform,
+            force: true,
+          }).then(finish)
+          return
         }
         finish()
       }, 5_000)
@@ -2148,7 +2231,9 @@ export class CodexLocalControlRuntime {
         finish()
       })
 
-      processToStop.kill('SIGTERM')
+      void stopCodexProcess(processToStop, {
+        currentPlatform: runtimePlatform,
+      })
     })
 
     return { success: true, runtime: this.getSnapshot() }
