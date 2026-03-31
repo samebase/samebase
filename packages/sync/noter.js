@@ -43,6 +43,7 @@ export const CONNECTED_MACHINE_CAPABILITIES = ['presence']
 export const NETWORK_TIMEOUT_MS = 15_000
 // When the command does not pass an explicit source URL, default to production.
 export const NOTER_SYNC_SOURCE_URL = 'https://noter.md/noter.js'
+const MACHINE_CREDENTIAL_AUTH_ERROR_NAME = 'MachineCredentialAuthError'
 
 function isLoopbackHostname(hostname) {
   return (
@@ -340,21 +341,27 @@ async function readJsonResponse(response) {
  * of hanging the terminal forever.
  */
 async function fetchWithTimeout(resource, init, timeoutLabel) {
-  const signal = AbortSignal.timeout(NETWORK_TIMEOUT_MS)
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => {
+    controller.abort()
+  }, NETWORK_TIMEOUT_MS)
+  timeoutId.unref?.()
 
   try {
     return await fetch(resource, {
       ...init,
-      signal,
+      signal: controller.signal,
     })
   } catch (error) {
-    if (signal.aborted) {
+    if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(
         `${timeoutLabel} timed out after ${NETWORK_TIMEOUT_MS / 1000} seconds.`,
       )
     }
 
     throw error
+  } finally {
+    clearTimeout(timeoutId)
   }
 }
 
@@ -471,9 +478,11 @@ async function publishMachineHeartbeat(args) {
       error instanceof Error &&
       error.message === 'invalid machine credential'
     ) {
-      throw new Error(
+      const authError = new Error(
         'This machine is not approved yet. Finish approval in Noter and retry `noter-sync run`.',
       )
+      authError.name = MACHINE_CREDENTIAL_AUTH_ERROR_NAME
+      throw authError
     }
     throw error
   }
@@ -611,9 +620,10 @@ async function runConnectCommand(parsedArgs) {
   }
 }
 
-async function runHeartbeatLoop(args) {
+export async function runHeartbeatLoop(args) {
   /** @type {() => void} */
   let requestStop = () => {}
+  let shouldPublishOfflineHeartbeat = true
   const stopPromise = new Promise(resolve => {
     requestStop = () => resolve('stop')
   })
@@ -638,6 +648,14 @@ async function runHeartbeatLoop(args) {
           status: 'online',
         })
       } catch (error) {
+        if (
+          error instanceof Error &&
+          error.name === MACHINE_CREDENTIAL_AUTH_ERROR_NAME
+        ) {
+          shouldPublishOfflineHeartbeat = false
+          throw error
+        }
+
         console.warn(
           error instanceof Error
             ? error.message
@@ -657,23 +675,25 @@ async function runHeartbeatLoop(args) {
     process.removeListener('SIGINT', handleStop)
     process.removeListener('SIGTERM', handleStop)
 
-    try {
-      await publishMachineHeartbeat({
-        connectorVersion: args.connectorVersion,
-        displayName: args.displayName,
-        heartbeatUrl: args.heartbeatUrl,
-        hostname: args.hostname,
-        machineCredential: args.machineCredential,
-        machineId: args.machineId,
-        os: args.os,
-        status: 'offline',
-      })
-    } catch (error) {
-      console.warn(
-        error instanceof Error
-          ? error.message
-          : 'Could not publish the offline heartbeat.',
-      )
+    if (shouldPublishOfflineHeartbeat) {
+      try {
+        await publishMachineHeartbeat({
+          connectorVersion: args.connectorVersion,
+          displayName: args.displayName,
+          heartbeatUrl: args.heartbeatUrl,
+          hostname: args.hostname,
+          machineCredential: args.machineCredential,
+          machineId: args.machineId,
+          os: args.os,
+          status: 'offline',
+        })
+      } catch (error) {
+        console.warn(
+          error instanceof Error
+            ? error.message
+            : 'Could not publish the offline heartbeat.',
+        )
+      }
     }
   }
 }
@@ -761,6 +781,6 @@ if (isDirectExecution()) {
     await main(process.argv.slice(2))
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error))
-    process.exitCode = 1
+    process.exit(1)
   }
 }

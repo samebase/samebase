@@ -47,6 +47,10 @@ Do not squash-merge this slice until:
 - [x] Reset the machine-page approval error state when the browser handoff
       `requestId` changes
 - [x] Cover the approval-error banner in the machine connect visual fixture
+- [x] Derive pending handoff expiry from server-synchronized time instead of the
+      raw browser clock
+- [x] Exit `noter-sync run` on invalid machine credential errors instead of
+      looping forever without establishing presence
 
 ## Open `P1` Blockers
 

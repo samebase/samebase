@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CONNECTED_MACHINE_STALE_AFTER_MS,
   MACHINE_REGISTRATION_REQUEST_TTL_MS,
+  resolveAuthoritativeNow,
   resolveConnectedMachineStatus,
   resolveMachineRegistrationState,
 } from "./connectedMachinePresence";
@@ -46,5 +47,15 @@ describe("connected machine presence helpers", () => {
         now: 1_000 + MACHINE_REGISTRATION_REQUEST_TTL_MS + 1,
       }),
     ).toBe("expired");
+  });
+
+  it("advances pending registration expiry from server time instead of raw client time", () => {
+    expect(
+      resolveAuthoritativeNow({
+        browserNow: 5_000,
+        browserNowAtSync: 2_000,
+        serverNowAtSync: 1_000,
+      }),
+    ).toBe(4_000);
   });
 });

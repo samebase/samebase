@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   buildNoterConnectConfigUrl,
@@ -23,6 +23,7 @@ import {
   parseCliArgs,
   readLocalConfig,
   resolveEntrypointUrl,
+  runHeartbeatLoop,
   validateConvexSiteUrl,
   validateSourceUrl,
   writeLocalConfig,
@@ -234,4 +235,41 @@ describe('@noter-md/sync', () => {
 - next: https://noter.md/machines/connect?openedByCli&requestId=request_123
 - run: curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`)
   })
+
+  it.runIf(process.platform !== 'win32')(
+    'stops the heartbeat loop when the machine credential is not approved',
+    async () => {
+      const originalFetch = global.fetch
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(JSON.stringify({ error: 'invalid machine credential' }), {
+          headers: {
+            'content-type': 'application/json',
+          },
+          status: 401,
+        }),
+      )
+      global.fetch = fetchMock
+
+      try {
+        await expect(
+          runHeartbeatLoop({
+            connectorVersion: 'noter-sync (codex 0.1.2)',
+            displayName: 'Research MacBook Pro',
+            heartbeatUrl:
+              'https://demo.convex.site/connected-machines/heartbeat',
+            hostname: 'research-mbp.local',
+            machineCredential: 'mmc_invalid',
+            machineId: 'machine_123',
+            os: 'macos',
+          }),
+        ).rejects.toThrow(
+          'This machine is not approved yet. Finish approval in Noter and retry `noter-sync run`.',
+        )
+
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+      } finally {
+        global.fetch = originalFetch
+      }
+    },
+  )
 })

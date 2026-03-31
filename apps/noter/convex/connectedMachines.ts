@@ -77,6 +77,7 @@ function buildConnectedMachineView(args: { row: ConnectedMachineRow }) {
 
 function buildMachineRegistrationBrowserView(args: {
   request: MachineRegistrationRequestRow;
+  serverNow: number;
 }): MachineRegistrationBrowserView {
   const commonFields = {
     requestId: args.request.requestId,
@@ -98,6 +99,7 @@ function buildMachineRegistrationBrowserView(args: {
     kind: "pending",
     ...commonFields,
     expiresAt: args.request.expiresAt,
+    serverNow: args.serverNow,
   };
 }
 
@@ -136,6 +138,7 @@ export const getMachineRegistrationRequestForBrowser = query({
     ctx,
     args: GetMachineRegistrationRequestForBrowserArgs,
   ): Promise<MachineRegistrationBrowserView> => {
+    const now = Date.now();
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       return {
@@ -159,7 +162,10 @@ export const getMachineRegistrationRequestForBrowser = query({
       };
     }
 
-    return buildMachineRegistrationBrowserView({ request });
+    return buildMachineRegistrationBrowserView({
+      request,
+      serverNow: now,
+    });
   },
 });
 

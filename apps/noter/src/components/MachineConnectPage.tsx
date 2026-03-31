@@ -14,6 +14,7 @@ import {
   readMachineConnectBootstrapSearch,
 } from "@/lib/noterSync";
 import {
+  resolveAuthoritativeNow,
   resolveConnectedMachineStatus,
   resolveMachineRegistrationState,
 } from "../../shared/connectedMachinePresence";
@@ -408,6 +409,12 @@ export function MachineConnectPage() {
   const location = useLocation();
   const [isApproving, setIsApproving] = useState(false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
+  const [machineRegistrationClockSync, setMachineRegistrationClockSync] =
+    useState<{
+      browserNowAtSync: number;
+      requestId: string;
+      serverNowAtSync: number;
+    } | null>(null);
   const bootstrapSearch = readMachineConnectBootstrapSearch(location.search);
   const scriptUrl = buildNoterSyncScriptUrl(resolveCurrentOrigin());
   const connectedMachinesQuery = useQuery(
@@ -449,11 +456,52 @@ export function MachineConnectPage() {
       return left.displayName.localeCompare(right.displayName);
     });
   const heartbeatLog = useConnectedMachineHeartbeatLog(connectedMachines);
+  const pendingMachineRegistrationId =
+    machineRegistrationRequest?.kind === "pending"
+      ? machineRegistrationRequest.requestId
+      : null;
+  const pendingMachineRegistrationServerNow =
+    machineRegistrationRequest?.kind === "pending"
+      ? machineRegistrationRequest.serverNow
+      : null;
+  const machineRegistrationNow =
+    pendingMachineRegistrationId &&
+    typeof pendingMachineRegistrationServerNow === "number"
+      ? resolveAuthoritativeNow({
+          browserNow: now,
+          browserNowAtSync:
+            machineRegistrationClockSync?.requestId ===
+            pendingMachineRegistrationId
+              ? machineRegistrationClockSync.browserNowAtSync
+              : now,
+          serverNowAtSync:
+            machineRegistrationClockSync?.requestId ===
+            pendingMachineRegistrationId
+              ? machineRegistrationClockSync.serverNowAtSync
+              : pendingMachineRegistrationServerNow,
+        })
+      : now;
 
   useEffect(() => {
     setApprovalError(null);
     setIsApproving(false);
   }, [bootstrapSearch.requestId]);
+
+  useEffect(() => {
+    if (
+      !pendingMachineRegistrationId ||
+      typeof pendingMachineRegistrationServerNow !== "number"
+    ) {
+      setMachineRegistrationClockSync(null);
+      return;
+    }
+
+    setMachineRegistrationClockSync({
+      browserNowAtSync: Date.now(),
+      requestId: pendingMachineRegistrationId,
+      serverNowAtSync: pendingMachineRegistrationServerNow,
+    });
+  }, [pendingMachineRegistrationId, pendingMachineRegistrationServerNow]);
 
   const handleApprove = async () => {
     if (!bootstrapSearch.requestId || isApproving) {
@@ -498,7 +546,7 @@ export function MachineConnectPage() {
         const state = resolveMachineRegistrationState({
           approvedAt: undefined,
           expiresAt: machineRegistrationRequest.expiresAt,
-          now,
+          now: machineRegistrationNow,
         });
         return state === "expired"
           ? {

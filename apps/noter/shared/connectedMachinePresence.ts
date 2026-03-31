@@ -2,6 +2,20 @@ export const CONNECTED_MACHINE_STALE_AFTER_MS = 45_000;
 export const MACHINE_REGISTRATION_REQUEST_TTL_MS = 10 * 60 * 1000;
 
 /**
+ * Keep browser timers aligned with the backend clock by measuring elapsed time
+ * locally from the moment the server timestamp was observed.
+ */
+export function resolveAuthoritativeNow(args: {
+  browserNow: number;
+  browserNowAtSync: number;
+  serverNowAtSync: number;
+}): number {
+  return (
+    args.serverNowAtSync + Math.max(0, args.browserNow - args.browserNowAtSync)
+  );
+}
+
+/**
  * The connector can explicitly publish an offline heartbeat, but when the
  * process dies abruptly we still need the UI to age the last online ping out
  * into an offline state.

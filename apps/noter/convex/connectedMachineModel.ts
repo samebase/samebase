@@ -153,6 +153,7 @@ export const machineRegistrationBrowserViewValidator = union(
     os: connectedMachineOsValidator,
     connectorVersion: string(),
     expiresAt: number(),
+    serverNow: number(),
   }),
   object({
     kind: literal("approved"),
