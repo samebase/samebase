@@ -1,4 +1,4 @@
-# 081 Desktop Sidebar Resize Research
+# 081 Sidebar Resize Research
 
 ## Document Control
 
@@ -12,24 +12,25 @@
   - `apps/noter/src/components/EditorChatDock.tsx`
   - `rfcs/073_INDEPENDENT_RIGHT_SIDEBAR_SPEC.md`
   - `rfcs/080_SHARED_WORKSPACE_LAYOUT_REFACTOR_PLAN.md`
+  - `specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md`
 
 ## Summary
 
-We want a desktop affordance that lets people drag the left or right sidebar
-edge to make the sidebar wider or narrower.
+We want a resize affordance that lets people drag the left or right sidebar edge
+to make the sidebar wider or narrower on both desktop and mobile.
 
 After reviewing the current workspace shell and the main external libraries, the
 best first slice is:
 
 1. keep the current shared shell
-2. add desktop-only resize handles inside that shell using the same drag
+2. add dedicated resize handles inside that shell using the same drag
    interaction pattern as `EditorChatDock`
-3. store desktop widths separately from future mobile width decisions
+3. support separate left/right widths for desktop and mobile from the start
 
 If we later decide we want a broader resizable layout system beyond the two
 workspace sidebars, `react-resizable-panels` is the strongest library option.
-For this specific slice, though, a custom desktop implementation fits the code
-we already have better than introducing a new panel tree.
+For this specific slice, though, a custom shell-native implementation fits the
+code we already have better than introducing a new panel tree.
 
 ## Current Layout Findings
 
@@ -46,7 +47,7 @@ collapsed by changing the grid columns to `0px`; on mobile, the same structure
 becomes a horizontal track whose total width includes the left and right pane
 widths.
 
-That centralization is good for this work because desktop resize belongs in the
+That centralization is good for this work because sidebar resize belongs in the
 shell, not in FileView or dashboard route code.
 
 ### 2. Sidebar width is still one shared CSS variable
@@ -66,7 +67,17 @@ The current code is already close to what we need, though: the shell is
 consuming width through CSS variables, so resize can stay local to layout state
 instead of rewriting route content.
 
-### 3. The shell is a two-row layout, not a simple panel stack
+### 3. Mobile already has width-aware pane math
+
+On mobile, `WorkspaceSidebarShell` already measures sidebar lane widths so the
+carousel can snap to concrete pane widths, and `workspaceSidebar.ts` already
+uses left/right width inputs to compute pane anchors and settling.
+
+That means mobile resize is not alien to the current architecture. The main
+change is that user-controlled mobile widths need to become the source of truth
+instead of passive measurements from rendered content.
+
+### 4. The shell is a two-row layout, not a simple panel stack
 
 The workspace layout is not just `sidebar | main | sidebar`.
 
@@ -80,7 +91,7 @@ It is a two-row grid with:
 Because of that, any library that expects a flat tree of direct `Panel` or
 `Pane` children will require more restructuring than a normal split-view page.
 
-### 4. We already have a local accessibility pattern for resize handles
+### 5. We already have a local accessibility pattern for resize handles
 
 `EditorChatDock` already ships a `role="separator"` handle with:
 
@@ -94,33 +105,41 @@ inventing a second interaction pattern from scratch.
 
 ## Requirements For The First Slice
 
-The desktop-only slice should:
+The first shipped slice should:
 
-- let users drag either visible sidebar edge
+- let users drag either visible sidebar edge on desktop
+- let users resize an open sidebar on mobile
 - preserve the existing open/close behavior
 - restore the last width when a sidebar is reopened
-- keep the main pane from collapsing into unusable width
+- keep the main pane visible and usable on both desktop and mobile
 - expose an accessible separator with keyboard support
-- avoid changing current mobile carousel behavior
-
-This slice does not need to solve mobile width persistence. That can stay a
-follow-up.
+- preserve the current mobile carousel and pane-swipe behavior outside the
+  dedicated resize handle
+- use distinct width values for desktop and mobile instead of one shared value
 
 ## Options
 
-### Option A. Custom desktop resize in the existing shell
+### Option A. Custom resize in the existing shell
 
 Implementation shape:
 
-- add desktop width state to `SidebarProvider`, for example:
-  - `leftDesktopWidthPx`
-  - `rightDesktopWidthPx`
-- keep mobile on the existing measured-width path for now
+- add explicit width state to `SidebarProvider`:
+  - desktop:
+    - `leftDesktopWidthPx`
+    - `rightDesktopWidthPx`
+  - mobile:
+    - `leftMobileWidthPx`
+    - `rightMobileWidthPx`
 - change desktop `WorkspaceSidebarShell` columns to use the per-side desktop
   width variables instead of the single shared width token
-- render desktop-only resize separators between:
+- drive mobile pane widths and snap anchors from the mobile width values rather
+  than passive content measurement alone
+- render desktop resize separators between:
   - left sidebar and main pane
   - main pane and right sidebar
+- render a mobile resize handle inside the currently open sidebar edge so resize
+  has its own touch target and the rest of the surface keeps the current
+  carousel pan behavior
 - reuse the same `EditorChatDock` separator pattern:
   - pointer capture for drag lifecycle
   - keyboard arrow resizing
@@ -132,17 +151,21 @@ Pros:
 - best fit for the current architecture
 - smallest DOM and CSS churn
 - no new dependency
-- preserves the existing mobile shell untouched
-- makes future desktop/mobile width separation straightforward
+- preserves the existing mobile carousel semantics while still enabling mobile
+  width control
+- keeps desktop and mobile sizing independent so one breakpoint does not force
+  awkward defaults onto the other
 
 Cons:
 
 - we own the pointer math and clamping logic
+- we need to define a clean mobile handle placement and gesture boundary
 - we need to add our own persistence later if we want it
 
 Why it fits Noter:
 
 - the current shell already owns the desktop grid columns
+- the current shell already owns the mobile pane width and snap math
 - the current provider already owns sidebar state
 - the repo already has an accessible resize-handle implementation to copy
 
@@ -169,14 +192,15 @@ Why it is not the best first slice:
   direct children
 - our current workspace shell is a two-row spanning grid, not a flat row of
   independent panels
-- we would either need a larger desktop refactor now or a second mobile layout
-  path later, because the current mobile carousel is not the same thing as a
-  desktop `PanelGroup`
+- while the library supports resizable handles well, our current mobile sidebar
+  interaction is a width-aware carousel rather than a standard `PanelGroup`
+- we would still need custom work to preserve the current mobile pan and snap
+  semantics even if desktop adopted the library
 
 Verdict:
 
 - best external library candidate
-- not the lowest-risk way to ship this exact usability fix
+- not the lowest-risk way to ship this exact cross-device usability fix
 
 ### Option C. `react-resplit`
 
@@ -245,17 +269,19 @@ for a narrow sidebar-width change.
 
 ## Recommendation
 
-Implement desktop sidebar resize directly in the current shared shell.
+Implement sidebar resize directly in the current shared shell for desktop and
+mobile.
 
 That means:
 
 1. Add width state to `SidebarProvider` and `SidebarContext`.
-2. Keep width state separate per side on desktop.
-3. Keep current mobile pane behavior unchanged for now.
-4. Render a desktop `role="separator"` handle for each visible sidebar edge.
+2. Keep width state separate per side and per mode (`desktop` and `mobile`).
+3. Render a desktop `role="separator"` handle for each visible sidebar edge.
+4. Render a dedicated mobile resize handle inside the active sidebar edge.
 5. Mirror the `EditorChatDock` drag interaction model and reuse
    `ResizeGripLines`.
-6. Defer persistence until we decide the desktop/mobile storage contract.
+6. Drive mobile snap anchors from the explicit mobile width values.
+7. Decide separately whether those width values should be persisted.
 
 ## Suggested Implementation Notes
 
@@ -266,26 +292,18 @@ the current `--sidebar-width` token:
 
 - `leftDesktopWidthPx`
 - `rightDesktopWidthPx`
+- `leftMobileWidthPx`
+- `rightMobileWidthPx`
 
-If we later want persistence plus separate mobile widths, we should not try to
-reuse these same values for the mobile carousel. Mobile is a different product
-constraint because pane width also controls how much of the main view remains
-visible during drag.
+Mobile should not reuse the desktop values. Mobile sidebar width also controls
+how much of the main view remains visible during drag and where the carousel
+snaps, so the mobile widths should be first-class state immediately.
 
-The likely follow-up state shape is:
-
-- desktop:
-  - `leftDesktopWidthPx`
-  - `rightDesktopWidthPx`
-- mobile:
-  - `leftMobileWidthPx`
-  - `rightMobileWidthPx`
-
-For this slice, desktop-only state is enough.
+If we later persist widths, these four values should stay independent.
 
 ### Resize behavior
 
-The desktop handle should:
+The resize handles should:
 
 - clamp to a per-side minimum and maximum width
 - preserve a minimum main-pane width
@@ -296,6 +314,15 @@ The desktop handle should:
 - ideally support `Home` / `End` shortcuts to jump to min/max, since that lines
   up with the WAI splitter guidance
 
+Mobile-specific behavior:
+
+- the drag must start from a dedicated resize handle, not from any arbitrary
+  horizontal swipe in the sidebar
+- swiping outside that handle should keep the current pane-navigation behavior
+- the mobile handle should resize the currently active sidebar only
+- touch hit area should be generous enough that resize feels intentional rather
+  than finicky
+
 ### Visual design
 
 The shipped affordance can stay minimal:
@@ -304,6 +331,10 @@ The shipped affordance can stay minimal:
 - expanded hit area on hover/focus
 - existing `ResizeGripLines`
 - no new chrome when the sidebar is closed
+
+On mobile, the handle can sit inside the visible sidebar edge rather than
+outside the shell. That keeps the handle discoverable without stealing the whole
+carousel gesture surface.
 
 That matches the repo's additive-minimalism guidance and keeps the layout from
 feeling heavier.
