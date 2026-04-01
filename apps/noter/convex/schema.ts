@@ -777,6 +777,7 @@ export default defineSchema({
     ),
     userId: v.id("users"),
     state: v.string(),
+    returnToPath: v.optional(v.string()),
     codeVerifier: v.optional(v.string()),
     clientId: v.optional(v.string()),
     clientSecret: v.optional(v.string()),

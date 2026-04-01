@@ -1,18 +1,16 @@
-import {
-  GITHUB_OAUTH_POPUP_NAME,
-  GITHUB_OAUTH_RETURN_TO_STORAGE_KEY,
-} from "../../shared/githubOAuth";
+import { GITHUB_OAUTH_POPUP_NAME } from "../../shared/githubOAuth";
 
 type BrowserLocation = Pick<Location, "hash" | "pathname" | "search">;
 
-export function rememberGithubOAuthReturnTo(location: BrowserLocation) {
-  const returnToPath = `${location.pathname}${location.search}${location.hash}`;
-  window.sessionStorage.setItem(
-    GITHUB_OAUTH_RETURN_TO_STORAGE_KEY,
-    returnToPath,
-  );
+export function buildGithubOAuthReturnToPath(location: BrowserLocation) {
+  return `${location.pathname}${location.search}${location.hash}`;
 }
 
+/**
+ * Open the GitHub OAuth popup without keeping a live opener reference.
+ * Clearing the opener before leaving our origin prevents the third-party OAuth
+ * page from navigating the parent tab.
+ */
 export function openGithubOAuthPopup(oauthUrl: string) {
   const popup = window.open(
     "",
@@ -23,8 +21,6 @@ export function openGithubOAuthPopup(oauthUrl: string) {
     return null;
   }
 
-  // Clear the popup opener before leaving our origin so the third-party OAuth
-  // page cannot navigate the parent tab.
   popup.opener = null;
   popup.location.assign(oauthUrl);
   return popup;

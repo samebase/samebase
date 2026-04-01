@@ -7,7 +7,7 @@ import type { Id } from "./_generated/dataModel";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
 import {
   GITHUB_OAUTH_POPUP_NAME,
-  GITHUB_OAUTH_RETURN_TO_STORAGE_KEY,
+  isSafeGithubOAuthReturnToPath,
 } from "../shared/githubOAuth";
 
 const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
@@ -39,16 +39,23 @@ async function fetchWithTimeout(
 async function buildGithubOAuthUrl(
   ctx: OAuthContext,
   userId: Id<"users">,
+  returnToPath?: string,
 ): Promise<string> {
   const clientId = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
   const redirectUri = readRequiredEnv("PROVIDER_GITHUB_OAUTH_REDIRECT_URL");
   const state = randomToken();
+  const normalizedReturnToPath =
+    typeof returnToPath === "string" &&
+    isSafeGithubOAuthReturnToPath(returnToPath)
+      ? returnToPath
+      : undefined;
 
   const now = Date.now();
   await ctx.runMutation(internal.oauthState.createOauthState, {
     provider: "github",
     userId,
     state,
+    returnToPath: normalizedReturnToPath,
     createdAt: now,
     expiresAt: now + OAUTH_STATE_TTL_MS,
   });
@@ -153,14 +160,16 @@ export const storeGithubOauthConnection = internalMutation({
 });
 
 export const getGithubOAuthUrl = mutation({
-  args: {},
+  args: {
+    returnToPath: v.optional(v.string()),
+  },
   returns: v.string(),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new Error("User not authenticated");
     }
-    return await buildGithubOAuthUrl(ctx, userId);
+    return await buildGithubOAuthUrl(ctx, userId, args.returnToPath);
   },
 });
 
@@ -231,16 +240,21 @@ export const finishGithubOAuth = httpAction(async (ctx, request) => {
     throw error;
   }
 
-  const returnTo =
+  const defaultReturnTo =
     process.env.SITE_URL ??
     process.env.CONVEX_SITE_URL ??
     new URL(request.url).origin;
   const baseOrigin = new URL(request.url).origin;
-  const returnUrl = new URL(returnTo, baseOrigin).toString();
+  const fallbackReturnUrl = new URL(defaultReturnTo, baseOrigin).toString();
+  const returnUrl =
+    typeof oauthState.returnToPath === "string" &&
+    isSafeGithubOAuthReturnToPath(oauthState.returnToPath)
+      ? new URL(oauthState.returnToPath, fallbackReturnUrl).toString()
+      : fallbackReturnUrl;
 
-  // GitHub popups now clear `window.opener` before leaving our origin, so the
-  // callback restores full-page redirects from sessionStorage and lets popup
-  // windows close themselves based on their retained `window.name`.
+  // GitHub popups clear `window.opener` before leaving our origin, so the
+  // callback relies on the server-stored return path and lets popup windows
+  // close themselves based on their retained `window.name`.
   const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -253,28 +267,6 @@ export const finishGithubOAuth = httpAction(async (ctx, request) => {
       (function () {
         const returnTo = ${JSON.stringify(returnUrl)};
         const popupName = ${JSON.stringify(GITHUB_OAUTH_POPUP_NAME)};
-        const returnToStorageKey = ${JSON.stringify(
-          GITHUB_OAUTH_RETURN_TO_STORAGE_KEY,
-        )};
-        const resolveReturnTo = function () {
-          try {
-            const storedReturnTo =
-              window.sessionStorage.getItem(returnToStorageKey);
-            if (storedReturnTo === null) {
-              return returnTo;
-            }
-            window.sessionStorage.removeItem(returnToStorageKey);
-            if (
-              storedReturnTo.startsWith("/") &&
-              !storedReturnTo.startsWith("//")
-            ) {
-              return storedReturnTo;
-            }
-          } catch (error) {
-            // Fall back to the configured site URL.
-          }
-          return returnTo;
-        };
 
         if (window.name === popupName) {
           window.close();
@@ -284,7 +276,7 @@ export const finishGithubOAuth = httpAction(async (ctx, request) => {
           return;
         }
 
-        window.location.replace(resolveReturnTo());
+        window.location.replace(returnTo);
       })();
     </script>
   </body>

@@ -23,6 +23,8 @@ export interface MonacoEditorSurfaceProps {
   vaultKey: string;
 }
 
+const MIN_EDITOR_HEIGHT_PX = 400;
+
 /**
  * Shared Monaco wrapper that owns mobile pane drag and Monaco's mobile-specific
  * layout options. The collaborative editor uses it directly, and visual
@@ -46,7 +48,7 @@ export function MonacoEditorSurface({
   const isMobileViewport = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const mobilePaneDrag = useProsemarkMobilePaneDrag(true, containerRef);
-  const [editorHeightPx, setEditorHeightPx] = useState(400);
+  const [editorHeightPx, setEditorHeightPx] = useState(MIN_EDITOR_HEIGHT_PX);
   const showLineNumbers =
     !disableLineNumbers && (!isMobileViewport || showMobileLineNumbers);
   const showFolding = !disableFolding && !isMobileViewport;
@@ -63,7 +65,7 @@ export function MonacoEditorSurface({
      */
     const updateEditorHeight = () => {
       const nextHeightPx = Math.max(
-        400,
+        MIN_EDITOR_HEIGHT_PX,
         Math.round(containerNode.getBoundingClientRect().height),
       );
       setEditorHeightPx((currentHeightPx) =>
@@ -97,7 +99,7 @@ export function MonacoEditorSurface({
       translate="no"
       style={{
         height: "100%",
-        minHeight: "400px",
+        minHeight: MIN_EDITOR_HEIGHT_PX,
         touchAction: mobilePaneDrag.touchAction,
       }}
       {...mobilePaneDrag.containerProps}

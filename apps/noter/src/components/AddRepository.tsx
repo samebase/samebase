@@ -15,8 +15,8 @@ import { linkStyle } from "./styles";
 import type { FunctionReturnType } from "convex/server";
 import { isInIframe } from "@/authClient";
 import {
+  buildGithubOAuthReturnToPath,
   openGithubOAuthPopup,
-  rememberGithubOAuthReturnTo,
 } from "@/lib/githubOAuthFlow";
 import {
   findRepositorySearchMatch,
@@ -231,8 +231,9 @@ export function AddRepository() {
               void (async () => {
                 setConnectError(null);
                 try {
-                  rememberGithubOAuthReturnTo(window.location);
-                  const oauthUrl = await getGithubOAuthUrl();
+                  const oauthUrl = await getGithubOAuthUrl({
+                    returnToPath: buildGithubOAuthReturnToPath(window.location),
+                  });
                   if (isInIframe()) {
                     const popup = openGithubOAuthPopup(oauthUrl);
                     if (popup) {

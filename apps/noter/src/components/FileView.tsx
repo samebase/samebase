@@ -92,8 +92,8 @@ import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
 import { isInIframe } from "@/authClient";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 import {
+  buildGithubOAuthReturnToPath,
   openGithubOAuthPopup,
-  rememberGithubOAuthReturnTo,
 } from "@/lib/githubOAuthFlow";
 import {
   buildStagingPreviewRefreshKey,
@@ -356,7 +356,7 @@ function FileViewWrapper() {
     branch: routeBranch,
   });
   const githubConnection = useLiveQuery(api.users.getGithubConnectionStatus);
-  const didResolveGithubConnection = githubConnection !== undefined;
+  const isGithubConnectionResolved = githubConnection !== undefined;
   const branch = routeBranch ?? vault?.resolvedBranch;
   const storageBackedSelectionKey = `${branch ?? "unknown"}:${selectedFile}`;
   const vaultId = vault?._id;
@@ -395,6 +395,7 @@ function FileViewWrapper() {
   const [isConnectingRepository, setIsConnectingRepository] = useState(false);
   const [isConnectingGithub, setIsConnectingGithub] = useState(false);
   const githubConnected = githubConnection?.connected === true;
+  const githubConnectPopupRef = useRef<Window | null>(null);
 
   /**
    * Clear `storageBackedSelection` whenever we switch to a different vault or
@@ -413,6 +414,36 @@ function FileViewWrapper() {
     }
   }, [vault]);
 
+  useEffect(() => {
+    if (githubConnected) {
+      githubConnectPopupRef.current = null;
+      setIsConnectingGithub(false);
+      return;
+    }
+
+    if (!isConnectingGithub) {
+      githubConnectPopupRef.current = null;
+      return;
+    }
+
+    const popup = githubConnectPopupRef.current;
+    if (!(popup instanceof Window)) {
+      return;
+    }
+
+    const popupClosePoll = window.setInterval(() => {
+      if (!popup.closed) {
+        return;
+      }
+      githubConnectPopupRef.current = null;
+      setIsConnectingGithub(false);
+    }, 500);
+
+    return () => {
+      window.clearInterval(popupClosePoll);
+    };
+  }, [githubConnected, isConnectingGithub]);
+
   const handleConnectGithub = useCallback(() => {
     if (isConnectingGithub) {
       return;
@@ -421,20 +452,22 @@ function FileViewWrapper() {
     void (async () => {
       setConnectRouteError(null);
       setIsConnectingGithub(true);
-      rememberGithubOAuthReturnTo(location);
 
       try {
-        const oauthUrl = await getGithubOAuthUrl();
+        const oauthUrl = await getGithubOAuthUrl({
+          returnToPath: buildGithubOAuthReturnToPath(location),
+        });
         if (isInIframe()) {
           const popup = openGithubOAuthPopup(oauthUrl);
           if (popup) {
-            setIsConnectingGithub(false);
+            githubConnectPopupRef.current = popup;
             return;
           }
         }
 
         window.location.assign(oauthUrl);
       } catch (connectGithubError) {
+        githubConnectPopupRef.current = null;
         setConnectRouteError(
           connectGithubError instanceof Error
             ? connectGithubError.message
@@ -461,6 +494,7 @@ function FileViewWrapper() {
         const [canonicalOwner, canonicalRepoName] =
           connectResult.repositoryFullName.split("/");
         if (!canonicalOwner || !canonicalRepoName) {
+          setConnectRouteError("Invalid repository name received from server");
           return;
         }
 
@@ -788,7 +822,7 @@ function FileViewWrapper() {
     repoName,
   ]);
 
-  if (vault === null && repositoryFullName && didResolveGithubConnection) {
+  if (vault === null && repositoryFullName && isGithubConnectionResolved) {
     return (
       <RepositoryRouteConnectState
         repositoryFullName={repositoryFullName}
