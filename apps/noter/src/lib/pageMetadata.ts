@@ -3,6 +3,7 @@ import {
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "./codexAppServerResearch";
 import {
+  MACHINES_ROUTE,
   MACHINE_CONNECT_ROUTE,
   MACHINE_LIVE_CONTROL_ROUTE,
   readMachineLiveControlPath,
@@ -90,6 +91,15 @@ export const MACHINE_CONNECT_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const MACHINES_PAGE_METADATA: PageMetadata = {
+  title: "Machines | noter",
+  description:
+    "Browse connected machines and continue machine-local Codex threads from noter.",
+  canonicalPath: MACHINES_ROUTE,
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
 export const MACHINE_LIVE_CONTROL_PAGE_METADATA: PageMetadata = {
   title: "Machine Live Control | noter",
   description:
@@ -140,6 +150,10 @@ export function resolveAppPageTitle(pathname: string): string {
     return MACHINE_CONNECT_PAGE_METADATA.title;
   }
 
+  if (pathname === MACHINES_ROUTE) {
+    return MACHINES_PAGE_METADATA.title;
+  }
+
   if (readMachineLiveControlPath(pathname)) {
     return MACHINE_LIVE_CONTROL_PAGE_METADATA.title;
   }
@@ -177,6 +191,10 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === MACHINE_CONNECT_ROUTE) {
     return MACHINE_CONNECT_PAGE_METADATA;
+  }
+
+  if (args.pathname === MACHINES_ROUTE) {
+    return MACHINES_PAGE_METADATA;
   }
 
   if (readMachineLiveControlPath(args.pathname)) {
@@ -220,6 +238,10 @@ export function resolveBootstrapPageMetadata(pathname: string): PageMetadata {
 
   if (pathname === MACHINE_CONNECT_ROUTE) {
     return MACHINE_CONNECT_PAGE_METADATA;
+  }
+
+  if (pathname === MACHINES_ROUTE) {
+    return MACHINES_PAGE_METADATA;
   }
 
   if (readMachineLiveControlPath(pathname)) {

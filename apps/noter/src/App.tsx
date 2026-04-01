@@ -7,6 +7,7 @@ import {
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "@/lib/codexAppServerResearch";
 import {
+  MACHINES_ROUTE,
   MACHINE_CONNECT_ROUTE,
   MACHINE_LIVE_CONTROL_ROUTE,
 } from "@/lib/noterSync";
@@ -101,6 +102,10 @@ const CodexAppServerThreadBrowserResearchPage = lazy(async () => {
 const MachineConnectPage = lazy(async () => {
   const module = await import("@/components/MachineConnectPage");
   return { default: module.MachineConnectPage };
+});
+const MachinesWorkspacePage = lazy(async () => {
+  const module = await import("@/components/MachinesWorkspacePage");
+  return { default: module.MachinesWorkspacePage };
 });
 const MachineLiveControlPage = lazy(async () => {
   const module = await import("@/components/MachineLiveControlPage");
@@ -539,6 +544,10 @@ export default function App() {
               <Suspense fallback={null}>
                 <Routes>
                   <Route path="/" element={<VaultDashboard />} />
+                  <Route
+                    path={MACHINES_ROUTE}
+                    element={<MachinesWorkspacePage />}
+                  />
                   <Route
                     path={MACHINE_CONNECT_ROUTE}
                     element={<MachineConnectPage />}

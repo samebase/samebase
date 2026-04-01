@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildMachinesWorkspacePath,
   buildMachineLiveControlPath,
   buildDirectNoterSyncConnectCommand,
   buildDirectNoterSyncRunCommand,
@@ -22,6 +23,16 @@ describe("noterSync", () => {
     expect(buildMachineLiveControlPath("machine:123")).toBe(
       "/machines/machine%3A123/live",
     );
+  });
+
+  it("builds the machines workspace route", () => {
+    expect(
+      buildMachinesWorkspacePath({
+        machineId: "machine:123",
+        threadId: "thread-123",
+      }),
+    ).toBe("/machines?machineId=machine%3A123&threadId=thread-123");
+    expect(buildMachinesWorkspacePath()).toBe("/machines");
   });
 
   it("builds the published package command", () => {
