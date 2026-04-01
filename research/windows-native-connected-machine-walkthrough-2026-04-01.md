@@ -41,6 +41,14 @@ The main verified gaps during this run were:
    `npx @convex-dev/auth --skip-git-check --allow-dirty-git-state` directly
    succeeded and set `JWT_PRIVATE_KEY` and `JWKS`.
 
+The local Codex CLI on this machine was installed through Volta. That ended up
+being an important part of the Windows support work because the top-level
+`codex.cmd` wrapper shape is different from the npm-global shim and needs
+explicit resolution before Noter can launch one-off Codex commands safely. Noter
+also has to resolve that Volta-managed shim from the caller workspace so
+project-scoped Volta setups do not accidentally launch a different Codex binary
+than the later runtime command would use.
+
 ## Working Local-Only Bootstrap Sequence
 
 From the repo root:

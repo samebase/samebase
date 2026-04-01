@@ -108,6 +108,10 @@ Notes:
 - In Windows PowerShell, direct hosted-file `noter.js` commands should use
   `curl.exe`, not the built-in `curl` alias. This matches the Windows-safe
   command work merged in PR `#395`.
+- Windows `noter.js` resolution also supports Codex installed through Volta, as
+  long as the `codex` and `volta` commands are available on `PATH`. Noter
+  resolves that shim from the current workspace so project-scoped Volta setups
+  launch the same Codex binary that the later runtime command would use.
 - On a brand-new machine, the first `pnpm dev` run may pause for an interactive
   Convex CLI login/bootstrap prompt before `apps/noter/.env.local` exists.
 - For local connected-machine testing with `/noter.js` on a fresh Windows

@@ -2,6 +2,7 @@ import { createServer } from 'node:http'
 import { spawnSync } from 'node:child_process'
 import {
   chmodSync,
+  copyFileSync,
   mkdirSync,
   realpathSync,
   readFileSync,
@@ -390,6 +391,124 @@ describe('@noter-md/sync', () => {
         delete process.env.PATHEXT
       } else {
         process.env.PATHEXT = originalPathext
+      }
+      rmSync(tempRoot, { force: true, recursive: true })
+    }
+  })
+
+  it('resolves Windows Volta-managed Codex shims from the caller workspace cwd', () => {
+    const tempRoot = path.join(tmpdir(), `noter-codex-volta-${Date.now()}`)
+    const binDirectory = path.join(tempRoot, 'bin')
+    const topLevelCodexShimPath = path.join(binDirectory, 'codex.cmd')
+    const voltaPath = path.join(binDirectory, 'volta.exe')
+    const voltaHookPath = path.join(binDirectory, 'volta-hook.cjs')
+    const workspaceA = path.join(tempRoot, 'workspace-a')
+    const workspaceB = path.join(tempRoot, 'workspace-b')
+    const packageShimBaseName = 'codex-package'
+    const packageShimPathA = path.join(workspaceA, `${packageShimBaseName}.cmd`)
+    const packageShimPathB = path.join(workspaceB, `${packageShimBaseName}.cmd`)
+    const scriptPathA = path.join(
+      workspaceA,
+      'node_modules',
+      '@openai',
+      'codex',
+      'dist',
+      'cli.js',
+    )
+    const scriptPathB = path.join(
+      workspaceB,
+      'node_modules',
+      '@openai',
+      'codex',
+      'dist',
+      'cli.js',
+    )
+    const nodeCommand = realpathSync(process.execPath)
+    const nodeDirectory = path.dirname(nodeCommand)
+    const originalPath = process.env.PATH
+    const originalWindowsPath = process.env.Path
+    const originalPathext = process.env.PATHEXT
+    const originalNodeOptions = process.env.NODE_OPTIONS
+
+    mkdirSync(binDirectory, { recursive: true })
+    mkdirSync(path.dirname(scriptPathA), { recursive: true })
+    mkdirSync(path.dirname(scriptPathB), { recursive: true })
+    writeFileSync(
+      topLevelCodexShimPath,
+      '@echo off\r\nvolta run %~n0 %*\r\n',
+      'utf8',
+    )
+    copyFileSync(process.execPath, voltaPath)
+    writeFileSync(
+      voltaHookPath,
+      [
+        'const cwd = process.cwd()',
+        "const command = require('node:path').basename(process.argv[1] ?? '')",
+        "if (command !== 'which' || process.argv[2] !== 'codex') process.exit(1)",
+        `if (cwd === ${JSON.stringify(workspaceA)}) process.stdout.write(${JSON.stringify(path.join(workspaceA, packageShimBaseName))})`,
+        `if (cwd === ${JSON.stringify(workspaceB)}) process.stdout.write(${JSON.stringify(path.join(workspaceB, packageShimBaseName))})`,
+        'process.stdout.write("\\n")',
+        'process.exit(0)',
+      ].join('\n'),
+      'utf8',
+    )
+    process.env.NODE_OPTIONS = [
+      originalNodeOptions,
+      `--require=${voltaHookPath}`,
+    ]
+      .filter(value => value !== undefined && value.length > 0)
+      .join(' ')
+    writeFileSync(
+      packageShimPathA,
+      `@ECHO off\r\n"%_prog%" "%dp0%\\node_modules\\@openai\\codex\\dist\\cli.js" %*\r\n`,
+      'utf8',
+    )
+    writeFileSync(
+      packageShimPathB,
+      `@ECHO off\r\n"%_prog%" "%dp0%\\node_modules\\@openai\\codex\\dist\\cli.js" %*\r\n`,
+      'utf8',
+    )
+    writeFileSync(scriptPathA, 'console.log("codex-a")\n', 'utf8')
+    writeFileSync(scriptPathB, 'console.log("codex-b")\n', 'utf8')
+    process.env.PATH = `${binDirectory};${nodeDirectory}`
+    process.env.Path = `${binDirectory};${nodeDirectory}`
+    process.env.PATHEXT = '.CMD;.EXE'
+
+    try {
+      expect(
+        buildCodexSpawnInvocation(['--version'], 'win32', { cwd: workspaceA }),
+      ).toEqual({
+        args: [realpathSync(scriptPathA), '--version'],
+        command: nodeCommand,
+      })
+      expect(
+        buildCodexRuntimeSpawnInvocation(['--version'], 'win32', {
+          cwd: workspaceB,
+        }),
+      ).toEqual({
+        args: [realpathSync(scriptPathB), '--version'],
+        command: nodeCommand,
+      })
+    } finally {
+      if (originalPath === undefined) {
+        delete process.env.PATH
+      } else {
+        process.env.PATH = originalPath
+      }
+      if (originalWindowsPath === undefined) {
+        delete process.env.Path
+      } else {
+        process.env.Path = originalWindowsPath
+      }
+      if (originalPathext === undefined) {
+        delete process.env.PATHEXT
+      } else {
+        process.env.PATHEXT = originalPathext
+      }
+      if (originalNodeOptions === undefined) {
+        delete process.env.NODE_OPTIONS
+      } else {
+        process.env.NODE_OPTIONS = originalNodeOptions
       }
       rmSync(tempRoot, { force: true, recursive: true })
     }

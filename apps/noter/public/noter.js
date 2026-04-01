@@ -360,9 +360,10 @@ function normalizeRuntimePlatform(currentPlatform = process.platform) {
 export function buildCodexSpawnInvocation(
   args,
   currentPlatform = process.platform,
+  options = {},
 ) {
   if (normalizeRuntimePlatform(currentPlatform) === 'win32') {
-    return buildCodexRuntimeSpawnInvocation(args, currentPlatform)
+    return buildCodexRuntimeSpawnInvocation(args, currentPlatform, options)
   }
 
   return {
@@ -441,7 +442,11 @@ function resolveWindowsCmdShimScriptPath(shimPath, shimTarget) {
  * which package-local command it would execute and then resolve that package's
  * npm-style `.cmd` shim the same way we do for global npm installs.
  */
-function resolveWindowsVoltaPackageShimPath(shimPath, env = process.env) {
+function resolveWindowsVoltaPackageShimPath(
+  shimPath,
+  env = process.env,
+  cwd = process.cwd(),
+) {
   const shimContents = readFileSync(shimPath, 'utf8').trim()
   if (!/^@echo off\r?\nvolta run %~n0 %\*$/i.test(shimContents)) {
     return null
@@ -453,6 +458,8 @@ function resolveWindowsVoltaPackageShimPath(shimPath, env = process.env) {
   }
 
   const result = spawnSync(voltaPath, ['which', path.parse(shimPath).name], {
+    cwd,
+    env,
     encoding: 'utf8',
     windowsHide: true,
   })
@@ -509,7 +516,11 @@ function resolveWindowsCmdShimNodeCommand(shimPath, env = process.env) {
   )
 }
 
-function resolveWindowsShimInvocation(shimPath, env = process.env) {
+function resolveWindowsShimInvocation(
+  shimPath,
+  env = process.env,
+  options = {},
+) {
   const directTarget = readWindowsCmdShimTarget(shimPath)
   if (directTarget !== null) {
     return {
@@ -518,7 +529,11 @@ function resolveWindowsShimInvocation(shimPath, env = process.env) {
     }
   }
 
-  const voltaPackageShimPath = resolveWindowsVoltaPackageShimPath(shimPath, env)
+  const voltaPackageShimPath = resolveWindowsVoltaPackageShimPath(
+    shimPath,
+    env,
+    options.cwd,
+  )
   if (voltaPackageShimPath === null) {
     return null
   }
@@ -545,6 +560,7 @@ function resolveWindowsShimInvocation(shimPath, env = process.env) {
 export function buildCodexRuntimeSpawnInvocation(
   args,
   currentPlatform = process.platform,
+  options = {},
 ) {
   if (normalizeRuntimePlatform(currentPlatform) !== 'win32') {
     return {
@@ -553,14 +569,19 @@ export function buildCodexRuntimeSpawnInvocation(
     }
   }
 
-  const codexPath = resolveWindowsPathCommand('codex')
+  const runtimeEnv = options.env ?? process.env
+  const codexPath = resolveWindowsPathCommand('codex', runtimeEnv)
   if (codexPath === null) {
     throw new Error(buildCodexCliMissingMessage())
   }
 
   const extension = path.extname(codexPath).toLowerCase()
   if (extension === '.cmd' || extension === '.bat') {
-    const shimInvocation = resolveWindowsShimInvocation(codexPath)
+    const shimInvocation = resolveWindowsShimInvocation(
+      codexPath,
+      runtimeEnv,
+      options,
+    )
     if (shimInvocation === null) {
       throw new Error(
         `${buildCodexCliMissingMessage()} The Windows CLI shim could not be resolved to its script entrypoint.`,
@@ -620,7 +641,11 @@ function runCodexCommand(args, options = {}) {
     let stdout = ''
     let stderr = ''
     let timedOut = false
-    const invocation = buildCodexSpawnInvocation(args)
+    const invocation = buildCodexSpawnInvocation(
+      args,
+      process.platform,
+      options,
+    )
     const timeoutMs =
       typeof options.timeout === 'number' && Number.isFinite(options.timeout)
         ? options.timeout
@@ -702,8 +727,12 @@ function runCodexCommand(args, options = {}) {
  * PATH. `codex --version` is the smallest safe command that gives us that
  * signal.
  */
-export function detectCodexVersion() {
-  const invocation = buildCodexSpawnInvocation(['--version'])
+export function detectCodexVersion(options = {}) {
+  const invocation = buildCodexSpawnInvocation(
+    ['--version'],
+    process.platform,
+    options,
+  )
   const result = spawnSync(
     invocation.command,
     invocation.args,
