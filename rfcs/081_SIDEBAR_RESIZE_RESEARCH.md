@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Draft MVP implemented on branch
+- Status: Implemented in [#404](https://github.com/noter-md/noter/pull/404)
 - Owner: Noter frontend
 - Last updated: 2026-04-01
 - Depends on:
@@ -40,7 +40,7 @@ workspace sidebars, `react-resizable-panels` is the strongest library option.
 For this specific slice, though, a custom shell-native implementation fits the
 code we already have better than introducing a new panel tree.
 
-## Implementation Update (This Branch)
+## Implementation Update
 
 This branch ships the MVP described above:
 
@@ -381,7 +381,7 @@ feeling heavier.
 
 ## Decision
 
-Proceed with Option A when implementation starts.
+This PR implements Option A in the existing shared shell.
 
 Keep `react-resizable-panels` as the fallback if we later decide we want a
 larger panel-system refactor that goes beyond the two workspace sidebars.

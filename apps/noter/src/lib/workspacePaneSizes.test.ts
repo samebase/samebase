@@ -89,6 +89,21 @@ describe("resolveWorkspaceDesktopSidebarWidths", () => {
     );
   });
 
+  it("preserves constrained desktop width preferences below the minimum", () => {
+    expect(
+      resolveWorkspaceDesktopSidebarWidths({
+        containerWidthPx: 450,
+        leftOpen: true,
+        leftWidthPx: 100,
+        rightOpen: true,
+        rightWidthPx: 30,
+      }),
+    ).toEqual({
+      leftWidthPx: 100,
+      rightWidthPx: 30,
+    });
+  });
+
   it("clamps a single desktop sidebar to the remaining shell width", () => {
     expect(
       resolveWorkspaceDesktopSidebarWidths({

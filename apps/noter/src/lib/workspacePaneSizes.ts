@@ -26,6 +26,27 @@ function clampNumber(value: number, minValue: number, maxValue: number) {
   return Math.max(minValue, Math.min(value, maxValue));
 }
 
+export function getWorkspaceDesktopSidebarPreferredWidthCapPx(
+  containerWidthPx: number,
+) {
+  return Math.max(
+    0,
+    Math.min(
+      MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+      containerWidthPx * MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_RATIO,
+    ),
+  );
+}
+
+export function getWorkspaceDesktopMaxCombinedSidebarWidthPx(
+  containerWidthPx: number,
+) {
+  return Math.max(
+    0,
+    containerWidthPx - MIN_WORKSPACE_DESKTOP_MAIN_PANE_WIDTH_PX,
+  );
+}
+
 export function getWorkspaceDesktopSidebarWidthRange(
   containerWidthPx: number,
   oppositeSidebarWidthPx: number,
@@ -33,11 +54,9 @@ export function getWorkspaceDesktopSidebarWidthRange(
   const maxWidthPx = Math.max(
     0,
     Math.min(
-      MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
-      containerWidthPx * MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_RATIO,
-      containerWidthPx -
-        oppositeSidebarWidthPx -
-        MIN_WORKSPACE_DESKTOP_MAIN_PANE_WIDTH_PX,
+      getWorkspaceDesktopSidebarPreferredWidthCapPx(containerWidthPx),
+      getWorkspaceDesktopMaxCombinedSidebarWidthPx(containerWidthPx) -
+        oppositeSidebarWidthPx,
     ),
   );
   const minWidthPx = Math.min(
@@ -130,29 +149,17 @@ export function resolveWorkspaceDesktopSidebarWidths(args: {
   rightOpen: boolean;
   rightWidthPx: number;
 }): ResolvedWorkspaceDesktopSidebarWidths {
-  const maxCombinedWidthPx = Math.max(
-    0,
-    args.containerWidthPx - MIN_WORKSPACE_DESKTOP_MAIN_PANE_WIDTH_PX,
+  const maxCombinedWidthPx = getWorkspaceDesktopMaxCombinedSidebarWidthPx(
+    args.containerWidthPx,
   );
-  const leftDesiredWidthPx = args.leftOpen
-    ? clampNumber(
-        args.leftWidthPx,
-        MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
-        Math.min(
-          MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
-          args.containerWidthPx * MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_RATIO,
-        ),
-      )
+  const preferredWidthCapPx = getWorkspaceDesktopSidebarPreferredWidthCapPx(
+    args.containerWidthPx,
+  );
+  const leftPreferredWidthPx = args.leftOpen
+    ? clampNumber(args.leftWidthPx, 0, preferredWidthCapPx)
     : 0;
-  const rightDesiredWidthPx = args.rightOpen
-    ? clampNumber(
-        args.rightWidthPx,
-        MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
-        Math.min(
-          MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
-          args.containerWidthPx * MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_RATIO,
-        ),
-      )
+  const rightPreferredWidthPx = args.rightOpen
+    ? clampNumber(args.rightWidthPx, 0, preferredWidthCapPx)
     : 0;
 
   if (!args.leftOpen && !args.rightOpen) {
@@ -165,7 +172,7 @@ export function resolveWorkspaceDesktopSidebarWidths(args: {
   if (args.leftOpen && !args.rightOpen) {
     return {
       leftWidthPx: clampWorkspaceDesktopSidebarWidthPx(
-        leftDesiredWidthPx,
+        leftPreferredWidthPx,
         args.containerWidthPx,
         0,
       ),
@@ -177,7 +184,7 @@ export function resolveWorkspaceDesktopSidebarWidths(args: {
     return {
       leftWidthPx: 0,
       rightWidthPx: clampWorkspaceDesktopSidebarWidthPx(
-        rightDesiredWidthPx,
+        rightPreferredWidthPx,
         args.containerWidthPx,
         0,
       ),
@@ -185,12 +192,16 @@ export function resolveWorkspaceDesktopSidebarWidths(args: {
   }
 
   if (maxCombinedWidthPx < MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX * 2) {
-    const totalDesiredWidthPx = Math.max(
-      1,
-      leftDesiredWidthPx + rightDesiredWidthPx,
-    );
+    const totalDesiredWidthPx = leftPreferredWidthPx + rightPreferredWidthPx;
+    if (totalDesiredWidthPx <= 0) {
+      return roundResolvedDesktopWidths(
+        maxCombinedWidthPx / 2,
+        maxCombinedWidthPx / 2,
+        maxCombinedWidthPx,
+      );
+    }
     const weightedLeftWidthPx =
-      (maxCombinedWidthPx * leftDesiredWidthPx) / totalDesiredWidthPx;
+      (maxCombinedWidthPx * leftPreferredWidthPx) / totalDesiredWidthPx;
     return roundResolvedDesktopWidths(
       weightedLeftWidthPx,
       maxCombinedWidthPx - weightedLeftWidthPx,
@@ -198,8 +209,16 @@ export function resolveWorkspaceDesktopSidebarWidths(args: {
     );
   }
 
-  let resolvedLeftWidthPx = leftDesiredWidthPx;
-  let resolvedRightWidthPx = rightDesiredWidthPx;
+  let resolvedLeftWidthPx = clampNumber(
+    leftPreferredWidthPx,
+    MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+    preferredWidthCapPx,
+  );
+  let resolvedRightWidthPx = clampNumber(
+    rightPreferredWidthPx,
+    MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+    preferredWidthCapPx,
+  );
   let overflowPx =
     resolvedLeftWidthPx + resolvedRightWidthPx - maxCombinedWidthPx;
 

@@ -40,6 +40,8 @@ type WorkspaceSidebarResizeHandleProps = {
   dataTestId: string;
   maxWidthPx: number;
   minWidthPx: number;
+  onBlur?: () => void;
+  onFocus?: () => void;
   onResizeEnd?: () => void;
   onResizeStart?: () => void;
   onWidthChange: (widthPx: number) => void;
@@ -56,6 +58,8 @@ export function WorkspaceSidebarResizeHandle({
   dataTestId,
   maxWidthPx,
   minWidthPx,
+  onBlur,
+  onFocus,
   onResizeEnd,
   onResizeStart,
   onWidthChange,
@@ -188,6 +192,8 @@ export function WorkspaceSidebarResizeHandle({
         isResizing && "bg-accent/50",
       )}
       style={{ left: `${positionPx}px` }}
+      onBlur={onBlur}
+      onFocus={onFocus}
       onKeyDown={handleKeyDown}
       onLostPointerCapture={stopResizing}
       onPointerCancel={handlePointerEnd}

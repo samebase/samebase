@@ -19,6 +19,7 @@ import {
 import {
   clampWorkspaceDesktopSidebarWidthPx,
   clampWorkspaceMobileSidebarWidthPx,
+  getWorkspaceDesktopMaxCombinedSidebarWidthPx,
   getWorkspaceDesktopSidebarWidthRange,
   getWorkspaceMobileSidebarWidthRange,
   MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
@@ -287,6 +288,9 @@ export function WorkspaceSidebarShell({
   const shellViewportWidthPx = useElementWidth(mobileScrollRef);
   const [activeResizeHandleSide, setActiveResizeHandleSide] =
     React.useState<SidebarSide | null>(null);
+  const [focusedResizeHandleSide, setFocusedResizeHandleSide] =
+    React.useState<SidebarSide | null>(null);
+  const isSidebarResizeActiveRef = React.useRef(false);
   const resolvedDesktopSidebarWidths =
     shellViewportWidthPx > 0
       ? resolveWorkspaceDesktopSidebarWidths({
@@ -326,6 +330,22 @@ export function WorkspaceSidebarShell({
   const rightSidebarWidthPx = isMobile
     ? resolvedRightMobileSidebarWidthPx
     : resolvedDesktopSidebarWidths.rightWidthPx;
+  const desktopMaxCombinedSidebarWidthPx =
+    shellViewportWidthPx > 0
+      ? getWorkspaceDesktopMaxCombinedSidebarWidthPx(shellViewportWidthPx)
+      : 0;
+  // When the shell cannot fit both desktop minima, dragging needs to rebalance
+  // one fixed combined sidebar budget instead of clamping each side
+  // independently.
+  const isDesktopSidebarSpaceOverconstrained =
+    !isMobile &&
+    shellViewportWidthPx > 0 &&
+    hasLeftSidebar &&
+    leftDesktopOpen &&
+    hasRightSidebar &&
+    rightDesktopOpen &&
+    desktopMaxCombinedSidebarWidthPx <
+      MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX * 2;
   const leftSidebarResizeRange = isMobile
     ? shellViewportWidthPx > 0
       ? getWorkspaceMobileSidebarWidthRange(shellViewportWidthPx)
@@ -333,17 +353,22 @@ export function WorkspaceSidebarShell({
           maxWidthPx: MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
           minWidthPx: MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
         }
-    : shellViewportWidthPx > 0
-      ? getWorkspaceDesktopSidebarWidthRange(
-          shellViewportWidthPx,
-          hasRightSidebar && rightDesktopOpen
-            ? resolvedDesktopSidebarWidths.rightWidthPx
-            : 0,
-        )
-      : {
-          maxWidthPx: MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
-          minWidthPx: MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
-        };
+    : isDesktopSidebarSpaceOverconstrained
+      ? {
+          maxWidthPx: desktopMaxCombinedSidebarWidthPx,
+          minWidthPx: 0,
+        }
+      : shellViewportWidthPx > 0
+        ? getWorkspaceDesktopSidebarWidthRange(
+            shellViewportWidthPx,
+            hasRightSidebar && rightDesktopOpen
+              ? resolvedDesktopSidebarWidths.rightWidthPx
+              : 0,
+          )
+        : {
+            maxWidthPx: MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+            minWidthPx: MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+          };
   const rightSidebarResizeRange = isMobile
     ? shellViewportWidthPx > 0
       ? getWorkspaceMobileSidebarWidthRange(shellViewportWidthPx)
@@ -351,17 +376,22 @@ export function WorkspaceSidebarShell({
           maxWidthPx: MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
           minWidthPx: MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
         }
-    : shellViewportWidthPx > 0
-      ? getWorkspaceDesktopSidebarWidthRange(
-          shellViewportWidthPx,
-          hasLeftSidebar && leftDesktopOpen
-            ? resolvedDesktopSidebarWidths.leftWidthPx
-            : 0,
-        )
-      : {
-          maxWidthPx: MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
-          minWidthPx: MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
-        };
+    : isDesktopSidebarSpaceOverconstrained
+      ? {
+          maxWidthPx: desktopMaxCombinedSidebarWidthPx,
+          minWidthPx: 0,
+        }
+      : shellViewportWidthPx > 0
+        ? getWorkspaceDesktopSidebarWidthRange(
+            shellViewportWidthPx,
+            hasLeftSidebar && leftDesktopOpen
+              ? resolvedDesktopSidebarWidths.leftWidthPx
+              : 0,
+          )
+        : {
+            maxWidthPx: MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+            minWidthPx: MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+          };
   const desktopMainPaneWidthPx =
     shellViewportWidthPx > 0
       ? Math.max(
@@ -375,6 +405,10 @@ export function WorkspaceSidebarShell({
   const leftResizeHandlePositionPx = leftSidebarWidthPx;
   const rightResizeHandlePositionPx = leftSidebarWidthPx + mainPaneWidthPx;
   const isSidebarResizeActive = activeResizeHandleSide !== null;
+  const isResizeHandleFocused = focusedResizeHandleSide !== null;
+  React.useEffect(() => {
+    isSidebarResizeActiveRef.current = isSidebarResizeActive;
+  }, [isSidebarResizeActive]);
   const showLeftResizeHandle =
     shellViewportWidthPx > 0 &&
     hasLeftSidebar &&
@@ -383,6 +417,18 @@ export function WorkspaceSidebarShell({
     shellViewportWidthPx > 0 &&
     hasRightSidebar &&
     (isMobile ? mobilePane === "right" : rightDesktopOpen);
+  React.useEffect(() => {
+    if (
+      (focusedResizeHandleSide === "left" && showLeftResizeHandle) ||
+      (focusedResizeHandleSide === "right" && showRightResizeHandle)
+    ) {
+      return;
+    }
+
+    if (focusedResizeHandleSide !== null) {
+      setFocusedResizeHandleSide(null);
+    }
+  }, [focusedResizeHandleSide, showLeftResizeHandle, showRightResizeHandle]);
   const hasInitializedMobileScrollRef = React.useRef(false);
   const skipNextMobileScrollSyncRef = React.useRef(false);
   const isDelegatedMobileDragActiveRef = React.useRef(false);
@@ -438,7 +484,10 @@ export function WorkspaceSidebarShell({
 
   const scheduleDelegatedMobileDragSnapRestore = React.useCallback(() => {
     clearPendingMobileDragSnapRestore();
-    if (!isDelegatedMobileDragActiveRef.current) {
+    if (
+      isSidebarResizeActiveRef.current ||
+      !isDelegatedMobileDragActiveRef.current
+    ) {
       return;
     }
     pendingMobileDragSnapRestoreFrameRef.current = window.requestAnimationFrame(
@@ -451,6 +500,7 @@ export function WorkspaceSidebarShell({
 
   const handleSidebarResizeStart = React.useCallback(
     (side: SidebarSide) => {
+      isSidebarResizeActiveRef.current = true;
       setActiveResizeHandleSide(side);
       if (!isMobile) {
         return;
@@ -467,6 +517,7 @@ export function WorkspaceSidebarShell({
   );
 
   const handleSidebarResizeEnd = React.useCallback(() => {
+    isSidebarResizeActiveRef.current = false;
     setActiveResizeHandleSide(null);
     if (!isMobile) {
       return;
@@ -489,6 +540,18 @@ export function WorkspaceSidebarShell({
         return;
       }
 
+      if (isDesktopSidebarSpaceOverconstrained) {
+        const clampedWidthPx = Math.max(
+          0,
+          Math.min(Math.round(nextWidthPx), desktopMaxCombinedSidebarWidthPx),
+        );
+        setLeftDesktopWidthPx(clampedWidthPx);
+        setRightDesktopWidthPx(
+          Math.max(0, desktopMaxCombinedSidebarWidthPx - clampedWidthPx),
+        );
+        return;
+      }
+
       const clampedWidthPx =
         shellViewportWidthPx > 0
           ? clampWorkspaceDesktopSidebarWidthPx(
@@ -502,12 +565,15 @@ export function WorkspaceSidebarShell({
       setLeftDesktopWidthPx(clampedWidthPx);
     },
     [
+      desktopMaxCombinedSidebarWidthPx,
       hasRightSidebar,
+      isDesktopSidebarSpaceOverconstrained,
       isMobile,
       resolvedDesktopSidebarWidths.rightWidthPx,
       rightDesktopOpen,
       setLeftDesktopWidthPx,
       setLeftMobileWidthPx,
+      setRightDesktopWidthPx,
       shellViewportWidthPx,
     ],
   );
@@ -526,6 +592,18 @@ export function WorkspaceSidebarShell({
         return;
       }
 
+      if (isDesktopSidebarSpaceOverconstrained) {
+        const clampedWidthPx = Math.max(
+          0,
+          Math.min(Math.round(nextWidthPx), desktopMaxCombinedSidebarWidthPx),
+        );
+        setRightDesktopWidthPx(clampedWidthPx);
+        setLeftDesktopWidthPx(
+          Math.max(0, desktopMaxCombinedSidebarWidthPx - clampedWidthPx),
+        );
+        return;
+      }
+
       const clampedWidthPx =
         shellViewportWidthPx > 0
           ? clampWorkspaceDesktopSidebarWidthPx(
@@ -539,10 +617,13 @@ export function WorkspaceSidebarShell({
       setRightDesktopWidthPx(clampedWidthPx);
     },
     [
+      desktopMaxCombinedSidebarWidthPx,
       hasLeftSidebar,
+      isDesktopSidebarSpaceOverconstrained,
       isMobile,
       leftDesktopOpen,
       resolvedDesktopSidebarWidths.leftWidthPx,
+      setLeftDesktopWidthPx,
       setRightDesktopWidthPx,
       setRightMobileWidthPx,
       shellViewportWidthPx,
@@ -661,6 +742,10 @@ export function WorkspaceSidebarShell({
    * current left/main/right anchor model instead of reproducing it locally.
    */
   const settleMobileShell = React.useCallback(() => {
+    if (isSidebarResizeActiveRef.current || focusedResizeHandleSide !== null) {
+      return;
+    }
+
     if (!isMobile || !hasAnySidebar || !isMobileLayoutMeasured) {
       scheduleDelegatedMobileDragSnapRestore();
       return;
@@ -735,6 +820,7 @@ export function WorkspaceSidebarShell({
     isMobileLayoutMeasured,
     leftSidebarWidthPx,
     mobilePane,
+    focusedResizeHandleSide,
     rightSidebarWidthPx,
     scheduleDelegatedMobileDragSnapRestore,
     setMobilePane,
@@ -830,7 +916,7 @@ export function WorkspaceSidebarShell({
   React.useLayoutEffect(() => {
     if (
       !isMobile ||
-      !isSidebarResizeActive ||
+      (!isSidebarResizeActive && !isResizeHandleFocused) ||
       !hasAnySidebar ||
       !isMobileLayoutMeasured
     ) {
@@ -855,6 +941,7 @@ export function WorkspaceSidebarShell({
     hasRightSidebar,
     isMobile,
     isMobileLayoutMeasured,
+    isResizeHandleFocused,
     isSidebarResizeActive,
     leftSidebarWidthPx,
     mobilePane,
@@ -960,13 +1047,20 @@ export function WorkspaceSidebarShell({
         event.target.closest("[data-sidebar-resize-handle]") !== null
       ) {
         activeMobileTouchGestureRef.current = null;
-        scheduleDelegatedMobileDragSnapRestore();
+        pendingMobileReleaseGestureRef.current = null;
+        pendingMobileGestureDebugRef.current = null;
+        setMobileGestureDebugSnapshot(null);
         return;
       }
 
       if (event.touches.length !== 1) {
         activeMobileTouchGestureRef.current = null;
-        scheduleDelegatedMobileDragSnapRestore();
+        pendingMobileReleaseGestureRef.current = null;
+        pendingMobileGestureDebugRef.current = null;
+        setMobileGestureDebugSnapshot(null);
+        if (!isSidebarResizeActiveRef.current) {
+          scheduleDelegatedMobileDragSnapRestore();
+        }
         return;
       }
 
@@ -1114,6 +1208,9 @@ export function WorkspaceSidebarShell({
     if (!isMobile || !hasAnySidebar || !isMobileLayoutMeasured) {
       return;
     }
+    if (isSidebarResizeActive || isResizeHandleFocused) {
+      return;
+    }
 
     const scrollNode = mobileScrollRef.current;
     if (!scrollNode) {
@@ -1157,6 +1254,8 @@ export function WorkspaceSidebarShell({
     hasRightSidebar,
     isMobile,
     isMobileLayoutMeasured,
+    isResizeHandleFocused,
+    isSidebarResizeActive,
     leftSidebarWidthPx,
     rightSidebarWidthPx,
     settleMobileShell,
@@ -1389,6 +1488,8 @@ export function WorkspaceSidebarShell({
               dataTestId="workspace-sidebar-left-resize-handle"
               maxWidthPx={leftSidebarResizeRange.maxWidthPx}
               minWidthPx={leftSidebarResizeRange.minWidthPx}
+              onBlur={() => setFocusedResizeHandleSide(null)}
+              onFocus={() => setFocusedResizeHandleSide("left")}
               onResizeEnd={handleSidebarResizeEnd}
               onResizeStart={() => handleSidebarResizeStart("left")}
               onWidthChange={handleLeftSidebarWidthChange}
@@ -1403,6 +1504,8 @@ export function WorkspaceSidebarShell({
               dataTestId="workspace-sidebar-right-resize-handle"
               maxWidthPx={rightSidebarResizeRange.maxWidthPx}
               minWidthPx={rightSidebarResizeRange.minWidthPx}
+              onBlur={() => setFocusedResizeHandleSide(null)}
+              onFocus={() => setFocusedResizeHandleSide("right")}
               onResizeEnd={handleSidebarResizeEnd}
               onResizeStart={() => handleSidebarResizeStart("right")}
               onWidthChange={handleRightSidebarWidthChange}
