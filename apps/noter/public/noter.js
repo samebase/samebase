@@ -897,6 +897,36 @@ function normalizeAllowedOrigins(origins) {
   )
 }
 
+function originIsLoopback(value) {
+  const origin = normalizeOrigin(value)
+  if (origin === null) {
+    return false
+  }
+
+  try {
+    const url = new URL(origin)
+    return (
+      url.hostname === 'localhost' ||
+      url.hostname === '127.0.0.1' ||
+      url.hostname === '[::1]'
+    )
+  } catch {
+    return false
+  }
+}
+
+function originMatchesAllowedOrigins(requestOrigin, allowedOrigins) {
+  if (allowedOrigins.includes(requestOrigin)) {
+    return true
+  }
+
+  if (!originIsLoopback(requestOrigin)) {
+    return false
+  }
+
+  return allowedOrigins.some(allowedOrigin => originIsLoopback(allowedOrigin))
+}
+
 function appendVaryHeader(res, value) {
   const existingHeader = res.getHeader('Vary')
   const existingValues =
@@ -1665,7 +1695,7 @@ function createMachineControlAuth(args = {}) {
           return
         }
 
-        if (!allowedOrigins.includes(requestOrigin)) {
+        if (!originMatchesAllowedOrigins(requestOrigin, allowedOrigins)) {
           throw createHttpError(
             403,
             `Origin is not allowed: ${requestOrigin}`,
@@ -1882,7 +1912,7 @@ function createMachineControlAuth(args = {}) {
         return
       }
 
-      if (!allowedOrigins.includes(requestOrigin)) {
+      if (!originMatchesAllowedOrigins(requestOrigin, allowedOrigins)) {
         throw createHttpError(
           403,
           `Origin is not allowed: ${requestOrigin}`,

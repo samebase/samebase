@@ -665,6 +665,125 @@ describe('@noter-md/sync', () => {
     }
   })
 
+  it('accepts loopback origins across localhost port changes', async () => {
+    const runtime = {
+      ensureRuntime: vi.fn().mockResolvedValue({
+        runtime: {
+          running: false,
+        },
+        success: true,
+      }),
+      listThreads: vi.fn(),
+    }
+    const router = createCodexLocalControlRouter({
+      machineControlAuth: {
+        allowedOrigins: ['http://localhost:5198'],
+        introspectionUrl:
+          'https://noter.md/connected-machines/control/introspect',
+        machineId: 'machine_123',
+      },
+      runtime,
+    })
+    const server = createServer((req, res) => {
+      void router(req, res)
+    })
+
+    await new Promise((resolve, reject) => {
+      server.once('error', reject)
+      server.listen(0, '127.0.0.1', () => {
+        server.removeListener('error', reject)
+        resolve(undefined)
+      })
+    })
+
+    try {
+      const address = server.address()
+      if (!address || typeof address === 'string') {
+        throw new Error('Expected a TCP server address')
+      }
+
+      const response = await fetch(`http://127.0.0.1:${address.port}/threads`, {
+        headers: {
+          Origin: 'http://localhost:5174',
+        },
+      })
+      expect(response.status).toBe(401)
+      expect(await response.json()).toEqual({
+        error: 'Missing bearer token.',
+      })
+      expect(response.headers.get('access-control-allow-origin')).toBe(
+        'http://localhost:5174',
+      )
+    } finally {
+      await new Promise((resolve, reject) => {
+        server.close(error => {
+          if (error) {
+            reject(error)
+            return
+          }
+
+          resolve(undefined)
+        })
+      })
+    }
+  })
+
+  it('keeps localhost-origin allowances scoped to loopback browsers', async () => {
+    const runtime = {
+      ensureRuntime: vi.fn(),
+      listThreads: vi.fn(),
+    }
+    const router = createCodexLocalControlRouter({
+      machineControlAuth: {
+        allowedOrigins: ['http://localhost:5198'],
+        introspectionUrl:
+          'https://noter.md/connected-machines/control/introspect',
+        machineId: 'machine_123',
+      },
+      runtime,
+    })
+    const server = createServer((req, res) => {
+      void router(req, res)
+    })
+
+    await new Promise((resolve, reject) => {
+      server.once('error', reject)
+      server.listen(0, '127.0.0.1', () => {
+        server.removeListener('error', reject)
+        resolve(undefined)
+      })
+    })
+
+    try {
+      const address = server.address()
+      if (!address || typeof address === 'string') {
+        throw new Error('Expected a TCP server address')
+      }
+
+      const response = await fetch(`http://127.0.0.1:${address.port}/threads`, {
+        headers: {
+          Origin: 'https://evil.example.com',
+        },
+      })
+      expect(response.status).toBe(403)
+      expect(await response.json()).toEqual({
+        error: 'Origin is not allowed: https://evil.example.com',
+      })
+      expect(response.headers.get('access-control-allow-origin')).toBeNull()
+    } finally {
+      await new Promise((resolve, reject) => {
+        server.close(error => {
+          if (error) {
+            reject(error)
+            return
+          }
+
+          resolve(undefined)
+        })
+      })
+    }
+  })
+
   it('returns redacted status without runtime metadata when auth is enabled', async () => {
     const runtime = {
       getStatus: vi.fn().mockResolvedValue({
