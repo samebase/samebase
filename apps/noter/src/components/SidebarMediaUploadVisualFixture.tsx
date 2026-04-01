@@ -11,14 +11,14 @@ const TREE_ITEMS = [
     type: "blob" as const,
   },
   {
+    path: "x.png",
+    originalPath: "x.png",
+    type: "blob" as const,
+  },
+  {
     path: "img",
     originalPath: "img",
     type: "tree" as const,
-  },
-  {
-    path: "img/x.png",
-    originalPath: "img/x.png",
-    type: "blob" as const,
   },
   {
     path: "img/y.png",
@@ -62,7 +62,7 @@ export function SidebarMediaUploadVisualFixture() {
       <div className="flex-1 overflow-auto">
         <FileTree
           items={TREE_ITEMS}
-          selectedFile="img/x.png"
+          selectedFile="x.png"
           folderExpansionStates={FOLDER_EXPANSION_STATES}
         />
       </div>
@@ -89,7 +89,7 @@ export function SidebarMediaUploadVisualFixture() {
         leftSidebarContent={sidebarContent}
         rightSidebarHeader={null}
         rightSidebarContent={<div className="min-h-0 flex-1 bg-background" />}
-        headerTitle="img"
+        headerTitle="x.png"
       >
         <div className="flex h-full min-h-0 flex-col p-6">
           <div className="mb-3">
@@ -107,9 +107,9 @@ export function SidebarMediaUploadVisualFixture() {
         isOpen={true}
         onClose={() => {}}
         fileName="x.png"
-        initialFolderPath="img"
+        initialFolderPath=""
         folders={TREE_ITEMS}
-        existingFilePaths={["img/x.png"]}
+        existingFilePaths={["x.png"]}
         onSubmit={() => {}}
       />
     </SidebarProvider>
