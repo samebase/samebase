@@ -4,12 +4,15 @@ import {
   getSettledMobilePane,
   MOBILE_CROSS_SWIPE_TRAVEL_THRESHOLD_RATIO,
   MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS,
+  MOBILE_SIDEBAR_RETURN_TRAVEL_THRESHOLD_RATIO,
 } from "@/lib/workspaceSidebar";
 
 const SIDEBAR_WIDTH_PX = 280;
 const MAIN_SCROLL_LEFT_PX = SIDEBAR_WIDTH_PX;
 const CROSS_SWIPE_REQUIRED_TRAVEL_PX =
   SIDEBAR_WIDTH_PX * MOBILE_CROSS_SWIPE_TRAVEL_THRESHOLD_RATIO;
+const SIDEBAR_RETURN_REQUIRED_TRAVEL_PX =
+  SIDEBAR_WIDTH_PX * MOBILE_SIDEBAR_RETURN_TRAVEL_THRESHOLD_RATIO;
 const JUST_BELOW_THRESHOLD_DELTA = 0.01;
 
 describe("getSettledMobilePane", () => {
@@ -59,6 +62,54 @@ describe("getSettledMobilePane", () => {
         totalFingerDeltaXPx: 250,
       }),
     ).toBe("left");
+  });
+
+  it("settles back to main before the midpoint once a sidebar return drag is deliberate", () => {
+    expect(
+      getSettledMobilePane(
+        "left",
+        SIDEBAR_RETURN_REQUIRED_TRAVEL_PX + JUST_BELOW_THRESHOLD_DELTA,
+        true,
+        SIDEBAR_WIDTH_PX,
+        true,
+        SIDEBAR_WIDTH_PX,
+      ),
+    ).toBe("main");
+    expect(
+      getSettledMobilePane(
+        "right",
+        SIDEBAR_WIDTH_PX * 2 -
+          (SIDEBAR_RETURN_REQUIRED_TRAVEL_PX + JUST_BELOW_THRESHOLD_DELTA),
+        true,
+        SIDEBAR_WIDTH_PX,
+        true,
+        SIDEBAR_WIDTH_PX,
+      ),
+    ).toBe("main");
+  });
+
+  it("keeps shallower sidebar return drags on the originating sidebar", () => {
+    expect(
+      getSettledMobilePane(
+        "left",
+        SIDEBAR_RETURN_REQUIRED_TRAVEL_PX - JUST_BELOW_THRESHOLD_DELTA,
+        true,
+        SIDEBAR_WIDTH_PX,
+        true,
+        SIDEBAR_WIDTH_PX,
+      ),
+    ).toBe("left");
+    expect(
+      getSettledMobilePane(
+        "right",
+        SIDEBAR_WIDTH_PX * 2 -
+          (SIDEBAR_RETURN_REQUIRED_TRAVEL_PX - JUST_BELOW_THRESHOLD_DELTA),
+        true,
+        SIDEBAR_WIDTH_PX,
+        true,
+        SIDEBAR_WIDTH_PX,
+      ),
+    ).toBe("right");
   });
 
   it("still uses nearest-pane settling when the swipe starts from main", () => {
