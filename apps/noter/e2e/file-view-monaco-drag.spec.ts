@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 test.use({
   hasTouch: true,
@@ -87,6 +87,18 @@ async function dragMonacoSurface(
   });
 }
 
+/**
+ * The shell updates `data-mobile-pane` before its smooth scroll finishes, so
+ * editor-originated swipes must wait for the left lane to finish snapping
+ * first. Linux CI otherwise starts the Monaco touch sequence mid-animation and
+ * can drop the follow-up move/end events entirely.
+ */
+async function waitForLeftPaneToSettle(shell: Locator) {
+  await expect
+    .poll(async () => shell.evaluate((element) => element.scrollLeft))
+    .toBeLessThanOrEqual(1);
+}
+
 async function expectPaneAfterMonacoDrag(args: {
   drag: () => Promise<void>;
   expectedPane: "left" | "main" | "right";
@@ -154,7 +166,7 @@ test("Monaco drag can open the right pane", async ({ page }) => {
 // CI flakes on this synthetic Monaco touch drag path; a separate thread is
 // working on the gesture reliability, so keep the rest of the mobile Monaco
 // coverage running for now.
-test.skip("Monaco drag can return from the open left pane to main", async ({
+test("Monaco drag can return from the open left pane to main", async ({
   page,
 }) => {
   await gotoFixture(page, { swipeDebug: true });
@@ -167,6 +179,7 @@ test.skip("Monaco drag can return from the open left pane to main", async ({
     .getByRole("button", { name: "Toggle Left Sidebar" })
     .press("Enter");
   await expect(shell).toHaveAttribute("data-mobile-pane", "left");
+  await waitForLeftPaneToSettle(shell);
   await expect(overlay).toBeVisible();
   await expect(leftSidebarOnlyItem).toBeInViewport();
 
