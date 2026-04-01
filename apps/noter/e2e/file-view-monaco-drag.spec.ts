@@ -99,6 +99,11 @@ async function waitForLeftPaneToSettle(shell: Locator) {
     .toBeLessThanOrEqual(1);
 }
 
+/**
+ * `expectPaneAfterMonacoDrag` retries once from a fresh page when `rearm` is
+ * provided because Linux CI can drop Monaco-owned move/end samples and leave
+ * the shell in a stale `capturing` state from the first swipe attempt.
+ */
 async function expectPaneAfterMonacoDrag(args: {
   drag: () => Promise<void>;
   expectedPane: "left" | "main" | "right";
@@ -113,9 +118,6 @@ async function expectPaneAfterMonacoDrag(args: {
       timeout: 1000,
     });
   } catch {
-    // When CI drops Monaco-owned move/end samples, the shell can stay stuck in
-    // a stale "capturing" gesture state. Re-arm from a fresh page before the
-    // single retry so the second swipe does not inherit that broken state.
     if (args.rearm) {
       await args.rearm();
     }
@@ -195,7 +197,7 @@ test("Monaco drag can return from the open left pane to main", async ({
   await expectPaneAfterMonacoDrag({
     drag: () =>
       dragMonacoSurface(page, {
-        deltaX: -132,
+        deltaX: -300,
         moveOffsetsX: [-60, -140, -220, -300],
         startX: "right-edge",
       }),
