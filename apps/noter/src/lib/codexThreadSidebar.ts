@@ -52,7 +52,7 @@ function readProjectLabel(thread: CodexAppServerThread): string {
   }
 
   const pathParts = thread.project.rootCwd
-    .split("/")
+    .split(/[\\/]+/)
     .filter((part) => part.length > 0);
   return pathParts.at(-1) ?? thread.project.rootCwd;
 }

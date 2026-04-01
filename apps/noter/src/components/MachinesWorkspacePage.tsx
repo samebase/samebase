@@ -77,6 +77,23 @@ function readMachineStatusReason(machine: ConnectedMachineView): string | null {
   return null;
 }
 
+function readPreferredMachineId(
+  machines: ConnectedMachineView[],
+): string | null {
+  const readyMachine = machines.find(
+    (machine) => readMachineStatusReason(machine) === null,
+  );
+  if (readyMachine) {
+    return readyMachine.machineId;
+  }
+
+  if (machines.length === 0) {
+    return null;
+  }
+
+  return machines[0].machineId;
+}
+
 export function MachinesWorkspacePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const now = useNow();
@@ -203,16 +220,17 @@ export function MachinesWorkspacePage() {
     [ensureMachineControlToken, machineControlUrl],
   );
 
-  const refreshThreads = useCallback(async () => {
-    const response =
-      await requestMachineControlJson<CodexAppServerThreadsResponse>(
+  /**
+   * Keep the network request separate from state writes so the polling effect
+   * can ignore slow responses after the selected machine changes.
+   */
+  const refreshThreads = useCallback(
+    () =>
+      requestMachineControlJson<CodexAppServerThreadsResponse>(
         buildThreadsPath(),
-      );
-    setThreads(response.threads);
-    setPinnedThreadIds(response.pinnedThreadIds);
-    setHasLoadedThreadInventory(true);
-    return response;
-  }, [requestMachineControlJson]);
+      ),
+    [requestMachineControlJson],
+  );
 
   useEffect(() => {
     const nextSelectedMachineId = readSelectedSearchValue(
@@ -259,7 +277,6 @@ export function MachinesWorkspacePage() {
       return;
     }
 
-    const firstMachineId = machines[0]?.machineId ?? null;
     const hasSelectedMachine =
       selectedMachineId !== null &&
       machines.some((machine) => machine.machineId === selectedMachineId);
@@ -272,7 +289,7 @@ export function MachinesWorkspacePage() {
     }
 
     if (!hasSelectedMachine) {
-      setSelectedMachineId(firstMachineId);
+      setSelectedMachineId(readPreferredMachineId(machines));
     }
   }, [machines, selectedMachineId]);
 
@@ -284,22 +301,36 @@ export function MachinesWorkspacePage() {
   }, [selectedMachineId]);
 
   useEffect(() => {
-    if (!selectedMachine || selectedMachineStatusReason !== null) {
+    if (
+      selectedMachineControlId === null ||
+      selectedMachineStatusReason !== null
+    ) {
       return;
     }
 
-    let cancelled = false;
+    let didCancel = () => false;
     let inFlight = false;
 
     const hydrate = async () => {
-      if (cancelled || inFlight) {
+      if (didCancel() || inFlight) {
         return;
       }
 
       inFlight = true;
       try {
-        await refreshThreads();
+        const response = await refreshThreads();
+        if (didCancel()) {
+          return;
+        }
+
+        setThreads(response.threads);
+        setPinnedThreadIds(response.pinnedThreadIds);
+        setHasLoadedThreadInventory(true);
       } catch {
+        if (didCancel()) {
+          return;
+        }
+
         setThreads([]);
         setPinnedThreadIds([]);
         setHasLoadedThreadInventory(true);
@@ -314,10 +345,10 @@ export function MachinesWorkspacePage() {
     }, THREAD_REFRESH_INTERVAL_MS);
 
     return () => {
-      cancelled = true;
+      didCancel = () => true;
       window.clearInterval(intervalId);
     };
-  }, [refreshThreads, selectedMachine, selectedMachineStatusReason]);
+  }, [refreshThreads, selectedMachineControlId, selectedMachineStatusReason]);
 
   useEffect(() => {
     if (!hasLoadedThreadInventory) {

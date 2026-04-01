@@ -760,6 +760,38 @@ describe('@noter-md/sync', () => {
         throw new Error('Expected a TCP server address')
       }
 
+      const crossSchemeResponse = await fetch(
+        `http://127.0.0.1:${address.port}/threads`,
+        {
+          headers: {
+            Origin: 'https://localhost:5174',
+          },
+        },
+      )
+      expect(crossSchemeResponse.status).toBe(403)
+      expect(await crossSchemeResponse.json()).toEqual({
+        error: 'Origin is not allowed: https://localhost:5174',
+      })
+      expect(
+        crossSchemeResponse.headers.get('access-control-allow-origin'),
+      ).toBeNull()
+
+      const crossHostnameResponse = await fetch(
+        `http://127.0.0.1:${address.port}/threads`,
+        {
+          headers: {
+            Origin: 'http://127.0.0.1:5174',
+          },
+        },
+      )
+      expect(crossHostnameResponse.status).toBe(403)
+      expect(await crossHostnameResponse.json()).toEqual({
+        error: 'Origin is not allowed: http://127.0.0.1:5174',
+      })
+      expect(
+        crossHostnameResponse.headers.get('access-control-allow-origin'),
+      ).toBeNull()
+
       const response = await fetch(`http://127.0.0.1:${address.port}/threads`, {
         headers: {
           Origin: 'https://evil.example.com',

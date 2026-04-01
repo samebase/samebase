@@ -72,7 +72,7 @@ const FIRST_THREAD: CodexAppServerThread = {
   agentNickname: null,
   agentRole: null,
   cliVersion: "0.117.0-alpha.10",
-  createdAt: 1_775_541_701,
+  createdAt: 1_775_541_200,
   cwd: FIXTURE_WORKTREE_CWD,
   gitInfo: {
     branch: FIXTURE_BRANCH_NAME,

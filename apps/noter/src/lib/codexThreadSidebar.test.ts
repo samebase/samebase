@@ -160,4 +160,26 @@ describe("buildCodexThreadSidebarViewModel", () => {
       "namecheap-com-brandable",
     ]);
   });
+
+  it("falls back to the final Windows path segment when the project label is blank", () => {
+    const windowsPathThread = buildThread({
+      id: "thread-windows-path",
+      name: "Windows path fallback",
+      updatedAt: 12,
+      project: {
+        id: "C:\\work\\repo",
+        label: "",
+        rootCwd: "C:\\work\\repo",
+      },
+    });
+
+    const viewModel = buildCodexThreadSidebarViewModel({
+      pinnedThreadIds: [],
+      threads: [windowsPathThread],
+    });
+
+    expect(viewModel.projects.map((project) => project.label)).toEqual([
+      "repo",
+    ]);
+  });
 });
