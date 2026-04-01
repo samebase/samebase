@@ -53,8 +53,6 @@ async function dragMonacoSurface(
   const startY = bounds.y + Math.min(120, bounds.height * 0.35);
   const moveOffsetsX = args.moveOffsetsX ?? [args.deltaX * 0.66, args.deltaX];
   const session = await page.context().newCDPSession(page);
-  const gestureStartTimeMs = Date.now();
-  let elapsedMs = 0;
   const touchPoint = {
     force: 1,
     id: 1,
@@ -63,33 +61,30 @@ async function dragMonacoSurface(
     x: startX,
     y: startY,
   };
+  const dispatchTouchEvent = async (
+    type: "touchEnd" | "touchMove" | "touchStart",
+    touchPoints: (typeof touchPoint)[],
+  ) => {
+    await session.send("Input.dispatchTouchEvent", {
+      timestamp: Date.now() / 1000,
+      type,
+      touchPoints,
+    });
+  };
 
-  await session.send("Input.dispatchTouchEvent", {
-    timestamp: gestureStartTimeMs / 1000,
-    type: "touchStart",
-    touchPoints: [touchPoint],
-  });
+  await dispatchTouchEvent("touchStart", [touchPoint]);
   for (const moveOffsetX of moveOffsetsX) {
     await page.waitForTimeout(24);
-    elapsedMs += 24;
-    await session.send("Input.dispatchTouchEvent", {
-      timestamp: (gestureStartTimeMs + elapsedMs) / 1000,
-      type: "touchMove",
-      touchPoints: [
-        {
-          ...touchPoint,
-          x: startX + moveOffsetX,
-          y: startY + 6,
-        },
-      ],
-    });
+    await dispatchTouchEvent("touchMove", [
+      {
+        ...touchPoint,
+        x: startX + moveOffsetX,
+        y: startY + 6,
+      },
+    ]);
   }
-
-  await session.send("Input.dispatchTouchEvent", {
-    timestamp: (gestureStartTimeMs + elapsedMs + 1) / 1000,
-    type: "touchEnd",
-    touchPoints: [],
-  });
+  await page.waitForTimeout(24);
+  await dispatchTouchEvent("touchEnd", []);
 }
 
 /**
@@ -108,6 +103,7 @@ async function expectPaneAfterMonacoDrag(args: {
   drag: () => Promise<void>;
   expectedPane: "left" | "main" | "right";
   page: Page;
+  rearm?: () => Promise<void>;
 }) {
   const shell = args.page.getByTestId("fileview-monaco-drag-shell");
   await args.drag();
@@ -117,6 +113,12 @@ async function expectPaneAfterMonacoDrag(args: {
       timeout: 1000,
     });
   } catch {
+    // When CI drops Monaco-owned move/end samples, the shell can stay stuck in
+    // a stale "capturing" gesture state. Re-arm from a fresh page before the
+    // single retry so the second swipe does not inherit that broken state.
+    if (args.rearm) {
+      await args.rearm();
+    }
     await args.drag();
     await expect(shell).toHaveAttribute("data-mobile-pane", args.expectedPane);
   }
@@ -173,19 +175,22 @@ test("Monaco drag can open the right pane", async ({ page }) => {
 test("Monaco drag can return from the open left pane to main", async ({
   page,
 }) => {
-  await gotoFixture(page, { swipeDebug: true });
-
   const shell = page.getByTestId("fileview-monaco-drag-shell");
   const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
   const leftSidebarOnlyItem = page.getByText("src/notes.ts");
-  await expect(shell).toHaveAttribute("data-mobile-pane", "main");
-  await page
-    .getByRole("button", { name: "Toggle Left Sidebar" })
-    .press("Enter");
-  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
-  await waitForLeftPaneToSettle(shell);
-  await expect(overlay).toBeVisible();
-  await expect(leftSidebarOnlyItem).toBeInViewport();
+  const armReturnFromLeft = async () => {
+    await gotoFixture(page, { swipeDebug: true });
+    await expect(shell).toHaveAttribute("data-mobile-pane", "main");
+    await page
+      .getByRole("button", { name: "Toggle Left Sidebar" })
+      .press("Enter");
+    await expect(shell).toHaveAttribute("data-mobile-pane", "left");
+    await waitForLeftPaneToSettle(shell);
+    await expect(overlay).toBeVisible();
+    await expect(leftSidebarOnlyItem).toBeInViewport();
+  };
+
+  await armReturnFromLeft();
 
   await expectPaneAfterMonacoDrag({
     drag: () =>
@@ -196,6 +201,7 @@ test("Monaco drag can return from the open left pane to main", async ({
       }),
     expectedPane: "main",
     page,
+    rearm: armReturnFromLeft,
   });
 
   await expect(overlay).toContainText("start: left");
