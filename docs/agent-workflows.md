@@ -40,7 +40,8 @@ These are the intended meanings for the repo shorthand commands:
 | -------------- | ---------------------------------------------------------------------- |
 | `commit`       | Stage and create a concise commit on the current branch                |
 | `push`         | Commit if needed, then push                                            |
-| `create pr`    | Push if needed, then create or update a draft PR                       |
+| `create pr`    | Push if needed, then create or update a ready PR                       |
+| `create draft` | Push if needed, then create or update a draft PR                       |
 | `ready`        | Mark the current PR ready                                              |
 | `wait`         | Watch CI and report status                                             |
 | `ship`         | Commit, push, refresh PR state, clear review feedback, and wait for CI |
@@ -71,13 +72,15 @@ Rules:
   newlines are preserved.
 - Keep the PR description updated when scope changes.
 
-## Draft PR Timing
+## PR Timing
 
-- For implementation work, open or update a draft PR early rather than waiting
-  until the end.
-- If GitHub requires a diff before the first draft PR, create a minimal
-  checkpoint commit after bootstrap.
-- Keep PRs draft by default unless the user explicitly asks to mark them ready.
+- For implementation work where the agent proactively opens an early PR before
+  the user asks for PR state, use a draft PR rather than waiting until the end.
+- If GitHub requires a diff before that first proactive draft PR, create a
+  minimal checkpoint commit after bootstrap.
+- When the user says `create pr`, create or update a ready non-draft PR.
+- When the user says `create draft`, create or update a draft PR.
+- If the user explicitly asks to keep the PR draft, respect that.
 
 ## Review And Ship
 

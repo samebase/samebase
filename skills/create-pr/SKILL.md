@@ -14,9 +14,10 @@ description in sync with the current branch.
 
 1. Confirm the current branch and worktree.
 2. Review the actual diff with `git status -sb` and `git diff --stat`.
-3. For implementation work, create or update a draft PR early instead of waiting
-   until the end. If GitHub requires a diff first, make a minimal checkpoint
-   commit after bootstrap.
+3. If you are proactively opening an early implementation PR before the user has
+   asked for a PR state, use a draft PR instead of waiting until the end. If
+   GitHub requires a diff first, make a minimal checkpoint commit after
+   bootstrap.
 4. Follow a repo PR template exactly when one exists.
 5. Otherwise use this repo's default sections:
    - `Why`
@@ -28,7 +29,9 @@ description in sync with the current branch.
 7. Explain why the change exists, not just what changed.
 8. Keep validation concise. Summaries are good; raw CI logs are not.
 9. Add screenshots only when the change is user-facing UI.
-10. Keep the PR draft unless the user explicitly asks to mark it ready.
+10. In this repo, `create pr` means create or update a ready PR. Use a draft PR
+    only when the user explicitly says `create draft` or otherwise asks to keep
+    it draft.
 11. Update the PR title and body when scope changes materially.
 12. Use `gh` with `--body-file` or heredoc input so real newlines are preserved.
 

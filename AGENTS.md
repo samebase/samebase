@@ -150,7 +150,8 @@ When the user says one of these commands, execute it directly:
 | -------------- | ---------------------------------------------------------------------- |
 | `commit`       | Stage changes and create a concise commit                              |
 | `push`         | Commit if needed, then push                                            |
-| `create pr`    | Push if needed, then create or update a draft PR                       |
+| `create pr`    | Push if needed, then create or update a ready PR                       |
+| `create draft` | Push if needed, then create or update a draft PR                       |
 | `ready`        | Mark the current PR ready                                              |
 | `wait`         | Watch CI and report status                                             |
 | `ship`         | Commit, push, refresh PR state, clear actionable review feedback, wait |
@@ -176,7 +177,9 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   Playwright/manual test repos created from a worktree.
 - `clean vaults` must fail closed and only remove matching Noter-managed vaults
   through the dashboard delete flow.
-- Keep PRs draft by default unless the user explicitly asks for ready review.
+- When the user says `create pr`, create or update a ready non-draft PR.
+- Use a draft PR only when the user explicitly says `create draft` or otherwise
+  asks to keep the PR draft.
 - PR descriptions must explain why the change exists, not just what changed.
 - When a PR originates from research or automation work, include `First Message`
   and `Requested Codex Runtime`.
