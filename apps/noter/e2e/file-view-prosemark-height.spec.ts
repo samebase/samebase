@@ -13,6 +13,7 @@ const WHEEL_HOVER_Y_CAP_PX = 180;
 // a visible prose line to swipe on.
 const SWIPE_FALLBACK_START_OFFSET_PX = 140;
 const SWIPE_PROBE_TOP_OFFSET_PX = 40;
+const SWIPE_SCROLL_CONTAINER_BOTTOM_INSET_PX = 24;
 // Leave room above bottom gesture areas when choosing touch coordinates.
 const SWIPE_VIEWPORT_BOTTOM_MARGIN_PX = 120;
 // Step through candidate hit targets in coarse increments until a visible
@@ -57,10 +58,18 @@ async function wheelSurface(page: Page, surface: Locator) {
   await page.mouse.wheel(0, 1200);
 }
 
-async function swipeSurface(page: Page, surface: Locator) {
-  const bounds = await surface.boundingBox();
-  expect(bounds).not.toBeNull();
-  if (bounds === null) {
+async function swipeSurface(
+  page: Page,
+  scrollContainer: Locator,
+  surface: Locator,
+) {
+  const [scrollBounds, surfaceBounds] = await Promise.all([
+    scrollContainer.boundingBox(),
+    surface.boundingBox(),
+  ]);
+  expect(scrollBounds).not.toBeNull();
+  expect(surfaceBounds).not.toBeNull();
+  if (scrollBounds === null || surfaceBounds === null) {
     return;
   }
 
@@ -71,6 +80,8 @@ async function swipeSurface(page: Page, surface: Locator) {
       fallbackStartOffset,
       probeStep,
       probeTopOffset,
+      scrollContainerBottom,
+      scrollContainerTop,
       startX,
       surfaceTop,
       viewportBottomMargin,
@@ -84,15 +95,20 @@ async function swipeSurface(page: Page, surface: Locator) {
       }
 
       const viewportBottomLimit = viewportHeight - viewportBottomMargin;
+      const probeBottom = Math.min(viewportBottomLimit, scrollContainerBottom);
       let fallbackY = Math.min(
-        surfaceTop + fallbackStartOffset,
-        viewportBottomLimit,
+        Math.max(scrollContainerTop + fallbackStartOffset, surfaceTop),
+        probeBottom,
       );
       let visibleLineY: number | null = null;
 
       for (
-        let y = Math.max(surfaceTop + probeTopOffset, 0);
-        y <= viewportBottomLimit;
+        let y = Math.max(
+          scrollContainerTop + probeTopOffset,
+          surfaceTop + probeTopOffset,
+          0,
+        );
+        y <= probeBottom;
         y += probeStep
       ) {
         const hit = document.elementFromPoint(startX, y);
@@ -104,8 +120,9 @@ async function swipeSurface(page: Page, surface: Locator) {
         }
 
         fallbackY = y;
-        if (hit.closest(".cm-line") !== null) {
+        if (visibleLineY === null && hit.closest(".cm-line") !== null) {
           visibleLineY = y;
+          break;
         }
       }
 
@@ -119,8 +136,19 @@ async function swipeSurface(page: Page, surface: Locator) {
       fallbackStartOffset: SWIPE_FALLBACK_START_OFFSET_PX,
       probeStep: SWIPE_PROBE_STEP_PX,
       probeTopOffset: SWIPE_PROBE_TOP_OFFSET_PX,
-      startX: bounds.x + bounds.width / 2,
-      surfaceTop: bounds.y,
+      scrollContainerBottom:
+        scrollBounds.y +
+        scrollBounds.height -
+        SWIPE_SCROLL_CONTAINER_BOTTOM_INSET_PX,
+      scrollContainerTop: scrollBounds.y,
+      startX: Math.min(
+        Math.max(
+          surfaceBounds.x + surfaceBounds.width / 2,
+          scrollBounds.x + 24,
+        ),
+        scrollBounds.x + scrollBounds.width - 24,
+      ),
+      surfaceTop: surfaceBounds.y,
       viewportBottomMargin: SWIPE_VIEWPORT_BOTTOM_MARGIN_PX,
       viewportHeight,
     },
@@ -180,14 +208,17 @@ test("ProseMark keeps the real file-view workspace body scrollable on desktop", 
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  const { fixture, scrollContainer, surface } = await openFixture(page);
-  await expect(fixture).toHaveScreenshot("fileview-prosemark-flex-height.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.05,
-  });
+  const { scrollContainer, surface } = await openFixture(page);
   const initialMetrics = await readScrollMetrics(scrollContainer);
+  await expect(scrollContainer).toHaveScreenshot(
+    "fileview-prosemark-flex-height.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.05,
+    },
+  );
   await wheelSurface(page, surface);
 
   await expect
@@ -209,7 +240,7 @@ test.describe("mobile prose scroll", () => {
   }) => {
     const { scrollContainer, surface } = await openFixture(page);
     const initialMetrics = await readScrollMetrics(scrollContainer);
-    await swipeSurface(page, surface);
+    await swipeSurface(page, scrollContainer, surface);
 
     await expect
       .poll(async () => {
