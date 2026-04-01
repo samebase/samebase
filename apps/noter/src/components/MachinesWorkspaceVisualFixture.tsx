@@ -101,8 +101,8 @@ const FIRST_THREAD: CodexAppServerThread = {
   turns: [],
   updatedAt: 1_775_541_282,
   workspace: {
-    isProjectRoot: false,
-    label: "demo",
+    isProjectRoot: true,
+    label: null,
   },
 };
 
@@ -136,6 +136,10 @@ const THIRD_THREAD: CodexAppServerThread = {
   },
   turns: [],
   updatedAt: 1_775_476_962,
+  workspace: {
+    isProjectRoot: false,
+    label: "e2ca",
+  },
 };
 
 const FOURTH_THREAD: CodexAppServerThread = {
@@ -174,6 +178,26 @@ const FIFTH_THREAD: CodexAppServerThread = {
   updatedAt: 1_775_420_262,
 };
 
+const SIXTH_THREAD: CodexAppServerThread = {
+  ...FIRST_THREAD,
+  cwd: "/Users/fixture/.codex/worktrees/e2ca/noter",
+  gitInfo: {
+    branch: "codex/worktree-sidebar",
+    originUrl: FIXTURE_GIT_ORIGIN_URL,
+    sha: "9ab456cdef78909ab456cdef78909ab456cdef78",
+  },
+  id: "thread-machine-workspace-sixth",
+  name: "Investigate worktree sidebar state",
+  path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-sixth.jsonl`,
+  preview:
+    "Keep the project row stable while still showing which threads belong to a worktree checkout.",
+  updatedAt: 1_775_520_262,
+  workspace: {
+    isProjectRoot: false,
+    label: "e2ca",
+  },
+};
+
 export function MachinesWorkspaceVisualFixture() {
   return (
     <MemoryRouter>
@@ -187,6 +211,7 @@ export function MachinesWorkspaceVisualFixture() {
               THIRD_THREAD,
               FOURTH_THREAD,
               FIFTH_THREAD,
+              SIXTH_THREAD,
             ]}
             pinnedThreadIds={[SECOND_THREAD.id, THIRD_THREAD.id]}
             selectedThreadId={FIRST_THREAD.id}

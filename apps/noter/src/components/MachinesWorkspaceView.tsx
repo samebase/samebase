@@ -9,14 +9,14 @@ import {
 import { SidebarProvider } from "@/components/sidebar";
 import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
 import { WorkspaceScene } from "@/components/workspace-layout/WorkspaceScene";
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 import {
-  buildMachineThreadGroups,
-  dedupeMachineThreadsById,
-  type MachineThreadGroup,
-} from "@/lib/machineThreadInventory";
+  type CodexThreadSidebarProject,
+  type CodexThreadSidebarThread,
+} from "@/lib/codexThreadSidebar";
 import { cn } from "@/lib/utils";
-import { ArrowUpRight, Pin } from "lucide-react";
+import { useCodexThreadSidebarViewModel } from "@/hooks/useCodexThreadSidebarViewModel";
+import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import { ArrowUpRight, GitBranch, Pin } from "lucide-react";
 
 type MachinesWorkspaceViewProps = {
   threads: CodexAppServerThread[];
@@ -54,34 +54,6 @@ function formatRelativeTime(
   return `${Math.floor(diffMs / dayMs)}d`;
 }
 
-function readFirstNonEmptyLine(value: string): string {
-  const firstLine = value
-    .split("\n")
-    .map((line) => line.trim())
-    .find((line) => line.length > 0);
-
-  return firstLine ?? value.trim();
-}
-
-function readThreadTitle(thread: CodexAppServerThread): string {
-  const explicitName = thread.name?.trim();
-  if (explicitName) {
-    return explicitName;
-  }
-
-  return readFirstNonEmptyLine(thread.preview);
-}
-
-function readProjectLabel(group: MachineThreadGroup): string {
-  const explicitLabel = group.label.trim();
-  if (explicitLabel.length > 0) {
-    return explicitLabel;
-  }
-
-  const pathParts = group.detail.split("/").filter((part) => part.length > 0);
-  return pathParts.at(-1) ?? group.detail;
-}
-
 function setsAreEqual<T>(left: Set<T>, right: Set<T>): boolean {
   if (left.size !== right.size) {
     return false;
@@ -97,7 +69,7 @@ function setsAreEqual<T>(left: Set<T>, right: Set<T>): boolean {
 }
 
 function ThreadRow(props: {
-  thread: CodexAppServerThread;
+  item: CodexThreadSidebarThread;
   isSelected: boolean;
   relativeTimeReferenceMs?: number;
   leadingIcon?: ReactNode;
@@ -115,7 +87,7 @@ function ThreadRow(props: {
         props.className,
       )}
       onClick={() => {
-        props.onSelect?.(props.thread.id);
+        props.onSelect?.(props.item.id);
       }}
     >
       {props.leadingIcon ? (
@@ -123,17 +95,27 @@ function ThreadRow(props: {
           {props.leadingIcon}
         </div>
       ) : null}
-      <div
-        className="min-w-0 flex-1 truncate text-[15px] font-medium leading-5"
-        title={readThreadTitle(props.thread)}
-      >
-        {readThreadTitle(props.thread)}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        {props.item.showWorkspaceIndicator ? (
+          <div
+            className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground"
+            title={props.item.workspaceTooltip ?? undefined}
+          >
+            <GitBranch className="h-3.5 w-3.5" strokeWidth={1.75} />
+          </div>
+        ) : null}
+        <div
+          className="min-w-0 truncate text-[15px] font-medium leading-5"
+          title={props.item.workspaceTooltip ?? props.item.title}
+        >
+          {props.item.title}
+        </div>
       </div>
       <div className="flex shrink-0 items-center gap-2 text-[12px] tabular-nums text-muted-foreground">
         <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
         <span>
           {formatRelativeTime(
-            props.thread.updatedAt,
+            props.item.thread.updatedAt,
             props.relativeTimeReferenceMs,
           )}
         </span>
@@ -143,7 +125,7 @@ function ThreadRow(props: {
 }
 
 function ProjectSection(props: {
-  group: MachineThreadGroup;
+  group: CodexThreadSidebarProject;
   isOpen: boolean;
   onOpenChange: (nextOpen: boolean) => void;
   children: ReactNode;
@@ -165,7 +147,7 @@ function ProjectSection(props: {
             <div className="h-2.5 w-2.5 bg-muted-foreground/30 corner-notch-1" />
           </div>
           <span className="truncate text-[13px] font-medium leading-5 text-muted-foreground">
-            {readProjectLabel(props.group)}
+            {props.group.label}
           </span>
         </button>
       </CollapsibleTrigger>
@@ -182,35 +164,20 @@ function ProjectSection(props: {
  * available while the main pane is reset to an empty canvas for later work.
  */
 export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
-  const uniqueThreads = useMemo(
-    () => dedupeMachineThreadsById(props.threads),
-    [props.threads],
-  );
-  const pinnedThreadIdSet = useMemo(
-    () => new Set(props.pinnedThreadIds),
-    [props.pinnedThreadIds],
-  );
-  const pinnedThreads = useMemo(
-    () => uniqueThreads.filter((thread) => pinnedThreadIdSet.has(thread.id)),
-    [pinnedThreadIdSet, uniqueThreads],
-  );
-  const projectGroups = useMemo(
-    () =>
-      buildMachineThreadGroups({
-        threads: uniqueThreads.filter(
-          (thread) => !pinnedThreadIdSet.has(thread.id),
-        ),
-      }),
-    [pinnedThreadIdSet, uniqueThreads],
-  );
+  const sidebarViewModel = useCodexThreadSidebarViewModel({
+    pinnedThreadIds: props.pinnedThreadIds,
+    threads: props.threads,
+  });
+  const pinnedThreads = sidebarViewModel.pinnedThreads;
+  const projectGroups = sidebarViewModel.projects;
   const selectedThread = useMemo(
     () =>
       props.selectedThreadId
-        ? uniqueThreads.find(
+        ? sidebarViewModel.uniqueThreads.find(
             (thread) => thread.id === props.selectedThreadId,
           ) ?? null
         : null,
-    [props.selectedThreadId, uniqueThreads],
+    [props.selectedThreadId, sidebarViewModel.uniqueThreads],
   );
   const projectIds = useMemo(
     () => projectGroups.map((group) => group.id),
@@ -231,7 +198,8 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
   );
   const firstProjectId = stableProjectIds[0] ?? null;
   const selectedProjectId =
-    selectedThread && !pinnedThreadIdSet.has(selectedThread.id)
+    selectedThread &&
+    !pinnedThreads.some((thread) => thread.id === selectedThread.id)
       ? selectedThread.project.id
       : null;
   const [openProjectIds, setOpenProjectIds] = useState<Set<string>>(
@@ -288,7 +256,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                   {pinnedThreads.map((thread) => (
                     <ThreadRow
                       key={thread.id}
-                      thread={thread}
+                      item={thread}
                       isSelected={thread.id === props.selectedThreadId}
                       relativeTimeReferenceMs={props.relativeTimeReferenceMs}
                       leadingIcon={
@@ -324,7 +292,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                     {group.threads.map((thread) => (
                       <ThreadRow
                         key={thread.id}
-                        thread={thread}
+                        item={thread}
                         isSelected={thread.id === props.selectedThreadId}
                         relativeTimeReferenceMs={props.relativeTimeReferenceMs}
                         className="pl-10"
