@@ -3544,14 +3544,14 @@ function FileViewInner({
                                             repositoryFullName={
                                               repositoryFullName
                                             }
-                                          filePath={
-                                            selectedRebaseConflictFile.upstreamPath ??
-                                            selectedRebaseConflictFile.path
-                                          }
-                                          branch={branch}
-                                          skipStaging={true}
-                                        />
-                                      </div>
+                                            filePath={
+                                              selectedRebaseConflictFile.upstreamPath ??
+                                              selectedRebaseConflictFile.path
+                                            }
+                                            branch={branch}
+                                            skipStaging={true}
+                                          />
+                                        </div>
                                       ) : (
                                         <div className="grid min-h-0 md:grid-cols-2 md:divide-x">
                                           <div className="min-h-0">
@@ -3560,8 +3560,8 @@ function FileViewInner({
                                             </div>
                                             {selectedRebaseConflictFile.baseToStagedPatchTruncated ? (
                                               <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                                Patch output is truncated for this
-                                                file.
+                                                Patch output is truncated for
+                                                this file.
                                               </div>
                                             ) : null}
                                             <div className="p-3 font-mono text-xs leading-5">
@@ -3578,8 +3578,8 @@ function FileViewInner({
                                             </div>
                                             {selectedRebaseConflictFile.baseToUpstreamPatchTruncated ? (
                                               <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                                Patch output is truncated for this
-                                                file.
+                                                Patch output is truncated for
+                                                this file.
                                               </div>
                                             ) : null}
                                             <div className="p-3 font-mono text-xs leading-5">
