@@ -40,6 +40,9 @@ The main verified gaps during this run were:
 5. `node .\apps\noter\convex-dev.js --refresh-anon-auth ...` failed, but running
    `npx @convex-dev/auth --skip-git-check --allow-dirty-git-state` directly
    succeeded and set `JWT_PRIVATE_KEY` and `JWKS`.
+6. The root `pnpm dev` path initially failed in `predev` because
+   `sync-site-url.mjs` tried to write `SITE_URL` against the temporary local
+   Convex bootstrap backend after that backend had already exited.
 
 The local Codex CLI on this machine was installed through Volta. That ended up
 being an important part of the Windows support work because the top-level
@@ -48,6 +51,11 @@ explicit resolution before Noter can launch one-off Codex commands safely. Noter
 also has to resolve that Volta-managed shim from the caller workspace so
 project-scoped Volta setups do not accidentally launch a different Codex binary
 than the later runtime command would use.
+
+That predev `SITE_URL` failure is now fixed in this branch by treating the
+temporary local-backend shutdown as a skip condition instead of a fatal error.
+After that fix, the remaining startup rough edge on this machine was only stale
+local `convex-local-backend.exe` listeners already bound to port `3210`.
 
 ## Working Local-Only Bootstrap Sequence
 
@@ -73,8 +81,22 @@ The `convex run` command could still print the shutdown assertion above after it
 returned the JSON result, but local password sign-in still worked after the seed
 step completed.
 
-For the local app itself, the working Windows setup used two long-running
-terminals:
+After the `SITE_URL` fix, the native Windows primary-checkout path also worked
+from the repo root:
+
+```powershell
+pnpm dev
+```
+
+Observed result on this machine:
+
+1. `predev` completed without failing when the temporary local backend exited
+   before `SITE_URL` sync.
+2. The real long-running backend started afterward on `http://127.0.0.1:3210`.
+3. Vite fell back from `5173` to `5174` because `5173` was already in use.
+
+For the local app itself, the older manual Windows setup also worked with two
+long-running terminals:
 
 ```powershell
 # terminal 1

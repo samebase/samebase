@@ -114,6 +114,14 @@ Notes:
   launch the same Codex binary that the later runtime command would use.
 - On a brand-new machine, the first `pnpm dev` run may pause for an interactive
   Convex CLI login/bootstrap prompt before `apps/noter/.env.local` exists.
+- On native Windows primary checkouts, `pnpm dev` now tolerates the temporary
+  local Convex bootstrap backend exiting before `SITE_URL` sync completes. If
+  you need local OAuth redirects in that session, rerun
+  `pnpm --dir apps/noter exec convex env set SITE_URL "<your origin>"` after the
+  long-running backend starts.
+- If `pnpm dev` stops with `A local backend is still running on port 3210`, stop
+  the stale `convex-local-backend.exe` process that is already listening on
+  `3210` and retry.
 - For local connected-machine testing with `/noter.js` on a fresh Windows
   checkout that does not already have a cloud dev source env, use the dated
   troubleshooting notes in

@@ -93,6 +93,11 @@ dated primary-checkout troubleshooting notes and the manual Windows bootstrap
 sequence validated during local testing, see
 `docs/research/windows-native-connected-machine-walkthrough-2026-04-01.md`.
 
+For a native Windows primary checkout without GNU Make, the supported local
+startup path is `pnpm dev` from the repo root. Use the exact Vite URL it prints
+in the terminal, because Windows local runs can fall back from `5173` to a
+different port such as `5174`.
+
 ## 2. Open The Machine-Connect Page
 
 Open:
