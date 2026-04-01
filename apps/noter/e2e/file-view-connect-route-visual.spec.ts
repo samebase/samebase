@@ -3,11 +3,11 @@ import { expect, test } from "@playwright/test";
 const CONNECT_ROUTE_FIXTURES = [
   {
     mode: "file-view-connect-repository",
-    snapshotName: "file-view-connect-route.png",
+    snapshotName: `file-view-connect-route-${process.platform}.png`,
   },
   {
     mode: "file-view-connect-github",
-    snapshotName: "file-view-connect-github.png",
+    snapshotName: `file-view-connect-github-${process.platform}.png`,
   },
 ] as const;
 
