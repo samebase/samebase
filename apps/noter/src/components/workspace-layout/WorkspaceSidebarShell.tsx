@@ -17,12 +17,13 @@ import {
   getSettledMobilePane,
 } from "@/lib/workspaceSidebar";
 import {
-  MAX_WORKSPACE_SIDEBAR_WIDTH_PX,
-  MIN_WORKSPACE_SIDEBAR_WIDTH_PX,
   clampWorkspaceDesktopSidebarWidthPx,
   clampWorkspaceMobileSidebarWidthPx,
   getWorkspaceDesktopSidebarWidthRange,
   getWorkspaceMobileSidebarWidthRange,
+  MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+  MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+  MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
   resolveWorkspaceDesktopSidebarWidths,
 } from "@/lib/workspacePaneSizes";
 import { cn } from "@/lib/utils";
@@ -329,8 +330,8 @@ export function WorkspaceSidebarShell({
     ? shellViewportWidthPx > 0
       ? getWorkspaceMobileSidebarWidthRange(shellViewportWidthPx)
       : {
-          maxWidthPx: MAX_WORKSPACE_SIDEBAR_WIDTH_PX,
-          minWidthPx: MIN_WORKSPACE_SIDEBAR_WIDTH_PX,
+          maxWidthPx: MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
+          minWidthPx: MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
         }
     : shellViewportWidthPx > 0
       ? getWorkspaceDesktopSidebarWidthRange(
@@ -340,15 +341,15 @@ export function WorkspaceSidebarShell({
             : 0,
         )
       : {
-          maxWidthPx: MAX_WORKSPACE_SIDEBAR_WIDTH_PX,
-          minWidthPx: MIN_WORKSPACE_SIDEBAR_WIDTH_PX,
+          maxWidthPx: MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+          minWidthPx: MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
         };
   const rightSidebarResizeRange = isMobile
     ? shellViewportWidthPx > 0
       ? getWorkspaceMobileSidebarWidthRange(shellViewportWidthPx)
       : {
-          maxWidthPx: MAX_WORKSPACE_SIDEBAR_WIDTH_PX,
-          minWidthPx: MIN_WORKSPACE_SIDEBAR_WIDTH_PX,
+          maxWidthPx: MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
+          minWidthPx: MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
         }
     : shellViewportWidthPx > 0
       ? getWorkspaceDesktopSidebarWidthRange(
@@ -358,8 +359,8 @@ export function WorkspaceSidebarShell({
             : 0,
         )
       : {
-          maxWidthPx: MAX_WORKSPACE_SIDEBAR_WIDTH_PX,
-          minWidthPx: MIN_WORKSPACE_SIDEBAR_WIDTH_PX,
+          maxWidthPx: MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+          minWidthPx: MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
         };
   const desktopMainPaneWidthPx =
     shellViewportWidthPx > 0

@@ -47,7 +47,10 @@ This branch ships the MVP described above:
 - `SidebarProvider` now owns separate left/right width state for desktop and
   mobile
 - `WorkspaceSidebarShell` now clamps desktop widths against a minimum main-pane
-  width and clamps mobile widths against the existing main-pane peek model
+  width, while allowing each desktop sidebar to grow up to the smaller of
+  `1000px` and `70%` of the shell width
+- `WorkspaceSidebarShell` now clamps mobile widths so an open sidebar can range
+  from `40px` up to `viewport width - 40px`
 - `WorkspaceSidebarResizeHandle` mirrors the existing `EditorChatDock` separator
   pattern:
   - pointer capture

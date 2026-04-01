@@ -1,10 +1,16 @@
 const REM_PX = 16;
 
 export const DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX = 16 * REM_PX;
-export const MIN_WORKSPACE_SIDEBAR_WIDTH_PX = 12 * REM_PX;
-export const MAX_WORKSPACE_SIDEBAR_WIDTH_PX = 28 * REM_PX;
+// Desktop sidebars should feel VS Code-like: roomy enough for inspectors and
+// trees, but never so wide that a single pane takes over the whole workbench.
+export const MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX = 80;
+export const MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX = 1000;
+export const MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_RATIO = 0.7;
 export const MIN_WORKSPACE_DESKTOP_MAIN_PANE_WIDTH_PX = 20 * REM_PX;
-export const MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX = 5 * REM_PX;
+// Mobile keeps a tiny visible slice of the main pane so the layout still reads
+// as a pane stack instead of a full-screen drawer.
+export const MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX = 40;
+export const MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX = 40;
 
 export type WorkspaceSidebarWidthRange = {
   maxWidthPx: number;
@@ -27,13 +33,17 @@ export function getWorkspaceDesktopSidebarWidthRange(
   const maxWidthPx = Math.max(
     0,
     Math.min(
-      MAX_WORKSPACE_SIDEBAR_WIDTH_PX,
+      MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+      containerWidthPx * MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_RATIO,
       containerWidthPx -
         oppositeSidebarWidthPx -
         MIN_WORKSPACE_DESKTOP_MAIN_PANE_WIDTH_PX,
     ),
   );
-  const minWidthPx = Math.min(MIN_WORKSPACE_SIDEBAR_WIDTH_PX, maxWidthPx);
+  const minWidthPx = Math.min(
+    MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+    maxWidthPx,
+  );
 
   return {
     maxWidthPx,
@@ -59,12 +69,12 @@ export function getWorkspaceMobileSidebarWidthRange(
 ): WorkspaceSidebarWidthRange {
   const maxWidthPx = Math.max(
     0,
-    Math.min(
-      MAX_WORKSPACE_SIDEBAR_WIDTH_PX,
-      viewportWidthPx - MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
-    ),
+    viewportWidthPx - MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
   );
-  const minWidthPx = Math.min(MIN_WORKSPACE_SIDEBAR_WIDTH_PX, maxWidthPx);
+  const minWidthPx = Math.min(
+    MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
+    maxWidthPx,
+  );
 
   return {
     maxWidthPx,
@@ -127,15 +137,21 @@ export function resolveWorkspaceDesktopSidebarWidths(args: {
   const leftDesiredWidthPx = args.leftOpen
     ? clampNumber(
         args.leftWidthPx,
-        MIN_WORKSPACE_SIDEBAR_WIDTH_PX,
-        MAX_WORKSPACE_SIDEBAR_WIDTH_PX,
+        MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+        Math.min(
+          MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+          args.containerWidthPx * MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_RATIO,
+        ),
       )
     : 0;
   const rightDesiredWidthPx = args.rightOpen
     ? clampNumber(
         args.rightWidthPx,
-        MIN_WORKSPACE_SIDEBAR_WIDTH_PX,
-        MAX_WORKSPACE_SIDEBAR_WIDTH_PX,
+        MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+        Math.min(
+          MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+          args.containerWidthPx * MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_RATIO,
+        ),
       )
     : 0;
 
@@ -168,7 +184,7 @@ export function resolveWorkspaceDesktopSidebarWidths(args: {
     };
   }
 
-  if (maxCombinedWidthPx < MIN_WORKSPACE_SIDEBAR_WIDTH_PX * 2) {
+  if (maxCombinedWidthPx < MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX * 2) {
     const totalDesiredWidthPx = Math.max(
       1,
       leftDesiredWidthPx + rightDesiredWidthPx,
@@ -195,9 +211,9 @@ export function resolveWorkspaceDesktopSidebarWidths(args: {
   }
 
   const leftFlexibleWidthPx =
-    resolvedLeftWidthPx - MIN_WORKSPACE_SIDEBAR_WIDTH_PX;
+    resolvedLeftWidthPx - MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX;
   const rightFlexibleWidthPx =
-    resolvedRightWidthPx - MIN_WORKSPACE_SIDEBAR_WIDTH_PX;
+    resolvedRightWidthPx - MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX;
   const totalFlexibleWidthPx = leftFlexibleWidthPx + rightFlexibleWidthPx;
 
   if (totalFlexibleWidthPx > 0) {
@@ -217,18 +233,24 @@ export function resolveWorkspaceDesktopSidebarWidths(args: {
       resolvedLeftWidthPx + resolvedRightWidthPx - maxCombinedWidthPx;
   }
 
-  if (overflowPx > 0 && resolvedLeftWidthPx > MIN_WORKSPACE_SIDEBAR_WIDTH_PX) {
+  if (
+    overflowPx > 0 &&
+    resolvedLeftWidthPx > MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX
+  ) {
     const leftOverflowReductionPx = Math.min(
-      resolvedLeftWidthPx - MIN_WORKSPACE_SIDEBAR_WIDTH_PX,
+      resolvedLeftWidthPx - MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
       overflowPx,
     );
     resolvedLeftWidthPx -= leftOverflowReductionPx;
     overflowPx -= leftOverflowReductionPx;
   }
 
-  if (overflowPx > 0 && resolvedRightWidthPx > MIN_WORKSPACE_SIDEBAR_WIDTH_PX) {
+  if (
+    overflowPx > 0 &&
+    resolvedRightWidthPx > MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX
+  ) {
     resolvedRightWidthPx -= Math.min(
-      resolvedRightWidthPx - MIN_WORKSPACE_SIDEBAR_WIDTH_PX,
+      resolvedRightWidthPx - MIN_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
       overflowPx,
     );
   }

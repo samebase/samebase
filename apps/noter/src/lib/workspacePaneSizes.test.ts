@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   clampWorkspaceMobileSidebarWidthPx,
   DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+  MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_RATIO,
   MIN_WORKSPACE_DESKTOP_MAIN_PANE_WIDTH_PX,
   MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
-  MIN_WORKSPACE_SIDEBAR_WIDTH_PX,
+  MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
   resolveWorkspaceDesktopSidebarWidths,
 } from "@/lib/workspacePaneSizes";
 
@@ -37,8 +39,38 @@ describe("resolveWorkspaceDesktopSidebarWidths", () => {
         rightWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
       }),
     ).toEqual({
-      leftWidthPx: 256,
-      rightWidthPx: 224,
+      leftWidthPx: 265,
+      rightWidthPx: 215,
+    });
+  });
+
+  it("caps a single desktop sidebar at 70% of the shell width", () => {
+    expect(
+      resolveWorkspaceDesktopSidebarWidths({
+        containerWidthPx: 1200,
+        leftOpen: true,
+        leftWidthPx: 950,
+        rightOpen: false,
+        rightWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+      }),
+    ).toEqual({
+      leftWidthPx: 1200 * MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_RATIO,
+      rightWidthPx: 0,
+    });
+  });
+
+  it("caps a single desktop sidebar at 1000px on very wide shells", () => {
+    expect(
+      resolveWorkspaceDesktopSidebarWidths({
+        containerWidthPx: 2200,
+        leftOpen: true,
+        leftWidthPx: 1400,
+        rightOpen: false,
+        rightWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+      }),
+    ).toEqual({
+      leftWidthPx: MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+      rightWidthPx: 0,
     });
   });
 
@@ -81,8 +113,8 @@ describe("clampWorkspaceMobileSidebarWidthPx", () => {
   });
 
   it("respects the mobile minimum width when the viewport can fit it", () => {
-    expect(clampWorkspaceMobileSidebarWidthPx(100, 430)).toBe(
-      MIN_WORKSPACE_SIDEBAR_WIDTH_PX,
+    expect(clampWorkspaceMobileSidebarWidthPx(20, 430)).toBe(
+      MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
     );
   });
 });
