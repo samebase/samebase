@@ -25,10 +25,15 @@ async function gotoFixture(
   ).toBeVisible();
 }
 
+/**
+ * Pace Monaco-owned CDP touch drags across a few frames so Linux CI does not
+ * collapse the move/end samples into a single captured touchstart.
+ */
 async function dragMonacoSurface(
   page: Page,
   args: {
     deltaX: number;
+    moveOffsetsX?: number[];
     startX: "center" | "right-edge";
   },
 ) {
@@ -46,7 +51,10 @@ async function dragMonacoSurface(
       ? Math.min(bounds.x + bounds.width - 28, viewportWidth - 20)
       : bounds.x + bounds.width * 0.5;
   const startY = bounds.y + Math.min(120, bounds.height * 0.35);
+  const moveOffsetsX = args.moveOffsetsX ?? [args.deltaX * 0.66, args.deltaX];
   const session = await page.context().newCDPSession(page);
+  const gestureStartTimeMs = Date.now();
+  let elapsedMs = 0;
   const touchPoint = {
     force: 1,
     id: 1,
@@ -57,31 +65,28 @@ async function dragMonacoSurface(
   };
 
   await session.send("Input.dispatchTouchEvent", {
+    timestamp: gestureStartTimeMs / 1000,
     type: "touchStart",
     touchPoints: [touchPoint],
   });
-  await session.send("Input.dispatchTouchEvent", {
-    type: "touchMove",
-    touchPoints: [
-      {
-        ...touchPoint,
-        x: startX + args.deltaX * 0.66,
-        y: startY + 4,
-      },
-    ],
-  });
-  await session.send("Input.dispatchTouchEvent", {
-    type: "touchMove",
-    touchPoints: [
-      {
-        ...touchPoint,
-        x: startX + args.deltaX,
-        y: startY + 6,
-      },
-    ],
-  });
+  for (const moveOffsetX of moveOffsetsX) {
+    await page.waitForTimeout(24);
+    elapsedMs += 24;
+    await session.send("Input.dispatchTouchEvent", {
+      timestamp: (gestureStartTimeMs + elapsedMs) / 1000,
+      type: "touchMove",
+      touchPoints: [
+        {
+          ...touchPoint,
+          x: startX + moveOffsetX,
+          y: startY + 6,
+        },
+      ],
+    });
+  }
 
   await session.send("Input.dispatchTouchEvent", {
+    timestamp: (gestureStartTimeMs + elapsedMs + 1) / 1000,
     type: "touchEnd",
     touchPoints: [],
   });
@@ -186,6 +191,7 @@ test("Monaco drag can return from the open left pane to main", async ({
     drag: () =>
       dragMonacoSurface(page, {
         deltaX: -132,
+        moveOffsetsX: [-60, -140, -220, -300],
         startX: "right-edge",
       }),
     expectedPane: "main",
