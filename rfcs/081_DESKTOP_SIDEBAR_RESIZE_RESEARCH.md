@@ -22,7 +22,8 @@ After reviewing the current workspace shell and the main external libraries, the
 best first slice is:
 
 1. keep the current shared shell
-2. add desktop-only resize handles inside that shell
+2. add desktop-only resize handles inside that shell using the same drag
+   interaction pattern as `EditorChatDock`
 3. store desktop widths separately from future mobile width decisions
 
 If we later decide we want a broader resizable layout system beyond the two
@@ -88,8 +89,8 @@ Because of that, any library that expects a flat tree of direct `Panel` or
 - `aria-valuemin`, `aria-valuemax`, and `aria-valuenow`
 - a shared visual grip via `ResizeGripLines`
 
-That gives us a repo-native pattern to reuse for sidebar resizing instead of
-inventing the interaction model from scratch.
+That gives us a repo-native drag model to mirror for sidebar resizing instead of
+inventing a second interaction pattern from scratch.
 
 ## Requirements For The First Slice
 
@@ -120,7 +121,10 @@ Implementation shape:
 - render desktop-only resize separators between:
   - left sidebar and main pane
   - main pane and right sidebar
-- reuse the `EditorChatDock` pointer-capture and keyboard pattern
+- reuse the same `EditorChatDock` separator pattern:
+  - pointer capture for drag lifecycle
+  - keyboard arrow resizing
+  - `ResizeGripLines` as the visible affordance
 - keep the last width in memory even when a sidebar is closed
 
 Pros:
@@ -249,7 +253,8 @@ That means:
 2. Keep width state separate per side on desktop.
 3. Keep current mobile pane behavior unchanged for now.
 4. Render a desktop `role="separator"` handle for each visible sidebar edge.
-5. Reuse the `EditorChatDock` accessibility model and `ResizeGripLines`.
+5. Mirror the `EditorChatDock` drag interaction model and reuse
+   `ResizeGripLines`.
 6. Defer persistence until we decide the desktop/mobile storage contract.
 
 ## Suggested Implementation Notes
@@ -286,6 +291,7 @@ The desktop handle should:
 - preserve a minimum main-pane width
 - keep the sidebar width when toggled closed, so reopening restores the last
   size
+- follow the same pointer-capture lifecycle the chat resize handle already uses
 - support arrow-key resize in both directions
 - ideally support `Home` / `End` shortcuts to jump to min/max, since that lines
   up with the WAI splitter guidance
