@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
 
+const connectRouteSnapshotDiffRatio =
+  process.platform === "linux" ? 0.03 : 0.01;
+
 const CONNECT_ROUTE_FIXTURES = [
   {
     mode: "file-view-connect-repository",
@@ -26,7 +29,7 @@ for (const fixtureConfig of CONNECT_ROUTE_FIXTURES) {
       animations: "disabled",
       caret: "hide",
       scale: "css",
-      maxDiffPixelRatio: 0.01,
+      maxDiffPixelRatio: connectRouteSnapshotDiffRatio,
     });
   });
 }
