@@ -9,7 +9,9 @@ type PointerDragState = {
   startX: number;
   startY: number;
   pointerId: number;
+  sawPointerMove: boolean;
   source: "pointer";
+  touchIdentifier: number | null;
   type: "pending" | "shell";
 };
 
@@ -53,8 +55,6 @@ export function useProsemarkMobilePaneDrag(
     useWorkspaceMobilePaneDrag();
   const dragStateRef = useRef<ProsemarkPaneDragState | null>(null);
   const isEnabled = enabled && isAvailable;
-  const needsLegacyTouchFallback =
-    isEnabled && typeof window.PointerEvent === "undefined";
 
   const clearDragState = useCallback(() => {
     dragStateRef.current = null;
@@ -151,9 +151,11 @@ export function useProsemarkMobilePaneDrag(
       dragStateRef.current = {
         lastX: event.clientX,
         pointerId: event.pointerId,
+        sawPointerMove: false,
         source: "pointer",
         startX: event.clientX,
         startY: event.clientY,
+        touchIdentifier: null,
         type: "pending",
       };
     },
@@ -170,6 +172,7 @@ export function useProsemarkMobilePaneDrag(
       ) {
         return;
       }
+      dragState.sawPointerMove = true;
 
       const didDragShell = updateDragState({
         clientX: event.clientX,
@@ -219,6 +222,12 @@ export function useProsemarkMobilePaneDrag(
         return;
       }
 
+      const activeDragState = dragStateRef.current;
+      if (activeDragState?.source === "pointer") {
+        activeDragState.touchIdentifier = touch.identifier;
+        return;
+      }
+
       dragStateRef.current = {
         lastX: touch.clientX,
         source: "touch",
@@ -234,15 +243,22 @@ export function useProsemarkMobilePaneDrag(
   const handleTouchMove = useCallback(
     (event: TouchEvent) => {
       const dragState = dragStateRef.current;
-      if (!dragState || dragState.source !== "touch") {
+      if (!dragState) {
+        return;
+      }
+
+      const { touchIdentifier } = dragState;
+      if (touchIdentifier === null) {
+        return;
+      }
+
+      if (dragState.source === "pointer" && dragState.sawPointerMove) {
         return;
       }
 
       const touch =
-        findTouchByIdentifier(
-          event.changedTouches,
-          dragState.touchIdentifier,
-        ) ?? findTouchByIdentifier(event.touches, dragState.touchIdentifier);
+        findTouchByIdentifier(event.changedTouches, touchIdentifier) ??
+        findTouchByIdentifier(event.touches, touchIdentifier);
       if (touch === null) {
         return;
       }
@@ -264,15 +280,22 @@ export function useProsemarkMobilePaneDrag(
   const finishTouchDrag = useCallback(
     (event: TouchEvent) => {
       const dragState = dragStateRef.current;
-      if (!dragState || dragState.source !== "touch") {
+      if (!dragState) {
+        return;
+      }
+
+      const { touchIdentifier } = dragState;
+      if (touchIdentifier === null) {
+        return;
+      }
+
+      if (dragState.source === "pointer" && dragState.sawPointerMove) {
         return;
       }
 
       const touch =
-        findTouchByIdentifier(
-          event.changedTouches,
-          dragState.touchIdentifier,
-        ) ?? findTouchByIdentifier(event.touches, dragState.touchIdentifier);
+        findTouchByIdentifier(event.changedTouches, touchIdentifier) ??
+        findTouchByIdentifier(event.touches, touchIdentifier);
       if (touch === null && event.type !== "touchcancel") {
         return;
       }
@@ -290,12 +313,13 @@ export function useProsemarkMobilePaneDrag(
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !needsLegacyTouchFallback) {
+    if (!container || !isEnabled) {
       return;
     }
 
-    // Older browsers without Pointer Events still need a touch-event path to
-    // delegate horizontal pane drags out of the editor surface.
+    // Some touch browsers mix pointerdown with touchmove/touchend, so keep the
+    // touch-event path active as a continuation fallback rather than gating it
+    // solely on PointerEvent support.
     container.addEventListener("touchstart", handleTouchStart, {
       capture: true,
       passive: false,
@@ -324,7 +348,7 @@ export function useProsemarkMobilePaneDrag(
     finishTouchDrag,
     handleTouchMove,
     handleTouchStart,
-    needsLegacyTouchFallback,
+    isEnabled,
   ]);
 
   return useMemo(
