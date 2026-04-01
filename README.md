@@ -91,8 +91,9 @@ pnpm test
 2. Configure app-login providers (Google, plus password in dev).
 3. Configure provider connection OAuth/API keys (GitHub/Convex/Cloudflare).
 4. For Cloudflare preview deploys backed by Convex preview deployments, set the
-   Convex project default `DEV_SEED_*` env vars described in
-   [docs/setup/cloudflare-convex-preview-default-env-vars.md](docs/setup/cloudflare-convex-preview-default-env-vars.md).
+   Convex project default preview envs described in
+   [docs/setup/cloudflare-convex-preview-default-env-vars.md](docs/setup/cloudflare-convex-preview-default-env-vars.md),
+   including the `DEV_SEED_*` seed vars and `ANTHROPIC_API_KEY` for ChatFab.
 
 ## Temporary Dependency Patch
 

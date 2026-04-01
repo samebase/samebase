@@ -4,7 +4,7 @@
 
 - Status: Proposed
 - Owner: Noter platform
-- Last updated: 2026-03-20
+- Last updated: 2026-04-01
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/025_MULTI_WORKTREE_OAUTH_BROKER_SPEC.md`
@@ -44,6 +44,29 @@ Current behavior is close but not correct:
 That means current Cloudflare previews do not match local `make anon` behavior
 for the preview sign-in path.
 
+## Audit Findings (2026-04-01)
+
+The repo currently has three different environment-parity buckets, and they
+should not be conflated:
+
+1. `devAuth:seedPasswordAccount` only reads the five `DEV_SEED_*` variables:
+   - `DEV_SEED_GITHUB_API_KEY`
+   - `DEV_SEED_CONVEX_MANAGEMENT_API_KEY`
+   - `DEV_SEED_CONVEX_TEAM_ID`
+   - `DEV_SEED_CLOUDFLARE_API_KEY`
+   - `DEV_SEED_CLOUDFLARE_ACCOUNT_ID`
+2. ChatFab is a separate runtime dependency. `chat/actions.ts` runs the agent
+   graph, `agent/graph.ts` uses the Anthropic provider by default, and the
+   installed AI SDK resolves `ANTHROPIC_API_KEY` from the environment.
+3. `make anon` copies a broader worktree allowlist into local anonymous env:
+   `ANTHROPIC_API_KEY` plus several `DAYTONA_*` vars. Those are not part of the
+   provider-seed contract, but they do matter for local feature parity when the
+   corresponding features are used.
+4. Hosted OAuth and consent flows depend on `AUTH_GOOGLE_*`,
+   `PROVIDER_*_OAUTH_*`, `PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL`, and
+   `SITE_URL`/`CONVEX_SITE_URL`. Those are broader hosted-feature concerns, not
+   the minimal preview seed contract.
+
 ## Current Gaps In Repo
 
 1. `apps/noter/convex/infraProvisioning.ts` currently treats “preview Convex” as
@@ -81,11 +104,13 @@ for the preview sign-in path.
    - `DEV_SEED_CONVEX_TEAM_ID`
    - `DEV_SEED_CLOUDFLARE_API_KEY`
    - `DEV_SEED_CLOUDFLARE_ACCOUNT_ID`
-7. Preview deployments are dev-like for auth:
+7. Preview deployments intended to support ChatFab must also inherit
+   `ANTHROPIC_API_KEY` on `dev` and `preview` deployments.
+8. Preview deployments are dev-like for auth:
    - backend password auth is enabled on `preview:` deployments
    - frontend password auth UI is shown on preview deployments by default
    - `?prod-ui` hides the dev-like UI on preview pages
-8. Cloudflare Pages should stop owning `VITE_CONVEX_URL` as a static env var.
+9. Cloudflare Pages should stop owning `VITE_CONVEX_URL` as a static env var.
    The Convex deploy step is the source of truth for that build-time value.
 
 ## Design
@@ -213,6 +238,18 @@ way to inspect the production-style landing shell.
 6. Adding `?prod-ui` to the preview URL hides the password auth UI.
 7. Production deploys continue to target the production Convex deployment and do
    not show preview/dev auth UI.
+8. ChatFab can answer in preview deployments when `ANTHROPIC_API_KEY` is
+   present.
+
+## Follow-Up Boundary
+
+This RFC keeps the minimal preview-sync contract focused on seeded auth,
+provider connections, branch-aware Convex preview deploys, and ChatFab parity.
+
+If Noter later decides that preview deployments must also support Daytona,
+Google sign-in, provider OAuth reconnect flows, or waitlist email end to end,
+that should be tracked as a follow-up hosted-env decision instead of being
+silently folded into the seed-only `DEV_SEED_*` contract.
 
 ## References
 
