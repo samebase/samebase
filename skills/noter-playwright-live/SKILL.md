@@ -15,6 +15,20 @@ description:
 Use a real browser session (not unit/E2E test runner) to validate behavior and
 visuals for Noter-stack apps.
 
+## Core Policy
+
+- Start with the real route first when the bug touches scroll, touch, drag,
+  focus, selection, layout ownership, auth wiring, or route shell behavior.
+- Prefer the real worktree app flow (`make anon`) and the shipped bootstrap/sign
+  in path over custom mock pages.
+- Only use a fixture when it mounts the exact production component tree without
+  invented wrapper chrome, spacing, headers, or placeholder structure.
+- For a production interaction bug, add a failing real-route or honest
+  production-component repro before adding narrower fixture coverage.
+- When scripting touch gestures, anchor on visible rendered content inside the
+  shipped surface instead of arbitrary coordinates inside a large auto-height
+  container.
+
 ## Workflow
 
 1. Confirm repo and branch context.
@@ -42,9 +56,15 @@ If dependencies are missing, run `pnpm install` first.
 Probe common Vite ports (5173-5190) and select the first reachable page:
 
 ```bash
-for p in $(seq 5173 5190); do
-  curl -fsS "http://127.0.0.1:$p" >/dev/null && echo "http://127.0.0.1:$p" && break
-done
+URL="$(
+  for p in $(seq 5173 5190); do
+    curl -fsS "http://127.0.0.1:$p" >/dev/null &&
+      echo "http://127.0.0.1:$p" &&
+      break
+  done
+)"
+[ -n "$URL" ] || { echo "No frontend URL found" >&2; exit 1; }
+printf '%s\n' "$URL"
 ```
 
 5. Open a Playwright CLI session scoped to the current branch.
@@ -64,6 +84,8 @@ fi
 - Use `snapshot` to get stable element refs.
 - Prefer `fill`, `click`, `type`, and `press` commands over `eval`.
 - Re-snapshot after navigation or major DOM changes.
+- If reproducing a route bug, keep the repro on the real route until the bug is
+  understood before inventing any narrower fixture.
 
 7. Capture evidence.
 
@@ -96,6 +118,9 @@ Use these defaults when working in this repository.
    - Fill `New app name`
    - Click `New app`
    - Wait for new vault card and infra status text
+4. For UI regressions in shared shells or editors, prefer the shipped route over
+   `/visual-fixture.html` unless the fixture is already an honest production
+   component mount.
 
 ## Playwright Session Rules
 

@@ -132,12 +132,17 @@ describe("repository file tree fixtures", () => {
   });
 
   it("keeps visible spec files on the numbered underscore naming convention", () => {
-    const visibleSpecPaths = getRootVisibleSimpleViewFilePaths().filter((path) =>
-      path.startsWith("specs/"),
+    const visibleSpecPaths = getRootVisibleSimpleViewFilePaths().filter(
+      (path) => path.startsWith("specs/"),
     );
 
     const invalidSpecPaths = visibleSpecPaths.filter((path) => {
       const specFileName = path.slice("specs/".length);
+      // The folder policy document is intentionally unnumbered; the numbered
+      // naming convention applies to accepted spec docs, not the directory map.
+      if (specFileName === "README.md") {
+        return false;
+      }
       return !/^\d{3}_.+\.md$/.test(specFileName);
     });
 

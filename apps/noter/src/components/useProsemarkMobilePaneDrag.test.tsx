@@ -326,7 +326,7 @@ describe("useProsemarkMobilePaneDrag", () => {
     expect(settleMobileShell).toHaveBeenCalledTimes(1);
   });
 
-  it("handles mixed touch sequences that start with pointerdown and continue with touchmove", () => {
+  it("continues mixed pointerdown plus touchmove gestures on Pointer Event browsers", () => {
     const dragMobileShellBy = vi.fn(() => true);
     const settleMobileShell = vi.fn();
     Reflect.set(globalThis, "PointerEvent", Event);
@@ -374,6 +374,72 @@ describe("useProsemarkMobilePaneDrag", () => {
       });
     });
 
+    expect(dragMobileShellBy).toHaveBeenCalledWith(45);
+    expect(settleMobileShell).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores legacy touch continuation after pointermove takes over", () => {
+    const dragMobileShellBy = vi.fn(() => true);
+    const settleMobileShell = vi.fn();
+    Reflect.set(globalThis, "PointerEvent", Event);
+
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+    const mountedRoot = root;
+
+    act(() => {
+      mountedRoot.render(
+        <TestHarness
+          dragMobileShellBy={dragMobileShellBy}
+          settleMobileShell={settleMobileShell}
+        />,
+      );
+    });
+
+    const host = rootElement.querySelector<HTMLElement>(
+      '[data-testid="mobile-pane-drag-host"]',
+    );
+    expect(host).not.toBeNull();
+    if (host === null) {
+      return;
+    }
+    installPointerCaptureMocks(host);
+
+    act(() => {
+      dispatchPointerEvent(host, "pointerdown", {
+        clientX: 100,
+        clientY: 120,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+      dispatchTouchEvent(host, "touchstart", {
+        touches: [createTouch(1, 100, 120)],
+        changedTouches: [createTouch(1, 100, 120)],
+      });
+      dispatchPointerEvent(host, "pointermove", {
+        clientX: 145,
+        clientY: 123,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+      dispatchTouchEvent(host, "touchmove", {
+        touches: [createTouch(1, 190, 126)],
+        changedTouches: [createTouch(1, 190, 126)],
+      });
+      dispatchTouchEvent(host, "touchend", {
+        touches: [],
+        changedTouches: [createTouch(1, 190, 126)],
+      });
+      dispatchPointerEvent(host, "pointerup", {
+        clientX: 145,
+        clientY: 123,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+    });
+
+    expect(dragMobileShellBy).toHaveBeenCalledTimes(1);
     expect(dragMobileShellBy).toHaveBeenCalledWith(45);
     expect(settleMobileShell).toHaveBeenCalledTimes(1);
   });

@@ -9,7 +9,9 @@ type PointerDragState = {
   startX: number;
   startY: number;
   pointerId: number;
+  sawPointerMove: boolean;
   source: "pointer";
+  touchIdentifier: number | null;
   type: "pending" | "shell";
 };
 
@@ -149,9 +151,11 @@ export function useProsemarkMobilePaneDrag(
       dragStateRef.current = {
         lastX: event.clientX,
         pointerId: event.pointerId,
+        sawPointerMove: false,
         source: "pointer",
         startX: event.clientX,
         startY: event.clientY,
+        touchIdentifier: null,
         type: "pending",
       };
     },
@@ -168,6 +172,7 @@ export function useProsemarkMobilePaneDrag(
       ) {
         return;
       }
+      dragState.sawPointerMove = true;
 
       const didDragShell = updateDragState({
         clientX: event.clientX,
@@ -217,6 +222,12 @@ export function useProsemarkMobilePaneDrag(
         return;
       }
 
+      const activeDragState = dragStateRef.current;
+      if (activeDragState?.source === "pointer") {
+        activeDragState.touchIdentifier = touch.identifier;
+        return;
+      }
+
       dragStateRef.current = {
         lastX: touch.clientX,
         source: "touch",
@@ -232,15 +243,22 @@ export function useProsemarkMobilePaneDrag(
   const handleTouchMove = useCallback(
     (event: TouchEvent) => {
       const dragState = dragStateRef.current;
-      if (!dragState || dragState.source !== "touch") {
+      if (!dragState) {
+        return;
+      }
+
+      const { touchIdentifier } = dragState;
+      if (touchIdentifier === null) {
+        return;
+      }
+
+      if (dragState.source === "pointer" && dragState.sawPointerMove) {
         return;
       }
 
       const touch =
-        findTouchByIdentifier(
-          event.changedTouches,
-          dragState.touchIdentifier,
-        ) ?? findTouchByIdentifier(event.touches, dragState.touchIdentifier);
+        findTouchByIdentifier(event.changedTouches, touchIdentifier) ??
+        findTouchByIdentifier(event.touches, touchIdentifier);
       if (touch === null) {
         return;
       }
@@ -262,15 +280,22 @@ export function useProsemarkMobilePaneDrag(
   const finishTouchDrag = useCallback(
     (event: TouchEvent) => {
       const dragState = dragStateRef.current;
-      if (!dragState || dragState.source !== "touch") {
+      if (!dragState) {
+        return;
+      }
+
+      const { touchIdentifier } = dragState;
+      if (touchIdentifier === null) {
+        return;
+      }
+
+      if (dragState.source === "pointer" && dragState.sawPointerMove) {
         return;
       }
 
       const touch =
-        findTouchByIdentifier(
-          event.changedTouches,
-          dragState.touchIdentifier,
-        ) ?? findTouchByIdentifier(event.touches, dragState.touchIdentifier);
+        findTouchByIdentifier(event.changedTouches, touchIdentifier) ??
+        findTouchByIdentifier(event.touches, touchIdentifier);
       if (touch === null && event.type !== "touchcancel") {
         return;
       }
@@ -292,9 +317,9 @@ export function useProsemarkMobilePaneDrag(
       return;
     }
 
-    // Touch-capable browsers do not agree on whether a drag continues as
-    // `pointermove`, `touchmove`, or a mix of both after `pointerdown`, so keep
-    // the touch listeners active even when Pointer Events are available.
+    // Some touch browsers mix pointerdown with touchmove/touchend, so keep the
+    // touch-event path active as a continuation fallback rather than gating it
+    // solely on PointerEvent support.
     container.addEventListener("touchstart", handleTouchStart, {
       capture: true,
       passive: false,

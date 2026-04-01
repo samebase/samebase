@@ -3391,13 +3391,17 @@ function FileViewInner({
         headerTitle={headerTitle}
         onQuickOpen={() => setIsCommandPaletteOpen(true)}
         contentClassName="flex-1 min-h-0 p-0"
-        leftSidebarHeader={sidebarHeader}
+        leftSidebarHeader={
+          FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null
+        }
         leftSidebarContent={
           FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
             ? sidebarContent
             : emptySidebarContent
         }
-        rightSidebarHeader={null}
+        rightSidebarHeader={
+          FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarHeader : null
+        }
         rightSidebarContent={
           FILE_VIEW_TREE_SIDEBAR_SIDE === "right"
             ? sidebarContent

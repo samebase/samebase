@@ -56,9 +56,10 @@ export const fileCodeMirrorBaseExtensions = [
     },
     ".cm-scroller": {
       minHeight: "0",
+      // Code surfaces still rely on the native CodeMirror scroller, while the
+      // file-view prose path opts into its own auto-height override below.
       overflowY: "auto !important",
       overflowX: "auto !important",
-      overscrollBehavior: "contain",
       border: "none !important",
       outline: "none !important",
     },

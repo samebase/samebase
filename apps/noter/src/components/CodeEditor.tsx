@@ -1,12 +1,9 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 /* eslint-disable prefer-const */
-import { useRef, useEffect, useState } from "react";
-import { ChangeSet, Compartment } from "@codemirror/state";
+import { useRef, useEffect, useMemo, useState } from "react";
+import { ChangeSet } from "@codemirror/state";
 import { EditorView } from "codemirror";
-import { indentWithTab } from "@codemirror/commands";
-import { syntaxTree } from "@codemirror/language";
-import { keymap, ViewPlugin, ViewUpdate } from "@codemirror/view";
-import { useTheme } from "next-themes";
+import { ViewPlugin, ViewUpdate } from "@codemirror/view";
 import {
   collab,
   getSyncedVersion,
@@ -16,21 +13,12 @@ import {
 } from "@codemirror/collab";
 import { client } from "@/main";
 import { api } from "../../convex/_generated/api";
-import { prosemarkBaseThemeSetup, prosemarkBasicSetup } from "@prosemark/core";
-import { printTree } from "@lezer-unofficial/printer";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
-import { getProsemarkFileThemeExtensions } from "@/components/prosemarkSurface";
 import { Id } from "../../convex/_generated/dataModel";
 import { type GithubTreeType } from "convex/schema";
 import { MonacoEditor } from "./MonacoEditor";
-import { useProsemarkMobilePaneDrag } from "@/components/useProsemarkMobilePaneDrag";
-import {
-  getCodeMirrorFileLanguageKind,
-  getInitialCodeMirrorLanguageExtension,
-  loadCodeMirrorLanguageExtension,
-} from "@/lib/codemirrorLanguage";
-import { fileCodeMirrorBaseExtensions } from "@/lib/fileCodeMirrorBaseExtensions";
+import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 
 // Temporary:
 // const tempVaultId = "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"vaults">;
@@ -281,18 +269,15 @@ export function CodeEditor({
   branch: string;
   filePath: string;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<EditorView | null>(null);
-  const pendingLanguageLoadRef = useRef<symbol | null>(null);
-  const themeCompartmentRef = useRef(new Compartment());
   const pullRef = useRef<
     ((updates: readonly Update[], version: number) => void) | null
   >(null);
-  const { theme, systemTheme } = useTheme();
-  const [version, setVersion] = useState(firstDoc.version);
+  // CodeEditor is keyed by repo/branch/file path, so this captures the mount
+  // version for the currently opened file without forcing the editor surface to
+  // remount on every successful collaborative sync.
+  const mountedFileVersionRef = useRef(firstDoc.version);
+  const [version, setVersion] = useState(mountedFileVersionRef.current);
   const [syncError, setSyncError] = useState<string | null>(null);
-  const mobilePaneDrag = useProsemarkMobilePaneDrag(true, containerRef);
 
   const updates = useQuery(
     api.collaborative.pullUpdates,
@@ -320,140 +305,36 @@ export function CodeEditor({
   }, [updates]);
 
   useEffect(() => {
-    let editor: EditorView | null = null;
-    const languageLoadKey = Symbol("code-editor-language-load");
-    const languageCompartment = new Compartment();
-
-    const func = async () => {
-      if (!editorRef.current) return;
-
-      // Determine if we should use dark theme
-      const effectiveTheme = theme === "system" ? systemTheme : theme;
-      const isDark = effectiveTheme === "dark";
-      const languageKind = getCodeMirrorFileLanguageKind(filePath);
-
-      // editor = createProseMarkEditor({
-      //   content: firstDoc.content,
-      //   version: firstDoc.version,
-      //   parent: editorRef.current,
-      //   isDark,
-      //   repositoryFullName,
-      //   filePath,
-      // });
-
-      // Custom basic setup without line numbers and with minimal borders
-
-      const extensions = [
-        ...fileCodeMirrorBaseExtensions,
-        languageCompartment.of(getInitialCodeMirrorLanguageExtension(filePath)),
-        prosemarkBasicSetup(),
-        prosemarkBaseThemeSetup(),
-        themeCompartmentRef.current.of(
-          getProsemarkFileThemeExtensions({ isDark, languageKind }),
-        ),
-        peerExtension({
-          startVersion: firstDoc.version,
-          repositoryFullName,
-          branch,
-          filePath,
-          setVersion,
-          setSyncError,
-          setPull: (pull) => {
-            pullRef.current = pull;
-          },
-        }),
-
-        keymap.of([
-          indentWithTab,
-          {
-            key: "Alt-p",
-            run: (view) => {
-              console.log(
-                printTree(syntaxTree(view.state), view.state.doc.toString()),
-              );
-              return true;
-            },
-          },
-        ]),
-      ];
-
-      editor = new EditorView({
-        extensions,
-        doc: firstDoc.content,
-        parent: editorRef.current,
-      });
-
-      viewRef.current = editor;
-      pendingLanguageLoadRef.current = languageLoadKey;
-
-      try {
-        const languageExtension =
-          await loadCodeMirrorLanguageExtension(filePath);
-        if (pendingLanguageLoadRef.current !== languageLoadKey) {
-          return;
-        }
-
-        pendingLanguageLoadRef.current = null;
-        editor.dispatch({
-          effects: languageCompartment.reconfigure(languageExtension),
-        });
-      } catch {
-        if (pendingLanguageLoadRef.current !== languageLoadKey) {
-          return;
-        }
-
-        // The editor already mounted with the synchronous fallback parser, so
-        // keep it stable instead of surfacing an unhandled rejection.
-        pendingLanguageLoadRef.current = null;
-      }
-    };
-
-    void func();
-    // Cleanup function
-    return () => {
-      console.log("Cleaning up editor");
-      if (pendingLanguageLoadRef.current === languageLoadKey) {
-        pendingLanguageLoadRef.current = null;
-      }
-      editor?.destroy();
-      viewRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filePath]); // Re-create only when the routed file changes; theme updates reconfigure in place below.
-
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view) {
-      return;
-    }
-
-    const effectiveTheme = theme === "system" ? systemTheme : theme;
-    const isDark = effectiveTheme === "dark";
-    const languageKind = getCodeMirrorFileLanguageKind(filePath);
-    view.dispatch({
-      effects: themeCompartmentRef.current.reconfigure(
-        getProsemarkFileThemeExtensions({ isDark, languageKind }),
-      ),
-    });
-  }, [filePath, systemTheme, theme]);
-
-  useEffect(() => {
     setSyncError(null);
   }, [repositoryFullName, branch, filePath]);
 
+  const collaborationExtensions = useMemo(
+    () =>
+      peerExtension({
+        startVersion: mountedFileVersionRef.current,
+        repositoryFullName,
+        branch,
+        filePath,
+        setVersion,
+        setSyncError,
+        setPull: (pull) => {
+          pullRef.current = pull;
+        },
+      }),
+    [branch, filePath, repositoryFullName],
+  );
+
   return (
-    <div
-      ref={containerRef}
-      className="relative h-full min-h-0 w-full"
-      style={{ touchAction: mobilePaneDrag.touchAction }}
-      {...mobilePaneDrag.containerProps}
-    >
-      <div
-        ref={editorRef}
-        className="notranslate h-full min-h-0 w-full"
-        translate="no"
+    <div className="relative h-full min-h-0 w-full">
+      <CodeMirrorFileSurface
+        filePath={filePath}
+        initialValue={firstDoc.content}
+        extraExtensions={collaborationExtensions}
       />
       {syncError ? (
+        // Keep sync errors attached to the workspace-sized shell so they stay
+        // visible even when the prose surface grows into a long auto-height
+        // document that scrolls through the outer scene.
         <div className="pointer-events-none absolute bottom-2 right-2 corner-notch-1 bg-red-600/90 px-2 py-1 text-[11px] text-white">
           {syncError}
         </div>
