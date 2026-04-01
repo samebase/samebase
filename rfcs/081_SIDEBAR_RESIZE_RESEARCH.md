@@ -1,8 +1,8 @@
-# 081 Sidebar Resize Research
+# 081 Workspace Pane Resize Research And MVP
 
 ## Document Control
 
-- Status: Proposed
+- Status: Draft MVP implemented on branch
 - Owner: Noter frontend
 - Last updated: 2026-04-01
 - Depends on:
@@ -16,8 +16,16 @@
 
 ## Summary
 
-We want a resize affordance that lets people drag the left or right sidebar edge
-to make the sidebar wider or narrower on both desktop and mobile.
+We want the workspace to behave like a simpler VS Code workbench:
+
+- left sidebar
+- center main view
+- right sidebar
+- bottom panel
+
+The bottom panel already has that resize model today through `EditorChatDock`.
+This branch brings the same seam-resize usability to the left and right sidebars
+on both desktop and mobile.
 
 After reviewing the current workspace shell and the main external libraries, the
 best first slice is:
@@ -31,6 +39,32 @@ If we later decide we want a broader resizable layout system beyond the two
 workspace sidebars, `react-resizable-panels` is the strongest library option.
 For this specific slice, though, a custom shell-native implementation fits the
 code we already have better than introducing a new panel tree.
+
+## Implementation Update (This Branch)
+
+This branch ships the MVP described above:
+
+- `SidebarProvider` now owns separate left/right width state for desktop and
+  mobile
+- `WorkspaceSidebarShell` now clamps desktop widths against a minimum main-pane
+  width and clamps mobile widths against the existing main-pane peek model
+- `WorkspaceSidebarResizeHandle` mirrors the existing `EditorChatDock` separator
+  pattern:
+  - pointer capture
+  - keyboard resizing
+  - `ResizeGripLines`
+- desktop uses draggable sidebar seams
+- mobile uses a dedicated resize handle on the currently open sidebar so the
+  rest of the shell keeps the existing swipe navigation
+- the existing bottom panel remains the shared interaction model for the bottom
+  seam, so the overall layout now behaves much more like a simplified VS Code
+  workspace
+
+Follow-up work still deferred:
+
+- durable per-user persistence for pane widths
+- any broader conversion from the current shell into a more generalized panel
+  framework
 
 ## Current Layout Findings
 

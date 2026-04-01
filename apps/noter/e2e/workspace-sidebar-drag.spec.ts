@@ -162,6 +162,18 @@ async function dispatchHumanTouchSwipe(
   });
 }
 
+async function getBox(page: Page, testId: string) {
+  const locator = page.getByTestId(testId);
+  const box = await locator.boundingBox();
+
+  expect(box).not.toBeNull();
+  if (box === null) {
+    throw new Error(`Expected ${testId} to have a bounding box.`);
+  }
+
+  return box;
+}
+
 /**
  * Use one realistic touch sequence to fling from the open left sidebar toward
  * the right sidebar. Under the Chromium mobile device descriptor we need a
@@ -249,6 +261,48 @@ test("fileview mobile can reach the right sidebar from the open left sidebar in 
 
   await expect(fixture).toHaveAttribute("data-mobile-pane", "right");
   await expect(overlay).toContainText("duration:");
+});
+
+test("fileview mobile right sidebar handle resizes the pane and keeps it across reopen", async ({
+  page,
+}) => {
+  await gotoFileViewFixture(page);
+
+  await page
+    .getByRole("button", { name: "Toggle Right Sidebar" })
+    .press("Enter");
+
+  const handle = page.getByTestId("workspace-sidebar-right-resize-handle");
+  await expect(handle).toBeVisible();
+  const initialWidthPx = (
+    await getBox(page, "fileview-layout-right-sidebar-body")
+  ).width;
+
+  await handle.focus();
+  await expect(handle).toBeFocused();
+  await page.keyboard.press("Shift+ArrowLeft");
+  await expect
+    .poll(
+      async () =>
+        (await getBox(page, "fileview-layout-right-sidebar-body")).width,
+    )
+    .toBeGreaterThan(initialWidthPx + 40);
+
+  const resizedWidthPx = (
+    await getBox(page, "fileview-layout-right-sidebar-body")
+  ).width;
+  await page
+    .getByRole("button", { name: "Toggle Right Sidebar" })
+    .press("Enter");
+  await page
+    .getByRole("button", { name: "Toggle Right Sidebar" })
+    .press("Enter");
+  await expect
+    .poll(
+      async () =>
+        (await getBox(page, "fileview-layout-right-sidebar-body")).width,
+    )
+    .toBeGreaterThanOrEqual(resizedWidthPx - 1);
 });
 
 test("fileview mobile swipe debug overlay captures the cross-sidebar path and release metrics", async ({

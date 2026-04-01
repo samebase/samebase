@@ -11,6 +11,23 @@ async function getBox(page: Page, testId: string) {
   return box;
 }
 
+async function dragHorizontalHandle(
+  page: Page,
+  testId: string,
+  deltaXPx: number,
+) {
+  const handleBox = await getBox(page, testId);
+  const startX = handleBox.x + handleBox.width / 2;
+  const startY = handleBox.y + handleBox.height / 2;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + deltaXPx, startY, {
+    steps: 8,
+  });
+  await page.mouse.up();
+}
+
 function expectClose(
   actual: number,
   expected: number,
@@ -333,6 +350,50 @@ test("fileview right sidebar collapses independently", async ({ page }) => {
       return fixtureBox.x + fixtureBox.width - (headerBox.x + headerBox.width);
     })
     .toBeGreaterThan(100);
+});
+
+test("fileview desktop right sidebar resize persists across collapse", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 760 });
+  await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const rightSidebar = page.getByTestId("fileview-layout-right-sidebar-body");
+  const handle = page.getByTestId("workspace-sidebar-right-resize-handle");
+  const initialWidthPx = (
+    await getBox(page, "fileview-layout-right-sidebar-body")
+  ).width;
+
+  await expect(handle).toBeVisible();
+  await dragHorizontalHandle(
+    page,
+    "workspace-sidebar-right-resize-handle",
+    -96,
+  );
+  await expect
+    .poll(
+      async () =>
+        (await getBox(page, "fileview-layout-right-sidebar-body")).width,
+    )
+    .toBeGreaterThan(initialWidthPx + 48);
+
+  const resizedWidthPx = (
+    await getBox(page, "fileview-layout-right-sidebar-body")
+  ).width;
+  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+  await expect(rightSidebar).toBeHidden();
+
+  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+  await expect(rightSidebar).toBeVisible();
+  await expect
+    .poll(
+      async () =>
+        (await getBox(page, "fileview-layout-right-sidebar-body")).width,
+    )
+    .toBeGreaterThanOrEqual(resizedWidthPx - 1);
 });
 
 test("fileview empty left sidebar opens independently", async ({ page }) => {
