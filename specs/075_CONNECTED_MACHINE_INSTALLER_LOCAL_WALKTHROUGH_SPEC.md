@@ -158,15 +158,15 @@ What this does today:
 3. creates a machine registration request in Noter
 4. writes or updates `~/.noter/config.json`
 5. prints a markdown status block to stdout
-6. opens the browser to `/machines/connect?openedByCli&requestId=...`
-
-If that browser-open step fails on Windows, open the printed `next:` URL
-manually.
+6. prints the `next:` approval URL for
+   `/machines/connect?openedByCli&requestId=...`
+7. waits for you to open that printed `next:` URL manually in a signed-in
+   browser
 
 ## 5. Approve The Machine In The Browser
 
-After the CLI opens the browser, the machine-connect page should show the CLI
-handoff state for the new `requestId`.
+After you open the printed `next:` URL, the machine-connect page should show the
+CLI handoff state for the new `requestId`.
 
 Expected result:
 
@@ -176,8 +176,8 @@ Expected result:
 4. the page now shows `run` commands for both the future published package path
    and the direct hosted-file path
 
-If the installer opened a different browser than the one where you are signed
-in, open the same URL in your signed-in browser and approve the machine there.
+Open that same printed `next:` URL in the browser where you are signed in to
+Noter and approve the machine there.
 
 ## 6. Inspect The Local Config File
 

@@ -6,7 +6,7 @@
 //    explicit localhost `http:` during local testing).
 // 2. Run `codex --version` to confirm the Codex CLI is on PATH.
 // 3. Write one JSON config file under `~/.noter/config.json`.
-// 4. Open Noter's `/machines/connect` page in the default browser.
+// 4. Print Noter's `/machines/connect` approval URL.
 // 5. Reuse the stored machine credential for later heartbeat publishing.
 //
 // It does not install background services, modify project files, or download
@@ -3785,48 +3785,6 @@ async function publishMachineHeartbeat(args) {
   }
 }
 
-/**
- * Automatic browser open is a convenience, not a hard dependency. Failures are
- * reported but do not invalidate the bootstrap record we already wrote.
- */
-export function openBrowser(url) {
-  const openerCommand =
-    platform() === 'darwin'
-      ? { command: 'open', args: [url] }
-      : platform() === 'win32'
-        ? {
-            command: 'cmd',
-            args: ['/d', '/s', '/c', `start "" "${url.replaceAll('"', '""')}"`],
-          }
-        : { command: 'xdg-open', args: [url] }
-
-  return new Promise((resolve, reject) => {
-    const child = spawn(openerCommand.command, openerCommand.args, {
-      detached: true,
-      stdio: 'ignore',
-    })
-    child.once('error', error => {
-      reject(
-        new Error(
-          `Could not open a browser automatically with ${openerCommand.command}: ${error.message}`,
-        ),
-      )
-    })
-    child.once('exit', code => {
-      if (code !== 0) {
-        reject(
-          new Error(
-            `Could not open a browser automatically with ${openerCommand.command}: exited with code ${code}.`,
-          ),
-        )
-        return
-      }
-      child.unref()
-      resolve()
-    })
-  })
-}
-
 function readDirectDownloadCommand(currentPlatform = process.platform) {
   return normalizeRuntimePlatform(currentPlatform) === 'win32'
     ? 'curl.exe -fsSL'
@@ -3924,17 +3882,6 @@ async function runConnectCommand(parsedArgs) {
       sourceUrl,
     }),
   )
-
-  try {
-    await openBrowser(registration.machineConnectUrl)
-    console.log('opened machine connect page in your browser')
-  } catch (error) {
-    console.warn(
-      error instanceof Error
-        ? error.message
-        : 'Could not open a browser automatically.',
-    )
-  }
 }
 
 export async function runHeartbeatLoop(args) {
@@ -4113,7 +4060,7 @@ async function runConnectorCommand() {
  * 2. Confirm the Codex CLI exists locally and is available on PATH.
  * 3. Persist one local config file.
  * 4. Print a markdown summary.
- * 5. Hand off to the browser for approval.
+ * 5. Print the approval URL for the operator to open manually.
  * 6. Later, reuse the stored machine credential to publish heartbeats.
  */
 export async function main(argv) {

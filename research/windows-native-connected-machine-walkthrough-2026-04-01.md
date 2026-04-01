@@ -128,9 +128,10 @@ Observed result:
 
 1. It wrote `C:\Users\<user>\.noter\config.json`.
 2. It printed the `next:` approval URL.
-3. Automatic browser opening still failed on this machine with:
-   `Could not open a browser automatically with cmd: exited with code 1.`
+3. Automatic browser opening was removed from the flow after Windows showed a
+   native popup trying to open `\\` through `cmd start`.
 
-Opening the printed `next:` URL manually in a signed-in browser still completed
+Opening the printed `next:` URL manually in a signed-in browser completed
 machine approval successfully, and the subsequent `run` command published
-heartbeats as expected.
+heartbeats as expected. That manual-open step is now the intended cross-platform
+contract for both Windows and Linux sandbox environments.

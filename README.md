@@ -108,6 +108,10 @@ Notes:
 - In Windows PowerShell, direct hosted-file `noter.js` commands should use
   `curl.exe`, not the built-in `curl` alias. This matches the Windows-safe
   command work merged in PR `#395`.
+- The `noter.js connect` flow now prints a `next:` approval URL instead of
+  trying to open a browser automatically. Open that printed link manually in a
+  signed-in browser. This keeps the flow consistent across native Windows and
+  Linux sandbox environments.
 - Windows `noter.js` resolution also supports Codex installed through Volta, as
   long as the `codex` and `volta` commands are available on `PATH`. Noter
   resolves that shim from the current workspace so project-scoped Volta setups
