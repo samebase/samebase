@@ -60,10 +60,5 @@
     "convex"
   ],
   "author": "",
-  "license": "UNLICENSED",
-  "pnpm": {
-    "patchedDependencies": {
-      "convex@1.32.0": "patches/convex@1.32.0.patch"
-    }
-  }
+  "license": "UNLICENSED"
 }
