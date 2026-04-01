@@ -6,6 +6,21 @@ type ScrollMetrics = {
   scrollTop: number;
 };
 
+// Keep the wheel target inside visible prose content instead of drifting toward
+// lower overlays in the workspace shell.
+const WHEEL_HOVER_Y_CAP_PX = 180;
+// Start the mobile fallback probe below sticky header chrome before looking for
+// a visible prose line to swipe on.
+const SWIPE_FALLBACK_START_OFFSET_PX = 140;
+const SWIPE_PROBE_TOP_OFFSET_PX = 40;
+// Leave room above bottom gesture areas when choosing touch coordinates.
+const SWIPE_VIEWPORT_BOTTOM_MARGIN_PX = 120;
+// Step through candidate hit targets in coarse increments until a visible
+// `.cm-line` is found.
+const SWIPE_PROBE_STEP_PX = 20;
+// Move in two equal segments so the gesture matches a natural upward swipe.
+const SWIPE_MOVE_SEGMENT_PX = 120;
+
 async function readScrollMetrics(locator: Locator): Promise<ScrollMetrics> {
   return locator.evaluate((node) => {
     if (!(node instanceof HTMLElement)) {
@@ -34,7 +49,7 @@ async function wheelSurface(page: Page, surface: Locator) {
 
   await page.mouse.move(
     bounds.x + bounds.width / 2,
-    bounds.y + Math.min(bounds.height / 2, 180),
+    bounds.y + Math.min(bounds.height / 2, WHEEL_HOVER_Y_CAP_PX),
   );
   await page.mouse.wheel(0, 1200);
   await page.mouse.wheel(0, 1200);
@@ -49,7 +64,16 @@ async function swipeSurface(page: Page, surface: Locator) {
 
   const viewportHeight = page.viewportSize()?.height ?? 844;
   const startPoint = await page.evaluate(
-    ({ dataTestId, startX, surfaceTop, viewportHeight }) => {
+    ({
+      dataTestId,
+      fallbackStartOffset,
+      probeStep,
+      probeTopOffset,
+      startX,
+      surfaceTop,
+      viewportBottomMargin,
+      viewportHeight,
+    }) => {
       const surface = document.querySelector<HTMLElement>(
         `[data-testid="${dataTestId}"]`,
       );
@@ -57,13 +81,17 @@ async function swipeSurface(page: Page, surface: Locator) {
         return null;
       }
 
-      let fallbackY = Math.min(surfaceTop + 140, viewportHeight - 120);
+      const viewportBottomLimit = viewportHeight - viewportBottomMargin;
+      let fallbackY = Math.min(
+        surfaceTop + fallbackStartOffset,
+        viewportBottomLimit,
+      );
       let visibleLineY: number | null = null;
 
       for (
-        let y = Math.max(surfaceTop + 40, 0);
-        y <= viewportHeight - 120;
-        y += 20
+        let y = Math.max(surfaceTop + probeTopOffset, 0);
+        y <= viewportBottomLimit;
+        y += probeStep
       ) {
         const hit = document.elementFromPoint(startX, y);
         if (!(hit instanceof HTMLElement)) {
@@ -86,8 +114,12 @@ async function swipeSurface(page: Page, surface: Locator) {
     },
     {
       dataTestId: "fileview-prosemark-height-surface",
+      fallbackStartOffset: SWIPE_FALLBACK_START_OFFSET_PX,
+      probeStep: SWIPE_PROBE_STEP_PX,
+      probeTopOffset: SWIPE_PROBE_TOP_OFFSET_PX,
       startX: bounds.x + bounds.width / 2,
       surfaceTop: bounds.y,
+      viewportBottomMargin: SWIPE_VIEWPORT_BOTTOM_MARGIN_PX,
       viewportHeight,
     },
   );
@@ -98,53 +130,59 @@ async function swipeSurface(page: Page, surface: Locator) {
 
   const startX = startPoint.startX;
   const startY = startPoint.startY;
-  const middleY = startY - 120;
-  const endY = startY - 240;
+  const middleY = startY - SWIPE_MOVE_SEGMENT_PX;
+  const endY = startY - SWIPE_MOVE_SEGMENT_PX * 2;
   const session = await page.context().newCDPSession(page);
 
-  await session.send("Input.dispatchTouchEvent", {
-    type: "touchStart",
-    touchPoints: [
-      {
-        force: 1,
-        id: 1,
-        radiusX: 4,
-        radiusY: 4,
-        x: startX,
-        y: startY,
-      },
-    ],
-  });
-  await session.send("Input.dispatchTouchEvent", {
-    type: "touchMove",
-    touchPoints: [
-      {
-        force: 1,
-        id: 1,
-        radiusX: 4,
-        radiusY: 4,
-        x: startX,
-        y: middleY,
-      },
-    ],
-  });
-  await session.send("Input.dispatchTouchEvent", {
-    type: "touchMove",
-    touchPoints: [
-      {
-        force: 1,
-        id: 1,
-        radiusX: 4,
-        radiusY: 4,
-        x: startX,
-        y: endY,
-      },
-    ],
-  });
-  await session.send("Input.dispatchTouchEvent", {
-    type: "touchEnd",
-    touchPoints: [],
-  });
+  try {
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [
+        {
+          force: 1,
+          id: 1,
+          radiusX: 4,
+          radiusY: 4,
+          x: startX,
+          y: startY,
+        },
+      ],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        {
+          force: 1,
+          id: 1,
+          radiusX: 4,
+          radiusY: 4,
+          x: startX,
+          y: middleY,
+        },
+      ],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        {
+          force: 1,
+          id: 1,
+          radiusX: 4,
+          radiusY: 4,
+          x: startX,
+          y: endY,
+        },
+      ],
+    });
+  } finally {
+    await session
+      .send("Input.dispatchTouchEvent", {
+        type: "touchEnd",
+        touchPoints: [],
+      })
+      .catch(() => undefined);
+    await session.detach().catch(() => undefined);
+  }
 }
 
 async function openFixture(page: Page) {

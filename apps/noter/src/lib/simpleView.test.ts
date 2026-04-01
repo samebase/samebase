@@ -138,6 +138,8 @@ describe("repository file tree fixtures", () => {
 
     const invalidSpecPaths = visibleSpecPaths.filter((path) => {
       const specFileName = path.slice("specs/".length);
+      // The folder policy document is intentionally unnumbered; the numbered
+      // naming convention applies to accepted spec docs, not the directory map.
       if (specFileName === "README.md") {
         return false;
       }

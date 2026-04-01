@@ -140,6 +140,9 @@ export const collapseSelectionOnBlurExtension = ViewPlugin.fromClass(
 );
 
 export const prosemarkSurfaceTheme = EditorView.theme({
+  // CodeMirror distributes pointer handling across nested wrappers, so every
+  // interactive layer keeps `touchAction: "pan-y"` to preserve native vertical
+  // scrolling while still letting horizontal pane-drag gestures break out.
   "&": {
     backgroundColor: "transparent",
     color: "inherit",

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FilePlusIcon,
   GitHubLogoIcon,
@@ -143,6 +143,17 @@ function isFixtureDocumentPath(
   return Object.prototype.hasOwnProperty.call(FIXTURE_DOCUMENTS, path);
 }
 
+function getFirstVisibleFixtureFile(
+  items: ReadonlyArray<(typeof FIXTURE_TREE_ITEMS)[number]>,
+): keyof typeof FIXTURE_DOCUMENTS {
+  for (const item of items) {
+    if (item.type === "blob" && isFixtureDocumentPath(item.path)) {
+      return item.path;
+    }
+  }
+  return "README.md";
+}
+
 /**
  * This fixture mirrors the shipped file-view shell closely enough that prose
  * scroll and mobile-pane regressions exercise the real workspace/editor
@@ -183,6 +194,20 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
               item.path === "docs/scrolling.md",
           )
         : FIXTURE_TREE_ITEMS;
+
+  useEffect(() => {
+    const selectionIsVisible = visibleTreeItems.some(
+      (item) => item.type === "blob" && item.path === selectedFile,
+    );
+    if (selectionIsVisible) {
+      return;
+    }
+
+    // Keep the header/editor selection aligned with the visible tree so the
+    // honest fixture never renders a file state that the sidebar cannot show.
+    setSelectedFile(getFirstVisibleFixtureFile(visibleTreeItems));
+  }, [selectedFile, visibleTreeItems]);
+
   const sidebarHeader = (
     <SidebarAccountSection>
       <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">

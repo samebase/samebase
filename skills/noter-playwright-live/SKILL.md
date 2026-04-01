@@ -56,9 +56,15 @@ If dependencies are missing, run `pnpm install` first.
 Probe common Vite ports (5173-5190) and select the first reachable page:
 
 ```bash
-for p in $(seq 5173 5190); do
-  curl -fsS "http://127.0.0.1:$p" >/dev/null && echo "http://127.0.0.1:$p" && break
-done
+URL="$(
+  for p in $(seq 5173 5190); do
+    curl -fsS "http://127.0.0.1:$p" >/dev/null &&
+      echo "http://127.0.0.1:$p" &&
+      break
+  done
+)"
+[ -n "$URL" ] || { echo "No frontend URL found" >&2; exit 1; }
+printf '%s\n' "$URL"
 ```
 
 5. Open a Playwright CLI session scoped to the current branch.

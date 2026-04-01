@@ -47,11 +47,12 @@ npx convex dashboard
 npx convex env list
 ```
 
-For worktree-safe prod logs when the worktree lacks its own `.env.local`, reuse
-the primary checkout env file:
+For worktree-safe prod logs when the worktree lacks its own `.env.local`, point
+`--env-file` at the primary checkout's `apps/noter/.env.local` and replace
+`<primary-checkout>` with the actual path:
 
 ```bash
-npx convex logs --prod --env-file /Users/nicu/dev/my/noter/apps/noter/.env.local --history 50
+npx convex logs --prod --env-file <primary-checkout>/apps/noter/.env.local --history 50
 ```
 
 ## Architecture
