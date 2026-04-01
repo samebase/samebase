@@ -16,11 +16,11 @@ answers two practical questions:
 
 This is operational research, not legal advice.
 
-## Why This Lives In `docs/research`
+## Why This Lives In `research/`
 
 This is a current-state research memo and publication checklist. It is not yet a
 product spec, runtime contract, or accepted rollout plan, so it fits better
-under `docs/research/` than under `specs/`.
+under `research/` than under `specs/`.
 
 ## Bottom Line
 

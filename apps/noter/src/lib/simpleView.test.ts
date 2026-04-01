@@ -132,12 +132,15 @@ describe("repository file tree fixtures", () => {
   });
 
   it("keeps visible spec files on the numbered underscore naming convention", () => {
-    const visibleSpecPaths = getRootVisibleSimpleViewFilePaths().filter((path) =>
-      path.startsWith("specs/"),
+    const visibleSpecPaths = getRootVisibleSimpleViewFilePaths().filter(
+      (path) => path.startsWith("specs/"),
     );
 
     const invalidSpecPaths = visibleSpecPaths.filter((path) => {
       const specFileName = path.slice("specs/".length);
+      if (specFileName === "README.md") {
+        return false;
+      }
       return !/^\d{3}_.+\.md$/.test(specFileName);
     });
 

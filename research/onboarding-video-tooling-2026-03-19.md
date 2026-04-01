@@ -17,11 +17,11 @@ sequence:
 This memo focuses on tooling for producing that onboarding experience, including
 video and step-by-step walkthroughs.
 
-## Why This Lives In `docs/research`
+## Why This Lives In `research/`
 
 This is exploratory tooling research, not a product or architecture spec. It
 does not define a new runtime contract, numbered rollout plan, or implementation
-requirement, so it fits better under `docs/research/` than under `specs/`.
+requirement, so it fits better under `research/` than under `specs/`.
 
 ## Recommendation
 
