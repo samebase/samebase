@@ -55,6 +55,7 @@ interface FileTreeProps {
   onFileSelect?: (path: string, status?: CommitReviewFileStatus) => void;
   onFileRename?: (oldPath: string, newPath: string) => void;
   onFileCreate?: (folderPath: string, fileName: string) => void;
+  onMediaUploadRequest?: (folderPath: string) => void;
   onFileDelete?: (path: string, originalPath: string) => void;
   onFileRestore?: (path: string, originalPath: string) => void;
   restoringFilePath?: string | null;
@@ -129,6 +130,7 @@ function TreeNodeComponent({
   onFileSelect,
   onFileRename,
   onFileCreate,
+  onMediaUploadRequest,
   onFileDelete,
   onFileRestore,
   restoringFilePath,
@@ -142,6 +144,7 @@ function TreeNodeComponent({
   onFileSelect?: (path: string, status?: CommitReviewFileStatus) => void;
   onFileRename?: (originalPath: string, newPath: string) => void;
   onFileCreate?: (folderPath: string, fileName: string) => void;
+  onMediaUploadRequest?: (folderPath: string) => void;
   onFileDelete?: (path: string, originalPath: string) => void;
   onFileRestore?: (path: string, originalPath: string) => void;
   restoringFilePath?: string | null;
@@ -247,6 +250,11 @@ function TreeNodeComponent({
 
   const handleCreateFolder = () => {
     openFolderCreation(node.path);
+    setContextMenu(null);
+  };
+
+  const handleUploadImage = () => {
+    onMediaUploadRequest?.(node.path);
     setContextMenu(null);
   };
 
@@ -368,6 +376,7 @@ function TreeNodeComponent({
                 onFileSelect={onFileSelect}
                 onFileRename={onFileRename}
                 onFileCreate={onFileCreate}
+                onMediaUploadRequest={onMediaUploadRequest}
                 onFileDelete={onFileDelete}
                 onFileRestore={onFileRestore}
                 restoringFilePath={restoringFilePath}
@@ -400,6 +409,13 @@ function TreeNodeComponent({
                 >
                   <PlusIcon className="h-3 w-3" />
                   Create File
+                </button>
+                <button
+                  className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 flex items-center gap-2"
+                  onClick={handleUploadImage}
+                >
+                  <PlusIcon className="h-3 w-3" />
+                  Upload Image
                 </button>
                 <button
                   className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 flex items-center gap-2"
@@ -458,6 +474,7 @@ export function FileTree({
   onFileSelect,
   onFileRename,
   onFileCreate,
+  onMediaUploadRequest,
   onFileDelete,
   onFileRestore,
   restoringFilePath,
@@ -525,6 +542,7 @@ export function FileTree({
           onFileSelect={onFileSelect}
           onFileRename={onFileRename}
           onFileCreate={onFileCreate}
+          onMediaUploadRequest={onMediaUploadRequest}
           onFileDelete={onFileDelete}
           onFileRestore={onFileRestore}
           restoringFilePath={restoringFilePath}

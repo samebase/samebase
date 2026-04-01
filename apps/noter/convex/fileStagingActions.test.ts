@@ -11,6 +11,7 @@ import {
   inspectStagedFilesAgainstLatestHead,
   readLatestOpenPullRequestForBranch,
   readOpenPullRequestForBranch,
+  shouldAdvanceBinaryPullParentCommit,
 } from "./fileStagingActions";
 
 type GitApi = RestEndpointMethodTypes["git"];
@@ -747,6 +748,8 @@ describe("buildRemoteComparePreviewFile", () => {
       status: "modified",
       path: "public/image.png",
       previousPath: undefined,
+      isBinary: false,
+      mimeType: undefined,
       additions: 3,
       deletions: 2,
       oldLineCount: 0,
@@ -1144,6 +1147,40 @@ describe("createCommitWithMultipleFiles", () => {
       parentCommitSha: null,
       upstreamSha: "upstream",
       upstreamContent: "theirs\n",
+    });
+  });
+
+  it("keeps the resolved upstream path for renamed conflicts", async () => {
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse("head-tree", [{ path: "TODO.md", sha: "upstream" }]),
+    );
+    vi.spyOn(octokit.rest.git, "getBlob").mockResolvedValue(
+      makeGetBlobResponse("upstream", ["alpha", "theirs", ""].join("\n")),
+    );
+
+    const inspection = await inspectStagedFilesAgainstLatestHead({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main",
+      stagedFiles: [
+        {
+          filePath: "docs/TODO.md",
+          content: ["alpha", "ours", ""].join("\n"),
+          fileDeleted: false,
+          initialFilePath: "TODO.md",
+          initialContent: ["alpha", "base", ""].join("\n"),
+          parentCommitSha: "base-sha",
+          branch: "main",
+        },
+      ],
+    });
+
+    expect(inspection.conflicts[0]).toMatchObject({
+      filePath: "docs/TODO.md",
+      initialFilePath: "TODO.md",
+      upstreamPath: "TODO.md",
+      upstreamSha: "upstream",
     });
   });
 
@@ -1671,5 +1708,44 @@ describe("createCommitWithMultipleFiles", () => {
       }
       expect(entry.content).toBeDefined();
     }
+  });
+});
+
+describe("shouldAdvanceBinaryPullParentCommit", () => {
+  it("advances when the staged binary already matches upstream", () => {
+    expect(
+      shouldAdvanceBinaryPullParentCommit({
+        stagedBlobSha: "upstream-sha",
+        upstreamSha: "upstream-sha",
+      }),
+    ).toBe(true);
+  });
+
+  it("preserves the previous base when upstream diverges", () => {
+    expect(
+      shouldAdvanceBinaryPullParentCommit({
+        stagedBlobSha: "staged-sha",
+        upstreamSha: "upstream-sha",
+      }),
+    ).toBe(false);
+  });
+
+  it("preserves the previous base when the staged row has no uploaded blob", () => {
+    expect(
+      shouldAdvanceBinaryPullParentCommit({
+        stagedBlobSha: undefined,
+        upstreamSha: "upstream-sha",
+      }),
+    ).toBe(false);
+  });
+
+  it("preserves the previous base for deleted binary rows even when the blob matches upstream", () => {
+    expect(
+      shouldAdvanceBinaryPullParentCommit({
+        stagedBlobSha: "upstream-sha",
+        fileDeleted: true,
+        upstreamSha: "upstream-sha",
+      }),
+    ).toBe(false);
   });
 });

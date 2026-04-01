@@ -1,20 +1,10 @@
-export type StagedFileChangeCandidate = {
-  fileDeleted: boolean;
-  parentCommitSha: string | null;
-  filePath: string;
-  initialFilePath: string;
-  content: string;
-  initialContent: string;
-};
-
-export function hasStagedFileChanges(file: StagedFileChangeCandidate): boolean {
-  if (file.parentCommitSha === null) {
-    return !file.fileDeleted;
-  }
-
-  return (
-    file.content !== file.initialContent ||
-    file.fileDeleted ||
-    file.filePath !== file.initialFilePath
-  );
-}
+export {
+  getStagedFileStatus,
+  hasStagedBinaryContentChange,
+  hasStagedFileChanges,
+  hasStagedFileContentChange,
+  readStagedFileKind,
+  type StagedFileChangeCandidate,
+  type StagedFileKind,
+  type StagedFileStatus,
+} from "../shared/stagedFiles";

@@ -592,6 +592,7 @@ export default defineSchema({
     vaultId: v.id("vaults"),
 
     fileDeleted: v.boolean(),
+    kind: optional(union(literal("text"), literal("binary"))),
 
     filePath: v.string(),
     initialFilePath: v.string(),
@@ -599,6 +600,10 @@ export default defineSchema({
     content: v.string(),
     // TODO: Maybe remove and rely on blobs table instead?
     initialContent: v.string(),
+    storageId: optional(v.id("_storage")),
+    mime: optional(v.string()),
+    size: optional(v.number()),
+    stagedBlobSha: optional(v.string()),
 
     parentCommitSha: v.union(v.string(), v.null()), // SHA of the GitHub commit this edit is based on
 

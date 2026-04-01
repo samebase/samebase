@@ -14,12 +14,23 @@ export default defineConfig({
   fullyParallel: false,
   retries: 0,
   workers: 1,
-  reporter: "list",
+  reporter: [
+    ["list"],
+    [
+      "html",
+      {
+        open: "never",
+        outputFolder: "./e2e/playwright-report",
+      },
+    ],
+  ],
   snapshotPathTemplate: "{testDir}/{testFilePath}-snapshots/{arg}{ext}",
   use: {
     baseURL: playwrightBaseUrl,
     headless: true,
-    trace: "off",
+    // Keep failure traces and screenshots so CI artifact uploads show the
+    // actual Linux-rendered output instead of only log paths.
+    trace: "retain-on-failure",
     screenshot: "only-on-failure",
     launchOptions: {
       // Three-based visual fixtures need explicit WebGL software rendering in headless Chromium.

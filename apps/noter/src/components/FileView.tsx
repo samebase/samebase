@@ -66,6 +66,10 @@ import { claimRefreshDebounce } from "@/lib/treeRefreshDebounce";
 import { buildFileViewRefreshDebounceKey } from "@/lib/fileViewRefresh";
 import { getAncestorFolderPaths } from "@/lib/fileTreeState";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
+import {
+  readUploadStorageId,
+  uploadMediaWithCleanup,
+} from "@/lib/mediaUploadWorkflow";
 import { type GithubTreeType } from "convex/schema";
 import { formatStopwatchDuration } from "@/lib/stopwatch";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
@@ -79,7 +83,9 @@ import { SidebarAccountSection } from "./SidebarAccountSection";
 import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
 import { WorkspaceScene } from "@/components/workspace-layout/WorkspaceScene";
 import { DAYTONA_PAUSED } from "../../shared/daytonaPause";
+import { MediaUploadDialog } from "./MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
+import { getStagedFileStatus as getSharedStagedFileStatus } from "../../shared/stagedFiles";
 import { isStaleBaseVersionError } from "../../shared/stagingErrors";
 import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
@@ -133,6 +139,8 @@ type CommitPreviewFile = {
   status: CommitPreviewFileStatus;
   path: string;
   previousPath?: string;
+  isBinary: boolean;
+  mimeType?: string;
   additions: number;
   deletions: number;
   oldLineCount: number;
@@ -170,6 +178,9 @@ type BranchComparePreview =
 type RebaseConflictPreviewFile = {
   path: string;
   previousPath?: string;
+  upstreamPath?: string;
+  isBinary: boolean;
+  mimeType?: string;
   isMarkdown: boolean;
   baseBlobSha?: string;
   upstreamBlobSha: string;
@@ -194,6 +205,10 @@ type InlinePreviewSaveSnapshot = {
   stagingId: StagedFileRecord["_id"];
   content: string;
   baseVersion: number;
+};
+type PendingMediaUpload = {
+  file: File;
+  preferredFolderPath: string;
 };
 
 type RefreshTrigger = "focus" | "page_load";
@@ -274,23 +289,21 @@ function parseUpstreamConflictPaths(message: string | null): string[] {
 function getStagedFileStatus(
   file: StagedFileRecord,
 ): CommitPreviewFileStatus | null {
-  if (file.fileDeleted) {
-    return "deleted";
-  }
-  if (file.parentCommitSha === null) {
-    return "added";
-  }
-  if (file.filePath !== file.initialFilePath) {
-    return "renamed";
-  }
-  if (file.content !== file.initialContent) {
-    return "modified";
-  }
-  return null;
+  return getSharedStagedFileStatus(file);
 }
 
 function encodeGitHubPath(path: string): string {
   return encodeVaultFilePath(path);
+}
+
+function getDefaultUploadFolderPath(filePath: string): string {
+  const pathSegments = filePath.split("/");
+  pathSegments.pop();
+  return pathSegments.join("/");
+}
+
+function normalizeFolderPath(folderPath: string): string {
+  return folderPath.trim().replace(/^\/+|\/+$/g, "");
 }
 
 function FileViewWrapper() {
@@ -856,6 +869,13 @@ function FileViewInner({
   const flushPendingInlinePreviewSaveRef = useRef<(() => void) | null>(null);
   const inlinePreviewAutosaveContextKeyRef = useRef("");
   const inlinePreviewMountedRef = useRef(true);
+  const mediaUploadInputRef = useRef<HTMLInputElement>(null);
+  const pendingMediaUploadFolderPathRef = useRef("");
+  const [pendingMediaUpload, setPendingMediaUpload] =
+    useState<PendingMediaUpload | null>(null);
+  const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [isMediaUploadDragOver, setIsMediaUploadDragOver] = useState(false);
 
   // Convex hooks for staging
   const [commitStaging, manualComittingStatus] = useConvexAction(
@@ -890,6 +910,12 @@ function FileViewInner({
   const [updateStagedFileContent] = useConvexMutation(
     api.fileStaging.updateStagedFileContent,
   );
+  const [generateUploadUrl] = useConvexMutation(
+    api.fileStaging.generateUploadUrl,
+  );
+  const [deletePendingUploadBlob] = useConvexMutation(
+    api.fileStaging.deletePendingUploadBlob,
+  );
 
   const [markFileForDeletion] = useConvexMutation(
     api.fileStaging.markFileForDeletion,
@@ -908,6 +934,9 @@ function FileViewInner({
   );
   const stageFileForEditing = useAction(
     api.fileStagingActions.getFileForEditing,
+  );
+  const [stageUploadedMedia] = useConvexAction(
+    api.fileStagingActions.stageUploadedMedia,
   );
   const isDiffRequested = useMemo(
     () => hasQueryParam(search, "diff"),
@@ -1235,6 +1264,145 @@ function FileViewInner({
       );
     },
     [branch, owner, repoName, search],
+  );
+  const prepareMediaUpload = useCallback(
+    (file: File, preferredFolderPath: string) => {
+      const looksLikeImage =
+        file.type.startsWith("image/") ||
+        isRenderableRepositoryMediaPath(file.name);
+      if (!looksLikeImage) {
+        setMediaUploadError("Only image uploads are supported right now.");
+        return;
+      }
+
+      setMediaUploadError(null);
+      setPendingMediaUpload({
+        file,
+        preferredFolderPath: normalizeFolderPath(preferredFolderPath),
+      });
+    },
+    [],
+  );
+  const handleRequestMediaUpload = useCallback(
+    (preferredFolderPath?: string) => {
+      pendingMediaUploadFolderPathRef.current =
+        preferredFolderPath ?? getDefaultUploadFolderPath(selectedFile);
+      mediaUploadInputRef.current?.click();
+    },
+    [selectedFile],
+  );
+  const handleMediaUploadInputChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file) {
+        return;
+      }
+
+      prepareMediaUpload(file, pendingMediaUploadFolderPathRef.current);
+    },
+    [prepareMediaUpload],
+  );
+  const handleMediaUploadSubmit = useCallback(
+    ({
+      replaceExisting,
+      targetPath,
+    }: {
+      replaceExisting: boolean;
+      targetPath: string;
+    }) => {
+      if (!pendingMediaUpload) {
+        return;
+      }
+
+      setIsUploadingMedia(true);
+      setMediaUploadError(null);
+
+      void uploadMediaWithCleanup({
+        requestUploadUrl: () => generateUploadUrl({ vaultId: vault._id }),
+        uploadFile: async (uploadUrl) => {
+          const response = await fetch(uploadUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                pendingMediaUpload.file.type || "application/octet-stream",
+            },
+            body: pendingMediaUpload.file,
+          });
+          if (!response.ok) {
+            throw new Error("Failed to upload image.");
+          }
+          return readUploadStorageId(await response.json());
+        },
+        stageUploadedMedia: async (storageId) => {
+          await stageUploadedMedia({
+            repositoryFullName,
+            filePath: targetPath,
+            // Convex returns upload ids as opaque strings over HTTP even though
+            // the generated client types brand storage ids locally.
+            // @ts-expect-error Upload responses cannot preserve the `_storage` brand across fetch JSON.
+            storageId,
+            branch,
+            replaceExisting,
+          });
+        },
+        deleteUploadedMedia: async (storageId) => {
+          await deletePendingUploadBlob({
+            vaultId: vault._id,
+            // Upload responses cannot preserve the storage id brand.
+            // @ts-expect-error Upload responses are plain strings from fetch JSON.
+            storageId,
+          });
+        },
+        onCleanupError: (cleanupError, storageId) => {
+          console.warn("Failed to clean up uploaded media blob", {
+            storageId,
+            cleanupError,
+          });
+        },
+      })
+        .then(() => {
+          setPendingMediaUpload(null);
+          void navigate(buildVaultFileUrl(targetPath), { state });
+        })
+        .catch((error: unknown) => {
+          const message =
+            error instanceof Error && error.message.length > 0
+              ? error.message
+              : "Failed to upload image.";
+          setMediaUploadError(message);
+        })
+        .finally(() => {
+          setIsUploadingMedia(false);
+        });
+    },
+    [
+      branch,
+      buildVaultFileUrl,
+      deletePendingUploadBlob,
+      generateUploadUrl,
+      navigate,
+      pendingMediaUpload,
+      repositoryFullName,
+      stageUploadedMedia,
+      state,
+      vault._id,
+    ],
+  );
+  const handleMediaUploadDrop = useCallback(
+    (event: React.DragEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      setIsMediaUploadDragOver(false);
+
+      const fileList = event.dataTransfer.files;
+      if (fileList.length === 0) {
+        return;
+      }
+
+      const file = fileList[0];
+      prepareMediaUpload(file, getDefaultUploadFolderPath(selectedFile));
+    },
+    [prepareMediaUpload, selectedFile],
   );
   const setReviewModeInQuery = useCallback(
     (
@@ -2529,6 +2697,11 @@ function FileViewInner({
     finalTreeData,
     simpleViewConfig,
   ]);
+  const existingUploadTargetPaths = useMemo(() => {
+    return finalTreeData
+      .filter((item) => item.type === "blob")
+      .map((item) => item.path);
+  }, [finalTreeData]);
   const autoExpandedSidebarPaths = useMemo(() => {
     if (effectiveSidebarMode === "compare") {
       return Array.from(
@@ -2970,6 +3143,7 @@ function FileViewInner({
               void handleFileRename(originalPath, newPath)
             }
             onFileCreate={handleCreateFileInFolder}
+            onMediaUploadRequest={handleRequestMediaUpload}
             onFileDelete={(filePath, originalPath) =>
               void handleFileDelete(filePath, originalPath)
             }
@@ -2987,6 +3161,39 @@ function FileViewInner({
           />
         </div>
       )}
+      <div className="shrink-0 border-t border-border/50 p-3">
+        {mediaUploadError ? (
+          <div className="mb-2 corner-notch-1 border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            {mediaUploadError}
+          </div>
+        ) : null}
+        <button
+          type="button"
+          className={`flex w-full items-center justify-center border-[3px] border-dashed px-3 py-4 text-sm transition-colors ${
+            isMediaUploadDragOver
+              ? "border-primary bg-primary/5 text-foreground"
+              : "border-foreground/45 text-foreground/80 hover:border-foreground/65 hover:text-foreground"
+          }`}
+          onClick={() => handleRequestMediaUpload()}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setIsMediaUploadDragOver(true);
+          }}
+          onDragLeave={(event) => {
+            const relatedTarget = event.relatedTarget;
+            if (
+              !(relatedTarget instanceof Node) ||
+              !event.currentTarget.contains(relatedTarget)
+            ) {
+              setIsMediaUploadDragOver(false);
+            }
+          }}
+          onDrop={handleMediaUploadDrop}
+          disabled={isUploadingMedia}
+        >
+          {isUploadingMedia ? "Uploading..." : "Drop file or click"}
+        </button>
+      </div>
     </>
   );
 
@@ -3325,44 +3532,66 @@ function FileViewInner({
                                           </div>
                                         ) : null}
                                       </div>
-                                      <div className="grid min-h-0 md:grid-cols-2 md:divide-x">
+                                      {selectedRebaseConflictFile.isBinary ? (
                                         <div className="min-h-0">
-                                          <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
-                                            Base -&gt; Yours
+                                          <div className="border-b px-3 py-3 text-sm text-amber-950">
+                                            Binary image conflicts cannot be
+                                            merged inline. Rebase first, then
+                                            upload again if you still want to
+                                            replace the upstream file.
                                           </div>
-                                          {selectedRebaseConflictFile.baseToStagedPatchTruncated ? (
-                                            <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                              Patch output is truncated for this
-                                              file.
+                                          <RepositoryMediaViewer
+                                            repositoryFullName={
+                                              repositoryFullName
+                                            }
+                                            filePath={
+                                              selectedRebaseConflictFile.upstreamPath ??
+                                              selectedRebaseConflictFile.path
+                                            }
+                                            branch={branch}
+                                            skipStaging={true}
+                                          />
+                                        </div>
+                                      ) : (
+                                        <div className="grid min-h-0 md:grid-cols-2 md:divide-x">
+                                          <div className="min-h-0">
+                                            <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
+                                              Base -&gt; Yours
                                             </div>
-                                          ) : null}
-                                          <div className="p-3 font-mono text-xs leading-5">
-                                            {selectedRebaseConflictFile.baseToStagedPatch
-                                              ? renderPatchLines(
-                                                  selectedRebaseConflictFile.baseToStagedPatch,
-                                                )
-                                              : null}
+                                            {selectedRebaseConflictFile.baseToStagedPatchTruncated ? (
+                                              <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                                Patch output is truncated for
+                                                this file.
+                                              </div>
+                                            ) : null}
+                                            <div className="p-3 font-mono text-xs leading-5">
+                                              {selectedRebaseConflictFile.baseToStagedPatch
+                                                ? renderPatchLines(
+                                                    selectedRebaseConflictFile.baseToStagedPatch,
+                                                  )
+                                                : null}
+                                            </div>
+                                          </div>
+                                          <div className="min-h-0 border-t md:border-t-0">
+                                            <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
+                                              Base -&gt; Upstream
+                                            </div>
+                                            {selectedRebaseConflictFile.baseToUpstreamPatchTruncated ? (
+                                              <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                                Patch output is truncated for
+                                                this file.
+                                              </div>
+                                            ) : null}
+                                            <div className="p-3 font-mono text-xs leading-5">
+                                              {selectedRebaseConflictFile.baseToUpstreamPatch
+                                                ? renderPatchLines(
+                                                    selectedRebaseConflictFile.baseToUpstreamPatch,
+                                                  )
+                                                : null}
+                                            </div>
                                           </div>
                                         </div>
-                                        <div className="min-h-0 border-t md:border-t-0">
-                                          <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
-                                            Base -&gt; Upstream
-                                          </div>
-                                          {selectedRebaseConflictFile.baseToUpstreamPatchTruncated ? (
-                                            <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                              Patch output is truncated for this
-                                              file.
-                                            </div>
-                                          ) : null}
-                                          <div className="p-3 font-mono text-xs leading-5">
-                                            {selectedRebaseConflictFile.baseToUpstreamPatch
-                                              ? renderPatchLines(
-                                                  selectedRebaseConflictFile.baseToUpstreamPatch,
-                                                )
-                                              : null}
-                                          </div>
-                                        </div>
-                                      </div>
+                                      )}
                                     </div>
                                   ) : rebaseConflictPreview ? (
                                     <div className="p-3 text-sm text-muted-foreground">
@@ -3534,6 +3763,39 @@ function FileViewInner({
           folders={finalTreeData}
         />
       )}
+
+      <input
+        ref={mediaUploadInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleMediaUploadInputChange}
+      />
+
+      {pendingMediaUpload ? (
+        <MediaUploadDialog
+          isOpen={true}
+          onClose={() => {
+            if (isUploadingMedia) {
+              return;
+            }
+            setPendingMediaUpload(null);
+            setMediaUploadError(null);
+          }}
+          fileName={pendingMediaUpload.file.name}
+          initialFolderPath={pendingMediaUpload.preferredFolderPath}
+          folders={finalTreeData}
+          existingFilePaths={existingUploadTargetPaths}
+          isSubmitting={isUploadingMedia}
+          submitError={mediaUploadError}
+          onSubmit={({ replaceExisting, targetPath }) =>
+            handleMediaUploadSubmit({
+              replaceExisting,
+              targetPath,
+            })
+          }
+        />
+      ) : null}
 
       {/* Command Palette */}
       <CommandPalette
