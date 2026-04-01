@@ -66,6 +66,10 @@ import {
   type FileViewProsemarkDragVisualMode,
 } from "@/components/FileViewProsemarkDragVisualFixture";
 import {
+  RepositoryRouteConnectStateVisualFixture,
+  type RepositoryRouteConnectStateVisualMode,
+} from "@/components/RepositoryRouteConnectStateVisualFixture";
+import {
   FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
   isFileViewPushActionsVisualMode,
   type FileViewPushActionsVisualMode,
@@ -121,6 +125,7 @@ type VisualFixtureMode =
   | FileViewDeveloperToolsVisualMode
   | FileViewMonacoDragVisualMode
   | FileViewProsemarkDragVisualMode
+  | RepositoryRouteConnectStateVisualMode
   | FileViewLayoutVisualMode
   | FileViewPushActionsVisualMode
   | EditorChatVisualMode
@@ -263,8 +268,14 @@ const FILE_VIEW_PROSEMARK_DRAG_VISUAL_MODES = [
   "fileview-prosemark-drag-read-only",
 ] as const satisfies readonly FileViewProsemarkDragVisualMode[];
 
+const FILE_VIEW_ROUTE_CONNECT_VISUAL_MODES = [
+  "file-view-connect-repository",
+  "file-view-connect-github",
+] as const satisfies readonly RepositoryRouteConnectStateVisualMode[];
+
 const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
   "fileview-monaco-drag",
+  "fileview-monaco-flex-height",
 ] as const satisfies readonly FileViewMonacoDragVisualMode[];
 
 const MISC_VISUAL_MODES = [
@@ -293,6 +304,7 @@ const VISUAL_FIXTURE_GROUPS = [
       ...FILE_VIEW_DEVELOPER_TOOLS_VISUAL_MODES,
       ...FILE_VIEW_MONACO_DRAG_VISUAL_MODES,
       ...FILE_VIEW_PROSEMARK_DRAG_VISUAL_MODES,
+      ...FILE_VIEW_ROUTE_CONNECT_VISUAL_MODES,
     ],
   },
   {
@@ -491,14 +503,23 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (
     mode === "fileview-monaco-drag" ||
+    mode === "fileview-monaco-flex-height" ||
     mode === "fileview-prosemark-drag-editable" ||
     mode === "fileview-prosemark-drag-read-only"
   ) {
-    return mode === "fileview-monaco-drag" ? (
+    return mode === "fileview-monaco-drag" ||
+      mode === "fileview-monaco-flex-height" ? (
       <FileViewMonacoDragVisualFixture mode={mode} />
     ) : (
       <FileViewProsemarkDragVisualFixture mode={mode} />
     );
+  }
+
+  if (
+    mode === "file-view-connect-repository" ||
+    mode === "file-view-connect-github"
+  ) {
+    return <RepositoryRouteConnectStateVisualFixture mode={mode} />;
   }
 
   if (mode === "vault-dashboard-branch-pr-title") {

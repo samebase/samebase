@@ -233,12 +233,19 @@ export const connectRepository = action({
   },
   returns: v.object({
     vaultId: v.string(),
+    repositoryFullName: v.string(),
+    defaultBranch: v.string(),
     filesDownloaded: v.optional(v.number()),
   }),
   handler: async (
     ctx,
     args,
-  ): Promise<{ vaultId: string; filesDownloaded?: number }> => {
+  ): Promise<{
+    vaultId: string;
+    repositoryFullName: string;
+    defaultBranch: string;
+    filesDownloaded?: number;
+  }> => {
     const userId = await getUserId(ctx);
     const githubConnection = await ctx.runQuery(
       internal.providerConnections.getByUserAndKind,
@@ -307,6 +314,8 @@ export const connectRepository = action({
 
     return {
       vaultId,
+      repositoryFullName: `${repo.data.owner.login}/${repo.data.name}`,
+      defaultBranch,
       filesDownloaded,
     };
   },

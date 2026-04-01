@@ -46,6 +46,10 @@ import {
   type MutableRefObject,
 } from "react";
 import { isInIframe } from "@/authClient";
+import {
+  buildGithubOAuthReturnToPath,
+  openGithubOAuthPopup,
+} from "@/lib/githubOAuthFlow";
 import { UserMenu } from "@/components/UserMenu";
 import {
   Dialog,
@@ -847,7 +851,7 @@ function VaultDashboardContent() {
   const cloudflarePopupOriginRef = useRef<string | null>(null);
   const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
     github: {
-      getOAuthUrl: getGithubOAuthUrl,
+      getOAuthUrl: () => getGithubOAuthUrl({}),
       disconnect: disconnectGithub,
       popupRef: githubPopupRef,
       popupOriginRef: githubPopupOriginRef,
@@ -1228,16 +1232,26 @@ function VaultDashboardContent() {
       setCreateError(null);
     }
     try {
-      const oauthUrl = await providerConfig.getOAuthUrl();
+      const oauthUrl =
+        provider === "github"
+          ? await getGithubOAuthUrl({
+              returnToPath: buildGithubOAuthReturnToPath(window.location),
+            })
+          : await providerConfig.getOAuthUrl();
       if (isInIframe()) {
         providerConfig.popupOriginRef.current =
           getRedirectOrigin(oauthUrl) ?? window.location.origin;
-        providerConfig.popupRef.current = window.open(
-          oauthUrl,
-          providerMetadata.popupName,
-          "width=600,height=700,popup=true",
-        );
-        return;
+        providerConfig.popupRef.current =
+          provider === "github"
+            ? openGithubOAuthPopup(oauthUrl)
+            : window.open(
+                oauthUrl,
+                providerMetadata.popupName,
+                "width=600,height=700,popup=true",
+              );
+        if (providerConfig.popupRef.current) {
+          return;
+        }
       }
       window.location.assign(oauthUrl);
     } catch (error) {
