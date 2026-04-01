@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 test.use({
   hasTouch: true,
@@ -25,10 +25,15 @@ async function gotoFixture(
   ).toBeVisible();
 }
 
+/**
+ * Pace Monaco-owned CDP touch drags across a few frames so Linux CI does not
+ * collapse the move/end samples into a single captured touchstart.
+ */
 async function dragMonacoSurface(
   page: Page,
   args: {
     deltaX: number;
+    moveOffsetsX?: number[];
     startX: "center" | "right-edge";
   },
 ) {
@@ -46,6 +51,7 @@ async function dragMonacoSurface(
       ? Math.min(bounds.x + bounds.width - 28, viewportWidth - 20)
       : bounds.x + bounds.width * 0.5;
   const startY = bounds.y + Math.min(120, bounds.height * 0.35);
+  const moveOffsetsX = args.moveOffsetsX ?? [args.deltaX * 0.66, args.deltaX];
   const session = await page.context().newCDPSession(page);
   const touchPoint = {
     force: 1,
@@ -55,42 +61,54 @@ async function dragMonacoSurface(
     x: startX,
     y: startY,
   };
+  const dispatchTouchEvent = async (
+    type: "touchEnd" | "touchMove" | "touchStart",
+    touchPoints: (typeof touchPoint)[],
+  ) => {
+    await session.send("Input.dispatchTouchEvent", {
+      timestamp: Date.now() / 1000,
+      type,
+      touchPoints,
+    });
+  };
 
-  await session.send("Input.dispatchTouchEvent", {
-    type: "touchStart",
-    touchPoints: [touchPoint],
-  });
-  await session.send("Input.dispatchTouchEvent", {
-    type: "touchMove",
-    touchPoints: [
+  await dispatchTouchEvent("touchStart", [touchPoint]);
+  for (const moveOffsetX of moveOffsetsX) {
+    await page.waitForTimeout(24);
+    await dispatchTouchEvent("touchMove", [
       {
         ...touchPoint,
-        x: startX + args.deltaX * 0.66,
-        y: startY + 4,
-      },
-    ],
-  });
-  await session.send("Input.dispatchTouchEvent", {
-    type: "touchMove",
-    touchPoints: [
-      {
-        ...touchPoint,
-        x: startX + args.deltaX,
+        x: startX + moveOffsetX,
         y: startY + 6,
       },
-    ],
-  });
-
-  await session.send("Input.dispatchTouchEvent", {
-    type: "touchEnd",
-    touchPoints: [],
-  });
+    ]);
+  }
+  await page.waitForTimeout(24);
+  await dispatchTouchEvent("touchEnd", []);
 }
 
+/**
+ * The shell updates `data-mobile-pane` before its smooth scroll finishes, so
+ * editor-originated swipes must wait for the left lane to finish snapping
+ * first. Linux CI otherwise starts the Monaco touch sequence mid-animation and
+ * can drop the follow-up move/end events entirely.
+ */
+async function waitForLeftPaneToSettle(shell: Locator) {
+  await expect
+    .poll(async () => shell.evaluate((element) => element.scrollLeft))
+    .toBeLessThanOrEqual(1);
+}
+
+/**
+ * `expectPaneAfterMonacoDrag` retries once from a fresh page when `rearm` is
+ * provided because Linux CI can drop Monaco-owned move/end samples and leave
+ * the shell in a stale `capturing` state from the first swipe attempt.
+ */
 async function expectPaneAfterMonacoDrag(args: {
   drag: () => Promise<void>;
   expectedPane: "left" | "main" | "right";
   page: Page;
+  rearm?: () => Promise<void>;
 }) {
   const shell = args.page.getByTestId("fileview-monaco-drag-shell");
   await args.drag();
@@ -100,6 +118,9 @@ async function expectPaneAfterMonacoDrag(args: {
       timeout: 1000,
     });
   } catch {
+    if (args.rearm) {
+      await args.rearm();
+    }
     await args.drag();
     await expect(shell).toHaveAttribute("data-mobile-pane", args.expectedPane);
   }
@@ -151,33 +172,38 @@ test("Monaco drag can open the right pane", async ({ page }) => {
   });
 });
 
-// CI flakes on this synthetic Monaco touch drag path; a separate thread is
-// working on the gesture reliability, so keep the rest of the mobile Monaco
-// coverage running for now.
-test.skip("Monaco drag can return from the open left pane to main", async ({
+// Keep this flow synchronized with the shell snap state before starting Monaco
+// touch gestures; otherwise CI can miss move/end samples mid-animation.
+test("Monaco drag can return from the open left pane to main", async ({
   page,
 }) => {
-  await gotoFixture(page, { swipeDebug: true });
-
   const shell = page.getByTestId("fileview-monaco-drag-shell");
   const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
   const leftSidebarOnlyItem = page.getByText("src/notes.ts");
-  await expect(shell).toHaveAttribute("data-mobile-pane", "main");
-  await page
-    .getByRole("button", { name: "Toggle Left Sidebar" })
-    .press("Enter");
-  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
-  await expect(overlay).toBeVisible();
-  await expect(leftSidebarOnlyItem).toBeInViewport();
+  const armReturnFromLeft = async () => {
+    await gotoFixture(page, { swipeDebug: true });
+    await expect(shell).toHaveAttribute("data-mobile-pane", "main");
+    await page
+      .getByRole("button", { name: "Toggle Left Sidebar" })
+      .press("Enter");
+    await expect(shell).toHaveAttribute("data-mobile-pane", "left");
+    await waitForLeftPaneToSettle(shell);
+    await expect(overlay).toBeVisible();
+    await expect(leftSidebarOnlyItem).toBeInViewport();
+  };
+
+  await armReturnFromLeft();
 
   await expectPaneAfterMonacoDrag({
     drag: () =>
       dragMonacoSurface(page, {
-        deltaX: -132,
+        deltaX: -300,
+        moveOffsetsX: [-60, -140, -220, -300],
         startX: "right-edge",
       }),
     expectedPane: "main",
     page,
+    rearm: armReturnFromLeft,
   });
 
   await expect(overlay).toContainText("start: left");

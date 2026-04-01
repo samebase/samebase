@@ -200,9 +200,27 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
       new CustomEvent("file-view-code-parity-refresh-artifacts"),
     );
   });
-  await expect(mismatchCount).not.toHaveText("Rendering live diff...");
-  await expect(diffSurface).toHaveAttribute("data-preview-ready", "true");
-  await expect(boundsDelta).not.toHaveText("Foreground bounds pending");
+  // Linux CI can take a few extra seconds to finish the html-to-image capture
+  // and decode the refreshed diff preview after this explicit artifact refresh.
+  await expect
+    .poll(
+      async () => {
+        return diffSurface.getAttribute("data-diff-ready");
+      },
+      {
+        timeout: 15_000,
+      },
+    )
+    .toBe("true");
+  await expect(mismatchCount).not.toHaveText("Rendering live diff...", {
+    timeout: 15_000,
+  });
+  await expect(diffSurface).toHaveAttribute("data-preview-ready", "true", {
+    timeout: 15_000,
+  });
+  await expect(boundsDelta).not.toHaveText("Foreground bounds pending", {
+    timeout: 15_000,
+  });
   const diffImage = diffSurface.getByAltText("Live parity pixel diff");
   await expect(diffImage).toBeVisible();
   await expect

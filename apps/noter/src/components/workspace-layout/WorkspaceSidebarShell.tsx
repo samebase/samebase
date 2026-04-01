@@ -734,6 +734,7 @@ export function WorkspaceSidebarShell({
     const handleTouchStart = (event: TouchEvent) => {
       if (event.touches.length !== 1) {
         activeMobileTouchGestureRef.current = null;
+        scheduleDelegatedMobileDragSnapRestore();
         return;
       }
 
@@ -755,6 +756,10 @@ export function WorkspaceSidebarShell({
         touchIdentifier: touch.identifier,
       };
       pendingMobileReleaseGestureRef.current = null;
+      // Keep snap disabled for the whole touch lifetime so native shell
+      // scrolling does not bounce back toward the current pane between samples.
+      clearPendingMobileDragSnapRestore();
+      setDelegatedMobileDragSnapDisabled(true);
 
       if (!mobileSidebarDebugEnabled) {
         return;
@@ -791,6 +796,7 @@ export function WorkspaceSidebarShell({
           pendingMobileReleaseGestureRef.current = null;
           pendingMobileGestureDebugRef.current = null;
           setMobileGestureDebugSnapshot(null);
+          scheduleDelegatedMobileDragSnapRestore();
           return;
         }
 
@@ -818,6 +824,7 @@ export function WorkspaceSidebarShell({
         pendingMobileReleaseGestureRef.current = null;
         pendingMobileGestureDebugRef.current = null;
         setMobileGestureDebugSnapshot(null);
+        scheduleDelegatedMobileDragSnapRestore();
         return;
       }
 
@@ -866,6 +873,9 @@ export function WorkspaceSidebarShell({
     isMobileLayoutMeasured,
     mobileSidebarDebugEnabled,
     mobilePane,
+    clearPendingMobileDragSnapRestore,
+    scheduleDelegatedMobileDragSnapRestore,
+    setDelegatedMobileDragSnapDisabled,
   ]);
 
   React.useEffect(() => {

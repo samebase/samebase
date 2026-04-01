@@ -2,6 +2,7 @@ import type { MobileSidebarPane } from "@/hooks/use-sidebar";
 
 export const MOBILE_CROSS_SWIPE_TRAVEL_THRESHOLD_RATIO = 0.85;
 export const MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS = 1.25;
+export const MOBILE_SIDEBAR_RETURN_TRAVEL_THRESHOLD_RATIO = 0.38;
 
 type MobilePaneAnchor = {
   pane: MobileSidebarPane;
@@ -130,7 +131,35 @@ export function getSettledMobilePane(
     rightSidebarWidthPx,
   );
 
-  if (currentPane === "main" || !hasLeftSidebar || !hasRightSidebar) {
+  if (currentPane === "main") {
+    return nearestPane;
+  }
+
+  const currentPaneWidthPx =
+    currentPane === "left" ? leftSidebarWidthPx : rightSidebarWidthPx;
+  const currentPaneScrollLeft = getMobilePaneScrollLeft(
+    currentPane,
+    hasLeftSidebar,
+    leftSidebarWidthPx,
+    hasRightSidebar,
+    rightSidebarWidthPx,
+  );
+  const returnRequiredTravelPx =
+    currentPaneWidthPx * MOBILE_SIDEBAR_RETURN_TRAVEL_THRESHOLD_RATIO;
+  const returnTravelPx = Math.abs(scrollLeft - currentPaneScrollLeft);
+
+  // Returning from a sidebar should feel lighter than crossing all the way to
+  // the opposite sidebar, especially when only a narrow main-pane slice is
+  // visible. Settle back to main once the drag is clearly intentional.
+  if (
+    currentPaneWidthPx > 0 &&
+    nearestPane === currentPane &&
+    returnTravelPx >= returnRequiredTravelPx
+  ) {
+    return "main";
+  }
+
+  if (!hasLeftSidebar || !hasRightSidebar) {
     return nearestPane;
   }
 
