@@ -66,6 +66,10 @@ import {
   type FileViewProsemarkDragVisualMode,
 } from "@/components/FileViewProsemarkDragVisualFixture";
 import {
+  RepositoryRouteConnectStateVisualFixture,
+  type RepositoryRouteConnectStateVisualMode,
+} from "@/components/RepositoryRouteConnectStateVisualFixture";
+import {
   FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
   isFileViewPushActionsVisualMode,
   type FileViewPushActionsVisualMode,
@@ -121,6 +125,7 @@ type VisualFixtureMode =
   | FileViewDeveloperToolsVisualMode
   | FileViewMonacoDragVisualMode
   | FileViewProsemarkDragVisualMode
+  | RepositoryRouteConnectStateVisualMode
   | FileViewLayoutVisualMode
   | FileViewPushActionsVisualMode
   | EditorChatVisualMode
@@ -263,6 +268,10 @@ const FILE_VIEW_PROSEMARK_DRAG_VISUAL_MODES = [
   "fileview-prosemark-drag-read-only",
 ] as const satisfies readonly FileViewProsemarkDragVisualMode[];
 
+const FILE_VIEW_ROUTE_CONNECT_VISUAL_MODES = [
+  "file-view-connect-repository",
+] as const satisfies readonly RepositoryRouteConnectStateVisualMode[];
+
 const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
   "fileview-monaco-drag",
 ] as const satisfies readonly FileViewMonacoDragVisualMode[];
@@ -293,6 +302,7 @@ const VISUAL_FIXTURE_GROUPS = [
       ...FILE_VIEW_DEVELOPER_TOOLS_VISUAL_MODES,
       ...FILE_VIEW_MONACO_DRAG_VISUAL_MODES,
       ...FILE_VIEW_PROSEMARK_DRAG_VISUAL_MODES,
+      ...FILE_VIEW_ROUTE_CONNECT_VISUAL_MODES,
     ],
   },
   {
@@ -499,6 +509,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     ) : (
       <FileViewProsemarkDragVisualFixture mode={mode} />
     );
+  }
+
+  if (mode === "file-view-connect-repository") {
+    return <RepositoryRouteConnectStateVisualFixture mode={mode} />;
   }
 
   if (mode === "vault-dashboard-branch-pr-title") {

@@ -80,6 +80,7 @@ import { DraftPullRequestFeedbackBanner } from "./DraftPullRequestFeedbackBanner
 import { VaultSyncStatus } from "./VaultSyncStatus";
 import { RepositoryMediaViewer } from "./RepositoryMediaViewer";
 import { SidebarAccountSection } from "./SidebarAccountSection";
+import { RepositoryRouteConnectState } from "./RepositoryRouteConnectState";
 import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
 import { WorkspaceScene } from "@/components/workspace-layout/WorkspaceScene";
 import { DAYTONA_PAUSED } from "../../shared/daytonaPause";
@@ -88,6 +89,7 @@ import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
 import { getStagedFileStatus as getSharedStagedFileStatus } from "../../shared/stagedFiles";
 import { isStaleBaseVersionError } from "../../shared/stagingErrors";
 import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
+import { isInIframe } from "@/authClient";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 import {
   buildStagingPreviewRefreshKey,
@@ -329,6 +331,8 @@ function FileViewWrapper() {
 
   const firstDocAction = useAction(api.fileStagingActions.getFileForEditing);
   const refreshTree = useAction(api.github.refreshRepositoryTree);
+  const connectRepository = useAction(api.vaultActions.connectRepository);
+  const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const routeBranch = branchParam
     ? decodeRouteSegmentSafe(branchParam)
     : undefined;
@@ -347,6 +351,7 @@ function FileViewWrapper() {
     repositoryFullName: repositoryFullName ?? "skip",
     branch: routeBranch,
   });
+  const githubConnection = useLiveQuery(api.users.getGithubConnectionStatus);
   const branch = routeBranch ?? vault?.resolvedBranch;
   const storageBackedSelectionKey = `${branch ?? "unknown"}:${selectedFile}`;
   const vaultId = vault?._id;
@@ -379,6 +384,12 @@ function FileViewWrapper() {
     (path: string) => `${path}${search.length > 0 ? search : ""}`,
     [search],
   );
+  const [connectRouteError, setConnectRouteError] = useState<string | null>(
+    null,
+  );
+  const [isConnectingRepository, setIsConnectingRepository] = useState(false);
+  const [isConnectingGithub, setIsConnectingGithub] = useState(false);
+  const githubConnected = githubConnection?.connected === true;
 
   /**
    * Clear `storageBackedSelection` whenever we switch to a different vault or
@@ -391,12 +402,71 @@ function FileViewWrapper() {
     }
   }, [vaultId, branch]);
 
-  /** If the repository lookup returns `null`, leave this screen and go back to the dashboard. */
   useEffect(() => {
-    if (vault === null) {
-      void navigate("/", { replace: true });
+    if (vault !== null) {
+      setConnectRouteError(null);
     }
-  }, [vault, navigate]);
+  }, [vault]);
+
+  const handleConnectGithub = useCallback(() => {
+    if (isConnectingGithub) {
+      return;
+    }
+
+    void (async () => {
+      setConnectRouteError(null);
+      setIsConnectingGithub(true);
+
+      try {
+        const oauthUrl = await getGithubOAuthUrl();
+        if (isInIframe()) {
+          const popup = window.open(
+            oauthUrl,
+            "github-oauth",
+            "width=600,height=700,popup=true",
+          );
+          if (popup) {
+            setIsConnectingGithub(false);
+            return;
+          }
+        }
+
+        window.location.assign(oauthUrl);
+      } catch (connectGithubError) {
+        setConnectRouteError(
+          connectGithubError instanceof Error
+            ? connectGithubError.message
+            : "Failed to start GitHub OAuth",
+        );
+        setIsConnectingGithub(false);
+      }
+    })();
+  }, [getGithubOAuthUrl, isConnectingGithub]);
+
+  const handleConnectRepository = useCallback(() => {
+    if (!repositoryFullName || isConnectingRepository) {
+      return;
+    }
+
+    void (async () => {
+      setConnectRouteError(null);
+      setIsConnectingRepository(true);
+
+      try {
+        await connectRepository({
+          repositoryFullName,
+        });
+      } catch (connectRepositoryError) {
+        setConnectRouteError(
+          connectRepositoryError instanceof Error
+            ? connectRepositoryError.message
+            : "Failed to connect repository",
+        );
+      } finally {
+        setIsConnectingRepository(false);
+      }
+    })();
+  }, [connectRepository, isConnectingRepository, repositoryFullName]);
 
   /**
    * If the branch from the URL no longer exists, replace it with
@@ -691,6 +761,20 @@ function FileViewWrapper() {
     owner,
     repoName,
   ]);
+
+  if (vault === null && repositoryFullName) {
+    return (
+      <RepositoryRouteConnectState
+        repositoryFullName={repositoryFullName}
+        githubConnected={githubConnected}
+        isConnectingGithub={isConnectingGithub}
+        isConnectingRepository={isConnectingRepository}
+        errorMessage={connectRouteError}
+        onConnectGithub={handleConnectGithub}
+        onConnectRepository={handleConnectRepository}
+      />
+    );
+  }
 
   if (!vault || !owner || !repoName || !branch) {
     return null;
