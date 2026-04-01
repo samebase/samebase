@@ -185,7 +185,7 @@ describe('@noter-md/sync', () => {
       getNoterConfigPath({
         homeDirectory: '/Users/noter',
       }),
-    ).toBe('/Users/noter/.noter/config.json')
+    ).toBe(path.join('/Users/noter', '.noter', 'config.json'))
   })
 
   it('keeps the first install timestamp when rewriting the local config file', () => {
@@ -330,12 +330,15 @@ describe('@noter-md/sync', () => {
         '/d',
         '/v:off',
         '/c',
-        '"codex" "app-server" "--out" "C:\\Users\\Nicu Test\\R&D\\100%%\\AppData\\Local\\Temp"',
+        'codex',
+        'app-server',
+        '--out',
+        'C:\\Users\\Nicu Test\\R&D\\100%\\AppData\\Local\\Temp',
       ],
       command: windowsShell,
     })
     expect(buildCodexSpawnInvocation(['--version'], 'windows')).toEqual({
-      args: ['/d', '/v:off', '/c', '"codex" "--version"'],
+      args: ['/d', '/v:off', '/c', 'codex', '--version'],
       command: windowsShell,
     })
     expect(buildCodexSpawnInvocation(['--version'], 'darwin')).toEqual({

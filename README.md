@@ -109,6 +109,11 @@ Notes:
   command work merged in PR `#395`.
 - On a brand-new machine, the first `pnpm dev` run may pause for an interactive
   Convex CLI login/bootstrap prompt before `apps/noter/.env.local` exists.
+- For local connected-machine testing with `/noter.js` on a fresh Windows
+  checkout that does not already have a cloud dev source env, use the
+  Windows-specific walkthrough notes in
+  `specs/075_CONNECTED_MACHINE_INSTALLER_LOCAL_WALKTHROUGH_SPEC.md`. The current
+  local-only anonymous bootstrap path needs a few manual Node commands today.
 - The primary checkout path above works without GNU Make, but worktree and
   anonymous bootstrap flows still depend on `make` plus POSIX shell tools. For
   `make run`, `make anon`, or `make anon-once`, use Git Bash, MSYS2, or WSL

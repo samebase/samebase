@@ -354,8 +354,9 @@ function normalizeRuntimePlatform(currentPlatform = process.platform) {
 
 /**
  * npm installs the Windows Codex CLI entrypoint as a `.cmd` wrapper. Launch it
- * through `cmd.exe` on Windows so the wrapper resolves via PATHEXT while Node
- * still keeps argument boundaries intact for paths that contain spaces.
+ * through `cmd.exe` on Windows so the wrapper resolves via PATHEXT, but pass
+ * the command and its args as separate argv entries so Node does not
+ * over-escape a prequoted `/c` command string.
  */
 export function buildCodexSpawnInvocation(
   args,
@@ -363,7 +364,7 @@ export function buildCodexSpawnInvocation(
 ) {
   return normalizeRuntimePlatform(currentPlatform) === 'win32'
     ? {
-        args: ['/d', '/v:off', '/c', buildWindowsCodexCommandLine(args)],
+        args: ['/d', '/v:off', '/c', 'codex', ...args],
         command: process.env.ComSpec ?? 'cmd.exe',
       }
     : {
@@ -374,18 +375,6 @@ export function buildCodexSpawnInvocation(
 
 export function buildCodexSpawnOptions(options = {}) {
   return options
-}
-
-/**
- * `cmd.exe` still expands `%VAR%` even inside double quotes, so quote every
- * token and double percent signs before handing Windows a command line.
- */
-function escapeWindowsCmdArgument(value) {
-  return `"${value.replaceAll('"', '""').replaceAll('%', '%%')}"`
-}
-
-function buildWindowsCodexCommandLine(args) {
-  return ['codex', ...args].map(escapeWindowsCmdArgument).join(' ')
 }
 
 /**
