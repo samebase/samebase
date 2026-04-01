@@ -13,7 +13,7 @@ const SCENARIOS = [
     snapshotName: "sidebar-media-upload-mobile.png",
     viewport: { width: 390, height: 844 },
     expectsFooterVisible: false,
-    screenshotTarget: "dialog",
+    screenshotTarget: "dialog-form",
   },
 ] as const;
 
@@ -31,6 +31,7 @@ for (const scenario of SCENARIOS) {
     if (scenario.expectsFooterVisible) {
       await expect(footerTrigger).toBeVisible();
     }
+    await expect(page.getByText("Upload Image")).toBeVisible();
     await expect(
       page.getByText("This replaces the existing file"),
     ).toBeVisible();
@@ -39,8 +40,8 @@ for (const scenario of SCENARIOS) {
     });
 
     const screenshotTarget =
-      scenario.screenshotTarget === "dialog"
-        ? page.getByTestId("media-upload-dialog-content")
+      scenario.screenshotTarget === "dialog-form"
+        ? page.getByTestId("media-upload-dialog-form")
         : fixture;
     const screenshot = await screenshotTarget.screenshot({
       animations: "disabled",
