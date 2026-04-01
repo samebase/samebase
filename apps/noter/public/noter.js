@@ -4,7 +4,7 @@
 // Audit guide:
 // 1. Validate that this file was served from `/noter.js` on `https:` (or
 //    explicit localhost `http:` during local testing).
-// 2. Run `codex --version` to confirm Codex is installed.
+// 2. Run `codex --version` to confirm the Codex CLI is on PATH.
 // 3. Write one JSON config file under `~/.noter/config.json`.
 // 4. Open Noter's `/machines/connect` page in the default browser.
 // 5. Reuse the stored machine credential for later heartbeat publishing.
@@ -23,6 +23,7 @@ import {
   mkdirSync,
   readFileSync,
   realpathSync,
+  statSync,
   writeFileSync,
 } from 'node:fs'
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
@@ -314,18 +315,356 @@ export function buildMachineHeartbeatBody(args) {
   }
 }
 
+function buildCodexCliMissingMessage() {
+  return 'The `codex` command was not found. This flow needs the Codex CLI on your PATH. The Codex desktop app alone does not guarantee that the shell command exists. After Node.js is available, run `npm install -g @openai/codex` and retry.'
+}
+
+function codexCommandWasNotFound(error) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'ENOENT'
+  )
+}
+
+function codexShellOutputWasNotFound(output) {
+  return /not recognized as an internal or external command/i.test(output)
+}
+
+function readCommandOutput(stdout, stderr) {
+  return `${stdout ?? ''}${stderr ?? ''}`.trim()
+}
+
 /**
- * We only need proof that Codex exists locally. `codex --version` is the
- * smallest safe command that gives us that signal.
+ * Browser/UI code uses repo-style OS names while Node exposes platform ids
+ * like `win32` and `darwin`, so normalize once before branching on runtime
+ * behavior that needs the Windows `.cmd` path or `curl.exe`.
+ */
+function normalizeRuntimePlatform(currentPlatform = process.platform) {
+  switch (currentPlatform) {
+    case 'windows':
+      return 'win32'
+    case 'macos':
+      return 'darwin'
+    default:
+      return currentPlatform
+  }
+}
+
+/**
+ * npm installs the Windows Codex CLI entrypoint as a `.cmd` wrapper. Launch it
+ * through `cmd.exe` on Windows so the wrapper resolves via PATHEXT while Node
+ * still keeps argument boundaries intact for paths that contain spaces.
+ */
+export function buildCodexSpawnInvocation(
+  args,
+  currentPlatform = process.platform,
+) {
+  return normalizeRuntimePlatform(currentPlatform) === 'win32'
+    ? {
+        args: ['/d', '/v:off', '/c', buildWindowsCodexCommandLine(args)],
+        command: process.env.ComSpec ?? 'cmd.exe',
+      }
+    : {
+        args,
+        command: 'codex',
+      }
+}
+
+export function buildCodexSpawnOptions(options = {}) {
+  return options
+}
+
+/**
+ * `cmd.exe` still expands `%VAR%` even inside double quotes, so quote every
+ * token and double percent signs before handing Windows a command line.
+ */
+function escapeWindowsCmdArgument(value) {
+  return `"${value.replaceAll('"', '""').replaceAll('%', '%%')}"`
+}
+
+function buildWindowsCodexCommandLine(args) {
+  return ['codex', ...args].map(escapeWindowsCmdArgument).join(' ')
+}
+
+/**
+ * Mirror Windows PATH lookup locally so the runtime can resolve the same npm
+ * shim that `cmd.exe` would have found without keeping the long-lived server
+ * attached to a shell wrapper process.
+ */
+function resolveWindowsPathCommand(command, env = process.env) {
+  const searchPath = [env.Path, env.PATH]
+    .filter(value => typeof value === 'string' && value.length > 0)
+    .join(';')
+  const pathExtensions = env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD'
+  const commandHasExtension = path.extname(command).length > 0
+  const executableExtensions = commandHasExtension
+    ? ['']
+    : pathExtensions
+        .split(';')
+        .map(extension => extension.trim())
+        // Windows treats PATHEXT case-insensitively, but CI can probe a
+        // case-sensitive filesystem while resolving lowercase npm shims.
+        .map(extension => extension.toLowerCase())
+        .filter(extension => extension.length > 0)
+
+  for (const rawDirectory of searchPath.split(';')) {
+    const directory = rawDirectory.trim().replace(/^"(.*)"$/, '$1')
+    if (directory.length === 0) {
+      continue
+    }
+
+    for (const extension of executableExtensions) {
+      const candidate = path.join(
+        directory,
+        extension.length > 0 ? `${command}${extension}` : command,
+      )
+      try {
+        if (statSync(candidate).isFile()) {
+          return candidate
+        }
+      } catch {}
+    }
+  }
+
+  return null
+}
+
+/**
+ * npm's Windows global bins are `.cmd` shims that point at the real JS file.
+ * Read that target so the runtime can launch the Codex server under the
+ * current Node process tree and stop it reliably later.
+ */
+function readWindowsCmdShimTarget(shimPath) {
+  const matches = readFileSync(shimPath, 'utf8').match(
+    /"%(?:~dp0|dp0%)\\([^"]+?)"\s+%[*]/,
+  )
+  return matches?.[1] ?? null
+}
+
+/**
+ * npm's Windows shims prefer a sibling `node.exe` and otherwise fall back to
+ * resolving `node` on PATH. Mirror that choice so long-lived runtimes use the
+ * same interpreter as the CLI wrapper that passed `--version`.
+ */
+function resolveWindowsCmdShimNodeCommand(shimPath, env = process.env) {
+  const bundledNodePath = path.join(path.dirname(shimPath), 'node.exe')
+
+  try {
+    if (statSync(bundledNodePath).isFile()) {
+      return realpathSync(bundledNodePath)
+    }
+  } catch {}
+
+  const pathNode = resolveWindowsPathCommand('node', env)
+  if (pathNode !== null) {
+    return pathNode
+  }
+
+  throw new Error(
+    `${buildCodexCliMissingMessage()} The Windows CLI shim could not resolve its Node runtime.`,
+  )
+}
+
+/**
+ * One-off Windows Codex commands can go through `cmd.exe`, but the long-lived
+ * app-server should run as the real child process so restart and shutdown do
+ * not strand an orphaned shell wrapper.
+ */
+export function buildCodexRuntimeSpawnInvocation(
+  args,
+  currentPlatform = process.platform,
+) {
+  if (normalizeRuntimePlatform(currentPlatform) !== 'win32') {
+    return {
+      args,
+      command: 'codex',
+    }
+  }
+
+  const codexPath = resolveWindowsPathCommand('codex')
+  if (codexPath === null) {
+    throw new Error(buildCodexCliMissingMessage())
+  }
+
+  const extension = path.extname(codexPath).toLowerCase()
+  if (extension === '.cmd' || extension === '.bat') {
+    const shimTarget = readWindowsCmdShimTarget(codexPath)
+    if (shimTarget === null) {
+      throw new Error(
+        `${buildCodexCliMissingMessage()} The Windows CLI shim could not be resolved to its script entrypoint.`,
+      )
+    }
+
+    return {
+      args: [
+        realpathSync(
+          path.resolve(path.dirname(codexPath), ...shimTarget.split(/[\\/]+/)),
+        ),
+        ...args,
+      ],
+      command: resolveWindowsCmdShimNodeCommand(codexPath),
+    }
+  }
+
+  return {
+    args,
+    command: codexPath,
+  }
+}
+
+function stopCodexProcess(processHandle, args = {}) {
+  return new Promise(resolve => {
+    if (!processHandle || processHandle.exitCode !== null) {
+      resolve()
+      return
+    }
+
+    const runtimePlatform = normalizeRuntimePlatform(args.currentPlatform)
+    if (runtimePlatform === 'win32' && typeof processHandle.pid === 'number') {
+      const taskkillArgs = ['/PID', String(processHandle.pid), '/T']
+      if (args.force === true) {
+        taskkillArgs.push('/F')
+      }
+
+      const killer = spawn('taskkill', taskkillArgs, {
+        stdio: 'ignore',
+      })
+      killer.once('error', () => {
+        try {
+          processHandle.kill(args.force === true ? 'SIGKILL' : 'SIGTERM')
+        } catch {}
+        resolve()
+      })
+      killer.once('exit', () => {
+        resolve()
+      })
+      return
+    }
+
+    try {
+      processHandle.kill(args.force === true ? 'SIGKILL' : 'SIGTERM')
+    } catch {}
+    resolve()
+  })
+}
+
+function runCodexCommand(args, options = {}) {
+  return new Promise((resolve, reject) => {
+    let stdout = ''
+    let stderr = ''
+    let timedOut = false
+    const invocation = buildCodexSpawnInvocation(args)
+    const timeoutMs =
+      typeof options.timeout === 'number' && Number.isFinite(options.timeout)
+        ? options.timeout
+        : null
+    const processHandle = spawn(
+      invocation.command,
+      invocation.args,
+      buildCodexSpawnOptions({
+        ...options,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: undefined,
+      }),
+    )
+    const timeoutId =
+      timeoutMs === null
+        ? null
+        : setTimeout(() => {
+            timedOut = true
+            void stopCodexProcess(processHandle, {
+              currentPlatform: process.platform,
+              force: true,
+            })
+          }, timeoutMs)
+
+    processHandle.stdout?.on('data', chunk => {
+      stdout += chunk.toString()
+    })
+    processHandle.stderr?.on('data', chunk => {
+      stderr += chunk.toString()
+    })
+    processHandle.once('error', error => {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId)
+      }
+      reject(
+        codexCommandWasNotFound(error)
+          ? new Error(buildCodexCliMissingMessage())
+          : error,
+      )
+    })
+    processHandle.once('close', (code, signal) => {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId)
+      }
+
+      if (timedOut && timeoutMs !== null) {
+        reject(
+          new Error(`codex ${args.join(' ')} timed out after ${timeoutMs}ms.`),
+        )
+        return
+      }
+
+      if (code === 0) {
+        resolve({ stderr, stdout })
+        return
+      }
+
+      const commandOutput = readCommandOutput(stdout, stderr)
+      if (codexShellOutputWasNotFound(commandOutput)) {
+        reject(new Error(buildCodexCliMissingMessage()))
+        return
+      }
+
+      reject(
+        new Error(
+          commandOutput.length > 0
+            ? `codex ${args.join(' ')} failed: ${commandOutput}`
+            : signal
+              ? `codex ${args.join(' ')} failed with signal ${signal}.`
+              : `codex ${args.join(' ')} failed.`,
+        ),
+      )
+    })
+  })
+}
+
+/**
+ * We only need proof that the Codex CLI exists locally and is callable from
+ * PATH. `codex --version` is the smallest safe command that gives us that
+ * signal.
  */
 export function detectCodexVersion() {
-  const result = spawnSync('codex', ['--version'], {
-    encoding: 'utf8',
-  })
+  const invocation = buildCodexSpawnInvocation(['--version'])
+  const result = spawnSync(
+    invocation.command,
+    invocation.args,
+    buildCodexSpawnOptions({
+      encoding: 'utf8',
+    }),
+  )
+  const commandOutput = readCommandOutput(result.stdout, result.stderr)
 
-  if (result.error || result.status !== 0) {
+  if (codexCommandWasNotFound(result.error)) {
+    throw new Error(buildCodexCliMissingMessage())
+  }
+
+  if (result.error) {
+    throw result.error
+  }
+
+  if (result.status !== 0) {
+    if (codexShellOutputWasNotFound(commandOutput)) {
+      throw new Error(buildCodexCliMissingMessage())
+    }
+
     throw new Error(
-      'The `codex` command was not found. Install Codex before running noter sync.',
+      commandOutput.length > 0
+        ? `codex --version failed: ${commandOutput}`
+        : 'codex --version failed.',
     )
   }
 
@@ -1944,13 +2283,24 @@ export class CodexLocalControlRuntime {
   }
 
   async ensureCodexBinary() {
-    const { stdout } = await execFileAsync('codex', ['--version'], {
-      cwd: this.workspaceRoot,
-      timeout: 10_000,
-    })
-    const version = stdout.trim()
+    let stdout = ''
+    let stderr = ''
+    try {
+      ;({ stdout, stderr } = await runCodexCommand(['--version'], {
+        cwd: this.workspaceRoot,
+        timeout: 10_000,
+      }))
+    } catch (error) {
+      if (codexCommandWasNotFound(error)) {
+        throw new Error(buildCodexCliMissingMessage())
+      }
+      throw error
+    }
+    const version = readCommandOutput(stdout, stderr)
     if (version.length === 0) {
-      throw new Error('codex --version returned an empty response')
+      throw new Error(
+        'codex --version returned an empty response. Confirm that the Codex CLI is available on PATH.',
+      )
     }
     return version
   }
@@ -1984,6 +2334,7 @@ export class CodexLocalControlRuntime {
     const processToStop = this.process
     await new Promise(resolve => {
       let completed = false
+      const runtimePlatform = normalizeRuntimePlatform()
       const finish = () => {
         if (completed) {
           return
@@ -1994,7 +2345,11 @@ export class CodexLocalControlRuntime {
 
       const timeoutId = setTimeout(() => {
         if (processToStop.exitCode === null) {
-          processToStop.kill('SIGKILL')
+          void stopCodexProcess(processToStop, {
+            currentPlatform: runtimePlatform,
+            force: true,
+          }).then(finish)
+          return
         }
         finish()
       }, 5_000)
@@ -2004,7 +2359,9 @@ export class CodexLocalControlRuntime {
         finish()
       })
 
-      processToStop.kill('SIGTERM')
+      void stopCodexProcess(processToStop, {
+        currentPlatform: runtimePlatform,
+      })
     })
 
     return { success: true, runtime: this.getSnapshot() }
@@ -2029,15 +2386,20 @@ export class CodexLocalControlRuntime {
       this.pushEvent('codex/runtime_stderr', {
         line: `Launching codex app-server (${version})`,
       })
+      const invocation = buildCodexRuntimeSpawnInvocation([
+        'app-server',
+        '--listen',
+        'stdio://',
+      ])
 
       const processHandle = spawn(
-        'codex',
-        ['app-server', '--listen', 'stdio://'],
-        {
+        invocation.command,
+        invocation.args,
+        buildCodexSpawnOptions({
           cwd: this.workspaceRoot,
           env: process.env,
           stdio: ['pipe', 'pipe', 'pipe'],
-        },
+        }),
       )
 
       this.process = processHandle
@@ -2559,7 +2921,7 @@ export class CodexLocalControlRuntime {
         commandArgs.push('--experimental')
       }
 
-      await execFileAsync('codex', commandArgs, {
+      await runCodexCommand(commandArgs, {
         cwd: this.workspaceRoot,
         timeout: 60_000,
       })
@@ -3330,8 +3692,24 @@ export function openBrowser(url) {
   })
 }
 
-function buildDirectRunCommand(sourceUrl) {
-  return `curl -fsSL '${sourceUrl}' | node --input-type=module - run`
+function readDirectDownloadCommand(currentPlatform = process.platform) {
+  return normalizeRuntimePlatform(currentPlatform) === 'win32'
+    ? 'curl.exe -fsSL'
+    : 'curl -fsSL'
+}
+
+export function buildDirectConnectCommand(
+  sourceUrl,
+  currentPlatform = process.platform,
+) {
+  return `${readDirectDownloadCommand(currentPlatform)} '${sourceUrl}' | node --input-type=module - connect '${sourceUrl}'`
+}
+
+export function buildDirectRunCommand(
+  sourceUrl,
+  currentPlatform = process.platform,
+) {
+  return `${readDirectDownloadCommand(currentPlatform)} '${sourceUrl}' | node --input-type=module - run`
 }
 
 export function formatHelpText() {
@@ -3346,11 +3724,15 @@ Examples:
   # local file
   node ./noter.js connect
   node ./noter.js run
-  # direct hosted file in production
-  curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
-  curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run
+  # direct hosted file in production (macOS/Linux shell)
+  ${buildDirectConnectCommand('https://noter.md/noter.js', 'darwin')}
+  ${buildDirectRunCommand('https://noter.md/noter.js', 'darwin')}
+  # direct hosted file in production (Windows PowerShell)
+  ${buildDirectConnectCommand('https://noter.md/noter.js', 'win32')}
+  ${buildDirectRunCommand('https://noter.md/noter.js', 'win32')}
   # preview or local explicit override
-  curl -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'`
+  ${buildDirectConnectCommand('https://preview.noter.md/noter.js', 'darwin')}
+  ${buildDirectConnectCommand('https://preview.noter.md/noter.js', 'win32')}`
 }
 
 /**
@@ -3593,7 +3975,7 @@ async function runConnectorCommand() {
 /**
  * Happy path:
  * 1. Validate the hosted source URL.
- * 2. Confirm Codex exists locally.
+ * 2. Confirm the Codex CLI exists locally and is available on PATH.
  * 3. Persist one local config file.
  * 4. Print a markdown summary.
  * 5. Hand off to the browser for approval.

@@ -9,8 +9,38 @@ describe("MachineConnectPageContent", () => {
       <MachineConnectPageContent
         approvalError="Machine registration request expired."
         connectedMachines={[]}
-        directConnectCommand="curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'"
-        directRunCommand="curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run"
+        directConnectCommands={[
+          {
+            command:
+              "curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
+            description:
+              "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+            label: "Direct hosted file connect (Unix/macOS)",
+          },
+          {
+            command:
+              "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
+            description:
+              "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
+            label: "Direct hosted file connect (Windows PowerShell)",
+          },
+        ]}
+        directRunCommands={[
+          {
+            command:
+              "curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run",
+            description:
+              "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+            label: "Direct hosted file run (Unix/macOS)",
+          },
+          {
+            command:
+              "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run",
+            description:
+              "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
+            label: "Direct hosted file run (Windows PowerShell)",
+          },
+        ]}
         heartbeatLog=""
         isApproving={false}
         openedByCli
@@ -31,6 +61,21 @@ describe("MachineConnectPageContent", () => {
 
     expect(markup).toContain("Machine registration request expired.");
     expect(markup).toContain("border-red-200");
+    expect(markup).toContain("Local requirements");
+    expect(markup).toContain("node --version");
+    expect(markup).toContain("codex --version");
+    expect(markup).toContain("curl --version");
+    expect(markup).toContain("curl.exe --version");
+    expect(markup).toContain("nvm install --lts");
+    expect(markup).toContain("brew install curl");
+    expect(markup).toContain("OpenJS.NodeJS.LTS");
+    expect(markup).toContain("already include");
+    expect(markup).toContain("apt install curl");
+    expect(markup).toContain("dnf install curl");
+    expect(markup).toContain("npm install -g @openai/codex");
+    expect(markup).toContain("desktop app alone does not guarantee");
+    expect(markup).toContain("native Windows CLI support as experimental");
+    expect(markup).toContain("replace the single quotes with double quotes");
   });
 
   it("shows a live-control entrypoint for ready machines", () => {
@@ -55,8 +100,38 @@ describe("MachineConnectPageContent", () => {
               status: "online",
             },
           ]}
-          directConnectCommand="curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'"
-          directRunCommand="curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run"
+          directConnectCommands={[
+            {
+              command:
+                "curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
+              description:
+                "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+              label: "Direct hosted file connect (Unix/macOS)",
+            },
+            {
+              command:
+                "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
+              description:
+                "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
+              label: "Direct hosted file connect (Windows PowerShell)",
+            },
+          ]}
+          directRunCommands={[
+            {
+              command:
+                "curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run",
+              description:
+                "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+              label: "Direct hosted file run (Unix/macOS)",
+            },
+            {
+              command:
+                "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run",
+              description:
+                "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
+              label: "Direct hosted file run (Windows PowerShell)",
+            },
+          ]}
           heartbeatLog=""
           isApproving={false}
           openedByCli={false}
@@ -72,5 +147,67 @@ describe("MachineConnectPageContent", () => {
     expect(markup).toContain("/machines/machine_fixture/live");
     expect(markup).toContain("Your machine list lives on this page");
     expect(markup).toContain('href="#connected-machines"');
+  });
+
+  it("renders both Unix/macOS and Windows direct command variants", () => {
+    const markup = renderToStaticMarkup(
+      <MachineConnectPageContent
+        approvalError={null}
+        connectedMachines={[]}
+        directConnectCommands={[
+          {
+            command:
+              "curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
+            description:
+              "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+            label: "Direct hosted file connect (Unix/macOS)",
+          },
+          {
+            command:
+              "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
+            description:
+              "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
+            label: "Direct hosted file connect (Windows PowerShell)",
+          },
+        ]}
+        directRunCommands={[
+          {
+            command:
+              "curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run",
+            description:
+              "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+            label: "Direct hosted file run (Unix/macOS)",
+          },
+          {
+            command:
+              "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run",
+            description:
+              "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
+            label: "Direct hosted file run (Windows PowerShell)",
+          },
+        ]}
+        heartbeatLog=""
+        isApproving={false}
+        openedByCli={false}
+        packageConnectCommand="npx @noter-md/sync connect"
+        packageRunCommand="npx @noter-md/sync run"
+        requestState={{
+          kind: "approved",
+          connectorVersion: "noter-sync (codex 0.1.0)",
+          displayName: "Research Windows Workstation",
+          hostname: "research-win.local",
+          machineId: "machine_fixture",
+          os: "windows",
+        }}
+        scriptUrl="https://noter.md/noter.js"
+      />,
+    );
+
+    expect(markup).toContain("Direct hosted file connect (Unix/macOS)");
+    expect(markup).toContain("Direct hosted file connect (Windows PowerShell)");
+    expect(markup).toContain("Direct hosted file run (Unix/macOS)");
+    expect(markup).toContain("Direct hosted file run (Windows PowerShell)");
+    expect(markup).toContain("curl -fsSL");
+    expect(markup).toContain("curl.exe -fsSL");
   });
 });

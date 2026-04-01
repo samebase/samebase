@@ -28,6 +28,37 @@ Today this slice still does **not** give you:
 
 That next step is tracked in `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`.
 
+## Local Prerequisites
+
+The direct hosted-file flow needs both `node` and the Codex CLI command `codex`
+on `PATH` before you run any `noter.js` command.
+
+Quick check:
+
+```bash
+node --version
+codex --version
+```
+
+Truthful install guidance for the current repo state:
+
+1. this repo is currently pinned to Node `24` via root `package.json` engines
+   and `.nvmrc`
+2. if you want `nvm` on macOS, use the official `nvm` installer and then run
+   `nvm install --lts`
+3. do **not** recommend Homebrew-installed `nvm`; the `nvm` project marks that
+   path unsupported
+4. on Windows PowerShell, if `winget` is available, use
+   `winget install --id OpenJS.NodeJS.LTS -e`
+5. if someone prefers installers instead of shell package managers, send them to
+   the current Node.js LTS download page on `nodejs.org`
+6. the Codex desktop app alone does not guarantee that the `codex` shell command
+   exists on the machine
+7. if `codex` is missing, install the official Codex CLI with
+   `npm install -g @openai/codex`
+8. OpenAI's current Codex CLI docs describe native Windows support as
+   experimental
+
 ## Fastest Path
 
 If you want the smallest end-to-end verification, do these steps:
@@ -65,7 +96,8 @@ Open:
 What to look for:
 
 1. a `Published package connect` block for the eventual public npm path
-2. a `Direct hosted file connect` block for prod, preview, or local testing
+2. two `Direct hosted file connect` blocks: one for `Unix/macOS` and one for
+   `Windows PowerShell`
 3. a link to open `noter.js`
 4. a machine list section if any machines are already connected
 
@@ -101,10 +133,17 @@ set -o pipefail
 curl -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - connect 'http://127.0.0.1:5174/noter.js'
 ```
 
+On Windows PowerShell use `curl.exe` so the command does not hit the
+`Invoke-WebRequest` alias:
+
+```powershell
+curl.exe -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - connect 'http://127.0.0.1:5174/noter.js'
+```
+
 What this does today:
 
 1. validates that the source URL points to `/noter.js`
-2. runs `codex --version`
+2. runs `codex --version` to confirm the Codex CLI is on `PATH`
 3. creates a machine registration request in Noter
 4. writes or updates `~/.noter/config.json`
 5. prints a markdown status block to stdout
@@ -156,6 +195,12 @@ Use the direct hosted-file run command:
 ```bash
 set -o pipefail
 curl -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - run
+```
+
+On Windows PowerShell:
+
+```powershell
+curl.exe -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - run
 ```
 
 What this does today:

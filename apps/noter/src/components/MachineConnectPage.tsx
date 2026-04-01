@@ -33,6 +33,8 @@ type CopyableCommandBlockProps = {
   label: string;
 };
 
+type DirectCommandVariant = CopyableCommandBlockProps;
+
 type ConnectedMachineItem = ConnectedMachineView;
 
 type MachineApprovalState =
@@ -78,8 +80,8 @@ type MachineApprovalState =
 type MachineConnectPageContentProps = {
   approvalError: string | null;
   connectedMachines: ConnectedMachineItem[];
-  directConnectCommand: string;
-  directRunCommand: string;
+  directConnectCommands: DirectCommandVariant[];
+  directRunCommands: DirectCommandVariant[];
   heartbeatLog: string;
   isApproving: boolean;
   openedByCli: boolean;
@@ -110,6 +112,91 @@ function readControlStatusRank(
   status: ConnectedMachineItem["controlStatus"] | undefined,
 ): number {
   return status ? CONTROL_STATUS_RANK[status] : 3;
+}
+
+function LocalRequirementsSection() {
+  return (
+    <section className="corner-notch-1 border border-border p-4">
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Local requirements</p>
+        <p className="text-sm text-muted-foreground">
+          These commands need <code>node</code> and the Codex CLI{" "}
+          <code>codex</code> on your PATH. Check with{" "}
+          <code>node --version</code> and <code>codex --version</code>. The
+          direct hosted-file examples also need <code>curl</code>. On
+          macOS/Linux, check with <code>curl --version</code>. In Windows
+          PowerShell, check with <code>curl.exe --version</code> so the
+          prerequisite matches the command below and bypasses the built-in{" "}
+          <code>Invoke-WebRequest</code> alias.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          macOS: if you want <code>nvm</code>, use the official installer, then
+          run <code>nvm install --lts</code>. The <code>nvm</code> project does
+          not support Homebrew-installed <code>nvm</code>. macOS already ships
+          with <code>curl</code>; if it is missing or too old, install it with{" "}
+          <code>brew install curl</code>.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Windows PowerShell: if <code>winget</code> is available, run{" "}
+          <code>winget install --id OpenJS.NodeJS.LTS -e</code>. Recent Windows
+          versions usually already include <code>curl.exe</code>; if yours does
+          not, install curl with <code>winget</code> or another package manager.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Linux: install Node.js with your preferred setup, then make sure the{" "}
+          <code>curl</code> package is present too, for example{" "}
+          <code>apt install curl</code> or <code>dnf install curl</code>.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          If you prefer an installer, use the current Node.js LTS download from{" "}
+          <a
+            href="https://nodejs.org/en/download"
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-4 transition-colors hover:text-foreground"
+          >
+            nodejs.org
+          </a>
+          .
+        </p>
+        <p className="text-sm text-muted-foreground">
+          If <code>codex</code> is missing, install the official Codex CLI with{" "}
+          <code>npm install -g @openai/codex</code>. The Codex desktop app alone
+          does not guarantee that the shell command exists on this machine, and
+          OpenAI currently documents native Windows CLI support as experimental.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Show both shell variants explicitly so the browser never has to guess which
+ * command the operator wants to copy.
+ */
+function buildDirectCommandVariants(args: {
+  action: "connect" | "run";
+  scriptUrl: string;
+}): DirectCommandVariant[] {
+  const commandBuilder =
+    args.action === "connect"
+      ? buildDirectNoterSyncConnectCommand
+      : buildDirectNoterSyncRunCommand;
+
+  return [
+    {
+      command: commandBuilder(args.scriptUrl, "macos"),
+      description:
+        "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
+      label: `Direct hosted file ${args.action} (Unix/macOS)`,
+    },
+    {
+      command: commandBuilder(args.scriptUrl, "windows"),
+      description:
+        "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
+      label: `Direct hosted file ${args.action} (Windows PowerShell)`,
+    },
+  ];
 }
 
 function CopyableCommandBlock({
@@ -168,15 +255,28 @@ function CopyableCommandBlock({
               : "Copy"}
         </Button>
       </div>
-      <code className="mt-4 block overflow-x-auto whitespace-pre-wrap break-all bg-muted/40 px-3 py-3 text-sm">
+      <code className="mt-4 block overflow-x-auto whitespace-pre-wrap break-all bg-muted/40 px-3 py-3 font-mono text-xs leading-5 md:whitespace-pre md:break-normal">
         {command}
       </code>
     </section>
   );
 }
 
+function renderDirectCommandVariants(
+  commandVariants: DirectCommandVariant[],
+): JSX.Element[] {
+  return commandVariants.map((commandVariant) => (
+    <CopyableCommandBlock
+      key={commandVariant.label}
+      label={commandVariant.label}
+      description={commandVariant.description}
+      command={commandVariant.command}
+    />
+  ));
+}
+
 function renderMachineApprovalState(args: {
-  directRunCommand: string;
+  directRunCommands: DirectCommandVariant[];
   isApproving: boolean;
   onApprove?: () => void;
   packageRunCommand: string;
@@ -273,11 +373,7 @@ function renderMachineApprovalState(args: {
               command={args.packageRunCommand}
             />
 
-            <CopyableCommandBlock
-              label="Direct hosted file run"
-              description="Use this today for prod, preview, or local deploy testing."
-              command={args.directRunCommand}
-            />
+            {renderDirectCommandVariants(args.directRunCommands)}
           </div>
         </section>
       );
@@ -395,8 +491,8 @@ function ConnectedMachineList({
 export function MachineConnectPageContent({
   approvalError,
   connectedMachines,
-  directConnectCommand,
-  directRunCommand,
+  directConnectCommands,
+  directRunCommands,
   heartbeatLog,
   isApproving,
   openedByCli,
@@ -420,8 +516,8 @@ export function MachineConnectPageContent({
             Connect this machine
           </h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Run the connect command on the machine that already has Codex
-            installed, then approve the browser handoff here.
+            Run the connect command on the machine that already has Node.js and
+            the Codex CLI on PATH, then approve the browser handoff here.
           </p>
         </div>
 
@@ -444,6 +540,8 @@ export function MachineConnectPageContent({
           </div>
         </section>
 
+        <LocalRequirementsSection />
+
         {connectedMachines.length > 0 ? (
           <ConnectedMachineHeartbeatLogSection heartbeatLog={heartbeatLog} />
         ) : null}
@@ -458,7 +556,7 @@ export function MachineConnectPageContent({
         ) : null}
 
         {renderMachineApprovalState({
-          directRunCommand,
+          directRunCommands,
           isApproving,
           onApprove,
           packageRunCommand,
@@ -477,11 +575,7 @@ export function MachineConnectPageContent({
           command={packageConnectCommand}
         />
 
-        <CopyableCommandBlock
-          label="Direct hosted file connect"
-          description="Use this today for prod, preview, or local deploy testing."
-          command={directConnectCommand}
-        />
+        {renderDirectCommandVariants(directConnectCommands)}
 
         <p className="text-sm text-muted-foreground">
           <a
@@ -672,8 +766,14 @@ export function MachineConnectPage() {
       <MachineConnectPageContent
         approvalError={approvalError}
         connectedMachines={connectedMachines}
-        directConnectCommand={buildDirectNoterSyncConnectCommand(scriptUrl)}
-        directRunCommand={buildDirectNoterSyncRunCommand(scriptUrl)}
+        directConnectCommands={buildDirectCommandVariants({
+          action: "connect",
+          scriptUrl,
+        })}
+        directRunCommands={buildDirectCommandVariants({
+          action: "run",
+          scriptUrl,
+        })}
         heartbeatLog={heartbeatLog}
         isApproving={isApproving}
         openedByCli={bootstrapSearch.openedByCli}

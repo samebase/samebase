@@ -115,10 +115,27 @@ We want one underlying installer file with two distribution channels.
 
 This is the current first-user and iteration path.
 
+Prerequisite:
+
+1. `node` must already exist on `PATH`
+2. if we recommend `nvm` on macOS, it should use the official `nvm` installer
+   plus `nvm install --lts`
+3. we should not recommend Homebrew-installed `nvm`, because the `nvm`
+   maintainers explicitly mark that path unsupported
+4. on Windows PowerShell, a truthful package-manager path is
+   `winget install --id OpenJS.NodeJS.LTS -e` when `winget` is present
+
 Shape:
 
 ```bash
 curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
+```
+
+On Windows PowerShell the same bootstrap needs `curl.exe` because `curl`
+resolves to `Invoke-WebRequest` there:
+
+```powershell
+curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
 ```
 
 Preview or local iteration uses the same shape with a different origin:
@@ -133,6 +150,8 @@ Why this is the right first step:
 2. it makes preview and worktree iteration easy
 3. it avoids waiting on npm publishing before the flow is usable
 4. it keeps the real source artifact visible and inspectable
+5. it still works in Windows PowerShell once the transport command switches to
+   `curl.exe`
 
 ### Channel B: Published npm package
 

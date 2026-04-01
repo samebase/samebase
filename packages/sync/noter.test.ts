@@ -2,6 +2,7 @@ import { createServer } from 'node:http'
 import {
   chmodSync,
   mkdirSync,
+  realpathSync,
   readFileSync,
   rmSync,
   statSync,
@@ -15,8 +16,13 @@ import { pathToFileURL } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  buildCodexSpawnInvocation,
+  buildCodexRuntimeSpawnInvocation,
   buildMachineHeartbeatBody,
   buildNoterConnectConfigUrl,
+  buildCodexSpawnOptions,
+  buildDirectConnectCommand,
+  buildDirectRunCommand,
   buildMachineConnectUrl,
   createCodexLocalControlRouter,
   formatBootstrapReadyMarkdown,
@@ -277,6 +283,131 @@ describe('@noter-md/sync', () => {
     expect(formatHelpText()).toContain(
       `curl -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'`,
     )
+    expect(formatHelpText()).toContain(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
+    )
+    expect(formatHelpText()).toContain(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+    )
+    expect(formatHelpText()).toContain(
+      `curl.exe -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'`,
+    )
+  })
+
+  it('builds Windows-safe direct hosted-file commands', () => {
+    expect(
+      buildDirectConnectCommand('https://noter.md/noter.js', 'win32'),
+    ).toBe(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
+    )
+    expect(
+      buildDirectConnectCommand('https://noter.md/noter.js', 'windows'),
+    ).toBe(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
+    )
+    expect(buildDirectRunCommand('https://noter.md/noter.js', 'win32')).toBe(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+    )
+    expect(buildDirectRunCommand('https://noter.md/noter.js', 'windows')).toBe(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+    )
+  })
+
+  it('routes Windows Codex CLI launches through cmd.exe so args keep their spaces', () => {
+    const windowsShell = process.env.ComSpec ?? 'cmd.exe'
+
+    expect(
+      buildCodexSpawnInvocation(
+        [
+          'app-server',
+          '--out',
+          'C:\\Users\\Nicu Test\\R&D\\100%\\AppData\\Local\\Temp',
+        ],
+        'win32',
+      ),
+    ).toEqual({
+      args: [
+        '/d',
+        '/v:off',
+        '/c',
+        '"codex" "app-server" "--out" "C:\\Users\\Nicu Test\\R&D\\100%%\\AppData\\Local\\Temp"',
+      ],
+      command: windowsShell,
+    })
+    expect(buildCodexSpawnInvocation(['--version'], 'windows')).toEqual({
+      args: ['/d', '/v:off', '/c', '"codex" "--version"'],
+      command: windowsShell,
+    })
+    expect(buildCodexSpawnInvocation(['--version'], 'darwin')).toEqual({
+      args: ['--version'],
+      command: 'codex',
+    })
+    expect(buildCodexSpawnInvocation(['--version'], 'macos')).toEqual({
+      args: ['--version'],
+      command: 'codex',
+    })
+    expect(buildCodexSpawnOptions({ cwd: '/tmp/noter' })).toEqual({
+      cwd: '/tmp/noter',
+    })
+  })
+
+  it('runs the Windows Codex app-server through the shim-selected Node runtime', () => {
+    const tempRoot = path.join(tmpdir(), `noter-codex-shim-${Date.now()}`)
+    const binDirectory = path.join(tempRoot, 'bin')
+    const shimPath = path.join(binDirectory, 'codex.cmd')
+    const bundledNodePath = path.join(binDirectory, 'node.exe')
+    const scriptPath = path.join(
+      binDirectory,
+      'node_modules',
+      '@openai',
+      'codex',
+      'dist',
+      'cli.js',
+    )
+    const originalPath = process.env.PATH
+    const originalWindowsPath = process.env.Path
+    const originalPathext = process.env.PATHEXT
+
+    mkdirSync(path.dirname(scriptPath), { recursive: true })
+    writeFileSync(
+      shimPath,
+      `@ECHO off\r\n"%_prog%" "%dp0%\\node_modules\\@openai\\codex\\dist\\cli.js" %*\r\n`,
+      'utf8',
+    )
+    writeFileSync(bundledNodePath, '', 'utf8')
+    writeFileSync(scriptPath, 'console.log("codex")\n', 'utf8')
+    process.env.PATH = binDirectory
+    process.env.Path = binDirectory
+    process.env.PATHEXT = '.CMD;.EXE'
+
+    try {
+      expect(
+        buildCodexRuntimeSpawnInvocation(
+          ['app-server', '--listen', 'stdio://'],
+          'win32',
+        ),
+      ).toEqual({
+        args: [realpathSync(scriptPath), 'app-server', '--listen', 'stdio://'],
+        command: realpathSync(bundledNodePath),
+      })
+    } finally {
+      if (originalPath === undefined) {
+        delete process.env.PATH
+      } else {
+        process.env.PATH = originalPath
+      }
+      if (originalWindowsPath === undefined) {
+        delete process.env.Path
+      } else {
+        process.env.Path = originalWindowsPath
+      }
+      if (originalPathext === undefined) {
+        delete process.env.PATHEXT
+      } else {
+        process.env.PATHEXT = originalPathext
+      }
+      rmSync(tempRoot, { force: true, recursive: true })
+    }
   })
 
   it.runIf(process.platform !== 'win32')(
@@ -299,6 +430,7 @@ describe('@noter-md/sync', () => {
   )
 
   it('formats bootstrap status as markdown for terminal and LLM consumption', () => {
+    const runCommand = buildDirectRunCommand('https://noter.md/noter.js')
     expect(
       formatBootstrapReadyMarkdown({
         codexVersion: 'codex 0.1.2',
@@ -306,7 +438,7 @@ describe('@noter-md/sync', () => {
         machineConnectUrl:
           'https://noter.md/machines/connect?openedByCli&requestId=request_123',
         machineId: 'machine_123',
-        runCommand: `curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+        runCommand,
         sourceUrl: 'https://noter.md/noter.js',
       }),
     ).toBe(`# noter sync bootstrap ready
@@ -316,7 +448,7 @@ describe('@noter-md/sync', () => {
 - machine: machine_123
 - state: /Users/noter/.noter/config.json
 - next: https://noter.md/machines/connect?openedByCli&requestId=request_123
-- run: curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`)
+- run: ${runCommand}`)
   })
 
   it('builds heartbeat payloads that advertise live-control readiness', () => {

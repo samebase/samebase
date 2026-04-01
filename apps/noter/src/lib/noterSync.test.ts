@@ -48,6 +48,22 @@ describe("noterSync", () => {
     );
   });
 
+  it("builds PowerShell-safe direct hosted-file commands for Windows", () => {
+    expect(
+      buildDirectNoterSyncConnectCommand(
+        "https://noter.md/noter.js",
+        "windows",
+      ),
+    ).toBe(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
+    );
+    expect(
+      buildDirectNoterSyncRunCommand("https://noter.md/noter.js", "windows"),
+    ).toBe(
+      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+    );
+  });
+
   it("reads the optional machine-connect bootstrap query params", () => {
     expect(
       readMachineConnectBootstrapSearch("?openedByCli&requestId=request-123"),

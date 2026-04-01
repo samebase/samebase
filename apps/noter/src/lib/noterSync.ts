@@ -1,9 +1,18 @@
 export const MACHINE_CONNECT_ROUTE = "/machines/connect";
 export const MACHINE_LIVE_CONTROL_ROUTE = "/machines/:machineId/live";
 export const NOTER_SYNC_PUBLIC_SCRIPT_PATH = "/noter.js";
+export type NoterSyncCommandTargetOs = "linux" | "macos" | "windows";
 
 function quoteShellArg(value: string): string {
   return "'" + value.replace(/'/g, `'"'"'`) + "'";
+}
+
+/**
+ * PowerShell aliases `curl` to `Invoke-WebRequest`, so the direct-download
+ * bootstrap needs `curl.exe` when the machine is Windows.
+ */
+function readDirectDownloadCommand(targetOs?: NoterSyncCommandTargetOs | null) {
+  return targetOs === "windows" ? "curl.exe -fsSL" : "curl -fsSL";
 }
 
 export function buildNoterSyncScriptUrl(origin: string): string {
@@ -39,14 +48,20 @@ export function buildPublishedNoterSyncRunCommand(): string {
   return "npx @noter-md/sync run";
 }
 
-export function buildDirectNoterSyncConnectCommand(scriptUrl: string): string {
+export function buildDirectNoterSyncConnectCommand(
+  scriptUrl: string,
+  targetOs?: NoterSyncCommandTargetOs | null,
+): string {
   const quotedScriptUrl = quoteShellArg(scriptUrl);
-  return `curl -fsSL ${quotedScriptUrl} | node --input-type=module - connect ${quotedScriptUrl}`;
+  return `${readDirectDownloadCommand(targetOs)} ${quotedScriptUrl} | node --input-type=module - connect ${quotedScriptUrl}`;
 }
 
-export function buildDirectNoterSyncRunCommand(scriptUrl: string): string {
+export function buildDirectNoterSyncRunCommand(
+  scriptUrl: string,
+  targetOs?: NoterSyncCommandTargetOs | null,
+): string {
   const quotedScriptUrl = quoteShellArg(scriptUrl);
-  return `curl -fsSL ${quotedScriptUrl} | node --input-type=module - run`;
+  return `${readDirectDownloadCommand(targetOs)} ${quotedScriptUrl} | node --input-type=module - run`;
 }
 
 export function readMachineConnectBootstrapSearch(search: string): {
