@@ -119,9 +119,9 @@ Notes:
   you need local OAuth redirects in that session, rerun
   `pnpm --dir apps/noter exec convex env set SITE_URL "<your origin>"` after the
   long-running backend starts.
-- If `pnpm dev` stops with `A local backend is still running on port 3210`, stop
-  the stale `convex-local-backend.exe` process that is already listening on
-  `3210` and retry.
+- `pnpm dev` now tries to stop stale local `convex-local-backend` listeners on
+  `3210` before bootstrap. If it still reports that `3210` is occupied, stop the
+  leftover backend process manually and retry.
 - For local connected-machine testing with `/noter.js` on a fresh Windows
   checkout that does not already have a cloud dev source env, use the dated
   troubleshooting notes in

@@ -57,6 +57,11 @@ temporary local-backend shutdown as a skip condition instead of a fatal error.
 After that fix, the remaining startup rough edge on this machine was only stale
 local `convex-local-backend.exe` listeners already bound to port `3210`.
 
+That stale-listener problem is now also handled in this branch for the primary
+checkout path: `predev.js` stops local Convex listeners on the stored backend
+port before bootstrapping a fresh backend, including native Windows via
+`taskkill`.
+
 ## Working Local-Only Bootstrap Sequence
 
 From the repo root:

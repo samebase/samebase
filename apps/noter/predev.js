@@ -73,6 +73,17 @@ const isConvexLocalBackend = async (port) => {
 };
 
 const killPids = (pids, signal) => {
+  if (process.platform === "win32") {
+    for (const pid of pids) {
+      const args = ["/PID", pid, "/T"];
+      if (signal === "KILL") {
+        args.push("/F");
+      }
+      spawnSync("taskkill", args, { stdio: "ignore" });
+    }
+    return;
+  }
+
   for (const pid of pids) {
     spawnSync("kill", ["-" + signal, pid], { stdio: "ignore" });
   }
@@ -111,6 +122,7 @@ if (process.env.CONVEX_AGENT_MODE === "anonymous") {
 }
 
 const readmeSnapshot = captureConvexReadme();
+await stopLocalBackendIfRunning();
 run("node", ["convex-dev.js", "--until-success", "--codegen=enable"]);
 restoreConvexReadmeIfOverwritten(readmeSnapshot);
 run("node", ["setup.mjs", "--once"]);
