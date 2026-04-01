@@ -38,6 +38,11 @@ for (const scenario of SCENARIOS) {
     await page.evaluate(async () => {
       await document.fonts.ready;
     });
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
 
     const screenshotTarget =
       scenario.screenshotTarget === "dialog-form"
