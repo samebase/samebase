@@ -53,6 +53,8 @@ export function useProsemarkMobilePaneDrag(
     useWorkspaceMobilePaneDrag();
   const dragStateRef = useRef<ProsemarkPaneDragState | null>(null);
   const isEnabled = enabled && isAvailable;
+  const needsLegacyTouchFallback =
+    isEnabled && typeof window.PointerEvent === "undefined";
 
   const clearDragState = useCallback(() => {
     dragStateRef.current = null;
@@ -288,13 +290,12 @@ export function useProsemarkMobilePaneDrag(
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !isEnabled) {
+    if (!container || !needsLegacyTouchFallback) {
       return;
     }
 
-    // Touch-capable browsers do not agree on whether a drag continues as
-    // `pointermove`, `touchmove`, or a mix of both after `pointerdown`, so keep
-    // the touch listeners active even when Pointer Events are available.
+    // Older browsers without Pointer Events still need a touch-event path to
+    // delegate horizontal pane drags out of the editor surface.
     container.addEventListener("touchstart", handleTouchStart, {
       capture: true,
       passive: false,
@@ -323,7 +324,7 @@ export function useProsemarkMobilePaneDrag(
     finishTouchDrag,
     handleTouchMove,
     handleTouchStart,
-    isEnabled,
+    needsLegacyTouchFallback,
   ]);
 
   return useMemo(

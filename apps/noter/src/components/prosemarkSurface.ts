@@ -150,6 +150,7 @@ export const prosemarkSurfaceTheme = EditorView.theme({
     fontFamily: "inherit",
     fontSize: "inherit",
     lineHeight: "inherit",
+    touchAction: "pan-y",
   },
   ".cm-focused": {
     outline: "none",
@@ -159,15 +160,18 @@ export const prosemarkSurfaceTheme = EditorView.theme({
     fontFamily: "inherit",
     fontSize: "inherit",
     lineHeight: "inherit",
+    touchAction: "pan-y",
   },
   ".cm-line": {
     padding: "0",
+    touchAction: "pan-y",
   },
   ".cm-scroller": {
     fontFamily: "inherit",
     lineHeight: "inherit",
     overflow: "visible",
     height: "auto",
+    touchAction: "pan-y",
   },
   ".cm-gutters": {
     display: "none",

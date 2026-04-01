@@ -326,7 +326,7 @@ describe("useProsemarkMobilePaneDrag", () => {
     expect(settleMobileShell).toHaveBeenCalledTimes(1);
   });
 
-  it("handles mixed touch sequences that start with pointerdown and continue with touchmove", () => {
+  it("ignores legacy touch fallback when Pointer Events are available", () => {
     const dragMobileShellBy = vi.fn(() => true);
     const settleMobileShell = vi.fn();
     Reflect.set(globalThis, "PointerEvent", Event);
@@ -374,8 +374,8 @@ describe("useProsemarkMobilePaneDrag", () => {
       });
     });
 
-    expect(dragMobileShellBy).toHaveBeenCalledWith(45);
-    expect(settleMobileShell).toHaveBeenCalledTimes(1);
+    expect(dragMobileShellBy).not.toHaveBeenCalled();
+    expect(settleMobileShell).not.toHaveBeenCalled();
   });
 
   it("keeps blocked horizontal drags on the editor surface when the shell cannot move", () => {

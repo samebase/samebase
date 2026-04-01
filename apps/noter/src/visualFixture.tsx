@@ -62,9 +62,9 @@ import {
   type FileViewMonacoDragVisualMode,
 } from "@/components/FileViewMonacoDragVisualFixture";
 import {
-  FileViewProsemarkDragVisualFixture,
-  type FileViewProsemarkDragVisualMode,
-} from "@/components/FileViewProsemarkDragVisualFixture";
+  FileViewProsemarkHeightVisualFixture,
+  type FileViewProsemarkHeightVisualMode,
+} from "@/components/FileViewProsemarkHeightVisualFixture";
 import {
   RepositoryRouteConnectStateVisualFixture,
   type RepositoryRouteConnectStateVisualMode,
@@ -124,7 +124,7 @@ type VisualFixtureMode =
   | FileViewCodeParityVisualMode
   | FileViewDeveloperToolsVisualMode
   | FileViewMonacoDragVisualMode
-  | FileViewProsemarkDragVisualMode
+  | FileViewProsemarkHeightVisualMode
   | RepositoryRouteConnectStateVisualMode
   | FileViewLayoutVisualMode
   | FileViewPushActionsVisualMode
@@ -263,10 +263,9 @@ const FILE_VIEW_DEVELOPER_TOOLS_VISUAL_MODES = [
   "file-view-developer-tools-graph",
 ] as const satisfies readonly FileViewDeveloperToolsVisualMode[];
 
-const FILE_VIEW_PROSEMARK_DRAG_VISUAL_MODES = [
-  "fileview-prosemark-drag-editable",
-  "fileview-prosemark-drag-read-only",
-] as const satisfies readonly FileViewProsemarkDragVisualMode[];
+const FILE_VIEW_PROSEMARK_HEIGHT_VISUAL_MODES = [
+  "fileview-prosemark-flex-height",
+] as const satisfies readonly FileViewProsemarkHeightVisualMode[];
 
 const FILE_VIEW_ROUTE_CONNECT_VISUAL_MODES = [
   "file-view-connect-repository",
@@ -303,7 +302,7 @@ const VISUAL_FIXTURE_GROUPS = [
       ...FILE_VIEW_CODE_PARITY_VISUAL_MODES,
       ...FILE_VIEW_DEVELOPER_TOOLS_VISUAL_MODES,
       ...FILE_VIEW_MONACO_DRAG_VISUAL_MODES,
-      ...FILE_VIEW_PROSEMARK_DRAG_VISUAL_MODES,
+      ...FILE_VIEW_PROSEMARK_HEIGHT_VISUAL_MODES,
       ...FILE_VIEW_ROUTE_CONNECT_VISUAL_MODES,
     ],
   },
@@ -503,16 +502,13 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (
     mode === "fileview-monaco-drag" ||
-    mode === "fileview-monaco-flex-height" ||
-    mode === "fileview-prosemark-drag-editable" ||
-    mode === "fileview-prosemark-drag-read-only"
+    mode === "fileview-monaco-flex-height"
   ) {
-    return mode === "fileview-monaco-drag" ||
-      mode === "fileview-monaco-flex-height" ? (
-      <FileViewMonacoDragVisualFixture mode={mode} />
-    ) : (
-      <FileViewProsemarkDragVisualFixture mode={mode} />
-    );
+    return <FileViewMonacoDragVisualFixture mode={mode} />;
+  }
+
+  if (mode === "fileview-prosemark-flex-height") {
+    return <FileViewProsemarkHeightVisualFixture mode={mode} />;
   }
 
   if (
