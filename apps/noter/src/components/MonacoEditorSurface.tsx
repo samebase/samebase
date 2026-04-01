@@ -57,11 +57,11 @@ export function MonacoEditorSurface({
       return;
     }
 
+    /**
+     * Monaco needs a concrete pixel height because nested flex layouts can
+     * make percentage heights collapse even when the surface is visibly taller.
+     */
     const updateEditorHeight = () => {
-      // Monaco's wrapper needs a concrete pixel height. The file view can
-      // expose only a min-height through nested flex containers, which leaves
-      // percentage heights effectively collapsed even though the surface is
-      // visibly taller on screen.
       const nextHeightPx = Math.max(
         400,
         Math.round(containerNode.getBoundingClientRect().height),

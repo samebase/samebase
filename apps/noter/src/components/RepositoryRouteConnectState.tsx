@@ -81,6 +81,7 @@ export function RepositoryRouteConnectState({
           {errorMessage ? (
             <div
               role="alert"
+              aria-live="assertive"
               aria-atomic="true"
               className="mt-4 corner-notch-1 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
             >

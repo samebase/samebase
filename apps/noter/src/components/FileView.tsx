@@ -455,8 +455,23 @@ function FileViewWrapper() {
       setIsConnectingRepository(true);
 
       try {
-        await connectRepository({
+        const connectResult = await connectRepository({
           repositoryFullName,
+        });
+        const [canonicalOwner, canonicalRepoName] =
+          connectResult.repositoryFullName.split("/");
+        if (!canonicalOwner || !canonicalRepoName) {
+          return;
+        }
+
+        const nextBranch = routeBranch ?? connectResult.defaultBranch;
+        const nextPath =
+          selectedFile.length > 0
+            ? `/vault/${canonicalOwner}/${canonicalRepoName}/${encodeURIComponent(nextBranch)}/${encodeVaultFilePath(selectedFile)}`
+            : `/vault/${canonicalOwner}/${canonicalRepoName}/${encodeURIComponent(nextBranch)}`;
+        void navigate(appendCurrentSearch(nextPath), {
+          replace: true,
+          state,
         });
       } catch (connectRepositoryError) {
         setConnectRouteError(
@@ -468,7 +483,16 @@ function FileViewWrapper() {
         setIsConnectingRepository(false);
       }
     })();
-  }, [connectRepository, isConnectingRepository, repositoryFullName]);
+  }, [
+    appendCurrentSearch,
+    connectRepository,
+    isConnectingRepository,
+    navigate,
+    repositoryFullName,
+    routeBranch,
+    selectedFile,
+    state,
+  ]);
 
   /**
    * If the branch from the URL no longer exists, replace it with
