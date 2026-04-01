@@ -351,10 +351,11 @@ describe('@noter-md/sync', () => {
     })
   })
 
-  it('runs the Windows Codex app-server through the shim target instead of cmd.exe', () => {
+  it('runs the Windows Codex app-server through the shim-selected Node runtime', () => {
     const tempRoot = path.join(tmpdir(), `noter-codex-shim-${Date.now()}`)
     const binDirectory = path.join(tempRoot, 'bin')
     const shimPath = path.join(binDirectory, 'codex.cmd')
+    const bundledNodePath = path.join(binDirectory, 'node.exe')
     const scriptPath = path.join(
       binDirectory,
       'node_modules',
@@ -373,6 +374,7 @@ describe('@noter-md/sync', () => {
       `@ECHO off\r\n"%_prog%" "%dp0%\\node_modules\\@openai\\codex\\dist\\cli.js" %*\r\n`,
       'utf8',
     )
+    writeFileSync(bundledNodePath, '', 'utf8')
     writeFileSync(scriptPath, 'console.log("codex")\n', 'utf8')
     process.env.PATH = binDirectory
     process.env.Path = binDirectory
@@ -386,7 +388,7 @@ describe('@noter-md/sync', () => {
         ),
       ).toEqual({
         args: [realpathSync(scriptPath), 'app-server', '--listen', 'stdio://'],
-        command: process.execPath,
+        command: realpathSync(bundledNodePath),
       })
     } finally {
       process.env.PATH = originalPath

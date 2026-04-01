@@ -444,6 +444,30 @@ function readWindowsCmdShimTarget(shimPath) {
 }
 
 /**
+ * npm's Windows shims prefer a sibling `node.exe` and otherwise fall back to
+ * resolving `node` on PATH. Mirror that choice so long-lived runtimes use the
+ * same interpreter as the CLI wrapper that passed `--version`.
+ */
+function resolveWindowsCmdShimNodeCommand(shimPath, env = process.env) {
+  const bundledNodePath = path.join(path.dirname(shimPath), 'node.exe')
+
+  try {
+    if (statSync(bundledNodePath).isFile()) {
+      return realpathSync(bundledNodePath)
+    }
+  } catch {}
+
+  const pathNode = resolveWindowsPathCommand('node', env)
+  if (pathNode !== null) {
+    return pathNode
+  }
+
+  throw new Error(
+    `${buildCodexCliMissingMessage()} The Windows CLI shim could not resolve its Node runtime.`,
+  )
+}
+
+/**
  * One-off Windows Codex commands can go through `cmd.exe`, but the long-lived
  * app-server should run as the real child process so restart and shutdown do
  * not strand an orphaned shell wrapper.
@@ -480,7 +504,7 @@ export function buildCodexRuntimeSpawnInvocation(
         ),
         ...args,
       ],
-      command: process.execPath,
+      command: resolveWindowsCmdShimNodeCommand(codexPath),
     }
   }
 
