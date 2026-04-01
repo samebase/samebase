@@ -46,6 +46,8 @@ const prosemarkFileViewAutoHeightTheme = EditorView.theme({
   },
 });
 
+const EMPTY_EXTENSIONS: readonly Extension[] = [];
+
 /**
  * Hosts the real file-view CodeMirror/ProseMark surface without the collaborative
  * transport layer so fixtures can exercise the same mounted editor shell the
@@ -53,7 +55,7 @@ const prosemarkFileViewAutoHeightTheme = EditorView.theme({
  */
 export function CodeMirrorFileSurface({
   dataTestId,
-  extraExtensions = [],
+  extraExtensions = EMPTY_EXTENSIONS,
   filePath,
   initialValue,
   overlay,
@@ -70,9 +72,16 @@ export function CodeMirrorFileSurface({
   const pendingLanguageLoadRef = useRef<symbol | null>(null);
   const themeCompartmentRef = useRef(new Compartment());
   const { theme, systemTheme } = useTheme();
+  const initialValueRef = useRef(initialValue);
+  const themeRef = useRef(theme);
+  const systemThemeRef = useRef(systemTheme);
   const mobilePaneDrag = useProsemarkMobilePaneDrag(true, containerRef);
   const languageKind = getCodeMirrorFileLanguageKind(filePath);
   const isAutoHeightSurface = languageKind !== "code";
+
+  initialValueRef.current = initialValue;
+  themeRef.current = theme;
+  systemThemeRef.current = systemTheme;
 
   useEffect(() => {
     let editor: EditorView | null = null;
@@ -84,18 +93,21 @@ export function CodeMirrorFileSurface({
         return;
       }
 
-      const effectiveTheme = theme === "system" ? systemTheme : theme;
+      const effectiveTheme =
+        themeRef.current === "system"
+          ? systemThemeRef.current
+          : themeRef.current;
       const isDark = effectiveTheme === "dark";
       const prosemarkSelectionAnchor =
         languageKind === "code"
           ? undefined
           : EditorSelection.single(
-              findInitialSafeSelectionAnchor(initialValue),
+              findInitialSafeSelectionAnchor(initialValueRef.current),
             );
 
       editor = new EditorView({
         state: EditorState.create({
-          doc: initialValue,
+          doc: initialValueRef.current,
           selection: prosemarkSelectionAnchor,
           extensions: [
             ...fileCodeMirrorBaseExtensions,
@@ -173,15 +185,7 @@ export function CodeMirrorFileSurface({
       editor?.destroy();
       viewRef.current = null;
     };
-  }, [
-    extraExtensions,
-    filePath,
-    initialValue,
-    isAutoHeightSurface,
-    languageKind,
-    systemTheme,
-    theme,
-  ]);
+  }, [extraExtensions, filePath, isAutoHeightSurface, languageKind]);
 
   useEffect(() => {
     const view = viewRef.current;
