@@ -153,13 +153,6 @@ Playwright balances tests across shards by splitting at the individual test
 level instead of handing whole files to a shard. This matters because several
 Noter visual files contain many scenario tests.
 
-### 4. Download only the headless Chromium shell
-
-The workflow now installs Playwright with `--only-shell`.
-
-Noter's CI config runs Chromium headlessly and does not set a browser channel,
-so the full headed Chromium download is unnecessary for this lane.
-
 ## What We Are Explicitly Not Doing Yet
 
 ### Caching Playwright browsers
@@ -178,6 +171,14 @@ in this branch.
 
 That should stay a second step if the current sharded GitHub Actions lane is
 still too slow.
+
+### Switching to a shell-only Chromium download
+
+Not shipping that in this branch.
+
+The lower-download variant is attractive on paper, but Noter's visual fixture
+coverage is broad enough that CI stability matters more than squeezing one more
+optimization out of the browser install step.
 
 ### Using Blacksmith or another runner vendor
 
