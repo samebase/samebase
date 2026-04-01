@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
 import { Button } from "@/components/ui/button";
 import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
+import { useSidebar } from "@/hooks/use-sidebar";
 
 export function RepositoryRouteConnectState({
   repositoryFullName,
@@ -22,6 +24,14 @@ export function RepositoryRouteConnectState({
   onConnectRepository: () => void;
   dataTestId?: string;
 }) {
+  const { isMobile, setLeftDesktopOpen } = useSidebar();
+
+  useEffect(() => {
+    if (!isMobile) {
+      setLeftDesktopOpen(true);
+    }
+  }, [isMobile, setLeftDesktopOpen]);
+
   const primaryLabel = githubConnected
     ? isConnectingRepository
       ? "Connecting..."
@@ -49,7 +59,11 @@ export function RepositoryRouteConnectState({
         </a>
       }
       leftSidebarHeader={null}
-      leftSidebarContent={null}
+      leftSidebarContent={
+        isMobile ? null : (
+          <div aria-hidden="true" className="min-h-0 flex-1 bg-background" />
+        )
+      }
       rightSidebarHeader={null}
       rightSidebarContent={null}
       contentClassName="flex-1 min-h-0 p-0"

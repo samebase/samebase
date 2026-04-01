@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 import type { OnMount } from "@monaco-editor/react";
 import { useTheme } from "next-themes";
@@ -46,9 +46,49 @@ export function MonacoEditorSurface({
   const isMobileViewport = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const mobilePaneDrag = useProsemarkMobilePaneDrag(true, containerRef);
+  const [editorHeightPx, setEditorHeightPx] = useState(400);
   const showLineNumbers =
     !disableLineNumbers && (!isMobileViewport || showMobileLineNumbers);
   const showFolding = !disableFolding && !isMobileViewport;
+
+  useEffect(() => {
+    const containerNode = containerRef.current;
+    if (!(containerNode instanceof HTMLDivElement)) {
+      return;
+    }
+
+    const updateEditorHeight = () => {
+      // Monaco's wrapper needs a concrete pixel height. The file view can
+      // expose only a min-height through nested flex containers, which leaves
+      // percentage heights effectively collapsed even though the surface is
+      // visibly taller on screen.
+      const nextHeightPx = Math.max(
+        400,
+        Math.round(containerNode.getBoundingClientRect().height),
+      );
+      setEditorHeightPx((currentHeightPx) =>
+        currentHeightPx === nextHeightPx ? currentHeightPx : nextHeightPx,
+      );
+    };
+
+    updateEditorHeight();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateEditorHeight);
+      return () => {
+        window.removeEventListener("resize", updateEditorHeight);
+      };
+    }
+
+    const resizeObserver = new ResizeObserver(updateEditorHeight);
+    resizeObserver.observe(containerNode);
+    window.addEventListener("resize", updateEditorHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateEditorHeight);
+    };
+  }, []);
 
   return (
     <div
@@ -63,12 +103,13 @@ export function MonacoEditorSurface({
       {...mobilePaneDrag.containerProps}
     >
       <Editor
-        height="100%"
+        height={`${editorHeightPx}px`}
         path={buildMonacoFileUri({ vaultId: vaultKey, branch, filePath })}
         defaultValue={defaultValue}
         theme={isDark ? "vs-dark" : "vs"}
         onMount={onMount}
         options={{
+          automaticLayout: true,
           minimap: { enabled: false },
           scrollbar: {
             alwaysConsumeMouseWheel: false,

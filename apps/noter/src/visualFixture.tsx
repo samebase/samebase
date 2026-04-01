@@ -274,6 +274,7 @@ const FILE_VIEW_ROUTE_CONNECT_VISUAL_MODES = [
 
 const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
   "fileview-monaco-drag",
+  "fileview-monaco-flex-height",
 ] as const satisfies readonly FileViewMonacoDragVisualMode[];
 
 const MISC_VISUAL_MODES = [
@@ -501,10 +502,12 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (
     mode === "fileview-monaco-drag" ||
+    mode === "fileview-monaco-flex-height" ||
     mode === "fileview-prosemark-drag-editable" ||
     mode === "fileview-prosemark-drag-read-only"
   ) {
-    return mode === "fileview-monaco-drag" ? (
+    return mode === "fileview-monaco-drag" ||
+      mode === "fileview-monaco-flex-height" ? (
       <FileViewMonacoDragVisualFixture mode={mode} />
     ) : (
       <FileViewProsemarkDragVisualFixture mode={mode} />
