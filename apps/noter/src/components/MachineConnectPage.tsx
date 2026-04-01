@@ -7,7 +7,7 @@ import {
   useConnectedMachineHeartbeatLog,
 } from "@/lib/connectedMachineHeartbeatLog";
 import {
-  buildMachineLiveControlPath,
+  buildMachinesWorkspacePath,
   buildDirectNoterSyncConnectCommand,
   buildDirectNoterSyncRunCommand,
   buildNoterSyncScriptUrl,
@@ -473,8 +473,12 @@ function ConnectedMachineList({
                   {machine.status === "online" &&
                   machine.controlStatus === "ready" ? (
                     <Button asChild className="mt-3" size="sm">
-                      <Link to={buildMachineLiveControlPath(machine.machineId)}>
-                        Open live control
+                      <Link
+                        to={buildMachinesWorkspacePath({
+                          machineId: machine.machineId,
+                        })}
+                      >
+                        Open threads
                       </Link>
                     </Button>
                   ) : null}

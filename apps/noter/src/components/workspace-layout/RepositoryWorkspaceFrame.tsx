@@ -7,6 +7,10 @@ import { cn } from "@/lib/utils";
 
 type SidebarSlot = Exclude<ReactNode, undefined>;
 
+function renderDefaultEmptySidebarContent() {
+  return <div aria-hidden="true" className="min-h-0 flex-1 bg-background" />;
+}
+
 export function RepositoryWorkspaceFrame({
   leftSidebarHeader,
   leftSidebarContent,
@@ -32,28 +36,26 @@ export function RepositoryWorkspaceFrame({
   headerTestId?: string;
   contentClassName?: string;
 }) {
-  const hasLeftSidebar =
-    leftSidebarHeader !== null || leftSidebarContent !== null;
-  const hasRightSidebar =
-    rightSidebarHeader !== null || rightSidebarContent !== null;
+  const resolvedLeftSidebarContent =
+    leftSidebarContent ?? renderDefaultEmptySidebarContent();
+  const resolvedRightSidebarContent =
+    rightSidebarContent ?? renderDefaultEmptySidebarContent();
 
   return (
     <WorkspaceRouteFrame
       dataTestId={dataTestId}
       headerTestId={headerTestId}
       leftSidebarHeader={leftSidebarHeader}
-      leftSidebarContent={leftSidebarContent}
+      leftSidebarContent={resolvedLeftSidebarContent}
       rightSidebarHeader={rightSidebarHeader}
-      rightSidebarContent={rightSidebarContent}
+      rightSidebarContent={resolvedRightSidebarContent}
       headerContent={
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-3">
-            {hasLeftSidebar ? (
-              <SidebarTrigger
-                className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
-                side="left"
-              />
-            ) : null}
+            <SidebarTrigger
+              className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
+              side="left"
+            />
             {onQuickOpen ? (
               <Button
                 variant="ghost"
@@ -77,12 +79,10 @@ export function RepositoryWorkspaceFrame({
 
           <div className="flex items-center gap-2">
             {headerRight}
-            {hasRightSidebar ? (
-              <SidebarTrigger
-                className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
-                side="right"
-              />
-            ) : null}
+            <SidebarTrigger
+              className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
+              side="right"
+            />
           </div>
         </div>
       }

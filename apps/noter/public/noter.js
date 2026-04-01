@@ -897,6 +897,43 @@ function normalizeAllowedOrigins(origins) {
   )
 }
 
+function readLoopbackOriginKey(value) {
+  const origin = normalizeOrigin(value)
+  if (origin === null) {
+    return null
+  }
+
+  try {
+    const url = new URL(origin)
+    return isLoopbackHostname(url.hostname)
+      ? `${url.protocol}//${url.hostname}`
+      : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Keep loopback-origin relaxation scoped to the configured loopback origin and
+ * ignore only the port so local dev can survive Vite port changes without
+ * silently broadening an explicit allowlist into "any loopback origin".
+ */
+function originMatchesAllowedOrigins(requestOrigin, allowedOrigins) {
+  if (allowedOrigins.includes(requestOrigin)) {
+    return true
+  }
+
+  const requestLoopbackOriginKey = readLoopbackOriginKey(requestOrigin)
+  if (requestLoopbackOriginKey === null) {
+    return false
+  }
+
+  return allowedOrigins.some(
+    allowedOrigin =>
+      readLoopbackOriginKey(allowedOrigin) === requestLoopbackOriginKey,
+  )
+}
+
 function appendVaryHeader(res, value) {
   const existingHeader = res.getHeader('Vary')
   const existingValues =
@@ -1665,7 +1702,7 @@ function createMachineControlAuth(args = {}) {
           return
         }
 
-        if (!allowedOrigins.includes(requestOrigin)) {
+        if (!originMatchesAllowedOrigins(requestOrigin, allowedOrigins)) {
           throw createHttpError(
             403,
             `Origin is not allowed: ${requestOrigin}`,
@@ -1882,7 +1919,7 @@ function createMachineControlAuth(args = {}) {
         return
       }
 
-      if (!allowedOrigins.includes(requestOrigin)) {
+      if (!originMatchesAllowedOrigins(requestOrigin, allowedOrigins)) {
         throw createHttpError(
           403,
           `Origin is not allowed: ${requestOrigin}`,

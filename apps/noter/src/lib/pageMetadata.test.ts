@@ -229,10 +229,8 @@ describe("page metadata", () => {
     );
   });
 
-  it("returns a dedicated title for the machine live-control route", () => {
-    expect(resolveAppPageTitle("/machines/machine-123/live")).toBe(
-      "Machine Live Control | noter",
-    );
+  it("returns a dedicated title for the machines route", () => {
+    expect(resolveAppPageTitle("/machines")).toBe("Machines | noter");
   });
 
   it("gives the codex research route a dedicated app title", () => {

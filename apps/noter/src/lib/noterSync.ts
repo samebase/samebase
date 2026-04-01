@@ -1,5 +1,11 @@
+import {
+  buildPathWithQuery,
+  setQueryParam,
+  updateQueryParams,
+} from "./queryParams";
+
+export const MACHINES_ROUTE = "/machines";
 export const MACHINE_CONNECT_ROUTE = "/machines/connect";
-export const MACHINE_LIVE_CONTROL_ROUTE = "/machines/:machineId/live";
 export const NOTER_SYNC_PUBLIC_SCRIPT_PATH = "/noter.js";
 export type NoterSyncCommandTargetOs = "linux" | "macos" | "windows";
 
@@ -19,25 +25,25 @@ export function buildNoterSyncScriptUrl(origin: string): string {
   return new URL(NOTER_SYNC_PUBLIC_SCRIPT_PATH, origin).toString();
 }
 
-export function buildMachineLiveControlPath(machineId: string): string {
-  return `/machines/${encodeURIComponent(machineId)}/live`;
-}
-
-export function readMachineLiveControlPath(pathname: string): {
-  machineId: string;
-} | null {
-  const match = pathname.match(/^\/machines\/([^/]+)\/live$/);
-  if (!match) {
-    return null;
-  }
-
-  try {
-    return {
-      machineId: decodeURIComponent(match[1]),
-    };
-  } catch {
-    return null;
-  }
+export function buildMachinesWorkspacePath(args?: {
+  machineId?: string | null;
+  threadId?: string | null;
+}): string {
+  return buildPathWithQuery({
+    pathname: MACHINES_ROUTE,
+    search: updateQueryParams(undefined, (nextSearchParams) => {
+      setQueryParam(
+        nextSearchParams,
+        "machineId",
+        args?.machineId?.trim().length ? args.machineId.trim() : null,
+      );
+      setQueryParam(
+        nextSearchParams,
+        "threadId",
+        args?.threadId?.trim().length ? args.threadId.trim() : null,
+      );
+    }),
+  });
 }
 
 export function buildPublishedNoterSyncConnectCommand(): string {

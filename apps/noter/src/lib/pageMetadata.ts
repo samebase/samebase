@@ -2,11 +2,7 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "./codexAppServerResearch";
-import {
-  MACHINE_CONNECT_ROUTE,
-  MACHINE_LIVE_CONTROL_ROUTE,
-  readMachineLiveControlPath,
-} from "./noterSync";
+import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "./noterSync";
 
 export type PageMetadata = {
   title: string;
@@ -90,11 +86,11 @@ export const MACHINE_CONNECT_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
-export const MACHINE_LIVE_CONTROL_PAGE_METADATA: PageMetadata = {
-  title: "Machine Live Control | noter",
+export const MACHINES_PAGE_METADATA: PageMetadata = {
+  title: "Machines | noter",
   description:
-    "Browse Codex threads from a connected machine and continue them from noter.",
-  canonicalPath: MACHINE_LIVE_CONTROL_ROUTE,
+    "Browse connected machines and continue machine-local Codex threads from noter.",
+  canonicalPath: MACHINES_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
@@ -140,8 +136,8 @@ export function resolveAppPageTitle(pathname: string): string {
     return MACHINE_CONNECT_PAGE_METADATA.title;
   }
 
-  if (readMachineLiveControlPath(pathname)) {
-    return MACHINE_LIVE_CONTROL_PAGE_METADATA.title;
+  if (pathname === MACHINES_ROUTE) {
+    return MACHINES_PAGE_METADATA.title;
   }
 
   if (pathname.startsWith("/vault/")) {
@@ -179,11 +175,8 @@ export function resolvePageMetadata(args: {
     return MACHINE_CONNECT_PAGE_METADATA;
   }
 
-  if (readMachineLiveControlPath(args.pathname)) {
-    return {
-      ...MACHINE_LIVE_CONTROL_PAGE_METADATA,
-      canonicalPath: args.pathname,
-    };
+  if (args.pathname === MACHINES_ROUTE) {
+    return MACHINES_PAGE_METADATA;
   }
 
   if (!args.isAuthenticated && args.pathname === "/") {
@@ -222,11 +215,8 @@ export function resolveBootstrapPageMetadata(pathname: string): PageMetadata {
     return MACHINE_CONNECT_PAGE_METADATA;
   }
 
-  if (readMachineLiveControlPath(pathname)) {
-    return {
-      ...MACHINE_LIVE_CONTROL_PAGE_METADATA,
-      canonicalPath: pathname,
-    };
+  if (pathname === MACHINES_ROUTE) {
+    return MACHINES_PAGE_METADATA;
   }
 
   return {

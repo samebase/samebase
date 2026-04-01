@@ -21,6 +21,8 @@ import {
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
+import { dedupeCodexThreadsById } from "@/lib/codexThreadSidebar";
+import { useCodexThreadSidebarViewModel } from "@/hooks/useCodexThreadSidebarViewModel";
 import { useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -32,87 +34,6 @@ type ThreadActionResponse = {
   result?: unknown;
   runtime: CodexAppServerRuntimeSnapshot;
 };
-
-/**
- * The provider inventory can contain many similar prompts across multiple
- * worktrees. Dedupe by thread id so the browser never renders the same thread
- * multiple times even if the upstream inventory surface changes shape.
- */
-function dedupeThreadsById(
-  threads: CodexAppServerThread[],
-): CodexAppServerThread[] {
-  const threadsById = new Map<string, CodexAppServerThread>();
-
-  for (const thread of threads) {
-    const current = threadsById.get(thread.id);
-    if (!current || thread.updatedAt > current.updatedAt) {
-      threadsById.set(thread.id, thread);
-    }
-  }
-
-  return Array.from(threadsById.values()).sort(
-    (left, right) => right.updatedAt - left.updatedAt,
-  );
-}
-
-/**
- * Group by canonical project root, not raw cwd. That keeps sibling worktrees
- * for the same repo under one project entry, while each thread still carries
- * its own worktree label.
- */
-function buildThreadGroups(args: {
-  threads: CodexAppServerThread[];
-  loadedThreadIds: string[];
-}): CodexThreadBrowserGroup[] {
-  const groupMap = new Map<
-    string,
-    {
-      label: string;
-      detail: string;
-      count: number;
-      loadedCount: number;
-      latestUpdatedAt: number;
-      threads: CodexAppServerThread[];
-    }
-  >();
-
-  for (const thread of args.threads) {
-    const current = groupMap.get(thread.project.id);
-    const loadedCountDelta = args.loadedThreadIds.includes(thread.id) ? 1 : 0;
-    if (current) {
-      current.count += 1;
-      current.loadedCount += loadedCountDelta;
-      current.latestUpdatedAt = Math.max(
-        current.latestUpdatedAt,
-        thread.updatedAt,
-      );
-      current.threads.push(thread);
-      continue;
-    }
-
-    groupMap.set(thread.project.id, {
-      label: thread.project.label,
-      detail: thread.project.rootCwd,
-      count: 1,
-      loadedCount: loadedCountDelta,
-      latestUpdatedAt: thread.updatedAt,
-      threads: [thread],
-    });
-  }
-
-  return Array.from(groupMap.entries())
-    .sort((left, right) => right[1].latestUpdatedAt - left[1].latestUpdatedAt)
-    .map(([id, group]) => ({
-      id,
-      label: group.label,
-      detail: group.detail,
-      count: group.count,
-      loadedCount: group.loadedCount,
-      threads: group.threads.sort(
-        (left, right) => right.updatedAt - left.updatedAt,
-      ),
-    }));
-}
 
 function buildThreadsPath(args: {
   mode: CodexThreadBrowserMode;
@@ -203,7 +124,10 @@ export function CodexAppServerThreadBrowserResearchPage() {
     return response;
   }, []);
 
-  const uniqueThreads = useMemo(() => dedupeThreadsById(threads), [threads]);
+  const uniqueThreads = useMemo(
+    () => dedupeCodexThreadsById(threads),
+    [threads],
+  );
 
   const visibleThreads = useMemo(() => {
     const trimmedSearch = searchTerm.trim().toLowerCase();
@@ -238,33 +162,26 @@ export function CodexAppServerThreadBrowserResearchPage() {
     );
   }, [selectedThreadId, uniqueThreads]);
 
-  /**
-   * Codex stores pinned thread ids in explicit sidebar order. Preserve that
-   * local desktop order instead of re-sorting by updated time.
-   */
-  const pinnedThreads = useMemo(() => {
-    const visibleThreadById = new Map(
-      visibleThreads.map((thread) => [thread.id, thread]),
-    );
-
-    return pinnedThreadIds
-      .map((threadId) => visibleThreadById.get(threadId) ?? null)
-      .filter((thread): thread is CodexAppServerThread => thread !== null);
-  }, [pinnedThreadIds, visibleThreads]);
-
-  /**
-   * Pinned threads render in their own section above projects, so keep the
-   * grouped project inventory strictly to the remaining unpinned threads.
-   */
-  const unpinnedVisibleThreads = useMemo(() => {
-    const pinnedThreadIdSet = new Set(pinnedThreadIds);
-    return visibleThreads.filter((thread) => !pinnedThreadIdSet.has(thread.id));
-  }, [pinnedThreadIds, visibleThreads]);
-
-  const groups = useMemo(
+  const sidebarViewModel = useCodexThreadSidebarViewModel({
+    loadedThreadIds,
+    pinnedThreadIds,
+    threads: visibleThreads,
+  });
+  const pinnedThreads = useMemo(
+    () => sidebarViewModel.pinnedThreads.map((thread) => thread.thread),
+    [sidebarViewModel.pinnedThreads],
+  );
+  const groups = useMemo<CodexThreadBrowserGroup[]>(
     () =>
-      buildThreadGroups({ threads: unpinnedVisibleThreads, loadedThreadIds }),
-    [loadedThreadIds, unpinnedVisibleThreads],
+      sidebarViewModel.projects.map((project) => ({
+        count: project.count,
+        detail: project.detail,
+        id: project.id,
+        label: project.label,
+        loadedCount: project.loadedCount,
+        threads: project.threads.map((thread) => thread.thread),
+      })),
+    [sidebarViewModel.projects],
   );
   const currentSearch = buildSearchString(searchParams);
 
