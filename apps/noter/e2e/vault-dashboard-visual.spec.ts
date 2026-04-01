@@ -7,6 +7,13 @@ test("vault dashboard fixture (shared sidebar)", async ({ page }) => {
   });
   await page.waitForLoadState("networkidle");
 
+  await expect(
+    page.getByRole("button", { name: "Toggle Left Sidebar" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Toggle Right Sidebar" }),
+  ).toBeVisible();
+
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   await expect(fixture).toHaveScreenshot("vault-dashboard-shared-sidebar.png", {
     animations: "disabled",

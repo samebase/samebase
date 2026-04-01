@@ -59,6 +59,9 @@ This branch ships the MVP described above:
 - the existing bottom panel remains the shared interaction model for the bottom
   seam, so the overall layout now behaves much more like a simplified VS Code
   workspace
+- the visual fixtures now expose both left and right sidebar affordances in the
+  shared dashboard shell, and the mobile swipe debug panel no longer sits on top
+  of the top-left shell controls
 
 Follow-up work still deferred:
 

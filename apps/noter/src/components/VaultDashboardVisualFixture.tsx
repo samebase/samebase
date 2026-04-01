@@ -114,6 +114,33 @@ function FixtureProvidersSidebarContent() {
   );
 }
 
+function FixtureWorkspaceInspectorSidebar() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
+      <div className="border-b border-border/50 p-3">
+        <div className="text-sm font-medium">Inspector</div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          Active workspace details
+        </div>
+      </div>
+      <div className="space-y-3 p-3 text-sm">
+        <div className="corner-notch-1 border border-border bg-background p-3">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">
+            Branch
+          </div>
+          <div className="mt-1 font-medium">main</div>
+        </div>
+        <div className="corner-notch-1 border border-border bg-background p-3">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">
+            Preview
+          </div>
+          <div className="mt-1 font-medium">Ready</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function fakeVaultId(): Parameters<typeof VaultBranchLinkRow>[0]["vaultId"] {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
@@ -207,6 +234,7 @@ export function VaultDashboardVisualFixture({
       </SidebarAccountSection>
     );
     const sidebarContent = <FixtureProvidersSidebarContent />;
+    const rightSidebarContent = <FixtureWorkspaceInspectorSidebar />;
     const headerContent = (
       <div className="flex items-center justify-between gap-3 p-3">
         <div className="flex min-w-0 items-center gap-3">
@@ -216,9 +244,12 @@ export function VaultDashboardVisualFixture({
             <span className="truncate text-sm font-medium">Your Vaults</span>
           </div>
         </div>
-        <Button variant="outline" size="sm" className="h-6 px-2">
-          Connect machine
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="h-6 px-2">
+            Connect machine
+          </Button>
+          <SidebarTrigger side="right" className="h-8 w-8 md:h-6 md:w-6" />
+        </div>
       </div>
     );
 
@@ -233,7 +264,7 @@ export function VaultDashboardVisualFixture({
           leftSidebarHeader={sidebarHeader}
           leftSidebarContent={sidebarContent}
           rightSidebarHeader={null}
-          rightSidebarContent={<div className="min-h-0 flex-1 bg-background" />}
+          rightSidebarContent={rightSidebarContent}
           headerContent={headerContent}
           bodyClassName="min-h-0 overflow-y-auto p-0"
         >
@@ -451,13 +482,17 @@ export function VaultDashboardVisualFixture({
       </SidebarAccountSection>
     );
     const sidebarContent = <FixtureProvidersSidebarContent />;
+    const rightSidebarContent = <FixtureWorkspaceInspectorSidebar />;
     const headerContent = (
       <div className="px-4 py-4">
         <div className="mb-4 flex items-center justify-between gap-3">
           <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
-          <Button variant="outline" size="sm" className="h-6 px-2">
-            Connect machine
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="h-6 px-2">
+              Connect machine
+            </Button>
+            <SidebarTrigger side="right" className="h-8 w-8 md:h-6 md:w-6" />
+          </div>
         </div>
         <div className="mb-4 corner-notch-1 border border-border bg-background p-4">
           <div className="text-sm text-muted-foreground">Vaults</div>
@@ -478,9 +513,7 @@ export function VaultDashboardVisualFixture({
             leftSidebarHeader={sidebarHeader}
             leftSidebarContent={sidebarContent}
             rightSidebarHeader={null}
-            rightSidebarContent={
-              <div className="min-h-0 flex-1 bg-background" />
-            }
+            rightSidebarContent={rightSidebarContent}
             headerContent={headerContent}
             bodyClassName="flex min-h-0 flex-col p-0"
           >

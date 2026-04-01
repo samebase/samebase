@@ -113,6 +113,28 @@ async function getFixtureViewportClip(page: Page) {
   };
 }
 
+function boxesIntersect(
+  firstBox: {
+    height: number;
+    width: number;
+    x: number;
+    y: number;
+  },
+  secondBox: {
+    height: number;
+    width: number;
+    x: number;
+    y: number;
+  },
+) {
+  return !(
+    firstBox.x + firstBox.width <= secondBox.x ||
+    secondBox.x + secondBox.width <= firstBox.x ||
+    firstBox.y + firstBox.height <= secondBox.y ||
+    secondBox.y + secondBox.height <= firstBox.y
+  );
+}
+
 async function swipeFromLeftSidebarToRightSidebar(page: Page) {
   await dispatchHumanTouchSwipe(page, {
     startX: 320,
@@ -207,7 +229,21 @@ test.describe("fileview mobile", () => {
 
     const fixture = page.getByTestId("fileview-layout-visual-fixture");
     const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
+    const debugPanel = page.getByTestId("workspace-sidebar-debug-panel");
+    const leftSidebarTrigger = page.getByRole("button", {
+      name: "Toggle Left Sidebar",
+    });
     await expect(overlay).toBeVisible();
+    await expect(debugPanel).toBeVisible();
+    const overlayBox = await debugPanel.boundingBox();
+    const leftSidebarTriggerBox = await leftSidebarTrigger.boundingBox();
+
+    expect(overlayBox).not.toBeNull();
+    expect(leftSidebarTriggerBox).not.toBeNull();
+    if (overlayBox !== null && leftSidebarTriggerBox !== null) {
+      expect(boxesIntersect(overlayBox, leftSidebarTriggerBox)).toBe(false);
+    }
+
     await swipeFromMainToLeftSidebar(page);
     await expect(fixture).toHaveAttribute("data-mobile-pane", "left");
     await expect(overlay).toContainText("pane: left");
