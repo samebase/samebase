@@ -92,6 +92,10 @@ import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
 import { isInIframe } from "@/authClient";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 import {
+  openGithubOAuthPopup,
+  rememberGithubOAuthReturnTo,
+} from "@/lib/githubOAuthFlow";
+import {
   buildStagingPreviewRefreshKey,
   getBranchComparePreviewReloadMode,
   getPreviewBaseFilePath,
@@ -352,6 +356,7 @@ function FileViewWrapper() {
     branch: routeBranch,
   });
   const githubConnection = useLiveQuery(api.users.getGithubConnectionStatus);
+  const didResolveGithubConnection = githubConnection !== undefined;
   const branch = routeBranch ?? vault?.resolvedBranch;
   const storageBackedSelectionKey = `${branch ?? "unknown"}:${selectedFile}`;
   const vaultId = vault?._id;
@@ -416,15 +421,12 @@ function FileViewWrapper() {
     void (async () => {
       setConnectRouteError(null);
       setIsConnectingGithub(true);
+      rememberGithubOAuthReturnTo(location);
 
       try {
         const oauthUrl = await getGithubOAuthUrl();
         if (isInIframe()) {
-          const popup = window.open(
-            oauthUrl,
-            "github-oauth",
-            "width=600,height=700,popup=true",
-          );
+          const popup = openGithubOAuthPopup(oauthUrl);
           if (popup) {
             setIsConnectingGithub(false);
             return;
@@ -441,7 +443,7 @@ function FileViewWrapper() {
         setIsConnectingGithub(false);
       }
     })();
-  }, [getGithubOAuthUrl, isConnectingGithub]);
+  }, [getGithubOAuthUrl, isConnectingGithub, location]);
 
   const handleConnectRepository = useCallback(() => {
     if (!repositoryFullName || isConnectingRepository) {
@@ -762,7 +764,7 @@ function FileViewWrapper() {
     repoName,
   ]);
 
-  if (vault === null && repositoryFullName) {
+  if (vault === null && repositoryFullName && didResolveGithubConnection) {
     return (
       <RepositoryRouteConnectState
         repositoryFullName={repositoryFullName}

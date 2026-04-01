@@ -79,7 +79,11 @@ export function RepositoryRouteConnectState({
             {description}
           </p>
           {errorMessage ? (
-            <div className="mt-4 corner-notch-1 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div
+              role="alert"
+              aria-atomic="true"
+              className="mt-4 corner-notch-1 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+            >
               {errorMessage}
             </div>
           ) : null}

@@ -15,6 +15,10 @@ import { linkStyle } from "./styles";
 import type { FunctionReturnType } from "convex/server";
 import { isInIframe } from "@/authClient";
 import {
+  openGithubOAuthPopup,
+  rememberGithubOAuthReturnTo,
+} from "@/lib/githubOAuthFlow";
+import {
   findRepositorySearchMatch,
   splitRepositoryFullNameMatch,
 } from "@/lib/repositorySearch";
@@ -227,13 +231,10 @@ export function AddRepository() {
               void (async () => {
                 setConnectError(null);
                 try {
+                  rememberGithubOAuthReturnTo(window.location);
                   const oauthUrl = await getGithubOAuthUrl();
                   if (isInIframe()) {
-                    const popup = window.open(
-                      oauthUrl,
-                      "github-oauth",
-                      "width=600,height=700,popup=true",
-                    );
+                    const popup = openGithubOAuthPopup(oauthUrl);
                     if (popup) {
                       return;
                     }

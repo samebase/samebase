@@ -5,14 +5,15 @@ import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
 import { MemoryRouter } from "react-router-dom";
 
 export type RepositoryRouteConnectStateVisualMode =
-  "file-view-connect-repository";
+  | "file-view-connect-repository"
+  | "file-view-connect-github";
 
 export function RepositoryRouteConnectStateVisualFixture({
   mode,
 }: {
   mode: RepositoryRouteConnectStateVisualMode;
 }) {
-  mode satisfies RepositoryRouteConnectStateVisualMode;
+  const githubConnected = mode === "file-view-connect-repository";
 
   return (
     <MemoryRouter>
@@ -26,7 +27,7 @@ export function RepositoryRouteConnectStateVisualFixture({
           <RepositoryRouteConnectState
             dataTestId="file-view-connect-route-visual-fixture"
             repositoryFullName="facebook/react"
-            githubConnected={true}
+            githubConnected={githubConnected}
             isConnectingGithub={false}
             isConnectingRepository={false}
             errorMessage={null}

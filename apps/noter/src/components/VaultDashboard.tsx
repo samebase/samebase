@@ -46,6 +46,10 @@ import {
   type MutableRefObject,
 } from "react";
 import { isInIframe } from "@/authClient";
+import {
+  openGithubOAuthPopup,
+  rememberGithubOAuthReturnTo,
+} from "@/lib/githubOAuthFlow";
 import { UserMenu } from "@/components/UserMenu";
 import {
   Dialog,
@@ -1228,16 +1232,24 @@ function VaultDashboardContent() {
       setCreateError(null);
     }
     try {
+      if (provider === "github") {
+        rememberGithubOAuthReturnTo(window.location);
+      }
       const oauthUrl = await providerConfig.getOAuthUrl();
       if (isInIframe()) {
         providerConfig.popupOriginRef.current =
           getRedirectOrigin(oauthUrl) ?? window.location.origin;
-        providerConfig.popupRef.current = window.open(
-          oauthUrl,
-          providerMetadata.popupName,
-          "width=600,height=700,popup=true",
-        );
-        return;
+        providerConfig.popupRef.current =
+          provider === "github"
+            ? openGithubOAuthPopup(oauthUrl)
+            : window.open(
+                oauthUrl,
+                providerMetadata.popupName,
+                "width=600,height=700,popup=true",
+              );
+        if (providerConfig.popupRef.current) {
+          return;
+        }
       }
       window.location.assign(oauthUrl);
     } catch (error) {

@@ -5,6 +5,10 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
+import {
+  GITHUB_OAUTH_POPUP_NAME,
+  GITHUB_OAUTH_RETURN_TO_STORAGE_KEY,
+} from "../shared/githubOAuth";
 
 const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
@@ -233,8 +237,10 @@ export const finishGithubOAuth = httpAction(async (ctx, request) => {
     new URL(request.url).origin;
   const baseOrigin = new URL(request.url).origin;
   const returnUrl = new URL(returnTo, baseOrigin).toString();
-  const returnOrigin = new URL(returnUrl).origin;
 
+  // GitHub popups now clear `window.opener` before leaving our origin, so the
+  // callback restores full-page redirects from sessionStorage and lets popup
+  // windows close themselves based on their retained `window.name`.
   const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -246,21 +252,39 @@ export const finishGithubOAuth = httpAction(async (ctx, request) => {
     <script>
       (function () {
         const returnTo = ${JSON.stringify(returnUrl)};
-        const returnOrigin = ${JSON.stringify(returnOrigin)};
-        try {
-          if (window.opener && !window.opener.closed) {
-            try {
-              window.opener.location.reload();
-            } catch (error) {
-              window.opener.postMessage({ type: "github-oauth-complete" }, returnOrigin);
+        const popupName = ${JSON.stringify(GITHUB_OAUTH_POPUP_NAME)};
+        const returnToStorageKey = ${JSON.stringify(
+          GITHUB_OAUTH_RETURN_TO_STORAGE_KEY,
+        )};
+        const resolveReturnTo = function () {
+          try {
+            const storedReturnTo =
+              window.sessionStorage.getItem(returnToStorageKey);
+            if (storedReturnTo === null) {
+              return returnTo;
             }
-            window.close();
-            return;
+            window.sessionStorage.removeItem(returnToStorageKey);
+            if (
+              storedReturnTo.startsWith("/") &&
+              !storedReturnTo.startsWith("//")
+            ) {
+              return storedReturnTo;
+            }
+          } catch (error) {
+            // Fall back to the configured site URL.
           }
-        } catch (error) {
-          // Fall through to redirect.
+          return returnTo;
+        };
+
+        if (window.name === popupName) {
+          window.close();
+          window.setTimeout(function () {
+            window.location.replace(returnTo);
+          }, 100);
+          return;
         }
-        window.location.replace(returnTo);
+
+        window.location.replace(resolveReturnTo());
       })();
     </script>
   </body>

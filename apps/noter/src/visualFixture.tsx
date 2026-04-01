@@ -270,6 +270,7 @@ const FILE_VIEW_PROSEMARK_DRAG_VISUAL_MODES = [
 
 const FILE_VIEW_ROUTE_CONNECT_VISUAL_MODES = [
   "file-view-connect-repository",
+  "file-view-connect-github",
 ] as const satisfies readonly RepositoryRouteConnectStateVisualMode[];
 
 const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
@@ -514,7 +515,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     );
   }
 
-  if (mode === "file-view-connect-repository") {
+  if (
+    mode === "file-view-connect-repository" ||
+    mode === "file-view-connect-github"
+  ) {
     return <RepositoryRouteConnectStateVisualFixture mode={mode} />;
   }
 
