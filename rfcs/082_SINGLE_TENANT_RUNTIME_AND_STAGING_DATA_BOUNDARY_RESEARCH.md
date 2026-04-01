@@ -21,6 +21,10 @@ architecture decisions:
    data lives in Noter's own Convex/database layer instead of staying entirely
    inside the customer's Convex instance.
 
+The intended end state behind this note is a strict boundary: hosted Noter may
+remain as a control plane, but uncommitted repository content should not be
+copied into or stored in Noter's hosted backend.
+
 This is a strategy note, not an accepted implementation plan.
 
 ## Strategic Product Boundary
@@ -69,7 +73,7 @@ Convex instance, then the data boundary changes materially:
 
 - staged repository data stays on their Convex instance
 - the most sensitive uncommitted working state does not need to be copied into
-  Noter's hosted database
+  Noter's hosted database at all
 - Noter can act more like a product/UI/control layer over customer-owned state
   instead of the custodian of that state
 
@@ -102,6 +106,8 @@ For now, the clearest strategic stance is:
 4. exporting backend logic into the customer's Convex tenant improves the data
    boundary, but may expose too much of the backend to be the right packaging
    shape
+5. the intended customer-owned data plane is a real no-copy boundary, not a
+   model where hosted Noter still keeps shadow copies of staged content
 
 ## Open Questions
 

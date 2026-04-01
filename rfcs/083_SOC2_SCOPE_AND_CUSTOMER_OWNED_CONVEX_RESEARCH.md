@@ -18,6 +18,10 @@ Answer the product/compliance question behind the current staging-data design:
 If Convex is SOC 2 Type II, and Noter moved staged data into the customer's own
 Convex instance, how much would that actually improve Noter's compliance story?
 
+This note assumes the intended architecture is a strict customer-owned data
+boundary for staged content: hosted Noter may remain as a control plane, but it
+should not keep hosted copies of uncommitted repository data.
+
 This note is a product/architecture research document, not legal advice and not
 an audit opinion.
 
@@ -112,8 +116,8 @@ If Noter exported the staging/backend layer so it runs inside the customer's own
 Convex instance, then the data-residency story improves in a meaningful way:
 
 - staged repository content can remain in the customer's tenant
-- the hosted Noter service may avoid storing the most sensitive uncommitted
-  working state
+- the hosted Noter service can avoid storing the most sensitive uncommitted
+  working state entirely
 - vendor inheritance becomes cleaner because the customer can rely on their own
   Convex account relationship and controls for that tenant-local data plane
 
@@ -124,8 +128,7 @@ surface area that Noter's own audit story must cover.
 
 ### 4. Customer-owned Convex only helps if the boundary is real
 
-A nominal "customer-owned data plane" is not enough if Noter still does any of
-the following:
+The intended plan is that Noter does none of the following for staged content:
 
 - copies staged content back into a hosted Noter database
 - sends staged content through hosted logs, telemetry, or debug traces
@@ -136,8 +139,9 @@ the following:
 
 Inference:
 
-The architecture only materially helps compliance if the boundary is enforced in
-practice, not just described in marketing.
+If any of those behaviors still exist, the architecture no longer delivers the
+intended compliance boundary. The architecture only materially helps compliance
+if the boundary is enforced in practice, not just described in marketing.
 
 ## Strongest Product Interpretation
 
@@ -212,6 +216,8 @@ data residency, and product defensibility all matter at once.
    remains.
 5. The cleanest product answer may be an open-source/self-hosted single-tenant
    runtime, not an exported version of the hosted multi-tenant backend.
+6. For this research thread, the strict no-copy boundary should be treated as
+   the design goal, not as an optional improvement.
 
 ## Next Research Questions
 
