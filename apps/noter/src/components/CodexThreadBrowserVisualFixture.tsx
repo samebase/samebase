@@ -3,6 +3,7 @@ import {
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
 } from "@/lib/codexAppServerResearch";
+import { buildCodexThreadSidebarViewModel } from "@/lib/codexThreadSidebar";
 
 export type CodexThreadBrowserVisualMode = "codex-thread-browser";
 const FIXTURE_RELATIVE_TIME_REFERENCE_MS = 1_774_541_762_000;
@@ -174,6 +175,12 @@ const ACTIVE_THREADS: CodexAppServerThread[] = [
   },
 ];
 
+const SIDEBAR_VIEW_MODEL = buildCodexThreadSidebarViewModel({
+  loadedThreadIds: ["thread-browser-active"],
+  pinnedThreadIds: ["thread-browser-active"],
+  threads: ACTIVE_THREADS,
+});
+
 export function CodexThreadBrowserVisualFixture({
   mode,
 }: {
@@ -189,17 +196,8 @@ export function CodexThreadBrowserVisualFixture({
       >
         <CodexThreadBrowserView
           browserMode="active"
-          pinnedThreads={[ACTIVE_THREADS[0]]}
-          groups={[
-            {
-              id: "/Users/nicu/dev/my/noter",
-              label: "noter",
-              detail: "/Users/nicu/dev/my/noter",
-              count: 2,
-              loadedCount: 0,
-              threads: [ACTIVE_THREADS[1], ACTIVE_THREADS[2]],
-            },
-          ]}
+          pinnedThreads={SIDEBAR_VIEW_MODEL.pinnedThreads}
+          groups={SIDEBAR_VIEW_MODEL.projects}
           searchTerm=""
           loadedThreadIds={["thread-browser-active"]}
           selectedThreadId="thread-browser-active"

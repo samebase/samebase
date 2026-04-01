@@ -168,19 +168,11 @@ export function CodexAppServerThreadBrowserResearchPage() {
     threads: visibleThreads,
   });
   const pinnedThreads = useMemo(
-    () => sidebarViewModel.pinnedThreads.map((thread) => thread.thread),
+    () => sidebarViewModel.pinnedThreads,
     [sidebarViewModel.pinnedThreads],
   );
   const groups = useMemo<CodexThreadBrowserGroup[]>(
-    () =>
-      sidebarViewModel.projects.map((project) => ({
-        count: project.count,
-        detail: project.detail,
-        id: project.id,
-        label: project.label,
-        loadedCount: project.loadedCount,
-        threads: project.threads.map((thread) => thread.thread),
-      })),
+    () => sidebarViewModel.projects,
     [sidebarViewModel.projects],
   );
   const currentSearch = buildSearchString(searchParams);

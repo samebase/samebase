@@ -14,20 +14,17 @@ import {
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
 } from "@/lib/codexAppServerResearch";
+import {
+  type CodexThreadSidebarProject,
+  type CodexThreadSidebarThread,
+} from "@/lib/codexThreadSidebar";
 import { clsx } from "clsx";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export type CodexThreadBrowserMode = "active" | "archived";
 
-export type CodexThreadBrowserGroup = {
-  id: string;
-  label: string;
-  detail: string;
-  count: number;
-  loadedCount: number;
-  threads: CodexAppServerThread[];
-};
+export type CodexThreadBrowserGroup = CodexThreadSidebarProject;
 
 export type CodexThreadBrowserDetailState =
   | { kind: "idle" }
@@ -38,7 +35,7 @@ export type CodexThreadBrowserDetailState =
 
 type CodexThreadBrowserViewProps = {
   browserMode: CodexThreadBrowserMode;
-  pinnedThreads: CodexAppServerThread[];
+  pinnedThreads: CodexThreadSidebarThread[];
   groups: CodexThreadBrowserGroup[];
   searchTerm: string;
   loadedThreadIds: string[];
@@ -194,15 +191,16 @@ function readSelectedThreadIsArchived(args: {
 }
 
 function ThreadRow(props: {
-  thread: CodexAppServerThread;
+  thread: CodexThreadSidebarThread;
   isSelected: boolean;
-  isLoaded: boolean;
   projectLabel?: string | null;
   relativeTimeReferenceMs?: number;
   onSelect?: (threadId: string) => void;
 }) {
-  const preview = readThreadPreview(props.thread);
-  const workspaceLabel = readThreadWorkspaceLabel(props.thread);
+  const preview = readThreadPreview(props.thread.thread);
+  const workspaceLabel = props.thread.showWorkspaceIndicator
+    ? props.thread.workspaceLabel
+    : null;
 
   return (
     <button
@@ -221,9 +219,9 @@ function ThreadRow(props: {
         <div className="min-w-0 flex-1">
           <div
             className="truncate text-sm font-medium"
-            title={readThreadTitle(props.thread)}
+            title={props.thread.title}
           >
-            {readThreadTitle(props.thread)}
+            {props.thread.title}
           </div>
           {preview ? (
             <div
@@ -244,7 +242,7 @@ function ThreadRow(props: {
           )}
         >
           {formatRelativeTime(
-            props.thread.updatedAt,
+            props.thread.thread.updatedAt,
             props.relativeTimeReferenceMs,
           )}
         </div>
@@ -253,7 +251,7 @@ function ThreadRow(props: {
         <div
           className={clsx(
             "h-2 w-2 shrink-0 rounded-ui",
-            props.isLoaded
+            props.thread.isLoaded
               ? props.isSelected
                 ? "bg-emerald-300"
                 : "bg-emerald-500"
@@ -279,7 +277,7 @@ function ThreadRow(props: {
                 ? "border-amber-300/60 text-amber-100"
                 : "border-amber-200 text-amber-700",
             )}
-            title={props.thread.project.rootCwd}
+            title={props.thread.thread.project.rootCwd}
           >
             {props.projectLabel}
           </span>
@@ -292,7 +290,7 @@ function ThreadRow(props: {
                 ? "border-sky-400/50 text-sky-200"
                 : "border-sky-200 text-sky-700",
             )}
-            title={props.thread.cwd}
+            title={props.thread.workspaceTooltip ?? props.thread.thread.cwd}
           >
             {workspaceLabel}
           </span>
@@ -305,7 +303,7 @@ function ThreadRow(props: {
               : "border-slate-300 text-slate-500",
           )}
         >
-          {props.thread.status.type}
+          {props.thread.thread.status.type}
         </span>
       </div>
     </button>
@@ -313,8 +311,7 @@ function ThreadRow(props: {
 }
 
 function PinnedSection(props: {
-  threads: CodexAppServerThread[];
-  loadedThreadIds: string[];
+  threads: CodexThreadSidebarThread[];
   selectedThreadId: string | null;
   relativeTimeReferenceMs?: number;
   onThreadSelect?: (threadId: string) => void;
@@ -340,8 +337,7 @@ function PinnedSection(props: {
             key={thread.id}
             thread={thread}
             isSelected={thread.id === props.selectedThreadId}
-            isLoaded={props.loadedThreadIds.includes(thread.id)}
-            projectLabel={thread.project.label}
+            projectLabel={thread.thread.project.label}
             relativeTimeReferenceMs={props.relativeTimeReferenceMs}
             onSelect={props.onThreadSelect}
           />
@@ -353,7 +349,6 @@ function PinnedSection(props: {
 
 function GroupSection(props: {
   group: CodexThreadBrowserGroup;
-  loadedThreadIds: string[];
   selectedThreadId: string | null;
   relativeTimeReferenceMs?: number;
   onThreadSelect?: (threadId: string) => void;
@@ -387,7 +382,6 @@ function GroupSection(props: {
             key={thread.id}
             thread={thread}
             isSelected={thread.id === props.selectedThreadId}
-            isLoaded={props.loadedThreadIds.includes(thread.id)}
             relativeTimeReferenceMs={props.relativeTimeReferenceMs}
             onSelect={props.onThreadSelect}
           />
@@ -600,7 +594,6 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
               {props.pinnedThreads.length > 0 ? (
                 <PinnedSection
                   threads={props.pinnedThreads}
-                  loadedThreadIds={props.loadedThreadIds}
                   selectedThreadId={props.selectedThreadId}
                   relativeTimeReferenceMs={props.relativeTimeReferenceMs}
                   onThreadSelect={props.onThreadSelect}
@@ -610,7 +603,6 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
                 <GroupSection
                   key={group.id}
                   group={group}
-                  loadedThreadIds={props.loadedThreadIds}
                   selectedThreadId={props.selectedThreadId}
                   relativeTimeReferenceMs={props.relativeTimeReferenceMs}
                   onThreadSelect={props.onThreadSelect}
