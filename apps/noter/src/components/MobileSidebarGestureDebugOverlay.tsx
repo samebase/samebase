@@ -82,7 +82,10 @@ export function MobileSidebarGestureDebugOverlay({
         ) : null}
       </svg>
 
-      <div className="absolute left-2 top-2 max-w-[16rem] border border-black/70 bg-black/80 px-2 py-2 font-mono text-[10px] leading-4 text-white shadow-lg">
+      <div
+        data-testid="workspace-sidebar-debug-panel"
+        className="absolute bottom-2 right-2 max-w-[16rem] border border-black/70 bg-black/80 px-2 py-2 font-mono text-[10px] leading-4 text-white shadow-lg"
+      >
         <div>debug: on</div>
         <div>layout: {isMobile ? "mobile" : "desktop"}</div>
         <div>pane: {currentPane}</div>

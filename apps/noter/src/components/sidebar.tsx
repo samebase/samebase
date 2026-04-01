@@ -8,6 +8,7 @@ import {
   useSidebar,
 } from "@/hooks/use-sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -33,6 +34,10 @@ export const SidebarProvider = React.forwardRef<
     defaultRightOpen?: boolean;
     rightOpen?: boolean;
     onRightOpenChange?: (open: boolean) => void;
+    defaultLeftDesktopWidthPx?: number;
+    defaultRightDesktopWidthPx?: number;
+    defaultLeftMobileWidthPx?: number;
+    defaultRightMobileWidthPx?: number;
     shortcutSidebarSide?: SidebarSide;
   }
 >(
@@ -44,6 +49,10 @@ export const SidebarProvider = React.forwardRef<
       defaultRightOpen = false,
       rightOpen: rightOpenProp,
       onRightOpenChange: setRightOpenProp,
+      defaultLeftDesktopWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+      defaultRightDesktopWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+      defaultLeftMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+      defaultRightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
       shortcutSidebarSide = "left",
       className,
       style,
@@ -59,6 +68,18 @@ export const SidebarProvider = React.forwardRef<
       React.useState(defaultOpen);
     const [internalRightDesktopOpen, setInternalRightDesktopOpen] =
       React.useState(defaultRightOpen);
+    const [leftDesktopWidthPx, setLeftDesktopWidthPx] = React.useState(
+      defaultLeftDesktopWidthPx,
+    );
+    const [rightDesktopWidthPx, setRightDesktopWidthPx] = React.useState(
+      defaultRightDesktopWidthPx,
+    );
+    const [leftMobileWidthPx, setLeftMobileWidthPx] = React.useState(
+      defaultLeftMobileWidthPx,
+    );
+    const [rightMobileWidthPx, setRightMobileWidthPx] = React.useState(
+      defaultRightMobileWidthPx,
+    );
     const leftDesktopOpen = openProp ?? internalLeftDesktopOpen;
     const rightDesktopOpen = rightOpenProp ?? internalRightDesktopOpen;
 
@@ -150,9 +171,17 @@ export const SidebarProvider = React.forwardRef<
       () => ({
         isMobile,
         leftDesktopOpen,
+        leftDesktopWidthPx,
+        leftMobileWidthPx,
         setLeftDesktopOpen,
+        setLeftDesktopWidthPx,
+        setLeftMobileWidthPx,
         rightDesktopOpen,
+        rightDesktopWidthPx,
+        rightMobileWidthPx,
         setRightDesktopOpen,
+        setRightDesktopWidthPx,
+        setRightMobileWidthPx,
         mobilePane,
         setMobilePane,
         toggleLeftSidebar,
@@ -168,9 +197,17 @@ export const SidebarProvider = React.forwardRef<
       [
         isMobile,
         leftDesktopOpen,
+        leftDesktopWidthPx,
+        leftMobileWidthPx,
         setLeftDesktopOpen,
+        setLeftDesktopWidthPx,
+        setLeftMobileWidthPx,
         rightDesktopOpen,
+        rightDesktopWidthPx,
+        rightMobileWidthPx,
         setRightDesktopOpen,
+        setRightDesktopWidthPx,
+        setRightMobileWidthPx,
         mobilePane,
         setMobilePane,
         toggleLeftSidebar,

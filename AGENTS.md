@@ -470,6 +470,9 @@ Auth:
   `origin` and rebase onto the latest `origin/main` before doing new work.
 - Format documents you write with Prettier by default so markdown/docs do not
   require manual cleanup.
+- For this operator, when a branch has a spec/RFC or an open PR, keep the
+  relevant doc and PR description updated continuously as the work evolves
+  instead of waiting until the end to sync them.
 - Prefer exhaustive, type-safe dispatch with `satisfies never` when a union
   should be fully handled at compile time; avoid catch-all fallbacks when this
   pattern fits, and use an explicit runtime fallback only when needed.

@@ -6,9 +6,17 @@ export type MobileSidebarPane = SidebarSide | "main";
 export type SidebarContextProps = {
   isMobile: boolean;
   leftDesktopOpen: boolean;
+  leftDesktopWidthPx: number;
+  leftMobileWidthPx: number;
   setLeftDesktopOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setLeftDesktopWidthPx: React.Dispatch<React.SetStateAction<number>>;
+  setLeftMobileWidthPx: React.Dispatch<React.SetStateAction<number>>;
   rightDesktopOpen: boolean;
+  rightDesktopWidthPx: number;
+  rightMobileWidthPx: number;
   setRightDesktopOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setRightDesktopWidthPx: React.Dispatch<React.SetStateAction<number>>;
+  setRightMobileWidthPx: React.Dispatch<React.SetStateAction<number>>;
   mobilePane: MobileSidebarPane;
   setMobilePane: React.Dispatch<React.SetStateAction<MobileSidebarPane>>;
   toggleLeftSidebar: () => void;
