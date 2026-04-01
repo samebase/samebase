@@ -369,13 +369,17 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
       <RepositoryWorkspaceFrame
         dataTestId="fileview-prosemark-height-shell"
         headerTestId="fileview-prosemark-height-header"
-        leftSidebarHeader={sidebarHeader}
+        leftSidebarHeader={
+          FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null
+        }
         leftSidebarContent={
           FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
             ? sidebarContent
             : emptySidebarContent
         }
-        rightSidebarHeader={null}
+        rightSidebarHeader={
+          FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarHeader : null
+        }
         rightSidebarContent={
           FILE_VIEW_TREE_SIDEBAR_SIDE === "right"
             ? sidebarContent
