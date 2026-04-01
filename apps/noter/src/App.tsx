@@ -6,11 +6,7 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "@/lib/codexAppServerResearch";
-import {
-  MACHINES_ROUTE,
-  MACHINE_CONNECT_ROUTE,
-  MACHINE_LIVE_CONTROL_ROUTE,
-} from "@/lib/noterSync";
+import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -106,10 +102,6 @@ const MachineConnectPage = lazy(async () => {
 const MachinesWorkspacePage = lazy(async () => {
   const module = await import("@/components/MachinesWorkspacePage");
   return { default: module.MachinesWorkspacePage };
-});
-const MachineLiveControlPage = lazy(async () => {
-  const module = await import("@/components/MachineLiveControlPage");
-  return { default: module.MachineLiveControlPage };
 });
 
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
@@ -551,10 +543,6 @@ export default function App() {
                   <Route
                     path={MACHINE_CONNECT_ROUTE}
                     element={<MachineConnectPage />}
-                  />
-                  <Route
-                    path={MACHINE_LIVE_CONTROL_ROUTE}
-                    element={<MachineLiveControlPage />}
                   />
                   <Route path="/pricing" element={<PricingPage />} />
                   <Route path="/add" element={<AddRepository />} />

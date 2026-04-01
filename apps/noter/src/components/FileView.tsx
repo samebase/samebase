@@ -3381,9 +3381,6 @@ function FileViewInner({
       className="flex-1 min-h-0"
     />
   ) : null;
-  const emptySidebarContent = (
-    <div aria-hidden="true" className="min-h-0 flex-1 bg-background" />
-  );
 
   return (
     <>
@@ -3395,17 +3392,13 @@ function FileViewInner({
           FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null
         }
         leftSidebarContent={
-          FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
-            ? sidebarContent
-            : emptySidebarContent
+          FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarContent : null
         }
         rightSidebarHeader={
           FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarHeader : null
         }
         rightSidebarContent={
-          FILE_VIEW_TREE_SIDEBAR_SIDE === "right"
-            ? sidebarContent
-            : emptySidebarContent
+          FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarContent : null
         }
       >
         <WorkspaceScene

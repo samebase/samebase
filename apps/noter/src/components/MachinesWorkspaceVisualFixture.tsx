@@ -1,6 +1,5 @@
 import { MemoryRouter } from "react-router-dom";
 import { MachinesWorkspaceView } from "@/components/MachinesWorkspaceView";
-import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
 import {
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
@@ -9,6 +8,7 @@ import {
 const FIXTURE_RELATIVE_TIME_REFERENCE_MS = 1_775_541_762_000;
 const FIXTURE_WORKTREE_CWD = "/Users/fixture/.codex/worktrees/demo/noter";
 const FIXTURE_PROJECT_ROOT = "/Users/fixture/dev/noter";
+const FIXTURE_SECOND_PROJECT_ROOT = "/Users/fixture/dev/learn_vp";
 const FIXTURE_SESSION_ROOT = "/Users/fixture/.codex/sessions/2026/04/01";
 const FIXTURE_GIT_ORIGIN_URL = "git@github.com:fixture/noter.git";
 const FIXTURE_BRANCH_NAME = "codex/machines-sidebar";
@@ -49,18 +49,18 @@ const FIXTURE_TURN_LATEST: CodexAppServerThreadTurn = {
       id: "item-machine-workspace-user-latest",
       type: "userMessage",
       summary:
-        "Make the left sidebar feel closer to Codex: title, preview, relative time, and worktree context.",
+        "Copy the Codex sidebar thread list exactly: no section labels, no search, and pin state shown inline with the title row.",
       raw: {
-        text: "Make the left sidebar feel closer to Codex: title, preview, relative time, and worktree context.",
+        text: "Copy the Codex sidebar thread list exactly: no section labels, no search, and pin state shown inline with the title row.",
       },
     },
     {
       id: "item-machine-workspace-agent-latest",
       type: "agentMessage",
       summary:
-        "Use the existing machine-local thread inventory data, but render it through the shared route frame instead of the old research cards.",
+        "Flatten the list, remove helper copy, and keep the sidebar focused on a single compact thread row shape.",
       raw: {
-        text: "Use the existing machine-local thread inventory data, but render it through the shared route frame instead of the old research cards.",
+        text: "Flatten the list, remove helper copy, and keep the sidebar focused on a single compact thread row shape.",
       },
     },
   ],
@@ -68,7 +68,7 @@ const FIXTURE_TURN_LATEST: CodexAppServerThreadTurn = {
   status: "completed",
 };
 
-const PRIMARY_THREAD: CodexAppServerThread = {
+const FIRST_THREAD: CodexAppServerThread = {
   agentNickname: null,
   agentRole: null,
   cliVersion: "0.117.0-alpha.10",
@@ -79,12 +79,12 @@ const PRIMARY_THREAD: CodexAppServerThread = {
     originUrl: FIXTURE_GIT_ORIGIN_URL,
     sha: FIXTURE_GIT_SHA,
   },
-  id: "thread-machine-workspace-primary",
+  id: "thread-machine-workspace-first",
   modelProvider: "openai",
-  name: "Shared machines workspace",
-  path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-primary.jsonl`,
+  name: "Research sidebar resizing",
+  path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-first.jsonl`,
   preview:
-    "Build `/machines` on the shared workspace shell and keep the thread inventory in the left sidebar.",
+    "Tighten the thread rail so the list behaves like Codex instead of a stack of research cards.",
   project: {
     id: FIXTURE_PROJECT_ROOT,
     label: "noter",
@@ -98,99 +98,98 @@ const PRIMARY_THREAD: CodexAppServerThread = {
     raw: { type: "idle" },
     type: "idle",
   },
-  turns: [FIXTURE_TURN_INITIAL, FIXTURE_TURN_LATEST],
-  updatedAt: 1_775_541_762,
+  turns: [],
+  updatedAt: 1_775_541_282,
   workspace: {
     isProjectRoot: false,
     label: "demo",
   },
 };
 
-const SECONDARY_THREAD: CodexAppServerThread = {
-  ...PRIMARY_THREAD,
-  id: "thread-machine-workspace-secondary",
-  name: "Machine URL redirect follow-up",
-  path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-secondary.jsonl`,
+const SECOND_THREAD: CodexAppServerThread = {
+  ...FIRST_THREAD,
+  id: "thread-machine-workspace-second",
+  name: "Research machines sidebar UI",
+  path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-second.jsonl`,
   preview:
-    "Redirect `/machines/:machineId/live` into the new workspace route so the old entrypoint stays compatible.",
+    "Mirror the Codex thread rail more literally before adding any extra Noter structure around it.",
+  status: {
+    activeFlags: [],
+    raw: { type: "idle" },
+    type: "idle",
+  },
+  turns: [FIXTURE_TURN_INITIAL, FIXTURE_TURN_LATEST],
+  updatedAt: 1_775_534_562,
+};
+
+const THIRD_THREAD: CodexAppServerThread = {
+  ...FIRST_THREAD,
+  id: "thread-machine-workspace-third",
+  name: "Add research to active PR",
+  path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-third.jsonl`,
+  preview:
+    "Keep the PR thread visible in the same Codex-like rail without adding extra labels or helper copy.",
   status: {
     activeFlags: [],
     raw: { type: "notLoaded" },
     type: "notLoaded",
   },
   turns: [],
-  updatedAt: 1_775_541_720,
+  updatedAt: 1_775_476_962,
 };
 
-const TERTIARY_THREAD: CodexAppServerThread = {
-  ...PRIMARY_THREAD,
-  id: "thread-machine-workspace-tertiary",
-  name: "Connected machine sidebar screenshot",
-  path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-tertiary.jsonl`,
+const FOURTH_THREAD: CodexAppServerThread = {
+  ...FIRST_THREAD,
+  cwd: "/Users/fixture/.codex/worktrees/demo/learn_vp",
+  gitInfo: {
+    branch: "codex/flaky-screenshot-test",
+    originUrl: "git@github.com:fixture/learn_vp.git",
+    sha: "4ef567abc1234ef567abc1234ef567abc1234ef5",
+  },
+  id: "thread-machine-workspace-fourth",
+  name: "Investigate flaky screenshot test",
+  path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-fourth.jsonl`,
   preview:
-    "Add screenshot coverage for the shipped sidebar-first machines workspace surface.",
-  status: {
-    activeFlags: [],
-    raw: { type: "notLoaded" },
-    type: "notLoaded",
+    "Check why the screenshot diff keeps shifting a pixel or two between runs.",
+  project: {
+    id: FIXTURE_SECOND_PROJECT_ROOT,
+    label: "learn_vp",
+    rootCwd: FIXTURE_SECOND_PROJECT_ROOT,
   },
   turns: [],
-  updatedAt: 1_775_541_680,
+  updatedAt: 1_775_500_162,
+  workspace: {
+    isProjectRoot: true,
+    label: null,
+  },
 };
 
-const FIXTURE_MACHINES: ConnectedMachineView[] = [
-  {
-    allowedRoots: [FIXTURE_PROJECT_ROOT],
-    capabilities: ["presence", "liveControl"],
-    connectorVersion: "0.3.0",
-    controlStatus: "ready",
-    controlStatusDetail: "Cloudflare tunnel healthy.",
-    controlUrl: "https://fixture-live-control.example.com",
-    controlUrlUpdatedAt: 1_775_541_600,
-    displayName: "Fixture MacBook Pro",
-    hostname: "fixture-mbp.local",
-    lastSeenAt: 1_775_541_752,
-    machineId: "machine-primary",
-    os: "macos",
-    status: "online",
-  },
-  {
-    allowedRoots: [FIXTURE_PROJECT_ROOT],
-    capabilities: ["presence"],
-    connectorVersion: "0.3.0",
-    controlStatus: "unavailable",
-    controlStatusDetail: "Connector is online, but live control is paused.",
-    controlUrl: undefined,
-    controlUrlUpdatedAt: undefined,
-    displayName: "Fixture build box",
-    hostname: "fixture-buildbox.local",
-    lastSeenAt: 1_775_541_100,
-    machineId: "machine-secondary",
-    os: "linux",
-    status: "online",
-  },
-];
+const FIFTH_THREAD: CodexAppServerThread = {
+  ...FOURTH_THREAD,
+  id: "thread-machine-workspace-fifth",
+  name: "Map PR 390 UI diagram",
+  path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-fifth.jsonl`,
+  preview:
+    "Lay out the sidebar structure before we connect the rest of the chat surface.",
+  updatedAt: 1_775_420_262,
+};
 
 export function MachinesWorkspaceVisualFixture() {
   return (
     <MemoryRouter>
       <div className="bg-slate-100 p-8 text-slate-950">
-        <div className="h-[1253px] w-[1280px] overflow-hidden">
+        <div className="h-[420px] w-[960px] overflow-hidden">
           <MachinesWorkspaceView
             dataTestId="machines-workspace-visual-fixture"
-            machines={FIXTURE_MACHINES}
-            selectedMachine={FIXTURE_MACHINES[0]}
-            selectedMachineStatusReason={null}
-            threads={[PRIMARY_THREAD, SECONDARY_THREAD, TERTIARY_THREAD]}
-            pinnedThreadIds={[PRIMARY_THREAD.id]}
-            loadedThreadIds={[PRIMARY_THREAD.id]}
-            selectedThreadId={PRIMARY_THREAD.id}
-            selectedThread={PRIMARY_THREAD}
-            detailState={{ kind: "ready" }}
-            searchTerm=""
-            turnDraft="Continue from the machines workspace and tighten the sidebar copy next."
-            errorMessage={null}
-            isBusy={false}
+            threads={[
+              FIRST_THREAD,
+              SECOND_THREAD,
+              THIRD_THREAD,
+              FOURTH_THREAD,
+              FIFTH_THREAD,
+            ]}
+            pinnedThreadIds={[SECOND_THREAD.id, THIRD_THREAD.id]}
+            selectedThreadId={FIRST_THREAD.id}
             relativeTimeReferenceMs={FIXTURE_RELATIVE_TIME_REFERENCE_MS}
           />
         </div>

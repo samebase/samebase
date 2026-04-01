@@ -6,7 +6,6 @@ import {
 
 export const MACHINES_ROUTE = "/machines";
 export const MACHINE_CONNECT_ROUTE = "/machines/connect";
-export const MACHINE_LIVE_CONTROL_ROUTE = "/machines/:machineId/live";
 export const NOTER_SYNC_PUBLIC_SCRIPT_PATH = "/noter.js";
 export type NoterSyncCommandTargetOs = "linux" | "macos" | "windows";
 
@@ -45,27 +44,6 @@ export function buildMachinesWorkspacePath(args?: {
       );
     }),
   });
-}
-
-export function buildMachineLiveControlPath(machineId: string): string {
-  return `/machines/${encodeURIComponent(machineId)}/live`;
-}
-
-export function readMachineLiveControlPath(pathname: string): {
-  machineId: string;
-} | null {
-  const match = pathname.match(/^\/machines\/([^/]+)\/live$/);
-  if (!match) {
-    return null;
-  }
-
-  try {
-    return {
-      machineId: decodeURIComponent(match[1]),
-    };
-  } catch {
-    return null;
-  }
 }
 
 export function buildPublishedNoterSyncConnectCommand(): string {

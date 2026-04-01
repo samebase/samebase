@@ -1,71 +1,34 @@
-import { Badge } from "@/components/badge";
-import { CodexAppServerThreadHistoryItemCard } from "@/components/CodexAppServerThreadHistoryItemCard";
-import { Input } from "@/components/input";
+import { ChevronDownIcon, ChevronRightIcon } from "@radix-ui/react-icons";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/collapsible";
-import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
-import {
-  WorkspaceScene,
-  type WorkspaceBottomDockRenderProps,
-} from "@/components/workspace-layout/WorkspaceScene";
 import { SidebarProvider } from "@/components/sidebar";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
+import { WorkspaceScene } from "@/components/workspace-layout/WorkspaceScene";
+import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 import {
   buildMachineThreadGroups,
   dedupeMachineThreadsById,
-  filterMachineThreadsBySearch,
+  type MachineThreadGroup,
 } from "@/lib/machineThreadInventory";
-import { MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
-import {
-  codexThreadPathIsArchived,
-  type CodexAppServerThread,
-  type CodexAppServerThreadTurn,
-} from "@/lib/codexAppServerResearch";
-import { clsx } from "clsx";
-import { ChevronDown, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
-import type { CodexThreadBrowserDetailState } from "@/components/CodexThreadBrowserView";
-import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
+import { cn } from "@/lib/utils";
+import { ArrowUpRight, Pin } from "lucide-react";
 
 type MachinesWorkspaceViewProps = {
-  machines: ConnectedMachineView[];
-  selectedMachine: ConnectedMachineView | null;
-  selectedMachineStatusReason: string | null;
   threads: CodexAppServerThread[];
   pinnedThreadIds: string[];
-  loadedThreadIds: string[];
   selectedThreadId: string | null;
-  selectedThread: CodexAppServerThread | null;
-  detailState: CodexThreadBrowserDetailState;
-  searchTerm: string;
-  turnDraft: string;
-  errorMessage: string | null;
-  isBusy: boolean;
   relativeTimeReferenceMs?: number;
   dataTestId?: string;
-  onMachineSelect?: (machineId: string) => void;
-  onRefresh?: () => void;
-  onSearchTermChange?: (value: string) => void;
   onThreadSelect?: (threadId: string) => void;
-  onTurnDraftChange?: (value: string) => void;
-  onTurnSubmit?: () => void;
 };
 
 function normalizeTimestampToMilliseconds(value: number): number {
   return value < 10_000_000_000 ? value * 1000 : value;
-}
-
-function formatDateTime(value: number | null | undefined): string {
-  if (typeof value !== "number") {
-    return "n/a";
-  }
-
-  return new Date(normalizeTimestampToMilliseconds(value)).toLocaleString();
 }
 
 function formatRelativeTime(
@@ -109,885 +72,278 @@ function readThreadTitle(thread: CodexAppServerThread): string {
   return readFirstNonEmptyLine(thread.preview);
 }
 
-function readThreadPreview(thread: CodexAppServerThread): string | null {
-  const previewLine = readFirstNonEmptyLine(thread.preview);
-  const title = readThreadTitle(thread);
-  if (previewLine === title) {
-    return null;
+function readProjectLabel(group: MachineThreadGroup): string {
+  const explicitLabel = group.label.trim();
+  if (explicitLabel.length > 0) {
+    return explicitLabel;
   }
 
-  return previewLine;
+  const pathParts = group.detail.split("/").filter((part) => part.length > 0);
+  return pathParts.at(-1) ?? group.detail;
 }
 
-function readThreadWorkspaceLabel(thread: CodexAppServerThread): string | null {
-  if (thread.workspace.isProjectRoot) {
-    return null;
+function setsAreEqual<T>(left: Set<T>, right: Set<T>): boolean {
+  if (left.size !== right.size) {
+    return false;
   }
 
-  return thread.workspace.label;
-}
-
-function readShortThreadId(value: string): string {
-  if (value.length <= 18) {
-    return value;
-  }
-
-  return `${value.slice(0, 8)}…${value.slice(-6)}`;
-}
-
-function readTurnPreview(turn: CodexAppServerThreadTurn): string | null {
-  if (turn.errorMessage) {
-    return turn.errorMessage;
-  }
-
-  for (let index = turn.items.length - 1; index >= 0; index -= 1) {
-    const summary = turn.items[index]?.summary?.trim();
-    if (summary) {
-      return summary;
+  for (const value of left) {
+    if (!right.has(value)) {
+      return false;
     }
   }
 
-  return null;
-}
-
-function readMachineSummary(machine: ConnectedMachineView): string {
-  if (machine.status !== "online") {
-    return "Offline";
-  }
-
-  if (machine.controlStatus === "ready") {
-    return "Live control ready";
-  }
-
-  if (machine.controlStatus === "starting") {
-    return "Live control starting";
-  }
-
-  return "Presence only";
-}
-
-function EmptyState(props: {
-  title: string;
-  body: string;
-  action?: ReactNode;
-  testId?: string;
-}) {
-  return (
-    <div
-      data-testid={props.testId}
-      className="grid gap-3 border border-dashed border-border bg-background px-4 py-8 text-sm text-muted-foreground"
-    >
-      <div className="text-base font-medium text-foreground">{props.title}</div>
-      <div className="max-w-2xl leading-6">{props.body}</div>
-      {props.action}
-    </div>
-  );
-}
-
-function MachineRow(props: {
-  machine: ConnectedMachineView;
-  isSelected: boolean;
-  onSelect?: (machineId: string) => void;
-}) {
-  const statusClassName = props.isSelected
-    ? "border-white/30 text-white/80"
-    : props.machine.controlStatus === "ready" &&
-        props.machine.status === "online"
-      ? "border-emerald-300 text-emerald-700"
-      : "border-border text-muted-foreground";
-
-  return (
-    <button
-      type="button"
-      className={clsx(
-        "grid w-full gap-2 border px-3 py-3 text-left transition-colors",
-        props.isSelected
-          ? "border-slate-900 bg-slate-900 text-white"
-          : "border-border bg-background text-foreground hover:bg-accent",
-      )}
-      onClick={() => {
-        props.onSelect?.(props.machine.machineId);
-      }}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="truncate text-sm font-medium">
-            {props.machine.displayName}
-          </div>
-          <div
-            className={clsx(
-              "truncate text-xs",
-              props.isSelected ? "text-white/70" : "text-muted-foreground",
-            )}
-            title={props.machine.hostname}
-          >
-            {props.machine.hostname}
-          </div>
-        </div>
-        <div
-          className={clsx(
-            "shrink-0 text-[11px] font-medium",
-            props.isSelected ? "text-white/70" : "text-muted-foreground",
-          )}
-        >
-          {props.machine.status === "online" ? "Online" : "Offline"}
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-2 text-[11px]">
-        <span
-          className={clsx("border px-1.5 py-0.5 font-mono", statusClassName)}
-        >
-          {readMachineSummary(props.machine)}
-        </span>
-        <span
-          className={clsx(
-            "font-mono",
-            props.isSelected ? "text-white/70" : "text-muted-foreground",
-          )}
-        >
-          {props.machine.connectorVersion}
-        </span>
-      </div>
-    </button>
-  );
+  return true;
 }
 
 function ThreadRow(props: {
   thread: CodexAppServerThread;
   isSelected: boolean;
-  isLoaded: boolean;
   relativeTimeReferenceMs?: number;
+  leadingIcon?: ReactNode;
+  className?: string;
   onSelect?: (threadId: string) => void;
 }) {
-  const preview = readThreadPreview(props.thread);
-  const workspaceLabel = readThreadWorkspaceLabel(props.thread);
-
   return (
     <button
       type="button"
-      className={clsx(
-        "grid w-full gap-2 border px-3 py-3 text-left transition-colors",
+      className={cn(
+        "flex h-10 w-full items-center gap-3 px-3 text-left text-sm transition-colors",
         props.isSelected
-          ? "border-slate-900 bg-slate-900 text-white"
-          : "border-border bg-background text-foreground hover:bg-accent",
+          ? "bg-accent text-foreground"
+          : "bg-background text-foreground hover:bg-accent/60",
+        props.className,
       )}
       onClick={() => {
         props.onSelect?.(props.thread.id);
       }}
     >
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div
-            className="truncate text-sm font-medium"
-            title={readThreadTitle(props.thread)}
-          >
-            {readThreadTitle(props.thread)}
-          </div>
-          {preview ? (
-            <div
-              className={clsx(
-                "line-clamp-2 text-xs leading-5",
-                props.isSelected ? "text-white/70" : "text-muted-foreground",
-              )}
-              title={preview}
-            >
-              {preview}
-            </div>
-          ) : null}
+      {props.leadingIcon ? (
+        <div className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
+          {props.leadingIcon}
         </div>
-        <div
-          className={clsx(
-            "shrink-0 text-[11px] font-medium",
-            props.isSelected ? "text-white/70" : "text-muted-foreground",
-          )}
-        >
+      ) : null}
+      <div
+        className="min-w-0 flex-1 truncate text-[15px] font-medium leading-5"
+        title={readThreadTitle(props.thread)}
+      >
+        {readThreadTitle(props.thread)}
+      </div>
+      <div className="flex shrink-0 items-center gap-2 text-[12px] tabular-nums text-muted-foreground">
+        <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+        <span>
           {formatRelativeTime(
             props.thread.updatedAt,
             props.relativeTimeReferenceMs,
           )}
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-2 text-[11px]">
-        <div
-          className={clsx(
-            "h-2 w-2 shrink-0",
-            props.isLoaded
-              ? props.isSelected
-                ? "bg-emerald-300"
-                : "bg-emerald-500"
-              : props.isSelected
-                ? "bg-white/40"
-                : "bg-border",
-          )}
-        />
-        <span
-          className={clsx(
-            "font-mono",
-            props.isSelected ? "text-white/70" : "text-muted-foreground",
-          )}
-          title={props.thread.id}
-        >
-          {readShortThreadId(props.thread.id)}
         </span>
-        {workspaceLabel ? (
-          <span
-            className={clsx(
-              "border px-1.5 py-0.5 font-mono",
-              props.isSelected
-                ? "border-white/30 text-white/80"
-                : "border-sky-200 text-sky-700",
-            )}
-            title={props.thread.cwd}
-          >
-            {workspaceLabel}
-          </span>
-        ) : null}
-        {props.thread.gitInfo?.branch ? (
-          <span
-            className={clsx(
-              "border px-1.5 py-0.5 font-mono",
-              props.isSelected
-                ? "border-white/30 text-white/80"
-                : "border-amber-200 text-amber-700",
-            )}
-            title={props.thread.gitInfo.branch}
-          >
-            {props.thread.gitInfo.branch}
-          </span>
-        ) : null}
       </div>
     </button>
   );
 }
 
-function ThreadSection(props: {
-  label: string;
-  detail?: string;
-  countLabel: string;
-  threads: CodexAppServerThread[];
-  loadedThreadIds: string[];
-  selectedThreadId: string | null;
-  relativeTimeReferenceMs?: number;
-  onThreadSelect?: (threadId: string) => void;
+function ProjectSection(props: {
+  group: MachineThreadGroup;
+  isOpen: boolean;
+  onOpenChange: (nextOpen: boolean) => void;
+  children: ReactNode;
 }) {
   return (
-    <section className="grid gap-2 border-t border-border pt-4 first:border-t-0 first:pt-0">
-      <div className="grid gap-1 px-1">
-        <div className="flex items-center justify-between gap-3">
-          <div className="truncate text-sm font-semibold text-foreground">
-            {props.label}
-          </div>
-          <div className="shrink-0 text-[11px] font-medium text-muted-foreground">
-            {props.countLabel}
-          </div>
-        </div>
-        {props.detail ? (
-          <div
-            className="truncate text-[11px] text-muted-foreground"
-            title={props.detail}
-          >
-            {props.detail}
-          </div>
-        ) : null}
-      </div>
-      <div className="grid gap-2">
-        {props.threads.map((thread) => (
-          <ThreadRow
-            key={thread.id}
-            thread={thread}
-            isSelected={thread.id === props.selectedThreadId}
-            isLoaded={props.loadedThreadIds.includes(thread.id)}
-            relativeTimeReferenceMs={props.relativeTimeReferenceMs}
-            onSelect={props.onThreadSelect}
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function TurnHistoryCard(props: {
-  turn: CodexAppServerThreadTurn;
-  isExpanded: boolean;
-  onExpandedChange: (nextOpen: boolean) => void;
-}) {
-  const preview = readTurnPreview(props.turn);
-
-  return (
-    <Collapsible
-      open={props.isExpanded}
-      onOpenChange={props.onExpandedChange}
-      className="border border-border bg-background"
-    >
+    <Collapsible open={props.isOpen} onOpenChange={props.onOpenChange}>
       <CollapsibleTrigger asChild>
         <button
           type="button"
-          className="grid w-full gap-3 px-4 py-4 text-left transition-colors hover:bg-accent"
+          className="flex min-h-[32px] w-full items-center gap-2 px-3 py-1 text-left text-sm text-muted-foreground transition-colors hover:bg-accent/60"
+          title={props.group.detail}
         >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <div className="font-mono text-sm">{props.turn.id}</div>
-              <Badge variant="outline">{props.turn.status}</Badge>
-              <Badge variant="outline">
-                {props.turn.items.length} item
-                {props.turn.items.length === 1 ? "" : "s"}
-              </Badge>
-            </div>
-            <ChevronDown
-              className={clsx(
-                "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-                props.isExpanded ? "rotate-180" : null,
-              )}
-            />
+          {props.isOpen ? (
+            <ChevronDownIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRightIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+          )}
+          <div className="flex h-4 w-4 shrink-0 items-center justify-center">
+            <div className="h-2.5 w-2.5 bg-muted-foreground/30 corner-notch-1" />
           </div>
-          {preview ? (
-            <div className="line-clamp-2 text-sm leading-6 text-muted-foreground">
-              {preview}
-            </div>
-          ) : null}
+          <span className="truncate text-[13px] font-medium leading-5 text-muted-foreground">
+            {readProjectLabel(props.group)}
+          </span>
         </button>
       </CollapsibleTrigger>
-      <CollapsibleContent className="grid gap-3 border-t border-border px-4 py-4">
-        {props.turn.errorMessage ? (
-          <div className="text-sm text-destructive">
-            {props.turn.errorMessage}
-          </div>
-        ) : null}
-        <div className="grid gap-2">
-          {props.turn.items.map((item, index) => (
-            <CodexAppServerThreadHistoryItemCard
-              key={`${props.turn.id}-${item.id ?? item.type}-${index}`}
-              item={item}
-            />
-          ))}
-        </div>
+      <CollapsibleContent>
+        <div className="grid gap-1 py-1">{props.children}</div>
       </CollapsibleContent>
     </Collapsible>
   );
 }
 
 /**
- * Report the rendered composer height back into the shared workspace scene so
- * mobile scroll padding keeps the latest turn visible above the dock.
+ * The first implementation pass intentionally ships only the thread rail. The
+ * shared workspace shell stays in place so the default sidebar controls remain
+ * available while the main pane is reset to an empty canvas for later work.
  */
-function ComposerDock({
-  canSend,
-  helperText,
-  isBusy,
-  onMobileDockInsetChange,
-  onTurnDraftChange,
-  onTurnSubmit,
-  turnDraft,
-}: WorkspaceBottomDockRenderProps & {
-  canSend: boolean;
-  isBusy: boolean;
-  turnDraft: string;
-  helperText: string;
-  onTurnDraftChange?: (value: string) => void;
-  onTurnSubmit?: () => void;
-}) {
-  const dockRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const dockNode = dockRef.current;
-    if (!dockNode) {
-      return;
-    }
-
-    const updateDockInset = () => {
-      const dockHeight = Math.ceil(dockNode.getBoundingClientRect().height);
-      onMobileDockInsetChange(`${dockHeight}px`);
-    };
-
-    updateDockInset();
-    window.addEventListener("resize", updateDockInset);
-
-    if (typeof ResizeObserver === "undefined") {
-      return () => {
-        window.removeEventListener("resize", updateDockInset);
-        onMobileDockInsetChange(undefined);
-      };
-    }
-
-    const resizeObserver = new ResizeObserver(updateDockInset);
-    resizeObserver.observe(dockNode);
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", updateDockInset);
-      onMobileDockInsetChange(undefined);
-    };
-  }, [onMobileDockInsetChange]);
-
-  return (
-    <div
-      ref={dockRef}
-      className="border-t border-border bg-background px-4 py-4 md:px-6"
-    >
-      <div className="mx-auto grid w-full max-w-5xl gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            Continue thread
-          </div>
-          <div className="text-xs text-muted-foreground">{helperText}</div>
-        </div>
-        <Textarea
-          value={turnDraft}
-          onChange={(event) => {
-            onTurnDraftChange?.(event.target.value);
-          }}
-          placeholder="Continue this thread from the machines workspace..."
-          disabled={!canSend}
-          className="min-h-[120px] border-border bg-muted/20 font-mono text-sm"
-        />
-        <div className="flex justify-end">
-          <Button
-            disabled={!canSend || turnDraft.trim().length === 0}
-            onClick={onTurnSubmit}
-          >
-            {isBusy ? "Sending..." : "Send prompt"}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
   const uniqueThreads = useMemo(
     () => dedupeMachineThreadsById(props.threads),
     [props.threads],
   );
-  const visibleThreads = useMemo(
+  const pinnedThreadIdSet = useMemo(
+    () => new Set(props.pinnedThreadIds),
+    [props.pinnedThreadIds],
+  );
+  const pinnedThreads = useMemo(
+    () => uniqueThreads.filter((thread) => pinnedThreadIdSet.has(thread.id)),
+    [pinnedThreadIdSet, uniqueThreads],
+  );
+  const projectGroups = useMemo(
     () =>
-      filterMachineThreadsBySearch({
-        searchTerm: props.searchTerm,
-        threads: uniqueThreads,
+      buildMachineThreadGroups({
+        threads: uniqueThreads.filter(
+          (thread) => !pinnedThreadIdSet.has(thread.id),
+        ),
       }),
-    [props.searchTerm, uniqueThreads],
+    [pinnedThreadIdSet, uniqueThreads],
   );
-  const pinnedThreads = useMemo(() => {
-    const visibleThreadById = new Map(
-      visibleThreads.map((thread) => [thread.id, thread]),
-    );
-
-    return props.pinnedThreadIds
-      .map((threadId) => visibleThreadById.get(threadId) ?? null)
-      .filter((thread): thread is CodexAppServerThread => thread !== null);
-  }, [props.pinnedThreadIds, visibleThreads]);
-  const groups = useMemo(() => {
-    const pinnedThreadIds = new Set(props.pinnedThreadIds);
-
-    return buildMachineThreadGroups({
-      loadedThreadIds: props.loadedThreadIds,
-      threads: visibleThreads.filter(
-        (thread) => !pinnedThreadIds.has(thread.id),
-      ),
-    });
-  }, [props.loadedThreadIds, props.pinnedThreadIds, visibleThreads]);
-  const lastSelectedTurnId = props.selectedThread?.turns.at(-1)?.id ?? null;
-  const [expandedTurnIds, setExpandedTurnIds] = useState<string[]>(() =>
-    lastSelectedTurnId ? [lastSelectedTurnId] : [],
+  const selectedThread = useMemo(
+    () =>
+      props.selectedThreadId
+        ? uniqueThreads.find(
+            (thread) => thread.id === props.selectedThreadId,
+          ) ?? null
+        : null,
+    [props.selectedThreadId, uniqueThreads],
   );
-  const selectedMachineReady =
-    props.selectedMachine !== null &&
-    props.selectedMachineStatusReason === null;
-  const selectedThreadIsArchived =
-    props.selectedThread !== null &&
-    (props.detailState.kind === "archived" ||
-      codexThreadPathIsArchived(props.selectedThread.path));
-  const selectedThreadIsLoaded =
-    props.selectedThread !== null &&
-    props.loadedThreadIds.includes(props.selectedThread.id);
-  const emptySidebarContent = (
-    <div aria-hidden="true" className="flex min-h-0 flex-1 bg-background" />
+  const projectIds = useMemo(
+    () => projectGroups.map((group) => group.id),
+    [projectGroups],
   );
+  const projectIdsSignature = useMemo(
+    () => projectIds.join("\u0000"),
+    [projectIds],
+  );
+  const stableProjectIds = useMemo(
+    () =>
+      projectIdsSignature.length > 0 ? projectIdsSignature.split("\u0000") : [],
+    [projectIdsSignature],
+  );
+  const validProjectIds = useMemo(
+    () => new Set(stableProjectIds),
+    [stableProjectIds],
+  );
+  const firstProjectId = stableProjectIds[0] ?? null;
+  const selectedProjectId =
+    selectedThread && !pinnedThreadIdSet.has(selectedThread.id)
+      ? selectedThread.project.id
+      : null;
+  const [openProjectIds, setOpenProjectIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const sidebarTestId = props.dataTestId
+    ? `${props.dataTestId}-sidebar`
+    : undefined;
+  const headerTestId = props.dataTestId
+    ? `${props.dataTestId}-header`
+    : undefined;
 
   useEffect(() => {
-    setExpandedTurnIds(lastSelectedTurnId ? [lastSelectedTurnId] : []);
-  }, [lastSelectedTurnId, props.selectedThread?.id]);
+    setOpenProjectIds((current) => {
+      const next = new Set<string>();
+      for (const projectId of current) {
+        if (validProjectIds.has(projectId)) {
+          next.add(projectId);
+        }
+      }
+
+      if (selectedProjectId && validProjectIds.has(selectedProjectId)) {
+        next.add(selectedProjectId);
+      }
+
+      if (next.size === 0 && firstProjectId) {
+        next.add(firstProjectId);
+      }
+
+      return setsAreEqual(current, next) ? current : next;
+    });
+  }, [firstProjectId, projectIdsSignature, selectedProjectId, validProjectIds]);
 
   return (
-    <SidebarProvider className="h-full min-h-0" defaultOpen={true}>
+    <SidebarProvider
+      className="h-full min-h-0"
+      defaultOpen={true}
+      defaultLeftDesktopWidthPx={288}
+      defaultLeftMobileWidthPx={288}
+    >
       <RepositoryWorkspaceFrame
         dataTestId={props.dataTestId}
-        headerTitle="Machines"
-        contentClassName="flex-1 min-h-0 p-0"
-        headerRight={
-          <>
-            {selectedMachineReady ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-3 md:h-6 md:px-2"
-                disabled={props.isBusy}
-                onClick={props.onRefresh}
-              >
-                {props.isBusy ? (
-                  <>
-                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                    Refreshing
-                  </>
-                ) : (
-                  "Refresh"
-                )}
-              </Button>
-            ) : null}
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 px-3 md:h-6 md:px-2"
-              asChild
-            >
-              <Link to={MACHINE_CONNECT_ROUTE}>Connect machine</Link>
-            </Button>
-          </>
-        }
-        leftSidebarHeader={
-          <div className="grid gap-2 border-b border-border bg-background px-3 py-3">
-            <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              Connected machines
-            </div>
-            {props.selectedMachine ? (
-              <div className="grid gap-1">
-                <div className="truncate text-sm font-medium text-foreground">
-                  {props.selectedMachine.displayName}
-                </div>
-                <div
-                  className="truncate text-xs text-muted-foreground"
-                  title={props.selectedMachine.hostname}
-                >
-                  {props.selectedMachine.hostname}
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                  <span className="border border-border px-1.5 py-0.5 font-mono text-muted-foreground">
-                    {readMachineSummary(props.selectedMachine)}
-                  </span>
-                  <span className="font-mono text-muted-foreground">
-                    {props.machines.length} machine
-                    {props.machines.length === 1 ? "" : "s"}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">
-                Connect a machine to browse its local Codex threads here.
-              </div>
-            )}
-          </div>
-        }
+        headerTestId={headerTestId}
+        contentClassName="min-h-0 flex-1 p-0"
+        leftSidebarHeader={null}
         leftSidebarContent={
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-background">
-            <div className="grid gap-4 p-3">
-              {props.machines.length > 0 ? (
-                <section className="grid gap-2">
-                  <div className="px-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                    Available machines
-                  </div>
-                  <div className="grid gap-2">
-                    {props.machines.map((machine) => (
-                      <MachineRow
-                        key={machine.machineId}
-                        machine={machine}
-                        isSelected={
-                          machine.machineId === props.selectedMachine?.machineId
-                        }
-                        onSelect={props.onMachineSelect}
-                      />
-                    ))}
-                  </div>
-                </section>
+          <div
+            data-testid={sidebarTestId}
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-background px-2 py-2"
+          >
+            <div className="grid gap-2">
+              {pinnedThreads.length > 0 ? (
+                <div className="grid gap-1">
+                  {pinnedThreads.map((thread) => (
+                    <ThreadRow
+                      key={thread.id}
+                      thread={thread}
+                      isSelected={thread.id === props.selectedThreadId}
+                      relativeTimeReferenceMs={props.relativeTimeReferenceMs}
+                      leadingIcon={
+                        <Pin
+                          className="h-3.5 w-3.5 rotate-45"
+                          strokeWidth={1.75}
+                        />
+                      }
+                      onSelect={props.onThreadSelect}
+                    />
+                  ))}
+                </div>
               ) : null}
 
-              <section className="grid gap-3 border-t border-border pt-4">
-                <div className="flex items-center justify-between gap-3 px-1">
-                  <div className="text-sm font-semibold text-foreground">
-                    Threads
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {visibleThreads.length} visible
-                  </div>
-                </div>
-                <Input
-                  placeholder="Search title, prompt, branch, or path"
-                  value={props.searchTerm}
-                  disabled={!selectedMachineReady}
-                  onChange={(event) => {
-                    props.onSearchTermChange?.(event.target.value);
-                  }}
-                />
-                {!selectedMachineReady ? (
-                  props.machines.length === 0 ? (
-                    <EmptyState
-                      title="No connected machines"
-                      body="Approve a machine first, then its local thread inventory will appear in this sidebar."
-                    />
-                  ) : (
-                    <EmptyState
-                      title="Machine unavailable"
-                      body={
-                        props.selectedMachineStatusReason ??
-                        "Select a connected machine to browse its local thread inventory."
-                      }
-                    />
-                  )
-                ) : pinnedThreads.length === 0 && groups.length === 0 ? (
-                  <EmptyState
-                    title="No matching threads"
-                    body="Adjust the search term or refresh the selected machine to inspect another slice of its local thread inventory."
-                  />
-                ) : (
-                  <div className="grid gap-4">
-                    {pinnedThreads.length > 0 ? (
-                      <ThreadSection
-                        label="Pinned"
-                        countLabel={`${pinnedThreads.length}`}
-                        detail="Desktop-pinned threads stay outside the project groups."
-                        threads={pinnedThreads}
-                        loadedThreadIds={props.loadedThreadIds}
-                        selectedThreadId={props.selectedThreadId}
+              <div className="grid gap-1">
+                {projectGroups.map((group) => (
+                  <ProjectSection
+                    key={group.id}
+                    group={group}
+                    isOpen={openProjectIds.has(group.id)}
+                    onOpenChange={(nextOpen) => {
+                      setOpenProjectIds((current) => {
+                        const next = new Set(current);
+                        if (nextOpen) {
+                          next.add(group.id);
+                        } else {
+                          next.delete(group.id);
+                        }
+                        return next;
+                      });
+                    }}
+                  >
+                    {group.threads.map((thread) => (
+                      <ThreadRow
+                        key={thread.id}
+                        thread={thread}
+                        isSelected={thread.id === props.selectedThreadId}
                         relativeTimeReferenceMs={props.relativeTimeReferenceMs}
-                        onThreadSelect={props.onThreadSelect}
-                      />
-                    ) : null}
-                    {groups.map((group) => (
-                      <ThreadSection
-                        key={group.id}
-                        label={group.label}
-                        countLabel={`${group.count}`}
-                        detail={group.detail}
-                        threads={group.threads}
-                        loadedThreadIds={props.loadedThreadIds}
-                        selectedThreadId={props.selectedThreadId}
-                        relativeTimeReferenceMs={props.relativeTimeReferenceMs}
-                        onThreadSelect={props.onThreadSelect}
+                        className="pl-10"
+                        onSelect={props.onThreadSelect}
                       />
                     ))}
-                  </div>
-                )}
-              </section>
+                  </ProjectSection>
+                ))}
+              </div>
             </div>
           </div>
         }
         rightSidebarHeader={null}
-        rightSidebarContent={emptySidebarContent}
+        rightSidebarContent={null}
       >
         <WorkspaceScene
           workspacePaneClassName="bg-background"
           workspaceScrollClassName="bg-background"
-          workspaceBody={
-            <div className="flex min-h-full flex-col bg-background">
-              <div className="border-b border-border px-4 py-4 md:px-6">
-                <div className="mx-auto grid w-full max-w-5xl gap-2">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                    {props.selectedMachine
-                      ? props.selectedMachine.displayName
-                      : "Machines workspace"}
-                  </div>
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">
-                        {props.selectedThread
-                          ? readThreadTitle(props.selectedThread)
-                          : props.selectedMachine
-                            ? "Select a thread"
-                            : "Connected machines"}
-                      </h1>
-                      <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-                        {props.selectedThread
-                          ? props.selectedThread.preview
-                          : props.selectedMachine
-                            ? props.selectedMachineStatusReason ??
-                              "Choose a thread from the left sidebar to inspect it here and continue the conversation from the bottom composer."
-                            : "Approve a machine, keep its connector running, and browse the same local Codex threads from this shared workspace shell."}
-                      </p>
-                    </div>
-                    {props.selectedMachine ? (
-                      <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                        <span className="border border-border px-1.5 py-0.5 font-mono text-muted-foreground">
-                          {props.selectedMachine.hostname}
-                        </span>
-                        <span className="border border-border px-1.5 py-0.5 font-mono text-muted-foreground">
-                          {readMachineSummary(props.selectedMachine)}
-                        </span>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-6 md:px-6">
-                {props.errorMessage ? (
-                  <div className="border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                    {props.errorMessage}
-                  </div>
-                ) : null}
-
-                {props.machines.length === 0 ? (
-                  <EmptyState
-                    title="No connected machines yet"
-                    body="Start from the machine connect flow, then this workspace will reuse the same dashboard/file-view shell to show local thread inventory on the left."
-                    action={
-                      <div>
-                        <Button asChild>
-                          <Link to={MACHINE_CONNECT_ROUTE}>
-                            Connect machine
-                          </Link>
-                        </Button>
-                      </div>
-                    }
-                  />
-                ) : props.selectedMachine === null ? (
-                  <EmptyState
-                    title="Select a machine"
-                    body="Pick one of the connected machines from the left sidebar to browse its local Codex threads."
-                  />
-                ) : !selectedMachineReady ? (
-                  <EmptyState
-                    title="Live control unavailable"
-                    body={
-                      props.selectedMachineStatusReason ??
-                      "This machine is not currently ready to serve local thread inventory."
-                    }
-                  />
-                ) : props.selectedThread === null ? (
-                  <EmptyState
-                    title="Select a thread"
-                    body="The sidebar now owns thread browsing. Pick a thread there, and the main pane will keep the conversation history above the bottom composer."
-                  />
-                ) : (
-                  <>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline">
-                        {props.selectedThread.sourceLabel}
-                      </Badge>
-                      <Badge variant="outline">
-                        {props.selectedThread.status.type}
-                      </Badge>
-                      {selectedThreadIsLoaded ? (
-                        <Badge className="bg-emerald-600 text-white">
-                          loaded
-                        </Badge>
-                      ) : null}
-                      {selectedThreadIsArchived ? (
-                        <Badge variant="outline">archived</Badge>
-                      ) : null}
-                      <span className="font-mono text-[11px] text-muted-foreground">
-                        {formatDateTime(props.selectedThread.updatedAt)}
-                      </span>
-                    </div>
-
-                    <div className="grid gap-3 border border-border bg-muted/20 px-4 py-4 text-sm">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <span className="text-muted-foreground">
-                          Project root
-                        </span>
-                        <span
-                          className="max-w-[32rem] truncate font-mono text-xs text-foreground"
-                          title={props.selectedThread.project.rootCwd}
-                        >
-                          {props.selectedThread.project.rootCwd}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <span className="text-muted-foreground">Workspace</span>
-                        <span className="font-mono text-xs text-foreground">
-                          {readThreadWorkspaceLabel(props.selectedThread) ??
-                            "project root"}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <span className="text-muted-foreground">Branch</span>
-                        <span className="font-mono text-xs text-foreground">
-                          {props.selectedThread.gitInfo?.branch ?? "n/a"}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <span className="text-muted-foreground">Thread id</span>
-                        <span className="font-mono text-xs text-foreground">
-                          {props.selectedThread.id}
-                        </span>
-                      </div>
-                    </div>
-
-                    {props.detailState.kind === "loading" ? (
-                      <EmptyState
-                        title="Loading thread detail"
-                        body="Hydrating the selected thread from the machine-local provider runtime."
-                      />
-                    ) : null}
-
-                    {props.detailState.kind === "archived" ? (
-                      <div className="border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                        {props.detailState.message}
-                      </div>
-                    ) : null}
-
-                    {props.detailState.kind === "error" ? (
-                      <div className="border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                        {props.detailState.message}
-                      </div>
-                    ) : null}
-
-                    {props.detailState.kind === "ready" &&
-                    props.selectedThread.turns.length > 0 ? (
-                      <div className="grid gap-3">
-                        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                          Turn history
-                        </div>
-                        {props.selectedThread.turns.map((turn) => (
-                          <TurnHistoryCard
-                            key={turn.id}
-                            turn={turn}
-                            isExpanded={expandedTurnIds.includes(turn.id)}
-                            onExpandedChange={(nextOpen) => {
-                              setExpandedTurnIds((current) =>
-                                nextOpen
-                                  ? Array.from(new Set([...current, turn.id]))
-                                  : current.filter(
-                                      (expandedTurnId) =>
-                                        expandedTurnId !== turn.id,
-                                    ),
-                              );
-                            }}
-                          />
-                        ))}
-                      </div>
-                    ) : props.detailState.kind === "ready" ? (
-                      <EmptyState
-                        title="No hydrated turns"
-                        body="This thread is visible in the machine inventory, but the provider did not return any hydrated turns for the current detail read."
-                      />
-                    ) : null}
-                  </>
-                )}
-              </div>
-            </div>
-          }
-          bottomDock={
-            selectedMachineReady
-              ? (bottomDockProps) => (
-                  <ComposerDock
-                    {...bottomDockProps}
-                    canSend={
-                      props.selectedThread !== null &&
-                      !selectedThreadIsArchived &&
-                      !props.isBusy
-                    }
-                    helperText={
-                      selectedThreadIsArchived
-                        ? "Unarchive before sending"
-                        : selectedThreadIsLoaded
-                          ? "Loaded in runtime"
-                          : "Will resume on send"
-                    }
-                    isBusy={props.isBusy}
-                    turnDraft={props.turnDraft}
-                    onTurnDraftChange={props.onTurnDraftChange}
-                    onTurnSubmit={props.onTurnSubmit}
-                  />
-                )
-              : undefined
-          }
+          workspaceBody={<div className="min-h-full bg-background" />}
         />
       </RepositoryWorkspaceFrame>
     </SidebarProvider>

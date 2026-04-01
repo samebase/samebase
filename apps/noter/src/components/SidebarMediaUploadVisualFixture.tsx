@@ -102,7 +102,7 @@ export function SidebarMediaUploadVisualFixture() {
         leftSidebarHeader={sidebarHeader}
         leftSidebarContent={sidebarContent}
         rightSidebarHeader={null}
-        rightSidebarContent={<div className="min-h-0 flex-1 bg-background" />}
+        rightSidebarContent={null}
         headerTitle="x.png"
       >
         <div className="flex h-full min-h-0 flex-col p-6">

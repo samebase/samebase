@@ -478,7 +478,7 @@ function ConnectedMachineList({
                           machineId: machine.machineId,
                         })}
                       >
-                        Open live control
+                        Open threads
                       </Link>
                     </Button>
                   ) : null}

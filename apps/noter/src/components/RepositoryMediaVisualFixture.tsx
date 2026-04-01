@@ -135,7 +135,7 @@ export function RepositoryMediaVisualFixture({
         leftSidebarHeader={sidebarHeader}
         leftSidebarContent={sidebarContent}
         rightSidebarHeader={null}
-        rightSidebarContent={<div className="min-h-0 flex-1 bg-background" />}
+        rightSidebarContent={null}
         headerTitle={
           fixture.selectedFile.split("/").slice(0, -1).join("/") || "/"
         }

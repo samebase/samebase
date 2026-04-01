@@ -78,7 +78,7 @@ describe("MachineConnectPageContent", () => {
     expect(markup).toContain("replace the single quotes with double quotes");
   });
 
-  it("shows a live-control entrypoint for ready machines", () => {
+  it("shows a machines entrypoint for ready machines", () => {
     const markup = renderToStaticMarkup(
       <MemoryRouter>
         <MachineConnectPageContent
@@ -143,7 +143,7 @@ describe("MachineConnectPageContent", () => {
       </MemoryRouter>,
     );
 
-    expect(markup).toContain("Open live control");
+    expect(markup).toContain("Open threads");
     expect(markup).toContain("/machines?machineId=machine_fixture");
     expect(markup).toContain("Your machine list lives on this page");
     expect(markup).toContain('href="#connected-machines"');

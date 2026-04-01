@@ -1,21 +1,15 @@
 import { useNow } from "@/hooks/useNow";
 import {
+  CodexAppServerRequestError,
+  requestCodexAppServerJson,
+  type CodexAppServerThread,
+  type CodexAppServerThreadsResponse,
+} from "@/lib/codexAppServerResearch";
+import {
   buildSearchString,
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
-import {
-  codexThreadPathIsArchived,
-  requestCodexAppServerJson,
-  type CodexAppServerEventsResponse,
-  type CodexAppServerLoadedThreadsResponse,
-  type CodexAppServerRuntimeSnapshot,
-  type CodexAppServerThread,
-  type CodexAppServerThreadDetailResponse,
-  type CodexAppServerThreadsResponse,
-  CodexAppServerRequestError,
-} from "@/lib/codexAppServerResearch";
-import { dedupeMachineThreadsById } from "@/lib/machineThreadInventory";
 import { MachinesWorkspaceView } from "@/components/MachinesWorkspaceView";
 import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -27,35 +21,19 @@ import { api } from "../../convex/_generated/api";
 const THREAD_LIST_LIMIT = 100;
 const SELECTED_MACHINE_QUERY_PARAM = "machineId";
 const SELECTED_THREAD_QUERY_PARAM = "threadId";
-const ACTIVE_THREAD_REFRESH_INTERVAL_MS = 1_500;
+const THREAD_REFRESH_INTERVAL_MS = 1_500;
 const MACHINE_CONTROL_TOKEN_REFRESH_BUFFER_MS = 30_000;
-
-type ThreadActionResponse = {
-  result?: unknown;
-  runtime: CodexAppServerRuntimeSnapshot;
-};
 
 type MachineControlTokenState = {
   expiresAt: number;
   token: string;
 };
 
-type MachineControlRequestArgs = {
-  path: string;
-  method?: "GET" | "POST";
-  body?: Record<string, unknown>;
-};
-
-function buildThreadsPath(searchTerm: string): string {
+function buildThreadsPath(): string {
   const search = updateQueryParams(undefined, (nextSearchParams) => {
     setQueryParam(nextSearchParams, "archived", "false");
     setQueryParam(nextSearchParams, "limit", `${THREAD_LIST_LIMIT}`);
     setQueryParam(nextSearchParams, "sortKey", "updated_at");
-    setQueryParam(
-      nextSearchParams,
-      "searchTerm",
-      searchTerm.trim().length > 0 ? searchTerm.trim() : null,
-    );
   });
 
   return `/threads${buildSearchString(search)}`;
@@ -111,32 +89,14 @@ export function MachinesWorkspacePage() {
   );
   const [threads, setThreads] = useState<CodexAppServerThread[]>([]);
   const [pinnedThreadIds, setPinnedThreadIds] = useState<string[]>([]);
-  const [loadedThreadIds, setLoadedThreadIds] = useState<string[]>([]);
+  const [hasLoadedThreadInventory, setHasLoadedThreadInventory] =
+    useState(false);
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(
     () => readSelectedSearchValue(searchParams, SELECTED_MACHINE_QUERY_PARAM),
   );
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(() =>
     readSelectedSearchValue(searchParams, SELECTED_THREAD_QUERY_PARAM),
   );
-  const [selectedThreadDetail, setSelectedThreadDetail] =
-    useState<CodexAppServerThread | null>(null);
-  const [detailState, setDetailState] = useState<
-    | { kind: "idle" }
-    | { kind: "loading" }
-    | { kind: "archived"; message: string }
-    | { kind: "error"; message: string }
-    | { kind: "ready" }
-  >({
-    kind: "idle",
-  });
-  const [searchTerm, setSearchTerm] = useState("");
-  const [turnDraft, setTurnDraft] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isBusy, setIsBusy] = useState(false);
-  const [hasLoadedThreadInventory, setHasLoadedThreadInventory] =
-    useState(false);
-  const selectedThreadRequestRef = useRef(0);
-  const nextEventCursorRef = useRef(0);
   const machineControlTokenRef = useRef<MachineControlTokenState | null>(null);
 
   const machines = useMemo(() => {
@@ -164,9 +124,6 @@ export function MachinesWorkspacePage() {
     }
 
     if (selectedMachineId === null) {
-      // Wait for the selection effect to choose the first machine before any
-      // machine-local hydration starts, so initial `/machines` loads do not try
-      // to issue a token for a null machine id.
       return null;
     }
 
@@ -184,6 +141,7 @@ export function MachinesWorkspacePage() {
     selectedMachine && selectedMachineStatusReason === null
       ? selectedMachine.controlUrl
       : null;
+  const currentSearch = buildSearchString(searchParams);
 
   const ensureMachineControlToken = useCallback(
     async (forceRefresh = false): Promise<string> => {
@@ -211,9 +169,7 @@ export function MachinesWorkspacePage() {
   );
 
   const requestMachineControlJson = useCallback(
-    async function requestMachineControlJsonInner<T>(
-      args: MachineControlRequestArgs,
-    ): Promise<T> {
+    async function requestMachineControlJsonInner<T>(path: string): Promise<T> {
       if (typeof machineControlUrl !== "string") {
         throw new Error("Machine live control URL is unavailable.");
       }
@@ -222,12 +178,11 @@ export function MachinesWorkspacePage() {
         const token = await ensureMachineControlToken(forceRefresh);
         return requestCodexAppServerJson<T>({
           baseUrl: machineControlUrl,
-          body: args.body,
           headers: {
             Authorization: `Bearer ${token}`,
           },
-          method: args.method,
-          path: args.path,
+          method: "GET",
+          path,
         });
       };
 
@@ -248,57 +203,16 @@ export function MachinesWorkspacePage() {
     [ensureMachineControlToken, machineControlUrl],
   );
 
-  const refreshThreads = useCallback(
-    async (term = searchTerm) => {
-      const response =
-        await requestMachineControlJson<CodexAppServerThreadsResponse>({
-          path: buildThreadsPath(term),
-        });
-      setThreads(response.threads);
-      setPinnedThreadIds(response.pinnedThreadIds);
-      setHasLoadedThreadInventory(true);
-      return response;
-    },
-    [requestMachineControlJson, searchTerm],
-  );
-
-  const refreshLoadedThreadIds = useCallback(async () => {
+  const refreshThreads = useCallback(async () => {
     const response =
-      await requestMachineControlJson<CodexAppServerLoadedThreadsResponse>({
-        path: "/threads/loaded?limit=200",
-      });
-    setLoadedThreadIds(Array.from(new Set(response.threadIds)));
+      await requestMachineControlJson<CodexAppServerThreadsResponse>(
+        buildThreadsPath(),
+      );
+    setThreads(response.threads);
+    setPinnedThreadIds(response.pinnedThreadIds);
+    setHasLoadedThreadInventory(true);
     return response;
   }, [requestMachineControlJson]);
-
-  const refreshEvents = useCallback(async () => {
-    const response =
-      await requestMachineControlJson<CodexAppServerEventsResponse>({
-        path: `/events?since=${nextEventCursorRef.current}`,
-      });
-    nextEventCursorRef.current = response.nextCursor;
-    return response;
-  }, [requestMachineControlJson]);
-
-  const uniqueThreads = useMemo(
-    () => dedupeMachineThreadsById(threads),
-    [threads],
-  );
-
-  const selectedThreadSummary = useMemo(() => {
-    if (!selectedThreadId) {
-      return null;
-    }
-
-    return (
-      uniqueThreads.find((thread) => thread.id === selectedThreadId) ?? null
-    );
-  }, [selectedThreadId, uniqueThreads]);
-  const selectedThreadCanSend =
-    selectedThreadSummary !== null &&
-    !codexThreadPathIsArchived(selectedThreadSummary.path);
-
-  const currentSearch = buildSearchString(searchParams);
 
   useEffect(() => {
     const nextSelectedMachineId = readSelectedSearchValue(
@@ -363,181 +277,11 @@ export function MachinesWorkspacePage() {
   }, [machines, selectedMachineId]);
 
   useEffect(() => {
-    nextEventCursorRef.current = 0;
     machineControlTokenRef.current = null;
     setThreads([]);
     setPinnedThreadIds([]);
-    setLoadedThreadIds([]);
-    setSelectedThreadDetail(null);
-    setDetailState({ kind: "idle" });
     setHasLoadedThreadInventory(false);
-    setError(null);
-    setTurnDraft("");
   }, [selectedMachineId]);
-
-  useEffect(() => {
-    machineControlTokenRef.current = null;
-  }, [machineControlUrl, selectedMachineId]);
-
-  useEffect(() => {
-    if (!hasLoadedThreadInventory) {
-      return;
-    }
-
-    if (
-      selectedThreadId &&
-      uniqueThreads.some((thread) => thread.id === selectedThreadId)
-    ) {
-      return;
-    }
-
-    if (selectedThreadId !== null) {
-      setSelectedThreadId(null);
-      return;
-    }
-
-    setSelectedThreadId(uniqueThreads[0]?.id ?? null);
-  }, [hasLoadedThreadInventory, selectedThreadId, uniqueThreads]);
-
-  useEffect(() => {
-    setTurnDraft("");
-  }, [selectedThreadId]);
-
-  const refreshSelectedThread = useCallback(
-    async (
-      thread: CodexAppServerThread | null = selectedThreadSummary,
-      options?: {
-        silent?: boolean;
-      },
-    ) => {
-      const requestId = selectedThreadRequestRef.current + 1;
-      selectedThreadRequestRef.current = requestId;
-      const isSilent = options?.silent === true;
-
-      if (!thread) {
-        setSelectedThreadDetail(null);
-        setDetailState({ kind: "idle" });
-        return null;
-      }
-
-      if (codexThreadPathIsArchived(thread.path)) {
-        setSelectedThreadDetail(thread);
-        setDetailState({
-          kind: "archived",
-          message:
-            "Archived threads cannot be controlled from the machines workspace.",
-        });
-        return null;
-      }
-
-      if (!isSilent) {
-        setSelectedThreadDetail(thread);
-        setDetailState({ kind: "loading" });
-      }
-
-      try {
-        const response =
-          await requestMachineControlJson<CodexAppServerThreadDetailResponse>({
-            path: `/threads/${encodeURIComponent(thread.id)}`,
-          });
-
-        if (selectedThreadRequestRef.current === requestId) {
-          setSelectedThreadDetail(response.thread);
-          setDetailState({ kind: "ready" });
-        }
-
-        return response;
-      } catch (nextError) {
-        if (selectedThreadRequestRef.current === requestId && !isSilent) {
-          setDetailState({
-            kind: "error",
-            message:
-              nextError instanceof Error
-                ? nextError.message
-                : "Failed to load thread detail.",
-          });
-        }
-        throw nextError;
-      }
-    },
-    [requestMachineControlJson, selectedThreadSummary],
-  );
-
-  const refreshAll = useCallback(
-    async (term = searchTerm) => {
-      const [threadsResponse] = await Promise.all([
-        refreshThreads(term),
-        refreshLoadedThreadIds(),
-      ]);
-      return threadsResponse;
-    },
-    [refreshLoadedThreadIds, refreshThreads, searchTerm],
-  );
-
-  const refreshSelectedThreadRef = useRef(refreshSelectedThread);
-  const refreshAllRef = useRef(refreshAll);
-  const refreshEventsRef = useRef(refreshEvents);
-  const selectedThreadSummaryRef = useRef(selectedThreadSummary);
-
-  refreshSelectedThreadRef.current = refreshSelectedThread;
-  refreshAllRef.current = refreshAll;
-  refreshEventsRef.current = refreshEvents;
-  selectedThreadSummaryRef.current = selectedThreadSummary;
-
-  useEffect(() => {
-    if (!selectedMachine || selectedMachineStatusReason !== null) {
-      return;
-    }
-
-    const hydrate = async () => {
-      try {
-        await Promise.all([refreshAll(searchTerm), refreshEvents()]);
-        setError(null);
-      } catch (nextError) {
-        setError(
-          nextError instanceof Error
-            ? nextError.message
-            : "Failed to load machines workspace state.",
-        );
-      }
-    };
-
-    void hydrate();
-  }, [
-    refreshAll,
-    refreshEvents,
-    searchTerm,
-    selectedMachine,
-    selectedMachineStatusReason,
-  ]);
-
-  useEffect(() => {
-    if (!selectedMachine || selectedMachineStatusReason !== null) {
-      return;
-    }
-
-    if (selectedThreadId === null) {
-      void refreshSelectedThread(null);
-      return;
-    }
-
-    const needsVisibleHydration =
-      selectedThreadDetail?.id !== selectedThreadId ||
-      detailState.kind === "idle";
-    if (!needsVisibleHydration) {
-      return;
-    }
-
-    void refreshSelectedThread(selectedThreadSummary);
-  }, [
-    detailState.kind,
-    refreshSelectedThread,
-    selectedMachine,
-    selectedMachineStatusReason,
-    selectedThreadDetail?.id,
-    selectedThreadId,
-    selectedThreadSummary,
-  ]);
 
   useEffect(() => {
     if (!selectedMachine || selectedMachineStatusReason !== null) {
@@ -554,26 +298,11 @@ export function MachinesWorkspacePage() {
 
       inFlight = true;
       try {
-        const eventsResponse = await refreshEventsRef.current();
-        if (eventsResponse.events.length === 0) {
-          return;
-        }
-
-        const threadsResponse = await refreshAllRef.current(searchTerm);
-        const refreshedThread =
-          selectedThreadId === null
-            ? null
-            : threadsResponse.threads.find(
-                (thread) => thread.id === selectedThreadId,
-              ) ??
-              selectedThreadSummaryRef.current ??
-              null;
-        await refreshSelectedThreadRef.current(refreshedThread, {
-          silent: true,
-        });
+        await refreshThreads();
       } catch {
-        // Keep the last rendered browser state and let explicit actions surface
-        // their own errors instead of replacing the current thread view on poll.
+        setThreads([]);
+        setPinnedThreadIds([]);
+        setHasLoadedThreadInventory(true);
       } finally {
         inFlight = false;
       }
@@ -582,32 +311,29 @@ export function MachinesWorkspacePage() {
     void hydrate();
     const intervalId = window.setInterval(() => {
       void hydrate();
-    }, ACTIVE_THREAD_REFRESH_INTERVAL_MS);
+    }, THREAD_REFRESH_INTERVAL_MS);
 
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [
-    searchTerm,
-    selectedMachine,
-    selectedMachineStatusReason,
-    selectedThreadId,
-  ]);
+  }, [refreshThreads, selectedMachine, selectedMachineStatusReason]);
 
-  const runAction = useCallback(async (action: () => Promise<void>) => {
-    setIsBusy(true);
-    try {
-      await action();
-      setError(null);
-    } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : "Request failed.",
-      );
-    } finally {
-      setIsBusy(false);
+  useEffect(() => {
+    if (!hasLoadedThreadInventory) {
+      return;
     }
-  }, []);
+
+    const nextSelectedThreadId =
+      selectedThreadId &&
+      threads.some((thread) => thread.id === selectedThreadId)
+        ? selectedThreadId
+        : threads[0]?.id ?? null;
+
+    if (nextSelectedThreadId !== selectedThreadId) {
+      setSelectedThreadId(nextSelectedThreadId);
+    }
+  }, [hasLoadedThreadInventory, selectedThreadId, threads]);
 
   if (machines === undefined || selectedMachine === undefined) {
     return null;
@@ -615,57 +341,11 @@ export function MachinesWorkspacePage() {
 
   return (
     <MachinesWorkspaceView
-      machines={machines}
-      selectedMachine={selectedMachine}
-      selectedMachineStatusReason={selectedMachineStatusReason}
       threads={threads}
       pinnedThreadIds={pinnedThreadIds}
-      loadedThreadIds={loadedThreadIds}
       selectedThreadId={selectedThreadId}
-      selectedThread={selectedThreadDetail ?? selectedThreadSummary}
-      detailState={detailState}
-      searchTerm={searchTerm}
-      turnDraft={turnDraft}
-      errorMessage={error}
-      isBusy={isBusy}
       relativeTimeReferenceMs={now}
-      onMachineSelect={setSelectedMachineId}
-      onRefresh={() => {
-        void runAction(async () => {
-          const threadsResponse = await refreshAll(searchTerm);
-          const refreshedThread =
-            threadsResponse.threads.find(
-              (thread) => thread.id === selectedThreadId,
-            ) ?? null;
-          await refreshSelectedThread(refreshedThread);
-        });
-      }}
-      onSearchTermChange={setSearchTerm}
       onThreadSelect={setSelectedThreadId}
-      onTurnDraftChange={setTurnDraft}
-      onTurnSubmit={() => {
-        if (!selectedThreadCanSend || turnDraft.trim().length === 0) {
-          return;
-        }
-
-        void runAction(async () => {
-          const threadId = selectedThreadSummary.id;
-          await requestMachineControlJson<ThreadActionResponse>({
-            body: {
-              text: turnDraft.trim(),
-              threadId,
-            },
-            method: "POST",
-            path: "/turn/start",
-          });
-          setTurnDraft("");
-          const threadsResponse = await refreshAll(searchTerm);
-          const refreshedThread =
-            threadsResponse.threads.find((thread) => thread.id === threadId) ??
-            null;
-          await refreshSelectedThread(refreshedThread);
-        });
-      }}
     />
   );
 }
