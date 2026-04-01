@@ -4,6 +4,18 @@ import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
 import { SidebarProvider } from "@/components/sidebar";
 
+const SIDEBAR_MEDIA_UPLOAD_VISUAL_FIXTURE_FONT_RULES = `
+  [data-sidebar-media-upload-visual-fixture-font],
+  [data-sidebar-media-upload-visual-fixture-font] *,
+  [data-testid="media-upload-dialog-content"],
+  [data-testid="media-upload-dialog-content"] *,
+  [data-testid="media-upload-dialog-form"],
+  [data-testid="media-upload-dialog-form"] * {
+    font-family: "IBM Plex Sans", sans-serif !important;
+    font-synthesis: none;
+  }
+`;
+
 const TREE_ITEMS = [
   {
     path: "README.md",
@@ -81,8 +93,10 @@ export function SidebarMediaUploadVisualFixture() {
   return (
     <SidebarProvider
       defaultOpen={true}
+      data-sidebar-media-upload-visual-fixture-font
       className="h-screen min-h-0 bg-background text-foreground"
     >
+      <style>{SIDEBAR_MEDIA_UPLOAD_VISUAL_FIXTURE_FONT_RULES}</style>
       <RepositoryWorkspaceFrame
         dataTestId="sidebar-media-upload-visual-fixture"
         leftSidebarHeader={sidebarHeader}
