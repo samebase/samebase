@@ -737,6 +737,7 @@ export function detectCodexVersion(options = {}) {
     invocation.command,
     invocation.args,
     buildCodexSpawnOptions({
+      ...options,
       encoding: 'utf8',
     }),
   )
@@ -2517,18 +2518,21 @@ export class CodexLocalControlRuntime {
       this.pushEvent('codex/runtime_stderr', {
         line: `Launching codex app-server (${version})`,
       })
-      const invocation = buildCodexRuntimeSpawnInvocation([
-        'app-server',
-        '--listen',
-        'stdio://',
-      ])
+      const runtimeSpawnOptions = {
+        cwd: this.workspaceRoot,
+        env: process.env,
+      }
+      const invocation = buildCodexRuntimeSpawnInvocation(
+        ['app-server', '--listen', 'stdio://'],
+        process.platform,
+        runtimeSpawnOptions,
+      )
 
       const processHandle = spawn(
         invocation.command,
         invocation.args,
         buildCodexSpawnOptions({
-          cwd: this.workspaceRoot,
-          env: process.env,
+          ...runtimeSpawnOptions,
           stdio: ['pipe', 'pipe', 'pipe'],
         }),
       )

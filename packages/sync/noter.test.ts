@@ -20,6 +20,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   buildCodexSpawnInvocation,
   buildCodexRuntimeSpawnInvocation,
+  detectCodexVersion,
   buildMachineHeartbeatBody,
   buildNoterConnectConfigUrl,
   buildCodexSpawnOptions,
@@ -327,6 +328,91 @@ describe('@noter-md/sync', () => {
     expect(buildCodexSpawnOptions({ cwd: '/tmp/noter' })).toEqual({
       cwd: '/tmp/noter',
     })
+  })
+
+  it('forwards detectCodexVersion env and cwd to the spawned Codex process', () => {
+    const tempRoot = path.join(tmpdir(), `noter-codex-version-${Date.now()}`)
+    const workspaceRoot = path.join(tempRoot, 'workspace')
+    const binDirectory = path.join(tempRoot, 'bin')
+    const originalPath = process.env.PATH
+    const originalWindowsPath = process.env.Path
+    const originalPathext = process.env.PATHEXT
+    const customEnvVar = 'NOTER_TEST_CODEX_VERSION'
+    const customEnvValue = 'codex-custom-version'
+    const expectedOutput = `${workspaceRoot}|${customEnvValue}`
+
+    mkdirSync(workspaceRoot, { recursive: true })
+    mkdirSync(binDirectory, { recursive: true })
+
+    if (process.platform === 'win32') {
+      const shimPath = path.join(binDirectory, 'codex.cmd')
+      const bundledNodePath = path.join(binDirectory, 'node.exe')
+      const scriptPath = path.join(
+        binDirectory,
+        'node_modules',
+        '@openai',
+        'codex',
+        'dist',
+        'cli.js',
+      )
+
+      mkdirSync(path.dirname(scriptPath), { recursive: true })
+      writeFileSync(
+        shimPath,
+        `@ECHO off\r\n"%_prog%" "%dp0%\\node_modules\\@openai\\codex\\dist\\cli.js" %*\r\n`,
+        'utf8',
+      )
+      copyFileSync(process.execPath, bundledNodePath)
+      writeFileSync(
+        scriptPath,
+        `process.stdout.write(\`\${process.cwd()}|\${process.env.${customEnvVar} ?? ''}\n\`)`,
+        'utf8',
+      )
+      process.env.PATHEXT = '.CMD;.EXE'
+    } else {
+      const shimPath = path.join(binDirectory, 'codex')
+      writeFileSync(
+        shimPath,
+        ['#!/bin/sh', `printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`].join('\n'),
+        'utf8',
+      )
+      chmodSync(shimPath, 0o755)
+    }
+
+    process.env.PATH = binDirectory
+    process.env.Path = binDirectory
+
+    try {
+      expect(
+        detectCodexVersion({
+          cwd: workspaceRoot,
+          env: {
+            ...process.env,
+            PATH: binDirectory,
+            Path: binDirectory,
+            PATHEXT: process.env.PATHEXT,
+            [customEnvVar]: customEnvValue,
+          },
+        }),
+      ).toBe(expectedOutput)
+    } finally {
+      if (originalPath === undefined) {
+        delete process.env.PATH
+      } else {
+        process.env.PATH = originalPath
+      }
+      if (originalWindowsPath === undefined) {
+        delete process.env.Path
+      } else {
+        process.env.Path = originalWindowsPath
+      }
+      if (originalPathext === undefined) {
+        delete process.env.PATHEXT
+      } else {
+        process.env.PATHEXT = originalPathext
+      }
+      rmSync(tempRoot, { force: true, recursive: true })
+    }
   })
 
   it('routes Windows one-off and runtime Codex launches through the shim-selected Node runtime', () => {
