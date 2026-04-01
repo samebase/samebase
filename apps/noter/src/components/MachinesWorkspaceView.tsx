@@ -969,7 +969,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                   <ComposerDock
                     {...bottomDockProps}
                     canSend={
-                      props.selectedThreadId !== null &&
+                      props.selectedThread !== null &&
                       !selectedThreadIsArchived &&
                       !props.isBusy
                     }

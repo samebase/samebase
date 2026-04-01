@@ -164,7 +164,10 @@ export function MachinesWorkspacePage() {
     }
 
     if (selectedMachineId === null) {
-      return machines[0] ?? null;
+      // Wait for the selection effect to choose the first machine before any
+      // machine-local hydration starts, so initial `/machines` loads do not try
+      // to issue a token for a null machine id.
+      return null;
     }
 
     return (
@@ -176,6 +179,7 @@ export function MachinesWorkspacePage() {
   const selectedMachineStatusReason = selectedMachine
     ? readMachineStatusReason(selectedMachine)
     : null;
+  const selectedMachineControlId = selectedMachine?.machineId ?? null;
   const machineControlUrl =
     selectedMachine && selectedMachineStatusReason === null
       ? selectedMachine.controlUrl
@@ -183,7 +187,7 @@ export function MachinesWorkspacePage() {
 
   const ensureMachineControlToken = useCallback(
     async (forceRefresh = false): Promise<string> => {
-      if (!selectedMachineId) {
+      if (!selectedMachineControlId) {
         throw new Error("Machines workspace is missing its selected machine.");
       }
 
@@ -198,12 +202,12 @@ export function MachinesWorkspacePage() {
       }
 
       const issuedToken = await issueMachineControlToken({
-        machineId: selectedMachineId,
+        machineId: selectedMachineControlId,
       });
       machineControlTokenRef.current = issuedToken;
       return issuedToken.token;
     },
-    [issueMachineControlToken, selectedMachineId],
+    [issueMachineControlToken, selectedMachineControlId],
   );
 
   const requestMachineControlJson = useCallback(
@@ -290,6 +294,9 @@ export function MachinesWorkspacePage() {
       uniqueThreads.find((thread) => thread.id === selectedThreadId) ?? null
     );
   }, [selectedThreadId, uniqueThreads]);
+  const selectedThreadCanSend =
+    selectedThreadSummary !== null &&
+    !codexThreadPathIsArchived(selectedThreadSummary.path);
 
   const currentSearch = buildSearchString(searchParams);
 
@@ -582,7 +589,6 @@ export function MachinesWorkspacePage() {
       window.clearInterval(intervalId);
     };
   }, [
-    refreshAllRef,
     searchTerm,
     selectedMachine,
     selectedMachineStatusReason,
@@ -638,15 +644,16 @@ export function MachinesWorkspacePage() {
       onThreadSelect={setSelectedThreadId}
       onTurnDraftChange={setTurnDraft}
       onTurnSubmit={() => {
-        if (!selectedThreadId || turnDraft.trim().length === 0) {
+        if (!selectedThreadCanSend || turnDraft.trim().length === 0) {
           return;
         }
 
         void runAction(async () => {
+          const threadId = selectedThreadSummary.id;
           await requestMachineControlJson<ThreadActionResponse>({
             body: {
               text: turnDraft.trim(),
-              threadId: selectedThreadId,
+              threadId,
             },
             method: "POST",
             path: "/turn/start",
@@ -654,9 +661,8 @@ export function MachinesWorkspacePage() {
           setTurnDraft("");
           const threadsResponse = await refreshAll(searchTerm);
           const refreshedThread =
-            threadsResponse.threads.find(
-              (thread) => thread.id === selectedThreadId,
-            ) ?? null;
+            threadsResponse.threads.find((thread) => thread.id === threadId) ??
+            null;
           await refreshSelectedThread(refreshedThread);
         });
       }}

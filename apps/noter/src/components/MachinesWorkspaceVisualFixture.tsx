@@ -7,6 +7,12 @@ import {
 } from "@/lib/codexAppServerResearch";
 
 const FIXTURE_RELATIVE_TIME_REFERENCE_MS = 1_775_541_762_000;
+const FIXTURE_WORKTREE_CWD = "/Users/fixture/.codex/worktrees/demo/noter";
+const FIXTURE_PROJECT_ROOT = "/Users/fixture/dev/noter";
+const FIXTURE_SESSION_ROOT = "/Users/fixture/.codex/sessions/2026/04/01";
+const FIXTURE_GIT_ORIGIN_URL = "git@github.com:fixture/noter.git";
+const FIXTURE_BRANCH_NAME = "codex/machines-sidebar";
+const FIXTURE_GIT_SHA = "abc123def4567890abc123def4567890abc123de";
 
 const FIXTURE_TURN_INITIAL: CodexAppServerThreadTurn = {
   errorMessage: null,
@@ -67,22 +73,22 @@ const PRIMARY_THREAD: CodexAppServerThread = {
   agentRole: null,
   cliVersion: "0.117.0-alpha.10",
   createdAt: 1_775_541_701,
-  cwd: "/Users/nicu/.codex/worktrees/e2ca/noter",
+  cwd: FIXTURE_WORKTREE_CWD,
   gitInfo: {
-    branch: "codex/connected-machines-sidebar-research",
-    originUrl: "git@github.com:noter-md/noter.git",
-    sha: "17844345696000a813f3a33feba0978077c27f34",
+    branch: FIXTURE_BRANCH_NAME,
+    originUrl: FIXTURE_GIT_ORIGIN_URL,
+    sha: FIXTURE_GIT_SHA,
   },
   id: "thread-machine-workspace-primary",
   modelProvider: "openai",
   name: "Shared machines workspace",
-  path: "/Users/nicu/.codex/sessions/2026/04/01/thread-machine-workspace-primary.jsonl",
+  path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-primary.jsonl`,
   preview:
     "Build `/machines` on the shared workspace shell and keep the thread inventory in the left sidebar.",
   project: {
-    id: "/Users/nicu/dev/my/noter",
+    id: FIXTURE_PROJECT_ROOT,
     label: "noter",
-    rootCwd: "/Users/nicu/dev/my/noter",
+    rootCwd: FIXTURE_PROJECT_ROOT,
   },
   raw: null,
   source: "vscode",
@@ -96,7 +102,7 @@ const PRIMARY_THREAD: CodexAppServerThread = {
   updatedAt: 1_775_541_762,
   workspace: {
     isProjectRoot: false,
-    label: "e2ca",
+    label: "demo",
   },
 };
 
@@ -104,7 +110,7 @@ const SECONDARY_THREAD: CodexAppServerThread = {
   ...PRIMARY_THREAD,
   id: "thread-machine-workspace-secondary",
   name: "Machine URL redirect follow-up",
-  path: "/Users/nicu/.codex/sessions/2026/04/01/thread-machine-workspace-secondary.jsonl",
+  path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-secondary.jsonl`,
   preview:
     "Redirect `/machines/:machineId/live` into the new workspace route so the old entrypoint stays compatible.",
   status: {
@@ -120,7 +126,7 @@ const TERTIARY_THREAD: CodexAppServerThread = {
   ...PRIMARY_THREAD,
   id: "thread-machine-workspace-tertiary",
   name: "Connected machine sidebar screenshot",
-  path: "/Users/nicu/.codex/sessions/2026/04/01/thread-machine-workspace-tertiary.jsonl",
+  path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-tertiary.jsonl`,
   preview:
     "Add screenshot coverage for the shipped sidebar-first machines workspace surface.",
   status: {
@@ -134,30 +140,30 @@ const TERTIARY_THREAD: CodexAppServerThread = {
 
 const FIXTURE_MACHINES: ConnectedMachineView[] = [
   {
-    allowedRoots: ["/Users/nicu/dev/my/noter"],
+    allowedRoots: [FIXTURE_PROJECT_ROOT],
     capabilities: ["presence", "liveControl"],
     connectorVersion: "0.3.0",
     controlStatus: "ready",
     controlStatusDetail: "Cloudflare tunnel healthy.",
-    controlUrl: "https://machine-live-control.trycloudflare.com",
+    controlUrl: "https://fixture-live-control.example.com",
     controlUrlUpdatedAt: 1_775_541_600,
-    displayName: "Nicu MacBook Pro",
-    hostname: "nicu-mbp.local",
+    displayName: "Fixture MacBook Pro",
+    hostname: "fixture-mbp.local",
     lastSeenAt: 1_775_541_752,
     machineId: "machine-primary",
     os: "macos",
     status: "online",
   },
   {
-    allowedRoots: ["/Users/nicu/dev/my/noter"],
+    allowedRoots: [FIXTURE_PROJECT_ROOT],
     capabilities: ["presence"],
     connectorVersion: "0.3.0",
     controlStatus: "unavailable",
     controlStatusDetail: "Connector is online, but live control is paused.",
     controlUrl: undefined,
     controlUrlUpdatedAt: undefined,
-    displayName: "Noter build box",
-    hostname: "buildbox.local",
+    displayName: "Fixture build box",
+    hostname: "fixture-buildbox.local",
     lastSeenAt: 1_775_541_100,
     machineId: "machine-secondary",
     os: "linux",

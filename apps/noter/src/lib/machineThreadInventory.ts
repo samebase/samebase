@@ -64,10 +64,11 @@ export function buildMachineThreadGroups(args: {
   threads: CodexAppServerThread[];
 }): MachineThreadGroup[] {
   const groupMap = new Map<string, MachineThreadGroup>();
+  const loadedThreadIdSet = new Set(args.loadedThreadIds);
 
   for (const thread of args.threads) {
     const current = groupMap.get(thread.project.id);
-    const loadedCountDelta = args.loadedThreadIds.includes(thread.id) ? 1 : 0;
+    const loadedCountDelta = loadedThreadIdSet.has(thread.id) ? 1 : 0;
 
     if (current) {
       current.count += 1;
