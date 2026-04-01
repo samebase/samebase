@@ -391,9 +391,21 @@ describe('@noter-md/sync', () => {
         command: realpathSync(bundledNodePath),
       })
     } finally {
-      process.env.PATH = originalPath
-      process.env.Path = originalWindowsPath
-      process.env.PATHEXT = originalPathext
+      if (originalPath === undefined) {
+        delete process.env.PATH
+      } else {
+        process.env.PATH = originalPath
+      }
+      if (originalWindowsPath === undefined) {
+        delete process.env.Path
+      } else {
+        process.env.Path = originalWindowsPath
+      }
+      if (originalPathext === undefined) {
+        delete process.env.PATHEXT
+      } else {
+        process.env.PATHEXT = originalPathext
+      }
       rmSync(tempRoot, { force: true, recursive: true })
     }
   })
