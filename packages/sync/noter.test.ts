@@ -407,6 +407,8 @@ describe('@noter-md/sync', () => {
     const packageShimBaseName = 'codex-package'
     const packageShimPathA = path.join(workspaceA, `${packageShimBaseName}.cmd`)
     const packageShimPathB = path.join(workspaceB, `${packageShimBaseName}.cmd`)
+    const bundledNodePathA = path.join(workspaceA, 'node.exe')
+    const bundledNodePathB = path.join(workspaceB, 'node.exe')
     const scriptPathA = path.join(
       workspaceA,
       'node_modules',
@@ -423,8 +425,6 @@ describe('@noter-md/sync', () => {
       'dist',
       'cli.js',
     )
-    const nodeCommand = realpathSync(process.execPath)
-    const nodeDirectory = path.dirname(nodeCommand)
     const originalPath = process.env.PATH
     const originalWindowsPath = process.env.Path
     const originalPathext = process.env.PATHEXT
@@ -468,10 +468,12 @@ describe('@noter-md/sync', () => {
       `@ECHO off\r\n"%_prog%" "%dp0%\\node_modules\\@openai\\codex\\dist\\cli.js" %*\r\n`,
       'utf8',
     )
+    copyFileSync(process.execPath, bundledNodePathA)
+    copyFileSync(process.execPath, bundledNodePathB)
     writeFileSync(scriptPathA, 'console.log("codex-a")\n', 'utf8')
     writeFileSync(scriptPathB, 'console.log("codex-b")\n', 'utf8')
-    process.env.PATH = `${binDirectory};${nodeDirectory}`
-    process.env.Path = `${binDirectory};${nodeDirectory}`
+    process.env.PATH = binDirectory
+    process.env.Path = binDirectory
     process.env.PATHEXT = '.CMD;.EXE'
 
     try {
@@ -479,7 +481,7 @@ describe('@noter-md/sync', () => {
         buildCodexSpawnInvocation(['--version'], 'win32', { cwd: workspaceA }),
       ).toEqual({
         args: [realpathSync(scriptPathA), '--version'],
-        command: nodeCommand,
+        command: realpathSync(bundledNodePathA),
       })
       expect(
         buildCodexRuntimeSpawnInvocation(['--version'], 'win32', {
@@ -487,7 +489,7 @@ describe('@noter-md/sync', () => {
         }),
       ).toEqual({
         args: [realpathSync(scriptPathB), '--version'],
-        command: nodeCommand,
+        command: realpathSync(bundledNodePathB),
       })
     } finally {
       if (originalPath === undefined) {
