@@ -1,4 +1,5 @@
 import { createServer } from 'node:http'
+import { spawnSync } from 'node:child_process'
 import {
   chmodSync,
   mkdirSync,
@@ -313,34 +314,7 @@ describe('@noter-md/sync', () => {
     )
   })
 
-  it('routes Windows Codex CLI launches through cmd.exe so args keep their spaces', () => {
-    const windowsShell = process.env.ComSpec ?? 'cmd.exe'
-
-    expect(
-      buildCodexSpawnInvocation(
-        [
-          'app-server',
-          '--out',
-          'C:\\Users\\Nicu Test\\R&D\\100%\\AppData\\Local\\Temp',
-        ],
-        'win32',
-      ),
-    ).toEqual({
-      args: [
-        '/d',
-        '/v:off',
-        '/c',
-        'codex',
-        'app-server',
-        '--out',
-        'C:\\Users\\Nicu Test\\R&D\\100%\\AppData\\Local\\Temp',
-      ],
-      command: windowsShell,
-    })
-    expect(buildCodexSpawnInvocation(['--version'], 'windows')).toEqual({
-      args: ['/d', '/v:off', '/c', 'codex', '--version'],
-      command: windowsShell,
-    })
+  it('keeps non-Windows Codex CLI launches direct', () => {
     expect(buildCodexSpawnInvocation(['--version'], 'darwin')).toEqual({
       args: ['--version'],
       command: 'codex',
@@ -354,7 +328,7 @@ describe('@noter-md/sync', () => {
     })
   })
 
-  it('runs the Windows Codex app-server through the shim-selected Node runtime', () => {
+  it('routes Windows one-off and runtime Codex launches through the shim-selected Node runtime', () => {
     const tempRoot = path.join(tmpdir(), `noter-codex-shim-${Date.now()}`)
     const binDirectory = path.join(tempRoot, 'bin')
     const shimPath = path.join(binDirectory, 'codex.cmd')
@@ -384,15 +358,23 @@ describe('@noter-md/sync', () => {
     process.env.PATHEXT = '.CMD;.EXE'
 
     try {
+      const expectedInvocation = {
+        args: [realpathSync(scriptPath), 'app-server', '--listen', 'stdio://'],
+        command: realpathSync(bundledNodePath),
+      }
+
+      expect(
+        buildCodexSpawnInvocation(
+          ['app-server', '--listen', 'stdio://'],
+          'win32',
+        ),
+      ).toEqual(expectedInvocation)
       expect(
         buildCodexRuntimeSpawnInvocation(
           ['app-server', '--listen', 'stdio://'],
           'win32',
         ),
-      ).toEqual({
-        args: [realpathSync(scriptPath), 'app-server', '--listen', 'stdio://'],
-        command: realpathSync(bundledNodePath),
-      })
+      ).toEqual(expectedInvocation)
     } finally {
       if (originalPath === undefined) {
         delete process.env.PATH
@@ -412,6 +394,78 @@ describe('@noter-md/sync', () => {
       rmSync(tempRoot, { force: true, recursive: true })
     }
   })
+
+  it.runIf(process.platform === 'win32')(
+    'preserves literal Windows Codex args that contain cmd metacharacters',
+    () => {
+      const tempRoot = path.join(tmpdir(), `noter-codex-literal-${Date.now()}`)
+      const binDirectory = path.join(tempRoot, 'bin')
+      const shimPath = path.join(binDirectory, 'codex.cmd')
+      const scriptPath = path.join(binDirectory, 'codex-script.js')
+      const originalPath = process.env.PATH
+      const originalWindowsPath = process.env.Path
+      const originalPathext = process.env.PATHEXT
+      const nodeDirectory = path.dirname(process.execPath)
+      const literalArg = 'C:\\tmp\\%USERPROFILE%\\A&B\\literal^caret'
+
+      mkdirSync(binDirectory, { recursive: true })
+      writeFileSync(
+        shimPath,
+        [
+          '@ECHO OFF',
+          'SETLOCAL',
+          'SET PATHEXT=%PATHEXT:;.JS;=;%',
+          'node  "%~dp0\\codex-script.js" %*',
+        ].join('\r\n'),
+        'utf8',
+      )
+      writeFileSync(
+        scriptPath,
+        'process.stdout.write(JSON.stringify(process.argv.slice(2)))\n',
+        'utf8',
+      )
+      process.env.PATH = `${binDirectory};${nodeDirectory}`
+      process.env.Path = `${binDirectory};${nodeDirectory}`
+      process.env.PATHEXT = '.CMD;.EXE'
+
+      try {
+        const invocation = buildCodexSpawnInvocation(
+          ['echo-argv', literalArg],
+          'win32',
+        )
+        const result = spawnSync(invocation.command, invocation.args, {
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            PATH: process.env.PATH,
+            PATHEXT: process.env.PATHEXT,
+            Path: process.env.Path,
+          },
+        })
+
+        expect(result.status).toBe(0)
+        expect(result.stderr).toBe('')
+        expect(JSON.parse(result.stdout)).toEqual(['echo-argv', literalArg])
+      } finally {
+        if (originalPath === undefined) {
+          delete process.env.PATH
+        } else {
+          process.env.PATH = originalPath
+        }
+        if (originalWindowsPath === undefined) {
+          delete process.env.Path
+        } else {
+          process.env.Path = originalWindowsPath
+        }
+        if (originalPathext === undefined) {
+          delete process.env.PATHEXT
+        } else {
+          process.env.PATHEXT = originalPathext
+        }
+        rmSync(tempRoot, { force: true, recursive: true })
+      }
+    },
+  )
 
   it.runIf(process.platform !== 'win32')(
     'resolves symlinked entrypoints before checking direct execution',

@@ -353,24 +353,22 @@ function normalizeRuntimePlatform(currentPlatform = process.platform) {
 }
 
 /**
- * npm installs the Windows Codex CLI entrypoint as a `.cmd` wrapper. Launch it
- * through `cmd.exe` on Windows so the wrapper resolves via PATHEXT, but pass
- * the command and its args as separate argv entries so Node does not
- * over-escape a prequoted `/c` command string.
+ * npm installs the Windows Codex CLI entrypoint as a `.cmd` wrapper. Resolve
+ * that shim to the real script entrypoint on Windows so one-off commands avoid
+ * both the quoted `/c` bug and cmd.exe metacharacter expansion.
  */
 export function buildCodexSpawnInvocation(
   args,
   currentPlatform = process.platform,
 ) {
-  return normalizeRuntimePlatform(currentPlatform) === 'win32'
-    ? {
-        args: ['/d', '/v:off', '/c', 'codex', ...args],
-        command: process.env.ComSpec ?? 'cmd.exe',
-      }
-    : {
-        args,
-        command: 'codex',
-      }
+  if (normalizeRuntimePlatform(currentPlatform) === 'win32') {
+    return buildCodexRuntimeSpawnInvocation(args, currentPlatform)
+  }
+
+  return {
+    args,
+    command: 'codex',
+  }
 }
 
 export function buildCodexSpawnOptions(options = {}) {
@@ -432,6 +430,61 @@ function readWindowsCmdShimTarget(shimPath) {
   return matches?.[1] ?? null
 }
 
+function resolveWindowsCmdShimScriptPath(shimPath, shimTarget) {
+  return realpathSync(
+    path.resolve(path.dirname(shimPath), ...shimTarget.split(/[\\/]+/)),
+  )
+}
+
+/**
+ * Volta's top-level Windows shim delegates to `volta run codex`, so ask Volta
+ * which package-local command it would execute and then resolve that package's
+ * npm-style `.cmd` shim the same way we do for global npm installs.
+ */
+function resolveWindowsVoltaPackageShimPath(shimPath, env = process.env) {
+  const shimContents = readFileSync(shimPath, 'utf8').trim()
+  if (!/^@echo off\r?\nvolta run %~n0 %\*$/i.test(shimContents)) {
+    return null
+  }
+
+  const voltaPath = resolveWindowsPathCommand('volta', env)
+  if (voltaPath === null) {
+    return null
+  }
+
+  const result = spawnSync(voltaPath, ['which', path.parse(shimPath).name], {
+    encoding: 'utf8',
+    windowsHide: true,
+  })
+  if (result.error || result.status !== 0) {
+    return null
+  }
+
+  const packageCommandPath =
+    result.stdout
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .find(line => line.length > 0) ?? null
+  if (packageCommandPath === null) {
+    return null
+  }
+
+  const candidatePaths =
+    path.extname(packageCommandPath).length > 0
+      ? [packageCommandPath]
+      : [`${packageCommandPath}.cmd`, `${packageCommandPath}.bat`]
+
+  for (const candidatePath of candidatePaths) {
+    try {
+      if (statSync(candidatePath).isFile()) {
+        return candidatePath
+      }
+    } catch {}
+  }
+
+  return null
+}
+
 /**
  * npm's Windows shims prefer a sibling `node.exe` and otherwise fall back to
  * resolving `node` on PATH. Mirror that choice so long-lived runtimes use the
@@ -456,10 +509,38 @@ function resolveWindowsCmdShimNodeCommand(shimPath, env = process.env) {
   )
 }
 
+function resolveWindowsShimInvocation(shimPath, env = process.env) {
+  const directTarget = readWindowsCmdShimTarget(shimPath)
+  if (directTarget !== null) {
+    return {
+      nodeCommand: resolveWindowsCmdShimNodeCommand(shimPath, env),
+      scriptPath: resolveWindowsCmdShimScriptPath(shimPath, directTarget),
+    }
+  }
+
+  const voltaPackageShimPath = resolveWindowsVoltaPackageShimPath(shimPath, env)
+  if (voltaPackageShimPath === null) {
+    return null
+  }
+
+  const voltaTarget = readWindowsCmdShimTarget(voltaPackageShimPath)
+  if (voltaTarget === null) {
+    return null
+  }
+
+  return {
+    nodeCommand: resolveWindowsCmdShimNodeCommand(voltaPackageShimPath, env),
+    scriptPath: resolveWindowsCmdShimScriptPath(
+      voltaPackageShimPath,
+      voltaTarget,
+    ),
+  }
+}
+
 /**
- * One-off Windows Codex commands can go through `cmd.exe`, but the long-lived
- * app-server should run as the real child process so restart and shutdown do
- * not strand an orphaned shell wrapper.
+ * Resolve the Windows Codex shim to its real JS entrypoint and launch that
+ * under Node so literal args survive shell parsing and long-lived runtimes do
+ * not strand an orphaned `cmd.exe` wrapper.
  */
 export function buildCodexRuntimeSpawnInvocation(
   args,
@@ -479,21 +560,16 @@ export function buildCodexRuntimeSpawnInvocation(
 
   const extension = path.extname(codexPath).toLowerCase()
   if (extension === '.cmd' || extension === '.bat') {
-    const shimTarget = readWindowsCmdShimTarget(codexPath)
-    if (shimTarget === null) {
+    const shimInvocation = resolveWindowsShimInvocation(codexPath)
+    if (shimInvocation === null) {
       throw new Error(
         `${buildCodexCliMissingMessage()} The Windows CLI shim could not be resolved to its script entrypoint.`,
       )
     }
 
     return {
-      args: [
-        realpathSync(
-          path.resolve(path.dirname(codexPath), ...shimTarget.split(/[\\/]+/)),
-        ),
-        ...args,
-      ],
-      command: resolveWindowsCmdShimNodeCommand(codexPath),
+      args: [shimInvocation.scriptPath, ...args],
+      command: shimInvocation.nodeCommand,
     }
   }
 

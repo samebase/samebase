@@ -100,7 +100,8 @@ node .\scripts\bootstrap-worktree.js
 pnpm dev
 ```
 
-6. Open [http://127.0.0.1:5173/](http://127.0.0.1:5173/).
+6. Open the URL Vite prints in the terminal. The usual default is
+   [http://127.0.0.1:5173/](http://127.0.0.1:5173/).
 
 Notes:
 
@@ -110,10 +111,11 @@ Notes:
 - On a brand-new machine, the first `pnpm dev` run may pause for an interactive
   Convex CLI login/bootstrap prompt before `apps/noter/.env.local` exists.
 - For local connected-machine testing with `/noter.js` on a fresh Windows
-  checkout that does not already have a cloud dev source env, use the
-  Windows-specific walkthrough notes in
-  `specs/075_CONNECTED_MACHINE_INSTALLER_LOCAL_WALKTHROUGH_SPEC.md`. The current
-  local-only anonymous bootstrap path needs a few manual Node commands today.
+  checkout that does not already have a cloud dev source env, use the dated
+  troubleshooting notes in
+  `docs/research/windows-native-connected-machine-walkthrough-2026-04-01.md`.
+  The current local-only anonymous bootstrap path needs a few manual Node
+  commands today.
 - The primary checkout path above works without GNU Make, but worktree and
   anonymous bootstrap flows still depend on `make` plus POSIX shell tools. For
   `make run`, `make anon`, or `make anon-once`, use Git Bash, MSYS2, or WSL

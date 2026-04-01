@@ -87,65 +87,11 @@ Expected result:
 If this worktree chose another frontend port, substitute that origin in the
 commands below.
 
-### Windows Primary-Checkout Findings (2026-04-01)
-
-Native Windows outside WSL can run the local hosted-file flow, but the shortest
-working path on a fresh primary checkout was more manual than the current
-`make anon` walkthrough.
-
-Observed blockers on this machine:
-
-1. `make` was not installed
-2. there was no `apps/noter/.env.local` source env from another checkout
-3. `node ./scripts/convex-sync-dev-env.js --check-prereqs` failed until an
-   anonymous local `.env.local` existed
-4. `node ./scripts/convex-seed-dev-auth.js` and
-   `npx convex run devAuth:seedPasswordAccount ...` both returned the seed
-   result and then hit a Windows-specific Convex CLI shutdown assertion:
-   `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 76`
-5. `node ./apps/noter/convex-dev.js --refresh-anon-auth ...` failed, but running
-   `npx @convex-dev/auth --skip-git-check --allow-dirty-git-state` directly
-   succeeded and set `JWT_PRIVATE_KEY` and `JWKS`
-
-Working local-only bootstrap sequence from the repo root:
-
-```powershell
-cd apps/noter
-$env:CONVEX_AGENT_MODE='anonymous'
-node .\convex-dev.js --once --codegen=enable --tail-logs=disable --typecheck=disable
-cd ..\..
-node .\scripts\convex-sync-dev-env.js --allow-missing-source-env
-```
-
-Then configure local auth in `apps/noter`:
-
-```powershell
-cd apps/noter
-npx @convex-dev/auth --skip-git-check --allow-dirty-git-state
-npx convex run devAuth:seedPasswordAccount --env-file .env.local --typecheck disable --codegen disable
-```
-
-The `convex run` command can still print the Windows assertion above after it
-returns the JSON result, but the seeded dev sign-in still worked with:
-
-1. email: `nicu@noter.md`
-2. password: `pass1234`
-
-For the local app itself, the working Windows test setup used two long-running
-terminals:
-
-```powershell
-# terminal 1
-cd apps/noter
-$env:CONVEX_AGENT_MODE='anonymous'
-node .\convex-dev.js --tail-logs=disable --typecheck=disable --codegen=enable
-```
-
-```powershell
-# terminal 2
-cd apps/noter
-pnpm run dev:frontend
-```
+Native Windows outside WSL is compatible with the hosted-file flow, but this
+spec's default startup path remains the worktree `make anon` flow above. For
+dated primary-checkout troubleshooting notes and the manual Windows bootstrap
+sequence validated during local testing, see
+`docs/research/windows-native-connected-machine-walkthrough-2026-04-01.md`.
 
 ## 2. Open The Machine-Connect Page
 
@@ -208,14 +154,6 @@ What this does today:
 4. writes or updates `~/.noter/config.json`
 5. prints a markdown status block to stdout
 6. opens the browser to `/machines/connect?openedByCli&requestId=...`
-
-Windows result verified on 2026-04-01:
-
-1. the command succeeded from PowerShell
-2. it wrote `C:\Users\<user>\.noter\config.json`
-3. it printed the `next:` approval URL
-4. automatic browser opening still failed on this machine with:
-   `Could not open a browser automatically with cmd: exited with code 1.`
 
 If that browser-open step fails on Windows, open the printed `next:` URL
 manually.
