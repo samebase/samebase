@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import {
   Compartment,
   EditorSelection,
@@ -58,13 +58,11 @@ export function CodeMirrorFileSurface({
   extraExtensions = EMPTY_EXTENSIONS,
   filePath,
   initialValue,
-  overlay,
 }: {
   dataTestId?: string;
   extraExtensions?: readonly Extension[];
   filePath: string;
   initialValue: string;
-  overlay?: ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -223,7 +221,6 @@ export function CodeMirrorFileSurface({
         }
         translate="no"
       />
-      {overlay}
     </div>
   );
 }

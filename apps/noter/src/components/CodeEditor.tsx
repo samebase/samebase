@@ -325,17 +325,20 @@ export function CodeEditor({
   );
 
   return (
-    <CodeMirrorFileSurface
-      filePath={filePath}
-      initialValue={firstDoc.content}
-      extraExtensions={collaborationExtensions}
-      overlay={
-        syncError ? (
-          <div className="pointer-events-none absolute bottom-2 right-2 corner-notch-1 bg-red-600/90 px-2 py-1 text-[11px] text-white">
-            {syncError}
-          </div>
-        ) : null
-      }
-    />
+    <div className="relative h-full min-h-0 w-full">
+      <CodeMirrorFileSurface
+        filePath={filePath}
+        initialValue={firstDoc.content}
+        extraExtensions={collaborationExtensions}
+      />
+      {syncError ? (
+        // Keep sync errors attached to the workspace-sized shell so they stay
+        // visible even when the prose surface grows into a long auto-height
+        // document that scrolls through the outer scene.
+        <div className="pointer-events-none absolute bottom-2 right-2 corner-notch-1 bg-red-600/90 px-2 py-1 text-[11px] text-white">
+          {syncError}
+        </div>
+      ) : null}
+    </div>
   );
 }

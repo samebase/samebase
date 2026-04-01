@@ -18,8 +18,10 @@ const SWIPE_VIEWPORT_BOTTOM_MARGIN_PX = 120;
 // Step through candidate hit targets in coarse increments until a visible
 // `.cm-line` is found.
 const SWIPE_PROBE_STEP_PX = 20;
-// Move in two equal segments so the gesture matches a natural upward swipe.
-const SWIPE_MOVE_SEGMENT_PX = 120;
+// Move far enough to require real workspace scrolling without jumping past the
+// first visible prose block in one oversized fling.
+const SWIPE_SCROLL_DISTANCE_PX = 240;
+const SWIPE_SCROLL_SPEED_PX_PER_SECOND = 800;
 
 async function readScrollMetrics(locator: Locator): Promise<ScrollMetrics> {
   return locator.evaluate((node) => {
@@ -130,57 +132,24 @@ async function swipeSurface(page: Page, surface: Locator) {
 
   const startX = startPoint.startX;
   const startY = startPoint.startY;
-  const middleY = startY - SWIPE_MOVE_SEGMENT_PX;
-  const endY = startY - SWIPE_MOVE_SEGMENT_PX * 2;
   const session = await page.context().newCDPSession(page);
 
   try {
-    await session.send("Input.dispatchTouchEvent", {
-      type: "touchStart",
-      touchPoints: [
-        {
-          force: 1,
-          id: 1,
-          radiusX: 4,
-          radiusY: 4,
-          x: startX,
-          y: startY,
-        },
-      ],
-    });
-    await session.send("Input.dispatchTouchEvent", {
-      type: "touchMove",
-      touchPoints: [
-        {
-          force: 1,
-          id: 1,
-          radiusX: 4,
-          radiusY: 4,
-          x: startX,
-          y: middleY,
-        },
-      ],
-    });
-    await session.send("Input.dispatchTouchEvent", {
-      type: "touchMove",
-      touchPoints: [
-        {
-          force: 1,
-          id: 1,
-          radiusX: 4,
-          radiusY: 4,
-          x: startX,
-          y: endY,
-        },
-      ],
+    // Headless Chromium does not reliably turn a raw CDP touch sequence into
+    // native scrolling, even when the hit target is a visible prose line with
+    // `touch-action: pan-y`. Use the browser's synthesized touch-scroll path
+    // at that exact coordinate so this still exercises the shipped surface.
+    await session.send("Input.synthesizeScrollGesture", {
+      gestureSourceType: "touch",
+      repeatCount: 1,
+      repeatDelayMs: 0,
+      speed: SWIPE_SCROLL_SPEED_PX_PER_SECOND,
+      x: Math.round(startX),
+      xDistance: 0,
+      y: Math.round(startY),
+      yDistance: -SWIPE_SCROLL_DISTANCE_PX,
     });
   } finally {
-    await session
-      .send("Input.dispatchTouchEvent", {
-        type: "touchEnd",
-        touchPoints: [],
-      })
-      .catch(() => undefined);
     await session.detach().catch(() => undefined);
   }
 }
