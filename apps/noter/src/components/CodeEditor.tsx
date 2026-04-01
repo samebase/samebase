@@ -272,7 +272,11 @@ export function CodeEditor({
   const pullRef = useRef<
     ((updates: readonly Update[], version: number) => void) | null
   >(null);
-  const [version, setVersion] = useState(firstDoc.version);
+  // CodeEditor is keyed by repo/branch/file path, so this captures the mount
+  // version for the currently opened file without forcing the editor surface to
+  // remount on every successful collaborative sync.
+  const mountedFileVersionRef = useRef(firstDoc.version);
+  const [version, setVersion] = useState(mountedFileVersionRef.current);
   const [syncError, setSyncError] = useState<string | null>(null);
 
   const updates = useQuery(
@@ -307,7 +311,7 @@ export function CodeEditor({
   const collaborationExtensions = useMemo(
     () =>
       peerExtension({
-        startVersion: firstDoc.version,
+        startVersion: mountedFileVersionRef.current,
         repositoryFullName,
         branch,
         filePath,
@@ -317,7 +321,7 @@ export function CodeEditor({
           pullRef.current = pull;
         },
       }),
-    [branch, filePath, firstDoc.version, repositoryFullName],
+    [branch, filePath, repositoryFullName],
   );
 
   return (
