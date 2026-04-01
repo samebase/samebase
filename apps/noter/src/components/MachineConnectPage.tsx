@@ -123,9 +123,10 @@ function LocalRequirementsSection() {
           These commands need <code>node</code> and the Codex CLI{" "}
           <code>codex</code> on your PATH. Check with{" "}
           <code>node --version</code> and <code>codex --version</code>. The
-          direct hosted-file examples also need <code>curl</code>; check with{" "}
-          <code>curl --version</code>. In Windows PowerShell, you can also run{" "}
-          <code>curl.exe --version</code> to bypass the built-in{" "}
+          direct hosted-file examples also need <code>curl</code>. On
+          macOS/Linux, check with <code>curl --version</code>. In Windows
+          PowerShell, check with <code>curl.exe --version</code> so the
+          prerequisite matches the command below and bypasses the built-in{" "}
           <code>Invoke-WebRequest</code> alias.
         </p>
         <p className="text-sm text-muted-foreground">

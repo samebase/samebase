@@ -404,6 +404,9 @@ function resolveWindowsPathCommand(command, env = process.env) {
     : pathExtensions
         .split(';')
         .map(extension => extension.trim())
+        // Windows treats PATHEXT case-insensitively, but CI can probe a
+        // case-sensitive filesystem while resolving lowercase npm shims.
+        .map(extension => extension.toLowerCase())
         .filter(extension => extension.length > 0)
 
   for (const rawDirectory of searchPath.split(';')) {

@@ -376,7 +376,7 @@ describe('@noter-md/sync', () => {
     writeFileSync(scriptPath, 'console.log("codex")\n', 'utf8')
     process.env.PATH = binDirectory
     process.env.Path = binDirectory
-    process.env.PATHEXT = '.cmd;.exe'
+    process.env.PATHEXT = '.CMD;.EXE'
 
     try {
       expect(
