@@ -293,6 +293,10 @@ if (!supportedNodeBin) {
   process.exit(1);
 }
 env.PATH = [supportedNodeBin, env.PATH].filter(Boolean).join(path.delimiter);
+const supportedNodeCommand = path.join(
+  supportedNodeBin,
+  process.platform === "win32" ? "node.exe" : "node",
+);
 
 const rawExtraArgs = process.argv.slice(2);
 const refreshAnonAuth = rawExtraArgs.includes("--refresh-anon-auth");
@@ -343,8 +347,38 @@ const localConvexBin = path.join(
 const convexExecutable = fs.existsSync(localConvexBin)
   ? localConvexBin
   : "convex";
+/**
+ * Launch the checked-in Convex CLI through Node directly so the long-lived dev
+ * server stays attached to the real child process instead of a Windows `.cmd`
+ * wrapper that `spawn()` cannot execute reliably on its own.
+ */
+const buildConvexSpawnInvocation = () => {
+  const localConvexEntrypoint = path.join(
+    process.cwd(),
+    "node_modules",
+    "convex",
+    "bin",
+    "main.js",
+  );
 
-const child = spawn(convexExecutable, args, { stdio: "inherit", env });
+  if (fs.existsSync(localConvexEntrypoint)) {
+    return {
+      args: [fs.realpathSync(localConvexEntrypoint), ...args],
+      command: supportedNodeCommand,
+    };
+  }
+
+  return {
+    args,
+    command: convexExecutable,
+  };
+};
+
+const convexInvocation = buildConvexSpawnInvocation();
+const child = spawn(convexInvocation.command, convexInvocation.args, {
+  stdio: "inherit",
+  env,
+});
 let childExited = false;
 let childExitCode = 1;
 let refreshDone = !refreshAnonAuth;
