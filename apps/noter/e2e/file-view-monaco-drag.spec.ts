@@ -163,9 +163,8 @@ test("Monaco drag can open the right pane", async ({ page }) => {
   });
 });
 
-// CI flakes on this synthetic Monaco touch drag path; a separate thread is
-// working on the gesture reliability, so keep the rest of the mobile Monaco
-// coverage running for now.
+// Keep this flow synchronized with the shell snap state before starting Monaco
+// touch gestures; otherwise CI can miss move/end samples mid-animation.
 test("Monaco drag can return from the open left pane to main", async ({
   page,
 }) => {
