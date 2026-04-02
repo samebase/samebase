@@ -82,7 +82,7 @@ export function UserMenu({
             className="h-8 w-8 rounded-ui md:h-6 md:w-6"
           >
             <PersonIcon className="h-4 w-4 md:h-3 md:w-3" />
-            <span className="sr-only">Toggle user menu</span>
+            <span className="sr-only">Open user menu</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
