@@ -396,8 +396,10 @@ export function MachinesWorkspacePage() {
           return;
         }
 
-        setThreads([]);
-        setPinnedThreadIds([]);
+        /**
+         * Polling can race tunnel hiccups, so keep the last successful sidebar
+         * inventory instead of flashing the thread rail empty between retries.
+         */
         setHasLoadedThreadInventory(true);
       } finally {
         inFlight = false;

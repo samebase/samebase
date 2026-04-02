@@ -36,6 +36,8 @@ export function RepositoryWorkspaceFrame({
   headerTestId?: string;
   contentClassName?: string;
 }) {
+  // `null` means "show the standard empty sidebar surface" so routes keep the
+  // shared chrome and trigger behavior even before they have real pane content.
   const resolvedLeftSidebarContent =
     leftSidebarContent ?? renderDefaultEmptySidebarContent();
   const resolvedRightSidebarContent =
@@ -79,6 +81,7 @@ export function RepositoryWorkspaceFrame({
 
           <div className="flex items-center gap-2">
             {headerRight}
+            {/* Keep the right trigger visible so empty panes still match the shared workspace shell. */}
             <SidebarTrigger
               className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
               side="right"
