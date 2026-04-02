@@ -40,6 +40,7 @@ const STABLE_SCREENSHOT_OPTIONS = {
   caret: "hide",
   scale: "css",
 } as const;
+const STABLE_SCREENSHOT_MAX_ATTEMPTS = 3;
 
 export type ScreenshotForegroundBounds = {
   height: number;
@@ -279,10 +280,31 @@ export async function takeStableScreenshot(
   locator: Locator,
   options?: StableScreenshotOptions,
 ): Promise<Buffer> {
-  return locator.screenshot({
-    ...STABLE_SCREENSHOT_OPTIONS,
-    scale: options?.scale ?? STABLE_SCREENSHOT_OPTIONS.scale,
-  });
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < STABLE_SCREENSHOT_MAX_ATTEMPTS; attempt += 1) {
+    await locator.waitFor({ state: "visible" });
+
+    try {
+      return await locator.screenshot({
+        ...STABLE_SCREENSHOT_OPTIONS,
+        scale: options?.scale ?? STABLE_SCREENSHOT_OPTIONS.scale,
+      });
+    } catch (error) {
+      lastError = error;
+      if (
+        !(error instanceof Error) ||
+        !error.message.includes("Element is not attached to the DOM") ||
+        attempt === STABLE_SCREENSHOT_MAX_ATTEMPTS - 1
+      ) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Unable to capture a stable screenshot.");
 }
 
 export async function expectScreenshotsToMatch({
