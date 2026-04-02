@@ -5,6 +5,7 @@ import {
 } from "./queryParams";
 
 export const MACHINES_ROUTE = "/machines";
+export const MACHINES_V2_ROUTE = "/v2/machines";
 export const MACHINE_CONNECT_ROUTE = "/machines/connect";
 export const NOTER_SYNC_PUBLIC_SCRIPT_PATH = "/noter.js";
 export type NoterSyncCommandTargetOs = "linux" | "macos" | "windows";
@@ -25,12 +26,15 @@ export function buildNoterSyncScriptUrl(origin: string): string {
   return new URL(NOTER_SYNC_PUBLIC_SCRIPT_PATH, origin).toString();
 }
 
-export function buildMachinesWorkspacePath(args?: {
-  machineId?: string | null;
-  threadId?: string | null;
-}): string {
+function buildMachinesWorkspacePathAt(
+  pathname: string,
+  args?: {
+    machineId?: string | null;
+    threadId?: string | null;
+  },
+): string {
   return buildPathWithQuery({
-    pathname: MACHINES_ROUTE,
+    pathname,
     search: updateQueryParams(undefined, (nextSearchParams) => {
       setQueryParam(
         nextSearchParams,
@@ -44,6 +48,20 @@ export function buildMachinesWorkspacePath(args?: {
       );
     }),
   });
+}
+
+export function buildMachinesWorkspacePath(args?: {
+  machineId?: string | null;
+  threadId?: string | null;
+}): string {
+  return buildMachinesWorkspacePathAt(MACHINES_ROUTE, args);
+}
+
+export function buildMachinesWorkspaceV2Path(args?: {
+  machineId?: string | null;
+  threadId?: string | null;
+}): string {
+  return buildMachinesWorkspacePathAt(MACHINES_V2_ROUTE, args);
 }
 
 export function buildPublishedNoterSyncConnectCommand(): string {

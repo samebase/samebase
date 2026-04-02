@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildMachinesWorkspacePath,
+  buildMachinesWorkspaceV2Path,
   buildDirectNoterSyncConnectCommand,
   buildDirectNoterSyncRunCommand,
   buildNoterSyncScriptUrl,
@@ -25,6 +26,16 @@ describe("noterSync", () => {
       }),
     ).toBe("/machines?machineId=machine%3A123&threadId=thread-123");
     expect(buildMachinesWorkspacePath()).toBe("/machines");
+  });
+
+  it("builds the v2 machines workspace route", () => {
+    expect(
+      buildMachinesWorkspaceV2Path({
+        machineId: "machine:123",
+        threadId: "thread-123",
+      }),
+    ).toBe("/v2/machines?machineId=machine%3A123&threadId=thread-123");
+    expect(buildMachinesWorkspaceV2Path()).toBe("/v2/machines");
   });
 
   it("builds the published package command", () => {

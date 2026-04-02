@@ -27,6 +27,7 @@ type MachinesWorkspaceThreadPaneProps = {
   isLoading: boolean;
   errorMessage: string | null;
   isSubmittingTurn: boolean;
+  mobilePaneDragEnabled?: boolean;
   turnDraft: string;
   onTurnDraftChange: (value: string) => void;
   onTurnSubmit: () => void;
@@ -148,13 +149,19 @@ function WorkEntryRow({ entry }: { entry: CodexThreadTimelineWorkEntry }) {
 
 function ThreadMessageBody({
   className,
+  mobilePaneDragEnabled,
   text,
 }: {
   className?: string;
+  mobilePaneDragEnabled?: boolean;
   text: string;
 }) {
   return (
-    <ProsemarkReadOnly value={text} className={cn("text-sm", className)} />
+    <ProsemarkReadOnly
+      value={text}
+      className={cn("text-sm", className)}
+      mobilePaneDragEnabled={mobilePaneDragEnabled}
+    />
   );
 }
 
@@ -167,6 +174,7 @@ export function MachinesWorkspaceThreadPane({
   isLoading,
   errorMessage,
   isSubmittingTurn,
+  mobilePaneDragEnabled = false,
   turnDraft,
   onTurnDraftChange,
   onTurnSubmit,
@@ -265,7 +273,10 @@ export function MachinesWorkspaceThreadPane({
                 return (
                   <div key={entry.id} className="flex justify-end">
                     <div className="max-w-[80%] rounded-2xl rounded-br-sm border border-border bg-secondary px-4 py-3">
-                      <ThreadMessageBody text={entry.text} />
+                      <ThreadMessageBody
+                        text={entry.text}
+                        mobilePaneDragEnabled={mobilePaneDragEnabled}
+                      />
                     </div>
                   </div>
                 );
@@ -274,7 +285,10 @@ export function MachinesWorkspaceThreadPane({
               if (entry.kind === "message") {
                 return (
                   <div key={entry.id} className="min-w-0 px-1 py-0.5">
-                    <ThreadMessageBody text={entry.text} />
+                    <ThreadMessageBody
+                      text={entry.text}
+                      mobilePaneDragEnabled={mobilePaneDragEnabled}
+                    />
                   </div>
                 );
               }

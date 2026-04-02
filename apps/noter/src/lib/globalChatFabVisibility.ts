@@ -1,4 +1,4 @@
-import { MACHINES_ROUTE } from "@/lib/noterSync";
+import { MACHINES_ROUTE, MACHINES_V2_ROUTE } from "@/lib/noterSync";
 
 /**
  * Routes with their own chat or composer surfaces should not also render the
@@ -8,6 +8,7 @@ export function shouldShowGlobalChatFab(pathname: string): boolean {
   return (
     !pathname.startsWith("/vault/") &&
     pathname !== "/" &&
-    pathname !== MACHINES_ROUTE
+    pathname !== MACHINES_ROUTE &&
+    pathname !== MACHINES_V2_ROUTE
   );
 }

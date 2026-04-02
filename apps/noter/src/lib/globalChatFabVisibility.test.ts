@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MACHINES_ROUTE } from "@/lib/noterSync";
+import { MACHINES_ROUTE, MACHINES_V2_ROUTE } from "@/lib/noterSync";
 import { shouldShowGlobalChatFab } from "@/lib/globalChatFabVisibility";
 
 describe("shouldShowGlobalChatFab", () => {
@@ -7,6 +7,7 @@ describe("shouldShowGlobalChatFab", () => {
     expect(shouldShowGlobalChatFab("/")).toBe(false);
     expect(shouldShowGlobalChatFab("/vault/acme/noter/main")).toBe(false);
     expect(shouldShowGlobalChatFab(MACHINES_ROUTE)).toBe(false);
+    expect(shouldShowGlobalChatFab(MACHINES_V2_ROUTE)).toBe(false);
   });
 
   it("keeps the global chat fab on unrelated routes", () => {

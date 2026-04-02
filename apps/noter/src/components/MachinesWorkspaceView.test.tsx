@@ -9,6 +9,7 @@ vi.mock("@/components/MachinesWorkspaceThreadPane", () => ({
 }));
 
 import { MachinesWorkspaceView } from "./MachinesWorkspaceView";
+import { MachinesWorkspaceV2View } from "./MachinesWorkspaceV2View";
 
 const THREAD_FIXTURE: CodexAppServerThread = {
   agentNickname: null,
@@ -47,6 +48,47 @@ describe("MachinesWorkspaceView", () => {
   it("renders unavailable machine thread rows as disabled while keeping the reason visible", () => {
     const markup = renderToStaticMarkup(
       <MachinesWorkspaceView
+        isSubmittingTurn={false}
+        machineInventories={[
+          {
+            hasLoadedThreadInventory: true,
+            machineDisplayName: "Offline Linux Box",
+            machineHostname: "linux-box.local",
+            machineId: "machine-linux",
+            machineStatus: "offline",
+            machineStatusReason:
+              "This machine is offline. Start `noter-sync run` on the machine first.",
+            pinnedThreadIds: [],
+            threads: [THREAD_FIXTURE],
+          },
+        ]}
+        selectedMachineId="machine-linux"
+        selectedMachineDisplayName="Offline Linux Box"
+        selectedMachineHostname="linux-box.local"
+        selectedMachineStatusReason="This machine is offline. Start `noter-sync run` on the machine first."
+        selectedThread={null}
+        selectedThreadError={null}
+        selectedThreadLoading={false}
+        selectedThreadId={THREAD_FIXTURE.id}
+        pendingPinThreadKey={null}
+        turnDraft=""
+        onTurnDraftChange={() => {}}
+        onTurnSubmit={() => {}}
+      />,
+    );
+
+    expect(markup).toContain(
+      "This machine is offline. Start `noter-sync run` on the machine first.",
+    );
+    expect(markup).toContain("Offline machine thread");
+    expect(markup).toMatch(
+      /<button[^>]*disabled=""[^>]*>.*Offline machine thread/s,
+    );
+  });
+
+  it("keeps the same unavailable thread affordance in the v2 shell", () => {
+    const markup = renderToStaticMarkup(
+      <MachinesWorkspaceV2View
         isSubmittingTurn={false}
         machineInventories={[
           {

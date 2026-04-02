@@ -7,7 +7,11 @@ import {
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "@/lib/codexAppServerResearch";
 import { shouldShowGlobalChatFab } from "@/lib/globalChatFabVisibility";
-import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
+import {
+  MACHINES_ROUTE,
+  MACHINES_V2_ROUTE,
+  MACHINE_CONNECT_ROUTE,
+} from "@/lib/noterSync";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -103,6 +107,10 @@ const MachineConnectPage = lazy(async () => {
 const MachinesWorkspacePage = lazy(async () => {
   const module = await import("@/components/MachinesWorkspacePage");
   return { default: module.MachinesWorkspacePage };
+});
+const MachinesWorkspaceV2Page = lazy(async () => {
+  const module = await import("@/components/MachinesWorkspacePage");
+  return { default: module.MachinesWorkspaceV2Page };
 });
 
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
@@ -538,6 +546,10 @@ export default function App() {
                   <Route
                     path={MACHINES_ROUTE}
                     element={<MachinesWorkspacePage />}
+                  />
+                  <Route
+                    path={MACHINES_V2_ROUTE}
+                    element={<MachinesWorkspaceV2Page />}
                   />
                   <Route
                     path={MACHINE_CONNECT_ROUTE}

@@ -14,6 +14,7 @@ import {
   updateQueryParams,
 } from "@/lib/queryParams";
 import { MachinesWorkspaceView } from "@/components/MachinesWorkspaceView";
+import { MachinesWorkspaceV2View } from "@/components/MachinesWorkspaceV2View";
 import type { MachinesWorkspaceSidebarInventory } from "@/lib/machinesWorkspaceSidebar";
 import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -130,7 +131,9 @@ function buildMachineThreadKey(machineId: string, threadId: string): string {
 }
 
 /** Coordinate machine-scoped inventory polling with the selected-thread detail pane. */
-export function MachinesWorkspacePage() {
+function MachinesWorkspacePageContent(props: {
+  layoutVersion: "legacy" | "v2";
+}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const now = useNow();
   const connectedMachinesQuery = useQuery(
@@ -811,8 +814,13 @@ export function MachinesWorkspacePage() {
     },
   );
 
+  const ViewComponent =
+    props.layoutVersion === "v2"
+      ? MachinesWorkspaceV2View
+      : MachinesWorkspaceView;
+
   return (
-    <MachinesWorkspaceView
+    <ViewComponent
       machineInventories={machineInventories}
       isSubmittingTurn={isSubmittingTurn}
       pendingPinThreadKey={pendingPinThreadKey}
@@ -835,4 +843,12 @@ export function MachinesWorkspacePage() {
       }}
     />
   );
+}
+
+export function MachinesWorkspacePage() {
+  return <MachinesWorkspacePageContent layoutVersion="legacy" />;
+}
+
+export function MachinesWorkspaceV2Page() {
+  return <MachinesWorkspacePageContent layoutVersion="v2" />;
 }
