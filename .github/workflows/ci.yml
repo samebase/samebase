@@ -10,6 +10,7 @@ jobs:
   checks:
     name: checks
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     strategy:
       matrix:
@@ -48,6 +49,7 @@ jobs:
   playwright:
     name: playwright (${{ matrix.shard }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false
@@ -111,6 +113,7 @@ jobs:
 
   sync-windows:
     runs-on: windows-latest
+    timeout-minutes: 15
 
     strategy:
       matrix:
