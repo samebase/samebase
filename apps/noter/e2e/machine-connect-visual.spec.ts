@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
+const machineConnectSnapshotName =
+  process.platform === "win32"
+    ? "machine-connect-page-win32.png"
+    : "machine-connect-page.png";
+
 /**
  * Wait for app fonts plus two paint frames so the visual fixture settles
  * before the screenshot capture compares Linux and macOS text layout.
@@ -25,7 +30,7 @@ test("machine connect fixture", async ({ page }) => {
   const fixture = page.getByTestId("machine-connect-visual-fixture");
   await expect(fixture).toBeVisible();
   await waitForStableFonts(page);
-  await expect(fixture).toHaveScreenshot("machine-connect-page.png", {
+  await expect(fixture).toHaveScreenshot(machineConnectSnapshotName, {
     animations: "disabled",
     caret: "hide",
     scale: "css",
