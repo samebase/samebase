@@ -10,7 +10,7 @@
     "pnpm": ">=9.0.0"
   },
   "scripts": {
-    "dev": "turbo run dev --filter=noter",
+    "dev": "node ./scripts/run-primary-dev.js",
     "build": "turbo run build --filter=noter",
     "build:ci": "turbo run build:ci --filter=noter",
     "lint": "turbo run lint --filter=noter && pnpm typecheck:scripts && pnpm lint:scripts",
@@ -23,7 +23,7 @@
     "test": "vitest --run",
     "test:ci": "pnpm test && PLAYWRIGHT_VITE_PORT=43121 pnpm --filter noter test:visual",
     "test:watch": "vitest",
-    "dev:noter": "turbo run dev --filter=noter",
+    "dev:noter": "node ./scripts/run-primary-dev.js",
     "build:noter": "turbo run build --filter=noter",
     "lint:noter": "turbo run lint --filter=noter",
     "dev:starter": "turbo run dev --filter=noter-starter-template",
