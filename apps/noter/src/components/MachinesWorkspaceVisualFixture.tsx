@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { MemoryRouter } from "react-router-dom";
 import { MachinesWorkspaceView } from "@/components/MachinesWorkspaceView";
 import {
@@ -17,7 +16,6 @@ const FIXTURE_BRANCH_NAME = "codex/machines-sidebar";
 const FIXTURE_GIT_SHA = "abc123def4567890abc123def4567890abc123de";
 const LONG_CLAMP_THREAD_NAME =
   "Research machines sidebar UI with pinned worktree labels, branch indicators, and overflowing thread titles that must truncate after exactly three lines";
-const FIXTURE_USER_DISPLAY_NAME = "Nicu Fixture";
 
 const FIXTURE_TURN_INITIAL: CodexAppServerThreadTurn = {
   errorMessage: null,
@@ -266,47 +264,61 @@ const SIXTH_THREAD: CodexAppServerThread = {
 };
 
 export function MachinesWorkspaceVisualFixture() {
-  const fixtureThreads = useMemo(
-    () => [
-      FIRST_THREAD,
-      SECOND_THREAD,
-      THIRD_THREAD,
-      FOURTH_THREAD,
-      FIFTH_THREAD,
-      SIXTH_THREAD,
-    ],
+  const machineThreads = useMemo(
+    () => ({
+      "machine-mac": [FIRST_THREAD, SECOND_THREAD, THIRD_THREAD],
+      "machine-win": [FOURTH_THREAD, FIFTH_THREAD, SIXTH_THREAD],
+    }),
     [],
   );
+  const [selectedMachineId, setSelectedMachineId] =
+    useState<string>("machine-mac");
   const [selectedThreadId, setSelectedThreadId] = useState<string>(
     SECOND_THREAD.id,
   );
-  const [pinnedThreadIds, setPinnedThreadIds] = useState<string[]>([
-    SECOND_THREAD.id,
-    THIRD_THREAD.id,
-  ]);
+  const [machinePinnedThreadIds, setMachinePinnedThreadIds] = useState<
+    Record<string, string[]>
+  >({
+    "machine-mac": [SECOND_THREAD.id, THIRD_THREAD.id],
+    "machine-win": [FOURTH_THREAD.id],
+  });
   const selectedThread = useMemo(
     () =>
-      fixtureThreads.find((thread) => thread.id === selectedThreadId) ?? null,
-    [fixtureThreads, selectedThreadId],
+      Object.values(machineThreads)
+        .flat()
+        .find((thread) => thread.id === selectedThreadId) ?? null,
+    [machineThreads, selectedThreadId],
   );
-  /**
-   * Keep fixture snapshots aligned with Codex desktop ordering: pinning
-   * prepends the thread id while filtering currentPinnedThreadIds for dedupe,
-   * and unpinning removes the id before setPinnedThreadIds commits the update.
-   */
-  const handleThreadPinChange = (threadId: string, nextPinned: boolean) => {
-    setPinnedThreadIds((currentPinnedThreadIds) =>
-      nextPinned
-        ? [
-            threadId,
-            ...currentPinnedThreadIds.filter(
-              (currentThreadId) => currentThreadId !== threadId,
+  const selectedMachineDisplayName =
+    selectedMachineId === "machine-win"
+      ? "Research Windows Workstation"
+      : "Research MacBook Pro";
+  const selectedMachineHostname =
+    selectedMachineId === "machine-win"
+      ? "research-win.local"
+      : "research-mbp.local";
+  const handleThreadPinChange = (args: {
+    machineId: string;
+    nextPinned: boolean;
+    threadId: string;
+  }) => {
+    setMachinePinnedThreadIds((currentPinnedThreadIds) => {
+      const machinePinnedIds = currentPinnedThreadIds[args.machineId] ?? [];
+
+      return {
+        ...currentPinnedThreadIds,
+        [args.machineId]: args.nextPinned
+          ? [
+              args.threadId,
+              ...machinePinnedIds.filter(
+                (currentThreadId) => currentThreadId !== args.threadId,
+              ),
+            ]
+          : machinePinnedIds.filter(
+              (currentThreadId) => currentThreadId !== args.threadId,
             ),
-          ]
-        : currentPinnedThreadIds.filter(
-            (currentThreadId) => currentThreadId !== threadId,
-          ),
-    );
+      };
+    });
   };
 
   return (
@@ -316,27 +328,46 @@ export function MachinesWorkspaceVisualFixture() {
           <MachinesWorkspaceView
             dataTestId="machines-workspace-visual-fixture"
             isSubmittingTurn={false}
-            leftSidebarHeader={
-              <SidebarHomeAccountHeader
-                userDisplayName={FIXTURE_USER_DISPLAY_NAME}
-              />
-            }
-            selectedMachineDisplayName="Research MacBook Pro"
-            selectedMachineHostname="research-mbp.local"
+            machineInventories={[
+              {
+                hasLoadedThreadInventory: true,
+                machineDisplayName: "Research MacBook Pro",
+                machineHostname: "research-mbp.local",
+                machineId: "machine-mac",
+                machineStatus: "online",
+                machineStatusReason: null,
+                pinnedThreadIds: machinePinnedThreadIds["machine-mac"] ?? [],
+                threads: machineThreads["machine-mac"],
+              },
+              {
+                hasLoadedThreadInventory: true,
+                machineDisplayName: "Research Windows Workstation",
+                machineHostname: "research-win.local",
+                machineId: "machine-win",
+                machineStatus: "online",
+                machineStatusReason: null,
+                pinnedThreadIds: machinePinnedThreadIds["machine-win"] ?? [],
+                threads: machineThreads["machine-win"],
+              },
+            ]}
+            pendingPinThreadKey={null}
+            selectedMachineId={selectedMachineId}
+            selectedMachineDisplayName={selectedMachineDisplayName}
+            selectedMachineHostname={selectedMachineHostname}
             selectedMachineStatusReason={null}
             selectedThread={selectedThread}
             selectedThreadError={null}
             selectedThreadLoading={false}
-            threads={fixtureThreads}
-            pinnedThreadIds={pinnedThreadIds}
-            pendingPinThreadId={null}
             selectedThreadId={selectedThreadId}
             relativeTimeReferenceMs={FIXTURE_RELATIVE_TIME_REFERENCE_MS}
             turnDraft="Continue with the main pane chat surface."
             onTurnDraftChange={() => {}}
             onTurnSubmit={() => {}}
             onThreadPinChange={handleThreadPinChange}
-            onThreadSelect={setSelectedThreadId}
+            onThreadSelect={({ machineId, threadId }) => {
+              setSelectedMachineId(machineId);
+              setSelectedThreadId(threadId);
+            }}
           />
         </div>
       </div>

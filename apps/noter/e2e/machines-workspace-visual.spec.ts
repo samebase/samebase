@@ -127,6 +127,25 @@ test("machines workspace desktop hover reveals the pin affordance", async ({
   );
 });
 
+test("machines workspace machine collapse stays closed", async ({ page }) => {
+  await openMachinesWorkspaceFixture(page);
+
+  const secondMachineToggle = page.getByRole("button", {
+    name: /Research Windows Workstation/,
+  });
+  const secondMachineThread = page.getByRole("button", {
+    name: /Investigate flaky screenshot test/,
+  });
+
+  await expect(secondMachineThread).toBeHidden();
+  await secondMachineToggle.click();
+  await expect(secondMachineThread).toBeVisible();
+  await secondMachineToggle.click();
+  await expect(secondMachineThread).toBeHidden();
+
+  await page.waitForTimeout(1200);
+  await expect(secondMachineThread).toBeHidden();
+});
 test.describe("mobile", () => {
   test.use(iPhone13);
 
