@@ -3,6 +3,7 @@ import { Badge } from "@/components/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/checkbox";
 import { Input } from "@/components/input";
+import { VaultLastUpdatedStatus } from "@/components/VaultLastUpdatedStatus";
 import {
   GitHubLogoIcon,
   TrashIcon,
@@ -17,7 +18,6 @@ import { SidebarProvider } from "@/components/sidebar";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import {
   formatRelativeTimeAgo,
-  formatRelativeTimeAgoWithSeconds,
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
 import { getTreeRefreshUiState } from "@/lib/treeRefreshStatus";
@@ -201,17 +201,17 @@ type ProviderRuntimeConfig = {
   popupRef: MutableRefObject<Window | null>;
   popupOriginRef: MutableRefObject<string | null>;
 };
-
-const hasActiveTextSelection = () => {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  const selection = window.getSelection();
-  return selection !== null && !selection.isCollapsed;
+type DashboardManualRefreshVault = {
+  ghRepoName: string;
+  ghRepoOwner: string;
+  remoteBranches: Array<{
+    cloudflareBranchPreviewUrl?: string;
+    pullRequestNumber?: number;
+  }>;
+  repositoryFullName: string;
+  state: string;
+  treeRefreshCooldownUntil?: number;
 };
-
-const getCurrentSecondTimestamp = () => Math.floor(Date.now() / 1000) * 1000;
 
 const GitHubProviderLogo = ({ className }: { className?: string }) => (
   <GitHubLogoIcon className={clsx("h-4 w-4", className)} />
@@ -264,80 +264,6 @@ const CloudflareProviderLogo = ({ className }: { className?: string }) => (
     </svg>
   </span>
 );
-
-/**
- * Keeps the ticking relative-time label stable while the user is selecting it,
- * then falls back to a normal navigation refresh on a plain click.
- */
-function VaultLastUpdatedStatus({
-  lastSyncedAt,
-  now,
-  repositoryFullName,
-}: {
-  lastSyncedAt: number;
-  now: number;
-  repositoryFullName: string;
-}) {
-  const [frozenNow, setFrozenNow] = useState<number | null>(null);
-  const isPointerDownRef = useRef(false);
-  const refreshHref =
-    typeof window === "undefined"
-      ? "/"
-      : `${window.location.pathname}${window.location.search}${window.location.hash}`;
-
-  useEffect(() => {
-    const handleSelectionChange = () => {
-      if (hasActiveTextSelection()) {
-        setFrozenNow((current) => current ?? getCurrentSecondTimestamp());
-        return;
-      }
-
-      if (!isPointerDownRef.current) {
-        setFrozenNow(null);
-      }
-    };
-
-    const handlePointerUp = () => {
-      isPointerDownRef.current = false;
-      if (!hasActiveTextSelection()) {
-        setFrozenNow(null);
-      }
-    };
-
-    document.addEventListener("selectionchange", handleSelectionChange);
-    window.addEventListener("pointerup", handlePointerUp);
-
-    return () => {
-      document.removeEventListener("selectionchange", handleSelectionChange);
-      window.removeEventListener("pointerup", handlePointerUp);
-    };
-  }, []);
-
-  return (
-    <a
-      href={refreshHref}
-      className="inline-flex cursor-pointer select-text items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
-      title={`Last synced ${new Date(lastSyncedAt).toLocaleString()}. Click to refresh now.`}
-      aria-label={`Refresh ${repositoryFullName} now`}
-      onPointerDown={() => {
-        isPointerDownRef.current = true;
-        setFrozenNow((current) => current ?? getCurrentSecondTimestamp());
-      }}
-      onClick={(event) => {
-        if (hasActiveTextSelection()) {
-          event.preventDefault();
-          event.stopPropagation();
-          return;
-        }
-      }}
-    >
-      <span>Updated</span>
-      <span className="min-w-[8ch] text-left font-mono tabular-nums">
-        {formatRelativeTimeAgoWithSeconds(lastSyncedAt, frozenNow ?? now)}
-      </span>
-    </a>
-  );
-}
 
 const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
   github: {
@@ -1072,6 +998,38 @@ function VaultDashboardContent() {
       })();
     },
     [refreshTree, vaults],
+  );
+
+  const refreshVaultTreeFromStatusClick = useCallback(
+    (vault: DashboardManualRefreshVault) => {
+      if (
+        vault.state !== "ready" ||
+        (typeof vault.treeRefreshCooldownUntil === "number" &&
+          vault.treeRefreshCooldownUntil > Date.now()) ||
+        !claimRefreshDebounce("dashboard", vault.repositoryFullName)
+      ) {
+        return;
+      }
+
+      const shouldIncludeCloudflarePreviewLinks = vault.remoteBranches.some(
+        (branch) =>
+          typeof branch.pullRequestNumber === "number" &&
+          typeof branch.cloudflareBranchPreviewUrl !== "string",
+      );
+
+      void refreshTree({
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        includeCloudflarePreviewLinks: shouldIncludeCloudflarePreviewLinks,
+        trigger: "focus",
+      }).catch((error: unknown) => {
+        console.error(
+          "Failed to refresh repository tree from dashboard status click:",
+          error,
+        );
+      });
+    },
+    [refreshTree],
   );
 
   useEffect(() => {
@@ -2031,6 +1989,9 @@ function VaultDashboardContent() {
                       <VaultLastUpdatedStatus
                         lastSyncedAt={sharedLastSyncedAt}
                         now={now}
+                        onRefresh={() => {
+                          refreshVaultTreeFromStatusClick(vault);
+                        }}
                         repositoryFullName={vault.repositoryFullName}
                       />
                     ) : null}
