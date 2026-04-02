@@ -13,6 +13,8 @@ const FIXTURE_SESSION_ROOT = "/Users/fixture/.codex/sessions/2026/04/01";
 const FIXTURE_GIT_ORIGIN_URL = "git@github.com:fixture/noter.git";
 const FIXTURE_BRANCH_NAME = "codex/machines-sidebar";
 const FIXTURE_GIT_SHA = "abc123def4567890abc123def4567890abc123de";
+const LONG_CLAMP_THREAD_NAME =
+  "Research machines sidebar UI with pinned worktree labels, branch indicators, and overflowing thread titles that must truncate after exactly three lines";
 
 const FIXTURE_TURN_INITIAL: CodexAppServerThreadTurn = {
   errorMessage: null,
@@ -155,7 +157,7 @@ const SECOND_THREAD: CodexAppServerThread = {
   ...FIRST_THREAD,
   createdAt: 1_775_534_200,
   id: "thread-machine-workspace-second",
-  name: "Research machines sidebar UI",
+  name: LONG_CLAMP_THREAD_NAME,
   path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-second.jsonl`,
   preview:
     "Mirror the Codex thread rail more literally before adding any extra Noter structure around it.",

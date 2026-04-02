@@ -79,6 +79,10 @@ function setsAreEqual<T>(left: Set<T>, right: Set<T>): boolean {
   return true;
 }
 
+/**
+ * Let thread and project names grow with the live sidebar width while still
+ * capping them at three lines so the rail stays compact when labels are long.
+ */
 function ThreadRow(props: {
   item: CodexThreadSidebarThread;
   isSelected: boolean;
@@ -91,7 +95,7 @@ function ThreadRow(props: {
     <button
       type="button"
       className={cn(
-        "flex h-10 w-full items-center gap-3 px-3 text-left text-sm transition-colors",
+        "flex min-h-10 w-full items-start gap-3 px-3 py-2 text-left text-sm transition-colors",
         props.isSelected
           ? "bg-accent text-foreground"
           : "bg-background text-foreground hover:bg-accent/60",
@@ -102,27 +106,27 @@ function ThreadRow(props: {
       }}
     >
       {props.leadingIcon ? (
-        <div className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
+        <div className="flex h-4 w-4 shrink-0 items-center justify-center pt-0.5 text-muted-foreground">
           {props.leadingIcon}
         </div>
       ) : null}
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-start gap-2">
         {props.item.showWorkspaceIndicator ? (
           <div
-            className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground"
+            className="flex h-4 w-4 shrink-0 items-center justify-center pt-0.5 text-muted-foreground"
             title={props.item.workspaceTooltip ?? undefined}
           >
             <GitBranch className="h-3.5 w-3.5" strokeWidth={1.75} />
           </div>
         ) : null}
         <div
-          className="min-w-0 truncate text-[15px] font-medium leading-5"
+          className="min-w-0 flex-1 line-clamp-3 text-[15px] font-medium leading-5"
           title={props.item.workspaceTooltip ?? props.item.title}
         >
           {props.item.title}
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2 text-[12px] tabular-nums text-muted-foreground">
+      <div className="flex shrink-0 items-center gap-2 pt-0.5 text-[12px] tabular-nums text-muted-foreground">
         <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
         <span>
           {formatRelativeTime(
@@ -146,18 +150,18 @@ function ProjectSection(props: {
       <CollapsibleTrigger asChild>
         <button
           type="button"
-          className="flex min-h-[32px] w-full items-center gap-2 px-3 py-1 text-left text-sm text-muted-foreground transition-colors hover:bg-accent/60"
+          className="flex min-h-[32px] w-full items-start gap-2 px-3 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent/60"
           title={props.group.detail}
         >
           {props.isOpen ? (
-            <ChevronDownIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <ChevronDownIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           ) : (
-            <ChevronRightIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <ChevronRightIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           )}
-          <div className="flex h-4 w-4 shrink-0 items-center justify-center">
+          <div className="flex h-4 w-4 shrink-0 items-center justify-center pt-0.5">
             <div className="h-2.5 w-2.5 bg-muted-foreground/30 corner-notch-1" />
           </div>
-          <span className="truncate text-[13px] font-medium leading-5 text-muted-foreground">
+          <span className="line-clamp-3 text-[13px] font-medium leading-5 text-muted-foreground">
             {props.group.label}
           </span>
         </button>
