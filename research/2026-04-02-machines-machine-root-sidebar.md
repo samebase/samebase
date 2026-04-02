@@ -167,6 +167,19 @@ Recommended first-slice policy:
 This keeps the currently selected machine feeling live without turning a
 two-machine sidebar into a background polling fan-out.
 
+### 4. Handle stale machine sections defensively
+
+When a non-selected machine becomes unavailable between lazy refreshes, the
+sidebar should fail closed:
+
+- keep the last known inventory visible if it helps orientation
+- show inline unavailable copy at the machine-section level
+- disable thread selection for that machine while the section is unavailable
+- avoid switching `machineId` and `threadId` based on stale clickable rows
+
+If the machine becomes healthy again on a later refresh, the section can resume
+normal selection behavior without inventing extra route state.
+
 ## Sidebar View-Model Changes Needed
 
 The current `buildCodexThreadSidebarViewModel()` groups one thread array into:
