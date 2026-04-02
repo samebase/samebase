@@ -122,6 +122,7 @@ describe("MachinesWorkspaceView", () => {
       "This machine is offline. Start `noter-sync run` on the machine first.",
     );
     expect(markup).toContain("Offline machine thread");
+    expect(markup).toContain("Toggle Right Sidebar");
     expect(markup).toMatch(
       /<button[^>]*disabled=""[^>]*>.*Offline machine thread/s,
     );

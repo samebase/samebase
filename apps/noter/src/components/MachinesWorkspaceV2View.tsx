@@ -5,16 +5,18 @@ import {
   type MachinesWorkspaceViewProps,
 } from "@/components/MachinesWorkspaceSidebarRail";
 import { MachinesWorkspaceThreadPane } from "@/components/MachinesWorkspaceThreadPane";
+import type { MobileSidebarPane } from "@/hooks/use-sidebar";
 import { useSidebar } from "@/hooks/use-sidebar";
-import { cn } from "@/lib/utils";
+import { WorkspaceMobilePaneDragProvider } from "@/components/workspace-layout/workspaceMobilePaneDrag";
+import { WorkspaceScene } from "@/components/workspace-layout/WorkspaceScene";
+import { WorkspaceSidebarResizeHandle } from "@/components/workspace-layout/WorkspaceSidebarResizeHandle";
 import {
   clampWorkspaceDesktopSidebarWidthPx,
   clampWorkspaceMobileSidebarWidthPx,
   getWorkspaceDesktopSidebarWidthRange,
+  resolveWorkspaceDesktopSidebarWidths,
 } from "@/lib/workspacePaneSizes";
-import { WorkspaceSidebarResizeHandle } from "@/components/workspace-layout/WorkspaceSidebarResizeHandle";
-import { WorkspaceScene } from "@/components/workspace-layout/WorkspaceScene";
-import { WorkspaceMobilePaneDragProvider } from "@/components/workspace-layout/workspaceMobilePaneDrag";
+import { cn } from "@/lib/utils";
 
 function useElementWidth(measureRef: React.RefObject<HTMLElement | null>) {
   const [widthPx, setWidthPx] = React.useState(0);
@@ -50,6 +52,42 @@ function useElementWidth(measureRef: React.RefObject<HTMLElement | null>) {
   return widthPx;
 }
 
+function readAdjacentOnlySettledPane(args: {
+  currentPane: MobileSidebarPane;
+  mainPaneScrollLeft: number;
+  rightPaneScrollLeft: number;
+  scrollLeft: number;
+}): MobileSidebarPane {
+  const candidates: Array<{
+    distance: number;
+    pane: MobileSidebarPane;
+  }> = [
+    {
+      distance: Math.abs(args.scrollLeft - 0),
+      pane: "left",
+    },
+    {
+      distance: Math.abs(args.scrollLeft - args.mainPaneScrollLeft),
+      pane: "main",
+    },
+    {
+      distance: Math.abs(args.scrollLeft - args.rightPaneScrollLeft),
+      pane: "right",
+    },
+  ];
+  candidates.sort((left, right) => left.distance - right.distance);
+  const nearestPane = candidates[0]?.pane ?? "main";
+
+  if (args.currentPane === "left" && nearestPane === "right") {
+    return "main";
+  }
+  if (args.currentPane === "right" && nearestPane === "left") {
+    return "main";
+  }
+
+  return nearestPane;
+}
+
 function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
   const {
     isMobile,
@@ -57,12 +95,22 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
     leftDesktopWidthPx,
     leftMobileWidthPx,
     mobilePane,
+    rightDesktopOpen,
+    rightDesktopWidthPx,
+    rightMobileWidthPx,
     setLeftDesktopWidthPx,
     setMobilePane,
+    setRightDesktopWidthPx,
   } = useSidebar();
   const shellRef = React.useRef<HTMLDivElement | null>(null);
   const trackRef = React.useRef<HTMLDivElement | null>(null);
   const hasInitializedMobileScrollRef = React.useRef(false);
+  const nativeGestureStartPaneRef = React.useRef<MobileSidebarPane | null>(
+    null,
+  );
+  const delegatedGestureStartPaneRef = React.useRef<MobileSidebarPane | null>(
+    null,
+  );
   const snapRestoreFrameRef = React.useRef<number | null>(null);
   const shellWidthPx = useElementWidth(shellRef);
   const sidebarTestId = props.dataTestId
@@ -71,37 +119,73 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
   const headerTestId = props.dataTestId
     ? `${props.dataTestId}-header`
     : undefined;
-  const resolvedMobilePane = mobilePane === "left" ? "left" : "main";
-  const resolvedLeftDesktopSidebarWidthPx =
-    leftDesktopOpen && shellWidthPx > 0
-      ? clampWorkspaceDesktopSidebarWidthPx(leftDesktopWidthPx, shellWidthPx, 0)
-      : leftDesktopOpen
-        ? leftDesktopWidthPx
-        : 0;
+
+  const resolvedDesktopSidebarWidths =
+    shellWidthPx > 0
+      ? resolveWorkspaceDesktopSidebarWidths({
+          containerWidthPx: shellWidthPx,
+          leftOpen: leftDesktopOpen,
+          leftWidthPx: leftDesktopWidthPx,
+          rightOpen: rightDesktopOpen,
+          rightWidthPx: rightDesktopWidthPx,
+        })
+      : {
+          leftWidthPx: leftDesktopOpen ? leftDesktopWidthPx : 0,
+          rightWidthPx: rightDesktopOpen ? rightDesktopWidthPx : 0,
+        };
   const resolvedLeftMobileSidebarWidthPx =
     shellWidthPx > 0
       ? clampWorkspaceMobileSidebarWidthPx(leftMobileWidthPx, shellWidthPx)
       : leftMobileWidthPx;
+  const resolvedRightMobileSidebarWidthPx =
+    shellWidthPx > 0
+      ? clampWorkspaceMobileSidebarWidthPx(rightMobileWidthPx, shellWidthPx)
+      : rightMobileWidthPx;
+
   const leftSidebarWidthPx = isMobile
     ? resolvedLeftMobileSidebarWidthPx
-    : resolvedLeftDesktopSidebarWidthPx;
-  const desktopResizeRange =
+    : leftDesktopOpen
+      ? resolvedDesktopSidebarWidths.leftWidthPx
+      : 0;
+  const rightSidebarWidthPx = isMobile
+    ? resolvedRightMobileSidebarWidthPx
+    : rightDesktopOpen
+      ? resolvedDesktopSidebarWidths.rightWidthPx
+      : 0;
+  const mainPaneScrollLeft = leftSidebarWidthPx;
+  const rightPaneScrollLeft = leftSidebarWidthPx + rightSidebarWidthPx;
+  const maxMobileScrollLeft = rightPaneScrollLeft;
+
+  const leftDesktopResizeRange =
     shellWidthPx > 0
-      ? getWorkspaceDesktopSidebarWidthRange(shellWidthPx, 0)
+      ? getWorkspaceDesktopSidebarWidthRange(
+          shellWidthPx,
+          rightDesktopOpen ? rightSidebarWidthPx : 0,
+        )
+      : null;
+  const rightDesktopResizeRange =
+    shellWidthPx > 0
+      ? getWorkspaceDesktopSidebarWidthRange(
+          shellWidthPx,
+          leftDesktopOpen ? leftSidebarWidthPx : 0,
+        )
       : null;
   const showLeftResizeHandle =
-    !isMobile && leftDesktopOpen && shellWidthPx > 0 && desktopResizeRange;
+    !isMobile && leftDesktopOpen && shellWidthPx > 0 && leftDesktopResizeRange;
+  const showRightResizeHandle =
+    !isMobile &&
+    rightDesktopOpen &&
+    shellWidthPx > 0 &&
+    rightDesktopResizeRange;
 
   const setMobileSnapEnabled = React.useCallback((enabled: boolean) => {
-    const scrollNode = shellRef.current;
-    const trackNode = trackRef.current;
     const snapType = enabled ? "" : "none";
 
-    if (scrollNode !== null) {
-      scrollNode.style.scrollSnapType = snapType;
+    if (shellRef.current !== null) {
+      shellRef.current.style.scrollSnapType = snapType;
     }
-    if (trackNode !== null) {
-      trackNode.style.scrollSnapType = snapType;
+    if (trackRef.current !== null) {
+      trackRef.current.style.scrollSnapType = snapType;
     }
   }, []);
 
@@ -116,31 +200,17 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
     });
   }, [setMobileSnapEnabled]);
 
-  const scrollMobilePaneIntoPlace = React.useCallback(
-    (behavior: ScrollBehavior) => {
-      if (!isMobile) {
-        return;
+  const getScrollLeftForPane = React.useCallback(
+    (pane: MobileSidebarPane) => {
+      if (pane === "left") {
+        return 0;
       }
-
-      const scrollNode = shellRef.current;
-      if (scrollNode === null) {
-        return;
+      if (pane === "right") {
+        return rightPaneScrollLeft;
       }
-
-      const targetScrollLeft =
-        resolvedMobilePane === "left" ? 0 : leftSidebarWidthPx;
-      if (Math.abs(scrollNode.scrollLeft - targetScrollLeft) <= 1) {
-        scheduleSnapRestore();
-        return;
-      }
-
-      scrollNode.scrollTo({
-        left: targetScrollLeft,
-        behavior,
-      });
-      scheduleSnapRestore();
+      return mainPaneScrollLeft;
     },
-    [isMobile, leftSidebarWidthPx, resolvedMobilePane, scheduleSnapRestore],
+    [mainPaneScrollLeft, rightPaneScrollLeft],
   );
 
   const settleMobileShell = React.useCallback(() => {
@@ -154,13 +224,24 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
       return;
     }
 
-    const nextPane =
-      scrollNode.scrollLeft < leftSidebarWidthPx / 2 ? "left" : "main";
-    if (nextPane !== resolvedMobilePane) {
+    const gestureStartPane =
+      delegatedGestureStartPaneRef.current ??
+      nativeGestureStartPaneRef.current ??
+      mobilePane;
+    delegatedGestureStartPaneRef.current = null;
+    nativeGestureStartPaneRef.current = null;
+
+    const nextPane = readAdjacentOnlySettledPane({
+      currentPane: gestureStartPane,
+      mainPaneScrollLeft,
+      rightPaneScrollLeft,
+      scrollLeft: scrollNode.scrollLeft,
+    });
+    if (nextPane !== mobilePane) {
       setMobilePane(nextPane);
     }
 
-    const targetScrollLeft = nextPane === "left" ? 0 : leftSidebarWidthPx;
+    const targetScrollLeft = getScrollLeftForPane(nextPane);
     if (Math.abs(scrollNode.scrollLeft - targetScrollLeft) > 1) {
       scrollNode.scrollTo({
         left: targetScrollLeft,
@@ -170,16 +251,18 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
 
     scheduleSnapRestore();
   }, [
+    getScrollLeftForPane,
     isMobile,
-    leftSidebarWidthPx,
-    resolvedMobilePane,
+    mainPaneScrollLeft,
+    mobilePane,
+    rightPaneScrollLeft,
     scheduleSnapRestore,
     setMobilePane,
   ]);
 
   const dragMobileShellBy = React.useCallback(
     (pointerDeltaX: number) => {
-      if (!isMobile || leftSidebarWidthPx <= 0) {
+      if (!isMobile || maxMobileScrollLeft <= 0) {
         return false;
       }
 
@@ -188,9 +271,16 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
         return false;
       }
 
+      const gestureStartPane =
+        delegatedGestureStartPaneRef.current ?? mobilePane;
+      delegatedGestureStartPaneRef.current = gestureStartPane;
+      const minScrollLeft =
+        gestureStartPane === "right" ? mainPaneScrollLeft : 0;
+      const maxScrollLeft =
+        gestureStartPane === "left" ? mainPaneScrollLeft : maxMobileScrollLeft;
       const nextScrollLeft = Math.max(
-        0,
-        Math.min(leftSidebarWidthPx, scrollNode.scrollLeft - pointerDeltaX),
+        minScrollLeft,
+        Math.min(maxScrollLeft, scrollNode.scrollLeft - pointerDeltaX),
       );
       if (Math.abs(nextScrollLeft - scrollNode.scrollLeft) <= 0.5) {
         return false;
@@ -200,21 +290,55 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
       scrollNode.scrollLeft = nextScrollLeft;
       return true;
     },
-    [isMobile, leftSidebarWidthPx, setMobileSnapEnabled],
+    [
+      isMobile,
+      mainPaneScrollLeft,
+      maxMobileScrollLeft,
+      mobilePane,
+      setMobileSnapEnabled,
+    ],
   );
 
   const mobilePaneDragContextValue = React.useMemo(
     () => ({
       dragMobileShellBy,
-      isAvailable: isMobile && leftSidebarWidthPx > 0,
+      isAvailable: isMobile && maxMobileScrollLeft > 0,
       settleMobileShell,
     }),
-    [dragMobileShellBy, isMobile, leftSidebarWidthPx, settleMobileShell],
+    [dragMobileShellBy, isMobile, maxMobileScrollLeft, settleMobileShell],
+  );
+
+  const scrollMobilePaneIntoPlace = React.useCallback(
+    (behavior: ScrollBehavior) => {
+      if (!isMobile) {
+        return;
+      }
+
+      const scrollNode = shellRef.current;
+      if (scrollNode === null) {
+        return;
+      }
+
+      const targetScrollLeft = getScrollLeftForPane(mobilePane);
+      if (Math.abs(scrollNode.scrollLeft - targetScrollLeft) <= 1) {
+        scheduleSnapRestore();
+        return;
+      }
+
+      scrollNode.scrollTo({
+        left: targetScrollLeft,
+        behavior,
+      });
+      scheduleSnapRestore();
+    },
+    [getScrollLeftForPane, isMobile, mobilePane, scheduleSnapRestore],
   );
 
   React.useEffect(() => {
     if (!isMobile || shellWidthPx <= 0) {
       hasInitializedMobileScrollRef.current = false;
+      delegatedGestureStartPaneRef.current = null;
+      nativeGestureStartPaneRef.current = null;
       return;
     }
 
@@ -224,17 +348,16 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
     }
 
     if (!hasInitializedMobileScrollRef.current) {
-      scrollNode.scrollLeft =
-        resolvedMobilePane === "left" ? 0 : leftSidebarWidthPx;
+      scrollNode.scrollLeft = getScrollLeftForPane(mobilePane);
       hasInitializedMobileScrollRef.current = true;
       return;
     }
 
     scrollMobilePaneIntoPlace("smooth");
   }, [
+    getScrollLeftForPane,
     isMobile,
-    leftSidebarWidthPx,
-    resolvedMobilePane,
+    mobilePane,
     scrollMobilePaneIntoPlace,
     shellWidthPx,
   ]);
@@ -251,23 +374,35 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
 
     const supportsScrollEnd = "onscrollend" in scrollNode;
     let settleTimeoutId: number | null = null;
+    const handleTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1) {
+        nativeGestureStartPaneRef.current = null;
+        return;
+      }
 
+      nativeGestureStartPaneRef.current = mobilePane;
+    };
     const handleScroll = () => {
       if (supportsScrollEnd) {
         return;
       }
+
       if (settleTimeoutId !== null) {
         window.clearTimeout(settleTimeoutId);
       }
       settleTimeoutId = window.setTimeout(settleMobileShell, 120);
     };
 
+    scrollNode.addEventListener("touchstart", handleTouchStart, {
+      passive: true,
+    });
     scrollNode.addEventListener("scroll", handleScroll, { passive: true });
     if (supportsScrollEnd) {
       scrollNode.addEventListener("scrollend", settleMobileShell);
     }
 
     return () => {
+      scrollNode.removeEventListener("touchstart", handleTouchStart);
       scrollNode.removeEventListener("scroll", handleScroll);
       if (supportsScrollEnd) {
         scrollNode.removeEventListener("scrollend", settleMobileShell);
@@ -276,13 +411,15 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
         window.clearTimeout(settleTimeoutId);
       }
     };
-  }, [isMobile, settleMobileShell]);
+  }, [isMobile, mobilePane, settleMobileShell]);
 
   React.useEffect(() => {
     return () => {
       if (snapRestoreFrameRef.current !== null) {
         window.cancelAnimationFrame(snapRestoreFrameRef.current);
       }
+      delegatedGestureStartPaneRef.current = null;
+      nativeGestureStartPaneRef.current = null;
       setMobileSnapEnabled(true);
     };
   }, [setMobileSnapEnabled]);
@@ -299,13 +436,11 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
 
   const shellStyle: React.CSSProperties = isMobile
     ? {
-        gridTemplateColumns: `${leftSidebarWidthPx}px minmax(0, 1fr)`,
-        width: `calc(${leftSidebarWidthPx}px + 100%)`,
+        gridTemplateColumns: `${leftSidebarWidthPx}px minmax(0, 1fr) ${rightSidebarWidthPx}px`,
+        width: `calc(${leftSidebarWidthPx}px + 100% + ${rightSidebarWidthPx}px)`,
       }
     : {
-        gridTemplateColumns: leftDesktopOpen
-          ? `${leftSidebarWidthPx}px minmax(0, 1fr)`
-          : "minmax(0, 1fr)",
+        gridTemplateColumns: `${leftDesktopOpen ? `${leftSidebarWidthPx}px` : "0px"} minmax(0, 1fr) ${rightDesktopOpen ? `${rightSidebarWidthPx}px` : "0px"}`,
       };
 
   return (
@@ -314,7 +449,7 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
         <div
           ref={shellRef}
           data-testid={props.dataTestId}
-          data-mobile-pane={isMobile ? resolvedMobilePane : undefined}
+          data-mobile-pane={isMobile ? mobilePane : undefined}
           data-sidebar-shell={
             isMobile ? "machines-v2-mobile" : "machines-v2-desktop"
           }
@@ -365,12 +500,23 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
                   data-testid={headerTestId}
                   className="border-b border-border/60 bg-background/95 px-3 py-2 backdrop-blur-sm"
                 >
-                  <div className="flex items-center gap-2">
-                    <SidebarTrigger side="left" className="h-8 w-8" />
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium text-foreground">
-                        Machines
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <SidebarTrigger
+                        className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
+                        side="left"
+                      />
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-foreground">
+                          Machines
+                        </div>
                       </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <SidebarTrigger
+                        className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
+                        side="right"
+                      />
                     </div>
                   </div>
                 </div>
@@ -401,7 +547,7 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
                 />
               </div>
 
-              {isMobile && resolvedMobilePane === "left" ? (
+              {isMobile && mobilePane !== "main" ? (
                 <button
                   type="button"
                   aria-label="Return to thread view"
@@ -413,17 +559,58 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
               ) : null}
             </div>
 
+            {(isMobile || rightDesktopOpen) && rightSidebarWidthPx > 0 ? (
+              <aside
+                className={cn(
+                  "min-h-0 overflow-hidden border-l border-border/60 bg-background",
+                  isMobile ? "snap-start snap-always" : null,
+                )}
+                style={{ width: `${rightSidebarWidthPx}px` }}
+              >
+                <div
+                  aria-hidden="true"
+                  className="min-h-0 h-full w-full bg-background"
+                />
+              </aside>
+            ) : null}
+
             {showLeftResizeHandle ? (
               <WorkspaceSidebarResizeHandle
                 currentWidthPx={leftSidebarWidthPx}
                 dataTestId="workspace-sidebar-left-resize-handle"
-                maxWidthPx={desktopResizeRange.maxWidthPx}
-                minWidthPx={desktopResizeRange.minWidthPx}
+                maxWidthPx={leftDesktopResizeRange.maxWidthPx}
+                minWidthPx={leftDesktopResizeRange.minWidthPx}
                 onWidthChange={(nextWidthPx) => {
-                  setLeftDesktopWidthPx(nextWidthPx);
+                  setLeftDesktopWidthPx(
+                    clampWorkspaceDesktopSidebarWidthPx(
+                      nextWidthPx,
+                      shellWidthPx,
+                      rightDesktopOpen ? rightSidebarWidthPx : 0,
+                    ),
+                  );
                 }}
                 positionPx={leftSidebarWidthPx}
                 side="left"
+              />
+            ) : null}
+
+            {showRightResizeHandle ? (
+              <WorkspaceSidebarResizeHandle
+                currentWidthPx={rightSidebarWidthPx}
+                dataTestId="workspace-sidebar-right-resize-handle"
+                maxWidthPx={rightDesktopResizeRange.maxWidthPx}
+                minWidthPx={rightDesktopResizeRange.minWidthPx}
+                onWidthChange={(nextWidthPx) => {
+                  setRightDesktopWidthPx(
+                    clampWorkspaceDesktopSidebarWidthPx(
+                      nextWidthPx,
+                      shellWidthPx,
+                      leftDesktopOpen ? leftSidebarWidthPx : 0,
+                    ),
+                  );
+                }}
+                positionPx={shellWidthPx - rightSidebarWidthPx}
+                side="right"
               />
             ) : null}
           </div>
@@ -444,6 +631,8 @@ export function MachinesWorkspaceV2View(props: MachinesWorkspaceViewProps) {
       defaultOpen={true}
       defaultLeftDesktopWidthPx={288}
       defaultLeftMobileWidthPx={288}
+      defaultRightDesktopWidthPx={288}
+      defaultRightMobileWidthPx={288}
     >
       <MachinesWorkspaceV2Shell {...props} />
     </SidebarProvider>
