@@ -1,6 +1,11 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Infer, v } from "convex/values";
 import { resolveMachineRegistrationState } from "../shared/connectedMachinePresence";
+import {
+  compareConnectedMachineSidebarOrder,
+  readConnectedMachineSidebarOrder,
+} from "../shared/connectedMachineOrdering";
+import type { Doc } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
 import {
   approveMachineRegistrationRequestReturns,
@@ -21,6 +26,7 @@ import {
 import { getUserId } from "./common";
 
 const { array, null: vNull, object, string } = v;
+type ConnectedMachineStoredRow = Doc<"connectedMachines">;
 
 const listConnectedMachinesArgs = object({});
 const listConnectedMachinesReturns = array(connectedMachineViewValidator);
@@ -53,11 +59,12 @@ function readUniqueRoots(values: string[]): string[] {
   );
 }
 
-function buildConnectedMachineView(args: { row: ConnectedMachineRow }) {
+function buildConnectedMachineView(args: { row: ConnectedMachineStoredRow }) {
   return {
     machineId: args.row.machineId,
     displayName: args.row.displayName,
     hostname: args.row.hostname,
+    sidebarOrder: readConnectedMachineSidebarOrder(args.row),
     os: args.row.os,
     status: args.row.status,
     lastSeenAt: args.row.lastSeenAt,
@@ -121,17 +128,11 @@ export const listConnectedMachines = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
+    // Presence heartbeats update `lastSeenAt` frequently, so using recency here
+    // would reshuffle the sidebar while the user is looking at it.
     return rows
-      .map((row) => buildConnectedMachineView({ row }))
-      .sort((left, right) => {
-        if (left.status !== right.status) {
-          return left.status === "online" ? -1 : 1;
-        }
-        if (left.lastSeenAt !== right.lastSeenAt) {
-          return right.lastSeenAt - left.lastSeenAt;
-        }
-        return left.displayName.localeCompare(right.displayName);
-      });
+      .sort(compareConnectedMachineSidebarOrder)
+      .map((row) => buildConnectedMachineView({ row }));
   },
 });
 
@@ -370,6 +371,9 @@ export const publishHeartbeatFromConnector = internalMutation({
       machineId: args.machineId,
       displayName: args.displayName,
       hostname: args.hostname,
+      sidebarOrder: existing
+        ? readConnectedMachineSidebarOrder(existing)
+        : args.now,
       os: args.os,
       status: args.status ?? "online",
       lastSeenAt: args.now,

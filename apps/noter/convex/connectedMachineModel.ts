@@ -70,6 +70,9 @@ export const connectedMachineRowValidator = object({
   machineId: string(),
   displayName: string(),
   hostname: string(),
+  // Older rows may not have a persisted sidebar order until a heartbeat writes
+  // one, so the stored shape keeps this optional during the migration window.
+  sidebarOrder: optional(number()),
   os: connectedMachineOsValidator,
   status: connectedMachineStatusValidator,
   lastSeenAt: number(),
@@ -84,6 +87,9 @@ export const connectedMachineViewValidator = object({
   machineId: string(),
   displayName: string(),
   hostname: string(),
+  // Browser consumers should always see one effective order value even when the
+  // stored row still relies on the deterministic creation-time fallback.
+  sidebarOrder: number(),
   os: connectedMachineOsValidator,
   status: connectedMachineStatusValidator,
   lastSeenAt: number(),

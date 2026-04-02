@@ -4,11 +4,12 @@
 
 - Status: Accepted
 - Owner: connected machine onboarding + presence
-- Last updated: 2026-04-01
+- Last updated: 2026-04-02
 - Related docs:
   - `rfcs/073_CODEX_PLUGIN_CONNECTED_MACHINE_ONBOARDING_RESEARCH.md`
   - `specs/075_CONNECTED_MACHINE_INSTALLER_LOCAL_WALKTHROUGH_SPEC.md`
   - `specs/069_LOCAL_PROVIDER_THREAD_INVENTORY_RESEARCH_SURFACE_SPEC.md`
+  - `research/2026-04-02-machines-deterministic-ordering.md`
   - `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`
   - `archive/077_CONNECTED_MACHINE_PRESENCE_MERGE_CHECKLIST_SPEC.md`
 
@@ -75,6 +76,13 @@ The current `connectedMachines` row and view include:
 8. `connectorVersion`
 9. `capabilities`
 10. `allowedRoots`
+11. `sidebarOrder` on the `connectedMachines` row is optional, while the
+    `connectedMachines` view returns a required effective `sidebarOrder` using a
+    deterministic machine-owned fallback when the stored row value is missing
+
+The connected machine list must use a deterministic machine-owned sidebar order
+instead of heartbeat recency so normal presence updates do not reshuffle the
+browser-visible machine list.
 
 ## Source Of Truth Files
 
@@ -111,3 +119,5 @@ Those follow-on phone-control decisions now live in
 - [x] The browser handoff page supports explicit machine approval.
 - [x] The local connector authenticates with a machine-scoped credential.
 - [x] Noter can list approved machines with truthful online and offline state.
+- [x] Noter lists approved machines in a deterministic newest-first default
+      order until a later manual reorder flow exists.
