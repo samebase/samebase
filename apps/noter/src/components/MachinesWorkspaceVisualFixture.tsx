@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { MemoryRouter } from "react-router-dom";
 import { MachinesWorkspaceView } from "@/components/MachinesWorkspaceView";
 import {
@@ -16,6 +17,8 @@ const FIXTURE_BRANCH_NAME = "codex/machines-sidebar";
 const FIXTURE_GIT_SHA = "abc123def4567890abc123def4567890abc123de";
 const LONG_CLAMP_THREAD_NAME =
   "Research machines sidebar UI with pinned worktree labels, branch indicators, and overflowing thread titles that must truncate after exactly three lines";
+const FIXTURE_USER_DISPLAY_NAME = "Nicu Fixture";
+const FIXTURE_USER_DISPLAY_NAME = "Nicu Fixture";
 
 const FIXTURE_TURN_INITIAL: CodexAppServerThreadTurn = {
   errorMessage: null,
@@ -314,6 +317,11 @@ export function MachinesWorkspaceVisualFixture() {
           <MachinesWorkspaceView
             dataTestId="machines-workspace-visual-fixture"
             isSubmittingTurn={false}
+            leftSidebarHeader={
+              <SidebarHomeAccountHeader
+                userDisplayName={FIXTURE_USER_DISPLAY_NAME}
+              />
+            }
             selectedMachineDisplayName="Research MacBook Pro"
             selectedMachineHostname="research-mbp.local"
             selectedMachineStatusReason={null}

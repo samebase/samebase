@@ -33,9 +33,11 @@ function formatProviderLabel(provider: string | undefined): string {
 export function UserMenu({
   children,
   className,
+  menuLabel,
 }: {
-  children: ReactNode;
+  children?: ReactNode;
   className?: string;
+  menuLabel?: ReactNode;
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
   const viewer = useQuery(api.users.viewer);
@@ -84,7 +86,7 @@ export function UserMenu({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>{children}</DropdownMenuLabel>
+          <DropdownMenuLabel>{menuLabel ?? children}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
             <Link to="/pricing">Pricing</Link>
