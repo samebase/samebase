@@ -1,4 +1,3 @@
-import { Badge } from "@/components/badge";
 import { ChatInput } from "@/components/ChatInput";
 import { StaticMarkdownDocument } from "@/components/StaticMarkdownDocument";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
@@ -8,11 +7,9 @@ import {
 } from "@/lib/codexThreadTimeline";
 import { cn } from "@/lib/utils";
 import {
-  ArrowUpRight,
   Bot,
   CircleAlert,
   Eye,
-  GitBranch,
   Loader2,
   Search,
   SquarePen,
@@ -80,14 +77,11 @@ function readThreadTitle(thread: CodexAppServerThread): string {
   return readFirstNonEmptyLine(thread.preview);
 }
 
-function readThreadPreview(thread: CodexAppServerThread): string | null {
-  const previewLine = readFirstNonEmptyLine(thread.preview);
-  const title = readThreadTitle(thread);
-  if (previewLine === title) {
-    return null;
-  }
-
-  return previewLine;
+function readSelectedMachineLabel(args: {
+  displayName: string | null;
+  hostname: string | null;
+}): string {
+  return args.displayName ?? args.hostname ?? "Connected machine";
 }
 
 function workEntryIcon(entry: CodexThreadTimelineWorkEntry) {
@@ -202,9 +196,28 @@ export function MachinesWorkspaceThreadPane({
     timelineEndRef.current?.scrollIntoView({ block: "end" });
   }, [isSubmittingTurn, thread?.id, timelineEntries.length]);
 
-  const preview = thread ? readThreadPreview(thread) : null;
   const composerDisabled =
     isSubmittingTurn || selectedMachineStatusReason !== null;
+  const selectedMachineLabel = readSelectedMachineLabel({
+    displayName: selectedMachineDisplayName,
+    hostname: selectedMachineHostname,
+  });
+  const headerMeta = useMemo(() => {
+    if (thread === null) {
+      return isLoading ? "Refreshing" : null;
+    }
+
+    const parts = [thread.status.type];
+    if (!thread.workspace.isProjectRoot) {
+      parts.push(thread.workspace.label ?? "worktree");
+    }
+    parts.push(formatRelativeTime(thread.updatedAt));
+    if (isLoading) {
+      parts.push("refreshing");
+    }
+
+    return parts.join(" · ");
+  }, [isLoading, thread]);
   const composerPlaceholder =
     selectedMachineStatusReason !== null
       ? selectedMachineStatusReason
@@ -231,44 +244,13 @@ export function MachinesWorkspaceThreadPane({
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="border-b border-border bg-background/95">
-        <div className="mx-auto flex w-full max-w-3xl flex-wrap items-start gap-3 px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-              {selectedMachineDisplayName ?? "Connected machine"}
-              {selectedMachineHostname ? ` · ${selectedMachineHostname}` : ""}
-            </div>
-            <div className="mt-1 truncate text-[18px] font-semibold leading-6 text-foreground">
-              {thread ? readThreadTitle(thread) : emptyStateTitle}
-            </div>
-            {preview ? (
-              <div className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">
-                {preview}
-              </div>
-            ) : null}
+        <div className="mx-auto w-full max-w-3xl px-4 py-2.5">
+          <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+            <div className="min-w-0 truncate">{selectedMachineLabel}</div>
+            {headerMeta ? <div className="shrink-0">{headerMeta}</div> : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {thread ? (
-              <>
-                <Badge variant="outline">{thread.status.type}</Badge>
-                <Badge variant="outline">{thread.sourceLabel}</Badge>
-                {thread.workspace.isProjectRoot ? null : (
-                  <Badge variant="outline" className="gap-1">
-                    <GitBranch className="h-3 w-3" />
-                    {thread.workspace.label ?? "worktree"}
-                  </Badge>
-                )}
-                <Badge variant="outline" className="gap-1">
-                  <ArrowUpRight className="h-3 w-3" />
-                  {formatRelativeTime(thread.updatedAt)}
-                </Badge>
-              </>
-            ) : null}
-            {isLoading ? (
-              <Badge variant="outline" className="gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Refreshing
-              </Badge>
-            ) : null}
+          <div className="mt-1 truncate text-base font-semibold leading-6 text-foreground">
+            {thread ? readThreadTitle(thread) : emptyStateTitle}
           </div>
         </div>
       </div>
