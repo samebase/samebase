@@ -36,6 +36,7 @@ export function MachineConnectVisualFixture() {
               lastSeenAt: 1_775_379_520_000,
               machineId: "machine_123",
               os: "windows",
+              sidebarOrder: 1_775_379_520_000,
               status: "online",
             },
           ]}

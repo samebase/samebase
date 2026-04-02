@@ -88,6 +88,10 @@ Key domain entities:
 - In Convex modules, define result validators before handlers, derive types via
   `Infer<typeof ...>`, and prefer destructuring validator builders once instead
   of repeated `v.<fn>()` call sites.
+- When returning collections from queries or building user-visible lists, always
+  choose an explicit deterministic sort order with stable tie-breakers. Do not
+  rely on incidental storage order or live-update fields unless the product
+  intentionally wants rows to reshuffle.
 - New or materially changed code should include concise comments that explain
   the constraint or invariant being preserved. Prefer JSDoc above functions when
   a function-level explanation is needed.

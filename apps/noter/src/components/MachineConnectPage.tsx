@@ -93,11 +93,6 @@ type MachineConnectPageContentProps = {
   onApprove?: () => void;
 };
 
-const CONTROL_STATUS_RANK = {
-  ready: 0,
-  starting: 1,
-  unavailable: 2,
-} as const;
 const CONNECTED_MACHINES_SECTION_ID = "connected-machines";
 
 function resolveCurrentOrigin(): string {
@@ -106,12 +101,6 @@ function resolveCurrentOrigin(): string {
   }
 
   return window.location.origin;
-}
-
-function readControlStatusRank(
-  status: ConnectedMachineItem["controlStatus"] | undefined,
-): number {
-  return status ? CONTROL_STATUS_RANK[status] : 3;
 }
 
 function LocalRequirementsSection() {
@@ -639,29 +628,14 @@ export function MachineConnectPage() {
   );
   const connectedMachines: ConnectedMachineItem[] = (
     connectedMachinesQuery ?? []
-  )
-    .map((machine) => ({
-      ...machine,
-      status: resolveConnectedMachineStatus({
-        lastSeenAt: machine.lastSeenAt,
-        now,
-        status: machine.status,
-      }),
-    }))
-    .sort((left, right) => {
-      if (left.status !== right.status) {
-        return left.status === "online" ? -1 : 1;
-      }
-      const leftControlRank = readControlStatusRank(left.controlStatus);
-      const rightControlRank = readControlStatusRank(right.controlStatus);
-      if (leftControlRank !== rightControlRank) {
-        return leftControlRank - rightControlRank;
-      }
-      if (left.lastSeenAt !== right.lastSeenAt) {
-        return right.lastSeenAt - left.lastSeenAt;
-      }
-      return left.displayName.localeCompare(right.displayName);
-    });
+  ).map((machine) => ({
+    ...machine,
+    status: resolveConnectedMachineStatus({
+      lastSeenAt: machine.lastSeenAt,
+      now,
+      status: machine.status,
+    }),
+  }));
   const heartbeatLog = useConnectedMachineHeartbeatLog(connectedMachines);
   const pendingMachineRegistrationId =
     machineRegistrationRequest?.kind === "pending"

@@ -100,6 +100,7 @@ describe("MachineConnectPageContent", () => {
               lastSeenAt: 1_775_379_520_000,
               machineId: "machine_fixture",
               os: "macos",
+              sidebarOrder: 1_775_379_520_000,
               status: "online",
             },
           ]}
