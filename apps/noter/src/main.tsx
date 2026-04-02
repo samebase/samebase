@@ -3,19 +3,12 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
-import { ConvexReactClient } from "convex/react";
 import App from "./App.tsx";
 import "@xyflow/react/dist/style.css";
+import { client } from "./lib/convexClient";
 import { QueryProvider } from "./lib/providers/query-provider";
 
-const convexUrl = __DAYTONA_CONVEX_PROXY_PATH__
-  ? new URL(__DAYTONA_CONVEX_PROXY_PATH__, window.location.origin).toString()
-  : import.meta.env.VITE_CONVEX_URL;
-if (!convexUrl) {
-  throw new Error("Missing VITE_CONVEX_URL in environment");
-}
-
-export const client = new ConvexReactClient(convexUrl);
+export { client } from "./lib/convexClient";
 
 let mounted = false;
 

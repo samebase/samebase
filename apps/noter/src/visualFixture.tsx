@@ -1,3 +1,4 @@
+import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { ThemeProvider } from "next-themes";
@@ -5,6 +6,8 @@ import "@fontsource/ibm-plex-sans/400.css";
 import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/ibm-plex-sans/600.css";
 import { DialogProvider } from "@/contexts/DialogContext";
+import { client } from "@/lib/convexClient";
+import { QueryProvider } from "@/lib/providers/query-provider";
 import {
   CommitReviewVisualFixture,
   type CommitReviewVisualMode,
@@ -626,14 +629,20 @@ const showGestureDebugOverlay = isMobileSidebarDebugEnabled(
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-      <DialogProvider>
-        {showGestureDebugOverlay ? <GlobalGestureDebugOverlay /> : null}
-        {selection.status === "missing"
-          ? renderVisualFixtureModeDirectory({})
-          : selection.status === "invalid"
-            ? renderVisualFixtureModeDirectory({ invalidMode: selection.value })
-            : renderVisualFixture(selection.mode)}
-      </DialogProvider>
+      <ConvexAuthProvider client={client}>
+        <QueryProvider>
+          <DialogProvider>
+            {showGestureDebugOverlay ? <GlobalGestureDebugOverlay /> : null}
+            {selection.status === "missing"
+              ? renderVisualFixtureModeDirectory({})
+              : selection.status === "invalid"
+                ? renderVisualFixtureModeDirectory({
+                    invalidMode: selection.value,
+                  })
+                : renderVisualFixture(selection.mode)}
+          </DialogProvider>
+        </QueryProvider>
+      </ConvexAuthProvider>
     </ThemeProvider>
   </React.StrictMode>,
 );

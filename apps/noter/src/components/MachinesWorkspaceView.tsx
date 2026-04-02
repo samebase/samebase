@@ -32,6 +32,7 @@ type MachinesWorkspaceViewProps = {
   selectedThreadLoading: boolean;
   isSubmittingTurn: boolean;
   turnDraft: string;
+  leftSidebarHeader?: ReactNode;
   pendingPinThreadId: string | null;
   relativeTimeReferenceMs?: number;
   dataTestId?: string;
@@ -333,7 +334,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
         dataTestId={props.dataTestId}
         headerTestId={headerTestId}
         contentClassName="min-h-0 flex-1 p-0"
-        leftSidebarHeader={null}
+        leftSidebarHeader={props.leftSidebarHeader ?? null}
         leftSidebarContent={
           <div
             data-testid={sidebarTestId}

@@ -13,6 +13,7 @@ import {
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
+import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { MachinesWorkspaceView } from "@/components/MachinesWorkspaceView";
 import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -118,6 +119,7 @@ export function MachinesWorkspacePage() {
   const issueMachineControlToken = useMutation(
     api.connectedMachineControl.issueMachineControlToken,
   );
+  const user = useQuery(api.users.viewer);
   const [threads, setThreads] = useState<CodexAppServerThread[]>([]);
   const [pinnedThreadIds, setPinnedThreadIds] = useState<string[]>([]);
   const [hasLoadedThreadInventory, setHasLoadedThreadInventory] =
@@ -203,6 +205,7 @@ export function MachinesWorkspacePage() {
     selectedThreadDetail?.id === selectedThreadId
       ? selectedThreadDetail
       : selectedThreadSummary;
+  const userDisplayName = user?.name ?? user?.email ?? user?.githubUsername;
 
   const ensureMachineControlToken = useCallback(
     async (forceRefresh = false): Promise<string> => {
@@ -709,6 +712,11 @@ export function MachinesWorkspacePage() {
       selectedThreadError={selectedThreadError}
       selectedThreadLoading={isSelectedThreadLoading}
       selectedThreadId={selectedThreadId}
+      leftSidebarHeader={
+        userDisplayName ? (
+          <SidebarHomeAccountHeader userDisplayName={userDisplayName} />
+        ) : null
+      }
       relativeTimeReferenceMs={now}
       turnDraft={turnDraft}
       pendingPinThreadId={pendingPinThreadId}

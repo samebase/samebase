@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAction, useMutation, useQuery as useLiveQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
@@ -38,7 +38,6 @@ import {
   useLayoutEffect,
 } from "react";
 import { useSidebar } from "@/hooks/use-sidebar";
-import { UserMenu } from "@/components/UserMenu";
 import { linkStyle } from "./styles";
 import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
@@ -79,10 +78,10 @@ import { DaytonaSnapshotBanner } from "./DaytonaSnapshotBanner";
 import { DraftPullRequestFeedbackBanner } from "./DraftPullRequestFeedbackBanner";
 import { VaultSyncStatus } from "./VaultSyncStatus";
 import { RepositoryMediaViewer } from "./RepositoryMediaViewer";
-import { SidebarAccountSection } from "./SidebarAccountSection";
 import { RepositoryRouteConnectState } from "./RepositoryRouteConnectState";
 import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
 import { WorkspaceScene } from "@/components/workspace-layout/WorkspaceScene";
+import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { DAYTONA_PAUSED } from "../../shared/daytonaPause";
 import { MediaUploadDialog } from "./MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
@@ -3178,13 +3177,7 @@ function FileViewInner({
 
   const userDisplayName = user?.name ?? user?.email ?? user?.githubUsername;
   const sidebarHeader = userDisplayName ? (
-    <SidebarAccountSection>
-      <Link to="/" className={`flex items-center justify-between ${linkStyle}`}>
-        <UserMenu className="w-full min-w-0 justify-between">
-          <span className="block min-w-0 truncate">{userDisplayName}</span>
-        </UserMenu>
-      </Link>
-    </SidebarAccountSection>
+    <SidebarHomeAccountHeader userDisplayName={userDisplayName} />
   ) : null;
 
   const sidebarContent = (
