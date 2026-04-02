@@ -1,7 +1,13 @@
 import { spawnSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import { listListeningPids, parsePort, sleep } from "./convex-local-utils.js";
+import {
+  listListeningPids,
+  parsePort,
+  readEnvFile,
+  sleep,
+  usesLocalConvexDeployment,
+} from "./convex-local-utils.js";
 
 const run = (command, args) => {
   const result = spawnSync(command, args, { stdio: "inherit" });
@@ -38,25 +44,6 @@ const restoreConvexReadmeIfOverwritten = (snapshot) => {
   fs.writeFileSync(snapshot.path, snapshot.contents, "utf8");
 };
 
-const readEnvFile = () => {
-  const envPath = path.join(process.cwd(), ".env.local");
-  if (!fs.existsSync(envPath)) {
-    return {};
-  }
-  const contents = fs.readFileSync(envPath, "utf8");
-  const env = {};
-  for (const line of contents.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) {
-      continue;
-    }
-    const [key, ...rest] = trimmed.split("=");
-    if (!key) continue;
-    env[key] = rest.join("=");
-  }
-  return env;
-};
-
 const isConvexLocalBackend = async (port) => {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/instance_name`, {
@@ -74,6 +61,7 @@ const isConvexLocalBackend = async (port) => {
 
 const killPids = (pids, signal) => {
   if (process.platform === "win32") {
+    // Windows needs taskkill for process trees; only add /F on the KILL pass so TERM remains the graceful first attempt.
     for (const pid of pids) {
       const args = ["/PID", pid, "/T"];
       if (signal === "KILL") {
@@ -88,6 +76,9 @@ const killPids = (pids, signal) => {
     spawnSync("kill", ["-" + signal, pid], { stdio: "ignore" });
   }
 };
+
+const shouldManageLocalBackend = () =>
+  process.env.CONVEX_AGENT_MODE === "anonymous" || usesLocalConvexDeployment();
 
 const stopLocalBackendIfRunning = async () => {
   const env = readEnvFile();
@@ -113,16 +104,23 @@ const stopLocalBackendIfRunning = async () => {
   }
 };
 
+const maybeStopLocalBackendIfRunning = async () => {
+  if (!shouldManageLocalBackend()) {
+    return;
+  }
+  await stopLocalBackendIfRunning();
+};
+
 if (process.env.CONVEX_AGENT_MODE === "anonymous") {
   const readmeSnapshot = captureConvexReadme();
-  await stopLocalBackendIfRunning();
+  await maybeStopLocalBackendIfRunning();
   run("node", ["convex-dev.js", "--until-success", "--codegen=enable"]);
   restoreConvexReadmeIfOverwritten(readmeSnapshot);
   process.exit(0);
 }
 
 const readmeSnapshot = captureConvexReadme();
-await stopLocalBackendIfRunning();
+await maybeStopLocalBackendIfRunning();
 run("node", ["convex-dev.js", "--until-success", "--codegen=enable"]);
 restoreConvexReadmeIfOverwritten(readmeSnapshot);
 run("node", ["setup.mjs", "--once"]);

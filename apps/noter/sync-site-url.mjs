@@ -15,7 +15,8 @@
  *     to the old, dead URL. This script fixes that by reading the current
  *     container URL from the DEV_ENV_ORIGIN env var.
  *
- *   - Local development: Defaults to http://localhost:5173 (Vite's default).
+ *   - Local development: Reuses the deterministic local Vite port that Noter
+ *     picks before startup, beginning with http://localhost:5173.
  *
  * KNOWN LIMITATION:
  * All contributors share a single Convex dev deployment, so running this
@@ -25,48 +26,11 @@
  * Convex dev deployments per contributor.
  */
 
-import fs from "fs";
-import path from "path";
 import { spawnSync } from "child_process";
-
-const LOCAL_CONVEX_HOSTS = new Set(["127.0.0.1", "localhost"]);
-
-const readEnvFile = () => {
-  const envPath = path.join(process.cwd(), ".env.local");
-  if (!fs.existsSync(envPath)) {
-    return {};
-  }
-
-  const env = {};
-  const contents = fs.readFileSync(envPath, "utf8");
-  for (const line of contents.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) {
-      continue;
-    }
-    const [key, ...rest] = trimmed.split("=");
-    if (!key) {
-      continue;
-    }
-    env[key] = rest.join("=");
-  }
-  return env;
-};
-
-const usesLocalConvexDeployment = () => {
-  const env = readEnvFile();
-  const rawUrl = env.CONVEX_URL ?? env.VITE_CONVEX_URL;
-  if (!rawUrl) {
-    return false;
-  }
-
-  try {
-    const deploymentUrl = new URL(rawUrl.replace(/^['"]|['"]$/g, ""));
-    return LOCAL_CONVEX_HOSTS.has(deploymentUrl.hostname);
-  } catch {
-    return false;
-  }
-};
+import {
+  resolveLocalDevOrigin,
+  usesLocalConvexDeployment,
+} from "./convex-local-utils.js";
 
 const writeProcessOutput = (stream, value) => {
   if (typeof value === "string" && value.length > 0) {
@@ -74,9 +38,7 @@ const writeProcessOutput = (stream, value) => {
   }
 };
 
-// DEV_ENV_ORIGIN is set by sandbox providers (e.g. Daytona).
-// Falls back to localhost for local development.
-const origin = process.env.DEV_ENV_ORIGIN || "http://localhost:5173";
+const origin = resolveLocalDevOrigin(process.env);
 
 console.log(`Setting Convex SITE_URL to ${origin}`);
 const result = spawnSync("npx", ["convex", "env", "set", "SITE_URL", origin], {
@@ -97,7 +59,7 @@ if (
   /Local backend isn't running/i.test(commandOutput)
 ) {
   console.warn(
-    `Skipping SITE_URL sync during predev because the temporary local Convex backend already exited. If you need local OAuth redirects in this session, rerun \`pnpm --dir apps/noter exec convex env set SITE_URL "${origin}"\` after the backend starts.`,
+    `Skipping SITE_URL sync during predev because the temporary local Convex backend already exited. The long-running local backend will retry SITE_URL sync for ${origin} after it starts.`,
   );
   process.exit(0);
 }

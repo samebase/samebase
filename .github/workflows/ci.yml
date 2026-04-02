@@ -114,4 +114,16 @@ jobs:
         run: pnpm install
 
       - name: Run sync smoke tests on Windows
-        run: pnpm exec vitest run packages/sync/noter.test.ts apps/noter/src/lib/noterSyncPublicScript.test.ts
+        run:
+          pnpm exec vitest run packages/sync/noter.test.ts
+          apps/noter/src/lib/noterSyncPublicScript.test.ts
+
+      - name: Run anonymous predev smoke on Windows
+        working-directory: apps/noter
+        env:
+          CONVEX_AGENT_MODE: anonymous
+        run: node predev.js
+
+      - name: Run Vite wrapper smoke on Windows
+        working-directory: apps/noter
+        run: node scripts/run-vite-dev.js --version

@@ -101,7 +101,9 @@ pnpm dev
 ```
 
 6. Open the URL Vite prints in the terminal. The usual default is
-   [http://127.0.0.1:5173/](http://127.0.0.1:5173/).
+   [http://127.0.0.1:5173/](http://127.0.0.1:5173/), and if that port is busy
+   Noter now picks the next free local port before startup so the frontend and
+   `SITE_URL` stay aligned.
 
 Notes:
 
@@ -118,11 +120,10 @@ Notes:
   launch the same Codex binary that the later runtime command would use.
 - On a brand-new machine, the first `pnpm dev` run may pause for an interactive
   Convex CLI login/bootstrap prompt before `apps/noter/.env.local` exists.
-- On native Windows primary checkouts, `pnpm dev` now tolerates the temporary
-  local Convex bootstrap backend exiting before `SITE_URL` sync completes. If
-  you need local OAuth redirects in that session, rerun
-  `pnpm --dir apps/noter exec convex env set SITE_URL "<your origin>"` after the
-  long-running backend starts.
+- On native Windows primary checkouts, `pnpm dev` now retries local `SITE_URL`
+  sync after the long-running backend starts, so local OAuth redirects continue
+  to follow the URL Vite printed even when the temporary bootstrap backend exits
+  first.
 - `pnpm dev` now tries to stop stale local `convex-local-backend` listeners on
   `3210` before bootstrap. If it still reports that `3210` is occupied, stop the
   leftover backend process manually and retry.

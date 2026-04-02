@@ -432,10 +432,19 @@ function readWindowsCmdShimTarget(shimPath) {
 }
 
 function resolveWindowsCmdShimScriptPath(shimPath, shimTarget) {
-  return realpathSync(
-    path.resolve(path.dirname(shimPath), ...shimTarget.split(/[\\/]+/)),
-  )
+  try {
+    return realpathSync(
+      path.resolve(path.dirname(shimPath), ...shimTarget.split(/[\\/]+/)),
+    )
+  } catch (error) {
+    if (codexCommandWasNotFound(error)) {
+      return null
+    }
+    throw error
+  }
 }
+
+const WINDOWS_VOLTA_WHICH_TIMEOUT_MS = 5_000
 
 /**
  * Volta's top-level Windows shim delegates to `volta run codex`, so ask Volta
@@ -461,6 +470,7 @@ function resolveWindowsVoltaPackageShimPath(
     cwd,
     env,
     encoding: 'utf8',
+    timeout: WINDOWS_VOLTA_WHICH_TIMEOUT_MS,
     windowsHide: true,
   })
   if (result.error || result.status !== 0) {
@@ -523,9 +533,14 @@ function resolveWindowsShimInvocation(
 ) {
   const directTarget = readWindowsCmdShimTarget(shimPath)
   if (directTarget !== null) {
+    const scriptPath = resolveWindowsCmdShimScriptPath(shimPath, directTarget)
+    if (scriptPath === null) {
+      return null
+    }
+
     return {
       nodeCommand: resolveWindowsCmdShimNodeCommand(shimPath, env),
-      scriptPath: resolveWindowsCmdShimScriptPath(shimPath, directTarget),
+      scriptPath,
     }
   }
 
@@ -543,12 +558,17 @@ function resolveWindowsShimInvocation(
     return null
   }
 
+  const scriptPath = resolveWindowsCmdShimScriptPath(
+    voltaPackageShimPath,
+    voltaTarget,
+  )
+  if (scriptPath === null) {
+    return null
+  }
+
   return {
     nodeCommand: resolveWindowsCmdShimNodeCommand(voltaPackageShimPath, env),
-    scriptPath: resolveWindowsCmdShimScriptPath(
-      voltaPackageShimPath,
-      voltaTarget,
-    ),
+    scriptPath,
   }
 }
 

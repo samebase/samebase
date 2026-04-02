@@ -373,7 +373,8 @@ describe('@noter-md/sync', () => {
       const shimPath = path.join(binDirectory, 'codex')
       writeFileSync(
         shimPath,
-        ['#!/bin/sh', `printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`].join('\n'),
+        `#!/bin/sh
+printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
         'utf8',
       )
       chmodSync(shimPath, 0o755)
@@ -606,6 +607,7 @@ describe('@noter-md/sync', () => {
           cwd: workspaceA,
           encoding: 'utf8',
           env: process.env,
+          timeout: 5_000,
           windowsHide: true,
         }),
       )
@@ -617,12 +619,57 @@ describe('@noter-md/sync', () => {
           cwd: workspaceB,
           encoding: 'utf8',
           env: process.env,
+          timeout: 5_000,
           windowsHide: true,
         }),
       )
     } finally {
       vi.doUnmock('node:child_process')
       vi.resetModules()
+      if (originalPath === undefined) {
+        delete process.env.PATH
+      } else {
+        process.env.PATH = originalPath
+      }
+      if (originalWindowsPath === undefined) {
+        delete process.env.Path
+      } else {
+        process.env.Path = originalWindowsPath
+      }
+      if (originalPathext === undefined) {
+        delete process.env.PATHEXT
+      } else {
+        process.env.PATHEXT = originalPathext
+      }
+      rmSync(tempRoot, { force: true, recursive: true })
+    }
+  })
+
+  it('surfaces stale Windows Codex shims as missing CLI diagnostics', () => {
+    const tempRoot = path.join(tmpdir(), `noter-codex-stale-${Date.now()}`)
+    const binDirectory = path.join(tempRoot, 'bin')
+    const shimPath = path.join(binDirectory, 'codex.cmd')
+    const bundledNodePath = path.join(binDirectory, 'node.exe')
+    const originalPath = process.env.PATH
+    const originalWindowsPath = process.env.Path
+    const originalPathext = process.env.PATHEXT
+
+    mkdirSync(binDirectory, { recursive: true })
+    writeFileSync(
+      shimPath,
+      `@ECHO off\r\n"%_prog%" "%dp0%\\missing\\cli.js" %*\r\n`,
+      'utf8',
+    )
+    writeFileSync(bundledNodePath, '', 'utf8')
+    process.env.PATH = binDirectory
+    process.env.Path = binDirectory
+    process.env.PATHEXT = '.CMD;.EXE'
+
+    try {
+      expect(() => buildCodexSpawnInvocation(['--version'], 'win32')).toThrow(
+        /The `codex` command was not found\./,
+      )
+    } finally {
       if (originalPath === undefined) {
         delete process.env.PATH
       } else {

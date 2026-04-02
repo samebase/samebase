@@ -98,7 +98,9 @@ Observed result on this machine:
 1. `predev` completed without failing when the temporary local backend exited
    before `SITE_URL` sync.
 2. The real long-running backend started afterward on `http://127.0.0.1:3210`.
-3. Vite fell back from `5173` to `5174` because `5173` was already in use.
+3. Vite fell back from `5173` to `5174` because `5173` was already in use, so
+   every later `/noter.js` command had to reuse the URL Vite printed instead of
+   assuming the default port.
 
 For the local app itself, the older manual Windows setup also worked with two
 long-running terminals:
@@ -118,10 +120,12 @@ pnpm run dev:frontend
 
 ## Hosted-File Connect Result
 
-The direct PowerShell connect command succeeded:
+The direct PowerShell connect command succeeded once it reused the exact URL
+that Vite printed for that run:
 
 ```powershell
-curl.exe -fsSL 'http://127.0.0.1:5173/noter.js' | node --input-type=module - connect 'http://127.0.0.1:5173/noter.js'
+$noterUrl = '<use the URL Vite printed>/noter.js'
+curl.exe -fsSL $noterUrl | node --input-type=module - connect $noterUrl
 ```
 
 Observed result:

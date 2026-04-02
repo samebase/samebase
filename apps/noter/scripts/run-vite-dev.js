@@ -2,6 +2,11 @@ import { spawn } from "child_process";
 import { createRequire } from "module";
 import { realpathSync } from "fs";
 import path from "path";
+import {
+  clearLocalDevOriginState,
+  resolveLocalDevPort,
+  writeLocalDevOriginState,
+} from "../convex-local-utils.js";
 
 const require = createRequire(import.meta.url);
 
@@ -16,37 +21,65 @@ function resolveViteCliEntrypoint() {
   );
 }
 
-/**
- * Keep the existing `VITE_PORT` override behavior while defaulting to the same
- * port Vite would have used before the Windows-safe wrapper existed.
- */
-function readVitePort() {
-  const configuredPort = process.env.VITE_PORT?.trim();
-  return configuredPort && configuredPort.length > 0 ? configuredPort : "5173";
+function splitVitePortArgs(args) {
+  const passthroughArgs = [];
+  let port = null;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--port") {
+      const candidate = args[index + 1];
+      if (typeof candidate === "string" && candidate.trim().length > 0) {
+        port = candidate.trim();
+        index += 1;
+        continue;
+      }
+    }
+
+    if (typeof arg === "string" && arg.startsWith("--port=")) {
+      const candidate = arg.slice("--port=".length).trim();
+      if (candidate.length > 0) {
+        port = candidate;
+        continue;
+      }
+    }
+
+    passthroughArgs.push(arg);
+  }
+
+  return {
+    passthroughArgs,
+    port,
+  };
 }
 
-const child = spawn(
-  process.execPath,
-  [
-    resolveViteCliEntrypoint(),
-    "--host",
-    "0.0.0.0",
-    "--port",
-    readVitePort(),
-    ...process.argv.slice(2),
-  ],
-  {
-    env: process.env,
-    stdio: "inherit",
-  },
-);
+const cliArgs = process.argv.slice(2);
+const { passthroughArgs, port: cliPort } = splitVitePortArgs(cliArgs);
+const vitePort = cliPort ?? resolveLocalDevPort(process.env);
+writeLocalDevOriginState(`http://localhost:${vitePort}`);
+const launchArgs = [
+  resolveViteCliEntrypoint(),
+  "--host",
+  "0.0.0.0",
+  "--port",
+  vitePort,
+  "--strictPort",
+  ...passthroughArgs,
+];
+
+const child = spawn(process.execPath, launchArgs, {
+  env: process.env,
+  stdio: "inherit",
+});
 
 child.on("error", (error) => {
+  clearLocalDevOriginState();
   console.error(error.message);
   process.exit(1);
 });
 
 child.on("exit", (code, signal) => {
+  clearLocalDevOriginState();
   if (signal) {
     process.kill(process.pid, signal);
   }
