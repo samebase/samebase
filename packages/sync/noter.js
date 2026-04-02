@@ -1131,10 +1131,27 @@ function resolveDesktopGlobalStatePath() {
   return path.join(resolveCodexHomeDirectory(), CODEX_GLOBAL_STATE_FILENAME)
 }
 
+function desktopGlobalStateWasNotFound(error) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'ENOENT'
+  )
+}
+
+// Serialize read/modify/write access so concurrent pin mutations preserve the
+// rest of Codex desktop's shared global state.
+let desktopGlobalStateUpdateQueue = Promise.resolve()
+
 async function readDesktopGlobalState() {
   const globalStatePath = resolveDesktopGlobalStatePath()
   const rawGlobalState = await readFile(globalStatePath, 'utf8')
-  return asRecord(JSON.parse(rawGlobalState)) ?? {}
+  const parsedGlobalState = asRecord(JSON.parse(rawGlobalState))
+  if (parsedGlobalState === null) {
+    throw new Error(`${CODEX_GLOBAL_STATE_FILENAME} must contain a JSON object`)
+  }
+  return parsedGlobalState
 }
 
 async function writeDesktopGlobalState(record) {
@@ -1147,20 +1164,34 @@ async function writeDesktopGlobalState(record) {
 }
 
 async function updateDesktopPinnedThreadIds(updatePinnedThreadIds) {
-  let nextGlobalState = {}
+  const runUpdate = async () => {
+    let nextGlobalState
 
-  try {
-    nextGlobalState = await readDesktopGlobalState()
-  } catch {}
+    try {
+      nextGlobalState = await readDesktopGlobalState()
+    } catch (error) {
+      if (!desktopGlobalStateWasNotFound(error)) {
+        throw error
+      }
+      nextGlobalState = {}
+    }
 
-  const nextPinnedThreadIds = readPinnedThreadIds(
-    updatePinnedThreadIds(
-      readPinnedThreadIds(nextGlobalState['pinned-thread-ids']),
-    ),
+    const nextPinnedThreadIds = readPinnedThreadIds(
+      updatePinnedThreadIds(
+        readPinnedThreadIds(nextGlobalState['pinned-thread-ids']),
+      ),
+    )
+    nextGlobalState['pinned-thread-ids'] = nextPinnedThreadIds
+    await writeDesktopGlobalState(nextGlobalState)
+    return nextPinnedThreadIds
+  }
+
+  const nextUpdate = desktopGlobalStateUpdateQueue.then(runUpdate, runUpdate)
+  desktopGlobalStateUpdateQueue = nextUpdate.then(
+    () => undefined,
+    () => undefined,
   )
-  nextGlobalState['pinned-thread-ids'] = nextPinnedThreadIds
-  await writeDesktopGlobalState(nextGlobalState)
-  return nextPinnedThreadIds
+  return nextUpdate
 }
 
 function readPathLeaf(value) {

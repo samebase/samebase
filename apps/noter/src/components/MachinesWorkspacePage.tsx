@@ -140,6 +140,7 @@ export function MachinesWorkspacePage() {
     readSelectedSearchValue(searchParams, SELECTED_THREAD_QUERY_PARAM),
   );
   const machineControlTokenRef = useRef<MachineControlTokenState | null>(null);
+  const activePinRequestIdRef = useRef(0);
   const activeTurnSubmissionIdRef = useRef(0);
   const latestSelectedMachineControlIdRef = useRef<string | null>(null);
 
@@ -360,6 +361,7 @@ export function MachinesWorkspacePage() {
 
   useEffect(() => {
     machineControlTokenRef.current = null;
+    activePinRequestIdRef.current += 1;
     activeTurnSubmissionIdRef.current += 1;
     setThreads([]);
     setPinnedThreadIds([]);
@@ -522,10 +524,17 @@ export function MachinesWorkspacePage() {
         return;
       }
 
+      activePinRequestIdRef.current += 1;
+      const pinRequestId = activePinRequestIdRef.current;
+      const pinMachineControlId = selectedMachineControlId;
       setPendingPinThreadId(threadId);
       setSelectedThreadError(null);
 
       void (async () => {
+        const pinRequestIsStale = () =>
+          activePinRequestIdRef.current !== pinRequestId ||
+          latestSelectedMachineControlIdRef.current !== pinMachineControlId;
+
         try {
           const response =
             await requestMachineControlJson<CodexAppServerPinnedThreadsResponse>(
@@ -537,24 +546,36 @@ export function MachinesWorkspacePage() {
                 path: nextPinned ? "/thread/pin" : "/thread/unpin",
               },
             );
+          if (pinRequestIsStale()) {
+            return;
+          }
+
           setPinnedThreadIds(response.pinnedThreadIds);
 
           try {
             const threadsResponse = await refreshThreads();
-            applyThreadInventory(threadsResponse);
+            if (!pinRequestIsStale()) {
+              applyThreadInventory(threadsResponse);
+            }
           } catch {
-            setSelectedThreadError(
-              `Thread ${nextPinned ? "pinned" : "unpinned"}, but the thread list did not refresh. It should settle on the next poll.`,
-            );
+            if (!pinRequestIsStale()) {
+              setSelectedThreadError(
+                `Thread ${nextPinned ? "pinned" : "unpinned"}, but the thread list did not refresh. It should settle on the next poll.`,
+              );
+            }
           }
         } catch (error) {
-          setSelectedThreadError(
-            error instanceof Error
-              ? error.message
-              : `Failed to ${nextPinned ? "pin" : "unpin"} the selected thread.`,
-          );
+          if (!pinRequestIsStale()) {
+            setSelectedThreadError(
+              error instanceof Error
+                ? error.message
+                : `Failed to ${nextPinned ? "pin" : "unpin"} the selected thread.`,
+            );
+          }
         } finally {
-          setPendingPinThreadId(null);
+          if (!pinRequestIsStale()) {
+            setPendingPinThreadId(null);
+          }
         }
       })();
     },

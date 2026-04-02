@@ -147,7 +147,7 @@ function ThreadRow(props: {
   const pinActionVisible =
     pinActionAlwaysVisible || pinActionVisibleBecauseSelected;
   const pinActionIsPending = props.pinActionPendingThreadId === props.item.id;
-  const pinActionDisabled = props.pinActionPendingThreadId !== null;
+  const pinActionDisabled = pinActionIsPending;
 
   return (
     <div

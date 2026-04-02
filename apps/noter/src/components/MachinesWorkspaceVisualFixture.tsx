@@ -287,6 +287,25 @@ export function MachinesWorkspaceVisualFixture() {
       fixtureThreads.find((thread) => thread.id === selectedThreadId) ?? null,
     [fixtureThreads, selectedThreadId],
   );
+  /**
+   * Keep fixture snapshots aligned with Codex desktop ordering: pinning
+   * prepends the thread id while filtering currentPinnedThreadIds for dedupe,
+   * and unpinning removes the id before setPinnedThreadIds commits the update.
+   */
+  const handleThreadPinChange = (threadId: string, nextPinned: boolean) => {
+    setPinnedThreadIds((currentPinnedThreadIds) =>
+      nextPinned
+        ? [
+            threadId,
+            ...currentPinnedThreadIds.filter(
+              (currentThreadId) => currentThreadId !== threadId,
+            ),
+          ]
+        : currentPinnedThreadIds.filter(
+            (currentThreadId) => currentThreadId !== threadId,
+          ),
+    );
+  };
 
   return (
     <MemoryRouter>
@@ -309,20 +328,7 @@ export function MachinesWorkspaceVisualFixture() {
             turnDraft="Continue with the main pane chat surface."
             onTurnDraftChange={() => {}}
             onTurnSubmit={() => {}}
-            onThreadPinChange={(threadId, nextPinned) => {
-              setPinnedThreadIds((currentPinnedThreadIds) =>
-                nextPinned
-                  ? [
-                      threadId,
-                      ...currentPinnedThreadIds.filter(
-                        (currentThreadId) => currentThreadId !== threadId,
-                      ),
-                    ]
-                  : currentPinnedThreadIds.filter(
-                      (currentThreadId) => currentThreadId !== threadId,
-                    ),
-              );
-            }}
+            onThreadPinChange={handleThreadPinChange}
             onThreadSelect={setSelectedThreadId}
           />
         </div>
