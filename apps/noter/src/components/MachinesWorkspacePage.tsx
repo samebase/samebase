@@ -518,8 +518,7 @@ export function MachinesWorkspacePage() {
       if (
         selectedMachineControlId === null ||
         typeof machineControlUrl !== "string" ||
-        selectedMachineInteractionBlockedReason !== null ||
-        pendingPinThreadId !== null
+        selectedMachineInteractionBlockedReason !== null
       ) {
         return;
       }
@@ -582,7 +581,6 @@ export function MachinesWorkspacePage() {
     [
       applyThreadInventory,
       machineControlUrl,
-      pendingPinThreadId,
       refreshThreads,
       requestMachineControlJson,
       selectedMachineControlId,
