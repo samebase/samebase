@@ -21,6 +21,15 @@ These sources were reviewed on April 3, 2026.
 - [Codex changelog](https://developers.openai.com/codex/changelog)
 - [Using Codex with your ChatGPT plan](https://help.openai.com/en/articles/11369540/)
 
+## Update After Screenshot Review
+
+- Later feedback on April 3, 2026 clarified that trying to restyle the live
+  route immediately is premature.
+- The system-first build plan now lives in
+  [2026-04-03-codex-pixel-perfect-system.md](/Users/nicu/.codex/worktrees/846d/noter/research/2026-04-03-codex-pixel-perfect-system.md).
+- Treat this memo as the product-direction note and the newer memo as the
+  implementation-system recommendation.
+
 ## What The Public Codex Surface Repeats
 
 - A sparse, neutral shell with soft borders, large radii, restrained color, and
