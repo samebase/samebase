@@ -6,6 +6,7 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "@/lib/codexAppServerResearch";
+import { shouldShowGlobalChatFab } from "@/lib/globalChatFabVisibility";
 import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
 
 import { Button } from "@/components/ui/button";
@@ -379,9 +380,7 @@ export default function App() {
     location.pathname,
     !(onMcpConsentRoute && mcpConsentRequestId !== null),
   );
-  // Vault and dashboard routes own the shared docked chat inside their scroll containers.
-  const showGlobalChatFab =
-    !location.pathname.startsWith("/vault/") && location.pathname !== "/";
+  const showGlobalChatFab = shouldShowGlobalChatFab(location.pathname);
   const showMcpConsent = onMcpConsentRoute && mcpConsentRequestId !== null;
   const logoPreviewMode =
     location.pathname === "/logo"

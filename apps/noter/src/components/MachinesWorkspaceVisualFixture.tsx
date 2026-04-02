@@ -55,12 +55,57 @@ const FIXTURE_TURN_LATEST: CodexAppServerThreadTurn = {
       },
     },
     {
+      id: "item-machine-workspace-reasoning-latest",
+      type: "reasoning",
+      summary:
+        "Compare the shared shell against Codex before adding extra chrome.",
+      raw: {
+        summary: [
+          "Compare the shared shell against Codex before adding extra chrome.",
+        ],
+      },
+    },
+    {
+      id: "item-machine-workspace-tool-call-latest",
+      type: "mcpToolCall",
+      summary: "github/fetch_pr",
+      raw: {
+        server: "github",
+        tool: "fetch_pr",
+      },
+    },
+    {
+      id: "item-machine-workspace-command-latest",
+      type: "commandExecution",
+      summary: "pnpm exec playwright test machines-workspace",
+      raw: {
+        command:
+          "pnpm exec playwright test apps/noter/e2e/machines-workspace-visual.spec.ts",
+        cwd: FIXTURE_WORKTREE_CWD,
+      },
+    },
+    {
+      id: "item-machine-workspace-file-change-latest",
+      type: "fileChange",
+      summary: "2 changes",
+      raw: {
+        changes: [
+          {
+            path: "apps/noter/src/components/MachinesWorkspaceView.tsx",
+          },
+          {
+            path: "apps/noter/src/components/MachinesWorkspaceThreadPane.tsx",
+          },
+        ],
+      },
+    },
+    {
       id: "item-machine-workspace-agent-latest",
       type: "agentMessage",
       summary:
-        "Flatten the list, remove helper copy, and keep the sidebar focused on a single compact thread row shape.",
+        "Flatten the list, keep the rail compact, and turn the main pane into a Codex-like timeline with grouped tool rows and a bottom composer.",
       raw: {
-        text: "Flatten the list, remove helper copy, and keep the sidebar focused on a single compact thread row shape.",
+        text: "Flatten the list, keep the rail compact, and turn the main pane into a Codex-like timeline with grouped tool rows and a bottom composer.",
       },
     },
   ],
@@ -108,6 +153,7 @@ const FIRST_THREAD: CodexAppServerThread = {
 
 const SECOND_THREAD: CodexAppServerThread = {
   ...FIRST_THREAD,
+  createdAt: 1_775_534_200,
   id: "thread-machine-workspace-second",
   name: "Research machines sidebar UI",
   path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-second.jsonl`,
@@ -124,6 +170,7 @@ const SECOND_THREAD: CodexAppServerThread = {
 
 const THIRD_THREAD: CodexAppServerThread = {
   ...FIRST_THREAD,
+  createdAt: 1_775_476_200,
   id: "thread-machine-workspace-third",
   name: "Add research to active PR",
   path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-third.jsonl`,
@@ -144,6 +191,7 @@ const THIRD_THREAD: CodexAppServerThread = {
 
 const FOURTH_THREAD: CodexAppServerThread = {
   ...FIRST_THREAD,
+  createdAt: 1_775_499_800,
   cwd: "/Users/fixture/.codex/worktrees/demo/learn_vp",
   gitInfo: {
     branch: "codex/flaky-screenshot-test",
@@ -170,6 +218,7 @@ const FOURTH_THREAD: CodexAppServerThread = {
 
 const FIFTH_THREAD: CodexAppServerThread = {
   ...FOURTH_THREAD,
+  createdAt: 1_775_420_000,
   id: "thread-machine-workspace-fifth",
   name: "Map PR 390 UI diagram",
   path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-fifth.jsonl`,
@@ -180,6 +229,7 @@ const FIFTH_THREAD: CodexAppServerThread = {
 
 const SIXTH_THREAD: CodexAppServerThread = {
   ...FIRST_THREAD,
+  createdAt: 1_775_520_000,
   cwd: "/Users/fixture/.codex/worktrees/e2ca/noter",
   gitInfo: {
     branch: "codex/worktree-sidebar",
@@ -205,6 +255,13 @@ export function MachinesWorkspaceVisualFixture() {
         <div className="h-[420px] w-[960px] overflow-hidden">
           <MachinesWorkspaceView
             dataTestId="machines-workspace-visual-fixture"
+            isSubmittingTurn={false}
+            selectedMachineDisplayName="Research MacBook Pro"
+            selectedMachineHostname="research-mbp.local"
+            selectedMachineStatusReason={null}
+            selectedThread={SECOND_THREAD}
+            selectedThreadError={null}
+            selectedThreadLoading={false}
             threads={[
               FIRST_THREAD,
               SECOND_THREAD,
@@ -214,8 +271,11 @@ export function MachinesWorkspaceVisualFixture() {
               SIXTH_THREAD,
             ]}
             pinnedThreadIds={[SECOND_THREAD.id, THIRD_THREAD.id]}
-            selectedThreadId={FIRST_THREAD.id}
+            selectedThreadId={SECOND_THREAD.id}
             relativeTimeReferenceMs={FIXTURE_RELATIVE_TIME_REFERENCE_MS}
+            turnDraft="Continue with the main pane chat surface."
+            onTurnDraftChange={() => {}}
+            onTurnSubmit={() => {}}
           />
         </div>
       </div>
