@@ -11,7 +11,6 @@ Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
 describe("VaultLastUpdatedStatus", () => {
   let rootElement: HTMLDivElement | null = null;
   let root: Root | null = null;
-  const originalGetSelection = window.getSelection;
 
   afterEach(() => {
     if (root !== null) {
@@ -24,7 +23,7 @@ describe("VaultLastUpdatedStatus", () => {
 
     rootElement?.remove();
     rootElement = null;
-    window.getSelection = originalGetSelection;
+    window.getSelection()?.removeAllRanges();
   });
 
   function renderStatus(args: { onRefresh?: () => void } = {}) {
@@ -53,9 +52,7 @@ describe("VaultLastUpdatedStatus", () => {
   }
 
   it("calls the refresh handler when clicked without active selection", () => {
-    window.getSelection = vi.fn(
-      () => ({ isCollapsed: true }) as Selection,
-    ) as typeof window.getSelection;
+    window.getSelection()?.removeAllRanges();
     const onRefresh = vi.fn();
     const button = renderStatus({ onRefresh });
 
@@ -72,11 +69,18 @@ describe("VaultLastUpdatedStatus", () => {
   });
 
   it("does not call the refresh handler when text is actively selected", () => {
-    window.getSelection = vi.fn(
-      () => ({ isCollapsed: false }) as Selection,
-    ) as typeof window.getSelection;
     const onRefresh = vi.fn();
     const button = renderStatus({ onRefresh });
+    const selection = window.getSelection();
+    expect(selection).not.toBeNull();
+    if (selection === null) {
+      throw new Error("Expected DOM selection support");
+    }
+
+    const range = document.createRange();
+    range.selectNodeContents(button);
+    selection.removeAllRanges();
+    selection.addRange(range);
 
     act(() => {
       button.dispatchEvent(
