@@ -213,12 +213,14 @@ export function MachinesWorkspaceThreadPane({
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="border-b border-border bg-background/95">
-        <div className="mx-auto w-full max-w-3xl px-4 py-2.5">
-          <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+        <div className="mx-auto w-full max-w-3xl px-4 py-3 sm:py-2.5">
+          <div className="flex min-w-0 flex-col gap-1 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <div className="min-w-0 truncate">{selectedMachineLabel}</div>
-            {headerMeta ? <div className="shrink-0">{headerMeta}</div> : null}
+            {headerMeta ? (
+              <div className="hidden shrink-0 sm:block">{headerMeta}</div>
+            ) : null}
           </div>
-          <div className="mt-1 truncate text-base font-semibold leading-6 text-foreground">
+          <div className="mt-1.5 break-words text-[15px] font-semibold leading-6 text-foreground sm:mt-1 sm:truncate sm:text-base">
             {thread ? readThreadTitle(thread) : emptyStateTitle}
           </div>
         </div>
