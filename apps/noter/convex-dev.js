@@ -2,7 +2,13 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { spawn, spawnSync } from "child_process";
-import { isPortInUse, parsePort, sleep } from "./convex-local-utils.js";
+import {
+  readLocalDevOriginState,
+  isPortInUse,
+  parsePort,
+  sleep,
+  usesLocalConvexDeployment,
+} from "./convex-local-utils.js";
 import { normalizeEnvValue } from "./normalizeEnvValue.js";
 import { pickAvailableAnonymousLocalPorts } from "../../runtime/anonymousLocalPorts.js";
 
@@ -185,7 +191,7 @@ const isLocalBackendReady = async (port) => {
   }
 };
 
-const waitForAnonymousBackend = async (timeoutMs, preferredPorts = []) => {
+const waitForLocalBackend = async (timeoutMs, preferredPorts = []) => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     for (const port of readLocalBackendPorts(preferredPorts)) {
@@ -196,6 +202,18 @@ const waitForAnonymousBackend = async (timeoutMs, preferredPorts = []) => {
     await sleep(250);
   }
   return false;
+};
+
+const waitForRecentLocalDevOrigin = async (timeoutMs, sinceMs) => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const originState = readLocalDevOriginState();
+    if (originState && originState.writtenAt >= sinceMs) {
+      return originState.origin;
+    }
+    await sleep(250);
+  }
+  return null;
 };
 
 const removeEnvVar = (name, env) => {
@@ -236,7 +254,7 @@ const hasValidJwks = (value) => {
 };
 
 const ensureAnonymousAuthKeys = async (env, preferredPorts = []) => {
-  const backendReady = await waitForAnonymousBackend(20000, preferredPorts);
+  const backendReady = await waitForLocalBackend(20000, preferredPorts);
   if (!backendReady) {
     console.warn(
       "Skipping anonymous auth key setup: local Convex backend is not ready.",
@@ -293,6 +311,10 @@ if (!supportedNodeBin) {
   process.exit(1);
 }
 env.PATH = [supportedNodeBin, env.PATH].filter(Boolean).join(path.delimiter);
+const supportedNodeCommand = path.join(
+  supportedNodeBin,
+  process.platform === "win32" ? "node.exe" : "node",
+);
 
 const rawExtraArgs = process.argv.slice(2);
 const refreshAnonAuth = rawExtraArgs.includes("--refresh-anon-auth");
@@ -343,13 +365,51 @@ const localConvexBin = path.join(
 const convexExecutable = fs.existsSync(localConvexBin)
   ? localConvexBin
   : "convex";
+/**
+ * Launch the checked-in Convex CLI through Node directly so the long-lived dev
+ * server stays attached to the real child process instead of a Windows `.cmd`
+ * wrapper that `spawn()` cannot execute reliably on its own.
+ */
+const buildConvexSpawnInvocation = () => {
+  const localConvexEntrypoint = path.join(
+    process.cwd(),
+    "node_modules",
+    "convex",
+    "bin",
+    "main.js",
+  );
 
-const child = spawn(convexExecutable, args, { stdio: "inherit", env });
+  if (fs.existsSync(localConvexEntrypoint)) {
+    return {
+      args: [fs.realpathSync(localConvexEntrypoint), ...args],
+      command: supportedNodeCommand,
+    };
+  }
+
+  return {
+    args,
+    command: convexExecutable,
+  };
+};
+
+const convexInvocation = buildConvexSpawnInvocation();
+const siteUrlRetryStartedAt = Date.now();
+const child = spawn(convexInvocation.command, convexInvocation.args, {
+  stdio: "inherit",
+  env,
+});
 let childExited = false;
 let childExitCode = 1;
 let refreshDone = !refreshAnonAuth;
 let refreshFailed = false;
 let terminateRequested = false;
+const shouldRetrySiteUrlSync =
+  process.env.CONVEX_AGENT_MODE !== "anonymous" &&
+  !refreshAnonAuth &&
+  !args.some(
+    (arg) => arg === "--until-success" || arg.startsWith("--until-success="),
+  ) &&
+  usesLocalConvexDeployment();
 
 const maybeExit = () => {
   if (!childExited || !refreshDone) {
@@ -405,6 +465,51 @@ const requestTermination = (signal) => {
 
 process.on("SIGTERM", () => requestTermination("SIGTERM"));
 process.on("SIGINT", () => requestTermination("SIGINT"));
+
+if (shouldRetrySiteUrlSync) {
+  void (async () => {
+    try {
+      const backendReady = await waitForLocalBackend(20_000);
+      if (!backendReady || childExited) {
+        return;
+      }
+
+      // Give frontend origin publication its own timeout window so slow local
+      // backends do not consume the entire retry budget before Vite records
+      // the chosen port for this startup.
+      const localDevOrigin = await waitForRecentLocalDevOrigin(
+        20_000,
+        siteUrlRetryStartedAt,
+      );
+      if (!localDevOrigin || childExited) {
+        return;
+      }
+
+      const syncResult = spawnSync(
+        supportedNodeCommand,
+        [path.join(process.cwd(), "sync-site-url.mjs")],
+        {
+          stdio: "inherit",
+          env: {
+            ...env,
+            DEV_ENV_ORIGIN: localDevOrigin,
+          },
+        },
+      );
+      if (syncResult.status !== 0) {
+        console.warn(
+          "Local SITE_URL sync failed after the long-running backend started.",
+        );
+      }
+    } catch (error) {
+      console.warn(
+        error instanceof Error
+          ? error.message
+          : "Local SITE_URL sync setup failed after backend startup.",
+      );
+    }
+  })();
+}
 
 if (refreshAnonAuth) {
   void ensureAnonymousAuthKeys(

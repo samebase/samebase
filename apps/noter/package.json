@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
-    "dev:frontend": "vite --host 0.0.0.0 --port ${VITE_PORT:-5173}",
+    "dev:frontend": "node ./scripts/run-vite-dev.js",
     "dev:backend": "node convex-dev.js",
     "generate:install-icon-assets": "node ./scripts/generate-install-icon-assets.js",
     "verify:install-icon-assets": "npm run generate:install-icon-assets && git diff --exit-code -- public/install-icon.svg public/apple-touch-icon.png public/icon-192.png public/icon-512.png public/icon-maskable-192.png public/icon-maskable-512.png",

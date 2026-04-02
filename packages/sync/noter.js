@@ -6,7 +6,7 @@
 //    explicit localhost `http:` during local testing).
 // 2. Run `codex --version` to confirm the Codex CLI is on PATH.
 // 3. Write one JSON config file under `~/.noter/config.json`.
-// 4. Open Noter's `/machines/connect` page in the default browser.
+// 4. Print Noter's `/machines/connect` approval URL.
 // 5. Reuse the stored machine credential for later heartbeat publishing.
 //
 // It does not install background services, modify project files, or download
@@ -353,39 +353,27 @@ function normalizeRuntimePlatform(currentPlatform = process.platform) {
 }
 
 /**
- * npm installs the Windows Codex CLI entrypoint as a `.cmd` wrapper. Launch it
- * through `cmd.exe` on Windows so the wrapper resolves via PATHEXT while Node
- * still keeps argument boundaries intact for paths that contain spaces.
+ * npm installs the Windows Codex CLI entrypoint as a `.cmd` wrapper. Resolve
+ * that shim to the real script entrypoint on Windows so one-off commands avoid
+ * both the quoted `/c` bug and cmd.exe metacharacter expansion.
  */
 export function buildCodexSpawnInvocation(
   args,
   currentPlatform = process.platform,
+  options = {},
 ) {
-  return normalizeRuntimePlatform(currentPlatform) === 'win32'
-    ? {
-        args: ['/d', '/v:off', '/c', buildWindowsCodexCommandLine(args)],
-        command: process.env.ComSpec ?? 'cmd.exe',
-      }
-    : {
-        args,
-        command: 'codex',
-      }
+  if (normalizeRuntimePlatform(currentPlatform) === 'win32') {
+    return buildCodexRuntimeSpawnInvocation(args, currentPlatform, options)
+  }
+
+  return {
+    args,
+    command: 'codex',
+  }
 }
 
 export function buildCodexSpawnOptions(options = {}) {
   return options
-}
-
-/**
- * `cmd.exe` still expands `%VAR%` even inside double quotes, so quote every
- * token and double percent signs before handing Windows a command line.
- */
-function escapeWindowsCmdArgument(value) {
-  return `"${value.replaceAll('"', '""').replaceAll('%', '%%')}"`
-}
-
-function buildWindowsCodexCommandLine(args) {
-  return ['codex', ...args].map(escapeWindowsCmdArgument).join(' ')
 }
 
 /**
@@ -443,6 +431,77 @@ function readWindowsCmdShimTarget(shimPath) {
   return matches?.[1] ?? null
 }
 
+function resolveWindowsCmdShimScriptPath(shimPath, shimTarget) {
+  try {
+    return realpathSync(
+      path.resolve(path.dirname(shimPath), ...shimTarget.split(/[\\/]+/)),
+    )
+  } catch (error) {
+    if (codexCommandWasNotFound(error)) {
+      return null
+    }
+    throw error
+  }
+}
+
+const WINDOWS_VOLTA_WHICH_TIMEOUT_MS = 5_000
+
+/**
+ * Volta's top-level Windows shim delegates to `volta run codex`, so ask Volta
+ * which package-local command it would execute and then resolve that package's
+ * npm-style `.cmd` shim the same way we do for global npm installs.
+ */
+function resolveWindowsVoltaPackageShimPath(
+  shimPath,
+  env = process.env,
+  cwd = process.cwd(),
+) {
+  const shimContents = readFileSync(shimPath, 'utf8').trim()
+  if (!/^@echo off\r?\nvolta run %~n0 %\*$/i.test(shimContents)) {
+    return null
+  }
+
+  const voltaPath = resolveWindowsPathCommand('volta', env)
+  if (voltaPath === null) {
+    return null
+  }
+
+  const result = spawnSync(voltaPath, ['which', path.parse(shimPath).name], {
+    cwd,
+    env,
+    encoding: 'utf8',
+    timeout: WINDOWS_VOLTA_WHICH_TIMEOUT_MS,
+    windowsHide: true,
+  })
+  if (result.error || result.status !== 0) {
+    return null
+  }
+
+  const packageCommandPath =
+    result.stdout
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .find(line => line.length > 0) ?? null
+  if (packageCommandPath === null) {
+    return null
+  }
+
+  const candidatePaths =
+    path.extname(packageCommandPath).length > 0
+      ? [packageCommandPath]
+      : [`${packageCommandPath}.cmd`, `${packageCommandPath}.bat`]
+
+  for (const candidatePath of candidatePaths) {
+    try {
+      if (statSync(candidatePath).isFile()) {
+        return candidatePath
+      }
+    } catch {}
+  }
+
+  return null
+}
+
 /**
  * npm's Windows shims prefer a sibling `node.exe` and otherwise fall back to
  * resolving `node` on PATH. Mirror that choice so long-lived runtimes use the
@@ -467,14 +526,61 @@ function resolveWindowsCmdShimNodeCommand(shimPath, env = process.env) {
   )
 }
 
+function resolveWindowsShimInvocation(
+  shimPath,
+  env = process.env,
+  options = {},
+) {
+  const directTarget = readWindowsCmdShimTarget(shimPath)
+  if (directTarget !== null) {
+    const scriptPath = resolveWindowsCmdShimScriptPath(shimPath, directTarget)
+    if (scriptPath === null) {
+      return null
+    }
+
+    return {
+      nodeCommand: resolveWindowsCmdShimNodeCommand(shimPath, env),
+      scriptPath,
+    }
+  }
+
+  const voltaPackageShimPath = resolveWindowsVoltaPackageShimPath(
+    shimPath,
+    env,
+    options.cwd,
+  )
+  if (voltaPackageShimPath === null) {
+    return null
+  }
+
+  const voltaTarget = readWindowsCmdShimTarget(voltaPackageShimPath)
+  if (voltaTarget === null) {
+    return null
+  }
+
+  const scriptPath = resolveWindowsCmdShimScriptPath(
+    voltaPackageShimPath,
+    voltaTarget,
+  )
+  if (scriptPath === null) {
+    return null
+  }
+
+  return {
+    nodeCommand: resolveWindowsCmdShimNodeCommand(voltaPackageShimPath, env),
+    scriptPath,
+  }
+}
+
 /**
- * One-off Windows Codex commands can go through `cmd.exe`, but the long-lived
- * app-server should run as the real child process so restart and shutdown do
- * not strand an orphaned shell wrapper.
+ * Resolve the Windows Codex shim to its real JS entrypoint and launch that
+ * under Node so literal args survive shell parsing and long-lived runtimes do
+ * not strand an orphaned `cmd.exe` wrapper.
  */
 export function buildCodexRuntimeSpawnInvocation(
   args,
   currentPlatform = process.platform,
+  options = {},
 ) {
   if (normalizeRuntimePlatform(currentPlatform) !== 'win32') {
     return {
@@ -483,28 +589,28 @@ export function buildCodexRuntimeSpawnInvocation(
     }
   }
 
-  const codexPath = resolveWindowsPathCommand('codex')
+  const runtimeEnv = options.env ?? process.env
+  const codexPath = resolveWindowsPathCommand('codex', runtimeEnv)
   if (codexPath === null) {
     throw new Error(buildCodexCliMissingMessage())
   }
 
   const extension = path.extname(codexPath).toLowerCase()
   if (extension === '.cmd' || extension === '.bat') {
-    const shimTarget = readWindowsCmdShimTarget(codexPath)
-    if (shimTarget === null) {
+    const shimInvocation = resolveWindowsShimInvocation(
+      codexPath,
+      runtimeEnv,
+      options,
+    )
+    if (shimInvocation === null) {
       throw new Error(
         `${buildCodexCliMissingMessage()} The Windows CLI shim could not be resolved to its script entrypoint.`,
       )
     }
 
     return {
-      args: [
-        realpathSync(
-          path.resolve(path.dirname(codexPath), ...shimTarget.split(/[\\/]+/)),
-        ),
-        ...args,
-      ],
-      command: resolveWindowsCmdShimNodeCommand(codexPath),
+      args: [shimInvocation.scriptPath, ...args],
+      command: shimInvocation.nodeCommand,
     }
   }
 
@@ -555,7 +661,11 @@ function runCodexCommand(args, options = {}) {
     let stdout = ''
     let stderr = ''
     let timedOut = false
-    const invocation = buildCodexSpawnInvocation(args)
+    const invocation = buildCodexSpawnInvocation(
+      args,
+      process.platform,
+      options,
+    )
     const timeoutMs =
       typeof options.timeout === 'number' && Number.isFinite(options.timeout)
         ? options.timeout
@@ -637,12 +747,17 @@ function runCodexCommand(args, options = {}) {
  * PATH. `codex --version` is the smallest safe command that gives us that
  * signal.
  */
-export function detectCodexVersion() {
-  const invocation = buildCodexSpawnInvocation(['--version'])
+export function detectCodexVersion(options = {}) {
+  const invocation = buildCodexSpawnInvocation(
+    ['--version'],
+    process.platform,
+    options,
+  )
   const result = spawnSync(
     invocation.command,
     invocation.args,
     buildCodexSpawnOptions({
+      ...options,
       encoding: 'utf8',
     }),
   )
@@ -2423,18 +2538,21 @@ export class CodexLocalControlRuntime {
       this.pushEvent('codex/runtime_stderr', {
         line: `Launching codex app-server (${version})`,
       })
-      const invocation = buildCodexRuntimeSpawnInvocation([
-        'app-server',
-        '--listen',
-        'stdio://',
-      ])
+      const runtimeSpawnOptions = {
+        cwd: this.workspaceRoot,
+        env: process.env,
+      }
+      const invocation = buildCodexRuntimeSpawnInvocation(
+        ['app-server', '--listen', 'stdio://'],
+        process.platform,
+        runtimeSpawnOptions,
+      )
 
       const processHandle = spawn(
         invocation.command,
         invocation.args,
         buildCodexSpawnOptions({
-          cwd: this.workspaceRoot,
-          env: process.env,
+          ...runtimeSpawnOptions,
           stdio: ['pipe', 'pipe', 'pipe'],
         }),
       )
@@ -3687,48 +3805,6 @@ async function publishMachineHeartbeat(args) {
   }
 }
 
-/**
- * Automatic browser open is a convenience, not a hard dependency. Failures are
- * reported but do not invalidate the bootstrap record we already wrote.
- */
-export function openBrowser(url) {
-  const openerCommand =
-    platform() === 'darwin'
-      ? { command: 'open', args: [url] }
-      : platform() === 'win32'
-        ? {
-            command: 'cmd',
-            args: ['/d', '/s', '/c', `start "" "${url.replaceAll('"', '""')}"`],
-          }
-        : { command: 'xdg-open', args: [url] }
-
-  return new Promise((resolve, reject) => {
-    const child = spawn(openerCommand.command, openerCommand.args, {
-      detached: true,
-      stdio: 'ignore',
-    })
-    child.once('error', error => {
-      reject(
-        new Error(
-          `Could not open a browser automatically with ${openerCommand.command}: ${error.message}`,
-        ),
-      )
-    })
-    child.once('exit', code => {
-      if (code !== 0) {
-        reject(
-          new Error(
-            `Could not open a browser automatically with ${openerCommand.command}: exited with code ${code}.`,
-          ),
-        )
-        return
-      }
-      child.unref()
-      resolve()
-    })
-  })
-}
-
 function readDirectDownloadCommand(currentPlatform = process.platform) {
   return normalizeRuntimePlatform(currentPlatform) === 'win32'
     ? 'curl.exe -fsSL'
@@ -3826,17 +3902,6 @@ async function runConnectCommand(parsedArgs) {
       sourceUrl,
     }),
   )
-
-  try {
-    await openBrowser(registration.machineConnectUrl)
-    console.log('opened machine connect page in your browser')
-  } catch (error) {
-    console.warn(
-      error instanceof Error
-        ? error.message
-        : 'Could not open a browser automatically.',
-    )
-  }
 }
 
 export async function runHeartbeatLoop(args) {
@@ -4015,7 +4080,7 @@ async function runConnectorCommand() {
  * 2. Confirm the Codex CLI exists locally and is available on PATH.
  * 3. Persist one local config file.
  * 4. Print a markdown summary.
- * 5. Hand off to the browser for approval.
+ * 5. Print the approval URL for the operator to open manually.
  * 6. Later, reuse the stored machine credential to publish heartbeats.
  */
 export async function main(argv) {

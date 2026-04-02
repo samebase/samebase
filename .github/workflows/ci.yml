@@ -87,3 +87,43 @@ jobs:
           path: |
             apps/noter/e2e/playwright-report
             apps/noter/e2e/test-results
+
+  sync-windows:
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run sync smoke tests on Windows
+        run:
+          pnpm exec vitest run packages/sync/noter.test.ts
+          apps/noter/src/lib/noterSyncPublicScript.test.ts
+
+      - name: Run anonymous predev smoke on Windows
+        working-directory: apps/noter
+        env:
+          CONVEX_AGENT_MODE: anonymous
+        run: node predev.js
+
+      - name: Run Vite wrapper smoke on Windows
+        working-directory: apps/noter
+        run: node scripts/run-vite-dev.js --version

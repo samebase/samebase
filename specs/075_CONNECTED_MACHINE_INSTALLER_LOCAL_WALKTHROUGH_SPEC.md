@@ -87,6 +87,17 @@ Expected result:
 If this worktree chose another frontend port, substitute that origin in the
 commands below.
 
+Native Windows outside WSL is compatible with the hosted-file flow, but this
+spec's default startup path remains the worktree `make anon` flow above. For
+dated primary-checkout troubleshooting notes and the manual Windows bootstrap
+sequence validated during local testing, see
+`docs/research/windows-native-connected-machine-walkthrough-2026-04-01.md`.
+
+For a native Windows primary checkout without GNU Make, the supported local
+startup path is `pnpm dev` from the repo root. Use the exact Vite URL it prints
+in the terminal, because Windows local runs can fall back from `5173` to a
+different port such as `5174`.
+
 ## 2. Open The Machine-Connect Page
 
 Open:
@@ -147,12 +158,15 @@ What this does today:
 3. creates a machine registration request in Noter
 4. writes or updates `~/.noter/config.json`
 5. prints a markdown status block to stdout
-6. opens the browser to `/machines/connect?openedByCli&requestId=...`
+6. prints the `next:` approval URL for
+   `/machines/connect?openedByCli&requestId=...`
+7. waits for you to open that printed `next:` URL manually in a signed-in
+   browser
 
 ## 5. Approve The Machine In The Browser
 
-After the CLI opens the browser, the machine-connect page should show the CLI
-handoff state for the new `requestId`.
+After you open the printed `next:` URL, the machine-connect page should show the
+CLI handoff state for the new `requestId`.
 
 Expected result:
 
@@ -162,8 +176,8 @@ Expected result:
 4. the page now shows `run` commands for both the future published package path
    and the direct hosted-file path
 
-If the installer opened a different browser than the one where you are signed
-in, open the same URL in your signed-in browser and approve the machine there.
+Open that same printed `next:` URL in the browser where you are signed in to
+Noter and approve the machine there.
 
 ## 6. Inspect The Local Config File
 

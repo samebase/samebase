@@ -1,6 +1,8 @@
 import { createServer } from 'node:http'
+import { spawnSync } from 'node:child_process'
 import {
   chmodSync,
+  copyFileSync,
   mkdirSync,
   realpathSync,
   readFileSync,
@@ -18,6 +20,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   buildCodexSpawnInvocation,
   buildCodexRuntimeSpawnInvocation,
+  detectCodexVersion,
   buildMachineHeartbeatBody,
   buildNoterConnectConfigUrl,
   buildCodexSpawnOptions,
@@ -185,7 +188,7 @@ describe('@noter-md/sync', () => {
       getNoterConfigPath({
         homeDirectory: '/Users/noter',
       }),
-    ).toBe('/Users/noter/.noter/config.json')
+    ).toBe(path.join('/Users/noter', '.noter', 'config.json'))
   })
 
   it('keeps the first install timestamp when rewriting the local config file', () => {
@@ -313,31 +316,7 @@ describe('@noter-md/sync', () => {
     )
   })
 
-  it('routes Windows Codex CLI launches through cmd.exe so args keep their spaces', () => {
-    const windowsShell = process.env.ComSpec ?? 'cmd.exe'
-
-    expect(
-      buildCodexSpawnInvocation(
-        [
-          'app-server',
-          '--out',
-          'C:\\Users\\Nicu Test\\R&D\\100%\\AppData\\Local\\Temp',
-        ],
-        'win32',
-      ),
-    ).toEqual({
-      args: [
-        '/d',
-        '/v:off',
-        '/c',
-        '"codex" "app-server" "--out" "C:\\Users\\Nicu Test\\R&D\\100%%\\AppData\\Local\\Temp"',
-      ],
-      command: windowsShell,
-    })
-    expect(buildCodexSpawnInvocation(['--version'], 'windows')).toEqual({
-      args: ['/d', '/v:off', '/c', '"codex" "--version"'],
-      command: windowsShell,
-    })
+  it('keeps non-Windows Codex CLI launches direct', () => {
     expect(buildCodexSpawnInvocation(['--version'], 'darwin')).toEqual({
       args: ['--version'],
       command: 'codex',
@@ -351,7 +330,93 @@ describe('@noter-md/sync', () => {
     })
   })
 
-  it('runs the Windows Codex app-server through the shim-selected Node runtime', () => {
+  it('forwards detectCodexVersion env and cwd to the spawned Codex process', () => {
+    const tempRoot = path.join(tmpdir(), `noter-codex-version-${Date.now()}`)
+    const workspaceRoot = path.join(tempRoot, 'workspace')
+    const binDirectory = path.join(tempRoot, 'bin')
+    const originalPath = process.env.PATH
+    const originalWindowsPath = process.env.Path
+    const originalPathext = process.env.PATHEXT
+    const customEnvVar = 'NOTER_TEST_CODEX_VERSION'
+    const customEnvValue = 'codex-custom-version'
+
+    mkdirSync(workspaceRoot, { recursive: true })
+    mkdirSync(binDirectory, { recursive: true })
+    const expectedOutput = `${realpathSync(workspaceRoot)}|${customEnvValue}`
+
+    if (process.platform === 'win32') {
+      const shimPath = path.join(binDirectory, 'codex.cmd')
+      const bundledNodePath = path.join(binDirectory, 'node.exe')
+      const scriptPath = path.join(
+        binDirectory,
+        'node_modules',
+        '@openai',
+        'codex',
+        'dist',
+        'cli.js',
+      )
+
+      mkdirSync(path.dirname(scriptPath), { recursive: true })
+      writeFileSync(
+        shimPath,
+        `@ECHO off\r\n"%_prog%" "%dp0%\\node_modules\\@openai\\codex\\dist\\cli.js" %*\r\n`,
+        'utf8',
+      )
+      copyFileSync(process.execPath, bundledNodePath)
+      writeFileSync(
+        scriptPath,
+        `process.stdout.write(\`\${process.cwd()}|\${process.env.${customEnvVar} ?? ''}\n\`)`,
+        'utf8',
+      )
+      process.env.PATHEXT = '.CMD;.EXE'
+    } else {
+      const shimPath = path.join(binDirectory, 'codex')
+      writeFileSync(
+        shimPath,
+        `#!/bin/sh
+printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
+        'utf8',
+      )
+      chmodSync(shimPath, 0o755)
+    }
+
+    process.env.PATH = binDirectory
+    process.env.Path = binDirectory
+
+    try {
+      expect(
+        detectCodexVersion({
+          cwd: workspaceRoot,
+          env: {
+            ...process.env,
+            PATH: binDirectory,
+            Path: binDirectory,
+            PATHEXT: process.env.PATHEXT,
+            [customEnvVar]: customEnvValue,
+          },
+        }),
+      ).toBe(expectedOutput)
+    } finally {
+      if (originalPath === undefined) {
+        delete process.env.PATH
+      } else {
+        process.env.PATH = originalPath
+      }
+      if (originalWindowsPath === undefined) {
+        delete process.env.Path
+      } else {
+        process.env.Path = originalWindowsPath
+      }
+      if (originalPathext === undefined) {
+        delete process.env.PATHEXT
+      } else {
+        process.env.PATHEXT = originalPathext
+      }
+      rmSync(tempRoot, { force: true, recursive: true })
+    }
+  })
+
+  it('routes Windows one-off and runtime Codex launches through the shim-selected Node runtime', () => {
     const tempRoot = path.join(tmpdir(), `noter-codex-shim-${Date.now()}`)
     const binDirectory = path.join(tempRoot, 'bin')
     const shimPath = path.join(binDirectory, 'codex.cmd')
@@ -381,15 +446,23 @@ describe('@noter-md/sync', () => {
     process.env.PATHEXT = '.CMD;.EXE'
 
     try {
+      const expectedInvocation = {
+        args: [realpathSync(scriptPath), 'app-server', '--listen', 'stdio://'],
+        command: realpathSync(bundledNodePath),
+      }
+
+      expect(
+        buildCodexSpawnInvocation(
+          ['app-server', '--listen', 'stdio://'],
+          'win32',
+        ),
+      ).toEqual(expectedInvocation)
       expect(
         buildCodexRuntimeSpawnInvocation(
           ['app-server', '--listen', 'stdio://'],
           'win32',
         ),
-      ).toEqual({
-        args: [realpathSync(scriptPath), 'app-server', '--listen', 'stdio://'],
-        command: realpathSync(bundledNodePath),
-      })
+      ).toEqual(expectedInvocation)
     } finally {
       if (originalPath === undefined) {
         delete process.env.PATH
@@ -409,6 +482,284 @@ describe('@noter-md/sync', () => {
       rmSync(tempRoot, { force: true, recursive: true })
     }
   })
+
+  it('resolves Windows Volta-managed Codex shims from the caller workspace cwd', async () => {
+    const tempRoot = path.join(tmpdir(), `noter-codex-volta-${Date.now()}`)
+    const binDirectory = path.join(tempRoot, 'bin')
+    const topLevelCodexShimPath = path.join(binDirectory, 'codex.cmd')
+    const voltaPath = path.join(binDirectory, 'volta.exe')
+    const workspaceA = path.join(tempRoot, 'workspace-a')
+    const workspaceB = path.join(tempRoot, 'workspace-b')
+    const packageShimBaseName = 'codex-package'
+    const packageShimPathA = path.join(workspaceA, `${packageShimBaseName}.cmd`)
+    const packageShimPathB = path.join(workspaceB, `${packageShimBaseName}.cmd`)
+    const bundledNodePathA = path.join(workspaceA, 'node.exe')
+    const bundledNodePathB = path.join(workspaceB, 'node.exe')
+    const scriptPathA = path.join(
+      workspaceA,
+      'node_modules',
+      '@openai',
+      'codex',
+      'dist',
+      'cli.js',
+    )
+    const scriptPathB = path.join(
+      workspaceB,
+      'node_modules',
+      '@openai',
+      'codex',
+      'dist',
+      'cli.js',
+    )
+    const originalPath = process.env.PATH
+    const originalWindowsPath = process.env.Path
+    const originalPathext = process.env.PATHEXT
+
+    mkdirSync(binDirectory, { recursive: true })
+    mkdirSync(path.dirname(scriptPathA), { recursive: true })
+    mkdirSync(path.dirname(scriptPathB), { recursive: true })
+    writeFileSync(
+      topLevelCodexShimPath,
+      '@echo off\r\nvolta run %~n0 %*\r\n',
+      'utf8',
+    )
+    writeFileSync(voltaPath, '', 'utf8')
+    writeFileSync(
+      packageShimPathA,
+      `@ECHO off\r\n"%_prog%" "%dp0%\\node_modules\\@openai\\codex\\dist\\cli.js" %*\r\n`,
+      'utf8',
+    )
+    writeFileSync(
+      packageShimPathB,
+      `@ECHO off\r\n"%_prog%" "%dp0%\\node_modules\\@openai\\codex\\dist\\cli.js" %*\r\n`,
+      'utf8',
+    )
+    copyFileSync(process.execPath, bundledNodePathA)
+    copyFileSync(process.execPath, bundledNodePathB)
+    writeFileSync(scriptPathA, 'console.log("codex-a")\n', 'utf8')
+    writeFileSync(scriptPathB, 'console.log("codex-b")\n', 'utf8')
+    process.env.PATH = binDirectory
+    process.env.Path = binDirectory
+    process.env.PATHEXT = '.CMD;.EXE'
+
+    try {
+      vi.resetModules()
+      const actualChildProcess =
+        await vi.importActual<typeof import('node:child_process')>(
+          'node:child_process',
+        )
+      const spawnSyncMock = vi.fn((command, args, options) => {
+        if (command !== voltaPath) {
+          return actualChildProcess.spawnSync(command, args, options)
+        }
+
+        const packageCommandPath =
+          options?.cwd === workspaceA
+            ? path.join(workspaceA, packageShimBaseName)
+            : options?.cwd === workspaceB
+              ? path.join(workspaceB, packageShimBaseName)
+              : null
+
+        return {
+          output: [
+            null,
+            packageCommandPath ? `${packageCommandPath}\n` : '',
+            '',
+          ],
+          pid: 1,
+          signal: null,
+          status: packageCommandPath === null ? 1 : 0,
+          stderr: '',
+          stdout: packageCommandPath ? `${packageCommandPath}\n` : '',
+        }
+      })
+      vi.doMock('node:child_process', () => ({
+        ...actualChildProcess,
+        spawnSync: spawnSyncMock,
+      }))
+      const {
+        buildCodexSpawnInvocation: buildCodexSpawnInvocationWithMock,
+        buildCodexRuntimeSpawnInvocation:
+          buildCodexRuntimeSpawnInvocationWithMock,
+      } = await import('./noter.js')
+
+      expect(
+        buildCodexSpawnInvocationWithMock(['--version'], 'win32', {
+          cwd: workspaceA,
+        }),
+      ).toEqual({
+        args: [realpathSync(scriptPathA), '--version'],
+        command: realpathSync(bundledNodePathA),
+      })
+      expect(
+        buildCodexRuntimeSpawnInvocationWithMock(['--version'], 'win32', {
+          cwd: workspaceB,
+        }),
+      ).toEqual({
+        args: [realpathSync(scriptPathB), '--version'],
+        command: realpathSync(bundledNodePathB),
+      })
+      expect(spawnSyncMock).toHaveBeenNthCalledWith(
+        1,
+        voltaPath,
+        ['which', 'codex'],
+        expect.objectContaining({
+          cwd: workspaceA,
+          encoding: 'utf8',
+          env: process.env,
+          timeout: 5_000,
+          windowsHide: true,
+        }),
+      )
+      expect(spawnSyncMock).toHaveBeenNthCalledWith(
+        2,
+        voltaPath,
+        ['which', 'codex'],
+        expect.objectContaining({
+          cwd: workspaceB,
+          encoding: 'utf8',
+          env: process.env,
+          timeout: 5_000,
+          windowsHide: true,
+        }),
+      )
+    } finally {
+      vi.doUnmock('node:child_process')
+      vi.resetModules()
+      if (originalPath === undefined) {
+        delete process.env.PATH
+      } else {
+        process.env.PATH = originalPath
+      }
+      if (originalWindowsPath === undefined) {
+        delete process.env.Path
+      } else {
+        process.env.Path = originalWindowsPath
+      }
+      if (originalPathext === undefined) {
+        delete process.env.PATHEXT
+      } else {
+        process.env.PATHEXT = originalPathext
+      }
+      rmSync(tempRoot, { force: true, recursive: true })
+    }
+  })
+
+  it('surfaces stale Windows Codex shims as missing CLI diagnostics', () => {
+    const tempRoot = path.join(tmpdir(), `noter-codex-stale-${Date.now()}`)
+    const binDirectory = path.join(tempRoot, 'bin')
+    const shimPath = path.join(binDirectory, 'codex.cmd')
+    const bundledNodePath = path.join(binDirectory, 'node.exe')
+    const originalPath = process.env.PATH
+    const originalWindowsPath = process.env.Path
+    const originalPathext = process.env.PATHEXT
+
+    mkdirSync(binDirectory, { recursive: true })
+    writeFileSync(
+      shimPath,
+      `@ECHO off\r\n"%_prog%" "%dp0%\\missing\\cli.js" %*\r\n`,
+      'utf8',
+    )
+    writeFileSync(bundledNodePath, '', 'utf8')
+    process.env.PATH = binDirectory
+    process.env.Path = binDirectory
+    process.env.PATHEXT = '.CMD;.EXE'
+
+    try {
+      expect(() => buildCodexSpawnInvocation(['--version'], 'win32')).toThrow(
+        /The `codex` command was not found\./,
+      )
+    } finally {
+      if (originalPath === undefined) {
+        delete process.env.PATH
+      } else {
+        process.env.PATH = originalPath
+      }
+      if (originalWindowsPath === undefined) {
+        delete process.env.Path
+      } else {
+        process.env.Path = originalWindowsPath
+      }
+      if (originalPathext === undefined) {
+        delete process.env.PATHEXT
+      } else {
+        process.env.PATHEXT = originalPathext
+      }
+      rmSync(tempRoot, { force: true, recursive: true })
+    }
+  })
+
+  it.runIf(process.platform === 'win32')(
+    'preserves literal Windows Codex args that contain cmd metacharacters',
+    () => {
+      const tempRoot = path.join(tmpdir(), `noter-codex-literal-${Date.now()}`)
+      const binDirectory = path.join(tempRoot, 'bin')
+      const shimPath = path.join(binDirectory, 'codex.cmd')
+      const scriptPath = path.join(binDirectory, 'codex-script.js')
+      const originalPath = process.env.PATH
+      const originalWindowsPath = process.env.Path
+      const originalPathext = process.env.PATHEXT
+      const nodeDirectory = path.dirname(process.execPath)
+      const literalArg = 'C:\\tmp\\%USERPROFILE%\\A&B\\literal^caret'
+
+      mkdirSync(binDirectory, { recursive: true })
+      writeFileSync(
+        shimPath,
+        [
+          '@ECHO OFF',
+          'SETLOCAL',
+          'SET PATHEXT=%PATHEXT:;.JS;=;%',
+          'node  "%~dp0\\codex-script.js" %*',
+        ].join('\r\n'),
+        'utf8',
+      )
+      writeFileSync(
+        scriptPath,
+        'process.stdout.write(JSON.stringify(process.argv.slice(2)))\n',
+        'utf8',
+      )
+      process.env.PATH = `${binDirectory};${nodeDirectory}`
+      process.env.Path = `${binDirectory};${nodeDirectory}`
+      process.env.PATHEXT = '.CMD;.EXE'
+
+      try {
+        const invocation = buildCodexSpawnInvocation(
+          ['echo-argv', literalArg],
+          'win32',
+        )
+        const result = spawnSync(invocation.command, invocation.args, {
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            PATH: process.env.PATH,
+            PATHEXT: process.env.PATHEXT,
+            Path: process.env.Path,
+          },
+        })
+
+        expect(result.status).toBe(0)
+        expect(result.stderr).toBe('')
+        expect(JSON.parse(result.stdout)).toEqual(['echo-argv', literalArg])
+      } finally {
+        if (originalPath === undefined) {
+          delete process.env.PATH
+        } else {
+          process.env.PATH = originalPath
+        }
+        if (originalWindowsPath === undefined) {
+          delete process.env.Path
+        } else {
+          process.env.Path = originalWindowsPath
+        }
+        if (originalPathext === undefined) {
+          delete process.env.PATHEXT
+        } else {
+          process.env.PATHEXT = originalPathext
+        }
+        rmSync(tempRoot, { force: true, recursive: true })
+      }
+    },
+  )
 
   it.runIf(process.platform !== 'win32')(
     'resolves symlinked entrypoints before checking direct execution',

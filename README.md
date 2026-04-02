@@ -59,18 +59,107 @@ monorepo with React + Vite on the frontend and Convex on the backend.
 ### Prerequisites
 
 - Node.js 24+ (`.nvmrc`)
-- PNPM 9+
+- PNPM 9.15.0
+- Git
+
+### Windows (Outside WSL)
+
+Native Windows setup works, but it is a little different from the repo's
+macOS/Linux `make` flow.
+
+1. Install Node.js 24 LTS. If you use `winget`, this works well in PowerShell:
+
+```powershell
+winget install --id OpenJS.NodeJS.LTS -e
+```
+
+2. Install PNPM 9.15.0. If `corepack` is not available on your PATH after
+   installing Node, install PNPM directly:
+
+```powershell
+npm install -g pnpm@9.15.0
+```
+
+3. Verify the toolchain from the repo root:
+
+```powershell
+node -v
+pnpm -v
+git --version
+```
+
+4. Bootstrap dependencies from the primary checkout:
+
+```powershell
+node .\scripts\bootstrap-worktree.js
+```
+
+5. Start the app:
+
+```powershell
+pnpm dev
+```
+
+6. Open the URL Vite prints in the terminal. The usual default is
+   [http://127.0.0.1:5173/](http://127.0.0.1:5173/), and if that port is busy
+   Noter now picks the next free local port before startup so the frontend and
+   `SITE_URL` stay aligned.
+
+Notes:
+
+- In Windows PowerShell, direct hosted-file `noter.js` commands should use
+  `curl.exe`, not the built-in `curl` alias. This matches the Windows-safe
+  command work merged in PR `#395`.
+- The `noter.js connect` flow now prints a `next:` approval URL instead of
+  trying to open a browser automatically. Open that printed link manually in a
+  signed-in browser. This keeps the flow consistent across native Windows and
+  Linux sandbox environments.
+- Windows `noter.js` resolution also supports Codex installed through Volta, as
+  long as the `codex` and `volta` commands are available on `PATH`. Noter
+  resolves that shim from the current workspace so project-scoped Volta setups
+  launch the same Codex binary that the later runtime command would use.
+- On a brand-new machine, the first `pnpm dev` run may pause for an interactive
+  Convex CLI login/bootstrap prompt before `apps/noter/.env.local` exists.
+- On native Windows primary checkouts, `pnpm dev` now retries local `SITE_URL`
+  sync after the long-running backend starts, so local OAuth redirects continue
+  to follow the URL Vite printed even when the temporary bootstrap backend exits
+  first.
+- `pnpm dev` now tries to stop stale local `convex-local-backend` listeners on
+  `3210` before bootstrap. If it still reports that `3210` is occupied, stop the
+  leftover backend process manually and retry.
+- For local connected-machine testing with `/noter.js` on a fresh Windows
+  checkout that does not already have a cloud dev source env, use the dated
+  troubleshooting notes in
+  `docs/research/windows-native-connected-machine-walkthrough-2026-04-01.md`.
+  The current local-only anonymous bootstrap path needs a few manual Node
+  commands today.
+- The primary checkout path above works without GNU Make, but worktree and
+  anonymous bootstrap flows still depend on `make` plus POSIX shell tools. For
+  `make run`, `make anon`, or `make anon-once`, use Git Bash, MSYS2, or WSL
+  today.
 
 ### Installation
 
 ```bash
-pnpm install
+node ./scripts/bootstrap-worktree.js
 ```
 
 ### Development
 
+From the primary local checkout on macOS/Linux, use:
+
 ```bash
-pnpm dev
+make run
+```
+
+### Worktrees
+
+For a git worktree, use the repo-standard anonymous bootstrap commands instead
+of the primary-checkout flow:
+
+```bash
+make anon-once
+make anon
 ```
 
 ### Build

@@ -11,11 +11,12 @@
  *
  *   - Cloud dev containers (e.g. sandboxes): Each container gets a unique,
  *     ephemeral URL. When a container is destroyed and a new one is created,
- *     the URL changes — but the SITE_URL on the Convex deployment still points
+ *     the URL changes, but the SITE_URL on the Convex deployment still points
  *     to the old, dead URL. This script fixes that by reading the current
  *     container URL from the DEV_ENV_ORIGIN env var.
  *
- *   - Local development: Defaults to http://localhost:5173 (Vite's default).
+ *   - Local development: Reuses the deterministic local Vite port that Noter
+ *     picks before startup, beginning with http://localhost:5173.
  *
  * KNOWN LIMITATION:
  * All contributors share a single Convex dev deployment, so running this
@@ -25,17 +26,53 @@
  * Convex dev deployments per contributor.
  */
 
-import { execSync } from "child_process";
+import { spawnSync } from "child_process";
+import {
+  resolveSiteUrlSyncOrigin,
+  usesLocalConvexDeployment,
+} from "./convex-local-utils.js";
 
-// DEV_ENV_ORIGIN is set by sandbox providers (e.g. Daytona).
-// Falls back to localhost for local development.
-const origin = process.env.DEV_ENV_ORIGIN || "http://localhost:5173";
+const writeProcessOutput = (stream, value) => {
+  if (typeof value === "string" && value.length > 0) {
+    stream.write(value);
+  }
+};
 
-console.log(`Setting Convex SITE_URL to ${origin}`);
+const localDeployment = usesLocalConvexDeployment();
+
+let origin;
 try {
-  execSync(`npx convex env set SITE_URL "${origin}"`, { stdio: "inherit" });
-  console.log(`✓ SITE_URL successfully set to ${origin}`);
+  origin = resolveSiteUrlSyncOrigin(process.env);
 } catch (error) {
-  console.error(`✗ Failed to set SITE_URL to ${origin}:`, error.message);
+  console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }
+
+console.log(`Setting Convex SITE_URL to ${origin}`);
+const result = spawnSync("npx", ["convex", "env", "set", "SITE_URL", origin], {
+  stdio: "pipe",
+  encoding: "utf8",
+});
+writeProcessOutput(process.stdout, result.stdout);
+writeProcessOutput(process.stderr, result.stderr);
+
+if (result.status === 0) {
+  console.log(`SITE_URL successfully set to ${origin}`);
+  process.exit(0);
+}
+
+const commandOutput = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+if (localDeployment && /Local backend isn't running/i.test(commandOutput)) {
+  console.warn(
+    `Skipping SITE_URL sync during predev because the temporary local Convex backend already exited. The long-running local backend will retry SITE_URL sync for ${origin} after it starts.`,
+  );
+  process.exit(0);
+}
+
+console.error(
+  `Failed to set SITE_URL to ${origin}:`,
+  commandOutput.trim().length > 0
+    ? commandOutput.trim()
+    : `Command exited with status ${result.status ?? 1}.`,
+);
+process.exit(result.status ?? 1);
