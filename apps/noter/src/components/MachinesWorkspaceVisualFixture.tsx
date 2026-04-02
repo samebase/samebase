@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { MachinesWorkspaceView } from "@/components/MachinesWorkspaceView";
+import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import {
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
@@ -328,6 +329,9 @@ export function MachinesWorkspaceVisualFixture() {
           <MachinesWorkspaceView
             dataTestId="machines-workspace-visual-fixture"
             isSubmittingTurn={false}
+            leftSidebarHeader={
+              <SidebarHomeAccountHeader userDisplayName="nicu@noter.md" />
+            }
             machineInventories={[
               {
                 hasLoadedThreadInventory: true,

@@ -1,4 +1,5 @@
 import { useNow } from "@/hooks/useNow";
+import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import {
   CodexAppServerRequestError,
   requestCodexAppServerJson,
@@ -133,6 +134,7 @@ function buildMachineThreadKey(machineId: string, threadId: string): string {
 export function MachinesWorkspacePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const now = useNow();
+  const user = useQuery(api.users.viewer);
   const connectedMachinesQuery = useQuery(
     api.connectedMachines.listConnectedMachines,
     {},
@@ -204,6 +206,11 @@ export function MachinesWorkspacePage() {
   const selectedMachineStatusReason = selectedMachine
     ? readMachineStatusReason(selectedMachine)
     : null;
+  const userDisplayName =
+    user?.name ??
+    user?.email ??
+    user?.githubUsername ??
+    (user ? "Account" : null);
   const selectedMachineControlId = selectedMachine?.machineId ?? null;
   const selectedMachineInteractionBlockedReason =
     selectedMachineStatusReason ??
@@ -815,6 +822,11 @@ export function MachinesWorkspacePage() {
     <MachinesWorkspaceView
       machineInventories={machineInventories}
       isSubmittingTurn={isSubmittingTurn}
+      leftSidebarHeader={
+        userDisplayName !== null ? (
+          <SidebarHomeAccountHeader userDisplayName={userDisplayName} />
+        ) : null
+      }
       pendingPinThreadKey={pendingPinThreadKey}
       selectedMachineId={selectedMachineId}
       selectedMachineDisplayName={selectedMachine?.displayName ?? null}
