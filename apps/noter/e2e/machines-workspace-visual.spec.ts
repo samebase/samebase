@@ -19,8 +19,8 @@ test("machines workspace fixture", async ({ page }) => {
     },
   );
 
-  const sidebar = page.getByTestId("machines-workspace-visual-fixture-sidebar");
-  await expect(sidebar).toHaveScreenshot(
+  const workspace = page.getByTestId("machines-workspace-visual-fixture");
+  await expect(workspace).toHaveScreenshot(
     `machines-workspace-page-${machinesWorkspaceSnapshotSuffix}.png`,
     {
       animations: "disabled",

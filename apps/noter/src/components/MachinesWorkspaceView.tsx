@@ -16,14 +16,25 @@ import {
 import { cn } from "@/lib/utils";
 import { useCodexThreadSidebarViewModel } from "@/hooks/useCodexThreadSidebarViewModel";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import { MachinesWorkspaceThreadPane } from "@/components/MachinesWorkspaceThreadPane";
 import { ArrowUpRight, GitBranch, Pin } from "lucide-react";
 
 type MachinesWorkspaceViewProps = {
   threads: CodexAppServerThread[];
   pinnedThreadIds: string[];
   selectedThreadId: string | null;
+  selectedThread: CodexAppServerThread | null;
+  selectedMachineDisplayName: string | null;
+  selectedMachineHostname: string | null;
+  selectedMachineStatusReason: string | null;
+  selectedThreadError: string | null;
+  selectedThreadLoading: boolean;
+  isSubmittingTurn: boolean;
+  turnDraft: string;
   relativeTimeReferenceMs?: number;
   dataTestId?: string;
+  onTurnDraftChange: (value: string) => void;
+  onTurnSubmit: () => void;
   onThreadSelect?: (threadId: string) => void;
 };
 
@@ -159,9 +170,8 @@ function ProjectSection(props: {
 }
 
 /**
- * The first implementation pass intentionally ships only the thread rail. The
- * shared workspace shell stays in place so the default sidebar controls remain
- * available while the main pane is reset to an empty canvas for later work.
+ * Keep the sidebar grouping rules from PR #403, but let the shared workspace
+ * shell host a real selected-thread pane instead of an empty canvas.
  */
 export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
   const sidebarViewModel = useCodexThreadSidebarViewModel({
@@ -170,7 +180,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
   });
   const pinnedThreads = sidebarViewModel.pinnedThreads;
   const projectGroups = sidebarViewModel.projects;
-  const selectedThread = useMemo(
+  const selectedThreadSummary = useMemo(
     () =>
       props.selectedThreadId
         ? sidebarViewModel.uniqueThreads.find(
@@ -198,9 +208,9 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
   );
   const firstProjectId = stableProjectIds[0] ?? null;
   const selectedProjectId =
-    selectedThread &&
-    !pinnedThreads.some((thread) => thread.id === selectedThread.id)
-      ? selectedThread.project.id
+    selectedThreadSummary &&
+    !pinnedThreads.some((thread) => thread.id === selectedThreadSummary.id)
+      ? selectedThreadSummary.project.id
       : null;
   const [openProjectIds, setOpenProjectIds] = useState<Set<string>>(
     () => new Set(),
@@ -310,8 +320,22 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
       >
         <WorkspaceScene
           workspacePaneClassName="bg-background"
-          workspaceScrollClassName="bg-background"
-          workspaceBody={<div className="min-h-full bg-background" />}
+          workspaceScrollClassName="overflow-hidden bg-background"
+          workspaceBody={
+            <MachinesWorkspaceThreadPane
+              errorMessage={props.selectedThreadError}
+              isLoading={props.selectedThreadLoading}
+              isSubmittingTurn={props.isSubmittingTurn}
+              onTurnDraftChange={props.onTurnDraftChange}
+              onTurnSubmit={props.onTurnSubmit}
+              selectedMachineDisplayName={props.selectedMachineDisplayName}
+              selectedMachineHostname={props.selectedMachineHostname}
+              selectedMachineStatusReason={props.selectedMachineStatusReason}
+              selectedThreadId={props.selectedThreadId}
+              thread={props.selectedThread}
+              turnDraft={props.turnDraft}
+            />
+          }
         />
       </RepositoryWorkspaceFrame>
     </SidebarProvider>

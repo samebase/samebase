@@ -1,0 +1,375 @@
+import { Badge } from "@/components/badge";
+import { ChatInput } from "@/components/ChatInput";
+import { StaticMarkdownDocument } from "@/components/StaticMarkdownDocument";
+import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import {
+  deriveCodexThreadTimelineEntries,
+  type CodexThreadTimelineWorkEntry,
+} from "@/lib/codexThreadTimeline";
+import { cn } from "@/lib/utils";
+import {
+  ArrowUpRight,
+  Bot,
+  CircleAlert,
+  Eye,
+  GitBranch,
+  Loader2,
+  Search,
+  SquarePen,
+  Terminal,
+  Wrench,
+} from "lucide-react";
+import { useEffect, useMemo, useRef } from "react";
+
+type MachinesWorkspaceThreadPaneProps = {
+  thread: CodexAppServerThread | null;
+  selectedThreadId: string | null;
+  selectedMachineDisplayName: string | null;
+  selectedMachineHostname: string | null;
+  selectedMachineStatusReason: string | null;
+  isLoading: boolean;
+  errorMessage: string | null;
+  isSubmittingTurn: boolean;
+  turnDraft: string;
+  onTurnDraftChange: (value: string) => void;
+  onTurnSubmit: () => void;
+};
+
+function normalizeTimestampToMilliseconds(value: number): number {
+  return value < 10_000_000_000 ? value * 1000 : value;
+}
+
+function formatRelativeTime(
+  value: number,
+  referenceTimeMs: number = Date.now(),
+): string {
+  const diffMs = Math.max(
+    0,
+    referenceTimeMs - normalizeTimestampToMilliseconds(value),
+  );
+  const minuteMs = 60_000;
+  const hourMs = 60 * minuteMs;
+  const dayMs = 24 * hourMs;
+
+  if (diffMs < hourMs) {
+    return `${Math.max(1, Math.floor(diffMs / minuteMs))}m`;
+  }
+
+  if (diffMs < dayMs) {
+    return `${Math.floor(diffMs / hourMs)}h`;
+  }
+
+  return `${Math.floor(diffMs / dayMs)}d`;
+}
+
+function readFirstNonEmptyLine(value: string): string {
+  const firstLine = value
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+
+  return firstLine ?? value.trim();
+}
+
+function readThreadTitle(thread: CodexAppServerThread): string {
+  const explicitName = thread.name?.trim();
+  if (explicitName) {
+    return explicitName;
+  }
+
+  return readFirstNonEmptyLine(thread.preview);
+}
+
+function readThreadPreview(thread: CodexAppServerThread): string | null {
+  const previewLine = readFirstNonEmptyLine(thread.preview);
+  const title = readThreadTitle(thread);
+  if (previewLine === title) {
+    return null;
+  }
+
+  return previewLine;
+}
+
+function workEntryIcon(entry: CodexThreadTimelineWorkEntry) {
+  if (entry.tone === "error") {
+    return CircleAlert;
+  }
+
+  if (entry.item.type === "commandExecution") {
+    return Terminal;
+  }
+
+  if (entry.item.type === "fileChange") {
+    return SquarePen;
+  }
+
+  if (entry.item.type === "fileRead" || entry.item.type === "imageView") {
+    return Eye;
+  }
+
+  if (entry.item.type === "webSearch") {
+    return Search;
+  }
+
+  return Wrench;
+}
+
+function workToneClassName(tone: CodexThreadTimelineWorkEntry["tone"]): string {
+  if (tone === "error") {
+    return "text-red-600 dark:text-red-400";
+  }
+
+  if (tone === "tool") {
+    return "text-muted-foreground";
+  }
+
+  return "text-foreground/80";
+}
+
+function WorkEntryRow({ entry }: { entry: CodexThreadTimelineWorkEntry }) {
+  const EntryIcon = workEntryIcon(entry);
+
+  return (
+    <div className="rounded-xl px-1 py-1">
+      <div className="flex items-start gap-2">
+        <span
+          className={cn(
+            "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center",
+            workToneClassName(entry.tone),
+          )}
+        >
+          <EntryIcon className="h-3.5 w-3.5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div
+            className={cn(
+              "truncate text-[11px] leading-5",
+              workToneClassName(entry.tone),
+            )}
+            title={
+              entry.preview ? `${entry.title} - ${entry.preview}` : entry.title
+            }
+          >
+            <span className="text-foreground/85">{entry.title}</span>
+            {entry.preview ? (
+              <span className="text-muted-foreground"> - {entry.preview}</span>
+            ) : null}
+          </div>
+          {entry.changedFiles.length > 0 ? (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {entry.changedFiles.slice(0, 4).map((filePath) => (
+                <span
+                  key={`${entry.id}-${filePath}`}
+                  className="rounded-md border border-border/60 bg-background/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+                  title={filePath}
+                >
+                  {filePath}
+                </span>
+              ))}
+              {entry.changedFiles.length > 4 ? (
+                <span className="px-1 text-[10px] text-muted-foreground">
+                  +{entry.changedFiles.length - 4}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function MachinesWorkspaceThreadPane({
+  thread,
+  selectedThreadId,
+  selectedMachineDisplayName,
+  selectedMachineHostname,
+  selectedMachineStatusReason,
+  isLoading,
+  errorMessage,
+  isSubmittingTurn,
+  turnDraft,
+  onTurnDraftChange,
+  onTurnSubmit,
+}: MachinesWorkspaceThreadPaneProps) {
+  const timelineEntries = useMemo(
+    () => (thread ? deriveCodexThreadTimelineEntries(thread) : []),
+    [thread],
+  );
+  const timelineEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    timelineEndRef.current?.scrollIntoView({ block: "end" });
+  }, [isSubmittingTurn, thread?.id, timelineEntries.length]);
+
+  const preview = thread ? readThreadPreview(thread) : null;
+  const composerDisabled =
+    isSubmittingTurn || selectedMachineStatusReason !== null;
+  const composerPlaceholder =
+    selectedMachineStatusReason !== null
+      ? selectedMachineStatusReason
+      : selectedThreadId
+        ? "Continue this thread..."
+        : "Send a prompt to start a machine-local thread...";
+
+  let emptyStateTitle = "Select a thread";
+  let emptyStateBody =
+    "Choose a machine-local Codex thread from the left rail to inspect its messages and continue it here.";
+
+  if (selectedMachineStatusReason !== null) {
+    emptyStateTitle = "Machine control unavailable";
+    emptyStateBody = selectedMachineStatusReason;
+  } else if (selectedThreadId !== null && isLoading) {
+    emptyStateTitle = "Loading thread";
+    emptyStateBody = `Loading ${selectedThreadId}.`;
+  } else if (selectedThreadId === null) {
+    emptyStateTitle = "No thread selected";
+    emptyStateBody =
+      "Pick an existing thread from the sidebar or send a prompt here to start a new one on the selected machine.";
+  }
+
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <div className="border-b border-border bg-background/95">
+        <div className="mx-auto flex w-full max-w-3xl flex-wrap items-start gap-3 px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              {selectedMachineDisplayName ?? "Connected machine"}
+              {selectedMachineHostname ? ` · ${selectedMachineHostname}` : ""}
+            </div>
+            <div className="mt-1 truncate text-[18px] font-semibold leading-6 text-foreground">
+              {thread ? readThreadTitle(thread) : emptyStateTitle}
+            </div>
+            {preview ? (
+              <div className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                {preview}
+              </div>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {thread ? (
+              <>
+                <Badge variant="outline">{thread.status.type}</Badge>
+                <Badge variant="outline">{thread.sourceLabel}</Badge>
+                {thread.workspace.isProjectRoot ? null : (
+                  <Badge variant="outline" className="gap-1">
+                    <GitBranch className="h-3 w-3" />
+                    {thread.workspace.label ?? "worktree"}
+                  </Badge>
+                )}
+                <Badge variant="outline" className="gap-1">
+                  <ArrowUpRight className="h-3 w-3" />
+                  {formatRelativeTime(thread.updatedAt)}
+                </Badge>
+              </>
+            ) : null}
+            {isLoading ? (
+              <Badge variant="outline" className="gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Refreshing
+              </Badge>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {errorMessage ? (
+        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4">
+          {thread === null ? (
+            <div className="rounded-2xl border border-dashed border-border bg-card/20 px-5 py-8">
+              <div className="text-sm font-medium text-foreground">
+                {emptyStateTitle}
+              </div>
+              <div className="mt-2 text-sm leading-6 text-muted-foreground">
+                {emptyStateBody}
+              </div>
+            </div>
+          ) : timelineEntries.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-card/20 px-5 py-8 text-sm text-muted-foreground">
+              This thread does not have any hydrated messages yet.
+            </div>
+          ) : (
+            timelineEntries.map((entry) => {
+              if (entry.kind === "message" && entry.role === "user") {
+                return (
+                  <div key={entry.id} className="flex justify-end">
+                    <div className="max-w-[80%] rounded-2xl rounded-br-sm border border-border bg-secondary px-4 py-3">
+                      <pre className="whitespace-pre-wrap break-words font-mono text-sm leading-relaxed text-foreground">
+                        {entry.text}
+                      </pre>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (entry.kind === "message") {
+                return (
+                  <div key={entry.id} className="min-w-0 px-1 py-0.5">
+                    <StaticMarkdownDocument value={entry.text} />
+                  </div>
+                );
+              }
+
+              const onlyToolEntries = entry.entries.every(
+                (workEntry) => workEntry.tone === "tool",
+              );
+
+              return (
+                <div
+                  key={entry.id}
+                  className="rounded-2xl border border-border/60 bg-card/30 px-2 py-1.5"
+                >
+                  <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5">
+                    <p className="text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
+                      {onlyToolEntries ? "Tool calls" : "Work log"} (
+                      {entry.entries.length})
+                    </p>
+                    {onlyToolEntries ? (
+                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <Bot className="h-3 w-3" />
+                        Machine activity
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="space-y-0.5">
+                    {entry.entries.map((workEntry) => (
+                      <WorkEntryRow key={workEntry.id} entry={workEntry} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })
+          )}
+          <div ref={timelineEndRef} />
+        </div>
+      </div>
+
+      <div className="border-t border-border bg-background/95">
+        <div className="mx-auto w-full max-w-3xl px-4 py-3">
+          <ChatInput
+            autoResize
+            className="items-end"
+            disabled={composerDisabled}
+            mode="prosemark"
+            onSend={onTurnSubmit}
+            onValueChange={onTurnDraftChange}
+            placeholder={composerPlaceholder}
+            value={turnDraft}
+          />
+          {isSubmittingTurn ? (
+            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Sending to the selected machine thread...
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
