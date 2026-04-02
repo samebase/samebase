@@ -206,7 +206,11 @@ export function MachinesWorkspacePage() {
   const selectedMachineStatusReason = selectedMachine
     ? readMachineStatusReason(selectedMachine)
     : null;
-  const userDisplayName = user?.name ?? user?.email ?? user?.githubUsername;
+  const userDisplayName =
+    user?.name ??
+    user?.email ??
+    user?.githubUsername ??
+    (user ? "Account" : null);
   const selectedMachineControlId = selectedMachine?.machineId ?? null;
   const selectedMachineInteractionBlockedReason =
     selectedMachineStatusReason ??
@@ -819,7 +823,7 @@ export function MachinesWorkspacePage() {
       machineInventories={machineInventories}
       isSubmittingTurn={isSubmittingTurn}
       leftSidebarHeader={
-        userDisplayName ? (
+        userDisplayName !== null ? (
           <SidebarHomeAccountHeader userDisplayName={userDisplayName} />
         ) : null
       }
