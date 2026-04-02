@@ -48,7 +48,7 @@ model:
   - compact thread metadata header
   - bottom composer wired to `/turn/start`
 - Reuse Noter's existing primitives where they already fit:
-  - `StaticMarkdownDocument` for lightweight assistant message rendering
+  - `ProsemarkReadOnly` for shared machine-thread message rendering
   - `ChatInput` for the bottom composer
   - `RepositoryWorkspaceFrame` and `WorkspaceScene` for the route shell
 
