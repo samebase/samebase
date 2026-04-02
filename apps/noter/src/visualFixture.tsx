@@ -13,6 +13,10 @@ import {
   type CommitReviewVisualMode,
 } from "@/components/CommitReviewVisualFixture";
 import {
+  CommitGraphVisualFixture,
+  type CommitGraphVisualMode,
+} from "@/components/CommitGraphVisualFixture";
+import {
   RepositoryMediaVisualFixture,
   type RepositoryMediaVisualMode,
 } from "@/components/RepositoryMediaVisualFixture";
@@ -122,6 +126,7 @@ import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import "./index.css";
 
 type VisualFixtureMode =
+  | CommitGraphVisualMode
   | CommitReviewVisualMode
   | FileViewCompareVisualMode
   | FileViewCodeParityVisualMode
@@ -176,6 +181,10 @@ const COMMIT_REVIEW_VISUAL_MODES = [
   "unchanged",
   "conflict",
 ] as const satisfies readonly CommitReviewVisualMode[];
+
+const COMMIT_GRAPH_VISUAL_MODES = [
+  "commit-graph",
+] as const satisfies readonly CommitGraphVisualMode[];
 
 const REPOSITORY_MEDIA_VISUAL_MODES = [
   "media-png",
@@ -294,6 +303,10 @@ const MISC_VISUAL_MODES = [
 
 const VISUAL_FIXTURE_GROUPS = [
   {
+    label: "Commit Graph",
+    modes: COMMIT_GRAPH_VISUAL_MODES,
+  },
+  {
     label: "Commit Review",
     modes: COMMIT_REVIEW_VISUAL_MODES,
   },
@@ -401,6 +414,10 @@ function readSelection(): VisualFixtureSelection {
 }
 
 function renderVisualFixture(mode: VisualFixtureMode) {
+  if (mode === "commit-graph") {
+    return <CommitGraphVisualFixture mode={mode} />;
+  }
+
   if (mode === "media-png" || mode === "media-svg" || mode === "media-vox") {
     return <RepositoryMediaVisualFixture mode={mode} />;
   }
