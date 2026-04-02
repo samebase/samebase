@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { useCodexThreadSidebarViewModel } from "@/hooks/useCodexThreadSidebarViewModel";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 import { MachinesWorkspaceThreadPane } from "@/components/MachinesWorkspaceThreadPane";
-import { ArrowUpRight, GitBranch, Pin } from "lucide-react";
+import { ArrowUpRight, GitBranch, Loader2, Pin } from "lucide-react";
 
 type MachinesWorkspaceViewProps = {
   threads: CodexAppServerThread[];
@@ -32,10 +32,12 @@ type MachinesWorkspaceViewProps = {
   selectedThreadLoading: boolean;
   isSubmittingTurn: boolean;
   turnDraft: string;
+  pendingPinThreadId: string | null;
   relativeTimeReferenceMs?: number;
   dataTestId?: string;
   onTurnDraftChange: (value: string) => void;
   onTurnSubmit: () => void;
+  onThreadPinChange?: (threadId: string, nextPinned: boolean) => void;
   onThreadSelect?: (threadId: string) => void;
 };
 
@@ -82,6 +84,45 @@ function setsAreEqual<T>(left: Set<T>, right: Set<T>): boolean {
 
 const MIN_LEFT_SIDEBAR_WIDTH_FOR_THREAD_META_PX = 176;
 
+function ThreadPinActionButton(props: {
+  isPinned: boolean;
+  isVisible: boolean;
+  isPending: boolean;
+  disabled: boolean;
+  onClick?: () => void;
+}) {
+  const label = props.isPinned ? "Unpin thread" : "Pin thread";
+
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={props.isPinned}
+      className={cn(
+        "flex h-7 w-7 items-center justify-center rounded-sm transition-[opacity,color,background-color]",
+        props.isPinned
+          ? "bg-accent/60 text-foreground hover:bg-accent"
+          : "bg-transparent text-muted-foreground hover:bg-accent/80 hover:text-foreground",
+        props.isVisible
+          ? "opacity-100"
+          : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+        props.disabled ? "cursor-wait" : null,
+      )}
+      disabled={props.disabled}
+      title={label}
+      onClick={() => {
+        props.onClick?.();
+      }}
+    >
+      {props.isPending ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} />
+      ) : (
+        <Pin className="h-3.5 w-3.5 rotate-45" strokeWidth={1.75} />
+      )}
+    </button>
+  );
+}
+
 /**
  * Let thread and project names grow with the live sidebar width while still
  * capping them at three lines so the rail stays compact when labels are long.
@@ -89,9 +130,10 @@ const MIN_LEFT_SIDEBAR_WIDTH_FOR_THREAD_META_PX = 176;
 function ThreadRow(props: {
   item: CodexThreadSidebarThread;
   isSelected: boolean;
+  pinActionPendingThreadId: string | null;
   relativeTimeReferenceMs?: number;
-  leadingIcon?: ReactNode;
   className?: string;
+  onPinChange?: (threadId: string, nextPinned: boolean) => void;
   onSelect?: (threadId: string) => void;
 }) {
   const { isMobile, leftDesktopWidthPx, leftMobileWidthPx } = useSidebar();
@@ -100,54 +142,75 @@ function ThreadRow(props: {
   // flex title column down to zero width, which makes line-clamp appear stuck.
   const showTrailingMeta =
     leftSidebarWidthPx >= MIN_LEFT_SIDEBAR_WIDTH_FOR_THREAD_META_PX;
+  const pinActionAlwaysVisible = props.item.isPinned;
+  const pinActionVisibleBecauseSelected = isMobile && props.isSelected;
+  const pinActionVisible =
+    pinActionAlwaysVisible || pinActionVisibleBecauseSelected;
+  const pinActionIsPending = props.pinActionPendingThreadId === props.item.id;
+  const pinActionDisabled = pinActionIsPending;
 
   return (
-    <button
-      type="button"
+    <div
       className={cn(
-        "flex min-h-10 w-full items-start gap-2 px-3 py-2 text-left text-sm transition-colors",
+        "group flex min-h-10 w-full items-start gap-0 text-sm transition-colors",
         props.isSelected
           ? "bg-accent text-foreground"
-          : "bg-background text-foreground hover:bg-accent/60",
+          : "bg-background text-foreground hover:bg-accent/60 focus-within:bg-accent/60",
         props.className,
       )}
-      onClick={() => {
-        props.onSelect?.(props.item.id);
-      }}
     >
-      {props.leadingIcon ? (
-        <div className="flex h-3.5 w-3.5 shrink-0 items-center justify-center pt-0.5 text-muted-foreground">
-          {props.leadingIcon}
+      {props.onPinChange ? (
+        <div className="flex shrink-0 items-start pl-2.5 pr-0.5 pt-2">
+          <ThreadPinActionButton
+            isPinned={props.item.isPinned}
+            isVisible={pinActionVisible}
+            isPending={pinActionIsPending}
+            disabled={pinActionDisabled}
+            onClick={() => {
+              props.onPinChange?.(props.item.id, !props.item.isPinned);
+            }}
+          />
         </div>
       ) : null}
-      <div className="flex min-w-0 flex-1 items-start gap-1.5">
-        {props.item.showWorkspaceIndicator ? (
+      <button
+        type="button"
+        className={cn(
+          "flex min-w-0 flex-1 items-start gap-2 py-2 pr-3 text-left",
+          props.onPinChange ? null : "px-3",
+        )}
+        onClick={() => {
+          props.onSelect?.(props.item.id);
+        }}
+      >
+        <div className="flex min-w-0 flex-1 items-start gap-1.5">
+          {props.item.showWorkspaceIndicator ? (
+            <div
+              className="flex h-3.5 w-3.5 shrink-0 items-center justify-center pt-0.5 text-muted-foreground"
+              title={props.item.workspaceTooltip ?? undefined}
+            >
+              <GitBranch className="h-3 w-3" strokeWidth={1.75} />
+            </div>
+          ) : null}
           <div
-            className="flex h-3.5 w-3.5 shrink-0 items-center justify-center pt-0.5 text-muted-foreground"
-            title={props.item.workspaceTooltip ?? undefined}
+            className="min-w-0 flex-auto line-clamp-3 [overflow-wrap:anywhere] text-[15px] font-medium leading-5"
+            title={props.item.workspaceTooltip ?? props.item.title}
           >
-            <GitBranch className="h-3 w-3" strokeWidth={1.75} />
+            {props.item.title}
+          </div>
+        </div>
+        {showTrailingMeta ? (
+          <div className="flex shrink-0 items-center gap-1 pt-0.5 text-[12px] tabular-nums text-muted-foreground">
+            <ArrowUpRight className="h-3 w-3" strokeWidth={1.75} />
+            <span>
+              {formatRelativeTime(
+                props.item.thread.updatedAt,
+                props.relativeTimeReferenceMs,
+              )}
+            </span>
           </div>
         ) : null}
-        <div
-          className="min-w-0 flex-auto line-clamp-3 [overflow-wrap:anywhere] text-[15px] font-medium leading-5"
-          title={props.item.workspaceTooltip ?? props.item.title}
-        >
-          {props.item.title}
-        </div>
-      </div>
-      {showTrailingMeta ? (
-        <div className="flex shrink-0 items-center gap-1 pt-0.5 text-[12px] tabular-nums text-muted-foreground">
-          <ArrowUpRight className="h-3 w-3" strokeWidth={1.75} />
-          <span>
-            {formatRelativeTime(
-              props.item.thread.updatedAt,
-              props.relativeTimeReferenceMs,
-            )}
-          </span>
-        </div>
-      ) : null}
-    </button>
+      </button>
+    </div>
   );
 }
 
@@ -284,10 +347,9 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                       key={thread.id}
                       item={thread}
                       isSelected={thread.id === props.selectedThreadId}
+                      pinActionPendingThreadId={props.pendingPinThreadId}
                       relativeTimeReferenceMs={props.relativeTimeReferenceMs}
-                      leadingIcon={
-                        <Pin className="h-3 w-3 rotate-45" strokeWidth={1.75} />
-                      }
+                      onPinChange={props.onThreadPinChange}
                       onSelect={props.onThreadSelect}
                     />
                   ))}
@@ -317,8 +379,10 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                         key={thread.id}
                         item={thread}
                         isSelected={thread.id === props.selectedThreadId}
+                        pinActionPendingThreadId={props.pendingPinThreadId}
                         relativeTimeReferenceMs={props.relativeTimeReferenceMs}
                         className="pl-10"
+                        onPinChange={props.onThreadPinChange}
                         onSelect={props.onThreadSelect}
                       />
                     ))}

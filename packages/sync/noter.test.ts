@@ -23,6 +23,7 @@ import {
   detectCodexVersion,
   buildMachineHeartbeatBody,
   buildNoterConnectConfigUrl,
+  CodexLocalControlRuntime,
   buildCodexSpawnOptions,
   buildDirectConnectCommand,
   buildDirectRunCommand,
@@ -181,6 +182,265 @@ describe('@noter-md/sync', () => {
         'machine_123',
       ),
     ).toBe(false)
+  })
+
+  it('persists pinned thread ids in the Codex desktop global state file', async () => {
+    const previousCodexHome = process.env.CODEX_HOME
+    const codexHomePath = path.join(
+      tmpdir(),
+      `noter-codex-home-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    )
+    const globalStatePath = path.join(codexHomePath, '.codex-global-state.json')
+    mkdirSync(codexHomePath, { recursive: true })
+    writeFileSync(
+      globalStatePath,
+      `${JSON.stringify(
+        {
+          theme: 'dark',
+          'pinned-thread-ids': [
+            'thread-existing',
+            'thread-target',
+            'thread-existing',
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    )
+    process.env.CODEX_HOME = codexHomePath
+
+    try {
+      const runtime = new CodexLocalControlRuntime('/tmp/noter')
+
+      await expect(
+        runtime.threadPin({ threadId: 'thread-new' }),
+      ).resolves.toMatchObject({
+        pinnedThreadIds: ['thread-new', 'thread-existing', 'thread-target'],
+      })
+      await expect(
+        runtime.threadPin({ threadId: 'thread-target' }),
+      ).resolves.toMatchObject({
+        pinnedThreadIds: ['thread-target', 'thread-new', 'thread-existing'],
+      })
+      await expect(
+        runtime.threadUnpin({ threadId: 'thread-new' }),
+      ).resolves.toMatchObject({
+        pinnedThreadIds: ['thread-target', 'thread-existing'],
+      })
+
+      expect(JSON.parse(readFileSync(globalStatePath, 'utf8'))).toEqual({
+        theme: 'dark',
+        'pinned-thread-ids': ['thread-target', 'thread-existing'],
+      })
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME
+      } else {
+        process.env.CODEX_HOME = previousCodexHome
+      }
+      rmSync(codexHomePath, { recursive: true, force: true })
+    }
+  })
+
+  it('creates the Codex desktop global state file when pinning the first thread', async () => {
+    const previousCodexHome = process.env.CODEX_HOME
+    const codexHomePath = path.join(
+      tmpdir(),
+      `noter-codex-home-empty-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    )
+    process.env.CODEX_HOME = codexHomePath
+
+    try {
+      const runtime = new CodexLocalControlRuntime('/tmp/noter')
+
+      await expect(
+        runtime.threadPin({ threadId: 'thread-first' }),
+      ).resolves.toMatchObject({
+        pinnedThreadIds: ['thread-first'],
+      })
+
+      expect(
+        JSON.parse(
+          readFileSync(
+            path.join(codexHomePath, '.codex-global-state.json'),
+            'utf8',
+          ),
+        ),
+      ).toEqual({
+        'pinned-thread-ids': ['thread-first'],
+      })
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME
+      } else {
+        process.env.CODEX_HOME = previousCodexHome
+      }
+      rmSync(codexHomePath, { recursive: true, force: true })
+    }
+  })
+
+  it('fails closed when the Codex desktop global state file is not a JSON object', async () => {
+    const previousCodexHome = process.env.CODEX_HOME
+    const codexHomePath = path.join(
+      tmpdir(),
+      `noter-codex-home-invalid-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    )
+    const globalStatePath = path.join(codexHomePath, '.codex-global-state.json')
+    mkdirSync(codexHomePath, { recursive: true })
+    writeFileSync(globalStatePath, '[]\n', 'utf8')
+    process.env.CODEX_HOME = codexHomePath
+
+    try {
+      const runtime = new CodexLocalControlRuntime('/tmp/noter')
+
+      await expect(
+        runtime.threadPin({ threadId: 'thread-invalid' }),
+      ).rejects.toThrow('.codex-global-state.json must contain a JSON object')
+      expect(readFileSync(globalStatePath, 'utf8')).toBe('[]\n')
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME
+      } else {
+        process.env.CODEX_HOME = previousCodexHome
+      }
+      rmSync(codexHomePath, { recursive: true, force: true })
+    }
+  })
+
+  it('serializes overlapping pinned thread updates in the shared desktop state file', async () => {
+    const previousCodexHome = process.env.CODEX_HOME
+    const codexHomePath = path.join(
+      tmpdir(),
+      `noter-codex-home-concurrent-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    )
+    const globalStatePath = path.join(codexHomePath, '.codex-global-state.json')
+    mkdirSync(codexHomePath, { recursive: true })
+    writeFileSync(
+      globalStatePath,
+      `${JSON.stringify(
+        {
+          theme: 'dark',
+          'pinned-thread-ids': ['thread-existing'],
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    )
+    process.env.CODEX_HOME = codexHomePath
+
+    try {
+      const runtime = new CodexLocalControlRuntime('/tmp/noter')
+
+      await Promise.all([
+        runtime.threadPin({ threadId: 'thread-first' }),
+        runtime.threadPin({ threadId: 'thread-second' }),
+      ])
+
+      expect(JSON.parse(readFileSync(globalStatePath, 'utf8'))).toEqual({
+        theme: 'dark',
+        'pinned-thread-ids': [
+          'thread-second',
+          'thread-first',
+          'thread-existing',
+        ],
+      })
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME
+      } else {
+        process.env.CODEX_HOME = previousCodexHome
+      }
+      rmSync(codexHomePath, { recursive: true, force: true })
+    }
+  })
+
+  it('routes thread pin and unpin mutations through the shared local control router', async () => {
+    const previousCodexHome = process.env.CODEX_HOME
+    const codexHomePath = path.join(
+      tmpdir(),
+      `noter-codex-home-router-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    )
+    const globalStatePath = path.join(codexHomePath, '.codex-global-state.json')
+    process.env.CODEX_HOME = codexHomePath
+
+    const runtime = new CodexLocalControlRuntime('/tmp/noter')
+    const router = createCodexLocalControlRouter({ runtime })
+    const server = createServer((req, res) => {
+      void router(req, res, () => {
+        res.statusCode = 404
+        res.end('not found')
+      })
+    })
+
+    await new Promise((resolve, reject) => {
+      server.once('error', reject)
+      server.listen(0, '127.0.0.1', () => {
+        server.removeListener('error', reject)
+        resolve(undefined)
+      })
+    })
+
+    try {
+      const address = server.address()
+      if (!address || typeof address === 'string') {
+        throw new Error('Expected a TCP server address')
+      }
+
+      const pinResponse = await fetch(
+        `http://127.0.0.1:${address.port}/thread/pin`,
+        {
+          body: JSON.stringify({ threadId: 'thread-router' }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        },
+      )
+      expect(pinResponse.status).toBe(200)
+      await expect(pinResponse.json()).resolves.toMatchObject({
+        pinnedThreadIds: ['thread-router'],
+      })
+      expect(JSON.parse(readFileSync(globalStatePath, 'utf8'))).toEqual({
+        'pinned-thread-ids': ['thread-router'],
+      })
+
+      const unpinResponse = await fetch(
+        `http://127.0.0.1:${address.port}/thread/unpin`,
+        {
+          body: JSON.stringify({ threadId: 'thread-router' }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        },
+      )
+      expect(unpinResponse.status).toBe(200)
+      await expect(unpinResponse.json()).resolves.toMatchObject({
+        pinnedThreadIds: [],
+      })
+      expect(JSON.parse(readFileSync(globalStatePath, 'utf8'))).toEqual({
+        'pinned-thread-ids': [],
+      })
+    } finally {
+      await new Promise((resolve, reject) => {
+        server.close(error => {
+          if (error) {
+            reject(error)
+            return
+          }
+
+          resolve(undefined)
+        })
+      })
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME
+      } else {
+        process.env.CODEX_HOME = previousCodexHome
+      }
+      rmSync(codexHomePath, { recursive: true, force: true })
+    }
   })
 
   it('stores bootstrap state in one local config file', () => {

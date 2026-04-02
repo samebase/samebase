@@ -177,7 +177,6 @@ rfcs/081_SIDEBAR_RESIZE_RESEARCH.md
 rfcs/assets/079-editor-sidebar-return-drag/monaco-return-drag.png
 rfcs/assets/079-editor-sidebar-return-drag/prosemark-return-drag.png
 rfcs/README.md
-Screenshot 2026-02-17 at 01.19.49.png
 skills/create-pr/SKILL.md
 skills/mac-app-control/SKILL.md
 skills/noter-playwright-live/references/playwright-cli-quickref.md

@@ -19,11 +19,16 @@
 
 import { execFile, spawn, spawnSync } from 'node:child_process'
 import {
+  closeSync,
   chmodSync,
+  fsyncSync,
   mkdirSync,
+  openSync,
   readFileSync,
   realpathSync,
+  renameSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
@@ -68,6 +73,8 @@ const CODEX_APPROVAL_CONTEXT_BUFFER_SIZE = 100
 const MAX_THREAD_PROJECT_INFO_CACHE_SIZE = 500
 const DEFAULT_THREAD_SOURCE_KINDS = ['cli', 'vscode', 'exec', 'appServer']
 const CODEX_GLOBAL_STATE_FILENAME = '.codex-global-state.json'
+const CODEX_GLOBAL_STATE_LOCK_RETRY_MS = 25
+const CODEX_GLOBAL_STATE_LOCK_TIMEOUT_MS = 2_000
 const execFileAsync = promisify(execFile)
 
 function isLoopbackHostname(hostname) {
@@ -1119,18 +1126,189 @@ function resolveCodexHomeDirectory() {
 }
 
 async function readDesktopPinnedThreadIds() {
-  const globalStatePath = path.join(
-    resolveCodexHomeDirectory(),
-    CODEX_GLOBAL_STATE_FILENAME,
-  )
-
   try {
-    const rawGlobalState = await readFile(globalStatePath, 'utf8')
-    const parsedGlobalState = asRecord(JSON.parse(rawGlobalState))
-    return readPinnedThreadIds(parsedGlobalState?.['pinned-thread-ids'])
+    const parsedGlobalState = await readDesktopGlobalState()
+    return readPinnedThreadIds(parsedGlobalState['pinned-thread-ids'])
   } catch {
     return []
   }
+}
+
+function resolveDesktopGlobalStatePath() {
+  return path.join(resolveCodexHomeDirectory(), CODEX_GLOBAL_STATE_FILENAME)
+}
+
+function resolveDesktopGlobalStateLockPath() {
+  return `${resolveDesktopGlobalStatePath()}.lock`
+}
+
+function desktopGlobalStateWasNotFound(error) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'ENOENT'
+  )
+}
+
+function desktopGlobalStateLockIsHeld(error) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'EEXIST'
+  )
+}
+
+function desktopGlobalStateDirectorySyncIsUnsupported(error) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    ['EINVAL', 'EISDIR', 'ENOTSUP', 'EPERM', 'UNKNOWN'].includes(error.code)
+  )
+}
+
+// Serialize local callers before they contend on the lockfile so pin/unpin
+// requests keep a deterministic order within this process too.
+let desktopGlobalStateUpdateQueue = Promise.resolve()
+
+async function acquireDesktopGlobalStateLock() {
+  const globalStateLockPath = resolveDesktopGlobalStateLockPath()
+  const waitDeadline = Date.now() + CODEX_GLOBAL_STATE_LOCK_TIMEOUT_MS
+  mkdirSync(path.dirname(globalStateLockPath), { recursive: true })
+
+  while (true) {
+    try {
+      return openSync(globalStateLockPath, 'wx', 0o600)
+    } catch (error) {
+      if (!desktopGlobalStateLockIsHeld(error)) {
+        throw error
+      }
+      if (Date.now() >= waitDeadline) {
+        throw new Error(
+          `Timed out waiting to update ${CODEX_GLOBAL_STATE_FILENAME}`,
+        )
+      }
+      await sleep(CODEX_GLOBAL_STATE_LOCK_RETRY_MS)
+    }
+  }
+}
+
+function releaseDesktopGlobalStateLock(lockFileDescriptor) {
+  try {
+    closeSync(lockFileDescriptor)
+  } finally {
+    try {
+      unlinkSync(resolveDesktopGlobalStateLockPath())
+    } catch (error) {
+      if (!desktopGlobalStateWasNotFound(error)) {
+        throw error
+      }
+    }
+  }
+}
+
+function syncDirectoryIfSupported(directoryPath) {
+  let directoryFileDescriptor = null
+
+  try {
+    directoryFileDescriptor = openSync(directoryPath, 'r')
+    fsyncSync(directoryFileDescriptor)
+  } catch (error) {
+    if (!desktopGlobalStateDirectorySyncIsUnsupported(error)) {
+      throw error
+    }
+  } finally {
+    if (typeof directoryFileDescriptor === 'number') {
+      closeSync(directoryFileDescriptor)
+    }
+  }
+}
+
+async function readDesktopGlobalState() {
+  const globalStatePath = resolveDesktopGlobalStatePath()
+  const rawGlobalState = await readFile(globalStatePath, 'utf8')
+  const parsedGlobalState = asRecord(JSON.parse(rawGlobalState))
+  if (parsedGlobalState === null) {
+    throw new Error(`${CODEX_GLOBAL_STATE_FILENAME} must contain a JSON object`)
+  }
+  return parsedGlobalState
+}
+
+async function writeDesktopGlobalState(record) {
+  const globalStatePath = resolveDesktopGlobalStatePath()
+  const globalStateDirectoryPath = path.dirname(globalStatePath)
+  const tempGlobalStatePath = path.join(
+    globalStateDirectoryPath,
+    `${path.basename(globalStatePath)}.${process.pid}-${Date.now()}-${Math.random()
+      .toString(16)
+      .slice(2)}.tmp`,
+  )
+  const serializedGlobalState = `${JSON.stringify(record, null, 2)}\n`
+  let tempFileDescriptor = null
+
+  mkdirSync(globalStateDirectoryPath, { recursive: true })
+
+  try {
+    tempFileDescriptor = openSync(tempGlobalStatePath, 'wx', 0o600)
+    writeFileSync(tempFileDescriptor, serializedGlobalState, {
+      encoding: 'utf8',
+    })
+    fsyncSync(tempFileDescriptor)
+    closeSync(tempFileDescriptor)
+    tempFileDescriptor = null
+    renameSync(tempGlobalStatePath, globalStatePath)
+    syncDirectoryIfSupported(globalStateDirectoryPath)
+  } catch (error) {
+    if (typeof tempFileDescriptor === 'number') {
+      closeSync(tempFileDescriptor)
+    }
+    try {
+      unlinkSync(tempGlobalStatePath)
+    } catch (unlinkError) {
+      if (!desktopGlobalStateWasNotFound(unlinkError)) {
+        throw unlinkError
+      }
+    }
+    throw error
+  }
+}
+
+async function updateDesktopPinnedThreadIds(updatePinnedThreadIds) {
+  const runUpdate = async () => {
+    const lockFileDescriptor = await acquireDesktopGlobalStateLock()
+    let nextGlobalState
+
+    try {
+      try {
+        nextGlobalState = await readDesktopGlobalState()
+      } catch (error) {
+        if (!desktopGlobalStateWasNotFound(error)) {
+          throw error
+        }
+        nextGlobalState = {}
+      }
+
+      const nextPinnedThreadIds = readPinnedThreadIds(
+        updatePinnedThreadIds(
+          readPinnedThreadIds(nextGlobalState['pinned-thread-ids']),
+        ),
+      )
+      nextGlobalState['pinned-thread-ids'] = nextPinnedThreadIds
+      await writeDesktopGlobalState(nextGlobalState)
+      return nextPinnedThreadIds
+    } finally {
+      releaseDesktopGlobalStateLock(lockFileDescriptor)
+    }
+  }
+
+  const nextUpdate = desktopGlobalStateUpdateQueue.then(runUpdate, runUpdate)
+  desktopGlobalStateUpdateQueue = nextUpdate.then(
+    () => undefined,
+    () => undefined,
+  )
+  return nextUpdate
 }
 
 function readPathLeaf(value) {
@@ -2978,6 +3156,48 @@ export class CodexLocalControlRuntime {
     return { result, runtime: this.getSnapshot() }
   }
 
+  async threadPin(body) {
+    const record = asRecord(body) ?? {}
+    const threadId = readString(record.threadId)
+    if (!threadId) {
+      throw new Error('threadId is required')
+    }
+
+    const pinnedThreadIds = await updateDesktopPinnedThreadIds(
+      currentPinnedThreadIds => [
+        threadId,
+        ...currentPinnedThreadIds.filter(
+          currentThreadId => currentThreadId !== threadId,
+        ),
+      ],
+    )
+
+    return {
+      pinnedThreadIds,
+      runtime: this.getSnapshot(),
+    }
+  }
+
+  async threadUnpin(body) {
+    const record = asRecord(body) ?? {}
+    const threadId = readString(record.threadId)
+    if (!threadId) {
+      throw new Error('threadId is required')
+    }
+
+    const pinnedThreadIds = await updateDesktopPinnedThreadIds(
+      currentPinnedThreadIds =>
+        currentPinnedThreadIds.filter(
+          currentThreadId => currentThreadId !== threadId,
+        ),
+    )
+
+    return {
+      pinnedThreadIds,
+      runtime: this.getSnapshot(),
+    }
+  }
+
   async turnStart(body) {
     const record = asRecord(body) ?? {}
     const threadId = readString(record.threadId) ?? this.currentThreadId
@@ -3278,6 +3498,24 @@ export function createCodexLocalControlRouter(args) {
           res,
           200,
           await args.runtime.threadUnarchive(await readJsonBody(req)),
+        )
+        return
+      }
+
+      if (req.method === 'POST' && routePath === '/thread/pin') {
+        sendJson(
+          res,
+          200,
+          await args.runtime.threadPin(await readJsonBody(req)),
+        )
+        return
+      }
+
+      if (req.method === 'POST' && routePath === '/thread/unpin') {
+        sendJson(
+          res,
+          200,
+          await args.runtime.threadUnpin(await readJsonBody(req)),
         )
         return
       }
