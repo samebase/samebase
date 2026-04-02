@@ -1,5 +1,5 @@
 import { ChatInput } from "@/components/ChatInput";
-import { StaticMarkdownDocument } from "@/components/StaticMarkdownDocument";
+import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 import {
   deriveCodexThreadTimelineEntries,
@@ -146,6 +146,18 @@ function WorkEntryRow({ entry }: { entry: CodexThreadTimelineWorkEntry }) {
   );
 }
 
+function ThreadMessageBody({
+  className,
+  text,
+}: {
+  className?: string;
+  text: string;
+}) {
+  return (
+    <ProsemarkReadOnly value={text} className={cn("text-sm", className)} />
+  );
+}
+
 export function MachinesWorkspaceThreadPane({
   thread,
   selectedThreadId,
@@ -253,9 +265,7 @@ export function MachinesWorkspaceThreadPane({
                 return (
                   <div key={entry.id} className="flex justify-end">
                     <div className="max-w-[80%] rounded-2xl rounded-br-sm border border-border bg-secondary px-4 py-3">
-                      <pre className="whitespace-pre-wrap break-words font-mono text-sm leading-relaxed text-foreground">
-                        {entry.text}
-                      </pre>
+                      <ThreadMessageBody text={entry.text} />
                     </div>
                   </div>
                 );
@@ -264,7 +274,7 @@ export function MachinesWorkspaceThreadPane({
               if (entry.kind === "message") {
                 return (
                   <div key={entry.id} className="min-w-0 px-1 py-0.5">
-                    <StaticMarkdownDocument value={entry.text} />
+                    <ThreadMessageBody text={entry.text} />
                   </div>
                 );
               }

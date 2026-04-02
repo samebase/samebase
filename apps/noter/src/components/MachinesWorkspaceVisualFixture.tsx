@@ -26,7 +26,10 @@ const FIXTURE_TURN_INITIAL: CodexAppServerThreadTurn = {
       summary:
         "Use the shared workspace shell for connected machines so the left rail can own thread browsing.",
       raw: {
-        text: "Use the shared workspace shell for connected machines so the left rail can own thread browsing.",
+        text: `Use the shared workspace shell for connected machines so the left rail can own thread browsing.
+
+- Keep the main pane quiet.
+- Keep the composer pinned.`,
       },
     },
     {
@@ -35,7 +38,10 @@ const FIXTURE_TURN_INITIAL: CodexAppServerThreadTurn = {
       summary:
         "Start with a sidebar-first route on `/machines`, keep the thread inventory on the left, and leave the main pane intentionally lightweight for the first slice.",
       raw: {
-        text: "Start with a sidebar-first route on `/machines`, keep the thread inventory on the left, and leave the main pane intentionally lightweight for the first slice.",
+        text: `Start with a sidebar-first route on \`/machines\`, keep the thread inventory on the left, and leave the main pane intentionally lightweight for the first slice.
+
+- Keep tool rows compact.
+- Keep the bottom composer visible.`,
       },
     },
   ],
@@ -53,7 +59,11 @@ const FIXTURE_TURN_LATEST: CodexAppServerThreadTurn = {
       summary:
         "Copy the Codex sidebar thread list exactly: no section labels, no search, and pin state shown inline with the title row.",
       raw: {
-        text: "Copy the Codex sidebar thread list exactly: no section labels, no search, and pin state shown inline with the title row.",
+        text: `Copy the Codex sidebar thread list exactly:
+
+- no section labels
+- no search
+- pin state inline with the title row`,
       },
     },
     {
@@ -107,7 +117,9 @@ const FIXTURE_TURN_LATEST: CodexAppServerThreadTurn = {
       summary:
         "Flatten the list, keep the rail compact, and turn the main pane into a Codex-like timeline with grouped tool rows and a bottom composer.",
       raw: {
-        text: "Flatten the list, keep the rail compact, and turn the main pane into a Codex-like timeline with grouped tool rows and a bottom composer.",
+        text: `Flatten the list, keep the rail compact, and turn the main pane into a Codex-like timeline with grouped tool rows and a bottom composer.
+
+Use the same readonly ProseMark surface that Noter already trusts for chat messages.`,
       },
     },
   ],
