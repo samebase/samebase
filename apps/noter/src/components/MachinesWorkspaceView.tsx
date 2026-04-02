@@ -26,6 +26,7 @@ import { ArrowUpRight, GitBranch, Loader2, Pin } from "lucide-react";
 
 type MachinesWorkspaceViewProps = {
   machineInventories: MachinesWorkspaceSidebarInventory[];
+  leftSidebarHeader?: ReactNode;
   selectedMachineId: string | null;
   selectedThreadId: string | null;
   selectedThread: CodexAppServerThread | null;
@@ -458,10 +459,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
       : null;
   const firstProjectKey =
     fallbackProjectMachine && fallbackProject
-      ? buildProjectKey(
-          fallbackProjectMachine.machineId,
-          fallbackProject.id,
-        )
+      ? buildProjectKey(fallbackProjectMachine.machineId, fallbackProject.id)
       : null;
   const [openMachineIds, setOpenMachineIds] = useState<Set<string>>(() => {
     const next = new Set<string>();
@@ -555,7 +553,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
         dataTestId={props.dataTestId}
         headerTestId={headerTestId}
         contentClassName="min-h-0 flex-1 p-0"
-        leftSidebarHeader={null}
+        leftSidebarHeader={props.leftSidebarHeader ?? null}
         leftSidebarContent={
           <div
             data-testid={sidebarTestId}
