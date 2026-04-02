@@ -246,6 +246,9 @@ export function VaultDashboardVisualFixture({
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="h-6 px-2">
+            /machines
+          </Button>
+          <Button variant="outline" size="sm" className="h-6 px-2">
             Connect machine
           </Button>
           <SidebarTrigger side="right" className="h-8 w-8 md:h-6 md:w-6" />
@@ -488,6 +491,9 @@ export function VaultDashboardVisualFixture({
         <div className="mb-4 flex items-center justify-between gap-3">
           <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="h-6 px-2">
+              /machines
+            </Button>
             <Button variant="outline" size="sm" className="h-6 px-2">
               Connect machine
             </Button>
