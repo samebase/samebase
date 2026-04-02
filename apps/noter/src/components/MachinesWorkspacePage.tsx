@@ -14,6 +14,15 @@ import {
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
+import {
+  DEFAULT_MACHINE_THREAD_MODEL,
+  DEFAULT_MACHINE_THREAD_REASONING_EFFORT,
+  planMachineTurnSubmission,
+  readMachineThreadModel,
+  readMachineThreadReasoningEffort,
+  type MachineThreadModel,
+  type MachineThreadReasoningEffort,
+} from "@/lib/machinesThreadComposer";
 import { MachinesWorkspaceView } from "@/components/MachinesWorkspaceView";
 import type { MachinesWorkspaceSidebarInventory } from "@/lib/machinesWorkspaceSidebar";
 import { useMutation, useQuery } from "convex/react";
@@ -26,6 +35,8 @@ import { api } from "../../convex/_generated/api";
 const THREAD_LIST_LIMIT = 100;
 const SELECTED_MACHINE_QUERY_PARAM = "machineId";
 const SELECTED_THREAD_QUERY_PARAM = "threadId";
+const SELECTED_MODEL_QUERY_PARAM = "model";
+const SELECTED_REASONING_QUERY_PARAM = "effort";
 const THREAD_REFRESH_INTERVAL_MS = 1_500;
 const MACHINE_CONTROL_TOKEN_REFRESH_BUFFER_MS = 30_000;
 
@@ -156,6 +167,15 @@ export function MachinesWorkspacePage() {
     null,
   );
   const [turnDraft, setTurnDraft] = useState("");
+  const [selectedModel, setSelectedModel] = useState<MachineThreadModel>(() =>
+    readMachineThreadModel(searchParams.get(SELECTED_MODEL_QUERY_PARAM)),
+  );
+  const [selectedReasoningEffort, setSelectedReasoningEffort] =
+    useState<MachineThreadReasoningEffort>(() =>
+      readMachineThreadReasoningEffort(
+        searchParams.get(SELECTED_REASONING_QUERY_PARAM),
+      ),
+    );
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(
     () => readSelectedSearchValue(searchParams, SELECTED_MACHINE_QUERY_PARAM),
   );
@@ -378,6 +398,20 @@ export function MachinesWorkspacePage() {
     setSelectedThreadId((current) =>
       current === nextSelectedThreadId ? current : nextSelectedThreadId,
     );
+    const nextSelectedModel = readMachineThreadModel(
+      searchParams.get(SELECTED_MODEL_QUERY_PARAM),
+    );
+    setSelectedModel((current) =>
+      current === nextSelectedModel ? current : nextSelectedModel,
+    );
+    const nextSelectedReasoningEffort = readMachineThreadReasoningEffort(
+      searchParams.get(SELECTED_REASONING_QUERY_PARAM),
+    );
+    setSelectedReasoningEffort((current) =>
+      current === nextSelectedReasoningEffort
+        ? current
+        : nextSelectedReasoningEffort,
+    );
   }, [searchParams]);
 
   useEffect(() => {
@@ -388,6 +422,18 @@ export function MachinesWorkspacePage() {
         selectedMachineId,
       );
       setQueryParam(nextParams, SELECTED_THREAD_QUERY_PARAM, selectedThreadId);
+      setQueryParam(
+        nextParams,
+        SELECTED_MODEL_QUERY_PARAM,
+        selectedModel === DEFAULT_MACHINE_THREAD_MODEL ? null : selectedModel,
+      );
+      setQueryParam(
+        nextParams,
+        SELECTED_REASONING_QUERY_PARAM,
+        selectedReasoningEffort === DEFAULT_MACHINE_THREAD_REASONING_EFFORT
+          ? null
+          : selectedReasoningEffort,
+      );
     });
     const nextSearch = buildSearchString(nextSearchParams);
     if (nextSearch === currentSearch) {
@@ -398,6 +444,8 @@ export function MachinesWorkspacePage() {
   }, [
     currentSearch,
     searchParams,
+    selectedModel,
+    selectedReasoningEffort,
     selectedMachineId,
     selectedThreadId,
     setSearchParams,
@@ -710,19 +758,47 @@ export function MachinesWorkspacePage() {
         latestSelectedMachineControlIdRef.current !== submitMachineControlId;
 
       try {
-        const targetThreadId = selectedThreadId;
+        const submissionPlan = planMachineTurnSubmission({
+          model: selectedModel,
+          prompt,
+          reasoningEffort: selectedReasoningEffort,
+          selectedThreadId,
+        });
+        let nextThreadId =
+          submissionPlan.kind === "existing-thread"
+            ? submissionPlan.threadId
+            : null;
+
+        if (submissionPlan.kind === "new-thread") {
+          const threadResponse =
+            await requestMachineControlJson<ThreadActionResponse>(submitMachine, {
+              body: submissionPlan.threadStartBody,
+              method: "POST",
+              path: "/thread/start",
+            });
+          nextThreadId = threadResponse.runtime.currentThreadId;
+          if (!nextThreadId) {
+            throw new Error(
+              "Machine started a thread but did not return a thread id.",
+            );
+          }
+        }
+
         const response = await requestMachineControlJson<ThreadActionResponse>(
           submitMachine,
           {
-            body: {
-              text: prompt,
-              threadId: targetThreadId ?? undefined,
-            },
+            body:
+              submissionPlan.kind === "new-thread"
+                ? {
+                    ...submissionPlan.turnStartBody,
+                    threadId: nextThreadId,
+                  }
+                : submissionPlan.turnStartBody,
             method: "POST",
             path: "/turn/start",
           },
         );
-        const nextThreadId = targetThreadId ?? response.runtime.currentThreadId;
+        nextThreadId = nextThreadId ?? response.runtime.currentThreadId;
         if (submissionIsStale()) {
           return;
         }
@@ -790,8 +866,10 @@ export function MachinesWorkspacePage() {
     refreshThreads,
     requestMachineControlJson,
     selectedMachine,
+    selectedModel,
     selectedMachineControlId,
     selectedMachineInteractionBlockedReason,
+    selectedReasoningEffort,
     selectedThreadId,
     turnDraft,
   ]);
@@ -837,7 +915,11 @@ export function MachinesWorkspacePage() {
       selectedThreadLoading={isSelectedThreadLoading}
       selectedThreadId={selectedThreadId}
       relativeTimeReferenceMs={now}
+      model={selectedModel}
+      reasoningEffort={selectedReasoningEffort}
       turnDraft={turnDraft}
+      onModelChange={setSelectedModel}
+      onReasoningEffortChange={setSelectedReasoningEffort}
       onTurnDraftChange={setTurnDraft}
       onTurnSubmit={handleTurnSubmit}
       onThreadPinChange={handleThreadPinChange}

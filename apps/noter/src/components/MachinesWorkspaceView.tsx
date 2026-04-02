@@ -19,8 +19,12 @@ import {
   type MachinesWorkspaceSidebarInventory,
   type MachinesWorkspaceSidebarSection,
 } from "@/lib/machinesWorkspaceSidebar";
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import {
+  type MachineThreadModel,
+  type MachineThreadReasoningEffort,
+} from "@/lib/machinesThreadComposer";
 import { cn } from "@/lib/utils";
+import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 import { MachinesWorkspaceThreadPane } from "@/components/MachinesWorkspaceThreadPane";
 import { ArrowUpRight, GitBranch, Loader2, Pin } from "lucide-react";
 
@@ -36,10 +40,14 @@ type MachinesWorkspaceViewProps = {
   selectedThreadError: string | null;
   selectedThreadLoading: boolean;
   isSubmittingTurn: boolean;
+  model: MachineThreadModel;
+  reasoningEffort: MachineThreadReasoningEffort;
   turnDraft: string;
   pendingPinThreadKey: string | null;
   relativeTimeReferenceMs?: number;
   dataTestId?: string;
+  onModelChange: (value: MachineThreadModel) => void;
+  onReasoningEffortChange: (value: MachineThreadReasoningEffort) => void;
   onTurnDraftChange: (value: string) => void;
   onTurnSubmit: () => void;
   onThreadPinChange?: (selection: {
@@ -712,6 +720,10 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
               errorMessage={props.selectedThreadError}
               isLoading={props.selectedThreadLoading}
               isSubmittingTurn={props.isSubmittingTurn}
+              model={props.model}
+              reasoningEffort={props.reasoningEffort}
+              onModelChange={props.onModelChange}
+              onReasoningEffortChange={props.onReasoningEffortChange}
               onTurnDraftChange={props.onTurnDraftChange}
               onTurnSubmit={props.onTurnSubmit}
               selectedMachineDisplayName={props.selectedMachineDisplayName}

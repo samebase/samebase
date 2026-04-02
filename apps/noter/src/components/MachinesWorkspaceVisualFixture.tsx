@@ -358,13 +358,17 @@ export function MachinesWorkspaceVisualFixture() {
             selectedMachineId={selectedMachineId}
             selectedMachineDisplayName={selectedMachineDisplayName}
             selectedMachineHostname={selectedMachineHostname}
+            model="gpt-5.4"
             selectedMachineStatusReason={null}
             selectedThread={selectedThread}
+            reasoningEffort="xhigh"
             selectedThreadError={null}
             selectedThreadLoading={false}
             selectedThreadId={selectedThreadId}
             relativeTimeReferenceMs={FIXTURE_RELATIVE_TIME_REFERENCE_MS}
             turnDraft="Continue with the main pane chat surface."
+            onModelChange={() => {}}
+            onReasoningEffortChange={() => {}}
             onTurnDraftChange={() => {}}
             onTurnSubmit={() => {}}
             onThreadPinChange={handleThreadPinChange}

@@ -1,6 +1,11 @@
 import { ChatInput } from "@/components/ChatInput";
+import { MachinesThreadComposerControls } from "@/components/MachinesThreadComposerControls";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import {
+  type MachineThreadModel,
+  type MachineThreadReasoningEffort,
+} from "@/lib/machinesThreadComposer";
 import {
   deriveCodexThreadTimelineEntries,
   type CodexThreadTimelineWorkEntry,
@@ -27,7 +32,11 @@ type MachinesWorkspaceThreadPaneProps = {
   isLoading: boolean;
   errorMessage: string | null;
   isSubmittingTurn: boolean;
+  model: MachineThreadModel;
+  reasoningEffort: MachineThreadReasoningEffort;
   turnDraft: string;
+  onModelChange: (value: MachineThreadModel) => void;
+  onReasoningEffortChange: (value: MachineThreadReasoningEffort) => void;
   onTurnDraftChange: (value: string) => void;
   onTurnSubmit: () => void;
 };
@@ -167,7 +176,11 @@ export function MachinesWorkspaceThreadPane({
   isLoading,
   errorMessage,
   isSubmittingTurn,
+  model,
+  reasoningEffort,
   turnDraft,
+  onModelChange,
+  onReasoningEffortChange,
   onTurnDraftChange,
   onTurnSubmit,
 }: MachinesWorkspaceThreadPaneProps) {
@@ -315,6 +328,15 @@ export function MachinesWorkspaceThreadPane({
 
       <div className="border-t border-border bg-background/95">
         <div className="mx-auto w-full max-w-3xl px-4 py-3">
+          <div className="mb-2">
+            <MachinesThreadComposerControls
+              disabled={composerDisabled}
+              model={model}
+              reasoningEffort={reasoningEffort}
+              onModelChange={onModelChange}
+              onReasoningEffortChange={onReasoningEffortChange}
+            />
+          </div>
           <ChatInput
             autoResize
             className="items-end"
