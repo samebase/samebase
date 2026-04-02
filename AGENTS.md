@@ -151,19 +151,19 @@ Key domain entities:
 
 When the user says one of these commands, execute it directly:
 
-| Command        | Action                                                                 |
-| -------------- | ---------------------------------------------------------------------- |
-| `commit`       | Stage changes and create a concise commit                              |
-| `push`         | Commit if needed, then push                                            |
-| `create pr`    | Push if needed, then create or update a ready PR                       |
-| `create draft` | Push if needed, then create or update a draft PR                       |
-| `ready`        | Mark the current PR ready                                              |
-| `wait`         | Watch CI and report status                                             |
-| `ship`         | Commit, push, refresh PR state, clear actionable review feedback, wait |
-| `archive`      | Remove the current worktree/local branch after confirming a PR exists  |
-| `clean vaults` | Remove temporary Noter-managed vaults for the current worktree         |
-| `clean`        | Run `clean vaults`, then remove the shipped worktree/branch            |
-| `status`       | Report branch, local changes, and PR state                             |
+| Command        | Action                                                                         |
+| -------------- | ------------------------------------------------------------------------------ |
+| `commit`       | Stage changes and create a concise commit                                      |
+| `push`         | Commit if needed, then push                                                    |
+| `create pr`    | Push if needed, then create or update a ready PR                               |
+| `create draft` | Push if needed, then create or update a draft PR                               |
+| `ready`        | Mark the current PR ready                                                      |
+| `wait`         | Watch CI and report status                                                     |
+| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, wait |
+| `archive`      | Remove the current worktree/local branch after confirming a PR exists          |
+| `clean vaults` | Remove temporary Noter-managed vaults for the current worktree                 |
+| `clean`        | Run `clean vaults`, then remove the shipped worktree/branch                    |
+| `status`       | Report branch, local changes, and PR state                                     |
 
 Detailed flow rules live in `docs/agent-workflows.md`.
 
@@ -172,6 +172,12 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - Always use CLI tools such as `gh` and `git`; do not tell the user to click
   through a UI.
 - Execute requested git/GitHub workflows instead of describing them.
+- Do not leave a meaningful non-`main` work branch, research branch, or Codex
+  thread without a GitHub PR. Before concluding the task, create or update the
+  branch PR unless the user explicitly says not to open one.
+- Default proactive PR state is ready/non-draft so work is preserved in GitHub.
+  Use a draft PR only when the work is still in progress or the user explicitly
+  asks to keep it draft.
 - Before starting implementation on an existing branch or worktree, fetch
   `origin` and rebase onto the latest `origin/main`.
 - Rename auto-generated random `codex/<word>-<word>-<word>` branches early, and
@@ -185,6 +191,8 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - When the user says `create pr`, create or update a ready non-draft PR.
 - Use a draft PR only when the user explicitly says `create draft` or otherwise
   asks to keep the PR draft.
+- `ship` must leave the current branch with an updated ready PR before waiting
+  on CI.
 - PR descriptions must explain why the change exists, not just what changed.
 - When a PR originates from research or automation work, include `First Message`
   and `Requested Codex Runtime`.
