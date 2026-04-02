@@ -32,33 +32,6 @@ type MachinesWorkspaceThreadPaneProps = {
   onTurnSubmit: () => void;
 };
 
-function normalizeTimestampToMilliseconds(value: number): number {
-  return value < 10_000_000_000 ? value * 1000 : value;
-}
-
-function formatRelativeTime(
-  value: number,
-  referenceTimeMs: number = Date.now(),
-): string {
-  const diffMs = Math.max(
-    0,
-    referenceTimeMs - normalizeTimestampToMilliseconds(value),
-  );
-  const minuteMs = 60_000;
-  const hourMs = 60 * minuteMs;
-  const dayMs = 24 * hourMs;
-
-  if (diffMs < hourMs) {
-    return `${Math.max(1, Math.floor(diffMs / minuteMs))}m`;
-  }
-
-  if (diffMs < dayMs) {
-    return `${Math.floor(diffMs / hourMs)}h`;
-  }
-
-  return `${Math.floor(diffMs / dayMs)}d`;
-}
-
 function readFirstNonEmptyLine(value: string): string {
   const firstLine = value
     .split("\n")
@@ -204,20 +177,16 @@ export function MachinesWorkspaceThreadPane({
   });
   const headerMeta = useMemo(() => {
     if (thread === null) {
-      return isLoading ? "Refreshing" : null;
+      return null;
     }
 
     const parts = [thread.status.type];
     if (!thread.workspace.isProjectRoot) {
       parts.push(thread.workspace.label ?? "worktree");
     }
-    parts.push(formatRelativeTime(thread.updatedAt));
-    if (isLoading) {
-      parts.push("refreshing");
-    }
 
     return parts.join(" · ");
-  }, [isLoading, thread]);
+  }, [thread]);
   const composerPlaceholder =
     selectedMachineStatusReason !== null
       ? selectedMachineStatusReason
