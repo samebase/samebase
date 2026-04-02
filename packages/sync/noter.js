@@ -4101,6 +4101,25 @@ export function formatBootstrapReadyMarkdown(args) {
 - run: ${args.runCommand}`
 }
 
+/**
+ * Keep the first connector snapshot self-explanatory so long-running terminal
+ * sessions preserve the initial live-control diagnosis.
+ */
+export function formatConnectorRunningMarkdown(args) {
+  const liveControlDetailLine =
+    typeof args.liveControlDetail === 'string' && args.liveControlDetail.length
+      ? `\n- live-control-detail: ${args.liveControlDetail}`
+      : ''
+
+  return `# noter sync connector running
+
+- source: ${args.sourceUrl}
+- machine: ${args.machineId}
+- local-control: ${args.localControlOrigin}
+- live-control: ${args.liveControlStatus}${liveControlDetailLine}
+- status: publishing heartbeats until this process exits`
+}
+
 async function runConnectCommand(parsedArgs) {
   const sourceUrl = validateSourceUrl(
     parsedArgs.sourceUrl ?? NOTER_SYNC_SOURCE_URL,
@@ -4288,13 +4307,15 @@ async function runConnectorCommand() {
       }
     }
 
-    console.log(`# noter sync connector running
-
-- source: ${storedConfig.sourceUrl}
-- machine: ${storedConfig.machineId}
-- local-control: ${localControlServer.origin}
-- live-control: ${liveControlState.controlStatus}
-- status: publishing heartbeats until this process exits`)
+    console.log(
+      formatConnectorRunningMarkdown({
+        liveControlDetail: liveControlState.controlStatusDetail,
+        liveControlStatus: liveControlState.controlStatus,
+        localControlOrigin: localControlServer.origin,
+        machineId: storedConfig.machineId,
+        sourceUrl: storedConfig.sourceUrl,
+      }),
+    )
 
     await runHeartbeatLoop({
       connectorVersion,

@@ -30,6 +30,7 @@ import {
   buildMachineConnectUrl,
   createCodexLocalControlRouter,
   formatBootstrapReadyMarkdown,
+  formatConnectorRunningMarkdown,
   formatHelpText,
   getNoterConfigPath,
   localControlStatusIsReady,
@@ -1060,6 +1061,26 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
 - state: /Users/noter/.noter/config.json
 - next: https://noter.md/machines/connect?openedByCli&requestId=request_123
 - run: ${runCommand}`)
+  })
+
+  it('prints the initial live-control diagnosis in the connector summary', () => {
+    expect(
+      formatConnectorRunningMarkdown({
+        liveControlDetail:
+          'The `cloudflared` command was not found. Install cloudflared before using mobile live control.',
+        liveControlStatus: 'unavailable',
+        localControlOrigin: 'http://127.0.0.1:57479',
+        machineId: 'machine_123',
+        sourceUrl: 'https://noter.md/noter.js',
+      }),
+    ).toBe(`# noter sync connector running
+
+- source: https://noter.md/noter.js
+- machine: machine_123
+- local-control: http://127.0.0.1:57479
+- live-control: unavailable
+- live-control-detail: The \`cloudflared\` command was not found. Install cloudflared before using mobile live control.
+- status: publishing heartbeats until this process exits`)
   })
 
   it('builds heartbeat payloads that advertise live-control readiness', () => {

@@ -66,9 +66,12 @@ describe("MachineConnectPageContent", () => {
     expect(markup).toContain("codex --version");
     expect(markup).toContain("curl --version");
     expect(markup).toContain("curl.exe --version");
+    expect(markup).toContain("cloudflared --version");
+    expect(markup).toContain("publish presence");
     expect(markup).toContain("nvm install --lts");
     expect(markup).toContain("brew install curl");
     expect(markup).toContain("OpenJS.NodeJS.LTS");
+    expect(markup).toContain("Cloudflare.cloudflared");
     expect(markup).toContain("already include");
     expect(markup).toContain("apt install curl");
     expect(markup).toContain("dnf install curl");
