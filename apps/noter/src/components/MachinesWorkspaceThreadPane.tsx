@@ -268,7 +268,7 @@ export function MachinesWorkspaceThreadPane({
               }
 
               const onlyToolEntries = entry.entries.every(
-                (workEntry) => workEntry.tone === "tool",
+                (workEntry) => workEntry.category === "tool",
               );
 
               return (

@@ -55,6 +55,26 @@ const FIXTURE_TURN_LATEST: CodexAppServerThreadTurn = {
       },
     },
     {
+      id: "item-machine-workspace-reasoning-latest",
+      type: "reasoning",
+      summary:
+        "Compare the shared shell against Codex before adding extra chrome.",
+      raw: {
+        summary: [
+          "Compare the shared shell against Codex before adding extra chrome.",
+        ],
+      },
+    },
+    {
+      id: "item-machine-workspace-tool-call-latest",
+      type: "mcpToolCall",
+      summary: "github/fetch_pr",
+      raw: {
+        server: "github",
+        tool: "fetch_pr",
+      },
+    },
+    {
       id: "item-machine-workspace-command-latest",
       type: "commandExecution",
       summary: "pnpm exec playwright test machines-workspace",

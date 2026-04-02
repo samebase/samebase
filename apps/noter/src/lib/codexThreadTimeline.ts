@@ -13,7 +13,10 @@ export type CodexThreadTimelineMessageEntry = {
 
 export type CodexThreadTimelineWorkTone = "tool" | "info" | "error";
 
+export type CodexThreadTimelineWorkCategory = "tool" | "info";
+
 export type CodexThreadTimelineWorkEntry = {
+  category: CodexThreadTimelineWorkCategory;
   id: string;
   item: CodexAppServerThreadItem;
   tone: CodexThreadTimelineWorkTone;
@@ -110,6 +113,33 @@ function readChangedFiles(item: CodexAppServerThreadItem): string[] {
     .filter((path): path is string => path !== null && path.length > 0);
 }
 
+function itemTypeIsToolActivity(itemType: string): boolean {
+  return (
+    itemType === "commandExecution" ||
+    itemType === "fileChange" ||
+    itemType === "fileRead" ||
+    itemType === "webSearch" ||
+    itemType === "imageView" ||
+    itemType === "imageGeneration" ||
+    itemType.toLowerCase().includes("tool")
+  );
+}
+
+function readToolIdentity(item: CodexAppServerThreadItem): string | null {
+  const rawItem = asRecord(item.raw);
+  if (item.type === "mcpToolCall") {
+    const server = readString(rawItem?.server);
+    const tool = readString(rawItem?.tool);
+    if (server && tool) {
+      return `${server}/${tool}`;
+    }
+
+    return server ?? tool ?? null;
+  }
+
+  return readString(rawItem?.tool);
+}
+
 function readWorkTitle(item: CodexAppServerThreadItem): string {
   if (item.type === "commandExecution") {
     return "Command";
@@ -123,6 +153,14 @@ function readWorkTitle(item: CodexAppServerThreadItem): string {
     return "File read";
   }
 
+  if (item.type === "mcpToolCall") {
+    return "MCP tool";
+  }
+
+  if (item.type === "dynamicToolCall" || item.type === "collabAgentToolCall") {
+    return "Tool call";
+  }
+
   if (item.type === "webSearch") {
     return "Web search";
   }
@@ -131,14 +169,46 @@ function readWorkTitle(item: CodexAppServerThreadItem): string {
     return "Image view";
   }
 
+  if (item.type === "imageGeneration") {
+    return "Image generation";
+  }
+
+  if (item.type === "reasoning") {
+    return "Reasoning";
+  }
+
+  if (item.type === "contextCompaction") {
+    return "Context compaction";
+  }
+
   return humanizeItemType(item.type);
 }
 
 function readWorkPreview(item: CodexAppServerThreadItem): string | null {
   const rawItem = asRecord(item.raw);
+  const toolIdentity = readToolIdentity(item);
+  if (toolIdentity && toolIdentity.trim().length > 0) {
+    return toolIdentity;
+  }
+
   const command = readString(rawItem?.command);
   if (command && command.trim().length > 0) {
     return command;
+  }
+
+  const path = readString(rawItem?.path) ?? readString(rawItem?.filePath);
+  if (path && path.trim().length > 0) {
+    return path;
+  }
+
+  const query = readString(rawItem?.query);
+  if (query && query.trim().length > 0) {
+    return query;
+  }
+
+  const result = readString(rawItem?.result);
+  if (result && result.trim().length > 0) {
+    return result;
   }
 
   const displayText = readCodexThreadItemDisplayText(item);
@@ -157,6 +227,12 @@ function readWorkPreview(item: CodexAppServerThreadItem): string | null {
     : `${firstChangedFile} +${changedFiles.length - 1} more`;
 }
 
+function readWorkCategory(
+  item: CodexAppServerThreadItem,
+): CodexThreadTimelineWorkCategory {
+  return itemTypeIsToolActivity(item.type) ? "tool" : "info";
+}
+
 function readWorkTone(
   item: CodexAppServerThreadItem,
 ): CodexThreadTimelineWorkTone {
@@ -172,13 +248,7 @@ function readWorkTone(
     return "error";
   }
 
-  if (
-    item.type === "commandExecution" ||
-    item.type === "fileChange" ||
-    item.type === "fileRead" ||
-    item.type === "webSearch" ||
-    item.type === "imageView"
-  ) {
+  if (readWorkCategory(item) === "tool") {
     return "tool";
   }
 
@@ -189,6 +259,7 @@ function buildWorkEntry(
   item: CodexAppServerThreadItem,
 ): CodexThreadTimelineWorkEntry {
   return {
+    category: readWorkCategory(item),
     changedFiles: readChangedFiles(item),
     id: item.id ?? `item-${item.type}`,
     item,
@@ -208,6 +279,7 @@ export function deriveCodexThreadTimelineEntries(
 ): CodexThreadTimelineEntry[] {
   const entries: CodexThreadTimelineEntry[] = [];
   let pendingWorkEntries: CodexThreadTimelineWorkEntry[] = [];
+  let pendingWorkCategory: CodexThreadTimelineWorkCategory | null = null;
   let workGroupIndex = 0;
 
   const flushPendingWorkEntries = () => {
@@ -221,6 +293,7 @@ export function deriveCodexThreadTimelineEntries(
       kind: "work",
     });
     pendingWorkEntries = [];
+    pendingWorkCategory = null;
     workGroupIndex += 1;
   };
 
@@ -239,7 +312,16 @@ export function deriveCodexThreadTimelineEntries(
         continue;
       }
 
-      pendingWorkEntries.push(buildWorkEntry(item));
+      const workEntry = buildWorkEntry(item);
+      if (
+        pendingWorkCategory !== null &&
+        pendingWorkCategory !== workEntry.category
+      ) {
+        flushPendingWorkEntries();
+      }
+
+      pendingWorkEntries.push(workEntry);
+      pendingWorkCategory = workEntry.category;
     }
   }
 

@@ -153,6 +153,77 @@ describe("deriveCodexThreadTimelineEntries", () => {
     if (workGroup.kind !== "work") {
       throw new Error("Expected one work group.");
     }
+    expect(workGroup.entries[0].category).toBe("tool");
     expect(workGroup.entries[0].tone).toBe("error");
+  });
+
+  it("surfaces codex tool call items separately from reasoning work", () => {
+    const entries = deriveCodexThreadTimelineEntries({
+      ...BASE_THREAD,
+      turns: [
+        {
+          errorMessage: null,
+          id: "turn-3",
+          items: [
+            {
+              id: "reasoning-1",
+              raw: {
+                summary: ["Checking whether the sidebar should mirror Codex."],
+              },
+              summary: "Checking whether the sidebar should mirror Codex.",
+              type: "reasoning",
+            },
+            {
+              id: "mcp-tool-1",
+              raw: {
+                server: "github",
+                tool: "fetch_pr",
+              },
+              summary: "github/fetch_pr",
+              type: "mcpToolCall",
+            },
+            {
+              id: "dynamic-tool-1",
+              raw: {
+                tool: "apply_patch",
+              },
+              summary: "apply_patch",
+              type: "dynamicToolCall",
+            },
+          ],
+          raw: null,
+          status: "completed",
+        },
+      ],
+    });
+
+    expect(entries.map((entry) => entry.kind)).toEqual(["work", "work"]);
+
+    const infoGroup = entries[0];
+    if (infoGroup.kind !== "work") {
+      throw new Error("Expected an info work group.");
+    }
+    expect(infoGroup.entries[0]).toMatchObject({
+      category: "info",
+      preview: "Checking whether the sidebar should mirror Codex.",
+      title: "Reasoning",
+    });
+
+    const toolGroup = entries[1];
+    if (toolGroup.kind !== "work") {
+      throw new Error("Expected a tool work group.");
+    }
+    expect(toolGroup.entries.map((entry) => entry.category)).toEqual([
+      "tool",
+      "tool",
+    ]);
+    expect(toolGroup.entries.map((entry) => entry.title)).toEqual([
+      "MCP tool",
+      "Tool call",
+    ]);
+    expect(toolGroup.entries.map((entry) => entry.preview)).toEqual([
+      "github/fetch_pr",
+      "apply_patch",
+    ]);
   });
 });
