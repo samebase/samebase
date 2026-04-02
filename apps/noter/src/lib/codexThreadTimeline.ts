@@ -1,6 +1,7 @@
 import type {
   CodexAppServerThread,
   CodexAppServerThreadItem,
+  CodexAppServerThreadTurn,
 } from "@/lib/codexAppServerResearch";
 
 export type CodexThreadTimelineMessageEntry = {
@@ -181,6 +182,10 @@ function readWorkTitle(item: CodexAppServerThreadItem): string {
     return "Context compaction";
   }
 
+  if (item.type === "turnError") {
+    return "Turn failed";
+  }
+
   return humanizeItemType(item.type);
 }
 
@@ -269,6 +274,25 @@ function buildWorkEntry(
   };
 }
 
+function buildTurnErrorEntry(
+  turn: CodexAppServerThreadTurn,
+): CodexThreadTimelineWorkEntry | null {
+  const errorMessage = turn.errorMessage?.trim();
+  if (!errorMessage) {
+    return null;
+  }
+
+  return buildWorkEntry({
+    id: `${turn.id}-error`,
+    raw: {
+      status: "failed",
+      text: errorMessage,
+    },
+    summary: errorMessage,
+    type: "turnError",
+  });
+}
+
 /**
  * Keep the rendered chat surface close to the provider's existing turn order:
  * message items become bubbles, and consecutive non-message items collapse into
@@ -323,6 +347,21 @@ export function deriveCodexThreadTimelineEntries(
       pendingWorkEntries.push(workEntry);
       pendingWorkCategory = workEntry.category;
     }
+
+    const turnErrorEntry = buildTurnErrorEntry(turn);
+    if (!turnErrorEntry) {
+      continue;
+    }
+
+    if (
+      pendingWorkCategory !== null &&
+      pendingWorkCategory !== turnErrorEntry.category
+    ) {
+      flushPendingWorkEntries();
+    }
+
+    pendingWorkEntries.push(turnErrorEntry);
+    pendingWorkCategory = turnErrorEntry.category;
   }
 
   flushPendingWorkEntries();

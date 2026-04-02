@@ -226,4 +226,31 @@ describe("deriveCodexThreadTimelineEntries", () => {
       "apply_patch",
     ]);
   });
+
+  it("surfaces turn-level failures even when a turn has no item payloads", () => {
+    const entries = deriveCodexThreadTimelineEntries({
+      ...BASE_THREAD,
+      turns: [
+        {
+          errorMessage: "Codex could not hydrate the selected thread.",
+          id: "turn-4",
+          items: [],
+          raw: null,
+          status: "failed",
+        },
+      ],
+    });
+
+    expect(entries).toHaveLength(1);
+    const workGroup = entries[0];
+    if (workGroup.kind !== "work") {
+      throw new Error("Expected a work group.");
+    }
+
+    expect(workGroup.entries[0]).toMatchObject({
+      preview: "Codex could not hydrate the selected thread.",
+      title: "Turn failed",
+      tone: "error",
+    });
+  });
 });

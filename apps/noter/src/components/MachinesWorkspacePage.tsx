@@ -136,6 +136,8 @@ export function MachinesWorkspacePage() {
     readSelectedSearchValue(searchParams, SELECTED_THREAD_QUERY_PARAM),
   );
   const machineControlTokenRef = useRef<MachineControlTokenState | null>(null);
+  const activeTurnSubmissionIdRef = useRef(0);
+  const latestSelectedMachineControlIdRef = useRef<string | null>(null);
 
   const machines = useMemo(() => {
     if (connectedMachinesQuery === undefined) {
@@ -179,6 +181,11 @@ export function MachinesWorkspacePage() {
     selectedMachine && selectedMachineStatusReason === null
       ? selectedMachine.controlUrl
       : null;
+  const selectedMachineInteractionBlockedReason =
+    selectedMachineStatusReason ??
+    (selectedMachine === null
+      ? "Connect a machine to start or continue a Codex thread."
+      : null);
   const currentSearch = buildSearchString(searchParams);
   const selectedThreadSummary = useMemo(
     () =>
@@ -283,6 +290,10 @@ export function MachinesWorkspacePage() {
   );
 
   useEffect(() => {
+    latestSelectedMachineControlIdRef.current = selectedMachineControlId;
+  }, [selectedMachineControlId]);
+
+  useEffect(() => {
     const nextSelectedMachineId = readSelectedSearchValue(
       searchParams,
       SELECTED_MACHINE_QUERY_PARAM,
@@ -345,6 +356,7 @@ export function MachinesWorkspacePage() {
 
   useEffect(() => {
     machineControlTokenRef.current = null;
+    activeTurnSubmissionIdRef.current += 1;
     setThreads([]);
     setPinnedThreadIds([]);
     setHasLoadedThreadInventory(false);
@@ -497,16 +509,25 @@ export function MachinesWorkspacePage() {
     if (
       prompt.length === 0 ||
       isSubmittingTurn ||
-      selectedMachineStatusReason !== null
+      selectedMachineControlId === null ||
+      typeof machineControlUrl !== "string" ||
+      selectedMachineInteractionBlockedReason !== null
     ) {
       return;
     }
 
+    activeTurnSubmissionIdRef.current += 1;
+    const submissionId = activeTurnSubmissionIdRef.current;
+    const submitMachineControlId = selectedMachineControlId;
     setIsSubmittingTurn(true);
     setSelectedThreadError(null);
     setTurnDraft("");
 
     void (async () => {
+      const submissionIsStale = () =>
+        activeTurnSubmissionIdRef.current !== submissionId ||
+        latestSelectedMachineControlIdRef.current !== submitMachineControlId;
+
       try {
         const targetThreadId = selectedThreadId;
         const response = await requestMachineControlJson<ThreadActionResponse>({
@@ -518,15 +539,51 @@ export function MachinesWorkspacePage() {
           path: "/turn/start",
         });
         const nextThreadId = targetThreadId ?? response.runtime.currentThreadId;
-        const threadsResponse = await refreshThreads();
-        applyThreadInventory(threadsResponse);
+        if (submissionIsStale()) {
+          return;
+        }
 
         if (nextThreadId) {
           setSelectedThreadId(nextThreadId);
-          const detailResponse = await refreshSelectedThread(nextThreadId);
-          setSelectedThreadDetail(detailResponse.thread);
+        }
+
+        try {
+          const threadsResponse = await refreshThreads();
+          if (submissionIsStale()) {
+            return;
+          }
+
+          applyThreadInventory(threadsResponse);
+        } catch {
+          if (!submissionIsStale()) {
+            setSelectedThreadError(
+              "Prompt sent, but the thread list did not refresh. It should appear after the next poll.",
+            );
+          }
+        }
+
+        if (nextThreadId) {
+          try {
+            const detailResponse = await refreshSelectedThread(nextThreadId);
+            if (submissionIsStale()) {
+              return;
+            }
+
+            setSelectedThreadDetail(detailResponse.thread);
+            setSelectedThreadError(null);
+          } catch {
+            if (!submissionIsStale()) {
+              setSelectedThreadError(
+                "Prompt sent, but the selected thread did not refresh. It should appear after the next poll.",
+              );
+            }
+          }
         }
       } catch (error) {
+        if (submissionIsStale()) {
+          return;
+        }
+
         setTurnDraft(prompt);
         setSelectedThreadError(
           error instanceof Error
@@ -534,16 +591,20 @@ export function MachinesWorkspacePage() {
             : "Failed to send the prompt to the selected machine.",
         );
       } finally {
-        setIsSubmittingTurn(false);
+        if (!submissionIsStale()) {
+          setIsSubmittingTurn(false);
+        }
       }
     })();
   }, [
     applyThreadInventory,
     isSubmittingTurn,
+    machineControlUrl,
     refreshSelectedThread,
     refreshThreads,
     requestMachineControlJson,
-    selectedMachineStatusReason,
+    selectedMachineControlId,
+    selectedMachineInteractionBlockedReason,
     selectedThreadId,
     turnDraft,
   ]);
@@ -559,7 +620,7 @@ export function MachinesWorkspacePage() {
       pinnedThreadIds={pinnedThreadIds}
       selectedMachineDisplayName={selectedMachine?.displayName ?? null}
       selectedMachineHostname={selectedMachine?.hostname ?? null}
-      selectedMachineStatusReason={selectedMachineStatusReason}
+      selectedMachineStatusReason={selectedMachineInteractionBlockedReason}
       selectedThread={selectedThread}
       selectedThreadError={selectedThreadError}
       selectedThreadLoading={isSelectedThreadLoading}
