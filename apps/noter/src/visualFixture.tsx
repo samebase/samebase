@@ -6,8 +6,8 @@ import "@fontsource/ibm-plex-sans/400.css";
 import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/ibm-plex-sans/600.css";
 import { DialogProvider } from "@/contexts/DialogContext";
+import { client } from "@/lib/convexClient";
 import { QueryProvider } from "@/lib/providers/query-provider";
-import { client } from "@/main";
 import {
   CommitReviewVisualFixture,
   type CommitReviewVisualMode,
