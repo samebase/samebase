@@ -69,6 +69,7 @@ describe("MachinesWorkspaceView", () => {
         selectedThreadError={null}
         selectedThreadLoading={false}
         selectedThreadId={THREAD_FIXTURE.id}
+        pendingPinThreadKey={null}
         turnDraft=""
         onTurnDraftChange={() => {}}
         onTurnSubmit={() => {}}
