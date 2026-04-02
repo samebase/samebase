@@ -5,6 +5,7 @@ import {
   compareConnectedMachineSidebarOrder,
   readConnectedMachineSidebarOrder,
 } from "../shared/connectedMachineOrdering";
+import type { Doc } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
 import {
   approveMachineRegistrationRequestReturns,
@@ -25,9 +26,7 @@ import {
 import { getUserId } from "./common";
 
 const { array, null: vNull, object, string } = v;
-type ConnectedMachineStoredRow = ConnectedMachineRow & {
-  _creationTime: number;
-};
+type ConnectedMachineStoredRow = Doc<"connectedMachines">;
 
 const listConnectedMachinesArgs = object({});
 const listConnectedMachinesReturns = array(connectedMachineViewValidator);

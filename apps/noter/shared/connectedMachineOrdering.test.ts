@@ -52,6 +52,25 @@ describe("connectedMachineOrdering", () => {
     expect(orderedMachineIds).toEqual(["machine-newer", "machine-older"]);
   });
 
+  it("sorts mixed legacy and persisted rows deterministically", () => {
+    const orderedMachineIds = [
+      buildMachine({
+        machineId: "legacy-machine",
+        displayName: "Legacy",
+        _creationTime: 900,
+      }),
+      buildMachine({
+        machineId: "persisted-machine",
+        displayName: "Persisted",
+        sidebarOrder: 1_100,
+      }),
+    ]
+      .sort(compareConnectedMachineSidebarOrder)
+      .map((machine) => machine.machineId);
+
+    expect(orderedMachineIds).toEqual(["persisted-machine", "legacy-machine"]);
+  });
+
   it("breaks exact order ties deterministically by display name and machine id", () => {
     const orderedMachineIds = [
       buildMachine({

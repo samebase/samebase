@@ -76,7 +76,9 @@ The current `connectedMachines` row and view include:
 8. `connectorVersion`
 9. `capabilities`
 10. `allowedRoots`
-11. `sidebarOrder`
+11. `sidebarOrder` on the `connectedMachines` row is optional, while the
+    `connectedMachines` view returns a required effective `sidebarOrder` using a
+    deterministic machine-owned fallback when the stored row value is missing
 
 The connected machine list must use a deterministic machine-owned sidebar order
 instead of heartbeat recency so normal presence updates do not reshuffle the

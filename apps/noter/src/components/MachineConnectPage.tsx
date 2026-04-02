@@ -626,6 +626,9 @@ export function MachineConnectPage() {
       ? { requestId: bootstrapSearch.requestId }
       : "skip",
   );
+  // Preserve the backend order from `connectedMachinesQuery`; this map only
+  // derives the displayed status with `resolveConnectedMachineStatus(now, ...)`
+  // and must not re-sort `connectedMachines` on the client.
   const connectedMachines: ConnectedMachineItem[] = (
     connectedMachinesQuery ?? []
   ).map((machine) => ({

@@ -103,6 +103,22 @@ describe("MachineConnectPageContent", () => {
               sidebarOrder: 1_775_379_520_000,
               status: "online",
             },
+            {
+              allowedRoots: ["/Users/nicu/.codex/worktrees/a1b2/noter"],
+              capabilities: ["presence", "liveControl"],
+              connectorVersion: "noter-sync 0.1.0",
+              controlStatus: "ready",
+              controlStatusDetail: "Live control ready.",
+              controlUrl: "https://machine-live-control-2.trycloudflare.com",
+              controlUrlUpdatedAt: 1_775_379_430_000,
+              displayName: "Research Windows Workstation",
+              hostname: "research-win.local",
+              lastSeenAt: 1_775_379_420_000,
+              machineId: "machine_fixture_windows",
+              os: "windows",
+              sidebarOrder: 1_775_379_420_000,
+              status: "online",
+            },
           ]}
           directConnectCommands={[
             {
@@ -149,8 +165,12 @@ describe("MachineConnectPageContent", () => {
 
     expect(markup).toContain("Open threads");
     expect(markup).toContain("/machines?machineId=machine_fixture");
+    expect(markup).toContain("/machines?machineId=machine_fixture_windows");
     expect(markup).toContain("Your machine list lives on this page");
     expect(markup).toContain('href="#connected-machines"');
+    expect(markup.indexOf("Research MacBook Pro")).toBeLessThan(
+      markup.indexOf("Research Windows Workstation"),
+    );
   });
 
   it("renders both Unix/macOS and Windows direct command variants", () => {

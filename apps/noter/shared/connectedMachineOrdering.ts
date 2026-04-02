@@ -15,6 +15,10 @@ export function readConnectedMachineSidebarOrder(
   return machine.sidebarOrder ?? machine._creationTime;
 }
 
+/**
+ * Sort by the effective order from `readConnectedMachineSidebarOrder()`, then
+ * break ties by `displayName` and `machineId` so every call site stays stable.
+ */
 export function compareConnectedMachineSidebarOrder(
   left: ConnectedMachineSidebarSortable,
   right: ConnectedMachineSidebarSortable,
