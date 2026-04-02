@@ -551,7 +551,7 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
                 <button
                   type="button"
                   aria-label="Return to thread view"
-                  className="absolute inset-0 z-10 bg-black/10"
+                  className="absolute inset-0 z-10"
                   onClick={() => {
                     setMobilePane("main");
                   }}
