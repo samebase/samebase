@@ -339,10 +339,10 @@ describe('@noter-md/sync', () => {
     const originalPathext = process.env.PATHEXT
     const customEnvVar = 'NOTER_TEST_CODEX_VERSION'
     const customEnvValue = 'codex-custom-version'
-    const expectedOutput = `${workspaceRoot}|${customEnvValue}`
 
     mkdirSync(workspaceRoot, { recursive: true })
     mkdirSync(binDirectory, { recursive: true })
+    const expectedOutput = `${realpathSync(workspaceRoot)}|${customEnvValue}`
 
     if (process.platform === 'win32') {
       const shimPath = path.join(binDirectory, 'codex.cmd')
@@ -482,12 +482,11 @@ describe('@noter-md/sync', () => {
     }
   })
 
-  it('resolves Windows Volta-managed Codex shims from the caller workspace cwd', () => {
+  it('resolves Windows Volta-managed Codex shims from the caller workspace cwd', async () => {
     const tempRoot = path.join(tmpdir(), `noter-codex-volta-${Date.now()}`)
     const binDirectory = path.join(tempRoot, 'bin')
     const topLevelCodexShimPath = path.join(binDirectory, 'codex.cmd')
     const voltaPath = path.join(binDirectory, 'volta.exe')
-    const voltaHookPath = path.join(binDirectory, 'volta-hook.cjs')
     const workspaceA = path.join(tempRoot, 'workspace-a')
     const workspaceB = path.join(tempRoot, 'workspace-b')
     const packageShimBaseName = 'codex-package'
@@ -514,7 +513,6 @@ describe('@noter-md/sync', () => {
     const originalPath = process.env.PATH
     const originalWindowsPath = process.env.Path
     const originalPathext = process.env.PATHEXT
-    const originalNodeOptions = process.env.NODE_OPTIONS
 
     mkdirSync(binDirectory, { recursive: true })
     mkdirSync(path.dirname(scriptPathA), { recursive: true })
@@ -524,26 +522,7 @@ describe('@noter-md/sync', () => {
       '@echo off\r\nvolta run %~n0 %*\r\n',
       'utf8',
     )
-    copyFileSync(process.execPath, voltaPath)
-    writeFileSync(
-      voltaHookPath,
-      [
-        'const cwd = process.cwd()',
-        "const command = require('node:path').basename(process.argv[1] ?? '')",
-        "if (command !== 'which' || process.argv[2] !== 'codex') process.exit(1)",
-        `if (cwd === ${JSON.stringify(workspaceA)}) process.stdout.write(${JSON.stringify(path.join(workspaceA, packageShimBaseName))})`,
-        `if (cwd === ${JSON.stringify(workspaceB)}) process.stdout.write(${JSON.stringify(path.join(workspaceB, packageShimBaseName))})`,
-        'process.stdout.write("\\n")',
-        'process.exit(0)',
-      ].join('\n'),
-      'utf8',
-    )
-    process.env.NODE_OPTIONS = [
-      originalNodeOptions,
-      `--require=${voltaHookPath}`,
-    ]
-      .filter(value => value !== undefined && value.length > 0)
-      .join(' ')
+    writeFileSync(voltaPath, '', 'utf8')
     writeFileSync(
       packageShimPathA,
       `@ECHO off\r\n"%_prog%" "%dp0%\\node_modules\\@openai\\codex\\dist\\cli.js" %*\r\n`,
@@ -563,21 +542,87 @@ describe('@noter-md/sync', () => {
     process.env.PATHEXT = '.CMD;.EXE'
 
     try {
+      vi.resetModules()
+      const actualChildProcess =
+        await vi.importActual<typeof import('node:child_process')>(
+          'node:child_process',
+        )
+      const spawnSyncMock = vi.fn((command, args, options) => {
+        if (command !== voltaPath) {
+          return actualChildProcess.spawnSync(command, args, options)
+        }
+
+        const packageCommandPath =
+          options?.cwd === workspaceA
+            ? path.join(workspaceA, packageShimBaseName)
+            : options?.cwd === workspaceB
+              ? path.join(workspaceB, packageShimBaseName)
+              : null
+
+        return {
+          output: [
+            null,
+            packageCommandPath ? `${packageCommandPath}\n` : '',
+            '',
+          ],
+          pid: 1,
+          signal: null,
+          status: packageCommandPath === null ? 1 : 0,
+          stderr: '',
+          stdout: packageCommandPath ? `${packageCommandPath}\n` : '',
+        }
+      })
+      vi.doMock('node:child_process', () => ({
+        ...actualChildProcess,
+        spawnSync: spawnSyncMock,
+      }))
+      const {
+        buildCodexSpawnInvocation: buildCodexSpawnInvocationWithMock,
+        buildCodexRuntimeSpawnInvocation:
+          buildCodexRuntimeSpawnInvocationWithMock,
+      } = await import('./noter.js')
+
       expect(
-        buildCodexSpawnInvocation(['--version'], 'win32', { cwd: workspaceA }),
+        buildCodexSpawnInvocationWithMock(['--version'], 'win32', {
+          cwd: workspaceA,
+        }),
       ).toEqual({
         args: [realpathSync(scriptPathA), '--version'],
         command: realpathSync(bundledNodePathA),
       })
       expect(
-        buildCodexRuntimeSpawnInvocation(['--version'], 'win32', {
+        buildCodexRuntimeSpawnInvocationWithMock(['--version'], 'win32', {
           cwd: workspaceB,
         }),
       ).toEqual({
         args: [realpathSync(scriptPathB), '--version'],
         command: realpathSync(bundledNodePathB),
       })
+      expect(spawnSyncMock).toHaveBeenNthCalledWith(
+        1,
+        voltaPath,
+        ['which', 'codex'],
+        expect.objectContaining({
+          cwd: workspaceA,
+          encoding: 'utf8',
+          env: process.env,
+          windowsHide: true,
+        }),
+      )
+      expect(spawnSyncMock).toHaveBeenNthCalledWith(
+        2,
+        voltaPath,
+        ['which', 'codex'],
+        expect.objectContaining({
+          cwd: workspaceB,
+          encoding: 'utf8',
+          env: process.env,
+          windowsHide: true,
+        }),
+      )
     } finally {
+      vi.doUnmock('node:child_process')
+      vi.resetModules()
       if (originalPath === undefined) {
         delete process.env.PATH
       } else {
@@ -592,11 +637,6 @@ describe('@noter-md/sync', () => {
         delete process.env.PATHEXT
       } else {
         process.env.PATHEXT = originalPathext
-      }
-      if (originalNodeOptions === undefined) {
-        delete process.env.NODE_OPTIONS
-      } else {
-        process.env.NODE_OPTIONS = originalNodeOptions
       }
       rmSync(tempRoot, { force: true, recursive: true })
     }
