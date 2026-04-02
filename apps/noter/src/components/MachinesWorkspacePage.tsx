@@ -161,7 +161,7 @@ export function MachinesWorkspacePage() {
     readSelectedSearchValue(searchParams, SELECTED_THREAD_QUERY_PARAM),
   );
   const machineControlTokensRef = useRef<
-    Record<string, MachineControlTokenState>
+    Partial<Record<string, MachineControlTokenState>>
   >({});
   const activePinRequestIdRef = useRef(0);
   const activeTurnSubmissionIdRef = useRef(0);

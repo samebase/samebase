@@ -449,12 +449,18 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
           selectedThreadSummary.project.id,
         )
       : null;
-  const fallbackProjectMachine = selectedMachineSection ?? machineSections[0];
+  const fallbackProjectMachine =
+    selectedMachineSection ??
+    (machineSections.length > 0 ? machineSections[0] : null);
+  const fallbackProject =
+    fallbackProjectMachine && fallbackProjectMachine.projects.length > 0
+      ? fallbackProjectMachine.projects[0]
+      : null;
   const firstProjectKey =
-    fallbackProjectMachine?.projects[0] !== undefined
+    fallbackProjectMachine && fallbackProject
       ? buildProjectKey(
           fallbackProjectMachine.machineId,
-          fallbackProjectMachine.projects[0].id,
+          fallbackProject.id,
         )
       : null;
   const [openMachineIds, setOpenMachineIds] = useState<Set<string>>(() => {
