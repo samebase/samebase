@@ -113,6 +113,7 @@ jobs:
 
   sync-windows:
     runs-on: windows-latest
+    timeout-minutes: 15
 
     strategy:
       matrix:
