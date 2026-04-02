@@ -7,7 +7,8 @@ on:
     branches: [main, quantum-den]
 
 jobs:
-  ci:
+  checks:
+    name: checks
     runs-on: ubuntu-latest
 
     strategy:
@@ -36,52 +37,72 @@ jobs:
       # exists and generated files are materialized for CI-only lint/build.
       # Note: `lint:ci`/`build:ci` skip Convex codegen and rely on this step.
       - name: Bootstrap Convex for CI
-        run: |
-          set -euo pipefail
-
-          CONVEX_AGENT_MODE=anonymous pnpm --filter noter exec convex dev --until-success --typecheck=disable --tail-logs=disable > /tmp/convex-bootstrap.log 2>&1 &
-          bootstrap_pid=$!
-
-          # Fail fast if bootstrap exits immediately instead of waiting for timeouts.
-          sleep 2
-          if ! kill -0 "$bootstrap_pid" 2>/dev/null; then
-            echo "Convex bootstrap exited early:"
-            cat /tmp/convex-bootstrap.log
-            exit 1
-          fi
-
-          timeout 60 bash -c 'until grep -q "^CONVEX_DEPLOYMENT=" apps/noter/.env.local 2>/dev/null; do sleep 1; done'
-          timeout 90 bash -c 'until curl -sf http://127.0.0.1:3210/instance_name >/dev/null; do sleep 1; done'
-
-          pnpm --filter noter exec convex env set PROVIDER_GITHUB_OAUTH_CLIENT_ID ci-placeholder
-          pnpm --filter noter exec convex env set PROVIDER_GITHUB_OAUTH_CLIENT_SECRET ci-placeholder
-          pnpm --filter noter exec convex env set PROVIDER_GITHUB_OAUTH_REDIRECT_URL https://example.com/oauth/github/callback
-
-          timeout 180 bash -c 'until grep -q "Convex functions ready!" /tmp/convex-bootstrap.log; do sleep 1; done'
-
-          if kill -0 "$bootstrap_pid" 2>/dev/null; then
-            kill "$bootstrap_pid" || true
-            wait "$bootstrap_pid" || true
-          fi
-          tail -n 80 /tmp/convex-bootstrap.log
+        run: ./scripts/ci-bootstrap-convex.sh
 
       - name: Type check
         run: pnpm lint:ci
 
+      - name: Run unit tests
+        run: pnpm test
+
+  playwright:
+    name: playwright (${{ matrix.shard }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - node-version: 24.x
+            shard: 1/2
+            shard_label: 1-2
+          - node-version: 24.x
+            shard: 2/2
+            shard_label: 2-2
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      # Bootstrap an anonymous local Convex deployment so CONVEX_DEPLOYMENT
+      # exists and generated files are materialized for CI-only lint/build.
+      # Note: `lint:ci`/`build:ci` skip Convex codegen and rely on this step.
+      - name: Bootstrap Convex for CI
+        run: ./scripts/ci-bootstrap-convex.sh
+
+      - name: Build noter preview
+        run: PLAYWRIGHT=1 pnpm --filter noter build:ci
+
       - name: Install Playwright browser
         run: pnpm --filter noter exec playwright install --with-deps chromium
 
-      - name: Run tests
-        run: pnpm test:ci
-
-      - name: Build
-        run: pnpm build:ci
+      - name: Run Playwright tests
+        run:
+          PLAYWRIGHT_SKIP_BUILD=1 PLAYWRIGHT_VITE_PORT=43121 pnpm --filter noter
+          exec playwright test -c playwright.config.ts --shard=${{ matrix.shard
+          }}
 
       - name: Upload Playwright failure artifacts
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-failure-artifacts-node-${{ matrix.node-version }}
+          name:
+            playwright-failure-artifacts-node-${{ matrix.node-version
+            }}-shard-${{ matrix.shard_label }}
           if-no-files-found: ignore
           retention-days: 7
           path: |
@@ -127,3 +148,21 @@ jobs:
       - name: Run Vite wrapper smoke on Windows
         working-directory: apps/noter
         run: node scripts/run-vite-dev.js --version
+
+  ci:
+    name: ci (24.x)
+    runs-on: ubuntu-latest
+    needs: [checks, playwright, sync-windows]
+    if: ${{ always() }}
+
+    steps:
+      # Keep the historical required check name stable while the real work runs
+      # in parallel jobs underneath it.
+      - name: Aggregate parallel CI results
+        run: |
+          if [ "${{ needs.checks.result }}" != "success" ] || [ "${{ needs.playwright.result }}" != "success" ] || [ "${{ needs.sync-windows.result }}" != "success" ]; then
+            echo "checks: ${{ needs.checks.result }}"
+            echo "playwright: ${{ needs.playwright.result }}"
+            echo "sync-windows: ${{ needs.sync-windows.result }}"
+            exit 1
+          fi

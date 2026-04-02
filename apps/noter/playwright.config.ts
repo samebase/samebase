@@ -3,15 +3,24 @@ import { defineConfig, devices } from "@playwright/test";
 const playwrightVitePort = process.env.PLAYWRIGHT_VITE_PORT ?? "4173";
 const playwrightBaseUrl = `http://127.0.0.1:${playwrightVitePort}`;
 const useDevServer = process.env.PLAYWRIGHT_USE_DEV_SERVER === "1";
+// CI sets PLAYWRIGHT_SKIP_BUILD=1 after prebuilding the app in the workflow, so
+// this branch reuses the built preview while local non-dev-server runs still
+// rely on webServerCommand to perform the build first.
+const reuseBuiltPreview = process.env.PLAYWRIGHT_SKIP_BUILD === "1";
+const previewCommand = `PLAYWRIGHT=1 npm run preview -- --host 0.0.0.0 --port ${playwrightVitePort}`;
 const webServerCommand = useDevServer
   ? `npm run dev:frontend -- --port=${playwrightVitePort}`
-  : `PLAYWRIGHT=1 npm run build:ci && PLAYWRIGHT=1 npm run preview -- --host 0.0.0.0 --port ${playwrightVitePort}`;
+  : reuseBuiltPreview
+    ? previewCommand
+    : `PLAYWRIGHT=1 npm run build:ci && ${previewCommand}`;
 
 export default defineConfig({
   testDir: "./e2e",
   testIgnore: ["**/*.live.spec.ts"],
   outputDir: "./e2e/test-results",
-  fullyParallel: false,
+  // CI shards should balance individual tests instead of entire files so the
+  // large visual-fixture files do not bunch up on a single shard.
+  fullyParallel: process.env.CI === "true",
   retries: 0,
   workers: 1,
   reporter: [
