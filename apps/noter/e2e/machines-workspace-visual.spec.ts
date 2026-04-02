@@ -1,8 +1,36 @@
-import { devices, expect, test } from "@playwright/test";
+import { devices, expect, test, type Page } from "@playwright/test";
 
 const machinesWorkspaceSnapshotSuffix = process.platform;
 const { defaultBrowserType: _defaultBrowserType, ...iPhone13 } =
   devices["iPhone 13"];
+
+async function getBox(page: Page, testId: string) {
+  const locator = page.getByTestId(testId);
+  const box = await locator.boundingBox();
+
+  if (box === null) {
+    throw new Error(`Expected ${testId} to have a bounding box.`);
+  }
+
+  return box;
+}
+
+async function dragHorizontalHandle(
+  page: Page,
+  testId: string,
+  deltaXPx: number,
+) {
+  const handleBox = await getBox(page, testId);
+  const startX = handleBox.x + handleBox.width / 2;
+  const startY = handleBox.y + handleBox.height / 2;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + deltaXPx, startY, {
+    steps: 8,
+  });
+  await page.mouse.up();
+}
 
 test("machines workspace fixture", async ({ page }) => {
   await page.goto("/visual-fixture.html?mode=machines-workspace", {
@@ -24,6 +52,32 @@ test("machines workspace fixture", async ({ page }) => {
   const workspace = page.getByTestId("machines-workspace-visual-fixture");
   await expect(workspace).toHaveScreenshot(
     `machines-workspace-page-${machinesWorkspaceSnapshotSuffix}.png`,
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
+});
+
+test("machines workspace narrow sidebar keeps thread titles clamped", async ({
+  page,
+}) => {
+  await page.goto("/visual-fixture.html?mode=machines-workspace", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  await dragHorizontalHandle(
+    page,
+    "workspace-sidebar-left-resize-handle",
+    -160,
+  );
+
+  const sidebar = page.getByTestId("machines-workspace-visual-fixture-sidebar");
+  await expect(sidebar).toHaveScreenshot(
+    `machines-workspace-page-narrow-${machinesWorkspaceSnapshotSuffix}.png`,
     {
       animations: "disabled",
       caret: "hide",
