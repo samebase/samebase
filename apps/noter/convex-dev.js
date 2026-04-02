@@ -467,12 +467,21 @@ process.on("SIGTERM", () => requestTermination("SIGTERM"));
 process.on("SIGINT", () => requestTermination("SIGINT"));
 
 if (shouldRetrySiteUrlSync) {
-  void Promise.all([
-    waitForLocalBackend(20000),
-    waitForRecentLocalDevOrigin(20000, siteUrlRetryStartedAt),
-  ])
-    .then(([backendReady, localDevOrigin]) => {
-      if (!backendReady || !localDevOrigin || childExited) {
+  void (async () => {
+    try {
+      const backendReady = await waitForLocalBackend(20_000);
+      if (!backendReady || childExited) {
+        return;
+      }
+
+      // Give frontend origin publication its own timeout window so slow local
+      // backends do not consume the entire retry budget before Vite records
+      // the chosen port for this startup.
+      const localDevOrigin = await waitForRecentLocalDevOrigin(
+        20_000,
+        siteUrlRetryStartedAt,
+      );
+      if (!localDevOrigin || childExited) {
         return;
       }
 
@@ -492,14 +501,14 @@ if (shouldRetrySiteUrlSync) {
           "Local SITE_URL sync failed after the long-running backend started.",
         );
       }
-    })
-    .catch((error) => {
+    } catch (error) {
       console.warn(
         error instanceof Error
           ? error.message
           : "Local SITE_URL sync setup failed after backend startup.",
       );
-    });
+    }
+  })();
 }
 
 if (refreshAnonAuth) {

@@ -2,6 +2,7 @@
 import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
+import { normalizeEnvValue } from "./normalizeEnvValue.js";
 
 const LOCAL_CONVEX_HOSTS = new Set(["127.0.0.1", "localhost"]);
 export const DEFAULT_LOCAL_SITE_PORT = 5173;
@@ -31,7 +32,7 @@ export const readEnvFile = (cwd = process.cwd()) => {
     if (!key) {
       continue;
     }
-    env[key] = rest.join("=");
+    env[key] = normalizeEnvValue(rest.join("=")) ?? "";
   }
   return env;
 };
@@ -42,13 +43,13 @@ export const readEnvFile = (cwd = process.cwd()) => {
  */
 export const usesLocalConvexDeployment = (cwd = process.cwd()) => {
   const env = readEnvFile(cwd);
-  const rawUrl = env.CONVEX_URL ?? env.VITE_CONVEX_URL;
-  if (!rawUrl) {
+  const rawUrl = normalizeEnvValue(env.CONVEX_URL ?? env.VITE_CONVEX_URL);
+  if (rawUrl === undefined) {
     return false;
   }
 
   try {
-    const deploymentUrl = new URL(rawUrl.replace(/^['"]|['"]$/g, ""));
+    const deploymentUrl = new URL(rawUrl);
     return LOCAL_CONVEX_HOSTS.has(deploymentUrl.hostname);
   } catch {
     return false;
@@ -60,16 +61,12 @@ export const usesLocalConvexDeployment = (cwd = process.cwd()) => {
  * @returns {string | null}
  */
 const normalizeConfiguredPort = (value) => {
-  if (typeof value !== "string") {
+  const normalizedValue = normalizeEnvValue(value);
+  if (normalizedValue === undefined) {
     return null;
   }
 
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return null;
-  }
-
-  const parsed = Number(trimmed);
+  const parsed = Number(normalizedValue);
   return Number.isInteger(parsed) && parsed > 0 ? String(parsed) : null;
 };
 
@@ -95,11 +92,36 @@ export const resolveLocalDevPort = (env = process.env) => {
  * @returns {string}
  */
 export const resolveLocalDevOrigin = (env = process.env) => {
-  const explicitOrigin = env.DEV_ENV_ORIGIN?.trim();
-  if (explicitOrigin) {
+  const explicitOrigin = normalizeEnvValue(env.DEV_ENV_ORIGIN);
+  if (explicitOrigin !== undefined) {
     return explicitOrigin;
   }
   return `http://localhost:${resolveLocalDevPort(env)}`;
+};
+
+/**
+ * Shared Convex deployments must never silently fall back to localhost when
+ * the explicit frontend origin is missing, or they can overwrite SITE_URL for
+ * other contributors with an unusable redirect target.
+ *
+ * @param {NodeJS.ProcessEnv} [env]
+ * @param {string} [cwd]
+ * @returns {string}
+ */
+export const resolveSiteUrlSyncOrigin = (
+  env = process.env,
+  cwd = process.cwd(),
+) => {
+  const explicitOrigin = normalizeEnvValue(env.DEV_ENV_ORIGIN);
+  if (explicitOrigin !== undefined) {
+    return explicitOrigin;
+  }
+  if (!usesLocalConvexDeployment(cwd)) {
+    throw new Error(
+      "DEV_ENV_ORIGIN is required unless the Convex deployment points at localhost.",
+    );
+  }
+  return resolveLocalDevOrigin(env);
 };
 
 /**

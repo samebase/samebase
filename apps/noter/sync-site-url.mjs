@@ -28,7 +28,7 @@
 
 import { spawnSync } from "child_process";
 import {
-  resolveLocalDevOrigin,
+  resolveSiteUrlSyncOrigin,
   usesLocalConvexDeployment,
 } from "./convex-local-utils.js";
 
@@ -38,7 +38,15 @@ const writeProcessOutput = (stream, value) => {
   }
 };
 
-const origin = resolveLocalDevOrigin(process.env);
+const localDeployment = usesLocalConvexDeployment();
+
+let origin;
+try {
+  origin = resolveSiteUrlSyncOrigin(process.env);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
 
 console.log(`Setting Convex SITE_URL to ${origin}`);
 const result = spawnSync("npx", ["convex", "env", "set", "SITE_URL", origin], {
@@ -54,10 +62,7 @@ if (result.status === 0) {
 }
 
 const commandOutput = `${result.stdout ?? ""}${result.stderr ?? ""}`;
-if (
-  usesLocalConvexDeployment() &&
-  /Local backend isn't running/i.test(commandOutput)
-) {
+if (localDeployment && /Local backend isn't running/i.test(commandOutput)) {
   console.warn(
     `Skipping SITE_URL sync during predev because the temporary local Convex backend already exited. The long-running local backend will retry SITE_URL sync for ${origin} after it starts.`,
   );
