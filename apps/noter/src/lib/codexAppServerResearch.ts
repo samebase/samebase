@@ -156,6 +156,11 @@ export type CodexAppServerLoadedThreadsResponse = {
   runtime: CodexAppServerRuntimeSnapshot;
 };
 
+export type CodexAppServerPinnedThreadsResponse = {
+  pinnedThreadIds: string[];
+  runtime: CodexAppServerRuntimeSnapshot;
+};
+
 export type CodexAppServerProtocolArtifact = {
   path: string;
   content: string;

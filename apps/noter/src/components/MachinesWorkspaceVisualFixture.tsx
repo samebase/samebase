@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { MachinesWorkspaceView } from "@/components/MachinesWorkspaceView";
 import {
@@ -263,6 +264,30 @@ const SIXTH_THREAD: CodexAppServerThread = {
 };
 
 export function MachinesWorkspaceVisualFixture() {
+  const fixtureThreads = useMemo(
+    () => [
+      FIRST_THREAD,
+      SECOND_THREAD,
+      THIRD_THREAD,
+      FOURTH_THREAD,
+      FIFTH_THREAD,
+      SIXTH_THREAD,
+    ],
+    [],
+  );
+  const [selectedThreadId, setSelectedThreadId] = useState<string>(
+    SECOND_THREAD.id,
+  );
+  const [pinnedThreadIds, setPinnedThreadIds] = useState<string[]>([
+    SECOND_THREAD.id,
+    THIRD_THREAD.id,
+  ]);
+  const selectedThread = useMemo(
+    () =>
+      fixtureThreads.find((thread) => thread.id === selectedThreadId) ?? null,
+    [fixtureThreads, selectedThreadId],
+  );
+
   return (
     <MemoryRouter>
       <div className="bg-slate-100 p-8 text-slate-950">
@@ -273,23 +298,32 @@ export function MachinesWorkspaceVisualFixture() {
             selectedMachineDisplayName="Research MacBook Pro"
             selectedMachineHostname="research-mbp.local"
             selectedMachineStatusReason={null}
-            selectedThread={SECOND_THREAD}
+            selectedThread={selectedThread}
             selectedThreadError={null}
             selectedThreadLoading={false}
-            threads={[
-              FIRST_THREAD,
-              SECOND_THREAD,
-              THIRD_THREAD,
-              FOURTH_THREAD,
-              FIFTH_THREAD,
-              SIXTH_THREAD,
-            ]}
-            pinnedThreadIds={[SECOND_THREAD.id, THIRD_THREAD.id]}
-            selectedThreadId={SECOND_THREAD.id}
+            threads={fixtureThreads}
+            pinnedThreadIds={pinnedThreadIds}
+            pendingPinThreadId={null}
+            selectedThreadId={selectedThreadId}
             relativeTimeReferenceMs={FIXTURE_RELATIVE_TIME_REFERENCE_MS}
             turnDraft="Continue with the main pane chat surface."
             onTurnDraftChange={() => {}}
             onTurnSubmit={() => {}}
+            onThreadPinChange={(threadId, nextPinned) => {
+              setPinnedThreadIds((currentPinnedThreadIds) =>
+                nextPinned
+                  ? [
+                      threadId,
+                      ...currentPinnedThreadIds.filter(
+                        (currentThreadId) => currentThreadId !== threadId,
+                      ),
+                    ]
+                  : currentPinnedThreadIds.filter(
+                      (currentThreadId) => currentThreadId !== threadId,
+                    ),
+              );
+            }}
+            onThreadSelect={setSelectedThreadId}
           />
         </div>
       </div>

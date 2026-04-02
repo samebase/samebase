@@ -32,11 +32,15 @@ async function dragHorizontalHandle(
   await page.mouse.up();
 }
 
-test("machines workspace fixture", async ({ page }) => {
+async function openMachinesWorkspaceFixture(page: Page) {
   await page.goto("/visual-fixture.html?mode=machines-workspace", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
+}
+
+test("machines workspace fixture", async ({ page }) => {
+  await openMachinesWorkspaceFixture(page);
 
   const header = page.getByTestId("machines-workspace-visual-fixture-header");
   await expect(header).toHaveScreenshot(
@@ -64,10 +68,7 @@ test("machines workspace fixture", async ({ page }) => {
 test("machines workspace narrow sidebar keeps thread titles clamped", async ({
   page,
 }) => {
-  await page.goto("/visual-fixture.html?mode=machines-workspace", {
-    waitUntil: "domcontentloaded",
-  });
-  await page.waitForLoadState("networkidle");
+  await openMachinesWorkspaceFixture(page);
 
   await dragHorizontalHandle(
     page,
@@ -88,10 +89,7 @@ test("machines workspace narrow sidebar keeps thread titles clamped", async ({
 });
 
 test("machines workspace project collapse stays closed", async ({ page }) => {
-  await page.goto("/visual-fixture.html?mode=machines-workspace", {
-    waitUntil: "domcontentloaded",
-  });
-  await page.waitForLoadState("networkidle");
+  await openMachinesWorkspaceFixture(page);
 
   const projectToggle = page.getByRole("button", { name: "noter" });
   const projectThread = page.getByRole("button", {
@@ -106,14 +104,34 @@ test("machines workspace project collapse stays closed", async ({ page }) => {
   await expect(projectThread).toBeHidden();
 });
 
+test("machines workspace desktop hover reveals the pin affordance", async ({
+  page,
+}) => {
+  await openMachinesWorkspaceFixture(page);
+
+  await page
+    .getByRole("button", {
+      name: /Research sidebar resizing/,
+    })
+    .hover();
+
+  const sidebar = page.getByTestId("machines-workspace-visual-fixture-sidebar");
+  await expect(sidebar).toHaveScreenshot(
+    `machines-workspace-pin-hover-${machinesWorkspaceSnapshotSuffix}.png`,
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
+});
+
 test.describe("mobile", () => {
   test.use(iPhone13);
 
   test("machines workspace fixture mobile", async ({ page }) => {
-    await page.goto("/visual-fixture.html?mode=machines-workspace", {
-      waitUntil: "domcontentloaded",
-    });
-    await page.waitForLoadState("networkidle");
+    await openMachinesWorkspaceFixture(page);
 
     const header = page.getByTestId("machines-workspace-visual-fixture-header");
     await expect(header).toHaveScreenshot(
@@ -129,6 +147,31 @@ test.describe("mobile", () => {
     const workspace = page.getByTestId("machines-workspace-visual-fixture");
     await expect(workspace).toHaveScreenshot(
       `machines-workspace-page-mobile-${machinesWorkspaceSnapshotSuffix}.png`,
+      {
+        animations: "disabled",
+        caret: "hide",
+        scale: "css",
+        maxDiffPixelRatio: 0.03,
+      },
+    );
+  });
+
+  test("machines workspace mobile selected row reveals the pin affordance", async ({
+    page,
+  }) => {
+    await openMachinesWorkspaceFixture(page);
+
+    await page
+      .getByRole("button", {
+        name: /Research sidebar resizing/,
+      })
+      .click();
+
+    const sidebar = page.getByTestId(
+      "machines-workspace-visual-fixture-sidebar",
+    );
+    await expect(sidebar).toHaveScreenshot(
+      `machines-workspace-pin-selected-mobile-${machinesWorkspaceSnapshotSuffix}.png`,
       {
         animations: "disabled",
         caret: "hide",

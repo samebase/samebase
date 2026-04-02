@@ -1119,18 +1119,48 @@ function resolveCodexHomeDirectory() {
 }
 
 async function readDesktopPinnedThreadIds() {
-  const globalStatePath = path.join(
-    resolveCodexHomeDirectory(),
-    CODEX_GLOBAL_STATE_FILENAME,
-  )
-
   try {
-    const rawGlobalState = await readFile(globalStatePath, 'utf8')
-    const parsedGlobalState = asRecord(JSON.parse(rawGlobalState))
-    return readPinnedThreadIds(parsedGlobalState?.['pinned-thread-ids'])
+    const parsedGlobalState = await readDesktopGlobalState()
+    return readPinnedThreadIds(parsedGlobalState['pinned-thread-ids'])
   } catch {
     return []
   }
+}
+
+function resolveDesktopGlobalStatePath() {
+  return path.join(resolveCodexHomeDirectory(), CODEX_GLOBAL_STATE_FILENAME)
+}
+
+async function readDesktopGlobalState() {
+  const globalStatePath = resolveDesktopGlobalStatePath()
+  const rawGlobalState = await readFile(globalStatePath, 'utf8')
+  return asRecord(JSON.parse(rawGlobalState)) ?? {}
+}
+
+async function writeDesktopGlobalState(record) {
+  const globalStatePath = resolveDesktopGlobalStatePath()
+  mkdirSync(path.dirname(globalStatePath), { recursive: true })
+  writeFileSync(globalStatePath, `${JSON.stringify(record, null, 2)}\n`, {
+    encoding: 'utf8',
+    mode: 0o600,
+  })
+}
+
+async function updateDesktopPinnedThreadIds(updatePinnedThreadIds) {
+  let nextGlobalState = {}
+
+  try {
+    nextGlobalState = await readDesktopGlobalState()
+  } catch {}
+
+  const nextPinnedThreadIds = readPinnedThreadIds(
+    updatePinnedThreadIds(
+      readPinnedThreadIds(nextGlobalState['pinned-thread-ids']),
+    ),
+  )
+  nextGlobalState['pinned-thread-ids'] = nextPinnedThreadIds
+  await writeDesktopGlobalState(nextGlobalState)
+  return nextPinnedThreadIds
 }
 
 function readPathLeaf(value) {
@@ -2978,6 +3008,48 @@ export class CodexLocalControlRuntime {
     return { result, runtime: this.getSnapshot() }
   }
 
+  async threadPin(body) {
+    const record = asRecord(body) ?? {}
+    const threadId = readString(record.threadId)
+    if (!threadId) {
+      throw new Error('threadId is required')
+    }
+
+    const pinnedThreadIds = await updateDesktopPinnedThreadIds(
+      currentPinnedThreadIds => [
+        threadId,
+        ...currentPinnedThreadIds.filter(
+          currentThreadId => currentThreadId !== threadId,
+        ),
+      ],
+    )
+
+    return {
+      pinnedThreadIds,
+      runtime: this.getSnapshot(),
+    }
+  }
+
+  async threadUnpin(body) {
+    const record = asRecord(body) ?? {}
+    const threadId = readString(record.threadId)
+    if (!threadId) {
+      throw new Error('threadId is required')
+    }
+
+    const pinnedThreadIds = await updateDesktopPinnedThreadIds(
+      currentPinnedThreadIds =>
+        currentPinnedThreadIds.filter(
+          currentThreadId => currentThreadId !== threadId,
+        ),
+    )
+
+    return {
+      pinnedThreadIds,
+      runtime: this.getSnapshot(),
+    }
+  }
+
   async turnStart(body) {
     const record = asRecord(body) ?? {}
     const threadId = readString(record.threadId) ?? this.currentThreadId
@@ -3278,6 +3350,24 @@ export function createCodexLocalControlRouter(args) {
           res,
           200,
           await args.runtime.threadUnarchive(await readJsonBody(req)),
+        )
+        return
+      }
+
+      if (req.method === 'POST' && routePath === '/thread/pin') {
+        sendJson(
+          res,
+          200,
+          await args.runtime.threadPin(await readJsonBody(req)),
+        )
+        return
+      }
+
+      if (req.method === 'POST' && routePath === '/thread/unpin') {
+        sendJson(
+          res,
+          200,
+          await args.runtime.threadUnpin(await readJsonBody(req)),
         )
         return
       }

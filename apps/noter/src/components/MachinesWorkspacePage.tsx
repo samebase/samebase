@@ -2,6 +2,7 @@ import { useNow } from "@/hooks/useNow";
 import {
   CodexAppServerRequestError,
   requestCodexAppServerJson,
+  type CodexAppServerPinnedThreadsResponse,
   type CodexAppServerRuntimeSnapshot,
   type CodexAppServerThread,
   type CodexAppServerThreadDetailResponse,
@@ -128,6 +129,9 @@ export function MachinesWorkspacePage() {
   );
   const [isSelectedThreadLoading, setIsSelectedThreadLoading] = useState(false);
   const [isSubmittingTurn, setIsSubmittingTurn] = useState(false);
+  const [pendingPinThreadId, setPendingPinThreadId] = useState<string | null>(
+    null,
+  );
   const [turnDraft, setTurnDraft] = useState("");
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(
     () => readSelectedSearchValue(searchParams, SELECTED_MACHINE_QUERY_PARAM),
@@ -364,6 +368,7 @@ export function MachinesWorkspacePage() {
     setSelectedThreadError(null);
     setIsSelectedThreadLoading(false);
     setIsSubmittingTurn(false);
+    setPendingPinThreadId(null);
     setTurnDraft("");
   }, [selectedMachineId]);
 
@@ -506,6 +511,64 @@ export function MachinesWorkspacePage() {
     setTurnDraft("");
   }, [selectedThreadId]);
 
+  const handleThreadPinChange = useCallback(
+    (threadId: string, nextPinned: boolean) => {
+      if (
+        selectedMachineControlId === null ||
+        typeof machineControlUrl !== "string" ||
+        selectedMachineInteractionBlockedReason !== null ||
+        pendingPinThreadId !== null
+      ) {
+        return;
+      }
+
+      setPendingPinThreadId(threadId);
+      setSelectedThreadError(null);
+
+      void (async () => {
+        try {
+          const response =
+            await requestMachineControlJson<CodexAppServerPinnedThreadsResponse>(
+              {
+                body: {
+                  threadId,
+                },
+                method: "POST",
+                path: nextPinned ? "/thread/pin" : "/thread/unpin",
+              },
+            );
+          setPinnedThreadIds(response.pinnedThreadIds);
+
+          try {
+            const threadsResponse = await refreshThreads();
+            applyThreadInventory(threadsResponse);
+          } catch {
+            setSelectedThreadError(
+              `Thread ${nextPinned ? "pinned" : "unpinned"}, but the thread list did not refresh. It should settle on the next poll.`,
+            );
+          }
+        } catch (error) {
+          setSelectedThreadError(
+            error instanceof Error
+              ? error.message
+              : `Failed to ${nextPinned ? "pin" : "unpin"} the selected thread.`,
+          );
+        } finally {
+          setPendingPinThreadId(null);
+        }
+      })();
+    },
+    [
+      applyThreadInventory,
+      machineControlUrl,
+      pendingPinThreadId,
+      refreshThreads,
+      requestMachineControlJson,
+      selectedMachineControlId,
+      selectedMachineInteractionBlockedReason,
+    ],
+  );
+
   const handleTurnSubmit = useCallback(() => {
     const prompt = turnDraft.trim();
     if (
@@ -629,8 +692,10 @@ export function MachinesWorkspacePage() {
       selectedThreadId={selectedThreadId}
       relativeTimeReferenceMs={now}
       turnDraft={turnDraft}
+      pendingPinThreadId={pendingPinThreadId}
       onTurnDraftChange={setTurnDraft}
       onTurnSubmit={handleTurnSubmit}
+      onThreadPinChange={handleThreadPinChange}
       onThreadSelect={setSelectedThreadId}
     />
   );

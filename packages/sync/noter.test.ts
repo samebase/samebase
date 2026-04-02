@@ -23,6 +23,7 @@ import {
   detectCodexVersion,
   buildMachineHeartbeatBody,
   buildNoterConnectConfigUrl,
+  CodexLocalControlRuntime,
   buildCodexSpawnOptions,
   buildDirectConnectCommand,
   buildDirectRunCommand,
@@ -181,6 +182,102 @@ describe('@noter-md/sync', () => {
         'machine_123',
       ),
     ).toBe(false)
+  })
+
+  it('persists pinned thread ids in the Codex desktop global state file', async () => {
+    const previousCodexHome = process.env.CODEX_HOME
+    const codexHomePath = path.join(
+      tmpdir(),
+      `noter-codex-home-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    )
+    const globalStatePath = path.join(codexHomePath, '.codex-global-state.json')
+    mkdirSync(codexHomePath, { recursive: true })
+    writeFileSync(
+      globalStatePath,
+      `${JSON.stringify(
+        {
+          theme: 'dark',
+          'pinned-thread-ids': [
+            'thread-existing',
+            'thread-target',
+            'thread-existing',
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    )
+    process.env.CODEX_HOME = codexHomePath
+
+    try {
+      const runtime = new CodexLocalControlRuntime('/tmp/noter')
+
+      await expect(
+        runtime.threadPin({ threadId: 'thread-new' }),
+      ).resolves.toMatchObject({
+        pinnedThreadIds: ['thread-new', 'thread-existing', 'thread-target'],
+      })
+      await expect(
+        runtime.threadPin({ threadId: 'thread-target' }),
+      ).resolves.toMatchObject({
+        pinnedThreadIds: ['thread-target', 'thread-new', 'thread-existing'],
+      })
+      await expect(
+        runtime.threadUnpin({ threadId: 'thread-new' }),
+      ).resolves.toMatchObject({
+        pinnedThreadIds: ['thread-target', 'thread-existing'],
+      })
+
+      expect(JSON.parse(readFileSync(globalStatePath, 'utf8'))).toEqual({
+        theme: 'dark',
+        'pinned-thread-ids': ['thread-target', 'thread-existing'],
+      })
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME
+      } else {
+        process.env.CODEX_HOME = previousCodexHome
+      }
+      rmSync(codexHomePath, { recursive: true, force: true })
+    }
+  })
+
+  it('creates the Codex desktop global state file when pinning the first thread', async () => {
+    const previousCodexHome = process.env.CODEX_HOME
+    const codexHomePath = path.join(
+      tmpdir(),
+      `noter-codex-home-empty-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    )
+    process.env.CODEX_HOME = codexHomePath
+
+    try {
+      const runtime = new CodexLocalControlRuntime('/tmp/noter')
+
+      await expect(
+        runtime.threadPin({ threadId: 'thread-first' }),
+      ).resolves.toMatchObject({
+        pinnedThreadIds: ['thread-first'],
+      })
+
+      expect(
+        JSON.parse(
+          readFileSync(
+            path.join(codexHomePath, '.codex-global-state.json'),
+            'utf8',
+          ),
+        ),
+      ).toEqual({
+        'pinned-thread-ids': ['thread-first'],
+      })
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME
+      } else {
+        process.env.CODEX_HOME = previousCodexHome
+      }
+      rmSync(codexHomePath, { recursive: true, force: true })
+    }
   })
 
   it('stores bootstrap state in one local config file', () => {
