@@ -442,6 +442,24 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
     : {
         gridTemplateColumns: `${leftDesktopOpen ? `${leftSidebarWidthPx}px` : "0px"} minmax(0, 1fr) ${rightDesktopOpen ? `${rightSidebarWidthPx}px` : "0px"}`,
       };
+  const leftPaneClassName = cn(
+    "col-start-1 min-h-0 overflow-hidden transition-[border-color] duration-200 ease-linear",
+    isMobile || leftDesktopOpen
+      ? "border-r border-border/60"
+      : "pointer-events-none border-r border-transparent",
+    isMobile ? "snap-start snap-always" : null,
+  );
+  const mainPaneClassName = cn(
+    "col-start-2 min-h-0 min-w-0 bg-background",
+    isMobile ? "snap-start snap-always" : null,
+  );
+  const rightPaneClassName = cn(
+    "col-start-3 min-h-0 overflow-hidden transition-[border-color] duration-200 ease-linear",
+    isMobile || rightDesktopOpen
+      ? "border-l border-border/60"
+      : "pointer-events-none border-l border-transparent",
+    isMobile ? "snap-start snap-always" : null,
+  );
 
   return (
     <WorkspaceMobilePaneDragProvider value={mobilePaneDragContextValue}>
@@ -468,33 +486,24 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
             )}
             style={shellStyle}
           >
-            {(isMobile || leftDesktopOpen) && leftSidebarWidthPx > 0 ? (
-              <aside
-                className={cn(
-                  "min-h-0 overflow-hidden border-r border-border/60 bg-background",
-                  isMobile ? "snap-start snap-always" : null,
-                )}
-                style={{ width: `${leftSidebarWidthPx}px` }}
-              >
-                <MachinesWorkspaceSidebarRail
-                  dataTestId={sidebarTestId}
-                  machineInventories={props.machineInventories}
-                  selectedMachineId={props.selectedMachineId}
-                  selectedThreadId={props.selectedThreadId}
-                  pendingPinThreadKey={props.pendingPinThreadKey}
-                  relativeTimeReferenceMs={props.relativeTimeReferenceMs}
-                  onThreadPinChange={props.onThreadPinChange}
-                  onThreadSelect={handleThreadSelect}
-                />
-              </aside>
-            ) : null}
-
-            <div
-              className={cn(
-                "relative min-h-0 min-w-0 bg-background",
-                isMobile ? "snap-start snap-always" : null,
-              )}
+            <aside
+              data-pane="left"
+              className={leftPaneClassName}
+              style={{ width: `${leftSidebarWidthPx}px` }}
             >
+              <MachinesWorkspaceSidebarRail
+                dataTestId={sidebarTestId}
+                machineInventories={props.machineInventories}
+                selectedMachineId={props.selectedMachineId}
+                selectedThreadId={props.selectedThreadId}
+                pendingPinThreadKey={props.pendingPinThreadKey}
+                relativeTimeReferenceMs={props.relativeTimeReferenceMs}
+                onThreadPinChange={props.onThreadPinChange}
+                onThreadSelect={handleThreadSelect}
+              />
+            </aside>
+
+            <div data-pane="main" className={cn("relative", mainPaneClassName)}>
               <div className="flex h-full min-h-0 flex-col bg-background">
                 <div
                   data-testid={headerTestId}
@@ -559,20 +568,16 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
               ) : null}
             </div>
 
-            {(isMobile || rightDesktopOpen) && rightSidebarWidthPx > 0 ? (
-              <aside
-                className={cn(
-                  "min-h-0 overflow-hidden border-l border-border/60 bg-background",
-                  isMobile ? "snap-start snap-always" : null,
-                )}
-                style={{ width: `${rightSidebarWidthPx}px` }}
-              >
-                <div
-                  aria-hidden="true"
-                  className="min-h-0 h-full w-full bg-background"
-                />
-              </aside>
-            ) : null}
+            <aside
+              data-pane="right"
+              className={rightPaneClassName}
+              style={{ width: `${rightSidebarWidthPx}px` }}
+            >
+              <div
+                aria-hidden="true"
+                className="min-h-0 h-full w-full bg-background"
+              />
+            </aside>
 
             {showLeftResizeHandle ? (
               <WorkspaceSidebarResizeHandle
