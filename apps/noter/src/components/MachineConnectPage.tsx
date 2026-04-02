@@ -130,6 +130,12 @@ function LocalRequirementsSection() {
           <code>Invoke-WebRequest</code> alias.
         </p>
         <p className="text-sm text-muted-foreground">
+          Mobile live control also needs <code>cloudflared</code> on your PATH.
+          Check with <code>cloudflared --version</code>. Without it, the machine
+          can still connect and publish presence, but Noter marks live control
+          unavailable until the Cloudflare quick tunnel binary is installed.
+        </p>
+        <p className="text-sm text-muted-foreground">
           macOS: if you want <code>nvm</code>, use the official installer, then
           run <code>nvm install --lts</code>. The <code>nvm</code> project does
           not support Homebrew-installed <code>nvm</code>. macOS already ships
@@ -141,6 +147,8 @@ function LocalRequirementsSection() {
           <code>winget install --id OpenJS.NodeJS.LTS -e</code>. Recent Windows
           versions usually already include <code>curl.exe</code>; if yours does
           not, install curl with <code>winget</code> or another package manager.
+          For mobile live control, install Cloudflare Tunnel with{" "}
+          <code>winget install --id Cloudflare.cloudflared -e</code>.
         </p>
         <p className="text-sm text-muted-foreground">
           Linux: install Node.js with your preferred setup, then make sure the{" "}
