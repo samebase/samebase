@@ -9,7 +9,7 @@ type PointerDragState = {
   startX: number;
   startY: number;
   pointerId: number;
-  sawPointerMove: boolean;
+  pointerPathCapturedShell: boolean;
   source: "pointer";
   touchIdentifier: number | null;
   type: "pending" | "shell";
@@ -151,7 +151,7 @@ export function useProsemarkMobilePaneDrag(
       dragStateRef.current = {
         lastX: event.clientX,
         pointerId: event.pointerId,
-        sawPointerMove: false,
+        pointerPathCapturedShell: false,
         source: "pointer",
         startX: event.clientX,
         startY: event.clientY,
@@ -172,7 +172,6 @@ export function useProsemarkMobilePaneDrag(
       ) {
         return;
       }
-      dragState.sawPointerMove = true;
 
       const didDragShell = updateDragState({
         clientX: event.clientX,
@@ -184,6 +183,10 @@ export function useProsemarkMobilePaneDrag(
         return;
       }
 
+      // Keep the legacy touch fallback active until Pointer Events have
+      // actually moved the shared shell; some browsers surface a stray
+      // pointermove before the meaningful touch samples continue.
+      dragState.pointerPathCapturedShell = true;
       event.preventDefault();
       event.stopPropagation();
     },
@@ -252,7 +255,10 @@ export function useProsemarkMobilePaneDrag(
         return;
       }
 
-      if (dragState.source === "pointer" && dragState.sawPointerMove) {
+      if (
+        dragState.source === "pointer" &&
+        dragState.pointerPathCapturedShell
+      ) {
         return;
       }
 
@@ -289,7 +295,10 @@ export function useProsemarkMobilePaneDrag(
         return;
       }
 
-      if (dragState.source === "pointer" && dragState.sawPointerMove) {
+      if (
+        dragState.source === "pointer" &&
+        dragState.pointerPathCapturedShell
+      ) {
         return;
       }
 

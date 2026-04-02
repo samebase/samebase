@@ -378,6 +378,68 @@ describe("useProsemarkMobilePaneDrag", () => {
     expect(settleMobileShell).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps legacy touch continuation alive until pointer drag actually moves the shell", () => {
+    const dragMobileShellBy = vi
+      .fn<Parameters<(deltaX: number) => boolean>, boolean>()
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+    const settleMobileShell = vi.fn();
+    Reflect.set(globalThis, "PointerEvent", Event);
+
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+    const mountedRoot = root;
+
+    act(() => {
+      mountedRoot.render(
+        <TestHarness
+          dragMobileShellBy={dragMobileShellBy}
+          settleMobileShell={settleMobileShell}
+        />,
+      );
+    });
+
+    const host = rootElement.querySelector<HTMLElement>(
+      '[data-testid="mobile-pane-drag-host"]',
+    );
+    expect(host).not.toBeNull();
+    if (host === null) {
+      return;
+    }
+
+    act(() => {
+      dispatchPointerEvent(host, "pointerdown", {
+        clientX: 100,
+        clientY: 120,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+      dispatchTouchEvent(host, "touchstart", {
+        touches: [createTouch(1, 100, 120)],
+        changedTouches: [createTouch(1, 100, 120)],
+      });
+      dispatchPointerEvent(host, "pointermove", {
+        clientX: 145,
+        clientY: 123,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+      dispatchTouchEvent(host, "touchmove", {
+        touches: [createTouch(1, 190, 126)],
+        changedTouches: [createTouch(1, 190, 126)],
+      });
+      dispatchTouchEvent(host, "touchend", {
+        touches: [],
+        changedTouches: [createTouch(1, 190, 126)],
+      });
+    });
+
+    expect(dragMobileShellBy).toHaveBeenNthCalledWith(1, 45);
+    expect(dragMobileShellBy).toHaveBeenNthCalledWith(2, 45);
+    expect(settleMobileShell).toHaveBeenCalledTimes(1);
+  });
+
   it("ignores legacy touch continuation after pointermove takes over", () => {
     const dragMobileShellBy = vi.fn(() => true);
     const settleMobileShell = vi.fn();
