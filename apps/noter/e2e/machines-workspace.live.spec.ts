@@ -27,17 +27,13 @@ test("mobile machines route keeps the left sidebar open after reload", async ({
   await ensureMachinesRouteReady(page);
 
   const shell = page.locator('[data-sidebar-shell="mobile"]');
-  await expect(shell).toHaveAttribute("data-mobile-pane", "main");
-
-  await page.evaluate(() => {
-    const toggleButton = document.querySelector(
-      '[data-sidebar="trigger"][data-side="left"]',
-    );
-    if (!(toggleButton instanceof HTMLButtonElement)) {
-      throw new Error("Expected the mobile left sidebar trigger to exist.");
-    }
-    toggleButton.click();
-  });
+  const leftTrigger = page.locator(
+    '[data-sidebar="trigger"][data-side="left"]',
+  );
+  const initialPane = await shell.getAttribute("data-mobile-pane");
+  if (initialPane !== "left") {
+    await leftTrigger.click();
+  }
 
   await expect(shell).toHaveAttribute("data-mobile-pane", "left");
   await page.reload({

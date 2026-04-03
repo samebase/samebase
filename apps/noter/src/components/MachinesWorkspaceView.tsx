@@ -94,6 +94,8 @@ function setsAreEqual<T>(left: Set<T>, right: Set<T>): boolean {
 }
 
 const MIN_LEFT_SIDEBAR_WIDTH_FOR_THREAD_META_PX = 176;
+// Export the shared default width so the parent persisted provider and the
+// workspace shell stay aligned. The narrower metadata threshold stays local.
 export const MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX = 288;
 
 function buildMachineThreadKey(machineId: string, threadId: string): string {

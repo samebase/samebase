@@ -98,6 +98,9 @@ export const SidebarProvider = React.forwardRef<
       React.useState(defaultLeftMobileWidthPx);
     const [internalRightMobileWidthPx, setInternalRightMobileWidthPx] =
       React.useState(defaultRightMobileWidthPx);
+    // `open`/`onOpenChange` only alias the shortcut side. Explicit left/right
+    // props always win, and the matching setter prefers side-specific control
+    // before falling back to the shortcut alias or internal state.
     const controlledLeftOpen =
       leftOpenProp ?? (shortcutSidebarSide === "left" ? openProp : undefined);
     const controlledRightOpen =

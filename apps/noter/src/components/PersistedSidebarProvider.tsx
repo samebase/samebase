@@ -40,10 +40,14 @@ export function PersistedSidebarProvider({
   workspaceKey,
   ...props
 }: PersistedSidebarProviderProps) {
-  const sidebarState = usePersistedWorkspaceSidebarState({
+  const { isHydrated, ...sidebarState } = usePersistedWorkspaceSidebarState({
     defaults: defaultState,
     workspaceKey,
   });
+
+  if (!isHydrated) {
+    return null;
+  }
 
   return (
     <SidebarProvider
