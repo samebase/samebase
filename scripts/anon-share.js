@@ -11,8 +11,10 @@ import { readLocalDevOriginState } from '../apps/noter/convex-local-utils.js'
 /**
  * @typedef {import('node:child_process').ChildProcess} ChildProcess
  * @typedef {import('node:child_process').StdioOptions} StdioOptions
+ * @typedef {'anonymous' | 'local'} ShareMode
  *
  * @typedef {{
+ *   mode: ShareMode
  *   preferredPort: number
  *   showHelp: boolean
  * }} ParsedArgs
@@ -48,13 +50,15 @@ import { readLocalDevOriginState } from '../apps/noter/convex-local-utils.js'
  *   minimumWrittenAt: number
  *   timeoutMs: number
  *   exitState: ExitState
+ *   devLabel: string
  * }} WaitForFrontendOriginArgs
  *
  * @typedef {{
  *   repoRoot: string
  *   frontendPort: number
  *   frontendOrigin: string
- * }} AnonDevLaunchArgs
+ *   modeConfig: ShareModeConfig
+ * }} DevLaunchArgs
  *
  * @typedef {{
  *   repoRoot: string
@@ -68,32 +72,82 @@ import { readLocalDevOriginState } from '../apps/noter/convex-local-utils.js'
  *   readyPromise: Promise<string>
  *   close: () => Promise<void>
  * }} CloudflaredQuickTunnelProcess
+ *
+ * @typedef {{
+ *   bootstrapTarget: string
+ *   devTarget: string
+ *   devTargetPortVar: string
+ *   defaultStartPort: number
+ *   shareLabel: string
+ *   devLabel: string
+ *   readyLabel: string
+ *   bootstrapMessage: string
+ *   startMessage: (origin: string) => string
+ * }} ShareModeConfig
  */
 
-const DEFAULT_START_PORT = 5174
 const FRONTEND_READY_TIMEOUT_MS = 120_000
 const CLOUDFLARED_READY_TIMEOUT_MS = 60_000
 const PROCESS_SHUTDOWN_TIMEOUT_MS = 10_000
 const APPS_NOTER_DIRNAME = 'apps/noter'
 const QUICK_TUNNEL_URL_PATTERN = /https:\/\/[a-z0-9.-]+\.trycloudflare\.com\b/i
 
-/**
- * `make anon-share` bootstraps the local anonymous stack first so the Vite
- * dev server can start with the loopback Convex backend already known.
- */
-const HELP_TEXT = `Usage: node scripts/anon-share.js [options]
+/** @type {readonly string[]} */
+const CONFIGURED_CONVEX_ENV_KEYS = ['VITE_CONVEX_URL', 'CONVEX_URL']
 
-Start the local anonymous Noter stack and publish the frontend over a
-Cloudflare quick tunnel while keeping the Convex backend behind Vite's
+/** @type {Record<ShareMode, ShareModeConfig>} */
+const SHARE_MODE_CONFIG = {
+  anonymous: {
+    bootstrapTarget: 'anon-once',
+    devTarget: 'anon-dev',
+    devTargetPortVar: 'ANON_VITE_PORT',
+    defaultStartPort: 5174,
+    shareLabel: 'Anonymous local share',
+    devLabel: 'anonymous local dev',
+    readyLabel: 'anonymous local frontend',
+    bootstrapMessage:
+      'Bootstrapping anonymous local environment with `make anon-once`.',
+    startMessage: origin =>
+      `Starting anonymous local dev on ${origin} with a private Convex proxy.`,
+  },
+  local: {
+    bootstrapTarget: 'bootstrap',
+    devTarget: 'run-dev',
+    devTargetPortVar: 'RUN_VITE_PORT',
+    defaultStartPort: 5173,
+    shareLabel: 'Local share',
+    devLabel: 'local dev',
+    readyLabel: 'local frontend',
+    bootstrapMessage: 'Bootstrapping local environment with `make bootstrap`.',
+    startMessage: origin =>
+      `Starting local dev on ${origin} with a private Convex proxy.`,
+  },
+}
+
+/**
+ * `make anon-share` and `make run-share` both expose one public frontend URL
+ * while keeping the configured Convex backend behind Vite's same-origin proxy.
+ *
+ * @returns {string}
+ */
+function getHelpText() {
+  return `Usage: node scripts/anon-share.js [options]
+
+Start the local Noter dev server and publish the frontend over a Cloudflare
+quick tunnel while keeping the configured Convex backend behind Vite's
 same-origin proxy path.
 
 Options:
-  --port <port>  Preferred frontend port. Default: ${DEFAULT_START_PORT}
-  -h, --help     Show this help message.
+  --mode <anonymous|local>
+      Share mode. Defaults to anonymous.
+      anonymous default port: ${SHARE_MODE_CONFIG.anonymous.defaultStartPort}
+      local default port:      ${SHARE_MODE_CONFIG.local.defaultStartPort}
+  --port <port>
+      Preferred frontend port for the selected mode.
+  -h, --help
+      Show this help message.
 `
-
-/** @type {readonly string[]} */
-const LOCAL_CONVEX_ENV_KEYS = ['VITE_CONVEX_URL', 'CONVEX_URL']
+}
 
 /**
  * @param {unknown} line
@@ -117,7 +171,7 @@ export function readLocalConvexUrlFromEnvContents(contents) {
     return null
   }
 
-  for (const key of LOCAL_CONVEX_ENV_KEYS) {
+  for (const key of CONFIGURED_CONVEX_ENV_KEYS) {
     const value = readEnvAssignmentValue(contents, key)
     if (value) {
       return value
@@ -125,6 +179,43 @@ export function readLocalConvexUrlFromEnvContents(contents) {
   }
 
   return null
+}
+
+/**
+ * Split incoming stream chunks into complete newline-delimited log lines while
+ * preserving any final partial line for a later `end` flush.
+ *
+ * @param {string} buffer
+ * @param {unknown} chunk
+ * @returns {{ buffer: string; lines: string[] }}
+ */
+export function appendBufferedLines(buffer, chunk) {
+  let nextBuffer = `${buffer}${String(chunk)}`
+  /** @type {string[]} */
+  const lines = []
+  let newlineIndex = nextBuffer.indexOf('\n')
+  while (newlineIndex !== -1) {
+    const line = nextBuffer.slice(0, newlineIndex).trim()
+    nextBuffer = nextBuffer.slice(newlineIndex + 1)
+    if (line.length > 0) {
+      lines.push(line)
+    }
+    newlineIndex = nextBuffer.indexOf('\n')
+  }
+
+  return {
+    buffer: nextBuffer,
+    lines,
+  }
+}
+
+/**
+ * @param {string} buffer
+ * @returns {string | null}
+ */
+export function flushBufferedLine(buffer) {
+  const line = buffer.trim()
+  return line.length > 0 ? line : null
 }
 
 /**
@@ -158,31 +249,56 @@ function readEnvAssignmentValue(contents, key) {
  * @returns {ParsedArgs}
  */
 function parseArgs(argv) {
-  /** @type {ParsedArgs} */
-  const parsed = {
-    preferredPort: DEFAULT_START_PORT,
-    showHelp: false,
-  }
+  /** @type {ShareMode} */
+  let mode = 'anonymous'
+  /** @type {number | null} */
+  let preferredPort = null
+  let showHelp = false
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
     if (arg === '--help' || arg === '-h') {
-      parsed.showHelp = true
+      showHelp = true
+      continue
+    }
+    if (arg === '--mode') {
+      const value = argv[index + 1]
+      if (!value || value.startsWith('-')) {
+        throw new Error(`Missing value for ${arg}.\n\n${getHelpText()}`)
+      }
+      mode = parseMode(value)
+      index += 1
       continue
     }
     if (arg === '--port') {
       const value = argv[index + 1]
       if (!value || value.startsWith('-')) {
-        throw new Error(`Missing value for ${arg}.\n\n${HELP_TEXT}`)
+        throw new Error(`Missing value for ${arg}.\n\n${getHelpText()}`)
       }
-      parsed.preferredPort = parsePort(value)
+      preferredPort = parsePort(value)
       index += 1
       continue
     }
-    throw new Error(`Unknown argument: ${arg}\n\n${HELP_TEXT}`)
+    throw new Error(`Unknown argument: ${arg}\n\n${getHelpText()}`)
   }
 
-  return parsed
+  return {
+    mode,
+    preferredPort: preferredPort ?? SHARE_MODE_CONFIG[mode].defaultStartPort,
+    showHelp,
+  }
+}
+
+/**
+ * @param {string} value
+ * @returns {ShareMode}
+ */
+function parseMode(value) {
+  if (value === 'anonymous' || value === 'local') {
+    return value
+  }
+
+  throw new Error(`Invalid mode "${value}". Expected "anonymous" or "local".`)
 }
 
 /**
@@ -217,12 +333,10 @@ function resolveAppsNoterDir(repoRoot) {
  * @param {string} repoRoot
  * @returns {string}
  */
-function readLocalConvexUrl(repoRoot) {
+function readConfiguredConvexUrl(repoRoot) {
   const envPath = path.join(resolveAppsNoterDir(repoRoot), '.env.local')
   if (!fs.existsSync(envPath)) {
-    throw new Error(
-      `Missing ${APPS_NOTER_DIRNAME}/.env.local after bootstrap. Run \`make anon-once\` and retry.`,
-    )
+    throw new Error(`Missing ${APPS_NOTER_DIRNAME}/.env.local after bootstrap.`)
   }
 
   const value = readLocalConvexUrlFromEnvContents(
@@ -258,8 +372,10 @@ async function isPortAvailable(port) {
 }
 
 /**
- * Pick the first available frontend port up front so the tunnel launcher can
- * give Vite one fixed port and then trust strictPort to keep that binding.
+ * Probe a preferred frontend port range before launch so share mode can ask
+ * Vite for one stable port. `apps/noter/scripts/run-vite-dev.js` still makes
+ * the final bind decision, so this remains best-effort and
+ * `NOTER_DEV_STRICT_PORT=1` intentionally fails fast if a late race loses.
  *
  * @param {number} startPort
  * @returns {Promise<number>}
@@ -399,7 +515,7 @@ async function waitForFrontendOrigin(args) {
   while (Date.now() < deadline) {
     if (args.exitState.exited) {
       throw new Error(
-        `anonymous local dev exited before publishing a frontend origin (${describeProcessExit(
+        `${args.devLabel} exited before publishing a frontend origin (${describeProcessExit(
           args.exitState.code,
           args.exitState.signal,
         )}).`,
@@ -440,26 +556,29 @@ async function ensureCloudflaredBinary(repoRoot) {
     throw new Error(
       error instanceof Error &&
       error.message.includes('spawnSync cloudflared ENOENT')
-        ? 'The `cloudflared` command was not found. Install cloudflared before using `make anon-share`.'
+        ? 'The `cloudflared` command was not found. Install cloudflared before using the share targets.'
         : describeError(error),
     )
   }
 }
 
 /**
- * @param {AnonDevLaunchArgs} args
+ * @param {DevLaunchArgs} args
  * @returns {ChildProcess}
  */
-function startAnonDev(args) {
+function startDevServer(args) {
   /** @type {ChildProcess} */
   const childProcess = spawn(
     'make',
-    ['anon-dev', `ANON_VITE_PORT=${args.frontendPort}`],
+    [
+      args.modeConfig.devTarget,
+      `${args.modeConfig.devTargetPortVar}=${args.frontendPort}`,
+    ],
     {
       cwd: args.repoRoot,
       env: {
         ...process.env,
-        ANON_VITE_PORT: String(args.frontendPort),
+        [args.modeConfig.devTargetPortVar]: String(args.frontendPort),
         DEV_ENV_ORIGIN: args.frontendOrigin,
         NOTER_DEV_ALLOWED_HOSTS: '.trycloudflare.com',
         NOTER_DEV_PORT: String(args.frontendPort),
@@ -552,15 +671,18 @@ function startCloudflaredQuickTunnel(args) {
     let buffer = ''
 
     stream.on('data', chunk => {
-      buffer += String(chunk)
-      let newlineIndex = buffer.indexOf('\n')
-      while (newlineIndex !== -1) {
-        const line = buffer.slice(0, newlineIndex).trim()
-        buffer = buffer.slice(newlineIndex + 1)
-        if (line.length > 0) {
-          handleLine(line)
-        }
-        newlineIndex = buffer.indexOf('\n')
+      const nextChunkState = appendBufferedLines(buffer, chunk)
+      buffer = nextChunkState.buffer
+      for (const line of nextChunkState.lines) {
+        handleLine(line)
+      }
+    })
+
+    stream.on('end', () => {
+      const remainingLine = flushBufferedLine(buffer)
+      buffer = ''
+      if (remainingLine !== null) {
+        handleLine(remainingLine)
       }
     })
   }
@@ -572,7 +694,7 @@ function startCloudflaredQuickTunnel(args) {
     )
   })
 
-  void exitPromise.then(() => {
+  childProcess.once('close', () => {
     clearTimeout(readyTimeoutId)
     if (isClosing) {
       return
@@ -728,44 +850,43 @@ function sleep(milliseconds) {
 async function main() {
   const parsedArgs = parseArgs(process.argv.slice(2))
   if (parsedArgs.showHelp) {
-    console.log(HELP_TEXT)
+    console.log(getHelpText())
     return
   }
 
+  const modeConfig = SHARE_MODE_CONFIG[parsedArgs.mode]
   const repoRoot = resolveRepoRoot()
   const frontendPort = await findAvailablePort(parsedArgs.preferredPort)
   if (frontendPort !== parsedArgs.preferredPort) {
     console.log(
-      `Port ${parsedArgs.preferredPort} is busy; using ${frontendPort} for anon share instead.`,
+      `Port ${parsedArgs.preferredPort} is busy; using ${frontendPort} for ${modeConfig.shareLabel.toLowerCase()} instead.`,
     )
   }
 
   await ensureCloudflaredBinary(repoRoot)
 
-  console.log(
-    'Bootstrapping anonymous local environment with `make anon-once`.',
-  )
+  console.log(modeConfig.bootstrapMessage)
   await runCommand({
     command: 'make',
-    args: ['anon-once'],
+    args: [modeConfig.bootstrapTarget],
     cwd: repoRoot,
     env: process.env,
   })
 
-  readLocalConvexUrl(repoRoot)
+  // Throws if .env.local is missing or lacks a Convex URL after bootstrap.
+  void readConfiguredConvexUrl(repoRoot)
   const requestedFrontendOrigin = `http://127.0.0.1:${frontendPort}`
-  console.log(
-    `Starting anonymous local dev on ${requestedFrontendOrigin} with a private Convex proxy.`,
-  )
+  console.log(modeConfig.startMessage(requestedFrontendOrigin))
 
   const frontendLaunchStartedAt = Date.now()
-  const anonDevChild = startAnonDev({
+  const devChild = startDevServer({
     repoRoot,
     frontendPort,
     frontendOrigin: requestedFrontendOrigin,
+    modeConfig,
   })
-  const anonDevExitState = createExitState()
-  const anonDevExitPromise = waitForChildExit(anonDevChild, anonDevExitState)
+  const devExitState = createExitState()
+  const devExitPromise = waitForChildExit(devChild, devExitState)
 
   /** @type {CloudflaredQuickTunnelProcess | null} */
   let tunnelProcess = null
@@ -787,7 +908,7 @@ async function main() {
     if (tunnelProcess !== null) {
       await tunnelProcess.close()
     }
-    await stopProcessGroup(anonDevChild)
+    await stopProcessGroup(devChild)
   }
 
   process.once('SIGINT', () => {
@@ -806,7 +927,8 @@ async function main() {
       repoRoot,
       minimumWrittenAt: frontendLaunchStartedAt,
       timeoutMs: FRONTEND_READY_TIMEOUT_MS,
-      exitState: anonDevExitState,
+      exitState: devExitState,
+      devLabel: modeConfig.devLabel,
     })
     if (frontendOrigin !== requestedFrontendOrigin) {
       console.log(
@@ -816,9 +938,9 @@ async function main() {
 
     await waitForUrlReady({
       url: frontendOrigin,
-      label: 'anonymous local frontend',
+      label: modeConfig.readyLabel,
       timeoutMs: FRONTEND_READY_TIMEOUT_MS,
-      exitState: anonDevExitState,
+      exitState: devExitState,
     })
 
     const activeTunnelProcess = startCloudflaredQuickTunnel({
@@ -831,13 +953,13 @@ async function main() {
     await setLocalSiteUrl(repoRoot, quickTunnelUrl)
 
     console.log('')
-    console.log('Anonymous local share ready.')
+    console.log(`${modeConfig.shareLabel} ready.`)
     console.log(`- Local:  ${frontendOrigin}`)
     console.log(`- Public: ${quickTunnelUrl}`)
     console.log('Press Ctrl-C to stop the local dev server and quick tunnel.')
 
     const exitingChild = await Promise.race([
-      anonDevExitPromise.then(() => 'anon'),
+      devExitPromise.then(() => 'dev'),
       activeTunnelProcess.exitPromise.then(() => 'cloudflared'),
     ])
 
@@ -845,11 +967,11 @@ async function main() {
       return
     }
 
-    if (exitingChild === 'anon') {
+    if (exitingChild === 'dev') {
       throw new Error(
-        `Anonymous local dev exited unexpectedly (${describeProcessExit(
-          anonDevExitState.code,
-          anonDevExitState.signal,
+        `${modeConfig.devLabel} exited unexpectedly (${describeProcessExit(
+          devExitState.code,
+          devExitState.signal,
         )}).`,
       )
     }

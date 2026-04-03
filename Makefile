@@ -1,6 +1,6 @@
 # set default  to be `make run`
 # .PHONY ensures targets run even if a file with the same name exists.
-.PHONY: bootstrap bootstrap-anon run anon anon-once anon-dev anon-share killport connect connect-once daytona-local daytona-local-once update-fixtures playwright-open record-start record-stop
+.PHONY: bootstrap bootstrap-anon run run-dev run-share anon anon-once anon-dev anon-share killport connect connect-once daytona-local daytona-local-once update-fixtures playwright-open record-start record-stop
 
 ANON_SETUP_ONCE_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --once --codegen=enable --tail-logs=disable --typecheck=disable
 # Allow `make killport 13124` by treating the extra make goal as the port.
@@ -11,6 +11,7 @@ ANON_SYNC_ENV_CMD = $(if $(strip $(ANON_SOURCE_DEPLOY_KEY)),CONVEX_DEPLOY_KEY="$
 ANON_SEED_PASSWORD_ACCOUNT_CMD = node ./scripts/convex-seed-dev-auth.js
 ANON_REFRESH_AUTH_KEYS_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --refresh-anon-auth --codegen=disable --tail-logs=disable --typecheck=disable
 ANON_VITE_PORT ?= 5174
+RUN_VITE_PORT ?= 5173
 DAYTONA_VITE_PORT ?= 5173
 BOOTSTRAP_ANON_ARGS ?=
 DAYTONA_SOURCE_ENV ?= apps/noter/.env.daytona-source.local
@@ -34,7 +35,16 @@ bootstrap-anon:
 
 run:
 	$(MAKE) bootstrap
-	pnpm dev
+	$(MAKE) run-dev RUN_VITE_PORT="$(RUN_VITE_PORT)"
+
+# Long-lived local dev after bootstrap/setup has completed.
+run-dev:
+	VITE_PORT=$(RUN_VITE_PORT) pnpm dev
+
+# Share the local Noter app over a Cloudflare quick tunnel while keeping the
+# configured Convex deployment behind Vite's same-origin proxy path.
+run-share:
+	node ./scripts/anon-share.js --mode local --port "$(RUN_VITE_PORT)"
 
 # Full dev (frontend + backend) with anonymous Convex mode.
 anon:
@@ -47,6 +57,9 @@ anon:
 	$(ANON_REFRESH_AUTH_KEYS_CMD)
 	$(MAKE) anon-dev ANON_VITE_PORT="$(ANON_VITE_PORT)"
 
+# `apps/noter/scripts/run-vite-dev.js` consumes `VITE_PORT` and chooses the
+# actual frontend port, while `NOTER_DEV_PORT`/`NOTER_DEV_STRICT_PORT` let
+# Vite's config mirror that choice for share/proxy flows.
 # Long-lived anonymous local dev after bootstrap/seed setup has completed.
 anon-dev:
 	CONVEX_AGENT_MODE=anonymous VITE_PORT=$(ANON_VITE_PORT) pnpm dev
