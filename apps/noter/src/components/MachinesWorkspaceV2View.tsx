@@ -21,6 +21,8 @@ import {
 import { cn } from "@/lib/utils";
 
 const MOBILE_PANE_DRAG_SLOP_PX = 10;
+const MOBILE_RESIZE_HANDLE_TOUCH_GUARD_PX = 24;
+const MOBILE_RESIZE_HANDLE_TOUCH_TARGET_PX = 32;
 
 type MachinesV2MobileDragState = {
   lastX: number;
@@ -252,16 +254,34 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
       return;
     }
 
-    const handleTouchStart = (event: TouchEvent) => {
-      if (
-        isResizingSidebarRef.current ||
-        isResizeHandleEventTarget(event.target)
-      ) {
-        dragStateRef.current = null;
-        setIsDragging(false);
-        return;
+    const isTouchNearVisibleResizeHandle = (touch: Touch) => {
+      if (shellViewportWidthPx <= 0) {
+        return false;
       }
 
+      const shellLeftPx = shellNode.getBoundingClientRect().left;
+      const leftHandleClientXPx = shellLeftPx + leftMobileWidthPx;
+      const rightHandleClientXPx =
+        shellLeftPx + shellViewportWidthPx - rightMobileWidthPx;
+
+      if (mobilePane === "left" && leftMobileWidthPx > 0) {
+        return (
+          Math.abs(touch.clientX - leftHandleClientXPx) <=
+          MOBILE_RESIZE_HANDLE_TOUCH_GUARD_PX
+        );
+      }
+
+      if (mobilePane === "right" && rightMobileWidthPx > 0) {
+        return (
+          Math.abs(touch.clientX - rightHandleClientXPx) <=
+          MOBILE_RESIZE_HANDLE_TOUCH_GUARD_PX
+        );
+      }
+
+      return false;
+    };
+
+    const handleTouchStart = (event: TouchEvent) => {
       if (event.touches.length !== 1) {
         dragStateRef.current = null;
         setIsDragging(false);
@@ -270,6 +290,16 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
 
       const touch = event.touches.item(0);
       if (touch === null) {
+        return;
+      }
+
+      if (
+        isResizingSidebarRef.current ||
+        isResizeHandleEventTarget(event.target) ||
+        isTouchNearVisibleResizeHandle(touch)
+      ) {
+        dragStateRef.current = null;
+        setIsDragging(false);
         return;
       }
 
@@ -382,7 +412,14 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
       shellNode.removeEventListener("touchend", finishTouchGesture, true);
       shellNode.removeEventListener("touchcancel", finishTouchGesture, true);
     };
-  }, [dragMobileShellBy, settleMobileShell]);
+  }, [
+    dragMobileShellBy,
+    leftMobileWidthPx,
+    mobilePane,
+    rightMobileWidthPx,
+    settleMobileShell,
+    shellViewportWidthPx,
+  ]);
 
   const trackOffsetPx =
     readMachinesV2MobilePaneAnchorPx({
@@ -502,6 +539,7 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
             onWidthChange={setLeftMobileWidthPx}
             positionPx={leftMobileWidthPx}
             side="left"
+            touchTargetWidthPx={MOBILE_RESIZE_HANDLE_TOUCH_TARGET_PX}
           />
         ) : null}
 
@@ -516,6 +554,7 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
             onWidthChange={setRightMobileWidthPx}
             positionPx={shellViewportWidthPx - rightMobileWidthPx}
             side="right"
+            touchTargetWidthPx={MOBILE_RESIZE_HANDLE_TOUCH_TARGET_PX}
           />
         ) : null}
       </div>
@@ -540,7 +579,8 @@ function MachinesWorkspaceV2ViewContent(props: MachinesWorkspaceViewProps) {
  * - mobile does not render sidebar trigger buttons; sidebars open/close by drag
  * - the shell must not add a scrim or click-capture overlay to dismiss sidebars
  * - visible mobile sidebars expose draggable resize edges on both the left and
- *   right pane variants, and resizing those edges must not also swipe the pane
+ *   right pane variants, with a forgiving touch lane that must not also swipe
+ *   the pane
  * - swipe settling is adjacent-only: left <-> main <-> right
  * - configured mobile sidebar widths are used as-is and are not clamped to the
  *   current browser width

@@ -47,6 +47,7 @@ type WorkspaceSidebarResizeHandleProps = {
   onWidthChange: (widthPx: number) => void;
   positionPx: number;
   side: SidebarSide;
+  touchTargetWidthPx?: number;
 };
 
 /**
@@ -65,6 +66,7 @@ export function WorkspaceSidebarResizeHandle({
   onWidthChange,
   positionPx,
   side,
+  touchTargetWidthPx,
 }: WorkspaceSidebarResizeHandleProps) {
   const dragStateRef = React.useRef<{
     startClientX: number;
@@ -72,6 +74,7 @@ export function WorkspaceSidebarResizeHandle({
   } | null>(null);
   const keyboardResizeTimeoutRef = React.useRef<number | null>(null);
   const [isResizing, setIsResizing] = React.useState(false);
+  const resolvedTouchTargetWidthPx = touchTargetWidthPx ?? 16;
 
   React.useEffect(() => {
     if (!isResizing || dragStateRef.current === null) {
@@ -188,10 +191,13 @@ export function WorkspaceSidebarResizeHandle({
       data-sidebar-resize-handle={side}
       data-testid={dataTestId}
       className={cn(
-        "absolute inset-y-0 z-20 flex w-4 -translate-x-1/2 cursor-col-resize touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "absolute inset-y-0 z-20 flex -translate-x-1/2 cursor-col-resize touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         isResizing && "bg-accent/50",
       )}
-      style={{ left: `${positionPx}px` }}
+      style={{
+        left: `${positionPx}px`,
+        width: `${resolvedTouchTargetWidthPx}px`,
+      }}
       onBlur={onBlur}
       onFocus={onFocus}
       onKeyDown={handleKeyDown}

@@ -122,7 +122,10 @@ function installPointerCaptureMocks(target: HTMLElement) {
   });
 }
 
-function dispatchLostPointerCaptureEvent(target: HTMLElement, pointerId: number) {
+function dispatchLostPointerCaptureEvent(
+  target: HTMLElement,
+  pointerId: number,
+) {
   const event = new Event("lostpointercapture", {
     bubbles: true,
     cancelable: false,
@@ -708,6 +711,47 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
       mainPane.click();
     });
     expect(shell.dataset.mobilePane).toBe("left");
+  });
+
+  it("does not arm pane swipes from the mobile resize lane", async () => {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+
+    await act(async () => {
+      root?.render(<MachinesWorkspaceV2View {...buildProps()} />);
+    });
+
+    const shell = rootElement.querySelector<HTMLElement>(
+      '[data-sidebar-shell="v2-mobile"]',
+    );
+    const track = rootElement.querySelector<HTMLElement>(
+      '[data-sidebar-track="v2-mobile"]',
+    );
+    expect(shell).not.toBeNull();
+    expect(track).not.toBeNull();
+    if (shell === null || track === null) {
+      return;
+    }
+
+    dragMobileShell(shell, {
+      endX: 360,
+      startX: 180,
+      touchIdentifier: 1,
+    });
+    expect(shell.dataset.mobilePane).toBe("left");
+    expect(track.style.transform).toBe("translate3d(0px, 0, 0)");
+
+    dragMobileShell(shell, {
+      endX: 228,
+      startX: 286,
+      touchIdentifier: 2,
+    });
+    expect(shell.dataset.mobilePane).toBe("left");
+    expect(track.style.transform).toBe("translate3d(0px, 0, 0)");
+    expect(track.style.getPropertyValue("--workspace-left-sidebar-width")).toBe(
+      "288px",
+    );
   });
 
   it("only allows adjacent settling in one gesture", () => {
