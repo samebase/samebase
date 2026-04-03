@@ -156,10 +156,14 @@ Guidelines:
    for example: open the local browser, configure the relevant `noter.js` bridge
    or local connector state, complete the approval step, then verify the
    resulting product behavior
-5. include the concrete end-to-end path in the PR validation summary
-6. when a manual end-to-end check reveals stable seams, follow up with the
+5. for flows that start a new thread, conversation, or similar empty container,
+   the manual path is not complete at the blank state; send the first real
+   message and confirm the thread materializes with at least the initial user
+   message and first product response
+6. include the concrete end-to-end path in the PR validation summary
+7. when a manual end-to-end check reveals stable seams, follow up with the
    narrowest useful unit, integration, or Playwright coverage that can run in CI
-7. if the agent cannot run the full path because of missing auth, external
+8. if the agent cannot run the full path because of missing auth, external
    dependencies, or environment limits, say exactly what was blocked and what
    local or automated evidence was used instead
 
