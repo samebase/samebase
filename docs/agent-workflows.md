@@ -130,6 +130,32 @@ Rules:
 - Prefer squash merge unless there is an explicit reason to preserve the full
   intermediate commit history.
 
+## Agent-Owned End-To-End Validation
+
+For meaningful PRs, the agent should prefer at least one end-to-end validation
+path that it can execute itself outside CI before concluding the work.
+
+Intent:
+
+1. prove the shipped change was exercised by the agent, not only inferred from
+   code or unit tests
+2. keep a manual validation path that is easy to translate into narrower
+   automated tests later
+3. make the PR validation section reflect real product behavior, not just build
+   health
+
+Guidelines:
+
+1. treat this as a first-class manual test path, not a CI requirement
+2. prefer real-route or real-surface validation over fixture-only checks when
+   the route can be exercised locally
+3. include the concrete end-to-end path in the PR validation summary
+4. when a manual end-to-end check reveals stable seams, follow up with the
+   narrowest useful unit, integration, or Playwright coverage that can run in CI
+5. if the agent cannot run the full path because of missing auth, external
+   dependencies, or environment limits, say exactly what was blocked and what
+   local or automated evidence was used instead
+
 ## Archive And Clean
 
 - `archive` requires an existing GitHub PR whose head branch is the current
