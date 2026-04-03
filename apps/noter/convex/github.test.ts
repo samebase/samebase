@@ -493,6 +493,19 @@ describe("shouldRefreshRepositoryMetadata", () => {
       }),
     ).toBe(false);
   });
+
+  it("keeps focus on the tree-only path even for stale missing-branch views", () => {
+    expect(
+      shouldRefreshRepositoryMetadata({
+        trigger: "focus",
+        requestedBranch: "feature/login",
+        branchNotFound: true,
+        includeCloudflarePreviewLinks: false,
+        lastRepositoryMetadataRefreshAt: now - 31_000,
+        now,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("computeRepositoryRefreshPlan", () => {

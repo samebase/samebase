@@ -307,6 +307,12 @@ export function shouldRefreshRepositoryMetadata(args: {
     return true;
   }
 
+  // Keep args.trigger === "focus" on the tree-only path by short-circuiting
+  // before branchNotFound can re-enter repo-metadata revalidation.
+  if (args.trigger === "focus") {
+    return false;
+  }
+
   if (args.branchNotFound) {
     return shouldBypassRecentSuccessDebounceForBranchRefresh({
       requestedBranch: args.requestedBranch,
@@ -316,10 +322,6 @@ export function shouldRefreshRepositoryMetadata(args: {
       lastRepositoryMetadataRefreshAt: args.lastRepositoryMetadataRefreshAt,
       now: args.now,
     });
-  }
-
-  if (args.trigger === "focus") {
-    return false;
   }
 
   return (
