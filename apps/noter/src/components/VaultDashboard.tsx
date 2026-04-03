@@ -218,8 +218,6 @@ type DashboardManualRefreshVault = {
   treeRefreshCooldownUntil?: number;
 };
 
-const getCurrentSecondTimestamp = () => Math.floor(Date.now() / 1000) * 1000;
-
 function shouldAutoRefreshVault(args: {
   lastTreeRefreshAt?: number;
   remoteBranches: Array<{
