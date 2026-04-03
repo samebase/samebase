@@ -1,6 +1,6 @@
 # set default  to be `make run`
 # .PHONY ensures targets run even if a file with the same name exists.
-.PHONY: bootstrap bootstrap-anon run anon anon-once killport connect connect-once daytona-local daytona-local-once update-fixtures playwright-open record-start record-stop
+.PHONY: bootstrap bootstrap-anon run anon anon-once anon-dev anon-share killport connect connect-once daytona-local daytona-local-once update-fixtures playwright-open record-start record-stop
 
 ANON_SETUP_ONCE_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --once --codegen=enable --tail-logs=disable --typecheck=disable
 # Allow `make killport 13124` by treating the extra make goal as the port.
@@ -45,6 +45,10 @@ anon:
 	$(ANON_SYNC_ENV_CMD)
 	$(ANON_SEED_PASSWORD_ACCOUNT_CMD)
 	$(ANON_REFRESH_AUTH_KEYS_CMD)
+	$(MAKE) anon-dev ANON_VITE_PORT="$(ANON_VITE_PORT)"
+
+# Long-lived anonymous local dev after bootstrap/seed setup has completed.
+anon-dev:
 	CONVEX_AGENT_MODE=anonymous VITE_PORT=$(ANON_VITE_PORT) pnpm dev
 
 # One-off anonymous Convex bootstrap (codegen + push), then exit.
@@ -56,6 +60,11 @@ anon-once:
 	$(ANON_SYNC_ENV_CMD)
 	$(ANON_SEED_PASSWORD_ACCOUNT_CMD)
 	$(ANON_REFRESH_AUTH_KEYS_CMD)
+
+# Share the local anonymous Noter app over a Cloudflare quick tunnel while
+# keeping the local Convex backend behind Vite's same-origin proxy path.
+anon-share:
+	node ./scripts/anon-share.js
 
 # Send SIGTERM to the explicit port or the current anon backend port from apps/noter/.env.local.
 # This is intentionally Mac-first for now: the local operator flow relies on
