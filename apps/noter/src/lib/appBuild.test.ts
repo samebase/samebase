@@ -1,6 +1,18 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
 
-import { formatAppBuildVersionLabel } from "./appBuild";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import {
+  formatAppBuildMarkdownLink,
+  formatAppBuildVersionLabel,
+  hasSelectedAppBuildVersion,
+  installAppBuildMarkdownCopy,
+} from "./appBuild";
+
+afterEach(() => {
+  window.getSelection()?.removeAllRanges();
+  document.body.replaceChildren();
+});
 
 describe("formatAppBuildVersionLabel", () => {
   it("renders the one-based repo version label from a commit count", () => {
@@ -12,5 +24,125 @@ describe("formatAppBuildVersionLabel", () => {
     expect(formatAppBuildVersionLabel(null)).toBe("v ?");
     expect(formatAppBuildVersionLabel(0)).toBe("v ?");
     expect(formatAppBuildVersionLabel(Number.NaN)).toBe("v ?");
+  });
+});
+
+describe("formatAppBuildMarkdownLink", () => {
+  it("formats the build label as a Markdown link when a commit URL exists", () => {
+    expect(
+      formatAppBuildMarkdownLink({
+        commitLabel: "v 123",
+        commitUrl: "https://github.com/noter-md/noter/commit/abc123",
+      }),
+    ).toBe("[v 123](https://github.com/noter-md/noter/commit/abc123)");
+  });
+
+  it("falls back to the plain label without a commit URL", () => {
+    expect(
+      formatAppBuildMarkdownLink({
+        commitLabel: "v ?",
+        commitUrl: "",
+      }),
+    ).toBe("v ?");
+  });
+});
+
+describe("installAppBuildMarkdownCopy", () => {
+  function selectNodeContents(node: Node) {
+    const selection = window.getSelection();
+    expect(selection).not.toBeNull();
+    if (selection === null) {
+      throw new Error("Expected DOM selection support");
+    }
+
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  function createCopyEvent() {
+    const clipboardData = {
+      setData: vi.fn(),
+    };
+    const copyEvent = new Event("copy", {
+      bubbles: true,
+      cancelable: true,
+    });
+    Object.defineProperty(copyEvent, "clipboardData", {
+      value: clipboardData,
+    });
+
+    return { clipboardData, copyEvent };
+  }
+
+  it("recognizes wider selections that still cover the build label", () => {
+    const wrapper = document.createElement("div");
+    const prefix = document.createElement("span");
+    prefix.textContent = "prefix";
+    const buildLabel = document.createElement("span");
+    buildLabel.textContent = "v 123";
+    const suffix = document.createElement("span");
+    suffix.textContent = "suffix";
+    wrapper.append(prefix, buildLabel, suffix);
+    document.body.append(wrapper);
+
+    selectNodeContents(wrapper);
+
+    expect(hasSelectedAppBuildVersion(buildLabel)).toBe(true);
+  });
+
+  it("rewrites selected build text to a Markdown link during copy", () => {
+    const buildLabel = document.createElement("span");
+    buildLabel.textContent = "v 123";
+    document.body.append(buildLabel);
+    selectNodeContents(buildLabel);
+
+    const disposeCopyHandler = installAppBuildMarkdownCopy(buildLabel, {
+      commitLabel: "v 123",
+      commitUrl: "https://github.com/noter-md/noter/commit/abc123",
+    });
+    const { clipboardData, copyEvent } = createCopyEvent();
+
+    document.dispatchEvent(copyEvent);
+    disposeCopyHandler();
+
+    expect(copyEvent.defaultPrevented).toBe(true);
+    expect(clipboardData.setData).toHaveBeenNthCalledWith(
+      1,
+      "text/plain",
+      "[v 123](https://github.com/noter-md/noter/commit/abc123)",
+    );
+    expect(clipboardData.setData).toHaveBeenNthCalledWith(
+      2,
+      "text/markdown",
+      "[v 123](https://github.com/noter-md/noter/commit/abc123)",
+    );
+    expect(clipboardData.setData).toHaveBeenNthCalledWith(
+      3,
+      "text/html",
+      '<a href="https://github.com/noter-md/noter/commit/abc123">v 123</a>',
+    );
+  });
+
+  it("ignores copy events when the selection is elsewhere", () => {
+    const buildLabel = document.createElement("span");
+    buildLabel.textContent = "v 123";
+    const unrelated = document.createElement("span");
+    unrelated.textContent = "other";
+    document.body.append(buildLabel, unrelated);
+    selectNodeContents(unrelated);
+
+    const disposeCopyHandler = installAppBuildMarkdownCopy(buildLabel, {
+      commitLabel: "v 123",
+      commitUrl: "https://github.com/noter-md/noter/commit/abc123",
+    });
+    const { clipboardData, copyEvent } = createCopyEvent();
+
+    document.dispatchEvent(copyEvent);
+    disposeCopyHandler();
+
+    expect(copyEvent.defaultPrevented).toBe(false);
+    expect(clipboardData.setData).not.toHaveBeenCalled();
   });
 });

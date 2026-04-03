@@ -23,6 +23,8 @@ const NAVIGATION_BUDGET_MS = {
   domContentLoaded: 400,
   load: 500,
 } as const;
+const COPY_SHORTCUT_KEY =
+  process.platform === "darwin" ? "Meta+C" : "Control+C";
 
 const {
   defaultBrowserType: _mobileLandingDefaultBrowserType,
@@ -166,6 +168,24 @@ async function expectAppBuildCommitLink(versionLabel: Locator) {
   return href;
 }
 
+async function selectText(locator: Locator) {
+  await locator.evaluate((element) => {
+    const selection = window.getSelection();
+    if (selection === null) {
+      throw new Error("Expected DOM selection support");
+    }
+
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+}
+
+async function readClipboardText(page: Parameters<typeof test>[0]["page"]) {
+  return page.evaluate(async () => navigator.clipboard.readText());
+}
+
 async function expectLandingLogoAutoRotates(scene: Locator) {
   await expectLandingLogoSceneReady(scene);
   const initialRotationDegrees = await scene.getAttribute(
@@ -262,6 +282,49 @@ test("build version stays stable across the landing shell handoff", async ({
     maxDiffPixelRatio: 0.005,
     testInfo,
   });
+});
+
+test("build version copies as a Markdown link across the shell handoff", async ({
+  page,
+}) => {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.addInitScript((bootDelayMs) => {
+    const originalSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = (handler, timeout, ...args) => {
+      if (timeout === bootDelayMs) {
+        return originalSetTimeout(handler, 600, ...args);
+      }
+      return originalSetTimeout(handler, timeout, ...args);
+    };
+  }, FAST_LANDING_APP_BOOT_DELAY_MS);
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const shellVersion = page
+    .getByTestId("public-landing-shell")
+    .getByTestId(APP_BUILD_VERSION_TEST_ID);
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await expectAppBuildVersion(shellVersion);
+  const shellVersionText = await shellVersion.textContent();
+  const shellVersionHref = await expectAppBuildCommitLink(shellVersion);
+  expect(shellVersionText).not.toBeNull();
+
+  await selectText(shellVersion);
+  await page.keyboard.press(COPY_SHORTCUT_KEY);
+  const shellClipboardText = await readClipboardText(page);
+  expect(shellClipboardText).toBe(`[${shellVersionText}](${shellVersionHref})`);
+
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+
+  const hydratedVersion = page.getByTestId(APP_BUILD_VERSION_TEST_ID);
+  await expectAppBuildVersion(hydratedVersion);
+  await selectText(hydratedVersion);
+  await page.keyboard.press(COPY_SHORTCUT_KEY);
+  const hydratedClipboardText = await readClipboardText(page);
+
+  expect(hydratedClipboardText).toBe(
+    `[${shellVersionText}](${shellVersionHref})`,
+  );
 });
 
 test("landing preserves scroll position across the shell handoff", async ({

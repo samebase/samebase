@@ -7,6 +7,7 @@ import {
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
   formatAppBuildVersionLabel,
+  installAppBuildMarkdownCopy,
 } from "@/lib/appBuild";
 import {
   buildLandingDevToggleHref,
@@ -59,6 +60,7 @@ let restoreHydratedWaitlistFocus = false;
 let gestureDebugOverlayMounted = false;
 let gestureDebugOverlayRoot: ReactDOM.Root | null = null;
 let gestureDebugHistoryPatched = false;
+let disposeBootstrapBuildVersionCopy: (() => void) | null = null;
 
 function escapeHtml(value: string): string {
   return value
@@ -155,6 +157,10 @@ function scheduleBackgroundAppLoad() {
 
 function ensureAppLoaded(): Promise<void> {
   syncPendingPublicLandingScrollTop();
+  if (disposeBootstrapBuildVersionCopy !== null) {
+    disposeBootstrapBuildVersionCopy();
+    disposeBootstrapBuildVersionCopy = null;
+  }
   if (appLoadPromise === null) {
     appLoadPromise = import("./main")
       .then((module) => {
@@ -315,8 +321,8 @@ function renderFastLandingShell() {
   const landingLogoSrc = buildFastLandingLogoSrc();
   const { appCommit, commitLabel, commitUrl } = getShellCommitMetadata();
   const commitMarkup = commitUrl
-    ? `<a data-testid="${APP_BUILD_VERSION_TEST_ID}" class="font-mono transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" title="${escapeHtml(appCommit)}">${escapeHtml(commitLabel)}</a>`
-    : `<span data-testid="${APP_BUILD_VERSION_TEST_ID}" class="font-mono" title="${escapeHtml(appCommit)}">${escapeHtml(commitLabel)}</span>`;
+    ? `<a data-testid="${APP_BUILD_VERSION_TEST_ID}" class="select-text font-mono transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" title="${escapeHtml(appCommit)}">${escapeHtml(commitLabel)}</a>`
+    : `<span data-testid="${APP_BUILD_VERSION_TEST_ID}" class="select-text font-mono" title="${escapeHtml(appCommit)}">${escapeHtml(commitLabel)}</span>`;
 
   root.innerHTML = `
     <div data-testid="public-landing-shell" class="flex h-full w-full flex-col">
@@ -399,6 +405,24 @@ function renderFastLandingShell() {
       </main>
     </div>
   `;
+
+  if (disposeBootstrapBuildVersionCopy !== null) {
+    disposeBootstrapBuildVersionCopy();
+    disposeBootstrapBuildVersionCopy = null;
+  }
+
+  const buildVersionElement = root.querySelector(
+    `[data-testid="${APP_BUILD_VERSION_TEST_ID}"]`,
+  );
+  if (buildVersionElement instanceof HTMLElement) {
+    disposeBootstrapBuildVersionCopy = installAppBuildMarkdownCopy(
+      buildVersionElement,
+      {
+        commitLabel,
+        commitUrl,
+      },
+    );
+  }
 
   const shellMain = root.querySelector<HTMLElement>(
     `[data-testid="${PUBLIC_LANDING_SHELL_MAIN_TEST_ID}"]`,

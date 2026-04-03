@@ -6,8 +6,10 @@ import {
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
   formatAppBuildVersionLabel,
+  hasSelectedAppBuildVersion,
+  installAppBuildMarkdownCopy,
 } from "@/lib/appBuild";
-import { ReactNode, useEffect, type MouseEvent } from "react";
+import { ReactNode, useEffect, useRef, type MouseEvent } from "react";
 import { useConvexAuth } from "convex/react";
 import {
   Link,
@@ -36,6 +38,7 @@ export function Layout({ children }: { children: ReactNode }) {
     !isLoading && !isAuthenticated && location.pathname !== "/";
   const landingDevToggleHref = buildLandingDevToggleHref(location);
   const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
+  const buildVersionRef = useRef<HTMLElement | null>(null);
   const handleLandingDevToggleClick = (
     event: MouseEvent<HTMLAnchorElement>,
   ) => {
@@ -64,6 +67,18 @@ export function Layout({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  useEffect(() => {
+    const buildVersionElement = buildVersionRef.current;
+    if (buildVersionElement === null) {
+      return;
+    }
+
+    return installAppBuildMarkdownCopy(buildVersionElement, {
+      commitLabel,
+      commitUrl,
+    });
+  }, [commitLabel, commitUrl]);
+
   return (
     <div className="flex h-full w-full flex-col">
       <div className="border-b border-border/50">
@@ -91,18 +106,29 @@ export function Layout({ children }: { children: ReactNode }) {
           {commitUrl ? (
             <a
               data-testid={APP_BUILD_VERSION_TEST_ID}
-              className="font-mono hover:text-foreground transition-colors"
+              ref={(element) => {
+                buildVersionRef.current = element;
+              }}
+              className="select-text font-mono hover:text-foreground transition-colors"
               href={commitUrl}
               target="_blank"
               rel="noreferrer noopener"
               title={appCommit}
+              onClick={(event) => {
+                if (hasSelectedAppBuildVersion(event.currentTarget)) {
+                  event.preventDefault();
+                }
+              }}
             >
               {commitLabel}
             </a>
           ) : (
             <span
               data-testid={APP_BUILD_VERSION_TEST_ID}
-              className="font-mono"
+              ref={(element) => {
+                buildVersionRef.current = element;
+              }}
+              className="select-text font-mono"
               title={appCommit}
             >
               {commitLabel}
