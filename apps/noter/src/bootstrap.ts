@@ -8,6 +8,7 @@ import {
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
   formatAppBuildVersionNumber,
+  hasSelectedAppBuildVersion,
   installAppBuildMarkdownCopy,
 } from "@/lib/appBuild";
 import {
@@ -426,6 +427,16 @@ function renderFastLandingShell() {
         commitUrl,
       },
     );
+  }
+  if (buildVersionElement instanceof HTMLAnchorElement) {
+    buildVersionElement.addEventListener("click", (event) => {
+      if (!hasSelectedAppBuildVersion(buildVersionElement)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+    });
   }
 
   const shellMain = root.querySelector<HTMLElement>(

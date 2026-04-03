@@ -25,7 +25,10 @@ describe("formatAppBuildVersionLabel", () => {
   it("falls back to an unknown label when the commit count is unavailable", () => {
     expect(formatAppBuildVersionLabel(null)).toBe("v ?");
     expect(formatAppBuildVersionLabel(0)).toBe("v ?");
+    expect(formatAppBuildVersionLabel(-1)).toBe("v ?");
+    expect(formatAppBuildVersionLabel(1.5)).toBe("v ?");
     expect(formatAppBuildVersionLabel(Number.NaN)).toBe("v ?");
+    expect(formatAppBuildVersionLabel(Number.POSITIVE_INFINITY)).toBe("v ?");
   });
 });
 
@@ -38,7 +41,10 @@ describe("formatAppBuildVersionNumber", () => {
   it("falls back to a plain unknown marker", () => {
     expect(formatAppBuildVersionNumber(null)).toBe("?");
     expect(formatAppBuildVersionNumber(0)).toBe("?");
+    expect(formatAppBuildVersionNumber(-1)).toBe("?");
+    expect(formatAppBuildVersionNumber(1.5)).toBe("?");
     expect(formatAppBuildVersionNumber(Number.NaN)).toBe("?");
+    expect(formatAppBuildVersionNumber(Number.POSITIVE_INFINITY)).toBe("?");
   });
 });
 

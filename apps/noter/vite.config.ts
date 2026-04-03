@@ -61,7 +61,12 @@ function parsePositiveInteger(value: string | null | undefined): number | null {
     return null;
   }
 
-  const parsed = Number.parseInt(value, 10);
+  const normalized = value.trim();
+  if (!/^\d+$/.test(normalized)) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
   if (!Number.isSafeInteger(parsed) || parsed < 1) {
     return null;
   }

@@ -72,19 +72,19 @@ function escapeHtml(value: string): string {
 function selectionIncludesNode(node: Node, selection: Selection): boolean {
   for (let rangeIndex = 0; rangeIndex < selection.rangeCount; rangeIndex += 1) {
     const range = selection.getRangeAt(rangeIndex);
-    if (
-      typeof range.intersectsNode === "function" &&
-      range.intersectsNode(node)
+    if (typeof range.intersectsNode === "function") {
+      if (range.intersectsNode(node)) {
+        return true;
+      }
+    } else if (
+      typeof selection.containsNode === "function" &&
+      selection.containsNode(node, true)
     ) {
       return true;
     }
 
     const commonAncestor = range.commonAncestorContainer;
-    if (
-      commonAncestor === node ||
-      node.contains(commonAncestor) ||
-      commonAncestor.contains(node)
-    ) {
+    if (commonAncestor === node || node.contains(commonAncestor)) {
       return true;
     }
   }
