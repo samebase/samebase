@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME } from "@/components/editorChatLayout";
 import { SidebarProvider, SidebarTrigger } from "@/components/sidebar";
+import { VaultLastUpdatedStatus } from "@/components/VaultLastUpdatedStatus";
 import { DashboardWorkspaceLayout } from "@/components/workspace-layout/DashboardWorkspaceLayout";
 import { ResizeGripLines } from "@/components/ResizeGripLines";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
@@ -16,12 +18,14 @@ export type VaultDashboardVisualMode =
   | "dashboard-provider-sidebar-wrap"
   | "dashboard-shared-sidebar"
   | "dashboard-shared-sidebar-mobile-chat"
+  | "vault-last-updated-status"
   | "vault-branch-filters"
   | "vault-branch-pr-labels"
   | "vault-branch-mobile-alignment";
 
 const MOBILE_CHAT_FIXTURE_HEIGHT_PX = 280;
 const MOBILE_CHAT_FIXTURE_DOCK_INSET = `calc(${MOBILE_CHAT_FIXTURE_HEIGHT_PX}px + 0.5rem)`;
+const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
 
 function FixtureResizeGrip() {
   return (
@@ -147,11 +151,59 @@ function fakeVaultId(): Parameters<typeof VaultBranchLinkRow>[0]["vaultId"] {
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
+function FixtureVaultLastUpdatedStatusCard() {
+  const [refreshCount, setRefreshCount] = useState(0);
+
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-last-updated-status"
+      data-refresh-count={refreshCount}
+      className="mx-auto w-full max-w-[360px]"
+    >
+      <div className="relative corner-notch-1 border p-4">
+        <div className="space-y-3">
+          <div className="flex flex-col items-start pr-10">
+            <h3 className="min-w-0 font-semibold">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="min-w-0 truncate">
+                  <span className="font-normal text-muted-foreground">
+                    noter-md/
+                  </span>
+                  <span>noter</span>
+                </span>
+              </span>
+            </h3>
+            <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+              <VaultLastUpdatedStatus
+                lastSyncedAt={FIXTURE_NOW - 12_000}
+                now={FIXTURE_NOW}
+                onRefresh={() => {
+                  setRefreshCount((count) => count + 1);
+                }}
+                repositoryFullName="noter-md/noter"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function VaultDashboardVisualFixture({
   mode,
 }: {
   mode: VaultDashboardVisualMode;
 }) {
+  if (mode === "vault-last-updated-status") {
+    return (
+      <div className="min-h-screen bg-stone-100 p-4 text-foreground">
+        <FixtureVaultLastUpdatedStatusCard />
+      </div>
+    );
+  }
+
   if (mode === "dashboard-layout-minimal") {
     const sidebarHeader = (
       <SidebarAccountSection dataTestId="dashboard-layout-account-section">

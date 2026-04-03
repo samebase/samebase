@@ -20,7 +20,7 @@ existing sync debounce and cooldown rules.
 As of 2026-04-03, the dashboard `Updated … ago` chip still navigates to the
 current URL instead of calling `api.github.refreshRepositoryTree`.
 
-That behavior was acceptable when a full page reload reliably re-ran the
+That behavior was acceptable when a full-page reload reliably re-ran the
 dashboard's refresh path, but the current app runtime no longer treats a
 same-URL reload as a guaranteed full data refresh boundary. The result is that
 the chip remains visually clickable while stale cards may stay stale after the
