@@ -1474,6 +1474,7 @@ async function getVaultByRepositoryHelper(
     treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
     lastRepositoryMetadataRefreshAt:
       getLastRepositoryMetadataRefreshAt(remoteBranches),
+    remoteBranchCount: remoteBranches.length,
     hasResolvedBranchTree: branchTree !== null,
     defaultBranch,
     resolvedBranch,

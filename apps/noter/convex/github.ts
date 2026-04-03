@@ -101,6 +101,7 @@ const GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE = 100;
 const MAX_GITHUB_REPOSITORY_PAGES = 100;
 const GITHUB_RATE_LIMIT_FALLBACK_MS = 5 * 60 * 1000;
 const MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS = 30 * 1000;
+const MAX_AUTO_REFRESH_BRANCH_ENRICHMENT_BRANCHES = 40;
 
 function toHeaderMap(value: unknown): HeaderMap | null {
   if (!isRecord(value)) {
@@ -363,6 +364,18 @@ interface RepositoryTreeMetadataSyncPlan {
   includeAheadBehind: boolean;
   includePullRequestLinks: boolean;
   includeCloudflarePreviewLinks: boolean;
+  includeLastCommitTimestamps: boolean;
+}
+
+function shouldLimitAutomaticRepositoryMetadataEnrichment(args: {
+  trigger?: RefreshRepositoryTrigger;
+  remoteBranchCount?: number;
+}): boolean {
+  return (
+    args.trigger !== "manual" &&
+    typeof args.remoteBranchCount === "number" &&
+    args.remoteBranchCount > MAX_AUTO_REFRESH_BRANCH_ENRICHMENT_BRANCHES
+  );
 }
 
 /**
@@ -396,25 +409,51 @@ export function computeRepositoryTreeMetadataSyncPlan(args: {
   includeAheadBehind?: boolean;
   includePullRequestLinks?: boolean;
   includeCloudflarePreviewLinks?: boolean;
+  trigger?: RefreshRepositoryTrigger;
+  remoteBranchCount?: number;
 }): RepositoryTreeMetadataSyncPlan {
   const isRepoScoped = args.targetBranch === undefined;
-  const includeCloudflarePreviewLinks =
+  const requestedCloudflarePreviewLinks =
     args.includeCloudflarePreviewLinks === true;
   const includeAheadBehind = isRepoScoped || args.includeAheadBehind === true;
   const includePullRequestLinks =
     isRepoScoped ||
     args.includePullRequestLinks === true ||
-    includeCloudflarePreviewLinks;
+    requestedCloudflarePreviewLinks;
+  const shouldSyncMetadata =
+    isRepoScoped ||
+    includeAheadBehind ||
+    includePullRequestLinks ||
+    requestedCloudflarePreviewLinks;
+
+  if (!shouldSyncMetadata) {
+    return {
+      shouldSyncMetadata: false,
+      includeAheadBehind: false,
+      includePullRequestLinks: false,
+      includeCloudflarePreviewLinks: false,
+      includeLastCommitTimestamps: false,
+    };
+  }
+
+  // Large repositories can turn a background refresh into hundreds of GitHub
+  // calls, so keep auto-refreshes to branch discovery plus PR lookup only.
+  const shouldLimitAutomaticEnrichment =
+    shouldLimitAutomaticRepositoryMetadataEnrichment({
+      trigger: args.trigger,
+      remoteBranchCount: args.remoteBranchCount,
+    });
 
   return {
-    shouldSyncMetadata:
-      isRepoScoped ||
-      includeAheadBehind ||
-      includePullRequestLinks ||
-      includeCloudflarePreviewLinks,
-    includeAheadBehind,
+    shouldSyncMetadata: true,
+    includeAheadBehind: shouldLimitAutomaticEnrichment
+      ? false
+      : includeAheadBehind,
     includePullRequestLinks,
-    includeCloudflarePreviewLinks,
+    includeCloudflarePreviewLinks: shouldLimitAutomaticEnrichment
+      ? false
+      : requestedCloudflarePreviewLinks,
+    includeLastCommitTimestamps: !shouldLimitAutomaticEnrichment,
   };
 }
 
@@ -1484,6 +1523,7 @@ async function listRemoteBranches(args: {
   repo: string;
   includeAheadBehind: boolean;
   includePullRequestLinks: boolean;
+  includeLastCommitTimestamps: boolean;
 }): Promise<RemoteBranchSummary[]> {
   const repoResponse = await args.octokit.rest.repos.get({
     owner: args.owner,
@@ -1577,12 +1617,14 @@ async function listRemoteBranches(args: {
 
   const [timestampsBySha, aheadBehindByBranch, pullRequestsByBranch] =
     await Promise.all([
-      getHeadCommitTimestamps({
-        octokit: args.octokit,
-        owner: args.owner,
-        repo: args.repo,
-        shas: branches.map((branch) => branch.headCommitSha),
-      }),
+      args.includeLastCommitTimestamps
+        ? getHeadCommitTimestamps({
+            octokit: args.octokit,
+            owner: args.owner,
+            repo: args.repo,
+            shas: branches.map((branch) => branch.headCommitSha),
+          })
+        : Promise.resolve(new Map<string, number | undefined>()),
       aheadBehindByBranchPromise,
       pullRequestsByBranchPromise,
     ]);
@@ -2189,6 +2231,14 @@ export const refreshRepositoryTree = action({
     let refreshFailure: TreeRefreshFailureDescriptor | null = null;
     let didSyncMetadata = false;
     let didRefreshTreeData = false;
+    const metadataSyncPlan = computeRepositoryTreeMetadataSyncPlan({
+      targetBranch: requestedBranch,
+      includeAheadBehind: args.includeAheadBehind,
+      includePullRequestLinks: args.includePullRequestLinks,
+      includeCloudflarePreviewLinks: args.includeCloudflarePreviewLinks,
+      trigger,
+      remoteBranchCount: vault.remoteBranchCount,
+    });
     try {
       if (refreshPlan.shouldSyncMetadata) {
         didSyncMetadata = true;
@@ -2196,17 +2246,12 @@ export const refreshRepositoryTree = action({
           userId,
           owner: args.owner,
           repo: args.repo,
-          includeAheadBehind:
-            requestedBranch === undefined
-              ? true
-              : args.includeAheadBehind === true,
-          includePullRequestLinks:
-            requestedBranch === undefined
-              ? true
-              : args.includePullRequestLinks === true,
+          includeAheadBehind: metadataSyncPlan.includeAheadBehind,
+          includePullRequestLinks: metadataSyncPlan.includePullRequestLinks,
           includeCloudflarePreviewLinks:
-            requestedBranch === undefined &&
-            args.includeCloudflarePreviewLinks === true,
+            metadataSyncPlan.includeCloudflarePreviewLinks,
+          includeLastCommitTimestamps:
+            metadataSyncPlan.includeLastCommitTimestamps,
         });
 
         const refreshedVault = await readVault(requestedBranch);
@@ -2315,6 +2360,7 @@ export const syncRepositoryMetadata = internalAction({
     includeAheadBehind: optional(boolean()),
     includePullRequestLinks: optional(boolean()),
     includeCloudflarePreviewLinks: optional(boolean()),
+    includeLastCommitTimestamps: optional(boolean()),
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
@@ -2355,6 +2401,7 @@ export const syncRepositoryMetadata = internalAction({
       repo: args.repo,
       includeAheadBehind: args.includeAheadBehind === true,
       includePullRequestLinks: args.includePullRequestLinks === true,
+      includeLastCommitTimestamps: args.includeLastCommitTimestamps !== false,
     });
     await ctx.runMutation(internal.vault.syncVaultRemoteBranches, {
       vaultId: vault._id,
@@ -2531,6 +2578,8 @@ export const updateRepositoryTree = internalAction({
         includePullRequestLinks: metadataSyncPlan.includePullRequestLinks,
         includeCloudflarePreviewLinks:
           metadataSyncPlan.includeCloudflarePreviewLinks,
+        includeLastCommitTimestamps:
+          metadataSyncPlan.includeLastCommitTimestamps,
       });
     }
     await ctx.runAction(internal.github.refreshBranchTree, {
