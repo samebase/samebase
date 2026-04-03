@@ -172,6 +172,10 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 
 - Always use CLI tools such as `gh` and `git`; do not tell the user to click
   through a UI.
+- Standardize on `origin` as the single canonical git remote for this repo.
+- Prefer `gh`-backed HTTPS git auth over SSH for repo fetch/push flows. The
+  tunneled Codex app-server and machine-control paths must not depend on an
+  interactive local SSH agent or 1Password unlock state.
 - Execute requested git/GitHub workflows instead of describing them.
 - Do not leave a meaningful non-`main` work branch, research branch, or Codex
   thread without a GitHub PR. Before concluding the task, create or update the
