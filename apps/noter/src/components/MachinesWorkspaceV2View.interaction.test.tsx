@@ -122,6 +122,19 @@ function installPointerCaptureMocks(target: HTMLElement) {
   });
 }
 
+function dispatchLostPointerCaptureEvent(target: HTMLElement, pointerId: number) {
+  const event = new Event("lostpointercapture", {
+    bubbles: true,
+    cancelable: false,
+  });
+
+  Object.defineProperty(event, "pointerId", {
+    value: pointerId,
+  });
+
+  target.dispatchEvent(event);
+}
+
 function dragMobileShell(
   shell: HTMLElement,
   args: {
@@ -524,7 +537,7 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
     expect(track.style.transform).toBe("translate3d(-576px, 0, 0)");
   });
 
-  it("shows draggable resize edges for both mobile sidebars", async () => {
+  it("resizes both mobile sidebars without swiping the pane track", async () => {
     Reflect.set(globalThis, "PointerEvent", Event);
 
     rootElement = document.createElement("div");
@@ -563,11 +576,19 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
     installPointerCaptureMocks(leftResizeHandle);
 
     act(() => {
+      dispatchTouchEvent(leftResizeHandle, "touchstart", {
+        changedTouches: [createTouch(11, 288, 120)],
+        touches: [createTouch(11, 288, 120)],
+      });
       dispatchPointerEvent(leftResizeHandle, "pointerdown", {
         clientX: 288,
         clientY: 120,
         pointerId: 1,
         pointerType: "touch",
+      });
+      dispatchTouchEvent(leftResizeHandle, "touchmove", {
+        changedTouches: [createTouch(11, 320, 120)],
+        touches: [createTouch(11, 320, 120)],
       });
       dispatchPointerEvent(leftResizeHandle, "pointermove", {
         clientX: 320,
@@ -575,17 +596,24 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
         pointerId: 1,
         pointerType: "touch",
       });
+      dispatchTouchEvent(leftResizeHandle, "touchend", {
+        changedTouches: [createTouch(11, 320, 120)],
+        touches: [],
+      });
       dispatchPointerEvent(leftResizeHandle, "pointerup", {
         clientX: 320,
         clientY: 120,
         pointerId: 1,
         pointerType: "touch",
       });
+      dispatchLostPointerCaptureEvent(leftResizeHandle, 1);
     });
 
     expect(track.style.getPropertyValue("--workspace-left-sidebar-width")).toBe(
       "320px",
     );
+    expect(shell.dataset.mobilePane).toBe("left");
+    expect(track.style.transform).toBe("translate3d(0px, 0, 0)");
 
     dragMobileShell(shell, {
       endX: 20,
@@ -608,11 +636,19 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
     installPointerCaptureMocks(rightResizeHandle);
 
     act(() => {
+      dispatchTouchEvent(rightResizeHandle, "touchstart", {
+        changedTouches: [createTouch(12, 102, 120)],
+        touches: [createTouch(12, 102, 120)],
+      });
       dispatchPointerEvent(rightResizeHandle, "pointerdown", {
         clientX: 102,
         clientY: 120,
         pointerId: 2,
         pointerType: "touch",
+      });
+      dispatchTouchEvent(rightResizeHandle, "touchmove", {
+        changedTouches: [createTouch(12, 70, 120)],
+        touches: [createTouch(12, 70, 120)],
       });
       dispatchPointerEvent(rightResizeHandle, "pointermove", {
         clientX: 70,
@@ -620,17 +656,24 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
         pointerId: 2,
         pointerType: "touch",
       });
+      dispatchTouchEvent(rightResizeHandle, "touchend", {
+        changedTouches: [createTouch(12, 70, 120)],
+        touches: [],
+      });
       dispatchPointerEvent(rightResizeHandle, "pointerup", {
         clientX: 70,
         clientY: 120,
         pointerId: 2,
         pointerType: "touch",
       });
+      dispatchLostPointerCaptureEvent(rightResizeHandle, 2);
     });
 
     expect(
       track.style.getPropertyValue("--workspace-right-sidebar-width"),
     ).toBe("320px");
+    expect(shell.dataset.mobilePane).toBe("right");
+    expect(track.style.transform).toBe("translate3d(-640px, 0, 0)");
   });
 
   it("does not add tap-to-dismiss overlay behavior on top of the main pane", async () => {

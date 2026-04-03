@@ -30,6 +30,13 @@ type MachinesV2MobileDragState = {
   type: "pending" | "shell";
 };
 
+function isResizeHandleEventTarget(target: EventTarget | null) {
+  return (
+    target instanceof Element &&
+    target.closest("[data-sidebar-resize-handle]") !== null
+  );
+}
+
 function findTouchByIdentifier(
   touchList: TouchList,
   identifier: number,
@@ -160,6 +167,7 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
   } = useSidebar();
   const shellRef = React.useRef<HTMLDivElement | null>(null);
   const dragStateRef = React.useRef<MachinesV2MobileDragState | null>(null);
+  const isResizingSidebarRef = React.useRef(false);
   const [dragOffsetPxState, setDragOffsetPxState] = React.useState(0);
   const dragOffsetPxRef = React.useRef(0);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -226,6 +234,18 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
     setIsDragging(false);
   }, [mobilePane, setDragOffsetPx]);
 
+  const handleSidebarResizeStart = React.useCallback(() => {
+    // Resizing a sidebar edge must not also seed a pane swipe gesture.
+    isResizingSidebarRef.current = true;
+    dragStateRef.current = null;
+    setIsDragging(false);
+    setDragOffsetPx(0);
+  }, [setDragOffsetPx]);
+
+  const handleSidebarResizeEnd = React.useCallback(() => {
+    isResizingSidebarRef.current = false;
+  }, []);
+
   React.useEffect(() => {
     const shellNode = shellRef.current;
     if (shellNode === null) {
@@ -233,6 +253,15 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
     }
 
     const handleTouchStart = (event: TouchEvent) => {
+      if (
+        isResizingSidebarRef.current ||
+        isResizeHandleEventTarget(event.target)
+      ) {
+        dragStateRef.current = null;
+        setIsDragging(false);
+        return;
+      }
+
       if (event.touches.length !== 1) {
         dragStateRef.current = null;
         setIsDragging(false);
@@ -254,6 +283,12 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
     };
 
     const handleTouchMove = (event: TouchEvent) => {
+      if (isResizingSidebarRef.current) {
+        dragStateRef.current = null;
+        setIsDragging(false);
+        return;
+      }
+
       const dragState = dragStateRef.current;
       if (dragState === null) {
         return;
@@ -302,6 +337,12 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
     };
 
     const finishTouchGesture = (event: TouchEvent) => {
+      if (isResizingSidebarRef.current) {
+        dragStateRef.current = null;
+        setIsDragging(false);
+        return;
+      }
+
       const dragState = dragStateRef.current;
       if (dragState === null) {
         return;
@@ -456,6 +497,8 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
             dataTestId="machines-v2-mobile-left-resize-handle"
             maxWidthPx={MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX}
             minWidthPx={MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX}
+            onResizeEnd={handleSidebarResizeEnd}
+            onResizeStart={handleSidebarResizeStart}
             onWidthChange={setLeftMobileWidthPx}
             positionPx={leftMobileWidthPx}
             side="left"
@@ -468,6 +511,8 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
             dataTestId="machines-v2-mobile-right-resize-handle"
             maxWidthPx={MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX}
             minWidthPx={MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX}
+            onResizeEnd={handleSidebarResizeEnd}
+            onResizeStart={handleSidebarResizeStart}
             onWidthChange={setRightMobileWidthPx}
             positionPx={shellViewportWidthPx - rightMobileWidthPx}
             side="right"
@@ -495,7 +540,7 @@ function MachinesWorkspaceV2ViewContent(props: MachinesWorkspaceViewProps) {
  * - mobile does not render sidebar trigger buttons; sidebars open/close by drag
  * - the shell must not add a scrim or click-capture overlay to dismiss sidebars
  * - visible mobile sidebars expose draggable resize edges on both the left and
- *   right pane variants
+ *   right pane variants, and resizing those edges must not also swipe the pane
  * - swipe settling is adjacent-only: left <-> main <-> right
  * - configured mobile sidebar widths are used as-is and are not clamped to the
  *   current browser width
