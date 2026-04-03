@@ -149,10 +149,17 @@ Guidelines:
 1. treat this as a first-class manual test path, not a CI requirement
 2. prefer real-route or real-surface validation over fixture-only checks when
    the route can be exercised locally
-3. include the concrete end-to-end path in the PR validation summary
-4. when a manual end-to-end check reveals stable seams, follow up with the
+3. if the feature depends on setup, onboarding, or approval state, include that
+   real setup path in the validation unless a documented seed/bootstrap shortcut
+   is intentionally used
+4. for non-seeded flows, prefer exercising the actual operator path end to end,
+   for example: open the local browser, configure the relevant `noter.js` bridge
+   or local connector state, complete the approval step, then verify the
+   resulting product behavior
+5. include the concrete end-to-end path in the PR validation summary
+6. when a manual end-to-end check reveals stable seams, follow up with the
    narrowest useful unit, integration, or Playwright coverage that can run in CI
-5. if the agent cannot run the full path because of missing auth, external
+7. if the agent cannot run the full path because of missing auth, external
    dependencies, or environment limits, say exactly what was blocked and what
    local or automated evidence was used instead
 
