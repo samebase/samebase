@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyRepositoryTreeMetadataSyncBudget,
   computeRepositoryRefreshPlan,
   computeRepositoryTreeMetadataSyncPlan,
   collectLatestOpenPullRequestsByBranch,
@@ -626,6 +627,48 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       includePullRequestLinks: true,
       includeCloudflarePreviewLinks: false,
       includeLastCommitTimestamps: false,
+    });
+  });
+});
+
+describe("applyRepositoryTreeMetadataSyncBudget", () => {
+  it("caps the first automatic large-repo refresh once branch discovery knows the real size", () => {
+    expect(
+      applyRepositoryTreeMetadataSyncBudget({
+        shouldSyncMetadata: true,
+        includeAheadBehind: true,
+        includePullRequestLinks: true,
+        includeCloudflarePreviewLinks: true,
+        includeLastCommitTimestamps: true,
+        trigger: "visibility",
+        remoteBranchCount: 75,
+      }),
+    ).toEqual({
+      shouldSyncMetadata: true,
+      includeAheadBehind: false,
+      includePullRequestLinks: true,
+      includeCloudflarePreviewLinks: false,
+      includeLastCommitTimestamps: false,
+    });
+  });
+
+  it("keeps manual large-repo refreshes fully enriched", () => {
+    expect(
+      applyRepositoryTreeMetadataSyncBudget({
+        shouldSyncMetadata: true,
+        includeAheadBehind: true,
+        includePullRequestLinks: true,
+        includeCloudflarePreviewLinks: true,
+        includeLastCommitTimestamps: true,
+        trigger: "manual",
+        remoteBranchCount: 75,
+      }),
+    ).toEqual({
+      shouldSyncMetadata: true,
+      includeAheadBehind: true,
+      includePullRequestLinks: true,
+      includeCloudflarePreviewLinks: true,
+      includeLastCommitTimestamps: true,
     });
   });
 });
