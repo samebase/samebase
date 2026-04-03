@@ -52,19 +52,19 @@ describe("formatAppBuildMarkdownLink", () => {
   it("formats the build label as a Markdown link when a commit URL exists", () => {
     expect(
       formatAppBuildMarkdownLink({
-        commitNumberLabel: "123",
+        buildVersionLabel: "v 123",
         commitUrl: "https://github.com/noter-md/noter/commit/abc123",
       }),
-    ).toBe("[123](https://github.com/noter-md/noter/commit/abc123)");
+    ).toBe("[v 123](https://github.com/noter-md/noter/commit/abc123)");
   });
 
   it("falls back to the plain label without a commit URL", () => {
     expect(
       formatAppBuildMarkdownLink({
-        commitNumberLabel: "?",
+        buildVersionLabel: "v ?",
         commitUrl: "",
       }),
-    ).toBe("?");
+    ).toBe("v ?");
   });
 });
 
@@ -120,7 +120,7 @@ describe("installAppBuildMarkdownCopy", () => {
     selectNodeContents(buildLabel);
 
     const disposeCopyHandler = installAppBuildMarkdownCopy(buildLabel, {
-      commitNumberLabel: "123",
+      buildVersionLabel: "v 123",
       commitUrl: "https://github.com/noter-md/noter/commit/abc123",
     });
     const { clipboardData, copyEvent } = createCopyEvent();
@@ -132,17 +132,17 @@ describe("installAppBuildMarkdownCopy", () => {
     expect(clipboardData.setData).toHaveBeenNthCalledWith(
       1,
       "text/plain",
-      "[123](https://github.com/noter-md/noter/commit/abc123)",
+      "[v 123](https://github.com/noter-md/noter/commit/abc123)",
     );
     expect(clipboardData.setData).toHaveBeenNthCalledWith(
       2,
       "text/markdown",
-      "[123](https://github.com/noter-md/noter/commit/abc123)",
+      "[v 123](https://github.com/noter-md/noter/commit/abc123)",
     );
     expect(clipboardData.setData).toHaveBeenNthCalledWith(
       3,
       "text/html",
-      '<a href="https://github.com/noter-md/noter/commit/abc123">123</a>',
+      '<a href="https://github.com/noter-md/noter/commit/abc123">v 123</a>',
     );
   });
 
@@ -155,7 +155,7 @@ describe("installAppBuildMarkdownCopy", () => {
     selectNodeContents(unrelated);
 
     const disposeCopyHandler = installAppBuildMarkdownCopy(buildLabel, {
-      commitNumberLabel: "123",
+      buildVersionLabel: "v 123",
       commitUrl: "https://github.com/noter-md/noter/commit/abc123",
     });
     const { clipboardData, copyEvent } = createCopyEvent();
@@ -167,7 +167,7 @@ describe("installAppBuildMarkdownCopy", () => {
     expect(clipboardData.setData).not.toHaveBeenCalled();
   });
 
-  it("keeps the visible prefix outside the copied link payload", () => {
+  it("keeps the copied link aligned with the visible version label", () => {
     const wrapper = document.createElement("div");
     const prefix = document.createElement("span");
     prefix.textContent = APP_BUILD_VERSION_PREFIX;
@@ -179,7 +179,7 @@ describe("installAppBuildMarkdownCopy", () => {
     selectNodeContents(wrapper);
 
     const disposeCopyHandler = installAppBuildMarkdownCopy(buildLabel, {
-      commitNumberLabel: "123",
+      buildVersionLabel: "v 123",
       commitUrl: "https://github.com/noter-md/noter/commit/abc123",
     });
     const { clipboardData, copyEvent } = createCopyEvent();
@@ -190,7 +190,7 @@ describe("installAppBuildMarkdownCopy", () => {
     expect(clipboardData.setData).toHaveBeenNthCalledWith(
       1,
       "text/plain",
-      "[123](https://github.com/noter-md/noter/commit/abc123)",
+      "[v 123](https://github.com/noter-md/noter/commit/abc123)",
     );
   });
 });

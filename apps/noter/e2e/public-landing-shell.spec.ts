@@ -181,17 +181,19 @@ async function expectAppBuildCommitLink(versionLabel: Locator) {
 }
 
 async function selectText(locator: Locator) {
-  await locator.evaluate((element) => {
-    const selection = window.getSelection();
-    if (selection === null) {
-      throw new Error("Expected DOM selection support");
-    }
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  if (box === null) {
+    throw new Error("Expected selectable text bounds");
+  }
 
-    const range = document.createRange();
-    range.selectNodeContents(element);
-    selection.removeAllRanges();
-    selection.addRange(range);
-  });
+  await locator.hover({ force: true });
+  await locator.page().mouse.move(box.x + 1, box.y + box.height / 2);
+  await locator.page().mouse.down();
+  await locator
+    .page()
+    .mouse.move(box.x + box.width - 1, box.y + box.height / 2, { steps: 20 });
+  await locator.page().mouse.up();
 }
 
 async function readClipboardText(page: Parameters<typeof test>[0]["page"]) {
@@ -324,11 +326,14 @@ test("build version copies as a Markdown link across the shell handoff", async (
   const shellVersionText = await shellVersion.textContent();
   const shellVersionHref = await expectAppBuildCommitLink(shellVersion);
   expect(shellVersionText).not.toBeNull();
+  const shellVersionMarkdownLabel = `v ${shellVersionText}`;
 
   await selectText(shellVersionGroup);
   await page.keyboard.press(COPY_SHORTCUT_KEY);
   const shellClipboardText = await readClipboardText(page);
-  expect(shellClipboardText).toBe(`[${shellVersionText}](${shellVersionHref})`);
+  expect(shellClipboardText).toBe(
+    `[${shellVersionMarkdownLabel}](${shellVersionHref})`,
+  );
 
   await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
 
@@ -341,7 +346,7 @@ test("build version copies as a Markdown link across the shell handoff", async (
   const hydratedClipboardText = await readClipboardText(page);
 
   expect(hydratedClipboardText).toBe(
-    `[${shellVersionText}](${shellVersionHref})`,
+    `[${shellVersionMarkdownLabel}](${shellVersionHref})`,
   );
 });
 

@@ -7,6 +7,7 @@ import {
   APP_BUILD_VERSION_PREFIX,
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
+  formatAppBuildVersionLabel,
   formatAppBuildVersionNumber,
   hasSelectedAppBuildVersion,
   installAppBuildMarkdownCopy,
@@ -100,12 +101,13 @@ function renderChromeIconSvg() {
 function getShellCommitMetadata() {
   const appCommit = __APP_COMMIT__ || "unknown";
   const appCommitNumber = __APP_COMMIT_NUMBER__;
+  const buildVersionLabel = formatAppBuildVersionLabel(appCommitNumber);
   const commitNumberLabel = formatAppBuildVersionNumber(appCommitNumber);
   const repoUrl = __APP_REPO_URL__ || "";
   const commitUrl =
     repoUrl && appCommit !== "unknown" ? `${repoUrl}/commit/${appCommit}` : "";
 
-  return { appCommit, commitNumberLabel, commitUrl };
+  return { appCommit, buildVersionLabel, commitNumberLabel, commitUrl };
 }
 
 function resolveBootstrapTheme(): "dark" | "light" {
@@ -321,9 +323,10 @@ function renderFastLandingShell() {
   const landingDevToggleHref = buildLandingDevToggleHref(window.location);
   const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
   const landingLogoSrc = buildFastLandingLogoSrc();
-  const { appCommit, commitNumberLabel, commitUrl } = getShellCommitMetadata();
+  const { appCommit, buildVersionLabel, commitNumberLabel, commitUrl } =
+    getShellCommitMetadata();
   const commitMarkup = commitUrl
-    ? `<a data-testid="${APP_BUILD_VERSION_TEST_ID}" class="select-text transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" title="${escapeHtml(appCommit)}">${escapeHtml(commitNumberLabel)}</a>`
+    ? `<a data-testid="${APP_BUILD_VERSION_TEST_ID}" class="select-text transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" draggable="false" title="${escapeHtml(appCommit)}">${escapeHtml(commitNumberLabel)}</a>`
     : `<span data-testid="${APP_BUILD_VERSION_TEST_ID}" class="select-text" title="${escapeHtml(appCommit)}">${escapeHtml(commitNumberLabel)}</span>`;
 
   root.innerHTML = `
@@ -423,12 +426,15 @@ function renderFastLandingShell() {
     disposeBootstrapBuildVersionCopy = installAppBuildMarkdownCopy(
       buildVersionElement,
       {
-        commitNumberLabel,
+        buildVersionLabel,
         commitUrl,
       },
     );
   }
   if (buildVersionElement instanceof HTMLAnchorElement) {
+    buildVersionElement.addEventListener("dragstart", (event) => {
+      event.preventDefault();
+    });
     buildVersionElement.addEventListener("click", (event) => {
       if (!hasSelectedAppBuildVersion(buildVersionElement)) {
         return;
