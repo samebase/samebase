@@ -19,6 +19,7 @@ import {
   readEnvFileValue,
   resolveDaytonaConvexProxyTarget,
 } from "./daytonaConvexProxy";
+import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
 import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearchBridge";
 
 const gitRoot = path.resolve(__dirname, "..", "..");
@@ -56,24 +57,6 @@ function readAllowedHostsEnv(value: string | undefined): string[] {
     .filter((entry) => entry.length > 0);
 }
 
-function parsePositiveInteger(value: string | null | undefined): number | null {
-  if (!value) {
-    return null;
-  }
-
-  const normalized = value.trim();
-  if (!/^\d+$/.test(normalized)) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(normalized, 10);
-  if (!Number.isSafeInteger(parsed) || parsed < 1) {
-    return null;
-  }
-
-  return parsed;
-}
-
 function readGitOutput(command: string): string | null {
   try {
     const output = execSync(command, {
@@ -88,13 +71,27 @@ function readGitOutput(command: string): string | null {
   }
 }
 
+function runGitCommand(command: string): boolean {
+  try {
+    execSync(command, {
+      cwd: gitRoot,
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const appCommit =
   process.env.VITE_APP_COMMIT ??
   readGitOutput("git rev-parse HEAD") ??
   "unknown";
-const appCommitNumber =
-  parsePositiveInteger(process.env.VITE_APP_COMMIT_NUMBER) ??
-  parsePositiveInteger(readGitOutput("git rev-list --count HEAD"));
+const appCommitNumber = resolveAppCommitNumber({
+  envCommitNumber: process.env.VITE_APP_COMMIT_NUMBER,
+  readGitOutput,
+  runGitCommand,
+});
 
 const appRepoUrl = "https://github.com/noter-md/noter";
 const daytonaSdkVersion = readPackageVersion("@daytonaio/sdk", import.meta.url);
