@@ -5,6 +5,7 @@ import {
   buildComparedCommitPreviewFileFromStagedFile,
   buildDraftBranchName,
   buildDraftPullRequestTitle,
+  stripCreationTimeFromStagingRecord,
   buildRemoteComparePreviewFile,
   createCommitWithMultipleFiles,
   getDraftPullRequestCreateErrorMessage,
@@ -340,6 +341,51 @@ describe("draft pull request helpers", () => {
         now: 1_712_345_678_901,
       }),
     ).toBe("draft/draft-button-md-fileview-tsx-lun2elv9");
+  });
+
+  it("preserves binary staging metadata when default-branch staging is forked", () => {
+    const record = {
+      _id: "file-staging-1",
+      _creationTime: 1_712_345_678_901,
+      ownerId: "user-1",
+      vaultId: "vault-1",
+      fileDeleted: false,
+      kind: "binary" as const,
+      filePath: "public/images/hero.png",
+      initialFilePath: "public/images/hero.png",
+      content: "",
+      initialContent: "",
+      storageId: "storage-1",
+      mime: "image/png",
+      size: 1024,
+      stagedBlobSha: "blob-sha-1",
+      parentCommitSha: null,
+      branch: "main",
+      lastEditTime: 1_712_345_678_902,
+      lastEditUserId: "user-1",
+      version: 0,
+    };
+
+    expect(stripCreationTimeFromStagingRecord(record)).toEqual({
+      _id: "file-staging-1",
+      ownerId: "user-1",
+      vaultId: "vault-1",
+      fileDeleted: false,
+      kind: "binary",
+      filePath: "public/images/hero.png",
+      initialFilePath: "public/images/hero.png",
+      content: "",
+      initialContent: "",
+      storageId: "storage-1",
+      mime: "image/png",
+      size: 1024,
+      stagedBlobSha: "blob-sha-1",
+      parentCommitSha: null,
+      branch: "main",
+      lastEditTime: 1_712_345_678_902,
+      lastEditUserId: "user-1",
+      version: 0,
+    });
   });
 
   it("returns a friendly message when the branch has no PR-worthy commits", () => {
