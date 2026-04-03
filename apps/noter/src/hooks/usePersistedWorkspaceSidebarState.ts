@@ -74,6 +74,7 @@ export function usePersistedWorkspaceSidebarState({
   const [sidebarState, setSidebarState] = React.useState(defaults);
   const latestSidebarStateRef = React.useRef(sidebarState);
   const latestServerStateRef = React.useRef(defaults);
+  const hasSeenPersistedStateRef = React.useRef(false);
   const pendingPersistSignatureRef = React.useRef<string | null>(null);
   const pendingWidthPersistTimeoutRef = React.useRef<number | null>(null);
 
@@ -140,6 +141,15 @@ export function usePersistedWorkspaceSidebarState({
 
   React.useEffect(() => {
     if (persistedState === undefined) {
+      return;
+    }
+
+    if (persistedState !== null) {
+      hasSeenPersistedStateRef.current = true;
+    } else if (hasSeenPersistedStateRef.current) {
+      // Once a durable row exists for this workspace, a later null result is
+      // more likely to be a transient auth/subscription gap than an intentional
+      // delete. Keep the live shell state instead of snapping back to defaults.
       return;
     }
 
