@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  appendBufferedLines,
+  flushBufferedLine,
   parseCloudflaredQuickTunnelUrl,
   readLocalConvexUrlFromEnvContents,
 } from './anon-share.js'
@@ -19,6 +21,18 @@ describe('anon-share', () => {
         '2026-04-03T12:00:00Z INF Registered tunnel connection',
       ),
     ).toBe(null)
+  })
+
+  it('flushes a final cloudflared log line without a trailing newline', () => {
+    const buffered = appendBufferedLines(
+      '',
+      '2026-04-03T12:00:00Z INF https://steady-sunset.trycloudflare.com',
+    )
+
+    expect(buffered.lines).toEqual([])
+    expect(
+      parseCloudflaredQuickTunnelUrl(flushBufferedLine(buffered.buffer)),
+    ).toBe('https://steady-sunset.trycloudflare.com')
   })
 
   it('prefers VITE_CONVEX_URL when reading the local anon env file', () => {
