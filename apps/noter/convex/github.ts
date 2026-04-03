@@ -307,6 +307,8 @@ export function shouldRefreshRepositoryMetadata(args: {
     return true;
   }
 
+  // Keep args.trigger === "focus" on the tree-only path by short-circuiting
+  // before branchNotFound can re-enter repo-metadata revalidation.
   if (args.trigger === "focus") {
     return false;
   }
