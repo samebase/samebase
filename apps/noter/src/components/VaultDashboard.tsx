@@ -1033,7 +1033,7 @@ function VaultDashboardContent() {
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
         includeCloudflarePreviewLinks: shouldIncludeCloudflarePreviewLinks,
-        trigger: "focus",
+        trigger: "manual",
       }).catch((error: unknown) => {
         console.error(
           "Failed to refresh repository tree from dashboard status click:",
@@ -1049,6 +1049,8 @@ function VaultDashboardContent() {
       return;
     }
 
+    // Emit the dashboard "page_load" refresh exactly once, then fall back to
+    // plain "visibility" refreshes on later resumes.
     const triggerInitialPageLoad = () => {
       if (initialDashboardPageLoadSentRef.current) {
         return;

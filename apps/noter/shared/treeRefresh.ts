@@ -39,6 +39,19 @@ export function shouldPreserveTreeRefreshFailureAfterSuccess(args: {
   );
 }
 
+export function shouldPreserveTreeRefreshCooldownAfterSuccess(args: {
+  claimedStartedAt?: number;
+  lastTreeRefreshFailedAt?: number;
+  cooldownUntil?: number;
+  now?: number;
+}): boolean {
+  const now = args.now ?? Date.now();
+  return (
+    shouldPreserveTreeRefreshFailureAfterSuccess(args) ||
+    (typeof args.cooldownUntil === "number" && args.cooldownUntil > now)
+  );
+}
+
 export function doesTreeRefreshClaimMatch(args: {
   claimedStartedAt?: number;
   treeRefreshStartedAt?: number;

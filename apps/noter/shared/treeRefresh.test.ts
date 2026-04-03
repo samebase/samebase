@@ -4,6 +4,7 @@ import {
   doesTreeRefreshClaimMatch,
   getLastRepositoryMetadataRefreshAt,
   isRepositoryMetadataStale,
+  shouldPreserveTreeRefreshCooldownAfterSuccess,
   shouldPreserveTreeRefreshFailureAfterSuccess,
 } from "./treeRefresh";
 
@@ -88,6 +89,30 @@ describe("doesTreeRefreshClaimMatch", () => {
       doesTreeRefreshClaimMatch({
         claimedStartedAt: 15,
         treeRefreshStartedAt: 20,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("shouldPreserveTreeRefreshCooldownAfterSuccess", () => {
+  const now = Date.parse("2026-04-03T12:00:00Z");
+
+  it("preserves cooldowns that were already active before the refresh started", () => {
+    expect(
+      shouldPreserveTreeRefreshCooldownAfterSuccess({
+        claimedStartedAt: now - 5_000,
+        cooldownUntil: now + 60_000,
+        now,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not preserve expired cooldowns without a newer failure", () => {
+    expect(
+      shouldPreserveTreeRefreshCooldownAfterSuccess({
+        claimedStartedAt: now - 5_000,
+        cooldownUntil: now - 1,
+        now,
       }),
     ).toBe(false);
   });
