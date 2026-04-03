@@ -4,6 +4,10 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import {
+  readMachinesV2MobileDragOffsetRange,
+  readMachinesV2SettledMobilePane,
+} from "@/lib/machinesWorkspaceV2MobileShell";
 import { MachinesWorkspaceV2View } from "./MachinesWorkspaceV2View";
 
 const { act } = React;
@@ -59,6 +63,28 @@ function installDesktopMatchMedia() {
     configurable: true,
     value: (query: string) => ({
       matches: query.includes("max-width") ? false : false,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  });
+}
+
+function installMobileMatchMedia() {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 390,
+    writable: true,
+  });
+
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: (query: string) => ({
+      matches: query.includes("max-width"),
       media: query,
       onchange: null,
       addEventListener: () => {},
@@ -242,5 +268,128 @@ describe("MachinesWorkspaceV2View desktop pane layout", () => {
     expect(
       track.style.getPropertyValue("--workspace-right-sidebar-width"),
     ).toBe("288px");
+  });
+});
+
+describe("MachinesWorkspaceV2View mobile pane model", () => {
+  let rootElement: HTMLDivElement | null = null;
+  let root: Root | null = null;
+
+  beforeEach(() => {
+    installMobileMatchMedia();
+  });
+
+  afterEach(() => {
+    if (root !== null) {
+      const mountedRoot = root;
+      act(() => {
+        mountedRoot.unmount();
+      });
+      root = null;
+    }
+    rootElement?.remove();
+    rootElement = null;
+  });
+
+  it("renders the route-owned mobile shell and keeps both sidebar triggers", async () => {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+
+    await act(async () => {
+      root?.render(<MachinesWorkspaceV2View {...buildProps()} />);
+    });
+
+    const shell = rootElement.querySelector<HTMLElement>(
+      '[data-sidebar-shell="v2-mobile"]',
+    );
+    const track = rootElement.querySelector<HTMLElement>(
+      '[data-sidebar-track="v2-mobile"]',
+    );
+    const leftToggleButton = rootElement.querySelector<HTMLButtonElement>(
+      'button[aria-label="Toggle Left Sidebar"]',
+    );
+    const rightToggleButton = rootElement.querySelector<HTMLButtonElement>(
+      'button[aria-label="Toggle Right Sidebar"]',
+    );
+    expect(shell).not.toBeNull();
+    expect(track).not.toBeNull();
+    expect(leftToggleButton).not.toBeNull();
+    expect(rightToggleButton).not.toBeNull();
+    if (
+      shell === null ||
+      track === null ||
+      leftToggleButton === null ||
+      rightToggleButton === null
+    ) {
+      return;
+    }
+
+    expect(shell.dataset.mobilePane).toBe("main");
+    expect(track.style.getPropertyValue("--workspace-left-sidebar-width")).toBe(
+      "288px",
+    );
+    expect(
+      track.style.getPropertyValue("--workspace-right-sidebar-width"),
+    ).toBe("288px");
+
+    await act(async () => {
+      leftToggleButton.click();
+    });
+    expect(shell.dataset.mobilePane).toBe("left");
+    expect(track.style.transform).toBe("translate3d(0px, 0, 0)");
+
+    await act(async () => {
+      rightToggleButton.click();
+    });
+    expect(shell.dataset.mobilePane).toBe("right");
+    expect(track.style.transform).toBe("translate3d(-576px, 0, 0)");
+  });
+
+  it("only allows adjacent settling in one gesture", () => {
+    expect(
+      readMachinesV2MobileDragOffsetRange({
+        currentPane: "left",
+        leftSidebarWidthPx: 288,
+        rightSidebarWidthPx: 288,
+      }),
+    ).toEqual({
+      maxOffsetPx: 0,
+      minOffsetPx: -288,
+    });
+    expect(
+      readMachinesV2MobileDragOffsetRange({
+        currentPane: "right",
+        leftSidebarWidthPx: 288,
+        rightSidebarWidthPx: 288,
+      }),
+    ).toEqual({
+      maxOffsetPx: 288,
+      minOffsetPx: 0,
+    });
+    expect(
+      readMachinesV2SettledMobilePane({
+        currentPane: "left",
+        dragOffsetPx: -200,
+        leftSidebarWidthPx: 288,
+        rightSidebarWidthPx: 288,
+      }),
+    ).toBe("main");
+    expect(
+      readMachinesV2SettledMobilePane({
+        currentPane: "right",
+        dragOffsetPx: 200,
+        leftSidebarWidthPx: 288,
+        rightSidebarWidthPx: 288,
+      }),
+    ).toBe("main");
+    expect(
+      readMachinesV2SettledMobilePane({
+        currentPane: "main",
+        dragOffsetPx: -200,
+        leftSidebarWidthPx: 288,
+        rightSidebarWidthPx: 288,
+      }),
+    ).toBe("right");
   });
 });

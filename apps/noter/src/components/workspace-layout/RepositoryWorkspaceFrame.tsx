@@ -24,7 +24,6 @@ export function RepositoryWorkspaceFrame({
   headerTestId,
   contentClassName,
   clampSidebarWidthsToShell,
-  mobilePaneSettleMode,
 }: {
   leftSidebarHeader: SidebarSlot;
   leftSidebarContent: SidebarSlot;
@@ -38,7 +37,6 @@ export function RepositoryWorkspaceFrame({
   headerTestId?: string;
   contentClassName?: string;
   clampSidebarWidthsToShell?: boolean;
-  mobilePaneSettleMode?: "adjacent-only" | "legacy";
 }) {
   // `null` means "show the standard empty sidebar surface" so routes keep the
   // shared chrome and trigger behavior even before they have real pane content.
@@ -52,7 +50,6 @@ export function RepositoryWorkspaceFrame({
       clampSidebarWidthsToShell={clampSidebarWidthsToShell}
       dataTestId={dataTestId}
       headerTestId={headerTestId}
-      mobilePaneSettleMode={mobilePaneSettleMode}
       leftSidebarHeader={leftSidebarHeader}
       leftSidebarContent={resolvedLeftSidebarContent}
       rightSidebarHeader={rightSidebarHeader}
