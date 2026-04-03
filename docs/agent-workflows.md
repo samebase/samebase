@@ -36,19 +36,20 @@ worktree must use the prefix `tmp-<worktree-id>-<intent>`.
 
 These are the intended meanings for the repo shorthand commands:
 
-| Command        | Meaning                                                                |
-| -------------- | ---------------------------------------------------------------------- |
-| `commit`       | Stage and create a concise commit on the current branch                |
-| `push`         | Commit if needed, then push                                            |
-| `create pr`    | Push if needed, then create or update a ready PR                       |
-| `create draft` | Push if needed, then create or update a draft PR                       |
-| `ready`        | Mark the current PR ready                                              |
-| `wait`         | Watch CI and report status                                             |
-| `ship`         | Commit, push, refresh PR state, clear review feedback, and wait for CI |
-| `archive`      | Remove the current worktree/local branch after confirming a PR exists  |
-| `clean vaults` | Delete matching temporary Noter-managed vaults safely                  |
-| `clean`        | Run `clean vaults`, then remove the shipped worktree and branch        |
-| `status`       | Report branch, local changes, and PR state                             |
+| Command        | Meaning                                                                                   |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| `commit`       | Stage and create a concise commit on the current branch                                   |
+| `push`         | Commit if needed, then push                                                               |
+| `create pr`    | Push if needed, then create or update a ready PR                                          |
+| `create draft` | Push if needed, then create or update a draft PR                                          |
+| `ready`        | Mark the current PR ready                                                                 |
+| `wait`         | Watch CI and report status                                                                |
+| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, and wait for CI |
+| `squash`       | Squash-merge the current PR                                                               |
+| `archive`      | Remove the current worktree/local branch after confirming a PR exists                     |
+| `clean vaults` | Delete matching temporary Noter-managed vaults safely                                     |
+| `clean`        | Run `clean vaults`, then remove the shipped worktree and branch                           |
+| `status`       | Report branch, local changes, and PR state                                                |
 
 ## PR Body Standard
 
@@ -74,13 +75,18 @@ Rules:
 
 ## PR Timing
 
-- For implementation work where the agent proactively opens an early PR before
-  the user asks for PR state, use a draft PR rather than waiting until the end.
-- If GitHub requires a diff before that first proactive draft PR, create a
-  minimal checkpoint commit after bootstrap.
+- Do not leave a meaningful non-`main` work branch with implementation, docs, or
+  research work without a GitHub PR. Before the agent concludes the task, create
+  or update the branch PR unless the user explicitly says not to open one.
+- Default proactive PR state is ready/non-draft so the branch is preserved in
+  GitHub. Use a draft PR only when the work is still in progress or the user
+  explicitly asks to keep it draft.
+- If GitHub requires a diff before that first proactive PR, create a minimal
+  checkpoint commit after bootstrap.
 - When the user says `create pr`, create or update a ready non-draft PR.
 - When the user says `create draft`, create or update a draft PR.
 - If the user explicitly asks to keep the PR draft, respect that.
+- `ship` must end with an updated ready PR before waiting on CI.
 
 ## Review And Ship
 
@@ -94,6 +100,8 @@ Rules:
 - Treat actionable Greptile, CodeRabbit, and Codex comments as required fixes.
 - Do not merge while CI is red or while required review tooling is still in
   progress.
+- When the user says `squash`, squash-merge the current PR through the CLI after
+  confirming CI is green and rebasing on the latest `origin/main`.
 - Immediately before merge, run `git fetch origin` and rebase onto the latest
   `origin/main`.
 - Prefer squash merge unless there is an explicit reason to preserve the full
