@@ -99,6 +99,7 @@ describe("MachinesWorkspaceThreadPane", () => {
         selectedMachineDisplayName="Research MacBook Pro"
         selectedMachineHostname="research-mbp.local"
         selectedMachineStatusReason={null}
+        hasPendingStartedThread={false}
         isLoading={false}
         errorMessage={null}
         isSubmittingTurn={false}

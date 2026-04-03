@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { SidebarProvider } from "@/components/sidebar";
 import {
@@ -269,13 +269,12 @@ const SIXTH_THREAD: CodexAppServerThread = {
 };
 
 export function MachinesWorkspaceVisualFixture() {
-  const machineThreads = useMemo(
-    () => ({
-      "machine-mac": [FIRST_THREAD, SECOND_THREAD, THIRD_THREAD],
-      "machine-win": [FOURTH_THREAD, FIFTH_THREAD, SIXTH_THREAD],
-    }),
-    [],
-  );
+  const [machineThreads, setMachineThreads] = useState<
+    Record<string, CodexAppServerThread[]>
+  >({
+    "machine-mac": [FIRST_THREAD, SECOND_THREAD, THIRD_THREAD],
+    "machine-win": [FOURTH_THREAD, FIFTH_THREAD, SIXTH_THREAD],
+  });
   const [selectedMachineId, setSelectedMachineId] =
     useState<string>("machine-mac");
   const [selectedThreadId, setSelectedThreadId] = useState<string>(
@@ -287,6 +286,7 @@ export function MachinesWorkspaceVisualFixture() {
     "machine-mac": [SECOND_THREAD.id, THIRD_THREAD.id],
     "machine-win": [FOURTH_THREAD.id],
   });
+  const createdThreadCountRef = useRef(0);
   const selectedThread = useMemo(
     () =>
       Object.values(machineThreads)
@@ -324,6 +324,45 @@ export function MachinesWorkspaceVisualFixture() {
             ),
       };
     });
+  };
+  const handleProjectStartConversation = (args: {
+    machineId: string;
+    projectId: string;
+    projectLabel: string;
+    projectRootCwd: string;
+  }) => {
+    createdThreadCountRef.current += 1;
+    const nextId = `thread-machine-workspace-created-${createdThreadCountRef.current}`;
+    const nextUpdatedAt =
+      FIXTURE_RELATIVE_TIME_REFERENCE_MS +
+      createdThreadCountRef.current * 60_000;
+    const nextThread: CodexAppServerThread = {
+      ...FIRST_THREAD,
+      createdAt: nextUpdatedAt,
+      cwd: args.projectRootCwd,
+      id: nextId,
+      name: `New conversation ${createdThreadCountRef.current}`,
+      path: `${FIXTURE_SESSION_ROOT}/${nextId}.jsonl`,
+      preview: `Start a new ${args.projectLabel} conversation from the project row.`,
+      project: {
+        id: args.projectId,
+        label: args.projectLabel,
+        rootCwd: args.projectRootCwd,
+      },
+      turns: [],
+      updatedAt: nextUpdatedAt,
+      workspace: {
+        isProjectRoot: true,
+        label: null,
+      },
+    };
+
+    setMachineThreads((currentThreads) => ({
+      ...currentThreads,
+      [args.machineId]: [nextThread, ...(currentThreads[args.machineId] ?? [])],
+    }));
+    setSelectedMachineId(args.machineId);
+    setSelectedThreadId(nextId);
   };
 
   return (
@@ -364,7 +403,9 @@ export function MachinesWorkspaceVisualFixture() {
                   threads: machineThreads["machine-win"],
                 },
               ]}
+              hasPendingStartedThread={false}
               pendingPinThreadKey={null}
+              pendingProjectStartKey={null}
               selectedMachineId={selectedMachineId}
               selectedMachineDisplayName={selectedMachineDisplayName}
               selectedMachineHostname={selectedMachineHostname}
@@ -375,6 +416,7 @@ export function MachinesWorkspaceVisualFixture() {
               selectedThreadId={selectedThreadId}
               relativeTimeReferenceMs={FIXTURE_RELATIVE_TIME_REFERENCE_MS}
               turnDraft="Continue with the main pane chat surface."
+              onProjectStartConversation={handleProjectStartConversation}
               onTurnDraftChange={() => {}}
               onTurnSubmit={() => {}}
               onThreadPinChange={handleThreadPinChange}

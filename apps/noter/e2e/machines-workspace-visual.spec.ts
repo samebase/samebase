@@ -91,7 +91,10 @@ test("machines workspace narrow sidebar keeps thread titles clamped", async ({
 test("machines workspace project collapse stays closed", async ({ page }) => {
   await openMachinesWorkspaceFixture(page);
 
-  const projectToggle = page.getByRole("button", { name: "noter" });
+  const projectToggle = page.getByRole("button", {
+    name: "noter",
+    exact: true,
+  });
   const projectThread = page.getByRole("button", {
     name: /Research sidebar resizing/,
   });
@@ -146,6 +149,21 @@ test("machines workspace machine collapse stays closed", async ({ page }) => {
   await page.waitForTimeout(1200);
   await expect(secondMachineThread).toBeHidden();
 });
+
+test("machines workspace project plus button starts a new conversation", async ({
+  page,
+}) => {
+  await openMachinesWorkspaceFixture(page);
+
+  await page
+    .getByRole("button", { name: "Start new conversation in noter" })
+    .click();
+
+  await expect(
+    page.getByRole("button", { name: /New conversation 1/ }),
+  ).toBeVisible();
+});
+
 test.describe("mobile", () => {
   test.use(iPhone13);
 

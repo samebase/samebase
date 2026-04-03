@@ -56,6 +56,7 @@ describe("MachinesWorkspaceView", () => {
         defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
       >
         <MachinesWorkspaceView
+          hasPendingStartedThread={false}
           isSubmittingTurn={false}
           machineInventories={[
             {
@@ -79,6 +80,7 @@ describe("MachinesWorkspaceView", () => {
           selectedThreadLoading={false}
           selectedThreadId={THREAD_FIXTURE.id}
           pendingPinThreadKey={null}
+          pendingProjectStartKey={null}
           turnDraft=""
           onTurnDraftChange={() => {}}
           onTurnSubmit={() => {}}
@@ -93,5 +95,48 @@ describe("MachinesWorkspaceView", () => {
     expect(markup).toMatch(
       /<button[^>]*disabled=""[^>]*>.*Offline machine thread/s,
     );
+  });
+
+  it("renders a project-level start conversation button", () => {
+    const markup = renderToStaticMarkup(
+      <SidebarProvider
+        defaultOpen={true}
+        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+      >
+        <MachinesWorkspaceView
+          hasPendingStartedThread={false}
+          isSubmittingTurn={false}
+          machineInventories={[
+            {
+              hasLoadedThreadInventory: true,
+              machineDisplayName: "Research MacBook Pro",
+              machineHostname: "research-mbp.local",
+              machineId: "machine-mac",
+              machineStatus: "online",
+              machineStatusReason: null,
+              pinnedThreadIds: [],
+              threads: [THREAD_FIXTURE],
+            },
+          ]}
+          pendingPinThreadKey={null}
+          pendingProjectStartKey={null}
+          selectedMachineId="machine-mac"
+          selectedMachineDisplayName="Research MacBook Pro"
+          selectedMachineHostname="research-mbp.local"
+          selectedMachineStatusReason={null}
+          selectedThread={THREAD_FIXTURE}
+          selectedThreadError={null}
+          selectedThreadLoading={false}
+          selectedThreadId={THREAD_FIXTURE.id}
+          turnDraft=""
+          onProjectStartConversation={() => {}}
+          onTurnDraftChange={() => {}}
+          onTurnSubmit={() => {}}
+        />
+      </SidebarProvider>,
+    );
+
+    expect(markup).toContain("Start new conversation in noter");
   });
 });

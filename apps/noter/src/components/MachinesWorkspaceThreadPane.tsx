@@ -24,6 +24,7 @@ type MachinesWorkspaceThreadPaneProps = {
   selectedMachineDisplayName: string | null;
   selectedMachineHostname: string | null;
   selectedMachineStatusReason: string | null;
+  hasPendingStartedThread: boolean;
   isLoading: boolean;
   errorMessage: string | null;
   isSubmittingTurn: boolean;
@@ -164,6 +165,7 @@ export function MachinesWorkspaceThreadPane({
   selectedMachineDisplayName,
   selectedMachineHostname,
   selectedMachineStatusReason,
+  hasPendingStartedThread,
   isLoading,
   errorMessage,
   isSubmittingTurn,
@@ -213,6 +215,10 @@ export function MachinesWorkspaceThreadPane({
   if (selectedMachineStatusReason !== null) {
     emptyStateTitle = "Machine control unavailable";
     emptyStateBody = selectedMachineStatusReason;
+  } else if (selectedThreadId !== null && hasPendingStartedThread) {
+    emptyStateTitle = "New conversation";
+    emptyStateBody =
+      "This machine started a new thread. Send the first prompt to materialize its message history.";
   } else if (selectedThreadId !== null && isLoading) {
     emptyStateTitle = "Loading thread";
     emptyStateBody = `Loading ${selectedThreadId}.`;
