@@ -598,6 +598,22 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
     });
   });
 
+  it("treats the 40-branch boundary as still eligible for full enrichment", () => {
+    expect(
+      computeRepositoryTreeMetadataSyncPlan({
+        includeCloudflarePreviewLinks: true,
+        trigger: "visibility",
+        remoteBranchCount: 40,
+      }),
+    ).toEqual({
+      shouldSyncMetadata: true,
+      includeAheadBehind: true,
+      includePullRequestLinks: true,
+      includeCloudflarePreviewLinks: true,
+      includeLastCommitTimestamps: true,
+    });
+  });
+
   it("keeps manual refreshes fully enriched even for large repos", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
@@ -649,6 +665,26 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
       includePullRequestLinks: true,
       includeCloudflarePreviewLinks: false,
       includeLastCommitTimestamps: false,
+    });
+  });
+
+  it("treats the 40-branch boundary as below the automatic budget cap", () => {
+    expect(
+      applyRepositoryTreeMetadataSyncBudget({
+        shouldSyncMetadata: true,
+        includeAheadBehind: true,
+        includePullRequestLinks: true,
+        includeCloudflarePreviewLinks: true,
+        includeLastCommitTimestamps: true,
+        trigger: "visibility",
+        remoteBranchCount: 40,
+      }),
+    ).toEqual({
+      shouldSyncMetadata: true,
+      includeAheadBehind: true,
+      includePullRequestLinks: true,
+      includeCloudflarePreviewLinks: true,
+      includeLastCommitTimestamps: true,
     });
   });
 

@@ -101,6 +101,11 @@ const GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE = 100;
 const MAX_GITHUB_REPOSITORY_PAGES = 100;
 const GITHUB_RATE_LIMIT_FALLBACK_MS = 5 * 60 * 1000;
 const MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS = 30 * 1000;
+/**
+ * Automatic refreshes above this cached branch count keep PR lookup but skip
+ * ahead/behind, preview-comment backfills, and commit timestamps to bound the
+ * GitHub fan-out cost for large repos.
+ */
 const MAX_AUTO_REFRESH_BRANCH_ENRICHMENT_BRANCHES = 40;
 
 function toHeaderMap(value: unknown): HeaderMap | null {
@@ -412,6 +417,8 @@ export function applyRepositoryTreeMetadataSyncBudget(args: {
     };
   }
 
+  // Preserve PR links for large automatic refreshes while dropping the
+  // expensive metadata backfills that scale with branch count.
   return {
     shouldSyncMetadata: true,
     includeAheadBehind: false,
@@ -2608,11 +2615,14 @@ export const updateRepositoryTree = internalAction({
       typeof args.branch === "string" && args.branch.trim().length > 0
         ? args.branch.trim()
         : undefined;
+    // All current callers are user-driven follow-ups after a repo mutation, so
+    // this helper should stay on the fully enriched manual path.
     const metadataSyncPlan = computeRepositoryTreeMetadataSyncPlan({
       targetBranch,
       includeAheadBehind: args.includeAheadBehind,
       includePullRequestLinks: args.includePullRequestLinks,
       includeCloudflarePreviewLinks: args.includeCloudflarePreviewLinks,
+      trigger: "manual",
     });
 
     if (metadataSyncPlan.shouldSyncMetadata) {

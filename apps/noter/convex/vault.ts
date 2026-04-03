@@ -1474,6 +1474,8 @@ async function getVaultByRepositoryHelper(
     treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
     lastRepositoryMetadataRefreshAt:
       getLastRepositoryMetadataRefreshAt(remoteBranches),
+    // Keep deleted-upstream cache rows in the count so large-repo auto budgets
+    // do not oscillate while remote branch cleanup catches up.
     remoteBranchCount: remoteBranches.length,
     hasResolvedBranchTree: branchTree !== null,
     defaultBranch,
