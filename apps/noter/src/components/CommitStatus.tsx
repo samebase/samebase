@@ -37,9 +37,9 @@ interface GitHubCommitStatus {
   target_url: string | null;
 }
 
-interface RateLimitedState {
+interface ChecksPausedState {
   message: string;
-  resetAtMs: number | null;
+  untilMs: number | null;
 }
 
 interface CommitStatusProps {
@@ -193,12 +193,12 @@ function hasRunningStatuses(
   );
 }
 
-function formatRateLimitedTitle(rateLimited: RateLimitedState): string {
-  if (rateLimited.resetAtMs === null) {
-    return rateLimited.message;
+function formatChecksPausedTitle(paused: ChecksPausedState): string {
+  if (paused.untilMs === null) {
+    return paused.message;
   }
 
-  return `${rateLimited.message} • Resets at ${new Date(rateLimited.resetAtMs).toLocaleString()}`;
+  return `${paused.message} • Until ${new Date(paused.untilMs).toLocaleString()}`;
 }
 
 function StatusBadge({
@@ -270,7 +270,9 @@ export function CommitStatus({
   >(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [rateLimited, setRateLimited] = useState<RateLimitedState | null>(null);
+  const [checksPaused, setChecksPaused] = useState<ChecksPausedState | null>(
+    null,
+  );
 
   const getCommitStatus = useAction(api.githubChecks.getCommitStatus);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -300,7 +302,7 @@ export function CommitStatus({
       setCommitStatuses(null);
       setLoading(false);
       setError(null);
-      setRateLimited(null);
+      setChecksPaused(null);
       return () => {
         requestTokenRef.current += 1;
         clearScheduledFetch();
@@ -352,10 +354,28 @@ export function CommitStatus({
           return;
         }
 
-        if (result.kind === "rate_limited") {
-          setRateLimited({
+        if (result.kind === "cooldown") {
+          setChecksPaused({
             message: result.message,
-            resetAtMs: result.resetAtMs,
+            untilMs: result.cooldownUntilMs,
+          });
+          setError(null);
+
+          scheduleFetch(
+            Math.max(result.cooldownUntilMs - Date.now(), MIN_FETCH_GAP_MS),
+          );
+          return;
+        }
+
+        if (result.kind === "rate_limited") {
+          const untilMs =
+            result.resetAtMs ??
+            (result.retryAfterMs === null
+              ? null
+              : Date.now() + result.retryAfterMs);
+          setChecksPaused({
+            message: result.message,
+            untilMs,
           });
           setError(null);
 
@@ -379,7 +399,7 @@ export function CommitStatus({
           return;
         }
 
-        setRateLimited(null);
+        setChecksPaused(null);
         setCheckRuns(result.check_runs);
         setCommitStatuses(result.statuses);
 
@@ -406,7 +426,7 @@ export function CommitStatus({
         }
 
         console.error("Failed to fetch CI status:", err);
-        setRateLimited(null);
+        setChecksPaused(null);
         setError(
           err instanceof Error ? err.message || "Unknown error" : String(err),
         );
@@ -422,7 +442,7 @@ export function CommitStatus({
       }
     };
 
-    setRateLimited(null);
+    setChecksPaused(null);
     setError(null);
     void fetchCommitStatus(true);
 
@@ -453,12 +473,12 @@ export function CommitStatus({
     );
   }
 
-  if (rateLimited) {
+  if (checksPaused) {
     return (
       <InlineState
-        label="GitHub rate limited"
+        label="Checks paused"
         className={cn("text-amber-600", className)}
-        title={formatRateLimitedTitle(rateLimited)}
+        title={formatChecksPausedTitle(checksPaused)}
       />
     );
   }

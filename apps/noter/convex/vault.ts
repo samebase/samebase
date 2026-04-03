@@ -32,6 +32,9 @@ import {
 } from "./hostingState";
 import { resolveHostingMainUrl } from "./hostingStateHelpers";
 import {
+  doesTreeRefreshClaimMatch,
+  getLastRepositoryMetadataRefreshAt,
+  shouldPreserveTreeRefreshCooldownAfterSuccess,
   TREE_REFRESH_DEBOUNCE_MS,
   TREE_REFRESH_STALE_LOCK_MS,
 } from "../shared/treeRefresh";
@@ -1469,6 +1472,8 @@ async function getVaultByRepositoryHelper(
     treeRefreshFailureKind: vault.treeRefreshFailureKind,
     treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
     treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
+    lastRepositoryMetadataRefreshAt:
+      getLastRepositoryMetadataRefreshAt(remoteBranches),
     hasResolvedBranchTree: branchTree !== null,
     defaultBranch,
     resolvedBranch,
@@ -1636,8 +1641,21 @@ export const getByRepositoryFullName = internalQuery({
 const REFRESH_DEBOUNCE_MS = TREE_REFRESH_DEBOUNCE_MS;
 const STALE_LOCK_MS = TREE_REFRESH_STALE_LOCK_MS;
 
+function getLaterCooldownUntil(
+  existingCooldownUntil: number | undefined,
+  nextCooldownUntil: number | undefined,
+): number | undefined {
+  if (typeof existingCooldownUntil !== "number") {
+    return nextCooldownUntil;
+  }
+  if (typeof nextCooldownUntil !== "number") {
+    return existingCooldownUntil;
+  }
+  return Math.max(existingCooldownUntil, nextCooldownUntil);
+}
+
 // Atomically claim the tree refresh lock for a vault.
-// Returns { claimed: true } if this caller should proceed, { claimed: false } if skipped.
+// Returns the claimed timestamp when this caller should proceed.
 export const claimTreeRefresh = internalMutation({
   args: {
     vaultId: v.id("vaults"),
@@ -1647,6 +1665,7 @@ export const claimTreeRefresh = internalMutation({
   },
   returns: v.object({
     claimed: v.boolean(),
+    startedAt: v.optional(v.number()),
     reason: v.optional(
       v.union(
         v.literal("cooldown"),
@@ -1660,6 +1679,7 @@ export const claimTreeRefresh = internalMutation({
     args,
   ): Promise<{
     claimed: boolean;
+    startedAt?: number;
     reason?: "cooldown" | "recent_success" | "in_progress";
   }> => {
     const vault = await ctx.db.get(args.vaultId);
@@ -1699,7 +1719,7 @@ export const claimTreeRefresh = internalMutation({
 
     // Claim the lock
     await ctx.db.patch(args.vaultId, { treeRefreshStartedAt: now });
-    return { claimed: true };
+    return { claimed: true, startedAt: now };
   },
 });
 
@@ -1719,16 +1739,44 @@ export const startTreeRefreshOptimistic = mutation({
 export const releaseTreeRefresh = internalMutation({
   args: {
     vaultId: v.id("vaults"),
+    startedAt: v.number(),
     markRefreshed: v.optional(v.boolean()),
+    updateLastTreeRefreshAt: v.optional(v.boolean()),
     failureKind: v.optional(TreeRefreshFailureKind),
     failureMessage: v.optional(v.string()),
     cooldownUntil: v.optional(v.number()),
   },
+  returns: object({
+    released: boolean(),
+  }),
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault) return;
+    if (!vault) {
+      return { released: false };
+    }
+
+    if (
+      !doesTreeRefreshClaimMatch({
+        claimedStartedAt: args.startedAt,
+        treeRefreshStartedAt: vault.treeRefreshStartedAt,
+      })
+    ) {
+      return { released: false };
+    }
 
     const now = Date.now();
+    const cooldownUntil = getLaterCooldownUntil(
+      vault.treeRefreshCooldownUntil,
+      args.cooldownUntil,
+    );
+    const shouldPreserveCooldownState =
+      args.markRefreshed !== false &&
+      shouldPreserveTreeRefreshCooldownAfterSuccess({
+        claimedStartedAt: args.startedAt,
+        lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
+        cooldownUntil,
+        now,
+      });
     await ctx.db.patch(
       args.vaultId,
       args.markRefreshed === false
@@ -1737,17 +1785,70 @@ export const releaseTreeRefresh = internalMutation({
             lastTreeRefreshFailedAt: now,
             treeRefreshFailureKind: args.failureKind ?? "failed",
             treeRefreshFailureMessage: args.failureMessage,
-            treeRefreshCooldownUntil: args.cooldownUntil,
+            treeRefreshCooldownUntil: cooldownUntil,
           }
         : {
-            lastTreeRefreshAt: now,
+            lastTreeRefreshAt:
+              args.updateLastTreeRefreshAt === false
+                ? vault.lastTreeRefreshAt
+                : now,
             treeRefreshStartedAt: undefined,
-            lastTreeRefreshFailedAt: undefined,
-            treeRefreshFailureKind: undefined,
-            treeRefreshFailureMessage: undefined,
-            treeRefreshCooldownUntil: undefined,
+            // Preserve any newer repo-level cooldown that landed while this
+            // tree refresh was still in flight so a late success cannot reopen
+            // GitHub traffic immediately.
+            lastTreeRefreshFailedAt: shouldPreserveCooldownState
+              ? vault.lastTreeRefreshFailedAt
+              : undefined,
+            treeRefreshFailureKind: shouldPreserveCooldownState
+              ? vault.treeRefreshFailureKind
+              : undefined,
+            treeRefreshFailureMessage: shouldPreserveCooldownState
+              ? vault.treeRefreshFailureMessage
+              : undefined,
+            treeRefreshCooldownUntil: shouldPreserveCooldownState
+              ? cooldownUntil
+              : undefined,
           },
     );
+    return { released: true };
+  },
+});
+
+export const recordTreeRefreshFailure = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    startedAt: optional(number()),
+    failureKind: optional(TreeRefreshFailureKind),
+    failureMessage: optional(string()),
+    cooldownUntil: optional(number()),
+  },
+  returns: nullValidator,
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault) {
+      return null;
+    }
+    // Ignore stale fallback failures once another refresh claim has taken over.
+    if (
+      typeof args.startedAt === "number" &&
+      !doesTreeRefreshClaimMatch({
+        claimedStartedAt: args.startedAt,
+        treeRefreshStartedAt: vault.treeRefreshStartedAt,
+      })
+    ) {
+      return null;
+    }
+
+    await ctx.db.patch(args.vaultId, {
+      lastTreeRefreshFailedAt: Date.now(),
+      treeRefreshFailureKind: args.failureKind ?? "failed",
+      treeRefreshFailureMessage: args.failureMessage,
+      treeRefreshCooldownUntil: getLaterCooldownUntil(
+        vault.treeRefreshCooldownUntil,
+        args.cooldownUntil,
+      ),
+    });
+    return null;
   },
 });
 

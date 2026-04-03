@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { getTreeRefreshUiState } from "./treeRefreshStatus";
+import {
+  getTreeRefreshUiState,
+  shouldAutoRefreshVault,
+} from "./treeRefreshStatus";
 
 describe("getTreeRefreshUiState", () => {
   const now = Date.parse("2026-03-26T18:00:00Z");
@@ -66,5 +69,74 @@ describe("getTreeRefreshUiState", () => {
         treeRefreshFailureKind: "failed",
       }),
     ).toEqual({ kind: "idle" });
+  });
+});
+
+describe("shouldAutoRefreshVault", () => {
+  const now = Date.parse("2026-04-03T12:00:00Z");
+
+  it("backfills metadata even before any active branch rows exist", () => {
+    expect(
+      shouldAutoRefreshVault({
+        lastTreeRefreshAt: now - 1_000,
+        remoteBranches: [],
+        trigger: "page_load",
+        now,
+      }),
+    ).toBe(true);
+  });
+
+  it("uses deleted-upstream rows as freshness fallback when active rows are absent", () => {
+    expect(
+      shouldAutoRefreshVault({
+        lastTreeRefreshAt: now - 1_000,
+        remoteBranches: [
+          {
+            remoteState: "deleted_upstream",
+            lastSyncedAt: now - 30_000,
+            pullRequestNumber: 42,
+          },
+        ],
+        trigger: "visibility",
+        now,
+      }),
+    ).toBe(false);
+  });
+
+  it("ignores deleted-upstream preview gaps when deciding metadata staleness", () => {
+    expect(
+      shouldAutoRefreshVault({
+        lastTreeRefreshAt: now - 1_000,
+        remoteBranches: [
+          {
+            remoteState: "deleted_upstream",
+            lastSyncedAt: now - 30_000,
+            pullRequestNumber: 42,
+          },
+          {
+            remoteState: "active",
+            lastSyncedAt: now - 30_000,
+          },
+        ],
+        trigger: "visibility",
+        now,
+      }),
+    ).toBe(false);
+  });
+
+  it("treats an invalid lastTreeRefreshAt as stale on page load", () => {
+    expect(
+      shouldAutoRefreshVault({
+        lastTreeRefreshAt: Number.NaN,
+        remoteBranches: [
+          {
+            remoteState: "active",
+            lastSyncedAt: now - 30_000,
+          },
+        ],
+        trigger: "page_load",
+        now,
+      }),
+    ).toBe(true);
   });
 });

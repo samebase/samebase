@@ -2700,11 +2700,14 @@ export const pullFromGitHub = action({
     }
 
     // Atomically claim the refresh lock; force because user explicitly requested pull
-    const { claimed } = await ctx.runMutation(internal.vault.claimTreeRefresh, {
+    const claim = await ctx.runMutation(internal.vault.claimTreeRefresh, {
       vaultId: vault._id,
       force: true,
     });
-    if (!claimed) return null;
+    if (!claim.claimed) return null;
+    if (typeof claim.startedAt !== "number") {
+      throw new Error("Tree refresh claim missing start timestamp");
+    }
 
     try {
       await ctx.runAction(internal.fileStagingActions.pullFromGitHubInternal, {
@@ -2713,6 +2716,7 @@ export const pullFromGitHub = action({
       });
       await ctx.runMutation(internal.vault.releaseTreeRefresh, {
         vaultId: vault._id,
+        startedAt: claim.startedAt,
         markRefreshed: true,
       });
     } catch (error) {
@@ -2720,13 +2724,26 @@ export const pullFromGitHub = action({
       if (failure.kind === "rate_limited") {
         githubRateLimitResetByUser.set(userId, failure.cooldownUntil);
       }
-      await ctx.runMutation(internal.vault.releaseTreeRefresh, {
-        vaultId: vault._id,
-        markRefreshed: false,
-        failureKind: failure.kind,
-        failureMessage: failure.message,
-        cooldownUntil: failure.cooldownUntil,
-      });
+      const releaseResult = await ctx.runMutation(
+        internal.vault.releaseTreeRefresh,
+        {
+          vaultId: vault._id,
+          startedAt: claim.startedAt,
+          markRefreshed: false,
+          failureKind: failure.kind,
+          failureMessage: failure.message,
+          cooldownUntil: failure.cooldownUntil,
+        },
+      );
+      if (!releaseResult.released) {
+        await ctx.runMutation(internal.vault.recordTreeRefreshFailure, {
+          vaultId: vault._id,
+          startedAt: claim.startedAt,
+          failureKind: failure.kind,
+          failureMessage: failure.message,
+          cooldownUntil: failure.cooldownUntil,
+        });
+      }
       throw error;
     }
 

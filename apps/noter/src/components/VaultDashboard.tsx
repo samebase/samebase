@@ -20,7 +20,10 @@ import {
   formatRelativeTimeAgo,
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
-import { getTreeRefreshUiState } from "@/lib/treeRefreshStatus";
+import {
+  getTreeRefreshUiState,
+  shouldAutoRefreshVault,
+} from "@/lib/treeRefreshStatus";
 import {
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
   CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
@@ -184,7 +187,7 @@ const isCreateTemplate = (value: string): value is CreateTemplate =>
   value === "app" || value === "agent";
 
 const DASHBOARD_REFRESH_CONCURRENCY = 3;
-type RefreshTrigger = "focus" | "page_load";
+type RefreshTrigger = "visibility" | "page_load";
 const PROVIDER_KEYS = ["github", "convex", "cloudflare"] as const;
 type ProviderKey = (typeof PROVIDER_KEYS)[number];
 type ProviderMetadata = {
@@ -205,6 +208,7 @@ type DashboardManualRefreshVault = {
   ghRepoName: string;
   ghRepoOwner: string;
   remoteBranches: Array<{
+    remoteState: "active" | "deleted_upstream";
     cloudflareBranchPreviewUrl?: string;
     pullRequestNumber?: number;
   }>;
@@ -846,6 +850,7 @@ function VaultDashboardContent() {
   >(null);
   const providersPanelPendingRef = useRef<boolean | null>(null);
   const cloudflareAutoCheckInFlightRef = useRef(false);
+  const initialDashboardPageLoadSentRef = useRef(false);
   const initialCloudflareMcpTokenCheckedAtRef = useRef<
     number | undefined | null
   >(null);
@@ -940,16 +945,22 @@ function VaultDashboardContent() {
   }, []);
 
   const refreshVaultTreesIfNeeded = useCallback(
-    (trigger: RefreshTrigger = "focus") => {
+    (trigger: RefreshTrigger = "visibility") => {
       if (!vaults || vaults.length === 0) {
         return;
       }
 
+      const now = Date.now();
       const readyVaults = vaults.filter((vault) => vault.state === "ready");
       const vaultsToRefresh = readyVaults.filter((vault) =>
         typeof vault.treeRefreshCooldownUntil !== "number" ||
-        vault.treeRefreshCooldownUntil <= Date.now()
-          ? claimRefreshDebounce("dashboard", vault.repositoryFullName)
+        vault.treeRefreshCooldownUntil <= now
+          ? shouldAutoRefreshVault({
+              lastTreeRefreshAt: vault.lastTreeRefreshAt,
+              remoteBranches: vault.remoteBranches,
+              trigger,
+              now,
+            }) && claimRefreshDebounce("dashboard", vault.repositoryFullName)
           : false,
       );
 
@@ -971,18 +982,18 @@ function VaultDashboardContent() {
           await Promise.all(
             batch.map(async (vault) => {
               const shouldIncludeCloudflarePreviewLinks =
-                trigger === "page_load" ||
                 vault.remoteBranches.some(
                   (branch) =>
+                    branch.remoteState === "active" &&
                     typeof branch.pullRequestNumber === "number" &&
                     typeof branch.cloudflareBranchPreviewUrl !== "string",
                 );
               await refreshTree({
                 owner: vault.ghRepoOwner,
                 repo: vault.ghRepoName,
-                // Preview-comment scans are expensive compared to the branch/tree
-                // refresh itself, so only re-run them on first load or while a
-                // PR branch is still missing cached preview metadata.
+                // Preview-comment scans are expensive compared to the default
+                // branch tree refresh itself, so only re-run them while a PR
+                // branch is still missing cached preview metadata.
                 includeCloudflarePreviewLinks:
                   shouldIncludeCloudflarePreviewLinks,
                 trigger,
@@ -1013,6 +1024,7 @@ function VaultDashboardContent() {
 
       const shouldIncludeCloudflarePreviewLinks = vault.remoteBranches.some(
         (branch) =>
+          branch.remoteState === "active" &&
           typeof branch.pullRequestNumber === "number" &&
           typeof branch.cloudflareBranchPreviewUrl !== "string",
       );
@@ -1021,7 +1033,7 @@ function VaultDashboardContent() {
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
         includeCloudflarePreviewLinks: shouldIncludeCloudflarePreviewLinks,
-        trigger: "focus",
+        trigger: "manual",
       }).catch((error: unknown) => {
         console.error(
           "Failed to refresh repository tree from dashboard status click:",
@@ -1037,25 +1049,36 @@ function VaultDashboardContent() {
       return;
     }
 
-    const handleFocus = () => {
-      refreshVaultTreesIfNeeded();
+    // Emit the dashboard "page_load" refresh exactly once, then fall back to
+    // plain "visibility" refreshes on later resumes.
+    const triggerInitialPageLoad = () => {
+      if (initialDashboardPageLoadSentRef.current) {
+        return;
+      }
+      initialDashboardPageLoadSentRef.current = true;
+      refreshVaultTreesIfNeeded("page_load");
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        refreshVaultTreesIfNeeded();
+      if (document.visibilityState !== "visible") {
+        return;
       }
+
+      if (!initialDashboardPageLoadSentRef.current) {
+        triggerInitialPageLoad();
+        return;
+      }
+
+      refreshVaultTreesIfNeeded("visibility");
     };
 
-    window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     if (document.visibilityState === "visible") {
-      refreshVaultTreesIfNeeded("page_load");
+      triggerInitialPageLoad();
     }
 
     return () => {
-      window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [refreshVaultTreesIfNeeded, vaults]);
