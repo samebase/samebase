@@ -356,6 +356,13 @@ interface RepositoryRefreshPlan {
   shouldRefreshTreeData: boolean;
 }
 
+interface RepositoryTreeMetadataSyncPlan {
+  shouldSyncMetadata: boolean;
+  includeAheadBehind: boolean;
+  includePullRequestLinks: boolean;
+  includeCloudflarePreviewLinks: boolean;
+}
+
 /**
  * Recompute the split refresh plan after each repo-level sync so branch views
  * can converge when metadata changes branch existence or default-branch state.
@@ -375,6 +382,37 @@ export function computeRepositoryRefreshPlan(args: {
       requestedBranch: args.requestedBranch,
       branchNotFound: args.branchNotFound,
     }),
+  };
+}
+
+/**
+ * Keep branch-scoped tree refreshes cheap unless the caller explicitly asked for
+ * repo metadata enrichment.
+ */
+export function computeRepositoryTreeMetadataSyncPlan(args: {
+  targetBranch?: string;
+  includeAheadBehind?: boolean;
+  includePullRequestLinks?: boolean;
+  includeCloudflarePreviewLinks?: boolean;
+}): RepositoryTreeMetadataSyncPlan {
+  const isRepoScoped = args.targetBranch === undefined;
+  const includeCloudflarePreviewLinks =
+    args.includeCloudflarePreviewLinks === true;
+  const includeAheadBehind = isRepoScoped || args.includeAheadBehind === true;
+  const includePullRequestLinks =
+    isRepoScoped ||
+    args.includePullRequestLinks === true ||
+    includeCloudflarePreviewLinks;
+
+  return {
+    shouldSyncMetadata:
+      isRepoScoped ||
+      includeAheadBehind ||
+      includePullRequestLinks ||
+      includeCloudflarePreviewLinks,
+    includeAheadBehind,
+    includePullRequestLinks,
+    includeCloudflarePreviewLinks,
   };
 }
 
@@ -2239,6 +2277,7 @@ export const refreshRepositoryTree = action({
         if (!releaseResult.released) {
           await ctx.runMutation(internal.vault.recordTreeRefreshFailure, {
             vaultId: vault._id,
+            startedAt: claim.startedAt,
             failureKind: refreshFailure.kind,
             failureMessage: refreshFailure.message,
             cooldownUntil: refreshFailure.cooldownUntil,
@@ -2474,21 +2513,24 @@ export const updateRepositoryTree = internalAction({
       typeof args.branch === "string" && args.branch.trim().length > 0
         ? args.branch.trim()
         : undefined;
-
-    await ctx.runAction(internal.github.syncRepositoryMetadata, {
-      userId: args.userId,
-      owner: args.owner,
-      repo: args.repo,
-      includeAheadBehind:
-        targetBranch === undefined ? true : args.includeAheadBehind === true,
-      includePullRequestLinks:
-        targetBranch === undefined
-          ? true
-          : args.includePullRequestLinks === true,
-      includeCloudflarePreviewLinks:
-        targetBranch === undefined &&
-        args.includeCloudflarePreviewLinks === true,
+    const metadataSyncPlan = computeRepositoryTreeMetadataSyncPlan({
+      targetBranch,
+      includeAheadBehind: args.includeAheadBehind,
+      includePullRequestLinks: args.includePullRequestLinks,
+      includeCloudflarePreviewLinks: args.includeCloudflarePreviewLinks,
     });
+
+    if (metadataSyncPlan.shouldSyncMetadata) {
+      await ctx.runAction(internal.github.syncRepositoryMetadata, {
+        userId: args.userId,
+        owner: args.owner,
+        repo: args.repo,
+        includeAheadBehind: metadataSyncPlan.includeAheadBehind,
+        includePullRequestLinks: metadataSyncPlan.includePullRequestLinks,
+        includeCloudflarePreviewLinks:
+          metadataSyncPlan.includeCloudflarePreviewLinks,
+      });
+    }
     await ctx.runAction(internal.github.refreshBranchTree, {
       userId: args.userId,
       owner: args.owner,

@@ -2738,6 +2738,7 @@ export const pullFromGitHub = action({
       if (!releaseResult.released) {
         await ctx.runMutation(internal.vault.recordTreeRefreshFailure, {
           vaultId: vault._id,
+          startedAt: claim.startedAt,
           failureKind: failure.kind,
           failureMessage: failure.message,
           cooldownUntil: failure.cooldownUntil,

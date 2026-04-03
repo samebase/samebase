@@ -1816,15 +1816,26 @@ export const releaseTreeRefresh = internalMutation({
 
 export const recordTreeRefreshFailure = internalMutation({
   args: {
-    vaultId: v.id("vaults"),
-    failureKind: v.optional(TreeRefreshFailureKind),
-    failureMessage: v.optional(v.string()),
-    cooldownUntil: v.optional(v.number()),
+    vaultId: id("vaults"),
+    startedAt: optional(number()),
+    failureKind: optional(TreeRefreshFailureKind),
+    failureMessage: optional(string()),
+    cooldownUntil: optional(number()),
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
     if (!vault) {
+      return null;
+    }
+    // Ignore stale fallback failures once another refresh claim has taken over.
+    if (
+      typeof args.startedAt === "number" &&
+      !doesTreeRefreshClaimMatch({
+        claimedStartedAt: args.startedAt,
+        treeRefreshStartedAt: vault.treeRefreshStartedAt,
+      })
+    ) {
       return null;
     }
 

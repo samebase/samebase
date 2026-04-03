@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   computeRepositoryRefreshPlan,
+  computeRepositoryTreeMetadataSyncPlan,
   collectLatestOpenPullRequestsByBranch,
   computeRepositoryTreeUpdatePlan,
   describeRepositoryTreeRefreshFailure,
@@ -524,6 +525,44 @@ describe("computeRepositoryRefreshPlan", () => {
     ).toEqual({
       shouldSyncMetadata: false,
       shouldRefreshTreeData: true,
+    });
+  });
+});
+
+describe("computeRepositoryTreeMetadataSyncPlan", () => {
+  it("skips repo metadata sync for branch-only refreshes by default", () => {
+    expect(
+      computeRepositoryTreeMetadataSyncPlan({
+        targetBranch: "feature/login",
+      }),
+    ).toEqual({
+      shouldSyncMetadata: false,
+      includeAheadBehind: false,
+      includePullRequestLinks: false,
+      includeCloudflarePreviewLinks: false,
+    });
+  });
+
+  it("keeps repo metadata sync for repo-scoped refreshes", () => {
+    expect(computeRepositoryTreeMetadataSyncPlan({})).toEqual({
+      shouldSyncMetadata: true,
+      includeAheadBehind: true,
+      includePullRequestLinks: true,
+      includeCloudflarePreviewLinks: false,
+    });
+  });
+
+  it("treats preview enrichment as an explicit metadata sync request", () => {
+    expect(
+      computeRepositoryTreeMetadataSyncPlan({
+        targetBranch: "feature/login",
+        includeCloudflarePreviewLinks: true,
+      }),
+    ).toEqual({
+      shouldSyncMetadata: true,
+      includeAheadBehind: false,
+      includePullRequestLinks: true,
+      includeCloudflarePreviewLinks: true,
     });
   });
 });
