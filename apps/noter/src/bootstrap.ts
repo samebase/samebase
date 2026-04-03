@@ -4,6 +4,14 @@ import { isInIframe, openAuthPopup } from "@/authClient";
 import { GlobalGestureDebugOverlay } from "@/components/GlobalGestureDebugOverlay";
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import {
+  APP_BUILD_VERSION_PREFIX,
+  APP_BUILD_STATUS_BAR_TEST_ID,
+  APP_BUILD_VERSION_TEST_ID,
+  formatAppBuildVersionNumber,
+  hasSelectedAppBuildVersion,
+  installAppBuildMarkdownCopy,
+} from "@/lib/appBuild";
+import {
   buildLandingDevToggleHref,
   getLandingDevToggleLabel,
 } from "@/lib/landingDevMode";
@@ -44,7 +52,6 @@ const PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID =
   "public-landing-waitlist-placeholder";
 const PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID =
   "public-landing-waitlist-submit";
-const UNKNOWN_SHORT_COMMIT_PLACEHOLDER = "xxxxxxx";
 const GLOBAL_GESTURE_DEBUG_OVERLAY_ROOT_ID =
   "global-gesture-debug-overlay-root";
 const GESTURE_DEBUG_OVERLAY_LOCATION_EVENT =
@@ -55,6 +62,7 @@ let restoreHydratedWaitlistFocus = false;
 let gestureDebugOverlayMounted = false;
 let gestureDebugOverlayRoot: ReactDOM.Root | null = null;
 let gestureDebugHistoryPatched = false;
+let disposeBootstrapBuildVersionCopy: (() => void) | null = null;
 
 function escapeHtml(value: string): string {
   return value
@@ -91,17 +99,13 @@ function renderChromeIconSvg() {
 
 function getShellCommitMetadata() {
   const appCommit = __APP_COMMIT__ || "unknown";
-  const shortCommit =
-    appCommit === "unknown"
-      ? UNKNOWN_SHORT_COMMIT_PLACEHOLDER
-      : appCommit.length > 12
-        ? appCommit.slice(0, 7)
-        : appCommit;
+  const appCommitNumber = __APP_COMMIT_NUMBER__;
+  const commitNumberLabel = formatAppBuildVersionNumber(appCommitNumber);
   const repoUrl = __APP_REPO_URL__ || "";
   const commitUrl =
     repoUrl && appCommit !== "unknown" ? `${repoUrl}/commit/${appCommit}` : "";
 
-  return { appCommit, shortCommit, commitUrl };
+  return { appCommit, commitNumberLabel, commitUrl };
 }
 
 function resolveBootstrapTheme(): "dark" | "light" {
@@ -155,6 +159,10 @@ function scheduleBackgroundAppLoad() {
 
 function ensureAppLoaded(): Promise<void> {
   syncPendingPublicLandingScrollTop();
+  if (disposeBootstrapBuildVersionCopy !== null) {
+    disposeBootstrapBuildVersionCopy();
+    disposeBootstrapBuildVersionCopy = null;
+  }
   if (appLoadPromise === null) {
     appLoadPromise = import("./main")
       .then((module) => {
@@ -313,20 +321,22 @@ function renderFastLandingShell() {
   const landingDevToggleHref = buildLandingDevToggleHref(window.location);
   const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
   const landingLogoSrc = buildFastLandingLogoSrc();
-  const { appCommit, shortCommit, commitUrl } = getShellCommitMetadata();
+  const { appCommit, commitNumberLabel, commitUrl } = getShellCommitMetadata();
   const commitMarkup = commitUrl
-    ? `<a class="font-mono transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" title="${escapeHtml(appCommit)}">${escapeHtml(shortCommit)}</a>`
-    : `<span class="font-mono" title="${escapeHtml(appCommit)}">${escapeHtml(shortCommit)}</span>`;
+    ? `<a data-testid="${APP_BUILD_VERSION_TEST_ID}" class="select-text transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" title="${escapeHtml(appCommit)}">${escapeHtml(commitNumberLabel)}</a>`
+    : `<span data-testid="${APP_BUILD_VERSION_TEST_ID}" class="select-text" title="${escapeHtml(appCommit)}">${escapeHtml(commitNumberLabel)}</span>`;
 
   root.innerHTML = `
     <div data-testid="public-landing-shell" class="flex h-full w-full flex-col">
       <div class="border-b border-border/50">
-        <div class="container flex items-center justify-end gap-2 px-3 py-1 text-[11px] text-muted-foreground">
+        <div data-testid="${APP_BUILD_STATUS_BAR_TEST_ID}" class="container flex items-center justify-end gap-2 px-3 py-1 text-[11px] text-muted-foreground">
           <a id="${PUBLIC_LANDING_DEV_TOGGLE_ID}" href="${escapeHtml(landingDevToggleHref)}" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
             ${escapeHtml(landingDevToggleLabel)}
           </a>
-          <span>Commit</span>
-          ${commitMarkup}
+          <div class="inline-flex select-text items-center gap-1 font-mono">
+            <span>${escapeHtml(APP_BUILD_VERSION_PREFIX)}</span>
+            ${commitMarkup}
+          </div>
         </div>
       </div>
       <main data-testid="${PUBLIC_LANDING_SHELL_MAIN_TEST_ID}" class="flex grow min-h-0 flex-col overflow-x-hidden overflow-y-auto">
@@ -400,6 +410,34 @@ function renderFastLandingShell() {
       </main>
     </div>
   `;
+
+  if (disposeBootstrapBuildVersionCopy !== null) {
+    disposeBootstrapBuildVersionCopy();
+    disposeBootstrapBuildVersionCopy = null;
+  }
+
+  const buildVersionElement = root.querySelector(
+    `[data-testid="${APP_BUILD_VERSION_TEST_ID}"]`,
+  );
+  if (buildVersionElement instanceof HTMLElement) {
+    disposeBootstrapBuildVersionCopy = installAppBuildMarkdownCopy(
+      buildVersionElement,
+      {
+        commitNumberLabel,
+        commitUrl,
+      },
+    );
+  }
+  if (buildVersionElement instanceof HTMLAnchorElement) {
+    buildVersionElement.addEventListener("click", (event) => {
+      if (!hasSelectedAppBuildVersion(buildVersionElement)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+    });
+  }
 
   const shellMain = root.querySelector<HTMLElement>(
     `[data-testid="${PUBLIC_LANDING_SHELL_MAIN_TEST_ID}"]`,

@@ -1,4 +1,9 @@
 import { devices, expect, test, type Locator } from "@playwright/test";
+import {
+  APP_BUILD_VERSION_PREFIX,
+  APP_BUILD_STATUS_BAR_TEST_ID,
+  APP_BUILD_VERSION_TEST_ID,
+} from "../src/lib/appBuild";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "../src/lib/fastLandingBoot";
 import {
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
@@ -19,6 +24,8 @@ const NAVIGATION_BUDGET_MS = {
   domContentLoaded: 400,
   load: 500,
 } as const;
+const COPY_SHORTCUT_KEY =
+  process.platform === "darwin" ? "Meta+C" : "Control+C";
 
 const {
   defaultBrowserType: _mobileLandingDefaultBrowserType,
@@ -148,6 +155,49 @@ async function expectLandingLogoSceneReady(scene: Locator) {
   await expect(scene).toHaveAttribute("data-state", "ready");
 }
 
+async function expectAppBuildVersion(versionLabel: Locator) {
+  await expect(versionLabel).toHaveText(/^\d+$/);
+}
+
+async function expectAppBuildVersionDisplay(
+  statusBar: Locator,
+  versionLabel: Locator,
+) {
+  await expectAppBuildVersion(versionLabel);
+  const buildVersionGroup = statusBar.locator(".font-mono").first();
+  await expect(buildVersionGroup.locator("span").first()).toHaveText(
+    APP_BUILD_VERSION_PREFIX,
+  );
+}
+
+async function expectAppBuildCommitLink(versionLabel: Locator) {
+  const href = await versionLabel.getAttribute("href");
+
+  expect(href).toMatch(
+    /^https:\/\/github\.com\/noter-md\/noter\/commit\/[0-9a-f]{40}$/,
+  );
+
+  return href;
+}
+
+async function selectText(locator: Locator) {
+  await locator.evaluate((element) => {
+    const selection = window.getSelection();
+    if (selection === null) {
+      throw new Error("Expected DOM selection support");
+    }
+
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+}
+
+async function readClipboardText(page: Parameters<typeof test>[0]["page"]) {
+  return page.evaluate(async () => navigator.clipboard.readText());
+}
+
 async function expectLandingLogoAutoRotates(scene: Locator) {
   await expectLandingLogoSceneReady(scene);
   const initialRotationDegrees = await scene.getAttribute(
@@ -194,6 +244,105 @@ test("public landing shell renders before the full app UI takes over", async ({
   await expect(
     page.getByRole("button", { name: "Join Waitlist" }),
   ).toBeEnabled();
+});
+
+test("build version stays stable across the landing shell handoff", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript((bootDelayMs) => {
+    const originalSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = (handler, timeout, ...args) => {
+      if (timeout === bootDelayMs) {
+        return originalSetTimeout(handler, 600, ...args);
+      }
+      return originalSetTimeout(handler, timeout, ...args);
+    };
+  }, FAST_LANDING_APP_BOOT_DELAY_MS);
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const shellStatusBar = page
+    .getByTestId("public-landing-shell")
+    .getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  const shellVersion = shellStatusBar.getByTestId(APP_BUILD_VERSION_TEST_ID);
+
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await expectAppBuildVersionDisplay(shellStatusBar, shellVersion);
+  const shellVersionText = await shellVersion.textContent();
+  const shellVersionHref = await expectAppBuildCommitLink(shellVersion);
+  expect(shellVersionText).not.toBeNull();
+
+  const shellScreenshot = await takeStableScreenshot(shellStatusBar);
+
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+
+  const hydratedStatusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  const hydratedVersion = hydratedStatusBar.getByTestId(
+    APP_BUILD_VERSION_TEST_ID,
+  );
+
+  await expectAppBuildVersionDisplay(hydratedStatusBar, hydratedVersion);
+  await expect(hydratedVersion).toHaveText(shellVersionText ?? "");
+  await expect(hydratedVersion).toHaveAttribute("href", shellVersionHref ?? "");
+
+  const hydratedScreenshot = await takeStableScreenshot(hydratedStatusBar);
+
+  await expectScreenshotsToMatch({
+    actual: hydratedScreenshot,
+    artifactPrefix: "public-landing-build-version-handoff",
+    expected: shellScreenshot,
+    maxDiffPixelRatio: 0.005,
+    testInfo,
+  });
+});
+
+test("build version copies as a Markdown link across the shell handoff", async ({
+  page,
+}) => {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.addInitScript((bootDelayMs) => {
+    const originalSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = (handler, timeout, ...args) => {
+      if (timeout === bootDelayMs) {
+        return originalSetTimeout(handler, 600, ...args);
+      }
+      return originalSetTimeout(handler, timeout, ...args);
+    };
+  }, FAST_LANDING_APP_BOOT_DELAY_MS);
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const shellVersion = page
+    .getByTestId("public-landing-shell")
+    .getByTestId(APP_BUILD_VERSION_TEST_ID);
+  const shellStatusBar = page
+    .getByTestId("public-landing-shell")
+    .getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  const shellVersionGroup = shellStatusBar.locator(".font-mono").first();
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await expectAppBuildVersionDisplay(shellStatusBar, shellVersion);
+  const shellVersionText = await shellVersion.textContent();
+  const shellVersionHref = await expectAppBuildCommitLink(shellVersion);
+  expect(shellVersionText).not.toBeNull();
+
+  await selectText(shellVersionGroup);
+  await page.keyboard.press(COPY_SHORTCUT_KEY);
+  const shellClipboardText = await readClipboardText(page);
+  expect(shellClipboardText).toBe(`[${shellVersionText}](${shellVersionHref})`);
+
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+
+  const hydratedStatusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  const hydratedVersion = page.getByTestId(APP_BUILD_VERSION_TEST_ID);
+  const hydratedVersionGroup = hydratedStatusBar.locator(".font-mono").first();
+  await expectAppBuildVersionDisplay(hydratedStatusBar, hydratedVersion);
+  await selectText(hydratedVersionGroup);
+  await page.keyboard.press(COPY_SHORTCUT_KEY);
+  const hydratedClipboardText = await readClipboardText(page);
+
+  expect(hydratedClipboardText).toBe(
+    `[${shellVersionText}](${shellVersionHref})`,
+  );
 });
 
 test("landing preserves scroll position across the shell handoff", async ({

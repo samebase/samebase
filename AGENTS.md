@@ -124,6 +124,9 @@ Key domain entities:
 - Prefer silent, smooth UX over chatty loading placeholders.
 - Prefer existing shadcn/ui primitives or app-owned wrappers over bespoke
   Tailwind-only replacements when they already solve the problem.
+- Temporary ProseMark workaround: when authoring a markdown link whose label
+  would exactly equal its URL, prefix the label with `link ` so the rendered
+  link stays visible until that ProseMark bug is fixed.
 - Add or update screenshot coverage whenever a patch changes shipped UI.
 - For bugs involving scroll, touch, drag, focus, selection, pane layout, auth
   wiring, or route shell behavior, reproduce and test the real app route first.

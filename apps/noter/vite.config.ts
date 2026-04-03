@@ -56,6 +56,24 @@ function readAllowedHostsEnv(value: string | undefined): string[] {
     .filter((entry) => entry.length > 0);
 }
 
+function parsePositiveInteger(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.trim();
+  if (!/^\d+$/.test(normalized)) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    return null;
+  }
+
+  return parsed;
+}
+
 function readGitOutput(command: string): string | null {
   try {
     const output = execSync(command, {
@@ -74,6 +92,9 @@ const appCommit =
   process.env.VITE_APP_COMMIT ??
   readGitOutput("git rev-parse HEAD") ??
   "unknown";
+const appCommitNumber =
+  parsePositiveInteger(process.env.VITE_APP_COMMIT_NUMBER) ??
+  parsePositiveInteger(readGitOutput("git rev-list --count HEAD"));
 
 const appRepoUrl = "https://github.com/noter-md/noter";
 const daytonaSdkVersion = readPackageVersion("@daytonaio/sdk", import.meta.url);
@@ -600,6 +621,7 @@ const daytonaConvexProxyServerConfig = (() => {
 export default defineConfig({
   define: {
     __APP_COMMIT__: JSON.stringify(appCommit),
+    __APP_COMMIT_NUMBER__: JSON.stringify(appCommitNumber),
     __APP_REPO_URL__: JSON.stringify(appRepoUrl),
     __DAYTONA_SDK_VERSION__: JSON.stringify(daytonaSdkVersion),
     __DAYTONA_CONVEX_PROXY_PATH__: JSON.stringify(daytonaConvexProxyPath),
