@@ -2,6 +2,11 @@ import {
   buildLandingDevToggleHref,
   getLandingDevToggleLabel,
 } from "@/lib/landingDevMode";
+import {
+  APP_BUILD_STATUS_BAR_TEST_ID,
+  APP_BUILD_VERSION_TEST_ID,
+  formatAppBuildVersionLabel,
+} from "@/lib/appBuild";
 import { ReactNode, useEffect, type MouseEvent } from "react";
 import { useConvexAuth } from "convex/react";
 import {
@@ -13,7 +18,8 @@ import {
 
 export function Layout({ children }: { children: ReactNode }) {
   const appCommit = __APP_COMMIT__ || "unknown";
-  const shortCommit = appCommit.length > 12 ? appCommit.slice(0, 7) : appCommit;
+  const appCommitNumber = __APP_COMMIT_NUMBER__;
+  const commitLabel = formatAppBuildVersionLabel(appCommitNumber);
   const repoUrl = __APP_REPO_URL__ || "";
   const commitUrl =
     repoUrl && appCommit !== "unknown" ? `${repoUrl}/commit/${appCommit}` : "";
@@ -53,6 +59,7 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     console.info("[noter] build metadata", {
       appCommit: __APP_COMMIT__,
+      appCommitNumber: __APP_COMMIT_NUMBER__,
       appRepoUrl: __APP_REPO_URL__,
     });
   }, []);
@@ -60,7 +67,10 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full w-full flex-col">
       <div className="border-b border-border/50">
-        <div className="container flex items-center justify-end gap-2 px-3 py-1 text-[11px] text-muted-foreground">
+        <div
+          data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
+          className="container flex items-center justify-end gap-2 px-3 py-1 text-[11px] text-muted-foreground"
+        >
           {showPublicNavigation && (
             <Link
               to="/"
@@ -78,20 +88,24 @@ export function Layout({ children }: { children: ReactNode }) {
               {landingDevToggleLabel}
             </a>
           )}
-          <span>Commit</span>
           {commitUrl ? (
             <a
+              data-testid={APP_BUILD_VERSION_TEST_ID}
               className="font-mono hover:text-foreground transition-colors"
               href={commitUrl}
               target="_blank"
               rel="noreferrer noopener"
               title={appCommit}
             >
-              {shortCommit}
+              {commitLabel}
             </a>
           ) : (
-            <span className="font-mono" title={appCommit}>
-              {shortCommit}
+            <span
+              data-testid={APP_BUILD_VERSION_TEST_ID}
+              className="font-mono"
+              title={appCommit}
+            >
+              {commitLabel}
             </span>
           )}
         </div>

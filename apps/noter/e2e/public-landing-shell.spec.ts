@@ -1,4 +1,8 @@
 import { devices, expect, test, type Locator } from "@playwright/test";
+import {
+  APP_BUILD_STATUS_BAR_TEST_ID,
+  APP_BUILD_VERSION_TEST_ID,
+} from "../src/lib/appBuild";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "../src/lib/fastLandingBoot";
 import {
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
@@ -148,6 +152,20 @@ async function expectLandingLogoSceneReady(scene: Locator) {
   await expect(scene).toHaveAttribute("data-state", "ready");
 }
 
+async function expectAppBuildVersion(versionLabel: Locator) {
+  await expect(versionLabel).toHaveText(/^v \d+$/);
+}
+
+async function expectAppBuildCommitLink(versionLabel: Locator) {
+  const href = await versionLabel.getAttribute("href");
+
+  expect(href).toMatch(
+    /^https:\/\/github\.com\/noter-md\/noter\/commit\/[0-9a-f]{40}$/,
+  );
+
+  return href;
+}
+
 async function expectLandingLogoAutoRotates(scene: Locator) {
   await expectLandingLogoSceneReady(scene);
   const initialRotationDegrees = await scene.getAttribute(
@@ -194,6 +212,56 @@ test("public landing shell renders before the full app UI takes over", async ({
   await expect(
     page.getByRole("button", { name: "Join Waitlist" }),
   ).toBeEnabled();
+});
+
+test("build version stays stable across the landing shell handoff", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript((bootDelayMs) => {
+    const originalSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = (handler, timeout, ...args) => {
+      if (timeout === bootDelayMs) {
+        return originalSetTimeout(handler, 600, ...args);
+      }
+      return originalSetTimeout(handler, timeout, ...args);
+    };
+  }, FAST_LANDING_APP_BOOT_DELAY_MS);
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const shellStatusBar = page
+    .getByTestId("public-landing-shell")
+    .getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  const shellVersion = shellStatusBar.getByTestId(APP_BUILD_VERSION_TEST_ID);
+
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await expectAppBuildVersion(shellVersion);
+  const shellVersionText = await shellVersion.textContent();
+  const shellVersionHref = await expectAppBuildCommitLink(shellVersion);
+  expect(shellVersionText).not.toBeNull();
+
+  const shellScreenshot = await takeStableScreenshot(shellStatusBar);
+
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+
+  const hydratedStatusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  const hydratedVersion = hydratedStatusBar.getByTestId(
+    APP_BUILD_VERSION_TEST_ID,
+  );
+
+  await expectAppBuildVersion(hydratedVersion);
+  await expect(hydratedVersion).toHaveText(shellVersionText ?? "");
+  await expect(hydratedVersion).toHaveAttribute("href", shellVersionHref ?? "");
+
+  const hydratedScreenshot = await takeStableScreenshot(hydratedStatusBar);
+
+  await expectScreenshotsToMatch({
+    actual: hydratedScreenshot,
+    artifactPrefix: "public-landing-build-version-handoff",
+    expected: shellScreenshot,
+    maxDiffPixelRatio: 0.005,
+    testInfo,
+  });
 });
 
 test("landing preserves scroll position across the shell handoff", async ({

@@ -4,6 +4,11 @@ import { isInIframe, openAuthPopup } from "@/authClient";
 import { GlobalGestureDebugOverlay } from "@/components/GlobalGestureDebugOverlay";
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import {
+  APP_BUILD_STATUS_BAR_TEST_ID,
+  APP_BUILD_VERSION_TEST_ID,
+  formatAppBuildVersionLabel,
+} from "@/lib/appBuild";
+import {
   buildLandingDevToggleHref,
   getLandingDevToggleLabel,
 } from "@/lib/landingDevMode";
@@ -44,7 +49,6 @@ const PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID =
   "public-landing-waitlist-placeholder";
 const PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID =
   "public-landing-waitlist-submit";
-const UNKNOWN_SHORT_COMMIT_PLACEHOLDER = "xxxxxxx";
 const GLOBAL_GESTURE_DEBUG_OVERLAY_ROOT_ID =
   "global-gesture-debug-overlay-root";
 const GESTURE_DEBUG_OVERLAY_LOCATION_EVENT =
@@ -91,17 +95,13 @@ function renderChromeIconSvg() {
 
 function getShellCommitMetadata() {
   const appCommit = __APP_COMMIT__ || "unknown";
-  const shortCommit =
-    appCommit === "unknown"
-      ? UNKNOWN_SHORT_COMMIT_PLACEHOLDER
-      : appCommit.length > 12
-        ? appCommit.slice(0, 7)
-        : appCommit;
+  const appCommitNumber = __APP_COMMIT_NUMBER__;
+  const commitLabel = formatAppBuildVersionLabel(appCommitNumber);
   const repoUrl = __APP_REPO_URL__ || "";
   const commitUrl =
     repoUrl && appCommit !== "unknown" ? `${repoUrl}/commit/${appCommit}` : "";
 
-  return { appCommit, shortCommit, commitUrl };
+  return { appCommit, commitLabel, commitUrl };
 }
 
 function resolveBootstrapTheme(): "dark" | "light" {
@@ -313,19 +313,18 @@ function renderFastLandingShell() {
   const landingDevToggleHref = buildLandingDevToggleHref(window.location);
   const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
   const landingLogoSrc = buildFastLandingLogoSrc();
-  const { appCommit, shortCommit, commitUrl } = getShellCommitMetadata();
+  const { appCommit, commitLabel, commitUrl } = getShellCommitMetadata();
   const commitMarkup = commitUrl
-    ? `<a class="font-mono transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" title="${escapeHtml(appCommit)}">${escapeHtml(shortCommit)}</a>`
-    : `<span class="font-mono" title="${escapeHtml(appCommit)}">${escapeHtml(shortCommit)}</span>`;
+    ? `<a data-testid="${APP_BUILD_VERSION_TEST_ID}" class="font-mono transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" title="${escapeHtml(appCommit)}">${escapeHtml(commitLabel)}</a>`
+    : `<span data-testid="${APP_BUILD_VERSION_TEST_ID}" class="font-mono" title="${escapeHtml(appCommit)}">${escapeHtml(commitLabel)}</span>`;
 
   root.innerHTML = `
     <div data-testid="public-landing-shell" class="flex h-full w-full flex-col">
       <div class="border-b border-border/50">
-        <div class="container flex items-center justify-end gap-2 px-3 py-1 text-[11px] text-muted-foreground">
+        <div data-testid="${APP_BUILD_STATUS_BAR_TEST_ID}" class="container flex items-center justify-end gap-2 px-3 py-1 text-[11px] text-muted-foreground">
           <a id="${PUBLIC_LANDING_DEV_TOGGLE_ID}" href="${escapeHtml(landingDevToggleHref)}" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
             ${escapeHtml(landingDevToggleLabel)}
           </a>
-          <span>Commit</span>
           ${commitMarkup}
         </div>
       </div>
