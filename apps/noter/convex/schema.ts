@@ -17,6 +17,7 @@ import {
   machineRegistrationBootstrapRateLimitRowValidator,
   machineRegistrationRequestRowValidator,
 } from "./connectedMachineModel";
+import { workspaceSidebarStateRowValidator } from "./workspaceSidebarStateModel";
 
 // Helper function to omit keys from an object
 function omit<T extends Record<string, any>, K extends keyof T>(
@@ -362,6 +363,11 @@ export default defineSchema({
     editorChatOpen: v.optional(v.boolean()),
     globalChatOpen: v.optional(v.boolean()),
   }).index("by_user", ["userId"]),
+
+  workspaceSidebarState: defineTable(workspaceSidebarStateRowValidator).index(
+    "by_user_and_workspace_key",
+    ["userId", "workspaceKey"],
+  ),
 
   vaultBranchFilters: defineTable({
     userId: v.id("users"),

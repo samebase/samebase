@@ -18,9 +18,9 @@ import {
   FileViewDeveloperTools,
   type FileViewEditorOverride,
 } from "@/components/FileViewDeveloperTools";
+import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 
 import { GitHubLogoIcon, PlusIcon, FilePlusIcon } from "@radix-ui/react-icons";
-import { SidebarProvider } from "@/components/sidebar";
 import {
   buildPathWithUpdatedQuery,
   hasQueryParam,
@@ -65,6 +65,7 @@ import { claimRefreshDebounce } from "@/lib/treeRefreshDebounce";
 import { buildFileViewRefreshDebounceKey } from "@/lib/fileViewRefresh";
 import { getAncestorFolderPaths } from "@/lib/fileTreeState";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import {
   readUploadStorageId,
   uploadMediaWithCleanup,
@@ -104,6 +105,17 @@ import {
   shouldShowCompareBackToEditor,
 } from "@/lib/fileViewReview";
 import { getReviewSplitDiffHighlights } from "@/lib/reviewSplitDiff";
+import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+
+const FILE_VIEW_SIDEBAR_DEFAULT_STATE = {
+  leftDesktopOpen: FILE_VIEW_TREE_SIDEBAR_SIDE === "left",
+  leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  leftMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  mobilePane: "main",
+  rightDesktopOpen: true,
+  rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+} satisfies WorkspaceSidebarState;
 
 function isFileTreeNodeType(type: string): type is "tree" | "blob" {
   return type === "tree" || type === "blob";
@@ -3942,14 +3954,14 @@ function FileViewInner({
 export function FileView() {
   return (
     <DialogProvider>
-      <SidebarProvider
-        defaultOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "left"}
-        defaultRightOpen={true}
+      <PersistedSidebarProvider
         shortcutSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
         className="h-full min-h-0"
+        defaultState={FILE_VIEW_SIDEBAR_DEFAULT_STATE}
+        workspaceKey="repository"
       >
         <FileViewWrapper />
-      </SidebarProvider>
+      </PersistedSidebarProvider>
     </DialogProvider>
   );
 }

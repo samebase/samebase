@@ -14,7 +14,7 @@ import { Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
-import { SidebarProvider } from "@/components/sidebar";
+import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import {
   formatRelativeTimeAgo,
@@ -24,6 +24,7 @@ import {
   getTreeRefreshUiState,
   shouldAutoRefreshVault,
 } from "@/lib/treeRefreshStatus";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import {
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
   CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
@@ -114,6 +115,17 @@ import {
 } from "@/lib/vaultBranchFilters";
 import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
 import { toast } from "@/components/ui/use-toast";
+import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+
+const VAULT_DASHBOARD_SIDEBAR_DEFAULT_STATE = {
+  leftDesktopOpen: true,
+  leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  leftMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  mobilePane: "main",
+  rightDesktopOpen: true,
+  rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+} satisfies WorkspaceSidebarState;
 
 const formatInfraState = (
   infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
@@ -2449,8 +2461,12 @@ function VaultDashboardContent() {
 
 export function VaultDashboard() {
   return (
-    <SidebarProvider defaultRightOpen={true} className="h-full min-h-0">
+    <PersistedSidebarProvider
+      className="h-full min-h-0"
+      defaultState={VAULT_DASHBOARD_SIDEBAR_DEFAULT_STATE}
+      workspaceKey="dashboard"
+    >
       <VaultDashboardContent />
-    </SidebarProvider>
+    </PersistedSidebarProvider>
   );
 }

@@ -147,10 +147,10 @@
     <main>
       <article class="legal-shell legal-document">
         <h1>Privacy Policy</h1>
-        <p>Last updated: March 23, 2026</p>
+        <p>Last updated: April 3, 2026</p>
         <p>
-          Reviewed and updated by Codex (GPT-5.4 &quot;Extra High&quot;) on
-          March 23, 2026, based on the current Noter source code.
+          Reviewed and updated by Codex (GPT-5 default) on April 3, 2026, based
+          on the current Noter source code.
         </p>
         <p>
           This Privacy Policy describes how Noter handles information in the
@@ -217,9 +217,9 @@
             open/thread state, and for some file-view UI state.
           </li>
           <li>
-            Cookie. The current app code sets a first-party sidebar preference
-            cookie named <code>sidebar_state</code> so the app can remember
-            whether the sidebar is open.
+            Convex-backed UI state. The current app code stores some
+            authenticated workspace-shell UI preferences, including shared
+            sidebar state, in Convex so they can persist across reloads.
           </li>
           <li>
             IndexedDB. The app caches some Convex query results in browser
