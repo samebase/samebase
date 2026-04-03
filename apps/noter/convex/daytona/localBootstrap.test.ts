@@ -144,6 +144,8 @@ describe("daytonaLocalBootstrap", () => {
         ? turboDevTask.env
         : [];
 
+    expect(devEnv).toContain("NOTER_DEV_PORT");
+    expect(devEnv).toContain("NOTER_DEV_STRICT_PORT");
     expect(devEnv).toContain("NOTER_DAYTONA_BROWSER_CONVEX_PROXY_TARGET");
   });
 

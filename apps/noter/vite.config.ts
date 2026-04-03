@@ -23,6 +23,38 @@ import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearch
 
 const gitRoot = path.resolve(__dirname, "..", "..");
 const DAYTONA_CONVEX_PROXY_PATH = "/__noter_daytona_convex";
+const devPortRaw = process.env.NOTER_DEV_PORT?.trim();
+const devPort = devPortRaw ? Number(devPortRaw) : undefined;
+const devStrictPort = readBooleanEnv(process.env.NOTER_DEV_STRICT_PORT);
+const devAllowedHosts = readAllowedHostsEnv(
+  process.env.NOTER_DEV_ALLOWED_HOSTS,
+);
+
+function readBooleanEnv(value: string | undefined): boolean | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "y", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "n", "off"].includes(normalized)) {
+    return false;
+  }
+  return undefined;
+}
+
+function readAllowedHostsEnv(value: string | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
 
 function readGitOutput(command: string): string | null {
   try {
@@ -521,18 +553,48 @@ function stripDaytonaConvexProxyPrefix(requestPath: string): string {
   return strippedPath.length > 0 ? strippedPath : "/";
 }
 
-const daytonaConvexProxyServerConfig = daytonaConvexProxyTarget
-  ? {
-      proxy: {
-        [DAYTONA_CONVEX_PROXY_PATH]: {
-          target: daytonaConvexProxyTarget,
-          changeOrigin: true,
-          ws: true,
-          rewrite: stripDaytonaConvexProxyPrefix,
-        },
+const daytonaConvexProxyServerConfig = (() => {
+  const server: {
+    port?: number;
+    strictPort?: boolean;
+    allowedHosts?: string[];
+    proxy?: Record<
+      string,
+      {
+        target: string;
+        changeOrigin: boolean;
+        ws: boolean;
+        rewrite: (requestPath: string) => string;
+      }
+    >;
+  } = {};
+
+  if (devPort !== undefined && !Number.isNaN(devPort)) {
+    server.port = devPort;
+  }
+  if (devStrictPort !== undefined) {
+    server.strictPort = devStrictPort;
+  }
+  if (devAllowedHosts.length > 0) {
+    // Quick tunnels terminate on a random trycloudflare.com host, so Vite
+    // needs an explicit allowlist instead of rejecting the public Host header.
+    server.allowedHosts = devAllowedHosts;
+  }
+  if (daytonaConvexProxyTarget) {
+    // The browser proxy path keeps the anonymous Convex backend private even
+    // when the frontend is being shared from a public tunnel origin.
+    server.proxy = {
+      [DAYTONA_CONVEX_PROXY_PATH]: {
+        target: daytonaConvexProxyTarget,
+        changeOrigin: true,
+        ws: true,
+        rewrite: stripDaytonaConvexProxyPrefix,
       },
-    }
-  : undefined;
+    };
+  }
+
+  return Object.keys(server).length > 0 ? server : undefined;
+})();
 
 // https://vitejs.dev/config/
 export default defineConfig({
