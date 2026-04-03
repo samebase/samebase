@@ -20,7 +20,10 @@ import {
   formatRelativeTimeAgo,
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
-import { getTreeRefreshUiState } from "@/lib/treeRefreshStatus";
+import {
+  getTreeRefreshUiState,
+  shouldAutoRefreshVault,
+} from "@/lib/treeRefreshStatus";
 import {
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
   CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
@@ -32,11 +35,6 @@ import {
   releaseRefreshDebounce,
 } from "@/lib/treeRefreshDebounce";
 import { useNow } from "@/hooks/useNow";
-import {
-  getLastRepositoryMetadataRefreshAt,
-  isRepositoryMetadataStale,
-  TREE_REFRESH_DEBOUNCE_MS,
-} from "../../shared/treeRefresh";
 import {
   useAction,
   useMutation,
@@ -210,6 +208,7 @@ type DashboardManualRefreshVault = {
   ghRepoName: string;
   ghRepoOwner: string;
   remoteBranches: Array<{
+    remoteState: "active" | "deleted_upstream";
     cloudflareBranchPreviewUrl?: string;
     pullRequestNumber?: number;
   }>;
@@ -217,46 +216,6 @@ type DashboardManualRefreshVault = {
   state: string;
   treeRefreshCooldownUntil?: number;
 };
-
-function shouldAutoRefreshVault(args: {
-  lastTreeRefreshAt?: number;
-  remoteBranches: Array<{
-    remoteState: "active" | "deleted_upstream";
-    lastSyncedAt: number;
-    pullRequestNumber?: number;
-    cloudflareBranchPreviewUrl?: string;
-  }>;
-  trigger: RefreshTrigger;
-  now?: number;
-}): boolean {
-  const now = args.now ?? Date.now();
-  const activeRemoteBranches = args.remoteBranches.filter(
-    (branch) => branch.remoteState === "active",
-  );
-  const hasMissingPreviewLinks = activeRemoteBranches.some(
-    (branch) =>
-      typeof branch.pullRequestNumber === "number" &&
-      typeof branch.cloudflareBranchPreviewUrl !== "string",
-  );
-  const metadataStale =
-    activeRemoteBranches.length > 0 &&
-    (hasMissingPreviewLinks ||
-      isRepositoryMetadataStale({
-        lastRepositoryMetadataRefreshAt:
-          getLastRepositoryMetadataRefreshAt(activeRemoteBranches),
-        now,
-      }));
-
-  if (args.trigger === "visibility") {
-    return metadataStale;
-  }
-
-  return (
-    metadataStale ||
-    typeof args.lastTreeRefreshAt !== "number" ||
-    now - args.lastTreeRefreshAt >= TREE_REFRESH_DEBOUNCE_MS
-  );
-}
 
 const GitHubProviderLogo = ({ className }: { className?: string }) => (
   <GitHubLogoIcon className={clsx("h-4 w-4", className)} />
@@ -891,6 +850,7 @@ function VaultDashboardContent() {
   >(null);
   const providersPanelPendingRef = useRef<boolean | null>(null);
   const cloudflareAutoCheckInFlightRef = useRef(false);
+  const initialDashboardPageLoadSentRef = useRef(false);
   const initialCloudflareMcpTokenCheckedAtRef = useRef<
     number | undefined | null
   >(null);
@@ -1064,6 +1024,7 @@ function VaultDashboardContent() {
 
       const shouldIncludeCloudflarePreviewLinks = vault.remoteBranches.some(
         (branch) =>
+          branch.remoteState === "active" &&
           typeof branch.pullRequestNumber === "number" &&
           typeof branch.cloudflareBranchPreviewUrl !== "string",
       );
@@ -1088,16 +1049,31 @@ function VaultDashboardContent() {
       return;
     }
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        refreshVaultTreesIfNeeded("visibility");
+    const triggerInitialPageLoad = () => {
+      if (initialDashboardPageLoadSentRef.current) {
+        return;
       }
+      initialDashboardPageLoadSentRef.current = true;
+      refreshVaultTreesIfNeeded("page_load");
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      if (!initialDashboardPageLoadSentRef.current) {
+        triggerInitialPageLoad();
+        return;
+      }
+
+      refreshVaultTreesIfNeeded("visibility");
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     if (document.visibilityState === "visible") {
-      refreshVaultTreesIfNeeded("page_load");
+      triggerInitialPageLoad();
     }
 
     return () => {

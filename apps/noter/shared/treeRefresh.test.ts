@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getLastRepositoryMetadataRefreshAt,
   isRepositoryMetadataStale,
+  shouldPreserveTreeRefreshFailureAfterSuccess,
 } from "./treeRefresh";
 
 describe("getLastRepositoryMetadataRefreshAt", () => {
@@ -48,5 +49,25 @@ describe("isRepositoryMetadataStale", () => {
         now,
       }),
     ).toBe(true);
+  });
+});
+
+describe("shouldPreserveTreeRefreshFailureAfterSuccess", () => {
+  it("preserves a newer failure recorded after the refresh claimed the lock", () => {
+    expect(
+      shouldPreserveTreeRefreshFailureAfterSuccess({
+        treeRefreshStartedAt: 10,
+        lastTreeRefreshFailedAt: 15,
+      }),
+    ).toBe(true);
+  });
+
+  it("clears older failure state once a later success completes", () => {
+    expect(
+      shouldPreserveTreeRefreshFailureAfterSuccess({
+        treeRefreshStartedAt: 15,
+        lastTreeRefreshFailedAt: 10,
+      }),
+    ).toBe(false);
   });
 });

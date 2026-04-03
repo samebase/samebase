@@ -27,3 +27,14 @@ export function isRepositoryMetadataStale(args: {
     now - args.lastRepositoryMetadataRefreshAt >= REPOSITORY_METADATA_STALE_MS
   );
 }
+
+export function shouldPreserveTreeRefreshFailureAfterSuccess(args: {
+  treeRefreshStartedAt?: number;
+  lastTreeRefreshFailedAt?: number;
+}): boolean {
+  return (
+    typeof args.treeRefreshStartedAt === "number" &&
+    typeof args.lastTreeRefreshFailedAt === "number" &&
+    args.lastTreeRefreshFailedAt > args.treeRefreshStartedAt
+  );
+}

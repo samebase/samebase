@@ -33,6 +33,7 @@ import {
 import { resolveHostingMainUrl } from "./hostingStateHelpers";
 import {
   getLastRepositoryMetadataRefreshAt,
+  shouldPreserveTreeRefreshFailureAfterSuccess,
   TREE_REFRESH_DEBOUNCE_MS,
   TREE_REFRESH_STALE_LOCK_MS,
 } from "../shared/treeRefresh";
@@ -1750,6 +1751,12 @@ export const releaseTreeRefresh = internalMutation({
       vault.treeRefreshCooldownUntil,
       args.cooldownUntil,
     );
+    const shouldPreserveFailureState =
+      args.markRefreshed !== false &&
+      shouldPreserveTreeRefreshFailureAfterSuccess({
+        treeRefreshStartedAt: vault.treeRefreshStartedAt,
+        lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
+      });
     await ctx.db.patch(
       args.vaultId,
       args.markRefreshed === false
@@ -1766,10 +1773,21 @@ export const releaseTreeRefresh = internalMutation({
                 ? vault.lastTreeRefreshAt
                 : now,
             treeRefreshStartedAt: undefined,
-            lastTreeRefreshFailedAt: undefined,
-            treeRefreshFailureKind: undefined,
-            treeRefreshFailureMessage: undefined,
-            treeRefreshCooldownUntil: undefined,
+            // Preserve any newer repo-level cooldown that landed while this
+            // tree refresh was still in flight so a late success cannot reopen
+            // GitHub traffic immediately.
+            lastTreeRefreshFailedAt: shouldPreserveFailureState
+              ? vault.lastTreeRefreshFailedAt
+              : undefined,
+            treeRefreshFailureKind: shouldPreserveFailureState
+              ? vault.treeRefreshFailureKind
+              : undefined,
+            treeRefreshFailureMessage: shouldPreserveFailureState
+              ? vault.treeRefreshFailureMessage
+              : undefined,
+            treeRefreshCooldownUntil: shouldPreserveFailureState
+              ? cooldownUntil
+              : undefined,
           },
     );
   },
