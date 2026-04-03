@@ -380,6 +380,19 @@ export function buildDraftBranchName(args: {
   return `draft/${stem.length > 0 ? stem : "work"}-${suffix}`;
 }
 
+/**
+ * Preserve the full staged-file snapshot when forking default-branch staging
+ * into a draft branch. Only `_creationTime` is database-specific.
+ */
+export function stripCreationTimeFromStagingRecord<
+  T extends {
+    _creationTime: number;
+  },
+>(file: T): Omit<T, "_creationTime"> {
+  const { _creationTime: _ignored, ...snapshot } = file;
+  return snapshot;
+}
+
 async function getBranchHeadCommitMessage(args: {
   octokit: Octokit;
   owner: string;
@@ -2497,22 +2510,8 @@ export const createDraftPullRequestFromDefaultBranch = action({
         branch: defaultBranch,
       },
     );
-    const stagedFiles = stagedFilesResult.map(
-      (file): DraftSourceStagingSnapshot => ({
-        _id: file._id,
-        ownerId: file.ownerId,
-        vaultId: file.vaultId,
-        fileDeleted: file.fileDeleted,
-        filePath: file.filePath,
-        initialFilePath: file.initialFilePath,
-        content: file.content,
-        initialContent: file.initialContent,
-        parentCommitSha: file.parentCommitSha,
-        branch: file.branch,
-        lastEditTime: file.lastEditTime,
-        lastEditUserId: file.lastEditUserId,
-        version: file.version,
-      }),
+    const stagedFiles: DraftSourceStagingSnapshot[] = stagedFilesResult.map(
+      stripCreationTimeFromStagingRecord,
     );
     if (stagedFiles.length === 0) {
       throw new Error("Stage changes on the default branch before drafting.");
