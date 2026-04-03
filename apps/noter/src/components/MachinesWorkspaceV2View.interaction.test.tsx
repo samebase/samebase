@@ -20,6 +20,48 @@ vi.mock("@/components/MachinesWorkspaceThreadPane", () => ({
   ),
 }));
 
+function createTouch(identifier: number, clientX: number, clientY: number) {
+  return {
+    clientX,
+    clientY,
+    identifier,
+  };
+}
+
+function createTouchList(
+  touches: ReadonlyArray<ReturnType<typeof createTouch>>,
+): {
+  length: number;
+  item: (index: number) => ReturnType<typeof createTouch> | null;
+} {
+  return {
+    length: touches.length,
+    item: (index) => touches[index] ?? null,
+  };
+}
+
+function dispatchTouchEvent(
+  target: HTMLElement,
+  type: string,
+  args: {
+    changedTouches: ReadonlyArray<ReturnType<typeof createTouch>>;
+    touches: ReadonlyArray<ReturnType<typeof createTouch>>;
+  },
+) {
+  const event = new Event(type, {
+    bubbles: true,
+    cancelable: true,
+  });
+  const touches = createTouchList(args.touches);
+  const changedTouches = createTouchList(args.changedTouches);
+
+  Object.defineProperty(event, "touches", { value: touches });
+  Object.defineProperty(event, "targetTouches", { value: touches });
+  Object.defineProperty(event, "changedTouches", { value: changedTouches });
+
+  target.dispatchEvent(event);
+}
+
 function dispatchPointerEvent(
   target: HTMLElement,
   type: string,
@@ -77,6 +119,35 @@ function installPointerCaptureMocks(target: HTMLElement) {
   Object.defineProperty(target, "hasPointerCapture", {
     configurable: true,
     value: vi.fn((pointerId: number) => capturedPointerIds.has(pointerId)),
+  });
+}
+
+function dragMobileShell(
+  shell: HTMLElement,
+  args: {
+    endX: number;
+    startX: number;
+    startY?: number;
+    touchIdentifier: number;
+  },
+) {
+  const startY = args.startY ?? 120;
+  const startTouch = createTouch(args.touchIdentifier, args.startX, startY);
+  const endTouch = createTouch(args.touchIdentifier, args.endX, startY);
+
+  act(() => {
+    dispatchTouchEvent(shell, "touchstart", {
+      changedTouches: [startTouch],
+      touches: [startTouch],
+    });
+    dispatchTouchEvent(shell, "touchmove", {
+      changedTouches: [endTouch],
+      touches: [endTouch],
+    });
+    dispatchTouchEvent(shell, "touchend", {
+      changedTouches: [endTouch],
+      touches: [],
+    });
   });
 }
 
@@ -369,7 +440,7 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
     Reflect.set(globalThis, "PointerEvent", originalPointerEvent);
   });
 
-  it("renders one persistent mobile header with both sidebar triggers", async () => {
+  it("renders one persistent mobile header without sidebar buttons", async () => {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     root = createRoot(rootElement);
@@ -387,23 +458,13 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
     const track = rootElement.querySelector<HTMLElement>(
       '[data-sidebar-track="v2-mobile"]',
     );
-    const leftToggleButtons = rootElement.querySelectorAll<HTMLButtonElement>(
-      'button[aria-label="Toggle Left Sidebar"]',
-    );
-    const rightToggleButtons = rootElement.querySelectorAll<HTMLButtonElement>(
-      'button[aria-label="Toggle Right Sidebar"]',
+    const sidebarButtons = rootElement.querySelectorAll<HTMLButtonElement>(
+      'button[aria-label="Toggle Left Sidebar"], button[aria-label="Toggle Right Sidebar"]',
     );
     expect(shell).not.toBeNull();
     expect(header).not.toBeNull();
     expect(track).not.toBeNull();
-    expect(leftToggleButtons).toHaveLength(1);
-    expect(rightToggleButtons).toHaveLength(1);
-    expect(
-      track?.querySelectorAll('button[aria-label="Toggle Left Sidebar"]'),
-    ).toHaveLength(0);
-    expect(
-      track?.querySelectorAll('button[aria-label="Toggle Right Sidebar"]'),
-    ).toHaveLength(0);
+    expect(sidebarButtons).toHaveLength(0);
     if (shell === null || track === null || header === null) {
       return;
     }
@@ -415,15 +476,49 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
     expect(
       track.style.getPropertyValue("--workspace-right-sidebar-width"),
     ).toBe("288px");
+  });
+
+  it("opens both mobile sidebars through drag gestures", async () => {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
 
     await act(async () => {
-      leftToggleButtons[0].click();
+      root?.render(<MachinesWorkspaceV2View {...buildProps()} />);
+    });
+
+    const shell = rootElement.querySelector<HTMLElement>(
+      '[data-sidebar-shell="v2-mobile"]',
+    );
+    const track = rootElement.querySelector<HTMLElement>(
+      '[data-sidebar-track="v2-mobile"]',
+    );
+    expect(shell).not.toBeNull();
+    expect(track).not.toBeNull();
+    if (shell === null || track === null) {
+      return;
+    }
+
+    dragMobileShell(shell, {
+      endX: 360,
+      startX: 180,
+      touchIdentifier: 1,
     });
     expect(shell.dataset.mobilePane).toBe("left");
     expect(track.style.transform).toBe("translate3d(0px, 0, 0)");
 
-    await act(async () => {
-      rightToggleButtons[0].click();
+    dragMobileShell(shell, {
+      endX: 20,
+      startX: 220,
+      touchIdentifier: 2,
+    });
+    expect(shell.dataset.mobilePane).toBe("main");
+    expect(track.style.transform).toBe("translate3d(-288px, 0, 0)");
+
+    dragMobileShell(shell, {
+      endX: 20,
+      startX: 220,
+      touchIdentifier: 3,
     });
     expect(shell.dataset.mobilePane).toBe("right");
     expect(track.style.transform).toBe("translate3d(-576px, 0, 0)");
@@ -446,27 +541,16 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
     const track = rootElement.querySelector<HTMLElement>(
       '[data-sidebar-track="v2-mobile"]',
     );
-    const leftToggleButton = rootElement.querySelector<HTMLButtonElement>(
-      'button[aria-label="Toggle Left Sidebar"]',
-    );
-    const rightToggleButton = rootElement.querySelector<HTMLButtonElement>(
-      'button[aria-label="Toggle Right Sidebar"]',
-    );
     expect(shell).not.toBeNull();
     expect(track).not.toBeNull();
-    expect(leftToggleButton).not.toBeNull();
-    expect(rightToggleButton).not.toBeNull();
-    if (
-      shell === null ||
-      track === null ||
-      leftToggleButton === null ||
-      rightToggleButton === null
-    ) {
+    if (shell === null || track === null) {
       return;
     }
 
-    await act(async () => {
-      leftToggleButton.click();
+    dragMobileShell(shell, {
+      endX: 360,
+      startX: 180,
+      touchIdentifier: 1,
     });
 
     const leftResizeHandle = rootElement.querySelector<HTMLElement>(
@@ -503,8 +587,15 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
       "320px",
     );
 
-    await act(async () => {
-      rightToggleButton.click();
+    dragMobileShell(shell, {
+      endX: 20,
+      startX: 220,
+      touchIdentifier: 2,
+    });
+    dragMobileShell(shell, {
+      endX: 20,
+      startX: 220,
+      touchIdentifier: 3,
     });
 
     const rightResizeHandle = rootElement.querySelector<HTMLElement>(
@@ -557,18 +648,16 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
     const mainPane = rootElement.querySelector<HTMLElement>(
       '[data-testid="machines-v2-mobile-main-pane"]',
     );
-    const leftToggleButton = rootElement.querySelector<HTMLButtonElement>(
-      'button[aria-label="Toggle Left Sidebar"]',
-    );
     expect(shell).not.toBeNull();
     expect(mainPane).not.toBeNull();
-    expect(leftToggleButton).not.toBeNull();
-    if (shell === null || mainPane === null || leftToggleButton === null) {
+    if (shell === null || mainPane === null) {
       return;
     }
 
-    await act(async () => {
-      leftToggleButton.click();
+    dragMobileShell(shell, {
+      endX: 360,
+      startX: 180,
+      touchIdentifier: 1,
     });
     expect(shell.dataset.mobilePane).toBe("left");
 

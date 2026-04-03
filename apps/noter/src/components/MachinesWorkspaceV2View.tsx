@@ -1,5 +1,5 @@
 import * as React from "react";
-import { SidebarProvider, SidebarTrigger } from "@/components/sidebar";
+import { SidebarProvider } from "@/components/sidebar";
 import {
   MachinesWorkspaceSidebarRail,
   type MachinesWorkspaceViewProps,
@@ -86,12 +86,8 @@ function MachinesWorkspaceV2MobileHeader(props: { dataTestId?: string }) {
       data-testid={props.dataTestId}
       className="min-w-0 border-b border-border/50 bg-background"
     >
-      <div className="flex items-center justify-between gap-3 p-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <SidebarTrigger className="h-8 w-8" side="left" />
-          <span className="truncate text-base font-medium">Machines</span>
-        </div>
-        <SidebarTrigger className="h-8 w-8 shrink-0" side="right" />
+      <div className="flex items-center gap-3 p-3">
+        <span className="truncate text-base font-medium">Machines</span>
       </div>
     </div>
   );
@@ -495,9 +491,8 @@ function MachinesWorkspaceV2ViewContent(props: MachinesWorkspaceViewProps) {
 /**
  * Functional requirements for `/v2/machines` mobile:
  * - the shell always has three pane slots: left, main, and right
- * - the shell has one persistent top header outside the translated panes, and
- *   that header always renders both sidebar triggers
- * - sidebar panes must not render their own duplicate trigger buttons
+ * - the shell has one persistent top header outside the translated panes
+ * - mobile does not render sidebar trigger buttons; sidebars open/close by drag
  * - the shell must not add a scrim or click-capture overlay to dismiss sidebars
  * - visible mobile sidebars expose draggable resize edges on both the left and
  *   right pane variants
