@@ -45,6 +45,7 @@ These are the intended meanings for the repo shorthand commands:
 | `ready`        | Mark the current PR ready                                                                 |
 | `wait`         | Watch CI and report status                                                                |
 | `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, and wait for CI |
+| `squash`       | Squash-merge the current PR                                                               |
 | `archive`      | Remove the current worktree/local branch after confirming a PR exists                     |
 | `clean vaults` | Delete matching temporary Noter-managed vaults safely                                     |
 | `clean`        | Run `clean vaults`, then remove the shipped worktree and branch                           |
@@ -99,6 +100,8 @@ Rules:
 - Treat actionable Greptile, CodeRabbit, and Codex comments as required fixes.
 - Do not merge while CI is red or while required review tooling is still in
   progress.
+- When the user says `squash`, squash-merge the current PR through the CLI after
+  confirming CI is green and rebasing on the latest `origin/main`.
 - Immediately before merge, run `git fetch origin` and rebase onto the latest
   `origin/main`.
 - Prefer squash merge unless there is an explicit reason to preserve the full

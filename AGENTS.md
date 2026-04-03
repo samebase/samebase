@@ -160,6 +160,7 @@ When the user says one of these commands, execute it directly:
 | `ready`        | Mark the current PR ready                                                      |
 | `wait`         | Watch CI and report status                                                     |
 | `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, wait |
+| `squash`       | Squash-merge the current PR                                                    |
 | `archive`      | Remove the current worktree/local branch after confirming a PR exists          |
 | `clean vaults` | Remove temporary Noter-managed vaults for the current worktree                 |
 | `clean`        | Run `clean vaults`, then remove the shipped worktree/branch                    |
