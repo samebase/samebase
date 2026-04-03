@@ -102,7 +102,11 @@ describe("MachinesWorkspaceThreadPane", () => {
         isLoading={false}
         errorMessage={null}
         isSubmittingTurn={false}
+        model="gpt-5.4"
+        reasoningEffort="xhigh"
         turnDraft=""
+        onModelChange={() => {}}
+        onReasoningEffortChange={() => {}}
         onTurnDraftChange={() => {}}
         onTurnSubmit={() => {}}
       />,

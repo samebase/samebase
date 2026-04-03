@@ -70,7 +70,11 @@ describe("MachinesWorkspaceView", () => {
         selectedThreadLoading={false}
         selectedThreadId={THREAD_FIXTURE.id}
         pendingPinThreadKey={null}
+        model="gpt-5.4"
+        reasoningEffort="xhigh"
         turnDraft=""
+        onModelChange={() => {}}
+        onReasoningEffortChange={() => {}}
         onTurnDraftChange={() => {}}
         onTurnSubmit={() => {}}
       />,
