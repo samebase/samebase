@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  doesTreeRefreshClaimMatch,
   getLastRepositoryMetadataRefreshAt,
   isRepositoryMetadataStale,
   shouldPreserveTreeRefreshFailureAfterSuccess,
@@ -56,7 +57,7 @@ describe("shouldPreserveTreeRefreshFailureAfterSuccess", () => {
   it("preserves a newer failure recorded after the refresh claimed the lock", () => {
     expect(
       shouldPreserveTreeRefreshFailureAfterSuccess({
-        treeRefreshStartedAt: 10,
+        claimedStartedAt: 10,
         lastTreeRefreshFailedAt: 15,
       }),
     ).toBe(true);
@@ -65,8 +66,28 @@ describe("shouldPreserveTreeRefreshFailureAfterSuccess", () => {
   it("clears older failure state once a later success completes", () => {
     expect(
       shouldPreserveTreeRefreshFailureAfterSuccess({
-        treeRefreshStartedAt: 15,
+        claimedStartedAt: 15,
         lastTreeRefreshFailedAt: 10,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("doesTreeRefreshClaimMatch", () => {
+  it("accepts the worker that still owns the current lock", () => {
+    expect(
+      doesTreeRefreshClaimMatch({
+        claimedStartedAt: 15,
+        treeRefreshStartedAt: 15,
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects stale workers once a newer lock was claimed", () => {
+    expect(
+      doesTreeRefreshClaimMatch({
+        claimedStartedAt: 15,
+        treeRefreshStartedAt: 20,
       }),
     ).toBe(false);
   });

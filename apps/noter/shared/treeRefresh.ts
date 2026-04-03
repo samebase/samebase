@@ -29,12 +29,22 @@ export function isRepositoryMetadataStale(args: {
 }
 
 export function shouldPreserveTreeRefreshFailureAfterSuccess(args: {
-  treeRefreshStartedAt?: number;
+  claimedStartedAt?: number;
   lastTreeRefreshFailedAt?: number;
 }): boolean {
   return (
-    typeof args.treeRefreshStartedAt === "number" &&
+    typeof args.claimedStartedAt === "number" &&
     typeof args.lastTreeRefreshFailedAt === "number" &&
-    args.lastTreeRefreshFailedAt > args.treeRefreshStartedAt
+    args.lastTreeRefreshFailedAt > args.claimedStartedAt
+  );
+}
+
+export function doesTreeRefreshClaimMatch(args: {
+  claimedStartedAt?: number;
+  treeRefreshStartedAt?: number;
+}): boolean {
+  return (
+    typeof args.claimedStartedAt === "number" &&
+    args.treeRefreshStartedAt === args.claimedStartedAt
   );
 }

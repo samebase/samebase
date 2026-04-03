@@ -113,9 +113,16 @@ export function shouldAutoRefreshVault(args: {
     return metadataStale;
   }
 
-  return (
-    metadataStale ||
+  if (metadataStale) {
+    return true;
+  }
+
+  if (
     typeof args.lastTreeRefreshAt !== "number" ||
-    now - args.lastTreeRefreshAt >= TREE_REFRESH_DEBOUNCE_MS
-  );
+    !Number.isFinite(args.lastTreeRefreshAt)
+  ) {
+    return true;
+  }
+
+  return now - args.lastTreeRefreshAt >= TREE_REFRESH_DEBOUNCE_MS;
 }

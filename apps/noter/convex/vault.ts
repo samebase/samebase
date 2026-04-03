@@ -32,6 +32,7 @@ import {
 } from "./hostingState";
 import { resolveHostingMainUrl } from "./hostingStateHelpers";
 import {
+  doesTreeRefreshClaimMatch,
   getLastRepositoryMetadataRefreshAt,
   shouldPreserveTreeRefreshFailureAfterSuccess,
   TREE_REFRESH_DEBOUNCE_MS,
@@ -1654,7 +1655,7 @@ function getLaterCooldownUntil(
 }
 
 // Atomically claim the tree refresh lock for a vault.
-// Returns { claimed: true } if this caller should proceed, { claimed: false } if skipped.
+// Returns the claimed timestamp when this caller should proceed.
 export const claimTreeRefresh = internalMutation({
   args: {
     vaultId: v.id("vaults"),
@@ -1664,6 +1665,7 @@ export const claimTreeRefresh = internalMutation({
   },
   returns: v.object({
     claimed: v.boolean(),
+    startedAt: v.optional(v.number()),
     reason: v.optional(
       v.union(
         v.literal("cooldown"),
@@ -1677,6 +1679,7 @@ export const claimTreeRefresh = internalMutation({
     args,
   ): Promise<{
     claimed: boolean;
+    startedAt?: number;
     reason?: "cooldown" | "recent_success" | "in_progress";
   }> => {
     const vault = await ctx.db.get(args.vaultId);
@@ -1716,7 +1719,7 @@ export const claimTreeRefresh = internalMutation({
 
     // Claim the lock
     await ctx.db.patch(args.vaultId, { treeRefreshStartedAt: now });
-    return { claimed: true };
+    return { claimed: true, startedAt: now };
   },
 });
 
@@ -1736,15 +1739,30 @@ export const startTreeRefreshOptimistic = mutation({
 export const releaseTreeRefresh = internalMutation({
   args: {
     vaultId: v.id("vaults"),
+    startedAt: v.number(),
     markRefreshed: v.optional(v.boolean()),
     updateLastTreeRefreshAt: v.optional(v.boolean()),
     failureKind: v.optional(TreeRefreshFailureKind),
     failureMessage: v.optional(v.string()),
     cooldownUntil: v.optional(v.number()),
   },
+  returns: object({
+    released: boolean(),
+  }),
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault) return;
+    if (!vault) {
+      return { released: false };
+    }
+
+    if (
+      !doesTreeRefreshClaimMatch({
+        claimedStartedAt: args.startedAt,
+        treeRefreshStartedAt: vault.treeRefreshStartedAt,
+      })
+    ) {
+      return { released: false };
+    }
 
     const now = Date.now();
     const cooldownUntil = getLaterCooldownUntil(
@@ -1754,7 +1772,7 @@ export const releaseTreeRefresh = internalMutation({
     const shouldPreserveFailureState =
       args.markRefreshed !== false &&
       shouldPreserveTreeRefreshFailureAfterSuccess({
-        treeRefreshStartedAt: vault.treeRefreshStartedAt,
+        claimedStartedAt: args.startedAt,
         lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
       });
     await ctx.db.patch(
@@ -1790,6 +1808,7 @@ export const releaseTreeRefresh = internalMutation({
               : undefined,
           },
     );
+    return { released: true };
   },
 });
 

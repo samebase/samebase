@@ -123,4 +123,20 @@ describe("shouldAutoRefreshVault", () => {
       }),
     ).toBe(false);
   });
+
+  it("treats an invalid lastTreeRefreshAt as stale on page load", () => {
+    expect(
+      shouldAutoRefreshVault({
+        lastTreeRefreshAt: Number.NaN,
+        remoteBranches: [
+          {
+            remoteState: "active",
+            lastSyncedAt: now - 30_000,
+          },
+        ],
+        trigger: "page_load",
+        now,
+      }),
+    ).toBe(true);
+  });
 });

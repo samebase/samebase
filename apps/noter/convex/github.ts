@@ -2141,6 +2141,9 @@ export const refreshRepositoryTree = action({
         reason: claim.reason,
       };
     }
+    if (typeof claim.startedAt !== "number") {
+      throw new Error("Tree refresh claim missing start timestamp");
+    }
 
     let refreshError: unknown = null;
     let refreshFailure: TreeRefreshFailureDescriptor | null = null;
@@ -2185,6 +2188,7 @@ export const refreshRepositoryTree = action({
       if (vault.branchNotFound) {
         await ctx.runMutation(internal.vault.releaseTreeRefresh, {
           vaultId: vault._id,
+          startedAt: claim.startedAt,
           markRefreshed: true,
           updateLastTreeRefreshAt: false,
         });
@@ -2221,13 +2225,25 @@ export const refreshRepositoryTree = action({
 
     if (refreshFailure) {
       try {
-        await ctx.runMutation(internal.vault.releaseTreeRefresh, {
-          vaultId: vault._id,
-          markRefreshed: false,
-          failureKind: refreshFailure.kind,
-          failureMessage: refreshFailure.message,
-          cooldownUntil: refreshFailure.cooldownUntil,
-        });
+        const releaseResult = await ctx.runMutation(
+          internal.vault.releaseTreeRefresh,
+          {
+            vaultId: vault._id,
+            startedAt: claim.startedAt,
+            markRefreshed: false,
+            failureKind: refreshFailure.kind,
+            failureMessage: refreshFailure.message,
+            cooldownUntil: refreshFailure.cooldownUntil,
+          },
+        );
+        if (!releaseResult.released) {
+          await ctx.runMutation(internal.vault.recordTreeRefreshFailure, {
+            vaultId: vault._id,
+            failureKind: refreshFailure.kind,
+            failureMessage: refreshFailure.message,
+            cooldownUntil: refreshFailure.cooldownUntil,
+          });
+        }
       } catch (releaseError) {
         console.error("Failed to persist repository tree refresh failure", {
           owner: args.owner,
@@ -2242,6 +2258,7 @@ export const refreshRepositoryTree = action({
 
     await ctx.runMutation(internal.vault.releaseTreeRefresh, {
       vaultId: vault._id,
+      startedAt: claim.startedAt,
       markRefreshed: true,
       updateLastTreeRefreshAt: didRefreshTreeData,
     });
