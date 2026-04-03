@@ -8,3 +8,4 @@
 - https://thecommander.app/
 - https://blog.cloudflare.com/emdash-wordpress/
 - https://openscreen.vercel.app/
+- https://exe.dev/
