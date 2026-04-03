@@ -21,7 +21,6 @@ import {
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
 import {
-  DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   getTreeRefreshUiState,
   shouldAutoRefreshVault,
 } from "@/lib/treeRefreshStatus";
