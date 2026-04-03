@@ -34,10 +34,12 @@ export function UserMenu({
   children,
   className,
   menuLabel,
+  compact = false,
 }: {
   children?: ReactNode;
   className?: string;
   menuLabel?: ReactNode;
+  compact?: boolean;
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
   const viewer = useQuery(api.users.viewer);
@@ -51,7 +53,11 @@ export function UserMenu({
 
   return (
     <div
-      className={clsx("flex items-center gap-2 text-sm font-medium", className)}
+      className={clsx(
+        "flex items-center gap-2 font-medium",
+        compact ? "text-[12px]" : "text-sm",
+        className,
+      )}
     >
       {children}
       <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
@@ -79,9 +85,17 @@ export function UserMenu({
           <Button
             variant="secondary"
             size="icon"
-            className="h-8 w-8 rounded-ui md:h-6 md:w-6"
+            className={clsx(
+              "rounded-ui md:h-6 md:w-6",
+              compact ? "h-7 w-7" : "h-8 w-8",
+            )}
           >
-            <PersonIcon className="h-4 w-4 md:h-3 md:w-3" />
+            <PersonIcon
+              className={clsx(
+                "md:h-3 md:w-3",
+                compact ? "h-3.5 w-3.5" : "h-4 w-4",
+              )}
+            />
             <span className="sr-only">Open user menu</span>
           </Button>
         </DropdownMenuTrigger>

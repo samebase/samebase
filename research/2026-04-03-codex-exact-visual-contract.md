@@ -19,14 +19,13 @@ These sources were reviewed on April 3, 2026.
 - [OpenAI Codex product page](https://openai.com/codex/)
 - [Introducing upgrades to Codex](https://openai.com/index/introducing-upgrades-to-codex/)
 - [Codex changelog](https://developers.openai.com/codex/changelog)
-- [Using Codex with your ChatGPT plan](https://help.openai.com/en/articles/11369540/)
 
 ## Update After Screenshot Review
 
 - Later feedback on April 3, 2026 clarified that trying to restyle the live
   route immediately is premature.
 - The system-first build plan now lives in
-  [2026-04-03-codex-pixel-perfect-system.md](/Users/nicu/.codex/worktrees/846d/noter/research/2026-04-03-codex-pixel-perfect-system.md).
+  [2026-04-03-codex-pixel-perfect-system.md](./2026-04-03-codex-pixel-perfect-system.md).
 - Treat this memo as the product-direction note and the newer memo as the
   implementation-system recommendation.
 
@@ -80,14 +79,14 @@ These sources were reviewed on April 3, 2026.
 
 ## Current Noter Mismatch
 
-- [MachinesWorkspaceView.tsx](/Users/nicu/.codex/worktrees/846d/noter/apps/noter/src/components/MachinesWorkspaceView.tsx)
+- [MachinesWorkspaceView.tsx](../apps/noter/src/components/MachinesWorkspaceView.tsx)
   already has the right machine and thread structure, but the rail still reads
   like a Noter workspace shell with stronger accordion and status-pill chrome
   than the Codex app uses.
-- [MachinesWorkspaceThreadPane.tsx](/Users/nicu/.codex/worktrees/846d/noter/apps/noter/src/components/MachinesWorkspaceThreadPane.tsx)
+- [MachinesWorkspaceThreadPane.tsx](../apps/noter/src/components/MachinesWorkspaceThreadPane.tsx)
   already has the right selected-thread timeline concept, but the presentation
   is still more dashboard-like than Codex.
-- [CodexThreadBrowserView.tsx](/Users/nicu/.codex/worktrees/846d/noter/apps/noter/src/components/CodexThreadBrowserView.tsx)
+- [CodexThreadBrowserView.tsx](../apps/noter/src/components/CodexThreadBrowserView.tsx)
   is conceptually closer to the right mental model, but it still uses heavier
   card framing than the Codex app's current shell.
 
@@ -125,12 +124,13 @@ These sources were reviewed on April 3, 2026.
 
 ## Guardrails
 
-- Do not add extra Noter chrome, filler copy, or ornamental layout.
-- Do not widen the route contract or invent alternate thread identity rules.
-- Do not lose keyboard, focus, selection, approval, or audit behavior while
+- Avoid adding extra Noter chrome, filler copy, or ornamental layout.
+- Keep the route contract narrow instead of inventing alternate thread identity
+  rules.
+- Preserve keyboard, focus, selection, approval, and audit behavior while
   restyling.
-- Do not introduce speculative settings or fallback modes that the shipped
-  surface does not need.
+- Refrain from introducing speculative settings or fallback modes that the
+  shipped surface does not need.
 
 ## Recommended First Slice
 

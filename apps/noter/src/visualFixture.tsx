@@ -89,6 +89,10 @@ import {
 } from "@/components/CodexAppServerResearchVisualFixture";
 import { MachinesWorkspaceVisualFixture } from "@/components/MachinesWorkspaceVisualFixture";
 import {
+  MachinesWorkspaceThreadRowVisualFixture,
+  type MachinesWorkspaceThreadRowVisualMode,
+} from "@/components/MachinesWorkspaceThreadRowVisualFixture";
+import {
   CodexThreadHistoryVisualFixture,
   type CodexThreadHistoryVisualMode,
 } from "@/components/CodexThreadHistoryVisualFixture";
@@ -148,6 +152,7 @@ type VisualFixtureMode =
   | CodexThreadBrowserVisualMode
   | CodexThreadHistoryVisualMode
   | "machines-workspace"
+  | MachinesWorkspaceThreadRowVisualMode
   | "machine-connect"
   | "vault-dashboard-branch-pr-title"
   | "button"
@@ -286,6 +291,9 @@ const MISC_VISUAL_MODES = [
   "codex-thread-browser",
   "codex-thread-history",
   "machines-workspace",
+  "machines-thread-row",
+  "machines-thread-row-ready",
+  "machines-thread-row-draft",
   "machine-connect",
   "vault-dashboard-branch-pr-title",
   "button",
@@ -472,6 +480,14 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "vault-sync-status-states") {
     return <VaultSyncStatusVisualFixture mode={mode} />;
+  }
+
+  if (
+    mode === "machines-thread-row" ||
+    mode === "machines-thread-row-ready" ||
+    mode === "machines-thread-row-draft"
+  ) {
+    return <MachinesWorkspaceThreadRowVisualFixture mode={mode} />;
   }
 
   if (mode === "thread-browser") {

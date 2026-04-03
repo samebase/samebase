@@ -21,6 +21,12 @@ git rev-parse --abbrev-ref HEAD
    bootstrapping.
 6. Before starting implementation on an existing work branch or worktree, run
    `git fetch origin` and rebase onto the latest `origin/main`.
+7. Keep `origin` as the only canonical remote unless the repo is actually
+   operating as a fork.
+8. Prefer `gh`-backed HTTPS auth for git operations. Do not make fetch/push
+   depend on SSH-agent forwarding, 1Password prompts, or local desktop unlock
+   state, because the tunneled Codex app-server and machine-control flows need
+   non-interactive git access.
 
 ## Temporary Vault Naming
 

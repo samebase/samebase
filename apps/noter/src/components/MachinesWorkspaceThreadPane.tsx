@@ -107,20 +107,20 @@ function WorkEntryRow({ entry }: { entry: CodexThreadTimelineWorkEntry }) {
   const EntryIcon = workEntryIcon(entry);
 
   return (
-    <div className="rounded-xl px-1 py-1">
+    <div className="rounded-lg px-1 py-0.5">
       <div className="flex items-start gap-2">
         <span
           className={cn(
-            "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center",
+            "mt-px flex h-4 w-4 shrink-0 items-center justify-center",
             workToneClassName(entry.tone),
           )}
         >
-          <EntryIcon className="h-3.5 w-3.5" />
+          <EntryIcon className="h-3 w-3" strokeWidth={1.6} />
         </span>
         <div className="min-w-0 flex-1">
           <div
             className={cn(
-              "truncate text-[11px] leading-5",
+              "truncate text-[10px] leading-4",
               workToneClassName(entry.tone),
             )}
             title={
@@ -137,14 +137,14 @@ function WorkEntryRow({ entry }: { entry: CodexThreadTimelineWorkEntry }) {
               {entry.changedFiles.slice(0, 4).map((filePath) => (
                 <span
                   key={`${entry.id}-${filePath}`}
-                  className="rounded-md border border-border/60 bg-background/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+                  className="rounded-md border border-border/60 bg-background/80 px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground"
                   title={filePath}
                 >
                   {filePath}
                 </span>
               ))}
               {entry.changedFiles.length > 4 ? (
-                <span className="px-1 text-[10px] text-muted-foreground">
+                <span className="px-1 text-[9px] text-muted-foreground">
                   +{entry.changedFiles.length - 4}
                 </span>
               ) : null}
@@ -164,7 +164,10 @@ function ThreadMessageBody({
   text: string;
 }) {
   return (
-    <ProsemarkReadOnly value={text} className={cn("text-sm", className)} />
+    <ProsemarkReadOnly
+      value={text}
+      className={cn("text-[13px] leading-[1.45rem]", className)}
+    />
   );
 }
 
@@ -259,37 +262,37 @@ export function MachinesWorkspaceThreadPane({
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="border-b border-border bg-background/95">
         <div className="mx-auto w-full max-w-3xl px-4 py-3 sm:py-2.5">
-          <div className="flex min-w-0 flex-col gap-1 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <div className="flex min-w-0 flex-col gap-1 text-[10px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <div className="min-w-0 truncate">{selectedMachineLabel}</div>
             {headerMeta ? (
               <div className="hidden shrink-0 sm:block">{headerMeta}</div>
             ) : null}
           </div>
-          <div className="mt-1.5 break-words text-[15px] font-semibold leading-6 text-foreground sm:mt-1 sm:truncate sm:text-base">
+          <div className="mt-1 break-words text-[13px] font-medium leading-5 text-foreground sm:truncate sm:text-[14px]">
             {thread ? readThreadTitle(thread) : emptyStateTitle}
           </div>
         </div>
       </div>
 
       {errorMessage ? (
-        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-[12px] text-red-700">
           {errorMessage}
         </div>
       ) : null}
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 py-3">
           {thread === null ? (
             <div className="rounded-2xl border border-dashed border-border bg-card/20 px-5 py-8">
-              <div className="text-sm font-medium text-foreground">
+              <div className="text-[13px] font-medium text-foreground">
                 {emptyStateTitle}
               </div>
-              <div className="mt-2 text-sm leading-6 text-muted-foreground">
+              <div className="mt-2 text-[12px] leading-5 text-muted-foreground">
                 {emptyStateBody}
               </div>
             </div>
           ) : timelineEntries.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border bg-card/20 px-5 py-8 text-sm text-muted-foreground">
+            <div className="rounded-2xl border border-dashed border-border bg-card/20 px-5 py-8 text-[12px] text-muted-foreground">
               This thread does not have any hydrated messages yet.
             </div>
           ) : (
@@ -319,16 +322,16 @@ export function MachinesWorkspaceThreadPane({
               return (
                 <div
                   key={entry.id}
-                  className="rounded-2xl border border-border/60 bg-card/30 px-2 py-1.5"
+                  className="rounded-xl border border-border/60 bg-card/30 px-2 py-1.5"
                 >
                   <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5">
-                    <p className="text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
+                    <p className="text-[8px] uppercase tracking-[0.14em] text-muted-foreground">
                       {onlyToolEntries ? "Tool calls" : "Work log"} (
                       {entry.entries.length})
                     </p>
                     {onlyToolEntries ? (
-                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                        <Bot className="h-3 w-3" />
+                      <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                        <Bot className="h-2.5 w-2.5" strokeWidth={1.6} />
                         Machine activity
                       </span>
                     ) : null}
@@ -347,20 +350,22 @@ export function MachinesWorkspaceThreadPane({
       </div>
 
       <div className="border-t border-border bg-background/95">
-        <div className="mx-auto w-full max-w-3xl px-4 py-3">
+        <div className="mx-auto w-full max-w-3xl px-4 py-2.5">
           <ChatInput
             autoResize
-            className="items-end"
+            className="items-end gap-1.5"
             disabled={composerDisabled}
             mode="prosemark"
             onSend={onTurnSubmit}
             onValueChange={onTurnDraftChange}
             placeholder={composerPlaceholder}
+            sendButtonClassName="h-7 w-7 self-end [&>svg]:h-3.5 [&>svg]:w-3.5"
+            textareaClassName="min-h-[3.75rem] px-3 py-2 text-[13px] leading-5"
             value={turnDraft}
           />
           {isSubmittingTurn ? (
-            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <div className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.6} />
               Sending to the selected machine thread...
             </div>
           ) : null}

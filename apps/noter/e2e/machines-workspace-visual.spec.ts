@@ -39,6 +39,19 @@ async function openMachinesWorkspaceFixture(page: Page) {
   await page.waitForLoadState("networkidle");
 }
 
+async function openMachinesThreadRowFixture(
+  page: Page,
+  mode:
+    | "machines-thread-row"
+    | "machines-thread-row-ready"
+    | "machines-thread-row-draft" = "machines-thread-row",
+) {
+  await page.goto(`/visual-fixture.html?mode=${mode}`, {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+}
+
 test("machines workspace fixture", async ({ page }) => {
   await openMachinesWorkspaceFixture(page);
 
@@ -56,6 +69,51 @@ test("machines workspace fixture", async ({ page }) => {
   const workspace = page.getByTestId("machines-workspace-visual-fixture");
   await expect(workspace).toHaveScreenshot(
     `machines-workspace-page-${machinesWorkspaceSnapshotSuffix}.png`,
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
+});
+
+test("machines workspace thread row fixture", async ({ page }) => {
+  await openMachinesThreadRowFixture(page);
+
+  const row = page.getByTestId("machines-thread-row-visual-fixture");
+  await expect(row).toHaveScreenshot(
+    `machines-workspace-thread-row-${machinesWorkspaceSnapshotSuffix}.png`,
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
+});
+
+test("machines workspace thread row ready pr fixture", async ({ page }) => {
+  await openMachinesThreadRowFixture(page, "machines-thread-row-ready");
+
+  const row = page.getByTestId("machines-thread-row-visual-fixture");
+  await expect(row).toHaveScreenshot(
+    `machines-workspace-thread-row-ready-${machinesWorkspaceSnapshotSuffix}.png`,
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
+});
+
+test("machines workspace thread row draft fixture", async ({ page }) => {
+  await openMachinesThreadRowFixture(page, "machines-thread-row-draft");
+
+  const row = page.getByTestId("machines-thread-row-visual-fixture");
+  await expect(row).toHaveScreenshot(
+    `machines-workspace-thread-row-draft-${machinesWorkspaceSnapshotSuffix}.png`,
     {
       animations: "disabled",
       caret: "hide",
@@ -91,10 +149,8 @@ test("machines workspace narrow sidebar keeps thread titles clamped", async ({
 test("machines workspace project collapse stays closed", async ({ page }) => {
   await openMachinesWorkspaceFixture(page);
 
-  const projectToggle = page.getByRole("button", {
-    name: "noter",
-    exact: true,
-  });
+  const sidebar = page.getByTestId("machines-workspace-visual-fixture-sidebar");
+  const projectToggle = sidebar.getByRole("button", { name: /^noter$/ });
   const projectThread = page.getByRole("button", {
     name: /Research sidebar resizing/,
   });

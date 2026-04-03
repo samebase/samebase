@@ -443,7 +443,10 @@ export function MachinesWorkspaceVisualFixture() {
               dataTestId="machines-workspace-visual-fixture"
               isSubmittingTurn={false}
               leftSidebarHeader={
-                <SidebarHomeAccountHeader userDisplayName="nicu@noter.md" />
+                <SidebarHomeAccountHeader
+                  compact
+                  userDisplayName="nicu@noter.md"
+                />
               }
               machineInventories={[
                 {

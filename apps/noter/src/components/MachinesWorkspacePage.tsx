@@ -1073,7 +1073,10 @@ export function MachinesWorkspacePage() {
         isSubmittingTurn={isSubmittingTurn}
         leftSidebarHeader={
           userDisplayName !== null ? (
-            <SidebarHomeAccountHeader userDisplayName={userDisplayName} />
+            <SidebarHomeAccountHeader
+              compact
+              userDisplayName={userDisplayName}
+            />
           ) : null
         }
         pendingPinThreadKey={pendingPinThreadKey}

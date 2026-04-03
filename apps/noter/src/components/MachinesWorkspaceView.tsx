@@ -122,9 +122,93 @@ const MIN_LEFT_SIDEBAR_WIDTH_FOR_THREAD_META_PX = 176;
 // Export the shared default width so the parent persisted provider and the
 // workspace shell stay aligned. The narrower metadata threshold stays local.
 export const MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX = 288;
+const MACOS_APP_FONT_FAMILY =
+  "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif";
 
 function buildMachineThreadKey(machineId: string, threadId: string): string {
   return `${machineId}\u0000${threadId}`;
+}
+
+function WorktreeMetaIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M2.2 9.9h6.7" />
+      <path d="m8.9 9.9 5.7-5.7" />
+      <path d="M10.8 4.2h3.8V8" />
+      <path d="m8.9 10.1 5.7 5.7" />
+      <path d="M10.8 15.8h3.8V12" />
+    </svg>
+  );
+}
+
+function ReadyPrMetaIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="4.6" cy="4.4" r="1.7" />
+      <circle cx="4.6" cy="15.6" r="1.7" />
+      <path d="M4.6 6.3v7.4" />
+      <path d="M11.5 7.3h2.8a1.7 1.7 0 0 1 1.7 1.7v2.3" />
+      <path d="m11.5 7.3 1.9-1.9" />
+      <path d="m11.5 7.3 1.9 1.9" />
+      <path d="M13.4 15.5h4.4" />
+      <path d="M15.6 13.3v4.4" />
+    </svg>
+  );
+}
+
+function DraftPrMetaIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="4.6" cy="4.4" r="1.7" />
+      <circle cx="4.6" cy="15.6" r="1.7" />
+      <path d="M4.6 6.3v7.4" />
+      <circle cx="14.8" cy="5.2" r="0.85" fill="currentColor" stroke="none" />
+      <circle cx="14.8" cy="9.8" r="0.85" fill="currentColor" stroke="none" />
+      <circle cx="14.8" cy="15.2" r="1.7" />
+    </svg>
+  );
+}
+
+function MetaIndicatorIcon(props: {
+  indicator: "worktree" | "prDraft" | "prReady";
+  className?: string;
+}) {
+  if (props.indicator === "worktree") {
+    return <WorktreeMetaIcon className={props.className} />;
+  }
+
+  if (props.indicator === "prDraft") {
+    return <DraftPrMetaIcon className={props.className} />;
+  }
+
+  return <ReadyPrMetaIcon className={props.className} />;
 }
 
 function ThreadPinActionButton(props: {
@@ -142,7 +226,7 @@ function ThreadPinActionButton(props: {
       aria-label={label}
       aria-pressed={props.isPinned}
       className={cn(
-        "flex h-7 w-7 items-center justify-center rounded-sm transition-[opacity,color,background-color]",
+        "flex h-6 w-6 items-center justify-center rounded-sm transition-[opacity,color,background-color]",
         props.isPinned
           ? "bg-accent/60 text-foreground hover:bg-accent"
           : "bg-transparent text-muted-foreground hover:bg-accent/80 hover:text-foreground",
@@ -158,9 +242,9 @@ function ThreadPinActionButton(props: {
       }}
     >
       {props.isPending ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} />
+        <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.6} />
       ) : (
-        <Pin className="h-3.5 w-3.5 rotate-45" strokeWidth={1.75} />
+        <Pin className="h-3 w-3 rotate-45" strokeWidth={1.6} />
       )}
     </button>
   );
@@ -170,7 +254,7 @@ function ThreadPinActionButton(props: {
  * Let thread and project names grow with the live sidebar width while still
  * capping them at three lines so the rail stays compact when labels are long.
  */
-function ThreadRow(props: {
+export function MachinesWorkspaceThreadRow(props: {
   item: CodexThreadSidebarThread;
   threadKey: string;
   isSelected: boolean;
@@ -178,15 +262,29 @@ function ThreadRow(props: {
   isDisabled?: boolean;
   relativeTimeReferenceMs?: number;
   leadingIcon?: ReactNode;
+  dataTestId?: string;
+  forceShowTrailingMeta?: boolean;
+  metaCounts?: {
+    added: number;
+    removed: number;
+  } | null;
+  trailingIndicators?: Array<"worktree" | "prDraft" | "prReady">;
+  visualVariant?: "sidebar" | "reference";
   className?: string;
   onPinChange?: (threadId: string, nextPinned: boolean) => void;
   onSelect?: (threadId: string) => void;
 }) {
   const { isMobile, leftDesktopWidthPx, leftMobileWidthPx } = useSidebar();
   const leftSidebarWidthPx = isMobile ? leftMobileWidthPx : leftDesktopWidthPx;
+  const visualVariant = props.visualVariant ?? "sidebar";
+  const isReferenceVariant = visualVariant === "reference";
+  const threadRowTestId =
+    props.dataTestId ??
+    `machines-thread-row-${props.threadKey.split("\u0000").join("-")}`;
   // Once the rail gets very narrow, the fixed timestamp chrome can starve the
   // flex title column down to zero width, which makes line-clamp appear stuck.
   const showTrailingMeta =
+    props.forceShowTrailingMeta ??
     leftSidebarWidthPx >= MIN_LEFT_SIDEBAR_WIDTH_FOR_THREAD_META_PX;
   const pinActionAlwaysVisible = props.item.isPinned;
   const pinActionVisibleBecauseSelected = isMobile && props.isSelected;
@@ -194,19 +292,50 @@ function ThreadRow(props: {
     pinActionAlwaysVisible || pinActionVisibleBecauseSelected;
   const pinActionIsPending = props.pinActionPendingKey === props.threadKey;
   const pinActionDisabled = pinActionIsPending || props.isDisabled === true;
-
-  return (
-    <div
-      className={cn(
-        "group flex min-h-10 w-full items-start gap-0 text-sm transition-colors",
+  const rootClassName = isReferenceVariant
+    ? "group flex h-16 w-full items-stretch bg-white text-[#1a1a1a] antialiased"
+    : cn(
+        "group flex min-h-9 w-full items-start gap-0 text-[13px] transition-colors",
         props.isSelected
           ? "bg-accent text-foreground"
           : props.isDisabled
             ? "bg-background text-foreground"
             : "bg-background text-foreground hover:bg-accent/60 focus-within:bg-accent/60",
         props.isDisabled ? "opacity-60" : null,
-        props.className,
-      )}
+      );
+  const buttonClassName = isReferenceVariant
+    ? "flex min-w-0 flex-1 items-center gap-[16px] px-[16px] py-0 text-left"
+    : cn(
+        "flex min-w-0 flex-1 items-start gap-2 py-2 pr-3 text-left",
+        props.onPinChange ? null : "px-3",
+        props.isDisabled ? "cursor-default" : null,
+      );
+  const leadingIconClassName = isReferenceVariant
+    ? "flex h-[20px] w-[20px] shrink-0 items-center justify-center text-[#a0a0a0]"
+    : "flex h-3 w-3 shrink-0 items-center justify-center pt-px text-muted-foreground";
+  const contentClassName = isReferenceVariant
+    ? "flex min-w-0 flex-1 items-center gap-[10px]"
+    : "flex min-w-0 flex-1 items-start gap-1";
+  const workspaceIndicatorClassName = isReferenceVariant
+    ? "flex h-[18px] w-[18px] shrink-0 items-center justify-center text-[#9a9a9a]"
+    : "flex h-3 w-3 shrink-0 items-center justify-center pt-px text-muted-foreground";
+  const titleClassName = isReferenceVariant
+    ? "min-w-0 flex-auto truncate text-[20px] font-normal leading-[1.08] tracking-[-0.02em] text-[#1c1c1c]"
+    : "min-w-0 flex-auto line-clamp-3 [overflow-wrap:anywhere] text-[13px] font-medium leading-[1.15rem]";
+  const trailingMetaClassName = isReferenceVariant
+    ? "flex shrink-0 items-center gap-[11px] text-[17px] font-medium leading-none tabular-nums text-[#8f8f8f]"
+    : "flex shrink-0 items-center gap-0.5 pt-px text-[11px] tabular-nums text-muted-foreground";
+  const metaIndicatorClassName = isReferenceVariant
+    ? "h-[18px] w-[18px] shrink-0 text-[#8c8c8c]"
+    : "h-2.5 w-2.5 shrink-0";
+
+  return (
+    <div
+      data-testid={threadRowTestId}
+      className={cn(rootClassName, props.className)}
+      style={
+        isReferenceVariant ? { fontFamily: MACOS_APP_FONT_FAMILY } : undefined
+      }
     >
       {props.onPinChange ? (
         <div className="flex shrink-0 items-start pl-2.5 pr-0.5 pt-2">
@@ -224,39 +353,57 @@ function ThreadRow(props: {
       <button
         type="button"
         disabled={props.isDisabled}
-        className={cn(
-          "flex min-w-0 flex-1 items-start gap-2 py-2 pr-3 text-left",
-          props.onPinChange ? null : "px-3",
-          props.isDisabled ? "cursor-default" : null,
-        )}
+        className={buttonClassName}
         onClick={() => {
           props.onSelect?.(props.item.id);
         }}
       >
         {props.leadingIcon ? (
-          <div className="flex h-3.5 w-3.5 shrink-0 items-center justify-center pt-0.5 text-muted-foreground">
-            {props.leadingIcon}
-          </div>
+          <div className={leadingIconClassName}>{props.leadingIcon}</div>
         ) : null}
-        <div className="flex min-w-0 flex-1 items-start gap-1.5">
+        <div className={contentClassName}>
           {props.item.showWorkspaceIndicator ? (
             <div
-              className="flex h-3.5 w-3.5 shrink-0 items-center justify-center pt-0.5 text-muted-foreground"
+              className={workspaceIndicatorClassName}
               title={props.item.workspaceTooltip ?? undefined}
             >
-              <GitBranch className="h-3 w-3" strokeWidth={1.75} />
+              <GitBranch
+                className={isReferenceVariant ? "h-3.5 w-3.5" : "h-2.5 w-2.5"}
+                strokeWidth={1.6}
+              />
             </div>
           ) : null}
           <div
-            className="min-w-0 flex-auto line-clamp-3 [overflow-wrap:anywhere] text-[15px] font-medium leading-5"
+            className={titleClassName}
             title={props.item.workspaceTooltip ?? props.item.title}
           >
             {props.item.title}
           </div>
         </div>
         {showTrailingMeta ? (
-          <div className="flex shrink-0 items-center gap-1 pt-0.5 text-[12px] tabular-nums text-muted-foreground">
-            <ArrowUpRight className="h-3 w-3" strokeWidth={1.75} />
+          <div className={trailingMetaClassName}>
+            {props.metaCounts ? (
+              <>
+                <span className="text-[#18a34a]">
+                  +{props.metaCounts.added}
+                </span>
+                <span className="text-[#d33b31]">
+                  -{props.metaCounts.removed}
+                </span>
+              </>
+            ) : null}
+            {props.trailingIndicators?.map((indicator, index) => (
+              <MetaIndicatorIcon
+                key={`${indicator}-${index}`}
+                indicator={indicator}
+                className={metaIndicatorClassName}
+              />
+            )) ?? (
+              <ArrowUpRight
+                className={metaIndicatorClassName}
+                strokeWidth={1.6}
+              />
+            )}
             <span>
               {formatRelativeTime(
                 props.item.thread.updatedAt,
@@ -288,18 +435,18 @@ function ProjectSection(props: {
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="flex min-h-[32px] min-w-0 flex-1 items-start gap-1.5 px-3 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent/60"
+            className="flex min-h-[28px] min-w-0 flex-1 items-start gap-1 px-3 py-1 text-left text-[12px] text-muted-foreground transition-colors hover:bg-accent/60"
             title={props.group.detail}
           >
             {props.isOpen ? (
-              <ChevronDownIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <ChevronDownIcon className="mt-px h-3 w-3 shrink-0 text-muted-foreground" />
             ) : (
-              <ChevronRightIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <ChevronRightIcon className="mt-px h-3 w-3 shrink-0 text-muted-foreground" />
             )}
-            <div className="flex h-3.5 w-3.5 shrink-0 items-center justify-center pt-0.5">
-              <div className="h-2 w-2 bg-muted-foreground/30 corner-notch-1" />
+            <div className="flex h-3 w-3 shrink-0 items-center justify-center pt-px">
+              <div className="h-1.5 w-1.5 bg-muted-foreground/30 corner-notch-1" />
             </div>
-            <span className="line-clamp-3 min-w-0 flex-1 [overflow-wrap:anywhere] text-[13px] font-medium leading-5 text-muted-foreground">
+            <span className="line-clamp-3 min-w-0 flex-1 [overflow-wrap:anywhere] text-[12px] font-medium leading-4 text-muted-foreground">
               {props.group.label}
             </span>
           </button>
@@ -311,7 +458,7 @@ function ProjectSection(props: {
                 type="button"
                 aria-label={startConversationLabel}
                 className={cn(
-                  "mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors",
+                  "mt-px flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors",
                   props.isStartConversationDisabled
                     ? "cursor-default opacity-50"
                     : "hover:bg-accent/80 hover:text-foreground focus-visible:bg-accent/80 focus-visible:text-foreground",
@@ -324,12 +471,9 @@ function ProjectSection(props: {
                 }}
               >
                 {props.isStartConversationPending ? (
-                  <Loader2
-                    className="h-3.5 w-3.5 animate-spin"
-                    strokeWidth={1.75}
-                  />
+                  <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.75} />
                 ) : (
-                  <Plus className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  <Plus className="h-3 w-3" strokeWidth={1.75} />
                 )}
               </button>
             </DropdownMenuTrigger>
@@ -411,31 +555,31 @@ function MachineSection(props: {
         <button
           type="button"
           className={cn(
-            "flex min-h-[44px] w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-accent/60",
+            "flex min-h-[40px] w-full items-start gap-1.5 px-3 py-1.5 text-left transition-colors hover:bg-accent/60",
             props.isSelected ? "bg-accent/60" : "bg-background",
           )}
           title={props.section.machineHostname}
         >
           {props.isOpen ? (
-            <ChevronDownIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <ChevronDownIcon className="mt-px h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           ) : (
-            <ChevronRightIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <ChevronRightIcon className="mt-px h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           )}
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-2">
-              <span className="truncate text-[13px] font-semibold text-foreground">
+              <span className="truncate text-[12px] font-medium text-foreground">
                 {props.section.machineDisplayName}
               </span>
               <span
                 className={cn(
-                  "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em]",
+                  "shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.05em]",
                   readMachineSectionStatusClassName(props.section),
                 )}
               >
                 {readMachineSectionStatusLabel(props.section)}
               </span>
             </div>
-            <div className="truncate text-[11px] text-muted-foreground">
+            <div className="truncate text-[10px] text-muted-foreground">
               {props.section.machineHostname}
             </div>
           </div>
@@ -677,7 +821,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                 {section.pinnedThreads.length > 0 ? (
                   <div className="grid min-w-0 gap-1 py-1">
                     {section.pinnedThreads.map((thread) => (
-                      <ThreadRow
+                      <MachinesWorkspaceThreadRow
                         key={thread.id}
                         item={thread}
                         threadKey={buildMachineThreadKey(
@@ -762,7 +906,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                         }
                       >
                         {group.threads.map((thread) => (
-                          <ThreadRow
+                          <MachinesWorkspaceThreadRow
                             key={thread.id}
                             item={thread}
                             threadKey={buildMachineThreadKey(
