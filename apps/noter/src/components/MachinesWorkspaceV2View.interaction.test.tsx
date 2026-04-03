@@ -70,6 +70,39 @@ function installDesktopMatchMedia() {
   });
 }
 
+function buildProps() {
+  return {
+    dataTestId: "machines-v2",
+    isSubmittingTurn: false,
+    machineInventories: [
+      {
+        hasLoadedThreadInventory: true,
+        machineDisplayName: "Offline Linux Box",
+        machineHostname: "linux-box.local",
+        machineId: "machine-linux",
+        machineStatus: "offline" as const,
+        machineStatusReason:
+          "This machine is offline. Start `noter-sync run` on the machine first.",
+        pinnedThreadIds: [],
+        threads: [THREAD_FIXTURE],
+      },
+    ],
+    selectedMachineId: "machine-linux",
+    selectedMachineDisplayName: "Offline Linux Box",
+    selectedMachineHostname: "linux-box.local",
+    selectedMachineStatusReason:
+      "This machine is offline. Start `noter-sync run` on the machine first.",
+    selectedThread: null,
+    selectedThreadError: null,
+    selectedThreadLoading: false,
+    selectedThreadId: THREAD_FIXTURE.id,
+    pendingPinThreadKey: null,
+    turnDraft: "",
+    onTurnDraftChange: () => {},
+    onTurnSubmit: () => {},
+  };
+}
+
 describe("MachinesWorkspaceV2View desktop pane layout", () => {
   let rootElement: HTMLDivElement | null = null;
   let root: Root | null = null;
@@ -93,73 +126,40 @@ describe("MachinesWorkspaceV2View desktop pane layout", () => {
     getBoundingClientRectSpy = null;
   });
 
-  it("keeps the main pane anchored while left and right desktop sidebars toggle", async () => {
+  it("keeps the main pane visible while the desktop sidebars toggle", async () => {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     root = createRoot(rootElement);
-    const mountedRoot = root;
 
     await act(async () => {
-      mountedRoot.render(
-        <MachinesWorkspaceV2View
-          dataTestId="machines-v2"
-          isSubmittingTurn={false}
-          machineInventories={[
-            {
-              hasLoadedThreadInventory: true,
-              machineDisplayName: "Offline Linux Box",
-              machineHostname: "linux-box.local",
-              machineId: "machine-linux",
-              machineStatus: "offline",
-              machineStatusReason:
-                "This machine is offline. Start `noter-sync run` on the machine first.",
-              pinnedThreadIds: [],
-              threads: [THREAD_FIXTURE],
-            },
-          ]}
-          selectedMachineId="machine-linux"
-          selectedMachineDisplayName="Offline Linux Box"
-          selectedMachineHostname="linux-box.local"
-          selectedMachineStatusReason="This machine is offline. Start `noter-sync run` on the machine first."
-          selectedThread={null}
-          selectedThreadError={null}
-          selectedThreadLoading={false}
-          selectedThreadId={THREAD_FIXTURE.id}
-          pendingPinThreadKey={null}
-          turnDraft=""
-          onTurnDraftChange={() => {}}
-          onTurnSubmit={() => {}}
-        />,
-      );
+      root?.render(<MachinesWorkspaceV2View {...buildProps()} />);
     });
 
     const shell = rootElement.querySelector<HTMLElement>(
       '[data-testid="machines-v2"]',
     );
-    expect(shell).not.toBeNull();
-    if (shell === null) {
-      return;
-    }
-
-    const track = shell.firstElementChild;
-    expect(track).toBeInstanceOf(HTMLDivElement);
-    if (!(track instanceof HTMLDivElement)) {
-      return;
-    }
-
-    const leftPane =
-      rootElement.querySelector<HTMLElement>('[data-pane="left"]');
-    const mainPane =
-      rootElement.querySelector<HTMLElement>('[data-pane="main"]');
-    const rightPane = rootElement.querySelector<HTMLElement>(
-      '[data-pane="right"]',
+    const track = rootElement.querySelector<HTMLElement>(
+      '[data-sidebar-track="static"]',
     );
-    expect(leftPane).not.toBeNull();
-    expect(mainPane).not.toBeNull();
-    expect(rightPane).not.toBeNull();
-    expect(mainPane?.className).toContain("col-start-2");
-    expect(rightPane?.className).toContain("col-start-3");
-    expect(track.style.gridTemplateColumns).toBe("288px minmax(0, 1fr) 0px");
+    const threadPane = rootElement.querySelector<HTMLElement>(
+      '[data-component="MachinesWorkspaceThreadPane"]',
+    );
+    expect(shell).not.toBeNull();
+    expect(track).not.toBeNull();
+    expect(threadPane).not.toBeNull();
+    if (track === null) {
+      return;
+    }
+
+    expect(track.style.gridTemplateColumns).toBe(
+      "var(--workspace-left-sidebar-width) minmax(0, 1fr) var(--workspace-right-sidebar-width)",
+    );
+    expect(track.style.getPropertyValue("--workspace-left-sidebar-width")).toBe(
+      "288px",
+    );
+    expect(
+      track.style.getPropertyValue("--workspace-right-sidebar-width"),
+    ).toBe("288px");
 
     const leftToggleButton = rootElement.querySelector<HTMLButtonElement>(
       'button[aria-label="Toggle Left Sidebar"]',
@@ -177,21 +177,35 @@ describe("MachinesWorkspaceV2View desktop pane layout", () => {
       leftToggleButton.click();
     });
 
-    expect(track.style.gridTemplateColumns).toBe("0px minmax(0, 1fr) 0px");
-    expect(leftPane?.style.width).toBe("0px");
-    expect(mainPane?.className).toContain("col-start-2");
-    expect(rightPane?.className).toContain("col-start-3");
+    expect(track.style.gridTemplateColumns).toBe(
+      "0px minmax(0, 1fr) var(--workspace-right-sidebar-width)",
+    );
+    expect(threadPane).not.toBeNull();
+    expect(
+      rootElement.querySelectorAll('[hidden][aria-hidden="true"]'),
+    ).toHaveLength(2);
 
     await act(async () => {
       rightToggleButton.click();
     });
 
-    expect(track.style.gridTemplateColumns).toBe("0px minmax(0, 1fr) 288px");
-    expect(rightPane?.style.width).toBe("288px");
-    expect(mainPane?.className).toContain("col-start-2");
+    expect(track.style.gridTemplateColumns).toBe("0px minmax(0, 1fr) 0px");
+    expect(threadPane).not.toBeNull();
+    expect(
+      rootElement.querySelectorAll('[hidden][aria-hidden="true"]'),
+    ).toHaveLength(4);
+
+    await act(async () => {
+      rightToggleButton.click();
+    });
+
+    expect(track.style.gridTemplateColumns).toBe(
+      "0px minmax(0, 1fr) var(--workspace-right-sidebar-width)",
+    );
+    expect(threadPane).not.toBeNull();
   });
 
-  it("keeps the configured desktop sidebar width even when the shell is narrower", async () => {
+  it("keeps the configured sidebar widths even when the shell is narrower", async () => {
     getBoundingClientRectSpy = vi
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")
       .mockImplementation(() => ({
@@ -209,60 +223,24 @@ describe("MachinesWorkspaceV2View desktop pane layout", () => {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     root = createRoot(rootElement);
-    const mountedRoot = root;
 
     await act(async () => {
-      mountedRoot.render(
-        <MachinesWorkspaceV2View
-          dataTestId="machines-v2"
-          isSubmittingTurn={false}
-          machineInventories={[
-            {
-              hasLoadedThreadInventory: true,
-              machineDisplayName: "Offline Linux Box",
-              machineHostname: "linux-box.local",
-              machineId: "machine-linux",
-              machineStatus: "offline",
-              machineStatusReason:
-                "This machine is offline. Start `noter-sync run` on the machine first.",
-              pinnedThreadIds: [],
-              threads: [THREAD_FIXTURE],
-            },
-          ]}
-          selectedMachineId="machine-linux"
-          selectedMachineDisplayName="Offline Linux Box"
-          selectedMachineHostname="linux-box.local"
-          selectedMachineStatusReason="This machine is offline. Start `noter-sync run` on the machine first."
-          selectedThread={null}
-          selectedThreadError={null}
-          selectedThreadLoading={false}
-          selectedThreadId={THREAD_FIXTURE.id}
-          pendingPinThreadKey={null}
-          turnDraft=""
-          onTurnDraftChange={() => {}}
-          onTurnSubmit={() => {}}
-        />,
-      );
+      root?.render(<MachinesWorkspaceV2View {...buildProps()} />);
     });
 
-    const shell = rootElement.querySelector<HTMLElement>(
-      '[data-testid="machines-v2"]',
+    const track = rootElement.querySelector<HTMLElement>(
+      '[data-sidebar-track="static"]',
     );
-    expect(shell).not.toBeNull();
-    if (shell === null) {
+    expect(track).not.toBeNull();
+    if (track === null) {
       return;
     }
 
-    const track = shell.firstElementChild;
-    expect(track).toBeInstanceOf(HTMLDivElement);
-    if (!(track instanceof HTMLDivElement)) {
-      return;
-    }
-
-    const leftPane =
-      rootElement.querySelector<HTMLElement>('[data-pane="left"]');
-    expect(leftPane).not.toBeNull();
-    expect(track.style.gridTemplateColumns).toBe("288px minmax(0, 1fr) 0px");
-    expect(leftPane?.style.width).toBe("288px");
+    expect(track.style.getPropertyValue("--workspace-left-sidebar-width")).toBe(
+      "288px",
+    );
+    expect(
+      track.style.getPropertyValue("--workspace-right-sidebar-width"),
+    ).toBe("288px");
   });
 });

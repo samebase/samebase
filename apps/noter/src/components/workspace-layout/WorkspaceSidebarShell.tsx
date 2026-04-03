@@ -12,6 +12,7 @@ import {
 import {
   MOBILE_CROSS_SWIPE_TRAVEL_THRESHOLD_RATIO,
   MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS,
+  getAdjacentOnlySettledMobilePane,
   getMobilePaneScrollLeft,
   type MobilePaneReleaseGesture,
   getSettledMobilePane,
@@ -39,6 +40,7 @@ type WorkspaceSidebarShellProps = {
   bodyStyle?: React.CSSProperties;
   bodyTestId?: string;
   children: React.ReactNode;
+  clampSidebarWidthsToShell?: boolean;
   dataTestId?: string;
   headerContent: React.ReactNode;
   headerTestId?: string;
@@ -52,6 +54,7 @@ type WorkspaceSidebarShellProps = {
   rightSidebarContentTestId?: string;
   rightSidebarHeader: SidebarSlot;
   rightSidebarHeaderTestId?: string;
+  mobilePaneSettleMode?: "adjacent-only" | "legacy";
 };
 
 type MobileTouchSample = {
@@ -260,6 +263,8 @@ export function WorkspaceSidebarShell({
   rightSidebarContentTestId,
   rightSidebarHeader,
   rightSidebarHeaderTestId,
+  clampSidebarWidthsToShell = true,
+  mobilePaneSettleMode = "legacy",
 }: WorkspaceSidebarShellProps) {
   const {
     isMobile,
@@ -292,7 +297,7 @@ export function WorkspaceSidebarShell({
     React.useState<SidebarSide | null>(null);
   const isSidebarResizeActiveRef = React.useRef(false);
   const resolvedDesktopSidebarWidths =
-    shellViewportWidthPx > 0
+    clampSidebarWidthsToShell && shellViewportWidthPx > 0
       ? resolveWorkspaceDesktopSidebarWidths({
           containerWidthPx: shellViewportWidthPx,
           leftOpen: hasLeftSidebar && leftDesktopOpen,
@@ -307,7 +312,7 @@ export function WorkspaceSidebarShell({
             hasRightSidebar && rightDesktopOpen ? rightDesktopWidthPx : 0,
         };
   const resolvedLeftMobileSidebarWidthPx =
-    hasLeftSidebar && shellViewportWidthPx > 0
+    hasLeftSidebar && clampSidebarWidthsToShell && shellViewportWidthPx > 0
       ? clampWorkspaceMobileSidebarWidthPx(
           leftMobileWidthPx,
           shellViewportWidthPx,
@@ -316,7 +321,7 @@ export function WorkspaceSidebarShell({
         ? leftMobileWidthPx
         : 0;
   const resolvedRightMobileSidebarWidthPx =
-    hasRightSidebar && shellViewportWidthPx > 0
+    hasRightSidebar && clampSidebarWidthsToShell && shellViewportWidthPx > 0
       ? clampWorkspaceMobileSidebarWidthPx(
           rightMobileWidthPx,
           shellViewportWidthPx,
@@ -530,7 +535,7 @@ export function WorkspaceSidebarShell({
     (nextWidthPx: number) => {
       if (isMobile) {
         const clampedWidthPx =
-          shellViewportWidthPx > 0
+          clampSidebarWidthsToShell && shellViewportWidthPx > 0
             ? clampWorkspaceMobileSidebarWidthPx(
                 nextWidthPx,
                 shellViewportWidthPx,
@@ -553,7 +558,7 @@ export function WorkspaceSidebarShell({
       }
 
       const clampedWidthPx =
-        shellViewportWidthPx > 0
+        clampSidebarWidthsToShell && shellViewportWidthPx > 0
           ? clampWorkspaceDesktopSidebarWidthPx(
               nextWidthPx,
               shellViewportWidthPx,
@@ -565,6 +570,7 @@ export function WorkspaceSidebarShell({
       setLeftDesktopWidthPx(clampedWidthPx);
     },
     [
+      clampSidebarWidthsToShell,
       desktopMaxCombinedSidebarWidthPx,
       hasRightSidebar,
       isDesktopSidebarSpaceOverconstrained,
@@ -582,7 +588,7 @@ export function WorkspaceSidebarShell({
     (nextWidthPx: number) => {
       if (isMobile) {
         const clampedWidthPx =
-          shellViewportWidthPx > 0
+          clampSidebarWidthsToShell && shellViewportWidthPx > 0
             ? clampWorkspaceMobileSidebarWidthPx(
                 nextWidthPx,
                 shellViewportWidthPx,
@@ -605,7 +611,7 @@ export function WorkspaceSidebarShell({
       }
 
       const clampedWidthPx =
-        shellViewportWidthPx > 0
+        clampSidebarWidthsToShell && shellViewportWidthPx > 0
           ? clampWorkspaceDesktopSidebarWidthPx(
               nextWidthPx,
               shellViewportWidthPx,
@@ -617,6 +623,7 @@ export function WorkspaceSidebarShell({
       setRightDesktopWidthPx(clampedWidthPx);
     },
     [
+      clampSidebarWidthsToShell,
       desktopMaxCombinedSidebarWidthPx,
       hasLeftSidebar,
       isDesktopSidebarSpaceOverconstrained,
@@ -759,15 +766,25 @@ export function WorkspaceSidebarShell({
 
     const releaseGesture = pendingMobileReleaseGestureRef.current;
     pendingMobileReleaseGestureRef.current = null;
-    const nextMobilePane = getSettledMobilePane(
-      mobilePane,
-      scrollNode.scrollLeft,
-      hasLeftSidebar,
-      leftSidebarWidthPx,
-      hasRightSidebar,
-      rightSidebarWidthPx,
-      releaseGesture,
-    );
+    const nextMobilePane =
+      mobilePaneSettleMode === "adjacent-only"
+        ? getAdjacentOnlySettledMobilePane(
+            mobilePane,
+            scrollNode.scrollLeft,
+            hasLeftSidebar,
+            leftSidebarWidthPx,
+            hasRightSidebar,
+            rightSidebarWidthPx,
+          )
+        : getSettledMobilePane(
+            mobilePane,
+            scrollNode.scrollLeft,
+            hasLeftSidebar,
+            leftSidebarWidthPx,
+            hasRightSidebar,
+            rightSidebarWidthPx,
+            releaseGesture,
+          );
     const nearestPaneAtSettle = getSettledMobilePane(
       "main",
       scrollNode.scrollLeft,
@@ -820,6 +837,7 @@ export function WorkspaceSidebarShell({
     isMobileLayoutMeasured,
     leftSidebarWidthPx,
     mobilePane,
+    mobilePaneSettleMode,
     focusedResizeHandleSide,
     rightSidebarWidthPx,
     scheduleDelegatedMobileDragSnapRestore,
@@ -837,16 +855,35 @@ export function WorkspaceSidebarShell({
         return false;
       }
 
-      const maxScrollLeft = getMobilePaneScrollLeft(
-        hasRightSidebar ? "right" : "main",
-        hasLeftSidebar,
-        leftSidebarWidthPx,
-        hasRightSidebar,
-        rightSidebarWidthPx,
-      );
+      const minScrollLeft =
+        mobilePaneSettleMode === "adjacent-only" && mobilePane === "right"
+          ? getMobilePaneScrollLeft(
+              "main",
+              hasLeftSidebar,
+              leftSidebarWidthPx,
+              hasRightSidebar,
+              rightSidebarWidthPx,
+            )
+          : 0;
+      const maxScrollLeft =
+        mobilePaneSettleMode === "adjacent-only" && mobilePane === "left"
+          ? getMobilePaneScrollLeft(
+              "main",
+              hasLeftSidebar,
+              leftSidebarWidthPx,
+              hasRightSidebar,
+              rightSidebarWidthPx,
+            )
+          : getMobilePaneScrollLeft(
+              hasRightSidebar ? "right" : "main",
+              hasLeftSidebar,
+              leftSidebarWidthPx,
+              hasRightSidebar,
+              rightSidebarWidthPx,
+            );
       const nextScrollLeft = Math.min(
         maxScrollLeft,
-        Math.max(0, scrollNode.scrollLeft - pointerDeltaX),
+        Math.max(minScrollLeft, scrollNode.scrollLeft - pointerDeltaX),
       );
 
       if (Math.abs(nextScrollLeft - scrollNode.scrollLeft) <= 0.5) {
@@ -893,6 +930,8 @@ export function WorkspaceSidebarShell({
       isMobileLayoutMeasured,
       clearPendingMobileDragSnapRestore,
       leftSidebarWidthPx,
+      mobilePane,
+      mobilePaneSettleMode,
       rightSidebarWidthPx,
       setDelegatedMobileDragSnapDisabled,
     ],

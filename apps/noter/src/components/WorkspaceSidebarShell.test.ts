@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getAdjacentOnlySettledMobilePane,
   getSettledMobilePane,
   MOBILE_CROSS_SWIPE_TRAVEL_THRESHOLD_RATIO,
   MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS,
@@ -190,5 +191,28 @@ describe("getSettledMobilePane", () => {
         },
       ),
     ).toBe("left");
+  });
+});
+
+describe("getAdjacentOnlySettledMobilePane", () => {
+  it("forces left-originated cross swipes to settle on main instead of the right sidebar", () => {
+    expect(
+      getAdjacentOnlySettledMobilePane("left", 560, true, 280, true, 280),
+    ).toBe("main");
+  });
+
+  it("forces right-originated cross swipes to settle on main instead of the left sidebar", () => {
+    expect(
+      getAdjacentOnlySettledMobilePane("right", 0, true, 280, true, 280),
+    ).toBe("main");
+  });
+
+  it("still lets main settle to the nearest adjacent sidebar", () => {
+    expect(
+      getAdjacentOnlySettledMobilePane("main", 0, true, 280, true, 280),
+    ).toBe("left");
+    expect(
+      getAdjacentOnlySettledMobilePane("main", 560, true, 280, true, 280),
+    ).toBe("right");
   });
 });

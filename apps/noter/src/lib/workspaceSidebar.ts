@@ -108,6 +108,33 @@ function getNearestMobilePane(
   return nearestAnchor.pane;
 }
 
+export function getAdjacentOnlySettledMobilePane(
+  currentPane: MobileSidebarPane,
+  scrollLeft: number,
+  hasLeftSidebar: boolean,
+  leftSidebarWidthPx: number,
+  hasRightSidebar: boolean,
+  rightSidebarWidthPx: number,
+) {
+  const nearestPane = getNearestMobilePane(
+    scrollLeft,
+    hasLeftSidebar,
+    leftSidebarWidthPx,
+    hasRightSidebar,
+    rightSidebarWidthPx,
+  );
+
+  if (currentPane === "left" && nearestPane === "right") {
+    return "main";
+  }
+
+  if (currentPane === "right" && nearestPane === "left") {
+    return "main";
+  }
+
+  return nearestPane;
+}
+
 /**
  * Let the shell settle to whichever pane anchor the browser actually finished
  * closest to after the swipe, while still honoring a deliberate fast

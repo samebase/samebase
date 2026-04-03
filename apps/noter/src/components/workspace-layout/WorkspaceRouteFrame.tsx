@@ -11,6 +11,7 @@ export function WorkspaceRouteFrame({
   rightSidebarContent,
   headerContent,
   children,
+  clampSidebarWidthsToShell,
   dataTestId,
   headerTestId,
   leftSidebarContentTestId,
@@ -18,6 +19,7 @@ export function WorkspaceRouteFrame({
   bodyTestId,
   bodyClassName,
   bodyStyle,
+  mobilePaneSettleMode,
 }: {
   leftSidebarHeader: SidebarSlot;
   leftSidebarContent: SidebarSlot;
@@ -25,6 +27,7 @@ export function WorkspaceRouteFrame({
   rightSidebarContent: SidebarSlot;
   headerContent: ReactNode;
   children: ReactNode;
+  clampSidebarWidthsToShell?: boolean;
   dataTestId?: string;
   headerTestId?: string;
   leftSidebarContentTestId?: string;
@@ -32,10 +35,13 @@ export function WorkspaceRouteFrame({
   bodyTestId?: string;
   bodyClassName?: string;
   bodyStyle?: CSSProperties;
+  mobilePaneSettleMode?: "adjacent-only" | "legacy";
 }) {
   return (
     <WorkspaceSidebarShell
+      clampSidebarWidthsToShell={clampSidebarWidthsToShell}
       dataTestId={dataTestId}
+      mobilePaneSettleMode={mobilePaneSettleMode}
       leftSidebarHeader={leftSidebarHeader}
       leftSidebarContent={leftSidebarContent}
       leftSidebarContentTestId={leftSidebarContentTestId}
