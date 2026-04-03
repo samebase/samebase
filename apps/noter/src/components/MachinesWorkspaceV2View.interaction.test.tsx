@@ -167,6 +167,63 @@ function dragMobileShell(
   });
 }
 
+function startMobileShellDrag(
+  shell: HTMLElement,
+  args: {
+    startX: number;
+    startY?: number;
+    touchIdentifier: number;
+  },
+) {
+  const startY = args.startY ?? 120;
+  const startTouch = createTouch(args.touchIdentifier, args.startX, startY);
+
+  act(() => {
+    dispatchTouchEvent(shell, "touchstart", {
+      changedTouches: [startTouch],
+      touches: [startTouch],
+    });
+  });
+}
+
+function moveMobileShellDrag(
+  shell: HTMLElement,
+  args: {
+    moveX: number;
+    moveY?: number;
+    touchIdentifier: number;
+  },
+) {
+  const moveY = args.moveY ?? 120;
+  const moveTouch = createTouch(args.touchIdentifier, args.moveX, moveY);
+
+  act(() => {
+    dispatchTouchEvent(shell, "touchmove", {
+      changedTouches: [moveTouch],
+      touches: [moveTouch],
+    });
+  });
+}
+
+function finishMobileShellDrag(
+  shell: HTMLElement,
+  args: {
+    endX: number;
+    endY?: number;
+    touchIdentifier: number;
+  },
+) {
+  const endY = args.endY ?? 120;
+  const endTouch = createTouch(args.touchIdentifier, args.endX, endY);
+
+  act(() => {
+    dispatchTouchEvent(shell, "touchend", {
+      changedTouches: [endTouch],
+      touches: [],
+    });
+  });
+}
+
 const THREAD_FIXTURE: CodexAppServerThread = {
   agentNickname: null,
   agentRole: null,
@@ -752,6 +809,65 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
     expect(track.style.getPropertyValue("--workspace-left-sidebar-width")).toBe(
       "288px",
     );
+  });
+
+  it("hides the mobile resize handle while swiping from a sidebar back to main", async () => {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+
+    await act(async () => {
+      root?.render(<MachinesWorkspaceV2View {...buildProps()} />);
+    });
+
+    const shell = rootElement.querySelector<HTMLElement>(
+      '[data-sidebar-shell="v2-mobile"]',
+    );
+    const track = rootElement.querySelector<HTMLElement>(
+      '[data-sidebar-track="v2-mobile"]',
+    );
+    expect(shell).not.toBeNull();
+    expect(track).not.toBeNull();
+    if (shell === null || track === null) {
+      return;
+    }
+
+    dragMobileShell(shell, {
+      endX: 360,
+      startX: 180,
+      touchIdentifier: 1,
+    });
+    expect(shell.dataset.mobilePane).toBe("left");
+    expect(
+      rootElement.querySelector(
+        '[data-testid="machines-v2-mobile-left-resize-handle"]',
+      ),
+    ).not.toBeNull();
+
+    startMobileShellDrag(shell, {
+      startX: 320,
+      touchIdentifier: 2,
+    });
+    moveMobileShellDrag(shell, {
+      moveX: 160,
+      moveY: 122,
+      touchIdentifier: 2,
+    });
+
+    expect(shell.dataset.mobilePane).toBe("left");
+    expect(track.style.transform).toBe("translate3d(-160px, 0, 0)");
+    expect(
+      rootElement.querySelector(
+        '[data-testid="machines-v2-mobile-left-resize-handle"]',
+      ),
+    ).toBeNull();
+
+    finishMobileShellDrag(shell, {
+      endX: 160,
+      endY: 122,
+      touchIdentifier: 2,
+    });
+    expect(shell.dataset.mobilePane).toBe("main");
   });
 
   it("only allows adjacent settling in one gesture", () => {

@@ -443,8 +443,12 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
   const sidebarCellClassName =
     "min-w-0 overflow-hidden bg-background transition-[border-color] duration-200 ease-linear";
   const showLeftResizeHandle =
-    mobilePane === "left" && leftMobileWidthPx > 0 && shellViewportWidthPx > 0;
+    !isDragging &&
+    mobilePane === "left" &&
+    leftMobileWidthPx > 0 &&
+    shellViewportWidthPx > 0;
   const showRightResizeHandle =
+    !isDragging &&
     mobilePane === "right" &&
     rightMobileWidthPx > 0 &&
     shellViewportWidthPx > 0;
@@ -580,7 +584,7 @@ function MachinesWorkspaceV2ViewContent(props: MachinesWorkspaceViewProps) {
  * - the shell must not add a scrim or click-capture overlay to dismiss sidebars
  * - visible mobile sidebars expose draggable resize edges on both the left and
  *   right pane variants, with a forgiving touch lane that must not also swipe
- *   the pane
+ *   the pane, and those edges disappear while a pane swipe is in flight
  * - swipe settling is adjacent-only: left <-> main <-> right
  * - configured mobile sidebar widths are used as-is and are not clamped to the
  *   current browser width
