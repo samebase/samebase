@@ -694,7 +694,7 @@ function startCloudflaredQuickTunnel(args) {
     )
   })
 
-  void exitPromise.then(() => {
+  childProcess.once('close', () => {
     clearTimeout(readyTimeoutId)
     if (isClosing) {
       return

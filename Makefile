@@ -44,7 +44,7 @@ run-dev:
 # Share the local Noter app over a Cloudflare quick tunnel while keeping the
 # configured Convex deployment behind Vite's same-origin proxy path.
 run-share:
-	node ./scripts/anon-share.js --mode local
+	node ./scripts/anon-share.js --mode local --port "$(RUN_VITE_PORT)"
 
 # Full dev (frontend + backend) with anonymous Convex mode.
 anon:
