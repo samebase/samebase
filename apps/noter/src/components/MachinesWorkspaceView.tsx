@@ -6,7 +6,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/collapsible";
-import { SidebarProvider } from "@/components/sidebar";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
 import { WorkspaceScene } from "@/components/workspace-layout/WorkspaceScene";
@@ -95,6 +94,7 @@ function setsAreEqual<T>(left: Set<T>, right: Set<T>): boolean {
 }
 
 const MIN_LEFT_SIDEBAR_WIDTH_FOR_THREAD_META_PX = 176;
+export const MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX = 288;
 
 function buildMachineThreadKey(machineId: string, threadId: string): string {
   return `${machineId}\u0000${threadId}`;
@@ -543,187 +543,178 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
   ]);
 
   return (
-    <SidebarProvider
-      className="h-full min-h-0"
-      defaultOpen={true}
-      defaultLeftDesktopWidthPx={288}
-      defaultLeftMobileWidthPx={288}
-    >
-      <RepositoryWorkspaceFrame
-        dataTestId={props.dataTestId}
-        headerTestId={headerTestId}
-        contentClassName="min-h-0 flex-1 p-0"
-        leftSidebarHeader={props.leftSidebarHeader ?? null}
-        leftSidebarContent={
-          <div
-            data-testid={sidebarTestId}
-            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-background px-2 py-2"
-          >
-            <div className="grid min-w-0 gap-2">
-              {machineSections.map((section) => (
-                <MachineSection
-                  key={section.machineId}
-                  section={section}
-                  isOpen={openMachineIds.has(section.machineId)}
-                  isSelected={section.machineId === props.selectedMachineId}
-                  onOpenChange={(nextOpen) => {
-                    setOpenMachineIds((current) => {
-                      const next = new Set(current);
-                      if (nextOpen) {
-                        next.add(section.machineId);
-                      } else {
-                        next.delete(section.machineId);
-                      }
-                      return next;
-                    });
-                  }}
-                >
-                  {section.machineStatusReason !== null ? (
-                    <div className="px-3 py-2 text-[11px] leading-5 text-muted-foreground">
-                      {section.machineStatusReason}
-                    </div>
-                  ) : null}
+    <RepositoryWorkspaceFrame
+      dataTestId={props.dataTestId}
+      headerTestId={headerTestId}
+      contentClassName="min-h-0 flex-1 p-0"
+      leftSidebarHeader={props.leftSidebarHeader ?? null}
+      leftSidebarContent={
+        <div
+          data-testid={sidebarTestId}
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-background px-2 py-2"
+        >
+          <div className="grid min-w-0 gap-2">
+            {machineSections.map((section) => (
+              <MachineSection
+                key={section.machineId}
+                section={section}
+                isOpen={openMachineIds.has(section.machineId)}
+                isSelected={section.machineId === props.selectedMachineId}
+                onOpenChange={(nextOpen) => {
+                  setOpenMachineIds((current) => {
+                    const next = new Set(current);
+                    if (nextOpen) {
+                      next.add(section.machineId);
+                    } else {
+                      next.delete(section.machineId);
+                    }
+                    return next;
+                  });
+                }}
+              >
+                {section.machineStatusReason !== null ? (
+                  <div className="px-3 py-2 text-[11px] leading-5 text-muted-foreground">
+                    {section.machineStatusReason}
+                  </div>
+                ) : null}
 
-                  {section.machineStatusReason === null &&
-                  !section.hasLoadedThreadInventory ? (
-                    <div className="px-3 py-2 text-[11px] leading-5 text-muted-foreground">
-                      Loading threads...
-                    </div>
-                  ) : null}
+                {section.machineStatusReason === null &&
+                !section.hasLoadedThreadInventory ? (
+                  <div className="px-3 py-2 text-[11px] leading-5 text-muted-foreground">
+                    Loading threads...
+                  </div>
+                ) : null}
 
-                  {section.pinnedThreads.length > 0 ? (
-                    <div className="grid min-w-0 gap-1 py-1">
-                      {section.pinnedThreads.map((thread) => (
-                        <ThreadRow
-                          key={thread.id}
-                          item={thread}
-                          threadKey={buildMachineThreadKey(
-                            section.machineId,
-                            thread.id,
-                          )}
-                          isSelected={
-                            section.machineId === props.selectedMachineId &&
-                            thread.id === props.selectedThreadId
-                          }
-                          pinActionPendingKey={props.pendingPinThreadKey}
-                          isDisabled={section.machineStatusReason !== null}
-                          relativeTimeReferenceMs={
-                            props.relativeTimeReferenceMs
-                          }
-                          onPinChange={
-                            props.onThreadPinChange
-                              ? (threadId, nextPinned) => {
-                                  props.onThreadPinChange?.({
-                                    machineId: section.machineId,
-                                    nextPinned,
-                                    threadId,
-                                  });
-                                }
-                              : undefined
-                          }
-                          onSelect={(threadId) => {
-                            props.onThreadSelect?.({
-                              machineId: section.machineId,
-                              threadId,
-                            });
-                          }}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-
-                  <div className="grid min-w-0 gap-1 pb-1">
-                    {section.projects.map((group) => {
-                      const projectKey = buildProjectKey(
-                        section.machineId,
-                        group.id,
-                      );
-                      return (
-                        <ProjectSection
-                          key={projectKey}
-                          group={group}
-                          isOpen={openProjectIds.has(projectKey)}
-                          onOpenChange={(nextOpen) => {
-                            setOpenProjectIds((current) => {
-                              const next = new Set(current);
-                              if (nextOpen) {
-                                next.add(projectKey);
-                              } else {
-                                next.delete(projectKey);
-                              }
-                              return next;
-                            });
-                          }}
-                        >
-                          {group.threads.map((thread) => (
-                            <ThreadRow
-                              key={thread.id}
-                              item={thread}
-                              threadKey={buildMachineThreadKey(
-                                section.machineId,
-                                thread.id,
-                              )}
-                              isSelected={
-                                section.machineId === props.selectedMachineId &&
-                                thread.id === props.selectedThreadId
-                              }
-                              pinActionPendingKey={props.pendingPinThreadKey}
-                              isDisabled={section.machineStatusReason !== null}
-                              relativeTimeReferenceMs={
-                                props.relativeTimeReferenceMs
-                              }
-                              className="pl-10"
-                              onPinChange={
-                                props.onThreadPinChange
-                                  ? (threadId, nextPinned) => {
-                                      props.onThreadPinChange?.({
-                                        machineId: section.machineId,
-                                        nextPinned,
-                                        threadId,
-                                      });
-                                    }
-                                  : undefined
-                              }
-                              onSelect={(threadId) => {
-                                props.onThreadSelect?.({
+                {section.pinnedThreads.length > 0 ? (
+                  <div className="grid min-w-0 gap-1 py-1">
+                    {section.pinnedThreads.map((thread) => (
+                      <ThreadRow
+                        key={thread.id}
+                        item={thread}
+                        threadKey={buildMachineThreadKey(
+                          section.machineId,
+                          thread.id,
+                        )}
+                        isSelected={
+                          section.machineId === props.selectedMachineId &&
+                          thread.id === props.selectedThreadId
+                        }
+                        pinActionPendingKey={props.pendingPinThreadKey}
+                        isDisabled={section.machineStatusReason !== null}
+                        relativeTimeReferenceMs={props.relativeTimeReferenceMs}
+                        onPinChange={
+                          props.onThreadPinChange
+                            ? (threadId, nextPinned) => {
+                                props.onThreadPinChange?.({
                                   machineId: section.machineId,
+                                  nextPinned,
                                   threadId,
                                 });
-                              }}
-                            />
-                          ))}
-                        </ProjectSection>
-                      );
-                    })}
+                              }
+                            : undefined
+                        }
+                        onSelect={(threadId) => {
+                          props.onThreadSelect?.({
+                            machineId: section.machineId,
+                            threadId,
+                          });
+                        }}
+                      />
+                    ))}
                   </div>
-                </MachineSection>
-              ))}
-            </div>
+                ) : null}
+
+                <div className="grid min-w-0 gap-1 pb-1">
+                  {section.projects.map((group) => {
+                    const projectKey = buildProjectKey(
+                      section.machineId,
+                      group.id,
+                    );
+                    return (
+                      <ProjectSection
+                        key={projectKey}
+                        group={group}
+                        isOpen={openProjectIds.has(projectKey)}
+                        onOpenChange={(nextOpen) => {
+                          setOpenProjectIds((current) => {
+                            const next = new Set(current);
+                            if (nextOpen) {
+                              next.add(projectKey);
+                            } else {
+                              next.delete(projectKey);
+                            }
+                            return next;
+                          });
+                        }}
+                      >
+                        {group.threads.map((thread) => (
+                          <ThreadRow
+                            key={thread.id}
+                            item={thread}
+                            threadKey={buildMachineThreadKey(
+                              section.machineId,
+                              thread.id,
+                            )}
+                            isSelected={
+                              section.machineId === props.selectedMachineId &&
+                              thread.id === props.selectedThreadId
+                            }
+                            pinActionPendingKey={props.pendingPinThreadKey}
+                            isDisabled={section.machineStatusReason !== null}
+                            relativeTimeReferenceMs={
+                              props.relativeTimeReferenceMs
+                            }
+                            className="pl-10"
+                            onPinChange={
+                              props.onThreadPinChange
+                                ? (threadId, nextPinned) => {
+                                    props.onThreadPinChange?.({
+                                      machineId: section.machineId,
+                                      nextPinned,
+                                      threadId,
+                                    });
+                                  }
+                                : undefined
+                            }
+                            onSelect={(threadId) => {
+                              props.onThreadSelect?.({
+                                machineId: section.machineId,
+                                threadId,
+                              });
+                            }}
+                          />
+                        ))}
+                      </ProjectSection>
+                    );
+                  })}
+                </div>
+              </MachineSection>
+            ))}
           </div>
+        </div>
+      }
+      rightSidebarHeader={null}
+      rightSidebarContent={null}
+    >
+      <WorkspaceScene
+        workspacePaneClassName="bg-background"
+        workspaceScrollClassName="overflow-hidden bg-background"
+        workspaceBody={
+          <MachinesWorkspaceThreadPane
+            errorMessage={props.selectedThreadError}
+            isLoading={props.selectedThreadLoading}
+            isSubmittingTurn={props.isSubmittingTurn}
+            onTurnDraftChange={props.onTurnDraftChange}
+            onTurnSubmit={props.onTurnSubmit}
+            selectedMachineDisplayName={props.selectedMachineDisplayName}
+            selectedMachineHostname={props.selectedMachineHostname}
+            selectedMachineStatusReason={props.selectedMachineStatusReason}
+            selectedThreadId={props.selectedThreadId}
+            thread={props.selectedThread}
+            turnDraft={props.turnDraft}
+          />
         }
-        rightSidebarHeader={null}
-        rightSidebarContent={null}
-      >
-        <WorkspaceScene
-          workspacePaneClassName="bg-background"
-          workspaceScrollClassName="overflow-hidden bg-background"
-          workspaceBody={
-            <MachinesWorkspaceThreadPane
-              errorMessage={props.selectedThreadError}
-              isLoading={props.selectedThreadLoading}
-              isSubmittingTurn={props.isSubmittingTurn}
-              onTurnDraftChange={props.onTurnDraftChange}
-              onTurnSubmit={props.onTurnSubmit}
-              selectedMachineDisplayName={props.selectedMachineDisplayName}
-              selectedMachineHostname={props.selectedMachineHostname}
-              selectedMachineStatusReason={props.selectedMachineStatusReason}
-              selectedThreadId={props.selectedThreadId}
-              thread={props.selectedThread}
-              turnDraft={props.turnDraft}
-            />
-          }
-        />
-      </RepositoryWorkspaceFrame>
-    </SidebarProvider>
+      />
+    </RepositoryWorkspaceFrame>
   );
 }

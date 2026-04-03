@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { SidebarProvider } from "@/components/sidebar";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 
 vi.mock("@/components/MachinesWorkspaceThreadPane", () => ({
@@ -8,7 +9,10 @@ vi.mock("@/components/MachinesWorkspaceThreadPane", () => ({
   ),
 }));
 
-import { MachinesWorkspaceView } from "./MachinesWorkspaceView";
+import {
+  MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
+  MachinesWorkspaceView,
+} from "./MachinesWorkspaceView";
 
 const THREAD_FIXTURE: CodexAppServerThread = {
   agentNickname: null,
@@ -46,34 +50,40 @@ const THREAD_FIXTURE: CodexAppServerThread = {
 describe("MachinesWorkspaceView", () => {
   it("renders unavailable machine thread rows as disabled while keeping the reason visible", () => {
     const markup = renderToStaticMarkup(
-      <MachinesWorkspaceView
-        isSubmittingTurn={false}
-        machineInventories={[
-          {
-            hasLoadedThreadInventory: true,
-            machineDisplayName: "Offline Linux Box",
-            machineHostname: "linux-box.local",
-            machineId: "machine-linux",
-            machineStatus: "offline",
-            machineStatusReason:
-              "This machine is offline. Start `noter-sync run` on the machine first.",
-            pinnedThreadIds: [],
-            threads: [THREAD_FIXTURE],
-          },
-        ]}
-        selectedMachineId="machine-linux"
-        selectedMachineDisplayName="Offline Linux Box"
-        selectedMachineHostname="linux-box.local"
-        selectedMachineStatusReason="This machine is offline. Start `noter-sync run` on the machine first."
-        selectedThread={null}
-        selectedThreadError={null}
-        selectedThreadLoading={false}
-        selectedThreadId={THREAD_FIXTURE.id}
-        pendingPinThreadKey={null}
-        turnDraft=""
-        onTurnDraftChange={() => {}}
-        onTurnSubmit={() => {}}
-      />,
+      <SidebarProvider
+        defaultOpen={true}
+        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+      >
+        <MachinesWorkspaceView
+          isSubmittingTurn={false}
+          machineInventories={[
+            {
+              hasLoadedThreadInventory: true,
+              machineDisplayName: "Offline Linux Box",
+              machineHostname: "linux-box.local",
+              machineId: "machine-linux",
+              machineStatus: "offline",
+              machineStatusReason:
+                "This machine is offline. Start `noter-sync run` on the machine first.",
+              pinnedThreadIds: [],
+              threads: [THREAD_FIXTURE],
+            },
+          ]}
+          selectedMachineId="machine-linux"
+          selectedMachineDisplayName="Offline Linux Box"
+          selectedMachineHostname="linux-box.local"
+          selectedMachineStatusReason="This machine is offline. Start `noter-sync run` on the machine first."
+          selectedThread={null}
+          selectedThreadError={null}
+          selectedThreadLoading={false}
+          selectedThreadId={THREAD_FIXTURE.id}
+          pendingPinThreadKey={null}
+          turnDraft=""
+          onTurnDraftChange={() => {}}
+          onTurnSubmit={() => {}}
+        />
+      </SidebarProvider>,
     );
 
     expect(markup).toContain(

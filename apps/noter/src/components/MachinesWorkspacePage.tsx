@@ -1,4 +1,5 @@
 import { useNow } from "@/hooks/useNow";
+import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import {
   CodexAppServerRequestError,
@@ -14,11 +15,16 @@ import {
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
-import { MachinesWorkspaceView } from "@/components/MachinesWorkspaceView";
+import {
+  MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
+  MachinesWorkspaceView,
+} from "@/components/MachinesWorkspaceView";
 import type { MachinesWorkspaceSidebarInventory } from "@/lib/machinesWorkspaceSidebar";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 import { resolveConnectedMachineStatus } from "../../shared/connectedMachinePresence";
 import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
 import { api } from "../../convex/_generated/api";
@@ -28,6 +34,15 @@ const SELECTED_MACHINE_QUERY_PARAM = "machineId";
 const SELECTED_THREAD_QUERY_PARAM = "threadId";
 const THREAD_REFRESH_INTERVAL_MS = 1_500;
 const MACHINE_CONTROL_TOKEN_REFRESH_BUFFER_MS = 30_000;
+const MACHINES_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
+  leftDesktopOpen: true,
+  leftDesktopWidthPx: MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
+  leftMobileWidthPx: MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
+  mobilePane: "main",
+  rightDesktopOpen: false,
+  rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+} satisfies WorkspaceSidebarState;
 
 type MachineControlTokenState = {
   expiresAt: number;
@@ -819,32 +834,38 @@ export function MachinesWorkspacePage() {
   );
 
   return (
-    <MachinesWorkspaceView
-      machineInventories={machineInventories}
-      isSubmittingTurn={isSubmittingTurn}
-      leftSidebarHeader={
-        userDisplayName !== null ? (
-          <SidebarHomeAccountHeader userDisplayName={userDisplayName} />
-        ) : null
-      }
-      pendingPinThreadKey={pendingPinThreadKey}
-      selectedMachineId={selectedMachineId}
-      selectedMachineDisplayName={selectedMachine?.displayName ?? null}
-      selectedMachineHostname={selectedMachine?.hostname ?? null}
-      selectedMachineStatusReason={selectedMachineInteractionBlockedReason}
-      selectedThread={selectedThread}
-      selectedThreadError={selectedThreadError}
-      selectedThreadLoading={isSelectedThreadLoading}
-      selectedThreadId={selectedThreadId}
-      relativeTimeReferenceMs={now}
-      turnDraft={turnDraft}
-      onTurnDraftChange={setTurnDraft}
-      onTurnSubmit={handleTurnSubmit}
-      onThreadPinChange={handleThreadPinChange}
-      onThreadSelect={({ machineId, threadId }) => {
-        setSelectedMachineId(machineId);
-        setSelectedThreadId(threadId);
-      }}
-    />
+    <PersistedSidebarProvider
+      className="h-full min-h-0"
+      defaultState={MACHINES_WORKSPACE_SIDEBAR_DEFAULT_STATE}
+      workspaceKey="machines"
+    >
+      <MachinesWorkspaceView
+        machineInventories={machineInventories}
+        isSubmittingTurn={isSubmittingTurn}
+        leftSidebarHeader={
+          userDisplayName !== null ? (
+            <SidebarHomeAccountHeader userDisplayName={userDisplayName} />
+          ) : null
+        }
+        pendingPinThreadKey={pendingPinThreadKey}
+        selectedMachineId={selectedMachineId}
+        selectedMachineDisplayName={selectedMachine?.displayName ?? null}
+        selectedMachineHostname={selectedMachine?.hostname ?? null}
+        selectedMachineStatusReason={selectedMachineInteractionBlockedReason}
+        selectedThread={selectedThread}
+        selectedThreadError={selectedThreadError}
+        selectedThreadLoading={isSelectedThreadLoading}
+        selectedThreadId={selectedThreadId}
+        relativeTimeReferenceMs={now}
+        turnDraft={turnDraft}
+        onTurnDraftChange={setTurnDraft}
+        onTurnSubmit={handleTurnSubmit}
+        onThreadPinChange={handleThreadPinChange}
+        onThreadSelect={({ machineId, threadId }) => {
+          setSelectedMachineId(machineId);
+          setSelectedThreadId(threadId);
+        }}
+      />
+    </PersistedSidebarProvider>
   );
 }

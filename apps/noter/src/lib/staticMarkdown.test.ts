@@ -9,16 +9,16 @@ describe("parseStaticMarkdownInline", () => {
   it("parses text and inline code in sequence", () => {
     expect(
       parseStaticMarkdownInline(
-        "Cookie named `sidebar_state` and [privacy page](/privacy).",
+        "Convex-backed `workspaceSidebarState` and [privacy page](/privacy).",
       ),
     ).toEqual([
       {
         type: "text",
-        value: "Cookie named ",
+        value: "Convex-backed ",
       },
       {
         type: "code",
-        value: "sidebar_state",
+        value: "workspaceSidebarState",
       },
       {
         type: "text",

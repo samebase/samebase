@@ -12,8 +12,6 @@ import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-const SIDEBAR_COOKIE_NAME = "sidebar_state";
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
@@ -31,13 +29,25 @@ export const SidebarProvider = React.forwardRef<
     defaultOpen?: boolean;
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
+    leftOpen?: boolean;
+    onLeftOpenChange?: (open: boolean) => void;
     defaultRightOpen?: boolean;
     rightOpen?: boolean;
     onRightOpenChange?: (open: boolean) => void;
     defaultLeftDesktopWidthPx?: number;
+    leftDesktopWidthPx?: number;
+    onLeftDesktopWidthPxChange?: (widthPx: number) => void;
     defaultRightDesktopWidthPx?: number;
+    rightDesktopWidthPx?: number;
+    onRightDesktopWidthPxChange?: (widthPx: number) => void;
     defaultLeftMobileWidthPx?: number;
+    leftMobileWidthPx?: number;
+    onLeftMobileWidthPxChange?: (widthPx: number) => void;
     defaultRightMobileWidthPx?: number;
+    rightMobileWidthPx?: number;
+    onRightMobileWidthPxChange?: (widthPx: number) => void;
+    mobilePane?: MobileSidebarPane;
+    onMobilePaneChange?: (pane: MobileSidebarPane) => void;
     shortcutSidebarSide?: SidebarSide;
   }
 >(
@@ -46,13 +56,25 @@ export const SidebarProvider = React.forwardRef<
       defaultOpen = true,
       open: openProp,
       onOpenChange: setOpenProp,
+      leftOpen: leftOpenProp,
+      onLeftOpenChange: setLeftOpenProp,
       defaultRightOpen = false,
       rightOpen: rightOpenProp,
       onRightOpenChange: setRightOpenProp,
       defaultLeftDesktopWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+      leftDesktopWidthPx: leftDesktopWidthPxProp,
+      onLeftDesktopWidthPxChange: setLeftDesktopWidthPxProp,
       defaultRightDesktopWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+      rightDesktopWidthPx: rightDesktopWidthPxProp,
+      onRightDesktopWidthPxChange: setRightDesktopWidthPxProp,
       defaultLeftMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+      leftMobileWidthPx: leftMobileWidthPxProp,
+      onLeftMobileWidthPxChange: setLeftMobileWidthPxProp,
       defaultRightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+      rightMobileWidthPx: rightMobileWidthPxProp,
+      onRightMobileWidthPxChange: setRightMobileWidthPxProp,
+      mobilePane: mobilePaneProp,
+      onMobilePaneChange: setMobilePaneProp,
       shortcutSidebarSide = "left",
       className,
       style,
@@ -62,43 +84,50 @@ export const SidebarProvider = React.forwardRef<
     ref,
   ) => {
     const isMobile = useIsMobile();
-    const [mobilePane, setMobilePane] =
+    const [internalMobilePane, setInternalMobilePane] =
       React.useState<MobileSidebarPane>("main");
     const [internalLeftDesktopOpen, setInternalLeftDesktopOpen] =
       React.useState(defaultOpen);
     const [internalRightDesktopOpen, setInternalRightDesktopOpen] =
       React.useState(defaultRightOpen);
-    const [leftDesktopWidthPx, setLeftDesktopWidthPx] = React.useState(
-      defaultLeftDesktopWidthPx,
-    );
-    const [rightDesktopWidthPx, setRightDesktopWidthPx] = React.useState(
-      defaultRightDesktopWidthPx,
-    );
-    const [leftMobileWidthPx, setLeftMobileWidthPx] = React.useState(
-      defaultLeftMobileWidthPx,
-    );
-    const [rightMobileWidthPx, setRightMobileWidthPx] = React.useState(
-      defaultRightMobileWidthPx,
-    );
-    const leftDesktopOpen = openProp ?? internalLeftDesktopOpen;
-    const rightDesktopOpen = rightOpenProp ?? internalRightDesktopOpen;
+    const [internalLeftDesktopWidthPx, setInternalLeftDesktopWidthPx] =
+      React.useState(defaultLeftDesktopWidthPx);
+    const [internalRightDesktopWidthPx, setInternalRightDesktopWidthPx] =
+      React.useState(defaultRightDesktopWidthPx);
+    const [internalLeftMobileWidthPx, setInternalLeftMobileWidthPx] =
+      React.useState(defaultLeftMobileWidthPx);
+    const [internalRightMobileWidthPx, setInternalRightMobileWidthPx] =
+      React.useState(defaultRightMobileWidthPx);
+    const controlledLeftOpen =
+      leftOpenProp ?? (shortcutSidebarSide === "left" ? openProp : undefined);
+    const controlledRightOpen =
+      rightOpenProp ?? (shortcutSidebarSide === "right" ? openProp : undefined);
+    const leftDesktopOpen = controlledLeftOpen ?? internalLeftDesktopOpen;
+    const rightDesktopOpen = controlledRightOpen ?? internalRightDesktopOpen;
+    const leftDesktopWidthPx =
+      leftDesktopWidthPxProp ?? internalLeftDesktopWidthPx;
+    const rightDesktopWidthPx =
+      rightDesktopWidthPxProp ?? internalRightDesktopWidthPx;
+    const leftMobileWidthPx =
+      leftMobileWidthPxProp ?? internalLeftMobileWidthPx;
+    const rightMobileWidthPx =
+      rightMobileWidthPxProp ?? internalRightMobileWidthPx;
+    const mobilePane = mobilePaneProp ?? internalMobilePane;
 
     const setLeftDesktopOpen = React.useCallback(
       (value: React.SetStateAction<boolean>) => {
         const nextValue = resolveNextState(leftDesktopOpen, value);
-        if (setOpenProp) {
+        if (setLeftOpenProp) {
+          setLeftOpenProp(nextValue);
+          return;
+        }
+        if (shortcutSidebarSide === "left" && setOpenProp) {
           setOpenProp(nextValue);
-        } else {
-          setInternalLeftDesktopOpen(nextValue);
+          return;
         }
-
-        if (shortcutSidebarSide === "left") {
-          // Preserve the existing single-sidebar cookie contract while the dual
-          // sidebar implementation is still intentionally light on persistence.
-          document.cookie = `${SIDEBAR_COOKIE_NAME}=${nextValue}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
-        }
+        setInternalLeftDesktopOpen(nextValue);
       },
-      [leftDesktopOpen, setOpenProp, shortcutSidebarSide],
+      [leftDesktopOpen, setLeftOpenProp, setOpenProp, shortcutSidebarSide],
     );
 
     const setRightDesktopOpen = React.useCallback(
@@ -106,15 +135,75 @@ export const SidebarProvider = React.forwardRef<
         const nextValue = resolveNextState(rightDesktopOpen, value);
         if (setRightOpenProp) {
           setRightOpenProp(nextValue);
-        } else {
-          setInternalRightDesktopOpen(nextValue);
+          return;
         }
-
-        if (shortcutSidebarSide === "right") {
-          document.cookie = `${SIDEBAR_COOKIE_NAME}=${nextValue}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+        if (shortcutSidebarSide === "right" && setOpenProp) {
+          setOpenProp(nextValue);
+          return;
         }
+        setInternalRightDesktopOpen(nextValue);
       },
-      [rightDesktopOpen, setRightOpenProp, shortcutSidebarSide],
+      [rightDesktopOpen, setOpenProp, setRightOpenProp, shortcutSidebarSide],
+    );
+
+    const setLeftDesktopWidthPx = React.useCallback(
+      (value: React.SetStateAction<number>) => {
+        const nextValue = resolveNextState(leftDesktopWidthPx, value);
+        if (setLeftDesktopWidthPxProp) {
+          setLeftDesktopWidthPxProp(nextValue);
+          return;
+        }
+        setInternalLeftDesktopWidthPx(nextValue);
+      },
+      [leftDesktopWidthPx, setLeftDesktopWidthPxProp],
+    );
+
+    const setRightDesktopWidthPx = React.useCallback(
+      (value: React.SetStateAction<number>) => {
+        const nextValue = resolveNextState(rightDesktopWidthPx, value);
+        if (setRightDesktopWidthPxProp) {
+          setRightDesktopWidthPxProp(nextValue);
+          return;
+        }
+        setInternalRightDesktopWidthPx(nextValue);
+      },
+      [rightDesktopWidthPx, setRightDesktopWidthPxProp],
+    );
+
+    const setLeftMobileWidthPx = React.useCallback(
+      (value: React.SetStateAction<number>) => {
+        const nextValue = resolveNextState(leftMobileWidthPx, value);
+        if (setLeftMobileWidthPxProp) {
+          setLeftMobileWidthPxProp(nextValue);
+          return;
+        }
+        setInternalLeftMobileWidthPx(nextValue);
+      },
+      [leftMobileWidthPx, setLeftMobileWidthPxProp],
+    );
+
+    const setRightMobileWidthPx = React.useCallback(
+      (value: React.SetStateAction<number>) => {
+        const nextValue = resolveNextState(rightMobileWidthPx, value);
+        if (setRightMobileWidthPxProp) {
+          setRightMobileWidthPxProp(nextValue);
+          return;
+        }
+        setInternalRightMobileWidthPx(nextValue);
+      },
+      [rightMobileWidthPx, setRightMobileWidthPxProp],
+    );
+
+    const setMobilePane = React.useCallback(
+      (value: React.SetStateAction<MobileSidebarPane>) => {
+        const nextValue = resolveNextState(mobilePane, value);
+        if (setMobilePaneProp) {
+          setMobilePaneProp(nextValue);
+          return;
+        }
+        setInternalMobilePane(nextValue);
+      },
+      [mobilePane, setMobilePaneProp],
     );
 
     const toggleLeftSidebar = React.useCallback(() => {
@@ -126,7 +215,7 @@ export const SidebarProvider = React.forwardRef<
       }
 
       setLeftDesktopOpen((currentOpen) => !currentOpen);
-    }, [isMobile, setLeftDesktopOpen]);
+    }, [isMobile, setLeftDesktopOpen, setMobilePane]);
 
     const toggleRightSidebar = React.useCallback(() => {
       if (isMobile) {
@@ -137,7 +226,7 @@ export const SidebarProvider = React.forwardRef<
       }
 
       setRightDesktopOpen((currentOpen) => !currentOpen);
-    }, [isMobile, setRightDesktopOpen]);
+    }, [isMobile, setMobilePane, setRightDesktopOpen]);
 
     React.useEffect(() => {
       const handleKeyDown = (event: KeyboardEvent) => {
