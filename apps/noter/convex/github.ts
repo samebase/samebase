@@ -307,6 +307,10 @@ export function shouldRefreshRepositoryMetadata(args: {
     return true;
   }
 
+  if (args.trigger === "focus") {
+    return false;
+  }
+
   if (args.branchNotFound) {
     return shouldBypassRecentSuccessDebounceForBranchRefresh({
       requestedBranch: args.requestedBranch,
@@ -316,10 +320,6 @@ export function shouldRefreshRepositoryMetadata(args: {
       lastRepositoryMetadataRefreshAt: args.lastRepositoryMetadataRefreshAt,
       now: args.now,
     });
-  }
-
-  if (args.trigger === "focus") {
-    return false;
   }
 
   return (
