@@ -1,5 +1,6 @@
 import { devices, expect, test, type Locator } from "@playwright/test";
 import {
+  APP_BUILD_VERSION_PREFIX,
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
@@ -155,7 +156,18 @@ async function expectLandingLogoSceneReady(scene: Locator) {
 }
 
 async function expectAppBuildVersion(versionLabel: Locator) {
-  await expect(versionLabel).toHaveText(/^v \d+$/);
+  await expect(versionLabel).toHaveText(/^\d+$/);
+}
+
+async function expectAppBuildVersionDisplay(
+  statusBar: Locator,
+  versionLabel: Locator,
+) {
+  await expectAppBuildVersion(versionLabel);
+  const buildVersionGroup = statusBar.locator(".font-mono").first();
+  await expect(buildVersionGroup.locator("span").first()).toHaveText(
+    APP_BUILD_VERSION_PREFIX,
+  );
 }
 
 async function expectAppBuildCommitLink(versionLabel: Locator) {
@@ -255,7 +267,7 @@ test("build version stays stable across the landing shell handoff", async ({
   const shellVersion = shellStatusBar.getByTestId(APP_BUILD_VERSION_TEST_ID);
 
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
-  await expectAppBuildVersion(shellVersion);
+  await expectAppBuildVersionDisplay(shellStatusBar, shellVersion);
   const shellVersionText = await shellVersion.textContent();
   const shellVersionHref = await expectAppBuildCommitLink(shellVersion);
   expect(shellVersionText).not.toBeNull();
@@ -269,7 +281,7 @@ test("build version stays stable across the landing shell handoff", async ({
     APP_BUILD_VERSION_TEST_ID,
   );
 
-  await expectAppBuildVersion(hydratedVersion);
+  await expectAppBuildVersionDisplay(hydratedStatusBar, hydratedVersion);
   await expect(hydratedVersion).toHaveText(shellVersionText ?? "");
   await expect(hydratedVersion).toHaveAttribute("href", shellVersionHref ?? "");
 
@@ -303,22 +315,28 @@ test("build version copies as a Markdown link across the shell handoff", async (
   const shellVersion = page
     .getByTestId("public-landing-shell")
     .getByTestId(APP_BUILD_VERSION_TEST_ID);
+  const shellStatusBar = page
+    .getByTestId("public-landing-shell")
+    .getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  const shellVersionGroup = shellStatusBar.locator(".font-mono").first();
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
-  await expectAppBuildVersion(shellVersion);
+  await expectAppBuildVersionDisplay(shellStatusBar, shellVersion);
   const shellVersionText = await shellVersion.textContent();
   const shellVersionHref = await expectAppBuildCommitLink(shellVersion);
   expect(shellVersionText).not.toBeNull();
 
-  await selectText(shellVersion);
+  await selectText(shellVersionGroup);
   await page.keyboard.press(COPY_SHORTCUT_KEY);
   const shellClipboardText = await readClipboardText(page);
   expect(shellClipboardText).toBe(`[${shellVersionText}](${shellVersionHref})`);
 
   await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
 
+  const hydratedStatusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
   const hydratedVersion = page.getByTestId(APP_BUILD_VERSION_TEST_ID);
-  await expectAppBuildVersion(hydratedVersion);
-  await selectText(hydratedVersion);
+  const hydratedVersionGroup = hydratedStatusBar.locator(".font-mono").first();
+  await expectAppBuildVersionDisplay(hydratedStatusBar, hydratedVersion);
+  await selectText(hydratedVersionGroup);
   await page.keyboard.press(COPY_SHORTCUT_KEY);
   const hydratedClipboardText = await readClipboardText(page);
 

@@ -3,9 +3,10 @@ import {
   getLandingDevToggleLabel,
 } from "@/lib/landingDevMode";
 import {
+  APP_BUILD_VERSION_PREFIX,
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
-  formatAppBuildVersionLabel,
+  formatAppBuildVersionNumber,
   hasSelectedAppBuildVersion,
   installAppBuildMarkdownCopy,
 } from "@/lib/appBuild";
@@ -21,7 +22,7 @@ import {
 export function Layout({ children }: { children: ReactNode }) {
   const appCommit = __APP_COMMIT__ || "unknown";
   const appCommitNumber = __APP_COMMIT_NUMBER__;
-  const commitLabel = formatAppBuildVersionLabel(appCommitNumber);
+  const commitNumberLabel = formatAppBuildVersionNumber(appCommitNumber);
   const repoUrl = __APP_REPO_URL__ || "";
   const commitUrl =
     repoUrl && appCommit !== "unknown" ? `${repoUrl}/commit/${appCommit}` : "";
@@ -74,10 +75,10 @@ export function Layout({ children }: { children: ReactNode }) {
     }
 
     return installAppBuildMarkdownCopy(buildVersionElement, {
-      commitLabel,
+      commitNumberLabel,
       commitUrl,
     });
-  }, [commitLabel, commitUrl]);
+  }, [commitNumberLabel, commitUrl]);
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -103,37 +104,40 @@ export function Layout({ children }: { children: ReactNode }) {
               {landingDevToggleLabel}
             </a>
           )}
-          {commitUrl ? (
-            <a
-              data-testid={APP_BUILD_VERSION_TEST_ID}
-              ref={(element) => {
-                buildVersionRef.current = element;
-              }}
-              className="select-text font-mono hover:text-foreground transition-colors"
-              href={commitUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              title={appCommit}
-              onClick={(event) => {
-                if (hasSelectedAppBuildVersion(event.currentTarget)) {
-                  event.preventDefault();
-                }
-              }}
-            >
-              {commitLabel}
-            </a>
-          ) : (
-            <span
-              data-testid={APP_BUILD_VERSION_TEST_ID}
-              ref={(element) => {
-                buildVersionRef.current = element;
-              }}
-              className="select-text font-mono"
-              title={appCommit}
-            >
-              {commitLabel}
-            </span>
-          )}
+          <div className="inline-flex select-text items-center gap-1 font-mono">
+            <span>{APP_BUILD_VERSION_PREFIX}</span>
+            {commitUrl ? (
+              <a
+                data-testid={APP_BUILD_VERSION_TEST_ID}
+                ref={(element) => {
+                  buildVersionRef.current = element;
+                }}
+                className="select-text hover:text-foreground transition-colors"
+                href={commitUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                title={appCommit}
+                onClick={(event) => {
+                  if (hasSelectedAppBuildVersion(event.currentTarget)) {
+                    event.preventDefault();
+                  }
+                }}
+              >
+                {commitNumberLabel}
+              </a>
+            ) : (
+              <span
+                data-testid={APP_BUILD_VERSION_TEST_ID}
+                ref={(element) => {
+                  buildVersionRef.current = element;
+                }}
+                className="select-text"
+                title={appCommit}
+              >
+                {commitNumberLabel}
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <main className="flex grow flex-col overflow-hidden">{children}</main>

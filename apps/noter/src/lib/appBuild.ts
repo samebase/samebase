@@ -1,14 +1,41 @@
 export const APP_BUILD_STATUS_BAR_TEST_ID = "app-build-status-bar";
 export const APP_BUILD_VERSION_TEST_ID = "app-build-version";
+export const APP_BUILD_VERSION_PREFIX = "v";
 
-const UNKNOWN_APP_BUILD_VERSION_LABEL = "v ?";
+const UNKNOWN_APP_BUILD_VERSION_NUMBER = "?";
 
 type AppBuildCopyPayload = {
-  commitLabel: string;
+  commitNumberLabel: string;
   commitUrl: string;
 };
 
 type ClipboardDataWriter = Pick<DataTransfer, "setData">;
+
+function isValidAppBuildCommitNumber(
+  commitNumber: number | null,
+): commitNumber is number {
+  if (
+    commitNumber === null ||
+    !Number.isSafeInteger(commitNumber) ||
+    commitNumber < 1
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Keep the clickable part to the bare number so selecting it in the header
+ * does not need to fight an extra prefix character.
+ */
+export function formatAppBuildVersionNumber(
+  commitNumber: number | null,
+): string {
+  return isValidAppBuildCommitNumber(commitNumber)
+    ? String(commitNumber)
+    : UNKNOWN_APP_BUILD_VERSION_NUMBER;
+}
 
 /**
  * The header exposes the current build as a simple, one-based repo version so
@@ -17,26 +44,20 @@ type ClipboardDataWriter = Pick<DataTransfer, "setData">;
 export function formatAppBuildVersionLabel(
   commitNumber: number | null,
 ): string {
-  if (
-    commitNumber === null ||
-    !Number.isSafeInteger(commitNumber) ||
-    commitNumber < 1
-  ) {
-    return UNKNOWN_APP_BUILD_VERSION_LABEL;
-  }
-
-  return `v ${commitNumber}`;
+  return `${APP_BUILD_VERSION_PREFIX} ${formatAppBuildVersionNumber(
+    commitNumber,
+  )}`;
 }
 
 export function formatAppBuildMarkdownLink({
-  commitLabel,
+  commitNumberLabel,
   commitUrl,
 }: AppBuildCopyPayload): string {
   if (!commitUrl) {
-    return commitLabel;
+    return commitNumberLabel;
   }
 
-  return `[${commitLabel}](${commitUrl})`;
+  return `[${commitNumberLabel}](${commitUrl})`;
 }
 
 function escapeHtml(value: string): string {
@@ -102,7 +123,7 @@ export function writeAppBuildClipboardData(
   clipboardData.setData("text/markdown", markdownLink);
   clipboardData.setData(
     "text/html",
-    `<a href="${escapeHtml(payload.commitUrl)}">${escapeHtml(payload.commitLabel)}</a>`,
+    `<a href="${escapeHtml(payload.commitUrl)}">${escapeHtml(payload.commitNumberLabel)}</a>`,
   );
 
   return markdownLink;
