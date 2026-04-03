@@ -12,12 +12,73 @@ import { MachinesWorkspaceV2View } from "./MachinesWorkspaceV2View";
 
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
+const originalPointerEvent = globalThis.PointerEvent;
 
 vi.mock("@/components/MachinesWorkspaceThreadPane", () => ({
   MachinesWorkspaceThreadPane: () => (
     <div data-component="MachinesWorkspaceThreadPane" />
   ),
 }));
+
+function dispatchPointerEvent(
+  target: HTMLElement,
+  type: string,
+  args: {
+    button?: number;
+    clientX: number;
+    clientY: number;
+    isPrimary?: boolean;
+    pointerId: number;
+    pointerType: string;
+  },
+) {
+  const event = new Event(type, {
+    bubbles: true,
+    cancelable: true,
+  });
+
+  Object.defineProperty(event, "button", {
+    value: args.button ?? 0,
+  });
+  Object.defineProperty(event, "clientX", {
+    value: args.clientX,
+  });
+  Object.defineProperty(event, "clientY", {
+    value: args.clientY,
+  });
+  Object.defineProperty(event, "isPrimary", {
+    value: args.isPrimary ?? true,
+  });
+  Object.defineProperty(event, "pointerId", {
+    value: args.pointerId,
+  });
+  Object.defineProperty(event, "pointerType", {
+    value: args.pointerType,
+  });
+
+  target.dispatchEvent(event);
+}
+
+function installPointerCaptureMocks(target: HTMLElement) {
+  const capturedPointerIds = new Set<number>();
+
+  Object.defineProperty(target, "setPointerCapture", {
+    configurable: true,
+    value: vi.fn((pointerId: number) => {
+      capturedPointerIds.add(pointerId);
+    }),
+  });
+  Object.defineProperty(target, "releasePointerCapture", {
+    configurable: true,
+    value: vi.fn((pointerId: number) => {
+      capturedPointerIds.delete(pointerId);
+    }),
+  });
+  Object.defineProperty(target, "hasPointerCapture", {
+    configurable: true,
+    value: vi.fn((pointerId: number) => capturedPointerIds.has(pointerId)),
+  });
+}
 
 const THREAD_FIXTURE: CodexAppServerThread = {
   agentNickname: null,
@@ -274,9 +335,23 @@ describe("MachinesWorkspaceV2View desktop pane layout", () => {
 describe("MachinesWorkspaceV2View mobile pane model", () => {
   let rootElement: HTMLDivElement | null = null;
   let root: Root | null = null;
+  let getBoundingClientRectSpy: { mockRestore: () => void } | null = null;
 
   beforeEach(() => {
     installMobileMatchMedia();
+    getBoundingClientRectSpy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(() => ({
+        bottom: 844,
+        height: 844,
+        left: 0,
+        right: 390,
+        top: 0,
+        width: 390,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }));
   });
 
   afterEach(() => {
@@ -289,9 +364,12 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
     }
     rootElement?.remove();
     rootElement = null;
+    getBoundingClientRectSpy?.mockRestore();
+    getBoundingClientRectSpy = null;
+    Reflect.set(globalThis, "PointerEvent", originalPointerEvent);
   });
 
-  it("renders the route-owned mobile shell and keeps both sidebar triggers", async () => {
+  it("renders one persistent mobile header with both sidebar triggers", async () => {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     root = createRoot(rootElement);
@@ -303,6 +381,9 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
     const shell = rootElement.querySelector<HTMLElement>(
       '[data-sidebar-shell="v2-mobile"]',
     );
+    const header = rootElement.querySelector<HTMLElement>(
+      '[data-mobile-header="main"]',
+    );
     const track = rootElement.querySelector<HTMLElement>(
       '[data-sidebar-track="v2-mobile"]',
     );
@@ -313,10 +394,17 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
       'button[aria-label="Toggle Right Sidebar"]',
     );
     expect(shell).not.toBeNull();
+    expect(header).not.toBeNull();
     expect(track).not.toBeNull();
-    expect(leftToggleButtons).toHaveLength(3);
-    expect(rightToggleButtons).toHaveLength(3);
-    if (shell === null || track === null) {
+    expect(leftToggleButtons).toHaveLength(1);
+    expect(rightToggleButtons).toHaveLength(1);
+    expect(
+      track?.querySelectorAll('button[aria-label="Toggle Left Sidebar"]'),
+    ).toHaveLength(0);
+    expect(
+      track?.querySelectorAll('button[aria-label="Toggle Right Sidebar"]'),
+    ).toHaveLength(0);
+    if (shell === null || track === null || header === null) {
       return;
     }
 
@@ -339,6 +427,119 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
     });
     expect(shell.dataset.mobilePane).toBe("right");
     expect(track.style.transform).toBe("translate3d(-576px, 0, 0)");
+  });
+
+  it("shows draggable resize edges for both mobile sidebars", async () => {
+    Reflect.set(globalThis, "PointerEvent", Event);
+
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+
+    await act(async () => {
+      root?.render(<MachinesWorkspaceV2View {...buildProps()} />);
+    });
+
+    const shell = rootElement.querySelector<HTMLElement>(
+      '[data-sidebar-shell="v2-mobile"]',
+    );
+    const track = rootElement.querySelector<HTMLElement>(
+      '[data-sidebar-track="v2-mobile"]',
+    );
+    const leftToggleButton = rootElement.querySelector<HTMLButtonElement>(
+      'button[aria-label="Toggle Left Sidebar"]',
+    );
+    const rightToggleButton = rootElement.querySelector<HTMLButtonElement>(
+      'button[aria-label="Toggle Right Sidebar"]',
+    );
+    expect(shell).not.toBeNull();
+    expect(track).not.toBeNull();
+    expect(leftToggleButton).not.toBeNull();
+    expect(rightToggleButton).not.toBeNull();
+    if (
+      shell === null ||
+      track === null ||
+      leftToggleButton === null ||
+      rightToggleButton === null
+    ) {
+      return;
+    }
+
+    await act(async () => {
+      leftToggleButton.click();
+    });
+
+    const leftResizeHandle = rootElement.querySelector<HTMLElement>(
+      '[data-testid="machines-v2-mobile-left-resize-handle"]',
+    );
+    expect(leftResizeHandle).not.toBeNull();
+    if (leftResizeHandle === null) {
+      return;
+    }
+    installPointerCaptureMocks(leftResizeHandle);
+
+    act(() => {
+      dispatchPointerEvent(leftResizeHandle, "pointerdown", {
+        clientX: 288,
+        clientY: 120,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+      dispatchPointerEvent(leftResizeHandle, "pointermove", {
+        clientX: 320,
+        clientY: 120,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+      dispatchPointerEvent(leftResizeHandle, "pointerup", {
+        clientX: 320,
+        clientY: 120,
+        pointerId: 1,
+        pointerType: "touch",
+      });
+    });
+
+    expect(track.style.getPropertyValue("--workspace-left-sidebar-width")).toBe(
+      "320px",
+    );
+
+    await act(async () => {
+      rightToggleButton.click();
+    });
+
+    const rightResizeHandle = rootElement.querySelector<HTMLElement>(
+      '[data-testid="machines-v2-mobile-right-resize-handle"]',
+    );
+    expect(rightResizeHandle).not.toBeNull();
+    if (rightResizeHandle === null) {
+      return;
+    }
+    installPointerCaptureMocks(rightResizeHandle);
+
+    act(() => {
+      dispatchPointerEvent(rightResizeHandle, "pointerdown", {
+        clientX: 102,
+        clientY: 120,
+        pointerId: 2,
+        pointerType: "touch",
+      });
+      dispatchPointerEvent(rightResizeHandle, "pointermove", {
+        clientX: 70,
+        clientY: 120,
+        pointerId: 2,
+        pointerType: "touch",
+      });
+      dispatchPointerEvent(rightResizeHandle, "pointerup", {
+        clientX: 70,
+        clientY: 120,
+        pointerId: 2,
+        pointerType: "touch",
+      });
+    });
+
+    expect(
+      track.style.getPropertyValue("--workspace-right-sidebar-width"),
+    ).toBe("320px");
   });
 
   it("does not add tap-to-dismiss overlay behavior on top of the main pane", async () => {

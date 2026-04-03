@@ -6,6 +6,7 @@ import {
 } from "@/components/MachinesWorkspaceSidebarRail";
 import { MachinesWorkspaceThreadPane } from "@/components/MachinesWorkspaceThreadPane";
 import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
+import { WorkspaceSidebarResizeHandle } from "@/components/workspace-layout/WorkspaceSidebarResizeHandle";
 import { WorkspaceScene } from "@/components/workspace-layout/WorkspaceScene";
 import { useSidebar } from "@/hooks/use-sidebar";
 import {
@@ -13,6 +14,10 @@ import {
   readMachinesV2MobilePaneAnchorPx,
   readMachinesV2SettledMobilePane,
 } from "@/lib/machinesWorkspaceV2MobileShell";
+import {
+  MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
+  MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
+} from "@/lib/workspacePaneSizes";
 import { cn } from "@/lib/utils";
 
 const MOBILE_PANE_DRAG_SLOP_PX = 10;
@@ -39,13 +44,45 @@ function findTouchByIdentifier(
   return null;
 }
 
-function MachinesWorkspaceV2MobileHeader(props: {
-  dataTestId?: string;
-  side: "left" | "main" | "right";
-}) {
+function useElementWidth(measureRef: React.RefObject<HTMLElement | null>) {
+  const [widthPx, setWidthPx] = React.useState(0);
+
+  React.useLayoutEffect(() => {
+    const measuredNode = measureRef.current;
+    if (!measuredNode) {
+      return;
+    }
+
+    const updateWidth = () => {
+      setWidthPx(
+        Math.max(0, Math.round(measuredNode.getBoundingClientRect().width)),
+      );
+    };
+
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateWidth);
+      return () => window.removeEventListener("resize", updateWidth);
+    }
+
+    const resizeObserver = new ResizeObserver(updateWidth);
+    resizeObserver.observe(measuredNode);
+    window.addEventListener("resize", updateWidth);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateWidth);
+    };
+  }, [measureRef]);
+
+  return widthPx;
+}
+
+function MachinesWorkspaceV2MobileHeader(props: { dataTestId?: string }) {
   return (
     <div
-      data-mobile-header={props.side}
+      data-mobile-header="main"
       data-testid={props.dataTestId}
       className="min-w-0 border-b border-border/50 bg-background"
     >
@@ -117,13 +154,20 @@ function MachinesWorkspaceV2DesktopView(props: MachinesWorkspaceViewProps) {
 }
 
 function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
-  const { leftMobileWidthPx, mobilePane, rightMobileWidthPx, setMobilePane } =
-    useSidebar();
+  const {
+    leftMobileWidthPx,
+    mobilePane,
+    rightMobileWidthPx,
+    setLeftMobileWidthPx,
+    setMobilePane,
+    setRightMobileWidthPx,
+  } = useSidebar();
   const shellRef = React.useRef<HTMLDivElement | null>(null);
   const dragStateRef = React.useRef<MachinesV2MobileDragState | null>(null);
   const [dragOffsetPxState, setDragOffsetPxState] = React.useState(0);
   const dragOffsetPxRef = React.useRef(0);
   const [isDragging, setIsDragging] = React.useState(false);
+  const shellViewportWidthPx = useElementWidth(shellRef);
   const sidebarTestId = props.dataTestId
     ? `${props.dataTestId}-sidebar`
     : undefined;
@@ -315,7 +359,6 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
   } = {
     gridTemplateColumns:
       "var(--workspace-left-sidebar-width) minmax(0, 1fr) var(--workspace-right-sidebar-width)",
-    gridTemplateRows: "auto minmax(0, 1fr)",
     transform: `translate3d(${-trackOffsetPx}px, 0, 0)`,
     transition: isDragging ? "none" : "transform 200ms ease-out",
     width:
@@ -325,6 +368,12 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
   };
   const sidebarCellClassName =
     "min-w-0 overflow-hidden bg-background transition-[border-color] duration-200 ease-linear";
+  const showLeftResizeHandle =
+    mobilePane === "left" && leftMobileWidthPx > 0 && shellViewportWidthPx > 0;
+  const showRightResizeHandle =
+    mobilePane === "right" &&
+    rightMobileWidthPx > 0 &&
+    shellViewportWidthPx > 0;
 
   return (
     <div
@@ -332,93 +381,102 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
       data-testid={props.dataTestId}
       data-mobile-pane={mobilePane}
       data-sidebar-shell="v2-mobile"
-      className="relative h-full w-full min-h-0 overflow-hidden"
+      className="relative flex h-full w-full min-h-0 flex-col overflow-hidden"
       style={{ touchAction: "pan-y" }}
     >
-      <div
-        data-sidebar-track="v2-mobile"
-        className="relative grid h-full min-h-0"
-        style={trackStyle}
-      >
-        <div className={cn(sidebarCellClassName, "border-r border-border/50")}>
-          <MachinesWorkspaceV2MobileHeader side="left" />
-        </div>
-
-        <div className="col-start-2 row-start-1 min-w-0">
-          <MachinesWorkspaceV2MobileHeader
-            dataTestId={headerTestId}
-            side="main"
-          />
-        </div>
-
+      <MachinesWorkspaceV2MobileHeader dataTestId={headerTestId} />
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         <div
-          className={cn(
-            sidebarCellClassName,
-            "col-start-3 border-l border-border/50",
-          )}
+          data-sidebar-track="v2-mobile"
+          className="relative grid h-full min-h-0"
+          style={trackStyle}
         >
-          <MachinesWorkspaceV2MobileHeader side="right" />
-        </div>
+          <div
+            className={cn(
+              sidebarCellClassName,
+              "min-h-0 border-r border-border/50",
+            )}
+          >
+            <MachinesWorkspaceSidebarRail
+              dataTestId={sidebarTestId}
+              machineInventories={props.machineInventories}
+              selectedMachineId={props.selectedMachineId}
+              selectedThreadId={props.selectedThreadId}
+              pendingPinThreadKey={props.pendingPinThreadKey}
+              relativeTimeReferenceMs={props.relativeTimeReferenceMs}
+              onThreadPinChange={props.onThreadPinChange}
+              onThreadSelect={({ machineId, threadId }) => {
+                setMobilePane("main");
+                props.onThreadSelect?.({ machineId, threadId });
+              }}
+            />
+          </div>
 
-        <div
-          className={cn(
-            sidebarCellClassName,
-            "row-start-2 border-r border-border/50",
-          )}
-        >
-          <MachinesWorkspaceSidebarRail
-            dataTestId={sidebarTestId}
-            machineInventories={props.machineInventories}
-            selectedMachineId={props.selectedMachineId}
-            selectedThreadId={props.selectedThreadId}
-            pendingPinThreadKey={props.pendingPinThreadKey}
-            relativeTimeReferenceMs={props.relativeTimeReferenceMs}
-            onThreadPinChange={props.onThreadPinChange}
-            onThreadSelect={({ machineId, threadId }) => {
-              setMobilePane("main");
-              props.onThreadSelect?.({ machineId, threadId });
-            }}
-          />
-        </div>
-
-        <div
-          data-testid={
-            props.dataTestId
-              ? `${props.dataTestId}-mobile-main-pane`
-              : undefined
-          }
-          className="col-start-2 row-start-2 min-h-0 min-w-0 bg-background"
-        >
-          <WorkspaceScene
-            workspacePaneClassName="bg-background"
-            workspaceScrollClassName="overflow-hidden bg-background"
-            workspaceBody={
-              <MachinesWorkspaceThreadPane
-                errorMessage={props.selectedThreadError}
-                isLoading={props.selectedThreadLoading}
-                isSubmittingTurn={props.isSubmittingTurn}
-                mobilePaneDragEnabled
-                onTurnDraftChange={props.onTurnDraftChange}
-                onTurnSubmit={props.onTurnSubmit}
-                selectedMachineDisplayName={props.selectedMachineDisplayName}
-                selectedMachineHostname={props.selectedMachineHostname}
-                selectedMachineStatusReason={props.selectedMachineStatusReason}
-                selectedThreadId={props.selectedThreadId}
-                thread={props.selectedThread}
-                turnDraft={props.turnDraft}
-              />
+          <div
+            data-testid={
+              props.dataTestId
+                ? `${props.dataTestId}-mobile-main-pane`
+                : undefined
             }
-          />
+            className="col-start-2 min-h-0 min-w-0 bg-background"
+          >
+            <WorkspaceScene
+              workspacePaneClassName="bg-background"
+              workspaceScrollClassName="overflow-hidden bg-background"
+              workspaceBody={
+                <MachinesWorkspaceThreadPane
+                  errorMessage={props.selectedThreadError}
+                  isLoading={props.selectedThreadLoading}
+                  isSubmittingTurn={props.isSubmittingTurn}
+                  mobilePaneDragEnabled
+                  onTurnDraftChange={props.onTurnDraftChange}
+                  onTurnSubmit={props.onTurnSubmit}
+                  selectedMachineDisplayName={props.selectedMachineDisplayName}
+                  selectedMachineHostname={props.selectedMachineHostname}
+                  selectedMachineStatusReason={
+                    props.selectedMachineStatusReason
+                  }
+                  selectedThreadId={props.selectedThreadId}
+                  thread={props.selectedThread}
+                  turnDraft={props.turnDraft}
+                />
+              }
+            />
+          </div>
+
+          <div
+            className={cn(
+              sidebarCellClassName,
+              "col-start-3 min-h-0 border-l border-border/50",
+            )}
+          >
+            <div aria-hidden="true" className="min-h-0 h-full bg-background" />
+          </div>
         </div>
 
-        <div
-          className={cn(
-            sidebarCellClassName,
-            "col-start-3 row-start-2 border-l border-border/50",
-          )}
-        >
-          <div aria-hidden="true" className="min-h-0 h-full bg-background" />
-        </div>
+        {showLeftResizeHandle ? (
+          <WorkspaceSidebarResizeHandle
+            currentWidthPx={leftMobileWidthPx}
+            dataTestId="machines-v2-mobile-left-resize-handle"
+            maxWidthPx={MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX}
+            minWidthPx={MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX}
+            onWidthChange={setLeftMobileWidthPx}
+            positionPx={leftMobileWidthPx}
+            side="left"
+          />
+        ) : null}
+
+        {showRightResizeHandle ? (
+          <WorkspaceSidebarResizeHandle
+            currentWidthPx={rightMobileWidthPx}
+            dataTestId="machines-v2-mobile-right-resize-handle"
+            maxWidthPx={MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX}
+            minWidthPx={MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX}
+            onWidthChange={setRightMobileWidthPx}
+            positionPx={shellViewportWidthPx - rightMobileWidthPx}
+            side="right"
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -437,9 +495,12 @@ function MachinesWorkspaceV2ViewContent(props: MachinesWorkspaceViewProps) {
 /**
  * Functional requirements for `/v2/machines` mobile:
  * - the shell always has three pane slots: left, main, and right
- * - both sidebar triggers remain rendered in every mobile header, even when a
- *   sidebar pane is otherwise empty
+ * - the shell has one persistent top header outside the translated panes, and
+ *   that header always renders both sidebar triggers
+ * - sidebar panes must not render their own duplicate trigger buttons
  * - the shell must not add a scrim or click-capture overlay to dismiss sidebars
+ * - visible mobile sidebars expose draggable resize edges on both the left and
+ *   right pane variants
  * - swipe settling is adjacent-only: left <-> main <-> right
  * - configured mobile sidebar widths are used as-is and are not clamped to the
  *   current browser width
