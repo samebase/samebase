@@ -306,22 +306,17 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
     const track = rootElement.querySelector<HTMLElement>(
       '[data-sidebar-track="v2-mobile"]',
     );
-    const leftToggleButton = rootElement.querySelector<HTMLButtonElement>(
+    const leftToggleButtons = rootElement.querySelectorAll<HTMLButtonElement>(
       'button[aria-label="Toggle Left Sidebar"]',
     );
-    const rightToggleButton = rootElement.querySelector<HTMLButtonElement>(
+    const rightToggleButtons = rootElement.querySelectorAll<HTMLButtonElement>(
       'button[aria-label="Toggle Right Sidebar"]',
     );
     expect(shell).not.toBeNull();
     expect(track).not.toBeNull();
-    expect(leftToggleButton).not.toBeNull();
-    expect(rightToggleButton).not.toBeNull();
-    if (
-      shell === null ||
-      track === null ||
-      leftToggleButton === null ||
-      rightToggleButton === null
-    ) {
+    expect(leftToggleButtons).toHaveLength(3);
+    expect(rightToggleButtons).toHaveLength(3);
+    if (shell === null || track === null) {
       return;
     }
 
@@ -334,16 +329,52 @@ describe("MachinesWorkspaceV2View mobile pane model", () => {
     ).toBe("288px");
 
     await act(async () => {
-      leftToggleButton.click();
+      leftToggleButtons[0].click();
     });
     expect(shell.dataset.mobilePane).toBe("left");
     expect(track.style.transform).toBe("translate3d(0px, 0, 0)");
 
     await act(async () => {
-      rightToggleButton.click();
+      rightToggleButtons[0].click();
     });
     expect(shell.dataset.mobilePane).toBe("right");
     expect(track.style.transform).toBe("translate3d(-576px, 0, 0)");
+  });
+
+  it("does not add tap-to-dismiss overlay behavior on top of the main pane", async () => {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+
+    await act(async () => {
+      root?.render(<MachinesWorkspaceV2View {...buildProps()} />);
+    });
+
+    const shell = rootElement.querySelector<HTMLElement>(
+      '[data-sidebar-shell="v2-mobile"]',
+    );
+    const mainPane = rootElement.querySelector<HTMLElement>(
+      '[data-testid="machines-v2-mobile-main-pane"]',
+    );
+    const leftToggleButton = rootElement.querySelector<HTMLButtonElement>(
+      'button[aria-label="Toggle Left Sidebar"]',
+    );
+    expect(shell).not.toBeNull();
+    expect(mainPane).not.toBeNull();
+    expect(leftToggleButton).not.toBeNull();
+    if (shell === null || mainPane === null || leftToggleButton === null) {
+      return;
+    }
+
+    await act(async () => {
+      leftToggleButton.click();
+    });
+    expect(shell.dataset.mobilePane).toBe("left");
+
+    await act(async () => {
+      mainPane.click();
+    });
+    expect(shell.dataset.mobilePane).toBe("left");
   });
 
   it("only allows adjacent settling in one gesture", () => {

@@ -38,6 +38,28 @@ function findTouchByIdentifier(
 
   return null;
 }
+
+function MachinesWorkspaceV2MobileHeader(props: {
+  dataTestId?: string;
+  side: "left" | "main" | "right";
+}) {
+  return (
+    <div
+      data-mobile-header={props.side}
+      data-testid={props.dataTestId}
+      className="min-w-0 border-b border-border/50 bg-background"
+    >
+      <div className="flex items-center justify-between gap-3 p-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <SidebarTrigger className="h-8 w-8" side="left" />
+          <span className="truncate text-base font-medium">Machines</span>
+        </div>
+        <SidebarTrigger className="h-8 w-8 shrink-0" side="right" />
+      </div>
+    </div>
+  );
+}
+
 function MachinesWorkspaceV2DesktopView(props: MachinesWorkspaceViewProps) {
   const sidebarTestId = props.dataTestId
     ? `${props.dataTestId}-sidebar`
@@ -281,24 +303,6 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
     };
   }, [dragMobileShellBy, settleMobileShell]);
 
-  const handleMainPaneClickCapture = React.useCallback(
-    (event: React.MouseEvent<HTMLElement>) => {
-      if (mobilePane === "main") {
-        return;
-      }
-
-      if (
-        event.target instanceof Element &&
-        event.target.closest('[data-sidebar="trigger"]') !== null
-      ) {
-        return;
-      }
-
-      setMobilePane("main");
-    },
-    [mobilePane, setMobilePane],
-  );
-
   const trackOffsetPx =
     readMachinesV2MobilePaneAnchorPx({
       leftSidebarWidthPx: leftMobileWidthPx,
@@ -321,8 +325,6 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
   };
   const sidebarCellClassName =
     "min-w-0 overflow-hidden bg-background transition-[border-color] duration-200 ease-linear";
-  const emptySidebarHeaderClassName =
-    "h-full min-h-0 border-b border-border/50 bg-background";
 
   return (
     <div
@@ -339,21 +341,14 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
         style={trackStyle}
       >
         <div className={cn(sidebarCellClassName, "border-r border-border/50")}>
-          <div className={emptySidebarHeaderClassName} />
+          <MachinesWorkspaceV2MobileHeader side="left" />
         </div>
 
-        <div
-          data-testid={headerTestId}
-          onClickCapture={handleMainPaneClickCapture}
-          className="col-start-2 row-start-1 min-w-0 border-b border-border/50 bg-background"
-        >
-          <div className="flex items-center justify-between p-3">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger className="h-8 w-8" side="left" />
-              <span className="truncate text-base font-medium">Machines</span>
-            </div>
-            <SidebarTrigger className="h-8 w-8" side="right" />
-          </div>
+        <div className="col-start-2 row-start-1 min-w-0">
+          <MachinesWorkspaceV2MobileHeader
+            dataTestId={headerTestId}
+            side="main"
+          />
         </div>
 
         <div
@@ -362,7 +357,7 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
             "col-start-3 border-l border-border/50",
           )}
         >
-          <div className={emptySidebarHeaderClassName} />
+          <MachinesWorkspaceV2MobileHeader side="right" />
         </div>
 
         <div
@@ -387,7 +382,11 @@ function MachinesWorkspaceV2MobileView(props: MachinesWorkspaceViewProps) {
         </div>
 
         <div
-          onClickCapture={handleMainPaneClickCapture}
+          data-testid={
+            props.dataTestId
+              ? `${props.dataTestId}-mobile-main-pane`
+              : undefined
+          }
           className="col-start-2 row-start-2 min-h-0 min-w-0 bg-background"
         >
           <WorkspaceScene
@@ -436,9 +435,14 @@ function MachinesWorkspaceV2ViewContent(props: MachinesWorkspaceViewProps) {
 }
 
 /**
- * `/v2/machines` keeps the existing desktop frame, but mobile now uses a
- * route-owned pane shell with explicit pane state and drag offset instead of
- * the shared carousel/scroll orchestration.
+ * Functional requirements for `/v2/machines` mobile:
+ * - the shell always has three pane slots: left, main, and right
+ * - both sidebar triggers remain rendered in every mobile header, even when a
+ *   sidebar pane is otherwise empty
+ * - the shell must not add a scrim or click-capture overlay to dismiss sidebars
+ * - swipe settling is adjacent-only: left <-> main <-> right
+ * - configured mobile sidebar widths are used as-is and are not clamped to the
+ *   current browser width
  */
 export function MachinesWorkspaceV2View(props: MachinesWorkspaceViewProps) {
   return (
