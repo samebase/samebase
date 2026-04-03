@@ -10,12 +10,7 @@ import { useSidebar } from "@/hooks/use-sidebar";
 import { WorkspaceMobilePaneDragProvider } from "@/components/workspace-layout/workspaceMobilePaneDrag";
 import { WorkspaceScene } from "@/components/workspace-layout/WorkspaceScene";
 import { WorkspaceSidebarResizeHandle } from "@/components/workspace-layout/WorkspaceSidebarResizeHandle";
-import {
-  clampWorkspaceDesktopSidebarWidthPx,
-  clampWorkspaceMobileSidebarWidthPx,
-  getWorkspaceDesktopSidebarWidthRange,
-  resolveWorkspaceDesktopSidebarWidths,
-} from "@/lib/workspacePaneSizes";
+import { getWorkspaceDesktopSidebarWidthRange } from "@/lib/workspacePaneSizes";
 import { cn } from "@/lib/utils";
 
 function useElementWidth(measureRef: React.RefObject<HTMLElement | null>) {
@@ -120,37 +115,15 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
     ? `${props.dataTestId}-header`
     : undefined;
 
-  const resolvedDesktopSidebarWidths =
-    shellWidthPx > 0
-      ? resolveWorkspaceDesktopSidebarWidths({
-          containerWidthPx: shellWidthPx,
-          leftOpen: leftDesktopOpen,
-          leftWidthPx: leftDesktopWidthPx,
-          rightOpen: rightDesktopOpen,
-          rightWidthPx: rightDesktopWidthPx,
-        })
-      : {
-          leftWidthPx: leftDesktopOpen ? leftDesktopWidthPx : 0,
-          rightWidthPx: rightDesktopOpen ? rightDesktopWidthPx : 0,
-        };
-  const resolvedLeftMobileSidebarWidthPx =
-    shellWidthPx > 0
-      ? clampWorkspaceMobileSidebarWidthPx(leftMobileWidthPx, shellWidthPx)
-      : leftMobileWidthPx;
-  const resolvedRightMobileSidebarWidthPx =
-    shellWidthPx > 0
-      ? clampWorkspaceMobileSidebarWidthPx(rightMobileWidthPx, shellWidthPx)
-      : rightMobileWidthPx;
-
   const leftSidebarWidthPx = isMobile
-    ? resolvedLeftMobileSidebarWidthPx
+    ? leftMobileWidthPx
     : leftDesktopOpen
-      ? resolvedDesktopSidebarWidths.leftWidthPx
+      ? leftDesktopWidthPx
       : 0;
   const rightSidebarWidthPx = isMobile
-    ? resolvedRightMobileSidebarWidthPx
+    ? rightMobileWidthPx
     : rightDesktopOpen
-      ? resolvedDesktopSidebarWidths.rightWidthPx
+      ? rightDesktopWidthPx
       : 0;
   const mainPaneScrollLeft = leftSidebarWidthPx;
   const rightPaneScrollLeft = leftSidebarWidthPx + rightSidebarWidthPx;
@@ -586,13 +559,7 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
                 maxWidthPx={leftDesktopResizeRange.maxWidthPx}
                 minWidthPx={leftDesktopResizeRange.minWidthPx}
                 onWidthChange={(nextWidthPx) => {
-                  setLeftDesktopWidthPx(
-                    clampWorkspaceDesktopSidebarWidthPx(
-                      nextWidthPx,
-                      shellWidthPx,
-                      rightDesktopOpen ? rightSidebarWidthPx : 0,
-                    ),
-                  );
+                  setLeftDesktopWidthPx(nextWidthPx);
                 }}
                 positionPx={leftSidebarWidthPx}
                 side="left"
@@ -606,13 +573,7 @@ function MachinesWorkspaceV2Shell(props: MachinesWorkspaceViewProps) {
                 maxWidthPx={rightDesktopResizeRange.maxWidthPx}
                 minWidthPx={rightDesktopResizeRange.minWidthPx}
                 onWidthChange={(nextWidthPx) => {
-                  setRightDesktopWidthPx(
-                    clampWorkspaceDesktopSidebarWidthPx(
-                      nextWidthPx,
-                      shellWidthPx,
-                      leftDesktopOpen ? leftSidebarWidthPx : 0,
-                    ),
-                  );
+                  setRightDesktopWidthPx(nextWidthPx);
                 }}
                 positionPx={shellWidthPx - rightSidebarWidthPx}
                 side="right"

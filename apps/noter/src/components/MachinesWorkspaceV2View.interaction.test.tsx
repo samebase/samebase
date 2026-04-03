@@ -73,6 +73,7 @@ function installDesktopMatchMedia() {
 describe("MachinesWorkspaceV2View desktop pane layout", () => {
   let rootElement: HTMLDivElement | null = null;
   let root: Root | null = null;
+  let getBoundingClientRectSpy: { mockRestore: () => void } | null = null;
 
   beforeEach(() => {
     installDesktopMatchMedia();
@@ -88,6 +89,8 @@ describe("MachinesWorkspaceV2View desktop pane layout", () => {
     }
     rootElement?.remove();
     rootElement = null;
+    getBoundingClientRectSpy?.mockRestore();
+    getBoundingClientRectSpy = null;
   });
 
   it("keeps the main pane anchored while left and right desktop sidebars toggle", async () => {
@@ -186,5 +189,80 @@ describe("MachinesWorkspaceV2View desktop pane layout", () => {
     expect(track.style.gridTemplateColumns).toBe("0px minmax(0, 1fr) 288px");
     expect(rightPane?.style.width).toBe("288px");
     expect(mainPane?.className).toContain("col-start-2");
+  });
+
+  it("keeps the configured desktop sidebar width even when the shell is narrower", async () => {
+    getBoundingClientRectSpy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(() => ({
+        bottom: 600,
+        height: 600,
+        left: 0,
+        right: 200,
+        top: 0,
+        width: 200,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }));
+
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+    const mountedRoot = root;
+
+    await act(async () => {
+      mountedRoot.render(
+        <MachinesWorkspaceV2View
+          dataTestId="machines-v2"
+          isSubmittingTurn={false}
+          machineInventories={[
+            {
+              hasLoadedThreadInventory: true,
+              machineDisplayName: "Offline Linux Box",
+              machineHostname: "linux-box.local",
+              machineId: "machine-linux",
+              machineStatus: "offline",
+              machineStatusReason:
+                "This machine is offline. Start `noter-sync run` on the machine first.",
+              pinnedThreadIds: [],
+              threads: [THREAD_FIXTURE],
+            },
+          ]}
+          selectedMachineId="machine-linux"
+          selectedMachineDisplayName="Offline Linux Box"
+          selectedMachineHostname="linux-box.local"
+          selectedMachineStatusReason="This machine is offline. Start `noter-sync run` on the machine first."
+          selectedThread={null}
+          selectedThreadError={null}
+          selectedThreadLoading={false}
+          selectedThreadId={THREAD_FIXTURE.id}
+          pendingPinThreadKey={null}
+          turnDraft=""
+          onTurnDraftChange={() => {}}
+          onTurnSubmit={() => {}}
+        />,
+      );
+    });
+
+    const shell = rootElement.querySelector<HTMLElement>(
+      '[data-testid="machines-v2"]',
+    );
+    expect(shell).not.toBeNull();
+    if (shell === null) {
+      return;
+    }
+
+    const track = shell.firstElementChild;
+    expect(track).toBeInstanceOf(HTMLDivElement);
+    if (!(track instanceof HTMLDivElement)) {
+      return;
+    }
+
+    const leftPane =
+      rootElement.querySelector<HTMLElement>('[data-pane="left"]');
+    expect(leftPane).not.toBeNull();
+    expect(track.style.gridTemplateColumns).toBe("288px minmax(0, 1fr) 0px");
+    expect(leftPane?.style.width).toBe("288px");
   });
 });
