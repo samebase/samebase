@@ -11,6 +11,13 @@
   command fails with `Local backend isn't running`, run `make anon` and retry.
 - `rg` is not available in this environment. Use `grep` and `find` instead.
 
+## User-Facing Output
+
+- When writing a Markdown link in a user-facing reply or doc, never use the raw
+  URL as the label. If the label would exactly equal the URL, prefix it with
+  `link ` so ProseMark still renders the link, for example
+  `[link https://example.com](https://example.com)`.
+
 ## Repo Knowledge Map
 
 - `specs/` contains accepted, current source-of-truth behavior and accepted
