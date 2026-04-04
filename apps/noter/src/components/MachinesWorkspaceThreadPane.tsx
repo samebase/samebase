@@ -1,5 +1,5 @@
 import { ChatInput } from "@/components/ChatInput";
-import { StaticMarkdownDocument } from "@/components/StaticMarkdownDocument";
+import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 import {
   readMachinesWorkspaceConversationEnvLabel,
@@ -197,7 +197,11 @@ export function MachinesWorkspaceThreadPane({
               data-testid="machines-workspace-thread-transcript"
               className="select-text rounded-2xl border border-border/60 bg-card/30 px-4 py-3"
             >
-              <StaticMarkdownDocument value={transcriptMarkdown} />
+              <ProsemarkReadOnly
+                value={transcriptMarkdown}
+                className="text-sm"
+                filePath="machines-transcript.md"
+              />
             </div>
           )}
           <div ref={timelineEndRef} />

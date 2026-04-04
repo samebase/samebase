@@ -16,15 +16,21 @@ vi.mock("@/components/ChatInput", () => ({
   ),
 }));
 
-vi.mock("@/components/StaticMarkdownDocument", () => ({
-  StaticMarkdownDocument: ({
+vi.mock("@/components/ProsemarkReadOnly", () => ({
+  ProsemarkReadOnly: ({
     className,
+    filePath,
     value,
   }: {
     className?: string;
+    filePath?: string;
     value: string;
   }) => (
-    <div data-component="StaticMarkdownDocument" className={className}>
+    <div
+      data-component="ProsemarkReadOnly"
+      data-file-path={filePath}
+      className={className}
+    >
       {value}
     </div>
   ),
@@ -91,7 +97,7 @@ const THREAD_FIXTURE: CodexAppServerThread = {
 };
 
 describe("MachinesWorkspaceThreadPane", () => {
-  it("renders the thread as one static markdown transcript", () => {
+  it("renders the thread as one prosemark transcript editor", () => {
     const markup = renderToStaticMarkup(
       <MachinesWorkspaceThreadPane
         thread={THREAD_FIXTURE}
@@ -112,11 +118,12 @@ describe("MachinesWorkspaceThreadPane", () => {
 
     expect(markup).not.toContain("<pre");
     expect(
-      (markup.match(/data-component="StaticMarkdownDocument"/g) ?? []).length,
+      (markup.match(/data-component="ProsemarkReadOnly"/g) ?? []).length,
     ).toBe(1);
     expect(markup).toContain(
       'data-testid="machines-workspace-thread-transcript"',
     );
+    expect(markup).toContain('data-file-path="machines-transcript.md"');
     expect(markup).toContain("## @user");
     expect(markup).toContain("- item-id: item-user");
     expect(markup).toContain("- turn-id: turn-machine-workspace-test");
@@ -124,9 +131,6 @@ describe("MachinesWorkspaceThreadPane", () => {
     expect(markup).toContain("## @assistant");
     expect(markup).toContain("- item-id: item-agent");
     expect(markup).toContain("Assistant message with");
-    expect(markup).not.toContain(
-      "data-component=&quot;ProsemarkReadOnly&quot;",
-    );
   });
 
   it("renders a draft worktree conversation empty state before the first message", () => {
