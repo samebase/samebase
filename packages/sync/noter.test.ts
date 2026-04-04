@@ -33,6 +33,7 @@ import {
   formatConnectorRunningMarkdown,
   formatHelpText,
   getNoterConfigPath,
+  getNoterStateDirectory,
   localControlStatusIsReady,
   NOTER_SYNC_SOURCE_URL,
   parseCliArgs,
@@ -50,6 +51,7 @@ describe('@noter-md/sync', () => {
   it('defaults the public connect command to noter.md with no extra CLI override', () => {
     expect(parseCliArgs(['connect'])).toEqual({
       command: 'connect',
+      stateDirectory: null,
       sourceUrl: null,
     })
     expect(NOTER_SYNC_SOURCE_URL).toBe('https://noter.md/noter.js')
@@ -58,6 +60,7 @@ describe('@noter-md/sync', () => {
   it('accepts the run command with no extra CLI override', () => {
     expect(parseCliArgs(['run'])).toEqual({
       command: 'run',
+      stateDirectory: null,
     })
   })
 
@@ -66,8 +69,48 @@ describe('@noter-md/sync', () => {
       parseCliArgs(['connect', 'https://preview.noter.md/noter.js']),
     ).toEqual({
       command: 'connect',
+      stateDirectory: null,
       sourceUrl: 'https://preview.noter.md/noter.js',
     })
+  })
+
+  it('accepts an explicit state directory for connect and run', () => {
+    expect(
+      parseCliArgs([
+        'connect',
+        '--state-dir',
+        '/tmp/noter-worktree',
+        'https://preview.noter.md/noter.js',
+      ]),
+    ).toEqual({
+      command: 'connect',
+      sourceUrl: 'https://preview.noter.md/noter.js',
+      stateDirectory: '/tmp/noter-worktree',
+    })
+    expect(parseCliArgs(['run', '--state-dir', '/tmp/noter-worktree'])).toEqual(
+      {
+        command: 'run',
+        stateDirectory: '/tmp/noter-worktree',
+      },
+    )
+  })
+
+  it('rejects malformed explicit state directory usage', () => {
+    expect(() => parseCliArgs(['connect', '--state-dir'])).toThrow(
+      'Missing value for --state-dir',
+    )
+    expect(() =>
+      parseCliArgs([
+        'connect',
+        '--state-dir',
+        '/tmp/noter-worktree',
+        '--state-dir',
+        '/tmp/noter-worktree-2',
+      ]),
+    ).toThrow('Duplicate option: --state-dir')
+    expect(() => parseCliArgs(['run', '--state-dir', ''])).toThrow(
+      'The --state-dir option must not be empty.',
+    )
   })
 
   it('accepts https deploy URLs and localhost http URLs', () => {
@@ -446,10 +489,49 @@ describe('@noter-md/sync', () => {
 
   it('stores bootstrap state in one local config file', () => {
     expect(
+      getNoterStateDirectory({
+        homeDirectory: '/Users/noter',
+      }),
+    ).toBe(path.join('/Users/noter', '.noter'))
+    expect(
       getNoterConfigPath({
         homeDirectory: '/Users/noter',
       }),
     ).toBe(path.join('/Users/noter', '.noter', 'config.json'))
+  })
+
+  it('supports an explicit state directory for config storage', () => {
+    expect(
+      getNoterConfigPath({
+        stateDirectory: '/tmp/noter/worktrees/ceff',
+      }),
+    ).toBe(path.join('/tmp/noter/worktrees/ceff', 'config.json'))
+  })
+
+  it('reads and writes local config data inside an explicit state directory', () => {
+    const stateDirectory = path.join(tmpdir(), `noter-sync-${Date.now()}`)
+    const configPath = path.join(stateDirectory, 'config.json')
+
+    try {
+      expect(
+        writeLocalConfig({
+          codexVersion: 'codex 0.1.2',
+          machineCredential: 'mmc_123',
+          machineId: 'machine_123',
+          sourceUrl: 'https://preview.noter.md/noter.js',
+          stateDirectory,
+        }),
+      ).toBe(configPath)
+
+      expect(readLocalConfig({ stateDirectory })).toMatchObject({
+        codexVersion: 'codex 0.1.2',
+        machineCredential: 'mmc_123',
+        machineId: 'machine_123',
+        sourceUrl: 'https://preview.noter.md/noter.js',
+      })
+    } finally {
+      rmSync(stateDirectory, { force: true, recursive: true })
+    }
   })
 
   it('keeps the first install timestamp when rewriting the local config file', () => {
@@ -527,6 +609,40 @@ describe('@noter-md/sync', () => {
     )
   })
 
+  it('includes the state-dir flag in direct commands when requested', () => {
+    expect(
+      buildDirectConnectCommand(
+        'https://preview.noter.md/noter.js',
+        'darwin',
+        '/tmp/noter/worktrees/ceff',
+      ),
+    ).toContain("--state-dir '/tmp/noter/worktrees/ceff'")
+    expect(
+      buildDirectRunCommand(
+        'https://preview.noter.md/noter.js',
+        'darwin',
+        '/tmp/noter/worktrees/ceff',
+      ),
+    ).toContain("--state-dir '/tmp/noter/worktrees/ceff'")
+  })
+
+  it('escapes explicit state-dir paths for Windows direct commands', () => {
+    expect(
+      buildDirectConnectCommand(
+        'https://noter.md/noter.js',
+        'win32',
+        "C:\\Users\\O'Brien\\.noter",
+      ),
+    ).toContain("--state-dir 'C:\\Users\\O''Brien\\.noter'")
+    expect(
+      buildDirectRunCommand(
+        'https://noter.md/noter.js',
+        'win32',
+        "C:\\Users\\O'Brien\\.noter",
+      ),
+    ).toContain("--state-dir 'C:\\Users\\O''Brien\\.noter'")
+  })
+
   it('builds the deploy-scoped runtime config URL', () => {
     expect(
       buildNoterConnectConfigUrl('https://preview.noter.md/noter.js'),
@@ -534,6 +650,10 @@ describe('@noter-md/sync', () => {
   })
 
   it('documents the simple npm commands and advanced direct-file flows', () => {
+    expect(formatHelpText()).toContain(
+      'noter-sync connect [--state-dir <path>] [source-url]',
+    )
+    expect(formatHelpText()).toContain('noter-sync run [--state-dir <path>]')
     expect(formatHelpText()).toContain('npx @noter-md/sync connect')
     expect(formatHelpText()).toContain('npx @noter-md/sync run')
     expect(formatHelpText()).toContain('node ./noter.js connect')
