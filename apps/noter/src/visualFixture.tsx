@@ -88,6 +88,7 @@ import {
   type CodexAppServerResearchVisualMode,
 } from "@/components/CodexAppServerResearchVisualFixture";
 import { MachinesWorkspaceVisualFixture } from "@/components/MachinesWorkspaceVisualFixture";
+import { WorkspaceLayoutV2VisualFixture } from "@/components/WorkspaceLayoutV2VisualFixture";
 import {
   CodexThreadHistoryVisualFixture,
   type CodexThreadHistoryVisualMode,
@@ -148,6 +149,7 @@ type VisualFixtureMode =
   | CodexThreadBrowserVisualMode
   | CodexThreadHistoryVisualMode
   | "machines-workspace"
+  | "workspace-layout-v2-bare"
   | "machine-connect"
   | "vault-dashboard-branch-pr-title"
   | "button"
@@ -286,6 +288,7 @@ const MISC_VISUAL_MODES = [
   "codex-thread-browser",
   "codex-thread-history",
   "machines-workspace",
+  "workspace-layout-v2-bare",
   "machine-connect",
   "vault-dashboard-branch-pr-title",
   "button",
@@ -545,6 +548,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "machines-workspace") {
     return <MachinesWorkspaceVisualFixture />;
+  }
+
+  if (mode === "workspace-layout-v2-bare") {
+    return <WorkspaceLayoutV2VisualFixture />;
   }
 
   if (mode === "button") {
