@@ -519,7 +519,7 @@ export function WorkspaceLayoutV2({
           <div
             className={cn(
               "absolute inset-y-0 left-0 will-change-transform",
-              isMobileDragging
+              isMobileDragging || activeResizeSide !== null
                 ? null
                 : "transition-transform duration-200 ease-out",
             )}
