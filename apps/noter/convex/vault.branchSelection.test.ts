@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  countActiveRemoteBranches,
   hasBranchStagingChanges,
   resolveSyncedBranchLastCommitAt,
   resolveSyncedCloudflarePreviewMetadata,
@@ -85,6 +86,18 @@ describe("resolveVaultBranchSelection", () => {
       resolvedBranch: "main",
       branchNotFound: false,
     });
+  });
+});
+
+describe("countActiveRemoteBranches", () => {
+  it("counts only active remote branches for auto-refresh budgeting", () => {
+    expect(
+      countActiveRemoteBranches([
+        { remoteState: "active" },
+        { remoteState: "deleted_upstream" },
+        { remoteState: "active" },
+      ]),
+    ).toBe(2);
   });
 });
 
