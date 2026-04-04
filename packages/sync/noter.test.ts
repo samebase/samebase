@@ -518,7 +518,7 @@ describe('@noter-md/sync', () => {
         stateDirectory: './tmp/worktree-state',
       }),
     ).toBe(
-      path.join(
+      path.resolve(
         '/Users/noter/projects/noter',
         'tmp/worktree-state',
         'config.json',
