@@ -21,7 +21,7 @@ import {
   Terminal,
   Wrench,
 } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type MachinesWorkspaceThreadPaneProps = {
   thread: CodexAppServerThread | null;
@@ -157,6 +157,13 @@ export function MachinesWorkspaceThreadHeader(
   props: MachinesWorkspaceThreadHeaderStateArgs,
 ) {
   const headerState = deriveMachinesWorkspaceThreadHeaderState(props);
+  const [isTitleExpanded, setIsTitleExpanded] = useState(false);
+  const titleClassName =
+    "min-w-0 w-full whitespace-normal [overflow-wrap:anywhere] text-[15px] font-semibold leading-5 text-foreground sm:text-base";
+
+  useEffect(() => {
+    setIsTitleExpanded(false);
+  }, [headerState.title]);
 
   return (
     <div className="min-w-0">
@@ -171,9 +178,25 @@ export function MachinesWorkspaceThreadHeader(
             </div>
           ) : null}
         </div>
-        <div className="min-w-0 break-words text-[15px] font-semibold leading-5 text-foreground sm:truncate sm:text-base">
-          {headerState.title}
-        </div>
+        <button
+          type="button"
+          aria-expanded={isTitleExpanded}
+          data-testid="machines-workspace-thread-header-title-toggle"
+          className="block w-full min-w-0 text-left"
+          title={headerState.title}
+          onClick={() => {
+            setIsTitleExpanded((current) => !current);
+          }}
+        >
+          <div
+            className={cn(
+              titleClassName,
+              isTitleExpanded ? "" : "line-clamp-2 sm:line-clamp-1",
+            )}
+          >
+            {headerState.title}
+          </div>
+        </button>
       </div>
     </div>
   );

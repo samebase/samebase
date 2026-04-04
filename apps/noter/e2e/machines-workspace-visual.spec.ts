@@ -39,6 +39,12 @@ async function openMachinesWorkspaceFixture(page: Page) {
   await page.waitForLoadState("networkidle");
 }
 
+async function activateHeaderTitle(page: Page) {
+  await page
+    .getByTestId("machines-workspace-thread-header-title-toggle")
+    .dispatchEvent("click");
+}
+
 test("machines workspace fixture", async ({ page }) => {
   await openMachinesWorkspaceFixture(page);
 
@@ -56,6 +62,24 @@ test("machines workspace fixture", async ({ page }) => {
   const workspace = page.getByTestId("machines-workspace-visual-fixture");
   await expect(workspace).toHaveScreenshot(
     `machines-workspace-page-${machinesWorkspaceSnapshotSuffix}.png`,
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
+});
+
+test("machines workspace header expands the selected title on click", async ({
+  page,
+}) => {
+  await openMachinesWorkspaceFixture(page);
+  await activateHeaderTitle(page);
+
+  const header = page.getByTestId("machines-workspace-visual-fixture-header");
+  await expect(header).toHaveScreenshot(
+    `machines-workspace-header-expanded-${machinesWorkspaceSnapshotSuffix}.png`,
     {
       animations: "disabled",
       caret: "hide",
@@ -208,6 +232,24 @@ test.describe("mobile", () => {
     const workspace = page.getByTestId("machines-workspace-visual-fixture");
     await expect(workspace).toHaveScreenshot(
       `machines-workspace-page-mobile-${machinesWorkspaceSnapshotSuffix}.png`,
+      {
+        animations: "disabled",
+        caret: "hide",
+        scale: "css",
+        maxDiffPixelRatio: 0.03,
+      },
+    );
+  });
+
+  test("machines workspace header expands the selected title on click", async ({
+    page,
+  }) => {
+    await openMachinesWorkspaceFixture(page);
+    await activateHeaderTitle(page);
+
+    const header = page.getByTestId("machines-workspace-visual-fixture-header");
+    await expect(header).toHaveScreenshot(
+      `machines-workspace-header-expanded-mobile-${machinesWorkspaceSnapshotSuffix}.png`,
       {
         animations: "disabled",
         caret: "hide",

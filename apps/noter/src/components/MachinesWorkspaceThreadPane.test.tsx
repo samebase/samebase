@@ -192,5 +192,8 @@ describe("MachinesWorkspaceThreadPane", () => {
     expect(markup).toContain("Research MacBook Pro");
     expect(markup).toContain("noter · New worktree");
     expect(markup).toContain("New conversation");
+    expect(markup).toContain("machines-workspace-thread-header-title-toggle");
+    expect(markup).toContain("line-clamp-2");
+    expect(markup).toContain("sm:line-clamp-1");
   });
 });

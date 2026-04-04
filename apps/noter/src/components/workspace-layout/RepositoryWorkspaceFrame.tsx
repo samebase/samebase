@@ -54,8 +54,8 @@ export function RepositoryWorkspaceFrame({
       rightSidebarHeader={rightSidebarHeader}
       rightSidebarContent={resolvedRightSidebarContent}
       headerContent={
-        <div className="flex items-center gap-3 p-3">
-          <div className="flex shrink-0 items-center gap-3">
+        <div className="flex items-start gap-3 p-3 sm:items-center">
+          <div className="flex shrink-0 items-center gap-3 pt-0.5 sm:pt-0">
             <SidebarTrigger
               className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
               side="left"
@@ -74,7 +74,7 @@ export function RepositoryWorkspaceFrame({
             ) : null}
           </div>
 
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 overflow-hidden pt-0.5 sm:pt-0">
             {headerMiddle ??
               (headerTitle ? (
                 <div className="flex min-w-0 items-center gap-2">
@@ -85,7 +85,7 @@ export function RepositoryWorkspaceFrame({
               ) : null)}
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2 pt-0.5 sm:pt-0">
             {headerRight}
             {/* Keep the right trigger visible so empty panes still match the shared workspace shell. */}
             <SidebarTrigger
