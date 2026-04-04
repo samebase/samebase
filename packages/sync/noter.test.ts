@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 import {
   chmodSync,
   copyFileSync,
+  mkdtempSync,
   mkdirSync,
   realpathSync,
   readFileSync,
@@ -46,6 +47,10 @@ import {
   validateSourceUrl,
   writeLocalConfig,
 } from './noter.js'
+
+function createTempDirectory(prefix) {
+  return mkdtempSync(path.join(tmpdir(), `${prefix}-`))
+}
 
 describe('@noter-md/sync', () => {
   it('defaults the public connect command to noter.md with no extra CLI override', () => {
@@ -527,7 +532,7 @@ describe('@noter-md/sync', () => {
   })
 
   it('reads and writes local config data inside an explicit state directory', () => {
-    const stateDirectory = path.join(tmpdir(), `noter-sync-${Date.now()}`)
+    const stateDirectory = createTempDirectory('noter-sync')
     const configPath = path.join(stateDirectory, 'config.json')
 
     try {
@@ -553,7 +558,7 @@ describe('@noter-md/sync', () => {
   })
 
   it('keeps the first install timestamp when rewriting the local config file', () => {
-    const homeDirectory = path.join(tmpdir(), `noter-sync-${Date.now()}`)
+    const homeDirectory = createTempDirectory('noter-sync')
     const configPath = getNoterConfigPath({ homeDirectory })
     mkdirSync(path.dirname(configPath), { recursive: true })
     writeFileSync(
@@ -588,7 +593,7 @@ describe('@noter-md/sync', () => {
   it.runIf(process.platform !== 'win32')(
     'writes the local config file with owner-only permissions, including rewrites',
     () => {
-      const homeDirectory = path.join(tmpdir(), `noter-sync-${Date.now()}`)
+      const homeDirectory = createTempDirectory('noter-sync')
       const configPath = getNoterConfigPath({ homeDirectory })
 
       try {
@@ -748,7 +753,7 @@ describe('@noter-md/sync', () => {
   })
 
   it('forwards detectCodexVersion env and cwd to the spawned Codex process', () => {
-    const tempRoot = path.join(tmpdir(), `noter-codex-version-${Date.now()}`)
+    const tempRoot = createTempDirectory('noter-codex-version')
     const workspaceRoot = path.join(tempRoot, 'workspace')
     const binDirectory = path.join(tempRoot, 'bin')
     const originalPath = process.env.PATH
@@ -834,7 +839,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
   })
 
   it('routes Windows one-off and runtime Codex launches through the shim-selected Node runtime', () => {
-    const tempRoot = path.join(tmpdir(), `noter-codex-shim-${Date.now()}`)
+    const tempRoot = createTempDirectory('noter-codex-shim')
     const binDirectory = path.join(tempRoot, 'bin')
     const shimPath = path.join(binDirectory, 'codex.cmd')
     const bundledNodePath = path.join(binDirectory, 'node.exe')
@@ -901,7 +906,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
   })
 
   it('resolves Windows Volta-managed Codex shims from the caller workspace cwd', async () => {
-    const tempRoot = path.join(tmpdir(), `noter-codex-volta-${Date.now()}`)
+    const tempRoot = createTempDirectory('noter-codex-volta')
     const binDirectory = path.join(tempRoot, 'bin')
     const topLevelCodexShimPath = path.join(binDirectory, 'codex.cmd')
     const voltaPath = path.join(binDirectory, 'volta.exe')
@@ -1063,7 +1068,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
   })
 
   it('surfaces stale Windows Codex shims as missing CLI diagnostics', () => {
-    const tempRoot = path.join(tmpdir(), `noter-codex-stale-${Date.now()}`)
+    const tempRoot = createTempDirectory('noter-codex-stale')
     const binDirectory = path.join(tempRoot, 'bin')
     const shimPath = path.join(binDirectory, 'codex.cmd')
     const bundledNodePath = path.join(binDirectory, 'node.exe')
@@ -1109,7 +1114,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
   it.runIf(process.platform === 'win32')(
     'preserves literal Windows Codex args that contain cmd metacharacters',
     () => {
-      const tempRoot = path.join(tmpdir(), `noter-codex-literal-${Date.now()}`)
+      const tempRoot = createTempDirectory('noter-codex-literal')
       const binDirectory = path.join(tempRoot, 'bin')
       const shimPath = path.join(binDirectory, 'codex.cmd')
       const scriptPath = path.join(binDirectory, 'codex-script.js')
@@ -1181,8 +1186,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
   it.runIf(process.platform !== 'win32')(
     'resolves symlinked entrypoints before checking direct execution',
     () => {
-      const tempDirectory = path.join(tmpdir(), `noter-sync-link-${Date.now()}`)
-      mkdirSync(tempDirectory, { recursive: true })
+      const tempDirectory = createTempDirectory('noter-sync-link')
       const symlinkPath = path.join(tempDirectory, 'noter-sync')
 
       try {
