@@ -5,6 +5,7 @@ const { boolean, id, literal, number, object, union } = v;
 export const workspaceSidebarStateKeyValidator = union(
   literal("dashboard"),
   literal("machines"),
+  literal("machinesV2"),
   literal("repository"),
 );
 export type WorkspaceSidebarStateKey = Infer<
