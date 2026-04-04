@@ -16,6 +16,7 @@ export function RepositoryWorkspaceFrame({
   leftSidebarContent,
   rightSidebarHeader,
   rightSidebarContent,
+  headerMiddle,
   headerTitle,
   headerRight,
   onQuickOpen,
@@ -28,6 +29,7 @@ export function RepositoryWorkspaceFrame({
   leftSidebarContent: SidebarSlot;
   rightSidebarHeader: SidebarSlot;
   rightSidebarContent: SidebarSlot;
+  headerMiddle?: ReactNode;
   headerTitle?: ReactNode;
   headerRight?: ReactNode;
   onQuickOpen?: () => void;
@@ -52,8 +54,8 @@ export function RepositoryWorkspaceFrame({
       rightSidebarHeader={rightSidebarHeader}
       rightSidebarContent={resolvedRightSidebarContent}
       headerContent={
-        <div className="flex items-center justify-between p-3">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 p-3">
+          <div className="flex shrink-0 items-center gap-3">
             <SidebarTrigger
               className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
               side="left"
@@ -70,16 +72,20 @@ export function RepositoryWorkspaceFrame({
                 <MagnifyingGlassIcon className="h-4 w-4 md:h-3 md:w-3" />
               </Button>
             ) : null}
-            {headerTitle ? (
-              <div className="flex items-center gap-2">
-                <span className="truncate text-base font-medium md:text-sm">
-                  {headerTitle}
-                </span>
-              </div>
-            ) : null}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            {headerMiddle ??
+              (headerTitle ? (
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-base font-medium md:text-sm">
+                    {headerTitle}
+                  </span>
+                </div>
+              ) : null)}
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
             {headerRight}
             {/* Keep the right trigger visible so empty panes still match the shared workspace shell. */}
             <SidebarTrigger

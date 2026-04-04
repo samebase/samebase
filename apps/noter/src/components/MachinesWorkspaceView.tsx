@@ -25,7 +25,10 @@ import {
 } from "@/lib/machinesWorkspaceSidebar";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 import { cn } from "@/lib/utils";
-import { MachinesWorkspaceThreadPane } from "@/components/MachinesWorkspaceThreadPane";
+import {
+  MachinesWorkspaceThreadHeader,
+  MachinesWorkspaceThreadPane,
+} from "@/components/MachinesWorkspaceThreadPane";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -636,6 +639,25 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
       dataTestId={props.dataTestId}
       headerTestId={headerTestId}
       contentClassName="min-h-0 flex-1 p-0"
+      headerMiddle={
+        <MachinesWorkspaceThreadHeader
+          hasPendingStartedThread={props.hasPendingStartedThread}
+          isLoading={props.selectedThreadLoading}
+          pendingConversation={
+            props.pendingConversation === null
+              ? null
+              : {
+                  envMode: props.pendingConversation.envMode,
+                  projectLabel: props.pendingConversation.projectLabel,
+                }
+          }
+          selectedMachineDisplayName={props.selectedMachineDisplayName}
+          selectedMachineHostname={props.selectedMachineHostname}
+          selectedMachineStatusReason={props.selectedMachineStatusReason}
+          selectedThreadId={props.selectedThreadId}
+          thread={props.selectedThread}
+        />
+      }
       leftSidebarHeader={props.leftSidebarHeader ?? null}
       leftSidebarContent={
         <div
@@ -724,7 +746,8 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                     );
                     const projectStartIsPending =
                       props.isSubmittingTurn &&
-                      props.pendingConversation?.machineId === section.machineId &&
+                      props.pendingConversation?.machineId ===
+                        section.machineId &&
                       props.pendingConversation.projectId === group.id;
                     return (
                       <ProjectSection
@@ -825,8 +848,6 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
             onTurnDraftChange={props.onTurnDraftChange}
             onTurnSubmit={props.onTurnSubmit}
             pendingConversation={props.pendingConversation}
-            selectedMachineDisplayName={props.selectedMachineDisplayName}
-            selectedMachineHostname={props.selectedMachineHostname}
             selectedMachineStatusReason={props.selectedMachineStatusReason}
             selectedThreadId={props.selectedThreadId}
             thread={props.selectedThread}

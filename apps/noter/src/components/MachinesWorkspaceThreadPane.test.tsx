@@ -30,7 +30,10 @@ vi.mock("@/components/ProsemarkReadOnly", () => ({
   ),
 }));
 
-import { MachinesWorkspaceThreadPane } from "./MachinesWorkspaceThreadPane";
+import {
+  MachinesWorkspaceThreadHeader,
+  MachinesWorkspaceThreadPane,
+} from "./MachinesWorkspaceThreadPane";
 
 const THREAD_FIXTURE: CodexAppServerThread = {
   agentNickname: null,
@@ -97,8 +100,6 @@ describe("MachinesWorkspaceThreadPane", () => {
         thread={THREAD_FIXTURE}
         selectedThreadId={THREAD_FIXTURE.id}
         pendingConversation={null}
-        selectedMachineDisplayName="Research MacBook Pro"
-        selectedMachineHostname="research-mbp.local"
         selectedMachineStatusReason={null}
         hasPendingStartedThread={false}
         isLoading={false}
@@ -128,8 +129,6 @@ describe("MachinesWorkspaceThreadPane", () => {
           envMode: "worktree",
           projectLabel: "noter",
         }}
-        selectedMachineDisplayName="Research MacBook Pro"
-        selectedMachineHostname="research-mbp.local"
         selectedMachineStatusReason={null}
         hasPendingStartedThread={false}
         isLoading={false}
@@ -142,7 +141,6 @@ describe("MachinesWorkspaceThreadPane", () => {
     );
 
     expect(markup).toContain("New conversation");
-    expect(markup).toContain("noter · New worktree");
     expect(markup).toContain(
       "Send the first prompt to create a new worktree conversation in noter.",
     );
@@ -154,8 +152,6 @@ describe("MachinesWorkspaceThreadPane", () => {
         thread={null}
         selectedThreadId="thread-machine-workspace-test"
         pendingConversation={null}
-        selectedMachineDisplayName="Research MacBook Pro"
-        selectedMachineHostname="research-mbp.local"
         selectedMachineStatusReason={null}
         hasPendingStartedThread={true}
         isLoading={false}
@@ -174,5 +170,27 @@ describe("MachinesWorkspaceThreadPane", () => {
     expect(markup).toContain(
       'data-placeholder="Waiting for the new conversation to hydrate..."',
     );
+  });
+
+  it("renders the moved header metadata in the shared route header component", () => {
+    const markup = renderToStaticMarkup(
+      <MachinesWorkspaceThreadHeader
+        thread={null}
+        selectedThreadId={null}
+        pendingConversation={{
+          envMode: "worktree",
+          projectLabel: "noter",
+        }}
+        selectedMachineDisplayName="Research MacBook Pro"
+        selectedMachineHostname="research-mbp.local"
+        selectedMachineStatusReason={null}
+        hasPendingStartedThread={false}
+        isLoading={false}
+      />,
+    );
+
+    expect(markup).toContain("Research MacBook Pro");
+    expect(markup).toContain("noter · New worktree");
+    expect(markup).toContain("New conversation");
   });
 });
