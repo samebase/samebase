@@ -48,6 +48,10 @@ import {
   writeLocalConfig,
 } from './noter.js'
 
+/**
+ * Creates a unique temp directory for tests to avoid path collisions during
+ * fast or parallel execution.
+ */
 function createTempDirectory(prefix) {
   return mkdtempSync(path.join(tmpdir(), `${prefix}-`))
 }
