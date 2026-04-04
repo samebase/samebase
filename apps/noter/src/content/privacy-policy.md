@@ -1,8 +1,8 @@
 # Privacy Policy
 
-Last updated: April 3, 2026
+Last updated: April 5, 2026
 
-Reviewed and updated by Codex (GPT-5 default) on April 3, 2026, based on the
+Reviewed and updated by Codex (GPT-5 default) on April 5, 2026, based on the
 current Noter source code.
 
 This Privacy Policy describes how Noter handles information in the current app
@@ -40,6 +40,11 @@ claiming features or controls that are not in the product yet.
 - Billing state. For paid plans, Noter stores billing provider, plan, status,
   renewal period end, and a Polar external customer ID. The current app code
   does not store raw payment card numbers.
+- Product analytics data when configured. If the PostHog client-side analytics
+  integration is configured with a project token, Noter sends page views, route
+  changes, clicks, URLs, referrers, browser and device metadata, and selected
+  signed-in user properties to PostHog. The current app code configures this
+  integration with session recording disabled.
 
 ## Browser Storage and Cookies
 
@@ -54,6 +59,10 @@ claiming features or controls that are not in the product yet.
   results can include workspace data.
 - Temporary in-memory landing state. The public landing page keeps the waitlist
   email draft in memory during the shell-to-app handoff.
+- Product analytics local storage. If PostHog client-side analytics is
+  configured, it stores analytics identifiers and related client state in
+  browser localStorage on the app origin. The current app code configures
+  PostHog to use localStorage persistence instead of PostHog cookies.
 
 Depending on the sign-in flow you use, third-party identity providers such as
 Google may also set their own cookies or session state as part of
@@ -76,14 +85,18 @@ authentication.
   features.
 - To create checkout or customer-portal sessions with Polar and keep
   subscription status in sync.
+- To understand product usage and navigation patterns through PostHog when that
+  analytics integration is configured.
 - To maintain security, audit, and troubleshooting records for sensitive
   operations such as production-read approvals and MCP OAuth access.
 
 ## What the Current App Code Does Not Include
 
-The current app code does not include third-party product analytics,
-advertising, or session-replay SDKs. Noter does use first-party browser storage
-and the integrations described on this page to run the product.
+The current app code does not include advertising SDKs. If configured with a
+frontend project token, it does include the PostHog client-side product
+analytics SDK for page views, route changes, and interaction analytics. The
+current app code configures that integration with session recording disabled and
+localStorage-only persistence.
 
 ## When Noter Shares Information
 
@@ -96,6 +109,9 @@ and the integrations described on this page to run the product.
   Codespaces.
 - With Convex, Cloudflare, and Daytona when you connect those providers or ask
   Noter to provision or operate related infrastructure.
+- With PostHog when client-side product analytics is configured. In that case,
+  the browser sends the analytics events and user properties described on this
+  page to the configured PostHog ingestion host.
 - With Polar when you start checkout or open the billing portal, and when
   subscription state is synchronized by webhook.
 - With Resend if waitlist email notifications are configured.
@@ -124,6 +140,6 @@ as part of that workflow.
 ## Changes to This Policy
 
 Noter should update this page when code-level data behavior changes. If a future
-version of the product adds analytics, different retention rules, new providers,
-or new public data-use commitments, this policy should be updated before those
-changes go live.
+version of the product changes analytics behavior, adds session replay,
+different retention rules, new providers, or new public data-use commitments,
+this policy should be updated before those changes go live.

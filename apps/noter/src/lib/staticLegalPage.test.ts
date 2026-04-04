@@ -81,6 +81,9 @@ describe("renderStaticLegalPageHtml", () => {
     expect(collapseWhitespace(checkedInPrivacyHtml)).toContain(
       "Generated from the noter markdown source for a crawlable public legal page.",
     );
+    expect(collapseWhitespace(checkedInPrivacyHtml)).toContain(
+      "If the PostHog client-side analytics integration is configured with a project token, Noter sends page views, route changes, clicks, URLs, referrers, browser and device metadata, and selected signed-in user properties to PostHog.",
+    );
 
     expect(checkedInTermsHtml).toContain(
       '<link rel="canonical" href="https://noter.md/terms" />',
@@ -100,6 +103,9 @@ describe("renderStaticLegalPageHtml", () => {
     );
 
     expect(generatedPrivacyHtml).toContain("<h1>Privacy Policy</h1>");
+    expect(collapseWhitespace(generatedPrivacyHtml)).toContain(
+      "If the PostHog client-side analytics integration is configured with a project token, Noter sends page views, route changes, clicks, URLs, referrers, browser and device metadata, and selected signed-in user properties to PostHog.",
+    );
     expect(generatedTermsHtml).toContain("<h1>Terms of Service</h1>");
   });
 });

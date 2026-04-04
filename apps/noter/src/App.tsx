@@ -24,6 +24,7 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { resolvePageMetadata, type PageMetadata } from "@/lib/pageMetadata";
 import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAuthState";
+import { useSyncPostHogIdentity } from "@/lib/useSyncPostHogIdentity";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 
 const VaultDashboard = lazy(async () => {
@@ -372,6 +373,7 @@ function ResearchRouteUnavailablePage(props: {
 
 export default function App() {
   useAutoSignIn();
+  useSyncPostHogIdentity();
   const location = useLocation();
   const { isAuthenticated } = useConvexAuth();
   const onMcpConsentRoute = isMcpConsentRoute(location.pathname);
