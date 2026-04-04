@@ -60,6 +60,11 @@ function findTouchByIdentifier(
   return null;
 }
 
+/**
+ * The shell math is driven by the rendered viewport width, not viewport media
+ * queries, so resizes and mobile browser chrome changes update pane geometry
+ * from the actual DOM box we are drawing into.
+ */
 function useElementWidth(measureRef: React.RefObject<HTMLElement | null>) {
   const [widthPx, setWidthPx] = React.useState(0);
 
@@ -123,6 +128,8 @@ function getRecentVelocityPxPerMs(samples: readonly TouchSample[]) {
   }
 
   const lastSample = samples[samples.length - 1];
+  // Bias toward the last part of the gesture so a deliberate flick near
+  // release can still commit even if the full drag started slowly.
   const windowStartTimeMs = lastSample.timeMs - 80;
   const referenceSample =
     [...samples]
@@ -149,6 +156,9 @@ function allowsShellHorizontalSwipe(
     if (node instanceof HTMLElement) {
       const styles = window.getComputedStyle(node);
       const overflowX = styles.overflowX;
+      // If a child owns horizontal scrolling, leave the gesture there. Editors
+      // and other plain vertical surfaces opt back into shell swipes with the
+      // explicit drag-surface attribute.
       const ownsHorizontalScroll =
         node.scrollWidth > node.clientWidth + 1 &&
         (overflowX === "auto" || overflowX === "scroll");
@@ -164,6 +174,8 @@ function allowsShellHorizontalSwipe(
 
 function renderPaneContent(content: React.ReactNode) {
   return (
+    // The shell contract always keeps all three panes mounted. A null slot is
+    // still a real pane so width math and gestures stay consistent.
     content ?? (
       <div aria-hidden="true" className="min-h-0 flex-1 bg-background" />
     )
@@ -204,6 +216,9 @@ export function WorkspaceLayoutV2({
   } = useSidebar();
 
   React.useEffect(() => {
+    // The native touch listeners below are registered once per pane state, so
+    // they read the current resize side through a ref instead of reopening the
+    // gesture during an in-flight handle drag.
     activeResizeSideRef.current = activeResizeSide;
   }, [activeResizeSide]);
 
@@ -260,6 +275,8 @@ export function WorkspaceLayoutV2({
 
   React.useEffect(() => {
     if (!isMobile) {
+      // Crossing the mobile breakpoint should not leave a stale drag transform
+      // behind on desktop.
       setIsMobileDragging(false);
       setMobileDragOffsetPx(0);
       activeGestureRef.current = null;
@@ -272,6 +289,9 @@ export function WorkspaceLayoutV2({
       return;
     }
 
+    // Keep the mobile gesture path explicit and local to the viewport instead
+    // of relying on scroll containers. This is the core of the v2 shell model:
+    // pane state plus a transient drag offset.
     const handleTouchStart = (event: TouchEvent) => {
       if (activeResizeSideRef.current !== null || event.touches.length !== 1) {
         return;
@@ -336,6 +356,8 @@ export function WorkspaceLayoutV2({
           return;
         }
 
+        // Once we cross slop and own horizontal intent, the shell takes over
+        // the gesture until release.
         activeGesture.phase = "swiping";
         setIsMobileDragging(true);
       }
@@ -376,6 +398,8 @@ export function WorkspaceLayoutV2({
           timeMs: finalTimeMs,
         },
       ];
+      // Always settle relative to the pane where the gesture started so mobile
+      // transitions remain adjacent-only even if widths changed mid-drag.
       const nextPane = getWorkspaceLayoutV2SettledPane({
         currentPane: activeGesture.startPane,
         dragOffsetPx: finalClientX - activeGesture.startX,
@@ -464,6 +488,9 @@ export function WorkspaceLayoutV2({
         return;
       }
 
+      // When a sidebar is open, the exposed strip of main is a direct escape
+      // hatch back to center. This keeps mobile dismiss behavior local to the
+      // real pane instead of adding an overlay/scrim layer.
       event.preventDefault();
       event.stopPropagation();
       setMobilePane("main");
@@ -539,7 +566,9 @@ export function WorkspaceLayoutV2({
               "absolute inset-y-0 left-0 will-change-transform",
               isMobileDragging || activeResizeSide !== null
                 ? null
-                : "transition-transform duration-200 ease-out",
+                : // Resizes move pane widths synchronously. Only idle pane changes
+                  // should animate the shared track.
+                  "transition-transform duration-200 ease-out",
             )}
             style={{
               transform: `translate3d(${-mobileVisibleStartPx}px, 0, 0)`,

@@ -14,6 +14,10 @@ const MACHINES_WORKSPACE_V2_DEFAULT_STATE = {
   rightMobileWidthPx: 320,
 } satisfies WorkspaceSidebarState;
 
+/**
+ * This route is intentionally content-light. Its job is to exercise the shared
+ * shell on a real route before we wire actual machines content into it.
+ */
 function PlaceholderPane(props: {
   body: string;
   eyebrow: string;
@@ -74,6 +78,8 @@ export function MachinesWorkspaceV2Page() {
   return (
     <PersistedSidebarProvider
       className="h-full min-h-0"
+      // Persist widths and the active mobile pane so the route behaves like a
+      // real workspace instead of a reset-on-refresh demo.
       defaultState={MACHINES_WORKSPACE_V2_DEFAULT_STATE}
       workspaceKey="machinesV2"
     >

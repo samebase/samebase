@@ -73,6 +73,8 @@ export function WorkspaceLayoutV2ResizeHandle({
   const [isResizing, setIsResizing] = React.useState(false);
 
   React.useEffect(() => {
+    // The handle visually lives in the shell, but the cursor and selection lock
+    // need to apply to the whole page while dragging.
     if (!isResizing || dragStateRef.current === null) {
       document.body.style.removeProperty("cursor");
       document.body.style.removeProperty("user-select");
@@ -146,6 +148,8 @@ export function WorkspaceLayoutV2ResizeHandle({
     (event: React.PointerEvent<HTMLDivElement>) => {
       event.stopPropagation();
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        // Releasing pointer capture triggers lostpointercapture next, which is
+        // where we finalize once for both pointerup and pointercancel paths.
         event.currentTarget.releasePointerCapture(event.pointerId);
         return;
       }
@@ -162,6 +166,8 @@ export function WorkspaceLayoutV2ResizeHandle({
       }
 
       event.preventDefault();
+      // Treat a burst of key presses as one resize session so the shell can hide
+      // swipe affordances until keyboard resizing has actually settled.
       setIsResizing(true);
       onResizeStart?.();
       commitWidthChange(currentWidthPx + deltaPx);

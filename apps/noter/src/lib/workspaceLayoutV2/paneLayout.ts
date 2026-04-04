@@ -21,6 +21,8 @@ function getCommitThresholdPx(distancePx: number, action: "open" | "close") {
     return 0;
   }
 
+  // Opening a sidebar should require a clearer gesture than closing back to
+  // main, but both thresholds stay capped so very wide panes do not feel heavy.
   const ratio =
     action === "open" ? MOBILE_OPEN_COMMIT_RATIO : MOBILE_CLOSE_COMMIT_RATIO;
   return clampNumber(
@@ -72,6 +74,8 @@ export function getWorkspaceLayoutV2PaneVisibleStartPx(
     case "main":
       return metrics.leftWidthPx;
     case "right":
+      // The right pane is anchored to the track's right edge so the viewport
+      // always sees the sidebar flush-right plus the exposed main strip.
       return (
         getWorkspaceLayoutV2TrackWidthPx(metrics) - metrics.viewportWidthPx
       );
@@ -101,16 +105,19 @@ function getWorkspaceLayoutV2VisibleStartRange(
 
   switch (pane) {
     case "left":
+      // An open left sidebar may only drag back toward main.
       return {
         maxVisibleStartPx: mainVisibleStartPx,
         minVisibleStartPx: 0,
       };
     case "main":
+      // Main is the only pane that can travel in both directions.
       return {
         maxVisibleStartPx: rightVisibleStartPx,
         minVisibleStartPx: 0,
       };
     case "right":
+      // An open right sidebar may only drag back toward main.
       return {
         maxVisibleStartPx: rightVisibleStartPx,
         minVisibleStartPx: mainVisibleStartPx,
@@ -146,6 +153,8 @@ export function getWorkspaceLayoutV2VisibleStartPx(args: {
     args.metrics,
   );
 
+  // Finger movement and track movement are inverted: dragging right reveals
+  // earlier track content, so the visible start moves left.
   return clampWorkspaceLayoutV2VisibleStartPx({
     currentPane: args.currentPane,
     metrics: args.metrics,
@@ -159,6 +168,8 @@ export function getWorkspaceLayoutV2ViewportBoundaryPx(args: {
   side: "left" | "right";
   visibleStartPx: number;
 }) {
+  // Resize handles sit on the visible boundary between main and the sidebar, so
+  // callers need that boundary in viewport coordinates instead of track space.
   const boundaryStartPx =
     args.side === "left"
       ? getWorkspaceLayoutV2PaneStartPx("main", args.metrics)
@@ -175,6 +186,7 @@ function getAdjacentPaneCandidate(args: {
   currentPane: WorkspaceLayoutV2Pane;
   dragOffsetPx: number;
 }) {
+  // The transition graph is intentionally linear: left <-> main <-> right.
   if (args.currentPane === "main") {
     if (args.dragOffsetPx > 0) {
       return "left" as const;
@@ -197,6 +209,8 @@ function getVelocityTowardCandidate(args: {
   currentPane: WorkspaceLayoutV2Pane;
   velocityPxPerMs: number;
 }) {
+  // Normalize velocity so positive means "moving toward the candidate pane"
+  // regardless of which pane the gesture started from.
   if (args.currentPane === "main") {
     return args.candidatePane === "left"
       ? args.velocityPxPerMs
@@ -237,6 +251,8 @@ export function getWorkspaceLayoutV2SettledPane(args: {
     currentPane: args.currentPane,
     velocityPxPerMs: args.velocityPxPerMs,
   });
+  // Returning from a sidebar is intentionally cheaper than opening a sidebar,
+  // which makes the shell feel easier to dismiss than to invoke accidentally.
   const requiredTravelPx = getCommitThresholdPx(
     distancePx,
     args.currentPane === "main" ? "open" : "close",

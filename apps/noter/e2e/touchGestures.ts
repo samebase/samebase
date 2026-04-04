@@ -1,5 +1,10 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
+/**
+ * Drive the real touch pipeline used by the production route instead of
+ * simulating drag behavior with DOM shortcuts. The shell logic listens to
+ * native touch events, so the live repros should too.
+ */
 export async function dispatchHumanTouchSwipe(
   page: Page,
   locator: Locator,

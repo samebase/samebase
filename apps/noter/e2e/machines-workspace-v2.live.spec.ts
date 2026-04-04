@@ -94,6 +94,8 @@ async function ensureMainMobilePane(page: Page) {
   const currentPane = await route.getAttribute("data-mobile-pane");
 
   if (currentPane === "left") {
+    // The shared shell persists mobile pane state, so normalize before every
+    // mobile test instead of assuming a fresh session.
     await tapExposedMainStrip(page, "left");
     await expect(route).toHaveAttribute("data-mobile-pane", "main");
     await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
@@ -117,6 +119,8 @@ async function tapExposedMainStrip(page: Page, side: "left" | "right") {
     return;
   }
 
+  // The main pane still spans the full viewport in track coordinates, so the
+  // tap target has to be translated into the main pane's local box.
   const viewportTapX = side === "left" ? viewportWidth - 20 : 20;
   await mainPane.tap({
     position: {
