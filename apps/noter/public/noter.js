@@ -5,7 +5,7 @@
 // 1. Validate that this file was served from `/noter.js` on `https:` (or
 //    explicit localhost `http:` during local testing).
 // 2. Run `codex --version` to confirm the Codex CLI is on PATH.
-// 3. Write one JSON config file under `~/.noter/config.json`.
+// 3. Write one JSON config file under `~/.noter/config.json` by default.
 // 4. Print Noter's `/machines/connect` approval URL.
 // 5. Reuse the stored machine credential for later heartbeat publishing.
 //
@@ -41,6 +41,8 @@ import { promisify } from 'node:util'
 export const NOTER_SYNC_SCRIPT_PATHNAME = '/noter.js'
 export const NOTER_CONNECT_CONFIG_PATHNAME = '/noter-connect.json'
 export const MACHINE_CONNECT_ROUTE = '/machines/connect'
+export const NOTER_STATE_DIRNAME = '.noter'
+export const NOTER_CONFIG_FILENAME = 'config.json'
 export const NOTER_CONFIG_PATHNAME = '.noter/config.json'
 export const CONNECTED_MACHINE_BOOTSTRAP_PATHNAME =
   '/connected-machines/bootstrap'
@@ -148,28 +150,65 @@ export function parseCliArgs(argv) {
     return { command: 'help' }
   }
 
-  if (argv[0] === 'connect') {
-    if (argv.length > 2) {
-      throw new Error(`Unknown option: ${argv[2]}`)
+  const command = argv[0]
+  const remainingArgs = argv.slice(1)
+  let stateDirectory = null
+  let sourceUrl = null
+
+  for (let index = 0; index < remainingArgs.length; index += 1) {
+    const arg = remainingArgs[index]
+
+    if (arg === '--state-dir') {
+      const nextValue = remainingArgs[index + 1]
+      if (nextValue === undefined) {
+        throw new Error('Missing value for --state-dir')
+      }
+      if (stateDirectory !== null) {
+        throw new Error('Duplicate option: --state-dir')
+      }
+      const trimmedNextValue = nextValue.trim()
+      if (trimmedNextValue.length === 0) {
+        throw new Error('The --state-dir option must not be empty.')
+      }
+      if (trimmedNextValue.startsWith('-')) {
+        throw new Error(`Invalid value for --state-dir: ${nextValue}`)
+      }
+      stateDirectory = nextValue
+      index += 1
+      continue
     }
 
+    if (arg.startsWith('-')) {
+      throw new Error(`Unknown option: ${arg}`)
+    }
+
+    if (command === 'connect') {
+      if (sourceUrl !== null) {
+        throw new Error(`Unexpected argument: ${arg}`)
+      }
+      sourceUrl = arg
+      continue
+    }
+
+    throw new Error(`Unexpected argument: ${arg}`)
+  }
+
+  if (command === 'connect') {
     return {
       command: 'connect',
-      sourceUrl: argv[1] ?? null,
+      sourceUrl,
+      stateDirectory,
     }
   }
 
-  if (argv[0] === 'run') {
-    if (argv.length > 1) {
-      throw new Error(`Unknown option: ${argv[1]}`)
-    }
-
+  if (command === 'run') {
     return {
       command: 'run',
+      stateDirectory,
     }
   }
 
-  throw new Error(`Unknown command: ${argv[0]}`)
+  throw new Error(`Unknown command: ${command}`)
 }
 
 /**
@@ -794,17 +833,49 @@ export function detectCodexVersion(options = {}) {
 }
 
 /**
- * All installer state lives under the user's home directory, never inside a
- * project checkout.
+ * Normalize the selected state directory to an absolute path once so config
+ * reads, writes, and printed commands all refer to the same location.
  */
-export function getNoterConfigPath(args = {}) {
+export function getNoterStateDirectory(args = {}) {
+  const configuredStateDirectory = args.stateDirectory?.trim()
+  if (configuredStateDirectory && configuredStateDirectory.length > 0) {
+    return path.isAbsolute(configuredStateDirectory)
+      ? configuredStateDirectory
+      : path.resolve(args.cwd ?? process.cwd(), configuredStateDirectory)
+  }
+
   const homeDirectory = args.homeDirectory ?? homedir()
-  return path.join(homeDirectory, NOTER_CONFIG_PATHNAME)
+  return path.join(homeDirectory, NOTER_STATE_DIRNAME)
+}
+
+export function getNoterConfigPath(args = {}) {
+  return path.join(
+    getNoterStateDirectory({
+      cwd: args.cwd,
+      homeDirectory: args.homeDirectory,
+      stateDirectory: args.stateDirectory,
+    }),
+    NOTER_CONFIG_FILENAME,
+  )
+}
+
+function describeNoterConfigPath(args = {}) {
+  const configuredStateDirectory = args.stateDirectory?.trim()
+  if (configuredStateDirectory && configuredStateDirectory.length > 0) {
+    return getNoterConfigPath({
+      cwd: args.cwd,
+      homeDirectory: args.homeDirectory,
+      stateDirectory: args.stateDirectory,
+    })
+  }
+
+  return path.join('~', NOTER_STATE_DIRNAME, NOTER_CONFIG_FILENAME)
 }
 
 export function readLocalConfig(args = {}) {
   const configPath = getNoterConfigPath({
     homeDirectory: args.homeDirectory,
+    stateDirectory: args.stateDirectory,
   })
   try {
     return parseJsonOrNull(readFileSync(configPath, 'utf8'))
@@ -820,9 +891,11 @@ export function readLocalConfig(args = {}) {
 export function writeLocalConfig(args) {
   const configPath = getNoterConfigPath({
     homeDirectory: args.homeDirectory,
+    stateDirectory: args.stateDirectory,
   })
   const existingRecord = readLocalConfig({
     homeDirectory: args.homeDirectory,
+    stateDirectory: args.stateDirectory,
   })
   const nowIso = new Date().toISOString()
   const nextRecord = {
@@ -854,6 +927,7 @@ export function writeLocalConfig(args) {
 function readStoredMachineConfig(args = {}) {
   const storedConfig = readLocalConfig({
     homeDirectory: args.homeDirectory,
+    stateDirectory: args.stateDirectory,
   })
   const sourceUrl = storedConfig?.sourceUrl
   const machineId = storedConfig?.machineId
@@ -861,17 +935,23 @@ function readStoredMachineConfig(args = {}) {
 
   if (typeof sourceUrl !== 'string' || sourceUrl.length === 0) {
     throw new Error(
-      'Missing `sourceUrl` in ~/.noter/config.json. Run `noter-sync connect` first.',
+      `Missing \`sourceUrl\` in ${describeNoterConfigPath({
+        stateDirectory: args.stateDirectory,
+      })}. Run \`noter-sync connect\` first.`,
     )
   }
   if (typeof machineId !== 'string' || machineId.length === 0) {
     throw new Error(
-      'Missing `machineId` in ~/.noter/config.json. Run `noter-sync connect` first.',
+      `Missing \`machineId\` in ${describeNoterConfigPath({
+        stateDirectory: args.stateDirectory,
+      })}. Run \`noter-sync connect\` first.`,
     )
   }
   if (typeof machineCredential !== 'string' || machineCredential.length === 0) {
     throw new Error(
-      'Missing `machineCredential` in ~/.noter/config.json. Finish `noter-sync connect` first.',
+      `Missing \`machineCredential\` in ${describeNoterConfigPath({
+        stateDirectory: args.stateDirectory,
+      })}. Finish \`noter-sync connect\` first.`,
     )
   }
 
@@ -4049,24 +4129,46 @@ function readDirectDownloadCommand(currentPlatform = process.platform) {
     : 'curl -fsSL'
 }
 
+/**
+ * Quote a path for the shell command snippets we print for operators.
+ * PowerShell escapes a single quote by doubling it, while POSIX shells close
+ * the quote, emit a literal single quote, and reopen it.
+ */
+function shellSingleQuote(value, currentPlatform = process.platform) {
+  return normalizeRuntimePlatform(currentPlatform) === 'win32'
+    ? `'${value.replaceAll("'", "''")}'`
+    : `'${value.replaceAll("'", "'\"'\"'")}'`
+}
+
+function buildOptionalStateDirArg(
+  stateDirectory,
+  currentPlatform = process.platform,
+) {
+  return typeof stateDirectory === 'string' && stateDirectory.trim().length > 0
+    ? ` --state-dir ${shellSingleQuote(stateDirectory, currentPlatform)}`
+    : ''
+}
+
 export function buildDirectConnectCommand(
   sourceUrl,
   currentPlatform = process.platform,
+  stateDirectory = null,
 ) {
-  return `${readDirectDownloadCommand(currentPlatform)} '${sourceUrl}' | node --input-type=module - connect '${sourceUrl}'`
+  return `${readDirectDownloadCommand(currentPlatform)} '${sourceUrl}' | node --input-type=module - connect${buildOptionalStateDirArg(stateDirectory, currentPlatform)} '${sourceUrl}'`
 }
 
 export function buildDirectRunCommand(
   sourceUrl,
   currentPlatform = process.platform,
+  stateDirectory = null,
 ) {
-  return `${readDirectDownloadCommand(currentPlatform)} '${sourceUrl}' | node --input-type=module - run`
+  return `${readDirectDownloadCommand(currentPlatform)} '${sourceUrl}' | node --input-type=module - run${buildOptionalStateDirArg(stateDirectory, currentPlatform)}`
 }
 
 export function formatHelpText() {
   return `Usage:
-  noter-sync connect
-  noter-sync run
+  noter-sync connect [--state-dir <path>] [source-url]
+  noter-sync run [--state-dir <path>]
 
 Examples:
   # published package path (after publish)
@@ -4083,7 +4185,9 @@ Examples:
   ${buildDirectRunCommand('https://noter.md/noter.js', 'win32')}
   # preview or local explicit override
   ${buildDirectConnectCommand('https://preview.noter.md/noter.js', 'darwin')}
-  ${buildDirectConnectCommand('https://preview.noter.md/noter.js', 'win32')}`
+  ${buildDirectConnectCommand('https://preview.noter.md/noter.js', 'win32')}
+  # worktree-isolated state
+  ${buildDirectRunCommand('https://preview.noter.md/noter.js', 'darwin', '/home/you/.noter/worktrees/ceff')}`
 }
 
 /**
@@ -4125,7 +4229,9 @@ async function runConnectCommand(parsedArgs) {
     parsedArgs.sourceUrl ?? NOTER_SYNC_SOURCE_URL,
   ).toString()
   const codexVersion = detectCodexVersion()
-  const existingRecord = readLocalConfig()
+  const existingRecord = readLocalConfig({
+    stateDirectory: parsedArgs.stateDirectory,
+  })
   const machineId =
     typeof existingRecord?.machineId === 'string' &&
     existingRecord.machineId.length > 0
@@ -4147,6 +4253,7 @@ async function runConnectCommand(parsedArgs) {
     machineCredential: registration.machineCredential,
     machineId,
     sourceUrl,
+    stateDirectory: parsedArgs.stateDirectory,
   })
 
   console.log(
@@ -4155,7 +4262,11 @@ async function runConnectCommand(parsedArgs) {
       configPath,
       machineConnectUrl: registration.machineConnectUrl,
       machineId,
-      runCommand: buildDirectRunCommand(sourceUrl),
+      runCommand: buildDirectRunCommand(
+        sourceUrl,
+        process.platform,
+        parsedArgs.stateDirectory,
+      ),
       sourceUrl,
     }),
   )
@@ -4241,9 +4352,11 @@ export async function runHeartbeatLoop(args) {
   }
 }
 
-async function runConnectorCommand() {
+async function runConnectorCommand(parsedArgs) {
   const codexVersion = detectCodexVersion()
-  const storedConfig = readStoredMachineConfig()
+  const storedConfig = readStoredMachineConfig({
+    stateDirectory: parsedArgs.stateDirectory,
+  })
   const convexSiteUrl = await fetchNoterConnectConfig(storedConfig.sourceUrl)
   const displayName = hostname()
   const os = normalizeMachineOs(platform())
@@ -4354,7 +4467,7 @@ export async function main(argv) {
     return
   }
 
-  await runConnectorCommand()
+  await runConnectorCommand(parsedArgs)
 }
 
 /**
