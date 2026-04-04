@@ -39,16 +39,20 @@ run the real `noter.js` connected-machine flow without re-explaining the details
 each time.
 
 - Treat `link machines` as an alias for `link machine`.
-- For the primary local checkout, use the default `~/.noter` install unless the
-  operator explicitly asks for a different state dir.
-- For a non-primary worktree, keep the machine install isolated with
-  `--state-dir ~/.noter/worktrees/<worktree-id>`.
+- Never reuse the default `~/.noter` install for a local repo checkout under
+  active development; keep that default config available for the stable
+  machine/phone flow.
+- Keep every local repo checkout isolated with
+  `--state-dir ~/.noter/worktrees/<checkout-id>`.
 - For Codex worktrees under `~/.codex/worktrees/<id>/...`, use that folder id as
-  `<worktree-id>`.
+  `<checkout-id>`.
+- For the primary local checkout or any other non-Codex checkout, use the
+  checkout directory leaf as `<checkout-id>`.
 - `link machine` should use the current checkout's `noter.js` URL, run `connect`
   with the matching state dir, complete the browser approval flow, then run
   `noter-sync run` with that same state dir.
-- Never overwrite the default `~/.noter/config.json` when linking a worktree.
+- Never overwrite the default `~/.noter/config.json` when linking a local repo
+  checkout.
 
 ## Git Shorthand Commands
 
@@ -133,11 +137,10 @@ Rules:
 - `archive` removes only the current non-`main` worktree and the local branch.
   It leaves the remote branch and PR intact.
 - `clean` is only for shipped or merged work. Run `clean vaults` first.
-- If the current checkout is a non-primary worktree with a linked machine
-  install, stop that exact worktree-local `noter-sync run` process before
-  deleting its state dir.
-- For a Codex worktree under `~/.codex/worktrees/<id>/...`, `clean` should
-  remove only `~/.noter/worktrees/<id>` and never the default `~/.noter`
+- If the current checkout has a linked machine install, stop that exact
+  checkout-local `noter-sync run` process before deleting its state dir.
+- `clean` should remove only the current checkout's isolated
+  `~/.noter/worktrees/<checkout-id>` state dir and never the default `~/.noter`
   install.
 - After machine-link cleanup, remove the current non-`main` worktree, delete the
   local branch, and delete the remote branch if it still exists.

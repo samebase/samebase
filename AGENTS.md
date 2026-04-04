@@ -191,13 +191,15 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   `git diff --stat` (and `git diff --cached --stat` when relevant).
 - Use the exact temporary vault prefix `tmp-<worktree-id>-<intent>` for
   Playwright/manual test repos created from a worktree.
-- `link machine` must use the current checkout's `noter.js` flow and keep
-  non-primary worktrees isolated with their own `--state-dir`.
+- `link machine` must use the current checkout's `noter.js` flow and keep every
+  local repo checkout isolated with its own `--state-dir` under
+  `~/.noter/worktrees/<checkout-id>`. Never overwrite the default `~/.noter`
+  install as part of local dev linking.
 - `clean vaults` must fail closed and only remove matching Noter-managed vaults
   through the dashboard delete flow.
-- `clean` must fail closed and only remove the current worktree's isolated
-  machine state directory under `~/.noter/worktrees/<id>`. Never delete the
-  default `~/.noter` install as part of worktree cleanup.
+- `clean` must fail closed and only remove the current checkout's isolated
+  machine state directory under `~/.noter/worktrees/<checkout-id>`. Never delete
+  the default `~/.noter` install as part of local cleanup.
 - When the user says `create pr`, create or update a ready non-draft PR.
 - Use a draft PR only when the user explicitly says `create draft` or otherwise
   asks to keep the PR draft.
