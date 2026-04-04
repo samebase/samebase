@@ -44,6 +44,9 @@ async function createAppIfAvailable(
   await repositoryNameInput.fill(repoName);
   await page.getByRole("button", { name: "New App" }).click();
 
+  // Catch the cleared-input assertion so we can inspect createError and skip
+  // cleanly when vaultActions.ts reports an environment-only starter seeding
+  // failure instead of treating that provider setup issue as a product bug.
   try {
     await expect(repositoryNameInput).toHaveValue("", { timeout: 30_000 });
     return;
