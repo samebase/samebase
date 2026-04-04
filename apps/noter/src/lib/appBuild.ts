@@ -1,11 +1,13 @@
 export const APP_BUILD_STATUS_BAR_TEST_ID = "app-build-status-bar";
 export const APP_BUILD_VERSION_TEST_ID = "app-build-version";
+export const APP_BUILD_COMMIT_LINK_TEST_ID = "app-build-commit-link";
 export const APP_BUILD_VERSION_PREFIX = "v";
 
 const UNKNOWN_APP_BUILD_VERSION_NUMBER = "?";
+const SHORT_APP_BUILD_COMMIT_LENGTH = 8;
 
 type AppBuildCopyPayload = {
-  buildVersionCopyLabel: string;
+  appBuildCopyLabel: string;
   commitUrl: string;
 };
 
@@ -26,8 +28,8 @@ function isValidAppBuildCommitNumber(
 }
 
 /**
- * Keep the clickable part to the bare number so selecting it in the header
- * does not need to fight an extra prefix character.
+ * Keep the numeric segment separate from surrounding chrome so the status bar
+ * can render it either as plain text or as part of a linked reference.
  */
 export function formatAppBuildVersionNumber(
   commitNumber: number | null,
@@ -49,15 +51,25 @@ export function formatAppBuildVersionLabel(
   )}`;
 }
 
+/**
+ * Show the same short commit SHA that GitHub surfaces in UI so mobile users can
+ * identify the exact build without opening the commit page first.
+ */
+export function formatAppBuildCommitLabel(appCommit: string): string {
+  return /^[0-9a-f]{8,40}$/i.test(appCommit)
+    ? appCommit.slice(0, SHORT_APP_BUILD_COMMIT_LENGTH)
+    : appCommit;
+}
+
 export function formatAppBuildMarkdownLink({
-  buildVersionCopyLabel,
+  appBuildCopyLabel,
   commitUrl,
 }: AppBuildCopyPayload): string {
   if (!commitUrl) {
-    return buildVersionCopyLabel;
+    return appBuildCopyLabel;
   }
 
-  return `[${buildVersionCopyLabel}](${commitUrl})`;
+  return `[${appBuildCopyLabel}](${commitUrl})`;
 }
 
 function escapeHtml(value: string): string {
@@ -123,7 +135,7 @@ export function writeAppBuildClipboardData(
   clipboardData.setData("text/markdown", markdownLink);
   clipboardData.setData(
     "text/html",
-    `<a href="${escapeHtml(payload.commitUrl)}">${escapeHtml(payload.buildVersionCopyLabel)}</a>`,
+    `<a href="${escapeHtml(payload.commitUrl)}">${escapeHtml(payload.appBuildCopyLabel)}</a>`,
   );
 
   return markdownLink;
