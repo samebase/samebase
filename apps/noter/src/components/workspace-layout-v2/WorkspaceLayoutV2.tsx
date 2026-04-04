@@ -453,6 +453,24 @@ export function WorkspaceLayoutV2({
     [isMobile, setRightDesktopWidthPx, setRightMobileWidthPx, viewportWidthPx],
   );
 
+  const handleMobileMainPanePointerUpCapture = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (
+        !isMobile ||
+        isMobileDragging ||
+        activeResizeSide !== null ||
+        mobilePane === "main"
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      setMobilePane("main");
+    },
+    [activeResizeSide, isMobile, isMobileDragging, mobilePane, setMobilePane],
+  );
+
   const resolvedLeftContent = renderPaneContent(left);
   const resolvedMainContent = renderPaneContent(main);
   const resolvedRightContent = renderPaneContent(right);
@@ -545,6 +563,7 @@ export function WorkspaceLayoutV2({
               data-workspace-layout-v2-pane="main"
               data-testid="workspace-layout-v2-pane-main"
               className="absolute inset-y-0 flex min-h-0 flex-col overflow-hidden bg-background"
+              onPointerUpCapture={handleMobileMainPanePointerUpCapture}
               style={{
                 left: `${getWorkspaceLayoutV2PaneStartPx(
                   "main",

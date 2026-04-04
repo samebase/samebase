@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { dispatchHumanTouchSwipe } from "./touchGestures";
 
+const MOBILE_PANE_TRANSITION_WAIT_MS = 220;
+
 async function ensureMachinesWorkspaceV2RouteReady(page: Page): Promise<void> {
   await page.goto("/v2/machines", {
     waitUntil: "domcontentloaded",
@@ -92,15 +94,39 @@ async function ensureMainMobilePane(page: Page) {
   const currentPane = await route.getAttribute("data-mobile-pane");
 
   if (currentPane === "left") {
-    await swipeFromLeftTowardRight(page);
+    await tapExposedMainStrip(page, "left");
     await expect(route).toHaveAttribute("data-mobile-pane", "main");
+    await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
     return;
   }
 
   if (currentPane === "right") {
-    await swipeFromRightToMain(page);
+    await tapExposedMainStrip(page, "right");
     await expect(route).toHaveAttribute("data-mobile-pane", "main");
+    await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
   }
+}
+
+async function tapExposedMainStrip(page: Page, side: "left" | "right") {
+  const mainPane = page.getByTestId("workspace-layout-v2-pane-main");
+  const mainPaneBox = await mainPane.boundingBox();
+  const viewportWidth = page.viewportSize()?.width ?? 0;
+
+  expect(mainPaneBox).not.toBeNull();
+  if (mainPaneBox === null) {
+    return;
+  }
+
+  const viewportTapX = side === "left" ? viewportWidth - 20 : 20;
+  await mainPane.tap({
+    position: {
+      x: Math.max(
+        1,
+        Math.min(mainPaneBox.width - 1, viewportTapX - mainPaneBox.x),
+      ),
+      y: Math.max(1, Math.min(mainPaneBox.height - 1, 220 - mainPaneBox.y)),
+    },
+  });
 }
 
 test("desktop v2 route keeps sidebar triggers outside the panes", async ({
@@ -177,4 +203,27 @@ test("mobile v2 route requires two swipes to move from left to right", async ({
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
   ).toHaveCount(0);
+});
+
+test("mobile v2 route taps the exposed main strip to return from sidebars", async ({
+  page,
+}) => {
+  const viewport = page.viewportSize();
+  test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
+
+  await ensureMachinesWorkspaceV2RouteReady(page);
+
+  const route = page.getByTestId("machines-workspace-v2-route");
+  await ensureMainMobilePane(page);
+
+  await swipeFromMainToLeft(page);
+  await expect(route).toHaveAttribute("data-mobile-pane", "left");
+  await tapExposedMainStrip(page, "left");
+  await expect(route).toHaveAttribute("data-mobile-pane", "main");
+  await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
+
+  await swipeFromMainToRight(page);
+  await expect(route).toHaveAttribute("data-mobile-pane", "right");
+  await tapExposedMainStrip(page, "right");
+  await expect(route).toHaveAttribute("data-mobile-pane", "main");
 });
