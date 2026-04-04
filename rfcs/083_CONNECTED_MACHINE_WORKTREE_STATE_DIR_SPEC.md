@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Proposed
-- Owner: connected machine worktree phone E2E
+- Owner: Noter local developer workflow (DRI: `@nicu`)
 - Last updated: 2026-04-04
 - Related docs:
   - `rfcs/073_CODEX_PLUGIN_CONNECTED_MACHINE_ONBOARDING_RESEARCH.md`
@@ -78,7 +78,10 @@ production.
 
 ## Current Code Facts
 
-The relevant current behavior in `packages/sync/noter.js` is:
+The implementation currently lives in `packages/sync/noter.js` and is mirrored
+to `apps/noter/public/noter.js` for the browser-served installer.
+
+The relevant current behavior is:
 
 1. config lives at `~/.noter/config.json`
 2. `connect` writes one machine-scoped config record
@@ -155,8 +158,19 @@ Behavior:
 1. if `--state-dir` is omitted, use `~/.noter`
 2. create the directory if it does not exist
 3. read and write `<state-dir>/config.json`
-4. generate a new `machineId` when that config does not already exist
-5. keep the rest of the connect flow unchanged
+4. if `<state-dir>/config.json` already exists, load it before registering
+5. if the existing config already has a `machineId`, preserve it for the next
+   successful registration
+6. if the existing config already points at the same `sourceUrl`, treat
+   reconnect as a refresh of that logical install and rewrite the completed
+   record in place
+7. if the existing config points at a different `sourceUrl`, treat reconnect as
+   rebinding that one state directory to a different backend; replace
+   `sourceUrl` and `machineCredential`, keep `machineId` when present, and use a
+   different state directory instead when concurrent installs must remain live
+8. if the existing config is partial, fill the missing fields and persist the
+   completed record
+9. keep the rest of the connect flow unchanged
 
 ### `noter-sync run`
 
@@ -200,6 +214,55 @@ Important design choice:
 
 That is simpler and avoids hidden coupling between production and worktree
 testing.
+
+### At-rest protections
+
+The worktree state directory is operational state, not a general-purpose cache.
+
+Requirements:
+
+1. the worktree state directory itself should be owner-only, typically `0700`
+2. `<state-dir>/config.json` must be written with owner-only file permissions,
+   typically `0600`
+3. if a later slice splits `machineCredential` into its own credential file,
+   that file must also be created with owner-only permissions, typically `0600`
+4. logs, screenshots, exported JSON, fixtures, and PR text must redact
+   `machineCredential` rather than printing it verbatim
+
+### Credential storage hardening
+
+The initial slice keeps `machineCredential` in `<state-dir>/config.json` so the
+change stays minimal and compatible with the current implementation.
+
+Future hardening may allow the worktree state directory to store a keychain
+reference instead:
+
+```json
+{
+  "sourceUrl": "https://noter.md/noter.js",
+  "codexVersion": "0.33.0",
+  "machineId": "machine_abc",
+  "keychainPath": "keychain://noter/connected-machines/ceff"
+}
+```
+
+That future extension should replace plaintext `machineCredential` storage for
+that state directory rather than duplicating both secrets.
+
+### Rotation and revocation
+
+Each worktree state directory is independent.
+
+Operational rules:
+
+1. rerunning `connect` in the same state directory rotates `machineCredential`
+   for that logical install and keeps `machineId` when it is already present
+2. revoking or replacing `machineCredential` in one state directory does not
+   affect any other state directory
+3. rotating `machineId` requires a fresh state directory or deleting that state
+   directory's existing config before reconnecting
+4. removing `machineCredential` from `<state-dir>/config.json` makes `run` fail
+   closed until `connect` mints and stores a replacement credential
 
 ## Operator Workflow
 
@@ -255,7 +318,7 @@ That is enough for internal validation.
 3. Production and worktree `run` processes can stay active at the same time.
 4. A worktree can use its own modified `noter.js` implementation without
    affecting production.
-5. The worktree's `/machines` route can be tested end to end from the phone
+5. The worktree's `/machines` route can be tested end-to-end from the phone
    after its own `connect` and `run`.
 
 ## Rollout
