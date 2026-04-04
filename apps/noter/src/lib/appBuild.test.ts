@@ -18,17 +18,17 @@ afterEach(() => {
 
 describe("formatAppBuildVersionLabel", () => {
   it("renders the one-based repo version label from a commit count", () => {
-    expect(formatAppBuildVersionLabel(1)).toBe("v 1");
-    expect(formatAppBuildVersionLabel(123)).toBe("v 123");
+    expect(formatAppBuildVersionLabel(1)).toBe("v1");
+    expect(formatAppBuildVersionLabel(123)).toBe("v123");
   });
 
   it("falls back to an unknown label when the commit count is unavailable", () => {
-    expect(formatAppBuildVersionLabel(null)).toBe("v ?");
-    expect(formatAppBuildVersionLabel(0)).toBe("v ?");
-    expect(formatAppBuildVersionLabel(-1)).toBe("v ?");
-    expect(formatAppBuildVersionLabel(1.5)).toBe("v ?");
-    expect(formatAppBuildVersionLabel(Number.NaN)).toBe("v ?");
-    expect(formatAppBuildVersionLabel(Number.POSITIVE_INFINITY)).toBe("v ?");
+    expect(formatAppBuildVersionLabel(null)).toBe("v?");
+    expect(formatAppBuildVersionLabel(0)).toBe("v?");
+    expect(formatAppBuildVersionLabel(-1)).toBe("v?");
+    expect(formatAppBuildVersionLabel(1.5)).toBe("v?");
+    expect(formatAppBuildVersionLabel(Number.NaN)).toBe("v?");
+    expect(formatAppBuildVersionLabel(Number.POSITIVE_INFINITY)).toBe("v?");
   });
 });
 
@@ -49,19 +49,19 @@ describe("formatAppBuildVersionNumber", () => {
 });
 
 describe("formatAppBuildMarkdownLink", () => {
-  it("formats the build label as a Markdown link when a commit URL exists", () => {
+  it("formats the linked build number as a Markdown link when a commit URL exists", () => {
     expect(
       formatAppBuildMarkdownLink({
-        commitNumberLabel: "123",
+        buildVersionCopyLabel: "123",
         commitUrl: "https://github.com/noter-md/noter/commit/abc123",
       }),
     ).toBe("[123](https://github.com/noter-md/noter/commit/abc123)");
   });
 
-  it("falls back to the plain label without a commit URL", () => {
+  it("falls back to the plain copied value without a commit URL", () => {
     expect(
       formatAppBuildMarkdownLink({
-        commitNumberLabel: "?",
+        buildVersionCopyLabel: "?",
         commitUrl: "",
       }),
     ).toBe("?");
@@ -120,7 +120,7 @@ describe("installAppBuildMarkdownCopy", () => {
     selectNodeContents(buildLabel);
 
     const disposeCopyHandler = installAppBuildMarkdownCopy(buildLabel, {
-      commitNumberLabel: "123",
+      buildVersionCopyLabel: "123",
       commitUrl: "https://github.com/noter-md/noter/commit/abc123",
     });
     const { clipboardData, copyEvent } = createCopyEvent();
@@ -155,7 +155,7 @@ describe("installAppBuildMarkdownCopy", () => {
     selectNodeContents(unrelated);
 
     const disposeCopyHandler = installAppBuildMarkdownCopy(buildLabel, {
-      commitNumberLabel: "123",
+      buildVersionCopyLabel: "123",
       commitUrl: "https://github.com/noter-md/noter/commit/abc123",
     });
     const { clipboardData, copyEvent } = createCopyEvent();
@@ -167,19 +167,18 @@ describe("installAppBuildMarkdownCopy", () => {
     expect(clipboardData.setData).not.toHaveBeenCalled();
   });
 
-  it("keeps the visible prefix outside the copied link payload", () => {
+  it("keeps the copied link aligned with the linked number when the selection includes the prefix", () => {
     const wrapper = document.createElement("div");
     const prefix = document.createElement("span");
     prefix.textContent = APP_BUILD_VERSION_PREFIX;
-    const spacer = document.createTextNode(" ");
     const buildLabel = document.createElement("a");
     buildLabel.textContent = "123";
-    wrapper.append(prefix, spacer, buildLabel);
+    wrapper.append(prefix, buildLabel);
     document.body.append(wrapper);
     selectNodeContents(wrapper);
 
     const disposeCopyHandler = installAppBuildMarkdownCopy(buildLabel, {
-      commitNumberLabel: "123",
+      buildVersionCopyLabel: "123",
       commitUrl: "https://github.com/noter-md/noter/commit/abc123",
     });
     const { clipboardData, copyEvent } = createCopyEvent();

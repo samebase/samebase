@@ -323,7 +323,7 @@ function renderFastLandingShell() {
   const landingLogoSrc = buildFastLandingLogoSrc();
   const { appCommit, commitNumberLabel, commitUrl } = getShellCommitMetadata();
   const commitMarkup = commitUrl
-    ? `<a data-testid="${APP_BUILD_VERSION_TEST_ID}" class="select-text transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" title="${escapeHtml(appCommit)}">${escapeHtml(commitNumberLabel)}</a>`
+    ? `<a data-testid="${APP_BUILD_VERSION_TEST_ID}" class="select-text transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" draggable="false" title="${escapeHtml(appCommit)}">${escapeHtml(commitNumberLabel)}</a>`
     : `<span data-testid="${APP_BUILD_VERSION_TEST_ID}" class="select-text" title="${escapeHtml(appCommit)}">${escapeHtml(commitNumberLabel)}</span>`;
 
   root.innerHTML = `
@@ -333,7 +333,7 @@ function renderFastLandingShell() {
           <a id="${PUBLIC_LANDING_DEV_TOGGLE_ID}" href="${escapeHtml(landingDevToggleHref)}" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
             ${escapeHtml(landingDevToggleLabel)}
           </a>
-          <div class="inline-flex select-text items-center gap-1 font-mono">
+          <div class="inline-flex select-text items-center font-mono">
             <span>${escapeHtml(APP_BUILD_VERSION_PREFIX)}</span>
             ${commitMarkup}
           </div>
@@ -423,12 +423,15 @@ function renderFastLandingShell() {
     disposeBootstrapBuildVersionCopy = installAppBuildMarkdownCopy(
       buildVersionElement,
       {
-        commitNumberLabel,
+        buildVersionCopyLabel: commitNumberLabel,
         commitUrl,
       },
     );
   }
   if (buildVersionElement instanceof HTMLAnchorElement) {
+    buildVersionElement.addEventListener("dragstart", (event) => {
+      event.preventDefault();
+    });
     buildVersionElement.addEventListener("click", (event) => {
       if (!hasSelectedAppBuildVersion(buildVersionElement)) {
         return;

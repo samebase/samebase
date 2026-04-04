@@ -75,7 +75,7 @@ export function Layout({ children }: { children: ReactNode }) {
     }
 
     return installAppBuildMarkdownCopy(buildVersionElement, {
-      commitNumberLabel,
+      buildVersionCopyLabel: commitNumberLabel,
       commitUrl,
     });
   }, [commitNumberLabel, commitUrl]);
@@ -104,7 +104,7 @@ export function Layout({ children }: { children: ReactNode }) {
               {landingDevToggleLabel}
             </a>
           )}
-          <div className="inline-flex select-text items-center gap-1 font-mono">
+          <div className="inline-flex select-text items-center font-mono">
             <span>{APP_BUILD_VERSION_PREFIX}</span>
             {commitUrl ? (
               <a
@@ -116,7 +116,11 @@ export function Layout({ children }: { children: ReactNode }) {
                 href={commitUrl}
                 target="_blank"
                 rel="noreferrer noopener"
+                draggable={false}
                 title={appCommit}
+                onDragStart={(event) => {
+                  event.preventDefault();
+                }}
                 onClick={(event) => {
                   if (hasSelectedAppBuildVersion(event.currentTarget)) {
                     event.preventDefault();
