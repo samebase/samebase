@@ -475,7 +475,7 @@ export function WorkspaceLayoutV2({
               data-workspace-layout-v2-pane="left"
               data-testid="workspace-layout-v2-pane-left"
               className={cn(
-                "flex h-full min-h-0 flex-col overflow-hidden border-r bg-muted/10 transition-[width]",
+                "flex h-full min-h-0 flex-col overflow-hidden border-r bg-muted/10",
                 leftDesktopOpen ? "opacity-100" : "opacity-0",
               )}
               style={{ width: `${desktopLeftWidthPx}px` }}
@@ -486,7 +486,7 @@ export function WorkspaceLayoutV2({
           <div
             data-workspace-layout-v2-pane="main"
             data-testid="workspace-layout-v2-pane-main"
-            className="absolute inset-y-0 z-0 flex min-h-0 flex-col overflow-hidden bg-background transition-[left,width]"
+            className="absolute inset-y-0 z-0 flex min-h-0 flex-col overflow-hidden bg-background"
             style={{
               left: `${desktopLeftWidthPx}px`,
               width: `${desktopMainWidthPx}px`,
@@ -502,7 +502,7 @@ export function WorkspaceLayoutV2({
               data-workspace-layout-v2-pane="right"
               data-testid="workspace-layout-v2-pane-right"
               className={cn(
-                "flex h-full min-h-0 flex-col overflow-hidden border-l bg-muted/10 transition-[width]",
+                "flex h-full min-h-0 flex-col overflow-hidden border-l bg-muted/10",
                 rightDesktopOpen ? "opacity-100" : "opacity-0",
               )}
               style={{ width: `${desktopRightWidthPx}px` }}

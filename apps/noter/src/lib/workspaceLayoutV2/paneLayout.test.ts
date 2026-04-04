@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  getWorkspaceLayoutV2PaneVisibleStartPx,
   getWorkspaceLayoutV2SettledPane,
+  getWorkspaceLayoutV2ViewportBoundaryPx,
   getWorkspaceLayoutV2VisibleStartPx,
   type WorkspaceLayoutV2Metrics,
 } from "@/lib/workspaceLayoutV2/paneLayout";
@@ -45,6 +47,31 @@ describe("workspaceLayoutV2 pane layout", () => {
     ).toBe("main");
   });
 
+  it("anchors the right pane to the track's right edge instead of its left edge", () => {
+    expect(getWorkspaceLayoutV2PaneVisibleStartPx("right", TEST_METRICS)).toBe(
+      TEST_METRICS.leftWidthPx + TEST_METRICS.rightWidthPx,
+    );
+    expect(
+      getWorkspaceLayoutV2VisibleStartPx({
+        currentPane: "right",
+        dragOffsetPx: 0,
+        metrics: TEST_METRICS,
+      }),
+    ).toBe(TEST_METRICS.leftWidthPx + TEST_METRICS.rightWidthPx);
+    expect(
+      getWorkspaceLayoutV2ViewportBoundaryPx({
+        currentPane: "right",
+        metrics: TEST_METRICS,
+        side: "right",
+        visibleStartPx: getWorkspaceLayoutV2VisibleStartPx({
+          currentPane: "right",
+          dragOffsetPx: 0,
+          metrics: TEST_METRICS,
+        }),
+      }),
+    ).toBe(TEST_METRICS.viewportWidthPx - TEST_METRICS.rightWidthPx);
+  });
+
   it("clamps the visible range so an open sidebar can only drag back toward main", () => {
     expect(
       getWorkspaceLayoutV2VisibleStartPx({
@@ -59,6 +86,6 @@ describe("workspaceLayoutV2 pane layout", () => {
         dragOffsetPx: -120,
         metrics: TEST_METRICS,
       }),
-    ).toBe(TEST_METRICS.leftWidthPx + TEST_METRICS.viewportWidthPx);
+    ).toBe(TEST_METRICS.leftWidthPx + TEST_METRICS.rightWidthPx);
   });
 });

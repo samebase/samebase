@@ -24,12 +24,13 @@ async function swipeFromMainToLeft(page: Page) {
     page,
     page.getByTestId("workspace-layout-v2-pane-main"),
     {
-      startX: 120,
+      startX: 80,
       startY: 220,
       steps: [
-        { delayMs: 30, xOffset: 52, yOffset: 2 },
-        { delayMs: 35, xOffset: 124, yOffset: 4 },
-        { delayMs: 35, xOffset: 212, yOffset: 5 },
+        { delayMs: 25, xOffset: 72, yOffset: 2 },
+        { delayMs: 30, xOffset: 168, yOffset: 4 },
+        { delayMs: 30, xOffset: 260, yOffset: 5 },
+        { delayMs: 25, xOffset: 320, yOffset: 6 },
       ],
     },
   );
@@ -40,12 +41,13 @@ async function swipeFromMainToRight(page: Page) {
     page,
     page.getByTestId("workspace-layout-v2-pane-main"),
     {
-      startX: 220,
+      startX: 320,
       startY: 220,
       steps: [
-        { delayMs: 30, xOffset: -52, yOffset: 2 },
-        { delayMs: 35, xOffset: -124, yOffset: 4 },
-        { delayMs: 35, xOffset: -212, yOffset: 5 },
+        { delayMs: 25, xOffset: -72, yOffset: 2 },
+        { delayMs: 30, xOffset: -168, yOffset: 4 },
+        { delayMs: 30, xOffset: -260, yOffset: 5 },
+        { delayMs: 25, xOffset: -320, yOffset: 6 },
       ],
     },
   );
@@ -59,9 +61,10 @@ async function swipeFromRightToMain(page: Page) {
       startX: 120,
       startY: 220,
       steps: [
-        { delayMs: 30, xOffset: 52, yOffset: 2 },
-        { delayMs: 35, xOffset: 124, yOffset: 4 },
-        { delayMs: 35, xOffset: 212, yOffset: 5 },
+        { delayMs: 25, xOffset: 72, yOffset: 2 },
+        { delayMs: 30, xOffset: 168, yOffset: 4 },
+        { delayMs: 30, xOffset: 260, yOffset: 5 },
+        { delayMs: 25, xOffset: 320, yOffset: 6 },
       ],
     },
   );
@@ -72,12 +75,13 @@ async function swipeFromLeftTowardRight(page: Page) {
     page,
     page.getByTestId("workspace-layout-v2-pane-left"),
     {
-      startX: 250,
+      startX: 320,
       startY: 220,
       steps: [
-        { delayMs: 30, xOffset: -80, yOffset: 2 },
-        { delayMs: 35, xOffset: -176, yOffset: 4 },
-        { delayMs: 35, xOffset: -240, yOffset: 5 },
+        { delayMs: 25, xOffset: -72, yOffset: 2 },
+        { delayMs: 30, xOffset: -168, yOffset: 4 },
+        { delayMs: 30, xOffset: -260, yOffset: 5 },
+        { delayMs: 25, xOffset: -320, yOffset: 6 },
       ],
     },
   );
@@ -99,16 +103,6 @@ async function ensureMainMobilePane(page: Page) {
   }
 }
 
-async function ensureRightDesktopSidebarClosed(page: Page) {
-  const rightHandle = page.getByTestId("workspace-layout-v2-right-resize");
-  if ((await rightHandle.count()) === 0) {
-    return;
-  }
-
-  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
-  await expect(rightHandle).toHaveCount(0);
-}
-
 test("desktop v2 route keeps sidebar triggers outside the panes", async ({
   page,
 }) => {
@@ -124,22 +118,24 @@ test("desktop v2 route keeps sidebar triggers outside the panes", async ({
 
   await expect(leftButton).toBeVisible();
   await expect(rightButton).toBeVisible();
-  await ensureRightDesktopSidebarClosed(page);
-  await expect(
-    page.getByTestId("workspace-layout-v2-right-resize"),
-  ).toHaveCount(0);
+  const rightHandle = page.getByTestId("workspace-layout-v2-right-resize");
+  const rightWasOpenAtStart = (await rightHandle.count()) > 0;
 
-  await rightButton.click();
-
-  await expect(
-    page.getByTestId("workspace-layout-v2-right-resize"),
-  ).toBeVisible();
+  if (!rightWasOpenAtStart) {
+    await rightButton.click();
+    await expect(rightHandle).toBeVisible();
+    await rightButton.click();
+    await expect(rightHandle).toHaveCount(0);
+  } else {
+    await expect(rightHandle).toBeVisible();
+  }
 });
 
 test("mobile v2 route requires two swipes to move from left to right", async ({
   page,
 }) => {
   const viewport = page.viewportSize();
+  const viewportWidth = viewport?.width ?? 0;
   test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
 
   await ensureMachinesWorkspaceV2RouteReady(page);
@@ -168,4 +164,17 @@ test("mobile v2 route requires two swipes to move from left to right", async ({
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
   ).toBeVisible();
+  const rightPaneBox = await page
+    .getByTestId("workspace-layout-v2-pane-right")
+    .boundingBox();
+  expect(rightPaneBox).not.toBeNull();
+  if (rightPaneBox !== null) {
+    expect(Math.round(rightPaneBox.x + rightPaneBox.width)).toBe(viewportWidth);
+  }
+
+  await swipeFromRightToMain(page);
+  await expect(route).toHaveAttribute("data-mobile-pane", "main");
+  await expect(
+    page.getByTestId("workspace-layout-v2-right-resize"),
+  ).toHaveCount(0);
 });

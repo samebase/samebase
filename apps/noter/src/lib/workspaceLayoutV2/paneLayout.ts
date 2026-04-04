@@ -62,6 +62,24 @@ export function getWorkspaceLayoutV2PaneStartPx(
   }
 }
 
+export function getWorkspaceLayoutV2PaneVisibleStartPx(
+  pane: WorkspaceLayoutV2Pane,
+  metrics: WorkspaceLayoutV2Metrics,
+) {
+  switch (pane) {
+    case "left":
+      return 0;
+    case "main":
+      return metrics.leftWidthPx;
+    case "right":
+      return (
+        getWorkspaceLayoutV2TrackWidthPx(metrics) - metrics.viewportWidthPx
+      );
+    default:
+      return pane satisfies never;
+  }
+}
+
 export function getWorkspaceLayoutV2TrackWidthPx(
   metrics: WorkspaceLayoutV2Metrics,
 ) {
@@ -72,24 +90,30 @@ function getWorkspaceLayoutV2VisibleStartRange(
   pane: WorkspaceLayoutV2Pane,
   metrics: WorkspaceLayoutV2Metrics,
 ) {
-  const mainStartPx = getWorkspaceLayoutV2PaneStartPx("main", metrics);
-  const rightStartPx = getWorkspaceLayoutV2PaneStartPx("right", metrics);
+  const mainVisibleStartPx = getWorkspaceLayoutV2PaneVisibleStartPx(
+    "main",
+    metrics,
+  );
+  const rightVisibleStartPx = getWorkspaceLayoutV2PaneVisibleStartPx(
+    "right",
+    metrics,
+  );
 
   switch (pane) {
     case "left":
       return {
-        maxVisibleStartPx: mainStartPx,
+        maxVisibleStartPx: mainVisibleStartPx,
         minVisibleStartPx: 0,
       };
     case "main":
       return {
-        maxVisibleStartPx: rightStartPx,
+        maxVisibleStartPx: rightVisibleStartPx,
         minVisibleStartPx: 0,
       };
     case "right":
       return {
-        maxVisibleStartPx: rightStartPx,
-        minVisibleStartPx: mainStartPx,
+        maxVisibleStartPx: rightVisibleStartPx,
+        minVisibleStartPx: mainVisibleStartPx,
       };
     default:
       return pane satisfies never;
@@ -117,7 +141,7 @@ export function getWorkspaceLayoutV2VisibleStartPx(args: {
   dragOffsetPx: number;
   metrics: WorkspaceLayoutV2Metrics;
 }) {
-  const paneStartPx = getWorkspaceLayoutV2PaneStartPx(
+  const paneVisibleStartPx = getWorkspaceLayoutV2PaneVisibleStartPx(
     args.currentPane,
     args.metrics,
   );
@@ -125,7 +149,7 @@ export function getWorkspaceLayoutV2VisibleStartPx(args: {
   return clampWorkspaceLayoutV2VisibleStartPx({
     currentPane: args.currentPane,
     metrics: args.metrics,
-    requestedVisibleStartPx: paneStartPx - args.dragOffsetPx,
+    requestedVisibleStartPx: paneVisibleStartPx - args.dragOffsetPx,
   });
 }
 
@@ -204,8 +228,8 @@ export function getWorkspaceLayoutV2SettledPane(args: {
   }
 
   const distancePx = Math.abs(
-    getWorkspaceLayoutV2PaneStartPx(candidatePane, args.metrics) -
-      getWorkspaceLayoutV2PaneStartPx(args.currentPane, args.metrics),
+    getWorkspaceLayoutV2PaneVisibleStartPx(candidatePane, args.metrics) -
+      getWorkspaceLayoutV2PaneVisibleStartPx(args.currentPane, args.metrics),
   );
   const travelTowardCandidatePx = Math.abs(args.dragOffsetPx);
   const velocityTowardCandidatePxPerMs = getVelocityTowardCandidate({
