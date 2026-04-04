@@ -240,8 +240,9 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - Format documents with Prettier.
 - Prefer exhaustive dispatch with `satisfies never` when it fits.
 - When sharing URLs, always format them as clickable Markdown links.
-- When sharing a Cloudflare URL in a Markdown link, prefix the label with
-  `link ` so it renders correctly in ProseMark, for example
+- When sharing a Cloudflare URL in a Markdown link, prefix the label with the
+  word `link` followed by a space so it renders correctly in ProseMark, for
+  example
   `[link https://example.trycloudflare.com](https://example.trycloudflare.com)`.
 - When a relevant preview exists, include at least one clickable localhost URL
   in the user-facing response; otherwise say that no preview is running.
