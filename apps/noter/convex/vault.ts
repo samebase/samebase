@@ -1474,6 +1474,9 @@ async function getVaultByRepositoryHelper(
     treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
     lastRepositoryMetadataRefreshAt:
       getLastRepositoryMetadataRefreshAt(remoteBranches),
+    // Budget automatic refreshes from live remote branches only; retained
+    // deleted-upstream rows are local recovery state, not GitHub fan-out.
+    remoteBranchCount: countActiveRemoteBranches(remoteBranches),
     hasResolvedBranchTree: branchTree !== null,
     defaultBranch,
     resolvedBranch,
@@ -1531,6 +1534,15 @@ export function resolveVaultBranchSelection(args: {
     resolvedBranch,
     branchNotFound,
   };
+}
+
+export function countActiveRemoteBranches(
+  remoteBranches: Array<{
+    remoteState: "active" | "deleted_upstream";
+  }>,
+): number {
+  return remoteBranches.filter((branch) => branch.remoteState === "active")
+    .length;
 }
 
 export const getVaultInfrastructure = query({
