@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { SidebarProvider } from "@/components/sidebar";
 import {
@@ -10,6 +10,7 @@ import {
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
 } from "@/lib/codexAppServerResearch";
+import type { MachinesWorkspaceProjectConversationSelection } from "@/lib/machinesWorkspaceConversation";
 
 const FIXTURE_RELATIVE_TIME_REFERENCE_MS = 1_775_541_762_000;
 const FIXTURE_WORKTREE_CWD = "/Users/fixture/.codex/worktrees/demo/noter";
@@ -269,24 +270,27 @@ const SIXTH_THREAD: CodexAppServerThread = {
 };
 
 export function MachinesWorkspaceVisualFixture() {
-  const machineThreads = useMemo(
-    () => ({
-      "machine-mac": [FIRST_THREAD, SECOND_THREAD, THIRD_THREAD],
-      "machine-win": [FOURTH_THREAD, FIFTH_THREAD, SIXTH_THREAD],
-    }),
-    [],
-  );
+  const [machineThreads, setMachineThreads] = useState<
+    Record<string, CodexAppServerThread[]>
+  >({
+    "machine-mac": [FIRST_THREAD, SECOND_THREAD, THIRD_THREAD],
+    "machine-win": [FOURTH_THREAD, FIFTH_THREAD, SIXTH_THREAD],
+  });
+  const [pendingConversation, setPendingConversation] =
+    useState<MachinesWorkspaceProjectConversationSelection | null>(null);
   const [selectedMachineId, setSelectedMachineId] =
     useState<string>("machine-mac");
-  const [selectedThreadId, setSelectedThreadId] = useState<string>(
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
     SECOND_THREAD.id,
   );
+  const [turnDraft, setTurnDraft] = useState("");
   const [machinePinnedThreadIds, setMachinePinnedThreadIds] = useState<
     Record<string, string[]>
   >({
     "machine-mac": [SECOND_THREAD.id, THIRD_THREAD.id],
     "machine-win": [FOURTH_THREAD.id],
   });
+  const createdThreadCountRef = useRef(0);
   const selectedThread = useMemo(
     () =>
       Object.values(machineThreads)
@@ -324,6 +328,105 @@ export function MachinesWorkspaceVisualFixture() {
             ),
       };
     });
+  };
+  const handleProjectStartConversation = (
+    args: MachinesWorkspaceProjectConversationSelection,
+  ) => {
+    setPendingConversation(args);
+    setSelectedMachineId(args.machineId);
+    setSelectedThreadId(null);
+    setTurnDraft("");
+  };
+  const handleTurnSubmit = () => {
+    if (pendingConversation === null || turnDraft.trim().length === 0) {
+      return;
+    }
+
+    createdThreadCountRef.current += 1;
+    const nextId = `thread-machine-workspace-created-${createdThreadCountRef.current}`;
+    const nextUpdatedAt =
+      FIXTURE_RELATIVE_TIME_REFERENCE_MS +
+      createdThreadCountRef.current * 60_000;
+    const worktreeLabel =
+      pendingConversation.envMode === "worktree"
+        ? `m${createdThreadCountRef.current.toString().padStart(3, "0")}`
+        : null;
+    const nextTurn: CodexAppServerThreadTurn = {
+      errorMessage: null,
+      id: `turn-${nextId}`,
+      items: [
+        {
+          id: `user-${nextId}`,
+          raw: {
+            text: turnDraft.trim(),
+          },
+          summary: turnDraft.trim(),
+          type: "userMessage",
+        },
+        {
+          id: `assistant-${nextId}`,
+          raw: {
+            text:
+              pendingConversation.envMode === "worktree"
+                ? "WORKTREE READY"
+                : "LOCAL READY",
+          },
+          summary:
+            pendingConversation.envMode === "worktree"
+              ? "WORKTREE READY"
+              : "LOCAL READY",
+          type: "agentMessage",
+        },
+      ],
+      raw: null,
+      status: "completed",
+    };
+    const nextThread: CodexAppServerThread = {
+      ...FIRST_THREAD,
+      createdAt: nextUpdatedAt,
+      cwd:
+        pendingConversation.envMode === "worktree" && worktreeLabel !== null
+          ? `/Users/fixture/.codex/worktrees/${worktreeLabel}/${pendingConversation.projectLabel}`
+          : pendingConversation.projectRootCwd,
+      id: nextId,
+      gitInfo:
+        pendingConversation.envMode === "worktree"
+          ? {
+              branch: `codex/machine-${createdThreadCountRef.current}`,
+              originUrl: FIXTURE_GIT_ORIGIN_URL,
+              sha: FIXTURE_GIT_SHA,
+            }
+          : FIRST_THREAD.gitInfo,
+      name:
+        pendingConversation.envMode === "worktree"
+          ? `New worktree conversation ${createdThreadCountRef.current}`
+          : `New local conversation ${createdThreadCountRef.current}`,
+      path: `${FIXTURE_SESSION_ROOT}/${nextId}.jsonl`,
+      preview: turnDraft.trim(),
+      project: {
+        id: pendingConversation.projectId,
+        label: pendingConversation.projectLabel,
+        rootCwd: pendingConversation.projectRootCwd,
+      },
+      turns: [nextTurn],
+      updatedAt: nextUpdatedAt,
+      workspace: {
+        isProjectRoot: pendingConversation.envMode !== "worktree",
+        label: worktreeLabel,
+      },
+    };
+
+    setMachineThreads((currentThreads) => ({
+      ...currentThreads,
+      [pendingConversation.machineId]: [
+        nextThread,
+        ...(currentThreads[pendingConversation.machineId] ?? []),
+      ],
+    }));
+    setPendingConversation(null);
+    setSelectedMachineId(pendingConversation.machineId);
+    setSelectedThreadId(nextId);
+    setTurnDraft("");
   };
 
   return (
@@ -364,7 +467,19 @@ export function MachinesWorkspaceVisualFixture() {
                   threads: machineThreads["machine-win"],
                 },
               ]}
+              hasPendingStartedThread={false}
               pendingPinThreadKey={null}
+              pendingConversation={
+                pendingConversation?.machineId === selectedMachineId
+                  ? {
+                      envMode: pendingConversation.envMode,
+                      machineId: pendingConversation.machineId,
+                      projectId: pendingConversation.projectId,
+                      projectLabel: pendingConversation.projectLabel,
+                      projectRootCwd: pendingConversation.projectRootCwd,
+                    }
+                  : null
+              }
               selectedMachineId={selectedMachineId}
               selectedMachineDisplayName={selectedMachineDisplayName}
               selectedMachineHostname={selectedMachineHostname}
@@ -374,11 +489,13 @@ export function MachinesWorkspaceVisualFixture() {
               selectedThreadLoading={false}
               selectedThreadId={selectedThreadId}
               relativeTimeReferenceMs={FIXTURE_RELATIVE_TIME_REFERENCE_MS}
-              turnDraft="Continue with the main pane chat surface."
-              onTurnDraftChange={() => {}}
-              onTurnSubmit={() => {}}
+              turnDraft={turnDraft}
+              onProjectStartConversation={handleProjectStartConversation}
+              onTurnDraftChange={setTurnDraft}
+              onTurnSubmit={handleTurnSubmit}
               onThreadPinChange={handleThreadPinChange}
               onThreadSelect={({ machineId, threadId }) => {
+                setPendingConversation(null);
                 setSelectedMachineId(machineId);
                 setSelectedThreadId(threadId);
               }}

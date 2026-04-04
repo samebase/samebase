@@ -96,9 +96,11 @@ describe("MachinesWorkspaceThreadPane", () => {
       <MachinesWorkspaceThreadPane
         thread={THREAD_FIXTURE}
         selectedThreadId={THREAD_FIXTURE.id}
+        pendingConversation={null}
         selectedMachineDisplayName="Research MacBook Pro"
         selectedMachineHostname="research-mbp.local"
         selectedMachineStatusReason={null}
+        hasPendingStartedThread={false}
         isLoading={false}
         errorMessage={null}
         isSubmittingTurn={false}
@@ -115,5 +117,62 @@ describe("MachinesWorkspaceThreadPane", () => {
     ).toBe(2);
     expect(markup).toContain("User message with `code`");
     expect(markup).toContain("Assistant message with");
+  });
+
+  it("renders a draft worktree conversation empty state before the first message", () => {
+    const markup = renderToStaticMarkup(
+      <MachinesWorkspaceThreadPane
+        thread={null}
+        selectedThreadId={null}
+        pendingConversation={{
+          envMode: "worktree",
+          projectLabel: "noter",
+        }}
+        selectedMachineDisplayName="Research MacBook Pro"
+        selectedMachineHostname="research-mbp.local"
+        selectedMachineStatusReason={null}
+        hasPendingStartedThread={false}
+        isLoading={false}
+        errorMessage={null}
+        isSubmittingTurn={false}
+        turnDraft=""
+        onTurnDraftChange={() => {}}
+        onTurnSubmit={() => {}}
+      />,
+    );
+
+    expect(markup).toContain("New conversation");
+    expect(markup).toContain("noter · New worktree");
+    expect(markup).toContain(
+      "Send the first prompt to create a new worktree conversation in noter.",
+    );
+  });
+
+  it("shows hydration copy while a newly started thread is still loading into inventory", () => {
+    const markup = renderToStaticMarkup(
+      <MachinesWorkspaceThreadPane
+        thread={null}
+        selectedThreadId="thread-machine-workspace-test"
+        pendingConversation={null}
+        selectedMachineDisplayName="Research MacBook Pro"
+        selectedMachineHostname="research-mbp.local"
+        selectedMachineStatusReason={null}
+        hasPendingStartedThread={true}
+        isLoading={false}
+        errorMessage={null}
+        isSubmittingTurn={false}
+        turnDraft=""
+        onTurnDraftChange={() => {}}
+        onTurnSubmit={() => {}}
+      />,
+    );
+
+    expect(markup).toContain("New conversation");
+    expect(markup).toContain(
+      "Waiting for the new conversation to hydrate. Its first message will appear here once the machine inventory refreshes.",
+    );
+    expect(markup).toContain(
+      'data-placeholder="Waiting for the new conversation to hydrate..."',
+    );
   });
 });

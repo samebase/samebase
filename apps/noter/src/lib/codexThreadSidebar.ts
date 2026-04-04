@@ -18,6 +18,7 @@ export type CodexThreadSidebarProject = {
   label: string;
   latestUpdatedAt: number;
   loadedCount: number;
+  rootCwd: string;
   threads: CodexThreadSidebarThread[];
 };
 
@@ -160,6 +161,7 @@ export function buildCodexThreadSidebarViewModel(args: {
       label: readProjectLabel(thread),
       latestUpdatedAt: thread.updatedAt,
       loadedCount: sidebarThread.isLoaded ? 1 : 0,
+      rootCwd: thread.project.rootCwd,
       threads: [sidebarThread],
     });
   }

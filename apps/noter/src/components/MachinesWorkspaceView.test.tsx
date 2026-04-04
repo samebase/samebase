@@ -56,6 +56,7 @@ describe("MachinesWorkspaceView", () => {
         defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
       >
         <MachinesWorkspaceView
+          hasPendingStartedThread={false}
           isSubmittingTurn={false}
           machineInventories={[
             {
@@ -70,6 +71,7 @@ describe("MachinesWorkspaceView", () => {
               threads: [THREAD_FIXTURE],
             },
           ]}
+          pendingConversation={null}
           selectedMachineId="machine-linux"
           selectedMachineDisplayName="Offline Linux Box"
           selectedMachineHostname="linux-box.local"
@@ -93,5 +95,167 @@ describe("MachinesWorkspaceView", () => {
     expect(markup).toMatch(
       /<button[^>]*disabled=""[^>]*>.*Offline machine thread/s,
     );
+  });
+
+  it("renders a project-level start conversation button", () => {
+    const markup = renderToStaticMarkup(
+      <SidebarProvider
+        defaultOpen={true}
+        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+      >
+        <MachinesWorkspaceView
+          hasPendingStartedThread={false}
+          isSubmittingTurn={false}
+          machineInventories={[
+            {
+              hasLoadedThreadInventory: true,
+              machineDisplayName: "Research MacBook Pro",
+              machineHostname: "research-mbp.local",
+              machineId: "machine-mac",
+              machineStatus: "online",
+              machineStatusReason: null,
+              pinnedThreadIds: [],
+              threads: [THREAD_FIXTURE],
+            },
+          ]}
+          pendingConversation={null}
+          pendingPinThreadKey={null}
+          selectedMachineId="machine-mac"
+          selectedMachineDisplayName="Research MacBook Pro"
+          selectedMachineHostname="research-mbp.local"
+          selectedMachineStatusReason={null}
+          selectedThread={THREAD_FIXTURE}
+          selectedThreadError={null}
+          selectedThreadLoading={false}
+          selectedThreadId={THREAD_FIXTURE.id}
+          turnDraft=""
+          onProjectStartConversation={() => {}}
+          onTurnDraftChange={() => {}}
+          onTurnSubmit={() => {}}
+        />
+      </SidebarProvider>,
+    );
+
+    expect(markup).toContain("Start new conversation in noter");
+  });
+
+  it("disables project-level start buttons while a turn submission is pending", () => {
+    const markup = renderToStaticMarkup(
+      <SidebarProvider
+        defaultOpen={true}
+        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+      >
+        <MachinesWorkspaceView
+          hasPendingStartedThread={false}
+          isSubmittingTurn={true}
+          machineInventories={[
+            {
+              hasLoadedThreadInventory: true,
+              machineDisplayName: "Research MacBook Pro",
+              machineHostname: "research-mbp.local",
+              machineId: "machine-mac",
+              machineStatus: "online",
+              machineStatusReason: null,
+              pinnedThreadIds: [],
+              threads: [THREAD_FIXTURE],
+            },
+          ]}
+          pendingConversation={null}
+          pendingPinThreadKey={null}
+          selectedMachineId="machine-mac"
+          selectedMachineDisplayName="Research MacBook Pro"
+          selectedMachineHostname="research-mbp.local"
+          selectedMachineStatusReason={null}
+          selectedThread={THREAD_FIXTURE}
+          selectedThreadError={null}
+          selectedThreadLoading={false}
+          selectedThreadId={THREAD_FIXTURE.id}
+          turnDraft=""
+          onProjectStartConversation={() => {}}
+          onTurnDraftChange={() => {}}
+          onTurnSubmit={() => {}}
+        />
+      </SidebarProvider>,
+    );
+
+    expect(markup).toMatch(
+      /<button[^>]*aria-label="Start new conversation in noter"[^>]*disabled=""[^>]*>/,
+    );
+  });
+
+  it("shows the pending spinner only for the project row that started the conversation", () => {
+    const markup = renderToStaticMarkup(
+      <SidebarProvider
+        defaultOpen={true}
+        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+      >
+        <MachinesWorkspaceView
+          hasPendingStartedThread={false}
+          isSubmittingTurn={true}
+          machineInventories={[
+            {
+              hasLoadedThreadInventory: true,
+              machineDisplayName: "Research MacBook Pro",
+              machineHostname: "research-mbp.local",
+              machineId: "machine-mac",
+              machineStatus: "online",
+              machineStatusReason: null,
+              pinnedThreadIds: [],
+              threads: [THREAD_FIXTURE],
+            },
+            {
+              hasLoadedThreadInventory: true,
+              machineDisplayName: "Research Windows Workstation",
+              machineHostname: "research-win.local",
+              machineId: "machine-win",
+              machineStatus: "online",
+              machineStatusReason: null,
+              pinnedThreadIds: [],
+              threads: [
+                {
+                  ...THREAD_FIXTURE,
+                  id: "thread-machine-workspace-test-win",
+                },
+              ],
+            },
+          ]}
+          pendingConversation={{
+            envMode: "worktree",
+            machineId: "machine-mac",
+            projectId: THREAD_FIXTURE.project.id,
+            projectLabel: THREAD_FIXTURE.project.label,
+            projectRootCwd: THREAD_FIXTURE.project.rootCwd,
+          }}
+          pendingPinThreadKey={null}
+          selectedMachineId="machine-mac"
+          selectedMachineDisplayName="Research MacBook Pro"
+          selectedMachineHostname="research-mbp.local"
+          selectedMachineStatusReason={null}
+          selectedThread={null}
+          selectedThreadError={null}
+          selectedThreadLoading={false}
+          selectedThreadId={null}
+          turnDraft=""
+          onProjectStartConversation={() => {}}
+          onTurnDraftChange={() => {}}
+          onTurnSubmit={() => {}}
+        />
+      </SidebarProvider>,
+    );
+
+    const macSectionStart = markup.indexOf("Research MacBook Pro");
+    const winSectionStart = markup.indexOf("Research Windows Workstation");
+    const macSection =
+      macSectionStart === -1 || winSectionStart === -1
+        ? ""
+        : markup.slice(macSectionStart, winSectionStart);
+    const winSection =
+      winSectionStart === -1 ? "" : markup.slice(winSectionStart);
+
+    expect(macSection.match(/animate-spin/g)?.length ?? 0).toBe(1);
+    expect(winSection).not.toContain("animate-spin");
   });
 });

@@ -2,6 +2,11 @@ import { ChatInput } from "@/components/ChatInput";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 import {
+  readMachinesWorkspaceConversationEnvLabel,
+  readMachinesWorkspaceConversationStartCopy,
+  type MachinesWorkspaceConversationEnvMode,
+} from "@/lib/machinesWorkspaceConversation";
+import {
   deriveCodexThreadTimelineEntries,
   type CodexThreadTimelineWorkEntry,
 } from "@/lib/codexThreadTimeline";
@@ -21,9 +26,14 @@ import { useEffect, useMemo, useRef } from "react";
 type MachinesWorkspaceThreadPaneProps = {
   thread: CodexAppServerThread | null;
   selectedThreadId: string | null;
+  pendingConversation: {
+    envMode: MachinesWorkspaceConversationEnvMode;
+    projectLabel: string;
+  } | null;
   selectedMachineDisplayName: string | null;
   selectedMachineHostname: string | null;
   selectedMachineStatusReason: string | null;
+  hasPendingStartedThread: boolean;
   isLoading: boolean;
   errorMessage: string | null;
   isSubmittingTurn: boolean;
@@ -161,9 +171,11 @@ function ThreadMessageBody({
 export function MachinesWorkspaceThreadPane({
   thread,
   selectedThreadId,
+  pendingConversation,
   selectedMachineDisplayName,
   selectedMachineHostname,
   selectedMachineStatusReason,
+  hasPendingStartedThread,
   isLoading,
   errorMessage,
   isSubmittingTurn,
@@ -189,7 +201,11 @@ export function MachinesWorkspaceThreadPane({
   });
   const headerMeta = useMemo(() => {
     if (thread === null) {
-      return null;
+      if (pendingConversation === null) {
+        return null;
+      }
+
+      return `${pendingConversation.projectLabel} · ${readMachinesWorkspaceConversationEnvLabel(pendingConversation.envMode)}`;
     }
 
     const parts = [thread.status.type];
@@ -198,13 +214,20 @@ export function MachinesWorkspaceThreadPane({
     }
 
     return parts.join(" · ");
-  }, [thread]);
+  }, [pendingConversation, thread]);
   const composerPlaceholder =
     selectedMachineStatusReason !== null
       ? selectedMachineStatusReason
-      : selectedThreadId
-        ? "Continue this thread..."
-        : "Send a prompt to start a machine-local thread...";
+      : pendingConversation !== null
+        ? readMachinesWorkspaceConversationStartCopy({
+            envMode: pendingConversation.envMode,
+            projectLabel: pendingConversation.projectLabel,
+          })
+        : hasPendingStartedThread
+          ? "Waiting for the new conversation to hydrate..."
+        : selectedThreadId
+          ? "Continue this thread..."
+          : "Pick a thread or use a project's plus button to start a new conversation.";
 
   let emptyStateTitle = "Select a thread";
   let emptyStateBody =
@@ -213,6 +236,16 @@ export function MachinesWorkspaceThreadPane({
   if (selectedMachineStatusReason !== null) {
     emptyStateTitle = "Machine control unavailable";
     emptyStateBody = selectedMachineStatusReason;
+  } else if (pendingConversation !== null) {
+    emptyStateTitle = "New conversation";
+    emptyStateBody = readMachinesWorkspaceConversationStartCopy({
+      envMode: pendingConversation.envMode,
+      projectLabel: pendingConversation.projectLabel,
+    });
+  } else if (selectedThreadId !== null && hasPendingStartedThread) {
+    emptyStateTitle = "New conversation";
+    emptyStateBody =
+      "Waiting for the new conversation to hydrate. Its first message will appear here once the machine inventory refreshes.";
   } else if (selectedThreadId !== null && isLoading) {
     emptyStateTitle = "Loading thread";
     emptyStateBody = `Loading ${selectedThreadId}.`;

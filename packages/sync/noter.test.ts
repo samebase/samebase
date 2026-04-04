@@ -47,6 +47,99 @@ import {
   writeLocalConfig,
 } from './noter.js'
 
+function buildIsolatedGitEnv() {
+  const env = { ...process.env }
+
+  // Git hooks populate repository-scoped variables such as GIT_INDEX_FILE.
+  // Clear them so temporary repos created inside tests behave like fresh
+  // standalone repositories.
+  for (const key of [
+    'GIT_COMMON_DIR',
+    'GIT_DIR',
+    'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_PREFIX',
+    'GIT_WORK_TREE',
+  ]) {
+    delete env[key]
+  }
+
+  return env
+}
+
+type ThreadSummaryFixture = {
+  id: string
+  name: string | null
+  preview: string
+  cwd: string
+  project: {
+    id: string
+    label: string
+    rootCwd: string
+  }
+  workspace: {
+    label: string | null
+    isProjectRoot: boolean
+  }
+  createdAt: number
+  updatedAt: number
+  cliVersion: string
+  modelProvider: string
+  sourceLabel: string
+  source: string
+  status: {
+    type: string
+    activeFlags: string[]
+    raw: {
+      type: string
+    }
+  }
+  gitInfo: null
+  path: string
+  agentNickname: string | null
+  agentRole: string | null
+  turns: unknown[]
+  raw: null
+}
+
+function buildThreadSummaryFixture(
+  overrides: Partial<ThreadSummaryFixture> = {},
+): ThreadSummaryFixture {
+  return {
+    id: 'thread-fixture',
+    name: null,
+    preview: 'Fixture thread',
+    cwd: '/tmp/noter',
+    project: {
+      id: '/tmp/noter',
+      label: 'noter',
+      rootCwd: '/tmp/noter',
+    },
+    workspace: {
+      label: null,
+      isProjectRoot: true,
+    },
+    createdAt: 1,
+    updatedAt: 2,
+    cliVersion: '0.114.0',
+    modelProvider: 'openai',
+    sourceLabel: 'vscode',
+    source: 'vscode',
+    status: {
+      type: 'idle',
+      activeFlags: [],
+      raw: { type: 'idle' },
+    },
+    gitInfo: null,
+    path: '/tmp/noter/thread.jsonl',
+    agentNickname: null,
+    agentRole: null,
+    turns: [],
+    raw: null,
+    ...overrides,
+  }
+}
+
 describe('@noter-md/sync', () => {
   it('defaults the public connect command to noter.md with no extra CLI override', () => {
     expect(parseCliArgs(['connect'])).toEqual({
@@ -491,6 +584,279 @@ describe('@noter-md/sync', () => {
       }
       rmSync(codexHomePath, { recursive: true, force: true })
     }
+  })
+
+  it('creates git worktrees through the shared local control router', async () => {
+    const previousCodexHome = process.env.CODEX_HOME
+    const codexHomePath = path.join(
+      tmpdir(),
+      `noter-codex-home-worktree-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    )
+    const repoPath = path.join(
+      tmpdir(),
+      `noter-worktree-router-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    )
+    process.env.CODEX_HOME = codexHomePath
+    mkdirSync(repoPath, { recursive: true })
+    const gitEnv = buildIsolatedGitEnv()
+
+    expect(
+      spawnSync('git', ['init', '-b', 'main'], { cwd: repoPath, env: gitEnv })
+        .status,
+    ).toBe(0)
+    expect(
+      spawnSync('git', ['config', 'user.email', 'noter-tests@example.com'], {
+        cwd: repoPath,
+        env: gitEnv,
+      }).status,
+    ).toBe(0)
+    expect(
+      spawnSync('git', ['config', 'user.name', 'Noter Tests'], {
+        cwd: repoPath,
+        env: gitEnv,
+      }).status,
+    ).toBe(0)
+    writeFileSync(path.join(repoPath, 'README.md'), '# Noter\n', 'utf8')
+    expect(
+      spawnSync('git', ['add', 'README.md'], { cwd: repoPath, env: gitEnv })
+        .status,
+    ).toBe(0)
+    expect(
+      spawnSync('git', ['commit', '-m', 'Initial commit'], {
+        cwd: repoPath,
+        env: gitEnv,
+      }).status,
+    ).toBe(0)
+
+    const runtime = new CodexLocalControlRuntime(repoPath)
+    const router = createCodexLocalControlRouter({ runtime })
+    const server = createServer((req, res) => {
+      void router(req, res, () => {
+        res.statusCode = 404
+        res.end('not found')
+      })
+    })
+
+    await new Promise((resolve, reject) => {
+      server.once('error', reject)
+      server.listen(0, '127.0.0.1', () => {
+        server.removeListener('error', reject)
+        resolve(undefined)
+      })
+    })
+
+    try {
+      const address = server.address()
+      if (!address || typeof address === 'string') {
+        throw new Error('Expected a TCP server address')
+      }
+
+      const response = await fetch(
+        `http://127.0.0.1:${address.port}/worktree/create`,
+        {
+          body: JSON.stringify({ cwd: repoPath }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        },
+      )
+      expect(response.status).toBe(200)
+      const payload = await response.json()
+      expect(payload).toMatchObject({
+        worktree: {
+          branch: expect.stringMatching(/^codex-machine\//),
+          cwd: expect.stringContaining('/worktrees/'),
+        },
+      })
+      expect(statSync(payload.worktree.cwd).isDirectory()).toBe(true)
+      expect(
+        spawnSync('git', [
+          '-C',
+          payload.worktree.cwd,
+          'rev-parse',
+          '--abbrev-ref',
+          'HEAD',
+        ], { env: gitEnv })
+          .stdout.toString()
+          .trim(),
+      ).toBe(payload.worktree.branch)
+    } finally {
+      await new Promise((resolve, reject) => {
+        server.close(error => {
+          if (error) {
+            reject(error)
+            return
+          }
+
+          resolve(undefined)
+        })
+      })
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME
+      } else {
+        process.env.CODEX_HOME = previousCodexHome
+      }
+      rmSync(repoPath, { recursive: true, force: true })
+      rmSync(codexHomePath, { recursive: true, force: true })
+    }
+  })
+
+  it('pages thread-list recovery until the requested thread is found', async () => {
+    const runtime = new CodexLocalControlRuntime('/tmp/noter')
+    const listThreadsMock = vi
+      .spyOn(runtime, 'listThreads')
+      .mockResolvedValueOnce({
+        nextCursor: 'cursor-2',
+        pinnedThreadIds: [],
+        runtime: runtime.getSnapshot(),
+        threads: [buildThreadSummaryFixture({ id: 'thread-1' })],
+      })
+      .mockResolvedValueOnce({
+        nextCursor: null,
+        pinnedThreadIds: [],
+        runtime: runtime.getSnapshot(),
+        threads: [buildThreadSummaryFixture({ id: 'thread-target' })],
+      })
+
+    const thread = await runtime.readThreadSummaryFromList('thread-target')
+
+    expect(thread?.id).toBe('thread-target')
+    expect(listThreadsMock).toHaveBeenCalledTimes(2)
+    expect(listThreadsMock.mock.calls[0]?.[0].get('cursor')).toBeNull()
+    expect(listThreadsMock.mock.calls[1]?.[0].get('cursor')).toBe('cursor-2')
+  })
+
+  it('falls back to thread-list paging when pinned thread repair misses thread/read', async () => {
+    const previousCodexHome = process.env.CODEX_HOME
+    const codexHomePath = path.join(
+      tmpdir(),
+      `noter-codex-home-pinned-fallback-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    )
+    const globalStatePath = path.join(codexHomePath, '.codex-global-state.json')
+    mkdirSync(codexHomePath, { recursive: true })
+    writeFileSync(
+      globalStatePath,
+      `${JSON.stringify({ 'pinned-thread-ids': ['thread-target'] }, null, 2)}\n`,
+      'utf8',
+    )
+    process.env.CODEX_HOME = codexHomePath
+
+    try {
+      const runtime = new CodexLocalControlRuntime('/tmp/noter')
+      vi.spyOn(runtime, 'sendRequestNoEnsure').mockResolvedValue({
+        data: [buildThreadSummaryFixture({ id: 'thread-other' })],
+        nextCursor: null,
+      })
+      vi.spyOn(runtime, 'readThreadSummary').mockResolvedValue(null)
+      const readThreadSummaryFromListMock = vi
+        .spyOn(runtime, 'readThreadSummaryFromList')
+        .mockResolvedValue(buildThreadSummaryFixture({ id: 'thread-target' }))
+
+      const result = await runtime.listThreads(new URLSearchParams())
+
+      expect(result.threads.map(thread => thread.id)).toContain('thread-target')
+      expect(readThreadSummaryFromListMock).toHaveBeenCalledWith('thread-target')
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME
+      } else {
+        process.env.CODEX_HOME = previousCodexHome
+      }
+      rmSync(codexHomePath, { recursive: true, force: true })
+    }
+  })
+
+  it('searches archived pages when thread-list recovery misses the active inventory', async () => {
+    const runtime = new CodexLocalControlRuntime('/tmp/noter')
+    const listThreadsMock = vi
+      .spyOn(runtime, 'listThreads')
+      .mockResolvedValueOnce({
+        nextCursor: null,
+        pinnedThreadIds: [],
+        runtime: runtime.getSnapshot(),
+        threads: [buildThreadSummaryFixture({ id: 'thread-other' })],
+      })
+      .mockResolvedValueOnce({
+        nextCursor: null,
+        pinnedThreadIds: [],
+        runtime: runtime.getSnapshot(),
+        threads: [
+          buildThreadSummaryFixture({
+            id: 'thread-target',
+            path: '/tmp/noter/archived_sessions/thread-target.jsonl',
+          }),
+        ],
+      })
+
+    const thread = await runtime.readThreadSummaryFromList('thread-target')
+
+    expect(thread?.id).toBe('thread-target')
+    expect(listThreadsMock).toHaveBeenCalledTimes(2)
+    expect(listThreadsMock.mock.calls[0]?.[0].get('archived')).toBe('false')
+    expect(listThreadsMock.mock.calls[1]?.[0].get('archived')).toBe('true')
+  })
+
+  it('falls back to thread-list summaries when thread/read omits createdAt', async () => {
+    const runtime = new CodexLocalControlRuntime('/tmp/noter')
+    vi.spyOn(runtime, 'sendRequestNoEnsure').mockResolvedValue({
+      thread: {
+        id: 'thread-target',
+        cwd: '/tmp/noter',
+        updatedAt: 20,
+        turns: [
+          {
+            id: 'turn-1',
+            items: [
+              {
+                content: [
+                  {
+                    text: 'Reply with exactly READY and nothing else.',
+                    text_elements: [],
+                    type: 'text',
+                  },
+                ],
+                id: 'item-1',
+                type: 'userMessage',
+              },
+              {
+                id: 'item-2',
+                phase: 'final_answer',
+                text: 'READY',
+                type: 'agentMessage',
+              },
+            ],
+            status: 'completed',
+          },
+        ],
+      },
+    })
+    vi.spyOn(runtime, 'listThreads').mockResolvedValue({
+      nextCursor: null,
+      pinnedThreadIds: [],
+      runtime: runtime.getSnapshot(),
+      threads: [
+        buildThreadSummaryFixture({
+          createdAt: 10,
+          id: 'thread-target',
+          preview: 'Recovered preview from the thread list.',
+          status: {
+            type: 'running',
+            activeFlags: ['streaming'],
+            raw: { type: 'running' },
+          },
+          updatedAt: 20,
+        }),
+      ],
+    })
+
+    const result = await runtime.readThread('thread-target')
+
+    expect(result.thread.createdAt).toBe(10)
+    expect(result.thread.preview).toBe('Recovered preview from the thread list.')
+    expect(result.thread.status.type).toBe('running')
+    expect(result.thread.turns).toHaveLength(1)
+    expect(result.thread.turns[0]?.items[1]?.summary).toBe('READY')
   })
 
   it('stores bootstrap state in one local config file', () => {

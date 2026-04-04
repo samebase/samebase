@@ -130,6 +130,74 @@ Rules:
 - Prefer squash merge unless there is an explicit reason to preserve the full
   intermediate commit history.
 
+## Agent-Owned End-To-End Validation
+
+For meaningful PRs, the agent should prefer at least one end-to-end validation
+path that it can execute itself outside CI before concluding the work.
+
+Intent:
+
+1. prove the shipped change was exercised by the agent, not only inferred from
+   code or unit tests
+2. keep a manual validation path that is easy to translate into narrower
+   automated tests later
+3. make the PR validation section reflect real product behavior, not just build
+   health
+
+Guidelines:
+
+1. treat this as a first-class manual test path, not a CI requirement
+2. prefer real-route or real-surface validation over fixture-only checks when
+   the route can be exercised locally
+3. if the feature depends on setup, onboarding, or approval state, include that
+   real setup path in the validation unless a documented seed/bootstrap shortcut
+   is intentionally used
+4. for non-seeded flows, prefer exercising the actual operator path end to end,
+   for example: open the local browser, configure the relevant `noter.js` bridge
+   or local connector state, complete the approval step, then verify the
+   resulting product behavior
+5. for flows that start a new thread, conversation, or similar empty container,
+   the manual path is not complete at the blank state; send the first real
+   message and confirm the thread materializes with at least the initial user
+   message and first product response
+6. when the feature offers distinct runtime modes such as `local` and
+   `new worktree`, exercise each shipped mode in the manual path unless the PR
+   scope explicitly narrows it, and confirm the observable runtime context for
+   each mode instead of only checking that the menu renders
+7. include the concrete end-to-end path in the PR validation summary
+8. when a manual end-to-end check reveals stable seams, follow up with the
+   narrowest useful unit, integration, or Playwright coverage that can run in CI
+9. if the agent cannot run the full path because of missing auth, external
+   dependencies, or environment limits, say exactly what was blocked and what
+   local or automated evidence was used instead
+
+## User-Flow Validation Coverage
+
+Each shipped feature should leave behind at least one concrete user-flow
+validation path.
+
+Rationale:
+
+If agents are expected to control the full development cycle, they must be able
+to manually validate newly added features themselves. Otherwise the agent can
+only implement code, not truly own whether the shipped behavior works end to end
+in the product.
+
+Rules:
+
+1. treat the user-flow as a product-level scenario, not just a component-level
+   interaction
+2. prefer saving the flow in `manual-tests/` when it is too heavy, stateful, or
+   environment-dependent for normal PR CI
+3. write the flow so an agent can execute it end to end and prove the shipped
+   behavior on a real route or real surface
+4. when the flow is stable enough to automate but still too expensive for every
+   PR, keep it eligible for scheduled automation such as a daily run rather than
+   forcing it into the default CI path
+5. when a scheduled user-flow check finds a stable seam, extract the narrowest
+   useful subset into unit, integration, or normal Playwright coverage that can
+   run on every PR
+
 ## Archive And Clean
 
 - `archive` requires an existing GitHub PR whose head branch is the current
