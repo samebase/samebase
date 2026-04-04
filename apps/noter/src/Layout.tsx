@@ -3,10 +3,11 @@ import {
   getLandingDevToggleLabel,
 } from "@/lib/landingDevMode";
 import {
-  APP_BUILD_VERSION_PREFIX,
+  APP_BUILD_COMMIT_LINK_TEST_ID,
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
-  formatAppBuildVersionNumber,
+  formatAppBuildCommitLabel,
+  formatAppBuildVersionLabel,
   hasSelectedAppBuildVersion,
   installAppBuildMarkdownCopy,
 } from "@/lib/appBuild";
@@ -22,7 +23,8 @@ import {
 export function Layout({ children }: { children: ReactNode }) {
   const appCommit = __APP_COMMIT__ || "unknown";
   const appCommitNumber = __APP_COMMIT_NUMBER__;
-  const commitNumberLabel = formatAppBuildVersionNumber(appCommitNumber);
+  const buildVersionLabel = formatAppBuildVersionLabel(appCommitNumber);
+  const commitLabel = formatAppBuildCommitLabel(appCommit);
   const repoUrl = __APP_REPO_URL__ || "";
   const commitUrl =
     repoUrl && appCommit !== "unknown" ? `${repoUrl}/commit/${appCommit}` : "";
@@ -39,7 +41,7 @@ export function Layout({ children }: { children: ReactNode }) {
     !isLoading && !isAuthenticated && location.pathname !== "/";
   const landingDevToggleHref = buildLandingDevToggleHref(location);
   const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
-  const buildVersionRef = useRef<HTMLElement | null>(null);
+  const commitLinkRef = useRef<HTMLElement | null>(null);
   const handleLandingDevToggleClick = (
     event: MouseEvent<HTMLAnchorElement>,
   ) => {
@@ -69,16 +71,16 @@ export function Layout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const buildVersionElement = buildVersionRef.current;
-    if (buildVersionElement === null) {
+    const commitLinkElement = commitLinkRef.current;
+    if (commitLinkElement === null) {
       return;
     }
 
-    return installAppBuildMarkdownCopy(buildVersionElement, {
-      buildVersionCopyLabel: commitNumberLabel,
+    return installAppBuildMarkdownCopy(commitLinkElement, {
+      appBuildCopyLabel: commitLabel,
       commitUrl,
     });
-  }, [commitNumberLabel, commitUrl]);
+  }, [commitLabel, commitUrl]);
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -104,13 +106,15 @@ export function Layout({ children }: { children: ReactNode }) {
               {landingDevToggleLabel}
             </a>
           )}
-          <div className="inline-flex select-text items-center font-mono">
-            <span>{APP_BUILD_VERSION_PREFIX}</span>
+          <div className="inline-flex select-text items-center gap-2 font-mono">
+            <span data-testid={APP_BUILD_VERSION_TEST_ID}>
+              {buildVersionLabel}
+            </span>
             {commitUrl ? (
               <a
-                data-testid={APP_BUILD_VERSION_TEST_ID}
+                data-testid={APP_BUILD_COMMIT_LINK_TEST_ID}
                 ref={(element) => {
-                  buildVersionRef.current = element;
+                  commitLinkRef.current = element;
                 }}
                 className="select-text hover:text-foreground transition-colors"
                 href={commitUrl}
@@ -127,18 +131,18 @@ export function Layout({ children }: { children: ReactNode }) {
                   }
                 }}
               >
-                {commitNumberLabel}
+                {commitLabel}
               </a>
             ) : (
               <span
-                data-testid={APP_BUILD_VERSION_TEST_ID}
+                data-testid={APP_BUILD_COMMIT_LINK_TEST_ID}
                 ref={(element) => {
-                  buildVersionRef.current = element;
+                  commitLinkRef.current = element;
                 }}
                 className="select-text"
                 title={appCommit}
               >
-                {commitNumberLabel}
+                {commitLabel}
               </span>
             )}
           </div>

@@ -1,6 +1,6 @@
 import { devices, expect, test, type Locator } from "@playwright/test";
 import {
-  APP_BUILD_VERSION_PREFIX,
+  APP_BUILD_COMMIT_LINK_TEST_ID,
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
@@ -156,27 +156,31 @@ async function expectLandingLogoSceneReady(scene: Locator) {
 }
 
 async function expectAppBuildVersion(versionLabel: Locator) {
-  await expect(versionLabel).toHaveText(/^\d+$/);
+  await expect(versionLabel).toHaveText(/^v\d+$/);
 }
 
 async function expectAppBuildVersionDisplay(
   statusBar: Locator,
   versionLabel: Locator,
+  commitLabel: Locator,
 ) {
   await expectAppBuildVersion(versionLabel);
+  await expect(commitLabel).toHaveText(/^[0-9a-f]{8}$/);
   const buildVersionGroup = statusBar.locator(".font-mono").first();
   const versionText = await versionLabel.textContent();
+  const commitText = await commitLabel.textContent();
   expect(versionText).not.toBeNull();
+  expect(commitText).not.toBeNull();
   await expect
     .poll(async () => {
       const buildVersionText = await buildVersionGroup.textContent();
       return buildVersionText?.replace(/\s+/g, "") ?? null;
     })
-    .toBe(`${APP_BUILD_VERSION_PREFIX}${versionText ?? ""}`);
+    .toBe(`${versionText ?? ""}${commitText ?? ""}`);
 }
 
-async function expectAppBuildCommitLink(versionLabel: Locator) {
-  const href = await versionLabel.getAttribute("href");
+async function expectAppBuildCommitLink(commitLabel: Locator) {
+  const href = await commitLabel.getAttribute("href");
 
   expect(href).toMatch(
     /^https:\/\/github\.com\/noter-md\/noter\/commit\/[0-9a-f]{40}$/,
@@ -272,12 +276,15 @@ test("build version stays stable across the landing shell handoff", async ({
     .getByTestId("public-landing-shell")
     .getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
   const shellVersion = shellStatusBar.getByTestId(APP_BUILD_VERSION_TEST_ID);
+  const shellCommit = shellStatusBar.getByTestId(APP_BUILD_COMMIT_LINK_TEST_ID);
 
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
-  await expectAppBuildVersionDisplay(shellStatusBar, shellVersion);
+  await expectAppBuildVersionDisplay(shellStatusBar, shellVersion, shellCommit);
   const shellVersionText = await shellVersion.textContent();
-  const shellVersionHref = await expectAppBuildCommitLink(shellVersion);
+  const shellCommitText = await shellCommit.textContent();
+  const shellVersionHref = await expectAppBuildCommitLink(shellCommit);
   expect(shellVersionText).not.toBeNull();
+  expect(shellCommitText).not.toBeNull();
 
   const shellScreenshot = await takeStableScreenshot(shellStatusBar);
 
@@ -287,10 +294,18 @@ test("build version stays stable across the landing shell handoff", async ({
   const hydratedVersion = hydratedStatusBar.getByTestId(
     APP_BUILD_VERSION_TEST_ID,
   );
+  const hydratedCommit = hydratedStatusBar.getByTestId(
+    APP_BUILD_COMMIT_LINK_TEST_ID,
+  );
 
-  await expectAppBuildVersionDisplay(hydratedStatusBar, hydratedVersion);
+  await expectAppBuildVersionDisplay(
+    hydratedStatusBar,
+    hydratedVersion,
+    hydratedCommit,
+  );
   await expect(hydratedVersion).toHaveText(shellVersionText ?? "");
-  await expect(hydratedVersion).toHaveAttribute("href", shellVersionHref ?? "");
+  await expect(hydratedCommit).toHaveText(shellCommitText ?? "");
+  await expect(hydratedCommit).toHaveAttribute("href", shellVersionHref ?? "");
 
   const hydratedScreenshot = await takeStableScreenshot(hydratedStatusBar);
 
@@ -322,32 +337,38 @@ test("build version copies as a Markdown link across the shell handoff", async (
   const shellVersion = page
     .getByTestId("public-landing-shell")
     .getByTestId(APP_BUILD_VERSION_TEST_ID);
+  const shellCommit = page
+    .getByTestId("public-landing-shell")
+    .getByTestId(APP_BUILD_COMMIT_LINK_TEST_ID);
   const shellStatusBar = page
     .getByTestId("public-landing-shell")
     .getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
-  const shellVersionGroup = shellStatusBar.locator(".font-mono").first();
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
-  await expectAppBuildVersionDisplay(shellStatusBar, shellVersion);
-  const shellVersionText = await shellVersion.textContent();
-  const shellVersionHref = await expectAppBuildCommitLink(shellVersion);
-  expect(shellVersionText).not.toBeNull();
-  await selectText(shellVersionGroup);
+  await expectAppBuildVersionDisplay(shellStatusBar, shellVersion, shellCommit);
+  const shellCommitText = await shellCommit.textContent();
+  const shellVersionHref = await expectAppBuildCommitLink(shellCommit);
+  expect(shellCommitText).not.toBeNull();
+  await selectText(shellCommit);
   await page.keyboard.press(COPY_SHORTCUT_KEY);
   const shellClipboardText = await readClipboardText(page);
-  expect(shellClipboardText).toBe(`[${shellVersionText}](${shellVersionHref})`);
+  expect(shellClipboardText).toBe(`[${shellCommitText}](${shellVersionHref})`);
 
   await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
 
   const hydratedStatusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
   const hydratedVersion = page.getByTestId(APP_BUILD_VERSION_TEST_ID);
-  const hydratedVersionGroup = hydratedStatusBar.locator(".font-mono").first();
-  await expectAppBuildVersionDisplay(hydratedStatusBar, hydratedVersion);
-  await selectText(hydratedVersionGroup);
+  const hydratedCommit = page.getByTestId(APP_BUILD_COMMIT_LINK_TEST_ID);
+  await expectAppBuildVersionDisplay(
+    hydratedStatusBar,
+    hydratedVersion,
+    hydratedCommit,
+  );
+  await selectText(hydratedCommit);
   await page.keyboard.press(COPY_SHORTCUT_KEY);
   const hydratedClipboardText = await readClipboardText(page);
 
   expect(hydratedClipboardText).toBe(
-    `[${shellVersionText}](${shellVersionHref})`,
+    `[${shellCommitText}](${shellVersionHref})`,
   );
 });
 

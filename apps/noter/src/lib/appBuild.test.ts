@@ -3,7 +3,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  APP_BUILD_VERSION_PREFIX,
+  APP_BUILD_COMMIT_LINK_TEST_ID,
+  APP_BUILD_VERSION_TEST_ID,
+  formatAppBuildCommitLabel,
   formatAppBuildMarkdownLink,
   formatAppBuildVersionLabel,
   formatAppBuildVersionNumber,
@@ -48,23 +50,35 @@ describe("formatAppBuildVersionNumber", () => {
   });
 });
 
+describe("formatAppBuildCommitLabel", () => {
+  it("shortens full commit SHAs for display", () => {
+    expect(
+      formatAppBuildCommitLabel("1234567890abcdef1234567890abcdef12345678"),
+    ).toBe("12345678");
+  });
+
+  it("falls back to the original marker for non-SHA values", () => {
+    expect(formatAppBuildCommitLabel("unknown")).toBe("unknown");
+  });
+});
+
 describe("formatAppBuildMarkdownLink", () => {
   it("formats the linked build number as a Markdown link when a commit URL exists", () => {
     expect(
       formatAppBuildMarkdownLink({
-        buildVersionCopyLabel: "123",
+        appBuildCopyLabel: "12345678",
         commitUrl: "https://github.com/noter-md/noter/commit/abc123",
       }),
-    ).toBe("[123](https://github.com/noter-md/noter/commit/abc123)");
+    ).toBe("[12345678](https://github.com/noter-md/noter/commit/abc123)");
   });
 
   it("falls back to the plain copied value without a commit URL", () => {
     expect(
       formatAppBuildMarkdownLink({
-        buildVersionCopyLabel: "?",
+        appBuildCopyLabel: "12345678",
         commitUrl: "",
       }),
-    ).toBe("?");
+    ).toBe("12345678");
   });
 });
 
@@ -120,7 +134,7 @@ describe("installAppBuildMarkdownCopy", () => {
     selectNodeContents(buildLabel);
 
     const disposeCopyHandler = installAppBuildMarkdownCopy(buildLabel, {
-      buildVersionCopyLabel: "123",
+      appBuildCopyLabel: "12345678",
       commitUrl: "https://github.com/noter-md/noter/commit/abc123",
     });
     const { clipboardData, copyEvent } = createCopyEvent();
@@ -132,17 +146,17 @@ describe("installAppBuildMarkdownCopy", () => {
     expect(clipboardData.setData).toHaveBeenNthCalledWith(
       1,
       "text/plain",
-      "[123](https://github.com/noter-md/noter/commit/abc123)",
+      "[12345678](https://github.com/noter-md/noter/commit/abc123)",
     );
     expect(clipboardData.setData).toHaveBeenNthCalledWith(
       2,
       "text/markdown",
-      "[123](https://github.com/noter-md/noter/commit/abc123)",
+      "[12345678](https://github.com/noter-md/noter/commit/abc123)",
     );
     expect(clipboardData.setData).toHaveBeenNthCalledWith(
       3,
       "text/html",
-      '<a href="https://github.com/noter-md/noter/commit/abc123">123</a>',
+      '<a href="https://github.com/noter-md/noter/commit/abc123">12345678</a>',
     );
   });
 
@@ -155,7 +169,7 @@ describe("installAppBuildMarkdownCopy", () => {
     selectNodeContents(unrelated);
 
     const disposeCopyHandler = installAppBuildMarkdownCopy(buildLabel, {
-      buildVersionCopyLabel: "123",
+      appBuildCopyLabel: "12345678",
       commitUrl: "https://github.com/noter-md/noter/commit/abc123",
     });
     const { clipboardData, copyEvent } = createCopyEvent();
@@ -167,18 +181,20 @@ describe("installAppBuildMarkdownCopy", () => {
     expect(clipboardData.setData).not.toHaveBeenCalled();
   });
 
-  it("keeps the copied link aligned with the linked number when the selection includes the prefix", () => {
+  it("keeps the copied link aligned with the linked commit label when the selection includes the version text", () => {
     const wrapper = document.createElement("div");
-    const prefix = document.createElement("span");
-    prefix.textContent = APP_BUILD_VERSION_PREFIX;
-    const buildLabel = document.createElement("a");
-    buildLabel.textContent = "123";
-    wrapper.append(prefix, buildLabel);
+    const versionLabel = document.createElement("span");
+    versionLabel.dataset.testid = APP_BUILD_VERSION_TEST_ID;
+    versionLabel.textContent = "v123";
+    const commitLabel = document.createElement("a");
+    commitLabel.dataset.testid = APP_BUILD_COMMIT_LINK_TEST_ID;
+    commitLabel.textContent = "12345678";
+    wrapper.append(versionLabel, commitLabel);
     document.body.append(wrapper);
     selectNodeContents(wrapper);
 
-    const disposeCopyHandler = installAppBuildMarkdownCopy(buildLabel, {
-      buildVersionCopyLabel: "123",
+    const disposeCopyHandler = installAppBuildMarkdownCopy(commitLabel, {
+      appBuildCopyLabel: "12345678",
       commitUrl: "https://github.com/noter-md/noter/commit/abc123",
     });
     const { clipboardData, copyEvent } = createCopyEvent();
@@ -189,7 +205,7 @@ describe("installAppBuildMarkdownCopy", () => {
     expect(clipboardData.setData).toHaveBeenNthCalledWith(
       1,
       "text/plain",
-      "[123](https://github.com/noter-md/noter/commit/abc123)",
+      "[12345678](https://github.com/noter-md/noter/commit/abc123)",
     );
   });
 });
