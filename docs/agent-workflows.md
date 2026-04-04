@@ -43,7 +43,7 @@ each time.
   active development; keep that default config available for the stable
   machine/phone flow.
 - Keep every local repo checkout isolated with
-  `--state-dir ~/.noter/worktrees/<checkout-id>`.
+  `--state-dir ~/.noter/checkouts/<checkout-id>`.
 - For Codex worktrees under `~/.codex/worktrees/<id>/...`, use that folder id as
   `<checkout-id>`.
 - For the primary local checkout or any other non-Codex checkout, use the
@@ -140,7 +140,7 @@ Rules:
 - If the current checkout has a linked machine install, stop that exact
   checkout-local `noter-sync run` process before deleting its state dir.
 - `clean` should remove only the current checkout's isolated
-  `~/.noter/worktrees/<checkout-id>` state dir and never the default `~/.noter`
+  `~/.noter/checkouts/<checkout-id>` state dir and never the default `~/.noter`
   install.
 - After machine-link cleanup, remove the current non-`main` worktree, delete the
   local branch, and delete the remote branch if it still exists.
