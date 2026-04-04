@@ -1102,6 +1102,32 @@ function normalizeAllowedOrigins(origins) {
   )
 }
 
+export function parseNoterConnectConfig(args) {
+  const convexSiteUrl = args.parsed?.convexSiteUrl
+  if (typeof convexSiteUrl !== 'string' || convexSiteUrl.length === 0) {
+    throw new Error(
+      `${NOTER_CONNECT_CONFIG_PATHNAME} is missing a valid "convexSiteUrl" string.`,
+    )
+  }
+
+  const machineControlAllowedOrigins = normalizeAllowedOrigins(
+    args.parsed?.machineControlAllowedOrigins,
+  )
+
+  try {
+    return {
+      convexSiteUrl: validateConvexSiteUrl(convexSiteUrl).toString(),
+      machineControlAllowedOrigins,
+    }
+  } catch (error) {
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : `Invalid ${NOTER_CONNECT_CONFIG_PATHNAME}: ${args.text}`,
+    )
+  }
+}
+
 function readLoopbackOriginKey(value) {
   const origin = normalizeOrigin(value)
   if (origin === null) {
@@ -4024,22 +4050,10 @@ async function fetchNoterConnectConfig(sourceUrl) {
   }
 
   const { parsed, text } = await readJsonResponse(response)
-  const convexSiteUrl = parsed?.convexSiteUrl
-  if (typeof convexSiteUrl !== 'string' || convexSiteUrl.length === 0) {
-    throw new Error(
-      `${NOTER_CONNECT_CONFIG_PATHNAME} is missing a valid "convexSiteUrl" string.`,
-    )
-  }
-
-  try {
-    return validateConvexSiteUrl(convexSiteUrl).toString()
-  } catch (error) {
-    throw new Error(
-      error instanceof Error
-        ? error.message
-        : `Invalid ${NOTER_CONNECT_CONFIG_PATHNAME}: ${text}`,
-    )
-  }
+  return parseNoterConnectConfig({
+    parsed,
+    text,
+  })
 }
 
 async function readLocalControlStatus(localControlOrigin) {
@@ -4310,7 +4324,7 @@ async function postJson(args) {
 }
 
 async function createMachineRegistration(args) {
-  const convexSiteUrl = await fetchNoterConnectConfig(args.sourceUrl)
+  const { convexSiteUrl } = await fetchNoterConnectConfig(args.sourceUrl)
   const requestId = `mreq_${randomToken(16)}`
   const machineCredential = `mmc_${randomToken(24)}`
   const credentialHash = await sha256Hex(machineCredential)
@@ -4592,14 +4606,18 @@ async function runConnectorCommand(parsedArgs) {
   const storedConfig = readStoredMachineConfig({
     stateDirectory: parsedArgs.stateDirectory,
   })
-  const convexSiteUrl = await fetchNoterConnectConfig(storedConfig.sourceUrl)
+  const { convexSiteUrl, machineControlAllowedOrigins } =
+    await fetchNoterConnectConfig(storedConfig.sourceUrl)
   const displayName = hostname()
   const os = normalizeMachineOs(platform())
   const connectorVersion = buildConnectorVersion(codexVersion)
   const liveControlState = createInitialLiveControlState()
   const localControlServer = await startLocalCodexControlServer({
     machineControlAuth: {
-      allowedOrigins: [new URL(storedConfig.sourceUrl).origin],
+      allowedOrigins: [
+        new URL(storedConfig.sourceUrl).origin,
+        ...machineControlAllowedOrigins,
+      ],
       introspectionUrl: buildMachineControlIntrospectionUrl(convexSiteUrl),
       machineId: storedConfig.machineId,
     },

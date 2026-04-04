@@ -305,12 +305,55 @@ function readNoterConnectConvexSiteUrl(): string {
   );
 }
 
+function readNoterConnectMachineControlAllowedOrigins(): string[] {
+  const configuredDevOrigin = process.env.DEV_ENV_ORIGIN?.trim();
+  if (!configuredDevOrigin) {
+    return [];
+  }
+
+  let devOrigin: URL;
+  try {
+    devOrigin = new URL(configuredDevOrigin);
+  } catch {
+    return [];
+  }
+
+  if (
+    (devOrigin.protocol !== "http:" && devOrigin.protocol !== "https:") ||
+    devOrigin.username ||
+    devOrigin.password ||
+    devOrigin.pathname !== "/" ||
+    devOrigin.search.length > 0 ||
+    devOrigin.hash.length > 0
+  ) {
+    return [];
+  }
+
+  const origins = [devOrigin.origin];
+  if (devOrigin.hostname === "127.0.0.1") {
+    origins.push(`http://localhost:${devOrigin.port}`);
+  } else if (devOrigin.hostname === "localhost") {
+    origins.push(`http://127.0.0.1:${devOrigin.port}`);
+  }
+
+  return Array.from(
+    new Set(
+      origins.filter(
+        (origin) =>
+          origin.startsWith("http://") || origin.startsWith("https://"),
+      ),
+    ),
+  );
+}
+
 async function buildRuntimeNoterConnectConfig() {
   return await formatGeneratedFileContents({
     filepath: "noter-connect.json",
     content: JSON.stringify(
       {
         convexSiteUrl: readNoterConnectConvexSiteUrl(),
+        machineControlAllowedOrigins:
+          readNoterConnectMachineControlAllowedOrigins(),
       },
       null,
       2,
