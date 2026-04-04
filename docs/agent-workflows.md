@@ -39,6 +39,8 @@ run the real `noter.js` connected-machine flow without re-explaining the details
 each time.
 
 - Treat `link machines` as an alias for `link machine`.
+- Prefer the repo helper `make link-machine` or `node ./scripts/link-machine.js`
+  for this workflow.
 - Never reuse the default `~/.noter` install for a local repo checkout under
   active development; keep that default config available for the stable
   machine/phone flow.
@@ -51,6 +53,9 @@ each time.
 - `link machine` should use the current checkout's `noter.js` URL, run `connect`
   with the matching state dir, complete the browser approval flow, then run
   `noter-sync run` with that same state dir.
+- The repo helper may auto-approve only when the deployment backend is loopback
+  and local dev password auth is available. Non-loopback deployments must keep
+  the browser approval step manual.
 - Never overwrite the default `~/.noter/config.json` when linking a local repo
   checkout.
 

@@ -1,6 +1,6 @@
 # set default  to be `make run`
 # .PHONY ensures targets run even if a file with the same name exists.
-.PHONY: bootstrap bootstrap-anon run run-dev run-share anon anon-once anon-dev anon-share killport connect connect-once daytona-local daytona-local-once update-fixtures playwright-open record-start record-stop
+.PHONY: bootstrap bootstrap-anon run run-dev run-share anon anon-once anon-dev anon-share killport connect connect-once link-machine daytona-local daytona-local-once update-fixtures playwright-open record-start record-stop
 
 ANON_SETUP_ONCE_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --once --codegen=enable --tail-logs=disable --typecheck=disable
 # Allow `make killport 13124` by treating the extra make goal as the port.
@@ -24,6 +24,7 @@ PLAYWRIGHT_RECORD_DIR ?= /tmp/noter-browser-recordings
 CONNECT_LABEL ?= research
 CONNECT_INTERVAL_SECONDS ?= 60
 CONNECT_RUNNER = node ./scripts/noter-pr-connect.js --label "$(CONNECT_LABEL)" --interval "$(CONNECT_INTERVAL_SECONDS)"
+LINK_MACHINE_RUNNER = node ./scripts/link-machine.js
 
 # also add a step that updates the env for preview server when using worktrees
 # or daytona or gh codespaces or something else
@@ -107,6 +108,10 @@ connect:
 # Run one local noter-origin polling cycle, then exit.
 connect-once:
 	$(CONNECT_RUNNER) --once
+
+# Link the current checkout as an isolated connected machine without Playwright.
+link-machine:
+	$(LINK_MACHINE_RUNNER)
 
 # Daytona-local bootstrap: one repo checkout, no internal branch creation,
 # explicit source env when Daytona exposes a cloud dev deployment identity.
