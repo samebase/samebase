@@ -9,6 +9,7 @@ export type CodexThreadTimelineMessageEntry = {
   id: string;
   role: "user" | "assistant";
   text: string;
+  turnId: string;
   item: CodexAppServerThreadItem;
 };
 
@@ -332,6 +333,7 @@ export function deriveCodexThreadTimelineEntries(
           kind: "message",
           role: messageRole,
           text: readCodexThreadItemDisplayText(item) ?? "",
+          turnId: turn.id,
         });
         continue;
       }

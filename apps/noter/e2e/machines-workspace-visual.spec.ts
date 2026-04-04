@@ -39,6 +39,36 @@ async function openMachinesWorkspaceFixture(page: Page) {
   await page.waitForLoadState("networkidle");
 }
 
+async function dragSelectBetweenLocators(
+  page: Page,
+  startLocatorText: string,
+  endLocatorText: string,
+) {
+  const startBox = await page
+    .getByText(startLocatorText, { exact: false })
+    .boundingBox();
+  const endBox = await page
+    .getByText(endLocatorText, { exact: false })
+    .boundingBox();
+
+  if (startBox === null || endBox === null) {
+    throw new Error(
+      "Expected both transcript selection anchors to be visible.",
+    );
+  }
+
+  await page.mouse.move(startBox.x + 12, startBox.y + startBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    endBox.x + endBox.width - 12,
+    endBox.y + endBox.height / 2,
+    {
+      steps: 16,
+    },
+  );
+  await page.mouse.up();
+}
+
 test("machines workspace fixture", async ({ page }) => {
   await openMachinesWorkspaceFixture(page);
 
@@ -186,6 +216,29 @@ test("machines workspace project plus button opens a worktree draft conversation
       )
       .first(),
   ).toBeVisible();
+});
+
+test("machines workspace transcript selection spans multiple message sections", async ({
+  page,
+}) => {
+  await openMachinesWorkspaceFixture(page);
+
+  await dragSelectBetweenLocators(
+    page,
+    "Use the shared workspace shell for connected machines",
+    "Use the same readonly ProseMark surface that Noter already trusts for chat messages.",
+  );
+
+  const selectedText = await page.evaluate(
+    () => window.getSelection()?.toString().replace(/\s+/g, " ").trim() ?? "",
+  );
+
+  expect(selectedText).toContain(
+    "Use the shared workspace shell for connected machines",
+  );
+  expect(selectedText).toContain(
+    "Use the same readonly ProseMark surface that Noter already trusts for chat messages.",
+  );
 });
 
 test.describe("mobile", () => {
