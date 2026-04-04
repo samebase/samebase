@@ -1974,7 +1974,7 @@ function normalizeThread(value) {
     readString(record.preview) ?? deriveThreadPreviewFallback(record)
   const cwd = readString(record.cwd)
   const updatedAt = readNumber(record.updatedAt)
-  const createdAt = readNumber(record.createdAt) ?? updatedAt
+  const createdAt = readNumber(record.createdAt)
   if (!id || !cwd || createdAt === undefined) {
     return null
   }
@@ -3030,11 +3030,35 @@ export class CodexLocalControlRuntime {
 
   async readThreadSummaryFromList(threadId) {
     try {
-      const searchParams = new URLSearchParams()
-      searchParams.set('archived', 'false')
-      searchParams.set('limit', '200')
-      const result = await this.listThreads(searchParams)
-      return result.threads.find(thread => thread.id === threadId) ?? null
+      const seenCursors = new Set()
+      let cursor = null
+
+      while (true) {
+        const searchParams = new URLSearchParams()
+        searchParams.set('archived', 'false')
+        searchParams.set('limit', '200')
+        if (cursor) {
+          searchParams.set('cursor', cursor)
+        }
+
+        const result = await this.listThreads(searchParams)
+        const matchedThread =
+          result.threads.find(thread => thread.id === threadId) ?? null
+        if (matchedThread) {
+          return matchedThread
+        }
+
+        if (
+          typeof result.nextCursor !== 'string' ||
+          result.nextCursor.length === 0 ||
+          seenCursors.has(result.nextCursor)
+        ) {
+          return null
+        }
+
+        seenCursors.add(result.nextCursor)
+        cursor = result.nextCursor
+      }
     } catch {
       return null
     }

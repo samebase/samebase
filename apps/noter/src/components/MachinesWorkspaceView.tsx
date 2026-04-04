@@ -278,6 +278,7 @@ function ProjectSection(props: {
   group: CodexThreadSidebarProject;
   isOpen: boolean;
   isStartConversationDisabled: boolean;
+  isStartConversationPending: boolean;
   onOpenChange: (nextOpen: boolean) => void;
   onStartConversation?: (envMode: MachinesWorkspaceConversationEnvMode) => void;
   children: ReactNode;
@@ -325,7 +326,14 @@ function ProjectSection(props: {
                   event.stopPropagation();
                 }}
               >
-                <Plus className="h-3.5 w-3.5" strokeWidth={1.75} />
+                {props.isStartConversationPending ? (
+                  <Loader2
+                    className="h-3.5 w-3.5 animate-spin"
+                    strokeWidth={1.75}
+                  />
+                ) : (
+                  <Plus className="h-3.5 w-3.5" strokeWidth={1.75} />
+                )}
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={4}>
@@ -684,7 +692,10 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                           thread.id === props.selectedThreadId
                         }
                         pinActionPendingKey={props.pendingPinThreadKey}
-                        isDisabled={section.machineStatusReason !== null}
+                        isDisabled={
+                          section.machineStatusReason !== null ||
+                          props.isSubmittingTurn
+                        }
                         relativeTimeReferenceMs={props.relativeTimeReferenceMs}
                         onPinChange={
                           props.onThreadPinChange
@@ -720,8 +731,10 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                         group={group}
                         isOpen={openProjectIds.has(projectKey)}
                         isStartConversationDisabled={
-                          section.machineStatusReason !== null
+                          section.machineStatusReason !== null ||
+                          props.isSubmittingTurn
                         }
+                        isStartConversationPending={props.isSubmittingTurn}
                         onOpenChange={(nextOpen) => {
                           setOpenProjectIds((current) => {
                             const next = new Set(current);
@@ -760,7 +773,10 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                               thread.id === props.selectedThreadId
                             }
                             pinActionPendingKey={props.pendingPinThreadKey}
-                            isDisabled={section.machineStatusReason !== null}
+                            isDisabled={
+                              section.machineStatusReason !== null ||
+                              props.isSubmittingTurn
+                            }
                             relativeTimeReferenceMs={
                               props.relativeTimeReferenceMs
                             }

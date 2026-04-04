@@ -67,6 +67,42 @@ function buildIsolatedGitEnv() {
   return env
 }
 
+function buildThreadSummaryFixture(overrides = {}) {
+  return {
+    id: 'thread-fixture',
+    name: null,
+    preview: 'Fixture thread',
+    cwd: '/tmp/noter',
+    project: {
+      id: '/tmp/noter',
+      label: 'noter',
+      rootCwd: '/tmp/noter',
+    },
+    workspace: {
+      label: null,
+      isProjectRoot: true,
+    },
+    createdAt: 1,
+    updatedAt: 2,
+    cliVersion: '0.114.0',
+    modelProvider: 'openai',
+    sourceLabel: 'vscode',
+    source: 'vscode',
+    status: {
+      type: 'idle',
+      activeFlags: [],
+      raw: { type: 'idle' },
+    },
+    gitInfo: null,
+    path: '/tmp/noter/thread.jsonl',
+    agentNickname: null,
+    agentRole: null,
+    turns: [],
+    raw: null,
+    ...overrides,
+  }
+}
+
 describe('@noter-md/sync', () => {
   it('defaults the public connect command to noter.md with no extra CLI override', () => {
     expect(parseCliArgs(['connect'])).toEqual({
@@ -627,6 +663,87 @@ describe('@noter-md/sync', () => {
       rmSync(repoPath, { recursive: true, force: true })
       rmSync(codexHomePath, { recursive: true, force: true })
     }
+  })
+
+  it('pages thread-list recovery until the requested thread is found', async () => {
+    const runtime = new CodexLocalControlRuntime('/tmp/noter')
+    const listThreadsMock = vi
+      .spyOn(runtime, 'listThreads')
+      .mockResolvedValueOnce({
+        nextCursor: 'cursor-2',
+        pinnedThreadIds: [],
+        runtime: runtime.getSnapshot(),
+        threads: [buildThreadSummaryFixture({ id: 'thread-1' })],
+      })
+      .mockResolvedValueOnce({
+        nextCursor: null,
+        pinnedThreadIds: [],
+        runtime: runtime.getSnapshot(),
+        threads: [buildThreadSummaryFixture({ id: 'thread-target' })],
+      })
+
+    const thread = await runtime.readThreadSummaryFromList('thread-target')
+
+    expect(thread?.id).toBe('thread-target')
+    expect(listThreadsMock).toHaveBeenCalledTimes(2)
+    expect(listThreadsMock.mock.calls[0]?.[0].get('cursor')).toBeNull()
+    expect(listThreadsMock.mock.calls[1]?.[0].get('cursor')).toBe('cursor-2')
+  })
+
+  it('falls back to thread-list summaries when thread/read omits createdAt', async () => {
+    const runtime = new CodexLocalControlRuntime('/tmp/noter')
+    vi.spyOn(runtime, 'sendRequestNoEnsure').mockResolvedValue({
+      thread: {
+        id: 'thread-target',
+        cwd: '/tmp/noter',
+        updatedAt: 20,
+        preview: 'Reply with exactly READY and nothing else.',
+        turns: [
+          {
+            id: 'turn-1',
+            items: [
+              {
+                content: [
+                  {
+                    text: 'Reply with exactly READY and nothing else.',
+                    text_elements: [],
+                    type: 'text',
+                  },
+                ],
+                id: 'item-1',
+                type: 'userMessage',
+              },
+              {
+                id: 'item-2',
+                phase: 'final_answer',
+                text: 'READY',
+                type: 'agentMessage',
+              },
+            ],
+            status: 'completed',
+          },
+        ],
+      },
+    })
+    vi.spyOn(runtime, 'listThreads').mockResolvedValue({
+      nextCursor: null,
+      pinnedThreadIds: [],
+      runtime: runtime.getSnapshot(),
+      threads: [
+        buildThreadSummaryFixture({
+          createdAt: 10,
+          id: 'thread-target',
+          preview: 'Reply with exactly READY and nothing else.',
+          updatedAt: 20,
+        }),
+      ],
+    })
+
+    const result = await runtime.readThread('thread-target')
+
+    expect(result.thread.createdAt).toBe(10)
+    expect(result.thread.turns).toHaveLength(1)
+    expect(result.thread.turns[0]?.items[1]?.summary).toBe('READY')
   })
 
   it('stores bootstrap state in one local config file', () => {

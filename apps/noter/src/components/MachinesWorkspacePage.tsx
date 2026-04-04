@@ -1006,6 +1006,10 @@ export function MachinesWorkspacePage() {
       projectLabel,
       projectRootCwd,
     }: MachinesWorkspaceProjectConversationSelection) => {
+      if (isSubmittingTurn) {
+        return;
+      }
+
       const startMachine =
         machines?.find((machine) => machine.machineId === machineId) ?? null;
       if (
@@ -1032,7 +1036,7 @@ export function MachinesWorkspacePage() {
       setSelectedThreadError(null);
       setTurnDraft("");
     },
-    [machines],
+    [isSubmittingTurn, machines],
   );
 
   if (machines === undefined || selectedMachine === undefined) {
@@ -1096,6 +1100,10 @@ export function MachinesWorkspacePage() {
         onTurnSubmit={handleTurnSubmit}
         onThreadPinChange={handleThreadPinChange}
         onThreadSelect={({ machineId, threadId }) => {
+          if (isSubmittingTurn) {
+            return;
+          }
+
           setPendingDraftConversation(null);
           setSelectedMachineId(machineId);
           setSelectedThreadId(threadId);
