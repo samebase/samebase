@@ -47,6 +47,26 @@ import {
   writeLocalConfig,
 } from './noter.js'
 
+function buildIsolatedGitEnv() {
+  const env = { ...process.env }
+
+  // Git hooks populate repository-scoped variables such as GIT_INDEX_FILE.
+  // Clear them so temporary repos created inside tests behave like fresh
+  // standalone repositories.
+  for (const key of [
+    'GIT_COMMON_DIR',
+    'GIT_DIR',
+    'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_PREFIX',
+    'GIT_WORK_TREE',
+  ]) {
+    delete env[key]
+  }
+
+  return env
+}
+
 describe('@noter-md/sync', () => {
   it('defaults the public connect command to noter.md with no extra CLI override', () => {
     expect(parseCliArgs(['connect'])).toEqual({
@@ -489,6 +509,122 @@ describe('@noter-md/sync', () => {
       } else {
         process.env.CODEX_HOME = previousCodexHome
       }
+      rmSync(codexHomePath, { recursive: true, force: true })
+    }
+  })
+
+  it('creates git worktrees through the shared local control router', async () => {
+    const previousCodexHome = process.env.CODEX_HOME
+    const codexHomePath = path.join(
+      tmpdir(),
+      `noter-codex-home-worktree-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    )
+    const repoPath = path.join(
+      tmpdir(),
+      `noter-worktree-router-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    )
+    process.env.CODEX_HOME = codexHomePath
+    mkdirSync(repoPath, { recursive: true })
+    const gitEnv = buildIsolatedGitEnv()
+
+    expect(
+      spawnSync('git', ['init', '-b', 'main'], { cwd: repoPath, env: gitEnv })
+        .status,
+    ).toBe(0)
+    expect(
+      spawnSync('git', ['config', 'user.email', 'noter-tests@example.com'], {
+        cwd: repoPath,
+        env: gitEnv,
+      }).status,
+    ).toBe(0)
+    expect(
+      spawnSync('git', ['config', 'user.name', 'Noter Tests'], {
+        cwd: repoPath,
+        env: gitEnv,
+      }).status,
+    ).toBe(0)
+    writeFileSync(path.join(repoPath, 'README.md'), '# Noter\n', 'utf8')
+    expect(
+      spawnSync('git', ['add', 'README.md'], { cwd: repoPath, env: gitEnv })
+        .status,
+    ).toBe(0)
+    expect(
+      spawnSync('git', ['commit', '-m', 'Initial commit'], {
+        cwd: repoPath,
+        env: gitEnv,
+      }).status,
+    ).toBe(0)
+
+    const runtime = new CodexLocalControlRuntime(repoPath)
+    const router = createCodexLocalControlRouter({ runtime })
+    const server = createServer((req, res) => {
+      void router(req, res, () => {
+        res.statusCode = 404
+        res.end('not found')
+      })
+    })
+
+    await new Promise((resolve, reject) => {
+      server.once('error', reject)
+      server.listen(0, '127.0.0.1', () => {
+        server.removeListener('error', reject)
+        resolve(undefined)
+      })
+    })
+
+    try {
+      const address = server.address()
+      if (!address || typeof address === 'string') {
+        throw new Error('Expected a TCP server address')
+      }
+
+      const response = await fetch(
+        `http://127.0.0.1:${address.port}/worktree/create`,
+        {
+          body: JSON.stringify({ cwd: repoPath }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        },
+      )
+      expect(response.status).toBe(200)
+      const payload = await response.json()
+      expect(payload).toMatchObject({
+        worktree: {
+          branch: expect.stringMatching(/^codex-machine\//),
+          cwd: expect.stringContaining('/worktrees/'),
+        },
+      })
+      expect(statSync(payload.worktree.cwd).isDirectory()).toBe(true)
+      expect(
+        spawnSync('git', [
+          '-C',
+          payload.worktree.cwd,
+          'rev-parse',
+          '--abbrev-ref',
+          'HEAD',
+        ], { env: gitEnv })
+          .stdout.toString()
+          .trim(),
+      ).toBe(payload.worktree.branch)
+    } finally {
+      await new Promise((resolve, reject) => {
+        server.close(error => {
+          if (error) {
+            reject(error)
+            return
+          }
+
+          resolve(undefined)
+        })
+      })
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME
+      } else {
+        process.env.CODEX_HOME = previousCodexHome
+      }
+      rmSync(repoPath, { recursive: true, force: true })
       rmSync(codexHomePath, { recursive: true, force: true })
     }
   })

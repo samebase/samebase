@@ -72,6 +72,8 @@ const CODEX_INIT_TIMEOUT_MS = 30_000
 const CODEX_EVENT_BUFFER_SIZE = 500
 const CODEX_REQUEST_BUFFER_SIZE = 100
 const CODEX_APPROVAL_CONTEXT_BUFFER_SIZE = 100
+const CODEX_MACHINE_WORKTREE_BRANCH_PREFIX = 'codex-machine'
+const CODEX_MACHINE_WORKTREE_CREATE_RETRY_LIMIT = 3
 const MAX_THREAD_PROJECT_INFO_CACHE_SIZE = 500
 const DEFAULT_THREAD_SOURCE_KINDS = ['cli', 'vscode', 'exec', 'appServer']
 const CODEX_GLOBAL_STATE_FILENAME = '.codex-global-state.json'
@@ -1541,6 +1543,74 @@ async function readThreadProjectInfo(cwd) {
   return promise
 }
 
+function buildMachineWorktreeBranchName() {
+  return `${CODEX_MACHINE_WORKTREE_BRANCH_PREFIX}/${randomToken(6).toLowerCase()}`
+}
+
+function worktreeCreateErrorLooksRetryable(error) {
+  const message = describeError(error)
+  return /already exists|already checked out|already registered|already used/i.test(
+    message,
+  )
+}
+
+/**
+ * Keep machine-created worktrees under CODEX_HOME so they line up with the
+ * existing sidebar worktree labelling and stay outside user repos by default.
+ */
+async function createMachineGitWorktree(cwd) {
+  const projectRoot = path.resolve(cwd)
+  const projectLeaf = readPathLeaf(projectRoot) || 'repo'
+  const worktreesRoot = path.join(resolveCodexHomeDirectory(), 'worktrees')
+  mkdirSync(worktreesRoot, { recursive: true })
+
+  for (
+    let attempt = 0;
+    attempt < CODEX_MACHINE_WORKTREE_CREATE_RETRY_LIMIT;
+    attempt += 1
+  ) {
+    const worktreeId = randomToken(4).toLowerCase()
+    const branch = buildMachineWorktreeBranchName()
+    const worktreeRoot = path.join(worktreesRoot, worktreeId)
+    const worktreePath = path.join(worktreeRoot, projectLeaf)
+
+    try {
+      await execFileAsync(
+        'git',
+        ['-C', projectRoot, 'worktree', 'add', '-b', branch, worktreePath],
+        {
+          timeout: 30_000,
+          maxBuffer: 128 * 1024,
+        },
+      )
+
+      return {
+        worktree: {
+          branch,
+          cwd: normalizePathForDisplay(worktreePath),
+        },
+      }
+    } catch (error) {
+      await rm(worktreeRoot, { recursive: true, force: true }).catch(
+        () => undefined,
+      )
+
+      if (
+        worktreeCreateErrorLooksRetryable(error) &&
+        attempt < CODEX_MACHINE_WORKTREE_CREATE_RETRY_LIMIT - 1
+      ) {
+        continue
+      }
+
+      throw new Error(
+        `Failed to create a git worktree from ${projectRoot}: ${describeError(error)}`,
+      )
+    }
+  }
+
+  throw new Error(`Failed to create a git worktree from ${projectRoot}.`)
+}
+
 function cloneJsonValue(value) {
   if (value === undefined) {
     return undefined
@@ -1864,17 +1934,48 @@ function normalizeThreadStatus(value) {
   }
 }
 
+function deriveThreadPreviewFallback(record) {
+  const explicitName = readString(record.name)?.trim()
+  if (explicitName) {
+    return explicitName
+  }
+
+  if (!Array.isArray(record.turns)) {
+    return ''
+  }
+
+  for (const turn of record.turns) {
+    const normalizedTurn = normalizeThreadTurn(turn)
+    if (!normalizedTurn) {
+      continue
+    }
+
+    const summary = normalizedTurn.items
+      .map(item => item.summary)
+      .find(
+        itemSummary =>
+          typeof itemSummary === 'string' && itemSummary.length > 0,
+      )
+    if (summary) {
+      return summary
+    }
+  }
+
+  return ''
+}
+
 function normalizeThread(value) {
   const record = asRecord(value)
   if (!record) {
     return null
   }
   const id = readString(record.id)
-  const preview = readString(record.preview)
+  const preview =
+    readString(record.preview) ?? deriveThreadPreviewFallback(record)
   const cwd = readString(record.cwd)
-  const createdAt = readNumber(record.createdAt)
   const updatedAt = readNumber(record.updatedAt)
-  if (!id || preview === undefined || !cwd || createdAt === undefined) {
+  const createdAt = readNumber(record.createdAt) ?? updatedAt
+  if (!id || !cwd || createdAt === undefined) {
     return null
   }
   if (updatedAt === undefined) {
@@ -2927,6 +3028,18 @@ export class CodexLocalControlRuntime {
     }
   }
 
+  async readThreadSummaryFromList(threadId) {
+    try {
+      const searchParams = new URLSearchParams()
+      searchParams.set('archived', 'false')
+      searchParams.set('limit', '200')
+      const result = await this.listThreads(searchParams)
+      return result.threads.find(thread => thread.id === threadId) ?? null
+    } catch {
+      return null
+    }
+  }
+
   /**
    * Keep the browser contract focused on the subset Noter needs for a future
    * machine connector, while preserving the raw provider payload on each thread
@@ -3061,13 +3174,71 @@ export class CodexLocalControlRuntime {
         includeTurns: true,
       },
     })
-    const normalizedThread = normalizeThread(asRecord(result)?.thread)
+    const threadRecord = asRecord(result)?.thread
+    const normalizedThread = normalizeThread(threadRecord)
+    const fallbackThread =
+      normalizedThread === null
+        ? (await this.readThreadSummaryFromList(threadId)) ??
+          (await this.readThreadSummary(threadId))
+        : null
     const thread =
       normalizedThread === null
-        ? null
+        ? fallbackThread
         : await enrichThreadProjectInfo(normalizedThread)
-    if (!thread) {
+    if (!thread || !threadRecord) {
       throw new Error('thread/read returned an invalid thread payload')
+    }
+
+    const turns = Array.isArray(threadRecord.turns)
+      ? threadRecord.turns
+          .map(turn => normalizeThreadTurn(turn))
+          .filter(turn => turn !== null)
+      : thread.turns
+
+    if (normalizedThread === null) {
+      return {
+        thread: {
+          ...thread,
+          name: readString(threadRecord.name) ?? thread.name,
+          preview:
+            readString(threadRecord.preview) ??
+            deriveThreadPreviewFallback(threadRecord) ??
+            thread.preview,
+          cliVersion: readString(threadRecord.cliVersion) ?? thread.cliVersion,
+          modelProvider:
+            readString(threadRecord.modelProvider) ?? thread.modelProvider,
+          sourceLabel:
+            threadRecord.source !== undefined
+              ? describeThreadSource(threadRecord.source)
+              : thread.sourceLabel,
+          source:
+            threadRecord.source !== undefined
+              ? cloneJsonValue(threadRecord.source)
+              : thread.source,
+          status: normalizeThreadStatus(threadRecord.status),
+          gitInfo:
+            asRecord(threadRecord.gitInfo) !== null
+              ? {
+                  branch:
+                    readString(asRecord(threadRecord.gitInfo).branch) ?? null,
+                  originUrl:
+                    readString(asRecord(threadRecord.gitInfo).originUrl) ??
+                    null,
+                  sha: readString(asRecord(threadRecord.gitInfo).sha) ?? null,
+                }
+              : thread.gitInfo,
+          path:
+            typeof threadRecord.path === 'string'
+              ? normalizePathForDisplay(threadRecord.path)
+              : thread.path,
+          agentNickname:
+            readString(threadRecord.agentNickname) ?? thread.agentNickname,
+          agentRole: readString(threadRecord.agentRole) ?? thread.agentRole,
+          turns,
+          raw: cloneJsonValue(threadRecord),
+        },
+        runtime: this.getSnapshot(),
+      }
     }
 
     return {
@@ -3172,6 +3343,16 @@ export class CodexLocalControlRuntime {
       this.currentThreadId = threadId
     }
     return { result, runtime: this.getSnapshot() }
+  }
+
+  async worktreeCreate(body) {
+    const record = asRecord(body) ?? {}
+    const cwd = readString(record.cwd)
+    if (!cwd) {
+      throw new Error('cwd is required')
+    }
+
+    return await createMachineGitWorktree(cwd)
   }
 
   /**
@@ -3548,6 +3729,15 @@ export function createCodexLocalControlRouter(args) {
           res,
           200,
           await args.runtime.threadStart(await readJsonBody(req)),
+        )
+        return
+      }
+
+      if (req.method === 'POST' && routePath === '/worktree/create') {
+        sendJson(
+          res,
+          200,
+          await args.runtime.worktreeCreate(await readJsonBody(req)),
         )
         return
       }

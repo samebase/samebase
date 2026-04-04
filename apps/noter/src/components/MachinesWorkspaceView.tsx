@@ -14,6 +14,11 @@ import {
   type CodexThreadSidebarThread,
 } from "@/lib/codexThreadSidebar";
 import {
+  readMachinesWorkspaceConversationEnvLabel,
+  type MachinesWorkspaceConversationEnvMode,
+  type MachinesWorkspaceProjectConversationSelection,
+} from "@/lib/machinesWorkspaceConversation";
+import {
   buildMachinesWorkspaceSidebarSections,
   type MachinesWorkspaceSidebarInventory,
   type MachinesWorkspaceSidebarSection,
@@ -21,14 +26,22 @@ import {
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 import { cn } from "@/lib/utils";
 import { MachinesWorkspaceThreadPane } from "@/components/MachinesWorkspaceThreadPane";
-import { ArrowUpRight, GitBranch, Loader2, Pin, Plus } from "lucide-react";
-
-export type MachinesWorkspaceProjectConversationSelection = {
-  machineId: string;
-  projectId: string;
-  projectLabel: string;
-  projectRootCwd: string;
-};
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/dropdown-menu";
+import {
+  ArrowUpRight,
+  Folder,
+  GitBranch,
+  GitFork,
+  Loader2,
+  Pin,
+  Plus,
+} from "lucide-react";
 
 type MachinesWorkspaceViewProps = {
   machineInventories: MachinesWorkspaceSidebarInventory[];
@@ -36,6 +49,10 @@ type MachinesWorkspaceViewProps = {
   selectedMachineId: string | null;
   selectedThreadId: string | null;
   selectedThread: CodexAppServerThread | null;
+  pendingConversation: {
+    envMode: MachinesWorkspaceConversationEnvMode;
+    projectLabel: string;
+  } | null;
   selectedMachineDisplayName: string | null;
   selectedMachineHostname: string | null;
   selectedMachineStatusReason: string | null;
@@ -45,7 +62,6 @@ type MachinesWorkspaceViewProps = {
   isSubmittingTurn: boolean;
   turnDraft: string;
   pendingPinThreadKey: string | null;
-  pendingProjectStartKey: string | null;
   relativeTimeReferenceMs?: number;
   dataTestId?: string;
   onTurnDraftChange: (value: string) => void;
@@ -261,10 +277,9 @@ function ThreadRow(props: {
 function ProjectSection(props: {
   group: CodexThreadSidebarProject;
   isOpen: boolean;
-  isStartConversationPending: boolean;
   isStartConversationDisabled: boolean;
   onOpenChange: (nextOpen: boolean) => void;
-  onStartConversation?: () => void;
+  onStartConversation?: (envMode: MachinesWorkspaceConversationEnvMode) => void;
   children: ReactNode;
 }) {
   const startConversationLabel = `Start new conversation in ${props.group.label}`;
@@ -292,32 +307,52 @@ function ProjectSection(props: {
           </button>
         </CollapsibleTrigger>
         {props.onStartConversation ? (
-          <button
-            type="button"
-            aria-label={startConversationLabel}
-            className={cn(
-              "mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors",
-              props.isStartConversationDisabled
-                ? "cursor-default opacity-50"
-                : "hover:bg-accent/80 hover:text-foreground focus-visible:bg-accent/80 focus-visible:text-foreground",
-            )}
-            disabled={props.isStartConversationDisabled}
-            title={startConversationLabel}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              props.onStartConversation?.();
-            }}
-          >
-            {props.isStartConversationPending ? (
-              <Loader2
-                className="h-3.5 w-3.5 animate-spin"
-                strokeWidth={1.75}
-              />
-            ) : (
-              <Plus className="h-3.5 w-3.5" strokeWidth={1.75} />
-            )}
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={startConversationLabel}
+                className={cn(
+                  "mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors",
+                  props.isStartConversationDisabled
+                    ? "cursor-default opacity-50"
+                    : "hover:bg-accent/80 hover:text-foreground focus-visible:bg-accent/80 focus-visible:text-foreground",
+                )}
+                disabled={props.isStartConversationDisabled}
+                title={startConversationLabel}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+              >
+                <Plus className="h-3.5 w-3.5" strokeWidth={1.75} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" sideOffset={4}>
+              <DropdownMenuLabel>New conversation</DropdownMenuLabel>
+              {(
+                [
+                  "local",
+                  "worktree",
+                ] as const satisfies ReadonlyArray<MachinesWorkspaceConversationEnvMode>
+              ).map((envMode) => {
+                const EnvIcon = envMode === "worktree" ? GitFork : Folder;
+                return (
+                  <DropdownMenuItem
+                    key={envMode}
+                    onSelect={() => {
+                      props.onStartConversation?.(envMode);
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-2 text-sm">
+                      <EnvIcon className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      {readMachinesWorkspaceConversationEnvLabel(envMode)}
+                    </span>
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
       </div>
       <CollapsibleContent>
@@ -685,11 +720,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                         group={group}
                         isOpen={openProjectIds.has(projectKey)}
                         isStartConversationDisabled={
-                          section.machineStatusReason !== null ||
-                          props.pendingProjectStartKey === projectKey
-                        }
-                        isStartConversationPending={
-                          props.pendingProjectStartKey === projectKey
+                          section.machineStatusReason !== null
                         }
                         onOpenChange={(nextOpen) => {
                           setOpenProjectIds((current) => {
@@ -704,8 +735,9 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                         }}
                         onStartConversation={
                           props.onProjectStartConversation
-                            ? () => {
+                            ? (envMode) => {
                                 props.onProjectStartConversation?.({
+                                  envMode,
                                   machineId: section.machineId,
                                   projectId: group.id,
                                   projectLabel: group.label,
@@ -775,6 +807,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
             isSubmittingTurn={props.isSubmittingTurn}
             onTurnDraftChange={props.onTurnDraftChange}
             onTurnSubmit={props.onTurnSubmit}
+            pendingConversation={props.pendingConversation}
             selectedMachineDisplayName={props.selectedMachineDisplayName}
             selectedMachineHostname={props.selectedMachineHostname}
             selectedMachineStatusReason={props.selectedMachineStatusReason}

@@ -150,7 +150,7 @@ test("machines workspace machine collapse stays closed", async ({ page }) => {
   await expect(secondMachineThread).toBeHidden();
 });
 
-test("machines workspace project plus button starts a new conversation", async ({
+test("machines workspace project plus button opens a local draft conversation", async ({
   page,
 }) => {
   await openMachinesWorkspaceFixture(page);
@@ -158,9 +158,33 @@ test("machines workspace project plus button starts a new conversation", async (
   await page
     .getByRole("button", { name: "Start new conversation in noter" })
     .click();
+  await page.getByRole("menuitem", { name: "Local" }).click();
 
   await expect(
-    page.getByRole("button", { name: /New conversation 1/ }),
+    page
+      .getByText(
+        "Send the first prompt to start a local conversation in noter.",
+      )
+      .first(),
+  ).toBeVisible();
+});
+
+test("machines workspace project plus button opens a worktree draft conversation", async ({
+  page,
+}) => {
+  await openMachinesWorkspaceFixture(page);
+
+  await page
+    .getByRole("button", { name: "Start new conversation in noter" })
+    .click();
+  await page.getByRole("menuitem", { name: "New worktree" }).click();
+
+  await expect(
+    page
+      .getByText(
+        "Send the first prompt to create a new worktree conversation in noter.",
+      )
+      .first(),
   ).toBeVisible();
 });
 

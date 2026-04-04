@@ -90,7 +90,27 @@ infer launch behavior from the visible label alone. The safer contract is:
 
 ## Recommendation
 
-- Keep the new action project-rooted, not thread-rooted and not worktree-rooted.
-- Reuse `POST /thread/start` instead of inventing a second creation route.
-- Preserve a short-lived pending thread selection in `/machines` so “new
-  conversation” feels stable even before the first message materializes.
+## Follow-Up: Local Vs New Worktree Parity
+
+The first implementation above was still incomplete relative to Codex desktop:
+it always created a project-rooted local thread immediately, which meant
+`/machines` had no explicit equivalent to Codex's first-message `local` vs
+`worktree` choice.
+
+After comparing this flow against T3code, the more faithful model is:
+
+- the project-row plus button opens a choice between `Local` and `New worktree`
+- `/machines` keeps that choice as a draft conversation state until the first
+  prompt
+- on the first prompt:
+  - `Local` starts the thread at `project.rootCwd`
+  - `New worktree` creates a git worktree first, then starts the thread in that
+    new cwd
+
+That follow-up requires one extra bridge primitive in `packages/sync/noter.js`:
+
+- `POST /worktree/create` with `{ cwd }`
+
+The bridge creates a new git worktree under `CODEX_HOME/worktrees/<id>/<repo>`
+with a temporary branch, which keeps the resulting cwd compatible with the
+existing `/machines` worktree-grouping and worktree-label logic.

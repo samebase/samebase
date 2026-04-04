@@ -71,6 +71,7 @@ describe("MachinesWorkspaceView", () => {
               threads: [THREAD_FIXTURE],
             },
           ]}
+          pendingConversation={null}
           selectedMachineId="machine-linux"
           selectedMachineDisplayName="Offline Linux Box"
           selectedMachineHostname="linux-box.local"
@@ -80,7 +81,6 @@ describe("MachinesWorkspaceView", () => {
           selectedThreadLoading={false}
           selectedThreadId={THREAD_FIXTURE.id}
           pendingPinThreadKey={null}
-          pendingProjectStartKey={null}
           turnDraft=""
           onTurnDraftChange={() => {}}
           onTurnSubmit={() => {}}
@@ -119,8 +119,8 @@ describe("MachinesWorkspaceView", () => {
               threads: [THREAD_FIXTURE],
             },
           ]}
+          pendingConversation={null}
           pendingPinThreadKey={null}
-          pendingProjectStartKey={null}
           selectedMachineId="machine-mac"
           selectedMachineDisplayName="Research MacBook Pro"
           selectedMachineHostname="research-mbp.local"

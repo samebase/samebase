@@ -16,8 +16,11 @@ import {
   updateQueryParams,
 } from "@/lib/queryParams";
 import {
-  MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
+  startedDraftConversationThreadMatches,
   type MachinesWorkspaceProjectConversationSelection,
+} from "@/lib/machinesWorkspaceConversation";
+import {
+  MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
   MachinesWorkspaceView,
 } from "@/components/MachinesWorkspaceView";
 import type { MachinesWorkspaceSidebarInventory } from "@/lib/machinesWorkspaceSidebar";
@@ -61,6 +64,13 @@ type ThreadActionResponse = {
   runtime: CodexAppServerRuntimeSnapshot;
 };
 
+type WorktreeCreateResponse = {
+  worktree: {
+    branch: string;
+    cwd: string;
+  };
+};
+
 type MachineThreadInventoryState = {
   hasLoadedThreadInventory: boolean;
   pinnedThreadIds: string[];
@@ -71,6 +81,12 @@ type PendingStartedThreadSelection = {
   machineId: string;
   threadId: string;
 };
+
+type PendingDraftConversation =
+  MachinesWorkspaceProjectConversationSelection & {
+    preparedWorktreeBranch: string | null;
+    preparedWorktreeCwd: string | null;
+  };
 
 const EMPTY_MACHINE_THREAD_INVENTORY_STATE: MachineThreadInventoryState = {
   hasLoadedThreadInventory: false,
@@ -151,10 +167,6 @@ function buildMachineThreadKey(machineId: string, threadId: string): string {
   return `${machineId}\u0000${threadId}`;
 }
 
-function buildMachineProjectKey(machineId: string, projectId: string): string {
-  return `${machineId}\u0000${projectId}`;
-}
-
 /** Coordinate machine-scoped inventory polling with the selected-thread detail pane. */
 export function MachinesWorkspacePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -180,11 +192,10 @@ export function MachinesWorkspacePage() {
   const [pendingPinThreadKey, setPendingPinThreadKey] = useState<string | null>(
     null,
   );
-  const [pendingProjectStartKey, setPendingProjectStartKey] = useState<
-    string | null
-  >(null);
   const [pendingStartedThreadSelection, setPendingStartedThreadSelection] =
     useState<PendingStartedThreadSelection | null>(null);
+  const [pendingDraftConversation, setPendingDraftConversation] =
+    useState<PendingDraftConversation | null>(null);
   const [turnDraft, setTurnDraft] = useState("");
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(
     () => readSelectedSearchValue(searchParams, SELECTED_MACHINE_QUERY_PARAM),
@@ -265,6 +276,11 @@ export function MachinesWorkspacePage() {
   const selectedThreadIsPendingStart =
     pendingStartedThreadSelection?.machineId === selectedMachineId &&
     pendingStartedThreadSelection.threadId === selectedThreadId;
+  const selectedPendingConversation =
+    pendingDraftConversation?.machineId === selectedMachineId &&
+    selectedThreadId === null
+      ? pendingDraftConversation
+      : null;
   const selectedThread =
     selectedThreadDetail?.id === selectedThreadId
       ? selectedThreadDetail
@@ -492,6 +508,19 @@ export function MachinesWorkspacePage() {
   ]);
 
   useEffect(() => {
+    if (pendingDraftConversation === null) {
+      return;
+    }
+
+    if (
+      selectedMachineId !== pendingDraftConversation.machineId ||
+      selectedThreadId !== null
+    ) {
+      setPendingDraftConversation(null);
+    }
+  }, [pendingDraftConversation, selectedMachineId, selectedThreadId]);
+
+  useEffect(() => {
     if (machines === undefined) {
       return;
     }
@@ -650,12 +679,15 @@ export function MachinesWorkspacePage() {
           (thread) => thread.id === selectedThreadId,
         ))
         ? selectedThreadId
-        : selectedMachineInventory.threads[0]?.id ?? null;
+        : selectedPendingConversation !== null
+          ? null
+          : selectedMachineInventory.threads[0]?.id ?? null;
 
     if (nextSelectedThreadId !== selectedThreadId) {
       setSelectedThreadId(nextSelectedThreadId);
     }
   }, [
+    selectedPendingConversation,
     selectedMachineInventory,
     selectedThreadId,
     selectedThreadIsPendingStart,
@@ -755,6 +787,11 @@ export function MachinesWorkspacePage() {
   const handleTurnSubmit = useCallback(() => {
     const prompt = turnDraft.trim();
     const submitMachine = selectedMachine;
+    const draftConversation =
+      pendingDraftConversation?.machineId === selectedMachineId &&
+      selectedThreadId === null
+        ? pendingDraftConversation
+        : null;
     if (
       prompt.length === 0 ||
       isSubmittingTurn ||
@@ -779,19 +816,103 @@ export function MachinesWorkspacePage() {
         latestSelectedMachineControlIdRef.current !== submitMachineControlId;
 
       try {
-        const targetThreadId = selectedThreadId;
-        const response = await requestMachineControlJson<ThreadActionResponse>(
-          submitMachine,
-          {
-            body: {
-              text: prompt,
-              threadId: targetThreadId ?? undefined,
-            },
-            method: "POST",
-            path: "/turn/start",
+        let targetThreadId = selectedThreadId;
+        let newlyStartedThreadId: string | null = null;
+        if (draftConversation !== null) {
+          let targetCwd = draftConversation.projectRootCwd;
+          let preparedWorktreeBranch = draftConversation.preparedWorktreeBranch;
+          let preparedWorktreeCwd = draftConversation.preparedWorktreeCwd;
+
+          if (
+            draftConversation.envMode === "worktree" &&
+            preparedWorktreeCwd === null
+          ) {
+            const worktreeResponse =
+              await requestMachineControlJson<WorktreeCreateResponse>(
+                submitMachine,
+                {
+                  body: {
+                    cwd: draftConversation.projectRootCwd,
+                  },
+                  method: "POST",
+                  path: "/worktree/create",
+                },
+              );
+            preparedWorktreeBranch = worktreeResponse.worktree.branch;
+            preparedWorktreeCwd = worktreeResponse.worktree.cwd;
+            targetCwd = preparedWorktreeCwd;
+
+            if (submissionIsStale()) {
+              return;
+            }
+
+            setPendingDraftConversation((current) => {
+              if (
+                current === null ||
+                current.machineId !== draftConversation.machineId ||
+                current.projectId !== draftConversation.projectId ||
+                current.envMode !== draftConversation.envMode
+              ) {
+                return current;
+              }
+
+              return {
+                ...current,
+                preparedWorktreeBranch,
+                preparedWorktreeCwd,
+              };
+            });
+          } else if (preparedWorktreeCwd !== null) {
+            targetCwd = preparedWorktreeCwd;
+          }
+
+          const threadStartResponse =
+            await requestMachineControlJson<ThreadActionResponse>(
+              submitMachine,
+              {
+                body: {
+                  cwd: targetCwd,
+                },
+                method: "POST",
+                path: "/thread/start",
+              },
+            );
+          const startedThreadId = threadStartResponse.runtime.currentThreadId;
+          if (!startedThreadId) {
+            throw new Error("Machine did not return a new thread id.");
+          }
+
+          if (submissionIsStale()) {
+            return;
+          }
+
+          setPendingDraftConversation(null);
+          newlyStartedThreadId = startedThreadId;
+          setPendingStartedThreadSelection({
+            machineId: submitMachine.machineId,
+            threadId: startedThreadId,
+          });
+          setSelectedThreadId(startedThreadId);
+          setSelectedThreadDetail(null);
+          setIsSelectedThreadLoading(false);
+          targetThreadId = startedThreadId;
+        }
+
+        if (targetThreadId === null) {
+          throw new Error(
+            "Select a thread or use a project's plus button to start a new conversation.",
+          );
+        }
+
+        await requestMachineControlJson<ThreadActionResponse>(submitMachine, {
+          body: {
+            text: prompt,
+            threadId: targetThreadId,
           },
-        );
-        const nextThreadId = targetThreadId ?? response.runtime.currentThreadId;
+          method: "POST",
+          path: "/turn/start",
+        });
+        const nextThreadId = targetThreadId;
         if (submissionIsStale()) {
           return;
         }
@@ -799,10 +920,13 @@ export function MachinesWorkspacePage() {
         if (nextThreadId) {
           setSelectedThreadId(nextThreadId);
         }
+        // Clear the pending-start guard as soon as the first prompt is accepted
+        // so normal selected-thread polling can recover from transient reads.
         if (
-          pendingStartedThreadSelection?.machineId ===
-            submitMachine.machineId &&
-          pendingStartedThreadSelection.threadId === nextThreadId
+          startedDraftConversationThreadMatches({
+            nextThreadId,
+            startedThreadId: newlyStartedThreadId,
+          })
         ) {
           setPendingStartedThreadSelection(null);
         }
@@ -862,21 +986,24 @@ export function MachinesWorkspacePage() {
   }, [
     applyThreadInventory,
     isSubmittingTurn,
+    pendingDraftConversation,
     refreshSelectedThread,
     refreshThreads,
     requestMachineControlJson,
-    pendingStartedThreadSelection,
     selectedMachine,
     selectedMachineControlId,
     selectedMachineInteractionBlockedReason,
+    selectedMachineId,
     selectedThreadId,
     turnDraft,
   ]);
 
   const handleProjectStartConversation = useCallback(
     ({
+      envMode,
       machineId,
       projectId,
+      projectLabel,
       projectRootCwd,
     }: MachinesWorkspaceProjectConversationSelection) => {
       const startMachine =
@@ -888,59 +1015,24 @@ export function MachinesWorkspacePage() {
         return;
       }
 
-      const projectKey = buildMachineProjectKey(machineId, projectId);
-      setPendingProjectStartKey(projectKey);
+      setPendingStartedThreadSelection(null);
+      setPendingDraftConversation({
+        envMode,
+        machineId,
+        preparedWorktreeBranch: null,
+        preparedWorktreeCwd: null,
+        projectId,
+        projectLabel,
+        projectRootCwd,
+      });
+      setSelectedMachineId(machineId);
+      setSelectedThreadId(null);
+      setSelectedThreadDetail(null);
+      setIsSelectedThreadLoading(false);
       setSelectedThreadError(null);
-
-      void (async () => {
-        try {
-          const response =
-            await requestMachineControlJson<ThreadActionResponse>(
-              startMachine,
-              {
-                body: {
-                  cwd: projectRootCwd,
-                },
-                method: "POST",
-                path: "/thread/start",
-              },
-            );
-          const nextThreadId = response.runtime.currentThreadId;
-          if (!nextThreadId) {
-            throw new Error("Machine did not return a new thread id.");
-          }
-
-          setPendingStartedThreadSelection({
-            machineId,
-            threadId: nextThreadId,
-          });
-          setSelectedMachineId(machineId);
-          setSelectedThreadId(nextThreadId);
-          setSelectedThreadDetail(null);
-          setIsSelectedThreadLoading(false);
-
-          try {
-            const threadsResponse = await refreshThreads(startMachine);
-            applyThreadInventory(machineId, threadsResponse);
-          } catch {
-            setSelectedThreadError(
-              "Conversation started, but the thread list did not refresh. It should appear after the next poll.",
-            );
-          }
-        } catch (error) {
-          setSelectedThreadError(
-            error instanceof Error
-              ? error.message
-              : "Failed to start a new conversation on the selected project.",
-          );
-        } finally {
-          setPendingProjectStartKey((current) =>
-            current === projectKey ? null : current,
-          );
-        }
-      })();
+      setTurnDraft("");
     },
-    [applyThreadInventory, machines, refreshThreads, requestMachineControlJson],
+    [machines],
   );
 
   if (machines === undefined || selectedMachine === undefined) {
@@ -981,7 +1073,14 @@ export function MachinesWorkspacePage() {
           ) : null
         }
         pendingPinThreadKey={pendingPinThreadKey}
-        pendingProjectStartKey={pendingProjectStartKey}
+        pendingConversation={
+          selectedPendingConversation === null
+            ? null
+            : {
+                envMode: selectedPendingConversation.envMode,
+                projectLabel: selectedPendingConversation.projectLabel,
+              }
+        }
         selectedMachineId={selectedMachineId}
         selectedMachineDisplayName={selectedMachine?.displayName ?? null}
         selectedMachineHostname={selectedMachine?.hostname ?? null}
@@ -997,6 +1096,7 @@ export function MachinesWorkspacePage() {
         onTurnSubmit={handleTurnSubmit}
         onThreadPinChange={handleThreadPinChange}
         onThreadSelect={({ machineId, threadId }) => {
+          setPendingDraftConversation(null);
           setSelectedMachineId(machineId);
           setSelectedThreadId(threadId);
         }}
