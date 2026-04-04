@@ -4,6 +4,7 @@ import { realpathSync } from "fs";
 import path from "path";
 import {
   clearLocalDevOriginState,
+  readConfiguredLocalDevPort,
   resolveLocalDevPort,
   writeLocalDevOriginState,
 } from "../convex-local-utils.js";
@@ -55,7 +56,12 @@ function splitVitePortArgs(args) {
 
 const cliArgs = process.argv.slice(2);
 const { passthroughArgs, port: cliPort } = splitVitePortArgs(cliArgs);
-const vitePort = cliPort ?? resolveLocalDevPort(process.env);
+// Trust an already-selected VITE_PORT so predev-selected SITE_URL and the later
+// Vite listener stay pinned to the same localhost origin.
+const vitePort =
+  cliPort ??
+  readConfiguredLocalDevPort(process.env) ??
+  resolveLocalDevPort(process.env);
 writeLocalDevOriginState(`http://localhost:${vitePort}`);
 const launchArgs = [
   resolveViteCliEntrypoint(),

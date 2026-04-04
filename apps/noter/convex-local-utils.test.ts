@@ -5,6 +5,7 @@ import { createServer } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  readConfiguredLocalDevPort,
   readEnvFile,
   resolveSiteUrlSyncOrigin,
   usesLocalConvexDeployment,
@@ -116,5 +117,14 @@ EMPTY_VALUE=""
         cwd,
       ),
     ).toBe(`http://localhost:${freePort}`);
+  });
+
+  it("normalizes configured VITE ports from process env values", () => {
+    expect(
+      readConfiguredLocalDevPort({
+        VITE_PORT: "'43121'",
+      }),
+    ).toBe("43121");
+    expect(readConfiguredLocalDevPort({ VITE_PORT: "0" })).toBeNull();
   });
 });

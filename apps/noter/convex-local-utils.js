@@ -71,6 +71,13 @@ const normalizeConfiguredPort = (value) => {
 };
 
 /**
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {string | null}
+ */
+export const readConfiguredLocalDevPort = (env = process.env) =>
+  normalizeConfiguredPort(env.VITE_PORT);
+
+/**
  * Pick the same local frontend port that the Vite wrapper will claim so
  * SITE_URL can stay aligned even before Vite starts listening.
  *
@@ -78,7 +85,7 @@ const normalizeConfiguredPort = (value) => {
  * @returns {string}
  */
 export const resolveLocalDevPort = (env = process.env) => {
-  const configuredPort = normalizeConfiguredPort(env.VITE_PORT);
+  const configuredPort = readConfiguredLocalDevPort(env);
   let port =
     configuredPort !== null ? Number(configuredPort) : DEFAULT_LOCAL_SITE_PORT;
   while (isPortInUse(port)) {
