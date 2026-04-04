@@ -19,6 +19,7 @@
         "NOTER_DEV_ALLOWED_HOSTS",
         "NOTER_DEV_PORT",
         "NOTER_DEV_STRICT_PORT",
+        "VITE_PORT",
         "NOTER_DAYTONA_BROWSER_CONVEX_PROXY_TARGET"
       ]
     },
