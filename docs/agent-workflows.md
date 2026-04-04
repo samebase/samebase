@@ -32,24 +32,43 @@ worktree must use the prefix `tmp-<worktree-id>-<intent>`.
 - `clean vaults` must only target vaults with that exact prefix and only if they
   are Noter-managed.
 
+## Worktree Machine Linking
+
+Use `link machine` when the operator wants the current checkout or worktree to
+run the real `noter.js` connected-machine flow without re-explaining the details
+each time.
+
+- Treat `link machines` as an alias for `link machine`.
+- For the primary local checkout, use the default `~/.noter` install unless the
+  operator explicitly asks for a different state dir.
+- For a non-primary worktree, keep the machine install isolated with
+  `--state-dir ~/.noter/worktrees/<worktree-id>`.
+- For Codex worktrees under `~/.codex/worktrees/<id>/...`, use that folder id as
+  `<worktree-id>`.
+- `link machine` should use the current checkout's `noter.js` URL, run `connect`
+  with the matching state dir, complete the browser approval flow, then run
+  `noter-sync run` with that same state dir.
+- Never overwrite the default `~/.noter/config.json` when linking a worktree.
+
 ## Git Shorthand Commands
 
 These are the intended meanings for the repo shorthand commands:
 
-| Command        | Meaning                                                                                   |
-| -------------- | ----------------------------------------------------------------------------------------- |
-| `commit`       | Stage and create a concise commit on the current branch                                   |
-| `push`         | Commit if needed, then push                                                               |
-| `create pr`    | Push if needed, then create or update a ready PR                                          |
-| `create draft` | Push if needed, then create or update a draft PR                                          |
-| `ready`        | Mark the current PR ready                                                                 |
-| `wait`         | Watch CI and report status                                                                |
-| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, and wait for CI |
-| `squash`       | Squash-merge the current PR                                                               |
-| `archive`      | Remove the current worktree/local branch after confirming a PR exists                     |
-| `clean vaults` | Delete matching temporary Noter-managed vaults safely                                     |
-| `clean`        | Run `clean vaults`, then remove the shipped worktree and branch                           |
-| `status`       | Report branch, local changes, and PR state                                                |
+| Command        | Meaning                                                                                                           |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `commit`       | Stage and create a concise commit on the current branch                                                           |
+| `push`         | Commit if needed, then push                                                                                       |
+| `create pr`    | Push if needed, then create or update a ready PR                                                                  |
+| `create draft` | Push if needed, then create or update a draft PR                                                                  |
+| `ready`        | Mark the current PR ready                                                                                         |
+| `wait`         | Watch CI and report status                                                                                        |
+| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, and wait for CI                         |
+| `squash`       | Squash-merge the current PR                                                                                       |
+| `archive`      | Remove the current worktree/local branch after confirming a PR exists                                             |
+| `link machine` | Run the current checkout's `noter.js` machine-link flow with worktree isolation when needed                       |
+| `clean vaults` | Delete matching temporary Noter-managed vaults safely                                                             |
+| `clean`        | Run `clean vaults`, remove the current worktree's local machine link, then remove the shipped worktree and branch |
+| `status`       | Report branch, local changes, and PR state                                                                        |
 
 ## PR Body Standard
 
@@ -113,9 +132,15 @@ Rules:
   branch. A draft PR is sufficient.
 - `archive` removes only the current non-`main` worktree and the local branch.
   It leaves the remote branch and PR intact.
-- `clean` is only for shipped or merged work. Run `clean vaults` first, then
-  remove the current non-`main` worktree, delete the local branch, and delete
-  the remote branch if it still exists.
+- `clean` is only for shipped or merged work. Run `clean vaults` first.
+- If the current checkout is a non-primary worktree with a linked machine
+  install, stop that exact worktree-local `noter-sync run` process before
+  deleting its state dir.
+- For a Codex worktree under `~/.codex/worktrees/<id>/...`, `clean` should
+  remove only `~/.noter/worktrees/<id>` and never the default `~/.noter`
+  install.
+- After machine-link cleanup, remove the current non-`main` worktree, delete the
+  local branch, and delete the remote branch if it still exists.
 
 ## Route-First UI Regression Policy
 
