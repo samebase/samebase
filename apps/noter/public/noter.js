@@ -166,8 +166,12 @@ export function parseCliArgs(argv) {
       if (stateDirectory !== null) {
         throw new Error('Duplicate option: --state-dir')
       }
-      if (nextValue.trim().length === 0) {
+      const trimmedNextValue = nextValue.trim()
+      if (trimmedNextValue.length === 0) {
         throw new Error('The --state-dir option must not be empty.')
+      }
+      if (trimmedNextValue.startsWith('-')) {
+        throw new Error(`Invalid value for --state-dir: ${nextValue}`)
       }
       stateDirectory = nextValue
       index += 1
@@ -186,7 +190,7 @@ export function parseCliArgs(argv) {
       continue
     }
 
-    throw new Error(`Unknown option: ${arg}`)
+    throw new Error(`Unexpected argument: ${arg}`)
   }
 
   if (command === 'connect') {
@@ -829,13 +833,15 @@ export function detectCodexVersion(options = {}) {
 }
 
 /**
- * All installer state lives under the user's home directory, never inside a
- * project checkout.
+ * Normalize the selected state directory to an absolute path once so config
+ * reads, writes, and printed commands all refer to the same location.
  */
 export function getNoterStateDirectory(args = {}) {
   const configuredStateDirectory = args.stateDirectory?.trim()
   if (configuredStateDirectory && configuredStateDirectory.length > 0) {
-    return configuredStateDirectory
+    return path.isAbsolute(configuredStateDirectory)
+      ? configuredStateDirectory
+      : path.resolve(args.cwd ?? process.cwd(), configuredStateDirectory)
   }
 
   const homeDirectory = args.homeDirectory ?? homedir()
@@ -845,6 +851,7 @@ export function getNoterStateDirectory(args = {}) {
 export function getNoterConfigPath(args = {}) {
   return path.join(
     getNoterStateDirectory({
+      cwd: args.cwd,
       homeDirectory: args.homeDirectory,
       stateDirectory: args.stateDirectory,
     }),
@@ -855,7 +862,11 @@ export function getNoterConfigPath(args = {}) {
 function describeNoterConfigPath(args = {}) {
   const configuredStateDirectory = args.stateDirectory?.trim()
   if (configuredStateDirectory && configuredStateDirectory.length > 0) {
-    return path.join(configuredStateDirectory, NOTER_CONFIG_FILENAME)
+    return getNoterConfigPath({
+      cwd: args.cwd,
+      homeDirectory: args.homeDirectory,
+      stateDirectory: args.stateDirectory,
+    })
   }
 
   return path.join('~', NOTER_STATE_DIRNAME, NOTER_CONFIG_FILENAME)
@@ -4118,6 +4129,11 @@ function readDirectDownloadCommand(currentPlatform = process.platform) {
     : 'curl -fsSL'
 }
 
+/**
+ * Quote a path for the shell command snippets we print for operators.
+ * PowerShell escapes a single quote by doubling it, while POSIX shells close
+ * the quote, emit a literal single quote, and reopen it.
+ */
 function shellSingleQuote(value, currentPlatform = process.platform) {
   return normalizeRuntimePlatform(currentPlatform) === 'win32'
     ? `'${value.replaceAll("'", "''")}'`
@@ -4171,7 +4187,7 @@ Examples:
   ${buildDirectConnectCommand('https://preview.noter.md/noter.js', 'darwin')}
   ${buildDirectConnectCommand('https://preview.noter.md/noter.js', 'win32')}
   # worktree-isolated state
-  ${buildDirectRunCommand('https://preview.noter.md/noter.js', 'darwin', '$HOME/.noter/worktrees/ceff')}`
+  ${buildDirectRunCommand('https://preview.noter.md/noter.js', 'darwin', '/home/you/.noter/worktrees/ceff')}`
 }
 
 /**

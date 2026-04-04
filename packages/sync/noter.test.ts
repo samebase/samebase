@@ -111,6 +111,12 @@ describe('@noter-md/sync', () => {
     expect(() => parseCliArgs(['run', '--state-dir', ''])).toThrow(
       'The --state-dir option must not be empty.',
     )
+    expect(() => parseCliArgs(['run', '--state-dir', '--help'])).toThrow(
+      'Invalid value for --state-dir: --help',
+    )
+    expect(() => parseCliArgs(['run', 'extra-arg'])).toThrow(
+      'Unexpected argument: extra-arg',
+    )
   })
 
   it('accepts https deploy URLs and localhost http URLs', () => {
@@ -506,6 +512,18 @@ describe('@noter-md/sync', () => {
         stateDirectory: '/tmp/noter/worktrees/ceff',
       }),
     ).toBe(path.join('/tmp/noter/worktrees/ceff', 'config.json'))
+    expect(
+      getNoterConfigPath({
+        cwd: '/Users/noter/projects/noter',
+        stateDirectory: './tmp/worktree-state',
+      }),
+    ).toBe(
+      path.join(
+        '/Users/noter/projects/noter',
+        'tmp/worktree-state',
+        'config.json',
+      ),
+    )
   })
 
   it('reads and writes local config data inside an explicit state directory', () => {
@@ -643,6 +661,23 @@ describe('@noter-md/sync', () => {
     ).toContain("--state-dir 'C:\\Users\\O''Brien\\.noter'")
   })
 
+  it('escapes explicit state-dir paths for Unix direct commands', () => {
+    expect(
+      buildDirectConnectCommand(
+        'https://noter.md/noter.js',
+        'darwin',
+        "/tmp/O'Brien/.noter",
+      ),
+    ).toContain(`--state-dir '/tmp/O'"'"'Brien/.noter'`)
+    expect(
+      buildDirectRunCommand(
+        'https://noter.md/noter.js',
+        'darwin',
+        "/tmp/O'Brien/.noter",
+      ),
+    ).toContain(`--state-dir '/tmp/O'"'"'Brien/.noter'`)
+  })
+
   it('builds the deploy-scoped runtime config URL', () => {
     expect(
       buildNoterConnectConfigUrl('https://preview.noter.md/noter.js'),
@@ -676,6 +711,7 @@ describe('@noter-md/sync', () => {
     expect(formatHelpText()).toContain(
       `curl.exe -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'`,
     )
+    expect(formatHelpText()).toContain(`/home/you/.noter/worktrees/ceff`)
   })
 
   it('builds Windows-safe direct hosted-file commands', () => {
