@@ -85,6 +85,8 @@ describe("resolveAppCommitNumber", () => {
     expect(runGitCommand).toHaveBeenCalledWith(
       "git fetch --quiet --unshallow origin",
     );
+    expect(runGitCommand).toHaveBeenCalledTimes(1);
+    expect(readGitOutput).toHaveBeenCalledTimes(3);
   });
 
   it("returns null instead of trusting a shallow-count fallback", () => {

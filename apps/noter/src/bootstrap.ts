@@ -7,7 +7,6 @@ import {
   APP_BUILD_VERSION_PREFIX,
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
-  formatAppBuildVersionLabel,
   formatAppBuildVersionNumber,
   hasSelectedAppBuildVersion,
   installAppBuildMarkdownCopy,
@@ -101,13 +100,12 @@ function renderChromeIconSvg() {
 function getShellCommitMetadata() {
   const appCommit = __APP_COMMIT__ || "unknown";
   const appCommitNumber = __APP_COMMIT_NUMBER__;
-  const buildVersionLabel = formatAppBuildVersionLabel(appCommitNumber);
   const commitNumberLabel = formatAppBuildVersionNumber(appCommitNumber);
   const repoUrl = __APP_REPO_URL__ || "";
   const commitUrl =
     repoUrl && appCommit !== "unknown" ? `${repoUrl}/commit/${appCommit}` : "";
 
-  return { appCommit, buildVersionLabel, commitNumberLabel, commitUrl };
+  return { appCommit, commitNumberLabel, commitUrl };
 }
 
 function resolveBootstrapTheme(): "dark" | "light" {
@@ -323,8 +321,7 @@ function renderFastLandingShell() {
   const landingDevToggleHref = buildLandingDevToggleHref(window.location);
   const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
   const landingLogoSrc = buildFastLandingLogoSrc();
-  const { appCommit, buildVersionLabel, commitNumberLabel, commitUrl } =
-    getShellCommitMetadata();
+  const { appCommit, commitNumberLabel, commitUrl } = getShellCommitMetadata();
   const commitMarkup = commitUrl
     ? `<a data-testid="${APP_BUILD_VERSION_TEST_ID}" class="select-text transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" draggable="false" title="${escapeHtml(appCommit)}">${escapeHtml(commitNumberLabel)}</a>`
     : `<span data-testid="${APP_BUILD_VERSION_TEST_ID}" class="select-text" title="${escapeHtml(appCommit)}">${escapeHtml(commitNumberLabel)}</span>`;
@@ -336,7 +333,7 @@ function renderFastLandingShell() {
           <a id="${PUBLIC_LANDING_DEV_TOGGLE_ID}" href="${escapeHtml(landingDevToggleHref)}" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
             ${escapeHtml(landingDevToggleLabel)}
           </a>
-          <div class="inline-flex select-text items-center gap-1 font-mono">
+          <div class="inline-flex select-text items-center font-mono">
             <span>${escapeHtml(APP_BUILD_VERSION_PREFIX)}</span>
             ${commitMarkup}
           </div>
@@ -426,7 +423,7 @@ function renderFastLandingShell() {
     disposeBootstrapBuildVersionCopy = installAppBuildMarkdownCopy(
       buildVersionElement,
       {
-        buildVersionLabel,
+        buildVersionCopyLabel: commitNumberLabel,
         commitUrl,
       },
     );

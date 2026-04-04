@@ -165,9 +165,14 @@ async function expectAppBuildVersionDisplay(
 ) {
   await expectAppBuildVersion(versionLabel);
   const buildVersionGroup = statusBar.locator(".font-mono").first();
-  await expect(buildVersionGroup.locator("span").first()).toHaveText(
-    APP_BUILD_VERSION_PREFIX,
-  );
+  const versionText = await versionLabel.textContent();
+  expect(versionText).not.toBeNull();
+  await expect
+    .poll(async () => {
+      const buildVersionText = await buildVersionGroup.textContent();
+      return buildVersionText?.replace(/\s+/g, "") ?? null;
+    })
+    .toBe(`${APP_BUILD_VERSION_PREFIX}${versionText ?? ""}`);
 }
 
 async function expectAppBuildCommitLink(versionLabel: Locator) {
@@ -326,14 +331,10 @@ test("build version copies as a Markdown link across the shell handoff", async (
   const shellVersionText = await shellVersion.textContent();
   const shellVersionHref = await expectAppBuildCommitLink(shellVersion);
   expect(shellVersionText).not.toBeNull();
-  const shellVersionMarkdownLabel = `v ${shellVersionText}`;
-
   await selectText(shellVersionGroup);
   await page.keyboard.press(COPY_SHORTCUT_KEY);
   const shellClipboardText = await readClipboardText(page);
-  expect(shellClipboardText).toBe(
-    `[${shellVersionMarkdownLabel}](${shellVersionHref})`,
-  );
+  expect(shellClipboardText).toBe(`[${shellVersionText}](${shellVersionHref})`);
 
   await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
 
@@ -346,7 +347,7 @@ test("build version copies as a Markdown link across the shell handoff", async (
   const hydratedClipboardText = await readClipboardText(page);
 
   expect(hydratedClipboardText).toBe(
-    `[${shellVersionMarkdownLabel}](${shellVersionHref})`,
+    `[${shellVersionText}](${shellVersionHref})`,
   );
 });
 

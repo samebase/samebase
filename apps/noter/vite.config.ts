@@ -71,6 +71,11 @@ function readGitOutput(command: string): string | null {
   }
 }
 
+/**
+ * Execute a git command at the repo root for build metadata probing.
+ * Callers rely on this helper to swallow failures and return `false` instead
+ * of throwing so shallow-checkout resolution can fail closed.
+ */
 function runGitCommand(command: string): boolean {
   try {
     execSync(command, {

@@ -5,7 +5,7 @@ export const APP_BUILD_VERSION_PREFIX = "v";
 const UNKNOWN_APP_BUILD_VERSION_NUMBER = "?";
 
 type AppBuildCopyPayload = {
-  buildVersionLabel: string;
+  buildVersionCopyLabel: string;
   commitUrl: string;
 };
 
@@ -44,20 +44,20 @@ export function formatAppBuildVersionNumber(
 export function formatAppBuildVersionLabel(
   commitNumber: number | null,
 ): string {
-  return `${APP_BUILD_VERSION_PREFIX} ${formatAppBuildVersionNumber(
+  return `${APP_BUILD_VERSION_PREFIX}${formatAppBuildVersionNumber(
     commitNumber,
   )}`;
 }
 
 export function formatAppBuildMarkdownLink({
-  buildVersionLabel,
+  buildVersionCopyLabel,
   commitUrl,
 }: AppBuildCopyPayload): string {
   if (!commitUrl) {
-    return buildVersionLabel;
+    return buildVersionCopyLabel;
   }
 
-  return `[${buildVersionLabel}](${commitUrl})`;
+  return `[${buildVersionCopyLabel}](${commitUrl})`;
 }
 
 function escapeHtml(value: string): string {
@@ -123,7 +123,7 @@ export function writeAppBuildClipboardData(
   clipboardData.setData("text/markdown", markdownLink);
   clipboardData.setData(
     "text/html",
-    `<a href="${escapeHtml(payload.commitUrl)}">${escapeHtml(payload.buildVersionLabel)}</a>`,
+    `<a href="${escapeHtml(payload.commitUrl)}">${escapeHtml(payload.buildVersionCopyLabel)}</a>`,
   );
 
   return markdownLink;

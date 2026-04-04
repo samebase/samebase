@@ -6,7 +6,6 @@ import {
   APP_BUILD_VERSION_PREFIX,
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
-  formatAppBuildVersionLabel,
   formatAppBuildVersionNumber,
   hasSelectedAppBuildVersion,
   installAppBuildMarkdownCopy,
@@ -23,7 +22,6 @@ import {
 export function Layout({ children }: { children: ReactNode }) {
   const appCommit = __APP_COMMIT__ || "unknown";
   const appCommitNumber = __APP_COMMIT_NUMBER__;
-  const buildVersionLabel = formatAppBuildVersionLabel(appCommitNumber);
   const commitNumberLabel = formatAppBuildVersionNumber(appCommitNumber);
   const repoUrl = __APP_REPO_URL__ || "";
   const commitUrl =
@@ -77,10 +75,10 @@ export function Layout({ children }: { children: ReactNode }) {
     }
 
     return installAppBuildMarkdownCopy(buildVersionElement, {
-      buildVersionLabel,
+      buildVersionCopyLabel: commitNumberLabel,
       commitUrl,
     });
-  }, [buildVersionLabel, commitUrl]);
+  }, [commitNumberLabel, commitUrl]);
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -106,7 +104,7 @@ export function Layout({ children }: { children: ReactNode }) {
               {landingDevToggleLabel}
             </a>
           )}
-          <div className="inline-flex select-text items-center gap-1 font-mono">
+          <div className="inline-flex select-text items-center font-mono">
             <span>{APP_BUILD_VERSION_PREFIX}</span>
             {commitUrl ? (
               <a
