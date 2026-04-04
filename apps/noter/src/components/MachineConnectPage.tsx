@@ -22,7 +22,7 @@ import {
 } from "../../shared/connectedMachinePresence";
 import { useMutation, useQuery } from "convex/react";
 import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { Link, useLocation } from "react-router-dom";
 import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
 import { api } from "../../convex/_generated/api";
@@ -261,7 +261,7 @@ function CopyableCommandBlock({
 
 function renderDirectCommandVariants(
   commandVariants: DirectCommandVariant[],
-): JSX.Element[] {
+): ReactElement[] {
   return commandVariants.map((commandVariant) => (
     <CopyableCommandBlock
       key={commandVariant.label}

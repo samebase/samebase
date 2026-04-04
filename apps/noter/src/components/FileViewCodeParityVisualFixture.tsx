@@ -457,7 +457,7 @@ function StaticCodeMirrorParitySurface({
   onLanguageReadyChange,
   value,
 }: {
-  captureRef: RefObject<HTMLDivElement>;
+  captureRef: RefObject<HTMLDivElement | null>;
   filePath: string;
   onLanguageReadyChange: (ready: boolean) => void;
   value: string;

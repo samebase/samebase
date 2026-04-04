@@ -9,7 +9,7 @@ type UseExpandableClampTextOptions = {
 type ExpandableClampTextState = {
   isExpandable: boolean;
   isExpanded: boolean;
-  measurementRef: RefObject<HTMLDivElement>;
+  measurementRef: RefObject<HTMLDivElement | null>;
   toggleExpanded: () => void;
 };
 

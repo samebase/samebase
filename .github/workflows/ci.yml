@@ -50,6 +50,9 @@ jobs:
     name: playwright (${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Keep heavy browser coverage off PRs for now so branch validation stays
+    # within the org Actions budget. Main pushes still exercise the full matrix.
+    if: ${{ github.event_name == 'push' }}
 
     strategy:
       fail-fast: false
@@ -117,6 +120,9 @@ jobs:
   sync-windows:
     runs-on: windows-latest
     timeout-minutes: 15
+    # Keep Windows smoke coverage off PRs for now so branch validation stays
+    # within the org Actions budget. Main pushes still exercise the full matrix.
+    if: ${{ github.event_name == 'push' }}
 
     strategy:
       matrix:
@@ -166,9 +172,19 @@ jobs:
       # in parallel jobs underneath it.
       - name: Aggregate parallel CI results
         run: |
-          if [ "${{ needs.checks.result }}" != "success" ] || [ "${{ needs.playwright.result }}" != "success" ] || [ "${{ needs.sync-windows.result }}" != "success" ]; then
+          if [ "${{ needs.checks.result }}" != "success" ]; then
             echo "checks: ${{ needs.checks.result }}"
+            exit 1
+          fi
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            if [ "${{ needs.playwright.result }}" != "success" ] || [ "${{ needs.sync-windows.result }}" != "success" ]; then
+              echo "playwright: ${{ needs.playwright.result }}"
+              echo "sync-windows: ${{ needs.sync-windows.result }}"
+              exit 1
+            fi
+          else
             echo "playwright: ${{ needs.playwright.result }}"
             echo "sync-windows: ${{ needs.sync-windows.result }}"
-            exit 1
+            echo "Heavy jobs are intentionally skipped on pull requests."
           fi
