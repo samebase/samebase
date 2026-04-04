@@ -1,5 +1,5 @@
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import React from "react";
+import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { ThemeProvider } from "next-themes";
 import "@fontsource/ibm-plex-sans/400.css";
@@ -636,7 +636,7 @@ const showGestureDebugOverlay = isMobileSidebarDebugEnabled(
 );
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
+  <StrictMode>
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <ConvexAuthProvider client={client}>
         <QueryProvider>
@@ -653,5 +653,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         </QueryProvider>
       </ConvexAuthProvider>
     </ThemeProvider>
-  </React.StrictMode>,
+  </StrictMode>,
 );

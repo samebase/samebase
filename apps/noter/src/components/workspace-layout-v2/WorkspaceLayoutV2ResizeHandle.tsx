@@ -1,4 +1,11 @@
-import * as React from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
 import { ResizeGripLines } from "@/components/ResizeGripLines";
 import { cn } from "@/lib/utils";
 
@@ -10,7 +17,7 @@ function clampWidthPx(widthPx: number, minWidthPx: number, maxWidthPx: number) {
 }
 
 function getKeyboardResizeDeltaPx(
-  event: React.KeyboardEvent<HTMLDivElement>,
+  event: KeyboardEvent<HTMLDivElement>,
   side: "left" | "right",
 ) {
   const stepPx = event.shiftKey ? 96 : 24;
@@ -65,14 +72,14 @@ export function WorkspaceLayoutV2ResizeHandle({
   positionPx,
   side,
 }: WorkspaceLayoutV2ResizeHandleProps) {
-  const dragStateRef = React.useRef<{
+  const dragStateRef = useRef<{
     startClientX: number;
     startWidthPx: number;
   } | null>(null);
-  const keyboardResizeTimeoutRef = React.useRef<number | null>(null);
-  const [isResizing, setIsResizing] = React.useState(false);
+  const keyboardResizeTimeoutRef = useRef<number | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     // The handle visually lives in the shell, but the cursor and selection lock
     // need to apply to the whole page while dragging.
     if (!isResizing || dragStateRef.current === null) {
@@ -89,7 +96,7 @@ export function WorkspaceLayoutV2ResizeHandle({
     };
   }, [isResizing]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       if (keyboardResizeTimeoutRef.current !== null) {
         window.clearTimeout(keyboardResizeTimeoutRef.current);
@@ -97,21 +104,21 @@ export function WorkspaceLayoutV2ResizeHandle({
     };
   }, []);
 
-  const commitWidthChange = React.useCallback(
+  const commitWidthChange = useCallback(
     (nextWidthPx: number) => {
       onWidthChange(clampWidthPx(nextWidthPx, minWidthPx, maxWidthPx));
     },
     [maxWidthPx, minWidthPx, onWidthChange],
   );
 
-  const stopResizing = React.useCallback(() => {
+  const stopResizing = useCallback(() => {
     dragStateRef.current = null;
     setIsResizing(false);
     onResizeEnd?.();
   }, [onResizeEnd]);
 
-  const handlePointerDown = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
       if (event.button !== 0) {
         return;
       }
@@ -129,8 +136,8 @@ export function WorkspaceLayoutV2ResizeHandle({
     [currentWidthPx, onResizeStart],
   );
 
-  const handlePointerMove = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
       const dragState = dragStateRef.current;
       if (dragState === null) {
         return;
@@ -144,8 +151,8 @@ export function WorkspaceLayoutV2ResizeHandle({
     [commitWidthChange, side],
   );
 
-  const handlePointerEnd = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerEnd = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
       event.stopPropagation();
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         // Releasing pointer capture triggers lostpointercapture next, which is
@@ -158,8 +165,8 @@ export function WorkspaceLayoutV2ResizeHandle({
     [stopResizing],
   );
 
-  const handleKeyDown = React.useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
       const deltaPx = getKeyboardResizeDeltaPx(event, side);
       if (deltaPx === 0) {
         return;

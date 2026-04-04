@@ -1,4 +1,16 @@
-import * as React from "react";
+import {
+  type Dispatch,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+  type ReactNode,
+  type RefObject,
+  type SetStateAction,
+} from "react";
 import { PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WorkspaceLayoutV2ResizeHandle } from "@/components/workspace-layout-v2/WorkspaceLayoutV2ResizeHandle";
@@ -22,9 +34,9 @@ const MOBILE_DRAG_SLOP_PX = 12;
 
 type WorkspaceLayoutV2Props = {
   dataTestId?: string;
-  left: React.ReactNode;
-  main: React.ReactNode;
-  right: React.ReactNode;
+  left: ReactNode;
+  main: ReactNode;
+  right: ReactNode;
 };
 
 type TouchSample = {
@@ -65,10 +77,10 @@ function findTouchByIdentifier(
  * queries, so resizes and mobile browser chrome changes update pane geometry
  * from the actual DOM box we are drawing into.
  */
-function useElementWidth(measureRef: React.RefObject<HTMLElement | null>) {
-  const [widthPx, setWidthPx] = React.useState(0);
+function useElementWidth(measureRef: RefObject<HTMLElement | null>) {
+  const [widthPx, setWidthPx] = useState(0);
 
-  React.useLayoutEffect(() => {
+  useLayoutEffect(() => {
     const node = measureRef.current;
     if (!node) {
       return;
@@ -172,7 +184,7 @@ function allowsShellHorizontalSwipe(
   return true;
 }
 
-function renderPaneContent(content: React.ReactNode) {
+function renderPaneContent(content: ReactNode) {
   return (
     // The shell contract always keeps all three panes mounted. A null slot is
     // still a real pane so width math and gestures stay consistent.
@@ -182,98 +194,42 @@ function renderPaneContent(content: React.ReactNode) {
   );
 }
 
-export function WorkspaceLayoutV2({
-  dataTestId,
-  left,
-  main,
-  right,
-}: WorkspaceLayoutV2Props) {
-  const viewportRef = React.useRef<HTMLDivElement | null>(null);
-  const activeGestureRef = React.useRef<ActiveMobileGesture | null>(null);
-  const activeResizeSideRef = React.useRef<"left" | "right" | null>(null);
-  const viewportWidthPx = useElementWidth(viewportRef);
-  const [isMobileDragging, setIsMobileDragging] = React.useState(false);
-  const [mobileDragOffsetPx, setMobileDragOffsetPx] = React.useState(0);
-  const [activeResizeSide, setActiveResizeSide] = React.useState<
-    "left" | "right" | null
-  >(null);
-  const {
-    isMobile,
-    leftDesktopOpen,
-    leftDesktopWidthPx,
-    leftMobileWidthPx,
-    mobilePane,
-    rightDesktopOpen,
-    rightDesktopWidthPx,
-    rightMobileWidthPx,
-    setLeftDesktopWidthPx,
-    setLeftMobileWidthPx,
-    setMobilePane,
-    setRightDesktopWidthPx,
-    setRightMobileWidthPx,
-    toggleLeftSidebar,
-    toggleRightSidebar,
-  } = useSidebar();
+type UseWorkspaceLayoutV2MobileGestureArgs = {
+  activeResizeSide: "left" | "right" | null;
+  isMobile: boolean;
+  mobileMetrics: WorkspaceLayoutV2Metrics;
+  mobilePane: WorkspaceLayoutV2Pane;
+  setMobilePane: Dispatch<SetStateAction<WorkspaceLayoutV2Pane>>;
+  viewportRef: RefObject<HTMLDivElement | null>;
+};
 
-  React.useEffect(() => {
+/**
+ * Register the mobile shell's native touch listeners and translate horizontal
+ * drags into transient pane motion. The hook decides when the shell, rather
+ * than a child surface, owns the gesture and settles the drag back to a real
+ * left/main/right pane on release.
+ */
+function useWorkspaceLayoutV2MobileGesture({
+  activeResizeSide,
+  isMobile,
+  mobileMetrics,
+  mobilePane,
+  setMobilePane,
+  viewportRef,
+}: UseWorkspaceLayoutV2MobileGestureArgs) {
+  const activeGestureRef = useRef<ActiveMobileGesture | null>(null);
+  const activeResizeSideRef = useRef<"left" | "right" | null>(null);
+  const [isMobileDragging, setIsMobileDragging] = useState(false);
+  const [mobileDragOffsetPx, setMobileDragOffsetPx] = useState(0);
+
+  useEffect(() => {
     // The native touch listeners below are registered once per pane state, so
     // they read the current resize side through a ref instead of reopening the
     // gesture during an in-flight handle drag.
     activeResizeSideRef.current = activeResizeSide;
   }, [activeResizeSide]);
 
-  const desktopLeftWidthPx = getDesktopSidebarWidthPx({
-    isOpen: leftDesktopOpen,
-    storedWidthPx: leftDesktopWidthPx,
-    viewportWidthPx,
-  });
-  const desktopRightWidthPx = getDesktopSidebarWidthPx({
-    isOpen: rightDesktopOpen,
-    storedWidthPx: rightDesktopWidthPx,
-    viewportWidthPx,
-  });
-  const desktopMainWidthPx = Math.max(
-    0,
-    viewportWidthPx - desktopLeftWidthPx - desktopRightWidthPx,
-  );
-  const mobileMetrics = React.useMemo<WorkspaceLayoutV2Metrics>(
-    () => ({
-      leftWidthPx: Math.max(MOBILE_SIDEBAR_MIN_WIDTH_PX, leftMobileWidthPx),
-      rightWidthPx: Math.max(MOBILE_SIDEBAR_MIN_WIDTH_PX, rightMobileWidthPx),
-      viewportWidthPx,
-    }),
-    [leftMobileWidthPx, rightMobileWidthPx, viewportWidthPx],
-  );
-  const mobileVisibleStartPx = getWorkspaceLayoutV2VisibleStartPx({
-    currentPane: mobilePane,
-    dragOffsetPx: isMobileDragging ? mobileDragOffsetPx : 0,
-    metrics: mobileMetrics,
-  });
-  const mobileTrackWidthPx = getWorkspaceLayoutV2TrackWidthPx(mobileMetrics);
-  const showLeftResizeHandle = isMobile
-    ? !isMobileDragging && mobilePane === "left"
-    : leftDesktopOpen;
-  const showRightResizeHandle = isMobile
-    ? !isMobileDragging && mobilePane === "right"
-    : rightDesktopOpen;
-  const leftResizePositionPx = isMobile
-    ? getWorkspaceLayoutV2ViewportBoundaryPx({
-        currentPane: mobilePane,
-        metrics: mobileMetrics,
-        side: "left",
-        visibleStartPx: mobileVisibleStartPx,
-      })
-    : desktopLeftWidthPx;
-  const rightResizePositionPx = isMobile
-    ? getWorkspaceLayoutV2ViewportBoundaryPx({
-        currentPane: mobilePane,
-        metrics: mobileMetrics,
-        side: "right",
-        visibleStartPx: mobileVisibleStartPx,
-      })
-    : desktopLeftWidthPx + desktopMainWidthPx;
-
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isMobile) {
       // Crossing the mobile breakpoint should not leave a stale drag transform
       // behind on desktop.
@@ -283,7 +239,7 @@ export function WorkspaceLayoutV2({
     }
   }, [isMobile]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const viewportNode = viewportRef.current;
     if (!viewportNode || !isMobile) {
       return;
@@ -435,9 +391,104 @@ export function WorkspaceLayoutV2({
       viewportNode.removeEventListener("touchend", finishGesture, true);
       viewportNode.removeEventListener("touchcancel", finishGesture, true);
     };
-  }, [isMobile, mobileMetrics, mobilePane, setMobilePane]);
+  }, [isMobile, mobileMetrics, mobilePane, setMobilePane, viewportRef]);
 
-  const handleLeftWidthChange = React.useCallback(
+  return {
+    isMobileDragging,
+    mobileDragOffsetPx,
+  };
+}
+
+export function WorkspaceLayoutV2({
+  dataTestId,
+  left,
+  main,
+  right,
+}: WorkspaceLayoutV2Props) {
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const viewportWidthPx = useElementWidth(viewportRef);
+  const [activeResizeSide, setActiveResizeSide] = useState<
+    "left" | "right" | null
+  >(null);
+  const {
+    isMobile,
+    leftDesktopOpen,
+    leftDesktopWidthPx,
+    leftMobileWidthPx,
+    mobilePane,
+    rightDesktopOpen,
+    rightDesktopWidthPx,
+    rightMobileWidthPx,
+    setLeftDesktopWidthPx,
+    setLeftMobileWidthPx,
+    setMobilePane,
+    setRightDesktopWidthPx,
+    setRightMobileWidthPx,
+    toggleLeftSidebar,
+    toggleRightSidebar,
+  } = useSidebar();
+
+  const desktopLeftWidthPx = getDesktopSidebarWidthPx({
+    isOpen: leftDesktopOpen,
+    storedWidthPx: leftDesktopWidthPx,
+    viewportWidthPx,
+  });
+  const desktopRightWidthPx = getDesktopSidebarWidthPx({
+    isOpen: rightDesktopOpen,
+    storedWidthPx: rightDesktopWidthPx,
+    viewportWidthPx,
+  });
+  const desktopMainWidthPx = Math.max(
+    0,
+    viewportWidthPx - desktopLeftWidthPx - desktopRightWidthPx,
+  );
+  const mobileMetrics = useMemo<WorkspaceLayoutV2Metrics>(
+    () => ({
+      leftWidthPx: Math.max(MOBILE_SIDEBAR_MIN_WIDTH_PX, leftMobileWidthPx),
+      rightWidthPx: Math.max(MOBILE_SIDEBAR_MIN_WIDTH_PX, rightMobileWidthPx),
+      viewportWidthPx,
+    }),
+    [leftMobileWidthPx, rightMobileWidthPx, viewportWidthPx],
+  );
+  const { isMobileDragging, mobileDragOffsetPx } =
+    useWorkspaceLayoutV2MobileGesture({
+      activeResizeSide,
+      isMobile,
+      mobileMetrics,
+      mobilePane,
+      setMobilePane,
+      viewportRef,
+    });
+  const mobileVisibleStartPx = getWorkspaceLayoutV2VisibleStartPx({
+    currentPane: mobilePane,
+    dragOffsetPx: isMobileDragging ? mobileDragOffsetPx : 0,
+    metrics: mobileMetrics,
+  });
+  const mobileTrackWidthPx = getWorkspaceLayoutV2TrackWidthPx(mobileMetrics);
+  const showLeftResizeHandle = isMobile
+    ? !isMobileDragging && mobilePane === "left"
+    : leftDesktopOpen;
+  const showRightResizeHandle = isMobile
+    ? !isMobileDragging && mobilePane === "right"
+    : rightDesktopOpen;
+  const leftResizePositionPx = isMobile
+    ? getWorkspaceLayoutV2ViewportBoundaryPx({
+        currentPane: mobilePane,
+        metrics: mobileMetrics,
+        side: "left",
+        visibleStartPx: mobileVisibleStartPx,
+      })
+    : desktopLeftWidthPx;
+  const rightResizePositionPx = isMobile
+    ? getWorkspaceLayoutV2ViewportBoundaryPx({
+        currentPane: mobilePane,
+        metrics: mobileMetrics,
+        side: "right",
+        visibleStartPx: mobileVisibleStartPx,
+      })
+    : desktopLeftWidthPx + desktopMainWidthPx;
+
+  const handleLeftWidthChange = useCallback(
     (nextWidthPx: number) => {
       if (isMobile) {
         setLeftMobileWidthPx(
@@ -457,7 +508,7 @@ export function WorkspaceLayoutV2({
     [isMobile, setLeftDesktopWidthPx, setLeftMobileWidthPx, viewportWidthPx],
   );
 
-  const handleRightWidthChange = React.useCallback(
+  const handleRightWidthChange = useCallback(
     (nextWidthPx: number) => {
       if (isMobile) {
         setRightMobileWidthPx(
@@ -477,8 +528,8 @@ export function WorkspaceLayoutV2({
     [isMobile, setRightDesktopWidthPx, setRightMobileWidthPx, viewportWidthPx],
   );
 
-  const handleMobileMainPanePointerUpCapture = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
+  const handleMobileMainPanePointerUpCapture = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
       if (
         !isMobile ||
         isMobileDragging ||
@@ -510,53 +561,7 @@ export function WorkspaceLayoutV2({
       data-workspace-layout-v2={isMobile ? "mobile" : "desktop"}
       className="relative flex h-full min-h-0 flex-1 overflow-hidden bg-background"
     >
-      {!isMobile ? (
-        <>
-          <div
-            className="absolute inset-y-0 left-0 z-10"
-            style={{ width: `${desktopLeftWidthPx}px` }}
-          >
-            <div
-              data-workspace-layout-v2-pane="left"
-              data-testid="workspace-layout-v2-pane-left"
-              className={cn(
-                "flex h-full min-h-0 flex-col overflow-hidden border-r bg-muted/10",
-                leftDesktopOpen ? "opacity-100" : "opacity-0",
-              )}
-              style={{ width: `${desktopLeftWidthPx}px` }}
-            >
-              {resolvedLeftContent}
-            </div>
-          </div>
-          <div
-            data-workspace-layout-v2-pane="main"
-            data-testid="workspace-layout-v2-pane-main"
-            className="absolute inset-y-0 z-0 flex min-h-0 flex-col overflow-hidden bg-background"
-            style={{
-              left: `${desktopLeftWidthPx}px`,
-              width: `${desktopMainWidthPx}px`,
-            }}
-          >
-            {resolvedMainContent}
-          </div>
-          <div
-            className="absolute inset-y-0 right-0 z-10"
-            style={{ width: `${desktopRightWidthPx}px` }}
-          >
-            <div
-              data-workspace-layout-v2-pane="right"
-              data-testid="workspace-layout-v2-pane-right"
-              className={cn(
-                "flex h-full min-h-0 flex-col overflow-hidden border-l bg-muted/10",
-                rightDesktopOpen ? "opacity-100" : "opacity-0",
-              )}
-              style={{ width: `${desktopRightWidthPx}px` }}
-            >
-              {resolvedRightContent}
-            </div>
-          </div>
-        </>
-      ) : (
+      {isMobile ? (
         <div
           className="absolute inset-0 overflow-hidden"
           data-sidebar-shell="mobile"
@@ -622,9 +627,55 @@ export function WorkspaceLayoutV2({
             </div>
           </div>
         </div>
+      ) : (
+        <>
+          <div
+            className="absolute inset-y-0 left-0 z-10"
+            style={{ width: `${desktopLeftWidthPx}px` }}
+          >
+            <div
+              data-workspace-layout-v2-pane="left"
+              data-testid="workspace-layout-v2-pane-left"
+              className={cn(
+                "flex h-full min-h-0 flex-col overflow-hidden border-r bg-muted/10",
+                leftDesktopOpen ? "opacity-100" : "opacity-0",
+              )}
+              style={{ width: `${desktopLeftWidthPx}px` }}
+            >
+              {resolvedLeftContent}
+            </div>
+          </div>
+          <div
+            data-workspace-layout-v2-pane="main"
+            data-testid="workspace-layout-v2-pane-main"
+            className="absolute inset-y-0 z-0 flex min-h-0 flex-col overflow-hidden bg-background"
+            style={{
+              left: `${desktopLeftWidthPx}px`,
+              width: `${desktopMainWidthPx}px`,
+            }}
+          >
+            {resolvedMainContent}
+          </div>
+          <div
+            className="absolute inset-y-0 right-0 z-10"
+            style={{ width: `${desktopRightWidthPx}px` }}
+          >
+            <div
+              data-workspace-layout-v2-pane="right"
+              data-testid="workspace-layout-v2-pane-right"
+              className={cn(
+                "flex h-full min-h-0 flex-col overflow-hidden border-l bg-muted/10",
+                rightDesktopOpen ? "opacity-100" : "opacity-0",
+              )}
+              style={{ width: `${desktopRightWidthPx}px` }}
+            >
+              {resolvedRightContent}
+            </div>
+          </div>
+        </>
       )}
 
-      {!isMobile ? (
+      {isMobile ? null : (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between p-3">
           <div className="pointer-events-auto flex gap-2">
             <Button
@@ -655,7 +706,7 @@ export function WorkspaceLayoutV2({
             </Button>
           </div>
         </div>
-      ) : null}
+      )}
 
       {showLeftResizeHandle && viewportWidthPx > 0 ? (
         <WorkspaceLayoutV2ResizeHandle

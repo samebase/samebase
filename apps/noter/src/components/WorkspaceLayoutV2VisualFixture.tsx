@@ -14,7 +14,11 @@ export function WorkspaceLayoutV2VisualFixture() {
         defaultRightDesktopWidthPx={320}
         defaultRightMobileWidthPx={320}
       >
-        <WorkspaceLayoutV2 left={<div />} main={<div />} right={<div />} />
+        <WorkspaceLayoutV2
+          left={<div>left</div>}
+          main={<div>main</div>}
+          right={<div>right</div>}
+        />
       </SidebarProvider>
     </div>
   );
