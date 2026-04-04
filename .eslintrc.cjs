@@ -4,7 +4,7 @@ module.exports = {
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended-type-checked',
-    'plugin:react-hooks/recommended',
+    'plugin:react-hooks/recommended-legacy',
     'plugin:@convex-dev/recommended',
   ],
   ignorePatterns: [

@@ -14,19 +14,6 @@ on:
       - Dockerfile.daytona-deps
       - scripts/daytona-deps-hash.js
       - .github/workflows/daytona-deps-image.yml
-  pull_request:
-    branches:
-      - main
-    paths:
-      - package.json
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - eslint-rules/package.json
-      - apps/noter/package.json
-      - apps/noter-starter-template/package.json
-      - Dockerfile.daytona-deps
-      - scripts/daytona-deps-hash.js
-      - .github/workflows/daytona-deps-image.yml
   workflow_dispatch: {}
 
 concurrency:
@@ -51,11 +38,9 @@ jobs:
       - name: Decide publish mode
         id: publish
         run: |
-          # Publish immutable tags on push and same-repo PRs so merges can reuse them.
+          # Publish immutable tags on protected branch pushes so merges can reuse them.
           should_push="false"
           if [ "${{ github.event_name }}" = "push" ]; then
-            should_push="true"
-          elif [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.event.pull_request.head.repo.full_name }}" = "${{ github.repository }}" ]; then
             should_push="true"
           fi
           echo "should_push=${should_push}" >> "$GITHUB_OUTPUT"

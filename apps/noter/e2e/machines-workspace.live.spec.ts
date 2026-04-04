@@ -32,7 +32,7 @@ test("mobile machines route keeps the left sidebar open after reload", async ({
   );
   const initialPane = await shell.getAttribute("data-mobile-pane");
   if (initialPane !== "left") {
-    await leftTrigger.click();
+    await leftTrigger.press("Enter");
   }
 
   await expect(shell).toHaveAttribute("data-mobile-pane", "left");

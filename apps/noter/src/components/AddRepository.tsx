@@ -10,7 +10,7 @@ import {
 } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { linkStyle } from "./styles";
 import type { FunctionReturnType } from "convex/server";
 import { isInIframe } from "@/authClient";
@@ -137,14 +137,14 @@ export function AddRepository() {
   const renderHighlightedText = (
     target: string,
     matchedIndices: number[],
-  ): JSX.Element => {
+  ): ReactElement => {
     if (matchedIndices.length === 0) {
       return <span>{target}</span>;
     }
     const targetOriginal = target.split("");
 
     // Build highlighted JSX
-    const elements: JSX.Element[] = [];
+    const elements: ReactElement[] = [];
     let lastIndex = 0;
 
     matchedIndices.forEach((index, i) => {
