@@ -264,6 +264,13 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   before shipping.
 - When scripting touch gestures, anchor on visible rendered content inside the
   shipped surface instead of arbitrary coordinates inside oversized containers.
+- On mobile-first chat or prompt surfaces, Enter must not send by default.
+  Require an explicit send action and treat accidental Enter-to-send on mobile
+  as a product bug.
+- When sharing a repo file with the operator and the branch is pushed, prefer a
+  `noter.md` vault branch/file URL over a local filesystem link. Local file
+  links are not usable from mobile. Use filesystem links only when no Noter
+  vault URL exists for that file.
 - Worktree frontend should avoid port `5173`; prefer the worktree defaults.
 - Treat shadcn-generated files in `apps/noter/src/components/ui/*` as read-only
   unless the user explicitly asks to update shadcn output.
