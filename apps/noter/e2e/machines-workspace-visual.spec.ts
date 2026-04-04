@@ -241,7 +241,7 @@ test.describe("mobile", () => {
     );
   });
 
-  test("machines workspace header expands the selected title on click", async ({
+  test("machines workspace header expands the selected title on click mobile", async ({
     page,
   }) => {
     await openMachinesWorkspaceFixture(page);
