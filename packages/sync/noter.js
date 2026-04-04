@@ -1569,9 +1569,10 @@ async function createMachineGitWorktree(cwd) {
     attempt < CODEX_MACHINE_WORKTREE_CREATE_RETRY_LIMIT;
     attempt += 1
   ) {
-    const worktreeId = randomToken(4).toLowerCase()
     const branch = buildMachineWorktreeBranchName()
-    const worktreeRoot = path.join(worktreesRoot, worktreeId)
+    const worktreeRoot = await mkdtemp(
+      path.join(worktreesRoot, `${CODEX_MACHINE_WORKTREE_BRANCH_PREFIX}-`),
+    )
     const worktreePath = path.join(worktreeRoot, projectLeaf)
 
     try {
@@ -1607,8 +1608,6 @@ async function createMachineGitWorktree(cwd) {
       )
     }
   }
-
-  throw new Error(`Failed to create a git worktree from ${projectRoot}.`)
 }
 
 function cloneJsonValue(value) {
@@ -3041,7 +3040,9 @@ export class CodexLocalControlRuntime {
           searchParams.set('cursor', cursor)
         }
 
-        const result = await this.listThreads(searchParams)
+        const result = await this.listThreads(searchParams, {
+          repairMissingPinnedThreads: false,
+        })
         const matchedThread =
           result.threads.find(thread => thread.id === threadId) ?? null
         if (matchedThread) {
@@ -3069,7 +3070,9 @@ export class CodexLocalControlRuntime {
    * machine connector, while preserving the raw provider payload on each thread
    * for protocol inspection.
    */
-  async listThreads(searchParams) {
+  async listThreads(searchParams, options = {}) {
+    const repairMissingPinnedThreads =
+      options.repairMissingPinnedThreads !== false
     const pinnedThreadIds = await readDesktopPinnedThreadIds()
     const params = {}
     const archived = searchParams.get('archived')
@@ -3137,12 +3140,15 @@ export class CodexLocalControlRuntime {
     const missingPinnedThreadIds = pinnedThreadIds.filter(
       threadId => !threads.some(thread => thread.id === threadId),
     )
-    if (missingPinnedThreadIds.length > 0) {
+    if (repairMissingPinnedThreads && missingPinnedThreadIds.length > 0) {
       const missingPinnedThreads = (
         await Promise.all(
-          missingPinnedThreadIds.map(threadId =>
-            this.readThreadSummary(threadId),
-          ),
+          missingPinnedThreadIds.map(async threadId => {
+            return (
+              (await this.readThreadSummary(threadId)) ??
+              (await this.readThreadSummaryFromList(threadId))
+            )
+          }),
         )
       )
         .filter(thread => thread !== null)
@@ -3200,6 +3206,9 @@ export class CodexLocalControlRuntime {
     })
     const threadRecord = asRecord(result)?.thread
     const normalizedThread = normalizeThread(threadRecord)
+    // Recovery path: older thread/read payloads can omit required summary
+    // fields, so rebuild metadata from list/search helpers and keep the richer
+    // turn payload from the original thread/read response.
     const fallbackThread =
       normalizedThread === null
         ? (await this.readThreadSummaryFromList(threadId)) ??

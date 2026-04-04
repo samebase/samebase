@@ -49,10 +49,7 @@ type MachinesWorkspaceViewProps = {
   selectedMachineId: string | null;
   selectedThreadId: string | null;
   selectedThread: CodexAppServerThread | null;
-  pendingConversation: {
-    envMode: MachinesWorkspaceConversationEnvMode;
-    projectLabel: string;
-  } | null;
+  pendingConversation: MachinesWorkspaceProjectConversationSelection | null;
   selectedMachineDisplayName: string | null;
   selectedMachineHostname: string | null;
   selectedMachineStatusReason: string | null;
@@ -725,6 +722,10 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                       section.machineId,
                       group.id,
                     );
+                    const projectStartIsPending =
+                      props.isSubmittingTurn &&
+                      props.pendingConversation?.machineId === section.machineId &&
+                      props.pendingConversation.projectId === group.id;
                     return (
                       <ProjectSection
                         key={projectKey}
@@ -734,7 +735,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                           section.machineStatusReason !== null ||
                           props.isSubmittingTurn
                         }
-                        isStartConversationPending={props.isSubmittingTurn}
+                        isStartConversationPending={projectStartIsPending}
                         onOpenChange={(nextOpen) => {
                           setOpenProjectIds((current) => {
                             const next = new Set(current);

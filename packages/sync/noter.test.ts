@@ -690,6 +690,46 @@ describe('@noter-md/sync', () => {
     expect(listThreadsMock.mock.calls[1]?.[0].get('cursor')).toBe('cursor-2')
   })
 
+  it('falls back to thread-list paging when pinned thread repair misses thread/read', async () => {
+    const previousCodexHome = process.env.CODEX_HOME
+    const codexHomePath = path.join(
+      tmpdir(),
+      `noter-codex-home-pinned-fallback-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    )
+    const globalStatePath = path.join(codexHomePath, '.codex-global-state.json')
+    mkdirSync(codexHomePath, { recursive: true })
+    writeFileSync(
+      globalStatePath,
+      `${JSON.stringify({ 'pinned-thread-ids': ['thread-target'] }, null, 2)}\n`,
+      'utf8',
+    )
+    process.env.CODEX_HOME = codexHomePath
+
+    try {
+      const runtime = new CodexLocalControlRuntime('/tmp/noter')
+      vi.spyOn(runtime, 'sendRequestNoEnsure').mockResolvedValue({
+        data: [buildThreadSummaryFixture({ id: 'thread-other' })],
+        nextCursor: null,
+      })
+      vi.spyOn(runtime, 'readThreadSummary').mockResolvedValue(null)
+      const readThreadSummaryFromListMock = vi
+        .spyOn(runtime, 'readThreadSummaryFromList')
+        .mockResolvedValue(buildThreadSummaryFixture({ id: 'thread-target' }))
+
+      const result = await runtime.listThreads(new URLSearchParams())
+
+      expect(result.threads.map(thread => thread.id)).toContain('thread-target')
+      expect(readThreadSummaryFromListMock).toHaveBeenCalledWith('thread-target')
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME
+      } else {
+        process.env.CODEX_HOME = previousCodexHome
+      }
+      rmSync(codexHomePath, { recursive: true, force: true })
+    }
+  })
+
   it('falls back to thread-list summaries when thread/read omits createdAt', async () => {
     const runtime = new CodexLocalControlRuntime('/tmp/noter')
     vi.spyOn(runtime, 'sendRequestNoEnsure').mockResolvedValue({

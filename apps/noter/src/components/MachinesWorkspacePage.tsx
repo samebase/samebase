@@ -1082,7 +1082,10 @@ export function MachinesWorkspacePage() {
             ? null
             : {
                 envMode: selectedPendingConversation.envMode,
+                machineId: selectedPendingConversation.machineId,
+                projectId: selectedPendingConversation.projectId,
                 projectLabel: selectedPendingConversation.projectLabel,
+                projectRootCwd: selectedPendingConversation.projectRootCwd,
               }
         }
         selectedMachineId={selectedMachineId}

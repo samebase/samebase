@@ -473,7 +473,10 @@ export function MachinesWorkspaceVisualFixture() {
                 pendingConversation?.machineId === selectedMachineId
                   ? {
                       envMode: pendingConversation.envMode,
+                      machineId: pendingConversation.machineId,
+                      projectId: pendingConversation.projectId,
                       projectLabel: pendingConversation.projectLabel,
+                      projectRootCwd: pendingConversation.projectRootCwd,
                     }
                   : null
               }
