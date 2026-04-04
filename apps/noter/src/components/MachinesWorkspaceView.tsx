@@ -119,9 +119,11 @@ function setsAreEqual<T>(left: Set<T>, right: Set<T>): boolean {
 }
 
 const MIN_LEFT_SIDEBAR_WIDTH_FOR_THREAD_META_PX = 176;
-// Export the shared default width so the parent persisted provider and the
-// workspace shell stay aligned. The narrower metadata threshold stays local.
-export const MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX = 288;
+const MIN_LEFT_SIDEBAR_WIDTH_FOR_CODEX_THREAD_ROW_PX = 320;
+// Export the shared desktop width so the parent persisted provider and the
+// workspace shell stay aligned with the Codex-like row treatment.
+export const MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX = 384;
+export const MACHINES_WORKSPACE_LEFT_SIDEBAR_MOBILE_WIDTH_PX = 288;
 const MACOS_APP_FONT_FAMILY =
   "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif";
 
@@ -216,9 +218,12 @@ function ThreadPinActionButton(props: {
   isVisible: boolean;
   isPending: boolean;
   disabled: boolean;
+  visualVariant?: "compact" | "codex";
   onClick?: () => void;
 }) {
   const label = props.isPinned ? "Unpin thread" : "Pin thread";
+  const visualVariant = props.visualVariant ?? "compact";
+  const isCodexVariant = visualVariant === "codex";
 
   return (
     <button
@@ -226,10 +231,14 @@ function ThreadPinActionButton(props: {
       aria-label={label}
       aria-pressed={props.isPinned}
       className={cn(
-        "flex h-6 w-6 items-center justify-center rounded-sm transition-[opacity,color,background-color]",
-        props.isPinned
-          ? "bg-accent/60 text-foreground hover:bg-accent"
-          : "bg-transparent text-muted-foreground hover:bg-accent/80 hover:text-foreground",
+        isCodexVariant
+          ? "flex h-4 w-4 items-center justify-center rounded-sm text-[#a0a0a0] transition-opacity"
+          : "flex h-6 w-6 items-center justify-center rounded-sm transition-[opacity,color,background-color]",
+        isCodexVariant
+          ? null
+          : props.isPinned
+            ? "bg-accent/60 text-foreground hover:bg-accent"
+            : "bg-transparent text-muted-foreground hover:bg-accent/80 hover:text-foreground",
         props.isVisible
           ? "opacity-100"
           : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
@@ -242,9 +251,21 @@ function ThreadPinActionButton(props: {
       }}
     >
       {props.isPending ? (
-        <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.6} />
+        <Loader2
+          className={
+            isCodexVariant
+              ? "h-[14px] w-[14px] animate-spin"
+              : "h-3 w-3 animate-spin"
+          }
+          strokeWidth={1.6}
+        />
       ) : (
-        <Pin className="h-3 w-3 rotate-45" strokeWidth={1.6} />
+        <Pin
+          className={
+            isCodexVariant ? "h-[14px] w-[14px] rotate-45" : "h-3 w-3 rotate-45"
+          }
+          strokeWidth={isCodexVariant ? 1.65 : 1.6}
+        />
       )}
     </button>
   );
@@ -278,6 +299,11 @@ export function MachinesWorkspaceThreadRow(props: {
   const leftSidebarWidthPx = isMobile ? leftMobileWidthPx : leftDesktopWidthPx;
   const visualVariant = props.visualVariant ?? "sidebar";
   const isReferenceVariant = visualVariant === "reference";
+  const usesCodexSidebarStyle =
+    visualVariant === "sidebar" &&
+    !isMobile &&
+    leftSidebarWidthPx >= MIN_LEFT_SIDEBAR_WIDTH_FOR_CODEX_THREAD_ROW_PX;
+  const usesReferenceTypography = isReferenceVariant || usesCodexSidebarStyle;
   const threadRowTestId =
     props.dataTestId ??
     `machines-thread-row-${props.threadKey.split("\u0000").join("-")}`;
@@ -286,64 +312,124 @@ export function MachinesWorkspaceThreadRow(props: {
   const showTrailingMeta =
     props.forceShowTrailingMeta ??
     leftSidebarWidthPx >= MIN_LEFT_SIDEBAR_WIDTH_FOR_THREAD_META_PX;
-  const pinActionAlwaysVisible = props.item.isPinned;
   const pinActionVisibleBecauseSelected = isMobile && props.isSelected;
-  const pinActionVisible =
-    pinActionAlwaysVisible || pinActionVisibleBecauseSelected;
+  const pinActionVisible = usesCodexSidebarStyle
+    ? props.item.isPinned
+    : props.item.isPinned || pinActionVisibleBecauseSelected;
   const pinActionIsPending = props.pinActionPendingKey === props.threadKey;
   const pinActionDisabled = pinActionIsPending || props.isDisabled === true;
   const rootClassName = isReferenceVariant
     ? "group flex h-16 w-full items-stretch bg-white text-[#1a1a1a] antialiased"
-    : cn(
-        "group flex min-h-9 w-full items-start gap-0 text-[13px] transition-colors",
-        props.isSelected
-          ? "bg-accent text-foreground"
-          : props.isDisabled
-            ? "bg-background text-foreground"
-            : "bg-background text-foreground hover:bg-accent/60 focus-within:bg-accent/60",
-        props.isDisabled ? "opacity-60" : null,
-      );
+    : usesCodexSidebarStyle
+      ? cn(
+          "group flex h-[46px] w-full items-stretch rounded-[14px] text-[#1a1a1a] antialiased transition-colors",
+          props.isSelected
+            ? "bg-[#efefef]"
+            : props.isDisabled
+              ? "bg-transparent"
+              : "bg-transparent hover:bg-[#f2f2f2] focus-within:bg-[#f2f2f2]",
+          props.isDisabled ? "opacity-60" : null,
+        )
+      : cn(
+          "group flex min-h-9 w-full items-start gap-0 text-[13px] transition-colors",
+          props.isSelected
+            ? "bg-accent text-foreground"
+            : props.isDisabled
+              ? "bg-background text-foreground"
+              : "bg-background text-foreground hover:bg-accent/60 focus-within:bg-accent/60",
+          props.isDisabled ? "opacity-60" : null,
+        );
   const buttonClassName = isReferenceVariant
     ? "flex min-w-0 flex-1 items-center gap-[16px] px-[16px] py-0 text-left"
-    : cn(
-        "flex min-w-0 flex-1 items-start gap-2 py-2 pr-3 text-left",
-        props.onPinChange ? null : "px-3",
-        props.isDisabled ? "cursor-default" : null,
-      );
-  const leadingIconClassName = isReferenceVariant
-    ? "flex h-[20px] w-[20px] shrink-0 items-center justify-center text-[#a0a0a0]"
-    : "flex h-3 w-3 shrink-0 items-center justify-center pt-px text-muted-foreground";
-  const contentClassName = isReferenceVariant
-    ? "flex min-w-0 flex-1 items-center gap-[10px]"
-    : "flex min-w-0 flex-1 items-start gap-1";
-  const workspaceIndicatorClassName = isReferenceVariant
-    ? "flex h-[18px] w-[18px] shrink-0 items-center justify-center text-[#9a9a9a]"
-    : "flex h-3 w-3 shrink-0 items-center justify-center pt-px text-muted-foreground";
-  const titleClassName = isReferenceVariant
-    ? "min-w-0 flex-auto truncate text-[20px] font-normal leading-[1.08] tracking-[-0.02em] text-[#1c1c1c]"
-    : "min-w-0 flex-auto line-clamp-3 [overflow-wrap:anywhere] text-[13px] font-medium leading-[1.15rem]";
-  const trailingMetaClassName = isReferenceVariant
-    ? "flex shrink-0 items-center gap-[11px] text-[17px] font-medium leading-none tabular-nums text-[#8f8f8f]"
-    : "flex shrink-0 items-center gap-0.5 pt-px text-[11px] tabular-nums text-muted-foreground";
-  const metaIndicatorClassName = isReferenceVariant
-    ? "h-[18px] w-[18px] shrink-0 text-[#8c8c8c]"
-    : "h-2.5 w-2.5 shrink-0";
+    : usesCodexSidebarStyle
+      ? cn(
+          "flex min-w-0 flex-1 items-center gap-[6px] px-0 py-0 text-left",
+          props.isDisabled ? "cursor-default" : null,
+        )
+      : cn(
+          "flex min-w-0 flex-1 items-start gap-2 py-2 pr-3 text-left",
+          props.onPinChange ? null : "px-3",
+          props.isDisabled ? "cursor-default" : null,
+        );
+  const leadingIconClassName =
+    isReferenceVariant || usesCodexSidebarStyle
+      ? isReferenceVariant
+        ? "flex h-[20px] w-[20px] shrink-0 items-center justify-center text-[#a0a0a0]"
+        : "flex h-[14px] w-[14px] shrink-0 items-center justify-center text-[#a0a0a0]"
+      : "flex h-3 w-3 shrink-0 items-center justify-center pt-px text-muted-foreground";
+  const contentClassName =
+    isReferenceVariant || usesCodexSidebarStyle
+      ? isReferenceVariant
+        ? "flex min-w-0 flex-1 items-center gap-[10px]"
+        : "flex min-w-0 flex-1 items-center gap-[6px]"
+      : "flex min-w-0 flex-1 items-start gap-1";
+  const workspaceIndicatorClassName =
+    isReferenceVariant || usesCodexSidebarStyle
+      ? isReferenceVariant
+        ? "flex h-[18px] w-[18px] shrink-0 items-center justify-center text-[#9a9a9a]"
+        : "flex h-[14px] w-[14px] shrink-0 items-center justify-center text-[#9a9a9a]"
+      : "flex h-3 w-3 shrink-0 items-center justify-center pt-px text-muted-foreground";
+  const titleClassName =
+    isReferenceVariant || usesCodexSidebarStyle
+      ? isReferenceVariant
+        ? "min-w-0 flex-auto truncate text-[20px] font-normal leading-[1.08] tracking-[-0.02em] text-[#1c1c1c]"
+        : "min-w-0 flex-auto truncate text-[14px] font-normal leading-[1.05] tracking-[-0.012em] text-[#1c1c1c]"
+      : "min-w-0 flex-auto line-clamp-3 [overflow-wrap:anywhere] text-[13px] font-medium leading-[1.15rem]";
+  const trailingMetaClassName =
+    isReferenceVariant || usesCodexSidebarStyle
+      ? isReferenceVariant
+        ? "flex shrink-0 items-center gap-[11px] text-[17px] font-medium leading-none tabular-nums text-[#8f8f8f]"
+        : "flex shrink-0 items-center gap-[6px] text-[13px] font-medium leading-none tabular-nums text-[#8f8f8f]"
+      : "flex shrink-0 items-center gap-0.5 pt-px text-[11px] tabular-nums text-muted-foreground";
+  const metaIndicatorClassName =
+    isReferenceVariant || usesCodexSidebarStyle
+      ? isReferenceVariant
+        ? "h-[18px] w-[18px] shrink-0 text-[#8c8c8c]"
+        : "h-[14px] w-[14px] shrink-0 text-[#8c8c8c]"
+      : "h-2.5 w-2.5 shrink-0";
+  const resolvedTrailingIndicators =
+    props.trailingIndicators ??
+    (usesCodexSidebarStyle && props.item.showWorkspaceIndicator
+      ? (["worktree"] as const)
+      : undefined);
+  const showLeadingWorkspaceIndicator =
+    props.item.showWorkspaceIndicator &&
+    !isReferenceVariant &&
+    !usesCodexSidebarStyle;
+  const showInlinePinSlot =
+    usesCodexSidebarStyle && props.onPinChange !== undefined;
 
   return (
     <div
       data-testid={threadRowTestId}
       className={cn(rootClassName, props.className)}
       style={
-        isReferenceVariant ? { fontFamily: MACOS_APP_FONT_FAMILY } : undefined
+        usesReferenceTypography
+          ? { fontFamily: MACOS_APP_FONT_FAMILY }
+          : undefined
       }
     >
-      {props.onPinChange ? (
+      {showInlinePinSlot ? (
+        <div className="flex shrink-0 items-center pl-0">
+          <ThreadPinActionButton
+            isPinned={props.item.isPinned}
+            isVisible={pinActionVisible}
+            isPending={pinActionIsPending}
+            disabled={pinActionDisabled}
+            visualVariant="codex"
+            onClick={() => {
+              props.onPinChange?.(props.item.id, !props.item.isPinned);
+            }}
+          />
+        </div>
+      ) : props.onPinChange ? (
         <div className="flex shrink-0 items-start pl-2.5 pr-0.5 pt-2">
           <ThreadPinActionButton
             isPinned={props.item.isPinned}
             isVisible={pinActionVisible}
             isPending={pinActionIsPending}
             disabled={pinActionDisabled}
+            visualVariant="compact"
             onClick={() => {
               props.onPinChange?.(props.item.id, !props.item.isPinned);
             }}
@@ -362,15 +448,12 @@ export function MachinesWorkspaceThreadRow(props: {
           <div className={leadingIconClassName}>{props.leadingIcon}</div>
         ) : null}
         <div className={contentClassName}>
-          {props.item.showWorkspaceIndicator ? (
+          {showLeadingWorkspaceIndicator ? (
             <div
               className={workspaceIndicatorClassName}
               title={props.item.workspaceTooltip ?? undefined}
             >
-              <GitBranch
-                className={isReferenceVariant ? "h-3.5 w-3.5" : "h-2.5 w-2.5"}
-                strokeWidth={1.6}
-              />
+              <GitBranch className="h-2.5 w-2.5" strokeWidth={1.6} />
             </div>
           ) : null}
           <div
@@ -392,7 +475,7 @@ export function MachinesWorkspaceThreadRow(props: {
                 </span>
               </>
             ) : null}
-            {props.trailingIndicators?.map((indicator, index) => (
+            {resolvedTrailingIndicators?.map((indicator, index) => (
               <MetaIndicatorIcon
                 key={`${indicator}-${index}`}
                 indicator={indicator}
@@ -471,7 +554,10 @@ function ProjectSection(props: {
                 }}
               >
                 {props.isStartConversationPending ? (
-                  <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.75} />
+                  <Loader2
+                    className="h-3 w-3 animate-spin"
+                    strokeWidth={1.75}
+                  />
                 ) : (
                   <Plus className="h-3 w-3" strokeWidth={1.75} />
                 )}
@@ -819,7 +905,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                 ) : null}
 
                 {section.pinnedThreads.length > 0 ? (
-                  <div className="grid min-w-0 gap-1 py-1">
+                  <div className="grid min-w-0 gap-0.5 py-0.5">
                     {section.pinnedThreads.map((thread) => (
                       <MachinesWorkspaceThreadRow
                         key={thread.id}
@@ -860,7 +946,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                   </div>
                 ) : null}
 
-                <div className="grid min-w-0 gap-1 pb-1">
+                <div className="grid min-w-0 gap-0.5 pb-0.5">
                   {section.projects.map((group) => {
                     const projectKey = buildProjectKey(
                       section.machineId,
@@ -868,7 +954,8 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                     );
                     const projectStartIsPending =
                       props.isSubmittingTurn &&
-                      props.pendingConversation?.machineId === section.machineId &&
+                      props.pendingConversation?.machineId ===
+                        section.machineId &&
                       props.pendingConversation.projectId === group.id;
                     return (
                       <ProjectSection
@@ -925,7 +1012,6 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                             relativeTimeReferenceMs={
                               props.relativeTimeReferenceMs
                             }
-                            className="pl-10"
                             onPinChange={
                               props.onThreadPinChange
                                 ? (threadId, nextPinned) => {

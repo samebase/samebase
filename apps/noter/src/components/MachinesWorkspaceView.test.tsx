@@ -10,6 +10,7 @@ vi.mock("@/components/MachinesWorkspaceThreadPane", () => ({
 }));
 
 import {
+  MACHINES_WORKSPACE_LEFT_SIDEBAR_MOBILE_WIDTH_PX,
   MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
   MachinesWorkspaceView,
 } from "./MachinesWorkspaceView";
@@ -53,7 +54,9 @@ describe("MachinesWorkspaceView", () => {
       <SidebarProvider
         defaultOpen={true}
         defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+        defaultLeftMobileWidthPx={
+          MACHINES_WORKSPACE_LEFT_SIDEBAR_MOBILE_WIDTH_PX
+        }
       >
         <MachinesWorkspaceView
           hasPendingStartedThread={false}

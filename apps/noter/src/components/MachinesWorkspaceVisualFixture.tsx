@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { SidebarProvider } from "@/components/sidebar";
 import {
+  MACHINES_WORKSPACE_LEFT_SIDEBAR_MOBILE_WIDTH_PX,
   MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
   MachinesWorkspaceView,
 } from "@/components/MachinesWorkspaceView";
@@ -435,7 +436,9 @@ export function MachinesWorkspaceVisualFixture() {
         className="h-full min-h-0"
         defaultOpen={true}
         defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+        defaultLeftMobileWidthPx={
+          MACHINES_WORKSPACE_LEFT_SIDEBAR_MOBILE_WIDTH_PX
+        }
       >
         <div className="bg-slate-100 p-8 text-slate-950">
           <div className="h-[420px] w-[960px] overflow-hidden">

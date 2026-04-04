@@ -20,6 +20,7 @@ import {
   type MachinesWorkspaceProjectConversationSelection,
 } from "@/lib/machinesWorkspaceConversation";
 import {
+  MACHINES_WORKSPACE_LEFT_SIDEBAR_MOBILE_WIDTH_PX,
   MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
   MachinesWorkspaceView,
 } from "@/components/MachinesWorkspaceView";
@@ -41,7 +42,7 @@ const MACHINE_CONTROL_TOKEN_REFRESH_BUFFER_MS = 30_000;
 const MACHINES_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
   leftDesktopOpen: true,
   leftDesktopWidthPx: MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
-  leftMobileWidthPx: MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
+  leftMobileWidthPx: MACHINES_WORKSPACE_LEFT_SIDEBAR_MOBILE_WIDTH_PX,
   mobilePane: "main",
   rightDesktopOpen: false,
   rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
