@@ -74,6 +74,7 @@ const CODEX_REQUEST_BUFFER_SIZE = 100
 const CODEX_APPROVAL_CONTEXT_BUFFER_SIZE = 100
 const CODEX_MACHINE_WORKTREE_BRANCH_PREFIX = 'codex-machine'
 const CODEX_MACHINE_WORKTREE_CREATE_RETRY_LIMIT = 3
+const CODEX_THREAD_LIST_RECOVERY_PAGE_LIMIT = 200
 const MAX_THREAD_PROJECT_INFO_CACHE_SIZE = 500
 const DEFAULT_THREAD_SOURCE_KINDS = ['cli', 'vscode', 'exec', 'appServer']
 const CODEX_GLOBAL_STATE_FILENAME = '.codex-global-state.json'
@@ -3029,37 +3030,44 @@ export class CodexLocalControlRuntime {
 
   async readThreadSummaryFromList(threadId) {
     try {
-      const seenCursors = new Set()
-      let cursor = null
+      for (const archived of ['false', 'true']) {
+        const seenCursors = new Set()
+        let cursor = null
 
-      while (true) {
-        const searchParams = new URLSearchParams()
-        searchParams.set('archived', 'false')
-        searchParams.set('limit', '200')
-        if (cursor) {
-          searchParams.set('cursor', cursor)
+        while (true) {
+          const searchParams = new URLSearchParams()
+          searchParams.set('archived', archived)
+          searchParams.set(
+            'limit',
+            String(CODEX_THREAD_LIST_RECOVERY_PAGE_LIMIT),
+          )
+          if (cursor) {
+            searchParams.set('cursor', cursor)
+          }
+
+          const result = await this.listThreads(searchParams, {
+            repairMissingPinnedThreads: false,
+          })
+          const matchedThread =
+            result.threads.find(thread => thread.id === threadId) ?? null
+          if (matchedThread) {
+            return matchedThread
+          }
+
+          if (
+            typeof result.nextCursor !== 'string' ||
+            result.nextCursor.length === 0 ||
+            seenCursors.has(result.nextCursor)
+          ) {
+            break
+          }
+
+          seenCursors.add(result.nextCursor)
+          cursor = result.nextCursor
         }
-
-        const result = await this.listThreads(searchParams, {
-          repairMissingPinnedThreads: false,
-        })
-        const matchedThread =
-          result.threads.find(thread => thread.id === threadId) ?? null
-        if (matchedThread) {
-          return matchedThread
-        }
-
-        if (
-          typeof result.nextCursor !== 'string' ||
-          result.nextCursor.length === 0 ||
-          seenCursors.has(result.nextCursor)
-        ) {
-          return null
-        }
-
-        seenCursors.add(result.nextCursor)
-        cursor = result.nextCursor
       }
+
+      return null
     } catch {
       return null
     }
@@ -3235,8 +3243,9 @@ export class CodexLocalControlRuntime {
           name: readString(threadRecord.name) ?? thread.name,
           preview:
             readString(threadRecord.preview) ??
-            deriveThreadPreviewFallback(threadRecord) ??
-            thread.preview,
+            (threadRecord.preview !== undefined
+              ? deriveThreadPreviewFallback(threadRecord)
+              : thread.preview),
           cliVersion: readString(threadRecord.cliVersion) ?? thread.cliVersion,
           modelProvider:
             readString(threadRecord.modelProvider) ?? thread.modelProvider,
@@ -3248,7 +3257,10 @@ export class CodexLocalControlRuntime {
             threadRecord.source !== undefined
               ? cloneJsonValue(threadRecord.source)
               : thread.source,
-          status: normalizeThreadStatus(threadRecord.status),
+          status:
+            threadRecord.status !== undefined
+              ? normalizeThreadStatus(threadRecord.status)
+              : thread.status,
           gitInfo:
             asRecord(threadRecord.gitInfo) !== null
               ? {

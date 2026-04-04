@@ -234,10 +234,10 @@ describe("MachinesWorkspaceView", () => {
           selectedMachineDisplayName="Research MacBook Pro"
           selectedMachineHostname="research-mbp.local"
           selectedMachineStatusReason={null}
-          selectedThread={THREAD_FIXTURE}
+          selectedThread={null}
           selectedThreadError={null}
           selectedThreadLoading={false}
-          selectedThreadId={THREAD_FIXTURE.id}
+          selectedThreadId={null}
           turnDraft=""
           onProjectStartConversation={() => {}}
           onTurnDraftChange={() => {}}
@@ -246,6 +246,16 @@ describe("MachinesWorkspaceView", () => {
       </SidebarProvider>,
     );
 
-    expect(markup.match(/animate-spin/g)?.length ?? 0).toBe(1);
+    const macSectionStart = markup.indexOf("Research MacBook Pro");
+    const winSectionStart = markup.indexOf("Research Windows Workstation");
+    const macSection =
+      macSectionStart === -1 || winSectionStart === -1
+        ? ""
+        : markup.slice(macSectionStart, winSectionStart);
+    const winSection =
+      winSectionStart === -1 ? "" : markup.slice(winSectionStart);
+
+    expect(macSection.match(/animate-spin/g)?.length ?? 0).toBe(1);
+    expect(winSection).not.toContain("animate-spin");
   });
 });

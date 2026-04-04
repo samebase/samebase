@@ -147,4 +147,32 @@ describe("MachinesWorkspaceThreadPane", () => {
       "Send the first prompt to create a new worktree conversation in noter.",
     );
   });
+
+  it("shows hydration copy while a newly started thread is still loading into inventory", () => {
+    const markup = renderToStaticMarkup(
+      <MachinesWorkspaceThreadPane
+        thread={null}
+        selectedThreadId="thread-machine-workspace-test"
+        pendingConversation={null}
+        selectedMachineDisplayName="Research MacBook Pro"
+        selectedMachineHostname="research-mbp.local"
+        selectedMachineStatusReason={null}
+        hasPendingStartedThread={true}
+        isLoading={false}
+        errorMessage={null}
+        isSubmittingTurn={false}
+        turnDraft=""
+        onTurnDraftChange={() => {}}
+        onTurnSubmit={() => {}}
+      />,
+    );
+
+    expect(markup).toContain("New conversation");
+    expect(markup).toContain(
+      "Waiting for the new conversation to hydrate. Its first message will appear here once the machine inventory refreshes.",
+    );
+    expect(markup).toContain(
+      'data-placeholder="Waiting for the new conversation to hydrate..."',
+    );
+  });
 });

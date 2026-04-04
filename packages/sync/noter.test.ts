@@ -67,7 +67,44 @@ function buildIsolatedGitEnv() {
   return env
 }
 
-function buildThreadSummaryFixture(overrides = {}) {
+type ThreadSummaryFixture = {
+  id: string
+  name: string | null
+  preview: string
+  cwd: string
+  project: {
+    id: string
+    label: string
+    rootCwd: string
+  }
+  workspace: {
+    label: string | null
+    isProjectRoot: boolean
+  }
+  createdAt: number
+  updatedAt: number
+  cliVersion: string
+  modelProvider: string
+  sourceLabel: string
+  source: string
+  status: {
+    type: string
+    activeFlags: string[]
+    raw: {
+      type: string
+    }
+  }
+  gitInfo: null
+  path: string
+  agentNickname: string | null
+  agentRole: string | null
+  turns: unknown[]
+  raw: null
+}
+
+function buildThreadSummaryFixture(
+  overrides: Partial<ThreadSummaryFixture> = {},
+): ThreadSummaryFixture {
   return {
     id: 'thread-fixture',
     name: null,
@@ -730,6 +767,36 @@ describe('@noter-md/sync', () => {
     }
   })
 
+  it('searches archived pages when thread-list recovery misses the active inventory', async () => {
+    const runtime = new CodexLocalControlRuntime('/tmp/noter')
+    const listThreadsMock = vi
+      .spyOn(runtime, 'listThreads')
+      .mockResolvedValueOnce({
+        nextCursor: null,
+        pinnedThreadIds: [],
+        runtime: runtime.getSnapshot(),
+        threads: [buildThreadSummaryFixture({ id: 'thread-other' })],
+      })
+      .mockResolvedValueOnce({
+        nextCursor: null,
+        pinnedThreadIds: [],
+        runtime: runtime.getSnapshot(),
+        threads: [
+          buildThreadSummaryFixture({
+            id: 'thread-target',
+            path: '/tmp/noter/archived_sessions/thread-target.jsonl',
+          }),
+        ],
+      })
+
+    const thread = await runtime.readThreadSummaryFromList('thread-target')
+
+    expect(thread?.id).toBe('thread-target')
+    expect(listThreadsMock).toHaveBeenCalledTimes(2)
+    expect(listThreadsMock.mock.calls[0]?.[0].get('archived')).toBe('false')
+    expect(listThreadsMock.mock.calls[1]?.[0].get('archived')).toBe('true')
+  })
+
   it('falls back to thread-list summaries when thread/read omits createdAt', async () => {
     const runtime = new CodexLocalControlRuntime('/tmp/noter')
     vi.spyOn(runtime, 'sendRequestNoEnsure').mockResolvedValue({
@@ -737,7 +804,6 @@ describe('@noter-md/sync', () => {
         id: 'thread-target',
         cwd: '/tmp/noter',
         updatedAt: 20,
-        preview: 'Reply with exactly READY and nothing else.',
         turns: [
           {
             id: 'turn-1',
@@ -773,7 +839,12 @@ describe('@noter-md/sync', () => {
         buildThreadSummaryFixture({
           createdAt: 10,
           id: 'thread-target',
-          preview: 'Reply with exactly READY and nothing else.',
+          preview: 'Recovered preview from the thread list.',
+          status: {
+            type: 'running',
+            activeFlags: ['streaming'],
+            raw: { type: 'running' },
+          },
           updatedAt: 20,
         }),
       ],
@@ -782,6 +853,8 @@ describe('@noter-md/sync', () => {
     const result = await runtime.readThread('thread-target')
 
     expect(result.thread.createdAt).toBe(10)
+    expect(result.thread.preview).toBe('Recovered preview from the thread list.')
+    expect(result.thread.status.type).toBe('running')
     expect(result.thread.turns).toHaveLength(1)
     expect(result.thread.turns[0]?.items[1]?.summary).toBe('READY')
   })

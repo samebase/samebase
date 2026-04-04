@@ -223,6 +223,8 @@ export function MachinesWorkspaceThreadPane({
             envMode: pendingConversation.envMode,
             projectLabel: pendingConversation.projectLabel,
           })
+        : hasPendingStartedThread
+          ? "Waiting for the new conversation to hydrate..."
         : selectedThreadId
           ? "Continue this thread..."
           : "Pick a thread or use a project's plus button to start a new conversation.";
@@ -243,7 +245,7 @@ export function MachinesWorkspaceThreadPane({
   } else if (selectedThreadId !== null && hasPendingStartedThread) {
     emptyStateTitle = "New conversation";
     emptyStateBody =
-      "This machine started a new thread. Send the first prompt to materialize its message history.";
+      "Waiting for the new conversation to hydrate. Its first message will appear here once the machine inventory refreshes.";
   } else if (selectedThreadId !== null && isLoading) {
     emptyStateTitle = "Loading thread";
     emptyStateBody = `Loading ${selectedThreadId}.`;
