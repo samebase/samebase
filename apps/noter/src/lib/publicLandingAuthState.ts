@@ -57,3 +57,17 @@ export function shouldRenderPublicLandingWithoutAuthGate(
 ): boolean {
   return isKnownUnauthenticatedLandingVisit(location);
 }
+
+/**
+ * Hide Google auth on the anonymous landing surface unless the operator has
+ * explicitly enabled the `?dev` variant from the status bar.
+ */
+export function shouldShowGoogleAuthForLocation(
+  location: PathWithSearch,
+): boolean {
+  const searchParams = new URLSearchParams(location.search);
+  return (
+    !shouldRenderPublicLandingWithoutAuthGate(location) ||
+    isLandingDevModeEnabled(searchParams)
+  );
+}

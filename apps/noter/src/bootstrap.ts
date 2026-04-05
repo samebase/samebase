@@ -31,7 +31,10 @@ import {
   PUBLIC_LANDING_LOGO_TEST_ID,
   PUBLIC_LANDING_LOGO_WIDTH,
 } from "@/lib/publicLandingLogo";
-import { shouldRenderFastLandingShell } from "@/lib/publicLandingAuthState";
+import {
+  shouldRenderFastLandingShell,
+  shouldShowGoogleAuthForLocation,
+} from "@/lib/publicLandingAuthState";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "@/lib/fastLandingBoot";
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import { isMobileSidebarDebugEnabled } from "@/lib/mobileSidebarGestureDebug";
@@ -323,11 +326,24 @@ function renderFastLandingShell() {
   const landingDevToggleHref = buildLandingDevToggleHref(window.location);
   const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
   const landingLogoSrc = buildFastLandingLogoSrc();
+  const showGoogleAuth = shouldShowGoogleAuthForLocation(window.location);
   const { appCommit, buildVersionLabel, commitLabel, commitUrl } =
     getShellCommitMetadata();
   const commitMarkup = commitUrl
     ? `<a data-testid="${APP_BUILD_COMMIT_LINK_TEST_ID}" class="select-text transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" draggable="false" title="${escapeHtml(appCommit)}">${escapeHtml(commitLabel)}</a>`
     : `<span data-testid="${APP_BUILD_COMMIT_LINK_TEST_ID}" class="select-text" title="${escapeHtml(appCommit)}">${escapeHtml(commitLabel)}</span>`;
+  const googleAuthButtonMarkup = showGoogleAuth
+    ? `
+              <button
+                id="${GOOGLE_AUTH_BUTTON_ID}"
+                type="button"
+                class="inline-flex h-9 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+              >
+                ${renderChromeIconSvg()}
+                <span>Google</span>
+              </button>
+      `
+    : "";
 
   root.innerHTML = `
     <div data-testid="public-landing-shell" class="flex h-full w-full flex-col">
@@ -370,14 +386,7 @@ function renderFastLandingShell() {
               ${renderLandingCopyShellHtml(landingPageMarkdown)}
             </div>
             <div class="flex flex-col gap-2">
-              <button
-                id="${GOOGLE_AUTH_BUTTON_ID}"
-                type="button"
-                class="inline-flex h-9 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-              >
-                ${renderChromeIconSvg()}
-                <span>Google</span>
-              </button>
+              ${googleAuthButtonMarkup}
             </div>
             <div
               data-testid="${PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID}"
