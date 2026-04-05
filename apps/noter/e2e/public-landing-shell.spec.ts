@@ -249,12 +249,21 @@ test("public landing shell renders before the full app UI takes over", async ({
   await expect(
     page.getByTestId("public-landing-waitlist-placeholder"),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Google" })).toHaveCount(0);
   await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
   await expect(page.getByPlaceholder("email@example.com")).toBeEditable();
   await expect(
     page.getByRole("button", { name: "Join Waitlist" }),
   ).toBeEnabled();
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Google" })).toHaveCount(0);
+});
+
+test("landing dev mode shows Google sign-in", async ({ page }) => {
+  await page.goto("/?dev", { waitUntil: "networkidle" });
+
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
 });
 
 test("build version stays stable across the landing shell handoff", async ({
@@ -759,10 +768,9 @@ test("public landing shell stays within the fast navigation budget", async ({
 test("prod-ui mode hides developer password auth controls", async ({
   page,
 }) => {
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+  await page.goto("/?prod-ui", { waitUntil: "networkidle" });
 
-  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Google" })).toHaveCount(0);
 
   await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
@@ -775,6 +783,7 @@ test("prod-ui mode hides developer password auth controls", async ({
 test("prod-ui mode overrides the landing dev editor", async ({ page }) => {
   await page.goto("/?prod-ui&dev", { waitUntil: "domcontentloaded" });
 
+  await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
   await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
   await expect(

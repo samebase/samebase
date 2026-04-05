@@ -15,6 +15,7 @@ import {
   clearPendingPublicLandingScrollTop,
   readPendingPublicLandingScrollTop,
 } from "@/lib/publicLandingScrollState";
+import { shouldShowGoogleAuthForLocation } from "@/lib/publicLandingAuthState";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
 import {
   clearPublicLandingWaitlistDraft,
@@ -30,7 +31,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { api } from "../convex/_generated/api";
 import { SignInWithGoogle } from "./SignInWithGoogle";
 
@@ -42,9 +43,11 @@ type SignInFormProps = {
 };
 
 export function SignInForm({ topNotice }: SignInFormProps = {}) {
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const landingDevModeEnabled = isLandingDevModeEnabled(searchParams);
   const prodUiModeEnabled = isProdUiModeEnabled(searchParams);
+  const showGoogleAuth = shouldShowGoogleAuthForLocation(location);
   const showPasswordAuth = import.meta.env.DEV && !prodUiModeEnabled;
   const isLandingCopyEditable = !prodUiModeEnabled && landingDevModeEnabled;
   const scrollShellRef = useRef<HTMLDivElement | null>(null);
@@ -101,7 +104,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
             )}
           </div>
           <div className="flex flex-col gap-2">
-            <SignInWithGoogle />
+            {showGoogleAuth ? <SignInWithGoogle /> : null}
             {showPasswordAuth ? <PasswordAuthForm /> : null}
           </div>
           <WaitlistForm />
