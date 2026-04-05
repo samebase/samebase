@@ -1,25 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { type MachinesTranscriptPrototypeBlock } from "@/lib/machinesTranscriptPrototype";
 import { cn } from "@/lib/utils";
-
-export type MachinesTranscriptPrototypeBlock =
-  | {
-      kind: "message";
-      id: string;
-      from: "user" | "assistant";
-      itemId?: string;
-      itemType?: string;
-      turnId?: string;
-      body: string;
-    }
-  | {
-      kind: "work";
-      id: string;
-      title: string;
-      itemId?: string;
-      itemType?: string;
-      tone?: string;
-      body: string;
-    };
 
 function readSourceTagName(block: MachinesTranscriptPrototypeBlock): string {
   return block.kind === "message" ? "Message" : "Work";
@@ -124,12 +105,9 @@ function RenderedBody({
 }) {
   if (block.kind === "work") {
     return (
-      <article className="machines-transcript-prototype-rendered-card machines-transcript-prototype-rendered-card-work">
-        <div className="machines-transcript-prototype-rendered-eyebrow">
+      <article className="machines-transcript-prototype-rendered-work">
+        <div className="machines-transcript-prototype-rendered-work-title">
           {block.title}
-        </div>
-        <div className="machines-transcript-prototype-rendered-meta">
-          Work entry
         </div>
         <div className="machines-transcript-prototype-rendered-copy">
           {paragraphs.map((paragraph, index) => (
@@ -140,23 +118,15 @@ function RenderedBody({
     );
   }
 
-  const eyebrow = block.from === "user" ? "User message" : "Assistant message";
-
   return (
     <article
       className={cn(
-        "machines-transcript-prototype-rendered-card",
+        "machines-transcript-prototype-rendered-message",
         block.from === "user"
-          ? "machines-transcript-prototype-rendered-card-user"
-          : "machines-transcript-prototype-rendered-card-assistant",
+          ? "machines-transcript-prototype-rendered-message-user"
+          : "machines-transcript-prototype-rendered-message-assistant",
       )}
     >
-      <div className="machines-transcript-prototype-rendered-eyebrow">
-        {eyebrow}
-      </div>
-      <div className="machines-transcript-prototype-rendered-meta">
-        {block.itemType ?? "message"}
-      </div>
       <div className="machines-transcript-prototype-rendered-copy">
         {paragraphs.map((paragraph, index) => (
           <p key={`${index}-${paragraph.slice(0, 32)}`}>{paragraph}</p>
@@ -168,24 +138,31 @@ function RenderedBody({
 
 function TranscriptBlock({
   block,
+  showSourceMarkup,
 }: {
   block: MachinesTranscriptPrototypeBlock;
+  showSourceMarkup: boolean;
 }) {
   const paragraphs = useMemo(() => splitParagraphs(block.body), [block.body]);
 
   return (
     <section
+      data-transcript-block
       data-role={block.kind === "message" ? block.from : "work"}
       className="machines-transcript-prototype-block"
     >
       <div className="machines-transcript-prototype-source-layer">
-        <div className="machines-transcript-prototype-source-tag">
-          {serializeOpeningTag(block)}
-        </div>
+        {showSourceMarkup ? (
+          <div className="machines-transcript-prototype-source-tag">
+            {serializeOpeningTag(block)}
+          </div>
+        ) : null}
         <SourceBody paragraphs={paragraphs} />
-        <div className="machines-transcript-prototype-source-tag">
-          {serializeClosingTag(block)}
-        </div>
+        {showSourceMarkup ? (
+          <div className="machines-transcript-prototype-source-tag">
+            {serializeClosingTag(block)}
+          </div>
+        ) : null}
       </div>
       <div
         aria-hidden="true"
@@ -206,10 +183,12 @@ export function MachinesTranscriptPrototype({
   blocks,
   className,
   dataTestId,
+  showDevSourceMarkup = false,
 }: {
   blocks: readonly MachinesTranscriptPrototypeBlock[];
   className?: string;
   dataTestId?: string;
+  showDevSourceMarkup?: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [selectionActive, setSelectionActive] = useState(false);
@@ -244,6 +223,7 @@ export function MachinesTranscriptPrototype({
       ref={rootRef}
       data-testid={dataTestId}
       data-selection-active={selectionActive ? "true" : "false"}
+      data-show-source-markup={showDevSourceMarkup ? "true" : "false"}
       className={cn("machines-transcript-prototype cm-editor", className)}
     >
       <div className="cm-scroller">
@@ -253,7 +233,11 @@ export function MachinesTranscriptPrototype({
           aria-label="Machines transcript prototype"
         >
           {blocks.map((block) => (
-            <TranscriptBlock key={block.id} block={block} />
+            <TranscriptBlock
+              key={block.id}
+              block={block}
+              showSourceMarkup={showDevSourceMarkup}
+            />
           ))}
         </div>
       </div>

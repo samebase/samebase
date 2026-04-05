@@ -3,10 +3,8 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  MachinesTranscriptPrototype,
-  type MachinesTranscriptPrototypeBlock,
-} from "@/components/MachinesTranscriptPrototype";
+import { MachinesTranscriptPrototype } from "@/components/MachinesTranscriptPrototype";
+import { type MachinesTranscriptPrototypeBlock } from "@/lib/machinesTranscriptPrototype";
 
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
