@@ -4,6 +4,18 @@ import { SidebarProvider } from "@/components/sidebar";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 
 vi.mock("@/components/MachinesWorkspaceThreadPane", () => ({
+  MachinesWorkspaceThreadHeader: ({
+    selectedMachineDisplayName,
+    thread,
+  }: {
+    selectedMachineDisplayName: string | null;
+    thread: CodexAppServerThread | null;
+  }) => (
+    <div data-component="MachinesWorkspaceThreadHeader">
+      {selectedMachineDisplayName}
+      {thread?.name}
+    </div>
+  ),
   MachinesWorkspaceThreadPane: () => (
     <div data-component="MachinesWorkspaceThreadPane" />
   ),
@@ -138,6 +150,50 @@ describe("MachinesWorkspaceView", () => {
     );
 
     expect(markup).toContain("Start new conversation in noter");
+  });
+
+  it("renders the selected machine and thread title in the shared main header", () => {
+    const markup = renderToStaticMarkup(
+      <SidebarProvider
+        defaultOpen={true}
+        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+      >
+        <MachinesWorkspaceView
+          hasPendingStartedThread={false}
+          isSubmittingTurn={false}
+          machineInventories={[
+            {
+              hasLoadedThreadInventory: true,
+              machineDisplayName: "Research MacBook Pro",
+              machineHostname: "research-mbp.local",
+              machineId: "machine-mac",
+              machineStatus: "online",
+              machineStatusReason: null,
+              pinnedThreadIds: [],
+              threads: [THREAD_FIXTURE],
+            },
+          ]}
+          pendingConversation={null}
+          pendingPinThreadKey={null}
+          selectedMachineId="machine-mac"
+          selectedMachineDisplayName="Research MacBook Pro"
+          selectedMachineHostname="research-mbp.local"
+          selectedMachineStatusReason={null}
+          selectedThread={THREAD_FIXTURE}
+          selectedThreadError={null}
+          selectedThreadLoading={false}
+          selectedThreadId={THREAD_FIXTURE.id}
+          turnDraft=""
+          onTurnDraftChange={() => {}}
+          onTurnSubmit={() => {}}
+        />
+      </SidebarProvider>,
+    );
+
+    expect(markup).toContain('data-component="MachinesWorkspaceThreadHeader"');
+    expect(markup).toContain("Research MacBook Pro");
+    expect(markup).toContain("Offline machine thread");
   });
 
   it("disables project-level start buttons while a turn submission is pending", () => {

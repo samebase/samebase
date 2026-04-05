@@ -25,7 +25,10 @@ import {
 } from "@/lib/machinesWorkspaceSidebar";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 import { cn } from "@/lib/utils";
-import { MachinesWorkspaceThreadPane } from "@/components/MachinesWorkspaceThreadPane";
+import {
+  MachinesWorkspaceThreadHeader,
+  MachinesWorkspaceThreadPane,
+} from "@/components/MachinesWorkspaceThreadPane";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -168,7 +171,7 @@ function ThreadPinActionButton(props: {
 
 /**
  * Let thread and project names grow with the live sidebar width while still
- * capping them at three lines so the rail stays compact when labels are long.
+ * capping them at two lines so the rail stays compact when labels are long.
  */
 function ThreadRow(props: {
   item: CodexThreadSidebarThread;
@@ -248,7 +251,7 @@ function ThreadRow(props: {
             </div>
           ) : null}
           <div
-            className="min-w-0 flex-auto line-clamp-3 [overflow-wrap:anywhere] text-[15px] font-medium leading-5"
+            className="min-w-0 flex-auto line-clamp-2 [overflow-wrap:anywhere] text-[15px] font-medium leading-5"
             title={props.item.workspaceTooltip ?? props.item.title}
           >
             {props.item.title}
@@ -299,7 +302,7 @@ function ProjectSection(props: {
             <div className="flex h-3.5 w-3.5 shrink-0 items-center justify-center pt-0.5">
               <div className="h-2 w-2 bg-muted-foreground/30 corner-notch-1" />
             </div>
-            <span className="line-clamp-3 min-w-0 flex-1 [overflow-wrap:anywhere] text-[13px] font-medium leading-5 text-muted-foreground">
+            <span className="line-clamp-2 min-w-0 flex-1 [overflow-wrap:anywhere] text-[13px] font-medium leading-5 text-muted-foreground">
               {props.group.label}
             </span>
           </button>
@@ -636,6 +639,25 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
       dataTestId={props.dataTestId}
       headerTestId={headerTestId}
       contentClassName="min-h-0 flex-1 p-0"
+      headerMiddle={
+        <MachinesWorkspaceThreadHeader
+          hasPendingStartedThread={props.hasPendingStartedThread}
+          isLoading={props.selectedThreadLoading}
+          pendingConversation={
+            props.pendingConversation === null
+              ? null
+              : {
+                  envMode: props.pendingConversation.envMode,
+                  projectLabel: props.pendingConversation.projectLabel,
+                }
+          }
+          selectedMachineDisplayName={props.selectedMachineDisplayName}
+          selectedMachineHostname={props.selectedMachineHostname}
+          selectedMachineStatusReason={props.selectedMachineStatusReason}
+          selectedThreadId={props.selectedThreadId}
+          thread={props.selectedThread}
+        />
+      }
       leftSidebarHeader={props.leftSidebarHeader ?? null}
       leftSidebarContent={
         <div
@@ -724,7 +746,8 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                     );
                     const projectStartIsPending =
                       props.isSubmittingTurn &&
-                      props.pendingConversation?.machineId === section.machineId &&
+                      props.pendingConversation?.machineId ===
+                        section.machineId &&
                       props.pendingConversation.projectId === group.id;
                     return (
                       <ProjectSection
@@ -825,8 +848,6 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
             onTurnDraftChange={props.onTurnDraftChange}
             onTurnSubmit={props.onTurnSubmit}
             pendingConversation={props.pendingConversation}
-            selectedMachineDisplayName={props.selectedMachineDisplayName}
-            selectedMachineHostname={props.selectedMachineHostname}
             selectedMachineStatusReason={props.selectedMachineStatusReason}
             selectedThreadId={props.selectedThreadId}
             thread={props.selectedThread}
