@@ -1,7 +1,10 @@
+import os from 'node:os'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   buildLocalSourceUrlCandidates,
   buildRunCommand,
+  deriveSignalExitCode,
   deriveCheckoutId,
   isLoopbackUrl,
   parseArgs,
@@ -24,7 +27,7 @@ describe('link-machine', () => {
   it('uses the derived checkout id for the default isolated state dir', () => {
     expect(
       resolveStateDirectory('/Users/nicu/.codex/worktrees/ad2a/noter', null),
-    ).toBe('/Users/nicu/.noter/checkouts/ad2a')
+    ).toBe(path.join(os.homedir(), '.noter', 'checkouts', 'ad2a'))
   })
 
   it('prefers an explicit source url over localhost probing', () => {
@@ -93,8 +96,35 @@ describe('link-machine', () => {
   })
 
   it('builds a quoted local run command', () => {
-    expect(buildRunCommand("/tmp/O'Brien/.noter")).toBe(
+    expect(buildRunCommand("/tmp/O'Brien/.noter", 'linux')).toBe(
       `node packages/sync/noter.js run --state-dir '/tmp/O'"'"'Brien/.noter'`,
+    )
+  })
+
+  it('builds a cmd.exe-safe local run command on windows', () => {
+    expect(
+      buildRunCommand(`C:\\Users\\100% ready\\O'Brien\\.noter`, 'win32', {
+        ComSpec: 'C:\\Windows\\System32\\cmd.exe',
+      }),
+    ).toBe(
+      `node packages/sync/noter.js run --state-dir "C:\\Users\\100%% ready\\O'Brien\\.noter"`,
+    )
+  })
+
+  it('builds a PowerShell-safe local run command on windows', () => {
+    expect(
+      buildRunCommand(`C:\\Users\\O'Brien\\App Data\\.noter`, 'win32', {
+        PSModulePath:
+          'C:\\Users\\nicu\\Documents\\PowerShell\\Modules;C:\\Program Files\\PowerShell\\Modules',
+      }),
+    ).toBe(
+      `node packages/sync/noter.js run --state-dir 'C:\\Users\\O''Brien\\App Data\\.noter'`,
+    )
+  })
+
+  it('maps signal exits to non-zero shell exit codes', () => {
+    expect(deriveSignalExitCode('SIGINT')).toBe(
+      128 + os.constants.signals.SIGINT,
     )
   })
 

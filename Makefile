@@ -24,7 +24,7 @@ PLAYWRIGHT_RECORD_DIR ?= /tmp/noter-browser-recordings
 CONNECT_LABEL ?= research
 CONNECT_INTERVAL_SECONDS ?= 60
 CONNECT_RUNNER = node ./scripts/noter-pr-connect.js --label "$(CONNECT_LABEL)" --interval "$(CONNECT_INTERVAL_SECONDS)"
-LINK_MACHINE_RUNNER = node ./scripts/link-machine.js
+LINK_MACHINE_RUNNER = ANON_VITE_PORT="$(ANON_VITE_PORT)" VITE_PORT="$(or $(VITE_PORT),$(RUN_VITE_PORT))" node ./scripts/link-machine.js
 
 # also add a step that updates the env for preview server when using worktrees
 # or daytona or gh codespaces or something else

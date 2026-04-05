@@ -26,6 +26,8 @@ const DEFAULT_SOURCE_PORTS = [
   5186, 5187, 5188, 5189, 5190,
 ]
 const LOOPBACK_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '::1', '[::1]'])
+const POSIX_SHELL_MARKERS = ['bash', 'zsh', 'sh', 'dash', 'fish', 'ksh']
+const POWERSHELL_MARKERS = ['pwsh', 'powershell']
 const DEV_PASSWORD_EMAIL = 'nicu@noter.md'
 const DEV_PASSWORD_VALUE = 'pass1234'
 const NOTER_SYNC_ARGS_PREFIX = ['packages/sync/noter.js']
@@ -263,29 +265,118 @@ export function isLoopbackUrl(value) {
 }
 
 /**
+ * Printed fallback commands should match the operator's current shell instead
+ * of assuming one quoting style per platform.
+ *
+ * @param {NodeJS.ProcessEnv} [env]
+ * @param {NodeJS.Platform} [currentPlatform]
+ * @returns {'cmd' | 'posix' | 'powershell' | 'unknown'}
+ */
+export function detectShellStyle(
+  env = process.env,
+  currentPlatform = process.platform,
+) {
+  const shell = `${env.SHELL ?? ''}`.toLowerCase()
+  const comSpec = `${env.ComSpec ?? env.COMSPEC ?? ''}`.toLowerCase()
+  const term = `${env.TERM ?? ''}`.toLowerCase()
+  const termProgram = `${env.TERM_PROGRAM ?? ''}`.toLowerCase()
+  const shlvl = `${env.SHLVL ?? ''}`.toLowerCase()
+  const psModulePath = `${env.PSModulePath ?? ''}`.toLowerCase()
+
+  if (POWERSHELL_MARKERS.some(marker => shell.includes(marker))) {
+    return 'powershell'
+  }
+  if (POSIX_SHELL_MARKERS.some(marker => shell.includes(marker))) {
+    return 'posix'
+  }
+  if (
+    psModulePath.length > 0 ||
+    POWERSHELL_MARKERS.some(
+      marker => term.includes(marker) || termProgram.includes(marker),
+    )
+  ) {
+    return 'powershell'
+  }
+  if (POSIX_SHELL_MARKERS.some(marker => term.includes(marker))) {
+    return 'posix'
+  }
+  if (shlvl.length > 0) {
+    return 'posix'
+  }
+  if (
+    comSpec.includes('cmd.exe') ||
+    comSpec.endsWith('\\cmd') ||
+    comSpec.endsWith('/cmd')
+  ) {
+    return 'cmd'
+  }
+
+  return currentPlatform === 'win32' ? 'unknown' : 'posix'
+}
+
+/**
  * @param {string} value
  * @param {NodeJS.Platform} [currentPlatform]
+ * @param {NodeJS.ProcessEnv} [env]
  * @returns {string}
  */
-export function shellSingleQuote(value, currentPlatform = process.platform) {
-  return currentPlatform === 'win32'
-    ? `'${value.replaceAll("'", "''")}'`
-    : `'${value.replaceAll("'", "'\"'\"'")}'`
+export function shellSingleQuote(
+  value,
+  currentPlatform = process.platform,
+  env = process.env,
+) {
+  const shellStyle = detectShellStyle(env, currentPlatform)
+
+  if (shellStyle === 'posix') {
+    return `'${value.replaceAll("'", "'\"'\"'")}'`
+  }
+  if (shellStyle === 'powershell') {
+    return `'${value.replaceAll("'", "''")}'`
+  }
+  if (shellStyle === 'cmd') {
+    return `"${value
+      .replaceAll('^', '^^')
+      .replaceAll('%', '%%')
+      .replaceAll('!', '^^!')
+      .replaceAll('"', '^"')}"`
+  }
+
+  return `"${value
+    .replaceAll('\\', '\\\\')
+    .replaceAll('"', '\\"')
+    .replaceAll('$', '\\$')
+    .replaceAll('`', '\\`')}"`
 }
 
 /**
  * @param {string} stateDirectory
  * @param {NodeJS.Platform} [currentPlatform]
+ * @param {NodeJS.ProcessEnv} [env]
  * @returns {string}
  */
 export function buildRunCommand(
   stateDirectory,
   currentPlatform = process.platform,
+  env = process.env,
 ) {
   return `node packages/sync/noter.js run --state-dir ${shellSingleQuote(
     stateDirectory,
     currentPlatform,
+    env,
   )}`
+}
+
+/**
+ * @param {NodeJS.Signals | null} signal
+ * @returns {number | null}
+ */
+export function deriveSignalExitCode(signal) {
+  if (!signal) {
+    return null
+  }
+
+  const signalNumber = os.constants.signals[signal]
+  return typeof signalNumber === 'number' ? 128 + signalNumber : 1
 }
 
 /**
@@ -724,6 +815,10 @@ function startRunCommand(args) {
 
   if (result.error) {
     throw result.error
+  }
+
+  if (result.signal) {
+    process.exit(deriveSignalExitCode(result.signal) ?? 1)
   }
 
   process.exit(result.status ?? 0)
