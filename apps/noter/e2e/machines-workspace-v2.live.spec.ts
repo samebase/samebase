@@ -133,6 +133,36 @@ async function tapExposedMainStrip(page: Page, side: "left" | "right") {
   });
 }
 
+async function expectResizeHandleToAlignWithPaneBoundary(
+  page: Page,
+  side: "left" | "right",
+) {
+  const pane = page.getByTestId(
+    side === "left"
+      ? "workspace-layout-v2-pane-left"
+      : "workspace-layout-v2-pane-right",
+  );
+  const handle = page.getByTestId(
+    side === "left"
+      ? "workspace-layout-v2-left-resize"
+      : "workspace-layout-v2-right-resize",
+  );
+  const paneBox = await pane.boundingBox();
+  const handleBox = await handle.boundingBox();
+
+  expect(paneBox).not.toBeNull();
+  expect(handleBox).not.toBeNull();
+  if (paneBox === null || handleBox === null) {
+    return;
+  }
+
+  const paneBoundaryX = side === "left" ? paneBox.x + paneBox.width : paneBox.x;
+  const handleCenterX = handleBox.x + handleBox.width / 2;
+  expect(
+    Math.abs(Math.round(handleCenterX - paneBoundaryX)),
+  ).toBeLessThanOrEqual(1);
+}
+
 test("desktop v2 route keeps sidebar triggers outside the panes", async ({
   page,
 }) => {
@@ -182,6 +212,8 @@ test("mobile v2 route requires two swipes to move from left to right", async ({
   await expect(
     page.getByTestId("workspace-layout-v2-left-resize"),
   ).toBeVisible();
+  await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
+  await expectResizeHandleToAlignWithPaneBoundary(page, "left");
 
   await swipeFromLeftTowardRight(page);
   await expect(route).toHaveAttribute("data-mobile-pane", "main");
@@ -194,6 +226,8 @@ test("mobile v2 route requires two swipes to move from left to right", async ({
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
   ).toBeVisible();
+  await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
+  await expectResizeHandleToAlignWithPaneBoundary(page, "right");
   const rightPaneBox = await page
     .getByTestId("workspace-layout-v2-pane-right")
     .boundingBox();
