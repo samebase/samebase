@@ -98,41 +98,24 @@ function SourceBody({ paragraphs }: { paragraphs: string[] }) {
 
 function RenderedBody({
   block,
-  paragraphs,
 }: {
   block: MachinesTranscriptPrototypeBlock;
-  paragraphs: string[];
 }) {
   if (block.kind === "work") {
     return (
-      <article className="machines-transcript-prototype-rendered-work">
-        <div className="machines-transcript-prototype-rendered-work-title">
-          {block.title}
-        </div>
-        <div className="machines-transcript-prototype-rendered-copy">
-          {paragraphs.map((paragraph, index) => (
-            <p key={`${index}-${paragraph.slice(0, 32)}`}>{paragraph}</p>
-          ))}
-        </div>
-      </article>
+      <div className="machines-transcript-prototype-rendered-work" />
     );
   }
 
   return (
-    <article
+    <div
       className={cn(
         "machines-transcript-prototype-rendered-message",
         block.from === "user"
           ? "machines-transcript-prototype-rendered-message-user"
           : "machines-transcript-prototype-rendered-message-assistant",
       )}
-    >
-      <div className="machines-transcript-prototype-rendered-copy">
-        {paragraphs.map((paragraph, index) => (
-          <p key={`${index}-${paragraph.slice(0, 32)}`}>{paragraph}</p>
-        ))}
-      </div>
-    </article>
+    />
   );
 }
 
@@ -144,6 +127,12 @@ function TranscriptBlock({
   showSourceMarkup: boolean;
 }) {
   const paragraphs = useMemo(() => splitParagraphs(block.body), [block.body]);
+  const sourceBodyClassName =
+    block.kind === "work"
+      ? "machines-transcript-prototype-source-body-work"
+      : block.from === "user"
+        ? "machines-transcript-prototype-source-body-user"
+        : "machines-transcript-prototype-source-body-assistant";
 
   return (
     <section
@@ -157,7 +146,9 @@ function TranscriptBlock({
             {serializeOpeningTag(block)}
           </div>
         ) : null}
-        <SourceBody paragraphs={paragraphs} />
+        <div className={sourceBodyClassName}>
+          <SourceBody paragraphs={paragraphs} />
+        </div>
         {showSourceMarkup ? (
           <div className="machines-transcript-prototype-source-tag">
             {serializeClosingTag(block)}
@@ -167,8 +158,9 @@ function TranscriptBlock({
       <div
         aria-hidden="true"
         className="machines-transcript-prototype-rendered-layer"
+        data-testid="machines-transcript-prototype-rendered-layer"
       >
-        <RenderedBody block={block} paragraphs={paragraphs} />
+        <RenderedBody block={block} />
       </div>
     </section>
   );
