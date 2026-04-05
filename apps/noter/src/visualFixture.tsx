@@ -116,6 +116,10 @@ import {
   ThreadHistoryVisualFixture,
   type ThreadHistoryVisualMode,
 } from "@/components/ThreadHistoryVisualFixture";
+import {
+  MachinesTranscriptPrototypeVisualFixture,
+  type MachinesTranscriptPrototypeVisualMode,
+} from "@/components/MachinesTranscriptPrototypeVisualFixture";
 import { GlobalGestureDebugOverlay } from "@/components/GlobalGestureDebugOverlay";
 import { isMobileSidebarDebugEnabled } from "@/lib/mobileSidebarGestureDebug";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
@@ -147,6 +151,7 @@ type VisualFixtureMode =
   | CodexAppServerResearchVisualMode
   | CodexThreadBrowserVisualMode
   | CodexThreadHistoryVisualMode
+  | MachinesTranscriptPrototypeVisualMode
   | "machines-workspace"
   | "machine-connect"
   | "vault-dashboard-branch-pr-title"
@@ -285,6 +290,7 @@ const MISC_VISUAL_MODES = [
   "codex-app-server-research",
   "codex-thread-browser",
   "codex-thread-history",
+  "machines-transcript-prototype",
   "machines-workspace",
   "machine-connect",
   "vault-dashboard-branch-pr-title",
@@ -537,6 +543,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "codex-thread-browser") {
     return <CodexThreadBrowserVisualFixture mode={mode} />;
+  }
+
+  if (mode === "machines-transcript-prototype") {
+    return <MachinesTranscriptPrototypeVisualFixture mode={mode} />;
   }
 
   if (mode === "machine-connect") {
