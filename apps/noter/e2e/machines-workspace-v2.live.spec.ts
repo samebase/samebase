@@ -60,8 +60,10 @@ async function swipeFromRightToMain(page: Page) {
     page,
     page.getByTestId("workspace-layout-v2-pane-right"),
     {
-      startX: 120,
-      startY: 220,
+      // Start near the live sidebar edge but outside the centered resize grip so
+      // mobile edge swipes stay available for pane navigation.
+      startX: 12,
+      startY: 40,
       steps: [
         { delayMs: 25, xOffset: 72, yOffset: 2 },
         { delayMs: 30, xOffset: 168, yOffset: 4 },
@@ -77,8 +79,8 @@ async function swipeFromLeftTowardRight(page: Page) {
     page,
     page.getByTestId("workspace-layout-v2-pane-left"),
     {
-      startX: 320,
-      startY: 220,
+      startX: 312,
+      startY: 40,
       steps: [
         { delayMs: 25, xOffset: -72, yOffset: 2 },
         { delayMs: 30, xOffset: -168, yOffset: 4 },

@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 const DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
 const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
 const MOBILE_SIDEBAR_MIN_WIDTH_PX = 160;
-const MOBILE_SIDEBAR_MAX_WIDTH_PX = 2_048;
+const MOBILE_VISIBLE_MAIN_STRIP_PX = 10;
 const MOBILE_DRAG_SLOP_PX = 12;
 
 type WorkspaceLayoutV2Props = {
@@ -132,6 +132,15 @@ function getDesktopSidebarMaxWidthPx(viewportWidthPx: number) {
   return Math.max(
     DESKTOP_SIDEBAR_MIN_WIDTH_PX,
     Math.round(viewportWidthPx * DESKTOP_SIDEBAR_MAX_WIDTH_RATIO),
+  );
+}
+
+function getMobileSidebarMaxWidthPx(viewportWidthPx: number) {
+  // Keep a sliver of the main pane visible so an oversized mobile sidebar can
+  // still be dragged or tapped back toward center.
+  return Math.max(
+    MOBILE_SIDEBAR_MIN_WIDTH_PX,
+    Math.round(viewportWidthPx - MOBILE_VISIBLE_MAIN_STRIP_PX),
   );
 }
 
@@ -248,7 +257,7 @@ function WorkspaceLayoutV2MobileViewport({
             ? null
             : // Resizes move pane widths synchronously. Only idle pane changes
               // should animate the shared track.
-              "transition-transform duration-200 ease-out",
+              "transition-transform duration-75 ease-out",
         )}
         style={{
           transform: `translate3d(${-mobileVisibleStartPx}px, 0, 0)`,
@@ -446,12 +455,18 @@ function useWorkspaceLayoutV2ResizeHandles({
 }: UseWorkspaceLayoutV2ResizeHandlesArgs) {
   const desktopResizeHandleMaxWidthPx =
     getDesktopSidebarMaxWidthPx(viewportWidthPx);
+  const mobileResizeHandleMaxWidthPx =
+    getMobileSidebarMaxWidthPx(viewportWidthPx);
 
   const handleLeftWidthChange = useCallback(
     (nextWidthPx: number) => {
       if (isMobile) {
         setLeftMobileWidthPx(
-          Math.max(MOBILE_SIDEBAR_MIN_WIDTH_PX, Math.round(nextWidthPx)),
+          clampNumber(
+            Math.round(nextWidthPx),
+            MOBILE_SIDEBAR_MIN_WIDTH_PX,
+            mobileResizeHandleMaxWidthPx,
+          ),
         );
         return;
       }
@@ -467,6 +482,7 @@ function useWorkspaceLayoutV2ResizeHandles({
     [
       desktopResizeHandleMaxWidthPx,
       isMobile,
+      mobileResizeHandleMaxWidthPx,
       setLeftDesktopWidthPx,
       setLeftMobileWidthPx,
     ],
@@ -476,7 +492,11 @@ function useWorkspaceLayoutV2ResizeHandles({
     (nextWidthPx: number) => {
       if (isMobile) {
         setRightMobileWidthPx(
-          Math.max(MOBILE_SIDEBAR_MIN_WIDTH_PX, Math.round(nextWidthPx)),
+          clampNumber(
+            Math.round(nextWidthPx),
+            MOBILE_SIDEBAR_MIN_WIDTH_PX,
+            mobileResizeHandleMaxWidthPx,
+          ),
         );
         return;
       }
@@ -492,6 +512,7 @@ function useWorkspaceLayoutV2ResizeHandles({
     [
       desktopResizeHandleMaxWidthPx,
       isMobile,
+      mobileResizeHandleMaxWidthPx,
       setRightDesktopWidthPx,
       setRightMobileWidthPx,
     ],
@@ -508,7 +529,7 @@ function useWorkspaceLayoutV2ResizeHandles({
         mobileHandles.push({
           currentWidthPx: mobileMetrics.leftWidthPx,
           dataTestId: "workspace-layout-v2-left-resize",
-          maxWidthPx: MOBILE_SIDEBAR_MAX_WIDTH_PX,
+          maxWidthPx: mobileResizeHandleMaxWidthPx,
           minWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
           onWidthChange: handleLeftWidthChange,
           // Mobile handles render inside the live sidebar panes, so their
@@ -521,7 +542,7 @@ function useWorkspaceLayoutV2ResizeHandles({
         mobileHandles.push({
           currentWidthPx: mobileMetrics.rightWidthPx,
           dataTestId: "workspace-layout-v2-right-resize",
-          maxWidthPx: MOBILE_SIDEBAR_MAX_WIDTH_PX,
+          maxWidthPx: mobileResizeHandleMaxWidthPx,
           minWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
           onWidthChange: handleRightWidthChange,
           positionPx: 0,
@@ -567,6 +588,7 @@ function useWorkspaceLayoutV2ResizeHandles({
     leftDesktopOpen,
     mobileMetrics,
     mobilePane,
+    mobileResizeHandleMaxWidthPx,
     rightDesktopOpen,
     viewportWidthPx,
   ]);
@@ -827,14 +849,28 @@ export function WorkspaceLayoutV2({
     0,
     viewportWidthPx - desktopLeftWidthPx - desktopRightWidthPx,
   );
+  const mobileSidebarMaxWidthPx = getMobileSidebarMaxWidthPx(viewportWidthPx);
 
   const mobileMetrics = useMemo<WorkspaceLayoutV2Metrics>(
     () => ({
-      leftWidthPx: Math.max(MOBILE_SIDEBAR_MIN_WIDTH_PX, leftMobileWidthPx),
-      rightWidthPx: Math.max(MOBILE_SIDEBAR_MIN_WIDTH_PX, rightMobileWidthPx),
+      leftWidthPx: clampNumber(
+        leftMobileWidthPx,
+        MOBILE_SIDEBAR_MIN_WIDTH_PX,
+        mobileSidebarMaxWidthPx,
+      ),
+      rightWidthPx: clampNumber(
+        rightMobileWidthPx,
+        MOBILE_SIDEBAR_MIN_WIDTH_PX,
+        mobileSidebarMaxWidthPx,
+      ),
       viewportWidthPx,
     }),
-    [leftMobileWidthPx, rightMobileWidthPx, viewportWidthPx],
+    [
+      leftMobileWidthPx,
+      mobileSidebarMaxWidthPx,
+      rightMobileWidthPx,
+      viewportWidthPx,
+    ],
   );
 
   const { isMobileDragging, mobileDragOffsetPx } =
@@ -911,6 +947,7 @@ export function WorkspaceLayoutV2({
         dataTestId={resizeHandle.dataTestId}
         minWidthPx={resizeHandle.minWidthPx}
         maxWidthPx={resizeHandle.maxWidthPx}
+        pointerTarget={isMobile ? "grip" : "edge"}
         positionPx={resizeHandle.positionPx}
         side={resizeHandle.side}
         onResizeStart={() => {

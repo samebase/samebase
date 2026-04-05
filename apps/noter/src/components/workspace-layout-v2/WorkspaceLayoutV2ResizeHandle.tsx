@@ -51,13 +51,14 @@ type WorkspaceLayoutV2ResizeHandleProps = {
   onResizeEnd?: () => void;
   onResizeStart?: () => void;
   onWidthChange: (widthPx: number) => void;
+  pointerTarget?: "edge" | "grip";
   positionPx: number;
   side: "left" | "right";
 };
 
 /**
- * Keep the resize affordance identical on desktop and mobile so the shell has
- * one consistent edge-grab behavior across all panes.
+ * Keep one shared resize affordance implementation across desktop and mobile
+ * while allowing mobile to reserve most of the pane edge for swipe gestures.
  */
 export function WorkspaceLayoutV2ResizeHandle({
   currentWidthPx,
@@ -69,6 +70,7 @@ export function WorkspaceLayoutV2ResizeHandle({
   onResizeEnd,
   onResizeStart,
   onWidthChange,
+  pointerTarget = "edge",
   positionPx,
   side,
 }: WorkspaceLayoutV2ResizeHandleProps) {
@@ -190,31 +192,54 @@ export function WorkspaceLayoutV2ResizeHandle({
     [commitWidthChange, currentWidthPx, onResizeEnd, onResizeStart, side],
   );
 
+  const interactiveProps = {
+    "aria-label": `Resize ${side} sidebar`,
+    "aria-orientation": "vertical" as const,
+    "aria-valuemax": maxWidthPx,
+    "aria-valuemin": minWidthPx,
+    "aria-valuenow": Math.round(currentWidthPx),
+    "aria-valuetext": `${Math.round(currentWidthPx)} pixels wide`,
+    "data-testid": dataTestId,
+    "data-workspace-layout-v2-resize-handle": side,
+    onBlur,
+    onFocus,
+    onKeyDown: handleKeyDown,
+    onLostPointerCapture: stopResizing,
+    onPointerCancel: handlePointerEnd,
+    onPointerDown: handlePointerDown,
+    onPointerMove: handlePointerMove,
+    onPointerUp: handlePointerEnd,
+    role: "separator" as const,
+    tabIndex: 0,
+  };
+
+  if (pointerTarget === "grip") {
+    return (
+      <div
+        className="pointer-events-none absolute inset-y-0 z-30 flex w-4 -translate-x-1/2 items-center justify-center"
+        style={{ left: `${positionPx}px` }}
+      >
+        <div
+          {...interactiveProps}
+          className={cn(
+            "pointer-events-auto flex h-16 w-4 cursor-col-resize touch-none items-center justify-center bg-background/80 text-foreground/70 transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            isResizing ? "bg-accent text-foreground" : null,
+          )}
+        >
+          <ResizeGripLines variant="dots" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      role="separator"
-      tabIndex={0}
-      aria-label={`Resize ${side} sidebar`}
-      aria-orientation="vertical"
-      aria-valuemin={minWidthPx}
-      aria-valuemax={maxWidthPx}
-      aria-valuenow={Math.round(currentWidthPx)}
-      aria-valuetext={`${Math.round(currentWidthPx)} pixels wide`}
-      data-testid={dataTestId}
-      data-workspace-layout-v2-resize-handle={side}
+      {...interactiveProps}
       className={cn(
         "absolute inset-y-0 z-30 flex w-4 -translate-x-1/2 cursor-col-resize touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         isResizing ? "bg-accent/50" : null,
       )}
       style={{ left: `${positionPx}px` }}
-      onBlur={onBlur}
-      onFocus={onFocus}
-      onKeyDown={handleKeyDown}
-      onLostPointerCapture={stopResizing}
-      onPointerCancel={handlePointerEnd}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerEnd}
     >
       <div
         className={cn(
