@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { SidebarProvider } from "@/components/sidebar";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import { MemoryRouter } from "react-router-dom";
 
 vi.mock("@/components/MachinesWorkspaceThreadPane", () => ({
   MachinesWorkspaceThreadHeader: ({
@@ -18,6 +19,12 @@ vi.mock("@/components/MachinesWorkspaceThreadPane", () => ({
   ),
   MachinesWorkspaceThreadPane: () => (
     <div data-component="MachinesWorkspaceThreadPane" />
+  ),
+}));
+
+vi.mock("@/components/UserMenu", () => ({
+  UserMenu: ({ menuLabel }: { menuLabel?: string | null }) => (
+    <div data-component="UserMenu">{menuLabel}</div>
   ),
 }));
 
@@ -62,42 +69,44 @@ const THREAD_FIXTURE: CodexAppServerThread = {
 describe("MachinesWorkspaceView", () => {
   it("renders unavailable machine thread rows as disabled while keeping the reason visible", () => {
     const markup = renderToStaticMarkup(
-      <SidebarProvider
-        defaultOpen={true}
-        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-      >
-        <MachinesWorkspaceView
-          hasPendingStartedThread={false}
-          isSubmittingTurn={false}
-          machineInventories={[
-            {
-              hasLoadedThreadInventory: true,
-              machineDisplayName: "Offline Linux Box",
-              machineHostname: "linux-box.local",
-              machineId: "machine-linux",
-              machineStatus: "offline",
-              machineStatusReason:
-                "This machine is offline. Start `noter-sync run` on the machine first.",
-              pinnedThreadIds: [],
-              threads: [THREAD_FIXTURE],
-            },
-          ]}
-          pendingConversation={null}
-          selectedMachineId="machine-linux"
-          selectedMachineDisplayName="Offline Linux Box"
-          selectedMachineHostname="linux-box.local"
-          selectedMachineStatusReason="This machine is offline. Start `noter-sync run` on the machine first."
-          selectedThread={null}
-          selectedThreadError={null}
-          selectedThreadLoading={false}
-          selectedThreadId={THREAD_FIXTURE.id}
-          pendingPinThreadKey={null}
-          turnDraft=""
-          onTurnDraftChange={() => {}}
-          onTurnSubmit={() => {}}
-        />
-      </SidebarProvider>,
+      <MemoryRouter>
+        <SidebarProvider
+          defaultOpen={true}
+          defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+          defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+        >
+          <MachinesWorkspaceView
+            hasPendingStartedThread={false}
+            isSubmittingTurn={false}
+            machineInventories={[
+              {
+                hasLoadedThreadInventory: true,
+                machineDisplayName: "Offline Linux Box",
+                machineHostname: "linux-box.local",
+                machineId: "machine-linux",
+                machineStatus: "offline",
+                machineStatusReason:
+                  "This machine is offline. Start `noter-sync run` on the machine first.",
+                pinnedThreadIds: [],
+                threads: [THREAD_FIXTURE],
+              },
+            ]}
+            pendingConversation={null}
+            selectedMachineId="machine-linux"
+            selectedMachineDisplayName="Offline Linux Box"
+            selectedMachineHostname="linux-box.local"
+            selectedMachineStatusReason="This machine is offline. Start `noter-sync run` on the machine first."
+            selectedThread={null}
+            selectedThreadError={null}
+            selectedThreadLoading={false}
+            selectedThreadId={THREAD_FIXTURE.id}
+            pendingPinThreadKey={null}
+            turnDraft=""
+            onTurnDraftChange={() => {}}
+            onTurnSubmit={() => {}}
+          />
+        </SidebarProvider>
+      </MemoryRouter>,
     );
 
     expect(markup).toContain(
@@ -111,84 +120,91 @@ describe("MachinesWorkspaceView", () => {
 
   it("renders a project-level start conversation button", () => {
     const markup = renderToStaticMarkup(
-      <SidebarProvider
-        defaultOpen={true}
-        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-      >
-        <MachinesWorkspaceView
-          hasPendingStartedThread={false}
-          isSubmittingTurn={false}
-          machineInventories={[
-            {
-              hasLoadedThreadInventory: true,
-              machineDisplayName: "Research MacBook Pro",
-              machineHostname: "research-mbp.local",
-              machineId: "machine-mac",
-              machineStatus: "online",
-              machineStatusReason: null,
-              pinnedThreadIds: [],
-              threads: [THREAD_FIXTURE],
-            },
-          ]}
-          pendingConversation={null}
-          pendingPinThreadKey={null}
-          selectedMachineId="machine-mac"
-          selectedMachineDisplayName="Research MacBook Pro"
-          selectedMachineHostname="research-mbp.local"
-          selectedMachineStatusReason={null}
-          selectedThread={THREAD_FIXTURE}
-          selectedThreadError={null}
-          selectedThreadLoading={false}
-          selectedThreadId={THREAD_FIXTURE.id}
-          turnDraft=""
-          onProjectStartConversation={() => {}}
-          onTurnDraftChange={() => {}}
-          onTurnSubmit={() => {}}
-        />
-      </SidebarProvider>,
+      <MemoryRouter>
+        <SidebarProvider
+          defaultOpen={true}
+          defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+          defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+        >
+          <MachinesWorkspaceView
+            hasPendingStartedThread={false}
+            isSubmittingTurn={false}
+            machineInventories={[
+              {
+                hasLoadedThreadInventory: true,
+                machineDisplayName: "Research MacBook Pro",
+                machineHostname: "research-mbp.local",
+                machineId: "machine-mac",
+                machineStatus: "online",
+                machineStatusReason: null,
+                pinnedThreadIds: [],
+                threads: [THREAD_FIXTURE],
+              },
+            ]}
+            pendingConversation={null}
+            pendingPinThreadKey={null}
+            selectedMachineId="machine-mac"
+            selectedMachineDisplayName="Research MacBook Pro"
+            selectedMachineHostname="research-mbp.local"
+            selectedMachineStatusReason={null}
+            selectedThread={THREAD_FIXTURE}
+            selectedThreadError={null}
+            selectedThreadLoading={false}
+            selectedThreadId={THREAD_FIXTURE.id}
+            turnDraft=""
+            userDisplayName="nicu@noter.md"
+            onProjectStartConversation={() => {}}
+            onTurnDraftChange={() => {}}
+            onTurnSubmit={() => {}}
+          />
+        </SidebarProvider>
+      </MemoryRouter>,
     );
 
     expect(markup).toContain("Start new conversation in noter");
+    expect(markup).toContain(">Dashboard<");
+    expect(markup).toContain('data-component="UserMenu"');
   });
 
   it("renders the selected machine and thread title in the shared main header", () => {
     const markup = renderToStaticMarkup(
-      <SidebarProvider
-        defaultOpen={true}
-        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-      >
-        <MachinesWorkspaceView
-          hasPendingStartedThread={false}
-          isSubmittingTurn={false}
-          machineInventories={[
-            {
-              hasLoadedThreadInventory: true,
-              machineDisplayName: "Research MacBook Pro",
-              machineHostname: "research-mbp.local",
-              machineId: "machine-mac",
-              machineStatus: "online",
-              machineStatusReason: null,
-              pinnedThreadIds: [],
-              threads: [THREAD_FIXTURE],
-            },
-          ]}
-          pendingConversation={null}
-          pendingPinThreadKey={null}
-          selectedMachineId="machine-mac"
-          selectedMachineDisplayName="Research MacBook Pro"
-          selectedMachineHostname="research-mbp.local"
-          selectedMachineStatusReason={null}
-          selectedThread={THREAD_FIXTURE}
-          selectedThreadError={null}
-          selectedThreadLoading={false}
-          selectedThreadId={THREAD_FIXTURE.id}
-          turnDraft=""
-          onTurnDraftChange={() => {}}
-          onTurnSubmit={() => {}}
-        />
-      </SidebarProvider>,
+      <MemoryRouter>
+        <SidebarProvider
+          defaultOpen={true}
+          defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+          defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+        >
+          <MachinesWorkspaceView
+            hasPendingStartedThread={false}
+            isSubmittingTurn={false}
+            machineInventories={[
+              {
+                hasLoadedThreadInventory: true,
+                machineDisplayName: "Research MacBook Pro",
+                machineHostname: "research-mbp.local",
+                machineId: "machine-mac",
+                machineStatus: "online",
+                machineStatusReason: null,
+                pinnedThreadIds: [],
+                threads: [THREAD_FIXTURE],
+              },
+            ]}
+            pendingConversation={null}
+            pendingPinThreadKey={null}
+            selectedMachineId="machine-mac"
+            selectedMachineDisplayName="Research MacBook Pro"
+            selectedMachineHostname="research-mbp.local"
+            selectedMachineStatusReason={null}
+            selectedThread={THREAD_FIXTURE}
+            selectedThreadError={null}
+            selectedThreadLoading={false}
+            selectedThreadId={THREAD_FIXTURE.id}
+            turnDraft=""
+            onTurnDraftChange={() => {}}
+            onTurnSubmit={() => {}}
+          />
+        </SidebarProvider>
+      </MemoryRouter>,
     );
 
     expect(markup).toContain('data-component="MachinesWorkspaceThreadHeader"');
@@ -198,42 +214,44 @@ describe("MachinesWorkspaceView", () => {
 
   it("disables project-level start buttons while a turn submission is pending", () => {
     const markup = renderToStaticMarkup(
-      <SidebarProvider
-        defaultOpen={true}
-        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-      >
-        <MachinesWorkspaceView
-          hasPendingStartedThread={false}
-          isSubmittingTurn={true}
-          machineInventories={[
-            {
-              hasLoadedThreadInventory: true,
-              machineDisplayName: "Research MacBook Pro",
-              machineHostname: "research-mbp.local",
-              machineId: "machine-mac",
-              machineStatus: "online",
-              machineStatusReason: null,
-              pinnedThreadIds: [],
-              threads: [THREAD_FIXTURE],
-            },
-          ]}
-          pendingConversation={null}
-          pendingPinThreadKey={null}
-          selectedMachineId="machine-mac"
-          selectedMachineDisplayName="Research MacBook Pro"
-          selectedMachineHostname="research-mbp.local"
-          selectedMachineStatusReason={null}
-          selectedThread={THREAD_FIXTURE}
-          selectedThreadError={null}
-          selectedThreadLoading={false}
-          selectedThreadId={THREAD_FIXTURE.id}
-          turnDraft=""
-          onProjectStartConversation={() => {}}
-          onTurnDraftChange={() => {}}
-          onTurnSubmit={() => {}}
-        />
-      </SidebarProvider>,
+      <MemoryRouter>
+        <SidebarProvider
+          defaultOpen={true}
+          defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+          defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+        >
+          <MachinesWorkspaceView
+            hasPendingStartedThread={false}
+            isSubmittingTurn={true}
+            machineInventories={[
+              {
+                hasLoadedThreadInventory: true,
+                machineDisplayName: "Research MacBook Pro",
+                machineHostname: "research-mbp.local",
+                machineId: "machine-mac",
+                machineStatus: "online",
+                machineStatusReason: null,
+                pinnedThreadIds: [],
+                threads: [THREAD_FIXTURE],
+              },
+            ]}
+            pendingConversation={null}
+            pendingPinThreadKey={null}
+            selectedMachineId="machine-mac"
+            selectedMachineDisplayName="Research MacBook Pro"
+            selectedMachineHostname="research-mbp.local"
+            selectedMachineStatusReason={null}
+            selectedThread={THREAD_FIXTURE}
+            selectedThreadError={null}
+            selectedThreadLoading={false}
+            selectedThreadId={THREAD_FIXTURE.id}
+            turnDraft=""
+            onProjectStartConversation={() => {}}
+            onTurnDraftChange={() => {}}
+            onTurnSubmit={() => {}}
+          />
+        </SidebarProvider>
+      </MemoryRouter>,
     );
 
     expect(markup).toMatch(
@@ -243,63 +261,65 @@ describe("MachinesWorkspaceView", () => {
 
   it("shows the pending spinner only for the project row that started the conversation", () => {
     const markup = renderToStaticMarkup(
-      <SidebarProvider
-        defaultOpen={true}
-        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-      >
-        <MachinesWorkspaceView
-          hasPendingStartedThread={false}
-          isSubmittingTurn={true}
-          machineInventories={[
-            {
-              hasLoadedThreadInventory: true,
-              machineDisplayName: "Research MacBook Pro",
-              machineHostname: "research-mbp.local",
+      <MemoryRouter>
+        <SidebarProvider
+          defaultOpen={true}
+          defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+          defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+        >
+          <MachinesWorkspaceView
+            hasPendingStartedThread={false}
+            isSubmittingTurn={true}
+            machineInventories={[
+              {
+                hasLoadedThreadInventory: true,
+                machineDisplayName: "Research MacBook Pro",
+                machineHostname: "research-mbp.local",
+                machineId: "machine-mac",
+                machineStatus: "online",
+                machineStatusReason: null,
+                pinnedThreadIds: [],
+                threads: [THREAD_FIXTURE],
+              },
+              {
+                hasLoadedThreadInventory: true,
+                machineDisplayName: "Research Windows Workstation",
+                machineHostname: "research-win.local",
+                machineId: "machine-win",
+                machineStatus: "online",
+                machineStatusReason: null,
+                pinnedThreadIds: [],
+                threads: [
+                  {
+                    ...THREAD_FIXTURE,
+                    id: "thread-machine-workspace-test-win",
+                  },
+                ],
+              },
+            ]}
+            pendingConversation={{
+              envMode: "worktree",
               machineId: "machine-mac",
-              machineStatus: "online",
-              machineStatusReason: null,
-              pinnedThreadIds: [],
-              threads: [THREAD_FIXTURE],
-            },
-            {
-              hasLoadedThreadInventory: true,
-              machineDisplayName: "Research Windows Workstation",
-              machineHostname: "research-win.local",
-              machineId: "machine-win",
-              machineStatus: "online",
-              machineStatusReason: null,
-              pinnedThreadIds: [],
-              threads: [
-                {
-                  ...THREAD_FIXTURE,
-                  id: "thread-machine-workspace-test-win",
-                },
-              ],
-            },
-          ]}
-          pendingConversation={{
-            envMode: "worktree",
-            machineId: "machine-mac",
-            projectId: THREAD_FIXTURE.project.id,
-            projectLabel: THREAD_FIXTURE.project.label,
-            projectRootCwd: THREAD_FIXTURE.project.rootCwd,
-          }}
-          pendingPinThreadKey={null}
-          selectedMachineId="machine-mac"
-          selectedMachineDisplayName="Research MacBook Pro"
-          selectedMachineHostname="research-mbp.local"
-          selectedMachineStatusReason={null}
-          selectedThread={null}
-          selectedThreadError={null}
-          selectedThreadLoading={false}
-          selectedThreadId={null}
-          turnDraft=""
-          onProjectStartConversation={() => {}}
-          onTurnDraftChange={() => {}}
-          onTurnSubmit={() => {}}
-        />
-      </SidebarProvider>,
+              projectId: THREAD_FIXTURE.project.id,
+              projectLabel: THREAD_FIXTURE.project.label,
+              projectRootCwd: THREAD_FIXTURE.project.rootCwd,
+            }}
+            pendingPinThreadKey={null}
+            selectedMachineId="machine-mac"
+            selectedMachineDisplayName="Research MacBook Pro"
+            selectedMachineHostname="research-mbp.local"
+            selectedMachineStatusReason={null}
+            selectedThread={null}
+            selectedThreadError={null}
+            selectedThreadLoading={false}
+            selectedThreadId={null}
+            turnDraft=""
+            onProjectStartConversation={() => {}}
+            onTurnDraftChange={() => {}}
+            onTurnSubmit={() => {}}
+          />
+        </SidebarProvider>
+      </MemoryRouter>,
     );
 
     const macSectionStart = markup.indexOf("Research MacBook Pro");

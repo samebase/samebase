@@ -21,7 +21,7 @@ import {
   Terminal,
   Wrench,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 type MachinesWorkspaceThreadPaneProps = {
   thread: CodexAppServerThread | null;
@@ -157,46 +157,26 @@ export function MachinesWorkspaceThreadHeader(
   props: MachinesWorkspaceThreadHeaderStateArgs,
 ) {
   const headerState = deriveMachinesWorkspaceThreadHeaderState(props);
-  const [isTitleExpanded, setIsTitleExpanded] = useState(false);
-  const titleClassName =
-    "min-w-0 w-full whitespace-normal [overflow-wrap:anywhere] text-[15px] font-semibold leading-5 text-foreground sm:text-base";
-
-  useEffect(() => {
-    setIsTitleExpanded(false);
-  }, [headerState.title]);
 
   return (
-    <div className="min-w-0">
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <div className="flex min-w-0 flex-col gap-1 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+    <div className="flex h-full min-w-0 items-center px-2">
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center justify-between gap-2 text-[10px] leading-3 text-muted-foreground">
           <div className="min-w-0 truncate">
             {headerState.selectedMachineLabel}
           </div>
           {headerState.headerMeta ? (
-            <div className="hidden shrink-0 sm:block">
+            <div className="hidden max-w-[45%] shrink-0 truncate sm:block">
               {headerState.headerMeta}
             </div>
           ) : null}
         </div>
-        <button
-          type="button"
-          aria-expanded={isTitleExpanded}
-          data-testid="machines-workspace-thread-header-title-toggle"
-          className="block w-full min-w-0 text-left"
+        <div
+          className="truncate text-[13px] font-medium leading-4 text-foreground"
           title={headerState.title}
-          onClick={() => {
-            setIsTitleExpanded((current) => !current);
-          }}
         >
-          <div
-            className={cn(
-              titleClassName,
-              isTitleExpanded ? "" : "line-clamp-2 sm:line-clamp-1",
-            )}
-          >
-            {headerState.title}
-          </div>
-        </button>
+          {headerState.title}
+        </div>
       </div>
     </div>
   );

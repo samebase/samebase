@@ -1,6 +1,5 @@
 import { useNow } from "@/hooks/useNow";
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
-import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import {
   CodexAppServerRequestError,
   requestCodexAppServerJson,
@@ -1072,11 +1071,6 @@ export function MachinesWorkspacePage() {
         hasPendingStartedThread={selectedThreadIsPendingStart}
         machineInventories={machineInventories}
         isSubmittingTurn={isSubmittingTurn}
-        leftSidebarHeader={
-          userDisplayName !== null ? (
-            <SidebarHomeAccountHeader userDisplayName={userDisplayName} />
-          ) : null
-        }
         pendingPinThreadKey={pendingPinThreadKey}
         pendingConversation={
           selectedPendingConversation === null
@@ -1097,6 +1091,7 @@ export function MachinesWorkspacePage() {
         selectedThreadError={selectedThreadError}
         selectedThreadLoading={isSelectedThreadLoading}
         selectedThreadId={selectedThreadId}
+        userDisplayName={userDisplayName}
         relativeTimeReferenceMs={now}
         turnDraft={turnDraft}
         onProjectStartConversation={handleProjectStartConversation}

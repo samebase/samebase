@@ -172,7 +172,7 @@ describe("MachinesWorkspaceThreadPane", () => {
     );
   });
 
-  it("renders the moved header metadata in the shared route header component", () => {
+  it("renders the compact pane header metadata without the old title toggle", () => {
     const markup = renderToStaticMarkup(
       <MachinesWorkspaceThreadHeader
         thread={null}
@@ -192,8 +192,10 @@ describe("MachinesWorkspaceThreadPane", () => {
     expect(markup).toContain("Research MacBook Pro");
     expect(markup).toContain("noter · New worktree");
     expect(markup).toContain("New conversation");
-    expect(markup).toContain("machines-workspace-thread-header-title-toggle");
-    expect(markup).toContain("line-clamp-2");
-    expect(markup).toContain("sm:line-clamp-1");
+    expect(markup).not.toContain(
+      "machines-workspace-thread-header-title-toggle",
+    );
+    expect(markup).toContain("truncate text-[13px] font-medium");
+    expect(markup).toContain("truncate sm:block");
   });
 });

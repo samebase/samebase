@@ -29,6 +29,7 @@ import {
   MachinesWorkspaceThreadPane,
 } from "@/components/MachinesWorkspaceThreadPane";
 import { WorkspaceLayoutV2 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
+import { WorkspaceLayoutV2PaneFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +37,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { UserMenu } from "@/components/UserMenu";
 import {
   ArrowUpRight,
   Folder,
@@ -45,10 +48,11 @@ import {
   Pin,
   Plus,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 type MachinesWorkspaceViewProps = {
   machineInventories: MachinesWorkspaceSidebarInventory[];
-  leftSidebarHeader?: ReactNode;
+  userDisplayName?: string | null;
   selectedMachineId: string | null;
   selectedThreadId: string | null;
   selectedThread: CodexAppServerThread | null;
@@ -125,6 +129,67 @@ const MIN_LEFT_SIDEBAR_WIDTH_FOR_THREAD_META_PX = 176;
 // Export the shared default width so the parent persisted provider and the
 // workspace shell stay aligned. The narrower metadata threshold stays local.
 export const MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX = 288;
+
+function MachinesWorkspaceLeftPaneHeader({
+  userDisplayName,
+}: {
+  userDisplayName?: string | null;
+}) {
+  return (
+    <div className="flex h-full items-center justify-between gap-2 px-2">
+      <Button variant="outline" size="sm" className="h-6 px-2 text-xs" asChild>
+        <Link to="/">Dashboard</Link>
+      </Button>
+      <UserMenu
+        className="shrink-0"
+        menuLabel={userDisplayName?.trim() || "Account"}
+      />
+    </div>
+  );
+}
+
+function MachinesWorkspaceMainPaneHeader(props: {
+  hasPendingStartedThread: boolean;
+  selectedThread: CodexAppServerThread | null;
+  pendingConversation: MachinesWorkspaceProjectConversationSelection | null;
+  selectedMachineDisplayName: string | null;
+  selectedMachineHostname: string | null;
+  selectedMachineStatusReason: string | null;
+  selectedThreadId: string | null;
+  selectedThreadLoading: boolean;
+}) {
+  return (
+    <div className="flex h-full items-center gap-2">
+      <SidebarTrigger
+        className="sr-only h-8 w-8 md:not-sr-only md:inline-flex"
+        side="left"
+      />
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <MachinesWorkspaceThreadHeader
+          hasPendingStartedThread={props.hasPendingStartedThread}
+          isLoading={props.selectedThreadLoading}
+          pendingConversation={
+            props.pendingConversation === null
+              ? null
+              : {
+                  envMode: props.pendingConversation.envMode,
+                  projectLabel: props.pendingConversation.projectLabel,
+                }
+          }
+          selectedMachineDisplayName={props.selectedMachineDisplayName}
+          selectedMachineHostname={props.selectedMachineHostname}
+          selectedMachineStatusReason={props.selectedMachineStatusReason}
+          selectedThreadId={props.selectedThreadId}
+          thread={props.selectedThread}
+        />
+      </div>
+      <SidebarTrigger
+        className="sr-only h-8 w-8 md:not-sr-only md:inline-flex"
+        side="right"
+      />
+    </div>
+  );
+}
 
 function buildMachineThreadKey(machineId: string, threadId: string): string {
   return `${machineId}\u0000${threadId}`;
@@ -640,54 +705,18 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
   return (
     <div
       data-testid={props.dataTestId}
-      className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background"
+      className="flex h-full min-h-0 flex-1 overflow-hidden bg-background"
     >
-      <div
-        data-testid={headerTestId}
-        className="shrink-0 border-b border-border bg-background"
-      >
-        <div className="flex items-start gap-3 p-3 sm:items-center">
-          <div className="flex shrink-0 items-center gap-3 pt-0.5 sm:pt-0">
-            <SidebarTrigger
-              className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
-              side="left"
-            />
-          </div>
-
-          <div className="min-w-0 flex-1 overflow-hidden pt-0.5 sm:pt-0">
-            <MachinesWorkspaceThreadHeader
-              hasPendingStartedThread={props.hasPendingStartedThread}
-              isLoading={props.selectedThreadLoading}
-              pendingConversation={
-                props.pendingConversation === null
-                  ? null
-                  : {
-                      envMode: props.pendingConversation.envMode,
-                      projectLabel: props.pendingConversation.projectLabel,
-                    }
-              }
-              selectedMachineDisplayName={props.selectedMachineDisplayName}
-              selectedMachineHostname={props.selectedMachineHostname}
-              selectedMachineStatusReason={props.selectedMachineStatusReason}
-              selectedThreadId={props.selectedThreadId}
-              thread={props.selectedThread}
-            />
-          </div>
-
-          <div className="flex shrink-0 items-center gap-2 pt-0.5 sm:pt-0">
-            <SidebarTrigger
-              className="sr-only h-8 w-8 md:not-sr-only md:inline-flex md:h-6 md:w-6"
-              side="right"
-            />
-          </div>
-        </div>
-      </div>
-
       <WorkspaceLayoutV2
         dataTestId={shellTestId}
         left={
-          <div className="flex h-full min-h-0 flex-col bg-background">
-            {props.leftSidebarHeader ?? null}
+          <WorkspaceLayoutV2PaneFrame
+            header={
+              <MachinesWorkspaceLeftPaneHeader
+                userDisplayName={props.userDisplayName}
+              />
+            }
+          >
             <div
               data-testid={sidebarTestId}
               className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-background px-2 py-2"
@@ -863,24 +892,44 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
                 ))}
               </div>
             </div>
-          </div>
+          </WorkspaceLayoutV2PaneFrame>
         }
         main={
-          <MachinesWorkspaceThreadPane
-            errorMessage={props.selectedThreadError}
-            hasPendingStartedThread={props.hasPendingStartedThread}
-            isLoading={props.selectedThreadLoading}
-            isSubmittingTurn={props.isSubmittingTurn}
-            onTurnDraftChange={props.onTurnDraftChange}
-            onTurnSubmit={props.onTurnSubmit}
-            pendingConversation={props.pendingConversation}
-            selectedMachineStatusReason={props.selectedMachineStatusReason}
-            selectedThreadId={props.selectedThreadId}
-            thread={props.selectedThread}
-            turnDraft={props.turnDraft}
-          />
+          <WorkspaceLayoutV2PaneFrame
+            headerTestId={headerTestId}
+            header={
+              <MachinesWorkspaceMainPaneHeader
+                hasPendingStartedThread={props.hasPendingStartedThread}
+                pendingConversation={props.pendingConversation}
+                selectedMachineDisplayName={props.selectedMachineDisplayName}
+                selectedMachineHostname={props.selectedMachineHostname}
+                selectedMachineStatusReason={props.selectedMachineStatusReason}
+                selectedThread={props.selectedThread}
+                selectedThreadId={props.selectedThreadId}
+                selectedThreadLoading={props.selectedThreadLoading}
+              />
+            }
+          >
+            <MachinesWorkspaceThreadPane
+              errorMessage={props.selectedThreadError}
+              hasPendingStartedThread={props.hasPendingStartedThread}
+              isLoading={props.selectedThreadLoading}
+              isSubmittingTurn={props.isSubmittingTurn}
+              onTurnDraftChange={props.onTurnDraftChange}
+              onTurnSubmit={props.onTurnSubmit}
+              pendingConversation={props.pendingConversation}
+              selectedMachineStatusReason={props.selectedMachineStatusReason}
+              selectedThreadId={props.selectedThreadId}
+              thread={props.selectedThread}
+              turnDraft={props.turnDraft}
+            />
+          </WorkspaceLayoutV2PaneFrame>
         }
-        right={null}
+        right={
+          <WorkspaceLayoutV2PaneFrame>
+            <div className="min-h-0 flex-1 bg-background" />
+          </WorkspaceLayoutV2PaneFrame>
+        }
       />
     </div>
   );
