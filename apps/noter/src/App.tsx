@@ -111,10 +111,6 @@ const MachinesWorkspacePage = lazy(async () => {
   const module = await import("@/components/MachinesWorkspacePage");
   return { default: module.MachinesWorkspacePage };
 });
-const MachinesWorkspaceV2Page = lazy(async () => {
-  const module = await import("@/components/MachinesWorkspaceV2Page");
-  return { default: module.MachinesWorkspaceV2Page };
-});
 
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   const { isAuthenticated } = useConvexAuth();
@@ -549,10 +545,6 @@ export default function App() {
                   <Route
                     path={MACHINES_ROUTE}
                     element={<MachinesWorkspacePage />}
-                  />
-                  <Route
-                    path="/v2/machines"
-                    element={<MachinesWorkspaceV2Page />}
                   />
                   <Route
                     path={MACHINE_CONNECT_ROUTE}

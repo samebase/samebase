@@ -176,7 +176,10 @@ const FIXTURE_VAULT_KEY = "workspace-layout-v2-fixture-vault";
 function FixtureLeftPane() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        data-testid="workspace-layout-v2-left-scroll-surface"
+        className="min-h-0 flex-1 overflow-y-auto"
+      >
         <CodeMirrorFileSurface
           dataTestId="workspace-layout-v2-prosemark-surface"
           filePath="workspace-layout-v2-notes.md"
@@ -193,6 +196,7 @@ function FixtureMainPane() {
       <div className="min-h-0 flex-1">
         <MonacoEditorSurface
           branch="main"
+          dataTestId="workspace-layout-v2-main-editor-surface"
           defaultValue={FIXTURE_MAIN_CODE}
           filePath="src/workspace-layout-v2-fixture.ts"
           onMount={() => {}}
@@ -211,6 +215,7 @@ function FixtureRightPane() {
       <div className="min-h-0 flex-1">
         <MonacoEditorSurface
           branch="main"
+          dataTestId="workspace-layout-v2-right-editor-surface"
           defaultValue={FIXTURE_RIGHT_CODE}
           filePath="src/workspace-layout-v2-review.ts"
           onMount={() => {}}
@@ -239,6 +244,7 @@ export function WorkspaceLayoutV2VisualFixture() {
         defaultRightMobileWidthPx={320}
       >
         <WorkspaceLayoutV2
+          dataTestId="workspace-layout-v2-fixture"
           left={<FixtureLeftPane />}
           main={<FixtureMainPane />}
           right={<FixtureRightPane />}

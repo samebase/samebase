@@ -2,23 +2,15 @@ import { expect, test, type Page } from "@playwright/test";
 import { dispatchHumanTouchSwipe } from "./touchGestures";
 
 const MOBILE_PANE_TRANSITION_WAIT_MS = 220;
+const WORKSPACE_LAYOUT_V2_FIXTURE_URL =
+  "/visual-fixture.html?mode=workspace-layout-v2-bare";
 
-async function ensureMachinesWorkspaceV2RouteReady(page: Page): Promise<void> {
-  await page.goto("/v2/machines", {
+async function openWorkspaceLayoutV2Fixture(page: Page): Promise<void> {
+  await page.goto(WORKSPACE_LAYOUT_V2_FIXTURE_URL, {
     waitUntil: "domcontentloaded",
   });
-
-  const autofillButton = page.getByRole("button", {
-    name: "Autofill & sign in",
-  });
-  try {
-    await autofillButton.waitFor({ state: "visible", timeout: 5_000 });
-    await autofillButton.click();
-  } catch {
-    // The route may already be authenticated and ready to render.
-  }
-
-  await expect(page.getByTestId("machines-workspace-v2-route")).toBeVisible();
+  await expect(page.getByTestId("workspace-layout-v2-fixture")).toBeVisible();
+  await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
 }
 
 async function swipeFromMainToLeft(page: Page) {
@@ -91,26 +83,6 @@ async function swipeFromLeftTowardRight(page: Page) {
   );
 }
 
-async function ensureMainMobilePane(page: Page) {
-  const route = page.getByTestId("machines-workspace-v2-route");
-  const currentPane = await route.getAttribute("data-mobile-pane");
-
-  if (currentPane === "left") {
-    // The shared shell persists mobile pane state, so normalize before every
-    // mobile test instead of assuming a fresh session.
-    await tapExposedMainStrip(page, "left");
-    await expect(route).toHaveAttribute("data-mobile-pane", "main");
-    await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
-    return;
-  }
-
-  if (currentPane === "right") {
-    await tapExposedMainStrip(page, "right");
-    await expect(route).toHaveAttribute("data-mobile-pane", "main");
-    await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
-  }
-}
-
 async function tapExposedMainStrip(page: Page, side: "left" | "right") {
   const mainPane = page.getByTestId("workspace-layout-v2-pane-main");
   const mainPaneBox = await mainPane.boundingBox();
@@ -165,13 +137,13 @@ async function expectResizeHandleToAlignWithPaneBoundary(
   ).toBeLessThanOrEqual(1);
 }
 
-test("desktop v2 route keeps sidebar triggers outside the panes", async ({
+test("desktop v2 fixture keeps sidebar triggers outside the panes", async ({
   page,
 }) => {
   const viewport = page.viewportSize();
   test.skip(viewport === null || viewport.width < 768, "desktop-only");
 
-  await ensureMachinesWorkspaceV2RouteReady(page);
+  await openWorkspaceLayoutV2Fixture(page);
 
   const leftButton = page.getByRole("button", { name: "Toggle Left Sidebar" });
   const rightButton = page.getByRole("button", {
@@ -193,24 +165,23 @@ test("desktop v2 route keeps sidebar triggers outside the panes", async ({
   }
 });
 
-test("mobile v2 route requires two swipes to move from left to right", async ({
+test("mobile v2 fixture requires two swipes to move from left to right", async ({
   page,
 }) => {
   const viewport = page.viewportSize();
   const viewportWidth = viewport?.width ?? 0;
   test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
 
-  await ensureMachinesWorkspaceV2RouteReady(page);
+  await openWorkspaceLayoutV2Fixture(page);
 
-  const route = page.getByTestId("machines-workspace-v2-route");
-  await ensureMainMobilePane(page);
-  await expect(route).toHaveAttribute("data-mobile-pane", "main");
+  const layout = page.getByTestId("workspace-layout-v2-fixture");
+  await expect(layout).toHaveAttribute("data-mobile-pane", "main");
   await expect(
     page.getByRole("button", { name: "Toggle Left Sidebar" }),
   ).toHaveCount(0);
 
   await swipeFromMainToLeft(page);
-  await expect(route).toHaveAttribute("data-mobile-pane", "left");
+  await expect(layout).toHaveAttribute("data-mobile-pane", "left");
   await expect(
     page.getByTestId("workspace-layout-v2-left-resize"),
   ).toBeVisible();
@@ -218,13 +189,13 @@ test("mobile v2 route requires two swipes to move from left to right", async ({
   await expectResizeHandleToAlignWithPaneBoundary(page, "left");
 
   await swipeFromLeftTowardRight(page);
-  await expect(route).toHaveAttribute("data-mobile-pane", "main");
+  await expect(layout).toHaveAttribute("data-mobile-pane", "main");
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
     0,
   );
 
   await swipeFromMainToRight(page);
-  await expect(route).toHaveAttribute("data-mobile-pane", "right");
+  await expect(layout).toHaveAttribute("data-mobile-pane", "right");
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
   ).toBeVisible();
@@ -239,31 +210,35 @@ test("mobile v2 route requires two swipes to move from left to right", async ({
   }
 
   await swipeFromRightToMain(page);
-  await expect(route).toHaveAttribute("data-mobile-pane", "main");
+  await expect(layout).toHaveAttribute("data-mobile-pane", "main");
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
   ).toHaveCount(0);
 });
 
-test("mobile v2 route taps the exposed main strip to return from sidebars", async ({
+test("mobile v2 fixture taps the exposed main strip to return from sidebars", async ({
   page,
 }) => {
   const viewport = page.viewportSize();
   test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
 
-  await ensureMachinesWorkspaceV2RouteReady(page);
+  await openWorkspaceLayoutV2Fixture(page);
 
-  const route = page.getByTestId("machines-workspace-v2-route");
-  await ensureMainMobilePane(page);
+  const layout = page.getByTestId("workspace-layout-v2-fixture");
+  await expect(layout).toHaveAttribute("data-mobile-pane", "main");
 
   await swipeFromMainToLeft(page);
-  await expect(route).toHaveAttribute("data-mobile-pane", "left");
+  await expect(layout).toHaveAttribute("data-mobile-pane", "left");
   await tapExposedMainStrip(page, "left");
-  await expect(route).toHaveAttribute("data-mobile-pane", "main");
+  await expect(layout).toHaveAttribute("data-mobile-pane", "main");
   await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
 
+  await openWorkspaceLayoutV2Fixture(page);
+  const refreshedLayout = page.getByTestId("workspace-layout-v2-fixture");
+  await expect(refreshedLayout).toHaveAttribute("data-mobile-pane", "main");
+
   await swipeFromMainToRight(page);
-  await expect(route).toHaveAttribute("data-mobile-pane", "right");
+  await expect(refreshedLayout).toHaveAttribute("data-mobile-pane", "right");
   await tapExposedMainStrip(page, "right");
-  await expect(route).toHaveAttribute("data-mobile-pane", "main");
+  await expect(refreshedLayout).toHaveAttribute("data-mobile-pane", "main");
 });

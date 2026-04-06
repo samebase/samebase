@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  getWorkspaceLayoutV2PaneStartPx,
   getWorkspaceLayoutV2PaneVisibleStartPx,
   getWorkspaceLayoutV2SettledPane,
-  getWorkspaceLayoutV2ViewportBoundaryPx,
   getWorkspaceLayoutV2VisibleStartPx,
   type WorkspaceLayoutV2Metrics,
 } from "@/lib/workspaceLayoutV2/paneLayout";
@@ -51,24 +51,17 @@ describe("workspaceLayoutV2 pane layout", () => {
     expect(getWorkspaceLayoutV2PaneVisibleStartPx("right", TEST_METRICS)).toBe(
       TEST_METRICS.leftWidthPx + TEST_METRICS.rightWidthPx,
     );
+    const rightVisibleStartPx = getWorkspaceLayoutV2VisibleStartPx({
+      currentPane: "right",
+      dragOffsetPx: 0,
+      metrics: TEST_METRICS,
+    });
+    expect(rightVisibleStartPx).toBe(
+      TEST_METRICS.leftWidthPx + TEST_METRICS.rightWidthPx,
+    );
     expect(
-      getWorkspaceLayoutV2VisibleStartPx({
-        currentPane: "right",
-        dragOffsetPx: 0,
-        metrics: TEST_METRICS,
-      }),
-    ).toBe(TEST_METRICS.leftWidthPx + TEST_METRICS.rightWidthPx);
-    expect(
-      getWorkspaceLayoutV2ViewportBoundaryPx({
-        currentPane: "right",
-        metrics: TEST_METRICS,
-        side: "right",
-        visibleStartPx: getWorkspaceLayoutV2VisibleStartPx({
-          currentPane: "right",
-          dragOffsetPx: 0,
-          metrics: TEST_METRICS,
-        }),
-      }),
+      getWorkspaceLayoutV2PaneStartPx("right", TEST_METRICS) -
+        rightVisibleStartPx,
     ).toBe(TEST_METRICS.viewportWidthPx - TEST_METRICS.rightWidthPx);
   });
 

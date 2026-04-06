@@ -162,26 +162,6 @@ export function getWorkspaceLayoutV2VisibleStartPx(args: {
   });
 }
 
-export function getWorkspaceLayoutV2ViewportBoundaryPx(args: {
-  currentPane: WorkspaceLayoutV2Pane;
-  metrics: WorkspaceLayoutV2Metrics;
-  side: "left" | "right";
-  visibleStartPx: number;
-}) {
-  // Resize handles sit on the visible boundary between main and the sidebar, so
-  // callers need that boundary in viewport coordinates instead of track space.
-  const boundaryStartPx =
-    args.side === "left"
-      ? getWorkspaceLayoutV2PaneStartPx("main", args.metrics)
-      : getWorkspaceLayoutV2PaneStartPx("right", args.metrics);
-
-  return clampNumber(
-    boundaryStartPx - args.visibleStartPx,
-    0,
-    args.metrics.viewportWidthPx,
-  );
-}
-
 function getAdjacentPaneCandidate(args: {
   currentPane: WorkspaceLayoutV2Pane;
   dragOffsetPx: number;
