@@ -185,10 +185,7 @@ const FIXTURE_VAULT_KEY = "workspace-layout-v2-fixture-vault";
 
 function FixtureLeftPane() {
   return (
-    <WorkspaceLayoutV2PaneFrame
-      dataTestId="workspace-layout-v2-left-pane-frame"
-      headerTestId="workspace-layout-v2-left-pane-header"
-    >
+    <WorkspaceLayoutV2PaneFrame headerTestId="workspace-layout-v2-left-pane-header">
       <div
         data-testid="workspace-layout-v2-left-scroll-surface"
         className="min-h-0 flex-1 overflow-y-auto"
@@ -207,7 +204,7 @@ function FixtureMainPaneHeader() {
   const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
 
   return (
-    <div className="hidden h-full items-center justify-between md:flex">
+    <div className="hidden justify-between md:flex">
       <Button
         type="button"
         variant="ghost"
@@ -235,7 +232,6 @@ function FixtureMainPaneHeader() {
 function FixtureMainPane() {
   return (
     <WorkspaceLayoutV2PaneFrame
-      dataTestId="workspace-layout-v2-main-pane-frame"
       headerTestId="workspace-layout-v2-main-pane-header"
       header={<FixtureMainPaneHeader />}
     >
@@ -257,10 +253,7 @@ function FixtureMainPane() {
 
 function FixtureRightPane() {
   return (
-    <WorkspaceLayoutV2PaneFrame
-      dataTestId="workspace-layout-v2-right-pane-frame"
-      headerTestId="workspace-layout-v2-right-pane-header"
-    >
+    <WorkspaceLayoutV2PaneFrame headerTestId="workspace-layout-v2-right-pane-header">
       <div className="min-h-0 flex-1">
         <MonacoEditorSurface
           branch="main"
@@ -301,9 +294,9 @@ function renderWorkspaceLayoutV2PaneFixture() {
 function WorkspaceLayoutV2FixtureTopBar() {
   return (
     <WorkspaceLayoutV2TopBar dataTestId="workspace-layout-v2-top-bar">
-      <div className="flex w-full items-center justify-between gap-3">
+      <div className="flex w-full justify-between gap-3">
         <div className="min-w-0 truncate">Workspace layout top bar</div>
-        <div className="inline-flex items-center gap-2 font-mono">
+        <div className="inline-flex gap-2 font-mono">
           <span>fixture</span>
           <span>chrome</span>
         </div>

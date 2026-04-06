@@ -2,19 +2,26 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { dispatchHumanTouchSwipe } from "./touchGestures";
 
 const MOBILE_PANE_TRANSITION_WAIT_MS = 220;
-const WORKSPACE_LAYOUT_V2_FIXTURE_URL =
+const WORKSPACE_LAYOUT_V2_BARE_FIXTURE_URL =
+  "/visual-fixture.html?mode=workspace-layout-v2-bare";
+const WORKSPACE_LAYOUT_V2_STATUS_BAR_FIXTURE_URL =
   "/visual-fixture.html?mode=workspace-layout-v2-status-bar";
 
 async function openWorkspaceLayoutV2Fixture(
   page: Page,
-  options?: { swipeDebug?: boolean },
+  options?: { statusBar?: boolean; swipeDebug?: boolean },
 ): Promise<void> {
+  const fixtureUrl = options?.statusBar
+    ? WORKSPACE_LAYOUT_V2_STATUS_BAR_FIXTURE_URL
+    : WORKSPACE_LAYOUT_V2_BARE_FIXTURE_URL;
   const debugQuery = options?.swipeDebug ? "&swipe-debug" : "";
-  await page.goto(`${WORKSPACE_LAYOUT_V2_FIXTURE_URL}${debugQuery}`, {
+  await page.goto(`${fixtureUrl}${debugQuery}`, {
     waitUntil: "domcontentloaded",
   });
   await expect(page.getByTestId("workspace-layout-v2-fixture")).toBeVisible();
-  await expect(page.getByTestId("workspace-layout-v2-top-bar")).toBeVisible();
+  await expect(page.getByTestId("workspace-layout-v2-top-bar")).toHaveCount(
+    options?.statusBar ? 1 : 0,
+  );
   await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
 }
 
@@ -279,6 +286,18 @@ async function scrollMainEditorToApproximateOffset(
     }, scrollTop);
 }
 
+async function scrollLeftPaneToApproximateOffset(
+  page: Page,
+  scrollTop: number,
+) {
+  await page
+    .getByTestId("workspace-layout-v2-left-scroll-surface")
+    .evaluate((element, nextScrollTop) => {
+      element.scrollTop = nextScrollTop;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    }, scrollTop);
+}
+
 async function verticalScrollLeftPane(page: Page) {
   await swipeWithinLocatorByRatio({
     locator: page.getByTestId("workspace-layout-v2-left-scroll-surface"),
@@ -437,7 +456,7 @@ test("desktop v2 fixture keeps pane headers fixed while bodies scroll", async ({
   const initialLeftScrollTop = await getLeftPaneScrollTop(page);
   const initialMainVisibleText = await getMainEditorVisibleText(page);
 
-  await verticalScrollLeftPane(page);
+  await scrollLeftPaneToApproximateOffset(page, 320);
   await scrollMainEditorToApproximateOffset(page, 320);
   await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
 
