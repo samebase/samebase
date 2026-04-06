@@ -5,7 +5,7 @@ import {
   getWorkspaceLayoutV2SettledPane,
   getWorkspaceLayoutV2VisibleStartPx,
   type WorkspaceLayoutV2Metrics,
-} from "@/lib/workspaceLayoutV2/paneLayout";
+} from "./paneLayout";
 
 const TEST_METRICS = {
   leftWidthPx: 304,

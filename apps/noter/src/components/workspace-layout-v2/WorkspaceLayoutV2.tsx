@@ -31,7 +31,7 @@ import {
   getWorkspaceLayoutV2VisibleStartPx,
   type WorkspaceLayoutV2Metrics,
   type WorkspaceLayoutV2Pane,
-} from "@/lib/workspaceLayoutV2/paneLayout";
+} from "./paneLayout";
 import { cn } from "@/lib/utils";
 
 const DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
