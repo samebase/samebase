@@ -405,19 +405,21 @@ function renderFastLandingShell() {
               data-testid="${PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID}"
               class="flex flex-col gap-2 pt-2"
             >
-              <input
-                id="${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}"
-                type="email"
-                placeholder="email@example.com"
-                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-              />
-              <button
-                id="${PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID}"
-                type="button"
-                class="inline-flex h-9 self-start items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-              >
-                Join Waitlist
-              </button>
+              <div class="flex gap-2">
+                <input
+                  id="${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}"
+                  type="email"
+                  placeholder="email@example.com"
+                  class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                />
+                <button
+                  id="${PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID}"
+                  type="button"
+                  class="inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                >
+                  Join Waitlist
+                </button>
+              </div>
             </div>
           </div>
         </div>
