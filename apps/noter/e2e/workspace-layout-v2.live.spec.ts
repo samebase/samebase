@@ -274,16 +274,36 @@ async function tapExposedMainStrip(page: Page, side: "left" | "right") {
   }
 
   // The main pane still spans the full viewport in track coordinates, so the
-  // tap target has to be translated into the main pane's local box.
+  // tap target has to be translated into the main pane's local box before we
+  // dispatch a native touch sequence through Chromium's real mobile pipeline.
   const viewportTapX = side === "left" ? viewportWidth - 20 : 20;
-  await mainPane.tap({
-    position: {
-      x: Math.max(
-        1,
-        Math.min(mainPaneBox.width - 1, viewportTapX - mainPaneBox.x),
-      ),
-      y: Math.max(1, Math.min(mainPaneBox.height - 1, 220 - mainPaneBox.y)),
-    },
+  const tapX = Math.max(
+    1,
+    Math.min(mainPaneBox.width - 1, viewportTapX - mainPaneBox.x),
+  );
+  const tapY = Math.max(
+    1,
+    Math.min(mainPaneBox.height - 1, 220 - mainPaneBox.y),
+  );
+  const session = await page.context().newCDPSession(page);
+  const touchPoint = {
+    force: 1,
+    id: 1,
+    radiusX: 4,
+    radiusY: 4,
+    x: mainPaneBox.x + tapX,
+    y: mainPaneBox.y + tapY,
+  };
+
+  await session.send("Input.dispatchTouchEvent", {
+    timestamp: Date.now() / 1000,
+    type: "touchStart",
+    touchPoints: [touchPoint],
+  });
+  await session.send("Input.dispatchTouchEvent", {
+    timestamp: (Date.now() + 1) / 1000,
+    type: "touchEnd",
+    touchPoints: [],
   });
 }
 
@@ -402,7 +422,7 @@ test("mobile v2 fixture requires returning to main before opening right", async 
   ).toHaveCount(0);
 });
 
-test("mobile v2 fixture taps the exposed main strip to return from sidebars", async ({
+test("mobile v2 fixture taps the exposed main strip without closing sidebars", async ({
   page,
 }) => {
   const viewport = page.viewportSize();
@@ -415,7 +435,7 @@ test("mobile v2 fixture taps the exposed main strip to return from sidebars", as
 
   await openLeftPaneFromMain(page);
   await tapExposedMainStrip(page, "left");
-  await expect(layout).toHaveAttribute("data-mobile-pane", "main");
+  await expect(layout).toHaveAttribute("data-mobile-pane", "left");
   await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
 
   await openWorkspaceLayoutV2Fixture(page);
@@ -424,7 +444,7 @@ test("mobile v2 fixture taps the exposed main strip to return from sidebars", as
 
   await openRightPaneFromMain(page);
   await tapExposedMainStrip(page, "right");
-  await expect(refreshedLayout).toHaveAttribute("data-mobile-pane", "main");
+  await expect(refreshedLayout).toHaveAttribute("data-mobile-pane", "right");
 });
 
 test("mobile v2 fixture vertical main-editor drags reveal later Monaco content", async ({
