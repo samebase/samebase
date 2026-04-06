@@ -21,6 +21,8 @@ export function Layout({ children }: { children: ReactNode }) {
     !isAuthenticated &&
     location.pathname === "/" &&
     !searchParams.has("auth");
+  const showLandingLegalLinks =
+    !isLoading && !isAuthenticated && location.pathname === "/";
   const showPublicNavigation =
     !isLoading && !isAuthenticated && location.pathname !== "/";
   const landingDevToggleHref = buildLandingDevToggleHref(location);
@@ -64,6 +66,7 @@ export function Layout({ children }: { children: ReactNode }) {
           onLandingDevToggleClick={handleLandingDevToggleClick}
           repoUrl={repoUrl}
           showLandingDevToggle={showLandingDevToggle}
+          showLandingLegalLinks={showLandingLegalLinks}
           showPublicNavigation={showPublicNavigation}
         />
       }

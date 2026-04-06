@@ -349,13 +349,24 @@ function renderFastLandingShell() {
     <div data-testid="public-landing-shell" class="flex h-full w-full flex-col">
       <div class="h-5 shrink-0 border-b border-border/50">
         <div data-testid="${APP_BUILD_STATUS_BAR_TEST_ID}" class="container flex h-full items-center overflow-hidden px-3 text-[11px] leading-none text-muted-foreground">
-          <div class="flex w-full items-center justify-end gap-2">
-            <a id="${PUBLIC_LANDING_DEV_TOGGLE_ID}" href="${escapeHtml(landingDevToggleHref)}" class="inline-flex min-w-[3ch] items-center justify-center corner-notch-1 px-1 transition-colors hover:text-foreground">
-              ${escapeHtml(landingDevToggleLabel)}
-            </a>
-            <div class="inline-flex select-text items-center gap-2 font-mono">
-              <span data-testid="${APP_BUILD_VERSION_TEST_ID}">${escapeHtml(buildVersionLabel)}</span>
-              ${commitMarkup}
+          <div class="flex w-full items-center gap-2">
+            <div class="flex items-center text-muted-foreground">
+              <a href="/terms" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
+                /terms
+              </a>
+              <span class="px-1">·</span>
+              <a href="/privacy" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
+                /privacy
+              </a>
+            </div>
+            <div class="ml-auto flex items-center gap-2">
+              <a id="${PUBLIC_LANDING_DEV_TOGGLE_ID}" href="${escapeHtml(landingDevToggleHref)}" class="inline-flex min-w-[3ch] items-center justify-center corner-notch-1 px-1 transition-colors hover:text-foreground">
+                ${escapeHtml(landingDevToggleLabel)}
+              </a>
+              <div class="inline-flex select-text items-center gap-2 font-mono">
+                <span data-testid="${APP_BUILD_VERSION_TEST_ID}">${escapeHtml(buildVersionLabel)}</span>
+                ${commitMarkup}
+              </div>
             </div>
           </div>
         </div>
@@ -409,15 +420,6 @@ function renderFastLandingShell() {
                   Join Waitlist
                 </button>
               </div>
-            </div>
-            <div class="pt-2 text-center text-xs text-muted-foreground">
-              <a href="/terms" class="transition-colors hover:text-foreground">
-                /terms
-              </a>
-              <span class="px-2">·</span>
-              <a href="/privacy" class="transition-colors hover:text-foreground">
-                /privacy
-              </a>
             </div>
           </div>
         </div>

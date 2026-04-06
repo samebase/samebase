@@ -189,6 +189,29 @@ async function expectAppBuildCommitLink(commitLabel: Locator) {
   return href;
 }
 
+async function expectLegalLinksLeadBuildVersion(statusBar: Locator) {
+  const termsLink = statusBar.getByRole("link", { name: "/terms" });
+  const privacyLink = statusBar.getByRole("link", { name: "/privacy" });
+  const versionLabel = statusBar.getByTestId(APP_BUILD_VERSION_TEST_ID);
+
+  await expect(termsLink).toBeVisible();
+  await expect(privacyLink).toBeVisible();
+  await expect(versionLabel).toBeVisible();
+
+  const termsBox = await termsLink.boundingBox();
+  const privacyBox = await privacyLink.boundingBox();
+  const versionBox = await versionLabel.boundingBox();
+  expect(termsBox).not.toBeNull();
+  expect(privacyBox).not.toBeNull();
+  expect(versionBox).not.toBeNull();
+  if (termsBox === null || privacyBox === null || versionBox === null) {
+    return;
+  }
+
+  expect(termsBox.x).toBeLessThan(versionBox.x);
+  expect(privacyBox.x).toBeLessThan(versionBox.x);
+}
+
 async function selectText(locator: Locator) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
@@ -292,6 +315,36 @@ test("public landing omits section divider lines before and after handoff", asyn
 
   await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
   await expect(landingContent.locator(".border-t")).toHaveCount(0);
+});
+
+test("public landing keeps legal links in the top bar across the shell handoff", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const landingContent = page.getByTestId("public-landing-content");
+  const shellStatusBar = page
+    .getByTestId("public-landing-shell")
+    .getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+
+  await expectLegalLinksLeadBuildVersion(shellStatusBar);
+  await expect(
+    landingContent.getByRole("link", { name: "/terms" }),
+  ).toHaveCount(0);
+  await expect(
+    landingContent.getByRole("link", { name: "/privacy" }),
+  ).toHaveCount(0);
+
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+
+  const hydratedStatusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  await expectLegalLinksLeadBuildVersion(hydratedStatusBar);
+  await expect(
+    landingContent.getByRole("link", { name: "/terms" }),
+  ).toHaveCount(0);
+  await expect(
+    landingContent.getByRole("link", { name: "/privacy" }),
+  ).toHaveCount(0);
 });
 
 test("build version stays stable across the landing shell handoff", async ({
