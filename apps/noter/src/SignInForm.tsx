@@ -138,30 +138,28 @@ function WaitlistForm() {
   }
 
   return (
-    <div className="flex flex-col gap-2 pt-2">
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!email.trim()) return;
-          void joinWaitlist({ email: email.trim() }).then(() => {
-            clearPublicLandingWaitlistDraft();
-            setSubmitted(true);
-          });
-        }}
-      >
-        <Input
-          type="email"
-          placeholder="email@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <Button type="submit" variant="outline" className="shrink-0">
-          Join Waitlist
-        </Button>
-      </form>
-    </div>
+    <form
+      className="flex flex-col gap-2 pt-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!email.trim()) return;
+        void joinWaitlist({ email: email.trim() }).then(() => {
+          clearPublicLandingWaitlistDraft();
+          setSubmitted(true);
+        });
+      }}
+    >
+      <Input
+        type="email"
+        placeholder="email@example.com"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+      />
+      <Button type="submit" variant="outline" className="self-start">
+        Join Waitlist
+      </Button>
+    </form>
   );
 }
 
