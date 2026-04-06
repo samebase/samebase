@@ -88,7 +88,10 @@ import {
   type CodexAppServerResearchVisualMode,
 } from "@/components/CodexAppServerResearchVisualFixture";
 import { MachinesWorkspaceVisualFixture } from "@/components/MachinesWorkspaceVisualFixture";
-import { WorkspaceLayoutV2VisualFixture } from "@/components/WorkspaceLayoutV2VisualFixture";
+import {
+  WorkspaceLayoutV2VisualFixture,
+  type WorkspaceLayoutV2VisualMode,
+} from "@/components/WorkspaceLayoutV2VisualFixture";
 import {
   CodexThreadHistoryVisualFixture,
   type CodexThreadHistoryVisualMode,
@@ -145,11 +148,11 @@ type VisualFixtureMode =
   | VaultDashboardVisualMode
   | VaultBranchPreviewVisualMode
   | VaultSyncStatusVisualMode
+  | WorkspaceLayoutV2VisualMode
   | CodexAppServerResearchVisualMode
   | CodexThreadBrowserVisualMode
   | CodexThreadHistoryVisualMode
   | "machines-workspace"
-  | "workspace-layout-v2-bare"
   | "machine-connect"
   | "vault-dashboard-branch-pr-title"
   | "button"
@@ -283,12 +286,17 @@ const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
   "fileview-monaco-flex-height",
 ] as const satisfies readonly FileViewMonacoDragVisualMode[];
 
+const WORKSPACE_LAYOUT_V2_VISUAL_MODES = [
+  "workspace-layout-v2-bare",
+  "workspace-layout-v2-status-bar",
+] as const satisfies readonly WorkspaceLayoutV2VisualMode[];
+
 const MISC_VISUAL_MODES = [
   "codex-app-server-research",
   "codex-thread-browser",
   "codex-thread-history",
   "machines-workspace",
-  "workspace-layout-v2-bare",
+  ...WORKSPACE_LAYOUT_V2_VISUAL_MODES,
   "machine-connect",
   "vault-dashboard-branch-pr-title",
   "button",
@@ -550,8 +558,11 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <MachinesWorkspaceVisualFixture />;
   }
 
-  if (mode === "workspace-layout-v2-bare") {
-    return <WorkspaceLayoutV2VisualFixture />;
+  if (
+    mode === "workspace-layout-v2-bare" ||
+    mode === "workspace-layout-v2-status-bar"
+  ) {
+    return <WorkspaceLayoutV2VisualFixture mode={mode} />;
   }
 
   if (mode === "button") {

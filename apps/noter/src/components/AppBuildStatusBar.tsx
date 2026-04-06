@@ -1,0 +1,131 @@
+import { useEffect, useRef, type MouseEventHandler } from "react";
+import { Link } from "react-router-dom";
+import {
+  APP_BUILD_COMMIT_LINK_TEST_ID,
+  APP_BUILD_STATUS_BAR_TEST_ID,
+  APP_BUILD_VERSION_TEST_ID,
+  formatAppBuildCommitLabel,
+  formatAppBuildVersionLabel,
+  hasSelectedAppBuildVersion,
+  installAppBuildMarkdownCopy,
+} from "@/lib/appBuild";
+import { WorkspaceLayoutV2TopBar } from "@/components/workspace-layout-v2/WorkspaceLayoutV2TopBar";
+
+type AppBuildStatusBarProps = {
+  appCommit: string;
+  appCommitNumber: number | null;
+  className?: string;
+  landingDevToggleHref?: string;
+  landingDevToggleLabel?: string;
+  onLandingDevToggleClick?: MouseEventHandler<HTMLAnchorElement>;
+  repoUrl?: string;
+  showLandingDevToggle?: boolean;
+  showPublicNavigation?: boolean;
+};
+
+function normalizeRepoUrl(repoUrl: string): string {
+  return repoUrl.endsWith(".git") ? repoUrl.slice(0, -4) : repoUrl;
+}
+
+export function AppBuildStatusBar({
+  appCommit,
+  appCommitNumber,
+  className,
+  landingDevToggleHref,
+  landingDevToggleLabel,
+  onLandingDevToggleClick,
+  repoUrl = "",
+  showLandingDevToggle = false,
+  showPublicNavigation = false,
+}: AppBuildStatusBarProps) {
+  const buildVersionLabel = formatAppBuildVersionLabel(appCommitNumber);
+  const commitLabel = formatAppBuildCommitLabel(appCommit);
+  const normalizedRepoUrl = repoUrl ? normalizeRepoUrl(repoUrl) : "";
+  const commitUrl =
+    normalizedRepoUrl && appCommit !== "unknown"
+      ? `${normalizedRepoUrl}/commit/${appCommit}`
+      : "";
+  const commitLinkRef = useRef<HTMLElement | null>(null);
+  const showLandingDevToggleLink =
+    showLandingDevToggle &&
+    typeof landingDevToggleHref === "string" &&
+    landingDevToggleHref.length > 0 &&
+    typeof landingDevToggleLabel === "string" &&
+    landingDevToggleLabel.length > 0;
+
+  useEffect(() => {
+    const commitLinkElement = commitLinkRef.current;
+    if (commitLinkElement === null) {
+      return;
+    }
+
+    return installAppBuildMarkdownCopy(commitLinkElement, {
+      appBuildCopyLabel: commitLabel,
+      commitUrl,
+    });
+  }, [commitLabel, commitUrl]);
+
+  return (
+    <WorkspaceLayoutV2TopBar
+      className={className}
+      contentClassName="justify-end gap-2"
+      dataTestId={APP_BUILD_STATUS_BAR_TEST_ID}
+    >
+      {showPublicNavigation ? (
+        <Link
+          to="/"
+          className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
+        >
+          Home
+        </Link>
+      ) : null}
+      {showLandingDevToggleLink ? (
+        <a
+          href={landingDevToggleHref}
+          onClick={onLandingDevToggleClick}
+          className="inline-flex min-w-[3ch] items-center justify-center corner-notch-1 px-1 transition-colors hover:text-foreground"
+        >
+          {landingDevToggleLabel}
+        </a>
+      ) : null}
+      <div className="inline-flex select-text items-center gap-2 font-mono">
+        <span data-testid={APP_BUILD_VERSION_TEST_ID}>{buildVersionLabel}</span>
+        {commitUrl ? (
+          <a
+            data-testid={APP_BUILD_COMMIT_LINK_TEST_ID}
+            ref={(element) => {
+              commitLinkRef.current = element;
+            }}
+            className="select-text transition-colors hover:text-foreground"
+            href={commitUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            draggable={false}
+            title={appCommit}
+            onDragStart={(event) => {
+              event.preventDefault();
+            }}
+            onClick={(event) => {
+              if (hasSelectedAppBuildVersion(event.currentTarget)) {
+                event.preventDefault();
+              }
+            }}
+          >
+            {commitLabel}
+          </a>
+        ) : (
+          <span
+            data-testid={APP_BUILD_COMMIT_LINK_TEST_ID}
+            ref={(element) => {
+              commitLinkRef.current = element;
+            }}
+            className="select-text"
+            title={appCommit}
+          >
+            {commitLabel}
+          </span>
+        )}
+      </div>
+    </WorkspaceLayoutV2TopBar>
+  );
+}

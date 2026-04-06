@@ -1,7 +1,13 @@
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
 import { SidebarProvider } from "@/components/sidebar";
+import { WorkspaceLayoutV2PageFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PageFrame";
+import { WorkspaceLayoutV2TopBar } from "@/components/workspace-layout-v2/WorkspaceLayoutV2TopBar";
 import { WorkspaceLayoutV2 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
+
+export type WorkspaceLayoutV2VisualMode =
+  | "workspace-layout-v2-bare"
+  | "workspace-layout-v2-status-bar";
 
 const FIXTURE_MARKDOWN = `# Workspace Layout V2 Notes
 
@@ -228,28 +234,57 @@ function FixtureRightPane() {
   );
 }
 
-export function WorkspaceLayoutV2VisualFixture() {
+function renderWorkspaceLayoutV2PaneFixture() {
   return (
-    <div
-      data-testid="workspace-layout-v2-visual-fixture"
-      className="h-dvh min-h-svh overflow-hidden bg-background overscroll-none"
+    <SidebarProvider
+      className="h-full min-h-0"
+      defaultOpen={true}
+      defaultLeftDesktopWidthPx={320}
+      defaultLeftMobileWidthPx={320}
+      defaultRightOpen={true}
+      defaultRightDesktopWidthPx={320}
+      defaultRightMobileWidthPx={320}
     >
-      <SidebarProvider
-        className="h-full min-h-0"
-        defaultOpen={true}
-        defaultLeftDesktopWidthPx={320}
-        defaultLeftMobileWidthPx={320}
-        defaultRightOpen={true}
-        defaultRightDesktopWidthPx={320}
-        defaultRightMobileWidthPx={320}
-      >
-        <WorkspaceLayoutV2
-          dataTestId="workspace-layout-v2-fixture"
-          left={<FixtureLeftPane />}
-          main={<FixtureMainPane />}
-          right={<FixtureRightPane />}
-        />
-      </SidebarProvider>
-    </div>
+      <WorkspaceLayoutV2
+        dataTestId="workspace-layout-v2-fixture"
+        left={<FixtureLeftPane />}
+        main={<FixtureMainPane />}
+        right={<FixtureRightPane />}
+      />
+    </SidebarProvider>
+  );
+}
+
+function WorkspaceLayoutV2FixtureTopBar() {
+  return (
+    <WorkspaceLayoutV2TopBar
+      dataTestId="workspace-layout-v2-top-bar"
+      contentClassName="justify-between"
+    >
+      <div className="min-w-0 truncate">Workspace layout top bar</div>
+      <div className="inline-flex items-center gap-2 font-mono">
+        <span>fixture</span>
+        <span>chrome</span>
+      </div>
+    </WorkspaceLayoutV2TopBar>
+  );
+}
+
+export function WorkspaceLayoutV2VisualFixture({
+  mode,
+}: {
+  mode: WorkspaceLayoutV2VisualMode;
+}) {
+  return (
+    <WorkspaceLayoutV2PageFrame
+      dataTestId="workspace-layout-v2-visual-fixture"
+      topBar={
+        mode === "workspace-layout-v2-status-bar" ? (
+          <WorkspaceLayoutV2FixtureTopBar />
+        ) : null
+      }
+    >
+      {renderWorkspaceLayoutV2PaneFixture()}
+    </WorkspaceLayoutV2PageFrame>
   );
 }
