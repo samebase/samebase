@@ -21,7 +21,14 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import { Routes, Route, useLocation } from "react-router-dom";
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { resolvePageMetadata, type PageMetadata } from "@/lib/pageMetadata";
 import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAuthState";
 import { usePageMetadata } from "@/lib/usePageMetadata";
@@ -145,7 +152,7 @@ function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   }, [enabled, isAuthenticated, pathname]);
 }
 
-function ApprovalGate({ children }: { children: React.ReactNode }) {
+function ApprovalGate({ children }: { children: ReactNode }) {
   const isApproved = useQuery(api.users.isCurrentUserApproved);
   const { signOut } = useAuthActions();
 

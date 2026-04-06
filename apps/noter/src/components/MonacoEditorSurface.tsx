@@ -13,6 +13,7 @@ import {
 
 export interface MonacoEditorSurfaceProps {
   branch: string;
+  dataTestId?: string;
   defaultValue: string;
   disableFolding?: boolean;
   disableLineNumbers?: boolean;
@@ -33,6 +34,7 @@ const MIN_EDITOR_HEIGHT_PX = 400;
  */
 export function MonacoEditorSurface({
   branch,
+  dataTestId,
   defaultValue,
   disableFolding = false,
   disableLineNumbers = false,
@@ -95,6 +97,7 @@ export function MonacoEditorSurface({
   return (
     <div
       ref={containerRef}
+      data-testid={dataTestId}
       className="notranslate relative h-full min-h-0 w-full"
       translate="no"
       style={{

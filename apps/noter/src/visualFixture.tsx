@@ -1,5 +1,5 @@
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import React from "react";
+import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { ThemeProvider } from "next-themes";
 import "@fontsource/ibm-plex-sans/400.css";
@@ -88,6 +88,7 @@ import {
   type CodexAppServerResearchVisualMode,
 } from "@/components/CodexAppServerResearchVisualFixture";
 import { MachinesWorkspaceVisualFixture } from "@/components/MachinesWorkspaceVisualFixture";
+import { WorkspaceLayoutV2VisualFixture } from "@/components/WorkspaceLayoutV2VisualFixture";
 import {
   CodexThreadHistoryVisualFixture,
   type CodexThreadHistoryVisualMode,
@@ -148,6 +149,7 @@ type VisualFixtureMode =
   | CodexThreadBrowserVisualMode
   | CodexThreadHistoryVisualMode
   | "machines-workspace"
+  | "workspace-layout-v2-bare"
   | "machine-connect"
   | "vault-dashboard-branch-pr-title"
   | "button"
@@ -286,6 +288,7 @@ const MISC_VISUAL_MODES = [
   "codex-thread-browser",
   "codex-thread-history",
   "machines-workspace",
+  "workspace-layout-v2-bare",
   "machine-connect",
   "vault-dashboard-branch-pr-title",
   "button",
@@ -547,6 +550,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <MachinesWorkspaceVisualFixture />;
   }
 
+  if (mode === "workspace-layout-v2-bare") {
+    return <WorkspaceLayoutV2VisualFixture />;
+  }
+
   if (mode === "button") {
     return <ButtonVisualFixture />;
   }
@@ -629,7 +636,7 @@ const showGestureDebugOverlay = isMobileSidebarDebugEnabled(
 );
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
+  <StrictMode>
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <ConvexAuthProvider client={client}>
         <QueryProvider>
@@ -646,5 +653,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         </QueryProvider>
       </ConvexAuthProvider>
     </ThemeProvider>
-  </React.StrictMode>,
+  </StrictMode>,
 );

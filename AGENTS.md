@@ -238,6 +238,11 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - Default to additive minimalism in copy and visuals. Do not add decorative
   chrome, filler copy, extra buttons, or ornamental layout unless explicitly
   requested.
+- Preserve the established visual language. Do not add shadows, rounded corners,
+  custom easing, decorative borders, or similar visual embellishments unless the
+  user explicitly asks for them or the surrounding component already uses them.
+- For motion and timing, prefer Tailwind defaults unless there is a concrete
+  product reason to override them.
 - Assume Cloudflare is the default front door and observability layer for
   `noter.md`, and keep application logic in Convex by default unless there is a
   clear reason not to.
