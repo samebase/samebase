@@ -280,6 +280,20 @@ test("landing dev mode shows Google sign-in", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
 });
 
+test("public landing omits section divider lines before and after handoff", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const landingContent = page.getByTestId("public-landing-content");
+
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await expect(landingContent.locator(".border-t")).toHaveCount(0);
+
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+  await expect(landingContent.locator(".border-t")).toHaveCount(0);
+});
+
 test("build version stays stable across the landing shell handoff", async ({
   page,
 }, testInfo) => {
@@ -647,6 +661,10 @@ test("public landing handoff keeps the card height stable", async ({
 test("prod-ui landing handoff stays visually aligned", async ({
   page,
 }, testInfo) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0;
+  });
+
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
   const landingContent = page.getByTestId("public-landing-content");

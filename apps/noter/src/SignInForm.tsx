@@ -108,7 +108,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
             {showPasswordAuth ? <PasswordAuthForm /> : null}
           </div>
           <WaitlistForm />
-          <div className="border-t pt-2 text-center text-xs text-muted-foreground">
+          <div className="pt-2 text-center text-xs text-muted-foreground">
             <Link
               to="/terms"
               className="transition-colors hover:text-foreground"
@@ -153,7 +153,7 @@ function WaitlistForm() {
   }
 
   return (
-    <div className="flex flex-col gap-2 pt-2 border-t">
+    <div className="flex flex-col gap-2 pt-2">
       <form
         className="flex gap-2"
         onSubmit={(e) => {
