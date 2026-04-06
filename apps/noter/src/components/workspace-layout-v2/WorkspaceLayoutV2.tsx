@@ -257,7 +257,7 @@ function WorkspaceLayoutV2MobileViewport({
             ? null
             : // Resizes move pane widths synchronously. Only idle pane changes
               // should animate the shared track.
-              "transition-transform duration-75 ease-out",
+              "transition-transform duration-75",
         )}
         style={{
           transform: `translate3d(${-mobileVisibleStartPx}px, 0, 0)`,
@@ -272,11 +272,17 @@ function WorkspaceLayoutV2MobileViewport({
             width: `${getWorkspaceLayoutV2PaneWidthPx("left", mobileMetrics)}px`,
           }}
         >
-          <div className="flex h-full min-h-0 flex-col overflow-hidden border-r bg-muted/10">
+          <div
+            className={cn(
+              "flex h-full min-h-0 flex-col overflow-hidden border-r bg-muted/10 transition-colors duration-75",
+              activeResizeSide === "left" ? "border-primary" : "border-border",
+            )}
+          >
             {leftContent}
           </div>
           {leftResizeHandle}
         </div>
+
         <div
           data-workspace-layout-v2-pane="main"
           data-testid="workspace-layout-v2-pane-main"
@@ -289,6 +295,7 @@ function WorkspaceLayoutV2MobileViewport({
         >
           {mainContent}
         </div>
+
         <div
           data-workspace-layout-v2-pane="right"
           data-testid="workspace-layout-v2-pane-right"
@@ -298,7 +305,12 @@ function WorkspaceLayoutV2MobileViewport({
             width: `${getWorkspaceLayoutV2PaneWidthPx("right", mobileMetrics)}px`,
           }}
         >
-          <div className="flex h-full min-h-0 flex-col overflow-hidden border-l bg-muted/10">
+          <div
+            className={cn(
+              "flex h-full min-h-0 flex-col overflow-hidden border-l bg-muted/10 transition-colors duration-75",
+              activeResizeSide === "right" ? "border-primary" : "border-border",
+            )}
+          >
             {rightContent}
           </div>
           {rightResizeHandle}
@@ -310,6 +322,7 @@ function WorkspaceLayoutV2MobileViewport({
 
 type WorkspaceLayoutV2DesktopViewportProps =
   WorkspaceLayoutV2ResolvedPaneContent & {
+    activeResizeSide: "left" | "right" | null;
     desktopLeftWidthPx: number;
     desktopMainWidthPx: number;
     desktopRightWidthPx: number;
@@ -318,6 +331,7 @@ type WorkspaceLayoutV2DesktopViewportProps =
   };
 
 function WorkspaceLayoutV2DesktopViewport({
+  activeResizeSide,
   desktopLeftWidthPx,
   desktopMainWidthPx,
   desktopRightWidthPx,
@@ -337,7 +351,8 @@ function WorkspaceLayoutV2DesktopViewport({
           data-workspace-layout-v2-pane="left"
           data-testid="workspace-layout-v2-pane-left"
           className={cn(
-            "flex h-full min-h-0 flex-col overflow-hidden border-r bg-muted/10",
+            "flex h-full min-h-0 flex-col overflow-hidden border-r bg-muted/10 transition-colors duration-75",
+            activeResizeSide === "left" ? "border-primary" : "border-border",
             leftDesktopOpen ? "opacity-100" : "opacity-0",
           )}
           style={{ width: `${desktopLeftWidthPx}px` }}
@@ -364,7 +379,8 @@ function WorkspaceLayoutV2DesktopViewport({
           data-workspace-layout-v2-pane="right"
           data-testid="workspace-layout-v2-pane-right"
           className={cn(
-            "flex h-full min-h-0 flex-col overflow-hidden border-l bg-muted/10",
+            "flex h-full min-h-0 flex-col overflow-hidden border-l bg-muted/10 transition-colors duration-75",
+            activeResizeSide === "right" ? "border-primary" : "border-border",
             rightDesktopOpen ? "opacity-100" : "opacity-0",
           )}
           style={{ width: `${desktopRightWidthPx}px` }}
@@ -993,6 +1009,7 @@ export function WorkspaceLayoutV2({
         />
       ) : (
         <WorkspaceLayoutV2DesktopViewport
+          activeResizeSide={activeResizeSide}
           desktopLeftWidthPx={desktopLeftWidthPx}
           desktopMainWidthPx={desktopMainWidthPx}
           desktopRightWidthPx={desktopRightWidthPx}

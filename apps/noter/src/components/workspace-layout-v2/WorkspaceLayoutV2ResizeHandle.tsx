@@ -7,7 +7,6 @@ import {
   type PointerEvent,
 } from "react";
 import { ResizeGripLines } from "@/components/ResizeGripLines";
-import { cn } from "@/lib/utils";
 
 const KEYBOARD_RESIZE_TIMEOUT_MS = 120;
 const POINTER_RESIZE_CURSOR = "col-resize";
@@ -221,12 +220,14 @@ export function WorkspaceLayoutV2ResizeHandle({
       >
         <div
           {...interactiveProps}
-          className={cn(
-            "pointer-events-auto flex h-16 w-4 cursor-col-resize touch-none items-center justify-center bg-background/80 text-foreground/70 transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-            isResizing ? "bg-accent text-foreground" : null,
-          )}
+          className="pointer-events-auto relative flex h-16 w-4 cursor-col-resize touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
-          <ResizeGripLines variant="dots" />
+          <div className="flex h-16 w-4 items-center justify-center border border-border bg-background">
+            <ResizeGripLines
+              variant="dots"
+              className="relative z-10 text-foreground/70"
+            />
+          </div>
         </div>
       </div>
     );
@@ -235,20 +236,8 @@ export function WorkspaceLayoutV2ResizeHandle({
   return (
     <div
       {...interactiveProps}
-      className={cn(
-        "absolute inset-y-0 z-30 flex w-4 -translate-x-1/2 cursor-col-resize touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        isResizing ? "bg-accent/50" : null,
-      )}
+      className="absolute inset-y-0 z-30 flex w-4 -translate-x-1/2 cursor-col-resize touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       style={{ left: `${positionPx}px` }}
-    >
-      <div
-        className={cn(
-          "flex h-16 w-3 items-center justify-center bg-background/80 text-foreground/70 transition-colors hover:bg-accent hover:text-foreground",
-          isResizing ? "bg-accent text-foreground" : null,
-        )}
-      >
-        <ResizeGripLines className="rotate-90" />
-      </div>
-    </div>
+    />
   );
 }
