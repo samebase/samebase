@@ -1068,6 +1068,7 @@ export function MachinesWorkspacePage() {
       workspaceKey="machines"
     >
       <MachinesWorkspaceView
+        dataTestId="machines-workspace"
         hasPendingStartedThread={selectedThreadIsPendingStart}
         machineInventories={machineInventories}
         isSubmittingTurn={isSubmittingTurn}

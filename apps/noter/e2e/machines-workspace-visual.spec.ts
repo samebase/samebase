@@ -94,11 +94,7 @@ test("machines workspace narrow sidebar keeps thread titles clamped", async ({
 }) => {
   await openMachinesWorkspaceFixture(page);
 
-  await dragHorizontalHandle(
-    page,
-    "workspace-sidebar-left-resize-handle",
-    -160,
-  );
+  await dragHorizontalHandle(page, "workspace-layout-v2-left-resize", -160);
 
   const sidebar = page.getByTestId("machines-workspace-visual-fixture-sidebar");
   await expect(sidebar).toHaveScreenshot(
