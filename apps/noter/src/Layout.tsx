@@ -21,8 +21,9 @@ export function Layout({ children }: { children: ReactNode }) {
     !isAuthenticated &&
     location.pathname === "/" &&
     !searchParams.has("auth");
-  const showLandingLegalLinks =
-    !isLoading && !isAuthenticated && location.pathname === "/";
+  // Keep the hydrated landing bar aligned with the bootstrap shell while auth
+  // is still resolving so `/terms` and `/privacy` never disappear on `/`.
+  const showLandingLegalLinks = !isAuthenticated && location.pathname === "/";
   const showPublicNavigation =
     !isLoading && !isAuthenticated && location.pathname !== "/";
   const landingDevToggleHref = buildLandingDevToggleHref(location);
