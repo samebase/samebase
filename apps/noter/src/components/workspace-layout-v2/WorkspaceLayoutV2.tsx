@@ -11,9 +11,7 @@ import {
   type RefObject,
   type SetStateAction,
 } from "react";
-import { PanelLeft } from "lucide-react";
 import { MobileSidebarGestureDebugOverlay } from "@/components/MobileSidebarGestureDebugOverlay";
-import { Button } from "@/components/ui/button";
 import { WorkspaceLayoutV2ResizeHandle } from "@/components/workspace-layout-v2/WorkspaceLayoutV2ResizeHandle";
 import { useSidebar } from "@/hooks/use-sidebar";
 import {
@@ -304,7 +302,6 @@ function WorkspaceLayoutV2MobileViewport({
         }}
       >
         <div
-          data-workspace-layout-v2-pane="left"
           data-testid="workspace-layout-v2-pane-left"
           className="absolute inset-y-0 left-0 z-10 min-h-0 overflow-visible"
           style={{
@@ -313,7 +310,7 @@ function WorkspaceLayoutV2MobileViewport({
         >
           <div
             className={cn(
-              "flex h-full min-h-0 flex-col overflow-hidden border-r bg-muted/10 transition-colors duration-75",
+              "flex h-full min-h-0 flex-col overflow-hidden border-r",
               activeResizeSide === "left" ? "border-primary" : "border-border",
             )}
           >
@@ -323,7 +320,6 @@ function WorkspaceLayoutV2MobileViewport({
         </div>
 
         <div
-          data-workspace-layout-v2-pane="main"
           data-testid="workspace-layout-v2-pane-main"
           className="absolute inset-y-0 z-0 flex min-h-0 flex-col overflow-hidden bg-background"
           style={{
@@ -335,7 +331,6 @@ function WorkspaceLayoutV2MobileViewport({
         </div>
 
         <div
-          data-workspace-layout-v2-pane="right"
           data-testid="workspace-layout-v2-pane-right"
           className="absolute inset-y-0 z-10 min-h-0 overflow-visible"
           style={{
@@ -345,7 +340,7 @@ function WorkspaceLayoutV2MobileViewport({
         >
           <div
             className={cn(
-              "flex h-full min-h-0 flex-col overflow-hidden border-l bg-muted/10 transition-colors duration-75",
+              "flex h-full min-h-0 flex-col overflow-hidden border-l",
               activeResizeSide === "right" ? "border-primary" : "border-border",
             )}
           >
@@ -364,8 +359,6 @@ type WorkspaceLayoutV2DesktopViewportProps =
     desktopLeftWidthPx: number;
     desktopMainWidthPx: number;
     desktopRightWidthPx: number;
-    leftDesktopOpen: boolean;
-    rightDesktopOpen: boolean;
   };
 
 function WorkspaceLayoutV2DesktopViewport({
@@ -374,10 +367,8 @@ function WorkspaceLayoutV2DesktopViewport({
   desktopMainWidthPx,
   desktopRightWidthPx,
   leftContent,
-  leftDesktopOpen,
   mainContent,
   rightContent,
-  rightDesktopOpen,
 }: WorkspaceLayoutV2DesktopViewportProps) {
   return (
     <>
@@ -386,12 +377,14 @@ function WorkspaceLayoutV2DesktopViewport({
         style={{ width: `${desktopLeftWidthPx}px` }}
       >
         <div
-          data-workspace-layout-v2-pane="left"
           data-testid="workspace-layout-v2-pane-left"
           className={cn(
-            "flex h-full min-h-0 flex-col overflow-hidden border-r bg-muted/10 transition-colors duration-75",
-            activeResizeSide === "left" ? "border-primary" : "border-border",
-            leftDesktopOpen ? "opacity-100" : "opacity-0",
+            "flex h-full min-h-0 flex-col overflow-hidden",
+            desktopLeftWidthPx > 0
+              ? activeResizeSide === "left"
+                ? "border-r border-primary"
+                : "border-r border-border"
+              : "border-r-0",
           )}
           style={{ width: `${desktopLeftWidthPx}px` }}
         >
@@ -399,7 +392,6 @@ function WorkspaceLayoutV2DesktopViewport({
         </div>
       </div>
       <div
-        data-workspace-layout-v2-pane="main"
         data-testid="workspace-layout-v2-pane-main"
         className="absolute inset-y-0 z-0 flex min-h-0 flex-col overflow-hidden bg-background"
         style={{
@@ -414,12 +406,14 @@ function WorkspaceLayoutV2DesktopViewport({
         style={{ width: `${desktopRightWidthPx}px` }}
       >
         <div
-          data-workspace-layout-v2-pane="right"
           data-testid="workspace-layout-v2-pane-right"
           className={cn(
-            "flex h-full min-h-0 flex-col overflow-hidden border-l bg-muted/10 transition-colors duration-75",
-            activeResizeSide === "right" ? "border-primary" : "border-border",
-            rightDesktopOpen ? "opacity-100" : "opacity-0",
+            "flex h-full min-h-0 flex-col overflow-hidden",
+            desktopRightWidthPx > 0
+              ? activeResizeSide === "right"
+                ? "border-l border-primary"
+                : "border-l border-border"
+              : "border-l-0",
           )}
           style={{ width: `${desktopRightWidthPx}px` }}
         >
@@ -427,45 +421,6 @@ function WorkspaceLayoutV2DesktopViewport({
         </div>
       </div>
     </>
-  );
-}
-
-type WorkspaceLayoutV2DesktopControlsProps = {
-  onToggleLeft: () => void;
-  onToggleRight: () => void;
-};
-
-function WorkspaceLayoutV2DesktopControls({
-  onToggleLeft,
-  onToggleRight,
-}: WorkspaceLayoutV2DesktopControlsProps) {
-  return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between p-3">
-      <div className="pointer-events-auto flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          aria-label="Toggle Left Sidebar"
-          className="h-9 w-9 bg-background/90 backdrop-blur"
-          onClick={onToggleLeft}
-        >
-          <PanelLeft className="h-4 w-4" />
-        </Button>
-      </div>
-      <div className="pointer-events-auto flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          aria-label="Toggle Right Sidebar"
-          className="h-9 w-9 bg-background/90 backdrop-blur"
-          onClick={onToggleRight}
-        >
-          <PanelLeft className="h-4 w-4 rotate-180" />
-        </Button>
-      </div>
-    </div>
   );
 }
 
@@ -971,8 +926,6 @@ export function WorkspaceLayoutV2({
     setMobilePane,
     setRightDesktopWidthPx,
     setRightMobileWidthPx,
-    toggleLeftSidebar,
-    toggleRightSidebar,
   } = useSidebar();
 
   const desktopLeftWidthPx = getDesktopSidebarWidthPx({
@@ -1122,17 +1075,8 @@ export function WorkspaceLayoutV2({
           desktopMainWidthPx={desktopMainWidthPx}
           desktopRightWidthPx={desktopRightWidthPx}
           leftContent={resolvedLeftContent}
-          leftDesktopOpen={leftDesktopOpen}
           mainContent={resolvedMainContent}
           rightContent={resolvedRightContent}
-          rightDesktopOpen={rightDesktopOpen}
-        />
-      )}
-
-      {isMobile ? null : (
-        <WorkspaceLayoutV2DesktopControls
-          onToggleLeft={toggleLeftSidebar}
-          onToggleRight={toggleRightSidebar}
         />
       )}
 

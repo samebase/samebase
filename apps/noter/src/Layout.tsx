@@ -2,32 +2,16 @@ import {
   buildLandingDevToggleHref,
   getLandingDevToggleLabel,
 } from "@/lib/landingDevMode";
-import {
-  APP_BUILD_COMMIT_LINK_TEST_ID,
-  APP_BUILD_STATUS_BAR_TEST_ID,
-  APP_BUILD_VERSION_TEST_ID,
-  formatAppBuildCommitLabel,
-  formatAppBuildVersionLabel,
-  hasSelectedAppBuildVersion,
-  installAppBuildMarkdownCopy,
-} from "@/lib/appBuild";
-import { ReactNode, useEffect, useRef, type MouseEvent } from "react";
+import { ReactNode, useEffect, type MouseEvent } from "react";
 import { useConvexAuth } from "convex/react";
-import {
-  Link,
-  useLocation,
-  useNavigate,
-  useSearchParams,
-} from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { AppBuildStatusBar } from "@/components/AppBuildStatusBar";
+import { WorkspaceLayoutV2PageFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PageFrame";
 
 export function Layout({ children }: { children: ReactNode }) {
   const appCommit = __APP_COMMIT__ || "unknown";
   const appCommitNumber = __APP_COMMIT_NUMBER__;
-  const buildVersionLabel = formatAppBuildVersionLabel(appCommitNumber);
-  const commitLabel = formatAppBuildCommitLabel(appCommit);
   const repoUrl = __APP_REPO_URL__ || "";
-  const commitUrl =
-    repoUrl && appCommit !== "unknown" ? `${repoUrl}/commit/${appCommit}` : "";
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -41,7 +25,6 @@ export function Layout({ children }: { children: ReactNode }) {
     !isLoading && !isAuthenticated && location.pathname !== "/";
   const landingDevToggleHref = buildLandingDevToggleHref(location);
   const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
-  const commitLinkRef = useRef<HTMLElement | null>(null);
   const handleLandingDevToggleClick = (
     event: MouseEvent<HTMLAnchorElement>,
   ) => {
@@ -70,85 +53,22 @@ export function Layout({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  useEffect(() => {
-    const commitLinkElement = commitLinkRef.current;
-    if (commitLinkElement === null) {
-      return;
-    }
-
-    return installAppBuildMarkdownCopy(commitLinkElement, {
-      appBuildCopyLabel: commitLabel,
-      commitUrl,
-    });
-  }, [commitLabel, commitUrl]);
-
   return (
-    <div className="flex h-full w-full flex-col">
-      <div className="border-b border-border/50">
-        <div
-          data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
-          className="container flex items-center justify-end gap-2 px-3 py-1 text-[11px] text-muted-foreground"
-        >
-          {showPublicNavigation && (
-            <Link
-              to="/"
-              className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
-            >
-              Home
-            </Link>
-          )}
-          {showLandingDevToggle && (
-            <a
-              href={landingDevToggleHref}
-              onClick={handleLandingDevToggleClick}
-              className="inline-flex min-w-[3ch] items-center justify-center corner-notch-1 px-1 hover:text-foreground transition-colors"
-            >
-              {landingDevToggleLabel}
-            </a>
-          )}
-          <div className="inline-flex select-text items-center gap-2 font-mono">
-            <span data-testid={APP_BUILD_VERSION_TEST_ID}>
-              {buildVersionLabel}
-            </span>
-            {commitUrl ? (
-              <a
-                data-testid={APP_BUILD_COMMIT_LINK_TEST_ID}
-                ref={(element) => {
-                  commitLinkRef.current = element;
-                }}
-                className="select-text hover:text-foreground transition-colors"
-                href={commitUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                draggable={false}
-                title={appCommit}
-                onDragStart={(event) => {
-                  event.preventDefault();
-                }}
-                onClick={(event) => {
-                  if (hasSelectedAppBuildVersion(event.currentTarget)) {
-                    event.preventDefault();
-                  }
-                }}
-              >
-                {commitLabel}
-              </a>
-            ) : (
-              <span
-                data-testid={APP_BUILD_COMMIT_LINK_TEST_ID}
-                ref={(element) => {
-                  commitLinkRef.current = element;
-                }}
-                className="select-text"
-                title={appCommit}
-              >
-                {commitLabel}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-      <main className="flex grow flex-col overflow-hidden">{children}</main>
-    </div>
+    <WorkspaceLayoutV2PageFrame
+      topBar={
+        <AppBuildStatusBar
+          appCommit={appCommit}
+          appCommitNumber={appCommitNumber}
+          landingDevToggleHref={landingDevToggleHref}
+          landingDevToggleLabel={landingDevToggleLabel}
+          onLandingDevToggleClick={handleLandingDevToggleClick}
+          repoUrl={repoUrl}
+          showLandingDevToggle={showLandingDevToggle}
+          showPublicNavigation={showPublicNavigation}
+        />
+      }
+    >
+      <main className="flex h-full flex-col overflow-hidden">{children}</main>
+    </WorkspaceLayoutV2PageFrame>
   );
 }
