@@ -9,7 +9,6 @@ import {
   hasSelectedAppBuildVersion,
   installAppBuildMarkdownCopy,
 } from "@/lib/appBuild";
-import { WorkspaceLayoutV2TopBar } from "@/components/workspace-layout-v2/WorkspaceLayoutV2TopBar";
 
 type AppBuildStatusBarProps = {
   appCommit: string;
@@ -66,85 +65,90 @@ export function AppBuildStatusBar({
   }, [commitLabel, commitUrl]);
 
   return (
-    <WorkspaceLayoutV2TopBar dataTestId={APP_BUILD_STATUS_BAR_TEST_ID}>
-      <div className="flex w-full items-center gap-2">
-        {showLandingLegalLinks ? (
-          <div className="flex items-center text-muted-foreground">
-            <Link
-              to="/terms"
-              className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
-            >
-              /terms
-            </Link>
-            <span className="px-1">·</span>
-            <Link
-              to="/privacy"
-              className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
-            >
-              /privacy
-            </Link>
-          </div>
-        ) : null}
-        {showPublicNavigation ? (
-          <Link
-            to="/"
-            className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
-          >
-            Home
-          </Link>
-        ) : null}
-        <div className="ml-auto flex items-center gap-2">
-          {showLandingDevToggleLink ? (
-            <a
-              href={landingDevToggleHref}
-              onClick={onLandingDevToggleClick}
-              className="inline-flex min-w-[3ch] items-center justify-center corner-notch-1 px-1 transition-colors hover:text-foreground"
-            >
-              {landingDevToggleLabel}
-            </a>
+    <div className="h-[19px] shrink-0 border-b border-border/50">
+      <div
+        data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
+        className="container flex h-full items-center overflow-hidden px-3 text-[11px] leading-none text-muted-foreground"
+      >
+        <div className="flex w-full items-center gap-2">
+          {showLandingLegalLinks ? (
+            <div className="flex items-center text-muted-foreground">
+              <Link
+                to="/terms"
+                className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
+              >
+                /terms
+              </Link>
+              <span className="px-1">·</span>
+              <Link
+                to="/privacy"
+                className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
+              >
+                /privacy
+              </Link>
+            </div>
           ) : null}
-          <div className="inline-flex select-text items-center gap-2 font-mono">
-            <span data-testid={APP_BUILD_VERSION_TEST_ID}>
-              {buildVersionLabel}
-            </span>
-            {commitUrl ? (
+          {showPublicNavigation ? (
+            <Link
+              to="/"
+              className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
+            >
+              Home
+            </Link>
+          ) : null}
+          <div className="ml-auto flex items-center gap-2">
+            {showLandingDevToggleLink ? (
               <a
-                data-testid={APP_BUILD_COMMIT_LINK_TEST_ID}
-                ref={(element) => {
-                  commitLinkRef.current = element;
-                }}
-                className="select-text transition-colors hover:text-foreground"
-                href={commitUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                draggable={false}
-                title={appCommit}
-                onDragStart={(event) => {
-                  event.preventDefault();
-                }}
-                onClick={(event) => {
-                  if (hasSelectedAppBuildVersion(event.currentTarget)) {
-                    event.preventDefault();
-                  }
-                }}
+                href={landingDevToggleHref}
+                onClick={onLandingDevToggleClick}
+                className="inline-flex min-w-[3ch] items-center justify-center corner-notch-1 px-1 transition-colors hover:text-foreground"
               >
-                {commitLabel}
+                {landingDevToggleLabel}
               </a>
-            ) : (
-              <span
-                data-testid={APP_BUILD_COMMIT_LINK_TEST_ID}
-                ref={(element) => {
-                  commitLinkRef.current = element;
-                }}
-                className="select-text"
-                title={appCommit}
-              >
-                {commitLabel}
+            ) : null}
+            <div className="inline-flex select-text items-center gap-2 font-mono">
+              <span data-testid={APP_BUILD_VERSION_TEST_ID}>
+                {buildVersionLabel}
               </span>
-            )}
+              {commitUrl ? (
+                <a
+                  data-testid={APP_BUILD_COMMIT_LINK_TEST_ID}
+                  ref={(element) => {
+                    commitLinkRef.current = element;
+                  }}
+                  className="select-text transition-colors hover:text-foreground"
+                  href={commitUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  draggable={false}
+                  title={appCommit}
+                  onDragStart={(event) => {
+                    event.preventDefault();
+                  }}
+                  onClick={(event) => {
+                    if (hasSelectedAppBuildVersion(event.currentTarget)) {
+                      event.preventDefault();
+                    }
+                  }}
+                >
+                  {commitLabel}
+                </a>
+              ) : (
+                <span
+                  data-testid={APP_BUILD_COMMIT_LINK_TEST_ID}
+                  ref={(element) => {
+                    commitLinkRef.current = element;
+                  }}
+                  className="select-text"
+                  title={appCommit}
+                >
+                  {commitLabel}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </WorkspaceLayoutV2TopBar>
+    </div>
   );
 }

@@ -347,7 +347,7 @@ function renderFastLandingShell() {
 
   root.innerHTML = `
     <div data-testid="public-landing-shell" class="flex h-full w-full flex-col">
-      <div class="h-5 shrink-0 border-b border-border/50">
+      <div class="h-[19px] shrink-0 border-b border-border/50">
         <div data-testid="${APP_BUILD_STATUS_BAR_TEST_ID}" class="container flex h-full items-center overflow-hidden px-3 text-[11px] leading-none text-muted-foreground">
           <div class="flex w-full items-center gap-2">
             <div class="flex items-center text-muted-foreground">
