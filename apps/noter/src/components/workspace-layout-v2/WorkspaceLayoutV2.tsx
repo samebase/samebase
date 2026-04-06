@@ -13,9 +13,16 @@ import {
   type SetStateAction,
 } from "react";
 import { PanelLeft } from "lucide-react";
+import { MobileSidebarGestureDebugOverlay } from "@/components/MobileSidebarGestureDebugOverlay";
 import { Button } from "@/components/ui/button";
 import { WorkspaceLayoutV2ResizeHandle } from "@/components/workspace-layout-v2/WorkspaceLayoutV2ResizeHandle";
 import { useSidebar } from "@/hooks/use-sidebar";
+import {
+  buildMobileSidebarGestureDebugSnapshot,
+  isMobileSidebarDebugEnabled,
+  type MobileSidebarGestureDebugPoint,
+  type MobileSidebarGestureDebugSnapshot,
+} from "@/lib/mobileSidebarGestureDebug";
 import {
   getWorkspaceLayoutV2PaneStartPx,
   getWorkspaceLayoutV2PaneWidthPx,
@@ -58,11 +65,15 @@ type WorkspaceLayoutV2ResizeHandleConfig = {
 
 type TouchSample = {
   clientX: number;
+  clientY: number;
+  localX: number;
+  localY: number;
   timeMs: number;
 };
 
 type ActiveMobileGesture = {
   phase: "pending" | "swiping";
+  pathPoints: MobileSidebarGestureDebugPoint[];
   startPane: WorkspaceLayoutV2Pane;
   startTarget: EventTarget | null;
   startX: number;
@@ -87,6 +98,37 @@ function findTouchByIdentifier(
   }
 
   return null;
+}
+
+function getLocalTouchPoint(
+  node: HTMLElement,
+  clientX: number,
+  clientY: number,
+) {
+  const bounds = node.getBoundingClientRect();
+  return {
+    localX: clientX - bounds.left,
+    localY: clientY - bounds.top,
+  };
+}
+
+function buildTouchSample(
+  viewportNode: HTMLElement,
+  touch: Touch,
+  timeMs: number,
+): TouchSample {
+  const { localX, localY } = getLocalTouchPoint(
+    viewportNode,
+    touch.clientX,
+    touch.clientY,
+  );
+  return {
+    clientX: touch.clientX,
+    clientY: touch.clientY,
+    localX,
+    localY,
+    timeMs,
+  };
 }
 
 /**
@@ -613,6 +655,7 @@ function useWorkspaceLayoutV2ResizeHandles({
 type UseWorkspaceLayoutV2MobileGestureArgs = {
   activeResizeSide: "left" | "right" | null;
   isMobile: boolean;
+  mobileSidebarDebugEnabled: boolean;
   mobileMetrics: WorkspaceLayoutV2Metrics;
   mobilePane: WorkspaceLayoutV2Pane;
   setMobilePane: Dispatch<SetStateAction<WorkspaceLayoutV2Pane>>;
@@ -628,6 +671,7 @@ type UseWorkspaceLayoutV2MobileGestureArgs = {
 function useWorkspaceLayoutV2MobileGesture({
   activeResizeSide,
   isMobile,
+  mobileSidebarDebugEnabled,
   mobileMetrics,
   mobilePane,
   setMobilePane,
@@ -636,10 +680,18 @@ function useWorkspaceLayoutV2MobileGesture({
   const activeGestureRef = useRef<ActiveMobileGesture | null>(null);
   const [isMobileDragging, setIsMobileDragging] = useState(false);
   const [mobileDragOffsetPx, setMobileDragOffsetPx] = useState(0);
+  const pendingGestureDebugRef =
+    useRef<MobileSidebarGestureDebugSnapshot | null>(null);
+  const [mobileGestureDebugSnapshot, setMobileGestureDebugSnapshot] =
+    useState<MobileSidebarGestureDebugSnapshot | null>(null);
 
   const handleTouchStart = useEffectEvent(
-    (event: TouchEvent, _viewportNode: HTMLDivElement) => {
+    (event: TouchEvent, viewportNode: HTMLDivElement) => {
       if (activeResizeSide !== null || event.touches.length !== 1) {
+        if (mobileSidebarDebugEnabled) {
+          pendingGestureDebugRef.current = null;
+          setMobileGestureDebugSnapshot(null);
+        }
         return;
       }
 
@@ -647,21 +699,34 @@ function useWorkspaceLayoutV2MobileGesture({
       if (touch === null) {
         return;
       }
+      const initialSample = buildTouchSample(
+        viewportNode,
+        touch,
+        event.timeStamp,
+      );
 
       activeGestureRef.current = {
         phase: "pending",
+        pathPoints: [initialSample],
         startPane: mobilePane,
         startTarget: event.target,
-        startX: touch.clientX,
-        startY: touch.clientY,
+        startX: initialSample.clientX,
+        startY: initialSample.clientY,
         touchIdentifier: touch.identifier,
-        touchSamples: [
-          {
-            clientX: touch.clientX,
-            timeMs: event.timeStamp,
-          },
-        ],
+        touchSamples: [initialSample],
       };
+
+      if (!mobileSidebarDebugEnabled) {
+        return;
+      }
+
+      const activeSnapshot = buildMobileSidebarGestureDebugSnapshot({
+        isActive: true,
+        pathPoints: [initialSample],
+        startPane: mobilePane,
+      });
+      pendingGestureDebugRef.current = activeSnapshot;
+      setMobileGestureDebugSnapshot(activeSnapshot);
     },
   );
 
@@ -681,9 +746,10 @@ function useWorkspaceLayoutV2MobileGesture({
       if (touch === null) {
         return;
       }
+      const sample = buildTouchSample(viewportNode, touch, event.timeStamp);
 
-      const dragOffsetPx = touch.clientX - activeGesture.startX;
-      const dragOffsetYPx = touch.clientY - activeGesture.startY;
+      const dragOffsetPx = sample.clientX - activeGesture.startX;
+      const dragOffsetYPx = sample.clientY - activeGesture.startY;
       if (activeGesture.phase === "pending") {
         if (
           Math.abs(dragOffsetPx) < MOBILE_DRAG_SLOP_PX &&
@@ -694,6 +760,8 @@ function useWorkspaceLayoutV2MobileGesture({
 
         if (Math.abs(dragOffsetPx) <= Math.abs(dragOffsetYPx)) {
           activeGestureRef.current = null;
+          pendingGestureDebugRef.current = null;
+          setMobileGestureDebugSnapshot(null);
           return;
         }
 
@@ -701,6 +769,8 @@ function useWorkspaceLayoutV2MobileGesture({
           !allowsShellHorizontalSwipe(viewportNode, activeGesture.startTarget)
         ) {
           activeGestureRef.current = null;
+          pendingGestureDebugRef.current = null;
+          setMobileGestureDebugSnapshot(null);
           return;
         }
 
@@ -712,11 +782,18 @@ function useWorkspaceLayoutV2MobileGesture({
 
       activeGesture.touchSamples = [
         ...activeGesture.touchSamples,
-        {
-          clientX: touch.clientX,
-          timeMs: event.timeStamp,
-        },
+        sample,
       ].slice(-6);
+      if (mobileSidebarDebugEnabled) {
+        activeGesture.pathPoints = [...activeGesture.pathPoints, sample];
+        const activeSnapshot = buildMobileSidebarGestureDebugSnapshot({
+          isActive: true,
+          pathPoints: activeGesture.pathPoints,
+          startPane: activeGesture.startPane,
+        });
+        pendingGestureDebugRef.current = activeSnapshot;
+        setMobileGestureDebugSnapshot(activeSnapshot);
+      }
       setMobileDragOffsetPx(dragOffsetPx);
       event.preventDefault();
     },
@@ -734,14 +811,25 @@ function useWorkspaceLayoutV2MobileGesture({
         event.changedTouches,
         activeGesture.touchIdentifier,
       ) ?? findTouchByIdentifier(event.touches, activeGesture.touchIdentifier);
-    const lastRecordedClientX =
-      activeGesture.touchSamples[activeGesture.touchSamples.length - 1].clientX;
-    const finalClientX = touch?.clientX ?? lastRecordedClientX;
+    const lastRecordedSample =
+      activeGesture.touchSamples[activeGesture.touchSamples.length - 1];
+    const finalSample =
+      touch === null
+        ? {
+            ...lastRecordedSample,
+            timeMs: performance.now(),
+          }
+        : buildTouchSample(
+            viewportRef.current ?? document.body,
+            touch,
+            event.timeStamp,
+          );
+    const finalClientX = finalSample.clientX;
     const finalTimeMs = touch !== null ? event.timeStamp : performance.now();
     const touchSamples = [
       ...activeGesture.touchSamples,
       {
-        clientX: finalClientX,
+        ...finalSample,
         timeMs: finalTimeMs,
       },
     ];
@@ -756,8 +844,45 @@ function useWorkspaceLayoutV2MobileGesture({
 
     setIsMobileDragging(false);
     setMobileDragOffsetPx(0);
+    if (mobileSidebarDebugEnabled) {
+      const pathPoints =
+        activeGesture.pathPoints.at(-1)?.timeMs === finalTimeMs &&
+        activeGesture.pathPoints.at(-1)?.clientX === finalSample.clientX &&
+        activeGesture.pathPoints.at(-1)?.clientY === finalSample.clientY
+          ? activeGesture.pathPoints
+          : [
+              ...activeGesture.pathPoints,
+              {
+                ...finalSample,
+                timeMs: finalTimeMs,
+              },
+            ];
+      const completedSnapshot = buildMobileSidebarGestureDebugSnapshot({
+        isActive: false,
+        pathPoints,
+        releaseGesture: {
+          releaseFingerVelocityXPxPerMs: getRecentVelocityPxPerMs(touchSamples),
+          startPane: activeGesture.startPane,
+          totalFingerDeltaXPx: finalClientX - activeGesture.startX,
+        },
+        settledPane: nextPane,
+        nearestPaneAtSettle: nextPane,
+        startPane: activeGesture.startPane,
+      });
+      pendingGestureDebugRef.current = completedSnapshot;
+      setMobileGestureDebugSnapshot(completedSnapshot);
+    }
     setMobilePane(nextPane);
   });
+
+  useEffect(() => {
+    if (mobileSidebarDebugEnabled) {
+      return;
+    }
+
+    pendingGestureDebugRef.current = null;
+    setMobileGestureDebugSnapshot(null);
+  }, [mobileSidebarDebugEnabled]);
 
   useEffect(() => {
     if (!isMobile) {
@@ -766,6 +891,8 @@ function useWorkspaceLayoutV2MobileGesture({
       setIsMobileDragging(false);
       setMobileDragOffsetPx(0);
       activeGestureRef.current = null;
+      pendingGestureDebugRef.current = null;
+      setMobileGestureDebugSnapshot(null);
     }
   }, [isMobile]);
 
@@ -818,6 +945,7 @@ function useWorkspaceLayoutV2MobileGesture({
 
   return {
     isMobileDragging,
+    mobileGestureDebugSnapshot,
     mobileDragOffsetPx,
   };
 }
@@ -866,6 +994,11 @@ export function WorkspaceLayoutV2({
     viewportWidthPx - desktopLeftWidthPx - desktopRightWidthPx,
   );
   const mobileSidebarMaxWidthPx = getMobileSidebarMaxWidthPx(viewportWidthPx);
+  const mobileSidebarDebugEnabled =
+    typeof window !== "undefined" &&
+    isMobileSidebarDebugEnabled(window.location.search) &&
+    (import.meta.env.DEV ||
+      window.location.pathname === "/visual-fixture.html");
 
   const mobileMetrics = useMemo<WorkspaceLayoutV2Metrics>(
     () => ({
@@ -889,10 +1022,11 @@ export function WorkspaceLayoutV2({
     ],
   );
 
-  const { isMobileDragging, mobileDragOffsetPx } =
+  const { isMobileDragging, mobileDragOffsetPx, mobileGestureDebugSnapshot } =
     useWorkspaceLayoutV2MobileGesture({
       activeResizeSide,
       isMobile,
+      mobileSidebarDebugEnabled,
       mobileMetrics,
       mobilePane,
       setMobilePane,
@@ -1029,6 +1163,14 @@ export function WorkspaceLayoutV2({
       )}
 
       {isMobile ? null : resizeHandles.map(renderResizeHandle)}
+
+      {mobileSidebarDebugEnabled ? (
+        <MobileSidebarGestureDebugOverlay
+          currentPane={mobilePane}
+          isMobile={isMobile}
+          snapshot={mobileGestureDebugSnapshot}
+        />
+      ) : null}
     </div>
   );
 }
