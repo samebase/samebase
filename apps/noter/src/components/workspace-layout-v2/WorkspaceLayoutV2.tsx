@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type PointerEvent,
   type ReactNode,
   type RefObject,
   type SetStateAction,
@@ -270,7 +269,6 @@ type WorkspaceLayoutV2MobileViewportProps =
     mobileMetrics: WorkspaceLayoutV2Metrics;
     mobileTrackWidthPx: number;
     mobileVisibleStartPx: number;
-    onMainPanePointerUpCapture: (event: PointerEvent<HTMLDivElement>) => void;
     rightResizeHandle: ReactNode;
   };
 
@@ -283,7 +281,6 @@ function WorkspaceLayoutV2MobileViewport({
   mobileMetrics,
   mobileTrackWidthPx,
   mobileVisibleStartPx,
-  onMainPanePointerUpCapture,
   rightContent,
   rightResizeHandle,
 }: WorkspaceLayoutV2MobileViewportProps) {
@@ -329,7 +326,6 @@ function WorkspaceLayoutV2MobileViewport({
           data-workspace-layout-v2-pane="main"
           data-testid="workspace-layout-v2-pane-main"
           className="absolute inset-y-0 z-0 flex min-h-0 flex-col overflow-hidden bg-background"
-          onPointerUpCapture={onMainPanePointerUpCapture}
           style={{
             left: `${getWorkspaceLayoutV2PaneStartPx("main", mobileMetrics)}px`,
             width: `${mobileMetrics.viewportWidthPx}px`,
@@ -1056,27 +1052,6 @@ export function WorkspaceLayoutV2({
     viewportWidthPx,
   });
 
-  const handleMobileMainPanePointerUpCapture = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (
-        !isMobile ||
-        isMobileDragging ||
-        activeResizeSide !== null ||
-        mobilePane === "main"
-      ) {
-        return;
-      }
-
-      // When a sidebar is open, the exposed strip of main is a direct escape
-      // hatch back to center. This keeps mobile dismiss behavior local to the
-      // real pane instead of adding an overlay/scrim layer.
-      event.preventDefault();
-      event.stopPropagation();
-      setMobilePane("main");
-    },
-    [activeResizeSide, isMobile, isMobileDragging, mobilePane, setMobilePane],
-  );
-
   const resolvedLeftContent = renderPaneContent(left);
   const resolvedMainContent = renderPaneContent(main);
   const resolvedRightContent = renderPaneContent(right);
@@ -1133,7 +1108,6 @@ export function WorkspaceLayoutV2({
           mobileMetrics={mobileMetrics}
           mobileTrackWidthPx={mobileTrackWidthPx}
           mobileVisibleStartPx={mobileVisibleStartPx}
-          onMainPanePointerUpCapture={handleMobileMainPanePointerUpCapture}
           rightContent={resolvedRightContent}
           rightResizeHandle={
             rightResizeHandle === undefined
