@@ -595,7 +595,7 @@ test("mobile v2 fixture shows the right pane after a horizontal main-editor drag
   const viewport = page.viewportSize();
   test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
 
-  await openWorkspaceLayoutV2Fixture(page);
+  await openWorkspaceLayoutV2Fixture(page, { statusBar: true });
   await waitForMonacoSurfaceReady(
     page.getByTestId("workspace-layout-v2-right-editor-surface"),
   );
