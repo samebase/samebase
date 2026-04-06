@@ -209,6 +209,20 @@ async function readClipboardText(page: Parameters<typeof test>[0]["page"]) {
   return page.evaluate(async () => navigator.clipboard.readText());
 }
 
+async function readLinkPresentation(link: Locator) {
+  return link.evaluate((element) => {
+    const linkStyle = window.getComputedStyle(element);
+    const parent = element.parentElement;
+
+    return {
+      color: linkStyle.color,
+      parentColor:
+        parent === null ? null : window.getComputedStyle(parent).color,
+      textDecorationLine: linkStyle.textDecorationLine,
+    };
+  });
+}
+
 async function expectLandingLogoAutoRotates(scene: Locator) {
   await expectLandingLogoSceneReady(scene);
   const initialRotationDegrees = await scene.getAttribute(
@@ -379,6 +393,69 @@ test("build version copies as a Markdown link across the shell handoff", async (
   expect(hydratedClipboardText).toBe(
     `[${shellCommitText}](${shellVersionHref})`,
   );
+});
+
+test("landing footer links keep browser link styling across the shell handoff", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript((bootDelayMs) => {
+    const originalSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = (handler, timeout, ...args) => {
+      if (timeout === bootDelayMs) {
+        return originalSetTimeout(handler, 600, ...args);
+      }
+      return originalSetTimeout(handler, timeout, ...args);
+    };
+  }, FAST_LANDING_APP_BOOT_DELAY_MS);
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const shellRoot = page.getByTestId("public-landing-shell");
+  const shellTermsLink = shellRoot.getByRole("link", {
+    name: "/terms",
+    exact: true,
+  });
+  const shellFooter = shellTermsLink.locator("xpath=..");
+
+  await expect(shellRoot).toBeVisible();
+  await expect(shellTermsLink).toBeVisible();
+
+  const shellLinkPresentation = await readLinkPresentation(shellTermsLink);
+  expect(shellLinkPresentation.textDecorationLine).toContain("underline");
+  expect(shellLinkPresentation.color).not.toBe(
+    shellLinkPresentation.parentColor,
+  );
+
+  const shellScreenshot = await takeStableScreenshot(shellFooter);
+
+  await expect(shellRoot).toHaveCount(0);
+
+  const hydratedTermsLink = page.getByRole("link", {
+    name: "/terms",
+    exact: true,
+  });
+  const hydratedFooter = hydratedTermsLink.locator("xpath=..");
+
+  await expect(hydratedTermsLink).toBeVisible();
+
+  const hydratedLinkPresentation =
+    await readLinkPresentation(hydratedTermsLink);
+  expect(hydratedLinkPresentation.textDecorationLine).toContain("underline");
+  expect(hydratedLinkPresentation.color).not.toBe(
+    hydratedLinkPresentation.parentColor,
+  );
+  expect(hydratedLinkPresentation).toEqual(shellLinkPresentation);
+
+  const hydratedScreenshot = await takeStableScreenshot(hydratedFooter);
+
+  await testInfo.attach("public-landing-footer-links-shell", {
+    body: shellScreenshot,
+    contentType: "image/png",
+  });
+  await testInfo.attach("public-landing-footer-links-hydrated", {
+    body: hydratedScreenshot,
+    contentType: "image/png",
+  });
 });
 
 test("landing preserves scroll position across the shell handoff", async ({

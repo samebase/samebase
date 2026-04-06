@@ -104,6 +104,12 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Restore browser link defaults instead of Tailwind's inherited reset. */
+  a:any-link {
+    color: revert;
+    text-decoration: revert;
+  }
 }
 
 @layer utilities {
