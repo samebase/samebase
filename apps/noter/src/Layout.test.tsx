@@ -38,4 +38,26 @@ describe("Layout", () => {
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
   });
+
+  it("keeps legal links visible on non-root sign-in routes", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+    });
+
+    const markup = renderToStaticMarkup(
+      <MemoryRouter initialEntries={["/oauth/mcp/consent"]}>
+        <Layout>
+          <div>consent</div>
+        </Layout>
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain("/terms");
+    expect(markup).toContain("/privacy");
+    expect(markup).toContain("Home");
+  });
 });

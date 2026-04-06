@@ -347,6 +347,21 @@ test("public landing keeps legal links in the top bar across the shell handoff",
   ).toHaveCount(0);
 });
 
+test("mcp consent sign-in keeps legal links in the top bar", async ({
+  page,
+}) => {
+  await page.goto(
+    "/oauth/mcp/consent?mcp_consent_request=mcpar_test&mcp_login_required=1",
+    { waitUntil: "networkidle" },
+  );
+
+  const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+
+  await expectLegalLinksLeadBuildVersion(statusBar);
+  await expect(statusBar.getByRole("link", { name: "Home" })).toBeVisible();
+  await expect(page.getByText("Temporary MCP sign-in note")).toBeVisible();
+});
+
 test("build version stays stable across the landing shell handoff", async ({
   page,
 }, testInfo) => {
