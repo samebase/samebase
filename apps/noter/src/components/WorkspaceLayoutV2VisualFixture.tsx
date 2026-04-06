@@ -1,6 +1,7 @@
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
 import { SidebarProvider } from "@/components/sidebar";
+import { WorkspaceLayoutV2PaneFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { WorkspaceLayoutV2PageFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PageFrame";
 import { WorkspaceLayoutV2TopBar } from "@/components/workspace-layout-v2/WorkspaceLayoutV2TopBar";
 import { WorkspaceLayoutV2 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
@@ -181,7 +182,10 @@ const FIXTURE_VAULT_KEY = "workspace-layout-v2-fixture-vault";
 
 function FixtureLeftPane() {
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
+    <WorkspaceLayoutV2PaneFrame
+      dataTestId="workspace-layout-v2-left-pane-frame"
+      headerTestId="workspace-layout-v2-left-pane-header"
+    >
       <div
         data-testid="workspace-layout-v2-left-scroll-surface"
         className="min-h-0 flex-1 overflow-y-auto"
@@ -192,13 +196,16 @@ function FixtureLeftPane() {
           initialValue={FIXTURE_MARKDOWN}
         />
       </div>
-    </div>
+    </WorkspaceLayoutV2PaneFrame>
   );
 }
 
 function FixtureMainPane() {
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
+    <WorkspaceLayoutV2PaneFrame
+      dataTestId="workspace-layout-v2-main-pane-frame"
+      headerTestId="workspace-layout-v2-main-pane-header"
+    >
       <div className="min-h-0 flex-1">
         <MonacoEditorSurface
           branch="main"
@@ -211,13 +218,16 @@ function FixtureMainPane() {
           vaultKey={FIXTURE_VAULT_KEY}
         />
       </div>
-    </div>
+    </WorkspaceLayoutV2PaneFrame>
   );
 }
 
 function FixtureRightPane() {
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
+    <WorkspaceLayoutV2PaneFrame
+      dataTestId="workspace-layout-v2-right-pane-frame"
+      headerTestId="workspace-layout-v2-right-pane-header"
+    >
       <div className="min-h-0 flex-1">
         <MonacoEditorSurface
           branch="main"
@@ -230,7 +240,7 @@ function FixtureRightPane() {
           vaultKey={FIXTURE_VAULT_KEY}
         />
       </div>
-    </div>
+    </WorkspaceLayoutV2PaneFrame>
   );
 }
 
@@ -257,14 +267,13 @@ function renderWorkspaceLayoutV2PaneFixture() {
 
 function WorkspaceLayoutV2FixtureTopBar() {
   return (
-    <WorkspaceLayoutV2TopBar
-      dataTestId="workspace-layout-v2-top-bar"
-      contentClassName="justify-between"
-    >
-      <div className="min-w-0 truncate">Workspace layout top bar</div>
-      <div className="inline-flex items-center gap-2 font-mono">
-        <span>fixture</span>
-        <span>chrome</span>
+    <WorkspaceLayoutV2TopBar dataTestId="workspace-layout-v2-top-bar">
+      <div className="flex w-full items-center justify-between gap-3">
+        <div className="min-w-0 truncate">Workspace layout top bar</div>
+        <div className="inline-flex items-center gap-2 font-mono">
+          <span>fixture</span>
+          <span>chrome</span>
+        </div>
       </div>
     </WorkspaceLayoutV2TopBar>
   );

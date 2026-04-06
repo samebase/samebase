@@ -16,12 +16,18 @@ async function openWorkspaceLayoutStatusBarFixture(page: Page) {
   const rightSurface = page.getByTestId(
     "workspace-layout-v2-right-editor-surface",
   );
+  const leftHeader = page.getByTestId("workspace-layout-v2-left-pane-header");
+  const mainHeader = page.getByTestId("workspace-layout-v2-main-pane-header");
+  const rightHeader = page.getByTestId("workspace-layout-v2-right-pane-header");
 
   await expect(fixture).toBeVisible();
   await expect(statusBar).toBeVisible();
   await expect(statusBar).toContainText("Workspace layout top bar");
   await expect(statusBar).toContainText("fixture");
   await expect(statusBar).toContainText("chrome");
+  await expect(leftHeader).toBeVisible();
+  await expect(mainHeader).toBeVisible();
+  await expect(rightHeader).toBeVisible();
   await expect(leftSurface.locator(".cm-content")).toBeVisible();
   await expect(mainSurface.locator(".view-lines").first()).toBeVisible();
   await expect(rightSurface.locator(".view-lines").first()).toBeVisible();

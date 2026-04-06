@@ -3,7 +3,7 @@ import { dispatchHumanTouchSwipe } from "./touchGestures";
 
 const MOBILE_PANE_TRANSITION_WAIT_MS = 220;
 const WORKSPACE_LAYOUT_V2_FIXTURE_URL =
-  "/visual-fixture.html?mode=workspace-layout-v2-bare";
+  "/visual-fixture.html?mode=workspace-layout-v2-status-bar";
 
 async function openWorkspaceLayoutV2Fixture(
   page: Page,
@@ -14,6 +14,7 @@ async function openWorkspaceLayoutV2Fixture(
     waitUntil: "domcontentloaded",
   });
   await expect(page.getByTestId("workspace-layout-v2-fixture")).toBeVisible();
+  await expect(page.getByTestId("workspace-layout-v2-top-bar")).toBeVisible();
   await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
 }
 
@@ -31,6 +32,22 @@ async function getFixtureViewportClip(page: Page) {
     y: Math.round(bounds.y),
     width: Math.round(bounds.width),
     height: Math.round(bounds.height),
+  };
+}
+
+async function getRoundedBoundingBox(locator: Locator) {
+  const bounds = await locator.boundingBox();
+
+  expect(bounds).not.toBeNull();
+  if (bounds === null) {
+    throw new Error("Expected locator bounds");
+  }
+
+  return {
+    height: Math.round(bounds.height),
+    width: Math.round(bounds.width),
+    x: Math.round(bounds.x),
+    y: Math.round(bounds.y),
   };
 }
 
@@ -248,6 +265,20 @@ async function verticalScrollMainEditor(page: Page) {
   });
 }
 
+async function scrollMainEditorToApproximateOffset(
+  page: Page,
+  scrollTop: number,
+) {
+  await page
+    .getByTestId("workspace-layout-v2-main-editor-surface")
+    .locator(".monaco-scrollable-element")
+    .first()
+    .evaluate((element, nextScrollTop) => {
+      element.scrollTop = nextScrollTop;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    }, scrollTop);
+}
+
 async function verticalScrollLeftPane(page: Page) {
   await swipeWithinLocatorByRatio({
     locator: page.getByTestId("workspace-layout-v2-left-scroll-surface"),
@@ -369,6 +400,41 @@ test("desktop v2 fixture keeps sidebar triggers outside the panes", async ({
   } else {
     await expect(rightHandle).toBeVisible();
   }
+});
+
+test("desktop v2 fixture keeps pane headers fixed while bodies scroll", async ({
+  page,
+}) => {
+  const viewport = page.viewportSize();
+  test.skip(viewport === null || viewport.width < 768, "desktop-only");
+
+  await openWorkspaceLayoutV2Fixture(page);
+  await waitForMonacoSurfaceReady(
+    page.getByTestId("workspace-layout-v2-main-editor-surface"),
+  );
+
+  const leftHeader = page.getByTestId("workspace-layout-v2-left-pane-header");
+  const mainHeader = page.getByTestId("workspace-layout-v2-main-pane-header");
+  const leftHeaderBefore = await getRoundedBoundingBox(leftHeader);
+  const mainHeaderBefore = await getRoundedBoundingBox(mainHeader);
+  const initialLeftScrollTop = await getLeftPaneScrollTop(page);
+  const initialMainVisibleText = await getMainEditorVisibleText(page);
+
+  await verticalScrollLeftPane(page);
+  await scrollMainEditorToApproximateOffset(page, 320);
+  await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
+
+  const leftHeaderAfter = await getRoundedBoundingBox(leftHeader);
+  const mainHeaderAfter = await getRoundedBoundingBox(mainHeader);
+
+  expect(await getLeftPaneScrollTop(page)).toBeGreaterThan(
+    initialLeftScrollTop,
+  );
+  expect(await getMainEditorVisibleText(page)).not.toBe(initialMainVisibleText);
+  expect(leftHeaderAfter.y).toBe(leftHeaderBefore.y);
+  expect(leftHeaderAfter.height).toBe(leftHeaderBefore.height);
+  expect(mainHeaderAfter.y).toBe(mainHeaderBefore.y);
+  expect(mainHeaderAfter.height).toBe(mainHeaderBefore.height);
 });
 
 test("mobile v2 fixture requires returning to main before opening right", async ({

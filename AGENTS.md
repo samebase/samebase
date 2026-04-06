@@ -105,6 +105,15 @@ Key domain entities:
   scaffolding.
 - Do not add barrel files for app code.
 - Keep config surfaces minimal and current.
+- For app-owned components, default to closed styling APIs. Do not add
+  pass-through styling props such as `className`, `bodyClassName`, or
+  `headerClassName` unless a current shipped callsite truly needs them.
+- When a shared component's styling standard stops fitting, prefer changing the
+  component's standard directly over threading more class-name override props
+  through the tree.
+- For shared layout chrome, standardize structure and behavior rather than
+  inventing semantic content sub-APIs like `title`, `meta`, `leading`, or
+  `trailing` unless the product truly needs one shared content pattern.
 - Do not construct Tailwind or CSS class names dynamically. Map state to full
   literal class strings.
 
@@ -124,6 +133,14 @@ Key domain entities:
 - Prefer silent, smooth UX over chatty loading placeholders.
 - Prefer existing shadcn/ui primitives or app-owned wrappers over bespoke
   Tailwind-only replacements when they already solve the problem.
+- When designing or extracting UI, start from the smallest viable working
+  surface. Standardize shell behavior like sizing, spacing, scrolling, and
+  containment before adding labels, helper copy, metadata, or extra chrome.
+- Do not pre-populate new layout components with invented content structure or
+  helper APIs. Leave them mostly empty by default and add the next layer only
+  when a current shipped use case proves it is necessary.
+- For app-owned layout shells, every utility class should protect a current
+  invariant. If you cannot name the invariant a class preserves, leave it out.
 - Temporary ProseMark workaround: when authoring a Markdown link whose label
   would exactly equal its URL, prefix the label with `link` plus a leading space
   so the rendered link stays visible until that ProseMark bug is fixed.
@@ -238,6 +255,9 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - Default to additive minimalism in copy and visuals. Do not add decorative
   chrome, filler copy, extra buttons, or ornamental layout unless explicitly
   requested.
+- For app-owned UI, prefer an empty well-behaved container over a clever or
+  richly pre-structured abstraction. If the standard needs to evolve, change the
+  standard instead of front-loading speculative slots and props.
 - Preserve the established visual language. Do not add shadows, rounded corners,
   custom easing, decorative borders, or similar visual embellishments unless the
   user explicitly asks for them or the surrounding component already uses them.
