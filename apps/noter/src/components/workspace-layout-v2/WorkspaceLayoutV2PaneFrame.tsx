@@ -26,7 +26,7 @@ export function WorkspaceLayoutV2PaneFrame({
     >
       <div
         data-testid={headerTestId}
-        className="h-9 shrink-0 border-b border-border/50 px-3"
+        className="h-8 shrink-0 border-b border-border"
       >
         <div className="h-full overflow-hidden">{header}</div>
       </div>

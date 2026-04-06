@@ -1,10 +1,13 @@
+import { PanelLeft } from "lucide-react";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
 import { SidebarProvider } from "@/components/sidebar";
+import { Button } from "@/components/ui/button";
 import { WorkspaceLayoutV2PaneFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { WorkspaceLayoutV2PageFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PageFrame";
 import { WorkspaceLayoutV2TopBar } from "@/components/workspace-layout-v2/WorkspaceLayoutV2TopBar";
 import { WorkspaceLayoutV2 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
+import { useSidebar } from "@/hooks/use-sidebar";
 
 export type WorkspaceLayoutV2VisualMode =
   | "workspace-layout-v2-bare"
@@ -200,11 +203,41 @@ function FixtureLeftPane() {
   );
 }
 
+function FixtureMainPaneHeader() {
+  const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
+
+  return (
+    <div className="hidden h-full items-center justify-between md:flex">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="Toggle Left Sidebar"
+        className="h-8 w-8"
+        onClick={toggleLeftSidebar}
+      >
+        <PanelLeft className="h-4 w-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="Toggle Right Sidebar"
+        className="h-8 w-8"
+        onClick={toggleRightSidebar}
+      >
+        <PanelLeft className="h-4 w-4 rotate-180" />
+      </Button>
+    </div>
+  );
+}
+
 function FixtureMainPane() {
   return (
     <WorkspaceLayoutV2PaneFrame
       dataTestId="workspace-layout-v2-main-pane-frame"
       headerTestId="workspace-layout-v2-main-pane-header"
+      header={<FixtureMainPaneHeader />}
     >
       <div className="min-h-0 flex-1">
         <MonacoEditorSurface

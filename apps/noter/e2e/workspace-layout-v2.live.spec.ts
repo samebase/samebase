@@ -374,7 +374,7 @@ async function getLeftPaneScrollTop(page: Page) {
     .evaluate((element) => element.scrollTop);
 }
 
-test("desktop v2 fixture keeps sidebar triggers outside the panes", async ({
+test("desktop v2 fixture keeps sidebar triggers inside the main header", async ({
   page,
 }) => {
   const viewport = page.viewportSize();
@@ -386,9 +386,26 @@ test("desktop v2 fixture keeps sidebar triggers outside the panes", async ({
   const rightButton = page.getByRole("button", {
     name: "Toggle Right Sidebar",
   });
+  const mainHeader = page.getByTestId("workspace-layout-v2-main-pane-header");
 
   await expect(leftButton).toBeVisible();
   await expect(rightButton).toBeVisible();
+  const mainHeaderBox = await getRoundedBoundingBox(mainHeader);
+  const leftButtonBox = await getRoundedBoundingBox(leftButton);
+  const rightButtonBox = await getRoundedBoundingBox(rightButton);
+
+  expect(leftButtonBox.x).toBeGreaterThanOrEqual(mainHeaderBox.x);
+  expect(leftButtonBox.y).toBeGreaterThanOrEqual(mainHeaderBox.y);
+  expect(leftButtonBox.y + leftButtonBox.height).toBeLessThanOrEqual(
+    mainHeaderBox.y + mainHeaderBox.height,
+  );
+  expect(rightButtonBox.x + rightButtonBox.width).toBeLessThanOrEqual(
+    mainHeaderBox.x + mainHeaderBox.width,
+  );
+  expect(rightButtonBox.y).toBeGreaterThanOrEqual(mainHeaderBox.y);
+  expect(rightButtonBox.y + rightButtonBox.height).toBeLessThanOrEqual(
+    mainHeaderBox.y + mainHeaderBox.height,
+  );
   const rightHandle = page.getByTestId("workspace-layout-v2-right-resize");
   const rightWasOpenAtStart = (await rightHandle.count()) > 0;
 

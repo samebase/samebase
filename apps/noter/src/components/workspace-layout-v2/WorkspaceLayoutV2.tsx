@@ -11,9 +11,7 @@ import {
   type RefObject,
   type SetStateAction,
 } from "react";
-import { PanelLeft } from "lucide-react";
 import { MobileSidebarGestureDebugOverlay } from "@/components/MobileSidebarGestureDebugOverlay";
-import { Button } from "@/components/ui/button";
 import { WorkspaceLayoutV2ResizeHandle } from "@/components/workspace-layout-v2/WorkspaceLayoutV2ResizeHandle";
 import { useSidebar } from "@/hooks/use-sidebar";
 import {
@@ -427,45 +425,6 @@ function WorkspaceLayoutV2DesktopViewport({
         </div>
       </div>
     </>
-  );
-}
-
-type WorkspaceLayoutV2DesktopControlsProps = {
-  onToggleLeft: () => void;
-  onToggleRight: () => void;
-};
-
-function WorkspaceLayoutV2DesktopControls({
-  onToggleLeft,
-  onToggleRight,
-}: WorkspaceLayoutV2DesktopControlsProps) {
-  return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between p-3">
-      <div className="pointer-events-auto flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          aria-label="Toggle Left Sidebar"
-          className="h-9 w-9 bg-background/90 backdrop-blur"
-          onClick={onToggleLeft}
-        >
-          <PanelLeft className="h-4 w-4" />
-        </Button>
-      </div>
-      <div className="pointer-events-auto flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          aria-label="Toggle Right Sidebar"
-          className="h-9 w-9 bg-background/90 backdrop-blur"
-          onClick={onToggleRight}
-        >
-          <PanelLeft className="h-4 w-4 rotate-180" />
-        </Button>
-      </div>
-    </div>
   );
 }
 
@@ -1126,13 +1085,6 @@ export function WorkspaceLayoutV2({
           mainContent={resolvedMainContent}
           rightContent={resolvedRightContent}
           rightDesktopOpen={rightDesktopOpen}
-        />
-      )}
-
-      {isMobile ? null : (
-        <WorkspaceLayoutV2DesktopControls
-          onToggleLeft={toggleLeftSidebar}
-          onToggleRight={toggleRightSidebar}
         />
       )}
 
