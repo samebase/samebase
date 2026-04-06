@@ -2,6 +2,7 @@
 
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] specifically left blank
+- [ ] https://github.com/tailwindlabs/tailwindcss/issues/18165
 - [ ] https://chatgpt.com/codex/tasks/task_e_69b32c1fa778832ba6b6b53fd16eb50e
 - [ ] related to https://youtu.be/l9CPmPk2R-M?si=aBkwhdpB77T9A0ac&t=568 ; give people just a terminal drawer that uses prosemark!!!
 - [ ] market just the cloudflare tunnel aspect, basically share your localhost as long as your laptop is open, use github to save it for ever
