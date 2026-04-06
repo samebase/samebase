@@ -223,10 +223,7 @@ export function WorkspaceLayoutV2ResizeHandle({
           className="pointer-events-auto relative flex h-16 w-4 cursor-col-resize touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <div className="flex h-16 w-4 items-center justify-center border border-border bg-background">
-            <ResizeGripLines
-              variant="dots"
-              className="relative z-10 text-foreground/70"
-            />
+            <ResizeGripLines className="relative z-10 text-foreground/70" />
           </div>
         </div>
       </div>
