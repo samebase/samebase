@@ -18,6 +18,15 @@ const appRouterRootRoute = createRootRoute({
   component: AppRouterRoot,
 });
 
+// TODO(tanstack-router-migration): this root-plus-catch-all tree is only a
+// bootstrap step so the app can run on TanStack Router before every pathname
+// branch has been promoted into an explicit route.
+//
+// The real target shape is:
+// - model the current `App.tsx` pathname branches as concrete TanStack routes
+// - move search-param-heavy pages onto route-level `validateSearch`
+// - stop rendering `App` for every path and let route ownership live here
+// - delete the catch-all bridge once `App.tsx` is no longer a switchboard
 const appIndexRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: "/",

@@ -24,6 +24,20 @@ import {
 /**
  * Keep router imports behind a repo-owned seam so runtime migrations can happen
  * in one place instead of across every app component, test, and fixture.
+ *
+ * TODO(tanstack-router-migration): Delete this compatibility bridge.
+ * The current runtime is TanStack Router, but this file still exposes a
+ * React Router-like API surface so we can migrate incrementally.
+ *
+ * Follow-up work should move callers onto the real TanStack approach:
+ * - replace `BrowserRouter`/`MemoryRouter` callsites with route-aware TanStack
+ *   providers or explicit router test helpers
+ * - replace string-only `Link` and `useNavigate` usage with typed TanStack
+ *   route navigation options
+ * - replace the `useLocation` shape shim with route-aware TanStack hooks
+ * - replace `useSearchParams` with route-owned `validateSearch` + `useSearch`
+ * - delete the React Router-style `location.state` normalization once callers
+ *   stop depending on that shape
  */
 type CompatNavigateOptions = {
   replace?: boolean;
@@ -79,6 +93,9 @@ const compatRouterRootRoute = createRootRoute({
 });
 
 function createCompatRouter(history: RouterHistory) {
+  // TODO(tanstack-router-migration): this "context only" router exists so old
+  // hook consumers can keep working before their routes are modeled directly in
+  // TanStack Router. Prefer real route trees and typed route helpers instead.
   return createRouter({
     defaultPreload: false,
     history,
@@ -250,6 +267,9 @@ export function useNavigate() {
 }
 
 export function useSearchParams(): [URLSearchParams, SetSearchParams] {
+  // TODO(tanstack-router-migration): this intentionally preserves the old
+  // `URLSearchParams` API, but the long-term TanStack path is route-level
+  // search validation plus typed `useSearch` accessors.
   const location = useLocation();
   const navigate = useNavigate();
   const searchParams = useMemo(
