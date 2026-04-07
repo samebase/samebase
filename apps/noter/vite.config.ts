@@ -1,5 +1,5 @@
 import { defineConfig, type ViteDevServer } from "vite";
-import react from "@vitejs/plugin-react";
+import { reactRouter } from "@react-router/dev/vite";
 import path from "path";
 import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -26,12 +26,12 @@ const gitRoot = path.resolve(__dirname, "..", "..");
 const DAYTONA_CONVEX_PROXY_PATH = "/__noter_daytona_convex";
 const devPortRaw = process.env.NOTER_DEV_PORT?.trim();
 const devPort = devPortRaw ? Number(devPortRaw) : undefined;
-const devStrictPort = readBooleanEnv(process.env.NOTER_DEV_STRICT_PORT);
-const devAllowedHosts = readAllowedHostsEnv(
+const devStrictPort = parseBooleanEnv(process.env.NOTER_DEV_STRICT_PORT);
+const devAllowedHosts = parseAllowedHostsEnv(
   process.env.NOTER_DEV_ALLOWED_HOSTS,
 );
 
-function readBooleanEnv(value: string | undefined): boolean | undefined {
+function parseBooleanEnv(value: string | undefined): boolean | undefined {
   if (!value) {
     return undefined;
   }
@@ -46,7 +46,7 @@ function readBooleanEnv(value: string | undefined): boolean | undefined {
   return undefined;
 }
 
-function readAllowedHostsEnv(value: string | undefined): string[] {
+function parseAllowedHostsEnv(value: string | undefined): string[] {
   if (!value) {
     return [];
   }
@@ -57,7 +57,7 @@ function readAllowedHostsEnv(value: string | undefined): string[] {
     .filter((entry) => entry.length > 0);
 }
 
-function readGitOutput(command: string): string | null {
+function tryExecGitOutput(command: string): string | null {
   try {
     const output = execSync(command, {
       cwd: gitRoot,
@@ -76,7 +76,7 @@ function readGitOutput(command: string): string | null {
  * Callers rely on this helper to swallow failures and return `false` instead
  * of throwing so shallow-checkout resolution can fail closed.
  */
-function runGitCommand(command: string): boolean {
+function tryExecGitCommand(command: string): boolean {
   try {
     execSync(command, {
       cwd: gitRoot,
@@ -90,12 +90,12 @@ function runGitCommand(command: string): boolean {
 
 const appCommit =
   process.env.VITE_APP_COMMIT ??
-  readGitOutput("git rev-parse HEAD") ??
+  tryExecGitOutput("git rev-parse HEAD") ??
   "unknown";
 const appCommitNumber = resolveAppCommitNumber({
   envCommitNumber: process.env.VITE_APP_COMMIT_NUMBER,
-  readGitOutput,
-  runGitCommand,
+  readGitOutput: tryExecGitOutput,
+  runGitCommand: tryExecGitCommand,
 });
 
 const appRepoUrl = "https://github.com/noter-md/noter";
@@ -109,7 +109,6 @@ const daytonaConvexProxyTarget = resolveDaytonaConvexProxyTarget({
 const daytonaConvexProxyPath = daytonaConvexProxyTarget
   ? DAYTONA_CONVEX_PROXY_PATH
   : null;
-const shouldIncludeVisualFixture = process.env.PLAYWRIGHT === "1";
 const staticLogoSvgAssetPath = path.resolve(
   __dirname,
   "public/logo-static.svg",
@@ -124,9 +123,10 @@ const noterSyncPackageScriptPath = path.resolve(
 );
 const staticNoterSyncScriptPath = path.resolve(__dirname, "public/noter.js");
 const noterConnectConfigPathname = "/noter-connect.json";
+const frameworkClientBuildPath = path.resolve(__dirname, "build/client");
 const runtimeNoterConnectConfigPath = path.resolve(
-  __dirname,
-  `dist${noterConnectConfigPathname}`,
+  frameworkClientBuildPath,
+  noterConnectConfigPathname.slice(1),
 );
 const privacyPolicyMarkdownPath = path.resolve(
   __dirname,
@@ -151,6 +151,11 @@ function isLoopbackHostname(hostname: string): boolean {
   );
 }
 
+/**
+ * `noter-connect.json` is consumed outside the app, so validate aggressively
+ * and fail closed if the Convex site URL would smuggle in credentials, paths,
+ * or query-string surprises.
+ */
 function parseValidatedNoterConnectConvexSiteUrl(value: string): string {
   try {
     const convexSiteUrl = new URL(value);
@@ -273,6 +278,10 @@ async function buildRuntimeNoterSyncScript() {
   return script.endsWith("\n") ? script : `${script}\n`;
 }
 
+/**
+ * Resolve the Convex site URL from the same precedence order local tooling
+ * uses so generated installer config targets the actively configured deploy.
+ */
 function readNoterConnectConvexSiteUrl(): string {
   const configuredSiteUrl = process.env.CONVEX_SITE_URL?.trim();
   if (configuredSiteUrl) {
@@ -482,7 +491,10 @@ function syncStaticNoterSyncScriptAssetPlugin() {
       );
     },
     async closeBundle() {
-      const builtScriptPath = path.resolve(__dirname, "dist/noter.js");
+      const builtScriptPath = path.resolve(
+        frameworkClientBuildPath,
+        "noter.js",
+      );
       const runtimeScript = await buildRuntimeNoterSyncScript();
       mkdirSync(path.dirname(builtScriptPath), { recursive: true });
       writeFileSync(builtScriptPath, runtimeScript, "utf8");
@@ -637,7 +649,7 @@ export default defineConfig({
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,
     }),
-    react(),
+    reactRouter(),
   ],
   resolve: {
     alias: {
@@ -650,14 +662,6 @@ export default defineConfig({
   server: daytonaConvexProxyServerConfig,
   build: {
     rollupOptions: {
-      input: {
-        app: path.resolve(__dirname, "index.html"),
-        ...(shouldIncludeVisualFixture
-          ? {
-              visualFixture: path.resolve(__dirname, "visual-fixture.html"),
-            }
-          : {}),
-      },
       onwarn(warning, warn) {
         // Skip certain warnings
         if (warning.code === "UNUSED_EXTERNAL_IMPORT") return;

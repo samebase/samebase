@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Terminal } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
+import type { FitAddon as XTermFitAddon } from "@xterm/addon-fit";
+import type { Terminal as XTermTerminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { cn } from "@/lib/utils";
 import {
@@ -95,40 +95,14 @@ export function DaytonaPtyTerminal({
 
     let isDisposed = false;
     let sessionErrorReported = false;
+    let resizeObserver: ResizeObserver | null = null;
+    let dataDisposable: { dispose: () => void } | null = null;
+    let socket: WebSocket | null = null;
+    let terminal: XTermTerminal | null = null;
+    let fitAddon: XTermFitAddon | null = null;
+    let initialInputTimeout: number | null = null;
+    let promptWakeupTimeout: number | null = null;
 
-    const terminal = new Terminal({
-      disableStdin: !allowInput,
-      cursorBlink: true,
-      fontFamily:
-        '"SF Mono", "Cascadia Code", Menlo, Monaco, Consolas, "Liberation Mono", monospace',
-      fontSize: 13,
-      lineHeight: 1.25,
-      scrollback: 3000,
-      theme: {
-        background: "#0b1220",
-        foreground: "#e2e8f0",
-        cursor: "#f8fafc",
-        cursorAccent: "#0b1220",
-        selectionBackground: "rgba(148, 163, 184, 0.28)",
-        black: "#0f172a",
-        red: "#f87171",
-        green: "#4ade80",
-        yellow: "#fbbf24",
-        blue: "#60a5fa",
-        magenta: "#c084fc",
-        cyan: "#22d3ee",
-        white: "#e2e8f0",
-        brightBlack: "#475569",
-        brightRed: "#fca5a5",
-        brightGreen: "#86efac",
-        brightYellow: "#fcd34d",
-        brightBlue: "#93c5fd",
-        brightMagenta: "#d8b4fe",
-        brightCyan: "#67e8f9",
-        brightWhite: "#f8fafc",
-      },
-    });
-    const fitAddon = new FitAddon();
     const textDecoder = new TextDecoder();
     const textEncoder = new TextEncoder();
     const resizeTimeoutIds = new Set<number>();
@@ -139,12 +113,6 @@ export function DaytonaPtyTerminal({
       initialInput: session.initialInput,
       initialOutput,
     });
-
-    terminal.loadAddon(fitAddon);
-    terminal.open(container);
-    if (hasDaytonaPtyInitialOutput(initialOutput)) {
-      terminal.write(initialOutput);
-    }
 
     const reportSessionError = (message: string) => {
       if (isDisposed || sessionErrorReported) {
@@ -158,9 +126,16 @@ export function DaytonaPtyTerminal({
       if (isDisposed) {
         return;
       }
+      if (terminal === null) {
+        return;
+      }
+      if (fitAddon === null) {
+        return;
+      }
+      const activeTerminal = terminal;
       fitAddon.fit();
-      const cols = terminal.cols;
-      const rows = terminal.rows;
+      const cols = activeTerminal.cols;
+      const rows = activeTerminal.rows;
       const previous = lastSizeRef.current;
       if (previous?.cols === cols && previous.rows === rows) {
         return;
@@ -177,25 +152,8 @@ export function DaytonaPtyTerminal({
       resizeTimeoutIds.add(timeoutId);
     };
 
-    const resizeObserver = new ResizeObserver(() => {
-      queueResize();
-    });
-    resizeObserver.observe(container);
-
-    const authenticatedUrl = buildAuthenticatedDaytonaPtyUrl({
-      webSocketUrl: session.webSocketUrl,
-      previewToken: session.previewToken,
-    });
-    const socket = new WebSocket(
-      authenticatedUrl,
-      DAYTONA_PTY_WEBSOCKET_PROTOCOL,
-    );
-    socket.binaryType = "arraybuffer";
-
-    let initialInputSent = false;
-    let initialInputTimeout: number | null = null;
-    let promptWakeupTimeout: number | null = null;
     let sawTerminalPayload = hasDaytonaPtyInitialOutput(initialOutput);
+    let initialInputSent = false;
 
     const cancelPromptWakeup = () => {
       if (promptWakeupTimeout !== null) {
@@ -217,113 +175,199 @@ export function DaytonaPtyTerminal({
       ) {
         return;
       }
+      if (socket === null) {
+        return;
+      }
+      const activeSocket = socket;
       promptWakeupTimeout = window.setTimeout(() => {
         promptWakeupTimeout = null;
         if (
           isDisposed ||
           sawTerminalPayload ||
-          socket.readyState !== WebSocket.OPEN
+          activeSocket.readyState !== WebSocket.OPEN
         ) {
           return;
         }
-        socket.send(textEncoder.encode(DAYTONA_PTY_PROMPT_WAKEUP_INPUT));
+        activeSocket.send(textEncoder.encode(DAYTONA_PTY_PROMPT_WAKEUP_INPUT));
       }, 250);
     };
 
-    const dataDisposable = allowInput
-      ? terminal.onData((data) => {
-          cancelPromptWakeup();
-          if (socket.readyState !== WebSocket.OPEN) {
-            return;
-          }
-          socket.send(textEncoder.encode(data));
-        })
-      : null;
-
-    socket.addEventListener("message", (event) => {
-      if (isDisposed) {
-        return;
-      }
-      if (typeof event.data === "string") {
-        const controlMessage = parseDaytonaPtyControlMessage(event.data);
-        if (controlMessage?.type === "control") {
-          if (controlMessage.status === "connected") {
-            setConnectionState("connected");
-            setStatusMessage("Connected");
-            if (
-              !initialInputSent &&
-              typeof session.initialInput === "string" &&
-              session.initialInput.length > 0 &&
-              socket.readyState === WebSocket.OPEN
-            ) {
-              initialInputSent = true;
-              initialInputTimeout = window.setTimeout(() => {
-                if (isDisposed || socket.readyState !== WebSocket.OPEN) {
-                  return;
-                }
-                socket.send(textEncoder.encode(session.initialInput ?? ""));
-              }, 200);
-            }
-            schedulePromptWakeup();
-            queueResize();
-            return;
-          }
-
-          const message =
-            controlMessage.error ?? "Daytona terminal connection failed.";
-          setConnectionState("error");
-          setStatusMessage(message);
-          terminal.writeln(`\r\n[terminal error] ${message}`);
-          reportSessionError(message);
+    // React Router prerender evaluates route modules on the server, so xterm
+    // must stay behind the client-only effect boundary.
+    void Promise.all([import("@xterm/xterm"), import("@xterm/addon-fit")])
+      .then(([{ Terminal }, { FitAddon }]) => {
+        if (isDisposed) {
           return;
         }
 
-        markTerminalPayloadReceived();
-        terminal.write(event.data);
-        return;
-      }
+        terminal = new Terminal({
+          disableStdin: !allowInput,
+          cursorBlink: true,
+          fontFamily:
+            '"SF Mono", "Cascadia Code", Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+          fontSize: 13,
+          lineHeight: 1.25,
+          scrollback: 3000,
+          theme: {
+            background: "#0b1220",
+            foreground: "#e2e8f0",
+            cursor: "#f8fafc",
+            cursorAccent: "#0b1220",
+            selectionBackground: "rgba(148, 163, 184, 0.28)",
+            black: "#0f172a",
+            red: "#f87171",
+            green: "#4ade80",
+            yellow: "#fbbf24",
+            blue: "#60a5fa",
+            magenta: "#c084fc",
+            cyan: "#22d3ee",
+            white: "#e2e8f0",
+            brightBlack: "#475569",
+            brightRed: "#fca5a5",
+            brightGreen: "#86efac",
+            brightYellow: "#fcd34d",
+            brightBlue: "#93c5fd",
+            brightMagenta: "#d8b4fe",
+            brightCyan: "#67e8f9",
+            brightWhite: "#f8fafc",
+          },
+        });
+        fitAddon = new FitAddon();
+        terminal.loadAddon(fitAddon);
+        terminal.open(container);
+        if (hasDaytonaPtyInitialOutput(initialOutput)) {
+          terminal.write(initialOutput);
+        }
 
-      if (event.data instanceof ArrayBuffer) {
-        markTerminalPayloadReceived();
-        terminal.write(
-          textDecoder.decode(new Uint8Array(event.data), { stream: true }),
+        resizeObserver = new ResizeObserver(() => {
+          queueResize();
+        });
+        resizeObserver.observe(container);
+
+        const authenticatedUrl = buildAuthenticatedDaytonaPtyUrl({
+          webSocketUrl: session.webSocketUrl,
+          previewToken: session.previewToken,
+        });
+        socket = new WebSocket(
+          authenticatedUrl,
+          DAYTONA_PTY_WEBSOCKET_PROTOCOL,
         );
-      }
-    });
+        socket.binaryType = "arraybuffer";
+        const activeSocket = socket;
+        const activeTerminal = terminal;
 
-    socket.addEventListener("error", () => {
-      if (isDisposed) {
-        return;
-      }
-      setConnectionState("error");
-      setStatusMessage("Terminal connection error.");
-      reportSessionError("Terminal connection error.");
-    });
+        dataDisposable = allowInput
+          ? activeTerminal.onData((data) => {
+              cancelPromptWakeup();
+              if (activeSocket.readyState !== WebSocket.OPEN) {
+                return;
+              }
+              activeSocket.send(textEncoder.encode(data));
+            })
+          : null;
 
-    socket.addEventListener("close", (event) => {
-      if (isDisposed) {
-        return;
-      }
-      const trailingText = textDecoder.decode();
-      if (trailingText.length > 0) {
-        terminal.write(trailingText);
-      }
-      const { message, state } = resolveDaytonaPtyCloseOutcome({
-        eventCode: event.code,
-        rawReason: event.reason,
-      });
-      const nextState: DaytonaPtyConnectionState = state;
-      setConnectionState(nextState);
-      setStatusMessage(message);
-      terminal.writeln(`\r\n[session ended] ${message}`);
-      if (nextState === "error") {
+        activeSocket.addEventListener("message", (event) => {
+          if (isDisposed) {
+            return;
+          }
+          if (typeof event.data === "string") {
+            const controlMessage = parseDaytonaPtyControlMessage(event.data);
+            if (controlMessage?.type === "control") {
+              if (controlMessage.status === "connected") {
+                setConnectionState("connected");
+                setStatusMessage("Connected");
+                if (
+                  !initialInputSent &&
+                  typeof session.initialInput === "string" &&
+                  session.initialInput.length > 0 &&
+                  activeSocket.readyState === WebSocket.OPEN
+                ) {
+                  initialInputSent = true;
+                  initialInputTimeout = window.setTimeout(() => {
+                    if (
+                      isDisposed ||
+                      activeSocket.readyState !== WebSocket.OPEN
+                    ) {
+                      return;
+                    }
+                    activeSocket.send(
+                      textEncoder.encode(session.initialInput ?? ""),
+                    );
+                  }, 200);
+                }
+                schedulePromptWakeup();
+                queueResize();
+                return;
+              }
+
+              const message =
+                controlMessage.error ?? "Daytona terminal connection failed.";
+              setConnectionState("error");
+              setStatusMessage(message);
+              activeTerminal.writeln(`\r\n[terminal error] ${message}`);
+              reportSessionError(message);
+              return;
+            }
+
+            markTerminalPayloadReceived();
+            activeTerminal.write(event.data);
+            return;
+          }
+
+          if (event.data instanceof ArrayBuffer) {
+            markTerminalPayloadReceived();
+            activeTerminal.write(
+              textDecoder.decode(new Uint8Array(event.data), { stream: true }),
+            );
+          }
+        });
+
+        activeSocket.addEventListener("error", () => {
+          if (isDisposed) {
+            return;
+          }
+          setConnectionState("error");
+          setStatusMessage("Terminal connection error.");
+          reportSessionError("Terminal connection error.");
+        });
+
+        activeSocket.addEventListener("close", (event) => {
+          if (isDisposed) {
+            return;
+          }
+          const trailingText = textDecoder.decode();
+          if (trailingText.length > 0) {
+            activeTerminal.write(trailingText);
+          }
+          const { message, state } = resolveDaytonaPtyCloseOutcome({
+            eventCode: event.code,
+            rawReason: event.reason,
+          });
+          const nextState: DaytonaPtyConnectionState = state;
+          setConnectionState(nextState);
+          setStatusMessage(message);
+          activeTerminal.writeln(`\r\n[session ended] ${message}`);
+          if (nextState === "error") {
+            reportSessionError(message);
+            return;
+          }
+          onSessionExitRef.current?.(message);
+        });
+
+        queueResize();
+      })
+      .catch((error: unknown) => {
+        if (isDisposed) {
+          return;
+        }
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Daytona terminal failed to initialize.";
+        setConnectionState("error");
+        setStatusMessage(message);
         reportSessionError(message);
-        return;
-      }
-      onSessionExitRef.current?.(message);
-    });
-
-    queueResize();
+      });
 
     return () => {
       isDisposed = true;
@@ -337,10 +381,10 @@ export function DaytonaPtyTerminal({
         window.clearTimeout(timeoutId);
       }
       resizeTimeoutIds.clear();
-      resizeObserver.disconnect();
+      resizeObserver?.disconnect();
       dataDisposable?.dispose();
-      socket.close();
-      terminal.dispose();
+      socket?.close();
+      terminal?.dispose();
     };
   }, [
     allowInput,
