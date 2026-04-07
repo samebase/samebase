@@ -72,14 +72,13 @@ export function AppBuildStatusBar({
       >
         <div className="flex w-full items-center gap-2">
           {showLandingLegalLinks ? (
-            <div className="flex items-center text-muted-foreground">
+            <div className="flex items-center gap-3 text-muted-foreground">
               <Link
                 to="/terms"
                 className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
               >
                 /terms
               </Link>
-              <span className="px-1">·</span>
               <Link
                 to="/privacy"
                 className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"

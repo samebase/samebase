@@ -350,11 +350,10 @@ function renderFastLandingShell() {
       <div class="h-[19px] shrink-0 border-b border-border/50">
         <div data-testid="${APP_BUILD_STATUS_BAR_TEST_ID}" class="container flex h-full items-center overflow-hidden px-3 text-[11px] leading-none text-muted-foreground">
           <div class="flex w-full items-center gap-2">
-            <div class="flex items-center text-muted-foreground">
+            <div class="flex items-center gap-3 text-muted-foreground">
               <a href="/terms" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
                 /terms
               </a>
-              <span class="px-1">·</span>
               <a href="/privacy" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
                 /privacy
               </a>
