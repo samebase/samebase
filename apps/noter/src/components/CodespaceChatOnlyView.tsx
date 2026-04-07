@@ -1,12 +1,13 @@
 import { useAction, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation } from "@/lib/router";
 import { ExternalLink, Loader2, RefreshCcw } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { CodespaceIframe } from "./CodespaceIframe";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { useCacheQuery as useVaultQuery } from "@/lib/convexQueryCache";
+import { parseVaultPathContext } from "@/lib/vaultRoutes";
 
 const CODESPACE_STATES_REQUIRING_ENSURE = new Set([
   "stopped",
@@ -19,11 +20,11 @@ function formatCodespaceState(state: string): string {
 }
 
 export function CodespaceChatOnlyView() {
-  const { owner, repoName, branch } = useParams<{
-    owner: string;
-    repoName: string;
-    branch: string;
-  }>();
+  const location = useLocation();
+  const { owner, repoName, branch } = useMemo(
+    () => parseVaultPathContext(location.pathname),
+    [location.pathname],
+  );
   const targetBranch = branch;
   const repositoryFullName = useMemo(() => {
     if (!owner || !repoName) {

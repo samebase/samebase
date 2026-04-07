@@ -5,7 +5,7 @@ import {
   drawSingleCubeStudy,
 } from "@/components/logoSingleCubeStudyRenderer";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router";
 
 function CubeStudyCanvas({
   angleDegrees,

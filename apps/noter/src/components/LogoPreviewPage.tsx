@@ -83,7 +83,7 @@ import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "@/lib/router";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const CONTROLS_POPOVER_SIDE_OFFSET_PX = 10;

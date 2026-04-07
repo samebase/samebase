@@ -38,15 +38,20 @@ describe("isChatOnlyCodespaceRoute", () => {
 describe("parseVaultPathContext", () => {
   it("parses branchless vault routes", () => {
     expect(parseVaultPathContext("/vault/octo/repo")).toEqual({
+      owner: "octo",
       repositoryFullName: "octo/repo",
+      repoName: "repo",
     });
   });
 
   it("parses branch editor routes and preserves file paths named chat", () => {
     expect(parseVaultPathContext("/vault/octo/repo/main/chat")).toEqual({
+      owner: "octo",
       repositoryFullName: "octo/repo",
+      repoName: "repo",
       branch: "main",
       filePath: "chat",
+      isCodespaceChatRoute: false,
     });
   });
 
@@ -56,9 +61,12 @@ describe("parseVaultPathContext", () => {
         "/vault/octo/repo/feature%2Flogin-flow/src/App.tsx",
       ),
     ).toEqual({
+      owner: "octo",
       repositoryFullName: "octo/repo",
+      repoName: "repo",
       branch: "feature/login-flow",
       filePath: "src/App.tsx",
+      isCodespaceChatRoute: false,
     });
   });
 
@@ -66,8 +74,11 @@ describe("parseVaultPathContext", () => {
     expect(
       parseVaultPathContext("/vault/octo/repo/codespace/feature%2Flogin/chat"),
     ).toEqual({
+      owner: "octo",
       repositoryFullName: "octo/repo",
+      repoName: "repo",
       branch: "feature/login",
+      isCodespaceChatRoute: true,
     });
   });
 
@@ -75,9 +86,12 @@ describe("parseVaultPathContext", () => {
     expect(
       parseVaultPathContext("/vault/octo/repo/codespace/src/index.ts"),
     ).toEqual({
+      owner: "octo",
       repositoryFullName: "octo/repo",
+      repoName: "repo",
       branch: "codespace",
       filePath: "src/index.ts",
+      isCodespaceChatRoute: false,
     });
   });
 });

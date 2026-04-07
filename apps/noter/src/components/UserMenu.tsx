@@ -21,7 +21,7 @@ import { useQuery } from "convex/react";
 import { ReactNode, useMemo, useState } from "react";
 import { clsx } from "clsx";
 import { clearAuthFlag } from "@/authClient";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router";
 
 function formatProviderLabel(provider: string | undefined): string {
   if (!provider) return "Unknown";

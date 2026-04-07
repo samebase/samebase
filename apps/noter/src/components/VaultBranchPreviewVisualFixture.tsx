@@ -1,4 +1,4 @@
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "@/lib/router";
 import { VaultBranchLinkRow } from "@/components/VaultDashboard";
 import { parseCloudflarePreviewComment } from "../../convex/cloudflarePreviewComment";
 

@@ -6,8 +6,8 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "@/lib/codexAppServerResearch";
+import { resolveAuthenticatedAppRoute } from "@/lib/appRouteResolution";
 import { shouldShowGlobalChatFab } from "@/lib/globalChatFabVisibility";
-import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +20,7 @@ import {
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { useLocation } from "@/lib/router";
 import {
   lazy,
   Suspense,
@@ -389,6 +389,7 @@ export default function App() {
   );
   const showGlobalChatFab = shouldShowGlobalChatFab(location.pathname);
   const showMcpConsent = onMcpConsentRoute && mcpConsentRequestId !== null;
+  const authenticatedRoute = resolveAuthenticatedAppRoute(location.pathname);
   const logoPreviewMode =
     location.pathname === "/logo"
       ? "three"
@@ -540,48 +541,29 @@ export default function App() {
           <Authenticated>
             <ApprovalGate>
               <Suspense fallback={null}>
-                <Routes>
-                  <Route path="/" element={<VaultDashboard />} />
-                  <Route
-                    path={MACHINES_ROUTE}
-                    element={<MachinesWorkspacePage />}
-                  />
-                  <Route
-                    path={MACHINE_CONNECT_ROUTE}
-                    element={<MachineConnectPage />}
-                  />
-                  <Route path="/pricing" element={<PricingPage />} />
-                  <Route path="/add" element={<AddRepository />} />
-                  <Route
-                    path="/vault/:owner/:repoName/codespace/:branch/chat"
-                    element={<CodespaceChatOnlyView />}
-                  />
-                  <Route
-                    path="/vault/:owner/:repoName/:branch"
-                    element={<FileView />}
-                  />
-                  <Route
-                    path="/vault/:owner/:repoName/:branch/*"
-                    element={<FileView />}
-                  />
-                  <Route
-                    path="/vault/:owner/:repoName"
-                    element={<FileView />}
-                  />
-
-                  {/* test route */}
-                  <Route path="/test" element={<div>Test</div>} />
-                </Routes>
+                {authenticatedRoute === "dashboard" ? <VaultDashboard /> : null}
+                {authenticatedRoute === "machines" ? (
+                  <MachinesWorkspacePage />
+                ) : null}
+                {authenticatedRoute === "machineConnect" ? (
+                  <MachineConnectPage />
+                ) : null}
+                {authenticatedRoute === "pricing" ? <PricingPage /> : null}
+                {authenticatedRoute === "addRepository" ? (
+                  <AddRepository />
+                ) : null}
+                {authenticatedRoute === "codespaceChat" ? (
+                  <CodespaceChatOnlyView />
+                ) : null}
+                {authenticatedRoute === "fileView" ? <FileView /> : null}
+                {authenticatedRoute === "test" ? <div>Test</div> : null}
                 {showGlobalChatFab ? <ChatFab /> : null}
               </Suspense>
             </ApprovalGate>
           </Authenticated>
           <Unauthenticated>
             <Suspense fallback={null}>
-              <Routes>
-                <Route path="/" element={<SignInForm />} />
-                <Route path="*" element={<SignInForm />} />
-              </Routes>
+              <SignInForm />
             </Suspense>
           </Unauthenticated>
         </>

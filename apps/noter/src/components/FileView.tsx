@@ -1,4 +1,4 @@
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "@/lib/router";
 import { useAction, useMutation, useQuery as useLiveQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
@@ -88,7 +88,7 @@ import { MediaUploadDialog } from "./MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
 import { getStagedFileStatus as getSharedStagedFileStatus } from "../../shared/stagedFiles";
 import { isStaleBaseVersionError } from "../../shared/stagingErrors";
-import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
+import { parseVaultPathContext } from "@/lib/vaultRoutes";
 import { isInIframe } from "@/authClient";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 import {
@@ -326,31 +326,23 @@ function normalizeFolderPath(folderPath: string): string {
 function FileViewWrapper() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { search, state } = location;
+  const { pathname, search, state } = location;
   const isCompareRequested = useMemo(
     () => hasQueryParam(search, "compare"),
     [search],
   );
-
   const {
     owner,
     repoName,
     branch: branchParam,
-    "*": filePathParam,
-  } = useParams<{
-    owner: string;
-    repoName: string;
-    branch?: string;
-    "*": string;
-  }>();
+    filePath: filePathParam,
+  } = useMemo(() => parseVaultPathContext(pathname), [pathname]);
 
   const firstDocAction = useAction(api.fileStagingActions.getFileForEditing);
   const refreshTree = useAction(api.github.refreshRepositoryTree);
   const connectRepository = useAction(api.vaultActions.connectRepository);
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
-  const routeBranch = branchParam
-    ? decodeRouteSegmentSafe(branchParam)
-    : undefined;
+  const routeBranch = branchParam;
   const selectedFile = filePathParam ?? "";
   const selectedFileFromBranchlessRoute = branchParam
     ? [routeBranch ?? branchParam, selectedFile]

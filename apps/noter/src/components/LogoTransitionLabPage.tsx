@@ -10,7 +10,7 @@ import {
 } from "@/components/logoTransitionLabUtils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/tabs";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router";
 
 type ViewBox = {
   minX: number;

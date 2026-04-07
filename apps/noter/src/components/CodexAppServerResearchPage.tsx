@@ -39,7 +39,7 @@ import { useNow } from "@/hooks/useNow";
 import { clsx } from "clsx";
 import { useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "@/lib/router";
 import { resolveConnectedMachineStatus } from "../../shared/connectedMachinePresence";
 import { api } from "../../convex/_generated/api";
 

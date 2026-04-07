@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "@/lib/router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PUBLIC_LANDING_SCROLL_SHELL_TEST_ID } from "@/lib/publicLanding";
 import {
