@@ -4,7 +4,7 @@ import {
 } from "@/lib/landingDevMode";
 import { ReactNode, useEffect, type MouseEvent } from "react";
 import { useConvexAuth } from "convex/react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "@/lib/router";
 import { AppBuildStatusBar } from "@/components/AppBuildStatusBar";
 import { WorkspaceLayoutV2PageFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PageFrame";
 

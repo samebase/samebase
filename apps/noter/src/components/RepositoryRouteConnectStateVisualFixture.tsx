@@ -2,7 +2,7 @@ import { DialogProvider } from "@/contexts/DialogContext";
 import { SidebarProvider } from "@/components/sidebar";
 import { RepositoryRouteConnectState } from "@/components/RepositoryRouteConnectState";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "@/lib/router";
 
 export type RepositoryRouteConnectStateVisualMode =
   | "file-view-connect-repository"

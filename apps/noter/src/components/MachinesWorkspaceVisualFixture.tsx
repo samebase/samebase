@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "@/lib/router";
 import { SidebarProvider } from "@/components/sidebar";
 import {
   MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,

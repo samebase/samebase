@@ -10,7 +10,7 @@ import {
 } from "@/components/logoVoxelState";
 import { Button } from "@/components/ui/button";
 import { useDocumentThemeMode } from "@/hooks/useDocumentThemeMode";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "@/lib/router";
 
 export function LogoStaticSvgPage() {
   const documentThemeMode = useDocumentThemeMode();

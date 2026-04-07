@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "@/lib/router";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";

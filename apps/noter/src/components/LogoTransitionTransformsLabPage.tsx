@@ -9,7 +9,7 @@ import {
 } from "@/components/logoTransitionTransformFaces";
 import { normalizeRotationDegrees } from "@/components/logoVoxelState";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router";
 
 const ROTATION_PRESETS = [0, 45, 90, 135, 180, 225, 270, 315] as const;
 const ROTATION_STEP_INTERVAL_MS = 40;

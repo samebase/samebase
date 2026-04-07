@@ -1,5 +1,5 @@
 import { useEffect, useRef, type MouseEventHandler } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router";
 import {
   APP_BUILD_COMMIT_LINK_TEST_ID,
   APP_BUILD_STATUS_BAR_TEST_ID,

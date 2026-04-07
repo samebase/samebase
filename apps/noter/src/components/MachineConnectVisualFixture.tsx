@@ -1,5 +1,5 @@
 import { MachineConnectPageContent } from "@/components/MachineConnectPage";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "@/lib/router";
 
 const MACHINE_CONNECT_VISUAL_FIXTURE_FONT_RULES = `
   [data-machine-connect-visual-fixture-font],

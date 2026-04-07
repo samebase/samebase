@@ -23,7 +23,7 @@ import {
 } from "@/lib/queryParams";
 import { dedupeCodexThreadsById } from "@/lib/codexThreadSidebar";
 import { useCodexThreadSidebarViewModel } from "@/hooks/useCodexThreadSidebarViewModel";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "@/lib/router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const THREAD_LIST_LIMIT = 100;

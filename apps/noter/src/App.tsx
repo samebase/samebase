@@ -20,7 +20,7 @@ import {
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation } from "@/lib/router";
 import {
   lazy,
   Suspense,
