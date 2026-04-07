@@ -1,0 +1,32 @@
+{
+  "name": "noter-react-behavior-lab",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "tsc -b && vp build",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "preview": "vp preview",
+    "lint": "tsc -b --pretty false && NODE_OPTIONS=--max-old-space-size=4096 pnpm --dir ../.. exec oxlint --config .oxlintrc.json --report-unused-disable-directives apps/react-behavior-lab",
+    "test": "vp test run --passWithNoTests"
+  },
+  "dependencies": {
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "oxfmt": "0.44.0",
+    "typescript": "5.9.2",
+    "vite": "^8.0.8",
+    "vite-plus": "0.1.16",
+    "vitest": "^4.1.4"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

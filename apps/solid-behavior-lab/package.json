@@ -1,0 +1,29 @@
+{
+  "name": "noter-solid-behavior-lab",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "tsc -b && vp build",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "preview": "vp preview",
+    "lint": "tsc -b --pretty false && NODE_OPTIONS=--max-old-space-size=4096 pnpm --dir ../.. exec oxlint --config .oxlintrc.json --report-unused-disable-directives apps/solid-behavior-lab",
+    "test": "vp test run --passWithNoTests"
+  },
+  "dependencies": {
+    "solid-js": "^1.9.12"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "oxfmt": "0.44.0",
+    "typescript": "5.9.2",
+    "vite": "^8.0.8",
+    "vite-plugin-solid": "^2.11.12",
+    "vite-plus": "0.1.16",
+    "vitest": "^4.1.4"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
