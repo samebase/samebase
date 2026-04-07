@@ -109,7 +109,6 @@ const daytonaConvexProxyTarget = resolveDaytonaConvexProxyTarget({
 const daytonaConvexProxyPath = daytonaConvexProxyTarget
   ? DAYTONA_CONVEX_PROXY_PATH
   : null;
-const shouldIncludeVisualFixture = process.env.PLAYWRIGHT === "1";
 const staticLogoSvgAssetPath = path.resolve(
   __dirname,
   "public/logo-static.svg",
@@ -124,9 +123,10 @@ const noterSyncPackageScriptPath = path.resolve(
 );
 const staticNoterSyncScriptPath = path.resolve(__dirname, "public/noter.js");
 const noterConnectConfigPathname = "/noter-connect.json";
+const frameworkClientBuildPath = path.resolve(__dirname, "build/client");
 const runtimeNoterConnectConfigPath = path.resolve(
-  __dirname,
-  `dist${noterConnectConfigPathname}`,
+  frameworkClientBuildPath,
+  noterConnectConfigPathname.slice(1),
 );
 const privacyPolicyMarkdownPath = path.resolve(
   __dirname,
@@ -491,7 +491,10 @@ function syncStaticNoterSyncScriptAssetPlugin() {
       );
     },
     async closeBundle() {
-      const builtScriptPath = path.resolve(__dirname, "dist/noter.js");
+      const builtScriptPath = path.resolve(
+        frameworkClientBuildPath,
+        "noter.js",
+      );
       const runtimeScript = await buildRuntimeNoterSyncScript();
       mkdirSync(path.dirname(builtScriptPath), { recursive: true });
       writeFileSync(builtScriptPath, runtimeScript, "utf8");
@@ -659,14 +662,6 @@ export default defineConfig({
   server: daytonaConvexProxyServerConfig,
   build: {
     rollupOptions: {
-      input: {
-        app: path.resolve(__dirname, "index.html"),
-        ...(shouldIncludeVisualFixture
-          ? {
-              visualFixture: path.resolve(__dirname, "visual-fixture.html"),
-            }
-          : {}),
-      },
       onwarn(warning, warn) {
         // Skip certain warnings
         if (warning.code === "UNUSED_EXTERNAL_IMPORT") return;
