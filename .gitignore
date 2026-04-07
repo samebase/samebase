@@ -48,6 +48,7 @@ convex/.tmp
 # Hosting tooling
 .netlify
 .vercel
+.wrangler/
 
 # Editor directories and files
 .vscode/*
