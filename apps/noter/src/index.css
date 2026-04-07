@@ -106,8 +106,9 @@
   }
 
   /* Restore browser link defaults instead of Tailwind's inherited reset. */
+  /* TODO: maybe add it back later, for now it's too jarring */
   a:any-link {
-    color: revert;
+    /* color: revert; */
     text-decoration: revert;
   }
 }
