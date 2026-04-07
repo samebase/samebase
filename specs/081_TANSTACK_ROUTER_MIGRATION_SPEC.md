@@ -131,11 +131,40 @@ migration with concrete problems, attempted fixes, and outcomes.
   `Route`, which shrinks the future TanStack adapter surface down to links and
   hooks.
 
-- Problem: route params were still coming from router-owned `useParams`.
-  Tried: moved `FileView` and `CodespaceChatOnlyView` onto the repo-owned vault
-  route parser instead of router-provided params. Result: the seam no longer
-  needs to model `useParams`, and route-shape knowledge now lives with the
-  existing vault route utilities instead of the router implementation.
+- Problem: route params were still coming from router-owned `useParams`. Tried:
+  moved `FileView` and `CodespaceChatOnlyView` onto the repo-owned vault route
+  parser instead of router-provided params. Result: the seam no longer needs to
+  model `useParams`, and route-shape knowledge now lives with the existing vault
+  route utilities instead of the router implementation.
+
+- Problem: step 2 needed a real TanStack route tree without forcing the whole
+  app to peel its pathname switchboard in the same patch. Tried: created a
+  minimal code-based route tree with `/` plus `$` catch-all routes that both
+  render `App`, then mounted it through a dedicated `AppRouterProvider` in
+  `main.tsx`. Result: the app now runs under TanStack Router while `App.tsx`
+  still owns the existing route resolution logic for the next migration cuts.
+
+- Problem: TanStack `useLocation()` does not expose the same string-shaped
+  location contract the app currently expects from React Router. Tried: swapped
+  the seam directly onto TanStack hooks and let TypeScript report the shape
+  mismatch. Result: TanStack route state exposes parsed search data, so the
+  compat seam now rebuilds React Router-like `pathname`, `search`, `hash`, and
+  `key` values from `location.href` and strips router-internal state keys before
+  exposing `location.state`.
+
+- Problem: TanStack navigation state is modeled as router-managed history state,
+  not a raw `navigate(path, { state })` value like React Router. Tried: passed
+  raw state through TanStack `navigate()` and hit type friction around state
+  updaters. Result: the compat `useNavigate()` wrapper now uses the TanStack
+  history API directly for push/replace/go so existing call sites can keep
+  passing raw state objects while the router still observes navigation changes.
+
+- Problem: tests and visual fixtures still depend on a `MemoryRouter` that can
+  wrap arbitrary children instead of the full app route tree. Tried: reused the
+  app router directly and found it would hard-wire fixtures to `App`. Result:
+  the seam now has a separate TanStack-backed compat route tree for
+  `MemoryRouter`, plus a direct seam test that covers location strings, raw
+  state, and search-param writes.
 
 ## Initial Sequence
 
