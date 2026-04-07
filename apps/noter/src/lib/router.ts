@@ -2,11 +2,8 @@ import {
   BrowserRouter as ReactRouterBrowserRouter,
   Link as ReactRouterLink,
   MemoryRouter as ReactRouterMemoryRouter,
-  Route as ReactRouterRoute,
-  Routes as ReactRouterRoutes,
   useLocation as useReactRouterLocation,
   useNavigate as useReactRouterNavigate,
-  useParams as useReactRouterParams,
   useSearchParams as useReactRouterSearchParams,
 } from "react-router-dom";
 
@@ -17,9 +14,6 @@ import {
 export const BrowserRouter = ReactRouterBrowserRouter;
 export const Link = ReactRouterLink;
 export const MemoryRouter = ReactRouterMemoryRouter;
-export const Route = ReactRouterRoute;
-export const Routes = ReactRouterRoutes;
 export const useLocation = useReactRouterLocation;
 export const useNavigate = useReactRouterNavigate;
-export const useParams = useReactRouterParams;
 export const useSearchParams = useReactRouterSearchParams;

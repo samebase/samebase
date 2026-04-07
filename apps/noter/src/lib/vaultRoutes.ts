@@ -26,9 +26,12 @@ export function isChatOnlyCodespaceRoute(pathname: string): boolean {
 }
 
 export interface ParsedVaultPathContext {
+  owner?: string;
   repositoryFullName?: string;
+  repoName?: string;
   branch?: string;
   filePath?: string;
+  isCodespaceChatRoute?: boolean;
 }
 
 export function parseVaultPathContext(
@@ -49,7 +52,7 @@ export function parseVaultPathContext(
   const routeKind = segments[3];
 
   if (!routeKind) {
-    return { repositoryFullName };
+    return { owner, repositoryFullName, repoName };
   }
 
   if (
@@ -62,7 +65,13 @@ export function parseVaultPathContext(
       typeof encodedBranch === "string" && encodedBranch.length > 0
         ? decodeRouteSegmentSafe(encodedBranch)
         : undefined;
-    return { repositoryFullName, branch };
+    return {
+      owner,
+      repositoryFullName,
+      repoName,
+      branch,
+      isCodespaceChatRoute: true,
+    };
   }
 
   const branch = decodeRouteSegmentSafe(routeKind);
@@ -75,8 +84,11 @@ export function parseVaultPathContext(
       : undefined;
 
   return {
+    owner,
     repositoryFullName,
+    repoName,
     branch,
     filePath,
+    isCodespaceChatRoute: false,
   };
 }

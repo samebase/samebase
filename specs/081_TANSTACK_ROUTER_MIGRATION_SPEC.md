@@ -124,6 +124,19 @@ migration with concrete problems, attempted fixes, and outcomes.
   components, so file-based generation would add churn before the route
   boundaries are stable.
 
+- Problem: the last hard dependency on React Router route JSX lived in
+  `App.tsx`. Tried: replaced the authenticated and unauthenticated
+  `<Routes>/<Route>` trees with a pure pathname resolver plus explicit render
+  selection. Result: the router seam no longer needs to model `Routes` or
+  `Route`, which shrinks the future TanStack adapter surface down to links and
+  hooks.
+
+- Problem: route params were still coming from router-owned `useParams`.
+  Tried: moved `FileView` and `CodespaceChatOnlyView` onto the repo-owned vault
+  route parser instead of router-provided params. Result: the seam no longer
+  needs to model `useParams`, and route-shape knowledge now lives with the
+  existing vault route utilities instead of the router implementation.
+
 ## Initial Sequence
 
 1. Introduce a repo-owned router seam and move current imports behind it.
