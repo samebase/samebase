@@ -21,6 +21,7 @@
     "export:pitch-deck:pdf": "pnpm --filter noter build:ci && node scripts/export-pitch-deck.mjs",
     "clean": "turbo run clean",
     "test": "vitest --run",
+    "test:cloudflare-pages-routing": "node scripts/check-cloudflare-pages-routing.mjs",
     "test:ci": "pnpm test && PLAYWRIGHT_VITE_PORT=43121 pnpm --filter noter test:visual",
     "test:watch": "vitest",
     "dev:noter": "node ./scripts/run-primary-dev.js",

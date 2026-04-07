@@ -26,6 +26,7 @@ coverage
 .eslintcache
 *.tsbuildinfo
 .vite
+.wrangler/
 .playwright-cli/
 test-results/
 

@@ -25,6 +25,11 @@ boot sequence for plain `/`:
 This is an explicit shell-first boot, not a route split to a separate Cloudflare
 page and not a migration to server rendering.
 
+The browser-visible URL for this flow is part of the product contract: a direct
+visit to `/` must remain on `/` throughout the initial load. Internal hosting
+fallback paths such as `__spa-fallback` are implementation details and must
+never become user-visible during the normal public landing flow.
+
 ## Goals
 
 - Make plain `/` visibly useful before the full React + Convex app finishes
@@ -146,6 +151,7 @@ smaller than before.
 
 - shell appears before the full unauthenticated app UI takes over
 - public landing stays within the current Playwright navigation budget
+- plain `/` remains on `/` without redirecting to any internal fallback path
 
 Current budget:
 
@@ -172,6 +178,8 @@ The implementation was validated through the normal pre-commit path, including:
 ## Acceptance Criteria
 
 - Plain `/` shows the landing shell before the full app UI renders.
+- Plain `/` returns its initial document without an HTTP redirect or a
+  user-visible client-side navigation to an internal fallback URL.
 - `/?prod-ui` keeps the prod-like landing path and suppresses dev-only auth and
   editable landing-copy affordances.
 - `/?dev` continues to use the editable landing-copy path.
@@ -182,6 +190,8 @@ The implementation was validated through the normal pre-commit path, including:
 - Heavy authenticated surfaces are not bundled into the initial public app entry
   chunk.
 - Playwright has an explicit timing-based assertion for the public landing.
+- Internal framework fallback routes remain an implementation detail and are not
+  exposed to end users during normal navigation to `/`.
 
 ## Deferred Follow-Ups
 

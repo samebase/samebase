@@ -46,6 +46,9 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
+      - name: Run Cloudflare Pages routing smoke
+        run: node scripts/check-cloudflare-pages-routing.mjs
+
   playwright:
     name: playwright (${{ matrix.shard }})
     runs-on: ubuntu-latest
