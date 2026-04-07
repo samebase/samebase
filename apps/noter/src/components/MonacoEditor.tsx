@@ -8,7 +8,7 @@ import {
   receiveUpdates,
   Update,
 } from "@codemirror/collab";
-import { client } from "@/main";
+import { client } from "@/lib/convexClient";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { type GithubTreeType } from "convex/schema";

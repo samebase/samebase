@@ -26,6 +26,7 @@ coverage
 .eslintcache
 *.tsbuildinfo
 .vite
+.react-router
 .playwright-cli/
 test-results/
 
