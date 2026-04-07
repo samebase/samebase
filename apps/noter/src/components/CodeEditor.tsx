@@ -11,7 +11,7 @@ import {
   sendableUpdates,
   Update,
 } from "@codemirror/collab";
-import { client } from "@/lib/convexClient";
+import { client } from "@/main";
 import { api } from "../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { GetFunctionReferenceReturnType } from "@/lib/convexUtils";

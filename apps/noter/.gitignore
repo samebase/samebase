@@ -29,7 +29,6 @@ coverage
 *.tsbuildinfo
 .turbo
 .vite
-.react-router
 
 # Environment variables
 *.local

@@ -1,6 +1,6 @@
 import { spawn } from "child_process";
-import { realpathSync } from "fs";
 import { createRequire } from "module";
+import { realpathSync } from "fs";
 import path from "path";
 import {
   clearLocalDevOriginState,
@@ -12,19 +12,17 @@ import {
 const require = createRequire(import.meta.url);
 
 /**
- * Resolve the real React Router CLI entrypoint so native Windows does not rely
- * on shell shims to start the framework dev server.
+ * Resolve the real Vite CLI entrypoint so native Windows does not depend on
+ * shell-specific `${VITE_PORT:-5173}` expansion to start the frontend.
  */
-function resolveReactRouterCliEntrypoint() {
-  const reactRouterDevPackageJsonPath = require.resolve(
-    "@react-router/dev/package.json",
-  );
+function resolveViteCliEntrypoint() {
+  const vitePackageJsonPath = require.resolve("vite/package.json");
   return realpathSync(
-    path.join(path.dirname(reactRouterDevPackageJsonPath), "bin.js"),
+    path.join(path.dirname(vitePackageJsonPath), "bin", "vite.js"),
   );
 }
 
-function splitPortArgs(args) {
+function splitVitePortArgs(args) {
   const passthroughArgs = [];
   let port = null;
 
@@ -57,21 +55,20 @@ function splitPortArgs(args) {
 }
 
 const cliArgs = process.argv.slice(2);
-const { passthroughArgs, port: cliPort } = splitPortArgs(cliArgs);
-const frontendPort =
+const { passthroughArgs, port: cliPort } = splitVitePortArgs(cliArgs);
+// Trust an already-selected VITE_PORT so predev-selected SITE_URL and the later
+// Vite listener stay pinned to the same localhost origin.
+const vitePort =
   cliPort ??
   readConfiguredLocalDevPort(process.env) ??
   resolveLocalDevPort(process.env);
-
-writeLocalDevOriginState(`http://localhost:${frontendPort}`);
-
+writeLocalDevOriginState(`http://localhost:${vitePort}`);
 const launchArgs = [
-  resolveReactRouterCliEntrypoint(),
-  "dev",
+  resolveViteCliEntrypoint(),
   "--host",
   "0.0.0.0",
   "--port",
-  frontendPort,
+  vitePort,
   "--strictPort",
   ...passthroughArgs,
 ];

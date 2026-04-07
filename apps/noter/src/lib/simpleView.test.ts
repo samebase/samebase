@@ -335,7 +335,7 @@ describe("filterSimpleViewTreeItems", () => {
     { path: ".husky", type: "tree" as const },
     { path: ".husky/pre-commit", type: "blob" as const },
     { path: "src", type: "tree" as const },
-    { path: "src/root.tsx", type: "blob" as const },
+    { path: "src/main.tsx", type: "blob" as const },
     { path: "docs", type: "tree" as const },
     { path: "docs/guide.md", type: "blob" as const },
     { path: "tsconfig.base.json", type: "blob" as const },
@@ -372,14 +372,14 @@ describe("filterSimpleViewTreeItems", () => {
 
   it("keeps always-included files even when simple-view rules exclude them", () => {
     const filtered = filterSimpleViewTreeItems(tree, ["src/**"], {
-      alwaysIncludePaths: ["src/root.tsx"],
+      alwaysIncludePaths: ["src/main.tsx"],
     });
 
     expect(filtered).toEqual([
       { path: ".husky", type: "tree" },
       { path: ".husky/pre-commit", type: "blob" },
       { path: "src", type: "tree" },
-      { path: "src/root.tsx", type: "blob" },
+      { path: "src/main.tsx", type: "blob" },
       { path: "docs", type: "tree" },
       { path: "docs/guide.md", type: "blob" },
       { path: "tsconfig.base.json", type: "blob" },

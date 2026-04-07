@@ -412,8 +412,7 @@ function resolveCloudflareBuildConfig(vault: {
     return {
       rootDir: "apps/noter",
       buildCommand: "npx convex deploy --cmd 'pnpm run build'",
-      // React Router SPA mode publishes the static app from build/client.
-      destinationDir: "build/client",
+      destinationDir: "dist",
     };
   }
   return {

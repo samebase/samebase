@@ -190,6 +190,42 @@ export function resolvePageMetadata(args: {
   };
 }
 
+export function resolveBootstrapPageMetadata(pathname: string): PageMetadata {
+  if (pathname === "/privacy") {
+    return PRIVACY_PAGE_METADATA;
+  }
+
+  if (pathname === "/terms") {
+    return TERMS_PAGE_METADATA;
+  }
+
+  if (pathname === "/pitch") {
+    return PITCH_DECK_PAGE_METADATA;
+  }
+
+  if (pathname === "/pitch/print") {
+    return PITCH_DECK_PRINT_PAGE_METADATA;
+  }
+
+  if (pathname === "/pitch/print/mobile") {
+    return PITCH_DECK_MOBILE_PRINT_PAGE_METADATA;
+  }
+
+  if (pathname === MACHINE_CONNECT_ROUTE) {
+    return MACHINE_CONNECT_PAGE_METADATA;
+  }
+
+  if (pathname === MACHINES_ROUTE) {
+    return MACHINES_PAGE_METADATA;
+  }
+
+  return {
+    ...APP_PAGE_METADATA,
+    canonicalPath: pathname,
+    title: resolveAppPageTitle(pathname),
+  };
+}
+
 function resolveSiteOrigin(): string {
   return DEFAULT_SITE_ORIGIN;
 }

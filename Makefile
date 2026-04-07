@@ -57,8 +57,8 @@ anon:
 	$(ANON_REFRESH_AUTH_KEYS_CMD)
 	$(MAKE) anon-dev ANON_VITE_PORT="$(ANON_VITE_PORT)"
 
-# `apps/noter/scripts/run-react-router-dev.js` consumes `VITE_PORT` and chooses
-# the actual frontend port, while `NOTER_DEV_PORT`/`NOTER_DEV_STRICT_PORT` let
+# `apps/noter/scripts/run-vite-dev.js` consumes `VITE_PORT` and chooses the
+# actual frontend port, while `NOTER_DEV_PORT`/`NOTER_DEV_STRICT_PORT` let
 # Vite's config mirror that choice for share/proxy flows.
 # Long-lived anonymous local dev after bootstrap/seed setup has completed.
 anon-dev:

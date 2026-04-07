@@ -244,48 +244,21 @@ describe("page metadata", () => {
       "Codex Thread Browser Research | noter",
     );
   });
-
-  it("keeps the public homepage metadata and framework document shell aligned", () => {
-    withFakeDocument((document) => {
-      applyPageMetadata(
-        resolvePageMetadata({
-          pathname: "/",
-          isAuthenticated: false,
-        }),
-      );
-
-      expect(document.title).toBe(
-        "noter | GitHub-backed markdown notes and AI workspace",
-      );
-      expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
-        "https://noter.md/",
-      );
-      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe(
-        "index,follow",
-      );
-      expect(
-        getHeadAttribute(document, 'meta[property="og:url"]', "content"),
-      ).toBe("https://noter.md/");
-      expect(
-        getHeadAttribute(document, 'meta[property="og:image"]', "content"),
-      ).toBe("https://noter.md/noter-social-card.png");
-      expect(
-        getHeadAttribute(document, 'meta[name="twitter:image"]', "content"),
-      ).toBe("https://noter.md/noter-social-card.png");
+  it("keeps the raw html shell aligned with the real public homepage", () => {
+    const html = readFileSync(new URL("../../index.html", import.meta.url), {
+      encoding: "utf8",
     });
 
-    const rootDocumentSource = readFileSync(
-      new URL("../root.tsx", import.meta.url),
-      {
-        encoding: "utf8",
-      },
+    expect(html).toContain('name="robots" content="index,follow"');
+    expect(html).toContain('<link rel="canonical" href="https://noter.md/"');
+    expect(html).toContain('property="og:url" content="https://noter.md/"');
+    expect(html).toContain(
+      'property="og:image"\n      content="https://noter.md/noter-social-card.png"',
     );
-
-    expect(rootDocumentSource).toContain('rel="manifest"');
-    expect(rootDocumentSource).toContain('href="/manifest.webmanifest"');
-    expect(rootDocumentSource).toContain('rel="apple-touch-icon"');
-    expect(rootDocumentSource).toContain('href="/apple-touch-icon.png"');
-    expect(rootDocumentSource).toContain('href="/favicon.png"');
-    expect(rootDocumentSource).toContain('href="/favicon-32.png"');
+    expect(html).toContain('name="twitter:image"');
+    expect(html).toContain('<link rel="manifest" href="/manifest.webmanifest"');
+    expect(html).toContain(
+      '<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />',
+    );
   });
 });

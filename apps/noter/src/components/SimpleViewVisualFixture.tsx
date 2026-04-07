@@ -27,7 +27,7 @@ const FIXTURE_TREE: TreeItem[] = [
   { path: "noter.md", type: "blob" },
   { path: "src", type: "tree" },
   { path: "src/App.tsx", type: "blob" },
-  { path: "src/root.tsx", type: "blob" },
+  { path: "src/main.tsx", type: "blob" },
   { path: "convex", type: "tree" },
   { path: "convex/schema.ts", type: "blob" },
 ];
