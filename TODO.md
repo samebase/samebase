@@ -2,6 +2,7 @@
 
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] specifically left blank
+- [ ] currently I manually set the cf preview for my app; theoretically I'd want them to be auto added to their own cloudflare pages deploys, and it also would be nice to only deploy it when it actually changes (inside the monorepo) that way we stay under cloudflare's 500 per month budget 
 - [ ] aplicatia sa fie folosita si de mama, ca ea sa poata faca un "to buy at groceries store" app that she can use and share; think about auth in this case; needs to be simple, but email+pass requires resend; we can provide/sell this on top of resend by default, but you can use your own apikey/auth; google is simpler, but they'll need to use gcp, and that's hard; we can provide the same wrapper on top of google auth instead of on resend!, it's the same thing!!
 - [ ] https://github.com/tailwindlabs/tailwindcss/issues/18165
 - [ ] https://chatgpt.com/codex/tasks/task_e_69b32c1fa778832ba6b6b53fd16eb50e
@@ -22,7 +23,7 @@
 - [ ] research slogan idea: the same way there are preview frontend (cloudflare) deploys, preview backend (convex) deploys, now you have dev (noter.md) deploys 
 
 - [ ] research this idea then come up with a slogan; the idea is to allow people to import their existing lovable project and we create a plan to transform it and actually do it since the user provides codex;
-
+github 
 - [ ] a cool thing we can do when keyboard is opened on mobile is to just shift the whole page up, we usually care more about text when writing? 
 
 - [ ] it should be possible to make sidebar peak a bit before you let go
