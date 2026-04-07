@@ -99,7 +99,7 @@ Primary file targets:
 - `apps/noter/src/root.tsx`
 - `apps/noter/src/entry.client.tsx`
 - `apps/noter/src/routes.ts`
-- `apps/noter/src/routes/catchall.tsx`
+- `apps/noter/src/catchall.tsx`
 
 Required work:
 

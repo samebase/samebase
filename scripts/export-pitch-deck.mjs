@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 const scriptDir = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(scriptDir, '..')
 const appDir = path.join(repoRoot, 'apps/noter')
-const appDistDir = path.join(appDir, 'dist')
+const appClientBuildDir = path.join(appDir, 'build/client')
 const previewPort = Number.parseInt(
   process.env.PITCH_DECK_EXPORT_PORT ?? '43129',
   10,
@@ -17,7 +17,7 @@ const requireFromApp = createRequire(path.join(appDir, 'package.json'))
 const { chromium } = requireFromApp('@playwright/test')
 const exportTargets = [
   {
-    outputPath: path.join(appDistDir, 'pitch-deck.pdf'),
+    outputPath: path.join(appClientBuildDir, 'pitch-deck.pdf'),
     route: '/pitch/print',
     viewport: {
       width: 1280,
@@ -29,7 +29,7 @@ const exportTargets = [
     },
   },
   {
-    outputPath: path.join(appDistDir, 'pitch-deck-mobile.pdf'),
+    outputPath: path.join(appClientBuildDir, 'pitch-deck-mobile.pdf'),
     route: '/pitch/print/mobile',
     viewport: {
       width: 720,
@@ -64,7 +64,7 @@ async function waitForPreviewServer(url) {
 }
 
 async function ensureBuiltAppExists() {
-  await access(path.join(appDistDir, 'index.html'))
+  await access(path.join(appClientBuildDir, 'index.html'))
 }
 
 async function main() {
@@ -76,6 +76,8 @@ async function main() {
       'exec',
       'vite',
       'preview',
+      '--outDir',
+      'build/client',
       '--host',
       '127.0.0.1',
       '--port',
