@@ -641,28 +641,48 @@ function renderVisualFixtureModeDirectory({
   );
 }
 
-const selection = readSelection();
-const showGestureDebugOverlay = isMobileSidebarDebugEnabled(
-  window.location.search,
-);
+// Share one fixture bootstrap path between the legacy standalone HTML entry and
+// the temporary framework route bridge.
+export function mountVisualFixture(container: Element) {
+  const selection = readSelection();
+  const showGestureDebugOverlay = isMobileSidebarDebugEnabled(
+    window.location.search,
+  );
+  const root = ReactDOM.createRoot(container);
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-      <ConvexAuthProvider client={client}>
-        <QueryProvider>
-          <DialogProvider>
-            {showGestureDebugOverlay ? <GlobalGestureDebugOverlay /> : null}
-            {selection.status === "missing"
-              ? renderVisualFixtureModeDirectory({})
-              : selection.status === "invalid"
-                ? renderVisualFixtureModeDirectory({
-                    invalidMode: selection.value,
-                  })
-                : renderVisualFixture(selection.mode)}
-          </DialogProvider>
-        </QueryProvider>
-      </ConvexAuthProvider>
-    </ThemeProvider>
-  </StrictMode>,
-);
+  root.render(
+    <StrictMode>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="light"
+        enableSystem={false}
+      >
+        <ConvexAuthProvider client={client}>
+          <QueryProvider>
+            <DialogProvider>
+              {showGestureDebugOverlay ? <GlobalGestureDebugOverlay /> : null}
+              {selection.status === "missing"
+                ? renderVisualFixtureModeDirectory({})
+                : selection.status === "invalid"
+                  ? renderVisualFixtureModeDirectory({
+                      invalidMode: selection.value,
+                    })
+                  : renderVisualFixture(selection.mode)}
+            </DialogProvider>
+          </QueryProvider>
+        </ConvexAuthProvider>
+      </ThemeProvider>
+    </StrictMode>,
+  );
+
+  return () => {
+    root.unmount();
+  };
+}
+
+const standaloneRoot =
+  typeof document !== "undefined" ? document.getElementById("root") : null;
+
+if (standaloneRoot) {
+  mountVisualFixture(standaloneRoot);
+}

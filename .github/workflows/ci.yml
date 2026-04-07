@@ -157,9 +157,9 @@ jobs:
           CONVEX_AGENT_MODE: anonymous
         run: node predev.js
 
-      - name: Run Vite wrapper smoke on Windows
+      - name: Run React Router wrapper smoke on Windows
         working-directory: apps/noter
-        run: node scripts/run-vite-dev.js --version
+        run: node scripts/run-react-router-dev.js --version
 
   ci:
     name: ci (24.x)
