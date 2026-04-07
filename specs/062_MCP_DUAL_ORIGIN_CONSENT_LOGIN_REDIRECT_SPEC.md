@@ -78,10 +78,9 @@ flow currently defaults back to `SITE_URL` instead of the current consent route.
 3. The remaining bug is the next hop: once the user reaches the consent route,
    the browser login flow still behaves like a generic landing-page sign-in and
    forgets the active MCP consent request.
-4. The fast landing bootstrap in `apps/noter/src/bootstrap.ts` is not the
-   protocol bug itself, but it makes the failure obvious because the browser
-   lands back on `/` after auth and shows the public landing shell instead of
-   returning to consent.
+4. The prerendered public landing route is not the protocol bug itself, but it
+   makes the failure obvious because the browser lands back on `/` after auth
+   and shows the public landing UI instead of returning to consent.
 
 ## Goals
 

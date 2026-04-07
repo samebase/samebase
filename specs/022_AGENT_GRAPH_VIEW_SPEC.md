@@ -12,7 +12,7 @@
   - `apps/noter/src/components/FileView.tsx`
   - `apps/noter/src/components/FileViewDeveloperTools.tsx`
   - `apps/noter/src/components/CodeEditor.tsx`
-  - `apps/noter/src/main.tsx`
+  - `apps/noter/src/root.tsx`
 
 ## Summary
 
@@ -74,7 +74,7 @@ Positions:
 1. Dependency
 
    - Add `@xyflow/react` to `apps/noter/package.json`.
-   - Import `@xyflow/react/dist/style.css` from `apps/noter/src/main.tsx`.
+   - Import `@xyflow/react/dist/style.css` from `apps/noter/src/root.tsx`.
 
 2. New Component
 

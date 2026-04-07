@@ -6,13 +6,16 @@
 - Owner: Noter frontend/workspace shell
 - Last updated: 2026-04-07
 - Depends on:
-  - `apps/noter/index.html`
   - `apps/noter/package.json`
+  - `apps/noter/react-router.config.ts`
   - `apps/noter/vite.config.ts`
-  - `apps/noter/src/main.tsx`
-  - `apps/noter/src/bootstrap.ts`
   - `apps/noter/src/App.tsx`
   - `apps/noter/src/Layout.tsx`
+  - `apps/noter/src/root.tsx`
+  - `apps/noter/src/entry.client.tsx`
+  - `apps/noter/src/routes.ts`
+  - `apps/noter/src/home.tsx`
+  - `apps/noter/src/catchall.tsx`
   - `apps/noter/src/SignInForm.tsx`
   - `apps/noter/src/SignInForm.scrollRestore.test.tsx`
   - `apps/noter/src/components/AppBuildStatusBar.tsx`
@@ -30,7 +33,6 @@
   - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame.tsx`
   - `apps/noter/src/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface.ts`
   - `apps/noter/src/components/useProsemarkMobilePaneDrag.ts`
-  - `apps/noter/src/lib/fastLandingBoot.ts`
   - `apps/noter/src/lib/landingCopyShell.ts`
   - `apps/noter/src/lib/pageMetadata.ts`
   - `apps/noter/src/lib/publicLandingAuthState.ts`
@@ -62,22 +64,16 @@ Those shared wrappers should be reimplemented on top of `WorkspaceLayoutV2`
 while preserving each route's current chrome, scroll ownership, focus behavior,
 touch behavior, and editor lifetime.
 
-This spec also adds a framework-readiness constraint. Noter still runs through a
-plain `BrowserRouter` plus a monolithic `<Routes>` tree in `App.tsx`. Route
-shell work should not deepen that coupling if the team decides to migrate to a
-Vite plus React Router framework architecture next.
+This spec also adds a framework-readiness constraint. Noter now boots through
+React Router framework mode, but most live URLs still depend on a temporary
+`home.tsx` and `catchall.tsx` bridge into a monolithic `<Routes>` tree in
+`App.tsx`. Route shell work should not deepen that temporary coupling while the
+rest of the migration continues.
 
-The strongest architectural reason to think about that framework migration now
-is not the `<Routes>` tree by itself. The strongest reason is that the public
-landing experience still runs through a separate bootstrap path:
-
-- `index.html`
-- `bootstrap.ts`
-- handwritten DOM rendering and event binding
-- delayed import of the real React app in `main.tsx`
-
-That split-brain boot path is accepted today only as current state, not as a
-target architecture.
+The strongest remaining architectural reason to keep thinking about that
+framework migration now is that route ownership is still split awkwardly: `/` is
+already a prerendered framework route, but the rest of the product surface still
+routes through `App.tsx` as a compatibility bridge.
 
 More specifically, the accepted route-level shell contract should line up with
 the likely future layout-route boundaries:
@@ -101,9 +97,8 @@ The current state is split in an awkward way:
    chrome that does not fit that compact pane-header contract.
 5. Mobile editor drag in `FileView` still depends on the old shell-owned
    imperative bridge rather than the new v2 drag-surface contract.
-6. The public landing surface still runs through a custom bootstrap path that
-   renders raw HTML, binds DOM listeners manually, applies metadata outside the
-   normal React tree, and only later imports the real app.
+6. The public landing surface now prerenders through the framework runtime, but
+   the broader app still routes through `App.tsx` as a temporary bridge.
 
 Without a spec, route migrations will drift toward the easiest local rewrite:
 
@@ -113,8 +108,8 @@ Without a spec, route migrations will drift toward the easiest local rewrite:
   template
 - preserve the current `BrowserRouter`-centric route tree by accident rather
   than by deliberate choice
-- preserve the current bootstrap split-brain by building around it instead of
-  deleting it
+- preserve the current `home.tsx` and `catchall.tsx` compatibility bridge by
+  building around it instead of deleting it
 
 That is the wrong direction. The route migration should preserve product
 behavior first, reduce shell duplication second, and stay compatible with a
@@ -164,12 +159,16 @@ That means the route migration problem is now route-level, not app-level.
 
 ### Router shape
 
-The app still mounts through `BrowserRouter` in `main.tsx`, and `App.tsx`
-contains the live `<Routes>` tree. That shape is valid today, but it is not a
-good reason to entrench route-local shell rewrites.
+The app now boots through React Router framework mode. `root.tsx` owns the
+document and provider shell, `routes.ts` maps `/` to `home.tsx`, and the rest of
+the route space currently flows through `catchall.tsx`. Both bridge modules
+still render `App.tsx`, which contains the live `<Routes>` tree.
 
-If the team chooses to migrate to React Router framework mode later, the route
-layout components introduced by this spec should survive that move.
+That shape is a valid migration bridge today, but it is not a good reason to
+entrench route-local shell rewrites.
+
+If the team continues migrating deeper into React Router framework mode, the
+route layout components introduced by this spec should survive that move.
 
 The intended future mapping is:
 
@@ -182,29 +181,21 @@ The intended future mapping is:
 The migration work in this spec should make that later route-module extraction
 easier, not harder.
 
-### Bootstrap split-brain
+### Framework bridge
 
-The app currently has two frontend entry paths:
+The old bootstrap split-brain is gone. The remaining bridge now looks like:
 
-1. the real React app path:
-   `main.tsx -> BrowserRouter -> App.tsx -> Layout.tsx -> routes`
-2. the public landing bootstrap path:
-   `index.html -> bootstrap.ts -> renderFastLandingShell() -> import("./main")`
+1. framework landing path: `root.tsx -> routes.ts -> home.tsx -> App.tsx`
+2. framework catchall compatibility path:
+   `root.tsx -> routes.ts -> catchall.tsx -> App.tsx`
 
-The second path is the bigger architectural smell.
+That is much simpler than the old
+`index.html -> bootstrap.ts -> import("./main")` entry split, but it is still
+temporary architecture. `App.tsx` continues to own most live route matching,
+auth branching, and special pages after hydration.
 
-Today `bootstrap.ts` is responsible for work that ideally belongs to the normal
-route tree:
-
-- deciding whether the landing page should bypass the app initially
-- rendering public landing markup through string HTML rather than React
-- binding event listeners directly against DOM nodes
-- applying page metadata outside the normal React metadata path
-- handing off scroll position and waitlist draft state from the fake shell to
-  the real route
-
-If the team adopts React Router framework mode, deleting that second path is a
-primary simplification opportunity.
+If the team continues the React Router migration, deleting this compatibility
+bridge remains a primary simplification opportunity.
 
 ### Old route shell
 
@@ -519,42 +510,43 @@ If the team adopts React Router framework mode as part of this broader route
 contract cleanup, the following code becomes a direct deletion or reduction
 target.
 
-### Direct deletions
+### Completed deletions
 
-These are tightly coupled to the current split bootstrap path:
+These simplifications are already complete in the current framework branch:
 
 1. `apps/noter/src/bootstrap.ts`
 2. `apps/noter/src/lib/fastLandingBoot.ts`
 3. `resolveBootstrapPageMetadata()` inside `apps/noter/src/lib/pageMetadata.ts`
 4. `shouldRenderFastLandingShell()` inside
    `apps/noter/src/lib/publicLandingAuthState.ts`
-5. `apps/noter/e2e/public-landing-shell.spec.ts`
+5. `apps/noter/src/main.tsx`
+6. `apps/noter/index.html`
 
 ### Likely follow-on deletions
 
-These should disappear once the landing page renders only through the real route
-tree and no longer needs bootstrap parity:
+These should disappear once the landing page and route metadata no longer need
+bootstrap-era parity helpers:
 
-1. `apps/noter/src/lib/publicLandingScrollState.ts`
-2. `apps/noter/src/SignInForm.scrollRestore.test.tsx`
-3. `apps/noter/src/lib/landingCopyShell.ts`
-4. the bootstrap parity mode inside
+1. `apps/noter/e2e/public-landing-shell.spec.ts`
+2. `apps/noter/src/lib/publicLandingScrollState.ts`
+3. `apps/noter/src/SignInForm.scrollRestore.test.tsx`
+4. `apps/noter/src/lib/landingCopyShell.ts`
+5. the bootstrap parity mode inside
    `apps/noter/src/components/LandingCopyVisualFixture.tsx`
-5. the related parity-only modes inside `apps/noter/src/visualFixture.tsx`
-6. parity assertions in `apps/noter/e2e/landing-copy-visual.spec.ts`
+6. the related parity-only modes inside `apps/noter/src/visualFixture.tsx`
+7. parity assertions in `apps/noter/e2e/landing-copy-visual.spec.ts`
 
-### Major reductions
+### Remaining major reductions
 
 These are strong simplification targets even if they are not deleted
 immediately:
 
 1. `apps/noter/src/App.tsx` should stop being the central pathname switchboard
    for special pages, auth branching, and route rendering
-2. `apps/noter/src/main.tsx` should be replaced by a much thinner framework
-   entry client
-3. `apps/noter/index.html` should stop owning the document shell and should
-   likely disappear in favor of a route-aware root entry
-4. metadata resolution in `apps/noter/src/lib/pageMetadata.ts` and
+2. temporary bridge routes in `apps/noter/src/home.tsx` and
+   `apps/noter/src/catchall.tsx` should disappear once live routes migrate out
+   of `App.tsx`
+3. metadata resolution in `apps/noter/src/lib/pageMetadata.ts` and
    `apps/noter/src/lib/usePageMetadata.ts` should shrink once route modules own
    their metadata closer to the route
 
@@ -574,7 +566,8 @@ following are true:
 6. route-level Playwright coverage confirms scroll, focus, touch, and pane
    escape behavior under the migrated shell
 7. if framework mode is adopted as part of the migration, the public landing
-   route no longer depends on a separate bootstrap shell path
+   route no longer depends on the temporary `home.tsx` and `catchall.tsx`
+   compatibility bridge
 
 Wrapper names such as `RepositoryWorkspaceFrame` and `DashboardWorkspaceLayout`
 may remain if their implementations have moved to v2. What must be deleted is

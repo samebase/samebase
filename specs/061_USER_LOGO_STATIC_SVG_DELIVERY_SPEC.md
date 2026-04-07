@@ -275,13 +275,13 @@ The user-facing route or component that displays the logo must remain
 independent from the playground chunk. A user who only needs the product logo
 must not download the interactive playground implementation.
 
-This applies especially to `apps/noter/src/bootstrap.ts` and the public landing
-route:
+This applies especially to the framework-owned public landing route:
 
-- the fast shell must reference a committed public asset path such as
-  `/favicon.svg`
-- the bootstrap module must not import `logoStaticSvgAsset.ts`,
+- the prerendered landing route must reference a committed public asset path
+  such as `/favicon.svg`
+- the landing route and document shell must not import `logoStaticSvgAsset.ts`,
   `logoThreeSvgRenderer.ts`, `logoIsometricRenderer.ts`, or any scene module
+  into the initial landing path
 - if the landing shell needs faster image discovery than the JS-inserted `<img>`
   alone provides, use HTML image preload metadata instead of importing renderer
   code into the shell bundle

@@ -2,22 +2,26 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: In progress
 - Owner: Noter frontend/app shell
 - Last updated: 2026-04-07
 - Depends on:
   - `apps/noter/package.json`
   - `apps/noter/vite.config.ts`
-  - `apps/noter/index.html`
-  - `apps/noter/src/main.tsx`
+  - `apps/noter/react-router.config.ts`
+  - `apps/noter/src/root.tsx`
+  - `apps/noter/src/entry.client.tsx`
+  - `apps/noter/src/routes.ts`
+  - `apps/noter/src/home.tsx`
+  - `apps/noter/src/catchall.tsx`
   - `apps/noter/src/App.tsx`
   - `apps/noter/src/Layout.tsx`
-  - `apps/noter/src/bootstrap.ts`
   - `apps/noter/src/lib/pageMetadata.ts`
   - `apps/noter/src/lib/publicLandingAuthState.ts`
-  - `apps/noter/src/lib/fastLandingBoot.ts`
   - `apps/noter/src/lib/landingCopyShell.ts`
   - `apps/noter/src/lib/publicLandingScrollState.ts`
+  - `apps/noter/public/_redirects`
+  - `apps/noter/scripts/run-react-router-dev.js`
   - `apps/noter/src/components/workspace-layout/RepositoryWorkspaceFrame.tsx`
   - `apps/noter/src/components/workspace-layout/DashboardWorkspaceLayout.tsx`
   - `apps/noter/src/components/workspace-layout/VaultDashboardWorkspaceScene.tsx`
@@ -34,7 +38,8 @@ This RFC defines a concrete migration plan for moving Noter from the current
 The migration should follow the official
 [Framework Adoption from Component Routes](https://reactrouter.com/upgrading/component-routes)
 guide, but adapted to Noter's monorepo structure, Convex runtime, custom Vite
-setup, and split public-landing bootstrap path.
+setup, prerendered public landing route, and remaining `App.tsx` compatibility
+bridge.
 
 The key sequencing rule is:
 
@@ -62,6 +67,27 @@ The key sequencing rule is:
 2. Blocking framework adoption on starter-template cleanup.
 3. Combining route-module extraction with a fresh workspace-shell redesign.
 4. Preserving `bootstrap.ts` as a long-term architecture path.
+
+## Current branch status
+
+Implemented on the current framework branch:
+
+1. Phase 1 is complete enough to boot through React Router framework mode:
+   `reactRouter()` is in Vite, `react-router.config.ts` exists, and the app now
+   starts through `root.tsx`, `entry.client.tsx`, `routes.ts`, `home.tsx`, and
+   `catchall.tsx`.
+2. Phase 2 is effectively complete for provider ownership: the framework root
+   owns the document shell and provider stack, and `main.tsx` is deleted.
+3. Phase 4 is mostly complete for the landing path: `/` is prerendered via
+   `prerender: ["/"]`, `build/client/index.html` contains the real landing
+   markup, `_redirects` falls back to `__spa-fallback.html`, and the old
+   `index.html` plus `bootstrap.ts` entry path is gone.
+4. Temporary bridge code still exists by design: `home.tsx` and `catchall.tsx`
+   both render `App.tsx`, and `App.tsx` still owns most live route matching,
+   auth branching, and route-level metadata decisions after hydration.
+5. The visual fixture surface is still intentionally reachable through a
+   framework route at `/visual-fixture.html` while the rest of the migration
+   continues.
 
 ## Migration Plan
 
@@ -271,10 +297,14 @@ compatibility code that can immediately be removed.
 
 Cleanup targets:
 
-1. `apps/noter/index.html` after its responsibilities have moved into `root.tsx`
-2. `apps/noter/src/main.tsx` after the provider bootstrap has fully moved into
-   the framework runtime
-3. bootstrap-only metadata helpers and landing parity helpers
+1. temporary bridge routes in `apps/noter/src/home.tsx` and
+   `apps/noter/src/catchall.tsx` after live routes no longer depend on the
+   component-route tree
+2. bootstrap-era metadata helpers, landing parity helpers, and landing parity
+   tests that are no longer needed now that `/` prerenders through the framework
+   runtime
+3. central pathname switching inside `App.tsx` and `pageMetadata.ts` once route
+   modules own the remaining live URLs
 4. `@types/react-router-dom` if it is no longer needed after the framework move
 
 Required validation:
@@ -288,8 +318,9 @@ Required validation:
 
 ## Risks and constraints
 
-1. The biggest integration risk is not the route table itself; it is the custom
-   landing bootstrap path in `bootstrap.ts`.
+1. The biggest remaining integration risk is not the framework boot path
+   anymore; it is the temporary `home.tsx` and `catchall.tsx` bridge that still
+   routes most live URLs through `App.tsx`.
 2. The biggest workflow risk is dropping Noter's custom Vite behavior while
    swapping to `reactRouter()`.
 3. The biggest product risk is claiming repository routes are migrated before
