@@ -42,16 +42,6 @@ function isKnownUnauthenticatedLandingVisit(location: PathWithSearch): boolean {
   );
 }
 
-export function shouldRenderFastLandingShell(
-  location: PathWithSearch,
-): boolean {
-  const searchParams = new URLSearchParams(location.search);
-  return (
-    isKnownUnauthenticatedLandingVisit(location) &&
-    !isLandingDevModeEnabled(searchParams)
-  );
-}
-
 export function shouldRenderPublicLandingWithoutAuthGate(
   location: PathWithSearch,
 ): boolean {
