@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   WorkspaceScene,
   type WorkspaceBottomDockRenderProps,
@@ -45,7 +45,7 @@ describe("WorkspaceScene", () => {
       mountedRoot.render(
         <WorkspaceScene
           workspaceBody={<div data-testid="workspace-scene-body">body</div>}
-          bottomDock={(props) => <TestDock {...props} />}
+          bottomDock={props => <TestDock {...props} />}
         />,
       );
     });

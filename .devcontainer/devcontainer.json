@@ -15,15 +15,20 @@
   "customizations": {
     "vscode": {
       "extensions": [
+        "VoidZero.vite-plus-extension-pack",
         "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
         "bradlc.vscode-tailwindcss",
         "letmaik.git-tree-compare"
       ],
       "settings": {
         "npm.packageManager": "pnpm",
         "editor.formatOnSave": true,
-        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.defaultFormatter": "oxc.oxc-vscode",
+        "oxc.fmt.configPath": "./vite.config.ts",
+        "editor.formatOnSaveMode": "file",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.oxc": "explicit"
+        },
         "terminal.integrated.defaultProfile.linux": "fish",
         "terminal.integrated.profiles.linux": {
           "fish": {

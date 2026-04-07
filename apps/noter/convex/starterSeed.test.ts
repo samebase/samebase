@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   buildTreeEntriesForManifest,
   seedRepositoryWithStarter,
@@ -22,10 +22,8 @@ function makeGitClient(options?: {
   const createCommitCalls: Parameters<
     StarterSeedGitClient["createCommit"]
   >[0][] = [];
-  const createRefCalls: Parameters<StarterSeedGitClient["createRef"]>[0][] =
-    [];
-  const updateRefCalls: Parameters<StarterSeedGitClient["updateRef"]>[0][] =
-    [];
+  const createRefCalls: Parameters<StarterSeedGitClient["createRef"]>[0][] = [];
+  const updateRefCalls: Parameters<StarterSeedGitClient["updateRef"]>[0][] = [];
   const createBootstrapCommitCalls: Parameters<
     StarterSeedGitClient["createBootstrapCommit"]
   >[0][] = [];
@@ -38,7 +36,7 @@ function makeGitClient(options?: {
   let didBootstrap = false;
 
   const client: StarterSeedGitClient = {
-    createTree: async (args) => {
+    createTree: async args => {
       createTreeCalls.push(args);
       if (
         !didFailCreateTree &&
@@ -63,22 +61,22 @@ function makeGitClient(options?: {
       treeCounter += 1;
       return { sha: `tree-${treeCounter}` };
     },
-    createCommit: async (args) => {
+    createCommit: async args => {
       createCommitCalls.push(args);
       commitCounter += 1;
       return { sha: `commit-${commitCounter}` };
     },
-    createRef: async (args) => {
+    createRef: async args => {
       createRefCalls.push(args);
       if (options?.createRefAlreadyExistsOnce && !didThrowRefExists) {
         didThrowRefExists = true;
         throw makeErrorWithStatus(422, "Reference already exists");
       }
     },
-    updateRef: async (args) => {
+    updateRef: async args => {
       updateRefCalls.push(args);
     },
-    createBootstrapCommit: async (args) => {
+    createBootstrapCommit: async args => {
       createBootstrapCommitCalls.push(args);
       didBootstrap = true;
       bootstrapCounter += 1;
@@ -104,7 +102,7 @@ describe("buildTreeEntriesForManifest", () => {
       "convex/schema.ts": "schema",
     });
 
-    expect(entries.map((entry) => entry.path)).toEqual([
+    expect(entries.map(entry => entry.path)).toEqual([
       "convex/schema.ts",
       "README.md",
       "src/main.tsx",

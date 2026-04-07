@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:net";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import {
   readConfiguredLocalDevPort,
@@ -36,7 +36,7 @@ const reserveFreePort = async () =>
         return;
       }
 
-      server.close((error) => {
+      server.close(error => {
         if (error) {
           reject(error);
           return;

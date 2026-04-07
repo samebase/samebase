@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 import {
   deriveCodexThreadTimelineEntries,
@@ -98,7 +98,7 @@ describe("deriveCodexThreadTimelineEntries", () => {
       ],
     });
 
-    expect(entries.map((entry) => entry.kind)).toEqual([
+    expect(entries.map(entry => entry.kind)).toEqual([
       "message",
       "work",
       "message",
@@ -112,7 +112,7 @@ describe("deriveCodexThreadTimelineEntries", () => {
       throw new Error("Expected a work group.");
     }
 
-    expect(workGroup.entries.map((entry) => entry.title)).toEqual([
+    expect(workGroup.entries.map(entry => entry.title)).toEqual([
       "Command",
       "File changes",
     ]);
@@ -197,7 +197,7 @@ describe("deriveCodexThreadTimelineEntries", () => {
       ],
     });
 
-    expect(entries.map((entry) => entry.kind)).toEqual(["work", "work"]);
+    expect(entries.map(entry => entry.kind)).toEqual(["work", "work"]);
 
     const infoGroup = entries[0];
     if (infoGroup.kind !== "work") {
@@ -213,15 +213,15 @@ describe("deriveCodexThreadTimelineEntries", () => {
     if (toolGroup.kind !== "work") {
       throw new Error("Expected a tool work group.");
     }
-    expect(toolGroup.entries.map((entry) => entry.category)).toEqual([
+    expect(toolGroup.entries.map(entry => entry.category)).toEqual([
       "tool",
       "tool",
     ]);
-    expect(toolGroup.entries.map((entry) => entry.title)).toEqual([
+    expect(toolGroup.entries.map(entry => entry.title)).toEqual([
       "MCP tool",
       "Tool call",
     ]);
-    expect(toolGroup.entries.map((entry) => entry.preview)).toEqual([
+    expect(toolGroup.entries.map(entry => entry.preview)).toEqual([
       "github/fetch_pr",
       "apply_patch",
     ]);

@@ -255,7 +255,7 @@ export const ensureCodespaceReady = action({
           break;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
       }
     }
 
@@ -326,13 +326,18 @@ function generateDevcontainerConfig(): string {
     customizations: {
       vscode: {
         extensions: [
+          "VoidZero.vite-plus-extension-pack",
           "dbaeumer.vscode-eslint",
-          "esbenp.prettier-vscode",
           "bradlc.vscode-tailwindcss",
         ],
         settings: {
           "editor.formatOnSave": true,
-          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.defaultFormatter": "oxc.oxc-vscode",
+          "oxc.fmt.configPath": "./vite.config.ts",
+          "editor.formatOnSaveMode": "file",
+          "editor.codeActionsOnSave": {
+            "source.fixAll.oxc": "explicit",
+          },
         },
       },
     },

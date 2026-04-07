@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vite-plus/test";
 import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import {
   buildCommitPreviewFromStagedFiles,
@@ -167,7 +167,7 @@ const makeGetTreeResponse = (
     sha: treeSha,
     url: `https://api.github.com/repos/test-owner/test-repo/git/trees/${treeSha}`,
     truncated: options?.truncated ?? false,
-    tree: blobs.map((blob) => ({
+    tree: blobs.map(blob => ({
       path: blob.path,
       mode: "100644",
       type: "blob" as const,
@@ -1006,7 +1006,7 @@ describe("createCommitWithMultipleFiles", () => {
     }
 
     const todoEntry = createTreeCall.tree.find(
-      (entry) => entry.path === "TODO.md",
+      entry => entry.path === "TODO.md",
     );
     const committedContent = readInlineContent(todoEntry);
     expect(committedContent).toContain("- [ ] run a 2-week Augment Code pilot");
@@ -1082,7 +1082,7 @@ describe("createCommitWithMultipleFiles", () => {
     }
 
     const todoEntry = createTreeCall.tree.find(
-      (entry) => entry.path === "TODO.md",
+      entry => entry.path === "TODO.md",
     );
     const committedContent = readInlineContent(todoEntry);
     expect(committedContent).toBe(
@@ -1374,10 +1374,10 @@ describe("createCommitWithMultipleFiles", () => {
     expect(createTreeCall.tree.length).toBe(2);
 
     const deletionEntry = createTreeCall.tree.find(
-      (entry) => entry.path === "src/old-name.ts",
+      entry => entry.path === "src/old-name.ts",
     );
     const additionEntry = createTreeCall.tree.find(
-      (entry) => entry.path === "src/new-name.ts",
+      entry => entry.path === "src/new-name.ts",
     );
 
     expect(deletionEntry).toBeDefined();
@@ -1465,7 +1465,7 @@ describe("createCommitWithMultipleFiles", () => {
 
     // Verify all paths are present
     const paths = createTreeCall.tree
-      .map((entry) => entry.path)
+      .map(entry => entry.path)
       .filter((path): path is string => typeof path === "string");
     expect(paths).toContain("src/edit1.ts");
     expect(paths).toContain("src/edit2.ts");
@@ -1474,9 +1474,7 @@ describe("createCommitWithMultipleFiles", () => {
     expect(paths).toContain("src/renamed-new.ts");
 
     // Verify content-based entries for additions
-    const edit1Entry = createTreeCall.tree.find(
-      (e) => e.path === "src/edit1.ts",
-    );
+    const edit1Entry = createTreeCall.tree.find(e => e.path === "src/edit1.ts");
     expect(readInlineContent(edit1Entry)).toBe("new content 1");
   });
 

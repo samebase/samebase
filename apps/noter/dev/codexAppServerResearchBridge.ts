@@ -1,5 +1,5 @@
 import type { IncomingMessage } from "node:http";
-import type { Plugin, ViteDevServer } from "vite";
+import type { Plugin, ViteDevServer } from "vite-plus";
 
 import { CODEX_APP_SERVER_RESEARCH_API_BASE } from "../src/lib/codexAppServerResearch";
 import {

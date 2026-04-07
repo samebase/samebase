@@ -1,8 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import prettier from "prettier";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   renderDaytonaSandboxProgramsGeneratedTsModule,
   renderDaytonaAuthFallbackDockerfileCommands,
@@ -11,6 +10,7 @@ import {
   renderDaytonaRuntimeGeneratedTsModule,
   renderDockerfileDaytonaDeps,
 } from "../../../../runtime/daytonaRuntime.js";
+import { formatWithRepoVitePlus } from "../../../../scripts/vitePlusFormatting.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../../../..");
@@ -28,11 +28,10 @@ async function renderGeneratedTypeScript(
   relativePath: string,
   contents: string,
 ): Promise<string> {
-  return normalizeFileContents(
-    await prettier.format(contents, {
-      filepath: path.join(repoRoot, relativePath),
-    }),
-  );
+  return formatWithRepoVitePlus({
+    filepath: path.join(repoRoot, relativePath),
+    sourceText: contents,
+  });
 }
 
 describe("Daytona runtime source of truth", () => {

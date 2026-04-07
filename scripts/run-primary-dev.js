@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // @ts-check
-import { spawn } from 'node:child_process'
-import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+import { spawn } from "node:child_process";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
 
-import { resolveLocalDevPort } from '../apps/noter/convex-local-utils.js'
-import { normalizeEnvValue } from '../apps/noter/normalizeEnvValue.js'
+import { resolveLocalDevPort } from "../apps/noter/convex-local-utils.js";
+import { normalizeEnvValue } from "../apps/noter/normalizeEnvValue.js";
 
-const PNPM_COMMAND = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
-const LOOPBACK_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '::1', '[::1]'])
+const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
 /**
  * @param {string} origin
@@ -16,16 +16,16 @@ const LOOPBACK_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '::1', '[::1]'])
  */
 function parseLoopbackOriginPort(origin) {
   try {
-    const parsedOrigin = new URL(origin)
-    if (parsedOrigin.protocol !== 'http:') {
-      return null
+    const parsedOrigin = new URL(origin);
+    if (parsedOrigin.protocol !== "http:") {
+      return null;
     }
     if (!LOOPBACK_HOSTNAMES.has(parsedOrigin.hostname)) {
-      return null
+      return null;
     }
-    return parsedOrigin.port.length > 0 ? parsedOrigin.port : null
+    return parsedOrigin.port.length > 0 ? parsedOrigin.port : null;
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -38,23 +38,23 @@ function parseLoopbackOriginPort(origin) {
  * @returns {NodeJS.ProcessEnv}
  */
 export function buildPrimaryDevEnvironment(env = process.env) {
-  const nextEnv = { ...env }
-  const explicitOrigin = normalizeEnvValue(env.DEV_ENV_ORIGIN)
+  const nextEnv = { ...env };
+  const explicitOrigin = normalizeEnvValue(env.DEV_ENV_ORIGIN);
   if (explicitOrigin !== undefined) {
-    const explicitLoopbackPort = parseLoopbackOriginPort(explicitOrigin)
+    const explicitLoopbackPort = parseLoopbackOriginPort(explicitOrigin);
     if (
       explicitLoopbackPort !== null &&
       normalizeEnvValue(env.VITE_PORT) === undefined
     ) {
-      nextEnv.VITE_PORT = explicitLoopbackPort
+      nextEnv.VITE_PORT = explicitLoopbackPort;
     }
-    return nextEnv
+    return nextEnv;
   }
 
-  const vitePort = resolveLocalDevPort(env)
-  nextEnv.VITE_PORT = vitePort
-  nextEnv.DEV_ENV_ORIGIN = `http://localhost:${vitePort}`
-  return nextEnv
+  const vitePort = resolveLocalDevPort(env);
+  nextEnv.VITE_PORT = vitePort;
+  nextEnv.DEV_ENV_ORIGIN = `http://localhost:${vitePort}`;
+  return nextEnv;
 }
 
 /**
@@ -62,11 +62,11 @@ export function buildPrimaryDevEnvironment(env = process.env) {
  * @returns {string[]}
  */
 export function buildPrimaryDevArgs(args) {
-  return ['exec', 'turbo', 'run', 'dev', '--filter=noter', ...args]
+  return ["exec", "vp", "run", "noter-dev", ...args];
 }
 
 function isMainModule() {
-  return process.argv[1] === fileURLToPath(import.meta.url)
+  return process.argv[1] === fileURLToPath(import.meta.url);
 }
 
 if (isMainModule()) {
@@ -75,20 +75,20 @@ if (isMainModule()) {
     buildPrimaryDevArgs(process.argv.slice(2)),
     {
       env: buildPrimaryDevEnvironment(process.env),
-      stdio: 'inherit',
+      stdio: "inherit",
     },
-  )
+  );
 
-  child.on('error', error => {
-    console.error(error.message)
-    process.exit(1)
-  })
+  child.on("error", error => {
+    console.error(error.message);
+    process.exit(1);
+  });
 
-  child.on('exit', (code, signal) => {
+  child.on("exit", (code, signal) => {
     if (signal) {
-      process.kill(process.pid, signal)
-      return
+      process.kill(process.pid, signal);
+      return;
     }
-    process.exit(code ?? 1)
-  })
+    process.exit(code ?? 1);
+  });
 }

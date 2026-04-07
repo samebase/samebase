@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   DAYTONA_PROVISIONING_MODE_LIVE_DEBUG,
   DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED,

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   compareConnectedMachineSidebarOrder,
   readConnectedMachineSidebarOrder,
@@ -47,7 +47,7 @@ describe("connectedMachineOrdering", () => {
       }),
     ]
       .sort(compareConnectedMachineSidebarOrder)
-      .map((machine) => machine.machineId);
+      .map(machine => machine.machineId);
 
     expect(orderedMachineIds).toEqual(["machine-newer", "machine-older"]);
   });
@@ -66,7 +66,7 @@ describe("connectedMachineOrdering", () => {
       }),
     ]
       .sort(compareConnectedMachineSidebarOrder)
-      .map((machine) => machine.machineId);
+      .map(machine => machine.machineId);
 
     expect(orderedMachineIds).toEqual(["persisted-machine", "legacy-machine"]);
   });
@@ -90,7 +90,7 @@ describe("connectedMachineOrdering", () => {
       }),
     ]
       .sort(compareConnectedMachineSidebarOrder)
-      .map((machine) => machine.machineId);
+      .map(machine => machine.machineId);
 
     expect(orderedMachineIds).toEqual(["machine-b", "machine-a", "machine-z"]);
   });

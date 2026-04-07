@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   buildMcpToolInputSchema,
@@ -11,19 +11,19 @@ describe("listCatalogToolsForSurface", () => {
     const vaultTools = listCatalogToolsForSurface({
       surface: "mcp",
       grantedScopes: ["vaults.read"],
-    }).map((tool) => tool.name);
+    }).map(tool => tool.name);
     expect(vaultTools).toEqual(["vaults.list", "get_vault_remote_branches"]);
 
     const fileTools = listCatalogToolsForSurface({
       surface: "mcp",
       grantedScopes: ["files.read"],
-    }).map((tool) => tool.name);
+    }).map(tool => tool.name);
     expect(fileTools).toEqual(["read_file", "list_files"]);
 
     const writeTools = listCatalogToolsForSurface({
       surface: "mcp",
       grantedScopes: ["files.write"],
-    }).map((tool) => tool.name);
+    }).map(tool => tool.name);
     expect(writeTools).toEqual([
       "edit_file",
       "replace_in_file",
@@ -34,7 +34,7 @@ describe("listCatalogToolsForSurface", () => {
     const prodProposalTools = listCatalogToolsForSurface({
       surface: "mcp",
       grantedScopes: ["prod.read.propose"],
-    }).map((tool) => tool.name);
+    }).map(tool => tool.name);
     expect(prodProposalTools).toEqual([
       "request_convex_status_read",
       "request_convex_logs_read",
@@ -54,7 +54,7 @@ describe("listCatalogToolsForSurface", () => {
         "files.write",
         "prod.read.propose",
       ],
-    }).map((tool) => tool.name);
+    }).map(tool => tool.name);
     expect(allTools).toEqual([
       "vaults.list",
       "read_file",
@@ -79,7 +79,7 @@ describe("listCatalogToolsForSurface", () => {
     const tools = listCatalogToolsForSurface({
       surface: "agent",
       grantedScopes: [],
-    }).map((tool) => tool.name);
+    }).map(tool => tool.name);
 
     expect(tools).toEqual(
       expect.arrayContaining([

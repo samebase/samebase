@@ -3,7 +3,7 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter } from "@/lib/router";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { PUBLIC_LANDING_SCROLL_SHELL_TEST_ID } from "@/lib/publicLanding";
 import {
   clearPendingPublicLandingScrollTop,
@@ -86,16 +86,14 @@ describe("SignInForm landing scroll handoff", () => {
 
   it("preserves the pending scroll handoff through the StrictMode probe mount", () => {
     vi.useFakeTimers();
-    const requestAnimationFrameMock: typeof window.requestAnimationFrame = (
-      callback,
-    ) => {
-      return window.setTimeout(() => callback(performance.now()), 0);
-    };
-    const cancelAnimationFrameMock: typeof window.cancelAnimationFrame = (
-      handle,
-    ) => {
-      window.clearTimeout(handle);
-    };
+    const requestAnimationFrameMock: typeof window.requestAnimationFrame =
+      callback => {
+        return window.setTimeout(() => callback(performance.now()), 0);
+      };
+    const cancelAnimationFrameMock: typeof window.cancelAnimationFrame =
+      handle => {
+        window.clearTimeout(handle);
+      };
     window.requestAnimationFrame = requestAnimationFrameMock;
     window.cancelAnimationFrame = cancelAnimationFrameMock;
 

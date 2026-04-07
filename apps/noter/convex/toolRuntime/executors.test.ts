@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { executeRuntimeTool } from "./executors";
 import type { ResolvedToolContext } from "./types";
@@ -79,7 +79,7 @@ describe("executeRuntimeTool write dispatch", () => {
     const context = makeResolvedContext({
       queryCalls,
       mutationCalls,
-      queryHandler: (queryArgs) => {
+      queryHandler: queryArgs => {
         if (queryArgs.newPath === "README.md") {
           return {
             content: "old",
@@ -121,7 +121,7 @@ describe("executeRuntimeTool write dispatch", () => {
     const context = makeResolvedContext({
       queryCalls,
       mutationCalls,
-      queryHandler: (queryArgs) => {
+      queryHandler: queryArgs => {
         if (queryArgs.newPath === "README.md") {
           return {
             content: "hello old world",
@@ -173,7 +173,7 @@ describe("executeRuntimeTool write dispatch", () => {
 
     expect(output.text).toBe("File created: src/new.ts");
     expect(queryCalls).toHaveLength(3);
-    expect(new Set(queryCalls.map((call) => call.ref)).size).toBe(3);
+    expect(new Set(queryCalls.map(call => call.ref)).size).toBe(3);
     expect(mutationCalls).toHaveLength(1);
     expect(typeof mutationCalls[0]?.ref).toBe("object");
     expect(mutationCalls[0].args).toMatchObject({
@@ -189,7 +189,7 @@ describe("executeRuntimeTool write dispatch", () => {
 
   it("returns missing-file error when read_file targets a renamed staged original path", async () => {
     const context = makeResolvedContext({
-      queryHandler: (queryArgs) => {
+      queryHandler: queryArgs => {
         if (queryArgs.newPath === "src/old.ts") {
           return null;
         }
@@ -220,7 +220,7 @@ describe("executeRuntimeTool write dispatch", () => {
     const mutationCalls: MutationCall[] = [];
     const context = makeResolvedContext({
       mutationCalls,
-      queryHandler: (queryArgs) => {
+      queryHandler: queryArgs => {
         if (
           queryArgs.newPath === "README.md" ||
           queryArgs.originalFilePath === "README.md"
@@ -254,7 +254,7 @@ describe("executeRuntimeTool write dispatch", () => {
     const mutationCalls: MutationCall[] = [];
     const context = makeResolvedContext({
       mutationCalls,
-      queryHandler: (queryArgs) => {
+      queryHandler: queryArgs => {
         if (queryArgs.originalFilePath === "src/new.ts") {
           return {
             content: "old",
@@ -287,7 +287,7 @@ describe("executeRuntimeTool write dispatch", () => {
     const context = makeResolvedContext({
       queryCalls,
       mutationCalls,
-      queryHandler: (queryArgs) => {
+      queryHandler: queryArgs => {
         if (queryArgs.newPath === "src/renamed.ts") {
           return {
             content: "to delete",

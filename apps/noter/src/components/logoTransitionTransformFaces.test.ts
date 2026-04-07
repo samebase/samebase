@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   STATIC_LOGO_ELEVATION_DEGREES,
@@ -25,13 +25,9 @@ describe("logoTransitionTransformFaces", () => {
     });
     expect(scene.faces).toHaveLength(6);
     expect(
-      scene.faces.every((face) => face.transform.startsWith("matrix(")),
+      scene.faces.every(face => face.transform.startsWith("matrix(")),
     ).toBe(true);
-    expect(scene.axisGuideLines.map((line) => line.key)).toEqual([
-      "x",
-      "y",
-      "z",
-    ]);
+    expect(scene.axisGuideLines.map(line => line.key)).toEqual(["x", "y", "z"]);
   });
 
   it("serializes the live preview as svg markup", () => {

@@ -1,4 +1,14 @@
 packages:
-  - 'apps/*'
-  - 'packages/*'
-  - 'eslint-rules'
+  - "apps/*"
+  - "packages/*"
+  - "eslint-rules"
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@0.1.16
+  vite-plus: 0.1.16
+overrides:
+  vite: "catalog:"
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: "*"

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   listTouchedBranchesForRefresh,
@@ -114,7 +114,7 @@ describe("runPostCommitTreeRefresh", () => {
       },
       refreshLegacyTree: async () => undefined,
       loadUpdatedVault: async () => ({ treeSHA: "abc" }),
-      onWarning: (error) => {
+      onWarning: error => {
         warnings.push(error);
       },
     });

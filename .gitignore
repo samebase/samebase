@@ -41,9 +41,6 @@ convex/_generated
 convex/.tmp
 .convex
 
-# Turbo
-.turbo
-
 # Hosting tooling
 .netlify
 .vercel

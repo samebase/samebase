@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   applyRepositoryTreeMetadataSyncBudget,
@@ -310,7 +310,7 @@ describe("resolveStagedRepositoryMediaAsset", () => {
 
     const result = await resolveStagedRepositoryMediaAsset({
       storage: { getUrl },
-      loadCachedBlobBySha: async (sha) =>
+      loadCachedBlobBySha: async sha =>
         sha === "blob-sha"
           ? {
               storageId: "storage-1",

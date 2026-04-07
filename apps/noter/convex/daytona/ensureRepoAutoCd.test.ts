@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { ensureRepoAutoCd } from "../../../../runtime/daytonaSandboxPrograms/ensureRepoAutoCd.js";
 
@@ -15,9 +15,7 @@ async function createTempDir() {
 
 afterEach(async () => {
   await Promise.all(
-    tempDirs
-      .splice(0)
-      .map((dir) => fs.rm(dir, { recursive: true, force: true })),
+    tempDirs.splice(0).map(dir => fs.rm(dir, { recursive: true, force: true })),
   );
 });
 

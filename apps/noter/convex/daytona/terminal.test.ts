@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 
 import { DAYTONA_CODEX_HOME } from "./sandboxUser";
 import { DAYTONA_PAUSED_MESSAGE } from "../../shared/daytonaPause";
@@ -164,7 +171,7 @@ function createSandbox(executedCommands: string[] = []): FakeSandbox {
           result: "",
         };
       },
-      createPty: async (options) => {
+      createPty: async options => {
         mockState.requestedSessionId = options.id ?? "";
         if (typeof options.onData === "function") {
           await options.onData(textEncoder.encode("prompt$ "));
@@ -172,7 +179,7 @@ function createSandbox(executedCommands: string[] = []): FakeSandbox {
         return {
           sessionId: "actual-pty-session-1",
           waitForConnection: async () => {},
-          sendInput: async (input) => {
+          sendInput: async input => {
             mockState.sentInputs.push(input);
             if (
               typeof options.onData === "function" &&
@@ -187,7 +194,7 @@ function createSandbox(executedCommands: string[] = []): FakeSandbox {
       connectPty: async (_sessionId, options) => {
         return {
           waitForConnection: async () => {},
-          sendInput: async (_input) => {
+          sendInput: async _input => {
             if (typeof options.onData === "function") {
               await options.onData(textEncoder.encode("dev-server logs\n"));
             }
@@ -197,7 +204,7 @@ function createSandbox(executedCommands: string[] = []): FakeSandbox {
       },
       killPtySession: async () => {},
     },
-    getPreviewLink: async (port) => {
+    getPreviewLink: async port => {
       expect(port).toBe(1);
       return { token: "preview-token-1" };
     },

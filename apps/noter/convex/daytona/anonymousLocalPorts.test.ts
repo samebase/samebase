@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   ANONYMOUS_LOCAL_PORT_PAIR_COUNT,
   listAnonymousLocalPortCandidates,
@@ -25,10 +25,10 @@ describe("anonymousLocalPorts", () => {
     expect(candidates.length).toBeGreaterThan(1);
 
     expect(candidates[0].site).toBe(candidates[0].cloud + 1);
-    expect(new Set(candidates.map((candidate) => candidate.cloud)).size).toBe(
+    expect(new Set(candidates.map(candidate => candidate.cloud)).size).toBe(
       candidates.length,
     );
-    expect(new Set(candidates.map((candidate) => candidate.site)).size).toBe(
+    expect(new Set(candidates.map(candidate => candidate.site)).size).toBe(
       candidates.length,
     );
   });
@@ -43,7 +43,7 @@ describe("anonymousLocalPorts", () => {
 
     const picked = pickAvailableAnonymousLocalPorts(
       "/home/daytona/workspace/noter",
-      (port) => port === first.cloud || port === first.site,
+      port => port === first.cloud || port === first.site,
     );
 
     expect(picked).toEqual(second);

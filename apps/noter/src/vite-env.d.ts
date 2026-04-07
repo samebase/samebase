@@ -1,4 +1,4 @@
-/// <reference types="vite/client" />
+/// <reference types="vite-plus/client" />
 
 declare const __APP_COMMIT__: string;
 declare const __APP_COMMIT_NUMBER__: number | null;

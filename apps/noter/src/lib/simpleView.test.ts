@@ -2,7 +2,7 @@ import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   filterSimpleViewTreeItems,
@@ -22,7 +22,7 @@ type TreeItem = {
 const UPDATE_SIMPLE_VIEW_FIXTURES =
   process.env.UPDATE_SIMPLE_VIEW_FIXTURES === "1";
 // Regenerate fixtures with:
-// UPDATE_SIMPLE_VIEW_FIXTURES=1 pnpm exec vitest run apps/noter/src/lib/simpleView.test.ts
+// UPDATE_SIMPLE_VIEW_FIXTURES=1 vp test run apps/noter/src/lib/simpleView.test.ts
 
 function getRepositoryRoot(): string {
   return fileURLToPath(new URL("../../../../", import.meta.url));
@@ -40,8 +40,8 @@ function getTrackedFiles(): string[] {
 
   return trackedFilesOutput
     .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
     .sort((a, b) => a.localeCompare(b));
 }
 
@@ -49,7 +49,7 @@ function getRepositoryTreeItems(): TreeItem[] {
   const trackedFiles = getTrackedFiles();
 
   const directories = new Set<string>();
-  trackedFiles.forEach((filePath) => {
+  trackedFiles.forEach(filePath => {
     const pathParts = filePath.split("/");
     pathParts.pop();
 
@@ -63,8 +63,8 @@ function getRepositoryTreeItems(): TreeItem[] {
 
   const directoryItems = [...directories]
     .sort((a, b) => a.localeCompare(b))
-    .map((path) => ({ path, type: "tree" as const }));
-  const fileItems = trackedFiles.map((path) => ({
+    .map(path => ({ path, type: "tree" as const }));
+  const fileItems = trackedFiles.map(path => ({
     path,
     type: "blob" as const,
   }));
@@ -87,8 +87,8 @@ function serializePathList(paths: string[]): string {
 function readPathFixture(fixturePath: string): string[] {
   return readFileSync(fixturePath, "utf8")
     .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
 }
 
 function assertPathsContainFixture(
@@ -102,7 +102,7 @@ function assertPathsContainFixture(
 
   const expectedPaths = readPathFixture(fixturePath);
   const actualPathSet = new Set(actualPaths);
-  const missingPaths = expectedPaths.filter((path) => !actualPathSet.has(path));
+  const missingPaths = expectedPaths.filter(path => !actualPathSet.has(path));
   expect(missingPaths).toEqual([]);
 }
 
@@ -116,8 +116,8 @@ function getRootVisibleSimpleViewFilePaths(): string[] {
     getRepositoryTreeItems(),
     parsedConfig.excludePatterns,
   )
-    .filter((item) => item.type === "blob")
-    .map((item) => item.path)
+    .filter(item => item.type === "blob")
+    .map(item => item.path)
     .sort((a, b) => a.localeCompare(b));
 }
 
@@ -132,11 +132,11 @@ describe("repository file tree fixtures", () => {
   });
 
   it("keeps visible spec files on the numbered underscore naming convention", () => {
-    const visibleSpecPaths = getRootVisibleSimpleViewFilePaths().filter(
-      (path) => path.startsWith("specs/"),
+    const visibleSpecPaths = getRootVisibleSimpleViewFilePaths().filter(path =>
+      path.startsWith("specs/"),
     );
 
-    const invalidSpecPaths = visibleSpecPaths.filter((path) => {
+    const invalidSpecPaths = visibleSpecPaths.filter(path => {
       const specFileName = path.slice("specs/".length);
       // The folder policy document is intentionally unnumbered; the numbered
       // naming convention applies to accepted spec docs, not the directory map.
@@ -278,13 +278,13 @@ simpleView:
     const parsed = parseSimpleViewConfig(`\uFEFF---
 simpleView:
   exclude:
-    - .husky/pre-commit
+    - .vite-hooks/pre-commit
 ---
 content
 `);
 
     expect(parsed.hasValidConfig).toBe(true);
-    expect(parsed.excludePatterns).toEqual([".husky/pre-commit"]);
+    expect(parsed.excludePatterns).toEqual([".vite-hooks/pre-commit"]);
   });
 
   it("fails validation when exclude is not an array", () => {
@@ -332,8 +332,8 @@ simpleView:
 
 describe("filterSimpleViewTreeItems", () => {
   const tree = [
-    { path: ".husky", type: "tree" as const },
-    { path: ".husky/pre-commit", type: "blob" as const },
+    { path: ".vite-hooks", type: "tree" as const },
+    { path: ".vite-hooks/pre-commit", type: "blob" as const },
     { path: "src", type: "tree" as const },
     { path: "src/main.tsx", type: "blob" as const },
     { path: "docs", type: "tree" as const },
@@ -348,8 +348,8 @@ describe("filterSimpleViewTreeItems", () => {
   it("excludes matching files and prunes empty folders", () => {
     const filtered = filterSimpleViewTreeItems(tree, ["src/**"]);
     expect(filtered).toEqual([
-      { path: ".husky", type: "tree" },
-      { path: ".husky/pre-commit", type: "blob" },
+      { path: ".vite-hooks", type: "tree" },
+      { path: ".vite-hooks/pre-commit", type: "blob" },
       { path: "docs", type: "tree" },
       { path: "docs/guide.md", type: "blob" },
       { path: "tsconfig.base.json", type: "blob" },
@@ -358,14 +358,16 @@ describe("filterSimpleViewTreeItems", () => {
 
   it("supports exact matching for dotted root filenames", () => {
     const filtered = filterSimpleViewTreeItems(tree, ["tsconfig.base.json"]);
-    expect(filtered.some((item) => item.path === "tsconfig.base.json")).toBe(
+    expect(filtered.some(item => item.path === "tsconfig.base.json")).toBe(
       false,
     );
   });
 
   it("matches nested hook files with explicit directory pattern", () => {
-    const filtered = filterSimpleViewTreeItems(tree, [".husky/pre-commit"]);
-    expect(filtered.some((item) => item.path === ".husky/pre-commit")).toBe(
+    const filtered = filterSimpleViewTreeItems(tree, [
+      ".vite-hooks/pre-commit",
+    ]);
+    expect(filtered.some(item => item.path === ".vite-hooks/pre-commit")).toBe(
       false,
     );
   });
@@ -376,8 +378,8 @@ describe("filterSimpleViewTreeItems", () => {
     });
 
     expect(filtered).toEqual([
-      { path: ".husky", type: "tree" },
-      { path: ".husky/pre-commit", type: "blob" },
+      { path: ".vite-hooks", type: "tree" },
+      { path: ".vite-hooks/pre-commit", type: "blob" },
       { path: "src", type: "tree" },
       { path: "src/main.tsx", type: "blob" },
       { path: "docs", type: "tree" },
@@ -408,7 +410,7 @@ describe("filterSimpleViewTreeItems", () => {
 
   it("does not treat basename-only pattern as recursive", () => {
     const filtered = filterSimpleViewTreeItems(tree, ["pre-commit"]);
-    expect(filtered.some((item) => item.path === ".husky/pre-commit")).toBe(
+    expect(filtered.some(item => item.path === ".vite-hooks/pre-commit")).toBe(
       true,
     );
   });
@@ -420,12 +422,12 @@ describe("filterSimpleViewTreeItems with repository structure", () => {
   it("uses real repository paths in this workspace", () => {
     expect(
       repositoryTreeItems.some(
-        (item) => item.path === "tsconfig.base.json" && item.type === "blob",
+        item => item.path === "tsconfig.base.json" && item.type === "blob",
       ),
     ).toBe(true);
     expect(
       repositoryTreeItems.some(
-        (item) => item.path === ".husky/pre-commit" && item.type === "blob",
+        item => item.path === ".vite-hooks/pre-commit" && item.type === "blob",
       ),
     ).toBe(true);
   });
@@ -437,29 +439,29 @@ describe("filterSimpleViewTreeItems with repository structure", () => {
 
     expect(
       filtered.some(
-        (item) => item.path === "tsconfig.base.json" && item.type === "blob",
+        item => item.path === "tsconfig.base.json" && item.type === "blob",
       ),
     ).toBe(false);
   });
 
-  it("requires path-aware pattern to hide .husky/pre-commit", () => {
+  it("requires path-aware pattern to hide .vite-hooks/pre-commit", () => {
     const basenamePatternFiltered = filterSimpleViewTreeItems(
       repositoryTreeItems,
       ["pre-commit"],
     );
     expect(
       basenamePatternFiltered.some(
-        (item) => item.path === ".husky/pre-commit" && item.type === "blob",
+        item => item.path === ".vite-hooks/pre-commit" && item.type === "blob",
       ),
     ).toBe(true);
 
     const explicitPathFiltered = filterSimpleViewTreeItems(
       repositoryTreeItems,
-      [".husky/pre-commit"],
+      [".vite-hooks/pre-commit"],
     );
     expect(
       explicitPathFiltered.some(
-        (item) => item.path === ".husky/pre-commit" && item.type === "blob",
+        item => item.path === ".vite-hooks/pre-commit" && item.type === "blob",
       ),
     ).toBe(false);
   });
@@ -485,19 +487,19 @@ describe("current noter.md config with repository tree", () => {
       parsedConfig.excludePatterns,
     );
 
-    expect(filtered.some((item) => item.path === "tsconfig.base.json")).toBe(
+    expect(filtered.some(item => item.path === "tsconfig.base.json")).toBe(
       false,
     );
-    expect(filtered.some((item) => item.path === ".husky/pre-commit")).toBe(
+    expect(filtered.some(item => item.path === ".vite-hooks/pre-commit")).toBe(
       false,
     );
     expect(
       filtered.some(
-        (item) => item.path === "apps/noter/src/components/Untitled-1.md",
+        item => item.path === "apps/noter/src/components/Untitled-1.md",
       ),
     ).toBe(false);
     expect(
-      filtered.some((item) => item.path === "apps/noter/convex/README.md"),
+      filtered.some(item => item.path === "apps/noter/convex/README.md"),
     ).toBe(false);
   });
 
@@ -511,6 +513,6 @@ describe("current noter.md config with repository tree", () => {
       parsedConfig.excludePatterns,
     );
 
-    expect(filtered.some((item) => item.path === "AGENTS.md")).toBe(true);
+    expect(filtered.some(item => item.path === "AGENTS.md")).toBe(true);
   });
 });

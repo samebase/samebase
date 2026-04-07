@@ -1,7 +1,7 @@
 # Noter
 
-Noter is a collaborative, GitHub-connected code editor built as a Turborepo
-monorepo with React + Vite on the frontend and Convex on the backend.
+Noter is a collaborative, GitHub-connected code editor built as a Vite+ monorepo
+with React on the frontend and Convex on the backend.
 
 ## Current Product Capabilities (2026-02-13)
 
@@ -35,7 +35,7 @@ monorepo with React + Vite on the frontend and Convex on the backend.
 - Auth: Convex Auth (Google in prod, Google + password in dev) + provider
   OAuth/API key connections
 - UI: Tailwind CSS + Radix UI + shadcn/ui patterns
-- Monorepo: Turborepo + PNPM
+- Monorepo: Vite+ + PNPM
 
 ## Project Structure
 
@@ -50,7 +50,7 @@ monorepo with React + Vite on the frontend and Convex on the backend.
 ├── scripts/
 ├── specs/
 ├── package.json
-├── turbo.json
+├── vite.config.ts
 └── pnpm-workspace.yaml
 ```
 
@@ -184,10 +184,10 @@ pnpm test
 
 This project uses:
 
-- ESLint and Prettier for code formatting
-- Husky for pre-commit hooks
+- ESLint plus Vite+ formatting
+- Vite+ git hooks
 - TypeScript for type safety
-- Vitest for testing
+- Vite+ test runs
 
 ## License
 

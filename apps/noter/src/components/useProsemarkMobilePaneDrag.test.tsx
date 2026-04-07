@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { useProsemarkMobilePaneDrag } from "@/components/useProsemarkMobilePaneDrag";
 import { WorkspaceMobilePaneDragProvider } from "@/components/workspace-layout/workspaceMobilePaneDrag";
 
@@ -26,7 +26,7 @@ function createTouchList(
 } {
   return {
     length: touches.length,
-    item: (index) => touches[index] ?? null,
+    item: index => touches[index] ?? null,
   };
 }
 
@@ -380,7 +380,7 @@ describe("useProsemarkMobilePaneDrag", () => {
 
   it("keeps legacy touch continuation alive until pointer drag actually moves the shell", () => {
     const dragMobileShellBy = vi
-      .fn<Parameters<(deltaX: number) => boolean>, boolean>()
+      .fn<(deltaX: number) => boolean>()
       .mockReturnValueOnce(false)
       .mockReturnValueOnce(true);
     const settleMobileShell = vi.fn();

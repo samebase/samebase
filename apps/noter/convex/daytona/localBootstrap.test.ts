@@ -11,7 +11,8 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
+import rootViteConfig from "../../../../vite.config";
 import { resolveDaytonaDevServerCommand } from "./devServerCommand";
 import { buildDaytonaSandboxEnvVars } from "./sandboxEnv";
 
@@ -120,28 +121,24 @@ describe("daytonaLocalBootstrap", () => {
   });
 
   it("passes the Daytona browser Convex proxy target through the root dev task", () => {
-    const turboConfigPath = path.join(repoRoot, "turbo.json");
-    const turboConfig: unknown = JSON.parse(
-      readFileSync(turboConfigPath, "utf8"),
-    );
-    const turboTasks =
-      turboConfig &&
-      typeof turboConfig === "object" &&
-      "tasks" in turboConfig &&
-      turboConfig.tasks &&
-      typeof turboConfig.tasks === "object"
-        ? turboConfig.tasks
+    const rootRunConfig = rootViteConfig.run;
+    const rootRunTasks =
+      rootRunConfig &&
+      "tasks" in rootRunConfig &&
+      rootRunConfig.tasks &&
+      typeof rootRunConfig.tasks === "object"
+        ? rootRunConfig.tasks
         : undefined;
-    const turboDevTask =
-      turboTasks &&
-      "dev" in turboTasks &&
-      turboTasks.dev &&
-      typeof turboTasks.dev === "object"
-        ? turboTasks.dev
+    const noterDevTask =
+      rootRunTasks &&
+      "noter-dev" in rootRunTasks &&
+      rootRunTasks["noter-dev"] &&
+      typeof rootRunTasks["noter-dev"] === "object"
+        ? rootRunTasks["noter-dev"]
         : undefined;
     const devEnv =
-      turboDevTask && "env" in turboDevTask && Array.isArray(turboDevTask.env)
-        ? turboDevTask.env
+      noterDevTask && "env" in noterDevTask && Array.isArray(noterDevTask.env)
+        ? noterDevTask.env
         : [];
 
     expect(devEnv).toContain("NOTER_DEV_ALLOWED_HOSTS");

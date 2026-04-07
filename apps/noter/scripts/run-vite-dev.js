@@ -12,13 +12,13 @@ import {
 const require = createRequire(import.meta.url);
 
 /**
- * Resolve the real Vite CLI entrypoint so native Windows does not depend on
+ * Resolve the real Vite+ CLI entrypoint so native Windows does not depend on
  * shell-specific `${VITE_PORT:-5173}` expansion to start the frontend.
  */
-function resolveViteCliEntrypoint() {
-  const vitePackageJsonPath = require.resolve("vite/package.json");
+function resolveVitePlusCliEntrypoint() {
+  const vitePlusPackageJsonPath = require.resolve("vite-plus/package.json");
   return realpathSync(
-    path.join(path.dirname(vitePackageJsonPath), "bin", "vite.js"),
+    path.join(path.dirname(vitePlusPackageJsonPath), "bin", "vp"),
   );
 }
 
@@ -64,7 +64,8 @@ const vitePort =
   resolveLocalDevPort(process.env);
 writeLocalDevOriginState(`http://localhost:${vitePort}`);
 const launchArgs = [
-  resolveViteCliEntrypoint(),
+  resolveVitePlusCliEntrypoint(),
+  "dev",
   "--host",
   "0.0.0.0",
   "--port",
@@ -78,7 +79,7 @@ const child = spawn(process.execPath, launchArgs, {
   stdio: "inherit",
 });
 
-child.on("error", (error) => {
+child.on("error", error => {
   clearLocalDevOriginState();
   console.error(error.message);
   process.exit(1);

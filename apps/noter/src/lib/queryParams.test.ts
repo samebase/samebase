@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   buildPathWithUpdatedQuery,
@@ -24,7 +24,7 @@ describe("buildPathWithUpdatedQuery", () => {
         pathname: "/",
         search: "?prod-ui",
       },
-      (searchParams) => {
+      searchParams => {
         setQueryParam(searchParams, "dev", true);
       },
     );
@@ -38,7 +38,7 @@ describe("buildPathWithUpdatedQuery", () => {
         pathname: "/",
         search: "?prod-ui&dev",
       },
-      (searchParams) => {
+      searchParams => {
         setQueryParam(searchParams, "dev", false);
       },
     );
@@ -52,7 +52,7 @@ describe("buildPathWithUpdatedQuery", () => {
         pathname: "/vault/octo/repo/main/src/App.tsx",
         search: "?prod-ui&review&mobileLineNumbers=1",
       },
-      (searchParams) => {
+      searchParams => {
         setQueryParam(searchParams, "review", false);
         setQueryParam(searchParams, "diff", true);
       },

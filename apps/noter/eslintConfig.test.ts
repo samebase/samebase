@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 const appDir = fileURLToPath(new URL("./", import.meta.url));
 const repoRoot = path.resolve(appDir, "..", "..");
@@ -33,7 +33,7 @@ describe("eslint config", () => {
     };
     const eslintConfig = readEslintConfig();
     const sourceOverride = eslintConfig.overrides?.find(
-      (override) =>
+      override =>
         override.files?.includes("apps/noter/src/**/*.{ts,tsx}") ?? false,
     );
 

@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   APP_PAGE_METADATA,
@@ -31,7 +31,7 @@ class FakeHead {
       const [, key, value] = metaMatch;
       return (
         this.elements.find(
-          (element) =>
+          element =>
             element.tagName === "meta" && element.getAttribute(key) === value,
         ) ?? null
       );
@@ -42,7 +42,7 @@ class FakeHead {
       const [, value] = linkMatch;
       return (
         this.elements.find(
-          (element) =>
+          element =>
             element.tagName === "link" && element.getAttribute("rel") === value,
         ) ?? null
       );
@@ -111,7 +111,7 @@ function getHeadAttribute(
 
 describe("page metadata", () => {
   it("pins canonical and social URLs to noter.md", () => {
-    withFakeDocument((document) => {
+    withFakeDocument(document => {
       applyPageMetadata({
         ...APP_PAGE_METADATA,
         canonicalPath: "/vault/acme/demo",
@@ -138,7 +138,7 @@ describe("page metadata", () => {
   });
 
   it("keeps the privacy page crawlable with its own canonical URL", () => {
-    withFakeDocument((document) => {
+    withFakeDocument(document => {
       applyPageMetadata(
         resolvePageMetadata({
           pathname: "/privacy",
@@ -160,7 +160,7 @@ describe("page metadata", () => {
   });
 
   it("keeps the terms page crawlable with its own canonical URL", () => {
-    withFakeDocument((document) => {
+    withFakeDocument(document => {
       applyPageMetadata(
         resolvePageMetadata({
           pathname: "/terms",
@@ -201,7 +201,7 @@ describe("page metadata", () => {
     ] as const;
 
     for (const deckPath of deckPaths) {
-      withFakeDocument((document) => {
+      withFakeDocument(document => {
         applyPageMetadata(
           resolvePageMetadata({
             pathname: deckPath.pathname,

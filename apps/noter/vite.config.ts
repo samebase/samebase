@@ -1,11 +1,11 @@
-import { defineConfig, type ViteDevServer } from "vite";
+import { defineConfig, type ViteDevServer } from "vite-plus";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { format as formatWithPrettier } from "prettier";
 import { readPackageVersion } from "../../scripts/readPackageVersion.js";
+import { formatWithRepoVitePlus } from "../../scripts/vitePlusFormatting.js";
 import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
 import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
 import {
@@ -53,8 +53,8 @@ function readAllowedHostsEnv(value: string | undefined): string[] {
 
   return value
     .split(",")
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
+    .map(entry => entry.trim())
+    .filter(entry => entry.length > 0);
 }
 
 function readGitOutput(command: string): string | null {
@@ -322,12 +322,10 @@ async function formatGeneratedFileContents(args: {
   content: string;
   filepath: string;
 }) {
-  const formattedContents = await formatWithPrettier(args.content, {
+  return await formatWithRepoVitePlus({
     filepath: args.filepath,
+    sourceText: args.content,
   });
-  return formattedContents.endsWith("\n")
-    ? formattedContents
-    : `${formattedContents}\n`;
 }
 
 async function syncStaticLegalPageAsset(args: {
@@ -469,7 +467,7 @@ function syncStaticNoterSyncScriptAssetPlugin() {
           }
 
           void buildRuntimeNoterSyncScript()
-            .then((runtimeScript) => {
+            .then(runtimeScript => {
               response.statusCode = 200;
               response.setHeader(
                 "Content-Type",
@@ -524,7 +522,7 @@ function syncRuntimeNoterConnectConfigAssetPlugin() {
           }
 
           void buildRuntimeNoterConnectConfig()
-            .then((runtimeConfig) => {
+            .then(runtimeConfig => {
               response.statusCode = 200;
               response.setHeader(
                 "Content-Type",

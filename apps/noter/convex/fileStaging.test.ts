@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { internal } from "./_generated/api";
 
 import {
@@ -89,14 +89,14 @@ function createClearAllStagingTestContext(args: {
                 }
 
                 const vaultIdConstraint = constraints.find(
-                  (constraint) => constraint.field === "vaultId",
+                  constraint => constraint.field === "vaultId",
                 )?.value;
                 const branchConstraint = constraints.find(
-                  (constraint) => constraint.field === "branch",
+                  constraint => constraint.field === "branch",
                 )?.value;
 
                 return args.stagedFiles.filter(
-                  (file) =>
+                  file =>
                     file.vaultId === vaultIdConstraint &&
                     (branchConstraint === undefined ||
                       file.branch === branchConstraint),
@@ -147,7 +147,7 @@ function createClearMatchingStagingSnapshotTestContext(args: {
     args: unknown;
   }> = [];
   const stagingById = new Map(
-    args.stagedFiles.map((file) => [file._id, file] as const),
+    args.stagedFiles.map(file => [file._id, file] as const),
   );
 
   return {

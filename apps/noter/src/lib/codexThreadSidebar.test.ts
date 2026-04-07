@@ -3,7 +3,7 @@ import {
   dedupeCodexThreadsById,
 } from "@/lib/codexThreadSidebar";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 const PROJECT_ROOT = "/Users/fixture/dev/noter";
 const WORKTREE_ROOT = "/Users/fixture/.codex/worktrees/e2ca/noter";
@@ -108,13 +108,13 @@ describe("buildCodexThreadSidebarViewModel", () => {
       threads: [rootThread, worktreeThread, pinnedThread],
     });
 
-    expect(viewModel.pinnedThreads.map((thread) => thread.id)).toEqual([
+    expect(viewModel.pinnedThreads.map(thread => thread.id)).toEqual([
       pinnedThread.id,
     ]);
     expect(viewModel.pinnedThreads[0]?.isPinned).toBe(true);
     expect(viewModel.pinnedThreads[0]?.showWorkspaceIndicator).toBe(true);
     expect(viewModel.projects).toHaveLength(1);
-    expect(viewModel.projects[0]?.threads.map((thread) => thread.id)).toEqual([
+    expect(viewModel.projects[0]?.threads.map(thread => thread.id)).toEqual([
       rootThread.id,
       worktreeThread.id,
     ]);
@@ -155,7 +155,7 @@ describe("buildCodexThreadSidebarViewModel", () => {
       threads: [firstProjectThread, secondProjectThread],
     });
 
-    expect(viewModel.projects.map((project) => project.label)).toEqual([
+    expect(viewModel.projects.map(project => project.label)).toEqual([
       "dotfiles",
       "namecheap-com-brandable",
     ]);
@@ -178,8 +178,6 @@ describe("buildCodexThreadSidebarViewModel", () => {
       threads: [windowsPathThread],
     });
 
-    expect(viewModel.projects.map((project) => project.label)).toEqual([
-      "repo",
-    ]);
+    expect(viewModel.projects.map(project => project.label)).toEqual(["repo"]);
   });
 });

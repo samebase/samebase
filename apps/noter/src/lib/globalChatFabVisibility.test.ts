@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { MACHINES_ROUTE } from "@/lib/noterSync";
 import { shouldShowGlobalChatFab } from "@/lib/globalChatFabVisibility";
 

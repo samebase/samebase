@@ -220,8 +220,8 @@ function parseErrorMessage(error) {
 function isCodexRuntimeRunning() {
   return Boolean(
     codexRuntime.process &&
-      !codexRuntime.process.killed &&
-      codexRuntime.process.exitCode === null,
+    !codexRuntime.process.killed &&
+    codexRuntime.process.exitCode === null,
   );
 }
 
@@ -788,7 +788,7 @@ async function stopCodexRuntime() {
     return;
   }
 
-  await new Promise((resolve) => {
+  await new Promise(resolve => {
     let completed = false;
     const finish = () => {
       if (completed) return;
@@ -841,7 +841,7 @@ async function startCodexRuntime(forceRestart = false) {
     codexRuntime.startedAt = Date.now();
     codexRuntime.lastError = null;
 
-    proc.stdout.on("data", (chunk) => {
+    proc.stdout.on("data", chunk => {
       codexRuntime.stdoutBuffer += chunk.toString();
       while (true) {
         const newlineIndex = codexRuntime.stdoutBuffer.indexOf("\n");
@@ -856,7 +856,7 @@ async function startCodexRuntime(forceRestart = false) {
       }
     });
 
-    proc.stderr.on("data", (chunk) => {
+    proc.stderr.on("data", chunk => {
       const stderrText = chunk.toString().trim();
       if (!stderrText) {
         return;
@@ -866,7 +866,7 @@ async function startCodexRuntime(forceRestart = false) {
       }
     });
 
-    proc.on("error", (error) => {
+    proc.on("error", error => {
       codexRuntime.lastError = parseErrorMessage(error);
       console.error(`[CODEX] Process error: ${codexRuntime.lastError}`);
     });
@@ -984,7 +984,7 @@ app.get("/codex/events", (req, res) => {
   const since = Number.parseInt(`${req.query.since ?? 0}`, 10);
   const safeSince = Number.isFinite(since) ? since : 0;
   const events = codexRuntime.notifications.filter(
-    (event) => event.cursor > safeSince,
+    event => event.cursor > safeSince,
   );
   res.json({
     events,
@@ -1324,7 +1324,7 @@ app.get("/files/list", async (req, res) => {
       withFileTypes: true,
     });
 
-    const result = files.map((file) => ({
+    const result = files.map(file => ({
       name: file.name,
       isDirectory: file.isDirectory(),
       isFile: file.isFile(),

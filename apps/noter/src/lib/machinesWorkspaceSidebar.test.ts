@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
 import { buildMachinesWorkspaceSidebarSections } from "@/lib/machinesWorkspaceSidebar";
 
@@ -107,18 +107,18 @@ describe("buildMachinesWorkspaceSidebarSections", () => {
       ],
     });
 
-    expect(sections.map((section) => section.machineId)).toEqual([
+    expect(sections.map(section => section.machineId)).toEqual([
       "machine-mac",
       "machine-win",
     ]);
-    expect(sections[0]?.pinnedThreads.map((thread) => thread.id)).toEqual([
+    expect(sections[0]?.pinnedThreads.map(thread => thread.id)).toEqual([
       firstMachinePinnedThread.id,
     ]);
-    expect(sections[0]?.projects[0]?.threads.map((thread) => thread.id)).toEqual(
-      [firstMachineWorktreeThread.id],
-    );
+    expect(sections[0]?.projects[0]?.threads.map(thread => thread.id)).toEqual([
+      firstMachineWorktreeThread.id,
+    ]);
     expect(sections[1]?.pinnedThreads).toEqual([]);
-    expect(sections[1]?.projects.map((project) => project.label)).toEqual([
+    expect(sections[1]?.projects.map(project => project.label)).toEqual([
       "learn_vp",
     ]);
   });
@@ -132,7 +132,8 @@ describe("buildMachinesWorkspaceSidebarSections", () => {
           machineHostname: "linux-box.local",
           machineId: "machine-linux",
           machineStatus: "offline",
-          machineStatusReason: "Live control is unavailable for this machine right now.",
+          machineStatusReason:
+            "Live control is unavailable for this machine right now.",
           pinnedThreadIds: [],
           threads: [],
         },

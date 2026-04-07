@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   buildCommitPreviewFromStagedFiles,
   buildRebaseConflictPreviewFromStagedFiles,
@@ -71,10 +71,8 @@ describe("buildCommitPreviewFromStagedFiles", () => {
     expect(preview.hasDestructiveChanges).toBe(true);
     expect(preview.safety.destructiveFileCount).toBe(1);
 
-    const added = preview.files.find((file) => file.path === "added.md");
-    const renamed = preview.files.find(
-      (file) => file.path === "renamed-new.md",
-    );
+    const added = preview.files.find(file => file.path === "added.md");
+    const renamed = preview.files.find(file => file.path === "renamed-new.md");
 
     expect(added?.status).toBe("added");
     expect(added?.isMarkdown).toBe(true);
@@ -137,7 +135,7 @@ describe("buildCommitPreviewFromStagedFiles", () => {
     });
 
     expect(preview.files[0]?.patchTruncated).toBe(false);
-    expect(preview.files.some((file) => file.patchTruncated)).toBe(true);
+    expect(preview.files.some(file => file.patchTruncated)).toBe(true);
     expect(preview.safety.truncatedPatchFileCount).toBeGreaterThan(0);
     expect(preview.safety.includesTruncatedPatches).toBe(true);
   });
