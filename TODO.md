@@ -2,6 +2,7 @@
 
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] specifically left blank
+- [ ] aplicatia sa fie folosita si de mama, ca ea sa poata faca un "to buy at groceries store" app that she can use and share; think about auth in this case; needs to be simple, but email+pass requires resend; we can provide/sell this on top of resend by default, but you can use your own apikey/auth; google is simpler, but they'll need to use gcp, and that's hard; we can provide the same wrapper on top of google auth instead of on resend!, it's the same thing!!
 - [ ] https://github.com/tailwindlabs/tailwindcss/issues/18165
 - [ ] https://chatgpt.com/codex/tasks/task_e_69b32c1fa778832ba6b6b53fd16eb50e
 - [ ] related to https://youtu.be/l9CPmPk2R-M?si=aBkwhdpB77T9A0ac&t=568 ; give people just a terminal drawer that uses prosemark!!!
