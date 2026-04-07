@@ -21,6 +21,13 @@ export function Layout({ children }: { children: ReactNode }) {
     !isAuthenticated &&
     location.pathname === "/" &&
     !searchParams.has("auth");
+  // Keep legal links available on every unauthenticated sign-in surface while
+  // auth is still resolving so they never disappear during startup or route
+  // handoffs.
+  const showLandingLegalLinks =
+    !isAuthenticated &&
+    location.pathname !== "/terms" &&
+    location.pathname !== "/privacy";
   const showPublicNavigation =
     !isLoading && !isAuthenticated && location.pathname !== "/";
   const landingDevToggleHref = buildLandingDevToggleHref(location);
@@ -64,6 +71,7 @@ export function Layout({ children }: { children: ReactNode }) {
           onLandingDevToggleClick={handleLandingDevToggleClick}
           repoUrl={repoUrl}
           showLandingDevToggle={showLandingDevToggle}
+          showLandingLegalLinks={showLandingLegalLinks}
           showPublicNavigation={showPublicNavigation}
         />
       }

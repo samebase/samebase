@@ -347,20 +347,32 @@ function renderFastLandingShell() {
 
   root.innerHTML = `
     <div data-testid="public-landing-shell" class="flex h-full w-full flex-col">
-      <div class="border-b border-border/50">
-        <div data-testid="${APP_BUILD_STATUS_BAR_TEST_ID}" class="container flex items-center justify-end gap-2 px-3 py-1 text-[11px] text-muted-foreground">
-          <a id="${PUBLIC_LANDING_DEV_TOGGLE_ID}" href="${escapeHtml(landingDevToggleHref)}" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
-            ${escapeHtml(landingDevToggleLabel)}
-          </a>
-          <div class="inline-flex select-text items-center gap-2 font-mono">
-            <span data-testid="${APP_BUILD_VERSION_TEST_ID}">${escapeHtml(buildVersionLabel)}</span>
-            ${commitMarkup}
+      <div class="h-[19px] shrink-0 border-b border-border/50">
+        <div data-testid="${APP_BUILD_STATUS_BAR_TEST_ID}" class="container flex h-full items-center overflow-hidden px-3 text-[11px] leading-none text-muted-foreground">
+          <div class="flex w-full items-center gap-2">
+            <div class="flex items-center gap-3 text-muted-foreground">
+              <a href="/terms" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
+                /terms
+              </a>
+              <a href="/privacy" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
+                /privacy
+              </a>
+            </div>
+            <div class="ml-auto flex items-center gap-2">
+              <a id="${PUBLIC_LANDING_DEV_TOGGLE_ID}" href="${escapeHtml(landingDevToggleHref)}" class="inline-flex min-w-[3ch] items-center justify-center corner-notch-1 px-1 transition-colors hover:text-foreground">
+                ${escapeHtml(landingDevToggleLabel)}
+              </a>
+              <div class="inline-flex select-text items-center gap-2 font-mono">
+                <span data-testid="${APP_BUILD_VERSION_TEST_ID}">${escapeHtml(buildVersionLabel)}</span>
+                ${commitMarkup}
+              </div>
+            </div>
           </div>
         </div>
       </div>
       <main data-testid="${PUBLIC_LANDING_SHELL_MAIN_TEST_ID}" class="flex grow min-h-0 flex-col overflow-x-hidden overflow-y-auto">
         <div class="container my-auto">
-          <div data-testid="${PUBLIC_LANDING_CONTENT_TEST_ID}" class="mx-auto flex max-w-[384px] flex-col gap-4 pb-8">
+          <div data-testid="${PUBLIC_LANDING_CONTENT_TEST_ID}" class="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8">
             <div class="${PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME}">
               <div data-testid="${PUBLIC_LANDING_LOGO_STAGE_TEST_ID}" class="${PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME}">
                 <img
@@ -390,7 +402,7 @@ function renderFastLandingShell() {
             </div>
             <div
               data-testid="${PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID}"
-              class="flex flex-col gap-2 border-t pt-2"
+              class="flex flex-col gap-2 pt-2"
             >
               <div class="flex gap-2">
                 <input
@@ -407,15 +419,6 @@ function renderFastLandingShell() {
                   Join Waitlist
                 </button>
               </div>
-            </div>
-            <div class="border-t pt-2 text-center text-xs text-muted-foreground">
-              <a href="/terms" class="transition-colors hover:text-foreground">
-                /terms
-              </a>
-              <span class="px-2">·</span>
-              <a href="/privacy" class="transition-colors hover:text-foreground">
-                /privacy
-              </a>
             </div>
           </div>
         </div>

@@ -189,6 +189,29 @@ async function expectAppBuildCommitLink(commitLabel: Locator) {
   return href;
 }
 
+async function expectLegalLinksLeadBuildVersion(statusBar: Locator) {
+  const termsLink = statusBar.getByRole("link", { name: "/terms" });
+  const privacyLink = statusBar.getByRole("link", { name: "/privacy" });
+  const versionLabel = statusBar.getByTestId(APP_BUILD_VERSION_TEST_ID);
+
+  await expect(termsLink).toBeVisible();
+  await expect(privacyLink).toBeVisible();
+  await expect(versionLabel).toBeVisible();
+
+  const termsBox = await termsLink.boundingBox();
+  const privacyBox = await privacyLink.boundingBox();
+  const versionBox = await versionLabel.boundingBox();
+  expect(termsBox).not.toBeNull();
+  expect(privacyBox).not.toBeNull();
+  expect(versionBox).not.toBeNull();
+  if (termsBox === null || privacyBox === null || versionBox === null) {
+    return;
+  }
+
+  expect(termsBox.x).toBeLessThan(versionBox.x);
+  expect(privacyBox.x).toBeLessThan(versionBox.x);
+}
+
 async function selectText(locator: Locator) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
@@ -278,6 +301,65 @@ test("landing dev mode shows Google sign-in", async ({ page }) => {
 
   await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
+});
+
+test("public landing omits section divider lines before and after handoff", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const landingContent = page.getByTestId("public-landing-content");
+
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await expect(landingContent.locator(".border-t")).toHaveCount(0);
+
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+  await expect(landingContent.locator(".border-t")).toHaveCount(0);
+});
+
+test("public landing keeps legal links in the top bar across the shell handoff", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const landingContent = page.getByTestId("public-landing-content");
+  const shellStatusBar = page
+    .getByTestId("public-landing-shell")
+    .getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+
+  await expectLegalLinksLeadBuildVersion(shellStatusBar);
+  await expect(
+    landingContent.getByRole("link", { name: "/terms" }),
+  ).toHaveCount(0);
+  await expect(
+    landingContent.getByRole("link", { name: "/privacy" }),
+  ).toHaveCount(0);
+
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+
+  const hydratedStatusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  await expectLegalLinksLeadBuildVersion(hydratedStatusBar);
+  await expect(
+    landingContent.getByRole("link", { name: "/terms" }),
+  ).toHaveCount(0);
+  await expect(
+    landingContent.getByRole("link", { name: "/privacy" }),
+  ).toHaveCount(0);
+});
+
+test("mcp consent sign-in keeps legal links in the top bar", async ({
+  page,
+}) => {
+  await page.goto(
+    "/oauth/mcp/consent?mcp_consent_request=mcpar_test&mcp_login_required=1",
+    { waitUntil: "networkidle" },
+  );
+
+  const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+
+  await expectLegalLinksLeadBuildVersion(statusBar);
+  await expect(statusBar.getByRole("link", { name: "Home" })).toBeVisible();
+  await expect(page.getByText("Temporary MCP sign-in note")).toBeVisible();
 });
 
 test("build version stays stable across the landing shell handoff", async ({
@@ -647,6 +729,10 @@ test("public landing handoff keeps the card height stable", async ({
 test("prod-ui landing handoff stays visually aligned", async ({
   page,
 }, testInfo) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0;
+  });
+
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
   const landingContent = page.getByTestId("public-landing-content");
