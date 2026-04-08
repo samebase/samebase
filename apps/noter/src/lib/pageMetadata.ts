@@ -77,6 +77,14 @@ export const APP_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const NOT_FOUND_PAGE_METADATA: PageMetadata = {
+  title: "Page not found | noter",
+  description: "The requested noter page could not be found.",
+  canonicalPath: "/",
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
 export const MACHINE_CONNECT_PAGE_METADATA: PageMetadata = {
   title: "Connect This Machine | noter",
   description:
@@ -187,6 +195,13 @@ export function resolvePageMetadata(args: {
     ...APP_PAGE_METADATA,
     canonicalPath: args.pathname,
     title: resolveAppPageTitle(args.pathname),
+  };
+}
+
+export function resolveNotFoundPageMetadata(pathname: string): PageMetadata {
+  return {
+    ...NOT_FOUND_PAGE_METADATA,
+    canonicalPath: pathname,
   };
 }
 

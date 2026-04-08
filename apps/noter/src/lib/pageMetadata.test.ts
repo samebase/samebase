@@ -4,8 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
   APP_PAGE_METADATA,
   applyPageMetadata,
-  resolvePageMetadata,
   resolveAppPageTitle,
+  resolveNotFoundPageMetadata,
+  resolvePageMetadata,
 } from "./pageMetadata";
 
 class FakeHeadElement {
@@ -231,6 +232,16 @@ describe("page metadata", () => {
 
   it("returns a dedicated title for the machines route", () => {
     expect(resolveAppPageTitle("/machines")).toBe("Machines | noter");
+  });
+
+  it("builds dedicated not-found metadata without indexing the missing path", () => {
+    expect(resolveNotFoundPageMetadata("/missing")).toEqual({
+      canonicalPath: "/missing",
+      description: "The requested noter page could not be found.",
+      openGraphType: "website",
+      robots: "noindex,nofollow",
+      title: "Page not found | noter",
+    });
   });
 
   it("gives the codex research route a dedicated app title", () => {

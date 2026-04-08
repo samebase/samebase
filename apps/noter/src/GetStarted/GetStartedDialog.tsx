@@ -95,7 +95,8 @@ function GetStartedContent() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            Edit <Code>src/App.tsx</Code> to change your frontend.
+            Edit <Code>src/components/RootIndexRoutePage.tsx</Code> to change
+            your frontend.
           </CardContent>
         </Card>
       </div>

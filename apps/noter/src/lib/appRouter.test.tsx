@@ -5,13 +5,15 @@ import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/App", () => ({
-  default: () => <div data-testid="app-route">App route</div>,
-}));
-
 vi.mock("@/components/RootIndexRoutePage", () => ({
   RootIndexRoutePage: () => (
     <div data-testid="root-index-route">Root index route</div>
+  ),
+}));
+
+vi.mock("@/components/NotFoundRoutePage", () => ({
+  NotFoundRoutePage: () => (
+    <div data-testid="not-found-route">Not found route</div>
   ),
 }));
 
@@ -148,7 +150,9 @@ describe("appRouter", () => {
     expect(
       rootElement?.querySelector('[data-testid="terms-page"]')?.textContent,
     ).toBe("Terms page");
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
   it("renders / through the explicit routed root index page", async () => {
@@ -158,7 +162,9 @@ describe("appRouter", () => {
       rootElement?.querySelector('[data-testid="root-index-route"]')
         ?.textContent,
     ).toBe("Root index route");
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
   it("renders logo routes through explicit public routes without the layout shell", async () => {
@@ -168,7 +174,9 @@ describe("appRouter", () => {
       rootElement?.querySelector('[data-testid="logo-page"]')?.textContent,
     ).toBe("three");
     expect(rootElement?.querySelector('[data-testid="layout"]')).toBeNull();
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
   it("retains the root devtools flag across logo route search updates", async () => {
@@ -205,7 +213,9 @@ describe("appRouter", () => {
       rootElement?.querySelector('[data-testid="mcp-consent-page"]')
         ?.textContent,
     ).toBe("MCP consent page");
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
   it("renders pricing through an explicit TanStack route instead of the App fallback", async () => {
@@ -214,7 +224,9 @@ describe("appRouter", () => {
     expect(
       rootElement?.querySelector('[data-testid="pricing-page"]')?.textContent,
     ).toBe("Pricing page");
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
   it("renders add repository through an explicit TanStack route instead of the App fallback", async () => {
@@ -224,7 +236,9 @@ describe("appRouter", () => {
       rootElement?.querySelector('[data-testid="add-repository-page"]')
         ?.textContent,
     ).toBe("Add repository page");
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
   it("accepts a trailing slash on the promoted pricing route", async () => {
@@ -233,7 +247,9 @@ describe("appRouter", () => {
     expect(
       rootElement?.querySelector('[data-testid="pricing-page"]')?.textContent,
     ).toBe("Pricing page");
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
   it("accepts a trailing slash on the promoted add route", async () => {
@@ -243,7 +259,9 @@ describe("appRouter", () => {
       rootElement?.querySelector('[data-testid="add-repository-page"]')
         ?.textContent,
     ).toBe("Add repository page");
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
   it("renders machines through an explicit TanStack route instead of the App fallback", async () => {
@@ -252,7 +270,9 @@ describe("appRouter", () => {
     expect(
       rootElement?.querySelector('[data-testid="machines-page"]')?.textContent,
     ).toBe("Machines page");
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
   it("renders machine connect through an explicit TanStack route instead of the App fallback", async () => {
@@ -262,7 +282,9 @@ describe("appRouter", () => {
       rootElement?.querySelector('[data-testid="machine-connect-page"]')
         ?.textContent,
     ).toBe("Machine connect page");
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
   it("accepts a trailing slash on the promoted machines route", async () => {
@@ -271,7 +293,9 @@ describe("appRouter", () => {
     expect(
       rootElement?.querySelector('[data-testid="machines-page"]')?.textContent,
     ).toBe("Machines page");
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
   it("accepts a trailing slash on the promoted machine connect route", async () => {
@@ -281,7 +305,9 @@ describe("appRouter", () => {
       rootElement?.querySelector('[data-testid="machine-connect-page"]')
         ?.textContent,
     ).toBe("Machine connect page");
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
   it("renders codespace chat through an explicit TanStack route instead of the vault catch-all", async () => {
@@ -294,7 +320,9 @@ describe("appRouter", () => {
     expect(
       rootElement?.querySelector('[data-testid="file-view-page"]'),
     ).toBeNull();
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
   it("renders the generic vault route through an explicit TanStack route instead of the App fallback", async () => {
@@ -303,7 +331,9 @@ describe("appRouter", () => {
     expect(
       rootElement?.querySelector('[data-testid="file-view-page"]')?.textContent,
     ).toBe("File view page");
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
   it("renders the vault repository root through the generic vault route", async () => {
@@ -312,7 +342,9 @@ describe("appRouter", () => {
     expect(
       rootElement?.querySelector('[data-testid="file-view-page"]')?.textContent,
     ).toBe("File view page");
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
   it("renders /test through an explicit TanStack route instead of the App fallback", async () => {
@@ -322,14 +354,17 @@ describe("appRouter", () => {
       rootElement?.querySelector('[data-testid="root-test-route"]')
         ?.textContent,
     ).toBe("Root test route");
-    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
   });
 
-  it("keeps the App fallback for unresolved app-owned routes", async () => {
+  it("renders the root not-found route for unresolved paths", async () => {
     await renderRoute("/missing");
 
     expect(
-      rootElement?.querySelector('[data-testid="app-route"]')?.textContent,
-    ).toBe("App route");
+      rootElement?.querySelector('[data-testid="not-found-route"]')
+        ?.textContent,
+    ).toBe("Not found route");
   });
 });

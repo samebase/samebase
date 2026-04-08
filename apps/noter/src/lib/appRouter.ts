@@ -44,8 +44,8 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import App from "@/App";
 import { McpConsentRoutePage } from "@/components/McpConsentRoutePage";
+import { NotFoundRoutePage } from "@/components/NotFoundRoutePage";
 import { PricingRoutePage } from "@/components/PricingRoutePage";
 import { RootIndexRoutePage } from "@/components/RootIndexRoutePage";
 import { RootTestRoutePage } from "@/components/RootTestRoutePage";
@@ -327,19 +327,13 @@ function CodexThreadBrowserRoutePage() {
 
 const appRouterRootRoute = createRootRoute({
   component: AppRouterRoot,
+  notFoundComponent: NotFoundRoutePage,
   search: {
     middlewares: [retainSearchParams(["devtools"])],
   },
   validateSearch: validateRootRouteSearch,
 });
 
-// TODO(tanstack-router-migration): the remaining `$` route is still an App-era
-// fallback for unresolved paths.
-//
-// The real target shape is:
-// - move search-param-heavy pages onto route-level `validateSearch`
-// - delete the fallback bridge once the final app-owned unresolved paths have a
-//   deliberate routed/not-found story
 const appIndexRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: "/",
@@ -482,12 +476,6 @@ const vaultFileRoute = createRoute({
   component: FileViewRoutePage,
 });
 
-const appSplatRoute = createRoute({
-  getParentRoute: () => appRouterRootRoute,
-  path: "$",
-  component: App,
-});
-
 const appRouteTree = appRouterRootRoute.addChildren([
   appIndexRoute,
   appTestRoute,
@@ -511,13 +499,13 @@ const appRouteTree = appRouterRootRoute.addChildren([
   machineConnectRoute,
   codespaceChatRoute,
   vaultFileRoute,
-  appSplatRoute,
 ]);
 
 export function createAppRouter(history: RouterHistory) {
   const router = createRouter({
     defaultPreload: false,
     history,
+    notFoundMode: "root",
     parseSearch: parseTanStackSearch,
     routeTree: appRouteTree,
     stringifySearch: stringifyTanStackSearch,
