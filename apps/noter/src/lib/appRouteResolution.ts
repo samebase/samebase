@@ -2,13 +2,10 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "@/lib/codexAppServerResearch";
-import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
 import { isChatOnlyCodespaceRoute, parseVaultPathContext } from "./vaultRoutes";
 
 export type AuthenticatedAppRoute =
   | "dashboard"
-  | "machines"
-  | "machineConnect"
   | "codespaceChat"
   | "fileView"
   | "test"
@@ -33,14 +30,6 @@ export function resolveAuthenticatedAppRoute(
 
   if (normalizedPathname === "/") {
     return "dashboard";
-  }
-
-  if (normalizedPathname === MACHINES_ROUTE) {
-    return "machines";
-  }
-
-  if (normalizedPathname === MACHINE_CONNECT_ROUTE) {
-    return "machineConnect";
   }
 
   if (normalizedPathname === "/test") {

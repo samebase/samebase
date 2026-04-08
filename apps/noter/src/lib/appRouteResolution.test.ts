@@ -4,10 +4,6 @@ import { resolveAuthenticatedAppRoute } from "./appRouteResolution";
 describe("resolveAuthenticatedAppRoute", () => {
   it("resolves fixed authenticated routes", () => {
     expect(resolveAuthenticatedAppRoute("/")).toBe("dashboard");
-    expect(resolveAuthenticatedAppRoute("/machines")).toBe("machines");
-    expect(resolveAuthenticatedAppRoute("/machines/connect")).toBe(
-      "machineConnect",
-    );
     expect(resolveAuthenticatedAppRoute("/test")).toBe("test");
   });
 
@@ -32,6 +28,6 @@ describe("resolveAuthenticatedAppRoute", () => {
   });
 
   it("accepts optional trailing slashes on exact routes", () => {
-    expect(resolveAuthenticatedAppRoute("/machines/")).toBe("machines");
+    expect(resolveAuthenticatedAppRoute("/test/")).toBe("test");
   });
 });

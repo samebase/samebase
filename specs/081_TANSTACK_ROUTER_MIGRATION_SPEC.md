@@ -241,6 +241,16 @@ migration with concrete problems, attempted fixes, and outcomes.
   same patch, and `App.tsx` only keeps the remaining unresolved authenticated
   branches.
 
+- Problem: `/machines` and `/machines/connect` still looked like switchboard
+  paths in `App.tsx`, even though both pages already behave like standalone
+  authenticated app surfaces with route-local search state. Tried: reused the
+  shared authenticated route shell from the pricing/add step, promoted both
+  machine routes into explicit TanStack routes, and removed those cases from the
+  old authenticated pathname resolver. Result: the machines surfaces are now
+  route-owned, `App.tsx` only keeps codespace and vault/file routing branches,
+  and the later typed-search phase can focus on search ownership instead of path
+  ownership.
+
 ## Completed Milestones
 
 1. Introduce a repo-owned router seam and move current imports behind it.
@@ -251,8 +261,8 @@ migration with concrete problems, attempted fixes, and outcomes.
 ## Remaining Sequence
 
 1. Promote the remaining non-root `App.tsx` branches into explicit TanStack
-   routes, ordered from lowest risk to highest coupling: machines and
-   machine-connect, then codespace-chat and vault/file routes last.
+   routes, ordered from lowest risk to highest coupling: codespace-chat and
+   vault/file routes last.
 2. Migrate the search-param-heavy surfaces onto route-owned TanStack search
    handling. Priorities: landing `?auth` and `?dev`, MCP consent request id,
    machine connect bootstrap params, machines workspace params, and the existing
