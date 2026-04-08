@@ -1,7 +1,6 @@
 import {
   getLastRepositoryMetadataRefreshAt,
   isRepositoryMetadataStale,
-  TREE_REFRESH_DEBOUNCE_MS,
   TREE_REFRESH_STALE_LOCK_MS,
 } from "../../shared/treeRefresh";
 
@@ -74,8 +73,9 @@ export function getTreeRefreshUiState(
 }
 
 /**
- * Dashboard auto-refresh keeps the cheap default-branch tree debounce, but it
- * should still backfill repo metadata when branch rows are missing or stale.
+ * Dashboard auto-refresh treats a fresh page load as an explicit "show me the
+ * latest" entrypoint, then falls back to stale-gated metadata checks on later
+ * visibility resumes so background tab churn does not fan out GitHub syncs.
  */
 export function shouldAutoRefreshVault(args: {
   lastTreeRefreshAt?: number;
@@ -109,20 +109,9 @@ export function shouldAutoRefreshVault(args: {
       now,
     });
 
-  if (args.trigger === "visibility") {
-    return metadataStale;
-  }
-
-  if (metadataStale) {
+  if (args.trigger === "page_load") {
     return true;
   }
 
-  if (
-    typeof args.lastTreeRefreshAt !== "number" ||
-    !Number.isFinite(args.lastTreeRefreshAt)
-  ) {
-    return true;
-  }
-
-  return now - args.lastTreeRefreshAt >= TREE_REFRESH_DEBOUNCE_MS;
+  return metadataStale;
 }

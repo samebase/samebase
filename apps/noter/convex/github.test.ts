@@ -447,6 +447,18 @@ describe("shouldRefreshRepositoryMetadata", () => {
     ).toBe(false);
   });
 
+  it("refreshes repo-scoped page loads even when cached metadata is fresh", () => {
+    expect(
+      shouldRefreshRepositoryMetadata({
+        trigger: "page_load",
+        branchNotFound: false,
+        includeCloudflarePreviewLinks: false,
+        lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
+        now,
+      }),
+    ).toBe(true);
+  });
+
   it("refreshes stale repo metadata from branch-scoped views", () => {
     expect(
       shouldRefreshRepositoryMetadata({

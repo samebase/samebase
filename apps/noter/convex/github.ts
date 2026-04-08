@@ -319,6 +319,14 @@ export function shouldRefreshRepositoryMetadata(args: {
     return false;
   }
 
+  // Entering the dashboard should reconcile the repo-level branch/PR catalog at
+  // least once, even when cached metadata still falls inside the long stale
+  // window. This keeps page-load dashboard views trustworthy without
+  // reintroducing visibility/focus churn fan-out.
+  if (args.trigger === "page_load" && args.requestedBranch === undefined) {
+    return true;
+  }
+
   if (args.branchNotFound) {
     return shouldBypassRecentSuccessDebounceForBranchRefresh({
       requestedBranch: args.requestedBranch,
