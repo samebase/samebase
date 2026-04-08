@@ -9,8 +9,6 @@ export type AuthenticatedAppRoute =
   | "dashboard"
   | "machines"
   | "machineConnect"
-  | "pricing"
-  | "addRepository"
   | "codespaceChat"
   | "fileView"
   | "test"
@@ -43,14 +41,6 @@ export function resolveAuthenticatedAppRoute(
 
   if (normalizedPathname === MACHINE_CONNECT_ROUTE) {
     return "machineConnect";
-  }
-
-  if (normalizedPathname === "/pricing") {
-    return "pricing";
-  }
-
-  if (normalizedPathname === "/add") {
-    return "addRepository";
   }
 
   if (normalizedPathname === "/test") {

@@ -15,6 +15,7 @@ import {
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
+import { AddRepositoryRoutePage } from "@/components/AddRepositoryRoutePage";
 import {
   createElement,
   lazy,
@@ -25,6 +26,7 @@ import {
 } from "react";
 import App from "@/App";
 import { McpConsentRoutePage } from "@/components/McpConsentRoutePage";
+import { PricingRoutePage } from "@/components/PricingRoutePage";
 
 function AppRouterRoot() {
   return createElement(Outlet);
@@ -366,6 +368,18 @@ const mcpConsentRoute = createRoute({
   component: McpConsentRoutePage,
 });
 
+const pricingRoute = createRoute({
+  getParentRoute: () => appRouterRootRoute,
+  path: "/pricing",
+  component: PricingRoutePage,
+});
+
+const addRepositoryRoute = createRoute({
+  getParentRoute: () => appRouterRootRoute,
+  path: "/add",
+  component: AddRepositoryRoutePage,
+});
+
 const appSplatRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: "$",
@@ -388,6 +402,8 @@ const appRouteTree = appRouterRootRoute.addChildren([
   codexResearchRoute,
   codexThreadBrowserRoute,
   mcpConsentRoute,
+  pricingRoute,
+  addRepositoryRoute,
   appSplatRoute,
 ]);
 
