@@ -5,6 +5,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  retainSearchParams,
   type RouterHistory,
 } from "@tanstack/react-router";
 import { Layout } from "@/Layout";
@@ -41,6 +42,30 @@ import { PricingRoutePage } from "@/components/PricingRoutePage";
 
 function AppRouterRoot() {
   return createElement(Outlet);
+}
+
+type AppRouterRootSearch = {
+  devtools?: true;
+};
+
+function readOptionalRootFlag(value: unknown): true | undefined {
+  if (value === true) {
+    return true;
+  }
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  return value.length === 0 || value === "true" ? true : undefined;
+}
+
+function validateAppRouterRootSearch(
+  search: Record<string, unknown>,
+): AppRouterRootSearch {
+  return readOptionalRootFlag(search.devtools) === true
+    ? { devtools: true }
+    : {};
 }
 
 const PrivacyPolicyPage = lazy(async () => {
@@ -310,6 +335,10 @@ function CodexThreadBrowserRoutePage() {
 
 const appRouterRootRoute = createRootRoute({
   component: AppRouterRoot,
+  search: {
+    middlewares: [retainSearchParams(["devtools"])],
+  },
+  validateSearch: validateAppRouterRootSearch,
 });
 
 // TODO(tanstack-router-migration): this root-plus-catch-all tree is only a

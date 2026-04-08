@@ -294,6 +294,14 @@ migration with concrete problems, attempted fixes, and outcomes.
   simpler sparse navigation type until the route can move to a cleaner
   schema-with-adapter shape.
 
+- Follow-up reviews worth considering after merge, but intentionally not folded
+  into this PR's core scope: replace the dev-only research surface `href`
+  strings with route-owned TanStack `Link` usage, decide whether the repo-owned
+  plain-string search codec should explicitly support repeated keys or
+  explicitly reject array semantics, and verify whether the logo preview should
+  always apply browser back/forward search updates even while scene interaction
+  is active.
+
 ## Completed Milestones
 
 1. Introduce a repo-owned router seam and move current imports behind it.
