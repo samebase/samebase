@@ -1,11 +1,12 @@
 import { Button } from "@/components/ui/button";
+import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
 import {
   SINGLE_CUBE_STUDY_CANVAS_SIZE,
   SINGLE_CUBE_STUDY_SAMPLE_ANGLES,
   drawSingleCubeStudy,
 } from "@/components/logoSingleCubeStudyRenderer";
+import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@/lib/router";
 
 function CubeStudyCanvas({
   angleDegrees,
@@ -56,7 +57,11 @@ function CubeStudyCanvas({
   );
 }
 
-export function LogoSingleCubeStudyPage() {
+export function LogoSingleCubeStudyPage({
+  routeSearch,
+}: {
+  routeSearch: LogoRouteSearch;
+}) {
   const [angleDegrees, setAngleDegrees] = useState(45);
   const [showEdges, setShowEdges] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
@@ -67,10 +72,14 @@ export function LogoSingleCubeStudyPage() {
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white/88 p-2 backdrop-blur-sm">
           <Button asChild size="sm" variant="outline" className="rounded-none">
-            <Link to="/logo">3D</Link>
+            <Link search={routeSearch} to="/logo">
+              3D
+            </Link>
           </Button>
           <Button asChild size="sm" variant="outline" className="rounded-none">
-            <Link to="/logo-iso">Iso</Link>
+            <Link search={routeSearch} to="/logo-iso">
+              Iso
+            </Link>
           </Button>
           <Button size="sm" className="rounded-none">
             Single Cube Study

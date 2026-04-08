@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   CODEX_APP_SERVER_RESEARCH_API_BASE,
+  CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
   requestCodexAppServerJson as requestJson,
   type CodexAppServerApprovalRequest,
@@ -29,17 +30,19 @@ import {
   type CodexAppServerThreadsResponse,
   type CodexAppServerResearchEvent,
 } from "@/lib/codexAppServerResearch";
+import { buildCodexResearchRouteSearch } from "@/lib/codexResearchRouteSearch";
 import {
   buildPathWithQuery,
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
+import { stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 import { useConnectedMachineHeartbeatLog } from "@/lib/connectedMachineHeartbeatLog";
 import { useNow } from "@/hooks/useNow";
+import { getRouteApi } from "@tanstack/react-router";
 import { clsx } from "clsx";
 import { useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "@/lib/router";
 import { resolveConnectedMachineStatus } from "../../shared/connectedMachinePresence";
 import { api } from "../../convex/_generated/api";
 
@@ -83,6 +86,8 @@ const DEFAULT_THREAD_LIST_QUERY: ThreadListQueryState = {
   sortKey: "updated_at",
 };
 type ProtocolMode = "json-schema" | "ts";
+
+const codexResearchRouteApi = getRouteApi(CODEX_APP_SERVER_RESEARCH_ROUTE);
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -153,26 +158,13 @@ function readProtocolRequestPath(args: {
   });
 }
 
-function buildThreadBrowserHref(args: {
-  currentSearch: string;
+function buildCodexResearchHref(args: {
+  pathname: string;
   selectedThreadId: string | null;
 }): string {
-  const searchParams = updateQueryParams(
-    args.currentSearch,
-    (nextSearchParams) => {
-      setQueryParam(nextSearchParams, "threadId", args.selectedThreadId);
-    },
-  );
-
-  return buildPathWithQuery({
-    pathname: CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
-    search: searchParams,
-  });
-}
-
-function readRequestedThreadId(search: string): string | null {
-  const threadId = new URLSearchParams(search).get("threadId");
-  return typeof threadId === "string" && threadId.length > 0 ? threadId : null;
+  return `${args.pathname}${stringifyTanStackSearch(
+    buildCodexResearchRouteSearch(args.selectedThreadId),
+  )}`;
 }
 
 function RuntimeStatusBadge(props: {
@@ -498,7 +490,8 @@ export function CodexAppServerSelectedThreadCard(props: {
 }
 
 export function CodexAppServerResearchPage() {
-  const location = useLocation();
+  const navigate = codexResearchRouteApi.useNavigate();
+  const routeSearch = codexResearchRouteApi.useSearch();
   const connectedMachinesQuery = useQuery(
     api.connectedMachines.listConnectedMachines,
   );
@@ -513,8 +506,8 @@ export function CodexAppServerResearchPage() {
   const [requests, setRequests] = useState<CodexAppServerApprovalRequest[]>([]);
   const [threads, setThreads] = useState<CodexAppServerThread[]>([]);
   const [nextThreadCursor, setNextThreadCursor] = useState<string | null>(null);
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(() =>
-    readRequestedThreadId(location.search),
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
+    () => routeSearch.threadId ?? null,
   );
   const [selectedThread, setSelectedThread] =
     useState<CodexAppServerThread | null>(null);
@@ -727,17 +720,29 @@ export function CodexAppServerResearchPage() {
   refreshEventsRef.current = refreshEvents;
   refreshThreadsRef.current = refreshThreads;
   refreshSelectedThreadRef.current = refreshSelectedThread;
-  const browserViewHref = buildThreadBrowserHref({
-    currentSearch: location.search,
+  const browserViewHref = buildCodexResearchHref({
+    pathname: CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
     selectedThreadId,
   });
 
   useEffect(() => {
-    const requestedThreadId = readRequestedThreadId(location.search);
-    if (typeof requestedThreadId === "string") {
-      setSelectedThreadId(requestedThreadId);
+    const requestedThreadId = routeSearch.threadId ?? null;
+    setSelectedThreadId((current) =>
+      current === requestedThreadId ? current : requestedThreadId,
+    );
+  }, [routeSearch.threadId]);
+
+  useEffect(() => {
+    const nextSearch = buildCodexResearchRouteSearch(selectedThreadId);
+    if (nextSearch.threadId === routeSearch.threadId) {
+      return;
     }
-  }, [location.search]);
+
+    void navigate({
+      replace: true,
+      search: nextSearch,
+    });
+  }, [navigate, routeSearch.threadId, selectedThreadId]);
 
   useEffect(() => {
     let cancelled = false;

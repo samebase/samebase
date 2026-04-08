@@ -10,21 +10,22 @@ import {
 } from "@/components/logoVoxelState";
 import { Button } from "@/components/ui/button";
 import { useDocumentThemeMode } from "@/hooks/useDocumentThemeMode";
-import { Link, useSearchParams } from "@/lib/router";
+import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
+import { Link } from "@tanstack/react-router";
 
-export function LogoStaticSvgPage() {
+export function LogoStaticSvgPage({
+  routeSearch,
+}: {
+  routeSearch: LogoRouteSearch;
+}) {
   const documentThemeMode = useDocumentThemeMode();
-  const [searchParams] = useSearchParams();
   const isDarkTheme = documentThemeMode === "dark";
   const backgroundColor = getTailwindColorHex("background-base");
-  const currentSearch = searchParams.toString();
   const filledVoxels =
-    parseVoxelState(searchParams.get("vox")) ??
+    parseVoxelState(routeSearch.vox ?? null) ??
     createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
   const themeFragment = isDarkTheme ? "dark" : "light";
   const staticSvgSrc = `${createStaticLogoSvgDataUrl({ filledVoxels })}#${themeFragment}-${documentThemeMode}`;
-  const modeHref = (pathname: "/logo" | "/logo-iso" | "/logo-iso-study") =>
-    currentSearch ? `${pathname}?${currentSearch}` : pathname;
 
   return (
     <div
@@ -33,16 +34,22 @@ export function LogoStaticSvgPage() {
     >
       <div className="absolute left-3 top-3 flex items-center gap-2 border border-black/10 bg-white/84 p-2 backdrop-blur-sm sm:left-4 sm:top-4">
         <Button asChild size="sm" variant="outline" className="rounded-none">
-          <Link to={modeHref("/logo")}>3D</Link>
+          <Link search={routeSearch} to="/logo">
+            3D
+          </Link>
         </Button>
         <Button asChild size="sm" variant="outline" className="rounded-none">
-          <Link to={modeHref("/logo-iso")}>Iso</Link>
+          <Link search={routeSearch} to="/logo-iso">
+            Iso
+          </Link>
         </Button>
         <Button size="sm" className="rounded-none">
           SVG
         </Button>
         <Button asChild size="sm" variant="outline" className="rounded-none">
-          <Link to={modeHref("/logo-iso-study")}>Study</Link>
+          <Link search={routeSearch} to="/logo-iso-study">
+            Study
+          </Link>
         </Button>
       </div>
 

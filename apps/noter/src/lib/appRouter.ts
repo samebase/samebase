@@ -12,7 +12,13 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "@/lib/codexAppServerResearch";
+import { validateCodexResearchRouteSearch } from "@/lib/codexResearchRouteSearch";
+import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
+import {
+  parseTanStackSearch,
+  stringifyTanStackSearch,
+} from "@/lib/tanstackSearchParams";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 import { AddRepositoryRoutePage } from "@/components/AddRepositoryRoutePage";
@@ -165,34 +171,66 @@ function TermsRoutePage() {
 }
 
 function LogoThreeRoutePage() {
+  const routeSearch = logoThreeRoute.useSearch();
+  const navigate = logoThreeRoute.useNavigate();
+
   return createElement(
     RoutedPage,
     { pathname: "/logo" },
-    createElement(LogoPreviewPage, { renderMode: "three" }),
+    createElement(LogoPreviewPage, {
+      renderMode: "three",
+      replaceRouteSearch: (nextSearch) => {
+        void navigate({
+          replace: true,
+          search: nextSearch,
+        });
+      },
+      routeSearch,
+    }),
   );
 }
 
 function LogoIsoRoutePage() {
+  const routeSearch = logoIsoRoute.useSearch();
+  const navigate = logoIsoRoute.useNavigate();
+
   return createElement(
     RoutedPage,
     { pathname: "/logo-iso" },
-    createElement(LogoPreviewPage, { renderMode: "iso" }),
+    createElement(LogoPreviewPage, {
+      renderMode: "iso",
+      replaceRouteSearch: (nextSearch) => {
+        void navigate({
+          replace: true,
+          search: nextSearch,
+        });
+      },
+      routeSearch,
+    }),
   );
 }
 
 function LogoSvgRoutePage() {
+  const routeSearch = logoSvgRoute.useSearch();
+
   return createElement(
     RoutedPage,
     { pathname: "/logo-svg" },
-    createElement(LogoStaticSvgPage),
+    createElement(LogoStaticSvgPage, {
+      routeSearch,
+    }),
   );
 }
 
 function LogoIsoStudyRoutePage() {
+  const routeSearch = logoIsoStudyRoute.useSearch();
+
   return createElement(
     RoutedPage,
     { pathname: "/logo-iso-study" },
-    createElement(LogoSingleCubeStudyPage),
+    createElement(LogoSingleCubeStudyPage, {
+      routeSearch,
+    }),
   );
 }
 
@@ -305,24 +343,28 @@ const logoThreeRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: "/logo",
   component: LogoThreeRoutePage,
+  validateSearch: validateLogoRouteSearch,
 });
 
 const logoIsoRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: "/logo-iso",
   component: LogoIsoRoutePage,
+  validateSearch: validateLogoRouteSearch,
 });
 
 const logoSvgRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: "/logo-svg",
   component: LogoSvgRoutePage,
+  validateSearch: validateLogoRouteSearch,
 });
 
 const logoIsoStudyRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: "/logo-iso-study",
   component: LogoIsoStudyRoutePage,
+  validateSearch: validateLogoRouteSearch,
 });
 
 const logoTransitionLabRoute = createRoute({
@@ -359,12 +401,14 @@ const codexResearchRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: CODEX_APP_SERVER_RESEARCH_ROUTE,
   component: CodexResearchRoutePage,
+  validateSearch: validateCodexResearchRouteSearch,
 });
 
 const codexThreadBrowserRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
   component: CodexThreadBrowserRoutePage,
+  validateSearch: validateCodexResearchRouteSearch,
 });
 
 const mcpConsentRoute = createRoute({
@@ -444,7 +488,9 @@ export function createAppRouter(history: RouterHistory) {
   const router = createRouter({
     defaultPreload: false,
     history,
+    parseSearch: parseTanStackSearch,
     routeTree: appRouteTree,
+    stringifySearch: stringifyTanStackSearch,
   });
 
   void router.load({ sync: true });
