@@ -12,6 +12,7 @@ import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "@/lib/fastLandingBoot";
+import type { PathWithSearch } from "@/lib/queryParams";
 import { useConvexAuth, Authenticated, Unauthenticated } from "convex/react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
@@ -26,13 +27,19 @@ const VaultDashboard = lazy(async () => {
 // not resurrect it.
 let hasCompletedFastLandingShellSession = false;
 
-function shouldRenderInitialFastLandingShell(location: Location): boolean {
+function shouldRenderInitialFastLandingShell(
+  location: PathWithSearch,
+): boolean {
   return shouldRenderFastLandingShellForLocation(location);
 }
 
 const initialFastLandingPath =
   typeof window !== "undefined" &&
-  shouldRenderInitialFastLandingShell(window.location)
+  shouldRenderInitialFastLandingShell({
+    pathname: window.location.pathname,
+    search: window.location.search,
+    hash: window.location.hash,
+  })
     ? `${window.location.pathname}${window.location.search}${window.location.hash}`
     : null;
 

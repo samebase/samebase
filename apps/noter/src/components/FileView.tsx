@@ -956,7 +956,6 @@ function FileViewInner({
   } = useDialog();
 
   const repositoryFullName = `${owner}/${repoName}`;
-  const encodedBranch = encodeURIComponent(branch);
   const selectedFileIsRenderableMedia =
     isRenderableRepositoryMediaPath(selectedFile);
   const commitSha = vault.commitSHA;
@@ -1928,9 +1927,12 @@ function FileViewInner({
       branch,
     })
       .then(() => {
-        // Navigate to the new file
         navigateByHref(
-          `/vault/${owner}/${repoName}/${encodedBranch}/${encodeVaultFilePath(filePath)}`,
+          buildVaultFileUrl(filePath, {
+            reviewMode: "editor",
+            compare: false,
+          }),
+          { state },
         );
       })
       .catch((error) => {
