@@ -68,6 +68,12 @@ vi.mock("@/components/FileViewRoutePage", () => ({
 }));
 
 import { createAppRouter } from "./appRouter";
+import {
+  buildPathWithUpdatedQuery,
+  buildSearchString,
+  setQueryParam,
+  updateQueryParams,
+} from "./queryParams";
 
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
@@ -119,6 +125,8 @@ describe("appRouter", () => {
       root?.render(<RouterProvider router={router} />);
       await settleRouterRender();
     });
+
+    return router;
   }
 
   it("renders terms through an explicit TanStack route instead of the App fallback", async () => {
@@ -139,6 +147,33 @@ describe("appRouter", () => {
     ).toBe("three");
     expect(rootElement?.querySelector('[data-testid="layout"]')).toBeNull();
     expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+  });
+
+  it("retains the root devtools flag across logo route search updates", async () => {
+    const router = await renderRoute(
+      buildPathWithUpdatedQuery({ pathname: "/logo" }, (searchParams) => {
+        setQueryParam(searchParams, "devtools", true);
+        setQueryParam(searchParams, "rot", "10");
+      }),
+    );
+
+    await act(async () => {
+      await router.navigate({
+        replace: true,
+        search: {},
+        to: "/logo-iso",
+      });
+      await settleRouterRender();
+    });
+
+    expect(router.state.location.pathname).toBe("/logo-iso");
+    expect(router.state.location.searchStr).toBe(
+      buildSearchString(
+        updateQueryParams(undefined, (searchParams) => {
+          setQueryParam(searchParams, "devtools", true);
+        }),
+      ),
+    );
   });
 
   it("renders MCP consent through an explicit TanStack route instead of the App fallback", async () => {

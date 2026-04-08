@@ -73,17 +73,16 @@ import {
   type LogoViewState,
 } from "@/components/logoViewDrag";
 import {
-  buildPathWithQuery,
-  buildSearchString,
-  setQueryParam,
-  updateQueryParams,
-} from "@/lib/queryParams";
+  buildLogoRouteSearch,
+  type LogoRouteSearch,
+} from "@/lib/logoRouteSearch";
 import { shouldSyncLogoPreviewQueryState } from "@/lib/logoPreviewQuerySync";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
+import { stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 import { cn } from "@/lib/utils";
+import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
-import { Link, useSearchParams } from "@/lib/router";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const CONTROLS_POPOVER_SIDE_OFFSET_PX = 10;
@@ -95,16 +94,6 @@ const DEFAULT_ROTATION_AXIS_MODE: LogoRotationAxisMode = "cube-y";
 const MIN_LOGO_OPACITY = 0;
 const MAX_LOGO_OPACITY = 1;
 const LOGO_OPACITY_STEP = 0.01;
-const VIEW_SNAP_DISABLED_QUERY_PARAM = "freeView";
-const ISOMETRIC_CUBE_SIDE_QUERY_PARAM = "isoSide";
-const ROTATION_QUERY_PARAM = "rot";
-const ROTATION_AXIS_QUERY_PARAM = "axis";
-const ELEVATION_QUERY_PARAM = "elev";
-const FACE_COLOR_QUERY_PARAMS = {
-  left: "leftColor",
-  right: "rightColor",
-  top: "topColor",
-} as const satisfies Record<FaceColorKey, string>;
 const ROTATION_AXIS_MODE_LABELS: Record<LogoRotationAxisMode, string> = {
   "cube-y": "Cube axis",
   "screen-vertical": "Vertical",
@@ -119,15 +108,10 @@ const ROTATION_AXIS_MODE_OPTIONS = [
 ] as const satisfies readonly LogoRotationAxisMode[];
 
 type LogoPreviewRenderMode = "three" | "iso";
-type LogoPreviewQueryState = {
-  elevationDegrees: number;
-  faceColors: FaceColors;
-  isoCubeSidePixels: number;
-  isoStyleId: LogoIsometricStyleId;
-  rotationAxisMode: LogoRotationAxisMode;
-  rotationDegrees: number;
-  viewSnapEnabled: boolean;
-  voxelState: string;
+type LogoPreviewPageProps = {
+  renderMode?: LogoPreviewRenderMode;
+  replaceRouteSearch: (nextSearch: LogoRouteSearch) => void;
+  routeSearch: LogoRouteSearch;
 };
 
 const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
@@ -197,8 +181,8 @@ function ColorOptionContent({
   );
 }
 
-function readVoxelState(searchParams: URLSearchParams): string {
-  const parsedState = parseVoxelState(searchParams.get("vox"));
+function readVoxelState(routeSearch: LogoRouteSearch): string {
+  const parsedState = parseVoxelState(routeSearch.vox ?? null);
   if (parsedState === null) {
     return DEFAULT_VOXEL_STATE;
   }
@@ -207,13 +191,13 @@ function readVoxelState(searchParams: URLSearchParams): string {
 }
 
 function readLogoPresetSelection(
-  searchParams: URLSearchParams,
+  routeSearch: LogoRouteSearch,
 ): LogoPresetSelection {
-  return getLogoPresetSelection(readVoxelState(searchParams));
+  return getLogoPresetSelection(readVoxelState(routeSearch));
 }
 
-function readIsoStyleId(searchParams: URLSearchParams): LogoIsometricStyleId {
-  const isoStyle = searchParams.get("isoStyle");
+function readIsoStyleId(routeSearch: LogoRouteSearch): LogoIsometricStyleId {
+  const isoStyle = routeSearch.isoStyle ?? null;
   if (!isLogoIsometricStyleId(isoStyle)) {
     return DEFAULT_LOGO_ISOMETRIC_STYLE_ID;
   }
@@ -221,24 +205,20 @@ function readIsoStyleId(searchParams: URLSearchParams): LogoIsometricStyleId {
   return isoStyle;
 }
 
-function readIsoCubeSidePixels(searchParams: URLSearchParams): number {
-  const value = searchParams.get(ISOMETRIC_CUBE_SIDE_QUERY_PARAM);
-  const parsedValue = Number(value);
-  if (value === null || !Number.isFinite(parsedValue)) {
+function readIsoCubeSidePixels(routeSearch: LogoRouteSearch): number {
+  if (typeof routeSearch.isoSide !== "number") {
     return DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX;
   }
 
-  return normalizeLogoIsometricCubeSidePixels(parsedValue);
+  return normalizeLogoIsometricCubeSidePixels(routeSearch.isoSide);
 }
 
-function readRotationDegrees(searchParams: URLSearchParams): number {
-  const value = searchParams.get(ROTATION_QUERY_PARAM);
-  const parsedValue = Number(value);
-  if (value === null || Number.isNaN(parsedValue)) {
+function readRotationDegrees(routeSearch: LogoRouteSearch): number {
+  if (typeof routeSearch.rot !== "number") {
     return DEFAULT_ROTATION_DEGREES;
   }
 
-  return normalizeRotationDegrees(parsedValue);
+  return normalizeRotationDegrees(routeSearch.rot);
 }
 
 function isLogoRotationAxisMode(
@@ -248,9 +228,9 @@ function isLogoRotationAxisMode(
 }
 
 function readRotationAxisMode(
-  searchParams: URLSearchParams,
+  routeSearch: LogoRouteSearch,
 ): LogoRotationAxisMode {
-  const value = searchParams.get(ROTATION_AXIS_QUERY_PARAM);
+  const value = routeSearch.axis ?? null;
   if (!isLogoRotationAxisMode(value)) {
     return DEFAULT_ROTATION_AXIS_MODE;
   }
@@ -258,8 +238,8 @@ function readRotationAxisMode(
   return value;
 }
 
-function readViewSnapEnabled(searchParams: URLSearchParams): boolean {
-  return !searchParams.has(VIEW_SNAP_DISABLED_QUERY_PARAM);
+function readViewSnapEnabled(routeSearch: LogoRouteSearch): boolean {
+  return routeSearch.freeView !== true;
 }
 
 function resolveLogoPreviewViewState(
@@ -272,15 +252,15 @@ function resolveLogoPreviewViewState(
   });
 }
 
-function readLogoPreviewView(searchParams: URLSearchParams): LogoViewState & {
+function readLogoPreviewView(routeSearch: LogoRouteSearch): LogoViewState & {
   viewSnapEnabled: boolean;
 } {
-  const viewSnapEnabled = readViewSnapEnabled(searchParams);
+  const viewSnapEnabled = readViewSnapEnabled(routeSearch);
   return {
     ...resolveLogoPreviewViewState(
       {
-        elevationDegrees: readElevationDegrees(searchParams),
-        rotationDegrees: readRotationDegrees(searchParams),
+        elevationDegrees: readElevationDegrees(routeSearch),
+        rotationDegrees: readRotationDegrees(routeSearch),
       },
       viewSnapEnabled,
     ),
@@ -288,100 +268,20 @@ function readLogoPreviewView(searchParams: URLSearchParams): LogoViewState & {
   };
 }
 
-function readElevationDegrees(searchParams: URLSearchParams): number {
-  const value = searchParams.get(ELEVATION_QUERY_PARAM);
-  const parsedValue = Number(value);
-  if (value === null || Number.isNaN(parsedValue)) {
+function readElevationDegrees(routeSearch: LogoRouteSearch): number {
+  if (typeof routeSearch.elev !== "number") {
     return DEFAULT_ELEVATION_DEGREES;
   }
 
-  return normalizeElevationDegrees(parsedValue);
+  return normalizeElevationDegrees(routeSearch.elev);
 }
 
-function readFaceColors(searchParams: URLSearchParams): FaceColors {
+function readFaceColors(routeSearch: LogoRouteSearch): FaceColors {
   return {
-    left:
-      searchParams.get(FACE_COLOR_QUERY_PARAMS.left) ??
-      DEFAULT_FACE_COLORS.left,
-    right:
-      searchParams.get(FACE_COLOR_QUERY_PARAMS.right) ??
-      DEFAULT_FACE_COLORS.right,
-    top:
-      searchParams.get(FACE_COLOR_QUERY_PARAMS.top) ?? DEFAULT_FACE_COLORS.top,
+    left: routeSearch.leftColor ?? DEFAULT_FACE_COLORS.left,
+    right: routeSearch.rightColor ?? DEFAULT_FACE_COLORS.right,
+    top: routeSearch.topColor ?? DEFAULT_FACE_COLORS.top,
   };
-}
-
-function buildLogoPreviewSearchParams(
-  search: string | URLSearchParams,
-  {
-    elevationDegrees,
-    faceColors,
-    isoCubeSidePixels,
-    isoStyleId,
-    rotationAxisMode,
-    rotationDegrees,
-    viewSnapEnabled,
-    voxelState,
-  }: LogoPreviewQueryState,
-): URLSearchParams {
-  return updateQueryParams(search, (nextSearchParams) => {
-    setQueryParam(
-      nextSearchParams,
-      ROTATION_QUERY_PARAM,
-      rotationDegrees !== DEFAULT_ROTATION_DEGREES
-        ? formatDegreesParam(rotationDegrees)
-        : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      ROTATION_AXIS_QUERY_PARAM,
-      rotationAxisMode !== DEFAULT_ROTATION_AXIS_MODE ? rotationAxisMode : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      ELEVATION_QUERY_PARAM,
-      elevationDegrees !== DEFAULT_ELEVATION_DEGREES
-        ? formatDegreesParam(elevationDegrees)
-        : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      VIEW_SNAP_DISABLED_QUERY_PARAM,
-      viewSnapEnabled ? null : true,
-    );
-    setQueryParam(nextSearchParams, "vox", voxelState);
-    setQueryParam(
-      nextSearchParams,
-      ISOMETRIC_CUBE_SIDE_QUERY_PARAM,
-      isoCubeSidePixels !== DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX
-        ? `${isoCubeSidePixels}`
-        : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      "isoStyle",
-      isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID ? isoStyleId : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      FACE_COLOR_QUERY_PARAMS.left,
-      faceColors.left !== DEFAULT_FACE_COLORS.left ? faceColors.left : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      FACE_COLOR_QUERY_PARAMS.right,
-      faceColors.right !== DEFAULT_FACE_COLORS.right ? faceColors.right : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      FACE_COLOR_QUERY_PARAMS.top,
-      faceColors.top !== DEFAULT_FACE_COLORS.top ? faceColors.top : null,
-    );
-  });
-}
-
-function formatDegreesParam(value: number): string {
-  return value.toFixed(1).replace(/\.0$/, "");
 }
 
 function isLogoPresetId(value: string): value is LogoPresetId {
@@ -390,41 +290,40 @@ function isLogoPresetId(value: string): value is LogoPresetId {
 
 export function LogoPreviewPage({
   renderMode = "three",
-}: {
-  renderMode?: LogoPreviewRenderMode;
-}) {
-  const [searchParams, setSearchParams] = useSearchParams();
+  replaceRouteSearch,
+  routeSearch,
+}: LogoPreviewPageProps) {
   const isIsometricMode = renderMode === "iso";
   const backgroundColor = getTailwindColorHex("background-base");
   const controlsToolbarRef = useRef<HTMLDivElement | null>(null);
-  const currentSearch = buildSearchString(searchParams);
+  const currentSearch = stringifyTanStackSearch(routeSearch);
   const [isViewSnapEnabled, setIsViewSnapEnabled] = useState(() =>
-    readViewSnapEnabled(searchParams),
+    readViewSnapEnabled(routeSearch),
   );
   const [rotationDegrees, setRotationDegrees] = useState(
-    () => readLogoPreviewView(searchParams).rotationDegrees,
+    () => readLogoPreviewView(routeSearch).rotationDegrees,
   );
   const [rotationAxisMode, setRotationAxisMode] = useState(() =>
-    readRotationAxisMode(searchParams),
+    readRotationAxisMode(routeSearch),
   );
   const [elevationDegrees, setElevationDegrees] = useState(
-    () => readLogoPreviewView(searchParams).elevationDegrees,
+    () => readLogoPreviewView(routeSearch).elevationDegrees,
   );
   const [voxelState, setVoxelState] = useState(() =>
-    readVoxelState(searchParams),
+    readVoxelState(routeSearch),
   );
   const [editMode, setEditMode] = useState<VoxelEdit["kind"]>("add");
   const [selectedPresetId, setSelectedPresetId] = useState<LogoPresetSelection>(
-    () => readLogoPresetSelection(searchParams),
+    () => readLogoPresetSelection(routeSearch),
   );
   const [isoCubeSidePixels, setIsoCubeSidePixels] = useState(() =>
-    readIsoCubeSidePixels(searchParams),
+    readIsoCubeSidePixels(routeSearch),
   );
   const [isoStyleId, setIsoStyleId] = useState<LogoIsometricStyleId>(() =>
-    readIsoStyleId(searchParams),
+    readIsoStyleId(routeSearch),
   );
   const [faceColors, setFaceColors] = useState<FaceColors>(() =>
-    readFaceColors(searchParams),
+    readFaceColors(routeSearch),
   );
   const [logoOpacity, setLogoOpacity] = useState(DEFAULT_LOGO_OPACITY);
   const [isFaceColorAnimationEnabled, setIsFaceColorAnimationEnabled] =
@@ -466,17 +365,17 @@ export function LogoPreviewPage({
       return;
     }
 
-    const nextView = readLogoPreviewView(searchParams);
+    const nextView = readLogoPreviewView(routeSearch);
     setRotationDegrees(nextView.rotationDegrees);
-    setRotationAxisMode(readRotationAxisMode(searchParams));
+    setRotationAxisMode(readRotationAxisMode(routeSearch));
     setIsViewSnapEnabled(nextView.viewSnapEnabled);
     setElevationDegrees(nextView.elevationDegrees);
-    setVoxelState(readVoxelState(searchParams));
-    setSelectedPresetId(readLogoPresetSelection(searchParams));
-    setIsoCubeSidePixels(readIsoCubeSidePixels(searchParams));
-    setIsoStyleId(readIsoStyleId(searchParams));
-    setFaceColors(readFaceColors(searchParams));
-  }, [searchParams]);
+    setVoxelState(readVoxelState(routeSearch));
+    setSelectedPresetId(readLogoPresetSelection(routeSearch));
+    setIsoCubeSidePixels(readIsoCubeSidePixels(routeSearch));
+    setIsoStyleId(readIsoStyleId(routeSearch));
+    setFaceColors(readFaceColors(routeSearch));
+  }, [routeSearch]);
 
   useEffect(() => {
     if (
@@ -496,21 +395,19 @@ export function LogoPreviewPage({
       isViewSnapEnabled,
     );
 
-    const nextSearch = buildSearchString(
-      buildLogoPreviewSearchParams(searchParams, {
-        elevationDegrees: resolvedView.elevationDegrees,
-        faceColors,
-        isoCubeSidePixels,
-        isoStyleId,
-        rotationAxisMode,
-        rotationDegrees: resolvedView.rotationDegrees,
-        viewSnapEnabled: isViewSnapEnabled,
-        voxelState,
-      }),
-    );
+    const nextSearch = buildLogoRouteSearch({
+      elevationDegrees: resolvedView.elevationDegrees,
+      faceColors,
+      isoCubeSidePixels,
+      isoStyleId,
+      rotationAxisMode,
+      rotationDegrees: resolvedView.rotationDegrees,
+      viewSnapEnabled: isViewSnapEnabled,
+      voxelState,
+    });
 
-    if (nextSearch !== currentSearch) {
-      setSearchParams(nextSearch, { replace: true });
+    if (stringifyTanStackSearch(nextSearch) !== currentSearch) {
+      replaceRouteSearch(nextSearch);
     }
   }, [
     currentSearch,
@@ -521,10 +418,10 @@ export function LogoPreviewPage({
     isViewSnapEnabled,
     isoCubeSidePixels,
     isoStyleId,
+    replaceRouteSearch,
     rotationAxisMode,
     rotationDegrees,
-    searchParams,
-    setSearchParams,
+    routeSearch,
     voxelState,
   ]);
 
@@ -773,23 +670,16 @@ export function LogoPreviewPage({
     }));
   };
 
-  const modeHref = (
-    pathname: "/logo" | "/logo-iso" | "/logo-svg" | "/logo-iso-study",
-  ) => {
-    return buildPathWithQuery({
-      pathname,
-      search: buildLogoPreviewSearchParams(searchParams, {
-        elevationDegrees,
-        faceColors,
-        isoCubeSidePixels,
-        isoStyleId,
-        rotationAxisMode,
-        rotationDegrees,
-        viewSnapEnabled: isViewSnapEnabled,
-        voxelState,
-      }),
-    });
-  };
+  const modeSearch = buildLogoRouteSearch({
+    elevationDegrees,
+    faceColors,
+    isoCubeSidePixels,
+    isoStyleId,
+    rotationAxisMode,
+    rotationDegrees,
+    viewSnapEnabled: isViewSnapEnabled,
+    voxelState,
+  });
 
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ backgroundColor }}>
@@ -867,7 +757,9 @@ export function LogoPreviewPage({
                 variant={isIsometricMode ? "outline" : "default"}
                 className="rounded-none"
               >
-                <Link to={modeHref("/logo")}>3D</Link>
+                <Link search={modeSearch} to="/logo">
+                  3D
+                </Link>
               </Button>
               <Button
                 asChild
@@ -875,7 +767,9 @@ export function LogoPreviewPage({
                 variant={isIsometricMode ? "default" : "outline"}
                 className="rounded-none"
               >
-                <Link to={modeHref("/logo-iso")}>Iso</Link>
+                <Link search={modeSearch} to="/logo-iso">
+                  Iso
+                </Link>
               </Button>
               <Button
                 asChild
@@ -883,7 +777,9 @@ export function LogoPreviewPage({
                 variant="outline"
                 className="rounded-none"
               >
-                <Link to={modeHref("/logo-svg")}>SVG</Link>
+                <Link search={modeSearch} to="/logo-svg">
+                  SVG
+                </Link>
               </Button>
               <Button
                 asChild
@@ -891,7 +787,9 @@ export function LogoPreviewPage({
                 variant="outline"
                 className="rounded-none"
               >
-                <Link to={modeHref("/logo-iso-study")}>Study</Link>
+                <Link search={modeSearch} to="/logo-iso-study">
+                  Study
+                </Link>
               </Button>
             </div>
             {!isIsometricMode && (

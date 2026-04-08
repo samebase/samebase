@@ -6,6 +6,7 @@ import {
 } from "@/components/CodexThreadBrowserView";
 import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
+  CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
   codexThreadPathIsArchived,
   requestCodexAppServerJson as requestJson,
   type CodexAppServerEventsResponse,
@@ -15,20 +16,23 @@ import {
   type CodexAppServerThreadDetailResponse,
   type CodexAppServerThreadsResponse,
 } from "@/lib/codexAppServerResearch";
+import { buildCodexResearchRouteSearch } from "@/lib/codexResearchRouteSearch";
 import {
   buildPathWithQuery,
-  buildSearchString,
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
+import { stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 import { dedupeCodexThreadsById } from "@/lib/codexThreadSidebar";
 import { useCodexThreadSidebarViewModel } from "@/hooks/useCodexThreadSidebarViewModel";
-import { useSearchParams } from "@/lib/router";
+import { getRouteApi } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const THREAD_LIST_LIMIT = 100;
-const SELECTED_THREAD_QUERY_PARAM = "threadId";
 const ACTIVE_THREAD_REFRESH_INTERVAL_MS = 1_500;
+const codexThreadBrowserRouteApi = getRouteApi(
+  CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
+);
 
 type ThreadActionResponse = {
   result?: unknown;
@@ -60,24 +64,25 @@ function buildThreadsPath(args: {
   });
 }
 
-function readSelectedThreadId(searchParams: URLSearchParams): string | null {
-  const selectedThreadId = searchParams
-    .get(SELECTED_THREAD_QUERY_PARAM)
-    ?.trim();
-  return selectedThreadId && selectedThreadId.length > 0
-    ? selectedThreadId
-    : null;
+function buildCodexResearchHref(args: {
+  pathname: string;
+  selectedThreadId: string | null;
+}): string {
+  return `${args.pathname}${stringifyTanStackSearch(
+    buildCodexResearchRouteSearch(args.selectedThreadId),
+  )}`;
 }
 
 export function CodexAppServerThreadBrowserResearchPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = codexThreadBrowserRouteApi.useNavigate();
+  const routeSearch = codexThreadBrowserRouteApi.useSearch();
   const [browserMode, setBrowserMode] =
     useState<CodexThreadBrowserMode>("active");
   const [threads, setThreads] = useState<CodexAppServerThread[]>([]);
   const [pinnedThreadIds, setPinnedThreadIds] = useState<string[]>([]);
   const [loadedThreadIds, setLoadedThreadIds] = useState<string[]>([]);
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(() =>
-    readSelectedThreadId(searchParams),
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
+    () => routeSearch.threadId ?? null,
   );
   const [selectedThreadDetail, setSelectedThreadDetail] =
     useState<CodexAppServerThread | null>(null);
@@ -175,30 +180,25 @@ export function CodexAppServerThreadBrowserResearchPage() {
     () => sidebarViewModel.projects,
     [sidebarViewModel.projects],
   );
-  const currentSearch = buildSearchString(searchParams);
 
   useEffect(() => {
-    const nextSelectedThreadId = readSelectedThreadId(searchParams);
+    const nextSelectedThreadId = routeSearch.threadId ?? null;
     setSelectedThreadId((current) =>
       current === nextSelectedThreadId ? current : nextSelectedThreadId,
     );
-  }, [searchParams]);
+  }, [routeSearch.threadId]);
 
   useEffect(() => {
-    const nextSearchParams = updateQueryParams(searchParams, (nextParams) => {
-      setQueryParam(
-        nextParams,
-        SELECTED_THREAD_QUERY_PARAM,
-        selectedThreadId ?? null,
-      );
-    });
-    const nextSearch = buildSearchString(nextSearchParams);
-    if (nextSearch === currentSearch) {
+    const nextSearch = buildCodexResearchRouteSearch(selectedThreadId);
+    if (nextSearch.threadId === routeSearch.threadId) {
       return;
     }
 
-    setSearchParams(nextSearchParams, { replace: true });
-  }, [currentSearch, searchParams, selectedThreadId, setSearchParams]);
+    void navigate({
+      replace: true,
+      search: nextSearch,
+    });
+  }, [navigate, routeSearch.threadId, selectedThreadId]);
 
   useEffect(() => {
     if (!hasLoadedThreadInventory) {
@@ -427,7 +427,10 @@ export function CodexAppServerThreadBrowserResearchPage() {
       detailState={detailState}
       errorMessage={error}
       isBusy={isBusy}
-      labHref={CODEX_APP_SERVER_RESEARCH_ROUTE}
+      labHref={buildCodexResearchHref({
+        pathname: CODEX_APP_SERVER_RESEARCH_ROUTE,
+        selectedThreadId,
+      })}
       onBrowserModeChange={(nextMode) => {
         setBrowserMode(nextMode);
         setSelectedThreadId(null);

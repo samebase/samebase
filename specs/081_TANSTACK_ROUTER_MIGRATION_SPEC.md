@@ -73,10 +73,15 @@ migration with concrete problems, attempted fixes, and outcomes.
   temporary compatibility layer for `Link`, `useLocation`, `useSearchParams`,
   `useNavigate`, and `MemoryRouter`, so route ownership is only partially moved
   out of the React Router-era API shape.
+- `apps/noter/src/lib/appRouter.ts` now uses repo-owned plain-string search
+  parsing/stringifying so route-owned TanStack search can preserve the app's
+  existing human-readable query semantics instead of falling back to TanStack's
+  JSON-like default search serialization.
 - Search params still carry meaningful UI state in landing (`?auth`, `?dev`),
-  MCP consent, machine connect bootstrap, logo previews, machines, sign-in, and
-  research surfaces, so the remaining TanStack move has to handle typed search
-  deliberately instead of treating it as a string-only API.
+  MCP consent, machine connect bootstrap, pricing checkout, machines, and
+  sign-in, so the remaining TanStack move still has to finish the authenticated
+  and root landing surfaces deliberately instead of treating search as a
+  string-only API.
 - The shared workspace wrapper migration in `specs/080` is a separate track.
   Router and bootstrap cleanup should not be coupled to
   `RepositoryWorkspaceFrame` / `DashboardWorkspaceLayout` rewrites or the
@@ -262,6 +267,41 @@ migration with concrete problems, attempted fixes, and outcomes.
   the generic vault route, and `App.tsx` is down to the root dashboard/test
   switchboard that will be addressed in the later landing/bootstrap phase.
 
+- Problem: the first typed-search slice on the public/dev routes hit a mismatch
+  between TanStack Router's default search serialization and the app's existing
+  query semantics. Tried: wired route-owned search directly with the default
+  serializer and checked the generated URLs. Result: the default serializer
+  would emit JSON-like values such as quoted numeric strings and `=true`
+  booleans, so the router now uses repo-owned plain-string search
+  parse/stringify helpers before `validateSearch` normalizes route-owned values.
+
+- Problem: the explicit public/dev routes were still reading search through the
+  compat router seam even though those pages already lived under TanStack route
+  ownership. Tried: moved the logo preview/static-study routes and the Codex
+  research routes onto route-owned `validateSearch`, `getRouteApi()`, and
+  route-local navigation while keeping the route surface area small. Result: the
+  public/dev search-heavy routes now read and write typed TanStack search
+  directly, the logo route state no longer depends on the compat
+  `useSearchParams` hook, and the remaining search migration scope is limited to
+  authenticated explicit routes plus the root landing flow.
+
+- Problem: converting the logo route validator to a transformed Zod schema hit a
+  TanStack input/output typing edge when the schema was passed directly to
+  `validateSearch`. Tried: wiring the Zod schema straight into the route
+  definition so TanStack could infer from the schema alone. Result: navigation
+  started treating every logo search key as required on writes, so the current
+  compromise is a Zod-backed `validateLogoRouteSearch()` wrapper that keeps the
+  simpler sparse navigation type until the route can move to a cleaner
+  schema-with-adapter shape.
+
+- Follow-up reviews worth considering after merge, but intentionally not folded
+  into this PR's core scope: replace the dev-only research surface `href`
+  strings with route-owned TanStack `Link` usage, decide whether the repo-owned
+  plain-string search codec should explicitly support repeated keys or
+  explicitly reject array semantics, and verify whether the logo preview should
+  always apply browser back/forward search updates even while scene interaction
+  is active.
+
 ## Completed Milestones
 
 1. Introduce a repo-owned router seam and move current imports behind it.
@@ -271,19 +311,24 @@ migration with concrete problems, attempted fixes, and outcomes.
 4. Promote all remaining non-root authenticated routes into explicit TanStack
    routes, including MCP consent, pricing/add, machines, codespace chat, and
    vault/file paths.
+5. Move the public/dev explicit routes with meaningful query state onto
+   route-owned TanStack search handling, including the logo preview surfaces and
+   the Codex research routes.
 
 ## Remaining Sequence
 
-1. Migrate the search-param-heavy surfaces onto route-owned TanStack search
-   handling. Priorities: landing `?auth` and `?dev`, MCP consent request id,
-   pricing checkout state, machine connect bootstrap params, machines workspace
-   params, and the existing logo and research route params.
-2. Move the root landing/dashboard split onto normal routed rendering and only
+1. Migrate the remaining authenticated explicit routes with meaningful search
+   state onto route-owned TanStack search handling. Priorities: MCP consent
+   request id, pricing checkout state, machine connect bootstrap params, and
+   machines workspace params.
+2. Migrate the root landing search state onto route-owned TanStack handling,
+   including `?auth` and `?dev`.
+3. Move the root landing/dashboard split onto normal routed rendering and only
    then delete `bootstrap.ts`. Preserve any tiny pre-paint support that is still
    justified, such as theme setup, but do not preserve the split runtime.
-3. Delete bootstrap-only parity code once routed landing parity is proven:
+4. Delete bootstrap-only parity code once routed landing parity is proven:
    `resolveBootstrapPageMetadata()`, `shouldRenderFastLandingShell()`,
    `fastLandingBoot.ts`, and the related parity-only tests or fixtures.
-4. Keep the shared workspace wrapper and drag-contract migration from
+5. Keep the shared workspace wrapper and drag-contract migration from
    `specs/080` on a separate rollout track, and reconnect it only where routed
    ownership genuinely needs those seams.
