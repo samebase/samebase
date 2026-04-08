@@ -47,14 +47,23 @@ const PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID =
   "public-landing-waitlist-placeholder";
 const FAST_LANDING_LOGO_SRC = createStaticLogoSvgDataUrl();
 
+/**
+ * Keep the temporary routed fast shell aligned with the hydrated landing route
+ * while the bootstrap-era handoff contract still exists.
+ *
+ * This component owns shell-only scroll carryover, waitlist focus handoff, and
+ * one-shot route transitions until the hydrated landing surface takes over.
+ */
 export function FastPublicLandingShell({
   onCancelWaitlistFocusRestore,
   onRequestHydratedLanding,
+  onShellRouteTransitionStart,
   onScheduleWaitlistFocusRestore,
   rootRouteSearch,
 }: {
   onCancelWaitlistFocusRestore: () => void;
   onRequestHydratedLanding: () => void;
+  onShellRouteTransitionStart: () => void;
   onScheduleWaitlistFocusRestore: () => void;
   rootRouteSearch: RootRouteSearch;
 }) {
@@ -106,6 +115,7 @@ export function FastPublicLandingShell({
     if (shellMain !== null) {
       setPendingPublicLandingScrollTop(shellMain.scrollTop);
     }
+    onShellRouteTransitionStart();
     void navigate(nextHref);
   }
 

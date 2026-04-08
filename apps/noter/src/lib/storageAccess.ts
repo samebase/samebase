@@ -1,26 +1,60 @@
 function createInMemoryStorage(): Storage {
   const entries = new Map<string, string>();
+  const storage: Storage & Record<string, string> = Object.create(null);
 
-  return {
-    clear() {
-      entries.clear();
+  Object.defineProperties(storage, {
+    clear: {
+      enumerable: false,
+      value() {
+        for (const key of entries.keys()) {
+          delete storage[key];
+        }
+        entries.clear();
+      },
     },
-    getItem(key) {
-      return entries.get(key) ?? null;
+    getItem: {
+      enumerable: false,
+      value(key: string) {
+        return entries.get(String(key)) ?? null;
+      },
     },
-    key(index) {
-      return Array.from(entries.keys())[index] ?? null;
+    key: {
+      enumerable: false,
+      value(index: number) {
+        return Array.from(entries.keys())[index] ?? null;
+      },
     },
-    get length() {
-      return entries.size;
+    length: {
+      enumerable: false,
+      get() {
+        return entries.size;
+      },
     },
-    removeItem(key) {
-      entries.delete(key);
+    removeItem: {
+      enumerable: false,
+      value(key: string) {
+        const normalizedKey = String(key);
+        entries.delete(normalizedKey);
+        delete storage[normalizedKey];
+      },
     },
-    setItem(key, value) {
-      entries.set(String(key), String(value));
+    setItem: {
+      enumerable: false,
+      value(key: string, value: string) {
+        const normalizedKey = String(key);
+        const normalizedValue = String(value);
+        entries.set(normalizedKey, normalizedValue);
+        Object.defineProperty(storage, normalizedKey, {
+          configurable: true,
+          enumerable: true,
+          writable: true,
+          value: normalizedValue,
+        });
+      },
     },
-  };
+  });
+
+  return storage;
 }
 
 export function ensureWindowStorageAccess(

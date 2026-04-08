@@ -88,6 +88,10 @@ async function captureLandingToggleFrames(
   return await framesPromise;
 }
 
+/**
+ * The target route should stop shifting once at least 10 target-path frames
+ * have been captured.
+ */
 function expectStableLandingToggleFrames(
   frames: LandingToggleFrame[],
   expectedPathWithSearch: "/?dev" | "/",
@@ -112,6 +116,10 @@ function expectStableLandingToggleFrames(
   ).toBeLessThanOrEqual(1);
 }
 
+/**
+ * The target route should stop jittering once at least 10 target-path frames
+ * have been captured, and those settled frames should stay on-screen.
+ */
 function expectSettledLandingToggleFrames(
   frames: LandingToggleFrame[],
   expectedPathWithSearch: "/?dev" | "/",
@@ -137,9 +145,7 @@ function expectSettledLandingToggleFrames(
     Math.max(...lastStableWindow) - Math.min(...lastStableWindow),
   ).toBeLessThanOrEqual(1);
   expect(Math.min(...expectedPathTopValues)).toBeGreaterThanOrEqual(0);
-  expect(
-    Math.max(...expectedPathTopValues) - Math.min(...expectedPathTopValues),
-  ).toBeLessThanOrEqual(96);
+  expect(Math.max(...expectedPathTopValues)).toBeLessThanOrEqual(96);
 }
 
 async function expectLandingToggleFocusTarget(

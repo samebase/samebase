@@ -16,6 +16,7 @@
   - `apps/noter/src/Layout.tsx`
   - `apps/noter/src/components/FastPublicLandingShell.tsx`
   - `apps/noter/src/components/RootIndexRoutePage.tsx`
+  - `apps/noter/src/entry.tsx`
   - `apps/noter/src/main.tsx`
   - `apps/noter/vite.config.ts`
   - `specs/080_WORKSPACE_LAYOUT_V2_ROUTE_MIGRATION_AND_FRAMEWORK_READINESS_SPEC.md`
@@ -59,8 +60,8 @@ migration with concrete problems, attempted fixes, and outcomes.
 
 ## Current Constraints
 
-- `apps/noter/src/main.tsx` now loads directly from `index.html` and mounts the
-  routed app without the old split bootstrap entrypoint.
+- `apps/noter/src/entry.tsx` now loads directly from `index.html`, while
+  `apps/noter/src/main.tsx` only owns the reusable routed app mount logic.
 - `apps/noter/src/lib/appRouter.ts` now owns the simple standalone public and
   dev-only routes (`/privacy`, `/terms`, `/logo*`, `/pitch*`, and the Codex
   research paths) plus the non-root authenticated app routes (MCP consent,
@@ -81,11 +82,10 @@ migration with concrete problems, attempted fixes, and outcomes.
   parsing/stringifying so route-owned TanStack search can preserve the app's
   existing human-readable query semantics instead of falling back to TanStack's
   JSON-like default search serialization.
-- Search params still carry meaningful UI state in landing (`?auth`, `?dev`),
-  MCP consent, machine connect bootstrap, pricing checkout, machines, and
-  sign-in, so the remaining TanStack move still has to finish the authenticated
-  and root landing surfaces deliberately instead of treating search as a
-  string-only API.
+- The meaningful app-owned search surfaces (landing, MCP consent, machine
+  connect, pricing, machines, logo, and the research routes) now validate
+  through route-owned TanStack search contracts, so the remaining work is
+  cleanup and simplification rather than finishing search ownership.
 - The shared workspace wrapper migration in `specs/080` is a separate track.
   Router and bootstrap cleanup should not be coupled to
   `RepositoryWorkspaceFrame` / `DashboardWorkspaceLayout` rewrites or the
@@ -391,6 +391,47 @@ migration with concrete problems, attempted fixes, and outcomes.
   all." Result: the routed landing tests still guard the important user-facing
   behavior while acknowledging that the temporary routed fast shell is not a
   byte-for-byte clone of the old bootstrap HTML path.
+
+- Problem: importing app helpers from `main.tsx` could now mount React at module
+  evaluation time, because the routed-root phase moved the app boot side effect
+  into the same module that editor code imports for the shared Convex client.
+  Tried: moved the `mountApp()` call into a dedicated `entry.tsx` browser entry
+  module and pointed `index.html` at that file while the rest of the app keeps
+  importing the Convex client directly from `lib/convexClient.ts`. Result:
+  importing editor/runtime helpers no longer tries to mount `#root`, and the
+  routed app boot side effect is isolated to the actual browser entrypoint.
+
+- Problem: the routed fast-shell follow-up drifted away from the shared landing
+  auth gate and left room for the once-per-load shell session to resurrect on
+  later SPA navigation. Tried: switched the initial shell eligibility check back
+  onto `shouldRenderFastLandingShell()`, then narrowed that shared helper back
+  to the real remembered-auth signals (`noter_was_authenticated` and
+  `noter_auth_provider`) after a broader raw-`__convexAuth*` check turned out to
+  misclassify anonymous Convex sessions as authenticated and suppress the shell
+  from first paint. Explicitly retire the shell session before shell-driven
+  route transitions or when the root route decides the shell no longer applies.
+  Result: the fast-shell session rules are back in one place, the shell no
+  longer disappears just because anonymous auth tokens exist, and route
+  transitions no longer depend on a separate root-only copy of the auth gate
+  logic.
+
+- Problem: the blocked-storage fallback fixed startup crashes, but the in-memory
+  storage object did not expose stored keys through `Object.keys()`, which meant
+  popup OAuth token relay could still silently lose Convex auth tokens under
+  denied-storage conditions. Tried: changed the fallback storage implementation
+  to mirror stored values onto enumerable own properties and added a focused
+  test around `ensureWindowStorageAccess()`. Result: the fallback now behaves
+  closely enough to real `localStorage` for both `storage.key(index)` iteration
+  and `Object.keys(localStorage)`-based token collection.
+
+- Problem: the landing toggle frame helpers originally judged a mix of
+  pre-transition and post-transition frames, which made the mobile shell test
+  look like content jitter even when the target route was stable. Tried:
+  filtered both helpers down to target-route frames only, then tightened the
+  settled helper to assert that the hydrated route stays within the intended
+  on-screen bounds instead of only checking spread. Result: the routed landing
+  stability test now measures the right surface, and the remaining assertion is
+  stricter about off-screen jumps without reviving the old bootstrap contract.
 
 - Follow-up simplification candidate: if first-paint theme parity becomes less
   important than code simplicity, we can delete the pre-paint theme script in

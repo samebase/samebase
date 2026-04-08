@@ -8,8 +8,6 @@ import { QueryProvider } from "./lib/providers/query-provider";
 import { ensureWindowStorageAccess } from "./lib/storageAccess";
 import { OptionalThemeProvider } from "./lib/themeStorageFallback";
 
-export { client } from "./lib/convexClient";
-
 let mounted = false;
 
 export function mountApp() {
@@ -32,5 +30,3 @@ export function mountApp() {
     </React.StrictMode>,
   );
 }
-
-mountApp();

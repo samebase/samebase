@@ -2,16 +2,15 @@ import { Layout } from "@/Layout";
 import { SignInForm } from "@/SignInForm";
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { FastPublicLandingShell } from "@/components/FastPublicLandingShell";
-import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
-import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAuthState";
+import {
+  shouldRenderFastLandingShell,
+  shouldRenderPublicLandingWithoutAuthGate,
+} from "@/lib/publicLandingAuthState";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { useLocation } from "@/lib/router";
-import {
-  readRootRouteSearchFromLocation,
-  useRootRouteSearch,
-} from "@/lib/rootRouteSearch";
+import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "@/lib/fastLandingBoot";
 import { useConvexAuth, Authenticated, Unauthenticated } from "convex/react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
@@ -27,23 +26,8 @@ const VaultDashboard = lazy(async () => {
 // not resurrect it.
 let hasCompletedFastLandingShellSession = false;
 
-function readOptionalStorageValue(key: string): string | null {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
 function shouldRenderInitialFastLandingShell(location: Location): boolean {
-  const rootRouteSearch = readRootRouteSearchFromLocation(location);
-  return (
-    location.pathname === "/" &&
-    rootRouteSearch.auth !== "google" &&
-    !isLandingDevModeEnabled(rootRouteSearch) &&
-    readOptionalStorageValue("noter_was_authenticated") !== "1" &&
-    readOptionalStorageValue("noter_auth_provider") === null
-  );
+  return shouldRenderFastLandingShell(location);
 }
 
 const initialFastLandingPath =
@@ -92,6 +76,9 @@ export function RootIndexRoutePage() {
 
   useEffect(() => {
     if (!shouldOfferFastLandingShell) {
+      if (showFastLandingShell) {
+        markFastLandingShellSessionComplete();
+      }
       setShowFastLandingShell(false);
       return;
     }
@@ -118,7 +105,7 @@ export function RootIndexRoutePage() {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [shouldOfferFastLandingShell]);
+  }, [shouldOfferFastLandingShell, showFastLandingShell]);
 
   useEffect(() => {
     if (showFastLandingShell || !shouldRestoreWaitlistFocus) {
@@ -174,6 +161,7 @@ export function RootIndexRoutePage() {
           setShouldRestoreWaitlistFocus(false);
         }}
         onRequestHydratedLanding={requestHydratedLanding}
+        onShellRouteTransitionStart={markFastLandingShellSessionComplete}
         onScheduleWaitlistFocusRestore={() => {
           setShouldRestoreWaitlistFocus(true);
         }}
