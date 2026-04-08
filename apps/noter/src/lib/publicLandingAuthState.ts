@@ -1,9 +1,5 @@
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
-import type { PathWithSearch } from "@/lib/queryParams";
-import {
-  readRootRouteSearchFromLocation,
-  type RootRouteSearch,
-} from "@/lib/rootRouteSearch";
+import { type RootRouteSearch } from "@/lib/rootRouteSearch";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const AUTH_PROVIDER_KEY = "noter_auth_provider";
@@ -58,15 +54,6 @@ export function shouldRenderPublicLandingWithoutAuthGate(
   routeSearch: RootRouteSearch,
 ): boolean {
   return isKnownUnauthenticatedLandingVisit(pathname, routeSearch);
-}
-
-export function shouldRenderFastLandingShellForLocation(
-  location: PathWithSearch,
-): boolean {
-  return shouldRenderFastLandingShell(
-    location.pathname,
-    readRootRouteSearchFromLocation(location),
-  );
 }
 
 /**

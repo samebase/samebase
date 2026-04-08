@@ -70,10 +70,7 @@ export function FastPublicLandingShell({
 }) {
   const location = useLocation({
     select: (location) => ({
-      // TODO(tanstack-router-cleanup): remove this browser-style location shim
-      // once the fast shell stops depending on shared PathWithSearch helpers
-      // for landing toggle URLs and route-transition bookkeeping.
-      hash: location.hash.length > 0 ? `#${location.hash}` : "",
+      hash: location.hash,
       pathname: location.pathname,
       search: location.searchStr,
     }),
@@ -85,7 +82,11 @@ export function FastPublicLandingShell({
     readPublicLandingWaitlistDraft,
   );
   const [shellDisplayState] = useState(() => ({
-    landingDevToggleHref: buildLandingDevToggleHref(location),
+    landingDevToggleHref: buildLandingDevToggleHref(
+      location.pathname,
+      location.search,
+      location.hash,
+    ),
     landingDevToggleLabel: getLandingDevToggleLabel(rootRouteSearch),
     showGoogleAuth: shouldShowGoogleAuthForPathname(
       location.pathname,

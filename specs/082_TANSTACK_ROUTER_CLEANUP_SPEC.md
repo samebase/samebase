@@ -42,8 +42,7 @@ migration ledger can stay focused on the router transition itself.
 3. Shrink fixture and test dependence on compat helpers such as the router seam
    `MemoryRouter`. Complete.
 4. Remove remaining browser-style location adapters and route-local raw
-   history/href escapes, including `PathWithSearch`-style reshaping in runtime
-   code. Remaining.
+   history/href escapes. Remaining.
 5. Revisit `FastPublicLandingShell.tsx` only after the router, fallback, test,
    and location-shim cleanup no longer depend on it. Remaining.
 
@@ -97,3 +96,12 @@ migration ledger can stay focused on the router transition itself.
   of scattered incidental debt. The current hotspots are `Layout.tsx`,
   `RootIndexRoutePage.tsx`, `FastPublicLandingShell.tsx`, `FileView.tsx`, and
   one fixture-only route label in `CommitReviewVisualFixture.tsx`.
+
+- Problem: the landing/root helper layer was still carrying the exported
+  `PathWithSearch` type even though TanStack now owns the route tree and search
+  contracts. Tried: remove the shared alias, switch the helper layer to explicit
+  pathname/search/hash inputs, and stop reconstructing browser-style `#hash`
+  values in the routed landing/root surfaces. Result: `PathWithSearch` is gone,
+  the root/landing helpers now read explicit primitives, and the remaining
+  cleanup hotspots are narrower: `FileView.tsx`, `FastPublicLandingShell.tsx`,
+  and the fixture-only route label in `CommitReviewVisualFixture.tsx`.

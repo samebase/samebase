@@ -346,7 +346,7 @@ function FileViewWrapper() {
     select: (location) => ({
       // TODO(tanstack-router-cleanup): remove this browser-style location shim
       // once file view route parsing and history-state preservation move onto
-      // typed TanStack params/search/state instead of PathWithSearch-style data.
+      // typed TanStack params/search/state instead of a browser-shaped adapter.
       hash: location.hash.length > 0 ? `#${location.hash}` : "",
       pathname: location.pathname,
       search: location.searchStr,

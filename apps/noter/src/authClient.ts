@@ -129,7 +129,11 @@ export function useAutoSignIn(auth: RootRouteSearch["auth"]) {
   useEffect(() => {
     if (auth === "google") {
       setAuthProvider(auth);
-      const redirectTo = buildCurrentGoogleRedirectTo(window.location);
+      const redirectTo = buildCurrentGoogleRedirectTo(
+        window.location.pathname,
+        window.location.search,
+        window.location.hash,
+      );
       window.history.replaceState({}, "", redirectTo);
       void signIn("google", { redirectTo });
     }

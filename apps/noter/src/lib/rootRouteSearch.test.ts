@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  readRootRouteSearchFromLocation,
+  readRootRouteSearch,
   validateRootRouteSearch,
 } from "./rootRouteSearch";
 
@@ -32,13 +32,8 @@ describe("rootRouteSearch", () => {
     ).toEqual({});
   });
 
-  it("parses the root search contract from a location-like object", () => {
-    expect(
-      readRootRouteSearchFromLocation({
-        pathname: "/",
-        search: "?prod-ui&dev&auth=google",
-      }),
-    ).toEqual({
+  it("parses the root search contract from a search string", () => {
+    expect(readRootRouteSearch("?prod-ui&dev&auth=google")).toEqual({
       auth: "google",
       dev: true,
       "prod-ui": true,

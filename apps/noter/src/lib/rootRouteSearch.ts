@@ -1,5 +1,4 @@
 import { getRouteApi } from "@tanstack/react-router";
-import { type PathWithSearch } from "@/lib/queryParams";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { z } from "zod";
 
@@ -45,14 +44,12 @@ export function validateRootRouteSearch(
   return parseRootRouteSearch(search);
 }
 
-export function readRootRouteSearchFromLocation(
-  location: PathWithSearch,
+export function readRootRouteSearch(
+  search: string | URLSearchParams | undefined,
 ): RootRouteSearch {
   return parseRootRouteSearch(
     parseTanStackSearch(
-      typeof location.search === "string"
-        ? location.search
-        : location.search?.toString() ?? "",
+      typeof search === "string" ? search : search?.toString() ?? "",
     ),
   );
 }
