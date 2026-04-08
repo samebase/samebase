@@ -4,9 +4,9 @@ import { SignInForm } from "@/SignInForm";
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { Button } from "@/components/ui/button";
 import { useCloseOAuthPopup } from "@/lib/useCloseOAuthPopup";
-import { useLocation } from "@/lib/router";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
+import { getRouteApi } from "@tanstack/react-router";
 import {
   Authenticated,
   Unauthenticated,
@@ -16,11 +16,9 @@ import {
 } from "convex/react";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
-function readMcpConsentRequestId(search: string): string | null {
-  // Codex may send the query key with an empty value. Treat whitespace as absent.
-  return new URLSearchParams(search).get("mcp_consent_request")?.trim() || null;
-}
+const mcpConsentRouteApi = getRouteApi(MCP_CONSENT_APP_PATH);
 
 function McpConsentView({ requestId }: { requestId: string }) {
   const authorizationRequest = useQuery(
@@ -170,19 +168,19 @@ function McpConsentView({ requestId }: { requestId: string }) {
 }
 
 export function McpConsentRoutePage() {
-  const location = useLocation();
+  const routeSearch = mcpConsentRouteApi.useSearch();
   const { isAuthenticated } = useConvexAuth();
-  const requestId = readMcpConsentRequestId(location.search);
+  const requestId = routeSearch.mcp_consent_request ?? null;
   const pageMetadata = useMemo(
     () =>
       resolvePageMetadata({
-        pathname: location.pathname,
+        pathname: MCP_CONSENT_APP_PATH,
         isAuthenticated,
       }),
-    [isAuthenticated, location.pathname],
+    [isAuthenticated],
   );
 
-  useCloseOAuthPopup(location.pathname, requestId === null);
+  useCloseOAuthPopup(MCP_CONSENT_APP_PATH, requestId === null);
   usePageMetadata(pageMetadata);
 
   return (

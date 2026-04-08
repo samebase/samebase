@@ -27,15 +27,15 @@ import type { MachinesWorkspaceSidebarInventory } from "@/lib/machinesWorkspaceS
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "@/lib/router";
+import { buildMachinesRouteSearch } from "@/lib/authenticatedRouteSearch";
+import { getRouteApi } from "@tanstack/react-router";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 import { resolveConnectedMachineStatus } from "../../shared/connectedMachinePresence";
 import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
 import { api } from "../../convex/_generated/api";
+import { MACHINES_ROUTE } from "@/lib/noterSync";
 
 const THREAD_LIST_LIMIT = 100;
-const SELECTED_MACHINE_QUERY_PARAM = "machineId";
-const SELECTED_THREAD_QUERY_PARAM = "threadId";
 const THREAD_REFRESH_INTERVAL_MS = 1_500;
 const MACHINE_CONTROL_TOKEN_REFRESH_BUFFER_MS = 30_000;
 const MACHINES_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
@@ -93,6 +93,7 @@ const EMPTY_MACHINE_THREAD_INVENTORY_STATE: MachineThreadInventoryState = {
   pinnedThreadIds: [],
   threads: [],
 };
+const machinesRouteApi = getRouteApi(MACHINES_ROUTE);
 
 /** Keep the thread list request aligned with the existing Codex sidebar sort order. */
 function buildThreadsPath(): string {
@@ -103,15 +104,6 @@ function buildThreadsPath(): string {
   });
 
   return `/threads${buildSearchString(search)}`;
-}
-
-/** Treat blank query params as unset so URL edits do not create phantom selections. */
-function readSelectedSearchValue(
-  searchParams: URLSearchParams,
-  name: string,
-): string | null {
-  const selectedValue = searchParams.get(name)?.trim();
-  return selectedValue && selectedValue.length > 0 ? selectedValue : null;
 }
 
 /** Explain why a connected machine still cannot be used as an interactive Codex host. */
@@ -169,7 +161,8 @@ function buildMachineThreadKey(machineId: string, threadId: string): string {
 
 /** Coordinate machine-scoped inventory polling with the selected-thread detail pane. */
 export function MachinesWorkspacePage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = machinesRouteApi.useNavigate();
+  const routeSearch = machinesRouteApi.useSearch();
   const now = useNow();
   const user = useQuery(api.users.viewer);
   const connectedMachinesQuery = useQuery(
@@ -198,10 +191,10 @@ export function MachinesWorkspacePage() {
     useState<PendingDraftConversation | null>(null);
   const [turnDraft, setTurnDraft] = useState("");
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(
-    () => readSelectedSearchValue(searchParams, SELECTED_MACHINE_QUERY_PARAM),
+    () => routeSearch.machineId ?? null,
   );
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(() =>
-    readSelectedSearchValue(searchParams, SELECTED_THREAD_QUERY_PARAM),
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
+    () => routeSearch.threadId ?? null,
   );
   const machineControlTokensRef = useRef<
     Partial<Record<string, MachineControlTokenState>>
@@ -258,7 +251,6 @@ export function MachinesWorkspacePage() {
     (selectedMachine === null
       ? "Connect a machine to start or continue a Codex thread."
       : null);
-  const currentSearch = buildSearchString(searchParams);
   const selectedMachineInventory =
     selectedMachineId === null
       ? EMPTY_MACHINE_THREAD_INVENTORY_STATE
@@ -413,43 +405,38 @@ export function MachinesWorkspacePage() {
   }, [machines]);
 
   useEffect(() => {
-    const nextSelectedMachineId = readSelectedSearchValue(
-      searchParams,
-      SELECTED_MACHINE_QUERY_PARAM,
-    );
+    const nextSelectedMachineId = routeSearch.machineId ?? null;
     setSelectedMachineId((current) =>
       current === nextSelectedMachineId ? current : nextSelectedMachineId,
     );
-    const nextSelectedThreadId = readSelectedSearchValue(
-      searchParams,
-      SELECTED_THREAD_QUERY_PARAM,
-    );
+    const nextSelectedThreadId = routeSearch.threadId ?? null;
     setSelectedThreadId((current) =>
       current === nextSelectedThreadId ? current : nextSelectedThreadId,
     );
-  }, [searchParams]);
+  }, [routeSearch.machineId, routeSearch.threadId]);
 
   useEffect(() => {
-    const nextSearchParams = updateQueryParams(searchParams, (nextParams) => {
-      setQueryParam(
-        nextParams,
-        SELECTED_MACHINE_QUERY_PARAM,
-        selectedMachineId,
-      );
-      setQueryParam(nextParams, SELECTED_THREAD_QUERY_PARAM, selectedThreadId);
+    const nextSearch = buildMachinesRouteSearch({
+      machineId: selectedMachineId,
+      threadId: selectedThreadId,
     });
-    const nextSearch = buildSearchString(nextSearchParams);
-    if (nextSearch === currentSearch) {
+    if (
+      nextSearch.machineId === routeSearch.machineId &&
+      nextSearch.threadId === routeSearch.threadId
+    ) {
       return;
     }
 
-    setSearchParams(nextSearchParams, { replace: true });
+    void navigate({
+      replace: true,
+      search: nextSearch,
+    });
   }, [
-    currentSearch,
-    searchParams,
+    navigate,
+    routeSearch.machineId,
+    routeSearch.threadId,
     selectedMachineId,
     selectedThreadId,
-    setSearchParams,
   ]);
 
   useEffect(() => {

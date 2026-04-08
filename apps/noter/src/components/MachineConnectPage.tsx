@@ -13,8 +13,8 @@ import {
   buildNoterSyncScriptUrl,
   buildPublishedNoterSyncConnectCommand,
   buildPublishedNoterSyncRunCommand,
-  readMachineConnectBootstrapSearch,
 } from "@/lib/noterSync";
+import { type MachineConnectRouteSearch } from "@/lib/authenticatedRouteSearch";
 import {
   resolveAuthoritativeNow,
   resolveConnectedMachineStatus,
@@ -23,9 +23,11 @@ import {
 import { useMutation, useQuery } from "convex/react";
 import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useState, type ReactElement } from "react";
-import { Link, useLocation } from "@/lib/router";
+import { Link } from "@/lib/router";
+import { getRouteApi } from "@tanstack/react-router";
 import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
 import { api } from "../../convex/_generated/api";
+import { MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
 
 type CopyableCommandBlockProps = {
   command: string;
@@ -94,6 +96,7 @@ type MachineConnectPageContentProps = {
 };
 
 const CONNECTED_MACHINES_SECTION_ID = "connected-machines";
+const machineConnectRouteApi = getRouteApi(MACHINE_CONNECT_ROUTE);
 
 function resolveCurrentOrigin(): string {
   if (typeof window === "undefined") {
@@ -597,7 +600,7 @@ export function MachineConnectPageContent({
 }
 
 export function MachineConnectPage() {
-  const location = useLocation();
+  const routeSearch = machineConnectRouteApi.useSearch();
   const [isApproving, setIsApproving] = useState(false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const [machineRegistrationClockSync, setMachineRegistrationClockSync] =
@@ -606,7 +609,13 @@ export function MachineConnectPage() {
       requestId: string;
       serverNowAtSync: number;
     } | null>(null);
-  const bootstrapSearch = readMachineConnectBootstrapSearch(location.search);
+  const bootstrapSearch = {
+    openedByCli: routeSearch.openedByCli === true,
+    requestId: routeSearch.requestId ?? null,
+  } satisfies {
+    openedByCli: boolean;
+    requestId: MachineConnectRouteSearch["requestId"] | null;
+  };
   const scriptUrl = buildNoterSyncScriptUrl(resolveCurrentOrigin());
   const connectedMachinesQuery = useQuery(
     api.connectedMachines.listConnectedMachines,

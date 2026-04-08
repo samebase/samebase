@@ -13,6 +13,12 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "@/lib/codexAppServerResearch";
+import {
+  validateMachineConnectRouteSearch,
+  validateMachinesRouteSearch,
+  validateMcpConsentRouteSearch,
+  validatePricingRouteSearch,
+} from "@/lib/authenticatedRouteSearch";
 import { validateCodexResearchRouteSearch } from "@/lib/codexResearchRouteSearch";
 import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
@@ -444,12 +450,14 @@ const mcpConsentRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: MCP_CONSENT_APP_PATH,
   component: McpConsentRoutePage,
+  validateSearch: validateMcpConsentRouteSearch,
 });
 
 const pricingRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: "/pricing",
   component: PricingRoutePage,
+  validateSearch: validatePricingRouteSearch,
 });
 
 const addRepositoryRoute = createRoute({
@@ -462,12 +470,14 @@ const machinesRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: MACHINES_ROUTE,
   component: MachinesRoutePage,
+  validateSearch: validateMachinesRouteSearch,
 });
 
 const machineConnectRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: MACHINE_CONNECT_ROUTE,
   component: MachineConnectRoutePage,
+  validateSearch: validateMachineConnectRouteSearch,
 });
 
 const codespaceChatRoute = createRoute({

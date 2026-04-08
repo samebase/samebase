@@ -1,4 +1,11 @@
 import { Link } from "@/lib/router";
+import {
+  buildPricingRouteSearch,
+  type PricingRouteSearch,
+} from "@/lib/authenticatedRouteSearch";
+import { buildPathWithQuery } from "@/lib/queryParams";
+import { stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
+import { getRouteApi } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -10,16 +17,17 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
 import { Badge } from "@/components/badge";
 
-function readCheckoutState(): "success" | "cancel" | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  const params = new URLSearchParams(window.location.search);
-  const raw = params.get("checkout");
-  return raw === "success" || raw === "cancel" ? raw : null;
+const pricingRouteApi = getRouteApi("/pricing");
+
+function buildPricingPath(checkout: PricingRouteSearch["checkout"] | null) {
+  return buildPathWithQuery({
+    pathname: "/pricing",
+    search: stringifyTanStackSearch(buildPricingRouteSearch(checkout)),
+  });
 }
 
 export function PricingPage() {
+  const routeSearch = pricingRouteApi.useSearch();
   const billingStatus = useQuery(api.billing.getViewerBillingStatus);
   const dashboardSettings = useQuery(
     api.dashboardSettings.getDashboardSettings,
@@ -41,7 +49,7 @@ export function PricingPage() {
   const billingCycle: BillingCycle =
     dashboardSettings?.pricingBillingCycle ?? "monthly";
 
-  const checkoutState = useMemo(() => readCheckoutState(), []);
+  const checkoutState = routeSearch.checkout ?? null;
   const displayPrices = useMemo(
     () => ({
       pro: PLAN_DISPLAY_PRICE.pro[billingCycle],
@@ -69,10 +77,10 @@ export function PricingPage() {
     try {
       const origin = window.location.origin;
       const successUrl = new URL(
-        "/pricing?checkout=success",
+        buildPricingPath("success"),
         origin,
       ).toString();
-      const returnUrl = new URL("/pricing?checkout=cancel", origin).toString();
+      const returnUrl = new URL(buildPricingPath("cancel"), origin).toString();
       const result = await createCheckoutSession({
         interval: billingCycle,
         successUrl,
@@ -93,7 +101,7 @@ export function PricingPage() {
 
     try {
       const origin = window.location.origin;
-      const returnUrl = new URL("/pricing", origin).toString();
+      const returnUrl = new URL(buildPricingPath(null), origin).toString();
       const result = await createPortalSession({ returnUrl });
       window.location.assign(result.url);
     } catch (error) {
