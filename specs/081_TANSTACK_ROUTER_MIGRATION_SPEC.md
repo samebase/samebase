@@ -221,6 +221,15 @@ migration with concrete problems, attempted fixes, and outcomes.
   draft handoff, scroll restoration, and any remaining debug-only overlay
   behavior.
 
+- Problem: MCP consent still lived behind the `App.tsx` catch-all even though it
+  already has its own path constant and auth-specific UI. Tried: promoted
+  `/oauth/mcp/consent` into an explicit TanStack route, extracted the shared
+  approval gate, and moved the popup-close hook behind a repo-owned helper so
+  the consent route could preserve the old popup behavior while leaving pricing,
+  machines, and vault routes untouched. Result: MCP consent is now route-owned,
+  the remaining `App.tsx` switchboard is smaller, and the next route slices can
+  promote pricing/add-repository without carrying the consent logic with them.
+
 ## Completed Milestones
 
 1. Introduce a repo-owned router seam and move current imports behind it.
@@ -231,9 +240,9 @@ migration with concrete problems, attempted fixes, and outcomes.
 ## Remaining Sequence
 
 1. Promote the remaining non-root `App.tsx` branches into explicit TanStack
-   routes, ordered from lowest risk to highest coupling: MCP consent, then
-   pricing and add-repository, then machines and machine-connect, then
-   codespace-chat and vault/file routes last.
+   routes, ordered from lowest risk to highest coupling: pricing and
+   add-repository, then machines and machine-connect, then codespace-chat and
+   vault/file routes last.
 2. Migrate the search-param-heavy surfaces onto route-owned TanStack search
    handling. Priorities: landing `?auth` and `?dev`, MCP consent request id,
    machine connect bootstrap params, machines workspace params, and the existing

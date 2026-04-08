@@ -29,6 +29,12 @@ vi.mock("@/components/LogoPreviewPage", () => ({
   ),
 }));
 
+vi.mock("@/components/McpConsentRoutePage", () => ({
+  McpConsentRoutePage: () => (
+    <div data-testid="mcp-consent-page">MCP consent page</div>
+  ),
+}));
+
 import { createAppRouter } from "./appRouter";
 
 const { act } = React;
@@ -100,6 +106,16 @@ describe("appRouter", () => {
       rootElement?.querySelector('[data-testid="logo-page"]')?.textContent,
     ).toBe("three");
     expect(rootElement?.querySelector('[data-testid="layout"]')).toBeNull();
+    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+  });
+
+  it("renders MCP consent through an explicit TanStack route instead of the App fallback", async () => {
+    await renderRoute("/oauth/mcp/consent?mcp_consent_request=mcpar_test");
+
+    expect(
+      rootElement?.querySelector('[data-testid="mcp-consent-page"]')
+        ?.textContent,
+    ).toBe("MCP consent page");
     expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
   });
 
