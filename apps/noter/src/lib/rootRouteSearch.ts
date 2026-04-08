@@ -60,7 +60,5 @@ export function readRootRouteSearchFromLocation(
 const rootRouteApi = getRouteApi(ROOT_ROUTE_ID);
 
 export function useRootRouteSearch(): RootRouteSearch {
-  return rootRouteApi.useSearch({
-    select: (search) => parseRootRouteSearch(search),
-  });
+  return rootRouteApi.useSearch();
 }
