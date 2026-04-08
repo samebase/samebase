@@ -58,18 +58,28 @@ migration with concrete problems, attempted fixes, and outcomes.
 
 ## Current Constraints
 
-- `apps/noter/src/main.tsx` still mounts a `BrowserRouter`.
-- `apps/noter/src/App.tsx` still mixes pathname-gated special cases with the
-  authenticated `<Routes>` tree.
+- `apps/noter/src/main.tsx` now mounts TanStack Router through
+  `AppRouterProvider`, but `apps/noter/src/App.tsx` still owns the root landing
+  split plus the remaining auth-gated pathname switchboard.
+- `apps/noter/src/lib/appRouter.ts` now owns the simple standalone public and
+  dev-only routes (`/privacy`, `/terms`, `/logo*`, `/pitch*`, and the Codex
+  research paths), but `/`, MCP consent, pricing, machines, machine connect,
+  add-repository, codespace chat, and vault/file routes still fall through the
+  `App` catch-all.
 - `apps/noter/src/bootstrap.ts` still renders a separate public landing shell
   before importing the real React app.
-- Direct `react-router-dom` imports are spread across the app, tests, and visual
-  fixtures. The initial inventory found widespread `Link`, `useLocation`,
-  `useSearchParams`, `useNavigate`, `useParams`, and `MemoryRouter` usage.
-- Search params currently carry meaningful UI state in routes like logo
-  previews, machines, sign-in, and research surfaces, so the TanStack move has
-  to handle typed search deliberately instead of treating it as a string-only
-  API.
+- The repo-owned router seam in `apps/noter/src/lib/router.ts` is still a
+  temporary compatibility layer for `Link`, `useLocation`, `useSearchParams`,
+  `useNavigate`, and `MemoryRouter`, so route ownership is only partially moved
+  out of the React Router-era API shape.
+- Search params still carry meaningful UI state in landing (`?auth`, `?dev`),
+  MCP consent, machine connect bootstrap, logo previews, machines, sign-in, and
+  research surfaces, so the remaining TanStack move has to handle typed search
+  deliberately instead of treating it as a string-only API.
+- The shared workspace wrapper migration in `specs/080` is a separate track.
+  Router and bootstrap cleanup should not be coupled to
+  `RepositoryWorkspaceFrame` / `DashboardWorkspaceLayout` rewrites or the
+  `FileView` mobile drag-contract migration unless a step truly needs both.
 
 ## Working Log
 
@@ -195,10 +205,54 @@ migration with concrete problems, attempted fixes, and outcomes.
   focused router test instead of carrying noisy false positives during the
   migration.
 
-## Initial Sequence
+- Problem: after phases 1 through 3 landed on `origin/main`, the original
+  sequence in this spec was too coarse and the constraint list had gone stale.
+  Tried: reread `specs/080`, audited the merged `origin/main` router state, and
+  compared that state to the remaining bootstrap and auth-gated route work.
+  Result: split the remaining plan into explicit route-ownership work,
+  search-param migration, and bootstrap deletion, and keep the workspace-shell
+  migration from `specs/080` as a separate track.
+
+- Problem: deleting `bootstrap.ts` immediately after the standalone public
+  routes moved looked tempting, but bootstrap still owns real runtime behavior.
+  Tried: audited `bootstrap.ts`, `SignInForm.tsx`, and the Vite-generated
+  static/legal assets. Result: bootstrap deletion should happen only after the
+  routed runtime owns the root landing behavior, auth/dev query params, waitlist
+  draft handoff, scroll restoration, and any remaining debug-only overlay
+  behavior.
+
+- Problem: MCP consent still lived behind the `App.tsx` catch-all even though it
+  already has its own path constant and auth-specific UI. Tried: promoted
+  `/oauth/mcp/consent` into an explicit TanStack route, extracted the shared
+  approval gate, and moved the popup-close hook behind a repo-owned helper so
+  the consent route could preserve the old popup behavior while leaving pricing,
+  machines, and vault routes untouched. Result: MCP consent is now route-owned,
+  the remaining `App.tsx` switchboard is smaller, and the next route slices can
+  promote pricing/add-repository without carrying the consent logic with them.
+
+## Completed Milestones
 
 1. Introduce a repo-owned router seam and move current imports behind it.
 2. Start a TanStack code-based route tree around the current app/layout seams.
-3. Peel special-case pathname branches out of `App.tsx` into explicit routes.
-4. Migrate search-param-heavy routes with typed TanStack search validation.
-5. Delete `bootstrap.ts` only after routed landing parity is proven.
+3. Peel the simple standalone pathname branches out of `App.tsx` into explicit
+   TanStack routes.
+
+## Remaining Sequence
+
+1. Promote the remaining non-root `App.tsx` branches into explicit TanStack
+   routes, ordered from lowest risk to highest coupling: pricing and
+   add-repository, then machines and machine-connect, then codespace-chat and
+   vault/file routes last.
+2. Migrate the search-param-heavy surfaces onto route-owned TanStack search
+   handling. Priorities: landing `?auth` and `?dev`, MCP consent request id,
+   machine connect bootstrap params, machines workspace params, and the existing
+   logo and research route params.
+3. Move the root landing/dashboard split onto normal routed rendering and only
+   then delete `bootstrap.ts`. Preserve any tiny pre-paint support that is still
+   justified, such as theme setup, but do not preserve the split runtime.
+4. Delete bootstrap-only parity code once routed landing parity is proven:
+   `resolveBootstrapPageMetadata()`, `shouldRenderFastLandingShell()`,
+   `fastLandingBoot.ts`, and the related parity-only tests or fixtures.
+5. Keep the shared workspace wrapper and drag-contract migration from
+   `specs/080` on a separate rollout track, and reconnect it only where routed
+   ownership genuinely needs those seams.

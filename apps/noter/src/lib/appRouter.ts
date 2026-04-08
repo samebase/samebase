@@ -14,6 +14,7 @@ import {
 } from "@/lib/codexAppServerResearch";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 import {
   createElement,
   lazy,
@@ -23,6 +24,7 @@ import {
   type ReactNode,
 } from "react";
 import App from "@/App";
+import { McpConsentRoutePage } from "@/components/McpConsentRoutePage";
 
 function AppRouterRoot() {
   return createElement(Outlet);
@@ -358,6 +360,12 @@ const codexThreadBrowserRoute = createRoute({
   component: CodexThreadBrowserRoutePage,
 });
 
+const mcpConsentRoute = createRoute({
+  getParentRoute: () => appRouterRootRoute,
+  path: MCP_CONSENT_APP_PATH,
+  component: McpConsentRoutePage,
+});
+
 const appSplatRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: "$",
@@ -379,6 +387,7 @@ const appRouteTree = appRouterRootRoute.addChildren([
   pitchPrintMobileRoute,
   codexResearchRoute,
   codexThreadBrowserRoute,
+  mcpConsentRoute,
   appSplatRoute,
 ]);
 
