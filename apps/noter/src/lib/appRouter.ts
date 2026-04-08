@@ -15,6 +15,7 @@ import {
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import {
+  createElement,
   lazy,
   Suspense,
   useState,
@@ -24,7 +25,7 @@ import {
 import App from "@/App";
 
 function AppRouterRoot() {
-  return <Outlet />;
+  return createElement(Outlet);
 }
 
 const PrivacyPolicyPage = lazy(async () => {
@@ -80,7 +81,7 @@ const CodexAppServerThreadBrowserResearchPage = lazy(async () => {
 });
 
 function RoutedPage(props: {
-  children: ReactNode;
+  children?: ReactNode;
   pathname: string;
   withLayout?: boolean;
 }) {
@@ -94,9 +95,9 @@ function RoutedPage(props: {
     }),
   );
 
-  const content = <Suspense fallback={null}>{props.children}</Suspense>;
+  const content = createElement(Suspense, { fallback: null }, props.children);
 
-  return props.withLayout ? <Layout>{content}</Layout> : content;
+  return props.withLayout ? createElement(Layout, null, content) : content;
 }
 
 function ResearchRouteUnavailablePage(props: {
@@ -111,141 +112,152 @@ function ResearchRouteUnavailablePage(props: {
     }),
   );
 
-  return (
-    <Layout>
-      <div className="container my-auto">
-        <div className="mx-auto flex max-w-[420px] flex-col items-center gap-3 py-16 text-center">
-          <h2 className="text-xl font-semibold tracking-tight">
-            {props.title}
-          </h2>
-          <p className="text-sm text-muted-foreground">{props.description}</p>
-        </div>
-      </div>
-    </Layout>
+  return createElement(
+    Layout,
+    null,
+    createElement(
+      "div",
+      { className: "container my-auto" },
+      createElement(
+        "div",
+        {
+          className:
+            "mx-auto flex max-w-[420px] flex-col items-center gap-3 py-16 text-center",
+        },
+        createElement(
+          "h2",
+          { className: "text-xl font-semibold tracking-tight" },
+          props.title,
+        ),
+        createElement(
+          "p",
+          { className: "text-sm text-muted-foreground" },
+          props.description,
+        ),
+      ),
+    ),
   );
 }
 
 function PrivacyRoutePage() {
-  return (
-    <RoutedPage pathname="/privacy" withLayout>
-      <PrivacyPolicyPage />
-    </RoutedPage>
+  return createElement(
+    RoutedPage,
+    { pathname: "/privacy", withLayout: true },
+    createElement(PrivacyPolicyPage),
   );
 }
 
 function TermsRoutePage() {
-  return (
-    <RoutedPage pathname="/terms" withLayout>
-      <TermsOfServicePage />
-    </RoutedPage>
+  return createElement(
+    RoutedPage,
+    { pathname: "/terms", withLayout: true },
+    createElement(TermsOfServicePage),
   );
 }
 
 function LogoThreeRoutePage() {
-  return (
-    <RoutedPage pathname="/logo">
-      <LogoPreviewPage renderMode="three" />
-    </RoutedPage>
+  return createElement(
+    RoutedPage,
+    { pathname: "/logo" },
+    createElement(LogoPreviewPage, { renderMode: "three" }),
   );
 }
 
 function LogoIsoRoutePage() {
-  return (
-    <RoutedPage pathname="/logo-iso">
-      <LogoPreviewPage renderMode="iso" />
-    </RoutedPage>
+  return createElement(
+    RoutedPage,
+    { pathname: "/logo-iso" },
+    createElement(LogoPreviewPage, { renderMode: "iso" }),
   );
 }
 
 function LogoSvgRoutePage() {
-  return (
-    <RoutedPage pathname="/logo-svg">
-      <LogoStaticSvgPage />
-    </RoutedPage>
+  return createElement(
+    RoutedPage,
+    { pathname: "/logo-svg" },
+    createElement(LogoStaticSvgPage),
   );
 }
 
 function LogoIsoStudyRoutePage() {
-  return (
-    <RoutedPage pathname="/logo-iso-study">
-      <LogoSingleCubeStudyPage />
-    </RoutedPage>
+  return createElement(
+    RoutedPage,
+    { pathname: "/logo-iso-study" },
+    createElement(LogoSingleCubeStudyPage),
   );
 }
 
 function LogoTransitionLabRoutePage() {
-  return (
-    <RoutedPage pathname="/logo-transition-lab">
-      <LogoTransitionLabPage />
-    </RoutedPage>
+  return createElement(
+    RoutedPage,
+    { pathname: "/logo-transition-lab" },
+    createElement(LogoTransitionLabPage),
   );
 }
 
 function LogoTransitionTransformsLabRoutePage() {
-  return (
-    <RoutedPage pathname="/logo-transition-lab-transforms">
-      <LogoTransitionTransformsLabPage />
-    </RoutedPage>
+  return createElement(
+    RoutedPage,
+    { pathname: "/logo-transition-lab-transforms" },
+    createElement(LogoTransitionTransformsLabPage),
   );
 }
 
 function PitchRoutePage() {
-  return (
-    <RoutedPage pathname="/pitch">
-      <PitchDeckPage mode="interactive" />
-    </RoutedPage>
+  return createElement(
+    RoutedPage,
+    { pathname: "/pitch" },
+    createElement(PitchDeckPage, { mode: "interactive" }),
   );
 }
 
 function PitchPrintRoutePage() {
-  return (
-    <RoutedPage pathname="/pitch/print">
-      <PitchDeckPage mode="print" />
-    </RoutedPage>
+  return createElement(
+    RoutedPage,
+    { pathname: "/pitch/print" },
+    createElement(PitchDeckPage, { mode: "print" }),
   );
 }
 
 function PitchPrintMobileRoutePage() {
-  return (
-    <RoutedPage pathname="/pitch/print/mobile">
-      <PitchDeckPage mode="printMobile" />
-    </RoutedPage>
+  return createElement(
+    RoutedPage,
+    { pathname: "/pitch/print/mobile" },
+    createElement(PitchDeckPage, { mode: "printMobile" }),
   );
 }
 
 function CodexResearchRoutePage() {
   if (!import.meta.env.DEV) {
-    return (
-      <ResearchRouteUnavailablePage
-        pathname={CODEX_APP_SERVER_RESEARCH_ROUTE}
-        title="Codex research unavailable"
-        description="This research surface only runs in the local development server."
-      />
-    );
+    return createElement(ResearchRouteUnavailablePage, {
+      pathname: CODEX_APP_SERVER_RESEARCH_ROUTE,
+      title: "Codex research unavailable",
+      description:
+        "This research surface only runs in the local development server.",
+    });
   }
 
-  return (
-    <RoutedPage pathname={CODEX_APP_SERVER_RESEARCH_ROUTE}>
-      <CodexAppServerResearchPage />
-    </RoutedPage>
+  return createElement(
+    RoutedPage,
+    { pathname: CODEX_APP_SERVER_RESEARCH_ROUTE },
+    createElement(CodexAppServerResearchPage),
   );
 }
 
 function CodexThreadBrowserRoutePage() {
   if (!import.meta.env.DEV) {
-    return (
-      <ResearchRouteUnavailablePage
-        pathname={CODEX_APP_SERVER_THREAD_BROWSER_ROUTE}
-        title="Codex thread browser unavailable"
-        description="This research surface only runs in the local development server."
-      />
-    );
+    return createElement(ResearchRouteUnavailablePage, {
+      pathname: CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
+      title: "Codex thread browser unavailable",
+      description:
+        "This research surface only runs in the local development server.",
+    });
   }
 
-  return (
-    <RoutedPage pathname={CODEX_APP_SERVER_THREAD_BROWSER_ROUTE}>
-      <CodexAppServerThreadBrowserResearchPage />
-    </RoutedPage>
+  return createElement(
+    RoutedPage,
+    { pathname: CODEX_APP_SERVER_THREAD_BROWSER_ROUTE },
+    createElement(CodexAppServerThreadBrowserResearchPage),
   );
 }
 
@@ -387,7 +399,7 @@ export type AppRouter = ReturnType<typeof createAppRouter>;
 export function AppRouterProvider(): ReactElement {
   const [router] = useState(() => createAppRouter(createBrowserHistory()));
 
-  return <RouterProvider router={router} />;
+  return createElement(RouterProvider, { router });
 }
 
 declare module "@tanstack/react-router" {

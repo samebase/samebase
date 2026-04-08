@@ -177,9 +177,11 @@ migration with concrete problems, attempted fixes, and outcomes.
 
 - Problem: the first explicit route tree patch needed JSX route wrappers, but
   the bootstrap router seam lived in `appRouter.ts`. Tried: added wrapper
-  components around lazy route surfaces and ran TypeScript/Prettier. Result: the
-  router module should now be `appRouter.tsx`; keeping it as `.ts` is the wrong
-  shape once the route tree starts owning rendered page components.
+  components around lazy route surfaces and ran TypeScript/Prettier. Result:
+  that part worked, but CI later showed the exported router factory still trips
+  `react-refresh/only-export-components` when the module lives in `.tsx`. Keep
+  the exported router module in `appRouter.ts` for now and use `createElement`
+  instead of JSX until the provider/factory split is worth the extra file churn.
 
 - Problem: once explicit routes and the `$` fallback coexist, it is easy for a
   public page to silently fall back into `App.tsx` again during later edits.
