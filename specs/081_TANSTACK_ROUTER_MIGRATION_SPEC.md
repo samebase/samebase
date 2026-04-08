@@ -12,14 +12,15 @@
   - `apps/noter/package.json`
   - `apps/noter/public/_redirects`
   - `apps/noter/scripts/run-vite-dev.js`
-  - `apps/noter/src/App.tsx`
   - `apps/noter/src/Layout.tsx`
   - `apps/noter/src/components/FastPublicLandingShell.tsx`
+  - `apps/noter/src/components/NotFoundRoutePage.tsx`
   - `apps/noter/src/components/RootIndexRoutePage.tsx`
   - `apps/noter/src/entry.tsx`
   - `apps/noter/src/main.tsx`
   - `apps/noter/vite.config.ts`
   - `specs/080_WORKSPACE_LAYOUT_V2_ROUTE_MIGRATION_AND_FRAMEWORK_READINESS_SPEC.md`
+  - `specs/082_TANSTACK_ROUTER_CLEANUP_SPEC.md`
 
 ## Summary
 
@@ -68,9 +69,8 @@ migration with concrete problems, attempted fixes, and outcomes.
   pricing, add-repository, machines, machine connect, codespace chat, and the
   vault/file surfaces), plus the explicit root routes for `/` and `/test`.
 - `apps/noter/src/components/RootIndexRoutePage.tsx` now owns the root
-  landing/dashboard split, while `apps/noter/src/App.tsx` only remains as the
-  unresolved fallback route bridge for paths that still do not have a deliberate
-  routed/not-found story.
+  landing/dashboard split, and unresolved paths now go through a deliberate
+  root-level not-found route instead of a leftover `App.tsx` bridge.
 - The fast public landing shell still exists, but it now lives inside routed
   React runtime code (`FastPublicLandingShell`) instead of a separate
   `bootstrap.ts` HTML path.
@@ -86,6 +86,9 @@ migration with concrete problems, attempted fixes, and outcomes.
   connect, pricing, machines, logo, and the research routes) now validate
   through route-owned TanStack search contracts, so the remaining work is
   cleanup and simplification rather than finishing search ownership.
+- Post-migration cleanup now lives in
+  `specs/082_TANSTACK_ROUTER_CLEANUP_SPEC.md` so this document can stay focused
+  on the migration itself.
 - The shared workspace wrapper migration in `specs/080` is a separate track.
   Router and bootstrap cleanup should not be coupled to
   `RepositoryWorkspaceFrame` / `DashboardWorkspaceLayout` rewrites or the
