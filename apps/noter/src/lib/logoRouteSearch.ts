@@ -20,19 +20,19 @@ import {
   parseVoxelState,
   serializeVoxelState,
 } from "@/components/logoVoxelState";
+import { z } from "zod";
 
-export type LogoRouteSearch = {
-  axis?: LogoRotationAxisMode;
-  elev?: number;
-  freeView?: boolean;
-  isoSide?: number;
-  isoStyle?: LogoIsometricStyleId;
-  leftColor?: string;
-  rightColor?: string;
-  rot?: number;
-  topColor?: string;
-  vox?: string;
-};
+const LOGO_ROTATION_AXIS_MODE_VALUES = [
+  "cube-y",
+  "screen-vertical",
+] as const satisfies readonly LogoRotationAxisMode[];
+
+const LOGO_ISOMETRIC_STYLE_VALUES = [
+  "flat",
+  "shaded-edge",
+  "cap-3",
+  "cap-4",
+] as const satisfies readonly LogoIsometricStyleId[];
 
 function readOptionalString(value: unknown): string | undefined {
   if (typeof value !== "string") {
@@ -79,52 +79,98 @@ function isLogoRotationAxisMode(
   return value === "cube-y" || value === "screen-vertical";
 }
 
+function readOptionalRotationAxisMode(
+  value: unknown,
+): LogoRotationAxisMode | undefined {
+  const rotationAxisMode = readOptionalString(value);
+  return isLogoRotationAxisMode(rotationAxisMode)
+    ? rotationAxisMode
+    : undefined;
+}
+
+function readOptionalIsoStyleId(
+  value: unknown,
+): LogoIsometricStyleId | undefined {
+  const isoStyleId = readOptionalString(value);
+  return typeof isoStyleId === "string" && isLogoIsometricStyleId(isoStyleId)
+    ? isoStyleId
+    : undefined;
+}
+
+function readCanonicalVoxelState(value: unknown): string | undefined {
+  const voxelState = readOptionalString(value);
+  if (typeof voxelState !== "string") {
+    return undefined;
+  }
+
+  const parsedVoxelState = parseVoxelState(voxelState);
+  return parsedVoxelState === null
+    ? undefined
+    : serializeVoxelState(parsedVoxelState);
+}
+
+const logoRouteSearchFieldSchema = z.object({
+  axis: z.preprocess(
+    readOptionalRotationAxisMode,
+    z.enum(LOGO_ROTATION_AXIS_MODE_VALUES).optional(),
+  ),
+  elev: z.preprocess(readOptionalNumber, z.number().finite().optional()),
+  freeView: z.preprocess(readOptionalFlag, z.literal(true).optional()),
+  isoSide: z.preprocess(readOptionalNumber, z.number().finite().optional()),
+  isoStyle: z.preprocess(
+    readOptionalIsoStyleId,
+    z.enum(LOGO_ISOMETRIC_STYLE_VALUES).optional(),
+  ),
+  leftColor: z.preprocess(readOptionalString, z.string().optional()),
+  rightColor: z.preprocess(readOptionalString, z.string().optional()),
+  rot: z.preprocess(readOptionalNumber, z.number().finite().optional()),
+  topColor: z.preprocess(readOptionalString, z.string().optional()),
+  vox: z.preprocess(readCanonicalVoxelState, z.string().optional()),
+});
+
+export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform(
+  (search) => {
+    const faceColors = {
+      left: search.leftColor,
+      right: search.rightColor,
+      top: search.topColor,
+    } satisfies Record<FaceColorKey, string | undefined>;
+
+    return {
+      ...(typeof search.axis === "string" ? { axis: search.axis } : {}),
+      ...(typeof search.elev === "number"
+        ? { elev: normalizeElevationDegrees(search.elev) }
+        : {}),
+      ...(search.freeView === true ? { freeView: true } : {}),
+      ...(typeof search.isoSide === "number"
+        ? { isoSide: normalizeLogoIsometricCubeSidePixels(search.isoSide) }
+        : {}),
+      ...(typeof search.isoStyle === "string"
+        ? { isoStyle: search.isoStyle }
+        : {}),
+      ...(typeof faceColors.left === "string"
+        ? { leftColor: faceColors.left }
+        : {}),
+      ...(typeof faceColors.right === "string"
+        ? { rightColor: faceColors.right }
+        : {}),
+      ...(typeof search.rot === "number"
+        ? { rot: normalizeRotationDegrees(search.rot) }
+        : {}),
+      ...(typeof faceColors.top === "string"
+        ? { topColor: faceColors.top }
+        : {}),
+      ...(typeof search.vox === "string" ? { vox: search.vox } : {}),
+    };
+  },
+);
+
+export type LogoRouteSearch = z.infer<typeof logoRouteSearchSchema>;
+
 export function validateLogoRouteSearch(
   search: Record<string, unknown>,
 ): LogoRouteSearch {
-  const voxelState = readOptionalString(search.vox);
-  const parsedVoxelState =
-    typeof voxelState === "string" ? parseVoxelState(voxelState) : null;
-  const rawAxis = readOptionalString(search.axis);
-  const rawIsoStyle = readOptionalString(search.isoStyle);
-  const isoStyle =
-    typeof rawIsoStyle === "string" && isLogoIsometricStyleId(rawIsoStyle)
-      ? rawIsoStyle
-      : undefined;
-  const elevationDegrees = readOptionalNumber(search.elev);
-  const freeView = readOptionalFlag(search.freeView);
-  const isoCubeSidePixels = readOptionalNumber(search.isoSide);
-  const rotationDegrees = readOptionalNumber(search.rot);
-  const faceColors = {
-    left: readOptionalString(search.leftColor),
-    right: readOptionalString(search.rightColor),
-    top: readOptionalString(search.topColor),
-  } satisfies Record<FaceColorKey, string | undefined>;
-
-  return {
-    ...(isLogoRotationAxisMode(rawAxis) ? { axis: rawAxis } : {}),
-    ...(typeof elevationDegrees === "number"
-      ? { elev: normalizeElevationDegrees(elevationDegrees) }
-      : {}),
-    ...(freeView === true ? { freeView } : {}),
-    ...(typeof isoCubeSidePixels === "number"
-      ? { isoSide: normalizeLogoIsometricCubeSidePixels(isoCubeSidePixels) }
-      : {}),
-    ...(typeof isoStyle === "string" ? { isoStyle } : {}),
-    ...(typeof faceColors.left === "string"
-      ? { leftColor: faceColors.left }
-      : {}),
-    ...(typeof faceColors.right === "string"
-      ? { rightColor: faceColors.right }
-      : {}),
-    ...(typeof rotationDegrees === "number"
-      ? { rot: normalizeRotationDegrees(rotationDegrees) }
-      : {}),
-    ...(typeof faceColors.top === "string" ? { topColor: faceColors.top } : {}),
-    ...(parsedVoxelState !== null
-      ? { vox: serializeVoxelState(parsedVoxelState) }
-      : {}),
-  };
+  return logoRouteSearchSchema.parse(search);
 }
 
 export function buildLogoRouteSearch(args: {

@@ -57,4 +57,21 @@ describe("logoRouteSearch", () => {
       }),
     ).toEqual({});
   });
+
+  it("drops malformed logo route search values instead of throwing", () => {
+    expect(
+      validateLogoRouteSearch({
+        axis: "diagonal",
+        elev: { nope: true },
+        freeView: "false",
+        isoSide: Number.NaN,
+        isoStyle: "wireframe",
+        leftColor: "   ",
+        rightColor: 4,
+        rot: "not-a-number",
+        topColor: null,
+        vox: "bad-voxel-state",
+      }),
+    ).toEqual({});
+  });
 });

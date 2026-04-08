@@ -285,6 +285,15 @@ migration with concrete problems, attempted fixes, and outcomes.
   `useSearchParams` hook, and the remaining search migration scope is limited to
   authenticated explicit routes plus the root landing flow.
 
+- Problem: converting the logo route validator to a transformed Zod schema hit a
+  TanStack input/output typing edge when the schema was passed directly to
+  `validateSearch`. Tried: wiring the Zod schema straight into the route
+  definition so TanStack could infer from the schema alone. Result: navigation
+  started treating every logo search key as required on writes, so the current
+  compromise is a Zod-backed `validateLogoRouteSearch()` wrapper that keeps the
+  simpler sparse navigation type until the route can move to a cleaner
+  schema-with-adapter shape.
+
 ## Completed Milestones
 
 1. Introduce a repo-owned router seam and move current imports behind it.
