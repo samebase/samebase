@@ -2,14 +2,8 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "@/lib/codexAppServerResearch";
-import { isChatOnlyCodespaceRoute, parseVaultPathContext } from "./vaultRoutes";
 
-export type AuthenticatedAppRoute =
-  | "dashboard"
-  | "codespaceChat"
-  | "fileView"
-  | "test"
-  | "none";
+export type AuthenticatedAppRoute = "dashboard" | "test" | "none";
 
 function normalizeAppPathname(pathname: string): string {
   if (pathname === "/") {
@@ -34,15 +28,6 @@ export function resolveAuthenticatedAppRoute(
 
   if (normalizedPathname === "/test") {
     return "test";
-  }
-
-  if (isChatOnlyCodespaceRoute(normalizedPathname)) {
-    return "codespaceChat";
-  }
-
-  const vaultContext = parseVaultPathContext(normalizedPathname);
-  if (vaultContext.repositoryFullName !== undefined) {
-    return "fileView";
   }
 
   return "none";
