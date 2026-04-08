@@ -86,6 +86,22 @@ describe("shouldAutoRefreshVault", () => {
     ).toBe(true);
   });
 
+  it("refreshes on page load even when metadata and tree timestamps look fresh", () => {
+    expect(
+      shouldAutoRefreshVault({
+        lastTreeRefreshAt: now - 5_000,
+        remoteBranches: [
+          {
+            remoteState: "active",
+            lastSyncedAt: now - 30_000,
+          },
+        ],
+        trigger: "page_load",
+        now,
+      }),
+    ).toBe(true);
+  });
+
   it("uses deleted-upstream rows as freshness fallback when active rows are absent", () => {
     expect(
       shouldAutoRefreshVault({
@@ -124,7 +140,7 @@ describe("shouldAutoRefreshVault", () => {
     ).toBe(false);
   });
 
-  it("treats an invalid lastTreeRefreshAt as stale on page load", () => {
+  it("still refreshes page load checks when the tree timestamp is invalid", () => {
     expect(
       shouldAutoRefreshVault({
         lastTreeRefreshAt: Number.NaN,
