@@ -67,10 +67,27 @@
       }
     </script>
     <link rel="stylesheet" href="/src/index.css" />
+    <script>
+      (() => {
+        const prefersDarkTheme = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+        let storedTheme = null;
+
+        try {
+          storedTheme = window.localStorage.getItem("theme");
+        } catch {}
+
+        const useDarkTheme =
+          storedTheme === "dark" ||
+          (storedTheme !== "light" && prefersDarkTheme);
+        document.documentElement.classList.toggle("dark", useDarkTheme);
+      })();
+    </script>
   </head>
 
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/bootstrap.ts"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -29,3 +29,5 @@ export function mountApp() {
     </React.StrictMode>,
   );
 }
+
+mountApp();

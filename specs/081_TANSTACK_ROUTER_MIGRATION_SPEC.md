@@ -14,7 +14,8 @@
   - `apps/noter/scripts/run-vite-dev.js`
   - `apps/noter/src/App.tsx`
   - `apps/noter/src/Layout.tsx`
-  - `apps/noter/src/bootstrap.ts`
+  - `apps/noter/src/components/FastPublicLandingShell.tsx`
+  - `apps/noter/src/components/RootIndexRoutePage.tsx`
   - `apps/noter/src/main.tsx`
   - `apps/noter/vite.config.ts`
   - `specs/080_WORKSPACE_LAYOUT_V2_ROUTE_MIGRATION_AND_FRAMEWORK_READINESS_SPEC.md`
@@ -58,17 +59,20 @@ migration with concrete problems, attempted fixes, and outcomes.
 
 ## Current Constraints
 
-- `apps/noter/src/main.tsx` now mounts TanStack Router through
-  `AppRouterProvider`, but `apps/noter/src/App.tsx` still owns the root landing
-  split plus the small root-only authenticated pathname switchboard (`/` and
-  `/test`).
+- `apps/noter/src/main.tsx` now loads directly from `index.html` and mounts the
+  routed app without the old split bootstrap entrypoint.
 - `apps/noter/src/lib/appRouter.ts` now owns the simple standalone public and
   dev-only routes (`/privacy`, `/terms`, `/logo*`, `/pitch*`, and the Codex
   research paths) plus the non-root authenticated app routes (MCP consent,
   pricing, add-repository, machines, machine connect, codespace chat, and the
-  vault/file surfaces), while `/` still renders through `App`.
-- `apps/noter/src/bootstrap.ts` still renders a separate public landing shell
-  before importing the real React app.
+  vault/file surfaces), plus the explicit root routes for `/` and `/test`.
+- `apps/noter/src/components/RootIndexRoutePage.tsx` now owns the root
+  landing/dashboard split, while `apps/noter/src/App.tsx` only remains as the
+  unresolved fallback route bridge for paths that still do not have a deliberate
+  routed/not-found story.
+- The fast public landing shell still exists, but it now lives inside routed
+  React runtime code (`FastPublicLandingShell`) instead of a separate
+  `bootstrap.ts` HTML path.
 - The repo-owned router seam in `apps/noter/src/lib/router.ts` is still a
   temporary compatibility layer for `Link`, `useLocation`, `useSearchParams`,
   `useNavigate`, and `MemoryRouter`, so route ownership is only partially moved
@@ -342,6 +346,16 @@ migration with concrete problems, attempted fixes, and outcomes.
   literal `"__root__"` until the package graph intentionally exposes a better
   public import path.
 
+- Problem: deleting `bootstrap.ts` would have broken the accepted
+  `public-landing-shell` behavior if the root route immediately jumped straight
+  to the hydrated sign-in surface. Tried: promoted `/` and `/test` into explicit
+  TanStack routes, rebuilt the fast landing shell as routed React state around
+  `RootIndexRoutePage`, moved the gesture debug overlay into the routed root,
+  and switched `index.html` back to `main.tsx` with only a tiny pre-paint theme
+  script. Result: the split entrypoint is gone, routed root ownership is real,
+  and the existing landing shell/handoff Playwright contract still passes on the
+  app route without reviving the old bootstrap file.
+
 ## Completed Milestones
 
 1. Introduce a repo-owned router seam and move current imports behind it.
@@ -359,15 +373,19 @@ migration with concrete problems, attempted fixes, and outcomes.
    connect, and machines workspace params.
 7. Move the root landing search state onto route-owned TanStack handling,
    including `?auth`, `?dev`, and the related shared landing/auth helpers.
+8. Move the root landing/dashboard split onto explicit TanStack routes and
+   delete `bootstrap.ts` while preserving the current fast landing shell
+   behavior inside routed React.
 
 ## Remaining Sequence
 
-1. Move the root landing/dashboard split onto normal routed rendering and only
-   then delete `bootstrap.ts`. Preserve any tiny pre-paint support that is still
-   justified, such as theme setup, but do not preserve the split runtime.
-2. Delete bootstrap-only parity code once routed landing parity is proven:
-   `resolveBootstrapPageMetadata()`, `shouldRenderFastLandingShell()`,
-   `fastLandingBoot.ts`, and the related parity-only tests or fixtures.
+1. Delete routed fast-shell parity code once we are ready to stop preserving the
+   old public landing shell/handoff contract: `shouldRenderFastLandingShell()`,
+   `fastLandingBoot.ts`, `FastPublicLandingShell.tsx`, and the related
+   parity-only tests or fixtures.
+2. Delete the remaining unresolved fallback route bridge in `App.tsx` and the
+   router compat seam in `apps/noter/src/lib/router.ts` once those callers have
+   a deliberate TanStack-native path.
 3. Keep the shared workspace wrapper and drag-contract migration from
    `specs/080` on a separate rollout track, and reconnect it only where routed
    ownership genuinely needs those seams.
