@@ -16,6 +16,8 @@ import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 import { AddRepositoryRoutePage } from "@/components/AddRepositoryRoutePage";
+import { CodespaceChatRoutePage } from "@/components/CodespaceChatRoutePage";
+import { FileViewRoutePage } from "@/components/FileViewRoutePage";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
 import { MachineConnectRoutePage } from "@/components/MachineConnectRoutePage";
 import { MachinesRoutePage } from "@/components/MachinesRoutePage";
@@ -395,6 +397,18 @@ const machineConnectRoute = createRoute({
   component: MachineConnectRoutePage,
 });
 
+const codespaceChatRoute = createRoute({
+  getParentRoute: () => appRouterRootRoute,
+  path: "/vault/$owner/$repo/codespace/$branch/chat",
+  component: CodespaceChatRoutePage,
+});
+
+const vaultFileRoute = createRoute({
+  getParentRoute: () => appRouterRootRoute,
+  path: "/vault/$",
+  component: FileViewRoutePage,
+});
+
 const appSplatRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: "$",
@@ -421,6 +435,8 @@ const appRouteTree = appRouterRootRoute.addChildren([
   addRepositoryRoute,
   machinesRoute,
   machineConnectRoute,
+  codespaceChatRoute,
+  vaultFileRoute,
   appSplatRoute,
 ]);
 

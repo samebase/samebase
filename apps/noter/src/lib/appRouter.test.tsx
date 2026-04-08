@@ -55,6 +55,18 @@ vi.mock("@/components/MachineConnectRoutePage", () => ({
   ),
 }));
 
+vi.mock("@/components/CodespaceChatRoutePage", () => ({
+  CodespaceChatRoutePage: () => (
+    <div data-testid="codespace-chat-page">Codespace chat page</div>
+  ),
+}));
+
+vi.mock("@/components/FileViewRoutePage", () => ({
+  FileViewRoutePage: () => (
+    <div data-testid="file-view-page">File view page</div>
+  ),
+}));
+
 import { createAppRouter } from "./appRouter";
 
 const { act } = React;
@@ -215,8 +227,39 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
   });
 
-  it("keeps the App fallback for workspace and app-owned routes", async () => {
+  it("renders codespace chat through an explicit TanStack route instead of the vault catch-all", async () => {
+    await renderRoute("/vault/noter-md/noter/codespace/main/chat");
+
+    expect(
+      rootElement?.querySelector('[data-testid="codespace-chat-page"]')
+        ?.textContent,
+    ).toBe("Codespace chat page");
+    expect(
+      rootElement?.querySelector('[data-testid="file-view-page"]'),
+    ).toBeNull();
+    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+  });
+
+  it("renders the generic vault route through an explicit TanStack route instead of the App fallback", async () => {
     await renderRoute("/vault/noter-md/noter/main/README.md");
+
+    expect(
+      rootElement?.querySelector('[data-testid="file-view-page"]')?.textContent,
+    ).toBe("File view page");
+    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+  });
+
+  it("renders the vault repository root through the generic vault route", async () => {
+    await renderRoute("/vault/noter-md/noter");
+
+    expect(
+      rootElement?.querySelector('[data-testid="file-view-page"]')?.textContent,
+    ).toBe("File view page");
+    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+  });
+
+  it("keeps the App fallback for unresolved app-owned routes", async () => {
+    await renderRoute("/test");
 
     expect(
       rootElement?.querySelector('[data-testid="app-route"]')?.textContent,

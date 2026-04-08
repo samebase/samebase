@@ -15,17 +15,9 @@ const VaultDashboard = lazy(async () => {
   const module = await import("@/components/VaultDashboard");
   return { default: module.VaultDashboard };
 });
-const FileView = lazy(async () => {
-  const module = await import("@/components/FileView");
-  return { default: module.FileView };
-});
 const ChatFab = lazy(async () => {
   const module = await import("@/components/ChatFab");
   return { default: module.ChatFab };
-});
-const CodespaceChatOnlyView = lazy(async () => {
-  const module = await import("@/components/CodespaceChatOnlyView");
-  return { default: module.CodespaceChatOnlyView };
 });
 
 export default function App() {
@@ -55,10 +47,6 @@ export default function App() {
             <ApprovalGate>
               <Suspense fallback={null}>
                 {authenticatedRoute === "dashboard" ? <VaultDashboard /> : null}
-                {authenticatedRoute === "codespaceChat" ? (
-                  <CodespaceChatOnlyView />
-                ) : null}
-                {authenticatedRoute === "fileView" ? <FileView /> : null}
                 {authenticatedRoute === "test" ? <div>Test</div> : null}
                 {showGlobalChatFab ? <ChatFab /> : null}
               </Suspense>

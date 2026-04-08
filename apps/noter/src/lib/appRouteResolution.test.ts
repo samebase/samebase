@@ -7,20 +7,15 @@ describe("resolveAuthenticatedAppRoute", () => {
     expect(resolveAuthenticatedAppRoute("/test")).toBe("test");
   });
 
-  it("resolves vault-backed routes", () => {
-    expect(resolveAuthenticatedAppRoute("/vault/octo/repo")).toBe("fileView");
-    expect(resolveAuthenticatedAppRoute("/vault/octo/repo/main")).toBe(
-      "fileView",
-    );
+  it("no longer treats vault-backed paths as App-owned routes", () => {
+    expect(resolveAuthenticatedAppRoute("/vault/octo/repo")).toBe("none");
+    expect(resolveAuthenticatedAppRoute("/vault/octo/repo/main")).toBe("none");
     expect(
       resolveAuthenticatedAppRoute("/vault/octo/repo/main/src/file.ts"),
-    ).toBe("fileView");
-  });
-
-  it("prefers the chat-only codespace route over generic vault matching", () => {
+    ).toBe("none");
     expect(
       resolveAuthenticatedAppRoute("/vault/octo/repo/codespace/main/chat"),
-    ).toBe("codespaceChat");
+    ).toBe("none");
   });
 
   it("treats unknown paths as unmatched", () => {

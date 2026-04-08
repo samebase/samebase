@@ -60,12 +60,13 @@ migration with concrete problems, attempted fixes, and outcomes.
 
 - `apps/noter/src/main.tsx` now mounts TanStack Router through
   `AppRouterProvider`, but `apps/noter/src/App.tsx` still owns the root landing
-  split plus the remaining auth-gated pathname switchboard.
+  split plus the small root-only authenticated pathname switchboard (`/` and
+  `/test`).
 - `apps/noter/src/lib/appRouter.ts` now owns the simple standalone public and
   dev-only routes (`/privacy`, `/terms`, `/logo*`, `/pitch*`, and the Codex
-  research paths), but `/`, MCP consent, pricing, machines, machine connect,
-  add-repository, codespace chat, and vault/file routes still fall through the
-  `App` catch-all.
+  research paths) plus the non-root authenticated app routes (MCP consent,
+  pricing, add-repository, machines, machine connect, codespace chat, and the
+  vault/file surfaces), while `/` still renders through `App`.
 - `apps/noter/src/bootstrap.ts` still renders a separate public landing shell
   before importing the real React app.
 - The repo-owned router seam in `apps/noter/src/lib/router.ts` is still a
@@ -251,28 +252,38 @@ migration with concrete problems, attempted fixes, and outcomes.
   and the later typed-search phase can focus on search ownership instead of path
   ownership.
 
+- Problem: the last unresolved non-root authenticated paths were still the
+  coupled vault surfaces, where the generic file route and the chat-only
+  codespace route overlap under the same `/vault/*` prefix. Tried: promoted the
+  chat-only codespace path into a specific TanStack route first, then added a
+  generic `/vault/$` route for the file surface and removed both cases from the
+  old authenticated pathname resolver. Result: TanStack Router now owns the full
+  non-root path table, the focused route test proves codespace precedence over
+  the generic vault route, and `App.tsx` is down to the root dashboard/test
+  switchboard that will be addressed in the later landing/bootstrap phase.
+
 ## Completed Milestones
 
 1. Introduce a repo-owned router seam and move current imports behind it.
 2. Start a TanStack code-based route tree around the current app/layout seams.
 3. Peel the simple standalone pathname branches out of `App.tsx` into explicit
    TanStack routes.
+4. Promote all remaining non-root authenticated routes into explicit TanStack
+   routes, including MCP consent, pricing/add, machines, codespace chat, and
+   vault/file paths.
 
 ## Remaining Sequence
 
-1. Promote the remaining non-root `App.tsx` branches into explicit TanStack
-   routes, ordered from lowest risk to highest coupling: codespace-chat and
-   vault/file routes last.
-2. Migrate the search-param-heavy surfaces onto route-owned TanStack search
+1. Migrate the search-param-heavy surfaces onto route-owned TanStack search
    handling. Priorities: landing `?auth` and `?dev`, MCP consent request id,
-   machine connect bootstrap params, machines workspace params, and the existing
-   logo and research route params.
-3. Move the root landing/dashboard split onto normal routed rendering and only
+   pricing checkout state, machine connect bootstrap params, machines workspace
+   params, and the existing logo and research route params.
+2. Move the root landing/dashboard split onto normal routed rendering and only
    then delete `bootstrap.ts`. Preserve any tiny pre-paint support that is still
    justified, such as theme setup, but do not preserve the split runtime.
-4. Delete bootstrap-only parity code once routed landing parity is proven:
+3. Delete bootstrap-only parity code once routed landing parity is proven:
    `resolveBootstrapPageMetadata()`, `shouldRenderFastLandingShell()`,
    `fastLandingBoot.ts`, and the related parity-only tests or fixtures.
-5. Keep the shared workspace wrapper and drag-contract migration from
+4. Keep the shared workspace wrapper and drag-contract migration from
    `specs/080` on a separate rollout track, and reconnect it only where routed
    ownership genuinely needs those seams.
