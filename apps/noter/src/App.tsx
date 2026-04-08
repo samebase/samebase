@@ -2,10 +2,6 @@ import { Layout } from "@/Layout";
 import { clearAuthFlag, setAuthFlag, useAutoSignIn } from "@/authClient";
 import { McpConsentSignInView } from "@/McpConsentSignInView";
 import { SignInForm } from "@/SignInForm";
-import {
-  CODEX_APP_SERVER_RESEARCH_ROUTE,
-  CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
-} from "@/lib/codexAppServerResearch";
 import { resolveAuthenticatedAppRoute } from "@/lib/appRouteResolution";
 import { shouldShowGlobalChatFab } from "@/lib/globalChatFabVisibility";
 
@@ -56,52 +52,6 @@ const CodespaceChatOnlyView = lazy(async () => {
 const PricingPage = lazy(async () => {
   const module = await import("@/components/PricingPage");
   return { default: module.PricingPage };
-});
-const TermsOfServicePage = lazy(async () => {
-  const module = await import("@/components/TermsOfServicePage");
-  return { default: module.TermsOfServicePage };
-});
-const PrivacyPolicyPage = lazy(async () => {
-  const module = await import("@/components/PrivacyPolicyPage");
-  return { default: module.PrivacyPolicyPage };
-});
-const LogoPreviewPage = lazy(async () => {
-  const module = await import("@/components/LogoPreviewPage");
-  return { default: module.LogoPreviewPage };
-});
-
-const LogoSingleCubeStudyPage = lazy(async () => {
-  const module = await import("@/components/LogoSingleCubeStudyPage");
-  return { default: module.LogoSingleCubeStudyPage };
-});
-
-const LogoStaticSvgPage = lazy(async () => {
-  const module = await import("@/components/LogoStaticSvgPage");
-  return { default: module.LogoStaticSvgPage };
-});
-
-const LogoTransitionLabPage = lazy(async () => {
-  const module = await import("@/components/LogoTransitionLabPage");
-  return { default: module.LogoTransitionLabPage };
-});
-
-const LogoTransitionTransformsLabPage = lazy(async () => {
-  const module = await import("@/components/LogoTransitionTransformsLabPage");
-  return { default: module.LogoTransitionTransformsLabPage };
-});
-const PitchDeckPage = lazy(async () => {
-  const module = await import("@/components/PitchDeckPage");
-  return { default: module.PitchDeckPage };
-});
-const CodexAppServerResearchPage = lazy(async () => {
-  const module = await import("@/components/CodexAppServerResearchPage");
-  return { default: module.CodexAppServerResearchPage };
-});
-const CodexAppServerThreadBrowserResearchPage = lazy(async () => {
-  const module = await import(
-    "@/components/CodexAppServerThreadBrowserResearchPage"
-  );
-  return { default: module.CodexAppServerThreadBrowserResearchPage };
 });
 const MachineConnectPage = lazy(async () => {
   const module = await import("@/components/MachineConnectPage");
@@ -193,22 +143,6 @@ function readMcpConsentRequestId(search: string): string | null {
 
 function isMcpConsentRoute(pathname: string): boolean {
   return pathname === MCP_CONSENT_APP_PATH;
-}
-
-function resolvePitchDeckMode(pathname: string) {
-  if (pathname === "/pitch") {
-    return "interactive" as const;
-  }
-
-  if (pathname === "/pitch/print") {
-    return "print" as const;
-  }
-
-  if (pathname === "/pitch/print/mobile") {
-    return "printMobile" as const;
-  }
-
-  return null;
 }
 
 function McpConsentView({ requestId }: { requestId: string }) {
@@ -359,24 +293,6 @@ function McpConsentView({ requestId }: { requestId: string }) {
   );
 }
 
-function ResearchRouteUnavailablePage(props: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <Layout>
-      <div className="container my-auto">
-        <div className="mx-auto flex max-w-[420px] flex-col items-center gap-3 py-16 text-center">
-          <h2 className="text-xl font-semibold tracking-tight">
-            {props.title}
-          </h2>
-          <p className="text-sm text-muted-foreground">{props.description}</p>
-        </div>
-      </div>
-    </Layout>
-  );
-}
-
 export default function App() {
   useAutoSignIn();
   const location = useLocation();
@@ -390,26 +306,6 @@ export default function App() {
   const showGlobalChatFab = shouldShowGlobalChatFab(location.pathname);
   const showMcpConsent = onMcpConsentRoute && mcpConsentRequestId !== null;
   const authenticatedRoute = resolveAuthenticatedAppRoute(location.pathname);
-  const logoPreviewMode =
-    location.pathname === "/logo"
-      ? "three"
-      : location.pathname === "/logo-iso"
-        ? "iso"
-        : null;
-  const showLogoStaticSvg = location.pathname === "/logo-svg";
-  const showLogoIsoStudy = location.pathname === "/logo-iso-study";
-  const showLogoTransitionLab = location.pathname === "/logo-transition-lab";
-  const showPrivacyPolicyPage = location.pathname === "/privacy";
-  const showTermsOfServicePage = location.pathname === "/terms";
-  const showLogoTransitionTransformsLab =
-    location.pathname === "/logo-transition-lab-transforms";
-  const pitchDeckMode = resolvePitchDeckMode(location.pathname);
-  const showPitchDeckPage = pitchDeckMode !== null;
-  const showCodexAppServerResearchPage =
-    location.pathname === CODEX_APP_SERVER_RESEARCH_ROUTE;
-  const showCodexAppServerThreadBrowserResearchPage =
-    location.pathname === CODEX_APP_SERVER_THREAD_BROWSER_ROUTE;
-  const isCodexAppServerResearchRuntimeAvailable = import.meta.env.DEV;
   const showPublicLandingWithoutAuthGate =
     !isAuthenticated && shouldRenderPublicLandingWithoutAuthGate(location);
 
@@ -420,101 +316,6 @@ export default function App() {
     });
   }, [isAuthenticated, location.pathname]);
   usePageMetadata(pageMetadata);
-
-  if (logoPreviewMode !== null) {
-    return (
-      <Suspense fallback={null}>
-        <LogoPreviewPage renderMode={logoPreviewMode} />
-      </Suspense>
-    );
-  }
-
-  if (showLogoIsoStudy) {
-    return (
-      <Suspense fallback={null}>
-        <LogoSingleCubeStudyPage />
-      </Suspense>
-    );
-  }
-
-  if (showLogoStaticSvg) {
-    return (
-      <Suspense fallback={null}>
-        <LogoStaticSvgPage />
-      </Suspense>
-    );
-  }
-
-  if (showLogoTransitionLab) {
-    return (
-      <Suspense fallback={null}>
-        <LogoTransitionLabPage />
-      </Suspense>
-    );
-  }
-
-  if (showPrivacyPolicyPage) {
-    return (
-      <Layout>
-        <Suspense fallback={null}>
-          <PrivacyPolicyPage />
-        </Suspense>
-      </Layout>
-    );
-  }
-  if (showTermsOfServicePage) {
-    return (
-      <Layout>
-        <Suspense fallback={null}>
-          <TermsOfServicePage />
-        </Suspense>
-      </Layout>
-    );
-  }
-  if (showLogoTransitionTransformsLab) {
-    return (
-      <Suspense fallback={null}>
-        <LogoTransitionTransformsLabPage />
-      </Suspense>
-    );
-  }
-  if (showPitchDeckPage) {
-    return (
-      <Suspense fallback={null}>
-        <PitchDeckPage mode={pitchDeckMode} />
-      </Suspense>
-    );
-  }
-  if (showCodexAppServerResearchPage) {
-    if (!isCodexAppServerResearchRuntimeAvailable) {
-      return (
-        <ResearchRouteUnavailablePage
-          title="Codex research unavailable"
-          description="This research surface only runs in the local development server."
-        />
-      );
-    }
-    return (
-      <Suspense fallback={null}>
-        <CodexAppServerResearchPage />
-      </Suspense>
-    );
-  }
-  if (showCodexAppServerThreadBrowserResearchPage) {
-    if (!isCodexAppServerResearchRuntimeAvailable) {
-      return (
-        <ResearchRouteUnavailablePage
-          title="Codex thread browser unavailable"
-          description="This research surface only runs in the local development server."
-        />
-      );
-    }
-    return (
-      <Suspense fallback={null}>
-        <CodexAppServerThreadBrowserResearchPage />
-      </Suspense>
-    );
-  }
   if (showMcpConsent) {
     return (
       <Layout>
