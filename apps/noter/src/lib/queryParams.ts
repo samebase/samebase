@@ -71,6 +71,7 @@ export function updateQueryParams(
   return nextSearchParams;
 }
 
+/** Canonicalize raw or browser-style hash input to either "" or a single-# string. */
 function normalizeHashInput(hash?: string): string {
   if (typeof hash === "undefined" || hash.length === 0) {
     return "";
