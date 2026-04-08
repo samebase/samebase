@@ -22,6 +22,10 @@ type ScreenshotDiffParams = {
     | "directional-mask"
     | "directional-weighted"
     | "weighted-red";
+  maxDimensionDeltaPx?: {
+    height?: number;
+    width?: number;
+  };
   maxDiffPixelRatio: number;
   pixelmatchOptions?: {
     aaColor?: [number, number, number];
@@ -205,6 +209,19 @@ function buildWeightedRedDiffPng(expectedPng: PNG, actualPng: PNG): PNG {
   return diffPng;
 }
 
+function cropPng(png: PNG, width: number, height: number): PNG {
+  const cropped = new PNG({ width, height });
+
+  for (let y = 0; y < height; y += 1) {
+    const sourceStart = y * png.width * 4;
+    const sourceEnd = sourceStart + width * 4;
+    const targetStart = y * width * 4;
+    cropped.data.set(png.data.subarray(sourceStart, sourceEnd), targetStart);
+  }
+
+  return cropped;
+}
+
 function buildDirectionalMaskDiffPng(args: {
   actualPng: PNG;
   expectedPng: PNG;
@@ -282,7 +299,11 @@ export async function takeStableScreenshot(
 ): Promise<Buffer> {
   let lastError: unknown;
 
-  for (let attempt = 0; attempt < STABLE_SCREENSHOT_MAX_ATTEMPTS; attempt += 1) {
+  for (
+    let attempt = 0;
+    attempt < STABLE_SCREENSHOT_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
     await locator.waitFor({ state: "visible" });
 
     try {
@@ -313,47 +334,69 @@ export async function expectScreenshotsToMatch({
   artifactPrefix,
   artifactWritePaths,
   diffVisualization = "weighted-red",
+  maxDimensionDeltaPx,
   maxDiffPixelRatio,
   pixelmatchOptions,
   testInfo,
 }: ScreenshotDiffParams) {
   const expectedPng = PNG.sync.read(expected);
   const actualPng = PNG.sync.read(actual);
+  const maxWidthDeltaPx = maxDimensionDeltaPx?.width ?? 0;
+  const maxHeightDeltaPx = maxDimensionDeltaPx?.height ?? 0;
 
-  expect(actualPng.width).toBe(expectedPng.width);
-  expect(actualPng.height).toBe(expectedPng.height);
+  expect(Math.abs(actualPng.width - expectedPng.width)).toBeLessThanOrEqual(
+    maxWidthDeltaPx,
+  );
+  expect(Math.abs(actualPng.height - expectedPng.height)).toBeLessThanOrEqual(
+    maxHeightDeltaPx,
+  );
+
+  const comparisonWidth = Math.min(expectedPng.width, actualPng.width);
+  const comparisonHeight = Math.min(expectedPng.height, actualPng.height);
+  const comparableExpectedPng =
+    comparisonWidth === expectedPng.width &&
+    comparisonHeight === expectedPng.height
+      ? expectedPng
+      : cropPng(expectedPng, comparisonWidth, comparisonHeight);
+  const comparableActualPng =
+    comparisonWidth === actualPng.width && comparisonHeight === actualPng.height
+      ? actualPng
+      : cropPng(actualPng, comparisonWidth, comparisonHeight);
 
   const diffPng = new PNG({
-    width: expectedPng.width,
-    height: expectedPng.height,
+    width: comparisonWidth,
+    height: comparisonHeight,
   });
   const diffPixels = pixelmatch(
-    expectedPng.data,
-    actualPng.data,
+    comparableExpectedPng.data,
+    comparableActualPng.data,
     diffPng.data,
-    expectedPng.width,
-    expectedPng.height,
+    comparisonWidth,
+    comparisonHeight,
     pixelmatchOptions,
   );
-  const diffPixelRatio = diffPixels / (expectedPng.width * expectedPng.height);
+  const diffPixelRatio = diffPixels / (comparisonWidth * comparisonHeight);
   const diffVisualizationResult =
     diffVisualization === "directional-mask"
       ? buildDirectionalMaskDiffPng({
-          actualPng,
-          expectedPng,
+          actualPng: comparableActualPng,
+          expectedPng: comparableExpectedPng,
           pixelmatchOptions: pixelmatchOptions ?? {},
           weighted: false,
         })
       : diffVisualization === "directional-weighted"
         ? buildDirectionalMaskDiffPng({
-            actualPng,
-            expectedPng,
+            actualPng: comparableActualPng,
+            expectedPng: comparableExpectedPng,
             pixelmatchOptions: pixelmatchOptions ?? {},
             weighted: true,
           })
         : {
             diffMaskPng: diffPng,
-            displayPng: buildWeightedRedDiffPng(expectedPng, actualPng),
+            displayPng: buildWeightedRedDiffPng(
+              comparableExpectedPng,
+              comparableActualPng,
+            ),
           };
   const weightedDiffBuffer = PNG.sync.write(diffVisualizationResult.displayPng);
   const diffMaskBuffer = PNG.sync.write(diffVisualizationResult.diffMaskPng);

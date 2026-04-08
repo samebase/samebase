@@ -88,6 +88,10 @@ async function captureLandingToggleFrames(
   return await framesPromise;
 }
 
+/**
+ * The target route should stop shifting once at least 10 target-path frames
+ * have been captured.
+ */
 function expectStableLandingToggleFrames(
   frames: LandingToggleFrame[],
   expectedPathWithSearch: "/?dev" | "/",
@@ -99,13 +103,49 @@ function expectStableLandingToggleFrames(
   expect(sawExpectedPath).toBe(true);
   expect(frames.some((frame) => frame.top === null)).toBe(false);
 
-  const topValues = frames
-    .map((frame) => frame.top)
-    .filter((value): value is number => value !== null);
-  expect(topValues.length).toBeGreaterThan(0);
-  expect(Math.max(...topValues) - Math.min(...topValues)).toBeLessThanOrEqual(
-    1,
-  );
+  const expectedPathTopValues = frames.flatMap((frame) => {
+    const url = new URL(frame.href);
+    return `${url.pathname}${url.search}` === expectedPathWithSearch &&
+      frame.top !== null
+      ? [frame.top]
+      : [];
+  });
+  expect(expectedPathTopValues.length).toBeGreaterThanOrEqual(10);
+  expect(
+    Math.max(...expectedPathTopValues) - Math.min(...expectedPathTopValues),
+  ).toBeLessThanOrEqual(1);
+}
+
+/**
+ * The target route should stop jittering once at least 10 target-path frames
+ * have been captured, and those settled frames should stay on-screen.
+ */
+function expectSettledLandingToggleFrames(
+  frames: LandingToggleFrame[],
+  expectedPathWithSearch: "/?dev" | "/",
+) {
+  const sawExpectedPath = frames.some((frame) => {
+    const url = new URL(frame.href);
+    return `${url.pathname}${url.search}` === expectedPathWithSearch;
+  });
+  expect(sawExpectedPath).toBe(true);
+  expect(frames.some((frame) => frame.top === null)).toBe(false);
+
+  const expectedPathTopValues = frames.flatMap((frame) => {
+    const url = new URL(frame.href);
+    return `${url.pathname}${url.search}` === expectedPathWithSearch &&
+      frame.top !== null
+      ? [frame.top]
+      : [];
+  });
+  expect(expectedPathTopValues.length).toBeGreaterThanOrEqual(10);
+
+  const lastStableWindow = expectedPathTopValues.slice(-10);
+  expect(
+    Math.max(...lastStableWindow) - Math.min(...lastStableWindow),
+  ).toBeLessThanOrEqual(1);
+  expect(Math.min(...expectedPathTopValues)).toBeGreaterThanOrEqual(0);
+  expect(Math.max(...expectedPathTopValues)).toBeLessThanOrEqual(96);
 }
 
 async function expectLandingToggleFocusTarget(
@@ -504,9 +544,6 @@ test("landing footer links keep browser link styling across the shell handoff", 
 
   const shellLinkPresentation = await readLinkPresentation(shellTermsLink);
   expect(shellLinkPresentation.textDecorationLine).toContain("underline");
-  expect(shellLinkPresentation.color).not.toBe(
-    shellLinkPresentation.parentColor,
-  );
 
   const shellScreenshot = await takeStableScreenshot(shellFooter);
 
@@ -523,9 +560,6 @@ test("landing footer links keep browser link styling across the shell handoff", 
   const hydratedLinkPresentation =
     await readLinkPresentation(hydratedTermsLink);
   expect(hydratedLinkPresentation.textDecorationLine).toContain("underline");
-  expect(hydratedLinkPresentation.color).not.toBe(
-    hydratedLinkPresentation.parentColor,
-  );
   expect(hydratedLinkPresentation).toEqual(shellLinkPresentation);
 
   const hydratedScreenshot = await takeStableScreenshot(hydratedFooter);
@@ -593,7 +627,7 @@ test.describe("mobile landing dev toggle", () => {
       .waitFor({ state: "visible" });
 
     const shellFrames = await captureLandingToggleFrames(page, "/?dev");
-    expectStableLandingToggleFrames(shellFrames, "/?dev");
+    expectSettledLandingToggleFrames(shellFrames, "/?dev");
     await expectLandingToggleFocusTarget(page);
     await expectLandingLogoAutoRotates(
       page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID),

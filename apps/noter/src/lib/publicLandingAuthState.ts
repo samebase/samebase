@@ -6,7 +6,7 @@ import {
 } from "@/lib/rootRouteSearch";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
-const CONVEX_AUTH_STORAGE_KEY_PREFIX = "__convexAuth";
+const AUTH_PROVIDER_KEY = "noter_auth_provider";
 
 function withLocalStorage<T>(reader: (storage: Storage) => T, fallback: T): T {
   try {
@@ -20,20 +20,11 @@ function readAuthFlagValue(): string | null {
   return withLocalStorage((storage) => storage.getItem(AUTH_FLAG_KEY), null);
 }
 
-function hasStoredConvexAuthTokens(): boolean {
-  return withLocalStorage((storage) => {
-    for (let index = 0; index < storage.length; index += 1) {
-      const storageKey = storage.key(index);
-      if (
-        storageKey !== null &&
-        storageKey.startsWith(CONVEX_AUTH_STORAGE_KEY_PREFIX)
-      ) {
-        return true;
-      }
-    }
-
-    return false;
-  }, false);
+function readAuthProviderValue(): string | null {
+  return withLocalStorage(
+    (storage) => storage.getItem(AUTH_PROVIDER_KEY),
+    null,
+  );
 }
 
 function hasGoogleAuth(search: RootRouteSearch): boolean {
@@ -56,7 +47,7 @@ function isKnownUnauthenticatedLandingVisit(
     location.pathname === "/" &&
     !hasGoogleAuth(rootRouteSearch) &&
     readAuthFlagValue() !== "1" &&
-    !hasStoredConvexAuthTokens()
+    readAuthProviderValue() === null
   );
 }
 

@@ -9,6 +9,18 @@ vi.mock("@/App", () => ({
   default: () => <div data-testid="app-route">App route</div>,
 }));
 
+vi.mock("@/components/RootIndexRoutePage", () => ({
+  RootIndexRoutePage: () => (
+    <div data-testid="root-index-route">Root index route</div>
+  ),
+}));
+
+vi.mock("@/components/RootTestRoutePage", () => ({
+  RootTestRoutePage: () => (
+    <div data-testid="root-test-route">Root test route</div>
+  ),
+}));
+
 vi.mock("@/Layout", () => ({
   Layout: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="layout">{children}</div>
@@ -136,6 +148,16 @@ describe("appRouter", () => {
     expect(
       rootElement?.querySelector('[data-testid="terms-page"]')?.textContent,
     ).toBe("Terms page");
+    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+  });
+
+  it("renders / through the explicit routed root index page", async () => {
+    await renderRoute("/");
+
+    expect(
+      rootElement?.querySelector('[data-testid="root-index-route"]')
+        ?.textContent,
+    ).toBe("Root index route");
     expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
   });
 
@@ -293,8 +315,18 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
   });
 
-  it("keeps the App fallback for unresolved app-owned routes", async () => {
+  it("renders /test through an explicit TanStack route instead of the App fallback", async () => {
     await renderRoute("/test");
+
+    expect(
+      rootElement?.querySelector('[data-testid="root-test-route"]')
+        ?.textContent,
+    ).toBe("Root test route");
+    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+  });
+
+  it("keeps the App fallback for unresolved app-owned routes", async () => {
+    await renderRoute("/missing");
 
     expect(
       rootElement?.querySelector('[data-testid="app-route"]')?.textContent,

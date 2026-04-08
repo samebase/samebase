@@ -27,6 +27,7 @@ coverage
 *.tsbuildinfo
 .vite
 .playwright-cli/
+playwright-report/
 .tmp/
 test-results/
 

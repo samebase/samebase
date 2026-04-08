@@ -37,6 +37,7 @@ import { MachineConnectRoutePage } from "@/components/MachineConnectRoutePage";
 import { MachinesRoutePage } from "@/components/MachinesRoutePage";
 import {
   createElement,
+  Fragment,
   lazy,
   Suspense,
   useState,
@@ -46,9 +47,17 @@ import {
 import App from "@/App";
 import { McpConsentRoutePage } from "@/components/McpConsentRoutePage";
 import { PricingRoutePage } from "@/components/PricingRoutePage";
+import { RootIndexRoutePage } from "@/components/RootIndexRoutePage";
+import { RootTestRoutePage } from "@/components/RootTestRoutePage";
+import { RouterGestureDebugOverlay } from "@/components/RouterGestureDebugOverlay";
 
 function AppRouterRoot() {
-  return createElement(Outlet);
+  return createElement(
+    Fragment,
+    null,
+    createElement(Outlet),
+    createElement(RouterGestureDebugOverlay),
+  );
 }
 
 const PrivacyPolicyPage = lazy(async () => {
@@ -324,19 +333,23 @@ const appRouterRootRoute = createRootRoute({
   validateSearch: validateRootRouteSearch,
 });
 
-// TODO(tanstack-router-migration): this root-plus-catch-all tree is only a
-// bootstrap step so the app can run on TanStack Router before every pathname
-// branch has been promoted into an explicit route.
+// TODO(tanstack-router-migration): the remaining `$` route is still an App-era
+// fallback for unresolved paths.
 //
 // The real target shape is:
-// - model the current `App.tsx` pathname branches as concrete TanStack routes
 // - move search-param-heavy pages onto route-level `validateSearch`
-// - stop rendering `App` for every path and let route ownership live here
-// - delete the catch-all bridge once `App.tsx` is no longer a switchboard
+// - delete the fallback bridge once the final app-owned unresolved paths have a
+//   deliberate routed/not-found story
 const appIndexRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: "/",
-  component: App,
+  component: RootIndexRoutePage,
+});
+
+const appTestRoute = createRoute({
+  getParentRoute: () => appRouterRootRoute,
+  path: "/test",
+  component: RootTestRoutePage,
 });
 
 const privacyRoute = createRoute({
@@ -477,6 +490,7 @@ const appSplatRoute = createRoute({
 
 const appRouteTree = appRouterRootRoute.addChildren([
   appIndexRoute,
+  appTestRoute,
   privacyRoute,
   termsRoute,
   logoThreeRoute,

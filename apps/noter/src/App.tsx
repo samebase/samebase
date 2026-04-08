@@ -1,7 +1,6 @@
 import { Layout } from "@/Layout";
 import { SignInForm } from "@/SignInForm";
 import { ApprovalGate } from "@/components/ApprovalGate";
-import { resolveAuthenticatedAppRoute } from "@/lib/appRouteResolution";
 import { shouldShowGlobalChatFab } from "@/lib/globalChatFabVisibility";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { useLocation } from "@/lib/router";
@@ -12,10 +11,6 @@ import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAuthState";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 
-const VaultDashboard = lazy(async () => {
-  const module = await import("@/components/VaultDashboard");
-  return { default: module.VaultDashboard };
-});
 const ChatFab = lazy(async () => {
   const module = await import("@/components/ChatFab");
   return { default: module.ChatFab };
@@ -27,7 +22,6 @@ export default function App() {
   const { isAuthenticated } = useConvexAuth();
   useAppAuthRuntimeEffects(location.pathname, rootRouteSearch.auth);
   const showGlobalChatFab = shouldShowGlobalChatFab(location.pathname);
-  const authenticatedRoute = resolveAuthenticatedAppRoute(location.pathname);
   const showPublicLandingWithoutAuthGate =
     !isAuthenticated &&
     shouldRenderPublicLandingWithoutAuthGate(location, rootRouteSearch);
@@ -49,8 +43,6 @@ export default function App() {
           <Authenticated>
             <ApprovalGate>
               <Suspense fallback={null}>
-                {authenticatedRoute === "dashboard" ? <VaultDashboard /> : null}
-                {authenticatedRoute === "test" ? <div>Test</div> : null}
                 {showGlobalChatFab ? <ChatFab /> : null}
               </Suspense>
             </ApprovalGate>

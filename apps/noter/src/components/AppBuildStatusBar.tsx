@@ -98,6 +98,7 @@ export function AppBuildStatusBar({
           <div className="ml-auto flex items-center gap-2">
             {showLandingDevToggleLink ? (
               <a
+                id="public-landing-dev-toggle"
                 href={landingDevToggleHref}
                 onClick={onLandingDevToggleClick}
                 className="inline-flex min-w-[3ch] items-center justify-center corner-notch-1 px-1 transition-colors hover:text-foreground"
