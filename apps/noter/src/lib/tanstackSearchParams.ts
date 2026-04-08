@@ -2,7 +2,7 @@ import {
   buildSearchString,
   cloneQueryParams,
   setQueryParam,
-} from "@/lib/queryParams";
+} from "./queryParams";
 
 type PlainSearchRecord = Record<string, unknown>;
 

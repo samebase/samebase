@@ -170,3 +170,10 @@ Important non-targets for this step:
   route-owned string helper cleanup is now partially complete, and the remaining
   root landing helpers are explicitly deferred until the root route owns enough
   query-param behavior to replace those raw string-preserving helpers cleanly.
+
+- Problem: the Codex research pages still turned typed route options back into
+  href strings with local `to + search` concatenation. Tried: delete those
+  route-local href builders and use `router.buildLocation(...)` directly with
+  typed `linkOptions(...)` at the component boundary. Result: those research
+  pages now rely on TanStack's own href materialization instead of duplicating
+  query-string assembly in app code.

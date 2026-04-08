@@ -22,10 +22,9 @@ import {
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
-import { stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 import { dedupeCodexThreadsById } from "@/lib/codexThreadSidebar";
 import { useCodexThreadSidebarViewModel } from "@/hooks/useCodexThreadSidebarViewModel";
-import { getRouteApi, linkOptions } from "@tanstack/react-router";
+import { getRouteApi, linkOptions, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const THREAD_LIST_LIMIT = 100;
@@ -71,12 +70,8 @@ function buildCodexResearchLinkOptions(selectedThreadId: string | null) {
   });
 }
 
-function buildCodexResearchHref(selectedThreadId: string | null): string {
-  const options = buildCodexResearchLinkOptions(selectedThreadId);
-  return `${options.to}${stringifyTanStackSearch(options.search)}`;
-}
-
 export function CodexAppServerThreadBrowserResearchPage() {
+  const router = useRouter();
   const navigate = codexThreadBrowserRouteApi.useNavigate();
   const routeSearch = codexThreadBrowserRouteApi.useSearch();
   const [browserMode, setBrowserMode] =
@@ -430,7 +425,10 @@ export function CodexAppServerThreadBrowserResearchPage() {
       detailState={detailState}
       errorMessage={error}
       isBusy={isBusy}
-      labHref={buildCodexResearchHref(selectedThreadId)}
+      labHref={
+        router.buildLocation(buildCodexResearchLinkOptions(selectedThreadId))
+          .href
+      }
       onBrowserModeChange={(nextMode) => {
         setBrowserMode(nextMode);
         setSelectedThreadId(null);

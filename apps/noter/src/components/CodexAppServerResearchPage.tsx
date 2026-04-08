@@ -36,10 +36,9 @@ import {
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
-import { stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 import { useConnectedMachineHeartbeatLog } from "@/lib/connectedMachineHeartbeatLog";
 import { useNow } from "@/hooks/useNow";
-import { getRouteApi, linkOptions } from "@tanstack/react-router";
+import { getRouteApi, linkOptions, useRouter } from "@tanstack/react-router";
 import { clsx } from "clsx";
 import { useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
@@ -163,11 +162,6 @@ function buildCodexThreadBrowserLinkOptions(selectedThreadId: string | null) {
     to: CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
     search: buildCodexResearchRouteSearch(selectedThreadId),
   });
-}
-
-function buildCodexThreadBrowserHref(selectedThreadId: string | null): string {
-  const options = buildCodexThreadBrowserLinkOptions(selectedThreadId);
-  return `${options.to}${stringifyTanStackSearch(options.search)}`;
 }
 
 function RuntimeStatusBadge(props: {
@@ -493,6 +487,7 @@ export function CodexAppServerSelectedThreadCard(props: {
 }
 
 export function CodexAppServerResearchPage() {
+  const router = useRouter();
   const navigate = codexResearchRouteApi.useNavigate();
   const routeSearch = codexResearchRouteApi.useSearch();
   const connectedMachinesQuery = useQuery(
@@ -723,7 +718,9 @@ export function CodexAppServerResearchPage() {
   refreshEventsRef.current = refreshEvents;
   refreshThreadsRef.current = refreshThreads;
   refreshSelectedThreadRef.current = refreshSelectedThread;
-  const browserViewHref = buildCodexThreadBrowserHref(selectedThreadId);
+  const browserViewHref = router.buildLocation(
+    buildCodexThreadBrowserLinkOptions(selectedThreadId),
+  ).href;
 
   useEffect(() => {
     const requestedThreadId = routeSearch.threadId ?? null;
