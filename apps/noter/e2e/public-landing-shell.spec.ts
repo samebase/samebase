@@ -99,13 +99,17 @@ function expectStableLandingToggleFrames(
   expect(sawExpectedPath).toBe(true);
   expect(frames.some((frame) => frame.top === null)).toBe(false);
 
-  const topValues = frames
-    .map((frame) => frame.top)
-    .filter((value): value is number => value !== null);
-  expect(topValues.length).toBeGreaterThan(0);
-  expect(Math.max(...topValues) - Math.min(...topValues)).toBeLessThanOrEqual(
-    1,
-  );
+  const expectedPathTopValues = frames.flatMap((frame) => {
+    const url = new URL(frame.href);
+    return `${url.pathname}${url.search}` === expectedPathWithSearch &&
+      frame.top !== null
+      ? [frame.top]
+      : [];
+  });
+  expect(expectedPathTopValues.length).toBeGreaterThanOrEqual(10);
+  expect(
+    Math.max(...expectedPathTopValues) - Math.min(...expectedPathTopValues),
+  ).toBeLessThanOrEqual(1);
 }
 
 function expectSettledLandingToggleFrames(
@@ -119,19 +123,23 @@ function expectSettledLandingToggleFrames(
   expect(sawExpectedPath).toBe(true);
   expect(frames.some((frame) => frame.top === null)).toBe(false);
 
-  const topValues = frames
-    .map((frame) => frame.top)
-    .filter((value): value is number => value !== null);
-  expect(topValues.length).toBeGreaterThanOrEqual(10);
+  const expectedPathTopValues = frames.flatMap((frame) => {
+    const url = new URL(frame.href);
+    return `${url.pathname}${url.search}` === expectedPathWithSearch &&
+      frame.top !== null
+      ? [frame.top]
+      : [];
+  });
+  expect(expectedPathTopValues.length).toBeGreaterThanOrEqual(10);
 
-  const lastStableWindow = topValues.slice(-10);
+  const lastStableWindow = expectedPathTopValues.slice(-10);
   expect(
     Math.max(...lastStableWindow) - Math.min(...lastStableWindow),
   ).toBeLessThanOrEqual(1);
-  expect(Math.min(...topValues)).toBeGreaterThanOrEqual(0);
-  expect(Math.max(...topValues) - Math.min(...topValues)).toBeLessThanOrEqual(
-    96,
-  );
+  expect(Math.min(...expectedPathTopValues)).toBeGreaterThanOrEqual(0);
+  expect(
+    Math.max(...expectedPathTopValues) - Math.min(...expectedPathTopValues),
+  ).toBeLessThanOrEqual(96);
 }
 
 async function expectLandingToggleFocusTarget(
