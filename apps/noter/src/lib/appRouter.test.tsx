@@ -35,6 +35,16 @@ vi.mock("@/components/McpConsentRoutePage", () => ({
   ),
 }));
 
+vi.mock("@/components/PricingRoutePage", () => ({
+  PricingRoutePage: () => <div data-testid="pricing-page">Pricing page</div>,
+}));
+
+vi.mock("@/components/AddRepositoryRoutePage", () => ({
+  AddRepositoryRoutePage: () => (
+    <div data-testid="add-repository-page">Add repository page</div>
+  ),
+}));
+
 import { createAppRouter } from "./appRouter";
 
 const { act } = React;
@@ -116,6 +126,44 @@ describe("appRouter", () => {
       rootElement?.querySelector('[data-testid="mcp-consent-page"]')
         ?.textContent,
     ).toBe("MCP consent page");
+    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+  });
+
+  it("renders pricing through an explicit TanStack route instead of the App fallback", async () => {
+    await renderRoute("/pricing?checkout=success");
+
+    expect(
+      rootElement?.querySelector('[data-testid="pricing-page"]')?.textContent,
+    ).toBe("Pricing page");
+    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+  });
+
+  it("renders add repository through an explicit TanStack route instead of the App fallback", async () => {
+    await renderRoute("/add");
+
+    expect(
+      rootElement?.querySelector('[data-testid="add-repository-page"]')
+        ?.textContent,
+    ).toBe("Add repository page");
+    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+  });
+
+  it("accepts a trailing slash on the promoted pricing route", async () => {
+    await renderRoute("/pricing/");
+
+    expect(
+      rootElement?.querySelector('[data-testid="pricing-page"]')?.textContent,
+    ).toBe("Pricing page");
+    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+  });
+
+  it("accepts a trailing slash on the promoted add route", async () => {
+    await renderRoute("/add/");
+
+    expect(
+      rootElement?.querySelector('[data-testid="add-repository-page"]')
+        ?.textContent,
+    ).toBe("Add repository page");
     expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
   });
 

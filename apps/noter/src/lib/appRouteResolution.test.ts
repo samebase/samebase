@@ -8,8 +8,6 @@ describe("resolveAuthenticatedAppRoute", () => {
     expect(resolveAuthenticatedAppRoute("/machines/connect")).toBe(
       "machineConnect",
     );
-    expect(resolveAuthenticatedAppRoute("/pricing")).toBe("pricing");
-    expect(resolveAuthenticatedAppRoute("/add")).toBe("addRepository");
     expect(resolveAuthenticatedAppRoute("/test")).toBe("test");
   });
 
@@ -34,7 +32,6 @@ describe("resolveAuthenticatedAppRoute", () => {
   });
 
   it("accepts optional trailing slashes on exact routes", () => {
-    expect(resolveAuthenticatedAppRoute("/pricing/")).toBe("pricing");
     expect(resolveAuthenticatedAppRoute("/machines/")).toBe("machines");
   });
 });

@@ -230,6 +230,17 @@ migration with concrete problems, attempted fixes, and outcomes.
   the remaining `App.tsx` switchboard is smaller, and the next route slices can
   promote pricing/add-repository without carrying the consent logic with them.
 
+- Problem: pricing and add-repository still shared the same authenticated
+  runtime shell as `App.tsx`, so moving them naively would have dropped the
+  approval gate, popup-close handling, metadata, unauthenticated sign-in
+  fallback, and the global chat FAB. Tried: extracted a shared authenticated
+  route page shell plus shared app-auth runtime effects, then promoted
+  `/pricing` and `/add` into explicit TanStack routes and removed those branches
+  from the `App.tsx` pathname resolver. Result: pricing and add-repository are
+  now route-owned without forcing the heavier machines or vault routes into the
+  same patch, and `App.tsx` only keeps the remaining unresolved authenticated
+  branches.
+
 ## Completed Milestones
 
 1. Introduce a repo-owned router seam and move current imports behind it.
@@ -240,9 +251,8 @@ migration with concrete problems, attempted fixes, and outcomes.
 ## Remaining Sequence
 
 1. Promote the remaining non-root `App.tsx` branches into explicit TanStack
-   routes, ordered from lowest risk to highest coupling: pricing and
-   add-repository, then machines and machine-connect, then codespace-chat and
-   vault/file routes last.
+   routes, ordered from lowest risk to highest coupling: machines and
+   machine-connect, then codespace-chat and vault/file routes last.
 2. Migrate the search-param-heavy surfaces onto route-owned TanStack search
    handling. Priorities: landing `?auth` and `?dev`, MCP consent request id,
    machine connect bootstrap params, machines workspace params, and the existing
