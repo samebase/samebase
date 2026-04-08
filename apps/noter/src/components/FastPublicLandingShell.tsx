@@ -34,6 +34,7 @@ import type { RootRouteSearch } from "@/lib/rootRouteSearch";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { useLocation, useNavigate } from "@/lib/router";
 import { shouldShowGoogleAuthForLocation } from "@/lib/publicLandingAuthState";
+import { isProdUiModeEnabled } from "@/lib/prodUiMode";
 import {
   type FocusEvent,
   type MouseEvent,
@@ -78,6 +79,8 @@ export function FastPublicLandingShell({
     landingDevToggleHref: buildLandingDevToggleHref(location),
     landingDevToggleLabel: getLandingDevToggleLabel(rootRouteSearch),
     showGoogleAuth: shouldShowGoogleAuthForLocation(location, rootRouteSearch),
+    showPasswordAuthPlaceholder:
+      import.meta.env.DEV && !isProdUiModeEnabled(rootRouteSearch),
   }));
 
   useEffect(() => {
@@ -227,15 +230,23 @@ export function FastPublicLandingShell({
               }}
             />
             <div className="flex flex-col gap-2">
-              {shellDisplayState.showGoogleAuth ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={handleGoogleAuthClick}
-                >
-                  <Chrome className="mr-2 h-4 w-4" /> Google
-                </Button>
+              <Button
+                aria-hidden={!shellDisplayState.showGoogleAuth}
+                type="button"
+                variant="outline"
+                className={
+                  shellDisplayState.showGoogleAuth
+                    ? "flex-1"
+                    : "flex-1 invisible pointer-events-none"
+                }
+                disabled={!shellDisplayState.showGoogleAuth}
+                tabIndex={shellDisplayState.showGoogleAuth ? undefined : -1}
+                onClick={handleGoogleAuthClick}
+              >
+                <Chrome className="mr-2 h-4 w-4" /> Google
+              </Button>
+              {shellDisplayState.showPasswordAuthPlaceholder ? (
+                <ShellPasswordAuthPlaceholder />
               ) : null}
             </div>
             <div
@@ -266,6 +277,51 @@ export function FastPublicLandingShell({
           </div>
         </div>
       </main>
+    </div>
+  );
+}
+
+function ShellPasswordAuthPlaceholder() {
+  return (
+    <div className="flex flex-col gap-2 rounded-md border p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-sm font-medium">Password auth (dev)</div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-auto px-2 py-1 text-xs"
+          disabled
+        >
+          Need an account?
+        </Button>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Input
+          type="email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          value=""
+          disabled
+          readOnly
+        />
+        <Input
+          type="password"
+          autoComplete="current-password"
+          placeholder="Password"
+          value=""
+          disabled
+          readOnly
+        />
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" className="shrink-0" disabled>
+            Autofill & sign in
+          </Button>
+          <Button type="button" disabled className="flex-1">
+            Sign in
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

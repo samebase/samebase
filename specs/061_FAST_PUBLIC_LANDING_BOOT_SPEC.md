@@ -4,12 +4,14 @@
 
 - Status: Implemented
 - Owner: Noter frontend
-- Last updated: 2026-03-18
+- Last updated: 2026-04-08
 - Related files: `apps/noter/index.html`, `apps/noter/src/bootstrap.ts`,
   `apps/noter/src/main.tsx`, `apps/noter/src/App.tsx`,
   `apps/noter/src/SignInForm.tsx`, `apps/noter/src/authClient.ts`,
+  `apps/noter/src/components/FastPublicLandingShell.tsx`,
   `apps/noter/src/components/LandingCopy.tsx`,
   `apps/noter/src/lib/landingCopy.ts`,
+  `apps/noter/src/lib/publicLandingAuthState.ts`,
   `apps/noter/e2e/public-landing-shell.spec.ts`
 
 ## Summary
@@ -76,7 +78,7 @@ The fast shell renders:
 
 - the landing slogan
 - the landing bullet list
-- the Google CTA
+- the reserved Google CTA slot
 - the `/?dev` affordance
 
 The shell content comes from shared landing-copy data so the shell and the
@@ -102,6 +104,8 @@ The final product surface remains the same SPA after handoff.
 
 ### Auth behavior
 
+- Plain `/` keeps the Google auth button mounted but hidden and non-interactive
+  so the landing card reserves the same auth-row height as `/?dev`.
 - Clicking the shell Google button in a top-level window sets `?auth=google` and
   forces the full app to boot immediately.
 - Clicking the shell Google button inside an iframe reuses the existing popup
@@ -172,6 +176,8 @@ The implementation was validated through the normal pre-commit path, including:
 ## Acceptance Criteria
 
 - Plain `/` shows the landing shell before the full app UI renders.
+- Plain `/` keeps the Google auth slot hidden and non-interactive without
+  changing the landing card height.
 - `/?prod-ui` keeps the prod-like landing path and suppresses dev-only auth and
   editable landing-copy affordances.
 - `/?dev` continues to use the editable landing-copy path.
