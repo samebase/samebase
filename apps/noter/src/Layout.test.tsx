@@ -1,4 +1,4 @@
-import { MemoryRouter } from "@/lib/router";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -10,9 +10,14 @@ vi.mock("convex/react", () => ({
   useConvexAuth: useConvexAuthMock,
 }));
 
-vi.mock("@/lib/rootRouteSearch", () => ({
-  useRootRouteSearch: () => ({}),
-}));
+vi.mock("@/lib/rootRouteSearch", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/rootRouteSearch")>();
+
+  return {
+    ...actual,
+    useRootRouteSearch: () => ({}),
+  };
+});
 
 import { Layout } from "./Layout";
 
@@ -32,11 +37,11 @@ describe("Layout", () => {
     });
 
     const markup = renderToStaticMarkup(
-      <MemoryRouter initialEntries={["/"]}>
+      <TestRouterProvider initialEntries={["/"]}>
         <Layout>
           <div>landing</div>
         </Layout>
-      </MemoryRouter>,
+      </TestRouterProvider>,
     );
 
     expect(markup).toContain("/terms");
@@ -53,11 +58,11 @@ describe("Layout", () => {
     });
 
     const markup = renderToStaticMarkup(
-      <MemoryRouter initialEntries={["/oauth/mcp/consent"]}>
+      <TestRouterProvider initialEntries={["/oauth/mcp/consent"]}>
         <Layout>
           <div>consent</div>
         </Layout>
-      </MemoryRouter>,
+      </TestRouterProvider>,
     );
 
     expect(markup).toContain("/terms");

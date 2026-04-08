@@ -5,6 +5,7 @@ import {
   shouldRenderFastLandingShell,
   shouldRenderPublicLandingWithoutAuthGate,
 } from "./publicLandingAuthState";
+import { validateRootRouteSearch } from "./rootRouteSearch";
 
 const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
   window,
@@ -57,17 +58,14 @@ describe("publicLandingAuthState", () => {
     });
     window.localStorage.setItem("__convexAuthRefreshToken", "anon-token");
 
+    expect(shouldRenderFastLandingShell("/", validateRootRouteSearch({}))).toBe(
+      true,
+    );
     expect(
-      shouldRenderFastLandingShell({
-        pathname: "/",
-        search: "",
-      }),
-    ).toBe(true);
-    expect(
-      shouldRenderPublicLandingWithoutAuthGate({
-        pathname: "/",
-        search: "",
-      }),
+      shouldRenderPublicLandingWithoutAuthGate(
+        "/",
+        validateRootRouteSearch({}),
+      ),
     ).toBe(true);
   });
 
@@ -78,17 +76,14 @@ describe("publicLandingAuthState", () => {
     });
     window.localStorage.setItem("noter_auth_provider", "google");
 
+    expect(shouldRenderFastLandingShell("/", validateRootRouteSearch({}))).toBe(
+      false,
+    );
     expect(
-      shouldRenderFastLandingShell({
-        pathname: "/",
-        search: "",
-      }),
-    ).toBe(false);
-    expect(
-      shouldRenderPublicLandingWithoutAuthGate({
-        pathname: "/",
-        search: "",
-      }),
+      shouldRenderPublicLandingWithoutAuthGate(
+        "/",
+        validateRootRouteSearch({}),
+      ),
     ).toBe(false);
   });
 });

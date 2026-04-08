@@ -1,7 +1,7 @@
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { UserMenu } from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
-import { Link } from "@/lib/router";
+import { Link } from "@tanstack/react-router";
 
 /**
  * Keep repository routes consistent by hosting the dashboard return control in

@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { MemoryRouter } from "@/lib/router";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { describe, expect, it } from "vitest";
 import { MachineConnectPageContent } from "./MachineConnectPage";
 
@@ -83,7 +83,7 @@ describe("MachineConnectPageContent", () => {
 
   it("shows a machines entrypoint for ready machines", () => {
     const markup = renderToStaticMarkup(
-      <MemoryRouter>
+      <TestRouterProvider>
         <MachineConnectPageContent
           approvalError={null}
           connectedMachines={[
@@ -160,7 +160,7 @@ describe("MachineConnectPageContent", () => {
           requestState={{ kind: "idle" }}
           scriptUrl="https://noter.md/noter.js"
         />
-      </MemoryRouter>,
+      </TestRouterProvider>,
     );
 
     expect(markup).toContain("Open threads");

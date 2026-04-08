@@ -1,5 +1,5 @@
 import { useEffect, useRef, type MouseEventHandler } from "react";
-import { Link } from "@/lib/router";
+import { Link } from "@tanstack/react-router";
 import {
   APP_BUILD_COMMIT_LINK_TEST_ID,
   APP_BUILD_STATUS_BAR_TEST_ID,

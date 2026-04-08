@@ -1,4 +1,4 @@
-import { MemoryRouter } from "@/lib/router";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultBranchLinkRow } from "@/components/VaultDashboard";
 import { parseCloudflarePreviewComment } from "../../convex/cloudflarePreviewComment";
 
@@ -44,7 +44,7 @@ export function VaultBranchPreviewVisualFixture({
       data-mode={mode}
       className="inline-flex bg-background p-3 text-foreground"
     >
-      <MemoryRouter>
+      <TestRouterProvider>
         <div className="w-[560px] overflow-hidden corner-notch-1 border border-border bg-background">
           <VaultBranchLinkRow
             repositoryFullName="noter-md/noter"
@@ -67,7 +67,7 @@ export function VaultBranchPreviewVisualFixture({
             onDeleteBranch={() => {}}
           />
         </div>
-      </MemoryRouter>
+      </TestRouterProvider>
     </div>
   );
 }

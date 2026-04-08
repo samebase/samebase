@@ -2,7 +2,7 @@ import { DialogProvider } from "@/contexts/DialogContext";
 import { SidebarProvider } from "@/components/sidebar";
 import { RepositoryRouteConnectState } from "@/components/RepositoryRouteConnectState";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
-import { MemoryRouter } from "@/lib/router";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 export type RepositoryRouteConnectStateVisualMode =
   | "file-view-connect-repository"
@@ -16,7 +16,7 @@ export function RepositoryRouteConnectStateVisualFixture({
   const githubConnected = mode === "file-view-connect-repository";
 
   return (
-    <MemoryRouter>
+    <TestRouterProvider>
       <DialogProvider>
         <SidebarProvider
           defaultOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "left"}
@@ -36,6 +36,6 @@ export function RepositoryRouteConnectStateVisualFixture({
           />
         </SidebarProvider>
       </DialogProvider>
-    </MemoryRouter>
+    </TestRouterProvider>
   );
 }

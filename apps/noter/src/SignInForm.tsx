@@ -15,7 +15,7 @@ import {
   clearPendingPublicLandingScrollTop,
   readPendingPublicLandingScrollTop,
 } from "@/lib/publicLandingScrollState";
-import { shouldShowGoogleAuthForLocation } from "@/lib/publicLandingAuthState";
+import { shouldShowGoogleAuthForPathname } from "@/lib/publicLandingAuthState";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import {
@@ -23,6 +23,7 @@ import {
   readPublicLandingWaitlistDraft,
   writePublicLandingWaitlistDraft,
 } from "@/lib/publicLandingWaitlistDraft";
+import { useLocation } from "@tanstack/react-router";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
 import {
@@ -32,7 +33,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useLocation } from "@/lib/router";
 import { api } from "../convex/_generated/api";
 import { SignInWithGoogle } from "./SignInWithGoogle";
 
@@ -44,12 +44,14 @@ type SignInFormProps = {
 };
 
 export function SignInForm({ topNotice }: SignInFormProps = {}) {
-  const location = useLocation();
+  const pathname = useLocation({
+    select: (location) => location.pathname,
+  });
   const rootRouteSearch = useRootRouteSearch();
   const landingDevModeEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const prodUiModeEnabled = isProdUiModeEnabled(rootRouteSearch);
-  const showGoogleAuth = shouldShowGoogleAuthForLocation(
-    location,
+  const showGoogleAuth = shouldShowGoogleAuthForPathname(
+    pathname,
     rootRouteSearch,
   );
   const showPasswordAuth = import.meta.env.DEV && !prodUiModeEnabled;

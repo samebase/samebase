@@ -1,4 +1,4 @@
-import { Link } from "@/lib/router";
+import { Link } from "@tanstack/react-router";
 import {
   buildPricingRouteSearch,
   type PricingRouteSearch,

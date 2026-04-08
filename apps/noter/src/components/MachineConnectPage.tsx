@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachineHeartbeatLog";
 import { AppPageScrollShell } from "@/components/AppPageScrollShell";
+import { Link, getRouteApi } from "@tanstack/react-router";
 import { useNow } from "@/hooks/useNow";
 import {
   formatConnectedMachineHeartbeatTimestamp,
@@ -23,8 +24,6 @@ import {
 import { useMutation, useQuery } from "convex/react";
 import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useState, type ReactElement } from "react";
-import { Link } from "@/lib/router";
-import { getRouteApi } from "@tanstack/react-router";
 import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
 import { api } from "../../convex/_generated/api";
 import { MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";

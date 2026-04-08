@@ -1,4 +1,4 @@
-import { MemoryRouter } from "@/lib/router";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultBranchLinkContent } from "@/components/VaultDashboard";
 
 export function VaultDashboardBranchVisualFixture() {
@@ -20,7 +20,7 @@ export function VaultDashboardBranchVisualFixture() {
 
         <div className="overflow-hidden corner-notch-1 border border-border/60 bg-muted/20">
           <div className="flex items-start gap-3 border-b border-border/40 px-3 py-2.5">
-            <MemoryRouter>
+            <TestRouterProvider>
               <VaultBranchLinkContent
                 repositoryFullName="noter-md/noter"
                 branchName="codex/draft-pr-button"
@@ -33,7 +33,7 @@ export function VaultDashboardBranchVisualFixture() {
                 pullRequestNumber={999}
                 pullRequestTitle="Show PR titles above lighter branch labels"
               />
-            </MemoryRouter>
+            </TestRouterProvider>
             <span className="w-4 pt-1 text-right font-mono text-[11px] tabular-nums text-muted-foreground/70">
               0
             </span>

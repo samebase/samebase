@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from "@/lib/router";
+import { useLocation, useRouter } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery as useLiveQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
@@ -323,9 +323,36 @@ function normalizeFolderPath(folderPath: string): string {
   return folderPath.trim().replace(/^\/+|\/+$/g, "");
 }
 
+function readUserHistoryState(state: unknown): unknown {
+  if (typeof state !== "object" || state === null) {
+    return null;
+  }
+
+  const userState = Object.fromEntries(Object.entries(state));
+
+  delete userState.key;
+  delete userState.__TSR_key;
+  delete userState.__TSR_index;
+  delete userState.__hashScrollIntoViewOptions;
+  delete userState.__tempKey;
+  delete userState.__tempLocation;
+
+  return Object.keys(userState).length > 0 ? userState : null;
+}
+
 function FileViewWrapper() {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const location = useLocation({
+    select: (location) => ({
+      // TODO(tanstack-router-cleanup): remove this browser-style location shim
+      // once file view route parsing and history-state preservation move onto
+      // typed TanStack params/search/state instead of PathWithSearch-style data.
+      hash: location.hash.length > 0 ? `#${location.hash}` : "",
+      pathname: location.pathname,
+      search: location.searchStr,
+      state: readUserHistoryState(location.state),
+    }),
+  });
   const { pathname, search, state } = location;
   const isCompareRequested = useMemo(
     () => hasQueryParam(search, "compare"),
@@ -391,6 +418,20 @@ function FileViewWrapper() {
   const appendCurrentSearch = useCallback(
     (path: string) => `${path}${search.length > 0 ? search : ""}`,
     [search],
+  );
+  const navigateByHref = useCallback(
+    (href: string, options?: { replace?: boolean; state?: unknown }) => {
+      // TODO(tanstack-router-cleanup): replace these raw href navigations with
+      // typed vault-route params/search once file view routing is modeled
+      // directly in TanStack instead of hand-built path strings.
+      if (options?.replace) {
+        router.history.replace(href, options.state);
+        return;
+      }
+
+      router.history.push(href, options?.state);
+    },
+    [router.history],
   );
   const [connectRouteError, setConnectRouteError] = useState<string | null>(
     null,
@@ -506,7 +547,7 @@ function FileViewWrapper() {
           selectedFile.length > 0
             ? `/vault/${canonicalOwner}/${canonicalRepoName}/${encodeURIComponent(nextBranch)}/${encodeVaultFilePath(selectedFile)}`
             : `/vault/${canonicalOwner}/${canonicalRepoName}/${encodeURIComponent(nextBranch)}`;
-        void navigate(appendCurrentSearch(nextPath), {
+        navigateByHref(appendCurrentSearch(nextPath), {
           replace: true,
           state,
         });
@@ -524,7 +565,7 @@ function FileViewWrapper() {
     appendCurrentSearch,
     connectRepository,
     isConnectingRepository,
-    navigate,
+    navigateByHref,
     repositoryFullName,
     routeBranch,
     selectedFile,
@@ -546,7 +587,7 @@ function FileViewWrapper() {
     const nextPath = selectedFileFromBranchlessRoute
       ? `/vault/${owner}/${repoName}/${encodedResolvedBranch}/${encodeVaultFilePath(selectedFileFromBranchlessRoute)}`
       : `/vault/${owner}/${repoName}/${encodedResolvedBranch}`;
-    void navigate(appendCurrentSearch(nextPath), { replace: true, state });
+    navigateByHref(appendCurrentSearch(nextPath), { replace: true, state });
   }, [
     appendCurrentSearch,
     owner,
@@ -556,7 +597,7 @@ function FileViewWrapper() {
     state,
     vault?.branchNotFound,
     vault?.resolvedBranch,
-    navigate,
+    navigateByHref,
   ]);
 
   /**
@@ -570,7 +611,7 @@ function FileViewWrapper() {
     const nextPath = selectedFile
       ? `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(selectedFile)}`
       : `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}`;
-    void navigate(appendCurrentSearch(nextPath), { replace: true, state });
+    navigateByHref(appendCurrentSearch(nextPath), { replace: true, state });
   }, [
     appendCurrentSearch,
     owner,
@@ -579,7 +620,7 @@ function FileViewWrapper() {
     branchParam,
     selectedFile,
     state,
-    navigate,
+    navigateByHref,
   ]);
 
   /**
@@ -597,7 +638,7 @@ function FileViewWrapper() {
       return;
     }
     const nextPath = `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(legacyBranchlessFilePath)}`;
-    void navigate(appendCurrentSearch(nextPath), { replace: true, state });
+    navigateByHref(appendCurrentSearch(nextPath), { replace: true, state });
   }, [
     appendCurrentSearch,
     owner,
@@ -606,7 +647,7 @@ function FileViewWrapper() {
     branchParam,
     legacyBranchlessFilePath,
     state,
-    navigate,
+    navigateByHref,
   ]);
 
   const refreshTreeIfNeeded = useCallback(
@@ -690,7 +731,7 @@ function FileViewWrapper() {
 
     const bestFile = findBestInitialFile(vault?.treeData.tree ?? []);
     if (bestFile) {
-      void navigate(
+      navigateByHref(
         appendCurrentSearch(
           `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(bestFile)}`,
         ),
@@ -709,7 +750,7 @@ function FileViewWrapper() {
     branch,
     isCompareRequested,
     state,
-    navigate,
+    navigateByHref,
   ]);
 
   const stagedFile = useQuery(
@@ -737,7 +778,7 @@ function FileViewWrapper() {
 
     const bestFile = findBestInitialFile(vault.treeData.tree);
     if (bestFile) {
-      void navigate(
+      navigateByHref(
         appendCurrentSearch(
           `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(bestFile)}`,
         ),
@@ -749,7 +790,7 @@ function FileViewWrapper() {
       return;
     }
 
-    void navigate(
+    navigateByHref(
       appendCurrentSearch(
         `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}`,
       ),
@@ -769,7 +810,7 @@ function FileViewWrapper() {
     branch,
     isCompareRequested,
     state,
-    navigate,
+    navigateByHref,
   ]);
 
   /**
@@ -866,8 +907,29 @@ function FileViewInner({
 }) {
   const { setMobilePane } = useSidebar();
 
-  const navigate = useNavigate();
-  const { search, state } = useLocation();
+  const router = useRouter();
+  const { search, state } = useLocation({
+    select: (location) => ({
+      // TODO(tanstack-router-cleanup): remove this browser-style location shim
+      // once file view no longer depends on manually shaped query/state data.
+      search: location.searchStr,
+      state: readUserHistoryState(location.state),
+    }),
+  });
+  const navigateByHref = useCallback(
+    (href: string, options?: { replace?: boolean; state?: unknown }) => {
+      // TODO(tanstack-router-cleanup): replace these raw href navigations with
+      // typed vault-route params/search once file view routing is modeled
+      // directly in TanStack instead of hand-built path strings.
+      if (options?.replace) {
+        router.history.replace(href, options.state);
+        return;
+      }
+
+      router.history.push(href, options?.state);
+    },
+    [router.history],
+  );
   const reviewOnMountRequested = useMemo(
     () => hasQueryParam(search, "review"),
     [search],
@@ -1504,7 +1566,7 @@ function FileViewInner({
       })
         .then(() => {
           setPendingMediaUpload(null);
-          void navigate(buildVaultFileUrl(targetPath), { state });
+          navigateByHref(buildVaultFileUrl(targetPath), { state });
         })
         .catch((error: unknown) => {
           const message =
@@ -1522,7 +1584,7 @@ function FileViewInner({
       buildVaultFileUrl,
       deletePendingUploadBlob,
       generateUploadUrl,
-      navigate,
+      navigateByHref,
       pendingMediaUpload,
       repositoryFullName,
       stageUploadedMedia,
@@ -1553,7 +1615,7 @@ function FileViewInner({
         compare?: boolean;
       },
     ) => {
-      void navigate(
+      navigateByHref(
         buildVaultFileUrl(selectedFile, {
           reviewMode: mode,
           compare: options?.compare,
@@ -1564,7 +1626,7 @@ function FileViewInner({
         },
       );
     },
-    [buildVaultFileUrl, navigate, selectedFile, state],
+    [buildVaultFileUrl, navigateByHref, selectedFile, state],
   );
   const setCompareModeInQuery = useCallback(
     (
@@ -1573,12 +1635,12 @@ function FileViewInner({
         replace?: boolean;
       },
     ) => {
-      void navigate(buildVaultFileUrl(selectedFile, { compare: enabled }), {
+      navigateByHref(buildVaultFileUrl(selectedFile, { compare: enabled }), {
         replace: options?.replace,
         state,
       });
     },
-    [buildVaultFileUrl, navigate, selectedFile, state],
+    [buildVaultFileUrl, navigateByHref, selectedFile, state],
   );
   const resetRebaseConflictState = useCallback(() => {
     setRebaseConflictPreview(null);
@@ -1610,7 +1672,7 @@ function FileViewInner({
           setRebaseConflictPreview(preview);
 
           if (!preview.files.some((file) => file.path === selectedFile)) {
-            void navigate(
+            navigateByHref(
               buildVaultFileUrl(preview.files[0].path, {
                 reviewMode: "review",
               }),
@@ -1633,7 +1695,7 @@ function FileViewInner({
       branch,
       buildVaultFileUrl,
       getRebaseConflictPreview,
-      navigate,
+      navigateByHref,
       repositoryFullName,
       selectedFile,
       state,
@@ -1685,7 +1747,7 @@ function FileViewInner({
   const handleFileSelect = useCallback(
     (path: string, status?: CommitPreviewFileStatus) => {
       if (owner && repoName) {
-        void navigate(
+        navigateByHref(
           buildVaultFileUrl(path, {
             reviewMode: status === "deleted" ? "review" : undefined,
           }),
@@ -1696,7 +1758,7 @@ function FileViewInner({
         setMobilePane("main");
       }
     },
-    [buildVaultFileUrl, navigate, owner, repoName, setMobilePane, state],
+    [buildVaultFileUrl, navigateByHref, owner, repoName, setMobilePane, state],
   );
 
   const handleOpenFileFromGraph = useCallback(
@@ -1732,7 +1794,7 @@ function FileViewInner({
         selectedFile === originalPath ||
         stagedFile?.initialFilePath === originalPath
       ) {
-        void navigate(buildVaultFileUrl(newPath), { state });
+        navigateByHref(buildVaultFileUrl(newPath), { state });
       }
 
       console.log(`File ${originalPath} renamed to ${newPath} in staging`);
@@ -1782,7 +1844,7 @@ function FileViewInner({
         if (commitReviewMode === "review") {
           return;
         }
-        void navigate(buildVaultFileUrl("", { reviewMode: "editor" }), {
+        navigateByHref(buildVaultFileUrl("", { reviewMode: "editor" }), {
           state,
         });
       }
@@ -1836,7 +1898,7 @@ function FileViewInner({
       }
 
       if (selectedFile === filePath) {
-        void navigate(buildVaultFileUrl(filePath, { reviewMode: "editor" }), {
+        navigateByHref(buildVaultFileUrl(filePath, { reviewMode: "editor" }), {
           replace: true,
           state,
         });
@@ -1867,7 +1929,7 @@ function FileViewInner({
     })
       .then(() => {
         // Navigate to the new file
-        void navigate(
+        navigateByHref(
           `/vault/${owner}/${repoName}/${encodedBranch}/${encodeVaultFilePath(filePath)}`,
         );
       })
@@ -1974,7 +2036,7 @@ function FileViewInner({
         );
       }
       if (didHydrateNextBranch && args.nextBranch !== branch) {
-        void navigate(
+        navigateByHref(
           buildVaultFileUrl(selectedFile, { branch: args.nextBranch }),
           {
             state,
@@ -2048,7 +2110,7 @@ function FileViewInner({
     didResolveRemoteBranches,
     handleUpstreamConflictDetected,
     isDefaultBranch,
-    navigate,
+    navigateByHref,
     owner,
     refreshRepositoryTree,
     repoName,
@@ -2226,7 +2288,7 @@ function FileViewInner({
   );
 
   if (!owner || !repoName) {
-    void navigate("/");
+    void router.navigate({ to: "/" });
   }
 
   const selectedRebaseConflictFile =
@@ -3153,7 +3215,7 @@ function FileViewInner({
       return;
     }
 
-    void navigate(
+    navigateByHref(
       buildVaultFileUrl(firstComparedFile.path, {
         reviewMode:
           firstComparedFile.status === "deleted" ? "review" : undefined,
@@ -3167,7 +3229,7 @@ function FileViewInner({
     branchComparePreview,
     buildVaultFileUrl,
     isCompareRequested,
-    navigate,
+    navigateByHref,
     selectedFile,
     state,
   ]);

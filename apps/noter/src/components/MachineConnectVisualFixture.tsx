@@ -1,5 +1,5 @@
 import { MachineConnectPageContent } from "@/components/MachineConnectPage";
-import { MemoryRouter } from "@/lib/router";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const MACHINE_CONNECT_VISUAL_FIXTURE_FONT_RULES = `
   [data-machine-connect-visual-fixture-font],
@@ -11,7 +11,7 @@ const MACHINE_CONNECT_VISUAL_FIXTURE_FONT_RULES = `
 
 export function MachineConnectVisualFixture() {
   return (
-    <MemoryRouter>
+    <TestRouterProvider>
       <div
         data-testid="machine-connect-visual-fixture"
         data-machine-connect-visual-fixture-font
@@ -90,6 +90,6 @@ export function MachineConnectVisualFixture() {
           scriptUrl="https://noter.md/noter.js"
         />
       </div>
-    </MemoryRouter>
+    </TestRouterProvider>
   );
 }

@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { DEFAULT_STATIC_LOGO_SVG_URL } from "@/components/logoStaticSvgContract";
+import { Link } from "@tanstack/react-router";
 import {
   addOffset,
   formatOffset,
@@ -10,7 +11,6 @@ import {
 } from "@/components/logoTransitionLabUtils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/tabs";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@/lib/router";
 
 type ViewBox = {
   minX: number;
