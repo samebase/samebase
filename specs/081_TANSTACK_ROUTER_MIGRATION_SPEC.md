@@ -294,6 +294,25 @@ migration with concrete problems, attempted fixes, and outcomes.
   simpler sparse navigation type until the route can move to a cleaner
   schema-with-adapter shape.
 
+- Problem: the authenticated explicit routes were path-owned by TanStack, but
+  MCP consent, pricing, machine connect, and machines still read or wrote search
+  through `window.location`, compat `useLocation`, or compat `useSearchParams`.
+  Tried: added Zod-backed route validators for those surfaces, moved the pages
+  onto `getRouteApi().useSearch()` and route-aware navigation, and reused
+  repo-owned builders only where the app still needs canonical URLs outside
+  TanStack navigation. Result: the remaining authenticated explicit routes now
+  own their search state through TanStack, `buildMachinesWorkspacePath()` still
+  generates the same sparse URLs, and the remaining search migration scope is
+  limited to the root landing flow.
+
+- Problem: the first implementation of the authenticated search slice reused
+  `tanstackSearchParams.ts` inside `noterSync.ts`, which is imported by
+  `pageMetadata.ts` and therefore by `vite.config.ts`. Tried: centralizing the
+  URL stringification there. Result: Vite config load failed under raw Node
+  because `tanstackSearchParams.ts` still depends on app alias imports, so the
+  fix was to keep config-path modules on alias-free `queryParams.ts` helpers and
+  reserve the TanStack serializer for routed runtime code.
+
 - Follow-up reviews worth considering after merge, but intentionally not folded
   into this PR's core scope: replace the dev-only research surface `href`
   strings with route-owned TanStack `Link` usage, decide whether the repo-owned
@@ -314,21 +333,20 @@ migration with concrete problems, attempted fixes, and outcomes.
 5. Move the public/dev explicit routes with meaningful query state onto
    route-owned TanStack search handling, including the logo preview surfaces and
    the Codex research routes.
+6. Move the authenticated explicit routes with meaningful query state onto
+   route-owned TanStack search handling, including MCP consent, pricing, machine
+   connect, and machines workspace params.
 
 ## Remaining Sequence
 
-1. Migrate the remaining authenticated explicit routes with meaningful search
-   state onto route-owned TanStack search handling. Priorities: MCP consent
-   request id, pricing checkout state, machine connect bootstrap params, and
-   machines workspace params.
-2. Migrate the root landing search state onto route-owned TanStack handling,
+1. Migrate the root landing search state onto route-owned TanStack handling,
    including `?auth` and `?dev`.
-3. Move the root landing/dashboard split onto normal routed rendering and only
+2. Move the root landing/dashboard split onto normal routed rendering and only
    then delete `bootstrap.ts`. Preserve any tiny pre-paint support that is still
    justified, such as theme setup, but do not preserve the split runtime.
-4. Delete bootstrap-only parity code once routed landing parity is proven:
+3. Delete bootstrap-only parity code once routed landing parity is proven:
    `resolveBootstrapPageMetadata()`, `shouldRenderFastLandingShell()`,
    `fastLandingBoot.ts`, and the related parity-only tests or fixtures.
-5. Keep the shared workspace wrapper and drag-contract migration from
+4. Keep the shared workspace wrapper and drag-contract migration from
    `specs/080` on a separate rollout track, and reconnect it only where routed
    ownership genuinely needs those seams.

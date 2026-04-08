@@ -3,6 +3,7 @@ import {
   setQueryParam,
   updateQueryParams,
 } from "./queryParams";
+import { buildMachinesRouteSearch } from "./authenticatedRouteSearch";
 
 export const MACHINES_ROUTE = "/machines";
 export const MACHINE_CONNECT_ROUTE = "/machines/connect";
@@ -29,19 +30,13 @@ export function buildMachinesWorkspacePath(args?: {
   machineId?: string | null;
   threadId?: string | null;
 }): string {
+  const routeSearch = buildMachinesRouteSearch(args);
+
   return buildPathWithQuery({
     pathname: MACHINES_ROUTE,
     search: updateQueryParams(undefined, (nextSearchParams) => {
-      setQueryParam(
-        nextSearchParams,
-        "machineId",
-        args?.machineId?.trim().length ? args.machineId.trim() : null,
-      );
-      setQueryParam(
-        nextSearchParams,
-        "threadId",
-        args?.threadId?.trim().length ? args.threadId.trim() : null,
-      );
+      setQueryParam(nextSearchParams, "machineId", routeSearch.machineId);
+      setQueryParam(nextSearchParams, "threadId", routeSearch.threadId);
     }),
   });
 }
@@ -68,18 +63,4 @@ export function buildDirectNoterSyncRunCommand(
 ): string {
   const quotedScriptUrl = quoteShellArg(scriptUrl);
   return `${readDirectDownloadCommand(targetOs)} ${quotedScriptUrl} | node --input-type=module - run`;
-}
-
-export function readMachineConnectBootstrapSearch(search: string): {
-  openedByCli: boolean;
-  requestId: string | null;
-} {
-  const searchParams = new URLSearchParams(search);
-  const requestId = searchParams.get("requestId");
-
-  return {
-    openedByCli: searchParams.has("openedByCli"),
-    requestId:
-      typeof requestId === "string" && requestId.length > 0 ? requestId : null,
-  };
 }

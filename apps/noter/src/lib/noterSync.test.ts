@@ -7,7 +7,6 @@ import {
   buildNoterSyncScriptUrl,
   buildPublishedNoterSyncConnectCommand,
   buildPublishedNoterSyncRunCommand,
-  readMachineConnectBootstrapSearch,
 } from "@/lib/noterSync";
 
 describe("noterSync", () => {
@@ -65,18 +64,5 @@ describe("noterSync", () => {
     ).toBe(
       `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
     );
-  });
-
-  it("reads the optional machine-connect bootstrap query params", () => {
-    expect(
-      readMachineConnectBootstrapSearch("?openedByCli&requestId=request-123"),
-    ).toEqual({
-      openedByCli: true,
-      requestId: "request-123",
-    });
-    expect(readMachineConnectBootstrapSearch("")).toEqual({
-      openedByCli: false,
-      requestId: null,
-    });
   });
 });
