@@ -53,6 +53,14 @@ type LandingToggleFrame = {
   top: number | null;
 };
 
+type LandingToggleLayout = {
+  contentTop: number;
+  contentHeight: number;
+  authRowHeight: number;
+  waitlistInputTop: number;
+  waitlistInputOffset: number;
+};
+
 async function captureLandingToggleFrames(
   page: Parameters<typeof test>[0]["page"],
   linkName: "/?dev" | "/",
@@ -86,6 +94,46 @@ async function captureLandingToggleFrames(
 
   await page.getByRole("link", { name: linkName, exact: true }).click();
   return await framesPromise;
+}
+
+async function readLandingToggleLayout(
+  page: Parameters<typeof test>[0]["page"],
+): Promise<LandingToggleLayout> {
+  return await page.evaluate(() => {
+    const content = document.querySelector(
+      '[data-testid="public-landing-content"]',
+    );
+    const waitlistInput = document.querySelector(
+      'input[placeholder="email@example.com"]',
+    );
+    const googleButton = Array.from(document.querySelectorAll("button")).find(
+      (button) => button.textContent?.includes("Google") ?? false,
+    );
+
+    if (!(content instanceof HTMLElement)) {
+      throw new Error("Expected landing content element");
+    }
+    if (!(waitlistInput instanceof HTMLElement)) {
+      throw new Error("Expected landing waitlist input element");
+    }
+    if (!(googleButton instanceof HTMLElement)) {
+      throw new Error("Expected landing Google button element");
+    }
+
+    const contentRect = content.getBoundingClientRect();
+    const waitlistInputRect = waitlistInput.getBoundingClientRect();
+    const googleRect = googleButton.getBoundingClientRect();
+
+    return {
+      contentTop: Number(contentRect.top.toFixed(3)),
+      contentHeight: Number(contentRect.height.toFixed(3)),
+      authRowHeight: Number(googleRect.height.toFixed(3)),
+      waitlistInputTop: Number(waitlistInputRect.top.toFixed(3)),
+      waitlistInputOffset: Number(
+        (waitlistInputRect.top - contentRect.top).toFixed(3),
+      ),
+    };
+  });
 }
 
 /**
@@ -326,14 +374,24 @@ test("public landing shell renders before the full app UI takes over", async ({
   await expect(
     page.getByTestId("public-landing-waitlist-placeholder"),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Google" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Google", includeHidden: true }),
+  ).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: "Google", includeHidden: true }),
+  ).toBeDisabled();
   await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
   await expect(page.getByPlaceholder("email@example.com")).toBeEditable();
   await expect(
     page.getByRole("button", { name: "Join Waitlist" }),
   ).toBeEnabled();
   await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Google" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Google", includeHidden: true }),
+  ).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: "Google", includeHidden: true }),
+  ).toBeDisabled();
 });
 
 test("landing dev mode shows Google sign-in", async ({ page }) => {
@@ -341,6 +399,38 @@ test("landing dev mode shows Google sign-in", async ({ page }) => {
 
   await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
+});
+
+test("pre-hydration landing dev toggle keeps the waitlist row aligned", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.getByTestId("public-landing-shell").waitFor({ state: "visible" });
+
+  const beforeToggleLayout = await readLandingToggleLayout(page);
+
+  await page.getByRole("link", { name: "/?dev", exact: true }).click();
+  await expect(page).toHaveURL(/\/\?dev$/);
+  await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
+
+  const afterToggleLayout = await readLandingToggleLayout(page);
+
+  expect(
+    Math.abs(
+      afterToggleLayout.authRowHeight - beforeToggleLayout.authRowHeight,
+    ),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(
+      afterToggleLayout.waitlistInputOffset -
+        beforeToggleLayout.waitlistInputOffset,
+    ),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(
+      afterToggleLayout.contentHeight - beforeToggleLayout.contentHeight,
+    ),
+  ).toBeLessThanOrEqual(1);
 });
 
 test("public landing omits section divider lines before and after handoff", async ({
@@ -967,7 +1057,12 @@ test("prod-ui mode hides developer password auth controls", async ({
 }) => {
   await page.goto("/?prod-ui", { waitUntil: "networkidle" });
 
-  await expect(page.getByRole("button", { name: "Google" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Google", includeHidden: true }),
+  ).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: "Google", includeHidden: true }),
+  ).toBeDisabled();
 
   await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);

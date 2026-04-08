@@ -70,8 +70,8 @@ export function shouldRenderPublicLandingWithoutAuthGate(
 }
 
 /**
- * Hide Google auth on the anonymous landing surface unless the operator has
- * explicitly enabled the `?dev` variant from the status bar.
+ * Keep the anonymous landing auth slot stable while hiding Google auth unless
+ * the operator explicitly enables the `?dev` variant from the status bar.
  */
 export function shouldShowGoogleAuthForLocation(
   location: PathWithSearch,

@@ -108,7 +108,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
             )}
           </div>
           <div className="flex flex-col gap-2">
-            {showGoogleAuth ? <SignInWithGoogle /> : null}
+            <SignInWithGoogle visible={showGoogleAuth} />
             {showPasswordAuth ? <PasswordAuthForm /> : null}
           </div>
           <WaitlistForm />

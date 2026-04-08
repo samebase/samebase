@@ -4,13 +4,18 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { Chrome } from "lucide-react";
 import { buildCurrentGoogleRedirectTo } from "./lib/googleAuthRedirect";
 
-export function SignInWithGoogle() {
+export function SignInWithGoogle({
+  visible = true,
+}: { visible?: boolean } = {}) {
   const { signIn } = useAuthActions();
   return (
     <Button
-      className="flex-1"
+      aria-hidden={!visible}
+      className={visible ? "flex-1" : "flex-1 invisible pointer-events-none"}
+      disabled={!visible}
       variant="outline"
       type="button"
+      tabIndex={visible ? undefined : -1}
       onClick={() => {
         if (isInIframe()) {
           openAuthPopup("google");
