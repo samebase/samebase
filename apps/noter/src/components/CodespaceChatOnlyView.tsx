@@ -1,6 +1,6 @@
+import { Link, useLocation } from "@tanstack/react-router";
 import { useAction, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "@/lib/router";
 import { ExternalLink, Loader2, RefreshCcw } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { CodespaceIframe } from "./CodespaceIframe";
@@ -20,10 +20,12 @@ function formatCodespaceState(state: string): string {
 }
 
 export function CodespaceChatOnlyView() {
-  const location = useLocation();
+  const pathname = useLocation({
+    select: (location) => location.pathname,
+  });
   const { owner, repoName, branch } = useMemo(
-    () => parseVaultPathContext(location.pathname),
-    [location.pathname],
+    () => parseVaultPathContext(pathname),
+    [pathname],
   );
   const targetBranch = branch;
   const repositoryFullName = useMemo(() => {

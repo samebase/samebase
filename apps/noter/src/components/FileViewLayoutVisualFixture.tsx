@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MemoryRouter } from "@/lib/router";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
@@ -77,7 +77,7 @@ export function FileViewLayoutVisualFixture({
   );
 
   return (
-    <MemoryRouter>
+    <TestRouterProvider>
       <SidebarProvider
         defaultOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "left"}
         defaultRightOpen={true}
@@ -143,6 +143,6 @@ export function FileViewLayoutVisualFixture({
           </div>
         </RepositoryWorkspaceFrame>
       </SidebarProvider>
-    </MemoryRouter>
+    </TestRouterProvider>
   );
 }

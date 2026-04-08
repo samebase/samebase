@@ -31,55 +31,54 @@ function hasGoogleAuth(search: RootRouteSearch): boolean {
   return search.auth === "google";
 }
 
-function resolveRootRouteSearch(
-  location: PathWithSearch,
-  routeSearch?: RootRouteSearch,
-): RootRouteSearch {
-  return routeSearch ?? readRootRouteSearchFromLocation(location);
-}
-
 function isKnownUnauthenticatedLandingVisit(
-  location: PathWithSearch,
-  routeSearch?: RootRouteSearch,
+  pathname: string,
+  routeSearch: RootRouteSearch,
 ): boolean {
-  const rootRouteSearch = resolveRootRouteSearch(location, routeSearch);
   return (
-    location.pathname === "/" &&
-    !hasGoogleAuth(rootRouteSearch) &&
+    pathname === "/" &&
+    !hasGoogleAuth(routeSearch) &&
     readAuthFlagValue() !== "1" &&
     readAuthProviderValue() === null
   );
 }
 
 export function shouldRenderFastLandingShell(
-  location: PathWithSearch,
-  routeSearch?: RootRouteSearch,
+  pathname: string,
+  routeSearch: RootRouteSearch,
 ): boolean {
-  const rootRouteSearch = resolveRootRouteSearch(location, routeSearch);
   return (
-    isKnownUnauthenticatedLandingVisit(location, rootRouteSearch) &&
-    !isLandingDevModeEnabled(rootRouteSearch)
+    isKnownUnauthenticatedLandingVisit(pathname, routeSearch) &&
+    !isLandingDevModeEnabled(routeSearch)
   );
 }
 
 export function shouldRenderPublicLandingWithoutAuthGate(
-  location: PathWithSearch,
-  routeSearch?: RootRouteSearch,
+  pathname: string,
+  routeSearch: RootRouteSearch,
 ): boolean {
-  return isKnownUnauthenticatedLandingVisit(location, routeSearch);
+  return isKnownUnauthenticatedLandingVisit(pathname, routeSearch);
+}
+
+export function shouldRenderFastLandingShellForLocation(
+  location: PathWithSearch,
+): boolean {
+  return shouldRenderFastLandingShell(
+    location.pathname,
+    readRootRouteSearchFromLocation(location),
+  );
 }
 
 /**
  * Keep the anonymous landing auth slot stable while hiding Google auth unless
  * the operator explicitly enables the `?dev` variant from the status bar.
  */
-export function shouldShowGoogleAuthForLocation(
-  location: PathWithSearch,
-  routeSearch?: RootRouteSearch,
+export function shouldShowGoogleAuthForPathname(
+  pathname: string,
+  routeSearch: RootRouteSearch,
 ): boolean {
-  const rootRouteSearch = resolveRootRouteSearch(location, routeSearch);
   return (
-    !shouldRenderPublicLandingWithoutAuthGate(location, rootRouteSearch) ||
-    isLandingDevModeEnabled(rootRouteSearch)
+    !shouldRenderPublicLandingWithoutAuthGate(pathname, routeSearch) ||
+    isLandingDevModeEnabled(routeSearch)
   );
 }

@@ -11,7 +11,7 @@ import {
   ChevronDownIcon,
 } from "@radix-ui/react-icons";
 import { Loader2 } from "lucide-react";
-import { Link } from "@/lib/router";
+import { Link } from "@tanstack/react-router";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";

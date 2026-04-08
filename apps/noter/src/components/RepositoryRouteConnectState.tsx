@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Link } from "@/lib/router";
+import { Link } from "@tanstack/react-router";
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
 import { Button } from "@/components/ui/button";
 import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";

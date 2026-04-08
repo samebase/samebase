@@ -4,9 +4,9 @@ import {
   TrashIcon,
   UpdateIcon,
 } from "@radix-ui/react-icons";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { api } from "../../convex/_generated/api";
 import { useCallback, useState } from "react";
-import { useLocation, useNavigate } from "@/lib/router";
 import { linkStyle } from "./styles";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
@@ -143,7 +143,9 @@ export function EditedFilesCategories({
   onFileSelected?: () => void;
 }) {
   const navigate = useNavigate();
-  const { search } = useLocation();
+  const search = useLocation({
+    select: (location) => location.searchStr,
+  });
   const navigateToStagedFile = useCallback(
     (file: StagedFile) => {
       const encodedFilePath = file.filePath
@@ -153,8 +155,10 @@ export function EditedFilesCategories({
       const encodedBranch = encodeURIComponent(branch);
       const nextPath = `/vault/${repositoryFullName}/${encodedBranch}/${encodedFilePath}`;
       onFileSelected?.();
-      void navigate(
-        buildPathWithUpdatedQuery(
+      // TODO(tanstack-router-cleanup): replace this raw href escape with typed
+      // vault-route navigation once file-review search state is route-owned.
+      void navigate({
+        href: buildPathWithUpdatedQuery(
           {
             pathname: nextPath,
             search,
@@ -166,7 +170,7 @@ export function EditedFilesCategories({
             setQueryParam(searchParams, "review", !file.fileDeleted);
           },
         ),
-      );
+      });
     },
     [branch, navigate, onFileSelected, repositoryFullName, search],
   );

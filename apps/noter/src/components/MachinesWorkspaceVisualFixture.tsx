@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { MemoryRouter } from "@/lib/router";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { SidebarProvider } from "@/components/sidebar";
 import {
   MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
@@ -430,7 +430,7 @@ export function MachinesWorkspaceVisualFixture() {
   };
 
   return (
-    <MemoryRouter>
+    <TestRouterProvider>
       <SidebarProvider
         className="h-full min-h-0"
         defaultOpen={true}
@@ -503,6 +503,6 @@ export function MachinesWorkspaceVisualFixture() {
           </div>
         </div>
       </SidebarProvider>
-    </MemoryRouter>
+    </TestRouterProvider>
   );
 }

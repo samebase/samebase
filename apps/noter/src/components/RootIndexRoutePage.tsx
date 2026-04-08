@@ -2,16 +2,17 @@ import { Layout } from "@/Layout";
 import { SignInForm } from "@/SignInForm";
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { FastPublicLandingShell } from "@/components/FastPublicLandingShell";
+import { useLocation } from "@tanstack/react-router";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import {
-  shouldRenderFastLandingShell,
+  shouldRenderFastLandingShellForLocation,
   shouldRenderPublicLandingWithoutAuthGate,
 } from "@/lib/publicLandingAuthState";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
-import { useLocation } from "@/lib/router";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "@/lib/fastLandingBoot";
+import type { PathWithSearch } from "@/lib/queryParams";
 import { useConvexAuth, Authenticated, Unauthenticated } from "convex/react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
@@ -26,13 +27,19 @@ const VaultDashboard = lazy(async () => {
 // not resurrect it.
 let hasCompletedFastLandingShellSession = false;
 
-function shouldRenderInitialFastLandingShell(location: Location): boolean {
-  return shouldRenderFastLandingShell(location);
+function shouldRenderInitialFastLandingShell(
+  location: PathWithSearch,
+): boolean {
+  return shouldRenderFastLandingShellForLocation(location);
 }
 
 const initialFastLandingPath =
   typeof window !== "undefined" &&
-  shouldRenderInitialFastLandingShell(window.location)
+  shouldRenderInitialFastLandingShell({
+    pathname: window.location.pathname,
+    search: window.location.search,
+    hash: window.location.hash,
+  })
     ? `${window.location.pathname}${window.location.search}${window.location.hash}`
     : null;
 
@@ -41,7 +48,16 @@ function markFastLandingShellSessionComplete() {
 }
 
 export function RootIndexRoutePage() {
-  const location = useLocation();
+  const location = useLocation({
+    select: (location) => ({
+      // TODO(tanstack-router-cleanup): remove this browser-style location shim
+      // once fast-landing eligibility/session tracking uses native TanStack
+      // location fields instead of concatenated pathname/search/hash strings.
+      hash: location.hash.length > 0 ? `#${location.hash}` : "",
+      pathname: location.pathname,
+      search: location.searchStr,
+    }),
+  });
   const rootRouteSearch = useRootRouteSearch();
   const { isAuthenticated } = useConvexAuth();
   const [showFastLandingShell, setShowFastLandingShell] = useState(
@@ -55,7 +71,10 @@ export function RootIndexRoutePage() {
     useState(false);
   const showPublicLandingWithoutAuthGate =
     !isAuthenticated &&
-    shouldRenderPublicLandingWithoutAuthGate(location, rootRouteSearch);
+    shouldRenderPublicLandingWithoutAuthGate(
+      location.pathname,
+      rootRouteSearch,
+    );
   const currentPathWithSearch = `${location.pathname}${location.search}${location.hash}`;
   const shouldOfferFastLandingShell =
     initialFastLandingPath !== null &&

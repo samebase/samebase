@@ -1,10 +1,10 @@
 import { Layout } from "@/Layout";
 import { SignInForm } from "@/SignInForm";
 import { ApprovalGate } from "@/components/ApprovalGate";
+import { useLocation } from "@tanstack/react-router";
 import { shouldShowGlobalChatFab } from "@/lib/globalChatFabVisibility";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
-import { useLocation } from "@/lib/router";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { Authenticated, Unauthenticated, useConvexAuth } from "convex/react";
@@ -20,20 +20,22 @@ export function AuthenticatedAppRoutePage({
 }: {
   children: ReactNode;
 }) {
-  const location = useLocation();
+  const pathname = useLocation({
+    select: (location) => location.pathname,
+  });
   const rootRouteSearch = useRootRouteSearch();
   const { isAuthenticated } = useConvexAuth();
   const pageMetadata = useMemo(
     () =>
       resolvePageMetadata({
-        pathname: location.pathname,
+        pathname,
         isAuthenticated,
       }),
-    [isAuthenticated, location.pathname],
+    [isAuthenticated, pathname],
   );
-  const showGlobalChatFab = shouldShowGlobalChatFab(location.pathname);
+  const showGlobalChatFab = shouldShowGlobalChatFab(pathname);
 
-  useAppAuthRuntimeEffects(location.pathname, rootRouteSearch.auth);
+  useAppAuthRuntimeEffects(pathname, rootRouteSearch.auth);
   usePageMetadata(pageMetadata);
 
   return (

@@ -3,6 +3,7 @@ import { AppBuildStatusBar } from "@/components/AppBuildStatusBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { Chrome } from "lucide-react";
 import {
   buildLandingDevToggleHref,
@@ -32,8 +33,7 @@ import {
 } from "@/lib/publicLandingWaitlistDraft";
 import type { RootRouteSearch } from "@/lib/rootRouteSearch";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
-import { useLocation, useNavigate } from "@/lib/router";
-import { shouldShowGoogleAuthForLocation } from "@/lib/publicLandingAuthState";
+import { shouldShowGoogleAuthForPathname } from "@/lib/publicLandingAuthState";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
 import {
   type FocusEvent,
@@ -68,7 +68,16 @@ export function FastPublicLandingShell({
   onScheduleWaitlistFocusRestore: () => void;
   rootRouteSearch: RootRouteSearch;
 }) {
-  const location = useLocation();
+  const location = useLocation({
+    select: (location) => ({
+      // TODO(tanstack-router-cleanup): remove this browser-style location shim
+      // once the fast shell stops depending on shared PathWithSearch helpers
+      // for landing toggle URLs and route-transition bookkeeping.
+      hash: location.hash.length > 0 ? `#${location.hash}` : "",
+      pathname: location.pathname,
+      search: location.searchStr,
+    }),
+  });
   const navigate = useNavigate();
   const scrollShellRef = useRef<HTMLElement | null>(null);
   const routeTransitionStartedRef = useRef(false);
@@ -78,7 +87,10 @@ export function FastPublicLandingShell({
   const [shellDisplayState] = useState(() => ({
     landingDevToggleHref: buildLandingDevToggleHref(location),
     landingDevToggleLabel: getLandingDevToggleLabel(rootRouteSearch),
-    showGoogleAuth: shouldShowGoogleAuthForLocation(location, rootRouteSearch),
+    showGoogleAuth: shouldShowGoogleAuthForPathname(
+      location.pathname,
+      rootRouteSearch,
+    ),
     showPasswordAuthPlaceholder:
       import.meta.env.DEV && !isProdUiModeEnabled(rootRouteSearch),
   }));
@@ -119,7 +131,10 @@ export function FastPublicLandingShell({
       setPendingPublicLandingScrollTop(shellMain.scrollTop);
     }
     onShellRouteTransitionStart();
-    void navigate(nextHref);
+    // TODO(tanstack-router-cleanup): replace this raw href escape with typed
+    // root-route search navigation once the routed shell stops using
+    // browser-style query helpers for handoff parity.
+    void navigate({ href: nextHref });
   }
 
   function handleLandingDevToggleClick(event: MouseEvent<HTMLAnchorElement>) {

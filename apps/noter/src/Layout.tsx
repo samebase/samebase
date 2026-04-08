@@ -2,9 +2,9 @@ import {
   buildLandingDevToggleHref,
   getLandingDevToggleLabel,
 } from "@/lib/landingDevMode";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { ReactNode, useEffect, type MouseEvent } from "react";
 import { useConvexAuth } from "convex/react";
-import { useLocation, useNavigate } from "@/lib/router";
 import { AppBuildStatusBar } from "@/components/AppBuildStatusBar";
 import { WorkspaceLayoutV2PageFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PageFrame";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
@@ -13,7 +13,16 @@ export function Layout({ children }: { children: ReactNode }) {
   const appCommit = __APP_COMMIT__ || "unknown";
   const appCommitNumber = __APP_COMMIT_NUMBER__;
   const repoUrl = __APP_REPO_URL__ || "";
-  const location = useLocation();
+  const location = useLocation({
+    select: (location) => ({
+      // TODO(tanstack-router-cleanup): remove this browser-style location shim
+      // once landing toggle URL building reads native TanStack pathname/search/
+      // hash fields directly instead of reconstructing PathWithSearch.
+      hash: location.hash.length > 0 ? `#${location.hash}` : "",
+      pathname: location.pathname,
+      search: location.searchStr,
+    }),
+  });
   const navigate = useNavigate();
   const rootRouteSearch = useRootRouteSearch();
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -51,7 +60,10 @@ export function Layout({ children }: { children: ReactNode }) {
     // Mobile browsers can keep the header toggle focused and nudge the
     // vertically centered landing card while the query-param view swaps.
     event.currentTarget.blur();
-    void navigate(landingDevToggleHref);
+    // TODO(tanstack-router-cleanup): replace this raw href escape with typed
+    // root-route search navigation once the landing dev toggle stops relying on
+    // browser-style query helpers.
+    void navigate({ href: landingDevToggleHref });
   };
   useEffect(() => {
     console.info("[noter] build metadata", {

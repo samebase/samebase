@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MemoryRouter } from "@/lib/router";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { Button } from "@/components/ui/button";
 import { EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME } from "@/components/editorChatLayout";
 import { SidebarProvider, SidebarTrigger } from "@/components/sidebar";
@@ -374,7 +374,7 @@ export function VaultDashboardVisualFixture({
                   Branches
                 </p>
                 <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
-                  <MemoryRouter>
+                  <TestRouterProvider>
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
@@ -404,7 +404,7 @@ export function VaultDashboardVisualFixture({
                       isDeletingBranch={false}
                       onDeleteBranch={() => {}}
                     />
-                  </MemoryRouter>
+                  </TestRouterProvider>
                 </div>
               </div>
             </div>
@@ -489,7 +489,7 @@ export function VaultDashboardVisualFixture({
                   </div>
                 </div>
                 <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
-                  <MemoryRouter>
+                  <TestRouterProvider>
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
@@ -510,7 +510,7 @@ export function VaultDashboardVisualFixture({
                       isDeletingBranch={false}
                       onDeleteBranch={() => {}}
                     />
-                  </MemoryRouter>
+                  </TestRouterProvider>
                 </div>
               </div>
             </div>
@@ -677,7 +677,7 @@ export function VaultDashboardVisualFixture({
       className="inline-flex bg-background p-3 text-foreground"
     >
       <div className="w-[560px] corner-notch-1 border border-border bg-background">
-        <MemoryRouter>
+        <TestRouterProvider>
           <VaultBranchLinkRow
             vaultId={fakeVaultId()}
             repositoryFullName="octo/repo"
@@ -697,7 +697,7 @@ export function VaultDashboardVisualFixture({
             isDeletingBranch={false}
             onDeleteBranch={() => {}}
           />
-        </MemoryRouter>
+        </TestRouterProvider>
       </div>
     </div>
   );

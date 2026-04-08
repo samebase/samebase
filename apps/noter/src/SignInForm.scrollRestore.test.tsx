@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { MemoryRouter } from "@/lib/router";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PUBLIC_LANDING_SCROLL_SHELL_TEST_ID } from "@/lib/publicLanding";
 import {
@@ -22,9 +22,14 @@ vi.mock("@convex-dev/auth/react", () => ({
   }),
 }));
 
-vi.mock("@/lib/rootRouteSearch", () => ({
-  useRootRouteSearch: () => ({}),
-}));
+vi.mock("@/lib/rootRouteSearch", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/rootRouteSearch")>();
+
+  return {
+    ...actual,
+    useRootRouteSearch: () => ({}),
+  };
+});
 
 vi.mock("convex/react", () => ({
   useMutation: () => vi.fn().mockResolvedValue(undefined),
@@ -111,9 +116,9 @@ describe("SignInForm landing scroll handoff", () => {
     act(() => {
       root?.render(
         <React.StrictMode>
-          <MemoryRouter>
+          <TestRouterProvider>
             <SignInForm />
-          </MemoryRouter>
+          </TestRouterProvider>
         </React.StrictMode>,
       );
     });

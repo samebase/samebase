@@ -1,7 +1,7 @@
 import { GitHubLogoIcon, ClockIcon } from "@radix-ui/react-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
-import { Link, useNavigate } from "@/lib/router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import {
   useAction,
@@ -406,7 +406,7 @@ export function AddRepository() {
                           })
                             .then((val) => {
                               console.log(val);
-                              void navigate("/");
+                              void navigate({ to: "/" });
                             })
                             .catch((err) => {
                               console.error(err);

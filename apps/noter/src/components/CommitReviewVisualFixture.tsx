@@ -1,4 +1,5 @@
 import { type ComponentProps } from "react";
+import { useLocation } from "@tanstack/react-router";
 import { FileTree } from "@/components/FileTree";
 import {
   EditedFilesCategories,
@@ -12,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/checkbox";
 import { Label } from "@/components/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
-import { MemoryRouter, useLocation } from "@/lib/router";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const README_OLD = `# Noter Starter Template
 
@@ -254,7 +255,14 @@ const DELETED_STAGED_CATEGORIES: FixtureEditedFileCategories =
   DELETED_STAGED_CATEGORIES_FIXTURE;
 
 function FixtureRouteLabel() {
-  const location = useLocation();
+  const location = useLocation({
+    select: (location) => ({
+      // TODO(tanstack-router-cleanup): remove this browser-style fixture shim
+      // once visual fixtures read native TanStack location fields directly.
+      pathname: location.pathname,
+      search: location.searchStr,
+    }),
+  });
 
   return (
     <div
@@ -425,7 +433,7 @@ export function CommitReviewVisualFixture({
 
         <section className="flex h-full min-h-0 flex-col overflow-hidden">
           {mode === "deleted-staged-changes" ? (
-            <MemoryRouter
+            <TestRouterProvider
               initialEntries={["/vault/noter-md/noter/main/README.md"]}
             >
               <div className="mb-3 space-y-3">
@@ -461,7 +469,7 @@ export function CommitReviewVisualFixture({
                   </div>
                 </div>
               </div>
-            </MemoryRouter>
+            </TestRouterProvider>
           ) : null}
           <div className="flex min-h-0 flex-1 flex-col">
             {activeFile ? (
