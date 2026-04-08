@@ -8,7 +8,7 @@ import {
   useConnectedMachineHeartbeatLog,
 } from "@/lib/connectedMachineHeartbeatLog";
 import {
-  buildMachinesWorkspacePath,
+  buildMachinesWorkspaceLinkOptions,
   buildDirectNoterSyncConnectCommand,
   buildDirectNoterSyncRunCommand,
   buildNoterSyncScriptUrl,
@@ -473,7 +473,7 @@ function ConnectedMachineList({
                   machine.controlStatus === "ready" ? (
                     <Button asChild className="mt-3" size="sm">
                       <Link
-                        to={buildMachinesWorkspacePath({
+                        {...buildMachinesWorkspaceLinkOptions({
                           machineId: machine.machineId,
                         })}
                       >
