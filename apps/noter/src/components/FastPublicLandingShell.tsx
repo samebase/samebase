@@ -5,6 +5,16 @@ import { Input } from "@/components/input";
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import { Chrome } from "lucide-react";
 import {
+  buildLandingDevToggleHref,
+  getLandingDevToggleLabel,
+} from "@/lib/landingDevMode";
+import { renderLandingCopyShellHtml } from "@/lib/landingCopyShell";
+import { landingPageMarkdown } from "@/lib/landingCopy";
+import {
+  PUBLIC_LANDING_COPY_TEST_ID,
+  PUBLIC_LANDING_SHELL_MAIN_TEST_ID,
+} from "@/lib/publicLanding";
+import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
   PUBLIC_LANDING_LOGO_HEIGHT,
@@ -15,16 +25,6 @@ import {
   PUBLIC_LANDING_LOGO_TEST_ID,
   PUBLIC_LANDING_LOGO_WIDTH,
 } from "@/lib/publicLandingLogo";
-import {
-  buildLandingDevToggleHref,
-  getLandingDevToggleLabel,
-} from "@/lib/landingDevMode";
-import { renderLandingCopyShellHtml } from "@/lib/landingCopyShell";
-import { landingPageMarkdown } from "@/lib/landingCopy";
-import {
-  PUBLIC_LANDING_COPY_TEST_ID,
-  PUBLIC_LANDING_SHELL_MAIN_TEST_ID,
-} from "@/lib/publicLanding";
 import { setPendingPublicLandingScrollTop } from "@/lib/publicLandingScrollState";
 import {
   readPublicLandingWaitlistDraft,
@@ -45,7 +45,6 @@ import {
 const PUBLIC_LANDING_CONTENT_TEST_ID = "public-landing-content";
 const PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID =
   "public-landing-waitlist-placeholder";
-
 const FAST_LANDING_LOGO_SRC = createStaticLogoSvgDataUrl();
 
 export function FastPublicLandingShell({
@@ -62,15 +61,15 @@ export function FastPublicLandingShell({
   const location = useLocation();
   const navigate = useNavigate();
   const scrollShellRef = useRef<HTMLElement | null>(null);
+  const routeTransitionStartedRef = useRef(false);
   const [waitlistEmail, setWaitlistEmail] = useState(
     readPublicLandingWaitlistDraft,
   );
-  const landingDevToggleHref = buildLandingDevToggleHref(location);
-  const landingDevToggleLabel = getLandingDevToggleLabel(rootRouteSearch);
-  const showGoogleAuth = shouldShowGoogleAuthForLocation(
-    location,
-    rootRouteSearch,
-  );
+  const [shellDisplayState] = useState(() => ({
+    landingDevToggleHref: buildLandingDevToggleHref(location),
+    landingDevToggleLabel: getLandingDevToggleLabel(rootRouteSearch),
+    showGoogleAuth: shouldShowGoogleAuthForLocation(location, rootRouteSearch),
+  }));
 
   useEffect(() => {
     const shellMain = scrollShellRef.current;
@@ -97,6 +96,19 @@ export function FastPublicLandingShell({
     onRequestHydratedLanding();
   }
 
+  function beginShellRouteTransition(nextHref: string) {
+    if (routeTransitionStartedRef.current) {
+      return;
+    }
+
+    routeTransitionStartedRef.current = true;
+    const shellMain = scrollShellRef.current;
+    if (shellMain !== null) {
+      setPendingPublicLandingScrollTop(shellMain.scrollTop);
+    }
+    void navigate(nextHref);
+  }
+
   function handleLandingDevToggleClick(event: MouseEvent<HTMLAnchorElement>) {
     if (
       event.defaultPrevented ||
@@ -112,8 +124,7 @@ export function FastPublicLandingShell({
 
     event.preventDefault();
     event.currentTarget.blur();
-    requestHydratedLanding();
-    void navigate(landingDevToggleHref);
+    beginShellRouteTransition(shellDisplayState.landingDevToggleHref);
   }
 
   function handleGoogleAuthClick() {
@@ -122,8 +133,7 @@ export function FastPublicLandingShell({
       return;
     }
 
-    requestHydratedLanding();
-    void navigate(
+    beginShellRouteTransition(
       buildPathWithUpdatedQuery(location, (nextSearchParams) => {
         setQueryParam(nextSearchParams, "auth", "google");
       }),
@@ -159,8 +169,8 @@ export function FastPublicLandingShell({
       <AppBuildStatusBar
         appCommit={__APP_COMMIT__ || "unknown"}
         appCommitNumber={__APP_COMMIT_NUMBER__}
-        landingDevToggleHref={landingDevToggleHref}
-        landingDevToggleLabel={landingDevToggleLabel}
+        landingDevToggleHref={shellDisplayState.landingDevToggleHref}
+        landingDevToggleLabel={shellDisplayState.landingDevToggleLabel}
         onLandingDevToggleClick={handleLandingDevToggleClick}
         repoUrl={__APP_REPO_URL__ || ""}
         showLandingDevToggle
@@ -207,7 +217,7 @@ export function FastPublicLandingShell({
               }}
             />
             <div className="flex flex-col gap-2">
-              {showGoogleAuth ? (
+              {shellDisplayState.showGoogleAuth ? (
                 <Button
                   type="button"
                   variant="outline"
