@@ -317,9 +317,13 @@ migration with concrete problems, attempted fixes, and outcomes.
   into this PR's core scope: replace the dev-only research surface `href`
   strings with route-owned TanStack `Link` usage, decide whether the repo-owned
   plain-string search codec should explicitly support repeated keys or
-  explicitly reject array semantics, and verify whether the logo preview should
+  explicitly reject array semantics, verify whether the logo preview should
   always apply browser back/forward search updates even while scene interaction
-  is active.
+  is active, and add concise invariant comments to the authenticated-search
+  migration seams that are easy to misread later: the `bootstrapSearch`
+  normalization in `MachineConnectPage.tsx`, the route-search/local-state sync
+  effects in `MachinesWorkspacePage.tsx`, and the helper preprocess semantics in
+  `authenticatedRouteSearch.ts`.
 
 ## Completed Milestones
 
