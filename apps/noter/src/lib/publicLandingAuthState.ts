@@ -1,5 +1,9 @@
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import type { PathWithSearch } from "@/lib/queryParams";
+import {
+  readRootRouteSearchFromLocation,
+  type RootRouteSearch,
+} from "@/lib/rootRouteSearch";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const CONVEX_AUTH_STORAGE_KEY_PREFIX = "__convexAuth";
@@ -32,11 +36,25 @@ function hasStoredConvexAuthTokens(): boolean {
   }, false);
 }
 
-function isKnownUnauthenticatedLandingVisit(location: PathWithSearch): boolean {
-  const searchParams = new URLSearchParams(location.search);
+function hasGoogleAuth(search: RootRouteSearch): boolean {
+  return search.auth === "google";
+}
+
+function resolveRootRouteSearch(
+  location: PathWithSearch,
+  routeSearch?: RootRouteSearch,
+): RootRouteSearch {
+  return routeSearch ?? readRootRouteSearchFromLocation(location);
+}
+
+function isKnownUnauthenticatedLandingVisit(
+  location: PathWithSearch,
+  routeSearch?: RootRouteSearch,
+): boolean {
+  const rootRouteSearch = resolveRootRouteSearch(location, routeSearch);
   return (
     location.pathname === "/" &&
-    !searchParams.has("auth") &&
+    !hasGoogleAuth(rootRouteSearch) &&
     readAuthFlagValue() !== "1" &&
     !hasStoredConvexAuthTokens()
   );
@@ -44,18 +62,20 @@ function isKnownUnauthenticatedLandingVisit(location: PathWithSearch): boolean {
 
 export function shouldRenderFastLandingShell(
   location: PathWithSearch,
+  routeSearch?: RootRouteSearch,
 ): boolean {
-  const searchParams = new URLSearchParams(location.search);
+  const rootRouteSearch = resolveRootRouteSearch(location, routeSearch);
   return (
-    isKnownUnauthenticatedLandingVisit(location) &&
-    !isLandingDevModeEnabled(searchParams)
+    isKnownUnauthenticatedLandingVisit(location, rootRouteSearch) &&
+    !isLandingDevModeEnabled(rootRouteSearch)
   );
 }
 
 export function shouldRenderPublicLandingWithoutAuthGate(
   location: PathWithSearch,
+  routeSearch?: RootRouteSearch,
 ): boolean {
-  return isKnownUnauthenticatedLandingVisit(location);
+  return isKnownUnauthenticatedLandingVisit(location, routeSearch);
 }
 
 /**
@@ -64,10 +84,11 @@ export function shouldRenderPublicLandingWithoutAuthGate(
  */
 export function shouldShowGoogleAuthForLocation(
   location: PathWithSearch,
+  routeSearch?: RootRouteSearch,
 ): boolean {
-  const searchParams = new URLSearchParams(location.search);
+  const rootRouteSearch = resolveRootRouteSearch(location, routeSearch);
   return (
-    !shouldRenderPublicLandingWithoutAuthGate(location) ||
-    isLandingDevModeEnabled(searchParams)
+    !shouldRenderPublicLandingWithoutAuthGate(location, rootRouteSearch) ||
+    isLandingDevModeEnabled(rootRouteSearch)
   );
 }

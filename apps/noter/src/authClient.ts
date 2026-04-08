@@ -2,6 +2,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useEffect } from "react";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { buildCurrentGoogleRedirectTo } from "@/lib/googleAuthRedirect";
+import { type RootRouteSearch } from "@/lib/rootRouteSearch";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const AUTH_PROVIDER_KEY = "noter_auth_provider";
@@ -123,16 +124,14 @@ export function openAuthPopup(provider: "google") {
  * since it's a top-level window). After auth completes, the popup
  * auto-closes and the token syncs to the parent via localStorage.
  */
-export function useAutoSignIn() {
+export function useAutoSignIn(auth: RootRouteSearch["auth"]) {
   const { signIn } = useAuthActions();
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const auth = params.get("auth");
     if (auth === "google") {
       setAuthProvider(auth);
       const redirectTo = buildCurrentGoogleRedirectTo(window.location);
       window.history.replaceState({}, "", redirectTo);
       void signIn("google", { redirectTo });
     }
-  }, [signIn]);
+  }, [auth, signIn]);
 }

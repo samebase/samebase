@@ -22,6 +22,7 @@ import {
 import { validateCodexResearchRouteSearch } from "@/lib/codexResearchRouteSearch";
 import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
+import { validateRootRouteSearch } from "@/lib/rootRouteSearch";
 import {
   parseTanStackSearch,
   stringifyTanStackSearch,
@@ -48,30 +49,6 @@ import { PricingRoutePage } from "@/components/PricingRoutePage";
 
 function AppRouterRoot() {
   return createElement(Outlet);
-}
-
-type AppRouterRootSearch = {
-  devtools?: true;
-};
-
-function readOptionalRootFlag(value: unknown): true | undefined {
-  if (value === true) {
-    return true;
-  }
-
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  return value.length === 0 || value === "true" ? true : undefined;
-}
-
-function validateAppRouterRootSearch(
-  search: Record<string, unknown>,
-): AppRouterRootSearch {
-  return readOptionalRootFlag(search.devtools) === true
-    ? { devtools: true }
-    : {};
 }
 
 const PrivacyPolicyPage = lazy(async () => {
@@ -344,7 +321,7 @@ const appRouterRootRoute = createRootRoute({
   search: {
     middlewares: [retainSearchParams(["devtools"])],
   },
-  validateSearch: validateAppRouterRootSearch,
+  validateSearch: validateRootRouteSearch,
 });
 
 // TODO(tanstack-router-migration): this root-plus-catch-all tree is only a

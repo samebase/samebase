@@ -8,6 +8,7 @@ import { useLocation } from "@/lib/router";
 import { Authenticated, Unauthenticated, useConvexAuth } from "convex/react";
 import { lazy, Suspense, useMemo } from "react";
 import { resolvePageMetadata, type PageMetadata } from "@/lib/pageMetadata";
+import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAuthState";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 
@@ -22,12 +23,14 @@ const ChatFab = lazy(async () => {
 
 export default function App() {
   const location = useLocation();
+  const rootRouteSearch = useRootRouteSearch();
   const { isAuthenticated } = useConvexAuth();
-  useAppAuthRuntimeEffects(location.pathname);
+  useAppAuthRuntimeEffects(location.pathname, rootRouteSearch.auth);
   const showGlobalChatFab = shouldShowGlobalChatFab(location.pathname);
   const authenticatedRoute = resolveAuthenticatedAppRoute(location.pathname);
   const showPublicLandingWithoutAuthGate =
-    !isAuthenticated && shouldRenderPublicLandingWithoutAuthGate(location);
+    !isAuthenticated &&
+    shouldRenderPublicLandingWithoutAuthGate(location, rootRouteSearch);
 
   const pageMetadata: PageMetadata = useMemo(() => {
     return resolvePageMetadata({

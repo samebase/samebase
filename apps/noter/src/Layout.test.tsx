@@ -10,6 +10,10 @@ vi.mock("convex/react", () => ({
   useConvexAuth: useConvexAuthMock,
 }));
 
+vi.mock("@/lib/rootRouteSearch", () => ({
+  useRootRouteSearch: () => ({}),
+}));
+
 import { Layout } from "./Layout";
 
 describe("Layout", () => {

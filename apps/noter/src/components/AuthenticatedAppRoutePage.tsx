@@ -5,6 +5,7 @@ import { shouldShowGlobalChatFab } from "@/lib/globalChatFabVisibility";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useLocation } from "@/lib/router";
+import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { Authenticated, Unauthenticated, useConvexAuth } from "convex/react";
 import { lazy, Suspense, useMemo, type ReactNode } from "react";
@@ -20,6 +21,7 @@ export function AuthenticatedAppRoutePage({
   children: ReactNode;
 }) {
   const location = useLocation();
+  const rootRouteSearch = useRootRouteSearch();
   const { isAuthenticated } = useConvexAuth();
   const pageMetadata = useMemo(
     () =>
@@ -31,7 +33,7 @@ export function AuthenticatedAppRoutePage({
   );
   const showGlobalChatFab = shouldShowGlobalChatFab(location.pathname);
 
-  useAppAuthRuntimeEffects(location.pathname);
+  useAppAuthRuntimeEffects(location.pathname, rootRouteSearch.auth);
   usePageMetadata(pageMetadata);
 
   return (
