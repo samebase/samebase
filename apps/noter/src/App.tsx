@@ -27,14 +27,6 @@ const CodespaceChatOnlyView = lazy(async () => {
   const module = await import("@/components/CodespaceChatOnlyView");
   return { default: module.CodespaceChatOnlyView };
 });
-const MachineConnectPage = lazy(async () => {
-  const module = await import("@/components/MachineConnectPage");
-  return { default: module.MachineConnectPage };
-});
-const MachinesWorkspacePage = lazy(async () => {
-  const module = await import("@/components/MachinesWorkspacePage");
-  return { default: module.MachinesWorkspacePage };
-});
 
 export default function App() {
   const location = useLocation();
@@ -63,12 +55,6 @@ export default function App() {
             <ApprovalGate>
               <Suspense fallback={null}>
                 {authenticatedRoute === "dashboard" ? <VaultDashboard /> : null}
-                {authenticatedRoute === "machines" ? (
-                  <MachinesWorkspacePage />
-                ) : null}
-                {authenticatedRoute === "machineConnect" ? (
-                  <MachineConnectPage />
-                ) : null}
                 {authenticatedRoute === "codespaceChat" ? (
                   <CodespaceChatOnlyView />
                 ) : null}

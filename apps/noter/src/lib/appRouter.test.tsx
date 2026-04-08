@@ -45,6 +45,16 @@ vi.mock("@/components/AddRepositoryRoutePage", () => ({
   ),
 }));
 
+vi.mock("@/components/MachinesRoutePage", () => ({
+  MachinesRoutePage: () => <div data-testid="machines-page">Machines page</div>,
+}));
+
+vi.mock("@/components/MachineConnectRoutePage", () => ({
+  MachineConnectRoutePage: () => (
+    <div data-testid="machine-connect-page">Machine connect page</div>
+  ),
+}));
+
 import { createAppRouter } from "./appRouter";
 
 const { act } = React;
@@ -164,6 +174,44 @@ describe("appRouter", () => {
       rootElement?.querySelector('[data-testid="add-repository-page"]')
         ?.textContent,
     ).toBe("Add repository page");
+    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+  });
+
+  it("renders machines through an explicit TanStack route instead of the App fallback", async () => {
+    await renderRoute("/machines?machineId=machine-123");
+
+    expect(
+      rootElement?.querySelector('[data-testid="machines-page"]')?.textContent,
+    ).toBe("Machines page");
+    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+  });
+
+  it("renders machine connect through an explicit TanStack route instead of the App fallback", async () => {
+    await renderRoute("/machines/connect?requestId=req_123");
+
+    expect(
+      rootElement?.querySelector('[data-testid="machine-connect-page"]')
+        ?.textContent,
+    ).toBe("Machine connect page");
+    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+  });
+
+  it("accepts a trailing slash on the promoted machines route", async () => {
+    await renderRoute("/machines/");
+
+    expect(
+      rootElement?.querySelector('[data-testid="machines-page"]')?.textContent,
+    ).toBe("Machines page");
+    expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
+  });
+
+  it("accepts a trailing slash on the promoted machine connect route", async () => {
+    await renderRoute("/machines/connect/");
+
+    expect(
+      rootElement?.querySelector('[data-testid="machine-connect-page"]')
+        ?.textContent,
+    ).toBe("Machine connect page");
     expect(rootElement?.querySelector('[data-testid="app-route"]')).toBeNull();
   });
 

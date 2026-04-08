@@ -16,6 +16,9 @@ import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 import { AddRepositoryRoutePage } from "@/components/AddRepositoryRoutePage";
+import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
+import { MachineConnectRoutePage } from "@/components/MachineConnectRoutePage";
+import { MachinesRoutePage } from "@/components/MachinesRoutePage";
 import {
   createElement,
   lazy,
@@ -380,6 +383,18 @@ const addRepositoryRoute = createRoute({
   component: AddRepositoryRoutePage,
 });
 
+const machinesRoute = createRoute({
+  getParentRoute: () => appRouterRootRoute,
+  path: MACHINES_ROUTE,
+  component: MachinesRoutePage,
+});
+
+const machineConnectRoute = createRoute({
+  getParentRoute: () => appRouterRootRoute,
+  path: MACHINE_CONNECT_ROUTE,
+  component: MachineConnectRoutePage,
+});
+
 const appSplatRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: "$",
@@ -404,6 +419,8 @@ const appRouteTree = appRouterRootRoute.addChildren([
   mcpConsentRoute,
   pricingRoute,
   addRepositoryRoute,
+  machinesRoute,
+  machineConnectRoute,
   appSplatRoute,
 ]);
 
