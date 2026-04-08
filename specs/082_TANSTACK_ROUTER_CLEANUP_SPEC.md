@@ -105,3 +105,12 @@ migration ledger can stay focused on the router transition itself.
   the root/landing helpers now read explicit primitives, and the remaining
   cleanup hotspots are narrower: `FileView.tsx`, `FastPublicLandingShell.tsx`,
   and the fixture-only route label in `CommitReviewVisualFixture.tsx`.
+
+- Problem: several routed root/layout/shell callsites still rebuilt tiny
+  `{ pathname, search, hash }` mirrors even though they already needed the
+  native TanStack location object. Tried: replace those reshaped
+  `useLocation({ select: ... })` calls with direct `useLocation()` reads and
+  update the few helper callsites that still need explicit `searchStr` inputs.
+  Result: the cleanup moved one step closer to the native TanStack shape, and
+  the remaining debt is more clearly limited to the intentional raw-href/raw-
+  history escape hatches.

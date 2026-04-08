@@ -77,7 +77,8 @@ function normalizeHashInput(hash?: string): string {
     return "";
   }
 
-  return hash.startsWith("#") ? hash : `#${hash}`;
+  const rawHash = hash.replace(/^#+/, "");
+  return rawHash.length === 0 ? "" : `#${rawHash}`;
 }
 
 export function buildPathWithQuery(args: PathQueryInput): string {

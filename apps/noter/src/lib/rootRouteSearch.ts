@@ -44,6 +44,10 @@ export function validateRootRouteSearch(
   return parseRootRouteSearch(search);
 }
 
+/**
+ * `readRootRouteSearch` normalizes string, URLSearchParams, or undefined input
+ * through `parseTanStackSearch` and `parseRootRouteSearch`.
+ */
 export function readRootRouteSearch(
   search: string | URLSearchParams | undefined,
 ): RootRouteSearch {

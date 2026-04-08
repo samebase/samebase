@@ -56,20 +56,17 @@ function markFastLandingShellSessionComplete() {
 }
 
 export function RootIndexRoutePage() {
-  const location = useLocation({
-    select: (location) => ({
-      hash: location.hash,
-      pathname: location.pathname,
-      search: location.searchStr,
-    }),
-  });
+  const location = useLocation();
   const rootRouteSearch = useRootRouteSearch();
   const { isAuthenticated } = useConvexAuth();
   const [showFastLandingShell, setShowFastLandingShell] = useState(
     () =>
       initialFastLandingPath !== null &&
-      buildLocationHref(location.pathname, location.search, location.hash) ===
-        initialFastLandingPath &&
+      buildLocationHref(
+        location.pathname,
+        location.searchStr,
+        location.hash,
+      ) === initialFastLandingPath &&
       !hasCompletedFastLandingShellSession,
   );
   const [shouldRestoreWaitlistFocus, setShouldRestoreWaitlistFocus] =
@@ -82,7 +79,7 @@ export function RootIndexRoutePage() {
     );
   const currentPathWithSearch = buildLocationHref(
     location.pathname,
-    location.search,
+    location.searchStr,
     location.hash,
   );
   const shouldOfferFastLandingShell =

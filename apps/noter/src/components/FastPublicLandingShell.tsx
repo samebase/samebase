@@ -68,13 +68,7 @@ export function FastPublicLandingShell({
   onScheduleWaitlistFocusRestore: () => void;
   rootRouteSearch: RootRouteSearch;
 }) {
-  const location = useLocation({
-    select: (location) => ({
-      hash: location.hash,
-      pathname: location.pathname,
-      search: location.searchStr,
-    }),
-  });
+  const location = useLocation();
   const navigate = useNavigate();
   const scrollShellRef = useRef<HTMLElement | null>(null);
   const routeTransitionStartedRef = useRef(false);
@@ -84,7 +78,7 @@ export function FastPublicLandingShell({
   const [shellDisplayState] = useState(() => ({
     landingDevToggleHref: buildLandingDevToggleHref(
       location.pathname,
-      location.search,
+      location.searchStr,
       location.hash,
     ),
     landingDevToggleLabel: getLandingDevToggleLabel(rootRouteSearch),
@@ -163,9 +157,16 @@ export function FastPublicLandingShell({
     }
 
     beginShellRouteTransition(
-      buildPathWithUpdatedQuery(location, (nextSearchParams) => {
-        setQueryParam(nextSearchParams, "auth", "google");
-      }),
+      buildPathWithUpdatedQuery(
+        {
+          pathname: location.pathname,
+          search: location.searchStr,
+          hash: location.hash,
+        },
+        (nextSearchParams) => {
+          setQueryParam(nextSearchParams, "auth", "google");
+        },
+      ),
     );
   }
 

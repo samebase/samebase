@@ -75,4 +75,14 @@ describe("buildPathWithQuery", () => {
       }),
     ).toBe("/?prod-ui#section");
   });
+
+  it("collapses duplicate leading number signs in hash input", () => {
+    expect(
+      buildPathWithQuery({
+        pathname: "/",
+        search: "?prod-ui",
+        hash: "##section",
+      }),
+    ).toBe("/?prod-ui#section");
+  });
 });

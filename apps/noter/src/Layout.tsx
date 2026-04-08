@@ -13,13 +13,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const appCommit = __APP_COMMIT__ || "unknown";
   const appCommitNumber = __APP_COMMIT_NUMBER__;
   const repoUrl = __APP_REPO_URL__ || "";
-  const location = useLocation({
-    select: (location) => ({
-      hash: location.hash,
-      pathname: location.pathname,
-      search: location.searchStr,
-    }),
-  });
+  const location = useLocation();
   const navigate = useNavigate();
   const rootRouteSearch = useRootRouteSearch();
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -39,7 +33,7 @@ export function Layout({ children }: { children: ReactNode }) {
     !isLoading && !isAuthenticated && location.pathname !== "/";
   const landingDevToggleHref = buildLandingDevToggleHref(
     location.pathname,
-    location.search,
+    location.searchStr,
     location.hash,
   );
   const landingDevToggleLabel = getLandingDevToggleLabel(rootRouteSearch);
