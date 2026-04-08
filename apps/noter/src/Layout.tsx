@@ -4,9 +4,10 @@ import {
 } from "@/lib/landingDevMode";
 import { ReactNode, useEffect, type MouseEvent } from "react";
 import { useConvexAuth } from "convex/react";
-import { useLocation, useNavigate, useSearchParams } from "@/lib/router";
+import { useLocation, useNavigate } from "@/lib/router";
 import { AppBuildStatusBar } from "@/components/AppBuildStatusBar";
 import { WorkspaceLayoutV2PageFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PageFrame";
+import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 
 export function Layout({ children }: { children: ReactNode }) {
   const appCommit = __APP_COMMIT__ || "unknown";
@@ -14,13 +15,13 @@ export function Layout({ children }: { children: ReactNode }) {
   const repoUrl = __APP_REPO_URL__ || "";
   const location = useLocation();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const rootRouteSearch = useRootRouteSearch();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const showLandingDevToggle =
     !isLoading &&
     !isAuthenticated &&
     location.pathname === "/" &&
-    !searchParams.has("auth");
+    rootRouteSearch.auth !== "google";
   // Keep legal links available on every unauthenticated sign-in surface while
   // auth is still resolving so they never disappear during startup or route
   // handoffs.
@@ -31,7 +32,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const showPublicNavigation =
     !isLoading && !isAuthenticated && location.pathname !== "/";
   const landingDevToggleHref = buildLandingDevToggleHref(location);
-  const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
+  const landingDevToggleLabel = getLandingDevToggleLabel(rootRouteSearch);
   const handleLandingDevToggleClick = (
     event: MouseEvent<HTMLAnchorElement>,
   ) => {

@@ -17,6 +17,7 @@ import {
 } from "@/lib/publicLandingScrollState";
 import { shouldShowGoogleAuthForLocation } from "@/lib/publicLandingAuthState";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
+import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import {
   clearPublicLandingWaitlistDraft,
   readPublicLandingWaitlistDraft,
@@ -31,7 +32,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useLocation, useSearchParams } from "@/lib/router";
+import { useLocation } from "@/lib/router";
 import { api } from "../convex/_generated/api";
 import { SignInWithGoogle } from "./SignInWithGoogle";
 
@@ -44,10 +45,13 @@ type SignInFormProps = {
 
 export function SignInForm({ topNotice }: SignInFormProps = {}) {
   const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const landingDevModeEnabled = isLandingDevModeEnabled(searchParams);
-  const prodUiModeEnabled = isProdUiModeEnabled(searchParams);
-  const showGoogleAuth = shouldShowGoogleAuthForLocation(location);
+  const rootRouteSearch = useRootRouteSearch();
+  const landingDevModeEnabled = isLandingDevModeEnabled(rootRouteSearch);
+  const prodUiModeEnabled = isProdUiModeEnabled(rootRouteSearch);
+  const showGoogleAuth = shouldShowGoogleAuthForLocation(
+    location,
+    rootRouteSearch,
+  );
   const showPasswordAuth = import.meta.env.DEV && !prodUiModeEnabled;
   const isLandingCopyEditable = !prodUiModeEnabled && landingDevModeEnabled;
   const scrollShellRef = useRef<HTMLDivElement | null>(null);

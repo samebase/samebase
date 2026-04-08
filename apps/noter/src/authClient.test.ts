@@ -84,7 +84,7 @@ describe("useAutoSignIn", () => {
       configurable: true,
     });
 
-    useAutoSignIn();
+    useAutoSignIn("google");
 
     expect(localStorageSetItemMock).toHaveBeenCalledWith(
       "noter_auth_provider",
@@ -94,5 +94,34 @@ describe("useAutoSignIn", () => {
     expect(signInMock).toHaveBeenCalledWith("google", {
       redirectTo: expectedRedirectTo,
     });
+  });
+
+  it("does nothing when the routed auth search is absent", () => {
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          pathname: "/pricing",
+          search: "",
+          hash: "",
+        },
+        history: {
+          replaceState: replaceStateMock,
+        },
+      },
+      configurable: true,
+    });
+
+    Object.defineProperty(globalThis, "localStorage", {
+      value: {
+        setItem: localStorageSetItemMock,
+      },
+      configurable: true,
+    });
+
+    useAutoSignIn(undefined);
+
+    expect(localStorageSetItemMock).not.toHaveBeenCalled();
+    expect(replaceStateMock).not.toHaveBeenCalled();
+    expect(signInMock).not.toHaveBeenCalled();
   });
 });

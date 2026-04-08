@@ -22,6 +22,10 @@ vi.mock("@convex-dev/auth/react", () => ({
   }),
 }));
 
+vi.mock("@/lib/rootRouteSearch", () => ({
+  useRootRouteSearch: () => ({}),
+}));
+
 vi.mock("convex/react", () => ({
   useMutation: () => vi.fn().mockResolvedValue(undefined),
 }));

@@ -321,6 +321,27 @@ migration with concrete problems, attempted fixes, and outcomes.
   always apply browser back/forward search updates even while scene interaction
   is active.
 
+- Problem: the last meaningful search seam was the root landing flow, where
+  `?auth`, `?dev`, and `?prod-ui` were still split across `App.tsx`,
+  `SignInForm.tsx`, `Layout.tsx`, `publicLandingAuthState.ts`,
+  `landingDevMode.ts`, compat `useSearchParams`, and `useAutoSignIn()` reading
+  `window.location.search`. Tried: added a root-route Zod validator plus a
+  repo-owned `useRootRouteSearch()` hook, moved the shared landing/auth runtime
+  reads onto that route-owned contract, and left the existing string-based URL
+  builders in place so toggles and popup redirects could keep preserving
+  unrelated query params. Result: the routed app now owns the root landing
+  search contract through TanStack Router, the old compat search hook is no
+  longer part of the landing flow, and the next phase can focus on replacing the
+  root bootstrap split instead of finishing search migration first.
+
+- Problem: the root-route helper initially imported `rootRouteId` from
+  `@tanstack/router-core`, which is visible inside the lockfile tree but not as
+  an app-level package import. Tried: used that package directly after checking
+  the installed runtime internals. Result: TypeScript/Vite resolution failed in
+  the app package, so the safe app-local route binding is the stable root ID
+  literal `"__root__"` until the package graph intentionally exposes a better
+  public import path.
+
 ## Completed Milestones
 
 1. Introduce a repo-owned router seam and move current imports behind it.
@@ -336,17 +357,17 @@ migration with concrete problems, attempted fixes, and outcomes.
 6. Move the authenticated explicit routes with meaningful query state onto
    route-owned TanStack search handling, including MCP consent, pricing, machine
    connect, and machines workspace params.
+7. Move the root landing search state onto route-owned TanStack handling,
+   including `?auth`, `?dev`, and the related shared landing/auth helpers.
 
 ## Remaining Sequence
 
-1. Migrate the root landing search state onto route-owned TanStack handling,
-   including `?auth` and `?dev`.
-2. Move the root landing/dashboard split onto normal routed rendering and only
+1. Move the root landing/dashboard split onto normal routed rendering and only
    then delete `bootstrap.ts`. Preserve any tiny pre-paint support that is still
    justified, such as theme setup, but do not preserve the split runtime.
-3. Delete bootstrap-only parity code once routed landing parity is proven:
+2. Delete bootstrap-only parity code once routed landing parity is proven:
    `resolveBootstrapPageMetadata()`, `shouldRenderFastLandingShell()`,
    `fastLandingBoot.ts`, and the related parity-only tests or fixtures.
-4. Keep the shared workspace wrapper and drag-contract migration from
+3. Keep the shared workspace wrapper and drag-contract migration from
    `specs/080` on a separate rollout track, and reconnect it only where routed
    ownership genuinely needs those seams.
