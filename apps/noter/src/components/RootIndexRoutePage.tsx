@@ -31,7 +31,11 @@ function buildLocationHref(
   search: string,
   hash: string,
 ): string {
-  return `${pathname}${search}${hash.length > 0 ? `#${hash}` : ""}`;
+  if (hash.length === 0) {
+    return `${pathname}${search}`;
+  }
+
+  return `${pathname}${search}${hash.startsWith("#") ? hash : `#${hash}`}`;
 }
 
 const initialFastLandingPath =
@@ -40,7 +44,11 @@ const initialFastLandingPath =
     window.location.pathname,
     readRootRouteSearch(window.location.search),
   )
-    ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+    ? buildLocationHref(
+        window.location.pathname,
+        window.location.search,
+        window.location.hash,
+      )
     : null;
 
 function markFastLandingShellSessionComplete() {
