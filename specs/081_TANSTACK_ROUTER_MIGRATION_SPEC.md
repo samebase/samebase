@@ -166,6 +166,35 @@ migration with concrete problems, attempted fixes, and outcomes.
   `MemoryRouter`, plus a direct seam test that covers location strings, raw
   state, and search-param writes.
 
+- Problem: phase 3 needed to start moving real paths into TanStack Router
+  without dragging authenticated workspace routing into the same patch. Tried:
+  promoted the simple public and dev-only surfaces (`/privacy`, `/terms`,
+  `/logo*`, `/pitch*`, and the Codex research paths) into explicit TanStack
+  routes while leaving `/`, `/pricing`, machines, vault, MCP-consent, and other
+  auth-gated routes behind the `App` catch-all. Result: the route tree now owns
+  the low-risk standalone pages, and `App.tsx` shrinks without having to solve
+  auth/layout ownership in the same cut.
+
+- Problem: the first explicit route tree patch needed JSX route wrappers, but
+  the bootstrap router seam lived in `appRouter.ts`. Tried: added wrapper
+  components around lazy route surfaces and ran TypeScript/Prettier. Result:
+  that part worked, but CI later showed the exported router factory still trips
+  `react-refresh/only-export-components` when the module lives in `.tsx`. Keep
+  the exported router module in `appRouter.ts` for now and use `createElement`
+  instead of JSX until the provider/factory split is worth the extra file churn.
+
+- Problem: once explicit routes and the `$` fallback coexist, it is easy for a
+  public page to silently fall back into `App.tsx` again during later edits.
+  Tried: added a focused TanStack route-tree test that renders `/terms`,
+  `/logo`, and a vault path through a memory history. Result: the test now
+  proves both route precedence directions we care about in this phase.
+
+- Problem: TanStack Router's initial navigation touches `window.scrollTo()`,
+  which jsdom does not implement. Tried: ran the new route-tree test under
+  Vitest jsdom and inspected the stderr noise. Result: stub `scrollTo()` in the
+  focused router test instead of carrying noisy false positives during the
+  migration.
+
 ## Initial Sequence
 
 1. Introduce a repo-owned router seam and move current imports behind it.
