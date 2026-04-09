@@ -86,7 +86,10 @@ import { getStagedFileStatus as getSharedStagedFileStatus } from "../../shared/s
 import { isStaleBaseVersionError } from "../../shared/stagingErrors";
 import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
 import { isInIframe } from "@/authClient";
-import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
+import {
+  resolveFilePathForResolvedBranch,
+  resolveLegacyBranchlessFilePath,
+} from "@/lib/legacyBranchlessRoute";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import {
   buildStagingPreviewRefreshKey,
@@ -340,11 +343,6 @@ function FileViewWrapper() {
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const routeBranch = branchParam;
   const selectedFile = filePathParam ?? "";
-  const selectedFileFromBranchlessRoute = branchParam
-    ? [routeBranch ?? branchParam, selectedFile]
-        .filter((segment) => segment.length > 0)
-        .join("/")
-    : selectedFile;
   const repositoryFullName = owner && repoName ? `${owner}/${repoName}` : null;
 
   // Get vault for this repository
@@ -367,18 +365,18 @@ function FileViewWrapper() {
     [vault, selectedFile],
   );
   const selectedFileExistsInTree = selectedTreeEntry?.type === "blob";
-  const legacyBranchlessFilePath = useMemo(
-    () =>
-      vault &&
-      !vault.branchNotFound &&
-      resolveLegacyBranchlessFilePath({
-        branchSegment: routeBranch,
-        selectedFile,
-        selectedFileExistsInTree,
-        tree: vault.treeData.tree,
-      }),
-    [vault, routeBranch, selectedFile, selectedFileExistsInTree],
-  );
+  const legacyBranchlessFilePath = useMemo(() => {
+    if (!vault || vault.branchNotFound) {
+      return null;
+    }
+
+    return resolveLegacyBranchlessFilePath({
+      branchSegment: routeBranch,
+      selectedFile,
+      selectedFileExistsInTree,
+      tree: vault.treeData.tree,
+    });
+  }, [vault, routeBranch, selectedFile, selectedFileExistsInTree]);
   const selectedFileIsRenderableMedia =
     isRenderableRepositoryMediaPath(selectedFile);
   const [storageBackedSelection, setStorageBackedSelection] = useState<
@@ -556,10 +554,10 @@ function FileViewWrapper() {
       owner,
       repoName,
       branch: resolvedBranch,
-      filePath:
-        selectedFileFromBranchlessRoute.length > 0
-          ? selectedFileFromBranchlessRoute
-          : undefined,
+      filePath: resolveFilePathForResolvedBranch({
+        selectedFile,
+        legacyBranchlessFilePath,
+      }),
     });
     navigateByHref(appendCurrentSearch(nextPath), { replace: true });
   }, [
@@ -567,7 +565,8 @@ function FileViewWrapper() {
     owner,
     repoName,
     branchParam,
-    selectedFileFromBranchlessRoute,
+    selectedFile,
+    legacyBranchlessFilePath,
     vault?.branchNotFound,
     vault?.resolvedBranch,
     navigateByHref,
