@@ -78,7 +78,6 @@ import {
 } from "@/lib/logoRouteSearch";
 import { shouldSyncLogoPreviewQueryState } from "@/lib/logoPreviewQuerySync";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
-import { stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
@@ -288,6 +287,45 @@ function isLogoPresetId(value: string): value is LogoPresetId {
   return LOGO_PRESETS.some((preset) => preset.id === value);
 }
 
+function readCanonicalLogoRouteSearch(
+  routeSearch: LogoRouteSearch,
+): LogoRouteSearch {
+  return buildLogoRouteSearch({
+    elevationDegrees: readElevationDegrees(routeSearch),
+    faceColors: readFaceColors(routeSearch),
+    isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
+    isoStyleId: readIsoStyleId(routeSearch),
+    rotationAxisMode: readRotationAxisMode(routeSearch),
+    rotationDegrees: readRotationDegrees(routeSearch),
+    viewSnapEnabled: readViewSnapEnabled(routeSearch),
+    voxelState: readVoxelState(routeSearch),
+  });
+}
+
+const LOGO_ROUTE_SEARCH_KEYS = [
+  "axis",
+  "elev",
+  "freeView",
+  "isoSide",
+  "isoStyle",
+  "leftColor",
+  "rightColor",
+  "rot",
+  "topColor",
+  "vox",
+] as const satisfies readonly (keyof LogoRouteSearch)[];
+
+function areLogoRouteSearchesEqual(
+  left: LogoRouteSearch,
+  right: LogoRouteSearch,
+): boolean {
+  if (Object.keys(left).length !== Object.keys(right).length) {
+    return false;
+  }
+
+  return LOGO_ROUTE_SEARCH_KEYS.every((key) => left[key] === right[key]);
+}
+
 export function LogoPreviewPage({
   renderMode = "three",
   replaceRouteSearch,
@@ -296,7 +334,7 @@ export function LogoPreviewPage({
   const isIsometricMode = renderMode === "iso";
   const backgroundColor = getTailwindColorHex("background-base");
   const controlsToolbarRef = useRef<HTMLDivElement | null>(null);
-  const currentSearch = stringifyTanStackSearch(routeSearch);
+  const currentRouteSearch = readCanonicalLogoRouteSearch(routeSearch);
   const [isViewSnapEnabled, setIsViewSnapEnabled] = useState(() =>
     readViewSnapEnabled(routeSearch),
   );
@@ -406,11 +444,11 @@ export function LogoPreviewPage({
       voxelState,
     });
 
-    if (stringifyTanStackSearch(nextSearch) !== currentSearch) {
+    if (!areLogoRouteSearchesEqual(nextSearch, currentRouteSearch)) {
       replaceRouteSearch(nextSearch);
     }
   }, [
-    currentSearch,
+    currentRouteSearch,
     elevationDegrees,
     faceColors,
     isAutoRotating,

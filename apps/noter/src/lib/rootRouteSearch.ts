@@ -1,5 +1,4 @@
 import { getRouteApi } from "@tanstack/react-router";
-import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { z } from "zod";
 
 // TanStack Router's root route id is the stable "__root__" literal, and using
@@ -45,15 +44,17 @@ export function validateRootRouteSearch(
 }
 
 /**
- * `readRootRouteSearch` normalizes string, URLSearchParams, or undefined input
- * through `parseTanStackSearch` and `parseRootRouteSearch`.
+ * `readRootRouteSearch` accepts browser-style string/URLSearchParams input and
+ * normalizes it through `URLSearchParams` before schema validation.
  */
 export function readRootRouteSearch(
   search: string | URLSearchParams | undefined,
 ): RootRouteSearch {
   return parseRootRouteSearch(
-    parseTanStackSearch(
-      typeof search === "string" ? search : search?.toString() ?? "",
+    Object.fromEntries(
+      new URLSearchParams(
+        typeof search === "string" ? search : search?.toString() ?? "",
+      ).entries(),
     ),
   );
 }

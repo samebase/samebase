@@ -1,10 +1,13 @@
-import { Link, getRouteApi, linkOptions } from "@tanstack/react-router";
+import {
+  Link,
+  getRouteApi,
+  linkOptions,
+  useRouter,
+} from "@tanstack/react-router";
 import {
   buildPricingRouteSearch,
   type PricingRouteSearch,
 } from "@/lib/authenticatedRouteSearch";
-import { buildPathWithQuery } from "@/lib/queryParams";
-import { stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -27,15 +30,8 @@ function buildPricingLinkOptions(
   });
 }
 
-function buildPricingPath(checkout: PricingRouteSearch["checkout"] | null) {
-  const options = buildPricingLinkOptions(checkout);
-  return buildPathWithQuery({
-    pathname: options.to,
-    search: stringifyTanStackSearch(options.search),
-  });
-}
-
 export function PricingPage() {
+  const router = useRouter();
   const routeSearch = pricingRouteApi.useSearch();
   const billingStatus = useQuery(api.billing.getViewerBillingStatus);
   const dashboardSettings = useQuery(
@@ -70,6 +66,9 @@ export function PricingPage() {
   const isPro =
     billingStatus?.plan === "pro" && billingStatus.status === "active";
 
+  const buildPricingHref = (checkout: PricingRouteSearch["checkout"] | null) =>
+    router.buildLocation(buildPricingLinkOptions(checkout)).href;
+
   useEffect(() => {
     if (checkoutState === "success") {
       setCheckoutError(null);
@@ -86,10 +85,10 @@ export function PricingPage() {
     try {
       const origin = window.location.origin;
       const successUrl = new URL(
-        buildPricingPath("success"),
+        buildPricingHref("success"),
         origin,
       ).toString();
-      const returnUrl = new URL(buildPricingPath("cancel"), origin).toString();
+      const returnUrl = new URL(buildPricingHref("cancel"), origin).toString();
       const result = await createCheckoutSession({
         interval: billingCycle,
         successUrl,
@@ -110,7 +109,7 @@ export function PricingPage() {
 
     try {
       const origin = window.location.origin;
-      const returnUrl = new URL(buildPricingPath(null), origin).toString();
+      const returnUrl = new URL(buildPricingHref(null), origin).toString();
       const result = await createPortalSession({ returnUrl });
       window.location.assign(result.url);
     } catch (error) {
