@@ -1,10 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  shouldRenderFastLandingShell,
-  shouldRenderPublicLandingWithoutAuthGate,
-} from "./publicLandingAuthState";
+import { shouldRenderPublicLandingWithoutAuthGate } from "./publicLandingAuthState";
 import { validateRootRouteSearch } from "./rootRouteSearch";
 
 const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
@@ -58,9 +55,6 @@ describe("publicLandingAuthState", () => {
     });
     window.localStorage.setItem("__convexAuthRefreshToken", "anon-token");
 
-    expect(shouldRenderFastLandingShell("/", validateRootRouteSearch({}))).toBe(
-      true,
-    );
     expect(
       shouldRenderPublicLandingWithoutAuthGate(
         "/",
@@ -76,9 +70,6 @@ describe("publicLandingAuthState", () => {
     });
     window.localStorage.setItem("noter_auth_provider", "google");
 
-    expect(shouldRenderFastLandingShell("/", validateRootRouteSearch({}))).toBe(
-      false,
-    );
     expect(
       shouldRenderPublicLandingWithoutAuthGate(
         "/",
