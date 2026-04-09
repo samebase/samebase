@@ -11,10 +11,6 @@ import {
   PUBLIC_LANDING_COPY_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
 } from "@/lib/publicLanding";
-import {
-  clearPendingPublicLandingScrollTop,
-  readPendingPublicLandingScrollTop,
-} from "@/lib/publicLandingScrollState";
 import { shouldShowGoogleAuthForPathname } from "@/lib/publicLandingAuthState";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
@@ -26,13 +22,7 @@ import {
 import { useLocation } from "@tanstack/react-router";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
-import {
-  type ReactNode,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { api } from "../convex/_generated/api";
 import { SignInWithGoogle } from "./SignInWithGoogle";
 
@@ -56,33 +46,13 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
   );
   const showPasswordAuth = import.meta.env.DEV && !prodUiModeEnabled;
   const isLandingCopyEditable = !prodUiModeEnabled && landingDevModeEnabled;
-  const scrollShellRef = useRef<HTMLDivElement | null>(null);
   // Keep the editable `/?dev` view and the plain landing view on the same
   // in-memory draft so query-param toggles do not reset the current copy.
   const [landingMarkdownDraft, setLandingMarkdownDraft] =
     useState(landingPageMarkdown);
 
-  useLayoutEffect(() => {
-    const scrollTop = readPendingPublicLandingScrollTop();
-    if (scrollTop === null || scrollShellRef.current === null) {
-      return;
-    }
-
-    scrollShellRef.current.scrollTop = scrollTop;
-    const animationFrameId = window.requestAnimationFrame(() => {
-      clearPendingPublicLandingScrollTop(scrollTop);
-    });
-
-    return () => {
-      window.cancelAnimationFrame(animationFrameId);
-    };
-  }, []);
-
   return (
-    <AppPageScrollShell
-      ref={scrollShellRef}
-      data-testid={PUBLIC_LANDING_SCROLL_SHELL_TEST_ID}
-    >
+    <AppPageScrollShell data-testid={PUBLIC_LANDING_SCROLL_SHELL_TEST_ID}>
       <div className="container my-auto">
         <div
           data-testid="public-landing-content"

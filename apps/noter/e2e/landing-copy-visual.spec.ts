@@ -51,32 +51,6 @@ async function readLandingCopyLayout(locator: Locator) {
   });
 }
 
-test("landing copy stays visually aligned across the shell handoff", async ({
-  page,
-}, testInfo) => {
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-
-  const landingCopy = page
-    .getByTestId(PUBLIC_LANDING_COPY_TEST_ID)
-    .locator(".cm-landing-copy");
-  await page.getByTestId("public-landing-shell").waitFor({ state: "visible" });
-
-  const shellScreenshot = await takeStableScreenshot(landingCopy);
-  await page.getByTestId("public-landing-shell").waitFor({
-    state: "detached",
-    timeout: 10_000,
-  });
-  const hydratedScreenshot = await takeStableScreenshot(landingCopy);
-
-  await expectScreenshotsToMatch({
-    actual: hydratedScreenshot,
-    expected: shellScreenshot,
-    artifactPrefix: "landing-copy-handoff",
-    maxDiffPixelRatio: 0.01,
-    testInfo,
-  });
-});
-
 for (const fixtureCase of PIXEL_PARITY_LANDING_COPY_FIXTURE_CASES) {
   test(`landing copy fixture stays visually aligned for a ${fixtureCase.name}`, async ({
     page,
@@ -146,12 +120,11 @@ test("landing copy stays visually aligned when opening the dev editor", async ({
     Math.random = () => 0;
   });
 
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/", { waitUntil: "networkidle" });
 
   const shellLandingCopy = page
     .getByTestId(PUBLIC_LANDING_COPY_TEST_ID)
     .locator(".cm-landing-copy");
-  await page.getByTestId("public-landing-shell").waitFor({ state: "visible" });
   const shellScreenshot = await takeStableScreenshot(shellLandingCopy);
 
   await page.goto("/?dev", { waitUntil: "networkidle" });
@@ -169,10 +142,10 @@ test("landing copy stays visually aligned when opening the dev editor", async ({
     maxDimensionDeltaPx: {
       height: 1,
     },
-    // The stricter fixture parity checks already prove the shell renderer and
-    // ProseMark styling line up. On the live route, keep this focused on
-    // larger regressions while the temporary routed shell still reflows a bit
-    // differently when opening the dev editor.
+    // The stricter fixture parity checks already prove the plain landing copy
+    // renderer and ProseMark styling line up. On the live route, keep this
+    // focused on larger regressions while the dev editor still reflows a bit
+    // differently when opening.
     maxDiffPixelRatio: 0.05,
     pixelmatchOptions: {
       includeAA: false,

@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter frontend/app shell
-- Last updated: 2026-04-09
+- Last updated: 2026-04-10
 - Depends on:
   - `apps/noter/src/lib/appRouter.ts`
   - `apps/noter/src/components/NotFoundRoutePage.tsx`
@@ -13,10 +13,9 @@
 
 ## Summary
 
-The TanStack Router migration is complete. The cleanup work removes the last
+The TanStack Router migration is complete. The cleanup work removed the
 temporary bridges that were left behind to keep the migration safe and
-incremental, while intentionally keeping the fast landing shell decision
-separate.
+incremental, including the now-deleted fast landing shell path.
 
 This document tracks that cleanup separately from `081` so the accepted
 migration ledger can stay focused on the router transition itself.
@@ -33,8 +32,8 @@ migration ledger can stay focused on the router transition itself.
 5. Replace route-owned raw string helper boundaries with typed TanStack route
    helpers where practical, especially when a helper now exists only for one
    explicit app route.
-6. Keep the landing shell cleanup separate from route-ownership cleanup so that
-   decision can move at a different speed.
+6. Keep deliberate router-level URL policy decisions separate from migration
+   debt so optional standards changes do not block cleanup completion.
 
 ## Cleanup Sequence
 
@@ -46,23 +45,21 @@ migration ledger can stay focused on the router transition itself.
    `MemoryRouter`. Complete.
 4. Remove remaining browser-style location adapters, route-local raw
    history/href escapes, and route-owned raw string helper boundaries.
-   Remaining.
+   Complete.
 5. Revisit `FastPublicLandingShell.tsx` only after the router, fallback, test,
-   and location-shim cleanup no longer depend on it. Remaining.
+   and location-shim cleanup no longer depend on it. Complete.
 
 ## Current Step 4 Targets
 
-The next typed-route cleanup should focus on helper boundaries that still accept
-raw `pathname` / `search` / `hash` strings even though the corresponding routes
-are already explicit TanStack routes.
+The route-owned cleanup work is complete. The remaining custom router behavior
+is intentional product policy rather than migration debt.
 
-Highest-value remaining typed-route targets:
+Intentional remaining router-level boundary:
 
-1. the router-wide query serializer/parser cleanup in
-   `apps/noter/src/lib/tanstackSearchParams.ts`, which now mainly remains for
-   app-router config and generic script-facing helpers
-2. the fast-shell revisit in
-   `apps/noter/src/components/FastPublicLandingShell.tsx` once step 5 is active
+1. `apps/noter/src/lib/tanstackSearchParams.ts` still defines the router-wide
+   query parser/stringifier because Noter intentionally preserves key-only URLs
+   such as `/?dev` instead of adopting TanStack Router's default JSON-style
+   search semantics.
 
 Already completed in this step:
 
@@ -98,6 +95,12 @@ Already completed in this step:
     `apps/noter/src/components/EditedFilesCategories.tsx`
 14. the shell-only landing copy renderer in
     `apps/noter/src/lib/landingCopyShell.ts`
+15. the temporary routed fast shell in
+    `apps/noter/src/components/FastPublicLandingShell.tsx`, its once-per-load
+    root-route handoff in `apps/noter/src/components/RootIndexRoutePage.tsx`,
+    the shell-only scroll store in
+    `apps/noter/src/lib/publicLandingScrollState.ts`, and the dedicated
+    `apps/noter/e2e/public-landing-shell.spec.ts` handoff assertions
 
 Important non-targets for this step:
 
@@ -113,6 +116,9 @@ Important non-targets for this step:
    current non-root route during sign-in flows like MCP consent, so it remains a
    generic helper until those auth redirects can be modeled as route-owned typed
    navigation without losing route preservation.
+5. `apps/noter/src/lib/tanstackSearchParams.ts` is no longer tracked as cleanup
+   debt while Noter intentionally preserves key-only query params such as
+   `/?dev`.
 
 ## Working Log
 
@@ -280,3 +286,15 @@ Important non-targets for this step:
   `LandingCopyVisualFixture.tsx`. Result: the remaining `tanstackSearchParams`
   debt is narrowed to app-router config plus generic script-facing helpers, and
   the fast shell now reuses the same landing-copy renderer as the hydrated app.
+
+- Problem: the last major cleanup decision was whether the routed fast landing
+  shell should stay as a temporary product behavior or be deleted now that the
+  routed landing surface had absorbed its main parity concerns. Tried: remove
+  `FastPublicLandingShell.tsx`, `fastLandingBoot.ts`,
+  `publicLandingScrollState.ts`, and the once-per-load shell session from
+  `RootIndexRoutePage.tsx`, then rewrite the route-level landing tests around
+  the real routed landing in `SignInForm.tsx`. Result: the root route now
+  renders a single landing implementation with no shell handoff, the old
+  shell-only scroll/focus machinery is gone, and the route-level Playwright
+  coverage now asserts the direct routed landing behavior instead of a
+  bootstrap-style transition contract.

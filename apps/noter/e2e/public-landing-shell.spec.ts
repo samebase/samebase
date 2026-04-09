@@ -4,11 +4,7 @@ import {
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
-import { FAST_LANDING_APP_BOOT_DELAY_MS } from "../src/lib/fastLandingBoot";
-import {
-  PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
-  PUBLIC_LANDING_SHELL_MAIN_TEST_ID,
-} from "../src/lib/publicLanding";
+import { PUBLIC_LANDING_SCROLL_SHELL_TEST_ID } from "../src/lib/publicLanding";
 import {
   PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
@@ -18,7 +14,7 @@ import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 
 // These budgets target the local production preview used in CI.
 // Keep them loose enough to absorb runner variance while still catching
-// obvious regressions in the fast landing path.
+// obvious regressions in the public landing route.
 const NAVIGATION_BUDGET_MS = {
   responseEnd: 150,
   domContentLoaded: 400,
@@ -162,38 +158,6 @@ function expectStableLandingToggleFrames(
   expect(
     Math.max(...expectedPathTopValues) - Math.min(...expectedPathTopValues),
   ).toBeLessThanOrEqual(1);
-}
-
-/**
- * The target route should stop jittering once at least 10 target-path frames
- * have been captured, and those settled frames should stay on-screen.
- */
-function expectSettledLandingToggleFrames(
-  frames: LandingToggleFrame[],
-  expectedPathWithSearch: "/?dev" | "/",
-) {
-  const sawExpectedPath = frames.some((frame) => {
-    const url = new URL(frame.href);
-    return `${url.pathname}${url.search}` === expectedPathWithSearch;
-  });
-  expect(sawExpectedPath).toBe(true);
-  expect(frames.some((frame) => frame.top === null)).toBe(false);
-
-  const expectedPathTopValues = frames.flatMap((frame) => {
-    const url = new URL(frame.href);
-    return `${url.pathname}${url.search}` === expectedPathWithSearch &&
-      frame.top !== null
-      ? [frame.top]
-      : [];
-  });
-  expect(expectedPathTopValues.length).toBeGreaterThanOrEqual(10);
-
-  const lastStableWindow = expectedPathTopValues.slice(-10);
-  expect(
-    Math.max(...lastStableWindow) - Math.min(...lastStableWindow),
-  ).toBeLessThanOrEqual(1);
-  expect(Math.min(...expectedPathTopValues)).toBeGreaterThanOrEqual(0);
-  expect(Math.max(...expectedPathTopValues)).toBeLessThanOrEqual(96);
 }
 
 async function expectLandingToggleFocusTarget(
@@ -364,16 +328,14 @@ async function readLandingLogoSceneView(scene: Locator) {
   };
 }
 
-test("public landing shell renders before the full app UI takes over", async ({
+test("public landing renders the routed landing UI directly", async ({
   page,
 }) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/", { waitUntil: "networkidle" });
 
-  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await expect(page.getByTestId("public-landing-content")).toBeVisible();
+  await expect(page.getByTestId(PUBLIC_LANDING_SCROLL_SHELL_TEST_ID)).toBeVisible();
   await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
-  await expect(
-    page.getByTestId("public-landing-waitlist-placeholder"),
-  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Google", includeHidden: true }),
   ).toBeHidden();
@@ -385,27 +347,16 @@ test("public landing shell renders before the full app UI takes over", async ({
   await expect(
     page.getByRole("button", { name: "Join Waitlist" }),
   ).toBeEnabled();
-  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Google", includeHidden: true }),
-  ).toBeHidden();
-  await expect(
-    page.getByRole("button", { name: "Google", includeHidden: true }),
-  ).toBeDisabled();
 });
 
 test("landing dev mode shows Google sign-in", async ({ page }) => {
   await page.goto("/?dev", { waitUntil: "networkidle" });
 
-  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
 });
 
-test("pre-hydration landing dev toggle keeps the waitlist row aligned", async ({
-  page,
-}) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.getByTestId("public-landing-shell").waitFor({ state: "visible" });
+test("landing dev toggle keeps the waitlist row aligned", async ({ page }) => {
+  await page.goto("/", { waitUntil: "networkidle" });
 
   const beforeToggleLayout = await readLandingToggleLayout(page);
 
@@ -433,42 +384,20 @@ test("pre-hydration landing dev toggle keeps the waitlist row aligned", async ({
   ).toBeLessThanOrEqual(1);
 });
 
-test("public landing omits section divider lines before and after handoff", async ({
-  page,
-}) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+test("public landing omits section divider lines", async ({ page }) => {
+  await page.goto("/", { waitUntil: "networkidle" });
 
   const landingContent = page.getByTestId("public-landing-content");
-
-  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
-  await expect(landingContent.locator(".border-t")).toHaveCount(0);
-
-  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
   await expect(landingContent.locator(".border-t")).toHaveCount(0);
 });
 
-test("public landing keeps legal links in the top bar across the shell handoff", async ({
-  page,
-}) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+test("public landing keeps legal links in the top bar", async ({ page }) => {
+  await page.goto("/", { waitUntil: "networkidle" });
 
   const landingContent = page.getByTestId("public-landing-content");
-  const shellStatusBar = page
-    .getByTestId("public-landing-shell")
-    .getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
-  await expectLegalLinksLeadBuildVersion(shellStatusBar);
-  await expect(
-    landingContent.getByRole("link", { name: "/terms" }),
-  ).toHaveCount(0);
-  await expect(
-    landingContent.getByRole("link", { name: "/privacy" }),
-  ).toHaveCount(0);
-
-  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
-
-  const hydratedStatusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
-  await expectLegalLinksLeadBuildVersion(hydratedStatusBar);
+  await expectLegalLinksLeadBuildVersion(statusBar);
   await expect(
     landingContent.getByRole("link", { name: "/terms" }),
   ).toHaveCount(0);
@@ -492,237 +421,97 @@ test("mcp consent sign-in keeps legal links in the top bar", async ({
   await expect(page.getByText("Temporary MCP sign-in note")).toBeVisible();
 });
 
-test("build version stays stable across the landing shell handoff", async ({
-  page,
-}, testInfo) => {
-  await page.addInitScript((bootDelayMs) => {
-    const originalSetTimeout = window.setTimeout.bind(window);
-    window.setTimeout = (handler, timeout, ...args) => {
-      if (timeout === bootDelayMs) {
-        return originalSetTimeout(handler, 600, ...args);
-      }
-      return originalSetTimeout(handler, timeout, ...args);
-    };
-  }, FAST_LANDING_APP_BOOT_DELAY_MS);
+test("build version stays stable on the public landing", async ({ page }) => {
+  await page.goto("/", { waitUntil: "networkidle" });
 
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  const version = statusBar.getByTestId(APP_BUILD_VERSION_TEST_ID);
+  const commit = statusBar.getByTestId(APP_BUILD_COMMIT_LINK_TEST_ID);
 
-  const shellStatusBar = page
-    .getByTestId("public-landing-shell")
-    .getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
-  const shellVersion = shellStatusBar.getByTestId(APP_BUILD_VERSION_TEST_ID);
-  const shellCommit = shellStatusBar.getByTestId(APP_BUILD_COMMIT_LINK_TEST_ID);
-
-  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
-  await expectAppBuildVersionDisplay(shellStatusBar, shellVersion, shellCommit);
-  const shellVersionText = await shellVersion.textContent();
-  const shellCommitText = await shellCommit.textContent();
-  const shellVersionHref = await expectAppBuildCommitLink(shellCommit);
-  expect(shellVersionText).not.toBeNull();
-  expect(shellCommitText).not.toBeNull();
-
-  const shellScreenshot = await takeStableScreenshot(shellStatusBar);
-
-  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
-
-  const hydratedStatusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
-  const hydratedVersion = hydratedStatusBar.getByTestId(
-    APP_BUILD_VERSION_TEST_ID,
-  );
-  const hydratedCommit = hydratedStatusBar.getByTestId(
-    APP_BUILD_COMMIT_LINK_TEST_ID,
-  );
-
-  await expectAppBuildVersionDisplay(
-    hydratedStatusBar,
-    hydratedVersion,
-    hydratedCommit,
-  );
-  await expect(hydratedVersion).toHaveText(shellVersionText ?? "");
-  await expect(hydratedCommit).toHaveText(shellCommitText ?? "");
-  await expect(hydratedCommit).toHaveAttribute("href", shellVersionHref ?? "");
-
-  const hydratedScreenshot = await takeStableScreenshot(hydratedStatusBar);
-
-  await expectScreenshotsToMatch({
-    actual: hydratedScreenshot,
-    artifactPrefix: "public-landing-build-version-handoff",
-    expected: shellScreenshot,
-    maxDiffPixelRatio: 0.005,
-    testInfo,
-  });
+  await expectAppBuildVersionDisplay(statusBar, version, commit);
+  await expectAppBuildCommitLink(commit);
 });
 
-test("build version copies as a Markdown link across the shell handoff", async ({
+test("build version copies as a Markdown link on the public landing", async ({
   page,
 }) => {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.addInitScript((bootDelayMs) => {
-    const originalSetTimeout = window.setTimeout.bind(window);
-    window.setTimeout = (handler, timeout, ...args) => {
-      if (timeout === bootDelayMs) {
-        return originalSetTimeout(handler, 600, ...args);
-      }
-      return originalSetTimeout(handler, timeout, ...args);
-    };
-  }, FAST_LANDING_APP_BOOT_DELAY_MS);
+  await page.goto("/", { waitUntil: "networkidle" });
 
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-
-  const shellVersion = page
-    .getByTestId("public-landing-shell")
-    .getByTestId(APP_BUILD_VERSION_TEST_ID);
-  const shellCommit = page
-    .getByTestId("public-landing-shell")
-    .getByTestId(APP_BUILD_COMMIT_LINK_TEST_ID);
-  const shellStatusBar = page
-    .getByTestId("public-landing-shell")
-    .getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
-  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
-  await expectAppBuildVersionDisplay(shellStatusBar, shellVersion, shellCommit);
-  const shellCommitText = await shellCommit.textContent();
-  const shellVersionHref = await expectAppBuildCommitLink(shellCommit);
-  expect(shellCommitText).not.toBeNull();
-  await selectText(shellCommit);
+  const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  const version = page.getByTestId(APP_BUILD_VERSION_TEST_ID);
+  const commit = page.getByTestId(APP_BUILD_COMMIT_LINK_TEST_ID);
+  await expectAppBuildVersionDisplay(statusBar, version, commit);
+  const commitText = await commit.textContent();
+  const versionHref = await expectAppBuildCommitLink(commit);
+  expect(commitText).not.toBeNull();
+  await selectText(commit);
   await page.keyboard.press(COPY_SHORTCUT_KEY);
-  const shellClipboardText = await readClipboardText(page);
-  expect(shellClipboardText).toBe(`[${shellCommitText}](${shellVersionHref})`);
-
-  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
-
-  const hydratedStatusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
-  const hydratedVersion = page.getByTestId(APP_BUILD_VERSION_TEST_ID);
-  const hydratedCommit = page.getByTestId(APP_BUILD_COMMIT_LINK_TEST_ID);
-  await expectAppBuildVersionDisplay(
-    hydratedStatusBar,
-    hydratedVersion,
-    hydratedCommit,
-  );
-  await selectText(hydratedCommit);
-  await page.keyboard.press(COPY_SHORTCUT_KEY);
-  const hydratedClipboardText = await readClipboardText(page);
-
-  expect(hydratedClipboardText).toBe(
-    `[${shellCommitText}](${shellVersionHref})`,
-  );
+  const clipboardText = await readClipboardText(page);
+  expect(clipboardText).toBe(`[${commitText}](${versionHref})`);
 });
 
-test("landing footer links keep browser link styling across the shell handoff", async ({
+test("landing footer links keep browser link styling", async ({
   page,
 }, testInfo) => {
-  await page.addInitScript((bootDelayMs) => {
-    const originalSetTimeout = window.setTimeout.bind(window);
-    window.setTimeout = (handler, timeout, ...args) => {
-      if (timeout === bootDelayMs) {
-        return originalSetTimeout(handler, 600, ...args);
-      }
-      return originalSetTimeout(handler, timeout, ...args);
-    };
-  }, FAST_LANDING_APP_BOOT_DELAY_MS);
+  await page.goto("/", { waitUntil: "networkidle" });
 
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-
-  const shellRoot = page.getByTestId("public-landing-shell");
-  const shellTermsLink = shellRoot.getByRole("link", {
+  const termsLink = page.getByRole("link", {
     name: "/terms",
     exact: true,
   });
-  const shellFooter = shellTermsLink.locator("xpath=..");
+  const footer = termsLink.locator("xpath=..");
 
-  await expect(shellRoot).toBeVisible();
-  await expect(shellTermsLink).toBeVisible();
+  await expect(termsLink).toBeVisible();
 
-  const shellLinkPresentation = await readLinkPresentation(shellTermsLink);
-  expect(shellLinkPresentation.textDecorationLine).toContain("underline");
+  const linkPresentation = await readLinkPresentation(termsLink);
+  expect(linkPresentation.textDecorationLine).toContain("underline");
 
-  const shellScreenshot = await takeStableScreenshot(shellFooter);
+  const footerScreenshot = await takeStableScreenshot(footer);
 
-  await expect(shellRoot).toHaveCount(0);
-
-  const hydratedTermsLink = page.getByRole("link", {
-    name: "/terms",
-    exact: true,
-  });
-  const hydratedFooter = hydratedTermsLink.locator("xpath=..");
-
-  await expect(hydratedTermsLink).toBeVisible();
-
-  const hydratedLinkPresentation =
-    await readLinkPresentation(hydratedTermsLink);
-  expect(hydratedLinkPresentation.textDecorationLine).toContain("underline");
-  expect(hydratedLinkPresentation).toEqual(shellLinkPresentation);
-
-  const hydratedScreenshot = await takeStableScreenshot(hydratedFooter);
-
-  await testInfo.attach("public-landing-footer-links-shell", {
-    body: shellScreenshot,
-    contentType: "image/png",
-  });
-  await testInfo.attach("public-landing-footer-links-hydrated", {
-    body: hydratedScreenshot,
+  await testInfo.attach("public-landing-footer-links", {
+    body: footerScreenshot,
     contentType: "image/png",
   });
 });
 
-test("landing preserves scroll position across the shell handoff", async ({
+test("landing preserves scroll position while toggling dev mode", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 320 });
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-
-  const shellMain = page.getByTestId(PUBLIC_LANDING_SHELL_MAIN_TEST_ID);
-  await shellMain.waitFor({ state: "visible" });
-
-  const shellScrollTop = await shellMain.evaluate((element) => {
-    if (!(element instanceof HTMLElement)) {
-      throw new Error("Expected pre-hydration landing scroll container");
-    }
-
-    element.scrollTop = 160;
-    return element.scrollTop;
-  });
-  expect(shellScrollTop).toBeGreaterThan(0);
-
-  await page.getByTestId("public-landing-shell").waitFor({
-    state: "detached",
-    timeout: 10_000,
-  });
+  await page.goto("/?prod-ui", { waitUntil: "networkidle" });
 
   const hydratedScrollShell = page.getByTestId(
     PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
   );
   await expect(hydratedScrollShell).toBeVisible();
+  const initialScrollTop = await hydratedScrollShell.evaluate((element) => {
+    if (!(element instanceof HTMLElement)) {
+      throw new Error("Expected landing scroll shell");
+    }
+
+    element.scrollTop = 160;
+    return element.scrollTop;
+  });
+  expect(initialScrollTop).toBeGreaterThan(0);
+
+  await page.getByRole("link", { name: "/?dev", exact: true }).click();
+  await expect(page).toHaveURL(/\/\?prod-ui&dev$/);
   await expect
     .poll(() =>
       hydratedScrollShell.evaluate((element) => {
         if (!(element instanceof HTMLElement)) {
-          throw new Error("Expected hydrated landing scroll shell");
+          throw new Error("Expected landing scroll shell");
         }
 
         return element.scrollTop;
       }),
     )
-    .toBe(shellScrollTop);
+    .toBe(initialScrollTop);
 });
 
 test.describe("mobile landing dev toggle", () => {
   test.use(mobileLandingDevice);
-
-  test("pre-hydration landing dev toggle keeps the landing card stable frame by frame", async ({
-    page,
-  }) => {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page
-      .getByTestId("public-landing-shell")
-      .waitFor({ state: "visible" });
-
-    const shellFrames = await captureLandingToggleFrames(page, "/?dev");
-    expectSettledLandingToggleFrames(shellFrames, "/?dev");
-    await expectLandingToggleFocusTarget(page);
-    await expectLandingLogoAutoRotates(
-      page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID),
-    );
-  });
 
   test("landing dev toggle keeps the landing card stable frame by frame", async ({
     page,
@@ -742,11 +531,10 @@ test.describe("mobile landing dev toggle", () => {
   });
 });
 
-test("pre-hydration landing dev toggle ignores duplicate taps", async ({
+test("landing dev toggle ignores duplicate taps", async ({
   page,
 }) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.getByTestId("public-landing-shell").waitFor({ state: "visible" });
+  await page.goto("/", { waitUntil: "networkidle" });
 
   await page.evaluate(() => {
     const toggleLink = document.getElementById("public-landing-dev-toggle");
@@ -773,109 +561,42 @@ test("pre-hydration landing dev toggle ignores duplicate taps", async ({
   await expect(page).toHaveURL(/\/$/);
 });
 
-test("shell waitlist input preserves typed email through handoff", async ({
+test("waitlist input preserves typed email through the dev toggle", async ({
   page,
 }) => {
-  await page.addInitScript((bootDelayMs) => {
-    const originalSetTimeout = window.setTimeout.bind(window);
-    window.setTimeout = (handler, timeout, ...args) => {
-      if (timeout === bootDelayMs) {
-        return originalSetTimeout(handler, 600, ...args);
-      }
-      return originalSetTimeout(handler, timeout, ...args);
-    };
-  }, FAST_LANDING_APP_BOOT_DELAY_MS);
-
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/", { waitUntil: "networkidle" });
 
   const waitlistInput = page.getByPlaceholder("email@example.com");
-  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
   await waitlistInput.fill("shell@example.com");
-  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+  await page.getByRole("link", { name: "/?dev", exact: true }).click();
+  await expect(page).toHaveURL(/\/\?dev$/);
   await expect(page.getByPlaceholder("email@example.com")).toBeEditable();
   await expect(page.getByPlaceholder("email@example.com")).toHaveValue(
     "shell@example.com",
   );
 });
 
-test("shell waitlist focus survives the scheduled handoff", async ({
+test("public landing keeps the card height stable while toggling dev mode", async ({
   page,
 }) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-
-  const waitlistInput = page.getByPlaceholder("email@example.com");
-  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
-  await waitlistInput.click();
-  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
-  await expect(page.getByPlaceholder("email@example.com")).toBeFocused();
-});
-
-test("shell waitlist blur clears pending focus restore intent", async ({
-  page,
-}) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-
-  const waitlistInput = page.getByPlaceholder("email@example.com");
-  const waitlistButton = page.getByRole("button", { name: "Join Waitlist" });
-
-  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
-  await waitlistInput.click();
-  await waitlistButton.click();
-  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
-  await expect(page.getByPlaceholder("email@example.com")).not.toBeFocused();
-});
-
-test("public landing handoff keeps the card height stable", async ({
-  page,
-}) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/", { waitUntil: "networkidle" });
 
   const landingContent = page.getByTestId("public-landing-content");
   await expect(landingContent).toBeVisible();
   await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
 
-  const shellHeight = await landingContent.evaluate((element) =>
+  const plainLandingHeight = await landingContent.evaluate((element) =>
     Math.round(element.getBoundingClientRect().height),
   );
 
-  await expect(
-    page.getByTestId("public-landing-waitlist-placeholder"),
-  ).toBeVisible();
-  await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
+  await page.getByRole("link", { name: "/?dev", exact: true }).click();
+  await expect(page).toHaveURL(/\/\?dev$/);
 
-  const fullAppHeight = await landingContent.evaluate((element) =>
+  const devLandingHeight = await landingContent.evaluate((element) =>
     Math.round(element.getBoundingClientRect().height),
   );
 
-  expect(Math.abs(fullAppHeight - shellHeight)).toBeLessThanOrEqual(8);
-});
-
-test("prod-ui landing handoff stays visually aligned", async ({
-  page,
-}, testInfo) => {
-  await page.addInitScript(() => {
-    Math.random = () => 0;
-  });
-
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-
-  const landingContent = page.getByTestId("public-landing-content");
-  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
-  await expect(landingContent).toBeVisible();
-  await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
-
-  const shellScreenshot = await takeStableScreenshot(landingContent);
-
-  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
-  const hydratedScreenshot = await takeStableScreenshot(landingContent);
-
-  await expectScreenshotsToMatch({
-    actual: hydratedScreenshot,
-    artifactPrefix: "public-landing-prod-ui-handoff",
-    expected: shellScreenshot,
-    maxDiffPixelRatio: 0.005,
-    testInfo,
-  });
+  expect(Math.abs(devLandingHeight - plainLandingHeight)).toBeLessThanOrEqual(8);
 });
 
 test("prod-ui landing logo enhancement stays visually aligned", async ({
@@ -1001,7 +722,7 @@ test("prod-ui landing logo keeps the SVG fallback when WebGL is unavailable", as
   expect(pageErrors).toEqual([]);
 });
 
-test("public landing shell still renders when localStorage access is denied", async ({
+test("public landing still renders when localStorage access is denied", async ({
   page,
 }) => {
   const pageErrors: Error[] = [];
@@ -1009,31 +730,22 @@ test("public landing shell still renders when localStorage access is denied", as
     pageErrors.push(error);
   });
 
-  await page.addInitScript((bootDelayMs) => {
+  await page.addInitScript(() => {
     Object.defineProperty(window, "localStorage", {
       configurable: true,
       get() {
         throw new DOMException("Access denied", "SecurityError");
       },
     });
+  });
 
-    const originalSetTimeout = window.setTimeout.bind(window);
-    window.setTimeout = (handler, timeout, ...args) => {
-      if (timeout === bootDelayMs) {
-        return 0;
-      }
-      return originalSetTimeout(handler, timeout, ...args);
-    };
-  }, FAST_LANDING_APP_BOOT_DELAY_MS);
+  await page.goto("/", { waitUntil: "networkidle" });
 
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-
-  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
-  await page.waitForTimeout(200);
+  await expect(page.getByTestId("public-landing-content")).toBeVisible();
   expect(pageErrors).toEqual([]);
 });
 
-test("public landing shell stays within the fast navigation budget", async ({
+test("public landing stays within the navigation budget", async ({
   page,
 }) => {
   await page.goto("/", { waitUntil: "load" });

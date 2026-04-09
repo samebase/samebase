@@ -39,16 +39,6 @@ function isKnownUnauthenticatedLandingVisit(
   );
 }
 
-export function shouldRenderFastLandingShell(
-  pathname: string,
-  routeSearch: RootRouteSearch,
-): boolean {
-  return (
-    isKnownUnauthenticatedLandingVisit(pathname, routeSearch) &&
-    !isLandingDevModeEnabled(routeSearch)
-  );
-}
-
 export function shouldRenderPublicLandingWithoutAuthGate(
   pathname: string,
   routeSearch: RootRouteSearch,
