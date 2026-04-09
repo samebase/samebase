@@ -6,6 +6,9 @@ import {
 
 type PlainSearchRecord = Record<string, unknown>;
 
+// TODO(tanstack-router-cleanup): delete this serializer helper once the app can
+// rely on TanStack's standard search serialization without changing the shipped
+// URL contract.
 function appendSearchParamValue(
   searchParams: URLSearchParams,
   key: string,
@@ -37,6 +40,9 @@ function appendSearchParamValue(
   throw new Error(`Unsupported TanStack search param value for "${key}".`);
 }
 
+// TODO(tanstack-router-cleanup): remove this parser once route-owned helpers
+// and href builders stop needing a plain-object fallback outside TanStack's
+// native location/buildLocation flows.
 export function parseTanStackSearch(search: string): Record<string, string> {
   const searchParams = cloneQueryParams(search);
   const parsedSearch: Record<string, string> = {};
@@ -48,6 +54,9 @@ export function parseTanStackSearch(search: string): Record<string, string> {
   return parsedSearch;
 }
 
+// TODO(tanstack-router-cleanup): remove this stringifier from app code
+// callsites whenever TanStack can build the href directly, and delete it
+// entirely if the app later adopts TanStack's default search semantics.
 export function stringifyTanStackSearch(search: PlainSearchRecord): string {
   const searchParams = cloneQueryParams();
 

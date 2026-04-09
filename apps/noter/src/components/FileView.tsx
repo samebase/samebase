@@ -102,7 +102,10 @@ import {
   buildFileViewRouteSearch,
   useFileViewRouteSearch,
 } from "@/lib/fileViewRouteSearch";
-import { stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
+import {
+  parseTanStackSearch,
+  stringifyTanStackSearch,
+} from "@/lib/tanstackSearchParams";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
 const FILE_VIEW_SIDEBAR_DEFAULT_STATE = {
@@ -347,10 +350,7 @@ function FileViewWrapper() {
     [location.state],
   );
   const { href, pathname } = location;
-  const currentSearch = useMemo(
-    () => stringifyTanStackSearch(routeSearch),
-    [routeSearch],
-  );
+  const currentSearch = location.searchStr;
   const isCompareRequested = routeSearch.compare === true;
   const {
     owner,
@@ -908,9 +908,29 @@ function FileViewInner({
   const router = useRouter();
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
+  const currentRawSearch = useMemo(
+    () => parseTanStackSearch(location.searchStr),
+    [location.searchStr],
+  );
   const state = useMemo(
     () => readUserHistoryState(location.state),
     [location.state],
+  );
+  const buildNextFileViewSearch = useCallback(
+    (overrides?: {
+      compare?: boolean;
+      diff?: boolean;
+      review?: boolean;
+    }) => ({
+      ...currentRawSearch,
+      ...buildFileViewRouteSearch({
+        compare: overrides?.compare ?? routeSearch.compare === true,
+        diff: overrides?.diff ?? routeSearch.diff === true,
+        review: overrides?.review ?? routeSearch.review === true,
+      }),
+      mobileLineNumbers: routeSearch.mobileLineNumbers,
+    }),
+    [currentRawSearch, routeSearch],
   );
   const navigateByHref = useCallback(
     (href: string, options?: { replace?: boolean; state?: unknown }) => {
@@ -1441,17 +1461,16 @@ function FileViewInner({
           : `/vault/${owner}/${repoName}/${encodedTargetBranch}`;
       return buildPathWithQuery({
         pathname,
-        search: stringifyTanStackSearch({
-          ...routeSearch,
-          ...buildFileViewRouteSearch({
+        search: stringifyTanStackSearch(
+          buildNextFileViewSearch({
             review: preserveReviewOnMount,
             diff: includeDiff,
             compare: includeCompare,
           }),
-        }),
+        ),
       });
     },
-    [branch, owner, repoName, routeSearch],
+    [branch, buildNextFileViewSearch, owner, repoName, routeSearch],
   );
   const prepareMediaUpload = useCallback(
     (file: File, preferredFolderPath: string) => {
@@ -1601,8 +1620,7 @@ function FileViewInner({
       },
     ) => {
       const nextSearch = {
-        ...routeSearch,
-        ...buildFileViewRouteSearch({
+        ...buildNextFileViewSearch({
           review: false,
           diff: mode === "review",
           compare: options?.compare ?? routeSearch.compare === true,
@@ -1616,7 +1634,7 @@ function FileViewInner({
         state: true,
       });
     },
-    [routeSearch, router],
+    [buildNextFileViewSearch, routeSearch.compare, router],
   );
   const setCompareModeInQuery = useCallback(
     (
@@ -1627,20 +1645,15 @@ function FileViewInner({
     ) => {
       void router.navigate({
         to: ".",
-        search: {
-          ...routeSearch,
-          ...buildFileViewRouteSearch({
-            review: routeSearch.review === true,
-            diff: routeSearch.diff === true,
-            compare: enabled,
-          }),
-        },
+        search: buildNextFileViewSearch({
+          compare: enabled,
+        }),
         hash: true,
         replace: options?.replace,
         state: true,
       });
     },
-    [routeSearch, router],
+    [buildNextFileViewSearch, router],
   );
   const resetRebaseConflictState = useCallback(() => {
     setRebaseConflictPreview(null);

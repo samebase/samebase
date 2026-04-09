@@ -11,11 +11,11 @@ import { linkStyle } from "./styles";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { buildPathWithQuery } from "@/lib/queryParams";
+import { buildFileViewRouteSearch } from "@/lib/fileViewRouteSearch";
 import {
-  buildFileViewRouteSearch,
-  readFileViewRouteSearch,
-} from "@/lib/fileViewRouteSearch";
-import { stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
+  parseTanStackSearch,
+  stringifyTanStackSearch,
+} from "@/lib/tanstackSearchParams";
 import type { Id } from "../../convex/_generated/dataModel";
 
 type StagedFile = NonNullable<
@@ -149,7 +149,7 @@ export function EditedFilesCategories({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const routeSearch = readFileViewRouteSearch(location.searchStr);
+  const currentSearch = parseTanStackSearch(location.searchStr);
   const navigateToStagedFile = useCallback(
     (file: StagedFile) => {
       const encodedFilePath = file.filePath
@@ -166,7 +166,7 @@ export function EditedFilesCategories({
         href: buildPathWithQuery({
           pathname: nextPath,
           search: stringifyTanStackSearch({
-            ...routeSearch,
+            ...currentSearch,
             ...buildFileViewRouteSearch({
               diff: file.fileDeleted,
               review: !file.fileDeleted,
@@ -175,7 +175,7 @@ export function EditedFilesCategories({
         }),
       });
     },
-    [branch, navigate, onFileSelected, repositoryFullName, routeSearch],
+    [branch, currentSearch, navigate, onFileSelected, repositoryFullName],
   );
   const sections = [];
 
