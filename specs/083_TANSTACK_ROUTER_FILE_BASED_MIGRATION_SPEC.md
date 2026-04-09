@@ -141,3 +141,12 @@ slice.
   repo-wide Vitest does not inject `VITE_CONVEX_URL` either. Result: full-test
   imports keep working outside the Vite dev/build pipeline without changing the
   shipped proxy behavior in real app runtime.
+
+- Problem: even after the first wrapper cleanup, `-publicRouteComponents.tsx`
+  still carried route-specific logo and research page exports, which kept an
+  unnecessary indirection layer alive for routes that no longer need special
+  migration handling. Tried: move the remaining logo and codex research route
+  logic into their own route files and leave `-publicRouteComponents.tsx` as the
+  shared public metadata/layout shell only. Result: the route tree is more local
+  and obvious, while the helper file shrinks down to one tiny shared wrapper
+  instead of acting like a second route registry.
