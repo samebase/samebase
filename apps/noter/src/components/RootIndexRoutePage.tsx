@@ -26,29 +26,13 @@ const VaultDashboard = lazy(async () => {
 // not resurrect it.
 let hasCompletedFastLandingShellSession = false;
 
-function buildLocationHref(
-  pathname: string,
-  search: string,
-  hash: string,
-): string {
-  if (hash.length === 0) {
-    return `${pathname}${search}`;
-  }
-
-  return `${pathname}${search}${hash.startsWith("#") ? hash : `#${hash}`}`;
-}
-
 const initialFastLandingPath =
   typeof window !== "undefined" &&
   shouldRenderFastLandingShell(
     window.location.pathname,
     readRootRouteSearch(window.location.search),
   )
-    ? buildLocationHref(
-        window.location.pathname,
-        window.location.search,
-        window.location.hash,
-      )
+    ? `${window.location.pathname}${window.location.search}${window.location.hash}`
     : null;
 
 function markFastLandingShellSessionComplete() {
@@ -62,11 +46,7 @@ export function RootIndexRoutePage() {
   const [showFastLandingShell, setShowFastLandingShell] = useState(
     () =>
       initialFastLandingPath !== null &&
-      buildLocationHref(
-        location.pathname,
-        location.searchStr,
-        location.hash,
-      ) === initialFastLandingPath &&
+      location.href === initialFastLandingPath &&
       !hasCompletedFastLandingShellSession,
   );
   const [shouldRestoreWaitlistFocus, setShouldRestoreWaitlistFocus] =
@@ -77,11 +57,7 @@ export function RootIndexRoutePage() {
       location.pathname,
       rootRouteSearch,
     );
-  const currentPathWithSearch = buildLocationHref(
-    location.pathname,
-    location.searchStr,
-    location.hash,
-  );
+  const currentPathWithSearch = location.href;
   const shouldOfferFastLandingShell =
     initialFastLandingPath !== null &&
     currentPathWithSearch === initialFastLandingPath &&

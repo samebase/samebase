@@ -1,11 +1,5 @@
 import { GITHUB_OAUTH_POPUP_NAME } from "../../shared/githubOAuth";
 
-type BrowserLocation = Pick<Location, "hash" | "pathname" | "search">;
-
-export function buildGithubOAuthReturnToPath(location: BrowserLocation) {
-  return `${location.pathname}${location.search}${location.hash}`;
-}
-
 /**
  * Open the GitHub OAuth popup without keeping a live opener reference.
  * Clearing the opener before leaving our origin prevents the third-party OAuth

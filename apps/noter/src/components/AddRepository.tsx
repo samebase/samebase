@@ -1,7 +1,7 @@
 import { GitHubLogoIcon, ClockIcon } from "@radix-ui/react-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import {
   useAction,
@@ -14,10 +14,7 @@ import { useState, type ReactElement } from "react";
 import { linkStyle } from "./styles";
 import type { FunctionReturnType } from "convex/server";
 import { isInIframe } from "@/authClient";
-import {
-  buildGithubOAuthReturnToPath,
-  openGithubOAuthPopup,
-} from "@/lib/githubOAuthFlow";
+import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import {
   findRepositorySearchMatch,
   splitRepositoryFullNameMatch,
@@ -34,6 +31,7 @@ const GITHUB_OAUTH_MEMBER_REQUEST_DOCS_URL =
   "https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-your-membership-in-organizations/requesting-organization-approval-for-oauth-apps";
 
 export function AddRepository() {
+  const location = useLocation();
   const navigate = useNavigate();
   const vaults = useQuery(api.vault.getUserVaults);
   const [searchQuery, setSearchQuery] = useState("");
@@ -232,7 +230,7 @@ export function AddRepository() {
                 setConnectError(null);
                 try {
                   const oauthUrl = await getGithubOAuthUrl({
-                    returnToPath: buildGithubOAuthReturnToPath(window.location),
+                    returnToPath: location.href,
                   });
                   if (isInIframe()) {
                     const popup = openGithubOAuthPopup(oauthUrl);

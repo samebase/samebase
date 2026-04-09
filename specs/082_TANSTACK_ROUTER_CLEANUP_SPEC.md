@@ -71,6 +71,12 @@ Already completed in this step:
 3. route-local research helpers in
    `apps/noter/src/components/CodexAppServerResearchPage.tsx` and
    `apps/noter/src/components/CodexAppServerThreadBrowserResearchPage.tsx`
+4. the route-local `buildLocationHref()` helper that used to mirror TanStack's
+   current `location.href` in
+   `apps/noter/src/components/RootIndexRoutePage.tsx`
+5. the `buildGithubOAuthReturnToPath()` helper that used to reassemble the
+   current route from browser-style location pieces in
+   `apps/noter/src/lib/githubOAuthFlow.ts`
 
 Important non-targets for this step:
 
@@ -177,3 +183,11 @@ Important non-targets for this step:
   typed `linkOptions(...)` at the component boundary. Result: those research
   pages now rely on TanStack's own href materialization instead of duplicating
   query-string assembly in app code.
+
+- Problem: a few remaining helpers were still reassembling the current route
+  from pathname/search/hash even though TanStack already exposes the live href
+  string. Tried: delete `buildLocationHref()` from
+  `RootIndexRoutePage.tsx`, delete `buildGithubOAuthReturnToPath()` from
+  `githubOAuthFlow.ts`, and switch the routed callsites onto `location.href`.
+  Result: the current-route OAuth and fast-shell comparisons now use TanStack's
+  own location primitive instead of app-owned string reconstruction.
