@@ -6,7 +6,7 @@ export function decodeRouteSegmentSafe(segment: string): string {
   }
 }
 
-export function encodeVaultBranchSegment(branch: string): string {
+function encodeVaultBranchSegment(branch: string): string {
   return encodeURIComponent(branch);
 }
 
