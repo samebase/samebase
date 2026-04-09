@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   buildFileViewRouteSearch,
-  readFileViewRouteSearch,
   validateFileViewRouteSearch,
 } from "@/lib/fileViewRouteSearch";
 
@@ -33,9 +32,13 @@ describe("fileViewRouteSearch", () => {
     ).toEqual({});
   });
 
-  it("reads the file-view contract from a search string", () => {
+  it("accepts parsed search params for the file-view contract", () => {
     expect(
-      readFileViewRouteSearch("?compare&review&mobileLineNumbers=1"),
+      validateFileViewRouteSearch(
+        Object.fromEntries(
+          new URLSearchParams("?compare&review&mobileLineNumbers=1").entries(),
+        ),
+      ),
     ).toEqual({
       compare: true,
       mobileLineNumbers: "1",

@@ -1,6 +1,5 @@
 import { getRouteApi } from "@tanstack/react-router";
 import { z } from "zod";
-import { cloneQueryParams } from "./queryParams";
 
 function readOptionalFlag(value: unknown): true | undefined {
   if (value === true) {
@@ -34,19 +33,6 @@ export function validateFileViewRouteSearch(
   search: Record<string, unknown>,
 ): FileViewRouteSearch {
   return fileViewRouteSearchSchema.parse(search);
-}
-
-/**
- * Read the current browser-style search string into the route-owned file-view
- * search contract so transitional callsites can preserve existing flags
- * without manually re-parsing individual query params.
- */
-export function readFileViewRouteSearch(
-  search: string | URLSearchParams | undefined,
-): FileViewRouteSearch {
-  return validateFileViewRouteSearch(
-    Object.fromEntries(cloneQueryParams(search).entries()),
-  );
 }
 
 export function buildFileViewRouteSearch(args?: {
