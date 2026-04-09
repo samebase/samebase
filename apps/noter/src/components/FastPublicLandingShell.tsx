@@ -1,5 +1,6 @@
 import { openAuthPopup, isInIframe } from "@/authClient";
 import { AppBuildStatusBar } from "@/components/AppBuildStatusBar";
+import { LandingCopy } from "@/components/LandingCopy";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
@@ -9,7 +10,6 @@ import {
   buildLandingDevToggleSearch,
   getLandingDevToggleLabel,
 } from "@/lib/landingDevMode";
-import { renderLandingCopyShellHtml } from "@/lib/landingCopyShell";
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import {
   PUBLIC_LANDING_COPY_TEST_ID,
@@ -31,7 +31,7 @@ import {
   readPublicLandingWaitlistDraft,
   writePublicLandingWaitlistDraft,
 } from "@/lib/publicLandingWaitlistDraft";
-import type { RootRouteSearch } from "@/lib/rootRouteSearch";
+import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { shouldShowGoogleAuthForPathname } from "@/lib/publicLandingAuthState";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
 import {
@@ -59,17 +59,16 @@ export function FastPublicLandingShell({
   onRequestHydratedLanding,
   onShellRouteTransitionStart,
   onScheduleWaitlistFocusRestore,
-  rootRouteSearch,
 }: {
   onCancelWaitlistFocusRestore: () => void;
   onRequestHydratedLanding: () => void;
   onShellRouteTransitionStart: () => void;
   onScheduleWaitlistFocusRestore: () => void;
-  rootRouteSearch: RootRouteSearch;
 }) {
   const location = useLocation();
   const navigate = useNavigate();
   const router = useRouter();
+  const rootRouteSearch = useRootRouteSearch();
   const scrollShellRef = useRef<HTMLElement | null>(null);
   const routeTransitionStartedRef = useRef(false);
   const [waitlistEmail, setWaitlistEmail] = useState(
@@ -120,9 +119,7 @@ export function FastPublicLandingShell({
     onRequestHydratedLanding();
   }
 
-  function beginShellRouteTransition(
-    navigateTo: () => void,
-  ) {
+  function beginShellRouteTransition(navigateTo: () => void) {
     if (routeTransitionStartedRef.current) {
       return;
     }
@@ -245,12 +242,9 @@ export function FastPublicLandingShell({
                 />
               </div>
             </div>
-            <div
-              data-testid={PUBLIC_LANDING_COPY_TEST_ID}
-              dangerouslySetInnerHTML={{
-                __html: renderLandingCopyShellHtml(landingPageMarkdown),
-              }}
-            />
+            <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
+              <LandingCopy className="text-sm" markdown={landingPageMarkdown} />
+            </div>
             <div className="flex flex-col gap-2">
               <Button
                 aria-hidden={!shellDisplayState.showGoogleAuth}

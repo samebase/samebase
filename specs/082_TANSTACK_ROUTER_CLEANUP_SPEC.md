@@ -58,13 +58,10 @@ are already explicit TanStack routes.
 
 Highest-value remaining typed-route targets:
 
-1. the staged-file popover navigation escape hatch in
-   `apps/noter/src/components/EditedFilesCategories.tsx`
-2. the router-wide query serializer/parser cleanup in
+1. the router-wide query serializer/parser cleanup in
    `apps/noter/src/lib/tanstackSearchParams.ts`, which now mainly remains for
-   app-router config, generic script-facing helpers, and the intentional raw
-   `/vault/$` file-view boundary
-3. the fast-shell revisit in
+   app-router config and generic script-facing helpers
+2. the fast-shell revisit in
    `apps/noter/src/components/FastPublicLandingShell.tsx` once step 5 is active
 
 Already completed in this step:
@@ -96,6 +93,11 @@ Already completed in this step:
     `apps/noter/src/components/LogoPreviewPage.tsx`,
     `apps/noter/src/components/PricingPage.tsx`, and
     `apps/noter/src/lib/rootRouteSearch.ts`
+13. the remaining app-side parser/stringifier usage on the raw `/vault/$`
+    boundary in `apps/noter/src/components/FileView.tsx` and
+    `apps/noter/src/components/EditedFilesCategories.tsx`
+14. the shell-only landing copy renderer in
+    `apps/noter/src/lib/landingCopyShell.ts`
 
 Important non-targets for this step:
 
@@ -256,12 +258,25 @@ Important non-targets for this step:
 
 - Problem: `tanstackSearchParams.ts` was still being called directly from a mix
   of generic helpers and clearly route-owned component code, which made the
-  remaining serializer/parser debt look bigger than it really was. Tried:
-  moved `PricingPage.tsx` onto `router.buildLocation(...)` for absolute callback
+  remaining serializer/parser debt look bigger than it really was. Tried: moved
+  `PricingPage.tsx` onto `router.buildLocation(...)` for absolute callback
   hrefs, replaced the `LogoPreviewPage.tsx` search-string comparison with
-  canonical route-search equality, and simplified `readRootRouteSearch()` to
-  use `URLSearchParams` directly instead of routing plain strings back through
+  canonical route-search equality, and simplified `readRootRouteSearch()` to use
+  `URLSearchParams` directly instead of routing plain strings back through
   `parseTanStackSearch()`. Result: the remaining direct `tanstackSearchParams`
   usage is now concentrated in the actual boundary cases: app-router config,
   generic script-facing URL builders, and the raw `/vault/$` file-view search
   boundary.
+
+- Problem: the last app-side `parseTanStackSearch()` /
+  `stringifyTanStackSearch()` calls were still hiding inside the raw `/vault/$`
+  file-view boundary, and the fast landing shell still owned a duplicate
+  landing-copy HTML renderer even though the app now mounts through routed React
+  immediately. Tried: moved the file-view boundary onto `URLSearchParams`-based
+  query merging in `fileViewRouteSearch.ts`, so `FileView.tsx` and
+  `EditedFilesCategories.tsx` now preserve unrelated params without calling the
+  TanStack codec directly, then replaced the shell-only landing copy HTML path
+  with the shipped `LandingCopy` component in `FastPublicLandingShell.tsx` and
+  `LandingCopyVisualFixture.tsx`. Result: the remaining `tanstackSearchParams`
+  debt is narrowed to app-router config plus generic script-facing helpers, and
+  the fast shell now reuses the same landing-copy renderer as the hydrated app.

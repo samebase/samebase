@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   buildFileViewRouteSearch,
+  mergeFileViewRouteSearch,
   validateFileViewRouteSearch,
 } from "@/lib/fileViewRouteSearch";
+import { buildSearchString } from "@/lib/queryParams";
 
 describe("fileViewRouteSearch", () => {
   it("accepts routed file-view flags and mobile line numbers", () => {
@@ -57,5 +59,17 @@ describe("fileViewRouteSearch", () => {
       compare: true,
       review: true,
     });
+  });
+
+  it("updates file-view keys while preserving unrelated query params", () => {
+    expect(
+      buildSearchString(
+        mergeFileViewRouteSearch("?devtools&mobileLineNumbers=1&compare", {
+          diff: true,
+          mobileLineNumbers: "1",
+          review: true,
+        }),
+      ),
+    ).toBe("?devtools&mobileLineNumbers=1&diff&review");
   });
 });

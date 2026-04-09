@@ -40,9 +40,9 @@ function appendSearchParamValue(
   throw new Error(`Unsupported TanStack search param value for "${key}".`);
 }
 
-// TODO(tanstack-router-cleanup): remove this parser once route-owned helpers
-// and href builders stop needing a plain-object fallback outside TanStack's
-// native location/buildLocation flows.
+// TODO(tanstack-router-cleanup): remove this parser once the router can adopt
+// TanStack's default search semantics without changing the shipped URL
+// contract.
 export function parseTanStackSearch(search: string): Record<string, string> {
   const searchParams = cloneQueryParams(search);
   const parsedSearch: Record<string, string> = {};
@@ -54,9 +54,8 @@ export function parseTanStackSearch(search: string): Record<string, string> {
   return parsedSearch;
 }
 
-// TODO(tanstack-router-cleanup): remove this stringifier from app code
-// callsites whenever TanStack can build the href directly, and delete it
-// entirely if the app later adopts TanStack's default search semantics.
+// TODO(tanstack-router-cleanup): remove this stringifier once the router and
+// generic script-facing helpers can adopt TanStack's default search semantics.
 export function stringifyTanStackSearch(search: PlainSearchRecord): string {
   const searchParams = cloneQueryParams();
 
