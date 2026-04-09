@@ -1,39 +1,17 @@
 import { getRouteApi } from "@tanstack/react-router";
-import { lazy, Suspense, type ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+import { CodexAppServerResearchPage } from "@/components/CodexAppServerResearchPage";
+import { CodexAppServerThreadBrowserResearchPage } from "@/components/CodexAppServerThreadBrowserResearchPage";
 import { Layout } from "@/Layout";
+import { LogoPreviewPage } from "@/components/LogoPreviewPage";
+import { LogoSingleCubeStudyPage } from "@/components/LogoSingleCubeStudyPage";
+import { LogoStaticSvgPage } from "@/components/LogoStaticSvgPage";
 import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "@/lib/codexAppServerResearch";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
-
-const LogoPreviewPage = lazy(async () => {
-  const module = await import("@/components/LogoPreviewPage");
-  return { default: module.LogoPreviewPage };
-});
-
-const LogoSingleCubeStudyPage = lazy(async () => {
-  const module = await import("@/components/LogoSingleCubeStudyPage");
-  return { default: module.LogoSingleCubeStudyPage };
-});
-
-const LogoStaticSvgPage = lazy(async () => {
-  const module = await import("@/components/LogoStaticSvgPage");
-  return { default: module.LogoStaticSvgPage };
-});
-
-const CodexAppServerResearchPage = lazy(async () => {
-  const module = await import("@/components/CodexAppServerResearchPage");
-  return { default: module.CodexAppServerResearchPage };
-});
-
-const CodexAppServerThreadBrowserResearchPage = lazy(async () => {
-  const module = await import(
-    "@/components/CodexAppServerThreadBrowserResearchPage"
-  );
-  return { default: module.CodexAppServerThreadBrowserResearchPage };
-});
 
 const logoRouteApi = getRouteApi("/logo");
 const logoIsoRouteApi = getRouteApi("/logo-iso");

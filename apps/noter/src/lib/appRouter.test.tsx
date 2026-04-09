@@ -31,6 +31,12 @@ vi.mock("@/components/TermsOfServicePage", () => ({
   TermsOfServicePage: () => <div data-testid="terms-page">Terms page</div>,
 }));
 
+vi.mock("@/components/PrivacyPolicyPage", () => ({
+  PrivacyPolicyPage: () => (
+    <div data-testid="privacy-page">Privacy policy page</div>
+  ),
+}));
+
 vi.mock("@/components/AuthenticatedAppRoutePage", () => ({
   AuthenticatedAppRoutePage: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
@@ -40,6 +46,16 @@ vi.mock("@/components/AuthenticatedAppRoutePage", () => ({
 vi.mock("@/components/LogoPreviewPage", () => ({
   LogoPreviewPage: ({ renderMode }: { renderMode: string }) => (
     <div data-testid="logo-page">{renderMode}</div>
+  ),
+}));
+
+vi.mock("@/components/LogoStaticSvgPage", () => ({
+  LogoStaticSvgPage: () => <div data-testid="logo-svg-page">Logo SVG page</div>,
+}));
+
+vi.mock("@/components/LogoSingleCubeStudyPage", () => ({
+  LogoSingleCubeStudyPage: () => (
+    <div data-testid="logo-iso-study-page">Logo iso study page</div>
   ),
 }));
 
@@ -79,6 +95,38 @@ vi.mock("@/components/CodespaceChatOnlyView", () => ({
 
 vi.mock("@/components/FileView", () => ({
   FileView: () => <div data-testid="file-view-page">File view page</div>,
+}));
+
+vi.mock("@/components/PitchDeckPage", () => ({
+  PitchDeckPage: ({ mode }: { mode: string }) => (
+    <div data-testid="pitch-deck-page">{mode}</div>
+  ),
+}));
+
+vi.mock("@/components/LogoTransitionLabPage", () => ({
+  LogoTransitionLabPage: () => (
+    <div data-testid="logo-transition-lab-page">Logo transition lab page</div>
+  ),
+}));
+
+vi.mock("@/components/LogoTransitionTransformsLabPage", () => ({
+  LogoTransitionTransformsLabPage: () => (
+    <div data-testid="logo-transition-transforms-lab-page">
+      Logo transition transforms lab page
+    </div>
+  ),
+}));
+
+vi.mock("@/components/CodexAppServerResearchPage", () => ({
+  CodexAppServerResearchPage: () => (
+    <div data-testid="codex-research-page">Codex research page</div>
+  ),
+}));
+
+vi.mock("@/components/CodexAppServerThreadBrowserResearchPage", () => ({
+  CodexAppServerThreadBrowserResearchPage: () => (
+    <div data-testid="codex-thread-browser-page">Codex thread browser page</div>
+  ),
 }));
 
 import { createAppRouter } from "./appRouter";

@@ -1,12 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { FileView } from "@/components/FileView";
 import { validateFileViewRouteSearch } from "@/lib/fileViewRouteSearch";
-import { lazy } from "react";
-
-const FileView = lazy(async () => {
-  const module = await import("@/components/FileView");
-  return { default: module.FileView };
-});
 
 function FileViewRouteComponent() {
   return (

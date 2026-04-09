@@ -639,6 +639,7 @@ export default defineConfig({
       workspaceRoot: gitRoot,
     }),
     tanstackRouter({
+      autoCodeSplitting: true,
       target: "react",
       virtualRouteConfig: "./src/routes.ts",
     }),

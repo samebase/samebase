@@ -1,11 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy } from "react";
+import { TermsOfServicePage } from "@/components/TermsOfServicePage";
 import { RoutedPage } from "./-publicRouteComponents";
-
-const TermsOfServicePage = lazy(async () => {
-  const module = await import("@/components/TermsOfServicePage");
-  return { default: module.TermsOfServicePage };
-});
 
 function TermsRouteComponent() {
   return (

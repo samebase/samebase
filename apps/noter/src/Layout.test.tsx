@@ -6,9 +6,14 @@ const { useConvexAuthMock } = vi.hoisted(() => ({
   useConvexAuthMock: vi.fn(),
 }));
 
-vi.mock("convex/react", () => ({
-  useConvexAuth: useConvexAuthMock,
-}));
+vi.mock("convex/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("convex/react")>();
+
+  return {
+    ...actual,
+    useConvexAuth: useConvexAuthMock,
+  };
+});
 
 vi.mock("@/lib/rootRouteSearch", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/rootRouteSearch")>();

@@ -1,12 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { MachinesWorkspacePage } from "@/components/MachinesWorkspacePage";
 import { validateMachinesRouteSearch } from "@/lib/authenticatedRouteSearch";
-import { lazy } from "react";
-
-const MachinesWorkspacePage = lazy(async () => {
-  const module = await import("@/components/MachinesWorkspacePage");
-  return { default: module.MachinesWorkspacePage };
-});
 
 function MachinesRouteComponent() {
   return (

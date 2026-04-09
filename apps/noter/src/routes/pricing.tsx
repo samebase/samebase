@@ -1,12 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { PricingPage } from "@/components/PricingPage";
 import { validatePricingRouteSearch } from "@/lib/authenticatedRouteSearch";
-import { lazy } from "react";
-
-const PricingPage = lazy(async () => {
-  const module = await import("@/components/PricingPage");
-  return { default: module.PricingPage };
-});
 
 function PricingRouteComponent() {
   return (

@@ -1,11 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
-import { lazy } from "react";
-
-const CodespaceChatOnlyView = lazy(async () => {
-  const module = await import("@/components/CodespaceChatOnlyView");
-  return { default: module.CodespaceChatOnlyView };
-});
+import { CodespaceChatOnlyView } from "@/components/CodespaceChatOnlyView";
 
 function CodespaceChatRouteComponent() {
   return (

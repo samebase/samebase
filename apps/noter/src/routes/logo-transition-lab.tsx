@@ -1,11 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy } from "react";
+import { LogoTransitionLabPage } from "@/components/LogoTransitionLabPage";
 import { RoutedPage } from "./-publicRouteComponents";
-
-const LogoTransitionLabPage = lazy(async () => {
-  const module = await import("@/components/LogoTransitionLabPage");
-  return { default: module.LogoTransitionLabPage };
-});
 
 function LogoTransitionLabRouteComponent() {
   return (

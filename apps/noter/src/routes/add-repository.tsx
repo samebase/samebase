@@ -1,11 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
-import { lazy } from "react";
-
-const AddRepository = lazy(async () => {
-  const module = await import("@/components/AddRepository");
-  return { default: module.AddRepository };
-});
+import { AddRepository } from "@/components/AddRepository";
 
 function AddRepositoryRouteComponent() {
   return (

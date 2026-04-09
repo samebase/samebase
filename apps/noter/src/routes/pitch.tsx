@@ -1,11 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy } from "react";
+import { PitchDeckPage } from "@/components/PitchDeckPage";
 import { RoutedPage } from "./-publicRouteComponents";
-
-const PitchDeckPage = lazy(async () => {
-  const module = await import("@/components/PitchDeckPage");
-  return { default: module.PitchDeckPage };
-});
 
 function PitchRouteComponent() {
   return (

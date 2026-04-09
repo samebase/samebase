@@ -122,3 +122,22 @@ slice.
   thin wrappers directly, the dead `components/*RoutePage.tsx` files are
   deleted, and the remaining route-support helper file only carries the shared
   public-route shell plus the routes that still need a bit more local logic.
+
+- Problem: the new route files still relied on manual `React.lazy(...)` calls,
+  which duplicated the code-splitting responsibility that TanStack Router can
+  own directly and made the next performance step harder to reason about. Tried:
+  replace the route-file `lazy(...)` wrappers with direct component imports,
+  then enable `autoCodeSplitting: true` on the existing
+  `@tanstack/router-plugin` Vite integration. Result: route-owned code splitting
+  now moves to the router plugin, the route files stay simpler, and the home
+  route can keep its separate `VaultDashboard` lazy boundary while we validate
+  the initial bundle shape in follow-up checks.
+
+- Problem: once route files stopped hiding imports behind `React.lazy(...)`, the
+  broader Vitest suite started importing some route-owned components in plain
+  test contexts where Vite compile-time defines are not always injected. Tried:
+  let `convexClient.ts` treat `__DAYTONA_CONVEX_PROXY_PATH__` as optional when
+  the define is absent, then allow a test-only fallback local Convex URL when
+  repo-wide Vitest does not inject `VITE_CONVEX_URL` either. Result: full-test
+  imports keep working outside the Vite dev/build pipeline without changing the
+  shipped proxy behavior in real app runtime.
