@@ -17,12 +17,6 @@ vi.mock("@/components/NotFoundRoutePage", () => ({
   ),
 }));
 
-vi.mock("@/components/RootTestRoutePage", () => ({
-  RootTestRoutePage: () => (
-    <div data-testid="root-test-route">Root test route</div>
-  ),
-}));
-
 vi.mock("@/Layout", () => ({
   Layout: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="layout">{children}</div>
@@ -37,6 +31,12 @@ vi.mock("@/components/TermsOfServicePage", () => ({
   TermsOfServicePage: () => <div data-testid="terms-page">Terms page</div>,
 }));
 
+vi.mock("@/components/AuthenticatedAppRoutePage", () => ({
+  AuthenticatedAppRoutePage: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+}));
+
 vi.mock("@/components/LogoPreviewPage", () => ({
   LogoPreviewPage: ({ renderMode }: { renderMode: string }) => (
     <div data-testid="logo-page">{renderMode}</div>
@@ -49,36 +49,36 @@ vi.mock("@/components/McpConsentRoutePage", () => ({
   ),
 }));
 
-vi.mock("@/components/PricingRoutePage", () => ({
-  PricingRoutePage: () => <div data-testid="pricing-page">Pricing page</div>,
+vi.mock("@/components/PricingPage", () => ({
+  PricingPage: () => <div data-testid="pricing-page">Pricing page</div>,
 }));
 
-vi.mock("@/components/AddRepositoryRoutePage", () => ({
-  AddRepositoryRoutePage: () => (
+vi.mock("@/components/AddRepository", () => ({
+  AddRepository: () => (
     <div data-testid="add-repository-page">Add repository page</div>
   ),
 }));
 
-vi.mock("@/components/MachinesRoutePage", () => ({
-  MachinesRoutePage: () => <div data-testid="machines-page">Machines page</div>,
+vi.mock("@/components/MachinesWorkspacePage", () => ({
+  MachinesWorkspacePage: () => (
+    <div data-testid="machines-page">Machines page</div>
+  ),
 }));
 
-vi.mock("@/components/MachineConnectRoutePage", () => ({
-  MachineConnectRoutePage: () => (
+vi.mock("@/components/MachineConnectPage", () => ({
+  MachineConnectPage: () => (
     <div data-testid="machine-connect-page">Machine connect page</div>
   ),
 }));
 
-vi.mock("@/components/CodespaceChatRoutePage", () => ({
-  CodespaceChatRoutePage: () => (
+vi.mock("@/components/CodespaceChatOnlyView", () => ({
+  CodespaceChatOnlyView: () => (
     <div data-testid="codespace-chat-page">Codespace chat page</div>
   ),
 }));
 
-vi.mock("@/components/FileViewRoutePage", () => ({
-  FileViewRoutePage: () => (
-    <div data-testid="file-view-page">File view page</div>
-  ),
+vi.mock("@/components/FileView", () => ({
+  FileView: () => <div data-testid="file-view-page">File view page</div>,
 }));
 
 import { createAppRouter } from "./appRouter";
@@ -353,7 +353,7 @@ describe("appRouter", () => {
     expect(
       rootElement?.querySelector('[data-testid="root-test-route"]')
         ?.textContent,
-    ).toBe("Root test route");
+    ).toBe("Test");
     expect(
       rootElement?.querySelector('[data-testid="not-found-route"]'),
     ).toBeNull();

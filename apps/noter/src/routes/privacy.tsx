@@ -1,6 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PrivacyRoutePage } from "./-publicRouteComponents";
+import { lazy } from "react";
+import { RoutedPage } from "./-publicRouteComponents";
+
+const PrivacyPolicyPage = lazy(async () => {
+  const module = await import("@/components/PrivacyPolicyPage");
+  return { default: module.PrivacyPolicyPage };
+});
+
+function PrivacyRouteComponent() {
+  return (
+    <RoutedPage pathname="/privacy" withLayout>
+      <PrivacyPolicyPage />
+    </RoutedPage>
+  );
+}
 
 export const Route = createFileRoute("/privacy")({
-  component: PrivacyRoutePage,
+  component: PrivacyRouteComponent,
 });

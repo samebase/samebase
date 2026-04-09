@@ -1,6 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { RootTestRoutePage } from "@/components/RootTestRoutePage";
+import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+
+function RootTestRouteComponent() {
+  return (
+    <AuthenticatedAppRoutePage>
+      <div data-testid="root-test-route">Test</div>
+    </AuthenticatedAppRoutePage>
+  );
+}
 
 export const Route = createFileRoute("/test")({
-  component: RootTestRoutePage,
+  component: RootTestRouteComponent,
 });

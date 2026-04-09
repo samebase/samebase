@@ -8,16 +8,6 @@ import {
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 
-const PrivacyPolicyPage = lazy(async () => {
-  const module = await import("@/components/PrivacyPolicyPage");
-  return { default: module.PrivacyPolicyPage };
-});
-
-const TermsOfServicePage = lazy(async () => {
-  const module = await import("@/components/TermsOfServicePage");
-  return { default: module.TermsOfServicePage };
-});
-
 const LogoPreviewPage = lazy(async () => {
   const module = await import("@/components/LogoPreviewPage");
   return { default: module.LogoPreviewPage };
@@ -31,21 +21,6 @@ const LogoSingleCubeStudyPage = lazy(async () => {
 const LogoStaticSvgPage = lazy(async () => {
   const module = await import("@/components/LogoStaticSvgPage");
   return { default: module.LogoStaticSvgPage };
-});
-
-const LogoTransitionLabPage = lazy(async () => {
-  const module = await import("@/components/LogoTransitionLabPage");
-  return { default: module.LogoTransitionLabPage };
-});
-
-const LogoTransitionTransformsLabPage = lazy(async () => {
-  const module = await import("@/components/LogoTransitionTransformsLabPage");
-  return { default: module.LogoTransitionTransformsLabPage };
-});
-
-const PitchDeckPage = lazy(async () => {
-  const module = await import("@/components/PitchDeckPage");
-  return { default: module.PitchDeckPage };
 });
 
 const CodexAppServerResearchPage = lazy(async () => {
@@ -69,7 +44,7 @@ const logoIsoStudyRouteApi = getRouteApi("/logo-iso-study");
  * Keep the current public-route metadata and layout behavior stable while the
  * route ownership moves from a handwritten table into route modules.
  */
-function RoutedPage(props: {
+export function RoutedPage(props: {
   children?: ReactNode;
   pathname: string;
   withLayout?: boolean;
@@ -109,22 +84,6 @@ function ResearchRouteUnavailablePage(props: {
         </div>
       </div>
     </Layout>
-  );
-}
-
-export function PrivacyRoutePage() {
-  return (
-    <RoutedPage pathname="/privacy" withLayout>
-      <PrivacyPolicyPage />
-    </RoutedPage>
-  );
-}
-
-export function TermsRoutePage() {
-  return (
-    <RoutedPage pathname="/terms" withLayout>
-      <TermsOfServicePage />
-    </RoutedPage>
   );
 }
 
@@ -184,46 +143,6 @@ export function LogoIsoStudyRoutePage() {
   return (
     <RoutedPage pathname="/logo-iso-study">
       <LogoSingleCubeStudyPage routeSearch={routeSearch} />
-    </RoutedPage>
-  );
-}
-
-export function LogoTransitionLabRoutePage() {
-  return (
-    <RoutedPage pathname="/logo-transition-lab">
-      <LogoTransitionLabPage />
-    </RoutedPage>
-  );
-}
-
-export function LogoTransitionTransformsLabRoutePage() {
-  return (
-    <RoutedPage pathname="/logo-transition-lab-transforms">
-      <LogoTransitionTransformsLabPage />
-    </RoutedPage>
-  );
-}
-
-export function PitchRoutePage() {
-  return (
-    <RoutedPage pathname="/pitch">
-      <PitchDeckPage mode="interactive" />
-    </RoutedPage>
-  );
-}
-
-export function PitchPrintRoutePage() {
-  return (
-    <RoutedPage pathname="/pitch/print">
-      <PitchDeckPage mode="print" />
-    </RoutedPage>
-  );
-}
-
-export function PitchPrintMobileRoutePage() {
-  return (
-    <RoutedPage pathname="/pitch/print/mobile">
-      <PitchDeckPage mode="printMobile" />
     </RoutedPage>
   );
 }
