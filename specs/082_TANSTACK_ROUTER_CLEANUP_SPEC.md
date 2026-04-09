@@ -61,7 +61,9 @@ Highest-value remaining typed-route targets:
 1. the staged-file popover navigation escape hatch in
    `apps/noter/src/components/EditedFilesCategories.tsx`
 2. the router-wide query serializer/parser cleanup in
-   `apps/noter/src/lib/tanstackSearchParams.ts`
+   `apps/noter/src/lib/tanstackSearchParams.ts`, which now mainly remains for
+   app-router config, generic script-facing helpers, and the intentional raw
+   `/vault/$` file-view boundary
 3. the fast-shell revisit in
    `apps/noter/src/components/FastPublicLandingShell.tsx` once step 5 is active
 
@@ -90,6 +92,10 @@ Already completed in this step:
     navigation in `apps/noter/src/components/FileView.tsx`
 11. the duplicated `/vault/...` file-route string assembly that now lives in
     `apps/noter/src/lib/vaultRoutes.ts::buildVaultFileRoute`
+12. the direct route-owned parser/stringifier callsites that used to sit in
+    `apps/noter/src/components/LogoPreviewPage.tsx`,
+    `apps/noter/src/components/PricingPage.tsx`, and
+    `apps/noter/src/lib/rootRouteSearch.ts`
 
 Important non-targets for this step:
 
@@ -247,3 +253,15 @@ Important non-targets for this step:
   duplicating `/vault/...` assembly. The remaining debt is now explicit: one
   staged-file popover raw-href navigation path and the route shape itself,
   rather than scattered path builders or low-level history calls.
+
+- Problem: `tanstackSearchParams.ts` was still being called directly from a mix
+  of generic helpers and clearly route-owned component code, which made the
+  remaining serializer/parser debt look bigger than it really was. Tried:
+  moved `PricingPage.tsx` onto `router.buildLocation(...)` for absolute callback
+  hrefs, replaced the `LogoPreviewPage.tsx` search-string comparison with
+  canonical route-search equality, and simplified `readRootRouteSearch()` to
+  use `URLSearchParams` directly instead of routing plain strings back through
+  `parseTanStackSearch()`. Result: the remaining direct `tanstackSearchParams`
+  usage is now concentrated in the actual boundary cases: app-router config,
+  generic script-facing URL builders, and the raw `/vault/$` file-view search
+  boundary.
