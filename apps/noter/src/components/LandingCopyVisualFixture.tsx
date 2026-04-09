@@ -1,5 +1,5 @@
+import { LandingCopy } from "@/components/LandingCopy";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
-import { renderLandingCopyShellHtml } from "@/lib/landingCopyShell";
 
 const LANDING_COPY_VISUAL_SCENARIOS = {
   "landing-copy-parity": {
@@ -42,14 +42,6 @@ const LANDING_COPY_VISUAL_SCENARIOS = {
 
 export type LandingCopyVisualMode = keyof typeof LANDING_COPY_VISUAL_SCENARIOS;
 
-function BootstrapLandingCopyShell({ markdown }: { markdown: string }) {
-  return (
-    <div
-      dangerouslySetInnerHTML={{ __html: renderLandingCopyShellHtml(markdown) }}
-    />
-  );
-}
-
 export function LandingCopyVisualFixture({
   mode,
 }: {
@@ -65,13 +57,13 @@ export function LandingCopyVisualFixture({
       <div className="mx-auto flex max-w-5xl items-start justify-center gap-12">
         <div className="space-y-3">
           <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Bootstrap
+            Shell
           </div>
           <div
             data-testid="landing-copy-tailwind"
             className="w-[384px] bg-background"
           >
-            <BootstrapLandingCopyShell markdown={scenario.markdown} />
+            <LandingCopy className="text-sm" markdown={scenario.markdown} />
           </div>
         </div>
         <div className="space-y-3">

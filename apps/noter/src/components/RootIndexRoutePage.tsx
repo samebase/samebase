@@ -166,7 +166,6 @@ export function RootIndexRoutePage() {
         onScheduleWaitlistFocusRestore={() => {
           setShouldRestoreWaitlistFocus(true);
         }}
-        rootRouteSearch={rootRouteSearch}
       />
     );
   }

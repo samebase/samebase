@@ -103,12 +103,9 @@ import {
 import { getReviewSplitDiffHighlights } from "@/lib/reviewSplitDiff";
 import {
   buildFileViewRouteSearch,
+  mergeFileViewRouteSearch,
   useFileViewRouteSearch,
 } from "@/lib/fileViewRouteSearch";
-import {
-  parseTanStackSearch,
-  stringifyTanStackSearch,
-} from "@/lib/tanstackSearchParams";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
 const FILE_VIEW_SIDEBAR_DEFAULT_STATE = {
@@ -898,7 +895,7 @@ function FileViewInner({
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
   const currentRawSearch = useMemo(
-    () => parseTanStackSearch(location.searchStr),
+    () => Object.fromEntries(new URLSearchParams(location.searchStr).entries()),
     [location.searchStr],
   );
   const buildNextFileViewSearch = useCallback(
@@ -1439,18 +1436,32 @@ function FileViewInner({
         branch: targetBranch,
         filePath: path.length > 0 ? path : undefined,
       });
+      const nextFileViewSearch = {
+        ...buildFileViewRouteSearch({
+          review: preserveReviewOnMount,
+          diff: includeDiff,
+          compare: includeCompare,
+        }),
+        mobileLineNumbers: routeSearch.mobileLineNumbers,
+      };
       return buildPathWithQuery({
         pathname,
-        search: stringifyTanStackSearch(
-          buildNextFileViewSearch({
-            review: preserveReviewOnMount,
-            diff: includeDiff,
-            compare: includeCompare,
-          }),
+        search: mergeFileViewRouteSearch(
+          location.searchStr,
+          nextFileViewSearch,
         ),
       });
     },
-    [branch, buildNextFileViewSearch, owner, repoName, routeSearch],
+    [
+      branch,
+      location.searchStr,
+      owner,
+      repoName,
+      routeSearch.mobileLineNumbers,
+      routeSearch.compare,
+      routeSearch.diff,
+      routeSearch.review,
+    ],
   );
   const prepareMediaUpload = useCallback(
     (file: File, preferredFolderPath: string) => {

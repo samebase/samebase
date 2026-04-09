@@ -11,11 +11,11 @@ import { linkStyle } from "./styles";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { buildPathWithQuery } from "@/lib/queryParams";
-import { buildFileViewRouteSearch } from "@/lib/fileViewRouteSearch";
 import {
-  parseTanStackSearch,
-  stringifyTanStackSearch,
-} from "@/lib/tanstackSearchParams";
+  buildFileViewRouteSearch,
+  mergeFileViewRouteSearch,
+  useFileViewRouteSearch,
+} from "@/lib/fileViewRouteSearch";
 import { buildVaultFileRoute } from "@/lib/vaultRoutes";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -150,7 +150,7 @@ export function EditedFilesCategories({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const currentSearch = parseTanStackSearch(location.searchStr);
+  const routeSearch = useFileViewRouteSearch();
   const navigateToStagedFile = useCallback(
     (file: StagedFile) => {
       const [owner, repoName] = repositoryFullName.split("/");
@@ -170,17 +170,24 @@ export function EditedFilesCategories({
       void navigate({
         href: buildPathWithQuery({
           pathname: nextPath,
-          search: stringifyTanStackSearch({
-            ...currentSearch,
+          search: mergeFileViewRouteSearch(location.searchStr, {
             ...buildFileViewRouteSearch({
               diff: file.fileDeleted,
               review: !file.fileDeleted,
             }),
+            mobileLineNumbers: routeSearch.mobileLineNumbers,
           }),
         }),
       });
     },
-    [branch, currentSearch, navigate, onFileSelected, repositoryFullName],
+    [
+      branch,
+      location.searchStr,
+      navigate,
+      onFileSelected,
+      repositoryFullName,
+      routeSearch.mobileLineNumbers,
+    ],
   );
   const sections = [];
 
