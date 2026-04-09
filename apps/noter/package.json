@@ -96,6 +96,8 @@
   "devDependencies": {
     "@playwright/cli": "^0.1.1",
     "@playwright/test": "1.58.2",
+    "@tanstack/router-plugin": "^1.167.12",
+    "@tanstack/virtual-file-routes": "^1.161.7",
     "@types/node": "^20.14.9",
     "@types/pngjs": "^6.0.5",
     "@types/react": "^19.2.14",

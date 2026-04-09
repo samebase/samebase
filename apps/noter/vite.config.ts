@@ -1,5 +1,6 @@
 import { defineConfig, type ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import path from "path";
 import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -636,6 +637,10 @@ export default defineConfig({
     syncStaticLegalPageAssetsPlugin(),
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,
+    }),
+    tanstackRouter({
+      target: "react",
+      virtualRouteConfig: "./src/routes.ts",
     }),
     react(),
   ],
