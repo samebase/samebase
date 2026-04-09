@@ -29,6 +29,7 @@ coverage
 *.tsbuildinfo
 .turbo
 .vite
+.tanstack
 
 # Environment variables
 *.local

@@ -1,6 +1,6 @@
 import { defineConfig, type ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
-import { tanstackRouter } from "@tanstack/router-plugin/vite";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import path from "path";
 import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -111,6 +111,7 @@ const daytonaConvexProxyPath = daytonaConvexProxyTarget
   ? DAYTONA_CONVEX_PROXY_PATH
   : null;
 const shouldIncludeVisualFixture = process.env.PLAYWRIGHT === "1";
+const shouldUseTanStackStart = process.env.VITEST !== "true";
 const staticLogoSvgAssetPath = path.resolve(
   __dirname,
   "public/logo-static.svg",
@@ -638,11 +639,18 @@ export default defineConfig({
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,
     }),
-    tanstackRouter({
-      autoCodeSplitting: true,
-      target: "react",
-      virtualRouteConfig: "./src/routes.ts",
-    }),
+    ...(shouldUseTanStackStart
+      ? [
+          tanstackStart({
+            router: {
+              virtualRouteConfig: "./src/routes.ts",
+            },
+            spa: {
+              enabled: true,
+            },
+          }),
+        ]
+      : []),
     react(),
   ],
   resolve: {
@@ -656,14 +664,15 @@ export default defineConfig({
   server: daytonaConvexProxyServerConfig,
   build: {
     rollupOptions: {
-      input: {
-        app: path.resolve(__dirname, "index.html"),
-        ...(shouldIncludeVisualFixture
-          ? {
+      // Let TanStack Start own the main app shell while preserving the visual
+      // fixture as an extra standalone HTML entry when Playwright needs it.
+      ...(shouldIncludeVisualFixture
+        ? {
+            input: {
               visualFixture: path.resolve(__dirname, "visual-fixture.html"),
-            }
-          : {}),
-      },
+            },
+          }
+        : {}),
       onwarn(warning, warn) {
         // Skip certain warnings
         if (warning.code === "UNUSED_EXTERNAL_IMPORT") return;

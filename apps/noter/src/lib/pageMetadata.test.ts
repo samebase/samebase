@@ -255,21 +255,25 @@ describe("page metadata", () => {
       "Codex Thread Browser Research | noter",
     );
   });
-  it("keeps the raw html shell aligned with the real public homepage", () => {
-    const html = readFileSync(new URL("../../index.html", import.meta.url), {
-      encoding: "utf8",
-    });
+  it("keeps the Start root document shell aligned with the real public homepage", () => {
+    const html = readFileSync(
+      new URL("../routes/__root.tsx", import.meta.url),
+      {
+        encoding: "utf8",
+      },
+    );
 
-    expect(html).toContain('name="robots" content="index,follow"');
-    expect(html).toContain('<link rel="canonical" href="https://noter.md/"');
-    expect(html).toContain('property="og:url" content="https://noter.md/"');
+    expect(html).toContain('<meta name="robots" content="index,follow" />');
+    expect(html).toContain('<link rel="canonical" href="https://noter.md/" />');
     expect(html).toContain(
-      'property="og:image"\n      content="https://noter.md/noter-social-card.png"',
+      '<meta property="og:url" content="https://noter.md/" />',
     );
+    expect(html).toContain('content="https://noter.md/noter-social-card.png"');
     expect(html).toContain('name="twitter:image"');
-    expect(html).toContain('<link rel="manifest" href="/manifest.webmanifest"');
     expect(html).toContain(
-      '<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />',
+      '<link rel="manifest" href="/manifest.webmanifest" />',
     );
+    expect(html).toContain('rel="apple-touch-icon"');
+    expect(html).toContain('href="/apple-touch-icon.png"');
   });
 });

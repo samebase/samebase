@@ -11,7 +11,7 @@ import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
  * shipped path surface without forcing awkward filenames for paths like
  * `/vault/$`.
  */
-export const routes = rootRoute("root.tsx", [
+export const routes = rootRoute("__root.tsx", [
   index("index.tsx"),
   route("/test", "test.tsx"),
   route("/privacy", "privacy.tsx"),

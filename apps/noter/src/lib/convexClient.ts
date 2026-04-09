@@ -6,11 +6,13 @@ const daytonaConvexProxyPath =
     : __DAYTONA_CONVEX_PROXY_PATH__;
 const fallbackConvexUrl =
   import.meta.env.MODE === "test" ? "http://127.0.0.1:3210" : null;
+const runtimeOrigin =
+  typeof window === "undefined" ? "http://localhost" : window.location.origin;
 
 // Prefer the Daytona proxy when it is defined, then the normal app env var,
 // and finally the local Vitest fallback when tests import route-owned modules.
 const convexUrl = daytonaConvexProxyPath
-  ? new URL(daytonaConvexProxyPath, window.location.origin).toString()
+  ? new URL(daytonaConvexProxyPath, runtimeOrigin).toString()
   : import.meta.env.VITE_CONVEX_URL ?? fallbackConvexUrl;
 
 if (!convexUrl) {
