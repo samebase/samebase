@@ -68,16 +68,7 @@ export function FastPublicLandingShell({
   onScheduleWaitlistFocusRestore: () => void;
   rootRouteSearch: RootRouteSearch;
 }) {
-  const location = useLocation({
-    select: (location) => ({
-      // TODO(tanstack-router-cleanup): remove this browser-style location shim
-      // once the fast shell stops depending on shared PathWithSearch helpers
-      // for landing toggle URLs and route-transition bookkeeping.
-      hash: location.hash.length > 0 ? `#${location.hash}` : "",
-      pathname: location.pathname,
-      search: location.searchStr,
-    }),
-  });
+  const location = useLocation();
   const navigate = useNavigate();
   const scrollShellRef = useRef<HTMLElement | null>(null);
   const routeTransitionStartedRef = useRef(false);
@@ -85,7 +76,11 @@ export function FastPublicLandingShell({
     readPublicLandingWaitlistDraft,
   );
   const [shellDisplayState] = useState(() => ({
-    landingDevToggleHref: buildLandingDevToggleHref(location),
+    landingDevToggleHref: buildLandingDevToggleHref(
+      location.pathname,
+      location.searchStr,
+      location.hash,
+    ),
     landingDevToggleLabel: getLandingDevToggleLabel(rootRouteSearch),
     showGoogleAuth: shouldShowGoogleAuthForPathname(
       location.pathname,
@@ -162,9 +157,16 @@ export function FastPublicLandingShell({
     }
 
     beginShellRouteTransition(
-      buildPathWithUpdatedQuery(location, (nextSearchParams) => {
-        setQueryParam(nextSearchParams, "auth", "google");
-      }),
+      buildPathWithUpdatedQuery(
+        {
+          pathname: location.pathname,
+          search: location.searchStr,
+          hash: location.hash,
+        },
+        (nextSearchParams) => {
+          setQueryParam(nextSearchParams, "auth", "google");
+        },
+      ),
     );
   }
 

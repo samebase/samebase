@@ -1,11 +1,10 @@
-import { Link } from "@tanstack/react-router";
+import { Link, getRouteApi, linkOptions } from "@tanstack/react-router";
 import {
   buildPricingRouteSearch,
   type PricingRouteSearch,
 } from "@/lib/authenticatedRouteSearch";
 import { buildPathWithQuery } from "@/lib/queryParams";
 import { stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
-import { getRouteApi } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -19,10 +18,20 @@ import { Badge } from "@/components/badge";
 
 const pricingRouteApi = getRouteApi("/pricing");
 
+function buildPricingLinkOptions(
+  checkout: PricingRouteSearch["checkout"] | null,
+) {
+  return linkOptions({
+    to: "/pricing",
+    search: buildPricingRouteSearch(checkout),
+  });
+}
+
 function buildPricingPath(checkout: PricingRouteSearch["checkout"] | null) {
+  const options = buildPricingLinkOptions(checkout);
   return buildPathWithQuery({
-    pathname: "/pricing",
-    search: stringifyTanStackSearch(buildPricingRouteSearch(checkout)),
+    pathname: options.to,
+    search: stringifyTanStackSearch(options.search),
   });
 }
 

@@ -1,11 +1,14 @@
-import {
-  buildPathWithUpdatedQuery,
-  type PathWithSearch,
-  setQueryParam,
-} from "./queryParams";
+import { buildPathWithUpdatedQuery, setQueryParam } from "./queryParams";
 
-export function buildCurrentGoogleRedirectTo(locationLike: PathWithSearch) {
-  return buildPathWithUpdatedQuery(locationLike, (searchParams) => {
-    setQueryParam(searchParams, "auth", false);
-  });
+export function buildCurrentGoogleRedirectTo(
+  pathname: string,
+  search: string | URLSearchParams | undefined,
+  hash?: string,
+) {
+  return buildPathWithUpdatedQuery(
+    { pathname, search, hash },
+    (searchParams) => {
+      setQueryParam(searchParams, "auth", false);
+    },
+  );
 }

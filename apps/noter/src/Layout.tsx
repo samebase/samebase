@@ -13,16 +13,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const appCommit = __APP_COMMIT__ || "unknown";
   const appCommitNumber = __APP_COMMIT_NUMBER__;
   const repoUrl = __APP_REPO_URL__ || "";
-  const location = useLocation({
-    select: (location) => ({
-      // TODO(tanstack-router-cleanup): remove this browser-style location shim
-      // once landing toggle URL building reads native TanStack pathname/search/
-      // hash fields directly instead of reconstructing PathWithSearch.
-      hash: location.hash.length > 0 ? `#${location.hash}` : "",
-      pathname: location.pathname,
-      search: location.searchStr,
-    }),
-  });
+  const location = useLocation();
   const navigate = useNavigate();
   const rootRouteSearch = useRootRouteSearch();
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -40,7 +31,11 @@ export function Layout({ children }: { children: ReactNode }) {
     location.pathname !== "/privacy";
   const showPublicNavigation =
     !isLoading && !isAuthenticated && location.pathname !== "/";
-  const landingDevToggleHref = buildLandingDevToggleHref(location);
+  const landingDevToggleHref = buildLandingDevToggleHref(
+    location.pathname,
+    location.searchStr,
+    location.hash,
+  );
   const landingDevToggleLabel = getLandingDevToggleLabel(rootRouteSearch);
   const handleLandingDevToggleClick = (
     event: MouseEvent<HTMLAnchorElement>,

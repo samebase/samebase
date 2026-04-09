@@ -99,6 +99,10 @@ Key domain entities:
 - Do not add speculative helpers, flags, env vars, allowlist entries,
   compatibility paths, or config surface that the current patch does not use end
   to end.
+- When cleanup or migration work makes a direct native API viable, prefer
+  deleting the temporary adapter instead of keeping a near-equivalent wrapper,
+  renamed mirror, or reshaped object around it. Always check whether an extra
+  abstraction can be removed, not just whether it can be tolerated.
 - Fail closed rather than inventing placeholder fallbacks unless the patch is
   implementing a real migration.
 - Do not keep test-only production abstractions, incomplete extractions, or dead

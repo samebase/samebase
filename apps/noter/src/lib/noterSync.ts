@@ -1,9 +1,7 @@
-import {
-  buildPathWithQuery,
-  setQueryParam,
-  updateQueryParams,
-} from "./queryParams";
+import { linkOptions } from "@tanstack/react-router";
+import { buildPathWithQuery } from "./queryParams";
 import { buildMachinesRouteSearch } from "./authenticatedRouteSearch";
+import { stringifyTanStackSearch } from "./tanstackSearchParams";
 
 export const MACHINES_ROUTE = "/machines";
 export const MACHINE_CONNECT_ROUTE = "/machines/connect";
@@ -30,14 +28,20 @@ export function buildMachinesWorkspacePath(args?: {
   machineId?: string | null;
   threadId?: string | null;
 }): string {
-  const routeSearch = buildMachinesRouteSearch(args);
-
+  const options = buildMachinesWorkspaceLinkOptions(args);
   return buildPathWithQuery({
-    pathname: MACHINES_ROUTE,
-    search: updateQueryParams(undefined, (nextSearchParams) => {
-      setQueryParam(nextSearchParams, "machineId", routeSearch.machineId);
-      setQueryParam(nextSearchParams, "threadId", routeSearch.threadId);
-    }),
+    pathname: options.to,
+    search: stringifyTanStackSearch(options.search),
+  });
+}
+
+export function buildMachinesWorkspaceLinkOptions(args?: {
+  machineId?: string | null;
+  threadId?: string | null;
+}) {
+  return linkOptions({
+    to: MACHINES_ROUTE,
+    search: buildMachinesRouteSearch(args),
   });
 }
 

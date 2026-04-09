@@ -91,10 +91,7 @@ import { isStaleBaseVersionError } from "../../shared/stagingErrors";
 import { parseVaultPathContext } from "@/lib/vaultRoutes";
 import { isInIframe } from "@/authClient";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
-import {
-  buildGithubOAuthReturnToPath,
-  openGithubOAuthPopup,
-} from "@/lib/githubOAuthFlow";
+import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import {
   buildStagingPreviewRefreshKey,
   getBranchComparePreviewReloadMode,
@@ -346,14 +343,15 @@ function FileViewWrapper() {
     select: (location) => ({
       // TODO(tanstack-router-cleanup): remove this browser-style location shim
       // once file view route parsing and history-state preservation move onto
-      // typed TanStack params/search/state instead of PathWithSearch-style data.
+      // typed TanStack params/search/state instead of a browser-shaped adapter.
+      href: location.href,
       hash: location.hash.length > 0 ? `#${location.hash}` : "",
       pathname: location.pathname,
       search: location.searchStr,
       state: readUserHistoryState(location.state),
     }),
   });
-  const { pathname, search, state } = location;
+  const { href, pathname, search, state } = location;
   const isCompareRequested = useMemo(
     () => hasQueryParam(search, "compare"),
     [search],
@@ -499,7 +497,7 @@ function FileViewWrapper() {
 
       try {
         const oauthUrl = await getGithubOAuthUrl({
-          returnToPath: buildGithubOAuthReturnToPath(location),
+          returnToPath: href,
         });
         if (isInIframe()) {
           const popup = openGithubOAuthPopup(oauthUrl);
@@ -520,7 +518,7 @@ function FileViewWrapper() {
         setIsConnectingGithub(false);
       }
     })();
-  }, [getGithubOAuthUrl, isConnectingGithub, location]);
+  }, [getGithubOAuthUrl, href, isConnectingGithub]);
 
   const handleConnectRepository = useCallback(() => {
     if (!repositoryFullName || isConnectingRepository) {

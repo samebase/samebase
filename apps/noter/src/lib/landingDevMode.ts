@@ -1,7 +1,6 @@
 import {
   buildPathWithUpdatedQuery,
   cloneQueryParams,
-  type PathWithSearch,
   setQueryParam,
 } from "./queryParams";
 
@@ -24,18 +23,29 @@ export function isLandingDevModeEnabled(search: SearchFlagReader): boolean {
 }
 
 export function buildLandingDevModeHref(
-  location: PathWithSearch,
+  pathname: string,
+  search: string | URLSearchParams | undefined,
+  hash: string | undefined,
   enabled: boolean,
 ): string {
-  return buildPathWithUpdatedQuery(location, (searchParams) => {
-    setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, enabled);
-  });
+  return buildPathWithUpdatedQuery(
+    { pathname, search, hash },
+    (searchParams) => {
+      setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, enabled);
+    },
+  );
 }
 
-export function buildLandingDevToggleHref(location: PathWithSearch): string {
-  const currentSearchParams = cloneQueryParams(location.search);
+export function buildLandingDevToggleHref(
+  pathname: string,
+  search: string | URLSearchParams | undefined,
+  hash: string | undefined,
+): string {
+  const currentSearchParams = cloneQueryParams(search);
   return buildLandingDevModeHref(
-    location,
+    pathname,
+    search,
+    hash,
     !isLandingDevModeEnabled(currentSearchParams),
   );
 }

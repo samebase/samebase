@@ -30,7 +30,10 @@ migration ledger can stay focused on the router transition itself.
    tree instead of a React Router-shaped adapter.
 4. Remove the remaining browser-style location and raw-history escapes so route
    code can benefit from TanStack's native type surface end to end.
-5. Keep the landing shell cleanup separate from route-ownership cleanup so that
+5. Replace route-owned raw string helper boundaries with typed TanStack route
+   helpers where practical, especially when a helper now exists only for one
+   explicit app route.
+6. Keep the landing shell cleanup separate from route-ownership cleanup so that
    decision can move at a different speed.
 
 ## Cleanup Sequence
@@ -41,11 +44,50 @@ migration ledger can stay focused on the router transition itself.
    fallback. Complete.
 3. Shrink fixture and test dependence on compat helpers such as the router seam
    `MemoryRouter`. Complete.
-4. Remove remaining browser-style location adapters and route-local raw
-   history/href escapes, including `PathWithSearch`-style reshaping in runtime
-   code. Remaining.
+4. Remove remaining browser-style location adapters, route-local raw
+   history/href escapes, and route-owned raw string helper boundaries.
+   Remaining.
 5. Revisit `FastPublicLandingShell.tsx` only after the router, fallback, test,
    and location-shim cleanup no longer depend on it. Remaining.
+
+## Current Step 4 Targets
+
+The next typed-route cleanup should focus on helper boundaries that still accept
+raw `pathname` / `search` / `hash` strings even though the corresponding routes
+are already explicit TanStack routes.
+
+Highest-value remaining typed-route targets:
+
+1. `apps/noter/src/lib/landingDevMode.ts`
+2. `apps/noter/src/lib/googleAuthRedirect.ts`
+3. the remaining raw-history/raw-href file-view escape hatches in
+   `apps/noter/src/components/FileView.tsx`
+
+Already completed in this step:
+
+1. `apps/noter/src/lib/noterSync.ts`
+2. route-local builders like `buildPricingPath()` in
+   `apps/noter/src/components/PricingPage.tsx`
+3. route-local research helpers in
+   `apps/noter/src/components/CodexAppServerResearchPage.tsx` and
+   `apps/noter/src/components/CodexAppServerThreadBrowserResearchPage.tsx`
+4. the route-local `buildLocationHref()` helper that used to mirror TanStack's
+   current `location.href` in
+   `apps/noter/src/components/RootIndexRoutePage.tsx`
+5. the `buildGithubOAuthReturnToPath()` helper that used to reassemble the
+   current route from browser-style location pieces in
+   `apps/noter/src/lib/githubOAuthFlow.ts`
+
+Important non-targets for this step:
+
+1. Existing `Link to="/..."` callsites are already route-typed by TanStack and
+   do not need conversion just because they use string literals.
+2. Existing `getRouteApi("/...")` callsites are already route-typed and should
+   stay as they are unless a more local route API becomes clearer.
+3. Generic string builders in `apps/noter/src/lib/queryParams.ts` should remain
+   low-level until all route-owned callers have moved off them; they still serve
+   non-navigation and non-router use cases such as absolute callback URLs and
+   script-facing URLs.
 
 ## Working Log
 
@@ -97,3 +139,55 @@ migration ledger can stay focused on the router transition itself.
   of scattered incidental debt. The current hotspots are `Layout.tsx`,
   `RootIndexRoutePage.tsx`, `FastPublicLandingShell.tsx`, `FileView.tsx`, and
   one fixture-only route label in `CommitReviewVisualFixture.tsx`.
+
+- Problem: the landing/root helper layer was still carrying the exported
+  `PathWithSearch` type even though TanStack now owns the route tree and search
+  contracts. Tried: remove the shared alias, switch the helper layer to explicit
+  pathname/search/hash inputs, and stop reconstructing browser-style `#hash`
+  values in the routed landing/root surfaces. Result: `PathWithSearch` is gone,
+  the root/landing helpers now read explicit primitives, and the remaining
+  cleanup hotspots are narrower: `FileView.tsx`, `FastPublicLandingShell.tsx`,
+  and the fixture-only route label in `CommitReviewVisualFixture.tsx`.
+
+- Problem: several routed root/layout/shell callsites still rebuilt tiny
+  `{ pathname, search, hash }` mirrors even though they already needed the
+  native TanStack location object. Tried: replace those reshaped
+  `useLocation({ select: ... })` calls with direct `useLocation()` reads and
+  update the few helper callsites that still need explicit `searchStr` inputs.
+  Result: the cleanup moved one step closer to the native TanStack shape, and
+  the remaining debt is more clearly limited to the intentional raw-href/raw-
+  history escape hatches.
+
+- Problem: it was still unclear which remaining raw route strings are actually
+  untyped debt versus already-typed TanStack literals. Tried: audit the
+  remaining route literals after the `PathWithSearch` cleanup and separate
+  helper-boundary debt from already-typed `Link` / `getRouteApi` usage. Result:
+  the next cleanup step is now explicit: convert route-owned helper boundaries
+  such as `landingDevMode.ts`, `googleAuthRedirect.ts`, `noterSync.ts`, and a
+  few route-local builders to typed route helpers, while leaving generic
+  low-level URL builders and already-typed route literals alone.
+
+- Problem: the route-owned helper boundary cleanup still mixed two different
+  classes of work: helpers that only exist for one explicit TanStack route, and
+  root landing helpers that still preserve unrelated query params outside the
+  root search schema. Tried: convert only the clean route-owned cases first by
+  deriving href strings from typed `linkOptions(...)` in `noterSync.ts`,
+  `PricingPage.tsx`, and the Codex research route helpers. Result: the
+  route-owned string helper cleanup is now partially complete, and the remaining
+  root landing helpers are explicitly deferred until the root route owns enough
+  query-param behavior to replace those raw string-preserving helpers cleanly.
+
+- Problem: the Codex research pages still turned typed route options back into
+  href strings with local `to + search` concatenation. Tried: delete those
+  route-local href builders and use `router.buildLocation(...)` directly with
+  typed `linkOptions(...)` at the component boundary. Result: those research
+  pages now rely on TanStack's own href materialization instead of duplicating
+  query-string assembly in app code.
+
+- Problem: a few remaining helpers were still reassembling the current route
+  from pathname/search/hash even though TanStack already exposes the live href
+  string. Tried: delete `buildLocationHref()` from
+  `RootIndexRoutePage.tsx`, delete `buildGithubOAuthReturnToPath()` from
+  `githubOAuthFlow.ts`, and switch the routed callsites onto `location.href`.
+  Result: the current-route OAuth and fast-shell comparisons now use TanStack's
+  own location primitive instead of app-owned string reconstruction.

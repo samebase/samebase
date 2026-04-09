@@ -1,6 +1,6 @@
 export type QueryParamValue = boolean | string | null | undefined;
 
-export type PathWithSearch = {
+type PathQueryInput = {
   pathname: string;
   search?: string | URLSearchParams;
   hash?: string;
@@ -71,16 +71,26 @@ export function updateQueryParams(
   return nextSearchParams;
 }
 
-export function buildPathWithQuery(args: PathWithSearch): string {
+/** Canonicalize raw or browser-style hash input to either "" or a single-# string. */
+function normalizeHashInput(hash?: string): string {
+  if (typeof hash === "undefined" || hash.length === 0) {
+    return "";
+  }
+
+  const rawHash = hash.replace(/^#+/, "");
+  return rawHash.length === 0 ? "" : `#${rawHash}`;
+}
+
+export function buildPathWithQuery(args: PathQueryInput): string {
   const searchParams =
     args.search instanceof URLSearchParams
       ? args.search
       : cloneQueryParams(args.search);
-  return `${args.pathname}${buildSearchString(searchParams)}${args.hash ?? ""}`;
+  return `${args.pathname}${buildSearchString(searchParams)}${normalizeHashInput(args.hash)}`;
 }
 
 export function buildPathWithUpdatedQuery(
-  args: PathWithSearch,
+  args: PathQueryInput,
   updater: (nextSearchParams: URLSearchParams) => void,
 ): string {
   return buildPathWithQuery({

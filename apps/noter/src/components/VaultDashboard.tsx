@@ -11,7 +11,7 @@ import {
   ChevronDownIcon,
 } from "@radix-ui/react-icons";
 import { Loader2 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
@@ -50,10 +50,7 @@ import {
   type MutableRefObject,
 } from "react";
 import { isInIframe } from "@/authClient";
-import {
-  buildGithubOAuthReturnToPath,
-  openGithubOAuthPopup,
-} from "@/lib/githubOAuthFlow";
+import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import { UserMenu } from "@/components/UserMenu";
 import {
   Dialog,
@@ -745,6 +742,7 @@ function VaultBranchSection({
 }
 
 function VaultDashboardContent() {
+  const location = useLocation();
   const vaults = useQuery(api.vault.getUserVaults);
   const now = useNow();
   const deleteVault = useAction(api.vaultActions.deleteVault);
@@ -1228,7 +1226,7 @@ function VaultDashboardContent() {
       const oauthUrl =
         provider === "github"
           ? await getGithubOAuthUrl({
-              returnToPath: buildGithubOAuthReturnToPath(window.location),
+              returnToPath: location.href,
             })
           : await providerConfig.getOAuthUrl();
       if (isInIframe()) {

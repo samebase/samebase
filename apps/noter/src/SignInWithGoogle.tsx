@@ -22,7 +22,11 @@ export function SignInWithGoogle({
         } else {
           setAuthProvider("google");
           void signIn("google", {
-            redirectTo: buildCurrentGoogleRedirectTo(window.location),
+            redirectTo: buildCurrentGoogleRedirectTo(
+              window.location.pathname,
+              window.location.search,
+              window.location.hash,
+            ),
           });
         }
       }}

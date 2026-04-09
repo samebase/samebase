@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildPathWithQuery,
   buildPathWithUpdatedQuery,
   buildSearchString,
   cloneQueryParams,
@@ -61,5 +62,27 @@ describe("buildPathWithUpdatedQuery", () => {
     expect(nextPath).toBe(
       "/vault/octo/repo/main/src/App.tsx?prod-ui&mobileLineNumbers=1&diff",
     );
+  });
+});
+
+describe("buildPathWithQuery", () => {
+  it("accepts TanStack-style hash strings without a leading number sign", () => {
+    expect(
+      buildPathWithQuery({
+        pathname: "/",
+        search: "?prod-ui",
+        hash: "section",
+      }),
+    ).toBe("/?prod-ui#section");
+  });
+
+  it("collapses duplicate leading number signs in hash input", () => {
+    expect(
+      buildPathWithQuery({
+        pathname: "/",
+        search: "?prod-ui",
+        hash: "##section",
+      }),
+    ).toBe("/?prod-ui#section");
   });
 });
