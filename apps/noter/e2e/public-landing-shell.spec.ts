@@ -477,43 +477,64 @@ test("landing footer links keep browser link styling", async ({
   });
 });
 
-test("landing preserves scroll position while toggling dev mode", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 320 });
-  await page.goto("/?prod-ui", { waitUntil: "networkidle" });
-
-  const hydratedScrollShell = page.getByTestId(
-    PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
-  );
-  await expect(hydratedScrollShell).toBeVisible();
-  const initialScrollTop = await hydratedScrollShell.evaluate((element) => {
-    if (!(element instanceof HTMLElement)) {
-      throw new Error("Expected landing scroll shell");
-    }
-
-    element.scrollTop = 160;
-    return element.scrollTop;
-  });
-  expect(initialScrollTop).toBeGreaterThan(0);
-
-  await page.getByRole("link", { name: "/?dev", exact: true }).click();
-  await expect(page).toHaveURL(/\/\?prod-ui&dev$/);
-  await expect
-    .poll(() =>
-      hydratedScrollShell.evaluate((element) => {
-        if (!(element instanceof HTMLElement)) {
-          throw new Error("Expected landing scroll shell");
-        }
-
-        return element.scrollTop;
-      }),
-    )
-    .toBe(initialScrollTop);
-});
-
 test.describe("mobile landing dev toggle", () => {
   test.use(mobileLandingDevice);
+
+  test("landing uses document scroll on mobile instead of an inner scroll shell", async ({
+    page,
+  }) => {
+    await page.goto("/?prod-ui", { waitUntil: "networkidle" });
+    await page.setViewportSize({ width: 390, height: 320 });
+
+    const scrollOwnership = await page.evaluate(() => {
+      const shell = document.querySelector(
+        '[data-testid="public-landing-scroll-shell"]',
+      );
+      const scrollingElement = document.scrollingElement;
+
+      if (!(shell instanceof HTMLElement)) {
+        throw new Error("Expected landing shell");
+      }
+      if (!(scrollingElement instanceof HTMLElement)) {
+        throw new Error("Expected document scrolling element");
+      }
+
+      const shellStyle = getComputedStyle(shell);
+      return {
+        documentCanScroll:
+          scrollingElement.scrollHeight > scrollingElement.clientHeight,
+        shellCanScroll: shell.scrollHeight > shell.clientHeight,
+        shellOverflowY: shellStyle.overflowY,
+      };
+    });
+
+    expect(scrollOwnership.documentCanScroll).toBe(true);
+    expect(scrollOwnership.shellCanScroll).toBe(false);
+    expect(scrollOwnership.shellOverflowY).not.toBe("auto");
+
+    const scrollTop = await page.evaluate(() => {
+      const shell = document.querySelector(
+        '[data-testid="public-landing-scroll-shell"]',
+      );
+      const scrollingElement = document.scrollingElement;
+
+      if (!(shell instanceof HTMLElement)) {
+        throw new Error("Expected landing shell");
+      }
+      if (!(scrollingElement instanceof HTMLElement)) {
+        throw new Error("Expected document scrolling element");
+      }
+
+      window.scrollTo(0, 160);
+      return {
+        documentScrollTop: scrollingElement.scrollTop,
+        shellScrollTop: shell.scrollTop,
+      };
+    });
+
+    expect(scrollTop.documentScrollTop).toBeGreaterThan(0);
+    expect(scrollTop.shellScrollTop).toBe(0);
+  });
 
   test("landing dev toggle keeps the landing card stable frame by frame", async ({
     page,

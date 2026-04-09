@@ -32,6 +32,7 @@ export function Layout({ children }: { children: ReactNode }) {
     location.pathname !== "/privacy";
   const showPublicNavigation =
     !isLoading && !isAuthenticated && location.pathname !== "/";
+  const allowDocumentScroll = !isAuthenticated;
   const landingDevToggleSearch = buildLandingDevToggleSearch(rootRouteSearch);
   const landingDevToggleHref = router.buildLocation({
     to: "/",
@@ -73,6 +74,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <WorkspaceLayoutV2PageFrame
+      allowDocumentScroll={allowDocumentScroll}
       topBar={
         <AppBuildStatusBar
           appCommit={appCommit}
@@ -87,7 +89,15 @@ export function Layout({ children }: { children: ReactNode }) {
         />
       }
     >
-      <main className="flex h-full flex-col overflow-hidden">{children}</main>
+      <main
+        className={
+          allowDocumentScroll
+            ? "flex flex-1 flex-col"
+            : "flex h-full flex-col overflow-hidden"
+        }
+      >
+        {children}
+      </main>
     </WorkspaceLayoutV2PageFrame>
   );
 }

@@ -52,7 +52,10 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
     useState(landingPageMarkdown);
 
   return (
-    <AppPageScrollShell data-testid={PUBLIC_LANDING_SCROLL_SHELL_TEST_ID}>
+    <AppPageScrollShell
+      data-testid={PUBLIC_LANDING_SCROLL_SHELL_TEST_ID}
+      scrollMode="document"
+    >
       <div className="container my-auto">
         <div
           data-testid="public-landing-content"
