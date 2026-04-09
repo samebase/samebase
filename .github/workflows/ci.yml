@@ -9,7 +9,7 @@ on:
 jobs:
   checks:
     name: checks
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
 
     strategy:
@@ -48,7 +48,7 @@ jobs:
 
   playwright:
     name: playwright (${{ matrix.shard }})
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
     # Keep heavy browser coverage off PRs for now so branch validation stays
     # within the org Actions budget. Main pushes still exercise the full matrix.
@@ -118,7 +118,7 @@ jobs:
             apps/noter/e2e/test-results
 
   sync-windows:
-    runs-on: windows-latest
+    runs-on: blacksmith-4vcpu-windows-2025
     timeout-minutes: 15
     # Keep Windows smoke coverage off PRs for now so branch validation stays
     # within the org Actions budget. Main pushes still exercise the full matrix.
@@ -163,7 +163,7 @@ jobs:
 
   ci:
     name: ci (24.x)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: [checks, playwright, sync-windows]
     if: ${{ always() }}
 
