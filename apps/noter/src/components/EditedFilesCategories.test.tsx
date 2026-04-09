@@ -1,0 +1,26 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { EditedFilesCategories } from "./EditedFilesCategories";
+
+describe("EditedFilesCategories", () => {
+  it("renders outside the file-view route without requiring an active /vault/$ match", () => {
+    expect(() =>
+      renderToStaticMarkup(
+        <TestRouterProvider initialEntries={["/machines?mobileLineNumbers=1"]}>
+          <EditedFilesCategories
+            branch="main"
+            categories={{
+              deleted: [],
+              modified: [],
+              new: [],
+              renamed: [],
+              renamedAndModified: [],
+            }}
+            repositoryFullName="noter-md/noter"
+          />
+        </TestRouterProvider>,
+      ),
+    ).not.toThrow();
+  });
+});

@@ -6,7 +6,7 @@ import {
 } from "@radix-ui/react-icons";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { api } from "../../convex/_generated/api";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { linkStyle } from "./styles";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
@@ -14,7 +14,7 @@ import { buildPathWithQuery } from "@/lib/queryParams";
 import {
   buildFileViewRouteSearch,
   mergeFileViewRouteSearch,
-  useFileViewRouteSearch,
+  validateFileViewRouteSearch,
 } from "@/lib/fileViewRouteSearch";
 import { buildVaultFileRoute } from "@/lib/vaultRoutes";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -150,7 +150,13 @@ export function EditedFilesCategories({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const routeSearch = useFileViewRouteSearch();
+  const currentFileViewSearch = useMemo(
+    () =>
+      validateFileViewRouteSearch(
+        Object.fromEntries(new URLSearchParams(location.searchStr).entries()),
+      ),
+    [location.searchStr],
+  );
   const navigateToStagedFile = useCallback(
     (file: StagedFile) => {
       const [owner, repoName] = repositoryFullName.split("/");
@@ -175,7 +181,7 @@ export function EditedFilesCategories({
               diff: file.fileDeleted,
               review: !file.fileDeleted,
             }),
-            mobileLineNumbers: routeSearch.mobileLineNumbers,
+            mobileLineNumbers: currentFileViewSearch.mobileLineNumbers,
           }),
         }),
       });
@@ -186,7 +192,7 @@ export function EditedFilesCategories({
       navigate,
       onFileSelected,
       repositoryFullName,
-      routeSearch.mobileLineNumbers,
+      currentFileViewSearch.mobileLineNumbers,
     ],
   );
   const sections = [];
