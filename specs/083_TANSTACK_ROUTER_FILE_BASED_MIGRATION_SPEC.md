@@ -150,3 +150,12 @@ slice.
   shared public metadata/layout shell only. Result: the route tree is more local
   and obvious, while the helper file shrinks down to one tiny shared wrapper
   instead of acting like a second route registry.
+
+- Problem: router-managed route chunks still preload every module imported by a
+  route component, so `/vault/$` started pulling the full `FileView` stack as
+  soon as the route chunk preloaded, even for signed-out deep links that should
+  stop at the auth gate. Tried: add a regression test around the route
+  component's `.preload()` behavior, then restore a route-local `lazy(...)`
+  boundary just for `FileView` while keeping the rest of the router on
+  `autoCodeSplitting`. Result: the heavy editor bundle stays behind the
+  authenticated shell again without backing out the broader route cleanup.

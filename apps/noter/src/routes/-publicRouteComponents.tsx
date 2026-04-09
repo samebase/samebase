@@ -1,4 +1,4 @@
-import { Suspense, type ReactNode } from "react";
+import { Suspense, useMemo, type ReactNode } from "react";
 import { Layout } from "@/Layout";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
@@ -11,12 +11,15 @@ export function RoutedPage(props: {
   pathname: string;
   withLayout?: boolean;
 }) {
-  usePageMetadata(
-    resolvePageMetadata({
-      pathname: props.pathname,
-      isAuthenticated: false,
-    }),
+  const metadata = useMemo(
+    () =>
+      resolvePageMetadata({
+        pathname: props.pathname,
+        isAuthenticated: false,
+      }),
+    [props.pathname],
   );
+  usePageMetadata(metadata);
 
   const content = <Suspense fallback={null}>{props.children}</Suspense>;
 

@@ -3,6 +3,9 @@ import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePag
 import { MachineConnectPage } from "@/components/MachineConnectPage";
 import { validateMachineConnectRouteSearch } from "@/lib/authenticatedRouteSearch";
 
+/**
+ * Preserve the authenticated route shell while this page stays route-owned.
+ */
 function MachineConnectRouteComponent() {
   return (
     <AuthenticatedAppRoutePage>

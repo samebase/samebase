@@ -3,6 +3,9 @@ import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePag
 import { MachinesWorkspacePage } from "@/components/MachinesWorkspacePage";
 import { validateMachinesRouteSearch } from "@/lib/authenticatedRouteSearch";
 
+/**
+ * Preserve the authenticated route shell while this page stays route-owned.
+ */
 function MachinesRouteComponent() {
   return (
     <AuthenticatedAppRoutePage>
