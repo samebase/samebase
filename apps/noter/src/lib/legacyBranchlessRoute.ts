@@ -19,3 +19,19 @@ export function resolveLegacyBranchlessFilePath(args: {
   );
   return candidateExists ? candidatePath : null;
 }
+
+/**
+ * Preserve the current canonical file path when a bad-branch route is
+ * rewritten, but prefer the recovered legacy branchless file path when we
+ * explicitly proved that older URL shape against the repository tree.
+ */
+export function resolveFilePathForResolvedBranch(args: {
+  selectedFile: string;
+  legacyBranchlessFilePath: string | null;
+}): string | undefined {
+  if (args.legacyBranchlessFilePath) {
+    return args.legacyBranchlessFilePath;
+  }
+
+  return args.selectedFile.length > 0 ? args.selectedFile : undefined;
+}

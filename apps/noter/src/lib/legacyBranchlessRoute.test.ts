@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveLegacyBranchlessFilePath } from "./legacyBranchlessRoute";
+import {
+  resolveFilePathForResolvedBranch,
+  resolveLegacyBranchlessFilePath,
+} from "./legacyBranchlessRoute";
 
 const tree = [
   { path: "docs.md", mode: "100644", type: "blob", sha: "1" },
@@ -40,5 +43,34 @@ describe("resolveLegacyBranchlessFilePath", () => {
         tree,
       }),
     ).toBeNull();
+  });
+});
+
+describe("resolveFilePathForResolvedBranch", () => {
+  it("preserves canonical file paths for normal bad-branch rewrites", () => {
+    expect(
+      resolveFilePathForResolvedBranch({
+        selectedFile: "src/App.tsx",
+        legacyBranchlessFilePath: null,
+      }),
+    ).toBe("src/App.tsx");
+  });
+
+  it("prefers recovered legacy branchless file paths when available", () => {
+    expect(
+      resolveFilePathForResolvedBranch({
+        selectedFile: "docs.md",
+        legacyBranchlessFilePath: "main/docs.md",
+      }),
+    ).toBe("main/docs.md");
+  });
+
+  it("returns undefined when the route points at the branch root", () => {
+    expect(
+      resolveFilePathForResolvedBranch({
+        selectedFile: "",
+        legacyBranchlessFilePath: null,
+      }),
+    ).toBeUndefined();
   });
 });

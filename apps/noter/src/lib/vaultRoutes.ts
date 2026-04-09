@@ -6,8 +6,37 @@ export function decodeRouteSegmentSafe(segment: string): string {
   }
 }
 
-export function encodeVaultBranchSegment(branch: string): string {
+function encodeVaultBranchSegment(branch: string): string {
   return encodeURIComponent(branch);
+}
+
+function encodeVaultFilePath(filePath: string): string {
+  return filePath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
+/**
+ * Build the shipped `/vault/...` file route shape.
+ *
+ * This stays path-string based for now because TanStack `_splat` currently
+ * double-encodes pre-encoded branch segments like `feature%2Flogin`, which
+ * would break branch names that legitimately contain `/`.
+ */
+export function buildVaultFileRoute(args: {
+  owner: string;
+  repoName: string;
+  branch: string;
+  filePath?: string;
+}): string {
+  const basePath = `/vault/${args.owner}/${args.repoName}/${encodeVaultBranchSegment(args.branch)}`;
+
+  if (!args.filePath || args.filePath.length === 0) {
+    return basePath;
+  }
+
+  return `${basePath}/${encodeVaultFilePath(args.filePath)}`;
 }
 
 export interface VaultCodespaceChatRouteArgs {
