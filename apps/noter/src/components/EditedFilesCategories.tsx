@@ -16,6 +16,7 @@ import {
   parseTanStackSearch,
   stringifyTanStackSearch,
 } from "@/lib/tanstackSearchParams";
+import { buildVaultFileRoute } from "@/lib/vaultRoutes";
 import type { Id } from "../../convex/_generated/dataModel";
 
 type StagedFile = NonNullable<
@@ -152,12 +153,16 @@ export function EditedFilesCategories({
   const currentSearch = parseTanStackSearch(location.searchStr);
   const navigateToStagedFile = useCallback(
     (file: StagedFile) => {
-      const encodedFilePath = file.filePath
-        .split("/")
-        .map((segment) => encodeURIComponent(segment))
-        .join("/");
-      const encodedBranch = encodeURIComponent(branch);
-      const nextPath = `/vault/${repositoryFullName}/${encodedBranch}/${encodedFilePath}`;
+      const [owner, repoName] = repositoryFullName.split("/");
+      if (!owner || !repoName) {
+        return;
+      }
+      const nextPath = buildVaultFileRoute({
+        owner,
+        repoName,
+        branch,
+        filePath: file.filePath,
+      });
       onFileSelected?.();
       // TODO(tanstack-router-cleanup): replace this raw href escape with typed
       // vault-route navigation once the catch-all `/vault/$` path no longer

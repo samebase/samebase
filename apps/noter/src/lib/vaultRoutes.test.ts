@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildVaultFileRoute,
   buildVaultCodespaceChatRoute,
   isChatOnlyCodespaceRoute,
   parseVaultPathContext,
@@ -14,6 +15,30 @@ describe("buildVaultCodespaceChatRoute", () => {
         branch: "feature/login-flow",
       }),
     ).toBe("/vault/octo/repo/codespace/feature%2Flogin-flow/chat");
+  });
+});
+
+describe("buildVaultFileRoute", () => {
+  it("encodes branch names with slashes for file routes", () => {
+    expect(
+      buildVaultFileRoute({
+        owner: "octo",
+        repoName: "repo",
+        branch: "feature/login-flow",
+        filePath: "src/App.tsx",
+      }),
+    ).toBe("/vault/octo/repo/feature%2Flogin-flow/src/App.tsx");
+  });
+
+  it("encodes file path segments without changing slash separators", () => {
+    expect(
+      buildVaultFileRoute({
+        owner: "octo",
+        repoName: "repo",
+        branch: "main",
+        filePath: "docs/hello world.md",
+      }),
+    ).toBe("/vault/octo/repo/main/docs/hello%20world.md");
   });
 });
 

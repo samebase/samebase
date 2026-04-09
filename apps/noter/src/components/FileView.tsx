@@ -84,7 +84,7 @@ import { MediaUploadDialog } from "./MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
 import { getStagedFileStatus as getSharedStagedFileStatus } from "../../shared/stagedFiles";
 import { isStaleBaseVersionError } from "../../shared/stagingErrors";
-import { parseVaultPathContext } from "@/lib/vaultRoutes";
+import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
 import { isInIframe } from "@/authClient";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
@@ -144,13 +144,6 @@ function findBestInitialFile(files: GithubTreeType[]) {
   // 3. Return first file (sorted alphabetically)
   const sortedFiles = fileList.sort((a, b) => a.path.localeCompare(b.path));
   return sortedFiles[0]?.path || null;
-}
-
-function encodeVaultFilePath(path: string): string {
-  return path
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
 }
 
 type CommitPreviewFile = {
@@ -311,7 +304,10 @@ function getStagedFileStatus(
 }
 
 function encodeGitHubPath(path: string): string {
-  return encodeVaultFilePath(path);
+  return path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
 }
 
 function getDefaultUploadFolderPath(filePath: string): string {
@@ -324,31 +320,10 @@ function normalizeFolderPath(folderPath: string): string {
   return folderPath.trim().replace(/^\/+|\/+$/g, "");
 }
 
-function readUserHistoryState(state: unknown): unknown {
-  if (typeof state !== "object" || state === null) {
-    return null;
-  }
-
-  const userState = Object.fromEntries(Object.entries(state));
-
-  delete userState.key;
-  delete userState.__TSR_key;
-  delete userState.__TSR_index;
-  delete userState.__hashScrollIntoViewOptions;
-  delete userState.__tempKey;
-  delete userState.__tempLocation;
-
-  return Object.keys(userState).length > 0 ? userState : null;
-}
-
 function FileViewWrapper() {
   const router = useRouter();
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
-  const state = useMemo(
-    () => readUserHistoryState(location.state),
-    [location.state],
-  );
   const { href, pathname } = location;
   const currentSearch = location.searchStr;
   const isCompareRequested = routeSearch.compare === true;
@@ -418,18 +393,16 @@ function FileViewWrapper() {
     [currentSearch],
   );
   const navigateByHref = useCallback(
-    (href: string, options?: { replace?: boolean; state?: unknown }) => {
-      // TODO(tanstack-router-cleanup): replace these raw href navigations with
-      // typed vault-route params/search once file view routing is modeled
-      // directly in TanStack instead of hand-built path strings.
-      if (options?.replace) {
-        router.history.replace(href, options.state);
-        return;
-      }
-
-      router.history.push(href, options?.state);
+    (href: string, options?: { replace?: boolean }) => {
+      // Preserve current user history state while the `/vault/$` route still
+      // depends on the intentionally encoded raw file path boundary.
+      void router.navigate({
+        href,
+        replace: options?.replace,
+        state: true,
+      });
     },
-    [router.history],
+    [router],
   );
   const [connectRouteError, setConnectRouteError] = useState<string | null>(
     null,
@@ -541,14 +514,13 @@ function FileViewWrapper() {
         }
 
         const nextBranch = routeBranch ?? connectResult.defaultBranch;
-        const nextPath =
-          selectedFile.length > 0
-            ? `/vault/${canonicalOwner}/${canonicalRepoName}/${encodeURIComponent(nextBranch)}/${encodeVaultFilePath(selectedFile)}`
-            : `/vault/${canonicalOwner}/${canonicalRepoName}/${encodeURIComponent(nextBranch)}`;
-        navigateByHref(appendCurrentSearch(nextPath), {
-          replace: true,
-          state,
+        const nextPath = buildVaultFileRoute({
+          owner: canonicalOwner,
+          repoName: canonicalRepoName,
+          branch: nextBranch,
+          filePath: selectedFile.length > 0 ? selectedFile : undefined,
         });
+        navigateByHref(appendCurrentSearch(nextPath), { replace: true });
       } catch (connectRepositoryError) {
         setConnectRouteError(
           connectRepositoryError instanceof Error
@@ -567,7 +539,6 @@ function FileViewWrapper() {
     repositoryFullName,
     routeBranch,
     selectedFile,
-    state,
   ]);
 
   /**
@@ -581,18 +552,22 @@ function FileViewWrapper() {
     }
 
     const resolvedBranch = vault.resolvedBranch;
-    const encodedResolvedBranch = encodeURIComponent(resolvedBranch);
-    const nextPath = selectedFileFromBranchlessRoute
-      ? `/vault/${owner}/${repoName}/${encodedResolvedBranch}/${encodeVaultFilePath(selectedFileFromBranchlessRoute)}`
-      : `/vault/${owner}/${repoName}/${encodedResolvedBranch}`;
-    navigateByHref(appendCurrentSearch(nextPath), { replace: true, state });
+    const nextPath = buildVaultFileRoute({
+      owner,
+      repoName,
+      branch: resolvedBranch,
+      filePath:
+        selectedFileFromBranchlessRoute.length > 0
+          ? selectedFileFromBranchlessRoute
+          : undefined,
+    });
+    navigateByHref(appendCurrentSearch(nextPath), { replace: true });
   }, [
     appendCurrentSearch,
     owner,
     repoName,
     branchParam,
     selectedFileFromBranchlessRoute,
-    state,
     vault?.branchNotFound,
     vault?.resolvedBranch,
     navigateByHref,
@@ -606,10 +581,13 @@ function FileViewWrapper() {
     if (!owner || !repoName || !branch || branchParam) {
       return;
     }
-    const nextPath = selectedFile
-      ? `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(selectedFile)}`
-      : `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}`;
-    navigateByHref(appendCurrentSearch(nextPath), { replace: true, state });
+    const nextPath = buildVaultFileRoute({
+      owner,
+      repoName,
+      branch,
+      filePath: selectedFile.length > 0 ? selectedFile : undefined,
+    });
+    navigateByHref(appendCurrentSearch(nextPath), { replace: true });
   }, [
     appendCurrentSearch,
     owner,
@@ -617,7 +595,6 @@ function FileViewWrapper() {
     branch,
     branchParam,
     selectedFile,
-    state,
     navigateByHref,
   ]);
 
@@ -635,8 +612,13 @@ function FileViewWrapper() {
     ) {
       return;
     }
-    const nextPath = `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(legacyBranchlessFilePath)}`;
-    navigateByHref(appendCurrentSearch(nextPath), { replace: true, state });
+    const nextPath = buildVaultFileRoute({
+      owner,
+      repoName,
+      branch,
+      filePath: legacyBranchlessFilePath,
+    });
+    navigateByHref(appendCurrentSearch(nextPath), { replace: true });
   }, [
     appendCurrentSearch,
     owner,
@@ -644,7 +626,6 @@ function FileViewWrapper() {
     branch,
     branchParam,
     legacyBranchlessFilePath,
-    state,
     navigateByHref,
   ]);
 
@@ -731,11 +712,15 @@ function FileViewWrapper() {
     if (bestFile) {
       navigateByHref(
         appendCurrentSearch(
-          `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(bestFile)}`,
+          buildVaultFileRoute({
+            owner,
+            repoName,
+            branch,
+            filePath: bestFile,
+          }),
         ),
         {
           replace: true,
-          state,
         },
       );
     }
@@ -747,7 +732,6 @@ function FileViewWrapper() {
     repoName,
     branch,
     isCompareRequested,
-    state,
     navigateByHref,
   ]);
 
@@ -778,11 +762,15 @@ function FileViewWrapper() {
     if (bestFile) {
       navigateByHref(
         appendCurrentSearch(
-          `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(bestFile)}`,
+          buildVaultFileRoute({
+            owner,
+            repoName,
+            branch,
+            filePath: bestFile,
+          }),
         ),
         {
           replace: true,
-          state,
         },
       );
       return;
@@ -790,11 +778,14 @@ function FileViewWrapper() {
 
     navigateByHref(
       appendCurrentSearch(
-        `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}`,
+        buildVaultFileRoute({
+          owner,
+          repoName,
+          branch,
+        }),
       ),
       {
         replace: true,
-        state,
       },
     );
   }, [
@@ -807,7 +798,6 @@ function FileViewWrapper() {
     selectedFileExistsInTree,
     branch,
     isCompareRequested,
-    state,
     navigateByHref,
   ]);
 
@@ -912,16 +902,8 @@ function FileViewInner({
     () => parseTanStackSearch(location.searchStr),
     [location.searchStr],
   );
-  const state = useMemo(
-    () => readUserHistoryState(location.state),
-    [location.state],
-  );
   const buildNextFileViewSearch = useCallback(
-    (overrides?: {
-      compare?: boolean;
-      diff?: boolean;
-      review?: boolean;
-    }) => ({
+    (overrides?: { compare?: boolean; diff?: boolean; review?: boolean }) => ({
       ...currentRawSearch,
       ...buildFileViewRouteSearch({
         compare: overrides?.compare ?? routeSearch.compare === true,
@@ -933,18 +915,16 @@ function FileViewInner({
     [currentRawSearch, routeSearch],
   );
   const navigateByHref = useCallback(
-    (href: string, options?: { replace?: boolean; state?: unknown }) => {
-      // TODO(tanstack-router-cleanup): replace these raw href navigations with
-      // typed vault-route params once the catch-all `/vault/$` path no longer
-      // depends on manually encoded branch/file segments.
-      if (options?.replace) {
-        router.history.replace(href, options.state);
-        return;
-      }
-
-      router.history.push(href, options?.state);
+    (href: string, options?: { replace?: boolean }) => {
+      // Preserve current user history state while the `/vault/$` route still
+      // depends on the intentionally encoded raw file path boundary.
+      void router.navigate({
+        href,
+        replace: options?.replace,
+        state: true,
+      });
     },
-    [router.history],
+    [router],
   );
   const reviewOnMountRequested = routeSearch.review === true;
   const isCompareRequested = routeSearch.compare === true;
@@ -1442,7 +1422,6 @@ function FileViewInner({
       },
     ) => {
       const targetBranch = options?.branch ?? branch;
-      const encodedTargetBranch = encodeURIComponent(targetBranch);
       const preserveCurrentReviewMode = options?.reviewMode === undefined;
       const preserveCurrentCompareMode = options?.compare === undefined;
       const preserveReviewOnMount =
@@ -1455,10 +1434,12 @@ function FileViewInner({
       const includeCompare =
         options?.compare === true ||
         (preserveCurrentCompareMode && routeSearch.compare === true);
-      const pathname =
-        path.length > 0
-          ? `/vault/${owner}/${repoName}/${encodedTargetBranch}/${encodeVaultFilePath(path)}`
-          : `/vault/${owner}/${repoName}/${encodedTargetBranch}`;
+      const pathname = buildVaultFileRoute({
+        owner,
+        repoName,
+        branch: targetBranch,
+        filePath: path.length > 0 ? path : undefined,
+      });
       return buildPathWithQuery({
         pathname,
         search: stringifyTanStackSearch(
@@ -1570,7 +1551,7 @@ function FileViewInner({
       })
         .then(() => {
           setPendingMediaUpload(null);
-          navigateByHref(buildVaultFileUrl(targetPath), { state });
+          navigateByHref(buildVaultFileUrl(targetPath));
         })
         .catch((error: unknown) => {
           const message =
@@ -1592,7 +1573,6 @@ function FileViewInner({
       pendingMediaUpload,
       repositoryFullName,
       stageUploadedMedia,
-      state,
       vault._id,
     ],
   );
@@ -1689,7 +1669,6 @@ function FileViewInner({
               buildVaultFileUrl(preview.files[0].path, {
                 reviewMode: "review",
               }),
-              { state },
             );
           }
 
@@ -1711,7 +1690,6 @@ function FileViewInner({
       navigateByHref,
       repositoryFullName,
       selectedFile,
-      state,
     ],
   );
   const handleUpstreamConflictDetected = useCallback(
@@ -1764,14 +1742,13 @@ function FileViewInner({
           buildVaultFileUrl(path, {
             reviewMode: status === "deleted" ? "review" : undefined,
           }),
-          { state },
         );
 
         // Return the mobile carousel to the center pane after selection.
         setMobilePane("main");
       }
     },
-    [buildVaultFileUrl, navigateByHref, owner, repoName, setMobilePane, state],
+    [buildVaultFileUrl, navigateByHref, owner, repoName, setMobilePane],
   );
 
   const handleOpenFileFromGraph = useCallback(
@@ -1807,7 +1784,7 @@ function FileViewInner({
         selectedFile === originalPath ||
         stagedFile?.initialFilePath === originalPath
       ) {
-        navigateByHref(buildVaultFileUrl(newPath), { state });
+        navigateByHref(buildVaultFileUrl(newPath));
       }
 
       console.log(`File ${originalPath} renamed to ${newPath} in staging`);
@@ -1857,9 +1834,7 @@ function FileViewInner({
         if (commitReviewMode === "review") {
           return;
         }
-        navigateByHref(buildVaultFileUrl("", { reviewMode: "editor" }), {
-          state,
-        });
+        navigateByHref(buildVaultFileUrl("", { reviewMode: "editor" }));
       }
 
       console.log(`File ${filePath} marked for deletion`);
@@ -1913,7 +1888,6 @@ function FileViewInner({
       if (selectedFile === filePath) {
         navigateByHref(buildVaultFileUrl(filePath, { reviewMode: "editor" }), {
           replace: true,
-          state,
         });
       }
     } catch (error) {
@@ -1946,7 +1920,6 @@ function FileViewInner({
             reviewMode: "editor",
             compare: false,
           }),
-          { state },
         );
       })
       .catch((error) => {
@@ -2054,9 +2027,6 @@ function FileViewInner({
       if (didHydrateNextBranch && args.nextBranch !== branch) {
         navigateByHref(
           buildVaultFileUrl(selectedFile, { branch: args.nextBranch }),
-          {
-            state,
-          },
         );
       }
       if (pendingPullRequestWindow && !pendingPullRequestWindow.closed) {
@@ -2132,7 +2102,6 @@ function FileViewInner({
     repoName,
     repositoryFullName,
     selectedFile,
-    state,
   ]);
 
   const handleResetToGitHub = useCallback(() => {
@@ -3238,7 +3207,6 @@ function FileViewInner({
       }),
       {
         replace: true,
-        state,
       },
     );
   }, [
@@ -3247,7 +3215,6 @@ function FileViewInner({
     isCompareRequested,
     navigateByHref,
     selectedFile,
-    state,
   ]);
 
   // MARK: Return
