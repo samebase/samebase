@@ -1,8 +1,8 @@
 import {
-  buildLandingDevToggleHref,
+  buildLandingDevToggleSearch,
   getLandingDevToggleLabel,
 } from "@/lib/landingDevMode";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import { ReactNode, useEffect, type MouseEvent } from "react";
 import { useConvexAuth } from "convex/react";
 import { AppBuildStatusBar } from "@/components/AppBuildStatusBar";
@@ -15,6 +15,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const repoUrl = __APP_REPO_URL__ || "";
   const location = useLocation();
   const navigate = useNavigate();
+  const router = useRouter();
   const rootRouteSearch = useRootRouteSearch();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const showLandingDevToggle =
@@ -31,11 +32,12 @@ export function Layout({ children }: { children: ReactNode }) {
     location.pathname !== "/privacy";
   const showPublicNavigation =
     !isLoading && !isAuthenticated && location.pathname !== "/";
-  const landingDevToggleHref = buildLandingDevToggleHref(
-    location.pathname,
-    location.searchStr,
-    location.hash,
-  );
+  const landingDevToggleSearch = buildLandingDevToggleSearch(rootRouteSearch);
+  const landingDevToggleHref = router.buildLocation({
+    to: "/",
+    search: landingDevToggleSearch,
+    hash: true,
+  }).href;
   const landingDevToggleLabel = getLandingDevToggleLabel(rootRouteSearch);
   const handleLandingDevToggleClick = (
     event: MouseEvent<HTMLAnchorElement>,
@@ -55,10 +57,11 @@ export function Layout({ children }: { children: ReactNode }) {
     // Mobile browsers can keep the header toggle focused and nudge the
     // vertically centered landing card while the query-param view swaps.
     event.currentTarget.blur();
-    // TODO(tanstack-router-cleanup): replace this raw href escape with typed
-    // root-route search navigation once the landing dev toggle stops relying on
-    // browser-style query helpers.
-    void navigate({ href: landingDevToggleHref });
+    void navigate({
+      to: "/",
+      search: landingDevToggleSearch,
+      hash: true,
+    });
   };
   useEffect(() => {
     console.info("[noter] build metadata", {

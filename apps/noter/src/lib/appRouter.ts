@@ -20,6 +20,7 @@ import {
   validatePricingRouteSearch,
 } from "@/lib/authenticatedRouteSearch";
 import { validateCodexResearchRouteSearch } from "@/lib/codexResearchRouteSearch";
+import { validateFileViewRouteSearch } from "@/lib/fileViewRouteSearch";
 import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { validateRootRouteSearch } from "@/lib/rootRouteSearch";
@@ -474,6 +475,7 @@ const vaultFileRoute = createRoute({
   getParentRoute: () => appRouterRootRoute,
   path: "/vault/$",
   component: FileViewRoutePage,
+  validateSearch: validateFileViewRouteSearch,
 });
 
 const appRouteTree = appRouterRootRoute.addChildren([

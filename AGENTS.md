@@ -103,6 +103,10 @@ Key domain entities:
   deleting the temporary adapter instead of keeping a near-equivalent wrapper,
   renamed mirror, or reshaped object around it. Always check whether an extra
   abstraction can be removed, not just whether it can be tolerated.
+- If a transitional helper, adapter, or mirror object ends up unused outside
+  tests, delete it instead of preserving it "just in case". Do not keep
+  dead migration scaffolding, test-only production helpers, or simplified
+  wrappers that no longer pull their weight.
 - Fail closed rather than inventing placeholder fallbacks unless the patch is
   implementing a real migration.
 - Do not keep test-only production abstractions, incomplete extractions, or dead
