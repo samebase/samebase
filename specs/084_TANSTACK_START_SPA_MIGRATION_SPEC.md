@@ -19,7 +19,8 @@ if we want:
 
 - a first-class TanStack Router framework runtime
 - a root document route instead of a bespoke `index.html` shell
-- SPA shell generation through Start's supported `/_shell.html` flow
+- SPA shell generation through Start while keeping Cloudflare Pages on its
+  normal root `index.html` serving path
 
 ## Non-Goals
 
@@ -77,8 +78,13 @@ That work must stay client-only after the Start migration.
 ### 1. Move To Start's SPA Shell
 
 - Replace the standalone router Vite plugin with TanStack Start's Vite plugin.
-- Enable SPA mode so the build emits `/_shell.html`.
-- Update redirects so unknown routes rewrite to `/_shell.html`.
+- Enable SPA mode, but write the shell to `/index.html` instead of Start's
+  default `/_shell.html`.
+- Keep the published client bundle at `dist/` and move Start's SSR build output
+  to a separate non-published directory.
+- Let Cloudflare Pages use its documented default SPA fallback, which serves the
+  top-level `index.html` at `/` and treats the app as an SPA when no top-level
+  `404.html` exists.
 
 ### 2. Add Start's Required Entry Files
 
@@ -118,7 +124,6 @@ rendering of route trees that still assume a client-only provider environment.
   `apps/noter/src/lib/appRouter.ts`
 - `apps/noter/src/test/TestRouterProvider.tsx`
 - `apps/noter/index.html`
-- `apps/noter/public/_redirects`
 
 ## Validation
 
@@ -176,3 +181,16 @@ Manual route sanity checks should cover:
   hydrate the whole document, so `__root.tsx` intentionally returns a fragment
   in test mode while keeping the real `<html>/<head>/<body>` shell for dev and
   build.
+- The first Cloudflare Pages deploy exposed two hosting mismatches. Start's
+  default static output landed under `dist/client`, while Pages was still
+  publishing `dist`, and Start's default SPA shell path `/_shell.html`
+  interacted badly with Pages' documented HTML canonicalization, which rewrites
+  `*.html` paths to extensionless URLs. On the failing preview, `/`,
+  `/_shell`, and `/_shell.html` all returned `308 Location: /_shell`, creating
+  a loop.
+- The safer Cloudflare Pages shape is to generate the SPA shell at
+  `dist/index.html`, let Pages serve that file at `/`, and rely on Pages'
+  documented default SPA behavior instead of shipping a custom `_redirects`
+  catch-all. This also keeps future prerendered pages compatible with Pages'
+  normal route matching because real `/foo/index.html` pages win before the SPA
+  fallback.

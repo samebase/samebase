@@ -124,11 +124,12 @@ const noterSyncPackageScriptPath = path.resolve(
   gitRoot,
   "packages/sync/noter.js",
 );
+const publishedClientBuildOutDir = path.resolve(__dirname, "dist");
 const staticNoterSyncScriptPath = path.resolve(__dirname, "public/noter.js");
 const noterConnectConfigPathname = "/noter-connect.json";
 const runtimeNoterConnectConfigPath = path.resolve(
-  __dirname,
-  `dist${noterConnectConfigPathname}`,
+  publishedClientBuildOutDir,
+  noterConnectConfigPathname.slice(1),
 );
 const privacyPolicyMarkdownPath = path.resolve(
   __dirname,
@@ -484,7 +485,10 @@ function syncStaticNoterSyncScriptAssetPlugin() {
       );
     },
     async closeBundle() {
-      const builtScriptPath = path.resolve(__dirname, "dist/noter.js");
+      const builtScriptPath = path.resolve(
+        publishedClientBuildOutDir,
+        "noter.js",
+      );
       const runtimeScript = await buildRuntimeNoterSyncScript();
       mkdirSync(path.dirname(builtScriptPath), { recursive: true });
       writeFileSync(builtScriptPath, runtimeScript, "utf8");
@@ -630,6 +634,24 @@ export default defineConfig({
     __DAYTONA_SDK_VERSION__: JSON.stringify(daytonaSdkVersion),
     __DAYTONA_CONVEX_PROXY_PATH__: JSON.stringify(daytonaConvexProxyPath),
   },
+  environments: shouldUseTanStackStart
+    ? {
+        client: {
+          build: {
+            // Cloudflare Pages publishes a single static root, so keep the
+            // client bundle at `dist/` instead of Start's nested default.
+            outDir: "dist",
+          },
+        },
+        ssr: {
+          build: {
+            // Keep Start's build-time SSR bundle outside the published static
+            // directory so Pages never exposes it.
+            outDir: "dist-ssr",
+          },
+        },
+      }
+    : undefined,
   plugins: [
     syncStaticLogoSvgAssetPlugin(),
     syncStaticInstallIconSvgAssetPlugin(),
@@ -647,6 +669,12 @@ export default defineConfig({
             },
             spa: {
               enabled: true,
+              prerender: {
+                // Cloudflare Pages serves `index.html` at `/` and falls back to
+                // `/` for SPAs when no top-level `404.html` exists, which avoids
+                // exposing Start's default `/_shell` URL on preview deploys.
+                outputPath: "/index.html",
+              },
             },
           }),
         ]
