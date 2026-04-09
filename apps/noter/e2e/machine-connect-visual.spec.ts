@@ -1,9 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const machineConnectSnapshotName =
-  process.platform === "win32"
-    ? "machine-connect-page-win32.png"
-    : "machine-connect-page.png";
+const machineConnectSnapshotSuffix =
+  process.platform === "win32" ? "win32" : process.platform;
+const machineConnectSnapshotName = `machine-connect-page-${machineConnectSnapshotSuffix}.png`;
 
 /**
  * Wait for app fonts plus two paint frames so the visual fixture settles
