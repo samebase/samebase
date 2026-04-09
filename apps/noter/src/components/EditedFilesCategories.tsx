@@ -10,7 +10,12 @@ import { useCallback, useState } from "react";
 import { linkStyle } from "./styles";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
+import { buildPathWithQuery } from "@/lib/queryParams";
+import {
+  buildFileViewRouteSearch,
+  readFileViewRouteSearch,
+} from "@/lib/fileViewRouteSearch";
+import { stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 import type { Id } from "../../convex/_generated/dataModel";
 
 type StagedFile = NonNullable<
@@ -143,9 +148,8 @@ export function EditedFilesCategories({
   onFileSelected?: () => void;
 }) {
   const navigate = useNavigate();
-  const search = useLocation({
-    select: (location) => location.searchStr,
-  });
+  const location = useLocation();
+  const routeSearch = readFileViewRouteSearch(location.searchStr);
   const navigateToStagedFile = useCallback(
     (file: StagedFile) => {
       const encodedFilePath = file.filePath
@@ -156,23 +160,22 @@ export function EditedFilesCategories({
       const nextPath = `/vault/${repositoryFullName}/${encodedBranch}/${encodedFilePath}`;
       onFileSelected?.();
       // TODO(tanstack-router-cleanup): replace this raw href escape with typed
-      // vault-route navigation once file-review search state is route-owned.
+      // vault-route navigation once the catch-all `/vault/$` path no longer
+      // depends on manually encoded branch/file segments.
       void navigate({
-        href: buildPathWithUpdatedQuery(
-          {
-            pathname: nextPath,
-            search,
-          },
-          (searchParams) => {
-            // Deleted files should open in the same diff-first review route as
-            // deleted rows in the sidebar tree.
-            setQueryParam(searchParams, "diff", file.fileDeleted);
-            setQueryParam(searchParams, "review", !file.fileDeleted);
-          },
-        ),
+        href: buildPathWithQuery({
+          pathname: nextPath,
+          search: stringifyTanStackSearch({
+            ...routeSearch,
+            ...buildFileViewRouteSearch({
+              diff: file.fileDeleted,
+              review: !file.fileDeleted,
+            }),
+          }),
+        }),
       });
     },
-    [branch, navigate, onFileSelected, repositoryFullName, search],
+    [branch, navigate, onFileSelected, repositoryFullName, routeSearch],
   );
   const sections = [];
 

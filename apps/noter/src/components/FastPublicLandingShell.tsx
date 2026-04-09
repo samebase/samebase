@@ -3,10 +3,10 @@ import { AppBuildStatusBar } from "@/components/AppBuildStatusBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import { Chrome } from "lucide-react";
 import {
-  buildLandingDevToggleHref,
+  buildLandingDevToggleSearch,
   getLandingDevToggleLabel,
 } from "@/lib/landingDevMode";
 import { renderLandingCopyShellHtml } from "@/lib/landingCopyShell";
@@ -32,7 +32,6 @@ import {
   writePublicLandingWaitlistDraft,
 } from "@/lib/publicLandingWaitlistDraft";
 import type { RootRouteSearch } from "@/lib/rootRouteSearch";
-import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { shouldShowGoogleAuthForPathname } from "@/lib/publicLandingAuthState";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
 import {
@@ -70,18 +69,24 @@ export function FastPublicLandingShell({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const router = useRouter();
   const scrollShellRef = useRef<HTMLElement | null>(null);
   const routeTransitionStartedRef = useRef(false);
   const [waitlistEmail, setWaitlistEmail] = useState(
     readPublicLandingWaitlistDraft,
   );
   const [shellDisplayState] = useState(() => ({
-    landingDevToggleHref: buildLandingDevToggleHref(
-      location.pathname,
-      location.searchStr,
-      location.hash,
-    ),
+    landingDevToggleHref: router.buildLocation({
+      to: "/",
+      search: buildLandingDevToggleSearch(rootRouteSearch),
+      hash: true,
+    }).href,
     landingDevToggleLabel: getLandingDevToggleLabel(rootRouteSearch),
+    landingDevToggleSearch: buildLandingDevToggleSearch(rootRouteSearch),
+    googleAuthSearch: {
+      ...rootRouteSearch,
+      auth: "google" as const,
+    },
     showGoogleAuth: shouldShowGoogleAuthForPathname(
       location.pathname,
       rootRouteSearch,
@@ -115,7 +120,9 @@ export function FastPublicLandingShell({
     onRequestHydratedLanding();
   }
 
-  function beginShellRouteTransition(nextHref: string) {
+  function beginShellRouteTransition(
+    navigateTo: () => void,
+  ) {
     if (routeTransitionStartedRef.current) {
       return;
     }
@@ -126,10 +133,7 @@ export function FastPublicLandingShell({
       setPendingPublicLandingScrollTop(shellMain.scrollTop);
     }
     onShellRouteTransitionStart();
-    // TODO(tanstack-router-cleanup): replace this raw href escape with typed
-    // root-route search navigation once the routed shell stops using
-    // browser-style query helpers for handoff parity.
-    void navigate({ href: nextHref });
+    navigateTo();
   }
 
   function handleLandingDevToggleClick(event: MouseEvent<HTMLAnchorElement>) {
@@ -147,7 +151,13 @@ export function FastPublicLandingShell({
 
     event.preventDefault();
     event.currentTarget.blur();
-    beginShellRouteTransition(shellDisplayState.landingDevToggleHref);
+    beginShellRouteTransition(() => {
+      void navigate({
+        to: "/",
+        search: shellDisplayState.landingDevToggleSearch,
+        hash: true,
+      });
+    });
   }
 
   function handleGoogleAuthClick() {
@@ -156,18 +166,13 @@ export function FastPublicLandingShell({
       return;
     }
 
-    beginShellRouteTransition(
-      buildPathWithUpdatedQuery(
-        {
-          pathname: location.pathname,
-          search: location.searchStr,
-          hash: location.hash,
-        },
-        (nextSearchParams) => {
-          setQueryParam(nextSearchParams, "auth", "google");
-        },
-      ),
-    );
+    beginShellRouteTransition(() => {
+      void navigate({
+        to: "/",
+        search: shellDisplayState.googleAuthSearch,
+        hash: true,
+      });
+    });
   }
 
   function handleWaitlistFocus() {

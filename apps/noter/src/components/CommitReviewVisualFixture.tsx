@@ -255,14 +255,7 @@ const DELETED_STAGED_CATEGORIES: FixtureEditedFileCategories =
   DELETED_STAGED_CATEGORIES_FIXTURE;
 
 function FixtureRouteLabel() {
-  const location = useLocation({
-    select: (location) => ({
-      // TODO(tanstack-router-cleanup): remove this browser-style fixture shim
-      // once visual fixtures read native TanStack location fields directly.
-      pathname: location.pathname,
-      search: location.searchStr,
-    }),
-  });
+  const location = useLocation();
 
   return (
     <div
@@ -270,7 +263,7 @@ function FixtureRouteLabel() {
       className="rounded-ui border px-2 py-1 font-mono text-[11px] text-muted-foreground"
     >
       {location.pathname}
-      {location.search}
+      {location.searchStr}
     </div>
   );
 }

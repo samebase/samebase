@@ -58,25 +58,36 @@ are already explicit TanStack routes.
 
 Highest-value remaining typed-route targets:
 
-1. `apps/noter/src/lib/landingDevMode.ts`
-2. `apps/noter/src/lib/googleAuthRedirect.ts`
-3. the remaining raw-history/raw-href file-view escape hatches in
+1. the remaining raw-history/raw-href file-view escape hatches in
    `apps/noter/src/components/FileView.tsx`
+2. the matching staged-file navigation escape hatch in
+   `apps/noter/src/components/EditedFilesCategories.tsx`
+3. the fast-shell revisit in `apps/noter/src/components/FastPublicLandingShell.tsx`
+   once step 5 is active
 
 Already completed in this step:
 
-1. `apps/noter/src/lib/noterSync.ts`
-2. route-local builders like `buildPricingPath()` in
+1. `apps/noter/src/lib/landingDevMode.ts`
+2. `apps/noter/src/lib/noterSync.ts`
+3. route-local builders like `buildPricingPath()` in
    `apps/noter/src/components/PricingPage.tsx`
-3. route-local research helpers in
+4. route-local research helpers in
    `apps/noter/src/components/CodexAppServerResearchPage.tsx` and
    `apps/noter/src/components/CodexAppServerThreadBrowserResearchPage.tsx`
-4. the route-local `buildLocationHref()` helper that used to mirror TanStack's
+5. the route-local `buildLocationHref()` helper that used to mirror TanStack's
    current `location.href` in
    `apps/noter/src/components/RootIndexRoutePage.tsx`
-5. the `buildGithubOAuthReturnToPath()` helper that used to reassemble the
+6. the `buildGithubOAuthReturnToPath()` helper that used to reassemble the
    current route from browser-style location pieces in
    `apps/noter/src/lib/githubOAuthFlow.ts`
+7. the remaining browser-style fixture shim in
+   `apps/noter/src/components/CommitReviewVisualFixture.tsx`
+8. the root landing/layout shell callsites in
+   `apps/noter/src/Layout.tsx` and
+   `apps/noter/src/components/FastPublicLandingShell.tsx`
+9. the file-view search contract in
+   `apps/noter/src/lib/fileViewRouteSearch.ts` and the search-only query-state
+   transitions in `apps/noter/src/components/FileView.tsx`
 
 Important non-targets for this step:
 
@@ -88,6 +99,10 @@ Important non-targets for this step:
    low-level until all route-owned callers have moved off them; they still serve
    non-navigation and non-router use cases such as absolute callback URLs and
    script-facing URLs.
+4. `apps/noter/src/lib/googleAuthRedirect.ts` still intentionally preserves the
+   current non-root route during sign-in flows like MCP consent, so it remains
+   a generic helper until those auth redirects can be modeled as route-owned
+   typed navigation without losing route preservation.
 
 ## Working Log
 
@@ -136,7 +151,7 @@ Important non-targets for this step:
   audited every remaining `useLocation({ select: ... })` adapter that rebuilds
   browser-style location fields and marked each one with explicit TODOs. Result:
   the remaining type-safety escape hatches are now a named cleanup phase instead
-  of scattered incidental debt. The current hotspots are `Layout.tsx`,
+  of scattered incidental debt. The initial hotspots were `Layout.tsx`,
   `RootIndexRoutePage.tsx`, `FastPublicLandingShell.tsx`, `FileView.tsx`, and
   one fixture-only route label in `CommitReviewVisualFixture.tsx`.
 
@@ -191,3 +206,27 @@ Important non-targets for this step:
   `githubOAuthFlow.ts`, and switch the routed callsites onto `location.href`.
   Result: the current-route OAuth and fast-shell comparisons now use TanStack's
   own location primitive instead of app-owned string reconstruction.
+
+- Problem: the root landing dev-toggle helpers were still route-owned string
+  builders even though the routed root search contract already existed. Tried:
+  convert `landingDevMode.ts` to build typed root-route search objects and move
+  `Layout.tsx` and `FastPublicLandingShell.tsx` onto `navigate({ to: "/",
+  search, hash: true })` and `router.buildLocation(...)`. Result: the routed
+  landing shell and header toggle now use native TanStack root navigation, and
+  the remaining step-4 debt is no longer in the root helper layer.
+
+- Problem: the file view route still parsed search flags from raw query strings
+  even after the rest of the app moved to route-owned search validators. Tried:
+  add a dedicated `fileViewRouteSearch.ts` validator for `/vault/$`, move
+  `FileView.tsx` search-only transitions onto `router.navigate({ to: ".", search
+  })`, and reuse the same typed contract from `EditedFilesCategories.tsx` when
+  opening staged files. Result: file-view search flags are now route-owned and
+  typed, while the remaining raw href/history escapes are narrowed to the
+  encoded `/vault/$` path itself rather than its query state.
+
+- Problem: `googleAuthRedirect.ts` looked like another root-helper candidate,
+  but its real behavior is preserving the current non-root route during flows
+  like MCP consent. Tried: traced all usage through `SignInWithGoogle`,
+  `authClient.ts`, and the existing tests. Result: this helper is not a clean
+  step-4 typed-route target yet, so it stays generic for now and is recorded as
+  an explicit non-target instead of accidental debt.

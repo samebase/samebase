@@ -21,11 +21,7 @@ import {
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 
 import { GitHubLogoIcon, PlusIcon, FilePlusIcon } from "@radix-ui/react-icons";
-import {
-  buildPathWithUpdatedQuery,
-  hasQueryParam,
-  setQueryParam,
-} from "@/lib/queryParams";
+import { buildPathWithQuery } from "@/lib/queryParams";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
 import { EditorChatDock } from "./EditorChatDock";
@@ -102,6 +98,11 @@ import {
   shouldShowCompareBackToEditor,
 } from "@/lib/fileViewReview";
 import { getReviewSplitDiffHighlights } from "@/lib/reviewSplitDiff";
+import {
+  buildFileViewRouteSearch,
+  useFileViewRouteSearch,
+} from "@/lib/fileViewRouteSearch";
+import { stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
 const FILE_VIEW_SIDEBAR_DEFAULT_STATE = {
@@ -339,23 +340,18 @@ function readUserHistoryState(state: unknown): unknown {
 
 function FileViewWrapper() {
   const router = useRouter();
-  const location = useLocation({
-    select: (location) => ({
-      // TODO(tanstack-router-cleanup): remove this browser-style location shim
-      // once file view route parsing and history-state preservation move onto
-      // typed TanStack params/search/state instead of a browser-shaped adapter.
-      href: location.href,
-      hash: location.hash.length > 0 ? `#${location.hash}` : "",
-      pathname: location.pathname,
-      search: location.searchStr,
-      state: readUserHistoryState(location.state),
-    }),
-  });
-  const { href, pathname, search, state } = location;
-  const isCompareRequested = useMemo(
-    () => hasQueryParam(search, "compare"),
-    [search],
+  const location = useLocation();
+  const routeSearch = useFileViewRouteSearch();
+  const state = useMemo(
+    () => readUserHistoryState(location.state),
+    [location.state],
   );
+  const { href, pathname } = location;
+  const currentSearch = useMemo(
+    () => stringifyTanStackSearch(routeSearch),
+    [routeSearch],
+  );
+  const isCompareRequested = routeSearch.compare === true;
   const {
     owner,
     repoName,
@@ -414,8 +410,12 @@ function FileViewWrapper() {
     Partial<Record<string, true>>
   >({});
   const appendCurrentSearch = useCallback(
-    (path: string) => `${path}${search.length > 0 ? search : ""}`,
-    [search],
+    (path: string) =>
+      buildPathWithQuery({
+        pathname: path,
+        search: currentSearch,
+      }),
+    [currentSearch],
   );
   const navigateByHref = useCallback(
     (href: string, options?: { replace?: boolean; state?: unknown }) => {
@@ -906,19 +906,17 @@ function FileViewInner({
   const { setMobilePane } = useSidebar();
 
   const router = useRouter();
-  const { search, state } = useLocation({
-    select: (location) => ({
-      // TODO(tanstack-router-cleanup): remove this browser-style location shim
-      // once file view no longer depends on manually shaped query/state data.
-      search: location.searchStr,
-      state: readUserHistoryState(location.state),
-    }),
-  });
+  const location = useLocation();
+  const routeSearch = useFileViewRouteSearch();
+  const state = useMemo(
+    () => readUserHistoryState(location.state),
+    [location.state],
+  );
   const navigateByHref = useCallback(
     (href: string, options?: { replace?: boolean; state?: unknown }) => {
       // TODO(tanstack-router-cleanup): replace these raw href navigations with
-      // typed vault-route params/search once file view routing is modeled
-      // directly in TanStack instead of hand-built path strings.
+      // typed vault-route params once the catch-all `/vault/$` path no longer
+      // depends on manually encoded branch/file segments.
       if (options?.replace) {
         router.history.replace(href, options.state);
         return;
@@ -928,14 +926,8 @@ function FileViewInner({
     },
     [router.history],
   );
-  const reviewOnMountRequested = useMemo(
-    () => hasQueryParam(search, "review"),
-    [search],
-  );
-  const isCompareRequested = useMemo(
-    () => hasQueryParam(search, "compare"),
-    [search],
-  );
+  const reviewOnMountRequested = routeSearch.review === true;
+  const isCompareRequested = routeSearch.compare === true;
 
   // Get current user for sidebar
   const user = useQuery(api.users.viewer);
@@ -1138,10 +1130,7 @@ function FileViewInner({
   const [stageUploadedMedia] = useConvexAction(
     api.fileStagingActions.stageUploadedMedia,
   );
-  const isDiffRequested = useMemo(
-    () => hasQueryParam(search, "diff"),
-    [search],
-  );
+  const isDiffRequested = routeSearch.diff === true;
 
   // Get count of staged files for this vault
   const stagedFiles = useQuery(
@@ -1192,9 +1181,8 @@ function FileViewInner({
     [stagedFiles],
   );
   const showMobileEditorLineNumbers = useMemo(() => {
-    const params = new URLSearchParams(search);
-    return params.get("mobileLineNumbers") === "1";
-  }, [search]);
+    return routeSearch.mobileLineNumbers === "1";
+  }, [routeSearch.mobileLineNumbers]);
   const commitReviewMode = useMemo<CommitReviewMode>(() => {
     return isDiffRequested ? "review" : "editor";
   }, [isDiffRequested]);
@@ -1439,31 +1427,31 @@ function FileViewInner({
       const preserveCurrentCompareMode = options?.compare === undefined;
       const preserveReviewOnMount =
         preserveCurrentReviewMode &&
-        hasQueryParam(search, "review") &&
-        !hasQueryParam(search, "diff");
+        routeSearch.review === true &&
+        routeSearch.diff !== true;
       const includeDiff =
         options?.reviewMode === "review" ||
-        (preserveCurrentReviewMode && hasQueryParam(search, "diff"));
+        (preserveCurrentReviewMode && routeSearch.diff === true);
       const includeCompare =
         options?.compare === true ||
-        (preserveCurrentCompareMode && hasQueryParam(search, "compare"));
+        (preserveCurrentCompareMode && routeSearch.compare === true);
       const pathname =
         path.length > 0
           ? `/vault/${owner}/${repoName}/${encodedTargetBranch}/${encodeVaultFilePath(path)}`
           : `/vault/${owner}/${repoName}/${encodedTargetBranch}`;
-      return buildPathWithUpdatedQuery(
-        {
-          pathname,
-          search,
-        },
-        (searchParams) => {
-          setQueryParam(searchParams, "review", preserveReviewOnMount);
-          setQueryParam(searchParams, "diff", includeDiff);
-          setQueryParam(searchParams, "compare", includeCompare);
-        },
-      );
+      return buildPathWithQuery({
+        pathname,
+        search: stringifyTanStackSearch({
+          ...routeSearch,
+          ...buildFileViewRouteSearch({
+            review: preserveReviewOnMount,
+            diff: includeDiff,
+            compare: includeCompare,
+          }),
+        }),
+      });
     },
-    [branch, owner, repoName, search],
+    [branch, owner, repoName, routeSearch],
   );
   const prepareMediaUpload = useCallback(
     (file: File, preferredFolderPath: string) => {
@@ -1612,18 +1600,23 @@ function FileViewInner({
         compare?: boolean;
       },
     ) => {
-      navigateByHref(
-        buildVaultFileUrl(selectedFile, {
-          reviewMode: mode,
-          compare: options?.compare,
+      const nextSearch = {
+        ...routeSearch,
+        ...buildFileViewRouteSearch({
+          review: false,
+          diff: mode === "review",
+          compare: options?.compare ?? routeSearch.compare === true,
         }),
-        {
-          replace: options?.replace,
-          state,
-        },
-      );
+      };
+      void router.navigate({
+        to: ".",
+        search: nextSearch,
+        hash: true,
+        replace: options?.replace,
+        state: true,
+      });
     },
-    [buildVaultFileUrl, navigateByHref, selectedFile, state],
+    [routeSearch, router],
   );
   const setCompareModeInQuery = useCallback(
     (
@@ -1632,12 +1625,22 @@ function FileViewInner({
         replace?: boolean;
       },
     ) => {
-      navigateByHref(buildVaultFileUrl(selectedFile, { compare: enabled }), {
+      void router.navigate({
+        to: ".",
+        search: {
+          ...routeSearch,
+          ...buildFileViewRouteSearch({
+            review: routeSearch.review === true,
+            diff: routeSearch.diff === true,
+            compare: enabled,
+          }),
+        },
+        hash: true,
         replace: options?.replace,
-        state,
+        state: true,
       });
     },
-    [buildVaultFileUrl, navigateByHref, selectedFile, state],
+    [routeSearch, router],
   );
   const resetRebaseConflictState = useCallback(() => {
     setRebaseConflictPreview(null);
