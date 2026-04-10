@@ -5,7 +5,7 @@ import path from "path";
 import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { format as formatWithPrettier } from "prettier";
+import { formatWithOxfmt } from "../../scripts/format-with-oxfmt.js";
 import { readPackageVersion } from "../../scripts/readPackageVersion.js";
 import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
 import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
@@ -308,7 +308,7 @@ function readNoterConnectConvexSiteUrl(): string {
 
 async function buildRuntimeNoterConnectConfig() {
   return await formatGeneratedFileContents({
-    filepath: "noter-connect.json",
+    filepath: runtimeNoterConnectConfigPath,
     content: JSON.stringify(
       {
         convexSiteUrl: readNoterConnectConvexSiteUrl(),
@@ -323,12 +323,7 @@ async function formatGeneratedFileContents(args: {
   content: string;
   filepath: string;
 }) {
-  const formattedContents = await formatWithPrettier(args.content, {
-    filepath: args.filepath,
-  });
-  return formattedContents.endsWith("\n")
-    ? formattedContents
-    : `${formattedContents}\n`;
+  return formatWithOxfmt(args.filepath, args.content);
 }
 
 async function syncStaticLegalPageAsset(args: {
@@ -640,6 +635,8 @@ export default defineConfig({
     }),
     tanstackRouter({
       autoCodeSplitting: true,
+      quoteStyle: "double",
+      semicolons: true,
       target: "react",
       virtualRouteConfig: "./src/routes.ts",
     }),

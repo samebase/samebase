@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import prettier from "prettier";
 import { describe, expect, it } from "vitest";
+import { formatWithOxfmt } from "../../../../scripts/format-with-oxfmt.js";
 import {
   renderDaytonaSandboxProgramsGeneratedTsModule,
   renderDaytonaAuthFallbackDockerfileCommands,
@@ -28,11 +28,7 @@ async function renderGeneratedTypeScript(
   relativePath: string,
   contents: string,
 ): Promise<string> {
-  return normalizeFileContents(
-    await prettier.format(contents, {
-      filepath: path.join(repoRoot, relativePath),
-    }),
-  );
+  return formatWithOxfmt(path.join(repoRoot, relativePath), contents);
 }
 
 describe("Daytona runtime source of truth", () => {
