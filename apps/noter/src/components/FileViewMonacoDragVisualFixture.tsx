@@ -27,6 +27,12 @@ export const fixtureNotes = {
 };`;
 
 const FIXTURE_VAULT_KEY = "fixture-monaco-pane-drag-vault";
+const FIXTURE_OXFMT_CONFIG = `{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "proseWrap": "always",
+  "sortPackageJson": false
+}`;
 
 export function FileViewMonacoDragVisualFixture({
   mode,
@@ -65,7 +71,7 @@ export function FileViewMonacoDragVisualFixture({
               </div>
               <div className="grid gap-2 p-3 text-sm">
                 <div className="border border-border/50 bg-background px-3 py-2">
-                  .prettierignore
+                  .oxfmtrc.json
                 </div>
                 <div className="border border-border/50 bg-background px-3 py-2 text-muted-foreground">
                   src/index.ts
@@ -85,7 +91,7 @@ export function FileViewMonacoDragVisualFixture({
               </div>
             </div>
           }
-          headerTitle=".prettierignore"
+          headerTitle=".oxfmtrc.json"
           headerRight={
             <div className="font-mono text-xs text-muted-foreground">
               4c7e190
@@ -106,7 +112,7 @@ export function FileViewMonacoDragVisualFixture({
                       main
                     </div>
                     <h2 className="text-base font-medium md:text-sm">
-                      .prettierignore
+                      .oxfmtrc.json
                     </h2>
                   </div>
                   <div className="text-xs text-muted-foreground">
@@ -120,8 +126,8 @@ export function FileViewMonacoDragVisualFixture({
                   >
                     <MonacoEditorSurface
                       branch="main"
-                      defaultValue={`dist\nnode_modules\ncoverage\n.vscode\n`}
-                      filePath=".prettierignore"
+                      defaultValue={FIXTURE_OXFMT_CONFIG}
+                      filePath=".oxfmtrc.json"
                       onMount={() => {}}
                       showMobileLineNumbers={false}
                       syncError={null}

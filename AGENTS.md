@@ -278,7 +278,7 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   Python first in this repo.
 - Use template literals instead of arrays joined with `'\n'` for multi-line
   JavaScript and TypeScript snippets.
-- Format documents with Prettier.
+- Format documents with oxfmt.
 - Prefer exhaustive dispatch with `satisfies never` when it fits.
 - When sharing URLs, always format them as clickable Markdown links.
 - When pointing the operator at code, include a precise location such as a
