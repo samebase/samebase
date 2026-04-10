@@ -44,10 +44,10 @@
 
 ## Summary
 
-`WorkspaceLayoutV2PageFrame`, `WorkspaceLayoutV2TopBar`, and
-`WorkspaceLayoutV2` are now accepted app and shell primitives, but the repo
-does not yet have an accepted contract for how real routes should migrate from
-the first workspace shell to the second one.
+`WorkspaceLayoutV2PageFrame`, `WorkspaceLayoutV2TopBar`, and `WorkspaceLayoutV2`
+are now accepted app and shell primitives, but the repo does not yet have an
+accepted contract for how real routes should migrate from the first workspace
+shell to the second one.
 
 This spec defines that contract.
 
@@ -278,7 +278,9 @@ Accepted repository-route shape:
 
 ```tsx
 <WorkspaceLayoutV2
-  left={<RepositorySidebarPane header={leftSidebarHeader} body={leftSidebarBody} />}
+  left={
+    <RepositorySidebarPane header={leftSidebarHeader} body={leftSidebarBody} />
+  }
   main={
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div data-testid={headerTestId}>{existingRepositoryHeader}</div>
@@ -286,7 +288,10 @@ Accepted repository-route shape:
     </div>
   }
   right={
-    <RepositorySidebarPane header={rightSidebarHeader} body={rightSidebarBody} />
+    <RepositorySidebarPane
+      header={rightSidebarHeader}
+      body={rightSidebarBody}
+    />
   }
 />
 ```
@@ -295,7 +300,9 @@ Accepted dashboard-route shape:
 
 ```tsx
 <WorkspaceLayoutV2
-  left={<DashboardSidebarPane header={leftSidebarHeader} body={leftSidebarBody} />}
+  left={
+    <DashboardSidebarPane header={leftSidebarHeader} body={leftSidebarBody} />
+  }
   main={
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div data-testid="dashboard-layout-header">{existingDashboardHeader}</div>
@@ -513,16 +520,15 @@ These are tightly coupled to the current split bootstrap path:
 
 1. `apps/noter/src/bootstrap.ts`
 2. `apps/noter/src/lib/fastLandingBoot.ts`
-3. `resolveBootstrapPageMetadata()` inside
-   `apps/noter/src/lib/pageMetadata.ts`
+3. `resolveBootstrapPageMetadata()` inside `apps/noter/src/lib/pageMetadata.ts`
 4. `shouldRenderFastLandingShell()` inside
    `apps/noter/src/lib/publicLandingAuthState.ts`
 5. `apps/noter/e2e/public-landing-shell.spec.ts`
 
 ### Likely follow-on deletions
 
-These should disappear once the landing page renders only through the real
-route tree and no longer needs bootstrap parity:
+These should disappear once the landing page renders only through the real route
+tree and no longer needs bootstrap parity:
 
 1. `apps/noter/src/lib/publicLandingScrollState.ts`
 2. `apps/noter/src/SignInForm.scrollRestore.test.tsx`

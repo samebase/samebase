@@ -1,8 +1,8 @@
 {
   "name": "codespace-agent",
   "version": "1.0.0",
-  "license": "UNLICENSED",
   "description": "HTTP agent for Noter Codespace integration",
+  "license": "UNLICENSED",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

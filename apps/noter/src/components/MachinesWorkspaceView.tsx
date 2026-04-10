@@ -492,18 +492,18 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
   const selectedMachineSection = useMemo(
     () =>
       props.selectedMachineId
-        ? machineSections.find(
+        ? (machineSections.find(
             (section) => section.machineId === props.selectedMachineId,
-          ) ?? null
+          ) ?? null)
         : null,
     [machineSections, props.selectedMachineId],
   );
   const selectedThreadSummary = useMemo(
     () =>
       props.selectedThreadId
-        ? selectedMachineSection?.uniqueThreads.find(
+        ? (selectedMachineSection?.uniqueThreads.find(
             (thread) => thread.id === props.selectedThreadId,
-          ) ?? null
+          ) ?? null)
         : null,
     [props.selectedThreadId, selectedMachineSection],
   );

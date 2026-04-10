@@ -270,8 +270,9 @@
     border: 1px solid hsl(var(--border));
     background-color: hsl(var(--accent));
     padding: 0.0625rem 0.25rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-      "Liberation Mono", "Courier New", monospace;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      "Courier New", monospace;
     font-size: 0.8125rem;
     line-height: 1.25rem;
   }

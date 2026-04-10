@@ -1,4 +1,4 @@
 packages:
-  - 'apps/*'
-  - 'packages/*'
-  - 'eslint-rules'
+  - "apps/*"
+  - "packages/*"
+  - "eslint-rules"

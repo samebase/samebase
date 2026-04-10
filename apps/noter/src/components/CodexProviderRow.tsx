@@ -224,9 +224,11 @@ export function CodexProviderRow() {
       const shouldShowTerminal =
         forceOpenTerminal || result.lastCheckStatus !== "ready";
       setTerminalStatus(
-        shouldShowTerminal ? result.lastCheckStatus ?? null : null,
+        shouldShowTerminal ? (result.lastCheckStatus ?? null) : null,
       );
-      setTerminalTabUrl(shouldShowTerminal ? result.terminalUrl ?? null : null);
+      setTerminalTabUrl(
+        shouldShowTerminal ? (result.terminalUrl ?? null) : null,
+      );
       if (!shouldShowTerminal) {
         const closedSession = await closeActiveTerminalSession(true);
         if (!closedSession) {

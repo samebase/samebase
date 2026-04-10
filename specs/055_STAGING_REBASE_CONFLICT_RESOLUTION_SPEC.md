@@ -290,19 +290,19 @@ Possible shape:
 
 ```ts
 type CommitAttemptResult =
-  | { kind: 'success'; commitSha: string; url?: string }
+  | { kind: "success"; commitSha: string; url?: string }
   | {
-      kind: 'conflict'
-      branch: string
+      kind: "conflict";
+      branch: string;
       files: Array<{
-        path: string
-        baseContent: string
-        stagedContent: string
-        upstreamContent: string
-        originalBlobSha: string | null
-        upstreamBlobSha: string | null
-      }>
-    }
+        path: string;
+        baseContent: string;
+        stagedContent: string;
+        upstreamContent: string;
+        originalBlobSha: string | null;
+        upstreamBlobSha: string | null;
+      }>;
+    };
 ```
 
 The manual commit UI and chat approval UI should both consume this.

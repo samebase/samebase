@@ -98,7 +98,7 @@ function buildSidebarThread(args: {
     workspaceLabel,
     workspaceTooltip: args.thread.workspace.isProjectRoot
       ? null
-      : workspaceLabel ?? args.thread.cwd,
+      : (workspaceLabel ?? args.thread.cwd),
   };
 }
 

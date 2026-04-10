@@ -184,7 +184,7 @@ pnpm test
 
 This project uses:
 
-- ESLint and Prettier for code formatting
+- ESLint and oxfmt for linting and formatting
 - Husky for pre-commit hooks
 - TypeScript for type safety
 - Vitest for testing

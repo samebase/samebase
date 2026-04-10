@@ -16,14 +16,16 @@
     "vscode": {
       "extensions": [
         "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
+        "oxc.oxc-vscode",
         "bradlc.vscode-tailwindcss",
         "letmaik.git-tree-compare"
       ],
       "settings": {
         "npm.packageManager": "pnpm",
+        "oxc.fmt.configPath": ".oxfmtrc.json",
         "editor.formatOnSave": true,
-        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSaveMode": "file",
+        "editor.defaultFormatter": "oxc.oxc-vscode",
         "terminal.integrated.defaultProfile.linux": "fish",
         "terminal.integrated.profiles.linux": {
           "fish": {

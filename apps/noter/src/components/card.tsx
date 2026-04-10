@@ -15,8 +15,9 @@ import {
 import { useCornerNotchBridgeColor } from "@/hooks/useCornerNotchBridgeColor";
 import { cn } from "@/lib/utils";
 
-export interface CardProps
-  extends React.ComponentPropsWithoutRef<typeof BaseCard> {
+export interface CardProps extends React.ComponentPropsWithoutRef<
+  typeof BaseCard
+> {
   cornerNotch?: CornerNotchType;
 }
 

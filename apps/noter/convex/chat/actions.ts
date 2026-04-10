@@ -452,7 +452,7 @@ export const executeApprovedProdRead = internalAction({
             limit: parseOptionalPositiveNumber(params["limit"]),
             vaultId:
               request.scope === "vault"
-                ? request.vaultId ?? undefined
+                ? (request.vaultId ?? undefined)
                 : undefined,
           },
         );

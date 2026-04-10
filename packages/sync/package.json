@@ -1,7 +1,6 @@
 {
   "name": "@noter-md/sync",
   "version": "0.0.0",
-  "type": "module",
   "bin": {
     "noter-sync": "./cli.js"
   },
@@ -9,6 +8,7 @@
     "cli.js",
     "noter.js"
   ],
+  "type": "module",
   "publishConfig": {
     "access": "public"
   }

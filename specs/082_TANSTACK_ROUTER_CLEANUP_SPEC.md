@@ -44,8 +44,7 @@ migration ledger can stay focused on the router transition itself.
 3. Shrink fixture and test dependence on compat helpers such as the router seam
    `MemoryRouter`. Complete.
 4. Remove remaining browser-style location adapters, route-local raw
-   history/href escapes, and route-owned raw string helper boundaries.
-   Complete.
+   history/href escapes, and route-owned raw string helper boundaries. Complete.
 5. Revisit `FastPublicLandingShell.tsx` only after the router, fallback, test,
    and location-shim cleanup no longer depend on it. Complete.
 

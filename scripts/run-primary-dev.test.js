@@ -1,78 +1,78 @@
-import { createServer } from 'node:net'
+import { createServer } from "node:net";
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from "vitest";
 
 import {
   buildPrimaryDevArgs,
   buildPrimaryDevEnvironment,
-} from './run-primary-dev.js'
+} from "./run-primary-dev.js";
 
 /**
  * @returns {Promise<string>}
  */
 const reserveFreePort = async () =>
   await new Promise((resolve, reject) => {
-    const server = createServer()
-    server.once('error', reject)
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address()
-      if (!address || typeof address === 'string') {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
         server.close(() => {
-          reject(new Error('Expected an ephemeral TCP port.'))
-        })
-        return
+          reject(new Error("Expected an ephemeral TCP port."));
+        });
+        return;
       }
 
-      server.close(error => {
+      server.close((error) => {
         if (error) {
-          reject(error)
-          return
+          reject(error);
+          return;
         }
-        resolve(String(address.port))
-      })
-    })
-  })
+        resolve(String(address.port));
+      });
+    });
+  });
 
-describe('run-primary-dev', () => {
-  it('pins VITE_PORT and DEV_ENV_ORIGIN together when the origin is missing', async () => {
-    const freePort = await reserveFreePort()
+describe("run-primary-dev", () => {
+  it("pins VITE_PORT and DEV_ENV_ORIGIN together when the origin is missing", async () => {
+    const freePort = await reserveFreePort();
 
     expect(buildPrimaryDevEnvironment({ VITE_PORT: freePort })).toMatchObject({
       DEV_ENV_ORIGIN: `http://localhost:${freePort}`,
       VITE_PORT: freePort,
-    })
-  })
+    });
+  });
 
-  it('backfills VITE_PORT from an explicit localhost origin when needed', () => {
+  it("backfills VITE_PORT from an explicit localhost origin when needed", () => {
     expect(
       buildPrimaryDevEnvironment({
-        DEV_ENV_ORIGIN: 'http://localhost:43121',
+        DEV_ENV_ORIGIN: "http://localhost:43121",
       }),
     ).toMatchObject({
-      DEV_ENV_ORIGIN: 'http://localhost:43121',
-      VITE_PORT: '43121',
-    })
-  })
+      DEV_ENV_ORIGIN: "http://localhost:43121",
+      VITE_PORT: "43121",
+    });
+  });
 
-  it('leaves explicit non-local origins alone', () => {
+  it("leaves explicit non-local origins alone", () => {
     expect(
       buildPrimaryDevEnvironment({
-        DEV_ENV_ORIGIN: 'https://preview.noter.md',
+        DEV_ENV_ORIGIN: "https://preview.noter.md",
       }),
     ).toEqual({
-      DEV_ENV_ORIGIN: 'https://preview.noter.md',
-    })
-  })
+      DEV_ENV_ORIGIN: "https://preview.noter.md",
+    });
+  });
 
-  it('forwards extra arguments to turbo', () => {
-    expect(buildPrimaryDevArgs(['--', '--continue'])).toEqual([
-      'exec',
-      'turbo',
-      'run',
-      'dev',
-      '--filter=noter',
-      '--',
-      '--continue',
-    ])
-  })
-})
+  it("forwards extra arguments to turbo", () => {
+    expect(buildPrimaryDevArgs(["--", "--continue"])).toEqual([
+      "exec",
+      "turbo",
+      "run",
+      "dev",
+      "--filter=noter",
+      "--",
+      "--continue",
+    ]);
+  });
+});

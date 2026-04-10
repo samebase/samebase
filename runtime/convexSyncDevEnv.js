@@ -26,35 +26,35 @@ export function extractMatchingDeploymentDeployKey({
   rawDeployKey,
   sourceDeployment,
 }) {
-  const normalizedDeployKey = rawDeployKey?.trim() ?? ''
+  const normalizedDeployKey = rawDeployKey?.trim() ?? "";
   if (normalizedDeployKey.length === 0) {
-    return null
+    return null;
   }
 
-  const separatorIndex = normalizedDeployKey.indexOf('|')
+  const separatorIndex = normalizedDeployKey.indexOf("|");
   if (
     separatorIndex <= 0 ||
     separatorIndex === normalizedDeployKey.length - 1
   ) {
-    return null
+    return null;
   }
 
   const deploymentSpecifier = normalizedDeployKey
     .slice(0, separatorIndex)
-    .trim()
-  const deployKeyDeployment = parseDeploymentSpecifier(deploymentSpecifier)
+    .trim();
+  const deployKeyDeployment = parseDeploymentSpecifier(deploymentSpecifier);
   if (deployKeyDeployment === null) {
-    return null
+    return null;
   }
 
   if (
     deployKeyDeployment.type !== sourceDeployment.type ||
     deployKeyDeployment.name !== sourceDeployment.name
   ) {
-    return null
+    return null;
   }
 
-  return normalizedDeployKey
+  return normalizedDeployKey;
 }
 
 /**
@@ -62,11 +62,11 @@ export function extractMatchingDeploymentDeployKey({
  * @returns {string}
  */
 export function buildCloudDeploymentUrl(deploymentName) {
-  const normalizedName = deploymentName.trim()
+  const normalizedName = deploymentName.trim();
   if (normalizedName.length === 0) {
-    throw new Error('Deployment name is required to build a Convex cloud URL.')
+    throw new Error("Deployment name is required to build a Convex cloud URL.");
   }
-  return `https://${normalizedName}.convex.cloud`
+  return `https://${normalizedName}.convex.cloud`;
 }
 
 /**
@@ -75,18 +75,18 @@ export function buildCloudDeploymentUrl(deploymentName) {
  */
 export function normalizeEnvQueryResult(value) {
   if (!Array.isArray(value)) {
-    throw new Error('Convex environment query returned an unexpected payload.')
+    throw new Error("Convex environment query returned an unexpected payload.");
   }
 
   /** @type {EnvEntry[]} */
-  const entries = []
+  const entries = [];
   for (const item of value) {
     if (!isEnvEntry(item)) {
-      throw new Error('Convex environment query returned invalid entries.')
+      throw new Error("Convex environment query returned invalid entries.");
     }
-    entries.push({ name: item.name, value: item.value })
+    entries.push({ name: item.name, value: item.value });
   }
-  return entries
+  return entries;
 }
 
 /**
@@ -94,35 +94,35 @@ export function normalizeEnvQueryResult(value) {
  * @returns {Deployment | null}
  */
 function parseDeploymentSpecifier(rawDeployment) {
-  const normalizedDeployment = rawDeployment.trim()
+  const normalizedDeployment = rawDeployment.trim();
   if (normalizedDeployment.length === 0) {
-    return null
+    return null;
   }
 
-  const separatorIndex = normalizedDeployment.indexOf(':')
+  const separatorIndex = normalizedDeployment.indexOf(":");
   if (separatorIndex <= 0) {
-    return null
+    return null;
   }
 
-  const deploymentType = normalizedDeployment.slice(0, separatorIndex).trim()
-  const deploymentName = normalizedDeployment.slice(separatorIndex + 1).trim()
+  const deploymentType = normalizedDeployment.slice(0, separatorIndex).trim();
+  const deploymentName = normalizedDeployment.slice(separatorIndex + 1).trim();
   if (deploymentName.length === 0) {
-    return null
+    return null;
   }
 
   if (
-    deploymentType !== 'dev' &&
-    deploymentType !== 'prod' &&
-    deploymentType !== 'preview'
+    deploymentType !== "dev" &&
+    deploymentType !== "prod" &&
+    deploymentType !== "preview"
   ) {
-    return null
+    return null;
   }
 
   return {
     type: deploymentType,
     name: deploymentName,
     raw: normalizedDeployment,
-  }
+  };
 }
 
 /**
@@ -130,12 +130,12 @@ function parseDeploymentSpecifier(rawDeployment) {
  * @returns {value is EnvEntry}
  */
 function isEnvEntry(value) {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return false
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
   }
 
-  const candidate = /** @type {Record<string, unknown>} */ (value)
+  const candidate = /** @type {Record<string, unknown>} */ (value);
   return (
-    typeof candidate.name === 'string' && typeof candidate.value === 'string'
-  )
+    typeof candidate.name === "string" && typeof candidate.value === "string"
+  );
 }

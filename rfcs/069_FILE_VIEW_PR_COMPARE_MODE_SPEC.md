@@ -266,23 +266,23 @@ Suggested return shape:
 
 ```ts
 type BranchCompareFile = {
-  path: string
-  previousPath?: string
-  status: 'added' | 'modified' | 'deleted' | 'renamed'
-  source: 'remote' | 'staged' | 'both'
-  patch?: string
-  patchTruncated?: boolean
-}
+  path: string;
+  previousPath?: string;
+  status: "added" | "modified" | "deleted" | "renamed";
+  source: "remote" | "staged" | "both";
+  patch?: string;
+  patchTruncated?: boolean;
+};
 
 type BranchCompareResult = {
-  branch: string
-  baseBranch: string
-  source: 'pull_request' | 'default_branch_fallback'
-  pullRequestNumber?: number
-  pullRequestUrl?: string
-  mayBeTruncated: boolean
-  files: BranchCompareFile[]
-}
+  branch: string;
+  baseBranch: string;
+  source: "pull_request" | "default_branch_fallback";
+  pullRequestNumber?: number;
+  pullRequestUrl?: string;
+  mayBeTruncated: boolean;
+  files: BranchCompareFile[];
+};
 ```
 
 `patch` is optional in v1 but strongly recommended at least for committed-only
@@ -356,9 +356,9 @@ for example:
 
 ```ts
 type FileNavigationKind =
-  | 'editor'
-  | 'staged_deleted_review'
-  | 'compare_deleted_preview'
+  | "editor"
+  | "staged_deleted_review"
+  | "compare_deleted_preview";
 ```
 
 This prevents compare-deleted rows from accidentally entering the staged-review

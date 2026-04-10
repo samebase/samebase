@@ -141,57 +141,57 @@ Indexes:
 
 ```ts
 const ProdReadStatus = v.union(
-  v.literal('proposed'),
-  v.literal('approved'),
-  v.literal('rejected'),
-  v.literal('executed'),
-  v.literal('failed'),
-  v.literal('expired'),
-)
+  v.literal("proposed"),
+  v.literal("approved"),
+  v.literal("rejected"),
+  v.literal("executed"),
+  v.literal("failed"),
+  v.literal("expired"),
+);
 
 aiProdAccessRequests: defineTable({
   threadId: v.string(),
-  requesterUserId: v.id('users'),
-  vaultId: v.optional(v.id('vaults')),
-  scope: v.union(v.literal('vault'), v.literal('global')),
-  provider: v.union(v.literal('convex'), v.literal('cloudflare')),
+  requesterUserId: v.id("users"),
+  vaultId: v.optional(v.id("vaults")),
+  scope: v.union(v.literal("vault"), v.literal("global")),
+  provider: v.union(v.literal("convex"), v.literal("cloudflare")),
   resourceKind: v.union(
-    v.literal('deployment_status'),
-    v.literal('logs'),
-    v.literal('data_query'),
-    v.literal('project_inventory'),
-    v.literal('account_inventory'),
-    v.literal('pages_project_inventory'),
+    v.literal("deployment_status"),
+    v.literal("logs"),
+    v.literal("data_query"),
+    v.literal("project_inventory"),
+    v.literal("account_inventory"),
+    v.literal("pages_project_inventory"),
   ),
   toolName: v.string(),
   paramsJson: v.string(),
   status: ProdReadStatus,
   redactionLevel: v.union(
-    v.literal('default'),
-    v.literal('strict'),
-    v.literal('raw_fallback'),
+    v.literal("default"),
+    v.literal("strict"),
+    v.literal("raw_fallback"),
   ),
-  approvedBy: v.optional(v.id('users')),
+  approvedBy: v.optional(v.id("users")),
   approvedAt: v.optional(v.number()),
   executedAt: v.optional(v.number()),
   expiresAt: v.optional(v.number()),
   error: v.optional(v.string()),
 })
-  .index('by_threadId', ['threadId'])
-  .index('by_requester', ['requesterUserId'])
-  .index('by_status', ['status'])
-  .index('by_vault', ['vaultId'])
+  .index("by_threadId", ["threadId"])
+  .index("by_requester", ["requesterUserId"])
+  .index("by_status", ["status"])
+  .index("by_vault", ["vaultId"]);
 
 aiProdAccessAudit: defineTable({
-  requestId: v.id('aiProdAccessRequests'),
-  actorUserId: v.id('users'),
+  requestId: v.id("aiProdAccessRequests"),
+  actorUserId: v.id("users"),
   action: v.union(
-    v.literal('proposed'),
-    v.literal('approved'),
-    v.literal('rejected'),
-    v.literal('executed'),
-    v.literal('failed'),
-    v.literal('expired'),
+    v.literal("proposed"),
+    v.literal("approved"),
+    v.literal("rejected"),
+    v.literal("executed"),
+    v.literal("failed"),
+    v.literal("expired"),
   ),
   toolName: v.string(),
   endpoint: v.string(),
@@ -201,9 +201,9 @@ aiProdAccessAudit: defineTable({
   createdAt: v.number(),
   error: v.optional(v.string()),
 })
-  .index('by_request', ['requestId'])
-  .index('by_actor', ['actorUserId'])
-  .index('by_action', ['action'])
+  .index("by_request", ["requestId"])
+  .index("by_actor", ["actorUserId"])
+  .index("by_action", ["action"]);
 ```
 
 ## Agent Tool Surface
@@ -263,10 +263,10 @@ Behavior:
 
 ```ts
 args: {
-  requestId: Id<'aiProdAccessRequests'>
-  threadId: string
+  requestId: Id<"aiProdAccessRequests">;
+  threadId: string;
 }
-returns: null
+returns: null;
 ```
 
 Behavior:

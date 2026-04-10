@@ -8,472 +8,472 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/root'
-import { Route as testRouteImport } from './routes/test'
-import { Route as termsRouteImport } from './routes/terms'
-import { Route as privacyRouteImport } from './routes/privacy'
-import { Route as pricingRouteImport } from './routes/pricing'
-import { Route as pitchRouteImport } from './routes/pitch'
-import { Route as machinesRouteImport } from './routes/machines'
-import { Route as logoTransitionTransformsLabRouteImport } from './routes/logo-transition-transforms-lab'
-import { Route as logoTransitionLabRouteImport } from './routes/logo-transition-lab'
-import { Route as logoSvgRouteImport } from './routes/logo-svg'
-import { Route as logoIsoStudyRouteImport } from './routes/logo-iso-study'
-import { Route as logoIsoRouteImport } from './routes/logo-iso'
-import { Route as logoRouteImport } from './routes/logo'
-import { Route as addRepositoryRouteImport } from './routes/add-repository'
-import { Route as indexRouteImport } from './routes/index'
-import { Route as vaultFileRouteImport } from './routes/vault-file'
-import { Route as codexResearchRouteImport } from './routes/codex-research'
-import { Route as pitchPrintRouteImport } from './routes/pitch-print'
-import { Route as machineConnectRouteImport } from './routes/machine-connect'
-import { Route as codexThreadBrowserResearchRouteImport } from './routes/codex-thread-browser-research'
-import { Route as pitchPrintMobileRouteImport } from './routes/pitch-print-mobile'
-import { Route as mcpConsentRouteImport } from './routes/mcp-consent'
-import { Route as codespaceChatRouteImport } from './routes/codespace-chat'
+import { Route as rootRouteImport } from "./routes/root";
+import { Route as testRouteImport } from "./routes/test";
+import { Route as termsRouteImport } from "./routes/terms";
+import { Route as privacyRouteImport } from "./routes/privacy";
+import { Route as pricingRouteImport } from "./routes/pricing";
+import { Route as pitchRouteImport } from "./routes/pitch";
+import { Route as machinesRouteImport } from "./routes/machines";
+import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
+import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
+import { Route as logoSvgRouteImport } from "./routes/logo-svg";
+import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
+import { Route as logoIsoRouteImport } from "./routes/logo-iso";
+import { Route as logoRouteImport } from "./routes/logo";
+import { Route as addRepositoryRouteImport } from "./routes/add-repository";
+import { Route as indexRouteImport } from "./routes/index";
+import { Route as vaultFileRouteImport } from "./routes/vault-file";
+import { Route as codexResearchRouteImport } from "./routes/codex-research";
+import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
+import { Route as machineConnectRouteImport } from "./routes/machine-connect";
+import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-thread-browser-research";
+import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
+import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
+import { Route as codespaceChatRouteImport } from "./routes/codespace-chat";
 
 const testRoute = testRouteImport.update({
-  id: '/test',
-  path: '/test',
+  id: "/test",
+  path: "/test",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const termsRoute = termsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
+  id: "/terms",
+  path: "/terms",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const privacyRoute = privacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
+  id: "/privacy",
+  path: "/privacy",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const pricingRoute = pricingRouteImport.update({
-  id: '/pricing',
-  path: '/pricing',
+  id: "/pricing",
+  path: "/pricing",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const pitchRoute = pitchRouteImport.update({
-  id: '/pitch',
-  path: '/pitch',
+  id: "/pitch",
+  path: "/pitch",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const machinesRoute = machinesRouteImport.update({
-  id: '/machines',
-  path: '/machines',
+  id: "/machines",
+  path: "/machines",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const logoTransitionTransformsLabRoute =
   logoTransitionTransformsLabRouteImport.update({
-    id: '/logo-transition-lab-transforms',
-    path: '/logo-transition-lab-transforms',
+    id: "/logo-transition-lab-transforms",
+    path: "/logo-transition-lab-transforms",
     getParentRoute: () => rootRouteImport,
-  } as any)
+  } as any);
 const logoTransitionLabRoute = logoTransitionLabRouteImport.update({
-  id: '/logo-transition-lab',
-  path: '/logo-transition-lab',
+  id: "/logo-transition-lab",
+  path: "/logo-transition-lab",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const logoSvgRoute = logoSvgRouteImport.update({
-  id: '/logo-svg',
-  path: '/logo-svg',
+  id: "/logo-svg",
+  path: "/logo-svg",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const logoIsoStudyRoute = logoIsoStudyRouteImport.update({
-  id: '/logo-iso-study',
-  path: '/logo-iso-study',
+  id: "/logo-iso-study",
+  path: "/logo-iso-study",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const logoIsoRoute = logoIsoRouteImport.update({
-  id: '/logo-iso',
-  path: '/logo-iso',
+  id: "/logo-iso",
+  path: "/logo-iso",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const logoRoute = logoRouteImport.update({
-  id: '/logo',
-  path: '/logo',
+  id: "/logo",
+  path: "/logo",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const addRepositoryRoute = addRepositoryRouteImport.update({
-  id: '/add',
-  path: '/add',
+  id: "/add",
+  path: "/add",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const indexRoute = indexRouteImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const vaultFileRoute = vaultFileRouteImport.update({
-  id: '/vault/$',
-  path: '/vault/$',
+  id: "/vault/$",
+  path: "/vault/$",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const codexResearchRoute = codexResearchRouteImport.update({
-  id: '/research/codex-app-server',
-  path: '/research/codex-app-server',
+  id: "/research/codex-app-server",
+  path: "/research/codex-app-server",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const pitchPrintRoute = pitchPrintRouteImport.update({
-  id: '/pitch/print',
-  path: '/pitch/print',
+  id: "/pitch/print",
+  path: "/pitch/print",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const machineConnectRoute = machineConnectRouteImport.update({
-  id: '/machines/connect',
-  path: '/machines/connect',
+  id: "/machines/connect",
+  path: "/machines/connect",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const codexThreadBrowserResearchRoute =
   codexThreadBrowserResearchRouteImport.update({
-    id: '/research/codex-app-server/browser',
-    path: '/research/codex-app-server/browser',
+    id: "/research/codex-app-server/browser",
+    path: "/research/codex-app-server/browser",
     getParentRoute: () => rootRouteImport,
-  } as any)
+  } as any);
 const pitchPrintMobileRoute = pitchPrintMobileRouteImport.update({
-  id: '/pitch/print/mobile',
-  path: '/pitch/print/mobile',
+  id: "/pitch/print/mobile",
+  path: "/pitch/print/mobile",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const mcpConsentRoute = mcpConsentRouteImport.update({
-  id: '/oauth/mcp/consent',
-  path: '/oauth/mcp/consent',
+  id: "/oauth/mcp/consent",
+  path: "/oauth/mcp/consent",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const codespaceChatRoute = codespaceChatRouteImport.update({
-  id: '/vault/$owner/$repo/codespace/$branch/chat',
-  path: '/vault/$owner/$repo/codespace/$branch/chat',
+  id: "/vault/$owner/$repo/codespace/$branch/chat",
+  path: "/vault/$owner/$repo/codespace/$branch/chat",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 
 export interface FileRoutesByFullPath {
-  '/': typeof indexRoute
-  '/add': typeof addRepositoryRoute
-  '/logo': typeof logoRoute
-  '/logo-iso': typeof logoIsoRoute
-  '/logo-iso-study': typeof logoIsoStudyRoute
-  '/logo-svg': typeof logoSvgRoute
-  '/logo-transition-lab': typeof logoTransitionLabRoute
-  '/logo-transition-lab-transforms': typeof logoTransitionTransformsLabRoute
-  '/machines': typeof machinesRoute
-  '/pitch': typeof pitchRoute
-  '/pricing': typeof pricingRoute
-  '/privacy': typeof privacyRoute
-  '/terms': typeof termsRoute
-  '/test': typeof testRoute
-  '/machines/connect': typeof machineConnectRoute
-  '/pitch/print': typeof pitchPrintRoute
-  '/research/codex-app-server': typeof codexResearchRoute
-  '/vault/$': typeof vaultFileRoute
-  '/oauth/mcp/consent': typeof mcpConsentRoute
-  '/pitch/print/mobile': typeof pitchPrintMobileRoute
-  '/research/codex-app-server/browser': typeof codexThreadBrowserResearchRoute
-  '/vault/$owner/$repo/codespace/$branch/chat': typeof codespaceChatRoute
+  "/": typeof indexRoute;
+  "/add": typeof addRepositoryRoute;
+  "/logo": typeof logoRoute;
+  "/logo-iso": typeof logoIsoRoute;
+  "/logo-iso-study": typeof logoIsoStudyRoute;
+  "/logo-svg": typeof logoSvgRoute;
+  "/logo-transition-lab": typeof logoTransitionLabRoute;
+  "/logo-transition-lab-transforms": typeof logoTransitionTransformsLabRoute;
+  "/machines": typeof machinesRoute;
+  "/pitch": typeof pitchRoute;
+  "/pricing": typeof pricingRoute;
+  "/privacy": typeof privacyRoute;
+  "/terms": typeof termsRoute;
+  "/test": typeof testRoute;
+  "/machines/connect": typeof machineConnectRoute;
+  "/pitch/print": typeof pitchPrintRoute;
+  "/research/codex-app-server": typeof codexResearchRoute;
+  "/vault/$": typeof vaultFileRoute;
+  "/oauth/mcp/consent": typeof mcpConsentRoute;
+  "/pitch/print/mobile": typeof pitchPrintMobileRoute;
+  "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
+  "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
 }
 export interface FileRoutesByTo {
-  '/': typeof indexRoute
-  '/add': typeof addRepositoryRoute
-  '/logo': typeof logoRoute
-  '/logo-iso': typeof logoIsoRoute
-  '/logo-iso-study': typeof logoIsoStudyRoute
-  '/logo-svg': typeof logoSvgRoute
-  '/logo-transition-lab': typeof logoTransitionLabRoute
-  '/logo-transition-lab-transforms': typeof logoTransitionTransformsLabRoute
-  '/machines': typeof machinesRoute
-  '/pitch': typeof pitchRoute
-  '/pricing': typeof pricingRoute
-  '/privacy': typeof privacyRoute
-  '/terms': typeof termsRoute
-  '/test': typeof testRoute
-  '/machines/connect': typeof machineConnectRoute
-  '/pitch/print': typeof pitchPrintRoute
-  '/research/codex-app-server': typeof codexResearchRoute
-  '/vault/$': typeof vaultFileRoute
-  '/oauth/mcp/consent': typeof mcpConsentRoute
-  '/pitch/print/mobile': typeof pitchPrintMobileRoute
-  '/research/codex-app-server/browser': typeof codexThreadBrowserResearchRoute
-  '/vault/$owner/$repo/codespace/$branch/chat': typeof codespaceChatRoute
+  "/": typeof indexRoute;
+  "/add": typeof addRepositoryRoute;
+  "/logo": typeof logoRoute;
+  "/logo-iso": typeof logoIsoRoute;
+  "/logo-iso-study": typeof logoIsoStudyRoute;
+  "/logo-svg": typeof logoSvgRoute;
+  "/logo-transition-lab": typeof logoTransitionLabRoute;
+  "/logo-transition-lab-transforms": typeof logoTransitionTransformsLabRoute;
+  "/machines": typeof machinesRoute;
+  "/pitch": typeof pitchRoute;
+  "/pricing": typeof pricingRoute;
+  "/privacy": typeof privacyRoute;
+  "/terms": typeof termsRoute;
+  "/test": typeof testRoute;
+  "/machines/connect": typeof machineConnectRoute;
+  "/pitch/print": typeof pitchPrintRoute;
+  "/research/codex-app-server": typeof codexResearchRoute;
+  "/vault/$": typeof vaultFileRoute;
+  "/oauth/mcp/consent": typeof mcpConsentRoute;
+  "/pitch/print/mobile": typeof pitchPrintMobileRoute;
+  "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
+  "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/': typeof indexRoute
-  '/add': typeof addRepositoryRoute
-  '/logo': typeof logoRoute
-  '/logo-iso': typeof logoIsoRoute
-  '/logo-iso-study': typeof logoIsoStudyRoute
-  '/logo-svg': typeof logoSvgRoute
-  '/logo-transition-lab': typeof logoTransitionLabRoute
-  '/logo-transition-lab-transforms': typeof logoTransitionTransformsLabRoute
-  '/machines': typeof machinesRoute
-  '/pitch': typeof pitchRoute
-  '/pricing': typeof pricingRoute
-  '/privacy': typeof privacyRoute
-  '/terms': typeof termsRoute
-  '/test': typeof testRoute
-  '/machines/connect': typeof machineConnectRoute
-  '/pitch/print': typeof pitchPrintRoute
-  '/research/codex-app-server': typeof codexResearchRoute
-  '/vault/$': typeof vaultFileRoute
-  '/oauth/mcp/consent': typeof mcpConsentRoute
-  '/pitch/print/mobile': typeof pitchPrintMobileRoute
-  '/research/codex-app-server/browser': typeof codexThreadBrowserResearchRoute
-  '/vault/$owner/$repo/codespace/$branch/chat': typeof codespaceChatRoute
+  __root__: typeof rootRouteImport;
+  "/": typeof indexRoute;
+  "/add": typeof addRepositoryRoute;
+  "/logo": typeof logoRoute;
+  "/logo-iso": typeof logoIsoRoute;
+  "/logo-iso-study": typeof logoIsoStudyRoute;
+  "/logo-svg": typeof logoSvgRoute;
+  "/logo-transition-lab": typeof logoTransitionLabRoute;
+  "/logo-transition-lab-transforms": typeof logoTransitionTransformsLabRoute;
+  "/machines": typeof machinesRoute;
+  "/pitch": typeof pitchRoute;
+  "/pricing": typeof pricingRoute;
+  "/privacy": typeof privacyRoute;
+  "/terms": typeof termsRoute;
+  "/test": typeof testRoute;
+  "/machines/connect": typeof machineConnectRoute;
+  "/pitch/print": typeof pitchPrintRoute;
+  "/research/codex-app-server": typeof codexResearchRoute;
+  "/vault/$": typeof vaultFileRoute;
+  "/oauth/mcp/consent": typeof mcpConsentRoute;
+  "/pitch/print/mobile": typeof pitchPrintMobileRoute;
+  "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
+  "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
+  fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
-    | '/'
-    | '/add'
-    | '/logo'
-    | '/logo-iso'
-    | '/logo-iso-study'
-    | '/logo-svg'
-    | '/logo-transition-lab'
-    | '/logo-transition-lab-transforms'
-    | '/machines'
-    | '/pitch'
-    | '/pricing'
-    | '/privacy'
-    | '/terms'
-    | '/test'
-    | '/machines/connect'
-    | '/pitch/print'
-    | '/research/codex-app-server'
-    | '/vault/$'
-    | '/oauth/mcp/consent'
-    | '/pitch/print/mobile'
-    | '/research/codex-app-server/browser'
-    | '/vault/$owner/$repo/codespace/$branch/chat'
-  fileRoutesByTo: FileRoutesByTo
+    | "/"
+    | "/add"
+    | "/logo"
+    | "/logo-iso"
+    | "/logo-iso-study"
+    | "/logo-svg"
+    | "/logo-transition-lab"
+    | "/logo-transition-lab-transforms"
+    | "/machines"
+    | "/pitch"
+    | "/pricing"
+    | "/privacy"
+    | "/terms"
+    | "/test"
+    | "/machines/connect"
+    | "/pitch/print"
+    | "/research/codex-app-server"
+    | "/vault/$"
+    | "/oauth/mcp/consent"
+    | "/pitch/print/mobile"
+    | "/research/codex-app-server/browser"
+    | "/vault/$owner/$repo/codespace/$branch/chat";
+  fileRoutesByTo: FileRoutesByTo;
   to:
-    | '/'
-    | '/add'
-    | '/logo'
-    | '/logo-iso'
-    | '/logo-iso-study'
-    | '/logo-svg'
-    | '/logo-transition-lab'
-    | '/logo-transition-lab-transforms'
-    | '/machines'
-    | '/pitch'
-    | '/pricing'
-    | '/privacy'
-    | '/terms'
-    | '/test'
-    | '/machines/connect'
-    | '/pitch/print'
-    | '/research/codex-app-server'
-    | '/vault/$'
-    | '/oauth/mcp/consent'
-    | '/pitch/print/mobile'
-    | '/research/codex-app-server/browser'
-    | '/vault/$owner/$repo/codespace/$branch/chat'
+    | "/"
+    | "/add"
+    | "/logo"
+    | "/logo-iso"
+    | "/logo-iso-study"
+    | "/logo-svg"
+    | "/logo-transition-lab"
+    | "/logo-transition-lab-transforms"
+    | "/machines"
+    | "/pitch"
+    | "/pricing"
+    | "/privacy"
+    | "/terms"
+    | "/test"
+    | "/machines/connect"
+    | "/pitch/print"
+    | "/research/codex-app-server"
+    | "/vault/$"
+    | "/oauth/mcp/consent"
+    | "/pitch/print/mobile"
+    | "/research/codex-app-server/browser"
+    | "/vault/$owner/$repo/codespace/$branch/chat";
   id:
-    | '__root__'
-    | '/'
-    | '/add'
-    | '/logo'
-    | '/logo-iso'
-    | '/logo-iso-study'
-    | '/logo-svg'
-    | '/logo-transition-lab'
-    | '/logo-transition-lab-transforms'
-    | '/machines'
-    | '/pitch'
-    | '/pricing'
-    | '/privacy'
-    | '/terms'
-    | '/test'
-    | '/machines/connect'
-    | '/pitch/print'
-    | '/research/codex-app-server'
-    | '/vault/$'
-    | '/oauth/mcp/consent'
-    | '/pitch/print/mobile'
-    | '/research/codex-app-server/browser'
-    | '/vault/$owner/$repo/codespace/$branch/chat'
-  fileRoutesById: FileRoutesById
+    | "__root__"
+    | "/"
+    | "/add"
+    | "/logo"
+    | "/logo-iso"
+    | "/logo-iso-study"
+    | "/logo-svg"
+    | "/logo-transition-lab"
+    | "/logo-transition-lab-transforms"
+    | "/machines"
+    | "/pitch"
+    | "/pricing"
+    | "/privacy"
+    | "/terms"
+    | "/test"
+    | "/machines/connect"
+    | "/pitch/print"
+    | "/research/codex-app-server"
+    | "/vault/$"
+    | "/oauth/mcp/consent"
+    | "/pitch/print/mobile"
+    | "/research/codex-app-server/browser"
+    | "/vault/$owner/$repo/codespace/$branch/chat";
+  fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  indexRoute: typeof indexRoute
-  addRepositoryRoute: typeof addRepositoryRoute
-  logoRoute: typeof logoRoute
-  logoIsoRoute: typeof logoIsoRoute
-  logoIsoStudyRoute: typeof logoIsoStudyRoute
-  logoSvgRoute: typeof logoSvgRoute
-  logoTransitionLabRoute: typeof logoTransitionLabRoute
-  logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute
-  machinesRoute: typeof machinesRoute
-  pitchRoute: typeof pitchRoute
-  pricingRoute: typeof pricingRoute
-  privacyRoute: typeof privacyRoute
-  termsRoute: typeof termsRoute
-  testRoute: typeof testRoute
-  machineConnectRoute: typeof machineConnectRoute
-  pitchPrintRoute: typeof pitchPrintRoute
-  codexResearchRoute: typeof codexResearchRoute
-  vaultFileRoute: typeof vaultFileRoute
-  mcpConsentRoute: typeof mcpConsentRoute
-  pitchPrintMobileRoute: typeof pitchPrintMobileRoute
-  codexThreadBrowserResearchRoute: typeof codexThreadBrowserResearchRoute
-  codespaceChatRoute: typeof codespaceChatRoute
+  indexRoute: typeof indexRoute;
+  addRepositoryRoute: typeof addRepositoryRoute;
+  logoRoute: typeof logoRoute;
+  logoIsoRoute: typeof logoIsoRoute;
+  logoIsoStudyRoute: typeof logoIsoStudyRoute;
+  logoSvgRoute: typeof logoSvgRoute;
+  logoTransitionLabRoute: typeof logoTransitionLabRoute;
+  logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
+  machinesRoute: typeof machinesRoute;
+  pitchRoute: typeof pitchRoute;
+  pricingRoute: typeof pricingRoute;
+  privacyRoute: typeof privacyRoute;
+  termsRoute: typeof termsRoute;
+  testRoute: typeof testRoute;
+  machineConnectRoute: typeof machineConnectRoute;
+  pitchPrintRoute: typeof pitchPrintRoute;
+  codexResearchRoute: typeof codexResearchRoute;
+  vaultFileRoute: typeof vaultFileRoute;
+  mcpConsentRoute: typeof mcpConsentRoute;
+  pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
+  codexThreadBrowserResearchRoute: typeof codexThreadBrowserResearchRoute;
+  codespaceChatRoute: typeof codespaceChatRoute;
 }
 
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    '/test': {
-      id: '/test'
-      path: '/test'
-      fullPath: '/test'
-      preLoaderRoute: typeof testRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof termsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy': {
-      id: '/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
-      preLoaderRoute: typeof privacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pricing': {
-      id: '/pricing'
-      path: '/pricing'
-      fullPath: '/pricing'
-      preLoaderRoute: typeof pricingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pitch': {
-      id: '/pitch'
-      path: '/pitch'
-      fullPath: '/pitch'
-      preLoaderRoute: typeof pitchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/machines': {
-      id: '/machines'
-      path: '/machines'
-      fullPath: '/machines'
-      preLoaderRoute: typeof machinesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/logo-transition-lab-transforms': {
-      id: '/logo-transition-lab-transforms'
-      path: '/logo-transition-lab-transforms'
-      fullPath: '/logo-transition-lab-transforms'
-      preLoaderRoute: typeof logoTransitionTransformsLabRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/logo-transition-lab': {
-      id: '/logo-transition-lab'
-      path: '/logo-transition-lab'
-      fullPath: '/logo-transition-lab'
-      preLoaderRoute: typeof logoTransitionLabRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/logo-svg': {
-      id: '/logo-svg'
-      path: '/logo-svg'
-      fullPath: '/logo-svg'
-      preLoaderRoute: typeof logoSvgRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/logo-iso-study': {
-      id: '/logo-iso-study'
-      path: '/logo-iso-study'
-      fullPath: '/logo-iso-study'
-      preLoaderRoute: typeof logoIsoStudyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/logo-iso': {
-      id: '/logo-iso'
-      path: '/logo-iso'
-      fullPath: '/logo-iso'
-      preLoaderRoute: typeof logoIsoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/logo': {
-      id: '/logo'
-      path: '/logo'
-      fullPath: '/logo'
-      preLoaderRoute: typeof logoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/add': {
-      id: '/add'
-      path: '/add'
-      fullPath: '/add'
-      preLoaderRoute: typeof addRepositoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof indexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/vault/$': {
-      id: '/vault/$'
-      path: '/vault/$'
-      fullPath: '/vault/$'
-      preLoaderRoute: typeof vaultFileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/research/codex-app-server': {
-      id: '/research/codex-app-server'
-      path: '/research/codex-app-server'
-      fullPath: '/research/codex-app-server'
-      preLoaderRoute: typeof codexResearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pitch/print': {
-      id: '/pitch/print'
-      path: '/pitch/print'
-      fullPath: '/pitch/print'
-      preLoaderRoute: typeof pitchPrintRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/machines/connect': {
-      id: '/machines/connect'
-      path: '/machines/connect'
-      fullPath: '/machines/connect'
-      preLoaderRoute: typeof machineConnectRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/research/codex-app-server/browser': {
-      id: '/research/codex-app-server/browser'
-      path: '/research/codex-app-server/browser'
-      fullPath: '/research/codex-app-server/browser'
-      preLoaderRoute: typeof codexThreadBrowserResearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pitch/print/mobile': {
-      id: '/pitch/print/mobile'
-      path: '/pitch/print/mobile'
-      fullPath: '/pitch/print/mobile'
-      preLoaderRoute: typeof pitchPrintMobileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/oauth/mcp/consent': {
-      id: '/oauth/mcp/consent'
-      path: '/oauth/mcp/consent'
-      fullPath: '/oauth/mcp/consent'
-      preLoaderRoute: typeof mcpConsentRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/vault/$owner/$repo/codespace/$branch/chat': {
-      id: '/vault/$owner/$repo/codespace/$branch/chat'
-      path: '/vault/$owner/$repo/codespace/$branch/chat'
-      fullPath: '/vault/$owner/$repo/codespace/$branch/chat'
-      preLoaderRoute: typeof codespaceChatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+    "/test": {
+      id: "/test";
+      path: "/test";
+      fullPath: "/test";
+      preLoaderRoute: typeof testRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/terms": {
+      id: "/terms";
+      path: "/terms";
+      fullPath: "/terms";
+      preLoaderRoute: typeof termsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/privacy": {
+      id: "/privacy";
+      path: "/privacy";
+      fullPath: "/privacy";
+      preLoaderRoute: typeof privacyRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/pricing": {
+      id: "/pricing";
+      path: "/pricing";
+      fullPath: "/pricing";
+      preLoaderRoute: typeof pricingRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/pitch": {
+      id: "/pitch";
+      path: "/pitch";
+      fullPath: "/pitch";
+      preLoaderRoute: typeof pitchRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/machines": {
+      id: "/machines";
+      path: "/machines";
+      fullPath: "/machines";
+      preLoaderRoute: typeof machinesRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo-transition-lab-transforms": {
+      id: "/logo-transition-lab-transforms";
+      path: "/logo-transition-lab-transforms";
+      fullPath: "/logo-transition-lab-transforms";
+      preLoaderRoute: typeof logoTransitionTransformsLabRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo-transition-lab": {
+      id: "/logo-transition-lab";
+      path: "/logo-transition-lab";
+      fullPath: "/logo-transition-lab";
+      preLoaderRoute: typeof logoTransitionLabRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo-svg": {
+      id: "/logo-svg";
+      path: "/logo-svg";
+      fullPath: "/logo-svg";
+      preLoaderRoute: typeof logoSvgRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo-iso-study": {
+      id: "/logo-iso-study";
+      path: "/logo-iso-study";
+      fullPath: "/logo-iso-study";
+      preLoaderRoute: typeof logoIsoStudyRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo-iso": {
+      id: "/logo-iso";
+      path: "/logo-iso";
+      fullPath: "/logo-iso";
+      preLoaderRoute: typeof logoIsoRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo": {
+      id: "/logo";
+      path: "/logo";
+      fullPath: "/logo";
+      preLoaderRoute: typeof logoRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/add": {
+      id: "/add";
+      path: "/add";
+      fullPath: "/add";
+      preLoaderRoute: typeof addRepositoryRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/": {
+      id: "/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof indexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/vault/$": {
+      id: "/vault/$";
+      path: "/vault/$";
+      fullPath: "/vault/$";
+      preLoaderRoute: typeof vaultFileRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/research/codex-app-server": {
+      id: "/research/codex-app-server";
+      path: "/research/codex-app-server";
+      fullPath: "/research/codex-app-server";
+      preLoaderRoute: typeof codexResearchRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/pitch/print": {
+      id: "/pitch/print";
+      path: "/pitch/print";
+      fullPath: "/pitch/print";
+      preLoaderRoute: typeof pitchPrintRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/machines/connect": {
+      id: "/machines/connect";
+      path: "/machines/connect";
+      fullPath: "/machines/connect";
+      preLoaderRoute: typeof machineConnectRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/research/codex-app-server/browser": {
+      id: "/research/codex-app-server/browser";
+      path: "/research/codex-app-server/browser";
+      fullPath: "/research/codex-app-server/browser";
+      preLoaderRoute: typeof codexThreadBrowserResearchRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/pitch/print/mobile": {
+      id: "/pitch/print/mobile";
+      path: "/pitch/print/mobile";
+      fullPath: "/pitch/print/mobile";
+      preLoaderRoute: typeof pitchPrintMobileRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/oauth/mcp/consent": {
+      id: "/oauth/mcp/consent";
+      path: "/oauth/mcp/consent";
+      fullPath: "/oauth/mcp/consent";
+      preLoaderRoute: typeof mcpConsentRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/vault/$owner/$repo/codespace/$branch/chat": {
+      id: "/vault/$owner/$repo/codespace/$branch/chat";
+      path: "/vault/$owner/$repo/codespace/$branch/chat";
+      fullPath: "/vault/$owner/$repo/codespace/$branch/chat";
+      preLoaderRoute: typeof codespaceChatRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
@@ -500,7 +500,7 @@ const rootRouteChildren: RootRouteChildren = {
   pitchPrintMobileRoute: pitchPrintMobileRoute,
   codexThreadBrowserResearchRoute: codexThreadBrowserResearchRoute,
   codespaceChatRoute: codespaceChatRoute,
-}
+};
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+  ._addFileTypes<FileRouteTypes>();

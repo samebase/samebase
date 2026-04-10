@@ -2211,8 +2211,8 @@ async function waitForDaytonaDevServerRunning(args: {
   const message =
     logTail && logTail.length > 0
       ? truncateLogTail(logTail, 800)
-      : lastStatus?.message ??
-        "Dev server exited before it bound the preview port.";
+      : (lastStatus?.message ??
+        "Dev server exited before it bound the preview port.");
   throw new Error(message);
 }
 
@@ -2755,21 +2755,21 @@ export const startDaytonaWorkspace = action({
         : null;
     const liveDebugBaseSnapshotRecord =
       provisioningMode === DAYTONA_PROVISIONING_MODE_LIVE_DEBUG
-        ? exactActiveSnapshotRecord ??
+        ? (exactActiveSnapshotRecord ??
           (await findLatestActiveMainSnapshotRecord({
             ctx,
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,
-          }))
+          })))
         : null;
     const materializationSnapshotName =
       provisioningMode === DAYTONA_PROVISIONING_MODE_LIVE_DEBUG
-        ? liveDebugBaseSnapshotRecord?.snapshotName?.trim() ?? null
-        : exactActiveSnapshotRecord?.snapshotName?.trim() ?? null;
+        ? (liveDebugBaseSnapshotRecord?.snapshotName?.trim() ?? null)
+        : (exactActiveSnapshotRecord?.snapshotName?.trim() ?? null);
     const materializationSnapshotCommitSha =
       provisioningMode === DAYTONA_PROVISIONING_MODE_LIVE_DEBUG
-        ? liveDebugBaseSnapshotRecord?.commitSha ?? null
-        : exactActiveSnapshotRecord?.commitSha ?? null;
+        ? (liveDebugBaseSnapshotRecord?.commitSha ?? null)
+        : (exactActiveSnapshotRecord?.commitSha ?? null);
     if (!materializationSnapshotName) {
       return {
         ok: false,
@@ -3432,7 +3432,7 @@ export const verifyCodexLoginInSandbox = action({
       message:
         loginCheck.status === "ready"
           ? "Codex is logged in and ready in Daytona."
-          : loginCheck.message ?? "Codex login is still missing in Daytona.",
+          : (loginCheck.message ?? "Codex login is still missing in Daytona."),
     };
   },
 });

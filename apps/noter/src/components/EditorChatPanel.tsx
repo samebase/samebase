@@ -643,7 +643,7 @@ export function EditorChatPanel({
     vaultId ? { vaultId } : "skip",
   );
   const threadId = vaultId
-    ? vaultThread?.threadId ?? pendingThreadId
+    ? (vaultThread?.threadId ?? pendingThreadId)
     : localThreadId;
 
   const threadContext = useQuery(

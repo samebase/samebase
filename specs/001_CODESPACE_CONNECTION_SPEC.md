@@ -73,9 +73,9 @@ environments.
 
 ```ts
 // Example connection flow
-const codespace = await createCodespace(repoOwner, repoName)
-const webUrl = `https://${codespace.name}.github.dev`
-const agentUrl = `https://${codespace.name}-3000.app.github.dev`
+const codespace = await createCodespace(repoOwner, repoName);
+const webUrl = `https://${codespace.name}.github.dev`;
+const agentUrl = `https://${codespace.name}-3000.app.github.dev`;
 ```
 
 ### Agent API Endpoints:
@@ -257,14 +257,14 @@ GET /files/stat?path={file-path}
 
 ```ts
 codespaces: {
-  id: string
-  name: string
-  webUrl: string
-  agentUrl: string
-  token: string
-  status: 'creating' | 'running' | 'stopped'
-  createdAt: number
-  updatedAt: number
+  id: string;
+  name: string;
+  webUrl: string;
+  agentUrl: string;
+  token: string;
+  status: "creating" | "running" | "stopped";
+  createdAt: number;
+  updatedAt: number;
 }
 ```
 

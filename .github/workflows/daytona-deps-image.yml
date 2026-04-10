@@ -24,7 +24,7 @@ jobs:
   build:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     env:
-      DAYTONA_PNPM_VERSION: '9.15.0'
+      DAYTONA_PNPM_VERSION: "9.15.0"
     permissions:
       contents: read
       packages: write
@@ -96,6 +96,7 @@ jobs:
           context: .
           file: Dockerfile.daytona-deps
           push: true
+          cache-to:
             type=gha,mode=max,scope=daytona-deps-${{ github.repository }}
           build-args: |
             BASE_IMAGE=mcr.microsoft.com/devcontainers/javascript-node:24-bookworm

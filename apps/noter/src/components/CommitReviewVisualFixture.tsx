@@ -338,8 +338,8 @@ export function CommitReviewVisualFixture({
 
   const canRenderInline = Boolean(
     activeFile &&
-      (typeof activeFile.richOldContent === "string" ||
-        typeof activeFile.richNewContent === "string"),
+    (typeof activeFile.richOldContent === "string" ||
+      typeof activeFile.richNewContent === "string"),
   );
 
   return (

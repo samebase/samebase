@@ -25,7 +25,7 @@ const BLOCKED_PACKAGES = new Set([
   "eslint-plugin-react-hooks",
   "eslint-plugin-react-refresh",
   "@convex-dev/eslint-plugin",
-  "prettier",
+  "oxfmt",
 
   // CSS tooling
   "postcss",

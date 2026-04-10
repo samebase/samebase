@@ -25,6 +25,11 @@
       "source": "get-convex/agent-skills",
       "sourceType": "github",
       "computedHash": "92a5c170cf238f45f08439d9d5d7947af490b880ee8f15306183240483cbed02"
+    },
+    "migrate-oxfmt": {
+      "source": "oxc-project/oxc",
+      "sourceType": "github",
+      "computedHash": "b313a891bc4173aac0bd948d5e8c40f5dd921fe67eb5f51184c364e2b869f0e7"
     }
   }
 }

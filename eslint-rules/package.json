@@ -1,7 +1,7 @@
 {
   "name": "eslint-plugin-noter-local",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "commonjs",
   "main": "index.js",
   "peerDependencies": {

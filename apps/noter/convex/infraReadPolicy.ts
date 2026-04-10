@@ -16,8 +16,14 @@ function redactDefault(text: string): string {
   let output = text;
 
   // Authorization/cookies/tokens.
-  output = output.replace(/(authorization\s*[:=]\s*bearer\s+)[^\s"']+/gi, "$1[REDACTED]");
-  output = output.replace(/(x[-_]?(api[-_])?key\s*[:=]\s*)[^\s"']+/gi, "$1[REDACTED]");
+  output = output.replace(
+    /(authorization\s*[:=]\s*bearer\s+)[^\s"']+/gi,
+    "$1[REDACTED]",
+  );
+  output = output.replace(
+    /(x[-_]?(api[-_])?key\s*[:=]\s*)[^\s"']+/gi,
+    "$1[REDACTED]",
+  );
   output = output.replace(/(token\s*[:=]\s*)[^\s"']+/gi, "$1[REDACTED]");
   output = output.replace(/(cookie\s*[:=]\s*)[^\n]+/gi, "$1[REDACTED]");
   output = output.replace(/(secret\s*[:=]\s*)[^\s"']+/gi, "$1[REDACTED]");

@@ -3,9 +3,7 @@ import { SignInForm } from "@/SignInForm";
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { useLocation } from "@tanstack/react-router";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
-import {
-  shouldRenderPublicLandingWithoutAuthGate,
-} from "@/lib/publicLandingAuthState";
+import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAuthState";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";

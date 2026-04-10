@@ -1,10 +1,10 @@
 export declare function upsertCodexNoAltScreenConfig(
   existingConfig: string,
-): string
+): string;
 export declare function upsertCodexDefaultModelConfig(
   existingConfig: string,
-): string
+): string;
 export declare function upsertCodexProjectTrustConfig(
   existingConfig: string,
   projectPath: string,
-): string
+): string;

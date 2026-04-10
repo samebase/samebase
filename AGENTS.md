@@ -104,9 +104,9 @@ Key domain entities:
   renamed mirror, or reshaped object around it. Always check whether an extra
   abstraction can be removed, not just whether it can be tolerated.
 - If a transitional helper, adapter, or mirror object ends up unused outside
-  tests, delete it instead of preserving it "just in case". Do not keep
-  dead migration scaffolding, test-only production helpers, or simplified
-  wrappers that no longer pull their weight.
+  tests, delete it instead of preserving it "just in case". Do not keep dead
+  migration scaffolding, test-only production helpers, or simplified wrappers
+  that no longer pull their weight.
 - Fail closed rather than inventing placeholder fallbacks unless the patch is
   implementing a real migration.
 - Do not keep test-only production abstractions, incomplete extractions, or dead
@@ -278,7 +278,7 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   Python first in this repo.
 - Use template literals instead of arrays joined with `'\n'` for multi-line
   JavaScript and TypeScript snippets.
-- Format documents with Prettier.
+- Format documents with oxfmt.
 - Prefer exhaustive dispatch with `satisfies never` when it fits.
 - When sharing URLs, always format them as clickable Markdown links.
 - When pointing the operator at code, include a precise location such as a

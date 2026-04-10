@@ -1,11 +1,11 @@
-import path from 'path'
-import { defineConfig } from 'vitest/config'
-import { readPackageVersion } from './scripts/readPackageVersion.js'
+import path from "path";
+import { defineConfig } from "vitest/config";
+import { readPackageVersion } from "./scripts/readPackageVersion.js";
 
 const daytonaSdkVersion = readPackageVersion(
-  '@daytonaio/sdk',
-  new URL('./apps/noter/package.json', import.meta.url),
-)
+  "@daytonaio/sdk",
+  new URL("./apps/noter/package.json", import.meta.url),
+);
 
 export default defineConfig({
   define: {
@@ -13,19 +13,19 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: 'node',
+    environment: "node",
     include: [
-      'scripts/**/*.test.js',
-      'apps/**/*.test.ts',
-      'apps/**/*.test.tsx',
-      'packages/**/*.test.ts',
-      'packages/**/*.test.tsx',
+      "scripts/**/*.test.js",
+      "apps/**/*.test.ts",
+      "apps/**/*.test.tsx",
+      "packages/**/*.test.ts",
+      "packages/**/*.test.tsx",
     ],
-    exclude: ['**/node_modules/**', 'dist', 'dev-dist'],
+    exclude: ["**/node_modules/**", "dist", "dev-dist"],
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './apps/noter/src'),
+      "@": path.resolve(__dirname, "./apps/noter/src"),
     },
   },
-})
+});

@@ -133,12 +133,12 @@ all of the file.
 
 ```ts
 type ReplaceInFileInput = {
-  path: string
+  path: string;
   replacements: Array<{
-    oldText: string
-    newText: string
-  }>
-}
+    oldText: string;
+    newText: string;
+  }>;
+};
 ```
 
 ### Example input

@@ -180,10 +180,10 @@ representation:
 
 ```ts
 type StarterTemplateManifest = {
-  version: string
-  commitMessage: string
-  files: Record<string, string>
-}
+  version: string;
+  commitMessage: string;
+  files: Record<string, string>;
+};
 ```
 
 Out of scope for Iteration 1:

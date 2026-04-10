@@ -134,7 +134,6 @@ Daytona’s prebuild is faster and tightly integrated.
 **Two viable paths:**
 
 1. **Daytona Project Config + Prebuilds**
-
    - Store project config and Dockerfile/devcontainer in the repo.
    - Daytona builds & caches per-branch images.
    - Sandbox creation uses prebuilt image.

@@ -1,7 +1,7 @@
-'use strict'
+"use strict";
 
 module.exports = {
   rules: {
-    'use-query-param-helpers': require('./use-query-param-helpers'),
+    "use-query-param-helpers": require("./use-query-param-helpers"),
   },
-}
+};

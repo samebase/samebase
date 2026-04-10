@@ -327,12 +327,14 @@ function generateDevcontainerConfig(): string {
       vscode: {
         extensions: [
           "dbaeumer.vscode-eslint",
-          "esbenp.prettier-vscode",
+          "oxc.oxc-vscode",
           "bradlc.vscode-tailwindcss",
         ],
         settings: {
+          "oxc.fmt.configPath": ".oxfmtrc.json",
           "editor.formatOnSave": true,
-          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.formatOnSaveMode": "file",
+          "editor.defaultFormatter": "oxc.oxc-vscode",
         },
       },
     },

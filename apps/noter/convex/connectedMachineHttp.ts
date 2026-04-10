@@ -230,7 +230,7 @@ export const publishMachineHeartbeat = httpAction(async (ctx, request) => {
   const controlUrlUpdatedAt =
     body.controlUrlUpdatedAt === undefined
       ? undefined
-      : readNumber(body, "controlUrlUpdatedAt") ?? null;
+      : (readNumber(body, "controlUrlUpdatedAt") ?? null);
   const capabilities = readConnectedMachineCapabilities(body.capabilities);
   const allowedRoots = readStringArray(body.allowedRoots);
   const hasLiveControlPayload =

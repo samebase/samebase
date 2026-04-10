@@ -185,9 +185,9 @@ const hasDaytonaResourcesForVault = (
 ) =>
   Boolean(
     vault?.daytonaSandboxId ||
-      vault?.daytonaSnapshotName ||
-      vault?.daytonaPrebuildLogsSnapshot ||
-      vault?.daytonaCurrentSnapshotName,
+    vault?.daytonaSnapshotName ||
+    vault?.daytonaPrebuildLogsSnapshot ||
+    vault?.daytonaCurrentSnapshotName,
   );
 
 type CreateTemplate = "app" | "agent";
@@ -1186,9 +1186,9 @@ function VaultDashboardContent() {
 
   const selectedVault =
     vaultToDelete && vaults
-      ? vaults.find(
+      ? (vaults.find(
           (vault: (typeof vaults)[0]) => vault._id === vaultToDelete.id,
-        ) ?? null
+        ) ?? null)
       : null;
   const stagedChangesCount = selectedVault?.fileCount ?? 0;
   const hasStagedChanges = stagedChangesCount > 0;

@@ -78,7 +78,6 @@ Queries
 Actions
 
 - `createPolarCheckoutSession`
-
   - Input: billing interval (`monthly`/`annual`), `successUrl`, `returnUrl`
   - Ensures the viewer has `billingPolarExternalCustomerId` (generate if
     missing)

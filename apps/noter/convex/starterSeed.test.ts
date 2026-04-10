@@ -22,10 +22,8 @@ function makeGitClient(options?: {
   const createCommitCalls: Parameters<
     StarterSeedGitClient["createCommit"]
   >[0][] = [];
-  const createRefCalls: Parameters<StarterSeedGitClient["createRef"]>[0][] =
-    [];
-  const updateRefCalls: Parameters<StarterSeedGitClient["updateRef"]>[0][] =
-    [];
+  const createRefCalls: Parameters<StarterSeedGitClient["createRef"]>[0][] = [];
+  const updateRefCalls: Parameters<StarterSeedGitClient["updateRef"]>[0][] = [];
   const createBootstrapCommitCalls: Parameters<
     StarterSeedGitClient["createBootstrapCommit"]
   >[0][] = [];

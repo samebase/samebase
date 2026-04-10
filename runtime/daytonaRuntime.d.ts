@@ -1,56 +1,56 @@
 export type DaytonaRuntimeManifest = {
-  baseImage: string
-  workspaceDir: string
-  repoName: string
-  pnpmVersion: string
-  codexCliVersion: string
-  aptPackages: readonly string[]
+  baseImage: string;
+  workspaceDir: string;
+  repoName: string;
+  pnpmVersion: string;
+  codexCliVersion: string;
+  aptPackages: readonly string[];
   defaultShell: {
-    name: string
-    users: readonly string[]
-  }
-}
+    name: string;
+    users: readonly string[];
+  };
+};
 
-export const daytonaRuntimeManifest: DaytonaRuntimeManifest
+export const daytonaRuntimeManifest: DaytonaRuntimeManifest;
 
 export function renderDaytonaRuntimeAptPackageList(
   manifest?: DaytonaRuntimeManifest,
-): string
+): string;
 
 export function renderDaytonaRuntimeInstallPackagesRunCommand(
   manifest?: DaytonaRuntimeManifest,
-): string
+): string;
 
 export function renderDaytonaSetDefaultShellImageCommand(
   manifest?: DaytonaRuntimeManifest,
-): string
+): string;
 
 export function renderDaytonaSetDefaultShellRunCommand(
   manifest?: DaytonaRuntimeManifest,
-): string
+): string;
 
 export function renderDaytonaCorepackPnpmRunCommand(
   manifest?: DaytonaRuntimeManifest,
-): string
+): string;
 
 export function renderDaytonaCodexInstallRunCommand(
   manifest?: DaytonaRuntimeManifest,
-): string
+): string;
 
 export function renderDaytonaAuthFallbackDockerfileCommands(
   manifest?: DaytonaRuntimeManifest,
-): readonly string[]
+): readonly string[];
 
 export function renderDaytonaPrebuildDockerfileCommands(
   manifest?: DaytonaRuntimeManifest,
-): readonly string[]
+): readonly string[];
 
 export function renderDaytonaRuntimeGeneratedTsModule(
   manifest?: DaytonaRuntimeManifest,
-): string
+): string;
 
-export function renderDaytonaSandboxProgramsGeneratedTsModule(): string
+export function renderDaytonaSandboxProgramsGeneratedTsModule(): string;
 
 export function renderDockerfileDaytonaDeps(
   manifest?: DaytonaRuntimeManifest,
-): string
+): string;

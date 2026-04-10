@@ -158,7 +158,7 @@ file or unknown blob.
 Recommended type model:
 
 ```ts
-type RepositoryMediaKind = 'image' | 'vox'
+type RepositoryMediaKind = "image" | "vox";
 ```
 
 This keeps the current media pipeline intact while making the viewer extensible
@@ -282,22 +282,22 @@ Recommended contract shape:
 
 ```ts
 type RepositoryMediaAsset =
-  | { found: false; reason: 'missing' }
-  | { found: false; reason: 'unavailable'; message: string }
+  | { found: false; reason: "missing" }
+  | { found: false; reason: "unavailable"; message: string }
   | {
-      found: true
-      kind: 'image'
-      mimeType: string
-      url: string
-      fileName: string
+      found: true;
+      kind: "image";
+      mimeType: string;
+      url: string;
+      fileName: string;
     }
   | {
-      found: true
-      kind: 'vox'
-      mimeType: string
-      url: string
-      fileName: string
-    }
+      found: true;
+      kind: "vox";
+      mimeType: string;
+      url: string;
+      fileName: string;
+    };
 ```
 
 The backend does not need voxel-specific metadata for v1 beyond the same fields
