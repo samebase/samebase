@@ -74,7 +74,7 @@ async function main() {
     'pnpm',
     [
       'exec',
-      'vite',
+      'vp',
       'preview',
       '--host',
       '127.0.0.1',

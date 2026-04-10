@@ -1,12 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vite-plus/test'
 
 import {
   shouldClearCompareOnReviewExit,
   shouldShowCompareBackToEditor,
-} from "@/lib/fileViewReview";
+} from '@/lib/fileViewReview'
 
-describe("shouldClearCompareOnReviewExit", () => {
-  it("clears compare for compare-only review selections", () => {
+describe('shouldClearCompareOnReviewExit', () => {
+  it('clears compare for compare-only review selections', () => {
     expect(
       shouldClearCompareOnReviewExit({
         isCompareRequested: true,
@@ -14,10 +14,10 @@ describe("shouldClearCompareOnReviewExit", () => {
         hasComparedEditorTarget: true,
         hasStagedSelection: false,
       }),
-    ).toBe(true);
-  });
+    ).toBe(true)
+  })
 
-  it("keeps compare for deleted compare-only review selections", () => {
+  it('keeps compare for deleted compare-only review selections', () => {
     expect(
       shouldClearCompareOnReviewExit({
         isCompareRequested: true,
@@ -25,10 +25,10 @@ describe("shouldClearCompareOnReviewExit", () => {
         hasComparedEditorTarget: false,
         hasStagedSelection: false,
       }),
-    ).toBe(false);
-  });
+    ).toBe(false)
+  })
 
-  it("keeps compare when the reviewed file already has staging", () => {
+  it('keeps compare when the reviewed file already has staging', () => {
     expect(
       shouldClearCompareOnReviewExit({
         isCompareRequested: true,
@@ -36,10 +36,10 @@ describe("shouldClearCompareOnReviewExit", () => {
         hasComparedEditorTarget: true,
         hasStagedSelection: true,
       }),
-    ).toBe(false);
-  });
+    ).toBe(false)
+  })
 
-  it("keeps compare off when compare mode is not active", () => {
+  it('keeps compare off when compare mode is not active', () => {
     expect(
       shouldClearCompareOnReviewExit({
         isCompareRequested: false,
@@ -47,52 +47,52 @@ describe("shouldClearCompareOnReviewExit", () => {
         hasComparedEditorTarget: true,
         hasStagedSelection: false,
       }),
-    ).toBe(false);
-  });
-});
+    ).toBe(false)
+  })
+})
 
-describe("shouldShowCompareBackToEditor", () => {
-  it("shows back to editor for compare-only editor mode", () => {
+describe('shouldShowCompareBackToEditor', () => {
+  it('shows back to editor for compare-only editor mode', () => {
     expect(
       shouldShowCompareBackToEditor({
-        commitReviewMode: "editor",
+        commitReviewMode: 'editor',
         isCompareRequested: true,
         hasComparedEditorTarget: true,
         hasStagedSelection: false,
       }),
-    ).toBe(true);
-  });
+    ).toBe(true)
+  })
 
-  it("keeps the compare-only deleted diff in compare mode", () => {
+  it('keeps the compare-only deleted diff in compare mode', () => {
     expect(
       shouldShowCompareBackToEditor({
-        commitReviewMode: "editor",
+        commitReviewMode: 'editor',
         isCompareRequested: true,
         hasComparedEditorTarget: false,
         hasStagedSelection: false,
       }),
-    ).toBe(false);
-  });
+    ).toBe(false)
+  })
 
-  it("keeps review CTA when the selected file is staged", () => {
+  it('keeps review CTA when the selected file is staged', () => {
     expect(
       shouldShowCompareBackToEditor({
-        commitReviewMode: "editor",
+        commitReviewMode: 'editor',
         isCompareRequested: true,
         hasComparedEditorTarget: true,
         hasStagedSelection: true,
       }),
-    ).toBe(false);
-  });
+    ).toBe(false)
+  })
 
-  it("does not show compare exit while already in review", () => {
+  it('does not show compare exit while already in review', () => {
     expect(
       shouldShowCompareBackToEditor({
-        commitReviewMode: "review",
+        commitReviewMode: 'review',
         isCompareRequested: true,
         hasComparedEditorTarget: true,
         hasStagedSelection: false,
       }),
-    ).toBe(false);
-  });
-});
+    ).toBe(false)
+  })
+})

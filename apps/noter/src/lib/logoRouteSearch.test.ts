@@ -1,77 +1,77 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vite-plus/test'
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
-} from "@/components/logoIsometricRenderer";
-import { DEFAULT_FACE_COLORS } from "@/components/logoTailwindColors";
+} from '@/components/logoIsometricRenderer'
+import { DEFAULT_FACE_COLORS } from '@/components/logoTailwindColors'
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
   DEFAULT_VOXEL_STATE,
-} from "@/components/logoVoxelState";
+} from '@/components/logoVoxelState'
 import {
   buildLogoRouteSearch,
   validateLogoRouteSearch,
-} from "@/lib/logoRouteSearch";
+} from '@/lib/logoRouteSearch'
 
-describe("logoRouteSearch", () => {
-  it("normalizes logo route search into typed values", () => {
+describe('logoRouteSearch', () => {
+  it('normalizes logo route search into typed values', () => {
     expect(
       validateLogoRouteSearch({
-        axis: "screen-vertical",
-        elev: "32.4",
-        freeView: "",
-        isoSide: "52",
-        isoStyle: "flat",
-        leftColor: "amber-500",
-        rightColor: "emerald-500",
-        rot: "721",
-        topColor: "sky-500",
+        axis: 'screen-vertical',
+        elev: '32.4',
+        freeView: '',
+        isoSide: '52',
+        isoStyle: 'flat',
+        leftColor: 'amber-500',
+        rightColor: 'emerald-500',
+        rot: '721',
+        topColor: 'sky-500',
         vox: DEFAULT_VOXEL_STATE,
       }),
     ).toEqual({
-      axis: "screen-vertical",
+      axis: 'screen-vertical',
       elev: 32.4,
       freeView: true,
       isoSide: 40,
-      isoStyle: "flat",
-      leftColor: "amber-500",
-      rightColor: "emerald-500",
+      isoStyle: 'flat',
+      leftColor: 'amber-500',
+      rightColor: 'emerald-500',
       rot: 1,
-      topColor: "sky-500",
+      topColor: 'sky-500',
       vox: DEFAULT_VOXEL_STATE,
-    });
-  });
+    })
+  })
 
-  it("drops default logo state when building route search", () => {
+  it('drops default logo state when building route search', () => {
     expect(
       buildLogoRouteSearch({
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         faceColors: DEFAULT_FACE_COLORS,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
-        rotationAxisMode: "cube-y",
+        rotationAxisMode: 'cube-y',
         rotationDegrees: DEFAULT_ROTATION_DEGREES,
         viewSnapEnabled: true,
         voxelState: DEFAULT_VOXEL_STATE,
       }),
-    ).toEqual({});
-  });
+    ).toEqual({})
+  })
 
-  it("drops malformed logo route search values instead of throwing", () => {
+  it('drops malformed logo route search values instead of throwing', () => {
     expect(
       validateLogoRouteSearch({
-        axis: "diagonal",
+        axis: 'diagonal',
         elev: { nope: true },
-        freeView: "false",
+        freeView: 'false',
         isoSide: Number.NaN,
-        isoStyle: "wireframe",
-        leftColor: "   ",
+        isoStyle: 'wireframe',
+        leftColor: '   ',
         rightColor: 4,
-        rot: "not-a-number",
+        rot: 'not-a-number',
         topColor: null,
-        vox: "bad-voxel-state",
+        vox: 'bad-voxel-state',
       }),
-    ).toEqual({});
-  });
-});
+    ).toEqual({})
+  })
+})

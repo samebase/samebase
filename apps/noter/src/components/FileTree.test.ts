@@ -1,123 +1,123 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vite-plus/test'
 
 import {
   getFileTreeTooltipText,
   getRestoreDeletionLabel,
-} from "@/lib/fileTreeLabels";
+} from '@/lib/fileTreeLabels'
 import {
   buildEffectiveFolderExpansionStates,
   getAncestorFolderPaths,
-} from "@/lib/fileTreeState";
+} from '@/lib/fileTreeState'
 
-describe("buildEffectiveFolderExpansionStates", () => {
-  it("force-opens changed folders in changes mode", () => {
+describe('buildEffectiveFolderExpansionStates', () => {
+  it('force-opens changed folders in changes mode', () => {
     const result = buildEffectiveFolderExpansionStates({
       folderExpansionStates: [
         {
-          folderPath: "src",
+          folderPath: 'src',
           isExpanded: false,
         },
       ],
-      autoExpandedPaths: new Set(["src"]),
+      autoExpandedPaths: new Set(['src']),
       manualExpansionOverrides: new Map(),
       forceAutoExpandedPaths: true,
-    });
+    })
 
     expect(result).toEqual([
       {
-        folderPath: "src",
+        folderPath: 'src',
         isExpanded: true,
       },
-    ]);
-  });
+    ])
+  })
 
-  it("preserves manual collapse after a folder is auto-opened", () => {
+  it('preserves manual collapse after a folder is auto-opened', () => {
     const result = buildEffectiveFolderExpansionStates({
       folderExpansionStates: [
         {
-          folderPath: "src",
+          folderPath: 'src',
           isExpanded: false,
         },
       ],
-      autoExpandedPaths: new Set(["src"]),
-      manualExpansionOverrides: new Map([["src", false]]),
+      autoExpandedPaths: new Set(['src']),
+      manualExpansionOverrides: new Map([['src', false]]),
       forceAutoExpandedPaths: true,
-    });
+    })
 
     expect(result).toEqual([
       {
-        folderPath: "src",
+        folderPath: 'src',
         isExpanded: false,
       },
-    ]);
-  });
+    ])
+  })
 
-  it("leaves persisted folder state alone outside changes mode", () => {
+  it('leaves persisted folder state alone outside changes mode', () => {
     const result = buildEffectiveFolderExpansionStates({
       folderExpansionStates: [
         {
-          folderPath: "src",
+          folderPath: 'src',
           isExpanded: false,
         },
       ],
-      autoExpandedPaths: new Set(["src"]),
+      autoExpandedPaths: new Set(['src']),
       manualExpansionOverrides: new Map(),
       forceAutoExpandedPaths: false,
-    });
+    })
 
     expect(result).toEqual([
       {
-        folderPath: "src",
+        folderPath: 'src',
         isExpanded: false,
       },
-    ]);
-  });
-});
+    ])
+  })
+})
 
-describe("getAncestorFolderPaths", () => {
-  it("returns each parent folder for a nested file", () => {
-    expect(getAncestorFolderPaths("src/features/editor/FileView.tsx")).toEqual([
-      "src",
-      "src/features",
-      "src/features/editor",
-    ]);
-  });
+describe('getAncestorFolderPaths', () => {
+  it('returns each parent folder for a nested file', () => {
+    expect(getAncestorFolderPaths('src/features/editor/FileView.tsx')).toEqual([
+      'src',
+      'src/features',
+      'src/features/editor',
+    ])
+  })
 
-  it("returns an empty list for root files", () => {
-    expect(getAncestorFolderPaths("README.md")).toEqual([]);
-  });
-});
+  it('returns an empty list for root files', () => {
+    expect(getAncestorFolderPaths('README.md')).toEqual([])
+  })
+})
 
-describe("getFileTreeTooltipText", () => {
-  it("uses action copy for mobile folders", () => {
+describe('getFileTreeTooltipText', () => {
+  it('uses action copy for mobile folders', () => {
     expect(
       getFileTreeTooltipText({
         isFolder: true,
         isDeletedFile: false,
         isMobile: true,
-        type: "tree",
+        type: 'tree',
       }),
-    ).toBe("Long press for actions");
-  });
+    ).toBe('Long press for actions')
+  })
 
-  it("describes deleted-file tap plus long press on mobile", () => {
+  it('describes deleted-file tap plus long press on mobile', () => {
     expect(
       getFileTreeTooltipText({
         isFolder: false,
         isDeletedFile: true,
         isMobile: true,
-        type: "blob",
+        type: 'blob',
       }),
-    ).toBe("Tap to review deleted file, long press for actions");
-  });
-});
+    ).toBe('Tap to review deleted file, long press for actions')
+  })
+})
 
-describe("getRestoreDeletionLabel", () => {
-  it("shows the pending label while restore is in flight", () => {
-    expect(getRestoreDeletionLabel(true)).toBe("Reverting...");
-  });
+describe('getRestoreDeletionLabel', () => {
+  it('shows the pending label while restore is in flight', () => {
+    expect(getRestoreDeletionLabel(true)).toBe('Reverting...')
+  })
 
-  it("shows the default restore label when idle", () => {
-    expect(getRestoreDeletionLabel(false)).toBe("Revert deletion");
-  });
-});
+  it('shows the default restore label when idle', () => {
+    expect(getRestoreDeletionLabel(false)).toBe('Revert deletion')
+  })
+})

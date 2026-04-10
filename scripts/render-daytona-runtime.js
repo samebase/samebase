@@ -1,12 +1,12 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import prettier from 'prettier'
 import {
   renderDaytonaSandboxProgramsGeneratedTsModule,
   renderDaytonaRuntimeGeneratedTsModule,
   renderDockerfileDaytonaDeps,
 } from '../runtime/daytonaRuntime.js'
+import { formatWithRepoVitePlus } from './vitePlusFormatting.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(__dirname, '..')
@@ -43,8 +43,9 @@ async function normalizeOutputContents(outputPath, contents) {
     return withTrailingNewline
   }
 
-  return prettier.format(withTrailingNewline, {
+  return await formatWithRepoVitePlus({
     filepath: outputPath,
+    sourceText: withTrailingNewline,
   })
 }
 

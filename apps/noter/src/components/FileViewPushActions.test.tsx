@@ -1,8 +1,8 @@
-import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
-import { renderToStaticMarkup } from "react-dom/server";
+import type { ReactNode } from 'react'
+import { describe, expect, it, vi } from 'vite-plus/test'
+import { renderToStaticMarkup } from 'react-dom/server'
 
-vi.mock("@/components/ui/button", () => ({
+vi.mock('@/components/ui/button', () => ({
   Button: ({
     children,
     className,
@@ -10,11 +10,11 @@ vi.mock("@/components/ui/button", () => ({
     size,
     variant,
   }: {
-    children?: ReactNode;
-    className?: string;
-    disabled?: boolean;
-    size?: string;
-    variant?: string;
+    children?: ReactNode
+    className?: string
+    disabled?: boolean
+    size?: string
+    variant?: string
   }) => (
     <button
       className={className}
@@ -25,17 +25,17 @@ vi.mock("@/components/ui/button", () => ({
       {children}
     </button>
   ),
-}));
+}))
 
-vi.mock("@/components/PullRequestLink", () => ({
+vi.mock('@/components/PullRequestLink', () => ({
   PullRequestLink: ({
     pullRequestNumber,
     pullRequestUrl,
     className,
   }: {
-    pullRequestNumber?: number;
-    pullRequestUrl: string;
-    className?: string;
+    pullRequestNumber?: number
+    pullRequestUrl: string
+    className?: string
   }) => (
     <a
       className={className}
@@ -43,15 +43,15 @@ vi.mock("@/components/PullRequestLink", () => ({
       data-pull-request-number={pullRequestNumber}
       href={pullRequestUrl}
     >
-      {typeof pullRequestNumber === "number" ? `#${pullRequestNumber}` : "PR"}
+      {typeof pullRequestNumber === 'number' ? `#${pullRequestNumber}` : 'PR'}
     </a>
   ),
-}));
+}))
 
-import { FileViewPushActions } from "./FileViewPushActions";
+import { FileViewPushActions } from './FileViewPushActions'
 
-describe("FileViewPushActions", () => {
-  it("matches the default-branch draft and push snapshot", () => {
+describe('FileViewPushActions', () => {
+  it('matches the default-branch draft and push snapshot', () => {
     const markup = renderToStaticMarkup(
       <FileViewPushActions
         canCreateDraftPullRequest
@@ -62,14 +62,14 @@ describe("FileViewPushActions", () => {
         onCreateDraftPullRequest={() => {}}
         onManualCommit={() => {}}
       />,
-    );
+    )
 
     expect(markup).toMatchInlineSnapshot(
       `"<button class="h-6 px-2 text-xs border-sky-500 text-sky-700 hover:bg-sky-50" data-size="sm" data-variant="outline">draft</button><button class="h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white" data-size="sm" data-variant="default">push</button>"`,
-    );
-  });
+    )
+  })
 
-  it("matches the branch create-draft and push snapshot", () => {
+  it('matches the branch create-draft and push snapshot', () => {
     const markup = renderToStaticMarkup(
       <FileViewPushActions
         canCreateDraftPullRequest
@@ -80,14 +80,14 @@ describe("FileViewPushActions", () => {
         onCreateDraftPullRequest={() => {}}
         onManualCommit={() => {}}
       />,
-    );
+    )
 
     expect(markup).toMatchInlineSnapshot(
       `"<button class="h-6 px-2 text-xs border-sky-500 text-sky-700 hover:bg-sky-50" data-size="sm" data-variant="outline">create draft</button><button class="h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white" data-size="sm" data-variant="default">push</button>"`,
-    );
-  });
+    )
+  })
 
-  it("matches the existing PR and synced snapshot", () => {
+  it('matches the existing PR and synced snapshot', () => {
     const markup = renderToStaticMarkup(
       <FileViewPushActions
         canCreateDraftPullRequest={false}
@@ -100,14 +100,14 @@ describe("FileViewPushActions", () => {
         onCreateDraftPullRequest={() => {}}
         onManualCommit={() => {}}
       />,
-    );
+    )
 
     expect(markup).toMatchInlineSnapshot(
       `"<a class="text-xs" data-component="PullRequestLink" data-pull-request-number="999" href="https://github.com/noter-md/noter/pull/999">#999</a><button class="h-6 px-2 text-xs border-green-500 text-green-600 hover:bg-green-50" disabled="" data-size="sm" data-variant="outline">All Synced</button>"`,
-    );
-  });
+    )
+  })
 
-  it("disables push while a draft pull request is being created", () => {
+  it('disables push while a draft pull request is being created', () => {
     const markup = renderToStaticMarkup(
       <FileViewPushActions
         canCreateDraftPullRequest
@@ -118,10 +118,10 @@ describe("FileViewPushActions", () => {
         onCreateDraftPullRequest={() => {}}
         onManualCommit={() => {}}
       />,
-    );
+    )
 
     expect(markup).toMatchInlineSnapshot(
       `"<button class="h-6 px-2 text-xs border-sky-500 text-sky-700 hover:bg-sky-50" disabled="" data-size="sm" data-variant="outline">Creating...</button><button class="h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white" disabled="" data-size="sm" data-variant="default">push</button>"`,
-    );
-  });
-});
+    )
+  })
+})

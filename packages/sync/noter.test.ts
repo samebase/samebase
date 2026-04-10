@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 
 import {
   buildCodexSpawnInvocation,
@@ -671,13 +671,11 @@ describe('@noter-md/sync', () => {
       })
       expect(statSync(payload.worktree.cwd).isDirectory()).toBe(true)
       expect(
-        spawnSync('git', [
-          '-C',
-          payload.worktree.cwd,
-          'rev-parse',
-          '--abbrev-ref',
-          'HEAD',
-        ], { env: gitEnv })
+        spawnSync(
+          'git',
+          ['-C', payload.worktree.cwd, 'rev-parse', '--abbrev-ref', 'HEAD'],
+          { env: gitEnv },
+        )
           .stdout.toString()
           .trim(),
       ).toBe(payload.worktree.branch)
@@ -756,7 +754,9 @@ describe('@noter-md/sync', () => {
       const result = await runtime.listThreads(new URLSearchParams())
 
       expect(result.threads.map(thread => thread.id)).toContain('thread-target')
-      expect(readThreadSummaryFromListMock).toHaveBeenCalledWith('thread-target')
+      expect(readThreadSummaryFromListMock).toHaveBeenCalledWith(
+        'thread-target',
+      )
     } finally {
       if (previousCodexHome === undefined) {
         delete process.env.CODEX_HOME
@@ -853,7 +853,9 @@ describe('@noter-md/sync', () => {
     const result = await runtime.readThread('thread-target')
 
     expect(result.thread.createdAt).toBe(10)
-    expect(result.thread.preview).toBe('Recovered preview from the thread list.')
+    expect(result.thread.preview).toBe(
+      'Recovered preview from the thread list.',
+    )
     expect(result.thread.status.type).toBe('running')
     expect(result.thread.turns).toHaveLength(1)
     expect(result.thread.turns[0]?.items[1]?.summary).toBe('READY')

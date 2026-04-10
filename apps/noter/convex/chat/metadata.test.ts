@@ -1,28 +1,28 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vite-plus/test'
 
-import { buildCommitProposalPayload, parseCommitPayload } from "./metadata";
+import { buildCommitProposalPayload, parseCommitPayload } from './metadata'
 
-describe("commit proposal metadata", () => {
-  it("preserves branch when present", () => {
+describe('commit proposal metadata', () => {
+  it('preserves branch when present', () => {
     const payload = buildCommitProposalPayload({
-      message: "feat: add branch metadata",
-      branch: "feature/branch-aware-commit",
-    });
+      message: 'feat: add branch metadata',
+      branch: 'feature/branch-aware-commit',
+    })
 
-    const parsed = parseCommitPayload(JSON.stringify(payload));
-    expect(parsed?.branch).toBe("feature/branch-aware-commit");
-    expect(parsed?.message).toBe("feat: add branch metadata");
-  });
+    const parsed = parseCommitPayload(JSON.stringify(payload))
+    expect(parsed?.branch).toBe('feature/branch-aware-commit')
+    expect(parsed?.message).toBe('feat: add branch metadata')
+  })
 
-  it("keeps backward compatibility when branch is omitted", () => {
+  it('keeps backward compatibility when branch is omitted', () => {
     const parsed = parseCommitPayload(
       JSON.stringify({
-        type: "commit_proposal",
-        message: "chore: keep old payload shape",
+        type: 'commit_proposal',
+        message: 'chore: keep old payload shape',
       }),
-    );
+    )
 
-    expect(parsed?.message).toBe("chore: keep old payload shape");
-    expect(parsed?.branch).toBeUndefined();
-  });
-});
+    expect(parsed?.message).toBe('chore: keep old payload shape')
+    expect(parsed?.branch).toBeUndefined()
+  })
+})

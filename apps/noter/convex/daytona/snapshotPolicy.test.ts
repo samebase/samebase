@@ -1,4 +1,11 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+} from 'vite-plus/test'
 import {
   canonicalizeCommitPinnedDaytonaBranch,
   DAYTONA_COMMIT_PINNED_BRANCH,
@@ -10,194 +17,194 @@ import {
   inferDaytonaWorkspaceSandboxName,
   isCommitPinnedDaytonaBranch,
   shortenCommitSha,
-} from "./snapshotPolicy";
+} from './snapshotPolicy'
 
-const originalConvexDeployment = process.env.CONVEX_DEPLOYMENT;
-const originalDaytonaDeployKey = process.env.DAYTONA_CONVEX_DEPLOY_KEY;
+const originalConvexDeployment = process.env.CONVEX_DEPLOYMENT
+const originalDaytonaDeployKey = process.env.DAYTONA_CONVEX_DEPLOY_KEY
 
 beforeAll(() => {
-  process.env.DAYTONA_CONVEX_DEPLOY_KEY = "dev:test";
-  delete process.env.CONVEX_DEPLOYMENT;
-});
+  process.env.DAYTONA_CONVEX_DEPLOY_KEY = 'dev:test'
+  delete process.env.CONVEX_DEPLOYMENT
+})
 
 afterEach(() => {
-  process.env.DAYTONA_CONVEX_DEPLOY_KEY = "dev:test";
-  delete process.env.CONVEX_DEPLOYMENT;
-});
+  process.env.DAYTONA_CONVEX_DEPLOY_KEY = 'dev:test'
+  delete process.env.CONVEX_DEPLOYMENT
+})
 
 afterAll(() => {
   if (originalConvexDeployment === undefined) {
-    delete process.env.CONVEX_DEPLOYMENT;
+    delete process.env.CONVEX_DEPLOYMENT
   } else {
-    process.env.CONVEX_DEPLOYMENT = originalConvexDeployment;
+    process.env.CONVEX_DEPLOYMENT = originalConvexDeployment
   }
   if (originalDaytonaDeployKey === undefined) {
-    delete process.env.DAYTONA_CONVEX_DEPLOY_KEY;
-    return;
+    delete process.env.DAYTONA_CONVEX_DEPLOY_KEY
+    return
   }
-  process.env.DAYTONA_CONVEX_DEPLOY_KEY = originalDaytonaDeployKey;
-});
+  process.env.DAYTONA_CONVEX_DEPLOY_KEY = originalDaytonaDeployKey
+})
 
-describe("daytonaSnapshotPolicy", () => {
-  it("pins commit snapshots to main for the first rollout", () => {
-    expect(DAYTONA_COMMIT_PINNED_BRANCH).toBe("main");
-    expect(DAYTONA_SNAPSHOT_RETENTION_COUNT).toBe(3);
-    expect(isCommitPinnedDaytonaBranch("main")).toBe(true);
-    expect(isCommitPinnedDaytonaBranch("MAIN")).toBe(true);
-    expect(isCommitPinnedDaytonaBranch("feature/demo")).toBe(false);
-    expect(canonicalizeCommitPinnedDaytonaBranch(" MAIN ")).toBe("main");
-    expect(canonicalizeCommitPinnedDaytonaBranch("feature/demo")).toBe(
-      "feature/demo",
-    );
-  });
+describe('daytonaSnapshotPolicy', () => {
+  it('pins commit snapshots to main for the first rollout', () => {
+    expect(DAYTONA_COMMIT_PINNED_BRANCH).toBe('main')
+    expect(DAYTONA_SNAPSHOT_RETENTION_COUNT).toBe(3)
+    expect(isCommitPinnedDaytonaBranch('main')).toBe(true)
+    expect(isCommitPinnedDaytonaBranch('MAIN')).toBe(true)
+    expect(isCommitPinnedDaytonaBranch('feature/demo')).toBe(false)
+    expect(canonicalizeCommitPinnedDaytonaBranch(' MAIN ')).toBe('main')
+    expect(canonicalizeCommitPinnedDaytonaBranch('feature/demo')).toBe(
+      'feature/demo',
+    )
+  })
 
-  it("includes the exact commit in snapshot names", () => {
-    const commitSha = " ABCDEF1234567890 ";
+  it('includes the exact commit in snapshot names', () => {
+    const commitSha = ' ABCDEF1234567890 '
     const snapshotName = inferCommitPinnedSnapshotName({
-      owner: "OpenAI",
-      repo: "Noter",
-      branch: "main",
+      owner: 'OpenAI',
+      repo: 'Noter',
+      branch: 'main',
       commitSha,
-    });
+    })
 
-    expect(snapshotName).toContain("OpenAI");
-    expect(snapshotName).toContain("Noter");
-    expect(snapshotName).toContain("main");
-    expect(snapshotName).toContain("abcdef1234567890");
+    expect(snapshotName).toContain('OpenAI')
+    expect(snapshotName).toContain('Noter')
+    expect(snapshotName).toContain('main')
+    expect(snapshotName).toContain('abcdef1234567890')
     expect(
-      inferCommitPinnedSnapshotPrefix({ owner: "OpenAI", repo: "Noter" }),
-    ).toContain("OpenAI");
-  });
+      inferCommitPinnedSnapshotPrefix({ owner: 'OpenAI', repo: 'Noter' }),
+    ).toContain('OpenAI')
+  })
 
-  it("names dev Daytona resources by deployment scope", () => {
-    process.env.CONVEX_DEPLOYMENT = "dev:anonymous-1c49";
+  it('names dev Daytona resources by deployment scope', () => {
+    process.env.CONVEX_DEPLOYMENT = 'dev:anonymous-1c49'
 
     const snapshotName = inferCommitPinnedSnapshotName({
-      owner: "OpenAI",
-      repo: "Noter",
-      branch: "main",
-      commitSha: "abcdef1234567890",
-    });
+      owner: 'OpenAI',
+      repo: 'Noter',
+      branch: 'main',
+      commitSha: 'abcdef1234567890',
+    })
     const snapshotPrefix = inferCommitPinnedSnapshotPrefix({
-      owner: "OpenAI",
-      repo: "Noter",
-    });
+      owner: 'OpenAI',
+      repo: 'Noter',
+    })
     const sandboxName = inferDaytonaWorkspaceSandboxName({
-      owner: "OpenAI",
-      repo: "Noter",
-      branch: "main",
-      commitSha: "abcdef1234567890",
-      vaultId: "vault123",
-    });
+      owner: 'OpenAI',
+      repo: 'Noter',
+      branch: 'main',
+      commitSha: 'abcdef1234567890',
+      vaultId: 'vault123',
+    })
 
-    expect(snapshotName).toContain("dev-anonymous-1c49");
-    expect(snapshotPrefix).toContain("dev-anonymous-1c49");
-    expect(sandboxName).toContain("dev-anonymous-1c49");
-  });
+    expect(snapshotName).toContain('dev-anonymous-1c49')
+    expect(snapshotPrefix).toContain('dev-anonymous-1c49')
+    expect(sandboxName).toContain('dev-anonymous-1c49')
+  })
 
-  it("prefers the Daytona deploy key when CONVEX_DEPLOYMENT is local", () => {
-    process.env.DAYTONA_CONVEX_DEPLOY_KEY = "dev:quiet-robin-508|secret-token";
-    process.env.CONVEX_DEPLOYMENT = "local-1c49";
+  it('prefers the Daytona deploy key when CONVEX_DEPLOYMENT is local', () => {
+    process.env.DAYTONA_CONVEX_DEPLOY_KEY = 'dev:quiet-robin-508|secret-token'
+    process.env.CONVEX_DEPLOYMENT = 'local-1c49'
 
     const snapshotName = inferCommitPinnedSnapshotName({
-      owner: "OpenAI",
-      repo: "Noter",
-      branch: "main",
-      commitSha: "abcdef1234567890",
-    });
+      owner: 'OpenAI',
+      repo: 'Noter',
+      branch: 'main',
+      commitSha: 'abcdef1234567890',
+    })
     const snapshotPrefix = inferCommitPinnedSnapshotPrefix({
-      owner: "OpenAI",
-      repo: "Noter",
-    });
+      owner: 'OpenAI',
+      repo: 'Noter',
+    })
     const sandboxName = inferDaytonaWorkspaceSandboxName({
-      owner: "OpenAI",
-      repo: "Noter",
-      branch: "main",
-      commitSha: "abcdef1234567890",
-      vaultId: "vault123",
-    });
+      owner: 'OpenAI',
+      repo: 'Noter',
+      branch: 'main',
+      commitSha: 'abcdef1234567890',
+      vaultId: 'vault123',
+    })
 
-    expect(snapshotName).toContain("dev-quiet-robin-508");
-    expect(snapshotPrefix).toContain("dev-quiet-robin-508");
-    expect(sandboxName).toContain("dev-quiet-robin-508");
-    expect(snapshotName).not.toContain("local-1c49");
-  });
+    expect(snapshotName).toContain('dev-quiet-robin-508')
+    expect(snapshotPrefix).toContain('dev-quiet-robin-508')
+    expect(sandboxName).toContain('dev-quiet-robin-508')
+    expect(snapshotName).not.toContain('local-1c49')
+  })
 
-  it("falls back to the deploy key scope when CONVEX_DEPLOYMENT is unset", () => {
-    process.env.DAYTONA_CONVEX_DEPLOY_KEY = "prod:test";
-    delete process.env.CONVEX_DEPLOYMENT;
+  it('falls back to the deploy key scope when CONVEX_DEPLOYMENT is unset', () => {
+    process.env.DAYTONA_CONVEX_DEPLOY_KEY = 'prod:test'
+    delete process.env.CONVEX_DEPLOYMENT
 
     const snapshotName = inferCommitPinnedSnapshotName({
-      owner: "OpenAI",
-      repo: "Noter",
-      branch: "main",
-      commitSha: "abcdef1234567890",
-    });
+      owner: 'OpenAI',
+      repo: 'Noter',
+      branch: 'main',
+      commitSha: 'abcdef1234567890',
+    })
     const snapshotPrefix = inferCommitPinnedSnapshotPrefix({
-      owner: "OpenAI",
-      repo: "Noter",
-    });
+      owner: 'OpenAI',
+      repo: 'Noter',
+    })
     const sandboxName = inferDaytonaWorkspaceSandboxName({
-      owner: "OpenAI",
-      repo: "Noter",
-      branch: "main",
-      commitSha: "abcdef1234567890",
-      vaultId: "vault123",
-    });
+      owner: 'OpenAI',
+      repo: 'Noter',
+      branch: 'main',
+      commitSha: 'abcdef1234567890',
+      vaultId: 'vault123',
+    })
 
-    expect(snapshotName).toContain("noter-prebuild-prod-");
-    expect(snapshotPrefix).toContain("noter-prebuild-prod-");
-    expect(sandboxName).toContain("noter-prod-");
-  });
+    expect(snapshotName).toContain('noter-prebuild-prod-')
+    expect(snapshotPrefix).toContain('noter-prebuild-prod-')
+    expect(sandboxName).toContain('noter-prod-')
+  })
 
-  it("keeps prod Daytona resources on the stable prod scope", () => {
-    process.env.DAYTONA_CONVEX_DEPLOY_KEY = "prod:test";
-    process.env.CONVEX_DEPLOYMENT = "prod:noter";
+  it('keeps prod Daytona resources on the stable prod scope', () => {
+    process.env.DAYTONA_CONVEX_DEPLOY_KEY = 'prod:test'
+    process.env.CONVEX_DEPLOYMENT = 'prod:noter'
 
     const snapshotName = inferCommitPinnedSnapshotName({
-      owner: "OpenAI",
-      repo: "Noter",
-      branch: "main",
-      commitSha: "abcdef1234567890",
-    });
+      owner: 'OpenAI',
+      repo: 'Noter',
+      branch: 'main',
+      commitSha: 'abcdef1234567890',
+    })
     const sandboxName = inferDaytonaWorkspaceSandboxName({
-      owner: "OpenAI",
-      repo: "Noter",
-      branch: "main",
-      commitSha: "abcdef1234567890",
-      vaultId: "vault123",
-    });
+      owner: 'OpenAI',
+      repo: 'Noter',
+      branch: 'main',
+      commitSha: 'abcdef1234567890',
+      vaultId: 'vault123',
+    })
 
-    expect(snapshotName).toContain("noter-prebuild-prod-");
-    expect(snapshotName).not.toContain("prod-noter");
-    expect(sandboxName).toContain("noter-prod-");
-    expect(sandboxName).not.toContain("prod-noter");
+    expect(snapshotName).toContain('noter-prebuild-prod-')
+    expect(snapshotName).not.toContain('prod-noter')
+    expect(sandboxName).toContain('noter-prod-')
+    expect(sandboxName).not.toContain('prod-noter')
     expect(
-      inferCommitPinnedSnapshotPrefixes({ owner: "OpenAI", repo: "Noter" }),
-    ).toEqual([expect.stringContaining("noter-prebuild-prod-")]);
-  });
+      inferCommitPinnedSnapshotPrefixes({ owner: 'OpenAI', repo: 'Noter' }),
+    ).toEqual([expect.stringContaining('noter-prebuild-prod-')])
+  })
 
-  it("accepts legacy dev snapshot prefixes during migration", () => {
-    process.env.CONVEX_DEPLOYMENT = "dev:anonymous-1c49";
+  it('accepts legacy dev snapshot prefixes during migration', () => {
+    process.env.CONVEX_DEPLOYMENT = 'dev:anonymous-1c49'
 
     expect(
-      inferCommitPinnedSnapshotPrefixes({ owner: "OpenAI", repo: "Noter" }),
+      inferCommitPinnedSnapshotPrefixes({ owner: 'OpenAI', repo: 'Noter' }),
     ).toEqual([
-      expect.stringContaining("dev-anonymous-1c49"),
-      "noter-prebuild-dev-OpenAI-Noter-",
-    ]);
-  });
+      expect.stringContaining('dev-anonymous-1c49'),
+      'noter-prebuild-dev-OpenAI-Noter-',
+    ])
+  })
 
-  it("shortens commit shas for labels and messages", () => {
-    expect(shortenCommitSha("abcdef1234567890")).toBe("abcdef1");
-    expect(shortenCommitSha("abc123")).toBe("abc123");
-    expect(shortenCommitSha(" ABCDEF1234567890 ")).toBe("abcdef1");
-  });
+  it('shortens commit shas for labels and messages', () => {
+    expect(shortenCommitSha('abcdef1234567890')).toBe('abcdef1')
+    expect(shortenCommitSha('abc123')).toBe('abc123')
+    expect(shortenCommitSha(' ABCDEF1234567890 ')).toBe('abcdef1')
+  })
 
-  it("backs off retries and caps the delay", () => {
-    expect(calculateSnapshotRetryDelayMs(1)).toBe(60_000);
-    expect(calculateSnapshotRetryDelayMs(2)).toBe(120_000);
-    expect(calculateSnapshotRetryDelayMs(4)).toBe(480_000);
-    expect(calculateSnapshotRetryDelayMs(10)).toBe(900_000);
-  });
-});
+  it('backs off retries and caps the delay', () => {
+    expect(calculateSnapshotRetryDelayMs(1)).toBe(60_000)
+    expect(calculateSnapshotRetryDelayMs(2)).toBe(120_000)
+    expect(calculateSnapshotRetryDelayMs(4)).toBe(480_000)
+    expect(calculateSnapshotRetryDelayMs(10)).toBe(900_000)
+  })
+})

@@ -1,158 +1,158 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vite-plus/test'
 
 import {
   getTreeRefreshUiState,
   shouldAutoRefreshVault,
-} from "./treeRefreshStatus";
+} from './treeRefreshStatus'
 
-describe("getTreeRefreshUiState", () => {
-  const now = Date.parse("2026-03-26T18:00:00Z");
+describe('getTreeRefreshUiState', () => {
+  const now = Date.parse('2026-03-26T18:00:00Z')
 
-  it("prefers syncing while a non-stale refresh is in progress", () => {
+  it('prefers syncing while a non-stale refresh is in progress', () => {
     expect(
       getTreeRefreshUiState({
         now,
         treeRefreshStartedAt: now - 5_000,
         treeRefreshCooldownUntil: now + 60_000,
-        treeRefreshFailureKind: "rate_limited",
+        treeRefreshFailureKind: 'rate_limited',
       }),
-    ).toEqual({ kind: "syncing" });
-  });
+    ).toEqual({ kind: 'syncing' })
+  })
 
-  it("returns rate-limited while cooldown is active for GitHub limits", () => {
+  it('returns rate-limited while cooldown is active for GitHub limits', () => {
     expect(
       getTreeRefreshUiState({
         now,
         lastTreeRefreshAt: now - 10_000,
         lastTreeRefreshFailedAt: now - 2_000,
-        treeRefreshFailureKind: "rate_limited",
+        treeRefreshFailureKind: 'rate_limited',
         treeRefreshCooldownUntil: now + 4 * 60 * 1000,
       }),
     ).toEqual({
-      kind: "rate_limited",
+      kind: 'rate_limited',
       cooldownUntil: now + 4 * 60 * 1000,
-    });
-  });
+    })
+  })
 
-  it("returns generic cooldown for non-rate-limit failures", () => {
+  it('returns generic cooldown for non-rate-limit failures', () => {
     expect(
       getTreeRefreshUiState({
         now,
         lastTreeRefreshAt: now - 10_000,
         lastTreeRefreshFailedAt: now - 2_000,
-        treeRefreshFailureKind: "failed",
+        treeRefreshFailureKind: 'failed',
         treeRefreshCooldownUntil: now + 60_000,
       }),
     ).toEqual({
-      kind: "cooldown",
+      kind: 'cooldown',
       cooldownUntil: now + 60_000,
-    });
-  });
+    })
+  })
 
-  it("returns failed after the cooldown expires but before a later success", () => {
+  it('returns failed after the cooldown expires but before a later success', () => {
     expect(
       getTreeRefreshUiState({
         now,
         lastTreeRefreshAt: now - 2 * 60 * 1000,
         lastTreeRefreshFailedAt: now - 10_000,
-        treeRefreshFailureKind: "failed",
+        treeRefreshFailureKind: 'failed',
       }),
-    ).toEqual({ kind: "failed" });
-  });
+    ).toEqual({ kind: 'failed' })
+  })
 
-  it("returns idle once a later success exists", () => {
+  it('returns idle once a later success exists', () => {
     expect(
       getTreeRefreshUiState({
         now,
         lastTreeRefreshAt: now - 5_000,
         lastTreeRefreshFailedAt: now - 10_000,
-        treeRefreshFailureKind: "failed",
+        treeRefreshFailureKind: 'failed',
       }),
-    ).toEqual({ kind: "idle" });
-  });
-});
+    ).toEqual({ kind: 'idle' })
+  })
+})
 
-describe("shouldAutoRefreshVault", () => {
-  const now = Date.parse("2026-04-03T12:00:00Z");
+describe('shouldAutoRefreshVault', () => {
+  const now = Date.parse('2026-04-03T12:00:00Z')
 
-  it("backfills metadata even before any active branch rows exist", () => {
+  it('backfills metadata even before any active branch rows exist', () => {
     expect(
       shouldAutoRefreshVault({
         lastTreeRefreshAt: now - 1_000,
         remoteBranches: [],
-        trigger: "page_load",
+        trigger: 'page_load',
         now,
       }),
-    ).toBe(true);
-  });
+    ).toBe(true)
+  })
 
-  it("refreshes on page load even when metadata and tree timestamps look fresh", () => {
+  it('refreshes on page load even when metadata and tree timestamps look fresh', () => {
     expect(
       shouldAutoRefreshVault({
         lastTreeRefreshAt: now - 5_000,
         remoteBranches: [
           {
-            remoteState: "active",
+            remoteState: 'active',
             lastSyncedAt: now - 30_000,
           },
         ],
-        trigger: "page_load",
+        trigger: 'page_load',
         now,
       }),
-    ).toBe(true);
-  });
+    ).toBe(true)
+  })
 
-  it("uses deleted-upstream rows as freshness fallback when active rows are absent", () => {
+  it('uses deleted-upstream rows as freshness fallback when active rows are absent', () => {
     expect(
       shouldAutoRefreshVault({
         lastTreeRefreshAt: now - 1_000,
         remoteBranches: [
           {
-            remoteState: "deleted_upstream",
+            remoteState: 'deleted_upstream',
             lastSyncedAt: now - 30_000,
             pullRequestNumber: 42,
           },
         ],
-        trigger: "visibility",
+        trigger: 'visibility',
         now,
       }),
-    ).toBe(false);
-  });
+    ).toBe(false)
+  })
 
-  it("ignores deleted-upstream preview gaps when deciding metadata staleness", () => {
+  it('ignores deleted-upstream preview gaps when deciding metadata staleness', () => {
     expect(
       shouldAutoRefreshVault({
         lastTreeRefreshAt: now - 1_000,
         remoteBranches: [
           {
-            remoteState: "deleted_upstream",
+            remoteState: 'deleted_upstream',
             lastSyncedAt: now - 30_000,
             pullRequestNumber: 42,
           },
           {
-            remoteState: "active",
+            remoteState: 'active',
             lastSyncedAt: now - 30_000,
           },
         ],
-        trigger: "visibility",
+        trigger: 'visibility',
         now,
       }),
-    ).toBe(false);
-  });
+    ).toBe(false)
+  })
 
-  it("still refreshes page load checks when the tree timestamp is invalid", () => {
+  it('still refreshes page load checks when the tree timestamp is invalid', () => {
     expect(
       shouldAutoRefreshVault({
         lastTreeRefreshAt: Number.NaN,
         remoteBranches: [
           {
-            remoteState: "active",
+            remoteState: 'active',
             lastSyncedAt: now - 30_000,
           },
         ],
-        trigger: "page_load",
+        trigger: 'page_load',
         now,
       }),
-    ).toBe(true);
-  });
-});
+    ).toBe(true)
+  })
+})

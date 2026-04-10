@@ -1,89 +1,89 @@
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import { renderToStaticMarkup } from 'react-dom/server'
+import { describe, expect, it, vi } from 'vite-plus/test'
+import type { CodexAppServerThread } from '@/lib/codexAppServerResearch'
 
-vi.mock("@/components/ChatInput", () => ({
+vi.mock('@/components/ChatInput', () => ({
   ChatInput: ({
     placeholder,
     value,
   }: {
-    placeholder?: string;
-    value?: string;
+    placeholder?: string
+    value?: string
   }) => (
     <div data-component="ChatInput" data-placeholder={placeholder}>
       {value}
     </div>
   ),
-}));
+}))
 
-vi.mock("@/components/ProsemarkReadOnly", () => ({
+vi.mock('@/components/ProsemarkReadOnly', () => ({
   ProsemarkReadOnly: ({
     className,
     value,
   }: {
-    className?: string;
-    value: string;
+    className?: string
+    value: string
   }) => (
     <div data-component="ProsemarkReadOnly" className={className}>
       {value}
     </div>
   ),
-}));
+}))
 
 import {
   MachinesWorkspaceThreadHeader,
   MachinesWorkspaceThreadPane,
-} from "./MachinesWorkspaceThreadPane";
+} from './MachinesWorkspaceThreadPane'
 
 const THREAD_FIXTURE: CodexAppServerThread = {
   agentNickname: null,
   agentRole: null,
-  cliVersion: "0.117.0-alpha.10",
+  cliVersion: '0.117.0-alpha.10',
   createdAt: 1_775_541_200,
-  cwd: "/Users/fixture/.codex/worktrees/demo/noter",
+  cwd: '/Users/fixture/.codex/worktrees/demo/noter',
   gitInfo: null,
-  id: "thread-machine-workspace-test",
-  modelProvider: "openai",
-  name: "Use ProseMark in /machines",
-  path: "/Users/fixture/.codex/sessions/2026/04/02/thread.jsonl",
-  preview: "Switch the main thread pane to the shared readonly renderer.",
+  id: 'thread-machine-workspace-test',
+  modelProvider: 'openai',
+  name: 'Use ProseMark in /machines',
+  path: '/Users/fixture/.codex/sessions/2026/04/02/thread.jsonl',
+  preview: 'Switch the main thread pane to the shared readonly renderer.',
   project: {
-    id: "/Users/fixture/dev/noter",
-    label: "noter",
-    rootCwd: "/Users/fixture/dev/noter",
+    id: '/Users/fixture/dev/noter',
+    label: 'noter',
+    rootCwd: '/Users/fixture/dev/noter',
   },
   raw: null,
-  source: "vscode",
-  sourceLabel: "vscode",
+  source: 'vscode',
+  sourceLabel: 'vscode',
   status: {
     activeFlags: [],
-    raw: { type: "idle" },
-    type: "idle",
+    raw: { type: 'idle' },
+    type: 'idle',
   },
   turns: [
     {
       errorMessage: null,
-      id: "turn-machine-workspace-test",
+      id: 'turn-machine-workspace-test',
       items: [
         {
-          id: "item-user",
+          id: 'item-user',
           raw: {
-            text: "User message with `code`",
+            text: 'User message with `code`',
           },
-          summary: "User message with code",
-          type: "userMessage",
+          summary: 'User message with code',
+          type: 'userMessage',
         },
         {
-          id: "item-agent",
+          id: 'item-agent',
           raw: {
-            text: "Assistant message with\n\n- a bullet",
+            text: 'Assistant message with\n\n- a bullet',
           },
-          summary: "Assistant message with a bullet",
-          type: "agentMessage",
+          summary: 'Assistant message with a bullet',
+          type: 'agentMessage',
         },
       ],
       raw: null,
-      status: "completed",
+      status: 'completed',
     },
   ],
   updatedAt: 1_775_541_282,
@@ -91,10 +91,10 @@ const THREAD_FIXTURE: CodexAppServerThread = {
     isProjectRoot: true,
     label: null,
   },
-};
+}
 
-describe("MachinesWorkspaceThreadPane", () => {
-  it("renders both user and assistant messages through ProsemarkReadOnly", () => {
+describe('MachinesWorkspaceThreadPane', () => {
+  it('renders both user and assistant messages through ProsemarkReadOnly', () => {
     const markup = renderToStaticMarkup(
       <MachinesWorkspaceThreadPane
         thread={THREAD_FIXTURE}
@@ -109,25 +109,25 @@ describe("MachinesWorkspaceThreadPane", () => {
         onTurnDraftChange={() => {}}
         onTurnSubmit={() => {}}
       />,
-    );
+    )
 
-    expect(markup).not.toContain("<pre");
-    expect(markup).not.toContain("cm-static-markdown");
+    expect(markup).not.toContain('<pre')
+    expect(markup).not.toContain('cm-static-markdown')
     expect(
       (markup.match(/data-component="ProsemarkReadOnly"/g) ?? []).length,
-    ).toBe(2);
-    expect(markup).toContain("User message with `code`");
-    expect(markup).toContain("Assistant message with");
-  });
+    ).toBe(2)
+    expect(markup).toContain('User message with `code`')
+    expect(markup).toContain('Assistant message with')
+  })
 
-  it("renders a draft worktree conversation empty state before the first message", () => {
+  it('renders a draft worktree conversation empty state before the first message', () => {
     const markup = renderToStaticMarkup(
       <MachinesWorkspaceThreadPane
         thread={null}
         selectedThreadId={null}
         pendingConversation={{
-          envMode: "worktree",
-          projectLabel: "noter",
+          envMode: 'worktree',
+          projectLabel: 'noter',
         }}
         selectedMachineStatusReason={null}
         hasPendingStartedThread={false}
@@ -138,15 +138,15 @@ describe("MachinesWorkspaceThreadPane", () => {
         onTurnDraftChange={() => {}}
         onTurnSubmit={() => {}}
       />,
-    );
+    )
 
-    expect(markup).toContain("New conversation");
+    expect(markup).toContain('New conversation')
     expect(markup).toContain(
-      "Send the first prompt to create a new worktree conversation in noter.",
-    );
-  });
+      'Send the first prompt to create a new worktree conversation in noter.',
+    )
+  })
 
-  it("shows hydration copy while a newly started thread is still loading into inventory", () => {
+  it('shows hydration copy while a newly started thread is still loading into inventory', () => {
     const markup = renderToStaticMarkup(
       <MachinesWorkspaceThreadPane
         thread={null}
@@ -161,25 +161,25 @@ describe("MachinesWorkspaceThreadPane", () => {
         onTurnDraftChange={() => {}}
         onTurnSubmit={() => {}}
       />,
-    );
+    )
 
-    expect(markup).toContain("New conversation");
+    expect(markup).toContain('New conversation')
     expect(markup).toContain(
-      "Waiting for the new conversation to hydrate. Its first message will appear here once the machine inventory refreshes.",
-    );
+      'Waiting for the new conversation to hydrate. Its first message will appear here once the machine inventory refreshes.',
+    )
     expect(markup).toContain(
       'data-placeholder="Waiting for the new conversation to hydrate..."',
-    );
-  });
+    )
+  })
 
-  it("renders the moved header metadata in the shared route header component", () => {
+  it('renders the moved header metadata in the shared route header component', () => {
     const markup = renderToStaticMarkup(
       <MachinesWorkspaceThreadHeader
         thread={null}
         selectedThreadId={null}
         pendingConversation={{
-          envMode: "worktree",
-          projectLabel: "noter",
+          envMode: 'worktree',
+          projectLabel: 'noter',
         }}
         selectedMachineDisplayName="Research MacBook Pro"
         selectedMachineHostname="research-mbp.local"
@@ -187,13 +187,13 @@ describe("MachinesWorkspaceThreadPane", () => {
         hasPendingStartedThread={false}
         isLoading={false}
       />,
-    );
+    )
 
-    expect(markup).toContain("Research MacBook Pro");
-    expect(markup).toContain("noter · New worktree");
-    expect(markup).toContain("New conversation");
-    expect(markup).toContain("machines-workspace-thread-header-title-toggle");
-    expect(markup).toContain("line-clamp-2");
-    expect(markup).toContain("sm:line-clamp-1");
-  });
-});
+    expect(markup).toContain('Research MacBook Pro')
+    expect(markup).toContain('noter · New worktree')
+    expect(markup).toContain('New conversation')
+    expect(markup).toContain('machines-workspace-thread-header-title-toggle')
+    expect(markup).toContain('line-clamp-2')
+    expect(markup).toContain('sm:line-clamp-1')
+  })
+})

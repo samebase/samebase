@@ -1,15 +1,15 @@
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
-import { SidebarProvider } from "@/components/sidebar";
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import { renderToStaticMarkup } from 'react-dom/server'
+import { describe, expect, it, vi } from 'vite-plus/test'
+import { SidebarProvider } from '@/components/sidebar'
+import type { CodexAppServerThread } from '@/lib/codexAppServerResearch'
 
-vi.mock("@/components/MachinesWorkspaceThreadPane", () => ({
+vi.mock('@/components/MachinesWorkspaceThreadPane', () => ({
   MachinesWorkspaceThreadHeader: ({
     selectedMachineDisplayName,
     thread,
   }: {
-    selectedMachineDisplayName: string | null;
-    thread: CodexAppServerThread | null;
+    selectedMachineDisplayName: string | null
+    thread: CodexAppServerThread | null
   }) => (
     <div data-component="MachinesWorkspaceThreadHeader">
       {selectedMachineDisplayName}
@@ -19,37 +19,37 @@ vi.mock("@/components/MachinesWorkspaceThreadPane", () => ({
   MachinesWorkspaceThreadPane: () => (
     <div data-component="MachinesWorkspaceThreadPane" />
   ),
-}));
+}))
 
 import {
   MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
   MachinesWorkspaceView,
-} from "./MachinesWorkspaceView";
+} from './MachinesWorkspaceView'
 
 const THREAD_FIXTURE: CodexAppServerThread = {
   agentNickname: null,
   agentRole: null,
-  cliVersion: "0.117.0-alpha.10",
+  cliVersion: '0.117.0-alpha.10',
   createdAt: 1_775_541_200,
-  cwd: "/Users/fixture/dev/noter",
+  cwd: '/Users/fixture/dev/noter',
   gitInfo: null,
-  id: "thread-machine-workspace-test",
-  modelProvider: "openai",
-  name: "Offline machine thread",
-  path: "/Users/fixture/.codex/sessions/2026/04/02/thread.jsonl",
-  preview: "Keep stale inventory visible but disabled.",
+  id: 'thread-machine-workspace-test',
+  modelProvider: 'openai',
+  name: 'Offline machine thread',
+  path: '/Users/fixture/.codex/sessions/2026/04/02/thread.jsonl',
+  preview: 'Keep stale inventory visible but disabled.',
   project: {
-    id: "/Users/fixture/dev/noter",
-    label: "noter",
-    rootCwd: "/Users/fixture/dev/noter",
+    id: '/Users/fixture/dev/noter',
+    label: 'noter',
+    rootCwd: '/Users/fixture/dev/noter',
   },
   raw: null,
-  source: "vscode",
-  sourceLabel: "vscode",
+  source: 'vscode',
+  sourceLabel: 'vscode',
   status: {
     activeFlags: [],
-    raw: { type: "idle" },
-    type: "idle",
+    raw: { type: 'idle' },
+    type: 'idle',
   },
   turns: [],
   updatedAt: 1_775_541_282,
@@ -57,10 +57,10 @@ const THREAD_FIXTURE: CodexAppServerThread = {
     isProjectRoot: true,
     label: null,
   },
-};
+}
 
-describe("MachinesWorkspaceView", () => {
-  it("renders unavailable machine thread rows as disabled while keeping the reason visible", () => {
+describe('MachinesWorkspaceView', () => {
+  it('renders unavailable machine thread rows as disabled while keeping the reason visible', () => {
     const markup = renderToStaticMarkup(
       <SidebarProvider
         defaultOpen={true}
@@ -73,12 +73,12 @@ describe("MachinesWorkspaceView", () => {
           machineInventories={[
             {
               hasLoadedThreadInventory: true,
-              machineDisplayName: "Offline Linux Box",
-              machineHostname: "linux-box.local",
-              machineId: "machine-linux",
-              machineStatus: "offline",
+              machineDisplayName: 'Offline Linux Box',
+              machineHostname: 'linux-box.local',
+              machineId: 'machine-linux',
+              machineStatus: 'offline',
               machineStatusReason:
-                "This machine is offline. Start `noter-sync run` on the machine first.",
+                'This machine is offline. Start `noter-sync run` on the machine first.',
               pinnedThreadIds: [],
               threads: [THREAD_FIXTURE],
             },
@@ -98,18 +98,18 @@ describe("MachinesWorkspaceView", () => {
           onTurnSubmit={() => {}}
         />
       </SidebarProvider>,
-    );
+    )
 
     expect(markup).toContain(
-      "This machine is offline. Start `noter-sync run` on the machine first.",
-    );
-    expect(markup).toContain("Offline machine thread");
+      'This machine is offline. Start `noter-sync run` on the machine first.',
+    )
+    expect(markup).toContain('Offline machine thread')
     expect(markup).toMatch(
       /<button[^>]*disabled=""[^>]*>.*Offline machine thread/s,
-    );
-  });
+    )
+  })
 
-  it("renders a project-level start conversation button", () => {
+  it('renders a project-level start conversation button', () => {
     const markup = renderToStaticMarkup(
       <SidebarProvider
         defaultOpen={true}
@@ -122,10 +122,10 @@ describe("MachinesWorkspaceView", () => {
           machineInventories={[
             {
               hasLoadedThreadInventory: true,
-              machineDisplayName: "Research MacBook Pro",
-              machineHostname: "research-mbp.local",
-              machineId: "machine-mac",
-              machineStatus: "online",
+              machineDisplayName: 'Research MacBook Pro',
+              machineHostname: 'research-mbp.local',
+              machineId: 'machine-mac',
+              machineStatus: 'online',
               machineStatusReason: null,
               pinnedThreadIds: [],
               threads: [THREAD_FIXTURE],
@@ -147,12 +147,12 @@ describe("MachinesWorkspaceView", () => {
           onTurnSubmit={() => {}}
         />
       </SidebarProvider>,
-    );
+    )
 
-    expect(markup).toContain("Start new conversation in noter");
-  });
+    expect(markup).toContain('Start new conversation in noter')
+  })
 
-  it("renders the selected machine and thread title in the shared main header", () => {
+  it('renders the selected machine and thread title in the shared main header', () => {
     const markup = renderToStaticMarkup(
       <SidebarProvider
         defaultOpen={true}
@@ -165,10 +165,10 @@ describe("MachinesWorkspaceView", () => {
           machineInventories={[
             {
               hasLoadedThreadInventory: true,
-              machineDisplayName: "Research MacBook Pro",
-              machineHostname: "research-mbp.local",
-              machineId: "machine-mac",
-              machineStatus: "online",
+              machineDisplayName: 'Research MacBook Pro',
+              machineHostname: 'research-mbp.local',
+              machineId: 'machine-mac',
+              machineStatus: 'online',
               machineStatusReason: null,
               pinnedThreadIds: [],
               threads: [THREAD_FIXTURE],
@@ -189,14 +189,14 @@ describe("MachinesWorkspaceView", () => {
           onTurnSubmit={() => {}}
         />
       </SidebarProvider>,
-    );
+    )
 
-    expect(markup).toContain('data-component="MachinesWorkspaceThreadHeader"');
-    expect(markup).toContain("Research MacBook Pro");
-    expect(markup).toContain("Offline machine thread");
-  });
+    expect(markup).toContain('data-component="MachinesWorkspaceThreadHeader"')
+    expect(markup).toContain('Research MacBook Pro')
+    expect(markup).toContain('Offline machine thread')
+  })
 
-  it("disables project-level start buttons while a turn submission is pending", () => {
+  it('disables project-level start buttons while a turn submission is pending', () => {
     const markup = renderToStaticMarkup(
       <SidebarProvider
         defaultOpen={true}
@@ -209,10 +209,10 @@ describe("MachinesWorkspaceView", () => {
           machineInventories={[
             {
               hasLoadedThreadInventory: true,
-              machineDisplayName: "Research MacBook Pro",
-              machineHostname: "research-mbp.local",
-              machineId: "machine-mac",
-              machineStatus: "online",
+              machineDisplayName: 'Research MacBook Pro',
+              machineHostname: 'research-mbp.local',
+              machineId: 'machine-mac',
+              machineStatus: 'online',
               machineStatusReason: null,
               pinnedThreadIds: [],
               threads: [THREAD_FIXTURE],
@@ -234,14 +234,14 @@ describe("MachinesWorkspaceView", () => {
           onTurnSubmit={() => {}}
         />
       </SidebarProvider>,
-    );
+    )
 
     expect(markup).toMatch(
       /<button[^>]*aria-label="Start new conversation in noter"[^>]*disabled=""[^>]*>/,
-    );
-  });
+    )
+  })
 
-  it("shows the pending spinner only for the project row that started the conversation", () => {
+  it('shows the pending spinner only for the project row that started the conversation', () => {
     const markup = renderToStaticMarkup(
       <SidebarProvider
         defaultOpen={true}
@@ -254,33 +254,33 @@ describe("MachinesWorkspaceView", () => {
           machineInventories={[
             {
               hasLoadedThreadInventory: true,
-              machineDisplayName: "Research MacBook Pro",
-              machineHostname: "research-mbp.local",
-              machineId: "machine-mac",
-              machineStatus: "online",
+              machineDisplayName: 'Research MacBook Pro',
+              machineHostname: 'research-mbp.local',
+              machineId: 'machine-mac',
+              machineStatus: 'online',
               machineStatusReason: null,
               pinnedThreadIds: [],
               threads: [THREAD_FIXTURE],
             },
             {
               hasLoadedThreadInventory: true,
-              machineDisplayName: "Research Windows Workstation",
-              machineHostname: "research-win.local",
-              machineId: "machine-win",
-              machineStatus: "online",
+              machineDisplayName: 'Research Windows Workstation',
+              machineHostname: 'research-win.local',
+              machineId: 'machine-win',
+              machineStatus: 'online',
               machineStatusReason: null,
               pinnedThreadIds: [],
               threads: [
                 {
                   ...THREAD_FIXTURE,
-                  id: "thread-machine-workspace-test-win",
+                  id: 'thread-machine-workspace-test-win',
                 },
               ],
             },
           ]}
           pendingConversation={{
-            envMode: "worktree",
-            machineId: "machine-mac",
+            envMode: 'worktree',
+            machineId: 'machine-mac',
             projectId: THREAD_FIXTURE.project.id,
             projectLabel: THREAD_FIXTURE.project.label,
             projectRootCwd: THREAD_FIXTURE.project.rootCwd,
@@ -300,18 +300,18 @@ describe("MachinesWorkspaceView", () => {
           onTurnSubmit={() => {}}
         />
       </SidebarProvider>,
-    );
+    )
 
-    const macSectionStart = markup.indexOf("Research MacBook Pro");
-    const winSectionStart = markup.indexOf("Research Windows Workstation");
+    const macSectionStart = markup.indexOf('Research MacBook Pro')
+    const winSectionStart = markup.indexOf('Research Windows Workstation')
     const macSection =
       macSectionStart === -1 || winSectionStart === -1
-        ? ""
-        : markup.slice(macSectionStart, winSectionStart);
+        ? ''
+        : markup.slice(macSectionStart, winSectionStart)
     const winSection =
-      winSectionStart === -1 ? "" : markup.slice(winSectionStart);
+      winSectionStart === -1 ? '' : markup.slice(winSectionStart)
 
-    expect(macSection.match(/animate-spin/g)?.length ?? 0).toBe(1);
-    expect(winSection).not.toContain("animate-spin");
-  });
-});
+    expect(macSection.match(/animate-spin/g)?.length ?? 0).toBe(1)
+    expect(winSection).not.toContain('animate-spin')
+  })
+})

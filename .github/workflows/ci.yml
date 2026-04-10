@@ -148,7 +148,7 @@ jobs:
 
       - name: Run sync smoke tests on Windows
         run:
-          pnpm exec vitest run packages/sync/noter.test.ts
+          pnpm exec vp test run packages/sync/noter.test.ts
           apps/noter/src/lib/noterSyncPublicScript.test.ts
 
       - name: Run anonymous predev smoke on Windows
