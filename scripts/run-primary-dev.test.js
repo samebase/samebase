@@ -64,13 +64,13 @@ describe("run-primary-dev", () => {
     });
   });
 
-  it("forwards extra arguments to turbo", () => {
+  it("forwards extra arguments to Vite+ task running", () => {
     expect(buildPrimaryDevArgs(["--", "--continue"])).toEqual([
       "exec",
-      "turbo",
+      "vp",
       "run",
-      "dev",
       "--filter=noter",
+      "dev",
       "--",
       "--continue",
     ]);

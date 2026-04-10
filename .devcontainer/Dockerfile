@@ -9,6 +9,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Tooling used in this monorepo.
-RUN npm install -g pnpm@9.15.0 turbo@2.5.5
+RUN npm install -g pnpm@9.15.0
 
 USER node

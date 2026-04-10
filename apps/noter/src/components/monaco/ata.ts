@@ -10,11 +10,11 @@ const BLOCKED_PACKAGES = new Set([
   // Build tools & bundlers
   "typescript",
   "vite",
+  "vite-plus",
   "@vitejs/plugin-react",
   "esbuild",
   "rollup",
   "webpack",
-  "turbo",
   "tsup",
   "tslib",
 

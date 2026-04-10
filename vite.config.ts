@@ -1,7 +1,9 @@
-import path from "path";
-import { defineConfig } from "vitest/config";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { defineConfig } from "vite-plus";
 import { readPackageVersion } from "./scripts/readPackageVersion.js";
 
+const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const daytonaSdkVersion = readPackageVersion(
   "@daytonaio/sdk",
   new URL("./apps/noter/package.json", import.meta.url),
@@ -10,6 +12,15 @@ const daytonaSdkVersion = readPackageVersion(
 export default defineConfig({
   define: {
     __DAYTONA_SDK_VERSION__: JSON.stringify(daytonaSdkVersion),
+  },
+  fmt: {
+    printWidth: 80,
+    proseWrap: "always",
+  },
+  resolve: {
+    alias: {
+      "@": path.resolve(rootDir, "./apps/noter/src"),
+    },
   },
   test: {
     globals: true,
@@ -22,10 +33,5 @@ export default defineConfig({
       "packages/**/*.test.tsx",
     ],
     exclude: ["**/node_modules/**", "dist", "dev-dist"],
-  },
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./apps/noter/src"),
-    },
   },
 });

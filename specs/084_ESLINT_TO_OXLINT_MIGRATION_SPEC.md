@@ -73,13 +73,12 @@ tooling incompatibility, or rollout decision appears.
   `apps/noter/src/lib/queryParams.ts`.
 - The repo also loads `@convex-dev/eslint-plugin` and
   `eslint-plugin-react-refresh` through Oxlint's JS-plugin bridge.
-- Convex-specific rules such as
-  `@convex-dev/no-old-registered-function-syntax` and
-  `@convex-dev/no-args-without-validator` inside `**/convex/**/*.ts`.
+- Convex-specific rules such as `@convex-dev/no-old-registered-function-syntax`
+  and `@convex-dev/no-args-without-validator` inside `**/convex/**/*.ts`.
 - The app/frontend lint entrypoints in `apps/noter/package.json` and
   `apps/noter-starter-template/package.json` now run Oxlint directly.
-- Root `package.json` also runs Oxlint for `runtime/**/*.js` and `scripts/**/*.js`
-  using `tsconfig.scripts.json`.
+- Root `package.json` also runs Oxlint for `runtime/**/*.js` and
+  `scripts/**/*.js` using `tsconfig.scripts.json`.
 - `baseUrl` has been removed from the app tsconfigs so the repo aligns with the
   TypeScript 6 and TypeScript 7 direction instead of preserving deprecated
   lookup-root behavior.
@@ -153,11 +152,11 @@ When a rule cannot move cleanly, this document must record:
 
 - Problem: the repo relies on one local ESLint plugin, so a naive Oxlint switch
   would silently drop repo-specific behavior. Tried: inspected the previous
-  ESLint config,
-  `eslint-rules/index.js`, and `eslint-rules/use-query-param-helpers.js`, then
-  verified Oxlint JS-plugin loading against the local rule implementation.
-  Result: Oxlint can execute the local rule through `jsPlugins`, so the custom
-  rule is not a reason to stay on full ESLint.
+  ESLint config, `eslint-rules/index.js`, and
+  `eslint-rules/use-query-param-helpers.js`, then verified Oxlint JS-plugin
+  loading against the local rule implementation. Result: Oxlint can execute the
+  local rule through `jsPlugins`, so the custom rule is not a reason to stay on
+  full ESLint.
 
 - Problem: the migration needs to preserve the meaning of the custom rule, not
   just its filename. Tried: traced the rule logic directly. Result: the rule
@@ -242,8 +241,8 @@ When a rule cannot move cleanly, this document must record:
   config, and one place to maintain type-aware rule coverage.
 
 - Problem: removing `baseUrl` exposed a real dependency on it in app imports.
-  Tried: ran `pnpm --filter noter lint:ci` after the tsconfig cleanup. Result:
-  a handful of `convex/schema` imports were relying on app-root lookup-root
+  Tried: ran `pnpm --filter noter lint:ci` after the tsconfig cleanup. Result: a
+  handful of `convex/schema` imports were relying on app-root lookup-root
   behavior, so the accepted simplification replaces them with explicit relative
   imports instead of adding another broad `paths` alias that could shadow the
   real Convex package subpaths.
@@ -257,8 +256,8 @@ When a rule cannot move cleanly, this document must record:
 
 - Problem: the integrated migration needed a clear acceptance bar. Tried: ran
   focused config tests plus the repo lint entrypoints. Result:
-  `pnpm exec vitest run apps/noter/lintConfig.test.ts`, `pnpm lint:scripts`,
-  and `pnpm lint` now pass. Remaining output is warning-only, led by existing
+  `pnpm exec vitest run apps/noter/lintConfig.test.ts`, `pnpm lint:scripts`, and
+  `pnpm lint` now pass. Remaining output is warning-only, led by existing
   `consistent-type-assertions` warnings that were already accepted as warning
   severity in the old ESLint contract.
 
@@ -273,17 +272,16 @@ When a rule cannot move cleanly, this document must record:
   `@typescript-eslint/no-explicit-any` override. Tried: removed the override,
   then fixed the remaining handwritten `any` usage in
   `apps/noter/src/lib/convexQueryCache.ts`,
-  `apps/noter/convex/gitOperationsActions.ts`,
-  `apps/noter/convex/schema.ts`, and
-  `apps/noter/src/lib/convexUtils.tsx`. Result: `no-explicit-any` is enforced
-  again for handwritten app code; remaining `any` references are limited to
-  generated Convex bindings and TanStack's generated route tree.
+  `apps/noter/convex/gitOperationsActions.ts`, `apps/noter/convex/schema.ts`,
+  and `apps/noter/src/lib/convexUtils.tsx`. Result: `no-explicit-any` is
+  enforced again for handwritten app code; remaining `any` references are
+  limited to generated Convex bindings and TanStack's generated route tree.
 
 - Problem: review surfaced a server-side safety regression outside the lint
   config itself. Tried: removed `JSON.stringify(error)` fallback behavior from
   `apps/noter/convex/jsonUtils.ts`, limited `toErrorMessage()` to `Error`
-  instances, primitives, and a small allowlist of plain-object message keys,
-  and added `apps/noter/convex/jsonUtils.test.ts` coverage. Result: the Oxlint
+  instances, primitives, and a small allowlist of plain-object message keys, and
+  added `apps/noter/convex/jsonUtils.test.ts` coverage. Result: the Oxlint
   migration no longer broadens arbitrary thrown-object logging in Convex code,
   so the accepted simplification still respects the repo's no-sensitive-logs
   guardrail.
