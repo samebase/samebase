@@ -1,13 +1,13 @@
-import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vite-plus/test'
-import { TestRouterProvider } from '@/test/TestRouterProvider'
-import { EditedFilesCategories } from './EditedFilesCategories'
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { EditedFilesCategories } from "./EditedFilesCategories";
 
-describe('EditedFilesCategories', () => {
-  it('renders outside the file-view route without requiring an active /vault/$ match', () => {
+describe("EditedFilesCategories", () => {
+  it("renders outside the file-view route without requiring an active /vault/$ match", () => {
     expect(() =>
       renderToStaticMarkup(
-        <TestRouterProvider initialEntries={['/machines?mobileLineNumbers=1']}>
+        <TestRouterProvider initialEntries={["/machines?mobileLineNumbers=1"]}>
           <EditedFilesCategories
             branch="main"
             categories={{
@@ -21,6 +21,6 @@ describe('EditedFilesCategories', () => {
           />
         </TestRouterProvider>,
       ),
-    ).not.toThrow()
-  })
-})
+    ).not.toThrow();
+  });
+});

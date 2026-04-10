@@ -1,6 +1,6 @@
 import { createServer } from 'node:net'
 
-import { describe, expect, it } from 'vite-plus/test'
+import { describe, expect, it } from 'vitest'
 
 import {
   buildPrimaryDevArgs,
@@ -64,12 +64,14 @@ describe('run-primary-dev', () => {
     })
   })
 
-  it('forwards extra arguments to the root Vite+ dev task', () => {
+  it('forwards extra arguments to the filtered Vite+ dev task', () => {
     expect(buildPrimaryDevArgs(['--', '--continue'])).toEqual([
       'exec',
       'vp',
       'run',
-      'noter-dev',
+      '--filter',
+      'noter',
+      'dev',
       '--',
       '--continue',
     ])

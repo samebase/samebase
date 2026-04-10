@@ -1,120 +1,120 @@
-import { spawn } from 'child_process'
-import { createRequire } from 'module'
-import { realpathSync } from 'fs'
-import path from 'path'
+import { spawn } from "child_process";
+import { createRequire } from "module";
+import { realpathSync } from "fs";
+import path from "path";
 import {
   clearLocalDevOriginState,
   readConfiguredLocalDevPort,
   resolveLocalDevPort,
   writeLocalDevOriginState,
-} from '../convex-local-utils.js'
+} from "../convex-local-utils.js";
 
-const require = createRequire(import.meta.url)
+const require = createRequire(import.meta.url);
 
 /**
  * Resolve the real Vite+ CLI entrypoint so native Windows does not depend on
  * shell-specific `${VITE_PORT:-5173}` expansion to start the frontend.
  */
 function resolveVitePlusCliEntrypoint() {
-  const vitePlusPackageJsonPath = require.resolve('vite-plus/package.json')
+  const vitePlusPackageJsonPath = require.resolve("vite-plus/package.json");
   return realpathSync(
-    path.join(path.dirname(vitePlusPackageJsonPath), 'bin', 'vp'),
-  )
+    path.join(path.dirname(vitePlusPackageJsonPath), "bin", "vp"),
+  );
 }
 
 function splitVitePortArgs(args) {
-  const passthroughArgs = []
-  let port = null
+  const passthroughArgs = [];
+  let port = null;
 
   for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index]
-    if (arg === '--port') {
-      const candidate = args[index + 1]
-      if (typeof candidate === 'string' && candidate.trim().length > 0) {
-        port = candidate.trim()
-        index += 1
-        continue
+    const arg = args[index];
+    if (arg === "--port") {
+      const candidate = args[index + 1];
+      if (typeof candidate === "string" && candidate.trim().length > 0) {
+        port = candidate.trim();
+        index += 1;
+        continue;
       }
     }
 
-    if (typeof arg === 'string' && arg.startsWith('--port=')) {
-      const candidate = arg.slice('--port='.length).trim()
+    if (typeof arg === "string" && arg.startsWith("--port=")) {
+      const candidate = arg.slice("--port=".length).trim();
       if (candidate.length > 0) {
-        port = candidate
-        continue
+        port = candidate;
+        continue;
       }
     }
 
-    passthroughArgs.push(arg)
+    passthroughArgs.push(arg);
   }
 
   return {
     passthroughArgs,
     port,
-  }
+  };
 }
 
-const cliArgs = process.argv.slice(2)
+const cliArgs = process.argv.slice(2);
 const shouldPrintVersion =
-  cliArgs.length === 1 && (cliArgs[0] === '--version' || cliArgs[0] === '-v')
+  cliArgs.length === 1 && (cliArgs[0] === "--version" || cliArgs[0] === "-v");
 
 if (shouldPrintVersion) {
   const child = spawn(
     process.execPath,
-    [resolveVitePlusCliEntrypoint(), '--version'],
+    [resolveVitePlusCliEntrypoint(), "--version"],
     {
       env: process.env,
-      stdio: 'inherit',
+      stdio: "inherit",
     },
-  )
+  );
 
-  child.on('error', error => {
-    console.error(error.message)
-    process.exit(1)
-  })
+  child.on("error", (error) => {
+    console.error(error.message);
+    process.exit(1);
+  });
 
-  child.on('exit', (code, signal) => {
+  child.on("exit", (code, signal) => {
     if (signal) {
-      process.kill(process.pid, signal)
+      process.kill(process.pid, signal);
     }
-    process.exit(code ?? 1)
-  })
+    process.exit(code ?? 1);
+  });
 } else {
-  const { passthroughArgs, port: cliPort } = splitVitePortArgs(cliArgs)
+  const { passthroughArgs, port: cliPort } = splitVitePortArgs(cliArgs);
   // Trust an already-selected VITE_PORT so predev-selected SITE_URL and the later
   // Vite listener stay pinned to the same localhost origin.
   const vitePort =
     cliPort ??
     readConfiguredLocalDevPort(process.env) ??
-    resolveLocalDevPort(process.env)
-  writeLocalDevOriginState(`http://localhost:${vitePort}`)
+    resolveLocalDevPort(process.env);
+  writeLocalDevOriginState(`http://localhost:${vitePort}`);
   const launchArgs = [
     resolveVitePlusCliEntrypoint(),
-    'dev',
-    '--host',
-    '0.0.0.0',
-    '--port',
+    "dev",
+    "--host",
+    "0.0.0.0",
+    "--port",
     vitePort,
-    '--strictPort',
+    "--strictPort",
     ...passthroughArgs,
-  ]
+  ];
 
   const child = spawn(process.execPath, launchArgs, {
     env: process.env,
-    stdio: 'inherit',
-  })
+    stdio: "inherit",
+  });
 
-  child.on('error', error => {
-    clearLocalDevOriginState()
-    console.error(error.message)
-    process.exit(1)
-  })
+  child.on("error", (error) => {
+    clearLocalDevOriginState();
+    console.error(error.message);
+    process.exit(1);
+  });
 
-  child.on('exit', (code, signal) => {
-    clearLocalDevOriginState()
+  child.on("exit", (code, signal) => {
+    clearLocalDevOriginState();
     if (signal) {
-      process.kill(process.pid, signal)
+      process.kill(process.pid, signal);
     }
-    process.exit(code ?? 1)
-  })
+    process.exit(code ?? 1);
+  });
 }

@@ -1,84 +1,84 @@
-import { describe, expect, it } from 'vite-plus/test'
+import { describe, expect, it } from "vitest";
 import {
   getWorkspaceLayoutV2PaneStartPx,
   getWorkspaceLayoutV2PaneVisibleStartPx,
   getWorkspaceLayoutV2SettledPane,
   getWorkspaceLayoutV2VisibleStartPx,
   type WorkspaceLayoutV2Metrics,
-} from './paneLayout'
+} from "./paneLayout";
 
 const TEST_METRICS = {
   leftWidthPx: 304,
   rightWidthPx: 320,
   viewportWidthPx: 390,
-} satisfies WorkspaceLayoutV2Metrics
+} satisfies WorkspaceLayoutV2Metrics;
 
-describe('workspaceLayoutV2 pane layout', () => {
-  it('opens the left pane from main when the drag is deliberate', () => {
+describe("workspaceLayoutV2 pane layout", () => {
+  it("opens the left pane from main when the drag is deliberate", () => {
     expect(
       getWorkspaceLayoutV2SettledPane({
-        currentPane: 'main',
+        currentPane: "main",
         dragOffsetPx: 140,
         metrics: TEST_METRICS,
         velocityPxPerMs: 0.1,
       }),
-    ).toBe('left')
-  })
+    ).toBe("left");
+  });
 
-  it('returns from the left pane to main with a lighter closing drag', () => {
+  it("returns from the left pane to main with a lighter closing drag", () => {
     expect(
       getWorkspaceLayoutV2SettledPane({
-        currentPane: 'left',
+        currentPane: "left",
         dragOffsetPx: -100,
         metrics: TEST_METRICS,
         velocityPxPerMs: 0.1,
       }),
-    ).toBe('main')
-  })
+    ).toBe("main");
+  });
 
-  it('never jumps directly from left to right in one release', () => {
+  it("never jumps directly from left to right in one release", () => {
     expect(
       getWorkspaceLayoutV2SettledPane({
-        currentPane: 'left',
+        currentPane: "left",
         dragOffsetPx: -900,
         metrics: TEST_METRICS,
         velocityPxPerMs: 1.2,
       }),
-    ).toBe('main')
-  })
+    ).toBe("main");
+  });
 
   it("anchors the right pane to the track's right edge instead of its left edge", () => {
-    expect(getWorkspaceLayoutV2PaneVisibleStartPx('right', TEST_METRICS)).toBe(
+    expect(getWorkspaceLayoutV2PaneVisibleStartPx("right", TEST_METRICS)).toBe(
       TEST_METRICS.leftWidthPx + TEST_METRICS.rightWidthPx,
-    )
+    );
     const rightVisibleStartPx = getWorkspaceLayoutV2VisibleStartPx({
-      currentPane: 'right',
+      currentPane: "right",
       dragOffsetPx: 0,
       metrics: TEST_METRICS,
-    })
+    });
     expect(rightVisibleStartPx).toBe(
       TEST_METRICS.leftWidthPx + TEST_METRICS.rightWidthPx,
-    )
+    );
     expect(
-      getWorkspaceLayoutV2PaneStartPx('right', TEST_METRICS) -
+      getWorkspaceLayoutV2PaneStartPx("right", TEST_METRICS) -
         rightVisibleStartPx,
-    ).toBe(TEST_METRICS.viewportWidthPx - TEST_METRICS.rightWidthPx)
-  })
+    ).toBe(TEST_METRICS.viewportWidthPx - TEST_METRICS.rightWidthPx);
+  });
 
-  it('clamps the visible range so an open sidebar can only drag back toward main', () => {
+  it("clamps the visible range so an open sidebar can only drag back toward main", () => {
     expect(
       getWorkspaceLayoutV2VisibleStartPx({
-        currentPane: 'left',
+        currentPane: "left",
         dragOffsetPx: 120,
         metrics: TEST_METRICS,
       }),
-    ).toBe(0)
+    ).toBe(0);
     expect(
       getWorkspaceLayoutV2VisibleStartPx({
-        currentPane: 'right',
+        currentPane: "right",
         dragOffsetPx: -120,
         metrics: TEST_METRICS,
       }),
-    ).toBe(TEST_METRICS.leftWidthPx + TEST_METRICS.rightWidthPx)
-  })
-})
+    ).toBe(TEST_METRICS.leftWidthPx + TEST_METRICS.rightWidthPx);
+  });
+});

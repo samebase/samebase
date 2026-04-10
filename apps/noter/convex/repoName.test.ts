@@ -1,31 +1,31 @@
-import { describe, it, expect } from 'vite-plus/test'
+import { describe, it, expect } from "vitest";
 
-import { toSafeRepoName } from './repoName'
+import { toSafeRepoName } from "./repoName";
 
-describe('toSafeRepoName', () => {
-  it('sanitizes repository names', () => {
+describe("toSafeRepoName", () => {
+  it("sanitizes repository names", () => {
     const cases: Array<{ input: string; output: string }> = [
-      { input: 'My Repo', output: 'My-Repo' },
-      { input: '  My   Repo  ', output: 'My-Repo' },
-      { input: 'repo - name', output: 'repo-name' },
-      { input: 'repo--name', output: 'repo-name' },
-      { input: 'repo__name', output: 'repo__name' },
-      { input: 'Hello.World', output: 'Hello.World' },
-      { input: 'hello@world', output: 'hello-world' },
-      { input: 'Caf\u00e9 repo', output: 'Caf-repo' },
-      { input: '///asdf//', output: '-asdf-' },
-      { input: '--leading', output: '-leading' },
-      { input: 'trailing--', output: 'trailing-' },
-      { input: '.leading', output: 'leading' },
-      { input: 'trailing.', output: 'trailing' },
-      { input: '...', output: '' },
-      { input: '***', output: '' },
-      { input: '', output: '' },
-      { input: '   ', output: '' },
-    ]
+      { input: "My Repo", output: "My-Repo" },
+      { input: "  My   Repo  ", output: "My-Repo" },
+      { input: "repo - name", output: "repo-name" },
+      { input: "repo--name", output: "repo-name" },
+      { input: "repo__name", output: "repo__name" },
+      { input: "Hello.World", output: "Hello.World" },
+      { input: "hello@world", output: "hello-world" },
+      { input: "Caf\u00e9 repo", output: "Caf-repo" },
+      { input: "///asdf//", output: "-asdf-" },
+      { input: "--leading", output: "-leading" },
+      { input: "trailing--", output: "trailing-" },
+      { input: ".leading", output: "leading" },
+      { input: "trailing.", output: "trailing" },
+      { input: "...", output: "" },
+      { input: "***", output: "" },
+      { input: "", output: "" },
+      { input: "   ", output: "" },
+    ];
 
     for (const { input, output } of cases) {
-      expect(toSafeRepoName(input)).toBe(output)
+      expect(toSafeRepoName(input)).toBe(output);
     }
-  })
-})
+  });
+});

@@ -1,74 +1,76 @@
-import { defineConfig, type ViteDevServer } from 'vite-plus'
-import react from '@vitejs/plugin-react'
-import { tanstackRouter } from '@tanstack/router-plugin/vite'
-import path from 'path'
-import { execSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import type { IncomingMessage, ServerResponse } from 'node:http'
-import { fileURLToPath } from 'node:url'
-import { readPackageVersion } from '../../scripts/readPackageVersion.js'
-import { formatWithRepoVitePlus } from '../../scripts/vitePlusFormatting.js'
-import { createInstallIconSvgMarkup } from './src/components/installIconSvgAsset'
-import { createStaticLogoSvgMarkup } from './src/components/logoStaticSvgAsset'
+import { defineConfig, type ViteDevServer } from "vite";
+import react from "@vitejs/plugin-react";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
+import path from "path";
+import { execSync } from "node:child_process";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { fileURLToPath } from "node:url";
+import { format as formatWithPrettier } from "prettier";
+import { readPackageVersion } from "../../scripts/readPackageVersion.js";
+import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
+import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
 import {
   type PageMetadata,
   PRIVACY_PAGE_METADATA,
   TERMS_PAGE_METADATA,
-} from './src/lib/pageMetadata'
-import { renderStaticLegalPageHtml } from './src/lib/staticLegalPage'
-import { buildNoterSyncPublicScript } from './noterSyncPublicScript'
+} from "./src/lib/pageMetadata";
+import { renderStaticLegalPageHtml } from "./src/lib/staticLegalPage";
+import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import {
   readEnvFileValue,
   resolveDaytonaConvexProxyTarget,
-} from './daytonaConvexProxy'
-import { resolveAppCommitNumber } from './dev/appBuildMetadata'
-import { codexAppServerResearchBridgePlugin } from './dev/codexAppServerResearchBridge'
+} from "./daytonaConvexProxy";
+import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
+import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearchBridge";
 
-const currentDir = path.dirname(fileURLToPath(import.meta.url))
-const gitRoot = path.resolve(currentDir, '..', '..')
-const DAYTONA_CONVEX_PROXY_PATH = '/__noter_daytona_convex'
-const devPortRaw = process.env.NOTER_DEV_PORT?.trim()
-const devPort = devPortRaw ? Number(devPortRaw) : undefined
-const devStrictPort = readBooleanEnv(process.env.NOTER_DEV_STRICT_PORT)
-const devAllowedHosts = readAllowedHostsEnv(process.env.NOTER_DEV_ALLOWED_HOSTS)
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const gitRoot = path.resolve(currentDir, "..", "..");
+const DAYTONA_CONVEX_PROXY_PATH = "/__noter_daytona_convex";
+const devPortRaw = process.env.NOTER_DEV_PORT?.trim();
+const devPort = devPortRaw ? Number(devPortRaw) : undefined;
+const devStrictPort = readBooleanEnv(process.env.NOTER_DEV_STRICT_PORT);
+const devAllowedHosts = readAllowedHostsEnv(
+  process.env.NOTER_DEV_ALLOWED_HOSTS,
+);
 
 function readBooleanEnv(value: string | undefined): boolean | undefined {
   if (!value) {
-    return undefined
+    return undefined;
   }
 
-  const normalized = value.trim().toLowerCase()
-  if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) {
-    return true
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "y", "on"].includes(normalized)) {
+    return true;
   }
-  if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) {
-    return false
+  if (["0", "false", "no", "n", "off"].includes(normalized)) {
+    return false;
   }
-  return undefined
+  return undefined;
 }
 
 function readAllowedHostsEnv(value: string | undefined): string[] {
   if (!value) {
-    return []
+    return [];
   }
 
   return value
-    .split(',')
-    .map(entry => entry.trim())
-    .filter(entry => entry.length > 0)
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
 }
 
 function readGitOutput(command: string): string | null {
   try {
     const output = execSync(command, {
       cwd: gitRoot,
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: ["ignore", "pipe", "ignore"],
     })
       .toString()
-      .trim()
-    return output.length > 0 ? output : null
+      .trim();
+    return output.length > 0 ? output : null;
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -81,134 +83,134 @@ function runGitCommand(command: string): boolean {
   try {
     execSync(command, {
       cwd: gitRoot,
-      stdio: ['ignore', 'ignore', 'ignore'],
-    })
-    return true
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
 const appCommit =
   process.env.VITE_APP_COMMIT ??
-  readGitOutput('git rev-parse HEAD') ??
-  'unknown'
+  readGitOutput("git rev-parse HEAD") ??
+  "unknown";
 const appCommitNumber = resolveAppCommitNumber({
   envCommitNumber: process.env.VITE_APP_COMMIT_NUMBER,
   readGitOutput,
   runGitCommand,
-})
+});
 
-const appRepoUrl = 'https://github.com/noter-md/noter'
-const daytonaSdkVersion = readPackageVersion('@daytonaio/sdk', import.meta.url)
-const daytonaLocalEnvPath = path.resolve(currentDir, '.env.local')
+const appRepoUrl = "https://github.com/noter-md/noter";
+const daytonaSdkVersion = readPackageVersion("@daytonaio/sdk", import.meta.url);
+const daytonaLocalEnvPath = path.resolve(currentDir, ".env.local");
 const daytonaConvexProxyTarget = resolveDaytonaConvexProxyTarget({
   devOrigin: process.env.DEV_ENV_ORIGIN,
   envProxyTarget: process.env.NOTER_DAYTONA_BROWSER_CONVEX_PROXY_TARGET,
-  localEnvConvexUrl: readEnvFileValue(daytonaLocalEnvPath, 'VITE_CONVEX_URL'),
-})
+  localEnvConvexUrl: readEnvFileValue(daytonaLocalEnvPath, "VITE_CONVEX_URL"),
+});
 const daytonaConvexProxyPath = daytonaConvexProxyTarget
   ? DAYTONA_CONVEX_PROXY_PATH
-  : null
-const shouldIncludeVisualFixture = process.env.PLAYWRIGHT === '1'
+  : null;
+const shouldIncludeVisualFixture = process.env.PLAYWRIGHT === "1";
 const staticLogoSvgAssetPath = path.resolve(
   currentDir,
-  'public/logo-static.svg',
-)
+  "public/logo-static.svg",
+);
 const staticInstallIconSvgAssetPath = path.resolve(
   currentDir,
-  'public/install-icon.svg',
-)
+  "public/install-icon.svg",
+);
 const noterSyncPackageScriptPath = path.resolve(
   gitRoot,
-  'packages/sync/noter.js',
-)
-const staticNoterSyncScriptPath = path.resolve(currentDir, 'public/noter.js')
-const noterConnectConfigPathname = '/noter-connect.json'
+  "packages/sync/noter.js",
+);
+const staticNoterSyncScriptPath = path.resolve(currentDir, "public/noter.js");
+const noterConnectConfigPathname = "/noter-connect.json";
 const runtimeNoterConnectConfigPath = path.resolve(
   currentDir,
   `dist${noterConnectConfigPathname}`,
-)
+);
 const privacyPolicyMarkdownPath = path.resolve(
   currentDir,
-  'src/content/privacy-policy.md',
-)
+  "src/content/privacy-policy.md",
+);
 const termsOfServiceMarkdownPath = path.resolve(
   currentDir,
-  'src/content/terms-of-service.md',
-)
+  "src/content/terms-of-service.md",
+);
 const staticPrivacyHtmlPath = path.resolve(
   currentDir,
-  'public/privacy/index.html',
-)
-const staticTermsHtmlPath = path.resolve(currentDir, 'public/terms/index.html')
+  "public/privacy/index.html",
+);
+const staticTermsHtmlPath = path.resolve(currentDir, "public/terms/index.html");
 
 function isLoopbackHostname(hostname: string): boolean {
   return (
-    hostname === 'localhost' ||
-    hostname === '127.0.0.1' ||
-    hostname === '::1' ||
-    hostname === '[::1]'
-  )
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "[::1]"
+  );
 }
 
 function parseValidatedNoterConnectConvexSiteUrl(value: string): string {
   try {
-    const convexSiteUrl = new URL(value)
+    const convexSiteUrl = new URL(value);
     const isLoopbackHttp =
-      convexSiteUrl.protocol === 'http:' &&
-      isLoopbackHostname(convexSiteUrl.hostname)
-    if (convexSiteUrl.protocol !== 'https:' && !isLoopbackHttp) {
+      convexSiteUrl.protocol === "http:" &&
+      isLoopbackHostname(convexSiteUrl.hostname);
+    if (convexSiteUrl.protocol !== "https:" && !isLoopbackHttp) {
       throw new Error(
-        'The runtime Convex site URL must use https, except for explicit localhost testing.',
-      )
+        "The runtime Convex site URL must use https, except for explicit localhost testing.",
+      );
     }
     if (convexSiteUrl.username || convexSiteUrl.password) {
       throw new Error(
-        'The runtime Convex site URL must not include credentials.',
-      )
+        "The runtime Convex site URL must not include credentials.",
+      );
     }
     if (convexSiteUrl.search.length > 0 || convexSiteUrl.hash.length > 0) {
       throw new Error(
-        'The runtime Convex site URL must not include query params or hashes.',
-      )
+        "The runtime Convex site URL must not include query params or hashes.",
+      );
     }
-    if (convexSiteUrl.pathname !== '/') {
+    if (convexSiteUrl.pathname !== "/") {
       throw new Error(
-        'The runtime Convex site URL must be an origin with no path.',
-      )
+        "The runtime Convex site URL must be an origin with no path.",
+      );
     }
-    return convexSiteUrl.toString()
+    return convexSiteUrl.toString();
   } catch (error) {
     throw new Error(
       error instanceof Error
         ? `Invalid noter-connect.json convexSiteUrl: ${error.message}`
-        : 'Invalid noter-connect.json convexSiteUrl.',
-    )
+        : "Invalid noter-connect.json convexSiteUrl.",
+    );
   }
 }
 
 function readNoterSyncPackageScript(): string {
-  return readFileSync(noterSyncPackageScriptPath, 'utf8')
-    .replace(/\r\n/g, '\n')
-    .trimEnd()
+  return readFileSync(noterSyncPackageScriptPath, "utf8")
+    .replace(/\r\n/g, "\n")
+    .trimEnd();
 }
 
 function syncStaticLogoSvgAsset() {
-  const nextStaticLogoSvgMarkup = createStaticLogoSvgMarkup().trim()
+  const nextStaticLogoSvgMarkup = createStaticLogoSvgMarkup().trim();
   const currentStaticLogoSvgMarkup = (() => {
     try {
-      return readFileSync(staticLogoSvgAssetPath, 'utf8').trim()
+      return readFileSync(staticLogoSvgAssetPath, "utf8").trim();
     } catch {
-      return null
+      return null;
     }
-  })()
+  })();
 
   if (currentStaticLogoSvgMarkup === nextStaticLogoSvgMarkup) {
-    return
+    return;
   }
 
-  writeFileSync(staticLogoSvgAssetPath, `${nextStaticLogoSvgMarkup}\n`, 'utf8')
+  writeFileSync(staticLogoSvgAssetPath, `${nextStaticLogoSvgMarkup}\n`, "utf8");
 }
 
 /**
@@ -216,24 +218,24 @@ function syncStaticLogoSvgAsset() {
  * only rewriting when the canonical source output has semantically changed.
  */
 function syncStaticInstallIconSvgAsset() {
-  const nextInstallIconSvgMarkup = createInstallIconSvgMarkup().trim()
+  const nextInstallIconSvgMarkup = createInstallIconSvgMarkup().trim();
   const currentInstallIconSvgMarkup = (() => {
     try {
-      return readFileSync(staticInstallIconSvgAssetPath, 'utf8').trim()
+      return readFileSync(staticInstallIconSvgAssetPath, "utf8").trim();
     } catch {
-      return null
+      return null;
     }
-  })()
+  })();
 
   if (currentInstallIconSvgMarkup === nextInstallIconSvgMarkup) {
-    return
+    return;
   }
 
   writeFileSync(
     staticInstallIconSvgAssetPath,
     `${nextInstallIconSvgMarkup}\n`,
-    'utf8',
-  )
+    "utf8",
+  );
 }
 
 /**
@@ -244,71 +246,71 @@ function syncStaticInstallIconSvgAsset() {
 async function syncStaticNoterSyncScriptAsset() {
   const nextNoterSyncScript = buildNoterSyncPublicScript({
     packageScript: readNoterSyncPackageScript(),
-  })
-  const nextNoterSyncScriptWithNewline = nextNoterSyncScript.endsWith('\n')
+  });
+  const nextNoterSyncScriptWithNewline = nextNoterSyncScript.endsWith("\n")
     ? nextNoterSyncScript
-    : `${nextNoterSyncScript}\n`
+    : `${nextNoterSyncScript}\n`;
   const currentNoterSyncScript = (() => {
     try {
-      return readFileSync(staticNoterSyncScriptPath, 'utf8')
+      return readFileSync(staticNoterSyncScriptPath, "utf8");
     } catch {
-      return null
+      return null;
     }
-  })()
+  })();
 
   if (currentNoterSyncScript === nextNoterSyncScriptWithNewline) {
-    return
+    return;
   }
 
   writeFileSync(
     staticNoterSyncScriptPath,
     nextNoterSyncScriptWithNewline,
-    'utf8',
-  )
+    "utf8",
+  );
 }
 
 async function buildRuntimeNoterSyncScript() {
   const script = buildNoterSyncPublicScript({
     packageScript: readNoterSyncPackageScript(),
-  })
-  return script.endsWith('\n') ? script : `${script}\n`
+  });
+  return script.endsWith("\n") ? script : `${script}\n`;
 }
 
 function readNoterConnectConvexSiteUrl(): string {
-  const configuredSiteUrl = process.env.CONVEX_SITE_URL?.trim()
+  const configuredSiteUrl = process.env.CONVEX_SITE_URL?.trim();
   if (configuredSiteUrl) {
-    return parseValidatedNoterConnectConvexSiteUrl(configuredSiteUrl)
+    return parseValidatedNoterConnectConvexSiteUrl(configuredSiteUrl);
   }
 
-  const configuredViteSiteUrl = process.env.VITE_CONVEX_SITE_URL?.trim()
+  const configuredViteSiteUrl = process.env.VITE_CONVEX_SITE_URL?.trim();
   if (
     configuredViteSiteUrl &&
-    (configuredViteSiteUrl.startsWith('https://') ||
-      configuredViteSiteUrl.startsWith('http://'))
+    (configuredViteSiteUrl.startsWith("https://") ||
+      configuredViteSiteUrl.startsWith("http://"))
   ) {
-    return parseValidatedNoterConnectConvexSiteUrl(configuredViteSiteUrl)
+    return parseValidatedNoterConnectConvexSiteUrl(configuredViteSiteUrl);
   }
 
   const localEnvSiteUrl = readEnvFileValue(
     daytonaLocalEnvPath,
-    'VITE_CONVEX_SITE_URL',
-  )
+    "VITE_CONVEX_SITE_URL",
+  );
   if (
     localEnvSiteUrl &&
-    (localEnvSiteUrl.startsWith('https://') ||
-      localEnvSiteUrl.startsWith('http://'))
+    (localEnvSiteUrl.startsWith("https://") ||
+      localEnvSiteUrl.startsWith("http://"))
   ) {
-    return parseValidatedNoterConnectConvexSiteUrl(localEnvSiteUrl)
+    return parseValidatedNoterConnectConvexSiteUrl(localEnvSiteUrl);
   }
 
   throw new Error(
-    'Missing CONVEX_SITE_URL or an absolute VITE_CONVEX_SITE_URL for noter-connect.json.',
-  )
+    "Missing CONVEX_SITE_URL or an absolute VITE_CONVEX_SITE_URL for noter-connect.json.",
+  );
 }
 
 async function buildRuntimeNoterConnectConfig() {
   return await formatGeneratedFileContents({
-    filepath: 'noter-connect.json',
+    filepath: "noter-connect.json",
     content: JSON.stringify(
       {
         convexSiteUrl: readNoterConnectConvexSiteUrl(),
@@ -316,46 +318,48 @@ async function buildRuntimeNoterConnectConfig() {
       null,
       2,
     ),
-  })
+  });
 }
 
 async function formatGeneratedFileContents(args: {
-  content: string
-  filepath: string
+  content: string;
+  filepath: string;
 }) {
-  return await formatWithRepoVitePlus({
+  const formattedContents = await formatWithPrettier(args.content, {
     filepath: args.filepath,
-    sourceText: args.content,
-  })
+  });
+  return formattedContents.endsWith("\n")
+    ? formattedContents
+    : `${formattedContents}\n`;
 }
 
 async function syncStaticLegalPageAsset(args: {
-  markdownPath: string
-  htmlPath: string
-  metadata: PageMetadata
+  markdownPath: string;
+  htmlPath: string;
+  metadata: PageMetadata;
 }) {
-  const markdown = readFileSync(args.markdownPath, 'utf8')
+  const markdown = readFileSync(args.markdownPath, "utf8");
   const nextHtml = await formatGeneratedFileContents({
     filepath: args.htmlPath,
     content: renderStaticLegalPageHtml({
       metadata: args.metadata,
       markdown,
     }),
-  })
+  });
   const currentHtml = (() => {
     try {
-      return readFileSync(args.htmlPath, 'utf8')
+      return readFileSync(args.htmlPath, "utf8");
     } catch {
-      return null
+      return null;
     }
-  })()
+  })();
 
   if (currentHtml === nextHtml) {
-    return
+    return;
   }
 
-  mkdirSync(path.dirname(args.htmlPath), { recursive: true })
-  writeFileSync(args.htmlPath, nextHtml, 'utf8')
+  mkdirSync(path.dirname(args.htmlPath), { recursive: true });
+  writeFileSync(args.htmlPath, nextHtml, "utf8");
 }
 
 async function syncStaticLegalPageAssets() {
@@ -363,35 +367,35 @@ async function syncStaticLegalPageAssets() {
     markdownPath: privacyPolicyMarkdownPath,
     htmlPath: staticPrivacyHtmlPath,
     metadata: PRIVACY_PAGE_METADATA,
-  })
+  });
   await syncStaticLegalPageAsset({
     markdownPath: termsOfServiceMarkdownPath,
     htmlPath: staticTermsHtmlPath,
     metadata: TERMS_PAGE_METADATA,
-  })
+  });
 }
 
 function syncStaticLogoSvgAssetPlugin() {
-  let hasSyncedStaticLogoSvgAsset = false
+  let hasSyncedStaticLogoSvgAsset = false;
 
   const syncOnce = () => {
     if (hasSyncedStaticLogoSvgAsset) {
-      return
+      return;
     }
 
-    hasSyncedStaticLogoSvgAsset = true
-    syncStaticLogoSvgAsset()
-  }
+    hasSyncedStaticLogoSvgAsset = true;
+    syncStaticLogoSvgAsset();
+  };
 
   return {
-    name: 'sync-static-logo-svg-asset',
+    name: "sync-static-logo-svg-asset",
     buildStart() {
-      syncOnce()
+      syncOnce();
     },
     configureServer() {
-      syncOnce()
+      syncOnce();
     },
-  }
+  };
 }
 
 /**
@@ -399,48 +403,48 @@ function syncStaticLogoSvgAssetPlugin() {
  * once per Vite process instead of rewriting on every hook invocation.
  */
 function syncStaticInstallIconSvgAssetPlugin() {
-  let hasSyncedStaticInstallIconSvgAsset = false
+  let hasSyncedStaticInstallIconSvgAsset = false;
 
   const syncOnce = () => {
     if (hasSyncedStaticInstallIconSvgAsset) {
-      return
+      return;
     }
 
     // One-time sync avoids repeated write churn while keeping the tracked SVG current.
-    hasSyncedStaticInstallIconSvgAsset = true
-    syncStaticInstallIconSvgAsset()
-  }
+    hasSyncedStaticInstallIconSvgAsset = true;
+    syncStaticInstallIconSvgAsset();
+  };
 
   return {
-    name: 'sync-static-install-icon-svg-asset',
+    name: "sync-static-install-icon-svg-asset",
     buildStart() {
-      syncOnce()
+      syncOnce();
     },
     configureServer() {
-      syncOnce()
+      syncOnce();
     },
-  }
+  };
 }
 
 function syncStaticNoterSyncScriptAssetPlugin() {
-  let hasSyncedStaticNoterSyncScriptAsset = false
+  let hasSyncedStaticNoterSyncScriptAsset = false;
 
   const syncOnce = async () => {
     if (hasSyncedStaticNoterSyncScriptAsset) {
-      return
+      return;
     }
 
-    hasSyncedStaticNoterSyncScriptAsset = true
-    await syncStaticNoterSyncScriptAsset()
-  }
+    hasSyncedStaticNoterSyncScriptAsset = true;
+    await syncStaticNoterSyncScriptAsset();
+  };
 
   return {
-    name: 'sync-static-noter-sync-script-asset',
+    name: "sync-static-noter-sync-script-asset",
     async buildStart() {
-      await syncOnce()
+      await syncOnce();
     },
     async configureServer(server: ViteDevServer) {
-      await syncOnce()
+      await syncOnce();
 
       // Serve a deploy-stamped installer in dev without dirtying the tracked
       // `public/noter.js` file away from its production default.
@@ -452,52 +456,52 @@ function syncStaticNoterSyncScriptAssetPlugin() {
         ) => {
           const requestPath = (() => {
             if (!request.url) {
-              return null
+              return null;
             }
 
             try {
-              return new URL(request.url, 'http://vite.local').pathname
+              return new URL(request.url, "http://vite.local").pathname;
             } catch {
-              return null
+              return null;
             }
-          })()
+          })();
 
-          if (requestPath !== '/noter.js') {
-            next()
-            return
+          if (requestPath !== "/noter.js") {
+            next();
+            return;
           }
 
           void buildRuntimeNoterSyncScript()
-            .then(runtimeScript => {
-              response.statusCode = 200
+            .then((runtimeScript) => {
+              response.statusCode = 200;
               response.setHeader(
-                'Content-Type',
-                'application/javascript; charset=utf-8',
-              )
-              response.end(runtimeScript)
+                "Content-Type",
+                "application/javascript; charset=utf-8",
+              );
+              response.end(runtimeScript);
             })
-            .catch(next)
+            .catch(next);
         },
-      )
+      );
     },
     async closeBundle() {
-      const builtScriptPath = path.resolve(currentDir, 'dist/noter.js')
-      const runtimeScript = await buildRuntimeNoterSyncScript()
-      mkdirSync(path.dirname(builtScriptPath), { recursive: true })
-      writeFileSync(builtScriptPath, runtimeScript, 'utf8')
+      const builtScriptPath = path.resolve(currentDir, "dist/noter.js");
+      const runtimeScript = await buildRuntimeNoterSyncScript();
+      mkdirSync(path.dirname(builtScriptPath), { recursive: true });
+      writeFileSync(builtScriptPath, runtimeScript, "utf8");
     },
-  }
+  };
 }
 
 function syncRuntimeNoterConnectConfigAssetPlugin() {
   const writeRuntimeConfig = async () => {
-    const runtimeConfig = await buildRuntimeNoterConnectConfig()
-    mkdirSync(path.dirname(runtimeNoterConnectConfigPath), { recursive: true })
-    writeFileSync(runtimeNoterConnectConfigPath, runtimeConfig, 'utf8')
-  }
+    const runtimeConfig = await buildRuntimeNoterConnectConfig();
+    mkdirSync(path.dirname(runtimeNoterConnectConfigPath), { recursive: true });
+    writeFileSync(runtimeNoterConnectConfigPath, runtimeConfig, "utf8");
+  };
 
   return {
-    name: 'sync-runtime-noter-connect-config-asset',
+    name: "sync-runtime-noter-connect-config-asset",
     async configureServer(server: ViteDevServer) {
       server.middlewares.use(
         (
@@ -507,61 +511,61 @@ function syncRuntimeNoterConnectConfigAssetPlugin() {
         ) => {
           const requestPath = (() => {
             if (!request.url) {
-              return null
+              return null;
             }
 
             try {
-              return new URL(request.url, 'http://vite.local').pathname
+              return new URL(request.url, "http://vite.local").pathname;
             } catch {
-              return null
+              return null;
             }
-          })()
+          })();
 
           if (requestPath !== noterConnectConfigPathname) {
-            next()
-            return
+            next();
+            return;
           }
 
           void buildRuntimeNoterConnectConfig()
-            .then(runtimeConfig => {
-              response.statusCode = 200
+            .then((runtimeConfig) => {
+              response.statusCode = 200;
               response.setHeader(
-                'Content-Type',
-                'application/json; charset=utf-8',
-              )
-              response.end(runtimeConfig)
+                "Content-Type",
+                "application/json; charset=utf-8",
+              );
+              response.end(runtimeConfig);
             })
-            .catch(next)
+            .catch(next);
         },
-      )
+      );
     },
     async closeBundle() {
-      await writeRuntimeConfig()
+      await writeRuntimeConfig();
     },
-  }
+  };
 }
 
 function syncStaticLegalPageAssetsPlugin() {
-  let hasSyncedStaticLegalPageAssets = false
+  let hasSyncedStaticLegalPageAssets = false;
 
   const syncOnce = async () => {
     if (hasSyncedStaticLegalPageAssets) {
-      return
+      return;
     }
 
-    hasSyncedStaticLegalPageAssets = true
-    await syncStaticLegalPageAssets()
-  }
+    hasSyncedStaticLegalPageAssets = true;
+    await syncStaticLegalPageAssets();
+  };
 
   return {
-    name: 'sync-static-legal-page-assets',
+    name: "sync-static-legal-page-assets",
     buildStart() {
-      return syncOnce()
+      return syncOnce();
     },
     configureServer() {
-      return syncOnce()
+      return syncOnce();
     },
-  }
+  };
 }
 
 function stripDaytonaConvexProxyPrefix(requestPath: string): string {
@@ -569,38 +573,38 @@ function stripDaytonaConvexProxyPrefix(requestPath: string): string {
     requestPath !== DAYTONA_CONVEX_PROXY_PATH &&
     !requestPath.startsWith(`${DAYTONA_CONVEX_PROXY_PATH}/`)
   ) {
-    return requestPath
+    return requestPath;
   }
-  const strippedPath = requestPath.slice(DAYTONA_CONVEX_PROXY_PATH.length)
-  return strippedPath.length > 0 ? strippedPath : '/'
+  const strippedPath = requestPath.slice(DAYTONA_CONVEX_PROXY_PATH.length);
+  return strippedPath.length > 0 ? strippedPath : "/";
 }
 
 const daytonaConvexProxyServerConfig = (() => {
   const server: {
-    port?: number
-    strictPort?: boolean
-    allowedHosts?: string[]
+    port?: number;
+    strictPort?: boolean;
+    allowedHosts?: string[];
     proxy?: Record<
       string,
       {
-        target: string
-        changeOrigin: boolean
-        ws: boolean
-        rewrite: (requestPath: string) => string
+        target: string;
+        changeOrigin: boolean;
+        ws: boolean;
+        rewrite: (requestPath: string) => string;
       }
-    >
-  } = {}
+    >;
+  } = {};
 
   if (devPort !== undefined && !Number.isNaN(devPort)) {
-    server.port = devPort
+    server.port = devPort;
   }
   if (devStrictPort !== undefined) {
-    server.strictPort = devStrictPort
+    server.strictPort = devStrictPort;
   }
   if (devAllowedHosts.length > 0) {
     // Quick tunnels terminate on a random trycloudflare.com host, so Vite
     // needs an explicit allowlist instead of rejecting the public Host header.
-    server.allowedHosts = devAllowedHosts
+    server.allowedHosts = devAllowedHosts;
   }
   if (daytonaConvexProxyTarget) {
     // The browser proxy path keeps the anonymous Convex backend private even
@@ -612,11 +616,11 @@ const daytonaConvexProxyServerConfig = (() => {
         ws: true,
         rewrite: stripDaytonaConvexProxyPrefix,
       },
-    }
+    };
   }
 
-  return Object.keys(server).length > 0 ? server : undefined
-})()
+  return Object.keys(server).length > 0 ? server : undefined;
+})();
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -638,38 +642,38 @@ export default defineConfig({
     }),
     tanstackRouter({
       autoCodeSplitting: true,
-      target: 'react',
-      virtualRouteConfig: './src/routes.ts',
+      target: "react",
+      virtualRouteConfig: "./src/routes.ts",
     }),
     react(),
   ],
   resolve: {
     alias: {
-      '@': path.resolve(currentDir, './src'),
+      "@": path.resolve(currentDir, "./src"),
     },
   },
   esbuild: {
-    logOverride: { 'this-is-undefined-in-esm': 'silent' },
+    logOverride: { "this-is-undefined-in-esm": "silent" },
   },
   server: daytonaConvexProxyServerConfig,
   build: {
     rollupOptions: {
       input: {
-        app: path.resolve(currentDir, 'index.html'),
+        app: path.resolve(currentDir, "index.html"),
         ...(shouldIncludeVisualFixture
           ? {
-              visualFixture: path.resolve(currentDir, 'visual-fixture.html'),
+              visualFixture: path.resolve(currentDir, "visual-fixture.html"),
             }
           : {}),
       },
       onwarn(warning, warn) {
         // Skip certain warnings
-        if (warning.code === 'UNUSED_EXTERNAL_IMPORT') return
-        if (warning.code === 'CIRCULAR_DEPENDENCY') return
+        if (warning.code === "UNUSED_EXTERNAL_IMPORT") return;
+        if (warning.code === "CIRCULAR_DEPENDENCY") return;
 
         // Use default for everything else
-        warn(warning)
+        warn(warning);
       },
     },
   },
-})
+});

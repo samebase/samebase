@@ -1,71 +1,71 @@
-import { describe, expect, it } from 'vite-plus/test'
+import { describe, expect, it } from "vitest";
 import {
   buildDaytonaDepsImageName,
   resolveDaytonaDepsImageCandidates,
-} from './depsImage'
+} from "./depsImage";
 
-describe('daytonaDepsImage', () => {
-  it('derives the canonical GHCR image name from owner repo and hash', () => {
+describe("daytonaDepsImage", () => {
+  it("derives the canonical GHCR image name from owner repo and hash", () => {
     expect(
       buildDaytonaDepsImageName({
-        owner: 'OpenAI',
-        repo: 'Noter',
-        tag: 'abc123',
+        owner: "OpenAI",
+        repo: "Noter",
+        tag: "abc123",
       }),
-    ).toBe('ghcr.io/openai/noter-daytona-deps:abc123')
-  })
+    ).toBe("ghcr.io/openai/noter-daytona-deps:abc123");
+  });
 
-  it('returns input-hash and lock-hash candidates in order', () => {
+  it("returns input-hash and lock-hash candidates in order", () => {
     expect(
       resolveDaytonaDepsImageCandidates({
-        owner: 'OpenAI',
-        repo: 'Noter',
-        inputHash: 'input-hash',
-        lockHash: 'lock-hash',
+        owner: "OpenAI",
+        repo: "Noter",
+        inputHash: "input-hash",
+        lockHash: "lock-hash",
       }),
     ).toEqual([
-      'ghcr.io/openai/noter-daytona-deps:input-hash',
-      'ghcr.io/openai/noter-daytona-deps:lock-hash',
-    ])
-  })
+      "ghcr.io/openai/noter-daytona-deps:input-hash",
+      "ghcr.io/openai/noter-daytona-deps:lock-hash",
+    ]);
+  });
 
-  it('deduplicates identical hashes and skips blank values', () => {
+  it("deduplicates identical hashes and skips blank values", () => {
     expect(
       resolveDaytonaDepsImageCandidates({
-        owner: 'OpenAI',
-        repo: 'Noter',
-        inputHash: ' shared-hash ',
-        lockHash: 'shared-hash',
+        owner: "OpenAI",
+        repo: "Noter",
+        inputHash: " shared-hash ",
+        lockHash: "shared-hash",
       }),
-    ).toEqual(['ghcr.io/openai/noter-daytona-deps:shared-hash'])
+    ).toEqual(["ghcr.io/openai/noter-daytona-deps:shared-hash"]);
 
     expect(
       resolveDaytonaDepsImageCandidates({
-        owner: 'OpenAI',
-        repo: 'Noter',
+        owner: "OpenAI",
+        repo: "Noter",
         inputHash: null,
-        lockHash: ' ',
+        lockHash: " ",
       }),
-    ).toEqual([])
-  })
+    ).toEqual([]);
+  });
 
-  it('returns no candidates when owner or repo are blank', () => {
+  it("returns no candidates when owner or repo are blank", () => {
     expect(
       resolveDaytonaDepsImageCandidates({
-        owner: ' ',
-        repo: 'Noter',
-        inputHash: 'input-hash',
+        owner: " ",
+        repo: "Noter",
+        inputHash: "input-hash",
         lockHash: null,
       }),
-    ).toEqual([])
+    ).toEqual([]);
 
     expect(
       resolveDaytonaDepsImageCandidates({
-        owner: 'OpenAI',
-        repo: ' ',
-        inputHash: 'input-hash',
+        owner: "OpenAI",
+        repo: " ",
+        inputHash: "input-hash",
         lockHash: null,
       }),
-    ).toEqual([])
-  })
-})
+    ).toEqual([]);
+  });
+});

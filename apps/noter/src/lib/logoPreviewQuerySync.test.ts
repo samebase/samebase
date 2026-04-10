@@ -1,41 +1,41 @@
-import { describe, expect, it } from 'vite-plus/test'
+import { describe, expect, it } from "vitest";
 
-import { shouldSyncLogoPreviewQueryState } from './logoPreviewQuerySync'
+import { shouldSyncLogoPreviewQueryState } from "./logoPreviewQuerySync";
 
-describe('shouldSyncLogoPreviewQueryState', () => {
-  it('returns true when the preview is idle', () => {
+describe("shouldSyncLogoPreviewQueryState", () => {
+  it("returns true when the preview is idle", () => {
     expect(
       shouldSyncLogoPreviewQueryState({
         isAutoRotating: false,
         isSceneInteracting: false,
       }),
-    ).toBe(true)
-  })
+    ).toBe(true);
+  });
 
-  it('returns false while auto-rotation is running', () => {
+  it("returns false while auto-rotation is running", () => {
     expect(
       shouldSyncLogoPreviewQueryState({
         isAutoRotating: true,
         isSceneInteracting: false,
       }),
-    ).toBe(false)
-  })
+    ).toBe(false);
+  });
 
-  it('returns false while the scene is being dragged', () => {
+  it("returns false while the scene is being dragged", () => {
     expect(
       shouldSyncLogoPreviewQueryState({
         isAutoRotating: false,
         isSceneInteracting: true,
       }),
-    ).toBe(false)
-  })
+    ).toBe(false);
+  });
 
-  it('returns false when both auto-rotation and dragging are active', () => {
+  it("returns false when both auto-rotation and dragging are active", () => {
     expect(
       shouldSyncLogoPreviewQueryState({
         isAutoRotating: true,
         isSceneInteracting: true,
       }),
-    ).toBe(false)
-  })
-})
+    ).toBe(false);
+  });
+});

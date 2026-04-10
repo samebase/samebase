@@ -1,45 +1,45 @@
-import { describe, expect, it } from 'vite-plus/test'
+import { describe, expect, it } from "vitest";
 
-import { findToolInCatalog } from './catalog'
-import { validateToolPolicy } from './policy'
-import type { ToolRunRequest } from './types'
+import { findToolInCatalog } from "./catalog";
+import { validateToolPolicy } from "./policy";
+import type { ToolRunRequest } from "./types";
 
-function makeRequest(request: Omit<ToolRunRequest, 'userId'>): ToolRunRequest {
+function makeRequest(request: Omit<ToolRunRequest, "userId">): ToolRunRequest {
   return {
     ...request,
     // @ts-expect-error Test-only synthetic id string is sufficient here.
-    userId: 'users_test',
-  }
+    userId: "users_test",
+  };
 }
 
 function inputForTool(toolName: string): unknown {
   switch (toolName) {
-    case 'edit_file':
-      return { path: 'README.md', content: 'updated' }
-    case 'create_file':
-      return { path: 'NEW.md', content: 'new' }
-    case 'delete_file':
-      return { path: 'README.md' }
-    case 'replace_in_file':
+    case "edit_file":
+      return { path: "README.md", content: "updated" };
+    case "create_file":
+      return { path: "NEW.md", content: "new" };
+    case "delete_file":
+      return { path: "README.md" };
+    case "replace_in_file":
       return {
-        path: 'README.md',
-        replacements: [{ oldText: 'old', newText: 'new' }],
-      }
-    case 'request_convex_data_read':
-      return { table: 'vaults' }
-    case 'request_convex_projects_read':
-      return {}
+        path: "README.md",
+        replacements: [{ oldText: "old", newText: "new" }],
+      };
+    case "request_convex_data_read":
+      return { table: "vaults" };
+    case "request_convex_projects_read":
+      return {};
     default:
-      return {}
+      return {};
   }
 }
 
-describe('validateToolPolicy', () => {
-  it('rejects calls on unsupported surfaces', () => {
-    const tool = findToolInCatalog({ name: 'vaults.list' })
-    expect(tool).not.toBeNull()
+describe("validateToolPolicy", () => {
+  it("rejects calls on unsupported surfaces", () => {
+    const tool = findToolInCatalog({ name: "vaults.list" });
+    expect(tool).not.toBeNull();
     if (!tool) {
-      return
+      return;
     }
 
     const result = validateToolPolicy({
@@ -47,133 +47,133 @@ describe('validateToolPolicy', () => {
       request: makeRequest({
         toolName: tool.name,
         input: {},
-        surface: 'agent',
+        surface: "agent",
         grantedScopes: [],
       }),
-    })
+    });
 
-    expect(result.ok).toBe(false)
-    expect(result.message).toContain('not available')
-  })
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("not available");
+  });
 
-  it('rejects MCP calls without required scope', () => {
-    const tool = findToolInCatalog({ name: 'read_file' })
-    expect(tool).not.toBeNull()
+  it("rejects MCP calls without required scope", () => {
+    const tool = findToolInCatalog({ name: "read_file" });
+    expect(tool).not.toBeNull();
     if (!tool) {
-      return
+      return;
     }
 
     const result = validateToolPolicy({
       tool,
       request: makeRequest({
         toolName: tool.name,
-        input: { path: 'README.md' },
-        surface: 'mcp',
-        grantedScopes: ['vaults.read'],
-        vaultId: 'vault_123',
-        branch: 'main',
+        input: { path: "README.md" },
+        surface: "mcp",
+        grantedScopes: ["vaults.read"],
+        vaultId: "vault_123",
+        branch: "main",
       }),
-    })
+    });
 
-    expect(result.ok).toBe(false)
-    expect(result.message).toBe('Insufficient scope for read_file.')
-  })
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("Insufficient scope for read_file.");
+  });
 
-  it('does not require MCP scopes on agent surface', () => {
-    const tool = findToolInCatalog({ name: 'read_file' })
-    expect(tool).not.toBeNull()
+  it("does not require MCP scopes on agent surface", () => {
+    const tool = findToolInCatalog({ name: "read_file" });
+    expect(tool).not.toBeNull();
     if (!tool) {
-      return
+      return;
     }
 
     const result = validateToolPolicy({
       tool,
       request: makeRequest({
         toolName: tool.name,
-        input: { path: 'README.md' },
-        surface: 'agent',
+        input: { path: "README.md" },
+        surface: "agent",
         grantedScopes: [],
-        vaultId: 'vault_123',
-        branch: 'main',
+        vaultId: "vault_123",
+        branch: "main",
       }),
-    })
+    });
 
-    expect(result.ok).toBe(true)
-  })
+    expect(result.ok).toBe(true);
+  });
 
-  it('requires vaultId when tool needs vault context', () => {
-    const tool = findToolInCatalog({ name: 'read_file' })
-    expect(tool).not.toBeNull()
+  it("requires vaultId when tool needs vault context", () => {
+    const tool = findToolInCatalog({ name: "read_file" });
+    expect(tool).not.toBeNull();
     if (!tool) {
-      return
+      return;
     }
 
     const result = validateToolPolicy({
       tool,
       request: makeRequest({
         toolName: tool.name,
-        input: { path: 'README.md' },
-        surface: 'mcp',
-        grantedScopes: ['files.read'],
-        branch: 'main',
+        input: { path: "README.md" },
+        surface: "mcp",
+        grantedScopes: ["files.read"],
+        branch: "main",
       }),
-    })
+    });
 
-    expect(result.ok).toBe(false)
-    expect(result.message).toBe('read_file requires vaultId context.')
-  })
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("read_file requires vaultId context.");
+  });
 
-  it('rejects blank vaultId when tool needs vault context', () => {
-    const tool = findToolInCatalog({ name: 'read_file' })
-    expect(tool).not.toBeNull()
+  it("rejects blank vaultId when tool needs vault context", () => {
+    const tool = findToolInCatalog({ name: "read_file" });
+    expect(tool).not.toBeNull();
     if (!tool) {
-      return
+      return;
     }
 
     const result = validateToolPolicy({
       tool,
       request: makeRequest({
         toolName: tool.name,
-        input: { path: 'README.md' },
-        surface: 'mcp',
-        grantedScopes: ['files.read'],
-        vaultId: '   ',
-        branch: 'main',
+        input: { path: "README.md" },
+        surface: "mcp",
+        grantedScopes: ["files.read"],
+        vaultId: "   ",
+        branch: "main",
       }),
-    })
+    });
 
-    expect(result.ok).toBe(false)
-    expect(result.message).toBe('read_file requires vaultId context.')
-  })
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("read_file requires vaultId context.");
+  });
 
-  it('requires non-empty branch for branch-aware tools', () => {
-    const tool = findToolInCatalog({ name: 'read_file' })
-    expect(tool).not.toBeNull()
+  it("requires non-empty branch for branch-aware tools", () => {
+    const tool = findToolInCatalog({ name: "read_file" });
+    expect(tool).not.toBeNull();
     if (!tool) {
-      return
+      return;
     }
 
     const result = validateToolPolicy({
       tool,
       request: makeRequest({
         toolName: tool.name,
-        input: { path: 'README.md' },
-        surface: 'mcp',
-        grantedScopes: ['files.read'],
-        vaultId: 'vault_123',
-        branch: '   ',
+        input: { path: "README.md" },
+        surface: "mcp",
+        grantedScopes: ["files.read"],
+        vaultId: "vault_123",
+        branch: "   ",
       }),
-    })
+    });
 
-    expect(result.ok).toBe(false)
-    expect(result.message).toBe('read_file requires branch context.')
-  })
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("read_file requires branch context.");
+  });
 
-  it('allows valid branch-aware MCP requests', () => {
-    const tool = findToolInCatalog({ name: 'list_files' })
-    expect(tool).not.toBeNull()
+  it("allows valid branch-aware MCP requests", () => {
+    const tool = findToolInCatalog({ name: "list_files" });
+    expect(tool).not.toBeNull();
     if (!tool) {
-      return
+      return;
     }
 
     const result = validateToolPolicy({
@@ -181,21 +181,21 @@ describe('validateToolPolicy', () => {
       request: makeRequest({
         toolName: tool.name,
         input: {},
-        surface: 'mcp',
-        grantedScopes: ['files.read'],
-        vaultId: 'vault_123',
-        branch: 'feature/runtime',
+        surface: "mcp",
+        grantedScopes: ["files.read"],
+        vaultId: "vault_123",
+        branch: "feature/runtime",
       }),
-    })
+    });
 
-    expect(result).toEqual({ ok: true })
-  })
+    expect(result).toEqual({ ok: true });
+  });
 
-  it('allows MCP write requests when files.write scope is granted', () => {
-    const tool = findToolInCatalog({ name: 'edit_file' })
-    expect(tool).not.toBeNull()
+  it("allows MCP write requests when files.write scope is granted", () => {
+    const tool = findToolInCatalog({ name: "edit_file" });
+    expect(tool).not.toBeNull();
     if (!tool) {
-      return
+      return;
     }
 
     const result = validateToolPolicy({
@@ -203,32 +203,32 @@ describe('validateToolPolicy', () => {
       request: makeRequest({
         toolName: tool.name,
         input: {
-          path: 'README.md',
-          content: 'updated',
+          path: "README.md",
+          content: "updated",
         },
-        surface: 'mcp',
-        grantedScopes: ['files.write'],
-        vaultId: 'vault_123',
-        branch: 'main',
+        surface: "mcp",
+        grantedScopes: ["files.write"],
+        vaultId: "vault_123",
+        branch: "main",
       }),
-    })
+    });
 
-    expect(result).toEqual({ ok: true })
-  })
+    expect(result).toEqual({ ok: true });
+  });
 
-  it('requires files.write scope for every write tool', () => {
+  it("requires files.write scope for every write tool", () => {
     const writeToolNames = [
-      'edit_file',
-      'replace_in_file',
-      'create_file',
-      'delete_file',
-    ]
+      "edit_file",
+      "replace_in_file",
+      "create_file",
+      "delete_file",
+    ];
 
     for (const toolName of writeToolNames) {
-      const tool = findToolInCatalog({ name: toolName })
-      expect(tool).not.toBeNull()
+      const tool = findToolInCatalog({ name: toolName });
+      expect(tool).not.toBeNull();
       if (!tool) {
-        continue
+        continue;
       }
 
       const result = validateToolPolicy({
@@ -236,23 +236,23 @@ describe('validateToolPolicy', () => {
         request: makeRequest({
           toolName: tool.name,
           input: inputForTool(tool.name),
-          surface: 'mcp',
-          grantedScopes: ['files.read'],
-          vaultId: 'vault_123',
-          branch: 'main',
+          surface: "mcp",
+          grantedScopes: ["files.read"],
+          vaultId: "vault_123",
+          branch: "main",
         }),
-      })
+      });
 
-      expect(result.ok).toBe(false)
-      expect(result.message).toBe(`Insufficient scope for ${tool.name}.`)
+      expect(result.ok).toBe(false);
+      expect(result.message).toBe(`Insufficient scope for ${tool.name}.`);
     }
-  })
+  });
 
-  it('requires threadId for proposal tools', () => {
-    const tool = findToolInCatalog({ name: 'request_convex_projects_read' })
-    expect(tool).not.toBeNull()
+  it("requires threadId for proposal tools", () => {
+    const tool = findToolInCatalog({ name: "request_convex_projects_read" });
+    expect(tool).not.toBeNull();
     if (!tool) {
-      return
+      return;
     }
 
     const result = validateToolPolicy({
@@ -260,22 +260,22 @@ describe('validateToolPolicy', () => {
       request: makeRequest({
         toolName: tool.name,
         input: inputForTool(tool.name),
-        surface: 'mcp',
-        grantedScopes: ['prod.read.propose'],
+        surface: "mcp",
+        grantedScopes: ["prod.read.propose"],
       }),
-    })
+    });
 
-    expect(result.ok).toBe(false)
+    expect(result.ok).toBe(false);
     expect(result.message).toBe(
-      'request_convex_projects_read requires threadId context.',
-    )
-  })
+      "request_convex_projects_read requires threadId context.",
+    );
+  });
 
-  it('allows proposal tools with prod.read.propose scope and threadId', () => {
-    const tool = findToolInCatalog({ name: 'request_convex_projects_read' })
-    expect(tool).not.toBeNull()
+  it("allows proposal tools with prod.read.propose scope and threadId", () => {
+    const tool = findToolInCatalog({ name: "request_convex_projects_read" });
+    expect(tool).not.toBeNull();
     if (!tool) {
-      return
+      return;
     }
 
     const result = validateToolPolicy({
@@ -283,12 +283,12 @@ describe('validateToolPolicy', () => {
       request: makeRequest({
         toolName: tool.name,
         input: inputForTool(tool.name),
-        surface: 'mcp',
-        grantedScopes: ['prod.read.propose'],
-        threadId: 'thread_123',
+        surface: "mcp",
+        grantedScopes: ["prod.read.propose"],
+        threadId: "thread_123",
       }),
-    })
+    });
 
-    expect(result).toEqual({ ok: true })
-  })
-})
+    expect(result).toEqual({ ok: true });
+  });
+});

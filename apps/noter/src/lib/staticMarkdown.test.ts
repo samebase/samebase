@@ -1,35 +1,35 @@
-import { describe, expect, it } from 'vite-plus/test'
+import { describe, expect, it } from "vitest";
 
 import {
   parseStaticMarkdown,
   parseStaticMarkdownInline,
-} from './staticMarkdown'
+} from "./staticMarkdown";
 
-describe('parseStaticMarkdownInline', () => {
-  it('parses text and inline code in sequence', () => {
+describe("parseStaticMarkdownInline", () => {
+  it("parses text and inline code in sequence", () => {
     expect(
       parseStaticMarkdownInline(
-        'Convex-backed `workspaceSidebarState` and [privacy page](/privacy).',
+        "Convex-backed `workspaceSidebarState` and [privacy page](/privacy).",
       ),
     ).toEqual([
       {
-        type: 'text',
-        value: 'Convex-backed ',
+        type: "text",
+        value: "Convex-backed ",
       },
       {
-        type: 'code',
-        value: 'workspaceSidebarState',
+        type: "code",
+        value: "workspaceSidebarState",
       },
       {
-        type: 'text',
-        value: ' and [privacy page](/privacy).',
+        type: "text",
+        value: " and [privacy page](/privacy).",
       },
-    ])
-  })
-})
+    ]);
+  });
+});
 
-describe('parseStaticMarkdown', () => {
-  it('parses headings, paragraphs, and wrapped list items', () => {
+describe("parseStaticMarkdown", () => {
+  it("parses headings, paragraphs, and wrapped list items", () => {
     expect(
       parseStaticMarkdown(`# Privacy Policy
 
@@ -45,60 +45,60 @@ continues here.
 More text.`),
     ).toEqual([
       {
-        type: 'heading',
+        type: "heading",
         level: 1,
         content: [
           {
-            type: 'text',
-            value: 'Privacy Policy',
+            type: "text",
+            value: "Privacy Policy",
           },
         ],
       },
       {
-        type: 'paragraph',
+        type: "paragraph",
         content: [
           {
-            type: 'text',
-            value: 'Intro line one continues here.',
+            type: "text",
+            value: "Intro line one continues here.",
           },
         ],
       },
       {
-        type: 'list',
+        type: "list",
         items: [
           [
             {
-              type: 'text',
-              value: 'First bullet with continuation',
+              type: "text",
+              value: "First bullet with continuation",
             },
           ],
           [
             {
-              type: 'text',
-              value: 'Second bullet',
+              type: "text",
+              value: "Second bullet",
             },
           ],
         ],
       },
       {
-        type: 'heading',
+        type: "heading",
         level: 2,
         content: [
           {
-            type: 'text',
-            value: 'Details',
+            type: "text",
+            value: "Details",
           },
         ],
       },
       {
-        type: 'paragraph',
+        type: "paragraph",
         content: [
           {
-            type: 'text',
-            value: 'More text.',
+            type: "text",
+            value: "More text.",
           },
         ],
       },
-    ])
-  })
-})
+    ]);
+  });
+});

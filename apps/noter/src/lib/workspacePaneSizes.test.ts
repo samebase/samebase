@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vite-plus/test'
+import { describe, expect, it } from "vitest";
 import {
   clampWorkspaceMobileSidebarWidthPx,
   DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
@@ -8,10 +8,10 @@ import {
   MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
   MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
   resolveWorkspaceDesktopSidebarWidths,
-} from '@/lib/workspacePaneSizes'
+} from "@/lib/workspacePaneSizes";
 
-describe('resolveWorkspaceDesktopSidebarWidths', () => {
-  it('keeps the preferred widths when the shell has enough room', () => {
+describe("resolveWorkspaceDesktopSidebarWidths", () => {
+  it("keeps the preferred widths when the shell has enough room", () => {
     expect(
       resolveWorkspaceDesktopSidebarWidths({
         containerWidthPx:
@@ -26,10 +26,10 @@ describe('resolveWorkspaceDesktopSidebarWidths', () => {
     ).toEqual({
       leftWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
       rightWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-    })
-  })
+    });
+  });
 
-  it('shrinks both open sidebars while preserving the desktop main-pane minimum', () => {
+  it("shrinks both open sidebars while preserving the desktop main-pane minimum", () => {
     expect(
       resolveWorkspaceDesktopSidebarWidths({
         containerWidthPx: 800,
@@ -41,10 +41,10 @@ describe('resolveWorkspaceDesktopSidebarWidths', () => {
     ).toEqual({
       leftWidthPx: 265,
       rightWidthPx: 215,
-    })
-  })
+    });
+  });
 
-  it('caps a single desktop sidebar at 70% of the shell width', () => {
+  it("caps a single desktop sidebar at 70% of the shell width", () => {
     expect(
       resolveWorkspaceDesktopSidebarWidths({
         containerWidthPx: 1200,
@@ -56,10 +56,10 @@ describe('resolveWorkspaceDesktopSidebarWidths', () => {
     ).toEqual({
       leftWidthPx: 1200 * MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_RATIO,
       rightWidthPx: 0,
-    })
-  })
+    });
+  });
 
-  it('caps a single desktop sidebar at 1000px on very wide shells', () => {
+  it("caps a single desktop sidebar at 1000px on very wide shells", () => {
     expect(
       resolveWorkspaceDesktopSidebarWidths({
         containerWidthPx: 2200,
@@ -71,25 +71,25 @@ describe('resolveWorkspaceDesktopSidebarWidths', () => {
     ).toEqual({
       leftWidthPx: MAX_WORKSPACE_DESKTOP_SIDEBAR_WIDTH_PX,
       rightWidthPx: 0,
-    })
-  })
+    });
+  });
 
-  it('splits the remaining desktop space proportionally when both minima do not fit', () => {
+  it("splits the remaining desktop space proportionally when both minima do not fit", () => {
     const resolvedWidths = resolveWorkspaceDesktopSidebarWidths({
       containerWidthPx: 600,
       leftOpen: true,
       leftWidthPx: 320,
       rightOpen: true,
       rightWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-    })
+    });
 
-    expect(resolvedWidths.leftWidthPx + resolvedWidths.rightWidthPx).toBe(280)
+    expect(resolvedWidths.leftWidthPx + resolvedWidths.rightWidthPx).toBe(280);
     expect(resolvedWidths.leftWidthPx).toBeGreaterThan(
       resolvedWidths.rightWidthPx,
-    )
-  })
+    );
+  });
 
-  it('preserves constrained desktop width preferences below the minimum', () => {
+  it("preserves constrained desktop width preferences below the minimum", () => {
     expect(
       resolveWorkspaceDesktopSidebarWidths({
         containerWidthPx: 450,
@@ -101,10 +101,10 @@ describe('resolveWorkspaceDesktopSidebarWidths', () => {
     ).toEqual({
       leftWidthPx: 100,
       rightWidthPx: 30,
-    })
-  })
+    });
+  });
 
-  it('clamps a single desktop sidebar to the remaining shell width', () => {
+  it("clamps a single desktop sidebar to the remaining shell width", () => {
     expect(
       resolveWorkspaceDesktopSidebarWidths({
         containerWidthPx: 420,
@@ -116,20 +116,20 @@ describe('resolveWorkspaceDesktopSidebarWidths', () => {
     ).toEqual({
       leftWidthPx: 100,
       rightWidthPx: 0,
-    })
-  })
-})
+    });
+  });
+});
 
-describe('clampWorkspaceMobileSidebarWidthPx', () => {
-  it('keeps the mobile main-pane peek visible', () => {
+describe("clampWorkspaceMobileSidebarWidthPx", () => {
+  it("keeps the mobile main-pane peek visible", () => {
     expect(clampWorkspaceMobileSidebarWidthPx(360, 390)).toBe(
       390 - MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
-    )
-  })
+    );
+  });
 
-  it('respects the mobile minimum width when the viewport can fit it', () => {
+  it("respects the mobile minimum width when the viewport can fit it", () => {
     expect(clampWorkspaceMobileSidebarWidthPx(20, 430)).toBe(
       MIN_WORKSPACE_MOBILE_SIDEBAR_WIDTH_PX,
-    )
-  })
-})
+    );
+  });
+});

@@ -13,7 +13,8 @@
     "build:frontend": "vp build",
     "preview": "vp preview",
     "lint": "tsc --noEmit && pnpm --dir ../.. exec eslint apps/noter-starter-template --ext ts,tsx --report-unused-disable-directives --config .eslintrc.cjs",
-    "test": "vp test run --passWithNoTests",
+    "test": "vitest run --passWithNoTests",
+    "prepare": "husky",
     "template:sync-codespace": "node scripts/sync-codespace-assets.mjs",
     "template:export": "node scripts/export-template-manifest.mjs"
   },
@@ -41,11 +42,13 @@
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^6.1.1",
     "eslint-plugin-react-refresh": "^0.4.7",
+    "husky": "^9.1.7",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.14",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "5.9.2",
     "vite": "catalog:",
-    "vite-plus": "catalog:"
+    "vite-plus": "catalog:",
+    "vitest": "^4.1.4"
   }
 }

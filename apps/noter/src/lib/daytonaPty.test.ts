@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vite-plus/test'
+import { describe, expect, it } from "vitest";
 
 import {
   buildAuthenticatedDaytonaPtyUrl,
@@ -7,121 +7,121 @@ import {
   parseDaytonaPtyControlMessage,
   resolveDaytonaPtyCloseOutcome,
   shouldWakeDaytonaPtyPrompt,
-} from './daytonaPty'
+} from "./daytonaPty";
 
-describe('daytonaPty helpers', () => {
-  it('adds the preview token to the PTY websocket URL', () => {
+describe("daytonaPty helpers", () => {
+  it("adds the preview token to the PTY websocket URL", () => {
     const authenticatedUrl = buildAuthenticatedDaytonaPtyUrl({
       webSocketUrl:
-        'wss://example.test/sandbox/process/pty/noter-pty/connect?existing=1',
-      previewToken: 'preview-token',
-    })
+        "wss://example.test/sandbox/process/pty/noter-pty/connect?existing=1",
+      previewToken: "preview-token",
+    });
 
-    const url = new URL(authenticatedUrl)
-    expect(url.searchParams.get('existing')).toBe('1')
-    expect(url.searchParams.get('DAYTONA_SANDBOX_AUTH_KEY')).toBe(
-      'preview-token',
-    )
-  })
+    const url = new URL(authenticatedUrl);
+    expect(url.searchParams.get("existing")).toBe("1");
+    expect(url.searchParams.get("DAYTONA_SANDBOX_AUTH_KEY")).toBe(
+      "preview-token",
+    );
+  });
 
-  it('parses control messages and trims empty errors', () => {
+  it("parses control messages and trims empty errors", () => {
     expect(
       parseDaytonaPtyControlMessage(
         JSON.stringify({
-          type: 'control',
-          status: 'connected',
-          error: '   ',
+          type: "control",
+          status: "connected",
+          error: "   ",
         }),
       ),
     ).toEqual({
-      type: 'control',
-      status: 'connected',
-    })
+      type: "control",
+      status: "connected",
+    });
 
     expect(
       parseDaytonaPtyControlMessage(
         JSON.stringify({
-          type: 'control',
-          status: 'error',
-          error: 'toolbox failed',
+          type: "control",
+          status: "error",
+          error: "toolbox failed",
         }),
       ),
     ).toEqual({
-      type: 'control',
-      status: 'error',
-      error: 'toolbox failed',
-    })
-  })
+      type: "control",
+      status: "error",
+      error: "toolbox failed",
+    });
+  });
 
-  it('ignores malformed or unsupported control messages', () => {
-    expect(parseDaytonaPtyControlMessage('not json')).toBeNull()
-    expect(parseDaytonaPtyControlMessage('[]')).toBeNull()
+  it("ignores malformed or unsupported control messages", () => {
+    expect(parseDaytonaPtyControlMessage("not json")).toBeNull();
+    expect(parseDaytonaPtyControlMessage("[]")).toBeNull();
     expect(
       parseDaytonaPtyControlMessage(
         JSON.stringify({
-          type: 'unknown',
-          status: 'connected',
+          type: "unknown",
+          status: "connected",
         }),
       ),
-    ).toBeNull()
+    ).toBeNull();
     expect(
       parseDaytonaPtyControlMessage(
         JSON.stringify({
-          type: 'control',
-          status: 'pending',
+          type: "control",
+          status: "pending",
         }),
       ),
-    ).toBeNull()
-  })
+    ).toBeNull();
+  });
 
-  it('parses close messages and drops empty fields', () => {
+  it("parses close messages and drops empty fields", () => {
     expect(
       parseDaytonaPtyCloseMessage(
         JSON.stringify({
           exitCode: 0,
-          error: '  ',
-          exitReason: ' finished ',
+          error: "  ",
+          exitReason: " finished ",
         }),
       ),
     ).toEqual({
       exitCode: 0,
-      exitReason: ' finished ',
-    })
-  })
+      exitReason: " finished ",
+    });
+  });
 
-  it('returns null for close payloads with no usable fields', () => {
-    expect(parseDaytonaPtyCloseMessage('not json')).toBeNull()
-    expect(parseDaytonaPtyCloseMessage('[]')).toBeNull()
-    expect(parseDaytonaPtyCloseMessage(JSON.stringify({}))).toBeNull()
-  })
+  it("returns null for close payloads with no usable fields", () => {
+    expect(parseDaytonaPtyCloseMessage("not json")).toBeNull();
+    expect(parseDaytonaPtyCloseMessage("[]")).toBeNull();
+    expect(parseDaytonaPtyCloseMessage(JSON.stringify({}))).toBeNull();
+  });
 
-  it('treats exit reasons as informational when the process exits cleanly', () => {
+  it("treats exit reasons as informational when the process exits cleanly", () => {
     expect(
       resolveDaytonaPtyCloseOutcome({
         eventCode: 1000,
         rawReason: JSON.stringify({
           exitCode: 0,
-          exitReason: 'device auth completed',
+          exitReason: "device auth completed",
         }),
       }),
     ).toEqual({
-      message: 'Process exited with code 0. device auth completed',
-      state: 'closed',
-    })
-  })
+      message: "Process exited with code 0. device auth completed",
+      state: "closed",
+    });
+  });
 
-  it('treats explicit PTY errors, non-zero exit codes, and abnormal closes as errors', () => {
+  it("treats explicit PTY errors, non-zero exit codes, and abnormal closes as errors", () => {
     expect(
       resolveDaytonaPtyCloseOutcome({
         eventCode: 1000,
         rawReason: JSON.stringify({
-          error: 'toolbox failed',
+          error: "toolbox failed",
         }),
       }),
     ).toEqual({
-      message: 'Terminal session closed. toolbox failed',
-      state: 'error',
-    })
+      message: "Terminal session closed. toolbox failed",
+      state: "error",
+    });
 
     expect(
       resolveDaytonaPtyCloseOutcome({
@@ -131,35 +131,35 @@ describe('daytonaPty helpers', () => {
         }),
       }),
     ).toEqual({
-      message: 'Process exited with code 1.',
-      state: 'error',
-    })
+      message: "Process exited with code 1.",
+      state: "error",
+    });
 
     expect(
       resolveDaytonaPtyCloseOutcome({
         eventCode: 1011,
-        rawReason: '',
+        rawReason: "",
       }),
     ).toEqual({
-      message: 'Terminal connection closed.',
-      state: 'error',
-    })
-  })
+      message: "Terminal connection closed.",
+      state: "error",
+    });
+  });
 
-  it('detects when a PTY session already has initial output', () => {
-    expect(hasDaytonaPtyInitialOutput(undefined)).toBe(false)
-    expect(hasDaytonaPtyInitialOutput('')).toBe(false)
-    expect(hasDaytonaPtyInitialOutput('root prompt')).toBe(true)
-  })
+  it("detects when a PTY session already has initial output", () => {
+    expect(hasDaytonaPtyInitialOutput(undefined)).toBe(false);
+    expect(hasDaytonaPtyInitialOutput("")).toBe(false);
+    expect(hasDaytonaPtyInitialOutput("root prompt")).toBe(true);
+  });
 
-  it('only wakes the shell prompt for interactive sessions with no startup output', () => {
+  it("only wakes the shell prompt for interactive sessions with no startup output", () => {
     expect(
       shouldWakeDaytonaPtyPrompt({
         allowInput: true,
         initialInput: undefined,
         initialOutput: undefined,
       }),
-    ).toBe(true)
+    ).toBe(true);
 
     expect(
       shouldWakeDaytonaPtyPrompt({
@@ -167,22 +167,22 @@ describe('daytonaPty helpers', () => {
         initialInput: undefined,
         initialOutput: undefined,
       }),
-    ).toBe(false)
+    ).toBe(false);
 
     expect(
       shouldWakeDaytonaPtyPrompt({
         allowInput: true,
-        initialInput: 'codex login --device-auth\n',
+        initialInput: "codex login --device-auth\n",
         initialOutput: undefined,
       }),
-    ).toBe(false)
+    ).toBe(false);
 
     expect(
       shouldWakeDaytonaPtyPrompt({
         allowInput: true,
         initialInput: undefined,
-        initialOutput: 'root prompt',
+        initialOutput: "root prompt",
       }),
-    ).toBe(false)
-  })
-})
+    ).toBe(false);
+  });
+});

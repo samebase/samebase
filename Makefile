@@ -127,7 +127,7 @@ daytona-local-once:
 	fi
 
 update-fixtures:
-	UPDATE_SIMPLE_VIEW_FIXTURES=1 pnpm exec vp test run apps/noter/src/lib/simpleView.test.ts
+	UPDATE_SIMPLE_VIEW_FIXTURES=1 pnpm exec vitest run apps/noter/src/lib/simpleView.test.ts
 
 # Open the deterministic branch-owned Playwright session for the current repo.
 playwright-open:

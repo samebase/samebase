@@ -1,27 +1,27 @@
-import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vite-plus/test'
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
 
-import { buildNoterSyncPublicScript } from '../../noterSyncPublicScript'
+import { buildNoterSyncPublicScript } from "../../noterSyncPublicScript";
 
-describe('noter sync public script', () => {
-  it('keeps the committed noter.js asset byte-for-byte in sync with the package source', () => {
+describe("noter sync public script", () => {
+  it("keeps the committed noter.js asset byte-for-byte in sync with the package source", () => {
     const publicScript = readFileSync(
-      new URL('../../public/noter.js', import.meta.url),
-      'utf8',
+      new URL("../../public/noter.js", import.meta.url),
+      "utf8",
     )
-      .replace(/\r\n/g, '\n')
-      .trimEnd()
+      .replace(/\r\n/g, "\n")
+      .trimEnd();
     const packageScript = readFileSync(
-      new URL('../../../../packages/sync/noter.js', import.meta.url),
-      'utf8',
+      new URL("../../../../packages/sync/noter.js", import.meta.url),
+      "utf8",
     )
-      .replace(/\r\n/g, '\n')
-      .trimEnd()
+      .replace(/\r\n/g, "\n")
+      .trimEnd();
     const mirroredPublicScript = buildNoterSyncPublicScript({
       packageScript,
-    }).trimEnd()
+    }).trimEnd();
 
-    expect(publicScript).toBe(packageScript)
-    expect(publicScript).toBe(mirroredPublicScript)
-  })
-})
+    expect(publicScript).toBe(packageScript);
+    expect(publicScript).toBe(mirroredPublicScript);
+  });
+});

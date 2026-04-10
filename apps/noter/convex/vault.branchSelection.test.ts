@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vite-plus/test'
+import { describe, expect, it } from "vitest";
 
 import {
   countActiveRemoteBranches,
@@ -7,75 +7,75 @@ import {
   resolveSyncedCloudflarePreviewMetadata,
   resolveVaultBranchSelection,
   selectDeletedUpstreamBranchesToAutoPrune,
-} from './vault'
+} from "./vault";
 
-describe('resolveVaultBranchSelection', () => {
-  it('resolves to requested branch when it exists remotely', () => {
+describe("resolveVaultBranchSelection", () => {
+  it("resolves to requested branch when it exists remotely", () => {
     expect(
       resolveVaultBranchSelection({
-        requestedBranch: 'feature/login',
+        requestedBranch: "feature/login",
         remoteBranches: [
-          { name: 'main', isDefault: true, remoteState: 'active' },
-          { name: 'feature/login', isDefault: false, remoteState: 'active' },
+          { name: "main", isDefault: true, remoteState: "active" },
+          { name: "feature/login", isDefault: false, remoteState: "active" },
         ],
       }),
     ).toEqual({
-      defaultBranch: 'main',
-      resolvedBranch: 'feature/login',
+      defaultBranch: "main",
+      resolvedBranch: "feature/login",
       branchNotFound: false,
-    })
-  })
+    });
+  });
 
-  it('flags missing requested branch and falls back to default branch', () => {
+  it("flags missing requested branch and falls back to default branch", () => {
     expect(
       resolveVaultBranchSelection({
-        requestedBranch: 'src',
+        requestedBranch: "src",
         remoteBranches: [
-          { name: 'main', isDefault: true, remoteState: 'active' },
-          { name: 'feature/login', isDefault: false, remoteState: 'active' },
+          { name: "main", isDefault: true, remoteState: "active" },
+          { name: "feature/login", isDefault: false, remoteState: "active" },
         ],
       }),
     ).toEqual({
-      defaultBranch: 'main',
-      resolvedBranch: 'main',
+      defaultBranch: "main",
+      resolvedBranch: "main",
       branchNotFound: true,
-    })
-  })
+    });
+  });
 
-  it('keeps requested branch when remote branches are unavailable', () => {
+  it("keeps requested branch when remote branches are unavailable", () => {
     expect(
       resolveVaultBranchSelection({
-        requestedBranch: 'feature/login',
+        requestedBranch: "feature/login",
         remoteBranches: [],
       }),
     ).toEqual({
       defaultBranch: undefined,
-      resolvedBranch: 'feature/login',
+      resolvedBranch: "feature/login",
       branchNotFound: false,
-    })
-  })
+    });
+  });
 
-  it('keeps requested deleted-upstream branches when they are still tracked locally', () => {
+  it("keeps requested deleted-upstream branches when they are still tracked locally", () => {
     expect(
       resolveVaultBranchSelection({
-        requestedBranch: 'feature/local-work',
+        requestedBranch: "feature/local-work",
         remoteBranches: [
-          { name: 'main', isDefault: true, remoteState: 'active' },
+          { name: "main", isDefault: true, remoteState: "active" },
           {
-            name: 'feature/local-work',
+            name: "feature/local-work",
             isDefault: false,
-            remoteState: 'deleted_upstream',
+            remoteState: "deleted_upstream",
           },
         ],
       }),
     ).toEqual({
-      defaultBranch: 'main',
-      resolvedBranch: 'feature/local-work',
+      defaultBranch: "main",
+      resolvedBranch: "feature/local-work",
       branchNotFound: false,
-    })
-  })
+    });
+  });
 
-  it('falls back to main when nothing is specified', () => {
+  it("falls back to main when nothing is specified", () => {
     expect(
       resolveVaultBranchSelection({
         requestedBranch: undefined,
@@ -83,106 +83,106 @@ describe('resolveVaultBranchSelection', () => {
       }),
     ).toEqual({
       defaultBranch: undefined,
-      resolvedBranch: 'main',
+      resolvedBranch: "main",
       branchNotFound: false,
-    })
-  })
-})
+    });
+  });
+});
 
-describe('countActiveRemoteBranches', () => {
-  it('counts only active remote branches for auto-refresh budgeting', () => {
+describe("countActiveRemoteBranches", () => {
+  it("counts only active remote branches for auto-refresh budgeting", () => {
     expect(
       countActiveRemoteBranches([
-        { remoteState: 'active' },
-        { remoteState: 'deleted_upstream' },
-        { remoteState: 'active' },
+        { remoteState: "active" },
+        { remoteState: "deleted_upstream" },
+        { remoteState: "active" },
       ]),
-    ).toBe(2)
-  })
-})
+    ).toBe(2);
+  });
+});
 
-describe('resolveSyncedBranchLastCommitAt', () => {
-  it('uses incoming timestamp when provided', () => {
+describe("resolveSyncedBranchLastCommitAt", () => {
+  it("uses incoming timestamp when provided", () => {
     expect(
       resolveSyncedBranchLastCommitAt({
-        incomingHeadCommitSha: 'sha-new',
+        incomingHeadCommitSha: "sha-new",
         incomingLastCommitAt: 123,
         existingBranch: {
-          headCommitSha: 'sha-old',
+          headCommitSha: "sha-old",
           lastCommitAt: 100,
         },
       }),
-    ).toBe(123)
-  })
+    ).toBe(123);
+  });
 
-  it('preserves previous timestamp when SHA is unchanged and incoming timestamp is missing', () => {
+  it("preserves previous timestamp when SHA is unchanged and incoming timestamp is missing", () => {
     expect(
       resolveSyncedBranchLastCommitAt({
-        incomingHeadCommitSha: 'sha-stable',
+        incomingHeadCommitSha: "sha-stable",
         incomingLastCommitAt: undefined,
         existingBranch: {
-          headCommitSha: 'sha-stable',
+          headCommitSha: "sha-stable",
           lastCommitAt: 456,
         },
       }),
-    ).toBe(456)
-  })
+    ).toBe(456);
+  });
 
-  it('clears timestamp when SHA changed and incoming timestamp is missing', () => {
+  it("clears timestamp when SHA changed and incoming timestamp is missing", () => {
     expect(
       resolveSyncedBranchLastCommitAt({
-        incomingHeadCommitSha: 'sha-new',
+        incomingHeadCommitSha: "sha-new",
         incomingLastCommitAt: undefined,
         existingBranch: {
-          headCommitSha: 'sha-old',
+          headCommitSha: "sha-old",
           lastCommitAt: 456,
         },
       }),
-    ).toBeUndefined()
-  })
-})
+    ).toBeUndefined();
+  });
+});
 
-describe('resolveSyncedCloudflarePreviewMetadata', () => {
-  it('preserves cached preview fields when the latest parsed comment is partial', () => {
+describe("resolveSyncedCloudflarePreviewMetadata", () => {
+  it("preserves cached preview fields when the latest parsed comment is partial", () => {
     expect(
       resolveSyncedCloudflarePreviewMetadata({
         existing: {
-          cloudflareBranchPreviewUrl: 'https://branch.pages.dev/',
-          cloudflarePreviewUrl: 'https://sha.pages.dev/',
-          cloudflarePreviewCommitSha: 'sha-old',
-          cloudflarePreviewStatus: '✅ Deploy successful!',
-          cloudflarePreviewLogsUrl: 'https://dash.cloudflare.com/logs',
+          cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
+          cloudflarePreviewUrl: "https://sha.pages.dev/",
+          cloudflarePreviewCommitSha: "sha-old",
+          cloudflarePreviewStatus: "✅ Deploy successful!",
+          cloudflarePreviewLogsUrl: "https://dash.cloudflare.com/logs",
           cloudflarePreviewCommentCreatedAt: 123,
         },
         incoming: {
-          previewState: 'resolved',
-          cloudflarePreviewCommitSha: 'sha-new',
-          cloudflarePreviewStatus: '⏳ Building',
+          previewState: "resolved",
+          cloudflarePreviewCommitSha: "sha-new",
+          cloudflarePreviewStatus: "⏳ Building",
         },
       }),
     ).toEqual({
-      cloudflareBranchPreviewUrl: 'https://branch.pages.dev/',
-      cloudflarePreviewUrl: 'https://sha.pages.dev/',
-      cloudflarePreviewCommitSha: 'sha-new',
-      cloudflarePreviewStatus: '⏳ Building',
-      cloudflarePreviewLogsUrl: 'https://dash.cloudflare.com/logs',
+      cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
+      cloudflarePreviewUrl: "https://sha.pages.dev/",
+      cloudflarePreviewCommitSha: "sha-new",
+      cloudflarePreviewStatus: "⏳ Building",
+      cloudflarePreviewLogsUrl: "https://dash.cloudflare.com/logs",
       cloudflarePreviewCommentCreatedAt: 123,
-    })
-  })
+    });
+  });
 
-  it('clears cached preview fields when GitHub resolved to no preview comment', () => {
+  it("clears cached preview fields when GitHub resolved to no preview comment", () => {
     expect(
       resolveSyncedCloudflarePreviewMetadata({
         existing: {
-          cloudflareBranchPreviewUrl: 'https://branch.pages.dev/',
-          cloudflarePreviewUrl: 'https://sha.pages.dev/',
-          cloudflarePreviewCommitSha: 'sha-old',
-          cloudflarePreviewStatus: '✅ Deploy successful!',
-          cloudflarePreviewLogsUrl: 'https://dash.cloudflare.com/logs',
+          cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
+          cloudflarePreviewUrl: "https://sha.pages.dev/",
+          cloudflarePreviewCommitSha: "sha-old",
+          cloudflarePreviewStatus: "✅ Deploy successful!",
+          cloudflarePreviewLogsUrl: "https://dash.cloudflare.com/logs",
           cloudflarePreviewCommentCreatedAt: 123,
         },
         incoming: {
-          previewState: 'clear',
+          previewState: "clear",
         },
       }),
     ).toEqual({
@@ -192,104 +192,104 @@ describe('resolveSyncedCloudflarePreviewMetadata', () => {
       cloudflarePreviewStatus: undefined,
       cloudflarePreviewLogsUrl: undefined,
       cloudflarePreviewCommentCreatedAt: undefined,
-    })
-  })
-})
+    });
+  });
+});
 
-describe('hasBranchStagingChanges', () => {
-  it('treats unchanged staging records as clean', () => {
+describe("hasBranchStagingChanges", () => {
+  it("treats unchanged staging records as clean", () => {
     expect(
       hasBranchStagingChanges({
         fileDeleted: false,
-        parentCommitSha: 'sha-1',
-        filePath: 'src/app.ts',
-        initialFilePath: 'src/app.ts',
-        content: 'same',
-        initialContent: 'same',
+        parentCommitSha: "sha-1",
+        filePath: "src/app.ts",
+        initialFilePath: "src/app.ts",
+        content: "same",
+        initialContent: "same",
       }),
-    ).toBe(false)
-  })
+    ).toBe(false);
+  });
 
-  it('treats new files as uncommitted branch work', () => {
+  it("treats new files as uncommitted branch work", () => {
     expect(
       hasBranchStagingChanges({
         fileDeleted: false,
         parentCommitSha: null,
-        filePath: 'src/new.ts',
-        initialFilePath: 'src/new.ts',
-        content: '',
-        initialContent: '',
+        filePath: "src/new.ts",
+        initialFilePath: "src/new.ts",
+        content: "",
+        initialContent: "",
       }),
-    ).toBe(true)
-  })
+    ).toBe(true);
+  });
 
-  it('treats deleted files as uncommitted branch work', () => {
+  it("treats deleted files as uncommitted branch work", () => {
     expect(
       hasBranchStagingChanges({
         fileDeleted: true,
-        parentCommitSha: 'sha-1',
-        filePath: 'src/app.ts',
-        initialFilePath: 'src/app.ts',
-        content: 'same',
-        initialContent: 'same',
+        parentCommitSha: "sha-1",
+        filePath: "src/app.ts",
+        initialFilePath: "src/app.ts",
+        content: "same",
+        initialContent: "same",
       }),
-    ).toBe(true)
-  })
+    ).toBe(true);
+  });
 
-  it('treats modified files as uncommitted branch work', () => {
+  it("treats modified files as uncommitted branch work", () => {
     expect(
       hasBranchStagingChanges({
         fileDeleted: false,
-        parentCommitSha: 'sha-1',
-        filePath: 'src/app.ts',
-        initialFilePath: 'src/app.ts',
-        content: 'updated',
-        initialContent: 'same',
+        parentCommitSha: "sha-1",
+        filePath: "src/app.ts",
+        initialFilePath: "src/app.ts",
+        content: "updated",
+        initialContent: "same",
       }),
-    ).toBe(true)
-  })
+    ).toBe(true);
+  });
 
-  it('treats renamed files as uncommitted branch work', () => {
+  it("treats renamed files as uncommitted branch work", () => {
     expect(
       hasBranchStagingChanges({
         fileDeleted: false,
-        parentCommitSha: 'sha-1',
-        filePath: 'src/renamed.ts',
-        initialFilePath: 'src/app.ts',
-        content: 'same',
-        initialContent: 'same',
+        parentCommitSha: "sha-1",
+        filePath: "src/renamed.ts",
+        initialFilePath: "src/app.ts",
+        content: "same",
+        initialContent: "same",
       }),
-    ).toBe(true)
-  })
+    ).toBe(true);
+  });
 
-  it('treats create-then-delete tombstones as clean', () => {
+  it("treats create-then-delete tombstones as clean", () => {
     expect(
       hasBranchStagingChanges({
         fileDeleted: true,
         parentCommitSha: null,
-        filePath: 'src/tmp.ts',
-        initialFilePath: 'src/tmp.ts',
-        content: 'temp',
-        initialContent: '',
+        filePath: "src/tmp.ts",
+        initialFilePath: "src/tmp.ts",
+        content: "temp",
+        initialContent: "",
       }),
-    ).toBe(false)
-  })
-})
+    ).toBe(false);
+  });
+});
 
-describe('selectDeletedUpstreamBranchesToAutoPrune', () => {
-  it('selects only deleted-upstream branches without staged changes', () => {
+describe("selectDeletedUpstreamBranchesToAutoPrune", () => {
+  it("selects only deleted-upstream branches without staged changes", () => {
     expect(
       selectDeletedUpstreamBranchesToAutoPrune({
         branches: [
-          { name: 'main', remoteState: 'active' },
-          { name: 'feature/merged', remoteState: 'deleted_upstream' },
-          { name: 'feature/local-work', remoteState: 'deleted_upstream' },
+          { name: "main", remoteState: "active" },
+          { name: "feature/merged", remoteState: "deleted_upstream" },
+          { name: "feature/local-work", remoteState: "deleted_upstream" },
         ],
         branchHasStagedChanges: new Map([
-          ['feature/merged', false],
-          ['feature/local-work', true],
+          ["feature/merged", false],
+          ["feature/local-work", true],
         ]),
       }),
-    ).toEqual(['feature/merged'])
-  })
-})
+    ).toEqual(["feature/merged"]);
+  });
+});
