@@ -473,7 +473,7 @@ export const checkAgentHealth = action({
         uptime: data.uptime,
         timestamp: data.timestamp,
       };
-    } catch (error) {
+    } catch {
       // Update health status in database
       await ctx.runMutation(internal.codespacesMutations.updateAgentHealth, {
         codespaceId: args.codespaceId,

@@ -1280,7 +1280,7 @@ async function resolveVerifiedDaytonaCodexAuthSandbox(args: {
   try {
     await verifyCodexBinaryInSandbox({ sandbox: authSandbox.sandbox });
     return authSandbox;
-  } catch (error) {
+  } catch {
     try {
       await authSandbox.sandbox.delete();
     } catch (deleteError) {
