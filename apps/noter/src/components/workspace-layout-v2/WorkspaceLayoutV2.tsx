@@ -1045,7 +1045,7 @@ export function WorkspaceLayoutV2({
       data-testid={dataTestId}
       data-mobile-pane={isMobile ? mobilePane : undefined}
       data-workspace-layout-v2={isMobile ? "mobile" : "desktop"}
-      className="relative flex h-full min-h-0 flex-1 overflow-hidden bg-background"
+      className="relative flex min-h-0 flex-1 overflow-hidden bg-background"
     >
       {isMobile ? (
         <WorkspaceLayoutV2MobileViewport

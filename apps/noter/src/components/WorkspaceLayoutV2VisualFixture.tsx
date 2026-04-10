@@ -1,12 +1,13 @@
 import { PanelLeft } from "lucide-react";
+import { AppPageFrame } from "@/components/AppPageFrame";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
 import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { WorkspaceLayoutV2PaneFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
-import { WorkspaceLayoutV2PageFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PageFrame";
 import { WorkspaceLayoutV2TopBar } from "@/components/workspace-layout-v2/WorkspaceLayoutV2TopBar";
 import { WorkspaceLayoutV2 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
+import { WorkspaceLayoutV2ViewportFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2ViewportFrame";
 import { useSidebar } from "@/hooks/use-sidebar";
 
 export type WorkspaceLayoutV2VisualMode =
@@ -273,7 +274,7 @@ function FixtureRightPane() {
 function renderWorkspaceLayoutV2PaneFixture() {
   return (
     <SidebarProvider
-      className="h-full min-h-0"
+      className="flex-1 h-full min-h-0"
       defaultOpen={true}
       defaultLeftDesktopWidthPx={320}
       defaultLeftMobileWidthPx={320}
@@ -311,7 +312,7 @@ export function WorkspaceLayoutV2VisualFixture({
   mode: WorkspaceLayoutV2VisualMode;
 }) {
   return (
-    <WorkspaceLayoutV2PageFrame
+    <AppPageFrame
       dataTestId="workspace-layout-v2-visual-fixture"
       topBar={
         mode === "workspace-layout-v2-status-bar" ? (
@@ -319,7 +320,9 @@ export function WorkspaceLayoutV2VisualFixture({
         ) : null
       }
     >
-      {renderWorkspaceLayoutV2PaneFixture()}
-    </WorkspaceLayoutV2PageFrame>
+      <WorkspaceLayoutV2ViewportFrame>
+        {renderWorkspaceLayoutV2PaneFixture()}
+      </WorkspaceLayoutV2ViewportFrame>
+    </AppPageFrame>
   );
 }

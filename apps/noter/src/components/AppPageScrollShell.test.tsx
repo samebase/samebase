@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { AppPageScrollShell } from "./AppPageScrollShell";
 
 describe("AppPageScrollShell", () => {
-  it("renders a full-height scroll container for routes that need scrolling", () => {
+  it("renders a full-height inner scroll container when a route needs one", () => {
     const markup = renderToStaticMarkup(
       <AppPageScrollShell>
         <div>scroll target</div>

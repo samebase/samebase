@@ -4,9 +4,8 @@ import { cn } from "@/lib/utils";
 type AppPageScrollShellProps = ComponentPropsWithoutRef<"div">;
 
 /**
- * The shared app layout keeps its main region overflow-hidden for full-screen
- * workspace surfaces, so public routes that need natural page scrolling must
- * opt into their own scroll container.
+ * Shared inner scroll surface for routes that intentionally keep scroll inside
+ * the route body instead of the browser document.
  */
 export const AppPageScrollShell = forwardRef<
   HTMLDivElement,
