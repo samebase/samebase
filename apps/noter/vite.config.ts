@@ -5,6 +5,7 @@ import path from "path";
 import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { fileURLToPath } from "node:url";
 import { formatWithOxfmt } from "../../scripts/format-with-oxfmt.js";
 import { readPackageVersion } from "../../scripts/readPackageVersion.js";
 import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
@@ -23,7 +24,8 @@ import {
 import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
 import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearchBridge";
 
-const gitRoot = path.resolve(__dirname, "..", "..");
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const gitRoot = path.resolve(currentDir, "..", "..");
 const DAYTONA_CONVEX_PROXY_PATH = "/__noter_daytona_convex";
 const devPortRaw = process.env.NOTER_DEV_PORT?.trim();
 const devPort = devPortRaw ? Number(devPortRaw) : undefined;
@@ -101,7 +103,7 @@ const appCommitNumber = resolveAppCommitNumber({
 
 const appRepoUrl = "https://github.com/noter-md/noter";
 const daytonaSdkVersion = readPackageVersion("@daytonaio/sdk", import.meta.url);
-const daytonaLocalEnvPath = path.resolve(__dirname, ".env.local");
+const daytonaLocalEnvPath = path.resolve(currentDir, ".env.local");
 const daytonaConvexProxyTarget = resolveDaytonaConvexProxyTarget({
   devOrigin: process.env.DEV_ENV_ORIGIN,
   envProxyTarget: process.env.NOTER_DAYTONA_BROWSER_CONVEX_PROXY_TARGET,
@@ -112,36 +114,36 @@ const daytonaConvexProxyPath = daytonaConvexProxyTarget
   : null;
 const shouldIncludeVisualFixture = process.env.PLAYWRIGHT === "1";
 const staticLogoSvgAssetPath = path.resolve(
-  __dirname,
+  currentDir,
   "public/logo-static.svg",
 );
 const staticInstallIconSvgAssetPath = path.resolve(
-  __dirname,
+  currentDir,
   "public/install-icon.svg",
 );
 const noterSyncPackageScriptPath = path.resolve(
   gitRoot,
   "packages/sync/noter.js",
 );
-const staticNoterSyncScriptPath = path.resolve(__dirname, "public/noter.js");
+const staticNoterSyncScriptPath = path.resolve(currentDir, "public/noter.js");
 const noterConnectConfigPathname = "/noter-connect.json";
 const runtimeNoterConnectConfigPath = path.resolve(
-  __dirname,
+  currentDir,
   `dist${noterConnectConfigPathname}`,
 );
 const privacyPolicyMarkdownPath = path.resolve(
-  __dirname,
+  currentDir,
   "src/content/privacy-policy.md",
 );
 const termsOfServiceMarkdownPath = path.resolve(
-  __dirname,
+  currentDir,
   "src/content/terms-of-service.md",
 );
 const staticPrivacyHtmlPath = path.resolve(
-  __dirname,
+  currentDir,
   "public/privacy/index.html",
 );
-const staticTermsHtmlPath = path.resolve(__dirname, "public/terms/index.html");
+const staticTermsHtmlPath = path.resolve(currentDir, "public/terms/index.html");
 
 function isLoopbackHostname(hostname: string): boolean {
   return (
@@ -478,7 +480,7 @@ function syncStaticNoterSyncScriptAssetPlugin() {
       );
     },
     async closeBundle() {
-      const builtScriptPath = path.resolve(__dirname, "dist/noter.js");
+      const builtScriptPath = path.resolve(currentDir, "dist/noter.js");
       const runtimeScript = await buildRuntimeNoterSyncScript();
       mkdirSync(path.dirname(builtScriptPath), { recursive: true });
       writeFileSync(builtScriptPath, runtimeScript, "utf8");
@@ -644,7 +646,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(currentDir, "./src"),
     },
   },
   esbuild: {
@@ -654,10 +656,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        app: path.resolve(__dirname, "index.html"),
+        app: path.resolve(currentDir, "index.html"),
         ...(shouldIncludeVisualFixture
           ? {
-              visualFixture: path.resolve(__dirname, "visual-fixture.html"),
+              visualFixture: path.resolve(currentDir, "visual-fixture.html"),
             }
           : {}),
       },

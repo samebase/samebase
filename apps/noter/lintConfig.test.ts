@@ -64,7 +64,9 @@ describe("lint config", () => {
 
     expect(oxlintConfig.options).toMatchObject({ typeAware: true });
     expect(oxlintConfig.ignorePatterns).toContain("**/.codespace-agent/**");
-    expect(appWideOverride?.rules?.["@typescript-eslint/no-explicit-any"]).toBeUndefined();
+    expect(
+      appWideOverride?.rules?.["@typescript-eslint/no-explicit-any"],
+    ).toBeUndefined();
     expect(oxlintConfig.jsPlugins).toEqual(
       expect.arrayContaining([
         {
@@ -98,7 +100,9 @@ describe("lint config", () => {
       scripts?: Record<string, string>;
       devDependencies?: Record<string, string>;
     };
-    const starterPackage = readJson("apps/noter-starter-template/package.json") as {
+    const starterPackage = readJson(
+      "apps/noter-starter-template/package.json",
+    ) as {
       scripts?: Record<string, string>;
       devDependencies?: Record<string, string>;
     };
@@ -112,13 +116,17 @@ describe("lint config", () => {
     });
     expect(rootPackage.scripts?.["lint:scripts"]).toContain("pnpm exec oxlint");
     expect(appPackage.scripts?.lint).toContain("pnpm run lint:oxlint");
-    expect(appPackage.scripts?.["lint:oxlint"]).toContain("pnpm exec oxlint");
-    expect(starterPackage.scripts?.lint).toContain("pnpm exec oxlint");
+    expect(appPackage.scripts?.["lint:oxlint"]).toContain("exec oxlint");
+    expect(starterPackage.scripts?.lint).toContain("exec oxlint");
     expect(appPackage.scripts?.lint).not.toContain("eslint");
     expect(starterPackage.scripts?.lint).not.toContain("eslint");
     expect(appPackage.devDependencies?.eslint).toBeUndefined();
-    expect(appPackage.devDependencies?.["@typescript-eslint/parser"]).toBeUndefined();
+    expect(
+      appPackage.devDependencies?.["@typescript-eslint/parser"],
+    ).toBeUndefined();
     expect(starterPackage.devDependencies?.eslint).toBeUndefined();
-    expect(starterPackage.devDependencies?.["@typescript-eslint/parser"]).toBeUndefined();
+    expect(
+      starterPackage.devDependencies?.["@typescript-eslint/parser"],
+    ).toBeUndefined();
   });
 });

@@ -1,6 +1,9 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vite-plus";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
 function readBooleanEnv(value: string | undefined): boolean | undefined {
   if (!value) {
@@ -36,11 +39,18 @@ const serverConfig = (() => {
 })();
 
 export default defineConfig({
+  fmt: {
+    printWidth: 80,
+    proseWrap: "always",
+  },
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(currentDir, "./src"),
     },
   },
   server: serverConfig,
+  test: {
+    passWithNoTests: true,
+  },
 });

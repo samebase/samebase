@@ -62,7 +62,7 @@ export function buildPrimaryDevEnvironment(env = process.env) {
  * @returns {string[]}
  */
 export function buildPrimaryDevArgs(args) {
-  return ["exec", "turbo", "run", "dev", "--filter=noter", ...args];
+  return ["exec", "vp", "run", "--filter=noter", "dev", ...args];
 }
 
 function isMainModule() {

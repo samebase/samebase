@@ -380,7 +380,7 @@ describe("useProsemarkMobilePaneDrag", () => {
 
   it("keeps legacy touch continuation alive until pointer drag actually moves the shell", () => {
     const dragMobileShellBy = vi
-      .fn<Parameters<(deltaX: number) => boolean>, boolean>()
+      .fn<(deltaX: number) => boolean>()
       .mockReturnValueOnce(false)
       .mockReturnValueOnce(true);
     const settleMobileShell = vi.fn();

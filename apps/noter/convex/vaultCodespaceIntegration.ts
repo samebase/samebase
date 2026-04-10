@@ -325,10 +325,7 @@ function generateDevcontainerConfig(): string {
     },
     customizations: {
       vscode: {
-        extensions: [
-          "oxc.oxc-vscode",
-          "bradlc.vscode-tailwindcss",
-        ],
+        extensions: ["oxc.oxc-vscode", "bradlc.vscode-tailwindcss"],
         settings: {
           "oxc.fmt.configPath": ".oxfmtrc.json",
           "editor.formatOnSave": true,

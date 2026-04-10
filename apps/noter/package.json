@@ -12,15 +12,15 @@
     "verify:install-icon-assets": "npm run generate:install-icon-assets && git diff --exit-code -- public/install-icon.svg public/apple-touch-icon.png public/icon-192.png public/icon-512.png public/icon-maskable-192.png public/icon-maskable-512.png",
     "predev": "node predev.js",
     "typecheck": "convex codegen && tsc --noEmit",
-    "build": "convex codegen && tsc && vite build",
-    "build:ci": "tsc && vite build",
-    "build:vercel": "vite build",
+    "build": "convex codegen && tsc && vp build",
+    "build:ci": "tsc && vp build",
+    "build:vercel": "vp build",
     "lint": "convex codegen && tsc --noEmit && pnpm run lint:oxlint",
     "lint:ci": "tsc --noEmit && pnpm run lint:oxlint",
-    "lint:oxlint": "cd ../.. && NODE_OPTIONS=--max-old-space-size=4096 pnpm exec oxlint --config .oxlintrc.json --report-unused-disable-directives apps/noter",
+    "lint:oxlint": "NODE_OPTIONS=--max-old-space-size=4096 pnpm --dir ../.. exec oxlint --config .oxlintrc.json --report-unused-disable-directives apps/noter",
     "test:visual": "playwright test -c playwright.config.ts",
     "test:live": "playwright test -c playwright.live.config.ts",
-    "preview": "vite preview"
+    "preview": "vp preview"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.66",
@@ -104,7 +104,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.183.1",
-    "@vitejs/plugin-react": "^4.3.1",
+    "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.19",
     "dotenv": "^16.4.5",
     "jsdom": "^29.0.1",
@@ -114,6 +114,7 @@
     "postcss": "^8.4.39",
     "tailwindcss": "^3.4.4",
     "typescript": "5.9.2",
-    "vite": "^5.3.1"
+    "vite": "^8.0.8",
+    "vite-plus": "0.1.16"
   }
 }

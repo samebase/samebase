@@ -6,15 +6,15 @@
   "type": "module",
   "scripts": {
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
-    "dev:frontend": "vite",
+    "dev:frontend": "vp dev",
     "dev:backend": "convex dev",
-    "build": "vite build",
-    "build:frontend": "vite build",
+    "build": "vp build",
+    "build:frontend": "vp build",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "preview": "vite preview",
-    "lint": "tsc --noEmit && cd ../.. && NODE_OPTIONS=--max-old-space-size=4096 pnpm exec oxlint --config .oxlintrc.json --report-unused-disable-directives apps/noter-starter-template",
-    "test": "vitest run --passWithNoTests",
+    "preview": "vp preview",
+    "lint": "tsc --noEmit && NODE_OPTIONS=--max-old-space-size=4096 pnpm --dir ../.. exec oxlint --config .oxlintrc.json --report-unused-disable-directives apps/noter-starter-template",
+    "test": "vp test run --passWithNoTests",
     "prepare": "husky",
     "template:sync-codespace": "node scripts/sync-codespace-assets.mjs",
     "template:export": "node scripts/export-template-manifest.mjs"
@@ -35,7 +35,7 @@
     "@playwright/cli": "^0.1.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.0.0",
+    "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.20",
     "husky": "^9.1.7",
     "oxfmt": "0.44.0",
@@ -43,8 +43,9 @@
     "tailwindcss": "^3.4.14",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "5.9.2",
-    "vite": "^6.0.0",
-    "vitest": "^1.0.0"
+    "vite": "^8.0.8",
+    "vite-plus": "0.1.16",
+    "vitest": "^4.1.4"
   },
   "packageManager": "pnpm@9.15.0"
 }
