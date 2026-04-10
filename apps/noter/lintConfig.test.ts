@@ -14,7 +14,7 @@ function readJson(relativePath: string) {
   ) as Record<string, unknown>;
 }
 
-function readOxlintConfig() {
+function readRootLintConfig() {
   return readJson(".oxlintrc.json") as {
     options?: Record<string, unknown>;
     ignorePatterns?: string[];
@@ -33,7 +33,7 @@ describe("lint config", () => {
     const plugin = requireFromRepoRoot("eslint-plugin-noter-local") as {
       rules?: Record<string, unknown>;
     };
-    const oxlintConfig = readOxlintConfig();
+    const oxlintConfig = readRootLintConfig();
     const sourceOverride = oxlintConfig.overrides?.find(
       (override) =>
         override.files?.includes("apps/noter/src/**/*.{ts,tsx}") ?? false,
@@ -57,7 +57,7 @@ describe("lint config", () => {
   });
 
   it("keeps type-aware and react-refresh coverage in the primary Oxlint config", () => {
-    const oxlintConfig = readOxlintConfig();
+    const oxlintConfig = readRootLintConfig();
 
     expect(oxlintConfig.options).toMatchObject({ typeAware: true });
     expect(oxlintConfig.ignorePatterns).toContain("**/.codespace-agent/**");

@@ -11,7 +11,7 @@
   - `tsconfig.scripts.json`
   - `apps/noter/package.json`
   - `apps/noter/tsconfig.json`
-  - `apps/noter/eslintConfig.test.ts`
+  - `apps/noter/lintConfig.test.ts`
   - `apps/noter-starter-template/package.json`
   - `apps/noter-starter-template/tsconfig.app.json`
   - `eslint-rules/index.js`
@@ -255,7 +255,14 @@ When a rule cannot move cleanly, this document must record:
 
 - Problem: the integrated migration needed a clear acceptance bar. Tried: ran
   focused config tests plus the repo lint entrypoints. Result:
-  `pnpm exec vitest run apps/noter/eslintConfig.test.ts`, `pnpm lint:scripts`,
+  `pnpm exec vitest run apps/noter/lintConfig.test.ts`, `pnpm lint:scripts`,
   and `pnpm lint` now pass. Remaining output is warning-only, led by existing
   `consistent-type-assertions` warnings that were already accepted as warning
   severity in the old ESLint contract.
+
+- Problem: even after the lint flow switched, repo-facing docs and templates
+  still mentioned ESLint in a few current surfaces. Tried: audited repo-wide
+  `eslint` references and separated historical migration notes from active docs,
+  devcontainers, tool allowlists, and starter-template exports. Result: the
+  accepted cleanup updates current-facing docs and template surfaces while
+  leaving historical spec and research references intact.

@@ -326,7 +326,6 @@ function generateDevcontainerConfig(): string {
     customizations: {
       vscode: {
         extensions: [
-          "dbaeumer.vscode-eslint",
           "oxc.oxc-vscode",
           "bradlc.vscode-tailwindcss",
         ],
