@@ -149,6 +149,14 @@ Key domain entities:
   when a current shipped use case proves it is necessary.
 - For app-owned layout shells, every utility class should protect a current
   invariant. If you cannot name the invariant a class preserves, leave it out.
+- Browser-owned page scroll is the default for route surfaces. Do not use
+  route-level `h-screen`, `h-dvh`, `overflow-hidden`, or full-page
+  `overflow-y-auto` shells under shared app chrome unless the route truly needs
+  contained pane behavior.
+- When a route needs to fill the space below shared chrome, use route-body flex
+  sizing such as `flex min-h-0 flex-1 flex-col`, and place any intentional local
+  scroller lower in the tree so browser pull-to-refresh and edge-swipe gestures
+  keep working.
 - Temporary ProseMark workaround: when authoring a Markdown link whose label
   would exactly equal its URL, prefix the label with `link` plus a leading space
   so the rendered link stays visible until that ProseMark bug is fixed.
