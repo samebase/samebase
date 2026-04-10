@@ -15,16 +15,4 @@ describe("AppPageScrollShell", () => {
       `"<div class="flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto"><div>scroll target</div></div>"`,
     );
   });
-
-  it("can defer scrolling to the browser document for public routes", () => {
-    const markup = renderToStaticMarkup(
-      <AppPageScrollShell scrollMode="document">
-        <div>scroll target</div>
-      </AppPageScrollShell>,
-    );
-
-    expect(markup).toMatchInlineSnapshot(
-      `"<div class="flex flex-1 flex-col"><div>scroll target</div></div>"`,
-    );
-  });
 });

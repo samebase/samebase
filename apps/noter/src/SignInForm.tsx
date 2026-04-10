@@ -1,5 +1,4 @@
 import { setAuthProvider } from "@/authClient";
-import { AppPageScrollShell } from "@/components/AppPageScrollShell";
 import { LandingCopy } from "@/components/LandingCopy";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
@@ -52,9 +51,9 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
     useState(landingPageMarkdown);
 
   return (
-    <AppPageScrollShell
+    <div
       data-testid={PUBLIC_LANDING_SCROLL_SHELL_TEST_ID}
-      scrollMode="document"
+      className="flex min-h-0 flex-1 flex-col"
     >
       <div className="container my-auto">
         <div
@@ -89,7 +88,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
           <WaitlistForm />
         </div>
       </div>
-    </AppPageScrollShell>
+    </div>
   );
 }
 

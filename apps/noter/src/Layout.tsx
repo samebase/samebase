@@ -5,8 +5,8 @@ import {
 import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import { ReactNode, useEffect, type MouseEvent } from "react";
 import { useConvexAuth } from "convex/react";
+import { AppPageFrame } from "@/components/AppPageFrame";
 import { AppBuildStatusBar } from "@/components/AppBuildStatusBar";
-import { WorkspaceLayoutV2PageFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PageFrame";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -32,7 +32,6 @@ export function Layout({ children }: { children: ReactNode }) {
     location.pathname !== "/privacy";
   const showPublicNavigation =
     !isLoading && !isAuthenticated && location.pathname !== "/";
-  const allowDocumentScroll = !isAuthenticated;
   const landingDevToggleSearch = buildLandingDevToggleSearch(rootRouteSearch);
   const landingDevToggleHref = router.buildLocation({
     to: "/",
@@ -73,8 +72,7 @@ export function Layout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <WorkspaceLayoutV2PageFrame
-      allowDocumentScroll={allowDocumentScroll}
+    <AppPageFrame
       topBar={
         <AppBuildStatusBar
           appCommit={appCommit}
@@ -89,15 +87,7 @@ export function Layout({ children }: { children: ReactNode }) {
         />
       }
     >
-      <main
-        className={
-          allowDocumentScroll
-            ? "flex flex-1 flex-col"
-            : "flex h-full flex-col overflow-hidden"
-        }
-      >
-        {children}
-      </main>
-    </WorkspaceLayoutV2PageFrame>
+      <main className="flex min-h-0 flex-1 flex-col">{children}</main>
+    </AppPageFrame>
   );
 }
