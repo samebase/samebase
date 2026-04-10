@@ -19,18 +19,9 @@ import {
 } from "./connectedMachineModel";
 import { workspaceSidebarStateRowValidator } from "./workspaceSidebarStateModel";
 
-// Helper function to omit keys from an object
-function omit<T extends Record<string, any>, K extends keyof T>(
-  obj: T,
-  keys: K[],
-): Omit<T, K> {
-  return Object.fromEntries(
-    Object.entries(obj).filter(([key]) => !keys.includes(key as K)),
-  ) as Omit<T, K>;
-}
-
 const { array, boolean, id, literal, number, object, optional, string, union } =
   v;
+const { users: _authUsers, ...authTablesWithoutUsers } = authTables;
 
 const BillingProvider = optional(literal("polar"));
 const BillingPlan = optional(union(literal("free"), literal("pro")));
@@ -298,7 +289,7 @@ export type ProviderConnection = Infer<typeof ProviderConnection>;
 // requires indexes defined on `authTables`.
 // The schema provides more precise TypeScript types.
 export default defineSchema({
-  ...omit(authTables, ["users"]),
+  ...authTablesWithoutUsers,
 
   /**
    * Users.

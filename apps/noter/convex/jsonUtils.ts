@@ -64,9 +64,51 @@ export function clamp(num: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, num));
 }
 
-export function toErrorMessage(error: unknown): string {
+const SAFE_ERROR_MESSAGE_KEYS = [
+  "message",
+  "error",
+  "detail",
+  "statusText",
+  "title",
+] as const;
+
+/**
+ * Formats unknown thrown values without serializing arbitrary object payloads.
+ */
+export function toErrorMessage(
+  error: unknown,
+  fallback = "Unknown error",
+): string {
   if (error instanceof Error) {
-    return error.message;
+    return error.message.length > 0 ? error.message : fallback;
   }
-  return String(error);
+  if (typeof error === "string") {
+    return error.length > 0 ? error : fallback;
+  }
+  if (
+    typeof error === "number" ||
+    typeof error === "boolean" ||
+    typeof error === "bigint"
+  ) {
+    return String(error);
+  }
+  if (error === undefined) {
+    return fallback;
+  }
+  if (error === null) {
+    return "null";
+  }
+
+  if (!isRecord(error)) {
+    return fallback;
+  }
+
+  for (const key of SAFE_ERROR_MESSAGE_KEYS) {
+    const value = readString(error, key);
+    if (typeof value === "string" && value.length > 0) {
+      return value;
+    }
+  }
+
+  return fallback;
 }

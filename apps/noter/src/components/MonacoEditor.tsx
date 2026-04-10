@@ -11,7 +11,7 @@ import {
 import { client } from "@/lib/convexClient";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { type GithubTreeType } from "convex/schema";
+import { type GithubTreeType } from "../../convex/schema";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import {
   setupEditorATA,

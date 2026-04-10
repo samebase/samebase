@@ -6,7 +6,7 @@ import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { guessMime, withRetry } from "./gitOperationsActions";
-import { isRecord } from "./jsonUtils";
+import { isRecord, toErrorMessage } from "./jsonUtils";
 import {
   parseCloudflarePreviewComment,
   type CloudflarePreviewCommentMetadata,
@@ -1126,7 +1126,7 @@ async function getCloudflarePreviewLinksByBranch(args: {
               error:
                 error instanceof Error
                   ? error.message
-                  : String(error ?? "unknown"),
+                  : toErrorMessage(error, "unknown"),
             }),
           );
           return {
@@ -1277,7 +1277,7 @@ async function getAheadBehindByBranch(args: {
               error:
                 error instanceof Error
                   ? error.message
-                  : String(error ?? "unknown"),
+                  : toErrorMessage(error, "unknown"),
             }),
           );
           return {
@@ -1545,8 +1545,7 @@ async function getOpenPullRequestsByBranch(args: {
       JSON.stringify({
         owner: args.owner,
         repo: args.repo,
-        error:
-          error instanceof Error ? error.message : String(error ?? "unknown"),
+        error: toErrorMessage(error, "unknown"),
       }),
     );
     return {
