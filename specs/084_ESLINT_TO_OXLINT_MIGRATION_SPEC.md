@@ -6,8 +6,6 @@
 - Owner: Noter linting/tooling
 - Last updated: 2026-04-10
 - Depends on:
-  - `.eslintrc.type-aware.cjs`
-  - `.eslintrc.cjs`
   - `.oxlintrc.json`
   - `package.json`
   - `tsconfig.scripts.json`
@@ -15,26 +13,29 @@
   - `apps/noter/tsconfig.json`
   - `apps/noter/eslintConfig.test.ts`
   - `apps/noter-starter-template/package.json`
+  - `apps/noter-starter-template/tsconfig.app.json`
   - `eslint-rules/index.js`
   - `eslint-rules/use-query-param-helpers.js`
 
 ## Summary
 
-Noter should migrate from ESLint-first linting to Oxlint-first linting before
-the repo takes on a Vite-plus migration.
+Noter should standardize on Oxlint before the repo takes on a Vite-plus
+migration.
 
-This migration is accepted as a phased rollout, not a flag day.
+This migration is accepted as a simplification pass, not a 100%-compatibility
+exercise.
 
-The first accepted target is:
+The accepted target is:
 
 - Oxlint becomes the primary lint runner for repo JavaScript and TypeScript
-  surfaces that it can cover today.
+  surfaces.
 - The local `use-query-param-helpers` rule stays enforced.
 - Convex-specific lint rules stay enforced.
 - Type-aware lint coverage that depends on TypeScript semantic analysis stays as
-  close as possible to current behavior.
-- Real migration blockers and partial workarounds are recorded here as the
-  source of truth instead of being left in chat.
+  close as possible to current behavior without preserving deprecated tsconfig
+  behavior.
+- Real migration blockers, simplifications, and accepted behavior changes are
+  recorded here as the source of truth instead of being left in chat.
 
 This document should be updated during the migration whenever a new rule gap,
 tooling incompatibility, or rollout decision appears.
@@ -44,41 +45,46 @@ tooling incompatibility, or rollout decision appears.
 1. Make Oxlint the primary lint entrypoint for Noter.
 2. Preserve the repo-local query-param helper rule.
 3. Preserve Convex-specific lint coverage.
-4. Keep TypeScript-aware lint coverage for the current high-signal rules, even
-   if a temporary fallback is required.
-5. Reduce the amount of ESLint-only configuration over time instead of carrying
-   two full lint stacks indefinitely.
+4. Keep TypeScript-aware lint coverage for the current high-signal rules inside
+   the Oxlint config.
+5. Remove repo lint entrypoints that still depend on the ESLint CLI when Oxlint
+   can carry the accepted contract directly.
 6. Keep a running migration log with concrete issues, attempted fixes, and
    outcomes.
 
 ## Non-Goals
 
-1. Forcing the repo onto Oxlint type-aware mode everywhere in one patch.
-2. Deleting ESLint immediately if it still covers accepted gaps.
-3. Rewriting the app tsconfig structure just to satisfy a linter backend.
+1. Preserving deprecated `tsconfig` behavior just to satisfy legacy lint wiring.
+2. Chasing every last old ESLint warning before the repo can standardize.
+3. Rewriting the app tsconfig structure beyond what the TypeScript 6 guidance
+   already recommends.
 4. Expanding scope into formatter, router, or Vite-plus work in this spec.
 
 ## Current State
 
-- `.eslintrc.cjs` is the repo's active lint contract.
-- The config uses `plugin:@typescript-eslint/recommended-type-checked`, so the
-  current lint behavior is not syntax-only.
+- `.oxlintrc.json` is the repo's active lint contract.
+- The config enables Oxlint type-aware mode and carries the repo's explicit
+  semantic rule choices directly.
 - The repo adds one local plugin, `eslint-plugin-noter-local`, whose
   `use-query-param-helpers` rule prevents direct mutation of URL query params
   and hardcoded root query strings outside the helper layer in
   `apps/noter/src/lib/queryParams.ts`.
-- The repo also depends on `plugin:@convex-dev/recommended`, which currently
-  enforces Convex-specific rules such as
+- The repo also loads `@convex-dev/eslint-plugin` and
+  `eslint-plugin-react-refresh` through Oxlint's JS-plugin bridge.
+- Convex-specific rules such as
   `@convex-dev/no-old-registered-function-syntax` and
   `@convex-dev/no-args-without-validator` inside `**/convex/**/*.ts`.
-- The app/frontend lint entrypoints live in `apps/noter/package.json` and
-  `apps/noter-starter-template/package.json`.
-- Root `package.json` also runs an ESLint pass for `runtime/**/*.js` and
-  `scripts/**/*.js` using `tsconfig.scripts.json`.
-- The first migration slice moves `apps/noter` and repo-root script linting to
-  Oxlint-first flows, while `apps/noter-starter-template` remains on the old
-  ESLint path for now so this branch does not also take on starter-manifest
-  regeneration churn.
+- The app/frontend lint entrypoints in `apps/noter/package.json` and
+  `apps/noter-starter-template/package.json` now run Oxlint directly.
+- Root `package.json` also runs Oxlint for `runtime/**/*.js` and `scripts/**/*.js`
+  using `tsconfig.scripts.json`.
+- `baseUrl` has been removed from the app tsconfigs so the repo aligns with the
+  TypeScript 6 and TypeScript 7 direction instead of preserving deprecated
+  lookup-root behavior.
+- The app package keeps the old intended TypeScript-focused lint surface instead
+  of silently expanding into unrelated top-level JavaScript files just because
+  Oxlint traverses more files by default than the previous `eslint --ext ts,tsx`
+  command did.
 
 ## Accepted Migration Contract
 
@@ -115,8 +121,8 @@ as accepted coverage:
 - `@typescript-eslint/no-unsafe-return`
 - `@typescript-eslint/no-unnecessary-condition`
 
-If Oxlint cannot yet run these reliably for a repo surface, the migration may
-keep a narrow ESLint fallback for those rules only.
+These should live in `.oxlintrc.json` directly rather than through a parallel
+ESLint fallback.
 
 ### 4. Syntax-level rules should move first
 
@@ -144,7 +150,8 @@ When a rule cannot move cleanly, this document must record:
 ### 2026-04-10
 
 - Problem: the repo relies on one local ESLint plugin, so a naive Oxlint switch
-  would silently drop repo-specific behavior. Tried: inspected `.eslintrc.cjs`,
+  would silently drop repo-specific behavior. Tried: inspected the previous
+  ESLint config,
   `eslint-rules/index.js`, and `eslint-rules/use-query-param-helpers.js`, then
   verified Oxlint JS-plugin loading against the local rule implementation.
   Result: Oxlint can execute the local rule through `jsPlugins`, so the custom
@@ -157,25 +164,29 @@ When a rule cannot move cleanly, this document must record:
   2. do not hardcode root query URLs such as `/?foo=bar`; use
      `apps/noter/src/lib/queryParams.ts` helpers instead
 
-- Problem: the repo currently depends on TypeScript-aware ESLint coverage.
-  Tried: inventoried `.eslintrc.cjs` and separated the explicit semantic rules
-  from syntax-only rules. Result: `no-unsafe-*` and `no-unnecessary-condition`
-  are the main accepted semantic rules that need a deliberate migration path.
+- Problem: the repo previously depended on TypeScript-aware ESLint coverage.
+  Tried: inventoried the old ESLint config and separated the explicit semantic
+  rules from syntax-only rules. Result: `no-unnecessary-condition`,
+  `no-floating-promises`, `restrict-template-expressions`, and the related
+  semantic rules are the main accepted type-aware checks to keep during the
+  migration.
 
 - Problem: Oxlint type-aware mode is not available by default. Tried: ran
   `oxlint --type-aware` directly. Result: Oxlint currently requires the separate
   `oxlint-tsgolint` package for type-aware runs.
 
-- Problem: the app/frontend TypeScript config does not currently initialize
+- Problem: the app/frontend TypeScript config did not initially initialize
   Oxlint type-aware mode. Tried: ran Oxlint type-aware against
-  `apps/noter/tsconfig.json`. Result: the run fails on the app tsconfig because
-  the backend rejects `baseUrl` and recommends removing it, which is not a safe
-  migration step for this repo while the app still uses `@/*` path aliases.
+  `apps/noter/tsconfig.json`, then checked the current TypeScript guidance on
+  `baseUrl`. Result: TypeScript 6 now deprecates `baseUrl`, Oxlint's type-aware
+  backend rejects it, and the repo's `@/*` alias still works through explicit
+  `paths`, so removing `baseUrl` is accepted simplification rather than unsafe
+  drift.
 
-- Problem: not all repo surfaces are blocked equally. Tried: ran Oxlint
-  type-aware against `tsconfig.scripts.json`. Result: type-aware mode does run
-  for the repo's `scripts/**/*.js` and `runtime/**/*.js` surface, so script
-  linting can migrate more aggressively than the frontend app surface.
+- Problem: not all repo surfaces were blocked equally. Tried: ran Oxlint
+  type-aware against `tsconfig.scripts.json`. Result: type-aware mode already
+  worked for the repo's `scripts/**/*.js` and `runtime/**/*.js` surface, so the
+  script pass could move first while the app tsconfig cleanup was in flight.
 
 - Problem: the migration also depends on Convex-specific rules. Tried: inspected
   `@convex-dev/eslint-plugin` and verified that Oxlint can load JS plugins by
@@ -193,9 +204,8 @@ When a rule cannot move cleanly, this document must record:
   rule does not behave like the repo's current `allowConstantExport` setup.
   Tried: enabled `react/only-export-components` in Oxlint and ran app linting.
   Result: Oxlint started flagging existing constant exports that the current
-  ESLint plugin accepts, so the accepted first pass keeps
-  `only-export-components` on the ESLint fallback instead of forcing unrelated
-  component-file churn.
+  ESLint plugin accepts, so the built-in rule is not accepted as a drop-in
+  replacement.
 
 - Problem: Oxlint surfaced duplicate unused-catch diagnostics in Convex code
   even after the repo configured `@typescript-eslint/no-unused-vars` with
@@ -209,6 +219,39 @@ When a rule cannot move cleanly, this document must record:
   migration. Result: the scripts pass succeeds, but Oxlint now reports unused
   `eslint-disable` comments in `scripts/convex-seed-dev-auth.js`; those are
   accepted as warning-only cleanup for a later pass.
+
+- Problem: removing the app-specific ESLint fallback would still drop the exact
+  `react-refresh/only-export-components` behavior if the repo stayed on Oxlint's
+  built-in React rule. Tried: moved `eslint-plugin-react-refresh` to the repo
+  root and loaded it through Oxlint's `jsPlugins`. Result: Oxlint can preserve
+  the repo's existing `allowConstantExport` behavior without keeping ESLint in
+  the lint scripts.
+
+- Problem: Oxlint and ESLint do not lint exactly the same default file surface.
+  Tried: ran Oxlint directly against `apps/noter-starter-template`. Result:
+  Oxlint picked up the hidden `.codespace-agent` folder that ESLint had skipped
+  by default, so the accepted standardization pass explicitly ignores that
+  directory to preserve the old intended lint surface.
+
+- Problem: standardization mattered more than perfect historical parity for this
+  migration. Tried: removed `baseUrl` from both app tsconfigs, moved the app and
+  starter-template scripts onto Oxlint-only flows, and deleted the repo's
+  `.eslintrc` files. Result: the repo now has one linter entrypoint, one root
+  config, and one place to maintain type-aware rule coverage.
+
+- Problem: removing `baseUrl` exposed a real dependency on it in app imports.
+  Tried: ran `pnpm --filter noter lint:ci` after the tsconfig cleanup. Result:
+  a handful of `convex/schema` imports were relying on app-root lookup-root
+  behavior, so the accepted simplification replaces them with explicit relative
+  imports instead of adding another broad `paths` alias that could shadow the
+  real Convex package subpaths.
+
+- Problem: Oxlint traverses a broader default file surface than the previous app
+  lint command. Tried: ran Oxlint directly against `apps/noter`. Result: the
+  command started linting top-level JavaScript helpers and `public/noter.js`
+  that the old `eslint --ext ts,tsx` script never covered, so the accepted
+  migration keeps those files outside the app package lint scope for now rather
+  than treating this standardization pass as a surprise lint expansion.
 
 - Problem: the integrated migration needed a clear acceptance bar. Tried: ran
   focused config tests plus the repo lint entrypoints. Result:

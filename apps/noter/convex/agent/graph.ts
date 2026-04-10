@@ -6,7 +6,7 @@ import { z } from "zod";
 import { components } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { isRecord } from "../jsonUtils";
+import { isRecord, toErrorMessage } from "../jsonUtils";
 import type { ToolContext } from "./tools";
 import { createTools } from "./tools";
 import type { MessageDoc } from "@convex-dev/agent/validators";
@@ -65,11 +65,7 @@ function formatToolCallError(error: unknown): string | undefined {
   if (error === undefined) {
     return undefined;
   }
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return String(error);
-  }
+  return toErrorMessage(error, "Unknown tool call error");
 }
 
 function summarizeToolInput(input: unknown): unknown {

@@ -64,9 +64,38 @@ export function clamp(num: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, num));
 }
 
-export function toErrorMessage(error: unknown): string {
+/**
+ * Formats unknown thrown values without falling back to object stringification.
+ */
+export function toErrorMessage(
+  error: unknown,
+  fallback = "Unknown error",
+): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return String(error);
+  if (typeof error === "string") {
+    return error;
+  }
+  if (
+    typeof error === "number" ||
+    typeof error === "boolean" ||
+    typeof error === "bigint"
+  ) {
+    return String(error);
+  }
+  if (error === undefined) {
+    return fallback;
+  }
+  if (error === null) {
+    return "null";
+  }
+  try {
+    const serialized = JSON.stringify(error);
+    return typeof serialized === "string" && serialized.length > 0
+      ? serialized
+      : fallback;
+  } catch {
+    return fallback;
+  }
 }

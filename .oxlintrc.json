@@ -1,5 +1,8 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "options": {
+    "typeAware": true
+  },
   "plugins": ["eslint", "typescript", "react"],
   "env": {
     "builtin": true,
@@ -7,13 +10,15 @@
   },
   "ignorePatterns": [
     "**/dist",
-    "**/.eslintrc.cjs",
-    "**/.eslintrc.type-aware.cjs",
+    "**/.codespace-agent/**",
     "**/convex/_generated",
     "**/postcss.config.js",
     "**/tailwind.config.js",
     "**/vite.config.ts",
-    "**/src/components/ui"
+    "**/src/components/ui",
+    "apps/noter/*.js",
+    "apps/noter/*.mjs",
+    "apps/noter/public/**/*.js"
   ],
   "jsPlugins": [
     {
@@ -23,9 +28,19 @@
     {
       "name": "@convex-dev",
       "specifier": "@convex-dev/eslint-plugin"
+    },
+    {
+      "name": "react-refresh",
+      "specifier": "eslint-plugin-react-refresh"
     }
   ],
   "rules": {
+    "react-refresh/only-export-components": [
+      "error",
+      {
+        "allowConstantExport": true
+      }
+    ],
     "react/only-export-components": "off",
     "react-hooks/exhaustive-deps": "error",
     "no-unused-vars": "off",
@@ -45,13 +60,24 @@
         "minimumDescriptionLength": 3
       }
     ],
+    "@typescript-eslint/await-thenable": "error",
+    "@typescript-eslint/no-base-to-string": "error",
     "@typescript-eslint/no-explicit-any": "error",
+    "@typescript-eslint/no-floating-promises": "error",
+    "@typescript-eslint/no-implied-eval": "error",
+    "@typescript-eslint/no-misused-promises": "error",
+    "@typescript-eslint/no-unnecessary-condition": "error",
+    "@typescript-eslint/no-unnecessary-type-assertion": "error",
+    "@typescript-eslint/no-unsafe-enum-comparison": "error",
     "@typescript-eslint/consistent-type-assertions": [
       "warn",
       {
         "assertionStyle": "never"
       }
     ],
+    "@typescript-eslint/restrict-plus-operands": "error",
+    "@typescript-eslint/restrict-template-expressions": "error",
+    "@typescript-eslint/unbound-method": "error",
     "@typescript-eslint/require-await": "off",
     "require-await": "off"
   },
@@ -77,6 +103,16 @@
       "files": ["apps/noter/**/*.{ts,tsx}"],
       "rules": {
         "@typescript-eslint/no-explicit-any": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/noter/e2e/**/*.ts",
+        "apps/noter/playwright.config.ts",
+        "apps/noter-starter-template/convex/**/*.ts"
+      ],
+      "rules": {
+        "@typescript-eslint/no-unnecessary-condition": "off"
       }
     },
     {

@@ -40,14 +40,16 @@
     "daytona:runtime:compare": "node scripts/daytona-compare-runtime.js",
     "daytona:runtime:render": "node scripts/render-daytona-runtime.js",
     "daytona:runtime:check": "node scripts/render-daytona-runtime.js --check",
-    "lint:scripts": "pnpm exec oxlint --config .oxlintrc.json --type-aware --tsconfig tsconfig.scripts.json --report-unused-disable-directives runtime scripts",
+    "lint:scripts": "pnpm exec oxlint --config .oxlintrc.json --tsconfig tsconfig.scripts.json --report-unused-disable-directives runtime scripts",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json --pretty false"
   },
   "devDependencies": {
+    "@convex-dev/eslint-plugin": "0.0.1-alpha.4",
     "@playwright/test": "1.58.2",
     "@robolex/sure": "^0.12.0",
     "commander": "^14.0.3",
     "eslint-plugin-noter-local": "workspace:*",
+    "eslint-plugin-react-refresh": "^0.4.7",
     "husky": "^9.1.7",
     "oxfmt": "0.44.0",
     "oxlint": "^1.59.0",

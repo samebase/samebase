@@ -66,7 +66,7 @@ import {
   readUploadStorageId,
   uploadMediaWithCleanup,
 } from "@/lib/mediaUploadWorkflow";
-import { type GithubTreeType } from "convex/schema";
+import { type GithubTreeType } from "../../convex/schema";
 import { formatStopwatchDuration } from "@/lib/stopwatch";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
 import { DaytonaSnapshotList } from "./DaytonaSnapshotList";

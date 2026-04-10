@@ -14,21 +14,12 @@ function readJson(relativePath: string) {
   ) as Record<string, unknown>;
 }
 
-function readCommonJsConfig(relativePath: string) {
-  return requireFromRepoRoot(relativePath) as {
-    plugins?: string[];
-    rules?: Record<string, unknown>;
-    overrides?: Array<{
-      files?: string[];
-      excludedFiles?: string[];
-      rules?: Record<string, unknown>;
-    }>;
-  };
-}
-
 function readOxlintConfig() {
   return readJson(".oxlintrc.json") as {
+    options?: Record<string, unknown>;
+    ignorePatterns?: string[];
     jsPlugins?: Array<{ name?: string; specifier?: string }>;
+    rules?: Record<string, unknown>;
     overrides?: Array<{
       files?: string[];
       rules?: Record<string, unknown>;
@@ -65,24 +56,36 @@ describe("lint config", () => {
     });
   });
 
-  it("keeps the app type-aware fallback separate from the primary Oxlint config", () => {
-    const fallbackConfig = readCommonJsConfig("./.eslintrc.type-aware.cjs");
+  it("keeps type-aware and react-refresh coverage in the primary Oxlint config", () => {
+    const oxlintConfig = readOxlintConfig();
 
-    expect(fallbackConfig.plugins).toEqual(
-      expect.arrayContaining(["@typescript-eslint", "react-refresh"]),
+    expect(oxlintConfig.options).toMatchObject({ typeAware: true });
+    expect(oxlintConfig.ignorePatterns).toContain("**/.codespace-agent/**");
+    expect(oxlintConfig.jsPlugins).toEqual(
+      expect.arrayContaining([
+        {
+          name: "@convex-dev",
+          specifier: "@convex-dev/eslint-plugin",
+        },
+        {
+          name: "react-refresh",
+          specifier: "eslint-plugin-react-refresh",
+        },
+      ]),
     );
-    expect(fallbackConfig.rules).toMatchObject({
+    expect(oxlintConfig.rules).toMatchObject({
       "react-refresh/only-export-components": [
         "error",
         { allowConstantExport: true },
       ],
+      "@typescript-eslint/await-thenable": "error",
       "@typescript-eslint/no-unnecessary-condition": "error",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/restrict-template-expressions": "error",
     });
   });
 
-  it("uses Oxlint as the primary lint runner and ESLint only for app type-aware fallback", () => {
+  it("uses Oxlint as the only repo lint runner for app and starter surfaces", () => {
     const rootPackage = readJson("package.json") as {
       scripts?: Record<string, string>;
       devDependencies?: Record<string, string>;
@@ -91,22 +94,27 @@ describe("lint config", () => {
       scripts?: Record<string, string>;
       devDependencies?: Record<string, string>;
     };
+    const starterPackage = readJson("apps/noter-starter-template/package.json") as {
+      scripts?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
 
     expect(rootPackage.devDependencies).toMatchObject({
+      "@convex-dev/eslint-plugin": "0.0.1-alpha.4",
       "eslint-plugin-noter-local": "workspace:*",
+      "eslint-plugin-react-refresh": "^0.4.7",
       oxlint: "^1.59.0",
       "oxlint-tsgolint": "^0.20.0",
     });
-    expect(appPackage.devDependencies).toMatchObject({
-      "eslint-plugin-noter-local": "workspace:*",
-    });
     expect(rootPackage.scripts?.["lint:scripts"]).toContain("pnpm exec oxlint");
-    expect(rootPackage.scripts?.["lint:scripts"]).toContain("--type-aware");
     expect(appPackage.scripts?.lint).toContain("pnpm run lint:oxlint");
-    expect(appPackage.scripts?.lint).toContain("pnpm run lint:type-aware");
     expect(appPackage.scripts?.["lint:oxlint"]).toContain("pnpm exec oxlint");
-    expect(appPackage.scripts?.["lint:type-aware"]).toContain(
-      ".eslintrc.type-aware.cjs",
-    );
+    expect(starterPackage.scripts?.lint).toContain("pnpm exec oxlint");
+    expect(appPackage.scripts?.lint).not.toContain("eslint");
+    expect(starterPackage.scripts?.lint).not.toContain("eslint");
+    expect(appPackage.devDependencies?.eslint).toBeUndefined();
+    expect(appPackage.devDependencies?.["@typescript-eslint/parser"]).toBeUndefined();
+    expect(starterPackage.devDependencies?.eslint).toBeUndefined();
+    expect(starterPackage.devDependencies?.["@typescript-eslint/parser"]).toBeUndefined();
   });
 });
