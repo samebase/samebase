@@ -14,22 +14,22 @@ npm install @convex-dev/migrations
 
 ```typescript
 // convex/convex.config.ts
-import { defineApp } from 'convex/server'
-import migrations from '@convex-dev/migrations/convex.config.js'
+import { defineApp } from "convex/server";
+import migrations from "@convex-dev/migrations/convex.config.js";
 
-const app = defineApp()
-app.use(migrations)
-export default app
+const app = defineApp();
+app.use(migrations);
+export default app;
 ```
 
 ```typescript
 // convex/migrations.ts
-import { Migrations } from '@convex-dev/migrations'
-import { components } from './_generated/api.js'
-import { DataModel } from './_generated/dataModel.js'
+import { Migrations } from "@convex-dev/migrations";
+import { components } from "./_generated/api.js";
+import { DataModel } from "./_generated/dataModel.js";
 
-export const migrations = new Migrations<DataModel>(components.migrations)
-export const run = migrations.runner()
+export const migrations = new Migrations<DataModel>(components.migrations);
+export const run = migrations.runner();
 ```
 
 The `DataModel` type parameter is optional but provides type safety for
@@ -43,22 +43,22 @@ batching and pagination automatically.
 ```typescript
 // convex/migrations.ts
 export const addDefaultRole = migrations.define({
-  table: 'users',
+  table: "users",
   migrateOne: async (ctx, user) => {
     if (user.role === undefined) {
-      await ctx.db.patch(user._id, { role: 'user' })
+      await ctx.db.patch(user._id, { role: "user" });
     }
   },
-})
+});
 ```
 
 Shorthand: if you return an object, it is applied as a patch automatically.
 
 ```typescript
 export const clearDeprecatedField = migrations.define({
-  table: 'users',
+  table: "users",
   migrateOne: () => ({ legacyField: undefined }),
-})
+});
 ```
 
 ## Run a Migration
@@ -77,7 +77,7 @@ npx convex run migrations:run '{"fn": "migrations:addDefaultRole"}'
 Programmatically from another Convex function:
 
 ```typescript
-await migrations.runOne(ctx, internal.migrations.addDefaultRole)
+await migrations.runOne(ctx, internal.migrations.addDefaultRole);
 ```
 
 ## Run Multiple Migrations in Order
@@ -87,7 +87,7 @@ export const runAll = migrations.runner([
   internal.migrations.addDefaultRole,
   internal.migrations.clearDeprecatedField,
   internal.migrations.normalizeEmails,
-])
+]);
 ```
 
 ```bash
@@ -123,7 +123,7 @@ npx convex run --component migrations lib:cancel '{"name": "migrations:addDefaul
 Or programmatically:
 
 ```typescript
-await migrations.cancel(ctx, internal.migrations.addDefaultRole)
+await migrations.cancel(ctx, internal.migrations.addDefaultRole);
 ```
 
 ## Run Migrations on Deploy
@@ -143,12 +143,12 @@ size to avoid transaction limits or OCC conflicts:
 
 ```typescript
 export const migrateHeavyTable = migrations.define({
-  table: 'largeDocuments',
+  table: "largeDocuments",
   batchSize: 10,
   migrateOne: async (ctx, doc) => {
     // migration logic
   },
-})
+});
 ```
 
 ### Migrate a Subset Using an Index
@@ -157,10 +157,10 @@ Process only matching documents instead of the full table:
 
 ```typescript
 export const fixEmptyNames = migrations.define({
-  table: 'users',
-  customRange: query => query.withIndex('by_name', q => q.eq('name', '')),
-  migrateOne: () => ({ name: '<unknown>' }),
-})
+  table: "users",
+  customRange: (query) => query.withIndex("by_name", (q) => q.eq("name", "")),
+  migrateOne: () => ({ name: "<unknown>" }),
+});
 ```
 
 ### Parallelize Within a Batch
@@ -170,8 +170,8 @@ processing if your migration logic does not depend on ordering:
 
 ```typescript
 export const clearField = migrations.define({
-  table: 'myTable',
+  table: "myTable",
   parallelize: true,
   migrateOne: () => ({ optionalField: undefined }),
-})
+});
 ```

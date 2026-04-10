@@ -107,7 +107,7 @@ export function reduceWorkspaceTerminalState<Session>(
   return {
     activeKind:
       state.activeKind === action.kind
-        ? nextKinds[0] ?? null
+        ? (nextKinds[0] ?? null)
         : state.activeKind,
     sessions: nextSessions,
   };

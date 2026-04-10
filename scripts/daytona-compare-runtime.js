@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
-import fs from 'node:fs'
-import { diffDaytonaRuntimeManifests } from '../runtime/daytonaRuntimeManifest.js'
+import fs from "node:fs";
+import { diffDaytonaRuntimeManifests } from "../runtime/daytonaRuntimeManifest.js";
 
 const HELP_TEXT = `Usage: scripts/daytona-compare-runtime.js --left <path> --right <path>
 
@@ -11,28 +11,28 @@ Options:
   --left <path>   Left manifest JSON file.
   --right <path>  Right manifest JSON file.
   -h, --help      Show this help message.
-`
+`;
 
-const options = parseArgs(process.argv.slice(2))
+const options = parseArgs(process.argv.slice(2));
 if (options.showHelp) {
-  console.log(HELP_TEXT)
-  process.exit(0)
+  console.log(HELP_TEXT);
+  process.exit(0);
 }
 
-const left = readJsonFile(options.left)
-const right = readJsonFile(options.right)
-const diffs = diffDaytonaRuntimeManifests(left, right)
+const left = readJsonFile(options.left);
+const right = readJsonFile(options.right);
+const diffs = diffDaytonaRuntimeManifests(left, right);
 
 if (diffs.length === 0) {
-  console.log('Runtime manifests match.')
-  process.exit(0)
+  console.log("Runtime manifests match.");
+  process.exit(0);
 }
 
-console.error('Runtime manifests differ:')
+console.error("Runtime manifests differ:");
 for (const diff of diffs) {
-  console.error(`- ${diff}`)
+  console.error(`- ${diff}`);
 }
-process.exit(1)
+process.exit(1);
 
 /**
  * @param {string[]} args
@@ -53,55 +53,55 @@ function parseArgs(args) {
     left: null,
     right: null,
     showHelp: false,
-  }
+  };
 
   for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index]
-    if (arg === '--left') {
-      const value = args[index + 1]
-      if (!value || value.startsWith('-')) {
-        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`)
+    const arg = args[index];
+    if (arg === "--left") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("-")) {
+        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`);
       }
-      result.left = value
-      index += 1
-      continue
+      result.left = value;
+      index += 1;
+      continue;
     }
-    if (arg === '--right') {
-      const value = args[index + 1]
-      if (!value || value.startsWith('-')) {
-        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`)
+    if (arg === "--right") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("-")) {
+        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`);
       }
-      result.right = value
-      index += 1
-      continue
+      result.right = value;
+      index += 1;
+      continue;
     }
-    if (arg === '--help' || arg === '-h') {
-      result.showHelp = true
-      continue
+    if (arg === "--help" || arg === "-h") {
+      result.showHelp = true;
+      continue;
     }
-    exitWithError(`Unknown argument: ${arg}\n\n${HELP_TEXT}`)
+    exitWithError(`Unknown argument: ${arg}\n\n${HELP_TEXT}`);
   }
 
   if (result.showHelp) {
     return {
-      left: '',
-      right: '',
+      left: "",
+      right: "",
       showHelp: true,
-    }
+    };
   }
 
   if (!result.left || !result.right) {
-    exitWithError(`Both --left and --right are required.\n\n${HELP_TEXT}`)
+    exitWithError(`Both --left and --right are required.\n\n${HELP_TEXT}`);
   }
 
-  const left = result.left
-  const right = result.right
+  const left = result.left;
+  const right = result.right;
 
   return {
     left,
     right,
     showHelp: false,
-  }
+  };
 }
 
 /**
@@ -110,13 +110,13 @@ function parseArgs(args) {
  */
 function readJsonFile(filePath) {
   try {
-    const raw = fs.readFileSync(filePath, 'utf8')
+    const raw = fs.readFileSync(filePath, "utf8");
     /** @type {unknown} */
-    const parsed = JSON.parse(raw)
-    return validateManifest(filePath, parsed)
+    const parsed = JSON.parse(raw);
+    return validateManifest(filePath, parsed);
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error)
-    exitWithError(`Failed to read ${filePath}: ${reason}`)
+    const reason = error instanceof Error ? error.message : String(error);
+    exitWithError(`Failed to read ${filePath}: ${reason}`);
   }
 }
 
@@ -127,35 +127,35 @@ function readJsonFile(filePath) {
  */
 function validateManifest(filePath, value) {
   if (!isRecord(value)) {
-    exitWithError(`${filePath} must contain a JSON object.`)
+    exitWithError(`${filePath} must contain a JSON object.`);
   }
-  if (Reflect.get(value, 'version') !== 1) {
+  if (Reflect.get(value, "version") !== 1) {
     exitWithError(
       `${filePath} must contain a Daytona runtime manifest with version 1.`,
-    )
+    );
   }
-  const repo = Reflect.get(value, 'repo')
-  if (!isRecord(repo) || typeof Reflect.get(repo, 'headSha') !== 'string') {
-    exitWithError(`${filePath} is missing repo.headSha.`)
+  const repo = Reflect.get(value, "repo");
+  if (!isRecord(repo) || typeof Reflect.get(repo, "headSha") !== "string") {
+    exitWithError(`${filePath} is missing repo.headSha.`);
   }
-  if (typeof Reflect.get(value, 'appRoot') !== 'string') {
-    exitWithError(`${filePath} is missing appRoot.`)
+  if (typeof Reflect.get(value, "appRoot") !== "string") {
+    exitWithError(`${filePath} is missing appRoot.`);
   }
-  const envFiles = Reflect.get(value, 'envFiles')
+  const envFiles = Reflect.get(value, "envFiles");
   if (!isRecord(envFiles)) {
-    exitWithError(`${filePath} is missing envFiles.`)
+    exitWithError(`${filePath} is missing envFiles.`);
   }
-  const services = Reflect.get(value, 'services')
+  const services = Reflect.get(value, "services");
   if (
     !isRecord(services) ||
-    typeof Reflect.get(services, 'previewPort') !== 'number' ||
-    typeof Reflect.get(services, 'previewPortListening') !== 'boolean'
+    typeof Reflect.get(services, "previewPort") !== "number" ||
+    typeof Reflect.get(services, "previewPortListening") !== "boolean"
   ) {
     exitWithError(
       `${filePath} is missing services.previewPort or services.previewPortListening.`,
-    )
+    );
   }
-  return value
+  return value;
 }
 
 /**
@@ -163,7 +163,7 @@ function validateManifest(filePath, value) {
  * @returns {value is Record<string, unknown>}
  */
 function isRecord(value) {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -171,7 +171,7 @@ function isRecord(value) {
  * @returns {never}
  */
 function exitWithError(message) {
-  console.error(message)
-  process.exit(1)
-  throw new Error(message)
+  console.error(message);
+  process.exit(1);
+  throw new Error(message);
 }

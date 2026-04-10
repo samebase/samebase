@@ -1697,11 +1697,11 @@ export async function buildRemoteComparePreviewFile(args: {
   const oldSha =
     metadataFile.status === "added"
       ? null
-      : args.baseShaByPath.get(basePath) ?? null;
+      : (args.baseShaByPath.get(basePath) ?? null);
   const newSha =
     metadataFile.status === "deleted"
       ? null
-      : args.headShaByPath.get(metadataFile.path) ?? null;
+      : (args.headShaByPath.get(metadataFile.path) ?? null);
 
   if (
     (metadataFile.status !== "added" && !oldSha) ||
@@ -3372,7 +3372,7 @@ export const getBranchComparePreview = action({
           repo: vault.ghRepoName,
           pullRequestNumber: currentPullRequest.number,
         })
-      : compareResponse.data.files ?? [];
+      : (compareResponse.data.files ?? []);
     const remoteFiles = (
       await Promise.all(
         remoteFileCandidates.map((file) =>

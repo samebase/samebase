@@ -169,7 +169,7 @@ async function expectLandingToggleFocusTarget(
         const activeElement = document.activeElement;
         return activeElement === document.body
           ? "body"
-          : activeElement?.tagName.toLowerCase() ?? null;
+          : (activeElement?.tagName.toLowerCase() ?? null);
       }),
     )
     .toBe("body");
@@ -334,7 +334,9 @@ test("public landing renders the routed landing UI directly", async ({
   await page.goto("/", { waitUntil: "networkidle" });
 
   await expect(page.getByTestId("public-landing-content")).toBeVisible();
-  await expect(page.getByTestId(PUBLIC_LANDING_SCROLL_SHELL_TEST_ID)).toBeVisible();
+  await expect(
+    page.getByTestId(PUBLIC_LANDING_SCROLL_SHELL_TEST_ID),
+  ).toBeVisible();
   await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
   await expect(
     page.getByRole("button", { name: "Google", includeHidden: true }),
@@ -531,9 +533,7 @@ test.describe("mobile landing dev toggle", () => {
   });
 });
 
-test("landing dev toggle ignores duplicate taps", async ({
-  page,
-}) => {
+test("landing dev toggle ignores duplicate taps", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
   await page.evaluate(() => {
@@ -596,7 +596,9 @@ test("public landing keeps the card height stable while toggling dev mode", asyn
     Math.round(element.getBoundingClientRect().height),
   );
 
-  expect(Math.abs(devLandingHeight - plainLandingHeight)).toBeLessThanOrEqual(8);
+  expect(Math.abs(devLandingHeight - plainLandingHeight)).toBeLessThanOrEqual(
+    8,
+  );
 });
 
 test("prod-ui landing logo enhancement stays visually aligned", async ({
@@ -745,9 +747,7 @@ test("public landing still renders when localStorage access is denied", async ({
   expect(pageErrors).toEqual([]);
 });
 
-test("public landing stays within the navigation budget", async ({
-  page,
-}) => {
+test("public landing stays within the navigation budget", async ({ page }) => {
   await page.goto("/", { waitUntil: "load" });
 
   const navigationTiming = await readNavigationTiming(page);

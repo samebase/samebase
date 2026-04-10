@@ -134,7 +134,7 @@ function deriveMachinesWorkspaceThreadHeaderState(
           args.thread.status.type,
           args.thread.workspace.isProjectRoot
             ? null
-            : args.thread.workspace.label ?? "worktree",
+            : (args.thread.workspace.label ?? "worktree"),
         ]
           .filter((value): value is string => value !== null)
           .join(" · ");

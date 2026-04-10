@@ -93,7 +93,7 @@ with:
 markdown({
   codeLanguages: languages,
   extensions: [GFM, prosemarkMarkdownSyntaxExtensions],
-})
+});
 ```
 
 That is correct for Markdown documents, but it means a file like `src/file.ts`

@@ -96,7 +96,6 @@ Branch visualization remains available but is not required for the MVP.
 New tables (names illustrative):
 
 1. `chatGitObjects`
-
    - `_id`
    - `oid` (string; content hash, includes version)
    - `type` (`"blob" | "tree" | "commit"`)
@@ -105,7 +104,6 @@ New tables (names illustrative):
    - `createdAt`
 
 2. `chatGitRefs`
-
    - `_id`
    - `threadId`
    - `name` (string; `refs/...`)
@@ -259,7 +257,6 @@ Redaction is distinct from normal delete:
 Proposed primitives:
 
 1. Data model: `chatGitRedactionRequests`
-
    - `threadId`
    - `requesterUserId`
    - `requestedAt`
@@ -271,14 +268,12 @@ Proposed primitives:
    - `slaDueAt` (optional; legal/compliance metadata)
 
 2. API:
-
    - `redaction.createRequest({ threadId, messageId, rationale })`
    - `redaction.approveRequest({ requestId })`
    - `redaction.rejectRequest({ requestId, reason })`
    - `redaction.executeApprovedRequest({ requestId })`
 
 3. Audit events (immutable log):
-
    - `redaction_requested`
    - `redaction_approved` / `redaction_rejected`
    - `redaction_executed`

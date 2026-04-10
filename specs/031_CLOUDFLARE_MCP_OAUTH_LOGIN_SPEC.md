@@ -90,14 +90,14 @@ Proposed shape (illustrative):
 
 ```ts
 type McpOAuthAuth = {
-  method: 'mcp_oauth'
+  method: "mcp_oauth";
   // OAuth credentials minted for the remote MCP server.
-  credential: string
-  refreshCredential?: string
-  credentialExpiresAt?: number
+  credential: string;
+  refreshCredential?: string;
+  credentialExpiresAt?: number;
   // Fixed for MVP, but stored to keep the schema future-proof.
-  mcpServerUrl: 'https://mcp.cloudflare.com/mcp'
-}
+  mcpServerUrl: "https://mcp.cloudflare.com/mcp";
+};
 ```
 
 Notes:
@@ -114,13 +114,13 @@ Proposed minimal doc shape:
 
 ```ts
 type CloudflareProviderConnection = {
-  kind: 'cloudflare'
-  userId: Id<'users'>
-  auth: ProviderAuth // now includes mcp_oauth
-  accountId?: string // optional; populated post-connect if discoverable
-  createdAt: number
-  updatedAt: number
-}
+  kind: "cloudflare";
+  userId: Id<"users">;
+  auth: ProviderAuth; // now includes mcp_oauth
+  accountId?: string; // optional; populated post-connect if discoverable
+  createdAt: number;
+  updatedAt: number;
+};
 ```
 
 Why `accountId?`:

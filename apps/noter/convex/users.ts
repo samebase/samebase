@@ -287,7 +287,7 @@ function buildCloudflareConnectionStatus(
       ? "invalid"
       : shouldUseDerivedStatus
         ? derivedStatus
-        : storedStatus ?? derivedStatus;
+        : (storedStatus ?? derivedStatus);
   const derivedNextAutoCheckAt =
     connection.tokenHealth?.source === "runtime_error"
       ? computeCloudflareRetryDueAt(connection.tokenHealth.checkedAt, now)
@@ -300,7 +300,7 @@ function buildCloudflareConnectionStatus(
   const nextAutoCheckAt =
     mcpTokenStatus === "invalid"
       ? undefined
-      : options?.nextAutoCheckAt ?? derivedNextAutoCheckAt;
+      : (options?.nextAutoCheckAt ?? derivedNextAutoCheckAt);
   return {
     ...baseStatus,
     mcpTokenStatus,

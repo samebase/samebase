@@ -53,7 +53,7 @@ export function readRootRouteSearch(
   return parseRootRouteSearch(
     Object.fromEntries(
       new URLSearchParams(
-        typeof search === "string" ? search : search?.toString() ?? "",
+        typeof search === "string" ? search : (search?.toString() ?? ""),
       ).entries(),
     ),
   );

@@ -8,8 +8,9 @@ import {
 import { useCornerNotchBridgeColor } from "@/hooks/useCornerNotchBridgeColor";
 import { cn } from "@/lib/utils";
 
-export interface InputProps
-  extends React.ComponentPropsWithoutRef<typeof BaseInput> {
+export interface InputProps extends React.ComponentPropsWithoutRef<
+  typeof BaseInput
+> {
   cornerNotch?: CornerNotchType;
 }
 

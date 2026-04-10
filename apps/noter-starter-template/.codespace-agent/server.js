@@ -220,8 +220,8 @@ function parseErrorMessage(error) {
 function isCodexRuntimeRunning() {
   return Boolean(
     codexRuntime.process &&
-      !codexRuntime.process.killed &&
-      codexRuntime.process.exitCode === null,
+    !codexRuntime.process.killed &&
+    codexRuntime.process.exitCode === null,
   );
 }
 

@@ -372,11 +372,11 @@ export function CodexAppServerThreadBrowserResearchPage() {
         const refreshedThread =
           selectedThreadId === null
             ? null
-            : threadsResponse.threads.find(
+            : (threadsResponse.threads.find(
                 (thread) => thread.id === selectedThreadId,
               ) ??
               selectedThreadSummaryRef.current ??
-              null;
+              null);
         await refreshSelectedThreadRef.current(refreshedThread, {
           silent: true,
         });

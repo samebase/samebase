@@ -31,10 +31,7 @@ export function buildLandingDevModeSearch(
 export function buildLandingDevToggleSearch(
   search: RootRouteSearch,
 ): RootRouteSearch {
-  return buildLandingDevModeSearch(
-    search,
-    !isLandingDevModeEnabled(search),
-  );
+  return buildLandingDevModeSearch(search, !isLandingDevModeEnabled(search));
 }
 
 export function getLandingDevToggleLabel(search: SearchFlagReader): string {

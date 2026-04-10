@@ -1165,14 +1165,14 @@ function FileViewInner({
     () =>
       Boolean(
         stagedFiles &&
-          stagedFiles.length > 0 &&
-          stagedFiles.some(
-            (file) =>
-              file.content !== file.initialContent ||
-              file.filePath !== file.initialFilePath ||
-              file.fileDeleted ||
-              file.parentCommitSha === null,
-          ),
+        stagedFiles.length > 0 &&
+        stagedFiles.some(
+          (file) =>
+            file.content !== file.initialContent ||
+            file.filePath !== file.initialFilePath ||
+            file.fileDeleted ||
+            file.parentCommitSha === null,
+        ),
       ),
     [stagedFiles],
   );
@@ -1402,7 +1402,7 @@ function FileViewInner({
     : null;
   const noterConfigContent = hasDeletedStagedNoterFile
     ? null
-    : stagedNoterContent ?? repositoryNoterContent;
+    : (stagedNoterContent ?? repositoryNoterContent);
 
   const simpleViewConfig = useMemo(
     () => parseSimpleViewConfig(noterConfigContent),
@@ -2228,7 +2228,7 @@ function FileViewInner({
       null;
     const hasComparedEditorTarget = Boolean(
       selectedComparedPreviewFile &&
-        selectedComparedPreviewFile.status !== "deleted",
+      selectedComparedPreviewFile.status !== "deleted",
     );
 
     if (
@@ -2295,7 +2295,7 @@ function FileViewInner({
     branchComparePreview?.files.find((file) => file.path === selectedFile) ??
     null;
   const selectedPreviewFile = isCompareRequested
-    ? selectedComparedFile ?? selectedCommitPreviewFile
+    ? (selectedComparedFile ?? selectedCommitPreviewFile)
     : selectedCommitPreviewFile;
   const selectedPreviewStagedFile = stagedFile ?? null;
   const sidebarSelectedFile = selectedFile;
@@ -2303,23 +2303,23 @@ function FileViewInner({
   // to come from the preview payload instead of fileStaging.
   const selectedPreviewHasRichTextDiff = Boolean(
     selectedPreviewFile &&
-      typeof selectedPreviewFile.richOldContent === "string" &&
-      typeof selectedPreviewFile.richNewContent === "string",
+    typeof selectedPreviewFile.richOldContent === "string" &&
+    typeof selectedPreviewFile.richNewContent === "string",
   );
   const selectedPreviewCanRenderInline = Boolean(
     !selectedFileIsRenderableMedia &&
-      (isCompareRequested
-        ? selectedPreviewHasRichTextDiff ||
-          (!selectedComparedFile && selectedPreviewStagedFile)
-        : selectedPreviewStagedFile || selectedPreviewHasRichTextDiff),
+    (isCompareRequested
+      ? selectedPreviewHasRichTextDiff ||
+        (!selectedComparedFile && selectedPreviewStagedFile)
+      : selectedPreviewStagedFile || selectedPreviewHasRichTextDiff),
   );
   const selectedPreviewBaseContent =
     isCompareRequested &&
     typeof selectedComparedFile?.richOldContent === "string"
       ? selectedComparedFile.richOldContent
-      : selectedPreviewStagedFile?.initialContent ??
+      : (selectedPreviewStagedFile?.initialContent ??
         selectedPreviewFile?.richOldContent ??
-        "";
+        "");
   const selectedPreviewBaseFilePath = getPreviewBaseFilePath({
     comparedPreviousPath: selectedComparedFile?.previousPath,
     currentFilePath: selectedFile,
@@ -2329,15 +2329,15 @@ function FileViewInner({
   });
   const selectedComparedFileCanRenderInline = Boolean(
     selectedComparedFile &&
-      typeof selectedComparedFile.richOldContent === "string" &&
-      typeof selectedComparedFile.richNewContent === "string" &&
-      !selectedFileIsRenderableMedia,
+    typeof selectedComparedFile.richOldContent === "string" &&
+    typeof selectedComparedFile.richNewContent === "string" &&
+    !selectedFileIsRenderableMedia,
   );
   const activePreviewPersistedContent = selectedPreviewStagedFile
     ? selectedPreviewStagedFile.fileDeleted
       ? ""
       : selectedPreviewStagedFile.content
-    : selectedPreviewFile?.richNewContent ?? "";
+    : (selectedPreviewFile?.richNewContent ?? "");
   const activePreviewPersistedVersion = selectedPreviewStagedFile?.version ?? 0;
   const activePreviewStagingId = selectedPreviewStagedFile?._id ?? null;
   const inlinePreviewEditable = Boolean(

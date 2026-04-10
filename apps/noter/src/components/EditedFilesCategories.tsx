@@ -357,7 +357,7 @@ export function EditedFilesCategoriesPopover({
   const counts =
     categories !== null
       ? summarizeCategories(categories)
-      : summaryCounts ?? EMPTY_STAGED_FILES_SUMMARY;
+      : (summaryCounts ?? EMPTY_STAGED_FILES_SUMMARY);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

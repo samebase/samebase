@@ -11,7 +11,7 @@ const fallbackConvexUrl =
 // and finally the local Vitest fallback when tests import route-owned modules.
 const convexUrl = daytonaConvexProxyPath
   ? new URL(daytonaConvexProxyPath, window.location.origin).toString()
-  : import.meta.env.VITE_CONVEX_URL ?? fallbackConvexUrl;
+  : (import.meta.env.VITE_CONVEX_URL ?? fallbackConvexUrl);
 
 if (!convexUrl) {
   throw new Error("Missing VITE_CONVEX_URL in environment");

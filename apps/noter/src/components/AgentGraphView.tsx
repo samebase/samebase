@@ -451,7 +451,7 @@ export function AgentGraphView({
     api.agentGraphLayout.getNodeLayouts,
     vaultId ? { vaultId } : "skip",
   );
-  const threadId = vaultId ? vaultThread?.threadId ?? pendingThreadId : null;
+  const threadId = vaultId ? (vaultThread?.threadId ?? pendingThreadId) : null;
   const messages = useUIMessages(
     api.chat.index.listThreadMessages,
     threadId ? { threadId } : "skip",

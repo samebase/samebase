@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // @ts-check
-import { spawnSync } from 'node:child_process'
-import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 // MARK: - Types
 
@@ -94,13 +94,13 @@ import path from 'node:path'
 
 // MARK: - Constants
 
-const DEFAULT_LABEL = 'research'
-const DEFAULT_INTERVAL_SECONDS = 60
-const FAILED_RUN_RETRY_COOLDOWN_MS = 15 * 60 * 1000
-const SAFE_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
-const ALLOWED_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh']
-const MARKER_PREFIX = '<!-- noter-origin:v1 '
-const MARKER_SUFFIX = ' -->'
+const DEFAULT_LABEL = "research";
+const DEFAULT_INTERVAL_SECONDS = 60;
+const FAILED_RUN_RETRY_COOLDOWN_MS = 15 * 60 * 1000;
+const SAFE_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const ALLOWED_REASONING_EFFORTS = ["low", "medium", "high", "xhigh"];
+const MARKER_PREFIX = "<!-- noter-origin:v1 ";
+const MARKER_SUFFIX = " -->";
 const HELP_TEXT = `Usage: scripts/noter-pr-connect.js [options]
 
 Poll GitHub PRs for explicit noter-origin metadata and launch local Codex runs.
@@ -112,67 +112,67 @@ Options:
   --interval <seconds> Poll interval for watch mode. Default: 60
   --pr <number>        Limit processing to a specific PR number.
   -h, --help           Show this help message.
-`
+`;
 
 // MARK: - Bootstrap
 
-const options = parseArgs(process.argv.slice(2))
+const options = parseArgs(process.argv.slice(2));
 if (options.showHelp) {
-  console.log(HELP_TEXT)
-  process.exit(0)
+  console.log(HELP_TEXT);
+  process.exit(0);
 }
 
-const repoRoot = resolveRepoRoot()
-const repoFullName = resolveRepositoryFullName(repoRoot)
-const stateRoot = path.join(os.homedir(), '.codex', 'noter-connect')
-const worktreesRoot = path.join(stateRoot, 'worktrees')
-const runsRoot = path.join(stateRoot, 'runs')
-const statePath = path.join(stateRoot, 'state.json')
+const repoRoot = resolveRepoRoot();
+const repoFullName = resolveRepositoryFullName(repoRoot);
+const stateRoot = path.join(os.homedir(), ".codex", "noter-connect");
+const worktreesRoot = path.join(stateRoot, "worktrees");
+const runsRoot = path.join(stateRoot, "runs");
+const statePath = path.join(stateRoot, "state.json");
 const repositoryPathSegment = sanitizePathSegment(
-  repoFullName.replace('/', '-'),
-)
+  repoFullName.replace("/", "-"),
+);
 
 /** @type {boolean} */
-let stopRequested = false
-process.on('SIGINT', () => {
-  stopRequested = true
-})
-process.on('SIGTERM', () => {
-  stopRequested = true
-})
+let stopRequested = false;
+process.on("SIGINT", () => {
+  stopRequested = true;
+});
+process.on("SIGTERM", () => {
+  stopRequested = true;
+});
 
-await main()
+await main();
 
 // MARK: - Main Loop
 
 async function main() {
-  const state = loadState()
+  const state = loadState();
   if (options.once) {
-    await processCycle(state)
-    persistState(state)
-    return
+    await processCycle(state);
+    persistState(state);
+    return;
   }
 
   console.log(
     `[connect] Watching ${repoFullName} every ${options.intervalSeconds}s for label "${options.label}"`,
-  )
+  );
   while (!shouldStop()) {
     try {
-      await processCycle(state)
+      await processCycle(state);
     } catch (error) {
-      console.error(`[connect] Cycle failed: ${describeError(error)}`)
+      console.error(`[connect] Cycle failed: ${describeError(error)}`);
     }
-    persistState(state)
+    persistState(state);
     if (shouldStop()) {
-      break
+      break;
     }
-    await sleep(options.intervalSeconds * 1000)
+    await sleep(options.intervalSeconds * 1000);
   }
 }
 
 /** @returns {string} */
 function resolveRepoRoot() {
-  return runCommand('git', ['rev-parse', '--show-toplevel']).trim()
+  return runCommand("git", ["rev-parse", "--show-toplevel"]).trim();
 }
 
 /**
@@ -180,22 +180,24 @@ function resolveRepoRoot() {
  * @returns {string}
  */
 function resolveRepositoryFullName(root) {
-  const remoteUrl = runCommand('git', ['remote', 'get-url', 'origin'], {
+  const remoteUrl = runCommand("git", ["remote", "get-url", "origin"], {
     cwd: root,
-  }).trim()
-  const sshMatch = remoteUrl.match(/^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/)
+  }).trim();
+  const sshMatch = remoteUrl.match(
+    /^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/,
+  );
   if (sshMatch) {
-    return `${sshMatch[1]}/${sshMatch[2]}`
+    return `${sshMatch[1]}/${sshMatch[2]}`;
   }
 
   const httpsMatch = remoteUrl.match(
     /^https:\/\/github\.com\/([^/]+)\/(.+?)(?:\.git)?$/,
-  )
+  );
   if (httpsMatch) {
-    return `${httpsMatch[1]}/${httpsMatch[2]}`
+    return `${httpsMatch[1]}/${httpsMatch[2]}`;
   }
 
-  throw new Error(`Unsupported GitHub remote URL: ${remoteUrl}`)
+  throw new Error(`Unsupported GitHub remote URL: ${remoteUrl}`);
 }
 
 /**
@@ -211,62 +213,62 @@ function parseArgs(args) {
     intervalSeconds: DEFAULT_INTERVAL_SECONDS,
     prNumber: null,
     showHelp: false,
-  }
+  };
 
   for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index]
-    if (arg === '--once') {
-      result.once = true
-      continue
+    const arg = args[index];
+    if (arg === "--once") {
+      result.once = true;
+      continue;
     }
-    if (arg === '--dry-run') {
-      result.dryRun = true
-      continue
+    if (arg === "--dry-run") {
+      result.dryRun = true;
+      continue;
     }
-    if (arg === '--label') {
-      const value = args[index + 1]
-      if (!value || value.startsWith('-')) {
-        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`)
+    if (arg === "--label") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("-")) {
+        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`);
       }
-      result.label = value
-      index += 1
-      continue
+      result.label = value;
+      index += 1;
+      continue;
     }
-    if (arg === '--interval') {
-      const value = args[index + 1]
-      if (!value || value.startsWith('-')) {
-        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`)
+    if (arg === "--interval") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("-")) {
+        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`);
       }
-      const intervalSeconds = Number.parseInt(value, 10)
+      const intervalSeconds = Number.parseInt(value, 10);
       if (!Number.isFinite(intervalSeconds) || intervalSeconds <= 0) {
-        exitWithError(`Invalid interval: ${value}`)
+        exitWithError(`Invalid interval: ${value}`);
       }
-      result.intervalSeconds = intervalSeconds
-      index += 1
-      continue
+      result.intervalSeconds = intervalSeconds;
+      index += 1;
+      continue;
     }
-    if (arg === '--pr') {
-      const value = args[index + 1]
-      if (!value || value.startsWith('-')) {
-        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`)
+    if (arg === "--pr") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("-")) {
+        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`);
       }
-      const prNumber = Number.parseInt(value, 10)
+      const prNumber = Number.parseInt(value, 10);
       if (!Number.isFinite(prNumber) || prNumber <= 0) {
-        exitWithError(`Invalid pull request number: ${value}`)
+        exitWithError(`Invalid pull request number: ${value}`);
       }
-      result.prNumber = prNumber
-      index += 1
-      continue
+      result.prNumber = prNumber;
+      index += 1;
+      continue;
     }
-    if (arg === '--help' || arg === '-h') {
-      result.showHelp = true
-      continue
+    if (arg === "--help" || arg === "-h") {
+      result.showHelp = true;
+      continue;
     }
 
-    exitWithError(`Unknown argument: ${arg}\n\n${HELP_TEXT}`)
+    exitWithError(`Unknown argument: ${arg}\n\n${HELP_TEXT}`);
   }
 
-  return result
+  return result;
 }
 
 // MARK: - Local State
@@ -279,56 +281,56 @@ function loadState() {
       handledRuns: {},
       failedRuns: {},
       invalidRuns: {},
-    }
+    };
   }
 
-  const raw = fs.readFileSync(statePath, 'utf8')
+  const raw = fs.readFileSync(statePath, "utf8");
   /** @type {unknown} */
-  let parsed
+  let parsed;
   try {
-    parsed = JSON.parse(raw)
+    parsed = JSON.parse(raw);
   } catch (error) {
     throw new Error(
       `Could not parse state file ${statePath}: ${describeError(error)}`,
-    )
+    );
   }
 
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error(`Unexpected state shape in ${statePath}`)
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`Unexpected state shape in ${statePath}`);
   }
 
-  const parsedRecord = /** @type {Record<string, unknown>} */ (parsed)
+  const parsedRecord = /** @type {Record<string, unknown>} */ (parsed);
   if (
-    parsedRecord['version'] !== 1 ||
-    typeof parsedRecord['handledRuns'] !== 'object' ||
-    parsedRecord['handledRuns'] === null ||
-    Array.isArray(parsedRecord['handledRuns']) ||
-    (parsedRecord['failedRuns'] !== undefined &&
-      (typeof parsedRecord['failedRuns'] !== 'object' ||
-        parsedRecord['failedRuns'] === null ||
-        Array.isArray(parsedRecord['failedRuns']))) ||
-    typeof parsedRecord['invalidRuns'] !== 'object' ||
-    parsedRecord['invalidRuns'] === null ||
-    Array.isArray(parsedRecord['invalidRuns'])
+    parsedRecord["version"] !== 1 ||
+    typeof parsedRecord["handledRuns"] !== "object" ||
+    parsedRecord["handledRuns"] === null ||
+    Array.isArray(parsedRecord["handledRuns"]) ||
+    (parsedRecord["failedRuns"] !== undefined &&
+      (typeof parsedRecord["failedRuns"] !== "object" ||
+        parsedRecord["failedRuns"] === null ||
+        Array.isArray(parsedRecord["failedRuns"]))) ||
+    typeof parsedRecord["invalidRuns"] !== "object" ||
+    parsedRecord["invalidRuns"] === null ||
+    Array.isArray(parsedRecord["invalidRuns"])
   ) {
-    throw new Error(`Unexpected state shape in ${statePath}`)
+    throw new Error(`Unexpected state shape in ${statePath}`);
   }
 
   return {
     version: 1,
     handledRuns: /** @type {Record<string, HandledRunRecord>} */ (
-      parsedRecord['handledRuns']
+      parsedRecord["handledRuns"]
     ),
     failedRuns:
-      parsedRecord['failedRuns'] === undefined
+      parsedRecord["failedRuns"] === undefined
         ? {}
         : /** @type {Record<string, HandledRunRecord>} */ (
-            parsedRecord['failedRuns']
+            parsedRecord["failedRuns"]
           ),
     invalidRuns: /** @type {Record<string, InvalidRunRecord>} */ (
-      parsedRecord['invalidRuns']
+      parsedRecord["invalidRuns"]
     ),
-  }
+  };
 }
 
 /**
@@ -337,10 +339,10 @@ function loadState() {
  */
 function persistState(state) {
   if (options.dryRun) {
-    return
+    return;
   }
-  fs.mkdirSync(stateRoot, { recursive: true })
-  fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8')
+  fs.mkdirSync(stateRoot, { recursive: true });
+  fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
 }
 
 /**
@@ -348,69 +350,69 @@ function persistState(state) {
  * @returns {Promise<void>}
  */
 async function processCycle(state) {
-  const pullRequests = listOpenPullRequests()
+  const pullRequests = listOpenPullRequests();
   for (const pullRequest of pullRequests) {
     if (stopRequested) {
-      break
+      break;
     }
     if (options.prNumber !== null && pullRequest.number !== options.prNumber) {
-      continue
+      continue;
     }
     if (!pullRequest.labels.some(({ name }) => name === options.label)) {
-      continue
+      continue;
     }
 
-    const runKey = buildRunKey(pullRequest)
+    const runKey = buildRunKey(pullRequest);
     if (Object.hasOwn(state.handledRuns, runKey)) {
-      continue
+      continue;
     }
     const failedRunRecord = Object.hasOwn(state.failedRuns, runKey)
       ? state.failedRuns[runKey]
-      : null
+      : null;
     if (
       failedRunRecord !== null &&
       shouldDelayFailedRunRetry(failedRunRecord.finishedAt, new Date())
     ) {
-      continue
+      continue;
     }
 
-    const validation = validateOriginMarker(pullRequest)
+    const validation = validateOriginMarker(pullRequest);
     if (!validation.ok) {
       const existingInvalid = Object.hasOwn(state.invalidRuns, runKey)
         ? state.invalidRuns[runKey]
-        : null
+        : null;
       // Avoid posting the same "missing contract" comment every polling cycle.
       if (
         existingInvalid !== null &&
         existingInvalid.reason === validation.reason
       ) {
-        continue
+        continue;
       }
 
       if (options.dryRun) {
         console.log(
           `[connect] Would skip PR #${pullRequest.number}: ${validation.reason}`,
-        )
-        continue
+        );
+        continue;
       }
 
       console.log(
         `[connect] Skipping PR #${pullRequest.number}: ${validation.reason}`,
-      )
+      );
       tryPostPullRequestComment(
         pullRequest.number,
         buildInvalidContractComment(pullRequest, validation.reason),
-      )
+      );
       state.invalidRuns[runKey] = {
         notedAt: new Date().toISOString(),
         prNumber: pullRequest.number,
         headRefOid: pullRequest.headRefOid,
         reason: validation.reason,
-      }
-      continue
+      };
+      continue;
     }
 
-    await handleValidPullRequest(pullRequest, validation.marker, state)
+    await handleValidPullRequest(pullRequest, validation.marker, state);
   }
 }
 
@@ -419,17 +421,17 @@ async function processCycle(state) {
 /** @returns {PullRequestSummary[]} */
 function listOpenPullRequests() {
   /** @type {PullRequestSummary[]} */
-  const pullRequests = []
-  let page = 1
-  let pageResultCount = 100
+  const pullRequests = [];
+  let page = 1;
+  let pageResultCount = 100;
   while (pageResultCount === 100) {
-    const pageResults = listOpenPullRequestPage(page)
-    pullRequests.push(...pageResults)
-    pageResultCount = pageResults.length
-    page += 1
+    const pageResults = listOpenPullRequestPage(page);
+    pullRequests.push(...pageResults);
+    pageResultCount = pageResults.length;
+    page += 1;
   }
 
-  return pullRequests
+  return pullRequests;
 }
 
 /**
@@ -441,36 +443,36 @@ function listOpenPullRequests() {
  */
 function listOpenPullRequestPage(page) {
   const stdout = runCommand(
-    'gh',
+    "gh",
     [
-      'api',
+      "api",
       `repos/${repoFullName}/pulls`,
-      '--method',
-      'GET',
-      '--field',
-      'state=open',
-      '--field',
+      "--method",
+      "GET",
+      "--field",
+      "state=open",
+      "--field",
       `page=${page}`,
-      '--field',
-      'per_page=100',
+      "--field",
+      "per_page=100",
     ],
     { cwd: repoRoot },
-  )
+  );
   /** @type {unknown} */
-  let parsed
+  let parsed;
   try {
-    parsed = JSON.parse(stdout)
+    parsed = JSON.parse(stdout);
   } catch (error) {
     throw new Error(
       `Could not parse gh api pulls output: ${describeError(error)}`,
-    )
+    );
   }
 
   if (!Array.isArray(parsed)) {
-    throw new Error('Expected gh api pulls to return an array')
+    throw new Error("Expected gh api pulls to return an array");
   }
 
-  return parsed.map(normalizePullRequestSummary)
+  return parsed.map(normalizePullRequestSummary);
 }
 
 /**
@@ -478,36 +480,36 @@ function listOpenPullRequestPage(page) {
  * @returns {PullRequestSummary}
  */
 function normalizePullRequestSummary(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Expected gh api pulls to return pull request objects')
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Expected gh api pulls to return pull request objects");
   }
 
-  const record = /** @type {Record<string, unknown>} */ (value)
-  const head = normalizePullRequestHead(record['head'])
-  const labels = normalizePullRequestLabels(record['labels'])
-  const body = record['body']
+  const record = /** @type {Record<string, unknown>} */ (value);
+  const head = normalizePullRequestHead(record["head"]);
+  const labels = normalizePullRequestLabels(record["labels"]);
+  const body = record["body"];
   if (
-    typeof record['number'] !== 'number' ||
-    typeof record['title'] !== 'string' ||
-    (body !== null && typeof body !== 'string') ||
-    typeof record['html_url'] !== 'string' ||
-    typeof record['draft'] !== 'boolean'
+    typeof record["number"] !== "number" ||
+    typeof record["title"] !== "string" ||
+    (body !== null && typeof body !== "string") ||
+    typeof record["html_url"] !== "string" ||
+    typeof record["draft"] !== "boolean"
   ) {
-    throw new Error('Expected gh api pulls to return pull request objects')
+    throw new Error("Expected gh api pulls to return pull request objects");
   }
 
   return {
-    number: record['number'],
-    title: record['title'],
-    body: body ?? '',
+    number: record["number"],
+    title: record["title"],
+    body: body ?? "",
     headRefName: head.headRefName,
     headRefOid: head.headRefOid,
     headRepository: head.headRepository,
     headRepositoryOwner: head.headRepositoryOwner,
-    url: record['html_url'],
-    isDraft: record['draft'],
+    url: record["html_url"],
+    isDraft: record["draft"],
     labels,
-  }
+  };
 }
 
 /**
@@ -516,23 +518,23 @@ function normalizePullRequestSummary(value) {
  */
 function normalizePullRequestLabels(value) {
   if (!Array.isArray(value)) {
-    throw new Error('Expected gh api pulls to return label arrays')
+    throw new Error("Expected gh api pulls to return label arrays");
   }
 
-  return value.map(labelValue => {
+  return value.map((labelValue) => {
     /** @type {unknown} */
-    const label = labelValue
-    if (!label || typeof label !== 'object' || Array.isArray(label)) {
-      throw new Error('Expected gh api pulls to return label objects')
+    const label = labelValue;
+    if (!label || typeof label !== "object" || Array.isArray(label)) {
+      throw new Error("Expected gh api pulls to return label objects");
     }
 
-    const record = /** @type {Record<string, unknown>} */ (label)
-    if (typeof record['name'] !== 'string') {
-      throw new Error('Expected gh api pulls to return label objects')
+    const record = /** @type {Record<string, unknown>} */ (label);
+    if (typeof record["name"] !== "string") {
+      throw new Error("Expected gh api pulls to return label objects");
     }
 
-    return { name: record['name'] }
-  })
+    return { name: record["name"] };
+  });
 }
 
 /**
@@ -545,22 +547,22 @@ function normalizePullRequestLabels(value) {
  * }}
  */
 function normalizePullRequestHead(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Expected gh api pulls to return head objects')
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Expected gh api pulls to return head objects");
   }
 
-  const record = /** @type {Record<string, unknown>} */ (value)
-  if (typeof record['ref'] !== 'string' || typeof record['sha'] !== 'string') {
-    throw new Error('Expected gh api pulls to return head objects')
+  const record = /** @type {Record<string, unknown>} */ (value);
+  if (typeof record["ref"] !== "string" || typeof record["sha"] !== "string") {
+    throw new Error("Expected gh api pulls to return head objects");
   }
 
-  const repository = normalizePullRequestRepository(record['repo'])
+  const repository = normalizePullRequestRepository(record["repo"]);
   return {
-    headRefName: record['ref'],
-    headRefOid: record['sha'],
+    headRefName: record["ref"],
+    headRefOid: record["sha"],
     headRepository: repository.headRepository,
     headRepositoryOwner: repository.headRepositoryOwner,
-  }
+  };
 }
 
 /**
@@ -575,20 +577,20 @@ function normalizePullRequestRepository(value) {
     return {
       headRepository: null,
       headRepositoryOwner: null,
-    }
+    };
   }
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Expected gh api pulls to return repository objects')
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Expected gh api pulls to return repository objects");
   }
 
-  const record = /** @type {Record<string, unknown>} */ (value)
+  const record = /** @type {Record<string, unknown>} */ (value);
   const repositoryName =
-    typeof record['name'] === 'string' ? record['name'] : null
-  const repositoryOwner = normalizePullRequestRepositoryOwner(record['owner'])
+    typeof record["name"] === "string" ? record["name"] : null;
+  const repositoryOwner = normalizePullRequestRepositoryOwner(record["owner"]);
   return {
     headRepository: repositoryName === null ? null : { name: repositoryName },
     headRepositoryOwner: repositoryOwner,
-  }
+  };
 }
 
 /**
@@ -597,14 +599,16 @@ function normalizePullRequestRepository(value) {
  */
 function normalizePullRequestRepositoryOwner(value) {
   if (value === null) {
-    return null
+    return null;
   }
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Expected gh api pulls to return owner objects')
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Expected gh api pulls to return owner objects");
   }
 
-  const record = /** @type {Record<string, unknown>} */ (value)
-  return typeof record['login'] === 'string' ? { login: record['login'] } : null
+  const record = /** @type {Record<string, unknown>} */ (value);
+  return typeof record["login"] === "string"
+    ? { login: record["login"] }
+    : null;
 }
 
 /**
@@ -612,13 +616,13 @@ function normalizePullRequestRepositoryOwner(value) {
  * @returns {string | null}
  */
 function readHeadRepositoryFullName(pullRequest) {
-  const repositoryName = pullRequest.headRepository?.name
-  const repositoryOwner = pullRequest.headRepositoryOwner?.login
+  const repositoryName = pullRequest.headRepository?.name;
+  const repositoryOwner = pullRequest.headRepositoryOwner?.login;
   if (!repositoryName || !repositoryOwner) {
-    return null
+    return null;
   }
 
-  return `${repositoryOwner}/${repositoryName}`
+  return `${repositoryOwner}/${repositoryName}`;
 }
 
 /**
@@ -626,7 +630,7 @@ function readHeadRepositoryFullName(pullRequest) {
  * @returns {string}
  */
 function buildRunKey(pullRequest) {
-  return `${repoFullName}#${pullRequest.number}@${pullRequest.headRefOid}`
+  return `${repoFullName}#${pullRequest.number}@${pullRequest.headRefOid}`;
 }
 
 /**
@@ -636,110 +640,110 @@ function buildRunKey(pullRequest) {
 function validateOriginMarker(pullRequest) {
   // Treat the PR body marker as the cross-system contract. We do not infer this
   // from Noter chat state or branch naming.
-  const extractedMarker = extractOriginMarkerJson(pullRequest.body)
+  const extractedMarker = extractOriginMarkerJson(pullRequest.body);
   if (!extractedMarker.ok) {
     return {
       ok: false,
       reason: extractedMarker.reason,
-    }
+    };
   }
 
   /** @type {unknown} */
-  let parsed
+  let parsed;
   try {
-    parsed = JSON.parse(extractedMarker.json)
+    parsed = JSON.parse(extractedMarker.json);
   } catch (error) {
     return {
       ok: false,
       reason: `invalid noter-origin JSON: ${describeError(error)}`,
-    }
+    };
   }
 
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     return {
       ok: false,
-      reason: 'noter-origin marker must decode to a JSON object',
-    }
+      reason: "noter-origin marker must decode to a JSON object",
+    };
   }
 
-  const marker = /** @type {Record<string, unknown>} */ (parsed)
+  const marker = /** @type {Record<string, unknown>} */ (parsed);
   const requiredStringFields = [
-    'source',
-    'mode',
-    'firstMessage',
-    'requestedModel',
-    'requestedReasoningEffort',
-    'repositoryFullName',
-    'headRefName',
-  ]
+    "source",
+    "mode",
+    "firstMessage",
+    "requestedModel",
+    "requestedReasoningEffort",
+    "repositoryFullName",
+    "headRefName",
+  ];
   for (const fieldName of requiredStringFields) {
     if (
-      typeof marker[fieldName] !== 'string' ||
+      typeof marker[fieldName] !== "string" ||
       marker[fieldName].trim().length === 0
     ) {
       return {
         ok: false,
         reason: `noter-origin marker is missing required string field "${fieldName}"`,
-      }
+      };
     }
   }
 
-  const requestedModel = String(marker['requestedModel'])
+  const requestedModel = String(marker["requestedModel"]);
   if (!SAFE_MODEL_PATTERN.test(requestedModel)) {
     return {
       ok: false,
       reason: `noter-origin requestedModel "${requestedModel}" contains unsupported characters`,
-    }
+    };
   }
 
-  const requestedReasoningEffort = String(marker['requestedReasoningEffort'])
+  const requestedReasoningEffort = String(marker["requestedReasoningEffort"]);
   if (!ALLOWED_REASONING_EFFORTS.includes(requestedReasoningEffort)) {
     return {
       ok: false,
       reason: `noter-origin requestedReasoningEffort "${requestedReasoningEffort}" is unsupported`,
-    }
+    };
   }
 
-  if (marker['source'] !== 'noter_ui') {
+  if (marker["source"] !== "noter_ui") {
     return {
       ok: false,
       reason: `noter-origin source must be "noter_ui" (got "${String(
-        marker['source'],
+        marker["source"],
       )}")`,
-    }
+    };
   }
 
-  if (marker['mode'] !== 'research') {
+  if (marker["mode"] !== "research") {
     return {
       ok: false,
       reason: `noter-origin mode must be "research" (got "${String(
-        marker['mode'],
+        marker["mode"],
       )}")`,
-    }
+    };
   }
 
-  if (marker['repositoryFullName'] !== repoFullName) {
+  if (marker["repositoryFullName"] !== repoFullName) {
     return {
       ok: false,
       reason:
-        `noter-origin repositoryFullName "${String(marker['repositoryFullName'])}" ` +
+        `noter-origin repositoryFullName "${String(marker["repositoryFullName"])}" ` +
         `does not match current repo "${repoFullName}"`,
-    }
+    };
   }
 
-  if (marker['headRefName'] !== pullRequest.headRefName) {
+  if (marker["headRefName"] !== pullRequest.headRefName) {
     return {
       ok: false,
       reason:
-        `noter-origin headRefName "${String(marker['headRefName'])}" ` +
+        `noter-origin headRefName "${String(marker["headRefName"])}" ` +
         `does not match PR head "${pullRequest.headRefName}"`,
-    }
+    };
   }
 
   return {
     ok: true,
     marker: /** @type {NoterOriginMarker} */ (marker),
-  }
+  };
 }
 
 // MARK: - Run Orchestration
@@ -751,16 +755,16 @@ function validateOriginMarker(pullRequest) {
  * @returns {Promise<void>}
  */
 async function handleValidPullRequest(pullRequest, marker, state) {
-  const runKey = buildRunKey(pullRequest)
-  const runId = buildRunId(pullRequest)
-  const runStartAt = new Date().toISOString()
-  const worktreePath = buildWorktreePath(pullRequest)
+  const runKey = buildRunKey(pullRequest);
+  const runId = buildRunId(pullRequest);
+  const runStartAt = new Date().toISOString();
+  const worktreePath = buildWorktreePath(pullRequest);
   const artifactDir = path.join(
     runsRoot,
     repositoryPathSegment,
     `pr-${pullRequest.number}`,
     `${timestampForPath(runStartAt)}-${sanitizePathSegment(pullRequest.headRefOid)}`,
-  )
+  );
 
   if (options.dryRun) {
     // Dry-run computes the same deterministic paths but stops before mutating
@@ -768,13 +772,13 @@ async function handleValidPullRequest(pullRequest, marker, state) {
     console.log(
       `[connect] Would run PR #${pullRequest.number} in ${worktreePath} ` +
         `with model ${marker.requestedModel} / effort ${marker.requestedReasoningEffort}`,
-    )
-    return
+    );
+    return;
   }
 
   /** @type {HandledRunRecord} */
   const handledRecord = {
-    status: 'failed',
+    status: "failed",
     prNumber: pullRequest.number,
     headRefName: pullRequest.headRefName,
     headRefOid: pullRequest.headRefOid,
@@ -785,15 +789,15 @@ async function handleValidPullRequest(pullRequest, marker, state) {
     artifactDir,
     requestedModel: marker.requestedModel,
     requestedReasoningEffort: marker.requestedReasoningEffort,
-  }
+  };
 
   try {
-    ensureWorktreeForPullRequest(pullRequest)
-    fs.mkdirSync(artifactDir, { recursive: true })
+    ensureWorktreeForPullRequest(pullRequest);
+    fs.mkdirSync(artifactDir, { recursive: true });
     console.log(
       `[connect] Claiming PR #${pullRequest.number} as ${runId} ` +
         `(${marker.requestedModel}, ${marker.requestedReasoningEffort})`,
-    )
+    );
     tryPostPullRequestComment(
       pullRequest.number,
       buildClaimComment({
@@ -801,29 +805,29 @@ async function handleValidPullRequest(pullRequest, marker, state) {
         marker,
         runId,
       }),
-    )
+    );
     const result = runCodexForPullRequest({
       pullRequest,
       marker,
       runId,
       worktreePath,
       artifactDir,
-    })
-    handledRecord.finishedAt = new Date().toISOString()
-    handledRecord.status = result.exitCode === 0 ? 'succeeded' : 'failed'
+    });
+    handledRecord.finishedAt = new Date().toISOString();
+    handledRecord.status = result.exitCode === 0 ? "succeeded" : "failed";
     handledRecord.remoteHeadAfterRun = fetchPullRequestHeadOid(
       pullRequest.number,
-    )
+    );
     if (result.exitCode !== 0) {
-      handledRecord.error = `codex exec exited with status ${result.exitCode}`
+      handledRecord.error = `codex exec exited with status ${result.exitCode}`;
     }
     // Persist successful SHAs before commenting so a transient GitHub comment
     // failure still prevents duplicate executions for the same completed head.
-    if (handledRecord.status === 'succeeded') {
-      recordHandledRun(state, runKey, handledRecord)
-      delete state.failedRuns[runKey]
+    if (handledRecord.status === "succeeded") {
+      recordHandledRun(state, runKey, handledRecord);
+      delete state.failedRuns[runKey];
     } else {
-      recordFailedRun(state, runKey, handledRecord)
+      recordFailedRun(state, runKey, handledRecord);
     }
     tryPostPullRequestComment(
       pullRequest.number,
@@ -833,25 +837,25 @@ async function handleValidPullRequest(pullRequest, marker, state) {
         exitCode: result.exitCode,
         remoteHeadAfterRun: handledRecord.remoteHeadAfterRun,
       }),
-    )
+    );
   } catch (error) {
-    handledRecord.finishedAt = new Date().toISOString()
-    handledRecord.status = 'failed'
-    handledRecord.error = describeError(error)
+    handledRecord.finishedAt = new Date().toISOString();
+    handledRecord.status = "failed";
+    handledRecord.error = describeError(error);
     handledRecord.remoteHeadAfterRun = tryFetchPullRequestHeadOid(
       pullRequest.number,
-    )
-    recordFailedRun(state, runKey, handledRecord)
+    );
+    recordFailedRun(state, runKey, handledRecord);
     tryPostPullRequestComment(
       pullRequest.number,
       buildFailureComment({
         pullRequest,
         runId,
       }),
-    )
+    );
     console.error(
       `[connect] PR #${pullRequest.number} failed: ${handledRecord.error}`,
-    )
+    );
   }
 }
 
@@ -864,8 +868,8 @@ function buildWorktreePath(pullRequest) {
     worktreesRoot,
     repositoryPathSegment,
     `pr-${pullRequest.number}-${sanitizePathSegment(pullRequest.headRefName)}`,
-    'noter',
-  )
+    "noter",
+  );
 }
 
 // MARK: - Worktree Management
@@ -875,16 +879,16 @@ function buildWorktreePath(pullRequest) {
  * @returns {string}
  */
 function ensureWorktreeForPullRequest(pullRequest) {
-  const headRepositoryFullName = readHeadRepositoryFullName(pullRequest)
+  const headRepositoryFullName = readHeadRepositoryFullName(pullRequest);
   if (headRepositoryFullName !== repoFullName) {
     throw new Error(
-      `PR #${pullRequest.number} head repository ${headRepositoryFullName ?? '(unknown)'} does not match origin ${repoFullName}`,
-    )
+      `PR #${pullRequest.number} head repository ${headRepositoryFullName ?? "(unknown)"} does not match origin ${repoFullName}`,
+    );
   }
 
-  const worktreeDir = buildWorktreePath(pullRequest)
-  const branchRef = `refs/heads/${pullRequest.headRefName}`
-  const existingWorktree = findWorktreeByBranch(branchRef)
+  const worktreeDir = buildWorktreePath(pullRequest);
+  const branchRef = `refs/heads/${pullRequest.headRefName}`;
+  const existingWorktree = findWorktreeByBranch(branchRef);
   // Fail closed if the PR branch is already checked out somewhere else. The
   // watcher should not guess which worktree owns it.
   if (
@@ -893,83 +897,83 @@ function ensureWorktreeForPullRequest(pullRequest) {
   ) {
     throw new Error(
       `Branch ${pullRequest.headRefName} is already checked out at ${existingWorktree}`,
-    )
+    );
   }
 
   // Always refresh from origin first so we fast-forward onto the PR head the
   // watcher actually observed.
-  runCommand('git', ['fetch', 'origin', pullRequest.headRefName], {
+  runCommand("git", ["fetch", "origin", pullRequest.headRefName], {
     cwd: repoRoot,
-  })
+  });
 
   if (!fs.existsSync(worktreeDir)) {
-    fs.mkdirSync(path.dirname(worktreeDir), { recursive: true })
+    fs.mkdirSync(path.dirname(worktreeDir), { recursive: true });
     if (localBranchExists(pullRequest.headRefName)) {
       runCommand(
-        'git',
-        ['worktree', 'add', worktreeDir, pullRequest.headRefName],
+        "git",
+        ["worktree", "add", worktreeDir, pullRequest.headRefName],
         {
           cwd: repoRoot,
         },
-      )
+      );
     } else {
       runCommand(
-        'git',
+        "git",
         [
-          'worktree',
-          'add',
-          '-b',
+          "worktree",
+          "add",
+          "-b",
           pullRequest.headRefName,
           worktreeDir,
           `origin/${pullRequest.headRefName}`,
         ],
         { cwd: repoRoot },
-      )
+      );
     }
     runCommand(
-      'git',
+      "git",
       [
-        '-C',
+        "-C",
         worktreeDir,
-        'branch',
-        '--set-upstream-to',
+        "branch",
+        "--set-upstream-to",
         `origin/${pullRequest.headRefName}`,
         pullRequest.headRefName,
       ],
       { cwd: repoRoot },
-    )
+    );
   }
 
   const dirtyStatus = runCommand(
-    'git',
-    ['-C', worktreeDir, 'status', '--short'],
+    "git",
+    ["-C", worktreeDir, "status", "--short"],
     {
       cwd: repoRoot,
     },
-  )
+  );
   if (dirtyStatus.trim().length > 0) {
     throw new Error(
       `Worktree ${worktreeDir} is dirty; refusing to reuse it automatically`,
-    )
+    );
   }
 
-  runCommand('git', ['-C', worktreeDir, 'switch', pullRequest.headRefName], {
+  runCommand("git", ["-C", worktreeDir, "switch", pullRequest.headRefName], {
     cwd: repoRoot,
-  })
+  });
   runCommand(
-    'git',
-    ['-C', worktreeDir, 'fetch', 'origin', pullRequest.headRefName],
+    "git",
+    ["-C", worktreeDir, "fetch", "origin", pullRequest.headRefName],
     {
       cwd: repoRoot,
     },
-  )
+  );
   runCommand(
-    'git',
-    ['-C', worktreeDir, 'reset', '--hard', `origin/${pullRequest.headRefName}`],
+    "git",
+    ["-C", worktreeDir, "reset", "--hard", `origin/${pullRequest.headRefName}`],
     { cwd: repoRoot },
-  )
+  );
 
-  return worktreeDir
+  return worktreeDir;
 }
 
 /**
@@ -978,14 +982,14 @@ function ensureWorktreeForPullRequest(pullRequest) {
  */
 function localBranchExists(branchName) {
   const result = spawnSync(
-    'git',
-    ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`],
+    "git",
+    ["show-ref", "--verify", "--quiet", `refs/heads/${branchName}`],
     {
       cwd: repoRoot,
-      stdio: 'ignore',
+      stdio: "ignore",
     },
-  )
-  return result.status === 0
+  );
+  return result.status === 0;
 }
 
 /**
@@ -993,28 +997,30 @@ function localBranchExists(branchName) {
  * @returns {string | null}
  */
 function findWorktreeByBranch(branchRef) {
-  const stdout = runCommand('git', ['worktree', 'list', '--porcelain'], {
+  const stdout = runCommand("git", ["worktree", "list", "--porcelain"], {
     cwd: repoRoot,
-  })
-  const blocks = stdout.split('\n\n').filter(block => block.trim().length > 0)
+  });
+  const blocks = stdout
+    .split("\n\n")
+    .filter((block) => block.trim().length > 0);
   for (const block of blocks) {
-    const lines = block.split('\n')
-    let worktreePath = null
-    let currentBranch = null
+    const lines = block.split("\n");
+    let worktreePath = null;
+    let currentBranch = null;
     for (const line of lines) {
-      if (line.startsWith('worktree ')) {
-        worktreePath = line.slice('worktree '.length)
-        continue
+      if (line.startsWith("worktree ")) {
+        worktreePath = line.slice("worktree ".length);
+        continue;
       }
-      if (line.startsWith('branch ')) {
-        currentBranch = line.slice('branch '.length)
+      if (line.startsWith("branch ")) {
+        currentBranch = line.slice("branch ".length);
       }
     }
     if (worktreePath && currentBranch === branchRef) {
-      return worktreePath
+      return worktreePath;
     }
   }
-  return null
+  return null;
 }
 
 // MARK: - Codex Execution
@@ -1030,46 +1036,46 @@ function findWorktreeByBranch(branchRef) {
  * @returns {{ exitCode: number }}
  */
 function runCodexForPullRequest(params) {
-  const eventsPath = path.join(params.artifactDir, 'events.jsonl')
-  const lastMessagePath = path.join(params.artifactDir, 'last-message.md')
-  const prompt = buildCodexPrompt(params)
-  const eventsFd = fs.openSync(eventsPath, 'w')
+  const eventsPath = path.join(params.artifactDir, "events.jsonl");
+  const lastMessagePath = path.join(params.artifactDir, "last-message.md");
+  const prompt = buildCodexPrompt(params);
+  const eventsFd = fs.openSync(eventsPath, "w");
 
   try {
     const result = spawnSync(
-      'codex',
+      "codex",
       [
-        'exec',
-        '--ask-for-approval',
-        'never',
-        '--sandbox',
-        'workspace-write',
-        '--json',
-        '--output-last-message',
+        "exec",
+        "--ask-for-approval",
+        "never",
+        "--sandbox",
+        "workspace-write",
+        "--json",
+        "--output-last-message",
         lastMessagePath,
-        '-C',
+        "-C",
         params.worktreePath,
-        '-c',
+        "-c",
         `model="${params.marker.requestedModel}"`,
-        '-c',
+        "-c",
         `model_reasoning_effort="${params.marker.requestedReasoningEffort}"`,
-        '-',
+        "-",
       ],
       {
         cwd: repoRoot,
-        encoding: 'utf8',
+        encoding: "utf8",
         input: prompt,
-        stdio: ['pipe', eventsFd, 'inherit'],
+        stdio: ["pipe", eventsFd, "inherit"],
       },
-    )
+    );
     if (result.error) {
-      throw result.error
+      throw result.error;
     }
     return {
       exitCode: result.status ?? 1,
-    }
+    };
   } finally {
-    fs.closeSync(eventsFd)
+    fs.closeSync(eventsFd);
   }
 }
 
@@ -1084,36 +1090,36 @@ function runCodexForPullRequest(params) {
  * @returns {string}
  */
 function buildCodexPrompt(params) {
-  const markerText = `${MARKER_PREFIX}${JSON.stringify(params.marker)}${MARKER_SUFFIX}`
+  const markerText = `${MARKER_PREFIX}${JSON.stringify(params.marker)}${MARKER_SUFFIX}`;
   return [
-    'A draft PR created from noter.md UI was claimed by a local `make connect` run.',
-    '',
+    "A draft PR created from noter.md UI was claimed by a local `make connect` run.",
+    "",
     `Repository: ${repoFullName}`,
     `PR: #${params.pullRequest.number} ${params.pullRequest.url}`,
     `Head branch: ${params.pullRequest.headRefName}`,
     `Local run id: ${params.runId}`,
-    '',
-    'Important context:',
-    '- Read AGENTS.md and the current source-of-truth docs before making decisions.',
-    '- Noter Convex chat state and Codex thread state are separate systems today. Do not assume hidden shared chat history outside this prompt and the PR body.',
-    '- The PR body marker below is the durable machine-readable contract for this run.',
+    "",
+    "Important context:",
+    "- Read AGENTS.md and the current source-of-truth docs before making decisions.",
+    "- Noter Convex chat state and Codex thread state are separate systems today. Do not assume hidden shared chat history outside this prompt and the PR body.",
+    "- The PR body marker below is the durable machine-readable contract for this run.",
     `- If you need to push branch updates, prefer \`git push origin HEAD:${params.pullRequest.headRefName}\`.`,
-    '',
-    'Requested Codex runtime:',
+    "",
+    "Requested Codex runtime:",
     `- model: ${params.marker.requestedModel}`,
     `- reasoning effort: ${params.marker.requestedReasoningEffort}`,
-    '',
-    'Visible first user message:',
+    "",
+    "Visible first user message:",
     params.marker.firstMessage,
-    '',
+    "",
     // Mirror the validated marker back into the prompt so the Codex run sees
     // the same explicit contract the watcher used to decide it was safe.
-    'Hidden PR body marker:',
+    "Hidden PR body marker:",
     markerText,
-    '',
-    'Task:',
-    'Continue the work implied by the first user message. Research the topic in depth, update the PR branch if code or docs should change, and update the PR description/comments with findings and validation.',
-  ].join('\n')
+    "",
+    "Task:",
+    "Continue the work implied by the first user message. Research the topic in depth, update the PR branch if code or docs should change, and update the PR description/comments with findings and validation.",
+  ].join("\n");
 }
 
 // MARK: - GitHub PR Updates
@@ -1124,37 +1130,37 @@ function buildCodexPrompt(params) {
  */
 function fetchPullRequestHeadOid(pullRequestNumber) {
   const stdout = runCommand(
-    'gh',
+    "gh",
     [
-      'pr',
-      'view',
+      "pr",
+      "view",
       String(pullRequestNumber),
-      '--repo',
+      "--repo",
       repoFullName,
-      '--json',
-      'headRefOid',
+      "--json",
+      "headRefOid",
     ],
     { cwd: repoRoot },
-  )
+  );
   /** @type {unknown} */
-  let parsed
+  let parsed;
   try {
-    parsed = JSON.parse(stdout)
+    parsed = JSON.parse(stdout);
   } catch (error) {
     throw new Error(
       `Could not parse gh pr view output: ${describeError(error)}`,
-    )
+    );
   }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('gh pr view did not return a headRefOid string')
-  }
-
-  const parsedRecord = /** @type {Record<string, unknown>} */ (parsed)
-  if (typeof parsedRecord['headRefOid'] !== 'string') {
-    throw new Error('gh pr view did not return a headRefOid string')
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("gh pr view did not return a headRefOid string");
   }
 
-  return parsedRecord['headRefOid']
+  const parsedRecord = /** @type {Record<string, unknown>} */ (parsed);
+  if (typeof parsedRecord["headRefOid"] !== "string") {
+    throw new Error("gh pr view did not return a headRefOid string");
+  }
+
+  return parsedRecord["headRefOid"];
 }
 
 /**
@@ -1164,21 +1170,21 @@ function fetchPullRequestHeadOid(pullRequestNumber) {
  */
 function postPullRequestComment(pullRequestNumber, body) {
   runCommand(
-    'gh',
+    "gh",
     [
-      'pr',
-      'comment',
+      "pr",
+      "comment",
       String(pullRequestNumber),
-      '--repo',
+      "--repo",
       repoFullName,
-      '--body-file',
-      '-',
+      "--body-file",
+      "-",
     ],
     {
       cwd: repoRoot,
       input: body,
     },
-  )
+  );
 }
 
 /**
@@ -1188,11 +1194,11 @@ function postPullRequestComment(pullRequestNumber, body) {
  */
 function tryPostPullRequestComment(pullRequestNumber, body) {
   try {
-    postPullRequestComment(pullRequestNumber, body)
+    postPullRequestComment(pullRequestNumber, body);
   } catch (error) {
     console.error(
       `[connect] Could not post comment to PR #${pullRequestNumber}: ${describeError(error)}`,
-    )
+    );
   }
 }
 
@@ -1208,16 +1214,16 @@ function tryPostPullRequestComment(pullRequestNumber, body) {
  */
 function buildClaimComment(params) {
   return [
-    'Local `make connect` claimed this PR.',
-    '',
+    "Local `make connect` claimed this PR.",
+    "",
     `- host: \`${os.hostname()}\``,
     `- local run id: \`${params.runId}\``,
     `- head branch: \`${params.pullRequest.headRefName}\``,
     `- requested model: \`${params.marker.requestedModel}\``,
     `- requested reasoning effort: \`${params.marker.requestedReasoningEffort}\``,
-    '',
-    'The worktree and artifacts live on the operator machine; raw local filesystem paths are intentionally not posted back to GitHub.',
-  ].join('\n')
+    "",
+    "The worktree and artifacts live on the operator machine; raw local filesystem paths are intentionally not posted back to GitHub.",
+  ].join("\n");
 }
 
 /**
@@ -1227,19 +1233,19 @@ function buildClaimComment(params) {
  */
 function buildInvalidContractComment(pullRequest, reason) {
   return [
-    'Local `make connect` skipped this PR because the automation contract is incomplete.',
-    '',
+    "Local `make connect` skipped this PR because the automation contract is incomplete.",
+    "",
     `- PR: #${pullRequest.number}`,
     `- required label: \`${options.label}\``,
     `- error: ${reason}`,
-    '',
-    'Current runner contract:',
+    "",
+    "Current runner contract:",
     `- visible label: \`${options.label}\``,
-    '- hidden body marker: `<!-- noter-origin:v1 {...} -->`',
-    '- required marker fields: `source`, `mode`, `firstMessage`, `requestedModel`, `requestedReasoningEffort`, `repositoryFullName`, `headRefName`',
-    '',
-    'Nothing was launched.',
-  ].join('\n')
+    "- hidden body marker: `<!-- noter-origin:v1 {...} -->`",
+    "- required marker fields: `source`, `mode`, `firstMessage`, `requestedModel`, `requestedReasoningEffort`, `repositoryFullName`, `headRefName`",
+    "",
+    "Nothing was launched.",
+  ].join("\n");
 }
 
 /**
@@ -1253,17 +1259,17 @@ function buildInvalidContractComment(pullRequest, reason) {
  */
 function buildCompletionComment(params) {
   const lines = [
-    'Local `make connect` run finished.',
-    '',
+    "Local `make connect` run finished.",
+    "",
     `- host: \`${os.hostname()}\``,
     `- local run id: \`${params.runId}\``,
-    `- status: \`${params.exitCode === 0 ? 'succeeded' : 'failed'}\``,
+    `- status: \`${params.exitCode === 0 ? "succeeded" : "failed"}\``,
     `- exit code: \`${params.exitCode}\``,
     `- PR head after run: \`${params.remoteHeadAfterRun}\``,
-    '',
-    'The operator can inspect the local run artifacts if deeper debugging is needed.',
-  ]
-  return lines.join('\n')
+    "",
+    "The operator can inspect the local run artifacts if deeper debugging is needed.",
+  ];
+  return lines.join("\n");
 }
 
 /**
@@ -1275,15 +1281,15 @@ function buildCompletionComment(params) {
  */
 function buildFailureComment(params) {
   return [
-    'Local `make connect` run failed before completion.',
-    '',
+    "Local `make connect` run failed before completion.",
+    "",
     `- host: \`${os.hostname()}\``,
     `- local run id: \`${params.runId}\``,
     `- PR: #${params.pullRequest.number}`,
     `- result: \`local execution failed\``,
-    '',
-    'The operator can inspect the local run artifacts and retry after fixing the issue.',
-  ].join('\n')
+    "",
+    "The operator can inspect the local run artifacts and retry after fixing the issue.",
+  ].join("\n");
 }
 
 // MARK: - Formatting Helpers
@@ -1293,7 +1299,7 @@ function buildFailureComment(params) {
  * @returns {string}
  */
 function buildRunId(pullRequest) {
-  return `pr-${pullRequest.number}-${timestampForPath(new Date().toISOString())}`
+  return `pr-${pullRequest.number}-${timestampForPath(new Date().toISOString())}`;
 }
 
 /**
@@ -1301,7 +1307,7 @@ function buildRunId(pullRequest) {
  * @returns {string}
  */
 function timestampForPath(value) {
-  return value.replaceAll(/[:.-]/g, '')
+  return value.replaceAll(/[:.-]/g, "");
 }
 
 /**
@@ -1311,10 +1317,10 @@ function timestampForPath(value) {
 function sanitizePathSegment(value) {
   const cleaned = value
     .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-  return cleaned.length > 0 ? cleaned.slice(0, 80) : 'run'
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return cleaned.length > 0 ? cleaned.slice(0, 80) : "run";
 }
 
 /**
@@ -1328,10 +1334,10 @@ function sanitizePathSegment(value) {
  * @returns {void}
  */
 function recordHandledRun(state, runKey, record) {
-  state.handledRuns[runKey] = record
-  delete state.failedRuns[runKey]
+  state.handledRuns[runKey] = record;
+  delete state.failedRuns[runKey];
   if (
-    typeof record.remoteHeadAfterRun === 'string' &&
+    typeof record.remoteHeadAfterRun === "string" &&
     record.remoteHeadAfterRun.length > 0 &&
     record.remoteHeadAfterRun !== record.headRefOid
   ) {
@@ -1340,7 +1346,7 @@ function recordHandledRun(state, runKey, record) {
     ] = {
       ...record,
       headRefOid: record.remoteHeadAfterRun,
-    }
+    };
   }
 }
 
@@ -1355,7 +1361,7 @@ function recordHandledRun(state, runKey, record) {
  * @returns {void}
  */
 function recordFailedRun(state, runKey, record) {
-  state.failedRuns[runKey] = record
+  state.failedRuns[runKey] = record;
 }
 
 /**
@@ -1368,15 +1374,15 @@ function recordFailedRun(state, runKey, record) {
  */
 function shouldDelayFailedRunRetry(finishedAt, now) {
   if (options.once) {
-    return false
+    return false;
   }
 
-  const finishedAtMs = Date.parse(finishedAt)
+  const finishedAtMs = Date.parse(finishedAt);
   if (!Number.isFinite(finishedAtMs)) {
-    return false
+    return false;
   }
 
-  return now.getTime() - finishedAtMs < FAILED_RUN_RETRY_COOLDOWN_MS
+  return now.getTime() - finishedAtMs < FAILED_RUN_RETRY_COOLDOWN_MS;
 }
 
 // MARK: - Command Utilities
@@ -1394,26 +1400,26 @@ function runCommand(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: options.cwd,
     input: options.input,
-    encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  })
+    encoding: "utf8",
+    stdio: ["pipe", "pipe", "pipe"],
+  });
   if (result.error) {
-    throw result.error
+    throw result.error;
   }
   if (result.status !== 0) {
-    const stderr = result.stderr.trim()
-    const stdout = result.stdout.trim()
+    const stderr = result.stderr.trim();
+    const stdout = result.stdout.trim();
     throw new Error(
       [
-        `Command failed: ${command} ${args.join(' ')}`,
+        `Command failed: ${command} ${args.join(" ")}`,
         stdout.length > 0 ? `stdout:\n${stdout}` : null,
         stderr.length > 0 ? `stderr:\n${stderr}` : null,
       ]
         .filter(Boolean)
-        .join('\n\n'),
-    )
+        .join("\n\n"),
+    );
   }
-  return result.stdout
+  return result.stdout;
 }
 
 /**
@@ -1422,9 +1428,9 @@ function runCommand(command, args, options = {}) {
  */
 function describeError(error) {
   if (error instanceof Error) {
-    return error.message
+    return error.message;
   }
-  return String(error)
+  return String(error);
 }
 
 /**
@@ -1432,19 +1438,19 @@ function describeError(error) {
  * @returns {{ ok: true, json: string } | { ok: false, reason: string }}
  */
 function extractOriginMarkerJson(body) {
-  const lines = body.split('\n')
-  let insideCodeFence = false
+  const lines = body.split("\n");
+  let insideCodeFence = false;
   for (const line of lines) {
-    const trimmedLine = line.trim()
-    if (trimmedLine.startsWith('```') || trimmedLine.startsWith('~~~')) {
-      insideCodeFence = !insideCodeFence
-      continue
+    const trimmedLine = line.trim();
+    if (trimmedLine.startsWith("```") || trimmedLine.startsWith("~~~")) {
+      insideCodeFence = !insideCodeFence;
+      continue;
     }
     if (insideCodeFence) {
-      continue
+      continue;
     }
     if (!trimmedLine.startsWith(MARKER_PREFIX)) {
-      continue
+      continue;
     }
 
     // Require a standalone marker line so inline code examples do not count as
@@ -1452,8 +1458,8 @@ function extractOriginMarkerJson(body) {
     if (!trimmedLine.endsWith(MARKER_SUFFIX)) {
       return {
         ok: false,
-        reason: 'noter-origin marker is missing the closing `-->` delimiter',
-      }
+        reason: "noter-origin marker is missing the closing `-->` delimiter",
+      };
     }
 
     return {
@@ -1462,21 +1468,21 @@ function extractOriginMarkerJson(body) {
         MARKER_PREFIX.length,
         trimmedLine.length - MARKER_SUFFIX.length,
       ),
-    }
+    };
   }
 
   return {
     ok: false,
     reason:
-      'missing hidden `<!-- noter-origin:v1 {...} -->` marker in the PR body',
-  }
+      "missing hidden `<!-- noter-origin:v1 {...} -->` marker in the PR body",
+  };
 }
 
 // MARK: - Process Helpers
 
 /** @returns {boolean} */
 function shouldStop() {
-  return stopRequested
+  return stopRequested;
 }
 
 /**
@@ -1485,12 +1491,12 @@ function shouldStop() {
  */
 function tryFetchPullRequestHeadOid(pullRequestNumber) {
   try {
-    return fetchPullRequestHeadOid(pullRequestNumber)
+    return fetchPullRequestHeadOid(pullRequestNumber);
   } catch (error) {
     console.error(
       `[connect] Could not refresh PR #${pullRequestNumber} head SHA: ${describeError(error)}`,
-    )
-    return undefined
+    );
+    return undefined;
   }
 }
 
@@ -1499,9 +1505,9 @@ function tryFetchPullRequestHeadOid(pullRequestNumber) {
  * @returns {Promise<void>}
  */
 function sleep(milliseconds) {
-  return new Promise(resolve => {
-    setTimeout(resolve, milliseconds)
-  })
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
 }
 
 /**
@@ -1509,6 +1515,6 @@ function sleep(milliseconds) {
  * @returns {never}
  */
 function exitWithError(message) {
-  console.error(message)
-  process.exit(1)
+  console.error(message);
+  process.exit(1);
 }

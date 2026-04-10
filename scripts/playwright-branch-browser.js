@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // @ts-check
-import { spawnSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
-import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 const HELP_TEXT = `Usage: scripts/playwright-branch-browser.js <command> [args]
 
@@ -18,37 +18,37 @@ Commands:
   help                   Show this help message.
 
 Environment:
-  PLAYWRIGHT_SESSION     Override the computed session name.`
+  PLAYWRIGHT_SESSION     Override the computed session name.`;
 
-const PNPM_COMMAND = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
-const EXPLICIT_SESSION_PATTERN = /^[A-Za-z0-9._-]+$/
-const PLAYWRIGHT_CLI_BROWSER_NAME = 'chromium'
-const PLAYWRIGHT_CLI_CHANNEL = 'chromium'
-const SESSION_REPO_SEGMENT_MAX_LENGTH = 5
-const SESSION_BRANCH_SEGMENT_MAX_LENGTH = 3
-const SESSION_HASH_LENGTH = 6
-const SESSION_CONFIG_SALT = `${PLAYWRIGHT_CLI_BROWSER_NAME}-${PLAYWRIGHT_CLI_CHANNEL}-v1`
-const VERIFY_TIMEOUT_MS = 5_000
-const VERIFY_POLL_INTERVAL_MS = 200
-const RESTORE_PAGES_WINDOW_TITLE = 'Restore pages?'
-const BROWSER_THEME_SATURATION = 0.64
-const BROWSER_THEME_LIGHTNESS = 0.56
+const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const EXPLICIT_SESSION_PATTERN = /^[A-Za-z0-9._-]+$/;
+const PLAYWRIGHT_CLI_BROWSER_NAME = "chromium";
+const PLAYWRIGHT_CLI_CHANNEL = "chromium";
+const SESSION_REPO_SEGMENT_MAX_LENGTH = 5;
+const SESSION_BRANCH_SEGMENT_MAX_LENGTH = 3;
+const SESSION_HASH_LENGTH = 6;
+const SESSION_CONFIG_SALT = `${PLAYWRIGHT_CLI_BROWSER_NAME}-${PLAYWRIGHT_CLI_CHANNEL}-v1`;
+const VERIFY_TIMEOUT_MS = 5_000;
+const VERIFY_POLL_INTERVAL_MS = 200;
+const RESTORE_PAGES_WINDOW_TITLE = "Restore pages?";
+const BROWSER_THEME_SATURATION = 0.64;
+const BROWSER_THEME_LIGHTNESS = 0.56;
 
 class PlaywrightBranchBrowserError extends Error {
   /**
    * @param {string} message
    */
   constructor(message) {
-    super(message)
-    this.name = 'PlaywrightBranchBrowserError'
+    super(message);
+    this.name = "PlaywrightBranchBrowserError";
   }
 }
 
 if (isMainModule()) {
   try {
-    main(process.argv.slice(2))
+    main(process.argv.slice(2));
   } catch (error) {
-    handleMainError(error)
+    handleMainError(error);
   }
 }
 
@@ -69,48 +69,48 @@ if (isMainModule()) {
  * @returns {void}
  */
 function main(args) {
-  const [command, ...rest] = args
+  const [command, ...rest] = args;
 
   if (
     !command ||
-    command === 'help' ||
-    command === '--help' ||
-    command === '-h'
+    command === "help" ||
+    command === "--help" ||
+    command === "-h"
   ) {
-    console.log(HELP_TEXT)
-    return
+    console.log(HELP_TEXT);
+    return;
   }
 
-  if (command === 'session') {
-    console.log(getSessionName())
-    return
+  if (command === "session") {
+    console.log(getSessionName());
+    return;
   }
 
-  if (command === 'profile') {
-    console.log(getProfileDir(getSessionName()))
-    return
+  if (command === "profile") {
+    console.log(getProfileDir(getSessionName()));
+    return;
   }
 
-  if (command === 'open') {
-    openBranchSession(parseOpenCommandArgs(rest))
-    return
+  if (command === "open") {
+    openBranchSession(parseOpenCommandArgs(rest));
+    return;
   }
 
-  if (command === 'verify') {
-    verifyRestorePagesSuppression(parseOpenCommandArgs(rest))
-    return
+  if (command === "verify") {
+    verifyRestorePagesSuppression(parseOpenCommandArgs(rest));
+    return;
   }
 
-  if (command === 'cli') {
+  if (command === "cli") {
     if (rest.length === 0) {
-      fail('Missing playwright-cli command. Use `cli <command> [args]`.')
+      fail("Missing playwright-cli command. Use `cli <command> [args]`.");
     }
 
-    runPlaywrightCli([`-s=${getSessionName()}`, ...rest])
-    return
+    runPlaywrightCli([`-s=${getSessionName()}`, ...rest]);
+    return;
   }
 
-  fail(`Unknown command: ${command}`)
+  fail(`Unknown command: ${command}`);
 }
 
 /**
@@ -122,62 +122,62 @@ function main(args) {
  * @returns {void}
  */
 function openBranchSession(options) {
-  const session = getSessionName()
-  const cliArgs = [`-s=${session}`]
-  const initialSessionState = getSessionState(session)
+  const session = getSessionName();
+  const cliArgs = [`-s=${session}`];
+  const initialSessionState = getSessionState(session);
 
-  if (initialSessionState === 'unknown') {
+  if (initialSessionState === "unknown") {
     fail(
       `Could not determine whether Playwright session "${session}" is already running. Refusing to reopen it because that could replace an unsaved browser tab.`,
-    )
+    );
   }
 
-  if (initialSessionState === 'open') {
-    const reuseArgs = [...cliArgs, 'tab-new']
+  if (initialSessionState === "open") {
+    const reuseArgs = [...cliArgs, "tab-new"];
     if (options.url) {
-      reuseArgs.push(options.url)
+      reuseArgs.push(options.url);
     }
 
     const reuseResult = runPlaywrightCli(reuseArgs, {
       allowFailure: true,
-      stdio: 'pipe',
-    })
+      stdio: "pipe",
+    });
 
     if (reuseResult.status === 0) {
-      writeCapturedOutput(reuseResult)
-      return
+      writeCapturedOutput(reuseResult);
+      return;
     }
 
     if (requiresSessionReopen(reuseResult, session)) {
-      writeCapturedOutput(reuseResult)
+      writeCapturedOutput(reuseResult);
     } else {
-      writeCapturedOutput(reuseResult)
+      writeCapturedOutput(reuseResult);
 
       // `open` stops an existing session before recreating it, so only fall
       // back when we can prove the original session is already gone.
-      if (getSessionState(session) !== 'missing') {
+      if (getSessionState(session) !== "missing") {
         fail(
           `Playwright session "${session}" rejected 'tab-new'. Leaving the existing browser untouched so unsaved changes are not lost.`,
-        )
+        );
       }
     }
   }
 
-  const profileDir = getProfileDir(session)
-  mkdirSync(profileDir, { recursive: true })
-  sanitizeChromeCrashRecoveryState(profileDir)
-  ensureConfiguredBrowserInstalled()
+  const profileDir = getProfileDir(session);
+  mkdirSync(profileDir, { recursive: true });
+  sanitizeChromeCrashRecoveryState(profileDir);
+  ensureConfiguredBrowserInstalled();
 
-  const openArgs = [...cliArgs, 'open']
+  const openArgs = [...cliArgs, "open"];
   if (options.url) {
-    openArgs.push(options.url)
+    openArgs.push(options.url);
   }
 
-  openArgs.push('--persistent', `--profile=${profileDir}`)
+  openArgs.push("--persistent", `--profile=${profileDir}`);
   if (options.headed) {
-    openArgs.push('--headed')
+    openArgs.push("--headed");
   }
-  runPlaywrightCli(openArgs)
+  runPlaywrightCli(openArgs);
 }
 
 /**
@@ -185,9 +185,9 @@ function openBranchSession(options) {
  * @returns {{ url?: string, headed: boolean }}
  */
 function parseOpenCommandArgs(args) {
-  const headed = args.includes('--headed')
-  const url = args.find(arg => arg !== '--headed')
-  return url ? { url, headed } : { headed }
+  const headed = args.includes("--headed");
+  const url = args.find((arg) => arg !== "--headed");
+  return url ? { url, headed } : { headed };
 }
 
 /**
@@ -200,9 +200,9 @@ function parseOpenCommandArgs(args) {
  * @returns {boolean}
  */
 function requiresSessionReopen(result, session) {
-  const output = `${result.stdout}\n${result.stderr}`
-  const escapedSession = session.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(`session '${escapedSession}' is v`, 'i').test(output)
+  const output = `${result.stdout}\n${result.stderr}`;
+  const escapedSession = session.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`session '${escapedSession}' is v`, "i").test(output);
 }
 
 /**
@@ -211,24 +211,24 @@ function requiresSessionReopen(result, session) {
  */
 function writeCapturedOutput(result) {
   if (result.stdout) {
-    process.stdout.write(result.stdout)
+    process.stdout.write(result.stdout);
   }
 
   if (result.stderr) {
-    process.stderr.write(result.stderr)
+    process.stderr.write(result.stderr);
   }
 }
 
 /** @returns {string} */
 function getSessionName() {
-  const explicitSession = process.env.PLAYWRIGHT_SESSION?.trim()
+  const explicitSession = process.env.PLAYWRIGHT_SESSION?.trim();
   if (explicitSession) {
-    return getSafeExplicitSession(explicitSession)
+    return getSafeExplicitSession(explicitSession);
   }
 
-  const repoRoot = getRepoRoot()
-  const branchIdentifier = getBranchIdentifier()
-  return buildDerivedSessionName(repoRoot, branchIdentifier)
+  const repoRoot = getRepoRoot();
+  const branchIdentifier = getBranchIdentifier();
+  return buildDerivedSessionName(repoRoot, branchIdentifier);
 }
 
 /**
@@ -236,7 +236,7 @@ function getSessionName() {
  * @returns {string}
  */
 function getProfileDir(session) {
-  return path.join(getRepoRoot(), '.playwright-cli', 'profiles', session)
+  return path.join(getRepoRoot(), ".playwright-cli", "profiles", session);
 }
 
 /**
@@ -255,7 +255,7 @@ export function buildPlaywrightCliConfig(repoRoot = getRepoRoot()) {
         args: getPlaywrightCliChromiumArgs(repoRoot),
       },
     },
-  }
+  };
 }
 
 /**
@@ -263,7 +263,7 @@ export function buildPlaywrightCliConfig(repoRoot = getRepoRoot()) {
  * @returns {string}
  */
 export function getPlaywrightCliConfigPath(repoRoot) {
-  return path.join(repoRoot, '.playwright-cli', 'cli.config.json')
+  return path.join(repoRoot, ".playwright-cli", "cli.config.json");
 }
 
 /**
@@ -271,14 +271,14 @@ export function getPlaywrightCliConfigPath(repoRoot) {
  * @returns {string}
  */
 export function ensurePlaywrightCliConfig(repoRoot) {
-  const configPath = getPlaywrightCliConfigPath(repoRoot)
-  mkdirSync(path.dirname(configPath), { recursive: true })
+  const configPath = getPlaywrightCliConfigPath(repoRoot);
+  mkdirSync(path.dirname(configPath), { recursive: true });
   writeFileSync(
     configPath,
     `${JSON.stringify(buildPlaywrightCliConfig(repoRoot), null, 2)}\n`,
-    'utf8',
-  )
-  return configPath
+    "utf8",
+  );
+  return configPath;
 }
 
 /**
@@ -290,27 +290,27 @@ export function ensurePlaywrightCliConfig(repoRoot) {
  * @returns {void}
  */
 function ensureConfiguredBrowserInstalled() {
-  const repoRoot = getRepoRoot()
-  const playwrightCliPath = getBundledPlaywrightCliPath(repoRoot)
-  const executablePath = getBundledBrowserExecutablePath(playwrightCliPath)
+  const repoRoot = getRepoRoot();
+  const playwrightCliPath = getBundledPlaywrightCliPath(repoRoot);
+  const executablePath = getBundledBrowserExecutablePath(playwrightCliPath);
 
   if (existsSync(executablePath)) {
-    return
+    return;
   }
 
   const installResult = spawnSync(
-    'node',
-    [playwrightCliPath, 'install', PLAYWRIGHT_CLI_CHANNEL],
+    "node",
+    [playwrightCliPath, "install", PLAYWRIGHT_CLI_CHANNEL],
     {
-      encoding: 'utf8',
-      stdio: 'inherit',
+      encoding: "utf8",
+      stdio: "inherit",
     },
-  )
+  );
 
   if (installResult.status !== 0 || !existsSync(executablePath)) {
     fail(
       `Failed to install Playwright browser "${PLAYWRIGHT_CLI_CHANNEL}" for ${playwrightCliPath}.`,
-    )
+    );
   }
 }
 
@@ -322,32 +322,32 @@ function getBundledPlaywrightCliPath(repoRoot) {
   const result = spawnSync(
     PNPM_COMMAND,
     [
-      '--dir',
-      path.join(repoRoot, 'apps/noter'),
-      'exec',
-      'node',
-      '-p',
+      "--dir",
+      path.join(repoRoot, "apps/noter"),
+      "exec",
+      "node",
+      "-p",
       "require.resolve('@playwright/cli/playwright-cli.js')",
     ],
     {
-      encoding: 'utf8',
-      stdio: 'pipe',
+      encoding: "utf8",
+      stdio: "pipe",
     },
-  )
+  );
 
   if (result.status !== 0) {
-    process.stderr.write(result.stderr)
-    fail('Failed to resolve the bundled @playwright/cli entrypoint.')
+    process.stderr.write(result.stderr);
+    fail("Failed to resolve the bundled @playwright/cli entrypoint.");
   }
 
-  const cliEntryPath = result.stdout.trim()
+  const cliEntryPath = result.stdout.trim();
   return path.resolve(
     path.dirname(cliEntryPath),
-    '..',
-    '..',
-    'playwright',
-    'cli.js',
-  )
+    "..",
+    "..",
+    "playwright",
+    "cli.js",
+  );
 }
 
 /**
@@ -366,25 +366,25 @@ const executable = registry.findExecutable(browserName)
 if (!executable) {
   process.exit(1)
 }
-process.stdout.write(executable.executablePath())`
+process.stdout.write(executable.executablePath())`;
 
   const result = spawnSync(
-    'node',
-    ['-e', resolveExecutableProgram, playwrightCliPath, PLAYWRIGHT_CLI_CHANNEL],
+    "node",
+    ["-e", resolveExecutableProgram, playwrightCliPath, PLAYWRIGHT_CLI_CHANNEL],
     {
-      encoding: 'utf8',
-      stdio: 'pipe',
+      encoding: "utf8",
+      stdio: "pipe",
     },
-  )
+  );
 
   if (result.status !== 0) {
-    process.stderr.write(result.stderr)
+    process.stderr.write(result.stderr);
     fail(
       `Failed to resolve the executable path for Playwright browser "${PLAYWRIGHT_CLI_CHANNEL}".`,
-    )
+    );
   }
 
-  return result.stdout.trim()
+  return result.stdout.trim();
 }
 
 /**
@@ -396,54 +396,54 @@ process.stdout.write(executable.executablePath())`
  * @returns {void}
  */
 export function sanitizeChromeCrashRecoveryState(profileDir) {
-  updateJsonFile(path.join(profileDir, 'Variations'), variationsState => {
-    variationsState.variations_crash_streak = 0
-    variationsState['user_experience_metrics.stability.exited_cleanly'] = true
-    return variationsState
-  })
+  updateJsonFile(path.join(profileDir, "Variations"), (variationsState) => {
+    variationsState.variations_crash_streak = 0;
+    variationsState["user_experience_metrics.stability.exited_cleanly"] = true;
+    return variationsState;
+  });
 
-  updateJsonFile(path.join(profileDir, 'Local State'), localState => {
-    localState.variations_crash_streak = 0
-    return localState
-  })
+  updateJsonFile(path.join(profileDir, "Local State"), (localState) => {
+    localState.variations_crash_streak = 0;
+    return localState;
+  });
 
   updateJsonFile(
-    path.join(profileDir, 'Default', 'Preferences'),
-    preferences => {
+    path.join(profileDir, "Default", "Preferences"),
+    (preferences) => {
       if (isRecord(preferences.profile)) {
-        preferences.profile.exit_type = 'Normal'
+        preferences.profile.exit_type = "Normal";
       }
 
       const sessionEventLog = isRecord(preferences.sessions)
         ? preferences.sessions.event_log
-        : undefined
+        : undefined;
 
       if (isRecord(preferences.sessions) && Array.isArray(sessionEventLog)) {
         preferences.sessions.event_log =
-          clearCrashFlagsFromSessionEventLog(sessionEventLog)
+          clearCrashFlagsFromSessionEventLog(sessionEventLog);
       }
 
-      return preferences
+      return preferences;
     },
-  )
+  );
 }
 
 /** @returns {string} */
 function getRepoRoot() {
-  return runGit(['rev-parse', '--show-toplevel'])
+  return runGit(["rev-parse", "--show-toplevel"]);
 }
 
 /**
  * @returns {string}
  */
 function getBranchIdentifier() {
-  const branchName = tryRunGit(['symbolic-ref', '-q', '--short', 'HEAD'])
+  const branchName = tryRunGit(["symbolic-ref", "-q", "--short", "HEAD"]);
   if (branchName) {
-    return branchName
+    return branchName;
   }
 
-  const shortSha = runGit(['rev-parse', '--short', 'HEAD'])
-  return `detached-${shortSha}`
+  const shortSha = runGit(["rev-parse", "--short", "HEAD"]);
+  return `detached-${shortSha}`;
 }
 
 /**
@@ -451,11 +451,11 @@ function getBranchIdentifier() {
  * @returns {'open' | 'closed' | 'missing' | 'unknown'}
  */
 function getSessionState(session) {
-  const sessionDetails = getSessionDetails(session)
+  const sessionDetails = getSessionDetails(session);
   if (!sessionDetails) {
-    return 'unknown'
+    return "unknown";
   }
-  return sessionDetails.status
+  return sessionDetails.status;
 }
 
 /**
@@ -464,29 +464,29 @@ function getSessionState(session) {
  * @returns {import('node:child_process').SpawnSyncReturns<string>}
  */
 function runPlaywrightCli(args, options = {}) {
-  const repoRoot = getRepoRoot()
-  const configPath = ensurePlaywrightCliConfig(repoRoot)
+  const repoRoot = getRepoRoot();
+  const configPath = ensurePlaywrightCliConfig(repoRoot);
   const result = spawnSync(
     PNPM_COMMAND,
     [
-      '--dir',
-      path.join(repoRoot, 'apps/noter'),
-      'exec',
-      'playwright-cli',
+      "--dir",
+      path.join(repoRoot, "apps/noter"),
+      "exec",
+      "playwright-cli",
       `--config=${configPath}`,
       ...args,
     ],
     {
-      encoding: 'utf8',
-      stdio: options.stdio ?? 'inherit',
+      encoding: "utf8",
+      stdio: options.stdio ?? "inherit",
     },
-  )
+  );
 
   if (!options.allowFailure && result.status !== 0) {
-    process.exit(result.status ?? 1)
+    process.exit(result.status ?? 1);
   }
 
-  return result
+  return result;
 }
 
 /**
@@ -494,11 +494,11 @@ function runPlaywrightCli(args, options = {}) {
  * @returns {string}
  */
 function runGit(args) {
-  const value = tryRunGit(args)
+  const value = tryRunGit(args);
   if (!value) {
-    fail(`Git command failed: git ${args.join(' ')}`)
+    fail(`Git command failed: git ${args.join(" ")}`);
   }
-  return value
+  return value;
 }
 
 /**
@@ -506,15 +506,15 @@ function runGit(args) {
  * @returns {string}
  */
 function tryRunGit(args) {
-  const result = spawnSync('git', args, {
-    encoding: 'utf8',
-  })
+  const result = spawnSync("git", args, {
+    encoding: "utf8",
+  });
 
   if (result.status !== 0) {
-    return ''
+    return "";
   }
 
-  return result.stdout.trim()
+  return result.stdout.trim();
 }
 
 /**
@@ -524,11 +524,11 @@ function tryRunGit(args) {
  */
 function updateJsonFile(filePath, update) {
   if (!existsSync(filePath)) {
-    return
+    return;
   }
 
-  const nextValue = update(parseJsonObject(readFileSync(filePath, 'utf8')))
-  writeFileSync(filePath, `${JSON.stringify(nextValue)}\n`, 'utf8')
+  const nextValue = update(parseJsonObject(readFileSync(filePath, "utf8")));
+  writeFileSync(filePath, `${JSON.stringify(nextValue)}\n`, "utf8");
 }
 
 /**
@@ -538,10 +538,10 @@ function updateJsonFile(filePath, update) {
 function parseJsonObject(rawJson) {
   try {
     /** @type {unknown} */
-    const value = JSON.parse(rawJson)
-    return isRecord(value) ? value : {}
+    const value = JSON.parse(rawJson);
+    return isRecord(value) ? value : {};
   } catch {
-    return {}
+    return {};
   }
 }
 
@@ -550,7 +550,7 @@ function parseJsonObject(rawJson) {
  * @returns {value is Record<string, unknown>}
  */
 function isRecord(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 /**
@@ -558,9 +558,9 @@ function isRecord(value) {
  * @returns {unknown[]}
  */
 function clearCrashFlagsFromSessionEventLog(eventLog) {
-  return eventLog.map(entry =>
+  return eventLog.map((entry) =>
     isRecord(entry) ? { ...entry, crashed: false } : entry,
-  )
+  );
 }
 
 /**
@@ -572,12 +572,12 @@ function clearCrashFlagsFromSessionEventLog(eventLog) {
  * @returns {string[]}
  */
 export function getPlaywrightCliChromiumArgs(repoRoot) {
-  const { red, green, blue } = getDeterministicBrowserThemeColor(repoRoot)
+  const { red, green, blue } = getDeterministicBrowserThemeColor(repoRoot);
 
   return [
-    '--disable-session-crashed-bubble',
+    "--disable-session-crashed-bubble",
     `--install-autogenerated-theme=${red},${green},${blue}`,
-  ]
+  ];
 }
 
 /**
@@ -589,8 +589,8 @@ export function getPlaywrightCliChromiumArgs(repoRoot) {
  * @returns {RgbColor}
  */
 export function getDeterministicBrowserThemeColor(repoRoot) {
-  const hue = getStableHueDegrees(repoRoot)
-  return hslToRgb(hue / 360, BROWSER_THEME_SATURATION, BROWSER_THEME_LIGHTNESS)
+  const hue = getStableHueDegrees(repoRoot);
+  return hslToRgb(hue / 360, BROWSER_THEME_SATURATION, BROWSER_THEME_LIGHTNESS);
 }
 
 /**
@@ -598,12 +598,12 @@ export function getDeterministicBrowserThemeColor(repoRoot) {
  * @returns {number}
  */
 function getStableHueDegrees(repoRoot) {
-  const hueToken = createHash('sha256')
+  const hueToken = createHash("sha256")
     .update(`browser-theme\0${repoRoot}`)
     .digest()
-    .readUInt16BE(0)
+    .readUInt16BE(0);
 
-  return Math.round((hueToken / 0xffff) * 359)
+  return Math.round((hueToken / 0xffff) * 359);
 }
 
 /**
@@ -614,25 +614,25 @@ function getStableHueDegrees(repoRoot) {
  */
 function hslToRgb(hue, saturation, lightness) {
   if (saturation === 0) {
-    const grayscale = Math.round(lightness * 255)
+    const grayscale = Math.round(lightness * 255);
     return {
       red: grayscale,
       green: grayscale,
       blue: grayscale,
-    }
+    };
   }
 
   const q =
     lightness < 0.5
       ? lightness * (1 + saturation)
-      : lightness + saturation - lightness * saturation
-  const p = 2 * lightness - q
+      : lightness + saturation - lightness * saturation;
+  const p = 2 * lightness - q;
 
   return {
     red: toRgbChannel(hueToRgb(p, q, hue + 1 / 3)),
     green: toRgbChannel(hueToRgb(p, q, hue)),
     blue: toRgbChannel(hueToRgb(p, q, hue - 1 / 3)),
-  }
+  };
 }
 
 /**
@@ -642,25 +642,25 @@ function hslToRgb(hue, saturation, lightness) {
  * @returns {number}
  */
 function hueToRgb(p, q, hue) {
-  let normalizedHue = hue
+  let normalizedHue = hue;
 
   if (normalizedHue < 0) {
-    normalizedHue += 1
+    normalizedHue += 1;
   }
   if (normalizedHue > 1) {
-    normalizedHue -= 1
+    normalizedHue -= 1;
   }
   if (normalizedHue < 1 / 6) {
-    return p + (q - p) * 6 * normalizedHue
+    return p + (q - p) * 6 * normalizedHue;
   }
   if (normalizedHue < 1 / 2) {
-    return q
+    return q;
   }
   if (normalizedHue < 2 / 3) {
-    return p + (q - p) * (2 / 3 - normalizedHue) * 6
+    return p + (q - p) * (2 / 3 - normalizedHue) * 6;
   }
 
-  return p
+  return p;
 }
 
 /**
@@ -668,7 +668,7 @@ function hueToRgb(p, q, hue) {
  * @returns {number}
  */
 function toRgbChannel(value) {
-  return Math.round(value * 255)
+  return Math.round(value * 255);
 }
 
 /**
@@ -678,11 +678,11 @@ function toRgbChannel(value) {
 function slugify(value) {
   const normalized = value
     .trim()
-    .replaceAll(/[^A-Za-z0-9._-]+/g, '-')
-    .replaceAll(/-+/g, '-')
-    .replaceAll(/^-|-$/g, '')
+    .replaceAll(/[^A-Za-z0-9._-]+/g, "-")
+    .replaceAll(/-+/g, "-")
+    .replaceAll(/^-|-$/g, "");
 
-  return normalized || 'unknown'
+  return normalized || "unknown";
 }
 
 /**
@@ -694,8 +694,8 @@ function slugify(value) {
  * @returns {string}
  */
 function truncateSessionSegment(value, maxLength) {
-  const truncated = value.slice(0, maxLength).replaceAll(/^-|-$/g, '')
-  return truncated || 'unknown'
+  const truncated = value.slice(0, maxLength).replaceAll(/^-|-$/g, "");
+  return truncated || "unknown";
 }
 
 /**
@@ -706,9 +706,9 @@ function truncateSessionSegment(value, maxLength) {
  * @returns {string}
  */
 function normalizeBranchSessionSegment(branchIdentifier) {
-  return branchIdentifier.startsWith('codex/')
-    ? branchIdentifier.slice('codex/'.length)
-    : branchIdentifier
+  return branchIdentifier.startsWith("codex/")
+    ? branchIdentifier.slice("codex/".length)
+    : branchIdentifier;
 }
 
 /**
@@ -718,20 +718,20 @@ function normalizeBranchSessionSegment(branchIdentifier) {
 function abbreviateBranchSessionSegment(branchIdentifier) {
   const normalizedBranch = slugify(
     normalizeBranchSessionSegment(branchIdentifier),
-  )
-  const segments = normalizedBranch.split('-').filter(Boolean)
+  );
+  const segments = normalizedBranch.split("-").filter(Boolean);
 
   if (segments.length > 1) {
     return truncateSessionSegment(
-      segments.map(segment => segment[0]).join(''),
+      segments.map((segment) => segment[0]).join(""),
       SESSION_BRANCH_SEGMENT_MAX_LENGTH,
-    )
+    );
   }
 
   return truncateSessionSegment(
     normalizedBranch,
     SESSION_BRANCH_SEGMENT_MAX_LENGTH,
-  )
+  );
 }
 
 /**
@@ -742,10 +742,10 @@ function getSafeExplicitSession(explicitSession) {
   if (!EXPLICIT_SESSION_PATTERN.test(explicitSession)) {
     fail(
       'PLAYWRIGHT_SESSION may only contain letters, numbers, ".", "_" and "-".',
-    )
+    );
   }
 
-  return explicitSession
+  return explicitSession;
 }
 
 /**
@@ -757,14 +757,14 @@ export function buildDerivedSessionName(repoRoot, branchIdentifier) {
   const repoName = truncateSessionSegment(
     slugify(path.basename(repoRoot)),
     SESSION_REPO_SEGMENT_MAX_LENGTH,
-  )
-  const branchName = abbreviateBranchSessionSegment(branchIdentifier)
-  const stableSuffix = createHash('sha256')
+  );
+  const branchName = abbreviateBranchSessionSegment(branchIdentifier);
+  const stableSuffix = createHash("sha256")
     .update(`${SESSION_CONFIG_SALT}\0${repoRoot}\0${branchIdentifier}`)
-    .digest('hex')
-    .slice(0, SESSION_HASH_LENGTH)
+    .digest("hex")
+    .slice(0, SESSION_HASH_LENGTH);
 
-  return `${repoName}-${branchName}-${stableSuffix}`
+  return `${repoName}-${branchName}-${stableSuffix}`;
 }
 
 /**
@@ -778,14 +778,14 @@ export function buildDerivedSessionName(repoRoot, branchIdentifier) {
  * } | null}
  */
 export function parseSessionDetailsFromListOutput(output, session) {
-  const escapedSession = session.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const sessionHeaderPattern = new RegExp(`^-\\s+${escapedSession}(?::|\\s|$)`)
-  const lines = output.split('\n')
+  const escapedSession = session.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const sessionHeaderPattern = new RegExp(`^-\\s+${escapedSession}(?::|\\s|$)`);
+  const lines = output.split("\n");
 
   for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index] ?? ''
+    const line = lines[index] ?? "";
     if (!sessionHeaderPattern.test(line)) {
-      continue
+      continue;
     }
 
     /** @type {{
@@ -796,48 +796,48 @@ export function parseSessionDetailsFromListOutput(output, session) {
      * }}
      */
     const details = {
-      status: 'open',
-    }
+      status: "open",
+    };
 
     for (
       let detailIndex = index + 1;
       detailIndex < lines.length;
       detailIndex += 1
     ) {
-      const detailLine = lines[detailIndex] ?? ''
-      if (detailLine.startsWith('- ')) {
-        break
+      const detailLine = lines[detailIndex] ?? "";
+      if (detailLine.startsWith("- ")) {
+        break;
       }
 
-      const trimmedDetailLine = detailLine.trim()
-      if (!trimmedDetailLine.startsWith('- ')) {
-        continue
+      const trimmedDetailLine = detailLine.trim();
+      if (!trimmedDetailLine.startsWith("- ")) {
+        continue;
       }
 
-      const detailMatch = /^-\s+([^:]+):\s*(.*)$/.exec(trimmedDetailLine)
+      const detailMatch = /^-\s+([^:]+):\s*(.*)$/.exec(trimmedDetailLine);
       if (!detailMatch) {
-        continue
+        continue;
       }
 
-      const [, key, rawValue] = detailMatch
-      if (key === 'status' && (rawValue === 'open' || rawValue === 'closed')) {
-        details.status = rawValue
+      const [, key, rawValue] = detailMatch;
+      if (key === "status" && (rawValue === "open" || rawValue === "closed")) {
+        details.status = rawValue;
       }
-      if (key === 'browser-type' && rawValue) {
-        details.browserType = rawValue
+      if (key === "browser-type" && rawValue) {
+        details.browserType = rawValue;
       }
-      if (key === 'user-data-dir' && rawValue) {
-        details.userDataDir = rawValue
+      if (key === "user-data-dir" && rawValue) {
+        details.userDataDir = rawValue;
       }
-      if (key === 'headed' && (rawValue === 'true' || rawValue === 'false')) {
-        details.headed = rawValue === 'true'
+      if (key === "headed" && (rawValue === "true" || rawValue === "false")) {
+        details.headed = rawValue === "true";
       }
     }
 
-    return details
+    return details;
   }
 
-  return null
+  return null;
 }
 
 /**
@@ -846,7 +846,9 @@ export function parseSessionDetailsFromListOutput(output, session) {
  * @returns {'open' | 'closed' | 'missing'}
  */
 export function parseSessionStateFromListOutput(output, session) {
-  return parseSessionDetailsFromListOutput(output, session)?.status ?? 'missing'
+  return (
+    parseSessionDetailsFromListOutput(output, session)?.status ?? "missing"
+  );
 }
 
 /**
@@ -858,39 +860,39 @@ export function parseSessionStateFromListOutput(output, session) {
  * @returns {void}
  */
 function verifyRestorePagesSuppression(options) {
-  const session = getSessionName()
-  const profileDir = getProfileDir(session)
+  const session = getSessionName();
+  const profileDir = getProfileDir(session);
 
-  closeBranchSession(session, profileDir)
+  closeBranchSession(session, profileDir);
 
   try {
     openBranchSession({
       url: options.url,
       headed: true,
-    })
+    });
 
-    const sessionDetails = waitForSessionDetails(session)
+    const sessionDetails = waitForSessionDetails(session);
     if (sessionDetails.browserType !== PLAYWRIGHT_CLI_CHANNEL) {
       fail(
-        `Expected Playwright session "${session}" to resolve to "${PLAYWRIGHT_CLI_CHANNEL}", got "${sessionDetails.browserType ?? 'unknown'}".`,
-      )
+        `Expected Playwright session "${session}" to resolve to "${PLAYWRIGHT_CLI_CHANNEL}", got "${sessionDetails.browserType ?? "unknown"}".`,
+      );
     }
 
-    const browserProcess = waitForProfileBrowserProcess(profileDir)
-    const windowTitles = observeWindowTitlesForPid(browserProcess.pid)
-    assertObservedWindowTitles(windowTitles, browserProcess.pid)
+    const browserProcess = waitForProfileBrowserProcess(profileDir);
+    const windowTitles = observeWindowTitlesForPid(browserProcess.pid);
+    assertObservedWindowTitles(windowTitles, browserProcess.pid);
 
     if (windowTitles.has(RESTORE_PAGES_WINDOW_TITLE)) {
       fail(
         `Playwright session "${session}" still showed "${RESTORE_PAGES_WINDOW_TITLE}" for profile ${profileDir}.`,
-      )
+      );
     }
 
     console.log(
       `Verified Playwright session "${session}" launched without "${RESTORE_PAGES_WINDOW_TITLE}".`,
-    )
+    );
   } finally {
-    closeBranchSession(session, profileDir)
+    closeBranchSession(session, profileDir);
   }
 }
 
@@ -904,27 +906,27 @@ function verifyRestorePagesSuppression(options) {
  * } | null}
  */
 function getSessionDetails(session) {
-  const result = runPlaywrightCli(['list', '--all'], {
+  const result = runPlaywrightCli(["list", "--all"], {
     allowFailure: true,
-    stdio: 'pipe',
-  })
+    stdio: "pipe",
+  });
 
   if (result.status !== 0) {
-    return null
+    return null;
   }
 
   const sessionDetails = parseSessionDetailsFromListOutput(
     `${result.stdout}\n${result.stderr}`,
     session,
-  )
+  );
 
   if (!sessionDetails) {
     return {
-      status: 'missing',
-    }
+      status: "missing",
+    };
   }
 
-  return sessionDetails
+  return sessionDetails;
 }
 
 /**
@@ -933,15 +935,15 @@ function getSessionDetails(session) {
  * @returns {void}
  */
 function closeBranchSession(session, profileDir) {
-  if (getSessionState(session) === 'open') {
-    runPlaywrightCli([`-s=${session}`, 'close'], {
+  if (getSessionState(session) === "open") {
+    runPlaywrightCli([`-s=${session}`, "close"], {
       allowFailure: true,
-      stdio: 'pipe',
-    })
+      stdio: "pipe",
+    });
   }
 
-  terminateProfileBrowserProcesses(profileDir)
-  waitForProfileBrowserToClose(profileDir)
+  terminateProfileBrowserProcesses(profileDir);
+  waitForProfileBrowserToClose(profileDir);
 }
 
 /**
@@ -951,15 +953,15 @@ function closeBranchSession(session, profileDir) {
 function terminateProfileBrowserProcesses(profileDir) {
   for (const { pid } of listProfileBrowserProcesses(profileDir)) {
     try {
-      process.kill(pid)
+      process.kill(pid);
     } catch (error) {
-      if (error instanceof Error && 'code' in error && error.code === 'ESRCH') {
-        continue
+      if (error instanceof Error && "code" in error && error.code === "ESRCH") {
+        continue;
       }
 
       fail(
         `Failed to terminate branch browser process ${pid} for ${profileDir}.`,
-      )
+      );
     }
   }
 }
@@ -971,10 +973,10 @@ function terminateProfileBrowserProcesses(profileDir) {
  */
 function assertObservedWindowTitles(windowTitles, pid) {
   if (windowTitles.size > 0) {
-    return
+    return;
   }
 
-  fail(`Did not observe any onscreen browser windows for PID ${pid}.`)
+  fail(`Did not observe any onscreen browser windows for PID ${pid}.`);
 }
 
 /**
@@ -986,7 +988,7 @@ function waitForProfileBrowserToClose(profileDir) {
     () => listProfileBrowserProcesses(profileDir).length === 0,
     VERIFY_TIMEOUT_MS,
     `Timed out waiting for browser processes using ${profileDir} to exit.`,
-  )
+  );
 }
 
 /**
@@ -1001,19 +1003,19 @@ function waitForProfileBrowserToClose(profileDir) {
 function waitForSessionDetails(session) {
   return waitForValue(
     () => {
-      const sessionDetails = getSessionDetails(session)
-      if (sessionDetails?.status !== 'open') {
-        return null
+      const sessionDetails = getSessionDetails(session);
+      if (sessionDetails?.status !== "open") {
+        return null;
       }
 
       return {
         ...sessionDetails,
-        status: 'open',
-      }
+        status: "open",
+      };
     },
     VERIFY_TIMEOUT_MS,
     `Timed out waiting for Playwright session "${session}" to open.`,
-  )
+  );
 }
 
 /**
@@ -1025,7 +1027,7 @@ function waitForProfileBrowserProcess(profileDir) {
     () => getPrimaryProfileBrowserProcess(profileDir),
     VERIFY_TIMEOUT_MS,
     `Timed out waiting for a browser process using ${profileDir}.`,
-  )
+  );
 }
 
 /**
@@ -1034,18 +1036,18 @@ function waitForProfileBrowserProcess(profileDir) {
  */
 function observeWindowTitlesForPid(pid) {
   /** @type {Set<string>} */
-  const seenTitles = new Set()
-  const deadline = Date.now() + VERIFY_TIMEOUT_MS
+  const seenTitles = new Set();
+  const deadline = Date.now() + VERIFY_TIMEOUT_MS;
 
   while (Date.now() < deadline) {
     for (const title of getOnscreenWindowTitlesForPid(pid)) {
-      seenTitles.add(title)
+      seenTitles.add(title);
     }
 
-    sleep(VERIFY_POLL_INTERVAL_MS)
+    sleep(VERIFY_POLL_INTERVAL_MS);
   }
 
-  return seenTitles
+  return seenTitles;
 }
 
 /**
@@ -1065,22 +1067,22 @@ let names = windows.compactMap { window -> String? in
   return name.isEmpty ? nil : name
 }
 let data = try JSONSerialization.data(withJSONObject: names)
-FileHandle.standardOutput.write(data)`
+FileHandle.standardOutput.write(data)`;
 
-  const result = spawnSync('swift', ['-e', swiftProgram, String(pid)], {
-    encoding: 'utf8',
-  })
+  const result = spawnSync("swift", ["-e", swiftProgram, String(pid)], {
+    encoding: "utf8",
+  });
 
   if (result.status !== 0) {
-    process.stderr.write(result.stderr)
-    fail(`Failed to query onscreen browser windows for PID ${pid}.`)
+    process.stderr.write(result.stderr);
+    fail(`Failed to query onscreen browser windows for PID ${pid}.`);
   }
 
   /** @type {unknown} */
-  const parsed = JSON.parse(result.stdout || '[]')
+  const parsed = JSON.parse(result.stdout || "[]");
   return Array.isArray(parsed)
-    ? parsed.filter(title => typeof title === 'string')
-    : []
+    ? parsed.filter((title) => typeof title === "string")
+    : [];
 }
 
 /**
@@ -1088,16 +1090,16 @@ FileHandle.standardOutput.write(data)`
  * @returns {{ pid: number, args: string }[]}
  */
 function listProfileBrowserProcesses(profileDir) {
-  const result = spawnSync('ps', ['-axo', 'pid=,args='], {
-    encoding: 'utf8',
-  })
+  const result = spawnSync("ps", ["-axo", "pid=,args="], {
+    encoding: "utf8",
+  });
 
   if (result.status !== 0) {
-    process.stderr.write(result.stderr)
-    fail(`Failed to inspect browser processes for ${profileDir}.`)
+    process.stderr.write(result.stderr);
+    fail(`Failed to inspect browser processes for ${profileDir}.`);
   }
 
-  return parseProfileBrowserProcessesFromPsOutput(result.stdout, profileDir)
+  return parseProfileBrowserProcessesFromPsOutput(result.stdout, profileDir);
 }
 
 /**
@@ -1106,32 +1108,32 @@ function listProfileBrowserProcesses(profileDir) {
  * @returns {{ pid: number, args: string }[]}
  */
 export function parseProfileBrowserProcessesFromPsOutput(output, profileDir) {
-  const userDataDirFlag = `--user-data-dir=${profileDir}`
+  const userDataDirFlag = `--user-data-dir=${profileDir}`;
   const escapedUserDataDirFlag = userDataDirFlag.replaceAll(
     /[.*+?^${}()|[\]\\]/g,
-    '\\$&',
-  )
+    "\\$&",
+  );
   const userDataDirPattern = new RegExp(
     `(?:^|\\s)${escapedUserDataDirFlag}(?:\\s|$)`,
-  )
+  );
 
   return output
-    .split('\n')
-    .map(line => line.trim())
+    .split("\n")
+    .map((line) => line.trim())
     .filter(Boolean)
-    .map(line => {
-      const match = /^(\d+)\s+(.*)$/.exec(line)
+    .map((line) => {
+      const match = /^(\d+)\s+(.*)$/.exec(line);
       if (!match) {
-        return null
+        return null;
       }
 
       return {
         pid: Number(match[1]),
         args: match[2],
-      }
+      };
     })
-    .filter(processInfo => processInfo !== null)
-    .filter(processInfo => userDataDirPattern.test(processInfo.args))
+    .filter((processInfo) => processInfo !== null)
+    .filter((processInfo) => userDataDirPattern.test(processInfo.args));
 }
 
 /**
@@ -1142,19 +1144,19 @@ export function parseProfileBrowserProcessesFromPsOutput(output, profileDir) {
  */
 function getPrimaryProfileBrowserProcess(profileDir) {
   for (const processInfo of listProfileBrowserProcesses(profileDir)) {
-    if (processInfo.args.includes('Helper')) {
-      continue
+    if (processInfo.args.includes("Helper")) {
+      continue;
     }
-    if (processInfo.args.includes('chrome_crashpad_handler')) {
-      continue
+    if (processInfo.args.includes("chrome_crashpad_handler")) {
+      continue;
     }
-    if (processInfo.args.includes(' --type=')) {
-      continue
+    if (processInfo.args.includes(" --type=")) {
+      continue;
     }
-    return processInfo
+    return processInfo;
   }
 
-  return null
+  return null;
 }
 
 /**
@@ -1165,17 +1167,17 @@ function getPrimaryProfileBrowserProcess(profileDir) {
  * @returns {T}
  */
 function waitForValue(readValue, timeoutMs, timeoutMessage) {
-  const deadline = Date.now() + timeoutMs
+  const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
-    const value = readValue()
+    const value = readValue();
     if (value !== null) {
-      return value
+      return value;
     }
-    sleep(VERIFY_POLL_INTERVAL_MS)
+    sleep(VERIFY_POLL_INTERVAL_MS);
   }
 
-  fail(timeoutMessage)
+  fail(timeoutMessage);
 }
 
 /**
@@ -1185,16 +1187,16 @@ function waitForValue(readValue, timeoutMs, timeoutMessage) {
  * @returns {void}
  */
 function waitForCondition(checkCondition, timeoutMs, timeoutMessage) {
-  const deadline = Date.now() + timeoutMs
+  const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
     if (checkCondition()) {
-      return
+      return;
     }
-    sleep(VERIFY_POLL_INTERVAL_MS)
+    sleep(VERIFY_POLL_INTERVAL_MS);
   }
 
-  fail(timeoutMessage)
+  fail(timeoutMessage);
 }
 
 /**
@@ -1202,7 +1204,7 @@ function waitForCondition(checkCondition, timeoutMs, timeoutMessage) {
  * @returns {void}
  */
 function sleep(milliseconds) {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds)
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 }
 
 /**
@@ -1210,7 +1212,7 @@ function sleep(milliseconds) {
  * @returns {never}
  */
 function fail(message) {
-  throw new PlaywrightBranchBrowserError(message)
+  throw new PlaywrightBranchBrowserError(message);
 }
 
 /**
@@ -1219,17 +1221,17 @@ function fail(message) {
  */
 function handleMainError(error) {
   if (error instanceof PlaywrightBranchBrowserError) {
-    console.error(error.message)
-    console.error(HELP_TEXT)
-    process.exit(1)
+    console.error(error.message);
+    console.error(HELP_TEXT);
+    process.exit(1);
   }
 
-  throw error
+  throw error;
 }
 
 /** @returns {boolean} */
 function isMainModule() {
   return process.argv[1]
     ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-    : false
+    : false;
 }

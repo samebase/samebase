@@ -1,14 +1,14 @@
-import { spawnSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
-import fs from 'node:fs'
-import net from 'node:net'
-import path from 'node:path'
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import fs from "node:fs";
+import net from "node:net";
+import path from "node:path";
 
 export const DAYTONA_RUNTIME_ENV_FILES = Object.freeze([
-  '.env.local',
-  '.env.daytona-source.local',
-  '.env.anon-seed.local',
-])
+  ".env.local",
+  ".env.daytona-source.local",
+  ".env.anon-seed.local",
+]);
 
 /**
  * @typedef {{
@@ -44,24 +44,24 @@ export const DAYTONA_RUNTIME_ENV_FILES = Object.freeze([
  */
 export function parseDotEnvFile(contents) {
   /** @type {Record<string, string>} */
-  const entries = {}
-  for (const line of contents.split('\n')) {
-    const trimmed = line.trim()
-    if (trimmed.length === 0 || trimmed.startsWith('#')) {
-      continue
+  const entries = {};
+  for (const line of contents.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0 || trimmed.startsWith("#")) {
+      continue;
     }
-    const separatorIndex = line.indexOf('=')
+    const separatorIndex = line.indexOf("=");
     if (separatorIndex <= 0) {
-      continue
+      continue;
     }
-    const key = line.slice(0, separatorIndex).trim()
-    const value = line.slice(separatorIndex + 1).trim()
+    const key = line.slice(0, separatorIndex).trim();
+    const value = line.slice(separatorIndex + 1).trim();
     if (key.length === 0) {
-      continue
+      continue;
     }
-    entries[key] = value
+    entries[key] = value;
   }
-  return entries
+  return entries;
 }
 
 /**
@@ -69,16 +69,16 @@ export function parseDotEnvFile(contents) {
  * @returns {string}
  */
 function normalizeDeploymentValue(value) {
-  const trimmed = value.trim()
+  const trimmed = value.trim();
   if (trimmed.length === 0) {
-    return ''
+    return "";
   }
-  const separatorIndex = trimmed.indexOf(':')
+  const separatorIndex = trimmed.indexOf(":");
   if (separatorIndex <= 0) {
-    return '<redacted>'
+    return "<redacted>";
   }
-  const prefix = trimmed.slice(0, separatorIndex)
-  return `${prefix}:<redacted>`
+  const prefix = trimmed.slice(0, separatorIndex);
+  return `${prefix}:<redacted>`;
 }
 
 /**
@@ -87,25 +87,25 @@ function normalizeDeploymentValue(value) {
  * @returns {string}
  */
 function normalizeEnvValue(key, value) {
-  const trimmed = value.trim()
-  if (key === 'CONVEX_DEPLOYMENT') {
-    return normalizeDeploymentValue(trimmed)
+  const trimmed = value.trim();
+  if (key === "CONVEX_DEPLOYMENT") {
+    return normalizeDeploymentValue(trimmed);
   }
-  if (key === 'CONVEX_DEPLOY_KEY') {
-    return '<redacted>'
+  if (key === "CONVEX_DEPLOY_KEY") {
+    return "<redacted>";
   }
-  if (key === 'VITE_CONVEX_URL' || key === 'CONVEX_CLOUD_URL') {
-    return trimmed
+  if (key === "VITE_CONVEX_URL" || key === "CONVEX_CLOUD_URL") {
+    return trimmed;
   }
   if (
-    key.endsWith('_KEY') ||
-    key.endsWith('_TOKEN') ||
-    key.includes('SECRET') ||
-    key.includes('PASSWORD')
+    key.endsWith("_KEY") ||
+    key.endsWith("_TOKEN") ||
+    key.includes("SECRET") ||
+    key.includes("PASSWORD")
   ) {
-    return '<redacted>'
+    return "<redacted>";
   }
-  return trimmed
+  return trimmed;
 }
 
 /**
@@ -115,7 +115,7 @@ function normalizeEnvValue(key, value) {
 export function normalizeDaytonaEnvEntries(entries) {
   return Object.keys(entries)
     .sort((left, right) => left.localeCompare(right))
-    .map(key => `${key}=${normalizeEnvValue(key, entries[key] ?? '')}`)
+    .map((key) => `${key}=${normalizeEnvValue(key, entries[key] ?? "")}`);
 }
 
 /**
@@ -127,15 +127,15 @@ export function normalizeDaytonaEnvEntries(entries) {
  * }}
  */
 export function normalizeDaytonaEnvFileContents(contents) {
-  const entries = parseDotEnvFile(contents)
-  const normalizedLines = normalizeDaytonaEnvEntries(entries)
+  const entries = parseDotEnvFile(contents);
+  const normalizedLines = normalizeDaytonaEnvEntries(entries);
   return {
     keys: Object.keys(entries).sort((left, right) => left.localeCompare(right)),
     normalizedLines,
-    normalizedHash: createHash('sha256')
-      .update(normalizedLines.join('\n'))
-      .digest('hex'),
-  }
+    normalizedHash: createHash("sha256")
+      .update(normalizedLines.join("\n"))
+      .digest("hex"),
+  };
 }
 
 /**
@@ -149,14 +149,14 @@ export function normalizeDaytonaEnvFileContents(contents) {
  * }}
  */
 function buildEnvFileManifest(filePath) {
-  let contents = ''
+  let contents = "";
   try {
-    contents = fs.readFileSync(filePath, 'utf8')
+    contents = fs.readFileSync(filePath, "utf8");
   } catch (error) {
     if (
-      typeof error === 'object' &&
+      typeof error === "object" &&
       error !== null &&
-      Reflect.get(error, 'code') === 'ENOENT'
+      Reflect.get(error, "code") === "ENOENT"
     ) {
       return {
         path: filePath,
@@ -164,18 +164,18 @@ function buildEnvFileManifest(filePath) {
         keys: [],
         normalizedLines: [],
         normalizedHash: null,
-      }
+      };
     }
-    throw error
+    throw error;
   }
-  const normalized = normalizeDaytonaEnvFileContents(contents)
+  const normalized = normalizeDaytonaEnvFileContents(contents);
   return {
     path: filePath,
     exists: true,
     keys: normalized.keys,
     normalizedLines: normalized.normalizedLines,
     normalizedHash: normalized.normalizedHash,
-  }
+  };
 }
 
 /**
@@ -184,13 +184,13 @@ function buildEnvFileManifest(filePath) {
  * @returns {string}
  */
 function runGit(repoDir, args) {
-  const result = spawnSync('git', ['-C', repoDir, ...args], {
-    encoding: 'utf8',
-  })
+  const result = spawnSync("git", ["-C", repoDir, ...args], {
+    encoding: "utf8",
+  });
   if (result.status !== 0) {
-    throw new Error((result.stderr || result.stdout || 'git failed').trim())
+    throw new Error((result.stderr || result.stdout || "git failed").trim());
   }
-  return (result.stdout || '').trim()
+  return (result.stdout || "").trim();
 }
 
 /**
@@ -199,24 +199,24 @@ function runGit(repoDir, args) {
  */
 function isLocalPortListening(port) {
   /** @type {(value: boolean) => void} */
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const socket = net.createConnection({
-      host: '127.0.0.1',
+      host: "127.0.0.1",
       port,
-    })
+    });
 
     /** @param {boolean} value */
-    const finish = value => {
-      socket.removeAllListeners()
-      socket.destroy()
-      resolve(value)
-    }
+    const finish = (value) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(value);
+    };
 
-    socket.setTimeout(1000)
-    socket.once('connect', () => finish(true))
-    socket.once('timeout', () => finish(false))
-    socket.once('error', () => finish(false))
-  })
+    socket.setTimeout(1000);
+    socket.once("connect", () => finish(true));
+    socket.once("timeout", () => finish(false));
+    socket.once("error", () => finish(false));
+  });
 }
 
 /**
@@ -228,37 +228,37 @@ function isLocalPortListening(port) {
  * @returns {Promise<DaytonaRuntimeManifest>}
  */
 export async function collectDaytonaRuntimeManifest(args) {
-  const repoDir = path.resolve(args.repoDir)
-  const appRoot = path.resolve(repoDir, args.appRootRelativePath)
+  const repoDir = path.resolve(args.repoDir);
+  const appRoot = path.resolve(repoDir, args.appRootRelativePath);
   /** @type {Record<string, DaytonaRuntimeEnvFileManifest>} */
-  const envFiles = {}
+  const envFiles = {};
 
   for (const fileName of DAYTONA_RUNTIME_ENV_FILES) {
-    envFiles[fileName] = buildEnvFileManifest(path.join(appRoot, fileName))
+    envFiles[fileName] = buildEnvFileManifest(path.join(appRoot, fileName));
   }
 
-  const envLocal = envFiles['.env.local'] ?? {
-    path: path.join(appRoot, '.env.local'),
+  const envLocal = envFiles[".env.local"] ?? {
+    path: path.join(appRoot, ".env.local"),
     exists: false,
     keys: [],
     normalizedLines: [],
     normalizedHash: null,
-  }
+  };
   const localConvexConfigured = envLocal.normalizedLines.some(
-    line =>
-      line.startsWith('CONVEX_DEPLOYMENT=local:') ||
-      line.startsWith('VITE_CONVEX_URL=http://127.0.0.1:'),
-  )
+    (line) =>
+      line.startsWith("CONVEX_DEPLOYMENT=local:") ||
+      line.startsWith("VITE_CONVEX_URL=http://127.0.0.1:"),
+  );
 
   return {
     version: 1,
     repo: {
       dir: repoDir,
-      headSha: runGit(repoDir, ['rev-parse', 'HEAD']),
-      status: runGit(repoDir, ['status', '--short'])
-        .split('\n')
-        .map(line => line.trimEnd())
-        .filter(line => line.length > 0),
+      headSha: runGit(repoDir, ["rev-parse", "HEAD"]),
+      status: runGit(repoDir, ["status", "--short"])
+        .split("\n")
+        .map((line) => line.trimEnd())
+        .filter((line) => line.length > 0),
     },
     appRoot,
     envFiles,
@@ -269,7 +269,7 @@ export async function collectDaytonaRuntimeManifest(args) {
       ),
       localConvexConfigured,
     },
-  }
+  };
 }
 
 /**
@@ -277,7 +277,7 @@ export async function collectDaytonaRuntimeManifest(args) {
  * @returns {value is Record<string, unknown>}
  */
 function isObject(value) {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -291,37 +291,37 @@ function diffManifestValues(left, right, pathPrefix, diffs) {
     if (left.length !== right.length) {
       diffs.push(
         `${pathPrefix}: array length mismatch (${left.length} !== ${right.length})`,
-      )
+      );
     }
-    const length = Math.max(left.length, right.length)
+    const length = Math.max(left.length, right.length);
     for (let index = 0; index < length; index += 1) {
       diffManifestValues(
         left[index],
         right[index],
         `${pathPrefix}[${index}]`,
         diffs,
-      )
+      );
     }
-    return
+    return;
   }
 
   if (isObject(left) && isObject(right)) {
-    const keys = new Set([...Object.keys(left), ...Object.keys(right)])
+    const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
     for (const key of [...keys].sort((a, b) => a.localeCompare(b))) {
       diffManifestValues(
         left[key],
         right[key],
         pathPrefix ? `${pathPrefix}.${key}` : key,
         diffs,
-      )
+      );
     }
-    return
+    return;
   }
 
   if (left !== right) {
     diffs.push(
       `${pathPrefix}: ${JSON.stringify(left)} !== ${JSON.stringify(right)}`,
-    )
+    );
   }
 }
 
@@ -332,7 +332,7 @@ function diffManifestValues(left, right, pathPrefix, diffs) {
  */
 export function diffDaytonaRuntimeManifests(left, right) {
   /** @type {string[]} */
-  const diffs = []
-  diffManifestValues(left, right, '', diffs)
-  return diffs
+  const diffs = [];
+  diffManifestValues(left, right, "", diffs);
+  return diffs;
 }

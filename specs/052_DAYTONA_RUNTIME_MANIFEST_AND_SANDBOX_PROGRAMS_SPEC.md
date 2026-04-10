@@ -147,15 +147,15 @@ Illustrative shape:
 
 ```ts
 export const daytonaRuntimeManifest = {
-  baseImage: 'mcr.microsoft.com/devcontainers/javascript-node:24-bookworm',
-  aptPackages: ['fish', 'make', 'tmux'],
-  globalNpmPackages: [{ name: '@openai/codex', version: '0.114.0' }],
+  baseImage: "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
+  aptPackages: ["fish", "make", "tmux"],
+  globalNpmPackages: [{ name: "@openai/codex", version: "0.114.0" }],
   shell: {
-    default: 'fish',
-    users: ['root', 'daytona'],
+    default: "fish",
+    users: ["root", "daytona"],
   },
-  pnpmVersion: '9.15.0',
-} as const
+  pnpmVersion: "9.15.0",
+} as const;
 ```
 
 This file is the source of truth. Other artifacts must derive from it.
@@ -215,9 +215,9 @@ That module can export something like:
 
 ```ts
 export const daytonaSandboxPrograms = {
-  startDevServer: '...raw esm source...',
-  getDevServerStatus: '...raw esm source...',
-} as const
+  startDevServer: "...raw esm source...",
+  getDevServerStatus: "...raw esm source...",
+} as const;
 ```
 
 ### 4. Keep Shell For Small Shell-Shaped Work

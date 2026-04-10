@@ -254,14 +254,14 @@ export function MachinesWorkspacePage() {
   const selectedMachineInventory =
     selectedMachineId === null
       ? EMPTY_MACHINE_THREAD_INVENTORY_STATE
-      : machineThreadInventories[selectedMachineId] ??
-        EMPTY_MACHINE_THREAD_INVENTORY_STATE;
+      : (machineThreadInventories[selectedMachineId] ??
+        EMPTY_MACHINE_THREAD_INVENTORY_STATE);
   const selectedThreadSummary = useMemo(
     () =>
       selectedThreadId
-        ? selectedMachineInventory.threads.find(
+        ? (selectedMachineInventory.threads.find(
             (thread) => thread.id === selectedThreadId,
-          ) ?? null
+          ) ?? null)
         : null,
     [selectedMachineInventory.threads, selectedThreadId],
   );
@@ -668,7 +668,7 @@ export function MachinesWorkspacePage() {
         ? selectedThreadId
         : selectedPendingConversation !== null
           ? null
-          : selectedMachineInventory.threads[0]?.id ?? null;
+          : (selectedMachineInventory.threads[0]?.id ?? null);
 
     if (nextSelectedThreadId !== selectedThreadId) {
       setSelectedThreadId(nextSelectedThreadId);

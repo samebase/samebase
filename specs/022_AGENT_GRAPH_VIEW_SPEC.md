@@ -72,12 +72,10 @@ Positions:
 ## Implementation Plan
 
 1. Dependency
-
    - Add `@xyflow/react` to `apps/noter/package.json`.
    - Import `@xyflow/react/dist/style.css` from `apps/noter/src/main.tsx`.
 
 2. New Component
-
    - Create `apps/noter/src/components/AgentGraphView.tsx`.
    - Use `ReactFlow`, `Controls`, and `Background`.
    - Accept props: `nodes`, `edges`, `onOpenFile`.

@@ -66,20 +66,17 @@ Do not squash-merge this slice until:
 
 - [x] Recompute connected-machine staleness without relying on Convex query
       reruns
-
   - Current risk: a connector that dies without an explicit offline heartbeat
     can remain shown as online in already-open browser tabs.
   - Primary area: `apps/noter/convex/connectedMachines.ts`
 
 - [x] Restrict the runtime Convex site URL to HTTPS outside loopback
-
   - Current risk: a misconfigured `convexSiteUrl` can send the bearer machine
     credential over plaintext HTTP.
   - Primary area: `packages/sync/noter.js`
 
 - [x] Add abuse control or gating before unauthenticated bootstrap requests can
       create registration rows
-
   - Current risk: anonymous callers can create unlimited
     `machineRegistrationRequests`.
   - Primary area: `apps/noter/convex/connectedMachineHttp.ts`
@@ -91,39 +88,33 @@ Do not squash-merge this slice until:
 ## Open `P2` Blockers
 
 - [x] Preserve approved browser handoff state after the original TTL passes
-
   - Current risk: an already-approved request can later look expired even though
     credential issuance succeeded.
   - Primary area: `apps/noter/convex/connectedMachines.ts`
 
 - [x] Refresh browser-side registration expiry without depending on a follow-on
       table write
-
   - Current risk: an open `/machines/connect?requestId=...` tab can keep showing
     `pending` after expiry until another write happens.
   - Primary area: `apps/noter/convex/connectedMachines.ts`
 
 - [x] Reject stale approvals that would rotate the machine credential backward
-
   - Current risk: approving an older request can replace the stored credential
     with a now-stale hash while the local config already holds a newer secret.
   - Primary area: `apps/noter/convex/connectedMachines.ts`
 
 - [x] Keep `noter-sync run` alive across transient heartbeat publish failures
-
   - Current risk: one brief network or 5xx failure can terminate the connector
     loop and incorrectly mark the machine offline.
   - Primary area: `packages/sync/noter.js`
 
 - [x] Resolve `convexSiteUrl` once before entering the heartbeat loop
-
   - Current risk: a temporary outage of the hosted app or `/noter-connect.json`
     path can kill the connector even when Convex itself is healthy.
   - Primary area: `packages/sync/noter.js`
 
 - [x] Hydrate the selected thread back into the research page after using the
       browser view
-
   - Current risk: the research page can reopen the wrong/default thread after
     the user picks one in `/research/codex-app-server/browser`.
   - Primary area: `apps/noter/src/components/CodexAppServerResearchPage.tsx`
