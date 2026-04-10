@@ -11,6 +11,8 @@
   - `tsconfig.scripts.json`
   - `apps/noter/package.json`
   - `apps/noter/tsconfig.json`
+  - `apps/noter/convex/jsonUtils.ts`
+  - `apps/noter/convex/jsonUtils.test.ts`
   - `apps/noter/lintConfig.test.ts`
   - `apps/noter-starter-template/package.json`
   - `apps/noter-starter-template/tsconfig.app.json`
@@ -276,3 +278,12 @@ When a rule cannot move cleanly, this document must record:
   `apps/noter/src/lib/convexUtils.tsx`. Result: `no-explicit-any` is enforced
   again for handwritten app code; remaining `any` references are limited to
   generated Convex bindings and TanStack's generated route tree.
+
+- Problem: review surfaced a server-side safety regression outside the lint
+  config itself. Tried: removed `JSON.stringify(error)` fallback behavior from
+  `apps/noter/convex/jsonUtils.ts`, limited `toErrorMessage()` to `Error`
+  instances, primitives, and a small allowlist of plain-object message keys,
+  and added `apps/noter/convex/jsonUtils.test.ts` coverage. Result: the Oxlint
+  migration no longer broadens arbitrary thrown-object logging in Convex code,
+  so the accepted simplification still respects the repo's no-sensitive-logs
+  guardrail.
