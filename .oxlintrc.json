@@ -100,12 +100,6 @@
       }
     },
     {
-      "files": ["apps/noter/**/*.{ts,tsx}"],
-      "rules": {
-        "@typescript-eslint/no-explicit-any": "off"
-      }
-    },
-    {
       "files": [
         "apps/noter/e2e/**/*.ts",
         "apps/noter/playwright.config.ts",

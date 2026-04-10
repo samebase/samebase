@@ -266,3 +266,13 @@ When a rule cannot move cleanly, this document must record:
   devcontainers, tool allowlists, and starter-template exports. Result: the
   accepted cleanup updates current-facing docs and template surfaces while
   leaving historical spec and research references intact.
+
+- Problem: the first Oxlint-only pass had reintroduced a broad app-wide
+  `@typescript-eslint/no-explicit-any` override. Tried: removed the override,
+  then fixed the remaining handwritten `any` usage in
+  `apps/noter/src/lib/convexQueryCache.ts`,
+  `apps/noter/convex/gitOperationsActions.ts`,
+  `apps/noter/convex/schema.ts`, and
+  `apps/noter/src/lib/convexUtils.tsx`. Result: `no-explicit-any` is enforced
+  again for handwritten app code; remaining `any` references are limited to
+  generated Convex bindings and TanStack's generated route tree.

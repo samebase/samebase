@@ -58,9 +58,13 @@ describe("lint config", () => {
 
   it("keeps type-aware and react-refresh coverage in the primary Oxlint config", () => {
     const oxlintConfig = readRootLintConfig();
+    const appWideOverride = oxlintConfig.overrides?.find((override) =>
+      override.files?.includes("apps/noter/**/*.{ts,tsx}"),
+    );
 
     expect(oxlintConfig.options).toMatchObject({ typeAware: true });
     expect(oxlintConfig.ignorePatterns).toContain("**/.codespace-agent/**");
+    expect(appWideOverride?.rules?.["@typescript-eslint/no-explicit-any"]).toBeUndefined();
     expect(oxlintConfig.jsPlugins).toEqual(
       expect.arrayContaining([
         {

@@ -6,18 +6,26 @@ import { useQuery, OptionalRestArgsOrSkip } from "convex/react";
 // ---------- tiny stable stringify + hash ----------
 
 function stableStringify(value: unknown): string {
-  const seen = new WeakSet();
-  const stringify = (val: any): any => {
-    if (val === null || typeof val !== "object") return val;
-    if (seen.has(val)) return "[Circular]";
-    seen.add(val);
+  const seen = new WeakSet<object>();
+  const stringify = (nextValue: unknown): unknown => {
+    if (nextValue === null || typeof nextValue !== "object") {
+      return nextValue;
+    }
+    if (seen.has(nextValue)) {
+      return "[Circular]";
+    }
+    seen.add(nextValue);
 
-    if (Array.isArray(val)) return val.map(stringify);
+    if (Array.isArray(nextValue)) {
+      return nextValue.map((item) => stringify(item));
+    }
 
     // Sort keys for deterministic output
-    const out: Record<string, any> = {};
-    for (const key of Object.keys(val).sort()) {
-      out[key] = stringify(val[key]);
+    const out: Record<string, unknown> = {};
+    for (const [key, entryValue] of Object.entries(nextValue).sort(
+      ([leftKey], [rightKey]) => leftKey.localeCompare(rightKey),
+    )) {
+      out[key] = stringify(entryValue);
     }
     return out;
   };
@@ -77,7 +85,7 @@ async function idbSet<T>(key: string, value: IdbRecord<T>): Promise<void> {
 
 // ---------- in-memory cache (per tab) ----------
 
-const memoryCache = new Map<string, IdbRecord<any>>();
+const memoryCache = new Map<string, IdbRecord<unknown>>();
 
 // ---------- main hook ----------
 
@@ -136,11 +144,11 @@ export function useCacheQuery<Query extends FunctionReference<"query">>(
 
     // 2) IDB (async)
     void (async () => {
-      const rec = await idbGet<any>(cacheKey);
+      const rec = await idbGet<Query["_returnType"]>(cacheKey);
       if (!lifecycle.active) return;
       if (rec) {
         if (!rec.exp || Date.now() <= rec.exp) {
-          setCached((prev: any) => (prev === undefined ? rec.data : prev)); // don't clobber mem
+          setCached((prev) => (prev === undefined ? rec.data : prev)); // don't clobber mem
           setFromCache(true);
           // also copy into memory
           memoryCache.set(cacheKey, rec);

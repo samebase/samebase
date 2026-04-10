@@ -302,16 +302,19 @@ export async function withRetry<T>(
   fn: () => Promise<T>,
   attempts = 3,
 ): Promise<T> {
-  let err: any;
+  let lastError: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
       return await fn();
     } catch (e) {
-      err = e;
+      lastError = e;
       await sleep(150 * (i + 1));
     }
   }
-  throw err;
+  if (lastError !== undefined) {
+    throw lastError;
+  }
+  throw new Error("Retry failed without an error");
 }
 
 export function isTextBuffer(buf: Uint8Array): boolean {

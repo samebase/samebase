@@ -3,8 +3,8 @@ import { FunctionReference } from "convex/server";
 import { useState, useCallback } from "react";
 
 export type GetFunctionReferenceReturnType<
-  T extends FunctionReference<any, any, any, any>,
-> = T["_returnType"];
+  T extends FunctionReference<"query" | "mutation" | "action">,
+> = T extends { _returnType: infer ReturnType } ? ReturnType : never;
 
 // Convex useMutation wrapper that also returns the state (e.g. 'loading')
 export function useConvexMutation<T extends FunctionReference<"mutation">>(
