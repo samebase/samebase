@@ -8,31 +8,223 @@ const appDir = fileURLToPath(new URL("./", import.meta.url));
 const repoRoot = path.resolve(appDir, "..", "..");
 const requireFromRepoRoot = createRequire(`${repoRoot}/package.json`);
 
-function readJson(relativePath: string) {
-  return JSON.parse(
-    fs.readFileSync(path.join(repoRoot, relativePath), "utf8"),
-  ) as Record<string, unknown>;
+type JsonRecord = Record<string, unknown>;
+
+type JsPluginConfig = {
+  name?: string;
+  specifier?: string;
+};
+
+type OxlintOverride = {
+  files?: string[];
+  rules?: JsonRecord;
+};
+
+type OxlintConfig = {
+  options?: JsonRecord;
+  ignorePatterns?: string[];
+  jsPlugins?: JsPluginConfig[];
+  rules?: JsonRecord;
+  overrides?: OxlintOverride[];
+};
+
+type PackageSurface = {
+  scripts?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+};
+
+type LocalPlugin = {
+  rules?: JsonRecord;
+};
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function readRootLintConfig() {
-  return readJson(".oxlintrc.json") as {
-    options?: Record<string, unknown>;
-    ignorePatterns?: string[];
-    jsPlugins?: Array<{ name?: string; specifier?: string }>;
-    rules?: Record<string, unknown>;
-    overrides?: Array<{
-      files?: string[];
-      rules?: Record<string, unknown>;
-    }>;
+function expectRecord(value: unknown, label: string): JsonRecord {
+  if (!isRecord(value)) {
+    throw new Error(`${label} must be a JSON object`);
+  }
+  return value;
+}
+
+function readJsonObject(relativePath: string): JsonRecord {
+  const parsed: unknown = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, relativePath), "utf8"),
+  );
+  return expectRecord(parsed, relativePath);
+}
+
+function readStringArray(value: unknown, label: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+
+  const items: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string") {
+      throw new Error(`${label} must contain only strings`);
+    }
+    items.push(entry);
+  }
+
+  return items;
+}
+
+function readOptionalRecord(
+  value: unknown,
+  label: string,
+): JsonRecord | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return expectRecord(value, label);
+}
+
+function readOptionalStringArray(
+  value: unknown,
+  label: string,
+): string[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return readStringArray(value, label);
+}
+
+function readOptionalStringRecord(
+  value: unknown,
+  label: string,
+): Record<string, string> | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const record = expectRecord(value, label);
+  const parsed: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(record)) {
+    if (typeof entry !== "string") {
+      throw new Error(`${label}.${key} must be a string`);
+    }
+    parsed[key] = entry;
+  }
+
+  return parsed;
+}
+
+function readOptionalJsPlugins(
+  value: unknown,
+  label: string,
+): JsPluginConfig[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+
+  const plugins: JsPluginConfig[] = [];
+  for (const [index, entry] of value.entries()) {
+    const record = expectRecord(entry, `${label}[${index}]`);
+    const plugin: JsPluginConfig = {};
+
+    if (record.name !== undefined) {
+      if (typeof record.name !== "string") {
+        throw new Error(`${label}[${index}].name must be a string`);
+      }
+      plugin.name = record.name;
+    }
+
+    if (record.specifier !== undefined) {
+      if (typeof record.specifier !== "string") {
+        throw new Error(`${label}[${index}].specifier must be a string`);
+      }
+      plugin.specifier = record.specifier;
+    }
+
+    plugins.push(plugin);
+  }
+
+  return plugins;
+}
+
+function readOptionalOverrides(
+  value: unknown,
+  label: string,
+): OxlintOverride[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+
+  const overrides: OxlintOverride[] = [];
+  for (const [index, entry] of value.entries()) {
+    const record = expectRecord(entry, `${label}[${index}]`);
+    const override: OxlintOverride = {};
+
+    if (record.files !== undefined) {
+      override.files = readStringArray(
+        record.files,
+        `${label}[${index}].files`,
+      );
+    }
+
+    if (record.rules !== undefined) {
+      override.rules = expectRecord(record.rules, `${label}[${index}].rules`);
+    }
+
+    overrides.push(override);
+  }
+
+  return overrides;
+}
+
+function readRootLintConfig(): OxlintConfig {
+  const config = readJsonObject(".oxlintrc.json");
+  return {
+    options: readOptionalRecord(config.options, ".oxlintrc.json.options"),
+    ignorePatterns: readOptionalStringArray(
+      config.ignorePatterns,
+      ".oxlintrc.json.ignorePatterns",
+    ),
+    jsPlugins: readOptionalJsPlugins(
+      config.jsPlugins,
+      ".oxlintrc.json.jsPlugins",
+    ),
+    rules: readOptionalRecord(config.rules, ".oxlintrc.json.rules"),
+    overrides: readOptionalOverrides(
+      config.overrides,
+      ".oxlintrc.json.overrides",
+    ),
+  };
+}
+
+function readPackageSurface(relativePath: string): PackageSurface {
+  const pkg = readJsonObject(relativePath);
+  return {
+    scripts: readOptionalStringRecord(pkg.scripts, `${relativePath}.scripts`),
+    devDependencies: readOptionalStringRecord(
+      pkg.devDependencies,
+      `${relativePath}.devDependencies`,
+    ),
+  };
+}
+
+function readLocalPlugin(): LocalPlugin {
+  const pluginModule: unknown = requireFromRepoRoot(
+    "eslint-plugin-noter-local",
+  );
+  const plugin = expectRecord(pluginModule, "eslint-plugin-noter-local");
+  return {
+    rules: readOptionalRecord(plugin.rules, "eslint-plugin-noter-local.rules"),
   };
 }
 
 describe("lint config", () => {
   it("wires the local query param rule through the Oxlint JS plugin bridge", () => {
     const pluginPath = requireFromRepoRoot.resolve("eslint-plugin-noter-local");
-    const plugin = requireFromRepoRoot("eslint-plugin-noter-local") as {
-      rules?: Record<string, unknown>;
-    };
+    const plugin = readLocalPlugin();
     const oxlintConfig = readRootLintConfig();
     const sourceOverride = oxlintConfig.overrides?.find(
       (override) =>
@@ -85,6 +277,10 @@ describe("lint config", () => {
         { allowConstantExport: true },
       ],
       "@typescript-eslint/await-thenable": "error",
+      "@typescript-eslint/consistent-type-assertions": [
+        "warn",
+        { assertionStyle: "never" },
+      ],
       "@typescript-eslint/no-unnecessary-condition": "error",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/restrict-template-expressions": "error",
@@ -92,20 +288,11 @@ describe("lint config", () => {
   });
 
   it("uses Oxlint as the only repo lint runner for app and starter surfaces", () => {
-    const rootPackage = readJson("package.json") as {
-      scripts?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-    };
-    const appPackage = readJson("apps/noter/package.json") as {
-      scripts?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-    };
-    const starterPackage = readJson(
+    const rootPackage = readPackageSurface("package.json");
+    const appPackage = readPackageSurface("apps/noter/package.json");
+    const starterPackage = readPackageSurface(
       "apps/noter-starter-template/package.json",
-    ) as {
-      scripts?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-    };
+    );
 
     expect(rootPackage.devDependencies).toMatchObject({
       "@convex-dev/eslint-plugin": "0.0.1-alpha.4",
