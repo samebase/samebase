@@ -47,20 +47,28 @@ import {
   writeLocalConfig,
 } from "./noter.js";
 
+function readLocalGitEnvKeys() {
+  const result = spawnSync("git", ["rev-parse", "--local-env-vars"], {
+    encoding: "utf8",
+  });
+
+  if (result.status !== 0) {
+    throw new Error(
+      `Expected git rev-parse --local-env-vars to succeed: ${result.stderr}`,
+    );
+  }
+
+  return result.stdout.split(/\r?\n/u).filter((value) => value.length > 0);
+}
+
+const LOCAL_GIT_ENV_KEYS = readLocalGitEnvKeys();
+
 function buildIsolatedGitEnv() {
   const env = { ...process.env };
 
-  // Git hooks populate repository-scoped variables such as GIT_INDEX_FILE.
-  // Clear them so temporary repos created inside tests behave like fresh
-  // standalone repositories.
-  for (const key of [
-    "GIT_COMMON_DIR",
-    "GIT_DIR",
-    "GIT_INDEX_FILE",
-    "GIT_OBJECT_DIRECTORY",
-    "GIT_PREFIX",
-    "GIT_WORK_TREE",
-  ]) {
+  // Hooks export repo-local Git variables. Ask Git for the full list so test
+  // repos do not accidentally mutate the caller's real worktree state.
+  for (const key of LOCAL_GIT_ENV_KEYS) {
     delete env[key];
   }
 
@@ -141,6 +149,42 @@ function buildThreadSummaryFixture(
 }
 
 describe("@noter-md/sync", () => {
+  it("clears every repo-local git env var before spawning isolated repos", () => {
+    const keepKey = "NOTER_TEST_KEEP_ENV";
+    const previousKeepValue = process.env[keepKey];
+    const previousGitValues = new Map(
+      LOCAL_GIT_ENV_KEYS.map((key) => [key, process.env[key]]),
+    );
+
+    try {
+      process.env[keepKey] = "keep-me";
+      for (const key of LOCAL_GIT_ENV_KEYS) {
+        process.env[key] = `sentinel-${key.toLowerCase()}`;
+      }
+
+      const env = buildIsolatedGitEnv();
+
+      expect(env[keepKey]).toBe("keep-me");
+      for (const key of LOCAL_GIT_ENV_KEYS) {
+        expect(env[key]).toBeUndefined();
+      }
+    } finally {
+      if (previousKeepValue === undefined) {
+        delete process.env[keepKey];
+      } else {
+        process.env[keepKey] = previousKeepValue;
+      }
+
+      for (const [key, value] of previousGitValues) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
+  });
+
   it("defaults the public connect command to noter.md with no extra CLI override", () => {
     expect(parseCliArgs(["connect"])).toEqual({
       command: "connect",
