@@ -1,5 +1,6 @@
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
+import { AppPageFrame } from "@/components/AppPageFrame";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
 export type WorkspaceLayoutV2VisualMode = "workspace-layout-v2-status-bar";
 
@@ -175,48 +176,49 @@ const FIXTURE_VAULT_KEY = "workspace-layout-v2-fixture-vault";
 
 export function WorkspaceLayoutV2VisualFixture() {
   return (
-    <WorkspaceLayoutV2FullPage
-      topBar={null}
-      left={{
-        headerTestId: "workspace-layout-v2-left-pane-header",
-        content: (
-          <CodeMirrorFileSurface
-            dataTestId="workspace-layout-v2-prosemark-surface"
-            filePath="workspace-layout-v2-notes.md"
-            initialValue={FIXTURE_MARKDOWN}
-          />
-        ),
-      }}
-      main={{
-        headerTestId: "workspace-layout-v2-main-pane-header",
-        content: (
-          <MonacoEditorSurface
-            branch="main"
-            dataTestId="workspace-layout-v2-main-editor-surface"
-            defaultValue={FIXTURE_MAIN_CODE}
-            filePath="src/workspace-layout-v2-fixture.ts"
-            onMount={() => {}}
-            showMobileLineNumbers={false}
-            syncError={null}
-            vaultKey={FIXTURE_VAULT_KEY}
-          />
-        ),
-      }}
-      right={{
-        headerTestId: "workspace-layout-v2-right-pane-header",
-        content: (
-          <MonacoEditorSurface
-            branch="main"
-            dataTestId="workspace-layout-v2-right-editor-surface"
-            defaultValue={FIXTURE_RIGHT_CODE}
-            filePath="src/workspace-layout-v2-review.ts"
-            onMount={() => {}}
-            showMobileLineNumbers={false}
-            syncError={null}
-            vaultKey={FIXTURE_VAULT_KEY}
-          />
-        ),
-      }}
-    />
+    <AppPageFrame dataTestId="workspace-layout-v2-visual-fixture">
+      <WorkspaceLayoutV2FullPage
+        left={{
+          headerTestId: "workspace-layout-v2-left-pane-header",
+          content: (
+            <CodeMirrorFileSurface
+              dataTestId="workspace-layout-v2-prosemark-surface"
+              filePath="workspace-layout-v2-notes.md"
+              initialValue={FIXTURE_MARKDOWN}
+            />
+          ),
+        }}
+        main={{
+          headerTestId: "workspace-layout-v2-main-pane-header",
+          content: (
+            <MonacoEditorSurface
+              branch="main"
+              dataTestId="workspace-layout-v2-main-editor-surface"
+              defaultValue={FIXTURE_MAIN_CODE}
+              filePath="src/workspace-layout-v2-fixture.ts"
+              onMount={() => {}}
+              showMobileLineNumbers={false}
+              syncError={null}
+              vaultKey={FIXTURE_VAULT_KEY}
+            />
+          ),
+        }}
+        right={{
+          headerTestId: "workspace-layout-v2-right-pane-header",
+          content: (
+            <MonacoEditorSurface
+              branch="main"
+              dataTestId="workspace-layout-v2-right-editor-surface"
+              defaultValue={FIXTURE_RIGHT_CODE}
+              filePath="src/workspace-layout-v2-review.ts"
+              onMount={() => {}}
+              showMobileLineNumbers={false}
+              syncError={null}
+              vaultKey={FIXTURE_VAULT_KEY}
+            />
+          ),
+        }}
+      />
+    </AppPageFrame>
   );
 }

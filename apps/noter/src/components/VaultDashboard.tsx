@@ -2230,8 +2230,6 @@ export function VaultDashboard() {
   return (
     <>
       <WorkspaceLayoutV2FullPage
-        dataTestId="vault-dashboard"
-        topBar={null}
         left={{
           header: <UserMenu>{userDisplayName || "unknown"}</UserMenu>,
           content: sidebarContent,

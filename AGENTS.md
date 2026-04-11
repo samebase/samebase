@@ -268,6 +268,8 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 
 - Keep responses concise by default and always include a final `Summary`
   section.
+- Mention only the actionable lever in user-facing explanations. Do not bring up
+  impossible non-options or irrelevant caveats.
 - Expect voice-to-text mistakes. Interpret likely transcription errors before
   asking for clarification.
 - Commit meaningful checkpoints instead of letting large local diffs accumulate,

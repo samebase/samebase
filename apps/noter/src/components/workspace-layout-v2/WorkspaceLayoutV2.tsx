@@ -945,9 +945,6 @@ export function WorkspaceLayoutV2FullPage({
   main,
   right,
 }: {
-  dataTestId?: string;
-  topBar: ReactNode;
-
   left: WorkspaceLayoutV2PaneFrameProps;
 
   main: WorkspaceLayoutV2PaneFrameProps;

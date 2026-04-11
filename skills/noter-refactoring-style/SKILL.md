@@ -27,6 +27,9 @@ compat wrappers, or layout-owned prop plumbing.
 - Treat backward compatibility with bad structure as a liability, not a goal.
 - Keep one honest path alive end to end instead of preserving multiple partial
   paths.
+- Prefer a two-pass refactor when removing structure: first move ownership
+  without changing behavior, then delete the leftover wrapper or prop after a
+  checkpoint and a quick UI check.
 - After moving a seam, check immediately for leftovers such as old consumers,
   view models, fixture helpers, and types. Delete the ones that no longer have a
   real caller.
@@ -40,9 +43,19 @@ compat wrappers, or layout-owned prop plumbing.
   needs. This applies to structure, props, and even small spacing utilities.
 - Be suspicious of every new prop and every utility class. If you cannot name
   the current invariant it protects, do not add it.
+- Distinguish shared shell from slot content. If a slot appears across routes or
+  fixtures, keep its framing, sizing, and spacing in the shared owner and let
+  callers provide only the inner content.
 - When removing a style override prop from a shared component, do not shove the
   old special-case layout into the shared component unless every remaining
   caller truly needs it.
+- When a prop is unused, always ask whether it should be deleted before adding
+  any wrapper or compensating layout around it.
+- Before adding a new shell or container, look for the existing owner of that
+  invariant in production code and reuse that pattern instead of hand-writing a
+  new one.
+- Never fix a fixture with a one-off wrapper when the real app already has the
+  shell that should own the behavior. Make the fixture match the real shell.
 - Strip chrome down to what is necessary for the current working surface.
 - Re-add secondary behavior only after the simplified core is solid.
 - Make fixtures use the real standard instead of reconstructing the shell by
@@ -158,6 +171,158 @@ Treat these as red flags:
 8. Trim secondary chrome until the core shell is clean.
 9. Validate on the honest route or a fixture that mounts the same production
    tree.
+10. Do a garbage check before keeping the patch: unused prop? duplicate shell?
+    fixture-only wrapper? If yes, delete it and try again.
+
+## Small Two-Pass Examples
+
+These examples matter because the hard part is often not noticing the final
+garbage. The reliable move is to first re-home ownership safely, checkpoint,
+then delete the now-obvious leftover. Another common reason to move ownership
+inward is to stop fixtures from copying production styling. If the shared shell
+changes later, the fixture should change with it instead of silently drifting.
+
+### Example 1: Move shared shell ownership, then delete the leftover wrapper
+
+Before:
+
+```tsx
+export function AppPageFrame({ children, topBar }: Props) {
+  return (
+    <div className="flex min-h-svh w-full flex-col">
+      <div>{topBar}</div>
+      {children}
+    </div>
+  );
+}
+
+export function SomeRoute({ children }: { children: ReactNode }) {
+  return (
+    <AppPageFrame>
+      <main className="flex min-h-0 flex-1 flex-col">{children}</main>
+    </AppPageFrame>
+  );
+}
+
+export function SomeFixture({ content }: { content: ReactNode }) {
+  return (
+    <AppPageFrame>
+      <main className="flex min-h-0 flex-1 flex-col">{content}</main>
+    </AppPageFrame>
+  );
+}
+```
+
+Pass 1:
+
+- Decide `AppPageFrame` should own the shared `main` shell.
+- Move the `main` into `AppPageFrame`.
+- Update both real callers to stop rendering their own `main`.
+- This is not just deduplication. It makes the fixture inherit the real shell
+  automatically instead of copying the same classes by hand.
+- Checkpoint once behavior still matches.
+
+```tsx
+export function AppPageFrame({ children, topBar }: Props) {
+  return (
+    <div className="flex min-h-svh w-full flex-col">
+      <div>{topBar}</div>
+      <main className="flex min-h-0 flex-1 flex-col">{children}</main>
+    </div>
+  );
+}
+
+export function SomeRoute({ children }: { children: ReactNode }) {
+  return <AppPageFrame>{children}</AppPageFrame>;
+}
+
+export function SomeFixture({ content }: { content: ReactNode }) {
+  return <AppPageFrame>{content}</AppPageFrame>;
+}
+```
+
+Pass 2:
+
+- Look for any wrapper left behind by the ownership move.
+- If the route still has:
+
+```tsx
+<div className="flex min-h-0 flex-1 flex-col">
+  <main className="flex min-h-0 flex-1 flex-col">{children}</main>
+</div>
+```
+
+- remove it and verify the real route still sizes and scrolls correctly.
+
+The same rule applies to shared top bars and status bars:
+
+- if `AppPageFrame` is the standard page shell, it should own the shared top-bar
+  height, border, and container spacing
+- a slot filler like `AppBuildStatusBar` should return only the content inside
+  that shell
+- otherwise every route or fixture that uses the slot can drift when the shared
+  shell changes
+
+### Example 2: Stop passing a prop first, then delete the prop
+
+Before:
+
+```tsx
+export function WorkspaceLayoutV2FullPage({
+  topBar,
+  main,
+}: {
+  topBar?: ReactNode;
+  main: Pane;
+}) {
+  return (
+    <>
+      {topBar}
+      <WorkspaceLayoutV2 main={main} />
+    </>
+  );
+}
+```
+
+Pass 1:
+
+- Move the app bar outside this component.
+- Change real callers so they no longer pass `topBar`.
+- Checkpoint once the route still renders correctly.
+
+```tsx
+<AppPageFrame topBar={<AppBuildStatusBar />}>
+  <WorkspaceLayoutV2FullPage main={main} />
+</AppPageFrame>
+```
+
+Pass 2:
+
+- Now that nothing real passes `topBar`, delete the prop from the component type
+  and implementation.
+- Do not add fake fixture chrome just to fill the old slot.
+
+### Example 3: Replace a wrapper with the real export, then delete the wrapper
+
+Before:
+
+```tsx
+export function VaultDashboard() {
+  return <VaultDashboardContent />;
+}
+```
+
+Pass 1:
+
+- Update imports and callsites to use `VaultDashboardContent` directly.
+- Keep behavior the same.
+- Checkpoint once typecheck is clean.
+
+Pass 2:
+
+- Delete the wrapper export.
+- Check whether any tests, stories, or fixtures were only keeping it alive out
+  of habit.
 
 ## UI-Specific Biases
 
