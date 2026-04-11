@@ -925,7 +925,7 @@ function WorkspaceLayoutV2MainPaneHeader({
   const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
 
   return (
-    <div className="flex h-full items-center gap-2 px-2">
+    <div className="flex h-full items-center gap-2">
       <Button
         type="button"
         variant="ghost"
