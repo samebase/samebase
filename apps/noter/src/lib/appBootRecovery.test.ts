@@ -1,9 +1,72 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+
+import { afterEach, describe, expect, it } from "vitest";
 import {
   buildRecoveryReloadUrl,
+  initializeAppBootRecovery,
   isLikelyStaleAssetError,
+  resetLocalAppData,
   stripRecoveryReloadParam,
 } from "@/lib/appBootRecovery";
+
+const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "localStorage",
+);
+const originalSessionStorageDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "sessionStorage",
+);
+
+function createTestStorage() {
+  const entries = new Map<string, string>();
+
+  return {
+    clear() {
+      entries.clear();
+    },
+    getItem(key: string) {
+      return entries.get(String(key)) ?? null;
+    },
+    key(index: number) {
+      return Array.from(entries.keys())[index] ?? null;
+    },
+    get length() {
+      return entries.size;
+    },
+    removeItem(key: string) {
+      entries.delete(String(key));
+    },
+    setItem(key: string, value: string) {
+      entries.set(String(key), String(value));
+    },
+  } satisfies Storage;
+}
+
+afterEach(() => {
+  if (originalLocalStorageDescriptor) {
+    Object.defineProperty(
+      window,
+      "localStorage",
+      originalLocalStorageDescriptor,
+    );
+  } else {
+    Reflect.deleteProperty(window, "localStorage");
+  }
+
+  if (originalSessionStorageDescriptor) {
+    Object.defineProperty(
+      window,
+      "sessionStorage",
+      originalSessionStorageDescriptor,
+    );
+  } else {
+    Reflect.deleteProperty(window, "sessionStorage");
+  }
+
+  Reflect.deleteProperty(document, "readyState");
+  window.history.replaceState(null, "", "/");
+});
 
 describe("appBootRecovery", () => {
   it("recognizes stale chunk and dynamic import failures", () => {
@@ -36,5 +99,51 @@ describe("appBootRecovery", () => {
 
     expect(strippedUrl.searchParams.get("devtools")).toBe("true");
     expect(strippedUrl.searchParams.has("__noter-reload")).toBe(false);
+  });
+
+  it("waits until load before removing the recovery query param", () => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createTestStorage(),
+    });
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      value: createTestStorage(),
+    });
+    Object.defineProperty(document, "readyState", {
+      configurable: true,
+      value: "loading",
+    });
+    window.history.replaceState(null, "", "/?devtools=true&__noter-reload=123");
+
+    initializeAppBootRecovery();
+
+    expect(
+      new URL(window.location.href).searchParams.has("__noter-reload"),
+    ).toBe(true);
+
+    window.dispatchEvent(new Event("load"));
+
+    const currentUrl = new URL(window.location.href);
+    expect(currentUrl.searchParams.get("devtools")).toBe("true");
+    expect(currentUrl.searchParams.has("__noter-reload")).toBe(false);
+  });
+
+  it("clears local app data even when service workers are unavailable", async () => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createTestStorage(),
+    });
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      value: createTestStorage(),
+    });
+    window.localStorage.setItem("theme", "dark");
+    window.sessionStorage.setItem("auth", "token");
+
+    await expect(resetLocalAppData()).resolves.toBeUndefined();
+
+    expect(window.localStorage.length).toBe(0);
+    expect(window.sessionStorage.length).toBe(0);
   });
 });

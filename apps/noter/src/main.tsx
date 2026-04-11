@@ -7,7 +7,6 @@ import { AppRouterProvider } from "./lib/appRouter";
 import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
 import { initializeAppBootRecovery } from "@/lib/appBootRecovery";
 import { QueryProvider } from "./lib/providers/query-provider";
-import { ensureWindowStorageAccess } from "./lib/storageAccess";
 import { OptionalThemeProvider } from "./lib/themeStorageFallback";
 
 let mounted = false;
@@ -18,8 +17,6 @@ export function mountApp() {
   }
   mounted = true;
 
-  ensureWindowStorageAccess("localStorage");
-  ensureWindowStorageAccess("sessionStorage");
   initializeAppBootRecovery();
 
   ReactDOM.createRoot(document.getElementById("root")!).render(

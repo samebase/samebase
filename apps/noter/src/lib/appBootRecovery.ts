@@ -1,10 +1,8 @@
 import { CONVEX_QUERY_CACHE_DB_NAME } from "@/lib/convexQueryCacheStorage";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { ensureWindowStorageAccess } from "@/lib/storageAccess";
-import { readAppBuildCommit } from "@/lib/appBuildMetadata";
 
 const RECOVERY_QUERY_PARAM = "__noter-reload";
-const AUTO_RECOVERY_SESSION_KEY = "noter-auto-recovery-build";
 const STALE_ASSET_PATTERNS = [
   /chunkloaderror/i,
   /failed to fetch dynamically imported module/i,
@@ -42,7 +40,7 @@ export function readBootFailureMessage(error: unknown): string | null {
   return message.length > 0 ? message : null;
 }
 
-export function buildRecoveryReloadUrl(url: URL): string {
+function updateRecoveryReloadUrl(url: URL, value: string | undefined): string {
   const nextPath = buildPathWithUpdatedQuery(
     {
       pathname: url.pathname,
@@ -50,24 +48,22 @@ export function buildRecoveryReloadUrl(url: URL): string {
       hash: url.hash,
     },
     (nextSearchParams) => {
-      setQueryParam(nextSearchParams, RECOVERY_QUERY_PARAM, `${Date.now()}`);
+      setQueryParam(nextSearchParams, RECOVERY_QUERY_PARAM, value);
     },
   );
   return new URL(nextPath, url.origin).toString();
 }
 
+function hasRecoveryReloadParam(url: URL): boolean {
+  return url.searchParams.has(RECOVERY_QUERY_PARAM);
+}
+
+export function buildRecoveryReloadUrl(url: URL): string {
+  return updateRecoveryReloadUrl(url, `${Date.now()}`);
+}
+
 export function stripRecoveryReloadParam(url: URL): string {
-  const nextPath = buildPathWithUpdatedQuery(
-    {
-      pathname: url.pathname,
-      search: url.search,
-      hash: url.hash,
-    },
-    (nextSearchParams) => {
-      setQueryParam(nextSearchParams, RECOVERY_QUERY_PARAM, undefined);
-    },
-  );
-  return new URL(nextPath, url.origin).toString();
+  return updateRecoveryReloadUrl(url, undefined);
 }
 
 function tryReplaceUrl(url: string) {
@@ -137,16 +133,15 @@ async function unregisterServiceWorkers() {
   }
 
   const serviceWorkerContainer = navigator.serviceWorker;
-  const getRegistrations = Reflect.get(
-    serviceWorkerContainer,
-    "getRegistrations",
-  );
-  if (typeof getRegistrations !== "function") {
+  if (
+    typeof serviceWorkerContainer === "undefined" ||
+    typeof serviceWorkerContainer.getRegistrations !== "function"
+  ) {
     return;
   }
 
   try {
-    const registrations = await getRegistrations.call(serviceWorkerContainer);
+    const registrations = await serviceWorkerContainer.getRegistrations();
     await Promise.all(
       registrations.map((registration) => registration.unregister()),
     );
@@ -155,21 +150,20 @@ async function unregisterServiceWorkers() {
   }
 }
 
+function clearWindowStorage(storageKey: "localStorage" | "sessionStorage") {
+  try {
+    window[storageKey].clear();
+  } catch {
+    // Ignore storage failures and keep clearing the remaining stores.
+  }
+}
+
 export async function resetLocalAppData() {
   ensureWindowStorageAccess("localStorage");
   ensureWindowStorageAccess("sessionStorage");
 
-  try {
-    window.localStorage.clear();
-  } catch {
-    // Ignore storage failures and keep clearing the remaining stores.
-  }
-
-  try {
-    window.sessionStorage.clear();
-  } catch {
-    // Ignore storage failures and keep clearing the remaining stores.
-  }
+  clearWindowStorage("localStorage");
+  clearWindowStorage("sessionStorage");
 
   await Promise.all([
     clearAllIndexedDbDatabases(),
@@ -184,31 +178,11 @@ export function reloadApp() {
   );
 }
 
-function markAutoRecoveryAttempted(buildCommit: string) {
-  try {
-    window.sessionStorage.setItem(AUTO_RECOVERY_SESSION_KEY, buildCommit);
-  } catch {
-    // Ignore session-storage failures and rely on the fallback error boundary.
-  }
-}
-
-function hasAutoRecoveryAttempted(buildCommit: string): boolean {
-  try {
-    return (
-      window.sessionStorage.getItem(AUTO_RECOVERY_SESSION_KEY) === buildCommit
-    );
-  } catch {
-    return false;
-  }
-}
-
 function autoRecoverFromStaleAssets(event: Event): boolean {
-  const buildCommit = readAppBuildCommit();
-  if (hasAutoRecoveryAttempted(buildCommit)) {
+  if (hasRecoveryReloadParam(new URL(window.location.href))) {
     return false;
   }
 
-  markAutoRecoveryAttempted(buildCommit);
   event.preventDefault();
   reloadApp();
   return true;
@@ -222,6 +196,29 @@ function isVitePreloadErrorEvent(event: Event): event is VitePreloadErrorEvent {
   return "payload" in event;
 }
 
+function cleanupRecoveryReloadParam() {
+  const currentUrl = new URL(window.location.href);
+  if (!hasRecoveryReloadParam(currentUrl)) {
+    return;
+  }
+
+  tryReplaceUrl(stripRecoveryReloadParam(currentUrl));
+}
+
+function scheduleRecoveryReloadParamCleanup() {
+  const currentUrl = new URL(window.location.href);
+  if (!hasRecoveryReloadParam(currentUrl)) {
+    return;
+  }
+
+  if (document.readyState === "complete") {
+    cleanupRecoveryReloadParam();
+    return;
+  }
+
+  window.addEventListener("load", cleanupRecoveryReloadParam, { once: true });
+}
+
 export function initializeAppBootRecovery() {
   if (typeof window === "undefined") {
     return;
@@ -229,11 +226,7 @@ export function initializeAppBootRecovery() {
 
   ensureWindowStorageAccess("localStorage");
   ensureWindowStorageAccess("sessionStorage");
-
-  const currentUrl = new URL(window.location.href);
-  if (currentUrl.searchParams.has(RECOVERY_QUERY_PARAM)) {
-    tryReplaceUrl(stripRecoveryReloadParam(currentUrl));
-  }
+  scheduleRecoveryReloadParamCleanup();
 
   window.addEventListener("vite:preloadError", (event) => {
     if (
