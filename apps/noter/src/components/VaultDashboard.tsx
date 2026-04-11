@@ -79,9 +79,7 @@ import { PullRequestLink } from "@/components/PullRequestLink";
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
 import { CodexProviderRow } from "@/components/CodexProviderRow";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
-// TODO: add chat fab back in
-// oxlint-disable-next-line no-unused-vars
-import { EditorChatDock } from "@/components/EditorChatDock";
+import { EditorChatPanel } from "@/components/EditorChatPanel";
 import {
   VaultDashboardEmptyState,
   VaultDashboardProvidersSection,
@@ -1084,6 +1082,9 @@ export function VaultDashboard() {
   const setProvidersPanelOpen = useMutation(
     api.dashboardSettings.setProvidersPanelOpen,
   );
+  const setEditorChatOpen = useMutation(
+    api.dashboardSettings.setEditorChatOpen,
+  );
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
   const cloudflareConnection = useConvexQuery(
@@ -1096,6 +1097,7 @@ export function VaultDashboard() {
   const dashboardSettings = useConvexQuery(
     api.dashboardSettings.getDashboardSettings,
   );
+  const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
   const setVaultBranchFilters = useMutation(api.vault.setVaultBranchFilters);
   const githubPopupRef = useRef<Window | null>(null);
@@ -1170,6 +1172,12 @@ export function VaultDashboard() {
   const [providersPanelOpen, setProvidersPanelOpenState] = useState<
     boolean | null
   >(null);
+  const [globalChatOpen, setGlobalChatOpenState] = useState<boolean | null>(
+    null,
+  );
+  const [shouldAutoFocusChatInput, setShouldAutoFocusChatInput] =
+    useState(false);
+  const globalChatPendingRef = useRef<boolean | null>(null);
   const providersPanelPendingRef = useRef<boolean | null>(null);
   const cloudflareAutoCheckInFlightRef = useRef(false);
   const initialDashboardPageLoadSentRef = useRef(false);
@@ -1191,6 +1199,21 @@ export function VaultDashboard() {
     }
     setProvidersPanelOpenState(serverValue);
   }, [dashboardProvidersPanelOpen]);
+
+  useEffect(() => {
+    if (dashboardGlobalChatOpen === undefined) {
+      return;
+    }
+    const serverValue = dashboardGlobalChatOpen;
+    if (globalChatPendingRef.current !== null) {
+      if (globalChatPendingRef.current === serverValue) {
+        globalChatPendingRef.current = null;
+      } else {
+        return;
+      }
+    }
+    setGlobalChatOpenState(serverValue);
+  }, [dashboardGlobalChatOpen]);
 
   useEffect(() => {
     const isCloudflareMcpConnected =
@@ -1949,6 +1972,8 @@ export function VaultDashboard() {
 
   const resolvedProvidersPanelOpen =
     providersPanelOpen ?? dashboardSettings?.providersPanelOpen ?? false;
+  const resolvedGlobalChatOpen =
+    globalChatOpen ?? dashboardGlobalChatOpen ?? false;
 
   const handleProvidersPanelOpenChange = (isOpen: boolean) => {
     setProvidersPanelOpenState(isOpen);
@@ -1960,6 +1985,20 @@ export function VaultDashboard() {
         dashboardSettings?.providersPanelOpen ?? false,
       );
     });
+  };
+
+  const handleGlobalChatOpenChange = (isOpen: boolean) => {
+    setShouldAutoFocusChatInput(isOpen);
+    setGlobalChatOpenState(isOpen);
+    globalChatPendingRef.current = isOpen;
+    void setEditorChatOpen({ isOpen, scope: "global" }).catch(
+      (error: unknown) => {
+        console.error("Failed to persist global chat state:", error);
+        globalChatPendingRef.current = null;
+        setShouldAutoFocusChatInput(false);
+        setGlobalChatOpenState(dashboardGlobalChatOpen ?? false);
+      },
+    );
   };
 
   const providerRows = PROVIDER_KEYS.map((provider) => {
@@ -2238,18 +2277,20 @@ export function VaultDashboard() {
           header: dashboardHeaderContent,
           content: dashboardBody,
         }}
+        panel={{
+          content: (
+            <EditorChatPanel
+              autoFocusInput={shouldAutoFocusChatInput}
+              shellMode="embedded"
+            />
+          ),
+          onOpenChange: handleGlobalChatOpenChange,
+          open: resolvedGlobalChatOpen,
+        }}
         right={{
           content: rightSidebarContent,
         }}
       />
-
-      {/* // TODO: add chat fab back in
-        // bottomDock={({ onMobileDockInsetChange }) => (
-        //   <EditorChatDock
-        //     desktopMode="inline"
-        //     onMobileDockInsetChange={onMobileDockInsetChange}
-        //   />
-        // )} */}
 
       <Dialog
         open={branchToDelete !== null}

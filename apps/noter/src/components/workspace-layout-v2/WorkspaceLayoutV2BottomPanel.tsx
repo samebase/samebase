@@ -12,6 +12,12 @@ const WORKSPACE_LAYOUT_V2_PANEL_MIN_HEIGHT_PX = 3 * 16;
 const WORKSPACE_LAYOUT_V2_PANEL_DEFAULT_HEIGHT_PX = 18 * 16;
 const WORKSPACE_LAYOUT_V2_PANEL_MOBILE_DEFAULT_HEIGHT_RATIO = 0.35;
 
+export type WorkspaceLayoutV2BottomPanelProps =
+  WorkspaceLayoutV2PaneFrameProps & {
+    onOpenChange?: (isOpen: boolean) => void;
+    open?: boolean;
+  };
+
 function clampNumber(value: number, minValue: number, maxValue: number) {
   return Math.max(minValue, Math.min(value, maxValue));
 }
@@ -96,24 +102,35 @@ export function WorkspaceLayoutV2MainViewportWithPanel({
   mainContent: ReactNode;
   onPanelResizeEnd: () => void;
   onPanelResizeStart: () => void;
-  panel?: WorkspaceLayoutV2PaneFrameProps;
+  panel?: WorkspaceLayoutV2BottomPanelProps;
   viewportHeightPx: number;
 }) {
   const hasPanel = panel !== undefined;
-  const [panelOpen, setPanelOpen] = useState(hasPanel);
+  const isPanelOpenControlled = panel?.open !== undefined;
+  const [uncontrolledPanelOpen, setUncontrolledPanelOpen] = useState(hasPanel);
   const [panelHeightPx, setPanelHeightPx] = useState(
     WORKSPACE_LAYOUT_V2_PANEL_DEFAULT_HEIGHT_PX,
   );
   const panelHeightCustomizedRef = useRef(false);
+  const panelOpen = panel?.open ?? uncontrolledPanelOpen;
+  const setPanelOpen = (isOpen: boolean) => {
+    if (!isPanelOpenControlled) {
+      setUncontrolledPanelOpen(isOpen);
+    }
+    panel?.onOpenChange?.(isOpen);
+  };
 
   useEffect(() => {
-    if (!hasPanel) {
-      setPanelOpen(false);
-      return;
+    if (!isPanelOpenControlled) {
+      setUncontrolledPanelOpen(hasPanel);
     }
+  }, [hasPanel, isPanelOpenControlled]);
 
-    setPanelOpen(true);
-  }, [hasPanel]);
+  const {
+    onOpenChange: _ignoredOnOpenChange,
+    open: _ignoredOpen,
+    ...panelFrameProps
+  } = panel ?? {};
 
   useEffect(() => {
     if (!hasPanel) {
@@ -170,10 +187,10 @@ export function WorkspaceLayoutV2MainViewportWithPanel({
         />
         <div className="min-h-0 flex-1">
           <WorkspaceLayoutV2PaneFrame
-            {...panel}
+            {...panelFrameProps}
             header={
               <div className="flex h-full min-w-0 items-center justify-between">
-                <div className="min-w-0 flex-1">{panel.header}</div>
+                <div className="min-w-0 flex-1">{panelFrameProps.header}</div>
                 <Button
                   type="button"
                   variant="ghost"

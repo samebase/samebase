@@ -580,6 +580,7 @@ type EditorChatPanelProps = {
   autoFocusInput?: boolean;
   headerResizeHandle?: ReactNode;
   onClose?: () => void;
+  shellMode?: "embedded" | "standalone";
 };
 
 const STORAGE_KEY_LOCAL_THREAD = "noter-chat-thread";
@@ -616,6 +617,7 @@ export function EditorChatPanel({
   autoFocusInput = false,
   headerResizeHandle,
   onClose,
+  shellMode = "standalone",
 }: EditorChatPanelProps) {
   const [input, setInput] = useState("");
   const [localThreadId, setLocalThreadId] = useState<string | null>(() =>
@@ -922,53 +924,57 @@ export function EditorChatPanel({
   return (
     <div
       className={cn(
-        "flex h-full min-h-0 flex-col corner-notch-1 border border-border bg-background",
+        shellMode === "embedded"
+          ? "flex h-full min-h-0 flex-col bg-background"
+          : "flex h-full min-h-0 flex-col corner-notch-1 border border-border bg-background",
         className,
       )}
     >
-      <div className="border-b border-border">
-        <div
-          className={cn(
-            "flex items-center gap-1 py-0",
-            EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME,
-          )}
-        >
-          <div className="min-w-0 flex-1">{headerResizeHandle}</div>
-          <div className="flex shrink-0 items-center gap-0">
-            {threadId ? (
-              <button
-                onClick={() => void handleNewConversation()}
-                title={isDeleting ? "Removing..." : "New conversation"}
-                aria-label={
-                  isDeleting ? "Removing conversation" : "New conversation"
-                }
-                disabled={isDeleting || sending}
-                aria-disabled={isDeleting || sending}
-                className={cn(
-                  "corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
-                )}
-              >
-                {isDeleting ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Plus className="h-3.5 w-3.5" />
-                )}
-              </button>
-            ) : null}
-            {onClose ? (
-              <button
-                onClick={handleClose}
-                disabled={sending || isDeleting}
-                aria-disabled={sending || isDeleting}
-                className="corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                aria-label="Close chat"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            ) : null}
+      {shellMode === "standalone" ? (
+        <div className="border-b border-border">
+          <div
+            className={cn(
+              "flex items-center gap-1 py-0",
+              EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME,
+            )}
+          >
+            <div className="min-w-0 flex-1">{headerResizeHandle}</div>
+            <div className="flex shrink-0 items-center gap-0">
+              {threadId ? (
+                <button
+                  onClick={() => void handleNewConversation()}
+                  title={isDeleting ? "Removing..." : "New conversation"}
+                  aria-label={
+                    isDeleting ? "Removing conversation" : "New conversation"
+                  }
+                  disabled={isDeleting || sending}
+                  aria-disabled={isDeleting || sending}
+                  className={cn(
+                    "corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
+                  )}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              ) : null}
+              {onClose ? (
+                <button
+                  onClick={handleClose}
+                  disabled={sending || isDeleting}
+                  aria-disabled={sending || isDeleting}
+                  className="corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Close chat"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="flex-1 overflow-y-auto py-2">
         <div className={EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME}>

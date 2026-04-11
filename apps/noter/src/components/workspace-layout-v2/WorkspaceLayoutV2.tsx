@@ -35,7 +35,10 @@ import {
   WorkspaceLayoutV2PaneFrame,
   WorkspaceLayoutV2PaneFrameProps,
 } from "./WorkspaceLayoutV2PaneFrame";
-import { WorkspaceLayoutV2MainViewportWithPanel } from "./WorkspaceLayoutV2BottomPanel";
+import {
+  type WorkspaceLayoutV2BottomPanelProps,
+  WorkspaceLayoutV2MainViewportWithPanel,
+} from "./WorkspaceLayoutV2BottomPanel";
 import { Button } from "../ui/button";
 import { PanelLeft, PanelRight } from "lucide-react";
 
@@ -53,7 +56,7 @@ type WorkspaceLayoutV2Props = {
 };
 
 type WorkspaceLayoutV2JustPanesProps = WorkspaceLayoutV2Props & {
-  panel?: WorkspaceLayoutV2PaneFrameProps;
+  panel?: WorkspaceLayoutV2BottomPanelProps;
 };
 
 type WorkspaceLayoutV2ResolvedPaneContent = {
@@ -961,7 +964,7 @@ export function WorkspaceLayoutV2FullPage({
 
   main: WorkspaceLayoutV2PaneFrameProps;
 
-  panel?: WorkspaceLayoutV2PaneFrameProps;
+  panel?: WorkspaceLayoutV2BottomPanelProps;
 
   right: WorkspaceLayoutV2PaneFrameProps;
 }) {
