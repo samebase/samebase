@@ -108,7 +108,20 @@ import {
 } from "@/lib/vaultBranchFilters";
 import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
 import { toast } from "@/components/ui/use-toast";
+import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 import { WorkspaceLayoutV2FullPage } from "./workspace-layout-v2/WorkspaceLayoutV2";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
+import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+
+const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
+  leftDesktopOpen: true,
+  leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  leftMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  mobilePane: "main",
+  rightDesktopOpen: false,
+  rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+} satisfies WorkspaceSidebarState;
 
 const formatInfraState = (
   infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
@@ -2268,29 +2281,35 @@ export function VaultDashboard() {
 
   return (
     <>
-      <WorkspaceLayoutV2FullPage
-        left={{
-          header: <UserMenu>{userDisplayName || "unknown"}</UserMenu>,
-          content: sidebarContent,
-        }}
-        main={{
-          header: dashboardHeaderContent,
-          content: dashboardBody,
-        }}
-        panel={{
-          content: (
-            <EditorChatPanel
-              autoFocusInput={shouldAutoFocusChatInput}
-              shellMode="embedded"
-            />
-          ),
-          onOpenChange: handleGlobalChatOpenChange,
-          open: resolvedGlobalChatOpen,
-        }}
-        right={{
-          content: rightSidebarContent,
-        }}
-      />
+      <PersistedSidebarProvider
+        className="flex-1 h-full min-h-0"
+        defaultState={DASHBOARD_SIDEBAR_DEFAULT_STATE}
+        workspaceKey="dashboard"
+      >
+        <WorkspaceLayoutV2FullPage
+          left={{
+            header: <UserMenu>{userDisplayName || "unknown"}</UserMenu>,
+            content: sidebarContent,
+          }}
+          main={{
+            header: dashboardHeaderContent,
+            content: dashboardBody,
+          }}
+          panel={{
+            content: (
+              <EditorChatPanel
+                autoFocusInput={shouldAutoFocusChatInput}
+                shellMode="embedded"
+              />
+            ),
+            onOpenChange: handleGlobalChatOpenChange,
+            open: resolvedGlobalChatOpen,
+          }}
+          right={{
+            content: rightSidebarContent,
+          }}
+        />
+      </PersistedSidebarProvider>
 
       <Dialog
         open={branchToDelete !== null}

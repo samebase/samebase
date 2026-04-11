@@ -921,6 +921,23 @@ export function EditorChatPanel({
     onClose?.();
   }, [flushDraftImmediately, isDeleting, onClose, sending]);
 
+  const newConversationButton = threadId ? (
+    <button
+      onClick={() => void handleNewConversation()}
+      title={isDeleting ? "Removing..." : "New conversation"}
+      aria-label={isDeleting ? "Removing conversation" : "New conversation"}
+      disabled={isDeleting || sending}
+      aria-disabled={isDeleting || sending}
+      className="corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {isDeleting ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Plus className="h-3.5 w-3.5" />
+      )}
+    </button>
+  ) : null;
+
   return (
     <div
       className={cn(
@@ -940,26 +957,7 @@ export function EditorChatPanel({
           >
             <div className="min-w-0 flex-1">{headerResizeHandle}</div>
             <div className="flex shrink-0 items-center gap-0">
-              {threadId ? (
-                <button
-                  onClick={() => void handleNewConversation()}
-                  title={isDeleting ? "Removing..." : "New conversation"}
-                  aria-label={
-                    isDeleting ? "Removing conversation" : "New conversation"
-                  }
-                  disabled={isDeleting || sending}
-                  aria-disabled={isDeleting || sending}
-                  className={cn(
-                    "corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
-                  )}
-                >
-                  {isDeleting ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Plus className="h-3.5 w-3.5" />
-                  )}
-                </button>
-              ) : null}
+              {newConversationButton}
               {onClose ? (
                 <button
                   onClick={handleClose}
@@ -1001,6 +999,11 @@ export function EditorChatPanel({
 
       <div className="border-t border-border">
         <div className={EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME}>
+          {shellMode === "embedded" && newConversationButton ? (
+            <div className="flex justify-end border-b border-border/60 py-1">
+              {newConversationButton}
+            </div>
+          ) : null}
           <ChatInput
             ref={inputRef}
             value={input}

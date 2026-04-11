@@ -30,7 +30,6 @@ import {
   type WorkspaceLayoutV2Pane,
 } from "./paneLayout";
 import { cn } from "@/lib/utils";
-import { SidebarProvider } from "../sidebar";
 import {
   WorkspaceLayoutV2PaneFrame,
   WorkspaceLayoutV2PaneFrameProps,
@@ -970,31 +969,21 @@ export function WorkspaceLayoutV2FullPage({
 }) {
   return (
     <WorkspaceLayoutV2ViewportFrame>
-      <SidebarProvider
-        className="flex-1 h-full min-h-0"
-        defaultOpen={true}
-        defaultLeftDesktopWidthPx={320}
-        defaultLeftMobileWidthPx={320}
-        defaultRightOpen={true}
-        defaultRightDesktopWidthPx={320}
-        defaultRightMobileWidthPx={320}
-      >
-        <WorkspaceLayoutV2JustPanes
-          left={<WorkspaceLayoutV2PaneFrame {...left} />}
-          main={
-            <WorkspaceLayoutV2PaneFrame
-              {...main}
-              header={
-                <WorkspaceLayoutV2MainPaneHeader>
-                  {main.header}
-                </WorkspaceLayoutV2MainPaneHeader>
-              }
-            />
-          }
-          panel={panel}
-          right={<WorkspaceLayoutV2PaneFrame {...right} />}
-        />
-      </SidebarProvider>
+      <WorkspaceLayoutV2JustPanes
+        left={<WorkspaceLayoutV2PaneFrame {...left} />}
+        main={
+          <WorkspaceLayoutV2PaneFrame
+            {...main}
+            header={
+              <WorkspaceLayoutV2MainPaneHeader>
+                {main.header}
+              </WorkspaceLayoutV2MainPaneHeader>
+            }
+          />
+        }
+        panel={panel}
+        right={<WorkspaceLayoutV2PaneFrame {...right} />}
+      />
     </WorkspaceLayoutV2ViewportFrame>
   );
 }

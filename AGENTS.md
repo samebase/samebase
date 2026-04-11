@@ -103,6 +103,12 @@ Key domain entities:
   deleting the temporary adapter instead of keeping a near-equivalent wrapper,
   renamed mirror, or reshaped object around it. Always check whether an extra
   abstraction can be removed, not just whether it can be tolerated.
+- For app-internal refactors, prefer delete-first changes over
+  compatibility-preserving patches. When a shared abstraction owns the wrong
+  responsibility, remove or narrow it and update all current callsites instead
+  of adding pass-through props, transitional wrappers, convenience APIs, or
+  shims. Treat backwards compatibility for app-internal components as a non-goal
+  unless the user explicitly asks for it.
 - If a transitional helper, adapter, or mirror object ends up unused outside
   tests, delete it instead of preserving it "just in case". Do not keep dead
   migration scaffolding, test-only production helpers, or simplified wrappers

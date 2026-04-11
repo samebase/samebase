@@ -13,7 +13,6 @@ async function openWorkspaceLayoutStatusBarFixture(page: Page) {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("workspace-layout-v2-visual-fixture");
-  const statusBar = page.getByTestId("workspace-layout-v2-top-bar");
   const leftSurface = page.getByTestId("workspace-layout-v2-prosemark-surface");
   const mainSurface = page.getByTestId(
     "workspace-layout-v2-main-editor-surface",
@@ -26,10 +25,6 @@ async function openWorkspaceLayoutStatusBarFixture(page: Page) {
   const rightHeader = page.getByTestId("workspace-layout-v2-right-pane-header");
 
   await expect(fixture).toBeVisible();
-  await expect(statusBar).toBeVisible();
-  await expect(statusBar).toContainText("Workspace layout top bar");
-  await expect(statusBar).toContainText("fixture");
-  await expect(statusBar).toContainText("chrome");
   await expect(leftHeader).toBeVisible();
   await expect(mainHeader).toBeVisible();
   await expect(rightHeader).toBeVisible();
@@ -40,7 +35,7 @@ async function openWorkspaceLayoutStatusBarFixture(page: Page) {
   return fixture;
 }
 
-test("workspace layout v2 fixture can include the shared top bar chrome", async ({
+test("workspace layout v2 fixture renders the current pane chrome", async ({
   page,
 }) => {
   const fixture = await openWorkspaceLayoutStatusBarFixture(page);
