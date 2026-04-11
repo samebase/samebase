@@ -4,8 +4,9 @@ import ReactDOM from "react-dom/client";
 import "@xyflow/react/dist/style.css";
 import { client } from "./lib/convexClient";
 import { AppRouterProvider } from "./lib/appRouter";
+import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
+import { initializeAppBootRecovery } from "@/lib/appBootRecovery";
 import { QueryProvider } from "./lib/providers/query-provider";
-import { ensureWindowStorageAccess } from "./lib/storageAccess";
 import { OptionalThemeProvider } from "./lib/themeStorageFallback";
 
 let mounted = false;
@@ -16,17 +17,19 @@ export function mountApp() {
   }
   mounted = true;
 
-  ensureWindowStorageAccess("localStorage");
+  initializeAppBootRecovery();
 
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <OptionalThemeProvider>
-        <ConvexAuthProvider client={client}>
-          <QueryProvider>
-            <AppRouterProvider />
-          </QueryProvider>
-        </ConvexAuthProvider>
-      </OptionalThemeProvider>
+      <AppBootErrorBoundary>
+        <OptionalThemeProvider>
+          <ConvexAuthProvider client={client}>
+            <QueryProvider>
+              <AppRouterProvider />
+            </QueryProvider>
+          </ConvexAuthProvider>
+        </OptionalThemeProvider>
+      </AppBootErrorBoundary>
     </React.StrictMode>,
   );
 }
