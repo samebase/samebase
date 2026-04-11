@@ -925,26 +925,28 @@ function WorkspaceLayoutV2MainPaneHeader({
   const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
 
   return (
-    <div className="hidden justify-between md:flex">
+    <div className="flex h-full items-center gap-2">
       <Button
         type="button"
         variant="ghost"
         size="icon"
         aria-label="Toggle Left Sidebar"
-        className="h-8 w-8"
+        className="hidden h-8 w-8 md:inline-flex"
         onClick={toggleLeftSidebar}
       >
         <PanelLeft className="h-4 w-4" />
       </Button>
 
-      {children}
+      {/* Keep route-level header actions visible on mobile; only the sidebar
+          toggles stay desktop-only in the v2 main pane shell. */}
+      <div className="min-w-0 flex-1">{children}</div>
 
       <Button
         type="button"
         variant="ghost"
         size="icon"
         aria-label="Toggle Right Sidebar"
-        className="h-8 w-8"
+        className="hidden h-8 w-8 md:inline-flex"
         onClick={toggleRightSidebar}
       >
         <PanelRight className="h-4 w-4 rotate-180" />
