@@ -4,7 +4,6 @@ import { WorkspaceRouteFrame } from "@/components/workspace-layout/WorkspaceRout
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/sidebar";
 import { cn } from "@/lib/utils";
-import { WorkspaceLayoutV2FullPage } from "../workspace-layout-v2/WorkspaceLayoutV2";
 
 type SidebarSlot = Exclude<ReactNode, undefined>;
 

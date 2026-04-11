@@ -7,25 +7,35 @@ import {
   type PointerEvent,
 } from "react";
 import { ResizeGripLines } from "@/components/ResizeGripLines";
+import { cn } from "@/lib/utils";
 
 const KEYBOARD_RESIZE_TIMEOUT_MS = 120;
-const POINTER_RESIZE_CURSOR = "col-resize";
 
-function clampWidthPx(widthPx: number, minWidthPx: number, maxWidthPx: number) {
-  return Math.max(minWidthPx, Math.min(widthPx, maxWidthPx));
+function clampSizePx(sizePx: number, minSizePx: number, maxSizePx: number) {
+  return Math.max(minSizePx, Math.min(sizePx, maxSizePx));
 }
 
 function getKeyboardResizeDeltaPx(
   event: KeyboardEvent<HTMLDivElement>,
-  side: "left" | "right",
+  resizeFrom: "left" | "right" | "top",
 ) {
   const stepPx = event.shiftKey ? 96 : 24;
 
-  if (side === "left") {
+  if (resizeFrom === "left") {
     if (event.key === "ArrowRight") {
       return stepPx;
     }
     if (event.key === "ArrowLeft") {
+      return -stepPx;
+    }
+    return 0;
+  }
+
+  if (resizeFrom === "top") {
+    if (event.key === "ArrowUp") {
+      return stepPx;
+    }
+    if (event.key === "ArrowDown") {
       return -stepPx;
     }
     return 0;
@@ -40,42 +50,88 @@ function getKeyboardResizeDeltaPx(
   return 0;
 }
 
+function getPointerResizeCursor(resizeFrom: "left" | "right" | "top") {
+  return resizeFrom === "top" ? "row-resize" : "col-resize";
+}
+
+function getPointerDeltaPx(args: {
+  event: PointerEvent<HTMLDivElement>;
+  resizeFrom: "left" | "right" | "top";
+  startClientPx: number;
+}) {
+  if (args.resizeFrom === "top") {
+    return args.startClientPx - args.event.clientY;
+  }
+
+  return (
+    (args.event.clientX - args.startClientPx) *
+    (args.resizeFrom === "left" ? 1 : -1)
+  );
+}
+
+function getResizeHandleLabel(
+  resizeFrom: "left" | "right" | "top",
+  ariaLabel?: string,
+) {
+  if (ariaLabel !== undefined) {
+    return ariaLabel;
+  }
+
+  if (resizeFrom === "top") {
+    return "Resize bottom panel";
+  }
+
+  return `Resize ${resizeFrom} sidebar`;
+}
+
+function getResizeHandleValueText(
+  currentSizePx: number,
+  resizeFrom: "left" | "right" | "top",
+) {
+  return resizeFrom === "top"
+    ? `${Math.round(currentSizePx)} pixels high`
+    : `${Math.round(currentSizePx)} pixels wide`;
+}
+
 type WorkspaceLayoutV2ResizeHandleProps = {
-  currentWidthPx: number;
+  ariaLabel?: string;
+  currentSizePx: number;
   dataTestId: string;
-  maxWidthPx: number;
-  minWidthPx: number;
+  maxSizePx: number;
+  minSizePx: number;
   onBlur?: () => void;
   onFocus?: () => void;
   onResizeEnd?: () => void;
   onResizeStart?: () => void;
-  onWidthChange: (widthPx: number) => void;
+  onSizeChange: (sizePx: number) => void;
   pointerTarget?: "edge" | "grip";
   positionPx: number;
-  side: "left" | "right";
+  resizeFrom: "left" | "right" | "top";
 };
 
 /**
  * Keep one shared resize affordance implementation across desktop and mobile
- * while allowing mobile to reserve most of the pane edge for swipe gestures.
+ * while allowing each edge to decide whether desktop uses an invisible boundary
+ * hit area or mobile uses a visible grip.
  */
 export function WorkspaceLayoutV2ResizeHandle({
-  currentWidthPx,
+  ariaLabel,
+  currentSizePx,
   dataTestId,
-  maxWidthPx,
-  minWidthPx,
+  maxSizePx,
+  minSizePx,
   onBlur,
   onFocus,
   onResizeEnd,
   onResizeStart,
-  onWidthChange,
+  onSizeChange,
   pointerTarget = "edge",
   positionPx,
-  side,
+  resizeFrom,
 }: WorkspaceLayoutV2ResizeHandleProps) {
   const dragStateRef = useRef<{
-    startClientX: number;
-    startWidthPx: number;
+    startClientPx: number;
+    startSizePx: number;
   } | null>(null);
   const keyboardResizeTimeoutRef = useRef<number | null>(null);
   const [isResizing, setIsResizing] = useState(false);
@@ -89,13 +145,16 @@ export function WorkspaceLayoutV2ResizeHandle({
       return;
     }
 
-    document.body.style.setProperty("cursor", POINTER_RESIZE_CURSOR);
+    document.body.style.setProperty(
+      "cursor",
+      getPointerResizeCursor(resizeFrom),
+    );
     document.body.style.setProperty("user-select", "none");
     return () => {
       document.body.style.removeProperty("cursor");
       document.body.style.removeProperty("user-select");
     };
-  }, [isResizing]);
+  }, [isResizing, resizeFrom]);
 
   useEffect(() => {
     return () => {
@@ -105,11 +164,11 @@ export function WorkspaceLayoutV2ResizeHandle({
     };
   }, []);
 
-  const commitWidthChange = useCallback(
-    (nextWidthPx: number) => {
-      onWidthChange(clampWidthPx(nextWidthPx, minWidthPx, maxWidthPx));
+  const commitSizeChange = useCallback(
+    (nextSizePx: number) => {
+      onSizeChange(clampSizePx(nextSizePx, minSizePx, maxSizePx));
     },
-    [maxWidthPx, minWidthPx, onWidthChange],
+    [maxSizePx, minSizePx, onSizeChange],
   );
 
   const stopResizing = useCallback(() => {
@@ -127,14 +186,14 @@ export function WorkspaceLayoutV2ResizeHandle({
       event.preventDefault();
       event.stopPropagation();
       dragStateRef.current = {
-        startClientX: event.clientX,
-        startWidthPx: currentWidthPx,
+        startClientPx: resizeFrom === "top" ? event.clientY : event.clientX,
+        startSizePx: currentSizePx,
       };
       setIsResizing(true);
       onResizeStart?.();
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [currentWidthPx, onResizeStart],
+    [currentSizePx, onResizeStart, resizeFrom],
   );
 
   const handlePointerMove = useCallback(
@@ -145,11 +204,14 @@ export function WorkspaceLayoutV2ResizeHandle({
       }
 
       event.stopPropagation();
-      const pointerDeltaPx =
-        (event.clientX - dragState.startClientX) * (side === "left" ? 1 : -1);
-      commitWidthChange(dragState.startWidthPx + pointerDeltaPx);
+      const pointerDeltaPx = getPointerDeltaPx({
+        event,
+        resizeFrom,
+        startClientPx: dragState.startClientPx,
+      });
+      commitSizeChange(dragState.startSizePx + pointerDeltaPx);
     },
-    [commitWidthChange, side],
+    [commitSizeChange, resizeFrom],
   );
 
   const handlePointerEnd = useCallback(
@@ -168,7 +230,7 @@ export function WorkspaceLayoutV2ResizeHandle({
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
-      const deltaPx = getKeyboardResizeDeltaPx(event, side);
+      const deltaPx = getKeyboardResizeDeltaPx(event, resizeFrom);
       if (deltaPx === 0) {
         return;
       }
@@ -178,7 +240,7 @@ export function WorkspaceLayoutV2ResizeHandle({
       // swipe affordances until keyboard resizing has actually settled.
       setIsResizing(true);
       onResizeStart?.();
-      commitWidthChange(currentWidthPx + deltaPx);
+      commitSizeChange(currentSizePx + deltaPx);
       if (keyboardResizeTimeoutRef.current !== null) {
         window.clearTimeout(keyboardResizeTimeoutRef.current);
       }
@@ -188,18 +250,28 @@ export function WorkspaceLayoutV2ResizeHandle({
         onResizeEnd?.();
       }, KEYBOARD_RESIZE_TIMEOUT_MS);
     },
-    [commitWidthChange, currentWidthPx, onResizeEnd, onResizeStart, side],
+    [commitSizeChange, currentSizePx, onResizeEnd, onResizeStart, resizeFrom],
   );
 
+  const isHorizontalHandle = resizeFrom === "top";
+  const handlePositionStyle = isHorizontalHandle
+    ? { top: `${positionPx}px` }
+    : { left: `${positionPx}px` };
+  const handleCursorClassName = isHorizontalHandle
+    ? "cursor-row-resize"
+    : "cursor-col-resize";
+
   const interactiveProps = {
-    "aria-label": `Resize ${side} sidebar`,
-    "aria-orientation": "vertical" as const,
-    "aria-valuemax": maxWidthPx,
-    "aria-valuemin": minWidthPx,
-    "aria-valuenow": Math.round(currentWidthPx),
-    "aria-valuetext": `${Math.round(currentWidthPx)} pixels wide`,
+    "aria-label": getResizeHandleLabel(resizeFrom, ariaLabel),
+    "aria-orientation": isHorizontalHandle
+      ? ("horizontal" as const)
+      : ("vertical" as const),
+    "aria-valuemax": maxSizePx,
+    "aria-valuemin": minSizePx,
+    "aria-valuenow": Math.round(currentSizePx),
+    "aria-valuetext": getResizeHandleValueText(currentSizePx, resizeFrom),
     "data-testid": dataTestId,
-    "data-workspace-layout-v2-resize-handle": side,
+    "data-workspace-layout-v2-resize-handle": resizeFrom,
     onBlur,
     onFocus,
     onKeyDown: handleKeyDown,
@@ -215,15 +287,34 @@ export function WorkspaceLayoutV2ResizeHandle({
   if (pointerTarget === "grip") {
     return (
       <div
-        className="pointer-events-none absolute inset-y-0 z-30 flex w-4 -translate-x-1/2 items-center justify-center"
-        style={{ left: `${positionPx}px` }}
+        className={cn(
+          "pointer-events-none absolute z-30 flex items-center justify-center",
+          isHorizontalHandle
+            ? "inset-x-0 h-4 -translate-y-1/2"
+            : "inset-y-0 w-4 -translate-x-1/2",
+        )}
+        style={handlePositionStyle}
       >
         <div
           {...interactiveProps}
-          className="pointer-events-auto relative flex h-16 w-4 cursor-col-resize touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className={cn(
+            "pointer-events-auto relative flex touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            handleCursorClassName,
+            isHorizontalHandle ? "h-4 w-16" : "h-16 w-4",
+          )}
         >
-          <div className="flex h-16 w-4 items-center justify-center border border-border bg-background">
-            <ResizeGripLines className="relative z-10 text-foreground/70" />
+          <div
+            className={cn(
+              "flex items-center justify-center border border-border bg-background",
+              isHorizontalHandle ? "h-4 w-16" : "h-16 w-4",
+            )}
+          >
+            <ResizeGripLines
+              className={cn(
+                "relative z-10 text-foreground/70",
+                isHorizontalHandle && "rotate-90",
+              )}
+            />
           </div>
         </div>
       </div>
@@ -233,8 +324,14 @@ export function WorkspaceLayoutV2ResizeHandle({
   return (
     <div
       {...interactiveProps}
-      className="absolute inset-y-0 z-30 flex w-4 -translate-x-1/2 cursor-col-resize touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      style={{ left: `${positionPx}px` }}
+      className={cn(
+        "absolute z-30 flex touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        handleCursorClassName,
+        isHorizontalHandle
+          ? "inset-x-0 h-4 -translate-y-1/2"
+          : "inset-y-0 w-4 -translate-x-1/2",
+      )}
+      style={handlePositionStyle}
     />
   );
 }
