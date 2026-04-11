@@ -44,7 +44,9 @@ import { PanelLeft, PanelRight } from "lucide-react";
 const DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
 const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
 const MOBILE_SIDEBAR_MIN_WIDTH_PX = 160;
-const MOBILE_VISIBLE_MAIN_STRIP_PX = 10;
+// Leave roughly one pane header visible so phone users still have a reliable
+// grab area after opening a sidebar fully.
+const MOBILE_VISIBLE_MAIN_STRIP_PX = 32;
 const MOBILE_DRAG_SLOP_PX = 12;
 
 type WorkspaceLayoutV2Props = {
