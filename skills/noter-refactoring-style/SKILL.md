@@ -27,6 +27,22 @@ compat wrappers, or layout-owned prop plumbing.
 - Treat backward compatibility with bad structure as a liability, not a goal.
 - Keep one honest path alive end to end instead of preserving multiple partial
   paths.
+- After moving a seam, check immediately for leftovers such as old consumers,
+  view models, fixture helpers, and types. Delete the ones that no longer have a
+  real caller.
+- Do not keep one-line exported wrapper components that only return another
+  component. Export the real component directly unless the wrapper adds real
+  behavior, ownership, or data shaping.
+- If a JSX branch or ternary grows so large that it hides the parent component's
+  real structure, extract it into a named component. Prefer the same file first
+  unless the extracted piece is reused or deserves its own boundary.
+- Start from an empty surface and add only the next thing the product truly
+  needs. This applies to structure, props, and even small spacing utilities.
+- Be suspicious of every new prop and every utility class. If you cannot name
+  the current invariant it protects, do not add it.
+- When removing a style override prop from a shared component, do not shove the
+  old special-case layout into the shared component unless every remaining
+  caller truly needs it.
 - Strip chrome down to what is necessary for the current working surface.
 - Re-add secondary behavior only after the simplified core is solid.
 - Make fixtures use the real standard instead of reconstructing the shell by
@@ -37,6 +53,8 @@ compat wrappers, or layout-owned prop plumbing.
 
 - Fewer components in the path from route to rendered shell.
 - Fewer props whose only purpose is passing layout structure through unchanged.
+- Fewer utility classes that exist only because a previous abstraction leaked
+  the wrong ownership boundary.
 - Fewer modes and branches that exist only for old seams or fixture-specific
   assembly.
 - More direct APIs where screens provide `left`, `main`, `right`, `header`, or
@@ -59,11 +77,14 @@ compat wrappers, or layout-owned prop plumbing.
   often clearer than generic `children`.
 - Route code should read like "fill these panes" rather than "assemble this
   shell."
+- Keep shared components narrow. Let callsites own local spacing or alignment
+  unless that layout is genuinely standard across all callers.
 
 3. Collapse duplicate shells.
 
 - If two layers both own frame, viewport, or pane behavior, merge them.
 - Delete re-export files and thin aliases once the real import path is clear.
+- Delete pass-through wrapper components once the real export path is clear.
 - Remove helper components whose only value was preserving the old tree shape.
 
 4. Fail closed during migration.
@@ -114,7 +135,10 @@ Treat these as red flags:
 
 - a new adapter that mostly renames props
 - preserving an old wrapper after all real callsites moved away
+- keeping an exported component whose whole job is `return <OtherComponent />`
 - adding style override props instead of changing the shared standard
+- moving a deleted caller-specific layout hack into a shared component and
+  pretending it is now universal
 - multiple "temporary" modes that all survive the patch
 - keeping dead exports or stub files around longer than necessary
 - fixture-only structure leaking into production APIs without a real need
@@ -128,8 +152,11 @@ Treat these as red flags:
 4. Move that ownership inward to the standard component.
 5. Convert callsites to plain content/config props.
 6. Delete obsolete wrappers, re-exports, and seam code.
-7. Trim secondary chrome until the core shell is clean.
-8. Validate on the honest route or a fixture that mounts the same production
+7. Check for dead leftovers created by the move: old hooks, view-model types,
+   fixture-only helpers, and shim files. If nothing real imports them anymore,
+   delete them now.
+8. Trim secondary chrome until the core shell is clean.
+9. Validate on the honest route or a fixture that mounts the same production
    tree.
 
 ## UI-Specific Biases

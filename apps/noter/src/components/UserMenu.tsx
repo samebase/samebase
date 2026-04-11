@@ -19,7 +19,6 @@ import { PersonIcon } from "@radix-ui/react-icons";
 import { api } from "../../convex/_generated/api";
 import { useQuery } from "convex/react";
 import { ReactNode, useMemo, useState } from "react";
-import { clsx } from "clsx";
 import { clearAuthFlag } from "@/authClient";
 import { Link } from "@tanstack/react-router";
 
@@ -32,11 +31,9 @@ function formatProviderLabel(provider: string | undefined): string {
 
 export function UserMenu({
   children,
-  className,
   menuLabel,
 }: {
   children?: ReactNode;
-  className?: string;
   menuLabel?: ReactNode;
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
@@ -51,7 +48,9 @@ export function UserMenu({
 
   return (
     <div
-      className={clsx("flex items-center gap-2 text-sm font-medium", className)}
+      className={
+        "flex items-center gap-2 text-sm font-medium w-full min-w-0 justify-between"
+      }
     >
       {children}
       <Dialog open={accountOpen} onOpenChange={setAccountOpen}>

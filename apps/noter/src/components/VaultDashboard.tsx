@@ -46,6 +46,7 @@ import {
   useState,
   type ComponentType,
   type MutableRefObject,
+  type ReactNode,
 } from "react";
 import { isInIframe } from "@/authClient";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
@@ -86,10 +87,8 @@ import {
   VaultDashboardProvidersSection,
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
-  VaultDashboardSidebarAccountHeader,
   type VaultDashboardProviderRowViewModel,
 } from "@/components/VaultDashboardChrome";
-import { VaultDashboardWorkspaceScene } from "@/components/workspace-layout/VaultDashboardWorkspaceScene";
 import {
   useApiKeyConnectDialog,
   type ApiKeyProvider,
@@ -111,6 +110,7 @@ import {
 } from "@/lib/vaultBranchFilters";
 import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
 import { toast } from "@/components/ui/use-toast";
+import { WorkspaceLayoutV2FullPage } from "./workspace-layout-v2/WorkspaceLayoutV2";
 
 const formatInfraState = (
   infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
@@ -212,6 +212,16 @@ type DashboardManualRefreshVault = {
   repositoryFullName: string;
   state: string;
   treeRefreshCooldownUntil?: number;
+};
+
+type VaultDashboardVault = NonNullable<
+  (typeof api.vault.getUserVaults)["_returnType"]
+>[number];
+
+type VaultBranchDeleteIntent = {
+  vaultId: Id<"vaults">;
+  repositoryFullName: string;
+  branchName: string;
 };
 
 const GitHubProviderLogo = ({ className }: { className?: string }) => (
@@ -729,7 +739,324 @@ function VaultBranchSection({
   );
 }
 
-function VaultDashboardContent() {
+type VaultDashboardBodyProps = {
+  branchToDelete: VaultBranchDeleteIntent | null;
+  createControl: ReactNode;
+  isDeletingBranch: boolean;
+  now: number;
+  openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
+  pendingVaultBranchFiltersByVaultId: Partial<
+    Record<string, VaultBranchFiltersState>
+  >;
+  persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
+  retryingVaultId: Id<"vaults"> | null;
+  vaults: VaultDashboardVault[];
+  onDeleteBranch: (intent: VaultBranchDeleteIntent) => void;
+  onDeleteVault: (vault: VaultDashboardVault) => void;
+  onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
+  onRefreshVaultTree: (vault: DashboardManualRefreshVault) => void;
+  onRetryInfrastructure: (vaultId: Id<"vaults">) => void;
+  onSaveVaultBranchFilters: (
+    vaultId: Id<"vaults">,
+    nextVaultBranchFilters: VaultBranchFiltersState,
+  ) => void;
+};
+
+function VaultDashboardBody({
+  branchToDelete,
+  createControl,
+  isDeletingBranch,
+  now,
+  openDeveloperToolsByVaultId,
+  pendingVaultBranchFiltersByVaultId,
+  persistedVaultBranchFiltersByVaultId,
+  retryingVaultId,
+  vaults,
+  onDeleteBranch,
+  onDeleteVault,
+  onOpenDeveloperToolsChange,
+  onRefreshVaultTree,
+  onRetryInfrastructure,
+  onSaveVaultBranchFilters,
+}: VaultDashboardBodyProps) {
+  if (vaults.length === 0) {
+    return <VaultDashboardEmptyState createControl={createControl} />;
+  }
+
+  return (
+    <VaultDashboardRepositoryList createControl={createControl}>
+      {vaults.map((vault) => {
+        const isReady = vault.state === "ready";
+        const remoteBranches = Array.isArray(vault.remoteBranches)
+          ? vault.remoteBranches
+          : [];
+        const vaultBranchFilters =
+          pendingVaultBranchFiltersByVaultId[vault._id] ??
+          persistedVaultBranchFiltersByVaultId.get(vault._id) ??
+          getDefaultVaultBranchFilters();
+        const activeRemoteBranches = remoteBranches.filter(
+          (branch) => branch.remoteState === "active",
+        );
+        const defaultBranch = activeRemoteBranches.find(
+          (branch) => branch.isDefault,
+        )?.name;
+        const primaryBranch =
+          defaultBranch || activeRemoteBranches[0]?.name || "";
+        const chatRoute =
+          primaryBranch.length > 0
+            ? buildVaultCodespaceChatRoute({
+                repositoryFullName: vault.repositoryFullName,
+                branch: primaryBranch,
+              })
+            : null;
+        const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
+        const developerToolsOpen =
+          openDeveloperToolsByVaultId[vault._id] ?? false;
+        const infraActionLabel = vault.isNoterManaged
+          ? getInfraActionLabel(vault.infraState)
+          : null;
+        const sharedLastSyncedAt = vault.lastTreeRefreshAt;
+        const treeRefreshUiState = getTreeRefreshUiState({
+          now,
+          treeRefreshStartedAt: vault.treeRefreshStartedAt,
+          lastTreeRefreshAt: vault.lastTreeRefreshAt,
+          lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
+          treeRefreshFailureKind: vault.treeRefreshFailureKind,
+          treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
+        });
+        const isVaultSyncing = treeRefreshUiState.kind === "syncing";
+
+        return (
+          <VaultDashboardRepositoryCard
+            key={vault._id}
+            isReady={isReady}
+            repositoryOwner={vault.ghRepoOwner}
+            repositoryName={vault.ghRepoName}
+            titleHref={githubRepositoryUrl}
+            titleTarget="_blank"
+            titleTitle={`Open ${vault.repositoryFullName} on GitHub`}
+            titleClassName={linkStyle}
+            titleSuffix={
+              !isReady ? (
+                <>
+                  <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                  <span className="shrink-0 text-xs font-normal text-muted-foreground">
+                    (setting up...)
+                  </span>
+                </>
+              ) : undefined
+            }
+            topRightAction={
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={`Remove vault ${vault.repositoryFullName}`}
+                onClick={() => {
+                  onDeleteVault(vault);
+                }}
+                className="absolute right-4 top-4 text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <TrashIcon className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            }
+            repositoryStatus={
+              isReady &&
+              (isVaultSyncing ||
+                sharedLastSyncedAt ||
+                treeRefreshUiState.kind === "rate_limited" ||
+                treeRefreshUiState.kind === "cooldown" ||
+                treeRefreshUiState.kind === "failed") ? (
+                <>
+                  {isVaultSyncing ? (
+                    <>
+                      <UpdateIcon className="h-3 w-3 animate-spin" />
+                      <span>Syncing...</span>
+                    </>
+                  ) : treeRefreshUiState.kind === "rate_limited" ? (
+                    <>
+                      <span
+                        className="text-amber-700"
+                        title={
+                          vault.treeRefreshFailureMessage ??
+                          "GitHub API rate limited. Auto-refresh paused."
+                        }
+                      >
+                        GitHub rate limited
+                      </span>
+                      <span>·</span>
+                      <span className="font-mono tabular-nums">
+                        {formatRelativeTimeUntil(
+                          treeRefreshUiState.cooldownUntil,
+                          now,
+                        )}
+                      </span>
+                    </>
+                  ) : treeRefreshUiState.kind === "cooldown" ? (
+                    <>
+                      <span
+                        className="text-amber-700"
+                        title={
+                          vault.treeRefreshFailureMessage ??
+                          "Auto-refresh paused after a failed sync."
+                        }
+                      >
+                        Paused
+                      </span>
+                      <span>·</span>
+                      <span className="font-mono tabular-nums">
+                        {formatRelativeTimeUntil(
+                          treeRefreshUiState.cooldownUntil,
+                          now,
+                        )}
+                      </span>
+                    </>
+                  ) : treeRefreshUiState.kind === "failed" ? (
+                    <span
+                      className="text-amber-700"
+                      title={
+                        vault.treeRefreshFailureMessage ??
+                        "Last sync failed. Showing cached state."
+                      }
+                    >
+                      Last sync failed
+                    </span>
+                  ) : typeof sharedLastSyncedAt === "number" ? (
+                    <VaultLastUpdatedStatus
+                      lastSyncedAt={sharedLastSyncedAt}
+                      now={now}
+                      onRefresh={() => {
+                        onRefreshVaultTree(vault);
+                      }}
+                      repositoryFullName={vault.repositoryFullName}
+                    />
+                  ) : null}
+                </>
+              ) : undefined
+            }
+            branchSection={
+              isReady && remoteBranches.length > 0 ? (
+                <VaultBranchSection
+                  vaultId={vault._id}
+                  repositoryFullName={vault.repositoryFullName}
+                  remoteBranches={remoteBranches}
+                  activeDeletingBranchName={
+                    isDeletingBranch && branchToDelete?.vaultId === vault._id
+                      ? branchToDelete.branchName
+                      : null
+                  }
+                  filters={vaultBranchFilters}
+                  onChangeFilters={(nextVaultBranchFilters) => {
+                    onSaveVaultBranchFilters(vault._id, nextVaultBranchFilters);
+                  }}
+                  onDeleteBranch={(branchName) => {
+                    onDeleteBranch({
+                      vaultId: vault._id,
+                      repositoryFullName: vault.repositoryFullName,
+                      branchName,
+                    });
+                  }}
+                />
+              ) : undefined
+            }
+            daytonaBanner={
+              !DAYTONA_PAUSED && isReady && primaryBranch.length > 0 ? (
+                <DaytonaSnapshotBanner
+                  branch={primaryBranch}
+                  commitSha={vault.commitSHA}
+                  snapshotName={vault.daytonaCurrentSnapshotName}
+                  snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                  lastError={vault.daytonaCurrentSnapshotLastError}
+                />
+              ) : undefined
+            }
+            developerToolsSection={
+              isReady
+                ? {
+                    open: developerToolsOpen,
+                    onOpenChange: (isOpen: boolean) => {
+                      onOpenDeveloperToolsChange(vault._id, isOpen);
+                    },
+                    content: (
+                      <>
+                        <CodespaceStatus
+                          vaultId={vault._id}
+                          repositoryFullName={vault.repositoryFullName}
+                        />
+                        {!DAYTONA_PAUSED && primaryBranch.length > 0 ? (
+                          <DaytonaWorkspaceButton
+                            vaultId={vault._id}
+                            branch={primaryBranch}
+                            sandboxId={vault.daytonaSandboxId}
+                            sandboxName={vault.daytonaSandboxName}
+                            commitSha={vault.commitSHA}
+                            snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                            snapshotName={vault.daytonaCurrentSnapshotName}
+                            snapshotError={
+                              vault.daytonaCurrentSnapshotLastError
+                            }
+                          />
+                        ) : null}
+                        {!DAYTONA_PAUSED ? (
+                          <DaytonaSnapshotList vaultId={vault._id} />
+                        ) : null}
+                        {vault.isNoterManaged && (
+                          <div className="text-xs text-muted-foreground">
+                            Infra: {formatInfraState(vault.infraState)}
+                            {vault.infraProductionUrl && (
+                              <a
+                                href={vault.infraProductionUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className={`ml-2 font-mono break-all ${linkStyle}`}
+                              >
+                                {vault.infraProductionUrl}
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    ),
+                  }
+                : undefined
+            }
+            footerActions={
+              infraActionLabel || (developerToolsOpen && chatRoute) ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {developerToolsOpen && chatRoute && (
+                    <Button asChild variant="outline" size="sm">
+                      <Link to={chatRoute}>Chat</Link>
+                    </Button>
+                  )}
+                  {infraActionLabel && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        onRetryInfrastructure(vault._id);
+                      }}
+                      disabled={retryingVaultId === vault._id}
+                    >
+                      {retryingVaultId === vault._id ? (
+                        <>
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                          Retrying...
+                        </>
+                      ) : (
+                        infraActionLabel
+                      )}
+                    </Button>
+                  )}
+                </div>
+              ) : undefined
+            }
+          />
+        );
+      })}
+    </VaultDashboardRepositoryList>
+  );
+}
+
+export function VaultDashboard() {
   const location = useLocation();
   const vaults = useQuery(api.vault.getUserVaults);
   const now = useNow();
@@ -809,11 +1136,8 @@ function VaultDashboardContent() {
   const [removeConvexProvision, setRemoveConvexProvision] = useState(false);
   const [removeHostingProvision, setRemoveHostingProvision] = useState(false);
   const [removeDaytonaResources, setRemoveDaytonaResources] = useState(false);
-  const [branchToDelete, setBranchToDelete] = useState<{
-    vaultId: Id<"vaults">;
-    repositoryFullName: string;
-    branchName: string;
-  } | null>(null);
+  const [branchToDelete, setBranchToDelete] =
+    useState<VaultBranchDeleteIntent | null>(null);
   const [newRepositoryName, setNewRepositoryName] = useState("");
   const [createTemplate, setCreateTemplate] = useState<CreateTemplate>("app");
   const [disconnectingProvider, setDisconnectingProvider] =
@@ -1808,13 +2132,51 @@ function VaultDashboardContent() {
     }
   };
 
-  const sidebarHeader = userDisplayName ? (
-    <VaultDashboardSidebarAccountHeader>
-      <UserMenu className="w-full min-w-0 justify-between">
-        <span className="block min-w-0 truncate">{userDisplayName}</span>
-      </UserMenu>
-    </VaultDashboardSidebarAccountHeader>
-  ) : null;
+  const handleVaultDeleteIntent = (vault: VaultDashboardVault) => {
+    setVaultToDelete({
+      id: vault._id,
+      repositoryFullName: vault.repositoryFullName,
+      isNoterManaged: vault.isNoterManaged,
+      hasConvexProvision: vault.hasConvexProvision,
+      hasHostingProvision: vault.hasHostingProvision,
+    });
+    setRemoveGithubRepo(vault.isNoterManaged);
+    setRemoveCodespaces(true);
+    setRemoveConvexProvision(vault.isNoterManaged && vault.hasConvexProvision);
+    setRemoveHostingProvision(
+      vault.isNoterManaged && vault.hasHostingProvision,
+    );
+    setRemoveDaytonaResources(hasDaytonaResourcesForVault(vault));
+    setCommitError(null);
+    setDeleteError(null);
+    setDidAttemptCommit(false);
+  };
+
+  const handleVaultBranchDeleteIntent = (intent: VaultBranchDeleteIntent) => {
+    setBranchToDelete(intent);
+    setDeleteBranchError(null);
+  };
+
+  const handleVaultDeveloperToolsOpenChange = (
+    vaultId: Id<"vaults">,
+    isOpen: boolean,
+  ) => {
+    setOpenDeveloperToolsByVaultId((prev) => ({
+      ...prev,
+      [vaultId]: isOpen,
+    }));
+  };
+
+  const handleVaultBranchFiltersChange = (
+    vaultId: Id<"vaults">,
+    nextVaultBranchFilters: VaultBranchFiltersState,
+  ) => {
+    void saveVaultBranchFilters(vaultId, nextVaultBranchFilters);
+  };
+
+  const handleVaultRetryInfrastructure = (vaultId: Id<"vaults">) => {
+    void handleRetryInfrastructure(vaultId);
+  };
 
   const sidebarContent = (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -1843,328 +2205,53 @@ function VaultDashboardContent() {
     </div>
   );
 
-  const dashboardBody =
-    vaults.length === 0 ? (
-      <VaultDashboardEmptyState createControl={createControl} />
-    ) : (
-      <VaultDashboardRepositoryList createControl={createControl}>
-        {vaults.map((vault: (typeof vaults)[0]) => {
-          const isReady = vault.state === "ready";
-          const remoteBranches = Array.isArray(vault.remoteBranches)
-            ? vault.remoteBranches
-            : [];
-          const vaultBranchFilters =
-            pendingVaultBranchFiltersByVaultId[vault._id] ??
-            persistedVaultBranchFiltersByVaultId.get(vault._id) ??
-            getDefaultVaultBranchFilters();
-          const activeRemoteBranches = remoteBranches.filter(
-            (branch) => branch.remoteState === "active",
-          );
-          const defaultBranch = activeRemoteBranches.find(
-            (branch) => branch.isDefault,
-          )?.name;
-          const primaryBranch =
-            defaultBranch || activeRemoteBranches[0]?.name || "";
-          const chatRoute =
-            primaryBranch.length > 0
-              ? buildVaultCodespaceChatRoute({
-                  repositoryFullName: vault.repositoryFullName,
-                  branch: primaryBranch,
-                })
-              : null;
-          const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
-          const developerToolsOpen =
-            openDeveloperToolsByVaultId[vault._id] ?? false;
-          const infraActionLabel = vault.isNoterManaged
-            ? getInfraActionLabel(vault.infraState)
-            : null;
-          const sharedLastSyncedAt = vault.lastTreeRefreshAt;
-          const treeRefreshUiState = getTreeRefreshUiState({
-            now,
-            treeRefreshStartedAt: vault.treeRefreshStartedAt,
-            lastTreeRefreshAt: vault.lastTreeRefreshAt,
-            lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
-            treeRefreshFailureKind: vault.treeRefreshFailureKind,
-            treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
-          });
-          const isVaultSyncing = treeRefreshUiState.kind === "syncing";
-          return (
-            <VaultDashboardRepositoryCard
-              key={vault._id}
-              isReady={isReady}
-              repositoryOwner={vault.ghRepoOwner}
-              repositoryName={vault.ghRepoName}
-              titleHref={githubRepositoryUrl}
-              titleTarget="_blank"
-              titleTitle={`Open ${vault.repositoryFullName} on GitHub`}
-              titleClassName={linkStyle}
-              titleSuffix={
-                !isReady ? (
-                  <>
-                    <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-                    <span className="shrink-0 text-xs font-normal text-muted-foreground">
-                      (setting up...)
-                    </span>
-                  </>
-                ) : undefined
-              }
-              topRightAction={
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Remove vault ${vault.repositoryFullName}`}
-                  onClick={() => {
-                    setVaultToDelete({
-                      id: vault._id,
-                      repositoryFullName: vault.repositoryFullName,
-                      isNoterManaged: vault.isNoterManaged,
-                      hasConvexProvision: vault.hasConvexProvision,
-                      hasHostingProvision: vault.hasHostingProvision,
-                    });
-                    setRemoveGithubRepo(vault.isNoterManaged);
-                    setRemoveCodespaces(true);
-                    setRemoveConvexProvision(
-                      vault.isNoterManaged && vault.hasConvexProvision,
-                    );
-                    setRemoveHostingProvision(
-                      vault.isNoterManaged && vault.hasHostingProvision,
-                    );
-                    setRemoveDaytonaResources(
-                      hasDaytonaResourcesForVault(vault),
-                    );
-                    setCommitError(null);
-                    setDeleteError(null);
-                    setDidAttemptCommit(false);
-                  }}
-                  className="absolute right-4 top-4 text-destructive hover:text-destructive hover:bg-destructive/10"
-                >
-                  <TrashIcon className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              }
-              repositoryStatus={
-                isReady &&
-                (isVaultSyncing ||
-                  sharedLastSyncedAt ||
-                  treeRefreshUiState.kind === "rate_limited" ||
-                  treeRefreshUiState.kind === "cooldown" ||
-                  treeRefreshUiState.kind === "failed") ? (
-                  <>
-                    {isVaultSyncing ? (
-                      <>
-                        <UpdateIcon className="h-3 w-3 animate-spin" />
-                        <span>Syncing...</span>
-                      </>
-                    ) : treeRefreshUiState.kind === "rate_limited" ? (
-                      <>
-                        <span
-                          className="text-amber-700"
-                          title={
-                            vault.treeRefreshFailureMessage ??
-                            "GitHub API rate limited. Auto-refresh paused."
-                          }
-                        >
-                          GitHub rate limited
-                        </span>
-                        <span>·</span>
-                        <span className="font-mono tabular-nums">
-                          {formatRelativeTimeUntil(
-                            treeRefreshUiState.cooldownUntil,
-                            now,
-                          )}
-                        </span>
-                      </>
-                    ) : treeRefreshUiState.kind === "cooldown" ? (
-                      <>
-                        <span
-                          className="text-amber-700"
-                          title={
-                            vault.treeRefreshFailureMessage ??
-                            "Auto-refresh paused after a failed sync."
-                          }
-                        >
-                          Paused
-                        </span>
-                        <span>·</span>
-                        <span className="font-mono tabular-nums">
-                          {formatRelativeTimeUntil(
-                            treeRefreshUiState.cooldownUntil,
-                            now,
-                          )}
-                        </span>
-                      </>
-                    ) : treeRefreshUiState.kind === "failed" ? (
-                      <span
-                        className="text-amber-700"
-                        title={
-                          vault.treeRefreshFailureMessage ??
-                          "Last sync failed. Showing cached state."
-                        }
-                      >
-                        Last sync failed
-                      </span>
-                    ) : typeof sharedLastSyncedAt === "number" ? (
-                      <VaultLastUpdatedStatus
-                        lastSyncedAt={sharedLastSyncedAt}
-                        now={now}
-                        onRefresh={() => {
-                          refreshVaultTreeFromStatusClick(vault);
-                        }}
-                        repositoryFullName={vault.repositoryFullName}
-                      />
-                    ) : null}
-                  </>
-                ) : undefined
-              }
-              branchSection={
-                isReady && remoteBranches.length > 0 ? (
-                  <VaultBranchSection
-                    vaultId={vault._id}
-                    repositoryFullName={vault.repositoryFullName}
-                    remoteBranches={remoteBranches}
-                    activeDeletingBranchName={
-                      isDeletingBranch && branchToDelete?.vaultId === vault._id
-                        ? branchToDelete.branchName
-                        : null
-                    }
-                    filters={vaultBranchFilters}
-                    onChangeFilters={(nextVaultBranchFilters) => {
-                      void saveVaultBranchFilters(
-                        vault._id,
-                        nextVaultBranchFilters,
-                      );
-                    }}
-                    onDeleteBranch={(branchName) => {
-                      setBranchToDelete({
-                        vaultId: vault._id,
-                        repositoryFullName: vault.repositoryFullName,
-                        branchName,
-                      });
-                      setDeleteBranchError(null);
-                    }}
-                  />
-                ) : undefined
-              }
-              daytonaBanner={
-                !DAYTONA_PAUSED && isReady && primaryBranch.length > 0 ? (
-                  <DaytonaSnapshotBanner
-                    branch={primaryBranch}
-                    commitSha={vault.commitSHA}
-                    snapshotName={vault.daytonaCurrentSnapshotName}
-                    snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                    lastError={vault.daytonaCurrentSnapshotLastError}
-                  />
-                ) : undefined
-              }
-              developerToolsSection={
-                isReady
-                  ? {
-                      open: developerToolsOpen,
-                      onOpenChange: (isOpen: boolean) => {
-                        setOpenDeveloperToolsByVaultId((prev) => ({
-                          ...prev,
-                          [vault._id]: isOpen,
-                        }));
-                      },
-                      content: (
-                        <>
-                          <CodespaceStatus
-                            vaultId={vault._id}
-                            repositoryFullName={vault.repositoryFullName}
-                          />
-                          {!DAYTONA_PAUSED && primaryBranch.length > 0 ? (
-                            <DaytonaWorkspaceButton
-                              vaultId={vault._id}
-                              branch={primaryBranch}
-                              sandboxId={vault.daytonaSandboxId}
-                              sandboxName={vault.daytonaSandboxName}
-                              commitSha={vault.commitSHA}
-                              snapshotStatus={
-                                vault.daytonaCurrentSnapshotStatus
-                              }
-                              snapshotName={vault.daytonaCurrentSnapshotName}
-                              snapshotError={
-                                vault.daytonaCurrentSnapshotLastError
-                              }
-                            />
-                          ) : null}
-                          {!DAYTONA_PAUSED ? (
-                            <DaytonaSnapshotList vaultId={vault._id} />
-                          ) : null}
-                          {vault.isNoterManaged && (
-                            <div className="text-xs text-muted-foreground">
-                              Infra: {formatInfraState(vault.infraState)}
-                              {vault.infraProductionUrl && (
-                                <a
-                                  href={vault.infraProductionUrl}
-                                  target="_blank"
-                                  rel="noreferrer noopener"
-                                  className={`ml-2 font-mono break-all ${linkStyle}`}
-                                >
-                                  {vault.infraProductionUrl}
-                                </a>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      ),
-                    }
-                  : undefined
-              }
-              footerActions={
-                infraActionLabel || (developerToolsOpen && chatRoute) ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {developerToolsOpen && chatRoute && (
-                      <Button asChild variant="outline" size="sm">
-                        <Link to={chatRoute}>Chat</Link>
-                      </Button>
-                    )}
-                    {infraActionLabel && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          void handleRetryInfrastructure(vault._id);
-                        }}
-                        disabled={retryingVaultId === vault._id}
-                      >
-                        {retryingVaultId === vault._id ? (
-                          <>
-                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                            Retrying...
-                          </>
-                        ) : (
-                          infraActionLabel
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                ) : undefined
-              }
-            />
-          );
-        })}
-      </VaultDashboardRepositoryList>
-    );
+  const dashboardBody = (
+    <VaultDashboardBody
+      branchToDelete={branchToDelete}
+      createControl={createControl}
+      isDeletingBranch={isDeletingBranch}
+      now={now}
+      openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
+      pendingVaultBranchFiltersByVaultId={pendingVaultBranchFiltersByVaultId}
+      persistedVaultBranchFiltersByVaultId={
+        persistedVaultBranchFiltersByVaultId
+      }
+      retryingVaultId={retryingVaultId}
+      vaults={vaults}
+      onDeleteBranch={handleVaultBranchDeleteIntent}
+      onDeleteVault={handleVaultDeleteIntent}
+      onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
+      onRefreshVaultTree={refreshVaultTreeFromStatusClick}
+      onRetryInfrastructure={handleVaultRetryInfrastructure}
+      onSaveVaultBranchFilters={handleVaultBranchFiltersChange}
+    />
+  );
 
   return (
     <>
-      <VaultDashboardWorkspaceScene
+      <WorkspaceLayoutV2FullPage
         dataTestId="vault-dashboard"
-        leftSidebarHeader={sidebarHeader}
-        leftSidebarContent={sidebarContent}
-        rightSidebarHeader={null}
-        rightSidebarContent={rightSidebarContent}
-        headerContent={dashboardHeaderContent}
-        workspaceBody={dashboardBody}
+        topBar={null}
+        left={{
+          header: <UserMenu>{userDisplayName || "unknown"}</UserMenu>,
+          content: sidebarContent,
+        }}
+        main={{
+          header: dashboardHeaderContent,
+          content: dashboardBody,
+        }}
+        right={{
+          content: rightSidebarContent,
+        }}
+      />
 
-        // TODO: add chat fab back in
+      {/* // TODO: add chat fab back in
         // bottomDock={({ onMobileDockInsetChange }) => (
         //   <EditorChatDock
         //     desktopMode="inline"
         //     onMobileDockInsetChange={onMobileDockInsetChange}
         //   />
-        // )}
-      />
+        // )} */}
 
       <Dialog
         open={branchToDelete !== null}
@@ -2441,8 +2528,4 @@ function VaultDashboardContent() {
       {apiKeyDialog}
     </>
   );
-}
-
-export function VaultDashboard() {
-  return <VaultDashboardContent />;
 }

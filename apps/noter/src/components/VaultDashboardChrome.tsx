@@ -6,7 +6,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/collapsible";
-import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { ChevronDownIcon } from "@radix-ui/react-icons";
 import { Loader2 } from "lucide-react";
 import { clsx } from "clsx";
@@ -27,22 +26,6 @@ export type VaultDashboardProviderRowViewModel = {
   label: string;
   status: string;
 };
-
-export function VaultDashboardSidebarAccountHeader({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  return <SidebarAccountSection>{children}</SidebarAccountSection>;
-}
-
-export function VaultDashboardHeaderBar({ actions }: { actions?: ReactNode }) {
-  return (
-    <>
-      <div className="flex items-center gap-2">{actions}</div>
-    </>
-  );
-}
 
 export function VaultDashboardProvidersSection({
   footer,
