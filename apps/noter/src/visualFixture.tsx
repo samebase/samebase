@@ -230,10 +230,6 @@ const SIMPLE_VIEW_VISUAL_MODES = [
 ] as const satisfies readonly SimpleViewVisualMode[];
 
 const VAULT_DASHBOARD_VISUAL_MODES = [
-  "dashboard-layout-minimal",
-  "dashboard-provider-sidebar-wrap",
-  "dashboard-shared-sidebar",
-  "dashboard-shared-sidebar-mobile-chat",
   "vault-last-updated-status",
   "vault-branch-filters",
   "vault-branch-pr-labels",
@@ -461,10 +457,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
   }
 
   if (
-    mode === "dashboard-layout-minimal" ||
-    mode === "dashboard-provider-sidebar-wrap" ||
-    mode === "dashboard-shared-sidebar" ||
-    mode === "dashboard-shared-sidebar-mobile-chat" ||
     mode === "vault-last-updated-status" ||
     mode === "vault-branch-filters" ||
     mode === "vault-branch-pr-labels" ||
