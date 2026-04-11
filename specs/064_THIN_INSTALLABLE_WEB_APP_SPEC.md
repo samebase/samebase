@@ -6,6 +6,7 @@
 - Owner: Noter frontend
 - Last updated: 2026-03-25
 - Related files: `specs/061_FAST_PUBLIC_LANDING_BOOT_SPEC.md`,
+  `specs/085_DEPLOY_SAFE_APP_BOOT_AND_RECOVERY_SPEC.md`,
   `specs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`, `apps/noter/index.html`,
   `apps/noter/public/_redirects`, `apps/noter/public/favicon.png`,
   `apps/noter/public/favicon-32.png`, `apps/noter/public/install-icon.svg`,
@@ -219,7 +220,8 @@ Constraints:
   normal browser tab
 
 Hashed JS/CSS asset caching from the regular build is acceptable. Runtime data
-or HTML freshness problems are not.
+or HTML freshness problems are not. The accepted app-side deploy recovery
+contract now lives in `specs/085_DEPLOY_SAFE_APP_BOOT_AND_RECOVERY_SPEC.md`.
 
 ## Browser Behavior Notes
 

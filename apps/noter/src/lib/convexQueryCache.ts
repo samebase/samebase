@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
 import { useQuery, OptionalRestArgsOrSkip } from "convex/react";
+import {
+  CONVEX_QUERY_CACHE_DB_NAME,
+  readConvexQueryCacheNamespace,
+} from "@/lib/convexQueryCacheStorage";
 
 // ---------- tiny stable stringify + hash ----------
 
@@ -34,16 +38,14 @@ function stableStringify(value: unknown): string {
 
 // ---------- minimal IndexedDB KV (no deps) ----------
 
-const DB_NAME = "convexQueryCache";
 const STORE = "kv";
 const DB_VERSION = 1;
-const CACHE_VERSION = 1; // bump when data shape changes
 
 type IdbRecord<T = unknown> = { data: T; exp?: number };
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    const req = indexedDB.open(CONVEX_QUERY_CACHE_DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
@@ -124,7 +126,7 @@ export function useCacheQuery<Query extends FunctionReference<"query">>(
 
   const cacheKey = useMemo(() => {
     const argsKey = stableStringify(arg);
-    return `convex:${CACHE_VERSION}:${queryName}:${argsKey}`;
+    return `convex:${readConvexQueryCacheNamespace()}:${queryName}:${argsKey}`;
   }, [arg, queryName]);
 
   // Hydrate from memory/IDB on mount/args change
