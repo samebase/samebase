@@ -40,6 +40,10 @@ async function openWorkspaceLayoutStatusBarFixture(page: Page) {
   };
 }
 
+/**
+ * Invariant: expectHeaderWithoutBottomBorder keeps the fixture headers flush
+ * with their pane content so v2 chrome changes stay intentional.
+ */
 async function expectHeaderWithoutBottomBorder(header: Locator) {
   expect(
     await header.evaluate(

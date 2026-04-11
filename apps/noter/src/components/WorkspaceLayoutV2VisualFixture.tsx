@@ -10,6 +10,14 @@ export type WorkspaceLayoutV2VisualMode = "workspace-layout-v2-status-bar";
 const FIXTURE_VAULT_KEY = "workspace-layout-v2-fixture-vault";
 const FIXTURE_SIDEBAR_WIDTH_PX = 320;
 
+function FixtureHeader({ label }: { label: string }) {
+  return (
+    <div className="flex h-full items-center px-2 text-xs text-muted-foreground">
+      {label}
+    </div>
+  );
+}
+
 export function WorkspaceLayoutV2VisualFixture() {
   return (
     <AppPageFrame dataTestId="workspace-layout-v2-visual-fixture">
@@ -24,6 +32,7 @@ export function WorkspaceLayoutV2VisualFixture() {
       >
         <WorkspaceLayoutV2FullPage
           left={{
+            header: <FixtureHeader label="Files" />,
             headerTestId: "workspace-layout-v2-left-pane-header",
             content: (
               <CodeMirrorFileSurface
@@ -34,6 +43,7 @@ export function WorkspaceLayoutV2VisualFixture() {
             ),
           }}
           main={{
+            header: <FixtureHeader label="Workspace" />,
             headerTestId: "workspace-layout-v2-main-pane-header",
             content: (
               <MonacoEditorSurface
@@ -49,6 +59,7 @@ export function WorkspaceLayoutV2VisualFixture() {
             ),
           }}
           right={{
+            header: <FixtureHeader label="Details" />,
             headerTestId: "workspace-layout-v2-right-pane-header",
             content: (
               <MonacoEditorSurface
@@ -64,6 +75,7 @@ export function WorkspaceLayoutV2VisualFixture() {
             ),
           }}
           panel={{
+            header: <FixtureHeader label="Assistant" />,
             headerTestId: "workspace-layout-v2-panel-pane-header",
             content: (
               <ProsemarkReadOnly

@@ -17,10 +17,7 @@ export function WorkspaceLayoutV2PaneFrame({
 }: WorkspaceLayoutV2PaneFrameProps) {
   return (
     <section className="flex h-full min-h-0 flex-col bg-background">
-      <div
-        data-testid={headerTestId}
-        className="h-8 shrink-0"
-      >
+      <div data-testid={headerTestId} className="h-8 shrink-0">
         {header}
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
