@@ -264,6 +264,23 @@ async function expectLegalLinksLeadBuildVersion(statusBar: Locator) {
   expect(privacyBox.x).toBeLessThan(versionBox.x);
 }
 
+async function expectStatusBarBelowMainShell(
+  page: Parameters<typeof test>[0]["page"],
+  statusBar: Locator,
+) {
+  const main = page.locator("main");
+  const mainBox = await main.boundingBox();
+  const statusBarBox = await statusBar.boundingBox();
+
+  expect(mainBox).not.toBeNull();
+  expect(statusBarBox).not.toBeNull();
+  if (mainBox === null || statusBarBox === null) {
+    return;
+  }
+
+  expect(statusBarBox.y).toBeGreaterThanOrEqual(mainBox.y + mainBox.height - 2);
+}
+
 async function selectText(locator: Locator) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
@@ -393,22 +410,31 @@ test("public landing omits section divider lines", async ({ page }) => {
   await expect(landingContent.locator(".border-t")).toHaveCount(0);
 });
 
-test("public landing keeps legal links in the top bar", async ({ page }) => {
+test("public landing keeps legal links in the bottom bar", async ({
+  page,
+}, testInfo) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
   const landingContent = page.getByTestId("public-landing-content");
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
   await expectLegalLinksLeadBuildVersion(statusBar);
+  await expectStatusBarBelowMainShell(page, statusBar);
   await expect(
     landingContent.getByRole("link", { name: "/terms" }),
   ).toHaveCount(0);
   await expect(
     landingContent.getByRole("link", { name: "/privacy" }),
   ).toHaveCount(0);
+
+  const statusBarScreenshot = await takeStableScreenshot(statusBar);
+  await testInfo.attach("public-landing-status-bar", {
+    body: statusBarScreenshot,
+    contentType: "image/png",
+  });
 });
 
-test("mcp consent sign-in keeps legal links in the top bar", async ({
+test("mcp consent sign-in keeps legal links in the bottom bar", async ({
   page,
 }) => {
   await page.goto(
@@ -419,6 +445,7 @@ test("mcp consent sign-in keeps legal links in the top bar", async ({
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
   await expectLegalLinksLeadBuildVersion(statusBar);
+  await expectStatusBarBelowMainShell(page, statusBar);
   await expect(statusBar.getByRole("link", { name: "Home" })).toBeVisible();
   await expect(page.getByText("Temporary MCP sign-in note")).toBeVisible();
 });

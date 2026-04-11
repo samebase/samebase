@@ -73,7 +73,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <AppPageFrame
-      topBar={
+      bottomBar={
         <AppBuildStatusBar
           appCommit={appCommit}
           appCommitNumber={appCommitNumber}

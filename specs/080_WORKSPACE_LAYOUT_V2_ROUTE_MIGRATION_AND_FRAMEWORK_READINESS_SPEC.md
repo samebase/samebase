@@ -157,8 +157,8 @@ future React Router framework migration the whole time.
 `Layout.tsx` already establishes the app-level v2 chrome contract:
 
 - one `WorkspaceLayoutV2PageFrame`
-- one optional `AppBuildStatusBar` in the `topBar` slot
-- one route outlet area below it
+- one optional `AppBuildStatusBar` in the `bottomBar` slot
+- one route outlet area above it
 
 That means the route migration problem is now route-level, not app-level.
 
