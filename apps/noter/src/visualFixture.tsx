@@ -79,7 +79,10 @@ import {
 } from "@/components/fileViewPushActionsVisualModes";
 import { VaultDashboardBranchVisualFixture } from "@/components/VaultDashboardBranchVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
-import { AppBootFailureStateVisualFixture } from "@/components/AppBootFailureStateVisualFixture";
+import {
+  AppBootFailureStateVisualFixture,
+  type AppBootFailureStateVisualMode,
+} from "@/components/AppBootFailureStateVisualFixture";
 import {
   CodexThreadBrowserVisualFixture,
   type CodexThreadBrowserVisualMode,
@@ -157,7 +160,7 @@ type VisualFixtureMode =
   | "machine-connect"
   | "vault-dashboard-branch-pr-title"
   | "button"
-  | "app-boot-failure"
+  | AppBootFailureStateVisualMode
   | "corner-notch"
   | "corner-notch-detail";
 
@@ -297,7 +300,8 @@ const MISC_VISUAL_MODES = [
   "machine-connect",
   "vault-dashboard-branch-pr-title",
   "button",
-  "app-boot-failure",
+  "app-boot-failure-stale",
+  "app-boot-failure-generic",
   "corner-notch",
   "corner-notch-detail",
 ] as const satisfies readonly VisualFixtureMode[];
@@ -560,8 +564,11 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <ButtonVisualFixture />;
   }
 
-  if (mode === "app-boot-failure") {
-    return <AppBootFailureStateVisualFixture />;
+  if (
+    mode === "app-boot-failure-stale" ||
+    mode === "app-boot-failure-generic"
+  ) {
+    return <AppBootFailureStateVisualFixture mode={mode} />;
   }
 
   if (mode === "corner-notch") {

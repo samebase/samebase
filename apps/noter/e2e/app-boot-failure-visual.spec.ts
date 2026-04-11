@@ -1,5 +1,27 @@
 import { expect, test, type Page } from "@playwright/test";
 
+const appBootFailureDesktopScenarios = [
+  {
+    mode: "app-boot-failure-stale",
+    snapshotName: "app-boot-failure-stale.png",
+  },
+  {
+    mode: "app-boot-failure-generic",
+    snapshotName: "app-boot-failure-generic.png",
+  },
+] as const;
+
+const appBootFailureMobileScenarios = [
+  {
+    mode: "app-boot-failure-stale",
+    snapshotName: "app-boot-failure-stale-mobile.png",
+  },
+  {
+    mode: "app-boot-failure-generic",
+    snapshotName: "app-boot-failure-generic-mobile.png",
+  },
+] as const;
+
 const strictScreenshotOptions = {
   animations: "disabled",
   caret: "hide",
@@ -18,26 +40,34 @@ async function waitForStableFonts(page: Page) {
   });
 }
 
-test("app boot failure visual fixture", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 1400 });
-  await page.goto("/visual-fixture.html?mode=app-boot-failure", {
+async function captureAppBootFailureVisual(
+  page: Page,
+  scenario: { mode: string; snapshotName: string },
+) {
+  await page.goto(`/visual-fixture.html?mode=${scenario.mode}`, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
   await waitForStableFonts(page);
 
-  const staleState = page.getByTestId("app-boot-failure-stale");
-  await expect(staleState).toBeVisible();
-  await expect(staleState).toHaveScreenshot("app-boot-failure-stale.png", {
+  await expect(page).toHaveScreenshot(scenario.snapshotName, {
     ...strictScreenshotOptions,
-    mask: [staleState.getByText(/^Build:/)],
+    mask: [page.getByText(/^Build:/)],
   });
+}
 
-  const genericState = page.getByTestId("app-boot-failure-generic");
-  await genericState.scrollIntoViewIfNeeded();
-  await expect(genericState).toBeVisible();
-  await expect(genericState).toHaveScreenshot("app-boot-failure-generic.png", {
-    ...strictScreenshotOptions,
-    mask: [genericState.getByText(/^Build:/)],
-  });
+test("app boot failure visual fixture", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 1400 });
+
+  for (const scenario of appBootFailureDesktopScenarios) {
+    await captureAppBootFailureVisual(page, scenario);
+  }
+});
+
+test("app boot failure visual fixture (mobile)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  for (const scenario of appBootFailureMobileScenarios) {
+    await captureAppBootFailureVisual(page, scenario);
+  }
 });

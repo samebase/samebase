@@ -1,37 +1,26 @@
 import { AppBootFailureState } from "@/components/AppBootFailureState";
 
-function FixtureCase({ testId, error }: { testId: string; error: Error }) {
-  return (
-    <section
-      data-testid={testId}
-      className="overflow-hidden border border-stone-300 bg-background"
-    >
-      <AppBootFailureState error={error} />
-    </section>
-  );
-}
+export type AppBootFailureStateVisualMode =
+  | "app-boot-failure-stale"
+  | "app-boot-failure-generic";
 
-export function AppBootFailureStateVisualFixture() {
-  return (
-    <div className="grid gap-8 bg-stone-100 p-8 text-stone-950">
-      <header className="grid gap-2 border border-stone-300 bg-white p-5">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          App Boot Failure Visual Fixture
-        </h1>
-        <p className="max-w-3xl text-sm text-stone-600">
-          Visual coverage for the two shipped recovery states: stale deploy
-          assets and generic startup failure.
-        </p>
-      </header>
+/**
+ * These exact message strings intentionally drive the stale-vs-generic
+ * recovery branch. Do not change or localize them without updating the fixture.
+ */
+const APP_BOOT_FAILURE_FIXTURE_ERRORS = {
+  "app-boot-failure-stale": "Failed to fetch dynamically imported module",
+  "app-boot-failure-generic": "Unexpected token",
+} as const satisfies Record<AppBootFailureStateVisualMode, string>;
 
-      <FixtureCase
-        testId="app-boot-failure-stale"
-        error={new Error("Failed to fetch dynamically imported module")}
-      />
-      <FixtureCase
-        testId="app-boot-failure-generic"
-        error={new Error("Unexpected token")}
-      />
-    </div>
+export function AppBootFailureStateVisualFixture({
+  mode,
+}: {
+  mode: AppBootFailureStateVisualMode;
+}) {
+  return (
+    <AppBootFailureState
+      error={new Error(APP_BOOT_FAILURE_FIXTURE_ERRORS[mode])}
+    />
   );
 }
