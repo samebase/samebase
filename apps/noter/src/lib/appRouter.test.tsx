@@ -43,20 +43,23 @@ vi.mock("@/components/AuthenticatedAppRoutePage", () => ({
   ),
 }));
 
-vi.mock("@/components/LogoPreviewPage", () => ({
+vi.mock("@noter-md/logo", () => ({
   LogoPreviewPage: ({ renderMode }: { renderMode: string }) => (
     <div data-testid="logo-page">{renderMode}</div>
   ),
-}));
-
-vi.mock("@/components/LogoStaticSvgPage", () => ({
-  LogoStaticSvgPage: () => <div data-testid="logo-svg-page">Logo SVG page</div>,
-}));
-
-vi.mock("@/components/LogoSingleCubeStudyPage", () => ({
   LogoSingleCubeStudyPage: () => (
     <div data-testid="logo-iso-study-page">Logo iso study page</div>
   ),
+  LogoStaticSvgPage: () => <div data-testid="logo-svg-page">Logo SVG page</div>,
+  LogoTransitionLabPage: () => (
+    <div data-testid="logo-transition-lab-page">Logo transition lab page</div>
+  ),
+  LogoTransitionTransformsLabPage: () => (
+    <div data-testid="logo-transition-transforms-lab-page">
+      Logo transition transforms lab page
+    </div>
+  ),
+  validateLogoRouteSearch: vi.fn((search: unknown) => search),
 }));
 
 vi.mock("@/components/McpConsentRoutePage", () => ({
@@ -100,20 +103,6 @@ vi.mock("@/components/FileView/FileView", () => ({
 vi.mock("@/components/PitchDeckPage", () => ({
   PitchDeckPage: ({ mode }: { mode: string }) => (
     <div data-testid="pitch-deck-page">{mode}</div>
-  ),
-}));
-
-vi.mock("@/components/LogoTransitionLabPage", () => ({
-  LogoTransitionLabPage: () => (
-    <div data-testid="logo-transition-lab-page">Logo transition lab page</div>
-  ),
-}));
-
-vi.mock("@/components/LogoTransitionTransformsLabPage", () => ({
-  LogoTransitionTransformsLabPage: () => (
-    <div data-testid="logo-transition-transforms-lab-page">
-      Logo transition transforms lab page
-    </div>
   ),
 }));
 

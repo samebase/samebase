@@ -1,7 +1,4 @@
-import {
-  DEFAULT_FACE_COLORS,
-  getTailwindColorHex,
-} from "@/components/logoTailwindColors";
+import { DEFAULT_FACE_COLORS, getTailwindColorHex } from "./logoTailwindColors";
 
 const CANVAS_SIZE = 36;
 const GRID_STEP = 1;

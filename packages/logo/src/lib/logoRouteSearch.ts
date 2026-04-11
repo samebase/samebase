@@ -1,16 +1,16 @@
-import { type LogoRotationAxisMode } from "@/components/logoRotationMath";
+import { type LogoRotationAxisMode } from "../components/logoRotationMath";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   isLogoIsometricStyleId,
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
-} from "@/components/logoIsometricRenderer";
+} from "../components/logoIsometricRenderer";
 import {
   DEFAULT_FACE_COLORS,
   type FaceColorKey,
   type FaceColors,
-} from "@/components/logoTailwindColors";
+} from "../components/logoTailwindColors";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
@@ -19,7 +19,7 @@ import {
   normalizeRotationDegrees,
   parseVoxelState,
   serializeVoxelState,
-} from "@/components/logoVoxelState";
+} from "../components/logoVoxelState";
 import { z } from "zod";
 
 const LOGO_ROTATION_AXIS_MODE_VALUES = [

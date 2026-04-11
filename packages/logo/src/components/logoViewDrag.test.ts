@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   resolveDraggedAngleDegrees,
   resolveLogoViewState,
-} from "@/components/logoViewDrag";
-import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
+} from "./logoViewDrag";
+import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "../lib/publicLandingLogo";
 
 const EXACT_ISOMETRIC_ELEVATION_DEGREES = 35.26438968;
 

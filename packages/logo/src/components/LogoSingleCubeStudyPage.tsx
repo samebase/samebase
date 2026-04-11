@@ -1,10 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
+import { type LogoRouteSearch } from "../lib/logoRouteSearch";
 import {
   SINGLE_CUBE_STUDY_CANVAS_SIZE,
   SINGLE_CUBE_STUDY_SAMPLE_ANGLES,
   drawSingleCubeStudy,
-} from "@/components/logoSingleCubeStudyRenderer";
+} from "./logoSingleCubeStudyRenderer";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 

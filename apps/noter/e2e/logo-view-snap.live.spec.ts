@@ -2,9 +2,9 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
   DRAG_ROTATION_DEGREES_PER_PIXEL,
-} from "../src/components/logoViewDragConstants";
-import { resolveLogoViewState } from "../src/components/logoViewDrag";
-import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "../src/lib/publicLandingLogo";
+  PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+  resolveLogoViewState,
+} from "@noter-md/logo";
 
 type LogoViewState = {
   elevationDegrees: string | null;

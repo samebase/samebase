@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LogoPreviewPage } from "@/components/LogoPreviewPage";
-import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
+import { LogoPreviewPage, validateLogoRouteSearch } from "@noter-md/logo";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo";

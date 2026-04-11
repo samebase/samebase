@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { PublicLandingLogo } from "@/components/PublicLandingLogo";
+import { PublicLandingLogo } from "@noter-md/logo";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,

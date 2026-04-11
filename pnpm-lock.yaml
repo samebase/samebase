@@ -125,6 +125,9 @@ importers:
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@noter-md/logo':
+        specifier: workspace:*
+        version: link:../../packages/logo
       '@octokit/rest':
         specifier: ^22.0.0
         version: 22.0.1
@@ -409,6 +412,34 @@ importers:
       eslint:
         specifier: ^8.57.0
         version: 8.57.1
+
+  packages/logo:
+    dependencies:
+      '@tanstack/react-router':
+        specifier: ^1.168.10
+        version: 1.168.10(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      lucide-react:
+        specifier: ^0.525.0
+        version: 0.525.0(react@19.2.4)
+      react:
+        specifier: ^19.2.4
+        version: 19.2.4
+      tailwindcss:
+        specifier: ^3.4.4
+        version: 3.4.19(tsx@4.21.0)(yaml@2.8.3)
+      three:
+        specifier: ^0.183.2
+        version: 0.183.2
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
+      '@types/three':
+        specifier: ^0.183.1
+        version: 0.183.1
 
   packages/sync: {}
 

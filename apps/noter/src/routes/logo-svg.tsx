@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LogoStaticSvgPage } from "@/components/LogoStaticSvgPage";
-import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
+import { LogoStaticSvgPage, validateLogoRouteSearch } from "@noter-md/logo";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo-svg";

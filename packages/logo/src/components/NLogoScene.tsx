@@ -1,19 +1,16 @@
-import {
-  getTailwindColorHex,
-  type FaceColors,
-} from "@/components/logoTailwindColors";
+import { getTailwindColorHex, type FaceColors } from "./logoTailwindColors";
 import {
   getLogoRotationAxis,
   getWorldCameraVector,
   getWorldScreenVerticalAxis,
   toRenderedRotationDegrees,
   type LogoRotationAxisMode,
-} from "@/components/logoRotationMath";
-import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
+} from "./logoRotationMath";
+import { getShuffleOriginCandidates } from "./logoShuffleRules";
 import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
   DRAG_ROTATION_DEGREES_PER_PIXEL,
-} from "@/components/logoViewDragConstants";
+} from "./logoViewDragConstants";
 import {
   HALF_GRID,
   GRID_SIZE,
@@ -23,11 +20,8 @@ import {
   type VoxelCoordinate,
   type VoxelEdit,
   voxelKey,
-} from "@/components/logoVoxelState";
-import {
-  resolveLogoViewState,
-  type LogoViewDragConfig,
-} from "@/components/logoViewDrag";
+} from "./logoVoxelState";
+import { resolveLogoViewState, type LogoViewDragConfig } from "./logoViewDrag";
 import {
   useEffect,
   useRef,

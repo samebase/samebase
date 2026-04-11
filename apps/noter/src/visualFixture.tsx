@@ -35,18 +35,16 @@ import {
 import { MachineConnectVisualFixture } from "@/components/MachineConnectVisualFixture";
 import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture";
 import {
+  LogoSnapAnglesVisualFixture,
+  type LogoSnapAnglesVisualMode,
   LogoThreeVisualFixture,
   type LogoThreeVisualMode,
-} from "@/components/LogoThreeVisualFixture";
+} from "@noter-md/logo";
 import {
   LandingCopyVisualFixture,
   type LandingCopyVisualMode,
 } from "@/components/LandingCopyVisualFixture";
 import { CornerNotchDetailVisualFixture } from "@/components/CornerNotchDetailVisualFixture";
-import {
-  LogoSnapAnglesVisualFixture,
-  type LogoSnapAnglesVisualMode,
-} from "@/components/LogoSnapAnglesVisualFixture";
 import { FileViewPushActionsVisualFixture } from "@/components/FileViewPushActionsVisualFixture";
 import {
   FileViewCompareVisualFixture,

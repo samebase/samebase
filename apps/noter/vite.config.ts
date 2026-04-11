@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { formatWithOxfmt } from "../../scripts/format-with-oxfmt.ts";
 import { readPackageVersion } from "../../scripts/readPackageVersion.ts";
 import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
-import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
+import { createStaticLogoSvgMarkup } from "../../packages/logo/src/components/logoStaticSvgAsset";
 import {
   type PageMetadata,
   PRIVACY_PAGE_METADATA,

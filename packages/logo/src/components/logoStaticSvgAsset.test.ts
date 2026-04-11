@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { createStaticLogoSvgMarkup } from "@/components/logoStaticSvgAsset";
+import { createStaticLogoSvgMarkup } from "./logoStaticSvgAsset";
 
 describe("logoStaticSvgAsset", () => {
   it("keeps the committed static logo svg in sync with the generated markup", () => {
     const staticLogoSvg = readFileSync(
-      new URL("../../public/logo-static.svg", import.meta.url),
+      new URL("../../../../apps/noter/public/logo-static.svg", import.meta.url),
       "utf8",
     )
       .replace(/\r\n/g, "\n")

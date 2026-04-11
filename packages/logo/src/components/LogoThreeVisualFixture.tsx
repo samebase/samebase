@@ -1,15 +1,12 @@
-import { NLogoScene } from "@/components/NLogoScene";
+import { NLogoScene } from "./NLogoScene";
 import {
   DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE,
   DEFAULT_STATIC_LOGO_SVG_URL,
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_STATE,
-} from "@/components/logoStaticSvgContract";
-import {
-  DEFAULT_FACE_COLORS,
-  getTailwindColorHex,
-} from "@/components/logoTailwindColors";
+} from "./logoStaticSvgContract";
+import { DEFAULT_FACE_COLORS, getTailwindColorHex } from "./logoTailwindColors";
 import { useEffect, useRef, useState } from "react";
 
 export type LogoThreeVisualMode = "logo-three-reference";

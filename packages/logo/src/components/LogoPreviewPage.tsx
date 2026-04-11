@@ -2,9 +2,9 @@ import {
   LOGO_SHUFFLE_PARALLEL_OPTIONS,
   NLogoScene,
   type LogoShuffleParallelMoves,
-} from "@/components/NLogoScene";
-import { type LogoRotationAxisMode } from "@/components/logoRotationMath";
-import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/NLogoIsoScene";
+} from "./NLogoScene";
+import { type LogoRotationAxisMode } from "./logoRotationMath";
+import { LogoIsoThumbnail, NLogoIsoScene } from "./NLogoIsoScene";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
@@ -16,7 +16,7 @@ import {
   isLogoIsometricStyleId,
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
-} from "@/components/logoIsometricRenderer";
+} from "./logoIsometricRenderer";
 import {
   DEFAULT_FACE_COLORS,
   FACE_COLOR_KEYS,
@@ -29,7 +29,7 @@ import {
   getTailwindColorTokenForSelection,
   type FaceColorKey,
   type FaceColors,
-} from "@/components/logoTailwindColors";
+} from "./logoTailwindColors";
 import {
   CUSTOM_LOGO_PRESET_ID,
   DEFAULT_LOGO_PRESET_ID,
@@ -38,7 +38,7 @@ import {
   getLogoPresetSelection,
   type LogoPresetId,
   type LogoPresetSelection,
-} from "@/components/logoPresets";
+} from "./logoPresets";
 import { Checkbox } from "@/components/checkbox";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,17 +67,14 @@ import {
   parseVoxelState,
   serializeVoxelState,
   type VoxelEdit,
-} from "@/components/logoVoxelState";
-import {
-  resolveLogoViewState,
-  type LogoViewState,
-} from "@/components/logoViewDrag";
+} from "./logoVoxelState";
+import { resolveLogoViewState, type LogoViewState } from "./logoViewDrag";
 import {
   buildLogoRouteSearch,
   type LogoRouteSearch,
-} from "@/lib/logoRouteSearch";
-import { shouldSyncLogoPreviewQueryState } from "@/lib/logoPreviewQuerySync";
-import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
+} from "../lib/logoRouteSearch";
+import { shouldSyncLogoPreviewQueryState } from "../lib/logoPreviewQuerySync";
+import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "../lib/publicLandingLogo";
 import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";

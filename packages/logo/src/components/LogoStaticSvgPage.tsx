@@ -1,16 +1,13 @@
 import {
   DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE,
   STATIC_LOGO_VOXEL_COORDINATES,
-} from "@/components/logoStaticSvgContract";
-import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
-import { getTailwindColorHex } from "@/components/logoTailwindColors";
-import {
-  createFilledVoxelSet,
-  parseVoxelState,
-} from "@/components/logoVoxelState";
+} from "./logoStaticSvgContract";
+import { createStaticLogoSvgDataUrl } from "./logoStaticSvgAsset";
+import { getTailwindColorHex } from "./logoTailwindColors";
+import { createFilledVoxelSet, parseVoxelState } from "./logoVoxelState";
 import { Button } from "@/components/ui/button";
 import { useDocumentThemeMode } from "@/hooks/useDocumentThemeMode";
-import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
+import { type LogoRouteSearch } from "../lib/logoRouteSearch";
 import { Link } from "@tanstack/react-router";
 
 export function LogoStaticSvgPage({

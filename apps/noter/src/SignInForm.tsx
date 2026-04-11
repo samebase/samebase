@@ -1,7 +1,7 @@
 import { useNoterAuthActions } from "@/authClient";
 import { LandingCopy } from "@/components/LandingCopy";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
-import { PublicLandingLogo } from "@/components/PublicLandingLogo";
+import { PublicLandingLogo } from "@noter-md/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";

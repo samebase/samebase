@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
-} from "@/components/logoStaticSvgContract";
+} from "./logoStaticSvgContract";
 import {
   TRANSFORM_LAB_VIEW_BOX,
   createTransformLabScene,
   createTransformLabSvgMarkup,
-} from "@/components/logoTransitionTransformFaces";
+} from "./logoTransitionTransformFaces";
 
 describe("logoTransitionTransformFaces", () => {
   it("builds a six-face single cube scene from transform matrices", () => {

@@ -2,17 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
-} from "@/components/logoIsometricRenderer";
-import { DEFAULT_FACE_COLORS } from "@/components/logoTailwindColors";
+} from "../components/logoIsometricRenderer";
+import { DEFAULT_FACE_COLORS } from "../components/logoTailwindColors";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
   DEFAULT_VOXEL_STATE,
-} from "@/components/logoVoxelState";
+} from "../components/logoVoxelState";
 import {
   buildLogoRouteSearch,
   validateLogoRouteSearch,
-} from "@/lib/logoRouteSearch";
+} from "./logoRouteSearch";
 
 describe("logoRouteSearch", () => {
   it("normalizes logo route search into typed values", () => {
