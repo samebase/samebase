@@ -244,40 +244,35 @@ export function VaultDashboardVisualFixture({
     );
   }
 
-  if (mode === "vault-branch-pr-labels") {
-    return (
-      <div
-        data-testid="vault-dashboard-visual-fixture"
-        data-mode={mode}
-        className="inline-flex bg-background p-3 text-foreground"
-      >
-        <div className="w-[560px] corner-notch-1 border border-border bg-background">
-          <TestRouterProvider>
-            <VaultBranchLinkRow
-              vaultId={fakeVaultId()}
-              repositoryFullName="octo/repo"
-              branchName="feature/pr-labels"
-              headCommitSha="1234567890abcdef1234567890abcdef12345678"
-              isDefault={false}
-              isDeletedUpstream={false}
-              aheadBy={3}
-              behindBy={1}
-              pullRequestUrl="https://github.com/octo/repo/pull/42"
-              pullRequestNumber={42}
-              pullRequestLabels={[
-                { name: "needs review", color: "fbca04" },
-                { name: "bug", color: "d73a4a" },
-              ]}
-              canDeleteBranch={false}
-              isDeletingBranch={false}
-              onDeleteBranch={() => {}}
-            />
-          </TestRouterProvider>
-        </div>
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode={mode}
+      className="inline-flex bg-background p-3 text-foreground"
+    >
+      <div className="w-[560px] corner-notch-1 border border-border bg-background">
+        <TestRouterProvider>
+          <VaultBranchLinkRow
+            vaultId={fakeVaultId()}
+            repositoryFullName="octo/repo"
+            branchName="feature/pr-labels"
+            headCommitSha="1234567890abcdef1234567890abcdef12345678"
+            isDefault={false}
+            isDeletedUpstream={false}
+            aheadBy={3}
+            behindBy={1}
+            pullRequestUrl="https://github.com/octo/repo/pull/42"
+            pullRequestNumber={42}
+            pullRequestLabels={[
+              { name: "needs review", color: "fbca04" },
+              { name: "bug", color: "d73a4a" },
+            ]}
+            canDeleteBranch={false}
+            isDeletingBranch={false}
+            onDeleteBranch={() => {}}
+          />
+        </TestRouterProvider>
       </div>
-    );
-  }
-
-  mode satisfies never;
-  return null;
+    </div>
+  );
 }
