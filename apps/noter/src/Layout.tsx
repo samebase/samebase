@@ -87,7 +87,7 @@ export function Layout({ children }: { children: ReactNode }) {
         />
       }
     >
-      <main className="flex min-h-0 flex-1 flex-col">{children}</main>
+      {children}
     </AppPageFrame>
   );
 }

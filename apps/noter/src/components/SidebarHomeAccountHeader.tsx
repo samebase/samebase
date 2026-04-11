@@ -20,7 +20,7 @@ export function SidebarHomeAccountHeader({
         <Button variant="outline" size="sm" className="h-8 px-2 md:h-6" asChild>
           <Link to="/">Dashboard</Link>
         </Button>
-        <UserMenu className="shrink-0" menuLabel={userDisplayName} />
+        <UserMenu menuLabel={userDisplayName} />
       </div>
     </SidebarAccountSection>
   );

@@ -230,10 +230,6 @@ const SIMPLE_VIEW_VISUAL_MODES = [
 ] as const satisfies readonly SimpleViewVisualMode[];
 
 const VAULT_DASHBOARD_VISUAL_MODES = [
-  "dashboard-layout-minimal",
-  "dashboard-provider-sidebar-wrap",
-  "dashboard-shared-sidebar",
-  "dashboard-shared-sidebar-mobile-chat",
   "vault-last-updated-status",
   "vault-branch-filters",
   "vault-branch-pr-labels",
@@ -287,7 +283,6 @@ const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
 ] as const satisfies readonly FileViewMonacoDragVisualMode[];
 
 const WORKSPACE_LAYOUT_V2_VISUAL_MODES = [
-  "workspace-layout-v2-bare",
   "workspace-layout-v2-status-bar",
 ] as const satisfies readonly WorkspaceLayoutV2VisualMode[];
 
@@ -462,10 +457,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
   }
 
   if (
-    mode === "dashboard-layout-minimal" ||
-    mode === "dashboard-provider-sidebar-wrap" ||
-    mode === "dashboard-shared-sidebar" ||
-    mode === "dashboard-shared-sidebar-mobile-chat" ||
     mode === "vault-last-updated-status" ||
     mode === "vault-branch-filters" ||
     mode === "vault-branch-pr-labels" ||
@@ -558,11 +549,8 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <MachinesWorkspaceVisualFixture />;
   }
 
-  if (
-    mode === "workspace-layout-v2-bare" ||
-    mode === "workspace-layout-v2-status-bar"
-  ) {
-    return <WorkspaceLayoutV2VisualFixture mode={mode} />;
+  if (mode === "workspace-layout-v2-status-bar") {
+    return <WorkspaceLayoutV2VisualFixture />;
   }
 
   if (mode === "button") {

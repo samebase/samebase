@@ -18,8 +18,13 @@ export function AppPageFrame({
       data-testid={dataTestId}
       className="flex min-h-svh w-full flex-col bg-background"
     >
-      {topBar}
-      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+      <div className="h-5 shrink-0 border-b border-border">
+        <div className="container flex h-full items-center overflow-hidden text-xs leading-none text-muted-foreground">
+          {topBar}
+        </div>
+      </div>
+
+      <main className="flex min-h-0 flex-1 flex-col">{children}</main>
     </div>
   );
 }

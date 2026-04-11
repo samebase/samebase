@@ -2,26 +2,24 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { dispatchHumanTouchSwipe } from "./touchGestures";
 
 const MOBILE_PANE_TRANSITION_WAIT_MS = 220;
-const WORKSPACE_LAYOUT_V2_BARE_FIXTURE_URL =
-  "/visual-fixture.html?mode=workspace-layout-v2-bare";
 const WORKSPACE_LAYOUT_V2_STATUS_BAR_FIXTURE_URL =
   "/visual-fixture.html?mode=workspace-layout-v2-status-bar";
 
 async function openWorkspaceLayoutV2Fixture(
   page: Page,
-  options?: { statusBar?: boolean; swipeDebug?: boolean },
+  options?: { swipeDebug?: boolean },
 ): Promise<void> {
-  const fixtureUrl = options?.statusBar
-    ? WORKSPACE_LAYOUT_V2_STATUS_BAR_FIXTURE_URL
-    : WORKSPACE_LAYOUT_V2_BARE_FIXTURE_URL;
   const debugQuery = options?.swipeDebug ? "&swipe-debug" : "";
-  await page.goto(`${fixtureUrl}${debugQuery}`, {
-    waitUntil: "domcontentloaded",
-  });
-  await expect(page.getByTestId("workspace-layout-v2-fixture")).toBeVisible();
-  await expect(page.getByTestId("workspace-layout-v2-top-bar")).toHaveCount(
-    options?.statusBar ? 1 : 0,
+  await page.goto(
+    `${WORKSPACE_LAYOUT_V2_STATUS_BAR_FIXTURE_URL}${debugQuery}`,
+    {
+      waitUntil: "domcontentloaded",
+    },
   );
+  await expect(
+    page.getByTestId("workspace-layout-v2-visual-fixture"),
+  ).toBeVisible();
+  await expect(page.locator("[data-workspace-layout-v2]")).toHaveCount(1);
   await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
 }
 
@@ -186,7 +184,7 @@ async function swipeFromLeftTowardMain(page: Page) {
 }
 
 async function openLeftPaneFromMain(page: Page) {
-  const layout = page.getByTestId("workspace-layout-v2-fixture");
+  const layout = page.locator("[data-workspace-layout-v2]");
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     await swipeFromMainToLeft(page);
@@ -207,7 +205,7 @@ async function openLeftPaneFromMain(page: Page) {
 }
 
 async function openRightPaneFromMain(page: Page) {
-  const layout = page.getByTestId("workspace-layout-v2-fixture");
+  const layout = page.locator("[data-workspace-layout-v2]");
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     await swipeFromMainToRight(page);
@@ -286,21 +284,26 @@ async function scrollMainEditorToApproximateOffset(
     }, scrollTop);
 }
 
+function getLeftPaneScrollSurface(page: Page) {
+  return page
+    .getByTestId("workspace-layout-v2-pane-left")
+    .locator("section > div")
+    .nth(1);
+}
+
 async function scrollLeftPaneToApproximateOffset(
   page: Page,
   scrollTop: number,
 ) {
-  await page
-    .getByTestId("workspace-layout-v2-left-scroll-surface")
-    .evaluate((element, nextScrollTop) => {
-      element.scrollTop = nextScrollTop;
-      element.dispatchEvent(new Event("scroll", { bubbles: true }));
-    }, scrollTop);
+  await getLeftPaneScrollSurface(page).evaluate((element, nextScrollTop) => {
+    element.scrollTop = nextScrollTop;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  }, scrollTop);
 }
 
 async function verticalScrollLeftPane(page: Page) {
   await swipeWithinLocatorByRatio({
-    locator: page.getByTestId("workspace-layout-v2-left-scroll-surface"),
+    locator: getLeftPaneScrollSurface(page),
     page,
     startXRatio: 0.5,
     startYRatio: 0.72,
@@ -388,9 +391,9 @@ async function expectResizeHandleToAlignWithPaneBoundary(
 }
 
 async function getLeftPaneScrollTop(page: Page) {
-  return page
-    .getByTestId("workspace-layout-v2-left-scroll-surface")
-    .evaluate((element) => element.scrollTop);
+  return getLeftPaneScrollSurface(page).evaluate(
+    (element) => element.scrollTop,
+  );
 }
 
 test("desktop v2 fixture keeps sidebar triggers inside the main header", async ({
@@ -482,7 +485,7 @@ test("mobile v2 fixture requires returning to main before opening right", async 
 
   await openWorkspaceLayoutV2Fixture(page);
 
-  const layout = page.getByTestId("workspace-layout-v2-fixture");
+  const layout = page.locator("[data-workspace-layout-v2]");
   await expect(layout).toHaveAttribute("data-mobile-pane", "main");
   await expect(
     page.getByRole("button", { name: "Toggle Left Sidebar" }),
@@ -532,7 +535,7 @@ test("mobile v2 fixture taps the exposed main strip without closing sidebars", a
 
   await openWorkspaceLayoutV2Fixture(page);
 
-  const layout = page.getByTestId("workspace-layout-v2-fixture");
+  const layout = page.locator("[data-workspace-layout-v2]");
   await expect(layout).toHaveAttribute("data-mobile-pane", "main");
 
   await openLeftPaneFromMain(page);
@@ -541,7 +544,7 @@ test("mobile v2 fixture taps the exposed main strip without closing sidebars", a
   await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
 
   await openWorkspaceLayoutV2Fixture(page);
-  const refreshedLayout = page.getByTestId("workspace-layout-v2-fixture");
+  const refreshedLayout = page.locator("[data-workspace-layout-v2]");
   await expect(refreshedLayout).toHaveAttribute("data-mobile-pane", "main");
 
   await openRightPaneFromMain(page);
@@ -576,7 +579,7 @@ test("mobile v2 fixture vertical drags scroll the left editor pane without closi
 
   await openWorkspaceLayoutV2Fixture(page);
 
-  const layout = page.getByTestId("workspace-layout-v2-fixture");
+  const layout = page.locator("[data-workspace-layout-v2]");
   await openLeftPaneFromMain(page);
 
   const initialScrollTop = await getLeftPaneScrollTop(page);
@@ -595,7 +598,7 @@ test("mobile v2 fixture shows the right pane after a horizontal main-editor drag
   const viewport = page.viewportSize();
   test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
 
-  await openWorkspaceLayoutV2Fixture(page, { statusBar: true });
+  await openWorkspaceLayoutV2Fixture(page);
   await waitForMonacoSurfaceReady(
     page.getByTestId("workspace-layout-v2-right-editor-surface"),
   );
@@ -627,7 +630,7 @@ test("mobile v2 fixture horizontal drags from the left editor return to main", a
 
   await openWorkspaceLayoutV2Fixture(page);
 
-  const layout = page.getByTestId("workspace-layout-v2-fixture");
+  const layout = page.locator("[data-workspace-layout-v2]");
   await openLeftPaneFromMain(page);
 
   await swipeLeftEditorTowardMain(page);

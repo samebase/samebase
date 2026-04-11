@@ -103,6 +103,12 @@ Key domain entities:
   deleting the temporary adapter instead of keeping a near-equivalent wrapper,
   renamed mirror, or reshaped object around it. Always check whether an extra
   abstraction can be removed, not just whether it can be tolerated.
+- For app-internal refactors, prefer delete-first changes over
+  compatibility-preserving patches. When a shared abstraction owns the wrong
+  responsibility, remove or narrow it and update all current callsites instead
+  of adding pass-through props, transitional wrappers, convenience APIs, or
+  shims. Treat backwards compatibility for app-internal components as a non-goal
+  unless the user explicitly asks for it.
 - If a transitional helper, adapter, or mirror object ends up unused outside
   tests, delete it instead of preserving it "just in case". Do not keep dead
   migration scaffolding, test-only production helpers, or simplified wrappers
@@ -112,6 +118,10 @@ Key domain entities:
 - Do not keep test-only production abstractions, incomplete extractions, or dead
   scaffolding.
 - Do not add barrel files for app code.
+- Do not add same-name re-export shim files just to preserve or shorten an
+  import path. Update imports directly instead. These shim files pollute the
+  tree and break editor cmd-click/navigation when tracing real implementations
+  and usages.
 - Keep config surfaces minimal and current.
 - For app-owned components, default to closed styling APIs. Do not add
   pass-through styling props such as `className`, `bodyClassName`, or
@@ -264,6 +274,8 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 
 - Keep responses concise by default and always include a final `Summary`
   section.
+- Mention only the actionable lever in user-facing explanations. Do not bring up
+  impossible non-options or irrelevant caveats.
 - Expect voice-to-text mistakes. Interpret likely transcription errors before
   asking for clarification.
 - Commit meaningful checkpoints instead of letting large local diffs accumulate,

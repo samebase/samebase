@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter frontend/workspace shell
-- Last updated: 2026-04-07
+- Last updated: 2026-04-11
 - Depends on:
   - `apps/noter/index.html`
   - `apps/noter/package.json`
@@ -44,10 +44,10 @@
 
 ## Summary
 
-`WorkspaceLayoutV2PageFrame`, `WorkspaceLayoutV2TopBar`, and `WorkspaceLayoutV2`
+`AppPageFrame`, `WorkspaceLayoutV2FullPage`, and `WorkspaceLayoutV2PaneFrame`
 are now accepted app and shell primitives, but the repo does not yet have an
-accepted contract for how real routes should migrate from the first workspace
-shell to the second one.
+fully up-to-date accepted contract for how real routes should migrate from the
+first workspace shell to the second one.
 
 This spec defines that contract.
 
@@ -223,9 +223,9 @@ That old shell also still owns the mobile imperative drag bridge used by
 
 The v2 shell primitives already exist and are valid:
 
-- `WorkspaceLayoutV2PageFrame` for app-level page framing
-- `WorkspaceLayoutV2TopBar` for compact page-level chrome
-- `WorkspaceLayoutV2` for the three-pane shell
+- `AppPageFrame` for app-level page framing
+- `WorkspaceLayoutV2FullPage` for the shared route-level workspace shell
+- `WorkspaceLayoutV2` for the three-pane viewport math inside that shell
 - `WorkspaceLayoutV2PaneFrame` for intentionally compact fixed-header panes
 - `useWorkspaceLayoutV2DragSurface` for declarative shell drag opt-in inside
   child surfaces
@@ -316,6 +316,24 @@ Accepted dashboard-route shape:
 ```
 
 The shell swap is accepted only if the route still feels like the same route.
+
+The same ownership rule now applies to the optional bottom panel region in
+`WorkspaceLayoutV2FullPage`.
+
+Accepted panel direction:
+
+- the panel is the fourth shared workspace region, not route-local floating
+  chrome
+- desktop keeps that panel under the center editor column rather than stretching
+  it under both sidebars
+- mobile presents that same panel as a bottom sheet inside the workspace
+  viewport
+- the shared shell owns the panel open button, close affordance, and resize
+  interaction
+- callers provide panel content only; chat state, agent logic, and repository
+  wiring stay outside the layout shell
+- compact panel content may reuse `WorkspaceLayoutV2PaneFrame` when the panel
+  genuinely fits the compact fixed-header contract
 
 ### 4. `WorkspaceLayoutV2PaneFrame` is compact-only
 
