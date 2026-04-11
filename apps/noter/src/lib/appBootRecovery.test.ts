@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildRecoveryReloadUrl,
   initializeAppBootRecovery,
@@ -8,6 +8,7 @@ import {
   resetLocalAppData,
   stripRecoveryReloadParam,
 } from "@/lib/appBootRecovery";
+import { CONVEX_QUERY_CACHE_DB_NAME } from "@/lib/convexQueryCacheStorage";
 
 const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
   window,
@@ -145,5 +146,45 @@ describe("appBootRecovery", () => {
 
     expect(window.localStorage.length).toBe(0);
     expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("falls back to deleting the query cache database when indexedDB.databases rejects", async () => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createTestStorage(),
+    });
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      value: createTestStorage(),
+    });
+
+    const deleteDatabase = vi.fn(() => {
+      const request: {
+        onblocked: ((event: Event) => void) | null;
+        onerror: ((event: Event) => void) | null;
+        onsuccess: ((event: Event) => void) | null;
+      } = {
+        onblocked: null,
+        onerror: null,
+        onsuccess: null,
+      };
+      queueMicrotask(() => {
+        request.onsuccess?.(new Event("success"));
+      });
+      return request;
+    });
+
+    Object.defineProperty(window, "indexedDB", {
+      configurable: true,
+      value: {
+        databases: vi.fn(async () => {
+          throw new Error("blocked");
+        }),
+        deleteDatabase,
+      },
+    });
+
+    await expect(resetLocalAppData()).resolves.toBeUndefined();
+    expect(deleteDatabase).toHaveBeenCalledWith(CONVEX_QUERY_CACHE_DB_NAME);
   });
 });

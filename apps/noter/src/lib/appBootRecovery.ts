@@ -98,7 +98,7 @@ async function clearAllIndexedDbDatabases() {
       : Reflect.get(indexedDB, "databases");
   const databases =
     typeof listDatabases === "function"
-      ? await listDatabases.call(indexedDB).catch(() => [])
+      ? await listDatabases.call(indexedDB).catch(() => null)
       : null;
 
   if (databases === null) {
