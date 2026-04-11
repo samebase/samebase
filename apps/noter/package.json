@@ -12,6 +12,7 @@
     "verify:install-icon-assets": "npm run generate:install-icon-assets && git diff --exit-code -- public/install-icon.svg public/apple-touch-icon.png public/icon-192.png public/icon-512.png public/icon-maskable-192.png public/icon-maskable-512.png",
     "predev": "node predev.js",
     "typecheck": "convex codegen && tsc --noEmit",
+    "tsc:watch": "tsc --watch",
     "build": "convex codegen && tsc && vp build",
     "build:ci": "tsc && vp build",
     "build:vercel": "vp build",

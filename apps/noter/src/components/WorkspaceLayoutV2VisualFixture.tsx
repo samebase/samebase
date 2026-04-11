@@ -1,18 +1,7 @@
-import { PanelLeft } from "lucide-react";
-import { AppPageFrame } from "@/components/AppPageFrame";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
-import { SidebarProvider } from "@/components/sidebar";
-import { Button } from "@/components/ui/button";
-import { WorkspaceLayoutV2PaneFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
-import { WorkspaceLayoutV2TopBar } from "@/components/workspace-layout-v2/WorkspaceLayoutV2TopBar";
-import { WorkspaceLayoutV2 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
-import { WorkspaceLayoutV2ViewportFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2ViewportFrame";
-import { useSidebar } from "@/hooks/use-sidebar";
-
-export type WorkspaceLayoutV2VisualMode =
-  | "workspace-layout-v2-bare"
-  | "workspace-layout-v2-status-bar";
+import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
+export type WorkspaceLayoutV2VisualMode = "workspace-layout-v2-status-bar";
 
 const FIXTURE_MARKDOWN = `# Workspace Layout V2 Notes
 
@@ -184,145 +173,50 @@ console.log("resolved=" + countResolvedThreads());
 
 const FIXTURE_VAULT_KEY = "workspace-layout-v2-fixture-vault";
 
-function FixtureLeftPane() {
+export function WorkspaceLayoutV2VisualFixture() {
   return (
-    <WorkspaceLayoutV2PaneFrame headerTestId="workspace-layout-v2-left-pane-header">
-      <div
-        data-testid="workspace-layout-v2-left-scroll-surface"
-        className="min-h-0 flex-1 overflow-y-auto"
-      >
-        <CodeMirrorFileSurface
-          dataTestId="workspace-layout-v2-prosemark-surface"
-          filePath="workspace-layout-v2-notes.md"
-          initialValue={FIXTURE_MARKDOWN}
-        />
-      </div>
-    </WorkspaceLayoutV2PaneFrame>
-  );
-}
-
-function FixtureMainPaneHeader() {
-  const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
-
-  return (
-    <div className="hidden justify-between md:flex">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label="Toggle Left Sidebar"
-        className="h-8 w-8"
-        onClick={toggleLeftSidebar}
-      >
-        <PanelLeft className="h-4 w-4" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label="Toggle Right Sidebar"
-        className="h-8 w-8"
-        onClick={toggleRightSidebar}
-      >
-        <PanelLeft className="h-4 w-4 rotate-180" />
-      </Button>
-    </div>
-  );
-}
-
-function FixtureMainPane() {
-  return (
-    <WorkspaceLayoutV2PaneFrame
-      headerTestId="workspace-layout-v2-main-pane-header"
-      header={<FixtureMainPaneHeader />}
-    >
-      <div className="min-h-0 flex-1">
-        <MonacoEditorSurface
-          branch="main"
-          dataTestId="workspace-layout-v2-main-editor-surface"
-          defaultValue={FIXTURE_MAIN_CODE}
-          filePath="src/workspace-layout-v2-fixture.ts"
-          onMount={() => {}}
-          showMobileLineNumbers={false}
-          syncError={null}
-          vaultKey={FIXTURE_VAULT_KEY}
-        />
-      </div>
-    </WorkspaceLayoutV2PaneFrame>
-  );
-}
-
-function FixtureRightPane() {
-  return (
-    <WorkspaceLayoutV2PaneFrame headerTestId="workspace-layout-v2-right-pane-header">
-      <div className="min-h-0 flex-1">
-        <MonacoEditorSurface
-          branch="main"
-          dataTestId="workspace-layout-v2-right-editor-surface"
-          defaultValue={FIXTURE_RIGHT_CODE}
-          filePath="src/workspace-layout-v2-review.ts"
-          onMount={() => {}}
-          showMobileLineNumbers={false}
-          syncError={null}
-          vaultKey={FIXTURE_VAULT_KEY}
-        />
-      </div>
-    </WorkspaceLayoutV2PaneFrame>
-  );
-}
-
-function renderWorkspaceLayoutV2PaneFixture() {
-  return (
-    <SidebarProvider
-      className="flex-1 h-full min-h-0"
-      defaultOpen={true}
-      defaultLeftDesktopWidthPx={320}
-      defaultLeftMobileWidthPx={320}
-      defaultRightOpen={true}
-      defaultRightDesktopWidthPx={320}
-      defaultRightMobileWidthPx={320}
-    >
-      <WorkspaceLayoutV2
-        dataTestId="workspace-layout-v2-fixture"
-        left={<FixtureLeftPane />}
-        main={<FixtureMainPane />}
-        right={<FixtureRightPane />}
-      />
-    </SidebarProvider>
-  );
-}
-
-function WorkspaceLayoutV2FixtureTopBar() {
-  return (
-    <WorkspaceLayoutV2TopBar dataTestId="workspace-layout-v2-top-bar">
-      <div className="flex w-full justify-between gap-3">
-        <div className="min-w-0 truncate">Workspace layout top bar</div>
-        <div className="inline-flex gap-2 font-mono">
-          <span>fixture</span>
-          <span>chrome</span>
-        </div>
-      </div>
-    </WorkspaceLayoutV2TopBar>
-  );
-}
-
-export function WorkspaceLayoutV2VisualFixture({
-  mode,
-}: {
-  mode: WorkspaceLayoutV2VisualMode;
-}) {
-  return (
-    <AppPageFrame
-      dataTestId="workspace-layout-v2-visual-fixture"
-      topBar={
-        mode === "workspace-layout-v2-status-bar" ? (
-          <WorkspaceLayoutV2FixtureTopBar />
-        ) : null
-      }
-    >
-      <WorkspaceLayoutV2ViewportFrame>
-        {renderWorkspaceLayoutV2PaneFixture()}
-      </WorkspaceLayoutV2ViewportFrame>
-    </AppPageFrame>
+    <WorkspaceLayoutV2FullPage
+      topBar={null}
+      left={{
+        headerTestId: "workspace-layout-v2-left-pane-header",
+        content: (
+          <CodeMirrorFileSurface
+            dataTestId="workspace-layout-v2-prosemark-surface"
+            filePath="workspace-layout-v2-notes.md"
+            initialValue={FIXTURE_MARKDOWN}
+          />
+        ),
+      }}
+      main={{
+        headerTestId: "workspace-layout-v2-main-pane-header",
+        content: (
+          <MonacoEditorSurface
+            branch="main"
+            dataTestId="workspace-layout-v2-main-editor-surface"
+            defaultValue={FIXTURE_MAIN_CODE}
+            filePath="src/workspace-layout-v2-fixture.ts"
+            onMount={() => {}}
+            showMobileLineNumbers={false}
+            syncError={null}
+            vaultKey={FIXTURE_VAULT_KEY}
+          />
+        ),
+      }}
+      right={{
+        headerTestId: "workspace-layout-v2-right-pane-header",
+        content: (
+          <MonacoEditorSurface
+            branch="main"
+            dataTestId="workspace-layout-v2-right-editor-surface"
+            defaultValue={FIXTURE_RIGHT_CODE}
+            filePath="src/workspace-layout-v2-review.ts"
+            onMount={() => {}}
+            showMobileLineNumbers={false}
+            syncError={null}
+            vaultKey={FIXTURE_VAULT_KEY}
+          />
+        ),
+      }}
+    />
   );
 }

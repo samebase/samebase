@@ -30,6 +30,13 @@ import {
   type WorkspaceLayoutV2Pane,
 } from "./paneLayout";
 import { cn } from "@/lib/utils";
+import { SidebarProvider } from "../sidebar";
+import {
+  WorkspaceLayoutV2PaneFrame,
+  WorkspaceLayoutV2PaneFrameProps,
+} from "./WorkspaceLayoutV2PaneFrame";
+import { Button } from "../ui/button";
+import { PanelLeft, PanelRight } from "lucide-react";
 
 const DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
 const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
@@ -901,7 +908,102 @@ function useWorkspaceLayoutV2MobileGesture({
   };
 }
 
-export function WorkspaceLayoutV2({
+function FixtureMainPaneHeader({ children }: { children: ReactNode }) {
+  const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
+
+  return (
+    <div className="hidden justify-between md:flex">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="Toggle Left Sidebar"
+        className="h-8 w-8"
+        onClick={toggleLeftSidebar}
+      >
+        <PanelLeft className="h-4 w-4" />
+      </Button>
+
+      {children}
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="Toggle Right Sidebar"
+        className="h-8 w-8"
+        onClick={toggleRightSidebar}
+      >
+        <PanelRight className="h-4 w-4 rotate-180" />
+      </Button>
+    </div>
+  );
+}
+
+export function WorkspaceLayoutV2FullPage({
+  left,
+  main,
+  right,
+}: {
+  dataTestId?: string;
+  topBar: ReactNode;
+
+  left: WorkspaceLayoutV2PaneFrameProps;
+
+  main: WorkspaceLayoutV2PaneFrameProps;
+
+  right: WorkspaceLayoutV2PaneFrameProps;
+}) {
+  return (
+    <WorkspaceLayoutV2ViewportFrame>
+      <SidebarProvider
+        className="flex-1 h-full min-h-0"
+        defaultOpen={true}
+        defaultLeftDesktopWidthPx={320}
+        defaultLeftMobileWidthPx={320}
+        defaultRightOpen={true}
+        defaultRightDesktopWidthPx={320}
+        defaultRightMobileWidthPx={320}
+      >
+        <WorkspaceLayoutV2JustPanes
+          left={<WorkspaceLayoutV2PaneFrame {...left} />}
+          main={
+            <WorkspaceLayoutV2PaneFrame
+              {...main}
+              header={
+                <FixtureMainPaneHeader>{main.header}</FixtureMainPaneHeader>
+              }
+            />
+          }
+          right={<WorkspaceLayoutV2PaneFrame {...right} />}
+        />
+      </SidebarProvider>
+    </WorkspaceLayoutV2ViewportFrame>
+  );
+}
+
+/**
+ * V2 owns one contained workspace viewport inside the normal page shell rather
+ * than asking the app-level frame to lock the whole document.
+ */
+export function WorkspaceLayoutV2ViewportFrame({
+  children,
+  dataTestId,
+}: {
+  children: ReactNode;
+  dataTestId?: string;
+}) {
+  return (
+    <div
+      data-testid={dataTestId}
+      className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
+    >
+      {children}
+    </div>
+  );
+}
+
+export function WorkspaceLayoutV2JustPanes({
   dataTestId,
   left,
   main,

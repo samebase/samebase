@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 
-type WorkspaceLayoutV2PaneFrameProps = {
-  children: ReactNode;
+export type WorkspaceLayoutV2PaneFrameProps = {
+  content?: ReactNode;
   header?: ReactNode;
   headerTestId?: string;
 };
@@ -11,7 +11,7 @@ type WorkspaceLayoutV2PaneFrameProps = {
  * visible while the body scrolls without the pane height shifting underneath.
  */
 export function WorkspaceLayoutV2PaneFrame({
-  children,
+  content,
   header,
   headerTestId,
 }: WorkspaceLayoutV2PaneFrameProps) {
@@ -24,7 +24,7 @@ export function WorkspaceLayoutV2PaneFrame({
         {header}
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {children}
+        <div className="min-h-0 flex-1">{content}</div>
       </div>
     </section>
   );

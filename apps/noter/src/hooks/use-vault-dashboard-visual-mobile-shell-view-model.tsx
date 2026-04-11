@@ -37,22 +37,6 @@ function renderCloudflareProviderLogo(className?: string) {
   );
 }
 
-function renderChatFab() {
-  return (
-    <Button
-      type="button"
-      size="icon"
-      variant="default"
-      aria-label="Open chat"
-      title="Open chat"
-      data-testid="dashboard-shell-chat-fab"
-      className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-3 z-20 flex h-11 w-11 items-center justify-center corner-notch-1 border-0 bg-primary p-0 text-primary-foreground shadow-lg transition-colors hover:bg-primary/90"
-    >
-      <span aria-hidden="true" className="h-4 w-4 bg-current" />
-    </Button>
-  );
-}
-
 /**
  * Provides a static mobile dashboard shell that keeps the real layout chrome
  * while removing live data and chat persistence from the fixture.
@@ -125,13 +109,8 @@ export function useVaultDashboardVisualMobileShellViewModel(): VaultDashboardWor
     ),
     rightSidebarHeader: null,
     rightSidebarContent: <div className="min-h-0 flex-1 bg-background" />,
-    headerContent: (
-      <VaultDashboardHeaderBar
-        showTitle={true}
-        showRightSidebarTrigger={true}
-      />
-    ),
-    workspacePaneClassName: "bg-background",
+    headerContent: <VaultDashboardHeaderBar />,
+    // workspacePaneClassName: "bg-background",
     workspaceBody: (
       <VaultDashboardRepositoryList
         createControl={
@@ -176,6 +155,8 @@ export function useVaultDashboardVisualMobileShellViewModel(): VaultDashboardWor
         />
       </VaultDashboardRepositoryList>
     ),
-    overlayContent: renderChatFab(),
+
+    // TODO: add chat fab back in
+    // overlayContent: renderChatFab(),
   };
 }

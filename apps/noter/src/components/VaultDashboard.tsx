@@ -14,7 +14,6 @@ import { Loader2 } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
-import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import {
   formatRelativeTimeAgo,
@@ -24,7 +23,6 @@ import {
   getTreeRefreshUiState,
   shouldAutoRefreshVault,
 } from "@/lib/treeRefreshStatus";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import {
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
   CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
@@ -80,10 +78,11 @@ import { PullRequestLink } from "@/components/PullRequestLink";
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
 import { CodexProviderRow } from "@/components/CodexProviderRow";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
+// TODO: add chat fab back in
+// oxlint-disable-next-line no-unused-vars
 import { EditorChatDock } from "@/components/EditorChatDock";
 import {
   VaultDashboardEmptyState,
-  VaultDashboardHeaderBar,
   VaultDashboardProvidersSection,
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
@@ -112,17 +111,6 @@ import {
 } from "@/lib/vaultBranchFilters";
 import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
 import { toast } from "@/components/ui/use-toast";
-import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
-
-const VAULT_DASHBOARD_SIDEBAR_DEFAULT_STATE = {
-  leftDesktopOpen: true,
-  leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  leftMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  mobilePane: "main",
-  rightDesktopOpen: true,
-  rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-} satisfies WorkspaceSidebarState;
 
 const formatInfraState = (
   infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
@@ -1843,20 +1831,16 @@ function VaultDashboardContent() {
   );
 
   const dashboardHeaderContent = (
-    <VaultDashboardHeaderBar
-      actions={
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-6 px-2" asChild>
-            <Link to={MACHINES_ROUTE}>/machines</Link>
-          </Button>
-          <Button variant="outline" size="sm" className="h-6 px-2" asChild>
-            <Link to={MACHINE_CONNECT_ROUTE}>Connect machine</Link>
-          </Button>
-        </div>
-      }
-      showTitle={vaults.length > 0}
-      showRightSidebarTrigger={true}
-    />
+    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2">
+        <Button variant="link" size="sm" className="h-6 px-2" asChild>
+          <Link to={MACHINES_ROUTE}>{MACHINES_ROUTE}</Link>
+        </Button>
+        <Button variant="link" size="sm" className="h-6 px-2" asChild>
+          <Link to={MACHINE_CONNECT_ROUTE}>{MACHINE_CONNECT_ROUTE}</Link>
+        </Button>
+      </div>
+    </div>
   );
 
   const dashboardBody =
@@ -2172,12 +2156,14 @@ function VaultDashboardContent() {
         rightSidebarContent={rightSidebarContent}
         headerContent={dashboardHeaderContent}
         workspaceBody={dashboardBody}
-        bottomDock={({ onMobileDockInsetChange }) => (
-          <EditorChatDock
-            desktopMode="inline"
-            onMobileDockInsetChange={onMobileDockInsetChange}
-          />
-        )}
+
+        // TODO: add chat fab back in
+        // bottomDock={({ onMobileDockInsetChange }) => (
+        //   <EditorChatDock
+        //     desktopMode="inline"
+        //     onMobileDockInsetChange={onMobileDockInsetChange}
+        //   />
+        // )}
       />
 
       <Dialog
@@ -2458,13 +2444,5 @@ function VaultDashboardContent() {
 }
 
 export function VaultDashboard() {
-  return (
-    <PersistedSidebarProvider
-      className="h-full min-h-0"
-      defaultState={VAULT_DASHBOARD_SIDEBAR_DEFAULT_STATE}
-      workspaceKey="dashboard"
-    >
-      <VaultDashboardContent />
-    </PersistedSidebarProvider>
-  );
+  return <VaultDashboardContent />;
 }

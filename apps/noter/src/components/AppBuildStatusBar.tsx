@@ -65,7 +65,7 @@ export function AppBuildStatusBar({
   }, [commitLabel, commitUrl]);
 
   return (
-    <div className="h-[19px] shrink-0 border-b border-border/50">
+    <div className="h-[19px] w-full shrink-0 border-b border-border/50">
       <div
         data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
         className="container flex h-full items-center overflow-hidden px-3 text-[11px] leading-none text-muted-foreground"
