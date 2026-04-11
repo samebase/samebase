@@ -19,7 +19,7 @@ export function WorkspaceLayoutV2PaneFrame({
     <section className="flex h-full min-h-0 flex-col bg-background">
       <div
         data-testid={headerTestId}
-        className="h-8 shrink-0 border-b border-border"
+        className="h-8 shrink-0"
       >
         {header}
       </div>
