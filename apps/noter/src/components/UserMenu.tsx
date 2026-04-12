@@ -21,6 +21,7 @@ import { useQuery } from "convex/react";
 import { ReactNode, useMemo, useState } from "react";
 import { clearAuthFlag } from "@/authClient";
 import { Link } from "@tanstack/react-router";
+import { usePostHog } from "posthog-js/react";
 
 function formatProviderLabel(provider: string | undefined): string {
   if (!provider) return "Unknown";
@@ -105,10 +106,13 @@ export function UserMenu({
 
 function SignOutButton() {
   const { signOut } = useAuthActions();
+  const posthog = usePostHog();
   return (
     <DropdownMenuItem
       onClick={() => {
         clearAuthFlag();
+        // Start the next browser session from a fresh anonymous PostHog identity.
+        posthog.reset();
         void signOut();
       }}
     >

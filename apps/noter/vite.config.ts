@@ -652,7 +652,18 @@ export default defineConfig({
   esbuild: {
     logOverride: { "this-is-undefined-in-esm": "silent" },
   },
-  server: daytonaConvexProxyServerConfig,
+  server: {
+    ...daytonaConvexProxyServerConfig,
+    proxy: {
+      ...daytonaConvexProxyServerConfig?.proxy,
+      "/ingest": {
+        target:
+          process.env.VITE_PUBLIC_POSTHOG_HOST || "https://eu.i.posthog.com",
+        changeOrigin: true,
+        rewrite: (p: string) => p.replace(/^\/ingest/, ""),
+      },
+    },
+  },
   build: {
     rollupOptions: {
       input: {
