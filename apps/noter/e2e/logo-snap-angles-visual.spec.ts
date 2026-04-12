@@ -6,7 +6,7 @@ import {
   PUBLIC_LANDING_LOGO_DIAGONAL_ROTATION_SNAP_DEGREES,
   PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES,
   PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES,
-} from "@noter-md/logo";
+} from "@noter-md/logo/public-landing-logo";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 
 const SNAPSHOT_DIRECTORY_PATH = fileURLToPath(

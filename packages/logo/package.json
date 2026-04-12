@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./logo-view-drag": "./src/components/logoViewDrag.ts",
+    "./logo-view-drag-constants": "./src/components/logoViewDragConstants.ts",
+    "./public-landing-logo": "./src/lib/publicLandingLogo.ts"
   },
   "dependencies": {
     "@tanstack/react-router": "^1.168.10",
