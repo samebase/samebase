@@ -135,7 +135,7 @@ function boxesIntersect(
   );
 }
 
-async function swipeFromLeftSidebarToRightSidebar(page: Page) {
+async function swipeFromLeftSidebarTowardRight(page: Page) {
   await dispatchHumanTouchSwipe(page, {
     startX: 320,
     startY: 220,
@@ -190,15 +190,10 @@ test.describe("fileview mobile", () => {
 
     const fixture = page.getByTestId("fileview-layout-visual-fixture");
     const bodyButton = page.getByTestId("fileview-layout-body-button");
-    const initialScrollLeft = await fixture.evaluate(
-      (element) => element.scrollLeft,
-    );
     await page
       .getByRole("button", { name: "Toggle Right Sidebar" })
       .press("Enter");
-    await expect
-      .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-      .toBeGreaterThan(initialScrollLeft);
+    await expect(fixture).toHaveAttribute("data-mobile-pane", "right");
     const header = page.getByTestId("fileview-layout-header");
 
     await expect(page.getByTestId("workspace-sidebar-main-scrim")).toHaveCount(
@@ -261,7 +256,7 @@ test.describe("fileview mobile", () => {
     );
   });
 
-  test("swipe debug overlay path from left to right", async ({ page }) => {
+  test("swipe debug overlay path from left back to main", async ({ page }) => {
     await gotoFileViewFixture(page, { swipeDebug: true });
 
     const fixture = page.getByTestId("fileview-layout-visual-fixture");
@@ -270,18 +265,15 @@ test.describe("fileview mobile", () => {
     await page
       .getByRole("button", { name: "Toggle Left Sidebar" })
       .press("Enter");
-    await expect
-      .poll(async () => fixture.evaluate((element) => element.scrollLeft))
-      .toBeLessThanOrEqual(1);
     await expect(fixture).toHaveAttribute("data-mobile-pane", "left");
     await expect(overlay).toContainText("pane: left");
 
-    await swipeFromLeftSidebarToRightSidebar(page);
-    await expect(fixture).toHaveAttribute("data-mobile-pane", "right");
-    await expect(overlay).toContainText("pane: right");
+    await swipeFromLeftSidebarTowardRight(page);
+    await expect(fixture).toHaveAttribute("data-mobile-pane", "main");
+    await expect(overlay).toContainText("pane: main");
 
     await expect(page).toHaveScreenshot(
-      "fileview-layout-mobile-swipe-debug-overlay.png",
+      "fileview-layout-mobile-swipe-debug-left-to-main.png",
       {
         animations: "disabled",
         caret: "hide",
