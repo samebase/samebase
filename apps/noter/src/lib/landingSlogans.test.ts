@@ -4,6 +4,7 @@ import {
   DEFAULT_LANDING_SLOGAN,
   parseLandingSlogans,
   selectLandingSlogan,
+  selectStableLandingSlogan,
 } from "./landingSlogans";
 
 describe("parseLandingSlogans", () => {
@@ -39,5 +40,26 @@ describe("selectLandingSlogan", () => {
     expect(
       selectLandingSlogan(slogans, DEFAULT_LANDING_SLOGAN, () => 0.9),
     ).toBe("third");
+  });
+});
+
+describe("selectStableLandingSlogan", () => {
+  it("falls back when no slogans are available", () => {
+    expect(selectStableLandingSlogan([], "commit-sha")).toBe(
+      DEFAULT_LANDING_SLOGAN,
+    );
+  });
+
+  it("returns the first slogan when the seed is empty", () => {
+    expect(selectStableLandingSlogan(["first", "second"], "")).toBe("first");
+  });
+
+  it("returns a deterministic slogan for the same seed", () => {
+    const slogans = ["first", "second", "third"];
+    const firstPick = selectStableLandingSlogan(slogans, "abcdef123456");
+    const secondPick = selectStableLandingSlogan(slogans, "abcdef123456");
+
+    expect(secondPick).toBe(firstPick);
+    expect(slogans).toContain(firstPick);
   });
 });

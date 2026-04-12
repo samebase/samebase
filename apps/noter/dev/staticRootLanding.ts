@@ -1,16 +1,11 @@
-import {
-  APP_BUILD_COMMIT_LINK_TEST_ID,
-  APP_BUILD_STATUS_BAR_TEST_ID,
-  APP_BUILD_VERSION_TEST_ID,
-  formatAppBuildCommitLabel,
-  formatAppBuildVersionLabel,
-} from "./appBuild";
-import { parseLandingCopyMarkdown } from "./landingCopyContent";
-import {
-  PUBLIC_LANDING_COPY_TEST_ID,
-  PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
-} from "./publicLanding";
+import { parseLandingCopyMarkdown } from "../lib/landingCopyContent";
 
+const APP_BUILD_STATUS_BAR_TEST_ID = "app-build-status-bar";
+const APP_BUILD_VERSION_TEST_ID = "app-build-version";
+const APP_BUILD_COMMIT_LINK_TEST_ID = "app-build-commit-link";
+const APP_BUILD_VERSION_PREFIX = "v";
+const PUBLIC_LANDING_COPY_TEST_ID = "public-landing-copy";
+const PUBLIC_LANDING_SCROLL_SHELL_TEST_ID = "public-landing-scroll-shell";
 const ROOT_PLACEHOLDER_HTML = '<div id="root"></div>';
 const STATIC_ROOT_LANDING_JS_CLASS_NAME = "noter-static-js";
 const STATIC_ROOT_LANDING_MARKER_ATTRIBUTE = "data-noter-static-root-landing";
@@ -44,9 +39,11 @@ const STATIC_PUBLIC_LANDING_LOGO_TEST_ID = "public-landing-logo";
 const STATIC_PUBLIC_LANDING_LOGO_WIDTH = 360;
 const LANDING_COPY_LIST_PADDING_START_STYLE = "13.7812px";
 const LANDING_COPY_LIST_TEXT_INDENT_STYLE = "-7.78125px";
+const SHORT_APP_BUILD_COMMIT_LENGTH = 8;
 const STATIC_ROOT_LANDING_LOGO_SRC = "/logo-static.svg";
 const STATIC_WAITLIST_HINT = "Enable JavaScript to join the waitlist.";
 const STATIC_GOOGLE_PLACEHOLDER_LABEL = "Google sign-in requires JS";
+const UNKNOWN_APP_BUILD_VERSION_NUMBER = "?";
 // Keep the build-time fallback aligned with the shipped outline button until
 // the routed landing replaces it with the interactive React surface.
 const STATIC_OUTLINE_BUTTON_CLASS_NAME =
@@ -61,6 +58,30 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function formatAppBuildVersionNumber(commitNumber: number | null): string {
+  if (
+    commitNumber !== null &&
+    Number.isSafeInteger(commitNumber) &&
+    commitNumber >= 1
+  ) {
+    return String(commitNumber);
+  }
+
+  return UNKNOWN_APP_BUILD_VERSION_NUMBER;
+}
+
+function formatAppBuildVersionLabel(commitNumber: number | null): string {
+  return `${APP_BUILD_VERSION_PREFIX}${formatAppBuildVersionNumber(
+    commitNumber,
+  )}`;
+}
+
+function formatAppBuildCommitLabel(appCommit: string): string {
+  return /^[0-9a-f]{8,40}$/i.test(appCommit)
+    ? appCommit.slice(0, SHORT_APP_BUILD_COMMIT_LENGTH)
+    : appCommit;
 }
 
 function normalizeRepoUrl(repoUrl: string): string {

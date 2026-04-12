@@ -8,6 +8,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
 import { formatWithOxfmt } from "../../scripts/format-with-oxfmt.js";
 import { readPackageVersion } from "../../scripts/readPackageVersion.js";
+import { renderStaticRootLandingHtml } from "./dev/staticRootLanding";
+import { buildLandingPageMarkdown } from "./lib/landingCopyContent";
 import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
 import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
 import {
@@ -15,13 +17,11 @@ import {
   PRIVACY_PAGE_METADATA,
   TERMS_PAGE_METADATA,
 } from "./src/lib/pageMetadata";
-import { buildLandingPageMarkdown } from "./src/lib/landingCopyContent";
 import {
   parseLandingSlogans,
-  selectLandingSlogan,
+  selectStableLandingSlogan,
 } from "./src/lib/landingSlogans";
 import { renderStaticLegalPageHtml } from "./src/lib/staticLegalPage";
-import { renderStaticRootLandingHtml } from "./src/lib/staticRootLanding";
 import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import {
   readEnvFileValue,
@@ -154,8 +154,9 @@ const staticPrivacyHtmlPath = path.resolve(
 );
 const staticTermsHtmlPath = path.resolve(currentDir, "public/terms/index.html");
 const staticRootLandingMarkdown = buildLandingPageMarkdown(
-  selectLandingSlogan(
+  selectStableLandingSlogan(
     parseLandingSlogans(readFileSync(landingSlogansMarkdownPath, "utf8")),
+    appCommit,
   ),
 );
 

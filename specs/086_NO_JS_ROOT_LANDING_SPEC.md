@@ -8,12 +8,12 @@
 - Related files:
   - `apps/noter/index.html`
   - `apps/noter/public/_redirects`
+  - `apps/noter/dev/staticRootLanding.ts`
   - `apps/noter/e2e/public-landing-no-js.spec.ts`
+  - `apps/noter/lib/landingCopyContent.ts`
   - `apps/noter/src/SignInForm.tsx`
   - `apps/noter/src/components/LandingCopy.tsx`
   - `apps/noter/src/lib/landingCopy.ts`
-  - `apps/noter/src/lib/landingCopyContent.ts`
-  - `apps/noter/src/lib/staticRootLanding.ts`
   - `apps/noter/vite.config.ts`
   - `specs/061_FAST_PUBLIC_LANDING_BOOT_SPEC.md`
   - `specs/082_TANSTACK_ROUTER_CLEANUP_SPEC.md`
@@ -76,12 +76,12 @@ The current branch implements the first slice with a build-time root/app split:
 1. `apps/noter/vite.config.ts` now preserves the original built SPA shell as
    `dist/app.html`, then rewrites `dist/index.html` into a root-only static
    landing document after the normal build completes.
-2. `apps/noter/src/lib/staticRootLanding.ts` generates the root fallback by
+2. `apps/noter/dev/staticRootLanding.ts` generates the root fallback by
    injecting visible landing markup into the built `#root` placeholder while
    keeping the normal app scripts in place for later boot.
 3. `apps/noter/public/_redirects` now keeps `/` on `index.html` and sends
    non-root SPA paths to `app.html`.
-4. `apps/noter/src/lib/landingCopyContent.ts` now owns the shared landing copy
+4. `apps/noter/lib/landingCopyContent.ts` now owns the shared landing copy
    contract so the routed landing and the static build step can reuse the same
    slogan-and-bullets source.
 5. The root static landing now shows an explicit no-JS Google placeholder, a
@@ -90,6 +90,8 @@ The current branch implements the first slice with a build-time root/app split:
 6. A tiny inline script swaps the no-JS Google message for a same-footprint
    inert JS placeholder as soon as scripts run, which avoids collapsing the row
    before React hydrates the routed landing.
+7. The routed landing and build-time fallback now use the same stable slogan
+   selection seed for a given build so the headline does not jump during boot.
 
 ## Implementation Notes
 
@@ -107,7 +109,7 @@ The current branch has local coverage for:
 
 1. shared landing copy parsing and static HTML generation through
    `apps/noter/src/lib/landingCopy.test.ts` and
-   `apps/noter/src/lib/staticRootLanding.test.ts`,
+   `apps/noter/dev/staticRootLanding.test.ts`,
 2. a production-build verification through `pnpm --dir apps/noter run build:ci`,
 3. a JS-disabled root landing browser check in
    `apps/noter/e2e/public-landing-no-js.spec.ts`.
