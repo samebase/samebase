@@ -61,7 +61,6 @@ import { claimRefreshDebounce } from "@/lib/treeRefreshDebounce";
 import { buildFileViewRefreshDebounceKey } from "@/lib/fileViewRefresh";
 import { getAncestorFolderPaths } from "@/lib/fileTreeState";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import {
   readUploadStorageId,
   uploadMediaWithCleanup,
@@ -82,7 +81,6 @@ import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader"
 import { DAYTONA_PAUSED } from "../../../shared/daytonaPause";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
-import { getStagedFileStatus as getSharedStagedFileStatus } from "../../../shared/stagedFiles";
 import { isStaleBaseVersionError } from "../../../shared/stagingErrors";
 import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
 import { isInIframe } from "@/authClient";
@@ -106,219 +104,36 @@ import {
   mergeFileViewRouteSearch,
   useFileViewRouteSearch,
 } from "@/lib/fileViewRouteSearch";
-import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
-
-const FILE_VIEW_SIDEBAR_DEFAULT_STATE = {
-  leftDesktopOpen: FILE_VIEW_TREE_SIDEBAR_SIDE === "left",
-  leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  leftMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  mobilePane: "main",
-  rightDesktopOpen: true,
-  rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-} satisfies WorkspaceSidebarState;
-
-function isFileTreeNodeType(type: string): type is "tree" | "blob" {
-  return type === "tree" || type === "blob";
-}
-
-// Function to find the best file to display
-function findBestInitialFile(files: GithubTreeType[]) {
-  // Only consider blob (file) types, not directories
-  const fileList = files.filter((item) => item.type === "blob");
-
-  if (fileList.length === 0) return null;
-
-  // 1. Look for README files (case insensitive, various extensions)
-  const readmeFile = fileList.find((file) =>
-    /^readme(\.(md|txt|rst|org))?$/i.test(file.path),
-  );
-  if (readmeFile) return readmeFile.path;
-
-  // 2. Look for any markdown files
-  const markdownFile = fileList.find((file) =>
-    /\.(md|markdown)$/i.test(file.path),
-  );
-  if (markdownFile) return markdownFile.path;
-
-  // 3. Return first file (sorted alphabetically)
-  const sortedFiles = fileList.sort((a, b) => a.path.localeCompare(b.path));
-  return sortedFiles[0]?.path || null;
-}
-
-type CommitPreviewFile = {
-  status: CommitPreviewFileStatus;
-  path: string;
-  previousPath?: string;
-  isBinary: boolean;
-  mimeType?: string;
-  additions: number;
-  deletions: number;
-  oldLineCount: number;
-  newLineCount: number;
-  isMarkdown: boolean;
-  richOldContent?: string;
-  richNewContent?: string;
-  richContentTruncated?: boolean;
-  patchTruncated: boolean;
-  patch?: string;
-};
-
-type CommitPreview = {
-  branch: string;
-  hasDestructiveChanges: boolean;
-  files: CommitPreviewFile[];
-  totals: {
-    files: number;
-    added: number;
-    modified: number;
-    deleted: number;
-    renamed: number;
-    additions: number;
-    deletions: number;
-  };
-  safety: {
-    destructiveFileCount: number;
-    truncatedPatchFileCount: number;
-    includesTruncatedPatches: boolean;
-  };
-};
-
-type BranchComparePreview =
-  (typeof api.fileStagingActions.getBranchComparePreview)["_returnType"];
-type RebaseConflictPreviewFile = {
-  path: string;
-  previousPath?: string;
-  upstreamPath?: string;
-  isBinary: boolean;
-  mimeType?: string;
-  isMarkdown: boolean;
-  baseBlobSha?: string;
-  upstreamBlobSha: string;
-  baseToStagedPatchTruncated: boolean;
-  baseToStagedPatch?: string;
-  baseToUpstreamPatchTruncated: boolean;
-  baseToUpstreamPatch?: string;
-};
-
-type RebaseConflictPreview = {
-  branch: string;
-  files: RebaseConflictPreviewFile[];
-};
-
-type CommitReviewMode = "editor" | "review";
-type SidebarMode = "simple" | "all";
-type EffectiveSidebarMode = SidebarMode | "compare";
-type StagedFileRecord = NonNullable<
-  (typeof api.fileStaging.listStagedFiles)["_returnType"]
->[number];
-type InlinePreviewSaveSnapshot = {
-  stagingId: StagedFileRecord["_id"];
-  content: string;
-  baseVersion: number;
-};
-type PendingMediaUpload = {
-  file: File;
-  preferredFolderPath: string;
-};
-
-type RefreshTrigger = "visibility" | "page_load";
-const BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS = 1000;
-
-function isStorageBackedFileError(error: unknown): boolean {
-  return (
-    error instanceof Error && error.message.toLowerCase().includes("in storage")
-  );
-}
-
-function readGraphViewMode(storageKey: string): "editor" | "graph" | null {
-  try {
-    const storedMode = localStorage.getItem(storageKey);
-    if (storedMode === "editor" || storedMode === "graph") {
-      return storedMode;
-    }
-  } catch (error) {
-    console.warn("Failed to read graph view preference", error);
-  }
-  return null;
-}
-
-function getPatchLineClassName(line: string): string {
-  if (line.startsWith("+") && !line.startsWith("+++")) {
-    return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
-  }
-  if (line.startsWith("-") && !line.startsWith("---")) {
-    return "bg-rose-500/10 text-rose-700 dark:text-rose-300";
-  }
-  if (line.startsWith("@@")) {
-    return "text-muted-foreground";
-  }
-  return "";
-}
-
-function matchesInlinePreviewSaveSnapshot(
-  left: InlinePreviewSaveSnapshot | null,
-  right: InlinePreviewSaveSnapshot,
-): boolean {
-  return (
-    left?.stagingId === right.stagingId &&
-    left.content === right.content &&
-    left.baseVersion === right.baseVersion
-  );
-}
-
-function buildInlinePreviewAutosaveContextKey(
-  reviewMode: CommitReviewMode,
-  activeStagingId: StagedFileRecord["_id"] | null,
-  draftStagingId: StagedFileRecord["_id"] | null,
-): string {
-  return `${reviewMode}:${activeStagingId ?? "none"}:${draftStagingId ?? "none"}`;
-}
-
-const DEFAULT_INLINE_PREVIEW_OPTIONS = {
-  allowInlineDiffs: false,
-  syntaxHighlightDeletions: true,
-} satisfies ProsemarkMergeEditorOptions;
-
-const DEFAULT_SHOW_INLINE_PREVIEW_PATCH = false;
-const DEFAULT_SHOW_INLINE_PREVIEW_SIDE_BY_SIDE = false;
-const UPSTREAM_CONFLICT_ERROR_PREFIX =
-  "Commit conflicts with upstream changes. Resolve and retry: ";
-
-function parseUpstreamConflictPaths(message: string | null): string[] {
-  if (!message || !message.startsWith(UPSTREAM_CONFLICT_ERROR_PREFIX)) {
-    return [];
-  }
-
-  return message
-    .slice(UPSTREAM_CONFLICT_ERROR_PREFIX.length)
-    .split(",")
-    .map((path) => path.trim())
-    .filter((path) => path.length > 0);
-}
-
-function getStagedFileStatus(
-  file: StagedFileRecord,
-): CommitPreviewFileStatus | null {
-  return getSharedStagedFileStatus(file);
-}
-
-function encodeGitHubPath(path: string): string {
-  return path
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-}
-
-function getDefaultUploadFolderPath(filePath: string): string {
-  const pathSegments = filePath.split("/");
-  pathSegments.pop();
-  return pathSegments.join("/");
-}
-
-function normalizeFolderPath(folderPath: string): string {
-  return folderPath.trim().replace(/^\/+|\/+$/g, "");
-}
+import {
+  type BranchComparePreview,
+  BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS,
+  buildInlinePreviewAutosaveContextKey,
+  type CommitPreview,
+  type CommitPreviewFile,
+  type CommitReviewMode,
+  DEFAULT_INLINE_PREVIEW_OPTIONS,
+  DEFAULT_SHOW_INLINE_PREVIEW_PATCH,
+  DEFAULT_SHOW_INLINE_PREVIEW_SIDE_BY_SIDE,
+  encodeGitHubPath,
+  type EffectiveSidebarMode,
+  FILE_VIEW_SIDEBAR_DEFAULT_STATE,
+  findBestInitialFile,
+  getDefaultUploadFolderPath,
+  getPatchLineClassName,
+  getStagedFileStatus,
+  isFileTreeNodeType,
+  isStorageBackedFileError,
+  type InlinePreviewSaveSnapshot,
+  matchesInlinePreviewSaveSnapshot,
+  normalizeFolderPath,
+  parseUpstreamConflictPaths,
+  type PendingMediaUpload,
+  readGraphViewMode,
+  type RebaseConflictPreview,
+  type RefreshTrigger,
+  type SidebarMode,
+  type StagedFileRecord,
+} from "./fileViewShared";
 
 function FileViewWrapper() {
   const router = useRouter();
