@@ -169,7 +169,7 @@ test("mobile prose drags do not log non-cancelable touchmove intervention warnin
 }) => {
   await gotoFixture(page);
 
-  const shell = page.getByTestId("fileview-prosemark-height-shell");
+  const shell = prosemarkDragShell(page);
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 
   const warnings = await collectTouchMoveInterventionWarnings(

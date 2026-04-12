@@ -579,6 +579,7 @@ type EditorChatPanelProps = {
   className?: string;
   autoFocusInput?: boolean;
   headerResizeHandle?: ReactNode;
+  onBusyStateChange?: (isBusy: boolean) => void;
   onClose?: () => void;
   shellMode?: "embedded" | "standalone";
 };
@@ -616,6 +617,7 @@ export function EditorChatPanel({
   className,
   autoFocusInput = false,
   headerResizeHandle,
+  onBusyStateChange,
   onClose,
   shellMode = "standalone",
 }: EditorChatPanelProps) {
@@ -761,6 +763,16 @@ export function EditorChatPanel({
       inputRef.current?.focus();
     }
   }, [autoFocusInput]);
+
+  useEffect(() => {
+    onBusyStateChange?.(sending || isDeleting);
+  }, [isDeleting, onBusyStateChange, sending]);
+
+  useEffect(() => {
+    return () => {
+      onBusyStateChange?.(false);
+    };
+  }, [onBusyStateChange]);
 
   // Clear sending flag when we get the assistant response
   useEffect(() => {

@@ -2571,6 +2571,7 @@ function FileViewInner({
   const [editorChatOpen, setEditorChatOpenState] = useState<boolean | null>(
     null,
   );
+  const [isEditorChatBusy, setIsEditorChatBusy] = useState(false);
   const [shouldAutoFocusChatInput, setShouldAutoFocusChatInput] =
     useState(false);
   const editorChatPendingRef = useRef<boolean | null>(null);
@@ -3190,9 +3191,11 @@ function FileViewInner({
               branch={branch}
               filePath={selectedFile || undefined}
               autoFocusInput={shouldAutoFocusChatInput}
+              onBusyStateChange={setIsEditorChatBusy}
               shellMode="embedded"
             />
           ),
+          closeDisabled: isEditorChatBusy,
           onOpenChange: handleEditorChatOpenChange,
           open: resolvedEditorChatOpen,
         }}
