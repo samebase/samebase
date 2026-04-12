@@ -27,6 +27,7 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { EditorChatDock } from "@/components/EditorChatDock";
 import { FileViewSidebarContent } from "@/components/FileView/FileViewSidebar";
 import { useFileViewInlinePreview } from "@/components/FileView/useFileViewInlinePreview";
+import { useFileViewMediaUpload } from "@/components/FileView/useFileViewMediaUpload";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { linkStyle } from "@/components/styles";
@@ -52,10 +53,6 @@ import { claimRefreshDebounce } from "@/lib/treeRefreshDebounce";
 import { buildFileViewRefreshDebounceKey } from "@/lib/fileViewRefresh";
 import { getAncestorFolderPaths } from "@/lib/fileTreeState";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
-import {
-  readUploadStorageId,
-  uploadMediaWithCleanup,
-} from "@/lib/mediaUploadWorkflow";
 import { type GithubTreeType } from "../../../convex/schema";
 import { formatStopwatchDuration } from "@/lib/stopwatch";
 import { DaytonaPreviewPanel } from "@/components/DaytonaPreviewPanel";
@@ -102,13 +99,10 @@ import {
   type EffectiveSidebarMode,
   FILE_VIEW_SIDEBAR_DEFAULT_STATE,
   findBestInitialFile,
-  getDefaultUploadFolderPath,
   getStagedFileStatus,
   isFileTreeNodeType,
   isStorageBackedFileError,
-  normalizeFolderPath,
   parseUpstreamConflictPaths,
-  type PendingMediaUpload,
   readGraphViewMode,
   type RebaseConflictPreview,
   type RefreshTrigger,
@@ -823,13 +817,6 @@ function FileViewInner({
     useState<FileViewEditorOverride>("default");
   const restoringDeletedFilePathRef = useRef<string | null>(null);
   const clearInlinePreviewSaveErrorRef = useRef<() => void>(() => {});
-  const mediaUploadInputRef = useRef<HTMLInputElement>(null);
-  const pendingMediaUploadFolderPathRef = useRef("");
-  const [pendingMediaUpload, setPendingMediaUpload] =
-    useState<PendingMediaUpload | null>(null);
-  const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
-  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
-  const [isMediaUploadDragOver, setIsMediaUploadDragOver] = useState(false);
 
   // Convex hooks for staging
   const [commitStaging, manualComittingStatus] = useConvexAction(
@@ -1229,144 +1216,30 @@ function FileViewInner({
       routeSearch.review,
     ],
   );
-  const prepareMediaUpload = useCallback(
-    (file: File, preferredFolderPath: string) => {
-      const looksLikeImage =
-        file.type.startsWith("image/") ||
-        isRenderableRepositoryMediaPath(file.name);
-      if (!looksLikeImage) {
-        setMediaUploadError("Only image uploads are supported right now.");
-        return;
-      }
+  const {
+    handleCloseMediaUploadDialog,
+    handleMediaUploadDrop,
+    handleMediaUploadInputChange,
+    handleMediaUploadSubmit,
+    handleRequestMediaUpload,
+    isMediaUploadDragOver,
+    isUploadingMedia,
+    mediaUploadError,
+    mediaUploadInputRef,
+    pendingMediaUpload,
+    setIsMediaUploadDragOver,
+  } = useFileViewMediaUpload({
+    branch,
+    buildVaultFileUrl,
+    deletePendingUploadBlob,
+    generateUploadUrl,
+    navigateByHref,
+    repositoryFullName,
+    selectedFile,
+    stageUploadedMedia,
+    vaultId: vault._id,
+  });
 
-      setMediaUploadError(null);
-      setPendingMediaUpload({
-        file,
-        preferredFolderPath: normalizeFolderPath(preferredFolderPath),
-      });
-    },
-    [],
-  );
-  const handleRequestMediaUpload = useCallback(
-    (preferredFolderPath?: string) => {
-      pendingMediaUploadFolderPathRef.current =
-        preferredFolderPath ?? getDefaultUploadFolderPath(selectedFile);
-      mediaUploadInputRef.current?.click();
-    },
-    [selectedFile],
-  );
-  const handleMediaUploadInputChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      event.target.value = "";
-      if (!file) {
-        return;
-      }
-
-      prepareMediaUpload(file, pendingMediaUploadFolderPathRef.current);
-    },
-    [prepareMediaUpload],
-  );
-  const handleMediaUploadSubmit = useCallback(
-    ({
-      replaceExisting,
-      targetPath,
-    }: {
-      replaceExisting: boolean;
-      targetPath: string;
-    }) => {
-      if (!pendingMediaUpload) {
-        return;
-      }
-
-      setIsUploadingMedia(true);
-      setMediaUploadError(null);
-
-      void uploadMediaWithCleanup({
-        requestUploadUrl: () => generateUploadUrl({ vaultId: vault._id }),
-        uploadFile: async (uploadUrl) => {
-          const response = await fetch(uploadUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                pendingMediaUpload.file.type || "application/octet-stream",
-            },
-            body: pendingMediaUpload.file,
-          });
-          if (!response.ok) {
-            throw new Error("Failed to upload image.");
-          }
-          return readUploadStorageId(await response.json());
-        },
-        stageUploadedMedia: async (storageId) => {
-          await stageUploadedMedia({
-            repositoryFullName,
-            filePath: targetPath,
-            // Convex returns upload ids as opaque strings over HTTP even though
-            // the generated client types brand storage ids locally.
-            // @ts-expect-error Upload responses cannot preserve the `_storage` brand across fetch JSON.
-            storageId,
-            branch,
-            replaceExisting,
-          });
-        },
-        deleteUploadedMedia: async (storageId) => {
-          await deletePendingUploadBlob({
-            vaultId: vault._id,
-            // Upload responses cannot preserve the storage id brand.
-            // @ts-expect-error Upload responses are plain strings from fetch JSON.
-            storageId,
-          });
-        },
-        onCleanupError: (cleanupError, storageId) => {
-          console.warn("Failed to clean up uploaded media blob", {
-            storageId,
-            cleanupError,
-          });
-        },
-      })
-        .then(() => {
-          setPendingMediaUpload(null);
-          navigateByHref(buildVaultFileUrl(targetPath));
-        })
-        .catch((error: unknown) => {
-          const message =
-            error instanceof Error && error.message.length > 0
-              ? error.message
-              : "Failed to upload image.";
-          setMediaUploadError(message);
-        })
-        .finally(() => {
-          setIsUploadingMedia(false);
-        });
-    },
-    [
-      branch,
-      buildVaultFileUrl,
-      deletePendingUploadBlob,
-      generateUploadUrl,
-      navigateByHref,
-      pendingMediaUpload,
-      repositoryFullName,
-      stageUploadedMedia,
-      vault._id,
-    ],
-  );
-  const handleMediaUploadDrop = useCallback(
-    (event: React.DragEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      setIsMediaUploadDragOver(false);
-
-      const fileList = event.dataTransfer.files;
-      if (fileList.length === 0) {
-        return;
-      }
-
-      const file = fileList[0];
-      prepareMediaUpload(file, getDefaultUploadFolderPath(selectedFile));
-    },
-    [prepareMediaUpload, selectedFile],
-  );
   const setReviewModeInQuery = useCallback(
     (
       mode: CommitReviewMode,
@@ -3346,13 +3219,7 @@ function FileViewInner({
       {pendingMediaUpload ? (
         <MediaUploadDialog
           isOpen={true}
-          onClose={() => {
-            if (isUploadingMedia) {
-              return;
-            }
-            setPendingMediaUpload(null);
-            setMediaUploadError(null);
-          }}
+          onClose={handleCloseMediaUploadDialog}
           fileName={pendingMediaUpload.file.name}
           initialFolderPath={pendingMediaUpload.preferredFolderPath}
           folders={finalTreeData}
