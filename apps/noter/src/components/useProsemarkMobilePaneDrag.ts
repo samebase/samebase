@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type React from "react";
 import { useWorkspaceMobilePaneDrag } from "@/components/workspace-layout/useWorkspaceMobilePaneDrag";
+import { preventDefaultIfCancelable } from "@/lib/utils";
 
 const MOBILE_PANE_DRAG_SLOP_PX = 10;
 
@@ -187,7 +188,7 @@ export function useProsemarkMobilePaneDrag(
       // actually moved the shared shell; some browsers surface a stray
       // pointermove before the meaningful touch samples continue.
       dragState.pointerPathCapturedShell = true;
-      event.preventDefault();
+      preventDefaultIfCancelable(event);
       event.stopPropagation();
     },
     [updateDragState],
@@ -206,7 +207,7 @@ export function useProsemarkMobilePaneDrag(
       const shouldSettle = dragState.type === "shell";
       resetDragState(event);
       if (shouldSettle) {
-        event.preventDefault();
+        preventDefaultIfCancelable(event);
         event.stopPropagation();
         settleMobileShell();
       }
@@ -277,7 +278,7 @@ export function useProsemarkMobilePaneDrag(
         return;
       }
 
-      event.preventDefault();
+      preventDefaultIfCancelable(event);
       event.stopPropagation();
     },
     [updateDragState],
@@ -312,7 +313,7 @@ export function useProsemarkMobilePaneDrag(
       const shouldSettle = dragState.type === "shell";
       clearDragState();
       if (shouldSettle) {
-        event.preventDefault();
+        preventDefaultIfCancelable(event);
         event.stopPropagation();
         settleMobileShell();
       }

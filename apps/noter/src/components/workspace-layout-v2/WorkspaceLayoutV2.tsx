@@ -29,7 +29,7 @@ import {
   type WorkspaceLayoutV2Metrics,
   type WorkspaceLayoutV2Pane,
 } from "./paneLayout";
-import { cn } from "@/lib/utils";
+import { cn, preventDefaultIfCancelable } from "@/lib/utils";
 import {
   WorkspaceLayoutV2PaneFrame,
   WorkspaceLayoutV2PaneFrameProps,
@@ -764,7 +764,7 @@ function useWorkspaceLayoutV2MobileGesture({
         setMobileGestureDebugSnapshot(activeSnapshot);
       }
       setMobileDragOffsetPx(dragOffsetPx);
-      event.preventDefault();
+      preventDefaultIfCancelable(event);
     },
   );
 

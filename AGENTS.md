@@ -324,6 +324,9 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   Chrome processes. Use isolated Playwright-owned sessions only.
 - For this repo, prefer `node ./scripts/playwright-branch-browser.js` or
   `make playwright-open` over raw `@playwright/cli open`.
+- When the user asks to reproduce or inspect a mobile issue, start Playwright in
+  a mobile-emulated context from launch. Do not begin in a desktop context and
+  resize later.
 - Start Playwright validation with the normal unconstrained browser layout
   unless the user asks for a specific viewport. Add a mobile pass when relevant
   before shipping.
