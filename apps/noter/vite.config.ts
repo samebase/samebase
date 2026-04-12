@@ -1,4 +1,8 @@
-import { defineConfig, type ViteDevServer } from "vite";
+import {
+  defineConfig,
+  type IndexHtmlTransformContext,
+  type ViteDevServer,
+} from "vite";
 import react from "@vitejs/plugin-react";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import path from "path";
@@ -580,70 +584,30 @@ function syncStaticLegalPageAssetsPlugin() {
 }
 
 function serveStaticRootLandingInDevPlugin() {
-  const appHtmlTemplatePath = path.resolve(currentDir, "index.html");
-
   return {
     name: "serve-static-root-landing-in-dev",
-    async configureServer(server: ViteDevServer) {
-      server.middlewares.use(
-        (
-          request: IncomingMessage,
-          response: ServerResponse<IncomingMessage>,
-          next: (error?: Error) => void,
-        ) => {
-          if (request.method !== "GET" && request.method !== "HEAD") {
-            next();
-            return;
-          }
+    transformIndexHtml: {
+      order: "pre",
+      handler(html: string, context: IndexHtmlTransformContext) {
+        if (!("server" in context)) {
+          return html;
+        }
 
-          const requestPath = (() => {
-            if (!request.url) {
-              return null;
-            }
+        if (context.path !== "/" && context.path !== "/index.html") {
+          return html;
+        }
 
-            try {
-              return new URL(request.url, "http://vite.local").pathname;
-            } catch {
-              return null;
-            }
-          })();
-
-          if (requestPath !== "/" && requestPath !== "/index.html") {
-            next();
-            return;
-          }
-
-          const acceptHeader = request.headers.accept;
-          if (
-            typeof acceptHeader === "string" &&
-            !acceptHeader.includes("text/html")
-          ) {
-            next();
-            return;
-          }
-
-          void server
-            .transformIndexHtml(
-              request.url ?? "/",
-              readFileSync(appHtmlTemplatePath, "utf8"),
-            )
-            .then((appHtml) =>
-              renderStaticRootLandingHtml({
-                appCommit,
-                appCommitNumber,
-                appHtml,
-                landingMarkdown: staticRootLandingMarkdown,
-                repoUrl: appRepoUrl,
-              }),
-            )
-            .then((staticRootLandingHtml) => {
-              response.statusCode = 200;
-              response.setHeader("Content-Type", "text/html; charset=utf-8");
-              response.end(staticRootLandingHtml);
-            })
-            .catch(next);
-        },
-      );
+        // In dev, Vite serves the root document through the HTML transform
+        // pipeline, so the no-JS fallback has to be injected here rather than
+        // through a later Connect middleware.
+        return renderStaticRootLandingHtml({
+          appCommit,
+          appCommitNumber,
+          appHtml: html,
+          landingMarkdown: staticRootLandingMarkdown,
+          repoUrl: appRepoUrl,
+        });
+      },
     },
   };
 }

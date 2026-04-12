@@ -117,7 +117,8 @@ The current branch has local coverage for:
 3. a JS-disabled root landing browser check in
    `apps/noter/e2e/public-landing-no-js.spec.ts`,
 4. a JS-disabled Vite dev-server browser check against the worktree `make anon`
-   frontend port.
+   frontend port using a shell-launched Playwright Chromium context with
+   `javaScriptEnabled: false` and blocked service workers.
 
 ## Known Issue
 
