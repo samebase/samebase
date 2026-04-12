@@ -2901,15 +2901,13 @@ function FileViewInner({
                                             file.
                                           </div>
                                         ) : null}
-                                        <div className="p-3 font-mono text-xs leading-5">
-                                          {selectedRebaseConflictFile.baseToStagedPatch ? (
-                                            <FileViewPatchText
-                                              patch={
-                                                selectedRebaseConflictFile.baseToStagedPatch
-                                              }
-                                            />
-                                          ) : null}
-                                        </div>
+                                        {selectedRebaseConflictFile.baseToStagedPatch ? (
+                                          <FileViewPatchText
+                                            patch={
+                                              selectedRebaseConflictFile.baseToStagedPatch
+                                            }
+                                          />
+                                        ) : null}
                                       </div>
                                       <div className="min-h-0 border-t md:border-t-0">
                                         <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
@@ -2921,15 +2919,13 @@ function FileViewInner({
                                             file.
                                           </div>
                                         ) : null}
-                                        <div className="p-3 font-mono text-xs leading-5">
-                                          {selectedRebaseConflictFile.baseToUpstreamPatch ? (
-                                            <FileViewPatchText
-                                              patch={
-                                                selectedRebaseConflictFile.baseToUpstreamPatch
-                                              }
-                                            />
-                                          ) : null}
-                                        </div>
+                                        {selectedRebaseConflictFile.baseToUpstreamPatch ? (
+                                          <FileViewPatchText
+                                            patch={
+                                              selectedRebaseConflictFile.baseToUpstreamPatch
+                                            }
+                                          />
+                                        ) : null}
                                       </div>
                                     </div>
                                   )}
