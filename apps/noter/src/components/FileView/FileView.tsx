@@ -26,14 +26,8 @@ import { buildPathWithQuery } from "@/lib/queryParams";
 import { CommandPalette } from "@/components/CommandPalette";
 import { EditorChatDock } from "@/components/EditorChatDock";
 import { FileViewSidebarContent } from "@/components/FileView/FileViewSidebar";
-import {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  useRef,
-  useLayoutEffect,
-} from "react";
+import { useFileViewInlinePreview } from "@/components/FileView/useFileViewInlinePreview";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { linkStyle } from "@/components/styles";
 import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";
@@ -41,10 +35,7 @@ import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
 import { FolderCreationDialog } from "@/components/FolderCreationDialog";
-import {
-  ProsemarkMergeEditor,
-  type ProsemarkMergeEditorOptions,
-} from "@/components/ProsemarkMergeEditor";
+import { ProsemarkMergeEditor } from "@/components/ProsemarkMergeEditor";
 import { nonNullable } from "@/lib/utils";
 import {
   filterSimpleViewTreeItems,
@@ -81,7 +72,6 @@ import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader"
 import { DAYTONA_PAUSED } from "../../../shared/daytonaPause";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
-import { isStaleBaseVersionError } from "../../../shared/stagingErrors";
 import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
 import { isInIframe } from "@/authClient";
 import {
@@ -98,7 +88,6 @@ import {
   shouldClearCompareOnReviewExit,
   shouldShowCompareBackToEditor,
 } from "@/lib/fileViewReview";
-import { getReviewSplitDiffHighlights } from "@/lib/reviewSplitDiff";
 import {
   buildFileViewRouteSearch,
   mergeFileViewRouteSearch,
@@ -107,12 +96,8 @@ import {
 import {
   type BranchComparePreview,
   BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS,
-  buildInlinePreviewAutosaveContextKey,
   type CommitPreview,
   type CommitReviewMode,
-  DEFAULT_INLINE_PREVIEW_OPTIONS,
-  DEFAULT_SHOW_INLINE_PREVIEW_PATCH,
-  DEFAULT_SHOW_INLINE_PREVIEW_SIDE_BY_SIDE,
   encodeGitHubPath,
   type EffectiveSidebarMode,
   FILE_VIEW_SIDEBAR_DEFAULT_STATE,
@@ -121,8 +106,6 @@ import {
   getStagedFileStatus,
   isFileTreeNodeType,
   isStorageBackedFileError,
-  type InlinePreviewSaveSnapshot,
-  matchesInlinePreviewSaveSnapshot,
   normalizeFolderPath,
   parseUpstreamConflictPaths,
   type PendingMediaUpload,
@@ -835,41 +818,11 @@ function FileViewInner({
   const [restoringDeletedFilePath, setRestoringDeletedFilePath] = useState<
     string | null
   >(null);
-  const [inlinePreviewDraftStagingId, setInlinePreviewDraftStagingId] =
-    useState<StagedFileRecord["_id"] | null>(null);
-  const [inlinePreviewDraftContent, setInlinePreviewDraftContent] =
-    useState("");
-  const [inlinePreviewDraftBaseVersion, setInlinePreviewDraftBaseVersion] =
-    useState(0);
-  const [
-    inlinePreviewHasPendingLocalEdit,
-    setInlinePreviewHasPendingLocalEdit,
-  ] = useState(false);
-  const [inlinePreviewOptions, setInlinePreviewOptions] =
-    useState<ProsemarkMergeEditorOptions>(DEFAULT_INLINE_PREVIEW_OPTIONS);
-  const [showInlinePreviewPatch, setShowInlinePreviewPatch] = useState(
-    DEFAULT_SHOW_INLINE_PREVIEW_PATCH,
-  );
-  const [showInlinePreviewSideBySide, setShowInlinePreviewSideBySide] =
-    useState(DEFAULT_SHOW_INLINE_PREVIEW_SIDE_BY_SIDE);
   const [developerToolsOpen, setDeveloperToolsOpen] = useState(false);
   const [editorOverride, setEditorOverride] =
     useState<FileViewEditorOverride>("default");
-  const [inlinePreviewSaveError, setInlinePreviewSaveError] = useState<
-    string | null
-  >(null);
-  const [inlinePreviewInFlightSave, setInlinePreviewInFlightSave] =
-    useState<InlinePreviewSaveSnapshot | null>(null);
-  const [inlinePreviewFailedSave, setInlinePreviewFailedSave] =
-    useState<InlinePreviewSaveSnapshot | null>(null);
-  const inlinePreviewDraftContentRef = useRef("");
   const restoringDeletedFilePathRef = useRef<string | null>(null);
-  const activePreviewStagingIdRef = useRef<StagedFileRecord["_id"] | null>(
-    null,
-  );
-  const flushPendingInlinePreviewSaveRef = useRef<(() => void) | null>(null);
-  const inlinePreviewAutosaveContextKeyRef = useRef("");
-  const inlinePreviewMountedRef = useRef(true);
+  const clearInlinePreviewSaveErrorRef = useRef<() => void>(() => {});
   const mediaUploadInputRef = useRef<HTMLInputElement>(null);
   const pendingMediaUploadFolderPathRef = useRef("");
   const [pendingMediaUpload, setPendingMediaUpload] =
@@ -2031,7 +1984,7 @@ function FileViewInner({
 
   const resetCommitPreviewState = useCallback(() => {
     setCommitPreview(null);
-    setInlinePreviewSaveError(null);
+    clearInlinePreviewSaveErrorRef.current();
     resetRebaseConflictState();
   }, [resetRebaseConflictState]);
 
@@ -2146,277 +2099,29 @@ function FileViewInner({
     typeof selectedComparedFile.richNewContent === "string" &&
     !selectedFileIsRenderableMedia,
   );
-  const activePreviewPersistedContent = selectedPreviewStagedFile
-    ? selectedPreviewStagedFile.fileDeleted
-      ? ""
-      : selectedPreviewStagedFile.content
-    : (selectedPreviewFile?.richNewContent ?? "");
-  const activePreviewPersistedVersion = selectedPreviewStagedFile?.version ?? 0;
-  const activePreviewStagingId = selectedPreviewStagedFile?._id ?? null;
-  const inlinePreviewEditable = Boolean(
-    selectedPreviewStagedFile && !selectedPreviewStagedFile.fileDeleted,
-  );
-  const inlinePreviewEditorContent =
-    inlinePreviewDraftStagingId === activePreviewStagingId
-      ? inlinePreviewDraftContent
-      : activePreviewPersistedContent;
-  const inlinePreviewSplitDiffHighlights = useMemo(() => {
-    if (!showInlinePreviewSideBySide) {
-      return { oldLines: [], newLines: [] };
-    }
-
-    return getReviewSplitDiffHighlights(
-      selectedPreviewBaseContent,
-      inlinePreviewEditorContent,
-    );
-  }, [
+  const {
+    activePreviewStagingId,
+    clearInlinePreviewSaveError,
+    handleInlinePreviewChange,
     inlinePreviewEditorContent,
-    selectedPreviewBaseContent,
+    inlinePreviewEditable,
+    inlinePreviewOptions,
+    inlinePreviewSaveError,
+    inlinePreviewSplitDiffHighlights,
+    setInlinePreviewOptions,
+    setShowInlinePreviewPatch,
+    setShowInlinePreviewSideBySide,
+    showInlinePreviewPatch,
     showInlinePreviewSideBySide,
-  ]);
-  const inlinePreviewAutosaveContextKey = buildInlinePreviewAutosaveContextKey(
+  } = useFileViewInlinePreview({
     commitReviewMode,
-    activePreviewStagingId,
-    inlinePreviewDraftStagingId,
-  );
-  inlinePreviewDraftContentRef.current = inlinePreviewDraftContent;
-  activePreviewStagingIdRef.current = activePreviewStagingId;
-  inlinePreviewAutosaveContextKeyRef.current = inlinePreviewAutosaveContextKey;
-
-  const persistInlinePreviewSave = useCallback(
-    (
-      nextSave: InlinePreviewSaveSnapshot,
-      options?: {
-        trackStartState?: boolean;
-      },
-    ) => {
-      if (options?.trackStartState !== false) {
-        setInlinePreviewInFlightSave(nextSave);
-      }
-      void updateStagedFileContent({
-        stagingId: nextSave.stagingId,
-        content: nextSave.content,
-        expectedVersion: nextSave.baseVersion,
-      })
-        .then((updatedStaging) => {
-          if (!inlinePreviewMountedRef.current) {
-            return;
-          }
-          setInlinePreviewInFlightSave((current) =>
-            matchesInlinePreviewSaveSnapshot(current, nextSave)
-              ? null
-              : current,
-          );
-          if (activePreviewStagingIdRef.current !== nextSave.stagingId) {
-            return;
-          }
-          setInlinePreviewDraftBaseVersion(updatedStaging.version);
-          setInlinePreviewFailedSave(null);
-          setInlinePreviewSaveError(null);
-          if (inlinePreviewDraftContentRef.current === nextSave.content) {
-            setInlinePreviewHasPendingLocalEdit(false);
-          }
-        })
-        .catch((error: unknown) => {
-          if (!inlinePreviewMountedRef.current) {
-            return;
-          }
-          setInlinePreviewInFlightSave((current) =>
-            matchesInlinePreviewSaveSnapshot(current, nextSave)
-              ? null
-              : current,
-          );
-          if (activePreviewStagingIdRef.current !== nextSave.stagingId) {
-            return;
-          }
-          const message = isStaleBaseVersionError(error)
-            ? "Inline review is out of date. Reopen the file to continue editing."
-            : error instanceof Error && error.message.length > 0
-              ? error.message
-              : "Failed to save inline review edits.";
-          setInlinePreviewFailedSave(nextSave);
-          setInlinePreviewSaveError(message);
-        });
-    },
-    [updateStagedFileContent],
-  );
-
-  const flushPendingInlinePreviewSave = useCallback(() => {
-    if (
-      !activePreviewStagingId ||
-      inlinePreviewDraftStagingId !== activePreviewStagingId ||
-      !inlinePreviewEditable ||
-      !inlinePreviewHasPendingLocalEdit
-    ) {
-      return;
-    }
-
-    if (
-      activePreviewPersistedVersion >= inlinePreviewDraftBaseVersion &&
-      inlinePreviewDraftContent === activePreviewPersistedContent
-    ) {
-      return;
-    }
-
-    if (inlinePreviewInFlightSave?.stagingId === activePreviewStagingId) {
-      return;
-    }
-
-    const nextSave: InlinePreviewSaveSnapshot = {
-      stagingId: activePreviewStagingId,
-      content: inlinePreviewDraftContent,
-      baseVersion: inlinePreviewDraftBaseVersion,
-    };
-
-    if (matchesInlinePreviewSaveSnapshot(inlinePreviewFailedSave, nextSave)) {
-      return;
-    }
-
-    persistInlinePreviewSave(nextSave, { trackStartState: false });
-  }, [
-    activePreviewPersistedContent,
-    activePreviewPersistedVersion,
-    activePreviewStagingId,
-    inlinePreviewDraftBaseVersion,
-    inlinePreviewDraftContent,
-    inlinePreviewDraftStagingId,
-    inlinePreviewEditable,
-    inlinePreviewFailedSave,
-    inlinePreviewHasPendingLocalEdit,
-    inlinePreviewInFlightSave,
-    persistInlinePreviewSave,
-  ]);
-
-  useLayoutEffect(() => {
-    flushPendingInlinePreviewSaveRef.current = flushPendingInlinePreviewSave;
-  }, [flushPendingInlinePreviewSave]);
-
-  /** Before unmounting, flush any pending inline preview save so the last edit is not lost. */
-  useEffect(() => {
-    return () => {
-      flushPendingInlinePreviewSaveRef.current?.();
-      inlinePreviewMountedRef.current = false;
-    };
-  }, []);
-
-  /**
-   * Keep the local inline-preview draft synced with the persisted staged file.
-   * If the active staging record changes, fully reset the draft state. If only
-   * the persisted content/version changes, copy them over only when there are
-   * no unsaved local edits.
-   */
-  useEffect(() => {
-    if (inlinePreviewDraftStagingId !== activePreviewStagingId) {
-      setInlinePreviewDraftStagingId(activePreviewStagingId);
-      setInlinePreviewDraftContent(activePreviewPersistedContent);
-      setInlinePreviewDraftBaseVersion(activePreviewPersistedVersion);
-      setInlinePreviewHasPendingLocalEdit(false);
-      setInlinePreviewInFlightSave(null);
-      setInlinePreviewFailedSave(null);
-      setInlinePreviewSaveError(null);
-      return;
-    }
-
-    if (activePreviewPersistedVersion < inlinePreviewDraftBaseVersion) {
-      return;
-    }
-
-    if (inlinePreviewHasPendingLocalEdit) {
-      return;
-    }
-
-    setInlinePreviewDraftContent(activePreviewPersistedContent);
-    setInlinePreviewDraftBaseVersion(activePreviewPersistedVersion);
-    setInlinePreviewFailedSave(null);
-    setInlinePreviewSaveError(null);
-  }, [
-    activePreviewPersistedContent,
-    activePreviewPersistedVersion,
-    activePreviewStagingId,
-    inlinePreviewDraftBaseVersion,
-    inlinePreviewHasPendingLocalEdit,
-    inlinePreviewDraftStagingId,
-  ]);
-
-  /** Hide the inline preview diff views when the user switches to a different file. */
-  useEffect(() => {
-    setShowInlinePreviewPatch(false);
-    setShowInlinePreviewSideBySide(false);
-  }, [selectedFile]);
-
-  /**
-   * While commit review is open, debounce inline preview saves for 350ms and
-   * flush the latest change during cleanup so fast navigation does not drop the
-   * last edit.
-   */
-  useEffect(() => {
-    if (
-      commitReviewMode !== "review" ||
-      !inlinePreviewEditable ||
-      !activePreviewStagingId ||
-      inlinePreviewDraftStagingId !== activePreviewStagingId ||
-      !inlinePreviewHasPendingLocalEdit
-    ) {
-      return;
-    }
-
-    if (
-      activePreviewPersistedVersion >= inlinePreviewDraftBaseVersion &&
-      inlinePreviewDraftContent === activePreviewPersistedContent
-    ) {
-      setInlinePreviewDraftBaseVersion(activePreviewPersistedVersion);
-      setInlinePreviewHasPendingLocalEdit(false);
-      setInlinePreviewFailedSave(null);
-      setInlinePreviewSaveError(null);
-      return;
-    }
-
-    if (inlinePreviewInFlightSave?.stagingId === activePreviewStagingId) {
-      return;
-    }
-
-    const nextSave: InlinePreviewSaveSnapshot = {
-      stagingId: activePreviewStagingId,
-      content: inlinePreviewDraftContent,
-      baseVersion: inlinePreviewDraftBaseVersion,
-    };
-
-    if (matchesInlinePreviewSaveSnapshot(inlinePreviewFailedSave, nextSave)) {
-      return;
-    }
-
-    let didStartSave = false;
-    const timeoutId = window.setTimeout(() => {
-      didStartSave = true;
-      persistInlinePreviewSave(nextSave);
-    }, 350);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      if (
-        didStartSave ||
-        inlinePreviewAutosaveContextKeyRef.current ===
-          inlinePreviewAutosaveContextKey
-      ) {
-        return;
-      }
-      persistInlinePreviewSave(nextSave, { trackStartState: false });
-    };
-  }, [
-    activePreviewPersistedContent,
-    activePreviewPersistedVersion,
-    activePreviewStagingId,
-    commitReviewMode,
-    inlinePreviewDraftContent,
-    inlinePreviewDraftBaseVersion,
-    inlinePreviewEditable,
-    inlinePreviewFailedSave,
-    inlinePreviewHasPendingLocalEdit,
-    inlinePreviewInFlightSave,
-    inlinePreviewDraftStagingId,
-    inlinePreviewAutosaveContextKey,
-    persistInlinePreviewSave,
-  ]);
+    selectedFile,
+    selectedPreviewBaseContent,
+    selectedPreviewRichNewContent: selectedPreviewFile?.richNewContent,
+    selectedPreviewStagedFile,
+    updateStagedFileContent,
+  });
+  clearInlinePreviewSaveErrorRef.current = clearInlinePreviewSaveError;
 
   const finalTreeData = useMemo(() => {
     const stagedFilesByInitialPath = new Map(
@@ -2971,13 +2676,6 @@ function FileViewInner({
       onMediaUploadDrop={handleMediaUploadDrop}
     />
   );
-
-  const handleInlinePreviewChange = useCallback((nextContent: string) => {
-    setInlinePreviewDraftContent(nextContent);
-    setInlinePreviewHasPendingLocalEdit(true);
-    setInlinePreviewFailedSave(null);
-    setInlinePreviewSaveError(null);
-  }, []);
 
   const headerTitle = selectedFile
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
