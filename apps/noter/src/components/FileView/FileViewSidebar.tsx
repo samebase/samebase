@@ -34,12 +34,15 @@ type FileViewSidebarContentProps = Pick<
   isCompareRequested: boolean;
   compareModeSummary: CompareModeSummary | null;
   emptyRepository: boolean;
-  mediaUploadError: string | null;
-  isMediaUploadDragOver: boolean;
-  isUploadingMedia: boolean;
   onOpenFileCreation: () => void;
   onOpenFolderCreation: () => void;
   onSidebarModeChange: (value: string) => void;
+};
+
+type FileViewSidebarFooterProps = {
+  mediaUploadError: string | null;
+  isMediaUploadDragOver: boolean;
+  isUploadingMedia: boolean;
   onRequestMediaUpload: () => void;
   onMediaUploadDragOverChange: (isDragOver: boolean) => void;
   onMediaUploadDrop: DragEventHandler<HTMLButtonElement>;
@@ -52,15 +55,9 @@ export function FileViewSidebarContent({
   isCompareRequested,
   compareModeSummary,
   emptyRepository,
-  mediaUploadError,
-  isMediaUploadDragOver,
-  isUploadingMedia,
   onOpenFileCreation,
   onOpenFolderCreation,
   onSidebarModeChange,
-  onRequestMediaUpload,
-  onMediaUploadDragOverChange,
-  onMediaUploadDrop,
   items,
   onFileSelect,
   onFileRename,
@@ -76,7 +73,7 @@ export function FileViewSidebarContent({
   forceAutoExpandedPaths,
 }: FileViewSidebarContentProps) {
   return (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="border-b border-border/50 p-3">
         <div className="flex items-center gap-2">
           <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
@@ -154,10 +151,11 @@ export function FileViewSidebarContent({
           ) : null}
         </div>
       </div>
+
       {emptyRepository ? (
-        <div className="flex-1" />
+        <div className="min-h-0 flex-1" />
       ) : (
-        <div className="flex-1 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-auto">
           <FileTree
             items={items}
             onFileSelect={onFileSelect}
@@ -175,42 +173,54 @@ export function FileViewSidebarContent({
           />
         </div>
       )}
-      <div className="shrink-0 border-t border-border/50 p-3">
-        {mediaUploadError ? (
-          <div className="mb-2 corner-notch-1 border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-            {mediaUploadError}
-          </div>
-        ) : null}
-        <button
-          type="button"
-          className={`flex w-full items-center justify-center border-[3px] border-dashed px-3 py-4 text-sm transition-colors ${
-            isMediaUploadDragOver
-              ? "border-primary bg-primary/5 text-foreground"
-              : "border-foreground/45 text-foreground/80 hover:border-foreground/65 hover:text-foreground"
-          }`}
-          onClick={onRequestMediaUpload}
-          onDragOver={(event) => {
-            event.preventDefault();
-            onMediaUploadDragOverChange(true);
-          }}
-          onDragLeave={(event) => {
-            const relatedTarget = event.relatedTarget;
-            if (
-              !(relatedTarget instanceof Node) ||
-              !event.currentTarget.contains(relatedTarget)
-            ) {
-              onMediaUploadDragOverChange(false);
-            }
-          }}
-          onDrop={(event) => {
+    </div>
+  );
+}
+
+export function FileViewSidebarFooter({
+  mediaUploadError,
+  isMediaUploadDragOver,
+  isUploadingMedia,
+  onRequestMediaUpload,
+  onMediaUploadDragOverChange,
+  onMediaUploadDrop,
+}: FileViewSidebarFooterProps) {
+  return (
+    <div className="border-t border-border/50 p-3">
+      {mediaUploadError ? (
+        <div className="mb-2 corner-notch-1 border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {mediaUploadError}
+        </div>
+      ) : null}
+      <button
+        type="button"
+        className={`flex w-full items-center justify-center border-[3px] border-dashed px-3 py-4 text-sm transition-colors ${
+          isMediaUploadDragOver
+            ? "border-primary bg-primary/5 text-foreground"
+            : "border-foreground/45 text-foreground/80 hover:border-foreground/65 hover:text-foreground"
+        }`}
+        onClick={onRequestMediaUpload}
+        onDragOver={(event) => {
+          event.preventDefault();
+          onMediaUploadDragOverChange(true);
+        }}
+        onDragLeave={(event) => {
+          const relatedTarget = event.relatedTarget;
+          if (
+            !(relatedTarget instanceof Node) ||
+            !event.currentTarget.contains(relatedTarget)
+          ) {
             onMediaUploadDragOverChange(false);
-            onMediaUploadDrop(event);
-          }}
-          disabled={isUploadingMedia}
-        >
-          {isUploadingMedia ? "Uploading..." : "Drop file or click"}
-        </button>
-      </div>
-    </>
+          }
+        }}
+        onDrop={(event) => {
+          onMediaUploadDragOverChange(false);
+          onMediaUploadDrop(event);
+        }}
+        disabled={isUploadingMedia}
+      >
+        {isUploadingMedia ? "Uploading..." : "Drop file or click"}
+      </button>
+    </div>
   );
 }

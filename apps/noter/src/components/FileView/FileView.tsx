@@ -26,7 +26,10 @@ import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider"
 import { buildPathWithQuery } from "@/lib/queryParams";
 import { CommandPalette } from "@/components/CommandPalette";
 import { EditorChatDock } from "@/components/EditorChatDock";
-import { FileViewSidebarContent } from "@/components/FileView/FileViewSidebar";
+import {
+  FileViewSidebarContent,
+  FileViewSidebarFooter,
+} from "@/components/FileView/FileViewSidebar";
 import { useFileViewInlinePreview } from "@/components/FileView/useFileViewInlinePreview";
 import { useFileViewMediaUpload } from "@/components/FileView/useFileViewMediaUpload";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -2517,9 +2520,6 @@ function FileViewInner({
       isCompareRequested={isCompareRequested}
       compareModeSummary={compareModeSummary}
       emptyRepository={emptyRepository}
-      mediaUploadError={mediaUploadError}
-      isMediaUploadDragOver={isMediaUploadDragOver}
-      isUploadingMedia={isUploadingMedia}
       items={visibleTreeData}
       onFileSelect={handleFileSelect}
       onFileRename={(originalPath, newPath) =>
@@ -2544,7 +2544,14 @@ function FileViewInner({
       onOpenFileCreation={() => openFileCreation("")}
       onOpenFolderCreation={() => openFolderCreation("")}
       onSidebarModeChange={handleSidebarModeChange}
-      onRequestMediaUpload={() => handleRequestMediaUpload()}
+    />
+  );
+  const sidebarFooter = (
+    <FileViewSidebarFooter
+      mediaUploadError={mediaUploadError}
+      isMediaUploadDragOver={isMediaUploadDragOver}
+      isUploadingMedia={isUploadingMedia}
+      onRequestMediaUpload={handleRequestMediaUpload}
       onMediaUploadDragOverChange={setIsMediaUploadDragOver}
       onMediaUploadDrop={handleMediaUploadDrop}
     />
@@ -2606,6 +2613,7 @@ function FileViewInner({
         scrollPaddingBottom: mobileBottomDockInset,
       }
     : undefined;
+
   const fileViewMainContent = (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <div
@@ -3161,6 +3169,7 @@ function FileViewInner({
           header: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null,
           content:
             FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarContent : null,
+          footer: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarFooter : null,
         }}
         main={{
           header: fileViewMainHeader,
@@ -3171,6 +3180,8 @@ function FileViewInner({
             FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarHeader : null,
           content:
             FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarContent : null,
+          footer:
+            FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarFooter : null,
         }}
       />
 
