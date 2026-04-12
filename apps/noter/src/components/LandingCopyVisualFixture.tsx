@@ -3,39 +3,39 @@ import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 
 const LANDING_COPY_VISUAL_SCENARIOS = {
   "landing-copy-parity": {
-    markdown: `## the link between ChatGPT and Codex
+    markdown: `## noter can disappear tomorrow and your app will be completely unimpacted
 
-- connect your computer once so ChatGPT can reach the same Codex setup
-- use the same repo, tools, and machine from ChatGPT or Codex
-- continue the work from desktop or mobile without losing context
-- keep notes, code, and approvals in a real repository`,
+- your notes and code live in a real repository
+- collaborate in real time with your team
+- work from desktop or mobile without context switching
+- use Codex to ship small apps directly from your workspace`,
     editable: false,
   },
   "landing-copy-editable-parity-single-line": {
-    markdown: `## connect ChatGPT to your Codex setup
+    markdown: `## ship from markdown
 
-- connect your computer once so ChatGPT can reach the same Codex setup
-- use the same repo, tools, and machine from ChatGPT or Codex
-- continue the work from desktop or mobile without losing context
-- keep notes, code, and approvals in a real repository`,
+- your notes and code live in a real repository
+- collaborate in real time with your team
+- work from desktop or mobile without context switching
+- use Codex to ship small apps directly from your workspace`,
     editable: true,
   },
   "landing-copy-editable-parity-two-line": {
-    markdown: `## your Codex machine, from anywhere
+    markdown: `## noter is a collaborative markdown workspace on top of GitHub
 
-- connect your computer once so ChatGPT can reach the same Codex setup
-- use the same repo, tools, and machine from ChatGPT or Codex
-- continue the work from desktop or mobile without losing context
-- keep notes, code, and approvals in a real repository`,
+- your notes and code live in a real repository
+- collaborate in real time with your team
+- work from desktop or mobile without context switching
+- use Codex to ship small apps directly from your workspace`,
     editable: true,
   },
   "landing-copy-editable-parity-three-line": {
-    markdown: `## connect your computer once, then keep going from ChatGPT or Codex
+    markdown: `## the collaborative markdown workspace for product teams shipping directly from GitHub every day
 
-- connect your computer once so ChatGPT can reach the same Codex setup
-- use the same repo, tools, and machine from ChatGPT or Codex
-- continue the work from desktop or mobile without losing context
-- keep notes, code, and approvals in a real repository`,
+- your notes and code live in a real repository
+- collaborate in real time with your team
+- work from desktop or mobile without context switching
+- use Codex to ship small apps directly from your workspace`,
     editable: true,
   },
 } as const;

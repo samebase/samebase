@@ -1,4 +1,5 @@
-export const DEFAULT_LANDING_SLOGAN = "the link between ChatGPT and Codex";
+export const DEFAULT_LANDING_SLOGAN =
+  "Noter is a collaborative markdown workspace on top of GitHub";
 
 export function parseLandingSlogans(rawSlogans: string): string[] {
   const trimmedLines = rawSlogans

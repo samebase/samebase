@@ -1,13 +1,7 @@
 # Noter
 
-Noter is a web-first workspace that connects ChatGPT, Codex, and your computer
-around a real GitHub repository.
-
-Today, that bridge works through MCP plus a connected machine: connect your
-computer once, then ChatGPT can use the same local repo, tools, and Codex setup.
-
-This repository is the PNPM workspace behind that product, with React + Vite on
-the frontend and Convex on the backend.
+Noter is a collaborative, GitHub-connected code editor built as a PNPM workspace
+with React + Vite on the frontend and Convex on the backend.
 
 ## Current Product Capabilities (2026-02-13)
 
