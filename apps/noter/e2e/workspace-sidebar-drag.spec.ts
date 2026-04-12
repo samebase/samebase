@@ -174,6 +174,10 @@ async function getBox(page: Page, testId: string) {
   return box;
 }
 
+function getFileViewLayoutShell(page: Page) {
+  return page.locator("[data-mobile-pane]").first();
+}
+
 /**
  * Use one realistic touch sequence to fling from the open left sidebar toward
  * the right sidebar. Under the Chromium mobile device descriptor we need a
@@ -212,20 +216,59 @@ async function swipeFromMainToLeftSidebar(page: Page) {
   });
 }
 
+async function swipeFromMainToRightSidebar(page: Page) {
+  await dispatchHumanTouchSwipe(page, {
+    startX: 280,
+    startY: 220,
+    steps: [
+      { delayMs: 50, xOffset: -28, yOffset: 2 },
+      { delayMs: 60, xOffset: -74, yOffset: 4 },
+      { delayMs: 60, xOffset: -126, yOffset: 5 },
+      { delayMs: 70, xOffset: -174, yOffset: 6 },
+    ],
+  });
+}
+
+async function swipeFromRightSidebarTowardMain(page: Page) {
+  const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const fixtureBounds = await fixture.boundingBox();
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  const rightPaneBounds = await rightPane.boundingBox();
+
+  expect(fixtureBounds).not.toBeNull();
+  expect(rightPaneBounds).not.toBeNull();
+  if (fixtureBounds === null || rightPaneBounds === null) {
+    return;
+  }
+
+  await dispatchHumanTouchSwipe(page, {
+    // Start near the visible sidebar edge but above the centered resize grip so
+    // the shell owns the mobile navigation swipe instead of the handle.
+    startX: Math.round(rightPaneBounds.x - fixtureBounds.x + 12),
+    startY: Math.round(rightPaneBounds.y - fixtureBounds.y + 40),
+    steps: [
+      { delayMs: 25, xOffset: 72, yOffset: 2 },
+      { delayMs: 30, xOffset: 168, yOffset: 4 },
+      { delayMs: 30, xOffset: 260, yOffset: 5 },
+      { delayMs: 25, xOffset: 320, yOffset: 6 },
+    ],
+  });
+}
+
 test("fileview mobile can open the left sidebar from main with a lighter human swipe", async ({
   page,
 }) => {
   await gotoFileViewFixture(page, { swipeDebug: true });
 
-  const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const shell = getFileViewLayoutShell(page);
   const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
-  await expect(fixture).toHaveAttribute("data-mobile-pane", "main");
+  await expect(shell).toHaveAttribute("data-mobile-pane", "main");
   await expect(overlay).toBeVisible();
   await expect(overlay).toContainText("state: armed, waiting for swipe");
 
   await swipeFromMainToLeftSidebar(page);
 
-  await expect(fixture).toHaveAttribute("data-mobile-pane", "left");
+  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
   await expect(overlay).toContainText("duration:");
 });
 
@@ -246,17 +289,15 @@ test("fileview mobile returns to main from the open left sidebar in one human sw
 }) => {
   await gotoFileViewFixture(page, { swipeDebug: true });
 
-  const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const shell = getFileViewLayoutShell(page);
   const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
-  await page
-    .getByRole("button", { name: "Toggle Left Sidebar" })
-    .press("Enter");
-  await expect(fixture).toHaveAttribute("data-mobile-pane", "left");
+  await swipeFromMainToLeftSidebar(page);
+  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
   await expect(overlay).toBeVisible();
 
   await swipeFromLeftSidebarTowardRight(page);
 
-  await expect(fixture).toHaveAttribute("data-mobile-pane", "main");
+  await expect(shell).toHaveAttribute("data-mobile-pane", "main");
   await expect(overlay).toContainText("duration:");
 });
 
@@ -265,9 +306,9 @@ test("fileview mobile right sidebar handle resizes the pane and keeps it across 
 }) => {
   await gotoFileViewFixture(page);
 
-  await page
-    .getByRole("button", { name: "Toggle Right Sidebar" })
-    .press("Enter");
+  const shell = getFileViewLayoutShell(page);
+  await swipeFromMainToRightSidebar(page);
+  await expect(shell).toHaveAttribute("data-mobile-pane", "right");
 
   const handle = page.getByTestId("workspace-layout-v2-right-resize");
   await expect(handle).toBeVisible();
@@ -288,12 +329,10 @@ test("fileview mobile right sidebar handle resizes the pane and keeps it across 
   const resizedWidthPx = (
     await getBox(page, "fileview-layout-right-sidebar-body")
   ).width;
-  await page
-    .getByRole("button", { name: "Toggle Right Sidebar" })
-    .press("Enter");
-  await page
-    .getByRole("button", { name: "Toggle Right Sidebar" })
-    .press("Enter");
+  await page.waitForTimeout(200);
+  await swipeFromRightSidebarTowardMain(page);
+  await expect(shell).toHaveAttribute("data-mobile-pane", "main");
+  await swipeFromMainToRightSidebar(page);
   await expect
     .poll(
       async () =>
@@ -307,15 +346,13 @@ test("fileview mobile swipe debug overlay captures the left-to-main release metr
 }) => {
   await gotoFileViewFixture(page, { swipeDebug: true });
 
-  const fixture = page.getByTestId("fileview-layout-visual-fixture");
-  await page
-    .getByRole("button", { name: "Toggle Left Sidebar" })
-    .press("Enter");
-  await expect(fixture).toHaveAttribute("data-mobile-pane", "left");
+  const shell = getFileViewLayoutShell(page);
+  await swipeFromMainToLeftSidebar(page);
+  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
 
   await swipeFromLeftSidebarTowardRight(page);
 
-  await expect(fixture).toHaveAttribute("data-mobile-pane", "main");
+  await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 
   const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
   await expect(overlay).toBeVisible();

@@ -11,6 +11,84 @@ async function getBox(page: Page, testId: string) {
   return box;
 }
 
+async function dispatchFixtureTouchSwipe(
+  page: Page,
+  args: {
+    startX: number;
+    startY: number;
+    steps: ReadonlyArray<{
+      delayMs: number;
+      xOffset: number;
+      yOffset: number;
+    }>;
+  },
+) {
+  const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const bounds = await fixture.boundingBox();
+
+  expect(bounds).not.toBeNull();
+  if (bounds === null) {
+    return;
+  }
+
+  const session = await page.context().newCDPSession(page);
+  const gestureStartTimeMs = Date.now();
+  let elapsedMs = 0;
+  const touchPoint = {
+    force: 1,
+    id: 1,
+    radiusX: 4,
+    radiusY: 4,
+    x: bounds.x + args.startX,
+    y: bounds.y + args.startY,
+  };
+
+  await session.send("Input.dispatchTouchEvent", {
+    timestamp: gestureStartTimeMs / 1000,
+    type: "touchStart",
+    touchPoints: [touchPoint],
+  });
+
+  for (const step of args.steps) {
+    await page.waitForTimeout(step.delayMs);
+    elapsedMs += step.delayMs;
+    await session.send("Input.dispatchTouchEvent", {
+      timestamp: (gestureStartTimeMs + elapsedMs) / 1000,
+      type: "touchMove",
+      touchPoints: [
+        {
+          ...touchPoint,
+          x: bounds.x + args.startX + step.xOffset,
+          y: bounds.y + args.startY + step.yOffset,
+        },
+      ],
+    });
+  }
+
+  await session.send("Input.dispatchTouchEvent", {
+    timestamp: (gestureStartTimeMs + elapsedMs + 1) / 1000,
+    type: "touchEnd",
+    touchPoints: [],
+  });
+}
+
+async function swipeFromMainToRightSidebar(page: Page) {
+  await dispatchFixtureTouchSwipe(page, {
+    startX: 280,
+    startY: 220,
+    steps: [
+      { delayMs: 50, xOffset: -28, yOffset: 2 },
+      { delayMs: 60, xOffset: -74, yOffset: 4 },
+      { delayMs: 60, xOffset: -126, yOffset: 5 },
+      { delayMs: 70, xOffset: -174, yOffset: 6 },
+    ],
+  });
+}
+
+function getFileViewLayoutShell(page: Page) {
+  return page.locator("[data-mobile-pane]").first();
+}
+
 async function dragHorizontalHandle(
   page: Page,
   testId: string,
@@ -137,12 +215,24 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
     .poll(async () => {
       const fixtureBox = await fixture.boundingBox();
       const headerBox = await header.boundingBox();
+      const toggleButtonBox = await page
+        .getByRole("button", { name: "Toggle Right Sidebar" })
+        .boundingBox();
 
-      if (fixtureBox === null || headerBox === null) {
+      if (
+        fixtureBox === null ||
+        headerBox === null ||
+        toggleButtonBox === null
+      ) {
         return Number.NaN;
       }
 
-      return fixtureBox.x + fixtureBox.width - (headerBox.x + headerBox.width);
+      return Math.abs(
+        fixtureBox.x +
+          fixtureBox.width -
+          (headerBox.x + headerBox.width) -
+          (toggleButtonBox.width + 8),
+      );
     })
     .toBeLessThanOrEqual(1);
 
@@ -167,12 +257,23 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
     .poll(async () => {
       const headerBox = await header.boundingBox();
       const rightSidebarBox = await rightSidebar.boundingBox();
+      const toggleButtonBox = await page
+        .getByRole("button", { name: "Toggle Right Sidebar" })
+        .boundingBox();
 
-      if (headerBox === null || rightSidebarBox === null) {
+      if (
+        headerBox === null ||
+        rightSidebarBox === null ||
+        toggleButtonBox === null
+      ) {
         return Number.NaN;
       }
 
-      return Math.abs(headerBox.x + headerBox.width - rightSidebarBox.x);
+      return Math.abs(
+        rightSidebarBox.x -
+          (headerBox.x + headerBox.width) -
+          (toggleButtonBox.width + 8),
+      );
     })
     .toBeLessThanOrEqual(1);
   await expect
@@ -213,12 +314,24 @@ test("fileview right sidebar collapses independently", async ({ page }) => {
     .poll(async () => {
       const fixtureBox = await fixture.boundingBox();
       const headerBox = await header.boundingBox();
+      const toggleButtonBox = await page
+        .getByRole("button", { name: "Toggle Right Sidebar" })
+        .boundingBox();
 
-      if (fixtureBox === null || headerBox === null) {
+      if (
+        fixtureBox === null ||
+        headerBox === null ||
+        toggleButtonBox === null
+      ) {
         return Number.NaN;
       }
 
-      return fixtureBox.x + fixtureBox.width - (headerBox.x + headerBox.width);
+      return Math.abs(
+        fixtureBox.x +
+          fixtureBox.width -
+          (headerBox.x + headerBox.width) -
+          (toggleButtonBox.width + 8),
+      );
     })
     .toBeLessThanOrEqual(1);
 
@@ -359,20 +472,14 @@ test.fixme("fileview empty left sidebar opens independently", async ({
     .toBeLessThanOrEqual(1);
 });
 
-test("fileview mobile accessible control opens the sidebar", async ({
-  page,
-}) => {
+test("fileview mobile swipe opens the right sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
 
-  const fixture = page.getByTestId("fileview-layout-visual-fixture");
-  const toggleSidebarButton = page.getByRole("button", {
-    name: "Toggle Right Sidebar",
-  });
-
-  await toggleSidebarButton.press("Enter");
-  await expect(fixture).toHaveAttribute("data-mobile-pane", "right");
+  const shell = getFileViewLayoutShell(page);
+  await swipeFromMainToRightSidebar(page);
+  await expect(shell).toHaveAttribute("data-mobile-pane", "right");
 });
