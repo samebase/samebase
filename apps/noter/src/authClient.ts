@@ -94,9 +94,10 @@ export function signOutWithAnalytics(args: {
   clearAuthFlag();
   try {
     args.posthog.reset();
-  } finally {
-    return args.signOut();
+  } catch {
+    // Analytics cleanup is best-effort; the auth sign-out must still complete.
   }
+  return args.signOut();
 }
 
 export function useNoterAuthActions() {
