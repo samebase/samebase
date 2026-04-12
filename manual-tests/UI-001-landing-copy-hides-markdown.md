@@ -16,8 +16,7 @@ markers (for example `#`) on focus, and hides them again on blur.
 2. Find the dev URL (example):
    `for p in $(seq 5173 5190); do curl -fsS "http://127.0.0.1:$p" >/dev/null && echo "http://127.0.0.1:$p" && break; done`
 3. Open the URL in a browser or Playwright CLI session.
-4. On the landing page, find the heading “Noter is a collaborative markdown
-   workspace on top of GitHub”.
+4. On the landing page, find the rendered headline above the bullet list.
 5. Confirm there are no visible `#` characters in the heading or description
    list.
 6. Click inside the landing copy (on the heading text).
