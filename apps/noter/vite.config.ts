@@ -652,25 +652,7 @@ export default defineConfig({
   esbuild: {
     logOverride: { "this-is-undefined-in-esm": "silent" },
   },
-  server: {
-    ...daytonaConvexProxyServerConfig,
-    proxy: {
-      // Preserve any existing Daytona proxy rules, then layer PostHog's
-      // explicit `/ingest` route on top so telemetry always targets
-      // `VITE_PUBLIC_POSTHOG_HOST` (or the EU default) and strips the
-      // development-only `/ingest` prefix before forwarding upstream.
-      ...daytonaConvexProxyServerConfig?.proxy,
-      "/ingest": {
-        target:
-          process.env.VITE_PUBLIC_POSTHOG_HOST || "https://eu.i.posthog.com",
-        changeOrigin: true,
-        rewrite: (p: string) => {
-          const rewrittenPath = p.replace(/^\/ingest(?=\/|$)/, "");
-          return rewrittenPath.length > 0 ? rewrittenPath : "/";
-        },
-      },
-    },
-  },
+  server: daytonaConvexProxyServerConfig,
   build: {
     rollupOptions: {
       input: {
