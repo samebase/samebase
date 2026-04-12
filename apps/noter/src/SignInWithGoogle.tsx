@@ -1,13 +1,12 @@
-import { isInIframe, openAuthPopup, setAuthProvider } from "@/authClient";
+import { isInIframe, openAuthPopup, useNoterAuthActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
-import { useAuthActions } from "@convex-dev/auth/react";
 import { Chrome } from "lucide-react";
 import { buildCurrentGoogleRedirectTo } from "./lib/googleAuthRedirect";
 
 export function SignInWithGoogle({
   visible = true,
 }: { visible?: boolean } = {}) {
-  const { signIn } = useAuthActions();
+  const { signInWithGoogle } = useNoterAuthActions();
   return (
     <Button
       aria-hidden={!visible}
@@ -20,14 +19,13 @@ export function SignInWithGoogle({
         if (isInIframe()) {
           openAuthPopup("google");
         } else {
-          setAuthProvider("google");
-          void signIn("google", {
-            redirectTo: buildCurrentGoogleRedirectTo(
+          void signInWithGoogle(
+            buildCurrentGoogleRedirectTo(
               window.location.pathname,
               window.location.search,
               window.location.hash,
             ),
-          });
+          );
         }
       }}
     >

@@ -14,12 +14,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/dropdown-menu";
-import { useAuthActions } from "@convex-dev/auth/react";
 import { PersonIcon } from "@radix-ui/react-icons";
 import { api } from "../../convex/_generated/api";
 import { useQuery } from "convex/react";
 import { ReactNode, useMemo, useState } from "react";
-import { clearAuthFlag } from "@/authClient";
+import { useNoterAuthActions } from "@/authClient";
 import { Link } from "@tanstack/react-router";
 
 function formatProviderLabel(provider: string | undefined): string {
@@ -104,11 +103,10 @@ export function UserMenu({
 }
 
 function SignOutButton() {
-  const { signOut } = useAuthActions();
+  const { signOut } = useNoterAuthActions();
   return (
     <DropdownMenuItem
       onClick={() => {
-        clearAuthFlag();
         void signOut();
       }}
     >

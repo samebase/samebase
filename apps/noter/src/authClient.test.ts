@@ -6,13 +6,21 @@ import {
   setQueryParam,
 } from "./lib/queryParams";
 
-const { localStorageSetItemMock, replaceStateMock, signInMock } = vi.hoisted(
-  () => ({
-    localStorageSetItemMock: vi.fn(),
-    replaceStateMock: vi.fn(),
-    signInMock: vi.fn(),
-  }),
-);
+const {
+  localStorageRemoveItemMock,
+  localStorageSetItemMock,
+  replaceStateMock,
+  resetMock,
+  signInMock,
+  signOutMock,
+} = vi.hoisted(() => ({
+  localStorageRemoveItemMock: vi.fn(),
+  localStorageSetItemMock: vi.fn(),
+  replaceStateMock: vi.fn(),
+  resetMock: vi.fn(),
+  signInMock: vi.fn(),
+  signOutMock: vi.fn(),
+}));
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
@@ -27,10 +35,15 @@ vi.mock("react", async () => {
 vi.mock("@convex-dev/auth/react", () => ({
   useAuthActions: () => ({
     signIn: signInMock,
+    signOut: signOutMock,
   }),
 }));
 
-import { useAutoSignIn } from "./authClient";
+import {
+  signInWithPasswordAction,
+  signOutWithAnalytics,
+  useAutoSignIn,
+} from "./authClient";
 
 describe("useAutoSignIn", () => {
   const originalWindow = globalThis.window;
@@ -38,7 +51,10 @@ describe("useAutoSignIn", () => {
 
   afterEach(() => {
     signInMock.mockReset();
+    signOutMock.mockReset();
+    resetMock.mockReset();
     replaceStateMock.mockReset();
+    localStorageRemoveItemMock.mockReset();
     localStorageSetItemMock.mockReset();
     Object.defineProperty(globalThis, "window", {
       value: originalWindow,
@@ -79,6 +95,7 @@ describe("useAutoSignIn", () => {
 
     Object.defineProperty(globalThis, "localStorage", {
       value: {
+        removeItem: localStorageRemoveItemMock,
         setItem: localStorageSetItemMock,
       },
       configurable: true,
@@ -113,6 +130,7 @@ describe("useAutoSignIn", () => {
 
     Object.defineProperty(globalThis, "localStorage", {
       value: {
+        removeItem: localStorageRemoveItemMock,
         setItem: localStorageSetItemMock,
       },
       configurable: true,
@@ -123,5 +141,66 @@ describe("useAutoSignIn", () => {
     expect(localStorageSetItemMock).not.toHaveBeenCalled();
     expect(replaceStateMock).not.toHaveBeenCalled();
     expect(signInMock).not.toHaveBeenCalled();
+  });
+
+  it("records the password provider after a successful password sign-in", async () => {
+    signInMock.mockResolvedValue(undefined);
+
+    Object.defineProperty(globalThis, "localStorage", {
+      value: {
+        removeItem: localStorageRemoveItemMock,
+        setItem: localStorageSetItemMock,
+      },
+      configurable: true,
+    });
+
+    await signInWithPasswordAction({
+      signIn: signInMock,
+      flow: "signIn",
+      email: "nicu@noter.md",
+      password: "pass1234",
+    });
+
+    expect(signInMock).toHaveBeenCalledWith("password", {
+      flow: "signIn",
+      email: "nicu@noter.md",
+      password: "pass1234",
+    });
+    expect(localStorageSetItemMock).toHaveBeenCalledWith(
+      "noter_auth_provider",
+      "password",
+    );
+  });
+
+  it("always signs out even if PostHog reset throws", async () => {
+    const resetError = new Error("reset failed");
+    resetMock.mockImplementation(() => {
+      throw resetError;
+    });
+    signOutMock.mockResolvedValue(undefined);
+
+    Object.defineProperty(globalThis, "localStorage", {
+      value: {
+        removeItem: localStorageRemoveItemMock,
+        setItem: localStorageSetItemMock,
+      },
+      configurable: true,
+    });
+
+    await expect(
+      signOutWithAnalytics({
+        signOut: signOutMock,
+        posthog: { reset: resetMock },
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(localStorageRemoveItemMock).toHaveBeenCalledWith(
+      "noter_was_authenticated",
+    );
+    expect(localStorageRemoveItemMock).toHaveBeenCalledWith(
+      "noter_auth_provider",
+    );
+    expect(resetMock).toHaveBeenCalledTimes(1);
+    expect(signOutMock).toHaveBeenCalledTimes(1);
   });
 });

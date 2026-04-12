@@ -6,23 +6,16 @@ import {
   setQueryParam,
 } from "./lib/queryParams";
 
-const { openAuthPopupMock, setAuthProviderMock, signInMock } = vi.hoisted(
-  () => ({
-    openAuthPopupMock: vi.fn(),
-    setAuthProviderMock: vi.fn(),
-    signInMock: vi.fn(),
-  }),
-);
+const { openAuthPopupMock, signInWithGoogleMock } = vi.hoisted(() => ({
+  openAuthPopupMock: vi.fn(),
+  signInWithGoogleMock: vi.fn(),
+}));
 
 vi.mock("@/authClient", () => ({
   isInIframe: () => false,
   openAuthPopup: openAuthPopupMock,
-  setAuthProvider: setAuthProviderMock,
-}));
-
-vi.mock("@convex-dev/auth/react", () => ({
-  useAuthActions: () => ({
-    signIn: signInMock,
+  useNoterAuthActions: () => ({
+    signInWithGoogle: signInWithGoogleMock,
   }),
 }));
 
@@ -32,8 +25,7 @@ describe("SignInWithGoogle", () => {
   const originalWindow = globalThis.window;
 
   afterEach(() => {
-    signInMock.mockReset();
-    setAuthProviderMock.mockReset();
+    signInWithGoogleMock.mockReset();
     openAuthPopupMock.mockReset();
     Object.defineProperty(globalThis, "window", {
       value: originalWindow,
@@ -70,10 +62,7 @@ describe("SignInWithGoogle", () => {
 
     element.props.onClick();
 
-    expect(setAuthProviderMock).toHaveBeenCalledWith("google");
-    expect(signInMock).toHaveBeenCalledWith("google", {
-      redirectTo: expectedRedirectTo,
-    });
+    expect(signInWithGoogleMock).toHaveBeenCalledWith(expectedRedirectTo);
     expect(expectedRedirectTo).not.toContain("auth=");
     expect(openAuthPopupMock).not.toHaveBeenCalled();
   });

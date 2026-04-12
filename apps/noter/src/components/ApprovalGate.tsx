@@ -1,13 +1,12 @@
-import { clearAuthFlag } from "@/authClient";
+import { useNoterAuthActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
-import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import type { ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 
 export function ApprovalGate({ children }: { children: ReactNode }) {
   const isApproved = useQuery(api.users.isCurrentUserApproved);
-  const { signOut } = useAuthActions();
+  const { signOut } = useNoterAuthActions();
 
   // Avoid flashing gated content before approval state is known.
   if (isApproved === undefined) {
@@ -27,7 +26,6 @@ export function ApprovalGate({ children }: { children: ReactNode }) {
           <Button
             variant="outline"
             onClick={() => {
-              clearAuthFlag();
               void signOut();
             }}
           >

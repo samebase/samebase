@@ -1,4 +1,4 @@
-import { setAuthProvider } from "@/authClient";
+import { useNoterAuthActions } from "@/authClient";
 import { LandingCopy } from "@/components/LandingCopy";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
@@ -19,7 +19,6 @@ import {
   writePublicLandingWaitlistDraft,
 } from "@/lib/publicLandingWaitlistDraft";
 import { useLocation } from "@tanstack/react-router";
-import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
 import { type ReactNode, useEffect, useState } from "react";
 import { api } from "../convex/_generated/api";
@@ -144,7 +143,7 @@ function WaitlistForm() {
 }
 
 function PasswordAuthForm() {
-  const { signIn } = useAuthActions();
+  const { signInWithPassword } = useNoterAuthActions();
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -170,14 +169,11 @@ function PasswordAuthForm() {
     }
     setPending(true);
     setError(null);
-    void signIn("password", {
+    void signInWithPassword({
       flow: nextFlow,
       email: normalizedEmail,
       password: nextPassword,
     })
-      .then(() => {
-        setAuthProvider("password");
-      })
       .catch((signInError: unknown) => {
         setError(
           signInError instanceof Error
