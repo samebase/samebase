@@ -15,7 +15,13 @@ import {
   PRIVACY_PAGE_METADATA,
   TERMS_PAGE_METADATA,
 } from "./src/lib/pageMetadata";
+import { buildLandingPageMarkdown } from "./src/lib/landingCopyContent";
+import {
+  parseLandingSlogans,
+  selectLandingSlogan,
+} from "./src/lib/landingSlogans";
 import { renderStaticLegalPageHtml } from "./src/lib/staticLegalPage";
+import { renderStaticRootLandingHtml } from "./src/lib/staticRootLanding";
 import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import {
   readEnvFileValue,
@@ -103,6 +109,7 @@ const appCommitNumber = resolveAppCommitNumber({
 
 const appRepoUrl = "https://github.com/noter-md/noter";
 const daytonaSdkVersion = readPackageVersion("@daytonaio/sdk", import.meta.url);
+const landingSlogansMarkdownPath = path.resolve(gitRoot, "slogans.md");
 const daytonaLocalEnvPath = path.resolve(currentDir, ".env.local");
 const daytonaConvexProxyTarget = resolveDaytonaConvexProxyTarget({
   devOrigin: process.env.DEV_ENV_ORIGIN,
@@ -131,6 +138,8 @@ const runtimeNoterConnectConfigPath = path.resolve(
   currentDir,
   `dist${noterConnectConfigPathname}`,
 );
+const builtRootIndexHtmlPath = path.resolve(currentDir, "dist/index.html");
+const builtAppHtmlPath = path.resolve(currentDir, "dist/app.html");
 const privacyPolicyMarkdownPath = path.resolve(
   currentDir,
   "src/content/privacy-policy.md",
@@ -144,6 +153,11 @@ const staticPrivacyHtmlPath = path.resolve(
   "public/privacy/index.html",
 );
 const staticTermsHtmlPath = path.resolve(currentDir, "public/terms/index.html");
+const staticRootLandingMarkdown = buildLandingPageMarkdown(
+  selectLandingSlogan(
+    parseLandingSlogans(readFileSync(landingSlogansMarkdownPath, "utf8")),
+  ),
+);
 
 function isLoopbackHostname(hostname: string): boolean {
   return (
@@ -563,6 +577,25 @@ function syncStaticLegalPageAssetsPlugin() {
   };
 }
 
+function emitStaticRootLandingAssetPlugin() {
+  return {
+    name: "emit-static-root-landing-asset",
+    closeBundle() {
+      const builtAppHtml = readFileSync(builtRootIndexHtmlPath, "utf8");
+      const staticRootLandingHtml = renderStaticRootLandingHtml({
+        appCommit,
+        appCommitNumber,
+        appHtml: builtAppHtml,
+        landingMarkdown: staticRootLandingMarkdown,
+        repoUrl: appRepoUrl,
+      });
+
+      writeFileSync(builtAppHtmlPath, builtAppHtml, "utf8");
+      writeFileSync(builtRootIndexHtmlPath, staticRootLandingHtml, "utf8");
+    },
+  };
+}
+
 function stripDaytonaConvexProxyPrefix(requestPath: string): string {
   if (
     requestPath !== DAYTONA_CONVEX_PROXY_PATH &&
@@ -632,6 +665,7 @@ export default defineConfig({
     syncStaticNoterSyncScriptAssetPlugin(),
     syncRuntimeNoterConnectConfigAssetPlugin(),
     syncStaticLegalPageAssetsPlugin(),
+    emitStaticRootLandingAssetPlugin(),
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,
     }),
