@@ -9,9 +9,13 @@ import {
   type AgentGraphNode,
 } from "@/components/AgentGraphView";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/checkbox";
-import { Label } from "@/components/label";
 import { FileViewPushActions } from "@/components/FileViewPushActions";
+import {
+  FileViewInlinePreviewControls,
+  FileViewPatchPreview,
+  FileViewPatchText,
+  FileViewSplitPreview,
+} from "@/components/FileView/FileViewPreviewParts";
 import { ChangedFilesLoadingState } from "@/components/ChangedFilesLoadingState";
 import {
   FileViewDeveloperTools,
@@ -41,7 +45,6 @@ import {
   ProsemarkMergeEditor,
   type ProsemarkMergeEditorOptions,
 } from "@/components/ProsemarkMergeEditor";
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { nonNullable } from "@/lib/utils";
 import {
   filterSimpleViewTreeItems,
@@ -106,7 +109,6 @@ import {
   BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS,
   buildInlinePreviewAutosaveContextKey,
   type CommitPreview,
-  type CommitPreviewFile,
   type CommitReviewMode,
   DEFAULT_INLINE_PREVIEW_OPTIONS,
   DEFAULT_SHOW_INLINE_PREVIEW_PATCH,
@@ -116,7 +118,6 @@ import {
   FILE_VIEW_SIDEBAR_DEFAULT_STATE,
   findBestInitialFile,
   getDefaultUploadFolderPath,
-  getPatchLineClassName,
   getStagedFileStatus,
   isFileTreeNodeType,
   isStorageBackedFileError,
@@ -2173,136 +2174,6 @@ function FileViewInner({
     selectedPreviewBaseContent,
     showInlinePreviewSideBySide,
   ]);
-  const renderInlinePreviewControls = (
-    controlsIdPrefix: string,
-    patchAvailable: boolean,
-  ) => (
-    <div className="flex flex-wrap gap-x-4 gap-y-2">
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id={`${controlsIdPrefix}-show-patch`}
-          checked={showInlinePreviewPatch}
-          disabled={!patchAvailable}
-          onCheckedChange={(checked) => {
-            const nextValue = checked === true;
-            setShowInlinePreviewPatch(nextValue);
-            if (nextValue) {
-              setShowInlinePreviewSideBySide(false);
-            }
-          }}
-        />
-        <Label
-          htmlFor={`${controlsIdPrefix}-show-patch`}
-          className="text-xs font-medium text-muted-foreground"
-        >
-          Show patch
-        </Label>
-      </div>
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id={`${controlsIdPrefix}-allow-inline-diffs`}
-          checked={inlinePreviewOptions.allowInlineDiffs}
-          onCheckedChange={(checked) => {
-            setInlinePreviewOptions((current) => ({
-              ...current,
-              allowInlineDiffs: checked === true,
-            }));
-          }}
-        />
-        <Label
-          htmlFor={`${controlsIdPrefix}-allow-inline-diffs`}
-          className="text-xs font-medium text-muted-foreground"
-        >
-          Inline diffs
-        </Label>
-      </div>
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id={`${controlsIdPrefix}-side-by-side`}
-          checked={showInlinePreviewSideBySide}
-          onCheckedChange={(checked) => {
-            const nextValue = checked === true;
-            setShowInlinePreviewSideBySide(nextValue);
-            if (nextValue) {
-              setShowInlinePreviewPatch(false);
-            }
-          }}
-        />
-        <Label
-          htmlFor={`${controlsIdPrefix}-side-by-side`}
-          className="text-xs font-medium text-muted-foreground"
-        >
-          Side by side
-        </Label>
-      </div>
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id={`${controlsIdPrefix}-syntax-deletions`}
-          checked={inlinePreviewOptions.syntaxHighlightDeletions}
-          onCheckedChange={(checked) => {
-            setInlinePreviewOptions((current) => ({
-              ...current,
-              syntaxHighlightDeletions: checked === true,
-            }));
-          }}
-        />
-        <Label
-          htmlFor={`${controlsIdPrefix}-syntax-deletions`}
-          className="text-xs font-medium text-muted-foreground"
-        >
-          Syntax deleted
-        </Label>
-      </div>
-    </div>
-  );
-  const renderSplitPreview = (
-    beforeValue: string,
-    afterValue: string,
-    beforeFilePath: string,
-  ) => (
-    <div className="grid gap-3 p-3 md:grid-cols-2">
-      <div className="min-w-0 corner-notch-1 border bg-background p-3">
-        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
-          Before
-        </div>
-        <ProsemarkReadOnly
-          value={beforeValue}
-          filePath={beforeFilePath}
-          highlightedLineNumbers={inlinePreviewSplitDiffHighlights.oldLines}
-          lineHighlightTone="remove"
-          mobilePaneDragEnabled
-          className="text-sm leading-6"
-        />
-      </div>
-      <div className="min-w-0 corner-notch-1 border bg-background p-3">
-        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-          After
-        </div>
-        <ProsemarkReadOnly
-          value={afterValue}
-          filePath={selectedFile}
-          highlightedLineNumbers={inlinePreviewSplitDiffHighlights.newLines}
-          lineHighlightTone="add"
-          mobilePaneDragEnabled
-          className="text-sm leading-6"
-        />
-      </div>
-    </div>
-  );
-  const renderPreviewPatch = (
-    file: Pick<CommitPreviewFile, "patch" | "patchTruncated">,
-  ) => (
-    <div>
-      {file.patchTruncated ? (
-        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          Patch output is truncated for this file.
-        </div>
-      ) : null}
-      <div className="p-3 font-mono text-xs leading-5">
-        {renderPatchLines(file.patch ?? "")}
-      </div>
-    </div>
-  );
   const inlinePreviewAutosaveContextKey = buildInlinePreviewAutosaveContextKey(
     commitReviewMode,
     activePreviewStagingId,
@@ -3107,16 +2978,6 @@ function FileViewInner({
     setInlinePreviewFailedSave(null);
     setInlinePreviewSaveError(null);
   }, []);
-  const renderPatchLines = useCallback((patch: string) => {
-    return patch.split("\n").map((line, index) => (
-      <div
-        key={`${index}:${line}`}
-        className={`whitespace-pre-wrap corner-notch-1 px-1 ${getPatchLineClassName(line)}`}
-      >
-        {line.length > 0 ? line : " "}
-      </div>
-    ));
-  }, []);
 
   const headerTitle = selectedFile
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
@@ -3466,11 +3327,13 @@ function FileViewInner({
                                               </div>
                                             ) : null}
                                             <div className="p-3 font-mono text-xs leading-5">
-                                              {selectedRebaseConflictFile.baseToStagedPatch
-                                                ? renderPatchLines(
-                                                    selectedRebaseConflictFile.baseToStagedPatch,
-                                                  )
-                                                : null}
+                                              {selectedRebaseConflictFile.baseToStagedPatch ? (
+                                                <FileViewPatchText
+                                                  patch={
+                                                    selectedRebaseConflictFile.baseToStagedPatch
+                                                  }
+                                                />
+                                              ) : null}
                                             </div>
                                           </div>
                                           <div className="min-h-0 border-t md:border-t-0">
@@ -3484,11 +3347,13 @@ function FileViewInner({
                                               </div>
                                             ) : null}
                                             <div className="p-3 font-mono text-xs leading-5">
-                                              {selectedRebaseConflictFile.baseToUpstreamPatch
-                                                ? renderPatchLines(
-                                                    selectedRebaseConflictFile.baseToUpstreamPatch,
-                                                  )
-                                                : null}
+                                              {selectedRebaseConflictFile.baseToUpstreamPatch ? (
+                                                <FileViewPatchText
+                                                  patch={
+                                                    selectedRebaseConflictFile.baseToUpstreamPatch
+                                                  }
+                                                />
+                                              ) : null}
                                             </div>
                                           </div>
                                         </div>
@@ -3501,10 +3366,61 @@ function FileViewInner({
                                   ) : selectedPreviewCanRenderInline ? (
                                     <div className="min-h-full">
                                       <div className="border-b px-3 py-2">
-                                        {renderInlinePreviewControls(
-                                          "inline-option",
-                                          Boolean(selectedPreviewFile?.patch),
-                                        )}
+                                        <FileViewInlinePreviewControls
+                                          controlsIdPrefix="inline-option"
+                                          patchAvailable={Boolean(
+                                            selectedPreviewFile?.patch,
+                                          )}
+                                          showPatch={showInlinePreviewPatch}
+                                          allowInlineDiffs={
+                                            inlinePreviewOptions.allowInlineDiffs
+                                          }
+                                          showSideBySide={
+                                            showInlinePreviewSideBySide
+                                          }
+                                          syntaxHighlightDeletions={
+                                            inlinePreviewOptions.syntaxHighlightDeletions
+                                          }
+                                          onShowPatchChange={(nextValue) => {
+                                            setShowInlinePreviewPatch(
+                                              nextValue,
+                                            );
+                                            if (nextValue) {
+                                              setShowInlinePreviewSideBySide(
+                                                false,
+                                              );
+                                            }
+                                          }}
+                                          onAllowInlineDiffsChange={(
+                                            nextValue,
+                                          ) => {
+                                            setInlinePreviewOptions(
+                                              (current) => ({
+                                                ...current,
+                                                allowInlineDiffs: nextValue,
+                                              }),
+                                            );
+                                          }}
+                                          onSideBySideChange={(nextValue) => {
+                                            setShowInlinePreviewSideBySide(
+                                              nextValue,
+                                            );
+                                            if (nextValue) {
+                                              setShowInlinePreviewPatch(false);
+                                            }
+                                          }}
+                                          onSyntaxHighlightDeletionsChange={(
+                                            nextValue,
+                                          ) => {
+                                            setInlinePreviewOptions(
+                                              (current) => ({
+                                                ...current,
+                                                syntaxHighlightDeletions:
+                                                  nextValue,
+                                              }),
+                                            );
+                                          }}
+                                        />
                                       </div>
                                       {inlinePreviewSaveError ? (
                                         <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -3513,13 +3429,28 @@ function FileViewInner({
                                       ) : null}
                                       {showInlinePreviewPatch &&
                                       selectedPreviewFile?.patch ? (
-                                        renderPreviewPatch(selectedPreviewFile)
+                                        <FileViewPatchPreview
+                                          file={selectedPreviewFile}
+                                        />
                                       ) : showInlinePreviewSideBySide ? (
-                                        renderSplitPreview(
-                                          selectedPreviewBaseContent,
-                                          inlinePreviewEditorContent,
-                                          selectedPreviewBaseFilePath,
-                                        )
+                                        <FileViewSplitPreview
+                                          beforeValue={
+                                            selectedPreviewBaseContent
+                                          }
+                                          afterValue={
+                                            inlinePreviewEditorContent
+                                          }
+                                          beforeFilePath={
+                                            selectedPreviewBaseFilePath
+                                          }
+                                          afterFilePath={selectedFile}
+                                          oldHighlightedLineNumbers={
+                                            inlinePreviewSplitDiffHighlights.oldLines
+                                          }
+                                          newHighlightedLineNumbers={
+                                            inlinePreviewSplitDiffHighlights.newLines
+                                          }
+                                        />
                                       ) : (
                                         <ProsemarkMergeEditor
                                           key={`${selectedFile}:${activePreviewStagingId ?? "inline"}`}
@@ -3535,7 +3466,9 @@ function FileViewInner({
                                       )}
                                     </div>
                                   ) : selectedPreviewFile?.patch ? (
-                                    renderPreviewPatch(selectedPreviewFile)
+                                    <FileViewPatchPreview
+                                      file={selectedPreviewFile}
+                                    />
                                   ) : selectedFileIsRenderableMedia ? (
                                     <RepositoryMediaViewer
                                       repositoryFullName={repositoryFullName}
@@ -3575,19 +3508,58 @@ function FileViewInner({
                     selectedComparedFileCanRenderInline ? (
                     <div className="min-h-full">
                       <div className="border-b px-3 py-2">
-                        {renderInlinePreviewControls(
-                          "compare-inline-option",
-                          Boolean(selectedComparedFile?.patch),
-                        )}
+                        <FileViewInlinePreviewControls
+                          controlsIdPrefix="compare-inline-option"
+                          patchAvailable={Boolean(selectedComparedFile?.patch)}
+                          showPatch={showInlinePreviewPatch}
+                          allowInlineDiffs={
+                            inlinePreviewOptions.allowInlineDiffs
+                          }
+                          showSideBySide={showInlinePreviewSideBySide}
+                          syntaxHighlightDeletions={
+                            inlinePreviewOptions.syntaxHighlightDeletions
+                          }
+                          onShowPatchChange={(nextValue) => {
+                            setShowInlinePreviewPatch(nextValue);
+                            if (nextValue) {
+                              setShowInlinePreviewSideBySide(false);
+                            }
+                          }}
+                          onAllowInlineDiffsChange={(nextValue) => {
+                            setInlinePreviewOptions((current) => ({
+                              ...current,
+                              allowInlineDiffs: nextValue,
+                            }));
+                          }}
+                          onSideBySideChange={(nextValue) => {
+                            setShowInlinePreviewSideBySide(nextValue);
+                            if (nextValue) {
+                              setShowInlinePreviewPatch(false);
+                            }
+                          }}
+                          onSyntaxHighlightDeletionsChange={(nextValue) => {
+                            setInlinePreviewOptions((current) => ({
+                              ...current,
+                              syntaxHighlightDeletions: nextValue,
+                            }));
+                          }}
+                        />
                       </div>
                       {showInlinePreviewPatch && selectedComparedFile?.patch ? (
-                        renderPreviewPatch(selectedComparedFile)
+                        <FileViewPatchPreview file={selectedComparedFile} />
                       ) : showInlinePreviewSideBySide ? (
-                        renderSplitPreview(
-                          selectedPreviewBaseContent,
-                          inlinePreviewEditorContent,
-                          selectedPreviewBaseFilePath,
-                        )
+                        <FileViewSplitPreview
+                          beforeValue={selectedPreviewBaseContent}
+                          afterValue={inlinePreviewEditorContent}
+                          beforeFilePath={selectedPreviewBaseFilePath}
+                          afterFilePath={selectedFile}
+                          oldHighlightedLineNumbers={
+                            inlinePreviewSplitDiffHighlights.oldLines
+                          }
+                          newHighlightedLineNumbers={
+                            inlinePreviewSplitDiffHighlights.newLines
+                          }
+                        />
                       ) : (
                         <ProsemarkMergeEditor
                           key={`${selectedFile}:compare`}
@@ -3602,7 +3574,7 @@ function FileViewInner({
                       )}
                     </div>
                   ) : isCompareRequested && selectedComparedFile?.patch ? (
-                    renderPreviewPatch(selectedComparedFile)
+                    <FileViewPatchPreview file={selectedComparedFile} />
                   ) : null
                 ) : (
                   <AgentGraphView
