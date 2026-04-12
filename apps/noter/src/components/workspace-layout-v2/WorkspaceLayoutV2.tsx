@@ -958,11 +958,13 @@ function WorkspaceLayoutV2MainPaneHeader({
 }
 
 export function WorkspaceLayoutV2FullPage({
+  dataTestId,
   left,
   main,
   panel,
   right,
 }: {
+  dataTestId?: string;
   left: WorkspaceLayoutV2PaneFrameProps;
 
   main: WorkspaceLayoutV2PaneFrameProps;
@@ -972,7 +974,7 @@ export function WorkspaceLayoutV2FullPage({
   right: WorkspaceLayoutV2PaneFrameProps;
 }) {
   return (
-    <WorkspaceLayoutV2ViewportFrame>
+    <WorkspaceLayoutV2ViewportFrame dataTestId={dataTestId}>
       <WorkspaceLayoutV2JustPanes
         left={<WorkspaceLayoutV2PaneFrame {...left} />}
         main={

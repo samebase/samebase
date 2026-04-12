@@ -438,7 +438,10 @@ export function MachinesWorkspaceVisualFixture() {
         defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
       >
         <div className="bg-slate-100 p-8 text-slate-950">
-          <div className="h-[420px] w-[960px] overflow-hidden">
+          <div
+            data-testid="machines-workspace-visual-fixture-page"
+            className="h-[420px] w-[960px] overflow-hidden"
+          >
             <MachinesWorkspaceView
               dataTestId="machines-workspace-visual-fixture"
               isSubmittingTurn={false}

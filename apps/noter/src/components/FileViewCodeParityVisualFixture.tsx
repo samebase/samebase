@@ -6,11 +6,11 @@ import { toCanvas } from "html-to-image";
 import { prosemarkBaseThemeSetup, prosemarkBasicSetup } from "@prosemark/core";
 import { useTheme } from "next-themes";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
+import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
-import { SidebarProvider } from "@/components/sidebar";
+import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
-import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
 import { getProsemarkFileThemeExtensions } from "@/components/prosemarkSurface";
 import {
   getCodeMirrorFileLanguageKind,
@@ -742,22 +742,14 @@ export function FileViewCodeParityVisualFixture({
   }, [editorResolutionScale, liveDiffRefreshKey, monacoReady, prosemarkReady]);
 
   return (
-    <SidebarProvider
+    <WorkspaceLayoutV2FixtureFrame
+      dataTestId="file-view-code-parity-visual-fixture"
       defaultOpen={true}
       defaultRightOpen={true}
-      className="bg-background text-foreground"
-    >
-      <RepositoryWorkspaceFrame
-        dataTestId="file-view-code-parity-visual-fixture"
-        headerTitle={FIXTURE_FILE_PATH}
-        headerRight={
-          <div className="font-mono text-xs text-muted-foreground">2489719</div>
-        }
-        onQuickOpen={() => {}}
-        contentClassName="p-0"
-        leftSidebarHeader={
+      left={{
+        header: (
           <SidebarAccountSection>
-            <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
+            <div className="flex h-full w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
               <span className="block min-w-0 truncate">nicu@noter.md</span>
               <Button
                 variant="secondary"
@@ -769,8 +761,8 @@ export function FileViewCodeParityVisualFixture({
               </Button>
             </div>
           </SidebarAccountSection>
-        }
-        leftSidebarContent={
+        ),
+        content: (
           <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
             <div className="border-b border-border/50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Files
@@ -784,9 +776,223 @@ export function FileViewCodeParityVisualFixture({
               </div>
             </div>
           </div>
-        }
-        rightSidebarHeader={null}
-        rightSidebarContent={
+        ),
+      }}
+      main={{
+        header: (
+          <RepositoryWorkspacePaneHeader
+            title={FIXTURE_FILE_PATH}
+            right={
+              <div className="font-mono text-xs text-muted-foreground">
+                2489719
+              </div>
+            }
+            onQuickOpen={() => {}}
+          />
+        ),
+        content: (
+          <div className="flex flex-col bg-muted/10">
+            <div className="border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
+              Monaco line numbers are temporarily disabled so the parity diff
+              can focus on typography, spacing, and syntax color.
+            </div>
+            <div className="p-3">
+              <div className="grid gap-4">
+                {/* Keep the parity capture area bounded so 2x live diff refreshes stay fast in CI. */}
+                <div
+                  data-testid="file-view-code-parity-editor-panels"
+                  className="grid max-w-[960px] gap-4 xl:grid-cols-2"
+                >
+                  <div className="corner-notch-1 border bg-background p-3">
+                    <div className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Monaco
+                    </div>
+                    <div
+                      data-testid="file-view-code-parity-monaco"
+                      data-editor-ready={monacoReady ? "true" : "false"}
+                      className="h-[250px] overflow-hidden border bg-background"
+                    >
+                      <div
+                        ref={monacoCaptureRef}
+                        data-testid="file-view-code-parity-monaco-capture"
+                        className="h-full min-h-0 w-full"
+                      >
+                        <MonacoEditorSurface
+                          branch="main"
+                          defaultValue={FIXTURE_DOCUMENT}
+                          disableFolding={true}
+                          disableLineNumbers={true}
+                          filePath={FIXTURE_FILE_PATH}
+                          onMount={() => {
+                            setMonacoReady(true);
+                          }}
+                          syncError={null}
+                          vaultKey={FIXTURE_VAULT_KEY}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="corner-notch-1 border bg-background p-3">
+                    <div className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      ProseMark
+                    </div>
+                    <StaticCodeMirrorParitySurface
+                      captureRef={prosemarkCaptureRef}
+                      filePath={FIXTURE_FILE_PATH}
+                      onLanguageReadyChange={setProsemarkReady}
+                      value={FIXTURE_DOCUMENT}
+                    />
+                  </div>
+                </div>
+
+                <div className="corner-notch-1 border bg-background p-3">
+                  <div className="mb-3 grid gap-3 xl:grid-cols-[1fr_auto] xl:items-center">
+                    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Diff
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <label htmlFor="file-view-code-parity-resolution-scale">
+                          Resolution
+                        </label>
+                        <input
+                          aria-label="Parity resolution scale"
+                          type="range"
+                          min={PARITY_EDITOR_RESOLUTION_SCALE_MIN}
+                          max={PARITY_EDITOR_RESOLUTION_SCALE_MAX}
+                          step={1}
+                          value={editorResolutionScale}
+                          onChange={(event) => {
+                            setEditorResolutionScale(
+                              clampParityEditorResolutionScale(
+                                Number(event.currentTarget.value),
+                              ),
+                            );
+                          }}
+                          className="h-2 w-32 accent-foreground"
+                        />
+                        <Input
+                          id="file-view-code-parity-resolution-scale"
+                          type="number"
+                          inputMode="numeric"
+                          min={PARITY_EDITOR_RESOLUTION_SCALE_MIN}
+                          max={PARITY_EDITOR_RESOLUTION_SCALE_MAX}
+                          step={1}
+                          value={editorResolutionScale}
+                          onChange={(event) => {
+                            const nextValue = Number(event.currentTarget.value);
+                            if (!Number.isFinite(nextValue)) {
+                              return;
+                            }
+
+                            setEditorResolutionScale(
+                              clampParityEditorResolutionScale(nextValue),
+                            );
+                          }}
+                          className="h-8 w-16 bg-background px-2 py-1 text-right font-mono text-xs"
+                        />
+                        <span>{editorResolutionScale}x</span>
+                      </div>
+                      <div
+                        data-testid="file-view-code-parity-mismatch-count"
+                        className="text-xs tabular-nums text-muted-foreground"
+                      >
+                        {parityDiffImageState === "loading"
+                          ? "Rendering live diff..."
+                          : parityDiffImageState === "error"
+                            ? "Live diff unavailable"
+                            : liveMismatchPixels === null
+                              ? "Live pixel diff"
+                              : `${liveMismatchPixels.toLocaleString()} live mismatches`}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    data-testid="file-view-code-parity-diff"
+                    data-diff-ready={
+                      parityDiffImageState === "ready" ? "true" : "false"
+                    }
+                    data-preview-ready={
+                      parityDiffPreviewLoaded ? "true" : "false"
+                    }
+                    className="grid gap-3 border bg-white p-4"
+                  >
+                    <div className="text-sm text-muted-foreground">
+                      The diff below is generated from the current live Monaco
+                      and ProseMark surfaces, so changing the resolution control
+                      above updates it immediately.
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-3 w-3 border"
+                          style={{ backgroundColor: PARITY_MONACO_DIFF_COLOR }}
+                        />
+                        <span>Monaco darker / extra</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-3 w-3 border"
+                          style={{
+                            backgroundColor: PARITY_PROSEMARK_DIFF_COLOR,
+                          }}
+                        />
+                        <span>ProseMark darker / extra</span>
+                      </div>
+                      <div>Paler pixels mean smaller mismatches.</div>
+                      <div>More saturated pixels mean larger mismatches.</div>
+                    </div>
+                    <div
+                      data-testid="file-view-code-parity-bounds-delta"
+                      className="text-xs text-muted-foreground"
+                    >
+                      {boundsMetricsState === "loading"
+                        ? "Foreground bounds pending"
+                        : boundsMetricsState === "error" || !boundsMetrics
+                          ? "Foreground bounds unavailable"
+                          : `Foreground bounds delta: x ${boundsMetrics.deltaX}px, y ${boundsMetrics.deltaY}px`}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {boundsMetricsState === "ready" && boundsMetrics
+                        ? `Live diff captured at ${boundsMetrics.captureScale}x resolution.`
+                        : "Live capture resolution pending"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      These bounds ignore the shell border and focus on the
+                      first non-background editor pixels, so use them for
+                      placement. The pixel diff below still includes
+                      rasterization and syntax-color noise, but the color
+                      strength now reflects how large each mismatch is.
+                    </div>
+                    <div
+                      data-testid="file-view-code-parity-diff-preview"
+                      className="overflow-visible border bg-white p-4"
+                    >
+                      <div className="w-fit">
+                        <img
+                          alt="Live parity pixel diff"
+                          src={parityDiffPreviewUrl ?? undefined}
+                          className="block max-w-none"
+                          style={{ imageRendering: "pixelated" }}
+                          onLoad={() => {
+                            setParityDiffPreviewLoaded(true);
+                          }}
+                          onError={() => {
+                            setParityDiffPreviewLoaded(false);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ),
+      }}
+      right={{
+        content: (
           <div className="flex min-h-0 flex-1 flex-col bg-background">
             <div className="border-b border-border/50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Goal
@@ -799,205 +1005,8 @@ export function FileViewCodeParityVisualFixture({
               </div>
             </div>
           </div>
-        }
-      >
-        <div className="flex flex-col bg-muted/10">
-          <div className="border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
-            Monaco line numbers are temporarily disabled so the parity diff can
-            focus on typography, spacing, and syntax color.
-          </div>
-          <div className="p-3">
-            <div className="grid gap-4">
-              {/* Keep the parity capture area bounded so 2x live diff refreshes stay fast in CI. */}
-              <div
-                data-testid="file-view-code-parity-editor-panels"
-                className="grid max-w-[960px] gap-4 xl:grid-cols-2"
-              >
-                <div className="corner-notch-1 border bg-background p-3">
-                  <div className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Monaco
-                  </div>
-                  <div
-                    data-testid="file-view-code-parity-monaco"
-                    data-editor-ready={monacoReady ? "true" : "false"}
-                    className="h-[250px] overflow-hidden border bg-background"
-                  >
-                    <div
-                      ref={monacoCaptureRef}
-                      data-testid="file-view-code-parity-monaco-capture"
-                      className="h-full min-h-0 w-full"
-                    >
-                      <MonacoEditorSurface
-                        branch="main"
-                        defaultValue={FIXTURE_DOCUMENT}
-                        disableFolding={true}
-                        disableLineNumbers={true}
-                        filePath={FIXTURE_FILE_PATH}
-                        onMount={() => {
-                          setMonacoReady(true);
-                        }}
-                        syncError={null}
-                        vaultKey={FIXTURE_VAULT_KEY}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="corner-notch-1 border bg-background p-3">
-                  <div className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    ProseMark
-                  </div>
-                  <StaticCodeMirrorParitySurface
-                    captureRef={prosemarkCaptureRef}
-                    filePath={FIXTURE_FILE_PATH}
-                    onLanguageReadyChange={setProsemarkReady}
-                    value={FIXTURE_DOCUMENT}
-                  />
-                </div>
-              </div>
-
-              <div className="corner-notch-1 border bg-background p-3">
-                <div className="mb-3 grid gap-3 xl:grid-cols-[1fr_auto] xl:items-center">
-                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Diff
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 xl:justify-end">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <label htmlFor="file-view-code-parity-resolution-scale">
-                        Resolution
-                      </label>
-                      <input
-                        aria-label="Parity resolution scale"
-                        type="range"
-                        min={PARITY_EDITOR_RESOLUTION_SCALE_MIN}
-                        max={PARITY_EDITOR_RESOLUTION_SCALE_MAX}
-                        step={1}
-                        value={editorResolutionScale}
-                        onChange={(event) => {
-                          setEditorResolutionScale(
-                            clampParityEditorResolutionScale(
-                              Number(event.currentTarget.value),
-                            ),
-                          );
-                        }}
-                        className="h-2 w-32 accent-foreground"
-                      />
-                      <Input
-                        id="file-view-code-parity-resolution-scale"
-                        type="number"
-                        inputMode="numeric"
-                        min={PARITY_EDITOR_RESOLUTION_SCALE_MIN}
-                        max={PARITY_EDITOR_RESOLUTION_SCALE_MAX}
-                        step={1}
-                        value={editorResolutionScale}
-                        onChange={(event) => {
-                          const nextValue = Number(event.currentTarget.value);
-                          if (!Number.isFinite(nextValue)) {
-                            return;
-                          }
-
-                          setEditorResolutionScale(
-                            clampParityEditorResolutionScale(nextValue),
-                          );
-                        }}
-                        className="h-8 w-16 bg-background px-2 py-1 text-right font-mono text-xs"
-                      />
-                      <span>{editorResolutionScale}x</span>
-                    </div>
-                    <div
-                      data-testid="file-view-code-parity-mismatch-count"
-                      className="text-xs tabular-nums text-muted-foreground"
-                    >
-                      {parityDiffImageState === "loading"
-                        ? "Rendering live diff..."
-                        : parityDiffImageState === "error"
-                          ? "Live diff unavailable"
-                          : liveMismatchPixels === null
-                            ? "Live pixel diff"
-                            : `${liveMismatchPixels.toLocaleString()} live mismatches`}
-                    </div>
-                  </div>
-                </div>
-                <div
-                  data-testid="file-view-code-parity-diff"
-                  data-diff-ready={
-                    parityDiffImageState === "ready" ? "true" : "false"
-                  }
-                  data-preview-ready={
-                    parityDiffPreviewLoaded ? "true" : "false"
-                  }
-                  className="grid gap-3 border bg-white p-4"
-                >
-                  <div className="text-sm text-muted-foreground">
-                    The diff below is generated from the current live Monaco and
-                    ProseMark surfaces, so changing the resolution control above
-                    updates it immediately.
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-3 w-3 border"
-                        style={{ backgroundColor: PARITY_MONACO_DIFF_COLOR }}
-                      />
-                      <span>Monaco darker / extra</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-3 w-3 border"
-                        style={{ backgroundColor: PARITY_PROSEMARK_DIFF_COLOR }}
-                      />
-                      <span>ProseMark darker / extra</span>
-                    </div>
-                    <div>Paler pixels mean smaller mismatches.</div>
-                    <div>More saturated pixels mean larger mismatches.</div>
-                  </div>
-                  <div
-                    data-testid="file-view-code-parity-bounds-delta"
-                    className="text-xs text-muted-foreground"
-                  >
-                    {boundsMetricsState === "loading"
-                      ? "Foreground bounds pending"
-                      : boundsMetricsState === "error" || !boundsMetrics
-                        ? "Foreground bounds unavailable"
-                        : `Foreground bounds delta: x ${boundsMetrics.deltaX}px, y ${boundsMetrics.deltaY}px`}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {boundsMetricsState === "ready" && boundsMetrics
-                      ? `Live diff captured at ${boundsMetrics.captureScale}x resolution.`
-                      : "Live capture resolution pending"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    These bounds ignore the shell border and focus on the first
-                    non-background editor pixels, so use them for placement. The
-                    pixel diff below still includes rasterization and
-                    syntax-color noise, but the color strength now reflects how
-                    large each mismatch is.
-                  </div>
-                  <div
-                    data-testid="file-view-code-parity-diff-preview"
-                    className="overflow-visible border bg-white p-4"
-                  >
-                    <div className="w-fit">
-                      <img
-                        alt="Live parity pixel diff"
-                        src={parityDiffPreviewUrl ?? undefined}
-                        className="block max-w-none"
-                        style={{ imageRendering: "pixelated" }}
-                        onLoad={() => {
-                          setParityDiffPreviewLoaded(true);
-                        }}
-                        onError={() => {
-                          setParityDiffPreviewLoaded(false);
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </RepositoryWorkspaceFrame>
-    </SidebarProvider>
+        ),
+      }}
+    />
   );
 }

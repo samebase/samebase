@@ -1,35 +1,27 @@
-import { devices, expect, test, type Page } from "@playwright/test";
+import {
+  devices,
+  expect,
+  test,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 
 const machinesWorkspaceSnapshotSuffix = process.platform;
 const { defaultBrowserType: _defaultBrowserType, ...iPhone13 } =
   devices["iPhone 13"];
 
-async function getBox(page: Page, testId: string) {
-  const locator = page.getByTestId(testId);
-  const box = await locator.boundingBox();
-
-  if (box === null) {
-    throw new Error(`Expected ${testId} to have a bounding box.`);
-  }
-
-  return box;
+async function pressEnter(locator: Locator) {
+  await locator.focus();
+  await locator.press("Enter");
 }
 
-async function dragHorizontalHandle(
-  page: Page,
-  testId: string,
-  deltaXPx: number,
-) {
-  const handleBox = await getBox(page, testId);
-  const startX = handleBox.x + handleBox.width / 2;
-  const startY = handleBox.y + handleBox.height / 2;
+async function narrowLeftSidebar(page: Page) {
+  const handle = page.getByTestId("workspace-layout-v2-left-resize");
+  await handle.focus();
 
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-  await page.mouse.move(startX + deltaXPx, startY, {
-    steps: 8,
-  });
-  await page.mouse.up();
+  for (let step = 0; step < 7; step += 1) {
+    await handle.press("ArrowLeft");
+  }
 }
 
 async function openMachinesWorkspaceFixture(page: Page) {
@@ -59,7 +51,7 @@ test("machines workspace fixture", async ({ page }) => {
     },
   );
 
-  const workspace = page.getByTestId("machines-workspace-visual-fixture");
+  const workspace = page.getByTestId("machines-workspace-visual-fixture-page");
   await expect(workspace).toHaveScreenshot(
     `machines-workspace-page-${machinesWorkspaceSnapshotSuffix}.png`,
     {
@@ -94,11 +86,7 @@ test("machines workspace narrow sidebar keeps thread titles clamped", async ({
 }) => {
   await openMachinesWorkspaceFixture(page);
 
-  await dragHorizontalHandle(
-    page,
-    "workspace-sidebar-left-resize-handle",
-    -160,
-  );
+  await narrowLeftSidebar(page);
 
   const sidebar = page.getByTestId("machines-workspace-visual-fixture-sidebar");
   await expect(sidebar).toHaveScreenshot(
@@ -124,7 +112,7 @@ test("machines workspace project collapse stays closed", async ({ page }) => {
   });
 
   await expect(projectThread).toBeVisible();
-  await projectToggle.click();
+  await pressEnter(projectToggle);
   await expect(projectThread).toBeHidden();
 
   await page.waitForTimeout(1200);
@@ -140,7 +128,7 @@ test("machines workspace desktop hover reveals the pin affordance", async ({
     .getByRole("button", {
       name: /Research sidebar resizing/,
     })
-    .hover();
+    .hover({ force: true });
 
   const sidebar = page.getByTestId("machines-workspace-visual-fixture-sidebar");
   await expect(sidebar).toHaveScreenshot(
@@ -165,9 +153,9 @@ test("machines workspace machine collapse stays closed", async ({ page }) => {
   });
 
   await expect(secondMachineThread).toBeHidden();
-  await secondMachineToggle.click();
+  await pressEnter(secondMachineToggle);
   await expect(secondMachineThread).toBeVisible();
-  await secondMachineToggle.click();
+  await pressEnter(secondMachineToggle);
   await expect(secondMachineThread).toBeHidden();
 
   await page.waitForTimeout(1200);
@@ -179,10 +167,10 @@ test("machines workspace project plus button opens a local draft conversation", 
 }) => {
   await openMachinesWorkspaceFixture(page);
 
-  await page
-    .getByRole("button", { name: "Start new conversation in noter" })
-    .click();
-  await page.getByRole("menuitem", { name: "Local" }).click();
+  await pressEnter(
+    page.getByRole("button", { name: "Start new conversation in noter" }),
+  );
+  await pressEnter(page.getByRole("menuitem", { name: "Local" }));
 
   await expect(
     page
@@ -198,10 +186,10 @@ test("machines workspace project plus button opens a worktree draft conversation
 }) => {
   await openMachinesWorkspaceFixture(page);
 
-  await page
-    .getByRole("button", { name: "Start new conversation in noter" })
-    .click();
-  await page.getByRole("menuitem", { name: "New worktree" }).click();
+  await pressEnter(
+    page.getByRole("button", { name: "Start new conversation in noter" }),
+  );
+  await pressEnter(page.getByRole("menuitem", { name: "New worktree" }));
 
   await expect(
     page
@@ -229,7 +217,9 @@ test.describe("mobile", () => {
       },
     );
 
-    const workspace = page.getByTestId("machines-workspace-visual-fixture");
+    const workspace = page.getByTestId(
+      "machines-workspace-visual-fixture-page",
+    );
     await expect(workspace).toHaveScreenshot(
       `machines-workspace-page-mobile-${machinesWorkspaceSnapshotSuffix}.png`,
       {
@@ -264,11 +254,11 @@ test.describe("mobile", () => {
   }) => {
     await openMachinesWorkspaceFixture(page);
 
-    await page
-      .getByRole("button", {
+    await pressEnter(
+      page.getByRole("button", {
         name: /Research sidebar resizing/,
-      })
-      .click();
+      }),
+    );
 
     const sidebar = page.getByTestId(
       "machines-workspace-visual-fixture-sidebar",
