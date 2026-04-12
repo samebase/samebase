@@ -14,14 +14,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/dropdown-menu";
-import { useAuthActions } from "@convex-dev/auth/react";
 import { PersonIcon } from "@radix-ui/react-icons";
 import { api } from "../../convex/_generated/api";
 import { useQuery } from "convex/react";
 import { ReactNode, useMemo, useState } from "react";
-import { clearAuthFlag } from "@/authClient";
+import { useNoterAuthActions } from "@/authClient";
 import { Link } from "@tanstack/react-router";
-import { usePostHog } from "posthog-js/react";
 
 function formatProviderLabel(provider: string | undefined): string {
   if (!provider) return "Unknown";
@@ -105,14 +103,10 @@ export function UserMenu({
 }
 
 function SignOutButton() {
-  const { signOut } = useAuthActions();
-  const posthog = usePostHog();
+  const { signOut } = useNoterAuthActions();
   return (
     <DropdownMenuItem
       onClick={() => {
-        clearAuthFlag();
-        // Start the next browser session from a fresh anonymous PostHog identity.
-        posthog.reset();
         void signOut();
       }}
     >

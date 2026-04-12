@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { buildCurrentGoogleRedirectTo } from "@/lib/googleAuthRedirect";
 import { type RootRouteSearch } from "@/lib/rootRouteSearch";
+import { usePostHog } from "posthog-js/react";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const AUTH_PROVIDER_KEY = "noter_auth_provider";
@@ -10,6 +11,15 @@ const AUTH_PROVIDER_KEY = "noter_auth_provider";
 type AuthProvider = "google" | "password";
 const POPUP_WATCH_INTERVAL_MS = 500;
 const POPUP_WATCH_TIMEOUT_MS = 120_000;
+type AuthActions = ReturnType<typeof useAuthActions>;
+type SignInAction = AuthActions["signIn"];
+type SignOutAction = AuthActions["signOut"];
+type PostHogClient = ReturnType<typeof usePostHog>;
+type PasswordSignInArgs = {
+  flow: "signIn" | "signUp";
+  email: string;
+  password: string;
+};
 
 type AuthPopupMessage = {
   type?: unknown;
@@ -39,6 +49,67 @@ export function setAuthFlag() {
 
 export function setAuthProvider(provider: AuthProvider) {
   localStorage.setItem(AUTH_PROVIDER_KEY, provider);
+}
+
+/**
+ * Keep provider bookkeeping next to the auth action so every Google login path
+ * stamps the same provider before redirecting into Convex Auth.
+ */
+export function signInWithGoogleAction(args: {
+  signIn: SignInAction;
+  redirectTo: string;
+}) {
+  setAuthProvider("google");
+  return args.signIn("google", { redirectTo: args.redirectTo });
+}
+
+/**
+ * Password auth does not redirect, so mark the provider after the auth action
+ * resolves successfully.
+ */
+export function signInWithPasswordAction(
+  args: {
+    signIn: SignInAction;
+  } & PasswordSignInArgs,
+) {
+  return args
+    .signIn("password", {
+      flow: args.flow,
+      email: args.email,
+      password: args.password,
+    })
+    .then(() => {
+      setAuthProvider("password");
+    });
+}
+
+/**
+ * Sign-out should always continue even if PostHog cleanup fails, otherwise a
+ * telemetry issue can block the user from leaving the current session.
+ */
+export function signOutWithAnalytics(args: {
+  signOut: SignOutAction;
+  posthog: Pick<PostHogClient, "reset">;
+}) {
+  clearAuthFlag();
+  try {
+    args.posthog.reset();
+  } finally {
+    return args.signOut();
+  }
+}
+
+export function useNoterAuthActions() {
+  const { signIn, signOut } = useAuthActions();
+  const posthog = usePostHog();
+
+  return {
+    signInWithGoogle: (redirectTo: string) =>
+      signInWithGoogleAction({ signIn, redirectTo }),
+    signInWithPassword: (args: PasswordSignInArgs) =>
+      signInWithPasswordAction({ signIn, ...args }),
+    signOut: () => signOutWithAnalytics({ signOut, posthog }),
+  };
 }
 
 export function isInIframe() {
@@ -128,14 +199,13 @@ export function useAutoSignIn(auth: RootRouteSearch["auth"]) {
   const { signIn } = useAuthActions();
   useEffect(() => {
     if (auth === "google") {
-      setAuthProvider(auth);
       const redirectTo = buildCurrentGoogleRedirectTo(
         window.location.pathname,
         window.location.search,
         window.location.hash,
       );
       window.history.replaceState({}, "", redirectTo);
-      void signIn("google", { redirectTo });
+      void signInWithGoogleAction({ signIn, redirectTo });
     }
   }, [auth, signIn]);
 }
