@@ -108,6 +108,11 @@ async function expectPaneAfterProsemarkDrag(args: {
   }
 }
 
+/**
+ * Captures Chrome's non-cancelable `touchmove` intervention warnings during a
+ * bounded mobile drag interaction so the real route-level repro can fail if
+ * sidebar swipes regress back to logging them.
+ */
 async function collectTouchMoveInterventionWarnings<T>(
   page: Page,
   action: () => Promise<T>,
