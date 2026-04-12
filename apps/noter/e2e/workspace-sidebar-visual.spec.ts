@@ -169,6 +169,9 @@ test("fileview desktop left header with right tree", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
+  await expect(
+    page.getByRole("button", { name: "Open bottom panel" }),
+  ).toBeVisible();
 
   await expect(
     page.getByTestId("fileview-layout-visual-fixture"),

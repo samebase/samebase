@@ -25,7 +25,7 @@ import {
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 import { buildPathWithQuery } from "@/lib/queryParams";
 import { CommandPalette } from "@/components/CommandPalette";
-import { EditorChatDock } from "@/components/EditorChatDock";
+import { EditorChatPanel } from "@/components/EditorChatPanel";
 import {
   FileViewSidebarContent,
   FileViewSidebarFooter,
@@ -687,6 +687,13 @@ function FileViewInner({
   const router = useRouter();
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
+  const dashboardSettings = useLiveQuery(
+    api.dashboardSettings.getDashboardSettings,
+    {},
+  );
+  const setEditorChatOpen = useMutation(
+    api.dashboardSettings.setEditorChatOpen,
+  );
   const currentRawSearch = useMemo(
     () => Object.fromEntries(new URLSearchParams(location.searchStr).entries()),
     [location.searchStr],
@@ -2560,9 +2567,13 @@ function FileViewInner({
   const headerTitle = selectedFile
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
     : undefined;
-  const [mobileBottomDockInset, setMobileBottomDockInset] = useState<
-    string | undefined
-  >(undefined);
+  const dashboardEditorChatOpen = dashboardSettings?.editorChatOpen;
+  const [editorChatOpen, setEditorChatOpenState] = useState<boolean | null>(
+    null,
+  );
+  const [shouldAutoFocusChatInput, setShouldAutoFocusChatInput] =
+    useState(false);
+  const editorChatPendingRef = useRef<boolean | null>(null);
   const developerToolsVisible = viewMode === "graph" || developerToolsOpen;
   const showEditorOverrideControl =
     viewMode === "editor" &&
@@ -2607,19 +2618,44 @@ function FileViewInner({
       )}
     </div>
   );
-  const fileViewScrollStyle = mobileBottomDockInset
-    ? {
-        paddingBottom: mobileBottomDockInset,
-        scrollPaddingBottom: mobileBottomDockInset,
+  useEffect(() => {
+    if (dashboardEditorChatOpen === undefined) {
+      return;
+    }
+
+    const serverValue = dashboardEditorChatOpen;
+    if (editorChatPendingRef.current !== null) {
+      if (editorChatPendingRef.current === serverValue) {
+        editorChatPendingRef.current = null;
+      } else {
+        return;
       }
-    : undefined;
+    }
+    setEditorChatOpenState(serverValue);
+  }, [dashboardEditorChatOpen]);
+
+  const resolvedEditorChatOpen =
+    editorChatOpen ?? dashboardEditorChatOpen ?? false;
+  const handleEditorChatOpenChange = useCallback(
+    (isOpen: boolean) => {
+      setShouldAutoFocusChatInput(isOpen);
+      setEditorChatOpenState(isOpen);
+      editorChatPendingRef.current = isOpen;
+      void setEditorChatOpen({ isOpen, scope: "vault" }).catch(
+        (error: unknown) => {
+          console.error("Failed to persist FileView chat state:", error);
+          editorChatPendingRef.current = null;
+          setShouldAutoFocusChatInput(false);
+          setEditorChatOpenState(dashboardEditorChatOpen ?? false);
+        },
+      );
+    },
+    [dashboardEditorChatOpen, setEditorChatOpen],
+  );
 
   const fileViewMainContent = (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div
-        className="min-h-0 flex-1 overflow-y-auto"
-        style={fileViewScrollStyle}
-      >
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="max-w-none flex min-h-full flex-col gap-4 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="min-w-0">
@@ -3151,14 +3187,6 @@ function FileViewInner({
           </div>
         </div>
       </div>
-      <EditorChatDock
-        vaultId={vault._id}
-        repositoryFullName={repositoryFullName}
-        branch={branch}
-        filePath={selectedFile || undefined}
-        desktopMode="inline"
-        onMobileDockInsetChange={setMobileBottomDockInset}
-      />
     </div>
   );
 
@@ -3174,6 +3202,20 @@ function FileViewInner({
         main={{
           header: fileViewMainHeader,
           content: fileViewMainContent,
+        }}
+        panel={{
+          content: (
+            <EditorChatPanel
+              vaultId={vault._id}
+              repositoryFullName={repositoryFullName}
+              branch={branch}
+              filePath={selectedFile || undefined}
+              autoFocusInput={shouldAutoFocusChatInput}
+              shellMode="embedded"
+            />
+          ),
+          onOpenChange: handleEditorChatOpenChange,
+          open: resolvedEditorChatOpen,
         }}
         right={{
           header:
