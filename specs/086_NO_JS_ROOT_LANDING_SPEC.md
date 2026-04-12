@@ -54,6 +54,7 @@ fast-shell handoff path.
    first slice.
 4. Moving the private app to a new public path such as `/app`.
 5. Shipping full SSR or route-level React hydration in this slice.
+6. Randomizing the first visible landing slogan on every refresh in this slice.
 
 ## First Slice
 
@@ -96,6 +97,19 @@ The current branch implements the first slice with a build-time root/app split:
 8. The routed landing and build-time fallback now use one shared stable slogan
    seed so the headline does not jump during boot or churn on every commit.
 
+## Current Tradeoff
+
+- The branch still reads possible slogans from `slogans.md`, but the initial
+  no-JS landing must render one concrete slogan in the HTML before any client
+  code runs.
+- Because the current root fallback is static HTML, that first visible slogan
+  cannot safely be chosen with client-side randomness such as `Math.random()`.
+- The branch therefore uses a shared deterministic slogan seed so the static
+  landing, hydrated landing, and visual checks all agree on the same headline.
+- If noter later wants a different slogan on each refresh while preserving the
+  no-JS first paint, the landing will need request-time rendering or an
+  equivalent server/edge-selected initial value for the client to reuse.
+
 ## Implementation Notes
 
 - The static landing should prefer the same class hooks already used by the
@@ -135,6 +149,9 @@ The current branch has local coverage for:
    OAuth entrypoint instead of a placeholder.
 3. Tighten parity checks between the static landing renderer and the routed
    landing surface after the first root-only fallback is stable.
+4. Revisit request-time landing rendering, for example via TanStack Start or
+   another SSR/edge path, if per-refresh slogan randomization becomes worth the
+   added complexity.
 
 ## Acceptance Criteria
 
