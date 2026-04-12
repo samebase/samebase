@@ -20,6 +20,7 @@ import {
 import {
   parseLandingSlogans,
   selectStableLandingSlogan,
+  STABLE_LANDING_SLOGAN_SEED,
 } from "./src/lib/landingSlogans";
 import { renderStaticLegalPageHtml } from "./src/lib/staticLegalPage";
 import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
@@ -156,7 +157,7 @@ const staticTermsHtmlPath = path.resolve(currentDir, "public/terms/index.html");
 const staticRootLandingMarkdown = buildLandingPageMarkdown(
   selectStableLandingSlogan(
     parseLandingSlogans(readFileSync(landingSlogansMarkdownPath, "utf8")),
-    appCommit,
+    STABLE_LANDING_SLOGAN_SEED,
   ),
 );
 
@@ -578,6 +579,75 @@ function syncStaticLegalPageAssetsPlugin() {
   };
 }
 
+function serveStaticRootLandingInDevPlugin() {
+  const appHtmlTemplatePath = path.resolve(currentDir, "index.html");
+
+  return {
+    name: "serve-static-root-landing-in-dev",
+    async configureServer(server: ViteDevServer) {
+      server.middlewares.use(
+        (
+          request: IncomingMessage,
+          response: ServerResponse<IncomingMessage>,
+          next: (error?: Error) => void,
+        ) => {
+          if (request.method !== "GET" && request.method !== "HEAD") {
+            next();
+            return;
+          }
+
+          const requestPath = (() => {
+            if (!request.url) {
+              return null;
+            }
+
+            try {
+              return new URL(request.url, "http://vite.local").pathname;
+            } catch {
+              return null;
+            }
+          })();
+
+          if (requestPath !== "/" && requestPath !== "/index.html") {
+            next();
+            return;
+          }
+
+          const acceptHeader = request.headers.accept;
+          if (
+            typeof acceptHeader === "string" &&
+            !acceptHeader.includes("text/html")
+          ) {
+            next();
+            return;
+          }
+
+          void server
+            .transformIndexHtml(
+              request.url ?? "/",
+              readFileSync(appHtmlTemplatePath, "utf8"),
+            )
+            .then((appHtml) =>
+              renderStaticRootLandingHtml({
+                appCommit,
+                appCommitNumber,
+                appHtml,
+                landingMarkdown: staticRootLandingMarkdown,
+                repoUrl: appRepoUrl,
+              }),
+            )
+            .then((staticRootLandingHtml) => {
+              response.statusCode = 200;
+              response.setHeader("Content-Type", "text/html; charset=utf-8");
+              response.end(staticRootLandingHtml);
+            })
+            .catch(next);
+        },
+      );
+    },
+  };
+}
+
 function emitStaticRootLandingAssetPlugin() {
   return {
     name: "emit-static-root-landing-asset",
@@ -666,6 +736,7 @@ export default defineConfig({
     syncStaticNoterSyncScriptAssetPlugin(),
     syncRuntimeNoterConnectConfigAssetPlugin(),
     syncStaticLegalPageAssetsPlugin(),
+    serveStaticRootLandingInDevPlugin(),
     emitStaticRootLandingAssetPlugin(),
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,

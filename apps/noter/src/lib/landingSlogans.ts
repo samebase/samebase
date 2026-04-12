@@ -1,5 +1,6 @@
 export const DEFAULT_LANDING_SLOGAN =
   "Noter is a collaborative markdown workspace on top of GitHub";
+export const STABLE_LANDING_SLOGAN_SEED = "landing-page";
 
 const STABLE_SLOGAN_HASH_MULTIPLIER = 31;
 

@@ -1,6 +1,7 @@
 import {
   parseLandingSlogans,
   selectStableLandingSlogan,
+  STABLE_LANDING_SLOGAN_SEED,
 } from "@/lib/landingSlogans";
 import {
   buildLandingPageMarkdown,
@@ -10,11 +11,10 @@ import {
 import slogansRaw from "../../../../slogans.md?raw";
 
 const landingPageSlogans = parseLandingSlogans(slogansRaw);
-const landingPageSloganSeed = import.meta.env.VITE_APP_COMMIT ?? "landing-page";
 
 export const landingPageSlogan = selectStableLandingSlogan(
   landingPageSlogans,
-  landingPageSloganSeed,
+  STABLE_LANDING_SLOGAN_SEED,
 );
 
 export const landingPageMarkdown = buildLandingPageMarkdown(landingPageSlogan);

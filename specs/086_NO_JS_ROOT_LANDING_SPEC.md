@@ -87,11 +87,14 @@ The current branch implements the first slice with a build-time root/app split:
 5. The root static landing now shows an explicit no-JS Google placeholder, a
    disabled waitlist row, and a no-JS hint instead of pretending either flow
    works without JavaScript.
-6. A tiny inline script swaps the no-JS Google message for a same-footprint
+6. `apps/noter/vite.config.ts` now serves the same static root landing from the
+   Vite dev server for `/` and `/index.html`, so local `make anon` checks no
+   longer show a blank page when JavaScript is disabled.
+7. A tiny inline script swaps the no-JS Google message for a same-footprint
    inert JS placeholder as soon as scripts run, which avoids collapsing the row
    before React hydrates the routed landing.
-7. The routed landing and build-time fallback now use the same stable slogan
-   selection seed for a given build so the headline does not jump during boot.
+8. The routed landing and build-time fallback now use one shared stable slogan
+   seed so the headline does not jump during boot or churn on every commit.
 
 ## Implementation Notes
 
@@ -112,7 +115,17 @@ The current branch has local coverage for:
    `apps/noter/dev/staticRootLanding.test.ts`,
 2. a production-build verification through `pnpm --dir apps/noter run build:ci`,
 3. a JS-disabled root landing browser check in
-   `apps/noter/e2e/public-landing-no-js.spec.ts`.
+   `apps/noter/e2e/public-landing-no-js.spec.ts`,
+4. a JS-disabled Vite dev-server browser check against the worktree `make anon`
+   frontend port.
+
+## Known Issue
+
+- Raw Cloudflare Pages preview aliases currently redirect-loop to `/app`, even
+  for static routes such as `/privacy/`, so they are not a trustworthy way to
+  validate the new root fallback right now. The built localhost preview and the
+  Vite dev server are serving the expected HTML, which points to preview-host
+  routing outside this repo change.
 
 ## Follow-Up Work
 
