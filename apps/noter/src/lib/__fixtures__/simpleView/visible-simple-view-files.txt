@@ -69,7 +69,7 @@ apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-filters-pop
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-mobile-alignment.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-pr-labels.png
 apps/noter/e2e/vault-sync-status-visual.spec.ts-snapshots/vault-sync-status-states.png
-apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-left-header-right-tree.png
+apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-shell-right-tree.png
 apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-mobile-sidebar-open.png
 apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-mobile-swipe-debug-main-to-left.png
 apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-mobile-swipe-debug-left-to-main.png

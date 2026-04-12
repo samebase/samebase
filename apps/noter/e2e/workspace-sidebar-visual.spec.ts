@@ -178,26 +178,27 @@ async function swipeFromMainToRightSidebar(page: Page) {
   });
 }
 
-test("fileview desktop left header with right tree", async ({ page }) => {
+test("fileview desktop shell with right tree", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 760 });
   await page.goto("/visual-fixture.html?mode=fileview-layout", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
 
-  await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
+  const fixture = page.getByTestId("fileview-layout-visual-fixture");
   await expect(
     page.getByRole("button", { name: "Open bottom panel" }),
   ).toBeVisible();
 
-  await expect(
-    page.getByTestId("fileview-layout-visual-fixture"),
-  ).toHaveScreenshot("fileview-layout-left-header-right-tree.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.03,
-  });
+  await expect(fixture).toHaveScreenshot(
+    "fileview-layout-shell-right-tree.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
 });
 
 test.describe("fileview mobile", () => {
@@ -208,6 +209,7 @@ test.describe("fileview mobile", () => {
   test("sidebar keeps the visible main pane unobscured", async ({ page }) => {
     await gotoFileViewFixture(page);
 
+    const fixture = page.getByTestId("fileview-layout-visual-fixture");
     const shell = getFileViewLayoutShell(page);
     const bodyButton = page.getByTestId("fileview-layout-body-button");
     await swipeFromMainToRightSidebar(page);
