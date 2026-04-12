@@ -2686,8 +2686,7 @@ function FileViewInner({
                     disabled={
                       !showCompareBackToEditor &&
                       commitReviewMode === "editor" &&
-                      (!hasChangesToCommit ||
-                        commitPreviewStatus === "loading")
+                      (!hasChangesToCommit || commitPreviewStatus === "loading")
                     }
                     className="h-6 px-2 text-xs"
                   >
@@ -3001,7 +3000,9 @@ function FileViewInner({
                                     <FileViewSplitPreview
                                       beforeValue={selectedPreviewBaseContent}
                                       afterValue={inlinePreviewEditorContent}
-                                      beforeFilePath={selectedPreviewBaseFilePath}
+                                      beforeFilePath={
+                                        selectedPreviewBaseFilePath
+                                      }
                                       afterFilePath={selectedFile}
                                       oldHighlightedLineNumbers={
                                         inlinePreviewSplitDiffHighlights.oldLines
@@ -3161,8 +3162,7 @@ function FileViewInner({
     <>
       <WorkspaceLayoutV2FullPage
         left={{
-          header:
-            FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null,
+          header: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null,
           content:
             FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarContent : null,
         }}
