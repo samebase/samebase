@@ -19,7 +19,6 @@ type AppBuildStatusBarProps = {
   repoUrl?: string;
   showLandingDevToggle?: boolean;
   showLandingLegalLinks?: boolean;
-  showPublicNavigation?: boolean;
 };
 
 function normalizeRepoUrl(repoUrl: string): string {
@@ -35,7 +34,6 @@ export function AppBuildStatusBar({
   repoUrl = "",
   showLandingDevToggle = false,
   showLandingLegalLinks = false,
-  showPublicNavigation = false,
 }: AppBuildStatusBarProps) {
   const buildVersionLabel = formatAppBuildVersionLabel(appCommitNumber);
   const commitLabel = formatAppBuildCommitLabel(appCommit);
@@ -85,15 +83,6 @@ export function AppBuildStatusBar({
             /privacy
           </Link>
         </div>
-      ) : null}
-
-      {showPublicNavigation ? (
-        <Link
-          to="/"
-          className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
-        >
-          Home
-        </Link>
       ) : null}
 
       <div className="ml-auto flex items-center gap-2">

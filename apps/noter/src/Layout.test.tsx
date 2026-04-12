@@ -1,4 +1,5 @@
 import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { APP_BUILD_STATUS_BAR_TEST_ID } from "@/lib/appBuild";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -43,17 +44,18 @@ describe("Layout", () => {
 
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/"]}>
-        <Layout>
+        <Layout showLandingBottomBar>
           <div>landing</div>
         </Layout>
       </TestRouterProvider>,
     );
 
+    expect(markup).toContain(APP_BUILD_STATUS_BAR_TEST_ID);
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
   });
 
-  it("keeps legal links visible on non-root sign-in routes", () => {
+  it("does not render the landing footer when the layout does not opt in", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
@@ -70,8 +72,30 @@ describe("Layout", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain("/terms");
-    expect(markup).toContain("/privacy");
-    expect(markup).toContain("Home");
+    expect(markup).not.toContain(APP_BUILD_STATUS_BAR_TEST_ID);
+    expect(markup).not.toContain("/terms");
+    expect(markup).not.toContain("/privacy");
+  });
+
+  it("hides the landing footer for signed-in root state", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    });
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/"]}>
+        <Layout showLandingBottomBar>
+          <div>vault dashboard</div>
+        </Layout>
+      </TestRouterProvider>,
+    );
+
+    expect(markup).not.toContain(APP_BUILD_STATUS_BAR_TEST_ID);
+    expect(markup).not.toContain("/terms");
+    expect(markup).not.toContain("/privacy");
   });
 });

@@ -9,7 +9,13 @@ import { AppPageFrame } from "@/components/AppPageFrame";
 import { AppBuildStatusBar } from "@/components/AppBuildStatusBar";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 
-export function Layout({ children }: { children: ReactNode }) {
+export function Layout({
+  children,
+  showLandingBottomBar = false,
+}: {
+  children: ReactNode;
+  showLandingBottomBar?: boolean;
+}) {
   const appCommit = __APP_COMMIT__ || "unknown";
   const appCommitNumber = __APP_COMMIT_NUMBER__;
   const repoUrl = __APP_REPO_URL__ || "";
@@ -18,20 +24,14 @@ export function Layout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const rootRouteSearch = useRootRouteSearch();
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const showLandingDevToggle =
-    !isLoading &&
-    !isAuthenticated &&
+  const shouldRenderLandingBottomBar =
+    showLandingBottomBar &&
     location.pathname === "/" &&
+    (!isAuthenticated || isLoading);
+  const showLandingDevToggle =
+    shouldRenderLandingBottomBar &&
+    !isLoading &&
     rootRouteSearch.auth !== "google";
-  // Keep legal links available on every unauthenticated sign-in surface while
-  // auth is still resolving so they never disappear during startup or route
-  // handoffs.
-  const showLandingLegalLinks =
-    !isAuthenticated &&
-    location.pathname !== "/terms" &&
-    location.pathname !== "/privacy";
-  const showPublicNavigation =
-    !isLoading && !isAuthenticated && location.pathname !== "/";
   const landingDevToggleSearch = buildLandingDevToggleSearch(rootRouteSearch);
   const landingDevToggleHref = router.buildLocation({
     to: "/",
@@ -74,17 +74,18 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <AppPageFrame
       bottomBar={
-        <AppBuildStatusBar
-          appCommit={appCommit}
-          appCommitNumber={appCommitNumber}
-          landingDevToggleHref={landingDevToggleHref}
-          landingDevToggleLabel={landingDevToggleLabel}
-          onLandingDevToggleClick={handleLandingDevToggleClick}
-          repoUrl={repoUrl}
-          showLandingDevToggle={showLandingDevToggle}
-          showLandingLegalLinks={showLandingLegalLinks}
-          showPublicNavigation={showPublicNavigation}
-        />
+        shouldRenderLandingBottomBar ? (
+          <AppBuildStatusBar
+            appCommit={appCommit}
+            appCommitNumber={appCommitNumber}
+            landingDevToggleHref={landingDevToggleHref}
+            landingDevToggleLabel={landingDevToggleLabel}
+            onLandingDevToggleClick={handleLandingDevToggleClick}
+            repoUrl={repoUrl}
+            showLandingDevToggle={showLandingDevToggle}
+            showLandingLegalLinks
+          />
+        ) : undefined
       }
     >
       {children}

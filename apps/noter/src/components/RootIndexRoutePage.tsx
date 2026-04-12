@@ -39,7 +39,7 @@ export function RootIndexRoutePage() {
   );
 
   return (
-    <Layout>
+    <Layout showLandingBottomBar>
       {showPublicLandingWithoutAuthGate ? (
         <SignInForm />
       ) : (
