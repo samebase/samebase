@@ -10,11 +10,11 @@ describe("vault file route", () => {
   afterEach(() => {
     fileViewModuleLoadCount.current = 0;
     vi.resetModules();
-    vi.doUnmock("@/components/FileView");
+    vi.doUnmock("@/components/FileView/FileView");
   });
 
   it("does not load FileView when the vault route component preloads", async () => {
-    vi.doMock("@/components/FileView", () => {
+    vi.doMock("@/components/FileView/FileView", () => {
       fileViewModuleLoadCount.current += 1;
 
       return {

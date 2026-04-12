@@ -4,7 +4,7 @@ import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePag
 import { validateFileViewRouteSearch } from "@/lib/fileViewRouteSearch";
 
 const FileView = lazy(async () => {
-  const module = await import("@/components/FileView");
+  const module = await import("@/components/FileView/FileView");
   return { default: module.FileView };
 });
 

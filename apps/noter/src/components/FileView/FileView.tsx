@@ -1,6 +1,6 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery as useLiveQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import { api } from "../../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { CodeEditorWrapper } from "@/components/CodeEditor";
 import {
@@ -22,9 +22,9 @@ import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider"
 
 import { GitHubLogoIcon, PlusIcon, FilePlusIcon } from "@radix-ui/react-icons";
 import { buildPathWithQuery } from "@/lib/queryParams";
-import { FileTree } from "./FileTree";
-import { CommandPalette } from "./CommandPalette";
-import { EditorChatDock } from "./EditorChatDock";
+import { FileTree } from "@/components/FileTree";
+import { CommandPalette } from "@/components/CommandPalette";
+import { EditorChatDock } from "@/components/EditorChatDock";
 import {
   useState,
   useEffect,
@@ -34,7 +34,7 @@ import {
   useLayoutEffect,
 } from "react";
 import { useSidebar } from "@/hooks/use-sidebar";
-import { linkStyle } from "./styles";
+import { linkStyle } from "@/components/styles";
 import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
@@ -66,24 +66,24 @@ import {
   readUploadStorageId,
   uploadMediaWithCleanup,
 } from "@/lib/mediaUploadWorkflow";
-import { type GithubTreeType } from "../../convex/schema";
+import { type GithubTreeType } from "../../../convex/schema";
 import { formatStopwatchDuration } from "@/lib/stopwatch";
-import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
-import { DaytonaSnapshotList } from "./DaytonaSnapshotList";
-import { DaytonaWorkspaceButton } from "./DaytonaWorkspaceButton";
-import { DaytonaSnapshotBanner } from "./DaytonaSnapshotBanner";
-import { DraftPullRequestFeedbackBanner } from "./DraftPullRequestFeedbackBanner";
-import { VaultSyncStatus } from "./VaultSyncStatus";
-import { RepositoryMediaViewer } from "./RepositoryMediaViewer";
-import { RepositoryRouteConnectState } from "./RepositoryRouteConnectState";
+import { DaytonaPreviewPanel } from "@/components/DaytonaPreviewPanel";
+import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
+import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
+import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
+import { DraftPullRequestFeedbackBanner } from "@/components/DraftPullRequestFeedbackBanner";
+import { VaultSyncStatus } from "@/components/VaultSyncStatus";
+import { RepositoryMediaViewer } from "@/components/RepositoryMediaViewer";
+import { RepositoryRouteConnectState } from "@/components/RepositoryRouteConnectState";
 import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
 import { WorkspaceScene } from "@/components/workspace-layout/WorkspaceScene";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
-import { DAYTONA_PAUSED } from "../../shared/daytonaPause";
-import { MediaUploadDialog } from "./MediaUploadDialog";
-import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
-import { getStagedFileStatus as getSharedStagedFileStatus } from "../../shared/stagedFiles";
-import { isStaleBaseVersionError } from "../../shared/stagingErrors";
+import { DAYTONA_PAUSED } from "../../../shared/daytonaPause";
+import { MediaUploadDialog } from "@/components/MediaUploadDialog";
+import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
+import { getStagedFileStatus as getSharedStagedFileStatus } from "../../../shared/stagedFiles";
+import { isStaleBaseVersionError } from "../../../shared/stagingErrors";
 import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
 import { isInIframe } from "@/authClient";
 import {
@@ -106,7 +106,7 @@ import {
   mergeFileViewRouteSearch,
   useFileViewRouteSearch,
 } from "@/lib/fileViewRouteSearch";
-import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 
 const FILE_VIEW_SIDEBAR_DEFAULT_STATE = {
   leftDesktopOpen: FILE_VIEW_TREE_SIDEBAR_SIDE === "left",
