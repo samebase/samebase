@@ -11,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/checkbox";
 import { Label } from "@/components/label";
-import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
 import { FileViewPushActions } from "@/components/FileViewPushActions";
 import { ChangedFilesLoadingState } from "@/components/ChangedFilesLoadingState";
 import {
@@ -19,12 +18,10 @@ import {
   type FileViewEditorOverride,
 } from "@/components/FileViewDeveloperTools";
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
-
-import { GitHubLogoIcon, PlusIcon, FilePlusIcon } from "@radix-ui/react-icons";
 import { buildPathWithQuery } from "@/lib/queryParams";
-import { FileTree } from "@/components/FileTree";
 import { CommandPalette } from "@/components/CommandPalette";
 import { EditorChatDock } from "@/components/EditorChatDock";
+import { FileViewSidebarContent } from "@/components/FileView/FileViewSidebar";
 import {
   useState,
   useEffect,
@@ -3048,159 +3045,60 @@ function FileViewInner({
   const sidebarHeader = userDisplayName ? (
     <SidebarHomeAccountHeader userDisplayName={userDisplayName} />
   ) : null;
+  const handleSidebarModeChange = useCallback(
+    (value: string) => {
+      if (value === "simple" || value === "all") {
+        setSidebarMode(value);
+        if (isCompareRequested) {
+          setCompareModeInQuery(false);
+        }
+      }
+      if (value === "compare") {
+        setCompareModeInQuery(true);
+      }
+    },
+    [isCompareRequested, setCompareModeInQuery],
+  );
 
   const sidebarContent = (
-    <>
-      <div className="border-b border-border/50 p-3">
-        <div className="flex items-center gap-2">
-          <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
-          <a
-            className={`truncate text-xs font-medium text-muted-foreground ${linkStyle}`}
-            href={`https://github.com/${owner}/${repoName}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {owner}/{repoName}
-          </a>
-
-          <div className="flex-1" />
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 md:h-6 md:w-6"
-            onClick={() => openFileCreation("")}
-            title="Create new file"
-            aria-label="Create new file"
-          >
-            <PlusIcon className="h-4 w-4 md:h-3 md:w-3" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 md:h-6 md:w-6"
-            onClick={() => openFolderCreation("")}
-            title="Create new folder"
-            aria-label="Create new folder"
-          >
-            <FilePlusIcon className="h-4 w-4 md:h-3 md:w-3" />
-          </Button>
-        </div>
-        <div className="mt-2 flex items-center gap-2">
-          <ToggleGroup
-            type="single"
-            size="sm"
-            value={effectiveSidebarMode}
-            className="justify-start"
-            onValueChange={(value) => {
-              if (value === "simple" || value === "all") {
-                setSidebarMode(value);
-                if (isCompareRequested) {
-                  setCompareModeInQuery(false);
-                }
-              }
-              if (value === "compare") {
-                setCompareModeInQuery(true);
-              }
-            }}
-          >
-            <ToggleGroupItem
-              value="simple"
-              aria-label="Simple View"
-              className="h-7 px-2 text-xs"
-            >
-              Simple View
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="all"
-              aria-label="All Files"
-              className="h-7 px-2 text-xs"
-            >
-              All Files
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="compare"
-              aria-label="Changed Files"
-              className="h-7 px-2 text-xs"
-            >
-              Changed Files
-            </ToggleGroupItem>
-          </ToggleGroup>
-          {isCompareRequested && compareModeSummary ? (
-            <div
-              aria-label={compareModeSummary.ariaLabel}
-              aria-live="polite"
-              className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground"
-            >
-              {compareModeSummary.text}
-            </div>
-          ) : null}
-        </div>
-      </div>
-      {emptyRepository ? (
-        <div className="flex-1" />
-      ) : (
-        <div className="flex-1 overflow-auto">
-          <FileTree
-            items={visibleTreeData}
-            onFileSelect={handleFileSelect}
-            onFileRename={(originalPath, newPath) =>
-              void handleFileRename(originalPath, newPath)
-            }
-            onFileCreate={handleCreateFileInFolder}
-            onMediaUploadRequest={handleRequestMediaUpload}
-            onFileDelete={(filePath, originalPath) =>
-              void handleFileDelete(filePath, originalPath)
-            }
-            onFileRestore={(filePath, originalPath) =>
-              void handleRestoreDeletedFile(filePath, originalPath)
-            }
-            restoringFilePath={restoringDeletedFilePath}
-            selectedFile={sidebarSelectedFile}
-            folderExpansionStates={folderExpansionStates ?? []}
-            onFolderToggle={handleFolderToggle}
-            autoExpandedPaths={autoExpandedSidebarPaths}
-            forceAutoExpandedPaths={
-              forceSidebarSelectionVisible || effectiveSidebarMode === "compare"
-            }
-          />
-        </div>
-      )}
-      <div className="shrink-0 border-t border-border/50 p-3">
-        {mediaUploadError ? (
-          <div className="mb-2 corner-notch-1 border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-            {mediaUploadError}
-          </div>
-        ) : null}
-        <button
-          type="button"
-          className={`flex w-full items-center justify-center border-[3px] border-dashed px-3 py-4 text-sm transition-colors ${
-            isMediaUploadDragOver
-              ? "border-primary bg-primary/5 text-foreground"
-              : "border-foreground/45 text-foreground/80 hover:border-foreground/65 hover:text-foreground"
-          }`}
-          onClick={() => handleRequestMediaUpload()}
-          onDragOver={(event) => {
-            event.preventDefault();
-            setIsMediaUploadDragOver(true);
-          }}
-          onDragLeave={(event) => {
-            const relatedTarget = event.relatedTarget;
-            if (
-              !(relatedTarget instanceof Node) ||
-              !event.currentTarget.contains(relatedTarget)
-            ) {
-              setIsMediaUploadDragOver(false);
-            }
-          }}
-          onDrop={handleMediaUploadDrop}
-          disabled={isUploadingMedia}
-        >
-          {isUploadingMedia ? "Uploading..." : "Drop file or click"}
-        </button>
-      </div>
-    </>
+    <FileViewSidebarContent
+      owner={owner}
+      repoName={repoName}
+      effectiveSidebarMode={effectiveSidebarMode}
+      isCompareRequested={isCompareRequested}
+      compareModeSummary={compareModeSummary}
+      emptyRepository={emptyRepository}
+      mediaUploadError={mediaUploadError}
+      isMediaUploadDragOver={isMediaUploadDragOver}
+      isUploadingMedia={isUploadingMedia}
+      items={visibleTreeData}
+      onFileSelect={handleFileSelect}
+      onFileRename={(originalPath, newPath) =>
+        void handleFileRename(originalPath, newPath)
+      }
+      onFileCreate={handleCreateFileInFolder}
+      onMediaUploadRequest={handleRequestMediaUpload}
+      onFileDelete={(filePath, originalPath) =>
+        void handleFileDelete(filePath, originalPath)
+      }
+      onFileRestore={(filePath, originalPath) =>
+        void handleRestoreDeletedFile(filePath, originalPath)
+      }
+      restoringFilePath={restoringDeletedFilePath}
+      selectedFile={sidebarSelectedFile}
+      folderExpansionStates={folderExpansionStates ?? []}
+      onFolderToggle={handleFolderToggle}
+      autoExpandedPaths={autoExpandedSidebarPaths}
+      forceAutoExpandedPaths={
+        forceSidebarSelectionVisible || effectiveSidebarMode === "compare"
+      }
+      onOpenFileCreation={() => openFileCreation("")}
+      onOpenFolderCreation={() => openFolderCreation("")}
+      onSidebarModeChange={handleSidebarModeChange}
+      onRequestMediaUpload={() => handleRequestMediaUpload()}
+      onMediaUploadDragOverChange={setIsMediaUploadDragOver}
+      onMediaUploadDrop={handleMediaUploadDrop}
+    />
   );
 
   const handleInlinePreviewChange = useCallback((nextContent: string) => {
