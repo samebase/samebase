@@ -108,6 +108,31 @@ async function expectPaneAfterProsemarkDrag(args: {
   }
 }
 
+async function collectTouchMoveInterventionWarnings<T>(
+  page: Page,
+  action: () => Promise<T>,
+) {
+  const warnings: string[] = [];
+  const handleConsoleMessage = (message: { text: () => string }) => {
+    const text = message.text();
+    if (
+      text.includes(
+        "Ignored attempt to cancel a touchmove event with cancelable=false",
+      )
+    ) {
+      warnings.push(text);
+    }
+  };
+
+  page.on("console", handleConsoleMessage);
+  try {
+    await action();
+    return warnings;
+  } finally {
+    page.off("console", handleConsoleMessage);
+  }
+}
+
 test("dragging left on the real prose file surface opens the file tree pane", async ({
   page,
 }) => {
@@ -125,6 +150,42 @@ test("dragging left on the real prose file surface opens the file tree pane", as
     expectedPane: "right",
     page,
   });
+});
+
+test("mobile prose drags do not log non-cancelable touchmove intervention warnings", async ({
+  page,
+}) => {
+  await gotoFixture(page);
+
+  const shell = page.getByTestId("fileview-prosemark-height-shell");
+  await expect(shell).toHaveAttribute("data-mobile-pane", "main");
+
+  const warnings = await collectTouchMoveInterventionWarnings(
+    page,
+    async () => {
+      await expectPaneAfterProsemarkDrag({
+        drag: () =>
+          dragProsemarkSurface(page, {
+            deltaX: -180,
+            startX: "center",
+          }),
+        expectedPane: "right",
+        page,
+      });
+
+      await expectPaneAfterProsemarkDrag({
+        drag: () =>
+          dragProsemarkSurface(page, {
+            deltaX: 140,
+            startX: "left-edge",
+          }),
+        expectedPane: "main",
+        page,
+      });
+    },
+  );
+
+  expect(warnings).toEqual([]);
 });
 
 test("dragging right from the open file tree pane returns to main", async ({
