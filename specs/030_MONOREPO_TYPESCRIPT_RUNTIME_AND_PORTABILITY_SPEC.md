@@ -125,7 +125,7 @@ Contract:
 
 1. `private: true`.
 2. `exports` points to source TS entry (for example `./src/index.ts`).
-3. `typecheck` runs `tsc --noEmit`.
+3. `typecheck` runs `tsgo --noEmit`.
 4. Runtime executes source directly (Node native TS in workspace).
 
 ### Portable Package (cross-runtime or publishable)
@@ -188,7 +188,7 @@ Existing app-focused bundler config remains unchanged for Vite apps.
   "type": "module",
   "exports": "./src/index.ts",
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
   }
 }
 ```
@@ -208,8 +208,8 @@ Existing app-focused bundler config remains unchanged for Vite apps.
   "types": "./dist/index.d.ts",
   "files": ["dist"],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "build": "tsgo -p tsconfig.build.json",
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
   }
 }
 ```
