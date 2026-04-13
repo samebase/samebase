@@ -4,6 +4,7 @@
 https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 
 - [ ] specifically left blank
+- [ ] https://github.com/openai/codex/discussions/9200
 - [ ] FileView upstream conflict parsing still splits paths on `", "`, so
       filenames with commas break the conflict list; replace the delimiter-based
       handoff between `fileStagingActions` and `fileViewShared` with a
