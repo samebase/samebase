@@ -1,0 +1,69 @@
+name: Cloudflare Pages sync
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+concurrency:
+  group: cloudflare-pages-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    if: github.ref == 'refs/heads/main'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      NOTER_CONVEX_PRODUCTION_DEPLOY_KEY:
+        ${{ secrets.NOTER_CONVEX_PRODUCTION_DEPLOY_KEY }}
+      NOTER_CONVEX_PREVIEW_DEPLOY_KEY:
+        ${{ secrets.NOTER_CONVEX_PREVIEW_DEPLOY_KEY }}
+      NOTER_STARTER_TEMPLATE_CONVEX_PRODUCTION_DEPLOY_KEY:
+        ${{ secrets.NOTER_STARTER_TEMPLATE_CONVEX_PRODUCTION_DEPLOY_KEY }}
+      NOTER_STARTER_TEMPLATE_CONVEX_PREVIEW_DEPLOY_KEY:
+        ${{ secrets.NOTER_STARTER_TEMPLATE_CONVEX_PREVIEW_DEPLOY_KEY }}
+      NOTER_SITE_URL: ${{ vars.NOTER_SITE_URL || secrets.NOTER_SITE_URL }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - name: Check required sync secrets
+        id: secrets
+        run: |
+          missing=()
+          for name in \
+            CLOUDFLARE_ACCOUNT_ID \
+            CLOUDFLARE_API_TOKEN \
+            NOTER_CONVEX_PRODUCTION_DEPLOY_KEY \
+            NOTER_CONVEX_PREVIEW_DEPLOY_KEY \
+            NOTER_STARTER_TEMPLATE_CONVEX_PRODUCTION_DEPLOY_KEY \
+            NOTER_STARTER_TEMPLATE_CONVEX_PREVIEW_DEPLOY_KEY
+          do
+            if [ -z "${!name}" ]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping Cloudflare Pages sync because required secrets are missing: ${missing[*]}"
+            exit 0
+          fi
+
+          echo "available=true" >> "$GITHUB_OUTPUT"
+
+      - name: Sync Cloudflare Pages projects
+        if: steps.secrets.outputs.available == 'true'
+        run: node scripts/cloudflare-pages-sync.ts

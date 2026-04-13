@@ -179,6 +179,9 @@ pnpm test
 1. Configure Convex deployment env vars.
 2. Configure app-login providers (Google, plus password in dev).
 3. Configure provider connection OAuth/API keys (GitHub/Convex/Cloudflare).
+4. Configure the repo-owned Cloudflare Pages preview sync workflow (or run the
+   local backfill command) using
+   [docs/setup/cloudflare-pages-preview-apps.md](docs/setup/cloudflare-pages-preview-apps.md).
 
 ## Contributing
 
