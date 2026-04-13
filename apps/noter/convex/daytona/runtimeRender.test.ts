@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { formatWithOxfmt } from "../../../../scripts/format-with-oxfmt.js";
+import { formatWithOxfmt } from "../../../../scripts/format-with-oxfmt";
 import {
   renderDaytonaSandboxProgramsGeneratedTsModule,
   renderDaytonaAuthFallbackDockerfileCommands,
@@ -10,7 +10,7 @@ import {
   renderDaytonaPrebuildDockerfileCommands,
   renderDaytonaRuntimeGeneratedTsModule,
   renderDockerfileDaytonaDeps,
-} from "../../../../runtime/daytonaRuntime.js";
+} from "../../../../runtime/daytonaRuntime";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../../../..");

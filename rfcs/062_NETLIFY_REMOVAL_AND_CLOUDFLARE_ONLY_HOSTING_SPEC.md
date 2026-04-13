@@ -165,7 +165,7 @@ Netlify remains in:
 - `README.md`
 - `AGENTS.md`
 - `apps/noter/convex/README.md`
-- `scripts/worktree-env-allowlist.js`
+- `scripts/worktree-env-allowlist.ts`
 - `manual-tests/worktree/WT-001-anon-worktree-isolation.md`
 - active specs including `003`, `004`, `006`, `016`, `017`, `026`, and `032`
 
@@ -259,7 +259,7 @@ Delete the dedicated Netlify provider connection path:
 - remove Netlify seeding from `apps/noter/convex/auth.ts` and
   `apps/noter/convex/devAuth.ts`
 - remove Netlify dev-seed env passthrough from
-  `scripts/worktree-env-allowlist.js`
+  `scripts/worktree-env-allowlist.ts`
 
 ### 5) Remove Netlify from starter-template contract
 

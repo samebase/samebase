@@ -3,7 +3,7 @@ import {
   buildCloudDeploymentUrl,
   extractMatchingDeploymentDeployKey,
   normalizeEnvQueryResult,
-} from "../../../../runtime/convexSyncDevEnv.js";
+} from "../../../../runtime/convexSyncDevEnv";
 
 describe("convexSyncDevEnv", () => {
   it("uses a matching deployment deploy key for direct env reads", () => {

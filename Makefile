@@ -2,36 +2,36 @@
 # .PHONY ensures targets run even if a file with the same name exists.
 .PHONY: bootstrap bootstrap-anon run run-dev run-share anon anon-once anon-dev anon-share killport connect connect-once daytona-local daytona-local-once update-fixtures playwright-open record-start record-stop
 
-ANON_SETUP_ONCE_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --once --codegen=enable --tail-logs=disable --typecheck=disable
+ANON_SETUP_ONCE_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node ./scripts/convex-dev.ts --once --codegen=enable --tail-logs=disable --typecheck=disable
 # Allow `make killport 13124` by treating the extra make goal as the port.
 KILLPORT_GOAL = $(firstword $(filter-out killport,$(MAKECMDGOALS)))
 ANON_ALLOW_MISSING_SOURCE_ENV_ARG = $(if $(strip $(ANON_ALLOW_MISSING_SOURCE_ENV)),--allow-missing-source-env,)
-ANON_VALIDATE_SOURCE_ENV_CMD = $(if $(strip $(ANON_SOURCE_DEPLOY_KEY)),CONVEX_DEPLOY_KEY="$(ANON_SOURCE_DEPLOY_KEY)" ,)node ./scripts/convex-sync-dev-env.js --check-prereqs $(ANON_ALLOW_MISSING_SOURCE_ENV_ARG) $(if $(strip $(ANON_SOURCE_ENV)),--source-env "$(ANON_SOURCE_ENV)",)
-ANON_SYNC_ENV_CMD = $(if $(strip $(ANON_SOURCE_DEPLOY_KEY)),CONVEX_DEPLOY_KEY="$(ANON_SOURCE_DEPLOY_KEY)" ,)node ./scripts/convex-sync-dev-env.js $(ANON_ALLOW_MISSING_SOURCE_ENV_ARG) $(if $(strip $(ANON_SOURCE_ENV)),--source-env "$(ANON_SOURCE_ENV)",)
-ANON_SEED_PASSWORD_ACCOUNT_CMD = node ./scripts/convex-seed-dev-auth.js
-ANON_REFRESH_AUTH_KEYS_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --refresh-anon-auth --codegen=disable --tail-logs=disable --typecheck=disable
+ANON_VALIDATE_SOURCE_ENV_CMD = $(if $(strip $(ANON_SOURCE_DEPLOY_KEY)),CONVEX_DEPLOY_KEY="$(ANON_SOURCE_DEPLOY_KEY)" ,)node ./scripts/convex-sync-dev-env.ts --check-prereqs $(ANON_ALLOW_MISSING_SOURCE_ENV_ARG) $(if $(strip $(ANON_SOURCE_ENV)),--source-env "$(ANON_SOURCE_ENV)",)
+ANON_SYNC_ENV_CMD = $(if $(strip $(ANON_SOURCE_DEPLOY_KEY)),CONVEX_DEPLOY_KEY="$(ANON_SOURCE_DEPLOY_KEY)" ,)node ./scripts/convex-sync-dev-env.ts $(ANON_ALLOW_MISSING_SOURCE_ENV_ARG) $(if $(strip $(ANON_SOURCE_ENV)),--source-env "$(ANON_SOURCE_ENV)",)
+ANON_SEED_PASSWORD_ACCOUNT_CMD = node ./scripts/convex-seed-dev-auth.ts
+ANON_REFRESH_AUTH_KEYS_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node ./scripts/convex-dev.ts --refresh-anon-auth --codegen=disable --tail-logs=disable --typecheck=disable
 ANON_VITE_PORT ?= 5174
 RUN_VITE_PORT ?= 5173
 DAYTONA_VITE_PORT ?= 5173
 BOOTSTRAP_ANON_ARGS ?=
 DAYTONA_SOURCE_ENV ?= apps/noter/.env.daytona-source.local
-DAYTONA_WRITE_SOURCE_ENV_CMD = node ./scripts/daytona-write-source-env.js --output "$(DAYTONA_SOURCE_ENV)" --optional
-PLAYWRIGHT_BRANCH_BROWSER = node ./scripts/playwright-branch-browser.js
+DAYTONA_WRITE_SOURCE_ENV_CMD = node ./scripts/daytona-write-source-env.ts --output "$(DAYTONA_SOURCE_ENV)" --optional
+PLAYWRIGHT_BRANCH_BROWSER = node ./scripts/playwright-branch-browser.ts
 PLAYWRIGHT_SESSION ?= $(shell $(PLAYWRIGHT_BRANCH_BROWSER) session)
 PLAYWRIGHT_PROFILE_DIR = $(shell PLAYWRIGHT_SESSION="$(PLAYWRIGHT_SESSION)" $(PLAYWRIGHT_BRANCH_BROWSER) profile)
 PLAYWRIGHT_URL ?= http://127.0.0.1:$(ANON_VITE_PORT)
 PLAYWRIGHT_RECORD_DIR ?= /tmp/noter-browser-recordings
 CONNECT_LABEL ?= research
 CONNECT_INTERVAL_SECONDS ?= 60
-CONNECT_RUNNER = node ./scripts/noter-pr-connect.js --label "$(CONNECT_LABEL)" --interval "$(CONNECT_INTERVAL_SECONDS)"
+CONNECT_RUNNER = node ./scripts/noter-pr-connect.ts --label "$(CONNECT_LABEL)" --interval "$(CONNECT_INTERVAL_SECONDS)"
 
 # also add a step that updates the env for preview server when using worktrees
 # or daytona or gh codespaces or something else
 bootstrap:
-	./scripts/bootstrap-worktree.js
+	./scripts/bootstrap-worktree.ts
 
 bootstrap-anon:
-	./scripts/bootstrap-worktree.js --anon $(BOOTSTRAP_ANON_ARGS)
+	./scripts/bootstrap-worktree.ts --anon $(BOOTSTRAP_ANON_ARGS)
 
 run:
 	$(MAKE) bootstrap
@@ -44,7 +44,7 @@ run-dev:
 # Share the local Noter app over a Cloudflare quick tunnel while keeping the
 # configured Convex deployment behind Vite's same-origin proxy path.
 run-share:
-	node ./scripts/anon-share.js --mode local --port "$(RUN_VITE_PORT)"
+	node ./scripts/anon-share.ts --mode local --port "$(RUN_VITE_PORT)"
 
 # Full dev (frontend + backend) with anonymous Convex mode.
 anon:
@@ -57,7 +57,7 @@ anon:
 	$(ANON_REFRESH_AUTH_KEYS_CMD)
 	$(MAKE) anon-dev ANON_VITE_PORT="$(ANON_VITE_PORT)"
 
-# `apps/noter/scripts/run-vite-dev.js` consumes `VITE_PORT` and chooses the
+# `apps/noter/scripts/run-vite-dev.ts` consumes `VITE_PORT` and chooses the
 # actual frontend port, while `NOTER_DEV_PORT`/`NOTER_DEV_STRICT_PORT` let
 # Vite's config mirror that choice for share/proxy flows.
 # Long-lived anonymous local dev after bootstrap/seed setup has completed.
@@ -77,7 +77,7 @@ anon-once:
 # Share the local anonymous Noter app over a Cloudflare quick tunnel while
 # keeping the local Convex backend behind Vite's same-origin proxy path.
 anon-share:
-	node ./scripts/anon-share.js
+	node ./scripts/anon-share.ts
 
 # Send SIGTERM to the explicit port or the current anon backend port from apps/noter/.env.local.
 # This is intentionally Mac-first for now: the local operator flow relies on

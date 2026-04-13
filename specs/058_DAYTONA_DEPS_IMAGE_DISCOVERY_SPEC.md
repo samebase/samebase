@@ -128,7 +128,7 @@ Where:
 - `<owner>` is the lowercase GitHub owner
 - `<repo>` is the lowercase repo name
 - `<inputHash>` is computed from the same effective inputs as
-  `scripts/daytona-deps-hash.js`
+  `scripts/daytona-deps-hash.ts`
 
 ## Proposed Resolution Contract
 

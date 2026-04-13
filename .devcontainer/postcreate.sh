@@ -4,7 +4,7 @@ set -euo pipefail
 WORKSPACE_DIR="${WORKSPACE_DIR:-$(pwd)}"
 cd "$WORKSPACE_DIR"
 
-"$WORKSPACE_DIR/scripts/bootstrap-worktree.js"
+"$WORKSPACE_DIR/scripts/bootstrap-worktree.ts"
 
 if ! command -v codex >/dev/null 2>&1; then
   echo "Installing @openai/codex..."

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   diffDaytonaRuntimeManifests,
   normalizeDaytonaEnvFileContents,
-} from "../../../../runtime/daytonaRuntimeManifest.js";
+} from "../../../../runtime/daytonaRuntimeManifest";
 
 describe("daytonaRuntimeManifest", () => {
   it("normalizes and redacts Daytona env file contents", () => {

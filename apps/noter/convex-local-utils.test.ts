@@ -9,7 +9,7 @@ import {
   readEnvFile,
   resolveSiteUrlSyncOrigin,
   usesLocalConvexDeployment,
-} from "./convex-local-utils.js";
+} from "./scripts/convex-local-utils.ts";
 
 const temporaryDirectories: string[] = [];
 

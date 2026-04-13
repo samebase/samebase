@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { ensureRepoAutoCd } from "../../../../runtime/daytonaSandboxPrograms/ensureRepoAutoCd.js";
+import { ensureRepoAutoCd } from "../../../../runtime/daytonaSandboxPrograms/ensureRepoAutoCd";
 
 const tempDirs: string[] = [];
 

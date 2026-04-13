@@ -25,7 +25,7 @@
   - `.codespace-agent/server.js`
   - `apps/noter-starter-template/.devcontainer/devcontainer.json`
   - `apps/noter-starter-template/.codespace-agent/server.js`
-  - `apps/noter-starter-template/scripts/sync-codespace-assets.mjs`
+  - `apps/noter-starter-template/scripts/sync-codespace-assets.ts`
 
 ## Summary
 
@@ -346,7 +346,7 @@ Mitigation:
 
 1. Root `.devcontainer` + `.codespace-agent` treated as canonical runtime
    sources.
-2. `apps/noter-starter-template/scripts/sync-codespace-assets.mjs` syncs those
+2. `apps/noter-starter-template/scripts/sync-codespace-assets.ts` syncs those
    assets into starter template.
 3. `template:export` runs sync automatically before manifest generation.
 

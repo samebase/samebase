@@ -11,7 +11,7 @@ import {
   upsertCodexDefaultModelConfig,
   upsertCodexNoAltScreenConfig,
   upsertCodexProjectTrustConfig,
-} from "../../../../runtime/codexConfig.js";
+} from "../../../../runtime/codexConfig";
 import { action, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";

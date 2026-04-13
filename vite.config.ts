@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite-plus";
-import { readPackageVersion } from "./scripts/readPackageVersion.js";
+import { readPackageVersion } from "./scripts/readPackageVersion.ts";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const daytonaSdkVersion = readPackageVersion(
@@ -26,7 +26,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: [
-      "scripts/**/*.test.js",
+      "scripts/**/*.test.ts",
       "apps/**/*.test.ts",
       "apps/**/*.test.tsx",
       "packages/**/*.test.ts",

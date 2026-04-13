@@ -34,12 +34,12 @@ From the primary checkout, `make run` currently expands to:
 
 The relevant `predev` chain is:
 
-1. `node convex-dev.js --until-success --codegen=enable`
-2. `node setup.mjs --once`
-3. `node sync-site-url.mjs`
+1. `node scripts/convex-dev.ts --until-success --codegen=enable`
+2. `node scripts/setup.ts --once`
+3. `node scripts/sync-site-url.ts`
 
-The failure happens inside `sync-site-url.mjs` before the long-running frontend
-or backend dev processes take over.
+The failure happens inside `scripts/sync-site-url.ts` before the long-running
+frontend or backend dev processes take over.
 
 ## Repo Findings
 
@@ -50,8 +50,8 @@ not set `DEV_ENV_ORIGIN` first.
 
 ### 2) The guard is repo code, not a raw Convex CLI error
 
-`apps/noter/sync-site-url.mjs` asks `resolveSiteUrlSyncOrigin(...)` for the
-origin it should write into Convex `SITE_URL`.
+`apps/noter/scripts/sync-site-url.ts` asks `resolveSiteUrlSyncOrigin(...)` for
+the origin it should write into Convex `SITE_URL`.
 
 That helper throws when all of the following are true:
 
@@ -69,18 +69,19 @@ deployment, so the guard is expected to fire when `DEV_ENV_ORIGIN` is missing.
 
 ### 4) The frontend wrapper already computes the local origin, but too late
 
-`apps/noter/scripts/run-vite-dev.js` already chooses the Vite port
+`apps/noter/scripts/run-vite-dev.ts` already chooses the Vite port
 deterministically and writes `http://localhost:<port>` to
 `node_modules/.cache/noter-local-dev-origin.json`.
 
 That happens only when `dev:frontend` starts, which is after `predev` has
-already succeeded. It cannot rescue the earlier `sync-site-url.mjs` failure.
+already succeeded. It cannot rescue the earlier `scripts/sync-site-url.ts`
+failure.
 
 ### 5) The backend wrapper already has a local retry path, but it does not help here
 
-`apps/noter/convex-dev.js` has a retry path that waits for the local frontend
-wrapper to publish the chosen origin and then reruns `sync-site-url.mjs` with
-`DEV_ENV_ORIGIN` populated.
+`apps/noter/scripts/convex-dev.ts` has a retry path that waits for the local
+frontend wrapper to publish the chosen origin and then reruns
+`scripts/sync-site-url.ts` with `DEV_ENV_ORIGIN` populated.
 
 That retry path is intentionally limited:
 
@@ -103,9 +104,9 @@ but it did not add the `DEV_ENV_ORIGIN` startup throw.
 
 Commit `d7a16ff2` introduced:
 
-- `apps/noter/convex-local-utils.js`
+- `apps/noter/scripts/convex-local-utils.ts`
 - the explicit `DEV_ENV_ORIGIN` guard
-- `apps/noter/scripts/run-vite-dev.js`
+- `apps/noter/scripts/run-vite-dev.ts`
 - the local origin cache file flow
 - the local post-start SITE_URL retry path
 

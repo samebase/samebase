@@ -155,11 +155,11 @@ jobs:
         working-directory: apps/noter
         env:
           CONVEX_AGENT_MODE: anonymous
-        run: node predev.js
+        run: node ./scripts/predev.ts
 
       - name: Run Vite wrapper smoke on Windows
         working-directory: apps/noter
-        run: node scripts/run-vite-dev.js --version
+        run: node ./scripts/run-vite-dev.ts --version
 
   ci:
     name: ci (24.x)

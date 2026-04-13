@@ -70,9 +70,9 @@ printf '%s\n' "$URL"
 5. Open a Playwright CLI session scoped to the current branch.
 
 ```bash
-if [ -f ./scripts/playwright-branch-browser.js ]; then
-  SESSION="$(node ./scripts/playwright-branch-browser.js session)"
-  node ./scripts/playwright-branch-browser.js open "$URL"
+if [ -f ./scripts/playwright-branch-browser.ts ]; then
+  SESSION="$(node ./scripts/playwright-branch-browser.ts session)"
+  node ./scripts/playwright-branch-browser.ts open "$URL"
 else
   SESSION="noter-$(basename "$PWD")-$(git rev-parse --abbrev-ref HEAD | tr '/' '-')"
   npx --yes @playwright/cli -s="$SESSION" open "$URL"
@@ -90,9 +90,9 @@ fi
 7. Capture evidence.
 
 ```bash
-if [ -f ./scripts/playwright-branch-browser.js ]; then
-  node ./scripts/playwright-branch-browser.js cli snapshot
-  node ./scripts/playwright-branch-browser.js cli screenshot --filename=/tmp/noter-<action>-<timestamp>.png
+if [ -f ./scripts/playwright-branch-browser.ts ]; then
+  node ./scripts/playwright-branch-browser.ts cli snapshot
+  node ./scripts/playwright-branch-browser.ts cli screenshot --filename=/tmp/noter-<action>-<timestamp>.png
 else
   npx --yes @playwright/cli -s="$SESSION" snapshot
   npx --yes @playwright/cli -s="$SESSION" screenshot --filename=/tmp/noter-<action>-<timestamp>.png
@@ -124,7 +124,7 @@ Use these defaults when working in this repository.
 
 ## Playwright Session Rules
 
-- In this repo, prefer `node ./scripts/playwright-branch-browser.js` or
+- In this repo, prefer `node ./scripts/playwright-branch-browser.ts` or
   `make playwright-open` over raw `@playwright/cli open`.
 - Use one deterministic session/profile per active branch.
 - Reuse the same `-s` session for multi-step flows.

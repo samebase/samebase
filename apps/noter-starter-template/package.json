@@ -19,8 +19,8 @@
     "lint": "pnpm run check",
     "test": "vp test run --passWithNoTests",
     "prepare": "husky",
-    "template:sync-codespace": "node scripts/sync-codespace-assets.mjs",
-    "template:export": "node scripts/export-template-manifest.mjs"
+    "template:sync-codespace": "node scripts/sync-codespace-assets.ts",
+    "template:export": "node scripts/export-template-manifest.ts"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",
@@ -50,6 +50,9 @@
     "vite": "^8.0.8",
     "vite-plus": "0.1.16",
     "vitest": "^4.1.4"
+  },
+  "engines": {
+    "node": ">=24.0.0"
   },
   "packageManager": "pnpm@9.15.0"
 }

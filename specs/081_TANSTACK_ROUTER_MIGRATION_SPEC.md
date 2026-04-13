@@ -11,7 +11,7 @@
 - Depends on:
   - `apps/noter/package.json`
   - `apps/noter/public/_redirects`
-  - `apps/noter/scripts/run-vite-dev.js`
+  - `apps/noter/scripts/run-vite-dev.ts`
   - `apps/noter/src/Layout.tsx`
   - `apps/noter/src/components/FastPublicLandingShell.tsx`
   - `apps/noter/src/components/NotFoundRoutePage.tsx`

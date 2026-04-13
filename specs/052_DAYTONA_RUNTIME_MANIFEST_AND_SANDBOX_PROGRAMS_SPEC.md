@@ -117,7 +117,7 @@ Examples:
 2. future `runtime/daytonaRuntime.ts`
    - humans read/edit it as code and configuration
    - generators render Dockerfile text and Daytona `dockerfileCommands(...)`
-3. future `runtime/daytonaSandboxPrograms/*.js`
+3. future `runtime/daytonaSandboxPrograms/*.ts`
    - humans read/edit them as normal ESM programs
    - generation step exports their raw source for Convex
    - Daytona runs that same source with `node`
@@ -188,7 +188,7 @@ Convex modules.
 
 Suggested location:
 
-- `runtime/daytonaSandboxPrograms/*.js`
+- `runtime/daytonaSandboxPrograms/*.ts`
 
 These files should be:
 
@@ -285,9 +285,9 @@ Recommended pipeline:
 
 Suggested scripts:
 
-1. `scripts/render-daytona-runtime.js`
-2. `scripts/export-daytona-sandbox-programs.js`
-3. optional `scripts/check-generated-runtime.js`
+1. `scripts/render-daytona-runtime.ts`
+2. `scripts/export-daytona-sandbox-programs.ts`
+3. optional `scripts/check-generated-runtime.ts`
 
 ## Testing Strategy
 
@@ -333,7 +333,7 @@ Minimum expected validation:
 - [ ] Phase 2: generate Daytona `dockerfileCommands(...)` and
       `Dockerfile.daytona-deps` from that manifest
 - [ ] Phase 3: extract one complex sandbox flow into
-      `runtime/daytonaSandboxPrograms/*.js` and generate raw-source exports for
+      `runtime/daytonaSandboxPrograms/*.ts` and generate raw-source exports for
       Convex
 - [ ] Phase 4: migrate additional complex Daytona shell programs to sandbox ESM
       helpers

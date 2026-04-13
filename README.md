@@ -91,7 +91,7 @@ git --version
 4. Bootstrap dependencies from the primary checkout:
 
 ```powershell
-node .\scripts\bootstrap-worktree.js
+node .\scripts\bootstrap-worktree.ts
 ```
 
 5. Start the app:
@@ -141,7 +141,7 @@ Notes:
 ### Installation
 
 ```bash
-node ./scripts/bootstrap-worktree.js
+node ./scripts/bootstrap-worktree.ts
 ```
 
 ### Development

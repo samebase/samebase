@@ -77,8 +77,8 @@ tooling incompatibility, or rollout decision appears.
   and `@convex-dev/no-args-without-validator` inside `**/convex/**/*.ts`.
 - The app/frontend lint entrypoints in `apps/noter/package.json` and
   `apps/noter-starter-template/package.json` now run Oxlint directly.
-- Root `package.json` also runs Oxlint for `runtime/**/*.js` and
-  `scripts/**/*.js` using `tsconfig.scripts.json`.
+- Root `package.json` also runs Oxlint for `runtime/**/*.ts`, `scripts/**/*.ts`,
+  and `apps/noter/scripts/**/*.ts` using `tsconfig.scripts.json`.
 - `baseUrl` has been removed from the app tsconfigs so the repo aligns with the
   TypeScript 6 and TypeScript 7 direction instead of preserving deprecated
   lookup-root behavior.
@@ -186,8 +186,9 @@ When a rule cannot move cleanly, this document must record:
 
 - Problem: not all repo surfaces were blocked equally. Tried: ran Oxlint
   type-aware against `tsconfig.scripts.json`. Result: type-aware mode already
-  worked for the repo's `scripts/**/*.js` and `runtime/**/*.js` surface, so the
-  script pass could move first while the app tsconfig cleanup was in flight.
+  worked for the repo's `scripts/**/*.ts`, `runtime/**/*.ts`, and
+  `apps/noter/scripts/**/*.ts` surface, so the script pass could move first
+  while the app tsconfig cleanup was in flight.
 
 - Problem: the migration also depends on Convex-specific rules. Tried: inspected
   `@convex-dev/eslint-plugin` and verified that Oxlint can load JS plugins by
@@ -218,7 +219,7 @@ When a rule cannot move cleanly, this document must record:
 - Problem: script linting switched to Oxlint type-aware mode cleanly, but that
   also surfaced stale disable comments. Tried: ran `pnpm lint:scripts` after the
   migration. Result: the scripts pass succeeds, but Oxlint now reports unused
-  `eslint-disable` comments in `scripts/convex-seed-dev-auth.js`; those are
+  `eslint-disable` comments in `scripts/convex-seed-dev-auth.ts`; those are
   accepted as warning-only cleanup for a later pass.
 
 - Problem: removing the app-specific ESLint fallback would still drop the exact

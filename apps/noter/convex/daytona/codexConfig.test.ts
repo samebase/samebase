@@ -3,7 +3,7 @@ import {
   upsertCodexDefaultModelConfig,
   upsertCodexNoAltScreenConfig,
   upsertCodexProjectTrustConfig,
-} from "../../../../runtime/codexConfig.js";
+} from "../../../../runtime/codexConfig";
 
 describe("codexConfig", () => {
   it("adds the default model to an empty config", () => {
