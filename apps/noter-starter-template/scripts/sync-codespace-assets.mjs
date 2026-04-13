@@ -12,6 +12,9 @@ const syncPairs = [
     source: path.join(repoRoot, ".codespace-agent"),
     destination: path.join(templateDir, ".codespace-agent"),
     recursive: true,
+    /**
+     * @param {string} sourcePath
+     */
     filter: (sourcePath) => {
       const normalized = sourcePath.split(path.sep).join("/");
       if (normalized.includes("/node_modules/")) {

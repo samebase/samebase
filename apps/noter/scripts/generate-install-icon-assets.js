@@ -13,6 +13,9 @@ const STANDARD_ICON_BOX_RATIO = 338 / 512;
 const MASKABLE_ICON_BOX_RATIO = 288 / 512;
 const APPLE_TOUCH_ICON_BOX_RATIO = 120 / 180;
 
+/** @typedef {{ boxRatio: number; canvasSize: number; filename: string }} IconJob */
+
+/** @type {IconJob[]} */
 const iconJobs = [
   {
     boxRatio: STANDARD_ICON_BOX_RATIO,
@@ -41,6 +44,9 @@ const iconJobs = [
   },
 ];
 
+/**
+ * @param {string} staticLogoSvgMarkup
+ */
 function createInstallIconSvgMarkup(staticLogoSvgMarkup) {
   return staticLogoSvgMarkup.replace(
     'fill="transparent"',
@@ -67,6 +73,9 @@ function syncInstallIconSvgAsset() {
   writeFileSync(installIconSvgPath, `${nextInstallIconSvgMarkup}\n`, "utf8");
 }
 
+/**
+ * @param {IconJob} job
+ */
 function generateIconPng({ boxRatio, canvasSize, filename }) {
   const iconSize = Math.round(canvasSize * boxRatio);
 

@@ -16,6 +16,14 @@ const EXCLUDED_TOP_LEVEL_DIRS = new Set([
 ]);
 const EXCLUDED_FILENAMES = new Set(["seed-manifest.json"]);
 
+/** @typedef {{ relativePath: string; content: string }} CollectedFile */
+
+/**
+ * @param {string} rootDir
+ * @param {string} currentDir
+ * @param {number} depth
+ * @returns {Promise<CollectedFile[]>}
+ */
 async function collectFiles(rootDir, currentDir, depth) {
   const entries = await readdir(currentDir, { withFileTypes: true });
   const files = [];

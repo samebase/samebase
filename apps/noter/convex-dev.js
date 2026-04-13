@@ -14,6 +14,10 @@ import { pickAvailableAnonymousLocalPorts } from "../../runtime/anonymousLocalPo
 
 const SUPPORTED_NODE_MAJORS = ["24", "22", "20", "18"];
 
+/**
+ * @param {string} a
+ * @param {string} b
+ */
 const semverCompare = (a, b) => {
   const aParts = a.slice(1).split(".").map(Number);
   const bParts = b.slice(1).split(".").map(Number);
@@ -46,10 +50,17 @@ const readNodeMajorFromConfig = () => {
   }
 };
 
+/**
+ * @param {string[]} preferredMajors
+ */
 const pickNodeBinFromNvm = (preferredMajors) => {
+  /** @type {string[]} */
   const nvmCandidates = Array.from(
     new Set(
-      [process.env.NVM_DIR, path.join(os.homedir(), ".nvm")].filter(Boolean),
+      [process.env.NVM_DIR, path.join(os.homedir(), ".nvm")].filter(
+        /** @returns {value is string} */
+        (value) => typeof value === "string" && value.length > 0,
+      ),
     ),
   );
 
@@ -65,7 +76,10 @@ const pickNodeBinFromNvm = (preferredMajors) => {
       if (matching.length === 0) {
         continue;
       }
-      const latest = matching[matching.length - 1];
+      const latest = matching.at(-1);
+      if (!latest) {
+        continue;
+      }
       return path.join(versionsDir, latest, "bin");
     }
   }
@@ -99,6 +113,10 @@ const pickSupportedNodeBin = () => {
   return null;
 };
 
+/**
+ * @param {string[]} args
+ * @param {string} optionName
+ */
 const hasCliOption = (args, optionName) =>
   args.some((arg) => arg === optionName || arg.startsWith(`${optionName}=`));
 
@@ -127,12 +145,18 @@ const pickAnonymousLocalPorts = () => {
   return null;
 };
 
+/**
+ * @param {number[]} ports
+ */
 const normalizePortList = (ports) =>
   ports.filter(
     (port, index, all) =>
       Number.isFinite(port) && port > 0 && all.indexOf(port) === index,
   );
 
+/**
+ * @param {number[]} [preferredPorts=[]]
+ */
 const readLocalBackendPorts = (preferredPorts = []) => {
   const strictPreferred = normalizePortList([...preferredPorts]);
   if (strictPreferred.length > 0) {
@@ -172,6 +196,9 @@ const readLocalBackendPorts = (preferredPorts = []) => {
   return ports;
 };
 
+/**
+ * @param {number} port
+ */
 const isLocalBackendReady = async (port) => {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/instance_name`, {
@@ -191,6 +218,10 @@ const isLocalBackendReady = async (port) => {
   }
 };
 
+/**
+ * @param {number} timeoutMs
+ * @param {number[]} [preferredPorts=[]]
+ */
 const waitForLocalBackend = async (timeoutMs, preferredPorts = []) => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -204,6 +235,10 @@ const waitForLocalBackend = async (timeoutMs, preferredPorts = []) => {
   return false;
 };
 
+/**
+ * @param {number} timeoutMs
+ * @param {number} sinceMs
+ */
 const waitForRecentLocalDevOrigin = async (timeoutMs, sinceMs) => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -216,6 +251,10 @@ const waitForRecentLocalDevOrigin = async (timeoutMs, sinceMs) => {
   return null;
 };
 
+/**
+ * @param {string} name
+ * @param {NodeJS.ProcessEnv} env
+ */
 const removeEnvVar = (name, env) => {
   spawnSync("npx", ["convex", "env", "remove", name], {
     stdio: "ignore",
@@ -223,6 +262,10 @@ const removeEnvVar = (name, env) => {
   });
 };
 
+/**
+ * @param {string} name
+ * @param {NodeJS.ProcessEnv} env
+ */
 const readEnvVar = (name, env) => {
   const result = spawnSync("npx", ["convex", "env", "get", name], {
     stdio: "pipe",
@@ -235,10 +278,16 @@ const readEnvVar = (name, env) => {
   return normalizeEnvValue(result.stdout ?? "") ?? null;
 };
 
+/**
+ * @param {string} value
+ */
 const hasValidPrivateKey = (value) =>
   value.includes("-----BEGIN PRIVATE KEY-----") &&
   value.includes("-----END PRIVATE KEY-----");
 
+/**
+ * @param {string} value
+ */
 const hasValidJwks = (value) => {
   try {
     const parsed = JSON.parse(value);
@@ -253,6 +302,10 @@ const hasValidJwks = (value) => {
   }
 };
 
+/**
+ * @param {NodeJS.ProcessEnv} env
+ * @param {number[]} [preferredPorts=[]]
+ */
 const ensureAnonymousAuthKeys = async (env, preferredPorts = []) => {
   const backendReady = await waitForLocalBackend(20000, preferredPorts);
   if (!backendReady) {
@@ -431,6 +484,9 @@ child.on("exit", (code) => {
   maybeExit();
 });
 
+/**
+ * @param {NodeJS.Signals} signal
+ */
 const requestTermination = (signal) => {
   if (terminateRequested) {
     return;

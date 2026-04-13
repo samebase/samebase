@@ -12,6 +12,16 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["scripts/**/*.js", "runtime/**/*.js"],
+  "include": [
+    "scripts/**/*.js",
+    "scripts/**/*.mjs",
+    "runtime/**/*.js",
+    "apps/noter/scripts/**/*.js",
+    "apps/noter/convex-dev.js",
+    "apps/noter/predev.js",
+    "apps/noter-starter-template/scripts/**/*.mjs",
+    "apps/noter-starter-template/postcss.config.js",
+    "apps/noter-starter-template/tailwind.config.js"
+  ],
   "exclude": ["node_modules"]
 }

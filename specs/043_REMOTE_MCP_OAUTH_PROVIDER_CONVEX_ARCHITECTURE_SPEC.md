@@ -720,10 +720,9 @@ Phase 4 gate:
 
 ### Standard test run per checkpoint
 
-1. `pnpm lint`
-2. `pnpm typecheck:scripts`
-3. `pnpm test`
-4. Phase-specific manual smoke checklist in `manual-tests/`
+1. `pnpm check`
+2. `pnpm test`
+3. Phase-specific manual smoke checklist in `manual-tests/`
 
 ## Execution Tracker
 
