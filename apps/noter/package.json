@@ -25,8 +25,8 @@
     "lint:ci": "pnpm run check:ci",
     "lint:oxlint": "NODE_OPTIONS=--max-old-space-size=4096 pnpm --dir ../.. exec oxlint --config .oxlintrc.json --report-unused-disable-directives apps/noter",
     "test:visual": "playwright test -c playwright.config.ts",
-    "test:visual:linux": "../../scripts/playwright-linux-visual.sh",
-    "test:visual:linux:update": "../../scripts/playwright-linux-visual.sh --update-snapshots",
+    "test:visual:linux": "node ../../scripts/playwright-linux-visual.js",
+    "test:visual:linux:update": "node ../../scripts/playwright-linux-visual.js --update-snapshots",
     "test:live": "playwright test -c playwright.live.config.ts",
     "preview": "vp preview"
   },

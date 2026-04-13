@@ -61,7 +61,7 @@ snapshots.
 
 ### Reproduce Linux CI locally
 
-The repo now ships a Docker-backed Linux runner that mirrors the CI path without
+The repo now ships a Docker-backed Node runner that mirrors the CI path without
 replacing the host checkout's native `node_modules`.
 
 From the repo root:
