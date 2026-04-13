@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { createWriteStream } from "node:fs";
+import { closeSync, openSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -13,7 +13,8 @@ const convexInstanceUrl = "http://127.0.0.1:3210/instance_name";
 await main();
 
 async function main(): Promise<void> {
-  const logStream = createWriteStream(convexBootstrapLogPath, { flags: "w" });
+  // Node 24 only accepts inherited fd numbers here, not a WriteStream object.
+  const logFileDescriptor = openSync(convexBootstrapLogPath, "w");
   const bootstrapProcess = spawn(
     PNPM_COMMAND,
     [
@@ -28,7 +29,7 @@ async function main(): Promise<void> {
     ],
     {
       env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },
-      stdio: ["ignore", logStream, logStream],
+      stdio: ["ignore", logFileDescriptor, logFileDescriptor],
     },
   );
 
@@ -98,7 +99,7 @@ async function main(): Promise<void> {
     }
     process.exit(1);
   } finally {
-    logStream.end();
+    closeSync(logFileDescriptor);
   }
 
   await stopProcess(bootstrapProcess);
