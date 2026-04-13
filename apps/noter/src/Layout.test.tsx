@@ -72,6 +72,7 @@ describe("Layout", () => {
 
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
-    expect(markup).toContain("Home");
+    expect(markup).not.toContain("Home");
+    expect(markup).toContain("/oauth/mcp/consent");
   });
 });

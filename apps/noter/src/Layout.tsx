@@ -32,8 +32,6 @@ export function Layout({ children }: { children: ReactNode }) {
     !isAuthenticated &&
     location.pathname !== "/terms" &&
     location.pathname !== "/privacy";
-  const showPublicNavigation =
-    !isLoading && !isAuthenticated && location.pathname !== "/";
   const landingDevToggleSearch = buildLandingDevToggleSearch(rootRouteSearch);
   const landingDevToggleHref = router.buildLocation({
     to: "/",
@@ -87,7 +85,6 @@ export function Layout({ children }: { children: ReactNode }) {
           routeLabel={routeLabel}
           showLandingDevToggle={showLandingDevToggle}
           showLandingLegalLinks={showLandingLegalLinks}
-          showPublicNavigation={showPublicNavigation}
         />
       }
     >

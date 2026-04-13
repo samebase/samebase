@@ -616,7 +616,7 @@ test("mcp consent sign-in keeps legal links in the bottom bar", async ({
   );
   await expectLegalLinksLeadBuildVersion(statusBar);
   await expectStatusBarBelowMainShell(page, statusBar);
-  await expect(statusBar.getByRole("link", { name: "Home" })).toBeVisible();
+  await expect(statusBar.getByRole("link", { name: "Home" })).toHaveCount(0);
   await expect(page.getByText("Temporary MCP sign-in note")).toBeVisible();
 });
 
@@ -664,6 +664,7 @@ test("status bar shows the current route on a mobile public page", async ({
   const routeLabel = statusBar.getByTestId(APP_BUILD_ROUTE_TEXT_TEST_ID);
 
   await expectAppBuildRouteLabel(routeLabel, "/terms?source=phone#preview");
+  await expect(statusBar.getByRole("link", { name: "Home" })).toHaveCount(0);
   await expect(statusBar).toHaveScreenshot("app-build-status-bar-mobile.png", {
     animations: "disabled",
     caret: "hide",
