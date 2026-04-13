@@ -12,7 +12,10 @@
     "skipLibCheck": true
   },
   "include": [
+    "scripts/**/*.js",
     "scripts/**/*.ts",
+    "scripts/**/*.mjs",
+    "runtime/**/*.js",
     "runtime/**/*.ts",
     ".devcontainer/postcreate.ts",
     "apps/noter/scripts/**/*.ts",

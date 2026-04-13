@@ -1,10 +1,14 @@
 #!/usr/bin/env node
-// @ts-check
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+
+type ParsedPlaywrightArgs = {
+  copyUpdatedSnapshots: boolean;
+  playwrightArgs: string[];
+};
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
@@ -55,14 +59,9 @@ if (result.signal) {
 
 process.exit(result.status ?? 1);
 
-/**
- * @param {string[]} rawArgs
- * @returns {{ copyUpdatedSnapshots: boolean, playwrightArgs: string[] }}
- */
-function parsePlaywrightArgs(rawArgs) {
+function parsePlaywrightArgs(rawArgs: string[]): ParsedPlaywrightArgs {
   const normalizedArgs = rawArgs[0] === "--" ? rawArgs.slice(1) : [...rawArgs];
-  /** @type {string[]} */
-  const playwrightArgs = [];
+  const playwrightArgs: string[] = [];
   let copyUpdatedSnapshots = false;
 
   for (const arg of normalizedArgs) {
@@ -83,7 +82,7 @@ function parsePlaywrightArgs(rawArgs) {
   };
 }
 
-function assertDockerWorks() {
+function assertDockerWorks(): void {
   const versionResult = spawnSync(dockerCommand, ["info"], {
     stdio: "ignore",
   });
@@ -97,11 +96,7 @@ function assertDockerWorks() {
   }
 }
 
-/**
- * @param {{ copyUpdatedSnapshots: boolean, playwrightArgs: string[] }} parsed
- * @returns {string[]}
- */
-function buildDockerArgs(parsed) {
+function buildDockerArgs(parsed: ParsedPlaywrightArgs): string[] {
   const args = [
     "run",
     "--rm",
@@ -140,7 +135,7 @@ function buildDockerArgs(parsed) {
   return args;
 }
 
-function buildContainerScript() {
+function buildContainerScript(): string {
   return `
 set -euo pipefail
 
@@ -184,11 +179,7 @@ exit "$test_exit"
 `.trim();
 }
 
-/**
- * @param {string} message
- * @returns {never}
- */
-function exitWithError(message) {
+function exitWithError(message: string): never {
   console.error(message);
   process.exit(1);
   throw new Error(message);
