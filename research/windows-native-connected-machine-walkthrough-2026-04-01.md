@@ -5,7 +5,7 @@ Date: 2026-04-01
 ## Why This Document Exists
 
 This memo captures the dated, machine-specific findings from validating the
-local hosted-file `noter.js` flow on a native Windows primary checkout outside
+local hosted-file `noter.ts` flow on a native Windows primary checkout outside
 WSL.
 
 The accepted current walkthrough stays in
@@ -99,7 +99,7 @@ Observed result on this machine:
    before `SITE_URL` sync.
 2. The real long-running backend started afterward on `http://127.0.0.1:3210`.
 3. Vite fell back from `5173` to `5174` because `5173` was already in use, so
-   every later `/noter.js` command had to reuse the URL Vite printed instead of
+   every later `/noter.ts` command had to reuse the URL Vite printed instead of
    assuming the default port.
 
 For the local app itself, the older manual Windows setup also worked with two
@@ -124,7 +124,7 @@ The direct PowerShell connect command succeeded once it reused the exact URL
 that Vite printed for that run:
 
 ```powershell
-$noterUrl = '<use the URL Vite printed>/noter.js'
+$noterUrl = '<use the URL Vite printed>/noter.ts'
 curl.exe -fsSL $noterUrl | node --input-type=module - connect $noterUrl
 ```
 

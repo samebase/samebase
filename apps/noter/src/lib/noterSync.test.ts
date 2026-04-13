@@ -12,7 +12,7 @@ import {
 describe("noterSync", () => {
   it("builds the deploy-scoped noter sync script URL", () => {
     expect(buildNoterSyncScriptUrl("https://preview.noter.md")).toBe(
-      "https://preview.noter.md/noter.js",
+      "https://preview.noter.md/noter.ts",
     );
   });
 
@@ -38,31 +38,31 @@ describe("noterSync", () => {
 
   it("builds the direct hosted-file command", () => {
     expect(
-      buildDirectNoterSyncConnectCommand("https://noter.md/noter.js"),
+      buildDirectNoterSyncConnectCommand("https://noter.md/noter.ts"),
     ).toBe(
-      `curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
+      `curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'`,
     );
   });
 
   it("builds the direct hosted-file run command", () => {
-    expect(buildDirectNoterSyncRunCommand("https://noter.md/noter.js")).toBe(
-      `curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+    expect(buildDirectNoterSyncRunCommand("https://noter.md/noter.ts")).toBe(
+      `curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run`,
     );
   });
 
   it("builds PowerShell-safe direct hosted-file commands for Windows", () => {
     expect(
       buildDirectNoterSyncConnectCommand(
-        "https://noter.md/noter.js",
+        "https://noter.md/noter.ts",
         "windows",
       ),
     ).toBe(
-      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
+      `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'`,
     );
     expect(
-      buildDirectNoterSyncRunCommand("https://noter.md/noter.js", "windows"),
+      buildDirectNoterSyncRunCommand("https://noter.md/noter.ts", "windows"),
     ).toBe(
-      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+      `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run`,
     );
   });
 });

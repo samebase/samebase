@@ -20,8 +20,8 @@
 
 Noter now has:
 
-1. a hosted `/noter.js` installer artifact mirrored from
-   `packages/sync/noter.js`
+1. a hosted `/noter.ts` installer artifact mirrored from
+   `packages/sync/noter.ts`
 2. a machine-scoped config file at `~/.noter/config.json`
 3. a `/machines/connect` browser handoff and approval page
 4. one live machine credential per approved machine
@@ -86,7 +86,7 @@ browser-visible machine list.
 
 ## Source Of Truth Files
 
-- `packages/sync/noter.js`
+- `packages/sync/noter.ts`
 - `packages/sync/package.json`
 - `apps/noter/convex/connectedMachineHttp.ts`
 - `apps/noter/convex/connectedMachines.ts`
@@ -114,8 +114,8 @@ Those follow-on phone-control decisions now live in
 
 ### Slice 1
 
-- [x] `packages/sync/noter.js` is the canonical installer and runner source.
-- [x] The hosted `/noter.js` artifact mirrors the checked-in source.
+- [x] `packages/sync/noter.ts` is the canonical installer and runner source.
+- [x] The hosted `/noter.ts` artifact mirrors the checked-in source.
 - [x] The browser handoff page supports explicit machine approval.
 - [x] The local connector authenticates with a machine-scoped credential.
 - [x] Noter can list approved machines with truthful online and offline state.

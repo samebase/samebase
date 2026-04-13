@@ -15,7 +15,7 @@
 
 ### Thread creation already exists in the local machine-control bridge
 
-- `packages/sync/noter.js` already exposes `POST /thread/start`.
+- `packages/sync/noter.ts` already exposes `POST /thread/start`.
 - That route calls the provider `thread/start` RPC directly.
 - It accepts `cwd`, `model`, `approvalPolicy`, `sandbox`, and `personality`.
 - Unlike `POST /turn/start`, it does not require an existing `threadId`.
@@ -33,7 +33,7 @@ an explicit empty thread instead of depending on implicit runtime state.
 
 ### Project grouping is derived from canonical repo roots, not labels
 
-- `packages/sync/noter.js` computes thread project metadata from git:
+- `packages/sync/noter.ts` computes thread project metadata from git:
   - `project.id = normalizedProjectRoot`
   - `project.rootCwd = normalizedProjectRoot`
   - sibling worktrees stay in the same project bucket
@@ -107,7 +107,7 @@ After comparing this flow against T3code, the more faithful model is:
   - `New worktree` creates a git worktree first, then starts the thread in that
     new cwd
 
-That follow-up requires one extra bridge primitive in `packages/sync/noter.js`:
+That follow-up requires one extra bridge primitive in `packages/sync/noter.ts`:
 
 - `POST /worktree/create` with `{ cwd }`
 

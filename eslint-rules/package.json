@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "commonjs",
-  "main": "index.js",
+  "main": "index.ts",
   "peerDependencies": {
     "eslint": "^8.57.0"
   }

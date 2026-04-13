@@ -30,9 +30,9 @@ steps:
 The installer model for this MVP should be:
 
 1. machine-scoped, not repo-scoped
-2. one canonical `noter.js` source file
+2. one canonical `noter.ts` source file
 3. that same file mirrored byte-for-byte into both the npm package entrypoint
-   and the hosted `/noter.js` asset
+   and the hosted `/noter.ts` asset
 4. one local config file per Codex instance at `~/.noter/config.json`
 5. hosted-file-first for the first user, with `@noter-md/sync` added later as a
    thin public wrapper
@@ -111,7 +111,7 @@ Conclusion:
 
 We want one underlying installer file with two distribution channels.
 
-### Channel A: Hosted `noter.js`
+### Channel A: Hosted `noter.ts`
 
 This is the current first-user and iteration path.
 
@@ -128,20 +128,20 @@ Prerequisite:
 Shape:
 
 ```bash
-curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
+curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'
 ```
 
 On Windows PowerShell the same bootstrap needs `curl.exe` because `curl`
 resolves to `Invoke-WebRequest` there:
 
 ```powershell
-curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
+curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'
 ```
 
 Preview or local iteration uses the same shape with a different origin:
 
 ```bash
-curl -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'
+curl -fsSL 'https://preview.noter.md/noter.ts' | node --input-type=module - connect 'https://preview.noter.md/noter.ts'
 ```
 
 Why this is the right first step:
@@ -185,13 +185,13 @@ Conclusion:
 
 ## Hosted Script Requirements
 
-Each deploy should serve its own `noter.js`.
+Each deploy should serve its own `noter.ts`.
 
 Rules:
 
-1. production serves `https://noter.md/noter.js`
-2. each preview deploy serves its own `https://<preview>/noter.js`
-3. local dev can serve `http://127.0.0.1:5174/noter.js`
+1. production serves `https://noter.md/noter.ts`
+2. each preview deploy serves its own `https://<preview>/noter.ts`
+3. local dev can serve `http://127.0.0.1:5174/noter.ts`
 4. the hosted file should stay byte-for-byte identical to the package entrypoint
 5. production direct execution should rely on the built-in default source URL
 6. preview or local targeting should come from the direct command itself, not
@@ -214,7 +214,7 @@ We are not trying to solve full public artifact provenance yet.
 The current assumption is:
 
 1. the first user is the operator building the flow
-2. downloading directly from `https://noter.md/noter.js` or a trusted preview
+2. downloading directly from `https://noter.md/noter.ts` or a trusted preview
    deploy is acceptable for now
 3. the script should be transparent about what it does and keep the hosted copy
    identical to the package source
@@ -302,7 +302,7 @@ The right mental model is closer to device auth than to repo auth.
 
 1. user authenticates the Noter plugin in Codex
 2. Noter shows `Connect this machine`
-3. the user runs the hosted `noter.js` from the deploy they care about
+3. the user runs the hosted `noter.ts` from the deploy they care about
 4. the script:
    - validates its own source URL
    - checks that `codex` is installed
@@ -320,7 +320,7 @@ Once `@noter-md/sync` is published, the same flow becomes:
 
 1. user runs `npx @noter-md/sync connect`
 2. the package executes the same installer logic
-3. if needed, the package can still point the user back to the hosted `noter.js`
+3. if needed, the package can still point the user back to the hosted `noter.ts`
    as the canonical inspectable artifact
 
 ## What The Machine-Connect Page Is For
@@ -339,7 +339,7 @@ It should remain intentionally thin:
 1. one short sentence
 2. the package command
 3. the direct hosted-file command
-4. an optional direct link to `noter.js`
+4. an optional direct link to `noter.ts`
 5. approval UI once the browser handoff is active
 
 It should not become a long documentation page.
@@ -432,7 +432,7 @@ What we should not copy for this slice:
 Ship this in two layers:
 
 1. Internal MVP now:
-   - use the hosted `noter.js` file directly
+   - use the hosted `noter.ts` file directly
    - keep the machine-connect page thin
    - use browser-backed machine approval
    - store one local config file per Codex instance

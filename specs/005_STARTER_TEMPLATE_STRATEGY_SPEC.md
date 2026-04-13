@@ -13,7 +13,7 @@
   - `apps/noter-starter-template/AGENTS.md`
   - `apps/noter-starter-template/scripts/sync-codespace-assets.ts`
   - `apps/noter-starter-template/.devcontainer/devcontainer.json`
-  - `apps/noter-starter-template/.codespace-agent/server.js`
+  - `apps/noter-starter-template/.codespace-agent/server.ts`
 
 ## Summary
 

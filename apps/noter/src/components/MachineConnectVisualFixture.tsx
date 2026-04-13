@@ -43,14 +43,14 @@ export function MachineConnectVisualFixture() {
           directConnectCommands={[
             {
               command:
-                "curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
+                "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'",
               description:
                 "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
               label: "Direct hosted file connect (Unix/macOS)",
             },
             {
               command:
-                "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'",
+                "curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'",
               description:
                 "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
               label: "Direct hosted file connect (Windows PowerShell)",
@@ -59,14 +59,14 @@ export function MachineConnectVisualFixture() {
           directRunCommands={[
             {
               command:
-                "curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run",
+                "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
               description:
                 "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
               label: "Direct hosted file run (Unix/macOS)",
             },
             {
               command:
-                "curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run",
+                "curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
               description:
                 "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
               label: "Direct hosted file run (Windows PowerShell)",
@@ -87,7 +87,7 @@ export function MachineConnectVisualFixture() {
             machineId: "machine_123",
             os: "windows",
           }}
-          scriptUrl="https://noter.md/noter.js"
+          scriptUrl="https://noter.md/noter.ts"
         />
       </div>
     </TestRouterProvider>

@@ -13,8 +13,8 @@ locally and what you should expect to see at each step.
 Today this slice already gives you:
 
 1. a machine-connect page in the app
-2. a hosted `/noter.js` installer artifact
-3. a mirrored package entrypoint at `packages/sync/noter.js`
+2. a hosted `/noter.ts` installer artifact
+3. a mirrored package entrypoint at `packages/sync/noter.ts`
 4. browser-backed machine approval
 5. one durable machine credential in `~/.noter/config.json`
 6. a `noter-sync run` command that publishes online and offline heartbeats
@@ -31,7 +31,7 @@ That next step is tracked in `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`.
 ## Local Prerequisites
 
 The direct hosted-file flow needs both `node` and the Codex CLI command `codex`
-on `PATH` before you run any `noter.js` command.
+on `PATH` before you run any `noter.ts` command.
 
 Quick check:
 
@@ -82,7 +82,7 @@ Expected result:
 
 1. the app runs on [http://127.0.0.1:5174/](http://127.0.0.1:5174/)
 2. the hosted installer is available at
-   [http://127.0.0.1:5174/noter.js](http://127.0.0.1:5174/noter.js)
+   [http://127.0.0.1:5174/noter.ts](http://127.0.0.1:5174/noter.ts)
 
 If this worktree chose another frontend port, substitute that origin in the
 commands below.
@@ -91,7 +91,7 @@ Native Windows outside WSL is compatible with the hosted-file flow, but this
 spec's default startup path remains the worktree `make anon` flow above. For
 dated primary-checkout troubleshooting notes and the manual Windows bootstrap
 sequence validated during local testing, see
-`docs/research/windows-native-connected-machine-walkthrough-2026-04-01.md`.
+`research/windows-native-connected-machine-walkthrough-2026-04-01.md`.
 
 For a native Windows primary checkout without GNU Make, the supported local
 startup path is `pnpm dev` from the repo root. Use the exact Vite URL it prints
@@ -109,25 +109,25 @@ What to look for:
 1. a `Published package connect` block for the eventual public npm path
 2. two `Direct hosted file connect` blocks: one for `Unix/macOS` and one for
    `Windows PowerShell`
-3. a link to open `noter.js`
+3. a link to open `noter.ts`
 4. a machine list section if any machines are already connected
 
 ## 3. Inspect The Hosted Installer File
 
 Open:
 
-- [http://127.0.0.1:5174/noter.js](http://127.0.0.1:5174/noter.js)
+- [http://127.0.0.1:5174/noter.ts](http://127.0.0.1:5174/noter.ts)
 
 What to verify:
 
 1. it is a single readable Node script
 2. it has no runtime dependencies
-3. it matches `packages/sync/noter.js` exactly
+3. it matches `packages/sync/noter.ts` exactly
 
 To confirm the exact-copy contract locally:
 
 ```bash
-git diff --no-index -- packages/sync/noter.js apps/noter/public/noter.js
+git diff --no-index -- packages/sync/noter.ts apps/noter/public/noter.ts
 ```
 
 Expected result:
@@ -141,19 +141,19 @@ Use the hosted local file directly:
 
 ```bash
 set -o pipefail
-curl -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - connect 'http://127.0.0.1:5174/noter.js'
+curl -fsSL 'http://127.0.0.1:5174/noter.ts' | node --input-type=module - connect 'http://127.0.0.1:5174/noter.ts'
 ```
 
 On Windows PowerShell use `curl.exe` so the command does not hit the
 `Invoke-WebRequest` alias:
 
 ```powershell
-curl.exe -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - connect 'http://127.0.0.1:5174/noter.js'
+curl.exe -fsSL 'http://127.0.0.1:5174/noter.ts' | node --input-type=module - connect 'http://127.0.0.1:5174/noter.ts'
 ```
 
 What this does today:
 
-1. validates that the source URL points to `/noter.js`
+1. validates that the source URL points to `/noter.ts`
 2. runs `codex --version` to confirm the Codex CLI is on `PATH`
 3. creates a machine registration request in Noter
 4. writes or updates `~/.noter/config.json`
@@ -208,13 +208,13 @@ Use the direct hosted-file run command:
 
 ```bash
 set -o pipefail
-curl -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - run
+curl -fsSL 'http://127.0.0.1:5174/noter.ts' | node --input-type=module - run
 ```
 
 On Windows PowerShell:
 
 ```powershell
-curl.exe -fsSL 'http://127.0.0.1:5174/noter.js' | node --input-type=module - run
+curl.exe -fsSL 'http://127.0.0.1:5174/noter.ts' | node --input-type=module - run
 ```
 
 What this does today:
@@ -242,8 +242,8 @@ Expected result:
 When debugging the script itself, you can run the checked-in source directly:
 
 ```bash
-node packages/sync/noter.js connect 'http://127.0.0.1:5174/noter.js'
-node packages/sync/noter.js run
+node packages/sync/noter.ts connect 'http://127.0.0.1:5174/noter.ts'
+node packages/sync/noter.ts run
 ```
 
 That bypasses `curl` while keeping the same runtime behavior.
@@ -258,8 +258,8 @@ Useful files:
 3. machine HTTP entrypoints: `apps/noter/convex/connectedMachineHttp.ts`
 4. machine row and credential models:
    `apps/noter/convex/connectedMachineModel.ts`
-5. canonical installer and runner: `packages/sync/noter.js`
-6. hosted mirrored copy: `apps/noter/public/noter.js`
+5. canonical installer and runner: `packages/sync/noter.ts`
+6. hosted mirrored copy: `apps/noter/public/noter.ts`
 
 ## 11. What To Conclude From This Slice
 

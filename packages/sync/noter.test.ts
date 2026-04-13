@@ -45,7 +45,7 @@ import {
   validateConvexSiteUrl,
   validateSourceUrl,
   writeLocalConfig,
-} from "./noter.js";
+} from "./noter.ts";
 
 function readLocalGitEnvKeys() {
   const result = spawnSync("git", ["rev-parse", "--local-env-vars"], {
@@ -191,7 +191,7 @@ describe("@noter-md/sync", () => {
       stateDirectory: null,
       sourceUrl: null,
     });
-    expect(NOTER_SYNC_SOURCE_URL).toBe("https://noter.md/noter.js");
+    expect(NOTER_SYNC_SOURCE_URL).toBe("https://noter.md/noter.ts");
   });
 
   it("accepts the run command with no extra CLI override", () => {
@@ -203,11 +203,11 @@ describe("@noter-md/sync", () => {
 
   it("accepts an optional explicit source URL argument for direct hosted execution", () => {
     expect(
-      parseCliArgs(["connect", "https://preview.noter.md/noter.js"]),
+      parseCliArgs(["connect", "https://preview.noter.md/noter.ts"]),
     ).toEqual({
       command: "connect",
       stateDirectory: null,
-      sourceUrl: "https://preview.noter.md/noter.js",
+      sourceUrl: "https://preview.noter.md/noter.ts",
     });
   });
 
@@ -217,11 +217,11 @@ describe("@noter-md/sync", () => {
         "connect",
         "--state-dir",
         "/tmp/noter-worktree",
-        "https://preview.noter.md/noter.js",
+        "https://preview.noter.md/noter.ts",
       ]),
     ).toEqual({
       command: "connect",
-      sourceUrl: "https://preview.noter.md/noter.js",
+      sourceUrl: "https://preview.noter.md/noter.ts",
       stateDirectory: "/tmp/noter-worktree",
     });
     expect(parseCliArgs(["run", "--state-dir", "/tmp/noter-worktree"])).toEqual(
@@ -258,15 +258,26 @@ describe("@noter-md/sync", () => {
 
   it("accepts https deploy URLs and localhost http URLs", () => {
     expect(
-      validateSourceUrl("https://preview.noter.md/noter.js").toString(),
-    ).toBe("https://preview.noter.md/noter.js");
-    expect(validateSourceUrl("http://127.0.0.1:5174/noter.js").toString()).toBe(
-      "http://127.0.0.1:5174/noter.js",
+      validateSourceUrl("https://preview.noter.md/noter.ts").toString(),
+    ).toBe("https://preview.noter.md/noter.ts");
+    expect(validateSourceUrl("http://127.0.0.1:5174/noter.ts").toString()).toBe(
+      "http://127.0.0.1:5174/noter.ts",
     );
   });
 
+  it("normalizes legacy stored installer URLs only when explicitly allowed", () => {
+    expect(() =>
+      validateSourceUrl("https://preview.noter.md/noter.js"),
+    ).toThrow("The installer source URL must point to /noter.ts.");
+    expect(
+      validateSourceUrl("https://preview.noter.md/noter.js", {
+        allowLegacyInstallerPath: true,
+      }).toString(),
+    ).toBe("https://preview.noter.md/noter.ts");
+  });
+
   it("rejects non-https non-localhost source URLs", () => {
-    expect(() => validateSourceUrl("http://example.com/noter.js")).toThrow(
+    expect(() => validateSourceUrl("http://example.com/noter.ts")).toThrow(
       "The installer source URL must use https, except for explicit localhost testing.",
     );
   });
@@ -291,11 +302,11 @@ describe("@noter-md/sync", () => {
 
   it("rejects installer source URLs with query params or hashes", () => {
     expect(() =>
-      validateSourceUrl("https://noter.md/noter.js?preview=1"),
+      validateSourceUrl("https://noter.md/noter.ts?preview=1"),
     ).toThrow(
       "The installer source URL must not include credentials, query params, or hashes.",
     );
-    expect(() => validateSourceUrl("https://noter.md/noter.js#branch")).toThrow(
+    expect(() => validateSourceUrl("https://noter.md/noter.ts#branch")).toThrow(
       "The installer source URL must not include credentials, query params, or hashes.",
     );
   });
@@ -965,7 +976,7 @@ describe("@noter-md/sync", () => {
           codexVersion: "codex 0.1.2",
           machineCredential: "mmc_123",
           machineId: "machine_123",
-          sourceUrl: "https://preview.noter.md/noter.js",
+          sourceUrl: "https://preview.noter.md/noter.ts",
           stateDirectory,
         }),
       ).toBe(configPath);
@@ -974,7 +985,7 @@ describe("@noter-md/sync", () => {
         codexVersion: "codex 0.1.2",
         machineCredential: "mmc_123",
         machineId: "machine_123",
-        sourceUrl: "https://preview.noter.md/noter.js",
+        sourceUrl: "https://preview.noter.md/noter.ts",
       });
     } finally {
       rmSync(stateDirectory, { force: true, recursive: true });
@@ -998,7 +1009,7 @@ describe("@noter-md/sync", () => {
           homeDirectory,
           machineCredential: "mmc_123",
           machineId: "machine_123",
-          sourceUrl: "https://preview.noter.md/noter.js",
+          sourceUrl: "https://preview.noter.md/noter.ts",
         }),
       ).toBe(configPath);
 
@@ -1007,7 +1018,7 @@ describe("@noter-md/sync", () => {
         installedAt: "2026-03-01T00:00:00.000Z",
         machineCredential: "mmc_123",
         machineId: "machine_123",
-        sourceUrl: "https://preview.noter.md/noter.js",
+        sourceUrl: "https://preview.noter.md/noter.ts",
       });
     } finally {
       rmSync(homeDirectory, { force: true, recursive: true });
@@ -1026,7 +1037,7 @@ describe("@noter-md/sync", () => {
           homeDirectory,
           machineCredential: "mmc_123",
           machineId: "machine_123",
-          sourceUrl: "https://preview.noter.md/noter.js",
+          sourceUrl: "https://preview.noter.md/noter.ts",
         });
         expect(statSync(configPath).mode & 0o777).toBe(0o600);
 
@@ -1036,7 +1047,7 @@ describe("@noter-md/sync", () => {
           homeDirectory,
           machineCredential: "mmc_456",
           machineId: "machine_123",
-          sourceUrl: "https://preview.noter.md/noter.js",
+          sourceUrl: "https://preview.noter.md/noter.ts",
         });
         expect(statSync(configPath).mode & 0o777).toBe(0o600);
       } finally {
@@ -1048,7 +1059,7 @@ describe("@noter-md/sync", () => {
   it("builds the browser handoff URL for the current deploy and request id", () => {
     expect(
       buildMachineConnectUrl(
-        "https://preview.noter.md/noter.js",
+        "https://preview.noter.md/noter.ts",
         "request_123",
       ),
     ).toBe(
@@ -1059,14 +1070,14 @@ describe("@noter-md/sync", () => {
   it("includes the state-dir flag in direct commands when requested", () => {
     expect(
       buildDirectConnectCommand(
-        "https://preview.noter.md/noter.js",
+        "https://preview.noter.md/noter.ts",
         "darwin",
         "/tmp/noter/worktrees/ceff",
       ),
     ).toContain("--state-dir '/tmp/noter/worktrees/ceff'");
     expect(
       buildDirectRunCommand(
-        "https://preview.noter.md/noter.js",
+        "https://preview.noter.md/noter.ts",
         "darwin",
         "/tmp/noter/worktrees/ceff",
       ),
@@ -1076,14 +1087,14 @@ describe("@noter-md/sync", () => {
   it("escapes explicit state-dir paths for Windows direct commands", () => {
     expect(
       buildDirectConnectCommand(
-        "https://noter.md/noter.js",
+        "https://noter.md/noter.ts",
         "win32",
         "C:\\Users\\O'Brien\\.noter",
       ),
     ).toContain("--state-dir 'C:\\Users\\O''Brien\\.noter'");
     expect(
       buildDirectRunCommand(
-        "https://noter.md/noter.js",
+        "https://noter.md/noter.ts",
         "win32",
         "C:\\Users\\O'Brien\\.noter",
       ),
@@ -1093,14 +1104,14 @@ describe("@noter-md/sync", () => {
   it("escapes explicit state-dir paths for Unix direct commands", () => {
     expect(
       buildDirectConnectCommand(
-        "https://noter.md/noter.js",
+        "https://noter.md/noter.ts",
         "darwin",
         "/tmp/O'Brien/.noter",
       ),
     ).toContain(`--state-dir '/tmp/O'"'"'Brien/.noter'`);
     expect(
       buildDirectRunCommand(
-        "https://noter.md/noter.js",
+        "https://noter.md/noter.ts",
         "darwin",
         "/tmp/O'Brien/.noter",
       ),
@@ -1109,7 +1120,7 @@ describe("@noter-md/sync", () => {
 
   it("builds the deploy-scoped runtime config URL", () => {
     expect(
-      buildNoterConnectConfigUrl("https://preview.noter.md/noter.js"),
+      buildNoterConnectConfigUrl("https://preview.noter.md/noter.ts"),
     ).toBe("https://preview.noter.md/noter-connect.json");
   });
 
@@ -1120,45 +1131,45 @@ describe("@noter-md/sync", () => {
     expect(formatHelpText()).toContain("noter-sync run [--state-dir <path>]");
     expect(formatHelpText()).toContain("npx @noter-md/sync connect");
     expect(formatHelpText()).toContain("npx @noter-md/sync run");
-    expect(formatHelpText()).toContain("node ./noter.js connect");
-    expect(formatHelpText()).toContain("node ./noter.js run");
+    expect(formatHelpText()).toContain("node ./noter.ts connect");
+    expect(formatHelpText()).toContain("node ./noter.ts run");
     expect(formatHelpText()).toContain(
-      `curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
+      `curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'`,
     );
     expect(formatHelpText()).toContain(
-      `curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+      `curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run`,
     );
     expect(formatHelpText()).toContain(
-      `curl -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'`,
+      `curl -fsSL 'https://preview.noter.md/noter.ts' | node --input-type=module - connect 'https://preview.noter.md/noter.ts'`,
     );
     expect(formatHelpText()).toContain(
-      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
+      `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'`,
     );
     expect(formatHelpText()).toContain(
-      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+      `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run`,
     );
     expect(formatHelpText()).toContain(
-      `curl.exe -fsSL 'https://preview.noter.md/noter.js' | node --input-type=module - connect 'https://preview.noter.md/noter.js'`,
+      `curl.exe -fsSL 'https://preview.noter.md/noter.ts' | node --input-type=module - connect 'https://preview.noter.md/noter.ts'`,
     );
     expect(formatHelpText()).toContain(`/home/you/.noter/worktrees/ceff`);
   });
 
   it("builds Windows-safe direct hosted-file commands", () => {
     expect(
-      buildDirectConnectCommand("https://noter.md/noter.js", "win32"),
+      buildDirectConnectCommand("https://noter.md/noter.ts", "win32"),
     ).toBe(
-      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
+      `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'`,
     );
     expect(
-      buildDirectConnectCommand("https://noter.md/noter.js", "windows"),
+      buildDirectConnectCommand("https://noter.md/noter.ts", "windows"),
     ).toBe(
-      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`,
+      `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'`,
     );
-    expect(buildDirectRunCommand("https://noter.md/noter.js", "win32")).toBe(
-      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+    expect(buildDirectRunCommand("https://noter.md/noter.ts", "win32")).toBe(
+      `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run`,
     );
-    expect(buildDirectRunCommand("https://noter.md/noter.js", "windows")).toBe(
-      `curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`,
+    expect(buildDirectRunCommand("https://noter.md/noter.ts", "windows")).toBe(
+      `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run`,
     );
   });
 
@@ -1433,7 +1444,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
         buildCodexSpawnInvocation: buildCodexSpawnInvocationWithMock,
         buildCodexRuntimeSpawnInvocation:
           buildCodexRuntimeSpawnInvocationWithMock,
-      } = await import("./noter.js");
+      } = await import("./noter.ts");
 
       expect(
         buildCodexSpawnInvocationWithMock(["--version"], "win32", {
@@ -1624,10 +1635,10 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
       const symlinkPath = path.join(tempDirectory, "noter-sync");
 
       try {
-        symlinkSync(path.resolve("packages/sync/noter.js"), symlinkPath);
+        symlinkSync(path.resolve("packages/sync/noter.ts"), symlinkPath);
 
         expect(resolveEntrypointUrl(symlinkPath)).toBe(
-          pathToFileURL(path.resolve("packages/sync/noter.js")).href,
+          pathToFileURL(path.resolve("packages/sync/noter.ts")).href,
         );
       } finally {
         rmSync(tempDirectory, { force: true, recursive: true });
@@ -1636,7 +1647,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
   );
 
   it("formats bootstrap status as markdown for terminal and LLM consumption", () => {
-    const runCommand = buildDirectRunCommand("https://noter.md/noter.js");
+    const runCommand = buildDirectRunCommand("https://noter.md/noter.ts");
     expect(
       formatBootstrapReadyMarkdown({
         codexVersion: "codex 0.1.2",
@@ -1645,11 +1656,11 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
           "https://noter.md/machines/connect?openedByCli&requestId=request_123",
         machineId: "machine_123",
         runCommand,
-        sourceUrl: "https://noter.md/noter.js",
+        sourceUrl: "https://noter.md/noter.ts",
       }),
     ).toBe(`# noter sync bootstrap ready
 
-- source: https://noter.md/noter.js
+- source: https://noter.md/noter.ts
 - codex: codex 0.1.2
 - machine: machine_123
 - state: /Users/noter/.noter/config.json
@@ -1665,11 +1676,11 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
         liveControlStatus: "unavailable",
         localControlOrigin: "http://127.0.0.1:57479",
         machineId: "machine_123",
-        sourceUrl: "https://noter.md/noter.js",
+        sourceUrl: "https://noter.md/noter.ts",
       }),
     ).toBe(`# noter sync connector running
 
-- source: https://noter.md/noter.js
+- source: https://noter.md/noter.ts
 - machine: machine_123
 - local-control: http://127.0.0.1:57479
 - live-control: unavailable

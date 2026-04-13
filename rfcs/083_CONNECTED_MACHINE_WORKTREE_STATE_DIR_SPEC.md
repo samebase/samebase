@@ -20,7 +20,7 @@ The real operator need is narrower:
 1. keep the normal production `~/.noter` connection unchanged
 2. run a second connected-machine install for a worktree when needed
 3. keep the worktree install fully isolated from production
-4. allow the worktree to run its own `noter.js` implementation and state
+4. allow the worktree to run its own `noter.ts` implementation and state
 
 Recommendation:
 
@@ -47,8 +47,8 @@ proposal solved a bigger product problem than we actually have.
 
 For internal Noter development, the more important constraint is isolation:
 
-1. production should keep using the stable `noter.js` install
-2. a worktree should be able to run modified `noter.js` code
+1. production should keep using the stable `noter.ts` install
+2. a worktree should be able to run modified `noter.ts` code
 3. the worktree install should not share config or runtime state with production
 
 That means one shared config with many backends is the wrong boundary.
@@ -69,7 +69,7 @@ own:
 
 1. backend origin
 2. local credential
-3. `noter.js` implementation under development
+3. `noter.ts` implementation under development
 4. long-running `run` process
 
 Overwriting the default `~/.noter/config.json` to test a worktree is possible,
@@ -78,8 +78,8 @@ production.
 
 ## Current Code Facts
 
-The implementation currently lives in `packages/sync/noter.js` and is mirrored
-to `apps/noter/public/noter.js` for the browser-served installer.
+The implementation currently lives in `packages/sync/noter.ts` and is mirrored
+to `apps/noter/public/noter.ts` for the browser-served installer.
 
 The relevant current behavior is:
 
@@ -139,7 +139,7 @@ The state-dir model is smaller:
 1. each install stays single-connection
 2. each install reuses the current auth model unchanged
 3. each install runs its own copy of the current runtime behavior
-4. worktree changes to `noter.js` stay isolated from production
+4. worktree changes to `noter.ts` stay isolated from production
 
 This is the correct boundary for internal worktree development.
 
@@ -196,7 +196,7 @@ Minimum shape:
 
 ```json
 {
-  "sourceUrl": "https://noter.md/noter.js",
+  "sourceUrl": "https://noter.md/noter.ts",
   "codexVersion": "0.33.0",
   "machineId": "machine_abc",
   "machineCredential": "mmc_abc"
@@ -239,7 +239,7 @@ reference instead:
 
 ```json
 {
-  "sourceUrl": "https://noter.md/noter.js",
+  "sourceUrl": "https://noter.md/noter.ts",
   "codexVersion": "0.33.0",
   "machineId": "machine_abc",
   "keychainPath": "keychain://noter/connected-machines/ceff"
@@ -269,15 +269,15 @@ Operational rules:
 ### Production remains unchanged
 
 ```bash
-curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
-curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run
+curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'
+curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run
 ```
 
 ### Worktree uses its own state dir
 
 ```bash
-curl -fsSL 'https://<worktree>/noter.js' | node --input-type=module - connect --state-dir ~/.noter/worktrees/ceff 'https://<worktree>/noter.js'
-curl -fsSL 'https://<worktree>/noter.js' | node --input-type=module - run --state-dir ~/.noter/worktrees/ceff
+curl -fsSL 'https://<worktree>/noter.ts' | node --input-type=module - connect --state-dir ~/.noter/worktrees/ceff 'https://<worktree>/noter.ts'
+curl -fsSL 'https://<worktree>/noter.ts' | node --input-type=module - run --state-dir ~/.noter/worktrees/ceff
 ```
 
 This keeps:
@@ -316,7 +316,7 @@ That is enough for internal validation.
 2. A worktree can connect and run using `--state-dir` without mutating the
    default production config.
 3. Production and worktree `run` processes can stay active at the same time.
-4. A worktree can use its own modified `noter.js` implementation without
+4. A worktree can use its own modified `noter.ts` implementation without
    affecting production.
 5. The worktree's `/machines` route can be tested end-to-end from the phone
    after its own `connect` and `run`.

@@ -337,7 +337,7 @@ function generateDevcontainerConfig(): string {
     postCreateCommand:
       "pnpm install && npm install -g @openai/codex && cd .codespace-agent && npm install --no-package-lock",
     postStartCommand:
-      "bash -lc 'cd .codespace-agent && if [ ! -d node_modules ]; then npm install --no-package-lock; fi && if ! pgrep -f \"node server.js\" >/dev/null; then nohup npm start >/tmp/codespace-agent.log 2>&1 & fi'",
+      "bash -lc 'cd .codespace-agent && if [ ! -d node_modules ]; then npm install --no-package-lock; fi && if ! pgrep -f \"node server.ts\" >/dev/null; then nohup npm start >/tmp/codespace-agent.log 2>&1 & fi'",
     forwardPorts: [5173, 3000, 1455],
     portsAttributes: {
       "5173": {

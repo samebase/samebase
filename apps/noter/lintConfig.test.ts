@@ -234,7 +234,7 @@ describe("lint config", () => {
       override.files?.includes("apps/noter/src/lib/queryParams.ts"),
     );
 
-    expect(pluginPath).toBe(path.join(repoRoot, "eslint-rules", "index.js"));
+    expect(pluginPath).toBe(path.join(repoRoot, "eslint-rules", "index.ts"));
     expect(plugin.rules).toHaveProperty("use-query-param-helpers");
     expect(oxlintConfig.jsPlugins).toContainEqual({
       name: "noter-local",

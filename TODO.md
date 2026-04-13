@@ -211,7 +211,7 @@ https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-conne
       image and push to GHCR, with a manual UI button to trigger the workflow
       (auto-trigger later)
 - [ ] security: remove first-request token bootstrap in
-      `.codespace-agent/server.js`; require preconfigured secret for auth before
+      `.codespace-agent/server.ts`; require preconfigured secret for auth before
       exposing agent APIs
 - [ ] security: fix codespace agent exposure model (`port 3000` public +
       `/exec`/file endpoints); restrict reachability or add hardened gateway

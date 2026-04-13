@@ -16,8 +16,8 @@
   - `apps/noter/convex/schema.ts`
   - `.devcontainer/devcontainer.json`
   - `apps/noter-starter-template/.devcontainer/devcontainer.json`
-  - `.codespace-agent/server.js`
-  - `apps/noter-starter-template/.codespace-agent/server.js`
+  - `.codespace-agent/server.ts`
+  - `apps/noter-starter-template/.codespace-agent/server.ts`
 
 ## Summary
 

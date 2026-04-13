@@ -125,7 +125,7 @@ second auth layer first.
 
 This repo already has working app-server bridge code for GitHub Codespaces:
 
-- `.codespace-agent/server.js`
+- `.codespace-agent/server.ts`
 - `apps/noter/convex/codespacesExecutor.ts`
 
 That code already:
@@ -496,7 +496,7 @@ If phase 2 is needed, build a local daemon that uses the same Codex RPC calls:
 
 The remote proof and local reference points are:
 
-- `.codespace-agent/server.js`
+- `.codespace-agent/server.ts`
 - `apps/noter/convex/codespacesExecutor.ts`
 - `~/dev/forks/t3code/apps/server/src/codexAppServerManager.ts`
 
@@ -593,7 +593,7 @@ Codespaces implementation and runtime management ideas from `t3code`.
 - `apps/noter/src/components/FileView.tsx`
 - `apps/noter/convex/chat/index.ts`
 - `apps/noter/convex/schema.ts`
-- `.codespace-agent/server.js`
+- `.codespace-agent/server.ts`
 - `apps/noter/convex/codespacesExecutor.ts`
 - `codex --help`
 - `codex exec --help`

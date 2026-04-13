@@ -587,7 +587,7 @@ export function MachineConnectPageContent({
             rel="noreferrer"
             className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
           >
-            Open <code>noter.js</code>
+            Open <code>noter.ts</code>
             <ExternalLink className="h-4 w-4" />
           </a>
         </p>

@@ -208,7 +208,7 @@ When the user says one of these commands, execute it directly:
 | `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, wait                                |
 | `squash`       | Squash-merge the current PR                                                                                   |
 | `archive`      | Remove the current worktree/local branch after confirming a PR exists                                         |
-| `link machine` | Run the current checkout's `noter.js` machine-link flow with worktree isolation when needed                   |
+| `link machine` | Run the current checkout's `noter.ts` machine-link flow with worktree isolation when needed                   |
 | `clean vaults` | Remove temporary Noter-managed vaults for the current worktree                                                |
 | `clean`        | Run `clean vaults`, remove the current worktree's local machine link, then remove the shipped worktree/branch |
 | `status`       | Report branch, local changes, and PR state                                                                    |
@@ -236,7 +236,7 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   branch and `origin/<branch>` stay aligned after the history rewrite.
 - Use the exact temporary vault prefix `tmp-<worktree-id>-<intent>` for
   Playwright/manual test repos created from a worktree.
-- `link machine` must use the current checkout's `noter.js` flow and keep every
+- `link machine` must use the current checkout's `noter.ts` flow and keep every
   local repo checkout isolated with its own `--state-dir` under
   `~/.noter/checkouts/<checkout-id>`. Never overwrite the default `~/.noter`
   install as part of local dev linking.

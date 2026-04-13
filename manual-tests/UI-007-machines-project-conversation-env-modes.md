@@ -9,7 +9,7 @@ runtime context.
 ## Preconditions
 
 - Worktree app is running with `make anon`.
-- A connected machine is available through the local `noter.js` approval flow.
+- A connected machine is available through the local `noter.ts` approval flow.
 - The selected machine has at least one git-backed project group in `/machines`.
 
 ## Steps
@@ -49,5 +49,5 @@ runtime context.
 ## Cleanup
 
 - Restore `~/.noter/config.json` if local manual testing temporarily pointed it
-  at a localhost `noter.js`.
+  at a localhost `noter.ts`.
 - Stop any temporary local connector/browser sessions used only for the test.

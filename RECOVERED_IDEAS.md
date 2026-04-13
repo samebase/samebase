@@ -4,7 +4,7 @@ File: TODO.md
 
 - # The most important right now is to fix rebaseing works, because we always accept only things on incoming side instead of even trying to reconcile!!!!
 - - [ ] security: remove first-request token bootstrap in
-        `.codespace-agent/server.js`; require preconfigured secret for auth
+        `.codespace-agent/server.ts`; require preconfigured secret for auth
         before exposing agent APIs
 - - [ ] security: fix codespace agent exposure model (`port 3000` public +
         `/exec`/file endpoints); restrict reachability or add hardened gateway
@@ -25,7 +25,7 @@ File: TODO.md
 File: TODO.md
 
 - - [ ] security: remove first-request token bootstrap in
-        `.codespace-agent/server.js`; require preconfigured secret for auth
+        `.codespace-agent/server.ts`; require preconfigured secret for auth
         before exposing agent APIs
 - - [ ] security: fix codespace agent exposure model (`port 3000` public +
         `/exec`/file endpoints); restrict reachability or add hardened gateway

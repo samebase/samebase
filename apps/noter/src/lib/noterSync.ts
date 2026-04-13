@@ -5,7 +5,7 @@ import { stringifyTanStackSearch } from "./tanstackSearchParams";
 
 export const MACHINES_ROUTE = "/machines";
 export const MACHINE_CONNECT_ROUTE = "/machines/connect";
-export const NOTER_SYNC_PUBLIC_SCRIPT_PATH = "/noter.js";
+export const NOTER_SYNC_PUBLIC_SCRIPT_PATH = "/noter.ts";
 export type NoterSyncCommandTargetOs = "linux" | "macos" | "windows";
 
 function quoteShellArg(value: string): string {
