@@ -82,6 +82,11 @@ type CloudflarePagesApiResponse = {
   result: unknown;
 };
 
+const CANONICAL_GITHUB_REPO_SLUG = {
+  owner: "noter-md",
+  repo: "noter",
+} as const;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -162,6 +167,13 @@ export function parseGitHubRepoSlugFromRemoteUrl(
   }
 }
 
+export function isCanonicalGitHubRepoSlug(repoSlug: GitHubRepoSlug): boolean {
+  return (
+    repoSlug.owner === CANONICAL_GITHUB_REPO_SLUG.owner &&
+    repoSlug.repo === CANONICAL_GITHUB_REPO_SLUG.repo
+  );
+}
+
 export function buildManagedPagesEnvVars(args: {
   deployKey: string;
   siteUrl?: string;
@@ -191,7 +203,7 @@ function readRequiredEnv(name: string): string {
   return value;
 }
 
-async function callCloudflarePagesApi(
+export async function callCloudflarePagesApi(
   args: CloudflarePagesApiRequestArgs,
 ): Promise<CloudflarePagesApiResponse> {
   const response = await fetch(
@@ -208,7 +220,7 @@ async function callCloudflarePagesApi(
     },
   );
 
-  if (response.status === 404) {
+  if (args.method === "GET" && response.status === 404) {
     return {
       status: 404,
       result: null,
@@ -315,7 +327,7 @@ export function buildCloudflarePagesProjectPayload(
         env_vars: buildManagedPagesEnvVars({
           deployKey: readRequiredEnv(app.productionDeployKeyEnvVar),
           siteUrl: app.productionSiteUrlEnvVar
-            ? process.env[app.productionSiteUrlEnvVar]
+            ? readRequiredEnv(app.productionSiteUrlEnvVar)
             : undefined,
         }),
       },
@@ -384,6 +396,11 @@ async function main(): Promise<void> {
   if (!repoSlug) {
     throw new Error(
       `Could not parse a GitHub owner/repo from ${JSON.stringify(remoteUrl.trim())}.`,
+    );
+  }
+  if (!isCanonicalGitHubRepoSlug(repoSlug)) {
+    throw new Error(
+      `Cloudflare Pages sync must run from ${CANONICAL_GITHUB_REPO_SLUG.owner}/${CANONICAL_GITHUB_REPO_SLUG.repo}. Current origin resolves to ${repoSlug.owner}/${repoSlug.repo}.`,
     );
   }
 

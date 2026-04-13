@@ -1,9 +1,11 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getCloudflarePagesApp } from "./cloudflare-pages-apps.ts";
 import {
   buildCloudflarePagesProjectPayload,
   buildManagedPagesEnvVars,
+  callCloudflarePagesApi,
+  isCanonicalGitHubRepoSlug,
   parseCloudflarePagesSyncArgs,
   parseGitHubRepoSlugFromRemoteUrl,
   redactCloudflarePagesProjectPayload,
@@ -13,6 +15,8 @@ const ORIGINAL_ENV = { ...process.env };
 
 afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("cloudflare-pages-sync", () => {
@@ -39,6 +43,21 @@ describe("cloudflare-pages-sync", () => {
       owner: "noter-md",
       repo: "noter",
     });
+  });
+
+  it("fails closed for non-canonical GitHub remotes", () => {
+    expect(
+      isCanonicalGitHubRepoSlug({
+        owner: "noter-md",
+        repo: "noter",
+      }),
+    ).toBe(true);
+    expect(
+      isCanonicalGitHubRepoSlug({
+        owner: "someone-else",
+        repo: "noter",
+      }),
+    ).toBe(false);
   });
 
   it("builds the Cloudflare Pages payload for the shipped noter app", () => {
@@ -100,6 +119,61 @@ describe("cloudflare-pages-sync", () => {
     expect(payload.build_config.build_command).toContain(
       "cloudflare-pages-build.ts noter",
     );
+  });
+
+  it("requires the declared production site URL env var", () => {
+    process.env.NOTER_CONVEX_PRODUCTION_DEPLOY_KEY = "prod:key";
+    process.env.NOTER_CONVEX_PREVIEW_DEPLOY_KEY = "preview:key";
+    delete process.env.NOTER_SITE_URL;
+
+    expect(() =>
+      buildCloudflarePagesProjectPayload(
+        {
+          id: "123",
+          ownerId: "456",
+          owner: "noter-md",
+          repo: "noter",
+        },
+        getCloudflarePagesApp("noter"),
+      ),
+    ).toThrow("Missing required environment variable NOTER_SITE_URL.");
+  });
+
+  it("only treats GET 404s as not-found responses", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ errors: [{ message: "missing" }] }), {
+            status: 404,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }),
+      ),
+    );
+
+    await expect(
+      callCloudflarePagesApi({
+        token: "token",
+        accountId: "account",
+        method: "GET",
+        path: "/noter",
+      }),
+    ).resolves.toEqual({
+      status: 404,
+      result: null,
+    });
+
+    await expect(
+      callCloudflarePagesApi({
+        token: "token",
+        accountId: "account",
+        method: "PATCH",
+        path: "/noter",
+        body: { name: "noter" },
+      }),
+    ).rejects.toThrow("Cloudflare Pages API request failed (404)");
   });
 
   it("redacts secret deploy keys before dry-run output", () => {

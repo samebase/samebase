@@ -36,18 +36,20 @@ export NOTER_STARTER_TEMPLATE_CONVEX_PRODUCTION_DEPLOY_KEY=...
 export NOTER_STARTER_TEMPLATE_CONVEX_PREVIEW_DEPLOY_KEY=...
 ```
 
-Optional but recommended:
+Required for `noter`:
 
 ```bash
 export NOTER_SITE_URL=https://noter.md
 ```
 
-If `NOTER_SITE_URL` is omitted, production sync falls back to Cloudflare’s
-current deployment URL. That still works, but it means Convex auth/OAuth
-redirects will target the Pages hostname instead of the canonical custom domain.
+The sync now fails closed if `NOTER_SITE_URL` is missing, because the production
+Pages project needs the canonical custom domain wired into Convex auth/OAuth
+redirects instead of silently falling back to the Pages hostname.
 
 The sync script resolves the GitHub repo id through `gh api`, so it expects a
-working `gh` login for the repo owner account.
+working `gh` login for the repo owner account. It also fails closed unless the
+current `origin` remote resolves to `noter-md/noter`, so local repair runs
+cannot accidentally repoint the managed Pages projects at a fork.
 
 `--dry-run` still needs the Convex deploy-key env vars because the rendered
 payload includes the managed Pages env surface, but it does not require
@@ -71,7 +73,7 @@ NOTER_STARTER_TEMPLATE_CONVEX_PRODUCTION_DEPLOY_KEY
 NOTER_STARTER_TEMPLATE_CONVEX_PREVIEW_DEPLOY_KEY
 ```
 
-Optional but recommended:
+Required for `noter`:
 
 ```text
 Repository variable: NOTER_SITE_URL=https://noter.md
