@@ -72,11 +72,11 @@ startup flow.
 Flow contract:
 
 1. Initialize local anonymous deployment with codegen
-   (`node convex-dev.js --once --codegen=enable`).
+   (`node apps/noter/scripts/convex-dev.ts --once --codegen=enable`).
 2. Build `apps/noter/.env.anon-seed.local` from cloud dev `DEV_SEED_*` vars.
 3. Run `devAuth:seedPasswordAccount` using `--env-file .env.anon-seed.local`.
 4. Refresh local auth env (`JWT_PRIVATE_KEY`/`JWKS`) via
-   `node convex-dev.js --refresh-anon-auth`.
+   `node apps/noter/scripts/convex-dev.ts --refresh-anon-auth`.
 
 Isolation contract:
 

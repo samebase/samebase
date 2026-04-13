@@ -38,7 +38,7 @@ readiness. Deck copy and final storytelling come later.
 - `apps/noter/src/components/PitchDeckPage.tsx`
 - `apps/noter/src/components/pitchDeck/*`
 - `apps/noter/package.json`
-- `scripts/export-pitch-deck.mjs`
+- `scripts/export-pitch-deck.ts`
 
 ## Route Contract
 
@@ -110,7 +110,7 @@ handled through explicit layout presets, not a slide framework.
   4. write `pitch-deck.pdf`
   5. optionally open `/pitch/print/mobile` in Playwright for vertical output
   6. write `pitch-deck-mobile.pdf`
-- The export command lives at repo level in `scripts/export-pitch-deck.mjs`.
+- The export command lives at repo level in `scripts/export-pitch-deck.ts`.
 
 ## Acceptance Checklist
 

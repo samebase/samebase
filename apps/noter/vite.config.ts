@@ -6,8 +6,8 @@ import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
-import { formatWithOxfmt } from "../../scripts/format-with-oxfmt.js";
-import { readPackageVersion } from "../../scripts/readPackageVersion.js";
+import { formatWithOxfmt } from "../../scripts/format-with-oxfmt.ts";
+import { readPackageVersion } from "../../scripts/readPackageVersion.ts";
 import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
 import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
 import {

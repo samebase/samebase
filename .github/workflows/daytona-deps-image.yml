@@ -12,7 +12,7 @@ on:
       - apps/noter/package.json
       - apps/noter-starter-template/package.json
       - Dockerfile.daytona-deps
-      - scripts/daytona-deps-hash.js
+      - scripts/daytona-deps-hash.ts
       - .github/workflows/daytona-deps-image.yml
   workflow_dispatch: {}
 
@@ -62,7 +62,7 @@ jobs:
 
       - name: Compute deps hashes
         id: hash
-        run: node scripts/daytona-deps-hash.js
+        run: node scripts/daytona-deps-hash.ts
 
       - name: Resolve image tags
         id: tags

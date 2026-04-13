@@ -149,7 +149,7 @@ suffix for Convex dev deployment names.
    - `CONVEX_DEPLOY_KEY=<deployKey>`
    - `VITE_CONVEX_URL=<cloudUrl>`
    - `VITE_CONVEX_SITE_URL=<siteUrl>`
-   - `SETUP_SCRIPT_RAN=1` (skip interactive setup in `setup.mjs`)
+   - `SETUP_SCRIPT_RAN=1` (skip interactive setup in `scripts/setup.ts`)
 
 ## Interaction With `noter.md`
 

@@ -49,8 +49,8 @@ ps -axo pid=,args= | grep -F -- "--user-data-dir="
 - For this repo's branch-owned browser session:
 
 ```bash
-node ./scripts/playwright-branch-browser.js session
-node ./scripts/playwright-branch-browser.js profile
+node ./scripts/playwright-branch-browser.ts session
+node ./scripts/playwright-branch-browser.ts profile
 ```
 
 2. Enumerate visible windows without Accessibility prompts.
@@ -94,7 +94,7 @@ screencapture -l 8237 /tmp/mac-window.png
   native window inspection:
 
 ```bash
-node ./scripts/playwright-branch-browser.js verify
+node ./scripts/playwright-branch-browser.ts verify
 ```
 
 4. Choose the narrowest control surface.
@@ -122,15 +122,15 @@ osascript -e 'tell application "Finder" to open POSIX file "/Applications"'
 - In this repo, prefer the branch-owned wrapper over ad hoc process control:
 
 ```bash
-node ./scripts/playwright-branch-browser.js open --headed
-node ./scripts/playwright-branch-browser.js cli close
+node ./scripts/playwright-branch-browser.ts open --headed
+node ./scripts/playwright-branch-browser.ts cli close
 ```
 
 ## Repo-Specific Pattern
 
 When the target is a browser session for this repository:
 
-- Prefer `node ./scripts/playwright-branch-browser.js` over raw
+- Prefer `node ./scripts/playwright-branch-browser.ts` over raw
   `@playwright/cli`.
 - One branch owns one deterministic profile directory and one deterministic
   session name.

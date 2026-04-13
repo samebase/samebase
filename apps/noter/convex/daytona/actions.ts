@@ -20,7 +20,7 @@ import os from "os";
 import path from "path";
 import * as git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
-import { listAnonymousLocalPortCandidates } from "../../../../runtime/anonymousLocalPorts.js";
+import { listAnonymousLocalPortCandidates } from "../../../../runtime/anonymousLocalPorts";
 import { action, internalAction, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { getUserId } from "../common";
@@ -130,9 +130,9 @@ const DAYTONA_REGISTRY_SET_DEFAULT_ENV = "DAYTONA_REGISTRY_SET_DEFAULT";
 const DAYTONA_ORGANIZATION_ID_ENV = "DAYTONA_ORGANIZATION_ID";
 const DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR = "repo";
 const DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH =
-  ".noter/daytona/ensureRepoAutoCd.js";
+  ".noter/daytona/ensureRepoAutoCd.ts";
 const DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_TEMP_PATH =
-  "/tmp/noter-daytona-ensureRepoAutoCd.js";
+  "/tmp/noter-daytona-ensureRepoAutoCd.ts";
 const DAYTONA_PREBUILD_RESOURCES: Resources = {
   cpu: 4,
   memory: 8,

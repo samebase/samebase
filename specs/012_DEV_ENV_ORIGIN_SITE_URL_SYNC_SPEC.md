@@ -34,7 +34,7 @@ dev-server startup for Daytona (and future sandbox providers).
 
 `DEV_ENV_ORIGIN` is the single input for sandbox environments.
 
-**Precedence in `sync-site-url.mjs`:**
+**Precedence in `scripts/sync-site-url.ts`:**
 
 ```
 DEV_ENV_ORIGIN -> http://localhost:5173
@@ -58,7 +58,7 @@ fallback is used. Do not block dev server start on this.
 
 ### 3) Where the origin is used
 
-`apps/noter/sync-site-url.mjs` reads `DEV_ENV_ORIGIN` and runs:
+`apps/noter/scripts/sync-site-url.ts` reads `DEV_ENV_ORIGIN` and runs:
 
 ```
 npx convex env set SITE_URL "<origin>"
@@ -91,7 +91,8 @@ This runs in `predev` (already wired).
 ## Acceptance Criteria
 
 1. Running `pnpm dev` inside Daytona results in:
-   - `sync-site-url.mjs` setting `SITE_URL` to the sandbox preview origin.
+   - `scripts/sync-site-url.ts` setting `SITE_URL` to the sandbox preview
+     origin.
 2. Local dev (no `DEV_ENV_ORIGIN`) sets `SITE_URL` to `http://localhost:5173`.
 3. OAuth redirects work from the sandbox preview without manual edits.
 

@@ -3,7 +3,7 @@ import {
   ANONYMOUS_LOCAL_PORT_PAIR_COUNT,
   listAnonymousLocalPortCandidates,
   pickAvailableAnonymousLocalPorts,
-} from "../../../../runtime/anonymousLocalPorts.js";
+} from "../../../../runtime/anonymousLocalPorts";
 
 describe("anonymousLocalPorts", () => {
   it("returns a stable candidate order for the same worktree root", () => {

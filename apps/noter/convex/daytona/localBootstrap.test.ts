@@ -23,12 +23,12 @@ const repoRoot = path.resolve(
 const scriptPath = path.join(
   repoRoot,
   "scripts",
-  "daytona-write-source-env.js",
+  "daytona-write-source-env.ts",
 );
 const convexSyncDevEnvScriptPath = path.join(
   repoRoot,
   "scripts",
-  "convex-sync-dev-env.js",
+  "convex-sync-dev-env.ts",
 );
 const makefilePath = path.join(repoRoot, "Makefile");
 const buildIsolatedChildEnv = (
@@ -274,7 +274,7 @@ describe("daytonaLocalBootstrap", () => {
     const makefile = readFileSync(makefilePath, "utf8");
 
     expect(makefile).toContain(
-      "node ./scripts/convex-sync-dev-env.js --check-prereqs",
+      "node ./scripts/convex-sync-dev-env.ts --check-prereqs",
     );
     expect(makefile).toContain("--allow-missing-source-env");
     expect(makefile).toContain(

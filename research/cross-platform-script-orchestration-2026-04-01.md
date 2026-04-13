@@ -41,9 +41,9 @@ Current examples in the repo:
    - `test:ci` with `PLAYWRIGHT_VITE_PORT=43121 ...`
    - `daytona:refresh` with `bash scripts/daytona-refresh.sh`
 5. The repo already has examples of the pattern that worked well:
-   - `scripts/bootstrap-worktree.js`
-   - `apps/noter/scripts/run-vite-dev.js`
-   - `apps/noter/convex-dev.js`
+   - `scripts/bootstrap-worktree.ts`
+   - `apps/noter/scripts/run-vite-dev.ts`
+   - `apps/noter/scripts/convex-dev.ts`
 
 The practical lesson from the Windows work is:
 

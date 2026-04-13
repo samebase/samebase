@@ -73,7 +73,7 @@ This split must be explicit in the launcher code.
 
 The Daytona launcher must not guess an arbitrary Convex port. It must use the
 same deterministic anonymous local port-selection contract as
-`apps/noter/convex-dev.js`.
+`apps/noter/scripts/convex-dev.ts`.
 
 Implementation requirement:
 

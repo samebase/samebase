@@ -12,7 +12,7 @@
   - `/Users/nicu/dev/my/noter/noter.md`
   - `/Users/nicu/dev/my/noter/apps/noter/package.json`
   - `/Users/nicu/dev/my/noter/apps/noter/vite.config.ts`
-  - `/Users/nicu/dev/my/noter/apps/noter/sync-site-url.mjs`
+  - `/Users/nicu/dev/my/noter/apps/noter/scripts/sync-site-url.ts`
   - `/Users/nicu/dev/my/noter/apps/noter/src/lib/simpleView.ts`
 
 ## Summary
@@ -120,8 +120,8 @@ Resulting `worktreeId` is used for:
 
 - Set environment variables when starting dev:
   - `CONVEX_AGENT_MODE=anonymous`
-- Run `node convex-dev.js` (wrapper around `convex dev`). In anonymous mode it
-  must:
+- Run `node apps/noter/scripts/convex-dev.ts` (wrapper around `convex dev`). In
+  anonymous mode it must:
   - pass `--local`
   - pass worktree-specific `--local-cloud-port` and `--local-site-port`
 - Convex CLI will:
@@ -150,8 +150,8 @@ get “one idea per worktree.”
 Set:
 
 - `VITE_PORT` (or `DEV_SERVER_PORT`) for Vite
-- `DEV_ENV_ORIGIN=http://localhost:<port>` so `sync-site-url.mjs` sets Convex
-  `SITE_URL` correctly
+- `DEV_ENV_ORIGIN=http://localhost:<port>` so `scripts/sync-site-url.ts` sets
+  Convex `SITE_URL` correctly
 
 ## Dev Command Flow
 
@@ -190,7 +190,7 @@ noter.md -> parse worktrees config -> compute worktreeId + ports
 2. Each worktree uses a unique local Convex backend URL/port pair.
 3. `VITE_CONVEX_URL` in each worktree’s `.env.local` points to its own local
    backend.
-4. `sync-site-url.mjs` sets `SITE_URL` to the worktree’s localhost port.
+4. `scripts/sync-site-url.ts` sets `SITE_URL` to the worktree’s localhost port.
 5. If `worktrees.enabled` is absent, behavior matches today.
 
 ## Tests

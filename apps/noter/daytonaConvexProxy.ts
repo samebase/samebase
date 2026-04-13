@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { normalizeEnvValue } from "./normalizeEnvValue.js";
+import { normalizeEnvValue } from "./scripts/normalizeEnvValue.ts";
 
 export function readEnvFileValue(
   envPath: string,

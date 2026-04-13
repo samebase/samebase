@@ -31,18 +31,18 @@ The main verified gaps during this run were:
 1. `make` was not installed.
 2. There was no existing `apps/noter/.env.local` source env from another
    checkout.
-3. `node .\scripts\convex-sync-dev-env.js --check-prereqs` failed until an
+3. `node .\scripts\convex-sync-dev-env.ts --check-prereqs` failed until an
    anonymous local `.env.local` existed.
-4. `node .\scripts\convex-seed-dev-auth.js` and
+4. `node .\scripts\convex-seed-dev-auth.ts` and
    `npx convex run devAuth:seedPasswordAccount ...` both returned the seed
    result and then hit a Windows-specific Convex CLI shutdown assertion:
    `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 76`
-5. `node .\apps\noter\convex-dev.js --refresh-anon-auth ...` failed, but running
-   `npx @convex-dev/auth --skip-git-check --allow-dirty-git-state` directly
-   succeeded and set `JWT_PRIVATE_KEY` and `JWKS`.
+5. `node .\apps\noter\scripts\convex-dev.ts --refresh-anon-auth ...` failed, but
+   running `npx @convex-dev/auth --skip-git-check --allow-dirty-git-state`
+   directly succeeded and set `JWT_PRIVATE_KEY` and `JWKS`.
 6. The root `pnpm dev` path initially failed in `predev` because
-   `sync-site-url.mjs` tried to write `SITE_URL` against the temporary local
-   Convex bootstrap backend after that backend had already exited.
+   `scripts/sync-site-url.ts` tried to write `SITE_URL` against the temporary
+   local Convex bootstrap backend after that backend had already exited.
 
 The local Codex CLI on this machine was installed through Volta. That ended up
 being an important part of the Windows support work because the top-level
@@ -58,9 +58,9 @@ After that fix, the remaining startup rough edge on this machine was only stale
 local `convex-local-backend.exe` listeners already bound to port `3210`.
 
 That stale-listener problem is now also handled in this branch for the primary
-checkout path: `predev.js` stops local Convex listeners on the stored backend
-port before bootstrapping a fresh backend, including native Windows via
-`taskkill`.
+checkout path: `apps/noter/scripts/predev.ts` stops local Convex listeners on
+the stored backend port before bootstrapping a fresh backend, including native
+Windows via `taskkill`.
 
 ## Working Local-Only Bootstrap Sequence
 
@@ -69,9 +69,9 @@ From the repo root:
 ```powershell
 cd apps/noter
 $env:CONVEX_AGENT_MODE='anonymous'
-node .\convex-dev.js --once --codegen=enable --tail-logs=disable --typecheck=disable
+node .\scripts\convex-dev.ts --once --codegen=enable --tail-logs=disable --typecheck=disable
 cd ..\..
-node .\scripts\convex-sync-dev-env.js --allow-missing-source-env
+node .\scripts\convex-sync-dev-env.ts --allow-missing-source-env
 ```
 
 Then configure local auth in `apps/noter`:
@@ -109,7 +109,7 @@ long-running terminals:
 # terminal 1
 cd apps/noter
 $env:CONVEX_AGENT_MODE='anonymous'
-node .\convex-dev.js --tail-logs=disable --typecheck=disable --codegen=enable
+node .\scripts\convex-dev.ts --tail-logs=disable --typecheck=disable --codegen=enable
 ```
 
 ```powershell

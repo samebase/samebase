@@ -16,8 +16,6 @@
     "**/tailwind.config.js",
     "**/vite.config.ts",
     "**/src/components/ui",
-    "apps/noter/*.js",
-    "apps/noter/*.mjs",
     "apps/noter/public/**/*.js"
   ],
   "jsPlugins": [
@@ -84,16 +82,15 @@
   "overrides": [
     {
       "files": [
-        "scripts/**/*.js",
-        "runtime/**/*.js",
+        "scripts/**/*.ts",
+        "runtime/**/*.ts",
         "**/*.config.js",
         "**/*.config.cjs",
-        "**/*.config.mjs",
         "**/*.config.ts",
         "**/*.cjs",
         "apps/noter/convex/**/*.{ts,tsx}",
         "apps/noter-starter-template/convex/**/*.{ts,tsx}",
-        "apps/noter/*.js"
+        "apps/noter/scripts/**/*.ts"
       ],
       "env": {
         "node": true

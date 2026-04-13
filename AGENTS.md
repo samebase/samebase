@@ -262,7 +262,7 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 
 ## Worktree Rules
 
-- If HEAD is detached, use `./scripts/bootstrap-worktree.js` to create a
+- If HEAD is detached, use `./scripts/bootstrap-worktree.ts` to create a
   `codex/<...>` branch.
 - Treat the current worktree root from `git rev-parse --show-toplevel` as the
   workspace boundary unless the user explicitly asks otherwise.
@@ -324,7 +324,7 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   param helpers instead of hand-building URLs.
 - For Playwright or browser automation, never steal OS focus and never kill all
   Chrome processes. Use isolated Playwright-owned sessions only.
-- For this repo, prefer `node ./scripts/playwright-branch-browser.js` or
+- For this repo, prefer `node ./scripts/playwright-branch-browser.ts` or
   `make playwright-open` over raw `@playwright/cli open`.
 - When the user asks to reproduce or inspect a mobile issue, start Playwright in
   a mobile-emulated context from launch. Do not begin in a desktop context and
