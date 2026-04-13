@@ -22,9 +22,9 @@
   - `apps/noter/convex/codespacesExecutor.ts`
   - `apps/noter/convex/schema.ts`
   - `.devcontainer/devcontainer.json`
-  - `.codespace-agent/server.js`
+  - `.codespace-agent/server.ts`
   - `apps/noter-starter-template/.devcontainer/devcontainer.json`
-  - `apps/noter-starter-template/.codespace-agent/server.js`
+  - `apps/noter-starter-template/.codespace-agent/server.ts`
   - `apps/noter-starter-template/scripts/sync-codespace-assets.ts`
 
 ## Summary
@@ -171,7 +171,7 @@ sequenceDiagram
 6. Agent startup hardening:
    - `postStartCommand` is idempotent and starts agent with `nohup` when
      missing.
-   - runtime token bootstrap in `.codespace-agent/server.js` allows first
+   - runtime token bootstrap in `.codespace-agent/server.ts` allows first
      authenticated request to initialize token when env token is missing.
 7. Codespace agent runtime state file `.codespace-agent/.agent-token` is
    persisted and gitignored.
@@ -231,7 +231,7 @@ Indexes:
 1. Add internal mutations for runtime/auth status updates.
 2. Expose runtime/auth fields in `getActiveCodespace`.
 
-### `.codespace-agent/server.js`
+### `.codespace-agent/server.ts`
 
 Add Codex bridge endpoints (token-authenticated):
 
@@ -367,7 +367,7 @@ Mitigation:
 
 ### Phase 1: Agent bridge runtime
 
-1. Add `codex app-server` process management in `.codespace-agent/server.js`.
+1. Add `codex app-server` process management in `.codespace-agent/server.ts`.
 2. Add session + turn + status endpoints.
 3. Add SSE stream endpoint.
 

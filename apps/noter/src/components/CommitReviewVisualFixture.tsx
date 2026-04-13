@@ -85,7 +85,7 @@ const DELETED_PATCH = `Index: components.json
 -  "rsc": false,
 -  "tsx": true,
 -  "tailwind": {
--    "config": "tailwind.config.js",
+-    "config": "tailwind.config.ts",
 -    "css": "src/index.css",
 -    "baseColor": "slate",
 -    "cssVariables": true,

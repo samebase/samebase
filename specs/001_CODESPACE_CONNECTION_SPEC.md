@@ -161,7 +161,7 @@ repository in a cloud development environment.
 - `apps/noter/src/components/CodespaceIframe.tsx` - Web interface embedding
 - `apps/noter/convex/codespaces.ts` - Codespace management
 - `apps/noter/convex/codespacesExecutor.ts` - HTTP agent communication
-- `.codespace-agent/server.js` - Agent HTTP server
+- `.codespace-agent/server.ts` - Agent HTTP server
 
 ## Agent API Specification
 

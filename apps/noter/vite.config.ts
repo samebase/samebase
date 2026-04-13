@@ -123,9 +123,9 @@ const staticInstallIconSvgAssetPath = path.resolve(
 );
 const noterSyncPackageScriptPath = path.resolve(
   gitRoot,
-  "packages/sync/noter.js",
+  "packages/sync/noter.ts",
 );
-const staticNoterSyncScriptPath = path.resolve(currentDir, "public/noter.js");
+const staticNoterSyncScriptPath = path.resolve(currentDir, "public/noter.ts");
 const noterConnectConfigPathname = "/noter-connect.json";
 const runtimeNoterConnectConfigPath = path.resolve(
   currentDir,
@@ -239,7 +239,7 @@ function syncStaticInstallIconSvgAsset() {
 }
 
 /**
- * Mirror the package entrypoint into `public/noter.js` without any mutation so
+ * Mirror the package entrypoint into `public/noter.ts` without any mutation so
  * the hosted file stays byte-for-byte identical to the source a user can audit
  * in the package.
  */
@@ -442,7 +442,7 @@ function syncStaticNoterSyncScriptAssetPlugin() {
       await syncOnce();
 
       // Serve a deploy-stamped installer in dev without dirtying the tracked
-      // `public/noter.js` file away from its production default.
+      // `public/noter.ts` file away from its production default.
       server.middlewares.use(
         (
           request: IncomingMessage,
@@ -461,7 +461,7 @@ function syncStaticNoterSyncScriptAssetPlugin() {
             }
           })();
 
-          if (requestPath !== "/noter.js") {
+          if (requestPath !== "/noter.ts") {
             next();
             return;
           }
@@ -471,7 +471,7 @@ function syncStaticNoterSyncScriptAssetPlugin() {
               response.statusCode = 200;
               response.setHeader(
                 "Content-Type",
-                "application/javascript; charset=utf-8",
+                "application/typescript; charset=utf-8",
               );
               response.end(runtimeScript);
             })
@@ -480,7 +480,7 @@ function syncStaticNoterSyncScriptAssetPlugin() {
       );
     },
     async closeBundle() {
-      const builtScriptPath = path.resolve(currentDir, "dist/noter.js");
+      const builtScriptPath = path.resolve(currentDir, "dist/noter.ts");
       const runtimeScript = await buildRuntimeNoterSyncScript();
       mkdirSync(path.dirname(builtScriptPath), { recursive: true });
       writeFileSync(builtScriptPath, runtimeScript, "utf8");

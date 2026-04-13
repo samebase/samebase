@@ -16,8 +16,8 @@
   - `apps/noter/lintConfig.test.ts`
   - `apps/noter-starter-template/package.json`
   - `apps/noter-starter-template/tsconfig.app.json`
-  - `eslint-rules/index.js`
-  - `eslint-rules/use-query-param-helpers.js`
+  - `eslint-rules/index.ts`
+  - `eslint-rules/use-query-param-helpers.ts`
 
 ## Summary
 
@@ -96,7 +96,7 @@ where that can be done without dropping accepted protections.
 
 ### 2. The custom query-param rule must survive
 
-The rule in `eslint-rules/use-query-param-helpers.js` is accepted behavior, not
+The rule in `eslint-rules/use-query-param-helpers.ts` is accepted behavior, not
 optional cleanup.
 
 Its current contract is:
@@ -152,8 +152,8 @@ When a rule cannot move cleanly, this document must record:
 
 - Problem: the repo relies on one local ESLint plugin, so a naive Oxlint switch
   would silently drop repo-specific behavior. Tried: inspected the previous
-  ESLint config, `eslint-rules/index.js`, and
-  `eslint-rules/use-query-param-helpers.js`, then verified Oxlint JS-plugin
+  ESLint config, `eslint-rules/index.ts`, and
+  `eslint-rules/use-query-param-helpers.ts`, then verified Oxlint JS-plugin
   loading against the local rule implementation. Result: Oxlint can execute the
   local rule through `jsPlugins`, so the custom rule is not a reason to stay on
   full ESLint.
@@ -250,7 +250,7 @@ When a rule cannot move cleanly, this document must record:
 
 - Problem: Oxlint traverses a broader default file surface than the previous app
   lint command. Tried: ran Oxlint directly against `apps/noter`. Result: the
-  command started linting top-level JavaScript helpers and `public/noter.js`
+  command started linting top-level TypeScript helpers and `public/noter.ts`
   that the old `eslint --ext ts,tsx` script never covered, so the accepted
   migration keeps those files outside the app package lint scope for now rather
   than treating this standardization pass as a surprise lint expansion.

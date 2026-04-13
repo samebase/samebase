@@ -85,7 +85,7 @@ const manifest = {
   version: `starter-template-${packageVersion}`,
   commitMessage: "chore: seed starter template",
   files: Object.fromEntries(
-    files.map((file) => [file.relativePath, file.content]),
+    files.map((file): [string, string] => [file.relativePath, file.content]),
   ),
 };
 

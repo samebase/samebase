@@ -107,14 +107,14 @@ pnpm dev
 
 Notes:
 
-- In Windows PowerShell, direct hosted-file `noter.js` commands should use
+- In Windows PowerShell, direct hosted-file `noter.ts` commands should use
   `curl.exe`, not the built-in `curl` alias. This matches the Windows-safe
   command work merged in PR `#395`.
-- The `noter.js connect` flow now prints a `next:` approval URL instead of
+- The `noter.ts connect` flow now prints a `next:` approval URL instead of
   trying to open a browser automatically. Open that printed link manually in a
   signed-in browser. This keeps the flow consistent across native Windows and
   Linux sandbox environments.
-- Windows `noter.js` resolution also supports Codex installed through Volta, as
+- Windows `noter.ts` resolution also supports Codex installed through Volta, as
   long as the `codex` and `volta` commands are available on `PATH`. Noter
   resolves that shim from the current workspace so project-scoped Volta setups
   launch the same Codex binary that the later runtime command would use.
@@ -127,7 +127,7 @@ Notes:
 - `pnpm dev` now tries to stop stale local `convex-local-backend` listeners on
   `3210` before bootstrap. If it still reports that `3210` is occupied, stop the
   leftover backend process manually and retry.
-- For local connected-machine testing with `/noter.js` on a fresh Windows
+- For local connected-machine testing with `/noter.ts` on a fresh Windows
   checkout that does not already have a cloud dev source env, use the dated
   troubleshooting notes in
   `docs/research/windows-native-connected-machine-walkthrough-2026-04-01.md`.

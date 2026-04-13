@@ -3,14 +3,14 @@
   "version": "1.0.0",
   "description": "HTTP agent for Noter Codespace integration",
   "license": "UNLICENSED",
-  "main": "server.js",
+  "main": "server.ts",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.ts"
   },
   "dependencies": {
     "express": "^4.18.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=24"
   }
 }

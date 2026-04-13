@@ -28,13 +28,13 @@ function jsonStringifySafe(value: unknown): string {
 }
 
 const CODEX_AGENT_PACKAGE_JSON_PATH = ".codespace-agent/package.json";
-const CODEX_AGENT_SERVER_PATH = ".codespace-agent/server.js";
+const CODEX_AGENT_SERVER_PATH = ".codespace-agent/server.ts";
 const CODEX_AGENT_SYNC_LOCK_DIR = ".codespace-agent/.sync-lock";
 const CODEX_AGENT_SYNC_STATUS_PATH = ".codespace-agent/.sync-status.json";
 const CODEX_AGENT_SYNC_BACKUP_PACKAGE_JSON_PATH =
   ".codespace-agent/.sync-backup-package.json";
 const CODEX_AGENT_SYNC_BACKUP_SERVER_PATH =
-  ".codespace-agent/.sync-backup-server.js";
+  ".codespace-agent/.sync-backup-server.ts";
 const CODEX_AGENT_RESTART_TIMEOUT_MS = 30000;
 const CODEX_AGENT_RESTART_POLL_INTERVAL_MS = 1000;
 const CODEX_AGENT_INSTALL_TIMEOUT_MS = 120000;
@@ -1091,7 +1091,7 @@ function buildCodespaceAgentRestartCommand(args: {
     '    server_pid=""',
     "  fi",
     '  if [ -z "$server_pid" ]; then',
-    '    server_pid=$(pgrep -f "[n]ode .*\\.codespace-agent/server\\.js" | head -n 1 || true)',
+    '    server_pid=$(pgrep -f "[n]ode .*\\.codespace-agent/server\\.ts" | head -n 1 || true)',
     "  fi",
     '  if [ -n "$server_pid" ]; then',
     '    kill -TERM "$server_pid" || true',

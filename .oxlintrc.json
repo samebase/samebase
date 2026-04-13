@@ -12,11 +12,9 @@
     "**/dist",
     "**/.codespace-agent/**",
     "**/convex/_generated",
-    "**/postcss.config.js",
-    "**/tailwind.config.js",
     "**/vite.config.ts",
-    "**/src/components/ui",
-    "apps/noter/public/**/*.js"
+    "apps/noter/public/noter.ts",
+    "**/src/components/ui"
   ],
   "jsPlugins": [
     {
@@ -88,9 +86,13 @@
         "**/*.config.cjs",
         "**/*.config.ts",
         "**/*.cjs",
+        "packages/sync/**/*.ts",
+        "apps/noter/public/**/*.ts",
         "apps/noter/convex/**/*.{ts,tsx}",
         "apps/noter-starter-template/convex/**/*.{ts,tsx}",
-        "apps/noter/scripts/**/*.ts"
+        "apps/noter/scripts/**/*.ts",
+        "apps/noter-agent-template/scripts/**/*.ts",
+        "eslint-rules/**/*.ts"
       ],
       "env": {
         "node": true

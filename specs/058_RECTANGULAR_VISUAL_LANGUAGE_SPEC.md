@@ -5,7 +5,7 @@
 - Status: Proposed
 - Owner: Noter frontend/design system
 - Last updated: 2026-03-19
-- Related files: `apps/noter/components.json`, `apps/noter/tailwind.config.js`,
+- Related files: `apps/noter/components.json`, `apps/noter/tailwind.config.ts`,
   `apps/noter/src/index.css`, `apps/noter/src/components/ui/*`,
   `apps/noter/src/lib/cornerNotch.ts`,
   `apps/noter/src/components/ui/button.tsx`,
@@ -113,9 +113,9 @@ For Noter, the rectangular rule is enforced as follows:
 - `components.json` continues to use CSS-variable theming.
 - `src/index.css` is the source of truth for the shared radius token and must
   set `--radius: 0`.
-- `tailwind.config.js` must zero the radius scale so generated shadcn utilities
+- `tailwind.config.ts` must zero the radius scale so generated shadcn utilities
   resolve to square corners by default.
-- `tailwind.config.js` should expose `rounded-ui` so hand-written app chrome can
+- `tailwind.config.ts` should expose `rounded-ui` so hand-written app chrome can
   express intent without relying on raw `rounded-none`.
 - New shadcn components must be added through the CLI, but repo-level theme
   configuration must neutralize radius without requiring ad hoc edits to each
@@ -166,9 +166,9 @@ For Noter, the rectangular rule is enforced as follows:
 ### Phase 1. Theme Enforcement
 
 - Set `--radius: 0` in `apps/noter/src/index.css`.
-- Zero the Tailwind border-radius scale in `apps/noter/tailwind.config.js`,
+- Zero the Tailwind border-radius scale in `apps/noter/tailwind.config.ts`,
   including `full`.
-- Add `rounded-ui` in `apps/noter/tailwind.config.js` as the semantic utility
+- Add `rounded-ui` in `apps/noter/tailwind.config.ts` as the semantic utility
   for explicit app-owned chrome.
 
 ### Phase 2. Codebase Audit

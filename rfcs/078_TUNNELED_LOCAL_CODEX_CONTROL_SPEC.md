@@ -18,7 +18,7 @@
 
 `main` now has the connected-machine foundation:
 
-1. a machine-scoped `noter.js` / `@noter-md/sync` installer
+1. a machine-scoped `noter.ts` / `@noter-md/sync` installer
 2. browser-backed machine approval
 3. durable machine credentials
 4. online and offline machine presence in Noter
@@ -101,13 +101,13 @@ This is the intended happy path after this RFC ships.
 
 ```bash
 set -o pipefail
-curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
+curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'
 ```
 
 In Windows PowerShell the direct-download form should use:
 
 ```powershell
-curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'
+curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'
 ```
 
 ### 2. Bootstrap the local machine
@@ -130,13 +130,13 @@ curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 
 
 ```bash
 set -o pipefail
-curl -fsSL 'https://noter.md/noter.js' | node --input-type=module - run
+curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run
 ```
 
 In Windows PowerShell:
 
 ```powershell
-curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run
+curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run
 ```
 
 ### 4. Start live control on the machine
@@ -227,7 +227,7 @@ curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run
 
 The proposed direction builds on work already present in this repo:
 
-1. `packages/sync/noter.js`
+1. `packages/sync/noter.ts`
    - machine bootstrap
    - durable machine credential storage
    - long-running heartbeat publishing via `noter-sync run`

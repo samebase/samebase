@@ -27,7 +27,7 @@ state.
 
 ### Existing pin data already exists end to end
 
-`packages/sync/noter.js` already reads desktop pin state from
+`packages/sync/noter.ts` already reads desktop pin state from
 `$CODEX_HOME/.codex-global-state.json` under `pinned-thread-ids`, and the
 machine-control `GET /threads` response already returns that array as
 `pinnedThreadIds`.
@@ -187,8 +187,8 @@ If the same icon is used for both states, that is acceptable.
 
 Primary files expected to change:
 
-1. `packages/sync/noter.js`
-2. `apps/noter/public/noter.js`
+1. `packages/sync/noter.ts`
+2. `apps/noter/public/noter.ts`
 3. `apps/noter/src/lib/codexAppServerResearch.ts`
 4. `apps/noter/src/components/MachinesWorkspacePage.tsx`
 5. `apps/noter/src/components/MachinesWorkspaceView.tsx`

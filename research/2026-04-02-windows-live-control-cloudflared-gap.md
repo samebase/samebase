@@ -25,11 +25,11 @@ mobile live control.`
 
 The terminal successfully ran:
 
-`curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - connect 'https://noter.md/noter.js'`
+`curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'`
 
 and then:
 
-`curl.exe -fsSL 'https://noter.md/noter.js' | node --input-type=module - run`
+`curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run`
 
 The runner printed a normal connector startup summary and kept publishing
 heartbeats, which means the bootstrap path itself was not blocked.
@@ -46,7 +46,7 @@ Commands run from the repo checkout:
 
 ### Code Path
 
-`packages/sync/noter.js` currently treats `cloudflared` as a live-control
+`packages/sync/noter.ts` currently treats `cloudflared` as a live-control
 prerequisite:
 
 1. `runConnectorCommand()` only starts the quick tunnel after local control auth

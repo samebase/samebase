@@ -7,8 +7,6 @@
     "lib": ["ES2022"],
     "types": ["node"],
     "typeRoots": ["./apps/noter/node_modules/@types"],
-    "allowJs": true,
-    "checkJs": true,
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true
@@ -17,9 +15,12 @@
     "scripts/**/*.ts",
     "runtime/**/*.ts",
     "apps/noter/scripts/**/*.ts",
+    "apps/noter-agent-template/scripts/**/*.ts",
     "apps/noter-starter-template/scripts/**/*.ts",
-    "apps/noter-starter-template/postcss.config.js",
-    "apps/noter-starter-template/tailwind.config.js"
+    "apps/noter/postcss.config.ts",
+    "apps/noter/tailwind.config.ts",
+    "apps/noter-starter-template/postcss.config.ts",
+    "apps/noter-starter-template/tailwind.config.ts"
   ],
   "exclude": ["node_modules"]
 }

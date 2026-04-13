@@ -1,8 +1,8 @@
 // No dependencies by design: this file should stay easy to inspect, easy to
-// reason about, and easy to mirror into hosted `/noter.js`.
+// reason about, and easy to mirror into hosted `/noter.ts`.
 //
 // Audit guide:
-// 1. Validate that this file was served from `/noter.js` on `https:` (or
+// 1. Validate that this file was served from `/noter.ts` on `https:` (or
 //    explicit localhost `http:` during local testing).
 // 2. Run `codex --version` to confirm the Codex CLI is on PATH.
 // 3. Write one JSON config file under `~/.noter/config.json` by default.
@@ -38,7 +38,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
-export const NOTER_SYNC_SCRIPT_PATHNAME = "/noter.js";
+export const NOTER_SYNC_SCRIPT_PATHNAME = "/noter.ts";
 export const NOTER_CONNECT_CONFIG_PATHNAME = "/noter-connect.json";
 export const MACHINE_CONNECT_ROUTE = "/machines/connect";
 export const NOTER_STATE_DIRNAME = ".noter";
@@ -54,7 +54,7 @@ export const NETWORK_TIMEOUT_MS = 15_000;
 export const LOCAL_CODEX_CONTROL_HOST = "127.0.0.1";
 export const LOCAL_CODEX_CONTROL_PORT = 0;
 // When the command does not pass an explicit source URL, default to production.
-export const NOTER_SYNC_SOURCE_URL = "https://noter.md/noter.js";
+export const NOTER_SYNC_SOURCE_URL = "https://noter.md/noter.ts";
 const MACHINE_CREDENTIAL_AUTH_ERROR_NAME = "MachineCredentialAuthError";
 const MACHINE_CONTROL_AUTH_ERROR_NAME = "MachineControlAuthError";
 const MACHINE_CONTROL_SERVICE_ERROR_NAME = "MachineControlServiceError";
@@ -248,7 +248,7 @@ export function validateSourceUrl(value) {
 
 /**
  * The runtime config file is deploy-scoped, so it is allowed to carry the
- * Convex HTTP base even though `/noter.js` itself stays byte-for-byte identical
+ * Convex HTTP base even though `/noter.ts` itself stays byte-for-byte identical
  * across deploys.
  */
 export function buildNoterConnectConfigUrl(sourceUrl) {
@@ -4428,19 +4428,19 @@ Examples:
   npx @noter-md/sync connect
   npx @noter-md/sync run
   # local file
-  node ./noter.js connect
-  node ./noter.js run
+  node ./noter.ts connect
+  node ./noter.ts run
   # direct hosted file in production (macOS/Linux shell)
-  ${buildDirectConnectCommand("https://noter.md/noter.js", "darwin")}
-  ${buildDirectRunCommand("https://noter.md/noter.js", "darwin")}
+  ${buildDirectConnectCommand("https://noter.md/noter.ts", "darwin")}
+  ${buildDirectRunCommand("https://noter.md/noter.ts", "darwin")}
   # direct hosted file in production (Windows PowerShell)
-  ${buildDirectConnectCommand("https://noter.md/noter.js", "win32")}
-  ${buildDirectRunCommand("https://noter.md/noter.js", "win32")}
+  ${buildDirectConnectCommand("https://noter.md/noter.ts", "win32")}
+  ${buildDirectRunCommand("https://noter.md/noter.ts", "win32")}
   # preview or local explicit override
-  ${buildDirectConnectCommand("https://preview.noter.md/noter.js", "darwin")}
-  ${buildDirectConnectCommand("https://preview.noter.md/noter.js", "win32")}
+  ${buildDirectConnectCommand("https://preview.noter.md/noter.ts", "darwin")}
+  ${buildDirectConnectCommand("https://preview.noter.md/noter.ts", "win32")}
   # worktree-isolated state
-  ${buildDirectRunCommand("https://preview.noter.md/noter.js", "darwin", "/home/you/.noter/worktrees/ceff")}`;
+  ${buildDirectRunCommand("https://preview.noter.md/noter.ts", "darwin", "/home/you/.noter/worktrees/ceff")}`;
 }
 
 /**
@@ -4724,7 +4724,7 @@ export async function main(argv) {
 }
 
 /**
- * Support both `node ./noter.js` and stdin execution from
+ * Support both `node ./noter.ts` and stdin execution from
  * `curl ... | node --input-type=module -`.
  */
 export function resolveEntrypointUrl(entrypoint) {
@@ -4736,7 +4736,7 @@ export function resolveEntrypointUrl(entrypoint) {
 }
 
 /**
- * Support both `node ./noter.js` and stdin execution from
+ * Support both `node ./noter.ts` and stdin execution from
  * `curl ... | node --input-type=module -`.
  */
 function isDirectExecution() {
