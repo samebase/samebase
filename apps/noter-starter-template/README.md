@@ -16,7 +16,7 @@ repositories.
 pnpm install
 pnpm run dev
 pnpm run build
-pnpm run lint
+pnpm run check
 ```
 
 ## Template Manifest

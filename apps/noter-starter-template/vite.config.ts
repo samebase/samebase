@@ -20,7 +20,14 @@ function readBooleanEnv(value: string | undefined): boolean | undefined {
 
 const devHost = process.env.NOTER_DEV_HOST?.trim() || undefined;
 const devPortRaw = process.env.NOTER_DEV_PORT?.trim();
-const devPort = devPortRaw ? Number(devPortRaw) : undefined;
+const parsedDevPort = devPortRaw ? Number(devPortRaw) : undefined;
+const devPort =
+  parsedDevPort !== undefined &&
+  Number.isInteger(parsedDevPort) &&
+  parsedDevPort >= 1 &&
+  parsedDevPort <= 65_535
+    ? parsedDevPort
+    : undefined;
 const devStrictPort = readBooleanEnv(process.env.NOTER_DEV_STRICT_PORT);
 
 type StarterServerConfig = {
@@ -51,7 +58,7 @@ const serverConfig = (() => {
   if (devHost) {
     server.host = devHost;
   }
-  if (devPort !== undefined && !Number.isNaN(devPort)) {
+  if (devPort !== undefined) {
     server.port = devPort;
   }
   if (devStrictPort !== undefined) {
