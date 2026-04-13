@@ -60,7 +60,7 @@ function main(
   }
 
   const basicToken = Buffer.from(`x-access-token:${token}`).toString("base64");
-  const authHeader = `AUTHORIZATION: basic ${basicToken}`;
+  const authHeader = `authorization: basic ${basicToken}`;
 
   runDaytonaGit(sandboxId, repositoryDir, [
     "-c",

@@ -135,9 +135,29 @@ async function stopProcess(
     return;
   }
 
-  childProcess.kill();
+  // CI should always make forward progress even if Convex ignores SIGTERM.
+  childProcess.kill("SIGTERM");
   await new Promise<void>((resolve) => {
-    childProcess.once("exit", () => resolve());
+    let resolved = false;
+    let killTimeout: ReturnType<typeof setTimeout> | undefined;
+
+    const finish = () => {
+      if (resolved) {
+        return;
+      }
+      resolved = true;
+      if (killTimeout !== undefined) {
+        clearTimeout(killTimeout);
+      }
+      resolve();
+    };
+
+    childProcess.once("exit", () => finish());
+    killTimeout = setTimeout(() => {
+      if (childProcess.exitCode === null) {
+        childProcess.kill("SIGKILL");
+      }
+    }, 5_000);
   });
 }
 
