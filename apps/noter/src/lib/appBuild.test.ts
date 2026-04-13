@@ -4,9 +4,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   APP_BUILD_COMMIT_LINK_TEST_ID,
+  APP_BUILD_ROUTE_TEXT_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
   formatAppBuildCommitLabel,
   formatAppBuildMarkdownLink,
+  formatAppBuildRouteLabel,
   formatAppBuildVersionLabel,
   formatAppBuildVersionNumber,
   hasSelectedAppBuildVersion,
@@ -31,6 +33,38 @@ describe("formatAppBuildVersionLabel", () => {
     expect(formatAppBuildVersionLabel(1.5)).toBe("v?");
     expect(formatAppBuildVersionLabel(Number.NaN)).toBe("v?");
     expect(formatAppBuildVersionLabel(Number.POSITIVE_INFINITY)).toBe("v?");
+  });
+});
+
+describe("formatAppBuildRouteLabel", () => {
+  it("renders the pathname, search, and hash without the domain", () => {
+    expect(
+      formatAppBuildRouteLabel({
+        hash: "#preview",
+        pathname: "/terms",
+        search: "?source=phone",
+      } as Location),
+    ).toBe("/terms?source=phone#preview");
+  });
+
+  it("supports TanStack Router parsed locations via searchStr", () => {
+    expect(
+      formatAppBuildRouteLabel({
+        hash: "preview",
+        pathname: "/terms",
+        searchStr: "?source=phone",
+      }),
+    ).toBe("/terms?source=phone#preview");
+  });
+
+  it("falls back to root when every segment is empty", () => {
+    expect(
+      formatAppBuildRouteLabel({
+        hash: "",
+        pathname: "",
+        search: "",
+      } as Location),
+    ).toBe("/");
   });
 });
 
@@ -183,13 +217,16 @@ describe("installAppBuildMarkdownCopy", () => {
 
   it("keeps the copied link aligned with the linked commit label when the selection includes the version text", () => {
     const wrapper = document.createElement("div");
+    const routeLabel = document.createElement("span");
+    routeLabel.dataset.testid = APP_BUILD_ROUTE_TEXT_TEST_ID;
+    routeLabel.textContent = "/terms";
     const versionLabel = document.createElement("span");
     versionLabel.dataset.testid = APP_BUILD_VERSION_TEST_ID;
     versionLabel.textContent = "v123";
     const commitLabel = document.createElement("a");
     commitLabel.dataset.testid = APP_BUILD_COMMIT_LINK_TEST_ID;
     commitLabel.textContent = "12345678";
-    wrapper.append(versionLabel, commitLabel);
+    wrapper.append(routeLabel, versionLabel, commitLabel);
     document.body.append(wrapper);
     selectNodeContents(wrapper);
 

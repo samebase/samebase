@@ -2,6 +2,7 @@ import { useEffect, useRef, type MouseEventHandler } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   APP_BUILD_COMMIT_LINK_TEST_ID,
+  APP_BUILD_ROUTE_TEXT_TEST_ID,
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
   formatAppBuildCommitLabel,
@@ -17,6 +18,7 @@ type AppBuildStatusBarProps = {
   landingDevToggleLabel?: string;
   onLandingDevToggleClick?: MouseEventHandler<HTMLAnchorElement>;
   repoUrl?: string;
+  routeLabel?: string;
   showLandingDevToggle?: boolean;
   showLandingLegalLinks?: boolean;
   showPublicNavigation?: boolean;
@@ -33,6 +35,7 @@ export function AppBuildStatusBar({
   landingDevToggleLabel,
   onLandingDevToggleClick,
   repoUrl = "",
+  routeLabel,
   showLandingDevToggle = false,
   showLandingLegalLinks = false,
   showPublicNavigation = false,
@@ -67,10 +70,10 @@ export function AppBuildStatusBar({
   return (
     <div
       data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
-      className="flex w-full items-center gap-2"
+      className="flex w-full min-w-0 items-center gap-2"
     >
       {showLandingLegalLinks ? (
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           <Link
             to="/terms"
             className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
@@ -90,13 +93,25 @@ export function AppBuildStatusBar({
       {showPublicNavigation ? (
         <Link
           to="/"
-          className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
+          className="inline-flex shrink-0 min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
         >
           Home
         </Link>
       ) : null}
 
-      <div className="ml-auto flex items-center gap-2">
+      {routeLabel ? (
+        <div className="min-w-0 flex-1 font-mono text-foreground">
+          <span
+            data-testid={APP_BUILD_ROUTE_TEXT_TEST_ID}
+            className="block truncate"
+            title={routeLabel}
+          >
+            {routeLabel}
+          </span>
+        </div>
+      ) : null}
+
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         {showLandingDevToggleLink ? (
           <a
             id="public-landing-dev-toggle"
@@ -107,7 +122,7 @@ export function AppBuildStatusBar({
             {landingDevToggleLabel}
           </a>
         ) : null}
-        <div className="inline-flex select-text items-center gap-2 font-mono">
+        <div className="inline-flex shrink-0 select-text items-center gap-2 font-mono">
           <span data-testid={APP_BUILD_VERSION_TEST_ID}>
             {buildVersionLabel}
           </span>

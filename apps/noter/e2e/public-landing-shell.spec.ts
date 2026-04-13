@@ -1,6 +1,7 @@
 import { devices, expect, test, type Locator } from "@playwright/test";
 import {
   APP_BUILD_COMMIT_LINK_TEST_ID,
+  APP_BUILD_ROUTE_TEXT_TEST_ID,
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
@@ -314,14 +315,22 @@ async function expectAppBuildVersion(versionLabel: Locator) {
   await expect(versionLabel).toHaveText(/^v\d+$/);
 }
 
+async function expectAppBuildRouteLabel(
+  routeLabel: Locator,
+  expectedRouteLabel: string,
+) {
+  await expect(routeLabel).toHaveText(expectedRouteLabel);
+}
+
 async function expectAppBuildVersionDisplay(
-  statusBar: Locator,
   versionLabel: Locator,
   commitLabel: Locator,
 ) {
   await expectAppBuildVersion(versionLabel);
   await expect(commitLabel).toHaveText(/^[0-9a-f]{8}$/);
-  const buildVersionGroup = statusBar.locator(".font-mono").first();
+  const buildVersionGroup = versionLabel.locator(
+    "xpath=ancestor::div[contains(@class, 'font-mono')][1]",
+  );
   const versionText = await versionLabel.textContent();
   const commitText = await commitLabel.textContent();
   expect(versionText).not.toBeNull();
@@ -571,6 +580,10 @@ test("public landing keeps legal links in the bottom bar", async ({
   const landingContent = page.getByTestId("public-landing-content");
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
+  await expectAppBuildRouteLabel(
+    statusBar.getByTestId(APP_BUILD_ROUTE_TEXT_TEST_ID),
+    "/",
+  );
   await expectLegalLinksLeadBuildVersion(statusBar);
   await expectStatusBarBelowMainShell(page, statusBar);
   await expect(
@@ -597,6 +610,10 @@ test("mcp consent sign-in keeps legal links in the bottom bar", async ({
 
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
+  await expectAppBuildRouteLabel(
+    statusBar.getByTestId(APP_BUILD_ROUTE_TEXT_TEST_ID),
+    "/oauth/mcp/consent?mcp_consent_request=mcpar_test&mcp_login_required=1",
+  );
   await expectLegalLinksLeadBuildVersion(statusBar);
   await expectStatusBarBelowMainShell(page, statusBar);
   await expect(statusBar.getByRole("link", { name: "Home" })).toBeVisible();
@@ -607,10 +624,12 @@ test("build version stays stable on the public landing", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  const route = statusBar.getByTestId(APP_BUILD_ROUTE_TEXT_TEST_ID);
   const version = statusBar.getByTestId(APP_BUILD_VERSION_TEST_ID);
   const commit = statusBar.getByTestId(APP_BUILD_COMMIT_LINK_TEST_ID);
 
-  await expectAppBuildVersionDisplay(statusBar, version, commit);
+  await expectAppBuildRouteLabel(route, "/");
+  await expectAppBuildVersionDisplay(version, commit);
   await expectAppBuildCommitLink(commit);
 });
 
@@ -620,10 +639,9 @@ test("build version copies as a Markdown link on the public landing", async ({
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/", { waitUntil: "networkidle" });
 
-  const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
   const version = page.getByTestId(APP_BUILD_VERSION_TEST_ID);
   const commit = page.getByTestId(APP_BUILD_COMMIT_LINK_TEST_ID);
-  await expectAppBuildVersionDisplay(statusBar, version, commit);
+  await expectAppBuildVersionDisplay(version, commit);
   const commitText = await commit.textContent();
   const versionHref = await expectAppBuildCommitLink(commit);
   expect(commitText).not.toBeNull();
@@ -631,6 +649,27 @@ test("build version copies as a Markdown link on the public landing", async ({
   await page.keyboard.press(COPY_SHORTCUT_KEY);
   const clipboardText = await readClipboardText(page);
   expect(clipboardText).toBe(`[${commitText}](${versionHref})`);
+});
+
+test("status bar shows the current route on a mobile public page", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/terms?source=phone#preview", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  const routeLabel = statusBar.getByTestId(APP_BUILD_ROUTE_TEXT_TEST_ID);
+
+  await expectAppBuildRouteLabel(routeLabel, "/terms?source=phone#preview");
+  await expect(statusBar).toHaveScreenshot("app-build-status-bar-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
 test("landing footer links keep browser link styling", async ({

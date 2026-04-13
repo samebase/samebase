@@ -1,4 +1,5 @@
 export const APP_BUILD_STATUS_BAR_TEST_ID = "app-build-status-bar";
+export const APP_BUILD_ROUTE_TEXT_TEST_ID = "app-build-route-text";
 export const APP_BUILD_VERSION_TEST_ID = "app-build-version";
 export const APP_BUILD_COMMIT_LINK_TEST_ID = "app-build-commit-link";
 export const APP_BUILD_VERSION_PREFIX = "v";
@@ -12,6 +13,10 @@ type AppBuildCopyPayload = {
 };
 
 type ClipboardDataWriter = Pick<DataTransfer, "setData">;
+type AppBuildRouteLocation = Pick<Location, "hash" | "pathname"> & {
+  search?: unknown;
+  searchStr?: string;
+};
 
 function isValidAppBuildCommitNumber(
   commitNumber: number | null,
@@ -49,6 +54,29 @@ export function formatAppBuildVersionLabel(
   return `${APP_BUILD_VERSION_PREFIX}${formatAppBuildVersionNumber(
     commitNumber,
   )}`;
+}
+
+/**
+ * Keep the route label domain-free so installed PWAs and local tunnels expose
+ * the exact in-app location without spending the status bar budget on origin.
+ */
+export function formatAppBuildRouteLabel(
+  location: AppBuildRouteLocation,
+): string {
+  const searchLabel =
+    typeof location.searchStr === "string"
+      ? location.searchStr
+      : typeof location.search === "string"
+        ? location.search
+        : "";
+  const hashLabel =
+    location.hash.length === 0
+      ? ""
+      : location.hash.startsWith("#")
+        ? location.hash
+        : `#${location.hash}`;
+  const routeLabel = `${location.pathname}${searchLabel}${hashLabel}`;
+  return routeLabel.length > 0 ? routeLabel : "/";
 }
 
 /**
