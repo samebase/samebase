@@ -1,4 +1,3 @@
-import { defineConfig } from "vite-plus";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,8 +23,31 @@ const devPortRaw = process.env.NOTER_DEV_PORT?.trim();
 const devPort = devPortRaw ? Number(devPortRaw) : undefined;
 const devStrictPort = readBooleanEnv(process.env.NOTER_DEV_STRICT_PORT);
 
+type StarterServerConfig = {
+  host?: string;
+  port?: number;
+  strictPort?: boolean;
+};
+
+type StarterViteConfig = {
+  fmt: {
+    printWidth: number;
+    proseWrap: "always";
+  };
+  plugins: ReturnType<typeof react>;
+  resolve: {
+    alias: {
+      "@": string;
+    };
+  };
+  server: StarterServerConfig | undefined;
+  test: {
+    passWithNoTests: true;
+  };
+};
+
 const serverConfig = (() => {
-  const server: { host?: string; port?: number; strictPort?: boolean } = {};
+  const server: StarterServerConfig = {};
   if (devHost) {
     server.host = devHost;
   }
@@ -38,12 +60,12 @@ const serverConfig = (() => {
   return Object.keys(server).length > 0 ? server : undefined;
 })();
 
-export default defineConfig({
+const config: StarterViteConfig = {
   fmt: {
     printWidth: 80,
     proseWrap: "always",
   },
-  plugins: [react()],
+  plugins: react(),
   resolve: {
     alias: {
       "@": path.resolve(currentDir, "./src"),
@@ -53,4 +75,6 @@ export default defineConfig({
   test: {
     passWithNoTests: true,
   },
-});
+};
+
+export default config;

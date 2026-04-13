@@ -17,6 +17,7 @@
     "dev": "node ./scripts/run-primary-dev.js",
     "build": "vp run --filter noter build",
     "build:ci": "vp run --filter noter build:ci",
+    "typecheck": "pnpm --filter noter typecheck && pnpm --filter noter-starter-template typecheck && pnpm typecheck:scripts",
     "lint": "vp run --filter noter lint && pnpm typecheck:scripts && pnpm lint:scripts",
     "lint:ci": "vp run --filter noter lint:ci && pnpm typecheck:scripts && pnpm lint:scripts",
     "ci:convex-bootstrap": "CONVEX_AGENT_MODE=anonymous pnpm --filter noter exec convex dev --until-success --typecheck=disable --tail-logs=disable",

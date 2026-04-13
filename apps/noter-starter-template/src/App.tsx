@@ -1,5 +1,6 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
+import { anyApi } from "convex/server";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -52,10 +53,12 @@ function readTodos(value: unknown): Todo[] {
 function App() {
   const [draft, setDraft] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const rawTodos = useQuery("todos:list", {});
+  // The starter template does not commit Convex codegen output, so it uses
+  // the browser-safe untyped API proxy for hooks.
+  const rawTodos = useQuery(anyApi.todos.list, {});
   const todos = useMemo(() => readTodos(rawTodos), [rawTodos]);
-  const createTodo = useMutation("todos:create");
-  const toggleTodo = useMutation("todos:toggle");
+  const createTodo = useMutation(anyApi.todos.create);
+  const toggleTodo = useMutation(anyApi.todos.toggle);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
