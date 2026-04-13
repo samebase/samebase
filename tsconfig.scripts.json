@@ -14,8 +14,10 @@
   "include": [
     "scripts/**/*.ts",
     "runtime/**/*.ts",
+    ".devcontainer/postcreate.ts",
     "apps/noter/scripts/**/*.ts",
     "apps/noter-agent-template/scripts/**/*.ts",
+    "apps/noter-starter-template/.devcontainer/postcreate.ts",
     "apps/noter-starter-template/scripts/**/*.ts",
     "apps/noter/postcss.config.ts",
     "apps/noter/tailwind.config.ts",

@@ -38,7 +38,7 @@ jobs:
       # exists and generated files are materialized for CI-only lint/build.
       # Note: `check:ci`/`build:ci` skip Convex codegen and rely on this step.
       - name: Bootstrap Convex for CI
-        run: ./scripts/ci-bootstrap-convex.sh
+        run: node ./scripts/ci-bootstrap-convex.ts
 
       - name: Run checks
         run: pnpm check:ci
@@ -90,7 +90,7 @@ jobs:
       # exists and generated files are materialized for CI-only lint/build.
       # Note: `check:ci`/`build:ci` skip Convex codegen and rely on this step.
       - name: Bootstrap Convex for CI
-        run: ./scripts/ci-bootstrap-convex.sh
+        run: node ./scripts/ci-bootstrap-convex.ts
 
       - name: Build noter preview
         run: PLAYWRIGHT=1 pnpm --filter noter build:ci
