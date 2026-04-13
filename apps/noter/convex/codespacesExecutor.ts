@@ -1049,7 +1049,7 @@ async function restoreCodespaceAgentFiles(args: {
   }
 }
 
-function buildCodespaceAgentRestartCommand(args: {
+export function buildCodespaceAgentRestartCommand(args: {
   lockToken: string;
   packageChanged: boolean;
   packageBackupExists: boolean;
@@ -1091,7 +1091,7 @@ function buildCodespaceAgentRestartCommand(args: {
     '    server_pid=""',
     "  fi",
     '  if [ -z "$server_pid" ]; then',
-    '    server_pid=$(pgrep -f "[n]ode .*\\.codespace-agent/server\\.ts" | head -n 1 || true)',
+    '    server_pid=$(pgrep -f "[n]ode .*(\\.codespace-agent/)?server\\.(js|ts)([[:space:]]|$)" | head -n 1 || true)',
     "  fi",
     '  if [ -n "$server_pid" ]; then',
     '    kill -TERM "$server_pid" || true',

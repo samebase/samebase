@@ -39,6 +39,7 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 export const NOTER_SYNC_SCRIPT_PATHNAME = "/noter.ts";
+const LEGACY_NOTER_SYNC_SCRIPT_PATHNAME = "/noter.js";
 export const NOTER_CONNECT_CONFIG_PATHNAME = "/noter-connect.json";
 export const MACHINE_CONNECT_ROUTE = "/machines/connect";
 export const NOTER_STATE_DIRNAME = ".noter";
@@ -219,16 +220,21 @@ export function parseCliArgs(argv) {
  * source URL narrow makes the browser handoff and the stored config easier to
  * reason about.
  */
-export function validateSourceUrl(value) {
+export function validateSourceUrl(value, options = {}) {
   const sourceUrl = new URL(value);
   const isLoopbackHttp =
     sourceUrl.protocol === "http:" && isLoopbackHostname(sourceUrl.hostname);
+  const allowLegacyInstallerPath = options.allowLegacyInstallerPath === true;
   if (sourceUrl.protocol !== "https:" && !isLoopbackHttp) {
     throw new Error(
       "The installer source URL must use https, except for explicit localhost testing.",
     );
   }
-  if (sourceUrl.pathname !== NOTER_SYNC_SCRIPT_PATHNAME) {
+  if (
+    sourceUrl.pathname !== NOTER_SYNC_SCRIPT_PATHNAME &&
+    (!allowLegacyInstallerPath ||
+      sourceUrl.pathname !== LEGACY_NOTER_SYNC_SCRIPT_PATHNAME)
+  ) {
     throw new Error(
       `The installer source URL must point to ${NOTER_SYNC_SCRIPT_PATHNAME}.`,
     );
@@ -242,6 +248,11 @@ export function validateSourceUrl(value) {
     throw new Error(
       "The installer source URL must not include credentials, query params, or hashes.",
     );
+  }
+  if (sourceUrl.pathname === LEGACY_NOTER_SYNC_SCRIPT_PATHNAME) {
+    // Existing machines can still have `/noter.js` persisted locally, so
+    // normalize them to the current hosted contract before runtime fetches.
+    sourceUrl.pathname = NOTER_SYNC_SCRIPT_PATHNAME;
   }
   return sourceUrl;
 }
@@ -967,7 +978,11 @@ function readStoredMachineConfig(args = {}) {
   return {
     machineCredential,
     machineId,
-    sourceUrl: validateSourceUrl(sourceUrl).toString(),
+    // Treat the stored installer URL as rollout state: allow the previous
+    // pathname and normalize it in-memory so reconnects are not required.
+    sourceUrl: validateSourceUrl(sourceUrl, {
+      allowLegacyInstallerPath: true,
+    }).toString(),
   };
 }
 

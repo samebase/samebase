@@ -265,6 +265,17 @@ describe("@noter-md/sync", () => {
     );
   });
 
+  it("normalizes legacy stored installer URLs only when explicitly allowed", () => {
+    expect(() =>
+      validateSourceUrl("https://preview.noter.md/noter.js"),
+    ).toThrow("The installer source URL must point to /noter.ts.");
+    expect(
+      validateSourceUrl("https://preview.noter.md/noter.js", {
+        allowLegacyInstallerPath: true,
+      }).toString(),
+    ).toBe("https://preview.noter.md/noter.ts");
+  });
+
   it("rejects non-https non-localhost source URLs", () => {
     expect(() => validateSourceUrl("http://example.com/noter.ts")).toThrow(
       "The installer source URL must use https, except for explicit localhost testing.",

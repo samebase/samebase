@@ -91,7 +91,7 @@ Native Windows outside WSL is compatible with the hosted-file flow, but this
 spec's default startup path remains the worktree `make anon` flow above. For
 dated primary-checkout troubleshooting notes and the manual Windows bootstrap
 sequence validated during local testing, see
-`docs/research/windows-native-connected-machine-walkthrough-2026-04-01.md`.
+`research/windows-native-connected-machine-walkthrough-2026-04-01.md`.
 
 For a native Windows primary checkout without GNU Make, the supported local
 startup path is `pnpm dev` from the repo root. Use the exact Vite URL it prints
