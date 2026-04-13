@@ -2283,7 +2283,6 @@ export function VaultDashboard() {
   return (
     <>
       <PersistedSidebarProvider
-        className="flex-1 h-full min-h-0"
         defaultState={DASHBOARD_SIDEBAR_DEFAULT_STATE}
         workspaceKey="dashboard"
       >

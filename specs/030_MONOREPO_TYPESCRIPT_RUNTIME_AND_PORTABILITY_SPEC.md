@@ -125,7 +125,8 @@ Contract:
 
 1. `private: true`.
 2. `exports` points to source TS entry (for example `./src/index.ts`).
-3. `typecheck` runs `tsc --noEmit`.
+3. `check` runs the package's full static gate, with `typecheck` remaining the
+   narrow helper.
 4. Runtime executes source directly (Node native TS in workspace).
 
 ### Portable Package (cross-runtime or publishable)
@@ -188,7 +189,8 @@ Existing app-focused bundler config remains unchanged for Vite apps.
   "type": "module",
   "exports": "./src/index.ts",
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "check": "pnpm run typecheck && pnpm run lint",
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
   }
 }
 ```
@@ -208,16 +210,18 @@ Existing app-focused bundler config remains unchanged for Vite apps.
   "types": "./dist/index.d.ts",
   "files": ["dist"],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "build": "tsgo -p tsconfig.build.json",
+    "check": "pnpm run typecheck && pnpm run lint",
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
   }
 }
 ```
 
 ## Build and CI expectations
 
-1. `pnpm lint` and `pnpm test` remain workspace entrypoints.
-2. Add workspace `typecheck` task across all packages.
+1. `pnpm check` and `pnpm test` remain workspace entrypoints.
+2. Add workspace `check` task across all packages that have an owned static
+   validation surface, with `typecheck` kept as the narrow helper command.
 3. Build task applies only to packages that define `build`.
 4. Portable packages require a smoke test in at least:
    - Node runtime

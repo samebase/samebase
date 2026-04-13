@@ -115,7 +115,7 @@ compat wrappers, or layout-owned prop plumbing.
 
 6. Probe the blast radius with types before committing to a direction.
 
-- Keep `tsc:watch` running during refactors when practical.
+- Keep `typecheck:watch` running during refactors when practical.
 - Delete or rename a prop, type, wrapper, or export on purpose and use the
   resulting errors to see exactly which files still depend on it.
 - It is valid to add a temporary suffix to an exported symbol just to surface
@@ -159,8 +159,8 @@ Treat these as red flags:
 ## Workflow
 
 1. Read the real route and the current shared primitive.
-2. Start or keep `tsc:watch` running so the type graph stays live while you
-   simplify.
+2. Start or keep `typecheck:watch` running so the type graph stays live while
+   you simplify.
 3. Decide which layer should own the behavior after the refactor.
 4. Move that ownership inward to the standard component.
 5. Convert callsites to plain content/config props.

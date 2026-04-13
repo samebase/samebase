@@ -42,6 +42,9 @@ const exportTargets = [
   },
 ];
 
+/**
+ * @param {string} url
+ */
 async function waitForPreviewServer(url) {
   const deadline = Date.now() + 30_000;
 

@@ -198,7 +198,6 @@ function runGit(repoDir, args) {
  * @returns {Promise<boolean>}
  */
 function isLocalPortListening(port) {
-  /** @type {(value: boolean) => void} */
   return new Promise((resolve) => {
     const socket = net.createConnection({
       host: "127.0.0.1",

@@ -75,7 +75,6 @@ function PersistedSidebarProviderProbe({
 }) {
   return (
     <PersistedSidebarProvider
-      className="h-full min-h-0"
       defaultState={DEFAULT_SIDEBAR_STATE}
       workspaceKey={workspaceKey}
     >

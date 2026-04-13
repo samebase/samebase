@@ -194,7 +194,7 @@ blanket deploy-wide header on normal app HTML.
 - The recovery UI has direct tests for stale-asset and generic-startup failure
   rendering.
 - App query-cache keys include a build-scoped namespace.
-- `pnpm --dir apps/noter exec tsc --noEmit` passes.
+- `pnpm --dir apps/noter exec tsgo --noEmit` passes.
 
 ### Manual
 

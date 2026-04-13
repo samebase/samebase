@@ -287,7 +287,7 @@ describe("lint config", () => {
     });
   });
 
-  it("uses Oxlint as the only repo lint runner for app and starter surfaces", () => {
+  it("uses check as the shared static gate and Oxlint as the lint runner", () => {
     const rootPackage = readPackageSurface("package.json");
     const appPackage = readPackageSurface("apps/noter/package.json");
     const starterPackage = readPackageSurface(
@@ -302,9 +302,11 @@ describe("lint config", () => {
       "oxlint-tsgolint": "^0.20.0",
     });
     expect(rootPackage.scripts?.["lint:scripts"]).toContain("pnpm exec oxlint");
-    expect(appPackage.scripts?.lint).toContain("pnpm run lint:oxlint");
+    expect(appPackage.scripts?.check).toContain("pnpm run lint:oxlint");
+    expect(appPackage.scripts?.lint).toContain("pnpm run check");
     expect(appPackage.scripts?.["lint:oxlint"]).toContain("exec oxlint");
-    expect(starterPackage.scripts?.lint).toContain("exec oxlint");
+    expect(starterPackage.scripts?.check).toContain("exec oxlint");
+    expect(starterPackage.scripts?.lint).toContain("pnpm run check");
     expect(appPackage.scripts?.lint).not.toContain("eslint");
     expect(starterPackage.scripts?.lint).not.toContain("eslint");
     expect(appPackage.devDependencies?.eslint).toBeUndefined();

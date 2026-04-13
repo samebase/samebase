@@ -9,6 +9,10 @@ import {
   usesLocalConvexDeployment,
 } from "./convex-local-utils.js";
 
+/**
+ * @param {string} command
+ * @param {string[]} args
+ */
 const run = (command, args) => {
   const result = spawnSync(command, args, { stdio: "inherit" });
   if (result.status !== 0) {
@@ -27,6 +31,9 @@ const captureConvexReadme = () => {
   };
 };
 
+/**
+ * @param {{ path: string; contents: string } | null} snapshot
+ */
 const restoreConvexReadmeIfOverwritten = (snapshot) => {
   if (!snapshot) {
     return;
@@ -44,6 +51,9 @@ const restoreConvexReadmeIfOverwritten = (snapshot) => {
   fs.writeFileSync(snapshot.path, snapshot.contents, "utf8");
 };
 
+/**
+ * @param {number} port
+ */
 const isConvexLocalBackend = async (port) => {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/instance_name`, {
@@ -59,11 +69,15 @@ const isConvexLocalBackend = async (port) => {
   }
 };
 
+/**
+ * @param {string[]} pids
+ * @param {"TERM" | "KILL"} signal
+ */
 const killPids = (pids, signal) => {
   if (process.platform === "win32") {
     // Windows needs taskkill for process trees; only add /F on the KILL pass so TERM remains the graceful first attempt.
     for (const pid of pids) {
-      const args = ["/PID", pid, "/T"];
+      const args = ["/PID", String(pid), "/T"];
       if (signal === "KILL") {
         args.push("/F");
       }
@@ -73,7 +87,7 @@ const killPids = (pids, signal) => {
   }
 
   for (const pid of pids) {
-    spawnSync("kill", ["-" + signal, pid], { stdio: "ignore" });
+    spawnSync("kill", ["-" + signal, String(pid)], { stdio: "ignore" });
   }
 };
 
