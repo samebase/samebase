@@ -34,7 +34,7 @@ From the primary checkout, `make run` currently expands to:
 
 The relevant `predev` chain is:
 
-1. `node apps/noter/scripts/convex-dev.ts --until-success --codegen=enable`
+1. `node scripts/convex-dev.ts --until-success --codegen=enable`
 2. `node scripts/setup.ts --once`
 3. `node scripts/sync-site-url.ts`
 

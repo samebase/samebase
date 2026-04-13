@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// @ts-check
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";

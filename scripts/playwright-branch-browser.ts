@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// @ts-check
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -1125,9 +1124,14 @@ FileHandle.standardOutput.write(data)`;
     fail(`Failed to query onscreen browser windows for PID ${pid}.`);
   }
 
-  const parsed: unknown = JSON.parse(result.stdout || "[]");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(result.stdout || "[]");
+  } catch {
+    return [];
+  }
   return Array.isArray(parsed)
-    ? parsed.filter((title) => typeof title === "string")
+    ? parsed.filter((title): title is string => typeof title === "string")
     : [];
 }
 

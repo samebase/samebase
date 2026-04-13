@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// @ts-check
 import fs from "node:fs";
 import { diffDaytonaRuntimeManifests } from "../runtime/daytonaRuntimeManifest.ts";
 

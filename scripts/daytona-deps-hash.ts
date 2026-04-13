@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// @ts-check
 
 import { createHash } from "node:crypto";
 import fs from "node:fs";

@@ -64,7 +64,7 @@ if (result.status === 0) {
   process.exit(0);
 }
 
-const commandOutput = `${result.stdout}${result.stderr}`;
+const commandOutput = `${typeof result.output[1] === "string" ? result.output[1] : ""}${typeof result.output[2] === "string" ? result.output[2] : ""}`;
 if (localDeployment && /Local backend isn't running/i.test(commandOutput)) {
   console.warn(
     `Skipping SITE_URL sync during predev because the temporary local Convex backend already exited. The long-running local backend will retry SITE_URL sync for ${origin} after it starts.`,

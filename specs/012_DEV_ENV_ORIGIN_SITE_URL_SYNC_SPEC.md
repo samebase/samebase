@@ -20,7 +20,8 @@ dev-server startup for Daytona (and future sandbox providers).
 - Use a provider-agnostic env var `DEV_ENV_ORIGIN`.
 - Ensure `SITE_URL` is updated correctly when starting the dev server in a
   sandbox.
-- Keep local dev behavior unchanged (default to `http://localhost:5173`).
+- Keep local dev behavior unchanged when the Convex deployment points at
+  localhost.
 
 ## Non-Goals
 
@@ -32,12 +33,12 @@ dev-server startup for Daytona (and future sandbox providers).
 
 ### 1) Source of truth for origin
 
-`DEV_ENV_ORIGIN` is the single input for sandbox environments.
+`DEV_ENV_ORIGIN` is the preferred input for sandbox environments.
 
 **Precedence in `scripts/sync-site-url.ts`:**
 
 ```
-DEV_ENV_ORIGIN -> http://localhost:5173
+DEV_ENV_ORIGIN -> resolved local dev origin for localhost Convex deployments -> error
 ```
 
 Remove `FUSION_ENV_ORIGIN` entirely.
@@ -53,12 +54,15 @@ When starting the dev server in a Daytona sandbox:
 3. Export `DEV_ENV_ORIGIN` for the dev server process:
    - `DEV_ENV_ORIGIN=<origin> pnpm run dev`
 
-If preview URL generation fails, continue without `DEV_ENV_ORIGIN` so local
-fallback is used. Do not block dev server start on this.
+If preview URL generation fails, continue without `DEV_ENV_ORIGIN`. The
+follow-up sync only falls back to the resolved local dev origin when the Convex
+deployment points at localhost; otherwise it fails closed instead of writing a
+localhost URL into a shared deployment.
 
 ### 3) Where the origin is used
 
-`apps/noter/scripts/sync-site-url.ts` reads `DEV_ENV_ORIGIN` and runs:
+`apps/noter/scripts/sync-site-url.ts` reads `DEV_ENV_ORIGIN`, falls back to the
+resolved local dev origin for localhost Convex deployments, and runs:
 
 ```
 npx convex env set SITE_URL "<origin>"
@@ -93,13 +97,16 @@ This runs in `predev` (already wired).
 1. Running `pnpm dev` inside Daytona results in:
    - `scripts/sync-site-url.ts` setting `SITE_URL` to the sandbox preview
      origin.
-2. Local dev (no `DEV_ENV_ORIGIN`) sets `SITE_URL` to `http://localhost:5173`.
+2. Local dev with a localhost Convex deployment and no `DEV_ENV_ORIGIN` sets
+   `SITE_URL` to the resolved local dev origin, starting from
+   `http://localhost:5173`.
 3. OAuth redirects work from the sandbox preview without manual edits.
 
 ## Risks / Edge Cases
 
-- Preview URL fetch fails: dev server still starts; `SITE_URL` falls back to
-  localhost.
+- Preview URL fetch fails: localhost Convex deployments still sync to the
+  resolved local dev origin, while shared deployments fail closed instead of
+  writing a localhost URL.
 - Shared Convex dev deployment: last writer wins (existing limitation).
 
 ## Open Questions

@@ -1,5 +1,3 @@
-// @ts-check
-
 type Deployment = {
   type: "dev" | "prod" | "preview";
   name: string;

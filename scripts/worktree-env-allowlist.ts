@@ -1,5 +1,3 @@
-// @ts-check
-
 export const WORKTREE_ENV_ALLOWLIST = new Set([
   "DEV_SEED_GITHUB_API_KEY",
   "DEV_SEED_CONVEX_MANAGEMENT_API_KEY",
