@@ -11,6 +11,13 @@ type ParsedPlaywrightArgs = {
   playwrightArgs: string[];
 };
 
+const PLAYWRIGHT_SNAPSHOT_MODES = new Set([
+  "all",
+  "changed",
+  "missing",
+  "none",
+]);
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const dockerCommand = process.platform === "win32" ? "docker.exe" : "docker";
@@ -70,7 +77,10 @@ function parsePlaywrightArgs(rawArgs: string[]): ParsedPlaywrightArgs {
     if (arg === "--update-snapshots" || arg === "-u") {
       copyUpdatedSnapshots = true;
       const nextArg = normalizedArgs[index + 1];
-      if (nextArg && !nextArg.startsWith("-")) {
+      // Only consume the next token when it is one of Playwright's documented
+      // snapshot modes; otherwise leave positional filters like spec paths
+      // untouched.
+      if (nextArg && PLAYWRIGHT_SNAPSHOT_MODES.has(nextArg)) {
         playwrightArgs.push(`--update-snapshots=${nextArg}`);
         index += 1;
       } else {
