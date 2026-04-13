@@ -35,6 +35,10 @@ import {
 import { MachineConnectVisualFixture } from "@/components/MachineConnectVisualFixture";
 import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture";
 import {
+  CornerNotchPlaygroundVisualFixture,
+  type CornerNotchPlaygroundVisualMode,
+} from "@/components/CornerNotchPlaygroundVisualFixture";
+import {
   LogoThreeVisualFixture,
   type LogoThreeVisualMode,
 } from "@/components/LogoThreeVisualFixture";
@@ -159,7 +163,8 @@ type VisualFixtureMode =
   | "button"
   | AppBootFailureStateVisualMode
   | "corner-notch"
-  | "corner-notch-detail";
+  | "corner-notch-detail"
+  | CornerNotchPlaygroundVisualMode;
 
 type VisualFixtureSelection =
   | {
@@ -296,6 +301,7 @@ const MISC_VISUAL_MODES = [
   "app-boot-failure-generic",
   "corner-notch",
   "corner-notch-detail",
+  "corner-notch-playground",
 ] as const satisfies readonly VisualFixtureMode[];
 
 const VISUAL_FIXTURE_GROUPS = [
@@ -561,6 +567,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "corner-notch-detail") {
     return <CornerNotchDetailVisualFixture />;
+  }
+
+  if (mode === "corner-notch-playground") {
+    return <CornerNotchPlaygroundVisualFixture />;
   }
 
   if (isCommitReviewVisualMode(mode)) {

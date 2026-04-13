@@ -173,6 +173,10 @@ Key domain entities:
 - Add or update screenshot coverage whenever a patch changes shipped UI.
 - For bugs involving scroll, touch, drag, focus, selection, pane layout, auth
   wiring, or route shell behavior, reproduce and test the real app route first.
+- When a visual fixture is needed, start from the standard full workspace page
+  shell with the real top bar and route chrome intact, even if the panes are
+  otherwise empty. Put fixture-specific controls inside that standard shell so
+  controls can standardize instead of each fixture inventing bespoke chrome.
 - If a fixture is still needed, it must mount the exact production component
   tree without invented headers, wrappers, spacing, or fake chrome.
 - For production interaction regressions, add a failing route-level or honest
