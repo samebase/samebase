@@ -39,7 +39,7 @@ Current examples in the repo:
 4. Root `package.json` still contains shell-sensitive scripts such as:
    - `ci:convex-bootstrap` with `CONVEX_AGENT_MODE=anonymous ...`
    - `test:ci` with `PLAYWRIGHT_VITE_PORT=43121 ...`
-   - `daytona:refresh` with `bash scripts/daytona-refresh.sh`
+   - `daytona:refresh` with `node scripts/daytona-refresh.ts`
 5. The repo already has examples of the pattern that worked well:
    - `scripts/bootstrap-worktree.ts`
    - `apps/noter/scripts/run-vite-dev.ts`

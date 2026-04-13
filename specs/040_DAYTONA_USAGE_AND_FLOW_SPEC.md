@@ -141,7 +141,7 @@ status updates.
 ### E) Git refresh hardening
 
 Replace token-in-URL remote strategy with header-based auth (same pattern as
-`scripts/daytona-refresh.sh`):
+`scripts/daytona-refresh.ts`):
 
 - `git -c http.extraHeader="AUTHORIZATION: basic ..." fetch ...`
 
