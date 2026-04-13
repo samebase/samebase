@@ -34,9 +34,6 @@ const BROWSER_THEME_SATURATION = 0.64;
 const BROWSER_THEME_LIGHTNESS = 0.56;
 
 class PlaywrightBranchBrowserError extends Error {
-  /**
-   * @param {string} message
-   */
   constructor(message: string) {
     super(message);
     this.name = "PlaywrightBranchBrowserError";
@@ -61,10 +58,6 @@ type PlaywrightCliConfig = {
   };
 };
 
-/**
- * @param {string[]} args
- * @returns {void}
- */
 function main(args: string[]): void {
   const [command, ...rest] = args;
 
@@ -114,9 +107,6 @@ function main(args: string[]): void {
  * Re-entering a branch session should never unload the current working tab.
  * Opening a fresh tab keeps unsaved editor state intact and avoids native
  * beforeunload popups when a branch window is already in use.
- *
- * @param {{ url?: string, headed: boolean }} options
- * @returns {void}
  */
 function openBranchSession(options: { url?: string; headed: boolean }): void {
   const session = getSessionName();
@@ -177,10 +167,6 @@ function openBranchSession(options: { url?: string; headed: boolean }): void {
   runPlaywrightCli(openArgs);
 }
 
-/**
- * @param {string[]} args
- * @returns {{ url?: string, headed: boolean }}
- */
 function parseOpenCommandArgs(args: string[]): {
   url?: string;
   headed: boolean;
@@ -194,10 +180,6 @@ function parseOpenCommandArgs(args: string[]): {
  * Saved session configs can outlive a Playwright CLI upgrade. In that case the
  * first command fails before the registry entry disappears, but re-opening the
  * session is the documented recovery path.
- *
- * @param {import('node:child_process').SpawnSyncReturns<string>} result
- * @param {string} session
- * @returns {boolean}
  */
 function requiresSessionReopen(
   result: import("node:child_process").SpawnSyncReturns<string>,
@@ -208,10 +190,6 @@ function requiresSessionReopen(
   return new RegExp(`session '${escapedSession}' is v`, "i").test(output);
 }
 
-/**
- * @param {import('node:child_process').SpawnSyncReturns<string>} result
- * @returns {void}
- */
 function writeCapturedOutput(
   result: import("node:child_process").SpawnSyncReturns<string>,
 ): void {
@@ -224,7 +202,6 @@ function writeCapturedOutput(
   }
 }
 
-/** @returns {string} */
 function getSessionName(): string {
   const explicitSession = process.env.PLAYWRIGHT_SESSION?.trim();
   if (explicitSession) {
@@ -236,10 +213,6 @@ function getSessionName(): string {
   return buildDerivedSessionName(repoRoot, branchIdentifier);
 }
 
-/**
- * @param {string} session
- * @returns {string}
- */
 function getProfileDir(session: string): string {
   return path.join(getRepoRoot(), ".playwright-cli", "profiles", session);
 }
@@ -247,9 +220,6 @@ function getProfileDir(session: string): string {
 /**
  * Every branch-owned persistent browser should inherit the same launch flags so
  * Chrome crash recovery UI never blocks automation after an unclean exit.
- *
- * @param {string} [repoRoot]
- * @returns {PlaywrightCliConfig}
  */
 export function buildPlaywrightCliConfig(
   repoRoot: string = getRepoRoot(),
@@ -265,18 +235,10 @@ export function buildPlaywrightCliConfig(
   };
 }
 
-/**
- * @param {string} repoRoot
- * @returns {string}
- */
 export function getPlaywrightCliConfigPath(repoRoot: string): string {
   return path.join(repoRoot, ".playwright-cli", "cli.config.json");
 }
 
-/**
- * @param {string} repoRoot
- * @returns {string}
- */
 export function ensurePlaywrightCliConfig(repoRoot: string): string {
   const configPath = getPlaywrightCliConfigPath(repoRoot);
   mkdirSync(path.dirname(configPath), { recursive: true });
@@ -293,8 +255,6 @@ export function ensurePlaywrightCliConfig(repoRoot: string): string {
  * only auto-installs browsers when it owns the default config file. Ensure the
  * exact bundled Chromium build exists before launch so `open` works on a fresh
  * machine and after CLI upgrades.
- *
- * @returns {void}
  */
 function ensureConfiguredBrowserInstalled(): void {
   const repoRoot = getRepoRoot();
@@ -321,10 +281,6 @@ function ensureConfiguredBrowserInstalled(): void {
   }
 }
 
-/**
- * @param {string} repoRoot
- * @returns {string}
- */
 function getBundledPlaywrightCliPath(repoRoot: string): string {
   const result = spawnSync(
     PNPM_COMMAND,
@@ -357,10 +313,6 @@ function getBundledPlaywrightCliPath(repoRoot: string): string {
   );
 }
 
-/**
- * @param {string} playwrightCliPath
- * @returns {string}
- */
 function getBundledBrowserExecutablePath(playwrightCliPath: string): string {
   const resolveExecutableProgram = `const path = require("node:path")
 const playwrightCliPath = process.argv[1]
@@ -398,9 +350,6 @@ process.stdout.write(executable.executablePath())`;
  * Chrome persists crash markers in the profile itself. Clearing them before
  * each persistent launch prevents the restore-pages prompt from resurfacing
  * after an unclean browser exit.
- *
- * @param {string} profileDir
- * @returns {void}
  */
 export function sanitizeChromeCrashRecoveryState(profileDir: string): void {
   updateJsonFile(path.join(profileDir, "Variations"), (variationsState) => {
@@ -435,14 +384,10 @@ export function sanitizeChromeCrashRecoveryState(profileDir: string): void {
   );
 }
 
-/** @returns {string} */
 function getRepoRoot(): string {
   return runGit(["rev-parse", "--show-toplevel"]);
 }
 
-/**
- * @returns {string}
- */
 function getBranchIdentifier(): string {
   const branchName = tryRunGit(["symbolic-ref", "-q", "--short", "HEAD"]);
   if (branchName) {
@@ -453,10 +398,6 @@ function getBranchIdentifier(): string {
   return `detached-${shortSha}`;
 }
 
-/**
- * @param {string} session
- * @returns {'open' | 'closed' | 'missing' | 'unknown'}
- */
 function getSessionState(
   session: string,
 ): "open" | "closed" | "missing" | "unknown" {
@@ -467,11 +408,6 @@ function getSessionState(
   return sessionDetails.status;
 }
 
-/**
- * @param {string[]} args
- * @param {{ allowFailure?: boolean, stdio?: 'inherit' | 'pipe' }} [options]
- * @returns {import('node:child_process').SpawnSyncReturns<string>}
- */
 function runPlaywrightCli(
   args: string[],
   options: { allowFailure?: boolean; stdio?: "inherit" | "pipe" } = {},
@@ -501,10 +437,6 @@ function runPlaywrightCli(
   return result;
 }
 
-/**
- * @param {string[]} args
- * @returns {string}
- */
 function runGit(args: string[]): string {
   const value = tryRunGit(args);
   if (!value) {
@@ -513,10 +445,6 @@ function runGit(args: string[]): string {
   return value;
 }
 
-/**
- * @param {string[]} args
- * @returns {string}
- */
 function tryRunGit(args: string[]): string {
   const result = spawnSync("git", args, {
     encoding: "utf8",
@@ -529,11 +457,6 @@ function tryRunGit(args: string[]): string {
   return result.stdout.trim();
 }
 
-/**
- * @param {string} filePath
- * @param {(value: Record<string, unknown>) => Record<string, unknown>} update
- * @returns {void}
- */
 function updateJsonFile(
   filePath: string,
   update: (value: Record<string, unknown>) => Record<string, unknown>,
@@ -546,10 +469,6 @@ function updateJsonFile(
   writeFileSync(filePath, `${JSON.stringify(nextValue)}\n`, "utf8");
 }
 
-/**
- * @param {string} rawJson
- * @returns {Record<string, unknown>}
- */
 function parseJsonObject(rawJson: string): Record<string, unknown> {
   try {
     const value: unknown = JSON.parse(rawJson);
@@ -559,18 +478,10 @@ function parseJsonObject(rawJson: string): Record<string, unknown> {
   }
 }
 
-/**
- * @param {unknown} value
- * @returns {value is Record<string, unknown>}
- */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-/**
- * @param {unknown[]} eventLog
- * @returns {unknown[]}
- */
 function clearCrashFlagsFromSessionEventLog(eventLog: unknown[]): unknown[] {
   return eventLog.map((entry) =>
     isRecord(entry) ? { ...entry, crashed: false } : entry,
@@ -581,9 +492,6 @@ function clearCrashFlagsFromSessionEventLog(eventLog: unknown[]): unknown[] {
  * Worktree-owned browsers should be visually distinct at a glance. Chromium's
  * built-in autogenerated theme switch lets us tint the browser chrome without
  * sharing a theme extension or profile data between worktrees.
- *
- * @param {string} repoRoot
- * @returns {string[]}
  */
 export function getPlaywrightCliChromiumArgs(repoRoot: string): string[] {
   const { red, green, blue } = getDeterministicBrowserThemeColor(repoRoot);
@@ -596,19 +504,11 @@ export function getPlaywrightCliChromiumArgs(repoRoot: string): string[] {
 
 type RgbColor = { red: number; green: number; blue: number };
 
-/**
- * @param {string} repoRoot
- * @returns {RgbColor}
- */
 export function getDeterministicBrowserThemeColor(repoRoot: string): RgbColor {
   const hue = getStableHueDegrees(repoRoot);
   return hslToRgb(hue / 360, BROWSER_THEME_SATURATION, BROWSER_THEME_LIGHTNESS);
 }
 
-/**
- * @param {string} repoRoot
- * @returns {number}
- */
 function getStableHueDegrees(repoRoot: string): number {
   const hueToken = createHash("sha256")
     .update(`browser-theme\0${repoRoot}`)
@@ -618,12 +518,6 @@ function getStableHueDegrees(repoRoot: string): number {
   return Math.round((hueToken / 0xffff) * 359);
 }
 
-/**
- * @param {number} hue
- * @param {number} saturation
- * @param {number} lightness
- * @returns {RgbColor}
- */
 function hslToRgb(
   hue: number,
   saturation: number,
@@ -651,12 +545,6 @@ function hslToRgb(
   };
 }
 
-/**
- * @param {number} p
- * @param {number} q
- * @param {number} hue
- * @returns {number}
- */
 function hueToRgb(p: number, q: number, hue: number): number {
   let normalizedHue = hue;
 
@@ -679,18 +567,10 @@ function hueToRgb(p: number, q: number, hue: number): number {
   return p;
 }
 
-/**
- * @param {number} value
- * @returns {number}
- */
 function toRgbChannel(value: number): number {
   return Math.round(value * 255);
 }
 
-/**
- * @param {string} value
- * @returns {string}
- */
 function slugify(value: string): string {
   const normalized = value
     .trim()
@@ -704,10 +584,6 @@ function slugify(value: string): string {
 /**
  * Stable session names need to stay below local Unix socket path limits while
  * still being recognizable in Playwright CLI listings.
- *
- * @param {string} value
- * @param {number} maxLength
- * @returns {string}
  */
 function truncateSessionSegment(value: string, maxLength: number): string {
   const truncated = value.slice(0, maxLength).replaceAll(/^-|-$/g, "");
@@ -717,9 +593,6 @@ function truncateSessionSegment(value: string, maxLength: number): string {
 /**
  * Most worktree branches use the `codex/` prefix, which is not useful inside a
  * derived session name and only increases the socket path length.
- *
- * @param {string} branchIdentifier
- * @returns {string}
  */
 function normalizeBranchSessionSegment(branchIdentifier: string): string {
   return branchIdentifier.startsWith("codex/")
@@ -727,10 +600,6 @@ function normalizeBranchSessionSegment(branchIdentifier: string): string {
     : branchIdentifier;
 }
 
-/**
- * @param {string} branchIdentifier
- * @returns {string}
- */
 function abbreviateBranchSessionSegment(branchIdentifier: string): string {
   const normalizedBranch = slugify(
     normalizeBranchSessionSegment(branchIdentifier),
@@ -750,10 +619,6 @@ function abbreviateBranchSessionSegment(branchIdentifier: string): string {
   );
 }
 
-/**
- * @param {string} explicitSession
- * @returns {string}
- */
 function getSafeExplicitSession(explicitSession: string): string {
   if (!EXPLICIT_SESSION_PATTERN.test(explicitSession)) {
     fail(
@@ -764,11 +629,6 @@ function getSafeExplicitSession(explicitSession: string): string {
   return explicitSession;
 }
 
-/**
- * @param {string} repoRoot
- * @param {string} branchIdentifier
- * @returns {string}
- */
 export function buildDerivedSessionName(
   repoRoot: string,
   branchIdentifier: string,
@@ -786,16 +646,6 @@ export function buildDerivedSessionName(
   return `${repoName}-${branchName}-${stableSuffix}`;
 }
 
-/**
- * @param {string} output
- * @param {string} session
- * @returns {{
- *   status: 'open' | 'closed'
- *   browserType?: string
- *   userDataDir?: string
- *   headed?: boolean
- * } | null}
- */
 export function parseSessionDetailsFromListOutput(
   output: string,
   session: string,
@@ -865,11 +715,6 @@ export function parseSessionDetailsFromListOutput(
   return null;
 }
 
-/**
- * @param {string} output
- * @param {string} session
- * @returns {'open' | 'closed' | 'missing'}
- */
 export function parseSessionStateFromListOutput(
   output: string,
   session: string,
@@ -883,9 +728,6 @@ export function parseSessionStateFromListOutput(
  * Verification needs the real native browser window, not the page DOM. It
  * closes only the branch-owned profile, relaunches it in headed mode, then
  * polls the macOS window list for a restore-pages popup from that exact PID.
- *
- * @param {{ url?: string, headed: boolean }} options
- * @returns {void}
  */
 function verifyRestorePagesSuppression(options: {
   url?: string;
@@ -927,15 +769,6 @@ function verifyRestorePagesSuppression(options: {
   }
 }
 
-/**
- * @param {string} session
- * @returns {{
- *   status: 'open' | 'closed' | 'missing' | 'unknown'
- *   browserType?: string
- *   userDataDir?: string
- *   headed?: boolean
- * } | null}
- */
 function getSessionDetails(session: string): {
   status: "open" | "closed" | "missing" | "unknown";
   browserType?: string;
@@ -965,11 +798,6 @@ function getSessionDetails(session: string): {
   return sessionDetails;
 }
 
-/**
- * @param {string} session
- * @param {string} profileDir
- * @returns {void}
- */
 function closeBranchSession(session: string, profileDir: string): void {
   if (getSessionState(session) === "open") {
     runPlaywrightCli([`-s=${session}`, "close"], {
@@ -982,10 +810,6 @@ function closeBranchSession(session: string, profileDir: string): void {
   waitForProfileBrowserToClose(profileDir);
 }
 
-/**
- * @param {string} profileDir
- * @returns {void}
- */
 function terminateProfileBrowserProcesses(profileDir: string): void {
   for (const { pid } of listProfileBrowserProcesses(profileDir)) {
     try {
@@ -1002,11 +826,6 @@ function terminateProfileBrowserProcesses(profileDir: string): void {
   }
 }
 
-/**
- * @param {Set<string>} windowTitles
- * @param {number} pid
- * @returns {void}
- */
 function assertObservedWindowTitles(
   windowTitles: Set<string>,
   pid: number,
@@ -1018,10 +837,6 @@ function assertObservedWindowTitles(
   fail(`Did not observe any onscreen browser windows for PID ${pid}.`);
 }
 
-/**
- * @param {string} profileDir
- * @returns {void}
- */
 function waitForProfileBrowserToClose(profileDir: string): void {
   waitForCondition(
     () => listProfileBrowserProcesses(profileDir).length === 0,
@@ -1030,15 +845,6 @@ function waitForProfileBrowserToClose(profileDir: string): void {
   );
 }
 
-/**
- * @param {string} session
- * @returns {{
- *   status: 'open' | 'closed'
- *   browserType?: string
- *   userDataDir?: string
- *   headed?: boolean
- * }}
- */
 function waitForSessionDetails(session: string): {
   status: "open" | "closed";
   browserType?: string;
@@ -1062,10 +868,6 @@ function waitForSessionDetails(session: string): {
   );
 }
 
-/**
- * @param {string} profileDir
- * @returns {{ pid: number, args: string }}
- */
 function waitForProfileBrowserProcess(profileDir: string): {
   pid: number;
   args: string;
@@ -1077,10 +879,6 @@ function waitForProfileBrowserProcess(profileDir: string): {
   );
 }
 
-/**
- * @param {number} pid
- * @returns {Set<string>}
- */
 function observeWindowTitlesForPid(pid: number): Set<string> {
   const seenTitles: Set<string> = new Set();
   const deadline = Date.now() + VERIFY_TIMEOUT_MS;
@@ -1096,10 +894,6 @@ function observeWindowTitlesForPid(pid: number): Set<string> {
   return seenTitles;
 }
 
-/**
- * @param {number} pid
- * @returns {string[]}
- */
 function getOnscreenWindowTitlesForPid(pid: number): string[] {
   const swiftProgram = `import Foundation
 import CoreGraphics
@@ -1135,10 +929,6 @@ FileHandle.standardOutput.write(data)`;
     : [];
 }
 
-/**
- * @param {string} profileDir
- * @returns {{ pid: number, args: string }[]}
- */
 function listProfileBrowserProcesses(
   profileDir: string,
 ): { pid: number; args: string }[] {
@@ -1154,11 +944,6 @@ function listProfileBrowserProcesses(
   return parseProfileBrowserProcessesFromPsOutput(result.stdout, profileDir);
 }
 
-/**
- * @param {string} output
- * @param {string} profileDir
- * @returns {{ pid: number, args: string }[]}
- */
 export function parseProfileBrowserProcessesFromPsOutput(
   output: string,
   profileDir: string,
@@ -1193,9 +978,6 @@ export function parseProfileBrowserProcessesFromPsOutput(
 
 /**
  * The main browser process has the profile arg but no helper subprocess flags.
- *
- * @param {string} profileDir
- * @returns {{ pid: number, args: string } | null}
  */
 function getPrimaryProfileBrowserProcess(
   profileDir: string,
@@ -1216,13 +998,6 @@ function getPrimaryProfileBrowserProcess(
   return null;
 }
 
-/**
- * @template T
- * @param {() => T | null} readValue
- * @param {number} timeoutMs
- * @param {string} timeoutMessage
- * @returns {T}
- */
 function waitForValue<T>(
   readValue: () => T | null,
   timeoutMs: number,
@@ -1241,12 +1016,6 @@ function waitForValue<T>(
   fail(timeoutMessage);
 }
 
-/**
- * @param {() => boolean} checkCondition
- * @param {number} timeoutMs
- * @param {string} timeoutMessage
- * @returns {void}
- */
 function waitForCondition(
   checkCondition: () => boolean,
   timeoutMs: number,
@@ -1264,26 +1033,14 @@ function waitForCondition(
   fail(timeoutMessage);
 }
 
-/**
- * @param {number} milliseconds
- * @returns {void}
- */
 function sleep(milliseconds: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 }
 
-/**
- * @param {string} message
- * @returns {never}
- */
 function fail(message: string): never {
   throw new PlaywrightBranchBrowserError(message);
 }
 
-/**
- * @param {unknown} error
- * @returns {never}
- */
 function handleMainError(error: unknown): never {
   if (error instanceof PlaywrightBranchBrowserError) {
     console.error(error.message);
@@ -1294,7 +1051,6 @@ function handleMainError(error: unknown): never {
   throw error;
 }
 
-/** @returns {boolean} */
 function isMainModule(): boolean {
   return process.argv[1]
     ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)

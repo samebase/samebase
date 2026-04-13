@@ -85,24 +85,12 @@ const waitForBackendExit = async () => {
   }
 };
 
-/**
- * @param {number} port
- * @returns {Promise<void>}
- */
 const terminateListeningPidsOnPort = async (port: number): Promise<void> => {
-  /**
-   * @param {string} value
-   * @returns {number | null}
-   */
   const toPid = (value: string): number | null => {
     const asNumber = Number(value);
     return Number.isFinite(asNumber) ? asNumber : null;
   };
 
-  /**
-   * @param {string[]} pids
-   * @param {NodeJS.Signals} signal
-   */
   const killPids = (pids: string[], signal: NodeJS.Signals) => {
     for (const pidString of pids) {
       const pid = toPid(pidString);
@@ -189,9 +177,6 @@ try {
 
 process.exit(exitCode);
 
-/**
- * @returns {string}
- */
 function resolveRepoRoot(): string {
   const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {
     stdio: "pipe",
@@ -204,10 +189,6 @@ function resolveRepoRoot(): string {
   return root.length > 0 ? root : process.cwd();
 }
 
-/**
- * @param {string} filePath
- * @returns {EnvFile | null}
- */
 function readEnvFile(filePath: string): EnvFile | null {
   if (!fs.existsSync(filePath)) {
     return null;
@@ -234,10 +215,6 @@ function readEnvFile(filePath: string): EnvFile | null {
   return { path: filePath, vars };
 }
 
-/**
- * @param {Record<string, string | undefined>} vars
- * @returns {number | null}
- */
 function resolveBackendPort(
   vars: Record<string, string | undefined>,
 ): number | null {
@@ -254,10 +231,6 @@ function resolveBackendPort(
   return null;
 }
 
-/**
- * @param {number} port
- * @returns {Promise<boolean>}
- */
 async function waitForBackend(port: number): Promise<boolean> {
   const deadline = Date.now() + 20000;
   while (Date.now() < deadline) {
@@ -280,19 +253,10 @@ async function waitForBackend(port: number): Promise<boolean> {
   return false;
 }
 
-/**
- * @param {string} message
- * @returns {never}
- */
 function exitWithError(message: string): never {
   throw new Error(message);
 }
 
-/**
- * @param {import('node:stream').Readable | null} stream
- * @param {NodeJS.WriteStream} target
- * @returns {void}
- */
 function attachBackendStream(
   stream: import("node:stream").Readable | null,
   target: NodeJS.WriteStream,

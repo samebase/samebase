@@ -33,14 +33,6 @@ for (const diff of diffs) {
 }
 process.exit(1);
 
-/**
- * @param {string[]} args
- * @returns {{
- *   left: string
- *   right: string
- *   showHelp: boolean
- * }}
- */
 function parseArgs(args: string[]): {
   left: string;
   right: string;
@@ -105,10 +97,6 @@ function parseArgs(args: string[]): {
   };
 }
 
-/**
- * @param {string} filePath
- * @returns {unknown}
- */
 function readJsonFile(filePath: string): unknown {
   try {
     const raw = fs.readFileSync(filePath, "utf8");
@@ -121,11 +109,6 @@ function readJsonFile(filePath: string): unknown {
   }
 }
 
-/**
- * @param {string} filePath
- * @param {unknown} value
- * @returns {Record<string, unknown>}
- */
 function validateManifest(
   filePath: string,
   value: unknown,
@@ -162,18 +145,10 @@ function validateManifest(
   return value;
 }
 
-/**
- * @param {unknown} value
- * @returns {value is Record<string, unknown>}
- */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/**
- * @param {string} message
- * @returns {never}
- */
 function exitWithError(message: string): never {
   console.error(message);
   process.exit(1);

@@ -31,16 +31,6 @@ const manifest = await collectDaytonaRuntimeManifest({
 
 console.log(JSON.stringify(manifest, null, options.pretty ? 2 : undefined));
 
-/**
- * @param {string[]} args
- * @returns {{
- *   repoDir: string | null
- *   appRoot: string | null
- *   previewPort: number | undefined
- *   pretty: boolean
- *   showHelp: boolean
- * }}
- */
 function parseArgs(args: string[]): {
   repoDir: string | null;
   appRoot: string | null;
@@ -105,10 +95,6 @@ function parseArgs(args: string[]): {
   return result;
 }
 
-/**
- * @param {string} message
- * @returns {never}
- */
 function exitWithError(message: string): never {
   console.error(message);
   process.exit(1);

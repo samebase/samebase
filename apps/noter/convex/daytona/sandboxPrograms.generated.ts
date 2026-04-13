@@ -22,27 +22,14 @@ export const DEFAULT_FISH_PROFILE_FILES = [
   "/home/daytona/.config/fish/config.fish",
 ];
 
-/**
- * @param {string} value
- * @returns {string}
- */
 function quoteForShell(value: string): string {
   return \`'\${value.replace(/'/g, \`'\\\\''\`)}'\`;
 }
 
-/**
- * @param {unknown} error
- * @returns {error is NodeJS.ErrnoException}
- */
 function isEnoentError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
-/**
- * @param {string} filePath
- * @param {string} line
- * @param {{ ensureParentDir: boolean }} options
- */
 async function ensureLineInFile(
   filePath: string,
   line: string,
@@ -80,9 +67,6 @@ async function ensureLineInFile(
   await fs.writeFile(filePath, nextContents, "utf8");
 }
 
-/**
- * @param {EnsureRepoAutoCdArgs} args
- */
 export async function ensureRepoAutoCd(args: EnsureRepoAutoCdArgs) {
   const line = \`cd \${quoteForShell(args.repoPath)}\`;
 

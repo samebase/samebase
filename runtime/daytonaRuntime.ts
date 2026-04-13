@@ -48,18 +48,10 @@ export const DAYTONA_FISHER_VERSION = "4.4.8";
 export const DAYTONA_PURE_VERSION = "v4.9.0";
 export const DAYTONA_PURE_ARCHIVE_ROOT = "pure-4.9.0";
 
-/**
- * @param {readonly string[]} values
- * @returns {string}
- */
 function renderStringArrayLiteral(values: readonly string[]): string {
   return values.map((value) => JSON.stringify(value)).join(", ");
 }
 
-/**
- * @param {string} value
- * @returns {string}
- */
 export function renderTemplateLiteralString(value: string): string {
   const escaped = value
     .replace(/\\/g, "\\\\")

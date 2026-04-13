@@ -29,11 +29,6 @@ const outputFiles = [
   },
 ];
 
-/**
- * @param {string} outputPath
- * @param {string} contents
- * @returns {Promise<string>}
- */
 async function normalizeOutputContents(
   outputPath: string,
   contents: string,

@@ -19,39 +19,20 @@ const INPUT_FILES: readonly string[] = [
   "apps/noter-starter-template/package.json",
 ];
 
-/**
- * @param {import('node:crypto').BinaryLike} contents
- * @returns {string}
- */
 function sha256(contents: import("node:crypto").BinaryLike): string {
   return createHash("sha256").update(contents).digest("hex");
 }
 
-/**
- * @param {string} rootDir
- * @param {string} relativePath
- * @returns {Buffer}
- */
 function readFileContents(rootDir: string, relativePath: string): Buffer {
   const absolutePath = path.join(rootDir, relativePath);
   return fs.readFileSync(absolutePath);
 }
 
-/**
- * @param {string} rootDir
- * @returns {string}
- */
 function computeLockHash(rootDir: string): string {
   const lockfile = readFileContents(rootDir, LOCKFILE_PATH);
   return sha256(lockfile);
 }
 
-/**
- * @param {string} rootDir
- * @param {string} baseImage
- * @param {string} pnpmVersion
- * @returns {string}
- */
 function computeInputHash(
   rootDir: string,
   baseImage: string,
@@ -70,7 +51,6 @@ function computeInputHash(
   return hash.digest("hex");
 }
 
-/** @returns {void} */
 function main(): void {
   const rootDir = process.cwd();
   const baseImage = DEFAULT_BASE_IMAGE;

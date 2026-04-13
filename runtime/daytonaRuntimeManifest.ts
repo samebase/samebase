@@ -34,10 +34,6 @@ type DaytonaRuntimeManifest = {
   };
 };
 
-/**
- * @param {string} contents
- * @returns {Record<string, string>}
- */
 export function parseDotEnvFile(contents: string): Record<string, string> {
   const entries: Record<string, string> = {};
   for (const line of contents.split("\n")) {
@@ -59,10 +55,6 @@ export function parseDotEnvFile(contents: string): Record<string, string> {
   return entries;
 }
 
-/**
- * @param {string} value
- * @returns {string}
- */
 function normalizeDeploymentValue(value: string): string {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
@@ -76,11 +68,6 @@ function normalizeDeploymentValue(value: string): string {
   return `${prefix}:<redacted>`;
 }
 
-/**
- * @param {string} key
- * @param {string} value
- * @returns {string}
- */
 function normalizeEnvValue(key: string, value: string): string {
   const trimmed = value.trim();
   if (key === "CONVEX_DEPLOYMENT") {
@@ -103,10 +90,6 @@ function normalizeEnvValue(key: string, value: string): string {
   return trimmed;
 }
 
-/**
- * @param {Record<string, string>} entries
- * @returns {string[]}
- */
 export function normalizeDaytonaEnvEntries(
   entries: Record<string, string>,
 ): string[] {
@@ -115,14 +98,6 @@ export function normalizeDaytonaEnvEntries(
     .map((key) => `${key}=${normalizeEnvValue(key, entries[key] ?? "")}`);
 }
 
-/**
- * @param {string} contents
- * @returns {{
- *   keys: string[]
- *   normalizedLines: string[]
- *   normalizedHash: string
- * }}
- */
 export function normalizeDaytonaEnvFileContents(contents: string): {
   keys: string[];
   normalizedLines: string[];
@@ -139,16 +114,6 @@ export function normalizeDaytonaEnvFileContents(contents: string): {
   };
 }
 
-/**
- * @param {string} filePath
- * @returns {{
- *   path: string
- *   exists: boolean
- *   keys: string[]
- *   normalizedLines: string[]
- *   normalizedHash: string | null
- * }}
- */
 function buildEnvFileManifest(filePath: string): {
   path: string;
   exists: boolean;
@@ -185,11 +150,6 @@ function buildEnvFileManifest(filePath: string): {
   };
 }
 
-/**
- * @param {string} repoDir
- * @param {string[]} args
- * @returns {string}
- */
 function runGit(repoDir: string, args: string[]): string {
   const result = spawnSync("git", ["-C", repoDir, ...args], {
     encoding: "utf8",
@@ -200,10 +160,6 @@ function runGit(repoDir: string, args: string[]): string {
   return (result.stdout || "").trim();
 }
 
-/**
- * @param {number} port
- * @returns {Promise<boolean>}
- */
 function isLocalPortListening(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = net.createConnection({
@@ -211,7 +167,6 @@ function isLocalPortListening(port: number): Promise<boolean> {
       port,
     });
 
-    /** @param {boolean} value */
     const finish = (value: boolean) => {
       socket.removeAllListeners();
       socket.destroy();
@@ -225,14 +180,6 @@ function isLocalPortListening(port: number): Promise<boolean> {
   });
 }
 
-/**
- * @param {{
- *   repoDir: string
- *   appRootRelativePath: string
- *   previewPort?: number
- * }} args
- * @returns {Promise<DaytonaRuntimeManifest>}
- */
 export async function collectDaytonaRuntimeManifest(args: {
   repoDir: string;
   appRootRelativePath: string;
@@ -282,20 +229,10 @@ export async function collectDaytonaRuntimeManifest(args: {
   };
 }
 
-/**
- * @param {unknown} value
- * @returns {value is Record<string, unknown>}
- */
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/**
- * @param {unknown} left
- * @param {unknown} right
- * @param {string} pathPrefix
- * @param {string[]} diffs
- */
 function diffManifestValues(
   left: unknown,
   right: unknown,
@@ -340,11 +277,6 @@ function diffManifestValues(
   }
 }
 
-/**
- * @param {unknown} left
- * @param {unknown} right
- * @returns {string[]}
- */
 export function diffDaytonaRuntimeManifests(
   left: unknown,
   right: unknown,

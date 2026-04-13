@@ -43,9 +43,6 @@ const iconJobs: IconJob[] = [
   },
 ];
 
-/**
- * @param {string} staticLogoSvgMarkup
- */
 function createInstallIconSvgMarkup(staticLogoSvgMarkup: string) {
   return staticLogoSvgMarkup.replace(
     'fill="transparent"',
@@ -72,9 +69,6 @@ function syncInstallIconSvgAsset() {
   writeFileSync(installIconSvgPath, `${nextInstallIconSvgMarkup}\n`, "utf8");
 }
 
-/**
- * @param {IconJob} job
- */
 function generateIconPng({ boxRatio, canvasSize, filename }: IconJob) {
   const iconSize = Math.round(canvasSize * boxRatio);
 

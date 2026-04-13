@@ -126,10 +126,6 @@ installDependenciesIfNeeded({
   workspaceDir,
 });
 
-/**
- * @param {string[]} args
- * @returns {BootstrapOptions}
- */
 function parseArgs(args: string[]): BootstrapOptions {
   const result: BootstrapOptions = {
     anonMode: false,
@@ -158,7 +154,6 @@ function parseArgs(args: string[]): BootstrapOptions {
   return result;
 }
 
-/** @returns {void} */
 function createBranchIfDetached(): void {
   if (!isGitRepo()) {
     return;
@@ -187,7 +182,6 @@ function createBranchIfDetached(): void {
   }
 }
 
-/** @returns {boolean} */
 function isGitRepo(): boolean {
   const result = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], {
     stdio: "ignore",
@@ -195,7 +189,6 @@ function isGitRepo(): boolean {
   return result.status === 0;
 }
 
-/** @returns {string} */
 function getCurrentBranch(): string {
   const result = spawnSync("git", ["symbolic-ref", "-q", "--short", "HEAD"], {
     encoding: "utf8",
@@ -208,7 +201,6 @@ function getCurrentBranch(): string {
   return result.stdout.trim();
 }
 
-/** @returns {string} */
 function switchToExistingDetachedHeadBranch(): string {
   const localCandidates = preferredBranchOrder(
     listLocalBranchesPointingAtHead(),
@@ -244,7 +236,6 @@ function switchToExistingDetachedHeadBranch(): string {
   return "";
 }
 
-/** @returns {string[]} */
 function listLocalBranchesPointingAtHead(): string[] {
   return readBranchLines([
     "for-each-ref",
@@ -255,7 +246,6 @@ function listLocalBranchesPointingAtHead(): string[] {
   ]);
 }
 
-/** @returns {string[]} */
 function listRemoteCodexBranchesPointingAtHead(): string[] {
   return readBranchLines([
     "for-each-ref",
@@ -266,10 +256,6 @@ function listRemoteCodexBranchesPointingAtHead(): string[] {
   ]);
 }
 
-/**
- * @param {string[]} branchNames
- * @returns {string[]}
- */
 function preferredBranchOrder(branchNames: string[]): string[] {
   return [...branchNames].sort((left, right) => {
     const leftPriority = branchPriority(left);
@@ -281,10 +267,6 @@ function preferredBranchOrder(branchNames: string[]): string[] {
   });
 }
 
-/**
- * @param {string} branchName
- * @returns {number}
- */
 function branchPriority(branchName: string): number {
   if (branchName.startsWith("codex/")) {
     return 0;
@@ -295,10 +277,6 @@ function branchPriority(branchName: string): number {
   return 1;
 }
 
-/**
- * @param {string[]} args
- * @returns {string[]}
- */
 function readBranchLines(args: string[]): string[] {
   const result = spawnSync("git", args, { encoding: "utf8" });
   if (result.status !== 0) {
@@ -311,7 +289,6 @@ function readBranchLines(args: string[]): string[] {
     .filter((line) => line.length > 0);
 }
 
-/** @returns {string} */
 function pickAvailableBranchName(): string {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const candidate = generateThreeWordBranch();
@@ -336,15 +313,10 @@ function pickAvailableBranchName(): string {
   return `${fallbackBase}-${Date.now()}`;
 }
 
-/** @returns {string} */
 function generateThreeWordBranch(): string {
   return `codex/${pickRandom(FIRST_WORDS)}-${pickRandom(SECOND_WORDS)}-${pickRandom(THIRD_WORDS)}`;
 }
 
-/**
- * @param {readonly string[]} words
- * @returns {string}
- */
 function pickRandom(words: readonly string[]): string {
   if (words.length === 0) {
     throw new Error("Cannot pick from an empty list.");
@@ -353,10 +325,6 @@ function pickRandom(words: readonly string[]): string {
   return words[index];
 }
 
-/**
- * @param {string} branchName
- * @returns {boolean}
- */
 function branchExists(branchName: string): boolean {
   const result = spawnSync(
     "git",
@@ -366,7 +334,6 @@ function branchExists(branchName: string): boolean {
   return result.status === 0;
 }
 
-/** @returns {string} */
 function timestampForBranch(): string {
   const now = new Date();
   const year = String(now.getFullYear());
@@ -378,7 +345,6 @@ function timestampForBranch(): string {
   return `${year}${month}${day}-${hours}${minutes}${seconds}`;
 }
 
-/** @returns {string} */
 function configureCacheRoot(): string {
   const vscodeDir = "/vscode";
   if (!existsSync(vscodeDir)) {
@@ -403,10 +369,6 @@ function configureCacheRoot(): string {
   return cacheRoot;
 }
 
-/**
- * @param {string} workspace
- * @returns {string}
- */
 function computeInstallHash(workspace: string): string {
   const hashInputs: string[] = [];
   const rootFiles = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"];
@@ -436,12 +398,6 @@ function computeInstallHash(workspace: string): string {
   return hash.digest("hex");
 }
 
-/**
- * @param {string} relativeDir
- * @param {number} depth
- * @param {string[]} output
- * @returns {void}
- */
 function collectPackageJsonFiles(
   relativeDir: string,
   depth: number,
@@ -467,10 +423,6 @@ function collectPackageJsonFiles(
   }
 }
 
-/**
- * @param {InstallOptions} args
- * @returns {void}
- */
 function installDependenciesIfNeeded({
   anonMode,
   cacheRoot,

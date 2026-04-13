@@ -22,9 +22,6 @@ function resolveViteCliEntrypoint() {
   );
 }
 
-/**
- * @param {string[]} args
- */
 function splitVitePortArgs(args: string[]) {
   const passthroughArgs = [];
   let port = null;

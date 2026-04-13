@@ -1,10 +1,5 @@
 import { createRequire } from "node:module";
 
-/**
- * @param {string} packageName
- * @param {string | URL=} fromUrl
- * @returns {string}
- */
 export function readPackageVersion(
   packageName: string,
   fromUrl: string | URL = import.meta.url,

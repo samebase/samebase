@@ -72,10 +72,6 @@ type EnvEntry = {
   value: string;
 };
 
-/**
- * @param {string[]} args
- * @returns {Options}
- */
 function parseArgs(args: string[]): Options {
   const result: Options = {
     output: null,
@@ -108,7 +104,6 @@ function parseArgs(args: string[]): Options {
   return result;
 }
 
-/** @returns {string} */
 function resolveRepoRoot(): string {
   const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {
     encoding: "utf8",
@@ -119,18 +114,6 @@ function resolveRepoRoot(): string {
   return (result.stdout || "").trim() || process.cwd();
 }
 
-/**
- * @param {SourceDeploymentArgs} args
- * @returns {{
- *   status: 'ok'
- *   deployment: string
- * } | {
- *   status: 'missing'
- * } | {
- *   status: 'invalid'
- *   message: string
- * }}
- */
 function resolveSourceDeployment(args: SourceDeploymentArgs):
   | {
       status: "ok";
@@ -158,10 +141,6 @@ function resolveSourceDeployment(args: SourceDeploymentArgs):
   return parseSourceDeployment(convexDeployment, "CONVEX_DEPLOYMENT");
 }
 
-/**
- * @param {string | undefined} rawDeployKey
- * @returns {string | null}
- */
 function extractDaytonaDeploymentSpecifier(
   rawDeployKey: string | undefined,
 ): string | null {
@@ -175,19 +154,6 @@ function extractDaytonaDeploymentSpecifier(
   return normalized.length > 0 ? normalized : null;
 }
 
-/**
- * @param {string} rawDeployment
- * @param {string} sourceName
- * @returns {{
- *   status: 'ok'
- *   deployment: string
- * } | {
- *   status: 'missing'
- * } | {
- *   status: 'invalid'
- *   message: string
- * }}
- */
 function parseSourceDeployment(
   rawDeployment: string,
   sourceName: string,
@@ -254,10 +220,6 @@ function parseSourceDeployment(
   };
 }
 
-/**
- * @param {string} name
- * @returns {boolean}
- */
 function isAnonymousLikeDeploymentName(name: string): boolean {
   const normalized = name.trim().toLowerCase();
   return (
@@ -268,10 +230,6 @@ function isAnonymousLikeDeploymentName(name: string): boolean {
   );
 }
 
-/**
- * @param {string} filePath
- * @param {EnvEntry[]} entries
- */
 function writeEnvFile(filePath: string, entries: EnvEntry[]) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   const contents =
@@ -279,10 +237,6 @@ function writeEnvFile(filePath: string, entries: EnvEntry[]) {
   fs.writeFileSync(filePath, contents, "utf8");
 }
 
-/**
- * @param {string} filePath
- * @returns {void}
- */
 function removeFileIfExists(filePath: string): void {
   if (!fs.existsSync(filePath)) {
     return;
@@ -290,10 +244,6 @@ function removeFileIfExists(filePath: string): void {
   fs.rmSync(filePath);
 }
 
-/**
- * @param {string} message
- * @returns {never}
- */
 function exitWithError(message: string): never {
   console.error(message);
   process.exit(1);

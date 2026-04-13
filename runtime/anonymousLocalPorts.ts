@@ -8,10 +8,6 @@ type AnonymousLocalPortPair = {
   site: number;
 };
 
-/**
- * @param {string} worktreeRoot
- * @returns {AnonymousLocalPortPair[]}
- */
 export function listAnonymousLocalPortCandidates(
   worktreeRoot: string,
 ): AnonymousLocalPortPair[] {
@@ -32,11 +28,6 @@ export function listAnonymousLocalPortCandidates(
   return candidates;
 }
 
-/**
- * @param {string} worktreeRoot
- * @param {(port: number) => boolean} isPortInUse
- * @returns {AnonymousLocalPortPair | null}
- */
 export function pickAvailableAnonymousLocalPorts(
   worktreeRoot: string,
   isPortInUse: (port: number) => boolean,

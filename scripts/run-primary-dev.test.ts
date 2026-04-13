@@ -7,9 +7,6 @@ import {
   buildPrimaryDevEnvironment,
 } from "./run-primary-dev.ts";
 
-/**
- * @returns {Promise<string>}
- */
 const reserveFreePort = async (): Promise<string> =>
   await new Promise((resolve, reject) => {
     const server = createServer();

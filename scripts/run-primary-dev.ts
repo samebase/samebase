@@ -9,10 +9,6 @@ import { normalizeEnvValue } from "../apps/noter/scripts/normalizeEnvValue.ts";
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
-/**
- * @param {string} origin
- * @returns {string | null}
- */
 function parseLoopbackOriginPort(origin: string): string | null {
   try {
     const parsedOrigin = new URL(origin);
@@ -32,9 +28,6 @@ function parseLoopbackOriginPort(origin: string): string | null {
  * Pin the chosen local frontend port into both env vars so the predev
  * `SITE_URL` sync and the later Vite wrapper cannot drift onto different
  * localhost ports.
- *
- * @param {NodeJS.ProcessEnv} [env]
- * @returns {NodeJS.ProcessEnv}
  */
 export function buildPrimaryDevEnvironment(
   env: NodeJS.ProcessEnv = process.env,
@@ -58,10 +51,6 @@ export function buildPrimaryDevEnvironment(
   return nextEnv;
 }
 
-/**
- * @param {string[]} args
- * @returns {string[]}
- */
 export function buildPrimaryDevArgs(args: string[]): string[] {
   return ["exec", "vp", "run", "--filter=noter", "dev", ...args];
 }

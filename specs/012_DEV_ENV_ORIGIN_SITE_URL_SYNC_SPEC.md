@@ -37,7 +37,7 @@ dev-server startup for Daytona (and future sandbox providers).
 
 **Precedence in `scripts/sync-site-url.ts`:**
 
-```
+```text
 DEV_ENV_ORIGIN -> resolved local dev origin for localhost Convex deployments -> error
 ```
 

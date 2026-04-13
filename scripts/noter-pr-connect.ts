@@ -168,15 +168,10 @@ async function main() {
   }
 }
 
-/** @returns {string} */
 function resolveRepoRoot(): string {
   return runCommand("git", ["rev-parse", "--show-toplevel"]).trim();
 }
 
-/**
- * @param {string} root
- * @returns {string}
- */
 function resolveRepositoryFullName(root: string): string {
   const remoteUrl = runCommand("git", ["remote", "get-url", "origin"], {
     cwd: root,
@@ -198,10 +193,6 @@ function resolveRepositoryFullName(root: string): string {
   throw new Error(`Unsupported GitHub remote URL: ${remoteUrl}`);
 }
 
-/**
- * @param {string[]} args
- * @returns {ConnectOptions}
- */
 function parseArgs(args: string[]): ConnectOptions {
   const result: ConnectOptions = {
     once: false,
@@ -270,7 +261,6 @@ function parseArgs(args: string[]): ConnectOptions {
 
 // MARK: - Local State
 
-/** @returns {ConnectState} */
 function loadState(): ConnectState {
   if (!fs.existsSync(statePath)) {
     return {
@@ -330,10 +320,6 @@ function loadState(): ConnectState {
   };
 }
 
-/**
- * @param {ConnectState} state
- * @returns {void}
- */
 function persistState(state: ConnectState): void {
   if (options.dryRun) {
     return;
@@ -342,10 +328,6 @@ function persistState(state: ConnectState): void {
   fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
 }
 
-/**
- * @param {ConnectState} state
- * @returns {Promise<void>}
- */
 async function processCycle(state: ConnectState): Promise<void> {
   const pullRequests = listOpenPullRequests();
   for (const pullRequest of pullRequests) {
@@ -415,7 +397,6 @@ async function processCycle(state: ConnectState): Promise<void> {
 
 // MARK: - GitHub PR Discovery
 
-/** @returns {PullRequestSummary[]} */
 function listOpenPullRequests(): PullRequestSummary[] {
   const pullRequests: PullRequestSummary[] = [];
   let page = 1;
@@ -433,9 +414,6 @@ function listOpenPullRequests(): PullRequestSummary[] {
 /**
  * Keep paging through GitHub's open PR list so the runner does not silently
  * miss labeled targets when the repository has more than 100 open PRs.
- *
- * @param {number} page
- * @returns {PullRequestSummary[]}
  */
 function listOpenPullRequestPage(page: number): PullRequestSummary[] {
   const stdout = runCommand(
@@ -471,10 +449,6 @@ function listOpenPullRequestPage(page: number): PullRequestSummary[] {
   return parsed.map(normalizePullRequestSummary);
 }
 
-/**
- * @param {unknown} value
- * @returns {PullRequestSummary}
- */
 function normalizePullRequestSummary(value: unknown): PullRequestSummary {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Expected gh api pulls to return pull request objects");
@@ -508,10 +482,6 @@ function normalizePullRequestSummary(value: unknown): PullRequestSummary {
   };
 }
 
-/**
- * @param {unknown} value
- * @returns {PullRequestLabel[]}
- */
 function normalizePullRequestLabels(value: unknown): PullRequestLabel[] {
   if (!Array.isArray(value)) {
     throw new Error("Expected gh api pulls to return label arrays");
@@ -532,15 +502,6 @@ function normalizePullRequestLabels(value: unknown): PullRequestLabel[] {
   });
 }
 
-/**
- * @param {unknown} value
- * @returns {{
- *   headRefName: string
- *   headRefOid: string
- *   headRepository: PullRequestRepositoryRef
- *   headRepositoryOwner: PullRequestRepositoryOwnerRef
- * }}
- */
 function normalizePullRequestHead(value: unknown): {
   headRefName: string;
   headRefOid: string;
@@ -565,13 +526,6 @@ function normalizePullRequestHead(value: unknown): {
   };
 }
 
-/**
- * @param {unknown} value
- * @returns {{
- *   headRepository: PullRequestRepositoryRef
- *   headRepositoryOwner: PullRequestRepositoryOwnerRef
- * }}
- */
 function normalizePullRequestRepository(value: unknown): {
   headRepository: PullRequestRepositoryRef;
   headRepositoryOwner: PullRequestRepositoryOwnerRef;
@@ -596,10 +550,6 @@ function normalizePullRequestRepository(value: unknown): {
   };
 }
 
-/**
- * @param {unknown} value
- * @returns {PullRequestRepositoryOwnerRef}
- */
 function normalizePullRequestRepositoryOwner(
   value: unknown,
 ): PullRequestRepositoryOwnerRef {
@@ -616,10 +566,6 @@ function normalizePullRequestRepositoryOwner(
     : null;
 }
 
-/**
- * @param {PullRequestSummary} pullRequest
- * @returns {string | null}
- */
 function readHeadRepositoryFullName(
   pullRequest: PullRequestSummary,
 ): string | null {
@@ -632,18 +578,10 @@ function readHeadRepositoryFullName(
   return `${repositoryOwner}/${repositoryName}`;
 }
 
-/**
- * @param {PullRequestSummary} pullRequest
- * @returns {string}
- */
 function buildRunKey(pullRequest: PullRequestSummary): string {
   return `${repoFullName}#${pullRequest.number}@${pullRequest.headRefOid}`;
 }
 
-/**
- * @param {PullRequestSummary} pullRequest
- * @returns {MarkerValidationResult}
- */
 function validateOriginMarker(
   pullRequest: PullRequestSummary,
 ): MarkerValidationResult {
@@ -756,12 +694,6 @@ function validateOriginMarker(
 
 // MARK: - Run Orchestration
 
-/**
- * @param {PullRequestSummary} pullRequest
- * @param {NoterOriginMarker} marker
- * @param {ConnectState} state
- * @returns {Promise<void>}
- */
 async function handleValidPullRequest(
   pullRequest: PullRequestSummary,
   marker: NoterOriginMarker,
@@ -870,10 +802,6 @@ async function handleValidPullRequest(
   }
 }
 
-/**
- * @param {PullRequestSummary} pullRequest
- * @returns {string}
- */
 function buildWorktreePath(pullRequest: PullRequestSummary): string {
   return path.join(
     worktreesRoot,
@@ -885,10 +813,6 @@ function buildWorktreePath(pullRequest: PullRequestSummary): string {
 
 // MARK: - Worktree Management
 
-/**
- * @param {PullRequestSummary} pullRequest
- * @returns {string}
- */
 function ensureWorktreeForPullRequest(pullRequest: PullRequestSummary): string {
   const headRepositoryFullName = readHeadRepositoryFullName(pullRequest);
   if (headRepositoryFullName !== repoFullName) {
@@ -987,10 +911,6 @@ function ensureWorktreeForPullRequest(pullRequest: PullRequestSummary): string {
   return worktreeDir;
 }
 
-/**
- * @param {string} branchName
- * @returns {boolean}
- */
 function localBranchExists(branchName: string): boolean {
   const result = spawnSync(
     "git",
@@ -1003,10 +923,6 @@ function localBranchExists(branchName: string): boolean {
   return result.status === 0;
 }
 
-/**
- * @param {string} branchRef
- * @returns {string | null}
- */
 function findWorktreeByBranch(branchRef: string): string | null {
   const stdout = runCommand("git", ["worktree", "list", "--porcelain"], {
     cwd: repoRoot,
@@ -1036,16 +952,6 @@ function findWorktreeByBranch(branchRef: string): string | null {
 
 // MARK: - Codex Execution
 
-/**
- * @param {{
- *   pullRequest: PullRequestSummary
- *   marker: NoterOriginMarker
- *   runId: string
- *   worktreePath: string
- *   artifactDir: string
- * }} params
- * @returns {{ exitCode: number }}
- */
 function runCodexForPullRequest(params: {
   pullRequest: PullRequestSummary;
   marker: NoterOriginMarker;
@@ -1096,16 +1002,6 @@ function runCodexForPullRequest(params: {
   }
 }
 
-/**
- * @param {{
- *   pullRequest: PullRequestSummary
- *   marker: NoterOriginMarker
- *   runId: string
- *   worktreePath: string
- *   artifactDir: string
- * }} params
- * @returns {string}
- */
 function buildCodexPrompt(params: {
   pullRequest: PullRequestSummary;
   marker: NoterOriginMarker;
@@ -1147,10 +1043,6 @@ function buildCodexPrompt(params: {
 
 // MARK: - GitHub PR Updates
 
-/**
- * @param {number} pullRequestNumber
- * @returns {string}
- */
 function fetchPullRequestHeadOid(pullRequestNumber: number): string {
   const stdout = runCommand(
     "gh",
@@ -1186,11 +1078,6 @@ function fetchPullRequestHeadOid(pullRequestNumber: number): string {
   return parsedRecord["headRefOid"];
 }
 
-/**
- * @param {number} pullRequestNumber
- * @param {string} body
- * @returns {void}
- */
 function postPullRequestComment(pullRequestNumber: number, body: string): void {
   runCommand(
     "gh",
@@ -1210,11 +1097,6 @@ function postPullRequestComment(pullRequestNumber: number, body: string): void {
   );
 }
 
-/**
- * @param {number} pullRequestNumber
- * @param {string} body
- * @returns {void}
- */
 function tryPostPullRequestComment(
   pullRequestNumber: number,
   body: string,
@@ -1230,14 +1112,6 @@ function tryPostPullRequestComment(
 
 // MARK: - Comment Bodies
 
-/**
- * @param {{
- *   pullRequest: PullRequestSummary
- *   marker: NoterOriginMarker
- *   runId: string
- * }} params
- * @returns {string}
- */
 function buildClaimComment(params: {
   pullRequest: PullRequestSummary;
   marker: NoterOriginMarker;
@@ -1256,11 +1130,6 @@ function buildClaimComment(params: {
   ].join("\n");
 }
 
-/**
- * @param {PullRequestSummary} pullRequest
- * @param {string} reason
- * @returns {string}
- */
 function buildInvalidContractComment(
   pullRequest: PullRequestSummary,
   reason: string,
@@ -1281,15 +1150,6 @@ function buildInvalidContractComment(
   ].join("\n");
 }
 
-/**
- * @param {{
- *   pullRequest: PullRequestSummary
- *   runId: string
- *   exitCode: number
- *   remoteHeadAfterRun: string
- * }} params
- * @returns {string}
- */
 function buildCompletionComment(params: {
   pullRequest: PullRequestSummary;
   runId: string;
@@ -1310,13 +1170,6 @@ function buildCompletionComment(params: {
   return lines.join("\n");
 }
 
-/**
- * @param {{
- *   pullRequest: PullRequestSummary
- *   runId: string
- * }} params
- * @returns {string}
- */
 function buildFailureComment(params: {
   pullRequest: PullRequestSummary;
   runId: string;
@@ -1335,26 +1188,14 @@ function buildFailureComment(params: {
 
 // MARK: - Formatting Helpers
 
-/**
- * @param {PullRequestSummary} pullRequest
- * @returns {string}
- */
 function buildRunId(pullRequest: PullRequestSummary): string {
   return `pr-${pullRequest.number}-${timestampForPath(new Date().toISOString())}`;
 }
 
-/**
- * @param {string} value
- * @returns {string}
- */
 function timestampForPath(value: string): string {
   return value.replaceAll(/[:.-]/g, "");
 }
 
-/**
- * @param {string} value
- * @returns {string}
- */
 function sanitizePathSegment(value: string): string {
   const cleaned = value
     .toLowerCase()
@@ -1368,11 +1209,6 @@ function sanitizePathSegment(value: string): string {
  * Persist both the observed pre-run head SHA and any post-run head SHA so a
  * successful local push does not cause the watcher to immediately claim the
  * same PR again on the next polling cycle.
- *
- * @param {ConnectState} state
- * @param {string} runKey
- * @param {HandledRunRecord} record
- * @returns {void}
  */
 function recordHandledRun(
   state: ConnectState,
@@ -1399,11 +1235,6 @@ function recordHandledRun(
  * Persist failed attempts separately so operators can retry the same PR head
  * without editing state by hand, while still keeping a cooldown window for the
  * long-running watcher.
- *
- * @param {ConnectState} state
- * @param {string} runKey
- * @param {HandledRunRecord} record
- * @returns {void}
  */
 function recordFailedRun(
   state: ConnectState,
@@ -1416,10 +1247,6 @@ function recordFailedRun(
 /**
  * Watch mode should back off after a failed run instead of hammering the same
  * SHA every interval, but one-shot invocations should stay retryable.
- *
- * @param {string} finishedAt
- * @param {Date} now
- * @returns {boolean}
  */
 function shouldDelayFailedRunRetry(finishedAt: string, now: Date): boolean {
   if (options.once) {
@@ -1436,15 +1263,6 @@ function shouldDelayFailedRunRetry(finishedAt: string, now: Date): boolean {
 
 // MARK: - Command Utilities
 
-/**
- * @param {string} command
- * @param {string[]} args
- * @param {{
- *   cwd?: string
- *   input?: string
- * }} [options]
- * @returns {string}
- */
 function runCommand(
   command: string,
   args: string[],
@@ -1478,10 +1296,6 @@ function runCommand(
   return result.stdout;
 }
 
-/**
- * @param {unknown} error
- * @returns {string}
- */
 function describeError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -1489,10 +1303,6 @@ function describeError(error: unknown): string {
   return String(error);
 }
 
-/**
- * @param {string} body
- * @returns {{ ok: true, json: string } | { ok: false, reason: string }}
- */
 function extractOriginMarkerJson(
   body: string,
 ): { ok: true; json: string } | { ok: false; reason: string } {
@@ -1538,15 +1348,10 @@ function extractOriginMarkerJson(
 
 // MARK: - Process Helpers
 
-/** @returns {boolean} */
 function shouldStop(): boolean {
   return stopRequested;
 }
 
-/**
- * @param {number} pullRequestNumber
- * @returns {string | undefined}
- */
 function tryFetchPullRequestHeadOid(
   pullRequestNumber: number,
 ): string | undefined {
@@ -1560,20 +1365,12 @@ function tryFetchPullRequestHeadOid(
   }
 }
 
-/**
- * @param {number} milliseconds
- * @returns {Promise<void>}
- */
 function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
   });
 }
 
-/**
- * @param {string} message
- * @returns {never}
- */
 function exitWithError(message: string): never {
   console.error(message);
   process.exit(1);

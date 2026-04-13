@@ -9,10 +9,6 @@ import {
   usesLocalConvexDeployment,
 } from "./convex-local-utils.ts";
 
-/**
- * @param {string} command
- * @param {string[]} args
- */
 const run = (command: string, args: string[]) => {
   const result = spawnSync(command, args, { stdio: "inherit" });
   if (result.status !== 0) {
@@ -31,9 +27,6 @@ const captureConvexReadme = () => {
   };
 };
 
-/**
- * @param {{ path: string; contents: string } | null} snapshot
- */
 const restoreConvexReadmeIfOverwritten = (
   snapshot: { path: string; contents: string } | null,
 ) => {
@@ -53,9 +46,6 @@ const restoreConvexReadmeIfOverwritten = (
   fs.writeFileSync(snapshot.path, snapshot.contents, "utf8");
 };
 
-/**
- * @param {number} port
- */
 const isConvexLocalBackend = async (port: number) => {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/instance_name`, {
@@ -71,10 +61,6 @@ const isConvexLocalBackend = async (port: number) => {
   }
 };
 
-/**
- * @param {string[]} pids
- * @param {"TERM" | "KILL"} signal
- */
 const killPids = (pids: string[], signal: "TERM" | "KILL") => {
   if (process.platform === "win32") {
     // Windows needs taskkill for process trees; only add /F on the KILL pass so TERM remains the graceful first attempt.

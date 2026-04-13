@@ -9,10 +9,6 @@ const oxfmtConfigPath = path.join(repoRoot, ".oxfmtrc.json");
 /**
  * Keep generated files aligned with the checked-in formatter config instead of
  * duplicating formatting options across build scripts and tests.
- *
- * @param {string} filePath
- * @param {string} contents
- * @returns {Promise<string>}
  */
 export function formatWithOxfmt(
   filePath: string,

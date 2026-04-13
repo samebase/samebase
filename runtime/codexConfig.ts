@@ -2,10 +2,6 @@ const CODEX_NO_ALT_SCREEN_LINE = "no_alt_screen = true";
 const CODEX_DEFAULT_MODEL_LINE = 'model = "gpt-5.4"';
 const CODEX_TRUSTED_LINE = 'trust_level = "trusted"';
 
-/**
- * @param {string} value
- * @returns {string}
- */
 function ensureTrailingNewline(value: string): string {
   return value.endsWith("\n") ? value : `${value}\n`;
 }
@@ -16,9 +12,6 @@ function ensureTrailingNewline(value: string): string {
  * This keeps interactive Codex usable in the Daytona web terminal, whose xterm
  * transport does not reliably deliver trust-prompt input after alt-screen
  * takeover.
- *
- * @param {string} existingConfig
- * @returns {string}
  */
 export function upsertCodexNoAltScreenConfig(existingConfig: string): string {
   const normalized = existingConfig.replace(/\r\n/g, "\n");
@@ -57,9 +50,6 @@ export function upsertCodexNoAltScreenConfig(existingConfig: string): string {
 /**
  * Ensure the shared Daytona Codex config pins the default model so startup does
  * not stop on the one-time model migration chooser.
- *
- * @param {string} existingConfig
- * @returns {string}
  */
 export function upsertCodexDefaultModelConfig(existingConfig: string): string {
   const normalized = existingConfig.replace(/\r\n/g, "\n");
@@ -95,20 +85,12 @@ export function upsertCodexDefaultModelConfig(existingConfig: string): string {
   );
 }
 
-/**
- * @param {string} value
- * @returns {string}
- */
 function quoteTomlString(value: string): string {
   return JSON.stringify(value);
 }
 
 /**
  * Ensure the shared Daytona Codex config trusts the given project path.
- *
- * @param {string} existingConfig
- * @param {string} projectPath
- * @returns {string}
  */
 export function upsertCodexProjectTrustConfig(
   existingConfig: string,

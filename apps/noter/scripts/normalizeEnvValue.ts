@@ -1,7 +1,3 @@
-/**
- * @param {string | null | undefined} value
- * @returns {string | undefined}
- */
 export function normalizeEnvValue(
   value: string | null | undefined,
 ): string | undefined {

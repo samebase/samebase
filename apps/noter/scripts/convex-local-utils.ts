@@ -8,10 +8,6 @@ export const DEFAULT_LOCAL_SITE_PORT = 5173;
 const getLocalDevOriginStatePath = (cwd = process.cwd()) =>
   path.join(cwd, "node_modules", ".cache", "noter-local-dev-origin.json");
 
-/**
- * @param {string} [cwd]
- * @returns {Partial<Record<string, string>>}
- */
 export const readEnvFile = (
   cwd: string = process.cwd(),
 ): Partial<Record<string, string>> => {
@@ -38,10 +34,6 @@ export const readEnvFile = (
   return env;
 };
 
-/**
- * @param {string} [cwd]
- * @returns {boolean}
- */
 export const usesLocalConvexDeployment = (
   cwd: string = process.cwd(),
 ): boolean => {
@@ -59,10 +51,6 @@ export const usesLocalConvexDeployment = (
   }
 };
 
-/**
- * @param {string | undefined} value
- * @returns {string | null}
- */
 const normalizeConfiguredPort = (value: string | undefined): string | null => {
   const normalizedValue = normalizeEnvValue(value);
   if (normalizedValue === undefined) {
@@ -73,10 +61,6 @@ const normalizeConfiguredPort = (value: string | undefined): string | null => {
   return Number.isInteger(parsed) && parsed > 0 ? String(parsed) : null;
 };
 
-/**
- * @param {NodeJS.ProcessEnv} [env]
- * @returns {string | null}
- */
 export const readConfiguredLocalDevPort = (
   env: NodeJS.ProcessEnv = process.env,
 ): string | null => normalizeConfiguredPort(env.VITE_PORT);
@@ -84,9 +68,6 @@ export const readConfiguredLocalDevPort = (
 /**
  * Pick the same local frontend port that the Vite wrapper will claim so
  * SITE_URL can stay aligned even before Vite starts listening.
- *
- * @param {NodeJS.ProcessEnv} [env]
- * @returns {string}
  */
 export const resolveLocalDevPort = (
   env: NodeJS.ProcessEnv = process.env,
@@ -100,10 +81,6 @@ export const resolveLocalDevPort = (
   return String(port);
 };
 
-/**
- * @param {NodeJS.ProcessEnv} [env]
- * @returns {string}
- */
 export const resolveLocalDevOrigin = (
   env: NodeJS.ProcessEnv = process.env,
 ): string => {
@@ -118,10 +95,6 @@ export const resolveLocalDevOrigin = (
  * Shared Convex deployments must never silently fall back to localhost when
  * the explicit frontend origin is missing, or they can overwrite SITE_URL for
  * other contributors with an unusable redirect target.
- *
- * @param {NodeJS.ProcessEnv} [env]
- * @param {string} [cwd]
- * @returns {string}
  */
 export const resolveSiteUrlSyncOrigin = (
   env: NodeJS.ProcessEnv = process.env,
@@ -139,11 +112,6 @@ export const resolveSiteUrlSyncOrigin = (
   return resolveLocalDevOrigin(env);
 };
 
-/**
- * @param {string} origin
- * @param {string} [cwd]
- * @returns {void}
- */
 export const writeLocalDevOriginState = (
   origin: string,
   cwd: string = process.cwd(),
@@ -161,10 +129,6 @@ export const writeLocalDevOriginState = (
   );
 };
 
-/**
- * @param {string} [cwd]
- * @returns {{ origin: string; writtenAt: number } | null}
- */
 export const readLocalDevOriginState = (
   cwd: string = process.cwd(),
 ): { origin: string; writtenAt: number } | null => {
@@ -193,27 +157,15 @@ export const readLocalDevOriginState = (
   return null;
 };
 
-/**
- * @param {string} [cwd]
- * @returns {void}
- */
 export const clearLocalDevOriginState = (cwd: string = process.cwd()): void => {
   fs.rmSync(getLocalDevOriginStatePath(cwd), { force: true });
 };
 
-/**
- * @param {number} ms
- * @returns {Promise<void>}
- */
 export const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
 
-/**
- * @param {string} url
- * @returns {number | null}
- */
 export const parsePort = (url: string): number | null => {
   try {
     const parsed = new URL(url);
@@ -224,15 +176,7 @@ export const parsePort = (url: string): number | null => {
   }
 };
 
-/**
- * @param {number} port
- * @returns {string[]}
- */
 export const listListeningPids = (port: number): string[] => {
-  /**
-   * @param {unknown} value
-   * @returns {value is string}
-   */
   const isString = (value: unknown): value is string =>
     typeof value === "string";
 
@@ -276,9 +220,5 @@ export const listListeningPids = (port: number): string[] => {
     .filter(Boolean);
 };
 
-/**
- * @param {number} port
- * @returns {boolean}
- */
 export const isPortInUse = (port: number): boolean =>
   listListeningPids(port).length > 0;

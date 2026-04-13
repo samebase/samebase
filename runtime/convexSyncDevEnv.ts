@@ -11,12 +11,6 @@ type EnvEntry = {
 
 /**
  * Return the deploy key only when it targets the exact source deployment.
- *
- * @param {{
- *   rawDeployKey: string | undefined
- *   sourceDeployment: Deployment
- * }} args
- * @returns {string | null}
  */
 export function extractMatchingDeploymentDeployKey({
   rawDeployKey,
@@ -56,10 +50,6 @@ export function extractMatchingDeploymentDeployKey({
   return normalizedDeployKey;
 }
 
-/**
- * @param {string} deploymentName
- * @returns {string}
- */
 export function buildCloudDeploymentUrl(deploymentName: string): string {
   const normalizedName = deploymentName.trim();
   if (normalizedName.length === 0) {
@@ -68,10 +58,6 @@ export function buildCloudDeploymentUrl(deploymentName: string): string {
   return `https://${normalizedName}.convex.cloud`;
 }
 
-/**
- * @param {unknown} value
- * @returns {EnvEntry[]}
- */
 export function normalizeEnvQueryResult(value: unknown): EnvEntry[] {
   if (!Array.isArray(value)) {
     throw new Error("Convex environment query returned an unexpected payload.");
@@ -87,10 +73,6 @@ export function normalizeEnvQueryResult(value: unknown): EnvEntry[] {
   return entries;
 }
 
-/**
- * @param {string} rawDeployment
- * @returns {Deployment | null}
- */
 function parseDeploymentSpecifier(rawDeployment: string): Deployment | null {
   const normalizedDeployment = rawDeployment.trim();
   if (normalizedDeployment.length === 0) {
@@ -123,17 +105,14 @@ function parseDeploymentSpecifier(rawDeployment: string): Deployment | null {
   };
 }
 
-/**
- * @param {unknown} value
- * @returns {value is EnvEntry}
- */
 function isEnvEntry(value: unknown): value is EnvEntry {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return false;
   }
 
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.name === "string" && typeof candidate.value === "string"
-  );
+  if (!("name" in value) || !("value" in value)) {
+    return false;
+  }
+
+  return typeof value.name === "string" && typeof value.value === "string";
 }

@@ -127,8 +127,6 @@ const SHARE_MODE_CONFIG: Record<ShareMode, ShareModeConfig> = {
 /**
  * `make anon-share` and `make run-share` both expose one public frontend URL
  * while keeping the configured Convex backend behind Vite's same-origin proxy.
- *
- * @returns {string}
  */
 function getHelpText(): string {
   return `Usage: node scripts/anon-share.ts [options]
@@ -149,10 +147,6 @@ Options:
 `;
 }
 
-/**
- * @param {unknown} line
- * @returns {string | null}
- */
 export function parseCloudflaredQuickTunnelUrl(line: unknown): string | null {
   if (typeof line !== "string") {
     return null;
@@ -162,10 +156,6 @@ export function parseCloudflaredQuickTunnelUrl(line: unknown): string | null {
   return match?.[0] ?? null;
 }
 
-/**
- * @param {unknown} contents
- * @returns {string | null}
- */
 export function readLocalConvexUrlFromEnvContents(
   contents: unknown,
 ): string | null {
@@ -186,10 +176,6 @@ export function readLocalConvexUrlFromEnvContents(
 /**
  * Split incoming stream chunks into complete newline-delimited log lines while
  * preserving any final partial line for a later `end` flush.
- *
- * @param {string} buffer
- * @param {unknown} chunk
- * @returns {{ buffer: string; lines: string[] }}
  */
 export function appendBufferedLines(
   buffer: string,
@@ -214,20 +200,11 @@ export function appendBufferedLines(
   };
 }
 
-/**
- * @param {string} buffer
- * @returns {string | null}
- */
 export function flushBufferedLine(buffer: string): string | null {
   const line = buffer.trim();
   return line.length > 0 ? line : null;
 }
 
-/**
- * @param {string} contents
- * @param {string} key
- * @returns {string | null}
- */
 function readEnvAssignmentValue(contents: string, key: string): string | null {
   const prefix = `${key}=`;
   for (const line of contents.split(/\r?\n/)) {
@@ -249,10 +226,6 @@ function readEnvAssignmentValue(contents: string, key: string): string | null {
   return null;
 }
 
-/**
- * @param {string[]} argv
- * @returns {ParsedArgs}
- */
 function parseArgs(argv: string[]): ParsedArgs {
   let mode: ShareMode = "anonymous";
 
@@ -293,10 +266,6 @@ function parseArgs(argv: string[]): ParsedArgs {
   };
 }
 
-/**
- * @param {string} value
- * @returns {ShareMode}
- */
 function parseMode(value: string): ShareMode {
   if (value === "anonymous" || value === "local") {
     return value;
@@ -305,10 +274,6 @@ function parseMode(value: string): ShareMode {
   throw new Error(`Invalid mode "${value}". Expected "anonymous" or "local".`);
 }
 
-/**
- * @param {string} value
- * @returns {number}
- */
 function parsePort(value: string): number {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 65535) {
@@ -317,26 +282,15 @@ function parsePort(value: string): number {
   return parsed;
 }
 
-/**
- * @returns {string}
- */
 function resolveRepoRoot(): string {
   const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
   return path.resolve(scriptDirectory, "..");
 }
 
-/**
- * @param {string} repoRoot
- * @returns {string}
- */
 function resolveAppsNoterDir(repoRoot: string): string {
   return path.join(repoRoot, APPS_NOTER_DIRNAME);
 }
 
-/**
- * @param {string} repoRoot
- * @returns {string}
- */
 function readConfiguredConvexUrl(repoRoot: string): string {
   const envPath = path.join(resolveAppsNoterDir(repoRoot), ".env.local");
   if (!fs.existsSync(envPath)) {
@@ -356,10 +310,6 @@ function readConfiguredConvexUrl(repoRoot: string): string {
   return value;
 }
 
-/**
- * @param {number} port
- * @returns {Promise<boolean>}
- */
 async function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const server = net.createServer();
@@ -382,9 +332,6 @@ async function isPortAvailable(port: number): Promise<boolean> {
  * Vite for one stable port. `apps/noter/scripts/run-vite-dev.ts` still makes
  * the final bind decision, so this remains best-effort and
  * `NOTER_DEV_STRICT_PORT=1` intentionally fails fast if a late race loses.
- *
- * @param {number} startPort
- * @returns {Promise<number>}
  */
 async function findAvailablePort(startPort: number): Promise<number> {
   for (let port = startPort; port < startPort + 100; port += 1) {
@@ -398,19 +345,10 @@ async function findAvailablePort(startPort: number): Promise<number> {
   );
 }
 
-/**
- * @param {unknown} error
- * @returns {string}
- */
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/**
- * @param {number | null} code
- * @param {NodeJS.Signals | null} signal
- * @returns {string}
- */
 function describeProcessExit(
   code: number | null,
   signal: NodeJS.Signals | null,
@@ -421,9 +359,6 @@ function describeProcessExit(
   return typeof code === "number" ? `code ${code}` : "unknown exit";
 }
 
-/**
- * @returns {ExitState}
- */
 function createExitState(): ExitState {
   return {
     exited: false,
@@ -432,11 +367,6 @@ function createExitState(): ExitState {
   };
 }
 
-/**
- * @param {ChildProcess} childProcess
- * @param {ExitState} exitState
- * @returns {Promise<ChildExit>}
- */
 function waitForChildExit(
   childProcess: ChildProcess,
   exitState: ExitState,
@@ -451,10 +381,6 @@ function waitForChildExit(
   });
 }
 
-/**
- * @param {RunCommandArgs} args
- * @returns {Promise<void>}
- */
 function runCommand(args: RunCommandArgs): Promise<void> {
   return new Promise((resolve, reject) => {
     const childProcess: ChildProcess = spawn(args.command, args.args, {
@@ -479,10 +405,6 @@ function runCommand(args: RunCommandArgs): Promise<void> {
   });
 }
 
-/**
- * @param {WaitForUrlReadyArgs} args
- * @returns {Promise<void>}
- */
 async function waitForUrlReady(args: WaitForUrlReadyArgs): Promise<void> {
   const deadline = Date.now() + args.timeoutMs;
 
@@ -515,10 +437,6 @@ async function waitForUrlReady(args: WaitForUrlReadyArgs): Promise<void> {
   );
 }
 
-/**
- * @param {WaitForFrontendOriginArgs} args
- * @returns {Promise<string>}
- */
 async function waitForFrontendOrigin(
   args: WaitForFrontendOriginArgs,
 ): Promise<string> {
@@ -549,10 +467,6 @@ async function waitForFrontendOrigin(
   throw new Error("Timed out waiting for the local frontend origin state.");
 }
 
-/**
- * @param {string} repoRoot
- * @returns {Promise<void>}
- */
 async function ensureCloudflaredBinary(repoRoot: string): Promise<void> {
   try {
     const output = execFileSync("cloudflared", ["--version"], {
@@ -575,10 +489,6 @@ async function ensureCloudflaredBinary(repoRoot: string): Promise<void> {
   }
 }
 
-/**
- * @param {DevLaunchArgs} args
- * @returns {ChildProcess}
- */
 function startDevServer(args: DevLaunchArgs): ChildProcess {
   const childProcess: ChildProcess = spawn(
     "make",
@@ -604,10 +514,6 @@ function startDevServer(args: DevLaunchArgs): ChildProcess {
   return childProcess;
 }
 
-/**
- * @param {CloudflaredQuickTunnelArgs} args
- * @returns {CloudflaredQuickTunnelProcess}
- */
 function startCloudflaredQuickTunnel(
   args: CloudflaredQuickTunnelArgs,
 ): CloudflaredQuickTunnelProcess {
@@ -666,10 +572,6 @@ function startCloudflaredQuickTunnel(
   }, CLOUDFLARED_READY_TIMEOUT_MS);
   readyTimeoutId.unref();
 
-  /**
-   * @param {string} line
-   * @returns {void}
-   */
   const handleLine = (line: string): void => {
     const tunnelUrl = parseCloudflaredQuickTunnelUrl(line);
     if (!tunnelUrl || tunnelUrl === lastTunnelUrl) {
@@ -742,11 +644,6 @@ function startCloudflaredQuickTunnel(
   };
 }
 
-/**
- * @param {ChildProcess} childProcess
- * @param {NodeJS.Signals} [signal='SIGTERM']
- * @returns {Promise<void>}
- */
 async function stopChildProcess(
   childProcess: ChildProcess,
   signal: NodeJS.Signals = "SIGTERM",
@@ -784,11 +681,6 @@ async function stopChildProcess(
   await stopped;
 }
 
-/**
- * @param {ChildProcess} childProcess
- * @param {NodeJS.Signals} [signal='SIGTERM']
- * @returns {Promise<void>}
- */
 async function stopProcessGroup(
   childProcess: ChildProcess,
   signal: NodeJS.Signals = "SIGTERM",
@@ -838,11 +730,6 @@ async function stopProcessGroup(
   await stopped;
 }
 
-/**
- * @param {string} repoRoot
- * @param {string} publicTunnelUrl
- * @returns {Promise<void>}
- */
 async function setLocalSiteUrl(
   repoRoot: string,
   publicTunnelUrl: string,
@@ -856,19 +743,12 @@ async function setLocalSiteUrl(
   });
 }
 
-/**
- * @param {number} milliseconds
- * @returns {Promise<void>}
- */
 function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
   });
 }
 
-/**
- * @returns {Promise<void>}
- */
 async function main(): Promise<void> {
   const parsedArgs = parseArgs(process.argv.slice(2));
   if (parsedArgs.showHelp) {
@@ -916,8 +796,6 @@ async function main(): Promise<void> {
   /**
    * Signal handlers can trip shutdown concurrently with the foreground await
    * path, so read the flag through a function instead of trusting local flow.
-   *
-   * @returns {boolean}
    */
   const hasStartedShutdown = (): boolean => shuttingDown;
 
@@ -1008,9 +886,6 @@ async function main(): Promise<void> {
   }
 }
 
-/**
- * @returns {boolean}
- */
 function isMainModule(): boolean {
   const entryPoint = process.argv[1];
   if (typeof entryPoint !== "string" || entryPoint.length === 0) {

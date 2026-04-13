@@ -175,10 +175,6 @@ async function main() {
   );
 }
 
-/**
- * @param {string[]} args
- * @returns {SyncOptions}
- */
 function parseArgs(args: string[]): SyncOptions {
   const result: SyncOptions = {
     sourceEnv: null,
@@ -231,7 +227,6 @@ function parseArgs(args: string[]): SyncOptions {
   return result;
 }
 
-/** @returns {string} */
 function resolveRepoRoot(): string {
   const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {
     encoding: "utf8",
@@ -242,10 +237,6 @@ function resolveRepoRoot(): string {
   return process.cwd();
 }
 
-/**
- * @param {string} filePath
- * @returns {EnvFile | null}
- */
 function readEnvFile(filePath: string): EnvFile | null {
   if (!fs.existsSync(filePath)) {
     return null;
@@ -269,10 +260,6 @@ function readEnvFile(filePath: string): EnvFile | null {
   return { path: filePath, vars };
 }
 
-/**
- * @param {string} value
- * @returns {string}
- */
 function stripQuotes(value: string): string {
   if (
     (value.startsWith('"') && value.endsWith('"')) ||
@@ -283,10 +270,6 @@ function stripQuotes(value: string): string {
   return value;
 }
 
-/**
- * @param {Record<string, string>} vars
- * @returns {Deployment | null}
- */
 function parseDeploymentFromEnv(
   vars: Record<string, string>,
 ): Deployment | null {
@@ -322,33 +305,18 @@ function parseDeploymentFromEnv(
   return null;
 }
 
-/**
- * @param {string} value
- * @returns {string}
- */
 function stripTrailingInlineComment(value: string): string {
   return value.replace(/\s+#.*$/, "").trim();
 }
 
-/**
- * @param {string} value
- * @returns {value is DeploymentType}
- */
 function isDeploymentType(value: string): value is DeploymentType {
   return value === "dev" || value === "prod" || value === "preview";
 }
 
-/**
- * @param {string} name
- * @returns {boolean}
- */
 function isAnonymousLikeDeploymentName(name: string): boolean {
   return name.startsWith("anonymous-") || name.startsWith("local-");
 }
 
-/**
- * @returns {{ path: string, envFile: EnvFile, deployment: Deployment } | null}
- */
 function validateSourceEnvPrereqs(): {
   path: string;
   envFile: EnvFile;
@@ -402,11 +370,6 @@ function validateSourceEnvPrereqs(): {
   };
 }
 
-/**
- * @param {EnvFile} sourceEnv
- * @param {Deployment} sourceDeployment
- * @returns {string | null}
- */
 function findMatchingSourceDeployKey(
   sourceEnv: EnvFile,
   sourceDeployment: Deployment,
@@ -425,14 +388,6 @@ function findMatchingSourceDeployKey(
   });
 }
 
-/**
- * @param {{
- *   appDir: string
- *   envFile: string
- *   sourceDeployment: Deployment
- * }} args
- * @returns {Promise<EnvEntry[]>}
- */
 async function listDeploymentEnvVars({
   appDir,
   envFile,
@@ -491,14 +446,6 @@ async function listDeploymentEnvVars({
   return entries;
 }
 
-/**
- * @param {{
- *   appDir: string
- *   deploymentName: string
- *   deployKey: string
- * }} args
- * @returns {Promise<EnvEntry[]>}
- */
 async function listDeploymentEnvVarsWithDeployKey({
   appDir,
   deploymentName,
@@ -539,10 +486,6 @@ async function listDeploymentEnvVarsWithDeployKey({
   }
 }
 
-/**
- * @param {string} filePath
- * @param {EnvEntry[]} entries
- */
 function writeEnvFile(filePath: string, entries: EnvEntry[]) {
   const dir = path.dirname(filePath);
   fs.mkdirSync(dir, { recursive: true });
@@ -553,10 +496,6 @@ function writeEnvFile(filePath: string, entries: EnvEntry[]) {
   fs.writeFileSync(filePath, contents, "utf8");
 }
 
-/**
- * @param {string} value
- * @returns {string}
- */
 function formatEnvValue(value: string): string {
   if (/^[A-Za-z0-9_./:@-]+$/.test(value)) {
     return value;
@@ -564,10 +503,6 @@ function formatEnvValue(value: string): string {
   return JSON.stringify(value);
 }
 
-/**
- * @param {string} repoRoot
- * @returns {string | null}
- */
 function findSourceEnvFile(repoRoot: string): string | null {
   const worktrees = getWorktrees(repoRoot);
 
@@ -603,10 +538,6 @@ function findSourceEnvFile(repoRoot: string): string | null {
   return candidates[0]?.envPath ?? null;
 }
 
-/**
- * @param {string} repoRoot
- * @returns {WorktreeInfo[]}
- */
 function getWorktrees(repoRoot: string): WorktreeInfo[] {
   const result = spawnSync("git", ["worktree", "list", "--porcelain"], {
     cwd: repoRoot,
@@ -623,10 +554,6 @@ function getWorktrees(repoRoot: string): WorktreeInfo[] {
   return blocks.map(parseWorktreeBlock);
 }
 
-/**
- * @param {string} block
- * @returns {WorktreeInfo}
- */
 function parseWorktreeBlock(block: string): WorktreeInfo {
   const lines = block.split(/\r?\n/);
 
@@ -646,18 +573,11 @@ function parseWorktreeBlock(block: string): WorktreeInfo {
   return data;
 }
 
-/**
- * @param {string} message
- * @returns {never}
- */
 function exitWithError(message: string): never {
   console.error(message);
   process.exit(1);
 }
 
-/**
- * @returns {never}
- */
 function exitWithMissingSourceEnvError(): never {
   exitWithError(
     "Missing source env file for worktree bootstrap.\n" +
@@ -665,10 +585,6 @@ function exitWithMissingSourceEnvError(): never {
   );
 }
 
-/**
- * @param {{ envFile: string, deployment: string }} args
- * @returns {never}
- */
 function exitWithMissingSourceDeployKeyError({
   envFile,
   deployment,
@@ -684,10 +600,6 @@ function exitWithMissingSourceDeployKeyError({
   );
 }
 
-/**
- * @param {string | null} sourceEnvPath
- * @returns {string}
- */
 function formatSeedEnvCommand(sourceEnvPath: string | null): string {
   const explicitSourceEnvPath = sourceEnvPath ?? options.sourceEnv;
   const sourceArg = explicitSourceEnvPath
@@ -696,10 +608,6 @@ function formatSeedEnvCommand(sourceEnvPath: string | null): string {
   return `node ./scripts/convex-sync-dev-env.ts${sourceArg}`;
 }
 
-/**
- * @param {unknown} value
- * @returns {value is ConvexBrowserModule}
- */
 function isConvexBrowserModule(value: unknown): value is ConvexBrowserModule {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return false;
@@ -709,10 +617,6 @@ function isConvexBrowserModule(value: unknown): value is ConvexBrowserModule {
   return typeof candidate.ConvexHttpClient === "function";
 }
 
-/**
- * @param {unknown} value
- * @returns {value is ConvexServerModule}
- */
 function isConvexServerModule(value: unknown): value is ConvexServerModule {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return false;
