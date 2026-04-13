@@ -69,16 +69,7 @@ async function main(): Promise<void> {
         "https://example.com/oauth/github/callback",
       ],
     ] as const) {
-      run(PNPM_COMMAND, [
-        "--filter",
-        "noter",
-        "exec",
-        "convex",
-        "env",
-        "set",
-        key,
-        value,
-      ]);
+      runConvexEnvSetWithRetry(key, value);
     }
 
     await waitFor(
@@ -110,6 +101,47 @@ function run(command: string, args: string[]): void {
   const result = spawnSync(command, args, { stdio: "inherit" });
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
+  }
+}
+
+function runConvexEnvSetWithRetry(key: string, value: string): void {
+  let attempt = 1;
+  const maxAttempts = 5;
+
+  while (true) {
+    // Local CI bootstrap can briefly race on env writes, so only retry the
+    // known OCC failure and surface everything else immediately.
+    const result = spawnSync(
+      PNPM_COMMAND,
+      ["--filter", "noter", "exec", "convex", "env", "set", key, value],
+      {
+        encoding: "utf8",
+      },
+    );
+    const output = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
+
+    if (output.length > 0) {
+      console.log(output);
+    }
+
+    if (result.status === 0) {
+      return;
+    }
+
+    if (!output.includes("OptimisticConcurrencyControlFailure")) {
+      process.exit(result.status ?? 1);
+    }
+
+    if (attempt >= maxAttempts) {
+      console.error(
+        `Failed to set Convex env var after ${maxAttempts} attempts: ${key}`,
+      );
+      process.exit(result.status ?? 1);
+    }
+
+    console.log(`Retrying Convex env set after attempt ${attempt}: ${key}`);
+    attempt += 1;
+    sleepSync(2_000);
   }
 }
 
@@ -189,4 +221,8 @@ async function failWithLog(message: string): Promise<never> {
 
 function sleep(durationMs: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, durationMs));
+}
+
+function sleepSync(durationMs: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, durationMs);
 }

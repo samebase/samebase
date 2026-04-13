@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -23,7 +24,7 @@ const PNPM_STORE_DIR = "/pnpm/store";
 const HOST_PNPM_STORE_DIR =
   process.env.PLAYWRIGHT_LINUX_PNPM_STORE ??
   path.join(
-    process.env.HOME ?? repoRoot,
+    process.env.HOME || os.homedir() || os.tmpdir(),
     ".cache/noter-playwright-linux-pnpm-store",
   );
 
@@ -64,14 +65,25 @@ function parsePlaywrightArgs(rawArgs: string[]): ParsedPlaywrightArgs {
   const playwrightArgs: string[] = [];
   let copyUpdatedSnapshots = false;
 
-  for (const arg of normalizedArgs) {
-    if (arg === "--update-snapshots") {
+  for (let index = 0; index < normalizedArgs.length; index += 1) {
+    const arg = normalizedArgs[index];
+    if (arg === "--update-snapshots" || arg === "-u") {
       copyUpdatedSnapshots = true;
-      playwrightArgs.push("--update-snapshots=changed");
+      const nextArg = normalizedArgs[index + 1];
+      if (nextArg && !nextArg.startsWith("-")) {
+        playwrightArgs.push(`--update-snapshots=${nextArg}`);
+        index += 1;
+      } else {
+        playwrightArgs.push("--update-snapshots=changed");
+      }
       continue;
     }
-    if (arg.startsWith("--update-snapshots=")) {
+    if (arg.startsWith("--update-snapshots=") || arg.startsWith("-u=")) {
       copyUpdatedSnapshots = true;
+      playwrightArgs.push(
+        arg.startsWith("-u=") ? `--update-snapshots=${arg.slice(3)}` : arg,
+      );
+      continue;
     }
     playwrightArgs.push(arg);
   }
@@ -149,6 +161,7 @@ mkdir -p "${PLAYWRIGHT_ROOT_DIR_IN_CONTAINER}"
 tar \\
   --exclude=.git \\
   --exclude=.turbo \\
+  --exclude=.cache \\
   --exclude=node_modules \\
   --exclude=apps/noter/e2e/live-test-results \\
   --exclude=apps/noter/e2e/playwright-report \\
