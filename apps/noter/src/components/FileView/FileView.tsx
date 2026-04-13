@@ -3288,7 +3288,6 @@ export function FileView() {
     <DialogProvider>
       <PersistedSidebarProvider
         shortcutSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
-        className="flex-1 h-full min-h-0"
         defaultState={FILE_VIEW_SIDEBAR_DEFAULT_STATE}
         workspaceKey="repository"
       >

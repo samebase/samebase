@@ -22,7 +22,6 @@ export function RepositoryRouteConnectStateVisualFixture({
           defaultOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "left"}
           defaultRightOpen={true}
           shortcutSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
-          className="min-h-screen bg-background text-foreground"
         >
           <RepositoryRouteConnectState
             dataTestId="file-view-connect-route-visual-fixture"

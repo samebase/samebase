@@ -432,7 +432,6 @@ export function MachinesWorkspaceVisualFixture() {
   return (
     <TestRouterProvider>
       <SidebarProvider
-        className="flex-1 h-full min-h-0"
         defaultOpen={true}
         defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
         defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}

@@ -32,7 +32,6 @@ export function WorkspaceLayoutV2FixtureFrame({
   return (
     <AppPageFrame dataTestId={dataTestId}>
       <SidebarProvider
-        className="flex-1 h-full min-h-0"
         defaultOpen={defaultOpen}
         defaultLeftDesktopWidthPx={WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX}
         defaultLeftMobileWidthPx={WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX}

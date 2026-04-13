@@ -1050,7 +1050,6 @@ export function MachinesWorkspacePage() {
 
   return (
     <PersistedSidebarProvider
-      className="flex-1 h-full min-h-0"
       defaultState={MACHINES_WORKSPACE_SIDEBAR_DEFAULT_STATE}
       workspaceKey="machines"
     >
