@@ -71,6 +71,9 @@ export function useFileViewMediaUpload({
         file.type.startsWith("image/") ||
         isRenderableRepositoryMediaPath(file.name);
       if (!looksLikeImage) {
+        // Clear any older staged file so a failed validation cannot submit
+        // stale media from a previous selection.
+        setPendingMediaUpload(null);
         setMediaUploadError("Only image uploads are supported right now.");
         return;
       }
