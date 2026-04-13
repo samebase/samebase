@@ -23,6 +23,9 @@ const SWIPE_PROBE_STEP_PX = 20;
 // first visible prose block in one oversized fling.
 const SWIPE_SCROLL_DISTANCE_PX = 240;
 const SWIPE_SCROLL_SPEED_PX_PER_SECOND = 800;
+// Linux and Darwin rasterize the workspace shell differently enough that this
+// full-container baseline needs separate snapshots per platform.
+const PROSEMARK_HEIGHT_SNAPSHOT_NAME = `fileview-prosemark-flex-height-${process.platform}.png`;
 
 async function readScrollMetrics(locator: Locator): Promise<ScrollMetrics> {
   return locator.evaluate((node) => {
@@ -211,7 +214,7 @@ test("ProseMark keeps the real file-view workspace body scrollable on desktop", 
   const { scrollContainer, surface } = await openFixture(page);
   const initialMetrics = await readScrollMetrics(scrollContainer);
   await expect(scrollContainer).toHaveScreenshot(
-    "fileview-prosemark-flex-height.png",
+    PROSEMARK_HEIGHT_SNAPSHOT_NAME,
     {
       animations: "disabled",
       caret: "hide",

@@ -14,6 +14,8 @@ Use `docs/` for:
 Current key docs:
 
 - `docs/agent-workflows.md` for deeper git/PR/worktree workflow rules
+- `docs/playwright-visual-baselines.md` for local Linux visual repro and
+  snapshot-baseline rules
 - `docs/compliance/` for compliance artifacts
 
 Do not use `docs/` as a dumping ground for accepted behavior or open-ended

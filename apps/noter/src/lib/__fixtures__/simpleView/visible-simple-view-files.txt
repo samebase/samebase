@@ -40,7 +40,8 @@ apps/noter/e2e/file-view-developer-tools-visual.spec.ts-snapshots/file-view-deve
 apps/noter/e2e/file-view-monaco-drag.spec.ts-snapshots/fileview-monaco-drag-return-main.png
 apps/noter/e2e/file-view-monaco-drag.spec.ts-snapshots/fileview-monaco-drag.png
 apps/noter/e2e/file-view-monaco-height.spec.ts-snapshots/fileview-monaco-flex-height.png
-apps/noter/e2e/file-view-prosemark-height.spec.ts-snapshots/fileview-prosemark-flex-height.png
+apps/noter/e2e/file-view-prosemark-height.spec.ts-snapshots/fileview-prosemark-flex-height-darwin.png
+apps/noter/e2e/file-view-prosemark-height.spec.ts-snapshots/fileview-prosemark-flex-height-linux.png
 apps/noter/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-create-draft.png
 apps/noter/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-default-draft.png
 apps/noter/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-open-pr.png

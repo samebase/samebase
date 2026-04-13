@@ -33,6 +33,10 @@ export default defineConfig({
       },
     ],
   ],
+  // This keeps snapshot paths stable across tests. When a fixture renders
+  // differently on Linux and macOS, the spec must encode `process.platform`
+  // into the snapshot name until we migrate the whole suite to a
+  // platform-aware snapshotPathTemplate.
   snapshotPathTemplate: "{testDir}/{testFilePath}-snapshots/{arg}{ext}",
   use: {
     baseURL: playwrightBaseUrl,
