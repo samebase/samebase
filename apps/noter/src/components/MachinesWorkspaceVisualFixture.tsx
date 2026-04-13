@@ -432,13 +432,16 @@ export function MachinesWorkspaceVisualFixture() {
   return (
     <TestRouterProvider>
       <SidebarProvider
-        className="h-full min-h-0"
+        className="flex-1 h-full min-h-0"
         defaultOpen={true}
         defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
         defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
       >
         <div className="bg-slate-100 p-8 text-slate-950">
-          <div className="h-[420px] w-[960px] overflow-hidden">
+          <div
+            data-testid="machines-workspace-visual-fixture-page"
+            className="flex h-[420px] w-[960px] flex-col overflow-hidden"
+          >
             <MachinesWorkspaceView
               dataTestId="machines-workspace-visual-fixture"
               isSubmittingTurn={false}

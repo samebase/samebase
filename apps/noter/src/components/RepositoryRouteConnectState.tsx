@@ -1,9 +1,8 @@
-import { useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
+import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { Button } from "@/components/ui/button";
-import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
 
 export function RepositoryRouteConnectState({
   repositoryFullName,
@@ -24,14 +23,6 @@ export function RepositoryRouteConnectState({
   onConnectRepository: () => void;
   dataTestId?: string;
 }) {
-  const { isMobile, setLeftDesktopOpen } = useSidebar();
-
-  useEffect(() => {
-    if (!isMobile) {
-      setLeftDesktopOpen(true);
-    }
-  }, [isMobile, setLeftDesktopOpen]);
-
   const primaryLabel = githubConnected
     ? isConnectingRepository
       ? "Connecting..."
@@ -45,58 +36,66 @@ export function RepositoryRouteConnectState({
     : "Connect GitHub before opening this repository in Noter.";
 
   return (
-    <RepositoryWorkspaceFrame
+    <WorkspaceLayoutV2FullPage
       dataTestId={dataTestId}
-      headerTitle={repositoryFullName}
-      headerRight={
-        <a
-          href={`https://github.com/${repositoryFullName}`}
-          target="_blank"
-          rel="noreferrer"
-          className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-        >
-          GitHub
-        </a>
-      }
-      leftSidebarHeader={null}
-      leftSidebarContent={null}
-      rightSidebarHeader={null}
-      rightSidebarContent={null}
-      contentClassName="flex-1 min-h-0 p-0"
-    >
-      <div className="flex h-full min-h-0 items-center justify-center p-6">
-        <div className="w-full max-w-xl">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <GitHubLogoIcon className="h-4 w-4" />
-            <span>Repository route</span>
-          </div>
-          <h1 className="mt-2 text-xl font-semibold">{repositoryFullName}</h1>
-          <p className="mt-3 max-w-lg text-sm text-muted-foreground">
-            {description}
-          </p>
-          {errorMessage ? (
-            <div
-              role="alert"
-              aria-live="assertive"
-              aria-atomic="true"
-              className="mt-4 corner-notch-1 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-            >
-              {errorMessage}
+      left={{}}
+      main={{
+        header: (
+          <RepositoryWorkspacePaneHeader
+            title={repositoryFullName}
+            right={
+              <a
+                href={`https://github.com/${repositoryFullName}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+              >
+                GitHub
+              </a>
+            }
+          />
+        ),
+        content: (
+          <div className="flex h-full min-h-0 items-center justify-center p-6">
+            <div className="w-full max-w-xl">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <GitHubLogoIcon className="h-4 w-4" />
+                <span>Repository route</span>
+              </div>
+              <h1 className="mt-2 text-xl font-semibold">
+                {repositoryFullName}
+              </h1>
+              <p className="mt-3 max-w-lg text-sm text-muted-foreground">
+                {description}
+              </p>
+              {errorMessage ? (
+                <div
+                  role="alert"
+                  aria-live="assertive"
+                  aria-atomic="true"
+                  className="mt-4 corner-notch-1 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                >
+                  {errorMessage}
+                </div>
+              ) : null}
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <Button
+                  onClick={
+                    githubConnected ? onConnectRepository : onConnectGithub
+                  }
+                  disabled={isConnectingGithub || isConnectingRepository}
+                >
+                  {primaryLabel}
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/">Back to Vaults</Link>
+                </Button>
+              </div>
             </div>
-          ) : null}
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            <Button
-              onClick={githubConnected ? onConnectRepository : onConnectGithub}
-              disabled={isConnectingGithub || isConnectingRepository}
-            >
-              {primaryLabel}
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/">Back to Vaults</Link>
-            </Button>
           </div>
-        </div>
-      </div>
-    </RepositoryWorkspaceFrame>
+        ),
+      }}
+      right={{}}
+    />
   );
 }

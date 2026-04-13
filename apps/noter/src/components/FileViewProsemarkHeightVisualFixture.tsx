@@ -9,15 +9,15 @@ import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { FileTree } from "@/components/FileTree";
 import { FileViewDeveloperTools } from "@/components/FileViewDeveloperTools";
 import { FileViewPushActions } from "@/components/FileViewPushActions";
-import { SidebarProvider } from "@/components/sidebar";
+import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
+import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
 import { Button } from "@/components/ui/button";
 import { VaultSyncStatusContent } from "@/components/VaultSyncStatus";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
-import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
-import { WorkspaceScene } from "@/components/workspace-layout/WorkspaceScene";
 import { linkStyle } from "@/components/styles";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
+import type { WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import type { FolderExpansionState } from "@/lib/fileTreeState";
 
 export type FileViewProsemarkHeightVisualMode =
@@ -345,131 +345,125 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
           forceAutoExpandedPaths={sidebarMode === "compare"}
         />
       </div>
-      <div className="shrink-0 border-t border-border/50 p-3">
-        <button
-          type="button"
-          className="flex w-full items-center justify-center border-[3px] border-dashed border-foreground/45 px-3 py-4 text-sm text-foreground/80 transition-colors hover:border-foreground/65 hover:text-foreground"
-        >
-          Drop file or click
-        </button>
-      </div>
     </>
   );
-  const emptySidebarContent = (
-    <div aria-hidden="true" className="min-h-0 flex-1 bg-background" />
+  const sidebarFooter = (
+    <div className="shrink-0 border-t border-border/50 p-3">
+      <button
+        type="button"
+        className="flex w-full items-center justify-center border-[3px] border-dashed border-foreground/45 px-3 py-4 text-sm text-foreground/80 transition-colors hover:border-foreground/65 hover:text-foreground"
+      >
+        Drop file or click
+      </button>
+    </div>
   );
+  const inactiveSidebar: WorkspaceLayoutV2PaneFrameProps = {};
+  const activeSidebar: WorkspaceLayoutV2PaneFrameProps = {
+    header: sidebarHeader,
+    content: sidebarContent,
+    footer: sidebarFooter,
+  };
 
   return (
-    <SidebarProvider
+    <WorkspaceLayoutV2FixtureFrame
+      dataTestId="fileview-prosemark-height-fixture-frame"
       defaultOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "left"}
       defaultRightOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "right"}
       shortcutSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
-      className="h-[720px] min-h-0 bg-background text-foreground"
-    >
-      <RepositoryWorkspaceFrame
-        dataTestId="fileview-prosemark-height-shell"
-        headerTestId="fileview-prosemark-height-header"
-        leftSidebarHeader={
-          FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null
-        }
-        leftSidebarContent={
-          FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
-            ? sidebarContent
-            : emptySidebarContent
-        }
-        rightSidebarHeader={
-          FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarHeader : null
-        }
-        rightSidebarContent={
-          FILE_VIEW_TREE_SIDEBAR_SIDE === "right"
-            ? sidebarContent
-            : emptySidebarContent
-        }
-        headerTitle={headerTitle}
-        onQuickOpen={() => {}}
-        contentClassName="flex-1 min-h-0 p-0"
-      >
-        <WorkspaceScene
-          workspaceBody={
-            <div
-              data-testid="fileview-prosemark-height-visual-fixture"
-              className="max-w-none flex min-h-full flex-col gap-4 p-4"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
+      left={
+        FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? activeSidebar : inactiveSidebar
+      }
+      main={{
+        header: (
+          <RepositoryWorkspacePaneHeader
+            title={headerTitle}
+            onQuickOpen={() => {}}
+          />
+        ),
+        content: (
+          <div
+            data-testid="fileview-prosemark-height-visual-fixture"
+            className="max-w-none flex min-h-full flex-col gap-4 p-4"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
                 <div className="min-w-0">
-                  <div className="min-w-0">
-                    <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
-                      {FIXTURE_BRANCH}
-                    </div>
-                    <h2 className="text-base font-medium md:text-sm">
-                      <a
-                        className={`block truncate ${linkStyle}`}
-                        href={selectedFileGitHubUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {selectedFile}
-                      </a>
-                    </h2>
+                  <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
+                    {FIXTURE_BRANCH}
                   </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <VaultSyncStatusContent
-                      repositoryFullName={FIXTURE_REPOSITORY_FULL_NAME}
-                      branch={FIXTURE_BRANCH}
-                      owner={FIXTURE_OWNER}
-                      repoName={FIXTURE_REPOSITORY_NAME}
-                      commitSha={FIXTURE_COMMIT_SHA}
-                      lastTreeRefreshAt={FIXTURE_NOW - 60_000}
-                      now={FIXTURE_NOW}
-                      showChecks={false}
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 px-2 text-xs"
+                  <h2 className="text-base font-medium md:text-sm">
+                    <a
+                      className={`block truncate ${linkStyle}`}
+                      href={selectedFileGitHubUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
                     >
-                      Review Changes
-                    </Button>
-                    <FileViewPushActions
-                      canCreateDraftPullRequest={true}
-                      draftButtonLabel="draft"
-                      hasChangesToCommit={false}
-                      isCreatingDraftPullRequest={false}
-                      isPushing={false}
-                      onCreateDraftPullRequest={() => {}}
-                      onManualCommit={() => {}}
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
-                    >
-                      Reset to GitHub
-                    </Button>
-                  </div>
-                  <FileViewDeveloperTools
-                    open={developerToolsOpen}
-                    onOpenChange={setDeveloperToolsOpen}
-                    viewMode="editor"
-                    onViewModeChange={() => {}}
-                  >
-                    {null}
-                  </FileViewDeveloperTools>
+                      {selectedFile}
+                    </a>
+                  </h2>
                 </div>
               </div>
-              <div className="relative flex flex-1 min-h-0">
-                <CodeMirrorFileSurface
-                  dataTestId="fileview-prosemark-height-surface"
-                  filePath={selectedFile}
-                  initialValue={FIXTURE_DOCUMENTS[selectedFile]}
-                />
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <VaultSyncStatusContent
+                    repositoryFullName={FIXTURE_REPOSITORY_FULL_NAME}
+                    branch={FIXTURE_BRANCH}
+                    owner={FIXTURE_OWNER}
+                    repoName={FIXTURE_REPOSITORY_NAME}
+                    commitSha={FIXTURE_COMMIT_SHA}
+                    lastTreeRefreshAt={FIXTURE_NOW - 60_000}
+                    now={FIXTURE_NOW}
+                    showChecks={false}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-2 text-xs"
+                  >
+                    Review Changes
+                  </Button>
+                  <FileViewPushActions
+                    canCreateDraftPullRequest={true}
+                    draftButtonLabel="draft"
+                    hasChangesToCommit={false}
+                    isCreatingDraftPullRequest={false}
+                    isPushing={false}
+                    onCreateDraftPullRequest={() => {}}
+                    onManualCommit={() => {}}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
+                  >
+                    Reset to GitHub
+                  </Button>
+                </div>
+                <FileViewDeveloperTools
+                  open={developerToolsOpen}
+                  onOpenChange={setDeveloperToolsOpen}
+                  viewMode="editor"
+                  onViewModeChange={() => {}}
+                >
+                  {null}
+                </FileViewDeveloperTools>
               </div>
             </div>
-          }
-        />
-      </RepositoryWorkspaceFrame>
-    </SidebarProvider>
+            <div className="relative flex flex-1 min-h-0">
+              <CodeMirrorFileSurface
+                dataTestId="fileview-prosemark-height-surface"
+                filePath={selectedFile}
+                initialValue={FIXTURE_DOCUMENTS[selectedFile]}
+              />
+            </div>
+          </div>
+        ),
+      }}
+      right={
+        FILE_VIEW_TREE_SIDEBAR_SIDE === "right"
+          ? activeSidebar
+          : inactiveSidebar
+      }
+    />
   );
 }

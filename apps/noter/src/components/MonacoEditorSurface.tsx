@@ -4,7 +4,7 @@ import type { OnMount } from "@monaco-editor/react";
 import { useTheme } from "next-themes";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { buildMonacoFileUri } from "@/lib/monacoFileUri";
-import { useProsemarkMobilePaneDrag } from "@/components/useProsemarkMobilePaneDrag";
+import { useWorkspaceLayoutV2DragSurface } from "@/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface";
 import {
   CODE_SURFACE_FONT_FAMILY,
   CODE_SURFACE_FONT_SIZE_PX,
@@ -49,7 +49,7 @@ export function MonacoEditorSurface({
   const isDark = effectiveTheme === "dark";
   const isMobileViewport = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
-  const mobilePaneDrag = useProsemarkMobilePaneDrag(true, containerRef);
+  const mobilePaneDrag = useWorkspaceLayoutV2DragSurface(true);
   const [editorHeightPx, setEditorHeightPx] = useState(MIN_EDITOR_HEIGHT_PX);
   const showLineNumbers =
     !disableLineNumbers && (!isMobileViewport || showMobileLineNumbers);

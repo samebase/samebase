@@ -93,7 +93,7 @@ vi.mock("@/components/CodespaceChatOnlyView", () => ({
   ),
 }));
 
-vi.mock("@/components/FileView", () => ({
+vi.mock("@/components/FileView/FileView", () => ({
   FileView: () => <div data-testid="file-view-page">File view page</div>,
 }));
 

@@ -4,6 +4,10 @@
 https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 
 - [ ] specifically left blank
+- [ ] FileView upstream conflict parsing still splits paths on `", "`, so
+      filenames with commas break the conflict list; replace the delimiter-based
+      handoff between `fileStagingActions` and `fileViewShared` with a
+      structured payload
 - [ ] https://donate.sybilsolutions.ai/index.html
 - [ ] https://x.com/i/status/2041767437771665457 local github actions
 - [ ] currently I manually set the cf preview for my app; theoretically I'd want

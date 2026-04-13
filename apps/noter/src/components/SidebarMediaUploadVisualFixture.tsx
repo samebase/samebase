@@ -1,8 +1,8 @@
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
 import { FileTree } from "@/components/FileTree";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
-import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
-import { SidebarProvider } from "@/components/sidebar";
+import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
+import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 
 const SIDEBAR_MEDIA_UPLOAD_VISUAL_FIXTURE_FONT_RULES = `
   [data-sidebar-media-upload-visual-fixture-font],
@@ -91,32 +91,34 @@ export function SidebarMediaUploadVisualFixture() {
   );
 
   return (
-    <SidebarProvider
-      defaultOpen={true}
-      data-sidebar-media-upload-visual-fixture-font
-      className="h-screen min-h-0 bg-background text-foreground"
-    >
+    <div data-sidebar-media-upload-visual-fixture-font className="contents">
       <style>{SIDEBAR_MEDIA_UPLOAD_VISUAL_FIXTURE_FONT_RULES}</style>
-      <RepositoryWorkspaceFrame
+      <WorkspaceLayoutV2FixtureFrame
         dataTestId="sidebar-media-upload-visual-fixture"
-        leftSidebarHeader={sidebarHeader}
-        leftSidebarContent={sidebarContent}
-        rightSidebarHeader={null}
-        rightSidebarContent={null}
-        headerTitle="x.png"
-      >
-        <div className="flex h-full min-h-0 flex-col p-6">
-          <div className="mb-3">
-            <div className="text-sm font-medium text-foreground">
-              Upload target review
+        defaultOpen={true}
+        defaultRightOpen={false}
+        left={{
+          header: sidebarHeader,
+          content: sidebarContent,
+        }}
+        main={{
+          header: <RepositoryWorkspacePaneHeader title="x.png" />,
+          content: (
+            <div className="flex h-full min-h-0 flex-col p-6">
+              <div className="mb-3">
+                <div className="text-sm font-medium text-foreground">
+                  Upload target review
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  The dialog stays tap-first on mobile and asks before replacing
+                  an existing path.
+                </div>
+              </div>
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              The dialog stays tap-first on mobile and asks before replacing an
-              existing path.
-            </div>
-          </div>
-        </div>
-      </RepositoryWorkspaceFrame>
+          ),
+        }}
+        right={{}}
+      />
       <MediaUploadDialog
         isOpen={true}
         onClose={() => {}}
@@ -126,6 +128,6 @@ export function SidebarMediaUploadVisualFixture() {
         existingFilePaths={["x.png"]}
         onSubmit={() => {}}
       />
-    </SidebarProvider>
+    </div>
   );
 }

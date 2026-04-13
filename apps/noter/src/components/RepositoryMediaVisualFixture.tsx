@@ -1,11 +1,11 @@
 import { FileTree } from "@/components/FileTree";
-import { SidebarProvider } from "@/components/sidebar";
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
+import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import {
   RepositoryMediaPreviewPanel,
   type RepositoryMediaAsset,
 } from "@/components/RepositoryMediaViewer";
-import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
+import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 
 export type RepositoryMediaVisualMode = "media-png" | "media-svg" | "media-vox";
 
@@ -61,17 +61,15 @@ export function RepositoryMediaVisualFixture({
     },
   ];
   const sidebarHeader = (
-    <div className="border-b border-border/50 p-3">
-      <div className="text-sm font-medium text-foreground">Noter</div>
-      <div className="mt-1 text-xs text-muted-foreground">
-        Fixture Workspace
-      </div>
+    <div className="flex h-full items-center px-3 text-sm font-medium text-foreground">
+      Noter
     </div>
   );
 
   const sidebarContent = (
     <>
       <div className="border-b border-border/50 p-3">
+        <div className="text-xs text-muted-foreground">Fixture Workspace</div>
         <div className="flex items-center gap-2">
           <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
           <span className="truncate text-xs font-medium text-muted-foreground">
@@ -125,41 +123,45 @@ export function RepositoryMediaVisualFixture({
   );
 
   return (
-    <SidebarProvider
+    <WorkspaceLayoutV2FixtureFrame
+      dataTestId="repository-media-visual-fixture"
       defaultOpen={true}
-      defaultRightOpen={true}
-      className="h-screen min-h-0 bg-background text-foreground"
-    >
-      <RepositoryWorkspaceFrame
-        dataTestId="repository-media-visual-fixture"
-        leftSidebarHeader={sidebarHeader}
-        leftSidebarContent={sidebarContent}
-        rightSidebarHeader={null}
-        rightSidebarContent={null}
-        headerTitle={
-          fixture.selectedFile.split("/").slice(0, -1).join("/") || "/"
-        }
-      >
-        <div className="max-w-none h-full flex flex-col">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-medium md:text-sm">
-              <span className="block truncate text-foreground">
-                {fixture.selectedFile}
-              </span>
-            </h2>
-            <div className="text-xs text-muted-foreground">
-              Read-only media preview
+      defaultRightOpen={false}
+      left={{
+        header: sidebarHeader,
+        content: sidebarContent,
+      }}
+      main={{
+        header: (
+          <RepositoryWorkspacePaneHeader
+            title={
+              fixture.selectedFile.split("/").slice(0, -1).join("/") || "/"
+            }
+          />
+        ),
+        content: (
+          <div className="max-w-none h-full flex flex-col">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-medium md:text-sm">
+                <span className="block truncate text-foreground">
+                  {fixture.selectedFile}
+                </span>
+              </h2>
+              <div className="text-xs text-muted-foreground">
+                Read-only media preview
+              </div>
+            </div>
+            <div className="min-h-0 flex-1">
+              <RepositoryMediaPreviewPanel
+                asset={fixture.asset}
+                fallbackLabel={fixture.selectedFile}
+                testId="repository-media-preview-panel"
+              />
             </div>
           </div>
-          <div className="min-h-0 flex-1">
-            <RepositoryMediaPreviewPanel
-              asset={fixture.asset}
-              fallbackLabel={fixture.selectedFile}
-              testId="repository-media-preview-panel"
-            />
-          </div>
-        </div>
-      </RepositoryWorkspaceFrame>
-    </SidebarProvider>
+        ),
+      }}
+      right={{}}
+    />
   );
 }

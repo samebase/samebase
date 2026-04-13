@@ -25,6 +25,13 @@ async function gotoFixture(
   ).toBeVisible();
 }
 
+function monacoDragShell(page: Page) {
+  return page
+    .getByTestId("fileview-monaco-drag-fixture-frame")
+    .locator("[data-mobile-pane]")
+    .first();
+}
+
 /**
  * Pace Monaco-owned CDP touch drags across a few frames so Linux CI does not
  * collapse the move/end samples into a single captured touchstart.
@@ -93,9 +100,26 @@ async function dragMonacoSurface(
  * first. Linux CI otherwise starts the Monaco touch sequence mid-animation and
  * can drop the follow-up move/end events entirely.
  */
-async function waitForLeftPaneToSettle(shell: Locator) {
+async function waitForPaneToSettle(
+  shell: Locator,
+  expectedPane: "left" | "main" | "right",
+) {
   await expect
-    .poll(async () => shell.evaluate((element) => element.scrollLeft))
+    .poll(async () => {
+      return shell.evaluate((element, pane) => {
+        const maxScrollLeft = element.scrollWidth - element.clientWidth;
+
+        if (pane === "left") {
+          return Math.abs(element.scrollLeft);
+        }
+
+        if (pane === "right") {
+          return Math.abs(maxScrollLeft - element.scrollLeft);
+        }
+
+        return Math.abs(element.scrollLeft - maxScrollLeft / 2);
+      }, expectedPane);
+    })
     .toBeLessThanOrEqual(1);
 }
 
@@ -110,7 +134,7 @@ async function expectPaneAfterMonacoDrag(args: {
   page: Page;
   rearm?: () => Promise<void>;
 }) {
-  const shell = args.page.getByTestId("fileview-monaco-drag-shell");
+  const shell = monacoDragShell(args.page);
   await args.drag();
 
   try {
@@ -141,7 +165,7 @@ test("Monaco mobile drag fixture", async ({ page }) => {
 test("Monaco drag can open the left pane", async ({ page }) => {
   await gotoFixture(page);
 
-  const shell = page.getByTestId("fileview-monaco-drag-shell");
+  const shell = monacoDragShell(page);
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 
   await expectPaneAfterMonacoDrag({
@@ -158,7 +182,7 @@ test("Monaco drag can open the left pane", async ({ page }) => {
 test("Monaco drag can open the right pane", async ({ page }) => {
   await gotoFixture(page);
 
-  const shell = page.getByTestId("fileview-monaco-drag-shell");
+  const shell = monacoDragShell(page);
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 
   await expectPaneAfterMonacoDrag({
@@ -177,17 +201,22 @@ test("Monaco drag can open the right pane", async ({ page }) => {
 test("Monaco drag can return from the open left pane to main", async ({
   page,
 }) => {
-  const shell = page.getByTestId("fileview-monaco-drag-shell");
+  const shell = monacoDragShell(page);
   const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
   const leftSidebarOnlyItem = page.getByText("src/notes.ts");
   const armReturnFromLeft = async () => {
     await gotoFixture(page, { swipeDebug: true });
     await expect(shell).toHaveAttribute("data-mobile-pane", "main");
-    await page
-      .getByRole("button", { name: "Toggle Left Sidebar" })
-      .press("Enter");
-    await expect(shell).toHaveAttribute("data-mobile-pane", "left");
-    await waitForLeftPaneToSettle(shell);
+    await expectPaneAfterMonacoDrag({
+      drag: () =>
+        dragMonacoSurface(page, {
+          deltaX: 272,
+          startX: "center",
+        }),
+      expectedPane: "left",
+      page,
+    });
+    await waitForPaneToSettle(shell, "left");
     await expect(overlay).toBeVisible();
     await expect(leftSidebarOnlyItem).toBeInViewport();
   };

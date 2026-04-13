@@ -2,18 +2,12 @@ import { Layout } from "@/Layout";
 import { SignInForm } from "@/SignInForm";
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { useLocation } from "@tanstack/react-router";
-import { shouldShowGlobalChatFab } from "@/lib/globalChatFabVisibility";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { Authenticated, Unauthenticated, useConvexAuth } from "convex/react";
-import { lazy, Suspense, useMemo, type ReactNode } from "react";
-
-const ChatFab = lazy(async () => {
-  const module = await import("@/components/ChatFab");
-  return { default: module.ChatFab };
-});
+import { Suspense, useMemo, type ReactNode } from "react";
 
 export function AuthenticatedAppRoutePage({
   children,
@@ -33,7 +27,6 @@ export function AuthenticatedAppRoutePage({
       }),
     [isAuthenticated, pathname],
   );
-  const showGlobalChatFab = shouldShowGlobalChatFab(pathname);
 
   useAppAuthRuntimeEffects(pathname, rootRouteSearch.auth);
   usePageMetadata(pageMetadata);
@@ -42,10 +35,7 @@ export function AuthenticatedAppRoutePage({
     <Layout>
       <Authenticated>
         <ApprovalGate>
-          <Suspense fallback={null}>
-            {children}
-            {showGlobalChatFab ? <ChatFab /> : null}
-          </Suspense>
+          <Suspense fallback={null}>{children}</Suspense>
         </ApprovalGate>
       </Authenticated>
       <Unauthenticated>

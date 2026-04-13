@@ -101,10 +101,6 @@ import {
   type CodexThreadHistoryVisualMode,
 } from "@/components/CodexThreadHistoryVisualFixture";
 import {
-  EditorChatVisualFixture,
-  type EditorChatVisualMode,
-} from "@/components/EditorChatVisualFixture";
-import {
   VaultBranchPreviewVisualFixture,
   type VaultBranchPreviewVisualMode,
 } from "@/components/VaultBranchPreviewVisualFixture";
@@ -139,7 +135,6 @@ type VisualFixtureMode =
   | RepositoryRouteConnectStateVisualMode
   | FileViewLayoutVisualMode
   | FileViewPushActionsVisualMode
-  | EditorChatVisualMode
   | LandingCopyVisualMode
   | LogoSnapAnglesVisualMode
   | LogoThreeVisualMode
@@ -200,12 +195,6 @@ const FILE_VIEW_LAYOUT_VISUAL_MODES = [
   "fileview-layout",
   "fileview-layout-persistence",
 ] as const satisfies readonly FileViewLayoutVisualMode[];
-
-const EDITOR_CHAT_VISUAL_MODES = [
-  "editor-chat-open-desktop",
-  "editor-chat-open-mobile",
-  "editor-chat-closed",
-] as const satisfies readonly EditorChatVisualMode[];
 
 const ADD_REPOSITORY_VISUAL_MODES = [
   "add-repository-loading-more",
@@ -328,10 +317,6 @@ const VISUAL_FIXTURE_GROUPS = [
     modes: FILE_VIEW_LAYOUT_VISUAL_MODES,
   },
   {
-    label: "Editor Chat",
-    modes: EDITOR_CHAT_VISUAL_MODES,
-  },
-  {
     label: "Add Repository",
     modes: ADD_REPOSITORY_VISUAL_MODES,
   },
@@ -440,14 +425,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "logo-snap-angles") {
     return <LogoSnapAnglesVisualFixture />;
-  }
-
-  if (
-    mode === "editor-chat-open-desktop" ||
-    mode === "editor-chat-open-mobile" ||
-    mode === "editor-chat-closed"
-  ) {
-    return <EditorChatVisualFixture mode={mode} />;
   }
 
   if (

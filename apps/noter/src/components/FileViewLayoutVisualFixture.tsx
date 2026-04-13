@@ -1,10 +1,11 @@
+import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { useState } from "react";
-import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
-import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
-import { RepositoryWorkspaceFrame } from "@/components/workspace-layout/RepositoryWorkspaceFrame";
+import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
+import type { WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 export type FileViewLayoutVisualMode =
   | "fileview-layout"
@@ -17,24 +18,20 @@ export function FileViewLayoutVisualFixture({
 }) {
   const [clickCount, setClickCount] = useState(0);
   const [bodyClickCount, setBodyClickCount] = useState(0);
+  const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const scrollRows = Array.from({ length: 40 }, (_, index) => index + 1);
 
-  mode satisfies FileViewLayoutVisualMode;
-
   const sidebarHeader = (
-    <SidebarHomeAccountHeader
-      userDisplayName="nicu@noter.md"
-      dataTestId="fileview-layout-account-section"
-    />
+    <SidebarHomeAccountHeader userDisplayName="nicu@noter.md" />
   );
   const sidebarContent =
     mode === "fileview-layout" ? (
       <div
         data-testid="fileview-layout-sidebar-body"
-        className="min-h-0 flex-1 bg-muted/10"
+        className="h-full min-h-0 bg-muted/10"
       />
     ) : (
-      <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
+      <div className="flex h-full min-h-0 flex-col bg-muted/10">
         <div className="border-b border-border/50 p-3">
           <Button
             data-testid="fileview-layout-counter-button"
@@ -68,81 +65,107 @@ export function FileViewLayoutVisualFixture({
         </div>
       </div>
     );
-  const emptySidebarContent = (
-    <div
-      aria-hidden="true"
-      className="min-h-0 flex-1 bg-background"
-      data-testid="fileview-layout-left-sidebar-body"
-    />
+  const sidebarFooter = (
+    <div className="border-t border-border/50 bg-background px-3 py-2 text-xs text-muted-foreground">
+      Upload area
+    </div>
   );
+  const inactiveSidebar: WorkspaceLayoutV2PaneFrameProps = {};
+  const activeSidebar: WorkspaceLayoutV2PaneFrameProps = {
+    header: sidebarHeader,
+    content:
+      FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? (
+        <div
+          data-testid="fileview-layout-right-sidebar-body"
+          className="flex h-full min-h-0 flex-col bg-muted/10"
+        >
+          {sidebarContent}
+        </div>
+      ) : (
+        sidebarContent
+      ),
+    footer: sidebarFooter,
+  };
 
   return (
     <TestRouterProvider>
-      <SidebarProvider
+      <WorkspaceLayoutV2FixtureFrame
+        dataTestId="fileview-layout-visual-fixture"
         defaultOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "left"}
         defaultRightOpen={true}
         shortcutSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
-        className="h-[720px] min-h-0 bg-background text-foreground"
-      >
-        <RepositoryWorkspaceFrame
-          dataTestId="fileview-layout-visual-fixture"
-          headerTestId="fileview-layout-header"
-          headerTitle="/"
-          headerRight={
-            <div className="font-mono text-xs text-muted-foreground">
-              e4c2a91
-            </div>
-          }
-          onQuickOpen={() => {}}
-          contentClassName="flex-1 min-h-0 p-0"
-          leftSidebarHeader={sidebarHeader}
-          leftSidebarContent={
-            FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
-              ? sidebarContent
-              : emptySidebarContent
-          }
-          rightSidebarHeader={null}
-          rightSidebarContent={
-            FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? (
-              <div
-                data-testid="fileview-layout-right-sidebar-body"
-                className="flex min-h-0 flex-1 flex-col bg-muted/10"
-              >
-                {sidebarContent}
-              </div>
-            ) : (
-              <div
-                data-testid="fileview-layout-right-sidebar-body"
-                className="min-h-0 flex-1 bg-background"
-              />
-            )
-          }
-        >
-          <div
-            data-testid="fileview-layout-body"
-            className="h-full min-h-0 bg-muted/10 p-3"
-          >
-            <div className="flex flex-col items-start gap-3">
+        left={
+          FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
+            ? activeSidebar
+            : inactiveSidebar
+        }
+        main={{
+          header: (
+            <div
+              data-testid="fileview-layout-header"
+              className="flex h-full items-center gap-2"
+              style={{ scrollSnapStop: "always" }}
+            >
               <Button
-                data-testid="fileview-layout-body-button"
-                variant="secondary"
-                size="sm"
-                onClick={() =>
-                  setBodyClickCount((currentCount) => currentCount + 1)
-                }
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => {}}
+                title="Quick Open (Cmd+P)"
+                aria-label="Quick Open"
               >
-                Main action
+                <MagnifyingGlassIcon className="h-4 w-4" />
               </Button>
-              <span
-                data-testid="fileview-layout-body-counter"
-                className="text-sm text-foreground"
-              >
-                {bodyClickCount}
-              </span>
+
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <span className="block truncate text-sm font-medium">/</span>
+              </div>
             </div>
-          </div>
-        </RepositoryWorkspaceFrame>
-      </SidebarProvider>
+          ),
+          content: (
+            <div
+              data-testid="fileview-layout-body"
+              className="min-h-full bg-muted/10 p-3"
+            >
+              <div className="flex flex-col items-start gap-3">
+                <Button
+                  data-testid="fileview-layout-body-button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    setBodyClickCount((currentCount) => currentCount + 1)
+                  }
+                >
+                  Main action
+                </Button>
+                <span
+                  data-testid="fileview-layout-body-counter"
+                  className="text-sm text-foreground"
+                >
+                  {bodyClickCount}
+                </span>
+              </div>
+            </div>
+          ),
+        }}
+        panel={{
+          content: (
+            <div
+              data-testid="fileview-layout-chat-panel"
+              className="flex h-full min-h-0 items-center px-3 text-sm text-foreground"
+            >
+              Chat panel
+            </div>
+          ),
+          onOpenChange: setChatPanelOpen,
+          open: chatPanelOpen,
+        }}
+        right={
+          FILE_VIEW_TREE_SIDEBAR_SIDE === "right"
+            ? activeSidebar
+            : inactiveSidebar
+        }
+      />
     </TestRouterProvider>
   );
 }

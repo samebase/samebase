@@ -1,8 +1,11 @@
 import { type ReactNode } from "react";
 
 export type WorkspaceLayoutV2PaneFrameProps = {
-  content?: ReactNode;
   header?: ReactNode;
+  content?: ReactNode;
+  footer?: ReactNode;
+
+  // TODO: Maybe pass a prefix so we can add testids for each section
   headerTestId?: string;
 };
 
@@ -11,8 +14,9 @@ export type WorkspaceLayoutV2PaneFrameProps = {
  * visible while the body scrolls without the pane height shifting underneath.
  */
 export function WorkspaceLayoutV2PaneFrame({
-  content,
   header,
+  content,
+  footer,
   headerTestId,
 }: WorkspaceLayoutV2PaneFrameProps) {
   return (
@@ -20,9 +24,12 @@ export function WorkspaceLayoutV2PaneFrame({
       <div data-testid={headerTestId} className="h-8 shrink-0">
         {header}
       </div>
+
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
         <div className="min-h-0 flex-1">{content}</div>
       </div>
+
+      {footer ? <div className="shrink-0">{footer}</div> : null}
     </section>
   );
 }

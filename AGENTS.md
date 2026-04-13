@@ -232,6 +232,8 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   always before `commit`, `create pr`, or `ship`.
 - Before `commit`, `create pr`, or `ship`, inspect the diff shape with
   `git diff --stat` (and `git diff --cached --stat` when relevant).
+- When the user says `rebase`, treat it as `rebase` plus `push` so the local
+  branch and `origin/<branch>` stay aligned after the history rewrite.
 - Use the exact temporary vault prefix `tmp-<worktree-id>-<intent>` for
   Playwright/manual test repos created from a worktree.
 - `link machine` must use the current checkout's `noter.js` flow and keep every

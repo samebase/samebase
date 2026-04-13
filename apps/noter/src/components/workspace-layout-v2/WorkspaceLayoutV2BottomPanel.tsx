@@ -14,6 +14,7 @@ const WORKSPACE_LAYOUT_V2_PANEL_MOBILE_DEFAULT_HEIGHT_RATIO = 0.35;
 
 export type WorkspaceLayoutV2BottomPanelProps =
   WorkspaceLayoutV2PaneFrameProps & {
+    closeDisabled?: boolean;
     onOpenChange?: (isOpen: boolean) => void;
     open?: boolean;
   };
@@ -113,7 +114,11 @@ export function WorkspaceLayoutV2MainViewportWithPanel({
   );
   const panelHeightCustomizedRef = useRef(false);
   const panelOpen = panel?.open ?? uncontrolledPanelOpen;
+  const closeDisabled = panel?.closeDisabled ?? false;
   const setPanelOpen = (isOpen: boolean) => {
+    if (!isOpen && closeDisabled) {
+      return;
+    }
     if (!isPanelOpenControlled) {
       setUncontrolledPanelOpen(isOpen);
     }
@@ -127,6 +132,7 @@ export function WorkspaceLayoutV2MainViewportWithPanel({
   }, [hasPanel, isPanelOpenControlled]);
 
   const {
+    closeDisabled: _ignoredCloseDisabled,
     onOpenChange: _ignoredOnOpenChange,
     open: _ignoredOpen,
     ...panelFrameProps
@@ -197,7 +203,11 @@ export function WorkspaceLayoutV2MainViewportWithPanel({
                   size="icon"
                   aria-label="Close bottom panel"
                   className="h-8 w-8 shrink-0"
+                  disabled={closeDisabled}
                   onClick={() => {
+                    if (closeDisabled) {
+                      return;
+                    }
                     setPanelOpen(false);
                   }}
                 >

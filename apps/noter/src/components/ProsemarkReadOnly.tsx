@@ -32,7 +32,7 @@ import {
   prosemarkLandingCopyDarkSelectionTheme,
   prosemarkSurfaceTheme,
 } from "@/components/prosemarkSurface";
-import { useProsemarkMobilePaneDrag } from "@/components/useProsemarkMobilePaneDrag";
+import { useWorkspaceLayoutV2DragSurface } from "@/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface";
 import {
   getCodeMirrorFileLanguageKind,
   getInitialCodeMirrorLanguageExtension,
@@ -221,10 +221,7 @@ export function ProsemarkReadOnly({
   const isDark = effectiveTheme === "dark";
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const mobilePaneDrag = useProsemarkMobilePaneDrag(
-    mobilePaneDragEnabled,
-    containerRef,
-  );
+  const mobilePaneDrag = useWorkspaceLayoutV2DragSurface(mobilePaneDragEnabled);
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const lastValueRef = useRef(value);

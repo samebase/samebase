@@ -1188,6 +1188,7 @@ export function VaultDashboard() {
   const [globalChatOpen, setGlobalChatOpenState] = useState<boolean | null>(
     null,
   );
+  const [isGlobalChatBusy, setIsGlobalChatBusy] = useState(false);
   const [shouldAutoFocusChatInput, setShouldAutoFocusChatInput] =
     useState(false);
   const globalChatPendingRef = useRef<boolean | null>(null);
@@ -2299,9 +2300,11 @@ export function VaultDashboard() {
             content: (
               <EditorChatPanel
                 autoFocusInput={shouldAutoFocusChatInput}
+                onBusyStateChange={setIsGlobalChatBusy}
                 shellMode="embedded"
               />
             ),
+            closeDisabled: isGlobalChatBusy,
             onOpenChange: handleGlobalChatOpenChange,
             open: resolvedGlobalChatOpen,
           }}

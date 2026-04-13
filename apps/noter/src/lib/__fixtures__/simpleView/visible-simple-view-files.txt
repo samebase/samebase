@@ -26,9 +26,6 @@ apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.pn
 apps/noter/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-raw.png
 apps/noter/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-zoomed.png
 apps/noter/e2e/corner-notch-visual.spec.ts-snapshots/corner-notch.png
-apps/noter/e2e/editor-chat-visual.spec.ts-snapshots/editor-chat-closed.png
-apps/noter/e2e/editor-chat-visual.spec.ts-snapshots/editor-chat-open-desktop.png
-apps/noter/e2e/editor-chat-visual.spec.ts-snapshots/editor-chat-open-mobile.png
 apps/noter/e2e/file-view-code-parity.spec.ts-snapshots/file-view-code-parity-diff-preview.png
 apps/noter/e2e/file-view-code-parity.spec.ts-snapshots/file-view-code-parity-editors.png
 apps/noter/e2e/file-view-compare-visual.spec.ts-snapshots/file-view-compare-loading.png
@@ -72,10 +69,10 @@ apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-filters-pop
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-mobile-alignment.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-pr-labels.png
 apps/noter/e2e/vault-sync-status-visual.spec.ts-snapshots/vault-sync-status-states.png
-apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-left-header-right-tree.png
+apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-shell-right-tree.png
 apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-mobile-sidebar-open.png
 apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-mobile-swipe-debug-main-to-left.png
-apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-mobile-swipe-debug-overlay.png
+apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-mobile-swipe-debug-left-to-main.png
 apps/noter/fixtures/daytona-convex-proxy.env
 apps/noter/public/apple-touch-icon.png
 apps/noter/public/favicon-32.png

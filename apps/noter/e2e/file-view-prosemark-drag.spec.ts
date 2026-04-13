@@ -22,6 +22,13 @@ async function gotoFixture(
   await page.waitForLoadState("networkidle");
 }
 
+function prosemarkDragShell(page: Page) {
+  return page
+    .getByTestId("fileview-prosemark-height-fixture-frame")
+    .locator("[data-mobile-pane]")
+    .first();
+}
+
 async function dragProsemarkSurface(
   page: Page,
   args: {
@@ -95,7 +102,7 @@ async function expectPaneAfterProsemarkDrag(args: {
   expectedPane: "main" | "right";
   page: Page;
 }) {
-  const shell = args.page.getByTestId("fileview-prosemark-height-shell");
+  const shell = prosemarkDragShell(args.page);
   await args.drag();
 
   try {
@@ -143,7 +150,7 @@ test("dragging left on the real prose file surface opens the file tree pane", as
 }) => {
   await gotoFixture(page);
 
-  const shell = page.getByTestId("fileview-prosemark-height-shell");
+  const shell = prosemarkDragShell(page);
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 
   await expectPaneAfterProsemarkDrag({
@@ -162,7 +169,7 @@ test("mobile prose drags do not log non-cancelable touchmove intervention warnin
 }) => {
   await gotoFixture(page);
 
-  const shell = page.getByTestId("fileview-prosemark-height-shell");
+  const shell = prosemarkDragShell(page);
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 
   const warnings = await collectTouchMoveInterventionWarnings(
@@ -200,13 +207,18 @@ test("dragging right from the open file tree pane returns to main", async ({
     swipeDebug: true,
   });
 
-  const shell = page.getByTestId("fileview-prosemark-height-shell");
+  const shell = prosemarkDragShell(page);
   const overlay = page.getByTestId("workspace-sidebar-debug-overlay");
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
-  await page
-    .getByRole("button", { name: "Toggle Right Sidebar" })
-    .press("Enter");
-  await expect(shell).toHaveAttribute("data-mobile-pane", "right");
+  await expectPaneAfterProsemarkDrag({
+    drag: () =>
+      dragProsemarkSurface(page, {
+        deltaX: -180,
+        startX: "center",
+      }),
+    expectedPane: "right",
+    page,
+  });
   await expect(overlay).toBeVisible();
 
   await expectPaneAfterProsemarkDrag({
