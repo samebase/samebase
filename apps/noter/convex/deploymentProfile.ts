@@ -8,7 +8,7 @@ const deploymentProfileValidator = union(
   object({ kind: literal("local_development") }),
   object({ kind: literal("local_worktree") }),
   object({ kind: literal("preview") }),
-  object({ kind: literal("development") }),
+  object({ kind: literal("convex_dev") }),
   object({ kind: literal("production") }),
 );
 export type DeploymentProfile = Infer<typeof deploymentProfileValidator>;
@@ -29,6 +29,7 @@ export type PublicDeploymentAuthPolicy = Infer<
 >;
 
 type DeploymentProfileEnv = {
+  CONVEX_AGENT_MODE?: string;
   CONVEX_CLOUD_URL?: string;
   CONVEX_DEPLOYMENT?: string;
   CONVEX_SITE_URL?: string;
@@ -58,6 +59,10 @@ function hasLocalRuntimeUrl(env: DeploymentProfileEnv): boolean {
     .map(readTrimmedValue)
     .filter((value): value is string => value !== null);
   return runtimeUrls.some(isLocalhostUrl);
+}
+
+function readAgentMode(env: DeploymentProfileEnv): string | null {
+  return readTrimmedValue(env.CONVEX_AGENT_MODE)?.toLowerCase() ?? null;
 }
 
 function readDaytonaDeployKeySpecifier(
@@ -111,6 +116,10 @@ function isAnonymousLikeDeploymentSpecifier(rawSpecifier: string): boolean {
 export function resolveDeploymentProfileFromEnv(
   env: DeploymentProfileEnv,
 ): DeploymentProfile {
+  if (readAgentMode(env) === "anonymous") {
+    return { kind: "local_worktree" };
+  }
+
   const deploymentSpecifier = readDeploymentSpecifier(env);
   if (deploymentSpecifier !== null) {
     if (isAnonymousLikeDeploymentSpecifier(deploymentSpecifier)) {
@@ -124,7 +133,7 @@ export function resolveDeploymentProfileFromEnv(
       case "preview":
         return { kind: "preview" };
       case "dev":
-        return { kind: "development" };
+        return { kind: "convex_dev" };
       case "prod":
         return { kind: "production" };
       case null:
@@ -145,6 +154,7 @@ export function resolveDeploymentProfileFromEnv(
 
 export function resolveDeploymentProfile(): DeploymentProfile {
   return resolveDeploymentProfileFromEnv({
+    CONVEX_AGENT_MODE: readOptionalEnv("CONVEX_AGENT_MODE") ?? undefined,
     CONVEX_CLOUD_URL: readOptionalEnv("CONVEX_CLOUD_URL") ?? undefined,
     CONVEX_DEPLOYMENT: readOptionalEnv("CONVEX_DEPLOYMENT") ?? undefined,
     CONVEX_SITE_URL: readOptionalEnv("CONVEX_SITE_URL") ?? undefined,
@@ -167,7 +177,7 @@ export function resolvePasswordAuthMode(
     case "preview":
       return "preview_seed";
     case "local_development":
-    case "development":
+    case "convex_dev":
     case "production":
       return "off";
     default:

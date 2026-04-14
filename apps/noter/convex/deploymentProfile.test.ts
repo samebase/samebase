@@ -14,6 +14,15 @@ describe("deploymentProfile", () => {
     ).toEqual({ kind: "local_worktree" });
   });
 
+  it("classifies anonymous agent mode as a local worktree", () => {
+    expect(
+      resolveDeploymentProfileFromEnv({
+        CONVEX_AGENT_MODE: "anonymous",
+        CONVEX_DEPLOYMENT: "local:fast-meadow-123",
+      }),
+    ).toEqual({ kind: "local_worktree" });
+  });
+
   it("classifies local Convex deployments as local development", () => {
     expect(
       resolveDeploymentProfileFromEnv({
@@ -30,12 +39,12 @@ describe("deploymentProfile", () => {
     ).toEqual({ kind: "preview" });
   });
 
-  it("classifies development deployments from the deployment prefix", () => {
+  it("classifies Convex dev deployments from the deployment prefix", () => {
     expect(
       resolveDeploymentProfileFromEnv({
         CONVEX_DEPLOYMENT: "dev:quiet-robin-508",
       }),
-    ).toEqual({ kind: "development" });
+    ).toEqual({ kind: "convex_dev" });
   });
 
   it("classifies production deployments from the deployment prefix", () => {
@@ -74,7 +83,7 @@ describe("deploymentProfile", () => {
     );
     expect(resolvePasswordAuthMode({ kind: "preview" })).toBe("preview_seed");
     expect(resolvePasswordAuthMode({ kind: "local_development" })).toBe("off");
-    expect(resolvePasswordAuthMode({ kind: "development" })).toBe("off");
+    expect(resolvePasswordAuthMode({ kind: "convex_dev" })).toBe("off");
     expect(resolvePasswordAuthMode({ kind: "production" })).toBe("off");
   });
 });
