@@ -3,7 +3,11 @@ import { type RootRouteSearch } from "@/lib/rootRouteSearch";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const AUTH_PROVIDER_KEY = "noter_auth_provider";
-export type PasswordAuthSurface = "hidden" | "dev" | "preview";
+export type PasswordAuthSurface = "hidden" | "local_worktree" | "preview";
+export type PublicPasswordAuthMode =
+  | "off"
+  | "local_worktree_seed"
+  | "preview_seed";
 
 function withLocalStorage<T>(reader: (storage: Storage) => T, fallback: T): T {
   try {
@@ -61,26 +65,18 @@ export function shouldShowGoogleAuthForPathname(
   );
 }
 
-/**
- * Cloudflare Pages previews use an extra deployment or branch label such as
- * `feature.project.pages.dev`, while the project default host remains
- * `project.pages.dev`. Only the deeper preview hosts should expose preview
- * password auth.
- */
-export function isCloudflarePagesPreviewHostname(hostname: string): boolean {
-  return hostname.endsWith(".pages.dev") && hostname.split(".").length > 3;
-}
-
-export function getPasswordAuthSurface(args: {
-  hostname: string;
-  isDevelopmentBuild: boolean;
-  prodUiModeEnabled: boolean;
-}): PasswordAuthSurface {
-  if (isCloudflarePagesPreviewHostname(args.hostname)) {
-    return "preview";
+export function getPasswordAuthSurface(
+  passwordAuthMode: PublicPasswordAuthMode,
+): PasswordAuthSurface {
+  switch (passwordAuthMode) {
+    case "local_worktree_seed":
+      return "local_worktree";
+    case "preview_seed":
+      return "preview";
+    case "off":
+      return "hidden";
+    default:
+      passwordAuthMode satisfies never;
+      return "hidden";
   }
-  if (args.isDevelopmentBuild && !args.prodUiModeEnabled) {
-    return "dev";
-  }
-  return "hidden";
 }

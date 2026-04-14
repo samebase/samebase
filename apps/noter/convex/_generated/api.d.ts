@@ -53,6 +53,7 @@ import type * as daytona_terminal from "../daytona/terminal.js";
 import type * as daytona_tmuxSessions from "../daytona/tmuxSessions.js";
 import type * as daytonaActions from "../daytonaActions.js";
 import type * as daytonaSnapshotRecords from "../daytonaSnapshotRecords.js";
+import type * as deploymentProfile from "../deploymentProfile.js";
 import type * as devAuth from "../devAuth.js";
 import type * as fileStaging from "../fileStaging.js";
 import type * as fileStagingActions from "../fileStagingActions.js";
@@ -155,6 +156,7 @@ declare const fullApi: ApiFromModules<{
   "daytona/tmuxSessions": typeof daytona_tmuxSessions;
   daytonaActions: typeof daytonaActions;
   daytonaSnapshotRecords: typeof daytonaSnapshotRecords;
+  deploymentProfile: typeof deploymentProfile;
   devAuth: typeof devAuth;
   fileStaging: typeof fileStaging;
   fileStagingActions: typeof fileStagingActions;

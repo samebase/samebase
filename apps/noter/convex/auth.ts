@@ -3,6 +3,10 @@ import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 import type { DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import {
+  resolveDeploymentProfile,
+  resolvePasswordAuthMode,
+} from "./deploymentProfile";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { isAllowedEmail } from "./users";
 import { readOptionalEnv } from "./oauthUtils";
@@ -18,94 +22,6 @@ type UserPatch = {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
-}
-
-function isLocalhostUrl(rawUrl: string): boolean {
-  try {
-    const parsed = new URL(rawUrl);
-    return parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
-  } catch {
-    return false;
-  }
-}
-
-function isLocalConvexDeployment(): boolean {
-  const cloudUrl = readOptionalEnv("CONVEX_CLOUD_URL");
-  if (cloudUrl !== null && isLocalhostUrl(cloudUrl)) {
-    return true;
-  }
-  const siteUrl = readOptionalEnv("CONVEX_SITE_URL");
-  return siteUrl !== null && isLocalhostUrl(siteUrl);
-}
-
-function readDeploymentName(rawDeployment: string): string | null {
-  const [_, ...rest] = rawDeployment.split(":");
-  if (rest.length === 0) {
-    return null;
-  }
-  const deploymentName = rest.join(":").trim();
-  return deploymentName.length > 0 ? deploymentName : null;
-}
-
-function isDevelopmentDeployment(): boolean {
-  const deployment = readOptionalEnv("CONVEX_DEPLOYMENT");
-  if (deployment !== null) {
-    return deployment.startsWith("dev:");
-  }
-
-  const daytonaDeployKey = readOptionalEnv("DAYTONA_CONVEX_DEPLOY_KEY");
-  if (daytonaDeployKey !== null) {
-    const [daytonaDeployment] = daytonaDeployKey.split("|", 1);
-    return daytonaDeployment.startsWith("dev:");
-  }
-
-  const siteUrl = readOptionalEnv("SITE_URL");
-  return siteUrl !== null && siteUrl.includes("localhost");
-}
-
-function isAnonymousWorktreeDeployment(): boolean {
-  const deployment = readOptionalEnv("CONVEX_DEPLOYMENT");
-  if (deployment !== null) {
-    const deploymentName = readDeploymentName(deployment);
-    return (
-      deploymentName !== null &&
-      (deploymentName.startsWith("anonymous-") ||
-        deploymentName.startsWith("local-"))
-    );
-  }
-
-  const daytonaDeployKey = readOptionalEnv("DAYTONA_CONVEX_DEPLOY_KEY");
-  if (daytonaDeployKey === null) {
-    return false;
-  }
-  const [daytonaDeployment] = daytonaDeployKey.split("|", 1);
-  const deploymentName = readDeploymentName(daytonaDeployment);
-  return (
-    deploymentName !== null &&
-    (deploymentName.startsWith("anonymous-") ||
-      deploymentName.startsWith("local-"))
-  );
-}
-
-function readPreviewSeedPasswordAuthConfig(): {
-  email: string;
-  password: string;
-} | null {
-  const email = readOptionalEnv("PREVIEW_SEED_AUTH_EMAIL");
-  const password = readOptionalEnv("PREVIEW_SEED_AUTH_PASSWORD");
-  if (email === null && password === null) {
-    return null;
-  }
-  if (email === null || password === null) {
-    throw new Error(
-      `Missing required environment variable: ${
-        email === null
-          ? "PREVIEW_SEED_AUTH_EMAIL"
-          : "PREVIEW_SEED_AUTH_PASSWORD"
-      }`,
-    );
-  }
-  return { email, password };
 }
 
 function normalizeEmail(email: string): string {
@@ -250,7 +166,8 @@ async function applyAutoSeedProviderKeys(
   db: DatabaseWriter,
   userId: Id<"users">,
 ) {
-  if (!isAnonymousWorktreeDeployment()) {
+  const deploymentProfile = resolveDeploymentProfile();
+  if (deploymentProfile.kind !== "local_worktree") {
     return;
   }
   await upsertSeedGithubConnection(db, userId);
@@ -260,14 +177,8 @@ async function applyAutoSeedProviderKeys(
 
 const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");
 const googleClientSecret = readOptionalEnv("AUTH_GOOGLE_SECRET");
-// Preview deployments opt into password auth only when the seeded preview
-// credential is present in Convex env, leaving production closed by default.
-const previewSeedPasswordAuthConfig = readPreviewSeedPasswordAuthConfig();
 const passwordAuthEnabled =
-  isLocalConvexDeployment() ||
-  isDevelopmentDeployment() ||
-  isAnonymousWorktreeDeployment() ||
-  previewSeedPasswordAuthConfig !== null;
+  resolvePasswordAuthMode(resolveDeploymentProfile()) !== "off";
 if ((googleClientId === null) !== (googleClientSecret === null)) {
   throw new Error(
     `Missing required environment variable: ${

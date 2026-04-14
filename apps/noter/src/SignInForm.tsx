@@ -23,13 +23,13 @@ import {
   writePublicLandingWaitlistDraft,
 } from "@/lib/publicLandingWaitlistDraft";
 import { useLocation } from "@tanstack/react-router";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { type ReactNode, useEffect, useState } from "react";
 import { api } from "../convex/_generated/api";
 import { SignInWithGoogle } from "./SignInWithGoogle";
 
-const DEV_PASSWORD_EMAIL = "nicu@noter.md";
-const DEV_PASSWORD_VALUE = "pass1234";
+const LOCAL_WORKTREE_PASSWORD_EMAIL = "nicu@noter.md";
+const LOCAL_WORKTREE_PASSWORD_VALUE = "pass1234";
 
 type SignInFormProps = {
   topNotice?: ReactNode;
@@ -46,11 +46,12 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
     pathname,
     rootRouteSearch,
   );
-  const passwordAuthSurface = getPasswordAuthSurface({
-    hostname: window.location.hostname,
-    isDevelopmentBuild: import.meta.env.DEV,
-    prodUiModeEnabled,
-  });
+  const deploymentAuthPolicy = useQuery(
+    api.deploymentProfile.getPublicDeploymentAuthPolicy,
+  );
+  const passwordAuthSurface = getPasswordAuthSurface(
+    deploymentAuthPolicy?.passwordAuthMode ?? "off",
+  );
   const isLandingCopyEditable = !prodUiModeEnabled && landingDevModeEnabled;
   // Keep the editable `/?dev` view and the plain landing view on the same
   // in-memory draft so query-param toggles do not reset the current copy.
@@ -207,9 +208,9 @@ function PasswordAuthForm({
         <div className="text-sm font-medium">
           {surface === "preview"
             ? "Preview password sign in"
-            : "Password auth (dev)"}
+            : "Password auth (local worktree)"}
         </div>
-        {surface === "dev" ? (
+        {surface === "local_worktree" ? (
           <Button
             type="button"
             variant="ghost"
@@ -256,15 +257,15 @@ function PasswordAuthForm({
           disabled={pending}
         />
         <div className="flex items-center gap-2">
-          {surface === "dev" ? (
+          {surface === "local_worktree" ? (
             <Button
               type="button"
               variant="outline"
               className="shrink-0"
               onClick={() => {
                 const nextFlow = "signIn";
-                const nextEmail = DEV_PASSWORD_EMAIL;
-                const nextPassword = DEV_PASSWORD_VALUE;
+                const nextEmail = LOCAL_WORKTREE_PASSWORD_EMAIL;
+                const nextPassword = LOCAL_WORKTREE_PASSWORD_VALUE;
                 setFlow(nextFlow);
                 setError(null);
                 setEmail(nextEmail);

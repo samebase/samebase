@@ -5,6 +5,10 @@ import {
 import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import {
+  resolveDeploymentProfile,
+  resolvePasswordAuthMode,
+} from "./deploymentProfile";
+import {
   internalAction,
   internalMutation,
   type DatabaseWriter,
@@ -39,22 +43,12 @@ function readSeedValue(envName: string): string | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
-/**
- * Preview deployments own their seeded password login via Convex preview env
- * vars, while local and anonymous workflows keep the legacy hardcoded seed.
- */
-function readSeedPasswordAccountConfig(): {
+function readRequiredPreviewSeedPasswordAccountConfig(): {
   email: string;
   password: string;
 } {
   const previewEmail = readSeedValue("PREVIEW_SEED_AUTH_EMAIL");
   const previewPassword = readSeedValue("PREVIEW_SEED_AUTH_PASSWORD");
-  if (previewEmail === undefined && previewPassword === undefined) {
-    return {
-      email: normalizeEmail(DEV_SEED_EMAIL),
-      password: DEV_SEED_PASSWORD,
-    };
-  }
   if (previewEmail === undefined || previewPassword === undefined) {
     throw new Error(
       previewEmail === undefined
@@ -66,6 +60,33 @@ function readSeedPasswordAccountConfig(): {
     email: normalizeEmail(previewEmail),
     password: previewPassword,
   };
+}
+
+/**
+ * Password account seeding follows the explicit deployment profile instead of
+ * inferring preview-vs-local behavior from env var presence alone.
+ */
+function readSeedPasswordAccountConfig(): {
+  email: string;
+  password: string;
+} {
+  const passwordAuthMode = resolvePasswordAuthMode(resolveDeploymentProfile());
+  switch (passwordAuthMode) {
+    case "local_worktree_seed":
+      return {
+        email: normalizeEmail(DEV_SEED_EMAIL),
+        password: DEV_SEED_PASSWORD,
+      };
+    case "preview_seed":
+      return readRequiredPreviewSeedPasswordAccountConfig();
+    case "off":
+      throw new Error(
+        "Password account seeding is disabled for this deployment profile",
+      );
+    default:
+      passwordAuthMode satisfies never;
+      throw new Error("Unsupported password auth mode");
+  }
 }
 
 async function upsertGithubApiKey(
