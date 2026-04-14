@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
-import { Command } from "commander";
 
+import {
+  failUnexpectedArgument,
+  isHelpArg,
+  requireOptionValue,
+} from "./lib/cliArgs.ts";
 import {
   fail,
   isMainModule,
@@ -10,9 +14,22 @@ import {
   runMain,
 } from "./lib/scriptRuntime.ts";
 
+const HELP_TEXT = `Usage: scripts/daytona-write-source-env.ts [options]
+
+Write a Daytona-specific cloud dev source env file for anonymous local bootstrap.
+
+Options:
+  --output <path>   Output env file path.
+                    Default: apps/noter/.env.daytona-source.local
+  --optional        Exit successfully when no usable Daytona cloud dev source is available.
+                    Any stale output file will be removed.
+  -h, --help        Show this help message.
+`;
+
 type Options = {
   output?: string;
   optional: boolean;
+  showHelp: boolean;
 };
 
 type SourceDeploymentArgs = {
@@ -25,19 +42,32 @@ type EnvEntry = {
   value: string;
 };
 
-export function createCommand(): Command {
-  return new Command()
-    .name("daytona-write-source-env")
-    .description(
-      "Write a Daytona-specific cloud dev source env file for anonymous local bootstrap.",
-    )
-    .showHelpAfterError()
-    .option("--output <path>", "Output env file path.")
-    .option(
-      "--optional",
-      "Exit successfully when no usable Daytona cloud dev source is available and remove stale output.",
-      false,
-    );
+export function parseArgs(args: string[]): Options {
+  const options: Options = {
+    optional: false,
+    showHelp: false,
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--output") {
+      options.output = requireOptionValue(args, index, arg, HELP_TEXT);
+      index += 1;
+      continue;
+    }
+    if (arg === "--optional") {
+      options.optional = true;
+      continue;
+    }
+    if (isHelpArg(arg)) {
+      options.showHelp = true;
+      continue;
+    }
+
+    failUnexpectedArgument(arg, HELP_TEXT);
+  }
+
+  return options;
 }
 
 export async function main(options: Options): Promise<void> {
@@ -210,8 +240,13 @@ function removeFileIfExists(filePath: string): void {
 }
 
 if (isMainModule(import.meta.url)) {
-  const options = createCommand().parse().opts<Options>();
+  const options = parseArgs(process.argv.slice(2));
   await runMain(async () => {
+    if (options.showHelp) {
+      console.log(HELP_TEXT);
+      return;
+    }
+
     await main(options);
   });
 }

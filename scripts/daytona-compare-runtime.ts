@@ -1,29 +1,78 @@
 #!/usr/bin/env node
 import fs from "node:fs";
-import { Command } from "commander";
 
 import { diffDaytonaRuntimeManifests } from "../runtime/daytonaRuntimeManifest.ts";
+import {
+  failMissingRequiredOptions,
+  failUnexpectedArgument,
+  isHelpArg,
+  requireOptionValue,
+} from "./lib/cliArgs.ts";
 import { fail, isMainModule, runMain } from "./lib/scriptRuntime.ts";
 
+const HELP_TEXT = `Usage: scripts/daytona-compare-runtime.ts --left <path> --right <path>
+
+Compare two normalized Daytona runtime manifests and exit non-zero on mismatch.
+
+Options:
+  --left <path>   Left manifest JSON file.
+  --right <path>  Right manifest JSON file.
+  -h, --help      Show this help message.
+`;
+
 type DaytonaRuntimeCompareOptions = {
-  left: string;
-  right: string;
+  left: string | null;
+  right: string | null;
+  showHelp: boolean;
 };
 
-export function createCommand(): Command {
-  return new Command()
-    .name("daytona-compare-runtime")
-    .description(
-      "Compare two normalized Daytona runtime manifests and exit non-zero on mismatch.",
-    )
-    .showHelpAfterError()
-    .requiredOption("--left <path>", "Left manifest JSON file.")
-    .requiredOption("--right <path>", "Right manifest JSON file.");
+export function parseArgs(args: string[]): DaytonaRuntimeCompareOptions {
+  const options: DaytonaRuntimeCompareOptions = {
+    left: null,
+    right: null,
+    showHelp: false,
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--left") {
+      options.left = requireOptionValue(args, index, arg, HELP_TEXT);
+      index += 1;
+      continue;
+    }
+    if (arg === "--right") {
+      options.right = requireOptionValue(args, index, arg, HELP_TEXT);
+      index += 1;
+      continue;
+    }
+    if (isHelpArg(arg)) {
+      options.showHelp = true;
+      continue;
+    }
+
+    failUnexpectedArgument(arg, HELP_TEXT);
+  }
+
+  if (!options.showHelp && (!options.left || !options.right)) {
+    failMissingRequiredOptions(
+      "Both --left and --right are required.",
+      HELP_TEXT,
+    );
+  }
+
+  return options;
 }
 
 export async function main(
   options: DaytonaRuntimeCompareOptions,
 ): Promise<void> {
+  if (!options.left || !options.right) {
+    failMissingRequiredOptions(
+      "Both --left and --right are required.",
+      HELP_TEXT,
+    );
+  }
+
   const left = readJsonFile(options.left);
   const right = readJsonFile(options.right);
   const diffs = diffDaytonaRuntimeManifests(left, right);
@@ -96,8 +145,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 if (isMainModule(import.meta.url)) {
-  const options = createCommand().parse().opts<DaytonaRuntimeCompareOptions>();
+  const options = parseArgs(process.argv.slice(2));
   await runMain(async () => {
+    if (options.showHelp) {
+      console.log(HELP_TEXT);
+      return;
+    }
+
     await main(options);
   });
 }
