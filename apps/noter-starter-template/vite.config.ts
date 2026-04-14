@@ -1,6 +1,8 @@
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { PluginOption } from "vite";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -41,7 +43,7 @@ type StarterViteConfig = {
     printWidth: number;
     proseWrap: "always";
   };
-  plugins: ReturnType<typeof react>;
+  plugins: PluginOption[];
   resolve: {
     alias: {
       "@": string;
@@ -72,7 +74,7 @@ const config: StarterViteConfig = {
     printWidth: 80,
     proseWrap: "always",
   },
-  plugins: react(),
+  plugins: [tailwindcss(), react()],
   resolve: {
     alias: {
       "@": path.resolve(currentDir, "./src"),

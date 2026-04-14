@@ -1,4 +1,5 @@
 import { defineConfig, type ViteDevServer } from "vite";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import path from "path";
@@ -642,6 +643,7 @@ export default defineConfig({
       target: "react",
       virtualRouteConfig: "./src/routes.ts",
     }),
+    tailwindcss(),
     react(),
   ],
   resolve: {
