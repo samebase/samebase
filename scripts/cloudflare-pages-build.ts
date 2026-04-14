@@ -6,10 +6,10 @@ import { fileURLToPath } from "node:url";
 const NPX_COMMAND = process.platform === "win32" ? "npx.cmd" : "npx";
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const INNER_BUILD_FLAG = "--inner-build";
-const PREVIEW_SEED_FUNCTION = "devAuth:seedPasswordAccount";
 const CONVEX_DEPLOY_URL_ENV_NAME = "VITE_CONVEX_URL";
 const BUILD_SITE_URL_ENV_NAME = "VITE_CONVEX_SITE_URL";
 const DEPLOYMENT_SITE_URL_ENV_NAMES = ["SITE_URL", "CONVEX_SITE_URL"] as const;
+const PRODUCTION_BRANCH_NAME = "main";
 
 type CommandSpec = {
   command: string;
@@ -101,17 +101,36 @@ export function buildInnerBuildCommand(
 }
 
 /**
- * A single Cloudflare Pages build should:
- * 1. deploy Convex with the production or preview key already in the env,
- * 2. seed preview deployments when Convex creates a fresh preview database,
- * 3. re-enter this script with VITE_CONVEX_URL set for the actual frontend build.
+ * Cloudflare Pages preview deployments are keyed by branch name. Keeping that
+ * logic in the wrapper lets Pages use one shared build command for both
+ * production and preview environments.
  */
-export function buildConvexDeployArgs(scriptPath: string): string[] {
+export function shouldCreatePreviewDeployment(
+  cloudflarePagesBranch?: string,
+): boolean {
+  if (typeof cloudflarePagesBranch !== "string") {
+    return false;
+  }
+  const normalizedBranch = cloudflarePagesBranch.trim();
+  return (
+    normalizedBranch.length > 0 && normalizedBranch !== PRODUCTION_BRANCH_NAME
+  );
+}
+
+export function buildConvexDeployArgs(
+  scriptPath: string,
+  cloudflarePagesBranch?: string,
+): string[] {
+  const args = ["convex", "deploy"];
+  const normalizedBranch =
+    typeof cloudflarePagesBranch === "string"
+      ? cloudflarePagesBranch.trim()
+      : "";
+  if (shouldCreatePreviewDeployment(normalizedBranch)) {
+    args.push("--preview-create", normalizedBranch);
+  }
   return [
-    "convex",
-    "deploy",
-    "--preview-run",
-    PREVIEW_SEED_FUNCTION,
+    ...args,
     "--cmd-url-env-var-name",
     CONVEX_DEPLOY_URL_ENV_NAME,
     "--cmd",
@@ -214,7 +233,7 @@ async function runInnerBuild(): Promise<void> {
 async function runOuterBuild(scriptPath: string): Promise<void> {
   await runCommand({
     command: NPX_COMMAND,
-    args: buildConvexDeployArgs(scriptPath),
+    args: buildConvexDeployArgs(scriptPath, process.env.CF_PAGES_BRANCH),
     env: process.env,
   });
 }

@@ -198,6 +198,11 @@ the app build before Convex finishes the preview deploy's push/codegen phase, so
 a fresh Cloudflare clone cannot generate `_generated` on the fly and must get
 those files from git.
 
+Cloudflare preview builds should use `pnpm run build:cloudflare`. That wrapper
+creates preview deployments from the Pages branch name and leaves provider
+seeding to the first allowlisted sign-in, so preview deploys do not need a
+deploy-time password bootstrap.
+
 ## License
 
 Proprietary. All rights reserved.
