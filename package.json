@@ -16,7 +16,9 @@
   "scripts": {
     "dev": "node ./scripts/run-primary-dev.ts",
     "build": "vp run --filter noter build",
-    "build:cloudflare": "node ./scripts/cloudflare-pages-build.ts",
+    "build:cloudflare": "if [ -n \"$CF_PAGES_BRANCH\" ] && [ \"$CF_PAGES_BRANCH\" != \"main\" ]; then pnpm run build:cloudflare:preview; else pnpm run build:cloudflare:production; fi",
+    "build:cloudflare:production": "pnpm --dir apps/noter exec convex deploy --cmd 'pnpm run build:ci'",
+    "build:cloudflare:preview": "pnpm --dir apps/noter exec convex deploy --preview-create \"$CF_PAGES_BRANCH\" --preview-run devAuth:seedPasswordAccount --cmd 'pnpm run build:ci'",
     "build:ci": "vp run --filter noter build:ci",
     "check": "pnpm run check:workspace && pnpm run check:root",
     "check:ci": "pnpm run check:workspace:ci && pnpm run check:root",
