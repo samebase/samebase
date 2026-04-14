@@ -49,7 +49,7 @@
     "daytona:runtime:compare": "node scripts/daytona-compare-runtime.ts",
     "daytona:runtime:render": "node scripts/render-daytona-runtime.ts",
     "daytona:runtime:check": "node scripts/render-daytona-runtime.ts --check",
-    "lint:scripts": "pnpm exec oxlint --config .oxlintrc.json --tsconfig tsconfig.scripts.json --report-unused-disable-directives runtime scripts .devcontainer/postcreate.ts apps/noter/scripts apps/noter-agent-template/scripts apps/noter-starter-template/scripts apps/noter-starter-template/.devcontainer/postcreate.ts apps/noter/postcss.config.ts apps/noter/tailwind.config.ts apps/noter-starter-template/postcss.config.ts apps/noter-starter-template/tailwind.config.ts",
+    "lint:scripts": "pnpm exec oxlint --config .oxlintrc.json --tsconfig tsconfig.scripts.json --report-unused-disable-directives runtime scripts .devcontainer/postcreate.ts apps/noter/scripts apps/noter-agent-template/scripts apps/noter-starter-template/scripts apps/noter-starter-template/.devcontainer/postcreate.ts apps/noter/tailwind.config.ts apps/noter-starter-template/tailwind.config.ts",
     "typecheck:scripts": "tsgo -p tsconfig.scripts.json --pretty false"
   },
   "devDependencies": {

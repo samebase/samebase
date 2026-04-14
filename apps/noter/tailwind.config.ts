@@ -2,15 +2,13 @@ import type { Config } from "tailwindcss";
 import tailwindcssAnimate from "tailwindcss-animate";
 
 const config = {
-  darkMode: ["selector", "class"],
+  darkMode: "class",
   content: [
     "./pages/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
     "./app/**/*.{ts,tsx}",
     "./src/**/*.{ts,tsx}",
   ],
-  safelist: ["dark"],
-  prefix: "",
   theme: {
     borderRadius: {
       none: "0px",
@@ -23,13 +21,6 @@ const config = {
       "3xl": "0px",
       full: "0px",
       ui: "var(--radius)",
-    },
-    container: {
-      center: true,
-      padding: "2rem",
-      screens: {
-        sm: "1000px",
-      },
     },
     extend: {
       colors: {

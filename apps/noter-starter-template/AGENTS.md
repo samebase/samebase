@@ -28,8 +28,7 @@ Run from the template directory (`apps/noter-starter-template`):
 pnpm create vite . --template react-ts
 pnpm dlx convex dev --once
 pnpm install
-pnpm add -D tailwindcss postcss autoprefixer
-pnpm exec tailwindcss init -p
+pnpm add -D tailwindcss @tailwindcss/vite
 pnpm dlx shadcn@latest init
 pnpm dlx shadcn@latest add button input card
 pnpm run template:export
