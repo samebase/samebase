@@ -1,4 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
+import { useLocation } from "@tanstack/react-router";
+import { z } from "zod";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import { Button } from "@/components/ui/button";
@@ -10,7 +12,9 @@ import {
   type CornerNotchType,
 } from "@/lib/cornerNotch";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
+import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { cn } from "@/lib/utils";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { Chrome } from "lucide-react";
 
 export type CornerNotchPlaygroundVisualMode = "corner-notch-playground";
@@ -36,17 +40,29 @@ const SURFACE_FRAME_CLASS = {
 
 const DETAIL_BOX_SIZE = 20;
 
-function readNumberParam<T extends readonly number[]>(
-  name: string,
+type FixtureLocationLike = {
+  hash: string;
+  pathname: string;
+  searchStr: string;
+};
+
+function isOneOf<const T extends readonly string[] | readonly number[]>(
+  values: T,
+  candidate: unknown,
+): candidate is T[number] {
+  return values.some((value) => value === candidate);
+}
+
+function readOptionalNumberParam<T extends readonly number[]>(
+  value: unknown,
   values: T,
   fallback: T[number],
 ): T[number] {
-  const rawValue = new URLSearchParams(window.location.search).get(name);
-  if (!rawValue) {
+  if (typeof value !== "string" || value.length === 0) {
     return fallback;
   }
 
-  const parsedValue = Number(rawValue);
+  const parsedValue = Number(value);
   if (!Number.isFinite(parsedValue)) {
     return fallback;
   }
@@ -54,33 +70,88 @@ function readNumberParam<T extends readonly number[]>(
   return values.find((value) => value === parsedValue) ?? fallback;
 }
 
-function readStringParam<T extends readonly string[]>(
-  name: string,
+function readOptionalStringParam<T extends readonly string[]>(
+  value: unknown,
   values: T,
   fallback: T[number],
 ): T[number] {
-  const rawValue = new URLSearchParams(window.location.search).get(name);
-  if (!rawValue) {
-    return fallback;
-  }
+  return typeof value === "string"
+    ? (values.find((candidate) => candidate === value) ?? fallback)
+    : fallback;
+}
 
-  return values.find((value) => value === rawValue) ?? fallback;
+function createLiteralNumberParamSchema<const T extends readonly number[]>(
+  values: T,
+  fallback: T[number],
+) {
+  return z.preprocess(
+    (value) => readOptionalNumberParam(value, values, fallback),
+    z.custom<T[number]>((value) => isOneOf(values, value)),
+  );
+}
+
+function createLiteralStringParamSchema<const T extends readonly string[]>(
+  values: T,
+  fallback: T[number],
+) {
+  return z.preprocess(
+    (value) => readOptionalStringParam(value, values, fallback),
+    z.custom<T[number]>((value) => isOneOf(values, value)),
+  );
+}
+
+const cornerNotchPlaygroundSearchSchema = z.object({
+  borderWidth: createLiteralNumberParamSchema(PLAYGROUND_BORDER_WIDTHS, 2),
+  surface: createLiteralStringParamSchema(PLAYGROUND_SURFACES, "light"),
+  type: createLiteralNumberParamSchema(
+    CORNER_NOTCH_TYPES,
+    DEFAULT_CORNER_NOTCH_TYPE,
+  ),
+  zoom: createLiteralNumberParamSchema(PLAYGROUND_ZOOMS, 12),
+});
+
+type CornerNotchPlaygroundSearch = z.infer<
+  typeof cornerNotchPlaygroundSearchSchema
+>;
+
+function readCornerNotchPlaygroundSearch(
+  search: string,
+): CornerNotchPlaygroundSearch {
+  return cornerNotchPlaygroundSearchSchema.parse(parseTanStackSearch(search));
 }
 
 function buildFixtureHref(
+  location: FixtureLocationLike,
   name: "type" | "borderWidth" | "zoom" | "surface",
   value: number | string,
 ) {
-  return buildPathWithUpdatedQuery(window.location, (nextSearchParams) => {
-    setQueryParam(nextSearchParams, "mode", "corner-notch-playground");
-    setQueryParam(nextSearchParams, name, `${value}`);
-  });
+  return buildPathWithUpdatedQuery(
+    {
+      hash: location.hash,
+      pathname: location.pathname,
+      search: location.searchStr,
+    },
+    (nextSearchParams) => {
+      setQueryParam(nextSearchParams, "mode", "corner-notch-playground");
+      setQueryParam(nextSearchParams, name, `${value}`);
+    },
+  );
 }
 
-function buildFixtureModeHref(mode: "corner-notch" | "corner-notch-detail") {
-  return buildPathWithUpdatedQuery(window.location, (nextSearchParams) => {
-    setQueryParam(nextSearchParams, "mode", mode);
-  });
+function buildFixtureModeHref(
+  location: FixtureLocationLike,
+  mode: "corner-notch" | "corner-notch-detail",
+) {
+  return buildPathWithUpdatedQuery(
+    {
+      hash: location.hash,
+      pathname: location.pathname,
+      search: location.searchStr,
+    },
+    (nextSearchParams) => {
+      setQueryParam(nextSearchParams, "mode", mode);
+    },
+  );
 }
 
 function FixtureOptionLink({
@@ -275,23 +346,15 @@ function RawNotchPairPreview({
   );
 }
 
-export function CornerNotchPlaygroundVisualFixture() {
-  const selectedType = readNumberParam(
-    "type",
-    CORNER_NOTCH_TYPES,
-    DEFAULT_CORNER_NOTCH_TYPE,
+function CornerNotchPlaygroundVisualFixtureContent() {
+  const location = useLocation();
+  const { borderWidth, surface, type, zoom } = readCornerNotchPlaygroundSearch(
+    location.searchStr,
   );
-  const selectedBorderWidth = readNumberParam(
-    "borderWidth",
-    PLAYGROUND_BORDER_WIDTHS,
-    2,
-  );
-  const selectedZoom = readNumberParam("zoom", PLAYGROUND_ZOOMS, 12);
-  const selectedSurface = readStringParam(
-    "surface",
-    PLAYGROUND_SURFACES,
-    "light",
-  );
+  const selectedType = type;
+  const selectedBorderWidth = borderWidth;
+  const selectedZoom = zoom;
+  const selectedSurface = surface;
   const notchClass = getCornerNotchClass(selectedType);
   const componentSurfaceStyle =
     createComponentSurfaceStyle(selectedBorderWidth);
@@ -318,17 +381,17 @@ export function CornerNotchPlaygroundVisualFixture() {
         <div className="grid gap-4">
           <FixtureControlRow label="Modes">
             <FixtureOptionLink
-              href={buildFixtureHref("type", selectedType)}
+              href={buildFixtureHref(location, "type", selectedType)}
               isSelected
               label="playground"
             />
             <FixtureOptionLink
-              href={buildFixtureModeHref("corner-notch")}
+              href={buildFixtureModeHref(location, "corner-notch")}
               isSelected={false}
               label="gallery"
             />
             <FixtureOptionLink
-              href={buildFixtureModeHref("corner-notch-detail")}
+              href={buildFixtureModeHref(location, "corner-notch-detail")}
               isSelected={false}
               label="detail"
             />
@@ -338,7 +401,7 @@ export function CornerNotchPlaygroundVisualFixture() {
             {CORNER_NOTCH_TYPES.map((type) => (
               <FixtureOptionLink
                 key={type}
-                href={buildFixtureHref("type", type)}
+                href={buildFixtureHref(location, "type", type)}
                 isSelected={selectedType === type}
                 label={`type ${type}`}
               />
@@ -349,7 +412,7 @@ export function CornerNotchPlaygroundVisualFixture() {
             {PLAYGROUND_BORDER_WIDTHS.map((borderWidth) => (
               <FixtureOptionLink
                 key={borderWidth}
-                href={buildFixtureHref("borderWidth", borderWidth)}
+                href={buildFixtureHref(location, "borderWidth", borderWidth)}
                 isSelected={selectedBorderWidth === borderWidth}
                 label={`${borderWidth}px`}
               />
@@ -360,7 +423,7 @@ export function CornerNotchPlaygroundVisualFixture() {
             {PLAYGROUND_ZOOMS.map((zoom) => (
               <FixtureOptionLink
                 key={zoom}
-                href={buildFixtureHref("zoom", zoom)}
+                href={buildFixtureHref(location, "zoom", zoom)}
                 isSelected={selectedZoom === zoom}
                 label={`${zoom}x`}
               />
@@ -371,7 +434,7 @@ export function CornerNotchPlaygroundVisualFixture() {
             {PLAYGROUND_SURFACES.map((surface) => (
               <FixtureOptionLink
                 key={surface}
-                href={buildFixtureHref("surface", surface)}
+                href={buildFixtureHref(location, "surface", surface)}
                 isSelected={selectedSurface === surface}
                 label={surface}
               />
@@ -464,5 +527,17 @@ export function CornerNotchPlaygroundVisualFixture() {
       }}
       right={{}}
     />
+  );
+}
+
+export function CornerNotchPlaygroundVisualFixture() {
+  return (
+    <TestRouterProvider
+      initialEntries={[
+        `${window.location.pathname}${window.location.search}${window.location.hash}`,
+      ]}
+    >
+      <CornerNotchPlaygroundVisualFixtureContent />
+    </TestRouterProvider>
   );
 }
