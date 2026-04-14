@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertPasswordAuthFlowAllowed,
   resolveDeploymentProfileFromEnv,
   resolvePasswordAuthMode,
 } from "./deploymentProfile";
@@ -80,9 +81,9 @@ describe("deploymentProfile", () => {
     ).toEqual({ kind: "preview" });
   });
 
-  it("fails closed to production when the deployment cannot be inferred", () => {
+  it("fails closed to the shared non-production deployment when the deployment cannot be inferred", () => {
     expect(resolveDeploymentProfileFromEnv({})).toEqual({
-      kind: "production",
+      kind: "convex_dev",
     });
   });
 
@@ -94,5 +95,17 @@ describe("deploymentProfile", () => {
     expect(resolvePasswordAuthMode({ kind: "local_development" })).toBe("off");
     expect(resolvePasswordAuthMode({ kind: "convex_dev" })).toBe("off");
     expect(resolvePasswordAuthMode({ kind: "production" })).toBe("off");
+  });
+
+  it("blocks preview password sign-up while keeping preview sign-in enabled", () => {
+    expect(() =>
+      assertPasswordAuthFlowAllowed("preview_seed", "signUp"),
+    ).toThrowError(
+      "Preview deployments only allow password sign-in for the seeded account",
+    );
+
+    expect(() =>
+      assertPasswordAuthFlowAllowed("preview_seed", "signIn"),
+    ).not.toThrow();
   });
 });

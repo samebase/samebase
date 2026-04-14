@@ -4,7 +4,7 @@ import { readOptionalEnv } from "./oauthUtils";
 
 const { literal, object, union } = v;
 
-const deploymentProfileValidator = union(
+export const deploymentProfileValidator = union(
   object({ kind: literal("local_development") }),
   object({ kind: literal("local_worktree") }),
   object({ kind: literal("preview") }),
@@ -13,12 +13,15 @@ const deploymentProfileValidator = union(
 );
 export type DeploymentProfile = Infer<typeof deploymentProfileValidator>;
 
-const passwordAuthModeValidator = union(
+export const passwordAuthModeValidator = union(
   literal("off"),
   literal("local_worktree_seed"),
   literal("preview_seed"),
 );
 export type PasswordAuthMode = Infer<typeof passwordAuthModeValidator>;
+
+const passwordAuthFlowValidator = union(literal("signIn"), literal("signUp"));
+export type PasswordAuthFlow = Infer<typeof passwordAuthFlowValidator>;
 
 const publicDeploymentAuthPolicyValidator = object({
   deploymentProfile: deploymentProfileValidator,
@@ -146,8 +149,9 @@ export function resolveDeploymentProfileFromEnv(
       case "prod":
         return { kind: "production" };
       case null:
-        break;
       default:
+        // Unknown or missing prefixes should fall through to the remaining
+        // runtime heuristics instead of being treated as a real deployment kind.
         break;
     }
   }
@@ -163,9 +167,10 @@ export function resolveDeploymentProfileFromEnv(
     return { kind: "preview" };
   }
 
-  // Unknown deployment specifiers should fail closed instead of widening
-  // password auth or sandbox-only integrations unexpectedly.
-  return { kind: "production" };
+  // Unknown deployment specifiers should fail closed to the shared non-prod
+  // deployment. That keeps billing/webhook traffic on sandbox integrations
+  // instead of accidentally widening to production.
+  return { kind: "convex_dev" };
 }
 
 export function resolveDeploymentProfile(): DeploymentProfile {
@@ -203,6 +208,30 @@ export function resolvePasswordAuthMode(
     default:
       profile satisfies never;
       return "off";
+  }
+}
+
+/**
+ * Preview deployments intentionally keep password auth to sign-in only. Local
+ * worktrees may still use the full sign-up path because they are operator-owned.
+ */
+export function assertPasswordAuthFlowAllowed(
+  passwordAuthMode: PasswordAuthMode,
+  flow: PasswordAuthFlow,
+): void {
+  switch (passwordAuthMode) {
+    case "preview_seed":
+      if (flow === "signUp") {
+        throw new Error(
+          "Preview deployments only allow password sign-in for the seeded account",
+        );
+      }
+      return;
+    case "local_worktree_seed":
+    case "off":
+      return;
+    default:
+      passwordAuthMode satisfies never;
   }
 }
 

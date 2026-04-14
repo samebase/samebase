@@ -49,6 +49,11 @@ function readRequiredPreviewSeedPasswordAccountConfig(): {
 } {
   const previewEmail = readSeedValue("PREVIEW_SEED_AUTH_EMAIL");
   const previewPassword = readSeedValue("PREVIEW_SEED_AUTH_PASSWORD");
+  if (previewEmail === undefined && previewPassword === undefined) {
+    throw new Error(
+      "PREVIEW_SEED_AUTH_EMAIL and PREVIEW_SEED_AUTH_PASSWORD are required",
+    );
+  }
   if (previewEmail === undefined || previewPassword === undefined) {
     throw new Error(
       previewEmail === undefined

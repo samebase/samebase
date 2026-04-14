@@ -11,7 +11,7 @@ import {
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
 } from "@/lib/publicLanding";
 import {
-  getPasswordAuthSurface,
+  getVisiblePasswordAuthSurface,
   type PasswordAuthSurface,
   shouldShowGoogleAuthForPathname,
 } from "@/lib/publicLandingAuthState";
@@ -49,9 +49,10 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
   const deploymentAuthPolicy = useQuery(
     api.deploymentProfile.getPublicDeploymentAuthPolicy,
   );
-  const passwordAuthSurface = getPasswordAuthSurface(
-    deploymentAuthPolicy?.passwordAuthMode ?? "off",
-  );
+  const passwordAuthSurface = getVisiblePasswordAuthSurface({
+    passwordAuthMode: deploymentAuthPolicy?.passwordAuthMode ?? "off",
+    prodUiModeEnabled,
+  });
   const isLandingCopyEditable = !prodUiModeEnabled && landingDevModeEnabled;
   // Keep the editable `/?dev` view and the plain landing view on the same
   // in-memory draft so query-param toggles do not reset the current copy.
@@ -153,7 +154,7 @@ function WaitlistForm() {
   );
 }
 
-function PasswordAuthForm({
+export function PasswordAuthForm({
   surface,
 }: {
   surface: Exclude<PasswordAuthSurface, "hidden">;

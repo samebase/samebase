@@ -4,6 +4,7 @@ import { convexAuth } from "@convex-dev/auth/server";
 import type { DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import {
+  assertPasswordAuthFlowAllowed,
   resolveDeploymentProfile,
   resolvePasswordAuthMode,
 } from "./deploymentProfile";
@@ -177,8 +178,8 @@ async function applyAutoSeedProviderKeys(
 
 const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");
 const googleClientSecret = readOptionalEnv("AUTH_GOOGLE_SECRET");
-const passwordAuthEnabled =
-  resolvePasswordAuthMode(resolveDeploymentProfile()) !== "off";
+const passwordAuthMode = resolvePasswordAuthMode(resolveDeploymentProfile());
+const passwordAuthEnabled = passwordAuthMode !== "off";
 if ((googleClientId === null) !== (googleClientSecret === null)) {
   throw new Error(
     `Missing required environment variable: ${
@@ -193,6 +194,9 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       ? [
           Password({
             profile: (params) => {
+              if (params.flow === "signIn" || params.flow === "signUp") {
+                assertPasswordAuthFlowAllowed(passwordAuthMode, params.flow);
+              }
               const rawEmail = params.email;
               if (!isNonEmptyString(rawEmail)) {
                 throw new Error("Missing `email` for password authentication");

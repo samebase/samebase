@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   getPasswordAuthSurface,
+  getVisiblePasswordAuthSurface,
   shouldRenderPublicLandingWithoutAuthGate,
 } from "./publicLandingAuthState";
 import { validateRootRouteSearch } from "./rootRouteSearch";
@@ -87,5 +88,26 @@ describe("publicLandingAuthState", () => {
       "local_worktree",
     );
     expect(getPasswordAuthSurface("off")).toBe("hidden");
+  });
+
+  it("hides password auth surfaces when prod-ui mode is enabled", () => {
+    expect(
+      getVisiblePasswordAuthSurface({
+        passwordAuthMode: "preview_seed",
+        prodUiModeEnabled: true,
+      }),
+    ).toBe("hidden");
+    expect(
+      getVisiblePasswordAuthSurface({
+        passwordAuthMode: "local_worktree_seed",
+        prodUiModeEnabled: true,
+      }),
+    ).toBe("hidden");
+    expect(
+      getVisiblePasswordAuthSurface({
+        passwordAuthMode: "local_worktree_seed",
+        prodUiModeEnabled: false,
+      }),
+    ).toBe("local_worktree");
   });
 });

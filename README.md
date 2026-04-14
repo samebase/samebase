@@ -192,7 +192,7 @@ This project uses:
 - TypeScript for type safety
 - Vitest for testing
 
-Convex generated client files under `apps/noter/convex/_generated/` are
+Convex-generated client files under `apps/noter/convex/_generated/` are
 intentionally committed. Building against an already-existing dev deployment can
 hide this requirement, because `convex codegen` has a deployment to talk to.
 Creating a fresh preview deployment is different: `convex deploy --cmd ...` runs
