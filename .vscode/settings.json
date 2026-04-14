@@ -2,7 +2,14 @@
   "editor.formatOnSave": true,
   "editor.formatOnSaveMode": "file",
   "editor.defaultFormatter": "oxc.oxc-vscode",
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
   "oxc.fmt.configPath": ".oxfmtrc.json",
+  "tailwindCSS.experimental.configFile": {
+    "apps/noter/src/index.css": "apps/noter/src/**",
+    "apps/noter-starter-template/src/index.css": "apps/noter-starter-template/src/**"
+  },
   "[typescript]": {
     "editor.defaultFormatter": "oxc.oxc-vscode"
   },
