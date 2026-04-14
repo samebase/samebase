@@ -168,20 +168,21 @@ make anon
 pnpm build
 ```
 
-For Cloudflare Pages, point the project at the repo root and use one build
-command for every environment:
+For Cloudflare Pages, point the project root directory at `apps/noter` and use
+one build command for every environment:
 
 ```bash
 pnpm run build:cloudflare
 ```
 
-That entrypoint treats `main` as the production branch and every other
+That app-owned entrypoint treats `main` as the production branch and every other
 `CF_PAGES_BRANCH` value as a preview deploy by dispatching to:
 
 - `pnpm run build:cloudflare:production`
 - `pnpm run build:cloudflare:preview`
 
-The Pages UI still only needs the single root command.
+The Pages UI still only needs the single app-level command, and each app can own
+its own Cloudflare build flow if this workspace grows beyond `apps/noter`.
 
 ### Testing
 
