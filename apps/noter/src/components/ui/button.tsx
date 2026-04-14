@@ -68,8 +68,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const finalClassName = cn(
       buttonVariants({ variant, size }),
       getCornerNotchClass(cornerNotch, cornerNotchFamily),
-      cornerNotchFamily === "pixel" &&
-        "rounded-none focus-visible:ring-0 focus-visible:ring-offset-0",
+      cornerNotchFamily === "pixel" && "rounded-none",
       className,
     );
     const buttonRef = useCornerNotchStyling(

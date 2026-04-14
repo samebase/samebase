@@ -69,7 +69,6 @@ function syncClipBridgePaint(element: HTMLElement) {
 
 function clearPixelBorderPaint(element: HTMLElement) {
   element.style.removeProperty("--noter-corner-notch-pixel-border-source");
-  element.style.removeProperty("--noter-corner-notch-pixel-focus-filter");
 }
 
 function getPixelSvgPath(type: Exclude<CornerNotchType, 0>) {
@@ -95,34 +94,16 @@ function createPixelBorderImage(
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
-function createPixelFocusFilter(color: string) {
-  return [
-    `drop-shadow(0 1px 0 ${color})`,
-    `drop-shadow(0 -1px 0 ${color})`,
-    `drop-shadow(1px 0 0 ${color})`,
-    `drop-shadow(-1px 0 0 ${color})`,
-    `drop-shadow(1px 1px 0 ${color})`,
-    `drop-shadow(1px -1px 0 ${color})`,
-    `drop-shadow(-1px 1px 0 ${color})`,
-    `drop-shadow(-1px -1px 0 ${color})`,
-  ].join(" ");
-}
-
 function syncPixelBorderPaint(
   element: HTMLElement,
   cornerNotch: Exclude<CornerNotchType, 0>,
 ) {
   const styles = window.getComputedStyle(element);
-  const ringColor = styles.getPropertyValue("--tw-ring-color").trim();
   const borderColor = styles.borderTopColor;
 
   element.style.setProperty(
     "--noter-corner-notch-pixel-border-source",
     createPixelBorderImage(borderColor, cornerNotch),
-  );
-  element.style.setProperty(
-    "--noter-corner-notch-pixel-focus-filter",
-    createPixelFocusFilter(ringColor.length > 0 ? ringColor : borderColor),
   );
 }
 

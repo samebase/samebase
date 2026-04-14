@@ -21,7 +21,7 @@ test("corner notch playground fixture", async ({ page }) => {
 
   await page
     .getByTestId("corner-notch-playground-product")
-    .getByRole("button", { name: "G" })
+    .getByRole("textbox")
     .click();
 
   await expect(

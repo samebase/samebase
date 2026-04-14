@@ -30,8 +30,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const resolvedCornerNotch = cornerNotch ?? DEFAULT_CORNER_NOTCH_TYPE;
     const finalClassName = cn(
       getOptionalCornerNotchClass(resolvedCornerNotch, cornerNotchFamily),
-      cornerNotchFamily === "pixel" &&
-        "rounded-none focus-visible:ring-0 focus-visible:ring-offset-0",
+      cornerNotchFamily === "pixel" && "rounded-none",
       className,
     );
     const inputRef = useCornerNotchStyling(

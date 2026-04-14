@@ -29,6 +29,7 @@ type PlaygroundSurface = (typeof PLAYGROUND_SURFACES)[number];
 
 type CornerNotchFixtureStyle = CSSProperties & {
   "--noter-corner-notch-bridge-size"?: string;
+  "--noter-corner-notch-preview-focus-ring-width"?: string;
   "--noter-corner-notch-stroke"?: string;
 };
 
@@ -189,11 +190,13 @@ function FixtureControlRow({
 
 function createComponentSurfaceStyle(
   borderWidth: PlaygroundBorderWidth,
+  zoom: number,
 ): CornerNotchFixtureStyle {
   const pixels = `${borderWidth}px`;
 
   return {
     borderWidth: pixels,
+    "--noter-corner-notch-preview-focus-ring-width": `${1 / zoom}px`,
     "--noter-corner-notch-stroke": pixels,
   };
 }
@@ -207,8 +210,10 @@ function CornerNotchPlaygroundVisualFixtureContent() {
   const selectedBorderWidth = borderWidth;
   const selectedZoom = zoom;
   const selectedSurface = surface;
-  const componentSurfaceStyle =
-    createComponentSurfaceStyle(selectedBorderWidth);
+  const componentSurfaceStyle = createComponentSurfaceStyle(
+    selectedBorderWidth,
+    selectedZoom,
+  );
   const zoomedSurfaceStyle: CSSProperties = {
     transform: `scale(${selectedZoom})`,
     transformOrigin: "center",
