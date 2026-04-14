@@ -1,6 +1,14 @@
 #!/usr/bin/env node
 import path from "node:path";
+
 import { collectDaytonaRuntimeManifest } from "../runtime/daytonaRuntimeManifest.ts";
+import {
+  failUnexpectedArgument,
+  isHelpArg,
+  parsePositiveIntegerOption,
+  requireOptionValue,
+} from "./lib/cliArgs.ts";
+import { isMainModule, runMain } from "./lib/scriptRuntime.ts";
 
 const HELP_TEXT = `Usage: scripts/daytona-runtime-manifest.ts [options]
 
@@ -8,46 +16,22 @@ Collect a normalized, redacted Daytona runtime manifest for a bootstrapped repo.
 
 Options:
   --repo-dir <path>     Repo root to inspect.
-                        Default: current working directory
   --app-root <path>     App root relative to the repo root.
-                        Default: apps/noter
   --preview-port <n>    Frontend preview port to check.
-                        Default: 5173
   --pretty              Pretty-print JSON output.
   -h, --help            Show this help message.
 `;
 
-const options = parseArgs(process.argv.slice(2));
-if (options.showHelp) {
-  console.log(HELP_TEXT);
-  process.exit(0);
-}
-
-const manifest = await collectDaytonaRuntimeManifest({
-  repoDir: options.repoDir ?? process.cwd(),
-  appRootRelativePath: options.appRoot ?? path.join("apps", "noter"),
-  previewPort: options.previewPort,
-});
-
-console.log(JSON.stringify(manifest, null, options.pretty ? 2 : undefined));
-
-function parseArgs(args: string[]): {
-  repoDir: string | null;
-  appRoot: string | null;
-  previewPort: number | undefined;
+type DaytonaRuntimeManifestOptions = {
+  repoDir?: string;
+  appRoot?: string;
+  previewPort?: number;
   pretty: boolean;
   showHelp: boolean;
-} {
-  const result: {
-    repoDir: string | null;
-    appRoot: string | null;
-    previewPort: number | undefined;
-    pretty: boolean;
-    showHelp: boolean;
-  } = {
-    repoDir: null,
-    appRoot: null,
-    previewPort: undefined,
+};
+
+export function parseArgs(args: string[]): DaytonaRuntimeManifestOptions {
+  const options: DaytonaRuntimeManifestOptions = {
     pretty: false,
     showHelp: false,
   };
@@ -55,48 +39,59 @@ function parseArgs(args: string[]): {
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === "--repo-dir") {
-      const value = args[index + 1];
-      if (!value || value.startsWith("-")) {
-        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`);
-      }
-      result.repoDir = value;
+      options.repoDir = requireOptionValue(args, index, arg, HELP_TEXT);
       index += 1;
       continue;
     }
     if (arg === "--app-root") {
-      const value = args[index + 1];
-      if (!value || value.startsWith("-")) {
-        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`);
-      }
-      result.appRoot = value;
+      options.appRoot = requireOptionValue(args, index, arg, HELP_TEXT);
       index += 1;
       continue;
     }
     if (arg === "--preview-port") {
-      const value = Number(args[index + 1]);
-      if (!Number.isInteger(value) || value <= 0) {
-        exitWithError(`Invalid value for ${arg}\n\n${HELP_TEXT}`);
-      }
-      result.previewPort = value;
+      options.previewPort = parsePositiveIntegerOption(
+        requireOptionValue(args, index, arg, HELP_TEXT),
+        arg,
+        HELP_TEXT,
+      );
       index += 1;
       continue;
     }
     if (arg === "--pretty") {
-      result.pretty = true;
+      options.pretty = true;
       continue;
     }
-    if (arg === "--help" || arg === "-h") {
-      result.showHelp = true;
+    if (isHelpArg(arg)) {
+      options.showHelp = true;
       continue;
     }
-    exitWithError(`Unknown argument: ${arg}\n\n${HELP_TEXT}`);
+
+    failUnexpectedArgument(arg, HELP_TEXT);
   }
 
-  return result;
+  return options;
 }
 
-function exitWithError(message: string): never {
-  console.error(message);
-  process.exit(1);
-  throw new Error(message);
+export async function main(
+  options: DaytonaRuntimeManifestOptions,
+): Promise<void> {
+  const manifest = await collectDaytonaRuntimeManifest({
+    repoDir: options.repoDir ?? process.cwd(),
+    appRootRelativePath: options.appRoot ?? path.join("apps", "noter"),
+    previewPort: options.previewPort,
+  });
+
+  console.log(JSON.stringify(manifest, null, options.pretty ? 2 : undefined));
+}
+
+if (isMainModule(import.meta.url)) {
+  const options = parseArgs(process.argv.slice(2));
+  await runMain(async () => {
+    if (options.showHelp) {
+      console.log(HELP_TEXT);
+      return;
+    }
+
+    await main(options);
+  });
 }
