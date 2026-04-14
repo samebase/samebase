@@ -190,6 +190,12 @@ This project uses:
 - TypeScript for type safety
 - Vitest for testing
 
+Convex generated client files under `apps/noter/convex/_generated/` are
+intentionally committed. Cloudflare and other CI hosts run the app build from
+`convex deploy --cmd ...` before Convex finishes its push/codegen phase, so
+fresh clones need those generated files already present in git for `apps/noter`
+builds to succeed.
+
 ## License
 
 Proprietary. All rights reserved.
