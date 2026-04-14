@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
-import { Input } from "@/components/input";
+import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
+import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import { Button } from "@/components/ui/button";
 import { useCornerNotchBridgeColor } from "@/hooks/useCornerNotchBridgeColor";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/lib/cornerNotch";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { cn } from "@/lib/utils";
+import { Chrome } from "lucide-react";
 
 export type CornerNotchPlaygroundVisualMode = "corner-notch-playground";
 
@@ -31,12 +32,6 @@ const SURFACE_FRAME_CLASS = {
   light: "border-stone-300 bg-white text-stone-950",
   dark: "border-stone-700 bg-stone-950 text-stone-50",
   warm: "border-amber-200 bg-amber-50 text-stone-900",
-} as const satisfies Record<PlaygroundSurface, string>;
-
-const SURFACE_SWATCH_CLASS = {
-  light: "border-stone-300 bg-stone-100 text-stone-900",
-  dark: "border-stone-600 bg-stone-900 text-stone-50",
-  warm: "border-amber-300 bg-amber-100 text-stone-900",
 } as const satisfies Record<PlaygroundSurface, string>;
 
 const DETAIL_BOX_SIZE = 20;
@@ -88,15 +83,6 @@ function buildFixtureModeHref(mode: "corner-notch" | "corner-notch-detail") {
   });
 }
 
-function FixtureBar({ className }: { className?: string }) {
-  return (
-    <div
-      aria-hidden="true"
-      className={cn("rounded-none bg-current/45", className)}
-    />
-  );
-}
-
 function FixtureOptionLink({
   href,
   isSelected,
@@ -111,8 +97,8 @@ function FixtureOptionLink({
       className={cn(
         "corner-notch-1 border px-2 py-1 text-xs transition-colors",
         isSelected
-          ? "border-stone-900 bg-stone-900 text-white"
-          : "border-stone-300 bg-white text-stone-700 hover:bg-stone-50",
+          ? "border-foreground bg-foreground text-background"
+          : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
       )}
       href={href}
     >
@@ -309,25 +295,27 @@ export function CornerNotchPlaygroundVisualFixture() {
   const notchClass = getCornerNotchClass(selectedType);
   const componentSurfaceStyle =
     createComponentSurfaceStyle(selectedBorderWidth);
-
-  return (
-    <div
-      data-testid="corner-notch-playground-visual-fixture"
-      className="min-h-screen bg-stone-100 p-6 text-stone-950"
-    >
-      <div className="mx-auto grid max-w-[1600px] gap-6">
-        <div className="grid gap-2">
-          <div className="text-xs font-medium uppercase tracking-[0.2em] text-stone-500">
-            Corner Notch
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Playground</h1>
-          <p className="max-w-3xl text-sm text-stone-600">
-            Tune the notch CSS on a real fixture surface, then hop to the
-            gallery or detail modes when you want the existing screenshot views.
-          </p>
+  const sidebarHeader = (
+    <div className="flex h-full items-center px-3 text-sm font-medium text-foreground">
+      Noter
+    </div>
+  );
+  const sidebarContent = (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="border-b border-border/50 px-3 py-3">
+        <div className="text-xs text-muted-foreground">
+          Corner notch playground
         </div>
+        <div className="mt-1 text-[11px] text-muted-foreground">
+          Use the left pane as the shared fixture control surface.
+        </div>
+        <div className="mt-2 text-[11px] text-muted-foreground">
+          <code>{`${notchClass} / stroke ${selectedBorderWidth}px / zoom ${selectedZoom}x / ${selectedSurface}`}</code>
+        </div>
+      </div>
 
-        <section className="grid gap-4 border border-stone-300 bg-white p-4">
+      <div className="flex-1 overflow-auto px-3 py-3">
+        <div className="grid gap-4">
           <FixtureControlRow label="Modes">
             <FixtureOptionLink
               href={buildFixtureHref("type", selectedType)}
@@ -346,194 +334,84 @@ export function CornerNotchPlaygroundVisualFixture() {
             />
           </FixtureControlRow>
 
-          <div className="grid gap-4 xl:grid-cols-4">
-            <FixtureControlRow label="Type">
-              {CORNER_NOTCH_TYPES.map((type) => (
-                <FixtureOptionLink
-                  key={type}
-                  href={buildFixtureHref("type", type)}
-                  isSelected={selectedType === type}
-                  label={`type ${type}`}
-                />
-              ))}
-            </FixtureControlRow>
+          <FixtureControlRow label="Type">
+            {CORNER_NOTCH_TYPES.map((type) => (
+              <FixtureOptionLink
+                key={type}
+                href={buildFixtureHref("type", type)}
+                isSelected={selectedType === type}
+                label={`type ${type}`}
+              />
+            ))}
+          </FixtureControlRow>
 
-            <FixtureControlRow label="Border Width">
-              {PLAYGROUND_BORDER_WIDTHS.map((borderWidth) => (
-                <FixtureOptionLink
-                  key={borderWidth}
-                  href={buildFixtureHref("borderWidth", borderWidth)}
-                  isSelected={selectedBorderWidth === borderWidth}
-                  label={`${borderWidth}px`}
-                />
-              ))}
-            </FixtureControlRow>
+          <FixtureControlRow label="Border Width">
+            {PLAYGROUND_BORDER_WIDTHS.map((borderWidth) => (
+              <FixtureOptionLink
+                key={borderWidth}
+                href={buildFixtureHref("borderWidth", borderWidth)}
+                isSelected={selectedBorderWidth === borderWidth}
+                label={`${borderWidth}px`}
+              />
+            ))}
+          </FixtureControlRow>
 
-            <FixtureControlRow label="Zoom">
-              {PLAYGROUND_ZOOMS.map((zoom) => (
-                <FixtureOptionLink
-                  key={zoom}
-                  href={buildFixtureHref("zoom", zoom)}
-                  isSelected={selectedZoom === zoom}
-                  label={`${zoom}x`}
-                />
-              ))}
-            </FixtureControlRow>
+          <FixtureControlRow label="Zoom">
+            {PLAYGROUND_ZOOMS.map((zoom) => (
+              <FixtureOptionLink
+                key={zoom}
+                href={buildFixtureHref("zoom", zoom)}
+                isSelected={selectedZoom === zoom}
+                label={`${zoom}x`}
+              />
+            ))}
+          </FixtureControlRow>
 
-            <FixtureControlRow label="Surface">
-              {PLAYGROUND_SURFACES.map((surface) => (
-                <FixtureOptionLink
-                  key={surface}
-                  href={buildFixtureHref("surface", surface)}
-                  isSelected={selectedSurface === surface}
-                  label={surface}
-                />
-              ))}
-            </FixtureControlRow>
-          </div>
-
-          <div className="text-xs text-stone-500">
-            <code>{`${notchClass} / stroke ${selectedBorderWidth}px / zoom ${selectedZoom}x / ${selectedSurface}`}</code>
-          </div>
-        </section>
-
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
+          <FixtureControlRow label="Surface">
+            {PLAYGROUND_SURFACES.map((surface) => (
+              <FixtureOptionLink
+                key={surface}
+                href={buildFixtureHref("surface", surface)}
+                isSelected={selectedSurface === surface}
+                label={surface}
+              />
+            ))}
+          </FixtureControlRow>
+        </div>
+      </div>
+    </div>
+  );
+  const mainContent = (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex-1 overflow-auto p-6">
+        <div className="grid gap-6">
           <section
             data-testid="corner-notch-playground-product"
-            className="grid gap-4 border border-stone-300 bg-white p-4"
+            className="grid gap-4"
           >
-            <div className="text-sm font-medium text-stone-900">
-              Product surface
-            </div>
-
             <div
               className={cn(
-                "grid gap-4 border p-4",
+                "flex min-h-[280px] items-center justify-center border p-6",
                 SURFACE_FRAME_CLASS[selectedSurface],
               )}
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="grid gap-1">
-                  <div className="text-xs uppercase tracking-[0.18em] opacity-60">
-                    current
-                  </div>
-                  <div className="text-sm font-medium">
-                    {notchClass} with a {selectedBorderWidth}px stroke
-                  </div>
-                </div>
-
-                <div
-                  className={cn(
-                    "border px-3 py-1 text-xs",
-                    getCornerNotchClass(selectedType),
-                    SURFACE_SWATCH_CLASS[selectedSurface],
-                  )}
-                  style={createRawSurfaceStyle(selectedBorderWidth)}
-                >
-                  raw swatch
-                </div>
-              </div>
-
-              <Card
+              <Button
                 cornerNotch={selectedType}
-                className="shadow-none"
+                type="button"
+                variant="outline"
+                className="w-full max-w-60 sm:w-auto"
                 style={componentSurfaceStyle}
               >
-                <CardHeader className="space-y-2">
-                  <CardTitle className="text-base">Corner notch card</CardTitle>
-                  <FixtureBar className="h-2.5 w-48 bg-current/35" />
-                </CardHeader>
-
-                <CardContent className="grid gap-3">
-                  <Input
-                    cornerNotch={selectedType}
-                    readOnly
-                    style={componentSurfaceStyle}
-                    value="notched input"
-                  />
-
-                  <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-                    <Input
-                      cornerNotch={selectedType}
-                      readOnly
-                      style={componentSurfaceStyle}
-                      value="bridge-color check"
-                    />
-
-                    <Button
-                      cornerNotch={selectedType}
-                      variant="outline"
-                      style={componentSurfaceStyle}
-                    >
-                      Outline
-                    </Button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    <Button
-                      cornerNotch={selectedType}
-                      className="border border-primary"
-                      style={componentSurfaceStyle}
-                    >
-                      Primary
-                    </Button>
-                    <Button
-                      cornerNotch={selectedType}
-                      variant="outline"
-                      style={componentSurfaceStyle}
-                    >
-                      Quiet
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="grid gap-3 md:grid-cols-3">
-                <div
-                  className={cn(
-                    "border p-4",
-                    getCornerNotchClass(selectedType),
-                    SURFACE_SWATCH_CLASS.light,
-                  )}
-                  style={createRawSurfaceStyle(selectedBorderWidth)}
-                >
-                  <div className="text-sm font-medium">light</div>
-                </div>
-
-                <div
-                  className={cn(
-                    "border p-4",
-                    getCornerNotchClass(selectedType),
-                    SURFACE_SWATCH_CLASS.dark,
-                  )}
-                  style={createRawSurfaceStyle(selectedBorderWidth)}
-                >
-                  <div className="text-sm font-medium">dark</div>
-                </div>
-
-                <div
-                  className={cn(
-                    "border p-4",
-                    getCornerNotchClass(selectedType),
-                    SURFACE_SWATCH_CLASS.warm,
-                  )}
-                  style={createRawSurfaceStyle(selectedBorderWidth)}
-                >
-                  <div className="text-sm font-medium">warm</div>
-                </div>
-              </div>
+                <Chrome className="mr-2 h-4 w-4" /> Google
+              </Button>
             </div>
           </section>
 
           <section
             data-testid="corner-notch-playground-detail"
-            className="grid gap-4 border border-stone-300 bg-white p-4"
+            className="grid gap-4"
           >
-            <div className="text-sm font-medium text-stone-900">
-              Detail surface
-            </div>
-
-            <div className="grid gap-3">
+            <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-4">
               <RawNotchPreview
                 borderWidth={selectedBorderWidth}
                 label="single"
@@ -569,5 +447,22 @@ export function CornerNotchPlaygroundVisualFixture() {
         </div>
       </div>
     </div>
+  );
+
+  return (
+    <WorkspaceLayoutV2FixtureFrame
+      dataTestId="corner-notch-playground-visual-fixture"
+      defaultOpen={true}
+      defaultRightOpen={false}
+      left={{
+        header: sidebarHeader,
+        content: sidebarContent,
+      }}
+      main={{
+        header: <RepositoryWorkspacePaneHeader title="SignInWithGoogle.tsx" />,
+        content: mainContent,
+      }}
+      right={{}}
+    />
   );
 }
