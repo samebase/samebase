@@ -27,6 +27,8 @@ import {
   getTailwindColorShade,
   getTailwindColorShades,
   getTailwindColorTokenForSelection,
+  isHexColorToken,
+  normalizeHexColorToken,
   type FaceColorKey,
   type FaceColors,
 } from "@/components/logoTailwindColors";
@@ -118,6 +120,8 @@ const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
   right: "Right",
   top: "Top",
 };
+const CUSTOM_FACE_COLOR_FAMILY = "Custom";
+const CUSTOM_FACE_COLOR_SHADE_LABEL = "Hex";
 const RGB_FACE_COLORS: FaceColors = {
   left: "red-500",
   right: "green-500",
@@ -178,6 +182,14 @@ function ColorOptionContent({
       <span className="font-medium text-black/80">{label}</span>
     </div>
   );
+}
+
+function createFaceColorHexDrafts(faceColors: FaceColors): FaceColors {
+  return {
+    left: getTailwindColorHex(faceColors.left),
+    right: getTailwindColorHex(faceColors.right),
+    top: getTailwindColorHex(faceColors.top),
+  };
 }
 
 function readVoxelState(routeSearch: LogoRouteSearch): string {
@@ -363,6 +375,9 @@ export function LogoPreviewPage({
   const [faceColors, setFaceColors] = useState<FaceColors>(() =>
     readFaceColors(routeSearch),
   );
+  const [faceColorHexDrafts, setFaceColorHexDrafts] = useState<FaceColors>(() =>
+    createFaceColorHexDrafts(readFaceColors(routeSearch)),
+  );
   const [logoOpacity, setLogoOpacity] = useState(DEFAULT_LOGO_OPACITY);
   const [isFaceColorAnimationEnabled, setIsFaceColorAnimationEnabled] =
     useState(false);
@@ -414,6 +429,10 @@ export function LogoPreviewPage({
     setIsoStyleId(readIsoStyleId(routeSearch));
     setFaceColors(readFaceColors(routeSearch));
   }, [routeSearch]);
+
+  useEffect(() => {
+    setFaceColorHexDrafts(createFaceColorHexDrafts(faceColors));
+  }, [faceColors]);
 
   useEffect(() => {
     if (
@@ -684,11 +703,21 @@ export function LogoPreviewPage({
     faceColorKey: FaceColorKey,
     nextFamily: string,
   ) => {
+    if (nextFamily === CUSTOM_FACE_COLOR_FAMILY) {
+      setFaceColors((currentFaceColors) => ({
+        ...currentFaceColors,
+        [faceColorKey]: getTailwindColorHex(currentFaceColors[faceColorKey]),
+      }));
+      return;
+    }
+
     setFaceColors((currentFaceColors) => ({
       ...currentFaceColors,
       [faceColorKey]: getTailwindColorTokenForSelection(
         nextFamily,
-        getTailwindColorShade(currentFaceColors[faceColorKey]),
+        isHexColorToken(currentFaceColors[faceColorKey])
+          ? "500"
+          : getTailwindColorShade(currentFaceColors[faceColorKey]),
         currentFaceColors[faceColorKey],
       ),
     }));
@@ -705,6 +734,49 @@ export function LogoPreviewPage({
         nextShade,
         currentFaceColors[faceColorKey],
       ),
+    }));
+  };
+
+  const handleFaceColorHexDraftChange = (
+    faceColorKey: FaceColorKey,
+    nextValue: string,
+  ) => {
+    setFaceColorHexDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [faceColorKey]: nextValue,
+    }));
+  };
+
+  const handleFaceColorHexCommit = (faceColorKey: FaceColorKey) => {
+    const normalizedHex = normalizeHexColorToken(
+      faceColorHexDrafts[faceColorKey],
+    );
+    if (normalizedHex === null) {
+      setFaceColorHexDrafts((currentDrafts) => ({
+        ...currentDrafts,
+        [faceColorKey]: getTailwindColorHex(faceColors[faceColorKey]),
+      }));
+      return;
+    }
+
+    setFaceColors((currentFaceColors) => ({
+      ...currentFaceColors,
+      [faceColorKey]: normalizedHex,
+    }));
+  };
+
+  const handleFaceColorPickerChange = (
+    faceColorKey: FaceColorKey,
+    nextValue: string,
+  ) => {
+    const normalizedHex = normalizeHexColorToken(nextValue);
+    if (normalizedHex === null) {
+      return;
+    }
+
+    setFaceColors((currentFaceColors) => ({
+      ...currentFaceColors,
+      [faceColorKey]: normalizedHex,
     }));
   };
 
@@ -1499,16 +1571,29 @@ export function LogoPreviewPage({
                   </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-3">
-                  <div className="grid gap-3">
+                  <div
+                    data-testid="logo-face-colors-section"
+                    className="grid gap-3"
+                  >
                     {FACE_COLOR_KEYS.map((faceColorKey) => {
                       const currentToken = faceColors[faceColorKey];
-                      const currentFamily =
-                        getTailwindColorFamily(currentToken);
-                      const currentShade = getTailwindColorShade(currentToken);
-                      const availableShades =
-                        getTailwindColorShades(currentFamily);
-                      const currentFamilyHex =
-                        getTailwindColorFamilyHex(currentFamily);
+                      const currentHex = getTailwindColorHex(currentToken);
+                      const isCustomHexColor = isHexColorToken(currentToken);
+                      const currentFamily = isCustomHexColor
+                        ? CUSTOM_FACE_COLOR_FAMILY
+                        : getTailwindColorFamily(currentToken);
+                      const currentShade = isCustomHexColor
+                        ? CUSTOM_FACE_COLOR_SHADE_LABEL
+                        : getTailwindColorShade(currentToken);
+                      const availableShades = isCustomHexColor
+                        ? []
+                        : getTailwindColorShades(currentFamily);
+                      const currentFamilyHex = isCustomHexColor
+                        ? currentHex
+                        : getTailwindColorFamilyHex(currentFamily);
+                      const currentHexDraft = faceColorHexDrafts[faceColorKey];
+                      const isCurrentHexDraftValid =
+                        normalizeHexColorToken(currentHexDraft) !== null;
 
                       return (
                         <div key={faceColorKey} className="grid gap-2">
@@ -1550,49 +1635,118 @@ export function LogoPreviewPage({
                                     />
                                   </SelectItem>
                                 ))}
+                                <SelectItem
+                                  value={CUSTOM_FACE_COLOR_FAMILY}
+                                  className="rounded-none"
+                                >
+                                  <ColorOptionContent
+                                    color={currentHex}
+                                    label="Custom hex"
+                                  />
+                                </SelectItem>
                               </SelectContent>
                             </Select>
-                            <Select
-                              value={currentShade}
-                              onValueChange={(value) =>
-                                handleFaceColorShadeChange(faceColorKey, value)
-                              }
-                            >
-                              <SelectTrigger
-                                aria-label={`${FACE_COLOR_LABELS[faceColorKey]} shade`}
-                                className="h-9 rounded-none border-black/10 bg-white/90 px-2 text-sm text-black/80 shadow-none"
+                            {isCustomHexColor ? (
+                              <div className="flex h-9 items-center gap-2 rounded-none border border-black/10 bg-white/90 px-2 text-sm text-black/60">
+                                <ColorSwatch color={currentHex} />
+                                <span>{currentShade}</span>
+                              </div>
+                            ) : (
+                              <Select
+                                value={currentShade}
+                                onValueChange={(value) =>
+                                  handleFaceColorShadeChange(
+                                    faceColorKey,
+                                    value,
+                                  )
+                                }
                               >
-                                <ColorOptionContent
-                                  color={getTailwindColorHex(currentToken)}
-                                  label={currentShade}
-                                />
-                              </SelectTrigger>
-                              <SelectContent className="rounded-none border-black/10">
-                                {availableShades.map((shade) => {
-                                  const shadeToken =
-                                    getTailwindColorTokenForSelection(
-                                      currentFamily,
-                                      shade,
-                                      currentToken,
-                                    );
-                                  const shadeHex =
-                                    getTailwindColorHex(shadeToken);
+                                <SelectTrigger
+                                  aria-label={`${FACE_COLOR_LABELS[faceColorKey]} shade`}
+                                  className="h-9 rounded-none border-black/10 bg-white/90 px-2 text-sm text-black/80 shadow-none"
+                                >
+                                  <ColorOptionContent
+                                    color={currentHex}
+                                    label={currentShade}
+                                  />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-none border-black/10">
+                                  {availableShades.map((shade) => {
+                                    const shadeToken =
+                                      getTailwindColorTokenForSelection(
+                                        currentFamily,
+                                        shade,
+                                        currentToken,
+                                      );
+                                    const shadeHex =
+                                      getTailwindColorHex(shadeToken);
 
-                                  return (
-                                    <SelectItem
-                                      key={shade}
-                                      value={shade}
-                                      className="rounded-none"
-                                    >
-                                      <ColorOptionContent
-                                        color={shadeHex}
-                                        label={shade}
-                                      />
-                                    </SelectItem>
-                                  );
-                                })}
-                              </SelectContent>
-                            </Select>
+                                    return (
+                                      <SelectItem
+                                        key={shade}
+                                        value={shade}
+                                        className="rounded-none"
+                                      >
+                                        <ColorOptionContent
+                                          color={shadeHex}
+                                          label={shade}
+                                        />
+                                      </SelectItem>
+                                    );
+                                  })}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-[4.5rem_minmax(0,1fr)]">
+                            <Input
+                              aria-label={`${FACE_COLOR_LABELS[faceColorKey]} color picker`}
+                              type="color"
+                              value={currentHex}
+                              onChange={(event) =>
+                                handleFaceColorPickerChange(
+                                  faceColorKey,
+                                  event.target.value,
+                                )
+                              }
+                              className="h-9 w-full rounded-none border-black/10 bg-white/90 p-1"
+                            />
+                            <Input
+                              aria-label={`${FACE_COLOR_LABELS[faceColorKey]} hex color`}
+                              inputMode="text"
+                              spellCheck={false}
+                              value={currentHexDraft}
+                              onChange={(event) =>
+                                handleFaceColorHexDraftChange(
+                                  faceColorKey,
+                                  event.target.value,
+                                )
+                              }
+                              onBlur={() => {
+                                handleFaceColorHexCommit(faceColorKey);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  handleFaceColorHexCommit(faceColorKey);
+                                }
+
+                                if (event.key === "Escape") {
+                                  event.preventDefault();
+                                  setFaceColorHexDrafts((currentDrafts) => ({
+                                    ...currentDrafts,
+                                    [faceColorKey]: currentHex,
+                                  }));
+                                }
+                              }}
+                              placeholder="#394447"
+                              className={cn(
+                                "h-9 rounded-none bg-white/90 px-2 font-mono text-sm",
+                                isCurrentHexDraftValid
+                                  ? "border-black/10"
+                                  : "border-red-500/50 text-red-900 focus-visible:ring-red-500/40",
+                              )}
+                            />
                           </div>
                         </div>
                       );

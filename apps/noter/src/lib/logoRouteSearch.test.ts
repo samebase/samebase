@@ -43,6 +43,20 @@ describe("logoRouteSearch", () => {
     });
   });
 
+  it("normalizes custom hex face colors into canonical route values", () => {
+    expect(
+      validateLogoRouteSearch({
+        leftColor: "#ABC",
+        rightColor: "#123456",
+        topColor: " #fed ",
+      }),
+    ).toEqual({
+      leftColor: "#aabbcc",
+      rightColor: "#123456",
+      topColor: "#ffeedd",
+    });
+  });
+
   it("drops default logo state when building route search", () => {
     expect(
       buildLogoRouteSearch({
@@ -73,5 +87,27 @@ describe("logoRouteSearch", () => {
         vox: "bad-voxel-state",
       }),
     ).toEqual({});
+  });
+
+  it("builds custom hex colors with canonical lowercase output", () => {
+    expect(
+      buildLogoRouteSearch({
+        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        faceColors: {
+          left: "#ABC",
+          right: "#123456",
+          top: DEFAULT_FACE_COLORS.top,
+        },
+        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        rotationAxisMode: "cube-y",
+        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        viewSnapEnabled: true,
+        voxelState: DEFAULT_VOXEL_STATE,
+      }),
+    ).toEqual({
+      leftColor: "#aabbcc",
+      rightColor: "#123456",
+    });
   });
 });

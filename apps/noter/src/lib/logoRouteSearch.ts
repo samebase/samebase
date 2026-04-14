@@ -10,6 +10,7 @@ import {
   DEFAULT_FACE_COLORS,
   type FaceColorKey,
   type FaceColors,
+  normalizeFaceColorToken,
 } from "@/components/logoTailwindColors";
 import {
   DEFAULT_ELEVATION_DEGREES,
@@ -97,6 +98,15 @@ function readOptionalIsoStyleId(
     : undefined;
 }
 
+function readOptionalFaceColorToken(value: unknown): string | undefined {
+  const faceColorToken = readOptionalString(value);
+  if (typeof faceColorToken !== "string") {
+    return undefined;
+  }
+
+  return normalizeFaceColorToken(faceColorToken) ?? undefined;
+}
+
 function readCanonicalVoxelState(value: unknown): string | undefined {
   const voxelState = readOptionalString(value);
   if (typeof voxelState !== "string") {
@@ -121,10 +131,10 @@ const logoRouteSearchFieldSchema = z.object({
     readOptionalIsoStyleId,
     z.enum(LOGO_ISOMETRIC_STYLE_VALUES).optional(),
   ),
-  leftColor: z.preprocess(readOptionalString, z.string().optional()),
-  rightColor: z.preprocess(readOptionalString, z.string().optional()),
+  leftColor: z.preprocess(readOptionalFaceColorToken, z.string().optional()),
+  rightColor: z.preprocess(readOptionalFaceColorToken, z.string().optional()),
   rot: z.preprocess(readOptionalNumber, z.number().finite().optional()),
-  topColor: z.preprocess(readOptionalString, z.string().optional()),
+  topColor: z.preprocess(readOptionalFaceColorToken, z.string().optional()),
   vox: z.preprocess(readCanonicalVoxelState, z.string().optional()),
 });
 
@@ -183,6 +193,16 @@ export function buildLogoRouteSearch(args: {
   viewSnapEnabled: boolean;
   voxelState: string;
 }): LogoRouteSearch {
+  const faceColors = {
+    left:
+      normalizeFaceColorToken(args.faceColors.left) ?? DEFAULT_FACE_COLORS.left,
+    right:
+      normalizeFaceColorToken(args.faceColors.right) ??
+      DEFAULT_FACE_COLORS.right,
+    top:
+      normalizeFaceColorToken(args.faceColors.top) ?? DEFAULT_FACE_COLORS.top,
+  } satisfies FaceColors;
+
   return {
     ...(args.rotationAxisMode !== "cube-y"
       ? { axis: args.rotationAxisMode }
@@ -197,17 +217,17 @@ export function buildLogoRouteSearch(args: {
     ...(args.isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID
       ? { isoStyle: args.isoStyleId }
       : {}),
-    ...(args.faceColors.left !== DEFAULT_FACE_COLORS.left
-      ? { leftColor: args.faceColors.left }
+    ...(faceColors.left !== DEFAULT_FACE_COLORS.left
+      ? { leftColor: faceColors.left }
       : {}),
-    ...(args.faceColors.right !== DEFAULT_FACE_COLORS.right
-      ? { rightColor: args.faceColors.right }
+    ...(faceColors.right !== DEFAULT_FACE_COLORS.right
+      ? { rightColor: faceColors.right }
       : {}),
     ...(args.rotationDegrees !== DEFAULT_ROTATION_DEGREES
       ? { rot: Number(args.rotationDegrees.toFixed(1)) }
       : {}),
-    ...(args.faceColors.top !== DEFAULT_FACE_COLORS.top
-      ? { topColor: args.faceColors.top }
+    ...(faceColors.top !== DEFAULT_FACE_COLORS.top
+      ? { topColor: faceColors.top }
       : {}),
     ...(args.voxelState !== DEFAULT_VOXEL_STATE
       ? { vox: args.voxelState }

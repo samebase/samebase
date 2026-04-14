@@ -9,6 +9,7 @@ type ThemeColorSource = {
   fallbackHex: string;
 };
 type ColorSource = string | ThemeColorSource;
+const HEX_COLOR_TOKEN_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 function readThemeColor(cssVariable: `--${string}`): string | null {
   if (typeof document === "undefined") {
@@ -257,6 +258,40 @@ export const TAILWIND_COLOR_FAMILIES = tailwindColorFamilies.map(
   ({ label }) => label,
 );
 
+export function normalizeHexColorToken(token: string): string | null {
+  const trimmedToken = token.trim();
+  if (!HEX_COLOR_TOKEN_PATTERN.test(trimmedToken)) {
+    return null;
+  }
+
+  const lowercaseToken = trimmedToken.toLowerCase();
+  if (lowercaseToken.length === 4) {
+    return `#${lowercaseToken
+      .slice(1)
+      .split("")
+      .map((character) => `${character}${character}`)
+      .join("")}`;
+  }
+
+  return lowercaseToken;
+}
+
+export function isHexColorToken(token: string): boolean {
+  return normalizeHexColorToken(token) !== null;
+}
+
+// Keep face-color state deterministic whether it came from a preset token or a
+// custom hex value typed into the route/UI.
+export function normalizeFaceColorToken(token: string): string | null {
+  const trimmedToken = token.trim();
+  const normalizedHexToken = normalizeHexColorToken(trimmedToken);
+  if (normalizedHexToken !== null) {
+    return normalizedHexToken;
+  }
+
+  return tailwindColorOptionMap.has(trimmedToken) ? trimmedToken : null;
+}
+
 function getTailwindColorOption(
   token: string,
 ): TailwindColorOption | undefined {
@@ -264,8 +299,9 @@ function getTailwindColorOption(
 }
 
 export function getTailwindColorHex(token: string): string {
-  if (/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(token)) {
-    return token;
+  const normalizedHexToken = normalizeHexColorToken(token);
+  if (normalizedHexToken !== null) {
+    return normalizedHexToken;
   }
 
   return resolveColorSource(getTailwindColorOption(token)?.source ?? "#000000");
