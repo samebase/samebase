@@ -33,9 +33,10 @@ const LOCAL_WORKTREE_PASSWORD_VALUE = "pass1234";
 
 type SignInFormProps = {
   topNotice?: ReactNode;
+  useVm?: typeof useVmSignInForm;
 };
 
-export function SignInForm({ topNotice }: SignInFormProps = {}) {
+function useVmSignInForm() {
   const pathname = useLocation({
     select: (location) => location.pathname,
   });
@@ -58,6 +59,29 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
   // in-memory draft so query-param toggles do not reset the current copy.
   const [landingMarkdownDraft, setLandingMarkdownDraft] =
     useState(landingPageMarkdown);
+
+  return {
+    showGoogleAuth,
+    passwordAuthSurface,
+    isLandingCopyEditable,
+    landingMarkdownDraft,
+    setLandingMarkdownDraft,
+    landingDevModeEnabled,
+  };
+}
+
+export function SignInForm({
+  topNotice,
+  useVm = useVmSignInForm,
+}: SignInFormProps = {}) {
+  const {
+    showGoogleAuth,
+    passwordAuthSurface,
+    isLandingCopyEditable,
+    landingMarkdownDraft,
+    setLandingMarkdownDraft,
+    landingDevModeEnabled,
+  } = useVm();
 
   return (
     <div
@@ -103,7 +127,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
   );
 }
 
-function WaitlistForm() {
+function useVmWaitlistForm() {
   const joinWaitlist = useMutation(api.waitlist.joinWaitlist);
   const [email, setEmail] = useState(readPublicLandingWaitlistDraft);
   const [submitted, setSubmitted] = useState(false);
@@ -117,6 +141,22 @@ function WaitlistForm() {
       clearPublicLandingWaitlistDraft();
     };
   }, []);
+
+  return {
+    joinWaitlist,
+    email,
+    setEmail,
+    submitted,
+    setSubmitted,
+  };
+}
+
+export function WaitlistForm({
+  useVm = useVmWaitlistForm,
+}: {
+  useVm?: typeof useVmWaitlistForm;
+}) {
+  const { joinWaitlist, email, setEmail, submitted, setSubmitted } = useVm();
 
   if (submitted) {
     return (
