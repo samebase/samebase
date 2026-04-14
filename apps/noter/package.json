@@ -17,6 +17,7 @@
     "typecheck:watch": "tsgo --watch",
     "build": "convex codegen && tsgo && vp build",
     "build:ci": "tsgo && vp build",
+    "build:cloudflare": "node ../../scripts/cloudflare-pages-build.ts",
     "build:vercel": "vp build",
     "lint": "pnpm run check",
     "lint:ci": "pnpm run check:ci",

@@ -30,7 +30,6 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "preview": "vp run --filter noter preview",
-    "cloudflare:pages:sync": "node scripts/cloudflare-pages-sync.ts",
     "export:pitch-deck:pdf": "pnpm --filter noter build:ci && node scripts/export-pitch-deck.ts",
     "clean": "rm -rf .turbo .vite coverage test-results apps/noter/dist apps/noter/dev-dist apps/noter/e2e/test-results apps/noter/e2e/live-test-results apps/noter-starter-template/dist",
     "test": "vp test",

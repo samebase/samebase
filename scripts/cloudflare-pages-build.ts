@@ -3,14 +3,23 @@ import { spawn } from "node:child_process";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { getCloudflarePagesApp } from "./cloudflare-pages-apps.ts";
-
 const NPX_COMMAND = process.platform === "win32" ? "npx.cmd" : "npx";
+const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const INNER_BUILD_FLAG = "--inner-build";
+const PREVIEW_SEED_FUNCTION = "devAuth:seedPasswordAccount";
+const CONVEX_DEPLOY_URL_ENV_NAME = "VITE_CONVEX_URL";
+const BUILD_SITE_URL_ENV_NAME = "VITE_CONVEX_SITE_URL";
+const DEPLOYMENT_SITE_URL_ENV_NAMES = ["SITE_URL", "CONVEX_SITE_URL"] as const;
+
+type CommandSpec = {
+  command: string;
+  args: string[];
+  env?: NodeJS.ProcessEnv;
+};
 
 type CloudflarePagesSiteUrlArgs = {
   cloudflarePagesUrl?: string;
   convexSiteUrl?: string;
-  viteConvexSiteUrl?: string;
 };
 
 type SyncConvexDeploymentEnvVarArgs = {
@@ -28,11 +37,7 @@ type SyncConvexDeploymentEnvVarArgs = {
 export function resolveCloudflarePagesSiteUrl(
   args: CloudflarePagesSiteUrlArgs,
 ): string | null {
-  const candidates = [
-    args.convexSiteUrl,
-    args.viteConvexSiteUrl,
-    args.cloudflarePagesUrl,
-  ];
+  const candidates = [args.convexSiteUrl, args.cloudflarePagesUrl];
 
   for (const candidate of candidates) {
     if (typeof candidate !== "string") {
@@ -83,14 +88,41 @@ export function buildCloudflarePagesBuildEnvironment(
   };
 }
 
-function runShellCommand(
-  command: string,
-  env: NodeJS.ProcessEnv,
-): Promise<void> {
+/**
+ * Convex runs the command from `--cmd` in a shell. Quote the node executable
+ * and this script path so the same wrapper can recurse into its "inner" build
+ * phase without depending on the current working directory.
+ */
+export function buildInnerBuildCommand(
+  scriptPath: string,
+  nodePath = process.execPath,
+): string {
+  return `${JSON.stringify(nodePath)} ${JSON.stringify(scriptPath)} ${INNER_BUILD_FLAG}`;
+}
+
+/**
+ * A single Cloudflare Pages build should:
+ * 1. deploy Convex with the production or preview key already in the env,
+ * 2. seed preview deployments when Convex creates a fresh preview database,
+ * 3. re-enter this script with VITE_CONVEX_URL set for the actual frontend build.
+ */
+export function buildConvexDeployArgs(scriptPath: string): string[] {
+  return [
+    "convex",
+    "deploy",
+    "--preview-run",
+    PREVIEW_SEED_FUNCTION,
+    "--cmd-url-env-var-name",
+    CONVEX_DEPLOY_URL_ENV_NAME,
+    "--cmd",
+    buildInnerBuildCommand(scriptPath),
+  ];
+}
+
+function runCommand(spec: CommandSpec): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, {
-      env,
-      shell: true,
+    const child = spawn(spec.command, spec.args, {
+      env: spec.env,
       stdio: "inherit",
     });
 
@@ -112,79 +144,88 @@ function runShellCommand(
 async function syncConvexDeploymentEnvVar(
   args: SyncConvexDeploymentEnvVarArgs,
 ): Promise<void> {
-  await runShellCommand(
-    `${NPX_COMMAND} convex env set --deployment ${JSON.stringify(
+  await runCommand({
+    command: NPX_COMMAND,
+    args: [
+      "convex",
+      "env",
+      "set",
+      "--deployment",
       args.deploymentName,
-    )} ${JSON.stringify(args.envName)} ${JSON.stringify(args.value)}`,
-    process.env,
-  );
+      args.envName,
+      args.value,
+    ],
+    env: process.env,
+  });
 }
 
 function isMainModule(): boolean {
   return process.argv[1] === fileURLToPath(import.meta.url);
 }
 
-async function main(): Promise<void> {
-  const appId = process.argv[2];
-  if (typeof appId !== "string" || appId.trim().length === 0) {
+async function runInnerBuild(): Promise<void> {
+  const siteUrl = resolveCloudflarePagesSiteUrl({
+    cloudflarePagesUrl: process.env.CF_PAGES_URL,
+    convexSiteUrl: process.env.CONVEX_SITE_URL,
+  });
+  if (!siteUrl) {
     throw new Error(
-      "Expected a Cloudflare Pages app id as the first argument.",
+      "Missing a valid Cloudflare Pages site URL. Set CONVEX_SITE_URL for production or rely on CF_PAGES_URL for previews.",
     );
   }
 
-  const app = getCloudflarePagesApp(appId.trim());
-  let buildEnv = process.env;
-
-  if (
-    Array.isArray(app.syncSiteUrlToDeploymentEnvNames) &&
-    app.syncSiteUrlToDeploymentEnvNames.length > 0
-  ) {
-    const siteUrl = resolveCloudflarePagesSiteUrl({
-      cloudflarePagesUrl: process.env.CF_PAGES_URL,
-      convexSiteUrl: process.env.CONVEX_SITE_URL,
-      viteConvexSiteUrl: process.env.VITE_CONVEX_SITE_URL,
-    });
-    if (!siteUrl) {
-      throw new Error(
-        `Missing a valid Cloudflare Pages site URL for ${app.id}. Set CONVEX_SITE_URL for production or rely on CF_PAGES_URL for previews.`,
-      );
-    }
-
-    const convexUrl =
-      process.env.VITE_CONVEX_URL ?? process.env.CONVEX_URL ?? null;
-    if (!convexUrl) {
-      throw new Error(
-        "Missing VITE_CONVEX_URL/CONVEX_URL from the Convex deploy wrapper.",
-      );
-    }
-
-    const deploymentName = inferConvexDeploymentName(convexUrl);
-    if (!deploymentName) {
-      throw new Error(
-        `Could not infer the Convex deployment name from ${JSON.stringify(
-          convexUrl,
-        )}.`,
-      );
-    }
-
-    for (const envName of app.syncSiteUrlToDeploymentEnvNames) {
-      await syncConvexDeploymentEnvVar({
-        deploymentName,
-        envName,
-        value: siteUrl,
-      });
-    }
-
-    if (typeof app.buildSiteUrlEnvVarName === "string") {
-      buildEnv = buildCloudflarePagesBuildEnvironment(
-        buildEnv,
-        app.buildSiteUrlEnvVarName,
-        siteUrl,
-      );
-    }
+  const convexUrl =
+    process.env[CONVEX_DEPLOY_URL_ENV_NAME] ?? process.env.CONVEX_URL ?? null;
+  if (!convexUrl) {
+    throw new Error(
+      "Missing VITE_CONVEX_URL/CONVEX_URL from the Convex deploy wrapper.",
+    );
   }
 
-  await runShellCommand(app.frontendBuildCommand, buildEnv);
+  const deploymentName = inferConvexDeploymentName(convexUrl);
+  if (!deploymentName) {
+    throw new Error(
+      `Could not infer the Convex deployment name from ${JSON.stringify(
+        convexUrl,
+      )}.`,
+    );
+  }
+
+  for (const envName of DEPLOYMENT_SITE_URL_ENV_NAMES) {
+    await syncConvexDeploymentEnvVar({
+      deploymentName,
+      envName,
+      value: siteUrl,
+    });
+  }
+
+  const buildEnv = buildCloudflarePagesBuildEnvironment(
+    process.env,
+    BUILD_SITE_URL_ENV_NAME,
+    siteUrl,
+  );
+  await runCommand({
+    command: PNPM_COMMAND,
+    args: ["run", "build:ci"],
+    env: buildEnv,
+  });
+}
+
+async function runOuterBuild(scriptPath: string): Promise<void> {
+  await runCommand({
+    command: NPX_COMMAND,
+    args: buildConvexDeployArgs(scriptPath),
+    env: process.env,
+  });
+}
+
+async function main(): Promise<void> {
+  const scriptPath = fileURLToPath(import.meta.url);
+  if (process.argv.includes(INNER_BUILD_FLAG)) {
+    await runInnerBuild();
+    return;
+  }
+  await runOuterBuild(scriptPath);
 }
 
 if (isMainModule()) {

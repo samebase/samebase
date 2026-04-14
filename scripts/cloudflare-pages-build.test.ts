@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildConvexDeployArgs,
   buildCloudflarePagesBuildEnvironment,
+  buildInnerBuildCommand,
   inferConvexDeploymentName,
   resolveCloudflarePagesSiteUrl,
 } from "./cloudflare-pages-build.ts";
@@ -12,7 +14,6 @@ describe("cloudflare-pages-build", () => {
       resolveCloudflarePagesSiteUrl({
         cloudflarePagesUrl: "https://preview.noter.pages.dev",
         convexSiteUrl: "https://noter.md",
-        viteConvexSiteUrl: "https://vite.noter.md",
       }),
     ).toBe("https://noter.md/");
   });
@@ -50,5 +51,31 @@ describe("cloudflare-pages-build", () => {
     expect(originalEnv).toEqual({
       VITE_CONVEX_URL: "https://quiet-robin-508.convex.cloud",
     });
+  });
+
+  it("builds the nested inner-build command with stable quoting", () => {
+    expect(
+      buildInnerBuildCommand(
+        "/repo/scripts/cloudflare-pages-build.ts",
+        "/usr/local/bin/node",
+      ),
+    ).toBe(
+      '"/usr/local/bin/node" "/repo/scripts/cloudflare-pages-build.ts" --inner-build',
+    );
+  });
+
+  it("wraps the app build with Convex deploy and preview seeding", () => {
+    expect(
+      buildConvexDeployArgs("/repo/scripts/cloudflare-pages-build.ts"),
+    ).toEqual([
+      "convex",
+      "deploy",
+      "--preview-run",
+      "devAuth:seedPasswordAccount",
+      "--cmd-url-env-var-name",
+      "VITE_CONVEX_URL",
+      "--cmd",
+      `${JSON.stringify(process.execPath)} "/repo/scripts/cloudflare-pages-build.ts" --inner-build`,
+    ]);
   });
 });
