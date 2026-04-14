@@ -191,10 +191,12 @@ This project uses:
 - Vitest for testing
 
 Convex generated client files under `apps/noter/convex/_generated/` are
-intentionally committed. Cloudflare and other CI hosts run the app build from
-`convex deploy --cmd ...` before Convex finishes its push/codegen phase, so
-fresh clones need those generated files already present in git for `apps/noter`
-builds to succeed.
+intentionally committed. Building against an already-existing dev deployment can
+hide this requirement, because `convex codegen` has a deployment to talk to.
+Creating a fresh preview deployment is different: `convex deploy --cmd ...` runs
+the app build before Convex finishes the preview deploy's push/codegen phase, so
+a fresh Cloudflare clone cannot generate `_generated` on the fly and must get
+those files from git.
 
 ## License
 
