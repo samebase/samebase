@@ -71,6 +71,15 @@ describe("deploymentProfile", () => {
     ).toEqual({ kind: "local_development" });
   });
 
+  it("falls back to preview seed envs when runtime deployment metadata is absent", () => {
+    expect(
+      resolveDeploymentProfileFromEnv({
+        PREVIEW_SEED_AUTH_EMAIL: "preview@example.com",
+        PREVIEW_SEED_AUTH_PASSWORD: "secret-password",
+      }),
+    ).toEqual({ kind: "preview" });
+  });
+
   it("fails closed to production when the deployment cannot be inferred", () => {
     expect(resolveDeploymentProfileFromEnv({})).toEqual({
       kind: "production",

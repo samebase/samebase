@@ -34,6 +34,8 @@ type DeploymentProfileEnv = {
   CONVEX_DEPLOYMENT?: string;
   CONVEX_SITE_URL?: string;
   DAYTONA_CONVEX_DEPLOY_KEY?: string;
+  PREVIEW_SEED_AUTH_EMAIL?: string;
+  PREVIEW_SEED_AUTH_PASSWORD?: string;
   SITE_URL?: string;
 };
 
@@ -63,6 +65,13 @@ function hasLocalRuntimeUrl(env: DeploymentProfileEnv): boolean {
 
 function readAgentMode(env: DeploymentProfileEnv): string | null {
   return readTrimmedValue(env.CONVEX_AGENT_MODE)?.toLowerCase() ?? null;
+}
+
+function hasPreviewSeedPasswordAuth(env: DeploymentProfileEnv): boolean {
+  return (
+    readTrimmedValue(env.PREVIEW_SEED_AUTH_EMAIL) !== null &&
+    readTrimmedValue(env.PREVIEW_SEED_AUTH_PASSWORD) !== null
+  );
 }
 
 function readDaytonaDeployKeySpecifier(
@@ -147,6 +156,13 @@ export function resolveDeploymentProfileFromEnv(
     return { kind: "local_development" };
   }
 
+  // Preview deployments do not reliably expose CONVEX_DEPLOYMENT inside auth
+  // and seed functions yet, so keep preview password-auth rollout tied to the
+  // preview seed env pair until we adopt one explicit deployment-profile env.
+  if (hasPreviewSeedPasswordAuth(env)) {
+    return { kind: "preview" };
+  }
+
   // Unknown deployment specifiers should fail closed instead of widening
   // password auth or sandbox-only integrations unexpectedly.
   return { kind: "production" };
@@ -160,6 +176,10 @@ export function resolveDeploymentProfile(): DeploymentProfile {
     CONVEX_SITE_URL: readOptionalEnv("CONVEX_SITE_URL") ?? undefined,
     DAYTONA_CONVEX_DEPLOY_KEY:
       readOptionalEnv("DAYTONA_CONVEX_DEPLOY_KEY") ?? undefined,
+    PREVIEW_SEED_AUTH_EMAIL:
+      readOptionalEnv("PREVIEW_SEED_AUTH_EMAIL") ?? undefined,
+    PREVIEW_SEED_AUTH_PASSWORD:
+      readOptionalEnv("PREVIEW_SEED_AUTH_PASSWORD") ?? undefined,
     SITE_URL: readOptionalEnv("SITE_URL") ?? undefined,
   });
 }
