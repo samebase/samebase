@@ -1,100 +1,44 @@
 #!/usr/bin/env node
 import fs from "node:fs";
+import { Command } from "commander";
+
 import { diffDaytonaRuntimeManifests } from "../runtime/daytonaRuntimeManifest.ts";
+import { fail, isMainModule, runMain } from "./lib/scriptRuntime.ts";
 
-const HELP_TEXT = `Usage: scripts/daytona-compare-runtime.ts --left <path> --right <path>
-
-Compare two normalized Daytona runtime manifests and exit non-zero on mismatch.
-
-Options:
-  --left <path>   Left manifest JSON file.
-  --right <path>  Right manifest JSON file.
-  -h, --help      Show this help message.
-`;
-
-const options = parseArgs(process.argv.slice(2));
-if (options.showHelp) {
-  console.log(HELP_TEXT);
-  process.exit(0);
-}
-
-const left = readJsonFile(options.left);
-const right = readJsonFile(options.right);
-const diffs = diffDaytonaRuntimeManifests(left, right);
-
-if (diffs.length === 0) {
-  console.log("Runtime manifests match.");
-  process.exit(0);
-}
-
-console.error("Runtime manifests differ:");
-for (const diff of diffs) {
-  console.error(`- ${diff}`);
-}
-process.exit(1);
-
-function parseArgs(args: string[]): {
+type DaytonaRuntimeCompareOptions = {
   left: string;
   right: string;
-  showHelp: boolean;
-} {
-  const result: {
-    left: string | null;
-    right: string | null;
-    showHelp: boolean;
-  } = {
-    left: null,
-    right: null,
-    showHelp: false,
-  };
+};
 
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index];
-    if (arg === "--left") {
-      const value = args[index + 1];
-      if (!value || value.startsWith("-")) {
-        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`);
-      }
-      result.left = value;
-      index += 1;
-      continue;
-    }
-    if (arg === "--right") {
-      const value = args[index + 1];
-      if (!value || value.startsWith("-")) {
-        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`);
-      }
-      result.right = value;
-      index += 1;
-      continue;
-    }
-    if (arg === "--help" || arg === "-h") {
-      result.showHelp = true;
-      continue;
-    }
-    exitWithError(`Unknown argument: ${arg}\n\n${HELP_TEXT}`);
+export function createCommand(): Command {
+  return new Command()
+    .name("daytona-compare-runtime")
+    .description(
+      "Compare two normalized Daytona runtime manifests and exit non-zero on mismatch.",
+    )
+    .showHelpAfterError()
+    .requiredOption("--left <path>", "Left manifest JSON file.")
+    .requiredOption("--right <path>", "Right manifest JSON file.");
+}
+
+export async function main(
+  options: DaytonaRuntimeCompareOptions,
+): Promise<void> {
+  const left = readJsonFile(options.left);
+  const right = readJsonFile(options.right);
+  const diffs = diffDaytonaRuntimeManifests(left, right);
+
+  if (diffs.length === 0) {
+    console.log("Runtime manifests match.");
+    return;
   }
 
-  if (result.showHelp) {
-    return {
-      left: "",
-      right: "",
-      showHelp: true,
-    };
+  console.error("Runtime manifests differ:");
+  for (const diff of diffs) {
+    console.error(`- ${diff}`);
   }
 
-  if (!result.left || !result.right) {
-    exitWithError(`Both --left and --right are required.\n\n${HELP_TEXT}`);
-  }
-
-  const left = result.left;
-  const right = result.right;
-
-  return {
-    left,
-    right,
-    showHelp: false,
-  };
+  process.exitCode = 1;
 }
 
 function readJsonFile(filePath: string): unknown {
@@ -105,7 +49,7 @@ function readJsonFile(filePath: string): unknown {
     return validateManifest(filePath, parsed);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    exitWithError(`Failed to read ${filePath}: ${reason}`);
+    fail(`Failed to read ${filePath}: ${reason}`);
   }
 }
 
@@ -114,34 +58,36 @@ function validateManifest(
   value: unknown,
 ): Record<string, unknown> {
   if (!isRecord(value)) {
-    exitWithError(`${filePath} must contain a JSON object.`);
+    fail(`${filePath} must contain a JSON object.`);
   }
   if (Reflect.get(value, "version") !== 1) {
-    exitWithError(
-      `${filePath} must contain a Daytona runtime manifest with version 1.`,
-    );
+    fail(`${filePath} must contain a Daytona runtime manifest with version 1.`);
   }
+
   const repo = Reflect.get(value, "repo");
   if (!isRecord(repo) || typeof Reflect.get(repo, "headSha") !== "string") {
-    exitWithError(`${filePath} is missing repo.headSha.`);
+    fail(`${filePath} is missing repo.headSha.`);
   }
   if (typeof Reflect.get(value, "appRoot") !== "string") {
-    exitWithError(`${filePath} is missing appRoot.`);
+    fail(`${filePath} is missing appRoot.`);
   }
+
   const envFiles = Reflect.get(value, "envFiles");
   if (!isRecord(envFiles)) {
-    exitWithError(`${filePath} is missing envFiles.`);
+    fail(`${filePath} is missing envFiles.`);
   }
+
   const services = Reflect.get(value, "services");
   if (
     !isRecord(services) ||
     typeof Reflect.get(services, "previewPort") !== "number" ||
     typeof Reflect.get(services, "previewPortListening") !== "boolean"
   ) {
-    exitWithError(
+    fail(
       `${filePath} is missing services.previewPort or services.previewPortListening.`,
     );
   }
+
   return value;
 }
 
@@ -149,8 +95,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function exitWithError(message: string): never {
-  console.error(message);
-  process.exit(1);
-  throw new Error(message);
+if (isMainModule(import.meta.url)) {
+  const options = createCommand().parse().opts<DaytonaRuntimeCompareOptions>();
+  await runMain(async () => {
+    await main(options);
+  });
 }

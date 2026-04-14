@@ -1,102 +1,58 @@
 #!/usr/bin/env node
 import path from "node:path";
+import { Command, InvalidArgumentError } from "commander";
+
 import { collectDaytonaRuntimeManifest } from "../runtime/daytonaRuntimeManifest.ts";
+import { isMainModule, runMain } from "./lib/scriptRuntime.ts";
 
-const HELP_TEXT = `Usage: scripts/daytona-runtime-manifest.ts [options]
-
-Collect a normalized, redacted Daytona runtime manifest for a bootstrapped repo.
-
-Options:
-  --repo-dir <path>     Repo root to inspect.
-                        Default: current working directory
-  --app-root <path>     App root relative to the repo root.
-                        Default: apps/noter
-  --preview-port <n>    Frontend preview port to check.
-                        Default: 5173
-  --pretty              Pretty-print JSON output.
-  -h, --help            Show this help message.
-`;
-
-const options = parseArgs(process.argv.slice(2));
-if (options.showHelp) {
-  console.log(HELP_TEXT);
-  process.exit(0);
-}
-
-const manifest = await collectDaytonaRuntimeManifest({
-  repoDir: options.repoDir ?? process.cwd(),
-  appRootRelativePath: options.appRoot ?? path.join("apps", "noter"),
-  previewPort: options.previewPort,
-});
-
-console.log(JSON.stringify(manifest, null, options.pretty ? 2 : undefined));
-
-function parseArgs(args: string[]): {
-  repoDir: string | null;
-  appRoot: string | null;
-  previewPort: number | undefined;
+type DaytonaRuntimeManifestOptions = {
+  repoDir?: string;
+  appRoot?: string;
+  previewPort?: number;
   pretty: boolean;
-  showHelp: boolean;
-} {
-  const result: {
-    repoDir: string | null;
-    appRoot: string | null;
-    previewPort: number | undefined;
-    pretty: boolean;
-    showHelp: boolean;
-  } = {
-    repoDir: null,
-    appRoot: null,
-    previewPort: undefined,
-    pretty: false,
-    showHelp: false,
-  };
+};
 
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index];
-    if (arg === "--repo-dir") {
-      const value = args[index + 1];
-      if (!value || value.startsWith("-")) {
-        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`);
-      }
-      result.repoDir = value;
-      index += 1;
-      continue;
-    }
-    if (arg === "--app-root") {
-      const value = args[index + 1];
-      if (!value || value.startsWith("-")) {
-        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`);
-      }
-      result.appRoot = value;
-      index += 1;
-      continue;
-    }
-    if (arg === "--preview-port") {
-      const value = Number(args[index + 1]);
-      if (!Number.isInteger(value) || value <= 0) {
-        exitWithError(`Invalid value for ${arg}\n\n${HELP_TEXT}`);
-      }
-      result.previewPort = value;
-      index += 1;
-      continue;
-    }
-    if (arg === "--pretty") {
-      result.pretty = true;
-      continue;
-    }
-    if (arg === "--help" || arg === "-h") {
-      result.showHelp = true;
-      continue;
-    }
-    exitWithError(`Unknown argument: ${arg}\n\n${HELP_TEXT}`);
+function parsePreviewPort(value: string): number {
+  const previewPort = Number(value);
+  if (!Number.isInteger(previewPort) || previewPort <= 0) {
+    throw new InvalidArgumentError("must be a positive integer");
   }
 
-  return result;
+  return previewPort;
 }
 
-function exitWithError(message: string): never {
-  console.error(message);
-  process.exit(1);
-  throw new Error(message);
+export function createCommand(): Command {
+  return new Command()
+    .name("daytona-runtime-manifest")
+    .description(
+      "Collect a normalized, redacted Daytona runtime manifest for a bootstrapped repo.",
+    )
+    .showHelpAfterError()
+    .option("--repo-dir <path>", "Repo root to inspect.")
+    .option("--app-root <path>", "App root relative to the repo root.")
+    .option(
+      "--preview-port <n>",
+      "Frontend preview port to check.",
+      parsePreviewPort,
+    )
+    .option("--pretty", "Pretty-print JSON output.", false);
+}
+
+export async function main(
+  options: DaytonaRuntimeManifestOptions,
+): Promise<void> {
+  const manifest = await collectDaytonaRuntimeManifest({
+    repoDir: options.repoDir ?? process.cwd(),
+    appRootRelativePath: options.appRoot ?? path.join("apps", "noter"),
+    previewPort: options.previewPort,
+  });
+
+  console.log(JSON.stringify(manifest, null, options.pretty ? 2 : undefined));
+}
+
+if (isMainModule(import.meta.url)) {
+  const options = createCommand().parse().opts<DaytonaRuntimeManifestOptions>();
+  await runMain(async () => {
+    await main(options);
+  });
 }
