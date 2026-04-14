@@ -168,6 +168,17 @@ make anon
 pnpm build
 ```
 
+For Cloudflare Pages, point the project at the repo root and use one build
+command for every environment:
+
+```bash
+pnpm run build:cloudflare
+```
+
+That entrypoint treats `main` as the production branch and every other
+`CF_PAGES_BRANCH` value as a preview deploy, so the Pages UI does not need
+separate production and preview build commands.
+
 ### Testing
 
 ```bash

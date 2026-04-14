@@ -16,6 +16,7 @@
   "scripts": {
     "dev": "node ./scripts/run-primary-dev.ts",
     "build": "vp run --filter noter build",
+    "build:cloudflare": "node ./scripts/cloudflare-pages-build.ts",
     "build:ci": "vp run --filter noter build:ci",
     "check": "pnpm run check:workspace && pnpm run check:root",
     "check:ci": "pnpm run check:workspace:ci && pnpm run check:root",
