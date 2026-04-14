@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it } from "vitest";
-import { shouldRenderPublicLandingWithoutAuthGate } from "./publicLandingAuthState";
+import {
+  getPasswordAuthSurface,
+  isCloudflarePagesPreviewHostname,
+  shouldRenderPublicLandingWithoutAuthGate,
+} from "./publicLandingAuthState";
 import { validateRootRouteSearch } from "./rootRouteSearch";
 
 const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
@@ -76,5 +80,32 @@ describe("publicLandingAuthState", () => {
         validateRootRouteSearch({}),
       ),
     ).toBe(false);
+  });
+
+  it("treats only deeper pages.dev hosts as preview hosts", () => {
+    expect(
+      isCloudflarePagesPreviewHostname(
+        "codex-pr-preview-apps.noter-ax1.pages.dev",
+      ),
+    ).toBe(true);
+    expect(isCloudflarePagesPreviewHostname("noter-ax1.pages.dev")).toBe(false);
+    expect(isCloudflarePagesPreviewHostname("noter.md")).toBe(false);
+  });
+
+  it("shows preview password auth without opening it on production hosts", () => {
+    expect(
+      getPasswordAuthSurface({
+        hostname: "codex-pr-preview-apps.noter-ax1.pages.dev",
+        isDevelopmentBuild: false,
+        prodUiModeEnabled: true,
+      }),
+    ).toBe("preview");
+    expect(
+      getPasswordAuthSurface({
+        hostname: "noter-ax1.pages.dev",
+        isDevelopmentBuild: false,
+        prodUiModeEnabled: false,
+      }),
+    ).toBe("hidden");
   });
 });

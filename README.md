@@ -177,7 +177,9 @@ pnpm test
 ## Environment Setup
 
 1. Configure Convex deployment env vars.
-2. Configure app-login providers (Google, plus password in dev).
+2. Configure app-login providers (Google, plus password in dev and preview when
+   `PREVIEW_SEED_AUTH_EMAIL` and `PREVIEW_SEED_AUTH_PASSWORD` are set on preview
+   deployments; the seeded preview email must still be allowlisted).
 3. Configure provider connection OAuth/API keys (GitHub/Convex/Cloudflare).
 
 ## Contributing

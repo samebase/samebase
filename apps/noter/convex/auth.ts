@@ -87,6 +87,27 @@ function isAnonymousWorktreeDeployment(): boolean {
   );
 }
 
+function readPreviewSeedPasswordAuthConfig(): {
+  email: string;
+  password: string;
+} | null {
+  const email = readOptionalEnv("PREVIEW_SEED_AUTH_EMAIL");
+  const password = readOptionalEnv("PREVIEW_SEED_AUTH_PASSWORD");
+  if (email === null && password === null) {
+    return null;
+  }
+  if (email === null || password === null) {
+    throw new Error(
+      `Missing required environment variable: ${
+        email === null
+          ? "PREVIEW_SEED_AUTH_EMAIL"
+          : "PREVIEW_SEED_AUTH_PASSWORD"
+      }`,
+    );
+  }
+  return { email, password };
+}
+
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -239,10 +260,14 @@ async function applyAutoSeedProviderKeys(
 
 const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");
 const googleClientSecret = readOptionalEnv("AUTH_GOOGLE_SECRET");
+// Preview deployments opt into password auth only when the seeded preview
+// credential is present in Convex env, leaving production closed by default.
+const previewSeedPasswordAuthConfig = readPreviewSeedPasswordAuthConfig();
 const passwordAuthEnabled =
   isLocalConvexDeployment() ||
   isDevelopmentDeployment() ||
-  isAnonymousWorktreeDeployment();
+  isAnonymousWorktreeDeployment() ||
+  previewSeedPasswordAuthConfig !== null;
 if ((googleClientId === null) !== (googleClientSecret === null)) {
   throw new Error(
     `Missing required environment variable: ${

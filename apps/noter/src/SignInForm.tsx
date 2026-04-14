@@ -10,7 +10,11 @@ import {
   PUBLIC_LANDING_COPY_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
 } from "@/lib/publicLanding";
-import { shouldShowGoogleAuthForPathname } from "@/lib/publicLandingAuthState";
+import {
+  getPasswordAuthSurface,
+  type PasswordAuthSurface,
+  shouldShowGoogleAuthForPathname,
+} from "@/lib/publicLandingAuthState";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import {
@@ -42,7 +46,11 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
     pathname,
     rootRouteSearch,
   );
-  const showPasswordAuth = import.meta.env.DEV && !prodUiModeEnabled;
+  const passwordAuthSurface = getPasswordAuthSurface({
+    hostname: window.location.hostname,
+    isDevelopmentBuild: import.meta.env.DEV,
+    prodUiModeEnabled,
+  });
   const isLandingCopyEditable = !prodUiModeEnabled && landingDevModeEnabled;
   // Keep the editable `/?dev` view and the plain landing view on the same
   // in-memory draft so query-param toggles do not reset the current copy.
@@ -82,7 +90,9 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
           </div>
           <div className="flex flex-col gap-2">
             <SignInWithGoogle visible={showGoogleAuth} />
-            {showPasswordAuth ? <PasswordAuthForm /> : null}
+            {passwordAuthSurface !== "hidden" ? (
+              <PasswordAuthForm surface={passwordAuthSurface} />
+            ) : null}
           </div>
           <WaitlistForm />
         </div>
@@ -142,19 +152,24 @@ function WaitlistForm() {
   );
 }
 
-function PasswordAuthForm() {
+function PasswordAuthForm({
+  surface,
+}: {
+  surface: Exclude<PasswordAuthSurface, "hidden">;
+}) {
   const { signInWithPassword } = useNoterAuthActions();
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const effectiveFlow = surface === "preview" ? "signIn" : flow;
 
   const submitLabel = pending
-    ? flow === "signIn"
+    ? effectiveFlow === "signIn"
       ? "Signing in..."
       : "Creating account..."
-    : flow === "signIn"
+    : effectiveFlow === "signIn"
       ? "Sign in"
       : "Create account";
 
@@ -189,26 +204,34 @@ function PasswordAuthForm() {
   return (
     <div className="flex flex-col gap-2 rounded-md border p-3">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-sm font-medium">Password auth (dev)</div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-auto px-2 py-1 text-xs"
-          onClick={() => {
-            setError(null);
-            setFlow((current) => (current === "signIn" ? "signUp" : "signIn"));
-          }}
-          disabled={pending}
-        >
-          {flow === "signIn" ? "Need an account?" : "Have an account?"}
-        </Button>
+        <div className="text-sm font-medium">
+          {surface === "preview"
+            ? "Preview password sign in"
+            : "Password auth (dev)"}
+        </div>
+        {surface === "dev" ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-auto px-2 py-1 text-xs"
+            onClick={() => {
+              setError(null);
+              setFlow((current) =>
+                current === "signIn" ? "signUp" : "signIn",
+              );
+            }}
+            disabled={pending}
+          >
+            {flow === "signIn" ? "Need an account?" : "Have an account?"}
+          </Button>
+        ) : null}
       </div>
       <form
         className="flex flex-col gap-2"
         onSubmit={(event) => {
           event.preventDefault();
-          runPasswordSignIn(flow, email, password);
+          runPasswordSignIn(effectiveFlow, email, password);
         }}
       >
         <Input
@@ -222,7 +245,9 @@ function PasswordAuthForm() {
         />
         <Input
           type="password"
-          autoComplete={flow === "signIn" ? "current-password" : "new-password"}
+          autoComplete={
+            effectiveFlow === "signIn" ? "current-password" : "new-password"
+          }
           placeholder="Password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -231,24 +256,26 @@ function PasswordAuthForm() {
           disabled={pending}
         />
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="shrink-0"
-            onClick={() => {
-              const nextFlow = "signIn";
-              const nextEmail = DEV_PASSWORD_EMAIL;
-              const nextPassword = DEV_PASSWORD_VALUE;
-              setFlow(nextFlow);
-              setError(null);
-              setEmail(nextEmail);
-              setPassword(nextPassword);
-              runPasswordSignIn(nextFlow, nextEmail, nextPassword);
-            }}
-            disabled={pending}
-          >
-            Autofill & sign in
-          </Button>
+          {surface === "dev" ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0"
+              onClick={() => {
+                const nextFlow = "signIn";
+                const nextEmail = DEV_PASSWORD_EMAIL;
+                const nextPassword = DEV_PASSWORD_VALUE;
+                setFlow(nextFlow);
+                setError(null);
+                setEmail(nextEmail);
+                setPassword(nextPassword);
+                runPasswordSignIn(nextFlow, nextEmail, nextPassword);
+              }}
+              disabled={pending}
+            >
+              Autofill & sign in
+            </Button>
+          ) : null}
           <Button type="submit" disabled={pending} className="flex-1">
             {submitLabel}
           </Button>

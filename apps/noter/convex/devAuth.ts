@@ -39,6 +39,35 @@ function readSeedValue(envName: string): string | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
+/**
+ * Preview deployments own their seeded password login via Convex preview env
+ * vars, while local and anonymous workflows keep the legacy hardcoded seed.
+ */
+function readSeedPasswordAccountConfig(): {
+  email: string;
+  password: string;
+} {
+  const previewEmail = readSeedValue("PREVIEW_SEED_AUTH_EMAIL");
+  const previewPassword = readSeedValue("PREVIEW_SEED_AUTH_PASSWORD");
+  if (previewEmail === undefined && previewPassword === undefined) {
+    return {
+      email: normalizeEmail(DEV_SEED_EMAIL),
+      password: DEV_SEED_PASSWORD,
+    };
+  }
+  if (previewEmail === undefined || previewPassword === undefined) {
+    throw new Error(
+      previewEmail === undefined
+        ? "PREVIEW_SEED_AUTH_EMAIL is required when PREVIEW_SEED_AUTH_PASSWORD is set"
+        : "PREVIEW_SEED_AUTH_PASSWORD is required when PREVIEW_SEED_AUTH_EMAIL is set",
+    );
+  }
+  return {
+    email: normalizeEmail(previewEmail),
+    password: previewPassword,
+  };
+}
+
 async function upsertGithubApiKey(
   db: DatabaseWriter,
   userId: Id<"users">,
@@ -199,8 +228,7 @@ export const seedPasswordAccount = internalAction({
     created: boolean(),
   }),
   handler: async (ctx) => {
-    const email = normalizeEmail(DEV_SEED_EMAIL);
-    const password = DEV_SEED_PASSWORD;
+    const { email, password } = readSeedPasswordAccountConfig();
     const githubApiKey = readSeedValue("DEV_SEED_GITHUB_API_KEY");
     const convexManagementApiKey = readSeedValue(
       "DEV_SEED_CONVEX_MANAGEMENT_API_KEY",
