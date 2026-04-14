@@ -21,14 +21,15 @@ import {
   DEFAULT_FACE_COLORS,
   FACE_COLOR_KEYS,
   TAILWIND_COLOR_FAMILIES,
+  getFaceColorCssValue,
   getTailwindColorHex,
   getTailwindColorFamily,
   getTailwindColorFamilyHex,
   getTailwindColorShade,
   getTailwindColorShades,
   getTailwindColorTokenForSelection,
-  isHexColorToken,
-  normalizeHexColorToken,
+  isTailwindColorToken,
+  normalizeFaceColorValue,
   type FaceColorKey,
   type FaceColors,
 } from "@/components/logoTailwindColors";
@@ -121,7 +122,7 @@ const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
   top: "Top",
 };
 const CUSTOM_FACE_COLOR_FAMILY = "Custom";
-const CUSTOM_FACE_COLOR_SHADE_LABEL = "Hex";
+const CUSTOM_FACE_COLOR_SHADE_LABEL = "CSS";
 const RGB_FACE_COLORS: FaceColors = {
   left: "red-500",
   right: "green-500",
@@ -172,10 +173,9 @@ function ColorOptionContent({
 }) {
   return (
     <div
-      className="flex items-center gap-2 corner-notch-1 border px-2 py-1"
+      className="flex items-center gap-2 corner-notch-1 border bg-white/90 px-2 py-1"
       style={{
-        backgroundColor: `${color}18`,
-        borderColor: `${color}40`,
+        borderColor: color,
       }}
     >
       <ColorSwatch color={color} />
@@ -184,11 +184,11 @@ function ColorOptionContent({
   );
 }
 
-function createFaceColorHexDrafts(faceColors: FaceColors): FaceColors {
+function createFaceColorDrafts(faceColors: FaceColors): FaceColors {
   return {
-    left: getTailwindColorHex(faceColors.left),
-    right: getTailwindColorHex(faceColors.right),
-    top: getTailwindColorHex(faceColors.top),
+    left: getFaceColorCssValue(faceColors.left),
+    right: getFaceColorCssValue(faceColors.right),
+    top: getFaceColorCssValue(faceColors.top),
   };
 }
 
@@ -375,8 +375,8 @@ export function LogoPreviewPage({
   const [faceColors, setFaceColors] = useState<FaceColors>(() =>
     readFaceColors(routeSearch),
   );
-  const [faceColorHexDrafts, setFaceColorHexDrafts] = useState<FaceColors>(() =>
-    createFaceColorHexDrafts(readFaceColors(routeSearch)),
+  const [faceColorDrafts, setFaceColorDrafts] = useState<FaceColors>(() =>
+    createFaceColorDrafts(readFaceColors(routeSearch)),
   );
   const [logoOpacity, setLogoOpacity] = useState(DEFAULT_LOGO_OPACITY);
   const [isFaceColorAnimationEnabled, setIsFaceColorAnimationEnabled] =
@@ -431,7 +431,7 @@ export function LogoPreviewPage({
   }, [routeSearch]);
 
   useEffect(() => {
-    setFaceColorHexDrafts(createFaceColorHexDrafts(faceColors));
+    setFaceColorDrafts(createFaceColorDrafts(faceColors));
   }, [faceColors]);
 
   useEffect(() => {
@@ -706,7 +706,7 @@ export function LogoPreviewPage({
     if (nextFamily === CUSTOM_FACE_COLOR_FAMILY) {
       setFaceColors((currentFaceColors) => ({
         ...currentFaceColors,
-        [faceColorKey]: getTailwindColorHex(currentFaceColors[faceColorKey]),
+        [faceColorKey]: getFaceColorCssValue(currentFaceColors[faceColorKey]),
       }));
       return;
     }
@@ -715,7 +715,7 @@ export function LogoPreviewPage({
       ...currentFaceColors,
       [faceColorKey]: getTailwindColorTokenForSelection(
         nextFamily,
-        isHexColorToken(currentFaceColors[faceColorKey])
+        !isTailwindColorToken(currentFaceColors[faceColorKey])
           ? "500"
           : getTailwindColorShade(currentFaceColors[faceColorKey]),
         currentFaceColors[faceColorKey],
@@ -737,31 +737,31 @@ export function LogoPreviewPage({
     }));
   };
 
-  const handleFaceColorHexDraftChange = (
+  const handleFaceColorDraftChange = (
     faceColorKey: FaceColorKey,
     nextValue: string,
   ) => {
-    setFaceColorHexDrafts((currentDrafts) => ({
+    setFaceColorDrafts((currentDrafts) => ({
       ...currentDrafts,
       [faceColorKey]: nextValue,
     }));
   };
 
-  const handleFaceColorHexCommit = (faceColorKey: FaceColorKey) => {
-    const normalizedHex = normalizeHexColorToken(
-      faceColorHexDrafts[faceColorKey],
+  const handleFaceColorDraftCommit = (faceColorKey: FaceColorKey) => {
+    const normalizedFaceColor = normalizeFaceColorValue(
+      faceColorDrafts[faceColorKey],
     );
-    if (normalizedHex === null) {
-      setFaceColorHexDrafts((currentDrafts) => ({
+    if (normalizedFaceColor === null) {
+      setFaceColorDrafts((currentDrafts) => ({
         ...currentDrafts,
-        [faceColorKey]: getTailwindColorHex(faceColors[faceColorKey]),
+        [faceColorKey]: getFaceColorCssValue(faceColors[faceColorKey]),
       }));
       return;
     }
 
     setFaceColors((currentFaceColors) => ({
       ...currentFaceColors,
-      [faceColorKey]: normalizedHex,
+      [faceColorKey]: normalizedFaceColor,
     }));
   };
 
@@ -769,7 +769,7 @@ export function LogoPreviewPage({
     faceColorKey: FaceColorKey,
     nextValue: string,
   ) => {
-    const normalizedHex = normalizeHexColorToken(nextValue);
+    const normalizedHex = normalizeFaceColorValue(nextValue);
     if (normalizedHex === null) {
       return;
     }
@@ -1555,7 +1555,7 @@ export function LogoPreviewPage({
                         {FACE_COLOR_KEYS.map((faceColorKey) => (
                           <ColorSwatch
                             key={faceColorKey}
-                            color={getTailwindColorHex(
+                            color={getFaceColorCssValue(
                               faceColors[faceColorKey],
                             )}
                             sizeClassName="h-3.5 w-3.5"
@@ -1577,29 +1577,33 @@ export function LogoPreviewPage({
                   >
                     {FACE_COLOR_KEYS.map((faceColorKey) => {
                       const currentToken = faceColors[faceColorKey];
-                      const currentHex = getTailwindColorHex(currentToken);
-                      const isCustomHexColor = isHexColorToken(currentToken);
-                      const currentFamily = isCustomHexColor
+                      const currentColorValue =
+                        getFaceColorCssValue(currentToken);
+                      const currentPickerHex =
+                        getTailwindColorHex(currentToken);
+                      const isCustomFaceColor =
+                        !isTailwindColorToken(currentToken);
+                      const currentFamily = isCustomFaceColor
                         ? CUSTOM_FACE_COLOR_FAMILY
                         : getTailwindColorFamily(currentToken);
-                      const currentShade = isCustomHexColor
+                      const currentShade = isCustomFaceColor
                         ? CUSTOM_FACE_COLOR_SHADE_LABEL
                         : getTailwindColorShade(currentToken);
-                      const availableShades = isCustomHexColor
+                      const availableShades = isCustomFaceColor
                         ? []
                         : getTailwindColorShades(currentFamily);
-                      const currentFamilyHex = isCustomHexColor
-                        ? currentHex
+                      const currentFamilyHex = isCustomFaceColor
+                        ? currentColorValue
                         : getTailwindColorFamilyHex(currentFamily);
-                      const currentHexDraft = faceColorHexDrafts[faceColorKey];
-                      const isCurrentHexDraftValid =
-                        normalizeHexColorToken(currentHexDraft) !== null;
+                      const currentColorDraft = faceColorDrafts[faceColorKey];
+                      const isCurrentColorDraftValid =
+                        normalizeFaceColorValue(currentColorDraft) !== null;
 
                       return (
                         <div key={faceColorKey} className="grid gap-2">
                           <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                             <ColorSwatch
-                              color={getTailwindColorHex(currentToken)}
+                              color={currentColorValue}
                               sizeClassName="h-3.5 w-3.5"
                             />
                             <Label className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
@@ -1640,15 +1644,15 @@ export function LogoPreviewPage({
                                   className="rounded-none"
                                 >
                                   <ColorOptionContent
-                                    color={currentHex}
-                                    label="Custom hex"
+                                    color={currentColorValue}
+                                    label="Custom CSS"
                                   />
                                 </SelectItem>
                               </SelectContent>
                             </Select>
-                            {isCustomHexColor ? (
+                            {isCustomFaceColor ? (
                               <div className="flex h-9 items-center gap-2 rounded-none border border-black/10 bg-white/90 px-2 text-sm text-black/60">
-                                <ColorSwatch color={currentHex} />
+                                <ColorSwatch color={currentColorValue} />
                                 <span>{currentShade}</span>
                               </div>
                             ) : (
@@ -1666,7 +1670,7 @@ export function LogoPreviewPage({
                                   className="h-9 rounded-none border-black/10 bg-white/90 px-2 text-sm text-black/80 shadow-none"
                                 >
                                   <ColorOptionContent
-                                    color={currentHex}
+                                    color={currentColorValue}
                                     label={currentShade}
                                   />
                                 </SelectTrigger>
@@ -1702,7 +1706,7 @@ export function LogoPreviewPage({
                             <Input
                               aria-label={`${FACE_COLOR_LABELS[faceColorKey]} color picker`}
                               type="color"
-                              value={currentHex}
+                              value={currentPickerHex}
                               onChange={(event) =>
                                 handleFaceColorPickerChange(
                                   faceColorKey,
@@ -1712,37 +1716,37 @@ export function LogoPreviewPage({
                               className="h-9 w-full rounded-none border-black/10 bg-white/90 p-1"
                             />
                             <Input
-                              aria-label={`${FACE_COLOR_LABELS[faceColorKey]} hex color`}
+                              aria-label={`${FACE_COLOR_LABELS[faceColorKey]} CSS color`}
                               inputMode="text"
                               spellCheck={false}
-                              value={currentHexDraft}
+                              value={currentColorDraft}
                               onChange={(event) =>
-                                handleFaceColorHexDraftChange(
+                                handleFaceColorDraftChange(
                                   faceColorKey,
                                   event.target.value,
                                 )
                               }
                               onBlur={() => {
-                                handleFaceColorHexCommit(faceColorKey);
+                                handleFaceColorDraftCommit(faceColorKey);
                               }}
                               onKeyDown={(event) => {
                                 if (event.key === "Enter") {
                                   event.preventDefault();
-                                  handleFaceColorHexCommit(faceColorKey);
+                                  handleFaceColorDraftCommit(faceColorKey);
                                 }
 
                                 if (event.key === "Escape") {
                                   event.preventDefault();
-                                  setFaceColorHexDrafts((currentDrafts) => ({
+                                  setFaceColorDrafts((currentDrafts) => ({
                                     ...currentDrafts,
-                                    [faceColorKey]: currentHex,
+                                    [faceColorKey]: currentColorValue,
                                   }));
                                 }
                               }}
-                              placeholder="#394447"
+                              placeholder="oklch(48.8% 0.243 264.376)"
                               className={cn(
                                 "h-9 rounded-none bg-white/90 px-2 font-mono text-sm",
-                                isCurrentHexDraftValid
+                                isCurrentColorDraftValid
                                   ? "border-black/10"
                                   : "border-red-500/50 text-red-900 focus-visible:ring-red-500/40",
                               )}

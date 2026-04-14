@@ -10,6 +10,11 @@ type ThemeColorSource = {
 };
 type ColorSource = string | ThemeColorSource;
 const HEX_COLOR_TOKEN_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+const CSS_COLOR_FUNCTION_PATTERN =
+  /^(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|color-mix|light-dark)\(/i;
+const CSS_COLOR_KEYWORD_PATTERN = /^[a-z-]+$/i;
+let cssColorProbeElement: HTMLSpanElement | null = null;
+let cssColorCanvasContext: CanvasRenderingContext2D | null = null;
 
 function readThemeColor(cssVariable: `--${string}`): string | null {
   if (typeof document === "undefined") {
@@ -74,7 +79,206 @@ function readThemeColor(cssVariable: `--${string}`): string | null {
   return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
 }
 
-function resolveColorSource(source: ColorSource): string {
+function getCssColorProbeElement(): HTMLSpanElement | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  if (cssColorProbeElement === null) {
+    cssColorProbeElement = document.createElement("span");
+    cssColorProbeElement.setAttribute("aria-hidden", "true");
+    cssColorProbeElement.style.position = "absolute";
+    cssColorProbeElement.style.width = "0";
+    cssColorProbeElement.style.height = "0";
+    cssColorProbeElement.style.overflow = "hidden";
+    cssColorProbeElement.style.pointerEvents = "none";
+    cssColorProbeElement.style.opacity = "0";
+  }
+
+  if (!cssColorProbeElement.isConnected) {
+    document.documentElement.append(cssColorProbeElement);
+  }
+
+  return cssColorProbeElement;
+}
+
+function getCssColorCanvasContext(): CanvasRenderingContext2D | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  if (cssColorCanvasContext !== null) {
+    return cssColorCanvasContext;
+  }
+
+  const canvasElement = document.createElement("canvas");
+  canvasElement.width = 1;
+  canvasElement.height = 1;
+  cssColorCanvasContext = canvasElement.getContext("2d", {
+    willReadFrequently: true,
+  });
+  return cssColorCanvasContext;
+}
+
+function parseCssColorChannel(value: string): number | null {
+  const parsedValue = Number.parseFloat(value.replace("%", ""));
+  if (Number.isNaN(parsedValue)) {
+    return null;
+  }
+
+  if (value.includes("%")) {
+    return Math.round(Math.min(Math.max(parsedValue, 0), 100) * 2.55);
+  }
+
+  return Math.round(Math.min(Math.max(parsedValue, 0), 255));
+}
+
+function convertSrgbChannelToHex(channel: number): string {
+  return Math.round(channel * 255)
+    .toString(16)
+    .padStart(2, "0");
+}
+
+function convertLinearSrgbChannelToSrgb(channel: number): number {
+  const clampedChannel = Math.min(Math.max(channel, 0), 1);
+  if (clampedChannel <= 0.0031308) {
+    return clampedChannel * 12.92;
+  }
+
+  return 1.055 * clampedChannel ** (1 / 2.4) - 0.055;
+}
+
+function parseOklchColorToHex(value: string): string | null {
+  const oklchMatch = value
+    .trim()
+    .match(
+      /^oklch\(\s*([+-]?(?:\d+\.?\d*|\.\d+))%\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))(?:deg)?(?:\s*\/\s*[^)]+)?\s*\)$/i,
+    );
+  if (oklchMatch === null) {
+    return null;
+  }
+
+  const lightness = Number.parseFloat(oklchMatch[1]) / 100;
+  const chroma = Number.parseFloat(oklchMatch[2]);
+  const hueRadians = (Number.parseFloat(oklchMatch[3]) * Math.PI) / 180;
+  if (
+    Number.isNaN(lightness) ||
+    Number.isNaN(chroma) ||
+    Number.isNaN(hueRadians)
+  ) {
+    return null;
+  }
+
+  const a = chroma * Math.cos(hueRadians);
+  const b = chroma * Math.sin(hueRadians);
+  const l = lightness + 0.3963377774 * a + 0.2158037573 * b;
+  const m = lightness - 0.1055613458 * a - 0.0638541728 * b;
+  const s = lightness - 0.0894841775 * a - 1.291485548 * b;
+
+  const lCube = l ** 3;
+  const mCube = m ** 3;
+  const sCube = s ** 3;
+
+  const redLinear =
+    4.0767416621 * lCube - 3.3077115913 * mCube + 0.2309699292 * sCube;
+  const greenLinear =
+    -1.2684380046 * lCube + 2.6097574011 * mCube - 0.3413193965 * sCube;
+  const blueLinear =
+    -0.0041960863 * lCube - 0.7034186147 * mCube + 1.707614701 * sCube;
+
+  const red = convertLinearSrgbChannelToSrgb(redLinear);
+  const green = convertLinearSrgbChannelToSrgb(greenLinear);
+  const blue = convertLinearSrgbChannelToSrgb(blueLinear);
+
+  return `#${convertSrgbChannelToHex(red)}${convertSrgbChannelToHex(green)}${convertSrgbChannelToHex(blue)}`;
+}
+
+function resolveCssColorToHexWithCanvas(value: string): string | null {
+  const probeElement = getCssColorProbeElement();
+  const canvasContext = getCssColorCanvasContext();
+  if (probeElement === null || canvasContext === null) {
+    return null;
+  }
+
+  probeElement.style.color = "";
+  probeElement.style.color = value;
+  if (probeElement.style.color.length === 0) {
+    return null;
+  }
+
+  canvasContext.clearRect(0, 0, 1, 1);
+  canvasContext.fillStyle = value;
+  canvasContext.fillRect(0, 0, 1, 1);
+  const [red, green, blue] = canvasContext.getImageData(0, 0, 1, 1).data;
+
+  return `#${[red, green, blue].map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function parseComputedCssColorToHex(value: string): string | null {
+  const normalizedHexToken = normalizeHexColorToken(value);
+  if (normalizedHexToken !== null) {
+    return normalizedHexToken;
+  }
+
+  const rgbMatch = value.trim().match(/^rgba?\((.*)\)$/i);
+  if (rgbMatch === null) {
+    return null;
+  }
+
+  const channels = rgbMatch[1]
+    .replace(/\//g, " ")
+    .split(/[\s,]+/)
+    .filter((channel) => channel.length > 0)
+    .slice(0, 3)
+    .map(parseCssColorChannel);
+
+  if (channels.length !== 3 || channels.some((channel) => channel === null)) {
+    return null;
+  }
+
+  const numericChannels = channels.filter(
+    (channel): channel is number => channel !== null,
+  );
+  if (numericChannels.length !== 3) {
+    return null;
+  }
+
+  return `#${numericChannels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function resolveCssColorToHex(value: string): string | null {
+  const normalizedHexToken = normalizeHexColorToken(value);
+  if (normalizedHexToken !== null) {
+    return normalizedHexToken;
+  }
+
+  const canvasHexToken = resolveCssColorToHexWithCanvas(value);
+  if (canvasHexToken !== null) {
+    return canvasHexToken;
+  }
+
+  const oklchHexToken = parseOklchColorToHex(value);
+  if (oklchHexToken !== null) {
+    return oklchHexToken;
+  }
+
+  const probeElement = getCssColorProbeElement();
+  if (probeElement === null) {
+    return null;
+  }
+
+  probeElement.style.color = "";
+  probeElement.style.color = value;
+  if (probeElement.style.color.length === 0) {
+    return null;
+  }
+
+  return parseComputedCssColorToHex(
+    window.getComputedStyle(probeElement).color,
+  );
+}
+
+function resolveColorSourceToCssValue(source: ColorSource): string {
   if (typeof source === "string") {
     return source;
   }
@@ -280,22 +484,48 @@ export function isHexColorToken(token: string): boolean {
   return normalizeHexColorToken(token) !== null;
 }
 
-// Keep face-color state deterministic whether it came from a preset token or a
-// custom hex value typed into the route/UI.
-export function normalizeFaceColorToken(token: string): string | null {
-  const trimmedToken = token.trim();
-  const normalizedHexToken = normalizeHexColorToken(trimmedToken);
+function isSupportedCssColorValue(value: string): boolean {
+  if (typeof document !== "undefined") {
+    const probeElement = getCssColorProbeElement();
+    if (probeElement === null) {
+      return false;
+    }
+
+    probeElement.style.color = "";
+    probeElement.style.color = value;
+    return probeElement.style.color.length > 0;
+  }
+
+  return (
+    CSS_COLOR_FUNCTION_PATTERN.test(value) ||
+    CSS_COLOR_KEYWORD_PATTERN.test(value)
+  );
+}
+
+export function isTailwindColorToken(token: string): boolean {
+  return tailwindColorOptionMap.has(token.trim());
+}
+
+// Preserve preset tokens as tokens, but let custom inputs store any CSS color
+// string the browser accepts.
+export function normalizeFaceColorValue(value: string): string | null {
+  const trimmedValue = value.trim();
+  const normalizedHexToken = normalizeHexColorToken(trimmedValue);
   if (normalizedHexToken !== null) {
     return normalizedHexToken;
   }
 
-  return tailwindColorOptionMap.has(trimmedToken) ? trimmedToken : null;
+  if (tailwindColorOptionMap.has(trimmedValue)) {
+    return trimmedValue;
+  }
+
+  return isSupportedCssColorValue(trimmedValue) ? trimmedValue : null;
 }
 
 function getTailwindColorOption(
   token: string,
 ): TailwindColorOption | undefined {
-  return tailwindColorOptionMap.get(token);
+  return tailwindColorOptionMap.get(token.trim());
 }
 
 export function getTailwindColorHex(token: string): string {
@@ -304,7 +534,26 @@ export function getTailwindColorHex(token: string): string {
     return normalizedHexToken;
   }
 
-  return resolveColorSource(getTailwindColorOption(token)?.source ?? "#000000");
+  const cssColorValue = getTailwindColorOption(token)?.source;
+  return (
+    resolveCssColorToHex(
+      cssColorValue === undefined
+        ? token.trim()
+        : resolveColorSourceToCssValue(cssColorValue),
+    ) ?? "#000000"
+  );
+}
+
+export function getFaceColorCssValue(token: string): string {
+  const normalizedFaceColorValue = normalizeFaceColorValue(token);
+  if (normalizedFaceColorValue === null) {
+    return "#000000";
+  }
+
+  return resolveColorSourceToCssValue(
+    getTailwindColorOption(normalizedFaceColorValue)?.source ??
+      normalizedFaceColorValue,
+  );
 }
 
 export function getTailwindColorFamily(token: string): TailwindColorFamily {

@@ -10,7 +10,7 @@ import {
   DEFAULT_FACE_COLORS,
   type FaceColorKey,
   type FaceColors,
-  normalizeFaceColorToken,
+  normalizeFaceColorValue,
 } from "@/components/logoTailwindColors";
 import {
   DEFAULT_ELEVATION_DEGREES,
@@ -104,7 +104,7 @@ function readOptionalFaceColorToken(value: unknown): string | undefined {
     return undefined;
   }
 
-  return normalizeFaceColorToken(faceColorToken) ?? undefined;
+  return normalizeFaceColorValue(faceColorToken) ?? undefined;
 }
 
 function readCanonicalVoxelState(value: unknown): string | undefined {
@@ -195,12 +195,12 @@ export function buildLogoRouteSearch(args: {
 }): LogoRouteSearch {
   const faceColors = {
     left:
-      normalizeFaceColorToken(args.faceColors.left) ?? DEFAULT_FACE_COLORS.left,
+      normalizeFaceColorValue(args.faceColors.left) ?? DEFAULT_FACE_COLORS.left,
     right:
-      normalizeFaceColorToken(args.faceColors.right) ??
+      normalizeFaceColorValue(args.faceColors.right) ??
       DEFAULT_FACE_COLORS.right,
     top:
-      normalizeFaceColorToken(args.faceColors.top) ?? DEFAULT_FACE_COLORS.top,
+      normalizeFaceColorValue(args.faceColors.top) ?? DEFAULT_FACE_COLORS.top,
   } satisfies FaceColors;
 
   return {

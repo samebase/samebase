@@ -57,6 +57,27 @@ describe("logoRouteSearch", () => {
     });
   });
 
+  it("preserves supported CSS face colors in route state", () => {
+    expect(
+      buildLogoRouteSearch({
+        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        faceColors: {
+          left: "oklch(48.8% 0.243 264.376)",
+          right: DEFAULT_FACE_COLORS.right,
+          top: DEFAULT_FACE_COLORS.top,
+        },
+        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        rotationAxisMode: "cube-y",
+        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        viewSnapEnabled: true,
+        voxelState: DEFAULT_VOXEL_STATE,
+      }),
+    ).toEqual({
+      leftColor: "oklch(48.8% 0.243 264.376)",
+    });
+  });
+
   it("drops default logo state when building route search", () => {
     expect(
       buildLogoRouteSearch({

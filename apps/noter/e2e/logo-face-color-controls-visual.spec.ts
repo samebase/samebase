@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("logo face color controls support custom hex colors", async ({ page }) => {
+test("logo face color controls support custom CSS colors", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(
     "/logo?leftColor=%23aabbcc&rightColor=%23123456&topColor=%23ffeedd",
@@ -27,13 +27,13 @@ test("logo face color controls support custom hex colors", async ({ page }) => {
 
   const faceColorsSection = page.getByTestId("logo-face-colors-section");
   await expect(faceColorsSection).toBeVisible();
-  await expect(faceColorsSection.getByLabel("Left hex color")).toHaveValue(
+  await expect(faceColorsSection.getByLabel("Left CSS color")).toHaveValue(
     "#aabbcc",
   );
-  await expect(faceColorsSection.getByLabel("Right hex color")).toHaveValue(
+  await expect(faceColorsSection.getByLabel("Right CSS color")).toHaveValue(
     "#123456",
   );
-  await expect(faceColorsSection.getByLabel("Top hex color")).toHaveValue(
+  await expect(faceColorsSection.getByLabel("Top CSS color")).toHaveValue(
     "#ffeedd",
   );
 
