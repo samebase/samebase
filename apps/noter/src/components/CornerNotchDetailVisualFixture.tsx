@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { getCornerNotchClass } from "@/lib/cornerNotch";
-import { useCornerNotchBridgeColor } from "@/hooks/useCornerNotchBridgeColor";
+import { useCornerNotchStyling } from "@/hooks/useCornerNotchStyling";
 
 type FixtureBorderWidth = 1 | 2;
 type FixtureZoom = 1 | 12;
@@ -37,7 +37,7 @@ function CornerNotchChipElement({
   zoom: FixtureZoom;
 }) {
   const notchClass = getCornerNotchClass(type);
-  const bridgeRef = useCornerNotchBridgeColor(type, null);
+  const bridgeRef = useCornerNotchStyling(type, "clip", null);
 
   return (
     <div

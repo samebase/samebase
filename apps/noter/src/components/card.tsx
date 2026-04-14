@@ -12,7 +12,7 @@ import {
   getOptionalCornerNotchClass,
   type CornerNotchType,
 } from "@/lib/cornerNotch";
-import { useCornerNotchBridgeColor } from "@/hooks/useCornerNotchBridgeColor";
+import { useCornerNotchStyling } from "@/hooks/useCornerNotchStyling";
 import { cn } from "@/lib/utils";
 
 export interface CardProps extends React.ComponentPropsWithoutRef<
@@ -28,8 +28,9 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       getOptionalCornerNotchClass(resolvedCornerNotch),
       className,
     );
-    const cardRef = useCornerNotchBridgeColor(
+    const cardRef = useCornerNotchStyling(
       resolvedCornerNotch,
+      "clip",
       ref,
       finalClassName,
     );

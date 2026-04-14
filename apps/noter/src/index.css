@@ -311,6 +311,39 @@
     clip-path: none;
   }
 
+  .corner-notch-pixel-0 {
+    border-image: none;
+    filter: none;
+  }
+
+  :is(.corner-notch-pixel-1, .corner-notch-pixel-2) {
+    border-radius: 0;
+    border-style: solid;
+    background-clip: padding-box;
+    border-image-source: var(--noter-corner-notch-pixel-border-source);
+    border-image-outset: 0;
+    border-image-repeat: stretch;
+  }
+
+  .corner-notch-pixel-1 {
+    border-image-slice: 2;
+    border-image-width: 1;
+  }
+
+  .corner-notch-pixel-2 {
+    border-image-slice: 4;
+    border-image-width: 2;
+  }
+
+  .corner-notch-pixel-1:focus-visible,
+  .corner-notch-pixel-1:focus-within,
+  .corner-notch-pixel-2:focus-visible,
+  .corner-notch-pixel-2:focus-within {
+    --tw-ring-shadow: 0 0 #0000;
+    --tw-ring-offset-shadow: 0 0 #0000;
+    filter: var(--noter-corner-notch-pixel-focus-filter, none);
+  }
+
   :is(.corner-notch-1, .corner-notch-2) {
     /*
      * Notch sizing must live on the notched element itself.
