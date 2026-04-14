@@ -79,6 +79,7 @@ import {
 } from "@/components/fileViewPushActionsVisualModes";
 import { VaultDashboardBranchVisualFixture } from "@/components/VaultDashboardBranchVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
+import { PasswordAuthVisualFixture } from "@/components/PasswordAuthVisualFixture";
 import {
   AppBootFailureStateVisualFixture,
   type AppBootFailureStateVisualMode,
@@ -153,6 +154,7 @@ type VisualFixtureMode =
   | CodexThreadHistoryVisualMode
   | "machines-workspace"
   | "machine-connect"
+  | "password-auth"
   | "vault-dashboard-branch-pr-title"
   | "button"
   | AppBootFailureStateVisualMode
@@ -287,6 +289,7 @@ const MISC_VISUAL_MODES = [
   "machines-workspace",
   ...WORKSPACE_LAYOUT_V2_VISUAL_MODES,
   "machine-connect",
+  "password-auth",
   "vault-dashboard-branch-pr-title",
   "button",
   "app-boot-failure-stale",
@@ -531,6 +534,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "machines-workspace") {
     return <MachinesWorkspaceVisualFixture />;
+  }
+
+  if (mode === "password-auth") {
+    return <PasswordAuthVisualFixture />;
   }
 
   if (mode === "workspace-layout-v2-status-bar") {

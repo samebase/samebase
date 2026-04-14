@@ -3,6 +3,11 @@ import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 import type { DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import {
+  assertPasswordAuthFlowAllowed,
+  resolveDeploymentProfile,
+  resolvePasswordAuthMode,
+} from "./deploymentProfile";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { isAllowedEmail } from "./users";
 import { readOptionalEnv } from "./oauthUtils";
@@ -18,73 +23,6 @@ type UserPatch = {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
-}
-
-function isLocalhostUrl(rawUrl: string): boolean {
-  try {
-    const parsed = new URL(rawUrl);
-    return parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
-  } catch {
-    return false;
-  }
-}
-
-function isLocalConvexDeployment(): boolean {
-  const cloudUrl = readOptionalEnv("CONVEX_CLOUD_URL");
-  if (cloudUrl !== null && isLocalhostUrl(cloudUrl)) {
-    return true;
-  }
-  const siteUrl = readOptionalEnv("CONVEX_SITE_URL");
-  return siteUrl !== null && isLocalhostUrl(siteUrl);
-}
-
-function readDeploymentName(rawDeployment: string): string | null {
-  const [_, ...rest] = rawDeployment.split(":");
-  if (rest.length === 0) {
-    return null;
-  }
-  const deploymentName = rest.join(":").trim();
-  return deploymentName.length > 0 ? deploymentName : null;
-}
-
-function isDevelopmentDeployment(): boolean {
-  const deployment = readOptionalEnv("CONVEX_DEPLOYMENT");
-  if (deployment !== null) {
-    return deployment.startsWith("dev:");
-  }
-
-  const daytonaDeployKey = readOptionalEnv("DAYTONA_CONVEX_DEPLOY_KEY");
-  if (daytonaDeployKey !== null) {
-    const [daytonaDeployment] = daytonaDeployKey.split("|", 1);
-    return daytonaDeployment.startsWith("dev:");
-  }
-
-  const siteUrl = readOptionalEnv("SITE_URL");
-  return siteUrl !== null && siteUrl.includes("localhost");
-}
-
-function isAnonymousWorktreeDeployment(): boolean {
-  const deployment = readOptionalEnv("CONVEX_DEPLOYMENT");
-  if (deployment !== null) {
-    const deploymentName = readDeploymentName(deployment);
-    return (
-      deploymentName !== null &&
-      (deploymentName.startsWith("anonymous-") ||
-        deploymentName.startsWith("local-"))
-    );
-  }
-
-  const daytonaDeployKey = readOptionalEnv("DAYTONA_CONVEX_DEPLOY_KEY");
-  if (daytonaDeployKey === null) {
-    return false;
-  }
-  const [daytonaDeployment] = daytonaDeployKey.split("|", 1);
-  const deploymentName = readDeploymentName(daytonaDeployment);
-  return (
-    deploymentName !== null &&
-    (deploymentName.startsWith("anonymous-") ||
-      deploymentName.startsWith("local-"))
-  );
 }
 
 function normalizeEmail(email: string): string {
@@ -229,7 +167,8 @@ async function applyAutoSeedProviderKeys(
   db: DatabaseWriter,
   userId: Id<"users">,
 ) {
-  if (!isAnonymousWorktreeDeployment()) {
+  const deploymentProfile = resolveDeploymentProfile();
+  if (deploymentProfile.kind !== "local_worktree") {
     return;
   }
   await upsertSeedGithubConnection(db, userId);
@@ -239,10 +178,8 @@ async function applyAutoSeedProviderKeys(
 
 const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");
 const googleClientSecret = readOptionalEnv("AUTH_GOOGLE_SECRET");
-const passwordAuthEnabled =
-  isLocalConvexDeployment() ||
-  isDevelopmentDeployment() ||
-  isAnonymousWorktreeDeployment();
+const passwordAuthMode = resolvePasswordAuthMode(resolveDeploymentProfile());
+const passwordAuthEnabled = passwordAuthMode !== "off";
 if ((googleClientId === null) !== (googleClientSecret === null)) {
   throw new Error(
     `Missing required environment variable: ${
@@ -257,6 +194,9 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       ? [
           Password({
             profile: (params) => {
+              if (params.flow === "signIn" || params.flow === "signUp") {
+                assertPasswordAuthFlowAllowed(passwordAuthMode, params.flow);
+              }
               const rawEmail = params.email;
               if (!isNonEmptyString(rawEmail)) {
                 throw new Error("Missing `email` for password authentication");

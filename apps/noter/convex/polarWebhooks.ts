@@ -1,6 +1,7 @@
 import { validateEvent } from "@polar-sh/sdk/webhooks";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { resolveDeploymentProfile } from "./deploymentProfile";
 import { readRequiredEnv } from "./oauthUtils";
 import { deriveBillingFromCustomerState } from "./billing";
 import { isRecord, readString, toErrorMessage } from "./jsonUtils";
@@ -10,9 +11,9 @@ type PolarServer = "sandbox" | "production";
 const POLAR_WEBHOOK_FETCH_TIMEOUT_MS = 8000;
 
 function inferPolarServer(): PolarServer {
-  const raw = process.env.CONVEX_DEPLOYMENT?.trim() ?? "";
-  const prefix = raw.split(":")[0]?.trim().toLowerCase() ?? "";
-  return prefix === "prod" ? "production" : "sandbox";
+  return resolveDeploymentProfile().kind === "production"
+    ? "production"
+    : "sandbox";
 }
 
 function getPolarApiBaseUrl(server: PolarServer): string {

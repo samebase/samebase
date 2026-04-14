@@ -2,19 +2,11 @@
 
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
+import { resolveDeploymentProfile } from "./deploymentProfile";
 import { Resend } from "resend";
 
 function inferConvexDeploymentLabel(): "prod" | "dev" {
-  const convexDeployment = process.env.CONVEX_DEPLOYMENT?.trim() ?? "";
-  const deploymentPrefix =
-    convexDeployment.split(":")[0]?.trim().toLowerCase() ?? "";
-  if (deploymentPrefix === "prod") {
-    return "prod";
-  }
-  if (deploymentPrefix === "dev" || deploymentPrefix === "preview") {
-    return "dev";
-  }
-  return "dev";
+  return resolveDeploymentProfile().kind === "production" ? "prod" : "dev";
 }
 
 export const notifyAdmin = internalAction({

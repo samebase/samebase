@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it } from "vitest";
-import { shouldRenderPublicLandingWithoutAuthGate } from "./publicLandingAuthState";
+import {
+  getPasswordAuthSurface,
+  getVisiblePasswordAuthSurface,
+  shouldRenderPublicLandingWithoutAuthGate,
+} from "./publicLandingAuthState";
 import { validateRootRouteSearch } from "./rootRouteSearch";
 
 const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
@@ -76,5 +80,34 @@ describe("publicLandingAuthState", () => {
         validateRootRouteSearch({}),
       ),
     ).toBe(false);
+  });
+
+  it("maps the public password auth mode to a stable landing surface", () => {
+    expect(getPasswordAuthSurface("preview_seed")).toBe("preview");
+    expect(getPasswordAuthSurface("local_worktree_seed")).toBe(
+      "local_worktree",
+    );
+    expect(getPasswordAuthSurface("off")).toBe("hidden");
+  });
+
+  it("hides password auth surfaces when prod-ui mode is enabled", () => {
+    expect(
+      getVisiblePasswordAuthSurface({
+        passwordAuthMode: "preview_seed",
+        prodUiModeEnabled: true,
+      }),
+    ).toBe("hidden");
+    expect(
+      getVisiblePasswordAuthSurface({
+        passwordAuthMode: "local_worktree_seed",
+        prodUiModeEnabled: true,
+      }),
+    ).toBe("hidden");
+    expect(
+      getVisiblePasswordAuthSurface({
+        passwordAuthMode: "local_worktree_seed",
+        prodUiModeEnabled: false,
+      }),
+    ).toBe("local_worktree");
   });
 });

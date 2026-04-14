@@ -3,6 +3,7 @@ import { Infer, v } from "convex/values";
 import { action, internalMutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
+import { resolveDeploymentProfile } from "./deploymentProfile";
 import { randomToken, readRequiredEnv } from "./oauthUtils";
 import { isRecord, readString, toErrorMessage } from "./jsonUtils";
 
@@ -65,9 +66,9 @@ const polarApplyStateArgsValidator = object({
 });
 
 function inferPolarServer(): PolarServer {
-  const raw = process.env.CONVEX_DEPLOYMENT?.trim() ?? "";
-  const prefix = raw.split(":")[0]?.trim().toLowerCase() ?? "";
-  return prefix === "prod" ? "production" : "sandbox";
+  return resolveDeploymentProfile().kind === "production"
+    ? "production"
+    : "sandbox";
 }
 
 function getPolarApiBaseUrl(server: PolarServer): string {

@@ -1,8 +1,10 @@
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { type RootRouteSearch } from "@/lib/rootRouteSearch";
+import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const AUTH_PROVIDER_KEY = "noter_auth_provider";
+export type PasswordAuthSurface = "hidden" | "local_worktree" | "preview";
 
 function withLocalStorage<T>(reader: (storage: Storage) => T, fallback: T): T {
   try {
@@ -58,4 +60,34 @@ export function shouldShowGoogleAuthForPathname(
     !shouldRenderPublicLandingWithoutAuthGate(pathname, routeSearch) ||
     isLandingDevModeEnabled(routeSearch)
   );
+}
+
+export function getPasswordAuthSurface(
+  passwordAuthMode: PublicPasswordAuthMode,
+): PasswordAuthSurface {
+  switch (passwordAuthMode) {
+    case "local_worktree_seed":
+      return "local_worktree";
+    case "preview_seed":
+      return "preview";
+    case "off":
+      return "hidden";
+    default:
+      passwordAuthMode satisfies never;
+      return "hidden";
+  }
+}
+
+/**
+ * `?prod-ui` intentionally hides the password controls even on deployments
+ * that support them so the landing page can mirror the production shell.
+ */
+export function getVisiblePasswordAuthSurface(args: {
+  passwordAuthMode: PublicPasswordAuthMode;
+  prodUiModeEnabled: boolean;
+}): PasswordAuthSurface {
+  if (args.prodUiModeEnabled) {
+    return "hidden";
+  }
+  return getPasswordAuthSurface(args.passwordAuthMode);
 }

@@ -5,6 +5,10 @@ import {
 import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import {
+  resolveDeploymentProfile,
+  resolvePasswordAuthMode,
+} from "./deploymentProfile";
+import {
   internalAction,
   internalMutation,
   type DatabaseWriter,
@@ -37,6 +41,57 @@ function readSeedValue(envName: string): string | undefined {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+}
+
+function readRequiredPreviewSeedPasswordAccountConfig(): {
+  email: string;
+  password: string;
+} {
+  const previewEmail = readSeedValue("PREVIEW_SEED_AUTH_EMAIL");
+  const previewPassword = readSeedValue("PREVIEW_SEED_AUTH_PASSWORD");
+  if (previewEmail === undefined && previewPassword === undefined) {
+    throw new Error(
+      "PREVIEW_SEED_AUTH_EMAIL and PREVIEW_SEED_AUTH_PASSWORD are required",
+    );
+  }
+  if (previewEmail === undefined || previewPassword === undefined) {
+    throw new Error(
+      previewEmail === undefined
+        ? "PREVIEW_SEED_AUTH_EMAIL is required when PREVIEW_SEED_AUTH_PASSWORD is set"
+        : "PREVIEW_SEED_AUTH_PASSWORD is required when PREVIEW_SEED_AUTH_EMAIL is set",
+    );
+  }
+  return {
+    email: normalizeEmail(previewEmail),
+    password: previewPassword,
+  };
+}
+
+/**
+ * Password account seeding follows the explicit deployment profile instead of
+ * inferring preview-vs-local behavior from env var presence alone.
+ */
+function readSeedPasswordAccountConfig(): {
+  email: string;
+  password: string;
+} {
+  const passwordAuthMode = resolvePasswordAuthMode(resolveDeploymentProfile());
+  switch (passwordAuthMode) {
+    case "local_worktree_seed":
+      return {
+        email: normalizeEmail(DEV_SEED_EMAIL),
+        password: DEV_SEED_PASSWORD,
+      };
+    case "preview_seed":
+      return readRequiredPreviewSeedPasswordAccountConfig();
+    case "off":
+      throw new Error(
+        "Password account seeding is disabled for this deployment profile",
+      );
+    default:
+      passwordAuthMode satisfies never;
+      throw new Error("Unsupported password auth mode");
+  }
 }
 
 async function upsertGithubApiKey(
@@ -199,8 +254,7 @@ export const seedPasswordAccount = internalAction({
     created: boolean(),
   }),
   handler: async (ctx) => {
-    const email = normalizeEmail(DEV_SEED_EMAIL);
-    const password = DEV_SEED_PASSWORD;
+    const { email, password } = readSeedPasswordAccountConfig();
     const githubApiKey = readSeedValue("DEV_SEED_GITHUB_API_KEY");
     const convexManagementApiKey = readSeedValue(
       "DEV_SEED_CONVEX_MANAGEMENT_API_KEY",

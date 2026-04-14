@@ -177,7 +177,9 @@ pnpm test
 ## Environment Setup
 
 1. Configure Convex deployment env vars.
-2. Configure app-login providers (Google, plus password in dev).
+2. Configure app-login providers (Google, plus password in dev and preview when
+   `PREVIEW_SEED_AUTH_EMAIL` and `PREVIEW_SEED_AUTH_PASSWORD` are set on preview
+   deployments; the seeded preview email must still be allowlisted).
 3. Configure provider connection OAuth/API keys (GitHub/Convex/Cloudflare).
 
 ## Contributing
@@ -189,6 +191,14 @@ This project uses:
 - Husky for pre-commit hooks
 - TypeScript for type safety
 - Vitest for testing
+
+Convex-generated client files under `apps/noter/convex/_generated/` are
+intentionally committed. Building against an already-existing dev deployment can
+hide this requirement, because `convex codegen` has a deployment to talk to.
+Creating a fresh preview deployment is different: `convex deploy --cmd ...` runs
+the app build before Convex finishes the preview deploy's push/codegen phase, so
+a fresh Cloudflare clone cannot generate `_generated` on the fly and must get
+those files from git.
 
 ## License
 

@@ -37,7 +37,6 @@ coverage
 .env.development.local
 
 # Convex
-convex/_generated
 convex/.tmp
 .convex
 
