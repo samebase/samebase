@@ -6,7 +6,6 @@ import {
   buildInnerBuildCommand,
   inferConvexDeploymentName,
   resolveCloudflarePagesSiteUrl,
-  shouldCreatePreviewDeployment,
 } from "./cloudflare-pages-build.ts";
 
 describe("cloudflare-pages-build", () => {
@@ -65,36 +64,14 @@ describe("cloudflare-pages-build", () => {
     );
   });
 
-  it("treats non-main Pages branches as preview deployments", () => {
-    expect(shouldCreatePreviewDeployment("feature/pr-preview")).toBe(true);
-    expect(shouldCreatePreviewDeployment("main")).toBe(false);
-    expect(shouldCreatePreviewDeployment("")).toBe(false);
-  });
-
-  it("wraps the app build with Convex deploy for production", () => {
+  it("wraps the app build with Convex deploy and preview seeding", () => {
     expect(
-      buildConvexDeployArgs("/repo/scripts/cloudflare-pages-build.ts", "main"),
+      buildConvexDeployArgs("/repo/scripts/cloudflare-pages-build.ts"),
     ).toEqual([
       "convex",
       "deploy",
-      "--cmd-url-env-var-name",
-      "VITE_CONVEX_URL",
-      "--cmd",
-      `${JSON.stringify(process.execPath)} "/repo/scripts/cloudflare-pages-build.ts" --inner-build`,
-    ]);
-  });
-
-  it("adds preview-create for Cloudflare preview branches", () => {
-    expect(
-      buildConvexDeployArgs(
-        "/repo/scripts/cloudflare-pages-build.ts",
-        "feature/pr-preview",
-      ),
-    ).toEqual([
-      "convex",
-      "deploy",
-      "--preview-create",
-      "feature/pr-preview",
+      "--preview-run",
+      "devAuth:seedPasswordAccount",
       "--cmd-url-env-var-name",
       "VITE_CONVEX_URL",
       "--cmd",

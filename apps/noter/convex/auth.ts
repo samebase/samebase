@@ -87,14 +87,6 @@ function isAnonymousWorktreeDeployment(): boolean {
   );
 }
 
-function hasAnySeedProviderCredential(): boolean {
-  return (
-    readOptionalEnv("DEV_SEED_GITHUB_API_KEY") !== null ||
-    readOptionalEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY") !== null ||
-    readOptionalEnv("DEV_SEED_CLOUDFLARE_API_KEY") !== null
-  );
-}
-
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -237,10 +229,7 @@ async function applyAutoSeedProviderKeys(
   db: DatabaseWriter,
   userId: Id<"users">,
 ) {
-  // Preview deployments no longer create a password account during
-  // `convex deploy --preview-create ...`; instead we attach any configured seed
-  // provider connections the first time an allowlisted user actually signs in.
-  if (!isAnonymousWorktreeDeployment() && !hasAnySeedProviderCredential()) {
+  if (!isAnonymousWorktreeDeployment()) {
     return;
   }
   await upsertSeedGithubConnection(db, userId);
