@@ -97,18 +97,11 @@ async function main(): Promise<void> {
   await printLogTail();
 }
 
-function run(command: string, args: string[]): void {
-  const result = spawnSync(command, args, { stdio: "inherit" });
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
-  }
-}
-
 function runConvexEnvSetWithRetry(key: string, value: string): void {
   let attempt = 1;
   const maxAttempts = 5;
 
-  while (true) {
+  for (;;) {
     // Local CI bootstrap can briefly race on env writes, so only retry the
     // known OCC failure and surface everything else immediately.
     const result = spawnSync(
@@ -118,7 +111,7 @@ function runConvexEnvSetWithRetry(key: string, value: string): void {
         encoding: "utf8",
       },
     );
-    const output = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
+    const output = `${result.stdout}${result.stderr}`.trim();
 
     if (output.length > 0) {
       console.log(output);

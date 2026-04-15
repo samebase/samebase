@@ -639,13 +639,16 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <QueryProvider>
           <DialogProvider>
             {showGestureDebugOverlay ? <GlobalGestureDebugOverlay /> : null}
-            {selection.status === "missing"
-              ? renderVisualFixtureModeDirectory({})
-              : selection.status === "invalid"
-                ? renderVisualFixtureModeDirectory({
-                    invalidMode: selection.value,
-                  })
-                : renderVisualFixture(selection.mode)}
+            {/* Keep workspace fixtures mounted inside a full-height flex shell so route bodies don't collapse to zero height. */}
+            <div className="flex min-h-screen flex-col">
+              {selection.status === "missing"
+                ? renderVisualFixtureModeDirectory({})
+                : selection.status === "invalid"
+                  ? renderVisualFixtureModeDirectory({
+                      invalidMode: selection.value,
+                    })
+                  : renderVisualFixture(selection.mode)}
+            </div>
           </DialogProvider>
         </QueryProvider>
       </ConvexAuthProvider>

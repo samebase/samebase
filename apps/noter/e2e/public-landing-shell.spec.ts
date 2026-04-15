@@ -385,19 +385,18 @@ async function expectStatusBarBelowMainShell(
 }
 
 async function selectText(locator: Locator) {
-  const box = await locator.boundingBox();
-  expect(box).not.toBeNull();
-  if (box === null) {
-    throw new Error("Expected selectable text bounds");
-  }
+  // Drag-based selection is flaky in headless Chromium; select the rendered node contents directly instead.
+  await locator.evaluate((element) => {
+    const selection = window.getSelection();
+    if (selection === null) {
+      throw new Error("Expected window selection support");
+    }
 
-  await locator.hover({ force: true });
-  await locator.page().mouse.move(box.x + 1, box.y + box.height / 2);
-  await locator.page().mouse.down();
-  await locator
-    .page()
-    .mouse.move(box.x + box.width - 1, box.y + box.height / 2, { steps: 20 });
-  await locator.page().mouse.up();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
 }
 
 async function readClipboardText(page: Parameters<typeof test>[0]["page"]) {
