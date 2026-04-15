@@ -5,7 +5,11 @@ import { buildCurrentGoogleRedirectTo } from "./lib/googleAuthRedirect";
 
 export function SignInWithGoogle({
   visible = true,
-}: { visible?: boolean } = {}) {
+  markPublicSignupReturn = false,
+}: {
+  visible?: boolean;
+  markPublicSignupReturn?: boolean;
+} = {}) {
   const { signInWithGoogle } = useNoterAuthActions();
   return (
     <Button
@@ -17,13 +21,14 @@ export function SignInWithGoogle({
       tabIndex={visible ? undefined : -1}
       onClick={() => {
         if (isInIframe()) {
-          openAuthPopup("google");
+          openAuthPopup("google", { markPublicSignupReturn });
         } else {
           void signInWithGoogle(
             buildCurrentGoogleRedirectTo(
               window.location.pathname,
               window.location.search,
               window.location.hash,
+              { markPublicSignupReturn },
             ),
           );
         }

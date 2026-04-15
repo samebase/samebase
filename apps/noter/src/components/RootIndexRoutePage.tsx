@@ -26,7 +26,7 @@ export function RootIndexRoutePage() {
       rootRouteSearch,
     );
 
-  useAppAuthRuntimeEffects(location.pathname, rootRouteSearch.auth);
+  useAppAuthRuntimeEffects(location.pathname, rootRouteSearch);
   usePageMetadata(
     useMemo(
       () =>

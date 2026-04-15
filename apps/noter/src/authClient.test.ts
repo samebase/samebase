@@ -87,6 +87,7 @@ describe("useAutoSignIn", () => {
           hash: "",
         },
         history: {
+          state: { __TSR_index: 7, __TSR_key: "popup-route" },
           replaceState: replaceStateMock,
         },
       },
@@ -107,7 +108,58 @@ describe("useAutoSignIn", () => {
       "noter_auth_provider",
       "google",
     );
-    expect(replaceStateMock).toHaveBeenCalledWith({}, "", expectedRedirectTo);
+    expect(replaceStateMock).toHaveBeenCalledWith(
+      { __TSR_index: 7, __TSR_key: "popup-route" },
+      "",
+      expectedRedirectTo,
+    );
+    expect(signInMock).toHaveBeenCalledWith("google", {
+      redirectTo: expectedRedirectTo,
+    });
+  });
+
+  it("preserves the public signup marker when popup Google auth auto-starts", () => {
+    const popupSearchParams = cloneQueryParams();
+    setQueryParam(popupSearchParams, "auth", "google");
+    setQueryParam(popupSearchParams, "signup", "google");
+    const popupSearch = buildSearchString(popupSearchParams);
+    const expectedSearchParams = cloneQueryParams(popupSearch);
+    setQueryParam(expectedSearchParams, "auth", false);
+    const expectedRedirectTo = buildPathWithQuery({
+      pathname: "/",
+      search: buildSearchString(expectedSearchParams),
+    });
+
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          pathname: "/",
+          search: popupSearch,
+          hash: "",
+        },
+        history: {
+          state: { __TSR_index: 8, __TSR_key: "signup-route" },
+          replaceState: replaceStateMock,
+        },
+      },
+      configurable: true,
+    });
+
+    Object.defineProperty(globalThis, "localStorage", {
+      value: {
+        removeItem: localStorageRemoveItemMock,
+        setItem: localStorageSetItemMock,
+      },
+      configurable: true,
+    });
+
+    useAutoSignIn("google");
+
+    expect(replaceStateMock).toHaveBeenCalledWith(
+      { __TSR_index: 8, __TSR_key: "signup-route" },
+      "",
+      expectedRedirectTo,
+    );
     expect(signInMock).toHaveBeenCalledWith("google", {
       redirectTo: expectedRedirectTo,
     });

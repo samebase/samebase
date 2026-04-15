@@ -21,6 +21,10 @@ function readOptionalGoogleAuthProvider(value: unknown): "google" | undefined {
   return value === "google" ? "google" : undefined;
 }
 
+function readOptionalGoogleSignupReturn(value: unknown): "google" | undefined {
+  return value === "google" ? "google" : undefined;
+}
+
 const rootRouteSearchSchema = z.object({
   auth: z.preprocess(
     readOptionalGoogleAuthProvider,
@@ -29,6 +33,10 @@ const rootRouteSearchSchema = z.object({
   dev: z.preprocess(readOptionalFlag, z.literal(true).optional()),
   devtools: z.preprocess(readOptionalFlag, z.literal(true).optional()),
   "prod-ui": z.preprocess(readOptionalFlag, z.literal(true).optional()),
+  signup: z.preprocess(
+    readOptionalGoogleSignupReturn,
+    z.literal("google").optional(),
+  ),
 });
 
 export type RootRouteSearch = z.infer<typeof rootRouteSearchSchema>;

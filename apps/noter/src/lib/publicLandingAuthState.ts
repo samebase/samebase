@@ -29,6 +29,17 @@ function hasGoogleAuth(search: RootRouteSearch): boolean {
   return search.auth === "google";
 }
 
+function hasGoogleSignupReturn(search: RootRouteSearch): boolean {
+  return search.signup === "google";
+}
+
+export function shouldRenderGoogleSignupClosedState(
+  pathname: string,
+  routeSearch: RootRouteSearch,
+): boolean {
+  return pathname === "/" && hasGoogleSignupReturn(routeSearch);
+}
+
 function isKnownUnauthenticatedLandingVisit(
   pathname: string,
   routeSearch: RootRouteSearch,
@@ -45,6 +56,9 @@ export function shouldRenderPublicLandingWithoutAuthGate(
   pathname: string,
   routeSearch: RootRouteSearch,
 ): boolean {
+  if (shouldRenderGoogleSignupClosedState(pathname, routeSearch)) {
+    return true;
+  }
   return isKnownUnauthenticatedLandingVisit(pathname, routeSearch);
 }
 
@@ -56,6 +70,9 @@ export function shouldShowGoogleAuthForPathname(
   pathname: string,
   routeSearch: RootRouteSearch,
 ): boolean {
+  if (shouldRenderGoogleSignupClosedState(pathname, routeSearch)) {
+    return false;
+  }
   return (
     !shouldRenderPublicLandingWithoutAuthGate(pathname, routeSearch) ||
     isLandingDevModeEnabled(routeSearch)

@@ -28,7 +28,7 @@ export function AuthenticatedAppRoutePage({
     [isAuthenticated, pathname],
   );
 
-  useAppAuthRuntimeEffects(pathname, rootRouteSearch.auth);
+  useAppAuthRuntimeEffects(pathname, rootRouteSearch);
   usePageMetadata(pageMetadata);
 
   return (

@@ -13,6 +13,8 @@ import {
 import {
   getVisiblePasswordAuthSurface,
   type PasswordAuthSurface,
+  shouldRenderGoogleSignupClosedState,
+  shouldRenderPublicLandingWithoutAuthGate,
   shouldShowGoogleAuthForPathname,
 } from "@/lib/publicLandingAuthState";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
@@ -22,7 +24,7 @@ import {
   readPublicLandingWaitlistDraft,
   writePublicLandingWaitlistDraft,
 } from "@/lib/publicLandingWaitlistDraft";
-import { useLocation } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { type ReactNode, useEffect, useState } from "react";
 import { api } from "../convex/_generated/api";
@@ -43,6 +45,14 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
   const landingDevModeEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const prodUiModeEnabled = isProdUiModeEnabled(rootRouteSearch);
   const showGoogleAuth = shouldShowGoogleAuthForPathname(
+    pathname,
+    rootRouteSearch,
+  );
+  const showGoogleSignupClosedState = shouldRenderGoogleSignupClosedState(
+    pathname,
+    rootRouteSearch,
+  );
+  const markPublicSignupReturn = shouldRenderPublicLandingWithoutAuthGate(
     pathname,
     rootRouteSearch,
   );
@@ -74,36 +84,76 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
             autoRotate={isLandingCopyEditable}
             enableViewSnapping={!landingDevModeEnabled}
           />
-          <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
-            {isLandingCopyEditable ? (
-              <ProsemarkReadOnly
-                value={landingMarkdownDraft}
-                className="text-sm"
-                editable
-                styleVariant="landingCopy"
-                onChange={setLandingMarkdownDraft}
-              />
-            ) : (
-              <LandingCopy
-                className="text-sm"
-                markdown={landingMarkdownDraft}
-              />
-            )}
-          </div>
-          <div className="flex flex-col gap-2">
-            <SignInWithGoogle visible={showGoogleAuth} />
-            {passwordAuthSurface !== "hidden" ? (
-              <PasswordAuthForm surface={passwordAuthSurface} />
-            ) : null}
-          </div>
-          <WaitlistForm />
+          {showGoogleSignupClosedState ? (
+            <GoogleSignupClosedNotice />
+          ) : (
+            <>
+              <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
+                {isLandingCopyEditable ? (
+                  <ProsemarkReadOnly
+                    value={landingMarkdownDraft}
+                    className="text-sm"
+                    editable
+                    styleVariant="landingCopy"
+                    onChange={setLandingMarkdownDraft}
+                  />
+                ) : (
+                  <LandingCopy
+                    className="text-sm"
+                    markdown={landingMarkdownDraft}
+                  />
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <SignInWithGoogle
+                  visible={showGoogleAuth}
+                  markPublicSignupReturn={markPublicSignupReturn}
+                />
+                {passwordAuthSurface !== "hidden" ? (
+                  <PasswordAuthForm surface={passwordAuthSurface} />
+                ) : null}
+              </div>
+            </>
+          )}
+          <WaitlistForm
+            submittedMessage={
+              showGoogleSignupClosedState
+                ? "You're on the waitlist."
+                : "You're on the waitlist. We'll reach out when a spot opens up."
+            }
+          />
         </div>
       </div>
     </div>
   );
 }
 
-function WaitlistForm() {
+function GoogleSignupClosedNotice() {
+  return (
+    <div className="flex flex-col gap-1 text-center">
+      <h2 className="text-xl font-semibold tracking-tight">
+        I'm sorry, signups are still just for a handful of people I know
+        personally.
+      </h2>
+
+      <p className="text-sm text-muted-foreground">
+        Please{" "}
+        <a
+          href="https://x.com/noter_md"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          follow us on twitter
+        </a>{" "}
+        or join the waitlist below.
+      </p>
+
+      <Link to="/">go back</Link>
+    </div>
+  );
+}
+
+function WaitlistForm({ submittedMessage }: { submittedMessage?: string }) {
   const joinWaitlist = useMutation(api.waitlist.joinWaitlist);
   const [email, setEmail] = useState(readPublicLandingWaitlistDraft);
   const [submitted, setSubmitted] = useState(false);
@@ -121,7 +171,8 @@ function WaitlistForm() {
   if (submitted) {
     return (
       <p className="text-sm text-muted-foreground text-center">
-        You're on the waitlist. We'll reach out when a spot opens up.
+        {submittedMessage ??
+          "You're on the waitlist. We'll reach out when a spot opens up."}
       </p>
     );
   }
