@@ -66,4 +66,34 @@ describe("SignInWithGoogle", () => {
     expect(expectedRedirectTo).not.toContain("auth=");
     expect(openAuthPopupMock).not.toHaveBeenCalled();
   });
+
+  it("adds the public signup return marker when requested", () => {
+    const publicLandingSearchParams = cloneQueryParams();
+    setQueryParam(publicLandingSearchParams, "prod-ui", true);
+    const publicLandingSearch = buildSearchString(publicLandingSearchParams);
+
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          origin: "https://noter.md",
+          pathname: "/",
+          search: publicLandingSearch,
+          hash: "",
+        },
+      },
+      configurable: true,
+    });
+
+    const element = SignInWithGoogle({ markPublicSignupReturn: true });
+    const expectedSearchParams = cloneQueryParams(publicLandingSearch);
+    setQueryParam(expectedSearchParams, "signup", "google");
+    const expectedRedirectTo = buildPathWithQuery({
+      pathname: "/",
+      search: buildSearchString(expectedSearchParams),
+    });
+
+    element.props.onClick();
+
+    expect(signInWithGoogleMock).toHaveBeenCalledWith(expectedRedirectTo);
+  });
 });

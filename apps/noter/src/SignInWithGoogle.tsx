@@ -5,7 +5,11 @@ import { buildCurrentGoogleRedirectTo } from "./lib/googleAuthRedirect";
 
 export function SignInWithGoogle({
   visible = true,
-}: { visible?: boolean } = {}) {
+  markPublicSignupReturn = false,
+}: {
+  visible?: boolean;
+  markPublicSignupReturn?: boolean;
+} = {}) {
   const { signInWithGoogle } = useNoterAuthActions();
   return (
     <Button
@@ -24,6 +28,7 @@ export function SignInWithGoogle({
               window.location.pathname,
               window.location.search,
               window.location.hash,
+              { markPublicSignupReturn },
             ),
           );
         }

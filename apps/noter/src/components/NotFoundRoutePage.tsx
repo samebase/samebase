@@ -38,7 +38,7 @@ export function NotFoundRoutePage() {
   });
   const rootRouteSearch = useRootRouteSearch();
 
-  useAppAuthRuntimeEffects(pathname, rootRouteSearch.auth);
+  useAppAuthRuntimeEffects(pathname, rootRouteSearch);
   usePageMetadata(resolveNotFoundPageMetadata(pathname));
 
   return (

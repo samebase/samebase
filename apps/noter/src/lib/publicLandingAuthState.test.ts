@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   getPasswordAuthSurface,
   getVisiblePasswordAuthSurface,
+  shouldRenderGoogleSignupClosedState,
   shouldRenderPublicLandingWithoutAuthGate,
+  shouldShowGoogleAuthForPathname,
 } from "./publicLandingAuthState";
 import { validateRootRouteSearch } from "./rootRouteSearch";
 
@@ -80,6 +82,22 @@ describe("publicLandingAuthState", () => {
         validateRootRouteSearch({}),
       ),
     ).toBe(false);
+  });
+
+  it("forces the public landing closed-signup state for marked Google returns", () => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createMockStorage(),
+    });
+    window.localStorage.setItem("noter_auth_provider", "google");
+
+    const routeSearch = validateRootRouteSearch({ signup: "google" });
+
+    expect(shouldRenderGoogleSignupClosedState("/", routeSearch)).toBe(true);
+    expect(shouldRenderPublicLandingWithoutAuthGate("/", routeSearch)).toBe(
+      true,
+    );
+    expect(shouldShowGoogleAuthForPathname("/", routeSearch)).toBe(false);
   });
 
   it("maps the public password auth mode to a stable landing surface", () => {
