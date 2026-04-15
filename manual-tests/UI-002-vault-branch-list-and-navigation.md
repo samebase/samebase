@@ -8,7 +8,7 @@ branch-scoped staged-file summary chips.
 
 ## Preconditions
 
-- `make anon` can run in the current checkout.
+- `pnpm anon` can run in the current checkout.
 - At least one connected vault has 2+ remote branches.
 - The vault has staged-file activity on at least two different branches.
 - Optional for full ordering coverage: at least one `deleted_upstream` branch
@@ -17,7 +17,7 @@ branch-scoped staged-file summary chips.
 
 ## Steps
 
-1. Start the app with `make anon`.
+1. Start the app with `pnpm anon`.
 2. Open the dashboard and locate a vault card with multiple branches.
 3. Confirm branch entries are rendered as links in a vertical list (not a
    horizontal button row).

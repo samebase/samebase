@@ -9,7 +9,7 @@ verifying worktree discovery and anon seed setup behave consistently.
 
 - Main checkout is available.
 - No existing `/tmp/noter-wt-a` or `/tmp/noter-wt-b` worktrees.
-- No long-running `make anon` processes in temporary worktrees.
+- No long-running `pnpm anon` processes in temporary worktrees.
 
 ## Steps
 

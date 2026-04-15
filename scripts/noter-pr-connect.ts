@@ -1011,7 +1011,7 @@ function buildCodexPrompt(params: {
 }): string {
   const markerText = `${MARKER_PREFIX}${JSON.stringify(params.marker)}${MARKER_SUFFIX}`;
   return [
-    "A draft PR created from noter.md UI was claimed by a local `make connect` run.",
+    "A draft PR created from noter.md UI was claimed by a local `pnpm connect` run.",
     "",
     `Repository: ${repoFullName}`,
     `PR: #${params.pullRequest.number} ${params.pullRequest.url}`,
@@ -1118,7 +1118,7 @@ function buildClaimComment(params: {
   runId: string;
 }): string {
   return [
-    "Local `make connect` claimed this PR.",
+    "Local `pnpm connect` claimed this PR.",
     "",
     `- host: \`${os.hostname()}\``,
     `- local run id: \`${params.runId}\``,
@@ -1135,7 +1135,7 @@ function buildInvalidContractComment(
   reason: string,
 ): string {
   return [
-    "Local `make connect` skipped this PR because the automation contract is incomplete.",
+    "Local `pnpm connect` skipped this PR because the automation contract is incomplete.",
     "",
     `- PR: #${pullRequest.number}`,
     `- required label: \`${options.label}\``,
@@ -1157,7 +1157,7 @@ function buildCompletionComment(params: {
   remoteHeadAfterRun: string;
 }): string {
   const lines = [
-    "Local `make connect` run finished.",
+    "Local `pnpm connect` run finished.",
     "",
     `- host: \`${os.hostname()}\``,
     `- local run id: \`${params.runId}\``,
@@ -1175,7 +1175,7 @@ function buildFailureComment(params: {
   runId: string;
 }): string {
   return [
-    "Local `make connect` run failed before completion.",
+    "Local `pnpm connect` run failed before completion.",
     "",
     `- host: \`${os.hostname()}\``,
     `- local run id: \`${params.runId}\``,

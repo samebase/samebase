@@ -62,8 +62,8 @@ const AGENTS_DOCUMENT = `# AGENTS.md
 
 ## Worktree
 
-- run \`make anon-once\` before local workflows in a git worktree
-- use \`make anon\` for day-to-day startup inside the worktree
+- run \`pnpm anon:once\` before local workflows in a git worktree
+- use \`pnpm anon\` for day-to-day startup inside the worktree
 - keep the file-view shell aligned with the shipped route
 
 ## Visual coverage

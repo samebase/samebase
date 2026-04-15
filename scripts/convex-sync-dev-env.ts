@@ -3,6 +3,8 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { readEnvFile, type EnvFile } from "./lib/envFile.ts";
+import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
 import { WORKTREE_ENV_ALLOWLIST } from "./worktree-env-allowlist.ts";
 import {
   buildCloudDeploymentUrl,
@@ -19,11 +21,6 @@ type SyncOptions = {
   allowMissingSourceEnv: boolean;
   dryRun: boolean;
   showHelp: boolean;
-};
-
-type EnvFile = {
-  path: string;
-  vars: Record<string, string>;
 };
 
 type Deployment = {
@@ -225,49 +222,6 @@ function parseArgs(args: string[]): SyncOptions {
   }
 
   return result;
-}
-
-function resolveRepoRoot(): string {
-  const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {
-    encoding: "utf8",
-  });
-  if (result.status === 0) {
-    return (result.stdout || "").trim() || process.cwd();
-  }
-  return process.cwd();
-}
-
-function readEnvFile(filePath: string): EnvFile | null {
-  if (!fs.existsSync(filePath)) {
-    return null;
-  }
-  const contents = fs.readFileSync(filePath, "utf8");
-
-  const vars: Record<string, string> = {};
-  for (const line of contents.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) {
-      continue;
-    }
-    const eqIndex = trimmed.indexOf("=");
-    if (eqIndex <= 0) {
-      continue;
-    }
-    const key = trimmed.slice(0, eqIndex).trim();
-    const value = stripQuotes(trimmed.slice(eqIndex + 1).trim());
-    vars[key] = value;
-  }
-  return { path: filePath, vars };
-}
-
-function stripQuotes(value: string): string {
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    return value.slice(1, -1);
-  }
-  return value;
 }
 
 function parseDeploymentFromEnv(

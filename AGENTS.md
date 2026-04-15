@@ -2,13 +2,13 @@
 
 ## Startup
 
-- In a git worktree, run `make anon-once` once after checkout.
-- In a git worktree, use `make anon` as the full startup command before
+- In a git worktree, run `pnpm anon:once` once after checkout.
+- In a git worktree, use `pnpm anon` as the full startup command before
   dev/lint/test/commit workflows. Do not replace it with `pnpm dev` or
   `npx convex dev`.
-- In the primary local checkout, use `make run`.
+- In the primary local checkout, use `pnpm dev`.
 - If Convex tooling complains about missing `CONVEX_DEPLOYMENT`, or a worktree
-  command fails with `Local backend isn't running`, run `make anon` and retry.
+  command fails with `Local backend isn't running`, run `pnpm anon` and retry.
 - `rg` is not available in this environment. Use `grep` and `find` instead.
 
 ## Repo Knowledge Map
@@ -325,7 +325,7 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - For Playwright or browser automation, never steal OS focus and never kill all
   Chrome processes. Use isolated Playwright-owned sessions only.
 - For this repo, prefer `node ./scripts/playwright-branch-browser.ts` or
-  `make playwright-open` over raw `@playwright/cli open`.
+  `pnpm playwright:open` over raw `@playwright/cli open`.
 - When the user asks to reproduce or inspect a mobile issue, start Playwright in
   a mobile-emulated context from launch. Do not begin in a desktop context and
   resize later.

@@ -8,7 +8,7 @@ runtime context.
 
 ## Preconditions
 
-- Worktree app is running with `make anon`.
+- Worktree app is running with `pnpm anon`.
 - A connected machine is available through the local `noter.ts` approval flow.
 - The selected machine has at least one git-backed project group in `/machines`.
 

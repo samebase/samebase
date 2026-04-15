@@ -12,9 +12,9 @@ git rev-parse --show-toplevel
 git rev-parse --abbrev-ref HEAD
 ```
 
-2. In a git worktree, run `make anon-once` once after checkout, then use
-   `make anon` as the normal startup path.
-3. In the primary local checkout, use `make run`.
+2. In a git worktree, run `pnpm anon:once` once after checkout, then use
+   `pnpm anon` as the normal startup path.
+3. In the primary local checkout, use `pnpm dev`.
 4. Do not replace worktree startup with `pnpm dev` or `npx convex dev`.
 5. Do not run `npx convex dev --env-file` pointing at another checkout's
    `.env.local`; it rewrites the current worktree's env and breaks local anon

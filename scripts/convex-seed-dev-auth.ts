@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import fs from "node:fs";
+import { readEnvFile } from "./lib/envFile.ts";
+import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
 import path from "node:path";
 import { WORKTREE_ENV_ALLOWLIST } from "./worktree-env-allowlist.ts";
 import {
@@ -8,8 +9,6 @@ import {
   parsePort,
   sleep,
 } from "../apps/noter/scripts/convex-local-utils.ts";
-
-type EnvFile = { path: string; vars: Record<string, string | undefined> };
 
 const repoRoot = resolveRepoRoot();
 const appDir = path.join(repoRoot, "apps", "noter");
@@ -26,7 +25,7 @@ if (!seedEnv) {
   exitWithError(
     `Missing required worktree seed env file: ${seedEnvPath}\n` +
       `Worktree bootstrap requires ${seedEnvPath} before auth seeding can continue.\n` +
-      "Run `node ./scripts/convex-sync-dev-env.ts` to generate it, then retry `make anon`.",
+      "Run `node ./scripts/convex-sync-dev-env.ts` to generate it, then retry `pnpm anon`.",
   );
 }
 
@@ -110,7 +109,7 @@ const terminateListeningPidsOnPort = async (port: number): Promise<void> => {
 
   // convex dev can leave behind the underlying `convex-local` process if the
   // node wrapper is terminated abruptly. Ensure we leave the port clean for
-  // subsequent `convex dev` invocations in `make anon`.
+  // subsequent `convex dev` invocations in `pnpm anon`.
   killPids(pids, "SIGTERM");
 
   const deadline = Date.now() + 5000;
@@ -176,44 +175,6 @@ try {
 }
 
 process.exit(exitCode);
-
-function resolveRepoRoot(): string {
-  const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {
-    stdio: "pipe",
-    encoding: "utf8",
-  });
-  if (result.status !== 0) {
-    return process.cwd();
-  }
-  const root = result.stdout.trim();
-  return root.length > 0 ? root : process.cwd();
-}
-
-function readEnvFile(filePath: string): EnvFile | null {
-  if (!fs.existsSync(filePath)) {
-    return null;
-  }
-
-  const vars: Record<string, string> = {};
-  const contents = fs.readFileSync(filePath, "utf8");
-  for (const line of contents.split(/\r?\n/)) {
-    if (!line || line.startsWith("#")) continue;
-    const eqIndex = line.indexOf("=");
-    if (eqIndex <= 0) continue;
-    const name = line.slice(0, eqIndex).trim();
-    const rawValue = line.slice(eqIndex + 1).trim();
-    if (!name) continue;
-    let value = rawValue;
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    vars[name] = value;
-  }
-  return { path: filePath, vars };
-}
 
 function resolveBackendPort(
   vars: Record<string, string | undefined>,

@@ -7,12 +7,12 @@ markers (for example `#`) on focus, and hides them again on blur.
 
 ## Preconditions
 
-- `make anon` can run in the current checkout.
+- `pnpm anon` can run in the current checkout.
 - A local Vite URL is reachable in browser or Playwright.
 
 ## Steps
 
-1. Start the app: `make anon`.
+1. Start the app: `pnpm anon`.
 2. Find the dev URL (example):
    `for p in $(seq 5173 5190); do curl -fsS "http://127.0.0.1:$p" >/dev/null && echo "http://127.0.0.1:$p" && break; done`
 3. Open the URL in a browser or Playwright CLI session.
