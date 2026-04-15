@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Badge } from "@/components/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/checkbox";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/popover";
 import {

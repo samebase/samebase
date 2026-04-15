@@ -81,7 +81,7 @@ Hash must include every effective input to `Dockerfile.daytona-deps`:
 
 ## Backend (Convex) Lookup
 
-Update Daytona deps image resolution in `apps/noter/convex/daytonaActions.ts`:
+Update Daytona deps image resolution in `apps/noter/convex/daytona/actions.ts`:
 
 1. Compute the same `fullInputHash`.
 2. Resolve primary tag: `<fullInputHash>`.

@@ -6,8 +6,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/collapsible";
-import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
-import { Tabs, TabsList, TabsTrigger } from "@/components/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export type FileViewMode = "editor" | "graph";
 export type FileViewEditorOverride = "default" | "codemirror";

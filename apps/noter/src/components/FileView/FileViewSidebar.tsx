@@ -2,7 +2,7 @@ import { type ComponentProps, type DragEventHandler } from "react";
 import { FilePlusIcon, GitHubLogoIcon, PlusIcon } from "@radix-ui/react-icons";
 import { FileTree } from "@/components/FileTree";
 import { Button } from "@/components/ui/button";
-import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { linkStyle } from "@/components/styles";
 import type { EffectiveSidebarMode } from "./fileViewShared";
 

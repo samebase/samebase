@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "@/components/dialog";
 import { Input } from "@/components/input";
-import { Label } from "@/components/label";
+import { Label } from "@/components/ui/label";
 
 export type ApiKeyProvider = "github" | "convex";
 

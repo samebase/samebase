@@ -9,7 +9,7 @@ import {
   type DragSession,
   type Point,
 } from "@/components/logoTransitionLabUtils";
-import { Tabs, TabsList, TabsTrigger } from "@/components/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect, useRef, useState } from "react";
 
 type ViewBox = {

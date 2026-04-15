@@ -1,11 +1,11 @@
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/checkbox";
 import { ChangedFilesLoadingState } from "@/components/ChangedFilesLoadingState";
 import { FileTree } from "@/components/FileTree";
-import { Label } from "@/components/label";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
-import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { getReviewSplitDiffHighlights } from "@/lib/reviewSplitDiff";
 
 export type FileViewCompareVisualMode =

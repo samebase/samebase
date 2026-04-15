@@ -22,7 +22,7 @@ preview, snapshots, and future Codex/LSP hooks).
 
 ### 2) Backend entrypoints
 
-Main Convex actions in `apps/noter/convex/daytonaActions.ts`:
+Main Convex actions in `apps/noter/convex/daytona/actions.ts`:
 
 - `startDaytonaWorkspace`
 - `getDaytonaTerminalUrl`

@@ -39,7 +39,7 @@ import {
   type LogoPresetId,
   type LogoPresetSelection,
 } from "@/components/logoPresets";
-import { Checkbox } from "@/components/checkbox";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -47,7 +47,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/collapsible";
 import { Input } from "@/components/input";
-import { Label } from "@/components/label";
+import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/popover";
 import {
   Select,

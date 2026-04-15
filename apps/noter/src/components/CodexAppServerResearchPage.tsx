@@ -1,4 +1,4 @@
-import { Badge } from "@/components/badge";
+import { Badge } from "@/components/ui/badge";
 import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachineHeartbeatLog";
 import {
   Card,
@@ -8,10 +8,10 @@ import {
   CardTitle,
 } from "@/components/card";
 import { CodexAppServerThreadHistoryItemCard } from "@/components/CodexAppServerThreadHistoryItemCard";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   CODEX_APP_SERVER_RESEARCH_API_BASE,

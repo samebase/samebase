@@ -20,24 +20,21 @@ canonical product import both live in `@/components/ui/button`.
 
 The canonical app-facing import for a wrapped primitive is
 `@/components/<name>`, while the generated shadcn primitive remains under
-`@/components/ui/<name>`.
+`@/components/ui/<name>`. If Noter does not add product-owned behavior or
+styling, app code should import the generated primitive directly instead of
+keeping an empty pass-through wrapper.
 
 Current rollout includes:
 
-- `@/components/badge`
 - `@/components/card`
-- `@/components/checkbox`
 - `@/components/collapsible`
 - `@/components/dialog`
 - `@/components/dropdown-menu`
 - `@/components/input`
-- `@/components/label`
 - `@/components/popover`
 - `@/components/select`
 - `@/components/sheet`
 - `@/components/sidebar`
-- `@/components/tabs`
-- `@/components/toggle-group`
 - `@/components/tooltip`
 
 ## Goals
@@ -70,7 +67,11 @@ Current rollout includes:
 
 ### 2. Canonical App Import
 
-- App code should import a wrapped primitive from `@/components/<name>`.
+- App code should import a wrapped primitive from `@/components/<name>` only
+  when that wrapper adds repo-owned behavior or styling.
+- If a primitive has no app-owned layer, import it directly from
+  `@/components/ui/<name>` instead of creating or preserving a pass-through
+  wrapper.
 - `Button` remains the explicit exception and should import from
   `@/components/ui/button`.
 - A single-component wrapper should continue exporting the canonical

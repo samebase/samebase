@@ -1,7 +1,7 @@
 import { api } from "../../convex/_generated/api";
-import { Badge } from "@/components/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/checkbox";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/input";
 import { VaultLastUpdatedStatus } from "@/components/VaultLastUpdatedStatus";
 import {

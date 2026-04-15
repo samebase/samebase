@@ -51,8 +51,6 @@ import type * as daytona_snapshotPolicy from "../daytona/snapshotPolicy.js";
 import type * as daytona_snapshotRecords from "../daytona/snapshotRecords.js";
 import type * as daytona_terminal from "../daytona/terminal.js";
 import type * as daytona_tmuxSessions from "../daytona/tmuxSessions.js";
-import type * as daytonaActions from "../daytonaActions.js";
-import type * as daytonaSnapshotRecords from "../daytonaSnapshotRecords.js";
 import type * as deploymentProfile from "../deploymentProfile.js";
 import type * as devAuth from "../devAuth.js";
 import type * as fileStaging from "../fileStaging.js";
@@ -154,8 +152,6 @@ declare const fullApi: ApiFromModules<{
   "daytona/snapshotRecords": typeof daytona_snapshotRecords;
   "daytona/terminal": typeof daytona_terminal;
   "daytona/tmuxSessions": typeof daytona_tmuxSessions;
-  daytonaActions: typeof daytonaActions;
-  daytonaSnapshotRecords: typeof daytonaSnapshotRecords;
   deploymentProfile: typeof deploymentProfile;
   devAuth: typeof devAuth;
   fileStaging: typeof fileStaging;
