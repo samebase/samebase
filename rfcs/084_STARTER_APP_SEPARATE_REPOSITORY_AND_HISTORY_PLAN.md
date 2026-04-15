@@ -76,6 +76,8 @@ That model fails the new requirement in three ways:
 5. Let Noter-managed starter repos inherit or replay that educational history
    instead of collapsing it into one generated snapshot.
 6. Keep a clear release pin so Noter can seed deterministically.
+7. Keep the starter app on the same Vite Plus and scaffold-critical config
+   baseline as the main app whenever those shared defaults change.
 
 ## Non-Goals
 
@@ -158,6 +160,13 @@ What is not acceptable as the final path:
 
 1. one generated root commit that hides all intermediate steps
 2. relying only on GitHub’s template-repository creation flow
+
+The dedicated starter repo should also be treated as a maintained sibling app,
+not a frozen export. When shared bootstrap-facing config changes in Noter, the
+starter app should be updated in the same logical change set unless the change
+is genuinely app-specific. This especially applies to Vite Plus setup, Vite
+config, `tsconfig`, and lint/format settings because those files define the
+first-run experience for seeded repos.
 
 ### 4. Keep GitHub Templates As An Optional Distribution Layer
 

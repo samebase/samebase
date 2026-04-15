@@ -77,6 +77,17 @@ Key domain entities:
 - `aiProdAccessRequests`
 - `aiProdAccessAudit`
 
+## Starter Template Sync
+
+- `apps/noter-starter-template` is a maintained sibling app, not a one-off
+  snapshot.
+- Keep the starter template on the same Vite Plus app baseline we expect from
+  seeded repos.
+- When changing scaffold-critical app or tooling config in the main app, update
+  the starter template in the same change unless the change truly does not
+  apply. This especially includes Vite Plus setup, Vite config, `tsconfig`,
+  lint/format config, and other bootstrap-facing settings.
+
 ## Code Guardrails
 
 - Never use `any` or broad type assertions. `as const` is always acceptable.
