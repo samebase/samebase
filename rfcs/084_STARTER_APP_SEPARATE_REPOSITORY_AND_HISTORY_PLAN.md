@@ -78,6 +78,8 @@ That model fails the new requirement in three ways:
 6. Keep a clear release pin so Noter can seed deterministically.
 7. Keep the starter app on the same Vite Plus and scaffold-critical config
    baseline as the main app whenever those shared defaults change.
+8. Shape the dedicated starter repo so it can eventually be made public once the
+   history and content are clean enough to stand on their own.
 
 ## Non-Goals
 
@@ -168,17 +170,25 @@ is genuinely app-specific. This especially applies to Vite Plus setup, Vite
 config, `tsconfig`, and lint/format settings because those files define the
 first-run experience for seeded repos.
 
-### 4. Keep GitHub Templates As An Optional Distribution Layer
+### 4. Treat GitHub Templates As Optional And Non-Blocking
 
-After the dedicated repo and history-aware seeding path exist, we can still mark
-the starter repo as a GitHub template if that helps operators bootstrap manual
-copies outside Noter.
+We do not need GitHub template repositories if they hide the history we want
+people to learn from.
 
-That should be treated as an optional convenience layer with a different UX
-contract:
+If, later, GitHub templates are still useful for a separate manual distribution
+path, they can be added as a convenience layer. If they continue to conflict
+with readable inherited history, we should simply not use them for the managed
+path.
 
-- manual template usage prioritizes speed
-- Noter-managed seeding prioritizes understandable inherited history
+The stronger long-term leverage is a repo that is clean enough to make public.
+That creates a clearer human-readable artifact than a private template whose
+main benefit is file copying speed.
+
+Any template usage should therefore be treated as optional and subordinate to
+two higher-priority outcomes:
+
+- readable history
+- eventual public readiness
 
 ## Options Considered
 
@@ -214,7 +224,8 @@ Cons:
 Verdict:
 
 - reject as the primary managed path
-- acceptable only as an optional manual convenience later
+- only reconsider as an optional convenience if it does not distract from the
+  public-readable repo goal
 
 ### Option C: Separate Repo Plus History-Aware Seeding
 
@@ -240,8 +251,9 @@ Verdict:
 1. Create the dedicated starter-app repo in `noter-md`.
 2. Seed it with a first commit containing only `AGENTS.md`.
 3. Rebuild the app step by step in readable commits from official docs.
-4. Decide whether the repo should also be marked as a GitHub template for manual
-   use.
+4. Keep the repo clean enough that making it public later is a realistic path.
+5. Decide only later whether GitHub template mode adds value without undermining
+   the history-first goal.
 
 ### Phase 2: Versioned Consumption Contract
 
@@ -271,6 +283,7 @@ Verdict:
    some infrastructure-owned files still be synced from the main monorepo?
 5. Do we want a generated multi-commit manifest for deterministic replay, or do
    we want direct git-based import/replay?
+6. What cleanup bar do we want before making the dedicated starter repo public?
 
 ## Acceptance Criteria For This Direction
 
