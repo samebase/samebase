@@ -117,10 +117,14 @@ treated as a legacy bridge:
 
 ### 1. Create A Dedicated Starter-App Repository
 
-Create a separate repository in the `noter-md` organization for the starter app.
-The exact name can be finalized during rollout, but it should clearly read as
-the standalone starter source of truth rather than another internal support
-package.
+Create a separate repository in the `noter-md` organization for the starter app
+named:
+
+- `convex-cloudflare-pages-starter`
+
+This repo should be a self-sustained full-stack app repo that Noter happens to
+seed and manage well, not a partial mirror that still depends on the monorepo
+for core runtime files.
 
 ### 2. Make The Repository History A Product Surface
 
@@ -143,6 +147,9 @@ Required history contract:
    - add starter domain example
 4. The repo should prefer updating `AGENTS.md`, `README.md`, or adjacent docs in
    the same commit when a setup step depends on new external guidance.
+5. The source repo keeps its own full readable history, but the specific subset
+   of commits replayed into managed repos is a deliberate release decision each
+   time the starter history changes.
 
 ### 3. Move Noter To History-Aware Seeding
 
@@ -150,18 +157,24 @@ Noter-managed repo creation should no longer treat the starter app as one flat
 blob export.
 
 Instead, Noter should seed from a pinned version of the dedicated starter repo
-using a history-aware strategy. Acceptable implementation shapes include:
+using a history-aware strategy.
 
-1. replaying an allowlisted commit sequence into the new repo
-2. cloning/importing the starter source and then rebasing the target repo into
-   its own identity
-3. exporting a structured multi-commit manifest from the starter repo and
-   replaying it deterministically
+Chosen direction:
+
+1. the starter source repo remains the canonical full history
+2. the monorepo consumes a generated multi-commit manifest exported from that
+   source repo
+3. that export is refreshed manually whenever starter changes affect the managed
+   seeding contract
+4. each export can intentionally choose the replayed commit subset instead of
+   blindly mirroring every source-repo commit
 
 What is not acceptable as the final path:
 
 1. one generated root commit that hides all intermediate steps
 2. relying only on GitHub’s template-repository creation flow
+3. an implicit live git import path that changes behavior without an explicit
+   refresh in this monorepo
 
 The dedicated starter repo should also be treated as a maintained sibling app,
 not a frozen export. When shared bootstrap-facing config changes in Noter, the
@@ -257,12 +270,12 @@ Verdict:
 
 ### Phase 2: Versioned Consumption Contract
 
-1. Define how Noter pins a source revision from the dedicated repo.
-2. Decide whether the transport is:
-   - direct git access
-   - exported commit manifest
-   - another explicit release artifact
-3. Keep the pin deterministic and auditable.
+1. Export a generated multi-commit release artifact from
+   `convex-cloudflare-pages-starter`.
+2. Commit that artifact into this monorepo so the seeding input remains
+   deterministic and reviewable.
+3. Record the source repo commit SHA and replayed commit list in the generated
+   artifact so the pin is auditable.
 
 ### Phase 3: Managed Repo Seeding Migration
 
@@ -274,16 +287,8 @@ Verdict:
 
 ## Open Questions
 
-1. What should the dedicated repo be named in `noter-md`?
-2. Should Noter replay the exact full history, or only a curated public subset
-   of commits?
-3. Where should release pin metadata live once the source of truth moves out of
-   this monorepo?
-4. Should the starter repo keep all runtime assets in the same repo, or should
-   some infrastructure-owned files still be synced from the main monorepo?
-5. Do we want a generated multi-commit manifest for deterministic replay, or do
-   we want direct git-based import/replay?
-6. What cleanup bar do we want before making the dedicated starter repo public?
+1. What cleanup bar do we want before making `convex-cloudflare-pages-starter`
+   public?
 
 ## Acceptance Criteria For This Direction
 
