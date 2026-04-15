@@ -44,7 +44,7 @@ repo still handles cross-platform fixtures explicitly per spec for now.
 In a worktree:
 
 ```bash
-make anon
+pnpm anon
 ```
 
 Then from `apps/noter`:
@@ -67,13 +67,7 @@ replacing the host checkout's native `node_modules`.
 From the repo root:
 
 ```bash
-make ci-visual-local PLAYWRIGHT_ARGS="e2e/file-view-connect-route-visual.spec.ts"
-```
-
-You can also run it from `apps/noter`:
-
-```bash
-pnpm run test:visual:linux -- e2e/file-view-connect-route-visual.spec.ts
+pnpm --dir apps/noter run test:visual:linux -- e2e/file-view-connect-route-visual.spec.ts
 ```
 
 The script:
@@ -89,13 +83,7 @@ The script:
 From the repo root:
 
 ```bash
-make ci-visual-local-update PLAYWRIGHT_ARGS="e2e/file-view-connect-route-visual.spec.ts"
-```
-
-Or from `apps/noter`:
-
-```bash
-pnpm run test:visual:linux:update -- e2e/file-view-connect-route-visual.spec.ts
+pnpm --dir apps/noter run test:visual:linux:update -- e2e/file-view-connect-route-visual.spec.ts
 ```
 
 Updated `*-snapshots` files are copied back into the host worktree after the

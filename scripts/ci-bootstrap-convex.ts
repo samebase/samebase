@@ -122,14 +122,15 @@ function runConvexEnvSetWithRetry(key: string, value: string): void {
     }
 
     if (!output.includes("OptimisticConcurrencyControlFailure")) {
-      process.exit(result.status ?? 1);
+      throw new Error(
+        `convex env set failed for ${key} with status ${result.status ?? 1}`,
+      );
     }
 
     if (attempt >= maxAttempts) {
-      console.error(
-        `Failed to set Convex env var after ${maxAttempts} attempts: ${key}`,
+      throw new Error(
+        `Failed to set Convex env var after ${maxAttempts} attempts for ${key} with status ${result.status ?? 1}`,
       );
-      process.exit(result.status ?? 1);
     }
 
     console.log(`Retrying Convex env set after attempt ${attempt}: ${key}`);
