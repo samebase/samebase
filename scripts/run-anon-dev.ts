@@ -10,6 +10,11 @@ import {
   requireOptionValue,
 } from "./lib/cliArgs.ts";
 import {
+  readBooleanEnvValue,
+  readOptionalEnvValue,
+  readPositiveIntegerEnvValue,
+} from "./lib/env.ts";
+import {
   fail,
   isMainModule,
   resolveRepoRoot,
@@ -54,31 +59,14 @@ type CommandSpec = {
   longRunning?: boolean;
 };
 
-function readOptionalEnvValue(value: string | undefined): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function readBooleanEnvValue(value: string | undefined): boolean {
-  if (typeof value !== "string") {
-    return false;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  return normalized === "1" || normalized === "true" || normalized === "yes";
-}
-
 function readDefaultVitePort(env: NodeJS.ProcessEnv): number {
-  const envPort = readOptionalEnvValue(env.ANON_VITE_PORT);
-  if (envPort === null) {
-    return DEFAULT_ANON_VITE_PORT;
-  }
-
-  return parsePositiveIntegerOption(envPort, "ANON_VITE_PORT", HELP_TEXT);
+  return (
+    readPositiveIntegerEnvValue(
+      env.ANON_VITE_PORT,
+      "ANON_VITE_PORT",
+      HELP_TEXT,
+    ) ?? DEFAULT_ANON_VITE_PORT
+  );
 }
 
 export function parseAnonArgs(

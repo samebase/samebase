@@ -5,9 +5,9 @@ import process from "node:process";
 import {
   listListeningPids,
   parsePort,
-  readEnvFile,
   sleep,
 } from "../../apps/noter/scripts/convex-local-utils.ts";
+import { readEnvFile } from "./envFile.ts";
 
 export type StopListeningPortResult = {
   port: number;
@@ -46,9 +46,17 @@ function signalPid(pid: string, signal: "TERM" | "KILL"): void {
  * instead of guessing which listener to terminate.
  */
 export function resolveStoredLocalBackendPort(repoRoot: string): number | null {
-  const appDir = path.join(repoRoot, "apps", "noter");
-  const env = readEnvFile(appDir);
-  const rawUrl = env.CONVEX_URL ?? env.VITE_CONVEX_URL;
+  const envPath = path.join(repoRoot, "apps", "noter", ".env.local");
+  const envFile = readEnvFile(envPath);
+  if (envFile === null) {
+    return null;
+  }
+
+  const rawUrl =
+    ("CONVEX_URL" in envFile.vars ? envFile.vars.CONVEX_URL : undefined) ??
+    ("VITE_CONVEX_URL" in envFile.vars
+      ? envFile.vars.VITE_CONVEX_URL
+      : undefined);
   if (typeof rawUrl !== "string") {
     return null;
   }
