@@ -121,6 +121,16 @@
     @apply bg-background text-foreground;
   }
 
+  /*
+    Keep native buttons on the browser-style arrow cursor instead of the
+    hand cursor introduced by newer Tailwind/shadcn defaults.
+  */
+  button,
+  input:where([type="button"], [type="reset"], [type="submit"]),
+  ::file-selector-button {
+    cursor: default;
+  }
+
   /* Restore browser link defaults instead of Tailwind's inherited reset. */
   /* TODO: maybe add it back later, for now it's too jarring */
   a:any-link {

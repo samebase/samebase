@@ -15,6 +15,13 @@ test("button visual fixture", async ({ page }) => {
   });
   await page.waitForLoadState("networkidle");
 
+  const primaryButtonCursor = await page
+    .getByTestId("button-visual-variants")
+    .locator("button")
+    .first()
+    .evaluate((element) => window.getComputedStyle(element).cursor);
+  expect(primaryButtonCursor).toBe("default");
+
   await expect(page.getByTestId("button-visual-variants")).toHaveScreenshot(
     "button-variants.png",
     strictScreenshotOptions,
