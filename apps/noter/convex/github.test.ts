@@ -595,7 +595,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
     });
   });
 
-  it("keeps automatic large-repo refreshes on the cheap metadata path", () => {
+  it("keeps automatic large-repo refreshes on the cheap ahead/behind path without dropping branch ordering metadata", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
         trigger: "visibility",
@@ -606,7 +606,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       includeAheadBehind: false,
       includePullRequestLinks: true,
       includeCloudflarePreviewLinks: false,
-      includeLastCommitTimestamps: false,
+      includeLastCommitTimestamps: true,
     });
   });
 
@@ -641,7 +641,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
     });
   });
 
-  it("skips preview-comment backfills during automatic large-repo refreshes", () => {
+  it("skips preview-comment backfills during automatic large-repo refreshes while preserving commit timestamps", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
         targetBranch: "feature/login",
@@ -654,13 +654,13 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       includeAheadBehind: false,
       includePullRequestLinks: true,
       includeCloudflarePreviewLinks: false,
-      includeLastCommitTimestamps: false,
+      includeLastCommitTimestamps: true,
     });
   });
 });
 
 describe("applyRepositoryTreeMetadataSyncBudget", () => {
-  it("caps the first automatic large-repo refresh once branch discovery knows the real size", () => {
+  it("caps the first automatic large-repo refresh once branch discovery knows the real size without dropping commit timestamps", () => {
     expect(
       applyRepositoryTreeMetadataSyncBudget({
         shouldSyncMetadata: true,
@@ -676,7 +676,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
       includeAheadBehind: false,
       includePullRequestLinks: true,
       includeCloudflarePreviewLinks: false,
-      includeLastCommitTimestamps: false,
+      includeLastCommitTimestamps: true,
     });
   });
 

@@ -102,9 +102,9 @@ const MAX_GITHUB_REPOSITORY_PAGES = 100;
 const GITHUB_RATE_LIMIT_FALLBACK_MS = 5 * 60 * 1000;
 const MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS = 30 * 1000;
 /**
- * Automatic refreshes above this cached branch count keep PR lookup but skip
- * ahead/behind, preview-comment backfills, and commit timestamps to bound the
- * GitHub fan-out cost for large repos.
+ * Automatic refreshes above this cached branch count keep PR lookup and branch
+ * commit timestamps, but skip ahead/behind and preview-comment backfills to
+ * bound the noisiest GitHub fan-out work for large repos.
  */
 const MAX_AUTO_REFRESH_BRANCH_ENRICHMENT_BRANCHES = 40;
 
@@ -425,14 +425,15 @@ export function applyRepositoryTreeMetadataSyncBudget(args: {
     };
   }
 
-  // Preserve PR links for large automatic refreshes while dropping the
-  // expensive metadata backfills that scale with branch count.
+  // Preserve the metadata the dashboard depends on for branch ordering and PR
+  // visibility, while still dropping the most expensive per-branch backfills
+  // that are not needed for the main branch list.
   return {
     shouldSyncMetadata: true,
     includeAheadBehind: false,
     includePullRequestLinks: args.includePullRequestLinks,
     includeCloudflarePreviewLinks: false,
-    includeLastCommitTimestamps: false,
+    includeLastCommitTimestamps: args.includeLastCommitTimestamps,
   };
 }
 
