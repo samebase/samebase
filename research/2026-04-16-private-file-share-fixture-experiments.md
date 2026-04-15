@@ -88,6 +88,16 @@ If we build this beyond fixtures, the default recommendation is:
 6. Treat `/?dev` as the author-mode switch for the same shared page instead of
    splitting read and edit across different routes too early.
 
+## Follow-up Direction
+
+This fixture note captures the rendering experiments only. The current product
+direction has moved toward saving a publish record in Convex when the owner
+clicks `Publish`, then resolving a stable public link from that record.
+
+See
+[2026-04-16-convex-published-file-links.md](/Users/nicu/.codex/worktrees/664a/noter/research/2026-04-16-convex-published-file-links.md:1)
+for the current recommendation.
+
 ## Why This Fits The Product
 
 This direction keeps the code understandable in code review, gives screen
