@@ -4,7 +4,7 @@ body {
 
 .module {
   --p: 10px;
-  --m: -10px;
+  --m: calc(-1 * var(--p));
   
   width: 200px;
   height: 300px;
@@ -12,25 +12,15 @@ body {
   position: relative;
   margin: 20px;
   box-shadow:
-    var(--p) 0 teal,
-    0 var(--p) teal,
-    var(--m) 0 teal,
-    0 var(--m) teal
+/*     var(--p) 0 teal, */
+/*     0 var(--p) teal, */
+/*     var(--m) 0 teal, */
+/*     0 var(--m) teal */
     ;
 }
 
 .corner {
   position: absolute;
-  /*background:red;*/
-/*   background:none; */
-/*   width:6em; */
-/*   height:6em; */
-/*   font-size:2px; */
-/*   font-size:10px; */
-/*   opacity: 1.0; */
-/*   transition: opacity 0.3s ease-in-out; */
-/*     width:10px; */
-/*   height:10px; */
 }
 .corner:after {
   position: absolute;
@@ -58,9 +48,29 @@ body {
   -webkit-transform:rotate(180deg); transform:rotate(180deg); 
 }
 
+.edge {
+  top: 0;
+/*   left: val(--m); */
+/*   right: val(--p); */
+/*   color: black; */
+/*   height: 10px; */
+/*   width: calc(100% - 20px); */
+/*   box-shadow:
+    var(--p) 0 black, */
+}
+.edge::after {
+   position: absolute;
+  content: '';
+  display: block;
+  width: calc(100% - var(--p) * 2);
+  height:var(--p);
+    box-shadow:
+    var(--p) var(--m) black;
+}
+
 .corner1::after {
   /*transition: box-shadow 0.5s ease-in-out;*/
-z-index: 1000;  
+/* z-index: 1000;   */
 box-shadow:
      calc(1 * var(--p)) calc(1 * var(--p)) 0 red,
      calc(1 * var(--p)) calc(2 * var(--p)) 0 blue,
