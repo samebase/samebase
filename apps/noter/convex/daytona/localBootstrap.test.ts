@@ -277,18 +277,31 @@ describe("daytonaLocalBootstrap", () => {
     const runAnonDevScript = readFileSync(runAnonDevScriptPath, "utf8");
 
     expect(makefile).toContain(
-      'ANON_SCRIPT_ARGS = $(BOOTSTRAP_ANON_ARGS) --vite-port "$(ANON_VITE_PORT)"',
+      'DAYTONA_ANON_BASE_ARGS = --no-branch --vite-port "$(DAYTONA_VITE_PORT)"',
     );
-    expect(makefile).toContain("pnpm run anon -- $(ANON_SCRIPT_ARGS)");
-    expect(makefile).toContain("pnpm run anon:once -- $(ANON_SCRIPT_ARGS)");
-    expect(makefile).toContain("--allow-missing-source-env");
-    expect(makefile).toContain("--source-deploy-key");
+    expect(makefile).toContain(
+      'DAYTONA_ANON_SOURCE_ARGS = $(DAYTONA_ANON_BASE_ARGS) --source-env "$(DAYTONA_SOURCE_ENV)"',
+    );
+    expect(makefile).toContain(
+      "pnpm run anon -- $(DAYTONA_ANON_SOURCE_ARGS); \\",
+    );
+    expect(makefile).toContain(
+      "pnpm run anon:once -- $(DAYTONA_ANON_SOURCE_ARGS); \\",
+    );
+    expect(makefile).toContain(
+      "pnpm run anon -- $(DAYTONA_ANON_FALLBACK_ARGS); \\",
+    );
+    expect(makefile).toContain(
+      "pnpm run anon:once -- $(DAYTONA_ANON_FALLBACK_ARGS); \\",
+    );
     expect(makefile).toContain(
       "KILLPORT_GOAL = $(firstword $(filter-out killport,$(MAKECMDGOALS)))",
     );
     expect(makefile).toMatch(/^killport:\s*$/m);
+    expect(makefile).not.toMatch(/^anon:\s*$/m);
+    expect(makefile).not.toMatch(/^anon-once:\s*$/m);
+    expect(makefile).not.toMatch(/^anon-dev:\s*$/m);
     expect(makefile).not.toContain("kill-port:");
-    expect(makefile).toContain("ANON_ALLOW_MISSING_SOURCE_ENV=1; \\");
     expect(runAnonDevScript).toContain(
       'label: "stop existing local backend listeners"',
     );

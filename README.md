@@ -135,7 +135,8 @@ Notes:
 - The primary checkout path above works without GNU Make, and the worktree
   anonymous bootstrap flow now uses root package scripts too. Prefer `pnpm dev`
   in the primary checkout and `pnpm anon` / `pnpm anon:once` in worktrees.
-  `make` remains available as a compatibility shim for older docs and scripts.
+  Anonymous startup no longer has a make alias; treat the package scripts as the
+  source of truth for that flow.
 
 ### Installation
 

@@ -74,9 +74,11 @@ type CloudflaredQuickTunnelProcess = {
 };
 
 type ShareModeConfig = {
-  bootstrapTarget: string;
-  devTarget: string;
-  devTargetPortVar: string;
+  bootstrapCommand: string;
+  bootstrapArgs: string[];
+  devCommand: string;
+  buildDevArgs: (frontendPort: number) => string[];
+  devTargetPortVar: string | null;
   defaultStartPort: number;
   shareLabel: string;
   devLabel: string;
@@ -90,6 +92,7 @@ const CLOUDFLARED_READY_TIMEOUT_MS = 60_000;
 const PROCESS_SHUTDOWN_TIMEOUT_MS = 10_000;
 const APPS_NOTER_DIRNAME = "apps/noter";
 const QUICK_TUNNEL_URL_PATTERN = /https:\/\/[a-z0-9.-]+\.trycloudflare\.com\b/i;
+const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 const CONFIGURED_CONVEX_ENV_KEYS: readonly string[] = [
   "VITE_CONVEX_URL",
@@ -98,21 +101,34 @@ const CONFIGURED_CONVEX_ENV_KEYS: readonly string[] = [
 
 const SHARE_MODE_CONFIG: Record<ShareMode, ShareModeConfig> = {
   anonymous: {
-    bootstrapTarget: "anon-once",
-    devTarget: "anon-dev",
-    devTargetPortVar: "ANON_VITE_PORT",
+    bootstrapCommand: PNPM_COMMAND,
+    bootstrapArgs: ["run", "anon:once"],
+    devCommand: PNPM_COMMAND,
+    buildDevArgs: (frontendPort) => [
+      "run",
+      "anon",
+      "--",
+      "--vite-port",
+      String(frontendPort),
+    ],
+    devTargetPortVar: null,
     defaultStartPort: 5174,
     shareLabel: "Anonymous local share",
     devLabel: "anonymous local dev",
     readyLabel: "anonymous local frontend",
     bootstrapMessage:
-      "Bootstrapping anonymous local environment with `make anon-once`.",
+      "Bootstrapping anonymous local environment with `pnpm anon:once`.",
     startMessage: (origin) =>
       `Starting anonymous local dev on ${origin} with a private Convex proxy.`,
   },
   local: {
-    bootstrapTarget: "bootstrap",
-    devTarget: "run-dev",
+    bootstrapCommand: "make",
+    bootstrapArgs: ["bootstrap"],
+    devCommand: "make",
+    buildDevArgs: (frontendPort) => [
+      "run-dev",
+      `RUN_VITE_PORT=${frontendPort}`,
+    ],
     devTargetPortVar: "RUN_VITE_PORT",
     defaultStartPort: 5173,
     shareLabel: "Local share",
@@ -490,17 +506,18 @@ async function ensureCloudflaredBinary(repoRoot: string): Promise<void> {
 }
 
 function startDevServer(args: DevLaunchArgs): ChildProcess {
+  const portEnv =
+    args.modeConfig.devTargetPortVar === null
+      ? {}
+      : { [args.modeConfig.devTargetPortVar]: String(args.frontendPort) };
   const childProcess: ChildProcess = spawn(
-    "make",
-    [
-      args.modeConfig.devTarget,
-      `${args.modeConfig.devTargetPortVar}=${args.frontendPort}`,
-    ],
+    args.modeConfig.devCommand,
+    args.modeConfig.buildDevArgs(args.frontendPort),
     {
       cwd: args.repoRoot,
       env: {
         ...process.env,
-        [args.modeConfig.devTargetPortVar]: String(args.frontendPort),
+        ...portEnv,
         DEV_ENV_ORIGIN: args.frontendOrigin,
         NOTER_DEV_ALLOWED_HOSTS: ".trycloudflare.com",
         NOTER_DEV_PORT: String(args.frontendPort),
@@ -769,8 +786,8 @@ async function main(): Promise<void> {
 
   console.log(modeConfig.bootstrapMessage);
   await runCommand({
-    command: "make",
-    args: [modeConfig.bootstrapTarget],
+    command: modeConfig.bootstrapCommand,
+    args: modeConfig.bootstrapArgs,
     cwd: repoRoot,
     env: process.env,
   });
