@@ -1,0 +1,61 @@
+body {
+  padding: 20px;
+}
+
+.module {
+  width: 200px;
+  height: 200px;
+  background: #f06d06;
+  position: relative;
+  margin: 20px;
+  box-shadow:
+    10px 0 teal,
+    0 10px teal,
+    -10px 0 teal,
+    0 -10px teal
+    ;
+}
+
+.corner {
+  position: absolute;
+  /*background:red;*/
+  background:none;
+  width:6em;
+  height:6em;
+  font-size:2px;
+  font-size:10px;
+  opacity: 1.0;
+  transition: opacity 0.3s ease-in-out;
+}
+.corner:after {
+  position: absolute;
+  content: '';
+  display: block;
+  width:10px;
+  height:10px;
+}
+.topleft {
+  top:1em;
+  left:1em; 
+  /* I do not know why, but it's better with this - */
+  -webkit-transform:rotate(360deg); transform:rotate(360deg); 
+}
+.topright {  
+  top:1em; right:1em; -webkit-transform:rotate(90deg); transform:rotate(90deg); 
+}
+.bottomleft { 
+  bottom:1em; left:1em; -webkit-transform:rotate(270deg); transform:rotate(270deg); 
+}
+.bottomright { 
+  bottom:1em; right:1em; -webkit-transform:rotate(180deg); transform:rotate(180deg); 
+}
+.variant:after {
+  width:0.1em;
+  height:0.1em;
+}
+
+.corner1:after {
+  /*transition: box-shadow 0.5s ease-in-out;*/
+  box-shadow:
+    -10px -10px 0 red;
+}
