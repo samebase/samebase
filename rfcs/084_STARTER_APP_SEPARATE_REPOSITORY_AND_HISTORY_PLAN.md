@@ -4,6 +4,8 @@
 
 - Draft
 - Last updated: 2026-04-16
+- Dedicated source repo created privately at
+  [link https://github.com/noter-md/convex-cloudflare-pages-stack](https://github.com/noter-md/convex-cloudflare-pages-stack)
 
 ## Related Docs And Files
 
@@ -120,11 +122,15 @@ treated as a legacy bridge:
 Create a separate repository in the `noter-md` organization for the starter app
 named:
 
-- `convex-cloudflare-pages-starter`
+- `convex-cloudflare-pages-stack`
 
 This repo should be a self-sustained full-stack app repo that Noter happens to
 seed and manage well, not a partial mirror that still depends on the monorepo
 for core runtime files.
+
+The repository should keep a monorepo shape even though it currently contains a
+single real app. The initial app layout should live under `apps/web` so the
+starter can grow without a later root-to-monorepo migration.
 
 ### 2. Make The Repository History A Product Surface
 
@@ -268,10 +274,19 @@ Verdict:
 5. Decide only later whether GitHub template mode adds value without undermining
    the history-first goal.
 
+Current implementation status:
+
+1. `docs: add repository build contract`
+2. `feat: scaffold monorepo starter workspace`
+3. `chore: adopt vite plus workspace tooling`
+4. `feat: wire the app to convex`
+5. `feat: add the starter ui and todo flow`
+6. `chore: add noter workspace assets`
+
 ### Phase 2: Versioned Consumption Contract
 
 1. Export a generated multi-commit release artifact from
-   `convex-cloudflare-pages-starter`.
+   `convex-cloudflare-pages-stack`.
 2. Commit that artifact into this monorepo so the seeding input remains
    deterministic and reviewable.
 3. Record the source repo commit SHA and replayed commit list in the generated
@@ -287,7 +302,7 @@ Verdict:
 
 ## Open Questions
 
-1. What cleanup bar do we want before making `convex-cloudflare-pages-starter`
+1. What cleanup bar do we want before making `convex-cloudflare-pages-stack`
    public?
 
 ## Acceptance Criteria For This Direction
