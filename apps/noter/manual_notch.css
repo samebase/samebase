@@ -3,59 +3,68 @@ body {
 }
 
 .module {
+  --p: 10px;
+  --m: -10px;
+  
   width: 200px;
-  height: 200px;
+  height: 300px;
   background: #f06d06;
   position: relative;
   margin: 20px;
   box-shadow:
-    10px 0 teal,
-    0 10px teal,
-    -10px 0 teal,
-    0 -10px teal
+    var(--p) 0 teal,
+    0 var(--p) teal,
+    var(--m) 0 teal,
+    0 var(--m) teal
     ;
 }
 
 .corner {
   position: absolute;
   /*background:red;*/
-  background:none;
-  width:6em;
-  height:6em;
-  font-size:2px;
-  font-size:10px;
-  opacity: 1.0;
-  transition: opacity 0.3s ease-in-out;
+/*   background:none; */
+/*   width:6em; */
+/*   height:6em; */
+/*   font-size:2px; */
+/*   font-size:10px; */
+/*   opacity: 1.0; */
+/*   transition: opacity 0.3s ease-in-out; */
+/*     width:10px; */
+/*   height:10px; */
 }
 .corner:after {
   position: absolute;
   content: '';
   display: block;
-  width:10px;
-  height:10px;
+  width:var(--p);
+  height:var(--p);
 }
 .topleft {
-  top:1em;
-  left:1em; 
+  top:var(--m);
+  left:var(--m); 
   /* I do not know why, but it's better with this - */
   -webkit-transform:rotate(360deg); transform:rotate(360deg); 
 }
 .topright {  
-  top:1em; right:1em; -webkit-transform:rotate(90deg); transform:rotate(90deg); 
+  top:var(--m); right:var(--m);
+  -webkit-transform:rotate(90deg); transform:rotate(90deg); 
 }
 .bottomleft { 
-  bottom:1em; left:1em; -webkit-transform:rotate(270deg); transform:rotate(270deg); 
+  bottom:var(--m); left:var(--m);
+-webkit-transform:rotate(270deg); transform:rotate(270deg); 
 }
 .bottomright { 
-  bottom:1em; right:1em; -webkit-transform:rotate(180deg); transform:rotate(180deg); 
-}
-.variant:after {
-  width:0.1em;
-  height:0.1em;
+  bottom:var(--m); right:var(--m);
+  -webkit-transform:rotate(180deg); transform:rotate(180deg); 
 }
 
-.corner1:after {
+.corner1::after {
   /*transition: box-shadow 0.5s ease-in-out;*/
-  box-shadow:
-    -10px -10px 0 red;
+z-index: 1000;  
+box-shadow:
+     calc(1 * var(--p)) calc(1 * var(--p)) 0 red,
+     calc(1 * var(--p)) calc(2 * var(--p)) 0 blue,
+     calc(2 * var(--p)) calc(1 * var(--p)) 0 yellow,
+     calc(2 * var(--p)) calc(2 * var(--p)) 0 green
+;
 }
