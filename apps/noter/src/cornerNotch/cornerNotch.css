@@ -1,0 +1,32 @@
+@layer utilities {
+  .corner-notch-0 {
+    border-image: none;
+    filter: none;
+  }
+
+  :is(.corner-notch-1, .corner-notch-2):focus-visible,
+  :is(.corner-notch-1, .corner-notch-2):focus-within {
+    --tw-ring-shadow: 0 0 #0000;
+    --tw-ring-offset-shadow: 0 0 #0000;
+    filter: var(--noter-corner-notch-focus-filter, none);
+  }
+
+  :is(.corner-notch-1, .corner-notch-2) {
+    border-radius: 0;
+    border-style: solid;
+    background-clip: padding-box;
+    border-image-source: var(--noter-corner-notch-border-source);
+    border-image-outset: 0;
+    border-image-repeat: stretch;
+  }
+
+  .corner-notch-1 {
+    border-image-slice: 2;
+    border-image-width: 1;
+  }
+
+  .corner-notch-2 {
+    border-image-slice: 4;
+    border-image-width: 2;
+  }
+}

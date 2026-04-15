@@ -1,15 +1,5 @@
 import * as React from "react";
-import {
-  type CornerNotchFamily,
-  type CornerNotchType,
-} from "@/lib/cornerNotch";
-
-const CORNER_BRIDGE_SIZE_VARS = [
-  "--noter-corner-notch-bridge-top-left-size",
-  "--noter-corner-notch-bridge-top-right-size",
-  "--noter-corner-notch-bridge-bottom-right-size",
-  "--noter-corner-notch-bridge-bottom-left-size",
-] as const;
+import { type CornerNotchType } from "@/cornerNotch/cornerNotch";
 
 function assignForwardedRef<T>(ref: React.ForwardedRef<T>, value: T | null) {
   if (typeof ref === "function") {
@@ -22,53 +12,9 @@ function assignForwardedRef<T>(ref: React.ForwardedRef<T>, value: T | null) {
   }
 }
 
-function toPixels(value: string) {
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return "0px";
-  }
-
-  return `${parsed}px`;
-}
-
-function clearClipBridgePaint(element: HTMLElement) {
-  element.style.removeProperty("--noter-corner-notch-bridge-color");
-  for (const variableName of CORNER_BRIDGE_SIZE_VARS) {
-    element.style.removeProperty(variableName);
-  }
-}
-
-function syncClipBridgePaint(element: HTMLElement) {
-  const styles = window.getComputedStyle(element);
-  const borderTopWidth = Number.parseFloat(styles.borderTopWidth) || 0;
-  const borderRightWidth = Number.parseFloat(styles.borderRightWidth) || 0;
-  const borderBottomWidth = Number.parseFloat(styles.borderBottomWidth) || 0;
-  const borderLeftWidth = Number.parseFloat(styles.borderLeftWidth) || 0;
-
-  element.style.setProperty(
-    "--noter-corner-notch-bridge-color",
-    styles.borderTopColor,
-  );
-  element.style.setProperty(
-    "--noter-corner-notch-bridge-top-left-size",
-    toPixels(Math.min(borderTopWidth, borderLeftWidth).toString()),
-  );
-  element.style.setProperty(
-    "--noter-corner-notch-bridge-top-right-size",
-    toPixels(Math.min(borderTopWidth, borderRightWidth).toString()),
-  );
-  element.style.setProperty(
-    "--noter-corner-notch-bridge-bottom-right-size",
-    toPixels(Math.min(borderBottomWidth, borderRightWidth).toString()),
-  );
-  element.style.setProperty(
-    "--noter-corner-notch-bridge-bottom-left-size",
-    toPixels(Math.min(borderBottomWidth, borderLeftWidth).toString()),
-  );
-}
-
 function clearPixelBorderPaint(element: HTMLElement) {
-  element.style.removeProperty("--noter-corner-notch-pixel-border-source");
+  element.style.removeProperty("--noter-corner-notch-border-source");
+  element.style.removeProperty("--noter-corner-notch-focus-filter");
 }
 
 function getPixelSvgPath(type: Exclude<CornerNotchType, 0>) {
@@ -94,22 +40,41 @@ function createPixelBorderImage(
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
+function createPixelFocusFilter(color: string, step: string) {
+  return [
+    `drop-shadow(${step} 0 0 ${color})`,
+    `drop-shadow(calc(${step} * -1) 0 0 ${color})`,
+    `drop-shadow(0 ${step} 0 ${color})`,
+    `drop-shadow(0 calc(${step} * -1) 0 ${color})`,
+  ].join(" ");
+}
+
 function syncPixelBorderPaint(
   element: HTMLElement,
   cornerNotch: Exclude<CornerNotchType, 0>,
 ) {
   const styles = window.getComputedStyle(element);
   const borderColor = styles.borderTopColor;
+  const ringColor = styles.getPropertyValue("--tw-ring-color").trim();
+  const focusStep =
+    styles.getPropertyValue("--noter-corner-notch-preview-focus-step").trim() ||
+    "1px";
 
   element.style.setProperty(
-    "--noter-corner-notch-pixel-border-source",
+    "--noter-corner-notch-border-source",
     createPixelBorderImage(borderColor, cornerNotch),
+  );
+  element.style.setProperty(
+    "--noter-corner-notch-focus-filter",
+    createPixelFocusFilter(
+      ringColor.length > 0 ? ringColor : borderColor,
+      focusStep,
+    ),
   );
 }
 
 export function useCornerNotchStyling<T extends HTMLElement>(
   cornerNotch: CornerNotchType | null | undefined,
-  family: CornerNotchFamily,
   forwardedRef: React.ForwardedRef<T>,
   className?: string,
 ) {
@@ -130,20 +95,12 @@ export function useCornerNotchStyling<T extends HTMLElement>(
     }
 
     if (!cornerNotch) {
-      clearClipBridgePaint(element);
       clearPixelBorderPaint(element);
       return;
     }
 
     const updateNotchPaint = () => {
-      if (family === "pixel") {
-        clearClipBridgePaint(element);
-        syncPixelBorderPaint(element, cornerNotch);
-        return;
-      }
-
-      clearPixelBorderPaint(element);
-      syncClipBridgePaint(element);
+      syncPixelBorderPaint(element, cornerNotch);
     };
 
     updateNotchPaint();
@@ -176,7 +133,7 @@ export function useCornerNotchStyling<T extends HTMLElement>(
       elementObserver.disconnect();
       themeObserver.disconnect();
     };
-  }, [className, cornerNotch, family]);
+  }, [className, cornerNotch]);
 
   return ref;
 }

@@ -2,14 +2,12 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
-import { useCornerNotchStyling } from "@/hooks/useCornerNotchStyling";
+import { useCornerNotchStyling } from "@/cornerNotch/useCornerNotchStyling";
 import {
-  DEFAULT_CORNER_NOTCH_FAMILY,
   DEFAULT_CORNER_NOTCH_TYPE,
   getCornerNotchClass,
-  type CornerNotchFamily,
   type CornerNotchType,
-} from "@/lib/cornerNotch";
+} from "@/cornerNotch/cornerNotch";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -48,7 +46,6 @@ export interface ButtonProps
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
   cornerNotch?: CornerNotchType;
-  cornerNotchFamily?: CornerNotchFamily;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -58,7 +55,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       variant,
       size,
       cornerNotch = DEFAULT_CORNER_NOTCH_TYPE,
-      cornerNotchFamily = DEFAULT_CORNER_NOTCH_FAMILY,
       asChild = false,
       ...props
     },
@@ -67,16 +63,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : "button";
     const finalClassName = cn(
       buttonVariants({ variant, size }),
-      getCornerNotchClass(cornerNotch, cornerNotchFamily),
-      cornerNotchFamily === "pixel" && "rounded-none",
+      getCornerNotchClass(cornerNotch),
       className,
     );
-    const buttonRef = useCornerNotchStyling(
-      cornerNotch,
-      cornerNotchFamily,
-      ref,
-      finalClassName,
-    );
+    const buttonRef = useCornerNotchStyling(cornerNotch, ref, finalClassName);
 
     return <Comp className={finalClassName} ref={buttonRef} {...props} />;
   },

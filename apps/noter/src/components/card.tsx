@@ -11,8 +11,8 @@ import {
   DEFAULT_CORNER_NOTCH_TYPE,
   getOptionalCornerNotchClass,
   type CornerNotchType,
-} from "@/lib/cornerNotch";
-import { useCornerNotchStyling } from "@/hooks/useCornerNotchStyling";
+} from "@/cornerNotch/cornerNotch";
+import { useCornerNotchStyling } from "@/cornerNotch/useCornerNotchStyling";
 import { cn } from "@/lib/utils";
 
 export interface CardProps extends React.ComponentPropsWithoutRef<
@@ -30,7 +30,6 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
     );
     const cardRef = useCornerNotchStyling(
       resolvedCornerNotch,
-      "clip",
       ref,
       finalClassName,
     );

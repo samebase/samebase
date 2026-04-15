@@ -6,6 +6,10 @@ import "@fontsource/ibm-plex-sans/400.css";
 import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/ibm-plex-sans/600.css";
 import { DialogProvider } from "@/contexts/DialogContext";
+import {
+  CornerNotchPlaygroundVisualFixture,
+  type CornerNotchPlaygroundVisualMode,
+} from "@/cornerNotch/CornerNotchPlaygroundVisualFixture";
 import { client } from "@/lib/convexClient";
 import { QueryProvider } from "@/lib/providers/query-provider";
 import {
@@ -33,11 +37,6 @@ import {
   type VaultDashboardVisualMode,
 } from "@/components/VaultDashboardVisualFixture";
 import { MachineConnectVisualFixture } from "@/components/MachineConnectVisualFixture";
-import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture";
-import {
-  CornerNotchPlaygroundVisualFixture,
-  type CornerNotchPlaygroundVisualMode,
-} from "@/components/CornerNotchPlaygroundVisualFixture";
 import {
   LogoThreeVisualFixture,
   type LogoThreeVisualMode,
@@ -46,7 +45,6 @@ import {
   LandingCopyVisualFixture,
   type LandingCopyVisualMode,
 } from "@/components/LandingCopyVisualFixture";
-import { CornerNotchDetailVisualFixture } from "@/components/CornerNotchDetailVisualFixture";
 import {
   LogoSnapAnglesVisualFixture,
   type LogoSnapAnglesVisualMode,
@@ -162,8 +160,6 @@ type VisualFixtureMode =
   | "vault-dashboard-branch-pr-title"
   | "button"
   | AppBootFailureStateVisualMode
-  | "corner-notch"
-  | "corner-notch-detail"
   | CornerNotchPlaygroundVisualMode;
 
 type VisualFixtureSelection =
@@ -299,8 +295,6 @@ const MISC_VISUAL_MODES = [
   "button",
   "app-boot-failure-stale",
   "app-boot-failure-generic",
-  "corner-notch",
-  "corner-notch-detail",
   "corner-notch-playground",
 ] as const satisfies readonly VisualFixtureMode[];
 
@@ -559,14 +553,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "app-boot-failure-generic"
   ) {
     return <AppBootFailureStateVisualFixture mode={mode} />;
-  }
-
-  if (mode === "corner-notch") {
-    return <CornerNotchVisualFixture />;
-  }
-
-  if (mode === "corner-notch-detail") {
-    return <CornerNotchDetailVisualFixture />;
   }
 
   if (mode === "corner-notch-playground") {

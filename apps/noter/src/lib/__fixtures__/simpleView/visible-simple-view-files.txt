@@ -23,9 +23,6 @@ apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted-stag
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-inline.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.png
-apps/noter/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-raw.png
-apps/noter/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-zoomed.png
-apps/noter/e2e/corner-notch-visual.spec.ts-snapshots/corner-notch.png
 apps/noter/e2e/file-view-code-parity.spec.ts-snapshots/file-view-code-parity-diff-preview.png
 apps/noter/e2e/file-view-code-parity.spec.ts-snapshots/file-view-code-parity-editors.png
 apps/noter/e2e/file-view-compare-visual.spec.ts-snapshots/file-view-compare-loading.png

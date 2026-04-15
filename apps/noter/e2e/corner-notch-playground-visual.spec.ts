@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("corner notch playground fixture", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 1200 });
   await page.goto(
-    "/visual-fixture.html?mode=corner-notch-playground&family=pixel&type=2&borderWidth=3&zoom=10&surface=dark",
+    "/visual-fixture.html?mode=corner-notch-playground&type=2&borderWidth=3&zoom=10&surface=dark",
     {
       waitUntil: "domcontentloaded",
     },

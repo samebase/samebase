@@ -1,36 +1,31 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useLocation } from "@tanstack/react-router";
 import { z } from "zod";
+import { Input } from "@/components/input";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import { Button } from "@/components/ui/button";
 import {
-  CORNER_NOTCH_FAMILIES,
   CORNER_NOTCH_TYPES,
   DEFAULT_CORNER_NOTCH_TYPE,
-  type CornerNotchFamily,
-} from "@/lib/cornerNotch";
+} from "@/cornerNotch/cornerNotch";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { cn } from "@/lib/utils";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { Chrome } from "lucide-react";
-import { Input } from "./input";
 
 export type CornerNotchPlaygroundVisualMode = "corner-notch-playground";
 
 const PLAYGROUND_BORDER_WIDTHS = [1, 2, 3, 4] as const;
 const PLAYGROUND_ZOOMS = [1, 2, 4, 6, 8, 10] as const;
 const PLAYGROUND_SURFACES = ["light", "dark", "warm"] as const;
-const DEFAULT_PLAYGROUND_FAMILY: CornerNotchFamily = "pixel";
 
 type PlaygroundBorderWidth = (typeof PLAYGROUND_BORDER_WIDTHS)[number];
 type PlaygroundSurface = (typeof PLAYGROUND_SURFACES)[number];
 
 type CornerNotchFixtureStyle = CSSProperties & {
-  "--noter-corner-notch-bridge-size"?: string;
-  "--noter-corner-notch-preview-focus-ring-width"?: string;
-  "--noter-corner-notch-stroke"?: string;
+  "--noter-corner-notch-preview-focus-step"?: string;
 };
 
 const SURFACE_FRAME_CLASS = {
@@ -95,10 +90,6 @@ function createLiteralStringParamSchema<const T extends readonly string[]>(
 
 const cornerNotchPlaygroundSearchSchema = z.object({
   borderWidth: createLiteralNumberParamSchema(PLAYGROUND_BORDER_WIDTHS, 2),
-  family: createLiteralStringParamSchema(
-    CORNER_NOTCH_FAMILIES,
-    DEFAULT_PLAYGROUND_FAMILY,
-  ),
   surface: createLiteralStringParamSchema(PLAYGROUND_SURFACES, "light"),
   type: createLiteralNumberParamSchema(
     CORNER_NOTCH_TYPES,
@@ -118,7 +109,7 @@ function readCornerNotchPlaygroundSearch(
 }
 
 function buildFixtureHref(
-  name: "type" | "borderWidth" | "zoom" | "surface" | "family",
+  name: "type" | "borderWidth" | "zoom" | "surface",
   value: number | string,
 ) {
   return buildPathWithUpdatedQuery(
@@ -129,20 +120,8 @@ function buildFixtureHref(
     },
     (nextSearchParams) => {
       setQueryParam(nextSearchParams, "mode", "corner-notch-playground");
+      setQueryParam(nextSearchParams, "family", null);
       setQueryParam(nextSearchParams, name, `${value}`);
-    },
-  );
-}
-
-function buildFixtureModeHref(mode: "corner-notch" | "corner-notch-detail") {
-  return buildPathWithUpdatedQuery(
-    {
-      hash: window.location.hash,
-      pathname: window.location.pathname,
-      search: window.location.search,
-    },
-    (nextSearchParams) => {
-      setQueryParam(nextSearchParams, "mode", mode);
     },
   );
 }
@@ -196,16 +175,15 @@ function createComponentSurfaceStyle(
 
   return {
     borderWidth: pixels,
-    "--noter-corner-notch-preview-focus-ring-width": `${1 / zoom}px`,
-    "--noter-corner-notch-stroke": pixels,
+    "--noter-corner-notch-preview-focus-step": `${1 / zoom}px`,
   };
 }
 
 function CornerNotchPlaygroundVisualFixtureContent() {
   const location = useLocation();
-  const { borderWidth, family, surface, type, zoom } =
-    readCornerNotchPlaygroundSearch(location.searchStr);
-  const selectedFamily: CornerNotchFamily = family;
+  const { borderWidth, surface, type, zoom } = readCornerNotchPlaygroundSearch(
+    location.searchStr,
+  );
   const selectedType = type;
   const selectedBorderWidth = borderWidth;
   const selectedZoom = zoom;
@@ -225,24 +203,6 @@ function CornerNotchPlaygroundVisualFixtureContent() {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex-1 overflow-auto px-3 py-3">
         <div className="grid gap-4">
-          <FixtureControlRow label="Modes">
-            <FixtureOptionLink
-              href={buildFixtureHref("type", selectedType)}
-              isSelected
-              label="playground"
-            />
-            <FixtureOptionLink
-              href={buildFixtureModeHref("corner-notch")}
-              isSelected={false}
-              label="gallery"
-            />
-            <FixtureOptionLink
-              href={buildFixtureModeHref("corner-notch-detail")}
-              isSelected={false}
-              label="detail"
-            />
-          </FixtureControlRow>
-
           <FixtureControlRow label="Type">
             {CORNER_NOTCH_TYPES.map((type) => (
               <FixtureOptionLink
@@ -250,17 +210,6 @@ function CornerNotchPlaygroundVisualFixtureContent() {
                 href={buildFixtureHref("type", type)}
                 isSelected={selectedType === type}
                 label={`type ${type}`}
-              />
-            ))}
-          </FixtureControlRow>
-
-          <FixtureControlRow label="Family">
-            {CORNER_NOTCH_FAMILIES.map((family) => (
-              <FixtureOptionLink
-                key={family}
-                href={buildFixtureHref("family", family)}
-                isSelected={selectedFamily === family}
-                label={family}
               />
             ))}
           </FixtureControlRow>
@@ -315,7 +264,6 @@ function CornerNotchPlaygroundVisualFixtureContent() {
       >
         <Button
           cornerNotch={selectedType}
-          cornerNotchFamily={selectedFamily}
           type="button"
           variant="outline"
           style={componentSurfaceStyle}
@@ -326,7 +274,6 @@ function CornerNotchPlaygroundVisualFixtureContent() {
         <Input
           className="w-24"
           cornerNotch={selectedType}
-          cornerNotchFamily={selectedFamily}
           style={componentSurfaceStyle}
         />
       </div>
