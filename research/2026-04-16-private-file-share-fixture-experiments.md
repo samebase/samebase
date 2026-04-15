@@ -85,6 +85,8 @@ If we build this beyond fixtures, the default recommendation is:
    shape.
 5. Add renderer-level upgrades only for concrete content needs such as tables,
    callouts, or syntax highlighting.
+6. Treat `/?dev` as the author-mode switch for the same shared page instead of
+   splitting read and edit across different routes too early.
 
 ## Why This Fits The Product
 

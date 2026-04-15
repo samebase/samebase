@@ -2,7 +2,9 @@ import {
   buildLandingDevToggleSearch,
   getLandingDevToggleLabel,
 } from "@/lib/landingDevMode";
-import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
+import { buildPathWithQuery } from "@/lib/queryParams";
+import { stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
+import { useLocation, useRouter } from "@tanstack/react-router";
 import { ReactNode, useEffect, type MouseEvent } from "react";
 import { useConvexAuth } from "convex/react";
 import { AppPageFrame } from "@/components/AppPageFrame";
@@ -14,7 +16,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const appCommitNumber = __APP_COMMIT_NUMBER__;
   const repoUrl = __APP_REPO_URL__ || "";
   const location = useLocation();
-  const navigate = useNavigate();
   const router = useRouter();
   const rootRouteSearch = useRootRouteSearch();
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -33,11 +34,13 @@ export function Layout({ children }: { children: ReactNode }) {
   const showPublicNavigation =
     !isLoading && !isAuthenticated && location.pathname !== "/";
   const landingDevToggleSearch = buildLandingDevToggleSearch(rootRouteSearch);
-  const landingDevToggleHref = router.buildLocation({
-    to: "/",
-    search: landingDevToggleSearch,
-    hash: true,
-  }).href;
+  // Keep the rendered href on the shipped `/?dev` contract instead of
+  // TanStack's default empty-value `?dev=` serialization for boolean flags.
+  const landingDevToggleHref = buildPathWithQuery({
+    pathname: "/",
+    search: stringifyTanStackSearch(landingDevToggleSearch),
+    hash: location.hash,
+  });
   const landingDevToggleLabel = getLandingDevToggleLabel(rootRouteSearch);
   const handleLandingDevToggleClick = (
     event: MouseEvent<HTMLAnchorElement>,
@@ -57,11 +60,7 @@ export function Layout({ children }: { children: ReactNode }) {
     // Mobile browsers can keep the header toggle focused and nudge the
     // vertically centered landing card while the query-param view swaps.
     event.currentTarget.blur();
-    void navigate({
-      to: "/",
-      search: landingDevToggleSearch,
-      hash: true,
-    });
+    router.history.push(landingDevToggleHref);
   };
   useEffect(() => {
     console.info("[noter] build metadata", {
