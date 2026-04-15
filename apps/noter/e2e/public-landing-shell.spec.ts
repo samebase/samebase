@@ -389,7 +389,7 @@ test("landing dev mode shows Google sign-in", async ({ page }) => {
     )
     .toEqual({
       appearance: "none",
-      cursor: "default",
+      cursor: expect.stringContaining('url("data:image/svg+xml'),
     });
 });
 

@@ -135,6 +135,16 @@
     cursor: default;
   }
 
+  @media (pointer: fine) {
+    button,
+    input:where([type="button"], [type="reset"], [type="submit"]),
+    ::file-selector-button {
+      cursor:
+        url("./assets/button-arrow-cursor.svg") 2 2,
+        default;
+    }
+  }
+
   /* Restore browser link defaults instead of Tailwind's inherited reset. */
   /* TODO: maybe add it back later, for now it's too jarring */
   a:any-link {

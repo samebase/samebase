@@ -20,7 +20,8 @@ test("button visual fixture", async ({ page }) => {
     .locator("button")
     .first()
     .evaluate((element) => window.getComputedStyle(element).cursor);
-  expect(primaryButtonCursor).toBe("default");
+  expect(primaryButtonCursor).toContain('url("data:image/svg+xml');
+  expect(primaryButtonCursor).toContain("default");
 
   const primaryButtonAppearance = await page
     .getByTestId("button-visual-variants")
