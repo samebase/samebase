@@ -34,7 +34,7 @@ copy-pasted command strings.
 The current Daytona runtime logic duplicates the same contract in multiple
 places:
 
-1. `apps/noter/convex/daytonaActions.ts`
+1. `apps/noter/convex/daytona/actions.ts`
 2. `Dockerfile.daytona-deps`
 3. `.devcontainer/Dockerfile`
 

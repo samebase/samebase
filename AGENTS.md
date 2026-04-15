@@ -118,10 +118,10 @@ Key domain entities:
 - Do not keep test-only production abstractions, incomplete extractions, or dead
   scaffolding.
 - Do not add barrel files for app code.
-- Do not add same-name re-export shim files just to preserve or shorten an
-  import path. Update imports directly instead. These shim files pollute the
-  tree and break editor cmd-click/navigation when tracing real implementations
-  and usages.
+- Do not add same-name re-export shim files or one-line pass-through modules
+  that only re-export another module. Update imports directly instead, and
+  delete these wrappers when you find them. They pollute the tree and break
+  editor cmd-click/navigation when tracing real implementations and usages.
 - Keep config surfaces minimal and current.
 - For app-owned components, default to closed styling APIs. Do not add
   pass-through styling props such as `className`, `bodyClassName`, or

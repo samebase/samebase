@@ -1,4 +1,4 @@
-import { Badge } from "@/components/badge";
+import { Badge } from "@/components/ui/badge";
 import { ExpandableClampToggleButton } from "@/components/ExpandableClampText";
 import { useExpandableClampText } from "@/hooks/useExpandableClampText";
 import { type CodexAppServerThreadItem } from "@/lib/codexAppServerResearch";

@@ -1,6 +1,6 @@
-import { Checkbox } from "@/components/checkbox";
-import { Label } from "@/components/label";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import type { CommitPreviewFile } from "./fileViewShared";
 import { getPatchLineClassName } from "./fileViewShared";
 
