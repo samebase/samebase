@@ -22,6 +22,13 @@ test("button visual fixture", async ({ page }) => {
     .evaluate((element) => window.getComputedStyle(element).cursor);
   expect(primaryButtonCursor).toBe("default");
 
+  const primaryButtonAppearance = await page
+    .getByTestId("button-visual-variants")
+    .locator("button")
+    .first()
+    .evaluate((element) => window.getComputedStyle(element).appearance);
+  expect(primaryButtonAppearance).toBe("none");
+
   await expect(page.getByTestId("button-visual-variants")).toHaveScreenshot(
     "button-variants.png",
     strictScreenshotOptions,

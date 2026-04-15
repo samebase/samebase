@@ -122,12 +122,16 @@
   }
 
   /*
-    Keep native buttons on the browser-style arrow cursor instead of the
-    hand cursor introduced by newer Tailwind/shadcn defaults.
+    Our buttons are fully custom-styled, so strip the native macOS/Chrome
+    button appearance before restoring the arrow cursor. Leaving the native
+    appearance in place can keep showing the platform hand cursor even when the
+    computed CSS cursor is already `default`.
   */
   button,
   input:where([type="button"], [type="reset"], [type="submit"]),
   ::file-selector-button {
+    appearance: none;
+    -webkit-appearance: none;
     cursor: default;
   }
 

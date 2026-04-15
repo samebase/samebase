@@ -382,11 +382,15 @@ test("landing dev mode shows Google sign-in", async ({ page }) => {
   await expect(googleButton).toBeVisible();
   await expect
     .poll(() =>
-      googleButton.evaluate(
-        (element) => window.getComputedStyle(element).cursor,
-      ),
+      googleButton.evaluate((element) => ({
+        appearance: window.getComputedStyle(element).appearance,
+        cursor: window.getComputedStyle(element).cursor,
+      })),
     )
-    .toBe("default");
+    .toEqual({
+      appearance: "none",
+      cursor: "default",
+    });
 });
 
 test("public landing renders the closed Google signup return state", async ({
