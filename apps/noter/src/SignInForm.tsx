@@ -24,7 +24,7 @@ import {
   readPublicLandingWaitlistDraft,
   writePublicLandingWaitlistDraft,
 } from "@/lib/publicLandingWaitlistDraft";
-import { useLocation } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { type ReactNode, useEffect, useState } from "react";
 import { api } from "../convex/_generated/api";
@@ -132,9 +132,23 @@ function GoogleSignupClosedNotice() {
   return (
     <div className="flex flex-col gap-1 text-center">
       <h2 className="text-xl font-semibold tracking-tight">
-        Signups are currently closed
+        I'm sorry, signups are still just for a handful of people I know
+        personally.
       </h2>
-      <p className="text-sm text-muted-foreground">Join the waitlist.</p>
+
+      <p className="text-sm text-muted-foreground">
+        Please{" "}
+        <a
+          href="https://x.com/noter_md"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          follow us on twitter
+        </a>{" "}
+        or join the waitlist below.
+      </p>
+
+      <Link to="/">go back</Link>
     </div>
   );
 }
