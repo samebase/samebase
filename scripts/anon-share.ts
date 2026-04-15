@@ -78,6 +78,11 @@ type ShareModeConfig = {
   bootstrapArgs: string[];
   devCommand: string;
   buildDevArgs: (frontendPort: number) => string[];
+  /**
+   * `null` means this mode pins the frontend port via CLI args instead of an
+   * injected env var. Non-null means `startDevServer` must inject the named
+   * env var so the child dev command binds the probed share port deterministically.
+   */
   devTargetPortVar: string | null;
   defaultStartPort: number;
   shareLabel: string;
@@ -217,10 +222,6 @@ export function appendBufferedLines(
 export function flushBufferedLine(buffer: string): string | null {
   const line = buffer.trim();
   return line.length > 0 ? line : null;
-}
-
-export function resolveDevTargetPortVar(mode: ShareMode): string | null {
-  return SHARE_MODE_CONFIG[mode].devTargetPortVar;
 }
 
 function readEnvAssignmentValue(contents: string, key: string): string | null {
@@ -508,6 +509,9 @@ async function ensureCloudflaredBinary(repoRoot: string): Promise<void> {
 }
 
 function startDevServer(args: DevLaunchArgs): ChildProcess {
+  // `devTargetPortVar === null` means this mode already threads the chosen port
+  // through CLI args, so injecting an env var here would be redundant and could
+  // fight the explicit command contract.
   const portEnv =
     args.modeConfig.devTargetPortVar === null
       ? {}

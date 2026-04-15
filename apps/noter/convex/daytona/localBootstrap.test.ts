@@ -56,6 +56,41 @@ const buildIsolatedChildEnv = (
   return env;
 };
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readPackageJsonScripts(): Record<string, string> | undefined {
+  const parsedPackageJson: unknown = JSON.parse(
+    readFileSync(packageJsonPath, "utf8"),
+  );
+  expect(isObjectRecord(parsedPackageJson)).toBe(true);
+  if (!isObjectRecord(parsedPackageJson)) {
+    throw new Error("Expected package.json to parse to an object.");
+  }
+
+  const packageJsonScriptsValue = parsedPackageJson["scripts"];
+  if (packageJsonScriptsValue === undefined) {
+    return undefined;
+  }
+
+  expect(isObjectRecord(packageJsonScriptsValue)).toBe(true);
+  if (!isObjectRecord(packageJsonScriptsValue)) {
+    throw new Error("Expected package.json scripts to be an object.");
+  }
+
+  const scripts: Record<string, string> = {};
+  for (const [key, value] of Object.entries(packageJsonScriptsValue)) {
+    expect(value).toBeTypeOf("string");
+    if (typeof value !== "string") {
+      throw new Error(`Expected package.json script ${key} to be a string.`);
+    }
+    scripts[key] = value;
+  }
+
+  return scripts;
+}
+
 describe("daytonaLocalBootstrap", () => {
   beforeAll(() => {
     testDir = mkdtempSync(path.join(os.tmpdir(), "noter-daytona-local-"));
@@ -275,8 +310,8 @@ describe("daytonaLocalBootstrap", () => {
   });
 
   it("keeps package scripts as the single bootstrap source of truth", () => {
-    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
-      scripts?: Record<string, string>;
+    const packageJson = {
+      scripts: readPackageJsonScripts(),
     };
     const runAnonDevScript = readFileSync(runAnonDevScriptPath, "utf8");
     const runDaytonaLocalScript = readFileSync(
