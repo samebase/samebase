@@ -29,6 +29,10 @@ import {
   type SimpleViewVisualMode,
 } from "@/components/SimpleViewVisualFixture";
 import {
+  PrivateFileShareVisualFixture,
+  type PrivateFileShareVisualMode,
+} from "@/components/PrivateFileShareVisualFixture";
+import {
   VaultDashboardVisualFixture,
   type VaultDashboardVisualMode,
 } from "@/components/VaultDashboardVisualFixture";
@@ -140,6 +144,7 @@ type VisualFixtureMode =
   | LogoSnapAnglesVisualMode
   | LogoThreeVisualMode
   | AddRepositoryVisualMode
+  | PrivateFileShareVisualMode
   | RepositoryMediaVisualMode
   | SidebarMediaUploadVisualMode
   | SimpleViewVisualMode
@@ -204,6 +209,12 @@ const ADD_REPOSITORY_VISUAL_MODES = [
   "add-repository-retrying",
   "add-repository-empty-final",
 ] as const satisfies readonly AddRepositoryVisualMode[];
+
+const PRIVATE_FILE_SHARE_VISUAL_MODES = [
+  "private-file-share-ssr",
+  "private-file-share-spa",
+  "private-file-share-progressive",
+] as const satisfies readonly PrivateFileShareVisualMode[];
 
 const LANDING_COPY_VISUAL_MODES = [
   "landing-copy-parity",
@@ -324,6 +335,10 @@ const VISUAL_FIXTURE_GROUPS = [
     modes: ADD_REPOSITORY_VISUAL_MODES,
   },
   {
+    label: "Private File Share",
+    modes: PRIVATE_FILE_SHARE_VISUAL_MODES,
+  },
+  {
     label: "Landing Copy",
     modes: LANDING_COPY_VISUAL_MODES,
   },
@@ -413,6 +428,14 @@ function renderVisualFixture(mode: VisualFixtureMode) {
   if (mode === "sidebar-media-upload") {
     return <SidebarMediaUploadVisualFixture />;
   }
+  if (
+    mode === "private-file-share-ssr" ||
+    mode === "private-file-share-spa" ||
+    mode === "private-file-share-progressive"
+  ) {
+    return <PrivateFileShareVisualFixture mode={mode} />;
+  }
+
   if (
     mode === "landing-copy-parity" ||
     mode === "landing-copy-editable-parity-single-line" ||
