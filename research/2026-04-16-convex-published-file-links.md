@@ -12,13 +12,36 @@ If we do not use GitHub Pages or build-time static publishing, what is the
 cleanest Noter-native direction for making one selected repo file viewable by
 link?
 
+## Updated Decision
+
+The public URL should be transparent and mirror the existing private file route
+shape.
+
+Use the same owner, repo, ref, and path contract that the editor already uses
+under `/vault`, but expose the published view under `/p`.
+
+Canonical examples:
+
+- private editor: `/vault/noter-md/noter/main/slogans.md`
+- public latest-on-branch: `/p/noter-md/noter/main/slogans.md`
+- public exact commit: `/p/noter-md/noter/abc1234/slogans.md`
+
+For branch names that contain `/`, reuse the same percent-encoding rules the app
+already applies in
+[apps/noter/src/lib/vaultRoutes.ts](/Users/nicu/.codex/worktrees/664a/noter/apps/noter/src/lib/vaultRoutes.ts:20).
+
+This means the public publishing contract should be "same route as the private
+editor, just with a `/p` prefix."
+
 ## Direction Summary
 
 The best next step is to treat publishing as a product record in Convex:
 
 1. the owner clicks `Publish` from the existing file view
-2. Noter creates or updates one publish record for that file
-3. Noter returns one stable opaque public URL
+2. Noter creates or updates a publish record for that owner, repo, ref, and file
+   path
+3. Noter returns a public link that mirrors the private file URL with `/p`
+   instead of `/vault`
 4. the public route resolves the record from Convex and renders a read-only
    document
 
@@ -30,30 +53,47 @@ separate deployment system.
 ### 1. The product already has a clear owner surface
 
 The authenticated file surface already exists at
-[apps/noter/src/routes/vault-file.tsx](/Users/nicu/.codex/worktrees/664a/noter/apps/noter/src/routes/vault-file.tsx:1).
+[apps/noter/src/routes/vault-file.tsx](/Users/nicu/.codex/worktrees/664a/noter/apps/noter/src/routes/vault-file.tsx:23).
 That is the natural place for a `Publish` action and a `Copy link` follow-up.
 
 We do not need a separate GitHub Pages workflow just to expose one file.
 
-### 2. Convex already owns product records for externally reachable resources
+### 2. The app already has the route grammar we want
+
+The current private file route is intentionally path-string based and already
+supports:
+
+- owner and repo in the URL
+- refs such as `main`
+- encoded branch names such as `feature%2Flogin-flow`
+- file paths with encoded segments
+
+Those rules are already centralized in
+[apps/noter/src/lib/vaultRoutes.ts](/Users/nicu/.codex/worktrees/664a/noter/apps/noter/src/lib/vaultRoutes.ts:27)
+and covered by tests in
+[apps/noter/src/lib/vaultRoutes.test.ts](/Users/nicu/.codex/worktrees/664a/noter/apps/noter/src/lib/vaultRoutes.test.ts:21).
+
+Publishing should reuse that exact route grammar instead of inventing an opaque
+public id or a second URL vocabulary.
+
+### 3. Convex already owns product records for externally reachable resources
 
 The schema already stores branch-to-domain mappings in
 [apps/noter/convex/schema.ts](/Users/nicu/.codex/worktrees/664a/noter/apps/noter/convex/schema.ts:529)
 through `vaultDomains`. A published file link fits the same overall idea: Noter
 stores a durable product record that points from an internal source to an
-external URL.
+externally reachable page.
 
-### 3. The public side can stay simple and anonymous
+### 4. The public side can stay simple and anonymous
 
 This codebase already uses public Convex queries that return `null` when no user
 is signed in, for example `viewer` in
 [apps/noter/convex/users.ts](/Users/nicu/.codex/worktrees/664a/noter/apps/noter/convex/users.ts:374).
 
-That means we can intentionally make the public publish-link resolver an
-anonymous read, while keeping create, revoke, and republish mutations strictly
-owner-only.
+That means we can intentionally make the public publish resolver an anonymous
+read, while keeping create, revoke, and republish mutations strictly owner-only.
 
-### 4. The renderer can stay intentionally small
+### 5. The renderer can stay intentionally small
 
 The app already has a constrained markdown parser in
 [apps/noter/src/lib/staticMarkdown.ts](/Users/nicu/.codex/worktrees/664a/noter/apps/noter/src/lib/staticMarkdown.ts:1)
@@ -67,38 +107,57 @@ editor or adding a heavier markdown runtime.
 
 1. The owner opens `slogans.md` in the normal file view.
 2. The owner clicks `Publish`.
-3. Noter creates a publish record in Convex and returns a stable public link.
+3. Noter creates or updates a publish record in Convex and returns a public
+   link.
 4. The file view shows:
-   - `Copy link`
+   - `Copy public link`
+   - `Copy versioned link`
    - `Republish`
    - `Unpublish`
 5. Visitors open the public link and see a fast read-only document page.
-6. If the owner edits the source file later, Noter shows that the published copy
-   is stale until they republish.
+
+Transparent examples:
+
+- branch-following link: `/p/noter-md/noter/main/slogans.md`
+- exact version link: `/p/noter-md/noter/abc1234/slogans.md`
 
 This keeps authoring in the real repo surface and keeps the public page
 read-only. That is easier to understand than turning the public link into a
 second editor entry point immediately.
 
-## Strong Recommendation: Snapshot First
+## Ref Semantics Recommendation
 
-The publish record should store a snapshot of the file at publish time, not a
-live pointer that always follows the branch.
+Support both branch refs and commit refs, using the same transparent route
+shape.
 
-Why this is the right v1:
+### Branch ref
 
-- it is easier to explain
-- it avoids accidental public updates
-- it makes rollback and revoke obvious
-- it reduces branching and caching edge cases
+If the ref segment is a branch name such as `main`, the public page should show
+the latest published version for that branch and file path.
 
-The user mental model becomes:
+Example:
 
-- `Publish` means "make this exact version public"
-- `Republish` means "replace the public copy with the latest file content"
+- `/p/noter-md/noter/main/slogans.md`
 
-That is much safer and more readable than "whatever is on this branch is now
-public."
+This is the natural "share the latest public version from `main`" contract.
+
+### Commit ref
+
+If the ref segment is a commit SHA, the public page should show that exact
+published version.
+
+Example:
+
+- `/p/noter-md/noter/abc1234/slogans.md`
+
+This is the natural immutable link contract.
+
+### Product meaning
+
+That makes the public story easy to explain:
+
+- branch URL means "latest published version from this branch"
+- commit URL means "this exact published version"
 
 ## Data Model Recommendation
 
@@ -109,9 +168,11 @@ Recommended row shape:
 
 - `ownerId`
 - `vaultId`
-- `branch`
+- `owner`
+- `repoName`
+- `refType`
+- `ref`
 - `filePath`
-- `publicId`
 - `active`
 - `title`
 - `content`
@@ -123,48 +184,67 @@ Recommended row shape:
 
 Recommended notes:
 
-- Use one opaque `publicId` generated with the existing Convex token helper in
-  [apps/noter/convex/oauthUtils.ts](/Users/nicu/.codex/worktrees/664a/noter/apps/noter/convex/oauthUtils.ts:15).
-- For this feature, storing the opaque id directly is acceptable because the
-  link grants read-only access only and the main optimization target is code
-  clarity.
-- Keep the public route keyed by `publicId`, not by repo owner, repo name, or
-  path. The public URL should reveal as little structure as possible.
+- `refType` should distinguish `branch` from `commit`.
+- `ref` stores the transparent route segment exactly as we serve it.
+- `sourceCommitSha` stores the last resolved commit even for branch-based
+  publishes so the owner UI can explain what is currently public.
+- A branch publish should update the branch record in place and may also append
+  a commit-specific version record if we want exact commit URLs to stay
+  available after republish.
+- The important optimization target is code clarity, not minimizing every
+  duplicate row on day one.
 
 Recommended indexes:
 
-- `by_public_id`
-- `by_vault_and_branch_and_file_path`
+- `by_owner_repo_ref_file_path`
+- `by_vault_ref_file_path`
 - `by_owner`
+- `by_source_commit_sha`
 
 ## Route Recommendation
 
-Use one explicit public route, for example `/p/$`.
+Use a public route that mirrors the private file route grammar:
+
+- private: `/vault/<owner>/<repo>/<ref>/<path>`
+- public: `/p/<owner>/<repo>/<ref>/<path>`
+
+That means the final public route contract should be based on the same encoding
+and parsing rules that already power `buildVaultFileRoute` and
+`parseVaultPathContext` in
+[apps/noter/src/lib/vaultRoutes.ts](/Users/nicu/.codex/worktrees/664a/noter/apps/noter/src/lib/vaultRoutes.ts:27).
 
 Why this is the best shape:
 
-- it is short and copyable
-- it avoids exposing repo structure
-- it keeps the route contract stable even if the source file moves later
-- it maps cleanly onto one Convex lookup by `publicId`
+- it is transparent
+- it matches the user's existing mental model from the private editor
+- it keeps owner and repo scoping explicit
+- it naturally supports both branch refs and commit refs
+- it does not require opaque link ids
 
-The public route should render through the lightweight public wrapper in
-[apps/noter/src/routes/-publicRouteComponents.tsx](/Users/nicu/.codex/worktrees/664a/noter/apps/noter/src/routes/-publicRouteComponents.tsx:1),
-not through the full authenticated workspace shell.
+### On `blob`
+
+Do not add a `blob` segment in v1.
+
+GitHub uses `blob` because it also exposes sibling route families such as `tree`
+and `raw`. Noter does not need that extra namespace yet if the only public
+action is "render this published file page."
+
+If raw or tree views ever ship later, we can revisit whether a `blob` segment
+becomes useful.
 
 ## Rendering Recommendation
 
-Render the public page from the stored snapshot content and keep the content
-model narrow:
+Render the public page from stored publish content and keep the content model
+narrow:
 
 - markdown subset first
 - semantic article structure
 - no editor boot
 - no bidirectional sync
-- no branch awareness on the public page
+- no authenticated workspace shell
 
 If richer markdown support is needed later, that can be added behind the same
-publish record without changing the user flow.
+publish record without changing the route contract.
 
 ## Product Semantics To Keep Explicit
 
@@ -180,7 +260,7 @@ deliberately exempted.
 - GitHub Pages integration
 - build-time page generation
 - `_redirects`-driven special cases
-- live branch-following publishes
+- opaque public ids unrelated to the file route
 - editable public links
 - generic multi-file folder publishing
 - access-control layers such as invites or signed viewers
@@ -195,23 +275,27 @@ proven.
    - `publishFile`
    - `republishFile`
    - `unpublishFile`
-3. Add one anonymous query:
-   - `getPublishedFileByPublicId`
-4. Add one public route at `/p/$`.
-5. Render the route with `StaticMarkdownDocument` for markdown content.
-6. Add route-level Playwright coverage for:
-   - published file loads
+3. Add one anonymous query that resolves by owner, repo, ref, and file path.
+4. Add a public route that mirrors the `/vault/...` parser with a `/p/...`
+   prefix.
+5. Reuse the existing route helpers in
+   [apps/noter/src/lib/vaultRoutes.ts](/Users/nicu/.codex/worktrees/664a/noter/apps/noter/src/lib/vaultRoutes.ts:27)
+   instead of inventing a second encoding system.
+6. Render the route with `StaticMarkdownDocument` for markdown content.
+7. Add route-level Playwright coverage for:
+   - branch public file loads
+   - commit public file loads
    - revoked link fails closed
-   - republish updates content
+   - republish updates the branch URL
 
 ## Bottom Line
 
 The canonical direction should be:
 
 - publishing is a Convex record
-- the public URL resolves through Convex
-- the public page renders a stored snapshot
+- the public URL mirrors the private file URL with `/p` instead of `/vault`
+- branch refs and commit refs are both first-class and transparent
+- the public page renders stored publish content
 - editing stays in the normal file view
 
-That gives Noter one readable product story and leaves room to add better
-delivery later without changing the core contract.
+That gives Noter one readable product story and keeps the route surface honest.
