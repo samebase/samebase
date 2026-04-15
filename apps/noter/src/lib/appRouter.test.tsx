@@ -87,6 +87,12 @@ vi.mock("@/components/MachineConnectPage", () => ({
   ),
 }));
 
+vi.mock("@/components/PublishedFileRoutePage", () => ({
+  PublishedFileRoutePage: ({ pathname }: { pathname: string }) => (
+    <div data-testid="published-file-route-page">{pathname}</div>
+  ),
+}));
+
 vi.mock("@/components/CodespaceChatOnlyView", () => ({
   CodespaceChatOnlyView: () => (
     <div data-testid="codespace-chat-page">Codespace chat page</div>
@@ -284,6 +290,18 @@ describe("appRouter", () => {
       rootElement?.querySelector('[data-testid="add-repository-page"]')
         ?.textContent,
     ).toBe("Add repository page");
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
+  });
+
+  it("renders /p/$ through the explicit published-file route instead of the root not-found page", async () => {
+    await renderRoute("/p/slogans-demo");
+
+    expect(
+      rootElement?.querySelector('[data-testid="published-file-route-page"]')
+        ?.textContent,
+    ).toBe("/p/slogans-demo");
     expect(
       rootElement?.querySelector('[data-testid="not-found-route"]'),
     ).toBeNull();

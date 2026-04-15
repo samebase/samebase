@@ -36,6 +36,7 @@ export const routes = rootRoute("root.tsx", [
   route(MCP_CONSENT_APP_PATH, "mcp-consent.tsx"),
   route("/pricing", "pricing.tsx"),
   route("/add", "add-repository.tsx"),
+  route("/p/$", "published-file.tsx"),
   route(MACHINES_ROUTE, "machines.tsx"),
   route(MACHINE_CONNECT_ROUTE, "machine-connect.tsx"),
   route("/vault/$owner/$repo/codespace/$branch/chat", "codespace-chat.tsx"),

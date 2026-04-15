@@ -224,6 +224,28 @@ describe("page metadata", () => {
     }
   });
 
+  it("keeps published-file routes public but non-indexed", () => {
+    withFakeDocument((document) => {
+      applyPageMetadata(
+        resolvePageMetadata({
+          pathname: "/p/slogans-demo",
+          isAuthenticated: false,
+        }),
+      );
+
+      expect(document.title).toBe("Published file | noter");
+      expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
+        "https://noter.md/p/slogans-demo",
+      );
+      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe(
+        "noindex,nofollow",
+      );
+      expect(
+        getHeadAttribute(document, 'meta[property="og:url"]', "content"),
+      ).toBe("https://noter.md/p/slogans-demo");
+    });
+  });
+
   it("returns a dedicated title for the machine connect route", () => {
     expect(resolveAppPageTitle("/machines/connect")).toBe(
       "Connect This Machine | noter",

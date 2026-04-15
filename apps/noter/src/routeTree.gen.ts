@@ -26,6 +26,7 @@ import { Route as indexRouteImport } from "./routes/index";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
 import { Route as codexResearchRouteImport } from "./routes/codex-research";
 import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
+import { Route as publishedFileRouteImport } from "./routes/published-file";
 import { Route as machineConnectRouteImport } from "./routes/machine-connect";
 import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-thread-browser-research";
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
@@ -118,6 +119,11 @@ const pitchPrintRoute = pitchPrintRouteImport.update({
   path: "/pitch/print",
   getParentRoute: () => rootRouteImport,
 } as any);
+const publishedFileRoute = publishedFileRouteImport.update({
+  id: "/p/$",
+  path: "/p/$",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const machineConnectRoute = machineConnectRouteImport.update({
   id: "/machines/connect",
   path: "/machines/connect",
@@ -161,6 +167,7 @@ export interface FileRoutesByFullPath {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/machines/connect": typeof machineConnectRoute;
+  "/p/$": typeof publishedFileRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
@@ -185,6 +192,7 @@ export interface FileRoutesByTo {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/machines/connect": typeof machineConnectRoute;
+  "/p/$": typeof publishedFileRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
@@ -210,6 +218,7 @@ export interface FileRoutesById {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/machines/connect": typeof machineConnectRoute;
+  "/p/$": typeof publishedFileRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
@@ -236,6 +245,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/machines/connect"
+    | "/p/$"
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/vault/$"
@@ -260,6 +270,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/machines/connect"
+    | "/p/$"
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/vault/$"
@@ -284,6 +295,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/machines/connect"
+    | "/p/$"
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/vault/$"
@@ -309,6 +321,7 @@ export interface RootRouteChildren {
   termsRoute: typeof termsRoute;
   testRoute: typeof testRoute;
   machineConnectRoute: typeof machineConnectRoute;
+  publishedFileRoute: typeof publishedFileRoute;
   pitchPrintRoute: typeof pitchPrintRoute;
   codexResearchRoute: typeof codexResearchRoute;
   vaultFileRoute: typeof vaultFileRoute;
@@ -439,6 +452,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof pitchPrintRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/p/$": {
+      id: "/p/$";
+      path: "/p/$";
+      fullPath: "/p/$";
+      preLoaderRoute: typeof publishedFileRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/machines/connect": {
       id: "/machines/connect";
       path: "/machines/connect";
@@ -493,6 +513,7 @@ const rootRouteChildren: RootRouteChildren = {
   termsRoute: termsRoute,
   testRoute: testRoute,
   machineConnectRoute: machineConnectRoute,
+  publishedFileRoute: publishedFileRoute,
   pitchPrintRoute: pitchPrintRoute,
   codexResearchRoute: codexResearchRoute,
   vaultFileRoute: vaultFileRoute,

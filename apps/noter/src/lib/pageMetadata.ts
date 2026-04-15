@@ -69,6 +69,15 @@ export const PITCH_DECK_MOBILE_PRINT_PAGE_METADATA: PageMetadata = {
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
+
+export const PUBLISHED_FILE_PAGE_METADATA: PageMetadata = {
+  title: "Published file | noter",
+  description:
+    "Public noter route for a published file link. This route stays closed until a file is explicitly published.",
+  canonicalPath: "/p",
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
 export const APP_PAGE_METADATA: PageMetadata = {
   title: "noter App",
   description: "Private noter application workspace.",
@@ -181,6 +190,13 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === MACHINE_CONNECT_ROUTE) {
     return MACHINE_CONNECT_PAGE_METADATA;
+  }
+
+  if (args.pathname.startsWith("/p/")) {
+    return {
+      ...PUBLISHED_FILE_PAGE_METADATA,
+      canonicalPath: args.pathname,
+    };
   }
 
   if (args.pathname === MACHINES_ROUTE) {
