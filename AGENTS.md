@@ -325,7 +325,7 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - For Playwright or browser automation, never steal OS focus and never kill all
   Chrome processes. Use isolated Playwright-owned sessions only.
 - For this repo, prefer `node ./scripts/playwright-branch-browser.ts` or
-  `make playwright-open` over raw `@playwright/cli open`.
+  `pnpm playwright:open` over raw `@playwright/cli open`.
 - When the user asks to reproduce or inspect a mobile issue, start Playwright in
   a mobile-emulated context from launch. Do not begin in a desktop context and
   resize later.

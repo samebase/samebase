@@ -9,7 +9,7 @@ backend URLs/ports and isolated seed data.
 
 - Run from the main checkout root.
 - `pnpm` dependencies can install.
-- No long-running `make anon` processes in the two temporary test worktrees.
+- No long-running `pnpm anon` processes in the two temporary test worktrees.
 
 ## Steps
 

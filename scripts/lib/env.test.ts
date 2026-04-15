@@ -22,7 +22,10 @@ describe("env helpers", () => {
   it("parses boolean env flags from common truthy values", () => {
     expect(readBooleanEnvValue("1")).toBe(true);
     expect(readBooleanEnvValue(" yes ")).toBe(true);
+    expect(readBooleanEnvValue("TRUE")).toBe(true);
     expect(readBooleanEnvValue("false")).toBe(false);
+    expect(readBooleanEnvValue("0")).toBe(false);
+    expect(readBooleanEnvValue("no")).toBe(false);
     expect(readBooleanEnvValue(undefined)).toBe(false);
   });
 

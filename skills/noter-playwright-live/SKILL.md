@@ -19,7 +19,7 @@ visuals for Noter-stack apps.
 
 - Start with the real route first when the bug touches scroll, touch, drag,
   focus, selection, layout ownership, auth wiring, or route shell behavior.
-- Prefer the real worktree app flow (`make anon`) and the shipped bootstrap/sign
+- Prefer the real worktree app flow (`pnpm anon`) and the shipped bootstrap/sign
   in path over custom mock pages.
 - Only use a fixture when it mounts the exact production component tree without
   invented wrapper chrome, spacing, headers, or placeholder structure.
@@ -46,7 +46,7 @@ git rev-parse --abbrev-ref HEAD
 
 3. Start dev server in a long-running session.
 
-- Noter monorepo (preferred): run `make anon` from repo root.
+- Noter monorepo (preferred): run `pnpm anon` from repo root.
 - Starter/generated app: run `pnpm run dev` from project root.
 
 If dependencies are missing, run `pnpm install` first.
@@ -108,7 +108,7 @@ fi
 
 Use these defaults when working in this repository.
 
-1. Bootstrap with `make anon` (sets Convex local env and seeds dev auth).
+1. Bootstrap with `pnpm anon` (sets Convex local env and seeds dev auth).
 2. If sign-in is needed, read seeded credentials from
    `apps/noter/convex/devAuth.ts` constants:
    - `DEV_SEED_EMAIL`
@@ -125,7 +125,7 @@ Use these defaults when working in this repository.
 ## Playwright Session Rules
 
 - In this repo, prefer `node ./scripts/playwright-branch-browser.ts` or
-  `make playwright-open` over raw `@playwright/cli open`.
+  `pnpm playwright:open` over raw `@playwright/cli open`.
 - Use one deterministic session/profile per active branch.
 - Reuse the same `-s` session for multi-step flows.
 - If the branch session is already open, add a fresh tab instead of navigating a

@@ -3,4 +3,4 @@ version = 1
 name = "noter"
 
 [setup]
-script = "make bootstrap-anon"
+script = "pnpm run bootstrap"

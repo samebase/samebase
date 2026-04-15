@@ -7,7 +7,7 @@ validation rules.
 
 ## Prerequisites
 
-- Run worktree bootstrap: `make anon`
+- Run worktree bootstrap: `pnpm anon`
 - Local Convex site URL: `http://127.0.0.1:11327`
 - A registered `client_id` from `MCP-001`
 

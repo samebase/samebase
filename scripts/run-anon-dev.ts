@@ -247,6 +247,7 @@ export function buildAnonCommandPlan(
       args: [
         path.join(appDir, "scripts", "convex-dev.ts"),
         "--refresh-anon-auth",
+        "--once",
         "--codegen=disable",
         "--tail-logs=disable",
         "--typecheck=disable",

@@ -7,7 +7,7 @@ validation for the Convex-hosted MCP OAuth provider.
 
 ## Prerequisites
 
-- Run worktree bootstrap: `make anon`
+- Run worktree bootstrap: `pnpm anon`
 - Use local Convex site URL: `http://127.0.0.1:11327`
 
 ## Steps

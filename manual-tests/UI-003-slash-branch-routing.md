@@ -7,7 +7,7 @@ correctly from dashboard links into FileView without colliding with file paths.
 
 ## Preconditions
 
-- `make anon` can run in the current checkout.
+- `pnpm anon` can run in the current checkout.
 - A connected vault has a remote branch containing `/` in the branch name.
 - Dashboard branch sync has completed for that vault.
 - Optional edge-case coverage: a second slash-containing branch and a branch
@@ -15,7 +15,7 @@ correctly from dashboard links into FileView without colliding with file paths.
 
 ## Steps
 
-1. Start the app with `make anon`.
+1. Start the app with `pnpm anon`.
 2. Open dashboard and locate the branch entry with `/` in its name.
 3. Click that branch link.
 4. Confirm the URL branch segment is percent-encoded (`%2F`) for the branch name

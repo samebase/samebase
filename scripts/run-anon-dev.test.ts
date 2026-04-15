@@ -71,6 +71,7 @@ describe("run-anon-dev", () => {
     );
 
     expect(plan.at(-1)?.label).toBe("refresh anonymous auth keys");
+    expect(plan.at(-1)?.args).toContain("--once");
   });
 
   it("adds the long-running root pnpm dev step for anon", () => {

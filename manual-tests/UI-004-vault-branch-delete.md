@@ -8,7 +8,7 @@ the default branch.
 
 ## Preconditions
 
-- `make anon` can run in the current checkout.
+- `pnpm anon` can run in the current checkout.
 - A connected vault has at least:
   - one active non-default branch with `0` staged files and `0` commits ahead
   - one branch with staged files
@@ -17,7 +17,7 @@ the default branch.
 
 ## Steps
 
-1. Start the app with `make anon`.
+1. Start the app with `pnpm anon`.
 2. Open the dashboard and locate a vault card with multiple remote branches.
 3. Confirm the eligible branch shows a delete action in its row.
 4. Confirm the branch with staged files does not show the delete action.

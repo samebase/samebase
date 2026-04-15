@@ -122,26 +122,24 @@ const SHARE_MODE_CONFIG: Record<ShareMode, ShareModeConfig> = {
       `Starting anonymous local dev on ${origin} with a private Convex proxy.`,
   },
   local: {
-    bootstrapCommand: "make",
-    bootstrapArgs: ["bootstrap"],
-    devCommand: "make",
-    buildDevArgs: (frontendPort) => [
-      "run-dev",
-      `RUN_VITE_PORT=${frontendPort}`,
-    ],
-    devTargetPortVar: "RUN_VITE_PORT",
+    bootstrapCommand: PNPM_COMMAND,
+    bootstrapArgs: ["run", "bootstrap"],
+    devCommand: PNPM_COMMAND,
+    buildDevArgs: () => ["run", "dev"],
+    devTargetPortVar: null,
     defaultStartPort: 5173,
     shareLabel: "Local share",
     devLabel: "local dev",
     readyLabel: "local frontend",
-    bootstrapMessage: "Bootstrapping local environment with `make bootstrap`.",
+    bootstrapMessage:
+      "Bootstrapping local environment with `pnpm run bootstrap`.",
     startMessage: (origin) =>
       `Starting local dev on ${origin} with a private Convex proxy.`,
   },
 };
 
 /**
- * `make anon-share` and `make run-share` both expose one public frontend URL
+ * `pnpm share:anon` and `pnpm share:local` both expose one public frontend URL
  * while keeping the configured Convex backend behind Vite's same-origin proxy.
  */
 function getHelpText(): string {

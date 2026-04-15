@@ -1,36 +1,31 @@
-export const DAYTONA_LOCAL_DEV_MAKE_TARGET = "daytona-local";
+export const DAYTONA_LOCAL_DEV_SCRIPT = "daytona:local";
 
 export type DaytonaDevServerCommand =
-  | "make daytona-local"
-  | "make run"
+  | "pnpm run daytona:local"
   | "pnpm run dev"
-  | "make anon";
+  | "pnpm run anon";
 
 export function resolveDaytonaDevServerCommand(args: {
-  hasDaytonaLocalTarget: boolean;
-  hasRunTarget: boolean;
-  hasPackageJson: boolean;
-  hasAnonTarget: boolean;
+  hasDaytonaLocalScript: boolean;
+  hasDevScript: boolean;
+  hasAnonScript: boolean;
   isNoterMonorepo: boolean;
-  preferDaytonaLocalTarget: boolean;
+  preferDaytonaLocalScript: boolean;
 }): DaytonaDevServerCommand | null {
-  if (args.hasDaytonaLocalTarget && args.preferDaytonaLocalTarget) {
-    return "make daytona-local";
+  if (args.hasDaytonaLocalScript && args.preferDaytonaLocalScript) {
+    return "pnpm run daytona:local";
   }
   if (args.isNoterMonorepo) {
-    if (args.preferDaytonaLocalTarget) {
+    if (args.preferDaytonaLocalScript) {
       return null;
     }
-    return args.hasRunTarget ? "make run" : null;
+    return args.hasDevScript ? "pnpm run dev" : null;
   }
-  if (args.hasRunTarget) {
-    return "make run";
-  }
-  if (args.hasPackageJson) {
+  if (args.hasDevScript) {
     return "pnpm run dev";
   }
-  if (args.hasAnonTarget) {
-    return "make anon";
+  if (args.hasAnonScript) {
+    return "pnpm run anon";
   }
   return null;
 }

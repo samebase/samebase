@@ -61,7 +61,7 @@ import {
   type DaytonaDevServerLaunchStatus,
   type DaytonaTmuxSessionState,
 } from "./devServerLaunchPolicy";
-import { DAYTONA_LOCAL_DEV_MAKE_TARGET } from "./devServerCommand";
+import { DAYTONA_LOCAL_DEV_SCRIPT } from "./devServerCommand";
 import {
   DAYTONA_PROVISIONING_MODE_LABEL,
   DAYTONA_PROVISIONING_MODE_LIVE_DEBUG,
@@ -1809,7 +1809,6 @@ async function ensureDaytonaRuntimePackagesInSandbox(args: {
     shells_mismatch=0
     command -v tmux >/dev/null 2>&1
     command -v fish >/dev/null 2>&1
-    command -v make >/dev/null 2>&1
     fish_path="$(command -v fish)"
     for target_user in root daytona; do
       current_shell="$(grep "^${"$"}target_user:" /etc/passwd | cut -d: -f7 | head -n 1 || true)"
@@ -1948,17 +1947,22 @@ function buildDaytonaSafeDevServerCommand(args: {
     .join("\n");
   const runDevCommand = stripIndent`
     prefer_daytona_local=${args.preferDaytonaLocalTarget ? "1" : "0"}
-    if [ "$prefer_daytona_local" = "1" ] && [ -f "Makefile" ] && grep -Eq '^[[:space:]]*${DAYTONA_LOCAL_DEV_MAKE_TARGET}:' Makefile; then
-      make ${DAYTONA_LOCAL_DEV_MAKE_TARGET}
-    elif [ "$prefer_daytona_local" = "1" ] && [ -f "Makefile" ] && [ -f "apps/noter/package.json" ] && [ -f "pnpm-workspace.yaml" ]; then
-      echo "Noter monorepo is missing the Daytona bootstrap target '${DAYTONA_LOCAL_DEV_MAKE_TARGET}'; refusing to fall back to raw dev startup."
+    has_package_script() {
+      script_name="$1"
+      if [ ! -f "package.json" ]; then
+        return 1
+      fi
+      node -e 'const fs = require("node:fs"); const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")); process.exit(pkg.scripts && Object.prototype.hasOwnProperty.call(pkg.scripts, process.argv[1]) ? 0 : 1)' "$script_name"
+    }
+    if [ "$prefer_daytona_local" = "1" ] && has_package_script "${DAYTONA_LOCAL_DEV_SCRIPT}"; then
+      pnpm run ${DAYTONA_LOCAL_DEV_SCRIPT}
+    elif [ "$prefer_daytona_local" = "1" ] && [ -f "apps/noter/package.json" ] && [ -f "pnpm-workspace.yaml" ]; then
+      echo "Noter monorepo is missing the Daytona bootstrap script '${DAYTONA_LOCAL_DEV_SCRIPT}'; refusing to fall back to raw dev startup."
       exit 1
-    elif [ -f "Makefile" ] && grep -Eq '^[[:space:]]*run:' Makefile; then
-      make run
-    elif [ -f "package.json" ]; then
+    elif has_package_script "dev"; then
       pnpm run dev
-    elif [ -f "Makefile" ] && grep -Eq '^[[:space:]]*anon:' Makefile; then
-      make anon
+    elif has_package_script "anon"; then
+      pnpm run anon
     else
       echo "__NOTER_DEV_COMMAND_MISSING__"
       exit 1

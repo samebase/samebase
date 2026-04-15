@@ -11,7 +11,7 @@
 ### Noter monorepo
 
 ```bash
-make anon
+pnpm anon
 ```
 
 Expected result:

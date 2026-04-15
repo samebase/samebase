@@ -32,7 +32,12 @@ const convexSyncDevEnvScriptPath = path.join(
 );
 const killportScriptPath = path.join(repoRoot, "scripts", "killport.ts");
 const runAnonDevScriptPath = path.join(repoRoot, "scripts", "run-anon-dev.ts");
-const makefilePath = path.join(repoRoot, "Makefile");
+const runDaytonaLocalScriptPath = path.join(
+  repoRoot,
+  "scripts",
+  "run-daytona-local.ts",
+);
+const packageJsonPath = path.join(repoRoot, "package.json");
 const buildIsolatedChildEnv = (
   overrides: Record<string, string> = {},
 ): NodeJS.ProcessEnv => {
@@ -62,43 +67,40 @@ describe("daytonaLocalBootstrap", () => {
     }
   });
 
-  it("prefers the explicit Daytona wrapper target over make run", () => {
+  it("prefers the explicit Daytona wrapper script over pnpm dev", () => {
     expect(
       resolveDaytonaDevServerCommand({
-        hasDaytonaLocalTarget: true,
-        hasRunTarget: true,
-        hasPackageJson: true,
-        hasAnonTarget: true,
+        hasDaytonaLocalScript: true,
+        hasDevScript: true,
+        hasAnonScript: true,
         isNoterMonorepo: true,
-        preferDaytonaLocalTarget: true,
+        preferDaytonaLocalScript: true,
       }),
-    ).toBe("make daytona-local");
+    ).toBe("pnpm run daytona:local");
   });
 
   it("fails closed for the noter monorepo when the Daytona target is missing", () => {
     expect(
       resolveDaytonaDevServerCommand({
-        hasDaytonaLocalTarget: false,
-        hasRunTarget: true,
-        hasPackageJson: true,
-        hasAnonTarget: true,
+        hasDaytonaLocalScript: false,
+        hasDevScript: true,
+        hasAnonScript: true,
         isNoterMonorepo: true,
-        preferDaytonaLocalTarget: true,
+        preferDaytonaLocalScript: true,
       }),
     ).toBeNull();
   });
 
-  it("falls back to make run when daytona-local is not preferred", () => {
+  it("falls back to pnpm dev when daytona-local is not preferred", () => {
     expect(
       resolveDaytonaDevServerCommand({
-        hasDaytonaLocalTarget: true,
-        hasRunTarget: true,
-        hasPackageJson: true,
-        hasAnonTarget: true,
+        hasDaytonaLocalScript: true,
+        hasDevScript: true,
+        hasAnonScript: true,
         isNoterMonorepo: true,
-        preferDaytonaLocalTarget: false,
+        preferDaytonaLocalScript: false,
       }),
-    ).toBe("make run");
+    ).toBe("pnpm run dev");
   });
 
   it("injects the Daytona deploy key into sandbox env vars", () => {
@@ -272,36 +274,28 @@ describe("daytonaLocalBootstrap", () => {
     }
   });
 
-  it("runs the source env preflight before the anonymous bootstrap plan", () => {
-    const makefile = readFileSync(makefilePath, "utf8");
+  it("keeps package scripts as the single bootstrap source of truth", () => {
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
+      scripts?: Record<string, string>;
+    };
     const runAnonDevScript = readFileSync(runAnonDevScriptPath, "utf8");
+    const runDaytonaLocalScript = readFileSync(
+      runDaytonaLocalScriptPath,
+      "utf8",
+    );
 
-    expect(makefile).toContain(
-      'DAYTONA_ANON_BASE_ARGS = --no-branch --vite-port "$(DAYTONA_VITE_PORT)"',
+    expect(existsSync(path.join(repoRoot, "Makefile"))).toBe(false);
+    expect(packageJson.scripts?.anon).toBe("node ./scripts/run-anon-dev.ts");
+    expect(packageJson.scripts?.["anon:once"]).toBe(
+      "node ./scripts/run-anon-dev.ts --once",
     );
-    expect(makefile).toContain(
-      'DAYTONA_ANON_SOURCE_ARGS = $(DAYTONA_ANON_BASE_ARGS) --source-env "$(DAYTONA_SOURCE_ENV)"',
+    expect(packageJson.scripts?.["daytona:local"]).toBe(
+      "node ./scripts/run-daytona-local.ts",
     );
-    expect(makefile).toContain(
-      "pnpm run anon -- $(DAYTONA_ANON_SOURCE_ARGS); \\",
+    expect(packageJson.scripts?.["daytona:local:once"]).toBe(
+      "node ./scripts/run-daytona-local.ts --once",
     );
-    expect(makefile).toContain(
-      "pnpm run anon:once -- $(DAYTONA_ANON_SOURCE_ARGS); \\",
-    );
-    expect(makefile).toContain(
-      "pnpm run anon -- $(DAYTONA_ANON_FALLBACK_ARGS); \\",
-    );
-    expect(makefile).toContain(
-      "pnpm run anon:once -- $(DAYTONA_ANON_FALLBACK_ARGS); \\",
-    );
-    expect(makefile).toContain(
-      "KILLPORT_GOAL = $(firstword $(filter-out killport,$(MAKECMDGOALS)))",
-    );
-    expect(makefile).toMatch(/^killport:\s*$/m);
-    expect(makefile).not.toMatch(/^anon:\s*$/m);
-    expect(makefile).not.toMatch(/^anon-once:\s*$/m);
-    expect(makefile).not.toMatch(/^anon-dev:\s*$/m);
-    expect(makefile).not.toContain("kill-port:");
+    expect(packageJson.scripts?.killport).toBe("node ./scripts/killport.ts");
     expect(runAnonDevScript).toContain(
       'label: "stop existing local backend listeners"',
     );
@@ -314,6 +308,8 @@ describe("daytonaLocalBootstrap", () => {
         'path.join(repoRoot, "scripts", "bootstrap-worktree.ts")',
       ),
     );
+    expect(runDaytonaLocalScript).toContain('"daytona-write-source-env.ts"');
+    expect(runDaytonaLocalScript).toContain('"--allow-missing-source-env"');
   });
 
   it("killport reads the stored anon backend port from apps/noter/.env.local", async () => {

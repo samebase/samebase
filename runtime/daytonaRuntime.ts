@@ -38,7 +38,7 @@ export const daytonaRuntimeManifest: DaytonaRuntimeManifest = {
   repoName: "noter",
   pnpmVersion: "9.15.0",
   codexCliVersion: "0.114.0",
-  aptPackages: ["curl", "fish", "make", "tmux"],
+  aptPackages: ["curl", "fish", "tmux"],
   defaultShell: {
     name: "fish",
     users: ["root", "daytona"],
