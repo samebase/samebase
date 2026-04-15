@@ -1,5 +1,5 @@
 import { useNoterAuthActions } from "@/authClient";
-import { LandingCopy } from "@/components/LandingCopy";
+import { PublicLandingCopyStatic } from "@/components/PublicLandingCopyStatic";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
 import { Button } from "@/components/ui/button";
@@ -98,10 +98,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
                     onChange={setLandingMarkdownDraft}
                   />
                 ) : (
-                  <LandingCopy
-                    className="text-sm"
-                    markdown={landingMarkdownDraft}
-                  />
+                  <PublicLandingCopyStatic markdown={landingMarkdownDraft} />
                 )}
               </div>
               <div className="flex flex-col gap-2">
