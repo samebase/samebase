@@ -22,6 +22,13 @@ const NAVIGATION_BUDGET_MS = {
 } as const;
 const COPY_SHORTCUT_KEY =
   process.platform === "darwin" ? "Meta+C" : "Control+C";
+const strictScreenshotOptions = {
+  animations: "disabled",
+  caret: "hide",
+  scale: "css",
+  maxDiffPixelRatio: 0,
+  maxDiffPixels: 0,
+} as const;
 
 const {
   defaultBrowserType: _mobileLandingDefaultBrowserType,
@@ -372,6 +379,32 @@ test("landing dev mode shows Google sign-in", async ({ page }) => {
   await page.goto("/?dev", { waitUntil: "networkidle" });
 
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
+});
+
+test("public landing renders the closed Google signup return state", async ({
+  page,
+}) => {
+  await page.goto("/?signup=google", { waitUntil: "networkidle" });
+
+  const landingContent = page.getByTestId("public-landing-content");
+
+  await expect(landingContent).toBeVisible();
+  await expect(landingContent.getByRole("heading", { level: 2 })).toBeVisible();
+  await expect(
+    landingContent.getByRole("link", { name: "go back" }),
+  ).toBeVisible();
+  await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Join Waitlist" }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Google", includeHidden: true }),
+  ).toHaveCount(0);
+
+  await expect(landingContent).toHaveScreenshot(
+    "public-landing-google-signup-closed.png",
+    strictScreenshotOptions,
+  );
 });
 
 test("landing dev toggle keeps the waitlist row aligned", async ({ page }) => {

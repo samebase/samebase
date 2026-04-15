@@ -6,13 +6,16 @@ import {
   setQueryParam,
 } from "./lib/queryParams";
 
-const { openAuthPopupMock, signInWithGoogleMock } = vi.hoisted(() => ({
-  openAuthPopupMock: vi.fn(),
-  signInWithGoogleMock: vi.fn(),
-}));
+const { isInIframeMock, openAuthPopupMock, signInWithGoogleMock } = vi.hoisted(
+  () => ({
+    isInIframeMock: vi.fn(() => false),
+    openAuthPopupMock: vi.fn(),
+    signInWithGoogleMock: vi.fn(),
+  }),
+);
 
 vi.mock("@/authClient", () => ({
-  isInIframe: () => false,
+  isInIframe: isInIframeMock,
   openAuthPopup: openAuthPopupMock,
   useNoterAuthActions: () => ({
     signInWithGoogle: signInWithGoogleMock,
@@ -27,6 +30,8 @@ describe("SignInWithGoogle", () => {
   afterEach(() => {
     signInWithGoogleMock.mockReset();
     openAuthPopupMock.mockReset();
+    isInIframeMock.mockReset();
+    isInIframeMock.mockReturnValue(false);
     Object.defineProperty(globalThis, "window", {
       value: originalWindow,
       configurable: true,
@@ -95,5 +100,18 @@ describe("SignInWithGoogle", () => {
     element.props.onClick();
 
     expect(signInWithGoogleMock).toHaveBeenCalledWith(expectedRedirectTo);
+  });
+
+  it("propagates the public signup marker through iframe Google auth", () => {
+    isInIframeMock.mockReturnValue(true);
+
+    const element = SignInWithGoogle({ markPublicSignupReturn: true });
+
+    element.props.onClick();
+
+    expect(openAuthPopupMock).toHaveBeenCalledWith("google", {
+      markPublicSignupReturn: true,
+    });
+    expect(signInWithGoogleMock).not.toHaveBeenCalled();
   });
 });

@@ -29,6 +29,8 @@ export function useAppAuthRuntimeEffects(
         setQueryParam(searchParams, "signup", false);
       },
     );
-    window.history.replaceState({}, "", nextPath);
+    // Preserve TanStack Router bookkeeping while removing the one-shot
+    // signup-return flag from the visible URL.
+    window.history.replaceState(window.history.state, "", nextPath);
   }, [isAuthenticated, rootRouteSearch.signup]);
 }

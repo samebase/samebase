@@ -29,8 +29,9 @@ instead of silently dropping the user back onto the default landing page.
 
 ## Required Behavior
 
-1. The public landing Google button must mark its OAuth `redirectTo` with an
-   app-owned signup-return flag.
+1. Every public landing Google auth entrypoint, including the iframe popup
+   fallback, must mark its OAuth `redirectTo` with an app-owned signup-return
+   flag.
 2. If that OAuth round-trip returns to `/` without producing an authenticated
    session, the landing page must render a signup-closed state.
 3. The signup-closed state must hide Google and password auth controls and keep
@@ -46,4 +47,6 @@ instead of silently dropping the user back onto the default landing page.
 - [x] The signup-closed state keeps the waitlist form available.
 - [x] The signup-closed state does not expose auth controls.
 - [x] Successful Google sign-in clears the signup-return marker.
+- [x] Iframe-based Google auth preserves the signup-return marker through the
+      popup bootstrap flow.
 - [x] No raw Google email address is put into a URL query param.

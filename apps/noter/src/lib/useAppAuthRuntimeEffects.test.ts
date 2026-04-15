@@ -60,6 +60,7 @@ describe("useAppAuthRuntimeEffects", () => {
           hash: "#top",
         },
         history: {
+          state: { __TSR_index: 4, __TSR_key: "landing" },
           replaceState: replaceStateMock,
         },
       },
@@ -73,7 +74,11 @@ describe("useAppAuthRuntimeEffects", () => {
 
     expect(useAutoSignInMock).toHaveBeenCalledWith(undefined);
     expect(useCloseOAuthPopupMock).toHaveBeenCalledWith("/", true);
-    expect(replaceStateMock).toHaveBeenCalledWith({}, "", "/?prod-ui#top");
+    expect(replaceStateMock).toHaveBeenCalledWith(
+      { __TSR_index: 4, __TSR_key: "landing" },
+      "",
+      "/?prod-ui#top",
+    );
   });
 
   it("leaves the URL alone while still unauthenticated", () => {

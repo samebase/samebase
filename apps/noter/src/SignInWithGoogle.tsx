@@ -21,7 +21,7 @@ export function SignInWithGoogle({
       tabIndex={visible ? undefined : -1}
       onClick={() => {
         if (isInIframe()) {
-          openAuthPopup("google");
+          openAuthPopup("google", { markPublicSignupReturn });
         } else {
           void signInWithGoogle(
             buildCurrentGoogleRedirectTo(

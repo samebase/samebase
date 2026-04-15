@@ -121,7 +121,12 @@ export function isInIframe() {
   }
 }
 
-export function openAuthPopup(provider: "google") {
+export function openAuthPopup(
+  provider: "google",
+  options: {
+    markPublicSignupReturn?: boolean;
+  } = {},
+) {
   // Don't call signIn directly — the library would try window.location.href
   // which breaks in iframes. Instead open a popup that will auto-trigger sign-in.
   // Listen for auth tokens sent from the popup via postMessage.
@@ -168,6 +173,13 @@ export function openAuthPopup(provider: "google") {
     },
     (searchParams) => {
       setQueryParam(searchParams, "auth", provider);
+      // Keep iframe-based Google auth aligned with the top-level button so
+      // failed public signup returns land on the same waitlist state.
+      setQueryParam(
+        searchParams,
+        "signup",
+        options.markPublicSignupReturn ? "google" : false,
+      );
     },
   );
   popup = window.open(
@@ -200,12 +212,17 @@ export function useAutoSignIn(auth: RootRouteSearch["auth"]) {
   const { signIn } = useAuthActions();
   useEffect(() => {
     if (auth === "google") {
+      const markPublicSignupReturn =
+        new URLSearchParams(window.location.search).get("signup") === "google";
       const redirectTo = buildCurrentGoogleRedirectTo(
         window.location.pathname,
         window.location.search,
         window.location.hash,
+        { markPublicSignupReturn },
       );
-      window.history.replaceState({}, "", redirectTo);
+      // Preserve TanStack Router history metadata while stripping auth params
+      // from the popup/bootstrap URL before the provider redirect begins.
+      window.history.replaceState(window.history.state, "", redirectTo);
       void signInWithGoogleAction({ signIn, redirectTo });
     }
   }, [auth, signIn]);
