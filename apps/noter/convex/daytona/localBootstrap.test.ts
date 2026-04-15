@@ -30,6 +30,8 @@ const convexSyncDevEnvScriptPath = path.join(
   "scripts",
   "convex-sync-dev-env.ts",
 );
+const killportScriptPath = path.join(repoRoot, "scripts", "killport.ts");
+const runAnonDevScriptPath = path.join(repoRoot, "scripts", "run-anon-dev.ts");
 const makefilePath = path.join(repoRoot, "Makefile");
 const buildIsolatedChildEnv = (
   overrides: Record<string, string> = {},
@@ -270,26 +272,35 @@ describe("daytonaLocalBootstrap", () => {
     }
   });
 
-  it("runs the source env preflight before make anon", () => {
+  it("runs the source env preflight before the anonymous bootstrap plan", () => {
     const makefile = readFileSync(makefilePath, "utf8");
+    const runAnonDevScript = readFileSync(runAnonDevScriptPath, "utf8");
 
     expect(makefile).toContain(
-      "node ./scripts/convex-sync-dev-env.ts --check-prereqs",
+      'ANON_SCRIPT_ARGS = $(BOOTSTRAP_ANON_ARGS) --vite-port "$(ANON_VITE_PORT)"',
     );
+    expect(makefile).toContain("pnpm run anon -- $(ANON_SCRIPT_ARGS)");
+    expect(makefile).toContain("pnpm run anon:once -- $(ANON_SCRIPT_ARGS)");
     expect(makefile).toContain("--allow-missing-source-env");
+    expect(makefile).toContain("--source-deploy-key");
     expect(makefile).toContain(
       "KILLPORT_GOAL = $(firstword $(filter-out killport,$(MAKECMDGOALS)))",
-    );
-    expect(makefile).toContain("apps/noter/.env.local");
-    expect(makefile).toMatch(
-      /^anon:\s*\n\s*\$\(MAKE\) killport\n\s*\$\(ANON_VALIDATE_SOURCE_ENV_CMD\)/m,
-    );
-    expect(makefile).toMatch(
-      /^anon-once:\s*\n\s*\$\(MAKE\) killport\n\s*\$\(ANON_VALIDATE_SOURCE_ENV_CMD\)/m,
     );
     expect(makefile).toMatch(/^killport:\s*$/m);
     expect(makefile).not.toContain("kill-port:");
     expect(makefile).toContain("ANON_ALLOW_MISSING_SOURCE_ENV=1; \\");
+    expect(runAnonDevScript).toContain(
+      'label: "stop existing local backend listeners"',
+    );
+    expect(runAnonDevScript).toContain(
+      'path.join(repoRoot, "scripts", "killport.ts")',
+    );
+    expect(runAnonDevScript).toContain('"--check-prereqs"');
+    expect(runAnonDevScript.indexOf('"--check-prereqs"')).toBeLessThan(
+      runAnonDevScript.indexOf(
+        'path.join(repoRoot, "scripts", "bootstrap-worktree.ts")',
+      ),
+    );
   });
 
   it("killport reads the stored anon backend port from apps/noter/.env.local", async () => {
@@ -304,7 +315,7 @@ describe("daytonaLocalBootstrap", () => {
         `VITE_CONVEX_URL=http://127.0.0.1:${listener.port}\n`,
       );
 
-      const result = spawnSync("make", ["-f", makefilePath, "killport"], {
+      const result = spawnSync(process.execPath, [killportScriptPath], {
         cwd: killportDir,
         encoding: "utf8",
         env: buildIsolatedChildEnv(),
@@ -312,7 +323,7 @@ describe("daytonaLocalBootstrap", () => {
 
       expect(result.status).toBe(0);
       expect(result.stdout).toContain(
-        `Sent SIGTERM to ${listener.pid} on port ${listener.port}.`,
+        `Stopped ${listener.pid} on port ${listener.port}.`,
       );
       await listener.exited;
     } finally {

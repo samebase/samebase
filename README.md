@@ -130,13 +130,12 @@ Notes:
 - For local connected-machine testing with `/noter.ts` on a fresh Windows
   checkout that does not already have a cloud dev source env, use the dated
   troubleshooting notes in
-  `research/windows-native-connected-machine-walkthrough-2026-04-01.md`. The
-  current local-only anonymous bootstrap path needs a few manual Node commands
-  today.
-- The primary checkout path above works without GNU Make, but worktree and
-  anonymous bootstrap flows still depend on `make` plus POSIX shell tools. For
-  `make run`, `make anon`, or `make anon-once`, use Git Bash, MSYS2, or WSL
-  today.
+  `research/windows-native-connected-machine-walkthrough-2026-04-01.md` if you
+  need the older step-by-step debugging sequence.
+- The primary checkout path above works without GNU Make, and the worktree
+  anonymous bootstrap flow now uses root package scripts too. Prefer `pnpm dev`
+  in the primary checkout and `pnpm anon` / `pnpm anon:once` in worktrees.
+  `make` remains available as a compatibility shim for older docs and scripts.
 
 ### Installation
 
@@ -149,7 +148,7 @@ node ./scripts/bootstrap-worktree.ts
 From the primary local checkout on macOS/Linux, use:
 
 ```bash
-make run
+pnpm dev
 ```
 
 ### Worktrees
@@ -158,8 +157,8 @@ For a git worktree, use the repo-standard anonymous bootstrap commands instead
 of the primary-checkout flow:
 
 ```bash
-make anon-once
-make anon
+pnpm anon:once
+pnpm anon
 ```
 
 ### Build
