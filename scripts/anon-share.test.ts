@@ -4,6 +4,7 @@ import {
   flushBufferedLine,
   parseCloudflaredQuickTunnelUrl,
   readLocalConvexUrlFromEnvContents,
+  resolveDevTargetPortVar,
 } from "./anon-share.ts";
 
 describe("anon-share", () => {
@@ -54,5 +55,10 @@ describe("anon-share", () => {
         ["CONVEX_URL=http://127.0.0.1:3210", ""].join("\n"),
       ),
     ).toBe("http://127.0.0.1:3210");
+  });
+
+  it("forces VITE_PORT for local share mode", () => {
+    expect(resolveDevTargetPortVar("local")).toBe("VITE_PORT");
+    expect(resolveDevTargetPortVar("anonymous")).toBe(null);
   });
 });

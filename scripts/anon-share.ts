@@ -126,7 +126,7 @@ const SHARE_MODE_CONFIG: Record<ShareMode, ShareModeConfig> = {
     bootstrapArgs: ["run", "bootstrap"],
     devCommand: PNPM_COMMAND,
     buildDevArgs: () => ["run", "dev"],
-    devTargetPortVar: null,
+    devTargetPortVar: "VITE_PORT",
     defaultStartPort: 5173,
     shareLabel: "Local share",
     devLabel: "local dev",
@@ -217,6 +217,10 @@ export function appendBufferedLines(
 export function flushBufferedLine(buffer: string): string | null {
   const line = buffer.trim();
   return line.length > 0 ? line : null;
+}
+
+export function resolveDevTargetPortVar(mode: ShareMode): string | null {
+  return SHARE_MODE_CONFIG[mode].devTargetPortVar;
 }
 
 function readEnvAssignmentValue(contents: string, key: string): string | null {

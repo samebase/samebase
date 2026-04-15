@@ -72,14 +72,20 @@ function getBranchBrowserScriptPath(repoRoot: string): string {
 function runBranchBrowser(
   repoRoot: string,
   args: readonly string[],
-  options: { capture?: boolean } = {},
+  options: {
+    capture?: boolean;
+    env?: NodeJS.ProcessEnv;
+  } = {},
 ): ExecResult {
   const result = spawnSync(
     process.execPath,
     [getBranchBrowserScriptPath(repoRoot), ...args],
     {
       cwd: repoRoot,
-      env: process.env,
+      env: {
+        ...process.env,
+        ...options.env,
+      },
       encoding: "utf8",
       stdio: options.capture ? "pipe" : "inherit",
     },
@@ -197,22 +203,37 @@ function handleRecordStop(repoRoot: string): void {
   mkdirSync(recordingsDir, { recursive: true });
 
   const prefix = path.join(recordingsDir, `${session}-${timestamp}`);
+  // Keep every artifact command pinned to the recorded session, even if the
+  // caller's shell points PLAYWRIGHT_SESSION somewhere else.
+  const sessionEnv = { PLAYWRIGHT_SESSION: session };
 
   const snapshot = runBranchBrowser(repoRoot, ["cli", "snapshot"], {
     capture: true,
+    env: sessionEnv,
   });
   writeFileSync(`${prefix}.snapshot.txt`, snapshot.stdout, "utf8");
-  runBranchBrowser(repoRoot, ["cli", "screenshot", `--filename=${prefix}.png`]);
-  runBranchBrowser(repoRoot, [
-    "cli",
-    "video-stop",
-    `--filename=${prefix}.webm`,
-  ]);
+  runBranchBrowser(
+    repoRoot,
+    ["cli", "screenshot", `--filename=${prefix}.png`],
+    {
+      env: sessionEnv,
+    },
+  );
+  runBranchBrowser(
+    repoRoot,
+    ["cli", "video-stop", `--filename=${prefix}.webm`],
+    {
+      env: sessionEnv,
+    },
+  );
   const trace = runBranchBrowser(repoRoot, ["cli", "tracing-stop"], {
     capture: true,
+    env: sessionEnv,
   });
   writeFileSync(`${prefix}.trace.txt`, trace.stdout, "utf8");
-  runBranchBrowser(repoRoot, ["cli", "close"]);
+  runBranchBrowser(repoRoot, ["cli", "close"], {
+    env: sessionEnv,
+  });
   clearActiveSession(repoRoot);
 
   console.log(`Saved recording artifacts to ${recordingsDir}`);
