@@ -64,7 +64,9 @@ import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DraftPullRequestFeedbackBanner } from "@/components/DraftPullRequestFeedbackBanner";
+import { FileViewPublishedFileActions } from "@/components/FileViewPublishedFileActions";
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";
+import { toast } from "@/components/ui/use-toast";
 import { RepositoryMediaViewer } from "@/components/RepositoryMediaViewer";
 import { RepositoryRouteConnectState } from "@/components/RepositoryRouteConnectState";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
@@ -72,7 +74,11 @@ import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader"
 import { DAYTONA_PAUSED } from "../../../shared/daytonaPause";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
-import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
+import {
+  buildPublishedFileRoute,
+  buildVaultFileRoute,
+  parseVaultPathContext,
+} from "@/lib/vaultRoutes";
 import { isInIframe } from "@/authClient";
 import {
   resolveFilePathForResolvedBranch,
@@ -88,6 +94,7 @@ import {
   shouldClearCompareOnReviewExit,
   shouldShowCompareBackToEditor,
 } from "@/lib/fileViewReview";
+import { readPublishedFileFormat } from "../../../shared/publishedFiles";
 import {
   buildFileViewRouteSearch,
   mergeFileViewRouteSearch,
@@ -744,10 +751,22 @@ function FileViewInner({
   const repositoryFullName = `${owner}/${repoName}`;
   const selectedFileIsRenderableMedia =
     isRenderableRepositoryMediaPath(selectedFile);
+  const publishableSelectedFileFormat = readPublishedFileFormat(selectedFile);
+  const canPublishSelectedFile =
+    typeof publishableSelectedFileFormat === "string" &&
+    selectedFile.length > 0;
   const commitSha = vault.commitSHA;
   const selectedFileGitHubUrl = selectedFile
     ? `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/blob/${encodeGitHubPath(branch)}/${encodeGitHubPath(selectedFile)}`
     : `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/tree/${encodeGitHubPath(branch)}`;
+  const publishedBranchPath = canPublishSelectedFile
+    ? buildPublishedFileRoute({
+        owner,
+        repoName,
+        ref: branch,
+        filePath: selectedFile,
+      })
+    : null;
 
   // Folder expansion state
   const folderExpansionStates = useQuery(
@@ -889,7 +908,23 @@ function FileViewInner({
   const [stageUploadedMedia] = useConvexAction(
     api.fileStagingActions.stageUploadedMedia,
   );
+  const [publishRepositoryFile, publishRepositoryFileStatus] = useConvexAction(
+    api.publishedFilesActions.publishRepositoryFile,
+  );
+  const [unpublishRepositoryFile, unpublishRepositoryFileStatus] =
+    useConvexMutation(api.publishedFiles.unpublishRepositoryFile);
   const isDiffRequested = routeSearch.diff === true;
+  const publishedFileState = useLiveQuery(
+    api.publishedFiles.getPublishedFileState,
+    canPublishSelectedFile
+      ? {
+          owner,
+          repoName,
+          branch,
+          filePath: selectedFile,
+        }
+      : "skip",
+  );
 
   // Get count of staged files for this vault
   const stagedFiles = useQuery(
@@ -922,6 +957,17 @@ function FileViewInner({
     useState(false);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("all");
   const [sidebarModeHydrated, setSidebarModeHydrated] = useState(false);
+  const hasPublishedBranchLink =
+    publishedFileState !== null && publishedFileState !== undefined;
+  const publishedCommitPath =
+    publishedBranchPath && publishedFileState?.sourceCommitSha
+      ? buildPublishedFileRoute({
+          owner,
+          repoName,
+          ref: publishedFileState.sourceCommitSha,
+          filePath: selectedFile,
+        })
+      : null;
 
   const createFileInStaging = useMutation(api.fileStaging.createFileInStaging);
   const hasStagedChangesToCommit = useMemo(
@@ -2210,11 +2256,98 @@ function FileViewInner({
     draftPullRequestStatus === "loading" ||
     defaultBranchDraftPullRequestStatus === "loading";
   const isResettingToGitHub = clearingStagingStatus === "loading";
+  const isPublishingFile = publishRepositoryFileStatus === "loading";
+  const isUnpublishingFile = unpublishRepositoryFileStatus === "loading";
   const resetToGitHubDisabled =
     isResettingToGitHub ||
     manualComittingStatus === "loading" ||
     isCreatingDraftPullRequest ||
     !hasChangesToCommit;
+  const copyPublishedLinkToClipboard = useCallback(
+    async (publishedPath: string, successTitle: string) => {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      await navigator.clipboard.writeText(
+        new URL(publishedPath, window.location.origin).toString(),
+      );
+      toast({
+        title: successTitle,
+        description: publishedPath,
+      });
+    },
+    [],
+  );
+  const handlePublishFile = useCallback(async () => {
+    if (!canPublishSelectedFile) {
+      return;
+    }
+
+    try {
+      const result = await publishRepositoryFile({
+        owner,
+        repoName,
+        branch,
+        filePath: selectedFile,
+      });
+      toast({
+        title: hasPublishedBranchLink
+          ? "Public link updated"
+          : "File published",
+        description: result.sourceCommitSha
+          ? `${selectedFile} is available from ${branch} and ${result.sourceCommitSha.slice(0, 7)}.`
+          : `${selectedFile} is available from ${branch}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Couldn't publish file",
+        description:
+          error instanceof Error ? error.message : "Try again in a moment.",
+        variant: "destructive",
+      });
+    }
+  }, [
+    branch,
+    canPublishSelectedFile,
+    hasPublishedBranchLink,
+    owner,
+    publishRepositoryFile,
+    repoName,
+    selectedFile,
+  ]);
+  const handleUnpublishFile = useCallback(async () => {
+    if (!canPublishSelectedFile) {
+      return;
+    }
+
+    try {
+      await unpublishRepositoryFile({
+        owner,
+        repoName,
+        branch,
+        filePath: selectedFile,
+      });
+      toast({
+        title: "File unpublished",
+        description: selectedFile,
+      });
+    } catch (error) {
+      toast({
+        title: "Couldn't unpublish file",
+        description:
+          error instanceof Error ? error.message : "Try again in a moment.",
+        variant: "destructive",
+      });
+    }
+  }, [
+    branch,
+    canPublishSelectedFile,
+    owner,
+    repoName,
+    selectedFile,
+    unpublishRepositoryFile,
+  ]);
   const commitPreviewRefreshKey = useMemo(
     () => buildStagingPreviewRefreshKey(stagedFiles),
     [stagedFiles],
@@ -2751,6 +2884,38 @@ function FileViewInner({
               isPushing={manualComittingStatus === "loading"}
               onCreateDraftPullRequest={handleDraftPullRequest}
               onManualCommit={handleManualCommit}
+            />
+            <FileViewPublishedFileActions
+              canRender={canPublishSelectedFile && Boolean(publishedBranchPath)}
+              hasPublishedBranchLink={hasPublishedBranchLink}
+              hasVersionedLink={Boolean(publishedCommitPath)}
+              isPublishing={isPublishingFile}
+              isUnpublishing={isUnpublishingFile}
+              onPublish={() => {
+                void handlePublishFile();
+              }}
+              onCopyPublicLink={() => {
+                if (!publishedBranchPath) {
+                  return;
+                }
+                void copyPublishedLinkToClipboard(
+                  publishedBranchPath,
+                  "Public link copied",
+                );
+              }}
+              onCopyVersionLink={
+                publishedCommitPath
+                  ? () => {
+                      void copyPublishedLinkToClipboard(
+                        publishedCommitPath,
+                        "Versioned link copied",
+                      );
+                    }
+                  : undefined
+              }
+              onUnpublish={() => {
+                void handleUnpublishFile();
+              }}
             />
             <Button
               size="sm"

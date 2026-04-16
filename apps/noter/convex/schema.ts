@@ -113,6 +113,15 @@ export const VaultRemoteBranchState = v.union(
   v.literal("deleted_upstream"),
 );
 
+export const PublishedFileRefKind = union(literal("branch"), literal("commit"));
+export type PublishedFileRefKind = Infer<typeof PublishedFileRefKind>;
+
+export const PublishedFileFormat = union(
+  literal("markdown"),
+  literal("plain_text"),
+);
+export type PublishedFileFormat = Infer<typeof PublishedFileFormat>;
+
 export const TreeRefreshFailureKind = union(
   literal("failed"),
   literal("rate_limited"),
@@ -465,6 +474,39 @@ export default defineSchema({
     lastTreeRefreshAt: v.number(),
     treeRefreshStartedAt: v.optional(v.number()),
   }).index("by_vault_and_branch", ["vaultId", "branch"]),
+
+  /**
+   * Publicly resolvable file snapshots that mirror the transparent
+   * owner/repo/ref/path route contract under `/p/...`.
+   */
+  publishedFileLinks: defineTable({
+    userId: id("users"),
+    vaultId: id("vaults"),
+    ghRepoOwner: string(),
+    ghRepoName: string(),
+    sourceBranch: string(),
+    sourceCommitSha: optional(string()),
+    refKind: PublishedFileRefKind,
+    ref: string(),
+    filePath: string(),
+    content: string(),
+    format: PublishedFileFormat,
+    publishedAt: number(),
+    updatedAt: number(),
+    unpublishedAt: optional(number()),
+  })
+    .index("by_owner_repo_ref_path", [
+      "ghRepoOwner",
+      "ghRepoName",
+      "ref",
+      "filePath",
+    ])
+    .index("by_vault_and_file_path", ["vaultId", "filePath"])
+    .index("by_vault_and_source_branch_and_file_path", [
+      "vaultId",
+      "sourceBranch",
+      "filePath",
+    ]),
 
   /**
    * External infrastructure identifiers and status for a vault.

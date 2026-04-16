@@ -1,14 +1,75 @@
 import { Link } from "@tanstack/react-router";
+import { useQuery as useLiveQuery } from "convex/react";
 import { Button } from "@/components/ui/button";
 import { PublicWaitlistForm } from "@/components/PublicWaitlistForm";
+import { StaticMarkdownDocument } from "@/components/StaticMarkdownDocument";
+import { api } from "../../convex/_generated/api";
+import { parsePublishedPathContext } from "@/lib/vaultRoutes";
+
+function readPublishedFileName(filePath: string): string {
+  return filePath.split("/").at(-1) ?? filePath;
+}
 
 /**
- * Until publish-link records exist in Convex, the public file route should
- * fail closed with a product-specific explanation instead of the generic app
- * 404. This keeps the route stable while giving interested users a real next
- * step.
+ * Public file routes either render a published snapshot or fail closed with a
+ * product-specific explanation instead of the generic app 404.
  */
-export function PublishedFileRoutePage({ pathname }: { pathname: string }) {
+export function PublishedFileRoutePage(props: { pathname: string }) {
+  const publishedContext = parsePublishedPathContext(props.pathname);
+  const hasPublishedRouteContext =
+    Boolean(publishedContext.owner) &&
+    Boolean(publishedContext.repoName) &&
+    Boolean(publishedContext.ref) &&
+    Boolean(publishedContext.filePath);
+  const publishedFile = useLiveQuery(
+    api.publishedFiles.resolvePublishedFile,
+    hasPublishedRouteContext &&
+      publishedContext.owner &&
+      publishedContext.repoName &&
+      publishedContext.ref &&
+      publishedContext.filePath
+      ? {
+          owner: publishedContext.owner,
+          repoName: publishedContext.repoName,
+          ref: publishedContext.ref,
+          filePath: publishedContext.filePath,
+        }
+      : "skip",
+  );
+
+  if (hasPublishedRouteContext && publishedFile === undefined) {
+    return null;
+  }
+
+  if (publishedFile) {
+    const fileName = readPublishedFileName(publishedFile.filePath);
+
+    return (
+      <div className="container my-auto">
+        <div
+          data-testid="published-file-content"
+          className="mx-auto flex w-full max-w-3xl flex-col gap-6 py-12"
+        >
+          <div className="flex flex-col gap-1">
+            <p className="text-xs text-muted-foreground">
+              {publishedFile.owner}/{publishedFile.repoName}/{publishedFile.ref}
+            </p>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {fileName}
+            </h1>
+          </div>
+          {publishedFile.format === "markdown" ? (
+            <StaticMarkdownDocument value={publishedFile.content} />
+          ) : (
+            <pre className="overflow-x-auto whitespace-pre-wrap text-sm leading-6">
+              {publishedFile.content}
+            </pre>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container my-auto">
       <div
@@ -24,7 +85,7 @@ export function PublishedFileRoutePage({ pathname }: { pathname: string }) {
           this once your spot opens up.
         </p>
         <code className="max-w-full overflow-x-auto text-xs text-muted-foreground">
-          {pathname}
+          {props.pathname}
         </code>
         <PublicWaitlistForm submittedMessage="You're on the waitlist. We'll let you know when published file links open up." />
         <Button asChild variant="outline">

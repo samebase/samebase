@@ -228,21 +228,21 @@ describe("page metadata", () => {
     withFakeDocument((document) => {
       applyPageMetadata(
         resolvePageMetadata({
-          pathname: "/p/slogans-demo",
+          pathname: "/p/octo/repo/main/slogans.md",
           isAuthenticated: false,
         }),
       );
 
       expect(document.title).toBe("Published file | noter");
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
-        "https://noter.md/p/slogans-demo",
+        "https://noter.md/p/octo/repo/main/slogans.md",
       );
       expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe(
         "noindex,nofollow",
       );
       expect(
         getHeadAttribute(document, 'meta[property="og:url"]', "content"),
-      ).toBe("https://noter.md/p/slogans-demo");
+      ).toBe("https://noter.md/p/octo/repo/main/slogans.md");
     });
   });
 

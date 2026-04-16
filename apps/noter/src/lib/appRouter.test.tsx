@@ -296,12 +296,12 @@ describe("appRouter", () => {
   });
 
   it("renders /p/$ through the explicit published-file route instead of the root not-found page", async () => {
-    await renderRoute("/p/slogans-demo");
+    await renderRoute("/p/octo/repo/main/slogans.md");
 
     expect(
       rootElement?.querySelector('[data-testid="published-file-route-page"]')
         ?.textContent,
-    ).toBe("/p/slogans-demo");
+    ).toBe("/p/octo/repo/main/slogans.md");
     expect(
       rootElement?.querySelector('[data-testid="not-found-route"]'),
     ).toBeNull();

@@ -18,7 +18,7 @@ test("missing published-file routes show the waitlist state instead of the gener
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/p/missing-demo", {
+  await page.goto("/p/octo/repo/main/missing-demo.md", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -26,7 +26,7 @@ test("missing published-file routes show the waitlist state instead of the gener
   const content = page.getByTestId("published-file-unavailable-content");
   await expect(content).toBeVisible();
   await expect(content).toContainText("This file is not public");
-  await expect(content).toContainText("/p/missing-demo");
+  await expect(content).toContainText("/p/octo/repo/main/missing-demo.md");
   await expect(content).toContainText("Join Waitlist");
   await expect(content).toHaveScreenshot("published-file-unavailable.png", {
     animations: "disabled",

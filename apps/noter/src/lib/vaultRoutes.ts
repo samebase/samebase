@@ -6,15 +6,78 @@ export function decodeRouteSegmentSafe(segment: string): string {
   }
 }
 
-function encodeVaultBranchSegment(branch: string): string {
-  return encodeURIComponent(branch);
+function encodeRepositoryRefSegment(ref: string): string {
+  return encodeURIComponent(ref);
 }
 
-function encodeVaultFilePath(filePath: string): string {
+function encodeRepositoryFilePath(filePath: string): string {
   return filePath
     .split("/")
     .map((segment) => encodeURIComponent(segment))
     .join("/");
+}
+
+function buildRepositoryFileRoute(args: {
+  routePrefix: "/vault" | "/p";
+  owner: string;
+  repoName: string;
+  ref: string;
+  filePath?: string;
+}): string {
+  const basePath = `${args.routePrefix}/${args.owner}/${args.repoName}/${encodeRepositoryRefSegment(args.ref)}`;
+
+  if (!args.filePath || args.filePath.length === 0) {
+    return basePath;
+  }
+
+  return `${basePath}/${encodeRepositoryFilePath(args.filePath)}`;
+}
+
+function parseRepositoryFilePathContext(args: {
+  pathname: string;
+  routePrefix: "vault" | "p";
+}): {
+  owner?: string;
+  repositoryFullName?: string;
+  repoName?: string;
+  ref?: string;
+  filePath?: string;
+} {
+  const segments = args.pathname
+    .split("/")
+    .filter((segment) => segment.length > 0);
+  if (segments.length < 3 || segments[0] !== args.routePrefix) {
+    return {};
+  }
+
+  const owner = decodeRouteSegmentSafe(segments[1]);
+  const repoName = decodeRouteSegmentSafe(segments[2]);
+  if (owner.length === 0 || repoName.length === 0) {
+    return {};
+  }
+
+  const repositoryFullName = `${owner}/${repoName}`;
+  const encodedRef = segments[3];
+  if (!encodedRef) {
+    return { owner, repositoryFullName, repoName };
+  }
+
+  const ref = decodeRouteSegmentSafe(encodedRef);
+  const filePath =
+    segments.length > 4
+      ? segments
+          .slice(4)
+          .map((segment) => decodeRouteSegmentSafe(segment))
+          .join("/")
+      : undefined;
+
+  return {
+    owner,
+    repositoryFullName,
+    repoName,
+    ref,
+    filePath,
+  };
 }
 
 /**
@@ -30,13 +93,32 @@ export function buildVaultFileRoute(args: {
   branch: string;
   filePath?: string;
 }): string {
-  const basePath = `/vault/${args.owner}/${args.repoName}/${encodeVaultBranchSegment(args.branch)}`;
+  return buildRepositoryFileRoute({
+    routePrefix: "/vault",
+    owner: args.owner,
+    repoName: args.repoName,
+    ref: args.branch,
+    filePath: args.filePath,
+  });
+}
 
-  if (!args.filePath || args.filePath.length === 0) {
-    return basePath;
-  }
-
-  return `${basePath}/${encodeVaultFilePath(args.filePath)}`;
+/**
+ * Build the shipped `/p/...` public file route so published links keep the
+ * exact same transparent owner/repo/ref/path contract as the private editor.
+ */
+export function buildPublishedFileRoute(args: {
+  owner: string;
+  repoName: string;
+  ref: string;
+  filePath: string;
+}): string {
+  return buildRepositoryFileRoute({
+    routePrefix: "/p",
+    owner: args.owner,
+    repoName: args.repoName,
+    ref: args.ref,
+    filePath: args.filePath,
+  });
 }
 
 export interface VaultCodespaceChatRouteArgs {
@@ -47,7 +129,7 @@ export interface VaultCodespaceChatRouteArgs {
 export function buildVaultCodespaceChatRoute(
   args: VaultCodespaceChatRouteArgs,
 ): string {
-  return `/vault/${args.repositoryFullName}/codespace/${encodeVaultBranchSegment(args.branch)}/chat`;
+  return `/vault/${args.repositoryFullName}/codespace/${encodeRepositoryRefSegment(args.branch)}/chat`;
 }
 
 export function isChatOnlyCodespaceRoute(pathname: string): boolean {
@@ -66,22 +148,27 @@ export interface ParsedVaultPathContext {
 export function parseVaultPathContext(
   pathname: string,
 ): ParsedVaultPathContext {
+  const parsedContext = parseRepositoryFilePathContext({
+    pathname,
+    routePrefix: "vault",
+  });
   const segments = pathname.split("/").filter((segment) => segment.length > 0);
-  if (segments.length < 3 || segments[0] !== "vault") {
+  if (
+    !parsedContext.owner ||
+    !parsedContext.repositoryFullName ||
+    !parsedContext.repoName
+  ) {
     return {};
   }
 
-  const owner = decodeRouteSegmentSafe(segments[1]);
-  const repoName = decodeRouteSegmentSafe(segments[2]);
-  if (owner.length === 0 || repoName.length === 0) {
-    return {};
-  }
-
-  const repositoryFullName = `${owner}/${repoName}`;
   const routeKind = segments[3];
 
   if (!routeKind) {
-    return { owner, repositoryFullName, repoName };
+    return {
+      owner: parsedContext.owner,
+      repositoryFullName: parsedContext.repositoryFullName,
+      repoName: parsedContext.repoName,
+    };
   }
 
   if (
@@ -95,29 +182,37 @@ export function parseVaultPathContext(
         ? decodeRouteSegmentSafe(encodedBranch)
         : undefined;
     return {
-      owner,
-      repositoryFullName,
-      repoName,
+      owner: parsedContext.owner,
+      repositoryFullName: parsedContext.repositoryFullName,
+      repoName: parsedContext.repoName,
       branch,
       isCodespaceChatRoute: true,
     };
   }
 
-  const branch = decodeRouteSegmentSafe(routeKind);
-  const filePath =
-    segments.length > 4
-      ? segments
-          .slice(4)
-          .map((segment) => decodeRouteSegmentSafe(segment))
-          .join("/")
-      : undefined;
-
   return {
-    owner,
-    repositoryFullName,
-    repoName,
-    branch,
-    filePath,
+    owner: parsedContext.owner,
+    repositoryFullName: parsedContext.repositoryFullName,
+    repoName: parsedContext.repoName,
+    branch: parsedContext.ref,
+    filePath: parsedContext.filePath,
     isCodespaceChatRoute: false,
   };
+}
+
+export interface ParsedPublishedPathContext {
+  owner?: string;
+  repositoryFullName?: string;
+  repoName?: string;
+  ref?: string;
+  filePath?: string;
+}
+
+export function parsePublishedPathContext(
+  pathname: string,
+): ParsedPublishedPathContext {
+  return parseRepositoryFilePathContext({
+    pathname,
+    routePrefix: "p",
+  });
 }

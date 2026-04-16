@@ -81,6 +81,12 @@ import {
   isFileViewPushActionsVisualMode,
   type FileViewPushActionsVisualMode,
 } from "@/components/fileViewPushActionsVisualModes";
+import { FileViewPublishedFileActionsVisualFixture } from "@/components/FileViewPublishedFileActionsVisualFixture";
+import {
+  FILE_VIEW_PUBLISHED_FILE_ACTIONS_VISUAL_MODES,
+  isFileViewPublishedFileActionsVisualMode,
+  type FileViewPublishedFileActionsVisualMode,
+} from "@/components/fileViewPublishedFileActionsVisualModes";
 import { VaultDashboardBranchVisualFixture } from "@/components/VaultDashboardBranchVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
 import { PasswordAuthVisualFixture } from "@/components/PasswordAuthVisualFixture";
@@ -140,6 +146,7 @@ type VisualFixtureMode =
   | RepositoryRouteConnectStateVisualMode
   | FileViewLayoutVisualMode
   | FileViewPushActionsVisualMode
+  | FileViewPublishedFileActionsVisualMode
   | LandingCopyVisualMode
   | LogoSnapAnglesVisualMode
   | LogoThreeVisualMode
@@ -318,6 +325,7 @@ const VISUAL_FIXTURE_GROUPS = [
     label: "File View",
     modes: [
       ...FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
+      ...FILE_VIEW_PUBLISHED_FILE_ACTIONS_VISUAL_MODES,
       ...FILE_VIEW_COMPARE_VISUAL_MODES,
       ...FILE_VIEW_CODE_PARITY_VISUAL_MODES,
       ...FILE_VIEW_DEVELOPER_TOOLS_VISUAL_MODES,
@@ -496,6 +504,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (isFileViewPushActionsVisualMode(mode)) {
     return <FileViewPushActionsVisualFixture mode={mode} />;
+  }
+
+  if (isFileViewPublishedFileActionsVisualMode(mode)) {
+    return <FileViewPublishedFileActionsVisualFixture mode={mode} />;
   }
 
   if (

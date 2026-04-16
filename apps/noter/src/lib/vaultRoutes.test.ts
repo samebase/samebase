@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildPublishedFileRoute,
   buildVaultFileRoute,
   buildVaultCodespaceChatRoute,
   isChatOnlyCodespaceRoute,
+  parsePublishedPathContext,
   parseVaultPathContext,
 } from "./vaultRoutes";
 
@@ -39,6 +41,19 @@ describe("buildVaultFileRoute", () => {
         filePath: "docs/hello world.md",
       }),
     ).toBe("/vault/octo/repo/main/docs/hello%20world.md");
+  });
+});
+
+describe("buildPublishedFileRoute", () => {
+  it("reuses the private route encoding rules under the /p prefix", () => {
+    expect(
+      buildPublishedFileRoute({
+        owner: "octo",
+        repoName: "repo",
+        ref: "feature/login-flow",
+        filePath: "docs/hello world.md",
+      }),
+    ).toBe("/p/octo/repo/feature%2Flogin-flow/docs/hello%20world.md");
   });
 });
 
@@ -118,5 +133,27 @@ describe("parseVaultPathContext", () => {
       filePath: "src/index.ts",
       isCodespaceChatRoute: false,
     });
+  });
+});
+
+describe("parsePublishedPathContext", () => {
+  it("parses the transparent published-file route shape", () => {
+    expect(
+      parsePublishedPathContext(
+        "/p/octo/repo/feature%2Flogin-flow/docs/hello%20world.md",
+      ),
+    ).toEqual({
+      owner: "octo",
+      repositoryFullName: "octo/repo",
+      repoName: "repo",
+      ref: "feature/login-flow",
+      filePath: "docs/hello world.md",
+    });
+  });
+
+  it("returns an empty context for non-published paths", () => {
+    expect(
+      parsePublishedPathContext("/vault/octo/repo/main/README.md"),
+    ).toEqual({});
   });
 });
