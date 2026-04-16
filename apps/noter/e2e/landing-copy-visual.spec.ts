@@ -140,4 +140,17 @@ test("landing copy stays visually aligned when opening the dev editor", async ({
     maxDiffPixels: 0,
     testInfo,
   });
+
+  await devLandingCopy.click();
+  const focusedDevScreenshot = await takeStableScreenshot(devLandingCopy);
+
+  await expectScreenshotsToMatch({
+    actual: focusedDevScreenshot,
+    expected: shellScreenshot,
+    artifactPrefix: "landing-copy-dev-editor-focused",
+    // Focusing the editable `/?dev` surface should not change the visible copy.
+    maxDiffPixelRatio: 0,
+    maxDiffPixels: 0,
+    testInfo,
+  });
 });
