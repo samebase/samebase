@@ -117,7 +117,9 @@ core runtime files.
 
 The repository should keep a monorepo shape even though it currently contains a
 single real app. The initial app layout should live under `apps/web` so the
-starter can grow without a later root-to-monorepo migration.
+starter can grow without a later root-to-monorepo migration. Treat that `apps/`
+workspace shape as deliberate for now, and only flatten the app to repo root if
+Noter internally adopts the same flatter layout first.
 
 ### 2. Keep The Source Repo Readable, But Do Not Make History Part Of The Seed Contract Yet
 

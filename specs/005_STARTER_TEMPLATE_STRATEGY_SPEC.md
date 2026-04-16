@@ -103,6 +103,8 @@ Verdict:
   `apps/noter/convex/starterSeedManifest.generated.ts`.
 - New managed repos still receive one generated starter commit.
 - The starter source repo itself is a monorepo with a single app in `apps/web`.
+- Keep that `apps/` workspace shape explicitly for now. Only consider flattening
+  the app to repo root after Noter itself uses that flatter internal layout.
 - GitHub templates and commit-history replay stay out of scope for Iteration 1.
 
 ## Source And Refresh Contract

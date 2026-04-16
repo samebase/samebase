@@ -93,6 +93,9 @@ pnpm run starter:refresh -- --source-dir <path-to-convex-cloudflare-pages-stack>
   should not be treated as the canonical authoring home.
 - Keep the dedicated starter repo on the same Vite Plus app baseline we expect
   from seeded repos.
+- Keep the dedicated starter repo in an explicit `apps/` workspace layout for
+  now. Do not flatten the current app to repo root unless Noter itself adopts
+  that flatter internal layout first.
 - When changing scaffold-critical app or tooling config in the main app, update
   the dedicated starter repo in the same change unless the change truly does not
   apply. This especially includes Vite Plus setup, Vite config, `tsconfig`,
