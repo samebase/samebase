@@ -4,6 +4,7 @@ import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/de
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const AUTH_PROVIDER_KEY = "noter_auth_provider";
+const PASSWORD_AUTH_MODE_KEY = "noter_public_landing_password_auth_mode";
 export type PasswordAuthSurface = "hidden" | "local_worktree" | "preview";
 
 function withLocalStorage<T>(reader: (storage: Storage) => T, fallback: T): T {
@@ -23,6 +24,43 @@ function readAuthProviderValue(): string | null {
     (storage) => storage.getItem(AUTH_PROVIDER_KEY),
     null,
   );
+}
+
+function isStoredPasswordAuthMode(
+  value: string | null,
+): value is PublicPasswordAuthMode {
+  return (
+    value === "off" ||
+    value === "local_worktree_seed" ||
+    value === "preview_seed"
+  );
+}
+
+function readStoredPasswordAuthMode(): PublicPasswordAuthMode | null {
+  const storedValue = withLocalStorage(
+    (storage) => storage.getItem(PASSWORD_AUTH_MODE_KEY),
+    null,
+  );
+  return isStoredPasswordAuthMode(storedValue) ? storedValue : null;
+}
+
+export function rememberPublicLandingPasswordAuthMode(
+  passwordAuthMode: PublicPasswordAuthMode,
+): void {
+  withLocalStorage((storage) => {
+    storage.setItem(PASSWORD_AUTH_MODE_KEY, passwordAuthMode);
+  }, undefined);
+}
+
+/**
+ * Manual refreshes should preserve the same password-auth slot while the
+ * public deployment-profile query reconnects, instead of re-centering the
+ * landing card and then expanding it a frame later.
+ */
+export function resolvePublicLandingPasswordAuthMode(
+  passwordAuthMode: PublicPasswordAuthMode | undefined,
+): PublicPasswordAuthMode {
+  return passwordAuthMode ?? readStoredPasswordAuthMode() ?? "off";
 }
 
 function hasGoogleAuth(search: RootRouteSearch): boolean {

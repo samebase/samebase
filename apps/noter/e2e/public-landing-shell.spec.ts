@@ -152,7 +152,7 @@ async function readLandingToggleLayout(
 
 async function captureLandingReloadFrames(
   page: Parameters<typeof test>[0]["page"],
-  path: string,
+  path?: string,
 ): Promise<LandingReloadFrame[]> {
   await page.addInitScript(() => {
     const sampleCount = 60;
@@ -195,7 +195,9 @@ async function captureLandingReloadFrames(
     requestAnimationFrame(capture);
   });
 
-  await page.goto(path, { waitUntil: "networkidle" });
+  if (path !== undefined) {
+    await page.goto(path, { waitUntil: "networkidle" });
+  }
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForTimeout(1000);
 
@@ -542,6 +544,19 @@ test("public landing stays vertically stable while the page reloads", async ({
   // worktree-only password auth surface that would otherwise add a separate
   // preview-only layout shift on local routes.
   const reloadFrames = await captureLandingReloadFrames(page, "/?prod-ui");
+
+  expectStableLandingReloadFrames(reloadFrames);
+});
+
+test("local landing keeps the remembered password auth slot stable on reload", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "networkidle" });
+  await expect(
+    page.getByRole("button", { name: "Autofill & sign in" }),
+  ).toBeVisible();
+
+  const reloadFrames = await captureLandingReloadFrames(page);
 
   expectStableLandingReloadFrames(reloadFrames);
 });
