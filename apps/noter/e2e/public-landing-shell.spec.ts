@@ -75,6 +75,12 @@ type LandingReloadFrame = {
   } | null;
 };
 
+declare global {
+  interface Window {
+    __landingReloadFrames?: LandingReloadFrame[];
+  }
+}
+
 async function captureLandingToggleFrames(
   page: Parameters<typeof test>[0]["page"],
   linkName: "/?dev" | "/",
@@ -157,11 +163,7 @@ async function captureLandingReloadFrames(
   await page.addInitScript(() => {
     const sampleCount = 60;
     const frameStore: LandingReloadFrame[] = [];
-    (
-      window as typeof window & {
-        __landingReloadFrames?: LandingReloadFrame[];
-      }
-    ).__landingReloadFrames = frameStore;
+    window.__landingReloadFrames = frameStore;
 
     const readRect = (node: Element | null) => {
       if (!(node instanceof HTMLElement)) {
@@ -202,11 +204,7 @@ async function captureLandingReloadFrames(
   await page.waitForTimeout(1000);
 
   return await page.evaluate(() => {
-    const landingReloadFrames = (
-      window as typeof window & {
-        __landingReloadFrames?: LandingReloadFrame[];
-      }
-    ).__landingReloadFrames;
+    const landingReloadFrames = window.__landingReloadFrames;
 
     return Array.isArray(landingReloadFrames) ? landingReloadFrames : [];
   });
@@ -223,10 +221,14 @@ function expectStableLandingReloadFrames(frames: LandingReloadFrame[]) {
   expect(visibleFrames.length).toBeGreaterThanOrEqual(10);
 
   const contentTopValues = visibleFrames.map((frame) => frame.content!.top);
+  const copyTopValues = visibleFrames.map((frame) => frame.copy!.top);
   const copyHeightValues = visibleFrames.map((frame) => frame.copy!.height);
 
   expect(
     Math.max(...contentTopValues) - Math.min(...contentTopValues),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.max(...copyTopValues) - Math.min(...copyTopValues),
   ).toBeLessThanOrEqual(1);
   expect(
     Math.max(...copyHeightValues) - Math.min(...copyHeightValues),
