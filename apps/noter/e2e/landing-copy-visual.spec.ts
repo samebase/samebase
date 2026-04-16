@@ -135,18 +135,22 @@ test("landing copy stays visually aligned when opening the dev editor", async ({
     actual: devScreenshot,
     expected: shellScreenshot,
     artifactPrefix: "landing-copy-dev-editor",
-    maxDimensionDeltaPx: {
-      height: 8,
-    },
-    // The fixture checks already prove the static shell copy and the editor
-    // styling line up. On the live route, keep this focused on larger
-    // regressions while still allowing the editable shell to run a few pixels
-    // taller than the production-shaped static copy.
-    maxDiffPixelRatio: 0.05,
-    pixelmatchOptions: {
-      includeAA: false,
-      threshold: 0.7,
-    },
+    // Unfocused `/?dev` should show the same landing-copy pixels as `/`.
+    maxDiffPixelRatio: 0,
+    maxDiffPixels: 0,
+    testInfo,
+  });
+
+  await devLandingCopy.click();
+  const focusedDevScreenshot = await takeStableScreenshot(devLandingCopy);
+
+  await expectScreenshotsToMatch({
+    actual: focusedDevScreenshot,
+    expected: shellScreenshot,
+    artifactPrefix: "landing-copy-dev-editor-focused",
+    // Focusing the editable `/?dev` surface should not change the visible copy.
+    maxDiffPixelRatio: 0,
+    maxDiffPixels: 0,
     testInfo,
   });
 });

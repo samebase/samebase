@@ -73,6 +73,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
   // in-memory draft so query-param toggles do not reset the current copy.
   const [landingMarkdownDraft, setLandingMarkdownDraft] =
     useState(landingPageMarkdown);
+  const [showEditableLandingCopy, setShowEditableLandingCopy] = useState(false);
 
   useEffect(() => {
     const nextPasswordAuthMode = deploymentAuthPolicy?.passwordAuthMode;
@@ -84,6 +85,23 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
     // the same landing-card height while Convex reconnects.
     rememberPublicLandingPasswordAuthMode(nextPasswordAuthMode);
   }, [deploymentAuthPolicy?.passwordAuthMode]);
+
+  useEffect(() => {
+    if (!isLandingCopyEditable) {
+      setShowEditableLandingCopy(false);
+      return;
+    }
+
+    // Keep the static copy in flow for the first paint so the centered landing
+    // card does not jump while the editable ProseMark surface settles.
+    const frameId = requestAnimationFrame(() => {
+      setShowEditableLandingCopy(true);
+    });
+
+    return () => {
+      cancelAnimationFrame(frameId);
+    };
+  }, [isLandingCopyEditable]);
 
   return (
     <div
@@ -106,13 +124,27 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
             <>
               <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
                 {isLandingCopyEditable ? (
-                  <ProsemarkReadOnly
-                    value={landingMarkdownDraft}
-                    className="text-sm"
-                    editable
-                    styleVariant="landingCopy"
-                    onChange={setLandingMarkdownDraft}
-                  />
+                  <div className="landing-copy-edit-shell relative">
+                    <div
+                      aria-hidden="true"
+                      className="landing-copy-static-shell pointer-events-none"
+                    >
+                      <PublicLandingCopyStatic
+                        markdown={landingMarkdownDraft}
+                      />
+                    </div>
+                    {showEditableLandingCopy ? (
+                      <div className="landing-copy-edit-overlay absolute inset-x-0 top-0">
+                        <ProsemarkReadOnly
+                          value={landingMarkdownDraft}
+                          className="text-sm"
+                          editable
+                          styleVariant="landingCopy"
+                          onChange={setLandingMarkdownDraft}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
                 ) : (
                   <PublicLandingCopyStatic markdown={landingMarkdownDraft} />
                 )}

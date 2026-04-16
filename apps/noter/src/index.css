@@ -130,6 +130,37 @@
 }
 
 @layer utilities {
+  .landing-copy-edit-shell .landing-copy-static-shell {
+    opacity: 1;
+  }
+
+  .landing-copy-edit-shell .landing-copy-edit-overlay {
+    opacity: 1;
+  }
+
+  .landing-copy-edit-shell .landing-copy-static-shell,
+  .landing-copy-edit-shell .landing-copy-edit-overlay {
+    transition: none;
+  }
+
+  .landing-copy-edit-overlay .cm-editor,
+  .landing-copy-edit-overlay .cm-scroller,
+  .landing-copy-edit-overlay .cm-content {
+    background: transparent !important;
+  }
+
+  .landing-copy-edit-overlay .cm-landing-copy .cm-line,
+  .landing-copy-edit-overlay .cm-landing-copy .cm-line > span,
+  .landing-copy-edit-overlay .cm-landing-copy .cm-line * {
+    color: transparent !important;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .landing-copy-edit-overlay .cm-landing-copy .cm-cursor {
+    display: block !important;
+    border-left-color: hsl(var(--foreground)) !important;
+  }
+
   .cm-landing-copy .cm-scroller {
     overflow: visible;
   }
