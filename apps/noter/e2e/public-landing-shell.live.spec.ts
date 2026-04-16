@@ -19,6 +19,7 @@ declare global {
 
 async function captureLandingReloadFrames(
   page: Parameters<typeof test>[0]["page"],
+  path?: string,
 ): Promise<LandingReloadFrame[]> {
   await page.addInitScript(() => {
     const sampleCount = 60;
@@ -57,6 +58,9 @@ async function captureLandingReloadFrames(
     requestAnimationFrame(capture);
   });
 
+  if (path !== undefined) {
+    await page.goto(path, { waitUntil: "networkidle" });
+  }
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForTimeout(1000);
 
@@ -76,6 +80,34 @@ test("local landing reload keeps the password auth slot stable on the dev server
   ).toBeVisible();
 
   const reloadFrames = await captureLandingReloadFrames(page);
+  const visibleFrames = reloadFrames.flatMap((frame) => {
+    if (frame.content === null || frame.copy === null) {
+      return [];
+    }
+    return [frame];
+  });
+
+  expect(visibleFrames.length).toBeGreaterThanOrEqual(10);
+
+  const contentTopValues = visibleFrames.map((frame) => frame.content!.top);
+  const copyTopValues = visibleFrames.map((frame) => frame.copy!.top);
+  const copyHeightValues = visibleFrames.map((frame) => frame.copy!.height);
+
+  expect(
+    Math.max(...contentTopValues) - Math.min(...contentTopValues),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.max(...copyTopValues) - Math.min(...copyTopValues),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.max(...copyHeightValues) - Math.min(...copyHeightValues),
+  ).toBeLessThanOrEqual(1);
+});
+
+test("landing dev mode reload keeps the editable copy stable on the dev server", async ({
+  page,
+}) => {
+  const reloadFrames = await captureLandingReloadFrames(page, "/?dev");
   const visibleFrames = reloadFrames.flatMap((frame) => {
     if (frame.content === null || frame.copy === null) {
       return [];

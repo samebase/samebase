@@ -130,6 +130,27 @@
 }
 
 @layer utilities {
+  .landing-copy-edit-shell .landing-copy-static-shell {
+    opacity: 1;
+  }
+
+  .landing-copy-edit-shell .landing-copy-edit-overlay {
+    opacity: 0;
+  }
+
+  .landing-copy-edit-shell:focus-within .landing-copy-static-shell {
+    opacity: 0;
+  }
+
+  .landing-copy-edit-shell:focus-within .landing-copy-edit-overlay {
+    opacity: 1;
+  }
+
+  .landing-copy-edit-shell .landing-copy-static-shell,
+  .landing-copy-edit-shell .landing-copy-edit-overlay {
+    transition: none;
+  }
+
   .cm-landing-copy .cm-scroller {
     overflow: visible;
   }
