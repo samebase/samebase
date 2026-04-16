@@ -235,6 +235,14 @@ function validateManifest(manifest: StarterTemplateManifest): void {
     throw new Error("starter template manifest commitMessage is required");
   }
 
+  if (manifest.source.repository.length === 0) {
+    throw new Error("starter template manifest source repository is required");
+  }
+
+  if (manifest.source.commitSha.length === 0) {
+    throw new Error("starter template manifest source commit sha is required");
+  }
+
   if (Object.keys(manifest.files).length === 0) {
     throw new Error("starter template manifest has no files");
   }
@@ -267,6 +275,7 @@ export async function seedRepositoryWithStarter(args: {
     repo: `${args.owner}/${args.repo}`,
     defaultBranch: args.defaultBranch,
     manifestVersion: manifest.version,
+    manifestSource: `${manifest.source.repository}@${manifest.source.commitSha}`,
   });
 
   const treeEntries = buildTreeEntriesForManifest(manifest.files);
@@ -386,6 +395,7 @@ export async function seedRepositoryWithStarter(args: {
     defaultBranch: args.defaultBranch,
     headCommitSha: commit.sha,
     manifestVersion: manifest.version,
+    manifestSource: `${manifest.source.repository}@${manifest.source.commitSha}`,
   });
 
   return {

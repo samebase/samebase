@@ -45,7 +45,7 @@ This spec also covers the gap between the two repo shapes Noter currently boots
 in Daytona:
 
 1. the local monorepo/worktree shape (`apps/noter` app root)
-2. the seeded starter-template repo shape (repo-root app root)
+2. the seeded starter repo shape (repo-root workspace with `apps/web` app root)
 
 ## Problem
 
@@ -161,7 +161,7 @@ The directory in the current repo shape that owns the runtime files for the app:
 Examples:
 
 - monorepo/worktree repo shape: `apps/noter`
-- seeded starter-template repo shape: repo root
+- seeded starter repo shape: `apps/web`
 
 Unless otherwise noted, env-file paths in this spec are relative to the app
 root.
@@ -382,8 +382,8 @@ Rules:
 
 ### 9. Noter-Managed Starter Repos Must Expose An Explicit Daytona Entry Point
 
-The seeded repo created from `apps/noter-starter-template` must expose an
-explicit Daytona-local bootstrap entrypoint at the repo root.
+The seeded repo created from `noter-md/convex-cloudflare-pages-stack` must
+expose an explicit Daytona-local bootstrap entrypoint at the repo root.
 
 Preferred first rollout:
 
@@ -624,7 +624,7 @@ Keep the simpler contract:
 2. Daytona source selection is handled outside
    `apps/noter/scripts/convex-dev.ts`
 
-### `apps/noter-starter-template`
+### Starter Repo Shape
 
 The seeded starter repo must carry its own explicit Daytona bootstrap contract.
 
@@ -648,8 +648,8 @@ bootstrap entrypoints and fail closed when they are missing.
 Rules:
 
 1. prefer explicit Daytona-local wrapper entrypoints over raw dev commands
-2. do not silently fall back to raw `pnpm run dev` for
-   `apps/noter-starter-template`-derived repos
+2. do not silently fall back to raw `pnpm run dev` for starter-repo-derived
+   repos
 3. if a Noter-managed repo lacks the required explicit Daytona-local entrypoint,
    return an actionable error instead of starting a partially bootstrapped dev
    server
@@ -703,9 +703,9 @@ That is a separate follow-up and not part of the default flow in this spec.
 10. The dashboard remains the operator control surface for both provisioning
     modes; reproducing bootstrap failures must not require vault-route-only or
     CLI-only steps in the product path.
-11. In a fresh Daytona workspace sandbox seeded from
-    `apps/noter-starter-template`, `Open Dev Server` uses an explicit
-    Daytona-local bootstrap entrypoint instead of raw `pnpm run dev`.
+11. In a fresh Daytona workspace sandbox seeded from the dedicated starter
+    source repo snapshot, `Open Dev Server` uses an explicit Daytona-local
+    bootstrap entrypoint instead of raw `pnpm run dev`.
 12. Multiple Daytona sandboxes can run concurrently without relying on internal
     git worktrees.
 13. Any future switch to shared dev runtime is explicit and not the default.
@@ -721,7 +721,7 @@ That is a separate follow-up and not part of the default flow in this spec.
    materialization while always converging on the same bootstrap contract.
 5. Reset dev-server and bootstrap log state per run so the dashboard reflects
    the current attempt rather than stale output.
-6. Extend the same explicit contract to the starter-template repo shape.
+6. Extend the same explicit contract to the dedicated starter repo shape.
 7. Add regression coverage and manual validation proving runtime equivalence
    between provisioning modes.
 
@@ -767,10 +767,10 @@ That is a separate follow-up and not part of the default flow in this spec.
 ### Follow-On Work For The Starter Repo Shape
 
 - [ ] Generalize the Daytona env-file contract to app-root-relative paths so
-      seeded starter repos use repo-root `.env*` files.
-- [ ] Add repo-root Daytona bootstrap entrypoints to
-      `apps/noter-starter-template`.
-- [ ] Ensure the starter-template Daytona launcher uses the explicit bootstrap
+      seeded starter repos use the dedicated starter workspace layout.
+- [ ] Add repo-root Daytona bootstrap entrypoints to the dedicated starter
+      source repo.
+- [ ] Ensure the dedicated starter Daytona launcher uses the explicit bootstrap
       path and does not fall back to raw `pnpm run dev`.
 - [ ] Regenerate/export starter template assets so seeded repos receive the new
       bootstrap files.

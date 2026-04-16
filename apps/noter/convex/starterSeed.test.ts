@@ -114,6 +114,10 @@ describe("seedRepositoryWithStarter", () => {
   const manifest: StarterTemplateManifest = {
     version: "starter-template-test",
     commitMessage: "chore: seed starter template",
+    source: {
+      repository: "noter-md/convex-cloudflare-pages-stack",
+      commitSha: "abc123def456",
+    },
     files: {
       "README.md": "starter",
       "src/App.tsx": "export default function App() { return null; }",

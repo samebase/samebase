@@ -77,14 +77,24 @@ Key domain entities:
 - `aiProdAccessRequests`
 - `aiProdAccessAudit`
 
-## Starter Template Sync
+## Starter Template Source
 
-- `apps/noter-starter-template` is a maintained sibling app, not a one-off
-  snapshot.
-- Keep the starter template on the same Vite Plus app baseline we expect from
-  seeded repos.
+- The dedicated source of truth for seeded starter repos lives in
+  `noter-md/convex-cloudflare-pages-stack`.
+- `apps/noter/convex/starterSeedManifest.generated.ts` is a pinned latest
+  snapshot exported from that repo, not a hand-edited source file.
+- Refresh the pinned snapshot with:
+
+```bash
+pnpm run starter:refresh -- --source-dir <path-to-convex-cloudflare-pages-stack>
+```
+
+- `apps/noter-starter-template` is now a transitional monorepo-local copy and
+  should not be treated as the canonical authoring home.
+- Keep the dedicated starter repo on the same Vite Plus app baseline we expect
+  from seeded repos.
 - When changing scaffold-critical app or tooling config in the main app, update
-  the starter template in the same change unless the change truly does not
+  the dedicated starter repo in the same change unless the change truly does not
   apply. This especially includes Vite Plus setup, Vite config, `tsconfig`,
   lint/format config, and other bootstrap-facing settings.
 

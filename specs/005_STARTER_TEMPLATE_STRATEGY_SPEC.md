@@ -4,151 +4,124 @@
 
 - Status: Draft for implementation.
 - Owner: Noter backend/frontend
-- Date: 2026-02-13
+- Date: 2026-04-16
 - Related specs:
   - `specs/022_AGENT_GRAPH_VIEW_SPEC.md`
 - Related files:
-  - `apps/noter/convex/vaultActions.ts`
-  - `apps/noter/convex/starterSeed.ts` (or replacement)
-  - `apps/noter-starter-template/AGENTS.md`
-  - `apps/noter-starter-template/scripts/sync-codespace-assets.ts`
-  - `apps/noter-starter-template/.devcontainer/devcontainer.json`
-  - `apps/noter-starter-template/.codespace-agent/server.ts`
+  - `apps/noter/convex/starterSeed.ts`
+  - `apps/noter/convex/starterSeedManifest.generated.ts`
+  - `scripts/refresh-starter-manifest.ts`
+  - dedicated source repo: `noter-md/convex-cloudflare-pages-stack`
 
 ## Summary
 
-This spec captures the open questions and tradeoffs discussed while introducing
-starter seeding for new noter-managed vaults.
+This spec captures the first real cut of a separate starter source repo.
 
 For Iteration 1, the decision is:
 
-- Keep starter source in monorepo at `apps/noter-starter-template`
-- Do not use layered seed-step source folders
-- Seed newly created vault/agent repositories as a single commit
-- Preserve a future path to evaluate a separate dedicated template repository
+- Keep Noter seeding behavior as one generated starter commit.
+- Move the starter source of truth out of this monorepo into
+  `noter-md/convex-cloudflare-pages-stack`.
+- Treat `apps/noter/convex/starterSeedManifest.generated.ts` as a pinned latest
+  snapshot exported from that repo.
+- Defer commit-history replay and other multi-step seed mechanics.
 
 ## Problem Statement
 
-Current product goal:
+The old Iteration 1 contract optimized for reliability by keeping the starter
+inside this monorepo and exporting one manifest snapshot from
+`apps/noter-starter-template`.
 
-- New vaults should be instantly deployable and runnable in production after
-  creation.
+That no longer matches the product direction:
 
-Observed issue with the previous approach:
-
-- Layered snapshot folders (`seed-commits/*`) were introduced to enforce a
-  staged multi-commit history.
-- This creates duplicated files and additional maintenance overhead.
-
-Strategic concern:
-
-- Team is still evaluating whether long-term source of truth should remain
-  monorepo-local or move to a separate template repository.
+1. the starter should have its own dedicated repo in `noter-md`
+2. the starter should be maintainable as a self-sustained full-stack repo
+3. Noter should still seed deterministically without depending on a live GitHub
+   fetch during repo creation
 
 ## Questions Raised (Captured From Discussion)
 
-- Is layered commit snapshotting worth the implementation and maintenance
-  complexity?
-- Would a separate template repo reduce ongoing operational overhead?
-- How should reuse from monorepo into template be handled over time?
-- Should staged commit history be mandatory in generated user repositories?
-- How much runtime dependency on external GitHub sources is acceptable during
-  vault creation?
+- Should Noter preserve the source repo's commit history in managed repos?
+- Should GitHub template mode be part of the first implementation?
+- How much cross-repo release machinery is worth taking on immediately?
+- How do we keep the starter aligned with shared Vite Plus and scaffold config?
 
 ## Options Considered
 
-### Option A: Monorepo template with layered snapshots (current complex model)
+### Option A: Keep starter source in the monorepo
 
 Pros:
 
-- Deterministic per-stage source snapshots
-- Easier to visualize stage-to-stage content differences
+- lowest implementation cost
+- no cross-repo refresh workflow
 
 Cons:
 
-- High duplication (`seed-commits/*` + current template root)
-- More maintenance work for every template update
-- Additional tooling/manifest complexity
+- does not actually separate ownership
+- keeps starter authoring coupled to unrelated monorepo work
 
-Operational cost:
+Verdict:
 
-- High
+- reject
 
-### Option B: Monorepo template without layering, single snapshot commit (chosen for Iteration 1)
+### Option B: Dedicated source repo with latest-snapshot seeding (chosen)
 
 Pros:
 
-- Lowest complexity inside current repo
-- Minimal maintenance overhead
-- Reliability-first creation flow remains straightforward
+- clean source-of-truth separation
+- preserves the current simple one-commit seed behavior
+- keeps seeding deterministic through a committed generated artifact
 
 Cons:
 
-- Generated repo no longer teaches incremental setup via commit history
-- Less explicit stage semantics in seed pipeline
+- requires an explicit refresh workflow
+- does not preserve source repo history in managed repos
 
-Operational cost:
+Verdict:
 
-- Low
+- choose for Iteration 1
 
-### Option C: Separate template repo (deferred)
+### Option C: Dedicated repo plus commit-history replay
 
 Pros:
 
-- Cleaner separation of concerns
-- Independent lifecycle/versioning for template
-- Simpler mental model for starter ownership
+- richer educational history in seeded repos
 
 Cons:
 
-- Adds cross-repo release/sync process
-- Requires clear reliability strategy for consumption in noter
+- materially more tooling and release complexity
+- unnecessary for the first implementation
 
-Operational cost:
+Verdict:
 
-- Medium
-
-### Option D: Separate repo plus staged replay/pinning (deferred)
-
-Pros:
-
-- Keeps pedagogical staged history while decoupling source repo
-
-Cons:
-
-- Highest process/tooling complexity
-- More moving pieces (pins/tags/refresh workflows)
-
-Operational cost:
-
-- High
+- defer
 
 ## Iteration 1 Decision (Final)
 
-- Keep starter template in monorepo at `apps/noter-starter-template`.
-- Remove/avoid `seed-commits/*` layered source model.
-- New vault creation seeds starter content as exactly one commit.
-- Starter template package manager is pnpm to align with monorepo tooling and
-  reduce package-manager variance.
-- Codespace runtime assets are part of the starter contract:
-  - `.devcontainer/devcontainer.json`
-  - `.codespace-agent/**`
-- `apps/noter-starter-template/AGENTS.md` must include:
-  - exact initialization sequence used to build the template,
-  - exact commands run (Vite, Convex, Tailwind, shadcn setup),
-  - regeneration guidance for future updates.
+- Canonical starter source lives in `noter-md/convex-cloudflare-pages-stack`.
+- Noter seeds newly created repos from one pinned latest snapshot committed in
+  `apps/noter/convex/starterSeedManifest.generated.ts`.
+- New managed repos still receive one generated starter commit.
+- The starter source repo itself is a monorepo with a single app in `apps/web`.
+- GitHub templates and commit-history replay stay out of scope for Iteration 1.
 
-## Sync Contract (Added 2026-02-14)
+## Source And Refresh Contract
 
-- Canonical sources live at monorepo root:
-  - `.devcontainer/devcontainer.json`
-  - `.codespace-agent/**`
-- Starter template copies are synchronized by:
-  - `pnpm --filter noter-starter-template run template:sync-codespace`
-- `template:export` must run sync first so manifest output cannot drift from
-  canonical runtime assets.
-- Sync excludes runtime-only artifacts (for example
-  `.codespace-agent/node_modules`, `.codespace-agent/.agent-token`).
+- `scripts/refresh-starter-manifest.ts` is the only supported refresh path for
+  the committed starter snapshot in this monorepo.
+- The refresh script must:
+  - read a local checkout of `convex-cloudflare-pages-stack`
+  - exclude transient artifacts such as `.git`, `node_modules`, `dist`, and
+    `*.tsbuildinfo`
+  - record the source repo slug and exact git SHA in the generated manifest
+- Refresh command:
+
+```bash
+pnpm run starter:refresh -- --source-dir <path-to-convex-cloudflare-pages-stack>
+```
+
+- `apps/noter-starter-template` is now transitional and must not be treated as
+  the long-term authoring home for seeded starter content.
 
 ## Public API / Behavior Changes
 
@@ -157,71 +130,84 @@ Operational cost:
 Behavioral contract for Iteration 1:
 
 - Seeds starter content in a single commit.
-- Does not enforce a 4-step staged commit history.
+- Uses the pinned generated latest snapshot exported from the dedicated starter
+  source repo.
+- Does not replay the source repo's commit history.
 
-### Infra provisioning
+### Infra Provisioning
 
 - No contract change.
 - Existing behavior remains: provisioning is still auto-scheduled for
   noter-managed vaults.
 
-## Technical Contract for Iteration 1
+## Technical Contract For Iteration 1
 
-- Source of seeded content: monorepo starter template.
-- Seeding outcome in target repository:
-  - one commit containing full runnable starter app content.
+- Source of truth: dedicated repo `noter-md/convex-cloudflare-pages-stack`
+- Seed input in this monorepo: committed generated manifest snapshot
+- Seed outcome in target repository:
+  - one commit containing the full exported starter repo snapshot
 - Reliability-first requirement:
-  - no dependency on live external template fetch during repo creation.
+  - no dependency on a live external template fetch during repo creation
 
-## Important Changes / Additions to Interfaces and Types
+## Important Changes To Interfaces And Types
 
-Iteration 1 simplifies the manifest contract to a single snapshot
-representation:
+Iteration 1 keeps the single-snapshot manifest shape, but the manifest now
+records the source pin:
 
 ```ts
 type StarterTemplateManifest = {
   version: string;
   commitMessage: string;
+  source: {
+    repository: string;
+    commitSha: string;
+  };
   files: Record<string, string>;
 };
 ```
 
 Out of scope for Iteration 1:
 
-- Multi-step manifest format (`steps[]`) and staged replay requirements.
+- staged replay manifests
+- source-history preservation in managed repos
+- automatic live sync from GitHub during seeding
 
 ## Acceptance Criteria
 
-- Spec clearly records the discussion questions/problems and rationale.
-- Spec explicitly defines Iteration 1 scope and deferred topics.
-- Spec states exact single-commit seeding rule.
-- Spec requires command-level setup history in template `AGENTS.md`.
-- Starter template export always includes up-to-date `.devcontainer` +
-  `.codespace-agent` assets from canonical root sources.
+- The dedicated source repo exists in `noter-md`.
+- This monorepo can refresh a pinned starter snapshot from that repo with one
+  explicit command.
+- The generated manifest records the exact source repo and commit SHA.
+- Creating a new noter-managed vault still yields exactly one starter-seeding
+  commit.
+- Shared scaffold-critical config changes continue to update the starter source
+  repo deliberately alongside the main app when relevant.
 
-## Test Cases and Scenarios
+## Test Cases And Scenarios
 
-1. Creating a new noter-managed vault yields exactly one starter-seeding commit.
-2. Seeded repository builds and runs with React + Vite + Convex + Tailwind +
-   shadcn baseline.
-3. Infra provisioning still triggers and reaches ready state.
-4. `apps/noter-starter-template/AGENTS.md` includes reproducible setup commands.
+1. Running `pnpm run starter:refresh -- --source-dir <checkout>` rewrites
+   `apps/noter/convex/starterSeedManifest.generated.ts`.
+2. The generated manifest includes:
+   - root workspace files such as `package.json` and `pnpm-workspace.yaml`
+   - starter app files such as `apps/web/package.json` and
+     `apps/web/convex/schema.ts`
+   - source metadata with the dedicated repo slug and git SHA
+3. Creating a new noter-managed vault still yields exactly one starter-seeding
+   commit.
+4. Seeded repository build/startup uses the exported monorepo layout rather than
+   the old flat-root starter layout.
 
-## Assumptions and Defaults
+## Assumptions And Defaults
 
 - Default branch is `main`.
-- Reliability is prioritized over runtime freshness for Iteration 1.
-- Manual template refresh process is acceptable in this iteration.
-- Exploring a separate template repo is deferred, not rejected.
+- Reliability is prioritized over runtime freshness during repo creation.
+- Manual starter refresh is acceptable in this iteration.
+- A human-readable source repo history can exist without becoming part of the
+  first seeding contract.
 
 ## Deferred / Future Iterations
 
-- Evaluate moving source of truth to a separate template repository.
-- Evaluate preserving staged pedagogical commit history in generated repos.
-- Evaluate sync automation strategy between monorepo and template repo.
-- Experiment with reading starter template code directly as runtime text
-  (instead of generated manifest) if Convex deployment/bundling guarantees
-  deterministic access to template files.
-- If the direct text-read experiment is pursued, compare failure modes and
-  operational complexity against the current generated-manifest approach before
-  changing the default seeding path.
+- Evaluate commit-history replay from the dedicated source repo.
+- Evaluate GitHub template mode as an optional distribution path.
+- Remove or repurpose `apps/noter-starter-template` after all remaining
+  monorepo-only consumers are gone.

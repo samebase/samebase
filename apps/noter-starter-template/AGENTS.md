@@ -1,6 +1,14 @@
 # AGENTS.md
 
-This file governs how AI agents maintain this starter template.
+This file governs the legacy monorepo-local starter copy that predates the
+dedicated source repo.
+
+Canonical source of truth now lives in `noter-md/convex-cloudflare-pages-stack`.
+Refresh the pinned seed manifest from a local checkout of that repo with:
+
+```bash
+pnpm run starter:refresh -- --source-dir <path-to-convex-cloudflare-pages-stack>
+```
 
 ## Purpose
 

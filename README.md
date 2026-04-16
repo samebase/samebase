@@ -24,8 +24,15 @@ with React + Vite on the frontend and Convex on the backend.
 - Auto infra provisioning is triggered only for newly created noter-managed
   vaults.
 - Connecting an existing GitHub repository does not auto-provision infra.
-- Starter seed source of truth is maintained in `apps/noter-starter-template`
-  and exported to `apps/noter/convex/starterSeedManifest.generated.ts`.
+- Starter seed source of truth lives in the dedicated repo
+  `noter-md/convex-cloudflare-pages-stack`.
+- This monorepo seeds from the pinned latest snapshot committed in
+  `apps/noter/convex/starterSeedManifest.generated.ts`.
+- Refresh that snapshot explicitly with:
+
+```bash
+pnpm run starter:refresh -- --source-dir <path-to-convex-cloudflare-pages-stack>
+```
 
 ## Tech Stack
 

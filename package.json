@@ -64,6 +64,7 @@
     "playwright:record:stop": "node ./scripts/playwright-session.ts record-stop",
     "share:anon": "node ./scripts/anon-share.ts",
     "share:local": "node ./scripts/anon-share.ts --mode local",
+    "starter:refresh": "node ./scripts/refresh-starter-manifest.ts",
     "typecheck:scripts": "tsgo -p tsconfig.scripts.json --pretty false"
   },
   "devDependencies": {

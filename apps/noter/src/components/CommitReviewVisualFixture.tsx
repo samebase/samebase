@@ -38,7 +38,7 @@ pnpm run lint
 ## Template Manifest
 
 \`\`\`bash
-pnpm run template:export
+pnpm run starter:refresh -- --source-dir <path-to-convex-cloudflare-pages-stack>
 \`\`\`
 `;
 

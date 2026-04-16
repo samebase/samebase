@@ -1,7 +1,14 @@
 # Noter Starter Template
 
-This project is the seeded baseline for newly created noter-managed
-repositories.
+This directory is a transitional monorepo-local copy of the older starter
+template.
+
+Canonical source of truth now lives in `noter-md/convex-cloudflare-pages-stack`.
+Refresh the pinned seed snapshot with:
+
+```bash
+pnpm run starter:refresh -- --source-dir <path-to-convex-cloudflare-pages-stack>
+```
 
 ## Stack
 
