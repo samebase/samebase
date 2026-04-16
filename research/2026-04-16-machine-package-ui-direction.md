@@ -47,6 +47,24 @@ browser experience.
 This page helps the operator finish machine approval, but it does not make the
 package itself feel like a local UI runtime.
 
+### Local thread browsing already exists in Noter, but its update model is weaker than Codex
+
+- `apps/noter/src/components/MachinesWorkspacePage.tsx` already browses
+  machine-local threads grouped by project and supports starting both `local`
+  and `worktree` conversations.
+- That page refreshes inventory and selected-thread detail with a fixed
+  1.5-second polling loop against:
+  - `GET /threads`
+  - `GET /threads/:id`
+- The Codex browser research path in
+  `apps/noter/src/components/CodexAppServerThreadBrowserResearchPage.tsx`
+  separately polls `GET /events` and only rehydrates threads and detail when
+  runtime events actually arrive.
+
+This means the requirement is not just “show local threads.” Noter already does
+that. The missing piece is “update correctly compared to Codex,” which points to
+an event-aware browsing model instead of naive inventory polling.
+
 ### The connector already exposes the right transport shape for a local UI
 
 - `packages/sync/noter.ts` starts a local HTTP control server during
@@ -103,11 +121,27 @@ The existing connector routes suggest a contained first scope:
 - approval status
 - local/live-control health
 - thread list
+- codex-like live thread updates
 - start local thread
 - create worktree then start first thread
 
 That scope fits the operator’s “nice UI” direction without requiring parity with
 the full Noter web app on day one.
+
+### “Browse local threads” is now part of the package UI requirement
+
+The package UI should not stop at setup screens. It should also browse the local
+threads that belong to the connected machine.
+
+However, it should borrow the stronger runtime-refresh model from Codex:
+
+1. use thread inventory for baseline rendering
+2. track runtime events as the primary signal for rehydration
+3. silently refresh selected-thread detail when the active runtime changes
+4. avoid reshuffling or flashing the pane just because a periodic list poll ran
+
+If this package UI only copies the current `/machines` polling model, it will
+still feel behind Codex even if the visual shell is nicer.
 
 ## Recommendation
 
@@ -117,15 +151,19 @@ The first design pass should assume:
 
 1. the package remains responsible for local runtime and machine control
 2. the UI is served from a local port instead of rendered in the terminal
-3. Cloudflare quick tunnels stay the default “remote reachability” path
-4. Solid plus TanStack Router is only worth adopting if the package UI remains
+3. local thread browsing is in scope, not optional
+4. thread updates should follow a Codex-like event-aware model, not only fixed
+   polling
+5. Cloudflare quick tunnels stay the default “remote reachability” path
+6. Solid plus TanStack Router is only worth adopting if the package UI remains
    clearly smaller and more isolated than the main React app
 
 ## Open Questions
 
-1. Should this package UI stop at bootstrap, approval, and thread launch, or do
-   you want it to include the full machine-thread browsing experience too?
-2. Do you want the package UI to be fully owned by `@noter-md/sync`, or should
+1. Do you want the package UI to be fully owned by `@noter-md/sync`, or should
    it reuse more of the existing `/machines/connect` behavior from the main app?
+2. When you say “update correctly compared to Codex,” do you want full
+   event-driven turn streaming semantics, or is event-triggered silent refresh
+   enough as long as the selected thread stays accurate?
 3. Is the main priority startup speed in constrained environments, or long-term
    code ownership simplicity?
