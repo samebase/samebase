@@ -4,13 +4,14 @@
 
 - Status: Implemented
 - Owner: Noter frontend
-- Last updated: 2026-04-08
+- Last updated: 2026-04-16
 - Related files: `apps/noter/index.html`, `apps/noter/src/bootstrap.ts`,
   `apps/noter/src/main.tsx`, `apps/noter/src/App.tsx`,
   `apps/noter/src/SignInForm.tsx`, `apps/noter/src/authClient.ts`,
   `apps/noter/src/components/FastPublicLandingShell.tsx`,
   `apps/noter/src/components/LandingCopy.tsx`,
   `apps/noter/src/lib/landingCopy.ts`,
+  `apps/noter/src/components/ProsemarkReadOnly.tsx`,
   `apps/noter/src/lib/publicLandingAuthState.ts`,
   `apps/noter/e2e/public-landing-shell.spec.ts`
 
@@ -149,6 +150,8 @@ smaller than before.
 `apps/noter/e2e/public-landing-shell.spec.ts` covers:
 
 - shell appears before the full unauthenticated app UI takes over
+- reloading the production-shaped public shell keeps the landing card anchored
+  instead of re-centering after the first visible paint
 - public landing stays within the current Playwright navigation budget
 
 Current budget:
@@ -176,6 +179,11 @@ The implementation was validated through the normal pre-commit path, including:
 ## Acceptance Criteria
 
 - Plain `/` shows the landing shell before the full app UI renders.
+- Plain `/` keeps the landing card and landing-copy block stable during reload
+  instead of visibly shrinking after the first paint.
+- Plain `/` remembers the last resolved password-auth mode so local worktree
+  refreshes do not re-center the landing card while the public auth policy
+  reconnects.
 - Plain `/` keeps the Google auth slot hidden and non-interactive without
   changing the landing card height.
 - `/?prod-ui` keeps the prod-like landing path and suppresses dev-only auth and

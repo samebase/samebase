@@ -1,5 +1,5 @@
 import { useNoterAuthActions } from "@/authClient";
-import { LandingCopy } from "@/components/LandingCopy";
+import { PublicLandingCopyStatic } from "@/components/PublicLandingCopyStatic";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import {
 } from "@/lib/publicLanding";
 import {
   getVisiblePasswordAuthSurface,
+  rememberPublicLandingPasswordAuthMode,
+  resolvePublicLandingPasswordAuthMode,
   type PasswordAuthSurface,
   shouldRenderGoogleSignupClosedState,
   shouldRenderPublicLandingWithoutAuthGate,
@@ -59,8 +61,11 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
   const deploymentAuthPolicy = useQuery(
     api.deploymentProfile.getPublicDeploymentAuthPolicy,
   );
+  const passwordAuthMode = resolvePublicLandingPasswordAuthMode(
+    deploymentAuthPolicy?.passwordAuthMode,
+  );
   const passwordAuthSurface = getVisiblePasswordAuthSurface({
-    passwordAuthMode: deploymentAuthPolicy?.passwordAuthMode ?? "off",
+    passwordAuthMode,
     prodUiModeEnabled,
   });
   const isLandingCopyEditable = !prodUiModeEnabled && landingDevModeEnabled;
@@ -68,6 +73,17 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
   // in-memory draft so query-param toggles do not reset the current copy.
   const [landingMarkdownDraft, setLandingMarkdownDraft] =
     useState(landingPageMarkdown);
+
+  useEffect(() => {
+    const nextPasswordAuthMode = deploymentAuthPolicy?.passwordAuthMode;
+    if (nextPasswordAuthMode === undefined) {
+      return;
+    }
+
+    // Preserve the last resolved password-auth mode so a manual refresh keeps
+    // the same landing-card height while Convex reconnects.
+    rememberPublicLandingPasswordAuthMode(nextPasswordAuthMode);
+  }, [deploymentAuthPolicy?.passwordAuthMode]);
 
   return (
     <div
@@ -98,10 +114,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
                     onChange={setLandingMarkdownDraft}
                   />
                 ) : (
-                  <LandingCopy
-                    className="text-sm"
-                    markdown={landingMarkdownDraft}
-                  />
+                  <PublicLandingCopyStatic markdown={landingMarkdownDraft} />
                 )}
               </div>
               <div className="flex flex-col gap-2">

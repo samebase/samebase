@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   getPasswordAuthSurface,
   getVisiblePasswordAuthSurface,
+  rememberPublicLandingPasswordAuthMode,
+  resolvePublicLandingPasswordAuthMode,
   shouldRenderGoogleSignupClosedState,
   shouldRenderPublicLandingWithoutAuthGate,
   shouldShowGoogleAuthForPathname,
@@ -127,5 +129,37 @@ describe("publicLandingAuthState", () => {
         prodUiModeEnabled: false,
       }),
     ).toBe("local_worktree");
+  });
+
+  it("reuses the remembered password auth mode while the public policy reloads", () => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createMockStorage(),
+    });
+
+    rememberPublicLandingPasswordAuthMode("local_worktree_seed");
+
+    expect(resolvePublicLandingPasswordAuthMode(undefined)).toBe(
+      "local_worktree_seed",
+    );
+    expect(
+      getVisiblePasswordAuthSurface({
+        passwordAuthMode: resolvePublicLandingPasswordAuthMode(undefined),
+        prodUiModeEnabled: false,
+      }),
+    ).toBe("local_worktree");
+  });
+
+  it("ignores invalid remembered password auth values", () => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createMockStorage(),
+    });
+    window.localStorage.setItem(
+      "noter_public_landing_password_auth_mode",
+      "nope",
+    );
+
+    expect(resolvePublicLandingPasswordAuthMode(undefined)).toBe("off");
   });
 });
