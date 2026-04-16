@@ -35,7 +35,11 @@ import { useFileViewMediaUpload } from "@/components/FileView/useFileViewMediaUp
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { linkStyle } from "@/components/styles";
-import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";
+import {
+  GetFunctionReferenceReturnType,
+  useConvexAction,
+  useConvexMutation,
+} from "@/lib/convexUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
@@ -913,18 +917,18 @@ function FileViewInner({
   );
   const [unpublishRepositoryFile, unpublishRepositoryFileStatus] =
     useConvexMutation(api.publishedFiles.unpublishRepositoryFile);
-  const isDiffRequested = routeSearch.diff === true;
-  const publishedFileState = useLiveQuery(
-    api.publishedFiles.getPublishedFileState,
-    canPublishSelectedFile
-      ? {
-          owner,
-          repoName,
-          branch,
-          filePath: selectedFile,
-        }
-      : "skip",
+  const loadPublishedFileState = useAction(
+    api.publishedFilesActions.getPublishedFileState,
   );
+  const isDiffRequested = routeSearch.diff === true;
+  const [publishedFileState, setPublishedFileState] = useState<
+    | GetFunctionReferenceReturnType<
+        typeof api.publishedFilesActions.getPublishedFileState
+      >
+    | undefined
+  >(undefined);
+  const [publishedFileStateRefreshToken, setPublishedFileStateRefreshToken] =
+    useState(0);
 
   // Get count of staged files for this vault
   const stagedFiles = useQuery(
@@ -1020,6 +1024,45 @@ function FileViewInner({
     ? undefined
     : currentPullRequestUrl;
   const hasCurrentBranchPullRequest = currentBranchPullRequestUrl != null;
+
+  useEffect(() => {
+    if (!canPublishSelectedFile) {
+      setPublishedFileState(undefined);
+      return;
+    }
+
+    let cancelled = false;
+    setPublishedFileState(undefined);
+
+    void loadPublishedFileState({
+      owner,
+      repoName,
+      branch,
+      filePath: selectedFile,
+    })
+      .then((result) => {
+        if (!cancelled) {
+          setPublishedFileState(result);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPublishedFileState(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    branch,
+    canPublishSelectedFile,
+    loadPublishedFileState,
+    owner,
+    publishedFileStateRefreshToken,
+    repoName,
+    selectedFile,
+  ]);
 
   /** Listen for Cmd/Ctrl + P and open the file view command palette. */
   useEffect(() => {
@@ -2291,13 +2334,12 @@ function FileViewInner({
         branch,
         filePath: selectedFile,
       });
+      setPublishedFileStateRefreshToken((currentToken) => currentToken + 1);
       toast({
-        title: hasPublishedBranchLink
-          ? "Public link updated"
-          : "File published",
+        title: "File published",
         description: result.sourceCommitSha
-          ? `${selectedFile} is available from ${branch} and ${result.sourceCommitSha.slice(0, 7)}.`
-          : `${selectedFile} is available from ${branch}.`,
+          ? `${selectedFile} is public at ${branch}, with ${result.sourceCommitSha.slice(0, 7)} available as an exact version.`
+          : `${selectedFile} is public at ${branch}.`,
       });
     } catch (error) {
       toast({
@@ -2310,7 +2352,6 @@ function FileViewInner({
   }, [
     branch,
     canPublishSelectedFile,
-    hasPublishedBranchLink,
     owner,
     publishRepositoryFile,
     repoName,
@@ -2328,6 +2369,7 @@ function FileViewInner({
         branch,
         filePath: selectedFile,
       });
+      setPublishedFileStateRefreshToken((currentToken) => currentToken + 1);
       toast({
         title: "File unpublished",
         description: selectedFile,
@@ -2886,8 +2928,12 @@ function FileViewInner({
               onManualCommit={handleManualCommit}
             />
             <FileViewPublishedFileActions
-              canRender={canPublishSelectedFile && Boolean(publishedBranchPath)}
-              hasPublishedBranchLink={hasPublishedBranchLink}
+              canRender={
+                canPublishSelectedFile &&
+                Boolean(publishedBranchPath) &&
+                publishedFileState !== undefined
+              }
+              isPublished={hasPublishedBranchLink}
               hasVersionedLink={Boolean(publishedCommitPath)}
               isPublishing={isPublishingFile}
               isUnpublishing={isUnpublishingFile}

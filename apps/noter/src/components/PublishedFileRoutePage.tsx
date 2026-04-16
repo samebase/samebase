@@ -1,10 +1,12 @@
 import { Link } from "@tanstack/react-router";
-import { useQuery as useLiveQuery } from "convex/react";
+import { useAction } from "convex/react";
 import { Button } from "@/components/ui/button";
 import { PublicWaitlistForm } from "@/components/PublicWaitlistForm";
 import { StaticMarkdownDocument } from "@/components/StaticMarkdownDocument";
 import { api } from "../../convex/_generated/api";
+import { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import { parsePublishedPathContext } from "@/lib/vaultRoutes";
+import { useEffect, useState } from "react";
 
 function readPublishedFileName(filePath: string): string {
   return filePath.split("/").at(-1) ?? filePath;
@@ -21,21 +23,59 @@ export function PublishedFileRoutePage(props: { pathname: string }) {
     Boolean(publishedContext.repoName) &&
     Boolean(publishedContext.ref) &&
     Boolean(publishedContext.filePath);
-  const publishedFile = useLiveQuery(
-    api.publishedFiles.resolvePublishedFile,
-    hasPublishedRouteContext &&
-      publishedContext.owner &&
-      publishedContext.repoName &&
-      publishedContext.ref &&
-      publishedContext.filePath
-      ? {
-          owner: publishedContext.owner,
-          repoName: publishedContext.repoName,
-          ref: publishedContext.ref,
-          filePath: publishedContext.filePath,
-        }
-      : "skip",
+  const resolvePublishedFile = useAction(
+    api.publishedFilesActions.resolvePublishedFile,
   );
+  const [publishedFile, setPublishedFile] = useState<
+    | GetFunctionReferenceReturnType<
+        typeof api.publishedFilesActions.resolvePublishedFile
+      >
+    | undefined
+  >(undefined);
+
+  useEffect(() => {
+    if (
+      !hasPublishedRouteContext ||
+      !publishedContext.owner ||
+      !publishedContext.repoName ||
+      !publishedContext.ref ||
+      !publishedContext.filePath
+    ) {
+      setPublishedFile(null);
+      return;
+    }
+
+    let cancelled = false;
+    setPublishedFile(undefined);
+
+    void resolvePublishedFile({
+      owner: publishedContext.owner,
+      repoName: publishedContext.repoName,
+      ref: publishedContext.ref,
+      filePath: publishedContext.filePath,
+    })
+      .then((result) => {
+        if (!cancelled) {
+          setPublishedFile(result);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPublishedFile(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    hasPublishedRouteContext,
+    publishedContext.filePath,
+    publishedContext.owner,
+    publishedContext.ref,
+    publishedContext.repoName,
+    resolvePublishedFile,
+  ]);
 
   if (hasPublishedRouteContext && publishedFile === undefined) {
     return null;

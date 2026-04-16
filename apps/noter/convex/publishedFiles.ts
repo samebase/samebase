@@ -1,6 +1,6 @@
 import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation } from "./_generated/server";
 import { getUserId } from "./common";
 import {
   PublishedFileFormat as publishedFileFormatValidator,
@@ -23,7 +23,7 @@ const publishedFileStateArgsValidator = object({
   filePath: string(),
 });
 
-const upsertPublishedSnapshotInternalArgsValidator = object({
+const upsertPublishedFileReferencesInternalArgsValidator = object({
   userId: id("users"),
   vaultId: id("vaults"),
   owner: string(),
@@ -36,49 +36,45 @@ const upsertPublishedSnapshotInternalArgsValidator = object({
   now: number(),
 });
 
-const publishedFileStateResultValidator = union(
-  vNull(),
-  object({
-    publishedAt: number(),
-    updatedAt: number(),
-    sourceCommitSha: optional(string()),
-  }),
-);
-type PublishedFileState = Infer<typeof publishedFileStateResultValidator>;
+const publishedFileRecordValidator = object({
+  userId: id("users"),
+  vaultId: id("vaults"),
+  ghRepoOwner: string(),
+  ghRepoName: string(),
+  sourceBranch: string(),
+  sourceCommitSha: optional(string()),
+  refKind: publishedFileRefKindValidator,
+  ref: string(),
+  filePath: string(),
+  content: string(),
+  format: publishedFileFormatValidator,
+  publishedAt: number(),
+  updatedAt: number(),
+});
 
-const resolvedPublishedFileValidator = union(
+const publishedFileRecordResultValidator = union(
   vNull(),
-  object({
-    owner: string(),
-    repoName: string(),
-    ref: string(),
-    refKind: publishedFileRefKindValidator,
-    filePath: string(),
-    content: string(),
-    format: publishedFileFormatValidator,
-    sourceBranch: string(),
-    sourceCommitSha: optional(string()),
-    publishedAt: number(),
-    updatedAt: number(),
-  }),
+  publishedFileRecordValidator,
 );
-type ResolvedPublishedFile = Infer<typeof resolvedPublishedFileValidator>;
+type PublishedFileRecordResult = Infer<
+  typeof publishedFileRecordResultValidator
+>;
 
-const upsertPublishedSnapshotInternalResultValidator = object({
+const upsertPublishedFileReferencesInternalResultValidator = object({
   publishedAt: number(),
   updatedAt: number(),
   sourceCommitSha: optional(string()),
 });
-type UpsertPublishedSnapshotInternalResult = Infer<
-  typeof upsertPublishedSnapshotInternalResultValidator
+type UpsertPublishedFileReferencesInternalResult = Infer<
+  typeof upsertPublishedFileReferencesInternalResultValidator
 >;
 
 const nullValidator = vNull();
 
-export const resolvePublishedFile = query({
+export const getActivePublishedFileRecordByRoute = internalQuery({
   args: publishedFileRouteArgsValidator,
-  returns: resolvedPublishedFileValidator,
-  handler: async (ctx, args): Promise<ResolvedPublishedFile> => {
+  returns: publishedFileRecordResultValidator,
+  handler: async (ctx, args): Promise<PublishedFileRecordResult> => {
     const record = await ctx.db
       .query("publishedFileLinks")
       .withIndex("by_owner_repo_ref_path", (q) =>
@@ -95,72 +91,71 @@ export const resolvePublishedFile = query({
     }
 
     return {
-      owner: record.ghRepoOwner,
-      repoName: record.ghRepoName,
-      ref: record.ref,
+      userId: record.userId,
+      vaultId: record.vaultId,
+      ghRepoOwner: record.ghRepoOwner,
+      ghRepoName: record.ghRepoName,
+      sourceBranch: record.sourceBranch,
+      sourceCommitSha: record.sourceCommitSha,
       refKind: record.refKind,
+      ref: record.ref,
       filePath: record.filePath,
       content: record.content,
       format: record.format,
-      sourceBranch: record.sourceBranch,
-      sourceCommitSha: record.sourceCommitSha,
       publishedAt: record.publishedAt,
       updatedAt: record.updatedAt,
     };
   },
 });
 
-export const getPublishedFileState = query({
+export const getActivePublishedBranchRecordForOwner = internalQuery({
   args: publishedFileStateArgsValidator,
-  returns: publishedFileStateResultValidator,
-  handler: async (ctx, args): Promise<PublishedFileState> => {
-    const userId = await getUserId(ctx);
-    const repositoryFullName = `${args.owner}/${args.repoName}`;
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName,
-      userId,
-      branch: args.branch,
-    });
-
-    if (!vault || vault.branchNotFound) {
-      return null;
-    }
-
-    const branchRecords = await ctx.db
+  returns: publishedFileRecordResultValidator,
+  handler: async (ctx, args): Promise<PublishedFileRecordResult> => {
+    const record = await ctx.db
       .query("publishedFileLinks")
-      .withIndex("by_vault_and_source_branch_and_file_path", (q) =>
+      .withIndex("by_owner_repo_ref_path", (q) =>
         q
-          .eq("vaultId", vault._id)
-          .eq("sourceBranch", args.branch)
+          .eq("ghRepoOwner", args.owner)
+          .eq("ghRepoName", args.repoName)
+          .eq("ref", args.branch)
           .eq("filePath", args.filePath),
       )
-      .collect();
-    const branchRecord = branchRecords.find(
-      (record) =>
-        record.refKind === "branch" &&
-        record.ref === args.branch &&
-        typeof record.unpublishedAt !== "number",
-    );
+      .unique();
 
-    if (!branchRecord) {
+    if (
+      !record ||
+      typeof record.unpublishedAt === "number" ||
+      record.refKind !== "branch"
+    ) {
       return null;
     }
 
     return {
-      publishedAt: branchRecord.publishedAt,
-      updatedAt: branchRecord.updatedAt,
-      sourceCommitSha: branchRecord.sourceCommitSha,
+      userId: record.userId,
+      vaultId: record.vaultId,
+      ghRepoOwner: record.ghRepoOwner,
+      ghRepoName: record.ghRepoName,
+      sourceBranch: record.sourceBranch,
+      sourceCommitSha: record.sourceCommitSha,
+      refKind: record.refKind,
+      ref: record.ref,
+      filePath: record.filePath,
+      content: record.content,
+      format: record.format,
+      publishedAt: record.publishedAt,
+      updatedAt: record.updatedAt,
     };
   },
 });
 
-export const upsertPublishedSnapshotInternal = internalMutation({
-  args: upsertPublishedSnapshotInternalArgsValidator,
-  returns: upsertPublishedSnapshotInternalResultValidator,
+export const upsertPublishedFileReferencesInternal = internalMutation({
+  args: upsertPublishedFileReferencesInternalArgsValidator,
+  returns: upsertPublishedFileReferencesInternalResultValidator,
   handler: async (
     ctx,
     args,
-  ): Promise<UpsertPublishedSnapshotInternalResult> => {
+  ): Promise<UpsertPublishedFileReferencesInternalResult> => {
     async function upsertReference(referenceArgs: {
       ref: string;
       refKind: Infer<typeof publishedFileRefKindValidator>;

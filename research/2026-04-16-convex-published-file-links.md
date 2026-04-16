@@ -91,7 +91,7 @@ is signed in, for example `viewer` in
 [apps/noter/convex/users.ts](/Users/nicu/.codex/worktrees/664a/noter/apps/noter/convex/users.ts:374).
 
 That means we can intentionally make the public publish resolver an anonymous
-read, while keeping create, revoke, and republish mutations strictly owner-only.
+read, while keeping create and revoke mutations strictly owner-only.
 
 ### 5. The renderer can stay intentionally small
 
@@ -110,11 +110,14 @@ editor or adding a heavier markdown runtime.
 3. Noter creates or updates a publish record in Convex and returns a public
    link.
 4. The file view shows:
+   - `Publish`
    - `Copy public link`
    - `Copy versioned link`
-   - `Republish`
    - `Unpublish`
 5. Visitors open the public link and see a fast read-only document page.
+
+Once the file is public on a branch, the branch URL already follows the latest
+committed branch content. There should not be a second manual `Republish` step.
 
 Transparent examples:
 
@@ -133,13 +136,14 @@ shape.
 ### Branch ref
 
 If the ref segment is a branch name such as `main`, the public page should show
-the latest published version for that branch and file path.
+the latest committed version for that branch and file path while the publish
+record stays enabled.
 
 Example:
 
 - `/p/noter-md/noter/main/slogans.md`
 
-This is the natural "share the latest public version from `main`" contract.
+This is the natural "share the latest version from `main`" contract.
 
 ### Commit ref
 
@@ -156,7 +160,8 @@ This is the natural immutable link contract.
 
 That makes the public story easy to explain:
 
-- branch URL means "latest published version from this branch"
+- branch URL means "latest version from this branch while the publish record is
+  enabled"
 - commit URL means "this exact published version"
 
 ## Data Model Recommendation
@@ -188,9 +193,9 @@ Recommended notes:
 - `ref` stores the transparent route segment exactly as we serve it.
 - `sourceCommitSha` stores the last resolved commit even for branch-based
   publishes so the owner UI can explain what is currently public.
-- A branch publish should update the branch record in place and may also append
-  a commit-specific version record if we want exact commit URLs to stay
-  available after republish.
+- A branch publish should create the branch permission record once, and branch
+  resolution should keep the branch row and matching commit rows in sync with
+  the latest committed branch content.
 - The important optimization target is code clarity, not minimizing every
   duplicate row on day one.
 
@@ -234,8 +239,8 @@ becomes useful.
 
 ## Rendering Recommendation
 
-Render the public page from stored publish content and keep the content model
-narrow:
+Render the public page from a narrow content model and keep the route surface
+simple:
 
 - markdown subset first
 - semantic article structure
@@ -273,9 +278,8 @@ proven.
 1. Add `publishedFileLinks` to the Convex schema.
 2. Add owner-only mutations:
    - `publishFile`
-   - `republishFile`
    - `unpublishFile`
-3. Add one anonymous query that resolves by owner, repo, ref, and file path.
+3. Add one anonymous resolver that resolves by owner, repo, ref, and file path.
 4. Add a public route that mirrors the `/vault/...` parser with a `/p/...`
    prefix.
 5. Reuse the existing route helpers in
@@ -286,7 +290,6 @@ proven.
    - branch public file loads
    - commit public file loads
    - revoked link fails closed
-   - republish updates the branch URL
 
 ## Bottom Line
 
@@ -295,7 +298,8 @@ The canonical direction should be:
 - publishing is a Convex record
 - the public URL mirrors the private file URL with `/p` instead of `/vault`
 - branch refs and commit refs are both first-class and transparent
-- the public page renders stored publish content
+- branch URLs resolve the latest committed branch content
+- commit URLs render exact stored snapshots
 - editing stays in the normal file view
 
 That gives Noter one readable product story and keeps the route surface honest.

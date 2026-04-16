@@ -19,7 +19,7 @@ export function FileViewPublishedFileActionsVisualFixture({
           <div className="flex items-center gap-2">
             <FileViewPublishedFileActions
               canRender
-              hasPublishedBranchLink={isPublished}
+              isPublished={isPublished}
               hasVersionedLink={isPublished}
               isPublishing={isPublishing}
               isUnpublishing={false}

@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 
 export function FileViewPublishedFileActions(props: {
   canRender: boolean;
-  hasPublishedBranchLink: boolean;
+  isPublished: boolean;
   hasVersionedLink: boolean;
   isPublishing: boolean;
   isUnpublishing: boolean;
@@ -17,22 +17,18 @@ export function FileViewPublishedFileActions(props: {
 
   return (
     <>
-      <Button
-        size="sm"
-        variant={props.hasPublishedBranchLink ? "secondary" : "outline"}
-        onClick={props.onPublish}
-        disabled={props.isPublishing}
-        className="h-6 px-2 text-xs"
-      >
-        {props.isPublishing
-          ? props.hasPublishedBranchLink
-            ? "Updating..."
-            : "Publishing..."
-          : props.hasPublishedBranchLink
-            ? "Republish"
-            : "Publish"}
-      </Button>
-      {props.hasPublishedBranchLink ? (
+      {props.isPublished ? null : (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={props.onPublish}
+          disabled={props.isPublishing}
+          className="h-6 px-2 text-xs"
+        >
+          {props.isPublishing ? "Publishing..." : "Publish"}
+        </Button>
+      )}
+      {props.isPublished ? (
         <Button
           size="sm"
           variant="outline"
@@ -52,7 +48,7 @@ export function FileViewPublishedFileActions(props: {
           Copy version link
         </Button>
       ) : null}
-      {props.hasPublishedBranchLink ? (
+      {props.isPublished ? (
         <Button
           size="sm"
           variant="outline"
