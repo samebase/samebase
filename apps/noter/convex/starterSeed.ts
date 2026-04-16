@@ -8,6 +8,13 @@ import {
 
 export type { StarterTemplateManifest } from "./starterSeedManifest.generated";
 
+export type SeedTemplateManifest = Pick<
+  StarterTemplateManifest,
+  "version" | "commitMessage" | "files"
+> & {
+  source?: StarterTemplateManifest["source"];
+};
+
 type StarterTemplateTreeEntry = {
   path: string;
   mode: "100644";
@@ -226,7 +233,7 @@ export function createStarterSeedGitClient(
   };
 }
 
-function validateManifest(manifest: StarterTemplateManifest): void {
+function validateManifest(manifest: SeedTemplateManifest): void {
   if (manifest.version.length === 0) {
     throw new Error("starter template manifest version is required");
   }
@@ -235,12 +242,20 @@ function validateManifest(manifest: StarterTemplateManifest): void {
     throw new Error("starter template manifest commitMessage is required");
   }
 
-  if (manifest.source.repository.length === 0) {
-    throw new Error("starter template manifest source repository is required");
-  }
+  // Agent-template seeding still uses this helper but doesn't carry starter
+  // source pin metadata, so only validate source when a manifest provides it.
+  if (manifest.source !== undefined) {
+    if (manifest.source.repository.length === 0) {
+      throw new Error(
+        "starter template manifest source repository is required",
+      );
+    }
 
-  if (manifest.source.commitSha.length === 0) {
-    throw new Error("starter template manifest source commit sha is required");
+    if (manifest.source.commitSha.length === 0) {
+      throw new Error(
+        "starter template manifest source commit sha is required",
+      );
+    }
   }
 
   if (Object.keys(manifest.files).length === 0) {
@@ -266,16 +281,21 @@ export async function seedRepositoryWithStarter(args: {
   owner: string;
   repo: string;
   defaultBranch: string;
-  manifest?: StarterTemplateManifest;
+  manifest?: SeedTemplateManifest;
 }): Promise<{ defaultBranch: string; headCommitSha: string }> {
   const manifest = args.manifest ?? starterTemplateManifest;
   validateManifest(manifest);
+
+  const manifestSource =
+    manifest.source === undefined
+      ? "embedded"
+      : `${manifest.source.repository}@${manifest.source.commitSha}`;
 
   console.log("seed:start", {
     repo: `${args.owner}/${args.repo}`,
     defaultBranch: args.defaultBranch,
     manifestVersion: manifest.version,
-    manifestSource: `${manifest.source.repository}@${manifest.source.commitSha}`,
+    manifestSource,
   });
 
   const treeEntries = buildTreeEntriesForManifest(manifest.files);
@@ -395,7 +415,7 @@ export async function seedRepositoryWithStarter(args: {
     defaultBranch: args.defaultBranch,
     headCommitSha: commit.sha,
     manifestVersion: manifest.version,
-    manifestSource: `${manifest.source.repository}@${manifest.source.commitSha}`,
+    manifestSource,
   });
 
   return {

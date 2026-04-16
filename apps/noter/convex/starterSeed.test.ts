@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildTreeEntriesForManifest,
   seedRepositoryWithStarter,
+  type SeedTemplateManifest,
   type StarterSeedGitClient,
   type StarterTemplateManifest,
 } from "./starterSeed";
@@ -124,6 +125,14 @@ describe("seedRepositoryWithStarter", () => {
     },
   };
 
+  const manifestWithoutSource: SeedTemplateManifest = {
+    version: "agent-template-test",
+    commitMessage: "chore: seed agent template",
+    files: {
+      "AGENTS.md": "# AGENTS.md\n",
+    },
+  };
+
   it("creates one root commit and one branch ref", async () => {
     const mock = makeGitClient();
 
@@ -225,6 +234,25 @@ describe("seedRepositoryWithStarter", () => {
       force: true,
     });
 
+    expect(result).toEqual({
+      defaultBranch: "main",
+      headCommitSha: "commit-1",
+    });
+  });
+
+  it("supports seeding manifests without source metadata", async () => {
+    const mock = makeGitClient();
+
+    const result = await seedRepositoryWithStarter({
+      client: mock.client,
+      owner: "owner",
+      repo: "repo",
+      defaultBranch: "main",
+      manifest: manifestWithoutSource,
+    });
+
+    expect(mock.createTreeCalls).toHaveLength(1);
+    expect(mock.createCommitCalls).toHaveLength(1);
     expect(result).toEqual({
       defaultBranch: "main",
       headCommitSha: "commit-1",
