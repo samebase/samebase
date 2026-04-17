@@ -1,13 +1,19 @@
-import { Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import {
+  For,
+  Show,
+  createMemo,
+  createSignal,
+  onCleanup,
+  onMount,
+} from "solid-js";
 import mobileSidebarSpecRaw from "../../../../specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md?raw";
 import { MonacoSurface } from "@/components/MonacoSurface";
 import { ProsemarkSurface } from "@/components/ProsemarkSurface";
 import {
-  getWorkspaceLayoutV2SettledPane,
-  getWorkspaceLayoutV2TrackWidthPx,
-  getWorkspaceLayoutV2VisibleStartPx,
-  type WorkspaceLayoutV2Metrics,
-  type WorkspaceLayoutV2Pane,
+  getPaneQueueSettledIndex,
+  getPaneQueueTrackWidthPx,
+  getPaneQueueVisibleStartPx,
+  type PaneQueueMetrics,
 } from "@/lib/mobile-pane-layout";
 
 const MOBILE_BREAKPOINT_PX = 768;
@@ -15,25 +21,73 @@ const MOBILE_DRAG_SLOP_PX = 12;
 const MOBILE_SIDEBAR_MIN_WIDTH_PX = 160;
 const MOBILE_VISIBLE_MAIN_STRIP_PX = 32;
 
+type NonEmptyArray<T> = readonly [T, ...T[]];
+
 type PointerSample = {
   clientX: number;
   timeMs: number;
 };
 
 type PointerGesturePhase = "pending" | "swiping";
+type PaneKind = "monaco" | "prosemark";
+type PaneSpec = {
+  id: string;
+  kind: PaneKind;
+  paneTestId: string;
+  surfaceTestId: string;
+};
+
+const paneSpecs = [
+  {
+    id: "pane-0",
+    kind: "prosemark",
+    paneTestId: "workspace-layout-v2-pane-0",
+    surfaceTestId: "workspace-layout-v2-surface-0",
+  },
+  {
+    id: "pane-1",
+    kind: "monaco",
+    paneTestId: "workspace-layout-v2-pane-1",
+    surfaceTestId: "workspace-layout-v2-surface-1",
+  },
+  {
+    id: "pane-2",
+    kind: "monaco",
+    paneTestId: "workspace-layout-v2-pane-2",
+    surfaceTestId: "workspace-layout-v2-surface-2",
+  },
+  {
+    id: "pane-3",
+    kind: "monaco",
+    paneTestId: "workspace-layout-v2-pane-3",
+    surfaceTestId: "workspace-layout-v2-surface-3",
+  },
+] satisfies NonEmptyArray<PaneSpec>;
+
+function renderPaneSurface(pane: PaneSpec) {
+  if (pane.kind === "prosemark") {
+    return (
+      <ProsemarkSurface
+        dataTestId={pane.surfaceTestId}
+        initialValue={mobileSidebarSpecRaw}
+      />
+    );
+  }
+
+  return (
+    <MonacoSurface
+      dataTestId={pane.surfaceTestId}
+      initialValue={mobileSidebarSpecRaw}
+    />
+  );
+}
 
 function getMobileSidebarWidthPx(viewportWidthPx: number) {
-  // Keep a visible main strip so an open sidebar still has an easy return grab.
+  // Keep the same exposed-strip budget the old sidebar layout used.
   return Math.max(
     MOBILE_SIDEBAR_MIN_WIDTH_PX,
     Math.round(viewportWidthPx - MOBILE_VISIBLE_MAIN_STRIP_PX),
   );
-}
-
-function getMobileMainPaneWidthPx(viewportWidthPx: number) {
-  // When main is centered, split the same exposed-strip budget evenly so both
-  // side panes stay slightly visible.
-  return Math.max(0, viewportWidthPx - MOBILE_VISIBLE_MAIN_STRIP_PX);
 }
 
 function getRecentVelocityPxPerMs(samples: readonly PointerSample[]) {
@@ -60,8 +114,7 @@ function getRecentVelocityPxPerMs(samples: readonly PointerSample[]) {
 
 export function WorkspaceLayoutPage() {
   const [viewportWidthPx, setViewportWidthPx] = createSignal(0);
-  const [currentPane, setCurrentPane] =
-    createSignal<WorkspaceLayoutV2Pane>("main");
+  const [activePaneIndex, setActivePaneIndex] = createSignal(1);
   const [dragOffsetPx, setDragOffsetPx] = createSignal(0);
   const [isDragging, setIsDragging] = createSignal(false);
 
@@ -70,7 +123,7 @@ export function WorkspaceLayoutPage() {
   let gesturePhase: PointerGesturePhase = "pending";
   let gestureStartX = 0;
   let gestureStartY = 0;
-  let gestureStartPane: WorkspaceLayoutV2Pane = "main";
+  let gestureStartPaneIndex = 1;
   let pointerSamples: PointerSample[] = [];
 
   onMount(() => {
@@ -123,24 +176,21 @@ export function WorkspaceLayoutPage() {
   });
 
   const isMobile = createMemo(() => viewportWidthPx() < MOBILE_BREAKPOINT_PX);
-  const mobileSidebarWidthPx = createMemo(() =>
+  const mobilePaneWidthPx = createMemo(() =>
     getMobileSidebarWidthPx(viewportWidthPx()),
   );
-  const mobileMainPaneWidthPx = createMemo(() =>
-    getMobileMainPaneWidthPx(viewportWidthPx()),
-  );
-  const mobileMetrics = createMemo<WorkspaceLayoutV2Metrics>(() => ({
-    leftWidthPx: mobileSidebarWidthPx(),
-    mainWidthPx: mobileMainPaneWidthPx(),
-    rightWidthPx: mobileSidebarWidthPx(),
+  const mobileMetrics = createMemo<PaneQueueMetrics>(() => ({
+    paneCount: paneSpecs.length,
+    paneWidthPx: mobilePaneWidthPx(),
     viewportWidthPx: viewportWidthPx(),
+    visibleStripPx: MOBILE_VISIBLE_MAIN_STRIP_PX,
   }));
   const mobileTrackWidthPx = createMemo(() =>
-    getWorkspaceLayoutV2TrackWidthPx(mobileMetrics()),
+    getPaneQueueTrackWidthPx(mobileMetrics()),
   );
   const mobileVisibleStartPx = createMemo(() =>
-    getWorkspaceLayoutV2VisibleStartPx({
-      currentPane: currentPane(),
+    getPaneQueueVisibleStartPx({
+      currentPaneIndex: activePaneIndex(),
       dragOffsetPx: dragOffsetPx(),
       metrics: mobileMetrics(),
     }),
@@ -171,7 +221,7 @@ export function WorkspaceLayoutPage() {
     gesturePhase = "pending";
     gestureStartX = event.clientX;
     gestureStartY = event.clientY;
-    gestureStartPane = currentPane();
+    gestureStartPaneIndex = activePaneIndex();
     pointerSamples = [
       {
         clientX: event.clientX,
@@ -228,13 +278,13 @@ export function WorkspaceLayoutPage() {
 
     const releasedDragOffsetPx = event.clientX - gestureStartX;
     const velocityPxPerMs = getRecentVelocityPxPerMs(pointerSamples);
-    const nextPane = getWorkspaceLayoutV2SettledPane({
-      currentPane: gestureStartPane,
+    const nextPaneIndex = getPaneQueueSettledIndex({
+      currentPaneIndex: gestureStartPaneIndex,
       dragOffsetPx: releasedDragOffsetPx,
       metrics: mobileMetrics(),
       velocityPxPerMs,
     });
-    setCurrentPane(nextPane);
+    setActivePaneIndex(nextPaneIndex);
     resetGesture();
   }
 
@@ -253,42 +303,29 @@ export function WorkspaceLayoutPage() {
             class="flex h-full overflow-hidden"
             data-workspace-layout-v2="desktop"
           >
-            <section
-              aria-label="Left pane"
-              class={`${paneClass} flex-1 border-r border-border`}
-              data-testid="workspace-layout-v2-pane-left"
-            >
-              <ProsemarkSurface
-                dataTestId="workspace-layout-v2-prosemark-surface"
-                initialValue={mobileSidebarSpecRaw}
-              />
-            </section>
-            <section
-              aria-label="Main pane"
-              class={`${paneClass} flex-1 border-r border-border`}
-              data-testid="workspace-layout-v2-pane-main"
-            >
-              <MonacoSurface
-                dataTestId="workspace-layout-v2-main-editor-surface"
-                initialValue={mobileSidebarSpecRaw}
-              />
-            </section>
-            <section
-              aria-label="Right pane"
-              class={`${paneClass} flex-1`}
-              data-testid="workspace-layout-v2-pane-right"
-            >
-              <MonacoSurface
-                dataTestId="workspace-layout-v2-right-editor-surface"
-                initialValue={mobileSidebarSpecRaw}
-              />
-            </section>
+            <For each={paneSpecs}>
+              {(pane, index) => (
+                <section
+                  aria-label={`Pane ${index() + 1}`}
+                  class={
+                    index() < paneSpecs.length - 1
+                      ? `${paneClass} flex-1 border-r border-border`
+                      : `${paneClass} flex-1`
+                  }
+                  data-pane-id={pane.id}
+                  data-testid={pane.paneTestId}
+                >
+                  {renderPaneSurface(pane)}
+                </section>
+              )}
+            </For>
           </div>
         }
       >
         <div
           class="h-full overflow-hidden touch-pan-y"
-          data-mobile-pane={currentPane()}
+          data-mobile-pane={paneSpecs[activePaneIndex()]?.id ?? ""}
+          data-mobile-pane-index={activePaneIndex()}
           data-workspace-layout-v2="mobile"
         >
           <div
@@ -302,39 +339,23 @@ export function WorkspaceLayoutPage() {
               width: `${mobileTrackWidthPx()}px`,
             }}
           >
-            <section
-              aria-label="Left pane"
-              class={`${paneClass} shrink-0 border-r border-border`}
-              data-testid="workspace-layout-v2-pane-left"
-              style={{ width: `${mobileSidebarWidthPx()}px` }}
-            >
-              <ProsemarkSurface
-                dataTestId="workspace-layout-v2-prosemark-surface"
-                initialValue={mobileSidebarSpecRaw}
-              />
-            </section>
-            <section
-              aria-label="Main pane"
-              class={`${paneClass} shrink-0 border-r border-border`}
-              data-testid="workspace-layout-v2-pane-main"
-              style={{ width: `${mobileMainPaneWidthPx()}px` }}
-            >
-              <MonacoSurface
-                dataTestId="workspace-layout-v2-main-editor-surface"
-                initialValue={mobileSidebarSpecRaw}
-              />
-            </section>
-            <section
-              aria-label="Right pane"
-              class={`${paneClass} shrink-0`}
-              data-testid="workspace-layout-v2-pane-right"
-              style={{ width: `${mobileSidebarWidthPx()}px` }}
-            >
-              <MonacoSurface
-                dataTestId="workspace-layout-v2-right-editor-surface"
-                initialValue={mobileSidebarSpecRaw}
-              />
-            </section>
+            <For each={paneSpecs}>
+              {(pane, index) => (
+                <section
+                  aria-label={`Pane ${index() + 1}`}
+                  class={
+                    index() < paneSpecs.length - 1
+                      ? `${paneClass} shrink-0 border-r border-border`
+                      : `${paneClass} shrink-0`
+                  }
+                  data-pane-id={pane.id}
+                  data-testid={pane.paneTestId}
+                  style={{ width: `${mobilePaneWidthPx()}px` }}
+                >
+                  {renderPaneSurface(pane)}
+                </section>
+              )}
+            </For>
           </div>
         </div>
       </Show>

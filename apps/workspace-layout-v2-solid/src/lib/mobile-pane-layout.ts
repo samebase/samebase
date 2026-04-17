@@ -1,14 +1,11 @@
-export type WorkspaceLayoutV2Pane = "left" | "main" | "right";
-
-export type WorkspaceLayoutV2Metrics = {
-  leftWidthPx: number;
-  mainWidthPx: number;
-  rightWidthPx: number;
+export type PaneQueueMetrics = {
+  paneCount: number;
+  paneWidthPx: number;
   viewportWidthPx: number;
+  visibleStripPx: number;
 };
 
-const MOBILE_OPEN_COMMIT_RATIO = 0.28;
-const MOBILE_CLOSE_COMMIT_RATIO = 0.22;
+const MOBILE_COMMIT_RATIO = 0.25;
 const MOBILE_COMMIT_MIN_PX = 56;
 const MOBILE_COMMIT_MAX_PX = 136;
 const MOBILE_VELOCITY_COMMIT_THRESHOLD_PX_PER_MS = 0.45;
@@ -17,93 +14,106 @@ function clampNumber(value: number, minValue: number, maxValue: number) {
   return Math.max(minValue, Math.min(value, maxValue));
 }
 
-function getCommitThresholdPx(distancePx: number, action: "open" | "close") {
+function getCommitThresholdPx(distancePx: number) {
   if (distancePx <= 0) {
     return 0;
   }
 
-  // Opening should take a clearer gesture than closing back to main.
-  const ratio =
-    action === "open" ? MOBILE_OPEN_COMMIT_RATIO : MOBILE_CLOSE_COMMIT_RATIO;
   return clampNumber(
-    Math.round(distancePx * ratio),
+    Math.round(distancePx * MOBILE_COMMIT_RATIO),
     Math.min(MOBILE_COMMIT_MIN_PX, distancePx),
     Math.min(MOBILE_COMMIT_MAX_PX, distancePx),
   );
 }
 
-export function getWorkspaceLayoutV2PaneVisibleStartPx(
-  pane: WorkspaceLayoutV2Pane,
-  metrics: WorkspaceLayoutV2Metrics,
-) {
-  const mainSidePeekPx = Math.max(
-    0,
-    Math.round((metrics.viewportWidthPx - metrics.mainWidthPx) / 2),
-  );
-
-  switch (pane) {
-    case "left":
-      return 0;
-    case "main":
-      return Math.max(0, metrics.leftWidthPx - mainSidePeekPx);
-    case "right":
-      return (
-        getWorkspaceLayoutV2TrackWidthPx(metrics) - metrics.viewportWidthPx
-      );
-    default:
-      return pane satisfies never;
+function getPaneSidePeekPx(args: {
+  paneCount: number;
+  paneIndex: number;
+  visibleStripPx: number;
+}) {
+  if (args.paneCount <= 1) {
+    return {
+      leftPeekPx: 0,
+      rightPeekPx: 0,
+    };
   }
-}
 
-export function getWorkspaceLayoutV2TrackWidthPx(
-  metrics: WorkspaceLayoutV2Metrics,
-) {
-  return metrics.leftWidthPx + metrics.mainWidthPx + metrics.rightWidthPx;
-}
-
-function getWorkspaceLayoutV2VisibleStartRange(
-  pane: WorkspaceLayoutV2Pane,
-  metrics: WorkspaceLayoutV2Metrics,
-) {
-  const mainVisibleStartPx = getWorkspaceLayoutV2PaneVisibleStartPx(
-    "main",
-    metrics,
-  );
-  const rightVisibleStartPx = getWorkspaceLayoutV2PaneVisibleStartPx(
-    "right",
-    metrics,
-  );
-
-  switch (pane) {
-    case "left":
-      return {
-        maxVisibleStartPx: mainVisibleStartPx,
-        minVisibleStartPx: 0,
-      };
-    case "main":
-      return {
-        maxVisibleStartPx: rightVisibleStartPx,
-        minVisibleStartPx: 0,
-      };
-    case "right":
-      return {
-        maxVisibleStartPx: rightVisibleStartPx,
-        minVisibleStartPx: mainVisibleStartPx,
-      };
-    default:
-      return pane satisfies never;
+  if (args.paneIndex === 0) {
+    return {
+      leftPeekPx: 0,
+      rightPeekPx: args.visibleStripPx,
+    };
   }
+
+  if (args.paneIndex === args.paneCount - 1) {
+    return {
+      leftPeekPx: args.visibleStripPx,
+      rightPeekPx: 0,
+    };
+  }
+
+  const leftPeekPx = Math.floor(args.visibleStripPx / 2);
+  return {
+    leftPeekPx,
+    rightPeekPx: args.visibleStripPx - leftPeekPx,
+  };
 }
 
-function clampWorkspaceLayoutV2VisibleStartPx(args: {
-  currentPane: WorkspaceLayoutV2Pane;
-  metrics: WorkspaceLayoutV2Metrics;
+export function getPaneQueueTrackWidthPx(metrics: PaneQueueMetrics) {
+  return metrics.paneCount * metrics.paneWidthPx;
+}
+
+export function getPaneQueuePaneStartPx(
+  paneIndex: number,
+  metrics: PaneQueueMetrics,
+) {
+  return paneIndex * metrics.paneWidthPx;
+}
+
+export function getPaneQueuePaneVisibleStartPx(
+  paneIndex: number,
+  metrics: PaneQueueMetrics,
+) {
+  const { leftPeekPx } = getPaneSidePeekPx({
+    paneCount: metrics.paneCount,
+    paneIndex,
+    visibleStripPx: metrics.visibleStripPx,
+  });
+
+  return Math.max(0, getPaneQueuePaneStartPx(paneIndex, metrics) - leftPeekPx);
+}
+
+function getPaneQueueVisibleStartRange(args: {
+  currentPaneIndex: number;
+  metrics: PaneQueueMetrics;
+}) {
+  const minPaneIndex = Math.max(0, args.currentPaneIndex - 1);
+  const maxPaneIndex = Math.min(
+    args.metrics.paneCount - 1,
+    args.currentPaneIndex + 1,
+  );
+
+  return {
+    maxVisibleStartPx: getPaneQueuePaneVisibleStartPx(
+      maxPaneIndex,
+      args.metrics,
+    ),
+    minVisibleStartPx: getPaneQueuePaneVisibleStartPx(
+      minPaneIndex,
+      args.metrics,
+    ),
+  };
+}
+
+function clampPaneQueueVisibleStartPx(args: {
+  currentPaneIndex: number;
+  metrics: PaneQueueMetrics;
   requestedVisibleStartPx: number;
 }) {
-  const range = getWorkspaceLayoutV2VisibleStartRange(
-    args.currentPane,
-    args.metrics,
-  );
+  const range = getPaneQueueVisibleStartRange({
+    currentPaneIndex: args.currentPaneIndex,
+    metrics: args.metrics,
+  });
   return clampNumber(
     args.requestedVisibleStartPx,
     range.minVisibleStartPx,
@@ -111,91 +121,78 @@ function clampWorkspaceLayoutV2VisibleStartPx(args: {
   );
 }
 
-export function getWorkspaceLayoutV2VisibleStartPx(args: {
-  currentPane: WorkspaceLayoutV2Pane;
+export function getPaneQueueVisibleStartPx(args: {
+  currentPaneIndex: number;
   dragOffsetPx: number;
-  metrics: WorkspaceLayoutV2Metrics;
+  metrics: PaneQueueMetrics;
 }) {
-  const paneVisibleStartPx = getWorkspaceLayoutV2PaneVisibleStartPx(
-    args.currentPane,
+  const paneVisibleStartPx = getPaneQueuePaneVisibleStartPx(
+    args.currentPaneIndex,
     args.metrics,
   );
 
-  return clampWorkspaceLayoutV2VisibleStartPx({
-    currentPane: args.currentPane,
+  return clampPaneQueueVisibleStartPx({
+    currentPaneIndex: args.currentPaneIndex,
     metrics: args.metrics,
     requestedVisibleStartPx: paneVisibleStartPx - args.dragOffsetPx,
   });
 }
 
-function getAdjacentPaneCandidate(args: {
-  currentPane: WorkspaceLayoutV2Pane;
+function getAdjacentPaneIndexCandidate(args: {
+  currentPaneIndex: number;
   dragOffsetPx: number;
+  paneCount: number;
 }) {
-  if (args.currentPane === "main") {
-    if (args.dragOffsetPx > 0) {
-      return "left" as const;
-    }
-    if (args.dragOffsetPx < 0) {
-      return "right" as const;
-    }
-    return null;
+  if (args.dragOffsetPx > 0 && args.currentPaneIndex > 0) {
+    return args.currentPaneIndex - 1;
   }
 
-  if (args.currentPane === "left") {
-    return args.dragOffsetPx < 0 ? ("main" as const) : null;
+  if (args.dragOffsetPx < 0 && args.currentPaneIndex < args.paneCount - 1) {
+    return args.currentPaneIndex + 1;
   }
 
-  return args.dragOffsetPx > 0 ? ("main" as const) : null;
+  return null;
 }
 
 function getVelocityTowardCandidate(args: {
-  candidatePane: WorkspaceLayoutV2Pane;
-  currentPane: WorkspaceLayoutV2Pane;
+  candidatePaneIndex: number;
+  currentPaneIndex: number;
   velocityPxPerMs: number;
 }) {
-  if (args.currentPane === "main") {
-    return args.candidatePane === "left"
-      ? args.velocityPxPerMs
-      : -args.velocityPxPerMs;
-  }
-
-  return args.currentPane === "left"
-    ? -args.velocityPxPerMs
-    : args.velocityPxPerMs;
+  return args.candidatePaneIndex < args.currentPaneIndex
+    ? args.velocityPxPerMs
+    : -args.velocityPxPerMs;
 }
 
-export function getWorkspaceLayoutV2SettledPane(args: {
-  currentPane: WorkspaceLayoutV2Pane;
+export function getPaneQueueSettledIndex(args: {
+  currentPaneIndex: number;
   dragOffsetPx: number;
-  metrics: WorkspaceLayoutV2Metrics;
+  metrics: PaneQueueMetrics;
   velocityPxPerMs: number;
 }) {
-  const candidatePane = getAdjacentPaneCandidate({
-    currentPane: args.currentPane,
+  const candidatePaneIndex = getAdjacentPaneIndexCandidate({
+    currentPaneIndex: args.currentPaneIndex,
     dragOffsetPx: args.dragOffsetPx,
+    paneCount: args.metrics.paneCount,
   });
-  if (candidatePane === null) {
-    return args.currentPane;
+  if (candidatePaneIndex === null) {
+    return args.currentPaneIndex;
   }
 
   const distancePx = Math.abs(
-    getWorkspaceLayoutV2PaneVisibleStartPx(candidatePane, args.metrics) -
-      getWorkspaceLayoutV2PaneVisibleStartPx(args.currentPane, args.metrics),
+    getPaneQueuePaneVisibleStartPx(candidatePaneIndex, args.metrics) -
+      getPaneQueuePaneVisibleStartPx(args.currentPaneIndex, args.metrics),
   );
   const travelTowardCandidatePx = Math.abs(args.dragOffsetPx);
   const velocityTowardCandidatePxPerMs = getVelocityTowardCandidate({
-    candidatePane,
-    currentPane: args.currentPane,
+    candidatePaneIndex,
+    currentPaneIndex: args.currentPaneIndex,
     velocityPxPerMs: args.velocityPxPerMs,
   });
-  const requiredTravelPx = getCommitThresholdPx(
-    distancePx,
-    args.currentPane === "main" ? "open" : "close",
-  );
+  const requiredTravelPx = getCommitThresholdPx(distancePx);
 
   return travelTowardCandidatePx >= requiredTravelPx ||
     velocityTowardCandidatePxPerMs >= MOBILE_VELOCITY_COMMIT_THRESHOLD_PX_PER_MS
-    ? candidatePane
-    : args.currentPane;
+    ? candidatePaneIndex
+    : args.currentPaneIndex;
 }
