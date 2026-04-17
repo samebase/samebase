@@ -33,6 +33,7 @@ type PointerSample = {
 
 type PointerGesturePhase = "pending" | "swiping";
 type PaneKind = "monaco" | "prosemark";
+type ResizeHandleSide = "left" | "right";
 type PaneSpec = {
   id: string;
   kind: PaneKind;
@@ -172,6 +173,7 @@ export function WorkspaceLayoutPage() {
   let gestureStartY = 0;
   let gestureStartPaneIndex = 1;
   let pointerSamples: PointerSample[] = [];
+  let activeResizeHandleSide: ResizeHandleSide | null = null;
   let resizeStartPaneWidthPx = 0;
   let resizeStartX = 0;
 
@@ -294,12 +296,17 @@ export function WorkspaceLayoutPage() {
       viewportRef.releasePointerCapture(activeResizePointerId);
     }
     activeResizePointerId = null;
+    activeResizeHandleSide = null;
     resizeStartPaneWidthPx = 0;
     resizeStartX = 0;
     setActiveResizePaneIndex(null);
   }
 
-  function handleResizePointerDown(paneIndex: number, event: PointerEvent) {
+  function handleResizePointerDown(
+    paneIndex: number,
+    side: ResizeHandleSide,
+    event: PointerEvent,
+  ) {
     if (
       !isMobile() ||
       !event.isPrimary ||
@@ -312,6 +319,7 @@ export function WorkspaceLayoutPage() {
     event.preventDefault();
     event.stopPropagation();
     activeResizePointerId = event.pointerId;
+    activeResizeHandleSide = side;
     resizeStartPaneWidthPx =
       mobilePaneWidthsPx()[paneIndex] ?? mobilePaneMaxWidthPx();
     resizeStartX = event.clientX;
@@ -329,8 +337,12 @@ export function WorkspaceLayoutPage() {
       return;
     }
 
+    const resizeDeltaPx =
+      activeResizeHandleSide === "left"
+        ? resizeStartX - event.clientX
+        : event.clientX - resizeStartX;
     const nextPaneWidthPx = clampNumber(
-      resizeStartPaneWidthPx + (event.clientX - resizeStartX),
+      resizeStartPaneWidthPx + resizeDeltaPx,
       MOBILE_PANE_MIN_WIDTH_PX,
       mobilePaneMaxWidthPx(),
     );
@@ -448,6 +460,19 @@ export function WorkspaceLayoutPage() {
 
   const paneClass =
     "relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden";
+  const resizeHandleTouchStyle = {
+    height: `${MOBILE_RESIZE_HANDLE_TOUCH_HEIGHT_PX}px`,
+    width: `${MOBILE_RESIZE_HANDLE_TOUCH_WIDTH_PX}px`,
+  };
+  const resizeGripDots = (
+    <div class="flex h-full w-full items-center justify-center">
+      <div class="flex flex-col items-center justify-center gap-[2px]">
+        <div class="h-[2px] w-[2px] rounded-full bg-cyan-400" />
+        <div class="h-[2px] w-[2px] rounded-full bg-cyan-400" />
+        <div class="h-[2px] w-[2px] rounded-full bg-cyan-400" />
+      </div>
+    </div>
+  );
 
   return (
     <main
@@ -515,24 +540,30 @@ export function WorkspaceLayoutPage() {
                 >
                   {renderPaneSurface(pane)}
                   <Show when={activePaneIndex() === index()}>
-                    <div
-                      class="absolute right-0 top-1/2 z-20 -translate-y-1/2 touch-none"
-                      data-testid="workspace-layout-v2-mobile-resize-handle"
-                      data-workspace-layout-v2-resize-handle=""
-                      onPointerDown={[handleResizePointerDown, index()]}
-                      style={{
-                        height: `${MOBILE_RESIZE_HANDLE_TOUCH_HEIGHT_PX}px`,
-                        width: `${MOBILE_RESIZE_HANDLE_TOUCH_WIDTH_PX}px`,
-                      }}
-                    >
-                      <div class="flex h-full w-full items-center justify-center">
-                        <div class="flex flex-col items-center justify-center gap-[2px]">
-                          <div class="h-[2px] w-[2px] rounded-full bg-cyan-400" />
-                          <div class="h-[2px] w-[2px] rounded-full bg-cyan-400" />
-                          <div class="h-[2px] w-[2px] rounded-full bg-cyan-400" />
-                        </div>
+                    <>
+                      <div
+                        class="absolute left-0 top-1/2 z-20 -translate-y-1/2 touch-none"
+                        data-testid="workspace-layout-v2-mobile-resize-handle-left"
+                        data-workspace-layout-v2-resize-handle=""
+                        onPointerDown={(event) =>
+                          handleResizePointerDown(index(), "left", event)
+                        }
+                        style={resizeHandleTouchStyle}
+                      >
+                        {resizeGripDots}
                       </div>
-                    </div>
+                      <div
+                        class="absolute right-0 top-1/2 z-20 -translate-y-1/2 touch-none"
+                        data-testid="workspace-layout-v2-mobile-resize-handle-right"
+                        data-workspace-layout-v2-resize-handle=""
+                        onPointerDown={(event) =>
+                          handleResizePointerDown(index(), "right", event)
+                        }
+                        style={resizeHandleTouchStyle}
+                      >
+                        {resizeGripDots}
+                      </div>
+                    </>
                   </Show>
                 </section>
               )}
