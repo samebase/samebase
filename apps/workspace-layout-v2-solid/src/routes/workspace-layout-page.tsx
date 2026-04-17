@@ -7,7 +7,7 @@ import {
   onCleanup,
   onMount,
 } from "solid-js";
-import mobileSidebarSpecRaw from "../../../../specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md?raw";
+import solidLabNotesRaw from "../../SOLID_LAB_NOTES.md?raw";
 import { MonacoSurface } from "@/components/MonacoSurface";
 import { ProsemarkSurface } from "@/components/ProsemarkSurface";
 import {
@@ -73,7 +73,7 @@ function renderPaneSurface(pane: PaneSpec) {
     return (
       <ProsemarkSurface
         dataTestId={pane.surfaceTestId}
-        initialValue={mobileSidebarSpecRaw}
+        initialValue={solidLabNotesRaw}
       />
     );
   }
@@ -81,7 +81,7 @@ function renderPaneSurface(pane: PaneSpec) {
   return (
     <MonacoSurface
       dataTestId={pane.surfaceTestId}
-      initialValue={mobileSidebarSpecRaw}
+      initialValue={solidLabNotesRaw}
     />
   );
 }
