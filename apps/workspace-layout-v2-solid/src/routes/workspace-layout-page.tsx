@@ -466,10 +466,12 @@ export function WorkspaceLayoutPage() {
   };
   const resizeGripDots = (
     <div class="flex h-full w-full items-center justify-center">
-      <div class="flex flex-col items-center justify-center gap-[2px]">
-        <div class="h-[2px] w-[2px] rounded-full bg-cyan-400" />
-        <div class="h-[2px] w-[2px] rounded-full bg-cyan-400" />
-        <div class="h-[2px] w-[2px] rounded-full bg-cyan-400" />
+      <div class="flex h-6 w-3 items-center justify-center rounded-full border border-border bg-background/95">
+        <div class="flex flex-col items-center justify-center gap-[2px]">
+          <div class="h-[2px] w-[2px] rounded-full bg-cyan-400 shadow-[0_0_4px_rgba(34,211,238,0.95)]" />
+          <div class="h-[2px] w-[2px] rounded-full bg-cyan-400 shadow-[0_0_4px_rgba(34,211,238,0.95)]" />
+          <div class="h-[2px] w-[2px] rounded-full bg-cyan-400 shadow-[0_0_4px_rgba(34,211,238,0.95)]" />
+        </div>
       </div>
     </div>
   );
@@ -542,7 +544,7 @@ export function WorkspaceLayoutPage() {
                   <Show when={activePaneIndex() === index()}>
                     <>
                       <div
-                        class="absolute left-0 top-1/2 z-20 -translate-y-1/2 touch-none"
+                        class="absolute left-0 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 touch-none"
                         data-testid="workspace-layout-v2-mobile-resize-handle-left"
                         data-workspace-layout-v2-resize-handle=""
                         onPointerDown={(event) =>
@@ -553,7 +555,7 @@ export function WorkspaceLayoutPage() {
                         {resizeGripDots}
                       </div>
                       <div
-                        class="absolute right-0 top-1/2 z-20 -translate-y-1/2 touch-none"
+                        class="absolute right-0 top-1/2 z-20 translate-x-1/2 -translate-y-1/2 touch-none"
                         data-testid="workspace-layout-v2-mobile-resize-handle-right"
                         data-workspace-layout-v2-resize-handle=""
                         onPointerDown={(event) =>
