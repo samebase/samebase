@@ -2,6 +2,7 @@ export type WorkspaceLayoutV2Pane = "left" | "main" | "right";
 
 export type WorkspaceLayoutV2Metrics = {
   leftWidthPx: number;
+  mainWidthPx: number;
   rightWidthPx: number;
   viewportWidthPx: number;
 };
@@ -35,11 +36,16 @@ export function getWorkspaceLayoutV2PaneVisibleStartPx(
   pane: WorkspaceLayoutV2Pane,
   metrics: WorkspaceLayoutV2Metrics,
 ) {
+  const mainSidePeekPx = Math.max(
+    0,
+    Math.round((metrics.viewportWidthPx - metrics.mainWidthPx) / 2),
+  );
+
   switch (pane) {
     case "left":
       return 0;
     case "main":
-      return metrics.leftWidthPx;
+      return Math.max(0, metrics.leftWidthPx - mainSidePeekPx);
     case "right":
       return (
         getWorkspaceLayoutV2TrackWidthPx(metrics) - metrics.viewportWidthPx
@@ -52,7 +58,7 @@ export function getWorkspaceLayoutV2PaneVisibleStartPx(
 export function getWorkspaceLayoutV2TrackWidthPx(
   metrics: WorkspaceLayoutV2Metrics,
 ) {
-  return metrics.leftWidthPx + metrics.viewportWidthPx + metrics.rightWidthPx;
+  return metrics.leftWidthPx + metrics.mainWidthPx + metrics.rightWidthPx;
 }
 
 function getWorkspaceLayoutV2VisibleStartRange(

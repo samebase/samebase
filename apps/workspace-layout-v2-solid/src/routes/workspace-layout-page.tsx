@@ -30,6 +30,12 @@ function getMobileSidebarWidthPx(viewportWidthPx: number) {
   );
 }
 
+function getMobileMainPaneWidthPx(viewportWidthPx: number) {
+  // When main is centered, split the same exposed-strip budget evenly so both
+  // side panes stay slightly visible.
+  return Math.max(0, viewportWidthPx - MOBILE_VISIBLE_MAIN_STRIP_PX);
+}
+
 function getRecentVelocityPxPerMs(samples: readonly PointerSample[]) {
   if (samples.length < 2) {
     return 0;
@@ -120,8 +126,12 @@ export function WorkspaceLayoutPage() {
   const mobileSidebarWidthPx = createMemo(() =>
     getMobileSidebarWidthPx(viewportWidthPx()),
   );
+  const mobileMainPaneWidthPx = createMemo(() =>
+    getMobileMainPaneWidthPx(viewportWidthPx()),
+  );
   const mobileMetrics = createMemo<WorkspaceLayoutV2Metrics>(() => ({
     leftWidthPx: mobileSidebarWidthPx(),
+    mainWidthPx: mobileMainPaneWidthPx(),
     rightWidthPx: mobileSidebarWidthPx(),
     viewportWidthPx: viewportWidthPx(),
   }));
@@ -307,7 +317,7 @@ export function WorkspaceLayoutPage() {
               aria-label="Main pane"
               class={`${paneClass} shrink-0 border-r border-border`}
               data-testid="workspace-layout-v2-pane-main"
-              style={{ width: `${viewportWidthPx()}px` }}
+              style={{ width: `${mobileMainPaneWidthPx()}px` }}
             >
               <MonacoSurface
                 dataTestId="workspace-layout-v2-main-editor-surface"
