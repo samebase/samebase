@@ -11,6 +11,7 @@ import {
 } from "@/lib/mobile-pane-layout";
 
 const MOBILE_BREAKPOINT_PX = 768;
+const MOBILE_DRAG_SLOP_PX = 12;
 const MOBILE_SIDEBAR_MIN_WIDTH_PX = 160;
 const MOBILE_VISIBLE_MAIN_STRIP_PX = 32;
 
@@ -18,6 +19,8 @@ type PointerSample = {
   clientX: number;
   timeMs: number;
 };
+
+type PointerGesturePhase = "pending" | "swiping";
 
 function getMobileSidebarWidthPx(viewportWidthPx: number) {
   // Keep a visible main strip so an open sidebar still has an easy return grab.
@@ -54,10 +57,13 @@ export function WorkspaceLayoutPage() {
   const [currentPane, setCurrentPane] =
     createSignal<WorkspaceLayoutV2Pane>("main");
   const [dragOffsetPx, setDragOffsetPx] = createSignal(0);
+  const [isDragging, setIsDragging] = createSignal(false);
 
   let viewportRef: HTMLElement | undefined;
   let activePointerId: number | null = null;
+  let gesturePhase: PointerGesturePhase = "pending";
   let gestureStartX = 0;
+  let gestureStartY = 0;
   let gestureStartPane: WorkspaceLayoutV2Pane = "main";
   let pointerSamples: PointerSample[] = [];
 
@@ -131,19 +137,30 @@ export function WorkspaceLayoutPage() {
   );
 
   function resetGesture() {
+    if (
+      activePointerId !== null &&
+      viewportRef?.hasPointerCapture(activePointerId)
+    ) {
+      viewportRef.releasePointerCapture(activePointerId);
+    }
     activePointerId = null;
+    gesturePhase = "pending";
     gestureStartX = 0;
+    gestureStartY = 0;
     pointerSamples = [];
+    setIsDragging(false);
     setDragOffsetPx(0);
   }
 
   function handlePointerDown(event: PointerEvent) {
-    if (!isMobile()) {
+    if (!isMobile() || !event.isPrimary || activePointerId !== null) {
       return;
     }
 
     activePointerId = event.pointerId;
+    gesturePhase = "pending";
     gestureStartX = event.clientX;
+    gestureStartY = event.clientY;
     gestureStartPane = currentPane();
     pointerSamples = [
       {
@@ -151,7 +168,6 @@ export function WorkspaceLayoutPage() {
         timeMs: event.timeStamp,
       },
     ];
-    viewportRef?.setPointerCapture(event.pointerId);
   }
 
   function handlePointerMove(event: PointerEvent) {
@@ -159,7 +175,28 @@ export function WorkspaceLayoutPage() {
       return;
     }
 
-    setDragOffsetPx(event.clientX - gestureStartX);
+    const dragOffsetXPx = event.clientX - gestureStartX;
+    const dragOffsetYPx = event.clientY - gestureStartY;
+
+    if (gesturePhase === "pending") {
+      if (
+        Math.abs(dragOffsetXPx) < MOBILE_DRAG_SLOP_PX &&
+        Math.abs(dragOffsetYPx) < MOBILE_DRAG_SLOP_PX
+      ) {
+        return;
+      }
+
+      if (Math.abs(dragOffsetXPx) <= Math.abs(dragOffsetYPx)) {
+        resetGesture();
+        return;
+      }
+
+      gesturePhase = "swiping";
+      viewportRef?.setPointerCapture(event.pointerId);
+      setIsDragging(true);
+    }
+
+    setDragOffsetPx(dragOffsetXPx);
     pointerSamples = [
       ...pointerSamples.slice(-5),
       {
@@ -171,6 +208,11 @@ export function WorkspaceLayoutPage() {
 
   function handlePointerEnd(event: PointerEvent) {
     if (!isMobile() || event.pointerId !== activePointerId) {
+      return;
+    }
+
+    if (gesturePhase !== "swiping") {
+      resetGesture();
       return;
     }
 
@@ -240,7 +282,11 @@ export function WorkspaceLayoutPage() {
           data-workspace-layout-v2="mobile"
         >
           <div
-            class="flex h-full overflow-hidden"
+            class={
+              isDragging()
+                ? "flex h-full overflow-hidden will-change-transform"
+                : "flex h-full overflow-hidden transition-transform duration-150 ease-out will-change-transform"
+            }
             style={{
               transform: `translateX(-${mobileVisibleStartPx()}px)`,
               width: `${mobileTrackWidthPx()}px`,
