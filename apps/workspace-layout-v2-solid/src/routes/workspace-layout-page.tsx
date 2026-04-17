@@ -186,19 +186,24 @@ export function WorkspaceLayoutPage() {
     resetGesture();
   }
 
+  const paneClass = "flex h-full min-h-0 min-w-0 flex-col overflow-hidden";
+
   return (
     <main
       ref={viewportRef}
-      class="min-h-svh overflow-hidden"
+      class="h-svh overflow-hidden"
       data-testid="workspace-layout-v2-visual-fixture"
     >
       <Show
         when={isMobile()}
         fallback={
-          <div class="flex min-h-svh" data-workspace-layout-v2="desktop">
+          <div
+            class="flex h-full overflow-hidden"
+            data-workspace-layout-v2="desktop"
+          >
             <section
               aria-label="Left pane"
-              class="flex-1 border-r border-border"
+              class={`${paneClass} flex-1 border-r border-border`}
               data-testid="workspace-layout-v2-pane-left"
             >
               <ProsemarkSurface
@@ -208,7 +213,7 @@ export function WorkspaceLayoutPage() {
             </section>
             <section
               aria-label="Main pane"
-              class="flex-1 border-r border-border"
+              class={`${paneClass} flex-1 border-r border-border`}
               data-testid="workspace-layout-v2-pane-main"
             >
               <MonacoSurface
@@ -218,7 +223,7 @@ export function WorkspaceLayoutPage() {
             </section>
             <section
               aria-label="Right pane"
-              class="flex-1"
+              class={`${paneClass} flex-1`}
               data-testid="workspace-layout-v2-pane-right"
             >
               <MonacoSurface
@@ -230,12 +235,12 @@ export function WorkspaceLayoutPage() {
         }
       >
         <div
-          class="min-h-svh overflow-hidden touch-pan-y"
+          class="h-full overflow-hidden touch-pan-y"
           data-mobile-pane={currentPane()}
           data-workspace-layout-v2="mobile"
         >
           <div
-            class="flex min-h-svh"
+            class="flex h-full overflow-hidden"
             style={{
               transform: `translateX(-${mobileVisibleStartPx()}px)`,
               width: `${mobileTrackWidthPx()}px`,
@@ -243,7 +248,7 @@ export function WorkspaceLayoutPage() {
           >
             <section
               aria-label="Left pane"
-              class="min-h-svh shrink-0 border-r border-border"
+              class={`${paneClass} shrink-0 border-r border-border`}
               data-testid="workspace-layout-v2-pane-left"
               style={{ width: `${mobileSidebarWidthPx()}px` }}
             >
@@ -254,7 +259,7 @@ export function WorkspaceLayoutPage() {
             </section>
             <section
               aria-label="Main pane"
-              class="min-h-svh shrink-0 border-r border-border"
+              class={`${paneClass} shrink-0 border-r border-border`}
               data-testid="workspace-layout-v2-pane-main"
               style={{ width: `${viewportWidthPx()}px` }}
             >
@@ -265,7 +270,7 @@ export function WorkspaceLayoutPage() {
             </section>
             <section
               aria-label="Right pane"
-              class="min-h-svh shrink-0"
+              class={`${paneClass} shrink-0`}
               data-testid="workspace-layout-v2-pane-right"
               style={{ width: `${mobileSidebarWidthPx()}px` }}
             >
