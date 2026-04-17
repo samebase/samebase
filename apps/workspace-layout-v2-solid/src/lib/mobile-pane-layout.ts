@@ -1,8 +1,7 @@
 export type PaneQueueMetrics = {
   paneCount: number;
-  paneWidthPx: number;
+  paneWidthsPx: readonly number[];
   viewportWidthPx: number;
-  visibleStripPx: number;
 };
 
 const MOBILE_COMMIT_RATIO = 0.25;
@@ -27,11 +26,16 @@ function getCommitThresholdPx(distancePx: number) {
 }
 
 function getPaneSidePeekPx(args: {
-  paneCount: number;
+  metrics: PaneQueueMetrics;
   paneIndex: number;
-  visibleStripPx: number;
 }) {
-  if (args.paneCount <= 1) {
+  const paneWidthPx = args.metrics.paneWidthsPx[args.paneIndex] ?? 0;
+  const visibleStripPx = Math.max(
+    0,
+    args.metrics.viewportWidthPx - paneWidthPx,
+  );
+
+  if (args.metrics.paneCount <= 1) {
     return {
       leftPeekPx: 0,
       rightPeekPx: 0,
@@ -41,33 +45,38 @@ function getPaneSidePeekPx(args: {
   if (args.paneIndex === 0) {
     return {
       leftPeekPx: 0,
-      rightPeekPx: args.visibleStripPx,
+      rightPeekPx: visibleStripPx,
     };
   }
 
-  if (args.paneIndex === args.paneCount - 1) {
+  if (args.paneIndex === args.metrics.paneCount - 1) {
     return {
-      leftPeekPx: args.visibleStripPx,
+      leftPeekPx: visibleStripPx,
       rightPeekPx: 0,
     };
   }
 
-  const leftPeekPx = Math.floor(args.visibleStripPx / 2);
+  const leftPeekPx = Math.floor(visibleStripPx / 2);
   return {
     leftPeekPx,
-    rightPeekPx: args.visibleStripPx - leftPeekPx,
+    rightPeekPx: visibleStripPx - leftPeekPx,
   };
 }
 
 export function getPaneQueueTrackWidthPx(metrics: PaneQueueMetrics) {
-  return metrics.paneCount * metrics.paneWidthPx;
+  return metrics.paneWidthsPx.reduce(
+    (sumWidthPx, paneWidthPx) => sumWidthPx + paneWidthPx,
+    0,
+  );
 }
 
 export function getPaneQueuePaneStartPx(
   paneIndex: number,
   metrics: PaneQueueMetrics,
 ) {
-  return paneIndex * metrics.paneWidthPx;
+  return metrics.paneWidthsPx
+    .slice(0, paneIndex)
+    .reduce((sumWidthPx, paneWidthPx) => sumWidthPx + paneWidthPx, 0);
 }
 
 export function getPaneQueuePaneVisibleStartPx(
@@ -75,9 +84,8 @@ export function getPaneQueuePaneVisibleStartPx(
   metrics: PaneQueueMetrics,
 ) {
   const { leftPeekPx } = getPaneSidePeekPx({
-    paneCount: metrics.paneCount,
+    metrics,
     paneIndex,
-    visibleStripPx: metrics.visibleStripPx,
   });
 
   return Math.max(0, getPaneQueuePaneStartPx(paneIndex, metrics) - leftPeekPx);

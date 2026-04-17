@@ -1,6 +1,7 @@
 import {
   For,
   Show,
+  createEffect,
   createMemo,
   createSignal,
   onCleanup,
@@ -18,7 +19,8 @@ import {
 
 const MOBILE_BREAKPOINT_PX = 768;
 const MOBILE_DRAG_SLOP_PX = 12;
-const MOBILE_SIDEBAR_MIN_WIDTH_PX = 160;
+const MOBILE_PANE_MIN_WIDTH_PX = 160;
+const MOBILE_RESIZE_HANDLE_WIDTH_PX = 24;
 const MOBILE_VISIBLE_MAIN_STRIP_PX = 32;
 
 type NonEmptyArray<T> = readonly [T, ...T[]];
@@ -82,12 +84,49 @@ function renderPaneSurface(pane: PaneSpec) {
   );
 }
 
-function getMobileSidebarWidthPx(viewportWidthPx: number) {
+function getMobilePaneMaxWidthPx(viewportWidthPx: number) {
   // Keep the same exposed-strip budget the old sidebar layout used.
   return Math.max(
-    MOBILE_SIDEBAR_MIN_WIDTH_PX,
+    MOBILE_PANE_MIN_WIDTH_PX,
     Math.round(viewportWidthPx - MOBILE_VISIBLE_MAIN_STRIP_PX),
   );
+}
+
+function clampNumber(value: number, minValue: number, maxValue: number) {
+  return Math.max(minValue, Math.min(value, maxValue));
+}
+
+function areNumberArraysEqual(
+  leftValues: readonly number[],
+  rightValues: readonly number[],
+) {
+  if (leftValues.length !== rightValues.length) {
+    return false;
+  }
+
+  for (let index = 0; index < leftValues.length; index += 1) {
+    if (leftValues[index] !== rightValues[index]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isResizeHandleTarget(
+  target: EventTarget | null,
+  viewportNode: HTMLElement | undefined,
+) {
+  let node = target instanceof Element ? target : null;
+
+  while (node !== null && node !== viewportNode) {
+    if (node.hasAttribute("data-workspace-layout-v2-resize-handle")) {
+      return true;
+    }
+    node = node.parentElement;
+  }
+
+  return false;
 }
 
 function getRecentVelocityPxPerMs(samples: readonly PointerSample[]) {
@@ -115,16 +154,25 @@ function getRecentVelocityPxPerMs(samples: readonly PointerSample[]) {
 export function WorkspaceLayoutPage() {
   const [viewportWidthPx, setViewportWidthPx] = createSignal(0);
   const [activePaneIndex, setActivePaneIndex] = createSignal(1);
+  const [activeResizePaneIndex, setActiveResizePaneIndex] = createSignal<
+    number | null
+  >(null);
   const [dragOffsetPx, setDragOffsetPx] = createSignal(0);
   const [isDragging, setIsDragging] = createSignal(false);
+  const [mobilePaneWidthsPx, setMobilePaneWidthsPx] = createSignal<
+    readonly number[]
+  >([]);
 
   let viewportRef: HTMLElement | undefined;
   let activePointerId: number | null = null;
+  let activeResizePointerId: number | null = null;
   let gesturePhase: PointerGesturePhase = "pending";
   let gestureStartX = 0;
   let gestureStartY = 0;
   let gestureStartPaneIndex = 1;
   let pointerSamples: PointerSample[] = [];
+  let resizeStartPaneWidthPx = 0;
+  let resizeStartX = 0;
 
   onMount(() => {
     const viewportNode = viewportRef;
@@ -176,14 +224,39 @@ export function WorkspaceLayoutPage() {
   });
 
   const isMobile = createMemo(() => viewportWidthPx() < MOBILE_BREAKPOINT_PX);
-  const mobilePaneWidthPx = createMemo(() =>
-    getMobileSidebarWidthPx(viewportWidthPx()),
+  const mobilePaneMaxWidthPx = createMemo(() =>
+    getMobilePaneMaxWidthPx(viewportWidthPx()),
   );
+  const isResizing = createMemo(() => activeResizePaneIndex() !== null);
+
+  createEffect(() => {
+    const mobilePaneMaxWidth = mobilePaneMaxWidthPx();
+    if (mobilePaneMaxWidth <= 0) {
+      return;
+    }
+
+    setMobilePaneWidthsPx((previousWidthsPx) => {
+      const nextWidthsPx =
+        previousWidthsPx.length === paneSpecs.length
+          ? previousWidthsPx.map((paneWidthPx) =>
+              clampNumber(
+                paneWidthPx,
+                MOBILE_PANE_MIN_WIDTH_PX,
+                mobilePaneMaxWidth,
+              ),
+            )
+          : paneSpecs.map(() => mobilePaneMaxWidth);
+
+      return areNumberArraysEqual(previousWidthsPx, nextWidthsPx)
+        ? previousWidthsPx
+        : nextWidthsPx;
+    });
+  });
+
   const mobileMetrics = createMemo<PaneQueueMetrics>(() => ({
     paneCount: paneSpecs.length,
-    paneWidthPx: mobilePaneWidthPx(),
+    paneWidthsPx: mobilePaneWidthsPx(),
     viewportWidthPx: viewportWidthPx(),
-    visibleStripPx: MOBILE_VISIBLE_MAIN_STRIP_PX,
   }));
   const mobileTrackWidthPx = createMemo(() =>
     getPaneQueueTrackWidthPx(mobileMetrics()),
@@ -212,8 +285,82 @@ export function WorkspaceLayoutPage() {
     setDragOffsetPx(0);
   }
 
+  function resetResize() {
+    if (
+      activeResizePointerId !== null &&
+      viewportRef?.hasPointerCapture(activeResizePointerId)
+    ) {
+      viewportRef.releasePointerCapture(activeResizePointerId);
+    }
+    activeResizePointerId = null;
+    resizeStartPaneWidthPx = 0;
+    resizeStartX = 0;
+    setActiveResizePaneIndex(null);
+  }
+
+  function handleResizePointerDown(paneIndex: number, event: PointerEvent) {
+    if (
+      !isMobile() ||
+      !event.isPrimary ||
+      activePointerId !== null ||
+      activeResizePointerId !== null
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    activeResizePointerId = event.pointerId;
+    resizeStartPaneWidthPx =
+      mobilePaneWidthsPx()[paneIndex] ?? mobilePaneMaxWidthPx();
+    resizeStartX = event.clientX;
+    setActiveResizePaneIndex(paneIndex);
+    viewportRef?.setPointerCapture(event.pointerId);
+  }
+
+  function handleActiveResizePointerMove(event: PointerEvent) {
+    if (event.pointerId !== activeResizePointerId) {
+      return;
+    }
+
+    const paneIndex = activeResizePaneIndex();
+    if (paneIndex === null) {
+      return;
+    }
+
+    const nextPaneWidthPx = clampNumber(
+      resizeStartPaneWidthPx + (event.clientX - resizeStartX),
+      MOBILE_PANE_MIN_WIDTH_PX,
+      mobilePaneMaxWidthPx(),
+    );
+
+    setMobilePaneWidthsPx((previousWidthsPx) => {
+      const nextWidthsPx = previousWidthsPx.map((paneWidthPx, index) =>
+        index === paneIndex ? nextPaneWidthPx : paneWidthPx,
+      );
+
+      return areNumberArraysEqual(previousWidthsPx, nextWidthsPx)
+        ? previousWidthsPx
+        : nextWidthsPx;
+    });
+  }
+
+  function handleActiveResizePointerEnd(event: PointerEvent) {
+    if (event.pointerId !== activeResizePointerId) {
+      return;
+    }
+
+    resetResize();
+  }
+
   function handlePointerDown(event: PointerEvent) {
-    if (!isMobile() || !event.isPrimary || activePointerId !== null) {
+    if (
+      !isMobile() ||
+      !event.isPrimary ||
+      activePointerId !== null ||
+      activeResizePointerId !== null ||
+      isResizeHandleTarget(event.target, viewportRef)
+    ) {
       return;
     }
 
@@ -231,6 +378,11 @@ export function WorkspaceLayoutPage() {
   }
 
   function handlePointerMove(event: PointerEvent) {
+    if (activeResizePointerId !== null) {
+      handleActiveResizePointerMove(event);
+      return;
+    }
+
     if (!isMobile() || event.pointerId !== activePointerId) {
       return;
     }
@@ -267,6 +419,11 @@ export function WorkspaceLayoutPage() {
   }
 
   function handlePointerEnd(event: PointerEvent) {
+    if (activeResizePointerId !== null) {
+      handleActiveResizePointerEnd(event);
+      return;
+    }
+
     if (!isMobile() || event.pointerId !== activePointerId) {
       return;
     }
@@ -288,7 +445,8 @@ export function WorkspaceLayoutPage() {
     resetGesture();
   }
 
-  const paneClass = "flex h-full min-h-0 min-w-0 flex-col overflow-hidden";
+  const paneClass =
+    "relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden";
 
   return (
     <main
@@ -330,7 +488,7 @@ export function WorkspaceLayoutPage() {
         >
           <div
             class={
-              isDragging()
+              isDragging() || isResizing()
                 ? "flex h-full overflow-hidden will-change-transform"
                 : "flex h-full overflow-hidden transition-transform duration-150 ease-out will-change-transform"
             }
@@ -350,9 +508,22 @@ export function WorkspaceLayoutPage() {
                   }
                   data-pane-id={pane.id}
                   data-testid={pane.paneTestId}
-                  style={{ width: `${mobilePaneWidthPx()}px` }}
+                  style={{
+                    width: `${mobilePaneWidthsPx()[index()] ?? mobilePaneMaxWidthPx()}px`,
+                  }}
                 >
                   {renderPaneSurface(pane)}
+                  <Show when={activePaneIndex() === index()}>
+                    <div
+                      class="absolute inset-y-0 right-0 z-20 touch-none"
+                      data-testid="workspace-layout-v2-mobile-resize-handle"
+                      data-workspace-layout-v2-resize-handle=""
+                      onPointerDown={[handleResizePointerDown, index()]}
+                      style={{ width: `${MOBILE_RESIZE_HANDLE_WIDTH_PX}px` }}
+                    >
+                      <div class="absolute inset-y-0 right-2 w-px bg-border" />
+                    </div>
+                  </Show>
                 </section>
               )}
             </For>
