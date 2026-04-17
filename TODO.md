@@ -3,6 +3,11 @@
 !!!github uses `gh` for its documentation, so that's why it works so well
 
 - [ ] specifically left blank
+- [ ] research the idea of adding different panes on each tier. Since somethings are cheap to
+      provide and some are not (realtime sync on our server for the staging files, which is not
+      ready to open-source)). But we can provide a single pane that jsut allows you to connect
+      these 3 services, maybe do it in github pages, so it still works abit even if only github is
+      connected. And the next step is the full experience with convex + cf pages
 - [ ] ramura.com works in codex/t3code/paseo etc. since it's a cheap stack and it's basically a
       prompt or just the git history itself, that's what it is
 - [ ] https://github.com/openai/codex/discussions/9200
