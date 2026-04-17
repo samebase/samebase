@@ -20,7 +20,8 @@ import {
 const MOBILE_BREAKPOINT_PX = 768;
 const MOBILE_DRAG_SLOP_PX = 12;
 const MOBILE_PANE_MIN_WIDTH_PX = 160;
-const MOBILE_RESIZE_HANDLE_WIDTH_PX = 24;
+const MOBILE_RESIZE_HANDLE_TOUCH_HEIGHT_PX = 64;
+const MOBILE_RESIZE_HANDLE_TOUCH_WIDTH_PX = 16;
 const MOBILE_VISIBLE_MAIN_STRIP_PX = 32;
 
 type NonEmptyArray<T> = readonly [T, ...T[]];
@@ -515,13 +516,22 @@ export function WorkspaceLayoutPage() {
                   {renderPaneSurface(pane)}
                   <Show when={activePaneIndex() === index()}>
                     <div
-                      class="absolute inset-y-0 right-0 z-20 touch-none"
+                      class="absolute right-0 top-1/2 z-20 -translate-y-1/2 touch-none"
                       data-testid="workspace-layout-v2-mobile-resize-handle"
                       data-workspace-layout-v2-resize-handle=""
                       onPointerDown={[handleResizePointerDown, index()]}
-                      style={{ width: `${MOBILE_RESIZE_HANDLE_WIDTH_PX}px` }}
+                      style={{
+                        height: `${MOBILE_RESIZE_HANDLE_TOUCH_HEIGHT_PX}px`,
+                        width: `${MOBILE_RESIZE_HANDLE_TOUCH_WIDTH_PX}px`,
+                      }}
                     >
-                      <div class="absolute inset-y-0 right-2 w-px bg-border" />
+                      <div class="flex h-full w-full items-center justify-center">
+                        <div class="flex flex-col items-center justify-center gap-[2px]">
+                          <div class="h-[2px] w-[2px] rounded-full bg-cyan-400" />
+                          <div class="h-[2px] w-[2px] rounded-full bg-cyan-400" />
+                          <div class="h-[2px] w-[2px] rounded-full bg-cyan-400" />
+                        </div>
+                      </div>
                     </div>
                   </Show>
                 </section>
