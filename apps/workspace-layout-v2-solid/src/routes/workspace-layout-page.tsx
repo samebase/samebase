@@ -131,6 +131,36 @@ function isResizeHandleTarget(
   return false;
 }
 
+function getPaneIndexFromTarget(
+  target: EventTarget | null,
+  viewportNode: HTMLElement | undefined,
+) {
+  let node = target instanceof Element ? target : null;
+
+  while (node !== null && node !== viewportNode) {
+    const paneIndexAttribute = node.getAttribute("data-pane-index");
+    if (paneIndexAttribute !== null) {
+      const paneIndex = Number(paneIndexAttribute);
+      return Number.isInteger(paneIndex) ? paneIndex : null;
+    }
+    node = node.parentElement;
+  }
+
+  return null;
+}
+
+function blurFocusedWorkspaceEditor(viewportNode: HTMLElement | undefined) {
+  const activeElement = document.activeElement;
+  if (!(activeElement instanceof HTMLElement)) {
+    return;
+  }
+  if (viewportNode && !viewportNode.contains(activeElement)) {
+    return;
+  }
+
+  activeElement.blur();
+}
+
 function getRecentVelocityPxPerMs(samples: readonly PointerSample[]) {
   if (samples.length < 2) {
     return 0;
@@ -176,6 +206,9 @@ export function WorkspaceLayoutPage() {
   let activeResizeHandleSide: ResizeHandleSide | null = null;
   let resizeStartPaneWidthPx = 0;
   let resizeStartX = 0;
+  let pointerDownPaneIndex: number | null = null;
+  let shouldSuppressNextClick = false;
+  let clickSuppressionSetAtMs = 0;
 
   onMount(() => {
     const viewportNode = viewportRef;
@@ -208,6 +241,9 @@ export function WorkspaceLayoutPage() {
     viewportNode.addEventListener("pointerup", handlePointerEnd, {
       capture: true,
     });
+    viewportNode.addEventListener("click", handleClickCapture, {
+      capture: true,
+    });
 
     onCleanup(() => {
       resizeObserver.disconnect();
@@ -221,6 +257,9 @@ export function WorkspaceLayoutPage() {
         capture: true,
       });
       viewportNode.removeEventListener("pointerup", handlePointerEnd, {
+        capture: true,
+      });
+      viewportNode.removeEventListener("click", handleClickCapture, {
         capture: true,
       });
     });
@@ -283,6 +322,7 @@ export function WorkspaceLayoutPage() {
     gesturePhase = "pending";
     gestureStartX = 0;
     gestureStartY = 0;
+    pointerDownPaneIndex = null;
     pointerSamples = [];
     setIsDragging(false);
     setDragOffsetPx(0);
@@ -377,6 +417,9 @@ export function WorkspaceLayoutPage() {
       return;
     }
 
+    shouldSuppressNextClick = false;
+
+    pointerDownPaneIndex = getPaneIndexFromTarget(event.target, viewportRef);
     activePointerId = event.pointerId;
     gesturePhase = "pending";
     gestureStartX = event.clientX;
@@ -388,6 +431,13 @@ export function WorkspaceLayoutPage() {
         timeMs: event.timeStamp,
       },
     ];
+
+    if (
+      pointerDownPaneIndex !== null &&
+      pointerDownPaneIndex !== gestureStartPaneIndex
+    ) {
+      event.preventDefault();
+    }
   }
 
   function handlePointerMove(event: PointerEvent) {
@@ -416,11 +466,17 @@ export function WorkspaceLayoutPage() {
         return;
       }
 
+      // Swiping is navigation, so it should dismiss any editor focus first.
+      blurFocusedWorkspaceEditor(viewportRef);
+      shouldSuppressNextClick = true;
+      clickSuppressionSetAtMs = event.timeStamp;
       gesturePhase = "swiping";
+      event.preventDefault();
       viewportRef?.setPointerCapture(event.pointerId);
       setIsDragging(true);
     }
 
+    event.preventDefault();
     setDragOffsetPx(dragOffsetXPx);
     pointerSamples = [
       ...pointerSamples.slice(-5),
@@ -442,6 +498,16 @@ export function WorkspaceLayoutPage() {
     }
 
     if (gesturePhase !== "swiping") {
+      if (
+        pointerDownPaneIndex !== null &&
+        pointerDownPaneIndex !== activePaneIndex()
+      ) {
+        blurFocusedWorkspaceEditor(viewportRef);
+        shouldSuppressNextClick = true;
+        clickSuppressionSetAtMs = event.timeStamp;
+        event.preventDefault();
+        setActivePaneIndex(pointerDownPaneIndex);
+      }
       resetGesture();
       return;
     }
@@ -454,8 +520,21 @@ export function WorkspaceLayoutPage() {
       metrics: mobileMetrics(),
       velocityPxPerMs,
     });
+    shouldSuppressNextClick = true;
+    clickSuppressionSetAtMs = event.timeStamp;
+    event.preventDefault();
     setActivePaneIndex(nextPaneIndex);
     resetGesture();
+  }
+
+  function handleClickCapture(event: MouseEvent) {
+    if (!shouldSuppressNextClick || event.timeStamp < clickSuppressionSetAtMs) {
+      return;
+    }
+
+    shouldSuppressNextClick = false;
+    event.preventDefault();
+    event.stopPropagation();
   }
 
   const paneClass =
@@ -498,6 +577,7 @@ export function WorkspaceLayoutPage() {
                       ? `${paneClass} flex-1 border-r border-border`
                       : `${paneClass} flex-1`
                   }
+                  data-pane-index={index()}
                   data-pane-id={pane.id}
                   data-testid={pane.paneTestId}
                 >
@@ -534,6 +614,7 @@ export function WorkspaceLayoutPage() {
                       ? `${paneClass} shrink-0 border-r border-border`
                       : `${paneClass} shrink-0`
                   }
+                  data-pane-index={index()}
                   data-pane-id={pane.id}
                   data-testid={pane.paneTestId}
                   style={{
