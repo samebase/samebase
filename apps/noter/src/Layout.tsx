@@ -15,21 +15,14 @@ export function PublicLayoutShell({ children }: { children: ReactNode }) {
     >
       <WorkspaceLayoutV2FullPage
         left={{
-          reserveHeaderSpace: false,
-          content: (
-            <div className="flex h-full min-h-0 flex-col">
-              <div className="mt-auto">
-                <AppSidebarMetaSection />
-              </div>
-            </div>
-          ),
+          footer: <AppSidebarMetaSection />,
         }}
         main={{
           content: (
             <div className="flex h-full min-h-0 flex-col">{children}</div>
           ),
         }}
-        right={{ reserveHeaderSpace: false }}
+        right={{}}
       />
     </SidebarProvider>
   );

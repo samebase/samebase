@@ -60,10 +60,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
   it("can skip the reserved header row when a pane intentionally has no header", () => {
     const markup = renderToStaticMarkup(
-      <WorkspaceLayoutV2PaneFrame
-        reserveHeaderSpace={false}
-        content={<div>public pane</div>}
-      />,
+      <WorkspaceLayoutV2PaneFrame content={<div>public pane</div>} />,
     );
 
     expect(markup).toContain("public pane");

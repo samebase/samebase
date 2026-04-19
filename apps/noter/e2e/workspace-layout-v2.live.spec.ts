@@ -287,8 +287,7 @@ async function scrollMainEditorToApproximateOffset(
 function getLeftPaneScrollSurface(page: Page) {
   return page
     .getByTestId("workspace-layout-v2-pane-left")
-    .locator("section > div")
-    .nth(1);
+    .locator("section > div.overflow-y-auto");
 }
 
 async function scrollLeftPaneToApproximateOffset(
@@ -452,9 +451,7 @@ test("desktop v2 fixture keeps pane headers fixed while bodies scroll", async ({
     page.getByTestId("workspace-layout-v2-main-editor-surface"),
   );
 
-  const leftHeader = page.getByTestId("workspace-layout-v2-left-pane-header");
   const mainHeader = page.getByTestId("workspace-layout-v2-main-pane-header");
-  const leftHeaderBefore = await getRoundedBoundingBox(leftHeader);
   const mainHeaderBefore = await getRoundedBoundingBox(mainHeader);
   const initialLeftScrollTop = await getLeftPaneScrollTop(page);
   const initialMainVisibleText = await getMainEditorVisibleText(page);
@@ -463,15 +460,12 @@ test("desktop v2 fixture keeps pane headers fixed while bodies scroll", async ({
   await scrollMainEditorToApproximateOffset(page, 320);
   await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
 
-  const leftHeaderAfter = await getRoundedBoundingBox(leftHeader);
   const mainHeaderAfter = await getRoundedBoundingBox(mainHeader);
 
   expect(await getLeftPaneScrollTop(page)).toBeGreaterThan(
     initialLeftScrollTop,
   );
   expect(await getMainEditorVisibleText(page)).not.toBe(initialMainVisibleText);
-  expect(leftHeaderAfter.y).toBe(leftHeaderBefore.y);
-  expect(leftHeaderAfter.height).toBe(leftHeaderBefore.height);
   expect(mainHeaderAfter.y).toBe(mainHeaderBefore.y);
   expect(mainHeaderAfter.height).toBe(mainHeaderBefore.height);
 });
