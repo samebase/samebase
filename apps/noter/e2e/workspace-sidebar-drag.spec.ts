@@ -301,7 +301,7 @@ test("fileview mobile returns to main from the open left sidebar in one human sw
   await expect(overlay).toContainText("duration:");
 });
 
-test("fileview mobile right sidebar handle resizes the pane and keeps it across reopen", async ({
+test("fileview mobile sidebars use a fixed width with no resize handle", async ({
   page,
 }) => {
   await gotoFileViewFixture(page);
@@ -310,23 +310,10 @@ test("fileview mobile right sidebar handle resizes the pane and keeps it across 
   await swipeFromMainToRightSidebar(page);
   await expect(shell).toHaveAttribute("data-mobile-pane", "right");
 
-  const handle = page.getByTestId("workspace-layout-v2-right-resize");
-  await expect(handle).toBeVisible();
-  const initialWidthPx = (
-    await getBox(page, "fileview-layout-right-sidebar-body")
-  ).width;
-
-  await handle.focus();
-  await expect(handle).toBeFocused();
-  await page.keyboard.press("Shift+ArrowLeft");
-  await expect
-    .poll(
-      async () =>
-        (await getBox(page, "fileview-layout-right-sidebar-body")).width,
-    )
-    .toBeGreaterThan(initialWidthPx + 40);
-
-  const resizedWidthPx = (
+  await expect(
+    page.getByTestId("workspace-layout-v2-right-resize"),
+  ).toHaveCount(0);
+  const fixedWidthPx = (
     await getBox(page, "fileview-layout-right-sidebar-body")
   ).width;
   await page.waitForTimeout(200);
@@ -338,7 +325,10 @@ test("fileview mobile right sidebar handle resizes the pane and keeps it across 
       async () =>
         (await getBox(page, "fileview-layout-right-sidebar-body")).width,
     )
-    .toBeGreaterThanOrEqual(resizedWidthPx - 1);
+    .toBeGreaterThanOrEqual(fixedWidthPx - 1);
+  await expect(
+    page.getByTestId("workspace-layout-v2-right-resize"),
+  ).toHaveCount(0);
 });
 
 test("fileview mobile swipe debug overlay captures the left-to-main release metrics", async ({

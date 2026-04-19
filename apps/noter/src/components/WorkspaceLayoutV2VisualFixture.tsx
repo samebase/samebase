@@ -12,7 +12,6 @@ export function WorkspaceLayoutV2VisualFixture() {
     <WorkspaceLayoutV2FixtureFrame
       dataTestId="workspace-layout-v2-visual-fixture"
       left={{
-        headerTestId: "workspace-layout-v2-left-pane-header",
         content: (
           <CodeMirrorFileSurface
             dataTestId="workspace-layout-v2-prosemark-surface"
@@ -37,7 +36,6 @@ export function WorkspaceLayoutV2VisualFixture() {
         ),
       }}
       right={{
-        headerTestId: "workspace-layout-v2-right-pane-header",
         content: (
           <MonacoEditorSurface
             branch="main"
@@ -52,7 +50,6 @@ export function WorkspaceLayoutV2VisualFixture() {
         ),
       }}
       panel={{
-        headerTestId: "workspace-layout-v2-panel-pane-header",
         content: (
           <ProsemarkReadOnly
             filePath="workspace-layout-v2-panel.md"

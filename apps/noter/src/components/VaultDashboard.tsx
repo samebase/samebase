@@ -50,6 +50,7 @@ import {
 } from "react";
 import { isInIframe } from "@/authClient";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
+import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { UserMenu } from "@/components/UserMenu";
 import {
   Dialog,
@@ -2290,6 +2291,7 @@ export function VaultDashboard() {
           left={{
             header: <UserMenu>{userDisplayName || "unknown"}</UserMenu>,
             content: sidebarContent,
+            footer: <AppSidebarMetaSection />,
           }}
           main={{
             header: dashboardHeaderContent,

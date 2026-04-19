@@ -1,14 +1,19 @@
 import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const oxfmtConfigPath = path.join(repoRoot, ".oxfmtrc.json");
+const require = createRequire(import.meta.url);
+const vitePlusPackagePath = require.resolve("vite-plus/package.json");
+const vitePlusRequire = createRequire(vitePlusPackagePath);
+const vpOxfmtBinPath = vitePlusRequire.resolve("oxfmt/bin/oxfmt");
 
 /**
- * Keep generated files aligned with the checked-in formatter config instead of
- * duplicating formatting options across build scripts and tests.
+ * Keep generated files aligned with the formatter version shipped by vite-plus
+ * instead of maintaining a second workspace oxfmt dependency for scripts/tests.
  */
 export function formatWithOxfmt(
   filePath: string,
@@ -20,10 +25,9 @@ export function formatWithOxfmt(
 
   return new Promise((resolve, reject) => {
     const child = spawn(
-      "pnpm",
+      process.execPath,
       [
-        "exec",
-        "oxfmt",
+        vpOxfmtBinPath,
         "--config",
         oxfmtConfigPath,
         `--stdin-filepath=${filePath}`,

@@ -21,6 +21,9 @@ vi.mock("@/Layout", () => ({
   Layout: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="layout">{children}</div>
   ),
+  PublicLayoutShell: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
 }));
 
 vi.mock("@/lib/usePageMetadata", () => ({
