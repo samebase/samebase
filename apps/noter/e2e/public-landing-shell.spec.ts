@@ -60,8 +60,8 @@ type LandingToggleLayout = {
   contentTop: number;
   contentHeight: number;
   authRowHeight: number;
-  waitlistInputTop: number;
-  waitlistInputOffset: number;
+  waitlistLinkTop: number;
+  waitlistLinkOffset: number;
 };
 
 type LandingReloadFrame = {
@@ -123,8 +123,8 @@ async function readLandingToggleLayout(
     const content = document.querySelector(
       '[data-testid="public-landing-content"]',
     );
-    const waitlistInput = document.querySelector(
-      'input[placeholder="email@example.com"]',
+    const waitlistLink = document.querySelector(
+      'a[href="https://x.com/noter_md"]',
     );
     const googleButton = Array.from(document.querySelectorAll("button")).find(
       (button) => button.textContent?.includes("Google") ?? false,
@@ -133,24 +133,24 @@ async function readLandingToggleLayout(
     if (!(content instanceof HTMLElement)) {
       throw new Error("Expected landing content element");
     }
-    if (!(waitlistInput instanceof HTMLElement)) {
-      throw new Error("Expected landing waitlist input element");
+    if (!(waitlistLink instanceof HTMLElement)) {
+      throw new Error("Expected landing waitlist link element");
     }
     if (!(googleButton instanceof HTMLElement)) {
       throw new Error("Expected landing Google button element");
     }
 
     const contentRect = content.getBoundingClientRect();
-    const waitlistInputRect = waitlistInput.getBoundingClientRect();
+    const waitlistLinkRect = waitlistLink.getBoundingClientRect();
     const googleRect = googleButton.getBoundingClientRect();
 
     return {
       contentTop: Number(contentRect.top.toFixed(3)),
       contentHeight: Number(contentRect.height.toFixed(3)),
       authRowHeight: Number(googleRect.height.toFixed(3)),
-      waitlistInputTop: Number(waitlistInputRect.top.toFixed(3)),
-      waitlistInputOffset: Number(
-        (waitlistInputRect.top - contentRect.top).toFixed(3),
+      waitlistLinkTop: Number(waitlistLinkRect.top.toFixed(3)),
+      waitlistLinkOffset: Number(
+        (waitlistLinkRect.top - contentRect.top).toFixed(3),
       ),
     };
   });
@@ -464,11 +464,12 @@ test("public landing renders the routed landing UI directly", async ({
   await expect(
     page.getByRole("button", { name: "Google", includeHidden: true }),
   ).toBeDisabled();
-  await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
-  await expect(page.getByPlaceholder("email@example.com")).toBeEditable();
   await expect(
-    page.getByRole("button", { name: "Join Waitlist" }),
-  ).toBeEnabled();
+    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
+  ).toHaveAttribute("href", "https://x.com/noter_md");
 });
 
 test("landing dev mode shows Google sign-in", async ({ page }) => {
@@ -489,10 +490,9 @@ test("public landing renders the closed Google signup return state", async ({
   await expect(
     landingContent.getByRole("link", { name: "go back" }),
   ).toBeVisible();
-  await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Join Waitlist" }),
-  ).toBeEnabled();
+    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Google", includeHidden: true }),
   ).toHaveCount(0);
@@ -521,8 +521,8 @@ test("landing dev toggle keeps the waitlist row aligned", async ({ page }) => {
   ).toBeLessThanOrEqual(1);
   expect(
     Math.abs(
-      afterToggleLayout.waitlistInputOffset -
-        beforeToggleLayout.waitlistInputOffset,
+      afterToggleLayout.waitlistLinkOffset -
+        beforeToggleLayout.waitlistLinkOffset,
     ),
   ).toBeLessThanOrEqual(1);
   expect(
@@ -762,19 +762,23 @@ test("landing dev toggle ignores duplicate taps", async ({ page }) => {
   await expect(page).toHaveURL(/\/$/);
 });
 
-test("waitlist input preserves typed email through the dev toggle", async ({
-  page,
-}) => {
+test("waitlist link stays visible through the dev toggle", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
-  const waitlistInput = page.getByPlaceholder("email@example.com");
-  await waitlistInput.fill("shell@example.com");
+  const waitlistLink = page.getByRole("link", {
+    name: "https://x.com/noter_md",
+    exact: true,
+  });
+  await expect(waitlistLink).toBeVisible();
+  await expect(waitlistLink).toHaveAttribute("href", "https://x.com/noter_md");
   await page.getByRole("link", { name: "/?dev", exact: true }).click();
   await expect(page).toHaveURL(/\/\?dev$/);
-  await expect(page.getByPlaceholder("email@example.com")).toBeEditable();
-  await expect(page.getByPlaceholder("email@example.com")).toHaveValue(
-    "shell@example.com",
-  );
+  await expect(
+    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
+  ).toHaveAttribute("href", "https://x.com/noter_md");
 });
 
 test("public landing keeps the card height stable while toggling dev mode", async ({
@@ -977,7 +981,9 @@ test("prod-ui mode hides developer password auth controls", async ({
     page.getByRole("button", { name: "Google", includeHidden: true }),
   ).toBeDisabled();
 
-  await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Autofill & sign in" }),
@@ -989,7 +995,9 @@ test("prod-ui mode overrides the landing dev editor", async ({ page }) => {
   await page.goto("/?prod-ui&dev", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
-  await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
   await expect(
     page.locator(
