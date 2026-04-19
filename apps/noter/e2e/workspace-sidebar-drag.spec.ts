@@ -121,9 +121,9 @@ test("fileview mobile carousel moves between left, main, and right panes", async
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");
 
   await scrollFileViewCarouselToPane(page, "left");
-  await expect(
-    page.getByTestId("workspace-layout-v2-left-resize"),
-  ).toBeVisible();
+  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
+    0,
+  );
 
   await scrollFileViewCarouselToPane(page, "main");
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
@@ -133,7 +133,7 @@ test("fileview mobile carousel moves between left, main, and right panes", async
   await scrollFileViewCarouselToPane(page, "right");
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
-  ).toBeVisible();
+  ).toHaveCount(0);
 });
 
 test("fileview mobile sidebars use a fixed width with no resize handle", async ({

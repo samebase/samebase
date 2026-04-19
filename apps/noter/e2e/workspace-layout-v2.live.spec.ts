@@ -144,9 +144,9 @@ test("mobile v2 fixture uses the carousel to move between panes", async ({
   await expect(layout).toHaveAttribute("data-mobile-pane", "main");
 
   await scrollWorkspaceCarouselToPane(page, "left");
-  await expect(
-    page.getByTestId("workspace-layout-v2-left-resize"),
-  ).toBeVisible();
+  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
+    0,
+  );
 
   await scrollWorkspaceCarouselToPane(page, "main");
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
@@ -156,7 +156,7 @@ test("mobile v2 fixture uses the carousel to move between panes", async ({
   await scrollWorkspaceCarouselToPane(page, "right");
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
-  ).toBeVisible();
+  ).toHaveCount(0);
 });
 
 test("mobile v2 fixture vertical main-editor scrolling reveals later Monaco content", async ({
