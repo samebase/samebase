@@ -8,6 +8,10 @@ better long-term model is a single mutable workspace route backed by
 Convex-persisted pane state, not a growing set of long URLs that try to encode
 every open pane.
 
+That workspace should be the durable top-level product object: a lightweight
+folder of GitHub repositories, closer to a simplified GitHub team or
+organization than to a single repository route.
+
 This keeps the URL short, lets the workspace reopen exactly as the user left it,
 and makes "open this branch to the right" or "replace the main pane with the
 file view" a pane-state transition instead of a route-scene remount.
@@ -32,7 +36,7 @@ full pane arrangement in Convex.
 The route should answer:
 
 - which durable workspace/session to load
-- which project or repository the session belongs to
+- which workspace to restore
 - optional shareable overrides for deep links
 
 Convex should answer:
@@ -43,6 +47,30 @@ Convex should answer:
 - how panes are arranged
 - any restorable sizing/open-state details
 
+## Workspace Identity
+
+The durable unit should be a workspace, not a page.
+
+An initial workspace model can stay narrow:
+
+```ts
+type Workspace = {
+  id: string;
+  slug: string;
+  name: string;
+  repositoryFullNames: string[];
+};
+```
+
+This keeps the product mental model simple:
+
+- one workspace is a folder of repos
+- the dashboard is the default view inside that workspace
+- opening a repo or branch changes pane state inside the workspace instead of
+  navigating to a different app surface
+- creating "another dashboard" later can mean saving another view for the same
+  workspace rather than inventing another top-level route
+
 ## Pane State Shape
 
 An initial model can stay simple:
@@ -50,7 +78,6 @@ An initial model can stay simple:
 ```ts
 type WorkspaceSession = {
   workspaceId: string;
-  projectId: string;
   focusedPaneId: string | null;
   panes: {
     id: string;
@@ -73,7 +100,7 @@ The URL should remain canonical and short.
 
 Good examples:
 
-- `/w/noter-md/noter`
+- `/w/noter-md`
 - `/w/<workspaceId>`
 
 Possible additive deep-link overrides:
@@ -84,6 +111,9 @@ Possible additive deep-link overrides:
 The URL should not become the source of truth for every pane, width, tab, and
 focus state. Shared deep links can still resolve to a concrete repository/file
 inside the session, but the durable workbench belongs in Convex.
+
+In practice, the URL should identify the workspace first and only optionally
+override what to focus. The workspace session itself should reopen from Convex.
 
 ## Four-Region Model
 
@@ -120,6 +150,10 @@ Recommended order:
    and `bottom`.
 4. Ship mobile left/main/right pane dragging without resize changes.
 5. Add desktop open/close polish and only then tackle resizing.
+
+The key product shift in that slice is that dashboard, repository tree, file
+editor, and chat become pane kinds inside one workspace shell instead of
+separate route scenes.
 
 ## Why Mobile Before Resize
 
