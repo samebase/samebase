@@ -49,6 +49,7 @@ import {
 type MachinesWorkspaceViewProps = {
   machineInventories: MachinesWorkspaceSidebarInventory[];
   leftSidebarHeader?: ReactNode;
+  leftSidebarFooter?: ReactNode;
   selectedMachineId: string | null;
   selectedThreadId: string | null;
   selectedThread: CodexAppServerThread | null;
@@ -817,6 +818,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
             </div>
           </div>
         ),
+        footer: props.leftSidebarFooter ?? null,
       }}
       main={{
         header: (

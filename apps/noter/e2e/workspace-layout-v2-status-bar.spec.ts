@@ -20,23 +20,17 @@ async function openWorkspaceLayoutStatusBarFixture(page: Page) {
   const rightSurface = page.getByTestId(
     "workspace-layout-v2-right-editor-surface",
   );
-  const leftHeader = page.getByTestId("workspace-layout-v2-left-pane-header");
   const mainHeader = page.getByTestId("workspace-layout-v2-main-pane-header");
-  const rightHeader = page.getByTestId("workspace-layout-v2-right-pane-header");
-  const panelHeader = page.getByTestId("workspace-layout-v2-panel-pane-header");
 
   await expect(fixture).toBeVisible();
-  await expect(leftHeader).toBeVisible();
   await expect(mainHeader).toBeVisible();
-  await expect(rightHeader).toBeVisible();
-  await expect(panelHeader).toBeVisible();
   await expect(leftSurface.locator(".cm-content")).toBeVisible();
   await expect(mainSurface.locator(".view-lines").first()).toBeVisible();
   await expect(rightSurface.locator(".view-lines").first()).toBeVisible();
 
   return {
     fixture,
-    headers: [leftHeader, mainHeader, rightHeader, panelHeader],
+    mainHeader,
   };
 }
 
@@ -55,12 +49,36 @@ async function expectHeaderWithoutBottomBorder(header: Locator) {
 test("workspace layout v2 fixture renders the current pane chrome", async ({
   page,
 }) => {
-  const { fixture, headers } = await openWorkspaceLayoutStatusBarFixture(page);
+  const { fixture, mainHeader } =
+    await openWorkspaceLayoutStatusBarFixture(page);
 
-  await Promise.all(headers.map(expectHeaderWithoutBottomBorder));
+  await expectHeaderWithoutBottomBorder(mainHeader);
 
   await expect(fixture).toHaveScreenshot(
     `workspace-layout-v2-status-bar-${workspaceLayoutStatusBarSnapshotSuffix}.png`,
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.02,
+    },
+  );
+});
+
+test("workspace layout v2 keeps mobile sidebars lightly peeked around main", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/visual-fixture.html?mode=workspace-layout-v2-status-bar", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("workspace-layout-v2-visual-fixture");
+
+  await expect(fixture).toBeVisible();
+  await expect(fixture).toHaveScreenshot(
+    `workspace-layout-v2-status-bar-mobile-${workspaceLayoutStatusBarSnapshotSuffix}.png`,
     {
       animations: "disabled",
       caret: "hide",

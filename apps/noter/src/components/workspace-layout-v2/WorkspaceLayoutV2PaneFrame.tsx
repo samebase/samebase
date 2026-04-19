@@ -9,21 +9,21 @@ export type WorkspaceLayoutV2PaneFrameProps = {
   headerTestId?: string;
 };
 
-/**
- * Reserve one fixed-height header row for every pane so routes can keep controls
- * visible while the body scrolls without the pane height shifting underneath.
- */
 export function WorkspaceLayoutV2PaneFrame({
   header,
   content,
   footer,
   headerTestId,
 }: WorkspaceLayoutV2PaneFrameProps) {
+  console.log({ header, content, footer });
+
   return (
     <section className="flex h-full min-h-0 flex-col bg-background">
-      <div data-testid={headerTestId} className="h-8 shrink-0">
-        {header}
-      </div>
+      {header && (
+        <div data-testid={headerTestId} className="h-8 shrink-0">
+          {header}
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
         <div className="min-h-0 flex-1">{content}</div>

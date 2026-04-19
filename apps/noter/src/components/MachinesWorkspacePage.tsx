@@ -1,4 +1,5 @@
 import { useNow } from "@/hooks/useNow";
+import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import {
@@ -1062,6 +1063,7 @@ export function MachinesWorkspacePage() {
             <SidebarHomeAccountHeader userDisplayName={userDisplayName} />
           ) : null
         }
+        leftSidebarFooter={<AppSidebarMetaSection />}
         pendingPinThreadKey={pendingPinThreadKey}
         pendingConversation={
           selectedPendingConversation === null

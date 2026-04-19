@@ -1,4 +1,4 @@
-import { Layout } from "@/Layout";
+import { Layout, PublicLayoutShell } from "@/Layout";
 import { SignInForm } from "@/SignInForm";
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { useLocation } from "@tanstack/react-router";
@@ -41,7 +41,9 @@ export function RootIndexRoutePage() {
   return (
     <Layout>
       {showPublicLandingWithoutAuthGate ? (
-        <SignInForm />
+        <PublicLayoutShell>
+          <SignInForm />
+        </PublicLayoutShell>
       ) : (
         <>
           <Authenticated>
@@ -52,9 +54,11 @@ export function RootIndexRoutePage() {
             </ApprovalGate>
           </Authenticated>
           <Unauthenticated>
-            <Suspense fallback={null}>
-              <SignInForm />
-            </Suspense>
+            <PublicLayoutShell>
+              <Suspense fallback={null}>
+                <SignInForm />
+              </Suspense>
+            </PublicLayoutShell>
           </Unauthenticated>
         </>
       )}

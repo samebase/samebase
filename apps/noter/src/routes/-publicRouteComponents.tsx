@@ -1,5 +1,5 @@
 import { Suspense, useMemo, type ReactNode } from "react";
-import { Layout } from "@/Layout";
+import { Layout, PublicLayoutShell } from "@/Layout";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 
@@ -23,5 +23,11 @@ export function RoutedPage(props: {
 
   const content = <Suspense fallback={null}>{props.children}</Suspense>;
 
-  return props.withLayout ? <Layout>{content}</Layout> : content;
+  return props.withLayout ? (
+    <Layout>
+      <PublicLayoutShell>{content}</PublicLayoutShell>
+    </Layout>
+  ) : (
+    content
+  );
 }
