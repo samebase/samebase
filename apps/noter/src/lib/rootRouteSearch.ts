@@ -32,6 +32,7 @@ const rootRouteSearchSchema = z.object({
   ),
   dev: z.preprocess(readOptionalFlag, z.literal(true).optional()),
   devtools: z.preprocess(readOptionalFlag, z.literal(true).optional()),
+  perf: z.preprocess(readOptionalFlag, z.literal(true).optional()),
   "prod-ui": z.preprocess(readOptionalFlag, z.literal(true).optional()),
   signup: z.preprocess(
     readOptionalGoogleSignupReturn,

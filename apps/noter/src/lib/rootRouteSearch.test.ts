@@ -11,6 +11,7 @@ describe("rootRouteSearch", () => {
         auth: "google",
         dev: "",
         devtools: "true",
+        perf: "",
         "prod-ui": "",
         signup: "google",
       }),
@@ -18,6 +19,7 @@ describe("rootRouteSearch", () => {
       auth: "google",
       dev: true,
       devtools: true,
+      perf: true,
       "prod-ui": true,
       signup: "google",
     });
@@ -29,6 +31,7 @@ describe("rootRouteSearch", () => {
         auth: "github",
         dev: "1",
         devtools: "false",
+        perf: "0",
         "prod-ui": false,
         signup: "github",
       }),
@@ -37,10 +40,11 @@ describe("rootRouteSearch", () => {
 
   it("parses the root search contract from a search string", () => {
     expect(
-      readRootRouteSearch("?prod-ui&dev&auth=google&signup=google"),
+      readRootRouteSearch("?prod-ui&dev&perf&auth=google&signup=google"),
     ).toEqual({
       auth: "google",
       dev: true,
+      perf: true,
       "prod-ui": true,
       signup: "google",
     });

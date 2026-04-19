@@ -227,10 +227,11 @@ describe("appRouter", () => {
     ).toBeNull();
   });
 
-  it("retains the root devtools flag across logo route search updates", async () => {
+  it("retains the root debug flags across logo route search updates", async () => {
     const router = await renderRoute(
       buildPathWithUpdatedQuery({ pathname: "/logo" }, (searchParams) => {
         setQueryParam(searchParams, "devtools", true);
+        setQueryParam(searchParams, "perf", true);
         setQueryParam(searchParams, "rot", "10");
       }),
     );
@@ -249,6 +250,7 @@ describe("appRouter", () => {
       buildSearchString(
         updateQueryParams(undefined, (searchParams) => {
           setQueryParam(searchParams, "devtools", true);
+          setQueryParam(searchParams, "perf", true);
         }),
       ),
     );

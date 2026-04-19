@@ -7,6 +7,7 @@ import { ReactNode, useEffect, type MouseEvent } from "react";
 import { useConvexAuth } from "convex/react";
 import { AppPageFrame } from "@/components/AppPageFrame";
 import { AppBuildStatusBar } from "@/components/AppBuildStatusBar";
+import { AppPerformanceHud } from "@/components/AppPerformanceHud";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -32,6 +33,7 @@ export function Layout({ children }: { children: ReactNode }) {
     location.pathname !== "/privacy";
   const showPublicNavigation =
     !isLoading && !isAuthenticated && location.pathname !== "/";
+  const showPerformanceHud = isAuthenticated && rootRouteSearch.perf === true;
   const landingDevToggleSearch = buildLandingDevToggleSearch(rootRouteSearch);
   const landingDevToggleHref = router.buildLocation({
     to: "/",
@@ -80,6 +82,9 @@ export function Layout({ children }: { children: ReactNode }) {
           landingDevToggleHref={landingDevToggleHref}
           landingDevToggleLabel={landingDevToggleLabel}
           onLandingDevToggleClick={handleLandingDevToggleClick}
+          performanceGraphic={
+            showPerformanceHud ? <AppPerformanceHud /> : undefined
+          }
           repoUrl={repoUrl}
           showLandingDevToggle={showLandingDevToggle}
           showLandingLegalLinks={showLandingLegalLinks}

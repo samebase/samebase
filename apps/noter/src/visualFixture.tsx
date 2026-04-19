@@ -113,6 +113,7 @@ import {
   SidebarMediaUploadVisualFixture,
   type SidebarMediaUploadVisualMode,
 } from "@/components/SidebarMediaUploadVisualFixture";
+import { AppPerformanceHudVisualFixture } from "@/components/AppPerformanceHudVisualFixture";
 import {
   ThreadBrowserVisualFixture,
   type ThreadBrowserVisualMode,
@@ -157,6 +158,7 @@ type VisualFixtureMode =
   | "password-auth"
   | "vault-dashboard-branch-pr-title"
   | "button"
+  | "app-performance-hud"
   | AppBootFailureStateVisualMode
   | "corner-notch"
   | "corner-notch-detail";
@@ -292,6 +294,7 @@ const MISC_VISUAL_MODES = [
   "password-auth",
   "vault-dashboard-branch-pr-title",
   "button",
+  "app-performance-hud",
   "app-boot-failure-stale",
   "app-boot-failure-generic",
   "corner-notch",
@@ -546,6 +549,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "button") {
     return <ButtonVisualFixture />;
+  }
+
+  if (mode === "app-performance-hud") {
+    return <AppPerformanceHudVisualFixture />;
   }
 
   if (

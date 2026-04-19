@@ -1,4 +1,4 @@
-import { useEffect, useRef, type MouseEventHandler } from "react";
+import { ReactNode, useEffect, useRef, type MouseEventHandler } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   APP_BUILD_COMMIT_LINK_TEST_ID,
@@ -16,6 +16,7 @@ type AppBuildStatusBarProps = {
   landingDevToggleHref?: string;
   landingDevToggleLabel?: string;
   onLandingDevToggleClick?: MouseEventHandler<HTMLAnchorElement>;
+  performanceGraphic?: ReactNode;
   repoUrl?: string;
   showLandingDevToggle?: boolean;
   showLandingLegalLinks?: boolean;
@@ -32,6 +33,7 @@ export function AppBuildStatusBar({
   landingDevToggleHref,
   landingDevToggleLabel,
   onLandingDevToggleClick,
+  performanceGraphic,
   repoUrl = "",
   showLandingDevToggle = false,
   showLandingLegalLinks = false,
@@ -106,6 +108,11 @@ export function AppBuildStatusBar({
           >
             {landingDevToggleLabel}
           </a>
+        ) : null}
+        {performanceGraphic ? (
+          <div className="inline-flex h-full items-center text-[11px]">
+            {performanceGraphic}
+          </div>
         ) : null}
         <div className="inline-flex select-text items-center gap-2 font-mono">
           <span data-testid={APP_BUILD_VERSION_TEST_ID}>

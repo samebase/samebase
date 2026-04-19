@@ -34,7 +34,7 @@ export const Route = createRootRoute({
   component: AppRouterRoot,
   notFoundComponent: NotFoundRoutePage,
   search: {
-    middlewares: [retainSearchParams(["devtools"])],
+    middlewares: [retainSearchParams(["devtools", "perf"])],
   },
   validateSearch: validateRootRouteSearch,
 });
