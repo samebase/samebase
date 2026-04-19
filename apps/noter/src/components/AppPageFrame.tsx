@@ -12,11 +12,11 @@ export function AppPageFrame({
   dataTestId?: string;
 }) {
   return (
-    <div
+    <main
       data-testid={dataTestId}
       className="flex min-h-svh w-full flex-col bg-background"
     >
-      <main className="flex min-h-0 flex-1 flex-col">{children}</main>
-    </div>
+      {children}
+    </main>
   );
 }
