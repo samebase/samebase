@@ -10,19 +10,6 @@ import { cn } from "@/lib/utils";
 
 const KEYBOARD_RESIZE_TIMEOUT_MS = 120;
 
-function ResizeGripLines({ className }: { className?: string }) {
-  return (
-    <div
-      aria-hidden="true"
-      className={cn("flex flex-col items-center gap-1 text-current", className)}
-    >
-      {Array.from({ length: 3 }, (_, index) => (
-        <span key={index} className="h-1 w-1 rounded-full bg-current" />
-      ))}
-    </div>
-  );
-}
-
 function clampSizePx(sizePx: number, minSizePx: number, maxSizePx: number) {
   return Math.max(minSizePx, Math.min(sizePx, maxSizePx));
 }
@@ -326,12 +313,17 @@ export function WorkspaceLayoutV2ResizeHandle({
               gripSizeClassName,
             )}
           >
-            <ResizeGripLines
+            <div
+              aria-hidden="true"
               className={cn(
-                "relative z-10 text-foreground/70",
+                "relative z-10 flex flex-col items-center gap-1 text-foreground/70",
                 isHorizontalHandle && "rotate-90",
               )}
-            />
+            >
+              {Array.from({ length: 3 }, (_, index) => (
+                <span key={index} className="h-1 w-1 rounded-full bg-current" />
+              ))}
+            </div>
           </div>
         </div>
       </div>
