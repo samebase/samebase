@@ -2,6 +2,7 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+import { Layout, PublicLayoutShell } from "./Layout";
 
 const { useConvexAuthMock } = vi.hoisted(() => ({
   useConvexAuthMock: vi.fn(),
@@ -25,8 +26,6 @@ vi.mock("@/lib/rootRouteSearch", async (importOriginal) => {
   };
 });
 
-import { Layout } from "./Layout";
-
 describe("Layout", () => {
   afterEach(() => {
     useConvexAuthMock.mockReset();
@@ -45,7 +44,9 @@ describe("Layout", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/"]}>
         <Layout>
-          <div>landing</div>
+          <PublicLayoutShell>
+            <div>landing</div>
+          </PublicLayoutShell>
         </Layout>
       </TestRouterProvider>,
     );
@@ -66,7 +67,9 @@ describe("Layout", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/oauth/mcp/consent"]}>
         <Layout>
-          <div>consent</div>
+          <PublicLayoutShell>
+            <div>consent</div>
+          </PublicLayoutShell>
         </Layout>
       </TestRouterProvider>,
     );
@@ -94,5 +97,21 @@ describe("Layout", () => {
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
     expect(markup).not.toContain("Home");
+  });
+
+  it("renders children directly without auth-specific shell branching", () => {
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: true,
+    });
+
+    const markup = renderToStaticMarkup(
+      <Layout>
+        <div>plain layout child</div>
+      </Layout>,
+    );
+
+    expect(markup).toContain("plain layout child");
+    expect(markup).not.toContain("/terms");
   });
 });

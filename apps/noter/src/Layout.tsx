@@ -1,5 +1,4 @@
 import { ReactNode, useEffect } from "react";
-import { useConvexAuth } from "convex/react";
 import { AppPageFrame } from "@/components/AppPageFrame";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { SidebarProvider } from "@/components/sidebar";
@@ -10,7 +9,7 @@ import {
 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 
-function PublicLayoutShell({ children }: { children: ReactNode }) {
+export function PublicLayoutShell({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider
       defaultLeftDesktopWidthPx={DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX}
@@ -45,8 +44,6 @@ function PublicLayoutShell({ children }: { children: ReactNode }) {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useConvexAuth();
-
   useEffect(() => {
     console.info("[noter] build metadata", {
       appCommit: __APP_COMMIT__,
@@ -55,13 +52,5 @@ export function Layout({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  return (
-    <AppPageFrame>
-      {!isAuthenticated ? (
-        <PublicLayoutShell>{children}</PublicLayoutShell>
-      ) : (
-        children
-      )}
-    </AppPageFrame>
-  );
+  return <AppPageFrame>{children}</AppPageFrame>;
 }
