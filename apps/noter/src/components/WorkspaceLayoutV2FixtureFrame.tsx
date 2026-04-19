@@ -30,7 +30,7 @@ export function WorkspaceLayoutV2FixtureFrame({
   right,
 }: WorkspaceLayoutV2FixtureFrameProps) {
   return (
-    <Layout dataTestId={dataTestId}>
+    <Layout>
       <SidebarProvider
         defaultOpen={defaultOpen}
         defaultLeftDesktopWidthPx={WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX}
@@ -43,6 +43,7 @@ export function WorkspaceLayoutV2FixtureFrame({
         shortcutSidebarSide={shortcutSidebarSide}
       >
         <WorkspaceLayoutV2FullPage
+          dataTestId={dataTestId}
           left={left}
           main={main}
           panel={panel}

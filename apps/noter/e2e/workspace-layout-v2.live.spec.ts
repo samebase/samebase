@@ -325,9 +325,9 @@ async function tapExposedMainStrip(page: Page, side: "left" | "right") {
     return;
   }
 
-  // The main pane still spans the full viewport in track coordinates, so the
-  // tap target has to be translated into the main pane's local box before we
-  // dispatch a native touch sequence through Chromium's real mobile pipeline.
+  // The main pane is narrower than the mobile viewport so both sidebars can
+  // stay slightly visible. Translate the viewport-edge tap into the pane's
+  // local box before dispatching the native touch sequence.
   const viewportTapX = side === "left" ? viewportWidth - 20 : 20;
   const tapX = Math.max(
     1,
@@ -357,36 +357,6 @@ async function tapExposedMainStrip(page: Page, side: "left" | "right") {
     type: "touchEnd",
     touchPoints: [],
   });
-}
-
-async function expectResizeHandleToAlignWithPaneBoundary(
-  page: Page,
-  side: "left" | "right",
-) {
-  const pane = page.getByTestId(
-    side === "left"
-      ? "workspace-layout-v2-pane-left"
-      : "workspace-layout-v2-pane-right",
-  );
-  const handle = page.getByTestId(
-    side === "left"
-      ? "workspace-layout-v2-left-resize"
-      : "workspace-layout-v2-right-resize",
-  );
-  const paneBox = await pane.boundingBox();
-  const handleBox = await handle.boundingBox();
-
-  expect(paneBox).not.toBeNull();
-  expect(handleBox).not.toBeNull();
-  if (paneBox === null || handleBox === null) {
-    return;
-  }
-
-  const paneBoundaryX = side === "left" ? paneBox.x + paneBox.width : paneBox.x;
-  const handleCenterX = handleBox.x + handleBox.width / 2;
-  expect(
-    Math.abs(Math.round(handleCenterX - paneBoundaryX)),
-  ).toBeLessThanOrEqual(1);
 }
 
 async function getLeftPaneScrollTop(page: Page) {
@@ -470,7 +440,7 @@ test("desktop v2 fixture keeps pane headers fixed while bodies scroll", async ({
   expect(mainHeaderAfter.height).toBe(mainHeaderBefore.height);
 });
 
-test("mobile v2 fixture requires returning to main before opening right", async ({
+test("mobile v2 fixture keeps adjacent panes peeked and skips sidebar resize handles", async ({
   page,
 }) => {
   const viewport = page.viewportSize();
@@ -480,17 +450,40 @@ test("mobile v2 fixture requires returning to main before opening right", async 
   await openWorkspaceLayoutV2Fixture(page);
 
   const layout = page.locator("[data-workspace-layout-v2]");
+  const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
+  const mainPane = page.getByTestId("workspace-layout-v2-pane-main");
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
   await expect(layout).toHaveAttribute("data-mobile-pane", "main");
   await expect(
     page.getByRole("button", { name: "Toggle Left Sidebar" }),
   ).toHaveCount(0);
+  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByTestId("workspace-layout-v2-right-resize"),
+  ).toHaveCount(0);
+
+  const leftPaneBox = await leftPane.boundingBox();
+  const mainPaneBox = await mainPane.boundingBox();
+  const rightPaneBox = await rightPane.boundingBox();
+  expect(leftPaneBox).not.toBeNull();
+  expect(mainPaneBox).not.toBeNull();
+  expect(rightPaneBox).not.toBeNull();
+  if (leftPaneBox !== null && mainPaneBox !== null && rightPaneBox !== null) {
+    expect(leftPaneBox.x + leftPaneBox.width).toBeGreaterThan(0);
+    expect(Math.round(mainPaneBox.x)).toBeGreaterThan(0);
+    expect(
+      Math.round(viewportWidth - (mainPaneBox.x + mainPaneBox.width)),
+    ).toBeGreaterThan(0);
+    expect(rightPaneBox.x).toBeLessThan(viewportWidth);
+  }
 
   await openLeftPaneFromMain(page);
-  await expect(
-    page.getByTestId("workspace-layout-v2-left-resize"),
-  ).toBeVisible();
   await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
-  await expectResizeHandleToAlignWithPaneBoundary(page, "left");
+  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
+    0,
+  );
 
   // V2 is intentionally adjacent-only on mobile: a gesture from left can
   // return to main, but it cannot jump directly across to right.
@@ -501,17 +494,18 @@ test("mobile v2 fixture requires returning to main before opening right", async 
   );
 
   await openRightPaneFromMain(page);
+  await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
-  ).toBeVisible();
-  await page.waitForTimeout(MOBILE_PANE_TRANSITION_WAIT_MS);
-  await expectResizeHandleToAlignWithPaneBoundary(page, "right");
-  const rightPaneBox = await page
+  ).toHaveCount(0);
+  const reopenedRightPaneBox = await page
     .getByTestId("workspace-layout-v2-pane-right")
     .boundingBox();
-  expect(rightPaneBox).not.toBeNull();
-  if (rightPaneBox !== null) {
-    expect(Math.round(rightPaneBox.x + rightPaneBox.width)).toBe(viewportWidth);
+  expect(reopenedRightPaneBox).not.toBeNull();
+  if (reopenedRightPaneBox !== null) {
+    expect(
+      Math.round(reopenedRightPaneBox.x + reopenedRightPaneBox.width),
+    ).toBe(viewportWidth);
   }
 
   await swipeFromRightToMain(page);

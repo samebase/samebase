@@ -284,24 +284,20 @@ type WorkspaceLayoutV2MobileViewportProps =
   WorkspaceLayoutV2ResolvedPaneContent & {
     activeResizeSide: "left" | "right" | "top" | null;
     isMobileDragging: boolean;
-    leftResizeHandle: ReactNode;
     mobileMetrics: WorkspaceLayoutV2Metrics;
     mobileTrackWidthPx: number;
     mobileVisibleStartPx: number;
-    rightResizeHandle: ReactNode;
   };
 
 function WorkspaceLayoutV2MobileViewport({
   activeResizeSide,
   isMobileDragging,
   leftContent,
-  leftResizeHandle,
   mainContent,
   mobileMetrics,
   mobileTrackWidthPx,
   mobileVisibleStartPx,
   rightContent,
-  rightResizeHandle,
 }: WorkspaceLayoutV2MobileViewportProps) {
   return (
     <div
@@ -313,8 +309,7 @@ function WorkspaceLayoutV2MobileViewport({
           "absolute inset-y-0 left-0 will-change-transform",
           isMobileDragging || activeResizeSide !== null
             ? null
-            : // Resizes move pane widths synchronously. Only idle pane changes
-              // should animate the shared track.
+            : // Only idle pane changes should animate the shared track.
               "transition-transform duration-75",
         )}
         style={{
@@ -329,22 +324,16 @@ function WorkspaceLayoutV2MobileViewport({
             width: `${getWorkspaceLayoutV2PaneWidthPx("left", mobileMetrics)}px`,
           }}
         >
-          <div
-            className={cn(
-              "flex h-full min-h-0 flex-col overflow-hidden border-r",
-              activeResizeSide === "left" ? "border-primary" : "border-border",
-            )}
-          >
+          <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-border">
             {leftContent}
           </div>
-          {leftResizeHandle}
         </div>
 
         <div
           className="absolute inset-y-0 z-0 flex min-h-0 flex-col overflow-hidden bg-background"
           style={{
             left: `${getWorkspaceLayoutV2PaneStartPx("main", mobileMetrics)}px`,
-            width: `${mobileMetrics.viewportWidthPx}px`,
+            width: `${getWorkspaceLayoutV2PaneWidthPx("main", mobileMetrics)}px`,
           }}
         >
           {mainContent}
@@ -358,15 +347,9 @@ function WorkspaceLayoutV2MobileViewport({
             width: `${getWorkspaceLayoutV2PaneWidthPx("right", mobileMetrics)}px`,
           }}
         >
-          <div
-            className={cn(
-              "flex h-full min-h-0 flex-col overflow-hidden border-l",
-              activeResizeSide === "right" ? "border-primary" : "border-border",
-            )}
-          >
+          <div className="flex h-full min-h-0 flex-col overflow-hidden border-l border-border">
             {rightContent}
           </div>
-          {rightResizeHandle}
         </div>
       </div>
     </div>
@@ -447,16 +430,10 @@ type UseWorkspaceLayoutV2ResizeHandlesArgs = {
   desktopLeftWidthPx: number;
   desktopMainWidthPx: number;
   desktopRightWidthPx: number;
-  isMobile: boolean;
-  isMobileDragging: boolean;
   leftDesktopOpen: boolean;
-  mobileMetrics: WorkspaceLayoutV2Metrics;
-  mobilePane: WorkspaceLayoutV2Pane;
   rightDesktopOpen: boolean;
   setLeftDesktopWidthPx: Dispatch<SetStateAction<number>>;
-  setLeftMobileWidthPx: Dispatch<SetStateAction<number>>;
   setRightDesktopWidthPx: Dispatch<SetStateAction<number>>;
-  setRightMobileWidthPx: Dispatch<SetStateAction<number>>;
   viewportWidthPx: number;
 };
 
@@ -469,36 +446,17 @@ function useWorkspaceLayoutV2ResizeHandles({
   desktopLeftWidthPx,
   desktopMainWidthPx,
   desktopRightWidthPx,
-  isMobile,
-  isMobileDragging,
   leftDesktopOpen,
-  mobileMetrics,
-  mobilePane,
   rightDesktopOpen,
   setLeftDesktopWidthPx,
-  setLeftMobileWidthPx,
   setRightDesktopWidthPx,
-  setRightMobileWidthPx,
   viewportWidthPx,
 }: UseWorkspaceLayoutV2ResizeHandlesArgs) {
   const desktopResizeHandleMaxWidthPx =
     getDesktopSidebarMaxWidthPx(viewportWidthPx);
-  const mobileResizeHandleMaxWidthPx =
-    getMobileSidebarMaxWidthPx(viewportWidthPx);
 
   const handleLeftWidthChange = useCallback(
     (nextWidthPx: number) => {
-      if (isMobile) {
-        setLeftMobileWidthPx(
-          clampNumber(
-            Math.round(nextWidthPx),
-            MOBILE_SIDEBAR_MIN_WIDTH_PX,
-            mobileResizeHandleMaxWidthPx,
-          ),
-        );
-        return;
-      }
-
       setLeftDesktopWidthPx(
         clampNumber(
           Math.round(nextWidthPx),
@@ -507,28 +465,11 @@ function useWorkspaceLayoutV2ResizeHandles({
         ),
       );
     },
-    [
-      desktopResizeHandleMaxWidthPx,
-      isMobile,
-      mobileResizeHandleMaxWidthPx,
-      setLeftDesktopWidthPx,
-      setLeftMobileWidthPx,
-    ],
+    [desktopResizeHandleMaxWidthPx, setLeftDesktopWidthPx],
   );
 
   const handleRightWidthChange = useCallback(
     (nextWidthPx: number) => {
-      if (isMobile) {
-        setRightMobileWidthPx(
-          clampNumber(
-            Math.round(nextWidthPx),
-            MOBILE_SIDEBAR_MIN_WIDTH_PX,
-            mobileResizeHandleMaxWidthPx,
-          ),
-        );
-        return;
-      }
-
       setRightDesktopWidthPx(
         clampNumber(
           Math.round(nextWidthPx),
@@ -537,47 +478,12 @@ function useWorkspaceLayoutV2ResizeHandles({
         ),
       );
     },
-    [
-      desktopResizeHandleMaxWidthPx,
-      isMobile,
-      mobileResizeHandleMaxWidthPx,
-      setRightDesktopWidthPx,
-      setRightMobileWidthPx,
-    ],
+    [desktopResizeHandleMaxWidthPx, setRightDesktopWidthPx],
   );
 
   return useMemo<WorkspaceLayoutV2ResizeHandleConfig[]>(() => {
     if (viewportWidthPx <= 0) {
       return [];
-    }
-
-    if (isMobile) {
-      const mobileHandles: WorkspaceLayoutV2ResizeHandleConfig[] = [];
-      if (!isMobileDragging && mobilePane === "left") {
-        mobileHandles.push({
-          currentWidthPx: mobileMetrics.leftWidthPx,
-          dataTestId: "workspace-layout-v2-left-resize",
-          maxWidthPx: mobileResizeHandleMaxWidthPx,
-          minWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
-          onWidthChange: handleLeftWidthChange,
-          // Mobile handles render inside the live sidebar panes, so their
-          // position is local to the pane edge rather than the viewport.
-          positionPx: mobileMetrics.leftWidthPx,
-          side: "left",
-        });
-      }
-      if (!isMobileDragging && mobilePane === "right") {
-        mobileHandles.push({
-          currentWidthPx: mobileMetrics.rightWidthPx,
-          dataTestId: "workspace-layout-v2-right-resize",
-          maxWidthPx: mobileResizeHandleMaxWidthPx,
-          minWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
-          onWidthChange: handleRightWidthChange,
-          positionPx: 0,
-          side: "right",
-        });
-      }
-      return mobileHandles;
     }
 
     const desktopHandles: WorkspaceLayoutV2ResizeHandleConfig[] = [];
@@ -611,12 +517,7 @@ function useWorkspaceLayoutV2ResizeHandles({
     desktopRightWidthPx,
     handleLeftWidthChange,
     handleRightWidthChange,
-    isMobile,
-    isMobileDragging,
     leftDesktopOpen,
-    mobileMetrics,
-    mobilePane,
-    mobileResizeHandleMaxWidthPx,
     rightDesktopOpen,
     viewportWidthPx,
   ]);
@@ -1022,16 +923,12 @@ function WorkspaceLayoutV2JustPanes({
     isMobile,
     leftDesktopOpen,
     leftDesktopWidthPx,
-    leftMobileWidthPx,
     mobilePane,
     rightDesktopOpen,
     rightDesktopWidthPx,
-    rightMobileWidthPx,
     setLeftDesktopWidthPx,
-    setLeftMobileWidthPx,
     setMobilePane,
     setRightDesktopWidthPx,
-    setRightMobileWidthPx,
   } = useSidebar();
 
   const desktopLeftWidthPx = getDesktopSidebarWidthPx({
@@ -1059,24 +956,12 @@ function WorkspaceLayoutV2JustPanes({
 
   const mobileMetrics = useMemo<WorkspaceLayoutV2Metrics>(
     () => ({
-      leftWidthPx: clampNumber(
-        leftMobileWidthPx,
-        MOBILE_SIDEBAR_MIN_WIDTH_PX,
-        mobileSidebarMaxWidthPx,
-      ),
-      rightWidthPx: clampNumber(
-        rightMobileWidthPx,
-        MOBILE_SIDEBAR_MIN_WIDTH_PX,
-        mobileSidebarMaxWidthPx,
-      ),
+      leftWidthPx: mobileSidebarMaxWidthPx,
+      mainWidthPx: mobileSidebarMaxWidthPx,
+      rightWidthPx: mobileSidebarMaxWidthPx,
       viewportWidthPx: viewportSize.widthPx,
     }),
-    [
-      leftMobileWidthPx,
-      mobileSidebarMaxWidthPx,
-      rightMobileWidthPx,
-      viewportSize.widthPx,
-    ],
+    [mobileSidebarMaxWidthPx, viewportSize.widthPx],
   );
 
   const { isMobileDragging, mobileDragOffsetPx, mobileGestureDebugSnapshot } =
@@ -1100,28 +985,16 @@ function WorkspaceLayoutV2JustPanes({
     desktopLeftWidthPx,
     desktopMainWidthPx,
     desktopRightWidthPx,
-    isMobile,
-    isMobileDragging,
     leftDesktopOpen,
-    mobileMetrics,
-    mobilePane,
     rightDesktopOpen,
     setLeftDesktopWidthPx,
-    setLeftMobileWidthPx,
     setRightDesktopWidthPx,
-    setRightMobileWidthPx,
     viewportWidthPx: viewportSize.widthPx,
   });
 
   const resolvedLeftContent = renderPaneContent(left);
   const resolvedMainContent = renderPaneContent(main);
   const resolvedRightContent = renderPaneContent(right);
-  const leftResizeHandle = resizeHandles.find(
-    (resizeHandle) => resizeHandle.side === "left",
-  );
-  const rightResizeHandle = resizeHandles.find(
-    (resizeHandle) => resizeHandle.side === "right",
-  );
 
   function renderResizeHandle(
     resizeHandle: WorkspaceLayoutV2ResizeHandleConfig,
@@ -1133,7 +1006,7 @@ function WorkspaceLayoutV2JustPanes({
         dataTestId={resizeHandle.dataTestId}
         minSizePx={resizeHandle.minWidthPx}
         maxSizePx={resizeHandle.maxWidthPx}
-        pointerTarget={isMobile ? "grip" : "edge"}
+        pointerTarget="edge"
         positionPx={resizeHandle.positionPx}
         resizeFrom={resizeHandle.side}
         onResizeStart={() => {
@@ -1175,21 +1048,11 @@ function WorkspaceLayoutV2JustPanes({
           activeResizeSide={activeResizeSide}
           isMobileDragging={isMobileDragging}
           leftContent={resolvedLeftContent}
-          leftResizeHandle={
-            leftResizeHandle === undefined
-              ? null
-              : renderResizeHandle(leftResizeHandle)
-          }
           mainContent={mainViewportContent}
           mobileMetrics={mobileMetrics}
           mobileTrackWidthPx={mobileTrackWidthPx}
           mobileVisibleStartPx={mobileVisibleStartPx}
           rightContent={resolvedRightContent}
-          rightResizeHandle={
-            rightResizeHandle === undefined
-              ? null
-              : renderResizeHandle(rightResizeHandle)
-          }
         />
       ) : (
         <WorkspaceLayoutV2DesktopViewport

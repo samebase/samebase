@@ -115,14 +115,14 @@ describe("Layout", () => {
     expect(markup).not.toContain("/terms");
   });
 
-  it("passes through an outer test id for shared fixtures", () => {
+  it("keeps Layout free of fixture-only test ids", () => {
     const markup = renderToStaticMarkup(
-      <Layout dataTestId="layout-shell">
+      <Layout>
         <div>fixture child</div>
       </Layout>,
     );
 
-    expect(markup).toContain('data-testid="layout-shell"');
     expect(markup).toContain("fixture child");
+    expect(markup).not.toContain("data-testid=");
   });
 });

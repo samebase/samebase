@@ -65,7 +65,7 @@ test("workspace layout v2 fixture renders the current pane chrome", async ({
   );
 });
 
-test("workspace layout v2 keeps the mobile grip unobtrusive", async ({
+test("workspace layout v2 keeps mobile sidebars lightly peeked around main", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });

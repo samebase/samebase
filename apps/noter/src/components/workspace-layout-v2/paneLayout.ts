@@ -2,6 +2,7 @@ export type WorkspaceLayoutV2Pane = "left" | "main" | "right";
 
 export type WorkspaceLayoutV2Metrics = {
   leftWidthPx: number;
+  mainWidthPx: number;
   rightWidthPx: number;
   viewportWidthPx: number;
 };
@@ -40,7 +41,7 @@ export function getWorkspaceLayoutV2PaneWidthPx(
     case "left":
       return metrics.leftWidthPx;
     case "main":
-      return metrics.viewportWidthPx;
+      return metrics.mainWidthPx;
     case "right":
       return metrics.rightWidthPx;
     default:
@@ -58,7 +59,39 @@ export function getWorkspaceLayoutV2PaneStartPx(
     case "main":
       return metrics.leftWidthPx;
     case "right":
-      return metrics.leftWidthPx + metrics.viewportWidthPx;
+      return metrics.leftWidthPx + metrics.mainWidthPx;
+    default:
+      return pane satisfies never;
+  }
+}
+
+function getWorkspaceLayoutV2PaneSidePeekPx(
+  pane: WorkspaceLayoutV2Pane,
+  metrics: WorkspaceLayoutV2Metrics,
+) {
+  const visibleStripPx = Math.max(
+    0,
+    metrics.viewportWidthPx - getWorkspaceLayoutV2PaneWidthPx(pane, metrics),
+  );
+
+  switch (pane) {
+    case "left":
+      return {
+        leftPeekPx: 0,
+        rightPeekPx: visibleStripPx,
+      };
+    case "main": {
+      const leftPeekPx = Math.floor(visibleStripPx / 2);
+      return {
+        leftPeekPx,
+        rightPeekPx: visibleStripPx - leftPeekPx,
+      };
+    }
+    case "right":
+      return {
+        leftPeekPx: visibleStripPx,
+        rightPeekPx: 0,
+      };
     default:
       return pane satisfies never;
   }
@@ -68,26 +101,18 @@ export function getWorkspaceLayoutV2PaneVisibleStartPx(
   pane: WorkspaceLayoutV2Pane,
   metrics: WorkspaceLayoutV2Metrics,
 ) {
-  switch (pane) {
-    case "left":
-      return 0;
-    case "main":
-      return metrics.leftWidthPx;
-    case "right":
-      // The right pane is anchored to the track's right edge so the viewport
-      // always sees the sidebar flush-right plus the exposed main strip.
-      return (
-        getWorkspaceLayoutV2TrackWidthPx(metrics) - metrics.viewportWidthPx
-      );
-    default:
-      return pane satisfies never;
-  }
+  const { leftPeekPx } = getWorkspaceLayoutV2PaneSidePeekPx(pane, metrics);
+
+  return Math.max(
+    0,
+    getWorkspaceLayoutV2PaneStartPx(pane, metrics) - leftPeekPx,
+  );
 }
 
 export function getWorkspaceLayoutV2TrackWidthPx(
   metrics: WorkspaceLayoutV2Metrics,
 ) {
-  return metrics.leftWidthPx + metrics.viewportWidthPx + metrics.rightWidthPx;
+  return metrics.leftWidthPx + metrics.mainWidthPx + metrics.rightWidthPx;
 }
 
 function getWorkspaceLayoutV2VisibleStartRange(
