@@ -24,8 +24,10 @@ export function PublicLayoutShell({ children }: { children: ReactNode }) {
             <WorkspaceLayoutV2PaneFrame
               reserveHeaderSpace={false}
               content={
-                <div className="mt-auto min-h-0 flex-1">
-                  <AppSidebarMetaSection />
+                <div className="flex h-full min-h-0 flex-col">
+                  <div className="mt-auto">
+                    <AppSidebarMetaSection />
+                  </div>
                 </div>
               }
             />
@@ -33,7 +35,9 @@ export function PublicLayoutShell({ children }: { children: ReactNode }) {
           main={
             <WorkspaceLayoutV2PaneFrame
               reserveHeaderSpace={false}
-              content={children}
+              content={
+                <div className="flex h-full min-h-0 flex-col">{children}</div>
+              }
             />
           }
           right={<WorkspaceLayoutV2PaneFrame reserveHeaderSpace={false} />}
@@ -44,13 +48,5 @@ export function PublicLayoutShell({ children }: { children: ReactNode }) {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    console.info("[noter] build metadata", {
-      appCommit: __APP_COMMIT__,
-      appCommitNumber: __APP_COMMIT_NUMBER__,
-      appRepoUrl: __APP_REPO_URL__,
-    });
-  }, []);
-
   return <AppPageFrame>{children}</AppPageFrame>;
 }
