@@ -12,6 +12,10 @@ import { readPackageVersion } from "../../scripts/readPackageVersion.ts";
 import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
 import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
 import {
+  injectStaticPublicLandingIntoIndexHtml,
+  renderStaticPublicLandingMarkup,
+} from "./src/lib/staticPublicLanding";
+import {
   parseLandingSlogans,
   selectLandingSlogan,
 } from "./src/lib/landingSlogans";
@@ -119,6 +123,12 @@ const daytonaConvexProxyPath = daytonaConvexProxyTarget
   : null;
 const shouldIncludeVisualFixture = process.env.PLAYWRIGHT === "1";
 const landingPageSlogan = resolveLandingPageSlogan();
+const staticPublicLandingMarkup = renderStaticPublicLandingMarkup({
+  appCommit,
+  appCommitNumber,
+  landingPageSlogan,
+  repoUrl: appRepoUrl,
+});
 const staticLogoSvgAssetPath = path.resolve(
   currentDir,
   "public/logo-static.svg",
@@ -231,6 +241,18 @@ function syncStaticLogoSvgAsset() {
   }
 
   writeFileSync(staticLogoSvgAssetPath, `${nextStaticLogoSvgMarkup}\n`, "utf8");
+}
+
+function prerenderStaticPublicLandingIndexPlugin() {
+  return {
+    name: "prerender-static-public-landing-index",
+    transformIndexHtml(html: string) {
+      return injectStaticPublicLandingIntoIndexHtml({
+        indexHtml: html,
+        staticMarkup: staticPublicLandingMarkup,
+      });
+    },
+  };
 }
 
 /**
@@ -648,6 +670,7 @@ export default defineConfig({
     __LANDING_PAGE_SLOGAN__: JSON.stringify(landingPageSlogan),
   },
   plugins: [
+    prerenderStaticPublicLandingIndexPlugin(),
     syncStaticLogoSvgAssetPlugin(),
     syncStaticInstallIconSvgAssetPlugin(),
     syncStaticNoterSyncScriptAssetPlugin(),

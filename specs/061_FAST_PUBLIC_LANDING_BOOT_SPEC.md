@@ -4,13 +4,14 @@
 
 - Status: Implemented
 - Owner: Noter frontend
-- Last updated: 2026-04-16
-- Related files: `apps/noter/index.html`, `apps/noter/src/bootstrap.ts`,
+- Last updated: 2026-04-20
+- Related files: `apps/noter/index.html`, `apps/noter/src/entry.tsx`,
   `apps/noter/src/main.tsx`, `apps/noter/src/App.tsx`,
   `apps/noter/src/SignInForm.tsx`, `apps/noter/src/authClient.ts`,
-  `apps/noter/src/components/FastPublicLandingShell.tsx`,
+  `apps/noter/src/components/PublicLandingShell.tsx`,
   `apps/noter/src/components/LandingCopy.tsx`,
   `apps/noter/src/lib/landingCopy.ts`,
+  `apps/noter/src/lib/staticPublicLanding.ts`,
   `apps/noter/src/components/ProsemarkReadOnly.tsx`,
   `apps/noter/src/lib/publicLandingAuthState.ts`,
   `apps/noter/e2e/public-landing-shell.spec.ts`
@@ -18,15 +19,18 @@
 ## Summary
 
 The public landing route should feel fast before the full Noter app is ready.
-The implemented design keeps the existing SPA and auth flow, but changes the
-boot sequence for plain `/`:
+The implemented design keeps the existing SPA and auth flow, but now also ships
+the unauthenticated landing markup directly in `index.html` for plain `/`-shaped
+requests:
 
-1. Render a minimal Tailwind landing shell immediately.
-2. Start loading the real app in the background after a short delay.
-3. Hand off to the full app once it finishes booting.
+1. Pre-render the public landing shell into `index.html` at build time.
+2. Keep that HTML in page source for `/` and `/?prod-ui`.
+3. Clear it immediately for non-landing routes or remembered auth states.
+4. Hydrate the shell into the full SPA when the browser stays on the landing
+   route.
 
-This is an explicit shell-first boot, not a route split to a separate Cloudflare
-page and not a migration to server rendering.
+This is a build-time prerendered shell inside the existing SPA, not a route
+split to a separate Cloudflare page and not a migration to server rendering.
 
 ## Goals
 
@@ -51,24 +55,27 @@ page and not a migration to server rendering.
 
 ## Implemented Design
 
-### Entry-point split
+### Build-time shell in page source
 
-- `index.html` now loads `src/bootstrap.ts` instead of mounting the full app
-  directly.
-- Global app CSS still loads up front so the shell and the full app share the
-  same visual baseline.
+- `index.html` now carries a build-time rendered public landing shell inside
+  `#root`.
+- `vite.config.ts` selects the current build slogan and renders the public
+  landing shell markup during the HTML transform step.
+- Global app CSS still loads up front so the prerendered shell and the hydrated
+  app share the same visual baseline.
 
 ### Fast-shell eligibility
 
-The fast landing shell is used only when all of these are true:
+The prerendered landing shell stays in place only when all of these are true:
 
 - pathname is `/`
 - query param `dev` is absent
 - query param `auth` is absent
+- query param `signup=google` is absent
 - local auth flag `noter_was_authenticated` is not set
-- no restored Convex auth token is present in local storage
 
-If any of those checks fail, the full app mounts immediately.
+If any of those checks fail, a tiny inline script clears the prerendered root
+before the full app mounts.
 
 If local storage is unavailable in the current browser context, bootstrap treats
 those storage-backed auth checks as absent instead of throwing.
@@ -85,21 +92,13 @@ The fast shell renders:
 The shell content comes from shared landing-copy data so the shell and the
 post-boot app stay aligned.
 
-### Background app boot
-
-- `bootstrap.ts` delays the full-app boot by `150ms`.
-- After that delay it prefers `requestIdleCallback` when available and falls
-  back to double `requestAnimationFrame`.
-- The full app is loaded through dynamic import of `src/main.tsx`.
-
-This makes the shell observable before the main app work begins while still
-keeping the handoff fast.
-
 ### Full-app handoff
 
-- `main.tsx` now exports `mountApp()` instead of auto-mounting on import.
-- Once the background import resolves, `mountApp()` replaces the shell with the
-  normal app tree.
+- `main.tsx` exports `mountApp()` instead of auto-mounting on import.
+- When the prerendered landing root is still present, `mountApp()` hydrates it
+  instead of clearing and remounting from an empty container.
+- When the prerendered landing root was cleared for another route or auth state,
+  `mountApp()` falls back to a normal client mount.
 
 The final product surface remains the same SPA after handoff.
 
@@ -150,6 +149,7 @@ smaller than before.
 `apps/noter/e2e/public-landing-shell.spec.ts` covers:
 
 - shell appears before the full unauthenticated app UI takes over
+- the HTML response for `/` already contains the landing shell markup
 - reloading the production-shaped public shell keeps the landing card anchored
   instead of re-centering after the first visible paint
 - public landing stays within the current Playwright navigation budget
@@ -179,6 +179,7 @@ The implementation was validated through the normal pre-commit path, including:
 ## Acceptance Criteria
 
 - Plain `/` shows the landing shell before the full app UI renders.
+- Plain `/` includes the landing shell in page source before JavaScript runs.
 - Plain `/` keeps the landing card and landing-copy block stable during reload
   instead of visibly shrinking after the first paint.
 - Plain `/` remembers the last resolved password-auth mode so local worktree
@@ -193,6 +194,8 @@ The implementation was validated through the normal pre-commit path, including:
 - Restored popup-auth tokens prevent the public shell from flashing on the next
   `/` load.
 - Full-app boot still happens automatically after the shell appears.
+- Non-landing routes clear the prerendered shell before mounting their own app
+  content.
 - Heavy authenticated surfaces are not bundled into the initial public app entry
   chunk.
 - Playwright has an explicit timing-based assertion for the public landing.

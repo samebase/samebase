@@ -87,7 +87,44 @@
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root"><!--__NOTER_STATIC_PUBLIC_LANDING__--></div>
+    <script>
+      (() => {
+        const root = document.getElementById("root");
+        if (
+          !root ||
+          root.getAttribute("data-static-public-landing") !== "true"
+        ) {
+          return;
+        }
+
+        const searchParams = new URLSearchParams(window.location.search);
+        const shouldKeepStaticLanding =
+          window.location.pathname === "/" &&
+          !searchParams.has("dev") &&
+          searchParams.get("auth") !== "google" &&
+          searchParams.get("signup") !== "google";
+
+        if (!shouldKeepStaticLanding) {
+          root.innerHTML = "";
+          root.removeAttribute("data-static-public-landing");
+          return;
+        }
+
+        try {
+          const authFlag = window.localStorage.getItem(
+            "noter_was_authenticated",
+          );
+          const authProvider = window.localStorage.getItem(
+            "noter_auth_provider",
+          );
+          if (authFlag === "1" || authProvider !== null) {
+            root.innerHTML = "";
+            root.removeAttribute("data-static-public-landing");
+          }
+        } catch {}
+      })();
+    </script>
     <script type="module" src="/src/entry.tsx"></script>
   </body>
 </html>

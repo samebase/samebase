@@ -1,4 +1,4 @@
-import { DEFAULT_LANDING_SLOGAN } from "@/lib/landingSlogans";
+import { DEFAULT_LANDING_SLOGAN } from "./landingSlogans";
 
 export const landingPageBullets = [
   "your notes and code live in a real repository",
@@ -13,9 +13,16 @@ export const landingPageSlogan =
     ? __LANDING_PAGE_SLOGAN__.trim()
     : DEFAULT_LANDING_SLOGAN;
 
-export const landingPageMarkdown = `## ${landingPageSlogan}
+export function buildLandingPageMarkdown(
+  slogan: string,
+  bullets = landingPageBullets,
+): string {
+  return `## ${slogan}
 
-${landingPageBullets.map((bullet) => `- ${bullet}`).join("\n")}`;
+${bullets.map((bullet) => `- ${bullet}`).join("\n")}`;
+}
+
+export const landingPageMarkdown = buildLandingPageMarkdown(landingPageSlogan);
 
 export type LandingCopyContent = {
   slogan: string;

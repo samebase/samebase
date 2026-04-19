@@ -6,6 +6,7 @@ import { client } from "./lib/convexClient";
 import { AppRouterProvider } from "./lib/appRouter";
 import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
 import { initializeAppBootRecovery } from "@/lib/appBootRecovery";
+import { STATIC_PUBLIC_LANDING_ROOT_ATTRIBUTE } from "@/lib/staticPublicLandingShared";
 import { QueryProvider } from "./lib/providers/query-provider";
 import { OptionalThemeProvider } from "./lib/themeStorageFallback";
 
@@ -19,7 +20,12 @@ export function mountApp() {
 
   initializeAppBootRecovery();
 
-  ReactDOM.createRoot(document.getElementById("root")!).render(
+  const rootElement = document.getElementById("root");
+  if (!rootElement) {
+    throw new Error("Missing root element");
+  }
+
+  const appTree = (
     <React.StrictMode>
       <AppBootErrorBoundary>
         <OptionalThemeProvider>
@@ -30,6 +36,15 @@ export function mountApp() {
           </ConvexAuthProvider>
         </OptionalThemeProvider>
       </AppBootErrorBoundary>
-    </React.StrictMode>,
+    </React.StrictMode>
   );
+
+  if (
+    rootElement.getAttribute(STATIC_PUBLIC_LANDING_ROOT_ATTRIBUTE) === "true"
+  ) {
+    ReactDOM.hydrateRoot(rootElement, appTree);
+    return;
+  }
+
+  ReactDOM.createRoot(rootElement).render(appTree);
 }

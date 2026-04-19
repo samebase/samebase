@@ -472,6 +472,19 @@ test("public landing renders the routed landing UI directly", async ({
   ).toHaveAttribute("href", "https://x.com/noter_md");
 });
 
+test("public landing page source contains prerendered landing markup", async ({
+  request,
+}) => {
+  const response = await request.get("/");
+  const html = await response.text();
+
+  expect(html).toContain('data-static-public-landing="true"');
+  expect(html).toContain('data-testid="public-landing-content"');
+  expect(html).toContain("https://x.com/noter_md");
+  expect(html).toContain("/terms");
+  expect(html).toContain("/privacy");
+});
+
 test("landing dev mode shows Google sign-in", async ({ page }) => {
   await page.goto("/?dev", { waitUntil: "networkidle" });
 

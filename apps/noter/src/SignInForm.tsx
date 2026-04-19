@@ -1,15 +1,11 @@
 import { useNoterAuthActions } from "@/authClient";
 import { PublicLandingCopyStatic } from "@/components/PublicLandingCopyStatic";
+import { PublicLandingShell } from "@/components/PublicLandingShell";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
-import { PublicLandingLogo } from "@/components/PublicLandingLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { landingPageMarkdown } from "@/lib/landingCopy";
-import {
-  PUBLIC_LANDING_COPY_TEST_ID,
-  PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
-} from "@/lib/publicLanding";
 import {
   getVisiblePasswordAuthSurface,
   rememberPublicLandingPasswordAuthMode,
@@ -99,75 +95,61 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
   }, [isLandingCopyEditable]);
 
   return (
-    <div
-      data-testid={PUBLIC_LANDING_SCROLL_SHELL_TEST_ID}
-      className="flex min-h-0 flex-1 flex-col"
-    >
-      <div className="container my-auto">
-        <div
-          data-testid="public-landing-content"
-          className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8"
-        >
-          {topNotice}
-          <PublicLandingLogo
-            autoRotate={isLandingCopyEditable}
-            enableViewSnapping={!landingDevModeEnabled}
-          />
-          {showGoogleSignupClosedState ? (
-            <GoogleSignupClosedNotice />
-          ) : (
-            <>
-              <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
-                {isLandingCopyEditable ? (
-                  <div className="landing-copy-edit-shell relative">
-                    <div
-                      aria-hidden="true"
-                      className="landing-copy-static-shell pointer-events-none"
-                    >
-                      <PublicLandingCopyStatic
-                        markdown={landingMarkdownDraft}
-                      />
-                    </div>
-                    {showEditableLandingCopy ? (
-                      <div className="landing-copy-edit-overlay absolute inset-x-0 top-0">
-                        <ProsemarkReadOnly
-                          value={landingMarkdownDraft}
-                          className="text-sm"
-                          editable
-                          styleVariant="landingCopy"
-                          onChange={setLandingMarkdownDraft}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                ) : (
-                  <PublicLandingCopyStatic markdown={landingMarkdownDraft} />
-                )}
-              </div>
-              <div className="flex flex-col gap-2">
-                <SignInWithGoogle
-                  visible={showGoogleAuth}
-                  markPublicSignupReturn={markPublicSignupReturn}
-                />
-                {passwordAuthSurface !== "hidden" ? (
-                  <PasswordAuthForm surface={passwordAuthSurface} />
-                ) : null}
-              </div>
-            </>
-          )}
-          <div className="flex flex-col gap-2 pt-2">
-            <a
-              className="text-center text-sm text-muted-foreground underline underline-offset-4"
-              href="https://x.com/noter_md"
-              rel="noopener noreferrer"
-              target="_blank"
+    <PublicLandingShell
+      topNotice={topNotice}
+      autoRotate={isLandingCopyEditable}
+      enableViewSnapping={!landingDevModeEnabled}
+      showGoogleSignupClosedState={showGoogleSignupClosedState}
+      closedState={<GoogleSignupClosedNotice />}
+      copy={
+        isLandingCopyEditable ? (
+          <div className="landing-copy-edit-shell relative">
+            <div
+              aria-hidden="true"
+              className="landing-copy-static-shell pointer-events-none"
             >
-              https://x.com/noter_md
-            </a>
+              <PublicLandingCopyStatic markdown={landingMarkdownDraft} />
+            </div>
+            {showEditableLandingCopy ? (
+              <div className="landing-copy-edit-overlay absolute inset-x-0 top-0">
+                <ProsemarkReadOnly
+                  value={landingMarkdownDraft}
+                  className="text-sm"
+                  editable
+                  styleVariant="landingCopy"
+                  onChange={setLandingMarkdownDraft}
+                />
+              </div>
+            ) : null}
           </div>
+        ) : (
+          <PublicLandingCopyStatic markdown={landingMarkdownDraft} />
+        )
+      }
+      authControls={
+        <>
+          <SignInWithGoogle
+            visible={showGoogleAuth}
+            markPublicSignupReturn={markPublicSignupReturn}
+          />
+          {passwordAuthSurface !== "hidden" ? (
+            <PasswordAuthForm surface={passwordAuthSurface} />
+          ) : null}
+        </>
+      }
+      footer={
+        <div className="flex flex-col gap-2 pt-2">
+          <a
+            className="text-center text-sm text-muted-foreground underline underline-offset-4"
+            href="https://x.com/noter_md"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            https://x.com/noter_md
+          </a>
         </div>
-      </div>
-    </div>
+      }
+    />
   );
 }
 
