@@ -79,7 +79,7 @@ function renderStaticPublicLandingFooterMarkup(): string {
 }
 
 function renderStaticPublicLandingLogoMarkup(): string {
-  return `<div class="mx-auto w-full max-w-[11rem]"><div data-testid="public-landing-logo-stage" class="relative w-full"><img data-testid="public-landing-logo" src="${escapeHtml(createStaticLogoSvgDataUrl())}" alt="Noter logo" width="360" height="360" loading="eager" decoding="async" fetchpriority="high" class="block h-auto w-full relative z-10 transition-opacity duration-500 ease-out motion-reduce:transition-none opacity-100"/></div></div>`;
+  return `<div class="mx-auto w-full max-w-[11rem]"><div data-testid="public-landing-logo-stage" class="relative w-full"><img data-testid="public-landing-logo" src="${escapeHtml(createStaticLogoSvgDataUrl())}" alt="Noter logo" width="360" height="360" loading="eager" decoding="async" fetchpriority="high" class="block h-auto w-full relative z-10 transition-opacity duration-200 ease-out motion-reduce:transition-none opacity-100"/></div></div>`;
 }
 
 export function renderStaticPublicLandingMarkup(
