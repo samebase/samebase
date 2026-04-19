@@ -35,9 +35,18 @@ export function PublicLayoutShell({ children }: { children: ReactNode }) {
   );
 }
 
-export function Layout({ children }: { children: ReactNode }) {
+export function Layout({
+  children,
+  dataTestId,
+}: {
+  children: ReactNode;
+  dataTestId?: string;
+}) {
   return (
-    <main className="flex min-h-svh w-full flex-col bg-background">
+    <main
+      data-testid={dataTestId}
+      className="flex min-h-svh w-full flex-col bg-background"
+    >
       {children}
     </main>
   );

@@ -114,4 +114,15 @@ describe("Layout", () => {
     expect(markup).toContain("plain layout child");
     expect(markup).not.toContain("/terms");
   });
+
+  it("passes through an outer test id for shared fixtures", () => {
+    const markup = renderToStaticMarkup(
+      <Layout dataTestId="layout-shell">
+        <div>fixture child</div>
+      </Layout>,
+    );
+
+    expect(markup).toContain('data-testid="layout-shell"');
+    expect(markup).toContain("fixture child");
+  });
 });
