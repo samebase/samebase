@@ -64,3 +64,26 @@ test("workspace layout v2 fixture renders the current pane chrome", async ({
     },
   );
 });
+
+test("workspace layout v2 keeps the mobile grip unobtrusive", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/visual-fixture.html?mode=workspace-layout-v2-status-bar", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("workspace-layout-v2-visual-fixture");
+
+  await expect(fixture).toBeVisible();
+  await expect(fixture).toHaveScreenshot(
+    `workspace-layout-v2-status-bar-mobile-${workspaceLayoutStatusBarSnapshotSuffix}.png`,
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.02,
+    },
+  );
+});

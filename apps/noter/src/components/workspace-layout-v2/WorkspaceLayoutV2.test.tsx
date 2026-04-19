@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2";
 import { WorkspaceLayoutV2PaneFrame } from "./WorkspaceLayoutV2PaneFrame";
+import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
 
 describe("WorkspaceLayoutV2FullPage", () => {
   it("keeps main header content rendered while sidebar toggles stay desktop-only", () => {
@@ -65,5 +66,24 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
     expect(markup).toContain("public pane");
     expect(markup).not.toContain('class="h-8 shrink-0"');
+  });
+
+  it("keeps idle grip handles visually unobtrusive", () => {
+    const markup = renderToStaticMarkup(
+      <WorkspaceLayoutV2ResizeHandle
+        currentSizePx={280}
+        dataTestId="workspace-layout-v2-left-resize"
+        maxSizePx={480}
+        minSizePx={160}
+        onSizeChange={() => {}}
+        pointerTarget="grip"
+        positionPx={280}
+        resizeFrom="left"
+      />,
+    );
+
+    expect(markup).toContain('data-testid="workspace-layout-v2-left-resize"');
+    expect(markup).not.toContain("border-border");
+    expect(markup).not.toContain("bg-background");
   });
 });

@@ -305,7 +305,10 @@ export function WorkspaceLayoutV2ResizeHandle({
         >
           <div
             className={cn(
-              "flex items-center justify-center border border-border bg-background",
+              "flex items-center justify-center",
+              // Keep the idle mobile grip visually light so it does not mask
+              // pane content sitting directly under the edge affordance.
+              isResizing && "border border-border bg-background",
               isHorizontalHandle ? "h-4 w-16" : "h-16 w-4",
             )}
           >
