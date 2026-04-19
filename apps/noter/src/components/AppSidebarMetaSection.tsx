@@ -112,10 +112,7 @@ export function AppSidebarMetaSection() {
   }, [commitLabel, commitUrl]);
 
   return (
-    <div
-      data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
-      className="border-t border-border/50 p-3"
-    >
+    <div data-testid={APP_BUILD_STATUS_BAR_TEST_ID} className="px-3 pt-3 pb-8">
       <div className="flex flex-col gap-3 text-xs text-muted-foreground">
         {showPublicNavigation ||
         showLandingLegalLinks ||

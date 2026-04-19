@@ -19,7 +19,9 @@ function PublicLayoutPane({
   return (
     <section className="flex h-full min-h-0 flex-col bg-background">
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
-        <div className={contentClassName ?? "min-h-0 flex-1"}>{children}</div>
+        <div className={contentClassName ?? "flex min-h-0 flex-1 flex-col"}>
+          {children}
+        </div>
       </div>
     </section>
   );
