@@ -32,6 +32,28 @@ describe("WorkspaceLayoutV2FullPage", () => {
     );
   });
 
+  it("omits the right toggle when a route does not provide a right pane", () => {
+    const markup = renderToStaticMarkup(
+      <SidebarProvider>
+        <WorkspaceLayoutV2FullPage
+          left={{
+            content: <div>left pane</div>,
+          }}
+          main={{
+            header: <div data-testid="main-header-actions">/landing</div>,
+            content: <div>main pane</div>,
+          }}
+        />
+      </SidebarProvider>,
+    );
+
+    expect(markup).toContain('aria-label="Toggle Left Sidebar"');
+    expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
+    expect((markup.match(/hidden h-8 w-8 md:inline-flex/g) ?? []).length).toBe(
+      1,
+    );
+  });
+
   it("disables the shared bottom-panel close button when panel closure is blocked", () => {
     const markup = renderToStaticMarkup(
       <SidebarProvider>

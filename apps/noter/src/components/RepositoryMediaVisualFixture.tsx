@@ -161,7 +161,6 @@ export function RepositoryMediaVisualFixture({
           </div>
         ),
       }}
-      right={{}}
     />
   );
 }

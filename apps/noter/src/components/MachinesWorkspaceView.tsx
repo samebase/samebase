@@ -857,7 +857,6 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
           />
         ),
       }}
-      right={{}}
     />
   );
 }

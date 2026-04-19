@@ -98,7 +98,6 @@ export function RepositoryRouteConnectState({
           </div>
         ),
       }}
-      right={{}}
     />
   );
 }

@@ -17,6 +17,13 @@ function clampNumber(value: number, minValue: number, maxValue: number) {
   return Math.max(minValue, Math.min(value, maxValue));
 }
 
+function hasWorkspaceLayoutV2PaneWidth(
+  pane: WorkspaceLayoutV2Pane,
+  metrics: WorkspaceLayoutV2Metrics,
+) {
+  return getWorkspaceLayoutV2PaneWidthPx(pane, metrics) > 0;
+}
+
 function getCommitThresholdPx(distancePx: number, action: "open" | "close") {
   if (distancePx <= 0) {
     return 0;
@@ -81,10 +88,34 @@ function getWorkspaceLayoutV2PaneSidePeekPx(
         rightPeekPx: visibleStripPx,
       };
     case "main": {
-      const leftPeekPx = Math.floor(visibleStripPx / 2);
+      const hasLeftPane = hasWorkspaceLayoutV2PaneWidth("left", metrics);
+      const hasRightPane = hasWorkspaceLayoutV2PaneWidth("right", metrics);
+
+      if (hasLeftPane && hasRightPane) {
+        const leftPeekPx = Math.floor(visibleStripPx / 2);
+        return {
+          leftPeekPx,
+          rightPeekPx: visibleStripPx - leftPeekPx,
+        };
+      }
+
+      if (hasLeftPane) {
+        return {
+          leftPeekPx: visibleStripPx,
+          rightPeekPx: 0,
+        };
+      }
+
+      if (hasRightPane) {
+        return {
+          leftPeekPx: 0,
+          rightPeekPx: visibleStripPx,
+        };
+      }
+
       return {
-        leftPeekPx,
-        rightPeekPx: visibleStripPx - leftPeekPx,
+        leftPeekPx: 0,
+        rightPeekPx: 0,
       };
     }
     case "right":
@@ -123,28 +154,31 @@ function getWorkspaceLayoutV2VisibleStartRange(
     "main",
     metrics,
   );
-  const rightVisibleStartPx = getWorkspaceLayoutV2PaneVisibleStartPx(
-    "right",
-    metrics,
-  );
+  const hasLeftPane = hasWorkspaceLayoutV2PaneWidth("left", metrics);
+  const hasRightPane = hasWorkspaceLayoutV2PaneWidth("right", metrics);
+  const rightVisibleStartPx = hasRightPane
+    ? getWorkspaceLayoutV2PaneVisibleStartPx("right", metrics)
+    : mainVisibleStartPx;
 
   switch (pane) {
     case "left":
       // An open left sidebar may only drag back toward main.
       return {
         maxVisibleStartPx: mainVisibleStartPx,
-        minVisibleStartPx: 0,
+        minVisibleStartPx: hasLeftPane ? 0 : mainVisibleStartPx,
       };
     case "main":
       // Main is the only pane that can travel in both directions.
       return {
         maxVisibleStartPx: rightVisibleStartPx,
-        minVisibleStartPx: 0,
+        minVisibleStartPx: hasLeftPane ? 0 : mainVisibleStartPx,
       };
     case "right":
       // An open right sidebar may only drag back toward main.
       return {
-        maxVisibleStartPx: rightVisibleStartPx,
+        maxVisibleStartPx: hasRightPane
+          ? rightVisibleStartPx
+          : mainVisibleStartPx,
         minVisibleStartPx: mainVisibleStartPx,
       };
     default:
@@ -242,7 +276,10 @@ export function getWorkspaceLayoutV2SettledPane(args: {
     currentPane: args.currentPane,
     dragOffsetPx: args.dragOffsetPx,
   });
-  if (candidatePane === null) {
+  if (
+    candidatePane === null ||
+    !hasWorkspaceLayoutV2PaneWidth(candidatePane, args.metrics)
+  ) {
     return args.currentPane;
   }
 
