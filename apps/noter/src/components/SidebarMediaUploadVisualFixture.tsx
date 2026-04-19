@@ -117,7 +117,6 @@ export function SidebarMediaUploadVisualFixture() {
             </div>
           ),
         }}
-        right={{}}
       />
       <MediaUploadDialog
         isOpen={true}
