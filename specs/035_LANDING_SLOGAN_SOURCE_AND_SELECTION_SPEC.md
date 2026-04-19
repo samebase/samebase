@@ -2,19 +2,20 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Implemented
 - Owner: Noter product
-- Last updated: 2026-03-04
+- Last updated: 2026-04-20
 - Related files:
   - `slogans.md`
-  - `apps/noter/src/SignInForm.tsx`
-  - `TODO.md`
+  - `apps/noter/vite.config.ts`
+  - `apps/noter/src/lib/landingCopy.ts`
+  - `apps/noter/src/lib/landingSlogans.ts`
 
 ## Summary
 
 Define a markdown-first source of truth for landing slogans so copy can be
-updated without touching code, and select a random slogan for each separate
-landing request in the sign-in view.
+updated without touching code, and select one slogan at build time so each
+deploy keeps a stable landing headline until the next build.
 
 ## Why This Spec Exists
 
@@ -23,13 +24,13 @@ want slogan management to be content-first:
 
 1. edit one markdown file,
 2. keep slogans short and memorable,
-3. pick one slogan at random for each request.
+3. let each new build pick a fresh slogan without reshuffling on refresh.
 
 ## Goals
 
 1. Keep slogans in a single markdown file with one slogan per line.
 2. Make slogan updates possible with no code changes.
-3. Select one slogan at random for each separate request.
+3. Select one slogan once per frontend build.
 4. Preserve the existing landing headline as one of the options.
 
 ## Non-Goals (This Step)
@@ -57,20 +58,29 @@ Initial file content:
 
 ## Selection Strategy (Implemented)
 
-The current implementation selects randomly per request:
+The current implementation selects randomly per build:
 
-1. Read slogans from `slogans.md`.
+1. During Vite config evaluation, read slogans from `slogans.md`.
 2. Parse Markdown bullet items (`- slogan`) into a slogan array.
-3. Select `slogans[floor(Math.random() * slogans.length)]`.
+3. Select `slogans[floor(Math.random() * slogans.length)]` once.
+4. Inject the selected slogan into the frontend bundle as a build constant.
+5. Render the injected slogan from shared landing-copy code in both the fast
+   public shell and the post-boot app.
+
+This keeps the current SPA + fast-shell architecture from
+`specs/061_FAST_PUBLIC_LANDING_BOOT_SPEC.md` while avoiding the copy reshuffle
+that made the landing feel less static than intended.
 
 ## UX Constraints
 
 1. Slogan changes must not require deploy-time code edits.
-2. Landing should still work if file has one slogan.
-3. If parsing fails, fall back to current static headline.
+2. Reloading the same deployed landing page must keep the same slogan.
+3. Landing should still work if the file has one slogan.
+4. If parsing fails, fall back to the current static headline.
 
 ## Acceptance Criteria
 
 1. A non-technical edit to `slogans.md` can add/remove slogans.
 2. The file contains only line-based slogans and stays human-readable.
-3. Landing integration can be implemented later without changing file format.
+3. The same build keeps one stable landing slogan across refreshes.
+4. A later build may pick a different slogan without changing the file format.

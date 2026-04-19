@@ -12,6 +12,10 @@ import { readPackageVersion } from "../../scripts/readPackageVersion.ts";
 import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
 import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
 import {
+  parseLandingSlogans,
+  selectLandingSlogan,
+} from "./src/lib/landingSlogans";
+import {
   type PageMetadata,
   PRIVACY_PAGE_METADATA,
   TERMS_PAGE_METADATA,
@@ -114,6 +118,7 @@ const daytonaConvexProxyPath = daytonaConvexProxyTarget
   ? DAYTONA_CONVEX_PROXY_PATH
   : null;
 const shouldIncludeVisualFixture = process.env.PLAYWRIGHT === "1";
+const landingPageSlogan = resolveLandingPageSlogan();
 const staticLogoSvgAssetPath = path.resolve(
   currentDir,
   "public/logo-static.svg",
@@ -132,6 +137,7 @@ const runtimeNoterConnectConfigPath = path.resolve(
   currentDir,
   `dist${noterConnectConfigPathname}`,
 );
+const landingSlogansPath = path.resolve(gitRoot, "slogans.md");
 const privacyPolicyMarkdownPath = path.resolve(
   currentDir,
   "src/content/privacy-policy.md",
@@ -195,6 +201,19 @@ function readNoterSyncPackageScript(): string {
   return readFileSync(noterSyncPackageScriptPath, "utf8")
     .replace(/\r\n/g, "\n")
     .trimEnd();
+}
+
+/**
+ * Freeze the public landing slogan once per Vite process so refreshes reuse the
+ * same copy until the next dev-server restart or production build.
+ */
+function resolveLandingPageSlogan(): string {
+  try {
+    const slogansRaw = readFileSync(landingSlogansPath, "utf8");
+    return selectLandingSlogan(parseLandingSlogans(slogansRaw));
+  } catch {
+    return selectLandingSlogan([]);
+  }
 }
 
 function syncStaticLogoSvgAsset() {
@@ -626,6 +645,7 @@ export default defineConfig({
     __APP_REPO_URL__: JSON.stringify(appRepoUrl),
     __DAYTONA_SDK_VERSION__: JSON.stringify(daytonaSdkVersion),
     __DAYTONA_CONVEX_PROXY_PATH__: JSON.stringify(daytonaConvexProxyPath),
+    __LANDING_PAGE_SLOGAN__: JSON.stringify(landingPageSlogan),
   },
   plugins: [
     syncStaticLogoSvgAssetPlugin(),

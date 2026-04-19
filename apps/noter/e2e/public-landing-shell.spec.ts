@@ -550,6 +550,25 @@ test("public landing stays vertically stable while the page reloads", async ({
   expectStableLandingReloadFrames(reloadFrames);
 });
 
+test("public landing keeps the same slogan across reloads", async ({
+  page,
+}) => {
+  // `/?prod-ui` exercises the shipped public landing shell without the local
+  // worktree auth affordances changing the route surface under test.
+  await page.goto("/?prod-ui", { waitUntil: "networkidle" });
+
+  const slogan = page
+    .getByTestId("public-landing-content")
+    .getByRole("heading", { level: 2 });
+  await expect(slogan).toBeVisible();
+  const initialSlogan = (await slogan.textContent())?.trim();
+
+  expect(initialSlogan).toBeTruthy();
+
+  await page.reload({ waitUntil: "networkidle" });
+  await expect(slogan).toHaveText(initialSlogan ?? "");
+});
+
 test("local landing keeps the remembered password auth slot stable on reload", async ({
   page,
 }) => {

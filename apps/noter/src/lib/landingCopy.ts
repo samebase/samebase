@@ -1,5 +1,4 @@
-import { parseLandingSlogans, selectLandingSlogan } from "@/lib/landingSlogans";
-import slogansRaw from "../../../../slogans.md?raw";
+import { DEFAULT_LANDING_SLOGAN } from "@/lib/landingSlogans";
 
 export const landingPageBullets = [
   "your notes and code live in a real repository",
@@ -8,9 +7,11 @@ export const landingPageBullets = [
   "use Codex to ship small apps directly from your workspace",
 ] as const;
 
-const landingPageSlogans = parseLandingSlogans(slogansRaw);
-
-export const landingPageSlogan = selectLandingSlogan(landingPageSlogans);
+export const landingPageSlogan =
+  typeof __LANDING_PAGE_SLOGAN__ === "string" &&
+  __LANDING_PAGE_SLOGAN__.trim().length > 0
+    ? __LANDING_PAGE_SLOGAN__.trim()
+    : DEFAULT_LANDING_SLOGAN;
 
 export const landingPageMarkdown = `## ${landingPageSlogan}
 

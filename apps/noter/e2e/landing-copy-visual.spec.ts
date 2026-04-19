@@ -116,10 +116,6 @@ test("landing copy fixture keeps a three-line heading aligned with the first bul
 test("landing copy stays visually aligned when opening the dev editor", async ({
   page,
 }, testInfo) => {
-  await page.addInitScript(() => {
-    Math.random = () => 0;
-  });
-
   await page.goto("/", { waitUntil: "networkidle" });
 
   const shellLandingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
