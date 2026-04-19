@@ -288,10 +288,10 @@ route:
 - the hydrated landing logo component may lazy-import the Three scene in a
   separate chunk, but it must keep the SVG visible through initial hydration and
   refresh
-- the public landing may reveal the interactive scene only after explicit user
-  interaction such as hover or pointer down
+- the public landing should keep the static SVG as its shipped logo treatment
+  instead of replacing it with the interactive scene
 - the SVG-to-Three handoff should use the same box geometry and dimensions so
-  the interaction-triggered reveal remains visually indistinguishable
+  any non-public interactive reveal remains visually indistinguishable
 
 ### 3. Accessibility and sizing
 

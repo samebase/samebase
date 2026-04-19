@@ -56,23 +56,25 @@ function easeOutCubic(value: number) {
 
 export function PublicLandingLogo({
   autoRotate = false,
+  enableSceneEnhancement = true,
   enableViewSnapping = true,
   revealSceneOnInteractionOnly = false,
 }: {
   autoRotate?: boolean;
+  enableSceneEnhancement?: boolean;
   enableViewSnapping?: boolean;
   revealSceneOnInteractionOnly?: boolean;
 }) {
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(
-    () => cachedLandingLogoScene,
+    () => (enableSceneEnhancement ? cachedLandingLogoScene : null),
   );
   const [didSceneFail, setDidSceneFail] = useState(
-    () => didLandingLogoSceneRenderFail,
+    () => (enableSceneEnhancement ? didLandingLogoSceneRenderFail : false),
   );
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
   const [shouldRevealScene, setShouldRevealScene] = useState(
-    () => !revealSceneOnInteractionOnly,
+    () => enableSceneEnhancement && !revealSceneOnInteractionOnly,
   );
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
   const [view, setView] = useState<LandingLogoView>(() => ({
@@ -86,9 +88,22 @@ export function PublicLandingLogo({
     right: DEFAULT_FACE_COLORS.right,
     top: DEFAULT_FACE_COLORS.top,
   };
-  const isSceneInteractive = isSceneReady && !isSvgVisible;
+  const isSceneInteractive = enableSceneEnhancement && isSceneReady && !isSvgVisible;
+  const logoImageClassName = enableSceneEnhancement
+    ? isSvgVisible
+      ? `${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 transition-opacity duration-200 ease-out motion-reduce:transition-none opacity-100`
+      : `${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 transition-opacity duration-200 ease-out motion-reduce:transition-none pointer-events-none opacity-0`
+    : `${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 opacity-100`;
 
   useEffect(() => {
+    if (!enableSceneEnhancement) {
+      setLogoScene(null);
+      setDidSceneFail(false);
+      setIsSceneReady(false);
+      setIsSvgVisible(true);
+      return;
+    }
+
     if (didLandingLogoSceneRenderFail) {
       setDidSceneFail(true);
       return;
@@ -141,7 +156,7 @@ export function PublicLandingLogo({
       window.cancelAnimationFrame(frameId);
       window.cancelAnimationFrame(frameId2);
     };
-  }, []);
+  }, [enableSceneEnhancement]);
 
   useEffect(() => {
     if (!isSceneReady || !isSvgVisible || !shouldRevealScene) {
@@ -157,8 +172,8 @@ export function PublicLandingLogo({
   }, [autoRotate]);
 
   useEffect(() => {
-    setShouldRevealScene(!revealSceneOnInteractionOnly);
-  }, [revealSceneOnInteractionOnly]);
+    setShouldRevealScene(enableSceneEnhancement && !revealSceneOnInteractionOnly);
+  }, [enableSceneEnhancement, revealSceneOnInteractionOnly]);
 
   useEffect(() => {
     persistedLandingLogoView = view;
@@ -212,7 +227,7 @@ export function PublicLandingLogo({
   }, [isAutoRotating]);
 
   const requestSceneReveal = () => {
-    if (!revealSceneOnInteractionOnly) {
+    if (!enableSceneEnhancement || !revealSceneOnInteractionOnly) {
       return;
     }
     setShouldRevealScene(true);
@@ -223,7 +238,7 @@ export function PublicLandingLogo({
       <div
         data-testid={PUBLIC_LANDING_LOGO_STAGE_TEST_ID}
         className={PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME}
-        onPointerDown={requestSceneReveal}
+        onPointerDown={enableSceneEnhancement ? requestSceneReveal : undefined}
       >
         <img
           data-testid={PUBLIC_LANDING_LOGO_TEST_ID}
@@ -234,7 +249,7 @@ export function PublicLandingLogo({
           loading="eager"
           decoding="async"
           fetchPriority="high"
-          className={`${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 transition-opacity duration-200 ease-out motion-reduce:transition-none ${isSvgVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
+          className={logoImageClassName}
         />
         {LogoScene && !didSceneFail ? (
           <div

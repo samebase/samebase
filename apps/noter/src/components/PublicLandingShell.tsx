@@ -43,6 +43,7 @@ export function PublicLandingShell({
           {topNotice}
           <PublicLandingLogo
             autoRotate={autoRotate}
+            enableSceneEnhancement={autoRotate}
             enableViewSnapping={enableViewSnapping}
             revealSceneOnInteractionOnly={!autoRotate}
           />

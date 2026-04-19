@@ -438,16 +438,6 @@ async function expectLandingLogoAutoRotates(scene: Locator) {
     .not.toBe(initialRotationDegrees);
 }
 
-async function readLandingLogoSceneView(scene: Locator) {
-  const elevationDegrees = await scene.getAttribute("data-elevation-degrees");
-  const rotationDegrees = await scene.getAttribute("data-rotation-degrees");
-
-  return {
-    elevationDegrees,
-    rotationDegrees,
-  };
-}
-
 test("public landing renders the routed landing UI directly", async ({
   page,
 }) => {
@@ -838,7 +828,7 @@ test("public landing keeps the card height stable while toggling dev mode", asyn
   );
 });
 
-test("prod-ui landing logo keeps the prerendered SVG visible after hydration", async ({
+test("prod-ui landing logo stays static after hydration", async ({
   page,
 }, testInfo) => {
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
@@ -849,10 +839,9 @@ test("prod-ui landing logo keeps the prerendered SVG visible after hydration", a
 
   const initialLogoScreenshot = await takeStableScreenshot(landingLogoStage);
 
-  await expectLandingLogoSceneReady(
-    page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID),
-  );
+  await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(0);
   await expect(landingLogo).toHaveClass(/opacity-100/);
+  await page.waitForTimeout(300);
 
   const enhancedLogoScreenshot = await takeStableScreenshot(landingLogoStage);
 
@@ -865,20 +854,17 @@ test("prod-ui landing logo keeps the prerendered SVG visible after hydration", a
   });
 });
 
-test("prod-ui landing logo reveals the 3d scene only after interaction", async ({
+test("prod-ui landing logo stays static even after interaction", async ({
   page,
 }) => {
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
   const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
-  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
-  const landingLogoCanvas = landingLogoScene.locator("canvas");
   const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
 
   await expectLandingLogoReady(landingLogo);
-  await expectLandingLogoSceneReady(landingLogoScene);
+  await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(0);
   await expect(landingLogo).toHaveClass(/opacity-100/);
-  await expect(landingLogoScene).toHaveClass(/pointer-events-none/);
 
   const landingLogoStageBounds = await landingLogoStage.boundingBox();
   expect(landingLogoStageBounds).not.toBeNull();
@@ -892,50 +878,9 @@ test("prod-ui landing logo reveals the 3d scene only after interaction", async (
   );
   await page.mouse.down();
 
-  await expect(landingLogo).toHaveClass(/pointer-events-none opacity-0/);
-  await expect(landingLogoScene).toHaveClass(/pointer-events-auto touch-none/);
   await page.mouse.up();
-
-  await expect
-    .poll(async () =>
-      landingLogoScene.evaluate((element) => {
-        const sceneRoot = element.firstElementChild;
-        if (!(sceneRoot instanceof HTMLElement)) {
-          return null;
-        }
-
-        return window.getComputedStyle(sceneRoot).cursor;
-      }),
-    )
-    .toBe("grab");
-
-  const viewBeforeDrag = await readLandingLogoSceneView(landingLogoScene);
-  expect(viewBeforeDrag).toEqual({
-    elevationDegrees: "35.264",
-    rotationDegrees: "45.000",
-  });
-
-  const canvasBounds = await landingLogoCanvas.boundingBox();
-  expect(canvasBounds).not.toBeNull();
-  if (!canvasBounds) {
-    return;
-  }
-
-  await page.mouse.move(
-    canvasBounds.x + canvasBounds.width / 2,
-    canvasBounds.y + canvasBounds.height / 2,
-  );
-  await page.mouse.down();
-  await page.mouse.move(
-    canvasBounds.x + canvasBounds.width / 2 + 48,
-    canvasBounds.y + canvasBounds.height / 2 + 16,
-    { steps: 8 },
-  );
-  await page.mouse.up();
-
-  await expect
-    .poll(async () => readLandingLogoSceneView(landingLogoScene))
-    .not.toEqual(viewBeforeDrag);
+  await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(0);
+  await expect(landingLogo).toHaveClass(/opacity-100/);
 });
 
 test("prod-ui landing logo keeps the SVG fallback when WebGL is unavailable", async ({
