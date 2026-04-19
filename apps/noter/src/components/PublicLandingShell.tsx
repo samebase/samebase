@@ -44,6 +44,7 @@ export function PublicLandingShell({
           <PublicLandingLogo
             autoRotate={autoRotate}
             enableViewSnapping={enableViewSnapping}
+            revealSceneOnInteractionOnly={!autoRotate}
           />
           {showGoogleSignupClosedState ? (
             closedState

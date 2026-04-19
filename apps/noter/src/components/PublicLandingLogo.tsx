@@ -57,9 +57,11 @@ function easeOutCubic(value: number) {
 export function PublicLandingLogo({
   autoRotate = false,
   enableViewSnapping = true,
+  revealSceneOnInteractionOnly = false,
 }: {
   autoRotate?: boolean;
   enableViewSnapping?: boolean;
+  revealSceneOnInteractionOnly?: boolean;
 }) {
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(
     () => cachedLandingLogoScene,
@@ -69,6 +71,9 @@ export function PublicLandingLogo({
   );
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
+  const [shouldRevealScene, setShouldRevealScene] = useState(
+    () => !revealSceneOnInteractionOnly,
+  );
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
   const [view, setView] = useState<LandingLogoView>(() => ({
     ...persistedLandingLogoView,
@@ -139,17 +144,21 @@ export function PublicLandingLogo({
   }, []);
 
   useEffect(() => {
-    if (!isSceneReady || !isSvgVisible) {
+    if (!isSceneReady || !isSvgVisible || !shouldRevealScene) {
       return;
     }
     setIsSvgVisible(false);
-  }, [isSceneReady, isSvgVisible]);
+  }, [isSceneReady, isSvgVisible, shouldRevealScene]);
 
   useEffect(() => {
     setIsAutoRotating(autoRotate);
     lastFrameTimeRef.current = null;
     autoRotateResumeStartedAtRef.current = null;
   }, [autoRotate]);
+
+  useEffect(() => {
+    setShouldRevealScene(!revealSceneOnInteractionOnly);
+  }, [revealSceneOnInteractionOnly]);
 
   useEffect(() => {
     persistedLandingLogoView = view;
@@ -202,11 +211,19 @@ export function PublicLandingLogo({
     };
   }, [isAutoRotating]);
 
+  const requestSceneReveal = () => {
+    if (!revealSceneOnInteractionOnly) {
+      return;
+    }
+    setShouldRevealScene(true);
+  };
+
   return (
     <div className={PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME}>
       <div
         data-testid={PUBLIC_LANDING_LOGO_STAGE_TEST_ID}
         className={PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME}
+        onPointerDown={requestSceneReveal}
       >
         <img
           data-testid={PUBLIC_LANDING_LOGO_TEST_ID}

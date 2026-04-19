@@ -286,10 +286,12 @@ route:
   alone provides, use HTML image preload metadata instead of importing renderer
   code into the shell bundle
 - the hydrated landing logo component may lazy-import the Three scene in a
-  separate chunk, but it must keep the SVG visible until the first interactive
-  frame is ready
+  separate chunk, but it must keep the SVG visible through initial hydration and
+  refresh
+- the public landing may reveal the interactive scene only after explicit user
+  interaction such as hover or pointer down
 - the SVG-to-Three handoff should use the same box geometry and dimensions so
-  the swap remains visually indistinguishable
+  the interaction-triggered reveal remains visually indistinguishable
 
 ### 3. Accessibility and sizing
 

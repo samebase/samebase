@@ -838,7 +838,7 @@ test("public landing keeps the card height stable while toggling dev mode", asyn
   );
 });
 
-test("prod-ui landing logo enhancement stays visually aligned", async ({
+test("prod-ui landing logo keeps the prerendered SVG visible after hydration", async ({
   page,
 }, testInfo) => {
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
@@ -852,19 +852,20 @@ test("prod-ui landing logo enhancement stays visually aligned", async ({
   await expectLandingLogoSceneReady(
     page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID),
   );
+  await expect(landingLogo).toHaveClass(/opacity-100/);
 
   const enhancedLogoScreenshot = await takeStableScreenshot(landingLogoStage);
 
   await expectScreenshotsToMatch({
     actual: enhancedLogoScreenshot,
-    artifactPrefix: "public-landing-logo-enhancement",
+    artifactPrefix: "public-landing-logo-hydrated-svg",
     expected: initialLogoScreenshot,
-    maxDiffPixelRatio: 0.015,
+    maxDiffPixelRatio: 0,
     testInfo,
   });
 });
 
-test("prod-ui landing logo becomes draggable after the SVG fallback is removed", async ({
+test("prod-ui landing logo reveals the 3d scene only after interaction", async ({
   page,
 }) => {
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
@@ -872,11 +873,28 @@ test("prod-ui landing logo becomes draggable after the SVG fallback is removed",
   const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
   const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
   const landingLogoCanvas = landingLogoScene.locator("canvas");
+  const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
 
   await expectLandingLogoReady(landingLogo);
   await expectLandingLogoSceneReady(landingLogoScene);
+  await expect(landingLogo).toHaveClass(/opacity-100/);
+  await expect(landingLogoScene).toHaveClass(/pointer-events-none/);
+
+  const landingLogoStageBounds = await landingLogoStage.boundingBox();
+  expect(landingLogoStageBounds).not.toBeNull();
+  if (!landingLogoStageBounds) {
+    return;
+  }
+
+  await page.mouse.move(
+    landingLogoStageBounds.x + landingLogoStageBounds.width / 2,
+    landingLogoStageBounds.y + landingLogoStageBounds.height / 2,
+  );
+  await page.mouse.down();
+
   await expect(landingLogo).toHaveClass(/pointer-events-none opacity-0/);
   await expect(landingLogoScene).toHaveClass(/pointer-events-auto touch-none/);
+  await page.mouse.up();
 
   await expect
     .poll(async () =>
