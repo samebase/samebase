@@ -1,5 +1,4 @@
 import { ReactNode, useEffect } from "react";
-import { AppPageFrame } from "@/components/AppPageFrame";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { SidebarProvider } from "@/components/sidebar";
 import { WorkspaceLayoutV2PaneFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
@@ -56,5 +55,9 @@ export function Layout({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  return <AppPageFrame>{children}</AppPageFrame>;
+  return (
+    <main className="flex min-h-svh w-full flex-col bg-background">
+      {children}
+    </main>
+  );
 }
