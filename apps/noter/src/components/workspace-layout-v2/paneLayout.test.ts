@@ -14,6 +14,11 @@ const TEST_METRICS = {
   viewportWidthPx: 390,
 } satisfies WorkspaceLayoutV2Metrics;
 
+const TEST_METRICS_WITHOUT_RIGHT_PANE = {
+  ...TEST_METRICS,
+  rightWidthPx: 0,
+} satisfies WorkspaceLayoutV2Metrics;
+
 describe("workspaceLayoutV2 pane layout", () => {
   it("opens the left pane from main when the drag is deliberate", () => {
     expect(
@@ -116,5 +121,36 @@ describe("workspaceLayoutV2 pane layout", () => {
         TEST_METRICS.rightWidthPx -
         TEST_METRICS.viewportWidthPx,
     );
+  });
+
+  it("gives the main pane's full exposed strip to the left when the right pane is absent", () => {
+    const mainVisibleStartPx = getWorkspaceLayoutV2PaneVisibleStartPx(
+      "main",
+      TEST_METRICS_WITHOUT_RIGHT_PANE,
+    );
+
+    expect(mainVisibleStartPx).toBe(
+      TEST_METRICS_WITHOUT_RIGHT_PANE.leftWidthPx +
+        TEST_METRICS_WITHOUT_RIGHT_PANE.mainWidthPx -
+        TEST_METRICS_WITHOUT_RIGHT_PANE.viewportWidthPx,
+    );
+    expect(
+      getWorkspaceLayoutV2VisibleStartPx({
+        currentPane: "main",
+        dragOffsetPx: -160,
+        metrics: TEST_METRICS_WITHOUT_RIGHT_PANE,
+      }),
+    ).toBe(mainVisibleStartPx);
+  });
+
+  it("does not settle into an absent right pane from main", () => {
+    expect(
+      getWorkspaceLayoutV2SettledPane({
+        currentPane: "main",
+        dragOffsetPx: -200,
+        metrics: TEST_METRICS_WITHOUT_RIGHT_PANE,
+        velocityPxPerMs: 0.8,
+      }),
+    ).toBe("main");
   });
 });

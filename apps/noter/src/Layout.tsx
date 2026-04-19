@@ -22,7 +22,6 @@ export function PublicLayoutShell({ children }: { children: ReactNode }) {
             <div className="flex h-full min-h-0 flex-col">{children}</div>
           ),
         }}
-        right={{}}
       />
     </SidebarProvider>
   );

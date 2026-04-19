@@ -736,6 +736,53 @@ test.describe("mobile landing dev toggle", () => {
     expect(scrollTop.shellScrollTop).toBe(0);
   });
 
+  test("landing does not reserve a mobile right pane when the route omits one", async ({
+    page,
+  }) => {
+    await page.goto("/", { waitUntil: "networkidle" });
+
+    const paneGeometry = await page.evaluate(() => {
+      const shell = document.querySelector(
+        '[data-workspace-layout-v2="mobile"]',
+      );
+      const mainPane = document.querySelector(
+        '[data-testid="workspace-layout-v2-pane-main"]',
+      );
+      const rightPane = document.querySelector(
+        '[data-testid="workspace-layout-v2-pane-right"]',
+      );
+
+      if (!(shell instanceof HTMLElement)) {
+        throw new Error("Expected mobile workspace shell");
+      }
+      if (!(mainPane instanceof HTMLElement)) {
+        throw new Error("Expected main pane");
+      }
+      if (!(rightPane instanceof HTMLElement)) {
+        throw new Error("Expected right pane");
+      }
+
+      const rightPaneFrame = rightPane.firstElementChild;
+
+      if (!(rightPaneFrame instanceof HTMLElement)) {
+        throw new Error("Expected right pane frame");
+      }
+
+      return {
+        mainRightPx: mainPane.getBoundingClientRect().right,
+        rightBorderLeftWidth: getComputedStyle(rightPaneFrame).borderLeftWidth,
+        rightWidthPx: rightPane.getBoundingClientRect().width,
+        shellRightPx: shell.getBoundingClientRect().right,
+      };
+    });
+
+    expect(Math.round(paneGeometry.mainRightPx)).toBe(
+      Math.round(paneGeometry.shellRightPx),
+    );
+    expect(Math.round(paneGeometry.rightWidthPx)).toBe(0);
+    expect(paneGeometry.rightBorderLeftWidth).toBe("0px");
+  });
+
   test("landing dev toggle keeps the landing card stable frame by frame", async ({
     page,
   }) => {

@@ -299,6 +299,15 @@ function WorkspaceLayoutV2MobileViewport({
   mobileVisibleStartPx,
   rightContent,
 }: WorkspaceLayoutV2MobileViewportProps) {
+  const leftPaneWidthPx = getWorkspaceLayoutV2PaneWidthPx(
+    "left",
+    mobileMetrics,
+  );
+  const rightPaneWidthPx = getWorkspaceLayoutV2PaneWidthPx(
+    "right",
+    mobileMetrics,
+  );
+
   return (
     <div
       className="absolute inset-0 overflow-hidden"
@@ -324,7 +333,12 @@ function WorkspaceLayoutV2MobileViewport({
             width: `${getWorkspaceLayoutV2PaneWidthPx("left", mobileMetrics)}px`,
           }}
         >
-          <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-border">
+          <div
+            className={cn(
+              "flex h-full min-h-0 flex-col overflow-hidden",
+              leftPaneWidthPx > 0 ? "border-r border-border" : "border-r-0",
+            )}
+          >
             {leftContent}
           </div>
         </div>
@@ -347,7 +361,12 @@ function WorkspaceLayoutV2MobileViewport({
             width: `${getWorkspaceLayoutV2PaneWidthPx("right", mobileMetrics)}px`,
           }}
         >
-          <div className="flex h-full min-h-0 flex-col overflow-hidden border-l border-border">
+          <div
+            className={cn(
+              "flex h-full min-h-0 flex-col overflow-hidden",
+              rightPaneWidthPx > 0 ? "border-l border-border" : "border-l-0",
+            )}
+          >
             {rightContent}
           </div>
         </div>
@@ -821,44 +840,6 @@ function useWorkspaceLayoutV2MobileGesture({
   };
 }
 
-function WorkspaceLayoutV2MainPaneHeader({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
-
-  return (
-    <div className="flex h-full items-center gap-2">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label="Toggle Left Sidebar"
-        className="hidden h-8 w-8 md:inline-flex"
-        onClick={toggleLeftSidebar}
-      >
-        <PanelLeft className="h-4 w-4" />
-      </Button>
-
-      {/* Keep route-level header actions visible on mobile; only the sidebar
-          toggles stay desktop-only in the v2 main pane shell. */}
-      <div className="min-w-0 flex-1">{children}</div>
-
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label="Toggle Right Sidebar"
-        className="hidden h-8 w-8 md:inline-flex"
-        onClick={toggleRightSidebar}
-      >
-        <PanelRight className="h-4 w-4 rotate-180" />
-      </Button>
-    </div>
-  );
-}
-
 export function WorkspaceLayoutV2FullPage({
   dataTestId,
   left,
@@ -873,10 +854,11 @@ export function WorkspaceLayoutV2FullPage({
 
   panel?: WorkspaceLayoutV2BottomPanelProps;
 
-  right: WorkspaceLayoutV2PaneFrameProps;
+  right?: WorkspaceLayoutV2PaneFrameProps;
 }) {
   const isMobile = useIsMobile();
 
+  const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
   // For mobile phone the header is not necessary when when it's empty
   // For desktop we need to show the buttons
   const canHideHeader = isMobile && !main.header;
@@ -893,15 +875,41 @@ export function WorkspaceLayoutV2FullPage({
             {...main}
             header={
               canHideHeader ? null : (
-                <WorkspaceLayoutV2MainPaneHeader>
-                  {main.header}
-                </WorkspaceLayoutV2MainPaneHeader>
+                <div className="flex h-full items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Toggle Left Sidebar"
+                    className="hidden h-8 w-8 md:inline-flex"
+                    onClick={toggleLeftSidebar}
+                  >
+                    <PanelLeft className="h-4 w-4" />
+                  </Button>
+
+                  {/* Keep route-level header actions visible on mobile; only the sidebar
+          toggles stay desktop-only in the v2 main pane shell. */}
+                  <div className="min-w-0 flex-1">{main.header}</div>
+
+                  {right && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Toggle Right Sidebar"
+                      className="hidden h-8 w-8 md:inline-flex"
+                      onClick={toggleRightSidebar}
+                    >
+                      <PanelRight className="h-4 w-4 rotate-180" />
+                    </Button>
+                  )}
+                </div>
               )
             }
           />
         }
         panel={panel}
-        right={<WorkspaceLayoutV2PaneFrame {...right} />}
+        right={right ? <WorkspaceLayoutV2PaneFrame {...right} /> : null}
       />
     </div>
   );
@@ -930,17 +938,23 @@ function WorkspaceLayoutV2JustPanes({
     setMobilePane,
     setRightDesktopWidthPx,
   } = useSidebar();
+  const hasRightPane = right !== null && right !== undefined && right !== false;
+  const effectiveMobilePane =
+    !hasRightPane && mobilePane === "right" ? "main" : mobilePane;
+  const effectiveRightDesktopOpen = hasRightPane && rightDesktopOpen;
 
   const desktopLeftWidthPx = getDesktopSidebarWidthPx({
     isOpen: leftDesktopOpen,
     storedWidthPx: leftDesktopWidthPx,
     viewportWidthPx: viewportSize.widthPx,
   });
-  const desktopRightWidthPx = getDesktopSidebarWidthPx({
-    isOpen: rightDesktopOpen,
-    storedWidthPx: rightDesktopWidthPx,
-    viewportWidthPx: viewportSize.widthPx,
-  });
+  const desktopRightWidthPx = hasRightPane
+    ? getDesktopSidebarWidthPx({
+        isOpen: effectiveRightDesktopOpen,
+        storedWidthPx: rightDesktopWidthPx,
+        viewportWidthPx: viewportSize.widthPx,
+      })
+    : 0;
   const desktopMainWidthPx = Math.max(
     0,
     viewportSize.widthPx - desktopLeftWidthPx - desktopRightWidthPx,
@@ -958,10 +972,10 @@ function WorkspaceLayoutV2JustPanes({
     () => ({
       leftWidthPx: mobileSidebarMaxWidthPx,
       mainWidthPx: mobileSidebarMaxWidthPx,
-      rightWidthPx: mobileSidebarMaxWidthPx,
+      rightWidthPx: hasRightPane ? mobileSidebarMaxWidthPx : 0,
       viewportWidthPx: viewportSize.widthPx,
     }),
-    [mobileSidebarMaxWidthPx, viewportSize.widthPx],
+    [hasRightPane, mobileSidebarMaxWidthPx, viewportSize.widthPx],
   );
 
   const { isMobileDragging, mobileDragOffsetPx, mobileGestureDebugSnapshot } =
@@ -970,13 +984,13 @@ function WorkspaceLayoutV2JustPanes({
       isMobile,
       mobileSidebarDebugEnabled,
       mobileMetrics,
-      mobilePane,
+      mobilePane: effectiveMobilePane,
       setMobilePane,
       viewportRef,
     });
 
   const mobileVisibleStartPx = getWorkspaceLayoutV2VisibleStartPx({
-    currentPane: mobilePane,
+    currentPane: effectiveMobilePane,
     dragOffsetPx: isMobileDragging ? mobileDragOffsetPx : 0,
     metrics: mobileMetrics,
   });
@@ -986,7 +1000,7 @@ function WorkspaceLayoutV2JustPanes({
     desktopMainWidthPx,
     desktopRightWidthPx,
     leftDesktopOpen,
-    rightDesktopOpen,
+    rightDesktopOpen: effectiveRightDesktopOpen,
     setLeftDesktopWidthPx,
     setRightDesktopWidthPx,
     viewportWidthPx: viewportSize.widthPx,
@@ -994,7 +1008,7 @@ function WorkspaceLayoutV2JustPanes({
 
   const resolvedLeftContent = renderPaneContent(left);
   const resolvedMainContent = renderPaneContent(main);
-  const resolvedRightContent = renderPaneContent(right);
+  const resolvedRightContent = hasRightPane ? renderPaneContent(right) : null;
 
   function renderResizeHandle(
     resizeHandle: WorkspaceLayoutV2ResizeHandleConfig,
@@ -1039,7 +1053,7 @@ function WorkspaceLayoutV2JustPanes({
     <div
       ref={viewportRef}
       data-testid={dataTestId}
-      data-mobile-pane={isMobile ? mobilePane : undefined}
+      data-mobile-pane={isMobile ? effectiveMobilePane : undefined}
       data-workspace-layout-v2={isMobile ? "mobile" : "desktop"}
       className="relative flex min-h-0 flex-1 overflow-hidden bg-background"
     >
@@ -1070,7 +1084,7 @@ function WorkspaceLayoutV2JustPanes({
 
       {mobileSidebarDebugEnabled ? (
         <MobileSidebarGestureDebugOverlay
-          currentPane={mobilePane}
+          currentPane={effectiveMobilePane}
           isMobile={isMobile}
           snapshot={mobileGestureDebugSnapshot}
         />
