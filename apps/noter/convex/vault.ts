@@ -52,6 +52,9 @@ const cloudflarePreviewMetadataFields = {
   cloudflarePreviewLogsUrl: optional(string()),
   cloudflarePreviewCommentCreatedAt: optional(number()),
 } as const;
+const cloudflarePreviewMetadataValidator = object(
+  cloudflarePreviewMetadataFields,
+);
 const treeRefreshFailureFields = {
   lastTreeRefreshFailedAt: optional(number()),
   treeRefreshFailureKind: optional(TreeRefreshFailureKind),
@@ -59,15 +62,9 @@ const treeRefreshFailureFields = {
   treeRefreshCooldownUntil: optional(number()),
 } as const;
 
-type CloudflarePreviewMetadata = {
-  cloudflareBranchPreviewUrl?: string;
-  cloudflarePreviewPullRequestNumber?: number;
-  cloudflarePreviewUrl?: string;
-  cloudflarePreviewCommitSha?: string;
-  cloudflarePreviewStatus?: string;
-  cloudflarePreviewLogsUrl?: string;
-  cloudflarePreviewCommentCreatedAt?: number;
-};
+type CloudflarePreviewMetadata = Infer<
+  typeof cloudflarePreviewMetadataValidator
+>;
 
 const vaultBranchFiltersValidator = object({
   vaultId: id("vaults"),
