@@ -329,9 +329,7 @@ function WorkspaceLayoutV2MobileViewport({
                   : "border-border",
               )}
               style={{
-                maxWidth: `${sidebarMaxWidthPx}px`,
-                minWidth: `${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`,
-                width: "fit-content",
+                width: `${paneWidthPx}px`,
               }}
             >
               {rightContent}
