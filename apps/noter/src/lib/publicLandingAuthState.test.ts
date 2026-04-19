@@ -86,6 +86,21 @@ describe("publicLandingAuthState", () => {
     ).toBe(false);
   });
 
+  it("keeps the prod-ui landing visible even after a remembered auth flow starts", () => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createMockStorage(),
+    });
+    window.localStorage.setItem("noter_auth_provider", "google");
+
+    const routeSearch = validateRootRouteSearch({ "prod-ui": true });
+
+    expect(shouldRenderPublicLandingWithoutAuthGate("/", routeSearch)).toBe(
+      true,
+    );
+    expect(shouldShowGoogleAuthForPathname("/", routeSearch)).toBe(false);
+  });
+
   it("forces the public landing closed-signup state for marked Google returns", () => {
     Object.defineProperty(window, "localStorage", {
       configurable: true,

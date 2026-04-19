@@ -1,4 +1,5 @@
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
+import { isProdUiModeEnabled } from "@/lib/prodUiMode";
 import { type RootRouteSearch } from "@/lib/rootRouteSearch";
 import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
 
@@ -90,11 +91,26 @@ function isKnownUnauthenticatedLandingVisit(
   );
 }
 
+function shouldKeepPublicLandingForProdUi(
+  pathname: string,
+  routeSearch: RootRouteSearch,
+): boolean {
+  return (
+    pathname === "/" &&
+    isProdUiModeEnabled(routeSearch) &&
+    !hasGoogleAuth(routeSearch) &&
+    !hasGoogleSignupReturn(routeSearch)
+  );
+}
+
 export function shouldRenderPublicLandingWithoutAuthGate(
   pathname: string,
   routeSearch: RootRouteSearch,
 ): boolean {
   if (shouldRenderGoogleSignupClosedState(pathname, routeSearch)) {
+    return true;
+  }
+  if (shouldKeepPublicLandingForProdUi(pathname, routeSearch)) {
     return true;
   }
   return isKnownUnauthenticatedLandingVisit(pathname, routeSearch);

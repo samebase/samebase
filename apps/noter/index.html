@@ -99,6 +99,7 @@
         }
 
         const searchParams = new URLSearchParams(window.location.search);
+        const prodUiModeEnabled = searchParams.has("prod-ui");
         const shouldKeepStaticLanding =
           window.location.pathname === "/" &&
           !searchParams.has("dev") &&
@@ -118,7 +119,10 @@
           const authProvider = window.localStorage.getItem(
             "noter_auth_provider",
           );
-          if (authFlag === "1" || authProvider !== null) {
+          if (
+            !prodUiModeEnabled &&
+            (authFlag === "1" || authProvider !== null)
+          ) {
             root.innerHTML = "";
             root.removeAttribute("data-static-public-landing");
           }

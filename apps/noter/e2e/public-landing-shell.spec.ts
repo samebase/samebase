@@ -572,6 +572,24 @@ test("public landing keeps the same slogan across reloads", async ({
   await expect(slogan).toHaveText(initialSlogan ?? "");
 });
 
+test("prod-ui landing ignores remembered auth storage during reload", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("noter_was_authenticated", "1");
+    window.localStorage.setItem("noter_auth_provider", "google");
+  });
+
+  const reloadFrames = await captureLandingReloadFrames(page, "/?prod-ui");
+
+  expectStableLandingReloadFrames(reloadFrames);
+  await expect(page.locator("#root")).toHaveAttribute(
+    "data-static-public-landing",
+    "true",
+  );
+  await expect(page.getByTestId("public-landing-content")).toBeVisible();
+});
+
 test("local landing keeps the remembered password auth slot stable on reload", async ({
   page,
 }) => {
@@ -839,7 +857,9 @@ test("prod-ui landing logo stays static after hydration", async ({
 
   const initialLogoScreenshot = await takeStableScreenshot(landingLogoStage);
 
-  await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(0);
+  await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(
+    0,
+  );
   await expect(landingLogo).toHaveClass(/opacity-100/);
   await page.waitForTimeout(300);
 
@@ -863,7 +883,9 @@ test("prod-ui landing logo stays static even after interaction", async ({
   const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
 
   await expectLandingLogoReady(landingLogo);
-  await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(0);
+  await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(
+    0,
+  );
   await expect(landingLogo).toHaveClass(/opacity-100/);
 
   const landingLogoStageBounds = await landingLogoStage.boundingBox();
@@ -879,7 +901,9 @@ test("prod-ui landing logo stays static even after interaction", async ({
   await page.mouse.down();
 
   await page.mouse.up();
-  await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(0);
+  await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(
+    0,
+  );
   await expect(landingLogo).toHaveClass(/opacity-100/);
 });
 
