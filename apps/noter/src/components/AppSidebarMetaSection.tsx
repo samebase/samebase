@@ -43,15 +43,11 @@ export function AppSidebarMetaSection() {
     !isAuthenticated &&
     location.pathname === "/" &&
     rootRouteSearch.auth !== "google";
-  // Keep legal links available on every unauthenticated sign-in surface while
-  // auth is still resolving so they never disappear during startup or route
-  // handoffs.
+  // Keep the same durable footer links available in every left rail so the
+  // landing page and authenticated workspaces share one simpler footer model.
   const showLandingLegalLinks =
-    !isAuthenticated &&
-    location.pathname !== "/terms" &&
-    location.pathname !== "/privacy";
-  const showPublicNavigation =
-    !isLoading && !isAuthenticated && location.pathname !== "/";
+    location.pathname !== "/terms" && location.pathname !== "/privacy";
+  const showPublicNavigation = location.pathname !== "/";
   const landingDevToggleSearch = buildLandingDevToggleSearch(rootRouteSearch);
   const landingDevToggleHref = router.buildLocation({
     to: "/",

@@ -1,6 +1,7 @@
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 
 const { useConvexAuthMock } = vi.hoisted(() => ({
   useConvexAuthMock: vi.fn(),
@@ -67,6 +68,26 @@ describe("Layout", () => {
         <Layout>
           <div>consent</div>
         </Layout>
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain("/terms");
+    expect(markup).toContain("/privacy");
+    expect(markup).toContain("Home");
+  });
+
+  it("keeps the same footer links available on authenticated routes", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    });
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/machines"]}>
+        <AppSidebarMetaSection />
       </TestRouterProvider>,
     );
 
