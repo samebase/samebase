@@ -1,6 +1,8 @@
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+import { Layout, PublicLayoutShell } from "./Layout";
 
 const { useConvexAuthMock } = vi.hoisted(() => ({
   useConvexAuthMock: vi.fn(),
@@ -24,8 +26,6 @@ vi.mock("@/lib/rootRouteSearch", async (importOriginal) => {
   };
 });
 
-import { Layout } from "./Layout";
-
 describe("Layout", () => {
   afterEach(() => {
     useConvexAuthMock.mockReset();
@@ -44,7 +44,9 @@ describe("Layout", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/"]}>
         <Layout>
-          <div>landing</div>
+          <PublicLayoutShell>
+            <div>landing</div>
+          </PublicLayoutShell>
         </Layout>
       </TestRouterProvider>,
     );
@@ -65,7 +67,9 @@ describe("Layout", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/oauth/mcp/consent"]}>
         <Layout>
-          <div>consent</div>
+          <PublicLayoutShell>
+            <div>consent</div>
+          </PublicLayoutShell>
         </Layout>
       </TestRouterProvider>,
     );
@@ -73,5 +77,52 @@ describe("Layout", () => {
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
     expect(markup).toContain("Home");
+  });
+
+  it("keeps legal links but not the duplicate Home link on authenticated routes", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    });
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/machines"]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain("/terms");
+    expect(markup).toContain("/privacy");
+    expect(markup).not.toContain("Home");
+  });
+
+  it("renders children directly without auth-specific shell branching", () => {
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: true,
+    });
+
+    const markup = renderToStaticMarkup(
+      <Layout>
+        <div>plain layout child</div>
+      </Layout>,
+    );
+
+    expect(markup).toContain("plain layout child");
+    expect(markup).not.toContain("/terms");
+  });
+
+  it("keeps Layout free of fixture-only test ids", () => {
+    const markup = renderToStaticMarkup(
+      <Layout>
+        <div>fixture child</div>
+      </Layout>,
+    );
+
+    expect(markup).toContain("fixture child");
+    expect(markup).not.toContain("data-testid=");
   });
 });

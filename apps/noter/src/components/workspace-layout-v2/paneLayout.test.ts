@@ -9,6 +9,7 @@ import {
 
 const TEST_METRICS = {
   leftWidthPx: 304,
+  mainWidthPx: 358,
   rightWidthPx: 320,
   viewportWidthPx: 390,
 } satisfies WorkspaceLayoutV2Metrics;
@@ -49,7 +50,10 @@ describe("workspaceLayoutV2 pane layout", () => {
 
   it("anchors the right pane to the track's right edge instead of its left edge", () => {
     expect(getWorkspaceLayoutV2PaneVisibleStartPx("right", TEST_METRICS)).toBe(
-      TEST_METRICS.leftWidthPx + TEST_METRICS.rightWidthPx,
+      TEST_METRICS.leftWidthPx +
+        TEST_METRICS.mainWidthPx +
+        TEST_METRICS.rightWidthPx -
+        TEST_METRICS.viewportWidthPx,
     );
     const rightVisibleStartPx = getWorkspaceLayoutV2VisibleStartPx({
       currentPane: "right",
@@ -57,12 +61,39 @@ describe("workspaceLayoutV2 pane layout", () => {
       metrics: TEST_METRICS,
     });
     expect(rightVisibleStartPx).toBe(
-      TEST_METRICS.leftWidthPx + TEST_METRICS.rightWidthPx,
+      TEST_METRICS.leftWidthPx +
+        TEST_METRICS.mainWidthPx +
+        TEST_METRICS.rightWidthPx -
+        TEST_METRICS.viewportWidthPx,
     );
     expect(
       getWorkspaceLayoutV2PaneStartPx("right", TEST_METRICS) -
         rightVisibleStartPx,
     ).toBe(TEST_METRICS.viewportWidthPx - TEST_METRICS.rightWidthPx);
+  });
+
+  it("splits the mobile side peek around the main pane", () => {
+    const mainVisibleStartPx = getWorkspaceLayoutV2PaneVisibleStartPx(
+      "main",
+      TEST_METRICS,
+    );
+    const expectedLeftPeekPx = Math.floor(
+      (TEST_METRICS.viewportWidthPx - TEST_METRICS.mainWidthPx) / 2,
+    );
+
+    expect(mainVisibleStartPx).toBe(
+      TEST_METRICS.leftWidthPx - expectedLeftPeekPx,
+    );
+    expect(
+      getWorkspaceLayoutV2PaneStartPx("main", TEST_METRICS) -
+        mainVisibleStartPx,
+    ).toBe(expectedLeftPeekPx);
+    expect(
+      mainVisibleStartPx +
+        TEST_METRICS.viewportWidthPx -
+        (getWorkspaceLayoutV2PaneStartPx("main", TEST_METRICS) +
+          TEST_METRICS.mainWidthPx),
+    ).toBe(expectedLeftPeekPx);
   });
 
   it("clamps the visible range so an open sidebar can only drag back toward main", () => {
@@ -79,6 +110,11 @@ describe("workspaceLayoutV2 pane layout", () => {
         dragOffsetPx: -120,
         metrics: TEST_METRICS,
       }),
-    ).toBe(TEST_METRICS.leftWidthPx + TEST_METRICS.rightWidthPx);
+    ).toBe(
+      TEST_METRICS.leftWidthPx +
+        TEST_METRICS.mainWidthPx +
+        TEST_METRICS.rightWidthPx -
+        TEST_METRICS.viewportWidthPx,
+    );
   });
 });
