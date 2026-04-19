@@ -20,6 +20,10 @@ import {
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
 import {
+  hasCurrentCloudflareBranchPreview,
+  shouldHydrateCloudflareBranchPreview,
+} from "@/lib/cloudflarePreviewLinks";
+import {
   getTreeRefreshUiState,
   shouldAutoRefreshVault,
 } from "@/lib/treeRefreshStatus";
@@ -218,6 +222,7 @@ type DashboardManualRefreshVault = {
   remoteBranches: Array<{
     remoteState: "active" | "deleted_upstream";
     cloudflareBranchPreviewUrl?: string;
+    cloudflarePreviewPullRequestNumber?: number;
     pullRequestNumber?: number;
   }>;
   repositoryFullName: string;
@@ -338,6 +343,7 @@ interface VaultRemoteBranchListItem {
   pullRequestTitle?: string;
   pullRequestIsDraft?: boolean;
   cloudflareBranchPreviewUrl?: string;
+  cloudflarePreviewPullRequestNumber?: number;
 }
 
 interface VaultBranchLinkRowProps {
@@ -355,6 +361,7 @@ interface VaultBranchLinkRowProps {
   pullRequestTitle?: string;
   pullRequestIsDraft?: boolean;
   cloudflareBranchPreviewUrl?: string;
+  cloudflarePreviewPullRequestNumber?: number;
   stagedSummary?: StagedSummary;
   canDeleteBranch: boolean;
   isDeletingBranch: boolean;
@@ -385,6 +392,7 @@ export function VaultBranchLinkContent({
   pullRequestTitle,
   pullRequestIsDraft,
   cloudflareBranchPreviewUrl,
+  cloudflarePreviewPullRequestNumber,
 }: {
   repositoryFullName: string;
   branchName: string;
@@ -399,6 +407,7 @@ export function VaultBranchLinkContent({
   pullRequestTitle?: string;
   pullRequestIsDraft?: boolean;
   cloudflareBranchPreviewUrl?: string;
+  cloudflarePreviewPullRequestNumber?: number;
 }) {
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
   const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
@@ -413,6 +422,11 @@ export function VaultBranchLinkContent({
   const branchRoute = `/vault/${repositoryFullName}/${branchPath}`;
   const hasPullRequestTitle =
     typeof pullRequestTitle === "string" && pullRequestTitle.length > 0;
+  const hasCurrentPreviewLink = hasCurrentCloudflareBranchPreview({
+    pullRequestNumber,
+    cloudflareBranchPreviewUrl,
+    cloudflarePreviewPullRequestNumber,
+  });
 
   return (
     <>
@@ -487,8 +501,7 @@ export function VaultBranchLinkContent({
                   </Badge>
                 ))
               : null}
-            {typeof cloudflareBranchPreviewUrl === "string" &&
-            cloudflareBranchPreviewUrl.length > 0 ? (
+            {hasCurrentPreviewLink ? (
               <>
                 <span aria-hidden="true">·</span>
                 <a
@@ -535,6 +548,7 @@ export function VaultBranchLinkRow({
   pullRequestTitle,
   pullRequestIsDraft,
   cloudflareBranchPreviewUrl,
+  cloudflarePreviewPullRequestNumber,
   stagedSummary,
   canDeleteBranch,
   isDeletingBranch,
@@ -558,6 +572,7 @@ export function VaultBranchLinkRow({
         pullRequestTitle={pullRequestTitle}
         pullRequestIsDraft={pullRequestIsDraft}
         cloudflareBranchPreviewUrl={cloudflareBranchPreviewUrl}
+        cloudflarePreviewPullRequestNumber={cloudflarePreviewPullRequestNumber}
       />
       <div className="flex shrink-0 items-start gap-2">
         {hasStagedChanges && vaultId ? (
@@ -647,6 +662,9 @@ function VaultBranchListRow({
       pullRequestTitle={branch.pullRequestTitle}
       pullRequestIsDraft={branch.pullRequestIsDraft}
       cloudflareBranchPreviewUrl={branch.cloudflareBranchPreviewUrl}
+      cloudflarePreviewPullRequestNumber={
+        branch.cloudflarePreviewPullRequestNumber
+      }
       stagedSummary={stagedSummary}
       canDeleteBranch={deleteEligibility.canDelete}
       isDeletingBranch={activeDeletingBranchName === branch.name}
@@ -1341,11 +1359,8 @@ export function VaultDashboard() {
           await Promise.all(
             batch.map(async (vault) => {
               const shouldIncludeCloudflarePreviewLinks =
-                vault.remoteBranches.some(
-                  (branch) =>
-                    branch.remoteState === "active" &&
-                    typeof branch.pullRequestNumber === "number" &&
-                    typeof branch.cloudflareBranchPreviewUrl !== "string",
+                vault.remoteBranches.some((branch) =>
+                  shouldHydrateCloudflareBranchPreview(branch),
                 );
               await refreshTree({
                 owner: vault.ghRepoOwner,
@@ -1382,10 +1397,7 @@ export function VaultDashboard() {
       }
 
       const shouldIncludeCloudflarePreviewLinks = vault.remoteBranches.some(
-        (branch) =>
-          branch.remoteState === "active" &&
-          typeof branch.pullRequestNumber === "number" &&
-          typeof branch.cloudflareBranchPreviewUrl !== "string",
+        (branch) => shouldHydrateCloudflareBranchPreview(branch),
       );
 
       void refreshTree({

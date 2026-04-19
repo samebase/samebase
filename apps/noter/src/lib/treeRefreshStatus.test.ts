@@ -140,6 +140,25 @@ describe("shouldAutoRefreshVault", () => {
     ).toBe(false);
   });
 
+  it("refreshes when a cached preview belongs to a different PR", () => {
+    expect(
+      shouldAutoRefreshVault({
+        lastTreeRefreshAt: now - 1_000,
+        remoteBranches: [
+          {
+            remoteState: "active",
+            lastSyncedAt: now - 30_000,
+            pullRequestNumber: 43,
+            cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
+            cloudflarePreviewPullRequestNumber: 42,
+          },
+        ],
+        trigger: "visibility",
+        now,
+      }),
+    ).toBe(true);
+  });
+
   it("still refreshes page load checks when the tree timestamp is invalid", () => {
     expect(
       shouldAutoRefreshVault({

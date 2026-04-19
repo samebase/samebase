@@ -856,6 +856,7 @@ interface RemoteBranchCloudflarePreviewSync {
   name: string;
   previewState: "resolved" | "clear" | "preserve";
   cloudflareBranchPreviewUrl?: string;
+  cloudflarePreviewPullRequestNumber?: number;
   cloudflarePreviewUrl?: string;
   cloudflarePreviewCommitSha?: string;
   cloudflarePreviewStatus?: string;
@@ -1109,6 +1110,7 @@ async function getCloudflarePreviewLinksByBranch(args: {
             name: branch.name,
             previewState: "resolved",
             cloudflareBranchPreviewUrl: preview.branchPreviewUrl,
+            cloudflarePreviewPullRequestNumber: branch.pullRequestNumber,
             cloudflarePreviewUrl: preview.previewUrl,
             cloudflarePreviewCommitSha: preview.previewCommitSha,
             cloudflarePreviewStatus: preview.previewStatus,

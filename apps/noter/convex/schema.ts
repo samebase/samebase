@@ -438,6 +438,7 @@ export default defineSchema({
     pullRequestTitle: v.optional(v.string()),
     pullRequestIsDraft: v.optional(v.boolean()),
     cloudflareBranchPreviewUrl: v.optional(v.string()),
+    cloudflarePreviewPullRequestNumber: v.optional(v.number()),
     cloudflarePreviewUrl: v.optional(v.string()),
     cloudflarePreviewCommitSha: v.optional(v.string()),
     cloudflarePreviewStatus: v.optional(v.string()),
