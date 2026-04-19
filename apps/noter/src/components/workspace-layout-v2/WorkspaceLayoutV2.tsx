@@ -57,7 +57,32 @@ type WorkspaceLayoutV2Props = {
 };
 
 type WorkspaceLayoutV2JustPanesProps = WorkspaceLayoutV2Props & {
+  controller: WorkspaceLayoutV2Controller;
   panel?: WorkspaceLayoutV2BottomPanelProps;
+};
+
+type WorkspaceLayoutV2FrameProps = {
+  dataTestId?: string;
+  left: WorkspaceLayoutV2PaneFrameProps;
+  main: WorkspaceLayoutV2PaneFrameProps;
+  panel?: WorkspaceLayoutV2BottomPanelProps;
+  right: WorkspaceLayoutV2PaneFrameProps;
+};
+
+export type WorkspaceLayoutV2SideController = {
+  desktopOpen: boolean;
+  desktopWidthPx: number;
+  mobileWidthPx: number;
+  setDesktopWidthPx: Dispatch<SetStateAction<number>>;
+  setMobileWidthPx: Dispatch<SetStateAction<number>>;
+};
+
+export type WorkspaceLayoutV2Controller = {
+  isMobile: boolean;
+  leftPane: WorkspaceLayoutV2SideController;
+  mobilePane: WorkspaceLayoutV2Pane;
+  rightPane: WorkspaceLayoutV2SideController;
+  setMobilePane: Dispatch<SetStateAction<WorkspaceLayoutV2Pane>>;
 };
 
 type WorkspaceLayoutV2ResolvedPaneContent = {
@@ -277,6 +302,44 @@ function renderPaneContent(content: ReactNode) {
       <div aria-hidden="true" className="min-h-0 flex-1 bg-background" />
     )
   );
+}
+
+export function useSidebarWorkspaceLayoutV2Controller(): WorkspaceLayoutV2Controller {
+  const {
+    isMobile,
+    leftDesktopOpen,
+    leftDesktopWidthPx,
+    leftMobileWidthPx,
+    mobilePane,
+    rightDesktopOpen,
+    rightDesktopWidthPx,
+    rightMobileWidthPx,
+    setLeftDesktopWidthPx,
+    setLeftMobileWidthPx,
+    setMobilePane,
+    setRightDesktopWidthPx,
+    setRightMobileWidthPx,
+  } = useSidebar();
+
+  return {
+    isMobile,
+    leftPane: {
+      desktopOpen: leftDesktopOpen,
+      desktopWidthPx: leftDesktopWidthPx,
+      mobileWidthPx: leftMobileWidthPx,
+      setDesktopWidthPx: setLeftDesktopWidthPx,
+      setMobileWidthPx: setLeftMobileWidthPx,
+    },
+    mobilePane,
+    rightPane: {
+      desktopOpen: rightDesktopOpen,
+      desktopWidthPx: rightDesktopWidthPx,
+      mobileWidthPx: rightMobileWidthPx,
+      setDesktopWidthPx: setRightDesktopWidthPx,
+      setMobileWidthPx: setRightMobileWidthPx,
+    },
+    setMobilePane,
+  };
 }
 
 type WorkspaceLayoutV2MobileViewportProps =
@@ -957,36 +1020,60 @@ function WorkspaceLayoutV2MainPaneHeader({
   );
 }
 
+/**
+ * Preserve the current sidebar-backed route API while routing all layout state
+ * through an explicit controller boundary that future page-owned panes can
+ * replace.
+ */
 export function WorkspaceLayoutV2FullPage({
   dataTestId,
   left,
   main,
   panel,
   right,
-}: {
-  dataTestId?: string;
-  left: WorkspaceLayoutV2PaneFrameProps;
+}: WorkspaceLayoutV2FrameProps) {
+  const controller = useSidebarWorkspaceLayoutV2Controller();
 
-  main: WorkspaceLayoutV2PaneFrameProps;
+  return (
+    <WorkspaceLayoutV2ControlledFullPage
+      controller={controller}
+      dataTestId={dataTestId}
+      left={left}
+      main={{
+        ...main,
+        header: (
+          <WorkspaceLayoutV2MainPaneHeader>
+            {main.header}
+          </WorkspaceLayoutV2MainPaneHeader>
+        ),
+      }}
+      panel={panel}
+      right={right}
+    />
+  );
+}
 
-  panel?: WorkspaceLayoutV2BottomPanelProps;
-
-  right: WorkspaceLayoutV2PaneFrameProps;
+/**
+ * Keep the pane layout engine renderable without `SidebarProvider` so future
+ * implementations can supply page-owned left/right panes through the same
+ * frame contract.
+ */
+export function WorkspaceLayoutV2ControlledFullPage({
+  controller,
+  dataTestId,
+  left,
+  main,
+  panel,
+  right,
+}: WorkspaceLayoutV2FrameProps & {
+  controller: WorkspaceLayoutV2Controller;
 }) {
   return (
     <WorkspaceLayoutV2ViewportFrame dataTestId={dataTestId}>
       <WorkspaceLayoutV2JustPanes
+        controller={controller}
         left={<WorkspaceLayoutV2PaneFrame {...left} />}
-        main={
-          <WorkspaceLayoutV2PaneFrame
-            {...main}
-            header={
-              <WorkspaceLayoutV2MainPaneHeader>
-                {main.header}
-              </WorkspaceLayoutV2MainPaneHeader>
-            }
-          />
-        }
+        main={<WorkspaceLayoutV2PaneFrame {...main} />}
         panel={panel}
         right={<WorkspaceLayoutV2PaneFrame {...right} />}
       />
@@ -1016,6 +1103,7 @@ export function WorkspaceLayoutV2ViewportFrame({
 }
 
 export function WorkspaceLayoutV2JustPanes({
+  controller,
   dataTestId,
   left,
   main,
@@ -1027,30 +1115,17 @@ export function WorkspaceLayoutV2JustPanes({
   const [activeResizeSide, setActiveResizeSide] = useState<
     "left" | "right" | "top" | null
   >(null);
-  const {
-    isMobile,
-    leftDesktopOpen,
-    leftDesktopWidthPx,
-    leftMobileWidthPx,
-    mobilePane,
-    rightDesktopOpen,
-    rightDesktopWidthPx,
-    rightMobileWidthPx,
-    setLeftDesktopWidthPx,
-    setLeftMobileWidthPx,
-    setMobilePane,
-    setRightDesktopWidthPx,
-    setRightMobileWidthPx,
-  } = useSidebar();
+  const { isMobile, leftPane, mobilePane, rightPane, setMobilePane } =
+    controller;
 
   const desktopLeftWidthPx = getDesktopSidebarWidthPx({
-    isOpen: leftDesktopOpen,
-    storedWidthPx: leftDesktopWidthPx,
+    isOpen: leftPane.desktopOpen,
+    storedWidthPx: leftPane.desktopWidthPx,
     viewportWidthPx: viewportSize.widthPx,
   });
   const desktopRightWidthPx = getDesktopSidebarWidthPx({
-    isOpen: rightDesktopOpen,
-    storedWidthPx: rightDesktopWidthPx,
+    isOpen: rightPane.desktopOpen,
+    storedWidthPx: rightPane.desktopWidthPx,
     viewportWidthPx: viewportSize.widthPx,
   });
   const desktopMainWidthPx = Math.max(
@@ -1069,21 +1144,21 @@ export function WorkspaceLayoutV2JustPanes({
   const mobileMetrics = useMemo<WorkspaceLayoutV2Metrics>(
     () => ({
       leftWidthPx: clampNumber(
-        leftMobileWidthPx,
+        leftPane.mobileWidthPx,
         MOBILE_SIDEBAR_MIN_WIDTH_PX,
         mobileSidebarMaxWidthPx,
       ),
       rightWidthPx: clampNumber(
-        rightMobileWidthPx,
+        rightPane.mobileWidthPx,
         MOBILE_SIDEBAR_MIN_WIDTH_PX,
         mobileSidebarMaxWidthPx,
       ),
       viewportWidthPx: viewportSize.widthPx,
     }),
     [
-      leftMobileWidthPx,
+      leftPane.mobileWidthPx,
       mobileSidebarMaxWidthPx,
-      rightMobileWidthPx,
+      rightPane.mobileWidthPx,
       viewportSize.widthPx,
     ],
   );
@@ -1111,14 +1186,14 @@ export function WorkspaceLayoutV2JustPanes({
     desktopRightWidthPx,
     isMobile,
     isMobileDragging,
-    leftDesktopOpen,
+    leftDesktopOpen: leftPane.desktopOpen,
     mobileMetrics,
     mobilePane,
-    rightDesktopOpen,
-    setLeftDesktopWidthPx,
-    setLeftMobileWidthPx,
-    setRightDesktopWidthPx,
-    setRightMobileWidthPx,
+    rightDesktopOpen: rightPane.desktopOpen,
+    setLeftDesktopWidthPx: leftPane.setDesktopWidthPx,
+    setLeftMobileWidthPx: leftPane.setMobileWidthPx,
+    setRightDesktopWidthPx: rightPane.setDesktopWidthPx,
+    setRightMobileWidthPx: rightPane.setMobileWidthPx,
     viewportWidthPx: viewportSize.widthPx,
   });
 
