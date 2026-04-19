@@ -3,21 +3,12 @@ import { useConvexAuth } from "convex/react";
 import { AppPageFrame } from "@/components/AppPageFrame";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { SidebarProvider } from "@/components/sidebar";
+import { WorkspaceLayoutV2PaneFrame } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import {
   WorkspaceLayoutV2JustPanes,
   WorkspaceLayoutV2ViewportFrame,
 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
-
-function PublicLayoutPane({ children }: { children?: ReactNode }) {
-  return (
-    <section className="flex h-full min-h-0 flex-col bg-background">
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
-        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-      </div>
-    </section>
-  );
-}
 
 function PublicLayoutShell({ children }: { children: ReactNode }) {
   return (
@@ -31,14 +22,22 @@ function PublicLayoutShell({ children }: { children: ReactNode }) {
       <WorkspaceLayoutV2ViewportFrame>
         <WorkspaceLayoutV2JustPanes
           left={
-            <PublicLayoutPane>
-              <div className="mt-auto">
-                <AppSidebarMetaSection />
-              </div>
-            </PublicLayoutPane>
+            <WorkspaceLayoutV2PaneFrame
+              reserveHeaderSpace={false}
+              content={
+                <div className="mt-auto min-h-0 flex-1">
+                  <AppSidebarMetaSection />
+                </div>
+              }
+            />
           }
-          main={<PublicLayoutPane>{children}</PublicLayoutPane>}
-          right={<PublicLayoutPane />}
+          main={
+            <WorkspaceLayoutV2PaneFrame
+              reserveHeaderSpace={false}
+              content={children}
+            />
+          }
+          right={<WorkspaceLayoutV2PaneFrame reserveHeaderSpace={false} />}
         />
       </WorkspaceLayoutV2ViewportFrame>
     </SidebarProvider>

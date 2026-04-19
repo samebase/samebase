@@ -2,6 +2,7 @@ import { SidebarProvider } from "@/components/sidebar";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2";
+import { WorkspaceLayoutV2PaneFrame } from "./WorkspaceLayoutV2PaneFrame";
 
 describe("WorkspaceLayoutV2FullPage", () => {
   it("keeps main header content rendered while sidebar toggles stay desktop-only", () => {
@@ -55,5 +56,17 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
     expect(markup).toContain('aria-label="Close bottom panel"');
     expect(markup).toContain("disabled");
+  });
+
+  it("can skip the reserved header row when a pane intentionally has no header", () => {
+    const markup = renderToStaticMarkup(
+      <WorkspaceLayoutV2PaneFrame
+        reserveHeaderSpace={false}
+        content={<div>public pane</div>}
+      />,
+    );
+
+    expect(markup).toContain("public pane");
+    expect(markup).not.toContain('class="h-8 shrink-0"');
   });
 });
