@@ -48,5 +48,13 @@ export function PublicLayoutShell({ children }: { children: ReactNode }) {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    console.info("[noter] build metadata", {
+      appCommit: __APP_COMMIT__,
+      appCommitNumber: __APP_COMMIT_NUMBER__,
+      appRepoUrl: __APP_REPO_URL__,
+    });
+  }, []);
+
   return <AppPageFrame>{children}</AppPageFrame>;
 }
