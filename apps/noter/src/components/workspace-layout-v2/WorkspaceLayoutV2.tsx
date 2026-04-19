@@ -40,6 +40,7 @@ import {
 } from "./WorkspaceLayoutV2BottomPanel";
 import { Button } from "../ui/button";
 import { PanelLeft, PanelRight } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
 const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
@@ -973,6 +974,12 @@ export function WorkspaceLayoutV2FullPage({
 
   right: WorkspaceLayoutV2PaneFrameProps;
 }) {
+  const isMobile = useIsMobile();
+
+  // For mobile phone the header is not necessary when when it's empty
+  // For desktop we need to show the buttons
+  const canHideHeader = isMobile && !main.header;
+
   return (
     <div
       data-testid={dataTestId}
@@ -984,9 +991,11 @@ export function WorkspaceLayoutV2FullPage({
           <WorkspaceLayoutV2PaneFrame
             {...main}
             header={
-              <WorkspaceLayoutV2MainPaneHeader>
-                {main.header}
-              </WorkspaceLayoutV2MainPaneHeader>
+              canHideHeader ? null : (
+                <WorkspaceLayoutV2MainPaneHeader>
+                  {main.header}
+                </WorkspaceLayoutV2MainPaneHeader>
+              )
             }
           />
         }

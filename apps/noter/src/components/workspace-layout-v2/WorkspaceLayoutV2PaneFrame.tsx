@@ -15,6 +15,8 @@ export function WorkspaceLayoutV2PaneFrame({
   footer,
   headerTestId,
 }: WorkspaceLayoutV2PaneFrameProps) {
+  console.log({ header, content, footer });
+
   return (
     <section className="flex h-full min-h-0 flex-col bg-background">
       {header && (
