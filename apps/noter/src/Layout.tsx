@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode } from "react";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { SidebarProvider } from "@/components/sidebar";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
@@ -36,14 +36,6 @@ export function PublicLayoutShell({ children }: { children: ReactNode }) {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    console.info("[noter] build metadata", {
-      appCommit: __APP_COMMIT__,
-      appCommitNumber: __APP_COMMIT_NUMBER__,
-      appRepoUrl: __APP_REPO_URL__,
-    });
-  }, []);
-
   return (
     <main className="flex min-h-svh w-full flex-col bg-background">
       {children}
