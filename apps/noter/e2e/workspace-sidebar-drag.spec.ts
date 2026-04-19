@@ -90,6 +90,12 @@ async function getBox(page: Page, testId: string) {
   return box;
 }
 
+async function getMobileSidebarMaxWidthPx(page: Page) {
+  return page
+    .getByTestId("workspace-layout-v2-pane-main")
+    .evaluate((element) => Math.max(1, element.clientWidth - 48));
+}
+
 function getFileViewLayoutShell(page: Page) {
   return page.locator("[data-mobile-pane]").first();
 }
@@ -136,7 +142,7 @@ test("fileview mobile carousel moves between left, main, and right panes", async
   ).toHaveCount(0);
 });
 
-test("fileview mobile sidebars use a fixed width with no resize handle", async ({
+test("fileview mobile sidebars size to content within min/max bounds", async ({
   page,
 }) => {
   await gotoFileViewFixture(page);
@@ -146,9 +152,12 @@ test("fileview mobile sidebars use a fixed width with no resize handle", async (
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
   ).toHaveCount(0);
-  const fixedWidthPx = (
+  const maxWidthPx = await getMobileSidebarMaxWidthPx(page);
+  const contentSizedWidthPx = (
     await getBox(page, "fileview-layout-right-sidebar-body")
   ).width;
+  expect(contentSizedWidthPx).toBeGreaterThanOrEqual(159);
+  expect(contentSizedWidthPx).toBeLessThan(maxWidthPx);
 
   await scrollFileViewCarouselToPane(page, "main");
   await scrollFileViewCarouselToPane(page, "right");
@@ -158,7 +167,7 @@ test("fileview mobile sidebars use a fixed width with no resize handle", async (
       async () =>
         (await getBox(page, "fileview-layout-right-sidebar-body")).width,
     )
-    .toBeGreaterThanOrEqual(fixedWidthPx - 1);
+    .toBeGreaterThanOrEqual(contentSizedWidthPx - 1);
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
   ).toHaveCount(0);

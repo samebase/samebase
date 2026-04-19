@@ -258,22 +258,20 @@ type WorkspaceLayoutV2MobileViewportProps =
   WorkspaceLayoutV2ResolvedPaneContent & {
     activeResizeSide: "left" | "right" | "top" | null;
     carouselRef: RefObject<HTMLDivElement | null>;
-    leftWidthPx: number;
+    sidebarMaxWidthPx: number;
     paneWidthPx: number;
     showRightPane: boolean;
-    rightWidthPx: number;
   };
 
 function WorkspaceLayoutV2MobileViewport({
   activeResizeSide,
   carouselRef,
   leftContent,
-  leftWidthPx,
   mainContent,
   paneWidthPx,
+  sidebarMaxWidthPx,
   rightContent,
   showRightPane,
-  rightWidthPx,
 }: WorkspaceLayoutV2MobileViewportProps) {
   return (
     <div
@@ -296,7 +294,11 @@ function WorkspaceLayoutV2MobileViewport({
               "flex h-full min-h-0 flex-col overflow-hidden border-r bg-background",
               activeResizeSide === "left" ? "border-primary" : "border-border",
             )}
-            style={{ width: `${leftWidthPx}px` }}
+            style={{
+              maxWidth: `${sidebarMaxWidthPx}px`,
+              minWidth: `${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`,
+              width: "fit-content",
+            }}
           >
             {leftContent}
           </div>
@@ -326,7 +328,11 @@ function WorkspaceLayoutV2MobileViewport({
                   ? "border-primary"
                   : "border-border",
               )}
-              style={{ width: `${rightWidthPx}px` }}
+              style={{
+                maxWidth: `${sidebarMaxWidthPx}px`,
+                minWidth: `${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`,
+                width: "fit-content",
+              }}
             >
               {rightContent}
             </div>
@@ -455,16 +461,12 @@ export function WorkspaceLayoutV2JustPanes({
     isMobile,
     leftDesktopOpen,
     leftDesktopWidthPx,
-    leftMobileWidthPx,
     mobilePane: rawMobilePane,
     rightDesktopOpen,
     rightDesktopWidthPx,
-    rightMobileWidthPx,
     setLeftDesktopWidthPx,
-    setLeftMobileWidthPx,
     setMobilePane,
     setRightDesktopWidthPx,
-    setRightMobileWidthPx,
   } = useSidebar();
   const hasRightPane = right !== null && right !== undefined;
   const mobilePane = hasRightPane ? rawMobilePane : "main";
@@ -491,18 +493,10 @@ export function WorkspaceLayoutV2JustPanes({
     1,
     viewportSize.widthPx - MOBILE_PANE_PEEK_PX * 2,
   );
-  const mobileLeftWidthPx = clampNumber(
-    leftMobileWidthPx,
-    MOBILE_SIDEBAR_MIN_WIDTH_PX,
-    Math.min(mobileSidebarMaxWidthPx, mobilePaneWidthPx),
+  const mobileSidebarWidthCapPx = Math.min(
+    mobileSidebarMaxWidthPx,
+    mobilePaneWidthPx,
   );
-  const mobileRightWidthPx = hasRightPane
-    ? clampNumber(
-        rightMobileWidthPx,
-        MOBILE_SIDEBAR_MIN_WIDTH_PX,
-        Math.min(mobileSidebarMaxWidthPx, mobilePaneWidthPx),
-      )
-    : 0;
 
   const resolvedLeftContent = renderPaneContent(left);
   const resolvedMainContent = renderPaneContent(main);
@@ -686,12 +680,11 @@ export function WorkspaceLayoutV2JustPanes({
           activeResizeSide={activeResizeSide}
           carouselRef={mobileCarouselRef}
           leftContent={resolvedLeftContent}
-          leftWidthPx={mobileLeftWidthPx}
           mainContent={mainViewportContent}
           paneWidthPx={mobilePaneWidthPx}
+          sidebarMaxWidthPx={mobileSidebarWidthCapPx}
           rightContent={resolvedRightContent}
           showRightPane={hasRightPane}
-          rightWidthPx={mobileRightWidthPx}
         />
       ) : (
         <>
