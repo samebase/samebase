@@ -9,19 +9,11 @@ import {
 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 
-function PublicLayoutPane({
-  children,
-  contentClassName,
-}: {
-  children?: ReactNode;
-  contentClassName?: string;
-}) {
+function PublicLayoutPane({ children }: { children?: ReactNode }) {
   return (
     <section className="flex h-full min-h-0 flex-col bg-background">
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
-        <div className={contentClassName ?? "flex min-h-0 flex-1 flex-col"}>
-          {children}
-        </div>
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       </div>
     </section>
   );
@@ -39,8 +31,10 @@ function PublicLayoutShell({ children }: { children: ReactNode }) {
       <WorkspaceLayoutV2ViewportFrame>
         <WorkspaceLayoutV2JustPanes
           left={
-            <PublicLayoutPane contentClassName="flex min-h-0 flex-1 flex-col justify-end">
-              <AppSidebarMetaSection />
+            <PublicLayoutPane>
+              <div className="mt-auto">
+                <AppSidebarMetaSection />
+              </div>
             </PublicLayoutPane>
           }
           main={<PublicLayoutPane>{children}</PublicLayoutPane>}

@@ -76,7 +76,7 @@ describe("Layout", () => {
     expect(markup).toContain("Home");
   });
 
-  it("keeps the same footer links available on authenticated routes", () => {
+  it("keeps legal links but not the duplicate Home link on authenticated routes", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
@@ -93,6 +93,6 @@ describe("Layout", () => {
 
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
-    expect(markup).toContain("Home");
+    expect(markup).not.toContain("Home");
   });
 });

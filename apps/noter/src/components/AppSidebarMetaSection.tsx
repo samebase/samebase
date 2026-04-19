@@ -43,11 +43,11 @@ export function AppSidebarMetaSection() {
     !isAuthenticated &&
     location.pathname === "/" &&
     rootRouteSearch.auth !== "google";
-  // Keep the same durable footer links available in every left rail so the
-  // landing page and authenticated workspaces share one simpler footer model.
-  const showLandingLegalLinks =
+  // Keep the same durable legal links available in every left rail so the
+  // footer stays simple across public and authenticated shells.
+  const showLegalLinks =
     location.pathname !== "/terms" && location.pathname !== "/privacy";
-  const showPublicNavigation = location.pathname !== "/";
+  const showHomeLink = !isAuthenticated && location.pathname !== "/";
   const landingDevToggleSearch = buildLandingDevToggleSearch(rootRouteSearch);
   const landingDevToggleHref = router.buildLocation({
     to: "/",
@@ -110,11 +110,9 @@ export function AppSidebarMetaSection() {
   return (
     <div data-testid={APP_BUILD_STATUS_BAR_TEST_ID} className="px-3 pt-3 pb-8">
       <div className="flex flex-col gap-3 text-xs text-muted-foreground">
-        {showPublicNavigation ||
-        showLandingLegalLinks ||
-        showLandingDevToggleLink ? (
+        {showHomeLink || showLegalLinks || showLandingDevToggleLink ? (
           <div className="flex flex-col items-start gap-1">
-            {showPublicNavigation ? (
+            {showHomeLink ? (
               <Link
                 to="/"
                 className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
@@ -123,7 +121,7 @@ export function AppSidebarMetaSection() {
               </Link>
             ) : null}
 
-            {showLandingLegalLinks ? (
+            {showLegalLinks ? (
               <>
                 <Link
                   to="/terms"
