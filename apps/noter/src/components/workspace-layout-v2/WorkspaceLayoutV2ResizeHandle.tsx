@@ -10,7 +10,6 @@ import { ResizeGripLines } from "@/components/ResizeGripLines";
 import { cn } from "@/lib/utils";
 
 const KEYBOARD_RESIZE_TIMEOUT_MS = 120;
-
 function clampSizePx(sizePx: number, minSizePx: number, maxSizePx: number) {
   return Math.max(minSizePx, Math.min(sizePx, maxSizePx));
 }
@@ -260,6 +259,10 @@ export function WorkspaceLayoutV2ResizeHandle({
   const handleCursorClassName = isHorizontalHandle
     ? "cursor-row-resize"
     : "cursor-col-resize";
+  const gripTrackClassName = isHorizontalHandle
+    ? "inset-x-0 h-8 -translate-y-1/2"
+    : "inset-y-0 w-8 -translate-x-1/2";
+  const gripSizeClassName = isHorizontalHandle ? "h-8 w-16" : "h-16 w-8";
 
   const interactiveProps = {
     "aria-label": getResizeHandleLabel(resizeFrom, ariaLabel),
@@ -289,9 +292,7 @@ export function WorkspaceLayoutV2ResizeHandle({
       <div
         className={cn(
           "pointer-events-none absolute z-30 flex items-center justify-center",
-          isHorizontalHandle
-            ? "inset-x-0 h-4 -translate-y-1/2"
-            : "inset-y-0 w-4 -translate-x-1/2",
+          gripTrackClassName,
         )}
         style={handlePositionStyle}
       >
@@ -300,7 +301,7 @@ export function WorkspaceLayoutV2ResizeHandle({
           className={cn(
             "pointer-events-auto relative flex touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             handleCursorClassName,
-            isHorizontalHandle ? "h-4 w-16" : "h-16 w-4",
+            gripSizeClassName,
           )}
         >
           <div
@@ -309,7 +310,7 @@ export function WorkspaceLayoutV2ResizeHandle({
               // Keep the idle mobile grip visually light so it does not mask
               // pane content sitting directly under the edge affordance.
               isResizing && "border border-border bg-background",
-              isHorizontalHandle ? "h-4 w-16" : "h-16 w-4",
+              gripSizeClassName,
             )}
           >
             <ResizeGripLines
