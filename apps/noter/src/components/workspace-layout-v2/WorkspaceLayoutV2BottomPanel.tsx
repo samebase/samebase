@@ -223,7 +223,7 @@ export function WorkspaceLayoutV2MainViewportWithPanel({
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
       <div
-        data-testid="workspace-layout-v2-pane-main"
+        data-testid="workspace-layout-v2-main-viewport"
         className="min-h-0 flex-1 overflow-hidden bg-background"
       >
         {mainContent}

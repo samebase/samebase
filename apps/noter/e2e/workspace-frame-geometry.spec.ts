@@ -73,16 +73,12 @@ async function dispatchFixtureTouchSwipe(
 }
 
 async function swipeFromMainToRightSidebar(page: Page) {
-  await dispatchFixtureTouchSwipe(page, {
-    startX: 280,
-    startY: 220,
-    steps: [
-      { delayMs: 50, xOffset: -28, yOffset: 2 },
-      { delayMs: 60, xOffset: -74, yOffset: 4 },
-      { delayMs: 60, xOffset: -126, yOffset: 5 },
-      { delayMs: 70, xOffset: -174, yOffset: 6 },
-    ],
-  });
+  await page
+    .getByTestId("workspace-layout-v2-pane-main")
+    .evaluate((element) => {
+      element.scrollLeft = element.clientWidth * 2;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
 }
 
 function getFileViewLayoutShell(page: Page) {
