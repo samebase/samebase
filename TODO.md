@@ -4,7 +4,8 @@
 https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 
 - [ ] specifically left blank
-- [ ] ramura.com works in codex/t3code/paseo etc. since it's a cheap stack and it's basically a prompt or just the git history itself, that's what it is
+- [ ] ramura.com works in codex/t3code/paseo etc. since it's a cheap stack and
+      it's basically a prompt or just the git history itself, that's what it is
 - [ ] https://github.com/openai/codex/discussions/9200
 - [ ] FileView upstream conflict parsing still splits paths on `", "`, so
       filenames with commas break the conflict list; replace the delimiter-based
