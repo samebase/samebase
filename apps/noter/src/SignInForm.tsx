@@ -21,13 +21,8 @@ import {
 } from "@/lib/publicLandingAuthState";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
-import {
-  clearPublicLandingWaitlistDraft,
-  readPublicLandingWaitlistDraft,
-  writePublicLandingWaitlistDraft,
-} from "@/lib/publicLandingWaitlistDraft";
 import { Link, useLocation } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { type ReactNode, useEffect, useState } from "react";
 import { api } from "../convex/_generated/api";
 import { SignInWithGoogle } from "./SignInWithGoogle";
@@ -160,13 +155,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
               </div>
             </>
           )}
-          <WaitlistForm
-            submittedMessage={
-              showGoogleSignupClosedState
-                ? "You're on the waitlist."
-                : "You're on the waitlist. We'll reach out when a spot opens up."
-            }
-          />
+          <WaitlistLink />
         </div>
       </div>
     </div>
@@ -182,15 +171,7 @@ function GoogleSignupClosedNotice() {
       </h2>
 
       <p className="text-sm text-muted-foreground">
-        Please{" "}
-        <a
-          href="https://x.com/noter_md"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          follow us on twitter
-        </a>{" "}
-        or join the waitlist below.
+        Please use the link below to follow along for updates.
       </p>
 
       <Link to="/">go back</Link>
@@ -198,54 +179,17 @@ function GoogleSignupClosedNotice() {
   );
 }
 
-function WaitlistForm({ submittedMessage }: { submittedMessage?: string }) {
-  const joinWaitlist = useMutation(api.waitlist.joinWaitlist);
-  const [email, setEmail] = useState(readPublicLandingWaitlistDraft);
-  const [submitted, setSubmitted] = useState(false);
-
-  useEffect(() => {
-    writePublicLandingWaitlistDraft(email);
-  }, [email]);
-
-  useEffect(() => {
-    return () => {
-      clearPublicLandingWaitlistDraft();
-    };
-  }, []);
-
-  if (submitted) {
-    return (
-      <p className="text-sm text-muted-foreground text-center">
-        {submittedMessage ??
-          "You're on the waitlist. We'll reach out when a spot opens up."}
-      </p>
-    );
-  }
-
+function WaitlistLink() {
   return (
     <div className="flex flex-col gap-2 pt-2">
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!email.trim()) return;
-          void joinWaitlist({ email: email.trim() }).then(() => {
-            clearPublicLandingWaitlistDraft();
-            setSubmitted(true);
-          });
-        }}
+      <a
+        className="text-center text-sm text-muted-foreground underline underline-offset-4"
+        href="https://x.com/noter_md"
+        rel="noopener noreferrer"
+        target="_blank"
       >
-        <Input
-          type="email"
-          placeholder="email@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <Button type="submit" variant="outline" className="shrink-0">
-          Join Waitlist
-        </Button>
-      </form>
+        https://x.com/noter_md
+      </a>
     </div>
   );
 }
