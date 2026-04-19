@@ -67,6 +67,7 @@ import { DraftPullRequestFeedbackBanner } from "@/components/DraftPullRequestFee
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";
 import { RepositoryMediaViewer } from "@/components/RepositoryMediaViewer";
 import { RepositoryRouteConnectState } from "@/components/RepositoryRouteConnectState";
+import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { DAYTONA_PAUSED } from "../../../shared/daytonaPause";
@@ -645,6 +646,7 @@ function FileViewWrapper() {
         isConnectingGithub={isConnectingGithub}
         isConnectingRepository={isConnectingRepository}
         errorMessage={connectRouteError}
+        leftSidebarFooter={<AppSidebarMetaSection />}
         onConnectGithub={handleConnectGithub}
         onConnectRepository={handleConnectRepository}
       />
@@ -2554,14 +2556,17 @@ function FileViewInner({
     />
   );
   const sidebarFooter = (
-    <FileViewSidebarFooter
-      mediaUploadError={mediaUploadError}
-      isMediaUploadDragOver={isMediaUploadDragOver}
-      isUploadingMedia={isUploadingMedia}
-      onRequestMediaUpload={handleRequestMediaUpload}
-      onMediaUploadDragOverChange={setIsMediaUploadDragOver}
-      onMediaUploadDrop={handleMediaUploadDrop}
-    />
+    <>
+      <FileViewSidebarFooter
+        mediaUploadError={mediaUploadError}
+        isMediaUploadDragOver={isMediaUploadDragOver}
+        isUploadingMedia={isUploadingMedia}
+        onRequestMediaUpload={handleRequestMediaUpload}
+        onMediaUploadDragOverChange={setIsMediaUploadDragOver}
+        onMediaUploadDrop={handleMediaUploadDrop}
+      />
+      <AppSidebarMetaSection />
+    </>
   );
 
   const headerTitle = selectedFile
