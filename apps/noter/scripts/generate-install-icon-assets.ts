@@ -9,35 +9,26 @@ const staticLogoSvgPath = path.join(publicDir, "logo-static.svg");
 const installIconSvgPath = path.join(publicDir, "install-icon.svg");
 
 const INSTALL_ICON_BACKGROUND_COLOR = "#ffffff";
-const STANDARD_ICON_BOX_RATIO = 338 / 512;
-const MASKABLE_ICON_BOX_RATIO = 288 / 512;
-const APPLE_TOUCH_ICON_BOX_RATIO = 120 / 180;
-
-type IconJob = { boxRatio: number; canvasSize: number; filename: string };
+type IconJob = { canvasSize: number; filename: string };
 
 const iconJobs: IconJob[] = [
   {
-    boxRatio: STANDARD_ICON_BOX_RATIO,
     canvasSize: 192,
     filename: "icon-192.png",
   },
   {
-    boxRatio: STANDARD_ICON_BOX_RATIO,
     canvasSize: 512,
     filename: "icon-512.png",
   },
   {
-    boxRatio: MASKABLE_ICON_BOX_RATIO,
     canvasSize: 192,
     filename: "icon-maskable-192.png",
   },
   {
-    boxRatio: MASKABLE_ICON_BOX_RATIO,
     canvasSize: 512,
     filename: "icon-maskable-512.png",
   },
   {
-    boxRatio: APPLE_TOUCH_ICON_BOX_RATIO,
     canvasSize: 180,
     filename: "apple-touch-icon.png",
   },
@@ -69,15 +60,18 @@ function syncInstallIconSvgAsset() {
   writeFileSync(installIconSvgPath, `${nextInstallIconSvgMarkup}\n`, "utf8");
 }
 
-function generateIconPng({ boxRatio, canvasSize, filename }: IconJob) {
-  const iconSize = Math.round(canvasSize * boxRatio);
-
+/**
+ * Render the install icon at the target output size without adding export-time
+ * padding so the committed PNGs preserve only the framing already present in
+ * the canonical SVG logo markup.
+ */
+function generateIconPng({ canvasSize, filename }: IconJob) {
   execFileSync(
     "convert",
     [
       installIconSvgPath,
       "-resize",
-      `${iconSize}x${iconSize}`,
+      `${canvasSize}x${canvasSize}`,
       "-background",
       "white",
       "-gravity",

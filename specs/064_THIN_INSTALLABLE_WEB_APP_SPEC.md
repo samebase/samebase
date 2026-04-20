@@ -45,9 +45,8 @@ browser refresh model.
   assets for browser chrome, but that did not restore dedicated install
   metadata.
 - [#281](https://github.com/noter-md/noter/pull/281) made the generated
-  `logo-static.svg` path the current public logo source of truth, while this
-  spec still points at the older `lumina_icon.png` asset as the default install
-  icon source.
+  `logo-static.svg` path the current public logo source of truth for install
+  icon exports.
 - [#310](https://github.com/noter-md/noter/pull/310) added crawlable public
   `/privacy` and `/terms` pages, so the public HTML surface is no longer just
   `index.html`.
@@ -162,8 +161,6 @@ Initial default:
 - use `apps/noter/public/logo-static.svg` together with
   `apps/noter/src/components/logoStaticSvgAsset.ts` as the canonical public-logo
   source for install icon exports
-- treat `apps/noter/public/lumina_icon.png` as a legacy asset, not as the
-  default source of truth for new install metadata
 - committed PNG install icons may be generated from the repo-owned static logo
   source, but the served install assets must still be explicit committed files
 

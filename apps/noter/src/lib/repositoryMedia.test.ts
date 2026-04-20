@@ -10,9 +10,7 @@ describe("repositoryMedia", () => {
   it("recognizes supported repository media extensions from the file name", () => {
     expect(getRepositoryMediaKind("assets/icons/logo.SVG")).toBe("image");
     expect(getRepositoryMediaKind("mods/monument/monu10.VOX")).toBe("vox");
-    expect(isRenderableRepositoryMediaPath("assets/lumina_icon.png")).toBe(
-      true,
-    );
+    expect(isRenderableRepositoryMediaPath("assets/icon-512.png")).toBe(true);
     expect(isRenderableRepositoryMediaPath("mods/monument/monu10.vox")).toBe(
       true,
     );

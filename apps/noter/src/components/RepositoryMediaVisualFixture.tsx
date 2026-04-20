@@ -17,13 +17,13 @@ const FIXTURE_BY_MODE: Record<
   }
 > = {
   "media-png": {
-    selectedFile: "assets/lumina_icon.png",
+    selectedFile: "assets/icon-512.png",
     asset: {
       found: true,
       kind: "image",
       mimeType: "image/png",
-      url: "/lumina_icon.png",
-      fileName: "lumina_icon.png",
+      url: "/icon-512.png",
+      fileName: "icon-512.png",
     },
   },
   "media-svg": {
@@ -91,8 +91,8 @@ export function RepositoryMediaVisualFixture({
               deleted: false,
             },
             {
-              path: "assets/lumina_icon.png",
-              originalPath: "assets/lumina_icon.png",
+              path: "assets/icon-512.png",
+              originalPath: "assets/icon-512.png",
               type: "blob",
               deleted: false,
             },
