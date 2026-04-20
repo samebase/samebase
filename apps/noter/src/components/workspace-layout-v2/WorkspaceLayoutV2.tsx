@@ -474,8 +474,6 @@ export function WorkspaceLayoutV2JustPanes({
   const mobileLeftPaneRef = useRef<HTMLDivElement | null>(null);
   const mobileMainPaneRef = useRef<HTMLDivElement | null>(null);
   const mobileRightPaneRef = useRef<HTMLDivElement | null>(null);
-  const mobileCarouselReadyRef = useRef(false);
-  const previousMobileViewportWidthRef = useRef(0);
   const viewportSize = useElementSize(viewportRef);
   const [activeResizeSide, setActiveResizeSide] = useState<
     "left" | "right" | "top" | null
@@ -526,14 +524,8 @@ export function WorkspaceLayoutV2JustPanes({
   const resolvedRightContent = renderPaneContent(right);
 
   useLayoutEffect(() => {
-    if (!isMobile) {
-      mobileCarouselReadyRef.current = false;
-      previousMobileViewportWidthRef.current = 0;
-      return;
-    }
-
     const carouselNode = mobileCarouselRef.current;
-    if (!carouselNode || viewportSize.widthPx <= 0) {
+    if (!isMobile || !carouselNode || viewportSize.widthPx <= 0) {
       return;
     }
 
@@ -549,9 +541,6 @@ export function WorkspaceLayoutV2JustPanes({
       // the browser's native scroll-snap behavior.
       carouselNode.scrollLeft = nextScrollLeftPx;
     }
-
-    mobileCarouselReadyRef.current = true;
-    previousMobileViewportWidthRef.current = viewportSize.widthPx;
   }, [hasRightPane, isMobile, mobilePane, viewportSize.widthPx]);
 
   useEffect(() => {
