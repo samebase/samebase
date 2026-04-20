@@ -544,21 +544,10 @@ export function WorkspaceLayoutV2JustPanes({
       pane: mobilePane,
       rightNode: mobileRightPaneRef.current,
     });
-    const viewportWidthChanged =
-      previousMobileViewportWidthRef.current > 0 &&
-      previousMobileViewportWidthRef.current !== viewportSize.widthPx;
-    const shouldAnimate =
-      mobileCarouselReadyRef.current && !viewportWidthChanged;
-
     if (Math.abs(carouselNode.scrollLeft - nextScrollLeftPx) > 1) {
-      if (shouldAnimate) {
-        carouselNode.scrollTo({
-          left: nextScrollLeftPx,
-          behavior: "smooth",
-        });
-      } else {
-        carouselNode.scrollLeft = nextScrollLeftPx;
-      }
+      // Mobile pane toggles should feel immediate; touch drags still settle via
+      // the browser's native scroll-snap behavior.
+      carouselNode.scrollLeft = nextScrollLeftPx;
     }
 
     mobileCarouselReadyRef.current = true;
