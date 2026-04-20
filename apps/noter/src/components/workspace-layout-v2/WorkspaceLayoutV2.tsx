@@ -26,6 +26,7 @@ const MOBILE_SIDEBAR_MIN_WIDTH_PX = 160;
 const MOBILE_PANE_PEEK_PX = 24;
 const MOBILE_PANE_ORDER = ["left", "main", "right"] as const;
 const MOBILE_PANE_ORDER_WITHOUT_RIGHT = ["left", "main"] as const;
+type MobilePane = (typeof MOBILE_PANE_ORDER)[number];
 
 type WorkspaceLayoutV2Props = {
   dataTestId?: string;
@@ -131,17 +132,13 @@ function getDesktopSidebarWidthPx(args: {
   );
 }
 
-function getMobilePaneIndex(pane: (typeof MOBILE_PANE_ORDER)[number]) {
-  return MOBILE_PANE_ORDER.indexOf(pane);
-}
-
-function getMobilePaneOrder(hasRightPane: boolean) {
+function getMobilePaneOrder(hasRightPane: boolean): readonly MobilePane[] {
   return hasRightPane ? MOBILE_PANE_ORDER : MOBILE_PANE_ORDER_WITHOUT_RIGHT;
 }
 
 function getMobilePaneScrollLeft(args: {
   hasRightPane: boolean;
-  pane: (typeof MOBILE_PANE_ORDER)[number];
+  pane: MobilePane;
   viewportWidthPx: number;
 }) {
   const paneOrder = getMobilePaneOrder(args.hasRightPane);

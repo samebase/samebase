@@ -11,67 +11,6 @@ async function getBox(page: Page, testId: string) {
   return box;
 }
 
-async function dispatchFixtureTouchSwipe(
-  page: Page,
-  args: {
-    startX: number;
-    startY: number;
-    steps: ReadonlyArray<{
-      delayMs: number;
-      xOffset: number;
-      yOffset: number;
-    }>;
-  },
-) {
-  const fixture = page.getByTestId("fileview-layout-visual-fixture");
-  const bounds = await fixture.boundingBox();
-
-  expect(bounds).not.toBeNull();
-  if (bounds === null) {
-    return;
-  }
-
-  const session = await page.context().newCDPSession(page);
-  const gestureStartTimeMs = Date.now();
-  let elapsedMs = 0;
-  const touchPoint = {
-    force: 1,
-    id: 1,
-    radiusX: 4,
-    radiusY: 4,
-    x: bounds.x + args.startX,
-    y: bounds.y + args.startY,
-  };
-
-  await session.send("Input.dispatchTouchEvent", {
-    timestamp: gestureStartTimeMs / 1000,
-    type: "touchStart",
-    touchPoints: [touchPoint],
-  });
-
-  for (const step of args.steps) {
-    await page.waitForTimeout(step.delayMs);
-    elapsedMs += step.delayMs;
-    await session.send("Input.dispatchTouchEvent", {
-      timestamp: (gestureStartTimeMs + elapsedMs) / 1000,
-      type: "touchMove",
-      touchPoints: [
-        {
-          ...touchPoint,
-          x: bounds.x + args.startX + step.xOffset,
-          y: bounds.y + args.startY + step.yOffset,
-        },
-      ],
-    });
-  }
-
-  await session.send("Input.dispatchTouchEvent", {
-    timestamp: (gestureStartTimeMs + elapsedMs + 1) / 1000,
-    type: "touchEnd",
-    touchPoints: [],
-  });
-}
-
 async function swipeFromMainToRightSidebar(page: Page) {
   await page
     .getByTestId("workspace-layout-v2-pane-main")
