@@ -5,9 +5,10 @@
 1. This lab is a literal `left | main | right` shell.
 2. Desktop is a plain three-column flex layout.
 3. Mobile is a native horizontal overflow carousel with CSS scroll snap.
-4. Sidebars shrink-wrap to their content with a floor and a cap.
-5. The main pane stays phone-width, so opening a sidebar still leaves a visible
-   strip of the main pane.
+4. Sidebars shrink-wrap to their content with a floor and a cap below the full
+   viewport width.
+5. The main pane stays full viewport width, so sidebars are revealed by
+   scrolling instead of by shrinking the main pane.
 6. The only behavior code left is the initial mobile jump to the main pane.
 
 ## Non-Goals

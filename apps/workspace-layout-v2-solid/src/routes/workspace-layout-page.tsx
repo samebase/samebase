@@ -41,10 +41,7 @@ function scrollToMobilePane(args: {
   carouselNode: HTMLDivElement;
   paneNode: HTMLElement;
 }) {
-  args.carouselNode.scrollLeft = Math.max(
-    0,
-    args.paneNode.offsetLeft - MOBILE_PANE_PEEK_PX,
-  );
+  args.carouselNode.scrollLeft = args.paneNode.offsetLeft;
 }
 
 function PaneFrame(props: {
@@ -68,7 +65,7 @@ function PaneFrame(props: {
 
 function SidebarBody(props: { sections: readonly SidebarSection[] }) {
   return (
-    <div class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-3 py-3 text-sm">
+    <div class="space-y-6 px-3 py-3 text-sm">
       <For each={props.sections}>
         {(section) => (
           <section class="space-y-2">
@@ -89,7 +86,7 @@ function SidebarBody(props: { sections: readonly SidebarSection[] }) {
 
 function MainBody() {
   return (
-    <pre class="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap px-3 py-3 text-sm leading-6">
+    <pre class="whitespace-pre-wrap px-3 py-3 text-sm leading-6">
       {solidLabNotesRaw}
     </pre>
   );
@@ -115,11 +112,12 @@ function DesktopPane(props: {
 function MobileSidebarPane(props: {
   body: JSX.Element;
   dataTestId: string;
+  snapClass: string;
   title: string;
 }) {
   return (
     <PaneFrame
-      class="flex h-full min-h-0 shrink-0 snap-start [scroll-snap-stop:always] flex-col overflow-hidden bg-background"
+      class={`flex h-full min-h-0 shrink-0 ${props.snapClass} [scroll-snap-stop:always] flex-col overflow-hidden bg-background`}
       dataTestId={props.dataTestId}
       title={props.title}
     >
@@ -135,7 +133,7 @@ function MobileMainPane(props: {
 }) {
   return (
     <PaneFrame
-      bodyClass="min-h-0 flex-1 overflow-hidden"
+      bodyClass="min-h-0 flex-1 overflow-y-auto"
       class="flex h-full min-h-0 shrink-0 snap-start [scroll-snap-stop:always] flex-col overflow-hidden bg-background"
       dataTestId={props.dataTestId}
       title={props.title}
@@ -192,7 +190,7 @@ export function WorkspaceLayoutPage() {
     width: "fit-content",
   } satisfies JSX.CSSProperties;
   const mobileMainStyle = {
-    width: `calc(100% - ${MOBILE_PANE_PEEK_PX * 2}px)`,
+    width: "100%",
   } satisfies JSX.CSSProperties;
 
   const leftBody = () => <SidebarBody sections={leftSidebarSections} />;
@@ -232,15 +230,12 @@ export function WorkspaceLayoutPage() {
         <div
           ref={mobileCarouselRef}
           class="absolute inset-0 flex min-h-0 snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={{
-            "padding-left": `${MOBILE_PANE_PEEK_PX}px`,
-            "padding-right": `${MOBILE_PANE_PEEK_PX}px`,
-          }}
         >
           <div class="h-full shrink-0" style={mobileSidebarStyle}>
             <MobileSidebarPane
               body={leftBody()}
               dataTestId="workspace-layout-v2-pane-left"
+              snapClass="snap-start"
               title="Left Sidebar"
             />
           </div>
@@ -261,6 +256,7 @@ export function WorkspaceLayoutPage() {
             <MobileSidebarPane
               body={rightBody()}
               dataTestId="workspace-layout-v2-pane-right"
+              snapClass="snap-end"
               title="Right Sidebar"
             />
           </div>
