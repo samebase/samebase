@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { httpAction, internalMutation, mutation } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
   createCodeChallenge,
@@ -214,6 +214,20 @@ export const storeConvexOauthTokens = internalMutation({
       teamId: args.teamId,
       teamSlug: args.teamSlug,
     });
+    await ctx.runMutation(
+      components.noterCreate.providerConnections.upsertConvex,
+      {
+        userId: args.userId,
+        auth: {
+          method: "oauth",
+          credential: args.accessToken,
+          refreshCredential: args.refreshToken,
+          credentialExpiresAt: args.expiresAt,
+        },
+        teamId: args.teamId,
+        teamSlug: args.teamSlug,
+      },
+    );
     await ctx.db.delete(args.oauthStateId);
     return null;
   },

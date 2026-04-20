@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { httpAction, internalMutation, mutation } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
 import {
@@ -154,6 +154,19 @@ export const storeGithubOauthConnection = internalMutation({
       },
       username: args.username,
     });
+    await ctx.runMutation(
+      components.noterCreate.providerConnections.upsertGithub,
+      {
+        userId: args.userId,
+        auth: {
+          method: "oauth",
+          credential: args.accessToken,
+          refreshCredential: args.refreshToken,
+          credentialExpiresAt: args.expiresAt,
+        },
+        username: args.username,
+      },
+    );
     await ctx.db.delete(args.oauthStateId);
     return null;
   },

@@ -54,6 +54,7 @@
     "@lezer-unofficial/printer": "^1.0.1",
     "@lezer/markdown": "^1.4.0",
     "@monaco-editor/react": "^4.7.0",
+    "@noter-md/noter-create": "workspace:*",
     "@octokit/rest": "^22.0.0",
     "@polar-sh/sdk": "^0.46.0",
     "@prosemark/core": "^0.0.4",

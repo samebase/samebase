@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": false,
+    "declaration": true,
+    "declarationMap": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": false,
+    "outDir": "./dist",
+    "rootDir": ".",
+    "types": ["node", "vite/client"]
+  },
+  "include": ["index.ts", "test.ts", "component/**/*.ts"]
+}

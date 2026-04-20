@@ -6,7 +6,7 @@ import {
   query,
   type ActionCtx,
 } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { Infer, v } from "convex/values";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { isRecord, readString } from "./jsonUtils";
@@ -523,6 +523,13 @@ export const disconnectGithub = mutation({
     if (connection) {
       await ctx.db.delete(connection._id);
     }
+    await ctx.runMutation(
+      components.noterCreate.providerConnections.deleteByUserAndKind,
+      {
+        userId,
+        kind: "github",
+      },
+    );
     return null;
   },
 });
@@ -574,6 +581,13 @@ export const disconnectConvex = mutation({
     if (connection) {
       await ctx.db.delete(connection._id);
     }
+    await ctx.runMutation(
+      components.noterCreate.providerConnections.deleteByUserAndKind,
+      {
+        userId,
+        kind: "convex",
+      },
+    );
     return null;
   },
 });
@@ -864,6 +878,13 @@ export const disconnectCloudflare = mutation({
     if (connection) {
       await ctx.db.delete(connection._id);
     }
+    await ctx.runMutation(
+      components.noterCreate.providerConnections.deleteByUserAndKind,
+      {
+        userId,
+        kind: "cloudflare",
+      },
+    );
     return null;
   },
 });
@@ -905,6 +926,17 @@ export const connectGithubWithApiKey = action({
       },
       username: identity.username,
     });
+    await ctx.runMutation(
+      components.noterCreate.providerConnections.upsertGithub,
+      {
+        userId,
+        auth: {
+          method: "api_key",
+          credential: token,
+        },
+        username: identity.username,
+      },
+    );
 
     return { username: identity.username };
   },
@@ -933,6 +965,18 @@ export const connectConvexWithApiKey = action({
       teamId: details.teamId,
       teamSlug: details.teamSlug,
     });
+    await ctx.runMutation(
+      components.noterCreate.providerConnections.upsertConvex,
+      {
+        userId,
+        auth: {
+          method: "api_key",
+          credential: token,
+        },
+        teamId: details.teamId,
+        teamSlug: details.teamSlug,
+      },
+    );
 
     return { teamId: details.teamId, teamSlug: details.teamSlug };
   },

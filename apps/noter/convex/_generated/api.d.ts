@@ -231,5 +231,6 @@ export declare const internal: FilterApi<
 >;
 
 export declare const components: {
+  noterCreate: import("@noter-md/noter-create/_generated/component.js").ComponentApi<"noterCreate">;
   agent: import("@convex-dev/agent/_generated/component.js").ComponentApi<"agent">;
 };

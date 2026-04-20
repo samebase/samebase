@@ -4,7 +4,7 @@ import {
   internalMutation,
   internalQuery,
 } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import {
   createInfraProviders,
   type ConvexManagementProvider,
@@ -720,6 +720,14 @@ export const provisionVaultInfrastructure = internalAction({
           auth: resolvedCloudflareConnection.auth,
           accountId: cloudflareAccountId,
         });
+        await ctx.runMutation(
+          components.noterCreate.providerConnections.upsertCloudflare,
+          {
+            userId: vault.userId,
+            auth: resolvedCloudflareConnection.auth,
+            accountId: cloudflareAccountId,
+          },
+        );
         console.log("infra:cloudflare:account:auto_selected", {
           vaultId: args.vaultId,
           accountId: cloudflareAccountId,

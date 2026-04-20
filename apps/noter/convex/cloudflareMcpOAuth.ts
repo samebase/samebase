@@ -7,7 +7,7 @@ import {
 } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
   createCodeChallenge,
@@ -283,24 +283,35 @@ export const storeCloudflareMcpOauthConnection = internalMutation({
   returns: storeCloudflareMcpOauthConnectionResultValidator,
   handler: async (ctx, args) => {
     const checkedAt = Date.now();
+    const componentAuth = {
+      method: "mcp_oauth" as const,
+      credential: args.accessToken,
+      refreshCredential: args.refreshToken,
+      credentialExpiresAt: args.expiresAt,
+      clientId: args.clientId,
+      mcpServerUrl: CLOUDFLARE_MCP_SERVER_URL,
+    };
+    const tokenHealth = {
+      status: deriveMcpTokenStatusFromExpiry(args.expiresAt, checkedAt),
+      checkedAt,
+      expiresAt: args.expiresAt,
+      source: "expiry_metadata" as const,
+    };
     await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
       userId: args.userId,
-      auth: {
-        method: "mcp_oauth",
-        credential: args.accessToken,
-        refreshCredential: args.refreshToken,
-        credentialExpiresAt: args.expiresAt,
-        clientId: args.clientId,
-        mcpServerUrl: CLOUDFLARE_MCP_SERVER_URL,
-      },
+      auth: componentAuth,
       accountId: undefined,
-      tokenHealth: {
-        status: deriveMcpTokenStatusFromExpiry(args.expiresAt, checkedAt),
-        checkedAt,
-        expiresAt: args.expiresAt,
-        source: "expiry_metadata",
-      },
+      tokenHealth,
     });
+    await ctx.runMutation(
+      components.noterCreate.providerConnections.upsertCloudflare,
+      {
+        userId: args.userId,
+        auth: componentAuth,
+        accountId: undefined,
+        tokenHealth,
+      },
+    );
     logCloudflareMcpEvent("cloudflare:mcp_oauth:connection_stored", {
       userId: args.userId,
       clientIdLength: args.clientId.length,
@@ -416,6 +427,15 @@ export const resolveConnectionForUser = internalAction({
         accountId: connection.accountId,
         tokenHealth,
       });
+      await ctx.runMutation(
+        components.noterCreate.providerConnections.upsertCloudflare,
+        {
+          userId: args.userId,
+          auth: connection.auth,
+          accountId: connection.accountId,
+          tokenHealth,
+        },
+      );
       logCloudflareMcpEvent("cloudflare:mcp_token:refresh_failed", {
         userId: args.userId,
         reason: "missing_refresh_token",
@@ -443,6 +463,15 @@ export const resolveConnectionForUser = internalAction({
         accountId: connection.accountId,
         tokenHealth,
       });
+      await ctx.runMutation(
+        components.noterCreate.providerConnections.upsertCloudflare,
+        {
+          userId: args.userId,
+          auth: connection.auth,
+          accountId: connection.accountId,
+          tokenHealth,
+        },
+      );
       logCloudflareMcpEvent("cloudflare:mcp_token:refresh_failed", {
         userId: args.userId,
         reason: "missing_client_metadata",
@@ -490,6 +519,15 @@ export const resolveConnectionForUser = internalAction({
         accountId: connection.accountId,
         tokenHealth,
       });
+      await ctx.runMutation(
+        components.noterCreate.providerConnections.upsertCloudflare,
+        {
+          userId: args.userId,
+          auth: connection.auth,
+          accountId: connection.accountId,
+          tokenHealth,
+        },
+      );
       throw error;
     }
     const nextExpiresAt =
@@ -519,6 +557,15 @@ export const resolveConnectionForUser = internalAction({
       accountId: connection.accountId,
       tokenHealth: refreshedTokenHealth,
     });
+    await ctx.runMutation(
+      components.noterCreate.providerConnections.upsertCloudflare,
+      {
+        userId: args.userId,
+        auth: refreshedAuth,
+        accountId: connection.accountId,
+        tokenHealth: refreshedTokenHealth,
+      },
+    );
     logCloudflareMcpEvent("cloudflare:mcp_token:refresh_success", {
       userId: args.userId,
       previousExpiresAt: expiresAt,

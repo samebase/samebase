@@ -2,7 +2,7 @@
 
 import { v } from "convex/values";
 import { action } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { api, components, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { Daytona } from "@daytonaio/sdk";
 import { getUserId } from "./common";
@@ -341,18 +341,27 @@ export const createRepository = action({
       cloudflareConnection,
     ] = await Promise.all([
       ctx.runQuery(internal.users.getById, { userId }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "github",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "convex",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "cloudflare",
-      }),
+      ctx.runQuery(
+        components.noterCreate.providerConnections.getByUserAndKind,
+        {
+          userId,
+          kind: "github",
+        },
+      ),
+      ctx.runQuery(
+        components.noterCreate.providerConnections.getByUserAndKind,
+        {
+          userId,
+          kind: "convex",
+        },
+      ),
+      ctx.runQuery(
+        components.noterCreate.providerConnections.getByUserAndKind,
+        {
+          userId,
+          kind: "cloudflare",
+        },
+      ),
     ]);
 
     if (!currentUser) {

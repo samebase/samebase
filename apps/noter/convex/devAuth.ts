@@ -3,7 +3,7 @@ import {
   modifyAccountCredentials,
 } from "@convex-dev/auth/server";
 import { Infer, v } from "convex/values";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import {
   resolveDeploymentProfile,
   resolvePasswordAuthMode,
@@ -213,6 +213,16 @@ export const seedProviderConnectionsForEmail = internalMutation({
 
     if (args.githubApiKey) {
       await upsertGithubApiKey(ctx.db, user._id, args.githubApiKey);
+      await ctx.runMutation(
+        components.noterCreate.providerConnections.upsertGithub,
+        {
+          userId: user._id,
+          auth: {
+            method: "api_key",
+            credential: args.githubApiKey,
+          },
+        },
+      );
     }
 
     if (args.convexManagementApiKey || args.convexTeamId) {
@@ -227,6 +237,17 @@ export const seedProviderConnectionsForEmail = internalMutation({
         args.convexManagementApiKey,
         args.convexTeamId,
       );
+      await ctx.runMutation(
+        components.noterCreate.providerConnections.upsertConvex,
+        {
+          userId: user._id,
+          auth: {
+            method: "api_key",
+            credential: args.convexManagementApiKey,
+          },
+          teamId: args.convexTeamId,
+        },
+      );
     }
 
     if (args.cloudflareApiKey || args.cloudflareAccountId) {
@@ -240,6 +261,17 @@ export const seedProviderConnectionsForEmail = internalMutation({
         user._id,
         args.cloudflareApiKey,
         args.cloudflareAccountId,
+      );
+      await ctx.runMutation(
+        components.noterCreate.providerConnections.upsertCloudflare,
+        {
+          userId: user._id,
+          auth: {
+            method: "api_key",
+            credential: args.cloudflareApiKey,
+          },
+          accountId: args.cloudflareAccountId,
+        },
       );
     }
 

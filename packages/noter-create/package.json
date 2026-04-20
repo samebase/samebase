@@ -1,0 +1,47 @@
+{
+  "name": "@noter-md/noter-create",
+  "version": "0.0.0",
+  "files": [
+    "component",
+    "dist",
+    "index.ts",
+    "test.ts"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "import": "./index.ts"
+    },
+    "./convex.config.js": {
+      "types": "./component/convex.config.ts",
+      "import": "./component/convex.config.ts"
+    },
+    "./_generated/component.js": {
+      "types": "./component/_generated/component.d.ts",
+      "import": "./component/_generated/component.js"
+    },
+    "./test": {
+      "types": "./test.ts",
+      "import": "./test.ts"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "codegen": "pnpm --dir ../../apps/noter exec convex codegen --component-dir ../../packages/noter-create/component",
+    "build": "pnpm run codegen && node ./scripts/build.mjs"
+  },
+  "dependencies": {
+    "convex": "1.35.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "convex-test": "^0.0.36",
+    "vite": "^8.0.8"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}
