@@ -84,7 +84,6 @@ apps/noter/public/icon-maskable-512.png
 apps/noter/public/install-icon.svg
 apps/noter/public/logo_pick.svg
 apps/noter/public/logo-static.svg
-apps/noter/public/lumina_icon.png
 apps/noter/public/manifest.webmanifest
 apps/noter/public/media-visual-fixture.svg
 apps/noter/public/noter-social-card.png
