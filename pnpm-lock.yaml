@@ -349,48 +349,15 @@ importers:
 
   apps/workspace-layout-v2-solid:
     dependencies:
-      '@codemirror/commands':
-        specifier: ^6.8.0
-        version: 6.10.2
-      '@codemirror/lang-markdown':
-        specifier: ^6.3.1
-        version: 6.5.0
-      '@codemirror/language':
-        specifier: ^6.10.8
-        version: 6.12.1
-      '@codemirror/state':
-        specifier: ^6.4.1
-        version: 6.5.4
-      '@codemirror/view':
-        specifier: ^6.28.4
-        version: 6.39.12
-      '@prosemark/core':
-        specifier: ^0.0.4
-        version: 0.0.4(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.10.2)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.12.1)(@codemirror/lint@6.9.3)(@codemirror/search@6.6.0)(@codemirror/state@6.5.4)(@codemirror/view@6.39.12)(@lezer/highlight@1.2.3)
       '@tanstack/solid-router':
         specifier: ^1.168.20
         version: 1.168.20(solid-js@1.9.12)
       '@tanstack/solid-router-devtools':
         specifier: ^1.166.13
         version: 1.166.13(@tanstack/router-core@1.168.15)(@tanstack/solid-router@1.168.20(solid-js@1.9.12))(csstype@3.2.3)(solid-js@1.9.12)
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      codemirror:
-        specifier: ^6.0.1
-        version: 6.0.2
-      monaco-editor:
-        specifier: ^0.55.1
-        version: 0.55.1
       solid-js:
         specifier: ^1.9.12
         version: 1.9.12
-      tailwind-merge:
-        specifier: ^3.5.0
-        version: 3.5.0
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.2.2

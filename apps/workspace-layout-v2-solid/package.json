@@ -10,20 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@codemirror/commands": "^6.8.0",
-    "@codemirror/lang-markdown": "^6.3.1",
-    "@codemirror/language": "^6.10.8",
-    "@codemirror/state": "^6.4.1",
-    "@codemirror/view": "^6.28.4",
-    "@prosemark/core": "^0.0.4",
     "@tanstack/solid-router": "^1.168.20",
     "@tanstack/solid-router-devtools": "^1.166.13",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "codemirror": "^6.0.1",
-    "monaco-editor": "^0.55.1",
-    "solid-js": "^1.9.12",
-    "tailwind-merge": "^3.5.0"
+    "solid-js": "^1.9.12"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",
