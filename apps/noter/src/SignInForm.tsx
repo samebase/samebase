@@ -98,6 +98,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
     <PublicLandingShell
       topNotice={topNotice}
       autoRotate={isLandingCopyEditable}
+      enableInteractiveLogo={!prodUiModeEnabled}
       enableViewSnapping={!landingDevModeEnabled}
       showGoogleSignupClosedState={showGoogleSignupClosedState}
       closedState={<GoogleSignupClosedNotice />}

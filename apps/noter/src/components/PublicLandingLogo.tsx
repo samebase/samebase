@@ -58,18 +58,20 @@ export function PublicLandingLogo({
   autoRotate = false,
   enableSceneEnhancement = true,
   enableViewSnapping = true,
+  keepSceneInteractiveWhileSvgVisible = false,
   revealSceneOnInteractionOnly = false,
 }: {
   autoRotate?: boolean;
   enableSceneEnhancement?: boolean;
   enableViewSnapping?: boolean;
+  keepSceneInteractiveWhileSvgVisible?: boolean;
   revealSceneOnInteractionOnly?: boolean;
 }) {
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(
     () => (enableSceneEnhancement ? cachedLandingLogoScene : null),
   );
-  const [didSceneFail, setDidSceneFail] = useState(
-    () => (enableSceneEnhancement ? didLandingLogoSceneRenderFail : false),
+  const [didSceneFail, setDidSceneFail] = useState(() =>
+    enableSceneEnhancement ? didLandingLogoSceneRenderFail : false,
   );
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
@@ -88,10 +90,20 @@ export function PublicLandingLogo({
     right: DEFAULT_FACE_COLORS.right,
     top: DEFAULT_FACE_COLORS.top,
   };
-  const isSceneInteractive = enableSceneEnhancement && isSceneReady && !isSvgVisible;
+  const keepHiddenSceneInteractive =
+    keepSceneInteractiveWhileSvgVisible && isSvgVisible;
+  const isSceneInteractive =
+    enableSceneEnhancement &&
+    isSceneReady &&
+    (!isSvgVisible || keepHiddenSceneInteractive);
+  const scenePointerClassName = isSceneInteractive
+    ? keepHiddenSceneInteractive
+      ? "pointer-events-auto"
+      : "pointer-events-auto touch-none"
+    : "pointer-events-none";
   const logoImageClassName = enableSceneEnhancement
     ? isSvgVisible
-      ? `${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 transition-opacity duration-200 ease-out motion-reduce:transition-none opacity-100`
+      ? `${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 transition-opacity duration-200 ease-out motion-reduce:transition-none ${keepSceneInteractiveWhileSvgVisible ? "pointer-events-none" : ""} opacity-100`
       : `${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 transition-opacity duration-200 ease-out motion-reduce:transition-none pointer-events-none opacity-0`
     : `${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 opacity-100`;
 
@@ -172,7 +184,9 @@ export function PublicLandingLogo({
   }, [autoRotate]);
 
   useEffect(() => {
-    setShouldRevealScene(enableSceneEnhancement && !revealSceneOnInteractionOnly);
+    setShouldRevealScene(
+      enableSceneEnhancement && !revealSceneOnInteractionOnly,
+    );
   }, [enableSceneEnhancement, revealSceneOnInteractionOnly]);
 
   useEffect(() => {
@@ -258,7 +272,7 @@ export function PublicLandingLogo({
             data-state={isSceneReady ? "ready" : "loading"}
             data-elevation-degrees={view.elevationDegrees.toFixed(3)}
             data-rotation-degrees={view.rotationDegrees.toFixed(3)}
-            className={`absolute inset-0 z-0 ${isSceneInteractive ? "pointer-events-auto touch-none" : "pointer-events-none"}`}
+            className={`absolute inset-0 z-0 ${scenePointerClassName}`}
           >
             <LogoScene
               className={`h-full w-full ${isSceneInteractive ? "cursor-grab active:cursor-grabbing" : ""}`}

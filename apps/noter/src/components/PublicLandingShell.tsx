@@ -9,6 +9,7 @@ type PublicLandingShellProps = {
   authControls?: ReactNode;
   closedState?: ReactNode;
   copy: ReactNode;
+  enableInteractiveLogo?: boolean;
   enableViewSnapping?: boolean;
   footer: ReactNode;
   showGoogleSignupClosedState?: boolean;
@@ -24,6 +25,7 @@ export function PublicLandingShell({
   authControls,
   closedState,
   copy,
+  enableInteractiveLogo = true,
   enableViewSnapping = true,
   footer,
   showGoogleSignupClosedState = false,
@@ -43,8 +45,11 @@ export function PublicLandingShell({
           {topNotice}
           <PublicLandingLogo
             autoRotate={autoRotate}
-            enableSceneEnhancement={autoRotate}
+            enableSceneEnhancement={enableInteractiveLogo || autoRotate}
             enableViewSnapping={enableViewSnapping}
+            keepSceneInteractiveWhileSvgVisible={
+              enableInteractiveLogo && !autoRotate
+            }
             revealSceneOnInteractionOnly={!autoRotate}
           />
           {showGoogleSignupClosedState ? (

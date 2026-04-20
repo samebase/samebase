@@ -288,8 +288,10 @@ route:
 - the hydrated landing logo component may lazy-import the Three scene in a
   separate chunk, but it must keep the SVG visible through initial hydration and
   refresh
-- the public landing should keep the static SVG as its shipped logo treatment
-  instead of replacing it with the interactive scene
+- the public landing should keep the static SVG as its first-paint logo
+  treatment instead of replacing it during hydration or refresh
+- the normal landing route may reveal that already-loaded scene only after an
+  explicit pointer interaction, while `/?prod-ui` stays fully static
 - the SVG-to-Three handoff should use the same box geometry and dimensions so
   any non-public interactive reveal remains visually indistinguishable
 
@@ -320,20 +322,11 @@ its purpose is iteration, not first-view user delivery.
 This separation is the key architectural change. It avoids forcing one surface
 to satisfy two conflicting jobs.
 
-## Future Drag Contract
+## Drag Contract
 
-If a later product requirement reintroduces drag on the user path, the next
-implementation should be:
-
-- a generated frame sequence or sprite strip
-- driven by pointer movement that swaps frames
-- sourced from the same fixed generator pipeline
-
-It should not be:
-
-- live `three.js`
-- live canvas projection math
-- live SVG polygon recomputation on every pointer move
+The shipped public landing may keep drag only as a lazy-loaded enhancement to
+the normal `/` route after the static SVG is already visible. `/?prod-ui`
+remains the no-enhancement path for reload and visual-stability checks.
 
 ## Validation and Test Strategy
 

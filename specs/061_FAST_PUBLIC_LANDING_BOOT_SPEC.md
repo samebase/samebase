@@ -126,8 +126,11 @@ This keeps the shell-first route compatible with the existing auth entrypoint.
 ### Landing-copy rendering rules
 
 - Normal `/` uses a plain Tailwind rendering path through `LandingCopy`.
+- Normal `/` keeps the prerendered SVG on first paint, but may reveal the
+  lazy-loaded interactive logo scene after an explicit pointer drag.
 - `/?prod-ui` keeps the normal landing-copy rendering path, but hides the
-  dev-only password auth affordances and editable landing mode.
+  dev-only password auth affordances, editable landing mode, and interactive
+  logo enhancement.
 - `/?dev` still supports editable copy, but `ProsemarkReadOnly` is lazy-loaded
   only for that mode.
 
@@ -195,7 +198,7 @@ The implementation was validated through the normal pre-commit path, including:
 - Plain `/` keeps the Google auth slot hidden and non-interactive without
   changing the landing card height.
 - `/?prod-ui` keeps the prod-like landing path and suppresses dev-only auth and
-  editable landing-copy affordances.
+  editable landing-copy affordances, while also keeping the logo fully static.
 - `/?dev` continues to use the editable landing-copy path.
 - Shell Google CTA still reaches the existing Google auth flow.
 - Restored popup-auth tokens prevent the public shell from flashing on the next

@@ -905,6 +905,51 @@ test("public landing keeps the card height stable while toggling dev mode", asyn
   );
 });
 
+test("public landing logo becomes draggable after interaction", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
+  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
+  const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
+
+  await expectLandingLogoReady(landingLogo);
+  await expectLandingLogoSceneReady(landingLogoScene);
+  await expect(landingLogo).toHaveClass(/opacity-100/);
+
+  const initialRotationDegrees = await landingLogoScene.getAttribute(
+    "data-rotation-degrees",
+  );
+  expect(initialRotationDegrees).not.toBeNull();
+  if (initialRotationDegrees === null) {
+    return;
+  }
+
+  const landingLogoStageBounds = await landingLogoStage.boundingBox();
+  expect(landingLogoStageBounds).not.toBeNull();
+  if (!landingLogoStageBounds) {
+    return;
+  }
+
+  const centerX = landingLogoStageBounds.x + landingLogoStageBounds.width / 2;
+  const centerY = landingLogoStageBounds.y + landingLogoStageBounds.height / 2;
+  await page.mouse.move(centerX, centerY);
+  await page.mouse.down();
+  await page.mouse.move(centerX + 72, centerY + 24, { steps: 12 });
+  await page.mouse.up();
+
+  await expect(landingLogo).toHaveClass(/opacity-0/);
+  await expect
+    .poll(async () => {
+      return (
+        (await landingLogoScene.getAttribute("data-rotation-degrees")) ??
+        initialRotationDegrees
+      );
+    })
+    .not.toBe(initialRotationDegrees);
+});
+
 test("prod-ui landing logo stays static after hydration", async ({
   page,
 }, testInfo) => {
