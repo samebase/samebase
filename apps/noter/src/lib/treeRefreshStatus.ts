@@ -3,6 +3,7 @@ import {
   isRepositoryMetadataStale,
   TREE_REFRESH_STALE_LOCK_MS,
 } from "../../shared/treeRefresh";
+import { shouldHydrateCloudflareBranchPreview } from "./cloudflarePreviewLinks";
 
 type TreeRefreshFailureKind = "failed" | "rate_limited";
 
@@ -84,6 +85,7 @@ export function shouldAutoRefreshVault(args: {
     lastSyncedAt: number;
     pullRequestNumber?: number;
     cloudflareBranchPreviewUrl?: string;
+    cloudflarePreviewPullRequestNumber?: number;
   }>;
   trigger: DashboardRefreshTrigger;
   now?: number;
@@ -96,10 +98,8 @@ export function shouldAutoRefreshVault(args: {
     activeRemoteBranches.length > 0
       ? activeRemoteBranches
       : args.remoteBranches;
-  const hasMissingPreviewLinks = activeRemoteBranches.some(
-    (branch) =>
-      typeof branch.pullRequestNumber === "number" &&
-      typeof branch.cloudflareBranchPreviewUrl !== "string",
+  const hasMissingPreviewLinks = activeRemoteBranches.some((branch) =>
+    shouldHydrateCloudflareBranchPreview(branch),
   );
   const metadataStale =
     hasMissingPreviewLinks ||

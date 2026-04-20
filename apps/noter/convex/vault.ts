@@ -45,12 +45,16 @@ const { array, boolean, id, literal, number, object, optional, string, union } =
   v;
 const cloudflarePreviewMetadataFields = {
   cloudflareBranchPreviewUrl: optional(string()),
+  cloudflarePreviewPullRequestNumber: optional(number()),
   cloudflarePreviewUrl: optional(string()),
   cloudflarePreviewCommitSha: optional(string()),
   cloudflarePreviewStatus: optional(string()),
   cloudflarePreviewLogsUrl: optional(string()),
   cloudflarePreviewCommentCreatedAt: optional(number()),
 } as const;
+const cloudflarePreviewMetadataValidator = object(
+  cloudflarePreviewMetadataFields,
+);
 const treeRefreshFailureFields = {
   lastTreeRefreshFailedAt: optional(number()),
   treeRefreshFailureKind: optional(TreeRefreshFailureKind),
@@ -58,14 +62,9 @@ const treeRefreshFailureFields = {
   treeRefreshCooldownUntil: optional(number()),
 } as const;
 
-type CloudflarePreviewMetadata = {
-  cloudflareBranchPreviewUrl?: string;
-  cloudflarePreviewUrl?: string;
-  cloudflarePreviewCommitSha?: string;
-  cloudflarePreviewStatus?: string;
-  cloudflarePreviewLogsUrl?: string;
-  cloudflarePreviewCommentCreatedAt?: number;
-};
+type CloudflarePreviewMetadata = Infer<
+  typeof cloudflarePreviewMetadataValidator
+>;
 
 const vaultBranchFiltersValidator = object({
   vaultId: id("vaults"),
@@ -90,6 +89,7 @@ export function resolveSyncedCloudflarePreviewMetadata(args: {
   if (args.incoming.previewState === "clear") {
     return {
       cloudflareBranchPreviewUrl: undefined,
+      cloudflarePreviewPullRequestNumber: undefined,
       cloudflarePreviewUrl: undefined,
       cloudflarePreviewCommitSha: undefined,
       cloudflarePreviewStatus: undefined,
@@ -102,6 +102,9 @@ export function resolveSyncedCloudflarePreviewMetadata(args: {
     cloudflareBranchPreviewUrl:
       args.incoming.cloudflareBranchPreviewUrl ??
       args.existing?.cloudflareBranchPreviewUrl,
+    cloudflarePreviewPullRequestNumber:
+      args.incoming.cloudflarePreviewPullRequestNumber ??
+      args.existing?.cloudflarePreviewPullRequestNumber,
     cloudflarePreviewUrl:
       args.incoming.cloudflarePreviewUrl ?? args.existing?.cloudflarePreviewUrl,
     cloudflarePreviewCommitSha:
@@ -117,6 +120,28 @@ export function resolveSyncedCloudflarePreviewMetadata(args: {
       args.incoming.cloudflarePreviewCommentCreatedAt ??
       args.existing?.cloudflarePreviewCommentCreatedAt,
   };
+}
+
+/**
+ * Cloudflare preview links are cached per PR. Clear the saved preview when the
+ * branch loses its current PR or when GitHub points the branch at a different
+ * PR number so the next hydration can fetch fresh comment data exactly once for
+ * that PR.
+ */
+export function shouldClearCloudflarePreviewForPullRequestSync(args: {
+  incomingPullRequestState: "resolved" | "preserve";
+  incomingPullRequestNumber?: number;
+  existingPullRequestNumber?: number;
+}): boolean {
+  if (args.incomingPullRequestState !== "resolved") {
+    return false;
+  }
+
+  if (typeof args.incomingPullRequestNumber !== "number") {
+    return true;
+  }
+
+  return args.incomingPullRequestNumber !== args.existingPullRequestNumber;
 }
 
 // MARK: Public
@@ -938,6 +963,8 @@ export const getUserVaults = query({
               remoteState: branch.remoteState,
               lastSyncedAt: branch.lastSyncedAt,
               cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
+              cloudflarePreviewPullRequestNumber:
+                branch.cloudflarePreviewPullRequestNumber,
               cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
               cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
               cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
@@ -1034,6 +1061,8 @@ export const getVaultRemoteBranches = query({
       deletedUpstreamAt: branch.deletedUpstreamAt,
       lastSyncedAt: branch.lastSyncedAt,
       cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
+      cloudflarePreviewPullRequestNumber:
+        branch.cloudflarePreviewPullRequestNumber,
       cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
       cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
       cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
@@ -1153,6 +1182,13 @@ export const syncVaultRemoteBranches = internalMutation({
           pullRequestLabels?: PullRequestLabel[];
           pullRequestTitle?: string;
           pullRequestIsDraft?: boolean;
+          cloudflareBranchPreviewUrl?: string;
+          cloudflarePreviewPullRequestNumber?: number;
+          cloudflarePreviewUrl?: string;
+          cloudflarePreviewCommitSha?: string;
+          cloudflarePreviewStatus?: string;
+          cloudflarePreviewLogsUrl?: string;
+          cloudflarePreviewCommentCreatedAt?: number;
           isDefault: boolean;
           isProtected: boolean;
           remoteState: "active";
@@ -1186,6 +1222,21 @@ export const syncVaultRemoteBranches = internalMutation({
             typeof branch.pullRequestUrl === "string"
               ? branch.pullRequestIsDraft === true
               : undefined;
+          if (
+            shouldClearCloudflarePreviewForPullRequestSync({
+              incomingPullRequestState: branch.pullRequestState,
+              incomingPullRequestNumber: branch.pullRequestNumber,
+              existingPullRequestNumber: existingBranch.pullRequestNumber,
+            })
+          ) {
+            patchData.cloudflareBranchPreviewUrl = undefined;
+            patchData.cloudflarePreviewPullRequestNumber = undefined;
+            patchData.cloudflarePreviewUrl = undefined;
+            patchData.cloudflarePreviewCommitSha = undefined;
+            patchData.cloudflarePreviewStatus = undefined;
+            patchData.cloudflarePreviewLogsUrl = undefined;
+            patchData.cloudflarePreviewCommentCreatedAt = undefined;
+          }
         }
         await ctx.db.patch(existingBranch._id, patchData);
         continue;
@@ -1253,6 +1304,7 @@ export const syncVaultRemoteBranches = internalMutation({
         deletedUpstreamAt: branch.deletedUpstreamAt ?? args.syncedAt,
         lastSyncedAt: args.syncedAt,
         cloudflareBranchPreviewUrl: undefined,
+        cloudflarePreviewPullRequestNumber: undefined,
         cloudflarePreviewUrl: undefined,
         cloudflarePreviewCommitSha: undefined,
         cloudflarePreviewStatus: undefined,
@@ -1315,6 +1367,8 @@ export const syncVaultRemoteBranchCloudflarePreviews = internalMutation({
               incoming: {
                 previewState: "resolved",
                 cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
+                cloudflarePreviewPullRequestNumber:
+                  branch.cloudflarePreviewPullRequestNumber,
                 cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
                 cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
                 cloudflarePreviewStatus: branch.cloudflarePreviewStatus,

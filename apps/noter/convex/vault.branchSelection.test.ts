@@ -7,6 +7,7 @@ import {
   resolveSyncedCloudflarePreviewMetadata,
   resolveVaultBranchSelection,
   selectDeletedUpstreamBranchesToAutoPrune,
+  shouldClearCloudflarePreviewForPullRequestSync,
 } from "./vault";
 
 describe("resolveVaultBranchSelection", () => {
@@ -148,6 +149,7 @@ describe("resolveSyncedCloudflarePreviewMetadata", () => {
       resolveSyncedCloudflarePreviewMetadata({
         existing: {
           cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
+          cloudflarePreviewPullRequestNumber: 77,
           cloudflarePreviewUrl: "https://sha.pages.dev/",
           cloudflarePreviewCommitSha: "sha-old",
           cloudflarePreviewStatus: "✅ Deploy successful!",
@@ -156,12 +158,14 @@ describe("resolveSyncedCloudflarePreviewMetadata", () => {
         },
         incoming: {
           previewState: "resolved",
+          cloudflarePreviewPullRequestNumber: 77,
           cloudflarePreviewCommitSha: "sha-new",
           cloudflarePreviewStatus: "⏳ Building",
         },
       }),
     ).toEqual({
       cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
+      cloudflarePreviewPullRequestNumber: 77,
       cloudflarePreviewUrl: "https://sha.pages.dev/",
       cloudflarePreviewCommitSha: "sha-new",
       cloudflarePreviewStatus: "⏳ Building",
@@ -175,6 +179,7 @@ describe("resolveSyncedCloudflarePreviewMetadata", () => {
       resolveSyncedCloudflarePreviewMetadata({
         existing: {
           cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
+          cloudflarePreviewPullRequestNumber: 77,
           cloudflarePreviewUrl: "https://sha.pages.dev/",
           cloudflarePreviewCommitSha: "sha-old",
           cloudflarePreviewStatus: "✅ Deploy successful!",
@@ -187,12 +192,55 @@ describe("resolveSyncedCloudflarePreviewMetadata", () => {
       }),
     ).toEqual({
       cloudflareBranchPreviewUrl: undefined,
+      cloudflarePreviewPullRequestNumber: undefined,
       cloudflarePreviewUrl: undefined,
       cloudflarePreviewCommitSha: undefined,
       cloudflarePreviewStatus: undefined,
       cloudflarePreviewLogsUrl: undefined,
       cloudflarePreviewCommentCreatedAt: undefined,
     });
+  });
+});
+
+describe("shouldClearCloudflarePreviewForPullRequestSync", () => {
+  it("clears the cached preview when the branch no longer has a current PR", () => {
+    expect(
+      shouldClearCloudflarePreviewForPullRequestSync({
+        incomingPullRequestState: "resolved",
+        incomingPullRequestNumber: undefined,
+        existingPullRequestNumber: 42,
+      }),
+    ).toBe(true);
+  });
+
+  it("clears the cached preview when the branch points to a different PR", () => {
+    expect(
+      shouldClearCloudflarePreviewForPullRequestSync({
+        incomingPullRequestState: "resolved",
+        incomingPullRequestNumber: 43,
+        existingPullRequestNumber: 42,
+      }),
+    ).toBe(true);
+  });
+
+  it("preserves the cached preview when the current PR number is unchanged", () => {
+    expect(
+      shouldClearCloudflarePreviewForPullRequestSync({
+        incomingPullRequestState: "resolved",
+        incomingPullRequestNumber: 42,
+        existingPullRequestNumber: 42,
+      }),
+    ).toBe(false);
+  });
+
+  it("preserves the cache when GitHub PR metadata could not be resolved", () => {
+    expect(
+      shouldClearCloudflarePreviewForPullRequestSync({
+        incomingPullRequestState: "preserve",
+        incomingPullRequestNumber: undefined,
+        existingPullRequestNumber: 42,
+      }),
+    ).toBe(false);
   });
 });
 

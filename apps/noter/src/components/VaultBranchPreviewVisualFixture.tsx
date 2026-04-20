@@ -62,6 +62,7 @@ export function VaultBranchPreviewVisualFixture({
               { name: "dashboard", color: "0e8a16" },
             ]}
             cloudflareBranchPreviewUrl={preview?.branchPreviewUrl}
+            cloudflarePreviewPullRequestNumber={290}
             canDeleteBranch={false}
             isDeletingBranch={false}
             onDeleteBranch={() => {}}
