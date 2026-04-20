@@ -391,11 +391,43 @@ function shouldLimitAutomaticRepositoryMetadataEnrichment(args: {
   );
 }
 
+function shouldPreserveTargetedCloudflarePreviewHydration(args: {
+  includeCloudflarePreviewLinks: boolean;
+  cloudflarePreviewBranchNames?: string[];
+}): boolean {
+  return (
+    args.includeCloudflarePreviewLinks &&
+    Array.isArray(args.cloudflarePreviewBranchNames) &&
+    args.cloudflarePreviewBranchNames.some(
+      (branchName) => branchName.trim().length > 0,
+    )
+  );
+}
+
+function normalizeCloudflarePreviewBranchNames(
+  branchNames: string[] | undefined,
+): string[] {
+  const normalizedBranchNames: string[] = [];
+  const seenBranchNames = new Set<string>();
+
+  for (const branchName of branchNames ?? []) {
+    const nextBranchName = branchName.trim();
+    if (nextBranchName.length === 0 || seenBranchNames.has(nextBranchName)) {
+      continue;
+    }
+    seenBranchNames.add(nextBranchName);
+    normalizedBranchNames.push(nextBranchName);
+  }
+
+  return normalizedBranchNames;
+}
+
 export function applyRepositoryTreeMetadataSyncBudget(args: {
   shouldSyncMetadata: boolean;
   includeAheadBehind: boolean;
   includePullRequestLinks: boolean;
   includeCloudflarePreviewLinks: boolean;
+  cloudflarePreviewBranchNames?: string[];
   includeLastCommitTimestamps: boolean;
   trigger?: RefreshRepositoryTrigger;
   remoteBranchCount?: number;
@@ -426,13 +458,16 @@ export function applyRepositoryTreeMetadataSyncBudget(args: {
   }
 
   // Preserve the metadata the dashboard depends on for branch ordering and PR
-  // visibility, while still dropping the most expensive per-branch backfills
-  // that are not needed for the main branch list.
+  // visibility, while still dropping the noisiest repo-wide backfills that are
+  // not needed for the main branch list. Targeted preview hydration stays on
+  // because the caller already narrowed it to the specific branches still
+  // missing a cached preview.
   return {
     shouldSyncMetadata: true,
     includeAheadBehind: false,
     includePullRequestLinks: args.includePullRequestLinks,
-    includeCloudflarePreviewLinks: false,
+    includeCloudflarePreviewLinks:
+      shouldPreserveTargetedCloudflarePreviewHydration(args),
     includeLastCommitTimestamps: args.includeLastCommitTimestamps,
   };
 }
@@ -468,6 +503,7 @@ export function computeRepositoryTreeMetadataSyncPlan(args: {
   includeAheadBehind?: boolean;
   includePullRequestLinks?: boolean;
   includeCloudflarePreviewLinks?: boolean;
+  cloudflarePreviewBranchNames?: string[];
   trigger?: RefreshRepositoryTrigger;
   remoteBranchCount?: number;
 }): RepositoryTreeMetadataSyncPlan {
@@ -490,6 +526,7 @@ export function computeRepositoryTreeMetadataSyncPlan(args: {
     includeAheadBehind,
     includePullRequestLinks,
     includeCloudflarePreviewLinks: requestedCloudflarePreviewLinks,
+    cloudflarePreviewBranchNames: args.cloudflarePreviewBranchNames,
     includeLastCommitTimestamps: shouldSyncMetadata,
     trigger: args.trigger,
     remoteBranchCount: args.remoteBranchCount,
@@ -1151,6 +1188,7 @@ export function shouldSyncCloudflarePreviewLinks(args: {
   branches: Array<{ pullRequestState: "resolved" | "preserve" }>;
 }): boolean {
   return (
+    args.branches.length > 0 &&
     args.includeCloudflarePreviewLinks &&
     args.includePullRequestLinks &&
     args.branches.every((branch) => branch.pullRequestState === "resolved")
@@ -2199,6 +2237,7 @@ export const refreshRepositoryTree = action({
     includeAheadBehind: optional(boolean()),
     includePullRequestLinks: optional(boolean()),
     includeCloudflarePreviewLinks: optional(boolean()),
+    cloudflarePreviewBranchNames: optional(array(string())),
     trigger: optional(refreshRepositoryTrigger),
   },
   returns: refreshRepositoryTreeResult,
@@ -2209,6 +2248,10 @@ export const refreshRepositoryTree = action({
       typeof args.branch === "string" && args.branch.trim().length > 0
         ? args.branch.trim()
         : undefined;
+    const requestedCloudflarePreviewBranchNames =
+      normalizeCloudflarePreviewBranchNames(args.cloudflarePreviewBranchNames);
+    const includeCloudflarePreviewLinks =
+      args.includeCloudflarePreviewLinks === true;
 
     const repositoryFullName = `${args.owner}/${args.repo}`;
     const readVault = async (branch: string | undefined) =>
@@ -2228,8 +2271,7 @@ export const refreshRepositoryTree = action({
       requestedBranch,
       branchNotFound: vault.branchNotFound,
       lastRepositoryMetadataRefreshAt: vault.lastRepositoryMetadataRefreshAt,
-      includeCloudflarePreviewLinks:
-        args.includeCloudflarePreviewLinks === true,
+      includeCloudflarePreviewLinks,
     });
 
     if (!refreshPlan.shouldSyncMetadata && !refreshPlan.shouldRefreshTreeData) {
@@ -2285,7 +2327,8 @@ export const refreshRepositoryTree = action({
       targetBranch: requestedBranch,
       includeAheadBehind: args.includeAheadBehind,
       includePullRequestLinks: args.includePullRequestLinks,
-      includeCloudflarePreviewLinks: args.includeCloudflarePreviewLinks,
+      includeCloudflarePreviewLinks,
+      cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
       trigger,
       remoteBranchCount: vault.remoteBranchCount,
     });
@@ -2300,6 +2343,7 @@ export const refreshRepositoryTree = action({
           includePullRequestLinks: metadataSyncPlan.includePullRequestLinks,
           includeCloudflarePreviewLinks:
             metadataSyncPlan.includeCloudflarePreviewLinks,
+          cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
           includeLastCommitTimestamps:
             metadataSyncPlan.includeLastCommitTimestamps,
           trigger,
@@ -2316,8 +2360,7 @@ export const refreshRepositoryTree = action({
           branchNotFound: vault.branchNotFound,
           lastRepositoryMetadataRefreshAt:
             vault.lastRepositoryMetadataRefreshAt,
-          includeCloudflarePreviewLinks:
-            args.includeCloudflarePreviewLinks === true,
+          includeCloudflarePreviewLinks,
         });
       }
 
@@ -2411,6 +2454,7 @@ export const syncRepositoryMetadata = internalAction({
     includeAheadBehind: optional(boolean()),
     includePullRequestLinks: optional(boolean()),
     includeCloudflarePreviewLinks: optional(boolean()),
+    cloudflarePreviewBranchNames: optional(array(string())),
     includeLastCommitTimestamps: optional(boolean()),
     trigger: optional(refreshRepositoryTrigger),
   },
@@ -2446,6 +2490,8 @@ export const syncRepositoryMetadata = internalAction({
     const octokit: Octokit = new Octokit({
       auth: githubConnection.auth.credential,
     });
+    const requestedCloudflarePreviewBranchNames =
+      normalizeCloudflarePreviewBranchNames(args.cloudflarePreviewBranchNames);
 
     const remoteBranches = await listRemoteBranches({
       octokit,
@@ -2462,6 +2508,7 @@ export const syncRepositoryMetadata = internalAction({
       includePullRequestLinks: args.includePullRequestLinks === true,
       includeCloudflarePreviewLinks:
         args.includeCloudflarePreviewLinks === true,
+      cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
       includeLastCommitTimestamps: args.includeLastCommitTimestamps !== false,
       trigger: args.trigger,
       remoteBranchCount: remoteBranches.length,
@@ -2471,19 +2518,25 @@ export const syncRepositoryMetadata = internalAction({
       syncedAt: Date.now(),
       branches: remoteBranches,
     });
+    const cloudflarePreviewTargetBranches =
+      requestedCloudflarePreviewBranchNames.length === 0
+        ? remoteBranches
+        : remoteBranches.filter((branch) =>
+            requestedCloudflarePreviewBranchNames.includes(branch.name),
+          );
     if (
       shouldSyncCloudflarePreviewLinks({
         includeCloudflarePreviewLinks:
           effectiveSyncPlan.includeCloudflarePreviewLinks,
         includePullRequestLinks: effectiveSyncPlan.includePullRequestLinks,
-        branches: remoteBranches,
+        branches: cloudflarePreviewTargetBranches,
       })
     ) {
       const cloudflarePreviews = await getCloudflarePreviewLinksByBranch({
         octokit,
         owner: args.owner,
         repo: args.repo,
-        branches: remoteBranches,
+        branches: cloudflarePreviewTargetBranches,
       });
       await ctx.runMutation(
         internal.vault.syncVaultRemoteBranchCloudflarePreviews,
@@ -2618,6 +2671,7 @@ export const updateRepositoryTree = internalAction({
     includeAheadBehind: optional(boolean()),
     includePullRequestLinks: optional(boolean()),
     includeCloudflarePreviewLinks: optional(boolean()),
+    cloudflarePreviewBranchNames: optional(array(string())),
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
@@ -2625,6 +2679,8 @@ export const updateRepositoryTree = internalAction({
       typeof args.branch === "string" && args.branch.trim().length > 0
         ? args.branch.trim()
         : undefined;
+    const requestedCloudflarePreviewBranchNames =
+      normalizeCloudflarePreviewBranchNames(args.cloudflarePreviewBranchNames);
     // All current callers are user-driven follow-ups after a repo mutation, so
     // this helper should stay on the fully enriched manual path.
     const metadataSyncPlan = computeRepositoryTreeMetadataSyncPlan({
@@ -2632,6 +2688,7 @@ export const updateRepositoryTree = internalAction({
       includeAheadBehind: args.includeAheadBehind,
       includePullRequestLinks: args.includePullRequestLinks,
       includeCloudflarePreviewLinks: args.includeCloudflarePreviewLinks,
+      cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
       trigger: "manual",
     });
 
@@ -2644,6 +2701,7 @@ export const updateRepositoryTree = internalAction({
         includePullRequestLinks: metadataSyncPlan.includePullRequestLinks,
         includeCloudflarePreviewLinks:
           metadataSyncPlan.includeCloudflarePreviewLinks,
+        cloudflarePreviewBranchNames: requestedCloudflarePreviewBranchNames,
         includeLastCommitTimestamps:
           metadataSyncPlan.includeLastCommitTimestamps,
         trigger: "manual",

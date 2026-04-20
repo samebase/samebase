@@ -150,6 +150,16 @@ describe("shouldSyncCloudflarePreviewLinks", () => {
       }),
     ).toBe(false);
   });
+
+  it("skips preview sync when no branches were targeted for hydration", () => {
+    expect(
+      shouldSyncCloudflarePreviewLinks({
+        includeCloudflarePreviewLinks: true,
+        includePullRequestLinks: true,
+        branches: [],
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("describeRepositoryTreeRefreshFailure", () => {
@@ -657,6 +667,24 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       includeLastCommitTimestamps: true,
     });
   });
+
+  it("keeps targeted preview-comment backfills during automatic large-repo refreshes", () => {
+    expect(
+      computeRepositoryTreeMetadataSyncPlan({
+        targetBranch: "feature/login",
+        includeCloudflarePreviewLinks: true,
+        cloudflarePreviewBranchNames: ["feature/login"],
+        trigger: "page_load",
+        remoteBranchCount: 75,
+      }),
+    ).toEqual({
+      shouldSyncMetadata: true,
+      includeAheadBehind: false,
+      includePullRequestLinks: true,
+      includeCloudflarePreviewLinks: true,
+      includeLastCommitTimestamps: true,
+    });
+  });
 });
 
 describe("applyRepositoryTreeMetadataSyncBudget", () => {
@@ -714,6 +742,27 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
     ).toEqual({
       shouldSyncMetadata: true,
       includeAheadBehind: true,
+      includePullRequestLinks: true,
+      includeCloudflarePreviewLinks: true,
+      includeLastCommitTimestamps: true,
+    });
+  });
+
+  it("keeps targeted preview hydration enabled during automatic large-repo refreshes", () => {
+    expect(
+      applyRepositoryTreeMetadataSyncBudget({
+        shouldSyncMetadata: true,
+        includeAheadBehind: true,
+        includePullRequestLinks: true,
+        includeCloudflarePreviewLinks: true,
+        cloudflarePreviewBranchNames: ["feature/login"],
+        includeLastCommitTimestamps: true,
+        trigger: "visibility",
+        remoteBranchCount: 75,
+      }),
+    ).toEqual({
+      shouldSyncMetadata: true,
+      includeAheadBehind: false,
       includePullRequestLinks: true,
       includeCloudflarePreviewLinks: true,
       includeLastCommitTimestamps: true,
