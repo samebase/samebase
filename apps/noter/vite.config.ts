@@ -123,10 +123,13 @@ const daytonaConvexProxyPath = daytonaConvexProxyTarget
   : null;
 const shouldIncludeVisualFixture = process.env.PLAYWRIGHT === "1";
 const landingPageSlogan = resolveLandingPageSlogan();
+const staticPublicLandingPasswordAuthMode =
+  resolveStaticPublicLandingPasswordAuthMode();
 const staticPublicLandingMarkup = renderStaticPublicLandingMarkup({
   appCommit,
   appCommitNumber,
   landingPageSlogan,
+  passwordAuthMode: staticPublicLandingPasswordAuthMode,
   repoUrl: appRepoUrl,
 });
 const staticLogoSvgAssetPath = path.resolve(
@@ -226,6 +229,63 @@ function resolveLandingPageSlogan(): string {
   }
 }
 
+type StaticPublicLandingPasswordAuthMode =
+  | "off"
+  | "local_worktree_seed"
+  | "preview_seed";
+
+function readTrimmedEnvValue(value: string | undefined): string | null {
+  if (value === undefined) {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function readStaticBuildEnvValue(name: string): string | null {
+  return (
+    readTrimmedEnvValue(process.env[name]) ??
+    readTrimmedEnvValue(readEnvFileValue(daytonaLocalEnvPath, name))
+  );
+}
+
+function resolveStaticPublicLandingPasswordAuthMode(): StaticPublicLandingPasswordAuthMode {
+  const agentMode = readStaticBuildEnvValue("CONVEX_AGENT_MODE");
+  if (agentMode?.toLowerCase() === "anonymous") {
+    return "local_worktree_seed";
+  }
+
+  const deploymentSpecifier =
+    readStaticBuildEnvValue("CONVEX_DEPLOYMENT") ??
+    readStaticBuildEnvValue("DAYTONA_CONVEX_DEPLOY_KEY")?.split("|", 1)[0] ??
+    null;
+
+  if (deploymentSpecifier !== null) {
+    const normalizedSpecifier = deploymentSpecifier.toLowerCase();
+    if (
+      normalizedSpecifier.startsWith("anonymous:") ||
+      normalizedSpecifier.startsWith("anonymous-") ||
+      normalizedSpecifier.includes(":anonymous-") ||
+      normalizedSpecifier.startsWith("local:")
+    ) {
+      return "local_worktree_seed";
+    }
+    if (normalizedSpecifier.startsWith("preview:")) {
+      return "preview_seed";
+    }
+  }
+
+  if (
+    readStaticBuildEnvValue("PREVIEW_SEED_AUTH_EMAIL") !== null &&
+    readStaticBuildEnvValue("PREVIEW_SEED_AUTH_PASSWORD") !== null
+  ) {
+    return "preview_seed";
+  }
+
+  return "off";
+}
+
 function syncStaticLogoSvgAsset() {
   const nextStaticLogoSvgMarkup = createStaticLogoSvgMarkup().trim();
   const currentStaticLogoSvgMarkup = (() => {
@@ -249,6 +309,7 @@ function prerenderStaticPublicLandingIndexPlugin() {
     transformIndexHtml(html: string) {
       return injectStaticPublicLandingIntoIndexHtml({
         indexHtml: html,
+        passwordAuthMode: staticPublicLandingPasswordAuthMode,
         staticMarkup: staticPublicLandingMarkup,
       });
     },

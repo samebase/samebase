@@ -87,6 +87,8 @@ The fast shell renders:
 - the landing slogan
 - the landing bullet list
 - the reserved Google CTA slot
+- the deployment-appropriate password auth surface when seeded credentials are
+  enabled for the current build
 - the `/?dev` affordance
 
 The shell content comes from shared landing-copy data so the shell and the
@@ -106,6 +108,11 @@ The final product surface remains the same SPA after handoff.
 
 - Plain `/` keeps the Google auth button mounted but hidden and non-interactive
   so the landing card reserves the same auth-row height as `/?dev`.
+- When the current deployment enables seeded password auth, the prerendered
+  shell includes the matching initial password auth form so first paint and
+  hydration keep the same landing-card height.
+- `/?prod-ui` strips that prerendered password auth block before paint so the
+  preview-only auth affordances stay hidden on the production-shell variant.
 - Clicking the shell Google button in a top-level window sets `?auth=google` and
   forces the full app to boot immediately.
 - Clicking the shell Google button inside an iframe reuses the existing popup

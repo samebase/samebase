@@ -43,6 +43,8 @@ function createMockStorage(): Storage {
 }
 
 afterEach(() => {
+  document.body.innerHTML = "";
+
   if (originalLocalStorageDescriptor) {
     Object.defineProperty(
       window,
@@ -163,6 +165,21 @@ describe("publicLandingAuthState", () => {
         prodUiModeEnabled: false,
       }),
     ).toBe("local_worktree");
+  });
+
+  it("falls back to the static landing auth mode when storage is unavailable", () => {
+    document.body.innerHTML =
+      '<div id="root" data-static-public-password-auth-mode="preview_seed"></div>';
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get() {
+        throw new Error("storage unavailable");
+      },
+    });
+
+    expect(resolvePublicLandingPasswordAuthMode(undefined)).toBe(
+      "preview_seed",
+    );
   });
 
   it("ignores invalid remembered password auth values", () => {

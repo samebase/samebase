@@ -1,6 +1,7 @@
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
 import { type RootRouteSearch } from "@/lib/rootRouteSearch";
+import { STATIC_PUBLIC_LANDING_PASSWORD_AUTH_MODE_ATTRIBUTE } from "@/lib/staticPublicLandingShared";
 import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
@@ -45,6 +46,19 @@ function readStoredPasswordAuthMode(): PublicPasswordAuthMode | null {
   return isStoredPasswordAuthMode(storedValue) ? storedValue : null;
 }
 
+function readStaticPasswordAuthModeFromRoot(): PublicPasswordAuthMode | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const rootValue =
+    document
+      .getElementById("root")
+      ?.getAttribute(STATIC_PUBLIC_LANDING_PASSWORD_AUTH_MODE_ATTRIBUTE) ??
+    null;
+  return isStoredPasswordAuthMode(rootValue) ? rootValue : null;
+}
+
 export function rememberPublicLandingPasswordAuthMode(
   passwordAuthMode: PublicPasswordAuthMode,
 ): void {
@@ -61,7 +75,12 @@ export function rememberPublicLandingPasswordAuthMode(
 export function resolvePublicLandingPasswordAuthMode(
   passwordAuthMode: PublicPasswordAuthMode | undefined,
 ): PublicPasswordAuthMode {
-  return passwordAuthMode ?? readStoredPasswordAuthMode() ?? "off";
+  return (
+    passwordAuthMode ??
+    readStoredPasswordAuthMode() ??
+    readStaticPasswordAuthModeFromRoot() ??
+    "off"
+  );
 }
 
 function hasGoogleAuth(search: RootRouteSearch): boolean {

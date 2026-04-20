@@ -210,6 +210,57 @@ async function captureLandingReloadFrames(
   });
 }
 
+async function captureLandingInitialFrames(
+  page: Parameters<typeof test>[0]["page"],
+  path = "/",
+): Promise<LandingReloadFrame[]> {
+  await page.addInitScript(() => {
+    const sampleCount = 60;
+    const frameStore: LandingReloadFrame[] = [];
+    window.__landingReloadFrames = frameStore;
+
+    const readRect = (node: Element | null) => {
+      if (!(node instanceof HTMLElement)) {
+        return null;
+      }
+
+      const rect = node.getBoundingClientRect();
+      return {
+        top: Number(rect.top.toFixed(3)),
+        height: Number(rect.height.toFixed(3)),
+      };
+    };
+
+    let frame = 0;
+    const capture = () => {
+      frameStore.push({
+        content: readRect(
+          document.querySelector('[data-testid="public-landing-content"]'),
+        ),
+        copy: readRect(
+          document.querySelector('[data-testid="public-landing-copy"]'),
+        ),
+      });
+      frame += 1;
+      if (frame >= sampleCount) {
+        return;
+      }
+      requestAnimationFrame(capture);
+    };
+
+    requestAnimationFrame(capture);
+  });
+
+  await page.goto(path, { waitUntil: "networkidle" });
+  await page.waitForTimeout(1000);
+
+  return await page.evaluate(() => {
+    const landingReloadFrames = window.__landingReloadFrames;
+
+    return Array.isArray(landingReloadFrames) ? landingReloadFrames : [];
+  });
+}
+
 function expectStableLandingReloadFrames(frames: LandingReloadFrame[]) {
   const visibleFrames = frames.flatMap((frame) => {
     if (frame.content === null || frame.copy === null) {
@@ -570,6 +621,14 @@ test("public landing keeps the same slogan across reloads", async ({
 
   await page.reload({ waitUntil: "networkidle" });
   await expect(slogan).toHaveText(initialSlogan ?? "");
+});
+
+test("public landing keeps the auth slot stable on first load", async ({
+  page,
+}) => {
+  const initialFrames = await captureLandingInitialFrames(page);
+
+  expectStableLandingReloadFrames(initialFrames);
 });
 
 test("prod-ui landing ignores remembered auth storage during reload", async ({

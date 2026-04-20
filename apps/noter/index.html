@@ -100,6 +100,8 @@
 
         const searchParams = new URLSearchParams(window.location.search);
         const prodUiModeEnabled = searchParams.has("prod-ui");
+        const passwordAuthMode =
+          root.getAttribute("data-static-public-password-auth-mode") ?? "off";
         const shouldKeepStaticLanding =
           window.location.pathname === "/" &&
           !searchParams.has("dev") &&
@@ -112,7 +114,24 @@
           return;
         }
 
+        if (prodUiModeEnabled) {
+          root
+            .querySelectorAll("[data-static-public-password-auth='true']")
+            .forEach((element) => element.remove());
+        }
+
         try {
+          if (
+            passwordAuthMode === "off" ||
+            passwordAuthMode === "local_worktree_seed" ||
+            passwordAuthMode === "preview_seed"
+          ) {
+            window.localStorage.setItem(
+              "noter_public_landing_password_auth_mode",
+              passwordAuthMode,
+            );
+          }
+
           const authFlag = window.localStorage.getItem(
             "noter_was_authenticated",
           );

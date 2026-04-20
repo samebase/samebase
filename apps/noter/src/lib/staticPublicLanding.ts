@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { Chrome } from "lucide-react";
 import { createStaticLogoSvgDataUrl } from "../components/logoStaticSvgAsset";
+import type { PasswordAuthMode } from "../../convex/deploymentProfile";
 import {
   APP_BUILD_COMMIT_LINK_TEST_ID,
   APP_BUILD_STATUS_BAR_TEST_ID,
@@ -10,7 +11,10 @@ import {
   formatAppBuildVersionLabel,
 } from "./appBuild";
 import { landingPageBullets } from "./landingCopy";
-import { STATIC_PUBLIC_LANDING_ROOT_ATTRIBUTE } from "./staticPublicLandingShared";
+import {
+  STATIC_PUBLIC_LANDING_PASSWORD_AUTH_MODE_ATTRIBUTE,
+  STATIC_PUBLIC_LANDING_ROOT_ATTRIBUTE,
+} from "./staticPublicLandingShared";
 
 export const STATIC_PUBLIC_LANDING_INDEX_TOKEN =
   "<!--__NOTER_STATIC_PUBLIC_LANDING__-->";
@@ -19,6 +23,7 @@ type StaticPublicLandingArgs = {
   appCommit: string;
   appCommitNumber: number | null;
   landingPageSlogan: string;
+  passwordAuthMode: PasswordAuthMode;
   repoUrl: string;
 };
 
@@ -71,7 +76,29 @@ function renderStaticPublicLandingCopyMarkup(
 }
 
 function renderStaticPublicLandingAuthMarkup(): string {
-  return `<div class="flex flex-col gap-2"><button aria-hidden="true" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 corner-notch-1 flex-1 invisible pointer-events-none" disabled="" type="button" tabindex="-1">${renderStaticGoogleIconMarkup()} Google</button></div>`;
+  return `<button aria-hidden="true" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 corner-notch-1 flex-1 invisible pointer-events-none" disabled="" type="button" tabindex="-1">${renderStaticGoogleIconMarkup()} Google</button>`;
+}
+
+function renderStaticPasswordAuthBlock(
+  passwordAuthMode: PasswordAuthMode,
+): string {
+  switch (passwordAuthMode) {
+    case "preview_seed":
+      return `<div data-static-public-password-auth="true" class="flex flex-col gap-2 rounded-md border p-3"><div class="flex items-center justify-between gap-2"><div class="text-sm font-medium">Preview password sign in</div></div><form class="flex flex-col gap-2"><input class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm corner-notch-1" autocomplete="email" placeholder="you@example.com" required="" type="email" value=""/><input class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm corner-notch-1" autocomplete="current-password" placeholder="Password" required="" minlength="8" type="password" value=""/><div class="flex items-center gap-2"><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2 corner-notch-1 flex-1" type="submit">Sign in</button></div></form></div>`;
+    case "local_worktree_seed":
+      return `<div data-static-public-password-auth="true" class="flex flex-col gap-2 rounded-md border p-3"><div class="flex items-center justify-between gap-2"><div class="text-sm font-medium">Password auth (local worktree)</div><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-auto rounded-md px-2 py-1 text-xs corner-notch-1" type="button">Need an account?</button></div><form class="flex flex-col gap-2"><input class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm corner-notch-1" autocomplete="email" placeholder="you@example.com" required="" type="email" value=""/><input class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm corner-notch-1" autocomplete="current-password" placeholder="Password" required="" minlength="8" type="password" value=""/><div class="flex items-center gap-2"><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 corner-notch-1 shrink-0" type="button">Autofill &amp; sign in</button><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2 corner-notch-1 flex-1" type="submit">Sign in</button></div></form></div>`;
+    case "off":
+      return "";
+    default:
+      passwordAuthMode satisfies never;
+      return "";
+  }
+}
+
+function renderStaticPublicLandingAuthGroupMarkup(
+  passwordAuthMode: PasswordAuthMode,
+): string {
+  return `<div class="flex flex-col gap-2">${renderStaticPublicLandingAuthMarkup()}${renderStaticPasswordAuthBlock(passwordAuthMode)}</div>`;
 }
 
 function renderStaticPublicLandingFooterMarkup(): string {
@@ -85,14 +112,15 @@ function renderStaticPublicLandingLogoMarkup(): string {
 export function renderStaticPublicLandingMarkup(
   args: StaticPublicLandingArgs,
 ): string {
-  return `<div class="flex min-h-svh w-full flex-col bg-background"><main class="flex min-h-0 flex-1 flex-col"><div data-testid="public-landing-scroll-shell" class="flex min-h-0 flex-1 flex-col"><div class="container my-auto"><div data-testid="public-landing-content" class="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8">${renderStaticPublicLandingLogoMarkup()}<div data-testid="public-landing-copy">${renderStaticPublicLandingCopyMarkup(args.landingPageSlogan)}</div>${renderStaticPublicLandingAuthMarkup()}${renderStaticPublicLandingFooterMarkup()}</div></div></div></main><div class="h-5 shrink-0 border-t border-border"><div class="container flex h-full items-center overflow-hidden text-xs leading-none text-muted-foreground">${renderStaticPublicLandingStatusBar(args)}</div></div></div>`;
+  return `<div class="flex min-h-svh w-full flex-col bg-background"><main class="flex min-h-0 flex-1 flex-col"><div data-testid="public-landing-scroll-shell" class="flex min-h-0 flex-1 flex-col"><div class="container my-auto"><div data-testid="public-landing-content" class="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8">${renderStaticPublicLandingLogoMarkup()}<div data-testid="public-landing-copy">${renderStaticPublicLandingCopyMarkup(args.landingPageSlogan)}</div>${renderStaticPublicLandingAuthGroupMarkup(args.passwordAuthMode)}${renderStaticPublicLandingFooterMarkup()}</div></div></div></main><div class="h-5 shrink-0 border-t border-border"><div class="container flex h-full items-center overflow-hidden text-xs leading-none text-muted-foreground">${renderStaticPublicLandingStatusBar(args)}</div></div></div>`;
 }
 
 export function injectStaticPublicLandingIntoIndexHtml(args: {
   indexHtml: string;
+  passwordAuthMode: PasswordAuthMode;
   staticMarkup: string;
 }): string {
-  const replacement = `<div id="root" ${STATIC_PUBLIC_LANDING_ROOT_ATTRIBUTE}="true">${args.staticMarkup}</div>`;
+  const replacement = `<div id="root" ${STATIC_PUBLIC_LANDING_ROOT_ATTRIBUTE}="true" ${STATIC_PUBLIC_LANDING_PASSWORD_AUTH_MODE_ATTRIBUTE}="${args.passwordAuthMode}">${args.staticMarkup}</div>`;
 
   if (!args.indexHtml.includes(STATIC_PUBLIC_LANDING_INDEX_TOKEN)) {
     throw new Error(
