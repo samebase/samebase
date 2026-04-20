@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getCloudflareBranchPreviewHydrationTargets,
   hasCurrentCloudflareBranchPreview,
   shouldHydrateCloudflareBranchPreview,
 } from "./cloudflarePreviewLinks";
@@ -75,5 +76,31 @@ describe("shouldHydrateCloudflareBranchPreview", () => {
         pullRequestNumber: 42,
       }),
     ).toBe(false);
+  });
+});
+
+describe("getCloudflareBranchPreviewHydrationTargets", () => {
+  it("returns only the active branches whose current PR still lacks a cached preview", () => {
+    expect(
+      getCloudflareBranchPreviewHydrationTargets([
+        {
+          name: "feature/missing-preview",
+          remoteState: "active",
+          pullRequestNumber: 42,
+        },
+        {
+          name: "feature/has-preview",
+          remoteState: "active",
+          pullRequestNumber: 43,
+          cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
+          cloudflarePreviewPullRequestNumber: 43,
+        },
+        {
+          name: "feature/deleted",
+          remoteState: "deleted_upstream",
+          pullRequestNumber: 44,
+        },
+      ]),
+    ).toEqual(["feature/missing-preview"]);
   });
 });

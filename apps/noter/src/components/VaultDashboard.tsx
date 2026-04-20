@@ -20,8 +20,8 @@ import {
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
 import {
+  getCloudflareBranchPreviewHydrationTargets,
   hasCurrentCloudflareBranchPreview,
-  shouldHydrateCloudflareBranchPreview,
 } from "@/lib/cloudflarePreviewLinks";
 import {
   getTreeRefreshUiState,
@@ -220,6 +220,7 @@ type DashboardManualRefreshVault = {
   ghRepoName: string;
   ghRepoOwner: string;
   remoteBranches: Array<{
+    name: string;
     remoteState: "active" | "deleted_upstream";
     cloudflareBranchPreviewUrl?: string;
     cloudflarePreviewPullRequestNumber?: number;
@@ -1358,18 +1359,19 @@ export function VaultDashboard() {
 
           await Promise.all(
             batch.map(async (vault) => {
-              const shouldIncludeCloudflarePreviewLinks =
-                vault.remoteBranches.some((branch) =>
-                  shouldHydrateCloudflareBranchPreview(branch),
+              const cloudflarePreviewBranchNames =
+                getCloudflareBranchPreviewHydrationTargets(
+                  vault.remoteBranches,
                 );
               await refreshTree({
                 owner: vault.ghRepoOwner,
                 repo: vault.ghRepoName,
                 // Preview-comment scans are expensive compared to the default
-                // branch tree refresh itself, so only re-run them while a PR
-                // branch is still missing cached preview metadata.
+                // branch tree refresh itself, so only re-run them for the
+                // current PR branches that still lack cached preview metadata.
                 includeCloudflarePreviewLinks:
-                  shouldIncludeCloudflarePreviewLinks,
+                  cloudflarePreviewBranchNames.length > 0,
+                cloudflarePreviewBranchNames,
                 trigger,
               }).catch((error: unknown) => {
                 console.error(
@@ -1396,14 +1398,14 @@ export function VaultDashboard() {
         return;
       }
 
-      const shouldIncludeCloudflarePreviewLinks = vault.remoteBranches.some(
-        (branch) => shouldHydrateCloudflareBranchPreview(branch),
-      );
+      const cloudflarePreviewBranchNames =
+        getCloudflareBranchPreviewHydrationTargets(vault.remoteBranches);
 
       void refreshTree({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
-        includeCloudflarePreviewLinks: shouldIncludeCloudflarePreviewLinks,
+        includeCloudflarePreviewLinks: cloudflarePreviewBranchNames.length > 0,
+        cloudflarePreviewBranchNames,
         trigger: "manual",
       }).catch((error: unknown) => {
         console.error(

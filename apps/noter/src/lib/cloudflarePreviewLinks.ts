@@ -3,6 +3,10 @@ type CloudflareBranchPreviewState = {
   cloudflareBranchPreviewUrl?: string;
   cloudflarePreviewPullRequestNumber?: number;
 };
+type CloudflareBranchPreviewHydrationCandidate = {
+  name: string;
+  remoteState: "active" | "deleted_upstream";
+} & CloudflareBranchPreviewState;
 
 export function hasCurrentCloudflareBranchPreview(
   args: CloudflareBranchPreviewState,
@@ -30,4 +34,17 @@ export function shouldHydrateCloudflareBranchPreview(
     typeof args.pullRequestNumber === "number" &&
     !hasCurrentCloudflareBranchPreview(args)
   );
+}
+
+/**
+ * Keep dashboard refresh requests scoped to the branches that still need a
+ * Cloudflare PR comment lookup instead of re-scanning every branch in the
+ * repository.
+ */
+export function getCloudflareBranchPreviewHydrationTargets(
+  branches: CloudflareBranchPreviewHydrationCandidate[],
+): string[] {
+  return branches
+    .filter((branch) => shouldHydrateCloudflareBranchPreview(branch))
+    .map((branch) => branch.name);
 }
