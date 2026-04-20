@@ -1,12 +1,12 @@
 import { onCleanup, onMount, type JSX } from "solid-js";
 import { MonacoSurface } from "@/components/MonacoSurface";
 import { ProsemarkSurface } from "@/components/ProsemarkSurface";
+import solidLabGuideRaw from "../../../../AGENTS.md?raw";
+import workspaceLayoutSourceRaw from "../../../noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx?raw";
 
 const MOBILE_BREAKPOINT_PX = 768;
 const MOBILE_PANE_PEEK_PX = 32;
 const MOBILE_SIDEBAR_MIN_WIDTH_PX = 160;
-const LEFT_EDITOR_VALUE = "prosemark";
-const MAIN_EDITOR_VALUE = "monaco";
 const RIGHT_SIDEBAR_LINK_HREF =
   "https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Overflow/Carousels";
 
@@ -111,7 +111,7 @@ export function WorkspaceLayoutPage() {
         >
           <ProsemarkSurface
             dataTestId="workspace-layout-v2-surface-left"
-            initialValue={LEFT_EDITOR_VALUE}
+            initialValue={solidLabGuideRaw}
           />
         </Pane>
 
@@ -121,7 +121,7 @@ export function WorkspaceLayoutPage() {
         >
           <MonacoSurface
             dataTestId="workspace-layout-v2-surface-main"
-            initialValue={MAIN_EDITOR_VALUE}
+            initialValue={workspaceLayoutSourceRaw}
           />
         </Pane>
 
@@ -148,7 +148,7 @@ export function WorkspaceLayoutPage() {
             >
               <ProsemarkSurface
                 dataTestId="workspace-layout-v2-surface-left"
-                initialValue={LEFT_EDITOR_VALUE}
+                initialValue={solidLabGuideRaw}
               />
             </Pane>
           </div>
@@ -164,7 +164,7 @@ export function WorkspaceLayoutPage() {
             >
               <MonacoSurface
                 dataTestId="workspace-layout-v2-surface-main"
-                initialValue={MAIN_EDITOR_VALUE}
+                initialValue={workspaceLayoutSourceRaw}
               />
             </Pane>
           </div>
