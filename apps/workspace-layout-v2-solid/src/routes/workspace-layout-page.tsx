@@ -5,6 +5,8 @@ import { ProsemarkSurface } from "@/components/ProsemarkSurface";
 const MOBILE_BREAKPOINT_PX = 768;
 const MOBILE_PANE_PEEK_PX = 32;
 const MOBILE_SIDEBAR_MIN_WIDTH_PX = 160;
+const LEFT_EDITOR_VALUE = "prosemark";
+const MAIN_EDITOR_VALUE = "monaco";
 const RIGHT_SIDEBAR_LINK_HREF =
   "https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Overflow/Carousels";
 
@@ -109,7 +111,7 @@ export function WorkspaceLayoutPage() {
         >
           <ProsemarkSurface
             dataTestId="workspace-layout-v2-surface-left"
-            initialValue=""
+            initialValue={LEFT_EDITOR_VALUE}
           />
         </Pane>
 
@@ -119,7 +121,7 @@ export function WorkspaceLayoutPage() {
         >
           <MonacoSurface
             dataTestId="workspace-layout-v2-surface-main"
-            initialValue=""
+            initialValue={MAIN_EDITOR_VALUE}
           />
         </Pane>
 
@@ -146,7 +148,7 @@ export function WorkspaceLayoutPage() {
             >
               <ProsemarkSurface
                 dataTestId="workspace-layout-v2-surface-left"
-                initialValue=""
+                initialValue={LEFT_EDITOR_VALUE}
               />
             </Pane>
           </div>
@@ -162,7 +164,7 @@ export function WorkspaceLayoutPage() {
             >
               <MonacoSurface
                 dataTestId="workspace-layout-v2-surface-main"
-                initialValue=""
+                initialValue={MAIN_EDITOR_VALUE}
               />
             </Pane>
           </div>
