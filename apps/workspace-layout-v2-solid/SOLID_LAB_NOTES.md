@@ -5,11 +5,12 @@
 1. This lab is a literal `left | main | right` shell.
 2. Desktop is a plain three-column flex layout.
 3. Mobile is a native horizontal overflow carousel with CSS scroll snap.
-4. Sidebars shrink-wrap to their content with a floor and a cap below the full
-   viewport width.
-5. The main pane stays full viewport width, so sidebars are revealed by
+4. Left is a ProseMark editor and main is a Monaco editor.
+5. Right is only a single link and has no extra chrome.
+6. There are no pane headers or filler sections.
+7. The main pane stays full viewport width, so sidebars are revealed by
    scrolling instead of by shrinking the main pane.
-6. The only behavior code left is the initial mobile jump to the main pane.
+8. The only behavior code left is the initial mobile jump to the main pane.
 
 ## Non-Goals
 
@@ -17,7 +18,7 @@
 2. No drag thresholds or velocity tracking.
 3. No resize handles.
 4. No queue model or add-pane experiment.
-5. No editor fixtures, route chrome, or app state.
+5. No route chrome or app state.
 
 ## Why This Version Exists
 

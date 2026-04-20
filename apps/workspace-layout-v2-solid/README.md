@@ -6,13 +6,10 @@ chrome, Convex state, or custom gesture code.
 
 ## Current Shape
 
-- Desktop is a plain three-column layout.
-- Mobile is a native scroll-snap carousel with `left`, `main`, and `right`
-  panes.
-- The main pane keeps the full viewport width, and the sidebars reveal from the
-  edges instead of shrinking the main pane.
-- The only JavaScript behavior is scrolling the mobile view to the main pane on
-  load.
+- Left sidebar is a ProseMark editor.
+- Main pane is a Monaco editor.
+- Right sidebar is a single link.
+- Mobile is a native scroll-snap carousel with a full-width main pane.
 
 ## Commands
 
