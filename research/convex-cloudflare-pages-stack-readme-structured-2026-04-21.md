@@ -9,6 +9,13 @@ Tab order for the tutorial should stay fixed across the whole flow:
 The videos can be stitched from one canonical recording, then cut at stable
 moments when the screen is settled and the mouse is at rest.
 
+Timing guidance:
+
+- After a page visibly finishes loading or a new destination is reached, keep
+  that page on screen for about 1 second before switching tabs or continuing.
+- Do not move on at the exact instant a page becomes ready; the viewer needs a
+  brief beat to register where they landed.
+
 ## Authentication strategy
 
 The decisive simplifier for the initial tutorial is that GitHub should be the
