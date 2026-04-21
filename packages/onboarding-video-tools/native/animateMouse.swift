@@ -78,13 +78,41 @@ struct MouseAnimationOptions {
         }
 
         self.actions = parsedActions
-        self.moveDuration = TimeInterval(values["move-duration"] ?? "0.7") ?? 0.7
-        self.dragDuration = TimeInterval(values["drag-duration"] ?? "0.7") ?? 0.7
-        self.pauseBeforeClick = TimeInterval(values["pause-before-click"] ?? "0.12") ?? 0.12
-        self.pauseAfterClick = TimeInterval(values["pause-after-click"] ?? "0.55") ?? 0.55
-        self.doubleClickInterval = TimeInterval(values["double-click-interval"] ?? "0.12") ?? 0.12
-        self.mouseDownPause = TimeInterval(values["mouse-down-pause"] ?? "0.08") ?? 0.08
-        self.scrollStepPause = TimeInterval(values["scroll-step-pause"] ?? "0.015") ?? 0.015
+        self.moveDuration = try Self.parseNonNegativeDuration(
+            values["move-duration"],
+            flagName: "--move-duration",
+            defaultValue: 0.7
+        )
+        self.dragDuration = try Self.parseNonNegativeDuration(
+            values["drag-duration"],
+            flagName: "--drag-duration",
+            defaultValue: 0.7
+        )
+        self.pauseBeforeClick = try Self.parseNonNegativeDuration(
+            values["pause-before-click"],
+            flagName: "--pause-before-click",
+            defaultValue: 0.12
+        )
+        self.pauseAfterClick = try Self.parseNonNegativeDuration(
+            values["pause-after-click"],
+            flagName: "--pause-after-click",
+            defaultValue: 0.55
+        )
+        self.doubleClickInterval = try Self.parseNonNegativeDuration(
+            values["double-click-interval"],
+            flagName: "--double-click-interval",
+            defaultValue: 0.12
+        )
+        self.mouseDownPause = try Self.parseNonNegativeDuration(
+            values["mouse-down-pause"],
+            flagName: "--mouse-down-pause",
+            defaultValue: 0.08
+        )
+        self.scrollStepPause = try Self.parseNonNegativeDuration(
+            values["scroll-step-pause"],
+            flagName: "--scroll-step-pause",
+            defaultValue: 0.015
+        )
         self.requireFrontmostBundle = values["require-frontmost-bundle"]
         self.requireWindowOwner = values["require-window-owner"]
         self.requireWindowFrame = try Self.parseRect(values["require-window-frame"])
@@ -127,14 +155,42 @@ struct MouseAnimationOptions {
             case "scroll":
                 return try parseScrollAction(value)
             case "wait", "pause":
-                guard let seconds = TimeInterval(value) else {
-                    throw MouseAnimationError.invalidArguments("Invalid wait duration: \(rawAction)")
-                }
-                return .wait(seconds)
+                return .wait(
+                    try parseNonNegativeDuration(
+                        value,
+                        context: "Invalid wait duration: \(rawAction)"
+                    )
+                )
             default:
                 throw MouseAnimationError.invalidArguments("Unknown action verb: \(verb)")
             }
         }
+    }
+
+    private static func parseNonNegativeDuration(
+        _ rawValue: String?,
+        flagName: String,
+        defaultValue: TimeInterval
+    ) throws -> TimeInterval {
+        guard let rawValue else {
+            return defaultValue
+        }
+
+        return try parseNonNegativeDuration(
+            rawValue,
+            context: "Invalid \(flagName) value: \(rawValue)"
+        )
+    }
+
+    private static func parseNonNegativeDuration(
+        _ rawValue: String,
+        context: String
+    ) throws -> TimeInterval {
+        guard let duration = TimeInterval(rawValue), duration.isFinite, duration >= 0 else {
+            throw MouseAnimationError.invalidArguments(context)
+        }
+
+        return duration
     }
 
     private static func parsePoints(_ rawPoints: String) throws -> [CGPoint] {
@@ -172,7 +228,9 @@ struct MouseAnimationOptions {
         guard
             components.count == 2,
             let x = Double(components[0]),
-            let y = Double(components[1])
+            let y = Double(components[1]),
+            x.isFinite,
+            y.isFinite
         else {
             throw MouseAnimationError.invalidArguments("Invalid point: \(rawPoint)")
         }
@@ -191,7 +249,13 @@ struct MouseAnimationOptions {
             let x = Double(components[0]),
             let y = Double(components[1]),
             let width = Double(components[2]),
-            let height = Double(components[3])
+            let height = Double(components[3]),
+            x.isFinite,
+            y.isFinite,
+            width.isFinite,
+            height.isFinite,
+            width > 0,
+            height > 0
         else {
             throw MouseAnimationError.invalidArguments("Invalid rect: \(rawRect)")
         }
@@ -269,7 +333,11 @@ func visibleDesktopFrame() -> CGRect? {
 }
 
 func sleepSeconds(_ duration: TimeInterval) {
-    usleep(useconds_t(duration * 1_000_000))
+    guard duration.isFinite, duration > 0 else {
+        return
+    }
+
+    Thread.sleep(forTimeInterval: duration)
 }
 
 func frontmostBundleIdentifier() -> String? {

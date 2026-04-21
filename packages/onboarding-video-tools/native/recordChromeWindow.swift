@@ -71,8 +71,16 @@ struct RecorderOptions {
         }
 
         let startedFile = values["started-file"]
-        let duration = TimeInterval(values["duration"] ?? "4") ?? 4
-        let fps = Int32(values["fps"] ?? "30") ?? 30
+        let duration = try Self.parsePositiveDuration(
+            values["duration"],
+            flagName: "--duration",
+            defaultValue: 4
+        )
+        let fps = try Self.parsePositiveInt32(
+            values["fps"],
+            flagName: "--fps",
+            defaultValue: 30
+        )
         let cursorVisible = (values["cursor"] ?? "true") == "true"
         let clickHighlights = (values["click-highlights"] ?? "true") == "true"
 
@@ -87,6 +95,38 @@ struct RecorderOptions {
         self.clickHighlights = clickHighlights
     }
 
+    private static func parsePositiveDuration(
+        _ rawValue: String?,
+        flagName: String,
+        defaultValue: TimeInterval
+    ) throws -> TimeInterval {
+        guard let rawValue else {
+            return defaultValue
+        }
+
+        guard let duration = TimeInterval(rawValue), duration.isFinite, duration > 0 else {
+            throw RecorderError.invalidArguments("Invalid \(flagName) value: \(rawValue)")
+        }
+
+        return duration
+    }
+
+    private static func parsePositiveInt32(
+        _ rawValue: String?,
+        flagName: String,
+        defaultValue: Int32
+    ) throws -> Int32 {
+        guard let rawValue else {
+            return defaultValue
+        }
+
+        guard let value = Int32(rawValue), value > 0 else {
+            throw RecorderError.invalidArguments("Invalid \(flagName) value: \(rawValue)")
+        }
+
+        return value
+    }
+
     private static func parseRect(_ rawRect: String?) throws -> CGRect? {
         guard let rawRect else {
             return nil
@@ -98,7 +138,13 @@ struct RecorderOptions {
             let x = Double(components[0]),
             let y = Double(components[1]),
             let width = Double(components[2]),
-            let height = Double(components[3])
+            let height = Double(components[3]),
+            x.isFinite,
+            y.isFinite,
+            width.isFinite,
+            height.isFinite,
+            width > 0,
+            height > 0
         else {
             throw RecorderError.invalidArguments("Invalid rect: \(rawRect)")
         }
