@@ -7,7 +7,8 @@ visible tabs, real cursor motion, and native scene capture.
 
 - launches a real Google Chrome window with a fresh temporary profile
 - opens four public landing pages in visible tabs
-- places a plain white backdrop behind Chrome for a clean capture scene
+- places full-display plain white backdrop windows behind Chrome for a clean,
+  controlled capture scene
 - records a cropped desktop region with ScreenCaptureKit
 - drives only real left-click cursor motion inside the exact Chrome window
 - keeps the real Chrome corners and real macOS window shadow in the final MP4

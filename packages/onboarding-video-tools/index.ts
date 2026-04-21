@@ -306,7 +306,7 @@ async function runLandingDemo(options: LandingDemoOptions) {
 
     backdropProcess = spawn(
       backdropBin,
-      ["--frame", captureFrameArg, "--ready-file", backdropReadyFile],
+      ["--ready-file", backdropReadyFile],
       {
         cwd: REPO_ROOT,
         stdio: ["ignore", "pipe", "pipe"],

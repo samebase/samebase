@@ -13,7 +13,6 @@ enum BackdropError: Error, CustomStringConvertible {
 }
 
 struct BackdropOptions {
-    let frame: CGRect
     let readyFile: String?
 
     init(arguments: [String]) throws {
@@ -39,45 +38,14 @@ struct BackdropOptions {
             values[String(key.dropFirst(2))] = arguments[index + 1]
             index += 2
         }
-
-        guard let frame = try Self.parseRect(values["frame"]) else {
-            throw BackdropError.invalidArguments("Missing required --frame")
-        }
-
-        self.frame = frame
         self.readyFile = values["ready-file"]
-    }
-
-    private static func parseRect(_ rawRect: String?) throws -> CGRect? {
-        guard let rawRect else {
-            return nil
-        }
-
-        let components = rawRect.split(separator: ",")
-        guard
-            components.count == 4,
-            let x = Double(components[0]),
-            let y = Double(components[1]),
-            let width = Double(components[2]),
-            let height = Double(components[3]),
-            x.isFinite,
-            y.isFinite,
-            width.isFinite,
-            height.isFinite,
-            width > 0,
-            height > 0
-        else {
-            throw BackdropError.invalidArguments("Invalid rect: \(rawRect)")
-        }
-
-        return CGRect(x: x, y: y, width: width, height: height)
     }
 }
 
 @MainActor
 final class BackdropDelegate: NSObject, NSApplicationDelegate {
     private let options: BackdropOptions
-    private var window: NSWindow?
+    private var windows: [NSWindow] = []
 
     init(options: BackdropOptions) {
         self.options = options
@@ -85,21 +53,32 @@ final class BackdropDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
-            let window = NSWindow(
-                contentRect: options.frame,
-                styleMask: .borderless,
-                backing: .buffered,
-                defer: false
-            )
-            window.title = "OnboardingVideoBackdrop"
-            window.backgroundColor = .white
-            window.isOpaque = true
-            window.hasShadow = false
-            window.ignoresMouseEvents = true
-            window.level = .normal
-            window.collectionBehavior = [.stationary, .moveToActiveSpace]
-            window.orderFrontRegardless()
-            self.window = window
+            guard !NSScreen.screens.isEmpty else {
+                throw BackdropError.invalidArguments("No screens were available for backdrop setup.")
+            }
+
+            self.windows = NSScreen.screens.map { screen in
+                let window = NSWindow(
+                    contentRect: screen.frame,
+                    styleMask: .borderless,
+                    backing: .buffered,
+                    defer: false,
+                    screen: screen
+                )
+                // Fill the full display so the recorded crop always sees a
+                // controlled white scene instead of whatever other apps happen
+                // to be on the active desktop.
+                window.setFrame(screen.frame, display: true)
+                window.title = "OnboardingVideoBackdrop"
+                window.backgroundColor = .white
+                window.isOpaque = true
+                window.hasShadow = false
+                window.ignoresMouseEvents = true
+                window.level = .normal
+                window.collectionBehavior = [.stationary, .moveToActiveSpace]
+                window.orderFrontRegardless()
+                return window
+            }
 
             if let readyFile = options.readyFile {
                 try "ready\n".write(

@@ -34,8 +34,9 @@ It packages the proven setup:
 - real Google Chrome with a fresh temporary profile
 - a public four-tab landing-page demo for GitHub, Convex, Cloudflare, and Codex
 - ScreenCaptureKit desktop-region recording around one Chrome window
-- a controlled white backdrop behind the browser so the final MP4 keeps native
-  rounded corners and native window shadow
+- full-display white backdrop windows behind the browser so the final MP4 keeps
+  native rounded corners and native window shadow without leaking other app
+  content into the captured scene
 - native cursor automation with exact Chrome-window safety checks
 - native ScreenCaptureKit click highlights
 - H.264 MP4 output written directly from ScreenCaptureKit
