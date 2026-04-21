@@ -157,6 +157,20 @@ Short-term operating guidance:
 - close unrelated Chrome windows before recording
 - prefer the scene-capture path over reviving presentation-math fixes
 
+## Merge-Prep Requirements
+
+Before merging, the landing-demo output should satisfy these operator
+requirements:
+
+- dismiss Chrome's "Chrome is being controlled by automated test software"
+  banner so it does not consume tutorial real estate or add extra visual
+  complexity to the recording
+- measure how far the native window shadow extends relative to the current
+  padding and ensure the outer edge of the exported MP4 is already white, so
+  embeds do not show a visible cutoff from the shadow treatment into the host
+  background; if needed, rebalance padding versus usable tutorial space instead
+  of accepting a clipped shadow
+
 ## Follow-Up Questions
 
 - should the native click highlight stay as-is, or do we still want a custom
