@@ -22,6 +22,9 @@ refactor aggressively without risking loss of the previous state.
 
 - Prefer one coherent click-highlighting system over multiple partially-working
   paths.
+- Treat left click as the only supported interaction for this package.
+- Remove right click, double click, drag, scroll, and similar paths instead of
+  preserving them for hypothetical future reuse.
 - Do not keep compatibility shims for experimental click-rendering code if they
   make the system harder to reason about.
 - Treat "it sort of works on some clicks" as a failure, not as acceptable

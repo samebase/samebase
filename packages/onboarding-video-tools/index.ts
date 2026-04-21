@@ -1,5 +1,13 @@
 import { spawn, type ChildProcessByStdio } from "node:child_process";
-import { access, mkdtemp, mkdir, readFile, rm, stat } from "node:fs/promises";
+import {
+  access,
+  mkdtemp,
+  mkdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import path from "node:path";
 import type { Readable } from "node:stream";
@@ -104,11 +112,15 @@ const LANDING_DEMO_SEQUENCE: readonly LandingDemoStep[] = [
 const LANDING_DEMO_MOUSE_TIMING = {
   moveDuration: 0.6,
   pauseBeforeClick: 0.12,
-  // Keep this aligned with the sleep inside animateMouse.swift click(...).
-  clickDuration: 0.08,
-  pauseAfterClick: 0.2,
+  clickHoldDuration: 0.08,
+  // Keep the cursor still for the full ring animation so every click reads as
+  // one complete human action instead of a click that slides into the next move.
+  pauseAfterClick: 0.24,
 } as const;
+const LANDING_DEMO_OUTPUT_FPS = 30;
 const LANDING_DEMO_RECORDER_WARMUP_SECONDS = 0.8;
+const LANDING_DEMO_MOUSE_START_DELAY_SECONDS =
+  LANDING_DEMO_RECORDER_WARMUP_SECONDS + 0.12;
 const LANDING_DEMO_RECORDER_BUFFER_SECONDS = 0.75;
 const LANDING_DEMO_BROWSER_BUFFER_SECONDS = 3;
 
@@ -182,7 +194,9 @@ async function runLandingDemo(options: LandingDemoOptions) {
     LANDING_DEMO_SEQUENCE,
   );
   const holdOpenSeconds =
-    recordingDurationSeconds + LANDING_DEMO_BROWSER_BUFFER_SECONDS;
+    LANDING_DEMO_MOUSE_START_DELAY_SECONDS +
+    recordingDurationSeconds +
+    LANDING_DEMO_BROWSER_BUFFER_SECONDS;
 
   const recorderBin = path.join(DEFAULT_TMP_DIR, "record-chrome-window");
   const mouseBin = path.join(DEFAULT_TMP_DIR, "animate-mouse");
@@ -257,6 +271,12 @@ async function runLandingDemo(options: LandingDemoOptions) {
       coords,
       LANDING_DEMO_SEQUENCE,
     );
+    const clickEvents = buildLandingDemoClickEvents(
+      coords,
+      LANDING_DEMO_SEQUENCE,
+      LANDING_DEMO_MOUSE_START_DELAY_SECONDS,
+    );
+    await writeFile(clickEventsFile, JSON.stringify(clickEvents));
     await focusChromeWindow(coords.windowFrame);
 
     recorderProcess = spawn(
@@ -275,11 +295,9 @@ async function runLandingDemo(options: LandingDemoOptions) {
         "--warmup-duration",
         String(LANDING_DEMO_RECORDER_WARMUP_SECONDS),
         "--fps",
-        "30",
+        String(LANDING_DEMO_OUTPUT_FPS),
         "--cursor",
         "true",
-        "--click-highlights",
-        "false",
       ],
       {
         cwd: REPO_ROOT,
@@ -288,9 +306,7 @@ async function runLandingDemo(options: LandingDemoOptions) {
     );
 
     await waitForFile(recorderStartedFile, 12_000);
-    const recorderStartUptime = parseRecorderStartUptime(
-      await readFile(recorderStartedFile, "utf8"),
-    );
+    await sleep(LANDING_DEMO_MOUSE_START_DELAY_SECONDS * 1000);
     await focusChromeWindow(coords.windowFrame);
 
     await runCommand(
@@ -298,14 +314,12 @@ async function runLandingDemo(options: LandingDemoOptions) {
       [
         "--actions",
         demoActions,
-        "--event-log",
-        clickEventsFile,
-        "--event-log-base-uptime",
-        String(recorderStartUptime),
         "--move-duration",
         String(LANDING_DEMO_MOUSE_TIMING.moveDuration),
         "--pause-before-click",
         String(LANDING_DEMO_MOUSE_TIMING.pauseBeforeClick),
+        "--click-hold-duration",
+        String(LANDING_DEMO_MOUSE_TIMING.clickHoldDuration),
         "--pause-after-click",
         String(LANDING_DEMO_MOUSE_TIMING.pauseAfterClick),
         "--require-frontmost-bundle",
@@ -314,8 +328,6 @@ async function runLandingDemo(options: LandingDemoOptions) {
         "Google Chrome",
         "--require-window-frame",
         windowFrame,
-        "--scroll-step-pause",
-        "0.012",
       ],
       REPO_ROOT,
     );
@@ -338,6 +350,10 @@ async function runLandingDemo(options: LandingDemoOptions) {
         windowFrame,
         "--pad",
         String(options.pad),
+        "--fps",
+        String(LANDING_DEMO_OUTPUT_FPS),
+        "--ring-duration",
+        String(LANDING_DEMO_MOUSE_TIMING.pauseAfterClick),
       ],
       REPO_ROOT,
     );
@@ -374,6 +390,37 @@ function serializeLandingDemoActions(
       return `click:${point.x},${point.y}`;
     })
     .join(";");
+}
+
+function buildLandingDemoClickEvents(
+  coords: LandingCoords,
+  steps: readonly LandingDemoStep[],
+  startDelaySeconds: number,
+) {
+  const events: Array<{ time: number; x: number; y: number }> = [];
+  let elapsedSeconds = startDelaySeconds;
+
+  for (const step of steps) {
+    if (step.kind === "wait") {
+      elapsedSeconds += step.seconds;
+      continue;
+    }
+
+    const point = resolveLandingDemoTarget(coords, step.target);
+    elapsedSeconds +=
+      LANDING_DEMO_MOUSE_TIMING.moveDuration +
+      LANDING_DEMO_MOUSE_TIMING.pauseBeforeClick;
+    events.push({
+      time: roundSeconds(elapsedSeconds),
+      x: point.x,
+      y: point.y,
+    });
+    elapsedSeconds +=
+      LANDING_DEMO_MOUSE_TIMING.clickHoldDuration +
+      LANDING_DEMO_MOUSE_TIMING.pauseAfterClick;
+  }
+
+  return events;
 }
 
 function resolveLandingDemoTarget(
@@ -414,7 +461,7 @@ function computeRecordingDurationSeconds(steps: readonly LandingDemoStep[]) {
         totalSeconds +
         LANDING_DEMO_MOUSE_TIMING.moveDuration +
         LANDING_DEMO_MOUSE_TIMING.pauseBeforeClick +
-        LANDING_DEMO_MOUSE_TIMING.clickDuration +
+        LANDING_DEMO_MOUSE_TIMING.clickHoldDuration +
         LANDING_DEMO_MOUSE_TIMING.pauseAfterClick
       );
     }, 0) + LANDING_DEMO_RECORDER_BUFFER_SECONDS
@@ -425,13 +472,8 @@ function serializeWindowFrame(windowFrame: WindowFrame) {
   return `${windowFrame.x},${windowFrame.y},${windowFrame.width},${windowFrame.height}`;
 }
 
-function parseRecorderStartUptime(rawValue: string) {
-  const uptime = Number(rawValue.trim());
-  if (!Number.isFinite(uptime) || uptime <= 0) {
-    throw new Error(`Invalid recorder start uptime: ${rawValue}`);
-  }
-
-  return uptime;
+function roundSeconds(value: number) {
+  return Math.round(value * 1000) / 1000;
 }
 
 async function compileSwiftBinary(

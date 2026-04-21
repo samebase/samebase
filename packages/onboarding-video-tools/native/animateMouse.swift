@@ -12,7 +12,7 @@ enum MouseAnimationError: Error, CustomStringConvertible {
         case .invalidArguments(let message):
             return message
         case .noActions:
-            return "Provide at least one action with --actions or --points."
+            return "Provide at least one action with --actions."
         case .safetyCheckFailed(let message):
             return message
         }
@@ -20,32 +20,19 @@ enum MouseAnimationError: Error, CustomStringConvertible {
 }
 
 enum MouseAction {
-    case move(CGPoint)
     case click(CGPoint)
-    case doubleClick(CGPoint)
-    case rightClick(CGPoint)
-    case mouseDown(CGPoint)
-    case mouseUp(CGPoint)
-    case drag(from: CGPoint, to: CGPoint)
-    case scroll(deltaX: Int32, deltaY: Int32)
     case wait(TimeInterval)
 }
 
 struct MouseAnimationOptions {
     let actions: [MouseAction]
     let moveDuration: TimeInterval
-    let dragDuration: TimeInterval
     let pauseBeforeClick: TimeInterval
+    let clickHoldDuration: TimeInterval
     let pauseAfterClick: TimeInterval
-    let doubleClickInterval: TimeInterval
-    let mouseDownPause: TimeInterval
-    let scrollStepPause: TimeInterval
     let requireFrontmostBundle: String?
     let requireWindowOwner: String?
     let requireWindowFrame: CGRect?
-    let eventLogPath: String?
-    let eventLogBaseUptime: TimeInterval?
-    let eventLogStartOffset: TimeInterval
 
     init(arguments: [String]) throws {
         var values: [String: String] = [:]
@@ -53,6 +40,12 @@ struct MouseAnimationOptions {
 
         while index < arguments.count {
             let key = arguments[index]
+
+            if key == "--" {
+                index += 1
+                continue
+            }
+
             guard key.hasPrefix("--") else {
                 throw MouseAnimationError.invalidArguments("Unexpected argument: \(key)")
             }
@@ -65,16 +58,11 @@ struct MouseAnimationOptions {
             index += 2
         }
 
-        let parsedActions: [MouseAction]
-
-        if let rawActions = values["actions"] {
-            parsedActions = try Self.parseActions(rawActions)
-        } else if let rawPoints = values["points"] {
-            parsedActions = try Self.parsePoints(rawPoints).map(MouseAction.click)
-        } else {
-            throw MouseAnimationError.invalidArguments("Missing required --actions or --points")
+        guard let rawActions = values["actions"] else {
+            throw MouseAnimationError.invalidArguments("Missing required --actions")
         }
 
+        let parsedActions = try Self.parseActions(rawActions)
         guard !parsedActions.isEmpty else {
             throw MouseAnimationError.noActions
         }
@@ -85,51 +73,24 @@ struct MouseAnimationOptions {
             flagName: "--move-duration",
             defaultValue: 0.7
         )
-        self.dragDuration = try Self.parseNonNegativeDuration(
-            values["drag-duration"],
-            flagName: "--drag-duration",
-            defaultValue: 0.7
-        )
         self.pauseBeforeClick = try Self.parseNonNegativeDuration(
             values["pause-before-click"],
             flagName: "--pause-before-click",
             defaultValue: 0.12
         )
+        self.clickHoldDuration = try Self.parseNonNegativeDuration(
+            values["click-hold-duration"],
+            flagName: "--click-hold-duration",
+            defaultValue: 0.08
+        )
         self.pauseAfterClick = try Self.parseNonNegativeDuration(
             values["pause-after-click"],
             flagName: "--pause-after-click",
-            defaultValue: 0.55
-        )
-        self.doubleClickInterval = try Self.parseNonNegativeDuration(
-            values["double-click-interval"],
-            flagName: "--double-click-interval",
-            defaultValue: 0.12
-        )
-        self.mouseDownPause = try Self.parseNonNegativeDuration(
-            values["mouse-down-pause"],
-            flagName: "--mouse-down-pause",
-            defaultValue: 0.08
-        )
-        self.scrollStepPause = try Self.parseNonNegativeDuration(
-            values["scroll-step-pause"],
-            flagName: "--scroll-step-pause",
-            defaultValue: 0.015
+            defaultValue: 0.24
         )
         self.requireFrontmostBundle = values["require-frontmost-bundle"]
         self.requireWindowOwner = values["require-window-owner"]
         self.requireWindowFrame = try Self.parseRect(values["require-window-frame"])
-        self.eventLogPath = values["event-log"]
-        self.eventLogBaseUptime = try values["event-log-base-uptime"].map {
-            try Self.parseNonNegativeDuration(
-                $0,
-                context: "Invalid --event-log-base-uptime value: \($0)"
-            )
-        }
-        self.eventLogStartOffset = try Self.parseNonNegativeDuration(
-            values["event-log-start-offset"],
-            flagName: "--event-log-start-offset",
-            defaultValue: 0
-        )
     }
 
     private static func parseActions(_ rawActions: String) throws -> [MouseAction] {
@@ -143,30 +104,8 @@ struct MouseAnimationOptions {
             let value = pieces[1].trimmingCharacters(in: .whitespacesAndNewlines)
 
             switch verb {
-            case "move":
-                return .move(try parsePoint(value))
             case "click", "left":
                 return .click(try parsePoint(value))
-            case "double", "double-click", "doubleclick":
-                return .doubleClick(try parsePoint(value))
-            case "right", "right-click", "rightclick":
-                return .rightClick(try parsePoint(value))
-            case "down", "mouse-down", "mousedown":
-                return .mouseDown(try parsePoint(value))
-            case "up", "mouse-up", "mouseup":
-                return .mouseUp(try parsePoint(value))
-            case "drag":
-                let dragPoints = value.split(separator: ">", maxSplits: 1)
-                guard dragPoints.count == 2 else {
-                    throw MouseAnimationError.invalidArguments("Invalid drag action: \(rawAction)")
-                }
-
-                return .drag(
-                    from: try parsePoint(String(dragPoints[0])),
-                    to: try parsePoint(String(dragPoints[1]))
-                )
-            case "scroll":
-                return try parseScrollAction(value)
             case "wait", "pause":
                 return .wait(
                     try parseNonNegativeDuration(
@@ -175,7 +114,9 @@ struct MouseAnimationOptions {
                     )
                 )
             default:
-                throw MouseAnimationError.invalidArguments("Unknown action verb: \(verb)")
+                throw MouseAnimationError.invalidArguments(
+                    "Unsupported action verb: \(verb). This tool only supports left clicks and waits."
+                )
             }
         }
     }
@@ -204,36 +145,6 @@ struct MouseAnimationOptions {
         }
 
         return duration
-    }
-
-    private static func parsePoints(_ rawPoints: String) throws -> [CGPoint] {
-        try rawPoints.split(separator: ";").map { pointString in
-            try parsePoint(String(pointString))
-        }
-    }
-
-    private static func parseScrollAction(_ rawValue: String) throws -> MouseAction {
-        let components = rawValue.split(separator: ",").map {
-            $0.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-
-        switch components.count {
-        case 1:
-            guard let deltaY = Int32(components[0]) else {
-                throw MouseAnimationError.invalidArguments("Invalid scroll value: \(rawValue)")
-            }
-            return .scroll(deltaX: 0, deltaY: deltaY)
-        case 2:
-            guard
-                let deltaX = Int32(components[0]),
-                let deltaY = Int32(components[1])
-            else {
-                throw MouseAnimationError.invalidArguments("Invalid scroll value: \(rawValue)")
-            }
-            return .scroll(deltaX: deltaX, deltaY: deltaY)
-        default:
-            throw MouseAnimationError.invalidArguments("Invalid scroll value: \(rawValue)")
-        }
     }
 
     private static func parsePoint(_ rawPoint: String) throws -> CGPoint {
@@ -274,55 +185,6 @@ struct MouseAnimationOptions {
         }
 
         return CGRect(x: x, y: y, width: width, height: height)
-    }
-}
-
-struct ClickEvent: Encodable {
-    let time: Double
-    let x: Int
-    let y: Int
-}
-
-final class ClickEventLogger {
-    private let outputURL: URL
-    private let startTime: TimeInterval
-    private let baseUptime: TimeInterval?
-    private let startOffset: TimeInterval
-    private var events: [ClickEvent] = []
-
-    init?(path: String?, baseUptime: TimeInterval?, startOffset: TimeInterval) {
-        guard let path else {
-            return nil
-        }
-
-        self.outputURL = URL(fileURLWithPath: path)
-        self.startTime = ProcessInfo.processInfo.systemUptime
-        self.baseUptime = baseUptime
-        self.startOffset = startOffset
-    }
-
-    func recordClick(at point: CGPoint) {
-        let now = ProcessInfo.processInfo.systemUptime
-        let timestamp: TimeInterval
-        if let baseUptime {
-            timestamp = max(now - baseUptime, 0)
-        } else {
-            timestamp = startOffset + now - startTime
-        }
-        events.append(
-            ClickEvent(
-                time: (timestamp * 1000).rounded() / 1000,
-                x: Int(point.x.rounded()),
-                y: Int(point.y.rounded())
-            )
-        )
-    }
-
-    func flush() throws {
-        let directory = outputURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let payload = try JSONEncoder().encode(events)
-        try payload.write(to: outputURL)
     }
 }
 
@@ -455,6 +317,7 @@ func verifyPoint(
     guard let frame = try verifyWindowFrame(ownerName: ownerName, expectedFrame: expectedFrame) else {
         return
     }
+
     let insetFrame = frame.insetBy(dx: 2, dy: 2)
     guard insetFrame.contains(point) else {
         throw MouseAnimationError.safetyCheckFailed(
@@ -513,12 +376,35 @@ func moveCursorToVerifiedPoint(
     currentPoint = point
 }
 
-func performPointAction(
+func makeLeftMouseEvent(type: CGEventType, point: CGPoint) -> CGEvent? {
+    let event = CGEvent(
+        mouseEventSource: nil,
+        mouseType: type,
+        mouseCursorPosition: point,
+        mouseButton: .left
+    )
+    event?.setIntegerValueField(.mouseEventClickState, value: 1)
+    return event
+}
+
+func leftClick(at point: CGPoint, holdDuration: TimeInterval) {
+    guard
+        let mouseDown = makeLeftMouseEvent(type: .leftMouseDown, point: point),
+        let mouseUp = makeLeftMouseEvent(type: .leftMouseUp, point: point)
+    else {
+        return
+    }
+
+    mouseDown.post(tap: .cghidEventTap)
+    sleepSeconds(holdDuration)
+    mouseUp.post(tap: .cghidEventTap)
+}
+
+func performLeftClick(
     currentPoint: inout CGPoint,
     target point: CGPoint,
     options: MouseAnimationOptions,
-    validateSafety: @escaping () throws -> Void,
-    action: () throws -> Void
+    validateSafety: @escaping () throws -> Void
 ) throws {
     try moveCursorToVerifiedPoint(
         currentPoint: &currentPoint,
@@ -533,140 +419,8 @@ func performPointAction(
         insideWindowOwner: options.requireWindowOwner,
         expectedFrame: options.requireWindowFrame
     )
-    try action()
+    leftClick(at: point, holdDuration: options.clickHoldDuration)
     sleepSeconds(options.pauseAfterClick)
-}
-
-func makeMouseEvent(
-    type: CGEventType,
-    point: CGPoint,
-    button: CGMouseButton,
-    clickCount: Int64 = 1
-) -> CGEvent? {
-    let event = CGEvent(
-        mouseEventSource: nil,
-        mouseType: type,
-        mouseCursorPosition: point,
-        mouseButton: button
-    )
-    event?.setIntegerValueField(.mouseEventClickState, value: clickCount)
-    return event
-}
-
-func eventType(for button: CGMouseButton, isDown: Bool) -> CGEventType {
-    switch (button, isDown) {
-    case (.left, true):
-        return .leftMouseDown
-    case (.left, false):
-        return .leftMouseUp
-    case (.right, true):
-        return .rightMouseDown
-    case (.right, false):
-        return .rightMouseUp
-    default:
-        return isDown ? .otherMouseDown : .otherMouseUp
-    }
-}
-
-func click(at point: CGPoint, button: CGMouseButton = .left, clickCount: Int64 = 1) {
-    guard
-        let mouseDown = makeMouseEvent(
-            type: eventType(for: button, isDown: true),
-            point: point,
-            button: button,
-            clickCount: clickCount
-        ),
-        let mouseUp = makeMouseEvent(
-            type: eventType(for: button, isDown: false),
-            point: point,
-            button: button,
-            clickCount: clickCount
-        )
-    else {
-        return
-    }
-
-    mouseDown.post(tap: .cghidEventTap)
-    sleepSeconds(0.08)
-    mouseUp.post(tap: .cghidEventTap)
-}
-
-func mouseDown(at point: CGPoint, button: CGMouseButton = .left, clickCount: Int64 = 1) {
-    makeMouseEvent(
-        type: eventType(for: button, isDown: true),
-        point: point,
-        button: button,
-        clickCount: clickCount
-    )?.post(tap: .cghidEventTap)
-}
-
-func mouseUp(at point: CGPoint, button: CGMouseButton = .left, clickCount: Int64 = 1) {
-    makeMouseEvent(
-        type: eventType(for: button, isDown: false),
-        point: point,
-        button: button,
-        clickCount: clickCount
-    )?.post(tap: .cghidEventTap)
-}
-
-func dragCursor(
-    from start: CGPoint,
-    to end: CGPoint,
-    duration: TimeInterval,
-    validator: (() throws -> Void)? = nil
-) throws {
-    let steps = max(Int(duration * 120), 1)
-
-    for step in 1...steps {
-        try validator?()
-        let progress = Double(step) / Double(steps)
-        let eased = 1 - pow(1 - progress, 3)
-        let point = CGPoint(
-            x: start.x + (end.x - start.x) * eased,
-            y: start.y + (end.y - start.y) * eased
-        )
-        CGWarpMouseCursorPosition(point)
-        makeMouseEvent(
-            type: .leftMouseDragged,
-            point: point,
-            button: .left
-        )?.post(tap: .cghidEventTap)
-        sleepSeconds(duration / Double(steps))
-    }
-}
-
-func scroll(deltaX: Int32, deltaY: Int32, stepPause: TimeInterval) {
-    let maxMagnitude = max(abs(deltaX), abs(deltaY))
-    let stepCount = max(Int(ceil(Double(maxMagnitude) / 12.0)), 1)
-
-    var sentX: Int32 = 0
-    var sentY: Int32 = 0
-
-    for step in 1...stepCount {
-        let progress = Double(step) / Double(stepCount)
-        let targetX = Int32((Double(deltaX) * progress).rounded())
-        let targetY = Int32((Double(deltaY) * progress).rounded())
-        let eventDeltaX = targetX - sentX
-        let eventDeltaY = targetY - sentY
-
-        sentX = targetX
-        sentY = targetY
-
-        guard eventDeltaX != 0 || eventDeltaY != 0 else {
-            continue
-        }
-
-        let event = CGEvent(
-            scrollWheelEvent2Source: nil,
-            units: .pixel,
-            wheelCount: 2,
-            wheel1: eventDeltaY,
-            wheel2: eventDeltaX,
-            wheel3: 0
-        )
-        event?.post(tap: .cghidEventTap)
-        sleepSeconds(stepPause)
-    }
 }
 
 @main
@@ -675,11 +429,6 @@ enum MouseAnimationCLI {
         do {
             let options = try MouseAnimationOptions(arguments: Array(CommandLine.arguments.dropFirst()))
             var currentPoint = currentMouseLocation()
-            let clickLogger = ClickEventLogger(
-                path: options.eventLogPath,
-                baseUptime: options.eventLogBaseUptime,
-                startOffset: options.eventLogStartOffset
-            )
             let validateSafety = {
                 try verifyFrontmostBundle(options.requireFrontmostBundle)
                 _ = try verifyWindowFrame(
@@ -690,128 +439,24 @@ enum MouseAnimationCLI {
 
             for action in options.actions {
                 switch action {
-                case .move(let point):
-                    try moveCursorToVerifiedPoint(
-                        currentPoint: &currentPoint,
-                        target: point,
-                        options: options,
-                        validateSafety: validateSafety
-                    )
                 case .click(let point):
-                    try performPointAction(
-                        currentPoint: &currentPoint,
-                        target: point,
-                        options: options,
-                        validateSafety: validateSafety
-                    ) {
-                        clickLogger?.recordClick(at: point)
-                        click(at: point)
-                    }
-                case .doubleClick(let point):
-                    try performPointAction(
-                        currentPoint: &currentPoint,
-                        target: point,
-                        options: options,
-                        validateSafety: validateSafety
-                    ) {
-                        clickLogger?.recordClick(at: point)
-                        click(at: point, button: .left, clickCount: 1)
-                        sleepSeconds(options.doubleClickInterval)
-                        clickLogger?.recordClick(at: point)
-                        click(at: point, button: .left, clickCount: 2)
-                    }
-                case .rightClick(let point):
-                    try performPointAction(
-                        currentPoint: &currentPoint,
-                        target: point,
-                        options: options,
-                        validateSafety: validateSafety
-                    ) {
-                        click(at: point, button: .right)
-                    }
-                case .mouseDown(let point):
-                    try moveCursorToVerifiedPoint(
+                    try performLeftClick(
                         currentPoint: &currentPoint,
                         target: point,
                         options: options,
                         validateSafety: validateSafety
                     )
-                    sleepSeconds(options.pauseBeforeClick)
-                    try validateSafety()
-                    try verifyPoint(
-                        point,
-                        insideWindowOwner: options.requireWindowOwner,
-                        expectedFrame: options.requireWindowFrame
-                    )
-                    mouseDown(at: point)
-                    sleepSeconds(options.mouseDownPause)
-                case .mouseUp(let point):
-                    try performPointAction(
-                        currentPoint: &currentPoint,
-                        target: point,
-                        options: options,
-                        validateSafety: validateSafety
-                    ) {
-                        mouseUp(at: point)
-                    }
-                case .drag(let start, let end):
-                    try validateSafety()
-                    try verifyPoint(
-                        start,
-                        insideWindowOwner: options.requireWindowOwner,
-                        expectedFrame: options.requireWindowFrame
-                    )
-                    try verifyPoint(
-                        end,
-                        insideWindowOwner: options.requireWindowOwner,
-                        expectedFrame: options.requireWindowFrame
-                    )
-                    try moveCursorToVerifiedPoint(
-                        currentPoint: &currentPoint,
-                        target: start,
-                        options: options,
-                        validateSafety: validateSafety
-                    )
-                    sleepSeconds(options.pauseBeforeClick)
-                    try validateSafety()
-                    try verifyPoint(
-                        start,
-                        insideWindowOwner: options.requireWindowOwner,
-                        expectedFrame: options.requireWindowFrame
-                    )
-                    mouseDown(at: start)
-                    sleepSeconds(options.mouseDownPause)
-                    try dragCursor(
-                        from: start,
-                        to: end,
-                        duration: options.dragDuration,
-                        validator: validateSafety
-                    )
-                    try validateSafety()
-                    try verifyPoint(
-                        end,
-                        insideWindowOwner: options.requireWindowOwner,
-                        expectedFrame: options.requireWindowFrame
-                    )
-                    mouseUp(at: end)
-                    sleepSeconds(options.pauseAfterClick)
-                    currentPoint = end
-                case .scroll(let deltaX, let deltaY):
+                case .wait(let duration):
                     try validateSafety()
                     try verifyCurrentPointerInsideWindow(
                         ownerName: options.requireWindowOwner,
                         expectedFrame: options.requireWindowFrame
                     )
-                    scroll(deltaX: deltaX, deltaY: deltaY, stepPause: options.scrollStepPause)
-                    sleepSeconds(options.pauseAfterClick)
-                case .wait(let duration):
                     sleepSeconds(duration)
                 }
             }
-
-            try clickLogger?.flush()
         } catch {
-            fputs("animate_mouse.swift failed: \(error)\n", stderr)
+            fputs("animateMouse.swift failed: \(error)\n", stderr)
             exit(1)
         }
     }

@@ -1,9 +1,8 @@
 import AppKit
 import AVFoundation
-import CoreMedia
 import CoreGraphics
+import CoreMedia
 import CoreVideo
-import Dispatch
 import Foundation
 import ScreenCaptureKit
 
@@ -26,15 +25,13 @@ enum RecorderError: Error, CustomStringConvertible {
 
 struct RecorderOptions {
     let bundleID: String
-    let titleSubstring: String?
-    let windowFrame: CGRect?
+    let windowFrame: CGRect
     let outputPath: String
     let startedFile: String?
     let duration: TimeInterval
     let warmupDuration: TimeInterval
     let fps: Int32
     let cursorVisible: Bool
-    let clickHighlights: Bool
 
     init(arguments: [String]) throws {
         var values: [String: String] = [:]
@@ -42,6 +39,12 @@ struct RecorderOptions {
 
         while index < arguments.count {
             let key = arguments[index]
+
+            if key == "--" {
+                index += 1
+                continue
+            }
+
             guard key.hasPrefix("--") else {
                 throw RecorderError.invalidArguments("Unexpected argument: \(key)")
             }
@@ -62,44 +65,34 @@ struct RecorderOptions {
             throw RecorderError.invalidArguments("Missing required --output")
         }
 
-        let titleSubstring = values["title-substring"]?.isEmpty == false ? values["title-substring"] : nil
-        let windowFrame = try Self.parseRect(values["window-frame"])
-
-        if titleSubstring == nil, windowFrame == nil {
-            throw RecorderError.invalidArguments(
-                "Provide either --title-substring or --window-frame"
-            )
+        guard let windowFrame = try Self.parseRect(values["window-frame"]) else {
+            throw RecorderError.invalidArguments("Missing required --window-frame")
         }
 
-        let startedFile = values["started-file"]
-        let duration = try Self.parsePositiveDuration(
+        self.bundleID = bundleID
+        self.windowFrame = windowFrame
+        self.outputPath = outputPath
+        self.startedFile = values["started-file"]
+        self.duration = try Self.parsePositiveDuration(
             values["duration"],
             flagName: "--duration",
             defaultValue: 4
         )
-        let warmupDuration = try Self.parseNonNegativeDuration(
+        self.warmupDuration = try Self.parseNonNegativeDuration(
             values["warmup-duration"],
             flagName: "--warmup-duration",
             defaultValue: 0.8
         )
-        let fps = try Self.parsePositiveInt32(
+        self.fps = try Self.parsePositiveInt32(
             values["fps"],
             flagName: "--fps",
             defaultValue: 30
         )
-        let cursorVisible = (values["cursor"] ?? "true") == "true"
-        let clickHighlights = (values["click-highlights"] ?? "true") == "true"
-
-        self.bundleID = bundleID
-        self.titleSubstring = titleSubstring
-        self.windowFrame = windowFrame
-        self.outputPath = outputPath
-        self.startedFile = startedFile
-        self.duration = duration
-        self.warmupDuration = warmupDuration
-        self.fps = fps
-        self.cursorVisible = cursorVisible
-        self.clickHighlights = clickHighlights
+        self.cursorVisible = try Self.parseBool(
+            values["cursor"],
+            flagName: "--cursor",
+            defaultValue: true
+        )
     }
 
     private static func parsePositiveDuration(
@@ -148,6 +141,25 @@ struct RecorderOptions {
         }
 
         return value
+    }
+
+    private static func parseBool(
+        _ rawValue: String?,
+        flagName: String,
+        defaultValue: Bool
+    ) throws -> Bool {
+        guard let rawValue else {
+            return defaultValue
+        }
+
+        switch rawValue.lowercased() {
+        case "true":
+            return true
+        case "false":
+            return false
+        default:
+            throw RecorderError.invalidArguments("Invalid \(flagName) value: \(rawValue)")
+        }
     }
 
     private static func parseRect(_ rawRect: String?) throws -> CGRect? {
@@ -207,7 +219,6 @@ final class ChromeWindowRecorder {
 
         let window = try await waitForWindow(
             bundleID: options.bundleID,
-            titleSubstring: options.titleSubstring,
             windowFrame: options.windowFrame,
             timeout: 15
         )
@@ -222,9 +233,6 @@ final class ChromeWindowRecorder {
         configuration.minimumFrameInterval = CMTime(value: 1, timescale: options.fps)
         configuration.pixelFormat = kCVPixelFormatType_32BGRA
         configuration.showsCursor = options.cursorVisible
-        if #available(macOS 15.0, *), options.clickHighlights {
-            configuration.showMouseClicks = true
-        }
         configuration.scalesToFit = true
 
         let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
@@ -244,19 +252,21 @@ final class ChromeWindowRecorder {
         self.recordingOutput = recordingOutput
 
         try stream.addRecordingOutput(recordingOutput)
-
         try await stream.startCapture()
+
         if let startedFile = options.startedFile {
-            try "\(ProcessInfo.processInfo.systemUptime)\n".write(
+            try "ready\n".write(
                 to: URL(fileURLWithPath: startedFile),
                 atomically: true,
                 encoding: .utf8
             )
         }
+
         // ScreenCaptureKit can miss the earliest cursor motion if automation
         // starts immediately, so keep a short capture warm-up before the demo.
         try await Task.sleep(for: .seconds(options.warmupDuration))
         try await Task.sleep(for: .seconds(options.duration))
+
         do {
             try await stream.stopCapture()
         } catch {
@@ -269,6 +279,7 @@ final class ChromeWindowRecorder {
                 throw error
             }
         }
+
         // Give ScreenCaptureKit time to flush the MP4 footer before we verify
         // the file on disk; otherwise QuickTime-safe output can race this check.
         try await Task.sleep(for: .seconds(1.2))
@@ -286,8 +297,7 @@ final class ChromeWindowRecorder {
 
     private func waitForWindow(
         bundleID: String,
-        titleSubstring: String?,
-        windowFrame: CGRect?,
+        windowFrame: CGRect,
         timeout: TimeInterval
     ) async throws -> SCWindow {
         let deadline = Date().addingTimeInterval(timeout)
@@ -306,17 +316,7 @@ final class ChromeWindowRecorder {
                     return false
                 }
 
-                if let titleSubstring {
-                    guard let title = $0.title, title.contains(titleSubstring) else {
-                        return false
-                    }
-                }
-
-                if let windowFrame {
-                    return framesMatch(lhs: $0.frame, rhs: windowFrame)
-                }
-
-                return true
+                return framesMatch(lhs: $0.frame, rhs: windowFrame)
             }) {
                 return window
             }
@@ -325,7 +325,7 @@ final class ChromeWindowRecorder {
         }
 
         throw RecorderError.windowNotFound(
-            "Could not find an on-screen window for \(bundleID) matching the requested title or frame."
+            "Could not find an on-screen window for \(bundleID) matching the requested frame."
         )
     }
 

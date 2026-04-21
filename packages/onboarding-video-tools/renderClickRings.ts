@@ -27,9 +27,11 @@ type WindowFrame = {
 type RenderClickRingsOptions = {
   inputPath: string;
   outputPath: string;
-  eventsPath?: string;
+  eventsPath: string;
   windowFrame: WindowFrame;
   pad: number;
+  fps: number;
+  ringDuration: number;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -76,6 +78,24 @@ function parseWindowFrame(rawFrame: string): WindowFrame {
     width: parts[2],
     height: parts[3],
   };
+}
+
+function parsePositiveInt(rawValue: string, flagName: string) {
+  const value = Number(rawValue);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`Invalid ${flagName} value: ${rawValue}`);
+  }
+
+  return value;
+}
+
+function parsePositiveDuration(rawValue: string, flagName: string) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`Invalid ${flagName} value: ${rawValue}`);
+  }
+
+  return value;
 }
 
 function probeVideo(inputPath: string): VideoInfo {
@@ -160,7 +180,7 @@ function parseClickEvents(raw: string): ClickEvent[] {
     throw new Error("Click event log must be a JSON array.");
   }
 
-  return candidate.map((event) => {
+  const events = candidate.map((event) => {
     if (!isRecord(event)) {
       throw new Error("Click event log contains an invalid event.");
     }
@@ -182,30 +202,48 @@ function parseClickEvents(raw: string): ClickEvent[] {
       y: event.y,
     };
   });
+
+  if (events.length === 0) {
+    throw new Error("Click event log is empty.");
+  }
+
+  return events;
 }
 
-function toLocalEvents(
-  events: ClickEvent[],
+function mapEventToVideoCoordinates(
+  event: ClickEvent,
   windowFrame: WindowFrame,
   pad: number,
   scaleX: number,
   scaleY: number,
   maxWidth: number,
   maxHeight: number,
+  videoDuration: number,
 ) {
-  return events
-    .map((event) => ({
-      time: event.time,
-      x: Math.round((event.x - windowFrame.x) * scaleX + pad),
-      y: Math.round((event.y - windowFrame.y) * scaleY + pad),
-    }))
-    .filter(
-      (event) =>
-        event.x >= 0 &&
-        event.y >= 0 &&
-        event.x < maxWidth &&
-        event.y < maxHeight,
+  if (event.time < 0 || event.time > videoDuration) {
+    throw new Error(
+      `Click event at ${event.time.toFixed(3)}s falls outside the ${videoDuration.toFixed(3)}s recording.`,
     );
+  }
+
+  const mapped = {
+    time: event.time,
+    x: Math.round((event.x - windowFrame.x) * scaleX + pad),
+    y: Math.round((event.y - windowFrame.y) * scaleY + pad),
+  };
+
+  if (
+    mapped.x < 0 ||
+    mapped.y < 0 ||
+    mapped.x >= maxWidth ||
+    mapped.y >= maxHeight
+  ) {
+    throw new Error(
+      `Mapped click ${event.x},${event.y} to ${mapped.x},${mapped.y}, which is outside the padded ${maxWidth}x${maxHeight} frame.`,
+    );
+  }
+
+  return mapped;
 }
 
 function combineExpressions(parts: string[]): string {
@@ -225,7 +263,7 @@ function buildRingAlphaExpr(
     thickness: number;
     maxOpacity: number;
   },
-): string {
+) {
   const { animationDuration, startRadius, endRadius, thickness, maxOpacity } =
     options;
   const amplitude = endRadius - startRadius;
@@ -252,7 +290,7 @@ function buildPulseAlphaExpr(
     endRadius: number;
     maxOpacity: number;
   },
-): string {
+) {
   const { animationDuration, startRadius, endRadius, maxOpacity } = options;
   const amplitude = endRadius - startRadius;
 
@@ -277,57 +315,54 @@ async function main() {
   const scaleY = videoInfo.height / options.windowFrame.height;
   const finalWidth = videoInfo.width + options.pad * 2;
   const finalHeight = videoInfo.height + options.pad * 2;
-  const rawEvents = options.eventsPath
-    ? parseClickEvents(await fs.readFile(options.eventsPath, "utf8"))
-    : [];
-  const localEvents = toLocalEvents(
-    rawEvents,
-    options.windowFrame,
-    options.pad,
-    scaleX,
-    scaleY,
-    finalWidth,
-    finalHeight,
+  const rawEvents = parseClickEvents(await fs.readFile(options.eventsPath, "utf8"));
+  const localEvents = rawEvents.map((event) =>
+    mapEventToVideoCoordinates(
+      event,
+      options.windowFrame,
+      options.pad,
+      scaleX,
+      scaleY,
+      finalWidth,
+      finalHeight,
+      videoInfo.duration,
+    ),
   );
+  const corePulseDuration = Math.min(options.ringDuration, 0.14);
 
   const blackRingAlpha = buildRingAlphaExpr(localEvents, {
-    animationDuration: 0.24,
+    animationDuration: options.ringDuration,
     startRadius: 10,
-    endRadius: 42,
-    thickness: 5.2,
-    maxOpacity: 235,
+    endRadius: 44,
+    thickness: 8.4,
+    maxOpacity: 255,
   });
   const whiteRingAlpha = buildRingAlphaExpr(localEvents, {
-    animationDuration: 0.22,
-    startRadius: 7,
-    endRadius: 34,
-    thickness: 3.4,
+    animationDuration: options.ringDuration,
+    startRadius: 10,
+    endRadius: 44,
+    thickness: 4.8,
     maxOpacity: 255,
   });
   const corePulseAlpha = buildPulseAlphaExpr(localEvents, {
-    animationDuration: 0.14,
-    startRadius: 9,
-    endRadius: 3,
-    maxOpacity: 150,
+    animationDuration: corePulseDuration,
+    startRadius: 10,
+    endRadius: 4,
+    maxOpacity: 190,
   });
 
-  const filterScript =
-    localEvents.length === 0
-      ? [
-          `[0:v]pad=iw+${options.pad * 2}:ih+${options.pad * 2}:${options.pad}:${options.pad}:color=0xF3F4F6,fps=30,format=yuv420p[outv]`,
-        ].join(";\n")
-      : [
-          // Keep every synthetic overlay source on the same padded canvas and
-          // timeline as the captured window so event coordinates and
-          // timestamps stay aligned.
-          `[0:v]pad=iw+${options.pad * 2}:ih+${options.pad * 2}:${options.pad}:${options.pad}:color=0xF3F4F6[base]`,
-          `color=c=black@0.0:s=${finalWidth}x${finalHeight}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='0':g='0':b='0':a='${blackRingAlpha}'[black_ring]`,
-          `color=c=white@0.0:s=${finalWidth}x${finalHeight}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='255':g='255':b='255':a='${whiteRingAlpha}'[white_ring]`,
-          `color=c=black@0.0:s=${finalWidth}x${finalHeight}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='0':g='0':b='0':a='${corePulseAlpha}'[core_pulse]`,
-          `[base][black_ring]overlay=format=auto[with_black_ring]`,
-          `[with_black_ring][white_ring]overlay=format=auto[with_white_ring]`,
-          `[with_white_ring][core_pulse]overlay=format=auto,fps=30,format=yuv420p[outv]`,
-        ].join(";\n");
+  const filterScript = [
+    // ScreenCaptureKit emits a variable-rate stream, so normalize the base
+    // capture first. Otherwise a click on a mostly static page can produce too
+    // few frames for the ripple to fully grow before it fades out.
+    `[0:v]fps=${options.fps},pad=iw+${options.pad * 2}:ih+${options.pad * 2}:${options.pad}:${options.pad}:color=0xF3F4F6,setsar=1[base]`,
+    `color=c=black@0.0:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='0':g='0':b='0':a='${blackRingAlpha}'[black_ring]`,
+    `color=c=white@0.0:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='255':g='255':b='255':a='${whiteRingAlpha}'[white_ring]`,
+    `color=c=white@0.0:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='255':g='255':b='255':a='${corePulseAlpha}'[core_pulse]`,
+    `[base][black_ring]overlay=format=auto[with_black_ring]`,
+    `[with_black_ring][white_ring]overlay=format=auto[with_white_ring]`,
+    `[with_white_ring][core_pulse]overlay=format=auto,format=yuv420p[outv]`,
+  ].join(";\n");
 
   const filterScriptPath = path.join(
     os.tmpdir(),
@@ -356,7 +391,7 @@ async function main() {
         "-preset",
         "fast",
         "-crf",
-        "18",
+        "14",
         "-movflags",
         "+faststart",
         options.outputPath,
@@ -374,9 +409,18 @@ function parseRenderOptions(argv: string[]): RenderClickRingsOptions {
   const outputPath = args.output;
   const eventsPath = args.events;
   const windowFrameArg = args["window-frame"];
+  const fpsArg = args.fps;
+  const ringDurationArg = args["ring-duration"];
   const pad = Number(args.pad ?? "48");
 
-  if (!inputPath || !outputPath || !windowFrameArg) {
+  if (
+    !inputPath ||
+    !outputPath ||
+    !eventsPath ||
+    !windowFrameArg ||
+    !fpsArg ||
+    !ringDurationArg
+  ) {
     throw new Error("Missing required arguments.");
   }
 
@@ -390,6 +434,8 @@ function parseRenderOptions(argv: string[]): RenderClickRingsOptions {
     eventsPath,
     windowFrame: parseWindowFrame(windowFrameArg),
     pad,
+    fps: parsePositiveInt(fpsArg, "--fps"),
+    ringDuration: parsePositiveDuration(ringDurationArg, "--ring-duration"),
   };
 }
 
