@@ -12,6 +12,35 @@ enum BackdropError: Error, CustomStringConvertible {
     }
 }
 
+func frontmostChromeWindowNumber() -> Int? {
+    guard
+        let infoList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+            as? [[String: Any]]
+    else {
+        return nil
+    }
+
+    for info in infoList {
+        guard
+            let owner = info[kCGWindowOwnerName as String] as? String,
+            owner == "Google Chrome",
+            let layer = info[kCGWindowLayer as String] as? Int,
+            layer == 0,
+            let bounds = info[kCGWindowBounds as String] as? [String: Any],
+            let rect = CGRect(dictionaryRepresentation: bounds as CFDictionary),
+            rect.width > 160,
+            rect.height > 160,
+            let windowNumber = info[kCGWindowNumber as String] as? Int
+        else {
+            continue
+        }
+
+        return windowNumber
+    }
+
+    return nil
+}
+
 struct BackdropOptions {
     let readyFile: String?
 
@@ -74,13 +103,16 @@ final class BackdropDelegate: NSObject, NSApplicationDelegate {
                 window.isOpaque = true
                 window.hasShadow = false
                 window.ignoresMouseEvents = true
-                // Keep the backdrop in the normal desktop stacking context, but
-                // place it behind app windows so ScreenCaptureKit sees Chrome on
-                // top of a controlled white scene instead of a full-screen white
-                // cover.
+                // Keep the backdrop in the normal stacking context so it can sit
+                // immediately underneath Chrome, not behind every other app on
+                // the desktop.
                 window.level = .normal
                 window.collectionBehavior = [.stationary, .moveToActiveSpace]
-                window.orderBack(nil)
+                if let chromeWindowNumber = frontmostChromeWindowNumber() {
+                    window.order(.below, relativeTo: chromeWindowNumber)
+                } else {
+                    window.orderBack(nil)
+                }
                 return window
             }
 
