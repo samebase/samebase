@@ -44,6 +44,7 @@ struct MouseAnimationOptions {
     let requireWindowOwner: String?
     let requireWindowFrame: CGRect?
     let eventLogPath: String?
+    let eventLogStartOffset: TimeInterval
 
     init(arguments: [String]) throws {
         var values: [String: String] = [:]
@@ -117,6 +118,11 @@ struct MouseAnimationOptions {
         self.requireWindowOwner = values["require-window-owner"]
         self.requireWindowFrame = try Self.parseRect(values["require-window-frame"])
         self.eventLogPath = values["event-log"]
+        self.eventLogStartOffset = try Self.parseNonNegativeDuration(
+            values["event-log-start-offset"],
+            flagName: "--event-log-start-offset",
+            defaultValue: 0
+        )
     }
 
     private static func parseActions(_ rawActions: String) throws -> [MouseAction] {
@@ -273,19 +279,21 @@ struct ClickEvent: Encodable {
 final class ClickEventLogger {
     private let outputURL: URL
     private let startTime: TimeInterval
+    private let startOffset: TimeInterval
     private var events: [ClickEvent] = []
 
-    init?(path: String?) {
+    init?(path: String?, startOffset: TimeInterval) {
         guard let path else {
             return nil
         }
 
         self.outputURL = URL(fileURLWithPath: path)
         self.startTime = ProcessInfo.processInfo.systemUptime
+        self.startOffset = startOffset
     }
 
     func recordClick(at point: CGPoint) {
-        let timestamp = ProcessInfo.processInfo.systemUptime - startTime
+        let timestamp = startOffset + ProcessInfo.processInfo.systemUptime - startTime
         events.append(
             ClickEvent(
                 time: (timestamp * 1000).rounded() / 1000,
@@ -652,7 +660,10 @@ enum MouseAnimationCLI {
         do {
             let options = try MouseAnimationOptions(arguments: Array(CommandLine.arguments.dropFirst()))
             var currentPoint = currentMouseLocation()
-            let clickLogger = ClickEventLogger(path: options.eventLogPath)
+            let clickLogger = ClickEventLogger(
+                path: options.eventLogPath,
+                startOffset: options.eventLogStartOffset
+            )
             let validateSafety = {
                 try verifyFrontmostBundle(options.requireFrontmostBundle)
                 _ = try verifyWindowFrame(
@@ -677,8 +688,8 @@ enum MouseAnimationCLI {
                         options: options,
                         validateSafety: validateSafety
                     ) {
-                        click(at: point)
                         clickLogger?.recordClick(at: point)
+                        click(at: point)
                     }
                 case .doubleClick(let point):
                     try performPointAction(
@@ -687,11 +698,11 @@ enum MouseAnimationCLI {
                         options: options,
                         validateSafety: validateSafety
                     ) {
+                        clickLogger?.recordClick(at: point)
                         click(at: point, button: .left, clickCount: 1)
-                        clickLogger?.recordClick(at: point)
                         sleepSeconds(options.doubleClickInterval)
-                        click(at: point, button: .left, clickCount: 2)
                         clickLogger?.recordClick(at: point)
+                        click(at: point, button: .left, clickCount: 2)
                     }
                 case .rightClick(let point):
                     try performPointAction(

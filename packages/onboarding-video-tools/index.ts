@@ -103,11 +103,12 @@ const LANDING_DEMO_SEQUENCE: readonly LandingDemoStep[] = [
 ] as const;
 const LANDING_DEMO_MOUSE_TIMING = {
   moveDuration: 0.6,
-  pauseBeforeClick: 0.08,
+  pauseBeforeClick: 0.12,
   // Keep this aligned with the sleep inside animateMouse.swift click(...).
   clickDuration: 0.08,
-  pauseAfterClick: 0.36,
+  pauseAfterClick: 0.2,
 } as const;
+const LANDING_DEMO_RECORDER_WARMUP_SECONDS = 0.8;
 const LANDING_DEMO_RECORDER_BUFFER_SECONDS = 0.75;
 const LANDING_DEMO_BROWSER_BUFFER_SECONDS = 3;
 
@@ -271,6 +272,8 @@ async function runLandingDemo(options: LandingDemoOptions) {
         recorderStartedFile,
         "--duration",
         recordingDurationSeconds.toFixed(2),
+        "--warmup-duration",
+        String(LANDING_DEMO_RECORDER_WARMUP_SECONDS),
         "--fps",
         "30",
         "--cursor",
@@ -294,6 +297,8 @@ async function runLandingDemo(options: LandingDemoOptions) {
         demoActions,
         "--event-log",
         clickEventsFile,
+        "--event-log-start-offset",
+        String(LANDING_DEMO_RECORDER_WARMUP_SECONDS),
         "--move-duration",
         String(LANDING_DEMO_MOUSE_TIMING.moveDuration),
         "--pause-before-click",

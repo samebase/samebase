@@ -31,6 +31,7 @@ struct RecorderOptions {
     let outputPath: String
     let startedFile: String?
     let duration: TimeInterval
+    let warmupDuration: TimeInterval
     let fps: Int32
     let cursorVisible: Bool
     let clickHighlights: Bool
@@ -76,6 +77,11 @@ struct RecorderOptions {
             flagName: "--duration",
             defaultValue: 4
         )
+        let warmupDuration = try Self.parseNonNegativeDuration(
+            values["warmup-duration"],
+            flagName: "--warmup-duration",
+            defaultValue: 0.8
+        )
         let fps = try Self.parsePositiveInt32(
             values["fps"],
             flagName: "--fps",
@@ -90,6 +96,7 @@ struct RecorderOptions {
         self.outputPath = outputPath
         self.startedFile = startedFile
         self.duration = duration
+        self.warmupDuration = warmupDuration
         self.fps = fps
         self.cursorVisible = cursorVisible
         self.clickHighlights = clickHighlights
@@ -105,6 +112,22 @@ struct RecorderOptions {
         }
 
         guard let duration = TimeInterval(rawValue), duration.isFinite, duration > 0 else {
+            throw RecorderError.invalidArguments("Invalid \(flagName) value: \(rawValue)")
+        }
+
+        return duration
+    }
+
+    private static func parseNonNegativeDuration(
+        _ rawValue: String?,
+        flagName: String,
+        defaultValue: TimeInterval
+    ) throws -> TimeInterval {
+        guard let rawValue else {
+            return defaultValue
+        }
+
+        guard let duration = TimeInterval(rawValue), duration.isFinite, duration >= 0 else {
             throw RecorderError.invalidArguments("Invalid \(flagName) value: \(rawValue)")
         }
 
@@ -232,7 +255,7 @@ final class ChromeWindowRecorder {
         }
         // ScreenCaptureKit can miss the earliest cursor motion if automation
         // starts immediately, so keep a short capture warm-up before the demo.
-        try await Task.sleep(for: .seconds(0.8))
+        try await Task.sleep(for: .seconds(options.warmupDuration))
         try await Task.sleep(for: .seconds(options.duration))
         do {
             try await stream.stopCapture()
