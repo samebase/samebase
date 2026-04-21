@@ -1,16 +1,18 @@
 # Onboarding Video Tools
 
 Internal macOS tooling for recording simple, real-browser onboarding videos with
-visible tabs, real cursor motion, and post-processed click indicators.
+visible tabs, real cursor motion, and native scene capture.
 
 ## What It Does
 
 - launches a real Google Chrome window with a fresh temporary profile
 - opens four public landing pages in visible tabs
-- records the Chrome window with ScreenCaptureKit
+- places a plain white backdrop behind Chrome for a clean capture scene
+- records a cropped desktop region with ScreenCaptureKit
 - drives only real left-click cursor motion inside the exact Chrome window
-- composites the recorded Chrome window onto a padded rounded background
-- renders black-and-white expanding click rings into the final MP4
+- keeps the real Chrome corners and real macOS window shadow in the final MP4
+- uses ScreenCaptureKit's native mouse click highlight instead of rebuilding
+  custom ripples in post
 
 ## Current Command
 
@@ -29,7 +31,7 @@ research/onboarding-video-artifacts/chrome-landing-tabs-demo.mp4
 - macOS only
 - requires Node 24+
 - requires Google Chrome
-- requires `ffmpeg`, `ffprobe`, and `swiftc` on `PATH`
+- requires `swiftc` on `PATH`
 - requires Screen Recording and Accessibility permissions
 - intended for internal onboarding-video experiments, not app runtime code
 - current runner fails closed if another Chrome window stays frontmost; until we
@@ -44,12 +46,20 @@ operator docs. The macOS automation, Chrome-window geometry, and video
 post-processing quirks still stay isolated from shipped app runtime code.
 
 The final MP4 defaults to a tracked path under `research/` so the repo can keep
-an intentional canonical render on file. Raw captures, click logs, compiled
-helpers, and other scratch artifacts still stay under `.tmp/`.
+an intentional canonical render on file. Temporary Chrome profiles, compiled
+helpers, and scratch coordination files still stay under `.tmp/`.
 
-## Why Two Native Helpers Remain
+## Why Native Helpers Remain
 
-The orchestration, CLI entrypoints, and post-processing live in TypeScript. The
-two files under `native/` stay in Swift because ScreenCaptureKit, AppKit, and
-CoreGraphics do not have a stable TypeScript-native equivalent for exact window
-capture and fail-closed cursor automation on macOS.
+The orchestration and CLI entrypoints live in TypeScript. The native files under
+`native/` stay in Swift because ScreenCaptureKit and AppKit still own the real
+macOS work:
+
+- desktop-region recording with native cursor click highlights
+- fail-closed cursor automation inside the exact Chrome window
+- plain backdrop-window setup for the captured scene
+
+## Legacy Path
+
+The previous window-only capture plus FFmpeg presentation pipeline is preserved
+under `legacy/` while this rewrite settles. It is no longer the active path.

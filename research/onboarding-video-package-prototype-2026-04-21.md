@@ -17,6 +17,11 @@ prove a narrow but important workflow:
 This note captures the findings from that prototype work and explains why the
 tooling moved into `packages/onboarding-video-tools/`.
 
+Update: the active package path now uses desktop-region capture with a plain
+white backdrop window and ScreenCaptureKit's native click highlight. The older
+window-only capture plus FFmpeg presentation stack remains under
+`packages/onboarding-video-tools/legacy/`.
+
 ## Package Outcome
 
 The current reusable tooling now lives in:
@@ -27,10 +32,12 @@ It packages the proven setup:
 
 - real Google Chrome with a fresh temporary profile
 - a public four-tab landing-page demo for GitHub, Convex, Cloudflare, and Codex
-- ScreenCaptureKit window recording
+- ScreenCaptureKit desktop-region recording around one Chrome window
+- a controlled white backdrop behind the browser so the final MP4 keeps native
+  rounded corners and native window shadow
 - native cursor automation with exact Chrome-window safety checks
-- post-processed click-ring overlays
-- QuickTime-friendly H.264 MP4 output
+- native ScreenCaptureKit click highlights
+- H.264 MP4 output written directly from ScreenCaptureKit
 
 ## Why This Moved Out Of The Stack Repo
 
@@ -63,11 +70,11 @@ with a temporary, isolated Chrome profile.
 For the onboarding demo we wanted actual left-click tab changes, not internal
 tab switching APIs. This keeps the motion consistent with what the viewer sees.
 
-### Click Indicators Need To Be Post-Processed
+### The Scene Around Chrome Matters Too
 
-The built-in click highlight from ScreenCaptureKit was not enough. A scripted
-overlay is better because it is precise, controllable, and easy to tune after
-the capture logic is stable.
+Capturing only the Chrome window rectangle made it too easy to lose the real
+rounded-corner and real shadow treatment. Capturing a controlled scene around
+the window turned out to be more important than perfect post-processing.
 
 ## What Worked
 
@@ -91,15 +98,12 @@ The cursor driver now refuses to continue unless:
 
 That turned out to be essential.
 
-### QuickTime-Safe Final Encoding
+### Native Scene Capture Looks More Natural
 
-The final export now uses:
-
-- H.264
-- `yuv420p`
-- 30 fps
-
-That solved the case where IINA could open the file but QuickTime could not.
+Switching from window-object capture plus synthetic masking to desktop-region
+capture plus a plain backdrop window produced a much more natural result. The
+native Chrome shadow reads correctly across light and dark pages without
+special-case tuning.
 
 ## What Failed Or Broke
 
@@ -122,28 +126,21 @@ frontmost. That is the right safety behavior, but it also means we still need a
 better exact-window-raising strategy than generic app activation or window-order
 nudges.
 
-### Overlay Coordinates Were Initially Wrong
+### Synthetic Presentation Math Kept Creating New Bugs
 
-Click logs are recorded in screen points, while the captured video is often
-retina-scaled pixels. The overlay only lined up correctly after applying scale
-factors derived from the raw video size and captured window frame.
-
-### The First Ring Animation Hung Too Long
-
-The first pass at the expanding ring looked good on some clicks and lingered too
-long on others. Tightening the animation duration fixed that.
+Rounded masking, shadow reconstruction, and custom click-ring timing all worked
+sometimes and then broke in page-specific ways. That was a signal to stop tuning
+the fake presentation layer and rely more on native scene capture.
 
 ## Fixes We Landed
 
 - fresh temporary Chrome profile per run
 - click-only landing-page demo path
 - exact-window safety checks for cursor movement and clicks
-- click event logging from the native cursor driver
-- dual-ring click overlay:
-  - black outer ring
-  - white inner ring
-- shorter ring animation timing
-- final MP4 normalization for QuickTime compatibility
+- controlled white backdrop behind Chrome
+- desktop-region recording around the real Chrome window
+- native ScreenCaptureKit click highlights
+- legacy quarantine for the old window-only plus FFmpeg path
 
 ## Current Recommendation
 
@@ -155,12 +152,12 @@ Short-term operating guidance:
 
 - keep the fail-closed safety checks
 - close unrelated Chrome windows before recording
-- treat exact-window focusing as the next improvement area
+- prefer the scene-capture path over reviving presentation-math fixes
 
 ## Follow-Up Questions
 
-- should the click-ring style stay dual-ring or simplify to a single white ring
-  for quieter videos?
+- should the native click highlight stay as-is, or do we still want a custom
+  visual treatment on top once the simpler scene pipeline is stable?
 - should future demos remain public landing pages by default, or should we add a
   signed-in private demo mode once the capture flow is fully stable?
 - should we later add a code-driven overlay layer for labels or step numbers, or

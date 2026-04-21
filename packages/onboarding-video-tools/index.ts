@@ -1,13 +1,5 @@
 import { spawn, type ChildProcessByStdio } from "node:child_process";
-import {
-  access,
-  mkdtemp,
-  mkdir,
-  readFile,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
+import { access, mkdtemp, mkdir, readFile, rm, stat } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import path from "node:path";
 import type { Readable } from "node:stream";
@@ -48,13 +40,7 @@ type LandingDemoOptions = {
   cloudflareUrl: string;
   codexUrl: string;
   outputPath: string;
-  pad: number;
-};
-
-type ClickEvent = {
-  time: number;
-  x: number;
-  y: number;
+  padPoints: number;
 };
 
 type LandingDemoTarget =
@@ -89,6 +75,7 @@ const DEFAULT_OUTPUT_PATH = path.join(
   DEFAULT_RENDER_DIR,
   "chrome-landing-tabs-demo.mp4",
 );
+const DEFAULT_SCENE_PAD_POINTS = 16;
 const DEFAULT_URLS = {
   githubUrl: "https://github.com/",
   convexUrl: "https://www.convex.dev/",
@@ -119,8 +106,6 @@ const LANDING_DEMO_MOUSE_TIMING = {
   moveDuration: 0.6,
   pauseBeforeClick: 0.12,
   clickHoldDuration: 0.08,
-  // Keep the cursor still for the full ring animation so every click reads as
-  // one complete human action instead of a click that slides into the next move.
   pauseAfterClick: 0.24,
 } as const;
 const LANDING_DEMO_OUTPUT_FPS = 30;
@@ -145,7 +130,7 @@ export async function main(argv: string[]) {
   throw new Error(
     [
       "Usage:",
-      "  noter-onboarding-video landing-demo [--output <path>] [--pad <pixels>]",
+      "  noter-onboarding-video landing-demo [--output <path>] [--pad <points>]",
     ].join("\n"),
   );
 }
@@ -175,9 +160,9 @@ function parseArgs(argv: string[]): ParsedArgs {
 
 function parseLandingDemoArgs(argv: string[]): LandingDemoOptions {
   const args = parseArgs(argv);
-  const pad = Number(args.pad ?? "32");
+  const pad = Number(args.pad ?? String(DEFAULT_SCENE_PAD_POINTS));
 
-  if (Number.isNaN(pad) || pad < 0) {
+  if (!Number.isInteger(pad) || pad < 0) {
     throw new Error(`Invalid --pad value: ${args.pad ?? "<missing>"}`);
   }
 
@@ -187,15 +172,14 @@ function parseLandingDemoArgs(argv: string[]): LandingDemoOptions {
     cloudflareUrl: args["cloudflare-url"] ?? DEFAULT_URLS.cloudflareUrl,
     codexUrl: args["codex-url"] ?? DEFAULT_URLS.codexUrl,
     outputPath: args.output ?? DEFAULT_OUTPUT_PATH,
-    pad,
+    padPoints: pad,
   };
 }
 
 async function runLandingDemo(options: LandingDemoOptions) {
   await mkdir(DEFAULT_TMP_DIR, { recursive: true });
   await mkdir(path.dirname(options.outputPath), { recursive: true });
-  // Derive recorder and browser lifetimes from the same action plan so the
-  // visible Chrome window cannot outlive the scripted interaction timeline.
+
   const recordingDurationSeconds = computeRecordingDurationSeconds(
     LANDING_DEMO_SEQUENCE,
   );
@@ -204,10 +188,12 @@ async function runLandingDemo(options: LandingDemoOptions) {
     recordingDurationSeconds +
     LANDING_DEMO_BROWSER_BUFFER_SECONDS;
 
-  const recorderBin = path.join(DEFAULT_TMP_DIR, "record-chrome-window");
+  const recorderBin = path.join(DEFAULT_TMP_DIR, "record-chrome-scene");
   const mouseBin = path.join(DEFAULT_TMP_DIR, "animate-mouse");
+  const backdropBin = path.join(DEFAULT_TMP_DIR, "run-white-backdrop");
+
   await compileSwiftBinary(
-    path.join(PACKAGE_DIR, "native", "recordChromeWindow.swift"),
+    path.join(PACKAGE_DIR, "native", "recordChromeScene.swift"),
     recorderBin,
     ["AppKit", "AVFoundation", "CoreMedia", "CoreVideo", "ScreenCaptureKit"],
   );
@@ -216,21 +202,22 @@ async function runLandingDemo(options: LandingDemoOptions) {
     mouseBin,
     ["AppKit"],
   );
+  await compileSwiftBinary(
+    path.join(PACKAGE_DIR, "native", "runWhiteBackdrop.swift"),
+    backdropBin,
+    ["AppKit"],
+  );
 
   const runId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const rawOutputPath = path.join(
-    DEFAULT_TMP_DIR,
-    `chrome-landing-tabs-demo-${runId}.raw.mp4`,
-  );
   const readyFile = path.join(DEFAULT_TMP_DIR, `landing-ready-${runId}.txt`);
   const coordsFile = path.join(DEFAULT_TMP_DIR, `landing-coords-${runId}.json`);
   const recorderStartedFile = path.join(
     DEFAULT_TMP_DIR,
     `landing-recorder-started-${runId}.txt`,
   );
-  const clickEventsFile = path.join(
+  const backdropReadyFile = path.join(
     DEFAULT_TMP_DIR,
-    `landing-click-events-${runId}.json`,
+    `landing-backdrop-ready-${runId}.txt`,
   );
   const profileDir = await mkdtemp(
     path.join(DEFAULT_TMP_DIR, "chrome-profile-"),
@@ -238,6 +225,7 @@ async function runLandingDemo(options: LandingDemoOptions) {
 
   let demoProcess: BufferedChildProcess | null = null;
   let recorderProcess: BufferedChildProcess | null = null;
+  let backdropProcess: BufferedChildProcess | null = null;
 
   try {
     demoProcess = spawn(
@@ -273,10 +261,28 @@ async function runLandingDemo(options: LandingDemoOptions) {
 
     const coords = parseLandingCoords(await readFile(coordsFile, "utf8"));
     const windowFrame = serializeWindowFrame(coords.windowFrame);
+    const captureFrame = expandWindowFrame(
+      coords.windowFrame,
+      options.padPoints,
+    );
+    const captureFrameArg = serializeWindowFrame(captureFrame);
     const demoActions = serializeLandingDemoActions(
       coords,
       LANDING_DEMO_SEQUENCE,
     );
+
+    await focusChromeWindow(coords.windowFrame);
+
+    backdropProcess = spawn(
+      backdropBin,
+      ["--frame", captureFrameArg, "--ready-file", backdropReadyFile],
+      {
+        cwd: REPO_ROOT,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+
+    await waitForFile(backdropReadyFile, 4_000);
     await focusChromeWindow(coords.windowFrame);
 
     recorderProcess = spawn(
@@ -286,8 +292,10 @@ async function runLandingDemo(options: LandingDemoOptions) {
         "com.google.Chrome",
         "--window-frame",
         windowFrame,
+        "--capture-frame",
+        captureFrameArg,
         "--output",
-        rawOutputPath,
+        options.outputPath,
         "--started-file",
         recorderStartedFile,
         "--duration",
@@ -298,6 +306,8 @@ async function runLandingDemo(options: LandingDemoOptions) {
         String(LANDING_DEMO_OUTPUT_FPS),
         "--cursor",
         "true",
+        "--click-highlights",
+        "true",
       ],
       {
         cwd: REPO_ROOT,
@@ -306,10 +316,6 @@ async function runLandingDemo(options: LandingDemoOptions) {
     );
 
     await waitForFile(recorderStartedFile, 12_000);
-    const recorderStartedAt = parseUnixSeconds(
-      await readFile(recorderStartedFile, "utf8"),
-      "recorder started time",
-    );
     await sleep(LANDING_DEMO_AUTOMATION_START_DELAY_SECONDS * 1000);
     await focusChromeWindow(coords.windowFrame);
 
@@ -326,8 +332,6 @@ async function runLandingDemo(options: LandingDemoOptions) {
         String(LANDING_DEMO_MOUSE_TIMING.clickHoldDuration),
         "--pause-after-click",
         String(LANDING_DEMO_MOUSE_TIMING.pauseAfterClick),
-        "--event-log",
-        clickEventsFile,
         "--require-frontmost-bundle",
         "com.google.Chrome",
         "--require-window-owner",
@@ -337,42 +341,19 @@ async function runLandingDemo(options: LandingDemoOptions) {
       ],
       REPO_ROOT,
     );
-    const relativeClickEvents = normalizeClickEventsToRecording(
-      parseClickEvents(await readFile(clickEventsFile, "utf8")),
-      recorderStartedAt,
-    );
-    await writeFile(clickEventsFile, JSON.stringify(relativeClickEvents));
 
-    await waitForChild(recorderProcess, "recordChromeWindow.swift");
+    await waitForChild(recorderProcess, "recordChromeScene.swift");
+    recorderProcess = null;
+    await terminateChild(backdropProcess);
+    backdropProcess = null;
     await waitForChild(demoProcess, "launchChromeLandingTabs.ts");
-
-    await runCommand(
-      process.execPath,
-      [
-        "--experimental-strip-types",
-        path.join(PACKAGE_DIR, "renderClickRings.ts"),
-        "--input",
-        rawOutputPath,
-        "--output",
-        options.outputPath,
-        "--events",
-        clickEventsFile,
-        "--window-frame",
-        windowFrame,
-        "--pad",
-        String(options.pad),
-        "--fps",
-        String(LANDING_DEMO_OUTPUT_FPS),
-        "--ring-duration",
-        String(LANDING_DEMO_MOUSE_TIMING.pauseAfterClick),
-      ],
-      REPO_ROOT,
-    );
+    demoProcess = null;
 
     process.stdout.write(`${options.outputPath}\n`);
   } catch (error) {
     await terminateChild(demoProcess);
     await terminateChild(recorderProcess);
+    await terminateChild(backdropProcess);
     throw error;
   } finally {
     await killChromeProfile(profileDir);
@@ -381,8 +362,7 @@ async function runLandingDemo(options: LandingDemoOptions) {
       rm(readyFile, { force: true }),
       rm(coordsFile, { force: true }),
       rm(recorderStartedFile, { force: true }),
-      rm(clickEventsFile, { force: true }),
-      rm(rawOutputPath, { force: true }),
+      rm(backdropReadyFile, { force: true }),
     ]);
   }
 }
@@ -448,75 +428,20 @@ function computeRecordingDurationSeconds(steps: readonly LandingDemoStep[]) {
   );
 }
 
+function expandWindowFrame(
+  windowFrame: WindowFrame,
+  padPoints: number,
+): WindowFrame {
+  return {
+    x: windowFrame.x - padPoints,
+    y: windowFrame.y - padPoints,
+    width: windowFrame.width + padPoints * 2,
+    height: windowFrame.height + padPoints * 2,
+  };
+}
+
 function serializeWindowFrame(windowFrame: WindowFrame) {
   return `${windowFrame.x},${windowFrame.y},${windowFrame.width},${windowFrame.height}`;
-}
-
-function roundSeconds(value: number) {
-  return Math.round(value * 1000) / 1000;
-}
-
-function parseUnixSeconds(rawValue: string, context: string) {
-  const value = Number(rawValue.trim());
-
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`Invalid ${context}: ${rawValue}`);
-  }
-
-  return value;
-}
-
-function parseClickEvents(rawValue: string): ClickEvent[] {
-  const candidate: unknown = JSON.parse(rawValue);
-
-  if (!Array.isArray(candidate)) {
-    throw new Error("Click event log must be a JSON array.");
-  }
-
-  return candidate.map((event) => {
-    if (
-      !isRecord(event) ||
-      typeof event.time !== "number" ||
-      !Number.isFinite(event.time) ||
-      typeof event.x !== "number" ||
-      !Number.isFinite(event.x) ||
-      typeof event.y !== "number" ||
-      !Number.isFinite(event.y)
-    ) {
-      throw new Error("Click event log contains an invalid event.");
-    }
-
-    return {
-      time: event.time,
-      x: event.x,
-      y: event.y,
-    };
-  });
-}
-
-function normalizeClickEventsToRecording(
-  absoluteEvents: ClickEvent[],
-  recorderStartedAt: number,
-): ClickEvent[] {
-  if (absoluteEvents.length === 0) {
-    throw new Error("Click event log is empty.");
-  }
-
-  return absoluteEvents.map((event) => {
-    const relativeTime = roundSeconds(event.time - recorderStartedAt);
-
-    if (relativeTime < 0) {
-      throw new Error(
-        `Click event at ${event.time} happened before the recorder started at ${recorderStartedAt}.`,
-      );
-    }
-
-    return {
-      time: relativeTime,
-      x: event.x,
-      y: event.y,
-    };
-  });
 }
 
 async function compileSwiftBinary(
