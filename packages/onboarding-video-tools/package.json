@@ -1,0 +1,22 @@
+{
+  "name": "@noter-md/onboarding-video-tools",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "noter-onboarding-video": "./cli.ts"
+  },
+  "files": [
+    "cli.ts",
+    "index.ts",
+    "launchChromeLandingTabs.ts",
+    "renderClickRings.ts",
+    "native"
+  ],
+  "type": "module",
+  "scripts": {
+    "check": "pnpm --dir ../.. exec tsgo -p packages/onboarding-video-tools/tsconfig.json --pretty false && pnpm --dir ../.. exec oxlint --config .oxlintrc.json --tsconfig packages/onboarding-video-tools/tsconfig.json --report-unused-disable-directives packages/onboarding-video-tools"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}
