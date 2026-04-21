@@ -8,7 +8,6 @@
   "files": [
     "cli.ts",
     "index.ts",
-    "legacy",
     "launchChromeLandingTabs.ts",
     "native"
   ],

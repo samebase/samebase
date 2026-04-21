@@ -74,8 +74,3 @@ macOS work:
 - full-display recording for capability checks and experiments
 - fail-closed cursor automation inside the exact Chrome window
 - plain backdrop-window setup for the captured scene
-
-## Legacy Path
-
-The previous window-only capture plus FFmpeg presentation pipeline is preserved
-under `legacy/` while this rewrite settles. It is no longer the active path.

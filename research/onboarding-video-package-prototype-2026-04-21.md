@@ -18,9 +18,10 @@ This note captures the findings from that prototype work and explains why the
 tooling moved into `packages/onboarding-video-tools/`.
 
 Update: the active package path now uses desktop-region capture with a plain
-white backdrop window and ScreenCaptureKit's native click highlight. The older
-window-only capture plus FFmpeg presentation stack remains under
-`packages/onboarding-video-tools/legacy/`.
+white backdrop window and ScreenCaptureKit's native click highlight. After that
+scene-based path proved out, the older window-only capture plus FFmpeg
+presentation stack was removed instead of being kept around as a compatibility
+path.
 
 ## Package Outcome
 
@@ -140,7 +141,8 @@ the fake presentation layer and rely more on native scene capture.
 - controlled white backdrop behind Chrome
 - desktop-region recording around the real Chrome window
 - native ScreenCaptureKit click highlights
-- legacy quarantine for the old window-only plus FFmpeg path
+- removal of the old window-only plus FFmpeg path once the scene-based capture
+  path was stable
 
 ## Current Recommendation
 
