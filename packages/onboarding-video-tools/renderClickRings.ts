@@ -47,6 +47,13 @@ const KEY_SHADOW_OPACITY = 0.3;
 const KEY_SHADOW_BLUR_RADIUS = 12;
 const KEY_SHADOW_OFFSET_X = 0;
 const KEY_SHADOW_OFFSET_Y = 16;
+const BOTTOM_EDGE_SHADOW_SOURCE_HEIGHT = 2;
+const BOTTOM_EDGE_SHADOW_HORIZONTAL_INSET = 28;
+const BOTTOM_EDGE_SHADOW_PAD_X = 20;
+const BOTTOM_EDGE_SHADOW_PAD_BOTTOM = 22;
+const BOTTOM_EDGE_SHADOW_OPACITY = 0.55;
+const BOTTOM_EDGE_SHADOW_BLUR_RADIUS = 8;
+const BOTTOM_EDGE_SHADOW_OFFSET_Y = 2;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -374,6 +381,23 @@ async function main() {
     KEY_SHADOW_OFFSET_X,
     KEY_SHADOW_OFFSET_Y,
   );
+  // The rounded window shadow reads well at the corners, but dark pages can
+  // visually flatten the straight bottom edge unless we give it its own lift.
+  const bottomEdgeShadowSourceWidth =
+    videoInfo.width - BOTTOM_EDGE_SHADOW_HORIZONTAL_INSET * 2;
+  const bottomEdgeShadowWidth =
+    bottomEdgeShadowSourceWidth + BOTTOM_EDGE_SHADOW_PAD_X * 2;
+  const bottomEdgeShadowHeight =
+    BOTTOM_EDGE_SHADOW_SOURCE_HEIGHT + BOTTOM_EDGE_SHADOW_PAD_BOTTOM;
+  const bottomEdgeShadowOverlayX =
+    options.pad +
+    BOTTOM_EDGE_SHADOW_HORIZONTAL_INSET -
+    BOTTOM_EDGE_SHADOW_PAD_X;
+  const bottomEdgeShadowOverlayY =
+    options.pad +
+    videoInfo.height -
+    BOTTOM_EDGE_SHADOW_SOURCE_HEIGHT +
+    BOTTOM_EDGE_SHADOW_OFFSET_Y;
   const rawEvents = parseClickEvents(
     await fs.readFile(options.eventsPath, "utf8"),
   );
@@ -430,10 +454,14 @@ async function main() {
     `[window_alpha]pad=${keyShadowWidth}:${keyShadowHeight}:${KEY_SHADOW_PAD}:${KEY_SHADOW_PAD}:color=black,boxblur=${KEY_SHADOW_BLUR_RADIUS}:1,lut=y='val*${KEY_SHADOW_OPACITY}'[key_shadow_alpha]`,
     `color=c=black:s=${keyShadowWidth}x${keyShadowHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba[key_shadow_rgb]`,
     `[key_shadow_rgb][key_shadow_alpha]alphamerge[key_shadow]`,
+    `[window_alpha]crop=${bottomEdgeShadowSourceWidth}:${BOTTOM_EDGE_SHADOW_SOURCE_HEIGHT}:${BOTTOM_EDGE_SHADOW_HORIZONTAL_INSET}:${videoInfo.height - BOTTOM_EDGE_SHADOW_SOURCE_HEIGHT},pad=${bottomEdgeShadowWidth}:${bottomEdgeShadowHeight}:${BOTTOM_EDGE_SHADOW_PAD_X}:0:color=black,format=gray,boxblur=${BOTTOM_EDGE_SHADOW_BLUR_RADIUS}:1,lut=y='val*${BOTTOM_EDGE_SHADOW_OPACITY}'[bottom_edge_shadow_alpha]`,
+    `color=c=black:s=${bottomEdgeShadowWidth}x${bottomEdgeShadowHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba[bottom_edge_shadow_rgb]`,
+    `[bottom_edge_shadow_rgb][bottom_edge_shadow_alpha]alphamerge[bottom_edge_shadow]`,
     `color=c=${WINDOW_BACKGROUND_COLOR}:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba[window_background]`,
     `[window_background][ambient_shadow]overlay=${ambientShadowOverlay.x}:${ambientShadowOverlay.y}:format=auto[with_ambient_shadow]`,
     `[with_ambient_shadow][key_shadow]overlay=${keyShadowOverlay.x}:${keyShadowOverlay.y}:format=auto[with_shadow]`,
-    `[with_shadow][window_masked]overlay=${options.pad}:${options.pad}:format=auto[base]`,
+    `[with_shadow][bottom_edge_shadow]overlay=${bottomEdgeShadowOverlayX}:${bottomEdgeShadowOverlayY}:format=auto[with_bottom_edge_shadow]`,
+    `[with_bottom_edge_shadow][window_masked]overlay=${options.pad}:${options.pad}:format=auto[base]`,
     `color=c=black@0.0:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='0':g='0':b='0':a='${blackRingAlpha}'[black_ring]`,
     `color=c=white@0.0:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='255':g='255':b='255':a='${whiteRingAlpha}'[white_ring]`,
     `color=c=white@0.0:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='255':g='255':b='255':a='${corePulseAlpha}'[core_pulse]`,
