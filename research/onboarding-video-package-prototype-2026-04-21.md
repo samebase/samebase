@@ -119,7 +119,7 @@ verify its exact frame continuously.
 
 The migrated package currently fails closed when another Chrome window remains
 frontmost. That is the right safety behavior, but it also means we still need a
-better exact-window raising strategy than generic app activation or window-order
+better exact-window-raising strategy than generic app activation or window-order
 nudges.
 
 ### Overlay Coordinates Were Initially Wrong

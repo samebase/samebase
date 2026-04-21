@@ -24,6 +24,14 @@ type WindowFrame = {
   height: number;
 };
 
+type RenderClickRingsOptions = {
+  inputPath: string;
+  outputPath: string;
+  eventsPath: string;
+  windowFrame: WindowFrame;
+  pad: number;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -34,6 +42,11 @@ function parseArgs(argv: string[]): ParsedArgs {
   for (let index = 0; index < argv.length; index += 2) {
     const key = argv.at(index);
     const value = argv.at(index + 1);
+
+    if (key === "--") {
+      index -= 1;
+      continue;
+    }
 
     if (!key?.startsWith("--") || value === undefined) {
       throw new Error(`Invalid argument pair near: ${key ?? "<end>"}`);
@@ -215,37 +228,22 @@ function buildRingAlphaExpr(
 }
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const inputPath = args.input;
-  const outputPath = args.output;
-  const eventsPath = args.events;
-  const windowFrameArg = args["window-frame"];
-  const pad = Number(args.pad ?? "48");
-
-  if (
-    !inputPath ||
-    !outputPath ||
-    !eventsPath ||
-    !windowFrameArg ||
-    Number.isNaN(pad)
-  ) {
-    throw new Error("Missing required arguments.");
-  }
-
-  const windowFrame = parseWindowFrame(windowFrameArg);
-  const rawEvents = parseClickEvents(await fs.readFile(eventsPath, "utf8"));
-  const videoInfo = probeVideo(inputPath);
-  const scaleX = videoInfo.width / windowFrame.width;
-  const scaleY = videoInfo.height / windowFrame.height;
+  const options = parseRenderOptions(process.argv.slice(2));
+  const rawEvents = parseClickEvents(
+    await fs.readFile(options.eventsPath, "utf8"),
+  );
+  const videoInfo = probeVideo(options.inputPath);
+  const scaleX = videoInfo.width / options.windowFrame.width;
+  const scaleY = videoInfo.height / options.windowFrame.height;
   const localEvents = toLocalEvents(
     rawEvents,
-    windowFrame,
-    pad,
+    options.windowFrame,
+    options.pad,
     scaleX,
     scaleY,
   );
-  const finalWidth = videoInfo.width + pad * 2;
-  const finalHeight = videoInfo.height + pad * 2;
+  const finalWidth = videoInfo.width + options.pad * 2;
+  const finalHeight = videoInfo.height + options.pad * 2;
 
   const blackRingAlpha = buildRingAlphaExpr(localEvents, {
     animationDuration: 0.18,
@@ -263,7 +261,7 @@ async function main() {
   });
 
   const filterScript = [
-    `[0:v]pad=iw+${pad * 2}:ih+${pad * 2}:${pad}:${pad}:color=0xF3F4F6[base]`,
+    `[0:v]pad=iw+${options.pad * 2}:ih+${options.pad * 2}:${options.pad}:${options.pad}:color=0xF3F4F6[base]`,
     `color=c=black@0.0:s=${finalWidth}x${finalHeight}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='0':g='0':b='0':a='${blackRingAlpha}'[black_ring]`,
     `color=c=white@0.0:s=${finalWidth}x${finalHeight}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='255':g='255':b='255':a='${whiteRingAlpha}'[white_ring]`,
     `[base][black_ring]overlay=format=auto[tmp]`,
@@ -283,7 +281,7 @@ async function main() {
         "-hide_banner",
         "-y",
         "-i",
-        inputPath,
+        options.inputPath,
         "-filter_complex_script",
         filterScriptPath,
         "-map",
@@ -300,13 +298,38 @@ async function main() {
         "18",
         "-movflags",
         "+faststart",
-        outputPath,
+        options.outputPath,
       ],
       { stdio: "pipe" },
     );
   } finally {
     await fs.rm(filterScriptPath, { force: true });
   }
+}
+
+function parseRenderOptions(argv: string[]): RenderClickRingsOptions {
+  const args = parseArgs(argv);
+  const inputPath = args.input;
+  const outputPath = args.output;
+  const eventsPath = args.events;
+  const windowFrameArg = args["window-frame"];
+  const pad = Number(args.pad ?? "48");
+
+  if (!inputPath || !outputPath || !eventsPath || !windowFrameArg) {
+    throw new Error("Missing required arguments.");
+  }
+
+  if (Number.isNaN(pad) || pad < 0) {
+    throw new Error(`Invalid --pad value: ${args.pad ?? "<missing>"}`);
+  }
+
+  return {
+    inputPath,
+    outputPath,
+    eventsPath,
+    windowFrame: parseWindowFrame(windowFrameArg),
+    pad,
+  };
 }
 
 await main();

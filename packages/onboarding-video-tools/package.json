@@ -14,7 +14,13 @@
   ],
   "type": "module",
   "scripts": {
-    "check": "pnpm --dir ../.. exec tsgo -p packages/onboarding-video-tools/tsconfig.json --pretty false && pnpm --dir ../.. exec oxlint --config .oxlintrc.json --tsconfig packages/onboarding-video-tools/tsconfig.json --report-unused-disable-directives packages/onboarding-video-tools"
+    "landing-demo": "node --experimental-strip-types ./cli.ts landing-demo",
+    "typecheck": "pnpm --dir ../.. exec tsgo -p packages/onboarding-video-tools/tsconfig.json --pretty false",
+    "lint": "pnpm --dir ../.. exec oxlint --config .oxlintrc.json --tsconfig packages/onboarding-video-tools/tsconfig.json --report-unused-disable-directives packages/onboarding-video-tools",
+    "check": "pnpm run typecheck && pnpm run lint"
+  },
+  "dependencies": {
+    "@playwright/test": "1.58.2"
   },
   "engines": {
     "node": ">=24.0.0"

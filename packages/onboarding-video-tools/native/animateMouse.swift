@@ -244,7 +244,28 @@ func currentMouseLocation() -> CGPoint {
         return event.location
     }
 
-    return NSEvent.mouseLocation
+    // NSEvent falls back to a bottom-left origin, so normalize it into the
+    // same top-left desktop coordinate space used by CGEvent and CGWindow APIs.
+    let fallbackLocation = NSEvent.mouseLocation
+    guard let desktopFrame = visibleDesktopFrame() else {
+        return fallbackLocation
+    }
+
+    return CGPoint(
+        x: fallbackLocation.x,
+        y: desktopFrame.maxY - fallbackLocation.y
+    )
+}
+
+func visibleDesktopFrame() -> CGRect? {
+    let screenFrames = NSScreen.screens.map(\.frame)
+    guard let firstFrame = screenFrames.first else {
+        return nil
+    }
+
+    return screenFrames.dropFirst().reduce(firstFrame) { partialFrame, screenFrame in
+        partialFrame.union(screenFrame)
+    }
 }
 
 func sleepSeconds(_ duration: TimeInterval) {
@@ -380,6 +401,51 @@ func moveCursor(
     }
 }
 
+func moveCursorToVerifiedPoint(
+    currentPoint: inout CGPoint,
+    target point: CGPoint,
+    options: MouseAnimationOptions,
+    validateSafety: () throws -> Void
+) throws {
+    try validateSafety()
+    try verifyPoint(
+        point,
+        insideWindowOwner: options.requireWindowOwner,
+        expectedFrame: options.requireWindowFrame
+    )
+    try moveCursor(
+        from: currentPoint,
+        to: point,
+        duration: options.moveDuration,
+        validator: validateSafety
+    )
+    currentPoint = point
+}
+
+func performPointAction(
+    currentPoint: inout CGPoint,
+    target point: CGPoint,
+    options: MouseAnimationOptions,
+    validateSafety: () throws -> Void,
+    action: () throws -> Void
+) throws {
+    try moveCursorToVerifiedPoint(
+        currentPoint: &currentPoint,
+        target: point,
+        options: options,
+        validateSafety: validateSafety
+    )
+    sleepSeconds(options.pauseBeforeClick)
+    try validateSafety()
+    try verifyPoint(
+        point,
+        insideWindowOwner: options.requireWindowOwner,
+        expectedFrame: options.requireWindowFrame
+    )
+    try action()
+    sleepSeconds(options.pauseAfterClick)
+}
+
 func makeMouseEvent(
     type: CGEventType,
     point: CGPoint,
@@ -432,12 +498,6 @@ func click(at point: CGPoint, button: CGMouseButton = .left, clickCount: Int64 =
     mouseDown.post(tap: .cghidEventTap)
     sleepSeconds(0.08)
     mouseUp.post(tap: .cghidEventTap)
-}
-
-func doubleClick(at point: CGPoint, interval: TimeInterval) {
-    click(at: point, button: .left, clickCount: 1)
-    sleepSeconds(interval)
-    click(at: point, button: .left, clickCount: 2)
 }
 
 func mouseDown(at point: CGPoint, button: CGMouseButton = .left, clickCount: Int64 = 1) {
@@ -536,105 +596,50 @@ enum MouseAnimationCLI {
             for action in options.actions {
                 switch action {
                 case .move(let point):
-                    try validateSafety()
-                    try verifyPoint(
-                        point,
-                        insideWindowOwner: options.requireWindowOwner,
-                        expectedFrame: options.requireWindowFrame
+                    try moveCursorToVerifiedPoint(
+                        currentPoint: &currentPoint,
+                        target: point,
+                        options: options,
+                        validateSafety: validateSafety
                     )
-                    try moveCursor(
-                        from: currentPoint,
-                        to: point,
-                        duration: options.moveDuration,
-                        validator: validateSafety
-                    )
-                    currentPoint = point
                 case .click(let point):
-                    try validateSafety()
-                    try verifyPoint(
-                        point,
-                        insideWindowOwner: options.requireWindowOwner,
-                        expectedFrame: options.requireWindowFrame
-                    )
-                    try moveCursor(
-                        from: currentPoint,
-                        to: point,
-                        duration: options.moveDuration,
-                        validator: validateSafety
-                    )
-                    sleepSeconds(options.pauseBeforeClick)
-                    try validateSafety()
-                    try verifyPoint(
-                        point,
-                        insideWindowOwner: options.requireWindowOwner,
-                        expectedFrame: options.requireWindowFrame
-                    )
-                    click(at: point)
-                    clickLogger?.recordClick(at: point)
-                    sleepSeconds(options.pauseAfterClick)
-                    currentPoint = point
+                    try performPointAction(
+                        currentPoint: &currentPoint,
+                        target: point,
+                        options: options,
+                        validateSafety: validateSafety
+                    ) {
+                        click(at: point)
+                        clickLogger?.recordClick(at: point)
+                    }
                 case .doubleClick(let point):
-                    try validateSafety()
-                    try verifyPoint(
-                        point,
-                        insideWindowOwner: options.requireWindowOwner,
-                        expectedFrame: options.requireWindowFrame
-                    )
-                    try moveCursor(
-                        from: currentPoint,
-                        to: point,
-                        duration: options.moveDuration,
-                        validator: validateSafety
-                    )
-                    sleepSeconds(options.pauseBeforeClick)
-                    try validateSafety()
-                    try verifyPoint(
-                        point,
-                        insideWindowOwner: options.requireWindowOwner,
-                        expectedFrame: options.requireWindowFrame
-                    )
-                    click(at: point, button: .left, clickCount: 1)
-                    clickLogger?.recordClick(at: point)
-                    sleepSeconds(options.doubleClickInterval)
-                    click(at: point, button: .left, clickCount: 2)
-                    clickLogger?.recordClick(at: point)
-                    sleepSeconds(options.pauseAfterClick)
-                    currentPoint = point
+                    try performPointAction(
+                        currentPoint: &currentPoint,
+                        target: point,
+                        options: options,
+                        validateSafety: validateSafety
+                    ) {
+                        click(at: point, button: .left, clickCount: 1)
+                        clickLogger?.recordClick(at: point)
+                        sleepSeconds(options.doubleClickInterval)
+                        click(at: point, button: .left, clickCount: 2)
+                        clickLogger?.recordClick(at: point)
+                    }
                 case .rightClick(let point):
-                    try validateSafety()
-                    try verifyPoint(
-                        point,
-                        insideWindowOwner: options.requireWindowOwner,
-                        expectedFrame: options.requireWindowFrame
-                    )
-                    try moveCursor(
-                        from: currentPoint,
-                        to: point,
-                        duration: options.moveDuration,
-                        validator: validateSafety
-                    )
-                    sleepSeconds(options.pauseBeforeClick)
-                    try validateSafety()
-                    try verifyPoint(
-                        point,
-                        insideWindowOwner: options.requireWindowOwner,
-                        expectedFrame: options.requireWindowFrame
-                    )
-                    click(at: point, button: .right)
-                    sleepSeconds(options.pauseAfterClick)
-                    currentPoint = point
+                    try performPointAction(
+                        currentPoint: &currentPoint,
+                        target: point,
+                        options: options,
+                        validateSafety: validateSafety
+                    ) {
+                        click(at: point, button: .right)
+                    }
                 case .mouseDown(let point):
-                    try validateSafety()
-                    try verifyPoint(
-                        point,
-                        insideWindowOwner: options.requireWindowOwner,
-                        expectedFrame: options.requireWindowFrame
-                    )
-                    try moveCursor(
-                        from: currentPoint,
-                        to: point,
-                        duration: options.moveDuration,
-                        validator: validateSafety
+                    try moveCursorToVerifiedPoint(
+                        currentPoint: &currentPoint,
+                        target: point,
+                        options: options,
+                        validateSafety: validateSafety
                     )
                     sleepSeconds(options.pauseBeforeClick)
                     try validateSafety()
@@ -645,30 +650,15 @@ enum MouseAnimationCLI {
                     )
                     mouseDown(at: point)
                     sleepSeconds(options.mouseDownPause)
-                    currentPoint = point
                 case .mouseUp(let point):
-                    try validateSafety()
-                    try verifyPoint(
-                        point,
-                        insideWindowOwner: options.requireWindowOwner,
-                        expectedFrame: options.requireWindowFrame
-                    )
-                    try moveCursor(
-                        from: currentPoint,
-                        to: point,
-                        duration: options.moveDuration,
-                        validator: validateSafety
-                    )
-                    sleepSeconds(options.pauseBeforeClick)
-                    try validateSafety()
-                    try verifyPoint(
-                        point,
-                        insideWindowOwner: options.requireWindowOwner,
-                        expectedFrame: options.requireWindowFrame
-                    )
-                    mouseUp(at: point)
-                    sleepSeconds(options.pauseAfterClick)
-                    currentPoint = point
+                    try performPointAction(
+                        currentPoint: &currentPoint,
+                        target: point,
+                        options: options,
+                        validateSafety: validateSafety
+                    ) {
+                        mouseUp(at: point)
+                    }
                 case .drag(let start, let end):
                     try validateSafety()
                     try verifyPoint(
@@ -681,11 +671,11 @@ enum MouseAnimationCLI {
                         insideWindowOwner: options.requireWindowOwner,
                         expectedFrame: options.requireWindowFrame
                     )
-                    try moveCursor(
-                        from: currentPoint,
-                        to: start,
-                        duration: options.moveDuration,
-                        validator: validateSafety
+                    try moveCursorToVerifiedPoint(
+                        currentPoint: &currentPoint,
+                        target: start,
+                        options: options,
+                        validateSafety: validateSafety
                     )
                     sleepSeconds(options.pauseBeforeClick)
                     try validateSafety()

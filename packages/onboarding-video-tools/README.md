@@ -14,7 +14,7 @@ visible tabs, real cursor motion, and post-processed click indicators.
 ## Current Command
 
 ```bash
-node --experimental-strip-types packages/onboarding-video-tools/cli.ts landing-demo
+pnpm onboarding-video:landing-demo
 ```
 
 Default output:
@@ -26,7 +26,9 @@ Default output:
 ## Constraints
 
 - macOS only
+- requires Node 24+
 - requires Google Chrome
+- requires `ffmpeg`, `ffprobe`, and `swiftc` on `PATH`
 - requires Screen Recording and Accessibility permissions
 - intended for internal onboarding-video experiments, not app runtime code
 - current runner fails closed if another Chrome window stays frontmost; until we
@@ -35,6 +37,14 @@ Default output:
 
 ## Why It Lives Here
 
-This package is repo-agnostic tooling. It depends on macOS automation, Chrome
-window geometry, and video post-processing quirks that should not live inside a
-single stack repo.
+The capture flow is repo-agnostic in purpose, but this package now lives in the
+Noter monorepo so it can share the repo's validation, package wiring, and
+operator docs. The macOS automation, Chrome-window geometry, and video
+post-processing quirks still stay isolated from shipped app runtime code.
+
+## Why Two Native Helpers Remain
+
+The orchestration, CLI entrypoints, and post-processing live in TypeScript. The
+two files under `native/` stay in Swift because ScreenCaptureKit, AppKit, and
+CoreGraphics do not have a stable TypeScript-native equivalent for exact window
+capture and fail-closed cursor automation on macOS.

@@ -43,6 +43,26 @@ type LandingDemoOptions = {
   pad: number;
 };
 
+type LandingDemoTarget =
+  | "tabs.github"
+  | "github.page"
+  | "tabs.convex"
+  | "convex.page"
+  | "tabs.cloudflare"
+  | "cloudflare.page"
+  | "tabs.codex"
+  | "codex.page";
+
+type LandingDemoStep =
+  | {
+      kind: "click";
+      target: LandingDemoTarget;
+    }
+  | {
+      kind: "wait";
+      seconds: number;
+    };
+
 const PACKAGE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(PACKAGE_DIR, "../..");
 const DEFAULT_TMP_DIR = path.join(REPO_ROOT, ".tmp", "onboarding-video-tools");
@@ -56,6 +76,35 @@ const DEFAULT_URLS = {
   cloudflareUrl: "https://www.cloudflare.com/",
   codexUrl: "https://openai.com/codex",
 } as const;
+const LANDING_DEMO_SEQUENCE: readonly LandingDemoStep[] = [
+  { kind: "click", target: "tabs.github" },
+  { kind: "wait", seconds: 0.65 },
+  { kind: "click", target: "github.page" },
+  { kind: "wait", seconds: 0.45 },
+  { kind: "click", target: "tabs.convex" },
+  { kind: "wait", seconds: 0.65 },
+  { kind: "click", target: "convex.page" },
+  { kind: "wait", seconds: 0.45 },
+  { kind: "click", target: "tabs.cloudflare" },
+  { kind: "wait", seconds: 0.65 },
+  { kind: "click", target: "cloudflare.page" },
+  { kind: "wait", seconds: 0.45 },
+  { kind: "click", target: "tabs.codex" },
+  { kind: "wait", seconds: 0.65 },
+  { kind: "click", target: "codex.page" },
+  { kind: "wait", seconds: 0.45 },
+  { kind: "click", target: "tabs.github" },
+  { kind: "wait", seconds: 0.65 },
+] as const;
+const LANDING_DEMO_MOUSE_TIMING = {
+  moveDuration: 0.6,
+  pauseBeforeClick: 0.08,
+  // Keep this aligned with the sleep inside animateMouse.swift click(...).
+  clickDuration: 0.08,
+  pauseAfterClick: 0.36,
+} as const;
+const LANDING_DEMO_RECORDER_BUFFER_SECONDS = 0.75;
+const LANDING_DEMO_BROWSER_BUFFER_SECONDS = 3;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -83,6 +132,11 @@ function parseArgs(argv: string[]): ParsedArgs {
   for (let index = 0; index < argv.length; index += 2) {
     const key = argv.at(index);
     const value = argv.at(index + 1);
+
+    if (key === "--") {
+      index -= 1;
+      continue;
+    }
 
     if (!key?.startsWith("--") || value === undefined) {
       throw new Error(`Invalid argument pair near: ${key ?? "<end>"}`);
@@ -115,6 +169,13 @@ function parseLandingDemoArgs(argv: string[]): LandingDemoOptions {
 async function runLandingDemo(options: LandingDemoOptions) {
   await mkdir(DEFAULT_TMP_DIR, { recursive: true });
   await mkdir(path.dirname(options.outputPath), { recursive: true });
+  // Derive recorder and browser lifetimes from the same action plan so the
+  // visible Chrome window cannot outlive the scripted interaction timeline.
+  const recordingDurationSeconds = computeRecordingDurationSeconds(
+    LANDING_DEMO_SEQUENCE,
+  );
+  const holdOpenSeconds =
+    recordingDurationSeconds + LANDING_DEMO_BROWSER_BUFFER_SECONDS;
 
   const recorderBin = path.join(DEFAULT_TMP_DIR, "record-chrome-window");
   const mouseBin = path.join(DEFAULT_TMP_DIR, "animate-mouse");
@@ -171,6 +232,8 @@ async function runLandingDemo(options: LandingDemoOptions) {
         options.cloudflareUrl,
         "--codex-url",
         options.codexUrl,
+        "--hold-open-seconds",
+        holdOpenSeconds.toFixed(2),
       ],
       {
         cwd: REPO_ROOT,
@@ -183,7 +246,10 @@ async function runLandingDemo(options: LandingDemoOptions) {
 
     const coords = parseLandingCoords(await readFile(coordsFile, "utf8"));
     const windowFrame = serializeWindowFrame(coords.windowFrame);
-    const demoActions = buildLandingDemoActions(coords);
+    const demoActions = serializeLandingDemoActions(
+      coords,
+      LANDING_DEMO_SEQUENCE,
+    );
     await focusChromeWindow(coords.windowFrame);
 
     recorderProcess = spawn(
@@ -198,7 +264,7 @@ async function runLandingDemo(options: LandingDemoOptions) {
         "--started-file",
         recorderStartedFile,
         "--duration",
-        "13",
+        recordingDurationSeconds.toFixed(2),
         "--fps",
         "30",
         "--cursor",
@@ -223,11 +289,11 @@ async function runLandingDemo(options: LandingDemoOptions) {
         "--event-log",
         clickEventsFile,
         "--move-duration",
-        "0.6",
+        String(LANDING_DEMO_MOUSE_TIMING.moveDuration),
         "--pause-before-click",
-        "0.08",
+        String(LANDING_DEMO_MOUSE_TIMING.pauseBeforeClick),
         "--pause-after-click",
-        "0.36",
+        String(LANDING_DEMO_MOUSE_TIMING.pauseAfterClick),
         "--require-frontmost-bundle",
         "com.google.Chrome",
         "--require-window-owner",
@@ -274,31 +340,71 @@ async function runLandingDemo(options: LandingDemoOptions) {
       rm(readyFile, { force: true }),
       rm(coordsFile, { force: true }),
       rm(recorderStartedFile, { force: true }),
+      rm(clickEventsFile, { force: true }),
+      rm(rawOutputPath, { force: true }),
     ]);
   }
 }
 
-function buildLandingDemoActions(coords: LandingCoords) {
-  return [
-    `click:${coords.tabs.github.x},${coords.tabs.github.y}`,
-    "wait:0.65",
-    `click:${coords.github.page.x},${coords.github.page.y}`,
-    "wait:0.45",
-    `click:${coords.tabs.convex.x},${coords.tabs.convex.y}`,
-    "wait:0.65",
-    `click:${coords.convex.page.x},${coords.convex.page.y}`,
-    "wait:0.45",
-    `click:${coords.tabs.cloudflare.x},${coords.tabs.cloudflare.y}`,
-    "wait:0.65",
-    `click:${coords.cloudflare.page.x},${coords.cloudflare.page.y}`,
-    "wait:0.45",
-    `click:${coords.tabs.codex.x},${coords.tabs.codex.y}`,
-    "wait:0.65",
-    `click:${coords.codex.page.x},${coords.codex.page.y}`,
-    "wait:0.45",
-    `click:${coords.tabs.github.x},${coords.tabs.github.y}`,
-    "wait:0.65",
-  ].join(";");
+function serializeLandingDemoActions(
+  coords: LandingCoords,
+  steps: readonly LandingDemoStep[],
+) {
+  return steps
+    .map((step) => {
+      if (step.kind === "wait") {
+        return `wait:${step.seconds}`;
+      }
+
+      const point = resolveLandingDemoTarget(coords, step.target);
+      return `click:${point.x},${point.y}`;
+    })
+    .join(";");
+}
+
+function resolveLandingDemoTarget(
+  coords: LandingCoords,
+  target: LandingDemoTarget,
+): ScreenPoint {
+  switch (target) {
+    case "tabs.github":
+      return coords.tabs.github;
+    case "github.page":
+      return coords.github.page;
+    case "tabs.convex":
+      return coords.tabs.convex;
+    case "convex.page":
+      return coords.convex.page;
+    case "tabs.cloudflare":
+      return coords.tabs.cloudflare;
+    case "cloudflare.page":
+      return coords.cloudflare.page;
+    case "tabs.codex":
+      return coords.tabs.codex;
+    case "codex.page":
+      return coords.codex.page;
+    default:
+      target satisfies never;
+      throw new Error("Unsupported landing-demo target.");
+  }
+}
+
+function computeRecordingDurationSeconds(steps: readonly LandingDemoStep[]) {
+  return (
+    steps.reduce((totalSeconds, step) => {
+      if (step.kind === "wait") {
+        return totalSeconds + step.seconds;
+      }
+
+      return (
+        totalSeconds +
+        LANDING_DEMO_MOUSE_TIMING.moveDuration +
+        LANDING_DEMO_MOUSE_TIMING.pauseBeforeClick +
+        LANDING_DEMO_MOUSE_TIMING.clickDuration +
+        LANDING_DEMO_MOUSE_TIMING.pauseAfterClick
+      );
+    }, 0) + LANDING_DEMO_RECORDER_BUFFER_SECONDS
+  );
 }
 
 function serializeWindowFrame(windowFrame: WindowFrame) {

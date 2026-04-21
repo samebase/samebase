@@ -107,11 +107,15 @@ struct RecorderOptions {
     }
 }
 
+@MainActor
 final class RecordingDelegate: NSObject, SCRecordingOutputDelegate {
     private(set) var failure: Error?
 
+    nonisolated
     func recordingOutput(_ recordingOutput: SCRecordingOutput, didFailWithError error: Error) {
-        failure = error
+        Task { @MainActor in
+            self.failure = error
+        }
     }
 }
 
@@ -180,6 +184,8 @@ final class ChromeWindowRecorder {
                 encoding: .utf8
             )
         }
+        // ScreenCaptureKit can miss the earliest cursor motion if automation
+        // starts immediately, so keep a short capture warm-up before the demo.
         try await Task.sleep(for: .seconds(0.8))
         try await Task.sleep(for: .seconds(options.duration))
         do {
@@ -194,6 +200,8 @@ final class ChromeWindowRecorder {
                 throw error
             }
         }
+        // Give ScreenCaptureKit time to flush the MP4 footer before we verify
+        // the file on disk; otherwise QuickTime-safe output can race this check.
         try await Task.sleep(for: .seconds(1.2))
 
         if let failure = recordingDelegate.failure {
