@@ -14,6 +14,7 @@
   "type": "module",
   "scripts": {
     "landing-demo": "node --experimental-strip-types ./cli.ts landing-demo",
+    "stack-step-1-signin": "node --experimental-strip-types ./cli.ts stack-step-1-signin",
     "screen-demo": "node --experimental-strip-types ./cli.ts screen-demo",
     "typecheck": "pnpm --dir ../.. exec tsgo -p packages/onboarding-video-tools/tsconfig.json --pretty false",
     "lint": "pnpm --dir ../.. exec oxlint --config .oxlintrc.json --tsconfig packages/onboarding-video-tools/tsconfig.json --report-unused-disable-directives packages/onboarding-video-tools/cli.ts packages/onboarding-video-tools/index.ts packages/onboarding-video-tools/launchChromeLandingTabs.ts",

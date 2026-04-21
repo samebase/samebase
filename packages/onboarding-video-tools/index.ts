@@ -43,6 +43,14 @@ type LandingDemoOptions = {
   padPoints: number;
 };
 
+type StackStep1Options = {
+  githubUrl: string;
+  convexUrl: string;
+  cloudflareUrl: string;
+  outputPath: string;
+  padPoints: number;
+};
+
 type ScreenDemoOptions = {
   outputPath: string;
   durationSeconds: number;
@@ -68,6 +76,49 @@ type LandingDemoStep =
       seconds: number;
     };
 
+type StackStep1Target =
+  | "tabs.github"
+  | "tabs.convex"
+  | "convex.homeLogin"
+  | "convex.githubLogin"
+  | "tabs.cloudflare"
+  | "cloudflare.homeLogin"
+  | "cloudflare.githubLogin";
+
+type StackStep1Step =
+  | {
+      kind: "click";
+      target: StackStep1Target;
+    }
+  | {
+      kind: "wait";
+      seconds: number;
+    };
+
+type StackStep1Coords = {
+  tabs: {
+    github: ScreenPoint;
+    convex: ScreenPoint;
+    cloudflare: ScreenPoint;
+  };
+  convex: {
+    homeLogin: ScreenPoint;
+    githubLogin: ScreenPoint | null;
+  };
+  cloudflare: {
+    homeLogin: ScreenPoint;
+    githubLogin: ScreenPoint | null;
+  };
+  windowFrame: WindowFrame;
+};
+
+type MouseTiming = {
+  moveDuration: number;
+  pauseBeforeClick: number;
+  clickHoldDuration: number;
+  pauseAfterClick: number;
+};
+
 const PACKAGE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(PACKAGE_DIR, "../..");
 const DEFAULT_TMP_DIR = path.join(REPO_ROOT, ".tmp", "onboarding-video-tools");
@@ -83,6 +134,10 @@ const DEFAULT_OUTPUT_PATH = path.join(
 const DEFAULT_SCREEN_OUTPUT_PATH = path.join(
   DEFAULT_RENDER_DIR,
   "screen-capture-demo.mp4",
+);
+const DEFAULT_STACK_STEP_1_OUTPUT_PATH = path.join(
+  DEFAULT_RENDER_DIR,
+  "stack-onboarding-step-1-signin.mp4",
 );
 const DEFAULT_SCENE_PAD_POINTS = 40;
 const DEFAULT_BOTTOM_SHADOW_EXTRA_PAD_POINTS = 8;
@@ -118,12 +173,34 @@ const LANDING_DEMO_MOUSE_TIMING = {
   clickHoldDuration: 0.08,
   pauseAfterClick: 0.24,
 } as const;
+const STACK_STEP_1_MOUSE_TIMING = {
+  moveDuration: 0.58,
+  pauseBeforeClick: 0.12,
+  clickHoldDuration: 0.08,
+  pauseAfterClick: 0.22,
+} as const;
 const LANDING_DEMO_OUTPUT_FPS = 30;
 const LANDING_DEMO_RECORDER_WARMUP_SECONDS = 0.8;
 const LANDING_DEMO_AUTOMATION_START_DELAY_SECONDS =
   LANDING_DEMO_RECORDER_WARMUP_SECONDS + 0.12;
 const LANDING_DEMO_RECORDER_BUFFER_SECONDS = 0.75;
 const LANDING_DEMO_BROWSER_BUFFER_SECONDS = 3;
+const STACK_STEP_1_WINDOW_BOUNDS = {
+  x: 40,
+  y: 54,
+  right: 1065,
+  bottom: 754,
+} as const;
+const STACK_STEP_1_TAB_CENTER_X_OFFSETS = {
+  github: 220,
+  convex: 448,
+  cloudflare: 682,
+} as const;
+const STACK_STEP_1_TAB_CENTER_Y_OFFSET = 20;
+const STACK_STEP_1_CONVEX_LOGOUT_URL = "https://dashboard.convex.dev/logout";
+const STACK_STEP_1_CLOUDFLARE_LOGOUT_URL = "https://dash.cloudflare.com/logout";
+const STACK_STEP_1_CONVEX_LOGIN_URL = "https://www.convex.dev/login";
+const STACK_STEP_1_CLOUDFLARE_LOGIN_URL = "https://dash.cloudflare.com/login";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -137,6 +214,11 @@ export async function main(argv: string[]) {
     return;
   }
 
+  if (command === "stack-step-1-signin") {
+    await runStackStep1SigninDemo(parseStackStep1Args(commandArgs));
+    return;
+  }
+
   if (command === "screen-demo") {
     await runScreenDemo(parseScreenDemoArgs(commandArgs));
     return;
@@ -146,6 +228,7 @@ export async function main(argv: string[]) {
     [
       "Usage:",
       "  noter-onboarding-video landing-demo [--output <path>] [--pad <points>]",
+      "  noter-onboarding-video stack-step-1-signin [--output <path>] [--pad <points>]",
       "  noter-onboarding-video screen-demo [--output <path>] [--duration <seconds>]",
     ].join("\n"),
   );
@@ -188,6 +271,23 @@ function parseLandingDemoArgs(argv: string[]): LandingDemoOptions {
     cloudflareUrl: args["cloudflare-url"] ?? DEFAULT_URLS.cloudflareUrl,
     codexUrl: args["codex-url"] ?? DEFAULT_URLS.codexUrl,
     outputPath: args.output ?? DEFAULT_OUTPUT_PATH,
+    padPoints: pad,
+  };
+}
+
+function parseStackStep1Args(argv: string[]): StackStep1Options {
+  const args = parseArgs(argv);
+  const pad = Number(args.pad ?? String(DEFAULT_SCENE_PAD_POINTS));
+
+  if (!Number.isInteger(pad) || pad < 0) {
+    throw new Error(`Invalid --pad value: ${args.pad ?? "<missing>"}`);
+  }
+
+  return {
+    githubUrl: args["github-url"] ?? DEFAULT_URLS.githubUrl,
+    convexUrl: args["convex-url"] ?? DEFAULT_URLS.convexUrl,
+    cloudflareUrl: args["cloudflare-url"] ?? DEFAULT_URLS.cloudflareUrl,
+    outputPath: args.output ?? DEFAULT_STACK_STEP_1_OUTPUT_PATH,
     padPoints: pad,
   };
 }
@@ -305,14 +405,10 @@ async function runLandingDemo(options: LandingDemoOptions) {
 
     await focusChromeWindow(coords.windowFrame);
 
-    backdropProcess = spawn(
-      backdropBin,
-      ["--ready-file", backdropReadyFile],
-      {
-        cwd: REPO_ROOT,
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
+    backdropProcess = spawn(backdropBin, ["--ready-file", backdropReadyFile], {
+      cwd: REPO_ROOT,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
 
     await waitForFile(backdropReadyFile, 4_000);
     await focusChromeWindow(coords.windowFrame);
@@ -399,6 +495,477 @@ async function runLandingDemo(options: LandingDemoOptions) {
   }
 }
 
+async function runStackStep1SigninDemo(options: StackStep1Options) {
+  await mkdir(DEFAULT_TMP_DIR, { recursive: true });
+  await mkdir(path.dirname(options.outputPath), { recursive: true });
+
+  const recorderBin = path.join(DEFAULT_TMP_DIR, "record-chrome-scene");
+  const mouseBin = path.join(DEFAULT_TMP_DIR, "animate-mouse");
+  const backdropBin = path.join(DEFAULT_TMP_DIR, "run-white-backdrop");
+
+  await compileSwiftBinary(
+    path.join(PACKAGE_DIR, "native", "recordChromeScene.swift"),
+    recorderBin,
+    ["AppKit", "AVFoundation", "CoreMedia", "CoreVideo", "ScreenCaptureKit"],
+  );
+  await compileSwiftBinary(
+    path.join(PACKAGE_DIR, "native", "animateMouse.swift"),
+    mouseBin,
+    ["AppKit"],
+  );
+  await compileSwiftBinary(
+    path.join(PACKAGE_DIR, "native", "runWhiteBackdrop.swift"),
+    backdropBin,
+    ["AppKit"],
+  );
+
+  const runId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const recorderStartedFile = path.join(
+    DEFAULT_TMP_DIR,
+    `stack-step1-recorder-started-${runId}.txt`,
+  );
+  const backdropReadyFile = path.join(
+    DEFAULT_TMP_DIR,
+    `stack-step1-backdrop-ready-${runId}.txt`,
+  );
+  let recorderProcess: BufferedChildProcess | null = null;
+  let backdropProcess: BufferedChildProcess | null = null;
+
+  try {
+    const coords = await prepareStackStep1Coords(options);
+    const sequence = buildStackStep1Sequence(coords);
+    const recordingDurationSeconds = computeTimedRecordingDurationSeconds(
+      sequence,
+      STACK_STEP_1_MOUSE_TIMING,
+    );
+    const windowFrame = serializeWindowFrame(coords.windowFrame);
+    const captureFrame = expandWindowFrame(
+      coords.windowFrame,
+      options.padPoints,
+    );
+    const captureFrameArg = serializeWindowFrame(captureFrame);
+    await focusChromeWindow(coords.windowFrame);
+
+    backdropProcess = spawn(backdropBin, ["--ready-file", backdropReadyFile], {
+      cwd: REPO_ROOT,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    await waitForFile(backdropReadyFile, 4_000);
+    await focusChromeWindow(coords.windowFrame);
+
+    recorderProcess = spawn(
+      recorderBin,
+      [
+        "--bundle-id",
+        "com.google.Chrome",
+        "--window-frame",
+        windowFrame,
+        "--capture-frame",
+        captureFrameArg,
+        "--output",
+        options.outputPath,
+        "--started-file",
+        recorderStartedFile,
+        "--duration",
+        recordingDurationSeconds.toFixed(2),
+        "--warmup-duration",
+        String(LANDING_DEMO_RECORDER_WARMUP_SECONDS),
+        "--fps",
+        String(LANDING_DEMO_OUTPUT_FPS),
+        "--cursor",
+        "true",
+        "--click-highlights",
+        "true",
+      ],
+      {
+        cwd: REPO_ROOT,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+
+    await waitForFile(recorderStartedFile, 12_000);
+    await sleep(LANDING_DEMO_AUTOMATION_START_DELAY_SECONDS * 1000);
+    await focusChromeWindow(coords.windowFrame);
+
+    await runStackStep1Sequence(mouseBin, coords, sequence);
+
+    await waitForChild(recorderProcess, "recordChromeScene.swift");
+    recorderProcess = null;
+    await terminateChild(backdropProcess);
+    backdropProcess = null;
+
+    process.stdout.write(`${options.outputPath}\n`);
+  } catch (error) {
+    await terminateChild(recorderProcess);
+    await terminateChild(backdropProcess);
+    throw error;
+  } finally {
+    await Promise.all([
+      rm(recorderStartedFile, { force: true }),
+      rm(backdropReadyFile, { force: true }),
+    ]);
+  }
+}
+
+async function prepareStackStep1Coords(
+  options: StackStep1Options,
+): Promise<StackStep1Coords> {
+  await configureStackStep1ChromeWindow(options);
+  const windowFrame = await readFrontChromeWindowFrame();
+
+  const tabs = measureStackStep1TabCenters(windowFrame);
+
+  await activateChromeTab(2);
+  await waitForChromeActiveTabUrlIncludes("convex.dev", 10_000);
+  const convexHomeLogin = await waitForChromeAxElementCenter("Log in", 10_000);
+
+  await setChromeTabUrl(2, STACK_STEP_1_CONVEX_LOGIN_URL);
+  const convexGithubLogin = await resolveOptionalChromeAuthButton({
+    buttonLabels: ["Continue with GitHub", "GitHub"],
+    successUrlFragments: ["dashboard.convex.dev"],
+    timeoutMs: 15_000,
+  });
+  if (convexGithubLogin === null) {
+    await sleep(400);
+  }
+
+  await setChromeTabUrl(2, options.convexUrl);
+  await waitForChromeActiveTabUrlIncludes("convex.dev", 10_000);
+
+  await activateChromeTab(3);
+  await waitForChromeActiveTabUrlIncludes("cloudflare.com", 10_000);
+  const cloudflareHomeLogin = await waitForChromeAxElementCenter(
+    "Log in",
+    10_000,
+  );
+
+  await setChromeTabUrl(3, STACK_STEP_1_CLOUDFLARE_LOGIN_URL);
+  const cloudflareGithubLogin = await resolveOptionalChromeAuthButton({
+    buttonLabels: ["Continue with GitHub", "GitHub"],
+    successUrlFragments: [],
+    timeoutMs: 15_000,
+  });
+
+  await setChromeTabUrl(3, options.cloudflareUrl);
+  await waitForChromeActiveTabUrlIncludes("cloudflare.com", 10_000);
+
+  await activateChromeTab(1);
+  await focusChromeWindow(windowFrame);
+
+  return {
+    tabs,
+    convex: {
+      homeLogin: convexHomeLogin,
+      githubLogin: convexGithubLogin,
+    },
+    cloudflare: {
+      homeLogin: cloudflareHomeLogin,
+      githubLogin: cloudflareGithubLogin,
+    },
+    windowFrame,
+  };
+}
+
+function buildStackStep1Sequence(coords: StackStep1Coords): StackStep1Step[] {
+  const sequence: StackStep1Step[] = [
+    { kind: "click", target: "tabs.convex" },
+    { kind: "wait", seconds: 0.55 },
+    { kind: "click", target: "convex.homeLogin" },
+    { kind: "wait", seconds: 0.95 },
+  ];
+
+  if (coords.convex.githubLogin !== null) {
+    sequence.push(
+      { kind: "click", target: "convex.githubLogin" },
+      { kind: "wait", seconds: 1.75 },
+    );
+  } else {
+    sequence.push({ kind: "wait", seconds: 1.75 });
+  }
+
+  sequence.push(
+    { kind: "click", target: "tabs.cloudflare" },
+    { kind: "wait", seconds: 0.55 },
+    { kind: "click", target: "cloudflare.homeLogin" },
+    { kind: "wait", seconds: 0.95 },
+  );
+
+  if (coords.cloudflare.githubLogin !== null) {
+    sequence.push(
+      { kind: "click", target: "cloudflare.githubLogin" },
+      { kind: "wait", seconds: 1.9 },
+    );
+  } else {
+    sequence.push({ kind: "wait", seconds: 1.9 });
+  }
+
+  sequence.push(
+    { kind: "click", target: "tabs.github" },
+    { kind: "wait", seconds: 0.7 },
+  );
+
+  return sequence;
+}
+
+async function configureStackStep1ChromeWindow(options: StackStep1Options) {
+  await runAppleScript(`
+    tell application "Google Chrome"
+      activate
+      if (count of windows) is 0 then
+        make new window
+      end if
+      set targetWindow to front window
+      set bounds of targetWindow to {${STACK_STEP_1_WINDOW_BOUNDS.x}, ${STACK_STEP_1_WINDOW_BOUNDS.y}, ${STACK_STEP_1_WINDOW_BOUNDS.right}, ${STACK_STEP_1_WINDOW_BOUNDS.bottom}}
+      repeat while (count of tabs of targetWindow) < 3
+        make new tab at end of tabs of targetWindow
+      end repeat
+      repeat while (count of tabs of targetWindow) > 3
+        close tab 4 of targetWindow
+      end repeat
+      set URL of tab 1 of targetWindow to "${escapeAppleScriptString(options.githubUrl)}"
+      set URL of tab 2 of targetWindow to "${STACK_STEP_1_CONVEX_LOGOUT_URL}"
+      set URL of tab 3 of targetWindow to "${STACK_STEP_1_CLOUDFLARE_LOGOUT_URL}"
+      set active tab index of targetWindow to 1
+    end tell
+  `);
+
+  await sleep(1_800);
+  await setChromeTabUrl(2, options.convexUrl);
+  await activateChromeTab(2);
+  await waitForChromeActiveTabUrlIncludes("convex.dev", 10_000);
+  await setChromeTabUrl(3, options.cloudflareUrl);
+  await activateChromeTab(3);
+  await waitForChromeActiveTabUrlIncludes("cloudflare.com", 10_000);
+  await activateChromeTab(1);
+}
+
+function measureStackStep1TabCenters(
+  windowFrame: WindowFrame,
+): StackStep1Coords["tabs"] {
+  return {
+    // Chrome's real tab widths in the prepared recording profile are much more
+    // compact than an even three-column split. These offsets are measured from
+    // a live Retina screenshot of the recording window so the cursor lands in
+    // the visual middle of each tab instead of grazing the edge.
+    github: {
+      x: windowFrame.x + STACK_STEP_1_TAB_CENTER_X_OFFSETS.github,
+      y: windowFrame.y + STACK_STEP_1_TAB_CENTER_Y_OFFSET,
+    },
+    convex: {
+      x: windowFrame.x + STACK_STEP_1_TAB_CENTER_X_OFFSETS.convex,
+      y: windowFrame.y + STACK_STEP_1_TAB_CENTER_Y_OFFSET,
+    },
+    cloudflare: {
+      x: windowFrame.x + STACK_STEP_1_TAB_CENTER_X_OFFSETS.cloudflare,
+      y: windowFrame.y + STACK_STEP_1_TAB_CENTER_Y_OFFSET,
+    },
+  };
+}
+
+async function readFrontChromeWindowFrame(): Promise<WindowFrame> {
+  const raw = await runAppleScript(`
+    tell application "Google Chrome"
+      if (count of windows) is 0 then
+        error "Google Chrome has no windows."
+      end if
+      set windowBounds to bounds of front window
+      return (item 1 of windowBounds as text) & "," & (item 2 of windowBounds as text) & "," & (item 3 of windowBounds as text) & "," & (item 4 of windowBounds as text)
+    end tell
+  `);
+
+  const bounds = raw
+    .trim()
+    .split(",")
+    .map((value) => Number(value.trim()));
+  if (bounds.length !== 4 || bounds.some((value) => !Number.isFinite(value))) {
+    throw new Error(`Invalid Chrome window bounds: ${raw.trim()}`);
+  }
+
+  const [left, top, right, bottom] = bounds;
+  return {
+    x: left,
+    y: top,
+    width: right - left,
+    height: bottom - top,
+  };
+}
+
+async function setChromeTabUrl(tabIndex: number, url: string) {
+  await runAppleScript(`
+    tell application "Google Chrome"
+      set targetWindow to front window
+      set active tab index of targetWindow to ${tabIndex}
+      set URL of active tab of targetWindow to "${escapeAppleScriptString(url)}"
+    end tell
+  `);
+  await sleep(350);
+}
+
+async function activateChromeTab(tabIndex: number) {
+  await runAppleScript(`
+    tell application "Google Chrome"
+      set targetWindow to front window
+      set active tab index of targetWindow to ${tabIndex}
+      activate
+    end tell
+  `);
+  await sleep(250);
+}
+
+async function waitForChromeActiveTabUrlIncludes(
+  fragment: string,
+  timeoutMs: number,
+) {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const url = await readChromeActiveTabUrl();
+    if (url.includes(fragment)) {
+      return;
+    }
+
+    await sleep(250);
+  }
+
+  throw new Error(`Timed out waiting for Chrome URL containing: ${fragment}`);
+}
+
+async function readChromeActiveTabUrl() {
+  return runAppleScript(`
+    tell application "Google Chrome"
+      return URL of active tab of front window
+    end tell
+  `).then((value) => value.trim());
+}
+
+async function waitForChromeAxElementCenter(
+  label: string,
+  timeoutMs: number,
+): Promise<ScreenPoint> {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const point = await measureChromeAxElementCenter(label);
+    if (point) {
+      return point;
+    }
+
+    await sleep(250);
+  }
+
+  throw new Error(`Timed out waiting for Chrome element: ${label}`);
+}
+
+async function resolveOptionalChromeAuthButton(options: {
+  buttonLabels: string[];
+  successUrlFragments: string[];
+  timeoutMs: number;
+}) {
+  const start = Date.now();
+
+  while (Date.now() - start < options.timeoutMs) {
+    const url = await readChromeActiveTabUrl();
+    if (
+      options.successUrlFragments.some((fragment) => url.includes(fragment))
+    ) {
+      for (const label of options.buttonLabels) {
+        const point = await measureChromeAxElementCenter(label);
+        if (point) {
+          return point;
+        }
+      }
+
+      return null;
+    }
+
+    for (const label of options.buttonLabels) {
+      const point = await measureChromeAxElementCenter(label);
+      if (point) {
+        return point;
+      }
+    }
+
+    await sleep(250);
+  }
+
+  return null;
+}
+
+async function measureChromeAxElementCenter(
+  label: string,
+): Promise<ScreenPoint | null> {
+  const raw = await runAppleScript(`
+    tell application "System Events"
+      tell process "Google Chrome"
+        set frontmost to true
+        set allItems to entire contents of window 1
+        repeat with itemRef in allItems
+          try
+            set itemRole to role of itemRef as text
+            if itemRole is "AXButton" or itemRole is "AXLink" then
+              set itemLabel to ""
+              try
+                set itemLabel to description of itemRef as text
+              end try
+              if itemLabel is "" then
+                try
+                  set itemLabel to name of itemRef as text
+                end try
+              end if
+              if itemLabel is "${escapeAppleScriptString(label)}" then
+                set itemPosition to position of itemRef
+                set itemSize to size of itemRef
+                return ((item 1 of itemPosition) as text) & "," & ((item 2 of itemPosition) as text) & "|" & ((item 1 of itemSize) as text) & "," & ((item 2 of itemSize) as text)
+              end if
+            end if
+          end try
+        end repeat
+        return ""
+      end tell
+    end tell
+  `);
+
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  const [positionPart, sizePart] = trimmed.split("|");
+  if (!positionPart || !sizePart) {
+    throw new Error(`Invalid AX measurement: ${trimmed}`);
+  }
+
+  const [x, y] = positionPart.split(",").map(Number);
+  const [width, height] = sizePart.split(",").map(Number);
+  if (
+    !Number.isFinite(x) ||
+    !Number.isFinite(y) ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height)
+  ) {
+    throw new Error(`Invalid AX measurement numbers: ${trimmed}`);
+  }
+
+  return {
+    x: Math.round(x + width / 2),
+    y: Math.round(y + height / 2),
+  };
+}
+
+function escapeAppleScriptString(value: string) {
+  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+}
+
+async function runAppleScript(script: string) {
+  const { stdout } = await runCommandCapture(
+    "osascript",
+    ["-e", script],
+    REPO_ROOT,
+  );
+  return stdout;
+}
+
 async function runScreenDemo(options: ScreenDemoOptions) {
   await mkdir(DEFAULT_TMP_DIR, { recursive: true });
   await mkdir(path.dirname(options.outputPath), { recursive: true });
@@ -430,6 +997,85 @@ async function runScreenDemo(options: ScreenDemoOptions) {
   );
 
   process.stdout.write(`${options.outputPath}\n`);
+}
+
+async function runStackStep1Sequence(
+  mouseBin: string,
+  coords: StackStep1Coords,
+  sequence: readonly StackStep1Step[],
+) {
+  for (const step of sequence) {
+    if (step.kind === "wait") {
+      await sleep(step.seconds * 1000);
+      continue;
+    }
+
+    const point = resolveStackStep1Target(coords, step.target);
+    await runMouseClick(
+      mouseBin,
+      point,
+      coords.windowFrame,
+      STACK_STEP_1_MOUSE_TIMING,
+    );
+    await applyStackStep1PostClickEffect(step.target, coords.windowFrame);
+  }
+}
+
+async function runMouseClick(
+  mouseBin: string,
+  point: ScreenPoint,
+  windowFrame: WindowFrame,
+  timing: MouseTiming,
+) {
+  await runCommand(
+    mouseBin,
+    [
+      "--actions",
+      `click:${point.x},${point.y}`,
+      "--move-duration",
+      String(timing.moveDuration),
+      "--pause-before-click",
+      String(timing.pauseBeforeClick),
+      "--click-hold-duration",
+      String(timing.clickHoldDuration),
+      "--pause-after-click",
+      String(timing.pauseAfterClick),
+      "--require-frontmost-bundle",
+      "com.google.Chrome",
+      "--require-window-owner",
+      "Google Chrome",
+      "--require-window-frame",
+      serializeWindowFrame(windowFrame),
+    ],
+    REPO_ROOT,
+  );
+}
+
+async function applyStackStep1PostClickEffect(
+  target: StackStep1Target,
+  windowFrame: WindowFrame,
+) {
+  switch (target) {
+    case "tabs.github":
+      await activateChromeTab(1);
+      break;
+    case "tabs.convex":
+      await activateChromeTab(2);
+      break;
+    case "tabs.cloudflare":
+      await activateChromeTab(3);
+      break;
+    case "convex.homeLogin":
+    case "convex.githubLogin":
+    case "cloudflare.homeLogin":
+    case "cloudflare.githubLogin":
+      return;
+    default:
+      target satisfies never;
+      return;
+  }
+
+  await focusChromeWindow(windowFrame);
 }
 
 function serializeLandingDemoActions(
@@ -475,19 +1121,59 @@ function resolveLandingDemoTarget(
   }
 }
 
+function resolveStackStep1Target(
+  coords: StackStep1Coords,
+  target: StackStep1Target,
+): ScreenPoint {
+  switch (target) {
+    case "tabs.github":
+      return coords.tabs.github;
+    case "tabs.convex":
+      return coords.tabs.convex;
+    case "convex.homeLogin":
+      return coords.convex.homeLogin;
+    case "convex.githubLogin":
+      if (coords.convex.githubLogin !== null) {
+        return coords.convex.githubLogin;
+      }
+
+      throw new Error("Convex GitHub login target is unavailable.");
+    case "tabs.cloudflare":
+      return coords.tabs.cloudflare;
+    case "cloudflare.homeLogin":
+      return coords.cloudflare.homeLogin;
+    case "cloudflare.githubLogin":
+      if (coords.cloudflare.githubLogin !== null) {
+        return coords.cloudflare.githubLogin;
+      }
+
+      throw new Error("Cloudflare GitHub login target is unavailable.");
+    default:
+      target satisfies never;
+      throw new Error("Unsupported stack-step-1 target.");
+  }
+}
+
 function computeRecordingDurationSeconds(steps: readonly LandingDemoStep[]) {
+  return computeTimedRecordingDurationSeconds(steps, LANDING_DEMO_MOUSE_TIMING);
+}
+
+function computeTimedRecordingDurationSeconds(
+  steps: readonly { kind: "click" | "wait"; seconds?: number }[],
+  timing: MouseTiming,
+) {
   return (
     steps.reduce((totalSeconds, step) => {
       if (step.kind === "wait") {
-        return totalSeconds + step.seconds;
+        return totalSeconds + (step.seconds ?? 0);
       }
 
       return (
         totalSeconds +
-        LANDING_DEMO_MOUSE_TIMING.moveDuration +
-        LANDING_DEMO_MOUSE_TIMING.pauseBeforeClick +
-        LANDING_DEMO_MOUSE_TIMING.clickHoldDuration +
-        LANDING_DEMO_MOUSE_TIMING.pauseAfterClick
+        timing.moveDuration +
+        timing.pauseBeforeClick +
+        timing.clickHoldDuration +
+        timing.pauseAfterClick
       );
     }, 0) + LANDING_DEMO_RECORDER_BUFFER_SECONDS
   );
@@ -566,6 +1252,46 @@ async function waitForFile(filePath: string, timeoutMs: number) {
   }
 
   throw new Error(`Timed out waiting for ${filePath}`);
+}
+
+function runCommandCapture(command: string, args: string[], cwd: string) {
+  return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk: Buffer | string) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on("data", (chunk: Buffer | string) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", (error) => {
+      reject(error);
+    });
+
+    child.on("close", (code, signal) => {
+      if (code === 0) {
+        resolve({ stdout, stderr });
+        return;
+      }
+
+      const suffix = stderr.trim().length > 0 ? `\n${stderr.trim()}` : "";
+      reject(
+        new Error(
+          `${command} ${args.join(" ")} failed with ${
+            signal ? `signal ${signal}` : `exit code ${code ?? "unknown"}`
+          }.${suffix}`,
+        ),
+      );
+    });
+  });
 }
 
 function runCommand(command: string, args: string[], cwd: string) {

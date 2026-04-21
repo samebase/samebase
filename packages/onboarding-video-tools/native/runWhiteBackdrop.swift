@@ -74,9 +74,13 @@ final class BackdropDelegate: NSObject, NSApplicationDelegate {
                 window.isOpaque = true
                 window.hasShadow = false
                 window.ignoresMouseEvents = true
+                // Keep the backdrop in the normal desktop stacking context, but
+                // place it behind app windows so ScreenCaptureKit sees Chrome on
+                // top of a controlled white scene instead of a full-screen white
+                // cover.
                 window.level = .normal
                 window.collectionBehavior = [.stationary, .moveToActiveSpace]
-                window.orderFrontRegardless()
+                window.orderBack(nil)
                 return window
             }
 
