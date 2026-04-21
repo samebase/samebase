@@ -51,6 +51,14 @@ type StackStep1Options = {
   padPoints: number;
 };
 
+type StackStep12Options = {
+  githubUrl: string;
+  convexUrl: string;
+  cloudflareUrl: string;
+  outputPath: string;
+  padPoints: number;
+};
+
 type ScreenDemoOptions = {
   outputPath: string;
   durationSeconds: number;
@@ -139,6 +147,10 @@ const DEFAULT_STACK_STEP_1_OUTPUT_PATH = path.join(
   DEFAULT_RENDER_DIR,
   "stack-onboarding-step-1-signin.mp4",
 );
+const DEFAULT_STACK_STEP_1_2_OUTPUT_PATH = path.join(
+  DEFAULT_RENDER_DIR,
+  "stack-onboarding-step-1-2.mp4",
+);
 const DEFAULT_SCENE_PAD_POINTS = 40;
 const DEFAULT_BOTTOM_SHADOW_EXTRA_PAD_POINTS = 8;
 const DEFAULT_URLS = {
@@ -201,6 +213,16 @@ const STACK_STEP_1_CONVEX_LOGOUT_URL = "https://dashboard.convex.dev/logout";
 const STACK_STEP_1_CLOUDFLARE_LOGOUT_URL = "https://dash.cloudflare.com/logout";
 const STACK_STEP_1_CONVEX_LOGIN_URL = "https://www.convex.dev/login";
 const STACK_STEP_1_CLOUDFLARE_LOGIN_URL = "https://dash.cloudflare.com/login";
+const STACK_STEP_2_TEMPLATE_REPO_URL =
+  "https://github.com/noter-md/convex-cloudflare-pages-stack";
+const STACK_STEP_2_USE_TEMPLATE_LABEL = "Use this template";
+const STACK_STEP_2_OWNER_POPUP_LABEL_FRAGMENT = "Owner (Required)";
+const STACK_STEP_2_REPOSITORY_NAME_FIELD_LABEL = "Repository name *";
+const STACK_STEP_2_CREATE_REPOSITORY_BUTTON_LABEL = "Create repository";
+// Step 2 mixes live page-load waits with measured clicks, so keep a
+// conservative recording budget above the nominal click timings to avoid
+// truncating the final GitHub repo page on slower network turns.
+const STACK_STEP_2_DURATION_BUDGET_SECONDS = 30;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -219,6 +241,11 @@ export async function main(argv: string[]) {
     return;
   }
 
+  if (command === "stack-step-1-2") {
+    await runStackStep1And2Demo(parseStackStep12Args(commandArgs));
+    return;
+  }
+
   if (command === "screen-demo") {
     await runScreenDemo(parseScreenDemoArgs(commandArgs));
     return;
@@ -229,6 +256,7 @@ export async function main(argv: string[]) {
       "Usage:",
       "  noter-onboarding-video landing-demo [--output <path>] [--pad <points>]",
       "  noter-onboarding-video stack-step-1-signin [--output <path>] [--pad <points>]",
+      "  noter-onboarding-video stack-step-1-2 [--output <path>] [--pad <points>]",
       "  noter-onboarding-video screen-demo [--output <path>] [--duration <seconds>]",
     ].join("\n"),
   );
@@ -288,6 +316,23 @@ function parseStackStep1Args(argv: string[]): StackStep1Options {
     convexUrl: args["convex-url"] ?? DEFAULT_URLS.convexUrl,
     cloudflareUrl: args["cloudflare-url"] ?? DEFAULT_URLS.cloudflareUrl,
     outputPath: args.output ?? DEFAULT_STACK_STEP_1_OUTPUT_PATH,
+    padPoints: pad,
+  };
+}
+
+function parseStackStep12Args(argv: string[]): StackStep12Options {
+  const args = parseArgs(argv);
+  const pad = Number(args.pad ?? String(DEFAULT_SCENE_PAD_POINTS));
+
+  if (!Number.isInteger(pad) || pad < 0) {
+    throw new Error(`Invalid --pad value: ${args.pad ?? "<missing>"}`);
+  }
+
+  return {
+    githubUrl: args["github-url"] ?? DEFAULT_URLS.githubUrl,
+    convexUrl: args["convex-url"] ?? DEFAULT_URLS.convexUrl,
+    cloudflareUrl: args["cloudflare-url"] ?? DEFAULT_URLS.cloudflareUrl,
+    outputPath: args.output ?? DEFAULT_STACK_STEP_1_2_OUTPUT_PATH,
     padPoints: pad,
   };
 }
@@ -608,6 +653,121 @@ async function runStackStep1SigninDemo(options: StackStep1Options) {
   }
 }
 
+async function runStackStep1And2Demo(options: StackStep12Options) {
+  await mkdir(DEFAULT_TMP_DIR, { recursive: true });
+  await mkdir(path.dirname(options.outputPath), { recursive: true });
+
+  const recorderBin = path.join(DEFAULT_TMP_DIR, "record-chrome-scene");
+  const mouseBin = path.join(DEFAULT_TMP_DIR, "animate-mouse");
+  const backdropBin = path.join(DEFAULT_TMP_DIR, "run-white-backdrop");
+
+  await compileSwiftBinary(
+    path.join(PACKAGE_DIR, "native", "recordChromeScene.swift"),
+    recorderBin,
+    ["AppKit", "AVFoundation", "CoreMedia", "CoreVideo", "ScreenCaptureKit"],
+  );
+  await compileSwiftBinary(
+    path.join(PACKAGE_DIR, "native", "animateMouse.swift"),
+    mouseBin,
+    ["AppKit"],
+  );
+  await compileSwiftBinary(
+    path.join(PACKAGE_DIR, "native", "runWhiteBackdrop.swift"),
+    backdropBin,
+    ["AppKit"],
+  );
+
+  const runId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const recorderStartedFile = path.join(
+    DEFAULT_TMP_DIR,
+    `stack-step12-recorder-started-${runId}.txt`,
+  );
+  const backdropReadyFile = path.join(
+    DEFAULT_TMP_DIR,
+    `stack-step12-backdrop-ready-${runId}.txt`,
+  );
+  let recorderProcess: BufferedChildProcess | null = null;
+  let backdropProcess: BufferedChildProcess | null = null;
+
+  try {
+    const coords = await prepareStackStep1Coords(options);
+    const sequence = buildStackStep1Sequence(coords);
+    const recordingDurationSeconds =
+      computeTimedRecordingDurationSeconds(
+        sequence,
+        STACK_STEP_1_MOUSE_TIMING,
+      ) + STACK_STEP_2_DURATION_BUDGET_SECONDS;
+    const windowFrame = serializeWindowFrame(coords.windowFrame);
+    const captureFrame = expandWindowFrame(
+      coords.windowFrame,
+      options.padPoints,
+    );
+    const captureFrameArg = serializeWindowFrame(captureFrame);
+    await focusChromeWindow(coords.windowFrame);
+
+    backdropProcess = spawn(backdropBin, ["--ready-file", backdropReadyFile], {
+      cwd: REPO_ROOT,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    await waitForFile(backdropReadyFile, 4_000);
+    await focusChromeWindow(coords.windowFrame);
+
+    recorderProcess = spawn(
+      recorderBin,
+      [
+        "--bundle-id",
+        "com.google.Chrome",
+        "--window-frame",
+        windowFrame,
+        "--capture-frame",
+        captureFrameArg,
+        "--output",
+        options.outputPath,
+        "--started-file",
+        recorderStartedFile,
+        "--duration",
+        recordingDurationSeconds.toFixed(2),
+        "--warmup-duration",
+        String(LANDING_DEMO_RECORDER_WARMUP_SECONDS),
+        "--fps",
+        String(LANDING_DEMO_OUTPUT_FPS),
+        "--cursor",
+        "true",
+        "--click-highlights",
+        "true",
+      ],
+      {
+        cwd: REPO_ROOT,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+
+    await waitForFile(recorderStartedFile, 12_000);
+    await sleep(LANDING_DEMO_AUTOMATION_START_DELAY_SECONDS * 1000);
+    await focusChromeWindow(coords.windowFrame);
+
+    await runStackStep1Sequence(mouseBin, coords, sequence);
+    await runStackStep2GithubTemplateSequence(mouseBin, coords.windowFrame);
+
+    await waitForChild(recorderProcess, "recordChromeScene.swift");
+    recorderProcess = null;
+    await terminateChild(backdropProcess);
+    backdropProcess = null;
+
+    process.stdout.write(`${options.outputPath}\n`);
+  } catch (error) {
+    await terminateChild(recorderProcess);
+    await terminateChild(backdropProcess);
+    throw error;
+  } finally {
+    await Promise.all([
+      rm(recorderStartedFile, { force: true }),
+      rm(backdropReadyFile, { force: true }),
+    ]);
+  }
+}
+
 async function prepareStackStep1Coords(
   options: StackStep1Options,
 ): Promise<StackStep1Coords> {
@@ -817,18 +977,33 @@ async function waitForChromeActiveTabUrlIncludes(
   fragment: string,
   timeoutMs: number,
 ) {
+  const found = await waitForChromeActiveTabUrlIncludesWithin(
+    fragment,
+    timeoutMs,
+  );
+  if (found) {
+    return;
+  }
+
+  throw new Error(`Timed out waiting for Chrome URL containing: ${fragment}`);
+}
+
+async function waitForChromeActiveTabUrlIncludesWithin(
+  fragment: string,
+  timeoutMs: number,
+) {
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
     const url = await readChromeActiveTabUrl();
     if (url.includes(fragment)) {
-      return;
+      return true;
     }
 
     await sleep(250);
   }
 
-  throw new Error(`Timed out waiting for Chrome URL containing: ${fragment}`);
+  return false;
 }
 
 async function readChromeActiveTabUrl() {
@@ -895,6 +1070,13 @@ async function resolveOptionalChromeAuthButton(options: {
 async function measureChromeAxElementCenter(
   label: string,
 ): Promise<ScreenPoint | null> {
+  return measureChromeAxElementCenterForRoles(label, ["AXButton", "AXLink"]);
+}
+
+async function measureChromeAxElementCenterForRoles(
+  label: string,
+  roles: readonly string[],
+): Promise<ScreenPoint | null> {
   const raw = await runAppleScript(`
     tell application "System Events"
       tell process "Google Chrome"
@@ -903,7 +1085,9 @@ async function measureChromeAxElementCenter(
         repeat with itemRef in allItems
           try
             set itemRole to role of itemRef as text
-            if itemRole is "AXButton" or itemRole is "AXLink" then
+            if ${roles
+              .map((role) => `itemRole is "${escapeAppleScriptString(role)}"`)
+              .join(" or ")} then
               set itemLabel to ""
               try
                 set itemLabel to description of itemRef as text
@@ -951,6 +1135,287 @@ async function measureChromeAxElementCenter(
     x: Math.round(x + width / 2),
     y: Math.round(y + height / 2),
   };
+}
+
+async function waitForChromeAxElementCenterForRoles(
+  label: string,
+  roles: readonly string[],
+  timeoutMs: number,
+): Promise<ScreenPoint> {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const point = await measureChromeAxElementCenterForRoles(label, roles);
+    if (point) {
+      return point;
+    }
+
+    await sleep(250);
+  }
+
+  throw new Error(`Timed out waiting for Chrome element: ${label}`);
+}
+
+async function pressChromeAxButton(label: string) {
+  const result = await runAppleScript(`
+    tell application "System Events"
+      tell process "Google Chrome"
+        set frontmost to true
+        set allItems to entire contents of window 1
+        repeat with itemRef in allItems
+          try
+            if (role of itemRef as text) is "AXButton" then
+              set itemLabel to ""
+              try
+                set itemLabel to description of itemRef as text
+              end try
+              if itemLabel is "" then
+                try
+                  set itemLabel to name of itemRef as text
+                end try
+              end if
+              if itemLabel is "${escapeAppleScriptString(label)}" then
+                click itemRef
+                return "ok"
+              end if
+            end if
+          end try
+        end repeat
+        return "missing"
+      end tell
+    end tell
+  `);
+
+  if (result.trim() !== "ok") {
+    throw new Error(`Chrome button not found: ${label}`);
+  }
+}
+
+async function readChromeAxPopupButtonLabelContaining(
+  fragment: string,
+): Promise<string | null> {
+  const result = await runAppleScript(`
+    tell application "System Events"
+      tell process "Google Chrome"
+        set frontmost to true
+        set allItems to entire contents of window 1
+        repeat with itemRef in allItems
+          try
+            if (role of itemRef as text) is "AXPopUpButton" then
+              set itemLabel to ""
+              try
+                set itemLabel to description of itemRef as text
+              end try
+              if itemLabel is "" then
+                try
+                  set itemLabel to name of itemRef as text
+                end try
+              end if
+              if itemLabel contains "${escapeAppleScriptString(fragment)}" then
+                return itemLabel
+              end if
+            end if
+          end try
+        end repeat
+        return ""
+      end tell
+    end tell
+  `);
+
+  const trimmed = result.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+async function readChromeAxMenuItemLabels(): Promise<string[]> {
+  const result = await runAppleScript(`
+    tell application "System Events"
+      tell process "Google Chrome"
+        set frontmost to true
+        set allItems to entire contents of window 1
+        set outputLines to ""
+        repeat with itemRef in allItems
+          try
+            if (role of itemRef as text) is "AXMenuItem" then
+              set itemLabel to ""
+              try
+                set itemLabel to description of itemRef as text
+              end try
+              if itemLabel is "" then
+                try
+                  set itemLabel to name of itemRef as text
+                end try
+              end if
+              if itemLabel is not "" then
+                if outputLines is "" then
+                  set outputLines to itemLabel
+                else
+                  set outputLines to outputLines & linefeed & itemLabel
+                end if
+              end if
+            end if
+          end try
+        end repeat
+        return outputLines
+      end tell
+    end tell
+  `);
+
+  return result
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
+async function pressEscapeKey() {
+  await runAppleScript(`
+    tell application "System Events"
+      key code 53
+    end tell
+  `);
+}
+
+async function pasteIntoFocusedChromeField(value: string) {
+  await runAppleScript(`
+    set the clipboard to "${escapeAppleScriptString(value)}"
+    tell application "System Events"
+      keystroke "a" using command down
+      keystroke "v" using command down
+    end tell
+  `);
+}
+
+async function runStackStep2GithubTemplateSequence(
+  mouseBin: string,
+  windowFrame: WindowFrame,
+) {
+  const repoName = createStackRecordingRepoName();
+
+  await sleep(350);
+  await setChromeTabUrl(1, STACK_STEP_2_TEMPLATE_REPO_URL);
+  await waitForChromeActiveTabUrlIncludes(
+    "/noter-md/convex-cloudflare-pages-stack",
+    12_000,
+  );
+  await sleep(1_000);
+
+  const useTemplatePoint = await waitForChromeAxElementCenterForRoles(
+    STACK_STEP_2_USE_TEMPLATE_LABEL,
+    ["AXButton", "AXLink"],
+    10_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    useTemplatePoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  await waitForChromeActiveTabUrlIncludes("github.com/new?", 12_000);
+  await sleep(1_000);
+
+  const owner = await selectPreferredGithubRepoOwner(mouseBin, windowFrame);
+  const repoNameFieldPoint = await waitForChromeAxElementCenterForRoles(
+    STACK_STEP_2_REPOSITORY_NAME_FIELD_LABEL,
+    ["AXTextField"],
+    10_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    repoNameFieldPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  await pasteIntoFocusedChromeField(repoName);
+  await sleep(1_000);
+
+  const createRepositoryPoint = await waitForChromeAxElementCenterForRoles(
+    STACK_STEP_2_CREATE_REPOSITORY_BUTTON_LABEL,
+    ["AXButton"],
+    10_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    createRepositoryPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  if (
+    !(await waitForChromeActiveTabUrlIncludesWithin(
+      `github.com/${owner}/${repoName}`,
+      1_500,
+    ))
+  ) {
+    // GitHub occasionally ignores the geometry-driven click on this submit
+    // button even though the mouse visibly lands on it, so only fall back to a
+    // direct AX press when that on-screen click failed to start navigation.
+    await pressChromeAxButton(STACK_STEP_2_CREATE_REPOSITORY_BUTTON_LABEL);
+  }
+  await waitForChromeActiveTabUrlIncludes(
+    `github.com/${owner}/${repoName}`,
+    18_000,
+  );
+  await sleep(1_200);
+}
+
+async function selectPreferredGithubRepoOwner(
+  mouseBin: string,
+  windowFrame: WindowFrame,
+) {
+  const popupLabel = await readChromeAxPopupButtonLabelContaining(
+    STACK_STEP_2_OWNER_POPUP_LABEL_FRAGMENT,
+  );
+  if (popupLabel === null) {
+    throw new Error("GitHub owner selector is unavailable.");
+  }
+
+  const ownerPopupPoint = await waitForChromeAxElementCenterForRoles(
+    popupLabel,
+    ["AXPopUpButton"],
+    4_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    ownerPopupPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  await sleep(250);
+
+  const ownerOptions = await readChromeAxMenuItemLabels();
+  const preferredOwner = ownerOptions.at(0);
+  if (!preferredOwner) {
+    throw new Error("GitHub owner menu did not expose any choices.");
+  }
+
+  const currentOwner = popupLabel.split(",")[0]?.trim() ?? "";
+  if (preferredOwner === currentOwner) {
+    await pressEscapeKey();
+    await sleep(250);
+    return currentOwner;
+  }
+
+  const preferredOwnerPoint = await waitForChromeAxElementCenterForRoles(
+    preferredOwner,
+    ["AXMenuItem"],
+    2_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    preferredOwnerPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  await sleep(700);
+  return preferredOwner;
+}
+
+function createStackRecordingRepoName() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  const seconds = String(now.getSeconds()).padStart(2, "0");
+  return `noter-stack-demo-${month}${day}-${hours}${minutes}${seconds}`;
 }
 
 function escapeAppleScriptString(value: string) {
@@ -1027,11 +1492,13 @@ async function runMouseClick(
   windowFrame: WindowFrame,
   timing: MouseTiming,
 ) {
+  const safePoint = clampPointInsideWindowFrame(point, windowFrame);
+
   await runCommand(
     mouseBin,
     [
       "--actions",
-      `click:${point.x},${point.y}`,
+      `click:${safePoint.x},${safePoint.y}`,
       "--move-duration",
       String(timing.moveDuration),
       "--pause-before-click",
@@ -1049,6 +1516,23 @@ async function runMouseClick(
     ],
     REPO_ROOT,
   );
+}
+
+function clampPointInsideWindowFrame(
+  point: ScreenPoint,
+  windowFrame: WindowFrame,
+): ScreenPoint {
+  const inset = 5;
+  const maxX = windowFrame.x + windowFrame.width - inset;
+  const maxY = windowFrame.y + windowFrame.height - inset;
+
+  return {
+    // AppKit/AX measurements can land directly on Chrome's outer border while
+    // the native mouse helper validates against the slightly smaller visible
+    // frame, so keep every synthesized click a few points inside the window.
+    x: Math.min(Math.max(point.x, windowFrame.x + inset), maxX),
+    y: Math.min(Math.max(point.y, windowFrame.y + inset), maxY),
+  };
 }
 
 async function applyStackStep1PostClickEffect(

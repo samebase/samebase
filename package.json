@@ -65,6 +65,7 @@
     "playwright:record:start": "node ./scripts/playwright-session.ts record-start",
     "playwright:record:stop": "node ./scripts/playwright-session.ts record-stop",
     "onboarding-video:landing-demo": "pnpm --filter @noter-md/onboarding-video-tools landing-demo",
+    "onboarding-video:stack-step-1-2": "pnpm --filter @noter-md/onboarding-video-tools stack-step-1-2",
     "onboarding-video:screen-demo": "pnpm --filter @noter-md/onboarding-video-tools screen-demo",
     "share:anon": "node ./scripts/anon-share.ts",
     "share:local": "node ./scripts/anon-share.ts --mode local",

@@ -24,6 +24,12 @@ Landing demo:
 pnpm onboarding-video:landing-demo
 ```
 
+Stack onboarding steps 1 and 2:
+
+```bash
+pnpm onboarding-video:stack-step-1-2
+```
+
 Full-screen example:
 
 ```bash
@@ -34,6 +40,12 @@ Landing demo output:
 
 ```text
 research/onboarding-video-artifacts/chrome-landing-tabs-demo.mp4
+```
+
+Stack onboarding output:
+
+```text
+research/onboarding-video-artifacts/stack-onboarding-step-1-2.mp4
 ```
 
 Full-screen output:
