@@ -37,16 +37,16 @@ type RenderClickRingsOptions = {
 const DEFAULT_PAD = 32;
 const WINDOW_CORNER_RADIUS = 26;
 const WINDOW_BACKGROUND_COLOR = "0xF6F6F3";
-const AMBIENT_SHADOW_PAD = 34;
-const AMBIENT_SHADOW_OPACITY = 0.22;
-const AMBIENT_SHADOW_BLUR_RADIUS = 24;
+const AMBIENT_SHADOW_PAD = 36;
+const AMBIENT_SHADOW_OPACITY = 0.28;
+const AMBIENT_SHADOW_BLUR_RADIUS = 26;
 const AMBIENT_SHADOW_OFFSET_X = 0;
-const AMBIENT_SHADOW_OFFSET_Y = 8;
-const KEY_SHADOW_PAD = 22;
-const KEY_SHADOW_OPACITY = 0.24;
-const KEY_SHADOW_BLUR_RADIUS = 10;
+const AMBIENT_SHADOW_OFFSET_Y = 9;
+const KEY_SHADOW_PAD = 24;
+const KEY_SHADOW_OPACITY = 0.3;
+const KEY_SHADOW_BLUR_RADIUS = 12;
 const KEY_SHADOW_OFFSET_X = 0;
-const KEY_SHADOW_OFFSET_Y = 14;
+const KEY_SHADOW_OFFSET_Y = 16;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
