@@ -405,7 +405,7 @@ func moveCursorToVerifiedPoint(
     currentPoint: inout CGPoint,
     target point: CGPoint,
     options: MouseAnimationOptions,
-    validateSafety: () throws -> Void
+    validateSafety: @escaping () throws -> Void
 ) throws {
     try validateSafety()
     try verifyPoint(
@@ -426,7 +426,7 @@ func performPointAction(
     currentPoint: inout CGPoint,
     target point: CGPoint,
     options: MouseAnimationOptions,
-    validateSafety: () throws -> Void,
+    validateSafety: @escaping () throws -> Void,
     action: () throws -> Void
 ) throws {
     try moveCursorToVerifiedPoint(

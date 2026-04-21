@@ -507,6 +507,24 @@ function runCommand(command: string, args: string[], cwd: string) {
 
 function waitForChild(child: BufferedChildProcess, label: string) {
   return new Promise<void>((resolve, reject) => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      if (child.exitCode === 0) {
+        resolve();
+        return;
+      }
+
+      reject(
+        new Error(
+          `${label} failed with ${
+            child.signalCode
+              ? `signal ${child.signalCode}`
+              : `exit code ${child.exitCode ?? "unknown"}`
+          }.`,
+        ),
+      );
+      return;
+    }
+
     let stderr = "";
 
     child.stderr.on("data", (chunk: Buffer | string) => {
