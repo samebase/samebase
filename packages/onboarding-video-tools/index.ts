@@ -175,7 +175,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
 function parseLandingDemoArgs(argv: string[]): LandingDemoOptions {
   const args = parseArgs(argv);
-  const pad = Number(args.pad ?? "48");
+  const pad = Number(args.pad ?? "32");
 
   if (Number.isNaN(pad) || pad < 0) {
     throw new Error(`Invalid --pad value: ${args.pad ?? "<missing>"}`);

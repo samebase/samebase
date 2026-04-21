@@ -34,6 +34,10 @@ type RenderClickRingsOptions = {
   ringDuration: number;
 };
 
+const DEFAULT_PAD = 32;
+const WINDOW_CORNER_RADIUS = 26;
+const WINDOW_BACKGROUND_COLOR = "0xF6F6F3";
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -308,6 +312,23 @@ function buildPulseAlphaExpr(
   return combineExpressions(parts);
 }
 
+function buildRoundedRectAlphaExpr(
+  width: number,
+  height: number,
+  cornerRadius: number,
+) {
+  const clampedCornerRadius = Math.max(
+    1,
+    Math.min(cornerRadius, Math.floor(Math.min(width, height) / 2)),
+  );
+  const rightEdge = width - clampedCornerRadius - 1;
+  const bottomEdge = height - clampedCornerRadius - 1;
+  const deltaX = `max(max(${clampedCornerRadius}-X,0),X-${rightEdge})`;
+  const deltaY = `max(max(${clampedCornerRadius}-Y,0),Y-${bottomEdge})`;
+
+  return `255*lte(hypot(${deltaX},${deltaY}),${clampedCornerRadius})`;
+}
+
 async function main() {
   const options = parseRenderOptions(process.argv.slice(2));
   const videoInfo = probeVideo(options.inputPath);
@@ -352,12 +373,21 @@ async function main() {
     endRadius: 4,
     maxOpacity: 190,
   });
+  const roundedWindowAlpha = buildRoundedRectAlphaExpr(
+    videoInfo.width,
+    videoInfo.height,
+    WINDOW_CORNER_RADIUS,
+  );
 
   const filterScript = [
     // ScreenCaptureKit emits a variable-rate stream, so normalize the base
     // capture first. Otherwise a click on a mostly static page can produce too
     // few frames for the ripple to fully grow before it fades out.
-    `[0:v]fps=${options.fps},pad=iw+${options.pad * 2}:ih+${options.pad * 2}:${options.pad}:${options.pad}:color=0xF3F4F6,setsar=1[base]`,
+    `[0:v]fps=${options.fps},setsar=1,format=rgba,split[window_rgb][window_alpha_src]`,
+    `[window_alpha_src]format=gray,geq=lum='${roundedWindowAlpha}'[window_alpha]`,
+    `[window_rgb][window_alpha]alphamerge[window_masked]`,
+    `color=c=${WINDOW_BACKGROUND_COLOR}:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba[window_background]`,
+    `[window_background][window_masked]overlay=${options.pad}:${options.pad}:format=auto[base]`,
     `color=c=black@0.0:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='0':g='0':b='0':a='${blackRingAlpha}'[black_ring]`,
     `color=c=white@0.0:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='255':g='255':b='255':a='${whiteRingAlpha}'[white_ring]`,
     `color=c=white@0.0:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='255':g='255':b='255':a='${corePulseAlpha}'[core_pulse]`,
@@ -413,7 +443,7 @@ function parseRenderOptions(argv: string[]): RenderClickRingsOptions {
   const windowFrameArg = args["window-frame"];
   const fpsArg = args.fps;
   const ringDurationArg = args["ring-duration"];
-  const pad = Number(args.pad ?? "48");
+  const pad = Number(args.pad ?? String(DEFAULT_PAD));
 
   if (
     !inputPath ||

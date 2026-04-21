@@ -9,6 +9,7 @@ visible tabs, real cursor motion, and post-processed click indicators.
 - opens four public landing pages in visible tabs
 - records the Chrome window with ScreenCaptureKit
 - drives only real left-click cursor motion inside the exact Chrome window
+- composites the recorded Chrome window onto a padded rounded background
 - renders black-and-white expanding click rings into the final MP4
 
 ## Current Command
