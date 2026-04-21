@@ -288,6 +288,9 @@ async function runLandingDemo(options: LandingDemoOptions) {
     );
 
     await waitForFile(recorderStartedFile, 12_000);
+    const recorderStartUptime = parseRecorderStartUptime(
+      await readFile(recorderStartedFile, "utf8"),
+    );
     await focusChromeWindow(coords.windowFrame);
 
     await runCommand(
@@ -297,8 +300,8 @@ async function runLandingDemo(options: LandingDemoOptions) {
         demoActions,
         "--event-log",
         clickEventsFile,
-        "--event-log-start-offset",
-        String(LANDING_DEMO_RECORDER_WARMUP_SECONDS),
+        "--event-log-base-uptime",
+        String(recorderStartUptime),
         "--move-duration",
         String(LANDING_DEMO_MOUSE_TIMING.moveDuration),
         "--pause-before-click",
@@ -420,6 +423,15 @@ function computeRecordingDurationSeconds(steps: readonly LandingDemoStep[]) {
 
 function serializeWindowFrame(windowFrame: WindowFrame) {
   return `${windowFrame.x},${windowFrame.y},${windowFrame.width},${windowFrame.height}`;
+}
+
+function parseRecorderStartUptime(rawValue: string) {
+  const uptime = Number(rawValue.trim());
+  if (!Number.isFinite(uptime) || uptime <= 0) {
+    throw new Error(`Invalid recorder start uptime: ${rawValue}`);
+  }
+
+  return uptime;
 }
 
 async function compileSwiftBinary(

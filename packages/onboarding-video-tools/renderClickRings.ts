@@ -27,7 +27,7 @@ type WindowFrame = {
 type RenderClickRingsOptions = {
   inputPath: string;
   outputPath: string;
-  eventsPath: string;
+  eventsPath?: string;
   windowFrame: WindowFrame;
   pad: number;
 };
@@ -272,14 +272,14 @@ function buildPulseAlphaExpr(
 
 async function main() {
   const options = parseRenderOptions(process.argv.slice(2));
-  const rawEvents = parseClickEvents(
-    await fs.readFile(options.eventsPath, "utf8"),
-  );
   const videoInfo = probeVideo(options.inputPath);
   const scaleX = videoInfo.width / options.windowFrame.width;
   const scaleY = videoInfo.height / options.windowFrame.height;
   const finalWidth = videoInfo.width + options.pad * 2;
   const finalHeight = videoInfo.height + options.pad * 2;
+  const rawEvents = options.eventsPath
+    ? parseClickEvents(await fs.readFile(options.eventsPath, "utf8"))
+    : [];
   const localEvents = toLocalEvents(
     rawEvents,
     options.windowFrame,
@@ -311,17 +311,23 @@ async function main() {
     maxOpacity: 150,
   });
 
-  // Keep every synthetic overlay source on the same padded canvas and timeline
-  // as the captured window so event coordinates and timestamps stay aligned.
-  const filterScript = [
-    `[0:v]pad=iw+${options.pad * 2}:ih+${options.pad * 2}:${options.pad}:${options.pad}:color=0xF3F4F6[base]`,
-    `color=c=black@0.0:s=${finalWidth}x${finalHeight}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='0':g='0':b='0':a='${blackRingAlpha}'[black_ring]`,
-    `color=c=white@0.0:s=${finalWidth}x${finalHeight}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='255':g='255':b='255':a='${whiteRingAlpha}'[white_ring]`,
-    `color=c=black@0.0:s=${finalWidth}x${finalHeight}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='0':g='0':b='0':a='${corePulseAlpha}'[core_pulse]`,
-    `[base][black_ring]overlay=format=auto[with_black_ring]`,
-    `[with_black_ring][white_ring]overlay=format=auto[with_white_ring]`,
-    `[with_white_ring][core_pulse]overlay=format=auto,fps=30,format=yuv420p[outv]`,
-  ].join(";\n");
+  const filterScript =
+    localEvents.length === 0
+      ? [
+          `[0:v]pad=iw+${options.pad * 2}:ih+${options.pad * 2}:${options.pad}:${options.pad}:color=0xF3F4F6,fps=30,format=yuv420p[outv]`,
+        ].join(";\n")
+      : [
+          // Keep every synthetic overlay source on the same padded canvas and
+          // timeline as the captured window so event coordinates and
+          // timestamps stay aligned.
+          `[0:v]pad=iw+${options.pad * 2}:ih+${options.pad * 2}:${options.pad}:${options.pad}:color=0xF3F4F6[base]`,
+          `color=c=black@0.0:s=${finalWidth}x${finalHeight}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='0':g='0':b='0':a='${blackRingAlpha}'[black_ring]`,
+          `color=c=white@0.0:s=${finalWidth}x${finalHeight}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='255':g='255':b='255':a='${whiteRingAlpha}'[white_ring]`,
+          `color=c=black@0.0:s=${finalWidth}x${finalHeight}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='0':g='0':b='0':a='${corePulseAlpha}'[core_pulse]`,
+          `[base][black_ring]overlay=format=auto[with_black_ring]`,
+          `[with_black_ring][white_ring]overlay=format=auto[with_white_ring]`,
+          `[with_white_ring][core_pulse]overlay=format=auto,fps=30,format=yuv420p[outv]`,
+        ].join(";\n");
 
   const filterScriptPath = path.join(
     os.tmpdir(),
@@ -370,7 +376,7 @@ function parseRenderOptions(argv: string[]): RenderClickRingsOptions {
   const windowFrameArg = args["window-frame"];
   const pad = Number(args.pad ?? "48");
 
-  if (!inputPath || !outputPath || !eventsPath || !windowFrameArg) {
+  if (!inputPath || !outputPath || !windowFrameArg) {
     throw new Error("Missing required arguments.");
   }
 

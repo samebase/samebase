@@ -44,6 +44,7 @@ struct MouseAnimationOptions {
     let requireWindowOwner: String?
     let requireWindowFrame: CGRect?
     let eventLogPath: String?
+    let eventLogBaseUptime: TimeInterval?
     let eventLogStartOffset: TimeInterval
 
     init(arguments: [String]) throws {
@@ -118,6 +119,12 @@ struct MouseAnimationOptions {
         self.requireWindowOwner = values["require-window-owner"]
         self.requireWindowFrame = try Self.parseRect(values["require-window-frame"])
         self.eventLogPath = values["event-log"]
+        self.eventLogBaseUptime = try values["event-log-base-uptime"].map {
+            try Self.parseNonNegativeDuration(
+                $0,
+                context: "Invalid --event-log-base-uptime value: \($0)"
+            )
+        }
         self.eventLogStartOffset = try Self.parseNonNegativeDuration(
             values["event-log-start-offset"],
             flagName: "--event-log-start-offset",
@@ -279,21 +286,29 @@ struct ClickEvent: Encodable {
 final class ClickEventLogger {
     private let outputURL: URL
     private let startTime: TimeInterval
+    private let baseUptime: TimeInterval?
     private let startOffset: TimeInterval
     private var events: [ClickEvent] = []
 
-    init?(path: String?, startOffset: TimeInterval) {
+    init?(path: String?, baseUptime: TimeInterval?, startOffset: TimeInterval) {
         guard let path else {
             return nil
         }
 
         self.outputURL = URL(fileURLWithPath: path)
         self.startTime = ProcessInfo.processInfo.systemUptime
+        self.baseUptime = baseUptime
         self.startOffset = startOffset
     }
 
     func recordClick(at point: CGPoint) {
-        let timestamp = startOffset + ProcessInfo.processInfo.systemUptime - startTime
+        let now = ProcessInfo.processInfo.systemUptime
+        let timestamp: TimeInterval
+        if let baseUptime {
+            timestamp = max(now - baseUptime, 0)
+        } else {
+            timestamp = startOffset + now - startTime
+        }
         events.append(
             ClickEvent(
                 time: (timestamp * 1000).rounded() / 1000,
@@ -662,6 +677,7 @@ enum MouseAnimationCLI {
             var currentPoint = currentMouseLocation()
             let clickLogger = ClickEventLogger(
                 path: options.eventLogPath,
+                baseUptime: options.eventLogBaseUptime,
                 startOffset: options.eventLogStartOffset
             )
             let validateSafety = {

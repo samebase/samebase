@@ -247,7 +247,7 @@ final class ChromeWindowRecorder {
 
         try await stream.startCapture()
         if let startedFile = options.startedFile {
-            try "started\n".write(
+            try "\(ProcessInfo.processInfo.systemUptime)\n".write(
                 to: URL(fileURLWithPath: startedFile),
                 atomically: true,
                 encoding: .utf8
