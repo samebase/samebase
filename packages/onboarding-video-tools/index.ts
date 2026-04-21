@@ -66,8 +66,13 @@ type LandingDemoStep =
 const PACKAGE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(PACKAGE_DIR, "../..");
 const DEFAULT_TMP_DIR = path.join(REPO_ROOT, ".tmp", "onboarding-video-tools");
+const DEFAULT_RENDER_DIR = path.join(
+  REPO_ROOT,
+  "research",
+  "onboarding-video-artifacts",
+);
 const DEFAULT_OUTPUT_PATH = path.join(
-  DEFAULT_TMP_DIR,
+  DEFAULT_RENDER_DIR,
   "chrome-landing-tabs-demo.mp4",
 );
 const DEFAULT_URLS = {

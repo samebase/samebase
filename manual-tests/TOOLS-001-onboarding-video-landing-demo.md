@@ -30,7 +30,7 @@ pnpm onboarding-video:landing-demo
 ## Expected Results
 
 1. The command exits successfully and prints a final MP4 path under
-   `.tmp/onboarding-video-tools/`.
+   `research/onboarding-video-artifacts/`.
 2. The recorded video shows a single Chrome window with visible GitHub, Convex,
    Cloudflare, and Codex tabs.
 3. Cursor motion stays inside the intended Chrome window for the full run.

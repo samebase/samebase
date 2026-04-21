@@ -20,7 +20,7 @@ pnpm onboarding-video:landing-demo
 Default output:
 
 ```text
-.tmp/onboarding-video-tools/chrome-landing-tabs-demo.mp4
+research/onboarding-video-artifacts/chrome-landing-tabs-demo.mp4
 ```
 
 ## Constraints
@@ -41,6 +41,10 @@ The capture flow is repo-agnostic in purpose, but this package now lives in the
 Noter monorepo so it can share the repo's validation, package wiring, and
 operator docs. The macOS automation, Chrome-window geometry, and video
 post-processing quirks still stay isolated from shipped app runtime code.
+
+The final MP4 defaults to a tracked path under `research/` so the repo can keep
+an intentional canonical render on file. Raw captures, click logs, compiled
+helpers, and other scratch artifacts still stay under `.tmp/`.
 
 ## Why Two Native Helpers Remain
 
