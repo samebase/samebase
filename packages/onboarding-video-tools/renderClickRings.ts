@@ -39,20 +39,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function parseArgs(argv: string[]): ParsedArgs {
   const values: ParsedArgs = {};
 
-  for (let index = 0; index < argv.length; index += 2) {
+  for (let index = 0; index < argv.length; ) {
     const key = argv.at(index);
-    const value = argv.at(index + 1);
 
     if (key === "--") {
-      index -= 1;
+      index += 1;
       continue;
     }
 
+    const value = argv.at(index + 1);
     if (!key?.startsWith("--") || value === undefined) {
       throw new Error(`Invalid argument pair near: ${key ?? "<end>"}`);
     }
 
     values[key.slice(2)] = value;
+    index += 2;
   }
 
   return values;

@@ -325,7 +325,7 @@ enum RecorderCLI {
             try await recorder.record(options: options)
             print(options.outputPath)
         } catch {
-            fputs("record_chrome_window.swift failed: \(error)\n", stderr)
+            fputs("recordChromeWindow.swift failed: \(error)\n", stderr)
             exit(1)
         }
     }
