@@ -43,6 +43,11 @@ type LandingDemoOptions = {
   padPoints: number;
 };
 
+type ScreenDemoOptions = {
+  outputPath: string;
+  durationSeconds: number;
+};
+
 type LandingDemoTarget =
   | "tabs.github"
   | "github.page"
@@ -74,6 +79,10 @@ const DEFAULT_RENDER_DIR = path.join(
 const DEFAULT_OUTPUT_PATH = path.join(
   DEFAULT_RENDER_DIR,
   "chrome-landing-tabs-demo.mp4",
+);
+const DEFAULT_SCREEN_OUTPUT_PATH = path.join(
+  DEFAULT_RENDER_DIR,
+  "screen-capture-demo.mp4",
 );
 const DEFAULT_SCENE_PAD_POINTS = 16;
 const DEFAULT_URLS = {
@@ -127,10 +136,16 @@ export async function main(argv: string[]) {
     return;
   }
 
+  if (command === "screen-demo") {
+    await runScreenDemo(parseScreenDemoArgs(commandArgs));
+    return;
+  }
+
   throw new Error(
     [
       "Usage:",
       "  noter-onboarding-video landing-demo [--output <path>] [--pad <points>]",
+      "  noter-onboarding-video screen-demo [--output <path>] [--duration <seconds>]",
     ].join("\n"),
   );
 }
@@ -173,6 +188,22 @@ function parseLandingDemoArgs(argv: string[]): LandingDemoOptions {
     codexUrl: args["codex-url"] ?? DEFAULT_URLS.codexUrl,
     outputPath: args.output ?? DEFAULT_OUTPUT_PATH,
     padPoints: pad,
+  };
+}
+
+function parseScreenDemoArgs(argv: string[]): ScreenDemoOptions {
+  const args = parseArgs(argv);
+  const durationSeconds = Number(args.duration ?? "4");
+
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    throw new Error(
+      `Invalid --duration value: ${args.duration ?? "<missing>"}`,
+    );
+  }
+
+  return {
+    outputPath: args.output ?? DEFAULT_SCREEN_OUTPUT_PATH,
+    durationSeconds,
   };
 }
 
@@ -365,6 +396,39 @@ async function runLandingDemo(options: LandingDemoOptions) {
       rm(backdropReadyFile, { force: true }),
     ]);
   }
+}
+
+async function runScreenDemo(options: ScreenDemoOptions) {
+  await mkdir(DEFAULT_TMP_DIR, { recursive: true });
+  await mkdir(path.dirname(options.outputPath), { recursive: true });
+
+  const recorderBin = path.join(DEFAULT_TMP_DIR, "record-display-scene");
+  await compileSwiftBinary(
+    path.join(PACKAGE_DIR, "native", "recordDisplayScene.swift"),
+    recorderBin,
+    ["AppKit", "AVFoundation", "CoreMedia", "CoreVideo", "ScreenCaptureKit"],
+  );
+
+  await runCommand(
+    recorderBin,
+    [
+      "--output",
+      options.outputPath,
+      "--duration",
+      options.durationSeconds.toFixed(2),
+      "--warmup-duration",
+      "0.35",
+      "--fps",
+      String(LANDING_DEMO_OUTPUT_FPS),
+      "--cursor",
+      "true",
+      "--click-highlights",
+      "true",
+    ],
+    REPO_ROOT,
+  );
+
+  process.stdout.write(`${options.outputPath}\n`);
 }
 
 function serializeLandingDemoActions(

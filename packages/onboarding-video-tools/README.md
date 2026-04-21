@@ -13,17 +13,32 @@ visible tabs, real cursor motion, and native scene capture.
 - keeps the real Chrome corners and real macOS window shadow in the final MP4
 - uses ScreenCaptureKit's native mouse click highlight instead of rebuilding
   custom ripples in post
+- can also record the entire display that currently contains the mouse cursor
 
-## Current Command
+## Commands
+
+Landing demo:
 
 ```bash
 pnpm onboarding-video:landing-demo
 ```
 
-Default output:
+Full-screen example:
+
+```bash
+pnpm onboarding-video:screen-demo
+```
+
+Landing demo output:
 
 ```text
 research/onboarding-video-artifacts/chrome-landing-tabs-demo.mp4
+```
+
+Full-screen output:
+
+```text
+research/onboarding-video-artifacts/screen-capture-demo.mp4
 ```
 
 ## Constraints
@@ -36,7 +51,7 @@ research/onboarding-video-artifacts/chrome-landing-tabs-demo.mp4
 - intended for internal onboarding-video experiments, not app runtime code
 - current runner fails closed if another Chrome window stays frontmost; until we
   add stronger exact-window focusing, close other Chrome windows before running
-  the demo
+  the landing demo
 
 ## Why It Lives Here
 
@@ -56,6 +71,7 @@ The orchestration and CLI entrypoints live in TypeScript. The native files under
 macOS work:
 
 - desktop-region recording with native cursor click highlights
+- full-display recording for capability checks and experiments
 - fail-closed cursor automation inside the exact Chrome window
 - plain backdrop-window setup for the captured scene
 
