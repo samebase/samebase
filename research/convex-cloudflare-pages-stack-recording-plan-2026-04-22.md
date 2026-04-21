@@ -1,0 +1,84 @@
+# Convex Cloudflare Pages Stack recording plan
+
+## Goal
+
+Keep one canonical onboarding recording that can be:
+
+- manually reviewed before it ships
+- cut into smaller step videos for the README
+- rerun regularly to catch third-party UI drift
+
+## Canonical recording strategy
+
+The current preferred strategy is one continuous browser session instead of
+separate fresh recordings for each step.
+
+Why:
+
+- it avoids repeating fragile auth and site setup between steps
+- it keeps tab state and browser layout stable across the whole flow
+- it makes the user journey feel cohesive
+- it is easier to rerun end to end for drift detection
+
+The flow should still be defined step by step in markdown, but the video should
+be recorded as one straight pass and then cut afterward.
+
+## Tab and identity rules
+
+- Keep the tab order fixed: GitHub, Convex, Cloudflare.
+- Treat GitHub as the identity backbone for the initial setup flow.
+- Start from a dedicated recording Chrome profile.
+- GitHub may already be authenticated in that profile.
+- Convex and Cloudflare should start from their intended onboarding entry
+  points, not from an already-settled dashboard state.
+
+## Video timing rules
+
+- After a page visibly finishes loading or a new destination is reached, keep it
+  on screen for about 1 second before continuing.
+- Do not switch tabs at the exact moment a page becomes ready.
+- Prefer a visible pause with the mouse at rest before major context switches.
+- Keep copy-and-paste handoffs inside the same clip or same straight recording
+  segment so hidden clipboard state does not cross a cut.
+
+## Step checkpoints
+
+The markdown step structure is still useful, but it should be used as a
+checkpoint system for one canonical recording.
+
+Current intended checkpoints:
+
+1. Open the 3 tabs and set the scene.
+2. Create the GitHub repo.
+3. Create the Convex project.
+4. Start the Cloudflare deploy.
+5. Create the Convex deploy key and finish the deploy.
+
+Each checkpoint should have:
+
+- a clear success condition
+- a natural settled frame that can become a cut point
+- enough dwell time for manual review
+
+## Automation expectation
+
+The long-term goal is not blind publishing.
+
+The automation should:
+
+- rerun the canonical recording flow
+- produce the updated master MP4
+- emit visual artifacts or checkpoints for review
+- make it obvious which checkpoint changed or broke
+
+The human operator should still manually watch the results before shipping them
+as onboarding content.
+
+## Near-term implementation guidance
+
+- Continue building the onboarding recorder as one straight flow.
+- Keep the step definitions in markdown so they are easy to inspect and edit.
+- After the full flow works, add cut markers or known timestamps so the master
+  recording can be split into per-step clips.
+- Prefer investing in reliable checkpointing and review outputs before trying to
+  make every step independently replayable.
