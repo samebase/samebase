@@ -37,6 +37,11 @@ type RenderClickRingsOptions = {
 const DEFAULT_PAD = 32;
 const WINDOW_CORNER_RADIUS = 26;
 const WINDOW_BACKGROUND_COLOR = "0xF6F6F3";
+const WINDOW_SHADOW_PAD = 18;
+const WINDOW_SHADOW_OPACITY = 0.14;
+const WINDOW_SHADOW_BLUR_RADIUS = 10;
+const WINDOW_SHADOW_OFFSET_X = 0;
+const WINDOW_SHADOW_OFFSET_Y = 8;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -336,6 +341,12 @@ async function main() {
   const scaleY = videoInfo.height / options.windowFrame.height;
   const finalWidth = videoInfo.width + options.pad * 2;
   const finalHeight = videoInfo.height + options.pad * 2;
+  const shadowWidth = videoInfo.width + WINDOW_SHADOW_PAD * 2;
+  const shadowHeight = videoInfo.height + WINDOW_SHADOW_PAD * 2;
+  const shadowOverlayX =
+    options.pad - WINDOW_SHADOW_PAD + WINDOW_SHADOW_OFFSET_X;
+  const shadowOverlayY =
+    options.pad - WINDOW_SHADOW_PAD + WINDOW_SHADOW_OFFSET_Y;
   const rawEvents = parseClickEvents(
     await fs.readFile(options.eventsPath, "utf8"),
   );
@@ -386,8 +397,12 @@ async function main() {
     `[0:v]fps=${options.fps},setsar=1,format=rgba,split[window_rgb][window_alpha_src]`,
     `[window_alpha_src]format=gray,geq=lum='${roundedWindowAlpha}'[window_alpha]`,
     `[window_rgb][window_alpha]alphamerge[window_masked]`,
+    `[window_alpha]pad=${shadowWidth}:${shadowHeight}:${WINDOW_SHADOW_PAD}:${WINDOW_SHADOW_PAD}:color=black,boxblur=${WINDOW_SHADOW_BLUR_RADIUS}:1,lut=y='val*${WINDOW_SHADOW_OPACITY}'[shadow_alpha]`,
+    `color=c=black:s=${shadowWidth}x${shadowHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba[shadow_rgb]`,
+    `[shadow_rgb][shadow_alpha]alphamerge[window_shadow]`,
     `color=c=${WINDOW_BACKGROUND_COLOR}:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba[window_background]`,
-    `[window_background][window_masked]overlay=${options.pad}:${options.pad}:format=auto[base]`,
+    `[window_background][window_shadow]overlay=${shadowOverlayX}:${shadowOverlayY}:format=auto[with_shadow]`,
+    `[with_shadow][window_masked]overlay=${options.pad}:${options.pad}:format=auto[base]`,
     `color=c=black@0.0:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='0':g='0':b='0':a='${blackRingAlpha}'[black_ring]`,
     `color=c=white@0.0:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='255':g='255':b='255':a='${whiteRingAlpha}'[white_ring]`,
     `color=c=white@0.0:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='255':g='255':b='255':a='${corePulseAlpha}'[core_pulse]`,
