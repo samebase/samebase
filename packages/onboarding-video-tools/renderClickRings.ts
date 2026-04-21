@@ -37,11 +37,16 @@ type RenderClickRingsOptions = {
 const DEFAULT_PAD = 32;
 const WINDOW_CORNER_RADIUS = 26;
 const WINDOW_BACKGROUND_COLOR = "0xF6F6F3";
-const WINDOW_SHADOW_PAD = 18;
-const WINDOW_SHADOW_OPACITY = 0.14;
-const WINDOW_SHADOW_BLUR_RADIUS = 10;
-const WINDOW_SHADOW_OFFSET_X = 0;
-const WINDOW_SHADOW_OFFSET_Y = 8;
+const AMBIENT_SHADOW_PAD = 34;
+const AMBIENT_SHADOW_OPACITY = 0.22;
+const AMBIENT_SHADOW_BLUR_RADIUS = 24;
+const AMBIENT_SHADOW_OFFSET_X = 0;
+const AMBIENT_SHADOW_OFFSET_Y = 8;
+const KEY_SHADOW_PAD = 22;
+const KEY_SHADOW_OPACITY = 0.24;
+const KEY_SHADOW_BLUR_RADIUS = 10;
+const KEY_SHADOW_OFFSET_X = 0;
+const KEY_SHADOW_OFFSET_Y = 14;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -334,6 +339,18 @@ function buildRoundedRectAlphaExpr(
   return `255*lte(hypot(${deltaX},${deltaY}),${clampedCornerRadius})`;
 }
 
+function buildShadowOverlayPosition(
+  pad: number,
+  shadowPad: number,
+  offsetX: number,
+  offsetY: number,
+) {
+  return {
+    x: pad - shadowPad + offsetX,
+    y: pad - shadowPad + offsetY,
+  };
+}
+
 async function main() {
   const options = parseRenderOptions(process.argv.slice(2));
   const videoInfo = probeVideo(options.inputPath);
@@ -341,12 +358,22 @@ async function main() {
   const scaleY = videoInfo.height / options.windowFrame.height;
   const finalWidth = videoInfo.width + options.pad * 2;
   const finalHeight = videoInfo.height + options.pad * 2;
-  const shadowWidth = videoInfo.width + WINDOW_SHADOW_PAD * 2;
-  const shadowHeight = videoInfo.height + WINDOW_SHADOW_PAD * 2;
-  const shadowOverlayX =
-    options.pad - WINDOW_SHADOW_PAD + WINDOW_SHADOW_OFFSET_X;
-  const shadowOverlayY =
-    options.pad - WINDOW_SHADOW_PAD + WINDOW_SHADOW_OFFSET_Y;
+  const ambientShadowWidth = videoInfo.width + AMBIENT_SHADOW_PAD * 2;
+  const ambientShadowHeight = videoInfo.height + AMBIENT_SHADOW_PAD * 2;
+  const ambientShadowOverlay = buildShadowOverlayPosition(
+    options.pad,
+    AMBIENT_SHADOW_PAD,
+    AMBIENT_SHADOW_OFFSET_X,
+    AMBIENT_SHADOW_OFFSET_Y,
+  );
+  const keyShadowWidth = videoInfo.width + KEY_SHADOW_PAD * 2;
+  const keyShadowHeight = videoInfo.height + KEY_SHADOW_PAD * 2;
+  const keyShadowOverlay = buildShadowOverlayPosition(
+    options.pad,
+    KEY_SHADOW_PAD,
+    KEY_SHADOW_OFFSET_X,
+    KEY_SHADOW_OFFSET_Y,
+  );
   const rawEvents = parseClickEvents(
     await fs.readFile(options.eventsPath, "utf8"),
   );
@@ -397,11 +424,15 @@ async function main() {
     `[0:v]fps=${options.fps},setsar=1,format=rgba,split[window_rgb][window_alpha_src]`,
     `[window_alpha_src]format=gray,geq=lum='${roundedWindowAlpha}'[window_alpha]`,
     `[window_rgb][window_alpha]alphamerge[window_masked]`,
-    `[window_alpha]pad=${shadowWidth}:${shadowHeight}:${WINDOW_SHADOW_PAD}:${WINDOW_SHADOW_PAD}:color=black,boxblur=${WINDOW_SHADOW_BLUR_RADIUS}:1,lut=y='val*${WINDOW_SHADOW_OPACITY}'[shadow_alpha]`,
-    `color=c=black:s=${shadowWidth}x${shadowHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba[shadow_rgb]`,
-    `[shadow_rgb][shadow_alpha]alphamerge[window_shadow]`,
+    `[window_alpha]pad=${ambientShadowWidth}:${ambientShadowHeight}:${AMBIENT_SHADOW_PAD}:${AMBIENT_SHADOW_PAD}:color=black,boxblur=${AMBIENT_SHADOW_BLUR_RADIUS}:1,lut=y='val*${AMBIENT_SHADOW_OPACITY}'[ambient_shadow_alpha]`,
+    `color=c=black:s=${ambientShadowWidth}x${ambientShadowHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba[ambient_shadow_rgb]`,
+    `[ambient_shadow_rgb][ambient_shadow_alpha]alphamerge[ambient_shadow]`,
+    `[window_alpha]pad=${keyShadowWidth}:${keyShadowHeight}:${KEY_SHADOW_PAD}:${KEY_SHADOW_PAD}:color=black,boxblur=${KEY_SHADOW_BLUR_RADIUS}:1,lut=y='val*${KEY_SHADOW_OPACITY}'[key_shadow_alpha]`,
+    `color=c=black:s=${keyShadowWidth}x${keyShadowHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba[key_shadow_rgb]`,
+    `[key_shadow_rgb][key_shadow_alpha]alphamerge[key_shadow]`,
     `color=c=${WINDOW_BACKGROUND_COLOR}:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba[window_background]`,
-    `[window_background][window_shadow]overlay=${shadowOverlayX}:${shadowOverlayY}:format=auto[with_shadow]`,
+    `[window_background][ambient_shadow]overlay=${ambientShadowOverlay.x}:${ambientShadowOverlay.y}:format=auto[with_ambient_shadow]`,
+    `[with_ambient_shadow][key_shadow]overlay=${keyShadowOverlay.x}:${keyShadowOverlay.y}:format=auto[with_shadow]`,
     `[with_shadow][window_masked]overlay=${options.pad}:${options.pad}:format=auto[base]`,
     `color=c=black@0.0:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='0':g='0':b='0':a='${blackRingAlpha}'[black_ring]`,
     `color=c=white@0.0:s=${finalWidth}x${finalHeight}:r=${options.fps}:d=${videoInfo.duration.toFixed(3)},format=rgba,geq=r='255':g='255':b='255':a='${whiteRingAlpha}'[white_ring]`,
