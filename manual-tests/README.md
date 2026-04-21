@@ -8,6 +8,7 @@ Goal: keep manual verification simple and repeatable before adding automation.
 
 - `TEMPLATE.md`: required format for new manual tests.
 - `MCP-*.md`: MCP OAuth and remote MCP server phase smoke tests.
+- `TOOLS-*.md`: internal tooling smoke tests that require local operator setup.
 - `worktree/`: worktree-specific tests (`WT-###`).
 - `.runs/`: optional local run notes (ignored by git).
 

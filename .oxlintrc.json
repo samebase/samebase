@@ -87,6 +87,7 @@
         "**/*.config.ts",
         "**/*.cjs",
         "packages/sync/**/*.ts",
+        "packages/onboarding-video-tools/**/*.ts",
         "apps/noter/public/**/*.ts",
         "apps/noter/convex/**/*.{ts,tsx}",
         "apps/noter-starter-template/convex/**/*.{ts,tsx}",
