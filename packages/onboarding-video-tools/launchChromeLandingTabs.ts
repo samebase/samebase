@@ -191,8 +191,12 @@ export async function main(argv: string[]) {
   const options = parseLaunchOptions(argv);
   const context = await chromium.launchPersistentContext(options.profileDir, {
     channel: "chrome",
+    chromiumSandbox: true,
     headless: false,
     viewport: null,
+    // Branded Chrome shows the automation infobar for the default Playwright
+    // switch, which wastes vertical tutorial space in the recorded scene.
+    ignoreDefaultArgs: ["--enable-automation"],
     args: [
       "--window-size=980,720",
       "--window-position=120,84",

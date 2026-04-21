@@ -84,7 +84,8 @@ const DEFAULT_SCREEN_OUTPUT_PATH = path.join(
   DEFAULT_RENDER_DIR,
   "screen-capture-demo.mp4",
 );
-const DEFAULT_SCENE_PAD_POINTS = 16;
+const DEFAULT_SCENE_PAD_POINTS = 40;
+const DEFAULT_BOTTOM_SHADOW_EXTRA_PAD_POINTS = 8;
 const DEFAULT_URLS = {
   githubUrl: "https://github.com/",
   convexUrl: "https://www.convex.dev/",
@@ -496,11 +497,16 @@ function expandWindowFrame(
   windowFrame: WindowFrame,
   padPoints: number,
 ): WindowFrame {
+  const bottomPadPoints = padPoints + DEFAULT_BOTTOM_SHADOW_EXTRA_PAD_POINTS;
+
   return {
     x: windowFrame.x - padPoints,
     y: windowFrame.y - padPoints,
     width: windowFrame.width + padPoints * 2,
-    height: windowFrame.height + padPoints * 2,
+    // Native macOS shadow extends farther below the window than on the other
+    // edges, so keep a slightly larger bottom margin to ensure the MP4 edge is
+    // already white when embedded elsewhere.
+    height: windowFrame.height + padPoints + bottomPadPoints,
   };
 }
 
