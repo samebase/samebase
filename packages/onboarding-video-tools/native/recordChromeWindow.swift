@@ -255,7 +255,9 @@ final class ChromeWindowRecorder {
         try await stream.startCapture()
 
         if let startedFile = options.startedFile {
-            try "ready\n".write(
+            // Use one shared wall-clock timestamp so the renderer can align
+            // click rings to the recorder's actual capture start.
+            try "\(Date().timeIntervalSince1970)\n".write(
                 to: URL(fileURLWithPath: startedFile),
                 atomically: true,
                 encoding: .utf8

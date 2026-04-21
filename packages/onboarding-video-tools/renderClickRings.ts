@@ -315,7 +315,9 @@ async function main() {
   const scaleY = videoInfo.height / options.windowFrame.height;
   const finalWidth = videoInfo.width + options.pad * 2;
   const finalHeight = videoInfo.height + options.pad * 2;
-  const rawEvents = parseClickEvents(await fs.readFile(options.eventsPath, "utf8"));
+  const rawEvents = parseClickEvents(
+    await fs.readFile(options.eventsPath, "utf8"),
+  );
   const localEvents = rawEvents.map((event) =>
     mapEventToVideoCoordinates(
       event,

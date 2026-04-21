@@ -24,12 +24,52 @@ enum MouseAction {
     case wait(TimeInterval)
 }
 
+struct ClickEvent: Encodable {
+    let time: TimeInterval
+    let x: Double
+    let y: Double
+}
+
+final class ClickEventLogger {
+    private let path: String
+    private let encoder = JSONEncoder()
+    private var events: [ClickEvent] = []
+
+    init?(path: String?) {
+        guard let path, !path.isEmpty else {
+            return nil
+        }
+
+        self.path = path
+    }
+
+    func recordClick(at point: CGPoint) {
+        events.append(
+            ClickEvent(
+                time: Date().timeIntervalSince1970,
+                x: point.x,
+                y: point.y
+            )
+        )
+    }
+
+    func writeToDisk() throws {
+        let outputURL = URL(fileURLWithPath: path)
+        try FileManager.default.createDirectory(
+            at: outputURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try encoder.encode(events).write(to: outputURL, options: .atomic)
+    }
+}
+
 struct MouseAnimationOptions {
     let actions: [MouseAction]
     let moveDuration: TimeInterval
     let pauseBeforeClick: TimeInterval
     let clickHoldDuration: TimeInterval
     let pauseAfterClick: TimeInterval
+    let eventLogPath: String?
     let requireFrontmostBundle: String?
     let requireWindowOwner: String?
     let requireWindowFrame: CGRect?
@@ -88,6 +128,7 @@ struct MouseAnimationOptions {
             flagName: "--pause-after-click",
             defaultValue: 0.24
         )
+        self.eventLogPath = values["event-log"]
         self.requireFrontmostBundle = values["require-frontmost-bundle"]
         self.requireWindowOwner = values["require-window-owner"]
         self.requireWindowFrame = try Self.parseRect(values["require-window-frame"])
@@ -340,18 +381,30 @@ func moveCursor(
     duration: TimeInterval,
     validator: (() throws -> Void)? = nil
 ) throws {
-    let steps = max(Int(duration * 120), 1)
+    guard duration > 0 else {
+        CGWarpMouseCursorPosition(end)
+        return
+    }
 
-    for step in 1...steps {
+    let animationStart = ProcessInfo.processInfo.systemUptime
+    let frameDuration: TimeInterval = 1.0 / 120.0
+
+    while true {
         try validator?()
-        let progress = Double(step) / Double(steps)
+        let elapsed = ProcessInfo.processInfo.systemUptime - animationStart
+        let progress = min(elapsed / duration, 1.0)
         let eased = 1 - pow(1 - progress, 3)
         let point = CGPoint(
             x: start.x + (end.x - start.x) * eased,
             y: start.y + (end.y - start.y) * eased
         )
         CGWarpMouseCursorPosition(point)
-        sleepSeconds(duration / Double(steps))
+
+        if progress >= 1 {
+            return
+        }
+
+        sleepSeconds(min(frameDuration, duration - elapsed))
     }
 }
 
@@ -404,6 +457,7 @@ func performLeftClick(
     currentPoint: inout CGPoint,
     target point: CGPoint,
     options: MouseAnimationOptions,
+    clickLogger: ClickEventLogger?,
     validateSafety: @escaping () throws -> Void
 ) throws {
     try moveCursorToVerifiedPoint(
@@ -419,6 +473,7 @@ func performLeftClick(
         insideWindowOwner: options.requireWindowOwner,
         expectedFrame: options.requireWindowFrame
     )
+    clickLogger?.recordClick(at: point)
     leftClick(at: point, holdDuration: options.clickHoldDuration)
     sleepSeconds(options.pauseAfterClick)
 }
@@ -429,6 +484,7 @@ enum MouseAnimationCLI {
         do {
             let options = try MouseAnimationOptions(arguments: Array(CommandLine.arguments.dropFirst()))
             var currentPoint = currentMouseLocation()
+            let clickLogger = ClickEventLogger(path: options.eventLogPath)
             let validateSafety = {
                 try verifyFrontmostBundle(options.requireFrontmostBundle)
                 _ = try verifyWindowFrame(
@@ -444,6 +500,7 @@ enum MouseAnimationCLI {
                         currentPoint: &currentPoint,
                         target: point,
                         options: options,
+                        clickLogger: clickLogger,
                         validateSafety: validateSafety
                     )
                 case .wait(let duration):
@@ -455,6 +512,8 @@ enum MouseAnimationCLI {
                     sleepSeconds(duration)
                 }
             }
+
+            try clickLogger?.writeToDisk()
         } catch {
             fputs("animateMouse.swift failed: \(error)\n", stderr)
             exit(1)
