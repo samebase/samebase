@@ -15,6 +15,9 @@ real brittle spots are so later automation work can focus on the right places.
 - Stay on meaningful destinations long enough for a human to register them.
 - Keep every created resource private or otherwise non-public by default.
 - Treat cleanup as part of the product flow, not just operator hygiene.
+- For the final tutorial artifact, every interaction must be visible on screen.
+  No hidden URL jumps, silent JavaScript field fills, or invisible state
+  changes.
 
 ## Full-run milestones
 
@@ -98,6 +101,11 @@ real brittle spots are so later automation work can focus on the right places.
 - Note where extra dwell time helped and where it felt slow.
 - Convert the most stable parts of the flow into reusable recorder helpers only
   after the full path is proven.
+- Replace proof-run shortcuts with visible interactions before calling the
+  artifact done, especially on Cloudflare:
+  1. visible navigation into Workers & Pages
+  2. visible Pages `Get started`
+  3. visible typing into the repo search field
 
 ## Latest native-run blocker
 

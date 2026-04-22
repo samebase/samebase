@@ -51,6 +51,16 @@ be recorded as one straight pass and then cut afterward.
   segment so hidden clipboard state does not cross a cut.
 - Every third-party resource created during a recording must have a matching
   scripted cleanup path.
+- Final onboarding artifacts must show every user-visible interaction on screen.
+  That includes:
+  1. tab switches
+  2. sidebar navigation
+  3. button presses
+  4. typing into the address bar
+  5. typing into form fields
+- Do not use hidden direct URL changes, silent JavaScript form fills, or other
+  invisible state jumps in the final tutorial recording. Those are acceptable
+  only for research/debug runs, not for the ship-ready artifact.
 
 ## Step checkpoints
 
@@ -105,6 +115,12 @@ as onboarding content.
   3. then enter the Pages `Get started` flow once the account link exists
   4. install the GitHub App for `Only select repositories`
   5. scope it to the repo created in the current run
+- For the final Cloudflare tutorial path, do not jump straight to the Pages
+  provider URL. Show the real UI path visibly:
+  1. open the Cloudflare tab
+  2. navigate through the visible Workers & Pages UI
+  3. click the visible Pages `Get started` control
+  4. type the repo name into the visible search field
 - Do not assume uninstalling the GitHub app or OAuth grant will make the next
   Cloudflare attempt self-heal. Cloudflare can keep a broken repo-access state
   until the dashboard-side GitHub connection is re-established.
