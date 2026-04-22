@@ -31,6 +31,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
@@ -336,7 +337,9 @@ function ProjectSection(props: {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={4}>
-              <DropdownMenuLabel>New conversation</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>New conversation</DropdownMenuLabel>
+              </DropdownMenuGroup>
               {(
                 [
                   "local",

@@ -9,6 +9,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -84,7 +85,9 @@ export function UserMenu({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>{menuLabel ?? children}</DropdownMenuLabel>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>{menuLabel ?? children}</DropdownMenuLabel>
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
             <Link to="/pricing">Pricing</Link>
