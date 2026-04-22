@@ -9,7 +9,6 @@ import {
   resolvePasswordAuthMode,
 } from "./deploymentProfile";
 import { getConnectionByUserAndKind } from "./providerConnections";
-import { isAllowedEmail } from "./users";
 import { readOptionalEnv } from "./oauthUtils";
 
 type UserPatch = {
@@ -18,7 +17,6 @@ type UserPatch = {
   image?: string;
   emailVerificationTime?: number;
   phoneVerificationTime?: number;
-  isApproved?: boolean;
 };
 
 function isNonEmptyString(value: unknown): value is string {
@@ -49,15 +47,7 @@ function buildUserPatch(profile: Record<string, unknown>): UserPatch {
     patch.phoneVerificationTime = Date.now();
   }
 
-  if (isSignInAllowed(patch.email)) {
-    patch.isApproved = true;
-  }
-
   return patch;
-}
-
-function isSignInAllowed(email: string | null | undefined): boolean {
-  return isAllowedEmail(email);
 }
 
 async function upsertSeedGithubConnection(
@@ -228,15 +218,9 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   callbacks: {
     createOrUpdateUser: async (ctx, args) => {
       const patch = buildUserPatch(args.profile);
-      const existingUser = args.existingUserId
-        ? await ctx.db.get(args.existingUserId)
-        : null;
 
-      const emailForAccessCheck = patch.email ?? existingUser?.email;
-      if (!isSignInAllowed(emailForAccessCheck)) {
-        throw new Error("Access denied: account is not allowlisted");
-      }
-
+      // Always persist the auth user row first so invite access can be driven
+      // from `users.isApproved` instead of a hardcoded email list.
       const userId = args.existingUserId
         ? args.existingUserId
         : await ctx.db.insert("users", patch);
