@@ -13,6 +13,8 @@ Timing guidance:
 
 - After a page visibly finishes loading or a new destination is reached, keep
   that page on screen for about 1 second before switching tabs or continuing.
+- For the initial Cloudflare dashboard landing in step 1, hold for about 2
+  seconds before switching away so the viewer can register where they arrived.
 - Do not apply that long pause to small control interactions like opening a
   dropdown, choosing an owner, or clicking a suggestion chip. Those should use
   only a short settle delay.

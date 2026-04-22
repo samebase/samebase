@@ -196,6 +196,7 @@ const STACK_STEP_1_MOUSE_TIMING = {
 const STACK_PAGE_LOAD_SHOW_SECONDS = 1;
 const STACK_TAB_SHOW_SECONDS = 0.4;
 const STACK_CONTROL_SETTLE_SECONDS = 0.25;
+const STACK_CLOUDFLARE_DASHBOARD_SHOW_SECONDS = 2;
 const LANDING_DEMO_OUTPUT_FPS = 30;
 const LANDING_DEMO_RECORDER_WARMUP_SECONDS = 0.8;
 const LANDING_DEMO_AUTOMATION_START_DELAY_SECONDS =
@@ -861,10 +862,13 @@ function buildStackStep1Sequence(coords: StackStep1Coords): StackStep1Step[] {
   if (coords.cloudflare.githubLogin !== null) {
     sequence.push(
       { kind: "click", target: "cloudflare.githubLogin" },
-      { kind: "wait", seconds: STACK_PAGE_LOAD_SHOW_SECONDS },
+      { kind: "wait", seconds: STACK_CLOUDFLARE_DASHBOARD_SHOW_SECONDS },
     );
   } else {
-    sequence.push({ kind: "wait", seconds: STACK_PAGE_LOAD_SHOW_SECONDS });
+    sequence.push({
+      kind: "wait",
+      seconds: STACK_CLOUDFLARE_DASHBOARD_SHOW_SECONDS,
+    });
   }
 
   sequence.push(
