@@ -226,6 +226,7 @@ const STACK_STEP_2_USE_TEMPLATE_LABEL = "Use this template";
 const STACK_STEP_2_OWNER_POPUP_LABEL_FRAGMENT = "Owner (Required)";
 const STACK_STEP_2_REPO_NAME_SUGGESTION_LABEL_FRAGMENT =
   "Use suggested repository name ";
+const STACK_STEP_2_PRIVATE_VISIBILITY_LABEL = "Private";
 const STACK_STEP_2_CREATE_REPOSITORY_BUTTON_LABEL = "Create repository";
 // Step 2 mixes live page-load waits with measured clicks, so keep a
 // conservative recording budget above the nominal click timings to avoid
@@ -1385,6 +1386,8 @@ async function runStackStep2GithubTemplateSequence(
   );
   await sleep(STACK_CONTROL_SETTLE_SECONDS * 1_000);
 
+  await selectPrivateGithubRepoVisibility(mouseBin, windowFrame);
+
   const createRepositoryPoint = await waitForChromeAxElementCenterForRoles(
     STACK_STEP_2_CREATE_REPOSITORY_BUTTON_LABEL,
     ["AXButton"],
@@ -1464,6 +1467,60 @@ async function selectPreferredGithubRepoOwner(
   );
   await sleep(STACK_CONTROL_SETTLE_SECONDS * 1_000);
   return preferredOwner;
+}
+
+async function readGithubVisibilityPopupLabel() {
+  return (
+    (await readChromeAxPopupButtonLabelContaining("Public")) ??
+    (await readChromeAxPopupButtonLabelContaining(
+      STACK_STEP_2_PRIVATE_VISIBILITY_LABEL,
+    ))
+  );
+}
+
+async function selectPrivateGithubRepoVisibility(
+  mouseBin: string,
+  windowFrame: WindowFrame,
+) {
+  const visibilityLabel = await readGithubVisibilityPopupLabel();
+  if (visibilityLabel === null) {
+    throw new Error("GitHub visibility selector is unavailable.");
+  }
+
+  if (visibilityLabel === STACK_STEP_2_PRIVATE_VISIBILITY_LABEL) {
+    return;
+  }
+
+  const visibilityPopupPoint = await waitForChromeAxElementCenterForRoles(
+    visibilityLabel,
+    ["AXPopUpButton"],
+    4_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    visibilityPopupPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  await sleep(250);
+
+  const visibilityOptions = await readChromeAxMenuItemLabels();
+  if (!visibilityOptions.includes(STACK_STEP_2_PRIVATE_VISIBILITY_LABEL)) {
+    throw new Error("GitHub visibility menu did not expose Private.");
+  }
+
+  const privateOptionPoint = await waitForChromeAxElementCenterForRoles(
+    STACK_STEP_2_PRIVATE_VISIBILITY_LABEL,
+    ["AXMenuItem"],
+    2_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    privateOptionPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  await sleep(STACK_CONTROL_SETTLE_SECONDS * 1_000);
 }
 
 function escapeAppleScriptString(value: string) {

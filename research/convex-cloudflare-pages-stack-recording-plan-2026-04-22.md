@@ -41,6 +41,8 @@ be recorded as one straight pass and then cut afterward.
 - After landing on the GitHub template repository in the combined flow, trigger
   one explicit page refresh before looking for `Use this template`, because the
   signed-in state can render stale otherwise.
+- Every recorder-created GitHub repository must be `Private`. Never rely on the
+  page default.
 - Do not reuse that full second for small controls like dropdown picks or
   suggestion buttons. Those should settle quickly so the pacing stays brisk.
 - Do not switch tabs at the exact moment a page becomes ready.
