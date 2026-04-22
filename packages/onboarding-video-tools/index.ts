@@ -217,7 +217,8 @@ const STACK_STEP_2_TEMPLATE_REPO_URL =
   "https://github.com/noter-md/convex-cloudflare-pages-stack";
 const STACK_STEP_2_USE_TEMPLATE_LABEL = "Use this template";
 const STACK_STEP_2_OWNER_POPUP_LABEL_FRAGMENT = "Owner (Required)";
-const STACK_STEP_2_REPOSITORY_NAME_FIELD_LABEL = "Repository name *";
+const STACK_STEP_2_REPO_NAME_SUGGESTION_LABEL_FRAGMENT =
+  "Use suggested repository name ";
 const STACK_STEP_2_CREATE_REPOSITORY_BUTTON_LABEL = "Create repository";
 // Step 2 mixes live page-load waits with measured clicks, so keep a
 // conservative recording budget above the nominal click timings to avoid
@@ -1266,6 +1267,41 @@ async function readChromeAxMenuItemLabels(): Promise<string[]> {
     .filter((line) => line.length > 0);
 }
 
+async function readChromeAxButtonLabelContaining(
+  fragment: string,
+): Promise<string | null> {
+  const result = await runAppleScript(`
+    tell application "System Events"
+      tell process "Google Chrome"
+        set frontmost to true
+        set allItems to entire contents of window 1
+        repeat with itemRef in allItems
+          try
+            if (role of itemRef as text) is "AXButton" then
+              set itemLabel to ""
+              try
+                set itemLabel to description of itemRef as text
+              end try
+              if itemLabel is "" then
+                try
+                  set itemLabel to name of itemRef as text
+                end try
+              end if
+              if itemLabel contains "${escapeAppleScriptString(fragment)}" then
+                return itemLabel
+              end if
+            end if
+          end try
+        end repeat
+        return ""
+      end tell
+    end tell
+  `);
+
+  const trimmed = result.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 async function pressEscapeKey() {
   await runAppleScript(`
     tell application "System Events"
@@ -1274,22 +1310,10 @@ async function pressEscapeKey() {
   `);
 }
 
-async function pasteIntoFocusedChromeField(value: string) {
-  await runAppleScript(`
-    set the clipboard to "${escapeAppleScriptString(value)}"
-    tell application "System Events"
-      keystroke "a" using command down
-      keystroke "v" using command down
-    end tell
-  `);
-}
-
 async function runStackStep2GithubTemplateSequence(
   mouseBin: string,
   windowFrame: WindowFrame,
 ) {
-  const repoName = createStackRecordingRepoName();
-
   await sleep(350);
   await setChromeTabUrl(1, STACK_STEP_2_TEMPLATE_REPO_URL);
   await waitForChromeActiveTabUrlIncludes(
@@ -1313,19 +1337,33 @@ async function runStackStep2GithubTemplateSequence(
   await sleep(1_000);
 
   const owner = await selectPreferredGithubRepoOwner(mouseBin, windowFrame);
-  const repoNameFieldPoint = await waitForChromeAxElementCenterForRoles(
-    STACK_STEP_2_REPOSITORY_NAME_FIELD_LABEL,
-    ["AXTextField"],
+  const suggestedRepoNameLabel = await readChromeAxButtonLabelContaining(
+    STACK_STEP_2_REPO_NAME_SUGGESTION_LABEL_FRAGMENT,
+  );
+  if (suggestedRepoNameLabel === null) {
+    throw new Error("GitHub repo name suggestion is unavailable.");
+  }
+
+  const suggestedRepoName = suggestedRepoNameLabel.replace(
+    STACK_STEP_2_REPO_NAME_SUGGESTION_LABEL_FRAGMENT,
+    "",
+  );
+  if (suggestedRepoName.length === 0) {
+    throw new Error("GitHub repo name suggestion was empty.");
+  }
+
+  const suggestionPoint = await waitForChromeAxElementCenterForRoles(
+    suggestedRepoNameLabel,
+    ["AXButton"],
     10_000,
   );
   await runMouseClick(
     mouseBin,
-    repoNameFieldPoint,
+    suggestionPoint,
     windowFrame,
     STACK_STEP_1_MOUSE_TIMING,
   );
-  await pasteIntoFocusedChromeField(repoName);
-  await sleep(1_000);
+  await sleep(900);
 
   const createRepositoryPoint = await waitForChromeAxElementCenterForRoles(
     STACK_STEP_2_CREATE_REPOSITORY_BUTTON_LABEL,
@@ -1340,7 +1378,7 @@ async function runStackStep2GithubTemplateSequence(
   );
   if (
     !(await waitForChromeActiveTabUrlIncludesWithin(
-      `github.com/${owner}/${repoName}`,
+      `github.com/${owner}/${suggestedRepoName}`,
       1_500,
     ))
   ) {
@@ -1350,7 +1388,7 @@ async function runStackStep2GithubTemplateSequence(
     await pressChromeAxButton(STACK_STEP_2_CREATE_REPOSITORY_BUTTON_LABEL);
   }
   await waitForChromeActiveTabUrlIncludes(
-    `github.com/${owner}/${repoName}`,
+    `github.com/${owner}/${suggestedRepoName}`,
     18_000,
   );
   await sleep(1_200);
@@ -1406,16 +1444,6 @@ async function selectPreferredGithubRepoOwner(
   );
   await sleep(700);
   return preferredOwner;
-}
-
-function createStackRecordingRepoName() {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const hours = String(now.getHours()).padStart(2, "0");
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-  const seconds = String(now.getSeconds()).padStart(2, "0");
-  return `noter-stack-demo-${month}${day}-${hours}${minutes}${seconds}`;
 }
 
 function escapeAppleScriptString(value: string) {
