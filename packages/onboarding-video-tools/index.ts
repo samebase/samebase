@@ -1320,12 +1320,25 @@ async function pressEscapeKey() {
   `);
 }
 
+async function refreshChromePage() {
+  await runAppleScript(`
+    tell application "Google Chrome"
+      reload active tab of front window
+    end tell
+  `);
+}
+
 async function runStackStep2GithubTemplateSequence(
   mouseBin: string,
   windowFrame: WindowFrame,
 ) {
   await sleep(350);
   await setChromeTabUrl(1, STACK_STEP_2_TEMPLATE_REPO_URL);
+  await waitForChromeActiveTabUrlIncludes("/noter-md/template", 12_000);
+  // GitHub occasionally leaves the template repo page in a stale pre-auth
+  // state after the earlier GitHub sign-in dance, so force one refresh before
+  // looking for the template action.
+  await refreshChromePage();
   await waitForChromeActiveTabUrlIncludes("/noter-md/template", 12_000);
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
 
