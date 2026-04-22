@@ -484,6 +484,20 @@ test("landing dev mode shows Google sign-in", async ({ page }) => {
   );
 });
 
+test("public landing interactive elements use pointer cursors", async ({
+  page,
+}) => {
+  await page.goto("/?dev", { waitUntil: "networkidle" });
+
+  await expect(page.getByRole("button", { name: "Google" })).toHaveCSS(
+    "cursor",
+    "pointer",
+  );
+  await expect(
+    page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
+  ).toHaveCSS("cursor", "pointer");
+});
+
 test("public landing renders the closed Google signup return state", async ({
   page,
 }) => {
