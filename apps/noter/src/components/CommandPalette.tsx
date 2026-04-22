@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Dialog, DialogContent } from "@/components/dialog";
 import { Input } from "@/components/input";
-import { FileIcon, ChevronRightIcon } from "@radix-ui/react-icons";
+import { FileIcon, ChevronRightIcon } from "@/lib/radixIcons";
 import { cn } from "@/lib/utils";
 import { fuzzyMatch } from "@/lib/fuzzySearch.tsx";
 import { type CommitReviewFileStatus } from "@/lib/commitReviewStatus";

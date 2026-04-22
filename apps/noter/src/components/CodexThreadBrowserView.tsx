@@ -558,7 +558,7 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
         ) : null}
 
         <div className="grid gap-4 sm:grid-cols-[minmax(280px,320px)_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)]">
-          <Card cornerNotch={0}>
+          <Card>
             <CardHeader className="gap-3">
               <div className="flex items-center justify-between gap-3">
                 <CardTitle className="font-mono text-base">
@@ -611,7 +611,7 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
             </CardContent>
           </Card>
 
-          <Card cornerNotch={0}>
+          <Card>
             <CardHeader className="gap-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="grid gap-2">

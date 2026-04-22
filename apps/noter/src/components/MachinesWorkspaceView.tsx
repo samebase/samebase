@@ -1,4 +1,4 @@
-import { ChevronDownIcon, ChevronRightIcon } from "@radix-ui/react-icons";
+import { ChevronDownIcon, ChevronRightIcon } from "@/lib/radixIcons";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -31,6 +31,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
@@ -336,7 +337,9 @@ function ProjectSection(props: {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={4}>
-              <DropdownMenuLabel>New conversation</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>New conversation</DropdownMenuLabel>
+              </DropdownMenuGroup>
               {(
                 [
                   "local",

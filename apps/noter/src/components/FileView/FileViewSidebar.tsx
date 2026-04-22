@@ -1,5 +1,5 @@
 import { type ComponentProps, type DragEventHandler } from "react";
-import { FilePlusIcon, GitHubLogoIcon, PlusIcon } from "@radix-ui/react-icons";
+import { FilePlusIcon, GitHubLogoIcon, PlusIcon } from "@/lib/radixIcons";
 import { FileTree } from "@/components/FileTree";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -116,7 +116,11 @@ export function FileViewSidebarContent({
             size="sm"
             value={effectiveSidebarMode}
             className="justify-start"
-            onValueChange={onSidebarModeChange}
+            onValueChange={(value) => {
+              if (value !== undefined) {
+                onSidebarModeChange(value);
+              }
+            }}
           >
             <ToggleGroupItem
               value="simple"

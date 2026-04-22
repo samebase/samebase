@@ -1,4 +1,4 @@
-import { ChevronDownIcon } from "@radix-ui/react-icons";
+import { ChevronDownIcon } from "@/lib/radixIcons";
 import { useAction } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { Loader2 } from "lucide-react";

@@ -4,7 +4,7 @@ import {
   GitHubLogoIcon,
   PersonIcon,
   PlusIcon,
-} from "@radix-ui/react-icons";
+} from "@/lib/radixIcons";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { FileTree } from "@/components/FileTree";
 import { FileViewDeveloperTools } from "@/components/FileViewDeveloperTools";

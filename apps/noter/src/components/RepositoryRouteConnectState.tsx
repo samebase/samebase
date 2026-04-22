@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { GitHubLogoIcon } from "@radix-ui/react-icons";
+import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { Button } from "@/components/ui/button";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";

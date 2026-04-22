@@ -54,7 +54,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-} from "@/components/select";
+} from "@/components/ui/select";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,

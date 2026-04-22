@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
+import { MagnifyingGlassIcon } from "@/lib/radixIcons";
 import { Button } from "@/components/ui/button";
 
 /**

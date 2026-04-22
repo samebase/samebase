@@ -1,9 +1,4 @@
-import {
-  Pencil1Icon,
-  PlusIcon,
-  TrashIcon,
-  UpdateIcon,
-} from "@radix-ui/react-icons";
+import { Pencil1Icon, PlusIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { api } from "../../convex/_generated/api";
 import { useCallback, useMemo, useState } from "react";

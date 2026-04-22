@@ -1,4 +1,4 @@
-import { ClockIcon } from "@radix-ui/react-icons";
+import { ClockIcon } from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
