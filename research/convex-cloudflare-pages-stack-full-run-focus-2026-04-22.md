@@ -13,6 +13,9 @@ real brittle spots are so later automation work can focus on the right places.
 - Keep the tab order fixed: GitHub, Convex, Cloudflare.
 - Always start from `https://github.com/noter-md/app`.
 - Always create the generated user repo as `my-first-app`, never `app`.
+- Treat the Cloudflare GitHub app installation as pre-connected for the current
+  mainline recording flow. We are not trying to teach or rerun that install on
+  every pass.
 - Stay on meaningful destinations long enough for a human to register them.
 - Keep every created resource private or otherwise non-public by default.
 - Treat cleanup as part of the product flow, not just operator hygiene.
@@ -54,11 +57,19 @@ real brittle spots are so later automation work can focus on the right places.
   3. Only after that, use the Pages `Get started` path.
   4. During GitHub App install, prefer `Only select repositories` and scope the
      install to the repo created by this run.
+  5. On the repository picker, do not type in the search field for the final
+     artifact. Wait for the repo to appear on its own, click the repo card, and
+     only then click `Begin setup`.
 - The Convex deploy key and Cloudflare env var value must not leak into the
   final video artifact.
 - Cloudflare build time is variable, so the recording needs enough budget to
   wait for the final deployed URL.
 - Cleanup must work for partial runs, not only successful end-to-end runs.
+- "Clean state" for the mainline rerun means:
+  1. no GitHub repo
+  2. no Convex project
+  3. no Cloudflare Pages project
+  4. Cloudflare's GitHub installation may remain connected
 
 ## Latest successful run
 

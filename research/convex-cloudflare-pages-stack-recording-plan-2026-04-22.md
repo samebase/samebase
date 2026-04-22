@@ -121,12 +121,23 @@ as onboarding content.
   3. then enter the Pages `Get started` flow once the account link exists
   4. install the GitHub App for `Only select repositories`
   5. scope it to the repo created in the current run
+- For the current canonical onboarding flow, treat the Cloudflare GitHub app
+  installation as a persistent prerequisite rather than something we create and
+  destroy on every recording run.
+- Current cleanup boundary for a rerunnable "clean state":
+  1. no GitHub repo created by the run
+  2. no Convex project created by the run
+  3. no Cloudflare Pages project created by the run
+  4. keep the underlying Cloudflare GitHub installation connected unless the
+     operator is explicitly debugging that installation flow
 - For the final Cloudflare tutorial path, do not jump straight to the Pages
   provider URL. Show the real UI path visibly:
   1. open the Cloudflare tab
   2. navigate through the visible Workers & Pages UI
   3. click the visible Pages `Get started` control
-  4. type the repo name into the visible search field
+  4. wait for Cloudflare to list the repo on its own; do not type into the
+     repository search field for the final artifact
+  5. visibly click the repo card itself before clicking `Begin setup`
 - Do not assume uninstalling the GitHub app or OAuth grant will make the next
   Cloudflare attempt self-heal. Cloudflare can keep a broken repo-access state
   until the dashboard-side GitHub connection is re-established.

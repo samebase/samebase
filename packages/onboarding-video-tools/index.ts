@@ -267,6 +267,7 @@ const STACK_CLOUDFLARE_CONNECT_GITHUB_LABELS = [
   "Connect with GitHub",
   "Continue with GitHub",
 ] as const;
+const STACK_CLOUDFLARE_ADD_ACCOUNT_LABEL = "Add account";
 const STACK_CLOUDFLARE_AUTHORIZE_LABELS = [
   "Authorize cloudflare",
   "Authorize Cloudflare",
@@ -1099,11 +1100,18 @@ async function configureStackStep1ChromeWindow(options: StackStep1Options) {
       end if
       set targetWindow to front window
       set bounds of targetWindow to {${STACK_STEP_1_WINDOW_BOUNDS.x}, ${STACK_STEP_1_WINDOW_BOUNDS.y}, ${STACK_STEP_1_WINDOW_BOUNDS.right}, ${STACK_STEP_1_WINDOW_BOUNDS.bottom}}
-      repeat while (count of tabs of targetWindow) < 3
-        make new tab at end of tabs of targetWindow
+      repeat 6 times
+        if (count of tabs of targetWindow) is greater than or equal to 3 then exit repeat
+        make new tab at end of tabs of targetWindow with properties {URL:"about:blank"}
+        delay 0.1
       end repeat
       repeat while (count of tabs of targetWindow) > 3
         close last tab of targetWindow
+      end repeat
+      repeat 3 times
+        if (count of tabs of targetWindow) is greater than or equal to 3 then exit repeat
+        make new tab at end of tabs of targetWindow with properties {URL:"about:blank"}
+        delay 0.1
       end repeat
       set URL of tab 1 of targetWindow to "${escapeAppleScriptString(options.githubUrl)}"
       set URL of tab 2 of targetWindow to "${STACK_STEP_1_CONVEX_LOGOUT_URL}"
@@ -1750,14 +1758,32 @@ async function runStackStep4PrepareCloudflareDeploySequence(
     );
   }
 
-  await waitForChromeJavaScriptTruthy(
-    buildFillFieldScript(["Search repositories..."], repoName),
-    8_000,
+  // The final artifact should let Cloudflare reveal the repository list on its
+  // own. If the repo never appears without typing into the search field, that
+  // is a real product issue and the run should stop there.
+  const repoAppeared = await waitForChromeJavaScriptTruthyWithin(
+    `(() => {
+      const wanted = ${JSON.stringify(repoName)}.trim().toLowerCase();
+      const radios = [...document.querySelectorAll("input[type='radio'], [role='radio']")];
+      const target = radios.find((radio) => {
+        const containerText = (radio.parentElement?.textContent ?? "").trim().toLowerCase();
+        return containerText.includes(wanted);
+      });
+      if (!target) return "";
+      const clickable = target.closest("label, div") ?? target;
+      if (!(clickable instanceof HTMLElement)) return "";
+      clickable.scrollIntoView({ block: "center", inline: "center" });
+      clickable.click();
+      return "ok";
+    })()`,
+    20_000,
   );
-  await waitForChromeJavaScriptTruthy(
-    buildClickClickableContainingTextScript(repoName),
-    12_000,
-  );
+  if (!repoAppeared) {
+    throw new Error(
+      `Cloudflare did not list ${repoName} on its own in the repository picker.`,
+    );
+  }
+
   const beginSetupPoint = await waitForChromeAxElementCenterForRoles(
     STACK_CLOUDFLARE_BEGIN_SETUP_LABEL,
     ["AXButton"],
@@ -1771,13 +1797,58 @@ async function runStackStep4PrepareCloudflareDeploySequence(
   );
 
   await waitForChromeJavaScriptTruthy(
-    buildFieldPresenceScript(["Build command", "Project name"]),
+    buildReadTextContainingScript([
+      "Set up builds and deployments",
+      "Save and Deploy",
+    ]),
     20_000,
   );
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
   await fillCloudflareBuildConfiguration(repoName);
 
   return cloudflare;
+}
+
+async function cloudflareProviderNeedsReconnect(repoName: string) {
+  const providerText = await executeChromeJavaScript(
+    buildReadTextContainingScript([
+      `No repositories matching "${repoName}"`,
+      "There is an internal issue with your Cloudflare Pages Git installation.",
+    ]),
+  );
+  return providerText.length > 0;
+}
+
+async function reconnectCloudflareGithubAccount(
+  mouseBin: string,
+  windowFrame: WindowFrame,
+  cloudflare: CloudflareAccountContext,
+) {
+  const clickedAddAccount = await clickChromeButtonLikeIfPresent([
+    STACK_CLOUDFLARE_ADD_ACCOUNT_LABEL,
+  ]);
+  if (!clickedAddAccount) {
+    throw new Error(
+      "Cloudflare could not see the repo and the Add account recovery action was unavailable.",
+    );
+  }
+
+  if (await waitForChromeActiveTabUrlIncludesWithin("github.com/", 8_000)) {
+    await completeCloudflareGithubAuthorization(mouseBin, windowFrame);
+  } else if (
+    !(await waitForChromeActiveTabUrlIncludesWithin(
+      `dash.cloudflare.com/${cloudflare.accountId}/`,
+      8_000,
+    ))
+  ) {
+    throw new Error(
+      "Cloudflare Add account did not return to Cloudflare or open GitHub authorization.",
+    );
+  }
+
+  await setChromeTabUrl(3, cloudflare.pagesProviderUrl);
+  await waitForChromeActiveTabUrlIncludes("/pages/new/provider/github", 20_000);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
 }
 
 async function completeCloudflareGithubAuthorization(
@@ -2332,6 +2403,17 @@ function buildFillFieldScript(
       const rect = element.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0;
     };
+    const nearbyText = (field) => {
+      const parts = [
+        field.closest("label, div, section, form")?.textContent,
+        field.parentElement?.textContent,
+        field.previousElementSibling?.textContent,
+      ];
+      return parts
+        .map((part) => normalize(part ?? ""))
+        .filter(Boolean)
+        .join(" ");
+    };
     const fields = [...document.querySelectorAll("input:not([type='hidden']):not([type='checkbox']):not([type='radio']), textarea")];
     const byLabel = () => {
       const labels = [...document.querySelectorAll("label")];
@@ -2359,6 +2441,7 @@ function buildFillFieldScript(
         field.getAttribute("name"),
         field.getAttribute("placeholder"),
         field.getAttribute("id"),
+        nearbyText(field),
       ].map((part) => normalize(part ?? ""));
       return wanted.some((hint) => labels.some((label) => label.includes(hint)));
     });
@@ -2384,15 +2467,27 @@ function buildFieldPresenceScript(fieldHints: readonly string[]) {
       const rect = element.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0;
     };
+    const nearbyText = (field) => {
+      if (!(field instanceof HTMLElement)) return "";
+      const parts = [
+        field.closest("label, div, section, form")?.textContent,
+        field.parentElement?.textContent,
+        field.previousElementSibling?.textContent,
+      ];
+      return parts
+        .map((part) => normalize(part ?? ""))
+        .filter(Boolean)
+        .join(" ");
+    };
     const match = fields.find((field) => {
       if (!isVisible(field)) return false;
-      const label = normalize(
-        field.getAttribute?.("aria-label") ??
-          field.getAttribute?.("placeholder") ??
-          field.textContent ??
-          ""
-      );
-      return wanted.some((hint) => label.includes(hint));
+      const labels = [
+        field.getAttribute?.("aria-label"),
+        field.getAttribute?.("placeholder"),
+        field.textContent,
+        nearbyText(field),
+      ].map((part) => normalize(part ?? ""));
+      return wanted.some((hint) => labels.some((label) => label.includes(hint)));
     });
     return match ? "true" : "";
   })()`;
