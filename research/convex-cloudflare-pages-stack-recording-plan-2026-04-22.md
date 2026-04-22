@@ -96,6 +96,14 @@ as onboarding content.
   recording can be split into per-step clips.
 - Prefer investing in reliable checkpointing and review outputs before trying to
   make every step independently replayable.
+- Treat Cloudflare GitHub linking as a prerequisite to the Pages import flow
+  when the UI requires it. Current working operator sequence:
+  1. land on the Workers & Pages create screen
+  2. connect GitHub first
+  3. then enter the Pages `Get started` flow once the account link exists
+- Do not assume uninstalling the GitHub app or OAuth grant will make the next
+  Cloudflare attempt self-heal. Cloudflare can keep a broken repo-access state
+  until the dashboard-side GitHub connection is re-established.
 - For services where we already expose an app-owned delete-all path in Noter,
   prefer reusing that deletion flow through the product API.
 - For third-party services, keep a visible browser cleanup flow so the tutorial

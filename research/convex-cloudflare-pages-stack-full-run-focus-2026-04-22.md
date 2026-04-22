@@ -1,0 +1,59 @@
+# Convex Cloudflare Pages Stack full-run focus
+
+## Goal
+
+Produce one straight onboarding recording that starts from the prepared GitHub,
+Convex, and Cloudflare tabs and ends on the deployed Cloudflare Pages URL.
+
+This first full run does not need a perfect script. It should teach us where the
+real brittle spots are so later automation work can focus on the right places.
+
+## Current focus areas
+
+- Keep the tab order fixed: GitHub, Convex, Cloudflare.
+- Prefer the simple repo name `app` when GitHub allows it.
+- Stay on meaningful destinations long enough for a human to register them.
+- Keep every created resource private or otherwise non-public by default.
+- Treat cleanup as part of the product flow, not just operator hygiene.
+
+## Full-run milestones
+
+1. Set the scene with the 3 tabs.
+2. Create the GitHub repo from `noter-md/app`.
+3. Create the Convex project.
+4. Start the Cloudflare Pages deploy.
+5. Create the Convex production deploy key.
+6. Return to Cloudflare and finish the deploy.
+7. Wait until the Pages build finishes.
+8. Open the deployed Pages URL in the browser before ending the recording.
+9. Clean up every resource created by the run.
+
+## Things to watch closely
+
+- GitHub auth and template UI state can render stale and may need a refresh.
+- Convex and Cloudflare sign-in flows may vary slightly even when the broad path
+  is the same.
+- Cloudflare Pages may require the GitHub account connection to be established
+  before the Pages "Get started" flow works.
+- Fully uninstalling Cloudflare from GitHub does not necessarily auto-heal the
+  next Cloudflare Pages attempt. Returning to the Pages screen can still show
+  broken repository-access errors until Cloudflare's own GitHub connection state
+  is rebuilt from the dashboard.
+- Current working Cloudflare sequence:
+  1. Open `https://dash.cloudflare.com/<account>/workers-and-pages/create`.
+  2. Use the visible GitHub connect button first so Cloudflare already has the
+     GitHub account linked.
+  3. Only after that, use the Pages `Get started` path.
+- The Convex deploy key and Cloudflare env var value must not leak into the
+  final video artifact.
+- Cloudflare build time is variable, so the recording needs enough budget to
+  wait for the final deployed URL.
+- Cleanup must work for partial runs, not only successful end-to-end runs.
+
+## TODO after the first full run
+
+- Record the exact points where the flow felt brittle or visually unclear.
+- Save the final deployed Pages URL that the run opened.
+- Note where extra dwell time helped and where it felt slow.
+- Convert the most stable parts of the flow into reusable recorder helpers only
+  after the full path is proven.
