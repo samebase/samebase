@@ -222,6 +222,7 @@ const STACK_STEP_1_MOUSE_TIMING = {
 const STACK_PAGE_LOAD_SHOW_SECONDS = 1;
 const STACK_TAB_SHOW_SECONDS = 0.4;
 const STACK_CONTROL_SETTLE_SECONDS = 0.25;
+const STACK_VISIBLE_TYPING_CHARACTER_DELAY_SECONDS = 0.04;
 const STACK_CLOUDFLARE_DASHBOARD_SHOW_SECONDS = 2;
 const LANDING_DEMO_OUTPUT_FPS = 30;
 const LANDING_DEMO_RECORDER_WARMUP_SECONDS = 0.8;
@@ -263,11 +264,6 @@ const STACK_CONVEX_PRODUCTION_MENU_ITEM_PREFIX = "Production ";
 const STACK_CONVEX_SETTINGS_LINK_LABEL = "Settings";
 const STACK_CONVEX_CREATE_DEPLOY_KEY_LABEL = "Create Deploy Key";
 const STACK_CONVEX_DEPLOY_KEY_NAME = "for_cloudflare_pages";
-const STACK_CLOUDFLARE_CONNECT_GITHUB_LABELS = [
-  "Connect with GitHub",
-  "Continue with GitHub",
-] as const;
-const STACK_CLOUDFLARE_ADD_ACCOUNT_LABEL = "Add account";
 const STACK_CLOUDFLARE_AUTHORIZE_LABELS = [
   "Authorize cloudflare",
   "Authorize Cloudflare",
@@ -958,7 +954,11 @@ async function runStackFullDemo(options: StackFullRunOptions) {
       cloudflare,
     );
     const deployedUrl = await waitForCloudflareDeploymentUrl();
-    await openDeployedSiteInCloudflareTab(deployedUrl);
+    await openDeployedSiteInCloudflareTab(
+      mouseBin,
+      coords.windowFrame,
+      deployedUrl,
+    );
     await runStackStep6AddTodoSequence(
       mouseBin,
       coords.windowFrame,
@@ -1563,45 +1563,46 @@ async function readChromeAxMenuItemLabels(): Promise<string[]> {
     .filter((line) => line.length > 0);
 }
 
-async function readChromeAxButtonLabelContaining(
-  fragment: string,
-): Promise<string | null> {
-  const result = await runAppleScript(`
-    tell application "System Events"
-      tell process "Google Chrome"
-        set frontmost to true
-        set allItems to entire contents of window 1
-        repeat with itemRef in allItems
-          try
-            if (role of itemRef as text) is "AXButton" then
-              set itemLabel to ""
-              try
-                set itemLabel to description of itemRef as text
-              end try
-              if itemLabel is "" then
-                try
-                  set itemLabel to name of itemRef as text
-                end try
-              end if
-              if itemLabel contains "${escapeAppleScriptString(fragment)}" then
-                return itemLabel
-              end if
-            end if
-          end try
-        end repeat
-        return ""
-      end tell
-    end tell
-  `);
-
-  const trimmed = result.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
 async function pressEscapeKey() {
   await runAppleScript(`
     tell application "System Events"
       key code 53
+    end tell
+  `);
+}
+
+async function clearFocusedField() {
+  await runAppleScript(`
+    tell application "System Events"
+      keystroke "a" using command down
+      delay 0.05
+      key code 51
+    end tell
+  `);
+}
+
+async function pasteIntoFocusedField() {
+  await runAppleScript(`
+    tell application "System Events"
+      keystroke "v" using command down
+    end tell
+  `);
+}
+
+async function typeVisibleText(text: string) {
+  const characters = text.split("").map((character) =>
+    `keystroke "${escapeAppleScriptString(character)}"`
+  );
+  const body = characters
+    .map(
+      (statement) =>
+        `      ${statement}\n      delay ${STACK_VISIBLE_TYPING_CHARACTER_DELAY_SECONDS}`
+    )
+    .join("\n");
+
+  await runAppleScript(`
+    tell application "System Events"
+${body}
     end tell
   `);
 }
@@ -1636,9 +1637,11 @@ async function runStackStep2GithubTemplateSequence(
   const owner = await selectPreferredGithubRepoOwner(mouseBin, windowFrame);
   // Keep the generated repo name fixed and human-readable so reruns fail fast
   // when cleanup regresses and the tutorial never accidentally reuses `app`.
-  await waitForChromeJavaScriptTruthy(
-    buildFillFieldScript(["Repository name"], STACK_STEP_2_CREATED_REPO_NAME),
-    8_000,
+  await typeIntoChromeFieldVisible(
+    mouseBin,
+    windowFrame,
+    ["Repository name"],
+    STACK_STEP_2_CREATED_REPO_NAME,
   );
   // Chrome's autofill suggestion sheet can cover the visibility section after
   // typing the repo name, so close it before we look for the Private control.
@@ -1701,13 +1704,22 @@ async function runStackStep3ConvexProjectSequence(
     windowFrame,
     STACK_STEP_1_MOUSE_TIMING,
   );
-  await waitForChromeJavaScriptTruthy(
-    buildFillFieldScript(["Project Name", "Name"], repoName),
-    10_000,
+  await typeIntoChromeFieldVisible(
+    mouseBin,
+    windowFrame,
+    ["Project Name", "Name"],
+    repoName,
   );
-  await waitForChromeJavaScriptTruthy(
-    buildClickButtonLikeByTextsScript(["Create Project", "Create", "submit"]),
-    10_000,
+  const createButtonPoint = await waitForChromeAxElementCenterForRoles(
+    "Create",
+    ["AXButton"],
+    8_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    createButtonPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
   );
   await waitForChromeActiveTabUrlIncludes(`/${repoName}/`, 25_000);
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
@@ -1720,22 +1732,113 @@ async function runStackStep4PrepareCloudflareDeploySequence(
 ): Promise<CloudflareAccountContext> {
   await activateChromeTab(3);
   await waitForChromeActiveTabUrlIncludes("dash.cloudflare.com", 20_000);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
   const cloudflare = await readCloudflareAccountContext();
 
-  await setChromeTabUrl(3, cloudflare.workersAndPagesCreateUrl);
+  const workersAndPagesPoint = await waitForChromeAxElementCenterForRoles(
+    "Workers & Pages",
+    ["AXLink"],
+    10_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    workersAndPagesPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  await waitForChromeActiveTabUrlIncludes("/workers-and-pages", 12_000);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+
+  const createApplicationPoint = await waitForChromeAxElementCenterForRoles(
+    "Create application",
+    ["AXButton"],
+    10_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    createApplicationPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
   await waitForChromeActiveTabUrlIncludes("/workers-and-pages/create", 12_000);
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
 
-  await clickChromeButtonLikeIfPresent(STACK_CLOUDFLARE_CONNECT_GITHUB_LABELS);
-  await completeCloudflareGithubAuthorization(mouseBin, windowFrame);
+  const connectGithubPoint =
+    (await measureChromeAxElementCenterForRoles("Continue with GitHub", [
+      "AXButton",
+    ])) ??
+    (await measureChromeAxElementCenterForRoles("Connect with GitHub", [
+      "AXButton",
+    ]));
+  if (connectGithubPoint !== null) {
+    await runMouseClick(
+      mouseBin,
+      connectGithubPoint,
+      windowFrame,
+      STACK_STEP_1_MOUSE_TIMING,
+    );
+    await completeCloudflareGithubAuthorization(mouseBin, windowFrame);
 
-  await setChromeTabUrl(3, cloudflare.pagesCreateUrl);
+    if (
+      !(await waitForChromeActiveTabUrlIncludesWithin(
+        "/workers-and-pages/create",
+        8_000,
+      ))
+    ) {
+      const workersAndPagesReturnPoint = await waitForChromeAxElementCenterForRoles(
+        "Workers & Pages",
+        ["AXLink"],
+        10_000,
+      );
+      await runMouseClick(
+        mouseBin,
+        workersAndPagesReturnPoint,
+        windowFrame,
+        STACK_STEP_1_MOUSE_TIMING,
+      );
+      await waitForChromeActiveTabUrlIncludes("/workers-and-pages", 12_000);
+      await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+
+      const createApplicationReturnPoint =
+        await waitForChromeAxElementCenterForRoles(
+          "Create application",
+          ["AXButton"],
+          10_000,
+        );
+      await runMouseClick(
+        mouseBin,
+        createApplicationReturnPoint,
+        windowFrame,
+        STACK_STEP_1_MOUSE_TIMING,
+      );
+      await waitForChromeActiveTabUrlIncludes("/workers-and-pages/create", 12_000);
+      await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+    }
+  }
+
+  await clickChromeDomElementVisible(
+    mouseBin,
+    windowFrame,
+    buildMeasureClickableContainingTextCenterScript("Get started"),
+    8_000,
+    "Cloudflare Pages get started",
+  );
   await waitForChromeActiveTabUrlIncludes(
     "/workers-and-pages/create/pages",
     12_000,
   );
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
-  await setChromeTabUrl(3, cloudflare.pagesProviderUrl);
+
+  await clickChromeDomElementVisible(
+    mouseBin,
+    windowFrame,
+    buildMeasureNestedActionCenterScript(
+      "Import an existing Git repository",
+      "Get started",
+    ),
+    8_000,
+    "Cloudflare import existing Git repository",
+  );
   await waitForChromeActiveTabUrlIncludes("/pages/new/provider/github", 20_000);
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
 
@@ -1761,28 +1864,22 @@ async function runStackStep4PrepareCloudflareDeploySequence(
   // The final artifact should let Cloudflare reveal the repository list on its
   // own. If the repo never appears without typing into the search field, that
   // is a real product issue and the run should stop there.
-  const repoAppeared = await waitForChromeJavaScriptTruthyWithin(
-    `(() => {
-      const wanted = ${JSON.stringify(repoName)}.trim().toLowerCase();
-      const radios = [...document.querySelectorAll("input[type='radio'], [role='radio']")];
-      const target = radios.find((radio) => {
-        const containerText = (radio.parentElement?.textContent ?? "").trim().toLowerCase();
-        return containerText.includes(wanted);
-      });
-      if (!target) return "";
-      const clickable = target.closest("label, div") ?? target;
-      if (!(clickable instanceof HTMLElement)) return "";
-      clickable.scrollIntoView({ block: "center", inline: "center" });
-      clickable.click();
-      return "ok";
-    })()`,
+  const repoCardPoint = await waitForChromeDomElementCenter(
+    buildMeasureCloudflareRepoCardCenterScript(repoName),
     20_000,
-  );
-  if (!repoAppeared) {
+    `Cloudflare repo card ${repoName}`,
+  ).catch(() => null);
+  if (repoCardPoint === null) {
     throw new Error(
       `Cloudflare did not list ${repoName} on its own in the repository picker.`,
     );
   }
+  await runMouseClick(
+    mouseBin,
+    repoCardPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
 
   const beginSetupPoint = await waitForChromeAxElementCenterForRoles(
     STACK_CLOUDFLARE_BEGIN_SETUP_LABEL,
@@ -1804,51 +1901,9 @@ async function runStackStep4PrepareCloudflareDeploySequence(
     20_000,
   );
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
-  await fillCloudflareBuildConfiguration(repoName);
+  await fillCloudflareBuildConfiguration(mouseBin, windowFrame, repoName);
 
   return cloudflare;
-}
-
-async function cloudflareProviderNeedsReconnect(repoName: string) {
-  const providerText = await executeChromeJavaScript(
-    buildReadTextContainingScript([
-      `No repositories matching "${repoName}"`,
-      "There is an internal issue with your Cloudflare Pages Git installation.",
-    ]),
-  );
-  return providerText.length > 0;
-}
-
-async function reconnectCloudflareGithubAccount(
-  mouseBin: string,
-  windowFrame: WindowFrame,
-  cloudflare: CloudflareAccountContext,
-) {
-  const clickedAddAccount = await clickChromeButtonLikeIfPresent([
-    STACK_CLOUDFLARE_ADD_ACCOUNT_LABEL,
-  ]);
-  if (!clickedAddAccount) {
-    throw new Error(
-      "Cloudflare could not see the repo and the Add account recovery action was unavailable.",
-    );
-  }
-
-  if (await waitForChromeActiveTabUrlIncludesWithin("github.com/", 8_000)) {
-    await completeCloudflareGithubAuthorization(mouseBin, windowFrame);
-  } else if (
-    !(await waitForChromeActiveTabUrlIncludesWithin(
-      `dash.cloudflare.com/${cloudflare.accountId}/`,
-      8_000,
-    ))
-  ) {
-    throw new Error(
-      "Cloudflare Add account did not return to Cloudflare or open GitHub authorization.",
-    );
-  }
-
-  await setChromeTabUrl(3, cloudflare.pagesProviderUrl);
-  await waitForChromeActiveTabUrlIncludes("/pages/new/provider/github", 20_000);
-  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
 }
 
 async function completeCloudflareGithubAuthorization(
@@ -1959,17 +2014,33 @@ async function runStackStep5CreateConvexDeployKeyAndFinishDeploy(
     windowFrame,
     STACK_STEP_1_MOUSE_TIMING,
   );
-  await waitForChromeJavaScriptTruthy(
-    buildFillFieldScript(["Name"], STACK_CONVEX_DEPLOY_KEY_NAME),
+  await typeIntoChromeFieldVisible(
+    mouseBin,
+    windowFrame,
+    ["Name"],
+    STACK_CONVEX_DEPLOY_KEY_NAME,
+  );
+  const createKeyConfirmPoint = await waitForChromeAxElementCenterForRoles(
+    "Create",
+    ["AXButton"],
     8_000,
   );
-  await waitForChromeJavaScriptTruthy(
-    buildClickButtonLikeByTextsScript(["Create"]),
-    8_000,
+  await runMouseClick(
+    mouseBin,
+    createKeyConfirmPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
   );
-  await waitForChromeJavaScriptTruthy(
-    buildClickDialogButtonLikeByTextsScript(["Copy"]),
+  const copyDeployKeyPoint = await waitForChromeAxElementCenterForRoles(
+    "Copy",
+    ["AXButton"],
     15_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    copyDeployKeyPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
   );
   const deployKey = await readClipboard();
   if (deployKey.length === 0) {
@@ -1982,10 +2053,7 @@ async function runStackStep5CreateConvexDeployKeyAndFinishDeploy(
     20_000,
   );
   await sleep(STACK_TAB_SHOW_SECONDS * 1_000);
-  await waitForChromeJavaScriptTruthy(
-    buildFillFieldScript(["Value"], deployKey),
-    8_000,
-  );
+  await pasteIntoChromeFieldVisible(mouseBin, windowFrame, ["Value"]);
   const saveAndDeployPoint = await waitForChromeAxElementCenterForRoles(
     "Save and Deploy",
     ["AXButton"],
@@ -2001,33 +2069,50 @@ async function runStackStep5CreateConvexDeployKeyAndFinishDeploy(
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
 }
 
-async function fillCloudflareBuildConfiguration(repoName: string) {
-  await waitForChromeJavaScriptTruthy(
-    buildFillFieldScript(["Project name"], repoName),
-    8_000,
+async function fillCloudflareBuildConfiguration(
+  mouseBin: string,
+  windowFrame: WindowFrame,
+  repoName: string,
+) {
+  await typeIntoChromeFieldVisible(
+    mouseBin,
+    windowFrame,
+    ["Project name"],
+    repoName,
   );
-  await waitForChromeJavaScriptTruthy(
-    buildFillFieldScript(["Build command"], STACK_CLOUDFLARE_BUILD_COMMAND),
-    8_000,
+  await typeIntoChromeFieldVisible(
+    mouseBin,
+    windowFrame,
+    ["Build command"],
+    STACK_CLOUDFLARE_BUILD_COMMAND,
   );
-  await waitForChromeJavaScriptTruthy(
-    buildFillFieldScript(
-      ["Build output directory", "Build command directory"],
-      STACK_CLOUDFLARE_BUILD_OUTPUT_DIRECTORY,
+  await typeIntoChromeFieldVisible(
+    mouseBin,
+    windowFrame,
+    ["Build output directory", "Build command directory"],
+    STACK_CLOUDFLARE_BUILD_OUTPUT_DIRECTORY,
+  );
+  await clickChromeDomElementVisible(
+    mouseBin,
+    windowFrame,
+    buildMeasureClickableContainingTextCenterScript(
+      "Environment variables (advanced)",
     ),
     8_000,
+    "Cloudflare environment variables advanced toggle",
   );
-  await waitForChromeJavaScriptTruthy(
-    buildClickButtonLikeByTextsScript(["Environment variables (advanced)"]),
+  await clickChromeDomElementVisible(
+    mouseBin,
+    windowFrame,
+    buildMeasureClickableContainingTextCenterScript("Add variable"),
     8_000,
+    "Cloudflare add variable",
   );
-  await clickChromeButtonLikeIfPresent(["Add variable"]);
-  await waitForChromeJavaScriptTruthy(
-    buildFillFieldScript(
-      ["Variable name"],
-      STACK_CLOUDFLARE_ENVIRONMENT_VARIABLE_NAME,
-    ),
-    8_000,
+  await typeIntoChromeFieldVisible(
+    mouseBin,
+    windowFrame,
+    ["Variable name"],
+    STACK_CLOUDFLARE_ENVIRONMENT_VARIABLE_NAME,
   );
 }
 
@@ -2040,10 +2125,20 @@ async function waitForCloudflareDeploymentUrl() {
   return deployedUrl;
 }
 
-async function openDeployedSiteInCloudflareTab(deployedUrl: string) {
+async function openDeployedSiteInCloudflareTab(
+  mouseBin: string,
+  windowFrame: WindowFrame,
+  _deployedUrl: string,
+) {
   await activateChromeTab(3);
-  await setChromeTabUrl(3, deployedUrl);
-  await waitForChromeActiveTabUrlIncludes(deployedUrl, 30_000);
+  await clickChromeDomElementVisible(
+    mouseBin,
+    windowFrame,
+    buildMeasureLinkHrefContainingCenterScript([STACK_DEPLOY_URL_FRAGMENT]),
+    10_000,
+    "Cloudflare deployed Pages link",
+  );
+  await waitForChromeActiveTabUrlIncludes(STACK_DEPLOY_URL_FRAGMENT, 30_000);
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
 }
 
@@ -2056,9 +2151,11 @@ async function runStackStep6AddTodoSequence(
   await activateChromeTab(3);
   await waitForChromeActiveTabUrlIncludes(deployedUrl, 30_000);
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
-  await waitForChromeJavaScriptTruthy(
-    buildFillFieldScript(["New todo"], todoText),
-    8_000,
+  await typeIntoChromeFieldVisible(
+    mouseBin,
+    windowFrame,
+    ["New todo"],
+    todoText,
   );
 
   const addButtonPoint = await waitForChromeAxElementCenterForRoles(
@@ -2289,6 +2386,129 @@ function isChromeJavaScriptTruthyValue(value: string) {
   );
 }
 
+async function readChromeWebAreaOrigin(): Promise<ScreenPoint> {
+  const raw = await runAppleScript(`
+    tell application "System Events"
+      tell process "Google Chrome"
+        set frontmost to true
+        set allItems to entire contents of window 1
+        repeat with itemRef in allItems
+          try
+            if (role of itemRef as text) is "AXWebArea" then
+              set itemPosition to position of itemRef
+              return ((item 1 of itemPosition) as text) & "," & ((item 2 of itemPosition) as text)
+            end if
+          end try
+        end repeat
+        error "Could not find Chrome web area."
+      end tell
+    end tell
+  `);
+
+  const [x, y] = raw
+    .trim()
+    .split(",")
+    .map((value) => Number(value.trim()));
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    throw new Error(`Invalid Chrome web area origin: ${raw.trim()}`);
+  }
+
+  return { x, y };
+}
+
+async function measureChromeDomElementCenter(
+  script: string,
+): Promise<ScreenPoint | null> {
+  const raw = await executeChromeJavaScript(script);
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  const [clientX, clientY] = trimmed
+    .split(",")
+    .map((value) => Number(value.trim()));
+  if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+    throw new Error(`Invalid Chrome DOM measurement: ${trimmed}`);
+  }
+
+  const origin = await readChromeWebAreaOrigin();
+  return {
+    x: Math.round(origin.x + clientX),
+    y: Math.round(origin.y + clientY),
+  };
+}
+
+async function waitForChromeDomElementCenter(
+  script: string,
+  timeoutMs: number,
+  label: string,
+): Promise<ScreenPoint> {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const point = await measureChromeDomElementCenter(script);
+    if (point !== null) {
+      return point;
+    }
+
+    await sleep(250);
+  }
+
+  throw new Error(`Timed out waiting for Chrome DOM element: ${label}`);
+}
+
+async function clickChromeDomElementVisible(
+  mouseBin: string,
+  windowFrame: WindowFrame,
+  script: string,
+  timeoutMs: number,
+  label: string,
+) {
+  const point = await waitForChromeDomElementCenter(script, timeoutMs, label);
+  await runMouseClick(
+    mouseBin,
+    point,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+}
+
+async function typeIntoChromeFieldVisible(
+  mouseBin: string,
+  windowFrame: WindowFrame,
+  fieldHints: readonly string[],
+  value: string,
+) {
+  await clickChromeDomElementVisible(
+    mouseBin,
+    windowFrame,
+    buildMeasureFieldCenterScript(fieldHints),
+    8_000,
+    fieldHints.join(" / "),
+  );
+  await clearFocusedField();
+  await typeVisibleText(value);
+  await sleep(STACK_CONTROL_SETTLE_SECONDS * 1_000);
+}
+
+async function pasteIntoChromeFieldVisible(
+  mouseBin: string,
+  windowFrame: WindowFrame,
+  fieldHints: readonly string[],
+) {
+  await clickChromeDomElementVisible(
+    mouseBin,
+    windowFrame,
+    buildMeasureFieldCenterScript(fieldHints),
+    8_000,
+    fieldHints.join(" / "),
+  );
+  await clearFocusedField();
+  await pasteIntoFocusedField();
+  await sleep(STACK_CONTROL_SETTLE_SECONDS * 1_000);
+}
+
 async function clickChromeButtonLikeIfPresent(
   texts: readonly string[],
 ): Promise<boolean> {
@@ -2326,38 +2546,9 @@ function buildClickButtonLikeByTextsScript(texts: readonly string[]) {
   })()`;
 }
 
-function buildClickDialogButtonLikeByTextsScript(texts: readonly string[]) {
+function buildMeasureClickableContainingTextCenterScript(text: string) {
   return `(() => {
-    const targets = ${JSON.stringify(texts)};
-    const normalize = (value) => (value ?? "").replace(/\\s+/g, " ").trim().toLowerCase();
-    const wanted = targets.map((value) => normalize(value));
-    const dialog = document.querySelector("[role='dialog']") ?? document.body;
-    const isVisible = (element) => {
-      if (!(element instanceof HTMLElement)) return false;
-      const rect = element.getBoundingClientRect();
-      return rect.width > 0 && rect.height > 0;
-    };
-    const candidates = [...dialog.querySelectorAll("button, a, [role='button'], input[type='button'], input[type='submit']")];
-    const target = candidates.find((element) => {
-      if (!isVisible(element)) return false;
-      const label = normalize(
-        element.getAttribute("aria-label") ??
-          (element instanceof HTMLInputElement ? element.value : "") ??
-          element.textContent ??
-          ""
-      );
-      return wanted.some((wantedLabel) => label.includes(wantedLabel));
-    });
-    if (!target) return "";
-    target.scrollIntoView({ block: "center", inline: "center" });
-    target.click();
-    return "ok";
-  })()`;
-}
-
-function buildClickClickableContainingTextScript(text: string) {
-  return `(() => {
-    const targetText = ${(JSON.stringify(text))};
+    const targetText = ${JSON.stringify(text)};
     const normalize = (value) => (value ?? "").replace(/\\s+/g, " ").trim().toLowerCase();
     const wanted = normalize(targetText);
     const isVisible = (element) => {
@@ -2365,39 +2556,26 @@ function buildClickClickableContainingTextScript(text: string) {
       const rect = element.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0;
     };
-    const nodes = [...document.querySelectorAll("button, a, [role='button'], label, div, span, li")];
+    const nodes = [...document.querySelectorAll("button, a, [role='button'], [role='link'], label, div, span, li")];
     for (const node of nodes) {
       if (!isVisible(node)) continue;
       const label = normalize(node.textContent ?? node.getAttribute("aria-label") ?? "");
       if (!label.includes(wanted)) continue;
-      const clickable = node.closest("button, a, [role='button'], label") ?? node;
-      if (!isVisible(clickable)) continue;
+      const clickable = node.closest("button, a, [role='button'], [role='link'], label") ?? node;
+      if (!(clickable instanceof HTMLElement) || !isVisible(clickable)) continue;
       clickable.scrollIntoView({ block: "center", inline: "center" });
-      clickable.click();
-      return "ok";
+      const rect = clickable.getBoundingClientRect();
+      return \`\${Math.round(rect.left + rect.width / 2)},\${Math.round(rect.top + rect.height / 2)}\`;
     }
     return "";
   })()`;
 }
 
-function buildFillFieldScript(
-  fieldHints: readonly string[],
-  value: string,
-) {
+function buildMeasureFieldCenterScript(fieldHints: readonly string[]) {
   return `(() => {
     const hints = ${JSON.stringify(fieldHints)};
-    const nextValue = ${JSON.stringify(value)};
     const normalize = (value) => (value ?? "").replace(/\\s+/g, " ").trim().toLowerCase();
     const wanted = hints.map((hint) => normalize(hint));
-    const setFieldValue = (field, nextValue) => {
-      const prototype = field instanceof HTMLTextAreaElement
-        ? HTMLTextAreaElement.prototype
-        : HTMLInputElement.prototype;
-      const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
-      descriptor?.set?.call(field, nextValue);
-      field.dispatchEvent(new Event("input", { bubbles: true }));
-      field.dispatchEvent(new Event("change", { bubbles: true }));
-    };
     const isVisible = (element) => {
       if (!(element instanceof HTMLElement)) return false;
       const rect = element.getBoundingClientRect();
@@ -2450,11 +2628,91 @@ function buildFillFieldScript(
       return "";
     }
     target.scrollIntoView({ block: "center", inline: "center" });
-    target.focus();
-    setFieldValue(target, nextValue);
-    return "ok";
+    const rect = target.getBoundingClientRect();
+    return \`\${Math.round(rect.left + rect.width / 2)},\${Math.round(rect.top + rect.height / 2)}\`;
   })()`;
 }
+
+function buildMeasureCloudflareRepoCardCenterScript(repoName: string) {
+  return `(() => {
+    const wanted = ${JSON.stringify(repoName)}.trim().toLowerCase();
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement)) return false;
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+    const radios = [...document.querySelectorAll("input[type='radio'], [role='radio']")];
+    const target = radios.find((radio) => {
+      const containerText = (radio.parentElement?.textContent ?? "").trim().toLowerCase();
+      return containerText.includes(wanted);
+    });
+    if (!target) return "";
+    const clickable = target.closest("label, div") ?? target;
+    if (!(clickable instanceof HTMLElement) || !isVisible(clickable)) return "";
+    clickable.scrollIntoView({ block: "center", inline: "center" });
+    const rect = clickable.getBoundingClientRect();
+    return \`\${Math.round(rect.left + rect.width / 2)},\${Math.round(rect.top + rect.height / 2)}\`;
+  })()`;
+}
+
+function buildMeasureLinkHrefContainingCenterScript(fragments: readonly string[]) {
+  return `(() => {
+    const fragments = ${JSON.stringify(fragments)};
+    const normalize = (value) => (value ?? "").trim();
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement)) return false;
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+    const links = [...document.querySelectorAll("a[href]")];
+    const match = links.find((link) => {
+      const href = normalize(link.getAttribute("href"));
+      const text = normalize(link.textContent);
+      return isVisible(link) && fragments.some((fragment) => href.includes(fragment) || text.includes(fragment));
+    });
+    if (!(match instanceof HTMLElement)) return "";
+    match.scrollIntoView({ block: "center", inline: "center" });
+    const rect = match.getBoundingClientRect();
+    return \`\${Math.round(rect.left + rect.width / 2)},\${Math.round(rect.top + rect.height / 2)}\`;
+  })()`;
+}
+
+function buildMeasureNestedActionCenterScript(
+  containerText: string,
+  actionText: string,
+) {
+  return `(() => {
+    const normalize = (value) => (value ?? "").replace(/\\s+/g, " ").trim().toLowerCase();
+    const wantedContainer = normalize(${JSON.stringify(containerText)});
+    const wantedAction = normalize(${JSON.stringify(actionText)});
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement)) return false;
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+    const containers = [...document.querySelectorAll("div, section, article, li")];
+    for (const container of containers) {
+      if (!(container instanceof HTMLElement) || !isVisible(container)) continue;
+      const containerLabel = normalize(container.textContent ?? "");
+      if (!containerLabel.includes(wantedContainer)) continue;
+      const action = [...container.querySelectorAll("button, a, [role='button'], [role='link']")].find((candidate) => {
+        if (!(candidate instanceof HTMLElement) || !isVisible(candidate)) return false;
+        const label = normalize(
+          candidate.getAttribute("aria-label") ??
+            candidate.textContent ??
+            ""
+        );
+        return label.includes(wantedAction);
+      });
+      if (!(action instanceof HTMLElement)) continue;
+      action.scrollIntoView({ block: "center", inline: "center" });
+      const rect = action.getBoundingClientRect();
+      return \`\${Math.round(rect.left + rect.width / 2)},\${Math.round(rect.top + rect.height / 2)}\`;
+    }
+    return "";
+  })()`;
+}
+
 
 function buildFieldPresenceScript(fieldHints: readonly string[]) {
   return `(() => {
@@ -2583,6 +2841,7 @@ async function runMouseClick(
   windowFrame: WindowFrame,
   timing: MouseTiming,
 ) {
+  await focusChromeWindow(windowFrame);
   const safePoint = clampPointInsideWindowFrame(point, windowFrame);
 
   await runCommand(
