@@ -113,9 +113,16 @@ Mini-steps:
 
 Mini-steps:
 
-- Delete the GitHub repo that was created during the tutorial.
-- Delete the Convex project that was created during the tutorial.
-- Delete the Cloudflare Pages app that was created during the tutorial.
+- Delete the Cloudflare Pages app first so the deploy target is removed before
+  its backing repo and backend disappear.
+- In Cloudflare, open the Pages project, go to `Settings`, scroll to the delete
+  section, type the project slug, and confirm deletion.
+- Delete the Convex project second.
+- In Convex, open `Project Settings`, use `Delete Project`, check the
+  acknowledgement box, type the full deletion phrase, and confirm.
+- Delete the GitHub repo last.
+- In GitHub, open repo `Settings`, use the staged danger-zone delete flow, type
+  the full `owner/repo` name, and confirm deletion.
 - Treat this cleanup path as part of the real product story, not just operator
   hygiene.
 - Keep the cleanup flow reusable for automated end-to-end reruns.

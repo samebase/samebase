@@ -66,7 +66,7 @@ Current intended checkpoints:
 5. Create the Convex deploy key and finish the deploy.
 6. Open the deployed Pages URL and perform one live app action such as adding a
    todo.
-7. Delete the created GitHub repo, Convex project, and Cloudflare app.
+7. Delete the created Cloudflare app, Convex project, and GitHub repo.
 
 Each checkpoint should have:
 
@@ -114,3 +114,19 @@ as onboarding content.
   prefer reusing that deletion flow through the product API.
 - For third-party services, keep a visible browser cleanup flow so the tutorial
   also teaches deletion and doubles as an end-to-end teardown test.
+- Current proven teardown order is reverse dependency order:
+  1. Cloudflare Pages project
+  2. Convex project
+  3. GitHub repository
+- Current proven delete confirmations:
+  1. Cloudflare: project `Settings` -> delete section -> type the project slug
+     -> confirm delete
+  2. Convex: `Project Settings` -> `Delete Project` -> check acknowledgement ->
+     type the exact full deletion phrase -> confirm delete
+  3. GitHub: repo `Settings` -> `Delete this repository` ->
+     `I want to delete this repository` ->
+     `I have read and understand these effects` -> type the full `owner/repo`
+     name -> confirm delete
+- Apply cleanup incrementally. If a partial run only created a GitHub repo,
+  delete just the repo. If it also created Convex, delete both. If it reached
+  Cloudflare, delete all three.

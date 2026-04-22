@@ -64,6 +64,34 @@ real brittle spots are so later automation work can focus on the right places.
   `https://crispy-octo-goggles-7c8.pages.dev/`
 - Live-site validation after deploy: added todo `Ship it`
 
+## Latest successful teardown
+
+- Date: 2026-04-22
+- Reverse delete order used successfully:
+  1. Cloudflare Pages project `crispy-octo-goggles`
+  2. Convex project `crispy-octo-goggles`
+  3. GitHub repo `noter-guest/crispy-octo-goggles`
+- Cloudflare confirmation shape:
+  1. open the Pages project
+  2. go to `Settings`
+  3. scroll to the delete section
+  4. type the project slug
+  5. confirm delete
+- Convex confirmation shape:
+  1. open `Project Settings`
+  2. use `Delete Project`
+  3. check the acknowledgement box
+  4. type the exact full deletion phrase
+  5. confirm delete
+- GitHub confirmation shape:
+  1. open repo `Settings`
+  2. use `Delete this repository`
+  3. continue through GitHub's staged warning buttons
+  4. type the full `owner/repo` name
+  5. confirm delete
+- Result: the full deploy-and-teardown lifecycle now works end to end in the
+  live browser.
+
 ## TODO after the first full run
 
 - Record the exact points where the flow felt brittle or visually unclear.
