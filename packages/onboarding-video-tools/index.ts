@@ -20,6 +20,8 @@ type WindowFrame = {
   height: number;
 };
 
+let lastChromeWebAreaOrigin: ScreenPoint | null = null;
+
 type LandingCoords = {
   github: { page: ScreenPoint };
   convex: { page: ScreenPoint };
@@ -1710,10 +1712,14 @@ async function runStackStep3ConvexProjectSequence(
     ["Project Name", "Name"],
     repoName,
   );
-  const createButtonPoint = await waitForChromeAxElementCenterForRoles(
-    "Create",
-    ["AXButton"],
+  // Convex can surface Chrome autofill under the project name field, which can
+  // cover the submit button unless we explicitly dismiss it after typing.
+  await pressEscapeKey();
+  await sleep(STACK_CONTROL_SETTLE_SECONDS * 1_000);
+  const createButtonPoint = await waitForChromeDomElementCenter(
+    buildMeasureNestedActionCenterScript("Create Project", "Create"),
     8_000,
+    "Convex create project button",
   );
   await runMouseClick(
     mouseBin,
@@ -2387,33 +2393,61 @@ function isChromeJavaScriptTruthyValue(value: string) {
 }
 
 async function readChromeWebAreaOrigin(): Promise<ScreenPoint> {
-  const raw = await runAppleScript(`
-    tell application "System Events"
-      tell process "Google Chrome"
-        set frontmost to true
-        set allItems to entire contents of window 1
-        repeat with itemRef in allItems
-          try
-            if (role of itemRef as text) is "AXWebArea" then
-              set itemPosition to position of itemRef
-              return ((item 1 of itemPosition) as text) & "," & ((item 2 of itemPosition) as text)
-            end if
-          end try
-        end repeat
-        error "Could not find Chrome web area."
-      end tell
-    end tell
-  `);
+  const start = Date.now();
 
-  const [x, y] = raw
-    .trim()
-    .split(",")
-    .map((value) => Number(value.trim()));
-  if (!Number.isFinite(x) || !Number.isFinite(y)) {
-    throw new Error(`Invalid Chrome web area origin: ${raw.trim()}`);
+  while (Date.now() - start < 2_000) {
+    try {
+      const raw = await runAppleScript(`
+        tell application "System Events"
+          tell process "Google Chrome"
+            set frontmost to true
+            set allItems to entire contents of window 1
+            repeat with itemRef in allItems
+              try
+                if (role of itemRef as text) is "AXWebArea" then
+                  set itemPosition to position of itemRef
+                  return ((item 1 of itemPosition) as text) & "," & ((item 2 of itemPosition) as text)
+                end if
+              end try
+            end repeat
+            return ""
+          end tell
+        end tell
+      `);
+
+      const trimmed = raw.trim();
+      if (trimmed.length === 0) {
+        await sleep(100);
+        continue;
+      }
+
+      const [x, y] = trimmed
+        .split(",")
+        .map((value) => Number(value.trim()));
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        throw new Error(`Invalid Chrome web area origin: ${trimmed}`);
+      }
+
+      lastChromeWebAreaOrigin = { x, y };
+      return lastChromeWebAreaOrigin;
+    } catch (error) {
+      if (lastChromeWebAreaOrigin !== null) {
+        return lastChromeWebAreaOrigin;
+      }
+
+      if (Date.now() - start >= 2_000) {
+        throw error;
+      }
+
+      await sleep(100);
+    }
   }
 
-  return { x, y };
+  if (lastChromeWebAreaOrigin !== null) {
+    return lastChromeWebAreaOrigin;
+  }
+
+  throw new Error("Could not find Chrome web area.");
 }
 
 async function measureChromeDomElementCenter(
