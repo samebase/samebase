@@ -49,6 +49,8 @@ be recorded as one straight pass and then cut afterward.
 - Prefer a visible pause with the mouse at rest before major context switches.
 - Keep copy-and-paste handoffs inside the same clip or same straight recording
   segment so hidden clipboard state does not cross a cut.
+- Every third-party resource created during a recording must have a matching
+  scripted cleanup path.
 
 ## Step checkpoints
 
@@ -62,6 +64,7 @@ Current intended checkpoints:
 3. Create the Convex project.
 4. Start the Cloudflare deploy.
 5. Create the Convex deploy key and finish the deploy.
+6. Delete the created GitHub repo, Convex project, and Cloudflare app.
 
 Each checkpoint should have:
 
@@ -79,6 +82,8 @@ The automation should:
 - produce the updated master MP4
 - emit visual artifacts or checkpoints for review
 - make it obvious which checkpoint changed or broke
+- clean up the created external resources at the end so repeated runs do not
+  accumulate public repos, stray projects, or stray deployed apps
 
 The human operator should still manually watch the results before shipping them
 as onboarding content.
@@ -91,3 +96,7 @@ as onboarding content.
   recording can be split into per-step clips.
 - Prefer investing in reliable checkpointing and review outputs before trying to
   make every step independently replayable.
+- For services where we already expose an app-owned delete-all path in Noter,
+  prefer reusing that deletion flow through the product API.
+- For third-party services, keep a visible browser cleanup flow so the tutorial
+  also teaches deletion and doubles as an end-to-end teardown test.

@@ -22,6 +22,8 @@ Timing guidance:
   only a short settle delay.
 - Do not move on at the exact instant a page becomes ready; the viewer needs a
   brief beat to register where they landed.
+- Every external resource we create during the tutorial needs a matching delete
+  path in the operator plan so reruns do not leak repos, projects, or apps.
 
 ## Authentication strategy
 
@@ -106,3 +108,14 @@ Mini-steps:
 - Paste the deploy key into `CONVEX_DEPLOY_KEY`.
 - Click `Save & Deploy`.
 - Wait for the deployment to finish and open the final app URL.
+
+## 6. Delete the created resources
+
+Mini-steps:
+
+- Delete the GitHub repo that was created during the tutorial.
+- Delete the Convex project that was created during the tutorial.
+- Delete the Cloudflare Pages app that was created during the tutorial.
+- Treat this cleanup path as part of the real product story, not just operator
+  hygiene.
+- Keep the cleanup flow reusable for automated end-to-end reruns.
