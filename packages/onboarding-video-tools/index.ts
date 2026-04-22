@@ -202,11 +202,13 @@ const LANDING_DEMO_AUTOMATION_START_DELAY_SECONDS =
   LANDING_DEMO_RECORDER_WARMUP_SECONDS + 0.12;
 const LANDING_DEMO_RECORDER_BUFFER_SECONDS = 0.75;
 const LANDING_DEMO_BROWSER_BUFFER_SECONDS = 3;
+// Keep the tutorial browser close to square so late-form actions like GitHub's
+// repository submit remain visible without adding bespoke scroll logic.
 const STACK_STEP_1_WINDOW_BOUNDS = {
   x: 120,
   y: 96,
   right: 1145,
-  bottom: 796,
+  bottom: 1121,
 } as const;
 const STACK_STEP_1_TAB_CENTER_X_OFFSETS = {
   github: 220,
