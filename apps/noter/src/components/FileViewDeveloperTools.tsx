@@ -13,7 +13,7 @@ export type FileViewMode = "editor" | "graph";
 export type FileViewEditorOverride = "default" | "codemirror";
 
 function isFileViewEditorOverride(
-  value: string,
+  value: string | undefined,
 ): value is FileViewEditorOverride {
   return value === "default" || value === "codemirror";
 }

@@ -116,7 +116,11 @@ export function FileViewSidebarContent({
             size="sm"
             value={effectiveSidebarMode}
             className="justify-start"
-            onValueChange={onSidebarModeChange}
+            onValueChange={(value) => {
+              if (value !== undefined) {
+                onSidebarModeChange(value);
+              }
+            }}
           >
             <ToggleGroupItem
               value="simple"

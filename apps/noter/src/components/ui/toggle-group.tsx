@@ -31,7 +31,7 @@ type SingleToggleGroupProps = ToggleGroupSharedProps & {
   type?: "single";
   value?: string;
   defaultValue?: string;
-  onValueChange?: (value: string) => void;
+  onValueChange?: (value: string | undefined) => void;
 };
 
 type MultipleToggleGroupProps = ToggleGroupSharedProps & {
@@ -110,7 +110,7 @@ function ToggleGroup({
       {...primitiveProps}
       defaultValue={defaultValue === undefined ? undefined : [defaultValue]}
       onValueChange={(groupValue) => {
-        onValueChange?.(groupValue[0] ?? "");
+        onValueChange?.(groupValue[0]);
       }}
       value={value === undefined ? undefined : [value]}
     >

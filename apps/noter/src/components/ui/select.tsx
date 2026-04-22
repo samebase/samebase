@@ -20,6 +20,9 @@ function Select<Value>({
   return (
     <SelectPrimitive.Root
       onValueChange={(value) => {
+        // Current app callsites model Select as a required choice, so keep
+        // Base UI's deselect event from clearing state until we add a real
+        // nullable select use case.
         if (value !== null) {
           onValueChange?.(value);
         }
