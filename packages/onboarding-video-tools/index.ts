@@ -248,10 +248,9 @@ const STACK_STEP_1_CLOUDFLARE_LOGOUT_URL = "https://dash.cloudflare.com/logout";
 const STACK_STEP_1_CONVEX_LOGIN_URL = "https://www.convex.dev/login";
 const STACK_STEP_1_CLOUDFLARE_LOGIN_URL = "https://dash.cloudflare.com/login";
 const STACK_STEP_2_TEMPLATE_REPO_URL = "https://github.com/noter-md/app";
+const STACK_STEP_2_CREATED_REPO_NAME = "my-first-app";
 const STACK_STEP_2_USE_TEMPLATE_LABEL = "Use this template";
 const STACK_STEP_2_OWNER_POPUP_LABEL_FRAGMENT = "Owner (Required)";
-const STACK_STEP_2_REPO_NAME_SUGGESTION_LABEL_FRAGMENT =
-  "Use suggested repository name ";
 const STACK_STEP_2_PRIVATE_VISIBILITY_LABEL = "Private";
 const STACK_STEP_2_CREATE_REPOSITORY_BUTTON_LABEL = "Create repository";
 // Step 2 mixes live page-load waits with measured clicks, so keep a
@@ -267,6 +266,10 @@ const STACK_CONVEX_DEPLOY_KEY_NAME = "for_cloudflare_pages";
 const STACK_CLOUDFLARE_CONNECT_GITHUB_LABELS = [
   "Connect with GitHub",
   "Continue with GitHub",
+] as const;
+const STACK_CLOUDFLARE_AUTHORIZE_LABELS = [
+  "Authorize cloudflare",
+  "Authorize Cloudflare",
 ] as const;
 const STACK_CLOUDFLARE_BEGIN_SETUP_LABEL = "Begin setup";
 const STACK_CLOUDFLARE_BUILD_COMMAND = "pnpm build:cloudflare";
@@ -1100,7 +1103,7 @@ async function configureStackStep1ChromeWindow(options: StackStep1Options) {
         make new tab at end of tabs of targetWindow
       end repeat
       repeat while (count of tabs of targetWindow) > 3
-        close tab 4 of targetWindow
+        close last tab of targetWindow
       end repeat
       set URL of tab 1 of targetWindow to "${escapeAppleScriptString(options.githubUrl)}"
       set URL of tab 2 of targetWindow to "${STACK_STEP_1_CONVEX_LOGOUT_URL}"
@@ -1623,31 +1626,11 @@ async function runStackStep2GithubTemplateSequence(
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
 
   const owner = await selectPreferredGithubRepoOwner(mouseBin, windowFrame);
-  const suggestedRepoNameLabel = await readChromeAxButtonLabelContaining(
-    STACK_STEP_2_REPO_NAME_SUGGESTION_LABEL_FRAGMENT,
-  );
-  if (suggestedRepoNameLabel === null) {
-    throw new Error("GitHub repo name suggestion is unavailable.");
-  }
-
-  const suggestedRepoName = suggestedRepoNameLabel.replace(
-    STACK_STEP_2_REPO_NAME_SUGGESTION_LABEL_FRAGMENT,
-    "",
-  );
-  if (suggestedRepoName.length === 0) {
-    throw new Error("GitHub repo name suggestion was empty.");
-  }
-
-  const suggestionPoint = await waitForChromeAxElementCenterForRoles(
-    suggestedRepoNameLabel,
-    ["AXButton"],
-    10_000,
-  );
-  await runMouseClick(
-    mouseBin,
-    suggestionPoint,
-    windowFrame,
-    STACK_STEP_1_MOUSE_TIMING,
+  // Keep the generated repo name fixed and human-readable so reruns fail fast
+  // when cleanup regresses and the tutorial never accidentally reuses `app`.
+  await waitForChromeJavaScriptTruthy(
+    buildFillFieldScript(["Repository name"], STACK_STEP_2_CREATED_REPO_NAME),
+    8_000,
   );
   await sleep(STACK_CONTROL_SETTLE_SECONDS * 1_000);
 
@@ -1666,7 +1649,7 @@ async function runStackStep2GithubTemplateSequence(
   );
   if (
     !(await waitForChromeActiveTabUrlIncludesWithin(
-      `github.com/${owner}/${suggestedRepoName}`,
+      `github.com/${owner}/${STACK_STEP_2_CREATED_REPO_NAME}`,
       1_500,
     ))
   ) {
@@ -1676,14 +1659,14 @@ async function runStackStep2GithubTemplateSequence(
     await pressChromeAxButton(STACK_STEP_2_CREATE_REPOSITORY_BUTTON_LABEL);
   }
   await waitForChromeActiveTabUrlIncludes(
-    `github.com/${owner}/${suggestedRepoName}`,
+    `github.com/${owner}/${STACK_STEP_2_CREATED_REPO_NAME}`,
     18_000,
   );
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
   return {
     owner,
-    repoName: suggestedRepoName,
-    repoUrl: `https://github.com/${owner}/${suggestedRepoName}`,
+    repoName: STACK_STEP_2_CREATED_REPO_NAME,
+    repoUrl: `https://github.com/${owner}/${STACK_STEP_2_CREATED_REPO_NAME}`,
   };
 }
 
@@ -1733,12 +1716,7 @@ async function runStackStep4PrepareCloudflareDeploySequence(
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
 
   await clickChromeButtonLikeIfPresent(STACK_CLOUDFLARE_CONNECT_GITHUB_LABELS);
-  const connectUrl = await readChromeActiveTabUrl();
-  if (connectUrl.includes("github.com/")) {
-    throw new Error(
-      "Cloudflare requested a fresh GitHub installation flow. Reconnect it once manually, then rerun stack-full-run.",
-    );
-  }
+  await completeCloudflareGithubAuthorization(mouseBin, windowFrame);
 
   await setChromeTabUrl(3, cloudflare.pagesCreateUrl);
   await waitForChromeActiveTabUrlIncludes(
@@ -1797,6 +1775,37 @@ async function runStackStep4PrepareCloudflareDeploySequence(
   await fillCloudflareBuildConfiguration(repoName);
 
   return cloudflare;
+}
+
+async function completeCloudflareGithubAuthorization(
+  mouseBin: string,
+  windowFrame: WindowFrame,
+) {
+  if (
+    !(await waitForChromeActiveTabUrlIncludesWithin("github.com/", 6_000))
+  ) {
+    return;
+  }
+
+  const authorizePoint = await waitForChromeAxElementCenterForRoles(
+    STACK_CLOUDFLARE_AUTHORIZE_LABELS[0],
+    ["AXButton"],
+    8_000,
+  ).catch(async () =>
+    waitForChromeAxElementCenterForRoles(
+      STACK_CLOUDFLARE_AUTHORIZE_LABELS[1],
+      ["AXButton"],
+      2_000,
+    ),
+  );
+  await runMouseClick(
+    mouseBin,
+    authorizePoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  await waitForChromeActiveTabUrlIncludes("dash.cloudflare.com", 20_000);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
 }
 
 async function runStackStep5CreateConvexDeployKeyAndFinishDeploy(

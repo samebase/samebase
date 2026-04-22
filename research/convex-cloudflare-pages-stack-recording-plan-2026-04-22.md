@@ -41,6 +41,10 @@ be recorded as one straight pass and then cut afterward.
 - After landing on the GitHub template repository in the combined flow, trigger
   one explicit page refresh before looking for `Use this template`, because the
   signed-in state can render stale otherwise.
+- Always use `https://github.com/noter-md/app` as the source template repo.
+- Always create the generated repo as `my-first-app`. If that name is already
+  taken, cleanup failed and the rerun should stop instead of silently choosing a
+  different name.
 - Every recorder-created GitHub repository must be `Private`. Never rely on the
   page default.
 - Do not reuse that full second for small controls like dropdown picks or
@@ -61,6 +65,8 @@ be recorded as one straight pass and then cut afterward.
 - Do not use hidden direct URL changes, silent JavaScript form fills, or other
   invisible state jumps in the final tutorial recording. Those are acceptable
   only for research/debug runs, not for the ship-ready artifact.
+- If Cloudflare presents the GitHub OAuth confirmation screen, the recording
+  must visibly click `Authorize cloudflare` before proceeding.
 
 ## Step checkpoints
 

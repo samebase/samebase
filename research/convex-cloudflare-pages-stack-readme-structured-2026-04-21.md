@@ -15,6 +15,10 @@ Timing guidance:
   that page on screen for about 1 second before switching tabs or continuing.
 - For the initial Cloudflare dashboard landing in step 1, hold for about 2
   seconds before switching away so the viewer can register where they arrived.
+- Always start the GitHub source step from `https://github.com/noter-md/app`.
+- The generated user repo name is fixed to `my-first-app`. Never create a repo
+  named `app`, because that collides conceptually with the source template and
+  hides cleanup failures.
 - Every recorder-created GitHub repository must be `Private`. Do not trust the
   default visibility shown by the page.
 - Do not apply that long pause to small control interactions like opening a
@@ -22,6 +26,9 @@ Timing guidance:
   only a short settle delay.
 - Do not move on at the exact instant a page becomes ready; the viewer needs a
   brief beat to register where they landed.
+- If Cloudflare shows the GitHub OAuth permission screen, visibly click
+  `Authorize cloudflare` before continuing. Do not abandon that page or treat
+  it as an invisible background redirect.
 - Every external resource we create during the tutorial needs a matching delete
   path in the operator plan so reruns do not leak repos, projects, or apps.
 
@@ -33,6 +40,7 @@ central identity.
 Why this is the clearest path:
 
 - GitHub is already required to create the repo from the template.
+- That source template is `noter-md/app`, not `noter-md/template`.
 - Convex needs GitHub access during the setup flow.
 - Cloudflare Pages also needs GitHub access to import and deploy the repo.
 - Because repo access flows through GitHub anyway, GitHub stops being just one
@@ -68,9 +76,10 @@ Mini-steps:
 
 Mini-steps:
 
-- Go to `noter-md/template`.
+- Go to `noter-md/app`.
 - Find and click the green `Use this template` button.
-- Create a new repository in the correct account or org.
+- Create a new private repository named `my-first-app` in the correct account
+  or org.
 - Wait until the new repo is created and visible.
 
 ## 3. Create your Convex project

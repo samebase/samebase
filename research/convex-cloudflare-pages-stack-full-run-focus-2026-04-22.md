@@ -11,13 +11,16 @@ real brittle spots are so later automation work can focus on the right places.
 ## Current focus areas
 
 - Keep the tab order fixed: GitHub, Convex, Cloudflare.
-- Prefer the simple repo name `app` when GitHub allows it.
+- Always start from `https://github.com/noter-md/app`.
+- Always create the generated user repo as `my-first-app`, never `app`.
 - Stay on meaningful destinations long enough for a human to register them.
 - Keep every created resource private or otherwise non-public by default.
 - Treat cleanup as part of the product flow, not just operator hygiene.
 - For the final tutorial artifact, every interaction must be visible on screen.
   No hidden URL jumps, silent JavaScript field fills, or invisible state
   changes.
+- If Cloudflare shows the GitHub OAuth prompt, visibly click
+  `Authorize cloudflare` before doing anything else.
 
 ## Full-run milestones
 
