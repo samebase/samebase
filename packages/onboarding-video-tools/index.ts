@@ -1666,12 +1666,13 @@ async function runStackStep2GithubTemplateSequence(
   if (
     !(await waitForChromeActiveTabUrlIncludesWithin(
       `github.com/${owner}/${STACK_STEP_2_CREATED_REPO_NAME}`,
-      1_500,
+      6_000,
     ))
   ) {
     // GitHub occasionally ignores the geometry-driven click on this submit
     // button even though the mouse visibly lands on it, so only fall back to a
-    // direct AX press when that on-screen click failed to start navigation.
+    // direct AX press when that on-screen click failed to start navigation
+    // after GitHub had a fair chance to begin the redirect.
     await pressChromeAxButton(STACK_STEP_2_CREATE_REPOSITORY_BUTTON_LABEL);
   }
   await waitForChromeActiveTabUrlIncludes(
