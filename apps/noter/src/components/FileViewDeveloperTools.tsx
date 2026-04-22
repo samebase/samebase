@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { ChevronDownIcon } from "@radix-ui/react-icons";
+import { ChevronDownIcon } from "@/lib/radixIcons";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,

@@ -1,4 +1,4 @@
-import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
+import { MagnifyingGlassIcon } from "@/lib/radixIcons";
 import { useState } from "react";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { Button } from "@/components/ui/button";

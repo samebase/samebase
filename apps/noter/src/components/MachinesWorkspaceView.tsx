@@ -1,4 +1,4 @@
-import { ChevronDownIcon, ChevronRightIcon } from "@radix-ui/react-icons";
+import { ChevronDownIcon, ChevronRightIcon } from "@/lib/radixIcons";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import {

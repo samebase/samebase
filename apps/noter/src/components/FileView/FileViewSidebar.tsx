@@ -1,5 +1,5 @@
 import { type ComponentProps, type DragEventHandler } from "react";
-import { FilePlusIcon, GitHubLogoIcon, PlusIcon } from "@radix-ui/react-icons";
+import { FilePlusIcon, GitHubLogoIcon, PlusIcon } from "@/lib/radixIcons";
 import { FileTree } from "@/components/FileTree";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";

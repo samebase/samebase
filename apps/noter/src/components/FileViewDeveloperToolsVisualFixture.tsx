@@ -1,4 +1,4 @@
-import { PersonIcon } from "@radix-ui/react-icons";
+import { PersonIcon } from "@/lib/radixIcons";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { Button } from "@/components/ui/button";
 import {

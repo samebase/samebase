@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
-import { ClockIcon, GitHubLogoIcon } from "@radix-ui/react-icons";
+import { ClockIcon, GitHubLogoIcon } from "@/lib/radixIcons";
 
 export type AddRepositoryVisualMode =
   | "add-repository-loading-more"

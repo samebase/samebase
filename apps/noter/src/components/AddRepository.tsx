@@ -1,4 +1,4 @@
-import { GitHubLogoIcon, ClockIcon } from "@radix-ui/react-icons";
+import { GitHubLogoIcon, ClockIcon } from "@/lib/radixIcons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";

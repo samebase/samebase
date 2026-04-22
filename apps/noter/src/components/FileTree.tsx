@@ -7,7 +7,7 @@ import {
   FilePlusIcon,
   TrashIcon,
   UpdateIcon,
-} from "@radix-ui/react-icons";
+} from "@/lib/radixIcons";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,

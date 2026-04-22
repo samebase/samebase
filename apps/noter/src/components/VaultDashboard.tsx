@@ -9,7 +9,7 @@ import {
   TrashIcon,
   UpdateIcon,
   ChevronDownIcon,
-} from "@radix-ui/react-icons";
+} from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { linkStyle } from "./styles";

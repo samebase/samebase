@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { PersonIcon } from "@radix-ui/react-icons";
+import { PersonIcon } from "@/lib/radixIcons";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { toCanvas } from "html-to-image";

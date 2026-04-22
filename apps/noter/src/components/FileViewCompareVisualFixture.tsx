@@ -1,4 +1,4 @@
-import { GitHubLogoIcon } from "@radix-ui/react-icons";
+import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { Button } from "@/components/ui/button";
 import { ChangedFilesLoadingState } from "@/components/ChangedFilesLoadingState";
 import { FileTree } from "@/components/FileTree";

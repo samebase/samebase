@@ -1,4 +1,4 @@
-import { GitHubLogoIcon } from "@radix-ui/react-icons";
+import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { FileTree } from "@/components/FileTree";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";

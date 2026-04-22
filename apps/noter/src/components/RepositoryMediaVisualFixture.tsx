@@ -1,5 +1,5 @@
 import { FileTree } from "@/components/FileTree";
-import { GitHubLogoIcon } from "@radix-ui/react-icons";
+import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import {
   RepositoryMediaPreviewPanel,

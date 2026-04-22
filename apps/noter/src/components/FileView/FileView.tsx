@@ -1,7 +1,7 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery as useLiveQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
+import { MagnifyingGlassIcon } from "@/lib/radixIcons";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { CodeEditorWrapper } from "@/components/CodeEditor";
 import {

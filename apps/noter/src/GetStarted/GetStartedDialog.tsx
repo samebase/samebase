@@ -17,7 +17,7 @@ import {
   MagicWandIcon,
   PlayIcon,
   StackIcon,
-} from "@radix-ui/react-icons";
+} from "@/lib/radixIcons";
 import { ReactNode } from "react";
 
 export function GetStartedDialog({ children }: { children: ReactNode }) {
