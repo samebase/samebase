@@ -14,7 +14,11 @@ export function SignInWithGoogle({
   return (
     <Button
       aria-hidden={!visible}
-      className={visible ? "flex-1" : "flex-1 invisible pointer-events-none"}
+      className={
+        visible
+          ? "h-auto flex-1 py-2.5"
+          : "h-auto flex-1 invisible pointer-events-none py-2.5"
+      }
       disabled={!visible}
       variant="outline"
       type="button"

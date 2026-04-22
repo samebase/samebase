@@ -475,7 +475,13 @@ test("public landing renders the routed landing UI directly", async ({
 test("landing dev mode shows Google sign-in", async ({ page }) => {
   await page.goto("/?dev", { waitUntil: "networkidle" });
 
-  await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
+  const googleButton = page.getByRole("button", { name: "Google" });
+
+  await expect(googleButton).toBeVisible();
+  await expect(googleButton).toHaveScreenshot(
+    "public-landing-google-button.png",
+    strictScreenshotOptions,
+  );
 });
 
 test("public landing renders the closed Google signup return state", async ({
