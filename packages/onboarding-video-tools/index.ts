@@ -1632,6 +1632,9 @@ async function runStackStep2GithubTemplateSequence(
     buildFillFieldScript(["Repository name"], STACK_STEP_2_CREATED_REPO_NAME),
     8_000,
   );
+  // Chrome's autofill suggestion sheet can cover the visibility section after
+  // typing the repo name, so close it before we look for the Private control.
+  await pressEscapeKey();
   await sleep(STACK_CONTROL_SETTLE_SECONDS * 1_000);
 
   await selectPrivateGithubRepoVisibility(mouseBin, windowFrame);
@@ -2087,7 +2090,25 @@ async function selectPrivateGithubRepoVisibility(
 ) {
   const visibilityLabel = await readGithubVisibilityPopupLabel();
   if (visibilityLabel === null) {
-    throw new Error("GitHub visibility selector is unavailable.");
+    // GitHub's repository form sometimes exposes the visibility chooser as a
+    // generic DOM button instead of an AX popup, so keep a DOM fallback here
+    // to preserve the private-repo invariant.
+    const openedWithFallback = await clickChromeButtonLikeIfPresent([
+      "Public",
+      "Private",
+    ]);
+    if (!openedWithFallback) {
+      throw new Error("GitHub visibility selector is unavailable.");
+    }
+    await sleep(STACK_CONTROL_SETTLE_SECONDS * 1_000);
+    const selectedWithFallback = await clickChromeButtonLikeIfPresent([
+      STACK_STEP_2_PRIVATE_VISIBILITY_LABEL,
+    ]);
+    if (!selectedWithFallback) {
+      throw new Error("GitHub visibility menu did not expose Private.");
+    }
+    await sleep(STACK_CONTROL_SETTLE_SECONDS * 1_000);
+    return;
   }
 
   if (visibilityLabel === STACK_STEP_2_PRIVATE_VISIBILITY_LABEL) {
