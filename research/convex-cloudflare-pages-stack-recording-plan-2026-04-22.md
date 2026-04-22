@@ -108,6 +108,14 @@ as onboarding content.
 - Do not assume uninstalling the GitHub app or OAuth grant will make the next
   Cloudflare attempt self-heal. Cloudflare can keep a broken repo-access state
   until the dashboard-side GitHub connection is re-established.
+- Even after the account-link step is healthy, Cloudflare can still fail later
+  on the Pages provider screen with both:
+  1. `No repositories matching "<repo-name>"`
+  2. the red `internal issue with your Cloudflare Pages Git installation`
+     banner
+- Treat that as a real provider-side blocker, not just a search-field timing
+  issue. The automation should surface it explicitly instead of silently
+  waiting forever for build settings fields that will never appear.
 - End the canonical run on the real deployed app, not the provider success
   screen. The preferred proof step is to add a todo in the live site.
 - For services where we already expose an app-owned delete-all path in Noter,

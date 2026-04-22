@@ -98,3 +98,23 @@ real brittle spots are so later automation work can focus on the right places.
 - Note where extra dwell time helped and where it felt slow.
 - Convert the most stable parts of the flow into reusable recorder helpers only
   after the full path is proven.
+
+## Latest native-run blocker
+
+- Date: 2026-04-22
+- The native full-run recorder now reliably gets through:
+  1. GitHub template repo creation
+  2. Convex project creation
+  3. Cloudflare account-link setup
+  4. direct navigation to the Pages GitHub provider route
+- Current failing state on Cloudflare:
+  1. URL stays on
+     `https://dash.cloudflare.com/<account>/pages/new/provider/github`
+  2. the new repo name is filled into `Search repositories...`
+  3. Cloudflare shows `No repositories matching "<repo-name>"`
+  4. Cloudflare also shows the red internal-installation error:
+     `There is an internal issue with your Cloudflare Pages Git installation...`
+- Important conclusion:
+  - `Connect GitHub first, then go to Pages` is necessary but not always
+    sufficient. Cloudflare can still fail to index the newly created repo even
+    after the account-link step succeeds.

@@ -59,9 +59,31 @@ type StackStep12Options = {
   padPoints: number;
 };
 
+type StackFullRunOptions = {
+  githubUrl: string;
+  convexUrl: string;
+  cloudflareUrl: string;
+  outputPath: string;
+  padPoints: number;
+  todoText: string;
+};
+
 type ScreenDemoOptions = {
   outputPath: string;
   durationSeconds: number;
+};
+
+type GithubRepoDetails = {
+  owner: string;
+  repoName: string;
+  repoUrl: string;
+};
+
+type CloudflareAccountContext = {
+  accountId: string;
+  pagesProviderUrl: string;
+  pagesCreateUrl: string;
+  workersAndPagesCreateUrl: string;
 };
 
 type LandingDemoTarget =
@@ -151,6 +173,10 @@ const DEFAULT_STACK_STEP_1_2_OUTPUT_PATH = path.join(
   DEFAULT_RENDER_DIR,
   "stack-onboarding-step-1-2.mp4",
 );
+const DEFAULT_STACK_FULL_OUTPUT_PATH = path.join(
+  DEFAULT_RENDER_DIR,
+  "stack-onboarding-full-run.mp4",
+);
 const DEFAULT_SCENE_PAD_POINTS = 40;
 const DEFAULT_BOTTOM_SHADOW_EXTRA_PAD_POINTS = 8;
 const DEFAULT_URLS = {
@@ -221,7 +247,7 @@ const STACK_STEP_1_CONVEX_LOGOUT_URL = "https://dashboard.convex.dev/logout";
 const STACK_STEP_1_CLOUDFLARE_LOGOUT_URL = "https://dash.cloudflare.com/logout";
 const STACK_STEP_1_CONVEX_LOGIN_URL = "https://www.convex.dev/login";
 const STACK_STEP_1_CLOUDFLARE_LOGIN_URL = "https://dash.cloudflare.com/login";
-const STACK_STEP_2_TEMPLATE_REPO_URL = "https://github.com/noter-md/template";
+const STACK_STEP_2_TEMPLATE_REPO_URL = "https://github.com/noter-md/app";
 const STACK_STEP_2_USE_TEMPLATE_LABEL = "Use this template";
 const STACK_STEP_2_OWNER_POPUP_LABEL_FRAGMENT = "Owner (Required)";
 const STACK_STEP_2_REPO_NAME_SUGGESTION_LABEL_FRAGMENT =
@@ -232,6 +258,22 @@ const STACK_STEP_2_CREATE_REPOSITORY_BUTTON_LABEL = "Create repository";
 // conservative recording budget above the nominal click timings to avoid
 // truncating the final GitHub repo page on slower network turns.
 const STACK_STEP_2_DURATION_BUDGET_SECONDS = 30;
+const STACK_FULL_MAX_DURATION_SECONDS = 900;
+const STACK_CONVEX_CREATE_PROJECT_BUTTON_LABEL = "Create Project";
+const STACK_CONVEX_PRODUCTION_MENU_ITEM_PREFIX = "Production ";
+const STACK_CONVEX_SETTINGS_LINK_LABEL = "Settings";
+const STACK_CONVEX_CREATE_DEPLOY_KEY_LABEL = "Create Deploy Key";
+const STACK_CONVEX_DEPLOY_KEY_NAME = "for_cloudflare_pages";
+const STACK_CLOUDFLARE_CONNECT_GITHUB_LABELS = [
+  "Connect with GitHub",
+  "Continue with GitHub",
+] as const;
+const STACK_CLOUDFLARE_BEGIN_SETUP_LABEL = "Begin setup";
+const STACK_CLOUDFLARE_BUILD_COMMAND = "pnpm build:cloudflare";
+const STACK_CLOUDFLARE_BUILD_OUTPUT_DIRECTORY = "dist";
+const STACK_CLOUDFLARE_ENVIRONMENT_VARIABLE_NAME = "CONVEX_DEPLOY_KEY";
+const STACK_DEFAULT_TODO_TEXT = "Ship it";
+const STACK_DEPLOY_URL_FRAGMENT = ".pages.dev";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -255,6 +297,11 @@ export async function main(argv: string[]) {
     return;
   }
 
+  if (command === "stack-full-run") {
+    await runStackFullDemo(parseStackFullRunArgs(commandArgs));
+    return;
+  }
+
   if (command === "screen-demo") {
     await runScreenDemo(parseScreenDemoArgs(commandArgs));
     return;
@@ -266,6 +313,7 @@ export async function main(argv: string[]) {
       "  noter-onboarding-video landing-demo [--output <path>] [--pad <points>]",
       "  noter-onboarding-video stack-step-1-signin [--output <path>] [--pad <points>]",
       "  noter-onboarding-video stack-step-1-2 [--output <path>] [--pad <points>]",
+      "  noter-onboarding-video stack-full-run [--output <path>] [--pad <points>] [--todo-text <text>]",
       "  noter-onboarding-video screen-demo [--output <path>] [--duration <seconds>]",
     ].join("\n"),
   );
@@ -343,6 +391,24 @@ function parseStackStep12Args(argv: string[]): StackStep12Options {
     cloudflareUrl: args["cloudflare-url"] ?? DEFAULT_URLS.cloudflareUrl,
     outputPath: args.output ?? DEFAULT_STACK_STEP_1_2_OUTPUT_PATH,
     padPoints: pad,
+  };
+}
+
+function parseStackFullRunArgs(argv: string[]): StackFullRunOptions {
+  const args = parseArgs(argv);
+  const pad = Number(args.pad ?? String(DEFAULT_SCENE_PAD_POINTS));
+
+  if (!Number.isInteger(pad) || pad < 0) {
+    throw new Error(`Invalid --pad value: ${args.pad ?? "<missing>"}`);
+  }
+
+  return {
+    githubUrl: args["github-url"] ?? DEFAULT_URLS.githubUrl,
+    convexUrl: args["convex-url"] ?? DEFAULT_URLS.convexUrl,
+    cloudflareUrl: args["cloudflare-url"] ?? DEFAULT_URLS.cloudflareUrl,
+    outputPath: args.output ?? DEFAULT_STACK_FULL_OUTPUT_PATH,
+    padPoints: pad,
+    todoText: args["todo-text"] ?? STACK_DEFAULT_TODO_TEXT,
   };
 }
 
@@ -777,6 +843,147 @@ async function runStackStep1And2Demo(options: StackStep12Options) {
   }
 }
 
+async function runStackFullDemo(options: StackFullRunOptions) {
+  await mkdir(DEFAULT_TMP_DIR, { recursive: true });
+  await mkdir(path.dirname(options.outputPath), { recursive: true });
+
+  const recorderBin = path.join(DEFAULT_TMP_DIR, "record-chrome-scene");
+  const mouseBin = path.join(DEFAULT_TMP_DIR, "animate-mouse");
+  const backdropBin = path.join(DEFAULT_TMP_DIR, "run-white-backdrop");
+
+  await compileSwiftBinary(
+    path.join(PACKAGE_DIR, "native", "recordChromeScene.swift"),
+    recorderBin,
+    ["AppKit", "AVFoundation", "CoreMedia", "CoreVideo", "ScreenCaptureKit"],
+  );
+  await compileSwiftBinary(
+    path.join(PACKAGE_DIR, "native", "animateMouse.swift"),
+    mouseBin,
+    ["AppKit"],
+  );
+  await compileSwiftBinary(
+    path.join(PACKAGE_DIR, "native", "runWhiteBackdrop.swift"),
+    backdropBin,
+    ["AppKit"],
+  );
+
+  const runId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const recorderStartedFile = path.join(
+    DEFAULT_TMP_DIR,
+    `stack-full-recorder-started-${runId}.txt`,
+  );
+  const backdropReadyFile = path.join(
+    DEFAULT_TMP_DIR,
+    `stack-full-backdrop-ready-${runId}.txt`,
+  );
+  let recorderProcess: BufferedChildProcess | null = null;
+  let backdropProcess: BufferedChildProcess | null = null;
+
+  try {
+    const coords = await prepareStackStep1Coords(options);
+    const sequence = buildStackStep1Sequence(coords);
+    const windowFrame = serializeWindowFrame(coords.windowFrame);
+    const captureFrame = expandWindowFrame(
+      coords.windowFrame,
+      options.padPoints,
+    );
+    const captureFrameArg = serializeWindowFrame(captureFrame);
+    await focusChromeWindow(coords.windowFrame);
+
+    backdropProcess = spawn(backdropBin, ["--ready-file", backdropReadyFile], {
+      cwd: REPO_ROOT,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    await waitForFile(backdropReadyFile, 4_000);
+    await focusChromeWindow(coords.windowFrame);
+
+    recorderProcess = spawn(
+      recorderBin,
+      [
+        "--bundle-id",
+        "com.google.Chrome",
+        "--window-frame",
+        windowFrame,
+        "--capture-frame",
+        captureFrameArg,
+        "--output",
+        options.outputPath,
+        "--started-file",
+        recorderStartedFile,
+        "--duration",
+        String(STACK_FULL_MAX_DURATION_SECONDS),
+        "--warmup-duration",
+        String(LANDING_DEMO_RECORDER_WARMUP_SECONDS),
+        "--fps",
+        String(LANDING_DEMO_OUTPUT_FPS),
+        "--cursor",
+        "true",
+        "--click-highlights",
+        "true",
+      ],
+      {
+        cwd: REPO_ROOT,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+
+    await waitForFile(recorderStartedFile, 12_000);
+    await sleep(LANDING_DEMO_AUTOMATION_START_DELAY_SECONDS * 1_000);
+    await focusChromeWindow(coords.windowFrame);
+
+    await runStackStep1Sequence(mouseBin, coords, sequence);
+    const githubRepo = await runStackStep2GithubTemplateSequence(
+      mouseBin,
+      coords.windowFrame,
+    );
+    await runStackStep3ConvexProjectSequence(
+      mouseBin,
+      coords.windowFrame,
+      githubRepo.repoName,
+    );
+    const cloudflare = await runStackStep4PrepareCloudflareDeploySequence(
+      mouseBin,
+      coords.windowFrame,
+      githubRepo.repoName,
+    );
+    await runStackStep5CreateConvexDeployKeyAndFinishDeploy(
+      mouseBin,
+      coords.windowFrame,
+      githubRepo.repoName,
+      cloudflare,
+    );
+    const deployedUrl = await waitForCloudflareDeploymentUrl();
+    await openDeployedSiteInCloudflareTab(deployedUrl);
+    await runStackStep6AddTodoSequence(
+      mouseBin,
+      coords.windowFrame,
+      deployedUrl,
+      options.todoText,
+    );
+    await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+
+    if (recorderProcess.exitCode === null && recorderProcess.signalCode === null) {
+      recorderProcess.kill("SIGTERM");
+    }
+    await waitForChild(recorderProcess, "recordChromeScene.swift");
+    recorderProcess = null;
+    await terminateChild(backdropProcess);
+    backdropProcess = null;
+
+    process.stdout.write(`${options.outputPath}\n`);
+  } catch (error) {
+    await terminateChild(recorderProcess);
+    await terminateChild(backdropProcess);
+    throw error;
+  } finally {
+    await Promise.all([
+      rm(recorderStartedFile, { force: true }),
+      rm(backdropReadyFile, { force: true }),
+    ]);
+  }
+}
+
 async function prepareStackStep1Coords(
   options: StackStep1Options,
 ): Promise<StackStep1Coords> {
@@ -1024,6 +1231,73 @@ async function readChromeActiveTabUrl() {
       return URL of active tab of front window
     end tell
   `).then((value) => value.trim());
+}
+
+async function readChromeTabUrl(tabIndex: number) {
+  return runAppleScript(`
+    tell application "Google Chrome"
+      return URL of tab ${tabIndex} of front window
+    end tell
+  `).then((value) => value.trim());
+}
+
+async function waitForChromeTabUrlIncludesWithin(
+  tabIndex: number,
+  fragment: string,
+  timeoutMs: number,
+) {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const url = await readChromeTabUrl(tabIndex);
+    if (url.includes(fragment)) {
+      return true;
+    }
+
+    await sleep(250);
+  }
+
+  return false;
+}
+
+async function navigateChromeTabToUrl(
+  tabIndex: number,
+  url: string,
+  expectedFragment: string,
+  timeoutMs: number,
+) {
+  await activateChromeTab(tabIndex);
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await setChromeTabUrl(tabIndex, url);
+    if (
+      await waitForChromeTabUrlIncludesWithin(
+        tabIndex,
+        expectedFragment,
+        Math.min(timeoutMs, 4_000),
+      )
+    ) {
+      return;
+    }
+
+    await executeChromeJavaScript(
+      `window.location.assign(${JSON.stringify(url)}); "ok";`,
+    );
+    if (
+      await waitForChromeTabUrlIncludesWithin(
+        tabIndex,
+        expectedFragment,
+        Math.min(timeoutMs, 4_000),
+      )
+    ) {
+      return;
+    }
+  }
+
+  const currentUrl = await readChromeTabUrl(tabIndex);
+  throw new Error(
+    `Chrome tab ${tabIndex} never reached ${expectedFragment}. Current URL: ${currentUrl}`,
+  );
 }
 
 async function waitForChromeAxElementCenter(
@@ -1321,26 +1595,17 @@ async function pressEscapeKey() {
   `);
 }
 
-async function refreshChromePage() {
-  await runAppleScript(`
-    tell application "Google Chrome"
-      reload active tab of front window
-    end tell
-  `);
-}
-
 async function runStackStep2GithubTemplateSequence(
   mouseBin: string,
   windowFrame: WindowFrame,
-) {
+): Promise<GithubRepoDetails> {
   await sleep(350);
-  await setChromeTabUrl(1, STACK_STEP_2_TEMPLATE_REPO_URL);
-  await waitForChromeActiveTabUrlIncludes("/noter-md/template", 12_000);
-  // GitHub occasionally leaves the template repo page in a stale pre-auth
-  // state after the earlier GitHub sign-in dance, so force one refresh before
-  // looking for the template action.
-  await refreshChromePage();
-  await waitForChromeActiveTabUrlIncludes("/noter-md/template", 12_000);
+  await navigateChromeTabToUrl(
+    1,
+    STACK_STEP_2_TEMPLATE_REPO_URL,
+    "/noter-md/app",
+    20_000,
+  );
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
 
   const useTemplatePoint = await waitForChromeAxElementCenterForRoles(
@@ -1415,6 +1680,335 @@ async function runStackStep2GithubTemplateSequence(
     18_000,
   );
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+  return {
+    owner,
+    repoName: suggestedRepoName,
+    repoUrl: `https://github.com/${owner}/${suggestedRepoName}`,
+  };
+}
+
+async function runStackStep3ConvexProjectSequence(
+  mouseBin: string,
+  windowFrame: WindowFrame,
+  repoName: string,
+) {
+  await activateChromeTab(2);
+  await waitForChromeActiveTabUrlIncludes("dashboard.convex.dev", 20_000);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+
+  const createProjectPoint = await waitForChromeAxElementCenterForRoles(
+    STACK_CONVEX_CREATE_PROJECT_BUTTON_LABEL,
+    ["AXButton"],
+    15_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    createProjectPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  await waitForChromeJavaScriptTruthy(
+    buildFillFieldScript(["Project Name", "Name"], repoName),
+    10_000,
+  );
+  await waitForChromeJavaScriptTruthy(
+    buildClickButtonLikeByTextsScript(["Create Project", "Create", "submit"]),
+    10_000,
+  );
+  await waitForChromeActiveTabUrlIncludes(`/${repoName}/`, 25_000);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+}
+
+async function runStackStep4PrepareCloudflareDeploySequence(
+  mouseBin: string,
+  windowFrame: WindowFrame,
+  repoName: string,
+): Promise<CloudflareAccountContext> {
+  await activateChromeTab(3);
+  await waitForChromeActiveTabUrlIncludes("dash.cloudflare.com", 20_000);
+  const cloudflare = await readCloudflareAccountContext();
+
+  await setChromeTabUrl(3, cloudflare.workersAndPagesCreateUrl);
+  await waitForChromeActiveTabUrlIncludes("/workers-and-pages/create", 12_000);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+
+  await clickChromeButtonLikeIfPresent(STACK_CLOUDFLARE_CONNECT_GITHUB_LABELS);
+  const connectUrl = await readChromeActiveTabUrl();
+  if (connectUrl.includes("github.com/")) {
+    throw new Error(
+      "Cloudflare requested a fresh GitHub installation flow. Reconnect it once manually, then rerun stack-full-run.",
+    );
+  }
+
+  await setChromeTabUrl(3, cloudflare.pagesCreateUrl);
+  await waitForChromeActiveTabUrlIncludes(
+    "/workers-and-pages/create/pages",
+    12_000,
+  );
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+  await setChromeTabUrl(3, cloudflare.pagesProviderUrl);
+  await waitForChromeActiveTabUrlIncludes("/pages/new/provider/github", 20_000);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+
+  const hasSearchField = await waitForChromeJavaScriptTruthyWithin(
+    buildFieldPresenceScript(["Search repositories..."]),
+    8_000,
+  );
+  if (!hasSearchField) {
+    const cloudflareIssue = await executeChromeJavaScript(
+      buildReadTextContainingScript([
+        "There is an internal issue with your Cloudflare Pages Git installation.",
+      ]),
+    );
+    if (cloudflareIssue.length > 0) {
+      throw new Error(cloudflareIssue);
+    }
+
+    throw new Error(
+      "Cloudflare did not expose the Pages repository picker after Get started.",
+    );
+  }
+
+  await waitForChromeJavaScriptTruthy(
+    buildFillFieldScript(["Search repositories..."], repoName),
+    8_000,
+  );
+  await waitForChromeJavaScriptTruthy(
+    buildClickClickableContainingTextScript(repoName),
+    12_000,
+  );
+  const beginSetupPoint = await waitForChromeAxElementCenterForRoles(
+    STACK_CLOUDFLARE_BEGIN_SETUP_LABEL,
+    ["AXButton"],
+    10_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    beginSetupPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+
+  await waitForChromeJavaScriptTruthy(
+    buildFieldPresenceScript(["Build command", "Project name"]),
+    20_000,
+  );
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+  await fillCloudflareBuildConfiguration(repoName);
+
+  return cloudflare;
+}
+
+async function runStackStep5CreateConvexDeployKeyAndFinishDeploy(
+  mouseBin: string,
+  windowFrame: WindowFrame,
+  repoName: string,
+  cloudflare: CloudflareAccountContext,
+) {
+  await activateChromeTab(2);
+  await waitForChromeActiveTabUrlIncludes(`/${repoName}/`, 20_000);
+  await sleep(STACK_TAB_SHOW_SECONDS * 1_000);
+
+  const deploymentLabel =
+    (await readChromeAxPopupButtonLabelContaining("Development")) ??
+    (await readChromeAxPopupButtonLabelContaining("Production"));
+  if (deploymentLabel === null) {
+    throw new Error("Convex deployment switcher is unavailable.");
+  }
+
+  const deploymentPoint = await waitForChromeAxElementCenterForRoles(
+    deploymentLabel,
+    ["AXPopUpButton"],
+    8_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    deploymentPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  await sleep(STACK_CONTROL_SETTLE_SECONDS * 1_000);
+
+  const deploymentOptions = await readChromeAxMenuItemLabels();
+  const productionDeployment = deploymentOptions.find((label) =>
+    label.startsWith(STACK_CONVEX_PRODUCTION_MENU_ITEM_PREFIX),
+  );
+  if (!productionDeployment) {
+    throw new Error("Convex production deployment was not available.");
+  }
+
+  const productionPoint = await waitForChromeAxElementCenterForRoles(
+    productionDeployment,
+    ["AXMenuItem"],
+    4_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    productionPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  await waitForChromeActiveTabUrlIncludes("dashboard.convex.dev", 20_000);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+
+  const settingsPoint = await waitForChromeAxElementCenterForRoles(
+    STACK_CONVEX_SETTINGS_LINK_LABEL,
+    ["AXLink"],
+    10_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    settingsPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  await waitForChromeActiveTabUrlIncludes("/settings", 15_000);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+
+  const createDeployKeyPoint = await waitForChromeAxElementCenterForRoles(
+    STACK_CONVEX_CREATE_DEPLOY_KEY_LABEL,
+    ["AXButton"],
+    10_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    createDeployKeyPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  await waitForChromeJavaScriptTruthy(
+    buildFillFieldScript(["Name"], STACK_CONVEX_DEPLOY_KEY_NAME),
+    8_000,
+  );
+  await waitForChromeJavaScriptTruthy(
+    buildClickButtonLikeByTextsScript(["Create"]),
+    8_000,
+  );
+  await waitForChromeJavaScriptTruthy(
+    buildClickDialogButtonLikeByTextsScript(["Copy"]),
+    15_000,
+  );
+  const deployKey = await readClipboard();
+  if (deployKey.length === 0) {
+    throw new Error("Convex deploy key copy did not reach the clipboard.");
+  }
+
+  await activateChromeTab(3);
+  await waitForChromeActiveTabUrlIncludes(
+    `dash.cloudflare.com/${cloudflare.accountId}/`,
+    20_000,
+  );
+  await sleep(STACK_TAB_SHOW_SECONDS * 1_000);
+  await waitForChromeJavaScriptTruthy(
+    buildFillFieldScript(["Value"], deployKey),
+    8_000,
+  );
+  const saveAndDeployPoint = await waitForChromeAxElementCenterForRoles(
+    "Save and Deploy",
+    ["AXButton"],
+    10_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    saveAndDeployPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  await waitForChromeActiveTabUrlIncludes(`/pages/`, 20_000);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+}
+
+async function fillCloudflareBuildConfiguration(repoName: string) {
+  await waitForChromeJavaScriptTruthy(
+    buildFillFieldScript(["Project name"], repoName),
+    8_000,
+  );
+  await waitForChromeJavaScriptTruthy(
+    buildFillFieldScript(["Build command"], STACK_CLOUDFLARE_BUILD_COMMAND),
+    8_000,
+  );
+  await waitForChromeJavaScriptTruthy(
+    buildFillFieldScript(
+      ["Build output directory", "Build command directory"],
+      STACK_CLOUDFLARE_BUILD_OUTPUT_DIRECTORY,
+    ),
+    8_000,
+  );
+  await waitForChromeJavaScriptTruthy(
+    buildClickButtonLikeByTextsScript(["Environment variables (advanced)"]),
+    8_000,
+  );
+  await clickChromeButtonLikeIfPresent(["Add variable"]);
+  await waitForChromeJavaScriptTruthy(
+    buildFillFieldScript(
+      ["Variable name"],
+      STACK_CLOUDFLARE_ENVIRONMENT_VARIABLE_NAME,
+    ),
+    8_000,
+  );
+}
+
+async function waitForCloudflareDeploymentUrl() {
+  await activateChromeTab(3);
+  const deployedUrl = await waitForChromeJavaScriptTruthy(
+    buildReadLinkHrefContainingScript([STACK_DEPLOY_URL_FRAGMENT]),
+    10 * 60_000,
+  );
+  return deployedUrl;
+}
+
+async function openDeployedSiteInCloudflareTab(deployedUrl: string) {
+  await activateChromeTab(3);
+  await setChromeTabUrl(3, deployedUrl);
+  await waitForChromeActiveTabUrlIncludes(deployedUrl, 30_000);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+}
+
+async function runStackStep6AddTodoSequence(
+  mouseBin: string,
+  windowFrame: WindowFrame,
+  deployedUrl: string,
+  todoText: string,
+) {
+  await activateChromeTab(3);
+  await waitForChromeActiveTabUrlIncludes(deployedUrl, 30_000);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
+  await waitForChromeJavaScriptTruthy(
+    buildFillFieldScript(["New todo"], todoText),
+    8_000,
+  );
+
+  const addButtonPoint = await waitForChromeAxElementCenterForRoles(
+    "Add",
+    ["AXButton"],
+    8_000,
+  );
+  await runMouseClick(
+    mouseBin,
+    addButtonPoint,
+    windowFrame,
+    STACK_STEP_1_MOUSE_TIMING,
+  );
+  await waitForChromeJavaScriptTruthy(
+    buildReadTextContainingScript([todoText]),
+    8_000,
+  );
+}
+
+async function readCloudflareAccountContext(): Promise<CloudflareAccountContext> {
+  const currentUrl = await readChromeActiveTabUrl();
+  const match = currentUrl.match(/dash\.cloudflare\.com\/([^/]+)/);
+  if (!match?.[1]) {
+    throw new Error(`Could not parse Cloudflare account id from ${currentUrl}`);
+  }
+
+  const accountId = match[1];
+  return {
+    accountId,
+    workersAndPagesCreateUrl: `https://dash.cloudflare.com/${accountId}/workers-and-pages/create`,
+    pagesCreateUrl: `https://dash.cloudflare.com/${accountId}/workers-and-pages/create/pages`,
+    pagesProviderUrl: `https://dash.cloudflare.com/${accountId}/pages/new/provider/github`,
+  };
 }
 
 async function selectPreferredGithubRepoOwner(
@@ -1534,6 +2128,273 @@ async function runAppleScript(script: string) {
     REPO_ROOT,
   );
   return stdout;
+}
+
+async function executeChromeJavaScript(script: string) {
+  const result = await runAppleScript(`
+    tell application "Google Chrome"
+      return execute active tab of front window javascript "${escapeAppleScriptString(
+        script,
+      )}"
+    end tell
+  `);
+  const trimmed = result.trim();
+  if (trimmed === "missing value") {
+    return "";
+  }
+
+  return trimmed;
+}
+
+async function waitForChromeJavaScriptTruthy(script: string, timeoutMs: number) {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const value = await executeChromeJavaScript(script);
+    if (isChromeJavaScriptTruthyValue(value)) {
+      return value;
+    }
+
+    await sleep(250);
+  }
+
+  throw new Error(`Timed out waiting for Chrome page script: ${script}`);
+}
+
+async function waitForChromeJavaScriptTruthyWithin(
+  script: string,
+  timeoutMs: number,
+) {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const value = await executeChromeJavaScript(script);
+    if (isChromeJavaScriptTruthyValue(value)) {
+      return true;
+    }
+
+    await sleep(250);
+  }
+
+  return false;
+}
+
+function isChromeJavaScriptTruthyValue(value: string) {
+  return (
+    value.length > 0 &&
+    value !== "false" &&
+    value !== "null" &&
+    value !== "undefined"
+  );
+}
+
+async function clickChromeButtonLikeIfPresent(
+  texts: readonly string[],
+): Promise<boolean> {
+  const result = await executeChromeJavaScript(
+    buildClickButtonLikeByTextsScript(texts),
+  );
+  return isChromeJavaScriptTruthyValue(result);
+}
+
+function buildClickButtonLikeByTextsScript(texts: readonly string[]) {
+  return `(() => {
+    const targets = ${JSON.stringify(texts)};
+    const normalize = (value) => (value ?? "").replace(/\\s+/g, " ").trim().toLowerCase();
+    const wanted = targets.map((value) => normalize(value));
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement)) return false;
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+    const candidates = [...document.querySelectorAll("button, a, [role='button'], summary, input[type='button'], input[type='submit']")];
+    const target = candidates.find((element) => {
+      if (!isVisible(element)) return false;
+      const label = normalize(
+        element.getAttribute("aria-label") ??
+          (element instanceof HTMLInputElement ? element.value : "") ??
+          element.textContent ??
+          ""
+      );
+      return wanted.some((wantedLabel) => label.includes(wantedLabel));
+    });
+    if (!target) return "";
+    target.scrollIntoView({ block: "center", inline: "center" });
+    target.click();
+    return "ok";
+  })()`;
+}
+
+function buildClickDialogButtonLikeByTextsScript(texts: readonly string[]) {
+  return `(() => {
+    const targets = ${JSON.stringify(texts)};
+    const normalize = (value) => (value ?? "").replace(/\\s+/g, " ").trim().toLowerCase();
+    const wanted = targets.map((value) => normalize(value));
+    const dialog = document.querySelector("[role='dialog']") ?? document.body;
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement)) return false;
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+    const candidates = [...dialog.querySelectorAll("button, a, [role='button'], input[type='button'], input[type='submit']")];
+    const target = candidates.find((element) => {
+      if (!isVisible(element)) return false;
+      const label = normalize(
+        element.getAttribute("aria-label") ??
+          (element instanceof HTMLInputElement ? element.value : "") ??
+          element.textContent ??
+          ""
+      );
+      return wanted.some((wantedLabel) => label.includes(wantedLabel));
+    });
+    if (!target) return "";
+    target.scrollIntoView({ block: "center", inline: "center" });
+    target.click();
+    return "ok";
+  })()`;
+}
+
+function buildClickClickableContainingTextScript(text: string) {
+  return `(() => {
+    const targetText = ${(JSON.stringify(text))};
+    const normalize = (value) => (value ?? "").replace(/\\s+/g, " ").trim().toLowerCase();
+    const wanted = normalize(targetText);
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement)) return false;
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+    const nodes = [...document.querySelectorAll("button, a, [role='button'], label, div, span, li")];
+    for (const node of nodes) {
+      if (!isVisible(node)) continue;
+      const label = normalize(node.textContent ?? node.getAttribute("aria-label") ?? "");
+      if (!label.includes(wanted)) continue;
+      const clickable = node.closest("button, a, [role='button'], label") ?? node;
+      if (!isVisible(clickable)) continue;
+      clickable.scrollIntoView({ block: "center", inline: "center" });
+      clickable.click();
+      return "ok";
+    }
+    return "";
+  })()`;
+}
+
+function buildFillFieldScript(
+  fieldHints: readonly string[],
+  value: string,
+) {
+  return `(() => {
+    const hints = ${JSON.stringify(fieldHints)};
+    const nextValue = ${JSON.stringify(value)};
+    const normalize = (value) => (value ?? "").replace(/\\s+/g, " ").trim().toLowerCase();
+    const wanted = hints.map((hint) => normalize(hint));
+    const setFieldValue = (field, nextValue) => {
+      const prototype = field instanceof HTMLTextAreaElement
+        ? HTMLTextAreaElement.prototype
+        : HTMLInputElement.prototype;
+      const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
+      descriptor?.set?.call(field, nextValue);
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement)) return false;
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+    const fields = [...document.querySelectorAll("input:not([type='hidden']):not([type='checkbox']):not([type='radio']), textarea")];
+    const byLabel = () => {
+      const labels = [...document.querySelectorAll("label")];
+      for (const label of labels) {
+        const labelText = normalize(label.textContent ?? "");
+        if (!wanted.some((hint) => labelText.includes(hint))) continue;
+        const htmlFor = label.getAttribute("for");
+        if (htmlFor) {
+          const candidate = document.getElementById(htmlFor);
+          if (candidate instanceof HTMLInputElement || candidate instanceof HTMLTextAreaElement) {
+            return candidate;
+          }
+        }
+        const nestedField = label.querySelector("input, textarea");
+        if (nestedField instanceof HTMLInputElement || nestedField instanceof HTMLTextAreaElement) {
+          return nestedField;
+        }
+      }
+      return null;
+    };
+    const byAttributes = fields.find((field) => {
+      if (!isVisible(field)) return false;
+      const labels = [
+        field.getAttribute("aria-label"),
+        field.getAttribute("name"),
+        field.getAttribute("placeholder"),
+        field.getAttribute("id"),
+      ].map((part) => normalize(part ?? ""));
+      return wanted.some((hint) => labels.some((label) => label.includes(hint)));
+    });
+    const target = byLabel() ?? byAttributes;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) {
+      return "";
+    }
+    target.scrollIntoView({ block: "center", inline: "center" });
+    target.focus();
+    setFieldValue(target, nextValue);
+    return "ok";
+  })()`;
+}
+
+function buildFieldPresenceScript(fieldHints: readonly string[]) {
+  return `(() => {
+    const hints = ${JSON.stringify(fieldHints)};
+    const normalize = (value) => (value ?? "").replace(/\\s+/g, " ").trim().toLowerCase();
+    const wanted = hints.map((hint) => normalize(hint));
+    const fields = [...document.querySelectorAll("input, textarea, button, a, [role='button'], label")];
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement)) return false;
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+    const match = fields.find((field) => {
+      if (!isVisible(field)) return false;
+      const label = normalize(
+        field.getAttribute?.("aria-label") ??
+          field.getAttribute?.("placeholder") ??
+          field.textContent ??
+          ""
+      );
+      return wanted.some((hint) => label.includes(hint));
+    });
+    return match ? "true" : "";
+  })()`;
+}
+
+function buildReadLinkHrefContainingScript(fragments: readonly string[]) {
+  return `(() => {
+    const fragments = ${JSON.stringify(fragments)};
+    const normalize = (value) => (value ?? "").trim();
+    const links = [...document.querySelectorAll("a[href]")];
+    const match = links.find((link) => {
+      const href = normalize(link.getAttribute("href"));
+      const text = normalize(link.textContent);
+      return fragments.some((fragment) => href.includes(fragment) || text.includes(fragment));
+    });
+    if (!match) return "";
+    return match.href;
+  })()`;
+}
+
+function buildReadTextContainingScript(fragments: readonly string[]) {
+  return `(() => {
+    const fragments = ${JSON.stringify(fragments)};
+    const text = document.body.innerText ?? "";
+    const match = fragments.find((fragment) => text.includes(fragment));
+    return match ?? "";
+  })()`;
+}
+
+async function readClipboard() {
+  const { stdout } = await runCommandCapture("pbpaste", [], REPO_ROOT);
+  return stdout.trim();
 }
 
 async function runScreenDemo(options: ScreenDemoOptions) {

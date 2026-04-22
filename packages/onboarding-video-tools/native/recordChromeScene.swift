@@ -206,6 +206,23 @@ struct CaptureTarget {
     let sourceRect: CGRect
 }
 
+final class StopSignalMonitor {
+    private(set) var shouldStop = false
+    private var sources: [DispatchSourceSignal] = []
+
+    init() {
+        for signalNumber in [SIGTERM, SIGINT] {
+            signal(signalNumber, SIG_IGN)
+            let source = DispatchSource.makeSignalSource(signal: signalNumber, queue: .main)
+            source.setEventHandler { [weak self] in
+                self?.shouldStop = true
+            }
+            source.resume()
+            sources.append(source)
+        }
+    }
+}
+
 @MainActor
 final class RecordingDelegate: NSObject, SCRecordingOutputDelegate {
     private(set) var failure: Error?
@@ -223,6 +240,7 @@ final class ChromeSceneRecorder {
     private var stream: SCStream?
     private var recordingOutput: SCRecordingOutput?
     private var recordingDelegate: RecordingDelegate?
+    private let stopSignalMonitor = StopSignalMonitor()
 
     func record(options: RecorderOptions) async throws {
         let outputURL = URL(fileURLWithPath: options.outputPath)
@@ -285,8 +303,8 @@ final class ChromeSceneRecorder {
             )
         }
 
-        try await Task.sleep(for: .seconds(options.warmupDuration))
-        try await Task.sleep(for: .seconds(options.duration))
+        try await waitUntilDurationExpiresOrStopRequested(options.warmupDuration)
+        try await waitUntilDurationExpiresOrStopRequested(options.duration)
 
         do {
             try await stream.stopCapture()
@@ -381,6 +399,19 @@ final class ChromeSceneRecorder {
         abs(lhs.origin.y - rhs.origin.y) < 2 &&
         abs(lhs.size.width - rhs.size.width) < 2 &&
         abs(lhs.size.height - rhs.size.height) < 2
+    }
+
+    private func waitUntilDurationExpiresOrStopRequested(_ duration: TimeInterval) async throws {
+        let deadline = Date().addingTimeInterval(duration)
+
+        while !stopSignalMonitor.shouldStop {
+            let remaining = deadline.timeIntervalSinceNow
+            if remaining <= 0 {
+                return
+            }
+
+            try await Task.sleep(for: .seconds(min(remaining, 0.1)))
+        }
     }
 }
 
