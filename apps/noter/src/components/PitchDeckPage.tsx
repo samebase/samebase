@@ -409,7 +409,6 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
                   key={pdfDownload.href}
                   asChild
                   className="min-w-[11rem]"
-                  cornerNotch={1}
                 >
                   <a download={pdfDownload.download} href={pdfDownload.href}>
                     Download {pdfDownload.label}

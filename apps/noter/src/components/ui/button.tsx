@@ -2,7 +2,6 @@ import * as React from "react";
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
 
-import { type CornerNotchType } from "@/lib/cornerNotch";
 import { resolveBaseUiAsChild } from "@/lib/baseUiAsChild";
 import { cn } from "@/lib/utils";
 
@@ -46,8 +45,6 @@ const buttonVariants = cva(
 type ButtonProps = Omit<ButtonPrimitive.Props, "render"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
-    // Keep the prop temporarily so existing callsites stay readable during the migration.
-    cornerNotch?: CornerNotchType;
   };
 
 function Button({
@@ -55,7 +52,6 @@ function Button({
   variant = "default",
   size = "default",
   asChild = false,
-  cornerNotch: _cornerNotch,
   children,
   ...props
 }: ButtonProps) {

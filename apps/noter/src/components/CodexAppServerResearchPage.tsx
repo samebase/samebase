@@ -456,7 +456,7 @@ export function CodexAppServerSelectedThreadCard(props: {
   }${props.hasMoreThreads ? " with more available" : ""}.`;
 
   return (
-    <Card cornerNotch={0}>
+    <Card>
       <CardHeader>
         <CardTitle className="font-mono text-base">Selected thread</CardTitle>
         <CardDescription className="max-w-4xl text-sm leading-6">
@@ -831,7 +831,7 @@ export function CodexAppServerResearchPage() {
 
         <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
           <div className="grid gap-6">
-            <Card cornerNotch={0}>
+            <Card>
               <CardHeader>
                 <CardTitle className="font-mono text-base">Runtime</CardTitle>
               </CardHeader>
@@ -1023,7 +1023,7 @@ export function CodexAppServerResearchPage() {
               </CardContent>
             </Card>
 
-            <Card cornerNotch={0}>
+            <Card>
               <CardHeader>
                 <CardTitle className="font-mono text-base">
                   Protocol export
@@ -1119,7 +1119,7 @@ export function CodexAppServerResearchPage() {
               isBusy={isBusy}
             />
 
-            <Card cornerNotch={0}>
+            <Card>
               <CardHeader>
                 <CardTitle className="font-mono text-base">
                   Thread and turn control
@@ -1363,7 +1363,7 @@ export function CodexAppServerResearchPage() {
               </CardContent>
             </Card>
 
-            <Card cornerNotch={0}>
+            <Card>
               <CardHeader>
                 <CardTitle className="font-mono text-base">Approvals</CardTitle>
               </CardHeader>
@@ -1419,7 +1419,7 @@ export function CodexAppServerResearchPage() {
               </CardContent>
             </Card>
 
-            <Card cornerNotch={0}>
+            <Card>
               <CardHeader>
                 <CardTitle className="font-mono text-base">
                   Event stream

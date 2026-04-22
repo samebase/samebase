@@ -40,17 +40,10 @@ function FixtureTypeMarkers({ type }: { type: CornerNotchType }) {
   );
 }
 
-function FixtureEmptyInput({
-  cornerNotch,
-  className,
-}: {
-  className?: string;
-  cornerNotch: CornerNotchType;
-}) {
+function FixtureEmptyInput({ className }: { className?: string }) {
   return (
     <div className="relative">
       <Input
-        cornerNotch={cornerNotch}
         className={cn("border-stone-300 text-transparent", className)}
         readOnly
         value=""
@@ -67,36 +60,20 @@ export function CornerNotchVisualFixture() {
       className="min-h-screen bg-stone-100 p-10 text-stone-950"
     >
       <div className="mx-auto grid max-w-4xl gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <Card
-          cornerNotch={DEFAULT_CORNER_NOTCH_TYPE}
-          className={EMPHASIZED_BORDER_CLASS}
-        >
+        <Card className={EMPHASIZED_BORDER_CLASS}>
           <CardHeader>
             <CardTitle>
               <FixtureBar className="h-3 w-28 bg-foreground/65" />
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <FixtureEmptyInput
-              cornerNotch={DEFAULT_CORNER_NOTCH_TYPE}
-              className={EMPHASIZED_BORDER_CLASS}
-            />
-            <FixtureEmptyInput
-              cornerNotch={DEFAULT_CORNER_NOTCH_TYPE}
-              className={EMPHASIZED_BORDER_CLASS}
-            />
+            <FixtureEmptyInput className={EMPHASIZED_BORDER_CLASS} />
+            <FixtureEmptyInput className={EMPHASIZED_BORDER_CLASS} />
             <div className="flex gap-3">
-              <Button
-                cornerNotch={DEFAULT_CORNER_NOTCH_TYPE}
-                variant="outline"
-                className={EMPHASIZED_BORDER_CLASS}
-              >
+              <Button variant="outline" className={EMPHASIZED_BORDER_CLASS}>
                 <FixtureButtonLabel className="w-20" />
               </Button>
-              <Button
-                cornerNotch={DEFAULT_CORNER_NOTCH_TYPE}
-                className="border border-primary"
-              >
+              <Button className="border border-primary">
                 <FixtureButtonLabel className="w-12 bg-current/65" />
               </Button>
             </div>
@@ -109,11 +86,7 @@ export function CornerNotchVisualFixture() {
               const notchClass = getCornerNotchClass(type);
 
               return (
-                <Card
-                  key={type}
-                  cornerNotch={type}
-                  className="border-stone-300 shadow-sm"
-                >
+                <Card key={type} className="border-stone-300 shadow-sm">
                   <CardContent className="space-y-3 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <FixtureTypeMarkers type={type} />
@@ -124,12 +97,8 @@ export function CornerNotchVisualFixture() {
                       <FixtureBar className="h-2.5 w-44 bg-stone-400/45" />
                     </div>
                     <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                      <FixtureEmptyInput cornerNotch={type} />
-                      <Button
-                        cornerNotch={type}
-                        variant="outline"
-                        className="border-stone-300"
-                      >
+                      <FixtureEmptyInput />
+                      <Button variant="outline" className="border-stone-300">
                         <FixtureButtonLabel className="w-12" />
                       </Button>
                     </div>
@@ -145,10 +114,7 @@ export function CornerNotchVisualFixture() {
             })}
           </div>
 
-          <Card
-            cornerNotch={DEFAULT_CORNER_NOTCH_TYPE}
-            className="border-stone-300 shadow-sm"
-          >
+          <Card className="border-stone-300 shadow-sm">
             <CardContent className="space-y-2 p-4">
               <FixtureBar className="h-2.5 w-16 bg-stone-500/45" />
               <FixtureBar className="h-2.5 w-48 bg-stone-400/45" />

@@ -7,19 +7,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { type CornerNotchType } from "@/lib/cornerNotch";
 
-export interface CardProps extends React.ComponentPropsWithoutRef<
-  typeof BaseCard
-> {
-  // Keep the prop temporarily so existing callsites stay readable during the migration.
-  cornerNotch?: CornerNotchType;
-}
+export type CardProps = React.ComponentPropsWithoutRef<typeof BaseCard>;
 
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ cornerNotch: _cornerNotch, ...props }, ref) => (
-    <BaseCard ref={ref} {...props} />
-  ),
+  (props, ref) => <BaseCard ref={ref} {...props} />,
 );
 
 Card.displayName = "Card";
