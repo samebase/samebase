@@ -64,7 +64,9 @@ Current intended checkpoints:
 3. Create the Convex project.
 4. Start the Cloudflare deploy.
 5. Create the Convex deploy key and finish the deploy.
-6. Delete the created GitHub repo, Convex project, and Cloudflare app.
+6. Open the deployed Pages URL and perform one live app action such as adding a
+   todo.
+7. Delete the created GitHub repo, Convex project, and Cloudflare app.
 
 Each checkpoint should have:
 
@@ -101,9 +103,13 @@ as onboarding content.
   1. land on the Workers & Pages create screen
   2. connect GitHub first
   3. then enter the Pages `Get started` flow once the account link exists
+  4. install the GitHub App for `Only select repositories`
+  5. scope it to the repo created in the current run
 - Do not assume uninstalling the GitHub app or OAuth grant will make the next
   Cloudflare attempt self-heal. Cloudflare can keep a broken repo-access state
   until the dashboard-side GitHub connection is re-established.
+- End the canonical run on the real deployed app, not the provider success
+  screen. The preferred proof step is to add a todo in the live site.
 - For services where we already expose an app-owned delete-all path in Noter,
   prefer reusing that deletion flow through the product API.
 - For third-party services, keep a visible browser cleanup flow so the tutorial

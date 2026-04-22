@@ -26,7 +26,9 @@ real brittle spots are so later automation work can focus on the right places.
 6. Return to Cloudflare and finish the deploy.
 7. Wait until the Pages build finishes.
 8. Open the deployed Pages URL in the browser before ending the recording.
-9. Clean up every resource created by the run.
+9. Add a todo in the live deployed app so the run proves more than a successful
+   build.
+10. Clean up every resource created by the run.
 
 ## Things to watch closely
 
@@ -44,16 +46,27 @@ real brittle spots are so later automation work can focus on the right places.
   2. Use the visible GitHub connect button first so Cloudflare already has the
      GitHub account linked.
   3. Only after that, use the Pages `Get started` path.
+  4. During GitHub App install, prefer `Only select repositories` and scope the
+     install to the repo created by this run.
 - The Convex deploy key and Cloudflare env var value must not leak into the
   final video artifact.
 - Cloudflare build time is variable, so the recording needs enough budget to
   wait for the final deployed URL.
 - Cleanup must work for partial runs, not only successful end-to-end runs.
 
+## Latest successful run
+
+- Date: 2026-04-22
+- GitHub repo: `noter-guest/crispy-octo-goggles` (private)
+- Convex project: `crispy-octo-goggles`
+- Convex production deployment: `pastel-eel-477`
+- Cloudflare Pages URL opened at the end:
+  `https://crispy-octo-goggles-7c8.pages.dev/`
+- Live-site validation after deploy: added todo `Ship it`
+
 ## TODO after the first full run
 
 - Record the exact points where the flow felt brittle or visually unclear.
-- Save the final deployed Pages URL that the run opened.
 - Note where extra dwell time helped and where it felt slow.
 - Convert the most stable parts of the flow into reusable recorder helpers only
   after the full path is proven.
