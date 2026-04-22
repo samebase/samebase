@@ -220,8 +220,7 @@ const STACK_STEP_1_CONVEX_LOGOUT_URL = "https://dashboard.convex.dev/logout";
 const STACK_STEP_1_CLOUDFLARE_LOGOUT_URL = "https://dash.cloudflare.com/logout";
 const STACK_STEP_1_CONVEX_LOGIN_URL = "https://www.convex.dev/login";
 const STACK_STEP_1_CLOUDFLARE_LOGIN_URL = "https://dash.cloudflare.com/login";
-const STACK_STEP_2_TEMPLATE_REPO_URL =
-  "https://github.com/noter-md/convex-cloudflare-pages-stack";
+const STACK_STEP_2_TEMPLATE_REPO_URL = "https://github.com/noter-md/template";
 const STACK_STEP_2_USE_TEMPLATE_LABEL = "Use this template";
 const STACK_STEP_2_OWNER_POPUP_LABEL_FRAGMENT = "Owner (Required)";
 const STACK_STEP_2_REPO_NAME_SUGGESTION_LABEL_FRAGMENT =
@@ -1323,10 +1322,7 @@ async function runStackStep2GithubTemplateSequence(
 ) {
   await sleep(350);
   await setChromeTabUrl(1, STACK_STEP_2_TEMPLATE_REPO_URL);
-  await waitForChromeActiveTabUrlIncludes(
-    "/noter-md/convex-cloudflare-pages-stack",
-    12_000,
-  );
+  await waitForChromeActiveTabUrlIncludes("/noter-md/template", 12_000);
   await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
 
   const useTemplatePoint = await waitForChromeAxElementCenterForRoles(

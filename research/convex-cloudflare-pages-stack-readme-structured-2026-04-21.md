@@ -62,7 +62,7 @@ Mini-steps:
 
 Mini-steps:
 
-- Go to `noter-md/convex-cloudflare-pages-stack`.
+- Go to `noter-md/template`.
 - Find and click the green `Use this template` button.
 - Create a new repository in the correct account or org.
 - Wait until the new repo is created and visible.
