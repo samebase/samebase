@@ -191,6 +191,11 @@ const STACK_STEP_1_MOUSE_TIMING = {
   clickHoldDuration: 0.08,
   pauseAfterClick: 0.22,
 } as const;
+// Keep page reveals long enough to register, but do not add the same pause to
+// small control interactions like dropdown picks or suggestion chips.
+const STACK_PAGE_LOAD_SHOW_SECONDS = 1;
+const STACK_TAB_SHOW_SECONDS = 0.4;
+const STACK_CONTROL_SETTLE_SECONDS = 0.25;
 const LANDING_DEMO_OUTPUT_FPS = 30;
 const LANDING_DEMO_RECORDER_WARMUP_SECONDS = 0.8;
 const LANDING_DEMO_AUTOMATION_START_DELAY_SECONDS =
@@ -831,39 +836,39 @@ async function prepareStackStep1Coords(
 function buildStackStep1Sequence(coords: StackStep1Coords): StackStep1Step[] {
   const sequence: StackStep1Step[] = [
     { kind: "click", target: "tabs.convex" },
-    { kind: "wait", seconds: 0.55 },
+    { kind: "wait", seconds: STACK_TAB_SHOW_SECONDS },
     { kind: "click", target: "convex.homeLogin" },
-    { kind: "wait", seconds: 0.95 },
+    { kind: "wait", seconds: STACK_PAGE_LOAD_SHOW_SECONDS },
   ];
 
   if (coords.convex.githubLogin !== null) {
     sequence.push(
       { kind: "click", target: "convex.githubLogin" },
-      { kind: "wait", seconds: 1.75 },
+      { kind: "wait", seconds: STACK_PAGE_LOAD_SHOW_SECONDS },
     );
   } else {
-    sequence.push({ kind: "wait", seconds: 1.75 });
+    sequence.push({ kind: "wait", seconds: STACK_PAGE_LOAD_SHOW_SECONDS });
   }
 
   sequence.push(
     { kind: "click", target: "tabs.cloudflare" },
-    { kind: "wait", seconds: 0.55 },
+    { kind: "wait", seconds: STACK_TAB_SHOW_SECONDS },
     { kind: "click", target: "cloudflare.homeLogin" },
-    { kind: "wait", seconds: 0.95 },
+    { kind: "wait", seconds: STACK_PAGE_LOAD_SHOW_SECONDS },
   );
 
   if (coords.cloudflare.githubLogin !== null) {
     sequence.push(
       { kind: "click", target: "cloudflare.githubLogin" },
-      { kind: "wait", seconds: 1.9 },
+      { kind: "wait", seconds: STACK_PAGE_LOAD_SHOW_SECONDS },
     );
   } else {
-    sequence.push({ kind: "wait", seconds: 1.9 });
+    sequence.push({ kind: "wait", seconds: STACK_PAGE_LOAD_SHOW_SECONDS });
   }
 
   sequence.push(
     { kind: "click", target: "tabs.github" },
-    { kind: "wait", seconds: 0.7 },
+    { kind: "wait", seconds: STACK_TAB_SHOW_SECONDS },
   );
 
   return sequence;
@@ -1320,7 +1325,7 @@ async function runStackStep2GithubTemplateSequence(
     "/noter-md/convex-cloudflare-pages-stack",
     12_000,
   );
-  await sleep(1_000);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
 
   const useTemplatePoint = await waitForChromeAxElementCenterForRoles(
     STACK_STEP_2_USE_TEMPLATE_LABEL,
@@ -1334,7 +1339,7 @@ async function runStackStep2GithubTemplateSequence(
     STACK_STEP_1_MOUSE_TIMING,
   );
   await waitForChromeActiveTabUrlIncludes("github.com/new?", 12_000);
-  await sleep(1_000);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
 
   const owner = await selectPreferredGithubRepoOwner(mouseBin, windowFrame);
   const suggestedRepoNameLabel = await readChromeAxButtonLabelContaining(
@@ -1363,7 +1368,7 @@ async function runStackStep2GithubTemplateSequence(
     windowFrame,
     STACK_STEP_1_MOUSE_TIMING,
   );
-  await sleep(900);
+  await sleep(STACK_CONTROL_SETTLE_SECONDS * 1_000);
 
   const createRepositoryPoint = await waitForChromeAxElementCenterForRoles(
     STACK_STEP_2_CREATE_REPOSITORY_BUTTON_LABEL,
@@ -1391,7 +1396,7 @@ async function runStackStep2GithubTemplateSequence(
     `github.com/${owner}/${suggestedRepoName}`,
     18_000,
   );
-  await sleep(1_200);
+  await sleep(STACK_PAGE_LOAD_SHOW_SECONDS * 1_000);
 }
 
 async function selectPreferredGithubRepoOwner(
@@ -1442,7 +1447,7 @@ async function selectPreferredGithubRepoOwner(
     windowFrame,
     STACK_STEP_1_MOUSE_TIMING,
   );
-  await sleep(700);
+  await sleep(STACK_CONTROL_SETTLE_SECONDS * 1_000);
   return preferredOwner;
 }
 

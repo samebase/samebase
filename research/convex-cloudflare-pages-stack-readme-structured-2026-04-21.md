@@ -13,6 +13,9 @@ Timing guidance:
 
 - After a page visibly finishes loading or a new destination is reached, keep
   that page on screen for about 1 second before switching tabs or continuing.
+- Do not apply that long pause to small control interactions like opening a
+  dropdown, choosing an owner, or clicking a suggestion chip. Those should use
+  only a short settle delay.
 - Do not move on at the exact instant a page becomes ready; the viewer needs a
   brief beat to register where they landed.
 

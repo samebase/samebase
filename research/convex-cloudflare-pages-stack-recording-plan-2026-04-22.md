@@ -36,6 +36,8 @@ be recorded as one straight pass and then cut afterward.
 
 - After a page visibly finishes loading or a new destination is reached, keep it
   on screen for about 1 second before continuing.
+- Do not reuse that full second for small controls like dropdown picks or
+  suggestion buttons. Those should settle quickly so the pacing stays brisk.
 - Do not switch tabs at the exact moment a page becomes ready.
 - Prefer a visible pause with the mouse at rest before major context switches.
 - Keep copy-and-paste handoffs inside the same clip or same straight recording
