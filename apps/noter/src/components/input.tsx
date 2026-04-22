@@ -1,34 +1,18 @@
 import * as React from "react";
 import { Input as BaseInput } from "@/components/ui/input";
-import {
-  DEFAULT_CORNER_NOTCH_TYPE,
-  getOptionalCornerNotchClass,
-  type CornerNotchType,
-} from "@/lib/cornerNotch";
-import { useCornerNotchBridgeColor } from "@/hooks/useCornerNotchBridgeColor";
-import { cn } from "@/lib/utils";
+import { type CornerNotchType } from "@/lib/cornerNotch";
 
 export interface InputProps extends React.ComponentPropsWithoutRef<
   typeof BaseInput
 > {
+  // Keep the prop temporarily so existing callsites stay readable during the migration.
   cornerNotch?: CornerNotchType;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, cornerNotch, ...props }, ref) => {
-    const resolvedCornerNotch = cornerNotch ?? DEFAULT_CORNER_NOTCH_TYPE;
-    const finalClassName = cn(
-      getOptionalCornerNotchClass(resolvedCornerNotch),
-      className,
-    );
-    const inputRef = useCornerNotchBridgeColor(
-      resolvedCornerNotch,
-      ref,
-      finalClassName,
-    );
-
-    return <BaseInput ref={inputRef} className={finalClassName} {...props} />;
-  },
+  ({ cornerNotch: _cornerNotch, ...props }, ref) => (
+    <BaseInput ref={ref} {...props} />
+  ),
 );
 
 Input.displayName = "Input";

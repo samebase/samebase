@@ -2,8 +2,7 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
-import { useCornerNotchBridgeColor } from "@/hooks/useCornerNotchBridgeColor";
-import { DEFAULT_CORNER_NOTCH_TYPE } from "@/lib/cornerNotch";
+import { type CornerNotchType } from "@/lib/cornerNotch";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -28,16 +27,10 @@ const buttonVariants = cva(
         lg: "h-10 rounded-md px-8",
         icon: "h-9 w-9",
       },
-      cornerNotch: {
-        0: "corner-notch-0",
-        1: "corner-notch-1",
-        2: "corner-notch-2",
-      },
     },
     defaultVariants: {
       variant: "default",
       size: "default",
-      cornerNotch: DEFAULT_CORNER_NOTCH_TYPE,
     },
   },
 );
@@ -47,6 +40,8 @@ export interface ButtonProps
     React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  // Keep the prop temporarily so existing callsites stay readable during the migration.
+  cornerNotch?: CornerNotchType;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -55,24 +50,16 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       className,
       variant,
       size,
-      cornerNotch = DEFAULT_CORNER_NOTCH_TYPE,
+      cornerNotch: _cornerNotch,
       asChild = false,
       ...props
     },
     ref,
   ) => {
     const Comp = asChild ? Slot : "button";
-    const finalClassName = cn(
-      buttonVariants({ variant, size, cornerNotch }),
-      className,
-    );
-    const buttonRef = useCornerNotchBridgeColor(
-      cornerNotch,
-      ref,
-      finalClassName,
-    );
+    const finalClassName = cn(buttonVariants({ variant, size }), className);
 
-    return <Comp className={finalClassName} ref={buttonRef} {...props} />;
+    return <Comp className={finalClassName} ref={ref} {...props} />;
   },
 );
 Button.displayName = "Button";
