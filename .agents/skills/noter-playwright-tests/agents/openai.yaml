@@ -1,0 +1,11 @@
+interface:
+  display_name: 'Noter Playwright Tests'
+  short_description:
+    'Author and debug Noter Playwright visual, interaction, and live specs.'
+  default_prompt:
+    'Add or update Playwright coverage in Noter. Choose the right spec shape
+    first, then match the current e2e suite style and keep the test as small as
+    possible.'
+
+policy:
+  allow_implicit_invocation: true

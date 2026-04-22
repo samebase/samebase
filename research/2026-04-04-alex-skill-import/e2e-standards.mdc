@@ -1,0 +1,22 @@
+---
+description: 'E2E testing standards. Apply when editing tests/ folder.'
+globs:
+  - 'tests/**/*.ts'
+alwaysApply: false
+---
+
+# E2E Testing Standards
+
+When editing files under `tests/`, follow the standards in [e2e-tests SKILL](.cursor/skills/e2e-tests/SKILL.md):
+
+- **POM Component Guidelines** — Method naming, verb choosing, method behavior
+- **Action Sandwich Pattern** — Assert before and after every action
+- **Data Generation** — Generator location and types
+- **Input Handling** — fill vs paste, checkboxes
+- **Branch Scan Checklist** — Action Sandwich, Locator Quality, Method Design, Component Boundaries, Test Structure, Naming, Timeouts, Special Cases
+
+## Test Documentation Sync
+
+After adding, removing, editing, or renaming test cases in any `*_spec.ts` or `*_views.ts` file, check if you need to update (or create) the `testDescription.md` in the **same directory**. Follow the [generate-test-description SKILL](.cursor/skills/generate-test-description/SKILL.md) for format, content, and validation.
+
+This file is updated by address-github-pr-comments when fixes touch tests.
