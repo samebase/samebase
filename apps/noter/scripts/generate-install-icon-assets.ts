@@ -9,8 +9,10 @@ const staticLogoSvgPath = path.join(publicDir, "logo-static.svg");
 const installIconSvgPath = path.join(publicDir, "install-icon.svg");
 
 const INSTALL_ICON_BACKGROUND_COLOR = "#ffffff";
-// Android home-screen icons sit inside a system mask, so keep a small inset.
-const MASKABLE_ICON_BOX_RATIO = 464 / 512;
+// Chrome can install either a browser-badged shortcut or a WebAPK, so keep
+// both Android-facing manifest icon variants on the same safe framing instead
+// of relying on launcher crop heuristics.
+const ANDROID_HOME_SCREEN_ICON_BOX_RATIO = 464 / 512;
 
 type IconJob = { boxRatio?: number; canvasSize: number; filename: string };
 
@@ -18,20 +20,22 @@ const iconJobs: IconJob[] = [
   {
     canvasSize: 192,
     filename: "icon-192.png",
+    boxRatio: ANDROID_HOME_SCREEN_ICON_BOX_RATIO,
   },
   {
     canvasSize: 512,
     filename: "icon-512.png",
+    boxRatio: ANDROID_HOME_SCREEN_ICON_BOX_RATIO,
   },
   {
     canvasSize: 192,
     filename: "icon-maskable-192.png",
-    boxRatio: MASKABLE_ICON_BOX_RATIO,
+    boxRatio: ANDROID_HOME_SCREEN_ICON_BOX_RATIO,
   },
   {
     canvasSize: 512,
     filename: "icon-maskable-512.png",
-    boxRatio: MASKABLE_ICON_BOX_RATIO,
+    boxRatio: ANDROID_HOME_SCREEN_ICON_BOX_RATIO,
   },
   {
     canvasSize: 180,
@@ -66,8 +70,8 @@ function syncInstallIconSvgAsset() {
 }
 
 /**
- * Preserve the canonical SVG framing for most exports while keeping a touch of
- * extra breathing room inside Android's maskable icon container.
+ * Preserve the canonical SVG framing unless a specific install surface needs a
+ * small export-time inset to stay inside Android launcher bounds.
  */
 function generateIconPng({ boxRatio = 1, canvasSize, filename }: IconJob) {
   const iconSize = Math.round(canvasSize * boxRatio);
