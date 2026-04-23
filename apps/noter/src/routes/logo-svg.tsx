@@ -3,7 +3,7 @@ import { LogoStaticSvgPage } from "@/components/LogoStaticSvgPage";
 import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
 import { RoutedPage } from "./-publicRouteComponents";
 
-const pathname = "/logo-svg";
+const pathname = "/logo/svg";
 
 function LogoSvgRouteComponent() {
   const routeSearch = Route.useSearch();

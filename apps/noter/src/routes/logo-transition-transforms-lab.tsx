@@ -4,12 +4,12 @@ import { RoutedPage } from "./-publicRouteComponents";
 
 function LogoTransitionTransformsLabRouteComponent() {
   return (
-    <RoutedPage pathname="/logo-transition-lab-transforms">
+    <RoutedPage pathname="/logo/transition/transforms">
       <LogoTransitionTransformsLabPage />
     </RoutedPage>
   );
 }
 
-export const Route = createFileRoute("/logo-transition-lab-transforms")({
+export const Route = createFileRoute("/logo/transition/transforms")({
   component: LogoTransitionTransformsLabRouteComponent,
 });

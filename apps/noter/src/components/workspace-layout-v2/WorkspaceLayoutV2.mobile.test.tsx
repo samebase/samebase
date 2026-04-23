@@ -74,7 +74,6 @@ function renderMobileLayout({
   includeRightPane = true,
   leftMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   mainHeader = OMIT_HEADER,
-  rightPane = true,
   mobilePane,
   rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
 }: {
@@ -353,7 +352,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(
       rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')
         ?.scrollLeft,
-    ).toBe(0);
+    ).toBe(MOBILE_PANE_PEEK_PX);
   });
 
   it("lets the right sidebar stay borderless while the main pane owns the separator", () => {

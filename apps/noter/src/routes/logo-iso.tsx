@@ -3,7 +3,7 @@ import { LogoPreviewPage } from "@/components/LogoPreviewPage";
 import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
 import { RoutedPage } from "./-publicRouteComponents";
 
-const pathname = "/logo-iso";
+const pathname = "/logo/iso";
 
 function LogoIsoRouteComponent() {
   const routeSearch = Route.useSearch();

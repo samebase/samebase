@@ -51,7 +51,7 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { type MobileSidebarPane } from "@/hooks/use-sidebar";
 import { Layout } from "@/Layout";
 import {
   DEFAULT_ELEVATION_DEGREES,
@@ -90,7 +90,7 @@ import {
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const DEFAULT_LOGO_OPACITY = 1;
 const DEFAULT_ROTATION_AXIS_MODE: LogoRotationAxisMode = "cube-y";
-const LOGO_PREVIEW_SIDEBAR_WIDTH_PX = 320;
+const LOGO_PREVIEW_SIDEBAR_WIDTH_PX = 256;
 const MIN_LOGO_OPACITY = 0;
 const MAX_LOGO_OPACITY = 1;
 const LOGO_OPACITY_STEP = 0.01;
@@ -106,6 +106,11 @@ const ROTATION_AXIS_MODE_OPTIONS = [
   "cube-y",
   "screen-vertical",
 ] as const satisfies readonly LogoRotationAxisMode[];
+const LOGO_CONTROL_STACK_CLASS_NAME = "flex flex-col gap-2";
+const LOGO_CONTROL_BUTTON_CLASS_NAME = "min-w-0 flex-[1_0_10rem] rounded-none";
+const LOGO_CONTROL_BUTTON_ROW_CLASS_NAME = "flex flex-wrap gap-2";
+const LOGO_CONTROL_NUMBER_INPUT_CLASS_NAME =
+  "h-9 w-full max-w-32 rounded-none border-border bg-background px-2 font-mono text-sm";
 
 type LogoPreviewRenderMode = "three" | "iso";
 type LogoPreviewPageProps = {
@@ -334,91 +339,84 @@ function areLogoRouteSearchesEqual(
 function LogoPreviewSection({
   children,
   className,
-  description,
   title,
 }: {
   children: ReactNode;
   className?: string;
-  description?: string;
   title: string;
 }) {
   return (
-    <section className={cn("grid gap-3 border border-border p-3", className)}>
-      <div className="grid gap-1">
-        <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-          {title}
-        </div>
-        {description ? (
-          <p className="text-xs leading-5 text-muted-foreground">
-            {description}
-          </p>
-        ) : null}
+    <section
+      className={cn(
+        "flex flex-col gap-2 border-t border-border py-2 first:border-t-0",
+        className,
+      )}
+    >
+      <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        {title}
       </div>
       {children}
     </section>
   );
 }
 
-function LogoPreviewMainHeader({
-  renderMode,
+function LogoRangeControl({
+  label,
+  max,
+  min,
+  onSliderChange,
+  onValueChange,
+  sliderAriaLabel,
+  step,
+  value,
+  valueAriaLabel,
+  valueInputMode = "decimal",
+  valueLabel,
+  valueText,
 }: {
-  renderMode: LogoPreviewRenderMode;
+  label: string;
+  max: number | string;
+  min: number | string;
+  onSliderChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onValueChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  sliderAriaLabel: string;
+  step: number | string;
+  value: number | string;
+  valueAriaLabel: string;
+  valueInputMode?: "decimal" | "numeric";
+  valueLabel: string | number;
+  valueText: string;
 }) {
-  const { setMobilePane } = useSidebar();
-
   return (
-    <div className="flex items-center justify-between gap-3 px-3">
-      <div className="truncate text-sm font-medium text-foreground">
-        {renderMode === "iso" ? "Logo Isometric Preview" : "Logo 3D Preview"}
+    <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
+      <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+        <span>{label}</span>
+        <span>{valueText}</span>
       </div>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        className="rounded-none md:hidden"
-        onClick={() => {
-          setMobilePane("left");
-        }}
-      >
-        Controls
-      </Button>
-    </div>
-  );
-}
-
-function LogoPreviewControlsIntro({
-  editMode,
-  renderMode,
-}: {
-  editMode: VoxelEdit["kind"];
-  renderMode: LogoPreviewRenderMode;
-}) {
-  const { isMobile, setMobilePane } = useSidebar();
-
-  return (
-    <div className="grid gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="grid gap-1">
-          <h1 className="text-sm font-medium text-foreground">Logo Controls</h1>
-          <p className="text-xs leading-5 text-muted-foreground">
-            {renderMode === "iso"
-              ? `Fixed isometric view. Tap cubes to ${editMode}.`
-              : `Drag the preview to orbit. Tap cubes to ${editMode}.`}
-          </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          aria-label={sliderAriaLabel}
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={onSliderChange}
+          className="h-2 min-w-[10rem] flex-[999_1_10rem] cursor-pointer accent-[#8a88ac]"
+        />
+        <div className="ml-auto flex min-w-[7rem] flex-[1_0_7rem] justify-end">
+          <Input
+            aria-label={valueAriaLabel}
+            type="number"
+            inputMode={valueInputMode}
+            min={min}
+            max={max}
+            step={step}
+            value={valueLabel}
+            onChange={onValueChange}
+            className={LOGO_CONTROL_NUMBER_INPUT_CLASS_NAME}
+          />
         </div>
-        {isMobile ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="rounded-none"
-            onClick={() => {
-              setMobilePane("main");
-            }}
-          >
-            Preview
-          </Button>
-        ) : null}
       </div>
     </div>
   );
@@ -432,6 +430,7 @@ export function LogoPreviewPage({
   const isIsometricMode = renderMode === "iso";
   const backgroundColor = getTailwindColorHex("background-base");
   const currentRouteSearch = readCanonicalLogoRouteSearch(routeSearch);
+  const [mobilePane, setMobilePane] = useState<MobileSidebarPane>("left");
   const [isViewSnapEnabled, setIsViewSnapEnabled] = useState(() =>
     readViewSnapEnabled(routeSearch),
   );
@@ -703,15 +702,6 @@ export function LogoPreviewPage({
   const selectedIsoStyle = getLogoIsometricStyle(isoStyleId);
   const rotationAngleControlLabel =
     ROTATION_ANGLE_CONTROL_LABELS[rotationAxisMode];
-  const isPresetDirty =
-    selectedPreset !== null && selectedPreset.voxelState !== voxelState;
-  const shapeDescription =
-    selectedPreset === null
-      ? "Current URL shape is custom."
-      : isPresetDirty
-        ? `Edited from ${selectedPreset.label}.`
-        : selectedPreset.description;
-
   const applyPreset = (presetId: Exclude<LogoPresetSelection, "custom">) => {
     const preset = getLogoPreset(presetId);
     setIsAutoRotating(false);
@@ -833,17 +823,15 @@ export function LogoPreviewPage({
   const controlsContent = (
     <div
       data-testid="logo-preview-controls"
-      className="flex min-h-full flex-col gap-3 p-3"
+      className="flex min-h-full flex-col gap-0 px-1 py-2"
     >
-      <LogoPreviewControlsIntro editMode={editMode} renderMode={renderMode} />
-
       <LogoPreviewSection title="Pages">
-        <div className="grid grid-cols-2 gap-2">
+        <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
           <Button
             asChild
             size="sm"
             variant={isIsometricMode ? "outline" : "default"}
-            className="rounded-none"
+            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
           >
             <Link search={modeSearch} to="/logo">
               3D
@@ -853,26 +841,36 @@ export function LogoPreviewPage({
             asChild
             size="sm"
             variant={isIsometricMode ? "default" : "outline"}
-            className="rounded-none"
+            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
           >
-            <Link search={modeSearch} to="/logo-iso">
+            <Link search={modeSearch} to="/logo/iso">
               Iso
             </Link>
           </Button>
-          <Button asChild size="sm" variant="outline" className="rounded-none">
-            <Link search={modeSearch} to="/logo-svg">
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
+          >
+            <Link search={modeSearch} to="/logo/svg">
               SVG
             </Link>
           </Button>
-          <Button asChild size="sm" variant="outline" className="rounded-none">
-            <Link search={modeSearch} to="/logo-iso-study">
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
+          >
+            <Link search={modeSearch} to="/logo/single-cube">
               Study
             </Link>
           </Button>
         </div>
       </LogoPreviewSection>
 
-      <LogoPreviewSection description={shapeDescription} title="Shape">
+      <LogoPreviewSection title="Shape">
         <Select
           value={selectedPresetId}
           onValueChange={(value) => {
@@ -899,7 +897,7 @@ export function LogoPreviewPage({
                 value={preset.id}
                 className="rounded-none"
               >
-                <div className="grid gap-0.5">
+                <div className="flex flex-col gap-0.5">
                   <span>{preset.label}</span>
                   <span className="text-xs text-muted-foreground">
                     {preset.description}
@@ -910,12 +908,12 @@ export function LogoPreviewPage({
           </SelectContent>
         </Select>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
           <Button
             type="button"
             size="sm"
             variant={editMode === "add" ? "default" : "outline"}
-            className="rounded-none"
+            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
             aria-pressed={editMode === "add"}
             onClick={() => {
               setEditMode("add");
@@ -927,7 +925,7 @@ export function LogoPreviewPage({
             type="button"
             size="sm"
             variant={editMode === "remove" ? "default" : "outline"}
-            className="rounded-none"
+            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
             aria-pressed={editMode === "remove"}
             onClick={() => {
               setEditMode("remove");
@@ -937,12 +935,12 @@ export function LogoPreviewPage({
           </Button>
         </div>
 
-        <div className="grid gap-2">
+        <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
           <Button
             type="button"
             size="sm"
             variant="outline"
-            className="rounded-none"
+            className="w-full rounded-none"
             onClick={() => {
               setFaceColors(DEFAULT_FACE_COLORS);
             }}
@@ -953,7 +951,7 @@ export function LogoPreviewPage({
             type="button"
             size="sm"
             variant="outline"
-            className="rounded-none"
+            className="w-full rounded-none"
             onClick={() => {
               setFaceColors(RGB_FACE_COLORS);
             }}
@@ -964,7 +962,7 @@ export function LogoPreviewPage({
             type="button"
             size="sm"
             variant="outline"
-            className="rounded-none"
+            className="w-full rounded-none"
             onClick={resetShape}
           >
             Reset shape
@@ -973,38 +971,22 @@ export function LogoPreviewPage({
       </LogoPreviewSection>
 
       {isIsometricMode ? (
-        <LogoPreviewSection
-          description={selectedIsoStyle.description}
-          title="Isometric"
-        >
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              <span>Cube side</span>
-              <span>{isoCubeSidePixels}px</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                aria-label="Cube side"
-                type="range"
-                min={MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX}
-                max={MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX}
-                step={LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX}
-                value={isoCubeSidePixels}
-                onChange={handleIsoCubeSidePixelsChange}
-                className="h-2 w-full cursor-pointer accent-[#8a88ac]"
-              />
-              <Input
-                aria-label="Cube side pixels"
-                type="number"
-                inputMode="numeric"
-                min={MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX}
-                max={MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX}
-                step={LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX}
-                value={isoCubeSidePixels}
-                onChange={handleIsoCubeSidePixelsInputChange}
-                className="h-9 w-20 rounded-none border-border bg-background px-2 font-mono text-sm"
-              />
-            </div>
+        <LogoPreviewSection title="Isometric">
+          <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
+            <LogoRangeControl
+              label="Cube side"
+              max={MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX}
+              min={MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX}
+              onSliderChange={handleIsoCubeSidePixelsChange}
+              onValueChange={handleIsoCubeSidePixelsInputChange}
+              sliderAriaLabel="Cube side"
+              step={LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX}
+              value={isoCubeSidePixels}
+              valueAriaLabel="Cube side pixels"
+              valueInputMode="numeric"
+              valueLabel={isoCubeSidePixels}
+              valueText={`${isoCubeSidePixels}px`}
+            />
             <div className="text-xs text-muted-foreground">
               {isoCubeSidePixels}px edge / {isoCubeSidePixels / 2}px rise
             </div>
@@ -1012,7 +994,7 @@ export function LogoPreviewPage({
               type="button"
               size="sm"
               variant="outline"
-              className="rounded-none"
+              className="w-full rounded-none"
               onClick={() => {
                 setIsoCubeSidePixels(DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX);
               }}
@@ -1021,7 +1003,7 @@ export function LogoPreviewPage({
             </Button>
           </div>
 
-          <div className="grid gap-2">
+          <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
             <Label className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
               Style
             </Label>
@@ -1043,7 +1025,7 @@ export function LogoPreviewPage({
                     value={style.id}
                     className="rounded-none"
                   >
-                    <div className="grid gap-0.5">
+                    <div className="flex flex-col gap-0.5">
                       <span>{style.label}</span>
                       <span className="text-xs text-muted-foreground">
                         {style.capWidth}px cap
@@ -1056,9 +1038,9 @@ export function LogoPreviewPage({
             </Select>
           </div>
 
-          <div className="flex items-end gap-3">
+          <div className="flex flex-wrap items-end gap-3">
             {[16, 32, 64].map((size) => (
-              <div key={size} className="grid justify-items-center gap-1">
+              <div key={size} className="flex flex-col items-center gap-1">
                 <div className="flex min-h-16 min-w-16 items-center justify-center border border-border bg-background p-2">
                   <LogoIsoThumbnail
                     backgroundColor={backgroundColor}
@@ -1100,7 +1082,7 @@ export function LogoPreviewPage({
             />
             <label
               htmlFor={viewSnapCheckboxId}
-              className="grid gap-1 text-xs text-muted-foreground"
+              className="flex flex-col gap-1 text-xs text-muted-foreground"
             >
               <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
                 Snap view
@@ -1112,19 +1094,19 @@ export function LogoPreviewPage({
             </label>
           </div>
 
-          <div className="grid gap-2">
+          <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
             <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
               <span>Rotation axis</span>
               <span>{ROTATION_AXIS_MODE_LABELS[rotationAxisMode]}</span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
               {ROTATION_AXIS_MODE_OPTIONS.map((mode) => (
                 <Button
                   key={mode}
                   type="button"
                   size="sm"
                   variant={rotationAxisMode === mode ? "default" : "outline"}
-                  className="rounded-none"
+                  className={LOGO_CONTROL_BUTTON_CLASS_NAME}
                   onClick={() => {
                     setRotationAxisMode(mode);
                   }}
@@ -1141,102 +1123,54 @@ export function LogoPreviewPage({
             ) : null}
           </div>
 
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              <span>{rotationAngleControlLabel}</span>
-              <span>{rotationDegrees.toFixed(1)}°</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                aria-label={`${rotationAngleControlLabel} slider`}
-                type="range"
-                min="0"
-                max="360"
-                step="0.1"
-                value={rotationDegrees}
-                onChange={handleRotationChange}
-                className="h-2 w-full cursor-pointer accent-[#8a88ac]"
-              />
-              <Input
-                aria-label={`${rotationAngleControlLabel} value`}
-                type="number"
-                inputMode="decimal"
-                min="0"
-                max="360"
-                step="0.1"
-                value={rotationDegrees.toFixed(1)}
-                onChange={handleRotationInputChange}
-                className="h-9 w-20 rounded-none border-border bg-background px-2 font-mono text-sm"
-              />
-            </div>
-          </div>
+          <LogoRangeControl
+            label={rotationAngleControlLabel}
+            max="360"
+            min="0"
+            onSliderChange={handleRotationChange}
+            onValueChange={handleRotationInputChange}
+            sliderAriaLabel={`${rotationAngleControlLabel} slider`}
+            step="0.1"
+            value={rotationDegrees}
+            valueAriaLabel={`${rotationAngleControlLabel} value`}
+            valueLabel={rotationDegrees.toFixed(1)}
+            valueText={`${rotationDegrees.toFixed(1)}°`}
+          />
 
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              <span>Elevation</span>
-              <span>{elevationDegrees.toFixed(1)}°</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                aria-label="Elevation slider"
-                type="range"
-                min={MIN_ELEVATION_DEGREES}
-                max={MAX_ELEVATION_DEGREES}
-                step="0.1"
-                value={elevationDegrees}
-                onChange={handleElevationChange}
-                className="h-2 w-full cursor-pointer accent-[#8a88ac]"
-              />
-              <Input
-                aria-label="Elevation value"
-                type="number"
-                inputMode="decimal"
-                min={MIN_ELEVATION_DEGREES}
-                max={MAX_ELEVATION_DEGREES}
-                step="0.1"
-                value={elevationDegrees.toFixed(1)}
-                onChange={handleElevationInputChange}
-                className="h-9 w-20 rounded-none border-border bg-background px-2 font-mono text-sm"
-              />
-            </div>
-          </div>
+          <LogoRangeControl
+            label="Elevation"
+            max={MAX_ELEVATION_DEGREES}
+            min={MIN_ELEVATION_DEGREES}
+            onSliderChange={handleElevationChange}
+            onValueChange={handleElevationInputChange}
+            sliderAriaLabel="Elevation slider"
+            step="0.1"
+            value={elevationDegrees}
+            valueAriaLabel="Elevation value"
+            valueLabel={elevationDegrees.toFixed(1)}
+            valueText={`${elevationDegrees.toFixed(1)}°`}
+          />
 
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              <span>Opacity</span>
-              <span>{logoOpacity.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                aria-label="Opacity slider"
-                type="range"
-                min={MIN_LOGO_OPACITY}
-                max={MAX_LOGO_OPACITY}
-                step={LOGO_OPACITY_STEP}
-                value={logoOpacity}
-                onChange={handleOpacityChange}
-                className="h-2 w-full cursor-pointer accent-[#8a88ac]"
-              />
-              <Input
-                aria-label="Opacity value"
-                type="number"
-                inputMode="decimal"
-                min={MIN_LOGO_OPACITY}
-                max={MAX_LOGO_OPACITY}
-                step={LOGO_OPACITY_STEP}
-                value={logoOpacity.toFixed(2)}
-                onChange={handleOpacityInputChange}
-                className="h-9 w-20 rounded-none border-border bg-background px-2 font-mono text-sm"
-              />
-            </div>
-          </div>
+          <LogoRangeControl
+            label="Opacity"
+            max={MAX_LOGO_OPACITY}
+            min={MIN_LOGO_OPACITY}
+            onSliderChange={handleOpacityChange}
+            onValueChange={handleOpacityInputChange}
+            sliderAriaLabel="Opacity slider"
+            step={LOGO_OPACITY_STEP}
+            value={logoOpacity}
+            valueAriaLabel="Opacity value"
+            valueLabel={logoOpacity.toFixed(2)}
+            valueText={logoOpacity.toFixed(2)}
+          />
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
             <Button
               type="button"
               size="sm"
               variant="outline"
-              className="rounded-none"
+              className={LOGO_CONTROL_BUTTON_CLASS_NAME}
               onClick={resetView}
             >
               Reset view
@@ -1245,7 +1179,7 @@ export function LogoPreviewPage({
               type="button"
               size="sm"
               variant="outline"
-              className="rounded-none"
+              className={LOGO_CONTROL_BUTTON_CLASS_NAME}
               onClick={() => {
                 applyViewState({
                   elevationDegrees,
@@ -1262,13 +1196,13 @@ export function LogoPreviewPage({
       )}
 
       <LogoPreviewSection title="Motion">
-        <div className="grid gap-2">
+        <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
           {!isIsometricMode ? (
             <Button
               type="button"
               size="sm"
               variant={isAutoRotating ? "default" : "outline"}
-              className="rounded-none"
+              className="w-full rounded-none"
               onClick={() => {
                 setIsAutoRotating((currentValue) => !currentValue);
               }}
@@ -1280,7 +1214,7 @@ export function LogoPreviewPage({
             type="button"
             size="sm"
             variant={isShuffleEnabled ? "default" : "outline"}
-            className="rounded-none"
+            className="w-full rounded-none"
             onClick={() => {
               setIsShuffleEnabled((currentValue) => !currentValue);
             }}
@@ -1289,7 +1223,7 @@ export function LogoPreviewPage({
           </Button>
         </div>
 
-        <div className="grid gap-2">
+        <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
           <Label className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
             Parallel cubes
           </Label>
@@ -1329,7 +1263,7 @@ export function LogoPreviewPage({
             />
             <label
               htmlFor={faceColorAnimationCheckboxId}
-              className="grid gap-1 text-xs text-muted-foreground"
+              className="flex flex-col gap-1 text-xs text-muted-foreground"
             >
               <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
                 Animate face colors
@@ -1359,7 +1293,7 @@ export function LogoPreviewPage({
           const currentFamilyHex = getTailwindColorFamilyHex(currentFamily);
 
           return (
-            <div key={faceColorKey} className="grid gap-2">
+            <div key={faceColorKey} className="flex flex-col gap-2">
               <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
                 <ColorSwatch
                   color={getTailwindColorHex(currentToken)}
@@ -1369,7 +1303,7 @@ export function LogoPreviewPage({
                   {FACE_COLOR_LABELS[faceColorKey]}
                 </Label>
               </div>
-              <div className="grid gap-2">
+              <div className="flex flex-col gap-2">
                 <Select
                   value={currentFamily}
                   onValueChange={(value) =>
@@ -1443,7 +1377,7 @@ export function LogoPreviewPage({
       </LogoPreviewSection>
 
       <LogoPreviewSection title="Voxel Map">
-        <pre className="overflow-x-auto border border-border bg-background p-3 font-mono text-[11px] text-muted-foreground">
+        <pre className="overflow-x-auto border border-border bg-background p-2 font-mono text-[11px] text-muted-foreground">
           {voxelState}
         </pre>
       </LogoPreviewSection>
@@ -1457,7 +1391,8 @@ export function LogoPreviewPage({
         defaultLeftDesktopWidthPx={LOGO_PREVIEW_SIDEBAR_WIDTH_PX}
         defaultLeftMobileWidthPx={LOGO_PREVIEW_SIDEBAR_WIDTH_PX}
         defaultRightOpen={false}
-        leftOpen={true}
+        mobilePane={mobilePane}
+        onMobilePaneChange={setMobilePane}
         shortcutSidebarSide="left"
       >
         <WorkspaceLayoutV2FullPage
@@ -1465,10 +1400,8 @@ export function LogoPreviewPage({
             content: controlsContent,
           }}
           main={{
-            header: <LogoPreviewMainHeader renderMode={renderMode} />,
             content: sceneContent,
           }}
-          showLeftToggle={false}
         />
       </SidebarProvider>
     </Layout>

@@ -77,7 +77,7 @@ export function LogoSingleCubeStudyPage({
             </Link>
           </Button>
           <Button asChild size="sm" variant="outline" className="rounded-none">
-            <Link search={routeSearch} to="/logo-iso">
+            <Link search={routeSearch} to="/logo/iso">
               Iso
             </Link>
           </Button>

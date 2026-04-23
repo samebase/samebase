@@ -15,11 +15,6 @@ import { Route as privacyRouteImport } from "./routes/privacy";
 import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as pitchRouteImport } from "./routes/pitch";
 import { Route as machinesRouteImport } from "./routes/machines";
-import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
-import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
-import { Route as logoSvgRouteImport } from "./routes/logo-svg";
-import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
-import { Route as logoIsoRouteImport } from "./routes/logo-iso";
 import { Route as logoRouteImport } from "./routes/logo";
 import { Route as homeRouteImport } from "./routes/home";
 import { Route as addRepositoryRouteImport } from "./routes/add-repository";
@@ -28,9 +23,14 @@ import { Route as vaultFileRouteImport } from "./routes/vault-file";
 import { Route as codexResearchRouteImport } from "./routes/codex-research";
 import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
 import { Route as machineConnectRouteImport } from "./routes/machine-connect";
+import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
+import { Route as logoSvgRouteImport } from "./routes/logo-svg";
+import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
+import { Route as logoIsoRouteImport } from "./routes/logo-iso";
 import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-thread-browser-research";
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
+import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
 import { Route as codespaceChatRouteImport } from "./routes/codespace-chat";
 
 const testRoute = testRouteImport.update({
@@ -61,32 +61,6 @@ const pitchRoute = pitchRouteImport.update({
 const machinesRoute = machinesRouteImport.update({
   id: "/machines",
   path: "/machines",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const logoTransitionTransformsLabRoute =
-  logoTransitionTransformsLabRouteImport.update({
-    id: "/logo-transition-lab-transforms",
-    path: "/logo-transition-lab-transforms",
-    getParentRoute: () => rootRouteImport,
-  } as any);
-const logoTransitionLabRoute = logoTransitionLabRouteImport.update({
-  id: "/logo-transition-lab",
-  path: "/logo-transition-lab",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const logoSvgRoute = logoSvgRouteImport.update({
-  id: "/logo-svg",
-  path: "/logo-svg",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const logoIsoStudyRoute = logoIsoStudyRouteImport.update({
-  id: "/logo-iso-study",
-  path: "/logo-iso-study",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const logoIsoRoute = logoIsoRouteImport.update({
-  id: "/logo-iso",
-  path: "/logo-iso",
   getParentRoute: () => rootRouteImport,
 } as any);
 const logoRoute = logoRouteImport.update({
@@ -129,6 +103,26 @@ const machineConnectRoute = machineConnectRouteImport.update({
   path: "/machines/connect",
   getParentRoute: () => rootRouteImport,
 } as any);
+const logoTransitionLabRoute = logoTransitionLabRouteImport.update({
+  id: "/logo/transition",
+  path: "/logo/transition",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const logoSvgRoute = logoSvgRouteImport.update({
+  id: "/logo/svg",
+  path: "/logo/svg",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const logoIsoStudyRoute = logoIsoStudyRouteImport.update({
+  id: "/logo/single-cube",
+  path: "/logo/single-cube",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const logoIsoRoute = logoIsoRouteImport.update({
+  id: "/logo/iso",
+  path: "/logo/iso",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const codexThreadBrowserResearchRoute =
   codexThreadBrowserResearchRouteImport.update({
     id: "/research/codex-app-server/browser",
@@ -145,6 +139,12 @@ const mcpConsentRoute = mcpConsentRouteImport.update({
   path: "/oauth/mcp/consent",
   getParentRoute: () => rootRouteImport,
 } as any);
+const logoTransitionTransformsLabRoute =
+  logoTransitionTransformsLabRouteImport.update({
+    id: "/logo/transition/transforms",
+    path: "/logo/transition/transforms",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const codespaceChatRoute = codespaceChatRouteImport.update({
   id: "/vault/$owner/$repo/codespace/$branch/chat",
   path: "/vault/$owner/$repo/codespace/$branch/chat",
@@ -156,21 +156,21 @@ export interface FileRoutesByFullPath {
   "/add": typeof addRepositoryRoute;
   "/home": typeof homeRoute;
   "/logo": typeof logoRoute;
-  "/logo-iso": typeof logoIsoRoute;
-  "/logo-iso-study": typeof logoIsoStudyRoute;
-  "/logo-svg": typeof logoSvgRoute;
-  "/logo-transition-lab": typeof logoTransitionLabRoute;
-  "/logo-transition-lab-transforms": typeof logoTransitionTransformsLabRoute;
   "/machines": typeof machinesRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
+  "/logo/iso": typeof logoIsoRoute;
+  "/logo/single-cube": typeof logoIsoStudyRoute;
+  "/logo/svg": typeof logoSvgRoute;
+  "/logo/transition": typeof logoTransitionLabRoute;
   "/machines/connect": typeof machineConnectRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
+  "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
@@ -181,21 +181,21 @@ export interface FileRoutesByTo {
   "/add": typeof addRepositoryRoute;
   "/home": typeof homeRoute;
   "/logo": typeof logoRoute;
-  "/logo-iso": typeof logoIsoRoute;
-  "/logo-iso-study": typeof logoIsoStudyRoute;
-  "/logo-svg": typeof logoSvgRoute;
-  "/logo-transition-lab": typeof logoTransitionLabRoute;
-  "/logo-transition-lab-transforms": typeof logoTransitionTransformsLabRoute;
   "/machines": typeof machinesRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
+  "/logo/iso": typeof logoIsoRoute;
+  "/logo/single-cube": typeof logoIsoStudyRoute;
+  "/logo/svg": typeof logoSvgRoute;
+  "/logo/transition": typeof logoTransitionLabRoute;
   "/machines/connect": typeof machineConnectRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
+  "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
@@ -207,21 +207,21 @@ export interface FileRoutesById {
   "/add": typeof addRepositoryRoute;
   "/home": typeof homeRoute;
   "/logo": typeof logoRoute;
-  "/logo-iso": typeof logoIsoRoute;
-  "/logo-iso-study": typeof logoIsoStudyRoute;
-  "/logo-svg": typeof logoSvgRoute;
-  "/logo-transition-lab": typeof logoTransitionLabRoute;
-  "/logo-transition-lab-transforms": typeof logoTransitionTransformsLabRoute;
   "/machines": typeof machinesRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
+  "/logo/iso": typeof logoIsoRoute;
+  "/logo/single-cube": typeof logoIsoStudyRoute;
+  "/logo/svg": typeof logoSvgRoute;
+  "/logo/transition": typeof logoTransitionLabRoute;
   "/machines/connect": typeof machineConnectRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
+  "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
@@ -234,21 +234,21 @@ export interface FileRouteTypes {
     | "/add"
     | "/home"
     | "/logo"
-    | "/logo-iso"
-    | "/logo-iso-study"
-    | "/logo-svg"
-    | "/logo-transition-lab"
-    | "/logo-transition-lab-transforms"
     | "/machines"
     | "/pitch"
     | "/pricing"
     | "/privacy"
     | "/terms"
     | "/test"
+    | "/logo/iso"
+    | "/logo/single-cube"
+    | "/logo/svg"
+    | "/logo/transition"
     | "/machines/connect"
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/vault/$"
+    | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/research/codex-app-server/browser"
@@ -259,21 +259,21 @@ export interface FileRouteTypes {
     | "/add"
     | "/home"
     | "/logo"
-    | "/logo-iso"
-    | "/logo-iso-study"
-    | "/logo-svg"
-    | "/logo-transition-lab"
-    | "/logo-transition-lab-transforms"
     | "/machines"
     | "/pitch"
     | "/pricing"
     | "/privacy"
     | "/terms"
     | "/test"
+    | "/logo/iso"
+    | "/logo/single-cube"
+    | "/logo/svg"
+    | "/logo/transition"
     | "/machines/connect"
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/vault/$"
+    | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/research/codex-app-server/browser"
@@ -284,21 +284,21 @@ export interface FileRouteTypes {
     | "/add"
     | "/home"
     | "/logo"
-    | "/logo-iso"
-    | "/logo-iso-study"
-    | "/logo-svg"
-    | "/logo-transition-lab"
-    | "/logo-transition-lab-transforms"
     | "/machines"
     | "/pitch"
     | "/pricing"
     | "/privacy"
     | "/terms"
     | "/test"
+    | "/logo/iso"
+    | "/logo/single-cube"
+    | "/logo/svg"
+    | "/logo/transition"
     | "/machines/connect"
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/vault/$"
+    | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/research/codex-app-server/browser"
@@ -310,21 +310,21 @@ export interface RootRouteChildren {
   addRepositoryRoute: typeof addRepositoryRoute;
   homeRoute: typeof homeRoute;
   logoRoute: typeof logoRoute;
-  logoIsoRoute: typeof logoIsoRoute;
-  logoIsoStudyRoute: typeof logoIsoStudyRoute;
-  logoSvgRoute: typeof logoSvgRoute;
-  logoTransitionLabRoute: typeof logoTransitionLabRoute;
-  logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
   machinesRoute: typeof machinesRoute;
   pitchRoute: typeof pitchRoute;
   pricingRoute: typeof pricingRoute;
   privacyRoute: typeof privacyRoute;
   termsRoute: typeof termsRoute;
   testRoute: typeof testRoute;
+  logoIsoRoute: typeof logoIsoRoute;
+  logoIsoStudyRoute: typeof logoIsoStudyRoute;
+  logoSvgRoute: typeof logoSvgRoute;
+  logoTransitionLabRoute: typeof logoTransitionLabRoute;
   machineConnectRoute: typeof machineConnectRoute;
   pitchPrintRoute: typeof pitchPrintRoute;
   codexResearchRoute: typeof codexResearchRoute;
   vaultFileRoute: typeof vaultFileRoute;
+  logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
   mcpConsentRoute: typeof mcpConsentRoute;
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
   codexThreadBrowserResearchRoute: typeof codexThreadBrowserResearchRoute;
@@ -373,41 +373,6 @@ declare module "@tanstack/react-router" {
       path: "/machines";
       fullPath: "/machines";
       preLoaderRoute: typeof machinesRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/logo-transition-lab-transforms": {
-      id: "/logo-transition-lab-transforms";
-      path: "/logo-transition-lab-transforms";
-      fullPath: "/logo-transition-lab-transforms";
-      preLoaderRoute: typeof logoTransitionTransformsLabRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/logo-transition-lab": {
-      id: "/logo-transition-lab";
-      path: "/logo-transition-lab";
-      fullPath: "/logo-transition-lab";
-      preLoaderRoute: typeof logoTransitionLabRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/logo-svg": {
-      id: "/logo-svg";
-      path: "/logo-svg";
-      fullPath: "/logo-svg";
-      preLoaderRoute: typeof logoSvgRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/logo-iso-study": {
-      id: "/logo-iso-study";
-      path: "/logo-iso-study";
-      fullPath: "/logo-iso-study";
-      preLoaderRoute: typeof logoIsoStudyRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/logo-iso": {
-      id: "/logo-iso";
-      path: "/logo-iso";
-      fullPath: "/logo-iso";
-      preLoaderRoute: typeof logoIsoRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/logo": {
@@ -466,6 +431,34 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof machineConnectRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/logo/transition": {
+      id: "/logo/transition";
+      path: "/logo/transition";
+      fullPath: "/logo/transition";
+      preLoaderRoute: typeof logoTransitionLabRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo/svg": {
+      id: "/logo/svg";
+      path: "/logo/svg";
+      fullPath: "/logo/svg";
+      preLoaderRoute: typeof logoSvgRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo/single-cube": {
+      id: "/logo/single-cube";
+      path: "/logo/single-cube";
+      fullPath: "/logo/single-cube";
+      preLoaderRoute: typeof logoIsoStudyRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo/iso": {
+      id: "/logo/iso";
+      path: "/logo/iso";
+      fullPath: "/logo/iso";
+      preLoaderRoute: typeof logoIsoRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/research/codex-app-server/browser": {
       id: "/research/codex-app-server/browser";
       path: "/research/codex-app-server/browser";
@@ -487,6 +480,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof mcpConsentRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/logo/transition/transforms": {
+      id: "/logo/transition/transforms";
+      path: "/logo/transition/transforms";
+      fullPath: "/logo/transition/transforms";
+      preLoaderRoute: typeof logoTransitionTransformsLabRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/vault/$owner/$repo/codespace/$branch/chat": {
       id: "/vault/$owner/$repo/codespace/$branch/chat";
       path: "/vault/$owner/$repo/codespace/$branch/chat";
@@ -502,21 +502,21 @@ const rootRouteChildren: RootRouteChildren = {
   addRepositoryRoute: addRepositoryRoute,
   homeRoute: homeRoute,
   logoRoute: logoRoute,
-  logoIsoRoute: logoIsoRoute,
-  logoIsoStudyRoute: logoIsoStudyRoute,
-  logoSvgRoute: logoSvgRoute,
-  logoTransitionLabRoute: logoTransitionLabRoute,
-  logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
   machinesRoute: machinesRoute,
   pitchRoute: pitchRoute,
   pricingRoute: pricingRoute,
   privacyRoute: privacyRoute,
   termsRoute: termsRoute,
   testRoute: testRoute,
+  logoIsoRoute: logoIsoRoute,
+  logoIsoStudyRoute: logoIsoStudyRoute,
+  logoSvgRoute: logoSvgRoute,
+  logoTransitionLabRoute: logoTransitionLabRoute,
   machineConnectRoute: machineConnectRoute,
   pitchPrintRoute: pitchPrintRoute,
   codexResearchRoute: codexResearchRoute,
   vaultFileRoute: vaultFileRoute,
+  logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
   mcpConsentRoute: mcpConsentRoute,
   pitchPrintMobileRoute: pitchPrintMobileRoute,
   codexThreadBrowserResearchRoute: codexThreadBrowserResearchRoute,
