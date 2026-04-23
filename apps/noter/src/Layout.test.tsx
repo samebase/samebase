@@ -79,7 +79,7 @@ describe("Layout", () => {
     expect(markup).toContain("/home");
   });
 
-  it("keeps legal links but not the duplicate Home link on authenticated routes", () => {
+  it("keeps legal links and shows /home away from the plain root landing route", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
@@ -96,7 +96,26 @@ describe("Layout", () => {
 
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
-    expect(markup).not.toContain("/home");
+    expect(markup).toContain("/home");
+  });
+
+  it("keeps legal links visible on the legal pages themselves", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+    });
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/terms"]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain("/terms");
+    expect(markup).toContain("/privacy");
   });
 
   it("renders children directly without auth-specific shell branching", () => {
