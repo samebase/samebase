@@ -49,8 +49,20 @@ async function scrollWorkspaceCarouselToPane(
   await page
     .getByTestId("workspace-layout-v2-pane-main")
     .evaluate((element, nextPane) => {
-      const paneIndex = nextPane === "left" ? 0 : nextPane === "main" ? 1 : 2;
-      element.scrollLeft = element.clientWidth * paneIndex;
+      const mainPane = element.querySelector(".snap-center");
+      if (!(mainPane instanceof HTMLElement)) {
+        throw new Error("Expected mobile carousel main pane.");
+      }
+      const panePeekPx = Number.parseFloat(
+        window.getComputedStyle(element).paddingLeft,
+      );
+
+      element.scrollLeft =
+        nextPane === "left"
+          ? 0
+          : nextPane === "main"
+            ? mainPane.offsetLeft - panePeekPx
+            : element.scrollWidth - element.clientWidth;
       element.dispatchEvent(new Event("scroll", { bubbles: true }));
     }, pane);
 
@@ -156,7 +168,7 @@ test("mobile v2 fixture uses the carousel to move between panes", async ({
 
   await scrollWorkspaceCarouselToPane(page, "left");
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
-    0,
+    1,
   );
 
   await scrollWorkspaceCarouselToPane(page, "main");
@@ -167,7 +179,7 @@ test("mobile v2 fixture uses the carousel to move between panes", async ({
   await scrollWorkspaceCarouselToPane(page, "right");
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
 });
 
 test("mobile v2 fixture keeps the visible pane borderless while adjacent panes own separators", async ({

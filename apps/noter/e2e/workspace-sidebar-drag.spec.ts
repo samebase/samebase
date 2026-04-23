@@ -107,8 +107,20 @@ async function scrollFileViewCarouselToPane(
   await page
     .getByTestId("workspace-layout-v2-pane-main")
     .evaluate((element, nextPane) => {
-      const paneIndex = nextPane === "left" ? 0 : nextPane === "main" ? 1 : 2;
-      element.scrollLeft = element.clientWidth * paneIndex;
+      const mainPane = element.querySelector(".snap-center");
+      if (!(mainPane instanceof HTMLElement)) {
+        throw new Error("Expected mobile carousel main pane.");
+      }
+      const panePeekPx = Number.parseFloat(
+        window.getComputedStyle(element).paddingLeft,
+      );
+
+      element.scrollLeft =
+        nextPane === "left"
+          ? 0
+          : nextPane === "main"
+            ? mainPane.offsetLeft - panePeekPx
+            : element.scrollWidth - element.clientWidth;
       element.dispatchEvent(new Event("scroll", { bubbles: true }));
     }, pane);
 
@@ -116,6 +128,17 @@ async function scrollFileViewCarouselToPane(
     "data-mobile-pane",
     pane,
   );
+}
+
+async function dragHandleByPx(page: Page, testId: string, deltaX: number) {
+  const handleBox = await getBox(page, testId);
+  const startX = handleBox.x + handleBox.width / 2;
+  const startY = handleBox.y + handleBox.height / 2;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + deltaX, startY, { steps: 4 });
+  await page.mouse.up();
 }
 
 test("fileview mobile carousel moves between left, main, and right panes", async ({
@@ -128,7 +151,7 @@ test("fileview mobile carousel moves between left, main, and right panes", async
 
   await scrollFileViewCarouselToPane(page, "left");
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
-    0,
+    1,
   );
 
   await scrollFileViewCarouselToPane(page, "main");
@@ -139,25 +162,46 @@ test("fileview mobile carousel moves between left, main, and right panes", async
   await scrollFileViewCarouselToPane(page, "right");
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
 });
 
-test("fileview mobile sidebars size to content within min/max bounds", async ({
+test("fileview mobile sidebar grips resize the active sidebars", async ({
   page,
 }) => {
   await gotoFileViewFixture(page);
+
+  await scrollFileViewCarouselToPane(page, "left");
+  const leftPaneWidthBefore = (
+    await getBox(page, "workspace-layout-v2-pane-left")
+  ).width;
+  await dragHandleByPx(page, "workspace-layout-v2-left-resize", -72);
+  await expect
+    .poll(
+      async () => (await getBox(page, "workspace-layout-v2-pane-left")).width,
+    )
+    .toBeLessThan(leftPaneWidthBefore - 40);
 
   await scrollFileViewCarouselToPane(page, "right");
 
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
   const maxWidthPx = await getMobileSidebarMaxWidthPx(page);
   const contentSizedWidthPx = (
     await getBox(page, "fileview-layout-right-sidebar-body")
   ).width;
   expect(contentSizedWidthPx).toBeGreaterThanOrEqual(159);
   expect(contentSizedWidthPx).toBeLessThan(maxWidthPx);
+
+  const rightPaneWidthBefore = (
+    await getBox(page, "workspace-layout-v2-pane-right")
+  ).width;
+  await dragHandleByPx(page, "workspace-layout-v2-right-resize", 72);
+  await expect
+    .poll(
+      async () => (await getBox(page, "workspace-layout-v2-pane-right")).width,
+    )
+    .toBeLessThan(rightPaneWidthBefore - 40);
 
   await scrollFileViewCarouselToPane(page, "main");
   await scrollFileViewCarouselToPane(page, "right");
@@ -167,10 +211,10 @@ test("fileview mobile sidebars size to content within min/max bounds", async ({
       async () =>
         (await getBox(page, "fileview-layout-right-sidebar-body")).width,
     )
-    .toBeGreaterThanOrEqual(contentSizedWidthPx - 1);
+    .toBeLessThan(contentSizedWidthPx - 40);
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
 });
 
 test("global swipe debug overlay stops the trace as soon as touch leaves the viewport", async ({
