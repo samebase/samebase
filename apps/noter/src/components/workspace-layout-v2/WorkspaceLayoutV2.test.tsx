@@ -1,9 +1,50 @@
+import { type ReactNode } from "react";
 import { SidebarProvider } from "@/components/sidebar";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2";
 import { WorkspaceLayoutV2PaneFrame } from "./WorkspaceLayoutV2PaneFrame";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
+
+const OMIT_HEADER = Symbol("omit-header");
+
+function renderFullPageMarkup({
+  includeRightPane = true,
+  mainHeader = OMIT_HEADER,
+}: {
+  includeRightPane?: boolean;
+  mainHeader?: ReactNode | typeof OMIT_HEADER;
+}) {
+  const mainProps =
+    mainHeader === OMIT_HEADER
+      ? {
+          headerTestId: "main-header-row",
+          content: <div>main pane</div>,
+        }
+      : {
+          header: mainHeader,
+          headerTestId: "main-header-row",
+          content: <div>main pane</div>,
+        };
+
+  return renderToStaticMarkup(
+    <SidebarProvider defaultRightOpen>
+      <WorkspaceLayoutV2FullPage
+        left={{
+          content: <div>left pane</div>,
+        }}
+        main={mainProps}
+        right={
+          includeRightPane
+            ? {
+                content: <div>right pane</div>,
+              }
+            : undefined
+        }
+      />
+    </SidebarProvider>,
+  );
+}
 
 describe("WorkspaceLayoutV2FullPage", () => {
   it("keeps main header content rendered while sidebar toggles stay desktop-only", () => {
@@ -54,50 +95,20 @@ describe("WorkspaceLayoutV2FullPage", () => {
     );
   });
 
-  it("skips the shared main header row when a route does not provide one", () => {
-    const markup = renderToStaticMarkup(
-      <SidebarProvider defaultRightOpen>
-        <WorkspaceLayoutV2FullPage
-          left={{
-            content: <div>left pane</div>,
-          }}
-          main={{
-            content: <div>main pane</div>,
-          }}
-          right={{
-            content: <div>right pane</div>,
-          }}
-        />
-      </SidebarProvider>,
-    );
+  it("keeps the desktop header shell even when a route omits main header content", () => {
+    const markup = renderFullPageMarkup({});
 
     expect(markup).toContain("main pane");
-    expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
-    expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
-    expect(markup).not.toContain('class="h-8 shrink-0"');
-  });
-
-  it("keeps desktop sidebar toggles when a route intentionally uses an empty header", () => {
-    const markup = renderToStaticMarkup(
-      <SidebarProvider defaultRightOpen>
-        <WorkspaceLayoutV2FullPage
-          left={{
-            content: <div>left pane</div>,
-          }}
-          main={{
-            header: null,
-            content: <div>main pane</div>,
-          }}
-          right={{
-            content: <div>right pane</div>,
-          }}
-        />
-      </SidebarProvider>,
-    );
-
     expect(markup).toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).toContain('aria-label="Toggle Right Sidebar"');
-    expect(markup).toContain('class="h-8 shrink-0"');
+    expect(markup).toContain('data-testid="main-header-row"');
+  });
+
+  it("treats omitted and null main headers the same outside mobile mode", () => {
+    const omittedHeaderMarkup = renderFullPageMarkup({});
+    const nullHeaderMarkup = renderFullPageMarkup({ mainHeader: null });
+
+    expect(omittedHeaderMarkup).toBe(nullHeaderMarkup);
   });
 
   it("disables the shared bottom-panel close button when panel closure is blocked", () => {

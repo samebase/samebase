@@ -9,6 +9,7 @@ import {
 import { Button } from "../ui/button";
 import { PanelLeft, PanelRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useSidebar } from "@/hooks/use-sidebar";
 import {
   WorkspaceLayoutV2PaneFrame,
@@ -402,6 +403,12 @@ export function WorkspaceLayoutV2FullPage({
   right?: WorkspaceLayoutV2PaneFrameProps;
 }) {
   const hasRightPane = right !== undefined;
+  const isMobile = useIsMobile();
+  // Desktop keeps the shared shell for sidebar toggles; only mobile routes
+  // with no main-header content collapse the row entirely.
+  const hasMainHeaderContent =
+    main.header !== undefined && main.header !== null;
+  const shouldHideMainHeader = isMobile && !hasMainHeaderContent;
 
   return (
     <WorkspaceLayoutV2ViewportFrame dataTestId={dataTestId}>
@@ -411,7 +418,7 @@ export function WorkspaceLayoutV2FullPage({
           <WorkspaceLayoutV2PaneFrame
             {...main}
             header={
-              main.header === undefined ? undefined : (
+              shouldHideMainHeader ? undefined : (
                 <WorkspaceLayoutV2MainPaneHeader showRightToggle={hasRightPane}>
                   {main.header}
                 </WorkspaceLayoutV2MainPaneHeader>
