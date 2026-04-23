@@ -16,7 +16,6 @@ import {
 import type { Id } from "./_generated/dataModel";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
-import { isAllowedEmail } from "./users";
 
 const DEV_SEED_EMAIL = "nicu@noter.md";
 const DEV_SEED_PASSWORD = "pass1234";
@@ -211,6 +210,12 @@ export const seedProviderConnectionsForEmail = internalMutation({
       return null;
     }
 
+    // Seeded preview/local password accounts must skip the waitlist gate so
+    // operators do not need a parallel code-side allowlist for dev access.
+    if (user.isApproved !== true) {
+      await ctx.db.patch(user._id, { isApproved: true });
+    }
+
     if (args.githubApiKey) {
       await upsertGithubApiKey(ctx.db, user._id, args.githubApiKey);
     }
@@ -277,10 +282,6 @@ export const seedPasswordAccount = internalAction({
     }
     if (cloudflareAccountId !== undefined) {
       seedArgs.cloudflareAccountId = cloudflareAccountId;
-    }
-
-    if (!isAllowedEmail(email)) {
-      throw new Error("Seed email is not allowlisted");
     }
 
     let created = false;

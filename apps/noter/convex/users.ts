@@ -32,12 +32,6 @@ const ADMIN_EMAILS = new Set([
   "nicuchiciuc@gmail.com",
   "nicu@noter.md",
 ]);
-const ALLOWED_EMAILS = new Set([
-  "nicu.dev@gmail.com",
-  "nicuchiciuc@gmail.com",
-  "mihaisubscription@gmail.com",
-  "nicu@noter.md",
-]);
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 const GITHUB_API_BASE = "https://api.github.com";
 const CONVEX_TOKEN_DETAILS_URL = "https://api.convex.dev/v1/token_details";
@@ -159,7 +153,7 @@ async function fetchWithTimeout(
 
 export function isAdminUser(
   githubUsername: string | null | undefined,
-  email?: string | null | undefined,
+  email?: string | null,
 ): boolean {
   if (githubUsername && ADMIN_USERNAMES.includes(githubUsername)) {
     return true;
@@ -170,11 +164,19 @@ export function isAdminUser(
   return ADMIN_EMAILS.has(email.toLowerCase());
 }
 
-export function isAllowedEmail(email: string | null | undefined): boolean {
-  if (!email) {
-    return false;
+/**
+ * Keep invite approval in persisted user data so operators can flip one
+ * `users.isApproved` field instead of editing a code-side email allowlist.
+ */
+export function hasAppAccess(args: {
+  githubUsername: string | null | undefined;
+  email?: string | null;
+  isApproved?: boolean | null | undefined;
+}): boolean {
+  if (args.isApproved === true) {
+    return true;
   }
-  return ALLOWED_EMAILS.has(email.toLowerCase());
+  return isAdminUser(args.githubUsername, args.email);
 }
 
 function normalizeApiToken(token: string): string {
@@ -470,10 +472,11 @@ export const isCurrentUserApproved = query({
         ? githubConnection.username
         : undefined;
 
-    if (user.isApproved === true) return true;
-    if (isAdminUser(githubUsername, user.email)) return true;
-    if (isAllowedEmail(user.email)) return true;
-    return false;
+    return hasAppAccess({
+      githubUsername,
+      email: user.email,
+      isApproved: user.isApproved,
+    });
   },
 });
 
