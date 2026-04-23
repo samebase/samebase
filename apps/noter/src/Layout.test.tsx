@@ -53,6 +53,7 @@ describe("Layout", () => {
 
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
+    expect(markup).not.toContain("/logo");
     expect(markup).toContain('style="width:160px"');
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
   });
@@ -99,6 +100,7 @@ describe("Layout", () => {
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
     expect(markup).toContain("/home");
+    expect(markup).not.toContain("/logo");
   });
 
   it("keeps legal links and shows /home away from the plain root landing route", () => {
@@ -119,6 +121,7 @@ describe("Layout", () => {
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
     expect(markup).toContain("/home");
+    expect(markup).not.toContain("/logo");
   });
 
   it("keeps legal links visible on the legal pages themselves", () => {
@@ -138,6 +141,7 @@ describe("Layout", () => {
 
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
+    expect(markup).not.toContain("/logo");
   });
 
   it("renders children directly without auth-specific shell branching", () => {

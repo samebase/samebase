@@ -10,6 +10,7 @@ import {
   buildLandingDevToggleSearch,
   getLandingDevToggleLabel,
 } from "@/lib/landingDevMode";
+import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { Link, useLocation } from "@tanstack/react-router";
 
@@ -27,11 +28,15 @@ export function AppSidebarMetaSection() {
   const repoUrl = __APP_REPO_URL__ || "";
   const rootRouteSearch = useRootRouteSearch();
   const location = useLocation();
+  const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
 
   const landingDevToggleSearch = buildLandingDevToggleSearch(rootRouteSearch);
   const landingDevToggleLabel = getLandingDevToggleLabel(rootRouteSearch);
 
-  const isNotDev = location.pathname === "/" && rootRouteSearch.dev !== true;
+  const isLandingPage = location.pathname === "/";
+  const isNotDev = isLandingPage && rootRouteSearch.dev !== true;
+  const showLogoLink =
+    isLandingPage && publicLandingLogoLink?.isLogoLinkVisible === true;
 
   const buildVersionLabel = formatAppBuildVersionLabel(appCommitNumber);
   const commitLabel = formatAppBuildCommitLabel(appCommit);
@@ -46,6 +51,11 @@ export function AppSidebarMetaSection() {
       data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
       className="flex flex-col items-end gap-3 px-1 pt-3 pb-8 text-right text-xs text-muted-foreground"
     >
+      {showLogoLink ? (
+        <Link to="/logo" className="animate-underline-color">
+          /logo
+        </Link>
+      ) : null}
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
 

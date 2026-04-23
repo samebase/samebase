@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
 import { SidebarProvider } from "@/components/sidebar";
 import {
   WorkspaceLayoutV2FullPage,
@@ -9,29 +10,31 @@ import {
 
 export function PublicLayoutShell({ children }: { children: ReactNode }) {
   return (
-    <SidebarProvider
-      defaultLeftDesktopWidthPx={
-        WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX
-      }
-      defaultLeftMobileWidthPx={
-        WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX
-      }
-      defaultOpen={true}
-      defaultRightOpen={false}
-      shortcutSidebarSide="left"
-    >
-      <WorkspaceLayoutV2FullPage
-        left={{
-          footer: <AppSidebarMetaSection />,
-        }}
-        main={{
-          content: (
-            <div className="flex h-full min-h-0 flex-col">{children}</div>
-          ),
-        }}
-        showLeftToggle={false}
-      />
-    </SidebarProvider>
+    <PublicLandingLogoLinkProvider>
+      <SidebarProvider
+        defaultLeftDesktopWidthPx={
+          WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX
+        }
+        defaultLeftMobileWidthPx={
+          WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX
+        }
+        defaultOpen={true}
+        defaultRightOpen={false}
+        shortcutSidebarSide="left"
+      >
+        <WorkspaceLayoutV2FullPage
+          left={{
+            footer: <AppSidebarMetaSection />,
+          }}
+          main={{
+            content: (
+              <div className="flex h-full min-h-0 flex-col">{children}</div>
+            ),
+          }}
+          showLeftToggle={false}
+        />
+      </SidebarProvider>
+    </PublicLandingLogoLinkProvider>
   );
 }
 
