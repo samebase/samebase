@@ -166,34 +166,23 @@ function expectMobilePaneBorderOwnership(
     root,
     '[data-testid="workspace-layout-v2-pane-right"]',
   );
+  const paneEntries = [
+    ["left", leftPane],
+    ["main", mainPane],
+    ["right", rightPane],
+  ] as const;
 
-  if (activePane === "left") {
-    expect(leftPane.classList.contains("border-r-0")).toBe(true);
-    expect(leftPane.classList.contains("border-r")).toBe(false);
-    expect(mainPane.classList.contains("border-l")).toBe(true);
-    expect(mainPane.classList.contains("border-r-0")).toBe(true);
-    expect(mainPane.classList.contains("border-r")).toBe(false);
-    return;
+  for (const [paneName, paneNode] of paneEntries) {
+    if (paneName === activePane) {
+      expect(paneNode.classList.contains("border-x-0")).toBe(true);
+      expect(paneNode.classList.contains("border-x")).toBe(false);
+      continue;
+    }
+
+    expect(paneNode.classList.contains("border-x")).toBe(true);
+    expect(paneNode.classList.contains("border-border")).toBe(true);
+    expect(paneNode.classList.contains("border-x-0")).toBe(false);
   }
-
-  if (activePane === "main") {
-    expect(leftPane.classList.contains("border-r")).toBe(true);
-    expect(leftPane.classList.contains("border-r-0")).toBe(false);
-    expect(mainPane.classList.contains("border-l-0")).toBe(true);
-    expect(mainPane.classList.contains("border-r-0")).toBe(true);
-    expect(mainPane.classList.contains("border-l")).toBe(false);
-    expect(mainPane.classList.contains("border-r")).toBe(false);
-    expect(rightPane.classList.contains("border-l")).toBe(true);
-    expect(rightPane.classList.contains("border-l-0")).toBe(false);
-    return;
-  }
-
-  expect(mainPane.classList.contains("border-l-0")).toBe(true);
-  expect(mainPane.classList.contains("border-r")).toBe(true);
-  expect(mainPane.classList.contains("border-l")).toBe(false);
-  expect(mainPane.classList.contains("border-r-0")).toBe(false);
-  expect(rightPane.classList.contains("border-l-0")).toBe(true);
-  expect(rightPane.classList.contains("border-l")).toBe(false);
 }
 
 describe("WorkspaceLayoutV2 mobile boot alignment", () => {

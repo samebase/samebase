@@ -202,6 +202,10 @@ function renderPaneContent(content: ReactNode) {
   );
 }
 
+function getMobilePaneBorderClass(pane: MobilePane, activePane: MobilePane) {
+  return pane === activePane ? "border-x-0" : "border-x border-border";
+}
+
 type WorkspaceLayoutV2DesktopViewportProps =
   WorkspaceLayoutV2ResolvedPaneContent & {
     activeResizeSide: "left" | "right" | "top" | null;
@@ -271,7 +275,6 @@ function WorkspaceLayoutV2DesktopViewport({
 
 type WorkspaceLayoutV2MobileViewportProps =
   WorkspaceLayoutV2ResolvedPaneContent & {
-    activeResizeSide: "left" | "right" | "top" | null;
     carouselRef: RefObject<HTMLDivElement | null>;
     leftPaneRef: RefObject<HTMLDivElement | null>;
     mainPaneRef: RefObject<HTMLDivElement | null>;
@@ -283,7 +286,6 @@ type WorkspaceLayoutV2MobileViewportProps =
   };
 
 function WorkspaceLayoutV2MobileViewport({
-  activeResizeSide,
   carouselRef,
   leftContent,
   leftPaneRef,
@@ -296,25 +298,6 @@ function WorkspaceLayoutV2MobileViewport({
   rightPaneRef,
   showRightPane,
 }: WorkspaceLayoutV2MobileViewportProps) {
-  const leftPaneBorderClass =
-    mobilePane === "left"
-      ? "border-r-0"
-      : activeResizeSide === "left"
-        ? "border-r border-primary"
-        : "border-r border-border";
-  const mainPaneBorderClass =
-    mobilePane === "left"
-      ? "border-l border-r-0 border-border"
-      : mobilePane === "right"
-        ? "border-l-0 border-r border-border"
-        : "border-l-0 border-r-0";
-  const rightPaneBorderClass =
-    mobilePane === "right"
-      ? "border-l-0"
-      : activeResizeSide === "right"
-        ? "border-l border-primary"
-        : "border-l border-border";
-
   return (
     <div
       ref={carouselRef}
@@ -330,7 +313,7 @@ function WorkspaceLayoutV2MobileViewport({
         data-testid="workspace-layout-v2-pane-left"
         className={cn(
           "relative flex h-full min-h-0 shrink-0 snap-start snap-always flex-col overflow-hidden bg-background",
-          leftPaneBorderClass,
+          getMobilePaneBorderClass("left", mobilePane),
         )}
         style={{
           width: `${sidebarMaxWidthPx}px`,
@@ -349,7 +332,7 @@ function WorkspaceLayoutV2MobileViewport({
             "box-border h-full min-h-0 overflow-hidden bg-background",
             // The active mobile pane stays borderless so no visible content
             // loses a pixel to its own separator.
-            mainPaneBorderClass,
+            getMobilePaneBorderClass("main", mobilePane),
           )}
         >
           {mainContent}
@@ -362,7 +345,7 @@ function WorkspaceLayoutV2MobileViewport({
           data-testid="workspace-layout-v2-pane-right"
           className={cn(
             "relative flex h-full min-h-0 shrink-0 snap-start snap-always flex-col overflow-hidden bg-background",
-            rightPaneBorderClass,
+            getMobilePaneBorderClass("right", mobilePane),
           )}
           style={{
             width: `${sidebarMaxWidthPx}px`,
@@ -719,7 +702,6 @@ export function WorkspaceLayoutV2JustPanes({
     >
       {isMobile ? (
         <WorkspaceLayoutV2MobileViewport
-          activeResizeSide={activeResizeSide}
           carouselRef={mobileCarouselRef}
           leftContent={resolvedLeftContent}
           leftPaneRef={mobileLeftPaneRef}
