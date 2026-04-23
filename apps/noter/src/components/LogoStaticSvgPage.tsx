@@ -39,7 +39,7 @@ export function LogoStaticSvgPage({
           </Link>
         </Button>
         <Button asChild size="sm" variant="outline" className="rounded-none">
-          <Link search={routeSearch} to="/logo-iso">
+          <Link search={routeSearch} to="/logo/iso">
             Iso
           </Link>
         </Button>
@@ -47,7 +47,7 @@ export function LogoStaticSvgPage({
           SVG
         </Button>
         <Button asChild size="sm" variant="outline" className="rounded-none">
-          <Link search={routeSearch} to="/logo-iso-study">
+          <Link search={routeSearch} to="/logo/single-cube">
             Study
           </Link>
         </Button>

@@ -4,12 +4,12 @@ import { RoutedPage } from "./-publicRouteComponents";
 
 function LogoTransitionLabRouteComponent() {
   return (
-    <RoutedPage pathname="/logo-transition-lab">
+    <RoutedPage pathname="/logo/transition">
       <LogoTransitionLabPage />
     </RoutedPage>
   );
 }
 
-export const Route = createFileRoute("/logo-transition-lab")({
+export const Route = createFileRoute("/logo/transition")({
   component: LogoTransitionLabRouteComponent,
 });

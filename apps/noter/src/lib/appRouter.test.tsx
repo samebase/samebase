@@ -262,12 +262,12 @@ describe("appRouter", () => {
       await router.navigate({
         replace: true,
         search: {},
-        to: "/logo-iso",
+        to: "/logo/iso",
       });
       await settleRouterRender();
     });
 
-    expect(router.state.location.pathname).toBe("/logo-iso");
+    expect(router.state.location.pathname).toBe("/logo/iso");
     expect(router.state.location.searchStr).toBe(
       buildSearchString(
         updateQueryParams(undefined, (searchParams) => {

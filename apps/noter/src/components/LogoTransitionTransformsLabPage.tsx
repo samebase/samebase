@@ -63,16 +63,16 @@ export function LogoTransitionTransformsLabPage() {
             <Link to="/logo">3D</Link>
           </Button>
           <Button asChild size="sm" variant="outline" className="rounded-none">
-            <Link to="/logo-iso">Iso</Link>
+            <Link to="/logo/iso">Iso</Link>
           </Button>
           <Button asChild size="sm" variant="outline" className="rounded-none">
-            <Link to="/logo-svg">SVG</Link>
+            <Link to="/logo/svg">SVG</Link>
           </Button>
           <Button asChild size="sm" variant="outline" className="rounded-none">
-            <Link to="/logo-iso-study">Study</Link>
+            <Link to="/logo/single-cube">Study</Link>
           </Button>
           <Button asChild size="sm" variant="outline" className="rounded-none">
-            <Link to="/logo-transition-lab">Literal Lab</Link>
+            <Link to="/logo/transition">Literal Lab</Link>
           </Button>
           <div
             aria-current="page"

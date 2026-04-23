@@ -3,7 +3,7 @@ import { LogoSingleCubeStudyPage } from "@/components/LogoSingleCubeStudyPage";
 import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
 import { RoutedPage } from "./-publicRouteComponents";
 
-const pathname = "/logo-iso-study";
+const pathname = "/logo/single-cube";
 
 function LogoIsoStudyRouteComponent() {
   const routeSearch = Route.useSearch();
