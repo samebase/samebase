@@ -159,6 +159,8 @@ Key domain entities:
   when a current shipped use case proves it is necessary.
 - For app-owned layout shells, every utility class should protect a current
   invariant. If you cannot name the invariant a class preserves, leave it out.
+- For pane rails that should feel nearly flush, prefer `px-1` over `px-0` so the
+  content keeps a small nonzero inset without reading as padded.
 - Browser-owned page scroll is the default for route surfaces. Do not use
   route-level `h-screen`, `h-dvh`, `overflow-hidden`, or full-page
   `overflow-y-auto` shells under shared app chrome unless the route truly needs

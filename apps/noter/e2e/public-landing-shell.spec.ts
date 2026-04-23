@@ -344,7 +344,7 @@ async function expectAppBuildCommitLink(commitLabel: Locator) {
   return href;
 }
 
-async function expectLegalLinksLeadBuildVersion(statusBar: Locator) {
+async function expectLegalLinksUseLeftSidebarInnerEdge(statusBar: Locator) {
   const termsLink = statusBar.getByRole("link", { name: "/terms" });
   const privacyLink = statusBar.getByRole("link", { name: "/privacy" });
   const versionLabel = statusBar.getByTestId(APP_BUILD_VERSION_TEST_ID);
@@ -356,32 +356,56 @@ async function expectLegalLinksLeadBuildVersion(statusBar: Locator) {
   const termsBox = await termsLink.boundingBox();
   const privacyBox = await privacyLink.boundingBox();
   const versionBox = await versionLabel.boundingBox();
+  const statusBarBox = await statusBar.boundingBox();
   expect(termsBox).not.toBeNull();
   expect(privacyBox).not.toBeNull();
   expect(versionBox).not.toBeNull();
-  if (termsBox === null || privacyBox === null || versionBox === null) {
+  expect(statusBarBox).not.toBeNull();
+  if (
+    termsBox === null ||
+    privacyBox === null ||
+    versionBox === null ||
+    statusBarBox === null
+  ) {
     return;
   }
 
-  expect(termsBox.x).toBeLessThan(versionBox.x);
-  expect(privacyBox.x).toBeLessThan(versionBox.x);
+  const rightPaddingPx = await statusBar.evaluate((element) => {
+    const value = Number.parseFloat(getComputedStyle(element).paddingRight);
+    return Number.isFinite(value) ? value : 0;
+  });
+  const expectedRightEdge =
+    statusBarBox.x + statusBarBox.width - rightPaddingPx;
+  for (const childBox of [termsBox, privacyBox, versionBox]) {
+    expect(
+      Math.abs(childBox.x + childBox.width - expectedRightEdge),
+    ).toBeLessThanOrEqual(1);
+  }
 }
 
-async function expectStatusBarBelowMainShell(
+async function expectStatusBarInLeftSidebar(
   page: Parameters<typeof test>[0]["page"],
   statusBar: Locator,
 ) {
-  const main = page.locator("main");
-  const mainBox = await main.boundingBox();
+  const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
+  const leftPaneBox = await leftPane.boundingBox();
   const statusBarBox = await statusBar.boundingBox();
 
-  expect(mainBox).not.toBeNull();
+  expect(leftPaneBox).not.toBeNull();
   expect(statusBarBox).not.toBeNull();
-  if (mainBox === null || statusBarBox === null) {
+  if (leftPaneBox === null || statusBarBox === null) {
     return;
   }
 
-  expect(statusBarBox.y).toBeGreaterThanOrEqual(mainBox.y + mainBox.height - 2);
+  const epsilonPx = 1;
+  expect(statusBarBox.x).toBeGreaterThanOrEqual(leftPaneBox.x - epsilonPx);
+  expect(statusBarBox.y).toBeGreaterThanOrEqual(leftPaneBox.y - epsilonPx);
+  expect(statusBarBox.x + statusBarBox.width).toBeLessThanOrEqual(
+    leftPaneBox.x + leftPaneBox.width + epsilonPx,
+  );
+  expect(statusBarBox.y + statusBarBox.height).toBeLessThanOrEqual(
+    leftPaneBox.y + leftPaneBox.height + epsilonPx,
+  );
 }
 
 async function selectText(locator: Locator) {
@@ -583,7 +607,7 @@ test("local landing keeps the remembered password auth slot stable on reload", a
   expectStableLandingReloadFrames(reloadFrames);
 });
 
-test("public landing keeps legal links in the bottom bar", async ({
+test("public landing keeps legal links in the sidebar rail", async ({
   page,
 }, testInfo) => {
   await page.goto("/", { waitUntil: "networkidle" });
@@ -591,8 +615,8 @@ test("public landing keeps legal links in the bottom bar", async ({
   const landingContent = page.getByTestId("public-landing-content");
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
-  await expectLegalLinksLeadBuildVersion(statusBar);
-  await expectStatusBarBelowMainShell(page, statusBar);
+  await expectLegalLinksUseLeftSidebarInnerEdge(statusBar);
+  await expectStatusBarInLeftSidebar(page, statusBar);
   await expect(
     landingContent.getByRole("link", { name: "/terms" }),
   ).toHaveCount(0);
@@ -607,7 +631,7 @@ test("public landing keeps legal links in the bottom bar", async ({
   });
 });
 
-test("mcp consent sign-in keeps legal links in the bottom bar", async ({
+test("mcp consent sign-in keeps legal links in the sidebar rail", async ({
   page,
 }) => {
   await page.goto(
@@ -617,8 +641,8 @@ test("mcp consent sign-in keeps legal links in the bottom bar", async ({
 
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
-  await expectLegalLinksLeadBuildVersion(statusBar);
-  await expectStatusBarBelowMainShell(page, statusBar);
+  await expectLegalLinksUseLeftSidebarInnerEdge(statusBar);
+  await expectStatusBarInLeftSidebar(page, statusBar);
   await expect(statusBar.getByRole("link", { name: "Home" })).toBeVisible();
   await expect(page.getByText("Temporary MCP sign-in note")).toBeVisible();
 });

@@ -18,8 +18,8 @@ function normalizeRepoUrl(repoUrl: string): string {
 }
 
 /**
- * Keep build metadata and public-route escape hatches in the left rail now
- * that the shared footer bar has been removed from the page shell.
+ * Keep build metadata and public-route escape hatches on the rail edge that
+ * peeks beside the main pane in the mobile workspace carousel.
  */
 export function AppSidebarMetaSection() {
   const appCommit = __APP_COMMIT__ || "unknown";
@@ -44,7 +44,7 @@ export function AppSidebarMetaSection() {
   return (
     <div
       data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
-      className="flex flex-col gap-3 text-xs text-muted-foreground px-3 pt-3 pb-8"
+      className="flex flex-col items-end gap-3 px-1 pt-3 pb-8 text-right text-xs text-muted-foreground"
     >
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
@@ -63,7 +63,7 @@ export function AppSidebarMetaSection() {
         <Link to="/">/home</Link>
       )}
 
-      <div className="flex items-center gap-2 ">
+      <div className="flex flex-row-reverse items-center gap-2 font-mono">
         <span data-testid={APP_BUILD_VERSION_TEST_ID}>{buildVersionLabel}</span>
 
         <a
@@ -81,6 +81,20 @@ export function AppSidebarMetaSection() {
             if (hasSelectedAppBuildVersion(event.currentTarget)) {
               event.preventDefault();
             }
+          }}
+          onCopy={(event) => {
+            if (
+              !commitUrl ||
+              !hasSelectedAppBuildVersion(event.currentTarget)
+            ) {
+              return;
+            }
+
+            event.clipboardData.setData(
+              "text/plain",
+              `[${commitLabel}](${commitUrl})`,
+            );
+            event.preventDefault();
           }}
         >
           {commitLabel}
