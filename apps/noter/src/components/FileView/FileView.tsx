@@ -72,6 +72,7 @@ import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader"
 import { DAYTONA_PAUSED } from "../../../shared/daytonaPause";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
+import { CHAT_ENABLED } from "@/lib/featureFlags";
 import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
 import { isInIframe } from "@/authClient";
 import {
@@ -3183,22 +3184,26 @@ function FileViewInner({
           header: fileViewMainHeader,
           content: fileViewMainContent,
         }}
-        panel={{
-          content: (
-            <EditorChatPanel
-              vaultId={vault._id}
-              repositoryFullName={repositoryFullName}
-              branch={branch}
-              filePath={selectedFile || undefined}
-              autoFocusInput={shouldAutoFocusChatInput}
-              onBusyStateChange={setIsEditorChatBusy}
-              shellMode="embedded"
-            />
-          ),
-          closeDisabled: isEditorChatBusy,
-          onOpenChange: handleEditorChatOpenChange,
-          open: resolvedEditorChatOpen,
-        }}
+        panel={
+          CHAT_ENABLED
+            ? {
+                content: (
+                  <EditorChatPanel
+                    vaultId={vault._id}
+                    repositoryFullName={repositoryFullName}
+                    branch={branch}
+                    filePath={selectedFile || undefined}
+                    autoFocusInput={shouldAutoFocusChatInput}
+                    onBusyStateChange={setIsEditorChatBusy}
+                    shellMode="embedded"
+                  />
+                ),
+                closeDisabled: isEditorChatBusy,
+                onOpenChange: handleEditorChatOpenChange,
+                open: resolvedEditorChatOpen,
+              }
+            : undefined
+        }
         right={{
           header:
             FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarHeader : null,

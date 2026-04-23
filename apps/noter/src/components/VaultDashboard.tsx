@@ -115,6 +115,7 @@ import { toast } from "@/components/ui/use-toast";
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 import { WorkspaceLayoutV2FullPage } from "./workspace-layout-v2/WorkspaceLayoutV2";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
+import { CHAT_ENABLED } from "@/lib/featureFlags";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
 const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
@@ -1050,9 +1051,10 @@ function VaultDashboardBody({
                 : undefined
             }
             footerActions={
-              infraActionLabel || (developerToolsOpen && chatRoute) ? (
+              infraActionLabel ||
+              (CHAT_ENABLED && developerToolsOpen && chatRoute) ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  {developerToolsOpen && chatRoute && (
+                  {CHAT_ENABLED && developerToolsOpen && chatRoute && (
                     <Button asChild variant="outline" size="sm">
                       <Link to={chatRoute}>Chat</Link>
                     </Button>
@@ -2307,18 +2309,22 @@ export function VaultDashboard() {
             header: dashboardHeaderContent,
             content: dashboardBody,
           }}
-          panel={{
-            content: (
-              <EditorChatPanel
-                autoFocusInput={shouldAutoFocusChatInput}
-                onBusyStateChange={setIsGlobalChatBusy}
-                shellMode="embedded"
-              />
-            ),
-            closeDisabled: isGlobalChatBusy,
-            onOpenChange: handleGlobalChatOpenChange,
-            open: resolvedGlobalChatOpen,
-          }}
+          panel={
+            CHAT_ENABLED
+              ? {
+                  content: (
+                    <EditorChatPanel
+                      autoFocusInput={shouldAutoFocusChatInput}
+                      onBusyStateChange={setIsGlobalChatBusy}
+                      shellMode="embedded"
+                    />
+                  ),
+                  closeDisabled: isGlobalChatBusy,
+                  onOpenChange: handleGlobalChatOpenChange,
+                  open: resolvedGlobalChatOpen,
+                }
+              : undefined
+          }
           right={{
             content: rightSidebarContent,
           }}

@@ -365,19 +365,22 @@ describe("appRouter", () => {
     ).toBeNull();
   });
 
-  it("renders codespace chat through an explicit TanStack route instead of the vault catch-all", async () => {
-    await renderRoute("/vault/noter-md/noter/codespace/main/chat");
+  it("redirects the disabled codespace chat route back to the vault view", async () => {
+    const router = await renderRoute(
+      "/vault/noter-md/noter/codespace/main/chat",
+    );
 
+    await act(async () => {
+      await settleRouterRender();
+    });
+
+    expect(router.state.location.pathname).toBe("/vault/noter-md/noter/main");
     expect(
-      rootElement?.querySelector('[data-testid="codespace-chat-page"]')
-        ?.textContent,
-    ).toBe("Codespace chat page");
+      rootElement?.querySelector('[data-testid="codespace-chat-page"]'),
+    ).toBeNull();
     expect(
       rootElement?.querySelector('[data-testid="file-view-page"]'),
-    ).toBeNull();
-    expect(
-      rootElement?.querySelector('[data-testid="not-found-route"]'),
-    ).toBeNull();
+    ).not.toBeNull();
   });
 
   it("renders the generic vault route through an explicit TanStack route instead of the App fallback", async () => {
