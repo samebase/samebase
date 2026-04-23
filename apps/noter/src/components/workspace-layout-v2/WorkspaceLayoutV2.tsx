@@ -266,8 +266,8 @@ function getMobilePaneSeparatorClass(pane: MobilePane, activePane: MobilePane) {
   }
 
   // Mobile panes can change ownership while the carousel is mid-gesture. Draw
-  // separators outside normal layout so content width stays stable.
-  return "relative before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-border before:content-[''] after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-border after:content-['']";
+  // separators as paint-only shadows so content width stays stable.
+  return "shadow-[inset_1px_0_0_var(--color-border),inset_-1px_0_0_var(--color-border)]";
 }
 
 type WorkspaceLayoutV2DesktopViewportProps =
