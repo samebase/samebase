@@ -6,7 +6,7 @@
 - Owner: Noter frontend
 - Date: 2026-02-22
 - Related specs:
-  - `specs/021_AGENT_BUILDER_TEMPLATE_SPEC.md`
+  - `archive/021_AGENT_BUILDER_TEMPLATE_SPEC.md`
   - `specs/071_FILE_VIEW_GRAPH_TOGGLE_IN_DEVELOPER_TOOLS_SPEC.md`
 - Related files:
   - `apps/noter/src/components/FileView.tsx`
