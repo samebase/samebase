@@ -26,12 +26,17 @@ export const fixtureNotes = {
 };`;
 
 const FIXTURE_VAULT_KEY = "fixture-monaco-pane-drag-vault";
-const FIXTURE_OXFMT_CONFIG = `{
-  "$schema": "https://cdn.jsdelivr.net/npm/oxfmt/configuration_schema.json",
-  "printWidth": 80,
-  "proseWrap": "always",
-  "sortPackageJson": false
-}`;
+const FIXTURE_VITE_CONFIG = `import { defineConfig } from "vite-plus";
+
+export default defineConfig({
+  fmt: {
+    printWidth: 80,
+    proseWrap: "always",
+  },
+  staged: {
+    "*.{ts,tsx,js,jsx,json,md}": "vp check --fix",
+  },
+});`;
 
 export function FileViewMonacoDragVisualFixture({
   mode,
@@ -65,7 +70,7 @@ export function FileViewMonacoDragVisualFixture({
               </div>
               <div className="grid gap-2 p-3 text-sm">
                 <div className="border border-border/50 bg-background px-3 py-2">
-                  .oxfmtrc.json
+                  vite.config.ts
                 </div>
                 <div className="border border-border/50 bg-background px-3 py-2 text-muted-foreground">
                   src/index.ts
@@ -77,7 +82,7 @@ export function FileViewMonacoDragVisualFixture({
         main={{
           header: (
             <RepositoryWorkspacePaneHeader
-              title=".oxfmtrc.json"
+              title="vite.config.ts"
               right={
                 <div className="font-mono text-xs text-muted-foreground">
                   4c7e190
@@ -97,7 +102,7 @@ export function FileViewMonacoDragVisualFixture({
                     main
                   </div>
                   <h2 className="text-base font-medium md:text-sm">
-                    .oxfmtrc.json
+                    vite.config.ts
                   </h2>
                 </div>
                 <div className="text-xs text-muted-foreground">
@@ -111,8 +116,8 @@ export function FileViewMonacoDragVisualFixture({
                 >
                   <MonacoEditorSurface
                     branch="main"
-                    defaultValue={FIXTURE_OXFMT_CONFIG}
-                    filePath=".oxfmtrc.json"
+                    defaultValue={FIXTURE_VITE_CONFIG}
+                    filePath="vite.config.ts"
                     onMount={() => {}}
                     showMobileLineNumbers={false}
                     syncError={null}

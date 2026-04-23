@@ -2,7 +2,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { PluginOption } from "vite";
+import type { UserConfig } from "vite";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -38,18 +38,18 @@ type StarterServerConfig = {
   strictPort?: boolean;
 };
 
-type StarterViteConfig = {
+type StarterViteConfig = UserConfig & {
   fmt: {
     printWidth: number;
     proseWrap: "always";
   };
-  plugins: PluginOption[];
-  resolve: {
-    alias: {
-      "@": string;
+  lint: {
+    options: {
+      typeAware: true;
+      typeCheck: true;
     };
   };
-  server: StarterServerConfig | undefined;
+  staged: Record<string, string>;
   test: {
     passWithNoTests: true;
   };
@@ -74,6 +74,12 @@ const config: StarterViteConfig = {
     printWidth: 80,
     proseWrap: "always",
   },
+  lint: {
+    options: {
+      typeAware: true,
+      typeCheck: true,
+    },
+  },
   plugins: [tailwindcss(), react()],
   resolve: {
     alias: {
@@ -81,6 +87,10 @@ const config: StarterViteConfig = {
     },
   },
   server: serverConfig,
+  staged: {
+    "*.{cjs,css,cts,html,js,json,jsonc,jsonl,jsx,md,mjs,mts,ts,toml,tsx,yaml,yml}":
+      "vp check --fix",
+  },
   test: {
     passWithNoTests: true,
   },

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 import type {
   WorkspaceSidebarState,

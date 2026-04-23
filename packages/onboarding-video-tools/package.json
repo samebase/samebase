@@ -16,7 +16,7 @@
     "landing-demo": "node --experimental-strip-types ./cli.ts landing-demo",
     "screen-demo": "node --experimental-strip-types ./cli.ts screen-demo",
     "typecheck": "pnpm --dir ../.. exec tsgo -p packages/onboarding-video-tools/tsconfig.json --pretty false",
-    "lint": "pnpm --dir ../.. exec vp lint --config .oxlintrc.json --tsconfig packages/onboarding-video-tools/tsconfig.json --report-unused-disable-directives packages/onboarding-video-tools/cli.ts packages/onboarding-video-tools/index.ts packages/onboarding-video-tools/launchChromeLandingTabs.ts",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/onboarding-video-tools/tsconfig.json --report-unused-disable-directives packages/onboarding-video-tools/cli.ts packages/onboarding-video-tools/index.ts packages/onboarding-video-tools/launchChromeLandingTabs.ts",
     "check": "pnpm run typecheck && pnpm run lint"
   },
   "dependencies": {

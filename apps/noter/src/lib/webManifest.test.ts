@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 describe("web manifest", () => {
   it("commits a parseable thin install manifest with explicit install icons", () => {

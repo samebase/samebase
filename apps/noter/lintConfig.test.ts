@@ -2,7 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
+import repoViteConfig from "../../vite.config.ts";
 
 const appDir = fileURLToPath(new URL("./", import.meta.url));
 const repoRoot = path.resolve(appDir, "..", "..");
@@ -180,24 +181,46 @@ function readOptionalOverrides(
   return overrides;
 }
 
+function readRootViteConfig(): JsonRecord {
+  return expectRecord(repoViteConfig, "vite.config.ts");
+}
+
 function readRootLintConfig(): OxlintConfig {
-  const config = readJsonObject(".oxlintrc.json");
+  const config = expectRecord(
+    readRootViteConfig()["lint"],
+    "vite.config.ts.lint",
+  );
   return {
-    options: readOptionalRecord(config.options, ".oxlintrc.json.options"),
+    options: readOptionalRecord(config.options, "vite.config.ts.lint.options"),
     ignorePatterns: readOptionalStringArray(
       config.ignorePatterns,
-      ".oxlintrc.json.ignorePatterns",
+      "vite.config.ts.lint.ignorePatterns",
     ),
     jsPlugins: readOptionalJsPlugins(
       config.jsPlugins,
-      ".oxlintrc.json.jsPlugins",
+      "vite.config.ts.lint.jsPlugins",
     ),
-    rules: readOptionalRecord(config.rules, ".oxlintrc.json.rules"),
+    rules: readOptionalRecord(config.rules, "vite.config.ts.lint.rules"),
     overrides: readOptionalOverrides(
       config.overrides,
-      ".oxlintrc.json.overrides",
+      "vite.config.ts.lint.overrides",
     ),
   };
+}
+
+function readRootFmtConfig(): JsonRecord {
+  return expectRecord(readRootViteConfig()["fmt"], "vite.config.ts.fmt");
+}
+
+function readRootStagedConfig(): Record<string, string> {
+  const staged = readOptionalStringRecord(
+    readRootViteConfig()["staged"],
+    "vite.config.ts.staged",
+  );
+  if (!staged) {
+    throw new Error("vite.config.ts.staged must be defined");
+  }
+  return staged;
 }
 
 function readPackageSurface(relativePath: string): PackageSurface {
@@ -256,6 +279,7 @@ describe("lint config", () => {
 
     expect(oxlintConfig.options).toMatchObject({ typeAware: true });
     expect(oxlintConfig.ignorePatterns).toContain("**/.codespace-agent/**");
+    expect(oxlintConfig.ignorePatterns).not.toContain("**/vite.config.ts");
     expect(
       appWideOverride?.rules?.["@typescript-eslint/no-explicit-any"],
     ).toBeUndefined();
@@ -287,7 +311,9 @@ describe("lint config", () => {
     });
   });
 
-  it("uses check as the shared static gate and vp as the lint runner", () => {
+  it("uses vite.config.ts as the Oxc source of truth and vp for hooks/lint", () => {
+    const fmtConfig = readRootFmtConfig();
+    const stagedConfig = readRootStagedConfig();
     const rootPackage = readPackageSurface("package.json");
     const appPackage = readPackageSurface("apps/noter/package.json");
     const starterPackage = readPackageSurface(
@@ -299,25 +325,46 @@ describe("lint config", () => {
       "eslint-plugin-noter-local": "workspace:*",
       "eslint-plugin-react-refresh": "^0.4.7",
     });
+    expect(rootPackage.devDependencies?.vitest).toBeUndefined();
     expect(rootPackage.devDependencies?.oxlint).toBeUndefined();
     expect(rootPackage.devDependencies?.["oxlint-tsgolint"]).toBeUndefined();
+    expect(fmtConfig).toMatchObject({
+      printWidth: 80,
+      proseWrap: "always",
+    });
+    expect(stagedConfig).toMatchObject({
+      "*.{cjs,css,cts,html,js,json,jsonc,jsonl,jsx,md,mjs,mts,ts,toml,tsx,yaml,yml}":
+        "vp check --fix",
+    });
+    expect(rootPackage.scripts?.prepare).toBe(
+      "vp config --hooks-dir .vite-hooks",
+    );
     expect(rootPackage.scripts?.["lint:scripts"]).toContain(
       "pnpm exec vp lint",
     );
+    expect(rootPackage.scripts?.["lint:scripts"]).not.toContain("--config");
     expect(appPackage.scripts?.check).toContain("pnpm run lint:vp");
     expect(appPackage.scripts?.lint).toContain("pnpm run check");
     expect(appPackage.scripts?.["lint:vp"]).toContain("exec vp lint");
+    expect(appPackage.scripts?.["lint:vp"]).not.toContain("--config");
     expect(starterPackage.scripts?.check).toContain("exec vp lint");
+    expect(starterPackage.scripts?.check).not.toContain("--config");
     expect(starterPackage.scripts?.lint).toContain("pnpm run check");
+    expect(starterPackage.scripts?.prepare).toBe(
+      "vp config --hooks-dir .vite-hooks",
+    );
     expect(appPackage.scripts?.lint).not.toContain("eslint");
     expect(starterPackage.scripts?.lint).not.toContain("eslint");
+    expect(rootPackage.devDependencies?.husky).toBeUndefined();
     expect(appPackage.devDependencies?.eslint).toBeUndefined();
     expect(
       appPackage.devDependencies?.["@typescript-eslint/parser"],
     ).toBeUndefined();
+    expect(starterPackage.devDependencies?.husky).toBeUndefined();
     expect(starterPackage.devDependencies?.eslint).toBeUndefined();
     expect(
       starterPackage.devDependencies?.["@typescript-eslint/parser"],
     ).toBeUndefined();
+    expect(starterPackage.devDependencies?.vitest).toBeUndefined();
   });
 });

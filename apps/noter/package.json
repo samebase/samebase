@@ -23,7 +23,7 @@
     "build:vercel": "vp build",
     "lint": "pnpm run check",
     "lint:ci": "pnpm run check:ci",
-    "lint:vp": "NODE_OPTIONS=--max-old-space-size=4096 pnpm --dir ../.. exec vp lint --config .oxlintrc.json --report-unused-disable-directives apps/noter",
+    "lint:vp": "NODE_OPTIONS=--max-old-space-size=4096 pnpm --dir ../.. exec vp lint --report-unused-disable-directives apps/noter",
     "test:visual": "playwright test -c playwright.config.ts",
     "test:live": "playwright test -c playwright.live.config.ts",
     "preview": "vp preview"

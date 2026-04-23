@@ -9,7 +9,7 @@ async function main(): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = spawn(
       PNPM_COMMAND,
-      ["exec", "vitest", "run", "apps/noter/src/lib/simpleView.test.ts"],
+      ["exec", "vp", "test", "run", "apps/noter/src/lib/simpleView.test.ts"],
       {
         env: {
           ...process.env,

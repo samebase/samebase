@@ -1,8 +1,0 @@
-pnpm format:check
-pnpm check
-
-# Hooks export repo-local Git variables such as GIT_INDEX_FILE. Clear them
-# before tests so nested Git commands do not reuse the commit's transient
-# worktree state.
-unset $(git rev-parse --local-env-vars)
-pnpm test

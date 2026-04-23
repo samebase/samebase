@@ -3,7 +3,7 @@ import {
   dedupeCodexThreadsById,
 } from "@/lib/codexThreadSidebar";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 const PROJECT_ROOT = "/Users/fixture/dev/noter";
 const WORKTREE_ROOT = "/Users/fixture/.codex/worktrees/e2ca/noter";

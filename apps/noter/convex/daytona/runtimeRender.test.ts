@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { formatWithVpFmt } from "../../../../scripts/format-with-vp-fmt";
 import {
   renderDaytonaSandboxProgramsGeneratedTsModule,

@@ -4,9 +4,9 @@
 
 - Status: Accepted
 - Owner: Noter linting/tooling
-- Last updated: 2026-04-10
+- Last updated: 2026-04-23
 - Depends on:
-  - `.oxlintrc.json`
+  - `vite.config.ts`
   - `package.json`
   - `tsconfig.scripts.json`
   - `apps/noter/package.json`
@@ -21,8 +21,8 @@
 
 ## Summary
 
-Noter should standardize on Oxlint before the repo takes on a Vite-plus
-migration.
+Noter should standardize on Oxlint as the repo's linter while keeping the
+configuration colocated with the wider Vite+ workflow surface.
 
 This migration is accepted as a simplification pass, not a 100%-compatibility
 exercise.
@@ -60,11 +60,12 @@ tooling incompatibility, or rollout decision appears.
 2. Chasing every last old ESLint warning before the repo can standardize.
 3. Rewriting the app tsconfig structure beyond what the TypeScript 6 guidance
    already recommends.
-4. Expanding scope into formatter, router, or Vite-plus work in this spec.
+4. Reworking unrelated router or app-runtime behavior as part of the lint
+   migration.
 
 ## Current State
 
-- `.oxlintrc.json` is the repo's active lint contract.
+- The root `vite.config.ts` `lint` block is the repo's active lint contract.
 - The config enables Oxlint type-aware mode and carries the repo's explicit
   semantic rule choices directly.
 - The repo adds one local plugin, `eslint-plugin-noter-local`, whose
@@ -91,8 +92,9 @@ tooling incompatibility, or rollout decision appears.
 
 ### 1. Oxlint is the primary linter
 
-The repo should add an Oxlint config and move primary lint scripts onto Oxlint
-where that can be done without dropping accepted protections.
+The repo should keep one root Oxlint config inside `vite.config.ts` and move
+primary lint scripts onto Oxlint where that can be done without dropping
+accepted protections.
 
 ### 2. The custom query-param rule must survive
 
@@ -122,8 +124,8 @@ as accepted coverage:
 - `@typescript-eslint/no-unsafe-return`
 - `@typescript-eslint/no-unnecessary-condition`
 
-These should live in `.oxlintrc.json` directly rather than through a parallel
-ESLint fallback.
+These should live in the root `vite.config.ts` `lint` block directly rather than
+through a parallel ESLint fallback.
 
 ### 4. Syntax-level rules should move first
 
@@ -257,8 +259,8 @@ When a rule cannot move cleanly, this document must record:
 
 - Problem: the integrated migration needed a clear acceptance bar. Tried: ran
   focused config tests plus the repo lint entrypoints. Result:
-  `pnpm exec vitest run apps/noter/lintConfig.test.ts`, `pnpm lint:scripts`, and
-  `pnpm lint` now pass. Remaining output is warning-only, led by existing
+  `pnpm exec vp test run apps/noter/lintConfig.test.ts`, `pnpm lint:scripts`,
+  and `pnpm lint` now pass. Remaining output is warning-only, led by existing
   `consistent-type-assertions` warnings that were already accepted as warning
   severity in the old ESLint contract.
 

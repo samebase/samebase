@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { MachineConnectPageContent } from "./MachineConnectPage";
 
 describe("MachineConnectPageContent", () => {

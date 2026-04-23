@@ -3,7 +3,14 @@
 import * as React from "react";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 
 vi.mock("@/components/RootIndexRoutePage", () => ({
   RootIndexRoutePage: () => (

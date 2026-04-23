@@ -5,7 +5,7 @@
   "files.associations": {
     "*.css": "tailwindcss"
   },
-  "oxc.fmt.configPath": ".oxfmtrc.json",
+  "oxc.fmt.configPath": "./vite.config.ts",
   "tailwindCSS.experimental.configFile": {
     "apps/noter/src/index.css": "apps/noter/src/**",
     "apps/noter-starter-template/src/index.css": "apps/noter-starter-template/src/**"
