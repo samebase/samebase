@@ -6,13 +6,6 @@ export const APP_BUILD_VERSION_PREFIX = "v";
 const UNKNOWN_APP_BUILD_VERSION_NUMBER = "?";
 const SHORT_APP_BUILD_COMMIT_LENGTH = 8;
 
-type AppBuildCopyPayload = {
-  appBuildCopyLabel: string;
-  commitUrl: string;
-};
-
-type ClipboardDataWriter = Pick<DataTransfer, "setData">;
-
 function isValidAppBuildCommitNumber(
   commitNumber: number | null,
 ): commitNumber is number {
@@ -61,26 +54,6 @@ export function formatAppBuildCommitLabel(appCommit: string): string {
     : appCommit;
 }
 
-export function formatAppBuildMarkdownLink({
-  appBuildCopyLabel,
-  commitUrl,
-}: AppBuildCopyPayload): string {
-  if (!commitUrl) {
-    return appBuildCopyLabel;
-  }
-
-  return `[${appBuildCopyLabel}](${commitUrl})`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 function selectionIncludesNode(node: Node, selection: Selection): boolean {
   for (let rangeIndex = 0; rangeIndex < selection.rangeCount; rangeIndex += 1) {
     const range = selection.getRangeAt(rangeIndex);
@@ -119,47 +92,4 @@ export function hasSelectedAppBuildVersion(node: Node): boolean {
   }
 
   return selectionIncludesNode(node, selection);
-}
-
-export function writeAppBuildClipboardData(
-  clipboardData: ClipboardDataWriter,
-  payload: AppBuildCopyPayload,
-): string {
-  const markdownLink = formatAppBuildMarkdownLink(payload);
-  clipboardData.setData("text/plain", markdownLink);
-
-  if (!payload.commitUrl) {
-    return markdownLink;
-  }
-
-  clipboardData.setData("text/markdown", markdownLink);
-  clipboardData.setData(
-    "text/html",
-    `<a href="${escapeHtml(payload.commitUrl)}">${escapeHtml(payload.appBuildCopyLabel)}</a>`,
-  );
-
-  return markdownLink;
-}
-
-/**
- * Install a tiny document-level copy interceptor for the build label so the
- * clipboard receives Markdown without pulling in a richer editor runtime.
- */
-export function installAppBuildMarkdownCopy(
-  element: HTMLElement,
-  payload: AppBuildCopyPayload,
-): () => void {
-  const handleCopy = (event: ClipboardEvent) => {
-    if (!hasSelectedAppBuildVersion(element) || event.clipboardData === null) {
-      return;
-    }
-
-    event.preventDefault();
-    writeAppBuildClipboardData(event.clipboardData, payload);
-  };
-
-  document.addEventListener("copy", handleCopy);
-  return () => {
-    document.removeEventListener("copy", handleCopy);
-  };
 }

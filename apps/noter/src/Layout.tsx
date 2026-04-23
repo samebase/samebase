@@ -1,14 +1,19 @@
 import { ReactNode } from "react";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { SidebarProvider } from "@/components/sidebar";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
+import {
+  WorkspaceLayoutV2FullPage,
+  WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+  WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+} from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
 
 export function PublicLayoutShell({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider
-      defaultLeftDesktopWidthPx={DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX}
-      defaultLeftMobileWidthPx={DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX}
+      defaultLeftDesktopWidthPx={
+        WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX
+      }
+      defaultLeftMobileWidthPx={WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX}
       defaultOpen={true}
       defaultRightOpen={false}
       shortcutSidebarSide="left"
@@ -22,6 +27,7 @@ export function PublicLayoutShell({ children }: { children: ReactNode }) {
             <div className="flex h-full min-h-0 flex-col">{children}</div>
           ),
         }}
+        showLeftToggle={false}
       />
     </SidebarProvider>
   );

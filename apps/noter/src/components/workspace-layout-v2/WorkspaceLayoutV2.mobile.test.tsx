@@ -20,6 +20,7 @@ Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
 
 const VIEWPORT_WIDTH_PX = 390;
 const VIEWPORT_HEIGHT_PX = 844;
+const OMIT_HEADER = Symbol("omit-header");
 
 const originalOffsetLeftDescriptor = Object.getOwnPropertyDescriptor(
   HTMLElement.prototype,
@@ -110,25 +111,78 @@ HTMLElement.prototype.scrollIntoView = function scrollIntoView() {
 };
 
 function renderMobileLayout({
+  mainHeader = OMIT_HEADER,
   mobilePane,
 }: {
+  mainHeader?: React.ReactNode | typeof OMIT_HEADER;
   mobilePane?: "left" | "main" | "right";
 }) {
+  const mainProps =
+    mainHeader === OMIT_HEADER
+      ? {
+          headerTestId: "workspace-layout-v2-main-header-row",
+          content: <div>main pane</div>,
+        }
+      : {
+          header: mainHeader,
+          headerTestId: "workspace-layout-v2-main-header-row",
+          content: <div>main pane</div>,
+        };
+
   return (
     <SidebarProvider mobilePane={mobilePane}>
       <WorkspaceLayoutV2FullPage
         left={{
           content: <div>left pane</div>,
         }}
-        main={{
-          content: <div>main pane</div>,
-        }}
+        main={mainProps}
         right={{
           content: <div>right pane</div>,
         }}
       />
     </SidebarProvider>
   );
+}
+
+function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
+  const element = root.querySelector(selector);
+  if (!(element instanceof HTMLElement)) {
+    throw new Error(`Expected element for selector: ${selector}`);
+  }
+
+  return element;
+}
+
+function expectMobilePaneBorderOwnership(
+  root: ParentNode,
+  activePane: "left" | "main" | "right",
+) {
+  const leftPane = getRequiredElement(
+    root,
+    '[data-testid="workspace-layout-v2-pane-left"]',
+  );
+  const mainPane = getRequiredElement(root, ".snap-center > div");
+  const rightPane = getRequiredElement(
+    root,
+    '[data-testid="workspace-layout-v2-pane-right"]',
+  );
+  const paneEntries = [
+    ["left", leftPane],
+    ["main", mainPane],
+    ["right", rightPane],
+  ] as const;
+
+  for (const [paneName, paneNode] of paneEntries) {
+    if (paneName === activePane) {
+      expect(paneNode.classList.contains("border-x-0")).toBe(true);
+      expect(paneNode.classList.contains("border-x")).toBe(false);
+      continue;
+    }
+
+    expect(paneNode.classList.contains("border-x")).toBe(true);
+    expect(paneNode.classList.contains("border-border")).toBe(true);
+    expect(paneNode.classList.contains("border-x-0")).toBe(false);
+  }
 }
 
 describe("WorkspaceLayoutV2 mobile boot alignment", () => {
@@ -197,6 +251,116 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         .querySelector("[data-workspace-layout-v2]")
         ?.getAttribute("data-mobile-pane"),
     ).toBe("right");
+  });
+
+  it("lets the left sidebar stay borderless while the main pane owns the separator", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(renderMobileLayout({ mobilePane: "left" }));
+    });
+
+    expectMobilePaneBorderOwnership(rootElement, "left");
+  });
+
+  it("lets the sidebars own both separators while the main pane is visible", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(renderMobileLayout({ mobilePane: "main" }));
+    });
+
+    expectMobilePaneBorderOwnership(rootElement, "main");
+  });
+
+  it("lets the right sidebar stay borderless while the main pane owns the separator", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(renderMobileLayout({ mobilePane: "right" }));
+    });
+
+    expectMobilePaneBorderOwnership(rootElement, "right");
+  });
+
+  it("hides the shared header row on mobile when the route omits main header content", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(renderMobileLayout({}));
+    });
+
+    expect(
+      rootElement.querySelector(
+        '[data-testid="workspace-layout-v2-main-header-row"]',
+      ),
+    ).toBeNull();
+    expect(
+      rootElement.querySelector('[aria-label="Toggle Left Sidebar"]'),
+    ).toBeNull();
+    expect(
+      rootElement.querySelector('[aria-label="Toggle Right Sidebar"]'),
+    ).toBeNull();
+  });
+
+  it("treats omitted and null main headers the same on mobile", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(renderMobileLayout({ mainHeader: null }));
+    });
+
+    expect(
+      rootElement.querySelector(
+        '[data-testid="workspace-layout-v2-main-header-row"]',
+      ),
+    ).toBeNull();
+    expect(
+      rootElement.querySelector('[aria-label="Toggle Left Sidebar"]'),
+    ).toBeNull();
+    expect(
+      rootElement.querySelector('[aria-label="Toggle Right Sidebar"]'),
+    ).toBeNull();
+  });
+
+  it("keeps the shared header row on mobile when the route provides content", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(
+        renderMobileLayout({
+          mainHeader: <div data-testid="main-header-actions">/machines</div>,
+        }),
+      );
+    });
+
+    expect(
+      rootElement.querySelector(
+        '[data-testid="workspace-layout-v2-main-header-row"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      rootElement.querySelector('[data-testid="main-header-actions"]')
+        ?.textContent,
+    ).toBe("/machines");
   });
 });
 

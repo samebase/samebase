@@ -9,6 +9,7 @@ import {
 import { Button } from "../ui/button";
 import { PanelLeft, PanelRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useSidebar } from "@/hooks/use-sidebar";
 import {
   WorkspaceLayoutV2PaneFrame,
@@ -20,9 +21,9 @@ import {
 } from "./WorkspaceLayoutV2BottomPanel";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
 
-const DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
+export const WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
 const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
-const MOBILE_SIDEBAR_MIN_WIDTH_PX = 160;
+export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX = 160;
 const MOBILE_PANE_PEEK_PX = 24;
 const MOBILE_PANE_ORDER = ["left", "main", "right"] as const;
 const MOBILE_PANE_ORDER_WITHOUT_RIGHT = ["left", "main"] as const;
@@ -104,14 +105,14 @@ function useElementSize(measureRef: RefObject<HTMLElement | null>) {
 
 function getDesktopSidebarMaxWidthPx(viewportWidthPx: number) {
   return Math.max(
-    DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+    WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
     Math.round(viewportWidthPx * DESKTOP_SIDEBAR_MAX_WIDTH_RATIO),
   );
 }
 
 function getMobileSidebarMaxWidthPx(viewportWidthPx: number) {
   return Math.max(
-    MOBILE_SIDEBAR_MIN_WIDTH_PX,
+    WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
     Math.max(0, Math.floor(viewportWidthPx)),
   );
 }
@@ -127,7 +128,7 @@ function getDesktopSidebarWidthPx(args: {
 
   return clampNumber(
     Math.round(args.storedWidthPx),
-    DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+    WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
     getDesktopSidebarMaxWidthPx(args.viewportWidthPx),
   );
 }
@@ -201,6 +202,10 @@ function renderPaneContent(content: ReactNode) {
   );
 }
 
+function getMobilePaneBorderClass(pane: MobilePane, activePane: MobilePane) {
+  return pane === activePane ? "border-x-0" : "border-x border-border";
+}
+
 type WorkspaceLayoutV2DesktopViewportProps =
   WorkspaceLayoutV2ResolvedPaneContent & {
     activeResizeSide: "left" | "right" | "top" | null;
@@ -270,10 +275,10 @@ function WorkspaceLayoutV2DesktopViewport({
 
 type WorkspaceLayoutV2MobileViewportProps =
   WorkspaceLayoutV2ResolvedPaneContent & {
-    activeResizeSide: "left" | "right" | "top" | null;
     carouselRef: RefObject<HTMLDivElement | null>;
     leftPaneRef: RefObject<HTMLDivElement | null>;
     mainPaneRef: RefObject<HTMLDivElement | null>;
+    mobilePane: MobilePane;
     sidebarMaxWidthPx: number;
     paneWidthPx: number;
     rightPaneRef: RefObject<HTMLDivElement | null>;
@@ -281,12 +286,12 @@ type WorkspaceLayoutV2MobileViewportProps =
   };
 
 function WorkspaceLayoutV2MobileViewport({
-  activeResizeSide,
   carouselRef,
   leftContent,
   leftPaneRef,
   mainPaneRef,
   mainContent,
+  mobilePane,
   paneWidthPx,
   sidebarMaxWidthPx,
   rightContent,
@@ -307,8 +312,8 @@ function WorkspaceLayoutV2MobileViewport({
         ref={leftPaneRef}
         data-testid="workspace-layout-v2-pane-left"
         className={cn(
-          "relative flex h-full min-h-0 shrink-0 snap-start [scroll-snap-stop:always] flex-col overflow-hidden border-r bg-background",
-          activeResizeSide === "left" ? "border-primary" : "border-border",
+          "relative flex h-full min-h-0 shrink-0 snap-start snap-always flex-col overflow-hidden bg-background",
+          getMobilePaneBorderClass("left", mobilePane),
         )}
         style={{
           width: `${sidebarMaxWidthPx}px`,
@@ -319,10 +324,17 @@ function WorkspaceLayoutV2MobileViewport({
 
       <div
         ref={mainPaneRef}
-        className="h-full min-h-0 shrink-0 snap-center [scroll-snap-stop:always]"
+        className="h-full min-h-0 shrink-0 snap-center snap-always"
         style={{ width: `${paneWidthPx}px` }}
       >
-        <div className="box-border h-full min-h-0 overflow-hidden border-x border-border bg-background">
+        <div
+          className={cn(
+            "box-border h-full min-h-0 overflow-hidden bg-background",
+            // The active mobile pane stays borderless so no visible content
+            // loses a pixel to its own separator.
+            getMobilePaneBorderClass("main", mobilePane),
+          )}
+        >
           {mainContent}
         </div>
       </div>
@@ -332,8 +344,8 @@ function WorkspaceLayoutV2MobileViewport({
           ref={rightPaneRef}
           data-testid="workspace-layout-v2-pane-right"
           className={cn(
-            "relative flex h-full min-h-0 shrink-0 snap-start [scroll-snap-stop:always] flex-col overflow-hidden border-l bg-background",
-            activeResizeSide === "right" ? "border-primary" : "border-border",
+            "relative flex h-full min-h-0 shrink-0 snap-start snap-always flex-col overflow-hidden bg-background",
+            getMobilePaneBorderClass("right", mobilePane),
           )}
           style={{
             width: `${sidebarMaxWidthPx}px`,
@@ -348,25 +360,29 @@ function WorkspaceLayoutV2MobileViewport({
 
 function WorkspaceLayoutV2MainPaneHeader({
   children,
+  showLeftToggle = true,
   showRightToggle = true,
 }: {
   children: ReactNode;
+  showLeftToggle?: boolean;
   showRightToggle?: boolean;
 }) {
   const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
 
   return (
     <div className="flex h-full items-center gap-2">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label="Toggle Left Sidebar"
-        className="hidden h-8 w-8 md:inline-flex"
-        onClick={toggleLeftSidebar}
-      >
-        <PanelLeft className="h-4 w-4" />
-      </Button>
+      {showLeftToggle ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Toggle Left Sidebar"
+          className="hidden h-8 w-8 md:inline-flex"
+          onClick={toggleLeftSidebar}
+        >
+          <PanelLeft className="h-4 w-4" />
+        </Button>
+      ) : null}
 
       {/* Keep route-level header actions visible on mobile; only the sidebar
           toggles stay desktop-only in the v2 main pane shell. */}
@@ -394,14 +410,24 @@ export function WorkspaceLayoutV2FullPage({
   main,
   panel,
   right,
+  showLeftToggle = true,
 }: {
   dataTestId?: string;
   left: WorkspaceLayoutV2PaneFrameProps;
   main: WorkspaceLayoutV2PaneFrameProps;
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: WorkspaceLayoutV2PaneFrameProps;
+  showLeftToggle?: boolean;
 }) {
   const hasRightPane = right !== undefined;
+  const isMobile = useIsMobile();
+  // Desktop keeps the shared shell for sidebar toggles; only mobile routes
+  // with no main-header content collapse the row entirely.
+  const hasMainHeaderContent =
+    main.header !== undefined && main.header !== null;
+  const hasDesktopHeaderToggle = showLeftToggle || hasRightPane;
+  const shouldHideMainHeader =
+    !hasMainHeaderContent && (isMobile || !hasDesktopHeaderToggle);
 
   return (
     <WorkspaceLayoutV2ViewportFrame dataTestId={dataTestId}>
@@ -411,8 +437,11 @@ export function WorkspaceLayoutV2FullPage({
           <WorkspaceLayoutV2PaneFrame
             {...main}
             header={
-              main.header === undefined ? undefined : (
-                <WorkspaceLayoutV2MainPaneHeader showRightToggle={hasRightPane}>
+              shouldHideMainHeader ? undefined : (
+                <WorkspaceLayoutV2MainPaneHeader
+                  showLeftToggle={showLeftToggle}
+                  showRightToggle={hasRightPane}
+                >
                   {main.header}
                 </WorkspaceLayoutV2MainPaneHeader>
               )
@@ -595,12 +624,12 @@ export function WorkspaceLayoutV2JustPanes({
                 currentWidthPx: desktopLeftWidthPx,
                 dataTestId: "workspace-layout-v2-left-resize",
                 maxWidthPx: desktopSidebarMaxWidthPx,
-                minWidthPx: DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+                minWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
                 onWidthChange: (nextWidthPx: number) => {
                   setLeftDesktopWidthPx(
                     clampNumber(
                       Math.round(nextWidthPx),
-                      DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+                      WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
                       desktopSidebarMaxWidthPx,
                     ),
                   );
@@ -614,12 +643,12 @@ export function WorkspaceLayoutV2JustPanes({
                 currentWidthPx: desktopRightWidthPx,
                 dataTestId: "workspace-layout-v2-right-resize",
                 maxWidthPx: desktopSidebarMaxWidthPx,
-                minWidthPx: DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+                minWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
                 onWidthChange: (nextWidthPx: number) => {
                   setRightDesktopWidthPx(
                     clampNumber(
                       Math.round(nextWidthPx),
-                      DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+                      WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
                       desktopSidebarMaxWidthPx,
                     ),
                   );
@@ -684,12 +713,12 @@ export function WorkspaceLayoutV2JustPanes({
     >
       {isMobile ? (
         <WorkspaceLayoutV2MobileViewport
-          activeResizeSide={activeResizeSide}
           carouselRef={mobileCarouselRef}
           leftContent={resolvedLeftContent}
           leftPaneRef={mobileLeftPaneRef}
           mainPaneRef={mobileMainPaneRef}
           mainContent={mainViewportContent}
+          mobilePane={mobilePane}
           paneWidthPx={mobilePaneWidthPx}
           sidebarMaxWidthPx={mobileSidebarWidthCapPx}
           rightContent={resolvedRightContent}
