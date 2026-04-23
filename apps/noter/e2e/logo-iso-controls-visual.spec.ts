@@ -1,32 +1,28 @@
 import { expect, test } from "@playwright/test";
 
-test("logo iso controls panel", async ({ page }) => {
+test("logo iso controls sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo-iso?isoSide=6", {
     waitUntil: "domcontentloaded",
   });
 
-  const controlsButton = page.getByRole("button", { name: "Controls" });
-  await expect(controlsButton).toBeVisible();
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  await expect(controlsSidebar).toBeVisible();
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
 
-  await controlsButton.click();
+  await expect(controlsSidebar).toContainText("Cube side");
+  await expect(controlsSidebar).toContainText("6px");
 
-  const controlsPanel = page.getByRole("dialog", { name: "Logo controls" });
-  await expect(controlsPanel).toBeVisible();
-  await expect(controlsPanel).toContainText("Cube Side");
-  await expect(controlsPanel).toContainText("6px");
-
-  const screenshot = await controlsPanel.screenshot({
+  const screenshot = await controlsSidebar.screenshot({
     animations: "disabled",
     caret: "hide",
     scale: "css",
   });
 
   expect(screenshot).toMatchSnapshot("logo-iso-controls.png", {
-    // The controls panel uses the app's system sans stack, which shifts text
+    // The controls sidebar uses the app's system sans stack, which shifts text
     // metrics between macOS and Linux. Keep a bounded tolerance for that copy.
     maxDiffPixelRatio: 0.06,
   });
