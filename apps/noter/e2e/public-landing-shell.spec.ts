@@ -23,6 +23,7 @@ import {
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
   PUBLIC_LANDING_LOGO_TEST_ID,
 } from "../src/lib/publicLandingLogo";
+import { dispatchHumanTouchSwipe } from "./touchGestures";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 
 // These budgets target the local production preview used in CI.
@@ -1014,6 +1015,46 @@ test.describe("mobile landing dev toggle", () => {
     await expect(
       page.getByTestId("workspace-layout-v2-left-resize"),
     ).toHaveCount(1);
+
+    const mobileShell = page.locator('[data-workspace-layout-v2="mobile"]');
+    const mobileShellBox = await mobileShell.boundingBox();
+    expect(mobileShellBox).not.toBeNull();
+    if (mobileShellBox === null) {
+      throw new Error("Expected landing mobile shell box");
+    }
+
+    const handleBox = await page
+      .getByTestId("workspace-layout-v2-left-resize")
+      .boundingBox();
+    expect(handleBox).not.toBeNull();
+    if (handleBox === null) {
+      throw new Error("Expected landing left resize handle box");
+    }
+
+    // Drag past the min-clamp threshold so resizing hands off into a main-pane slide.
+    const dragDistancePx = 220;
+    const dragSteps = 4;
+    const dragFrameMs = 16;
+    await dispatchHumanTouchSwipe(page, mobileShell, {
+      startX: handleBox.x - mobileShellBox.x + handleBox.width / 2,
+      startY: handleBox.y - mobileShellBox.y + handleBox.height / 2,
+      steps: Array.from({ length: dragSteps }, (_, index) => {
+        const step = index + 1;
+
+        return {
+          delayMs: dragFrameMs,
+          xOffset: -(dragDistancePx * step) / dragSteps,
+          yOffset: 0,
+        };
+      }),
+    });
+
+    await expect(
+      page.locator('[data-workspace-layout-v2="mobile"]'),
+    ).toHaveAttribute("data-mobile-pane", "main");
+    await expect(
+      page.getByTestId("workspace-layout-v2-left-resize"),
+    ).toHaveCount(0);
   });
 
   test("landing dev toggle keeps the landing card stable frame by frame", async ({

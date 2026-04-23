@@ -102,6 +102,7 @@ type WorkspaceLayoutV2ResizeHandleProps = {
   onFocus?: () => void;
   onResizeEnd?: () => void;
   onResizeStart?: () => void;
+  onRawSizeChange?: (rawSizePx: number) => void;
   onSizeChange: (sizePx: number) => void;
   pointerTarget?: "edge" | "grip";
   positionPx: number;
@@ -123,6 +124,7 @@ export function WorkspaceLayoutV2ResizeHandle({
   onFocus,
   onResizeEnd,
   onResizeStart,
+  onRawSizeChange,
   onSizeChange,
   pointerTarget = "edge",
   positionPx,
@@ -166,8 +168,9 @@ export function WorkspaceLayoutV2ResizeHandle({
   const commitSizeChange = useCallback(
     (nextSizePx: number) => {
       onSizeChange(clampSizePx(nextSizePx, minSizePx, maxSizePx));
+      onRawSizeChange?.(nextSizePx);
     },
-    [maxSizePx, minSizePx, onSizeChange],
+    [maxSizePx, minSizePx, onRawSizeChange, onSizeChange],
   );
 
   const stopResizing = useCallback(() => {
