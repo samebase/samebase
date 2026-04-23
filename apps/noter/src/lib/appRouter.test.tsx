@@ -28,6 +28,9 @@ vi.mock("@/Layout", () => ({
   Layout: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="layout">{children}</div>
   ),
+  PublicLayoutShell: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
 }));
 
 vi.mock("@/lib/usePageMetadata", () => ({
@@ -213,6 +216,19 @@ describe("appRouter", () => {
   it("renders / through the explicit routed root index page", async () => {
     await renderRoute("/");
 
+    expect(
+      rootElement?.querySelector('[data-testid="root-index-route"]')
+        ?.textContent,
+    ).toBe("Root index route");
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
+  });
+
+  it("redirects /home to the routed root index page", async () => {
+    const router = await renderRoute("/home?devtools=true");
+
+    expect(router.state.location.pathname).toBe("/");
     expect(
       rootElement?.querySelector('[data-testid="root-index-route"]')
         ?.textContent,

@@ -1,6 +1,6 @@
 import { type ComponentProps } from "react";
 import { type SidebarSide } from "@/hooks/use-sidebar";
-import { AppPageFrame } from "@/components/AppPageFrame";
+import { Layout } from "@/Layout";
 import { SidebarProvider } from "@/components/sidebar";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
 
@@ -30,7 +30,7 @@ export function WorkspaceLayoutV2FixtureFrame({
   right,
 }: WorkspaceLayoutV2FixtureFrameProps) {
   return (
-    <AppPageFrame dataTestId={dataTestId}>
+    <Layout>
       <SidebarProvider
         defaultOpen={defaultOpen}
         defaultLeftDesktopWidthPx={WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX}
@@ -43,12 +43,13 @@ export function WorkspaceLayoutV2FixtureFrame({
         shortcutSidebarSide={shortcutSidebarSide}
       >
         <WorkspaceLayoutV2FullPage
+          dataTestId={dataTestId}
           left={left}
           main={main}
           panel={panel}
           right={right}
         />
       </SidebarProvider>
-    </AppPageFrame>
+    </Layout>
   );
 }

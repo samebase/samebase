@@ -4,12 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/input";
 import { VaultLastUpdatedStatus } from "@/components/VaultLastUpdatedStatus";
-import {
-  GitHubLogoIcon,
-  TrashIcon,
-  UpdateIcon,
-  ChevronDownIcon,
-} from "@/lib/radixIcons";
+import { GitHubLogoIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { linkStyle } from "./styles";
@@ -50,10 +45,10 @@ import {
   useState,
   type ComponentType,
   type MutableRefObject,
-  type ReactNode,
 } from "react";
 import { isInIframe } from "@/authClient";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
+import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { UserMenu } from "@/components/UserMenu";
 import {
   Dialog,
@@ -63,16 +58,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/dropdown-menu";
-import {
-  ButtonGroup,
-  ButtonGroupSeparator,
-} from "@/components/ui/button-group";
 import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
@@ -121,7 +106,7 @@ const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   leftMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   mobilePane: "main",
-  rightDesktopOpen: false,
+  rightDesktopOpen: true,
   rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
 } satisfies WorkspaceSidebarState;
@@ -765,7 +750,6 @@ function VaultBranchSection({
 
 type VaultDashboardBodyProps = {
   branchToDelete: VaultBranchDeleteIntent | null;
-  createControl: ReactNode;
   isDeletingBranch: boolean;
   now: number;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
@@ -788,7 +772,6 @@ type VaultDashboardBodyProps = {
 
 function VaultDashboardBody({
   branchToDelete,
-  createControl,
   isDeletingBranch,
   now,
   openDeveloperToolsByVaultId,
@@ -804,11 +787,11 @@ function VaultDashboardBody({
   onSaveVaultBranchFilters,
 }: VaultDashboardBodyProps) {
   if (vaults.length === 0) {
-    return <VaultDashboardEmptyState createControl={createControl} />;
+    return <VaultDashboardEmptyState />;
   }
 
   return (
-    <VaultDashboardRepositoryList createControl={createControl}>
+    <VaultDashboardRepositoryList>
       {vaults.map((vault) => {
         const isReady = vault.state === "ready";
         const remoteBranches = Array.isArray(vault.remoteBranches)
@@ -1894,57 +1877,44 @@ export function VaultDashboard() {
     connectConvexWithApiKey,
   });
   const createControl = (
-    <div className="flex w-full max-w-[480px] flex-col items-start gap-2">
-      <ButtonGroup className="w-full">
-        <Input
-          placeholder={createPlaceholder}
-          value={newRepositoryName}
-          onChange={(e) => {
-            setNewRepositoryName(e.target.value);
-            if (createError) {
-              setCreateError(null);
-            }
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              void handleCreateRepository();
-            }
-          }}
-          className="flex-1"
-          disabled={!canCreateRepo}
-        />
-        <Button
-          onClick={() => {
-            void handleCreateRepository();
-          }}
-          disabled={
-            isCreating ||
-            newRepositoryName.trim().length === 0 ||
-            !canCreateRepo
+    <div className="flex w-full flex-col items-stretch gap-2 p-3">
+      <Input
+        placeholder={createPlaceholder}
+        value={newRepositoryName}
+        onChange={(e) => {
+          setNewRepositoryName(e.target.value);
+          if (createError) {
+            setCreateError(null);
           }
-        >
-          {createButtonLabel}
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            void handleCreateRepository();
+          }
+        }}
+        className="w-full"
+        disabled={!canCreateRepo}
+      />
+      <Button
+        className="w-full"
+        onClick={() => {
+          void handleCreateRepository();
+        }}
+        disabled={
+          isCreating || newRepositoryName.trim().length === 0 || !canCreateRepo
+        }
+      >
+        {createButtonLabel}
+      </Button>
+      {githubConnected ? (
+        <Button variant="outline" className="w-full" asChild>
+          <Link to="/add">Connect existing repo</Link>
         </Button>
-        <ButtonGroupSeparator className="bg-primary-foreground/30" />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button className="px-2" aria-label="More actions">
-              <ChevronDownIcon className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {githubConnected ? (
-              <DropdownMenuItem asChild>
-                <Link to="/add">Connect existing repo</Link>
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem disabled>
-                Connect existing repo
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </ButtonGroup>
+      ) : (
+        <Button variant="outline" className="w-full" disabled>
+          Connect existing repo
+        </Button>
+      )}
       {createError && <div className="text-sm text-red-600">{createError}</div>}
       {!canCreateRepo && (
         <div className="text-xs text-muted-foreground">
@@ -2214,15 +2184,12 @@ export function VaultDashboard() {
         providerRows={providerRows}
         footer={<CodexProviderRow />}
       />
+      {createControl}
     </div>
   );
   const rightSidebarContent = (
-    <div className="flex min-h-0 flex-1 bg-background" />
-  );
-
-  const dashboardHeaderContent = (
-    <div className="flex items-center gap-2">
-      <div className="flex items-center gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-1 px-2 py-2">
+      <div className="flex flex-col items-start gap-1">
         <Button variant="link" size="sm" className="h-6 px-2" asChild>
           <Link to={MACHINES_ROUTE}>{MACHINES_ROUTE}</Link>
         </Button>
@@ -2236,7 +2203,6 @@ export function VaultDashboard() {
   const dashboardBody = (
     <VaultDashboardBody
       branchToDelete={branchToDelete}
-      createControl={createControl}
       isDeletingBranch={isDeletingBranch}
       now={now}
       openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
@@ -2265,9 +2231,10 @@ export function VaultDashboard() {
           left={{
             header: <UserMenu>{userDisplayName || "unknown"}</UserMenu>,
             content: sidebarContent,
+            footer: <AppSidebarMetaSection />,
           }}
           main={{
-            header: dashboardHeaderContent,
+            header: null,
             content: dashboardBody,
           }}
           panel={

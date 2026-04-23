@@ -4,7 +4,9 @@ type AsChildElement = React.ReactElement<{ children?: React.ReactNode }>;
 
 function inferNativeButton(element: AsChildElement): boolean | undefined {
   if (typeof element.type !== "string") {
-    return undefined;
+    // Base UI defaults `nativeButton` to true, so composite `render` targets
+    // like TanStack Link need an explicit false unless a caller opts in.
+    return false;
   }
 
   return element.type === "button";

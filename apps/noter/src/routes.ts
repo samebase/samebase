@@ -13,6 +13,7 @@ import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
  */
 export const routes = rootRoute("root.tsx", [
   index("index.tsx"),
+  route("/home", "home.tsx"),
   route("/test", "test.tsx"),
   route("/privacy", "privacy.tsx"),
   route("/terms", "terms.tsx"),

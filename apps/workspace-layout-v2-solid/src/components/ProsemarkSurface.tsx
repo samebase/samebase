@@ -5,13 +5,6 @@ import { EditorView, keymap } from "@codemirror/view";
 import { prosemarkBaseThemeSetup, prosemarkBasicSetup } from "@prosemark/core";
 import { onCleanup, onMount } from "solid-js";
 
-const DEFAULT_VALUE = `# WorkspaceLayoutV2
-
-- prosemark on the left
-- monaco in the center
-- monaco on the right
-`;
-
 function findInitialSafeSelectionAnchor(docText: string) {
   let lineStart = 0;
   for (let index = 0; index <= docText.length; index += 1) {
@@ -73,7 +66,7 @@ export function ProsemarkSurface(props: {
     }
 
     const themeCompartment = new Compartment();
-    const initialValue = props.initialValue ?? DEFAULT_VALUE;
+    const initialValue = props.initialValue ?? "";
     const editor = new EditorView({
       parent: hostRef,
       state: EditorState.create({

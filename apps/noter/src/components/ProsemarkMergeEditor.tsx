@@ -421,7 +421,6 @@ export function ProsemarkMergeEditor({
     <div
       ref={containerRef}
       className={cn("min-h-[1rem]", className)}
-      style={{ touchAction: mobilePaneDrag.touchAction }}
       {...mobilePaneDrag.containerProps}
     >
       <div ref={hostRef} />

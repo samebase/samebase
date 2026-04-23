@@ -3,6 +3,7 @@ import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { Button } from "@/components/ui/button";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
+import type { ReactNode } from "react";
 
 export function RepositoryRouteConnectState({
   repositoryFullName,
@@ -10,6 +11,7 @@ export function RepositoryRouteConnectState({
   isConnectingGithub,
   isConnectingRepository,
   errorMessage,
+  leftSidebarFooter,
   onConnectGithub,
   onConnectRepository,
   dataTestId,
@@ -19,6 +21,7 @@ export function RepositoryRouteConnectState({
   isConnectingGithub: boolean;
   isConnectingRepository: boolean;
   errorMessage: string | null;
+  leftSidebarFooter?: ReactNode;
   onConnectGithub: () => void;
   onConnectRepository: () => void;
   dataTestId?: string;
@@ -38,7 +41,7 @@ export function RepositoryRouteConnectState({
   return (
     <WorkspaceLayoutV2FullPage
       dataTestId={dataTestId}
-      left={{}}
+      left={{ footer: leftSidebarFooter }}
       main={{
         header: (
           <RepositoryWorkspacePaneHeader
@@ -95,7 +98,6 @@ export function RepositoryRouteConnectState({
           </div>
         ),
       }}
-      right={{}}
     />
   );
 }
