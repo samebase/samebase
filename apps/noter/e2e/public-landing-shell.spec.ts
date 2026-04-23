@@ -199,7 +199,9 @@ async function readLandingSidebarCopyMetrics(page: Page): Promise<{
     const leftPane = document.querySelector(
       '[data-testid="workspace-layout-v2-pane-left"]',
     );
-    const mainPane = carousel?.querySelector(".snap-center > div");
+    const mainPane =
+      carousel?.querySelector(".snap-center > div") ??
+      document.querySelector('[data-testid="workspace-layout-v2-pane-right"]');
     const content = document.querySelector(
       '[data-testid="public-landing-content"]',
     );
@@ -272,7 +274,9 @@ async function readLandingSidebarSeparatorPaint(page: Page): Promise<{
     const carousel = document.querySelector(
       '[data-testid="workspace-layout-v2-pane-main"]',
     );
-    const mainPane = carousel?.querySelector(".snap-center > div");
+    const mainPane =
+      carousel?.querySelector(".snap-center > div") ??
+      document.querySelector('[data-testid="workspace-layout-v2-pane-right"]');
 
     if (!(shell instanceof HTMLElement)) {
       throw new Error("Expected mobile landing shell");
@@ -966,18 +970,25 @@ test.describe("mobile landing dev toggle", () => {
     expect(scrollTop.shellScrollTop).toBe(0);
   });
 
-  test("landing keeps the left mobile sidebar resizable without a right pane", async ({
+  test("landing keeps both mobile panes resizable without an explicit right pane", async ({
     page,
   }) => {
     await page.goto("/", { waitUntil: "networkidle" });
+    await expect(
+      page.locator('[data-workspace-layout-v2="mobile"]'),
+    ).toHaveAttribute("data-mobile-pane", "right");
+    await expect(
+      page.getByTestId("workspace-layout-v2-right-resize"),
+    ).toHaveCount(1);
 
     const paneGeometry = await page.evaluate(() => {
       const shell = document.querySelector(
         '[data-workspace-layout-v2="mobile"]',
       );
-      const mainPane = document.querySelector(
+      const carousel = document.querySelector(
         '[data-testid="workspace-layout-v2-pane-main"]',
       );
+      const centerMainPane = carousel?.querySelector(".snap-center");
       const rightPane = document.querySelector(
         '[data-testid="workspace-layout-v2-pane-right"]',
       );
@@ -985,21 +996,34 @@ test.describe("mobile landing dev toggle", () => {
       if (!(shell instanceof HTMLElement)) {
         throw new Error("Expected mobile workspace shell");
       }
-      if (!(mainPane instanceof HTMLElement)) {
-        throw new Error("Expected main pane");
+      if (!(carousel instanceof HTMLElement)) {
+        throw new Error("Expected mobile workspace carousel");
+      }
+      if (!(rightPane instanceof HTMLElement)) {
+        throw new Error("Expected main-as-right pane");
       }
 
       return {
-        mainRightPx: mainPane.getBoundingClientRect().right,
-        rightPaneCount: rightPane === null ? 0 : 1,
+        centerMainPaneCount: centerMainPane === null ? 0 : 1,
+        expectedMainAsRightWidthPx:
+          shell.getBoundingClientRect().width -
+          Number.parseFloat(getComputedStyle(carousel).paddingLeft) -
+          Number.parseFloat(getComputedStyle(carousel).paddingRight),
+        rightPaneCount: 1,
+        rightPaneRightPx: rightPane.getBoundingClientRect().right,
+        rightPaneWidthPx: rightPane.getBoundingClientRect().width,
         shellRightPx: shell.getBoundingClientRect().right,
       };
     });
 
-    expect(Math.round(paneGeometry.mainRightPx)).toBe(
+    expect(Math.round(paneGeometry.rightPaneRightPx)).toBe(
       Math.round(paneGeometry.shellRightPx),
     );
-    expect(paneGeometry.rightPaneCount).toBe(0);
+    expect(Math.round(paneGeometry.rightPaneWidthPx)).toBe(
+      Math.round(paneGeometry.expectedMainAsRightWidthPx),
+    );
+    expect(paneGeometry.centerMainPaneCount).toBe(0);
+    expect(paneGeometry.rightPaneCount).toBe(1);
 
     await page
       .getByTestId("workspace-layout-v2-pane-main")
@@ -1015,6 +1039,9 @@ test.describe("mobile landing dev toggle", () => {
     await expect(
       page.getByTestId("workspace-layout-v2-left-resize"),
     ).toHaveCount(1);
+    await expect(
+      page.getByTestId("workspace-layout-v2-right-resize"),
+    ).toHaveCount(0);
 
     const mobileShell = page.locator('[data-workspace-layout-v2="mobile"]');
     const mobileShellBox = await mobileShell.boundingBox();
@@ -1031,7 +1058,8 @@ test.describe("mobile landing dev toggle", () => {
       throw new Error("Expected landing left resize handle box");
     }
 
-    // Drag past the min-clamp threshold so resizing hands off into a main-pane slide.
+    // Drag past the min-clamp threshold so resizing hands off into the
+    // opposite pane even when this route has no center main pane.
     const dragDistancePx = 220;
     const dragSteps = 4;
     const dragFrameMs = 16;
@@ -1051,10 +1079,13 @@ test.describe("mobile landing dev toggle", () => {
 
     await expect(
       page.locator('[data-workspace-layout-v2="mobile"]'),
-    ).toHaveAttribute("data-mobile-pane", "main");
+    ).toHaveAttribute("data-mobile-pane", "right");
     await expect(
       page.getByTestId("workspace-layout-v2-left-resize"),
     ).toHaveCount(0);
+    await expect(
+      page.getByTestId("workspace-layout-v2-right-resize"),
+    ).toHaveCount(1);
   });
 
   test("landing dev toggle keeps the landing card stable frame by frame", async ({

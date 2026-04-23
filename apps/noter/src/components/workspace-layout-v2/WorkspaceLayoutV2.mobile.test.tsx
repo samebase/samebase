@@ -329,7 +329,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expectMobilePaneSeparatorOwnership(rootElement, "main");
   });
 
-  it("keeps the left pane addressable on mobile layouts without a right pane", () => {
+  it("keeps the left pane addressable on two-pane mobile layouts", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -353,6 +353,53 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')
         ?.scrollLeft,
     ).toBe(MOBILE_PANE_PEEK_PX);
+    expect(rootElement.querySelector(".snap-center")).toBeNull();
+    expect(
+      rootElement.querySelector(
+        '[data-testid="workspace-layout-v2-pane-right"]',
+      )?.textContent,
+    ).toContain("main pane");
+  });
+
+  it("treats a two-pane mobile main pane as the right sidebar", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(
+        renderMobileLayout({
+          includeRightPane: false,
+          mobilePane: "main",
+        }),
+      );
+    });
+
+    const rightPane = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-pane-right"]',
+    );
+    const rightHandle = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-right-resize"]',
+    );
+
+    expect(
+      rootElement
+        .querySelector("[data-workspace-layout-v2]")
+        ?.getAttribute("data-mobile-pane"),
+    ).toBe("right");
+    expect(rootElement.querySelector(".snap-center")).toBeNull();
+    expect(rightPane.textContent).toContain("main pane");
+    expect(rightPane.style.width).toBe("342px");
+    expect(rightHandle.getAttribute("aria-valuenow")).toBe("342");
+    expect(rightHandle.parentElement?.style.left).toBe("48px");
+    expect(
+      rootElement.querySelector(
+        '[data-testid="workspace-layout-v2-left-resize"]',
+      ),
+    ).toBeNull();
   });
 
   it("lets the right sidebar stay borderless while the main pane owns the separator", () => {
@@ -405,7 +452,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBeNull();
   });
 
-  it("renders a mobile resize grip on a left-only route", () => {
+  it("renders a mobile resize grip on the active left pane of a two-pane route", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
