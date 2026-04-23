@@ -226,6 +226,7 @@ const SIMPLE_VIEW_VISUAL_MODES = [
 ] as const satisfies readonly SimpleViewVisualMode[];
 
 const VAULT_DASHBOARD_VISUAL_MODES = [
+  "vault-create-control",
   "vault-last-updated-status",
   "vault-branch-filters",
   "vault-branch-pr-labels",
@@ -444,6 +445,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
   }
 
   if (
+    mode === "vault-create-control" ||
     mode === "vault-last-updated-status" ||
     mode === "vault-branch-filters" ||
     mode === "vault-branch-pr-labels" ||

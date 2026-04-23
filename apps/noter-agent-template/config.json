@@ -1,6 +1,0 @@
-{
-  "name": "Noter Agent Template",
-  "description": "Minimal Agent Builder-compatible scaffold for a Noter agent repo.",
-  "visibility_scope": "private",
-  "triggers_paused": true
-}

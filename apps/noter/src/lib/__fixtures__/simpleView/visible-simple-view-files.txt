@@ -1,7 +1,4 @@
 AGENTS.md
-apps/noter-agent-template/AGENTS.md
-apps/noter-agent-template/skills/quick-summary/SKILL.md
-apps/noter-agent-template/subagents/researcher/AGENTS.md
 apps/noter-starter-template/AGENTS.md
 apps/noter-starter-template/noter.md
 apps/noter-starter-template/README.md
@@ -194,7 +191,7 @@ specs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md
 specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md
 specs/019_NOTER_CLI_WORKTREE_PREVIEW_PROVISIONING_SPEC.md
 specs/020_CONVEX_AGENT_ADOPTION_SPEC.md
-specs/021_AGENT_BUILDER_TEMPLATE_SPEC.md
+archive/021_AGENT_BUILDER_TEMPLATE_SPEC.md
 specs/022_AGENT_GRAPH_VIEW_SPEC.md
 specs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md
 specs/024_DAYTONA_IMAGE_AND_STARTUP_PERFORMANCE_SPEC.md

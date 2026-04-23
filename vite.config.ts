@@ -109,7 +109,6 @@ export default defineConfig({
           "apps/noter/convex/**/*.{ts,tsx}",
           "apps/noter-starter-template/convex/**/*.{ts,tsx}",
           "apps/noter/scripts/**/*.ts",
-          "apps/noter-agent-template/scripts/**/*.ts",
           "eslint-rules/**/*.ts",
         ],
         env: {

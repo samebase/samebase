@@ -1,5 +1,21 @@
 import { devices, expect, test } from "@playwright/test";
 
+test("vault dashboard fixture (create control)", async ({ page }) => {
+  await page.setViewportSize({ width: 960, height: 420 });
+  await page.goto("/visual-fixture.html?mode=vault-create-control", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture).toHaveScreenshot("vault-create-control.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
   await page.setViewportSize({ width: 640, height: 180 });
   await page.goto("/visual-fixture.html?mode=vault-branch-pr-labels", {
