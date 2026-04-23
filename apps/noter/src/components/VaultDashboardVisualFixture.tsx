@@ -1,10 +1,26 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/dropdown-menu";
+import {
+  ButtonGroup,
+  ButtonGroupSeparator,
+} from "@/components/ui/button-group";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultLastUpdatedStatus } from "@/components/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
+import { VaultDashboardEmptyState } from "@/components/VaultDashboardChrome";
 import { VaultBranchLinkRow } from "@/components/VaultDashboard";
+import { ChevronDownIcon } from "@/lib/radixIcons";
 
 export type VaultDashboardVisualMode =
+  | "vault-create-control"
   | "vault-last-updated-status"
   | "vault-branch-filters"
   | "vault-branch-pr-labels"
@@ -63,6 +79,49 @@ export function VaultDashboardVisualFixture({
 }: {
   mode: VaultDashboardVisualMode;
 }) {
+  if (mode === "vault-create-control") {
+    return (
+      <div className="min-h-screen bg-stone-100 p-4 text-foreground">
+        <div
+          data-testid="vault-dashboard-visual-fixture"
+          data-mode={mode}
+          className="mx-auto w-full max-w-[960px]"
+        >
+          <TestRouterProvider>
+            <VaultDashboardEmptyState
+              createControl={
+                <div className="flex w-full max-w-[480px] flex-col items-start gap-2">
+                  <ButtonGroup className="w-full">
+                    <Input
+                      className="flex-1"
+                      placeholder="New App name"
+                      value=""
+                      onChange={() => {}}
+                    />
+                    <Button>New App</Button>
+                    <ButtonGroupSeparator className="bg-primary-foreground/30" />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button className="px-2" aria-label="More actions">
+                          <ChevronDownIcon className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link to="/add">Connect existing repo</Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </ButtonGroup>
+                </div>
+              }
+            />
+          </TestRouterProvider>
+        </div>
+      </div>
+    );
+  }
+
   if (mode === "vault-last-updated-status") {
     return (
       <div className="min-h-screen bg-stone-100 p-4 text-foreground">

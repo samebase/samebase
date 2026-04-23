@@ -67,8 +67,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/dropdown-menu";
 import {
@@ -192,11 +190,6 @@ const hasDaytonaResourcesForVault = (
     vault?.daytonaPrebuildLogsSnapshot ||
     vault?.daytonaCurrentSnapshotName,
   );
-
-type CreateTemplate = "app" | "agent";
-
-const isCreateTemplate = (value: string): value is CreateTemplate =>
-  value === "app" || value === "agent";
 
 const DASHBOARD_REFRESH_CONCURRENCY = 3;
 type RefreshTrigger = "visibility" | "page_load";
@@ -1173,7 +1166,6 @@ export function VaultDashboard() {
   const [branchToDelete, setBranchToDelete] =
     useState<VaultBranchDeleteIntent | null>(null);
   const [newRepositoryName, setNewRepositoryName] = useState("");
-  const [createTemplate, setCreateTemplate] = useState<CreateTemplate>("app");
   const [disconnectingProvider, setDisconnectingProvider] =
     useState<ProviderKey | null>(null);
   const [isCheckingCloudflareToken, setIsCheckingCloudflareToken] =
@@ -1741,7 +1733,7 @@ export function VaultDashboard() {
     if (!repoName || isCreating) return;
     if (!canCreateRepo) {
       setCreateError(
-        `Connect GitHub, Convex, and ${requiredHostingConnectionLabel} before creating ${createTemplateArticle}.`,
+        `Connect GitHub, Convex, and ${requiredHostingConnectionLabel} before creating an app.`,
       );
       return;
     }
@@ -1753,14 +1745,11 @@ export function VaultDashboard() {
       await createRepository({
         name: repoName,
         private: true,
-        templateType: createTemplate,
       });
       setNewRepositoryName("");
     } catch (error) {
       setCreateError(
-        error instanceof Error
-          ? error.message
-          : `Failed to create ${createTemplate}`,
+        error instanceof Error ? error.message : "Failed to create app",
       );
     } finally {
       setIsCreating(false);
@@ -1896,13 +1885,8 @@ export function VaultDashboard() {
     },
   };
   const userDisplayName = user?.name ?? user?.email ?? user?.githubUsername;
-  const createTemplateLabel = createTemplate === "app" ? "App" : "Agent";
-  const createTemplateArticle =
-    createTemplate === "app" ? "an app" : "an agent";
-  const createPlaceholder = `New ${createTemplate} name`;
-  const createButtonLabel = isCreating
-    ? `Creating ${createTemplate}...`
-    : `New ${createTemplate}`;
+  const createPlaceholder = "New App name";
+  const createButtonLabel = isCreating ? "Creating app..." : "New App";
   const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
     connectGithubWithApiKey,
     connectConvexWithApiKey,
@@ -1910,29 +1894,6 @@ export function VaultDashboard() {
   const createControl = (
     <div className="flex w-full max-w-[480px] flex-col items-start gap-2">
       <ButtonGroup className="w-full">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button className="gap-2" variant="outline">
-              {createTemplateLabel}
-              <ChevronDownIcon className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuRadioGroup
-              value={createTemplate}
-              onValueChange={(value) => {
-                if (!isCreateTemplate(value)) return;
-                setCreateTemplate(value);
-                if (createError) {
-                  setCreateError(null);
-                }
-              }}
-            >
-              <DropdownMenuRadioItem value="app">App</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="agent">Agent</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
         <Input
           placeholder={createPlaceholder}
           value={newRepositoryName}

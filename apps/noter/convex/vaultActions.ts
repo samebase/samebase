@@ -20,7 +20,6 @@ import {
   createStarterSeedGitClient,
   seedRepositoryWithStarter,
 } from "./starterSeed";
-import { agentTemplateManifest } from "./agentSeedManifest.generated";
 import {
   buildRemoteBranchDeleteRef,
   getRemoteBranchDeleteEligibility,
@@ -299,8 +298,6 @@ export const connectRepository = action({
       isNoterManaged: false,
     });
 
-    let filesDownloaded: number | undefined;
-
     // await ctx.scheduler.runAfter(
     //   0,
     //   internal.gitOperationsActions.downloadGitRepositoryAndMarkReady,
@@ -316,7 +313,6 @@ export const connectRepository = action({
       vaultId,
       repositoryFullName: `${repo.data.owner.login}/${repo.data.name}`,
       defaultBranch,
-      filesDownloaded,
     };
   },
 });
@@ -326,7 +322,6 @@ export const createRepository = action({
     name: v.string(),
     description: optional(v.string()),
     private: optional(v.boolean()),
-    templateType: optional(v.union(v.literal("app"), v.literal("agent"))),
   },
   returns: v.object({
     vaultId: v.string(),
@@ -399,7 +394,6 @@ export const createRepository = action({
     const ownerName = repo.data.owner.login;
     const repoFinalName = repo.data.name;
     const defaultBranch = readDefaultBranch(repo.data);
-    const templateType = args.templateType ?? "app";
 
     try {
       await seedRepositoryWithStarter({
@@ -407,7 +401,6 @@ export const createRepository = action({
         owner: ownerName,
         repo: repoFinalName,
         defaultBranch,
-        manifest: templateType === "agent" ? agentTemplateManifest : undefined,
       });
     } catch (error) {
       const seedErrorMessage = toErrorMessage(error);
