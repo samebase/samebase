@@ -36,13 +36,13 @@ describe("web manifest", () => {
         src: "/icon-maskable-192.png",
         sizes: "192x192",
         type: "image/png",
-        purpose: "maskable",
+        purpose: "any maskable",
       },
       {
         src: "/icon-maskable-512.png",
         sizes: "512x512",
         type: "image/png",
-        purpose: "maskable",
+        purpose: "any maskable",
       },
     ]);
   });

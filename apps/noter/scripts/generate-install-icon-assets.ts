@@ -9,9 +9,9 @@ const staticLogoSvgPath = path.join(publicDir, "logo-static.svg");
 const installIconSvgPath = path.join(publicDir, "install-icon.svg");
 
 const INSTALL_ICON_BACKGROUND_COLOR = "#ffffff";
-// Chrome can install either a browser-badged shortcut or a WebAPK, so keep
-// both Android-facing manifest icon variants on the same safe framing instead
-// of relying on launcher crop heuristics.
+// Chrome can install either a browser-badged shortcut or a WebAPK. Keep both
+// Android-facing icon exports inside the same safe inset so launcher crops do
+// not make the mark feel zoomed in.
 const ANDROID_HOME_SCREEN_ICON_BOX_RATIO = 464 / 512;
 
 type IconJob = { boxRatio?: number; canvasSize: number; filename: string };
