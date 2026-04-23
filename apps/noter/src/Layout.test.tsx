@@ -53,6 +53,8 @@ describe("Layout", () => {
 
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
+    expect(markup).toContain('style="width:160px"');
+    expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
   });
 
   it("keeps legal links visible on non-root sign-in routes", () => {

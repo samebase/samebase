@@ -59,7 +59,8 @@ export function AppSidebarMetaSection() {
           {landingDevToggleLabel}
         </Link>
       ) : (
-        <Link to="/home">/home</Link>
+        // setting it to /home will work but the svg of the cube renders first so ther's a flash
+        <Link to="/">/home</Link>
       )}
 
       <div className="flex items-center gap-2 ">

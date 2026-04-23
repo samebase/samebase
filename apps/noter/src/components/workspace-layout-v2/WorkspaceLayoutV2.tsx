@@ -21,9 +21,9 @@ import {
 } from "./WorkspaceLayoutV2BottomPanel";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
 
-const DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
+export const WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
 const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
-const MOBILE_SIDEBAR_MIN_WIDTH_PX = 160;
+export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX = 160;
 const MOBILE_PANE_PEEK_PX = 24;
 const MOBILE_PANE_ORDER = ["left", "main", "right"] as const;
 const MOBILE_PANE_ORDER_WITHOUT_RIGHT = ["left", "main"] as const;
@@ -105,14 +105,14 @@ function useElementSize(measureRef: RefObject<HTMLElement | null>) {
 
 function getDesktopSidebarMaxWidthPx(viewportWidthPx: number) {
   return Math.max(
-    DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+    WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
     Math.round(viewportWidthPx * DESKTOP_SIDEBAR_MAX_WIDTH_RATIO),
   );
 }
 
 function getMobileSidebarMaxWidthPx(viewportWidthPx: number) {
   return Math.max(
-    MOBILE_SIDEBAR_MIN_WIDTH_PX,
+    WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
     Math.max(0, Math.floor(viewportWidthPx)),
   );
 }
@@ -128,7 +128,7 @@ function getDesktopSidebarWidthPx(args: {
 
   return clampNumber(
     Math.round(args.storedWidthPx),
-    DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+    WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
     getDesktopSidebarMaxWidthPx(args.viewportWidthPx),
   );
 }
@@ -360,25 +360,29 @@ function WorkspaceLayoutV2MobileViewport({
 
 function WorkspaceLayoutV2MainPaneHeader({
   children,
+  showLeftToggle = true,
   showRightToggle = true,
 }: {
   children: ReactNode;
+  showLeftToggle?: boolean;
   showRightToggle?: boolean;
 }) {
   const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
 
   return (
     <div className="flex h-full items-center gap-2">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label="Toggle Left Sidebar"
-        className="hidden h-8 w-8 md:inline-flex"
-        onClick={toggleLeftSidebar}
-      >
-        <PanelLeft className="h-4 w-4" />
-      </Button>
+      {showLeftToggle ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Toggle Left Sidebar"
+          className="hidden h-8 w-8 md:inline-flex"
+          onClick={toggleLeftSidebar}
+        >
+          <PanelLeft className="h-4 w-4" />
+        </Button>
+      ) : null}
 
       {/* Keep route-level header actions visible on mobile; only the sidebar
           toggles stay desktop-only in the v2 main pane shell. */}
@@ -406,12 +410,14 @@ export function WorkspaceLayoutV2FullPage({
   main,
   panel,
   right,
+  showLeftToggle = true,
 }: {
   dataTestId?: string;
   left: WorkspaceLayoutV2PaneFrameProps;
   main: WorkspaceLayoutV2PaneFrameProps;
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: WorkspaceLayoutV2PaneFrameProps;
+  showLeftToggle?: boolean;
 }) {
   const hasRightPane = right !== undefined;
   const isMobile = useIsMobile();
@@ -419,7 +425,9 @@ export function WorkspaceLayoutV2FullPage({
   // with no main-header content collapse the row entirely.
   const hasMainHeaderContent =
     main.header !== undefined && main.header !== null;
-  const shouldHideMainHeader = isMobile && !hasMainHeaderContent;
+  const hasDesktopHeaderToggle = showLeftToggle || hasRightPane;
+  const shouldHideMainHeader =
+    !hasMainHeaderContent && (isMobile || !hasDesktopHeaderToggle);
 
   return (
     <WorkspaceLayoutV2ViewportFrame dataTestId={dataTestId}>
@@ -430,7 +438,10 @@ export function WorkspaceLayoutV2FullPage({
             {...main}
             header={
               shouldHideMainHeader ? undefined : (
-                <WorkspaceLayoutV2MainPaneHeader showRightToggle={hasRightPane}>
+                <WorkspaceLayoutV2MainPaneHeader
+                  showLeftToggle={showLeftToggle}
+                  showRightToggle={hasRightPane}
+                >
                   {main.header}
                 </WorkspaceLayoutV2MainPaneHeader>
               )
@@ -613,12 +624,12 @@ export function WorkspaceLayoutV2JustPanes({
                 currentWidthPx: desktopLeftWidthPx,
                 dataTestId: "workspace-layout-v2-left-resize",
                 maxWidthPx: desktopSidebarMaxWidthPx,
-                minWidthPx: DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+                minWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
                 onWidthChange: (nextWidthPx: number) => {
                   setLeftDesktopWidthPx(
                     clampNumber(
                       Math.round(nextWidthPx),
-                      DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+                      WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
                       desktopSidebarMaxWidthPx,
                     ),
                   );
@@ -632,12 +643,12 @@ export function WorkspaceLayoutV2JustPanes({
                 currentWidthPx: desktopRightWidthPx,
                 dataTestId: "workspace-layout-v2-right-resize",
                 maxWidthPx: desktopSidebarMaxWidthPx,
-                minWidthPx: DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+                minWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
                 onWidthChange: (nextWidthPx: number) => {
                   setRightDesktopWidthPx(
                     clampNumber(
                       Math.round(nextWidthPx),
-                      DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+                      WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
                       desktopSidebarMaxWidthPx,
                     ),
                   );

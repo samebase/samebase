@@ -104,6 +104,26 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain('data-testid="main-header-row"');
   });
 
+  it("can hide the left desktop toggle and collapse an otherwise empty header row", () => {
+    const markup = renderToStaticMarkup(
+      <SidebarProvider>
+        <WorkspaceLayoutV2FullPage
+          left={{
+            content: <div>left pane</div>,
+          }}
+          main={{
+            content: <div>main pane</div>,
+          }}
+          showLeftToggle={false}
+        />
+      </SidebarProvider>,
+    );
+
+    expect(markup).toContain("main pane");
+    expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
+    expect(markup).not.toContain('class="h-8 shrink-0"');
+  });
+
   it("treats omitted and null main headers the same outside mobile mode", () => {
     const omittedHeaderMarkup = renderFullPageMarkup({});
     const nullHeaderMarkup = renderFullPageMarkup({ mainHeader: null });
