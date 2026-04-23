@@ -96,6 +96,19 @@ async function getMobileSidebarMaxWidthPx(page: Page) {
     .evaluate((element) => Math.max(1, element.clientWidth - 48));
 }
 
+async function getMobileSidebarMinWidthPx(page: Page) {
+  return page
+    .getByTestId("workspace-layout-v2-pane-main")
+    .evaluate((element) => {
+      const maxWidthPx = Math.max(1, element.clientWidth - 48);
+
+      return Math.max(
+        1,
+        Math.min(element.clientWidth - maxWidthPx, maxWidthPx),
+      );
+    });
+}
+
 function getFileViewLayoutShell(page: Page) {
   return page.locator("[data-mobile-pane]").first();
 }
@@ -191,6 +204,41 @@ test("fileview mobile resize grip waits for the carousel to settle", async ({
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
     1,
   );
+});
+
+test("fileview mobile sidebar minimum matches viewport leftover after max width", async ({
+  page,
+}) => {
+  await gotoFileViewFixture(page);
+
+  const viewportWidthPx = await page
+    .getByTestId("workspace-layout-v2-pane-main")
+    .evaluate((element) => element.clientWidth);
+  const minWidthPx = await getMobileSidebarMinWidthPx(page);
+  const maxWidthPx = await getMobileSidebarMaxWidthPx(page);
+  expect(minWidthPx).toBe(viewportWidthPx - maxWidthPx);
+
+  await scrollFileViewCarouselToPane(page, "left");
+  await expect(
+    page.getByTestId("workspace-layout-v2-left-resize"),
+  ).toHaveAttribute("aria-valuemin", `${minWidthPx}`);
+  await dragHandleByPx(page, "workspace-layout-v2-left-resize", -1000);
+  await expect
+    .poll(async () =>
+      Math.round((await getBox(page, "workspace-layout-v2-pane-left")).width),
+    )
+    .toBe(minWidthPx);
+
+  await scrollFileViewCarouselToPane(page, "right");
+  await expect(
+    page.getByTestId("workspace-layout-v2-right-resize"),
+  ).toHaveAttribute("aria-valuemin", `${minWidthPx}`);
+  await dragHandleByPx(page, "workspace-layout-v2-right-resize", 1000);
+  await expect
+    .poll(async () =>
+      Math.round((await getBox(page, "workspace-layout-v2-pane-right")).width),
+    )
+    .toBe(minWidthPx);
 });
 
 test("fileview mobile sidebar grips resize the active sidebars", async ({

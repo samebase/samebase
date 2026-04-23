@@ -354,6 +354,8 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     );
 
     expect(leftPane.style.width).toBe("220px");
+    expect(leftHandle.getAttribute("aria-valuemin")).toBe("48");
+    expect(leftHandle.getAttribute("aria-valuemax")).toBe("342");
     expect(leftHandle.getAttribute("aria-valuenow")).toBe("220");
     expect(leftHandle.parentElement?.style.left).toBe("220px");
     expect(
@@ -389,6 +391,8 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     );
 
     expect(rightPane.style.width).toBe("300px");
+    expect(rightHandle.getAttribute("aria-valuemin")).toBe("48");
+    expect(rightHandle.getAttribute("aria-valuemax")).toBe("342");
     expect(rightHandle.getAttribute("aria-valuenow")).toBe("300");
     expect(rightHandle.parentElement?.style.left).toBe("90px");
     expect(
@@ -396,6 +400,61 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         '[data-testid="workspace-layout-v2-left-resize"]',
       ),
     ).toBeNull();
+  });
+
+  it("clamps mobile sidebar widths to the leftover width outside max width", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(
+        renderMobileLayout({
+          leftMobileWidthPx: 1,
+          mobilePane: "left",
+          rightMobileWidthPx: 1,
+        }),
+      );
+    });
+
+    const leftPane = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-pane-left"]',
+    );
+    const leftHandle = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-left-resize"]',
+    );
+
+    expect(leftPane.style.width).toBe("48px");
+    expect(leftHandle.getAttribute("aria-valuemin")).toBe("48");
+    expect(leftHandle.getAttribute("aria-valuenow")).toBe("48");
+    expect(leftHandle.parentElement?.style.left).toBe("48px");
+
+    act(() => {
+      mountedRoot.render(
+        renderMobileLayout({
+          leftMobileWidthPx: 1,
+          mobilePane: "right",
+          rightMobileWidthPx: 1,
+        }),
+      );
+    });
+
+    const rightPane = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-pane-right"]',
+    );
+    const rightHandle = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-right-resize"]',
+    );
+
+    expect(rightPane.style.width).toBe("48px");
+    expect(rightHandle.getAttribute("aria-valuemin")).toBe("48");
+    expect(rightHandle.getAttribute("aria-valuenow")).toBe("48");
+    expect(rightHandle.parentElement?.style.left).toBe("342px");
   });
 
   it("hides the shared header row on mobile when the route omits main header content", () => {

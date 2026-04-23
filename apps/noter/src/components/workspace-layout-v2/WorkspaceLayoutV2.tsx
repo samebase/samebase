@@ -23,7 +23,7 @@ import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
 
 export const WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
 const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
-export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX = 160;
+export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 160;
 const MOBILE_PANE_PEEK_PX = 24;
 const MOBILE_PANE_SETTLED_TOLERANCE_PX = 1;
 const MOBILE_PANE_ORDER = ["left", "main", "right"] as const;
@@ -115,17 +115,25 @@ function getMobileSidebarMaxWidthPx(viewportWidthPx: number) {
   return Math.max(1, Math.floor(viewportWidthPx - MOBILE_PANE_PEEK_PX * 2));
 }
 
-function getMobileSidebarMinWidthPx(maxWidthPx: number) {
-  return Math.min(WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX, maxWidthPx);
+function getMobileSidebarMinWidthPx(args: {
+  maxWidthPx: number;
+  viewportWidthPx: number;
+}) {
+  return clampNumber(
+    Math.round(args.viewportWidthPx - args.maxWidthPx),
+    1,
+    args.maxWidthPx,
+  );
 }
 
 function getMobileSidebarWidthPx(args: {
   maxWidthPx: number;
+  minWidthPx: number;
   storedWidthPx: number;
 }) {
   return clampNumber(
     Math.round(args.storedWidthPx),
-    getMobileSidebarMinWidthPx(args.maxWidthPx),
+    args.minWidthPx,
     args.maxWidthPx,
   );
 }
@@ -570,20 +578,23 @@ export function WorkspaceLayoutV2JustPanes({
   const mobileSidebarMaxWidthPx = getMobileSidebarMaxWidthPx(
     viewportSize.widthPx,
   );
-  const mobileSidebarMinWidthPx = getMobileSidebarMinWidthPx(
-    mobileSidebarMaxWidthPx,
-  );
+  const mobileSidebarMinWidthPx = getMobileSidebarMinWidthPx({
+    maxWidthPx: mobileSidebarMaxWidthPx,
+    viewportWidthPx: viewportSize.widthPx,
+  });
   const mobilePaneWidthPx = Math.max(
     1,
     viewportSize.widthPx - MOBILE_PANE_PEEK_PX * 2,
   );
   const mobileLeftWidthPx = getMobileSidebarWidthPx({
     maxWidthPx: mobileSidebarMaxWidthPx,
+    minWidthPx: mobileSidebarMinWidthPx,
     storedWidthPx: leftMobileWidthPx,
   });
   const mobileRightWidthPx = hasRightPane
     ? getMobileSidebarWidthPx({
         maxWidthPx: mobileSidebarMaxWidthPx,
+        minWidthPx: mobileSidebarMinWidthPx,
         storedWidthPx: rightMobileWidthPx,
       })
     : 0;
