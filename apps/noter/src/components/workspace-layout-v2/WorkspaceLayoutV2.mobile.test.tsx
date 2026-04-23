@@ -24,7 +24,7 @@ const VIEWPORT_HEIGHT_PX = 844;
 const MOBILE_PANE_PEEK_PX = 24;
 const OMIT_HEADER = Symbol("omit-header");
 const MOBILE_PANE_SEPARATOR_CLASSES = [
-  "shadow-[inset_1px_0_0_var(--color-border),inset_-1px_0_0_var(--color-border)]",
+  "workspace-mobile-pane-separators",
 ] as const;
 
 const originalGetBoundingClientRectDescriptor = Object.getOwnPropertyDescriptor(

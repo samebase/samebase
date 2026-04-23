@@ -176,6 +176,31 @@
     border-left-color: hsl(var(--foreground)) !important;
   }
 
+  .workspace-mobile-pane-separators {
+    position: relative;
+  }
+
+  .workspace-mobile-pane-separators::before,
+  .workspace-mobile-pane-separators::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    /* Pane contents often paint their own background, so separators must sit above them. */
+    z-index: 1;
+    width: 1px;
+    background: var(--color-border);
+    pointer-events: none;
+  }
+
+  .workspace-mobile-pane-separators::before {
+    left: 0;
+  }
+
+  .workspace-mobile-pane-separators::after {
+    right: 0;
+  }
+
   .cm-landing-copy .cm-scroller {
     overflow: visible;
   }

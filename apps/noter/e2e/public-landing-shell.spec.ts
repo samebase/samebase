@@ -5,6 +5,7 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
+import { PNG } from "pngjs";
 import {
   APP_BUILD_COMMIT_LINK_TEST_ID,
   APP_BUILD_STATUS_BAR_TEST_ID,
@@ -83,6 +84,13 @@ type LandingReloadFrame = {
     top: number;
     height: number;
   } | null;
+};
+
+type RgbaPixel = {
+  alpha: number;
+  blue: number;
+  green: number;
+  red: number;
 };
 
 declare global {
@@ -222,6 +230,82 @@ async function readLandingSidebarCopyMetrics(page: Page): Promise<{
       teamTextHeight: Math.round(teamText.getBoundingClientRect().height),
     };
   });
+}
+
+function readPngPixel(png: PNG, x: number, y: number): RgbaPixel {
+  const clampedX = Math.max(0, Math.min(png.width - 1, x));
+  const clampedY = Math.max(0, Math.min(png.height - 1, y));
+  const index = (clampedY * png.width + clampedX) * 4;
+
+  return {
+    red: png.data[index] ?? 0,
+    green: png.data[index + 1] ?? 0,
+    blue: png.data[index + 2] ?? 0,
+    alpha: png.data[index + 3] ?? 0,
+  };
+}
+
+function getPixelColorDistance(first: RgbaPixel, second: RgbaPixel): number {
+  return (
+    Math.abs(first.red - second.red) +
+    Math.abs(first.green - second.green) +
+    Math.abs(first.blue - second.blue)
+  );
+}
+
+async function readLandingSidebarSeparatorPaint(page: Page): Promise<{
+  backgroundPixel: RgbaPixel;
+  colorDistance: number;
+  sampleY: number;
+  separatorPixel: RgbaPixel;
+  separatorX: number;
+}> {
+  const geometry = await page.evaluate(() => {
+    const shell = document.querySelector('[data-workspace-layout-v2="mobile"]');
+    const carousel = document.querySelector(
+      '[data-testid="workspace-layout-v2-pane-main"]',
+    );
+    const mainPane = carousel?.querySelector(".snap-center > div");
+
+    if (!(shell instanceof HTMLElement)) {
+      throw new Error("Expected mobile landing shell");
+    }
+    if (!(mainPane instanceof HTMLElement)) {
+      throw new Error("Expected landing main pane");
+    }
+
+    const shellRect = shell.getBoundingClientRect();
+    const mainPaneRect = mainPane.getBoundingClientRect();
+    return {
+      backgroundX: Math.round(mainPaneRect.left) - 4,
+      sampleY: Math.round(shellRect.top + 48),
+      separatorX: Math.round(mainPaneRect.left),
+    };
+  });
+  const screenshot = await page.screenshot({
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+  });
+  const png = PNG.sync.read(screenshot);
+  const backgroundPixel = readPngPixel(
+    png,
+    geometry.backgroundX,
+    geometry.sampleY,
+  );
+  const separatorPixel = readPngPixel(
+    png,
+    geometry.separatorX,
+    geometry.sampleY,
+  );
+
+  return {
+    backgroundPixel,
+    colorDistance: getPixelColorDistance(separatorPixel, backgroundPixel),
+    sampleY: geometry.sampleY,
+    separatorPixel,
+    separatorX: geometry.separatorX,
+  };
 }
 
 async function captureLandingReloadFrames(
@@ -946,6 +1030,10 @@ test.describe("iPhone SE landing sidebar", () => {
     expect(afterSlideMetrics.teamTextHeight).toBe(
       beforeSlideMetrics.teamTextHeight,
     );
+
+    const separatorPaint = await readLandingSidebarSeparatorPaint(page);
+    expect(separatorPaint.separatorPixel.alpha).toBe(255);
+    expect(separatorPaint.colorDistance).toBeGreaterThan(10);
   });
 });
 
