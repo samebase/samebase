@@ -115,9 +115,10 @@ async function scrollFileViewCarouselToPane(
         window.getComputedStyle(element).paddingLeft,
       );
 
+      element.style.scrollSnapType = "";
       element.scrollLeft =
         nextPane === "left"
-          ? 0
+          ? panePeekPx
           : nextPane === "main"
             ? mainPane.offsetLeft - panePeekPx
             : element.scrollWidth - element.clientWidth;
@@ -163,6 +164,33 @@ test("fileview mobile carousel moves between left, main, and right panes", async
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
   ).toHaveCount(1);
+});
+
+test("fileview mobile resize grip waits for the carousel to settle", async ({
+  page,
+}) => {
+  await gotoFileViewFixture(page);
+
+  await page
+    .getByTestId("workspace-layout-v2-pane-main")
+    .evaluate((element) => {
+      element.style.scrollSnapType = "none";
+      element.scrollLeft = 120;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute(
+    "data-mobile-pane",
+    "left",
+  );
+  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
+    0,
+  );
+
+  await scrollFileViewCarouselToPane(page, "left");
+  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
+    1,
+  );
 });
 
 test("fileview mobile sidebar grips resize the active sidebars", async ({

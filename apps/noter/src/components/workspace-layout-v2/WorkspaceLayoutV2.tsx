@@ -25,6 +25,7 @@ export const WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
 const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
 export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX = 160;
 const MOBILE_PANE_PEEK_PX = 24;
+const MOBILE_PANE_SETTLED_TOLERANCE_PX = 1;
 const MOBILE_PANE_ORDER = ["left", "main", "right"] as const;
 const MOBILE_PANE_ORDER_WITHOUT_RIGHT = ["left", "main"] as const;
 type MobilePane = (typeof MOBILE_PANE_ORDER)[number];
@@ -162,7 +163,7 @@ function getMobilePaneScrollOffsets(args: {
     if (pane === "left") {
       return {
         pane,
-        scrollLeftPx: 0,
+        scrollLeftPx: MOBILE_PANE_PEEK_PX,
       };
     }
 
@@ -182,7 +183,7 @@ function getMobilePaneScrollOffsets(args: {
         args.leftWidthPx +
           args.mainWidthPx +
           args.rightWidthPx +
-          MOBILE_PANE_PEEK_PX * 2 -
+          MOBILE_PANE_PEEK_PX -
           args.viewportWidthPx,
       ),
     };
@@ -219,6 +220,26 @@ function getMobilePaneFromScrollLeft(args: {
       ? candidatePane
       : closestPane,
   ).pane;
+}
+
+function isMobilePaneScrollSettled(
+  args: Parameters<typeof getMobilePaneScrollOffsets>[0] & {
+    pane: MobilePane;
+    scrollLeftPx: number;
+  },
+) {
+  return (
+    Math.abs(
+      args.scrollLeftPx -
+        getMobilePaneScrollLeftPx(args.pane, {
+          hasRightPane: args.hasRightPane,
+          leftWidthPx: args.leftWidthPx,
+          mainWidthPx: args.mainWidthPx,
+          rightWidthPx: args.rightWidthPx,
+          viewportWidthPx: args.viewportWidthPx,
+        }),
+    ) <= MOBILE_PANE_SETTLED_TOLERANCE_PX
+  );
 }
 
 function renderPaneContent(content: ReactNode) {
@@ -511,6 +532,7 @@ export function WorkspaceLayoutV2JustPanes({
   const [activeResizeSide, setActiveResizeSide] = useState<
     "left" | "right" | "top" | null
   >(null);
+  const [isMobilePaneSettled, setIsMobilePaneSettled] = useState(true);
   const {
     isMobile,
     leftDesktopOpen,
@@ -578,6 +600,7 @@ export function WorkspaceLayoutV2JustPanes({
 
     hasAlignedInitialMobilePaneRef.current = false;
     scrollDerivedMobilePaneRef.current = null;
+    setIsMobilePaneSettled(true);
   }, [isMobile]);
 
   useEffect(() => {
@@ -603,6 +626,7 @@ export function WorkspaceLayoutV2JustPanes({
       // keep the intended pane instead of booting at scrollLeft=0 and
       // immediately persisting "left".
       carouselNode.scrollLeft = nextScrollLeftPx;
+      setIsMobilePaneSettled(true);
       hasAlignedInitialMobilePaneRef.current = true;
       return;
     }
@@ -615,6 +639,7 @@ export function WorkspaceLayoutV2JustPanes({
     // Keep programmatic pane changes, such as file selection recentering, in
     // lockstep with the native carousel position after the initial boot.
     carouselNode.scrollLeft = nextScrollLeftPx;
+    setIsMobilePaneSettled(true);
   }, [
     hasRightPane,
     isMobile,
@@ -641,6 +666,17 @@ export function WorkspaceLayoutV2JustPanes({
         scrollLeftPx: carouselNode.scrollLeft,
         viewportWidthPx: viewportSize.widthPx,
       });
+      setIsMobilePaneSettled(
+        isMobilePaneScrollSettled({
+          hasRightPane,
+          leftWidthPx: mobileLeftWidthPx,
+          mainWidthPx: mobilePaneWidthPx,
+          pane: nextPane,
+          rightWidthPx: mobileRightWidthPx,
+          scrollLeftPx: carouselNode.scrollLeft,
+          viewportWidthPx: viewportSize.widthPx,
+        }),
+      );
       setMobilePaneRef.current((currentPane) => {
         if (currentPane === nextPane) {
           return currentPane;
@@ -726,7 +762,7 @@ export function WorkspaceLayoutV2JustPanes({
             resizeHandle !== null,
         );
   const mobileResizeHandles: WorkspaceLayoutV2ResizeHandleConfig[] =
-    viewportSize.widthPx <= 0
+    viewportSize.widthPx <= 0 || !isMobilePaneSettled
       ? []
       : [
           mobilePane === "left"

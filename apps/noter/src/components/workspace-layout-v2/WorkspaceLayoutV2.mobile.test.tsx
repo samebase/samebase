@@ -21,6 +21,7 @@ Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
 
 const VIEWPORT_WIDTH_PX = 390;
 const VIEWPORT_HEIGHT_PX = 844;
+const MOBILE_PANE_PEEK_PX = 24;
 const OMIT_HEADER = Symbol("omit-header");
 
 const originalGetBoundingClientRectDescriptor = Object.getOwnPropertyDescriptor(
@@ -230,7 +231,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     expect(carouselNode).not.toBeNull();
     expect(carouselNode?.scrollLeft).toBe(
-      DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2,
+      DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2 - MOBILE_PANE_PEEK_PX,
     );
     expect(
       rootElement
@@ -271,7 +272,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(
       rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')
         ?.scrollLeft,
-    ).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2);
+    ).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2 - MOBILE_PANE_PEEK_PX);
 
     act(() => {
       latestSetRenderedMobilePane?.("main");

@@ -59,7 +59,7 @@ async function scrollWorkspaceCarouselToPane(
 
       element.scrollLeft =
         nextPane === "left"
-          ? 0
+          ? panePeekPx
           : nextPane === "main"
             ? mainPane.offsetLeft - panePeekPx
             : element.scrollWidth - element.clientWidth;
