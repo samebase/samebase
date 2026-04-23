@@ -1,4 +1,5 @@
 import { MagnifyingGlassIcon } from "@/lib/radixIcons";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,6 @@ export function FileViewLayoutVisualFixture({
 }) {
   const [clickCount, setClickCount] = useState(0);
   const [bodyClickCount, setBodyClickCount] = useState(0);
-  const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const scrollRows = Array.from({ length: 40 }, (_, index) => index + 1);
 
   const sidebarHeader = (
@@ -97,7 +97,19 @@ export function FileViewLayoutVisualFixture({
         left={
           FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
             ? activeSidebar
-            : inactiveSidebar
+            : {
+                content: (
+                  <div
+                    data-testid="fileview-layout-left-sidebar-links"
+                    className="flex flex-col"
+                  >
+                    <Link to="/">Dashboard</Link>
+                    <Link to="/machines">Machines</Link>
+                    <Link to="/add">Connect repository</Link>
+                    <Link to="/pricing">Pricing</Link>
+                  </div>
+                ),
+              }
         }
         main={{
           header: (
@@ -147,18 +159,6 @@ export function FileViewLayoutVisualFixture({
               </div>
             </div>
           ),
-        }}
-        panel={{
-          content: (
-            <div
-              data-testid="fileview-layout-chat-panel"
-              className="flex h-full min-h-0 items-center px-3 text-sm text-foreground"
-            >
-              Chat panel
-            </div>
-          ),
-          onOpenChange: setChatPanelOpen,
-          open: chatPanelOpen,
         }}
         right={
           FILE_VIEW_TREE_SIDEBAR_SIDE === "right"

@@ -12,6 +12,11 @@ const WORKSPACE_LAYOUT_V2_PANEL_MIN_HEIGHT_PX = 3 * 16;
 const WORKSPACE_LAYOUT_V2_PANEL_DEFAULT_HEIGHT_PX = 18 * 16;
 const WORKSPACE_LAYOUT_V2_PANEL_MOBILE_DEFAULT_HEIGHT_RATIO = 0.35;
 
+/**
+ * Optional route-owned bottom panel. The previous chat-FAB use of this panel is
+ * deprecated, so new/default route chrome should omit chat panels unless a
+ * route explicitly opts into reviving that surface.
+ */
 export type WorkspaceLayoutV2BottomPanelProps =
   WorkspaceLayoutV2PaneFrameProps & {
     closeDisabled?: boolean;
