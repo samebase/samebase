@@ -37,47 +37,51 @@ export async function dispatchHumanTouchSwipe(
     y: bounds.y + args.startY,
   };
 
-  await session.send("Input.dispatchTouchEvent", {
-    timestamp: gestureStartTimeMs / 1000,
-    type: "touchStart",
-    touchPoints: [touchPoint],
-  });
-
-  for (const step of args.steps) {
-    const rawX = bounds.x + args.startX + step.xOffset;
-    const rawY = bounds.y + args.startY + step.yOffset;
-    const clampedX = Math.min(
-      Math.max(rawX, bounds.x),
-      bounds.x + bounds.width,
-    );
-    const clampedY = Math.min(
-      Math.max(rawY, bounds.y),
-      bounds.y + bounds.height,
-    );
-    const reachedBounds = clampedX !== rawX || clampedY !== rawY;
-
-    await page.waitForTimeout(step.delayMs);
-    elapsedMs += step.delayMs;
+  try {
     await session.send("Input.dispatchTouchEvent", {
-      timestamp: (gestureStartTimeMs + elapsedMs) / 1000,
-      type: "touchMove",
-      touchPoints: [
-        {
-          ...touchPoint,
-          x: clampedX,
-          y: clampedY,
-        },
-      ],
+      timestamp: gestureStartTimeMs / 1000,
+      type: "touchStart",
+      touchPoints: [touchPoint],
     });
 
-    if (reachedBounds) {
-      break;
-    }
-  }
+    for (const step of args.steps) {
+      const rawX = bounds.x + args.startX + step.xOffset;
+      const rawY = bounds.y + args.startY + step.yOffset;
+      const clampedX = Math.min(
+        Math.max(rawX, bounds.x),
+        bounds.x + bounds.width,
+      );
+      const clampedY = Math.min(
+        Math.max(rawY, bounds.y),
+        bounds.y + bounds.height,
+      );
+      const reachedBounds = clampedX !== rawX || clampedY !== rawY;
 
-  await session.send("Input.dispatchTouchEvent", {
-    timestamp: (gestureStartTimeMs + elapsedMs + 1) / 1000,
-    type: "touchEnd",
-    touchPoints: [],
-  });
+      await page.waitForTimeout(step.delayMs);
+      elapsedMs += step.delayMs;
+      await session.send("Input.dispatchTouchEvent", {
+        timestamp: (gestureStartTimeMs + elapsedMs) / 1000,
+        type: "touchMove",
+        touchPoints: [
+          {
+            ...touchPoint,
+            x: clampedX,
+            y: clampedY,
+          },
+        ],
+      });
+
+      if (reachedBounds) {
+        break;
+      }
+    }
+
+    await session.send("Input.dispatchTouchEvent", {
+      timestamp: (gestureStartTimeMs + elapsedMs + 1) / 1000,
+      type: "touchEnd",
+      touchPoints: [],
+    });
+  } finally {
+    await session.detach().catch(() => undefined);
+  }
 }

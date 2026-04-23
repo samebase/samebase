@@ -23,6 +23,7 @@ import {
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
   PUBLIC_LANDING_LOGO_TEST_ID,
 } from "../src/lib/publicLandingLogo";
+import { dispatchHumanTouchSwipe } from "./touchGestures";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 
 // These budgets target the local production preview used in CI.
@@ -1015,6 +1016,13 @@ test.describe("mobile landing dev toggle", () => {
       page.getByTestId("workspace-layout-v2-left-resize"),
     ).toHaveCount(1);
 
+    const mobileShell = page.locator('[data-workspace-layout-v2="mobile"]');
+    const mobileShellBox = await mobileShell.boundingBox();
+    expect(mobileShellBox).not.toBeNull();
+    if (mobileShellBox === null) {
+      throw new Error("Expected landing mobile shell box");
+    }
+
     const handleBox = await page
       .getByTestId("workspace-layout-v2-left-resize")
       .boundingBox();
@@ -1023,41 +1031,22 @@ test.describe("mobile landing dev toggle", () => {
       throw new Error("Expected landing left resize handle box");
     }
 
-    const startX = handleBox.x + handleBox.width / 2;
-    const startY = handleBox.y + handleBox.height / 2;
-    const session = await page.context().newCDPSession(page);
-    const gestureStartTimeMs = Date.now();
-    const touchPoint = {
-      force: 1,
-      id: 1,
-      radiusX: 4,
-      radiusY: 4,
-      x: startX,
-      y: startY,
-    };
+    // Drag past the min-clamp threshold so resizing hands off into a main-pane slide.
+    const dragDistancePx = 220;
+    const dragSteps = 4;
+    const dragFrameMs = 16;
+    await dispatchHumanTouchSwipe(page, mobileShell, {
+      startX: handleBox.x - mobileShellBox.x + handleBox.width / 2,
+      startY: handleBox.y - mobileShellBox.y + handleBox.height / 2,
+      steps: Array.from({ length: dragSteps }, (_, index) => {
+        const step = index + 1;
 
-    await session.send("Input.dispatchTouchEvent", {
-      timestamp: gestureStartTimeMs / 1000,
-      type: "touchStart",
-      touchPoints: [touchPoint],
-    });
-    for (const step of [1, 2, 3, 4]) {
-      await page.waitForTimeout(16);
-      await session.send("Input.dispatchTouchEvent", {
-        timestamp: (gestureStartTimeMs + step * 16) / 1000,
-        type: "touchMove",
-        touchPoints: [
-          {
-            ...touchPoint,
-            x: startX - (220 * step) / 4,
-          },
-        ],
-      });
-    }
-    await session.send("Input.dispatchTouchEvent", {
-      timestamp: (gestureStartTimeMs + 80) / 1000,
-      type: "touchEnd",
-      touchPoints: [],
+        return {
+          delayMs: dragFrameMs,
+          xOffset: -(dragDistancePx * step) / dragSteps,
+          yOffset: 0,
+        };
+      }),
     });
 
     await expect(
