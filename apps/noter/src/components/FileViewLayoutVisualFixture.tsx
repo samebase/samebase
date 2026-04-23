@@ -46,7 +46,6 @@ export function FileViewLayoutVisualFixture({
 }) {
   const [clickCount, setClickCount] = useState(0);
   const [bodyClickCount, setBodyClickCount] = useState(0);
-  const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const scrollRows = Array.from({ length: 40 }, (_, index) => index + 1);
 
   const sidebarHeader = (
@@ -178,18 +177,6 @@ export function FileViewLayoutVisualFixture({
               </div>
             </div>
           ),
-        }}
-        panel={{
-          content: (
-            <div
-              data-testid="fileview-layout-chat-panel"
-              className="flex h-full min-h-0 items-center px-3 text-sm text-foreground"
-            >
-              Chat panel
-            </div>
-          ),
-          onOpenChange: setChatPanelOpen,
-          open: chatPanelOpen,
         }}
         right={
           FILE_VIEW_TREE_SIDEBAR_SIDE === "right"

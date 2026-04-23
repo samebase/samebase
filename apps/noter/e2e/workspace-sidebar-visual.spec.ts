@@ -59,7 +59,7 @@ test("fileview desktop shell with right tree", async ({ page }) => {
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
   await expect(
     page.getByRole("button", { name: "Open bottom panel" }),
-  ).toBeVisible();
+  ).toHaveCount(0);
 
   await expect(fixture).toHaveScreenshot(
     "fileview-layout-shell-right-tree.png",
