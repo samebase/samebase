@@ -394,7 +394,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     );
 
     expect(leftPane.style.width).toBe("220px");
-    expect(leftHandle.getAttribute("aria-valuemin")).toBe("48");
+    expect(leftHandle.getAttribute("aria-valuemin")).toBe("96");
     expect(leftHandle.getAttribute("aria-valuemax")).toBe("342");
     expect(leftHandle.getAttribute("aria-valuenow")).toBe("220");
     expect(leftHandle.parentElement?.style.left).toBe("220px");
@@ -471,7 +471,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     );
 
     expect(rightPane.style.width).toBe("300px");
-    expect(rightHandle.getAttribute("aria-valuemin")).toBe("48");
+    expect(rightHandle.getAttribute("aria-valuemin")).toBe("96");
     expect(rightHandle.getAttribute("aria-valuemax")).toBe("342");
     expect(rightHandle.getAttribute("aria-valuenow")).toBe("300");
     expect(rightHandle.parentElement?.style.left).toBe("90px");
@@ -482,7 +482,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBeNull();
   });
 
-  it("clamps mobile sidebar widths to the leftover width outside max width", () => {
+  it("clamps mobile sidebar widths to double the leftover width outside max width", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -507,10 +507,10 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       '[data-testid="workspace-layout-v2-left-resize"]',
     );
 
-    expect(leftPane.style.width).toBe("48px");
-    expect(leftHandle.getAttribute("aria-valuemin")).toBe("48");
-    expect(leftHandle.getAttribute("aria-valuenow")).toBe("48");
-    expect(leftHandle.parentElement?.style.left).toBe("48px");
+    expect(leftPane.style.width).toBe("96px");
+    expect(leftHandle.getAttribute("aria-valuemin")).toBe("96");
+    expect(leftHandle.getAttribute("aria-valuenow")).toBe("96");
+    expect(leftHandle.parentElement?.style.left).toBe("96px");
 
     act(() => {
       mountedRoot.render(
@@ -531,10 +531,10 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       '[data-testid="workspace-layout-v2-right-resize"]',
     );
 
-    expect(rightPane.style.width).toBe("48px");
-    expect(rightHandle.getAttribute("aria-valuemin")).toBe("48");
-    expect(rightHandle.getAttribute("aria-valuenow")).toBe("48");
-    expect(rightHandle.parentElement?.style.left).toBe("342px");
+    expect(rightPane.style.width).toBe("96px");
+    expect(rightHandle.getAttribute("aria-valuemin")).toBe("96");
+    expect(rightHandle.getAttribute("aria-valuenow")).toBe("96");
+    expect(rightHandle.parentElement?.style.left).toBe("294px");
   });
 
   it("hides the shared header row on mobile when the route omits main header content", () => {

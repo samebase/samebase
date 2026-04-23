@@ -119,11 +119,9 @@ function getMobileSidebarMinWidthPx(args: {
   maxWidthPx: number;
   viewportWidthPx: number;
 }) {
-  return clampNumber(
-    Math.round(args.viewportWidthPx - args.maxWidthPx),
-    1,
-    args.maxWidthPx,
-  );
+  const leftoverWidthPx = args.viewportWidthPx - args.maxWidthPx;
+
+  return clampNumber(Math.round(leftoverWidthPx * 2), 1, args.maxWidthPx);
 }
 
 function getMobileSidebarWidthPx(args: {

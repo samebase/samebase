@@ -101,11 +101,9 @@ async function getMobileSidebarMinWidthPx(page: Page) {
     .getByTestId("workspace-layout-v2-pane-main")
     .evaluate((element) => {
       const maxWidthPx = Math.max(1, element.clientWidth - 48);
+      const leftoverWidthPx = element.clientWidth - maxWidthPx;
 
-      return Math.max(
-        1,
-        Math.min(element.clientWidth - maxWidthPx, maxWidthPx),
-      );
+      return Math.max(1, Math.min(Math.round(leftoverWidthPx * 2), maxWidthPx));
     });
 }
 
@@ -265,7 +263,7 @@ test("fileview mobile left sidebar exposes fixture links", async ({ page }) => {
   await expect(leftLinks.getByRole("link", { name: "Pricing" })).toBeVisible();
 });
 
-test("fileview mobile sidebar minimum matches viewport leftover after max width", async ({
+test("fileview mobile sidebar minimum doubles viewport leftover after max width", async ({
   page,
 }) => {
   await gotoFileViewFixture(page);
@@ -275,7 +273,7 @@ test("fileview mobile sidebar minimum matches viewport leftover after max width"
     .evaluate((element) => element.clientWidth);
   const minWidthPx = await getMobileSidebarMinWidthPx(page);
   const maxWidthPx = await getMobileSidebarMaxWidthPx(page);
-  expect(minWidthPx).toBe(viewportWidthPx - maxWidthPx);
+  expect(minWidthPx).toBe((viewportWidthPx - maxWidthPx) * 2);
 
   await scrollFileViewCarouselToPane(page, "left");
   await expect(
@@ -328,6 +326,7 @@ test("fileview mobile sidebar grips recenter when dragged past the minimum", asy
   await gotoFileViewFixture(page);
 
   const minWidthPx = await getMobileSidebarMinWidthPx(page);
+  const slidePastMinimumPx = minWidthPx;
 
   await scrollFileViewCarouselToPane(page, "left");
   const leftPaneWidthBefore = (
@@ -336,7 +335,7 @@ test("fileview mobile sidebar grips recenter when dragged past the minimum", asy
   await touchDragHandleByPx(
     page,
     "workspace-layout-v2-left-resize",
-    minWidthPx - leftPaneWidthBefore - 32,
+    minWidthPx - leftPaneWidthBefore - slidePastMinimumPx,
   );
   await expect(getFileViewLayoutShell(page)).toHaveAttribute(
     "data-mobile-pane",
@@ -353,7 +352,7 @@ test("fileview mobile sidebar grips recenter when dragged past the minimum", asy
   await touchDragHandleByPx(
     page,
     "workspace-layout-v2-right-resize",
-    rightPaneWidthBefore - minWidthPx + 32,
+    rightPaneWidthBefore - minWidthPx + slidePastMinimumPx,
   );
   await expect(getFileViewLayoutShell(page)).toHaveAttribute(
     "data-mobile-pane",
