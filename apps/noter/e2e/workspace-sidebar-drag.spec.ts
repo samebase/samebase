@@ -155,6 +155,47 @@ async function dragHandleByPx(page: Page, testId: string, deltaX: number) {
   await page.mouse.up();
 }
 
+async function touchDragHandleByPx(page: Page, testId: string, deltaX: number) {
+  const handleBox = await getBox(page, testId);
+  const startX = handleBox.x + handleBox.width / 2;
+  const startY = handleBox.y + handleBox.height / 2;
+  const session = await page.context().newCDPSession(page);
+  const gestureStartTimeMs = Date.now();
+  const touchPoint = {
+    force: 1,
+    id: 1,
+    radiusX: 4,
+    radiusY: 4,
+    x: startX,
+    y: startY,
+  };
+
+  await session.send("Input.dispatchTouchEvent", {
+    timestamp: gestureStartTimeMs / 1000,
+    type: "touchStart",
+    touchPoints: [touchPoint],
+  });
+
+  for (const step of [1, 2, 3, 4]) {
+    await session.send("Input.dispatchTouchEvent", {
+      timestamp: (gestureStartTimeMs + step * 16) / 1000,
+      type: "touchMove",
+      touchPoints: [
+        {
+          ...touchPoint,
+          x: startX + (deltaX * step) / 4,
+        },
+      ],
+    });
+  }
+
+  await session.send("Input.dispatchTouchEvent", {
+    timestamp: (gestureStartTimeMs + 80) / 1000,
+    type: "touchEnd",
+    touchPoints: [],
+  });
+}
+
 test("fileview mobile carousel moves between left, main, and right panes", async ({
   page,
 }) => {
@@ -239,7 +280,18 @@ test("fileview mobile sidebar minimum matches viewport leftover after max width"
   await expect(
     page.getByTestId("workspace-layout-v2-left-resize"),
   ).toHaveAttribute("aria-valuemin", `${minWidthPx}`);
-  await dragHandleByPx(page, "workspace-layout-v2-left-resize", -1000);
+  const leftPaneWidthBefore = (
+    await getBox(page, "workspace-layout-v2-pane-left")
+  ).width;
+  await dragHandleByPx(
+    page,
+    "workspace-layout-v2-left-resize",
+    minWidthPx - leftPaneWidthBefore - 4,
+  );
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute(
+    "data-mobile-pane",
+    "left",
+  );
   await expect
     .poll(async () =>
       Math.round((await getBox(page, "workspace-layout-v2-pane-left")).width),
@@ -250,12 +302,65 @@ test("fileview mobile sidebar minimum matches viewport leftover after max width"
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
   ).toHaveAttribute("aria-valuemin", `${minWidthPx}`);
-  await dragHandleByPx(page, "workspace-layout-v2-right-resize", 1000);
+  const rightPaneWidthBefore = (
+    await getBox(page, "workspace-layout-v2-pane-right")
+  ).width;
+  await dragHandleByPx(
+    page,
+    "workspace-layout-v2-right-resize",
+    rightPaneWidthBefore - minWidthPx + 4,
+  );
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute(
+    "data-mobile-pane",
+    "right",
+  );
   await expect
     .poll(async () =>
       Math.round((await getBox(page, "workspace-layout-v2-pane-right")).width),
     )
     .toBe(minWidthPx);
+});
+
+test("fileview mobile sidebar grips recenter when dragged past the minimum", async ({
+  page,
+}) => {
+  await gotoFileViewFixture(page);
+
+  const minWidthPx = await getMobileSidebarMinWidthPx(page);
+
+  await scrollFileViewCarouselToPane(page, "left");
+  const leftPaneWidthBefore = (
+    await getBox(page, "workspace-layout-v2-pane-left")
+  ).width;
+  await touchDragHandleByPx(
+    page,
+    "workspace-layout-v2-left-resize",
+    minWidthPx - leftPaneWidthBefore - 32,
+  );
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute(
+    "data-mobile-pane",
+    "main",
+  );
+  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
+    0,
+  );
+
+  await scrollFileViewCarouselToPane(page, "right");
+  const rightPaneWidthBefore = (
+    await getBox(page, "workspace-layout-v2-pane-right")
+  ).width;
+  await touchDragHandleByPx(
+    page,
+    "workspace-layout-v2-right-resize",
+    rightPaneWidthBefore - minWidthPx + 32,
+  );
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute(
+    "data-mobile-pane",
+    "main",
+  );
+  await expect(
+    page.getByTestId("workspace-layout-v2-right-resize"),
+  ).toHaveCount(0);
 });
 
 test("fileview mobile sidebar grips resize the active sidebars", async ({

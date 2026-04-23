@@ -844,6 +844,32 @@ export function WorkspaceLayoutV2JustPanes({
         onResizeEnd={() => {
           setActiveResizeSide(null);
         }}
+        onResizeCollapseIntent={
+          pointerTarget === "grip"
+            ? () => {
+                const carouselNode = mobileCarouselRef.current;
+                if (carouselNode !== null) {
+                  carouselNode.scrollLeft = getMobilePaneScrollLeftPx("main", {
+                    hasRightPane,
+                    leftWidthPx:
+                      resizeHandle.side === "left"
+                        ? resizeHandle.minWidthPx
+                        : mobileLeftWidthPx,
+                    mainWidthPx: mobilePaneWidthPx,
+                    rightWidthPx:
+                      resizeHandle.side === "right"
+                        ? resizeHandle.minWidthPx
+                        : mobileRightWidthPx,
+                    viewportWidthPx: viewportSize.widthPx,
+                  });
+                }
+                scrollDerivedMobilePaneRef.current = null;
+                setIsMobilePaneSettled(true);
+                setActiveResizeSide(null);
+                setMobilePane("main");
+              }
+            : undefined
+        }
         onSizeChange={resizeHandle.onWidthChange}
       />
     );
