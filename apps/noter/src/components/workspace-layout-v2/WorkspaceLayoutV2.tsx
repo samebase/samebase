@@ -11,6 +11,7 @@ import { PanelLeft, PanelRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSidebar } from "@/hooks/use-sidebar";
+import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import {
   WorkspaceLayoutV2PaneFrame,
   type WorkspaceLayoutV2PaneFrameProps,
@@ -39,6 +40,7 @@ type WorkspaceLayoutV2Props = {
 
 type WorkspaceLayoutV2JustPanesProps = WorkspaceLayoutV2Props & {
   panel?: WorkspaceLayoutV2BottomPanelProps;
+  showMobileResizeGripDots?: boolean;
 };
 
 type WorkspaceLayoutV2ResolvedPaneContent = {
@@ -59,6 +61,14 @@ type WorkspaceLayoutV2ResizeHandleConfig = {
 
 function clampNumber(value: number, minValue: number, maxValue: number) {
   return Math.max(minValue, Math.min(value, maxValue));
+}
+
+function shouldShowMobileResizeGripDotsByDefault() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return isLandingDevModeEnabled(new URLSearchParams(window.location.search));
 }
 
 /**
@@ -464,6 +474,7 @@ export function WorkspaceLayoutV2FullPage({
   panel,
   right,
   showLeftToggle = true,
+  showMobileResizeGripDots,
 }: {
   dataTestId?: string;
   left: WorkspaceLayoutV2PaneFrameProps;
@@ -471,6 +482,7 @@ export function WorkspaceLayoutV2FullPage({
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: WorkspaceLayoutV2PaneFrameProps;
   showLeftToggle?: boolean;
+  showMobileResizeGripDots?: boolean;
 }) {
   const hasRightPane = right !== undefined;
   const isMobile = useIsMobile();
@@ -503,6 +515,7 @@ export function WorkspaceLayoutV2FullPage({
         }
         panel={panel}
         right={hasRightPane ? <WorkspaceLayoutV2PaneFrame {...right} /> : null}
+        showMobileResizeGripDots={showMobileResizeGripDots}
       />
     </WorkspaceLayoutV2ViewportFrame>
   );
@@ -535,6 +548,7 @@ export function WorkspaceLayoutV2JustPanes({
   main,
   panel,
   right,
+  showMobileResizeGripDots,
 }: WorkspaceLayoutV2JustPanesProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
@@ -559,6 +573,8 @@ export function WorkspaceLayoutV2JustPanes({
     setRightMobileWidthPx,
   } = useSidebar();
   const hasRightPane = right !== null && right !== undefined;
+  const shouldShowMobileResizeGripDots =
+    showMobileResizeGripDots ?? shouldShowMobileResizeGripDotsByDefault();
   const mobilePane =
     !hasRightPane && rawMobilePane === "right" ? "main" : rawMobilePane;
   const setMobilePaneRef = useRef(setMobilePane);
@@ -942,6 +958,9 @@ export function WorkspaceLayoutV2JustPanes({
             : undefined
         }
         onSizeChange={resizeHandle.onWidthChange}
+        showGripDots={
+          pointerTarget === "grip" ? shouldShowMobileResizeGripDots : true
+        }
       />
     );
   }
