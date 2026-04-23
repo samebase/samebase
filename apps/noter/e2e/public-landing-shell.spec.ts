@@ -1,4 +1,10 @@
-import { devices, expect, test, type Locator } from "@playwright/test";
+import {
+  devices,
+  expect,
+  test,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 import {
   APP_BUILD_COMMIT_LINK_TEST_ID,
   APP_BUILD_STATUS_BAR_TEST_ID,
@@ -34,6 +40,10 @@ const {
   defaultBrowserType: _mobileLandingDefaultBrowserType,
   ...mobileLandingDevice
 } = devices["iPhone 13"];
+const iphoneSeLandingDevice = {
+  ...mobileLandingDevice,
+  viewport: { width: 375, height: 667 },
+} as const;
 
 async function readNavigationTiming(page: Parameters<typeof test>[0]["page"]) {
   return page.evaluate(() => {
@@ -152,6 +162,64 @@ async function readLandingToggleLayout(
       waitlistLinkOffset: Number(
         (waitlistLinkRect.top - contentRect.top).toFixed(3),
       ),
+    };
+  });
+}
+
+async function readLandingSidebarCopyMetrics(page: Page): Promise<{
+  carouselWidth: number;
+  contentWidth: number;
+  leftPaneClientWidth: number;
+  leftPaneWidth: number;
+  mainPaneWidth: number;
+  mainPaneClientWidth: number;
+  shellWidth: number;
+  teamTextHeight: number;
+}> {
+  return await page.evaluate(() => {
+    const shell = document.querySelector('[data-workspace-layout-v2="mobile"]');
+    const carousel = document.querySelector(
+      '[data-testid="workspace-layout-v2-pane-main"]',
+    );
+    const leftPane = document.querySelector(
+      '[data-testid="workspace-layout-v2-pane-left"]',
+    );
+    const mainPane = carousel?.querySelector(".snap-center > div");
+    const content = document.querySelector(
+      '[data-testid="public-landing-content"]',
+    );
+    const teamText = Array.from(
+      document.querySelectorAll('[data-testid="public-landing-copy"] li span'),
+    ).find((node) => node.textContent?.includes("team"));
+
+    if (!(shell instanceof HTMLElement)) {
+      throw new Error("Expected mobile landing shell");
+    }
+    if (!(carousel instanceof HTMLElement)) {
+      throw new Error("Expected landing carousel");
+    }
+    if (!(leftPane instanceof HTMLElement)) {
+      throw new Error("Expected landing left pane");
+    }
+    if (!(mainPane instanceof HTMLElement)) {
+      throw new Error("Expected landing main pane");
+    }
+    if (!(content instanceof HTMLElement)) {
+      throw new Error("Expected landing content");
+    }
+    if (!(teamText instanceof HTMLElement)) {
+      throw new Error("Expected landing team bullet text");
+    }
+
+    return {
+      carouselWidth: Math.round(carousel.getBoundingClientRect().width),
+      contentWidth: Math.round(content.getBoundingClientRect().width),
+      leftPaneClientWidth: leftPane.clientWidth,
+      leftPaneWidth: Math.round(leftPane.getBoundingClientRect().width),
+      mainPaneWidth: Math.round(mainPane.getBoundingClientRect().width),
+      mainPaneClientWidth: mainPane.clientWidth,
+      shellWidth: Math.round(shell.getBoundingClientRect().width),
+      teamTextHeight: Math.round(teamText.getBoundingClientRect().height),
     };
   });
 }
@@ -826,6 +894,58 @@ test.describe("mobile landing dev toggle", () => {
     const backFrames = await captureLandingToggleFrames(page, "/");
     expectStableLandingToggleFrames(backFrames, "/");
     await expectLandingToggleFocusTarget(page);
+  });
+});
+
+test.describe("iPhone SE landing sidebar", () => {
+  test.use(iphoneSeLandingDevice);
+
+  test("keeps mobile pane dimensions exact while sliding to the left sidebar", async ({
+    page,
+  }) => {
+    await page.goto("/", { waitUntil: "networkidle" });
+
+    const beforeSlideMetrics = await readLandingSidebarCopyMetrics(page);
+
+    await page
+      .getByTestId("workspace-layout-v2-pane-main")
+      .evaluate((element) => {
+        // The regression happened when pane ownership changed mid-gesture.
+        element.style.scrollSnapType = "none";
+        element.scrollLeft = 24;
+        element.dispatchEvent(new Event("scroll", { bubbles: true }));
+      });
+
+    await expect(
+      page.locator('[data-workspace-layout-v2="mobile"]'),
+    ).toHaveAttribute("data-mobile-pane", "left");
+
+    const afterSlideMetrics = await readLandingSidebarCopyMetrics(page);
+
+    // This invariant intentionally has no pixel tolerance: a 1px pane or
+    // content-box change can rewrap text and means the shell geometry shifted.
+    expect(afterSlideMetrics.shellWidth).toBe(beforeSlideMetrics.shellWidth);
+    expect(afterSlideMetrics.carouselWidth).toBe(
+      beforeSlideMetrics.carouselWidth,
+    );
+    expect(afterSlideMetrics.leftPaneWidth).toBe(
+      beforeSlideMetrics.leftPaneWidth,
+    );
+    expect(afterSlideMetrics.leftPaneClientWidth).toBe(
+      beforeSlideMetrics.leftPaneClientWidth,
+    );
+    expect(afterSlideMetrics.mainPaneWidth).toBe(
+      beforeSlideMetrics.mainPaneWidth,
+    );
+    expect(afterSlideMetrics.mainPaneClientWidth).toBe(
+      beforeSlideMetrics.mainPaneClientWidth,
+    );
+    expect(afterSlideMetrics.contentWidth).toBe(
+      beforeSlideMetrics.contentWidth,
+    );
+    expect(afterSlideMetrics.teamTextHeight).toBe(
+      beforeSlideMetrics.teamTextHeight,
+    );
   });
 });
 
