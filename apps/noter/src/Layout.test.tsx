@@ -76,7 +76,7 @@ describe("Layout", () => {
 
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
-    expect(markup).toContain("Home");
+    expect(markup).toContain("/home");
   });
 
   it("keeps legal links but not the duplicate Home link on authenticated routes", () => {
@@ -96,7 +96,7 @@ describe("Layout", () => {
 
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
-    expect(markup).not.toContain("Home");
+    expect(markup).not.toContain("/home");
   });
 
   it("renders children directly without auth-specific shell branching", () => {

@@ -112,30 +112,12 @@ export function AppSidebarMetaSection() {
       <div className="flex flex-col gap-3 text-xs text-muted-foreground">
         {showHomeLink || showLegalLinks || showLandingDevToggleLink ? (
           <div className="flex flex-col items-start gap-1">
-            {showHomeLink ? (
-              <Link
-                to="/home"
-                className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
-              >
-                Home
-              </Link>
-            ) : null}
+            {showHomeLink ? <Link to="/home">/home</Link> : null}
 
             {showLegalLinks ? (
               <>
-                <Link
-                  to="/terms"
-                  className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
-                >
-                  /terms
-                </Link>
-
-                <Link
-                  to="/privacy"
-                  className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
-                >
-                  /privacy
-                </Link>
+                <Link to="/terms">/terms</Link>
+                <Link to="/privacy">/privacy</Link>
               </>
             ) : null}
 
@@ -144,7 +126,6 @@ export function AppSidebarMetaSection() {
                 id="public-landing-dev-toggle"
                 href={landingDevToggleHref}
                 onClick={handleLandingDevToggleClick}
-                className="inline-flex min-w-[3ch] items-center justify-center corner-notch-1 px-1 transition-colors hover:text-foreground"
               >
                 {landingDevToggleLabel}
               </a>
