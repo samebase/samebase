@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { formatWithOxfmt } from "./format-with-oxfmt.ts";
+import { formatWithVpFmt } from "./format-with-vp-fmt.ts";
 import {
   renderDaytonaSandboxProgramsGeneratedTsModule,
   renderDaytonaRuntimeGeneratedTsModule,
@@ -41,7 +41,7 @@ async function normalizeOutputContents(
     return withTrailingNewline;
   }
 
-  return formatWithOxfmt(outputPath, withTrailingNewline);
+  return formatWithVpFmt(outputPath, withTrailingNewline);
 }
 
 async function main() {

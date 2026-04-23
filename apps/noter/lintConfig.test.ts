@@ -287,7 +287,7 @@ describe("lint config", () => {
     });
   });
 
-  it("uses check as the shared static gate and Oxlint as the lint runner", () => {
+  it("uses check as the shared static gate and vp as the lint runner", () => {
     const rootPackage = readPackageSurface("package.json");
     const appPackage = readPackageSurface("apps/noter/package.json");
     const starterPackage = readPackageSurface(
@@ -298,14 +298,14 @@ describe("lint config", () => {
       "@convex-dev/eslint-plugin": "0.0.1-alpha.4",
       "eslint-plugin-noter-local": "workspace:*",
       "eslint-plugin-react-refresh": "^0.4.7",
-      oxlint: "^1.59.0",
-      "oxlint-tsgolint": "^0.20.0",
     });
-    expect(rootPackage.scripts?.["lint:scripts"]).toContain("pnpm exec oxlint");
-    expect(appPackage.scripts?.check).toContain("pnpm run lint:oxlint");
+    expect(rootPackage.devDependencies?.oxlint).toBeUndefined();
+    expect(rootPackage.devDependencies?.["oxlint-tsgolint"]).toBeUndefined();
+    expect(rootPackage.scripts?.["lint:scripts"]).toContain("pnpm exec vp lint");
+    expect(appPackage.scripts?.check).toContain("pnpm run lint:vp");
     expect(appPackage.scripts?.lint).toContain("pnpm run check");
-    expect(appPackage.scripts?.["lint:oxlint"]).toContain("exec oxlint");
-    expect(starterPackage.scripts?.check).toContain("exec oxlint");
+    expect(appPackage.scripts?.["lint:vp"]).toContain("exec vp lint");
+    expect(starterPackage.scripts?.check).toContain("exec vp lint");
     expect(starterPackage.scripts?.lint).toContain("pnpm run check");
     expect(appPackage.scripts?.lint).not.toContain("eslint");
     expect(starterPackage.scripts?.lint).not.toContain("eslint");

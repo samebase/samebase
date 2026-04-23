@@ -1,4 +1,4 @@
-export declare function formatWithOxfmt(
+export declare function formatWithVpFmt(
   filePath: string,
   contents: string,
 ): Promise<string>;
