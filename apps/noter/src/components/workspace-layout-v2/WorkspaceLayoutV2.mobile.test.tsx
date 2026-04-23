@@ -354,7 +354,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     expect(leftPane.style.width).toBe("220px");
     expect(leftHandle.getAttribute("aria-valuenow")).toBe("220");
-    expect(leftHandle.parentElement?.style.left).toBe("244px");
+    expect(leftHandle.parentElement?.style.left).toBe("220px");
     expect(
       rootElement.querySelector(
         '[data-testid="workspace-layout-v2-right-resize"]',
@@ -389,7 +389,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     expect(rightPane.style.width).toBe("300px");
     expect(rightHandle.getAttribute("aria-valuenow")).toBe("300");
-    expect(rightHandle.parentElement?.style.left).toBe("66px");
+    expect(rightHandle.parentElement?.style.left).toBe("90px");
     expect(
       rootElement.querySelector(
         '[data-testid="workspace-layout-v2-left-resize"]',

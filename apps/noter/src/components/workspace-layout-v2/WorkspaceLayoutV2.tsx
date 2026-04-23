@@ -744,7 +744,7 @@ export function WorkspaceLayoutV2JustPanes({
                     ),
                   );
                 },
-                positionPx: MOBILE_PANE_PEEK_PX + mobileLeftWidthPx,
+                positionPx: mobileLeftWidthPx,
                 side: "left",
               }
             : null,
@@ -763,10 +763,7 @@ export function WorkspaceLayoutV2JustPanes({
                     ),
                   );
                 },
-                positionPx:
-                  viewportSize.widthPx -
-                  MOBILE_PANE_PEEK_PX -
-                  mobileRightWidthPx,
+                positionPx: viewportSize.widthPx - mobileRightWidthPx,
                 side: "right",
               }
             : null,
