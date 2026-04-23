@@ -329,7 +329,7 @@ function WorkspaceLayoutV2MobileViewport({
         ref={leftPaneRef}
         data-testid="workspace-layout-v2-pane-left"
         className={cn(
-          "relative flex h-full min-h-0 shrink-0 snap-start [scroll-snap-stop:always] flex-col overflow-hidden bg-background",
+          "relative flex h-full min-h-0 shrink-0 snap-start snap-always flex-col overflow-hidden bg-background",
           leftPaneBorderClass,
         )}
         style={{
@@ -341,7 +341,7 @@ function WorkspaceLayoutV2MobileViewport({
 
       <div
         ref={mainPaneRef}
-        className="h-full min-h-0 shrink-0 snap-center [scroll-snap-stop:always]"
+        className="h-full min-h-0 shrink-0 snap-center snap-always"
         style={{ width: `${paneWidthPx}px` }}
       >
         <div
@@ -361,7 +361,7 @@ function WorkspaceLayoutV2MobileViewport({
           ref={rightPaneRef}
           data-testid="workspace-layout-v2-pane-right"
           className={cn(
-            "relative flex h-full min-h-0 shrink-0 snap-start [scroll-snap-stop:always] flex-col overflow-hidden bg-background",
+            "relative flex h-full min-h-0 shrink-0 snap-start snap-always flex-col overflow-hidden bg-background",
             rightPaneBorderClass,
           )}
           style={{
