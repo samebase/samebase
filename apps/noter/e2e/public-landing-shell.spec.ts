@@ -535,6 +535,23 @@ async function expectLegalLinksUseLeftSidebarInnerEdge(statusBar: Locator) {
   }
 }
 
+async function expectLegalLinksUseReadableTextSize(statusBar: Locator) {
+  const termsLink = statusBar.getByRole("link", { name: "/terms" });
+  const privacyLink = statusBar.getByRole("link", { name: "/privacy" });
+
+  const fontSizes = await Promise.all(
+    [termsLink, privacyLink].map((link) =>
+      link.evaluate((element) =>
+        Number.parseFloat(window.getComputedStyle(element).fontSize),
+      ),
+    ),
+  );
+
+  for (const fontSize of fontSizes) {
+    expect(fontSize).toBeGreaterThanOrEqual(16);
+  }
+}
+
 async function expectStatusBarInLeftSidebar(
   page: Parameters<typeof test>[0]["page"],
   statusBar: Locator,
@@ -768,6 +785,7 @@ test("public landing keeps legal links in the sidebar rail", async ({
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
   await expectLegalLinksUseLeftSidebarInnerEdge(statusBar);
+  await expectLegalLinksUseReadableTextSize(statusBar);
   await expectStatusBarInLeftSidebar(page, statusBar);
   await expect(
     landingContent.getByRole("link", { name: "/terms" }),
