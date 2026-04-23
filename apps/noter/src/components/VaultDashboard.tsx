@@ -1946,7 +1946,7 @@ export function VaultDashboard() {
       {createError && <div className="text-sm text-red-600">{createError}</div>}
       {!canCreateRepo && (
         <div className="text-xs text-muted-foreground">
-          {`Connect GitHub, Convex, and ${requiredHostingConnectionLabel} to create apps or agents.`}
+          {`Connect GitHub, Convex, and ${requiredHostingConnectionLabel} to create an app.`}
         </div>
       )}
       {showCloudflareCreateWarning && (
