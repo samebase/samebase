@@ -1,0 +1,62 @@
+diff --git a/bin/oxfmt b/bin/oxfmt
+index efae3059a546b3e86163581d658be1c63d2e19c5..7d83be3a0800b1a7be44b787847a8e0e67cc0536 100755
+--- a/bin/oxfmt
++++ b/bin/oxfmt
+@@ -14,6 +14,23 @@ import { createRequire } from 'node:module';
+ import { pathToFileURL } from 'node:url';
+ 
+ const require = createRequire(import.meta.url);
+-const oxfmtBin = require.resolve('oxfmt/bin/oxfmt');
++let oxfmtBin;
++
++try {
++  oxfmtBin = require.resolve('oxfmt/bin/oxfmt', {
++    paths: [process.cwd(), import.meta.dirname],
++  });
++} catch (error) {
++  if (
++    !error ||
++    typeof error !== 'object' ||
++    !('code' in error) ||
++    error.code !== 'ERR_PACKAGE_PATH_NOT_EXPORTED'
++  ) {
++    throw error;
++  }
++
++  oxfmtBin = require.resolve('oxfmt/bin/oxfmt');
++}
+ 
+ await import(pathToFileURL(oxfmtBin).href);
+diff --git a/dist/bin.js b/dist/bin.js
+index e36eb1e3442dba78ed4f162ac002dc2081a76e69..b2d80136a31e505c025a500a63c8fc4cb530ded7 100644
+--- a/dist/bin.js
++++ b/dist/bin.js
+@@ -5,9 +5,19 @@ import { t as resolveUniversalViteConfig } from "./resolve-vite-config-B_w1u1j4.
+ import path, { dirname, join } from "node:path";
+ import { mergeJsonConfig, run } from "../binding/index.js";
+ import fs, { existsSync, realpathSync } from "node:fs";
++import { createRequire } from "node:module";
+ import { fileURLToPath } from "node:url";
+ import { relative } from "node:path/win32";
+ //#region src/resolve-fmt.ts
++const require$1 = createRequire(import.meta.url);
++function resolveFmtBinPath() {
++	try {
++		return resolve$1("oxfmt/bin/oxfmt");
++	} catch (error) {
++		if (error && typeof error === "object" && "code" in error && error.code === "ERR_PACKAGE_PATH_NOT_EXPORTED") return require$1.resolve("oxfmt/bin/oxfmt");
++		throw error;
++	}
++}
+ /**
+ * Oxfmt tool resolver for the vite-plus CLI.
+ *
+@@ -32,7 +42,7 @@ import { relative } from "node:path/win32";
+ */
+ async function fmt() {
+ 	return {
+-		binPath: resolve$1("oxfmt/bin/oxfmt"),
++		binPath: resolveFmtBinPath(),
+ 		envs: { ...DEFAULT_ENVS }
+ 	};
+ }

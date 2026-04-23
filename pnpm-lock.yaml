@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  vite-plus@0.1.16:
+    hash: jxcov45npgayt52awllfbexvki
+    path: patches/vite-plus@0.1.16.patch
+
 importers:
 
   .:
@@ -43,7 +48,7 @@ importers:
         version: 5.9.2
       vite-plus:
         specifier: 0.1.16
-        version: 0.1.16(@opentelemetry/api@1.9.0)(@types/node@20.19.32)(jiti@2.6.1)(jsdom@29.0.1(@noble/hashes@1.8.0))(terser@5.46.0)(tsx@4.21.0)(typescript@5.9.2)(vite@8.0.8(@types/node@20.19.32)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))(yaml@2.8.3)
+        version: 0.1.16(patch_hash=jxcov45npgayt52awllfbexvki)(@opentelemetry/api@1.9.0)(@types/node@20.19.32)(jiti@2.6.1)(jsdom@29.0.1(@noble/hashes@1.8.0))(terser@5.46.0)(tsx@4.21.0)(typescript@5.9.2)(vite@8.0.8(@types/node@20.19.32)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))(yaml@2.8.3)
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@20.19.32)(jsdom@29.0.1(@noble/hashes@1.8.0))(msw@2.13.4(@types/node@20.19.32)(typescript@5.9.2))(vite@8.0.8(@types/node@20.19.32)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))
@@ -293,7 +298,7 @@ importers:
         version: 8.0.8(@types/node@20.19.32)(esbuild@0.27.0)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3)
       vite-plus:
         specifier: 0.1.16
-        version: 0.1.16(@opentelemetry/api@1.9.0)(@types/node@20.19.32)(jiti@2.6.1)(jsdom@29.0.1(@noble/hashes@1.8.0))(terser@5.46.0)(tsx@4.21.0)(typescript@5.9.2)(vite@8.0.8(@types/node@20.19.32)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))(yaml@2.8.3)
+        version: 0.1.16(patch_hash=jxcov45npgayt52awllfbexvki)(@opentelemetry/api@1.9.0)(@types/node@20.19.32)(jiti@2.6.1)(jsdom@29.0.1(@noble/hashes@1.8.0))(terser@5.46.0)(tsx@4.21.0)(typescript@5.9.2)(vite@8.0.8(@types/node@20.19.32)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))(yaml@2.8.3)
 
   apps/noter-starter-template:
     dependencies:
@@ -366,7 +371,7 @@ importers:
         version: 8.0.8(@types/node@20.19.32)(esbuild@0.27.0)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3)
       vite-plus:
         specifier: 0.1.16
-        version: 0.1.16(@opentelemetry/api@1.9.0)(@types/node@20.19.32)(jiti@2.6.1)(jsdom@29.0.1(@noble/hashes@1.8.0))(terser@5.46.0)(tsx@4.21.0)(typescript@5.9.2)(vite@8.0.8(@types/node@20.19.32)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))(yaml@2.8.3)
+        version: 0.1.16(patch_hash=jxcov45npgayt52awllfbexvki)(@opentelemetry/api@1.9.0)(@types/node@20.19.32)(jiti@2.6.1)(jsdom@29.0.1(@noble/hashes@1.8.0))(terser@5.46.0)(tsx@4.21.0)(typescript@5.9.2)(vite@8.0.8(@types/node@20.19.32)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))(yaml@2.8.3)
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@20.19.32)(jsdom@29.0.1(@noble/hashes@1.8.0))(msw@2.13.4(@types/node@20.19.32)(typescript@5.9.2))(vite@8.0.8(@types/node@20.19.32)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))
@@ -12717,7 +12722,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  vite-plus@0.1.16(@opentelemetry/api@1.9.0)(@types/node@20.19.32)(jiti@2.6.1)(jsdom@29.0.1(@noble/hashes@1.8.0))(terser@5.46.0)(tsx@4.21.0)(typescript@5.9.2)(vite@8.0.8(@types/node@20.19.32)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))(yaml@2.8.3):
+  vite-plus@0.1.16(patch_hash=jxcov45npgayt52awllfbexvki)(@opentelemetry/api@1.9.0)(@types/node@20.19.32)(jiti@2.6.1)(jsdom@29.0.1(@noble/hashes@1.8.0))(terser@5.46.0)(tsx@4.21.0)(typescript@5.9.2)(vite@8.0.8(@types/node@20.19.32)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))(yaml@2.8.3):
     dependencies:
       '@oxc-project/types': 0.123.0
       '@voidzero-dev/vite-plus-core': 0.1.16(@types/node@20.19.32)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(typescript@5.9.2)(yaml@2.8.3)
