@@ -27,3 +27,24 @@ test("logo iso controls sidebar", async ({ page }) => {
     maxDiffPixelRatio: 0.06,
   });
 });
+
+test("logo iso controls mobile pane switch", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/logo-iso?isoSide=6", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const workspace = page.locator('[data-workspace-layout-v2="mobile"]');
+  await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
+
+  await page.getByRole("button", { name: "Controls" }).click();
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  await expect(workspace).toHaveAttribute("data-mobile-pane", "left");
+  await expect(controlsSidebar).toContainText("Cube side");
+  await expect(controlsSidebar).toContainText("6px");
+
+  await page.getByRole("button", { name: "Preview" }).click();
+  await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
+  await expect(page.getByRole("button", { name: "Controls" })).toBeVisible();
+});

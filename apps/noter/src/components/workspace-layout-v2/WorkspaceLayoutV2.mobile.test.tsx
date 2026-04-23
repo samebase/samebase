@@ -74,6 +74,7 @@ function renderMobileLayout({
   includeRightPane = true,
   leftMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   mainHeader = OMIT_HEADER,
+  rightPane = true,
   mobilePane,
   rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
 }: {
@@ -327,6 +328,32 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     });
 
     expectMobilePaneSeparatorOwnership(rootElement, "main");
+  });
+
+  it("keeps the left pane addressable on mobile layouts without a right pane", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(
+        renderMobileLayout({
+          mobilePane: "left",
+          includeRightPane: false,
+        }),
+      );
+    });
+
+    expect(
+      rootElement
+        .querySelector("[data-workspace-layout-v2]")
+        ?.getAttribute("data-mobile-pane"),
+    ).toBe("left");
+    expect(
+      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')
+        ?.scrollLeft,
+    ).toBe(0);
   });
 
   it("lets the right sidebar stay borderless while the main pane owns the separator", () => {

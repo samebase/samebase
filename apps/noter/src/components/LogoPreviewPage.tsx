@@ -124,6 +124,11 @@ const RGB_FACE_COLORS: FaceColors = {
   right: "green-500",
   top: "blue-500",
 };
+const COLOR_SWATCH_SIZE_CLASS_NAMES = {
+  default: "h-4 w-4",
+  compact: "h-3.5 w-3.5",
+} as const;
+type ColorSwatchSize = keyof typeof COLOR_SWATCH_SIZE_CLASS_NAMES;
 
 function clampLogoOpacity(value: number): number {
   return Math.min(Math.max(value, MIN_LOGO_OPACITY), MAX_LOGO_OPACITY);
@@ -142,15 +147,18 @@ function parseShuffleParallelMoves(value: string): LogoShuffleParallelMoves {
 
 function ColorSwatch({
   color,
-  sizeClassName = "h-4 w-4",
+  size = "default",
 }: {
   color: string;
-  sizeClassName?: string;
+  size?: ColorSwatchSize;
 }) {
   return (
     <span
       aria-hidden="true"
-      className={`${sizeClassName} shrink-0 border border-border`}
+      className={cn(
+        "shrink-0 border border-border",
+        COLOR_SWATCH_SIZE_CLASS_NAMES[size],
+      )}
       style={{ backgroundColor: color }}
     />
   );
@@ -1140,6 +1148,7 @@ export function LogoPreviewPage({
             </div>
             <div className="flex items-center gap-2">
               <input
+                aria-label={`${rotationAngleControlLabel} slider`}
                 type="range"
                 min="0"
                 max="360"
@@ -1149,6 +1158,7 @@ export function LogoPreviewPage({
                 className="h-2 w-full cursor-pointer accent-[#8a88ac]"
               />
               <Input
+                aria-label={`${rotationAngleControlLabel} value`}
                 type="number"
                 inputMode="decimal"
                 min="0"
@@ -1168,6 +1178,7 @@ export function LogoPreviewPage({
             </div>
             <div className="flex items-center gap-2">
               <input
+                aria-label="Elevation slider"
                 type="range"
                 min={MIN_ELEVATION_DEGREES}
                 max={MAX_ELEVATION_DEGREES}
@@ -1177,6 +1188,7 @@ export function LogoPreviewPage({
                 className="h-2 w-full cursor-pointer accent-[#8a88ac]"
               />
               <Input
+                aria-label="Elevation value"
                 type="number"
                 inputMode="decimal"
                 min={MIN_ELEVATION_DEGREES}
@@ -1196,6 +1208,7 @@ export function LogoPreviewPage({
             </div>
             <div className="flex items-center gap-2">
               <input
+                aria-label="Opacity slider"
                 type="range"
                 min={MIN_LOGO_OPACITY}
                 max={MAX_LOGO_OPACITY}
@@ -1205,6 +1218,7 @@ export function LogoPreviewPage({
                 className="h-2 w-full cursor-pointer accent-[#8a88ac]"
               />
               <Input
+                aria-label="Opacity value"
                 type="number"
                 inputMode="decimal"
                 min={MIN_LOGO_OPACITY}
@@ -1332,7 +1346,7 @@ export function LogoPreviewPage({
             <ColorSwatch
               key={faceColorKey}
               color={getTailwindColorHex(faceColors[faceColorKey])}
-              sizeClassName="h-3.5 w-3.5"
+              size="compact"
             />
           ))}
         </div>
@@ -1349,7 +1363,7 @@ export function LogoPreviewPage({
               <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
                 <ColorSwatch
                   color={getTailwindColorHex(currentToken)}
-                  sizeClassName="h-3.5 w-3.5"
+                  size="compact"
                 />
                 <Label className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
                   {FACE_COLOR_LABELS[faceColorKey]}
