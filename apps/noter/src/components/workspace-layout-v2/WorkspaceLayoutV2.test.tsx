@@ -54,6 +54,29 @@ describe("WorkspaceLayoutV2FullPage", () => {
     );
   });
 
+  it("skips the shared main header row when a route does not provide one", () => {
+    const markup = renderToStaticMarkup(
+      <SidebarProvider defaultRightOpen>
+        <WorkspaceLayoutV2FullPage
+          left={{
+            content: <div>left pane</div>,
+          }}
+          main={{
+            content: <div>main pane</div>,
+          }}
+          right={{
+            content: <div>right pane</div>,
+          }}
+        />
+      </SidebarProvider>,
+    );
+
+    expect(markup).toContain("main pane");
+    expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
+    expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
+    expect(markup).not.toContain('class="h-8 shrink-0"');
+  });
+
   it("disables the shared bottom-panel close button when panel closure is blocked", () => {
     const markup = renderToStaticMarkup(
       <SidebarProvider>

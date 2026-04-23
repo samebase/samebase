@@ -311,9 +311,7 @@ function WorkspaceLayoutV2MobileViewport({
           activeResizeSide === "left" ? "border-primary" : "border-border",
         )}
         style={{
-          maxWidth: `${sidebarMaxWidthPx}px`,
-          minWidth: `${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`,
-          width: "fit-content",
+          width: `${sidebarMaxWidthPx}px`,
         }}
       >
         {leftContent}
@@ -321,10 +319,10 @@ function WorkspaceLayoutV2MobileViewport({
 
       <div
         ref={mainPaneRef}
-        className="h-full min-h-0 shrink-0 snap-start [scroll-snap-stop:always]"
+        className="h-full min-h-0 shrink-0 snap-center [scroll-snap-stop:always]"
         style={{ width: `${paneWidthPx}px` }}
       >
-        <div className="h-full min-h-0 overflow-hidden bg-background">
+        <div className="box-border h-full min-h-0 overflow-hidden border-x border-border bg-background">
           {mainContent}
         </div>
       </div>
@@ -338,9 +336,7 @@ function WorkspaceLayoutV2MobileViewport({
             activeResizeSide === "right" ? "border-primary" : "border-border",
           )}
           style={{
-            maxWidth: `${sidebarMaxWidthPx}px`,
-            minWidth: `${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`,
-            width: "fit-content",
+            width: `${sidebarMaxWidthPx}px`,
           }}
         >
           {rightContent}
@@ -415,9 +411,11 @@ export function WorkspaceLayoutV2FullPage({
           <WorkspaceLayoutV2PaneFrame
             {...main}
             header={
-              <WorkspaceLayoutV2MainPaneHeader showRightToggle={hasRightPane}>
-                {main.header}
-              </WorkspaceLayoutV2MainPaneHeader>
+              main.header === undefined ? undefined : (
+                <WorkspaceLayoutV2MainPaneHeader showRightToggle={hasRightPane}>
+                  {main.header}
+                </WorkspaceLayoutV2MainPaneHeader>
+              )
             }
           />
         }

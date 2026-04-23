@@ -38,6 +38,7 @@ import {
   releaseRefreshDebounce,
 } from "@/lib/treeRefreshDebounce";
 import { useNow } from "@/hooks/useNow";
+import { useSidebar } from "@/hooks/use-sidebar";
 import {
   useAction,
   useMutation,
@@ -122,7 +123,7 @@ const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   leftMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   mobilePane: "main",
-  rightDesktopOpen: false,
+  rightDesktopOpen: true,
   rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
 } satisfies WorkspaceSidebarState;
@@ -174,6 +175,24 @@ const getInfraActionLabel = (
   if (infraState === "failed" || infraState === "partial") return "Retry infra";
   return null;
 };
+
+function VaultDashboardRightSidebarBootstrap() {
+  const { rightDesktopOpen, setRightDesktopOpen } = useSidebar();
+  const didEnsureRightSidebarOpenRef = useRef(false);
+
+  useEffect(() => {
+    // These route links moved into the right rail, so open that rail once even
+    // for older persisted dashboard state that still remembers it as closed.
+    if (didEnsureRightSidebarOpenRef.current || rightDesktopOpen) {
+      return;
+    }
+
+    didEnsureRightSidebarOpenRef.current = true;
+    setRightDesktopOpen(true);
+  }, [rightDesktopOpen, setRightDesktopOpen]);
+
+  return null;
+}
 
 type DaytonaResourceFlags = {
   daytonaSandboxId?: string | null;
@@ -2218,12 +2237,8 @@ export function VaultDashboard() {
     </div>
   );
   const rightSidebarContent = (
-    <div className="flex min-h-0 flex-1 bg-background" />
-  );
-
-  const dashboardHeaderContent = (
-    <div className="flex items-center gap-2">
-      <div className="flex items-center gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-1 px-2 py-2">
+      <div className="flex flex-col items-start gap-1">
         <Button variant="link" size="sm" className="h-6 px-2" asChild>
           <Link to={MACHINES_ROUTE}>{MACHINES_ROUTE}</Link>
         </Button>
@@ -2262,6 +2277,7 @@ export function VaultDashboard() {
         defaultState={DASHBOARD_SIDEBAR_DEFAULT_STATE}
         workspaceKey="dashboard"
       >
+        <VaultDashboardRightSidebarBootstrap />
         <WorkspaceLayoutV2FullPage
           left={{
             header: <UserMenu>{userDisplayName || "unknown"}</UserMenu>,
@@ -2269,7 +2285,6 @@ export function VaultDashboard() {
             footer: <AppSidebarMetaSection />,
           }}
           main={{
-            header: dashboardHeaderContent,
             content: dashboardBody,
           }}
           panel={
