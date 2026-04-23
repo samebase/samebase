@@ -608,6 +608,8 @@ export function WorkspaceLayoutV2JustPanes({
   const resolvedRightContent = renderPaneContent(right);
   const hasAlignedInitialMobilePaneRef = useRef(false);
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
+  const activeMobileGripResizeSideRef = useRef<"left" | "right" | null>(null);
+  const [mobileGripSlideOffsetPx, setMobileGripSlideOffsetPx] = useState(0);
 
   useEffect(() => {
     if (isMobile) {
@@ -616,6 +618,8 @@ export function WorkspaceLayoutV2JustPanes({
 
     hasAlignedInitialMobilePaneRef.current = false;
     scrollDerivedMobilePaneRef.current = null;
+    activeMobileGripResizeSideRef.current = null;
+    setMobileGripSlideOffsetPx(0);
     setIsMobilePaneSettled(true);
   }, [isMobile]);
 
@@ -626,6 +630,9 @@ export function WorkspaceLayoutV2JustPanes({
   useLayoutEffect(() => {
     const carouselNode = mobileCarouselRef.current;
     if (!isMobile || carouselNode === null || mobilePaneWidthPx <= 0) {
+      return;
+    }
+    if (activeMobileGripResizeSideRef.current !== null) {
       return;
     }
 
@@ -674,6 +681,10 @@ export function WorkspaceLayoutV2JustPanes({
 
     let settleTimeoutId: number | null = null;
     const syncPaneFromScroll = () => {
+      if (activeMobileGripResizeSideRef.current !== null) {
+        return;
+      }
+
       const nextPane = getMobilePaneFromScrollLeft({
         hasRightPane,
         leftWidthPx: mobileLeftWidthPx,
@@ -828,6 +839,23 @@ export function WorkspaceLayoutV2JustPanes({
     resizeHandle: WorkspaceLayoutV2ResizeHandleConfig,
     pointerTarget: "edge" | "grip",
   ) {
+    const gripSlidePositionPx =
+      pointerTarget === "grip" &&
+      activeMobileGripResizeSideRef.current === resizeHandle.side
+        ? resizeHandle.side === "left"
+          ? clampNumber(
+              resizeHandle.positionPx - mobileGripSlideOffsetPx,
+              MOBILE_PANE_PEEK_PX,
+              resizeHandle.positionPx,
+            )
+          : clampNumber(
+              resizeHandle.positionPx + mobileGripSlideOffsetPx,
+              resizeHandle.positionPx,
+              Math.max(MOBILE_PANE_PEEK_PX, viewportSize.widthPx) -
+                MOBILE_PANE_PEEK_PX,
+            )
+        : resizeHandle.positionPx;
+
     return (
       <WorkspaceLayoutV2ResizeHandle
         key={resizeHandle.side}
@@ -836,37 +864,82 @@ export function WorkspaceLayoutV2JustPanes({
         minSizePx={resizeHandle.minWidthPx}
         maxSizePx={resizeHandle.maxWidthPx}
         pointerTarget={pointerTarget}
-        positionPx={resizeHandle.positionPx}
+        positionPx={gripSlidePositionPx}
         resizeFrom={resizeHandle.side}
         onResizeStart={() => {
+          if (pointerTarget === "grip") {
+            activeMobileGripResizeSideRef.current = resizeHandle.side;
+            setMobileGripSlideOffsetPx(0);
+            mobileCarouselRef.current?.style.setProperty(
+              "scroll-snap-type",
+              "none",
+            );
+          }
           setActiveResizeSide(resizeHandle.side);
         }}
         onResizeEnd={() => {
+          if (pointerTarget === "grip") {
+            activeMobileGripResizeSideRef.current = null;
+            setMobileGripSlideOffsetPx(0);
+          }
+          const carouselNode = mobileCarouselRef.current;
+          carouselNode?.style.removeProperty("scroll-snap-type");
+          carouselNode?.dispatchEvent(new Event("scroll", { bubbles: true }));
           setActiveResizeSide(null);
         }}
-        onResizeCollapseIntent={
+        onRawSizeChange={
           pointerTarget === "grip"
-            ? () => {
+            ? (rawWidthPx: number) => {
                 const carouselNode = mobileCarouselRef.current;
-                if (carouselNode !== null) {
-                  carouselNode.scrollLeft = getMobilePaneScrollLeftPx("main", {
-                    hasRightPane,
-                    leftWidthPx:
-                      resizeHandle.side === "left"
-                        ? resizeHandle.minWidthPx
-                        : mobileLeftWidthPx,
-                    mainWidthPx: mobilePaneWidthPx,
-                    rightWidthPx:
-                      resizeHandle.side === "right"
-                        ? resizeHandle.minWidthPx
-                        : mobileRightWidthPx,
-                    viewportWidthPx: viewportSize.widthPx,
-                  });
+                if (carouselNode === null) {
+                  return;
                 }
-                scrollDerivedMobilePaneRef.current = null;
-                setIsMobilePaneSettled(true);
-                setActiveResizeSide(null);
-                setMobilePane("main");
+
+                const clampedRawWidthPx = clampNumber(
+                  Math.round(rawWidthPx),
+                  resizeHandle.minWidthPx,
+                  resizeHandle.maxWidthPx,
+                );
+                const scrollOffsetArgs = {
+                  hasRightPane,
+                  leftWidthPx:
+                    resizeHandle.side === "left"
+                      ? clampedRawWidthPx
+                      : mobileLeftWidthPx,
+                  mainWidthPx: mobilePaneWidthPx,
+                  rightWidthPx:
+                    resizeHandle.side === "right"
+                      ? clampedRawWidthPx
+                      : mobileRightWidthPx,
+                  viewportWidthPx: viewportSize.widthPx,
+                };
+                const sidebarScrollLeftPx = getMobilePaneScrollLeftPx(
+                  resizeHandle.side,
+                  scrollOffsetArgs,
+                );
+                const mainScrollLeftPx = getMobilePaneScrollLeftPx(
+                  "main",
+                  scrollOffsetArgs,
+                );
+                const pastMinimumPx = Math.max(
+                  0,
+                  resizeHandle.minWidthPx - rawWidthPx,
+                );
+                const nextScrollLeftPx =
+                  resizeHandle.side === "left"
+                    ? Math.min(
+                        mainScrollLeftPx,
+                        sidebarScrollLeftPx + pastMinimumPx,
+                      )
+                    : Math.max(
+                        mainScrollLeftPx,
+                        sidebarScrollLeftPx - pastMinimumPx,
+                      );
+
+                carouselNode.scrollLeft = nextScrollLeftPx;
+                setMobileGripSlideOffsetPx(
+                  Math.abs(nextScrollLeftPx - sidebarScrollLeftPx),
+                );
               }
             : undefined
         }

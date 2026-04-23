@@ -1042,6 +1042,7 @@ test.describe("mobile landing dev toggle", () => {
       touchPoints: [touchPoint],
     });
     for (const step of [1, 2, 3, 4]) {
+      await page.waitForTimeout(16);
       await session.send("Input.dispatchTouchEvent", {
         timestamp: (gestureStartTimeMs + step * 16) / 1000,
         type: "touchMove",

@@ -100,9 +100,9 @@ type WorkspaceLayoutV2ResizeHandleProps = {
   minSizePx: number;
   onBlur?: () => void;
   onFocus?: () => void;
-  onResizeCollapseIntent?: () => void;
   onResizeEnd?: () => void;
   onResizeStart?: () => void;
+  onRawSizeChange?: (rawSizePx: number) => void;
   onSizeChange: (sizePx: number) => void;
   pointerTarget?: "edge" | "grip";
   positionPx: number;
@@ -122,9 +122,9 @@ export function WorkspaceLayoutV2ResizeHandle({
   minSizePx,
   onBlur,
   onFocus,
-  onResizeCollapseIntent,
   onResizeEnd,
   onResizeStart,
+  onRawSizeChange,
   onSizeChange,
   pointerTarget = "edge",
   positionPx,
@@ -134,7 +134,6 @@ export function WorkspaceLayoutV2ResizeHandle({
     startClientPx: number;
     startSizePx: number;
   } | null>(null);
-  const hasCommittedCollapseIntentRef = useRef(false);
   const keyboardResizeTimeoutRef = useRef<number | null>(null);
   const [isResizing, setIsResizing] = useState(false);
 
@@ -168,22 +167,10 @@ export function WorkspaceLayoutV2ResizeHandle({
 
   const commitSizeChange = useCallback(
     (nextSizePx: number) => {
-      if (
-        onResizeCollapseIntent !== undefined &&
-        // Once the pointer keeps moving well beyond the clamped minimum, treat
-        // the gesture as a pane slide-away intent instead of a finer resize.
-        nextSizePx <= minSizePx / 2 &&
-        !hasCommittedCollapseIntentRef.current
-      ) {
-        hasCommittedCollapseIntentRef.current = true;
-        onSizeChange(minSizePx);
-        onResizeCollapseIntent();
-        return;
-      }
-
       onSizeChange(clampSizePx(nextSizePx, minSizePx, maxSizePx));
+      onRawSizeChange?.(nextSizePx);
     },
-    [maxSizePx, minSizePx, onResizeCollapseIntent, onSizeChange],
+    [maxSizePx, minSizePx, onRawSizeChange, onSizeChange],
   );
 
   const stopResizing = useCallback(() => {
@@ -204,7 +191,6 @@ export function WorkspaceLayoutV2ResizeHandle({
         startClientPx: resizeFrom === "top" ? event.clientY : event.clientX,
         startSizePx: currentSizePx,
       };
-      hasCommittedCollapseIntentRef.current = false;
       setIsResizing(true);
       onResizeStart?.();
       event.currentTarget.setPointerCapture(event.pointerId);
