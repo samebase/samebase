@@ -22,7 +22,10 @@ This is a current-state architecture memo, not an accepted implementation plan.
 It compares alternatives and recommends a direction, but it is not yet the
 repo's final scripting contract.
 
-## Repo Findings
+## Repo Findings At The Time
+
+The findings below capture the repo state that triggered this memo on
+2026-04-01. They are historical context, not the current hook/config contract.
 
 The main issue is not Husky itself. The problem is the shell language used by
 the commands Husky calls.

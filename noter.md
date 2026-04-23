@@ -13,7 +13,7 @@ simpleView:
     - tsconfig.base.json
     - Makefile
     - Dockerfile.daytona-deps
-    - "**/pre-commit" # Git hooks like .husky/pre-commit
+    - "**/pre-commit" # Git hooks like .vite-hooks/pre-commit
     - "**/.*" # Dotfiles and dotfolders
     - "**/.*/**" # Files inside dotfolders
     - "**/_redirects"

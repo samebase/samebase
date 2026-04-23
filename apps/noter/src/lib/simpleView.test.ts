@@ -278,13 +278,13 @@ simpleView:
     const parsed = parseSimpleViewConfig(`\uFEFF---
 simpleView:
   exclude:
-    - .husky/pre-commit
+    - .vite-hooks/pre-commit
 ---
 content
 `);
 
     expect(parsed.hasValidConfig).toBe(true);
-    expect(parsed.excludePatterns).toEqual([".husky/pre-commit"]);
+    expect(parsed.excludePatterns).toEqual([".vite-hooks/pre-commit"]);
   });
 
   it("fails validation when exclude is not an array", () => {
@@ -332,8 +332,8 @@ simpleView:
 
 describe("filterSimpleViewTreeItems", () => {
   const tree = [
-    { path: ".husky", type: "tree" as const },
-    { path: ".husky/pre-commit", type: "blob" as const },
+    { path: ".vite-hooks", type: "tree" as const },
+    { path: ".vite-hooks/pre-commit", type: "blob" as const },
     { path: "src", type: "tree" as const },
     { path: "src/main.tsx", type: "blob" as const },
     { path: "docs", type: "tree" as const },
@@ -348,8 +348,8 @@ describe("filterSimpleViewTreeItems", () => {
   it("excludes matching files and prunes empty folders", () => {
     const filtered = filterSimpleViewTreeItems(tree, ["src/**"]);
     expect(filtered).toEqual([
-      { path: ".husky", type: "tree" },
-      { path: ".husky/pre-commit", type: "blob" },
+      { path: ".vite-hooks", type: "tree" },
+      { path: ".vite-hooks/pre-commit", type: "blob" },
       { path: "docs", type: "tree" },
       { path: "docs/guide.md", type: "blob" },
       { path: "tsconfig.base.json", type: "blob" },
@@ -364,10 +364,12 @@ describe("filterSimpleViewTreeItems", () => {
   });
 
   it("matches nested hook files with explicit directory pattern", () => {
-    const filtered = filterSimpleViewTreeItems(tree, [".husky/pre-commit"]);
-    expect(filtered.some((item) => item.path === ".husky/pre-commit")).toBe(
-      false,
-    );
+    const filtered = filterSimpleViewTreeItems(tree, [
+      ".vite-hooks/pre-commit",
+    ]);
+    expect(
+      filtered.some((item) => item.path === ".vite-hooks/pre-commit"),
+    ).toBe(false);
   });
 
   it("keeps always-included files even when simple-view rules exclude them", () => {
@@ -376,8 +378,8 @@ describe("filterSimpleViewTreeItems", () => {
     });
 
     expect(filtered).toEqual([
-      { path: ".husky", type: "tree" },
-      { path: ".husky/pre-commit", type: "blob" },
+      { path: ".vite-hooks", type: "tree" },
+      { path: ".vite-hooks/pre-commit", type: "blob" },
       { path: "src", type: "tree" },
       { path: "src/main.tsx", type: "blob" },
       { path: "docs", type: "tree" },
@@ -408,9 +410,9 @@ describe("filterSimpleViewTreeItems", () => {
 
   it("does not treat basename-only pattern as recursive", () => {
     const filtered = filterSimpleViewTreeItems(tree, ["pre-commit"]);
-    expect(filtered.some((item) => item.path === ".husky/pre-commit")).toBe(
-      true,
-    );
+    expect(
+      filtered.some((item) => item.path === ".vite-hooks/pre-commit"),
+    ).toBe(true);
   });
 });
 
@@ -425,7 +427,8 @@ describe("filterSimpleViewTreeItems with repository structure", () => {
     ).toBe(true);
     expect(
       repositoryTreeItems.some(
-        (item) => item.path === ".husky/pre-commit" && item.type === "blob",
+        (item) =>
+          item.path === ".vite-hooks/pre-commit" && item.type === "blob",
       ),
     ).toBe(true);
   });
@@ -442,24 +445,26 @@ describe("filterSimpleViewTreeItems with repository structure", () => {
     ).toBe(false);
   });
 
-  it("requires path-aware pattern to hide .husky/pre-commit", () => {
+  it("requires path-aware pattern to hide .vite-hooks/pre-commit", () => {
     const basenamePatternFiltered = filterSimpleViewTreeItems(
       repositoryTreeItems,
       ["pre-commit"],
     );
     expect(
       basenamePatternFiltered.some(
-        (item) => item.path === ".husky/pre-commit" && item.type === "blob",
+        (item) =>
+          item.path === ".vite-hooks/pre-commit" && item.type === "blob",
       ),
     ).toBe(true);
 
     const explicitPathFiltered = filterSimpleViewTreeItems(
       repositoryTreeItems,
-      [".husky/pre-commit"],
+      [".vite-hooks/pre-commit"],
     );
     expect(
       explicitPathFiltered.some(
-        (item) => item.path === ".husky/pre-commit" && item.type === "blob",
+        (item) =>
+          item.path === ".vite-hooks/pre-commit" && item.type === "blob",
       ),
     ).toBe(false);
   });
@@ -488,9 +493,9 @@ describe("current noter.md config with repository tree", () => {
     expect(filtered.some((item) => item.path === "tsconfig.base.json")).toBe(
       false,
     );
-    expect(filtered.some((item) => item.path === ".husky/pre-commit")).toBe(
-      false,
-    );
+    expect(
+      filtered.some((item) => item.path === ".vite-hooks/pre-commit"),
+    ).toBe(false);
     expect(
       filtered.some(
         (item) => item.path === "apps/noter/src/components/Untitled-1.md",
