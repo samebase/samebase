@@ -33,7 +33,6 @@ import {
   releaseRefreshDebounce,
 } from "@/lib/treeRefreshDebounce";
 import { useNow } from "@/hooks/useNow";
-import { useSidebar } from "@/hooks/use-sidebar";
 import {
   useAction,
   useMutation,
@@ -159,24 +158,6 @@ const getInfraActionLabel = (
   if (infraState === "failed" || infraState === "partial") return "Retry infra";
   return null;
 };
-
-function VaultDashboardRightSidebarBootstrap() {
-  const { rightDesktopOpen, setRightDesktopOpen } = useSidebar();
-  const didEnsureRightSidebarOpenRef = useRef(false);
-
-  useEffect(() => {
-    // These route links moved into the right rail, so open that rail once even
-    // for older persisted dashboard state that still remembers it as closed.
-    if (didEnsureRightSidebarOpenRef.current || rightDesktopOpen) {
-      return;
-    }
-
-    didEnsureRightSidebarOpenRef.current = true;
-    setRightDesktopOpen(true);
-  }, [rightDesktopOpen, setRightDesktopOpen]);
-
-  return null;
-}
 
 type DaytonaResourceFlags = {
   daytonaSandboxId?: string | null;
@@ -2246,7 +2227,6 @@ export function VaultDashboard() {
         defaultState={DASHBOARD_SIDEBAR_DEFAULT_STATE}
         workspaceKey="dashboard"
       >
-        <VaultDashboardRightSidebarBootstrap />
         <WorkspaceLayoutV2FullPage
           left={{
             header: <UserMenu>{userDisplayName || "unknown"}</UserMenu>,
@@ -2254,6 +2234,7 @@ export function VaultDashboard() {
             footer: <AppSidebarMetaSection />,
           }}
           main={{
+            header: null,
             content: dashboardBody,
           }}
           panel={

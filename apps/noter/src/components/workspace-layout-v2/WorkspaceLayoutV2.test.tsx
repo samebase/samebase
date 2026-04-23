@@ -77,6 +77,29 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).not.toContain('class="h-8 shrink-0"');
   });
 
+  it("keeps desktop sidebar toggles when a route intentionally uses an empty header", () => {
+    const markup = renderToStaticMarkup(
+      <SidebarProvider defaultRightOpen>
+        <WorkspaceLayoutV2FullPage
+          left={{
+            content: <div>left pane</div>,
+          }}
+          main={{
+            header: null,
+            content: <div>main pane</div>,
+          }}
+          right={{
+            content: <div>right pane</div>,
+          }}
+        />
+      </SidebarProvider>,
+    );
+
+    expect(markup).toContain('aria-label="Toggle Left Sidebar"');
+    expect(markup).toContain('aria-label="Toggle Right Sidebar"');
+    expect(markup).toContain('class="h-8 shrink-0"');
+  });
+
   it("disables the shared bottom-panel close button when panel closure is blocked", () => {
     const markup = renderToStaticMarkup(
       <SidebarProvider>
