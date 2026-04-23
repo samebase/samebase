@@ -171,19 +171,6 @@ function getMobilePaneScrollOffsets(args: {
     );
 }
 
-function getMobilePaneScrollLeft(args: {
-  hasRightPane: boolean;
-  leftNode: HTMLDivElement | null;
-  mainNode: HTMLDivElement | null;
-  pane: MobilePane;
-  rightNode: HTMLDivElement | null;
-}) {
-  const paneOffsets = getMobilePaneScrollOffsets(args);
-  const matchingPane = paneOffsets.find(({ pane }) => pane === args.pane);
-
-  return matchingPane?.scrollLeftPx ?? 0;
-}
-
 function getMobilePaneFromScrollLeft(args: {
   hasRightPane: boolean;
   leftNode: HTMLDivElement | null;
@@ -522,26 +509,6 @@ export function WorkspaceLayoutV2JustPanes({
   const resolvedLeftContent = renderPaneContent(left);
   const resolvedMainContent = renderPaneContent(main);
   const resolvedRightContent = renderPaneContent(right);
-
-  useLayoutEffect(() => {
-    const carouselNode = mobileCarouselRef.current;
-    if (!isMobile || !carouselNode || viewportSize.widthPx <= 0) {
-      return;
-    }
-
-    const nextScrollLeftPx = getMobilePaneScrollLeft({
-      hasRightPane,
-      leftNode: mobileLeftPaneRef.current,
-      mainNode: mobileMainPaneRef.current,
-      pane: mobilePane,
-      rightNode: mobileRightPaneRef.current,
-    });
-    if (Math.abs(carouselNode.scrollLeft - nextScrollLeftPx) > 1) {
-      // Mobile pane toggles should feel immediate; touch drags still settle via
-      // the browser's native scroll-snap behavior.
-      carouselNode.scrollLeft = nextScrollLeftPx;
-    }
-  }, [hasRightPane, isMobile, mobilePane, viewportSize.widthPx]);
 
   useEffect(() => {
     const carouselNode = mobileCarouselRef.current;
