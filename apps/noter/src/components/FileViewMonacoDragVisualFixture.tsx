@@ -27,7 +27,7 @@ export const fixtureNotes = {
 
 const FIXTURE_VAULT_KEY = "fixture-monaco-pane-drag-vault";
 const FIXTURE_OXFMT_CONFIG = `{
-  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "$schema": "https://cdn.jsdelivr.net/npm/oxfmt/configuration_schema.json",
   "printWidth": 80,
   "proseWrap": "always",
   "sortPackageJson": false

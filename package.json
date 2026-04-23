@@ -36,8 +36,8 @@
     "lint": "pnpm run check",
     "lint:ci": "pnpm run check:ci",
     "ci:convex-bootstrap": "CONVEX_AGENT_MODE=anonymous pnpm --filter noter exec convex dev --until-success --typecheck=disable --tail-logs=disable",
-    "format": "oxfmt",
-    "format:check": "oxfmt --check",
+    "format": "vp fmt",
+    "format:check": "vp fmt --check",
     "preview": "vp run --filter noter preview",
     "export:pitch-deck:pdf": "pnpm --filter noter build:ci && node scripts/export-pitch-deck.ts",
     "clean": "rm -rf .turbo .vite coverage test-results apps/noter/dist apps/noter/dev-dist apps/noter/e2e/test-results apps/noter/e2e/live-test-results apps/noter-starter-template/dist",
@@ -60,7 +60,7 @@
     "daytona:runtime:check": "node scripts/render-daytona-runtime.ts --check",
     "fixtures:update": "node ./scripts/update-simple-view-fixtures.ts",
     "killport": "node ./scripts/killport.ts",
-    "lint:scripts": "pnpm exec oxlint --config .oxlintrc.json --tsconfig tsconfig.scripts.json --report-unused-disable-directives runtime scripts .devcontainer/postcreate.ts apps/noter/scripts apps/noter-agent-template/scripts apps/noter-starter-template/scripts apps/noter-starter-template/.devcontainer/postcreate.ts apps/noter/tailwind.config.ts apps/noter-starter-template/tailwind.config.ts",
+    "lint:scripts": "pnpm exec vp lint --config .oxlintrc.json --tsconfig tsconfig.scripts.json --report-unused-disable-directives runtime scripts .devcontainer/postcreate.ts apps/noter/scripts apps/noter-agent-template/scripts apps/noter-starter-template/scripts apps/noter-starter-template/.devcontainer/postcreate.ts apps/noter/tailwind.config.ts apps/noter-starter-template/tailwind.config.ts",
     "playwright:open": "node ./scripts/playwright-session.ts open",
     "playwright:record:start": "node ./scripts/playwright-session.ts record-start",
     "playwright:record:stop": "node ./scripts/playwright-session.ts record-stop",
@@ -78,9 +78,6 @@
     "eslint-plugin-noter-local": "workspace:*",
     "eslint-plugin-react-refresh": "^0.4.7",
     "husky": "^9.1.7",
-    "oxfmt": "0.44.0",
-    "oxlint": "^1.59.0",
-    "oxlint-tsgolint": "^0.20.0",
     "typescript": "5.9.2",
     "vite-plus": "0.1.16",
     "vitest": "^4.1.4"
@@ -89,10 +86,5 @@
     "node": ">=24.0.0",
     "pnpm": ">=9.0.0"
   },
-  "packageManager": "pnpm@9.15.0",
-  "pnpm": {
-    "patchedDependencies": {
-      "vite-plus@0.1.16": "patches/vite-plus@0.1.16.patch"
-    }
-  }
+  "packageManager": "pnpm@9.15.0"
 }

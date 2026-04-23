@@ -4,13 +4,14 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
-const oxfmtConfigPath = path.join(repoRoot, ".oxfmtrc.json");
 
 /**
  * Keep generated files aligned with the checked-in formatter config instead of
- * duplicating formatting options across build scripts and tests.
+ * duplicating formatting options across build scripts and tests. The repo uses
+ * `vp fmt` as the formatter entrypoint so generated output stays aligned with
+ * the shipped Vite+ toolchain.
  */
-export function formatWithOxfmt(
+export function formatWithVpFmt(
   filePath: string,
   contents: string,
 ): Promise<string> {
@@ -23,9 +24,8 @@ export function formatWithOxfmt(
       "pnpm",
       [
         "exec",
-        "oxfmt",
-        "--config",
-        oxfmtConfigPath,
+        "vp",
+        "fmt",
         `--stdin-filepath=${filePath}`,
       ],
       {
@@ -51,7 +51,7 @@ export function formatWithOxfmt(
       if (code !== 0) {
         reject(
           new Error(
-            stderr.trim() || `oxfmt exited with code ${code ?? "unknown"}`,
+            stderr.trim() || `vp fmt exited with code ${code ?? "unknown"}`,
           ),
         );
         return;
