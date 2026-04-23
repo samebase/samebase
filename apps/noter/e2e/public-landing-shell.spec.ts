@@ -370,7 +370,7 @@ async function expectLegalLinksUseLeftSidebarInnerEdge(statusBar: Locator) {
     return;
   }
 
-  const expectedRightEdge = statusBarBox.x + statusBarBox.width - 12;
+  const expectedRightEdge = statusBarBox.x + statusBarBox.width - 4;
   for (const childBox of [termsBox, privacyBox, versionBox]) {
     expect(
       Math.abs(childBox.x + childBox.width - expectedRightEdge),
