@@ -305,14 +305,10 @@ async function runLandingDemo(options: LandingDemoOptions) {
 
     await focusChromeWindow(coords.windowFrame);
 
-    backdropProcess = spawn(
-      backdropBin,
-      ["--ready-file", backdropReadyFile],
-      {
-        cwd: REPO_ROOT,
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
+    backdropProcess = spawn(backdropBin, ["--ready-file", backdropReadyFile], {
+      cwd: REPO_ROOT,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
 
     await waitForFile(backdropReadyFile, 4_000);
     await focusChromeWindow(coords.windowFrame);

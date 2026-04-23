@@ -301,7 +301,9 @@ describe("lint config", () => {
     });
     expect(rootPackage.devDependencies?.oxlint).toBeUndefined();
     expect(rootPackage.devDependencies?.["oxlint-tsgolint"]).toBeUndefined();
-    expect(rootPackage.scripts?.["lint:scripts"]).toContain("pnpm exec vp lint");
+    expect(rootPackage.scripts?.["lint:scripts"]).toContain(
+      "pnpm exec vp lint",
+    );
     expect(appPackage.scripts?.check).toContain("pnpm run lint:vp");
     expect(appPackage.scripts?.lint).toContain("pnpm run check");
     expect(appPackage.scripts?.["lint:vp"]).toContain("exec vp lint");

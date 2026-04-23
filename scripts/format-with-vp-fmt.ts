@@ -22,12 +22,7 @@ export function formatWithVpFmt(
   return new Promise((resolve, reject) => {
     const child = spawn(
       "pnpm",
-      [
-        "exec",
-        "vp",
-        "fmt",
-        `--stdin-filepath=${filePath}`,
-      ],
+      ["exec", "vp", "fmt", `--stdin-filepath=${filePath}`],
       {
         cwd: repoRoot,
         env: process.env,
