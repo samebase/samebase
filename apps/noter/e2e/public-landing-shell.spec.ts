@@ -760,7 +760,7 @@ test.describe("mobile landing dev toggle", () => {
     expect(scrollTop.shellScrollTop).toBe(0);
   });
 
-  test("landing does not reserve a mobile right pane when the route omits one", async ({
+  test("landing keeps the left mobile sidebar resizable without a right pane", async ({
     page,
   }) => {
     await page.goto("/", { waitUntil: "networkidle" });
@@ -782,20 +782,10 @@ test.describe("mobile landing dev toggle", () => {
       if (!(mainPane instanceof HTMLElement)) {
         throw new Error("Expected main pane");
       }
-      if (!(rightPane instanceof HTMLElement)) {
-        throw new Error("Expected right pane");
-      }
-
-      const rightPaneFrame = rightPane.firstElementChild;
-
-      if (!(rightPaneFrame instanceof HTMLElement)) {
-        throw new Error("Expected right pane frame");
-      }
 
       return {
         mainRightPx: mainPane.getBoundingClientRect().right,
-        rightBorderLeftWidth: getComputedStyle(rightPaneFrame).borderLeftWidth,
-        rightWidthPx: rightPane.getBoundingClientRect().width,
+        rightPaneCount: rightPane === null ? 0 : 1,
         shellRightPx: shell.getBoundingClientRect().right,
       };
     });
@@ -803,8 +793,22 @@ test.describe("mobile landing dev toggle", () => {
     expect(Math.round(paneGeometry.mainRightPx)).toBe(
       Math.round(paneGeometry.shellRightPx),
     );
-    expect(Math.round(paneGeometry.rightWidthPx)).toBe(0);
-    expect(paneGeometry.rightBorderLeftWidth).toBe("0px");
+    expect(paneGeometry.rightPaneCount).toBe(0);
+
+    await page
+      .getByTestId("workspace-layout-v2-pane-main")
+      .evaluate((element) => {
+        element.style.scrollSnapType = "none";
+        element.scrollLeft = 24;
+        element.dispatchEvent(new Event("scroll", { bubbles: true }));
+      });
+
+    await expect(
+      page.locator('[data-workspace-layout-v2="mobile"]'),
+    ).toHaveAttribute("data-mobile-pane", "left");
+    await expect(
+      page.getByTestId("workspace-layout-v2-left-resize"),
+    ).toHaveCount(1);
   });
 
   test("landing dev toggle keeps the landing card stable frame by frame", async ({

@@ -68,11 +68,13 @@ HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
 };
 
 function renderMobileLayout({
+  includeRightPane = true,
   leftMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   mainHeader = OMIT_HEADER,
   mobilePane,
   rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
 }: {
+  includeRightPane?: boolean;
   leftMobileWidthPx?: number;
   mainHeader?: React.ReactNode | typeof OMIT_HEADER;
   mobilePane?: "left" | "main" | "right";
@@ -101,9 +103,13 @@ function renderMobileLayout({
           content: <div>left pane</div>,
         }}
         main={mainProps}
-        right={{
-          content: <div>right pane</div>,
-        }}
+        right={
+          includeRightPane
+            ? {
+                content: <div>right pane</div>,
+              }
+            : undefined
+        }
       />
     </SidebarProvider>
   );
@@ -356,6 +362,46 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(leftPane.style.width).toBe("220px");
     expect(leftHandle.getAttribute("aria-valuemin")).toBe("48");
     expect(leftHandle.getAttribute("aria-valuemax")).toBe("342");
+    expect(leftHandle.getAttribute("aria-valuenow")).toBe("220");
+    expect(leftHandle.parentElement?.style.left).toBe("220px");
+    expect(
+      rootElement.querySelector(
+        '[data-testid="workspace-layout-v2-right-resize"]',
+      ),
+    ).toBeNull();
+  });
+
+  it("renders a mobile resize grip on a left-only route", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(
+        renderMobileLayout({
+          includeRightPane: false,
+          leftMobileWidthPx: 220,
+          mobilePane: "left",
+        }),
+      );
+    });
+
+    const leftPane = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-pane-left"]',
+    );
+    const leftHandle = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-left-resize"]',
+    );
+
+    expect(
+      rootElement
+        .querySelector("[data-workspace-layout-v2]")
+        ?.getAttribute("data-mobile-pane"),
+    ).toBe("left");
+    expect(leftPane.style.width).toBe("220px");
     expect(leftHandle.getAttribute("aria-valuenow")).toBe("220");
     expect(leftHandle.parentElement?.style.left).toBe("220px");
     expect(

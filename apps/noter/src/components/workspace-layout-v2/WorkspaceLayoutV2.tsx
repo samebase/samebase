@@ -557,7 +557,8 @@ export function WorkspaceLayoutV2JustPanes({
     setRightMobileWidthPx,
   } = useSidebar();
   const hasRightPane = right !== null && right !== undefined;
-  const mobilePane = hasRightPane ? rawMobilePane : "main";
+  const mobilePane =
+    !hasRightPane && rawMobilePane === "right" ? "main" : rawMobilePane;
   const setMobilePaneRef = useRef(setMobilePane);
 
   const desktopLeftWidthPx = getDesktopSidebarWidthPx({
