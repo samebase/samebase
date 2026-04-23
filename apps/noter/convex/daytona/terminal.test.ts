@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 
 import { DAYTONA_CODEX_HOME } from "./sandboxUser";
 import { DAYTONA_PAUSED_MESSAGE } from "../../shared/daytonaPause";

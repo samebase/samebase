@@ -30,7 +30,6 @@ export default defineConfig({
       "**/dist",
       "**/.codespace-agent/**",
       "**/convex/_generated",
-      "**/vite.config.ts",
       "apps/noter/public/noter.ts",
       "**/src/components/ui",
     ],

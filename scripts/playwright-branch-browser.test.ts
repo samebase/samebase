@@ -1,7 +1,7 @@
 import path from "node:path";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   buildPlaywrightCliConfig,
   buildDerivedSessionName,

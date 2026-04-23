@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   clampWorkspaceMobileSidebarWidthPx,
   DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,

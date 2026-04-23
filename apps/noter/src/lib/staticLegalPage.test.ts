@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { PRIVACY_PAGE_METADATA, TERMS_PAGE_METADATA } from "./pageMetadata";
 import { renderStaticLegalPageHtml } from "./staticLegalPage";

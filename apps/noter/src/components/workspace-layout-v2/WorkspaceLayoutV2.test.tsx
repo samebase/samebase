@@ -1,6 +1,6 @@
 import { SidebarProvider } from "@/components/sidebar";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2";
 
 describe("WorkspaceLayoutV2FullPage", () => {

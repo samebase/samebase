@@ -2,7 +2,7 @@ import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   filterSimpleViewTreeItems,
@@ -22,7 +22,7 @@ type TreeItem = {
 const UPDATE_SIMPLE_VIEW_FIXTURES =
   process.env.UPDATE_SIMPLE_VIEW_FIXTURES === "1";
 // Regenerate fixtures with:
-// UPDATE_SIMPLE_VIEW_FIXTURES=1 pnpm exec vitest run apps/noter/src/lib/simpleView.test.ts
+// UPDATE_SIMPLE_VIEW_FIXTURES=1 pnpm exec vp test run apps/noter/src/lib/simpleView.test.ts
 
 function getRepositoryRoot(): string {
   return fileURLToPath(new URL("../../../../", import.meta.url));

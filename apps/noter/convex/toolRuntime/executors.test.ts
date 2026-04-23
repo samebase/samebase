@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { executeRuntimeTool } from "./executors";
 import type { ResolvedToolContext } from "./types";

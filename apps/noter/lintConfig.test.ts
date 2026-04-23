@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import repoViteConfig from "../../vite.config.ts";
 
 const appDir = fileURLToPath(new URL("./", import.meta.url));
@@ -213,12 +213,14 @@ function readRootFmtConfig(): JsonRecord {
 }
 
 function readRootStagedConfig(): Record<string, string> {
-  return (
-    readOptionalStringRecord(
-      readRootViteConfig()["staged"],
-      "vite.config.ts.staged",
-    ) ?? {}
+  const staged = readOptionalStringRecord(
+    readRootViteConfig()["staged"],
+    "vite.config.ts.staged",
   );
+  if (!staged) {
+    throw new Error("vite.config.ts.staged must be defined");
+  }
+  return staged;
 }
 
 function readPackageSurface(relativePath: string): PackageSurface {
@@ -277,6 +279,7 @@ describe("lint config", () => {
 
     expect(oxlintConfig.options).toMatchObject({ typeAware: true });
     expect(oxlintConfig.ignorePatterns).toContain("**/.codespace-agent/**");
+    expect(oxlintConfig.ignorePatterns).not.toContain("**/vite.config.ts");
     expect(
       appWideOverride?.rules?.["@typescript-eslint/no-explicit-any"],
     ).toBeUndefined();
@@ -322,6 +325,7 @@ describe("lint config", () => {
       "eslint-plugin-noter-local": "workspace:*",
       "eslint-plugin-react-refresh": "^0.4.7",
     });
+    expect(rootPackage.devDependencies?.vitest).toBeUndefined();
     expect(rootPackage.devDependencies?.oxlint).toBeUndefined();
     expect(rootPackage.devDependencies?.["oxlint-tsgolint"]).toBeUndefined();
     expect(fmtConfig).toMatchObject({
@@ -361,5 +365,6 @@ describe("lint config", () => {
     expect(
       starterPackage.devDependencies?.["@typescript-eslint/parser"],
     ).toBeUndefined();
+    expect(starterPackage.devDependencies?.vitest).toBeUndefined();
   });
 });
