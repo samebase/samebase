@@ -9,7 +9,10 @@ const staticLogoSvgPath = path.join(publicDir, "logo-static.svg");
 const installIconSvgPath = path.join(publicDir, "install-icon.svg");
 
 const INSTALL_ICON_BACKGROUND_COLOR = "#ffffff";
-type IconJob = { canvasSize: number; filename: string };
+// Android home-screen icons sit inside a system mask, so keep a small inset.
+const MASKABLE_ICON_BOX_RATIO = 464 / 512;
+
+type IconJob = { boxRatio?: number; canvasSize: number; filename: string };
 
 const iconJobs: IconJob[] = [
   {
@@ -23,10 +26,12 @@ const iconJobs: IconJob[] = [
   {
     canvasSize: 192,
     filename: "icon-maskable-192.png",
+    boxRatio: MASKABLE_ICON_BOX_RATIO,
   },
   {
     canvasSize: 512,
     filename: "icon-maskable-512.png",
+    boxRatio: MASKABLE_ICON_BOX_RATIO,
   },
   {
     canvasSize: 180,
@@ -61,17 +66,18 @@ function syncInstallIconSvgAsset() {
 }
 
 /**
- * Render the install icon at the target output size without adding export-time
- * padding so the committed PNGs preserve only the framing already present in
- * the canonical SVG logo markup.
+ * Preserve the canonical SVG framing for most exports while keeping a touch of
+ * extra breathing room inside Android's maskable icon container.
  */
-function generateIconPng({ canvasSize, filename }: IconJob) {
+function generateIconPng({ boxRatio = 1, canvasSize, filename }: IconJob) {
+  const iconSize = Math.round(canvasSize * boxRatio);
+
   execFileSync(
     "convert",
     [
       installIconSvgPath,
       "-resize",
-      `${canvasSize}x${canvasSize}`,
+      `${iconSize}x${iconSize}`,
       "-background",
       "white",
       "-gravity",
