@@ -23,6 +23,14 @@ const VIEWPORT_WIDTH_PX = 390;
 const VIEWPORT_HEIGHT_PX = 844;
 const MOBILE_PANE_PEEK_PX = 24;
 const OMIT_HEADER = Symbol("omit-header");
+const MOBILE_PANE_SEPARATOR_CLASSES = [
+  "before:absolute",
+  "before:w-px",
+  "before:bg-border",
+  "after:absolute",
+  "after:w-px",
+  "after:bg-border",
+] as const;
 
 const originalGetBoundingClientRectDescriptor = Object.getOwnPropertyDescriptor(
   HTMLElement.prototype,
@@ -133,7 +141,7 @@ function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
   return element;
 }
 
-function expectMobilePaneBorderOwnership(
+function expectMobilePaneSeparatorOwnership(
   root: ParentNode,
   activePane: "left" | "main" | "right",
 ) {
@@ -153,15 +161,20 @@ function expectMobilePaneBorderOwnership(
   ] as const;
 
   for (const [paneName, paneNode] of paneEntries) {
+    expect(paneNode.classList.contains("border-x")).toBe(false);
+    expect(paneNode.classList.contains("border-x-0")).toBe(false);
+    expect(paneNode.classList.contains("border-border")).toBe(false);
+
     if (paneName === activePane) {
-      expect(paneNode.classList.contains("border-x-0")).toBe(true);
-      expect(paneNode.classList.contains("border-x")).toBe(false);
+      for (const separatorClass of MOBILE_PANE_SEPARATOR_CLASSES) {
+        expect(paneNode.classList.contains(separatorClass)).toBe(false);
+      }
       continue;
     }
 
-    expect(paneNode.classList.contains("border-x")).toBe(true);
-    expect(paneNode.classList.contains("border-border")).toBe(true);
-    expect(paneNode.classList.contains("border-x-0")).toBe(false);
+    for (const separatorClass of MOBILE_PANE_SEPARATOR_CLASSES) {
+      expect(paneNode.classList.contains(separatorClass)).toBe(true);
+    }
   }
 }
 
@@ -305,7 +318,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(renderMobileLayout({ mobilePane: "left" }));
     });
 
-    expectMobilePaneBorderOwnership(rootElement, "left");
+    expectMobilePaneSeparatorOwnership(rootElement, "left");
   });
 
   it("lets the sidebars own both separators while the main pane is visible", () => {
@@ -318,7 +331,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(renderMobileLayout({ mobilePane: "main" }));
     });
 
-    expectMobilePaneBorderOwnership(rootElement, "main");
+    expectMobilePaneSeparatorOwnership(rootElement, "main");
   });
 
   it("lets the right sidebar stay borderless while the main pane owns the separator", () => {
@@ -331,7 +344,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(renderMobileLayout({ mobilePane: "right" }));
     });
 
-    expectMobilePaneBorderOwnership(rootElement, "right");
+    expectMobilePaneSeparatorOwnership(rootElement, "right");
   });
 
   it("renders a mobile resize grip on the active left sidebar", () => {

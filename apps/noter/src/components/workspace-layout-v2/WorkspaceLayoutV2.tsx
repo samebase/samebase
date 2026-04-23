@@ -260,8 +260,14 @@ function renderPaneContent(content: ReactNode) {
   );
 }
 
-function getMobilePaneBorderClass(pane: MobilePane, activePane: MobilePane) {
-  return pane === activePane ? "border-x-0" : "border-x border-border";
+function getMobilePaneSeparatorClass(pane: MobilePane, activePane: MobilePane) {
+  if (pane === activePane) {
+    return "";
+  }
+
+  // Mobile panes can change ownership while the carousel is mid-gesture. Draw
+  // separators outside normal layout so content width stays stable.
+  return "relative before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-border before:content-[''] after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-border after:content-['']";
 }
 
 type WorkspaceLayoutV2DesktopViewportProps =
@@ -366,7 +372,7 @@ function WorkspaceLayoutV2MobileViewport({
         data-testid="workspace-layout-v2-pane-left"
         className={cn(
           "relative flex h-full min-h-0 shrink-0 snap-start snap-always flex-col overflow-hidden bg-background",
-          getMobilePaneBorderClass("left", mobilePane),
+          getMobilePaneSeparatorClass("left", mobilePane),
         )}
         style={{
           width: `${leftWidthPx}px`,
@@ -382,9 +388,7 @@ function WorkspaceLayoutV2MobileViewport({
         <div
           className={cn(
             "box-border h-full min-h-0 overflow-hidden bg-background",
-            // The active mobile pane stays borderless so no visible content
-            // loses a pixel to its own separator.
-            getMobilePaneBorderClass("main", mobilePane),
+            getMobilePaneSeparatorClass("main", mobilePane),
           )}
         >
           {mainContent}
@@ -396,7 +400,7 @@ function WorkspaceLayoutV2MobileViewport({
           data-testid="workspace-layout-v2-pane-right"
           className={cn(
             "relative flex h-full min-h-0 shrink-0 snap-end snap-always flex-col overflow-hidden bg-background",
-            getMobilePaneBorderClass("right", mobilePane),
+            getMobilePaneSeparatorClass("right", mobilePane),
           )}
           style={{
             width: `${rightWidthPx}px`,
