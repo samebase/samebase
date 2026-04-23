@@ -21,6 +21,7 @@ import { Route as logoSvgRouteImport } from "./routes/logo-svg";
 import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
 import { Route as logoIsoRouteImport } from "./routes/logo-iso";
 import { Route as logoRouteImport } from "./routes/logo";
+import { Route as homeRouteImport } from "./routes/home";
 import { Route as addRepositoryRouteImport } from "./routes/add-repository";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
@@ -93,6 +94,11 @@ const logoRoute = logoRouteImport.update({
   path: "/logo",
   getParentRoute: () => rootRouteImport,
 } as any);
+const homeRoute = homeRouteImport.update({
+  id: "/home",
+  path: "/home",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const addRepositoryRoute = addRepositoryRouteImport.update({
   id: "/add",
   path: "/add",
@@ -148,6 +154,7 @@ const codespaceChatRoute = codespaceChatRouteImport.update({
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
+  "/home": typeof homeRoute;
   "/logo": typeof logoRoute;
   "/logo-iso": typeof logoIsoRoute;
   "/logo-iso-study": typeof logoIsoStudyRoute;
@@ -172,6 +179,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
+  "/home": typeof homeRoute;
   "/logo": typeof logoRoute;
   "/logo-iso": typeof logoIsoRoute;
   "/logo-iso-study": typeof logoIsoStudyRoute;
@@ -197,6 +205,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
+  "/home": typeof homeRoute;
   "/logo": typeof logoRoute;
   "/logo-iso": typeof logoIsoRoute;
   "/logo-iso-study": typeof logoIsoStudyRoute;
@@ -223,6 +232,7 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/add"
+    | "/home"
     | "/logo"
     | "/logo-iso"
     | "/logo-iso-study"
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
   to:
     | "/"
     | "/add"
+    | "/home"
     | "/logo"
     | "/logo-iso"
     | "/logo-iso-study"
@@ -271,6 +282,7 @@ export interface FileRouteTypes {
     | "__root__"
     | "/"
     | "/add"
+    | "/home"
     | "/logo"
     | "/logo-iso"
     | "/logo-iso-study"
@@ -296,6 +308,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   indexRoute: typeof indexRoute;
   addRepositoryRoute: typeof addRepositoryRoute;
+  homeRoute: typeof homeRoute;
   logoRoute: typeof logoRoute;
   logoIsoRoute: typeof logoIsoRoute;
   logoIsoStudyRoute: typeof logoIsoStudyRoute;
@@ -404,6 +417,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/home": {
+      id: "/home";
+      path: "/home";
+      fullPath: "/home";
+      preLoaderRoute: typeof homeRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/add": {
       id: "/add";
       path: "/add";
@@ -480,6 +500,7 @@ declare module "@tanstack/react-router" {
 const rootRouteChildren: RootRouteChildren = {
   indexRoute: indexRoute,
   addRepositoryRoute: addRepositoryRoute,
+  homeRoute: homeRoute,
   logoRoute: logoRoute,
   logoIsoRoute: logoIsoRoute,
   logoIsoStudyRoute: logoIsoStudyRoute,

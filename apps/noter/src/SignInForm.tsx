@@ -191,7 +191,7 @@ function GoogleSignupClosedNotice() {
         or join the waitlist below.
       </p>
 
-      <Link to="/">go back</Link>
+      <Link to="/home">go back</Link>
     </div>
   );
 }

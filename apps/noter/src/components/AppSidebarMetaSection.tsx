@@ -114,7 +114,7 @@ export function AppSidebarMetaSection() {
           <div className="flex flex-col items-start gap-1">
             {showHomeLink ? (
               <Link
-                to="/"
+                to="/home"
                 className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
               >
                 Home

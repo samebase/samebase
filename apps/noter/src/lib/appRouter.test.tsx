@@ -225,6 +225,19 @@ describe("appRouter", () => {
     ).toBeNull();
   });
 
+  it("redirects /home to the routed root index page", async () => {
+    const router = await renderRoute("/home?devtools=true");
+
+    expect(router.state.location.pathname).toBe("/");
+    expect(
+      rootElement?.querySelector('[data-testid="root-index-route"]')
+        ?.textContent,
+    ).toBe("Root index route");
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
+  });
+
   it("renders logo routes through explicit public routes without the layout shell", async () => {
     await renderRoute("/logo");
 
