@@ -63,7 +63,7 @@ export function AppSidebarMetaSection() {
         <Link to="/">/home</Link>
       )}
 
-      <div className="flex flex-row-reverse items-center gap-2">
+      <div className="flex flex-row-reverse items-center gap-2 font-mono">
         <span data-testid={APP_BUILD_VERSION_TEST_ID}>{buildVersionLabel}</span>
 
         <a
@@ -81,6 +81,20 @@ export function AppSidebarMetaSection() {
             if (hasSelectedAppBuildVersion(event.currentTarget)) {
               event.preventDefault();
             }
+          }}
+          onCopy={(event) => {
+            if (
+              !commitUrl ||
+              !hasSelectedAppBuildVersion(event.currentTarget)
+            ) {
+              return;
+            }
+
+            event.clipboardData.setData(
+              "text/plain",
+              `[${commitLabel}](${commitUrl})`,
+            );
+            event.preventDefault();
           }}
         >
           {commitLabel}

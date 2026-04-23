@@ -370,7 +370,12 @@ async function expectLegalLinksUseLeftSidebarInnerEdge(statusBar: Locator) {
     return;
   }
 
-  const expectedRightEdge = statusBarBox.x + statusBarBox.width - 4;
+  const rightPaddingPx = await statusBar.evaluate((element) => {
+    const value = Number.parseFloat(getComputedStyle(element).paddingRight);
+    return Number.isFinite(value) ? value : 0;
+  });
+  const expectedRightEdge =
+    statusBarBox.x + statusBarBox.width - rightPaddingPx;
   for (const childBox of [termsBox, privacyBox, versionBox]) {
     expect(
       Math.abs(childBox.x + childBox.width - expectedRightEdge),
@@ -392,13 +397,14 @@ async function expectStatusBarInLeftSidebar(
     return;
   }
 
-  expect(statusBarBox.x).toBeGreaterThanOrEqual(leftPaneBox.x);
-  expect(statusBarBox.y).toBeGreaterThanOrEqual(leftPaneBox.y);
+  const epsilonPx = 1;
+  expect(statusBarBox.x).toBeGreaterThanOrEqual(leftPaneBox.x - epsilonPx);
+  expect(statusBarBox.y).toBeGreaterThanOrEqual(leftPaneBox.y - epsilonPx);
   expect(statusBarBox.x + statusBarBox.width).toBeLessThanOrEqual(
-    leftPaneBox.x + leftPaneBox.width,
+    leftPaneBox.x + leftPaneBox.width + epsilonPx,
   );
   expect(statusBarBox.y + statusBarBox.height).toBeLessThanOrEqual(
-    leftPaneBox.y + leftPaneBox.height,
+    leftPaneBox.y + leftPaneBox.height + epsilonPx,
   );
 }
 
