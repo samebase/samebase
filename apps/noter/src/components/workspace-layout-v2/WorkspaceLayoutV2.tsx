@@ -267,7 +267,7 @@ function getMobilePaneSeparatorClass(pane: MobilePane, activePane: MobilePane) {
 
   // Mobile pane ownership can change mid-gesture, but pane geometry must stay
   // exact. A 1px content-box delta can rewrap landing copy and editor text.
-  return "shadow-[inset_1px_0_0_var(--color-border),inset_-1px_0_0_var(--color-border)]";
+  return "workspace-mobile-pane-separators";
 }
 
 type WorkspaceLayoutV2DesktopViewportProps =
