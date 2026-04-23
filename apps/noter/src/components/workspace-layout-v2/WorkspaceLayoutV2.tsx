@@ -507,6 +507,43 @@ export function WorkspaceLayoutV2JustPanes({
   const resolvedLeftContent = renderPaneContent(left);
   const resolvedMainContent = renderPaneContent(main);
   const resolvedRightContent = renderPaneContent(right);
+  const hasAlignedInitialMobilePaneRef = useRef(false);
+
+  useLayoutEffect(() => {
+    const carouselNode = mobileCarouselRef.current;
+    if (
+      !isMobile ||
+      carouselNode === null ||
+      mobilePaneWidthPx <= 0 ||
+      hasAlignedInitialMobilePaneRef.current
+    ) {
+      return;
+    }
+
+    const paneNode =
+      mobilePane === "left"
+        ? mobileLeftPaneRef.current
+        : mobilePane === "main"
+          ? mobileMainPaneRef.current
+          : mobileRightPaneRef.current;
+    if (paneNode === null) {
+      return;
+    }
+
+    // Align the first mobile paint to the current sidebar state so refreshes
+    // keep the intended pane instead of booting at scrollLeft=0 and
+    // immediately persisting "left".
+    paneNode.scrollIntoView({
+      block: "nearest",
+      inline:
+        mobilePane === "left"
+          ? "start"
+          : mobilePane === "main"
+            ? "center"
+            : "end",
+    });
+    hasAlignedInitialMobilePaneRef.current = true;
+  }, [hasRightPane, isMobile, mobilePane, mobilePaneWidthPx]);
 
   useEffect(() => {
     const carouselNode = mobileCarouselRef.current;

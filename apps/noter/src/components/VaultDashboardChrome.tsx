@@ -111,27 +111,13 @@ export function VaultDashboardProvidersSection({
   );
 }
 
-export function VaultDashboardEmptyState({
-  createControl,
-}: {
-  createControl: ReactNode;
-}) {
+export function VaultDashboardEmptyState() {
   return (
     <div className="container mx-auto max-w-2xl py-6">
-      <div className="space-y-6 text-center">
+      <div className="text-center">
         <div className="mx-auto w-full max-w-[8rem]">
           <PublicLandingLogo />
         </div>
-
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold">Create your first project</h1>
-          <p className="text-lg text-muted-foreground">
-            Start with a new project or connect an existing repository to edit
-            files directly in your browser.
-          </p>
-        </div>
-
-        <div className="flex justify-center">{createControl}</div>
       </div>
     </div>
   );
@@ -139,16 +125,11 @@ export function VaultDashboardEmptyState({
 
 export function VaultDashboardRepositoryList({
   children,
-  createControl,
 }: {
   children: ReactNode;
-  createControl: ReactNode;
 }) {
   return (
     <div className="container py-6">
-      <div className="mb-6 flex justify-start lg:justify-end">
-        <div className="w-full lg:w-auto">{createControl}</div>
-      </div>
       <div className="space-y-2">{children}</div>
     </div>
   );
