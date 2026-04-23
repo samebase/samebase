@@ -6,13 +6,6 @@ const monacoEnvironmentHost = globalThis as typeof globalThis & {
   };
 };
 
-const DEFAULT_VALUE = `# WorkspaceLayoutV2
-
-- drag from main to left
-- drag from main to right
-- keep a visible main strip
-`;
-
 async function loadMonaco() {
   const [monaco, , workerModule] = await Promise.all([
     import("monaco-editor/esm/vs/editor/editor.api.js"),
@@ -47,7 +40,7 @@ export function MonacoSurface(props: {
       }
 
       const model = monaco.editor.createModel(
-        props.initialValue ?? DEFAULT_VALUE,
+        props.initialValue ?? "",
         "markdown",
       );
 

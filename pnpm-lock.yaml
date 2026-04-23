@@ -355,9 +355,6 @@ importers:
       '@codemirror/lang-markdown':
         specifier: ^6.3.1
         version: 6.5.0
-      '@codemirror/language':
-        specifier: ^6.10.8
-        version: 6.12.1
       '@codemirror/state':
         specifier: ^6.4.1
         version: 6.5.4
@@ -373,24 +370,12 @@ importers:
       '@tanstack/solid-router-devtools':
         specifier: ^1.166.13
         version: 1.166.13(@tanstack/router-core@1.168.15)(@tanstack/solid-router@1.168.20(solid-js@1.9.12))(csstype@3.2.3)(solid-js@1.9.12)
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      codemirror:
-        specifier: ^6.0.1
-        version: 6.0.2
       monaco-editor:
         specifier: ^0.55.1
         version: 0.55.1
       solid-js:
         specifier: ^1.9.12
         version: 1.9.12
-      tailwind-merge:
-        specifier: ^3.5.0
-        version: 3.5.0
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.2.2

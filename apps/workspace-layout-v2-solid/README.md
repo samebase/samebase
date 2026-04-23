@@ -1,25 +1,15 @@
 # WorkspaceLayoutV2 Solid Lab
 
-This app is a deliberately small SolidJS sandbox for rebuilding the
-`WorkspaceLayoutV2` shell without pulling in Noter's React components, Convex
-state, or route chrome.
+This app is a tiny SolidJS sandbox for the `WorkspaceLayoutV2` sidebar shell. It
+exists to show the smallest useful version of the layout without React app
+chrome, Convex state, or custom gesture code.
 
-## Why this app exists
+## Current Shape
 
-- Solid stays isolated from the React build in `apps/noter`.
-- The shell can stay close to the real product shape without dragging in app
-  logic too early.
-- Fixtures are local and disposable, so the lab stays easy to refactor while
-  learning.
-
-## Working Rules
-
-- Keep this lab literal and minimal.
-- Prefer the simplest layout primitives that match the current goal.
-- Do not add responsive variants, decorative styling, controls, copy, or extra
-  behavior unless the current task explicitly needs them.
-- Treat the current hand-edited prototype as the source of truth when deciding
-  how much structure to add.
+- Left sidebar is a ProseMark editor.
+- Main pane is a Monaco editor.
+- Right sidebar is a single link.
+- Mobile is a native scroll-snap carousel with a full-width main pane.
 
 ## Commands
 
@@ -31,9 +21,3 @@ pnpm --filter workspace-layout-v2-solid dev
 ```
 
 The default dev server port is `43130`.
-
-## Suggested next steps
-
-1. Add only the next missing shell behavior you want to learn.
-2. Keep the visible surface empty until a real need for content appears.
-3. Expand from the current minimal layout instead of front-loading structure.

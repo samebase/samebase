@@ -209,7 +209,6 @@ export function CodeMirrorFileSurface({
           ? "relative w-full"
           : "relative h-full min-h-0 w-full"
       }
-      style={{ touchAction: mobilePaneDrag.touchAction }}
       {...mobilePaneDrag.containerProps}
     >
       <div

@@ -103,7 +103,6 @@ export function MonacoEditorSurface({
       style={{
         height: "100%",
         minHeight: MIN_EDITOR_HEIGHT_PX,
-        touchAction: mobilePaneDrag.touchAction,
       }}
       {...mobilePaneDrag.containerProps}
     >
