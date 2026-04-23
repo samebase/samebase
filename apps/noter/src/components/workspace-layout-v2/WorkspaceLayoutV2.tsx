@@ -265,8 +265,8 @@ function getMobilePaneSeparatorClass(pane: MobilePane, activePane: MobilePane) {
     return "";
   }
 
-  // Mobile panes can change ownership while the carousel is mid-gesture. Draw
-  // separators as paint-only shadows so content width stays stable.
+  // Mobile pane ownership can change mid-gesture, but pane geometry must stay
+  // exact. A 1px content-box delta can rewrap landing copy and editor text.
   return "shadow-[inset_1px_0_0_var(--color-border),inset_-1px_0_0_var(--color-border)]";
 }
 
