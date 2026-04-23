@@ -57,6 +57,26 @@ describe("Layout", () => {
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
   });
 
+  it("places public rail links on the mobile carousel peek edge", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: true,
+    });
+
+    const leftRailMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/"]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(leftRailMarkup).toContain("items-end");
+    expect(leftRailMarkup).toContain("text-right");
+    expect(leftRailMarkup).toContain("flex-row-reverse");
+  });
+
   it("keeps legal links visible on non-root sign-in routes", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
