@@ -33,6 +33,7 @@ import {
 import { useFileViewInlinePreview } from "@/components/FileView/useFileViewInlinePreview";
 import { useFileViewMediaUpload } from "@/components/FileView/useFileViewMediaUpload";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useSidebar } from "@/hooks/use-sidebar";
 import { linkStyle } from "@/components/styles";
 import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
@@ -684,6 +685,7 @@ function FileViewInner({
   repoName: string;
   stagedFile: (typeof api.fileStaging.getByNewPath)["_returnType"];
 }) {
+  const { setMobilePane } = useSidebar();
   const router = useRouter();
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
@@ -1402,9 +1404,12 @@ function FileViewInner({
             reviewMode: status === "deleted" ? "review" : undefined,
           }),
         );
+
+        // File picks should land back on the editor pane immediately on mobile.
+        setMobilePane("main");
       }
     },
-    [buildVaultFileUrl, navigateByHref, owner, repoName],
+    [buildVaultFileUrl, navigateByHref, owner, repoName, setMobilePane],
   );
 
   const handleOpenFileFromGraph = useCallback(

@@ -505,6 +505,7 @@ export function WorkspaceLayoutV2JustPanes({
   } = useSidebar();
   const hasRightPane = right !== null && right !== undefined;
   const mobilePane = hasRightPane ? rawMobilePane : "main";
+  const setMobilePaneRef = useRef(setMobilePane);
 
   const desktopLeftWidthPx = getDesktopSidebarWidthPx({
     isOpen: leftDesktopOpen,
@@ -537,15 +538,24 @@ export function WorkspaceLayoutV2JustPanes({
   const resolvedMainContent = renderPaneContent(main);
   const resolvedRightContent = renderPaneContent(right);
   const hasAlignedInitialMobilePaneRef = useRef(false);
+  const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
+
+  useEffect(() => {
+    if (isMobile) {
+      return;
+    }
+
+    hasAlignedInitialMobilePaneRef.current = false;
+    scrollDerivedMobilePaneRef.current = null;
+  }, [isMobile]);
+
+  useEffect(() => {
+    setMobilePaneRef.current = setMobilePane;
+  }, [setMobilePane]);
 
   useLayoutEffect(() => {
     const carouselNode = mobileCarouselRef.current;
-    if (
-      !isMobile ||
-      carouselNode === null ||
-      mobilePaneWidthPx <= 0 ||
-      hasAlignedInitialMobilePaneRef.current
-    ) {
+    if (!isMobile || carouselNode === null || mobilePaneWidthPx <= 0) {
       return;
     }
 
@@ -559,9 +569,30 @@ export function WorkspaceLayoutV2JustPanes({
       return;
     }
 
-    // Align the first mobile paint to the current sidebar state so refreshes
-    // keep the intended pane instead of booting at scrollLeft=0 and
-    // immediately persisting "left".
+    if (!hasAlignedInitialMobilePaneRef.current) {
+      // Align the first mobile paint to the current sidebar state so refreshes
+      // keep the intended pane instead of booting at scrollLeft=0 and
+      // immediately persisting "left".
+      paneNode.scrollIntoView({
+        block: "nearest",
+        inline:
+          mobilePane === "left"
+            ? "start"
+            : mobilePane === "main"
+              ? "center"
+              : "end",
+      });
+      hasAlignedInitialMobilePaneRef.current = true;
+      return;
+    }
+
+    if (scrollDerivedMobilePaneRef.current === mobilePane) {
+      scrollDerivedMobilePaneRef.current = null;
+      return;
+    }
+
+    // Keep programmatic pane changes, such as file selection recentering, in
+    // lockstep with the native carousel position after the initial boot.
     paneNode.scrollIntoView({
       block: "nearest",
       inline:
@@ -571,7 +602,6 @@ export function WorkspaceLayoutV2JustPanes({
             ? "center"
             : "end",
     });
-    hasAlignedInitialMobilePaneRef.current = true;
   }, [hasRightPane, isMobile, mobilePane, mobilePaneWidthPx]);
 
   useEffect(() => {
@@ -589,9 +619,14 @@ export function WorkspaceLayoutV2JustPanes({
         rightNode: mobileRightPaneRef.current,
         scrollLeftPx: carouselNode.scrollLeft,
       });
-      setMobilePane((currentPane) =>
-        currentPane === nextPane ? currentPane : nextPane,
-      );
+      setMobilePaneRef.current((currentPane) => {
+        if (currentPane === nextPane) {
+          return currentPane;
+        }
+
+        scrollDerivedMobilePaneRef.current = nextPane;
+        return nextPane;
+      });
     };
 
     const handleScroll = () => {
@@ -613,7 +648,7 @@ export function WorkspaceLayoutV2JustPanes({
         window.clearTimeout(settleTimeoutId);
       }
     };
-  }, [hasRightPane, isMobile, mobilePaneWidthPx, setMobilePane]);
+  }, [hasRightPane, isMobile, mobilePaneWidthPx]);
 
   const desktopResizeHandles: WorkspaceLayoutV2ResizeHandleConfig[] =
     viewportSize.widthPx <= 0

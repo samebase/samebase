@@ -34,6 +34,9 @@ const originalScrollIntoViewDescriptor = Object.getOwnPropertyDescriptor(
   HTMLElement.prototype,
   "scrollIntoView",
 );
+let latestSetRenderedMobilePane: React.Dispatch<
+  React.SetStateAction<"left" | "main" | "right">
+> | null = null;
 
 Object.defineProperty(window, "matchMedia", {
   configurable: true,
@@ -144,6 +147,15 @@ function renderMobileLayout({
   );
 }
 
+function ControlledMobileLayout() {
+  const [mobilePane, setMobilePane] = React.useState<"left" | "main" | "right">(
+    "main",
+  );
+  latestSetRenderedMobilePane = setMobilePane;
+
+  return renderMobileLayout({ mobilePane });
+}
+
 function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
   const element = root.querySelector(selector);
   if (!(element instanceof HTMLElement)) {
@@ -196,6 +208,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
   });
 
   afterEach(() => {
+    latestSetRenderedMobilePane = null;
     if (root !== null) {
       const mountedRoot = root;
       act(() => {
@@ -251,6 +264,55 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         .querySelector("[data-workspace-layout-v2]")
         ?.getAttribute("data-mobile-pane"),
     ).toBe("right");
+  });
+
+  it("scrolls the carousel when code recenters the mobile pane after mount", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(<ControlledMobileLayout />);
+    });
+
+    expect(
+      rootElement.querySelector(
+        '[data-testid="workspace-layout-v2-pane-main"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')
+        ?.scrollLeft,
+    ).toBe(342);
+
+    act(() => {
+      latestSetRenderedMobilePane?.("right");
+    });
+
+    expect(
+      rootElement
+        .querySelector("[data-workspace-layout-v2]")
+        ?.getAttribute("data-mobile-pane"),
+    ).toBe("right");
+    expect(
+      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')
+        ?.scrollLeft,
+    ).toBe(684);
+
+    act(() => {
+      latestSetRenderedMobilePane?.("main");
+    });
+
+    expect(
+      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')
+        ?.scrollLeft,
+    ).toBe(342);
+    expect(
+      rootElement
+        .querySelector("[data-workspace-layout-v2]")
+        ?.getAttribute("data-mobile-pane"),
+    ).toBe("main");
   });
 
   it("lets the left sidebar stay borderless while the main pane owns the separator", () => {
