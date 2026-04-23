@@ -6,6 +6,27 @@ type ScrollMetrics = {
   scrollTop: number;
 };
 
+function workspaceShell(page: Page) {
+  return page.locator("[data-mobile-pane]").first();
+}
+
+async function scrollWorkspaceFixtureToMainPane(page: Page) {
+  await page.evaluate(() => {
+    const frame = document.querySelector("[data-mobile-pane]");
+    if (!(frame instanceof HTMLElement)) {
+      throw new Error("Expected mobile workspace frame.");
+    }
+
+    const carousel = frame.querySelector(".overflow-x-auto");
+    if (!(carousel instanceof HTMLElement)) {
+      throw new Error("Expected mobile workspace carousel.");
+    }
+
+    carousel.scrollLeft = carousel.clientWidth - 48;
+    carousel.dispatchEvent(new Event("scroll", { bubbles: true }));
+  });
+}
+
 // Keep the wheel target inside visible prose content instead of drifting toward
 // lower overlays in the workspace shell.
 const WHEEL_HOVER_Y_CAP_PX = 180;
@@ -182,6 +203,74 @@ async function swipeSurface(
   }
 }
 
+async function swipeSurfaceHorizontallyToLeftPane(
+  page: Page,
+  surface: Locator,
+) {
+  const surfaceBounds = await surface.boundingBox();
+  expect(surfaceBounds).not.toBeNull();
+  if (surfaceBounds === null) {
+    return;
+  }
+
+  const startPoint = await page.evaluate(
+    ({ dataTestId, startX, startY }) => {
+      const surface = document.querySelector<HTMLElement>(
+        `[data-testid="${dataTestId}"]`,
+      );
+      if (surface === null) {
+        return null;
+      }
+
+      for (let y = startY; y <= startY + 120; y += 20) {
+        const hit = document.elementFromPoint(startX, y);
+        if (!(hit instanceof HTMLElement)) {
+          continue;
+        }
+        if (!surface.contains(hit)) {
+          continue;
+        }
+        if (hit.closest(".cm-line") === null) {
+          continue;
+        }
+
+        return {
+          startX,
+          startY: y,
+        };
+      }
+
+      return null;
+    },
+    {
+      dataTestId: "fileview-prosemark-height-surface",
+      startX: Math.round(surfaceBounds.x + surfaceBounds.width / 2),
+      startY: Math.round(surfaceBounds.y + 48),
+    },
+  );
+  expect(startPoint).not.toBeNull();
+  if (startPoint === null) {
+    return;
+  }
+
+  const session = await page.context().newCDPSession(page);
+
+  try {
+    await session.send("Input.synthesizeScrollGesture", {
+      gestureSourceType: "touch",
+      repeatCount: 1,
+      repeatDelayMs: 0,
+      speed: SWIPE_SCROLL_SPEED_PX_PER_SECOND,
+      x: Math.round(startPoint.startX),
+      xDistance: 220,
+      y: Math.round(startPoint.startY),
+      yDistance: 0,
+    });
+  } finally {
+    await session.detach().catch(() => undefined);
+  }
+}
+
 async function openFixture(page: Page) {
   await page.goto("/visual-fixture.html?mode=fileview-prosemark-flex-height", {
     waitUntil: "domcontentloaded",
@@ -233,6 +322,18 @@ test.describe("mobile prose scroll", () => {
     hasTouch: true,
     isMobile: true,
     viewport: { width: 390, height: 844 },
+  });
+
+  test("ProseMark lets mobile carousel swipes start inside visible prose", async ({
+    page,
+  }) => {
+    const { surface } = await openFixture(page);
+    const shell = workspaceShell(page);
+
+    await scrollWorkspaceFixtureToMainPane(page);
+    await expect(shell).toHaveAttribute("data-mobile-pane", "main");
+    await swipeSurfaceHorizontallyToLeftPane(page, surface);
+    await expect(shell).toHaveAttribute("data-mobile-pane", "left");
   });
 
   test.skip(
