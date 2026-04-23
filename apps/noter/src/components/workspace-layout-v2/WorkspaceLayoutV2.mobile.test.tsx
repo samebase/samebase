@@ -144,6 +144,58 @@ function renderMobileLayout({
   );
 }
 
+function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
+  const element = root.querySelector(selector);
+  if (!(element instanceof HTMLElement)) {
+    throw new Error(`Expected element for selector: ${selector}`);
+  }
+
+  return element;
+}
+
+function expectMobilePaneBorderOwnership(
+  root: ParentNode,
+  activePane: "left" | "main" | "right",
+) {
+  const leftPane = getRequiredElement(
+    root,
+    '[data-testid="workspace-layout-v2-pane-left"]',
+  );
+  const mainPane = getRequiredElement(root, ".snap-center > div");
+  const rightPane = getRequiredElement(
+    root,
+    '[data-testid="workspace-layout-v2-pane-right"]',
+  );
+
+  if (activePane === "left") {
+    expect(leftPane.classList.contains("border-r-0")).toBe(true);
+    expect(leftPane.classList.contains("border-r")).toBe(false);
+    expect(mainPane.classList.contains("border-l")).toBe(true);
+    expect(mainPane.classList.contains("border-r-0")).toBe(true);
+    expect(mainPane.classList.contains("border-r")).toBe(false);
+    return;
+  }
+
+  if (activePane === "main") {
+    expect(leftPane.classList.contains("border-r")).toBe(true);
+    expect(leftPane.classList.contains("border-r-0")).toBe(false);
+    expect(mainPane.classList.contains("border-l-0")).toBe(true);
+    expect(mainPane.classList.contains("border-r-0")).toBe(true);
+    expect(mainPane.classList.contains("border-l")).toBe(false);
+    expect(mainPane.classList.contains("border-r")).toBe(false);
+    expect(rightPane.classList.contains("border-l")).toBe(true);
+    expect(rightPane.classList.contains("border-l-0")).toBe(false);
+    return;
+  }
+
+  expect(mainPane.classList.contains("border-l-0")).toBe(true);
+  expect(mainPane.classList.contains("border-r")).toBe(true);
+  expect(mainPane.classList.contains("border-l")).toBe(false);
+  expect(mainPane.classList.contains("border-r-0")).toBe(false);
+  expect(rightPane.classList.contains("border-l-0")).toBe(true);
+  expect(rightPane.classList.contains("border-l")).toBe(false);
+}
+
 describe("WorkspaceLayoutV2 mobile boot alignment", () => {
   let rootElement: HTMLDivElement | null = null;
   let root: Root | null = null;
@@ -210,6 +262,45 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         .querySelector("[data-workspace-layout-v2]")
         ?.getAttribute("data-mobile-pane"),
     ).toBe("right");
+  });
+
+  it("lets the left sidebar stay borderless while the main pane owns the separator", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(renderMobileLayout({ mobilePane: "left" }));
+    });
+
+    expectMobilePaneBorderOwnership(rootElement, "left");
+  });
+
+  it("lets the sidebars own both separators while the main pane is visible", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(renderMobileLayout({ mobilePane: "main" }));
+    });
+
+    expectMobilePaneBorderOwnership(rootElement, "main");
+  });
+
+  it("lets the right sidebar stay borderless while the main pane owns the separator", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(renderMobileLayout({ mobilePane: "right" }));
+    });
+
+    expectMobilePaneBorderOwnership(rootElement, "right");
   });
 
   it("hides the shared header row on mobile when the route omits main header content", () => {

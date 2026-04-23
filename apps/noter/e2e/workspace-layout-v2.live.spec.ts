@@ -74,6 +74,17 @@ async function scrollMainEditorToApproximateOffset(
     }, scrollTop);
 }
 
+async function getHorizontalBorderWidths(locator: Locator) {
+  return locator.evaluate((element) => {
+    const styles = window.getComputedStyle(element);
+
+    return {
+      left: styles.borderLeftWidth,
+      right: styles.borderRightWidth,
+    };
+  });
+}
+
 test("desktop v2 fixture keeps sidebar triggers inside the main header", async ({
   page,
 }) => {
@@ -157,6 +168,69 @@ test("mobile v2 fixture uses the carousel to move between panes", async ({
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
   ).toHaveCount(0);
+});
+
+test("mobile v2 fixture keeps the visible pane borderless while adjacent panes own separators", async ({
+  page,
+}) => {
+  const viewport = page.viewportSize();
+  test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
+
+  await openWorkspaceLayoutV2Fixture(page);
+
+  const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
+  const mainPane = page
+    .locator('[data-testid="workspace-layout-v2-pane-main"] .snap-center > div')
+    .first();
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+
+  await scrollWorkspaceCarouselToPane(page, "left");
+  await expect
+    .poll(async () => getHorizontalBorderWidths(leftPane))
+    .toEqual({
+      left: "0px",
+      right: "0px",
+    });
+  await expect
+    .poll(async () => getHorizontalBorderWidths(mainPane))
+    .toEqual({
+      left: "1px",
+      right: "0px",
+    });
+
+  await scrollWorkspaceCarouselToPane(page, "main");
+  await expect
+    .poll(async () => getHorizontalBorderWidths(leftPane))
+    .toEqual({
+      left: "0px",
+      right: "1px",
+    });
+  await expect
+    .poll(async () => getHorizontalBorderWidths(mainPane))
+    .toEqual({
+      left: "0px",
+      right: "0px",
+    });
+  await expect
+    .poll(async () => getHorizontalBorderWidths(rightPane))
+    .toEqual({
+      left: "1px",
+      right: "0px",
+    });
+
+  await scrollWorkspaceCarouselToPane(page, "right");
+  await expect
+    .poll(async () => getHorizontalBorderWidths(mainPane))
+    .toEqual({
+      left: "0px",
+      right: "1px",
+    });
+  await expect
+    .poll(async () => getHorizontalBorderWidths(rightPane))
+    .toEqual({
+      left: "0px",
+      right: "0px",
+    });
 });
 
 test("mobile v2 fixture vertical main-editor scrolling reveals later Monaco content", async ({
