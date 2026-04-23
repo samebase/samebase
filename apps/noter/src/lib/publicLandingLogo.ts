@@ -38,6 +38,37 @@ export const PUBLIC_LANDING_LOGO_DIAGONAL_ELEVATION_SNAP_DEGREES = [
 ] as const satisfies readonly number[];
 export const PUBLIC_LANDING_LOGO_ELEVATION_SNAP_DEGREES =
   PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES;
+export const PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES = 0;
+export const PUBLIC_LANDING_LOGO_LINK_REVEAL_ROTATION_DEGREES = [
+  0, 180,
+] as const;
+
+type PublicLandingLogoLinkRevealView = {
+  elevationDegrees: number;
+  rotationDegrees: number;
+};
+
+function isPublicLandingLogoLinkRevealRotationDegrees(
+  value: number,
+): value is (typeof PUBLIC_LANDING_LOGO_LINK_REVEAL_ROTATION_DEGREES)[number] {
+  return value === 0 || value === 180;
+}
+
+/**
+ * The easter egg should only unlock on the darker straight-on face and its
+ * opposite. The lighter orthographic face and the top/bottom single-face views
+ * are intentionally excluded.
+ */
+export function shouldRevealPublicLandingLogoLink(
+  view: PublicLandingLogoLinkRevealView,
+): boolean {
+  return (
+    view.elevationDegrees ===
+      PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES &&
+    isPublicLandingLogoLinkRevealRotationDegrees(view.rotationDegrees)
+  );
+}
+
 export const PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG: LogoViewDragConfig = {
   elevationStepDegrees: PUBLIC_LANDING_LOGO_VIEW_STEP_DEGREES,
   rotationStepDegrees: PUBLIC_LANDING_LOGO_VIEW_STEP_DEGREES,

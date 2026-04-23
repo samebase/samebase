@@ -21,7 +21,9 @@ import {
   PUBLIC_LANDING_LOGO_TEST_ID,
   PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
   PUBLIC_LANDING_LOGO_WIDTH,
+  shouldRevealPublicLandingLogoLink,
 } from "@/lib/publicLandingLogo";
+import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { useEffect, useRef, useState } from "react";
 
 type LandingLogoSceneComponent =
@@ -73,6 +75,7 @@ export function PublicLandingLogo({
   const [view, setView] = useState<LandingLogoView>(() => ({
     ...persistedLandingLogoView,
   }));
+  const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
   const lastFrameTimeRef = useRef<number | null>(null);
   const autoRotateResumeStartedAtRef = useRef<number | null>(null);
   const backgroundColor = getTailwindColorHex("background-base");
@@ -154,6 +157,26 @@ export function PublicLandingLogo({
   useEffect(() => {
     persistedLandingLogoView = view;
   }, [view]);
+
+  useEffect(() => {
+    if (publicLandingLogoLink === null) {
+      return;
+    }
+
+    publicLandingLogoLink.setIsLogoLinkVisible(
+      shouldRevealPublicLandingLogoLink(view),
+    );
+  }, [publicLandingLogoLink, view]);
+
+  useEffect(() => {
+    if (publicLandingLogoLink === null) {
+      return;
+    }
+
+    return () => {
+      publicLandingLogoLink.setIsLogoLinkVisible(false);
+    };
+  }, [publicLandingLogoLink]);
 
   useEffect(() => {
     if (!isAutoRotating) {

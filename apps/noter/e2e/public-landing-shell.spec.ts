@@ -7,12 +7,18 @@ import {
 } from "@playwright/test";
 import { PNG } from "pngjs";
 import {
+  DRAG_ELEVATION_DEGREES_PER_PIXEL,
+  DRAG_ROTATION_DEGREES_PER_PIXEL,
+} from "../src/components/logoViewDragConstants";
+import {
   APP_BUILD_COMMIT_LINK_TEST_ID,
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
 import { PUBLIC_LANDING_SCROLL_SHELL_TEST_ID } from "../src/lib/publicLanding";
 import {
+  PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
+  PUBLIC_LANDING_LOGO_LINK_REVEAL_ROTATION_DEGREES,
   PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
   PUBLIC_LANDING_LOGO_TEST_ID,
@@ -624,6 +630,53 @@ async function readLandingLogoSceneView(scene: Locator) {
   };
 }
 
+async function dragLandingLogoSceneToView(
+  scene: Locator,
+  targetView: {
+    elevationDegrees: number;
+    rotationDegrees: number;
+  },
+) {
+  const canvas = scene.locator("canvas");
+  const bounds = await canvas.boundingBox();
+  expect(bounds).not.toBeNull();
+  if (bounds === null) {
+    throw new Error("Expected landing logo canvas bounds");
+  }
+
+  const currentView = await readLandingLogoSceneView(scene);
+  const currentElevationDegrees = Number.parseFloat(
+    currentView.elevationDegrees ?? "NaN",
+  );
+  const currentRotationDegrees = Number.parseFloat(
+    currentView.rotationDegrees ?? "NaN",
+  );
+  expect(Number.isNaN(currentElevationDegrees)).toBe(false);
+  expect(Number.isNaN(currentRotationDegrees)).toBe(false);
+  if (
+    Number.isNaN(currentElevationDegrees) ||
+    Number.isNaN(currentRotationDegrees)
+  ) {
+    throw new Error("Expected current landing logo view attributes");
+  }
+
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
+  const deltaX =
+    (targetView.rotationDegrees - currentRotationDegrees) /
+    DRAG_ROTATION_DEGREES_PER_PIXEL;
+  const deltaY =
+    (targetView.elevationDegrees - currentElevationDegrees) /
+    DRAG_ELEVATION_DEGREES_PER_PIXEL;
+
+  await scene.page().mouse.move(centerX, centerY);
+  await scene.page().mouse.down();
+  await scene.page().mouse.move(centerX + deltaX, centerY + deltaY, {
+    steps: 12,
+  });
+  await scene.page().mouse.up();
+}
+
 test("public landing renders the routed landing UI directly", async ({
   page,
 }) => {
@@ -1189,6 +1242,61 @@ test("prod-ui landing logo becomes draggable after the SVG fallback is removed",
   await expect
     .poll(async () => readLandingLogoSceneView(landingLogoScene))
     .not.toEqual(viewBeforeDrag);
+});
+
+test("prod-ui landing reveals /logo only for the darker straight-on logo face", async ({
+  page,
+}) => {
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+  const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
+  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
+
+  await expectLandingLogoReady(landingLogo);
+  await expectLandingLogoSceneReady(landingLogoScene);
+  await expect(
+    statusBar.getByRole("link", { name: "/logo", exact: true }),
+  ).toHaveCount(0);
+
+  await dragLandingLogoSceneToView(landingLogoScene, {
+    elevationDegrees: PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
+    rotationDegrees: PUBLIC_LANDING_LOGO_LINK_REVEAL_ROTATION_DEGREES[0],
+  });
+
+  await expect
+    .poll(async () => readLandingLogoSceneView(landingLogoScene))
+    .toEqual({
+      elevationDegrees: "0.000",
+      rotationDegrees: "0.000",
+    });
+
+  const logoLink = statusBar.getByRole("link", {
+    name: "/logo",
+    exact: true,
+  });
+  const termsLink = statusBar.getByRole("link", {
+    name: "/terms",
+    exact: true,
+  });
+
+  await expect(logoLink).toBeVisible();
+  await expect(logoLink).toHaveCSS("animation-name", "underline-color-cycle");
+
+  const logoBox = await logoLink.boundingBox();
+  const termsBox = await termsLink.boundingBox();
+  expect(logoBox).not.toBeNull();
+  expect(termsBox).not.toBeNull();
+  if (logoBox === null || termsBox === null) {
+    return;
+  }
+
+  expect(logoBox.y).toBeLessThan(termsBox.y);
+
+  await expect(statusBar).toHaveScreenshot(
+    "public-landing-status-bar-logo-link.png",
+    strictScreenshotOptions,
+  );
 });
 
 test("prod-ui landing logo keeps the SVG fallback when WebGL is unavailable", async ({
