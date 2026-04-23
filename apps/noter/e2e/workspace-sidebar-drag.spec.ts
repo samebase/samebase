@@ -206,6 +206,23 @@ test("fileview mobile resize grip waits for the carousel to settle", async ({
   );
 });
 
+test("fileview mobile left sidebar exposes fixture links", async ({ page }) => {
+  await gotoFileViewFixture(page);
+
+  await scrollFileViewCarouselToPane(page, "left");
+
+  const leftLinks = page.getByTestId("fileview-layout-left-sidebar-links");
+  await expect(leftLinks.getByRole("link")).toHaveCount(4);
+  await expect(
+    leftLinks.getByRole("link", { name: "Dashboard" }),
+  ).toBeVisible();
+  await expect(leftLinks.getByRole("link", { name: "Machines" })).toBeVisible();
+  await expect(
+    leftLinks.getByRole("link", { name: "Connect repository" }),
+  ).toBeVisible();
+  await expect(leftLinks.getByRole("link", { name: "Pricing" })).toBeVisible();
+});
+
 test("fileview mobile sidebar minimum matches viewport leftover after max width", async ({
   page,
 }) => {

@@ -1,4 +1,5 @@
 import { MagnifyingGlassIcon } from "@/lib/radixIcons";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,33 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 export type FileViewLayoutVisualMode =
   | "fileview-layout"
   | "fileview-layout-persistence";
+
+const leftSidebarLinks = [
+  { label: "Dashboard", to: "/" },
+  { label: "Machines", to: "/machines" },
+  { label: "Connect repository", to: "/add" },
+  { label: "Pricing", to: "/pricing" },
+] as const;
+
+function FileViewLayoutLeftSidebarLinks() {
+  return (
+    <nav
+      aria-label="Fixture links"
+      data-testid="fileview-layout-left-sidebar-links"
+      className="flex h-full min-h-0 flex-col bg-muted/10 p-2"
+    >
+      {leftSidebarLinks.map((link) => (
+        <Link
+          key={link.to}
+          to={link.to}
+          className="block border-b border-border/50 px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          {link.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
 
 export function FileViewLayoutVisualFixture({
   mode,
@@ -71,6 +99,9 @@ export function FileViewLayoutVisualFixture({
     </div>
   );
   const inactiveSidebar: WorkspaceLayoutV2PaneFrameProps = {};
+  const leftLinksSidebar: WorkspaceLayoutV2PaneFrameProps = {
+    content: <FileViewLayoutLeftSidebarLinks />,
+  };
   const activeSidebar: WorkspaceLayoutV2PaneFrameProps = {
     header: sidebarHeader,
     content:
@@ -97,7 +128,7 @@ export function FileViewLayoutVisualFixture({
         left={
           FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
             ? activeSidebar
-            : inactiveSidebar
+            : leftLinksSidebar
         }
         main={{
           header: (
