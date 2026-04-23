@@ -1,5 +1,6 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
+import { LANDING_DEV_MODE_LINK_LABEL } from "../src/lib/landingDevMode";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "../src/lib/publicLanding";
 
 const PIXEL_PARITY_LANDING_COPY_FIXTURE_CASES = [
@@ -125,7 +126,9 @@ test("landing copy stays visually aligned when opening the dev editor", async ({
   const shellLandingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
   const shellScreenshot = await takeStableScreenshot(shellLandingCopy);
 
-  await page.getByRole("link", { name: "/?dev", exact: true }).click();
+  await page
+    .getByRole("link", { name: LANDING_DEV_MODE_LINK_LABEL, exact: true })
+    .click();
 
   const devLandingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
   await devLandingCopy.waitFor({ state: "visible" });

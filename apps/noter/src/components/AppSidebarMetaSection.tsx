@@ -7,11 +7,13 @@ import {
   hasSelectedAppBuildVersion,
 } from "@/lib/appBuild";
 import {
-  buildLandingDevToggleSearch,
-  getLandingDevToggleLabel,
+  LANDING_DEV_MODE_DISABLE_LINK_LABEL,
+  LANDING_DEV_MODE_LINK_LABEL,
+  LANDING_DEV_MODE_QUERY_PARAM,
+  isLandingDevModeEnabled,
 } from "@/lib/landingDevMode";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { Link, useLocation } from "@tanstack/react-router";
 
 function normalizeRepoUrl(repoUrl: string): string {
@@ -26,15 +28,31 @@ export function AppSidebarMetaSection() {
   const appCommit = __APP_COMMIT__ || "unknown";
   const appCommitNumber = __APP_COMMIT_NUMBER__;
   const repoUrl = __APP_REPO_URL__ || "";
-  const rootRouteSearch = useRootRouteSearch();
   const location = useLocation();
   const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
 
-  const landingDevToggleSearch = buildLandingDevToggleSearch(rootRouteSearch);
-  const landingDevToggleLabel = getLandingDevToggleLabel(rootRouteSearch);
+  const landingDevEnabled = isLandingDevModeEnabled(
+    new URLSearchParams(location.searchStr),
+  );
+  const landingDevLabel = landingDevEnabled
+    ? LANDING_DEV_MODE_DISABLE_LINK_LABEL
+    : LANDING_DEV_MODE_LINK_LABEL;
+  const landingDevPath = buildPathWithUpdatedQuery(
+    {
+      pathname: location.pathname,
+      search: location.searchStr,
+      hash: location.hash,
+    },
+    (searchParams) => {
+      setQueryParam(
+        searchParams,
+        LANDING_DEV_MODE_QUERY_PARAM,
+        !landingDevEnabled,
+      );
+    },
+  );
 
   const isLandingPage = location.pathname === "/";
-  const isNotDev = isLandingPage && rootRouteSearch.dev !== true;
   const showLogoLink =
     isLandingPage && publicLandingLogoLink?.isLogoLinkVisible === true;
 
@@ -51,6 +69,15 @@ export function AppSidebarMetaSection() {
       data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
       className="flex flex-col items-end gap-3 px-1 pt-3 pb-8 text-right text-xs text-muted-foreground"
     >
+      <Link id="public-landing-dev-toggle" to={landingDevPath}>
+        {landingDevLabel}
+      </Link>
+
+      {/* Keep query-param shortcuts visually separate so path links stay put. */}
+      <div aria-hidden="true" className="h-3" />
+
+      {/* `/home` routes through `/` to avoid a first-paint logo flash. */}
+      <Link to="/">/home</Link>
       {showLogoLink ? (
         <Link to="/logo" className="animate-underline-color">
           /logo
@@ -58,20 +85,6 @@ export function AppSidebarMetaSection() {
       ) : null}
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
-
-      {isNotDev ? (
-        <Link
-          id="public-landing-dev-toggle"
-          to="/"
-          search={landingDevToggleSearch}
-          hash
-        >
-          {landingDevToggleLabel}
-        </Link>
-      ) : (
-        // setting it to /home will work but the svg of the cube renders first so ther's a flash
-        <Link to="/">/home</Link>
-      )}
 
       <div className="flex flex-row-reverse items-center gap-2 font-mono">
         <span data-testid={APP_BUILD_VERSION_TEST_ID}>{buildVersionLabel}</span>

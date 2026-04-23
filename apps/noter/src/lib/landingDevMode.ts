@@ -1,7 +1,8 @@
 import { type RootRouteSearch } from "./rootRouteSearch";
 
 export const LANDING_DEV_MODE_QUERY_PARAM = "dev";
-export const LANDING_DEV_MODE_TOGGLE_LABEL = "/?dev";
+export const LANDING_DEV_MODE_LINK_LABEL = "?dev";
+export const LANDING_DEV_MODE_DISABLE_LINK_LABEL = "?-dev";
 
 type SearchFlagReader = URLSearchParams | Readonly<Record<string, unknown>>;
 
@@ -26,14 +27,4 @@ export function buildLandingDevModeSearch(
     ...search,
     dev: enabled ? true : undefined,
   };
-}
-
-export function buildLandingDevToggleSearch(
-  search: RootRouteSearch,
-): RootRouteSearch {
-  return buildLandingDevModeSearch(search, !isLandingDevModeEnabled(search));
-}
-
-export function getLandingDevToggleLabel(search: SearchFlagReader): string {
-  return isLandingDevModeEnabled(search) ? "/" : LANDING_DEV_MODE_TOGGLE_LABEL;
 }

@@ -2,11 +2,21 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+import {
+  LANDING_DEV_MODE_DISABLE_LINK_LABEL,
+  LANDING_DEV_MODE_LINK_LABEL,
+  LANDING_DEV_MODE_QUERY_PARAM,
+} from "@/lib/landingDevMode";
+import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { Layout, PublicLayoutShell } from "./Layout";
 
 const { useConvexAuthMock } = vi.hoisted(() => ({
   useConvexAuthMock: vi.fn(),
 }));
+
+function encodeStaticHref(path: string): string {
+  return path.split("&").join("&amp;");
+}
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
@@ -54,6 +64,9 @@ describe("Layout", () => {
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
     expect(markup).not.toContain("/logo");
+    expect(markup).toContain("/home");
+    expect(markup).toContain(LANDING_DEV_MODE_LINK_LABEL);
+    expect(markup).not.toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
     expect(markup).toContain('style="width:160px"');
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
   });
@@ -76,6 +89,92 @@ describe("Layout", () => {
     expect(leftRailMarkup).toContain("items-end");
     expect(leftRailMarkup).toContain("text-right");
     expect(leftRailMarkup).toContain("flex-row-reverse");
+  });
+
+  it("keeps search-param shortcuts above a stable path list", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    const landingDevPath = buildPathWithUpdatedQuery(
+      { pathname: "/" },
+      (searchParams) => {
+        setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, true);
+      },
+    );
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[landingDevPath]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    const devShortcutIndex = markup.indexOf(
+      LANDING_DEV_MODE_DISABLE_LINK_LABEL,
+    );
+    const homeLinkIndex = markup.indexOf("/home");
+    const termsLinkIndex = markup.indexOf("/terms");
+    const privacyLinkIndex = markup.indexOf("/privacy");
+
+    expect(devShortcutIndex).toBeGreaterThanOrEqual(0);
+    expect(devShortcutIndex).toBeLessThan(homeLinkIndex);
+    expect(homeLinkIndex).toBeLessThan(termsLinkIndex);
+    expect(termsLinkIndex).toBeLessThan(privacyLinkIndex);
+  });
+
+  it("adds dev to the current URL without dropping other URL parts", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    const logoPath = buildPathWithUpdatedQuery(
+      { pathname: "/logo", search: "prod-ui", hash: "top" },
+      (searchParams) => {
+        setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, false);
+      },
+    );
+    const logoWithDevPath = buildPathWithUpdatedQuery(
+      { pathname: "/logo", search: "prod-ui", hash: "top" },
+      (searchParams) => {
+        setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, true);
+      },
+    );
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[logoPath]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(LANDING_DEV_MODE_LINK_LABEL);
+    expect(markup).not.toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
+    expect(markup).toContain(`href="${encodeStaticHref(logoWithDevPath)}"`);
+  });
+
+  it("removes dev from the current URL without dropping other URL parts", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    const logoDevPath = buildPathWithUpdatedQuery(
+      { pathname: "/logo", search: "prod-ui&dev", hash: "top" },
+      (searchParams) => {
+        setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, true);
+      },
+    );
+    const logoWithoutDevPath = buildPathWithUpdatedQuery(
+      { pathname: "/logo", search: "prod-ui&dev", hash: "top" },
+      (searchParams) => {
+        setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, false);
+      },
+    );
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[logoDevPath]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
+    expect(markup).not.toContain(LANDING_DEV_MODE_LINK_LABEL);
+    expect(markup).toContain(`href="${encodeStaticHref(logoWithoutDevPath)}"`);
   });
 
   it("keeps legal links visible on non-root sign-in routes", () => {
