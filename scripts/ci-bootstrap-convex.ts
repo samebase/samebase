@@ -9,6 +9,8 @@ const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const convexBootstrapLogPath = path.join(tmpdir(), "convex-bootstrap.log");
 const envLocalPath = path.join("apps", "noter", ".env.local");
 const convexInstanceUrl = "http://127.0.0.1:3210/instance_name";
+const convexEnvSetRetryDelayMs = 1_000;
+const convexEnvSetRetryAttempts = 5;
 
 await main();
 
@@ -69,7 +71,7 @@ async function main(): Promise<void> {
         "https://example.com/oauth/github/callback",
       ],
     ] as const) {
-      run(PNPM_COMMAND, [
+      await runWithRetry(PNPM_COMMAND, [
         "--filter",
         "noter",
         "exec",
@@ -106,11 +108,42 @@ async function main(): Promise<void> {
   await printLogTail();
 }
 
-function run(command: string, args: string[]): void {
-  const result = spawnSync(command, args, { stdio: "inherit" });
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
+async function runWithRetry(command: string, args: string[]): Promise<void> {
+  for (let attempt = 1; attempt <= convexEnvSetRetryAttempts; attempt += 1) {
+    const result = spawnSync(command, args, {
+      encoding: "utf8",
+      stdio: "pipe",
+    });
+
+    process.stdout.write(result.stdout);
+    process.stderr.write(result.stderr);
+
+    if (result.status === 0) {
+      return;
+    }
+
+    const output = `${result.stdout}\n${result.stderr}`;
+    const isRetryableFailure =
+      output.includes("503 Service Unavailable") &&
+      output.includes("OptimisticConcurrencyControlFailure");
+
+    if (!isRetryableFailure || attempt === convexEnvSetRetryAttempts) {
+      throw new Error(
+        `Command failed with exit code ${result.status ?? 1}: ${formatCommand(command, args)}`,
+      );
+    }
+
+    // The anonymous local backend can still be finalizing bootstrap while these
+    // env writes begin, so retry the transient OCC error instead of failing CI.
+    console.warn(
+      `Retrying transient Convex env bootstrap failure (${attempt}/${convexEnvSetRetryAttempts})...`,
+    );
+    await sleep(convexEnvSetRetryDelayMs * attempt);
   }
+}
+
+function formatCommand(command: string, args: string[]): string {
+  return [command, ...args].join(" ");
 }
 
 async function waitFor(
