@@ -9,34 +9,30 @@ const LANDING_COPY_VISUAL_SCENARIOS = {
 - collaborate in real time with your team
 - work from desktop or mobile without context switching
 - use Codex to ship small apps directly from your workspace`,
-    editable: false,
   },
-  "landing-copy-editable-parity-single-line": {
+  "landing-copy-readonly-parity-single-line": {
     markdown: `## ship from markdown
 
 - your notes and code live in a real repository
 - collaborate in real time with your team
 - work from desktop or mobile without context switching
 - use Codex to ship small apps directly from your workspace`,
-    editable: true,
   },
-  "landing-copy-editable-parity-two-line": {
+  "landing-copy-readonly-parity-two-line": {
     markdown: `## noter is a collaborative markdown workspace on top of GitHub
 
 - your notes and code live in a real repository
 - collaborate in real time with your team
 - work from desktop or mobile without context switching
 - use Codex to ship small apps directly from your workspace`,
-    editable: true,
   },
-  "landing-copy-editable-parity-three-line": {
+  "landing-copy-readonly-parity-three-line": {
     markdown: `## the collaborative markdown workspace for product teams shipping directly from GitHub every day
 
 - your notes and code live in a real repository
 - collaborate in real time with your team
 - work from desktop or mobile without context switching
 - use Codex to ship small apps directly from your workspace`,
-    editable: true,
   },
 } as const;
 
@@ -60,7 +56,7 @@ export function LandingCopyVisualFixture({
             Shell
           </div>
           <div
-            data-testid="landing-copy-tailwind"
+            data-testid="landing-copy-shell"
             className="w-[384px] bg-background"
           >
             <LandingCopy className="text-sm" markdown={scenario.markdown} />
@@ -68,7 +64,7 @@ export function LandingCopyVisualFixture({
         </div>
         <div className="space-y-3">
           <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            {scenario.editable ? "ProseMark Editable" : "ProseMark"}
+            ProseMark
           </div>
           <div
             data-testid="landing-copy-prosemark"
@@ -77,7 +73,6 @@ export function LandingCopyVisualFixture({
             <ProsemarkReadOnly
               value={scenario.markdown}
               className="text-sm"
-              editable={scenario.editable}
               styleVariant="landingCopy"
             />
           </div>

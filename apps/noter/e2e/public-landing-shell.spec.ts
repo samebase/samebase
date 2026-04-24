@@ -19,7 +19,10 @@ import {
   LANDING_DEV_MODE_DISABLE_LINK_LABEL,
   LANDING_DEV_MODE_LINK_LABEL,
 } from "../src/lib/landingDevMode";
-import { PUBLIC_LANDING_SCROLL_SHELL_TEST_ID } from "../src/lib/publicLanding";
+import {
+  PUBLIC_LANDING_COPY_TEST_ID,
+  PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
+} from "../src/lib/publicLanding";
 import {
   PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
   PUBLIC_LANDING_LOGO_LINK_REVEAL_ROTATION_DEGREES,
@@ -442,19 +445,6 @@ async function expectLandingToggleFocusTarget(
       }),
     )
     .toMatch(/^(body|public-landing-dev-toggle)$/);
-}
-
-async function insertLandingHeadingMarker(
-  page: Parameters<typeof test>[0]["page"],
-  marker: string,
-) {
-  const editor = page.locator(".cm-content").first();
-  const headingLine = editor.locator(".cm-line").first();
-
-  await expect(headingLine).toBeVisible();
-  await headingLine.click();
-  await editor.pressSequentially(` ${marker}`);
-  await expect(editor).toContainText(marker);
 }
 
 async function expectLandingLogoReady(image: Locator) {
@@ -1593,7 +1583,7 @@ test("prod-ui mode hides developer password auth controls", async ({
   await expect(page.getByPlaceholder("you@example.com")).toHaveCount(0);
 });
 
-test("prod-ui mode overrides the landing dev editor", async ({ page }) => {
+test("prod-ui mode keeps landing copy read-only", async ({ page }) => {
   await page.goto("/?prod-ui&dev", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
@@ -1628,14 +1618,17 @@ test("landing dev toggle preserves unrelated query params", async ({
   await expect(appToggleLink).toHaveAttribute("href", "/?prod-ui");
 });
 
-test("landing dev edits stay visible after toggling back to the plain landing view", async ({
+test("landing dev mode keeps the landing copy read-only after toggling", async ({
   page,
 }) => {
-  const headingMarker = "codex-marker";
-
   await page.goto("/?dev", { waitUntil: "domcontentloaded" });
 
-  await insertLandingHeadingMarker(page, headingMarker);
+  const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
+
+  await expect(landingCopy).toContainText(
+    "your notes and code live in a real repository",
+  );
+  await expect(landingCopy.locator('[contenteditable="true"]')).toHaveCount(0);
 
   const appToggleLink = page.getByRole("link", {
     name: LANDING_DEV_MODE_DISABLE_LINK_LABEL,
@@ -1650,5 +1643,7 @@ test("landing dev edits stay visible after toggling back to the plain landing vi
       '[data-testid="public-landing-copy"] [contenteditable="true"]',
     ),
   ).toHaveCount(0);
-  await expect(page.getByRole("heading")).toContainText(headingMarker);
+  await expect(page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID)).toContainText(
+    "your notes and code live in a real repository",
+  );
 });

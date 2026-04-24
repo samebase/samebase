@@ -6,13 +6,13 @@ import { PUBLIC_LANDING_COPY_TEST_ID } from "../src/lib/publicLanding";
 const PIXEL_PARITY_LANDING_COPY_FIXTURE_CASES = [
   {
     name: "single-line heading",
-    mode: "landing-copy-editable-parity-single-line",
-    artifactPrefix: "landing-copy-editable-single-line",
+    mode: "landing-copy-readonly-parity-single-line",
+    artifactPrefix: "landing-copy-readonly-single-line",
   },
   {
     name: "two-line heading",
-    mode: "landing-copy-editable-parity-two-line",
-    artifactPrefix: "landing-copy-editable-two-line",
+    mode: "landing-copy-readonly-parity-two-line",
+    artifactPrefix: "landing-copy-readonly-two-line",
   },
 ] as const;
 
@@ -61,7 +61,7 @@ for (const fixtureCase of PIXEL_PARITY_LANDING_COPY_FIXTURE_CASES) {
     });
 
     const shellLandingCopy = page
-      .getByTestId("landing-copy-tailwind")
+      .getByTestId("landing-copy-shell")
       .locator(".cm-landing-copy");
     const devLandingCopy = page
       .getByTestId("landing-copy-prosemark")
@@ -84,14 +84,14 @@ test("landing copy fixture keeps a three-line heading aligned with the first bul
   page,
 }) => {
   await page.goto(
-    "/visual-fixture.html?mode=landing-copy-editable-parity-three-line",
+    "/visual-fixture.html?mode=landing-copy-readonly-parity-three-line",
     {
       waitUntil: "networkidle",
     },
   );
 
   const shellLandingCopy = page
-    .getByTestId("landing-copy-tailwind")
+    .getByTestId("landing-copy-shell")
     .locator(".cm-landing-copy");
   const devLandingCopy = page
     .getByTestId("landing-copy-prosemark")
@@ -114,7 +114,7 @@ test("landing copy fixture keeps a three-line heading aligned with the first bul
   ).toBeLessThanOrEqual(1);
 });
 
-test("landing copy stays visually aligned when opening the dev editor", async ({
+test("landing copy stays visually aligned in dev mode", async ({
   page,
 }, testInfo) => {
   await page.addInitScript(() => {
@@ -132,26 +132,16 @@ test("landing copy stays visually aligned when opening the dev editor", async ({
 
   const devLandingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
   await devLandingCopy.waitFor({ state: "visible" });
+  await expect(devLandingCopy.locator('[contenteditable="true"]')).toHaveCount(
+    0,
+  );
   const devScreenshot = await takeStableScreenshot(devLandingCopy);
 
   await expectScreenshotsToMatch({
     actual: devScreenshot,
     expected: shellScreenshot,
-    artifactPrefix: "landing-copy-dev-editor",
-    // Unfocused `/?dev` should show the same landing-copy pixels as `/`.
-    maxDiffPixelRatio: 0,
-    maxDiffPixels: 0,
-    testInfo,
-  });
-
-  await devLandingCopy.click();
-  const focusedDevScreenshot = await takeStableScreenshot(devLandingCopy);
-
-  await expectScreenshotsToMatch({
-    actual: focusedDevScreenshot,
-    expected: shellScreenshot,
-    artifactPrefix: "landing-copy-dev-editor-focused",
-    // Focusing the editable `/?dev` surface should not change the visible copy.
+    artifactPrefix: "landing-copy-dev-readonly",
+    // `/?dev` should show the same read-only landing-copy pixels as `/`.
     maxDiffPixelRatio: 0,
     maxDiffPixels: 0,
     testInfo,

@@ -6,7 +6,6 @@ import {
   useRef,
 } from "react";
 import {
-  Annotation,
   Compartment,
   EditorSelection,
   EditorState,
@@ -43,13 +42,11 @@ import {
 type ProsemarkReadOnlyProps = {
   value: string;
   className?: string;
-  editable?: boolean;
   filePath?: string;
   highlightedLineNumbers?: number[];
   lineHighlightTone?: "add" | "remove";
   mobilePaneDragEnabled?: boolean;
   styleVariant?: "default" | "landingCopy";
-  onChange?: (value: string) => void;
 };
 
 function getHighlightClassName(lineHighlightTone: "add" | "remove"): string {
@@ -182,11 +179,8 @@ const prosemarkReadOnlyTheme = EditorView.theme({
   },
 });
 
-const externalValueSyncAnnotation = Annotation.define<boolean>();
-
 function getStyleVariantExtension(
   styleVariant: ProsemarkReadOnlyProps["styleVariant"],
-  editable: boolean,
 ): Extension {
   if (styleVariant !== "landingCopy") {
     return [];
@@ -198,9 +192,7 @@ function getStyleVariantExtension(
     // shared blended ProseMark dark selection.
     prosemarkLandingCopyDarkSelectionTheme,
     EditorView.editorAttributes.of({
-      class: editable
-        ? "cm-landing-copy cm-landing-copy-editable"
-        : "cm-landing-copy",
+      class: "cm-landing-copy",
     }),
   ];
 }
@@ -208,13 +200,11 @@ function getStyleVariantExtension(
 export function ProsemarkReadOnly({
   value,
   className,
-  editable = false,
   filePath,
   highlightedLineNumbers = [],
   lineHighlightTone = "add",
   mobilePaneDragEnabled = false,
   styleVariant = "default",
-  onChange,
 }: ProsemarkReadOnlyProps) {
   const { theme, systemTheme } = useTheme();
   const effectiveTheme = theme === "system" ? systemTheme : theme;
@@ -225,7 +215,6 @@ export function ProsemarkReadOnly({
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const lastValueRef = useRef(value);
-  const editableRef = useRef(editable);
   const isDarkRef = useRef(isDark);
   const filePathRef = useRef(filePath);
   const styleVariantRef = useRef(styleVariant);
@@ -234,13 +223,10 @@ export function ProsemarkReadOnly({
   );
   const languageCompartmentRef = useRef(new Compartment());
   const themeCompartmentRef = useRef(new Compartment());
-  const interactionCompartmentRef = useRef(new Compartment());
-  const cursorCompartmentRef = useRef(new Compartment());
   const decorationsCompartmentRef = useRef(new Compartment());
   const styleVariantCompartmentRef = useRef(new Compartment());
   const lineHighlightToneRef = useRef(lineHighlightTone);
   const lastWidthRef = useRef<number | null>(null);
-  const onChangeRef = useRef(onChange);
   const normalizedHighlightedLineNumbers = useMemo(() => {
     const deduped = Array.from(
       new Set(
@@ -273,10 +259,6 @@ export function ProsemarkReadOnly({
   }, [isDark]);
 
   useEffect(() => {
-    editableRef.current = editable;
-  }, [editable]);
-
-  useEffect(() => {
     filePathRef.current = filePath;
     languageKindRef.current = getCodeMirrorFileLanguageKind(filePath);
   }, [filePath]);
@@ -288,10 +270,6 @@ export function ProsemarkReadOnly({
   useEffect(() => {
     lineHighlightToneRef.current = lineHighlightTone;
   }, [lineHighlightTone]);
-
-  useEffect(() => {
-    onChangeRef.current = onChange;
-  }, [onChange]);
 
   useEffect(() => {
     normalizedHighlightedLineNumbersRef.current =
@@ -318,13 +296,9 @@ export function ProsemarkReadOnly({
         collapseSelectionOnBlurExtension,
         prosemarkSurfaceTheme,
         prosemarkReadOnlyTheme,
-        interactionCompartmentRef.current.of([
-          EditorState.readOnly.of(!editableRef.current),
-          EditorView.editable.of(editableRef.current),
-        ]),
-        cursorCompartmentRef.current.of(
-          !editableRef.current ? prosemarkHiddenCursorTheme : [],
-        ),
+        EditorState.readOnly.of(true),
+        EditorView.editable.of(false),
+        prosemarkHiddenCursorTheme,
         decorationsCompartmentRef.current.of(
           createLineHighlightExtension(
             normalizedHighlightedLineNumbersRef.current,
@@ -332,27 +306,8 @@ export function ProsemarkReadOnly({
           ),
         ),
         styleVariantCompartmentRef.current.of(
-          getStyleVariantExtension(
-            styleVariantRef.current,
-            editableRef.current,
-          ),
+          getStyleVariantExtension(styleVariantRef.current),
         ),
-        EditorView.updateListener.of((update) => {
-          if (!update.docChanged) {
-            return;
-          }
-          if (
-            update.transactions.some((transaction) =>
-              transaction.annotation(externalValueSyncAnnotation),
-            )
-          ) {
-            resizeToContent();
-            return;
-          }
-          lastValueRef.current = update.state.doc.toString();
-          resizeToContent();
-          onChangeRef.current?.(lastValueRef.current);
-        }),
         themeCompartmentRef.current.of(
           getProsemarkFileThemeExtensions({
             isDark: isDarkRef.current,
@@ -446,22 +401,6 @@ export function ProsemarkReadOnly({
     const view = viewRef.current;
     if (!view) return;
     view.dispatch({
-      effects: [
-        interactionCompartmentRef.current.reconfigure([
-          EditorState.readOnly.of(!editable),
-          EditorView.editable.of(editable),
-        ]),
-        cursorCompartmentRef.current.reconfigure(
-          !editable ? prosemarkHiddenCursorTheme : [],
-        ),
-      ],
-    });
-  }, [editable]);
-
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view) return;
-    view.dispatch({
       effects: decorationsCompartmentRef.current.reconfigure(
         createLineHighlightExtension(
           normalizedHighlightedLineNumbers,
@@ -477,11 +416,11 @@ export function ProsemarkReadOnly({
     if (!view) return;
     view.dispatch({
       effects: styleVariantCompartmentRef.current.reconfigure(
-        getStyleVariantExtension(styleVariant, editable),
+        getStyleVariantExtension(styleVariant),
       ),
     });
     resizeToContent();
-  }, [editable, resizeToContent, styleVariant]);
+  }, [resizeToContent, styleVariant]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -507,7 +446,6 @@ export function ProsemarkReadOnly({
       return;
     }
     view.dispatch({
-      annotations: externalValueSyncAnnotation.of(true),
       changes: { from: 0, to: view.state.doc.length, insert: value },
       scrollIntoView: false,
     });

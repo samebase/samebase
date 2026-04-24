@@ -207,9 +207,9 @@ const ADD_REPOSITORY_VISUAL_MODES = [
 
 const LANDING_COPY_VISUAL_MODES = [
   "landing-copy-parity",
-  "landing-copy-editable-parity-single-line",
-  "landing-copy-editable-parity-two-line",
-  "landing-copy-editable-parity-three-line",
+  "landing-copy-readonly-parity-single-line",
+  "landing-copy-readonly-parity-two-line",
+  "landing-copy-readonly-parity-three-line",
 ] as const satisfies readonly LandingCopyVisualMode[];
 
 const LOGO_VISUAL_MODES = [
@@ -416,9 +416,9 @@ function renderVisualFixture(mode: VisualFixtureMode) {
   }
   if (
     mode === "landing-copy-parity" ||
-    mode === "landing-copy-editable-parity-single-line" ||
-    mode === "landing-copy-editable-parity-two-line" ||
-    mode === "landing-copy-editable-parity-three-line"
+    mode === "landing-copy-readonly-parity-single-line" ||
+    mode === "landing-copy-readonly-parity-two-line" ||
+    mode === "landing-copy-readonly-parity-three-line"
   ) {
     return <LandingCopyVisualFixture mode={mode} />;
   }
