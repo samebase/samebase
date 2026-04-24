@@ -43,6 +43,43 @@ test("logo iso controls mobile boot", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Preview" })).toHaveCount(0);
 });
 
+test("logo view mobile header button reopens the controls sidebar", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/logo?elev=215.3", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const workspace = page.locator('[data-workspace-layout-v2="mobile"]');
+  const carousel = page.getByTestId("workspace-layout-v2-pane-main");
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const mainHeader = page.getByTestId("logo-preview-main-header");
+  const controlsToggle = page.getByRole("button", {
+    name: "Toggle sidebar",
+  });
+
+  await expect(workspace).toHaveAttribute("data-mobile-pane", "left");
+  await expect(controlsSidebar).toContainText("Pages");
+
+  await carousel.evaluate((element) => {
+    element.scrollLeft = 256;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  });
+  await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
+  await expect(controlsToggle).toBeVisible();
+
+  await expect(mainHeader).toHaveScreenshot("logo-mobile-main-header.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.01,
+  });
+
+  await controlsToggle.click();
+  await expect(workspace).toHaveAttribute("data-mobile-pane", "left");
+});
+
 test("logo view angle input stacks below the slider", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo?elev=0&rot=34", {
