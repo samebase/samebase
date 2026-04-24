@@ -104,6 +104,14 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain('data-testid="main-header-row"');
   });
 
+  it("softens desktop sidebar width changes", () => {
+    const markup = renderFullPageMarkup({});
+
+    expect(markup).toContain("transition-[width]");
+    expect(markup).toContain("duration-150");
+    expect(markup).toContain("motion-reduce:transition-none");
+  });
+
   it("can hide the left desktop toggle and collapse an otherwise empty header row", () => {
     const markup = renderToStaticMarkup(
       <SidebarProvider>

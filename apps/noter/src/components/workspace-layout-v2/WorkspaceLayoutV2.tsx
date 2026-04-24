@@ -29,6 +29,8 @@ const MOBILE_PANE_PEEK_PX = 24;
 const MOBILE_PANE_SETTLED_TOLERANCE_PX = 1;
 const MOBILE_PANE_ORDER = ["left", "main", "right"] as const;
 const MOBILE_PANE_ORDER_WITHOUT_RIGHT = ["left", "main"] as const;
+const DESKTOP_PANE_TRANSITION_CLASS_NAME =
+  "transition-[width] duration-150 ease-out motion-reduce:transition-none";
 type MobilePane = (typeof MOBILE_PANE_ORDER)[number];
 
 type WorkspaceLayoutV2Props = {
@@ -69,6 +71,31 @@ function shouldShowMobileResizeGripDotsByDefault() {
   }
 
   return isLandingDevModeEnabled(new URLSearchParams(window.location.search));
+}
+
+function shouldAnimateMobilePaneScroll() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function scrollMobileCarouselTo(args: {
+  carouselNode: HTMLDivElement;
+  scrollLeftPx: number;
+  smooth: boolean;
+}) {
+  if (args.smooth && typeof args.carouselNode.scrollTo === "function") {
+    args.carouselNode.scrollTo({
+      behavior: "smooth",
+      left: args.scrollLeftPx,
+    });
+    return true;
+  }
+
+  args.carouselNode.scrollLeft = args.scrollLeftPx;
+  return false;
 }
 
 /**
@@ -283,6 +310,7 @@ type WorkspaceLayoutV2DesktopViewportProps =
     activeResizeSide: "left" | "right" | "top" | null;
     desktopLeftWidthPx: number;
     desktopRightWidthPx: number;
+    shouldAnimatePanes: boolean;
   };
 
 function WorkspaceLayoutV2DesktopViewport({
@@ -292,17 +320,23 @@ function WorkspaceLayoutV2DesktopViewport({
   leftContent,
   mainContent,
   rightContent,
+  shouldAnimatePanes,
 }: WorkspaceLayoutV2DesktopViewportProps) {
+  const paneTransitionClassName = shouldAnimatePanes
+    ? DESKTOP_PANE_TRANSITION_CLASS_NAME
+    : undefined;
+
   return (
     <div className="absolute inset-0 flex min-h-0 overflow-hidden bg-background">
       <div
-        className="h-full min-h-0 shrink-0"
+        className={cn("h-full min-h-0 shrink-0", paneTransitionClassName)}
         style={{ width: `${desktopLeftWidthPx}px` }}
       >
         <div
           data-testid="workspace-layout-v2-pane-left"
           className={cn(
             "flex h-full min-h-0 flex-col overflow-hidden",
+            paneTransitionClassName,
             desktopLeftWidthPx > 0
               ? activeResizeSide === "left"
                 ? "border-r border-primary"
@@ -323,13 +357,14 @@ function WorkspaceLayoutV2DesktopViewport({
       </div>
 
       <div
-        className="h-full min-h-0 shrink-0"
+        className={cn("h-full min-h-0 shrink-0", paneTransitionClassName)}
         style={{ width: `${desktopRightWidthPx}px` }}
       >
         <div
           data-testid="workspace-layout-v2-pane-right"
           className={cn(
             "flex h-full min-h-0 flex-col overflow-hidden",
+            paneTransitionClassName,
             desktopRightWidthPx > 0
               ? activeResizeSide === "right"
                 ? "border-l border-primary"
@@ -621,6 +656,7 @@ export function WorkspaceLayoutV2JustPanes({
   const resolvedMainContent = renderPaneContent(main);
   const resolvedRightContent = renderPaneContent(right);
   const hasAlignedInitialMobilePaneRef = useRef(false);
+  const programmaticMobilePaneRef = useRef<MobilePane | null>(null);
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
   const activeMobileGripResizeSideRef = useRef<"left" | "right" | null>(null);
   const [mobileGripSlideOffsetPx, setMobileGripSlideOffsetPx] = useState(0);
@@ -631,6 +667,7 @@ export function WorkspaceLayoutV2JustPanes({
     }
 
     hasAlignedInitialMobilePaneRef.current = false;
+    programmaticMobilePaneRef.current = null;
     scrollDerivedMobilePaneRef.current = null;
     activeMobileGripResizeSideRef.current = null;
     setMobileGripSlideOffsetPx(0);
@@ -675,8 +712,13 @@ export function WorkspaceLayoutV2JustPanes({
 
     // Keep programmatic pane changes, such as file selection recentering, in
     // lockstep with the native carousel position after the initial boot.
-    carouselNode.scrollLeft = nextScrollLeftPx;
-    setIsMobilePaneSettled(true);
+    const didAnimate = scrollMobileCarouselTo({
+      carouselNode,
+      scrollLeftPx: nextScrollLeftPx,
+      smooth: shouldAnimateMobilePaneScroll(),
+    });
+    programmaticMobilePaneRef.current = didAnimate ? mobilePane : null;
+    setIsMobilePaneSettled(!didAnimate);
   }, [
     hasRightPane,
     isMobile,
@@ -696,6 +738,24 @@ export function WorkspaceLayoutV2JustPanes({
     let settleTimeoutId: number | null = null;
     const syncPaneFromScroll = () => {
       if (activeMobileGripResizeSideRef.current !== null) {
+        return;
+      }
+
+      const programmaticPane = programmaticMobilePaneRef.current;
+      if (programmaticPane !== null) {
+        const isProgrammaticScrollSettled = isMobilePaneScrollSettled({
+          hasRightPane,
+          leftWidthPx: mobileLeftWidthPx,
+          mainWidthPx: mobilePaneWidthPx,
+          pane: programmaticPane,
+          rightWidthPx: mobileRightWidthPx,
+          scrollLeftPx: carouselNode.scrollLeft,
+          viewportWidthPx: viewportSize.widthPx,
+        });
+        setIsMobilePaneSettled(isProgrammaticScrollSettled);
+        if (isProgrammaticScrollSettled) {
+          programmaticMobilePaneRef.current = null;
+        }
         return;
       }
 
@@ -1016,6 +1076,7 @@ export function WorkspaceLayoutV2JustPanes({
             leftContent={resolvedLeftContent}
             mainContent={mainViewportContent}
             rightContent={resolvedRightContent}
+            shouldAnimatePanes={activeResizeSide === null}
           />
           {desktopResizeHandles.map((resizeHandle) =>
             renderResizeHandle(resizeHandle, "edge"),
