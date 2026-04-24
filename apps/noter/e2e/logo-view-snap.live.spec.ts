@@ -6,6 +6,17 @@ import {
 import { resolveLogoViewState } from "../src/components/logoViewDrag";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "../src/lib/publicLandingLogo";
 
+test.use({
+  launchOptions: {
+    args: [
+      "--disable-session-crashed-bubble",
+      "--use-angle=swiftshader",
+      "--enable-unsafe-swiftshader",
+      "--ignore-gpu-blocklist",
+    ],
+  },
+});
+
 type LogoViewState = {
   elevationDegrees: string | null;
   rotationDegrees: string | null;
@@ -84,11 +95,12 @@ test.describe("logo view snapping parity", () => {
     const scene = page.locator("[data-logo-elevation-degrees]").first();
 
     await carousel.evaluate((element) => {
-      element.scrollLeft = 256;
+      element.scrollLeft = element.scrollWidth - element.clientWidth;
       element.dispatchEvent(new Event("scroll", { bubbles: true }));
     });
     await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
     await expect(scene).toBeVisible();
+    await expect(scene.locator("canvas")).toBeVisible();
 
     const sceneBox = await scene.boundingBox();
     const viewportSize = page.viewportSize();
@@ -104,6 +116,13 @@ test.describe("logo view snapping parity", () => {
     expect(viewportSize.height - sceneBox.y - sceneBox.height).toBeGreaterThan(
       80,
     );
+
+    await expect(scene).toHaveScreenshot("logo-mobile-square-scene.png", {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.01,
+    });
   });
 
   test("logo route follows the shared landing drag config", async ({

@@ -821,6 +821,7 @@ export function LogoPreviewPage({
       className="flex h-full min-h-0 items-center justify-center [container-type:size]"
       style={{ backgroundColor }}
     >
+      {/* Keep touch capture square so mobile top/bottom drag lanes stay free. */}
       <div className="relative h-[min(100cqw,100cqh)] w-[min(100cqw,100cqh)]">
         {logoScene}
       </div>
