@@ -71,6 +71,7 @@ HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
 };
 
 function renderMobileLayout({
+  includeLeftPane = true,
   includeRightPane = true,
   leftMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   leftToggleVisibility,
@@ -79,6 +80,7 @@ function renderMobileLayout({
   rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   showMobileResizeGripDots,
 }: {
+  includeLeftPane?: boolean;
   includeRightPane?: boolean;
   leftMobileWidthPx?: number;
   leftToggleVisibility?: "all" | "desktop" | "hidden";
@@ -106,9 +108,13 @@ function renderMobileLayout({
       rightMobileWidthPx={rightMobileWidthPx}
     >
       <WorkspaceLayoutV2FullPage
-        left={{
-          content: <div>left pane</div>,
-        }}
+        left={
+          includeLeftPane
+            ? {
+                content: <div>left pane</div>,
+              }
+            : undefined
+        }
         main={mainProps}
         right={
           includeRightPane
@@ -398,6 +404,47 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')
         ?.scrollLeft,
     ).toBe(MOBILE_PANE_PEEK_PX);
+  });
+
+  it("omits a stale left mobile pane when a route does not provide a left pane", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(
+        renderMobileLayout({
+          includeLeftPane: false,
+          mobilePane: "left",
+        }),
+      );
+    });
+
+    expect(
+      rootElement
+        .querySelector("[data-workspace-layout-v2]")
+        ?.getAttribute("data-mobile-pane"),
+    ).toBe("main");
+    expect(
+      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')
+        ?.scrollLeft,
+    ).toBe(0);
+    expect(
+      rootElement.querySelector(
+        '[data-testid="workspace-layout-v2-pane-left"]',
+      ),
+    ).toBeNull();
+    expect(
+      rootElement.querySelector(
+        '[data-testid="workspace-layout-v2-left-resize"]',
+      ),
+    ).toBeNull();
+    expect(
+      rootElement.querySelector(
+        '[data-testid="workspace-layout-v2-pane-right"]',
+      ),
+    ).not.toBeNull();
   });
 
   it("lets the right sidebar stay borderless while the main pane owns the separator", () => {
