@@ -767,56 +767,64 @@ export function LogoPreviewPage({
     applyPreset(DEFAULT_LOGO_PRESET_ID);
   };
 
-  const sceneContent = (
-    <div className="relative h-full min-h-0" style={{ backgroundColor }}>
-      {isIsometricMode ? (
-        <NLogoIsoScene
-          backgroundColor={backgroundColor}
-          className="absolute inset-0 h-full w-full touch-none select-none"
-          cubeSidePixels={isoCubeSidePixels}
-          editMode={editMode}
-          faceColors={faceColors}
-          onVoxelEdit={handleVoxelEdit}
-          shuffleAnimation={{
-            enabled: isShuffleEnabled,
-            parallelMoves: shuffleParallelMoves,
-          }}
-          styleId={isoStyleId}
-          voxelState={voxelState}
-        />
-      ) : (
-        <NLogoScene
-          backgroundColor={backgroundColor}
-          className={cn(
-            "absolute inset-0 h-full w-full touch-none select-none",
-            isSceneInteracting ? "cursor-grabbing" : "cursor-grab",
-          )}
-          editMode={editMode}
-          elevationDegrees={elevationDegrees}
-          faceColors={faceColors}
-          opacity={logoOpacity}
-          onInteractionStart={() => {
-            setIsAutoRotating(false);
-            setSceneInteracting(true);
-          }}
-          onInteractionEnd={() => {
-            setSceneInteracting(false);
-          }}
-          onViewChange={handleSceneViewChange}
-          onVoxelEdit={handleVoxelEdit}
-          rotationAxisMode={rotationAxisMode}
-          rotationDegrees={rotationDegrees}
-          shuffleAnimation={{
-            enabled: isShuffleEnabled,
-            parallelMoves: shuffleParallelMoves,
-          }}
-          animateFaceColors={isFaceColorAnimationEnabled}
-          viewDragConfig={
-            isViewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined
-          }
-          voxelState={voxelState}
-        />
+  const logoScene = isIsometricMode ? (
+    <NLogoIsoScene
+      backgroundColor={backgroundColor}
+      className="absolute inset-0 h-full w-full touch-none select-none"
+      cubeSidePixels={isoCubeSidePixels}
+      editMode={editMode}
+      faceColors={faceColors}
+      onVoxelEdit={handleVoxelEdit}
+      shuffleAnimation={{
+        enabled: isShuffleEnabled,
+        parallelMoves: shuffleParallelMoves,
+      }}
+      styleId={isoStyleId}
+      voxelState={voxelState}
+    />
+  ) : (
+    <NLogoScene
+      backgroundColor={backgroundColor}
+      className={cn(
+        "absolute inset-0 h-full w-full touch-none select-none",
+        isSceneInteracting ? "cursor-grabbing" : "cursor-grab",
       )}
+      editMode={editMode}
+      elevationDegrees={elevationDegrees}
+      faceColors={faceColors}
+      opacity={logoOpacity}
+      onInteractionStart={() => {
+        setIsAutoRotating(false);
+        setSceneInteracting(true);
+      }}
+      onInteractionEnd={() => {
+        setSceneInteracting(false);
+      }}
+      onViewChange={handleSceneViewChange}
+      onVoxelEdit={handleVoxelEdit}
+      rotationAxisMode={rotationAxisMode}
+      rotationDegrees={rotationDegrees}
+      shuffleAnimation={{
+        enabled: isShuffleEnabled,
+        parallelMoves: shuffleParallelMoves,
+      }}
+      animateFaceColors={isFaceColorAnimationEnabled}
+      viewDragConfig={
+        isViewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined
+      }
+      voxelState={voxelState}
+    />
+  );
+
+  const sceneContent = (
+    <div
+      className="flex h-full min-h-0 items-center justify-center [container-type:size]"
+      style={{ backgroundColor }}
+    >
+      {/* Keep touch capture square so mobile top/bottom drag lanes stay free. */}
+      <div className="relative h-[min(100cqw,100cqh)] w-[min(100cqw,100cqh)]">
+        {logoScene}
+      </div>
     </div>
   );
 

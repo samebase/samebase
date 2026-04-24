@@ -6,6 +6,17 @@ import {
 import { resolveLogoViewState } from "../src/components/logoViewDrag";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "../src/lib/publicLandingLogo";
 
+test.use({
+  launchOptions: {
+    args: [
+      "--disable-session-crashed-bubble",
+      "--use-angle=swiftshader",
+      "--enable-unsafe-swiftshader",
+      "--ignore-gpu-blocklist",
+    ],
+  },
+});
+
 type LogoViewState = {
   elevationDegrees: string | null;
   rotationDegrees: string | null;
@@ -70,6 +81,50 @@ function computeExpectedDraggedView(args: {
 }
 
 test.describe("logo view snapping parity", () => {
+  test("logo canvas leaves vertical mobile drag lanes outside its square", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "chromium-mobile",
+      "The blank vertical drag lanes are a mobile pane concern.",
+    );
+
+    await page.goto("/logo", { waitUntil: "domcontentloaded" });
+    const workspace = page.locator('[data-workspace-layout-v2="mobile"]');
+    const carousel = page.getByTestId("workspace-layout-v2-pane-main");
+    const scene = page.locator("[data-logo-elevation-degrees]").first();
+
+    await carousel.evaluate((element) => {
+      element.scrollLeft = element.scrollWidth - element.clientWidth;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
+    await expect(scene).toBeVisible();
+    await expect(scene.locator("canvas")).toBeVisible();
+
+    const sceneBox = await scene.boundingBox();
+    const viewportSize = page.viewportSize();
+    expect(sceneBox).not.toBeNull();
+    expect(viewportSize).not.toBeNull();
+
+    if (sceneBox === null || viewportSize === null) {
+      throw new Error("Expected a visible logo scene and viewport.");
+    }
+
+    expect(Math.abs(sceneBox.width - sceneBox.height)).toBeLessThanOrEqual(1);
+    expect(sceneBox.y).toBeGreaterThan(80);
+    expect(viewportSize.height - sceneBox.y - sceneBox.height).toBeGreaterThan(
+      80,
+    );
+
+    await expect(scene).toHaveScreenshot("logo-mobile-square-scene.png", {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.01,
+    });
+  });
+
   test("logo route follows the shared landing drag config", async ({
     page,
   }) => {
