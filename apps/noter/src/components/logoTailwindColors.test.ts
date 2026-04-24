@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   getTailwindColorHex,
   getTailwindColorTokenForSelection,
+  isTailwindColorToken,
 } from "@/components/logoTailwindColors";
 
 describe("logoTailwindColors", () => {
@@ -15,6 +16,11 @@ describe("logoTailwindColors", () => {
   it("keeps explicit hex colors unchanged", () => {
     expect(getTailwindColorHex("#abc")).toBe("#abc");
     expect(getTailwindColorHex("#aabbcc")).toBe("#aabbcc");
+  });
+
+  it("detects palette tokens separately from custom colors", () => {
+    expect(isTailwindColorToken("red-500")).toBe(true);
+    expect(isTailwindColorToken("#fb2c36")).toBe(false);
   });
 
   it("uses a visible family swatch when the previous shade is not available", () => {

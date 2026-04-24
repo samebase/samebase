@@ -27,6 +27,7 @@ import {
   getTailwindColorShade,
   getTailwindColorShades,
   getTailwindColorTokenForSelection,
+  isTailwindColorToken,
   type FaceColorKey,
   type FaceColors,
 } from "@/components/logoTailwindColors";
@@ -111,6 +112,8 @@ const LOGO_CONTROL_BUTTON_CLASS_NAME = "min-w-0 flex-[1_0_10rem] rounded-none";
 const LOGO_CONTROL_BUTTON_ROW_CLASS_NAME = "flex flex-wrap gap-2";
 const LOGO_CONTROL_NUMBER_INPUT_CLASS_NAME =
   "h-9 w-full max-w-32 rounded-none border-border bg-background px-2 font-mono text-sm";
+const CUSTOM_COLOR_FAMILY_VALUE = "Custom";
+const CUSTOM_COLOR_SHADE_VALUE = "Hex";
 
 type LogoPreviewRenderMode = "three" | "iso";
 type LogoPreviewPageProps = {
@@ -148,6 +151,36 @@ function parseShuffleParallelMoves(value: string): LogoShuffleParallelMoves {
     default:
       return 1;
   }
+}
+
+function expandHexColorToken(token: string): string {
+  if (!/^#[0-9a-f]{3}$/i.test(token)) {
+    return token.toLowerCase();
+  }
+
+  const [, red, green, blue] = token;
+  return `#${red}${red}${green}${green}${blue}${blue}`.toLowerCase();
+}
+
+function normalizeColorValueInput(value: string): string | null {
+  const trimmedValue = value.trim();
+  if (isTailwindColorToken(trimmedValue)) {
+    return trimmedValue;
+  }
+
+  if (/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmedValue)) {
+    return expandHexColorToken(trimmedValue);
+  }
+
+  if (/^[0-9a-f]{6}$/i.test(trimmedValue)) {
+    return `#${trimmedValue.toLowerCase()}`;
+  }
+
+  return null;
+}
+
+function readColorInputValue(token: string): string {
+  return expandHexColorToken(getTailwindColorHex(token));
 }
 
 function ColorSwatch({
@@ -339,10 +372,12 @@ function areLogoRouteSearchesEqual(
 function LogoPreviewSection({
   children,
   className,
+  testId,
   title,
 }: {
   children: ReactNode;
   className?: string;
+  testId?: string;
   title: string;
 }) {
   return (
@@ -351,6 +386,7 @@ function LogoPreviewSection({
         "flex flex-col gap-2 border-t border-border py-2 first:border-t-0",
         className,
       )}
+      data-testid={testId}
     >
       <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         {title}
@@ -459,6 +495,9 @@ export function LogoPreviewPage({
   const [faceColors, setFaceColors] = useState<FaceColors>(() =>
     readFaceColors(routeSearch),
   );
+  const [faceColorDrafts, setFaceColorDrafts] = useState<FaceColors>(() =>
+    readFaceColors(routeSearch),
+  );
   const [logoOpacity, setLogoOpacity] = useState(DEFAULT_LOGO_OPACITY);
   const [isFaceColorAnimationEnabled, setIsFaceColorAnimationEnabled] =
     useState(false);
@@ -481,6 +520,10 @@ export function LogoPreviewPage({
   useEffect(() => {
     isAutoRotatingRef.current = isAutoRotating;
   }, [isAutoRotating]);
+
+  useEffect(() => {
+    setFaceColorDrafts(faceColors);
+  }, [faceColors]);
 
   useEffect(() => {
     if (
@@ -735,6 +778,52 @@ export function LogoPreviewPage({
         nextShade,
         currentFaceColors[faceColorKey],
       ),
+    }));
+  };
+
+  const handleFaceColorPickerChange = (
+    faceColorKey: FaceColorKey,
+    nextColor: string,
+  ) => {
+    const normalizedColor = normalizeColorValueInput(nextColor);
+    if (normalizedColor === null) {
+      return;
+    }
+
+    setFaceColorDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [faceColorKey]: normalizedColor,
+    }));
+    setFaceColors((currentFaceColors) => ({
+      ...currentFaceColors,
+      [faceColorKey]: normalizedColor,
+    }));
+  };
+
+  const handleFaceColorValueChange = (
+    faceColorKey: FaceColorKey,
+    nextValue: string,
+  ) => {
+    setFaceColorDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [faceColorKey]: nextValue,
+    }));
+
+    const normalizedValue = normalizeColorValueInput(nextValue);
+    if (normalizedValue === null) {
+      return;
+    }
+
+    setFaceColors((currentFaceColors) => ({
+      ...currentFaceColors,
+      [faceColorKey]: normalizedValue,
+    }));
+  };
+
+  const resetFaceColorDraft = (faceColorKey: FaceColorKey) => {
+    setFaceColorDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [faceColorKey]: faceColors[faceColorKey],
     }));
   };
 
@@ -1282,7 +1371,7 @@ export function LogoPreviewPage({
         ) : null}
       </LogoPreviewSection>
 
-      <LogoPreviewSection title="Colors">
+      <LogoPreviewSection title="Colors" testId="logo-preview-colors-section">
         <div className="flex items-center gap-1">
           {FACE_COLOR_KEYS.map((faceColorKey) => (
             <ColorSwatch
@@ -1295,23 +1384,54 @@ export function LogoPreviewPage({
 
         {FACE_COLOR_KEYS.map((faceColorKey) => {
           const currentToken = faceColors[faceColorKey];
-          const currentFamily = getTailwindColorFamily(currentToken);
-          const currentShade = getTailwindColorShade(currentToken);
+          const isTailwindToken = isTailwindColorToken(currentToken);
+          const currentFamily = isTailwindToken
+            ? getTailwindColorFamily(currentToken)
+            : CUSTOM_COLOR_FAMILY_VALUE;
+          const currentShade = isTailwindToken
+            ? getTailwindColorShade(currentToken)
+            : CUSTOM_COLOR_SHADE_VALUE;
           const availableShades = getTailwindColorShades(currentFamily);
-          const currentFamilyHex = getTailwindColorFamilyHex(currentFamily);
+          const currentColorHex = getTailwindColorHex(currentToken);
+          const currentFamilyHex = isTailwindToken
+            ? getTailwindColorFamilyHex(currentFamily)
+            : currentColorHex;
 
           return (
             <div key={faceColorKey} className="flex flex-col gap-2">
               <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                <ColorSwatch
-                  color={getTailwindColorHex(currentToken)}
-                  size="compact"
-                />
+                <ColorSwatch color={currentColorHex} size="compact" />
                 <Label className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
                   {FACE_COLOR_LABELS[faceColorKey]}
                 </Label>
               </div>
               <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <Input
+                    aria-label={`${FACE_COLOR_LABELS[faceColorKey]} picker`}
+                    className="h-9 w-12 shrink-0 rounded-none border-border bg-background p-1 shadow-none"
+                    type="color"
+                    value={readColorInputValue(currentToken)}
+                    onChange={(event) =>
+                      handleFaceColorPickerChange(
+                        faceColorKey,
+                        event.target.value,
+                      )
+                    }
+                  />
+                  <Input
+                    aria-label={`${FACE_COLOR_LABELS[faceColorKey]} color`}
+                    className="h-9 min-w-0 rounded-none border-border bg-background px-2 font-mono text-xs shadow-none"
+                    value={faceColorDrafts[faceColorKey]}
+                    onBlur={() => resetFaceColorDraft(faceColorKey)}
+                    onChange={(event) =>
+                      handleFaceColorValueChange(
+                        faceColorKey,
+                        event.target.value,
+                      )
+                    }
+                  />
+                </div>
                 <Select
                   value={currentFamily}
                   onValueChange={(value) =>
@@ -1351,9 +1471,10 @@ export function LogoPreviewPage({
                   <SelectTrigger
                     aria-label={`${FACE_COLOR_LABELS[faceColorKey]} shade`}
                     className="h-9 rounded-none border-border bg-background px-2 text-sm shadow-none"
+                    disabled={!isTailwindToken}
                   >
                     <ColorOptionContent
-                      color={getTailwindColorHex(currentToken)}
+                      color={currentColorHex}
                       label={currentShade}
                     />
                   </SelectTrigger>

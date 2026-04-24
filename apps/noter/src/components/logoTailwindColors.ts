@@ -359,6 +359,10 @@ function getTailwindColorOption(
   return tailwindColorOptionMap.get(token);
 }
 
+export function isTailwindColorToken(token: string): boolean {
+  return getTailwindColorOption(token) !== undefined;
+}
+
 export function getTailwindColorHex(token: string): string {
   if (/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(token)) {
     return token;

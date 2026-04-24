@@ -166,6 +166,15 @@ test("logo view color selection applies Tailwind colors to the Three scene", asy
   });
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  await controlsSidebar.getByLabel("Left picker").fill("#ff00cc");
+  await expect(page).toHaveURL(/leftColor=%23ff00cc/);
+  await expect(controlsSidebar.getByLabel("Left color")).toHaveValue("#ff00cc");
+  await expect(controlsSidebar.getByLabel("Left shade")).toBeDisabled();
+
+  await controlsSidebar.getByLabel("Left color").fill("sky-500");
+  await expect(page).toHaveURL(/leftColor=sky-500/);
+  await expect(controlsSidebar.getByLabel("Left shade")).toBeEnabled();
+
   await controlsSidebar.getByLabel("Left family").click();
   await page.getByRole("option", { name: "Red", exact: true }).click();
   await expect(page).toHaveURL(/leftColor=red-500/);
@@ -180,6 +189,15 @@ test("logo view color selection applies Tailwind colors to the Three scene", asy
         window.requestAnimationFrame(() => resolve());
       });
     });
+  });
+
+  await expect(
+    page.getByTestId("logo-preview-colors-section"),
+  ).toHaveScreenshot("logo-color-controls.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
   });
 
   expect(unsupportedColorWarnings).toEqual([]);
