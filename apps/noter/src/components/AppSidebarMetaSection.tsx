@@ -54,7 +54,7 @@ export function AppSidebarMetaSection() {
   return (
     <div
       data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
-      className="flex flex-col items-end gap-3 px-1 pt-3 pb-8 text-right text-xs text-muted-foreground"
+      className="flex flex-col items-end gap-3 px-2 pt-3 pb-8 text-right text-xs text-muted-foreground"
     >
       <Link
         id="public-landing-dev-toggle"
