@@ -74,6 +74,35 @@ describe("Layout", () => {
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
   });
 
+  it("shows the public shell sidebar toggle across viewports only when opted in", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+
+    const hiddenMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/"]}>
+        <Layout>
+          <PublicLayoutShell>
+            <div>landing</div>
+          </PublicLayoutShell>
+        </Layout>
+      </TestRouterProvider>,
+    );
+    const visibleMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/"]}>
+        <Layout>
+          <PublicLayoutShell showLeftToggle>
+            <div>landing</div>
+          </PublicLayoutShell>
+        </Layout>
+      </TestRouterProvider>,
+    );
+
+    expect(hiddenMarkup).not.toContain('aria-label="Toggle sidebar"');
+    expect(visibleMarkup).toContain('aria-label="Toggle sidebar"');
+    expect(visibleMarkup).not.toContain("md:hidden");
+  });
+
   it("places public rail links on the mobile carousel peek edge", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);

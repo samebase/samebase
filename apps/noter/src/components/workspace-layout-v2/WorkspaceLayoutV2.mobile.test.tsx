@@ -73,18 +73,18 @@ HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
 function renderMobileLayout({
   includeRightPane = true,
   leftMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  leftToggleVisibility,
   mainHeader = OMIT_HEADER,
   mobilePane,
   rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  showMobileLeftToggle,
   showMobileResizeGripDots,
 }: {
   includeRightPane?: boolean;
   leftMobileWidthPx?: number;
+  leftToggleVisibility?: "all" | "desktop" | "hidden";
   mainHeader?: React.ReactNode | typeof OMIT_HEADER;
   mobilePane?: "left" | "main" | "right";
   rightMobileWidthPx?: number;
-  showMobileLeftToggle?: boolean;
   showMobileResizeGripDots?: boolean;
 }) {
   const mainProps =
@@ -117,7 +117,7 @@ function renderMobileLayout({
               }
             : undefined
         }
-        showMobileLeftToggle={showMobileLeftToggle}
+        leftToggleVisibility={leftToggleVisibility}
         showMobileResizeGripDots={showMobileResizeGripDots}
       />
     </SidebarProvider>
@@ -260,7 +260,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBe("right");
   });
 
-  it("keeps the mobile sidebar toggle opt-in", () => {
+  it("keeps the all-viewport sidebar toggle opt-in", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -275,7 +275,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBeNull();
 
     act(() => {
-      mountedRoot.render(renderMobileLayout({ showMobileLeftToggle: true }));
+      mountedRoot.render(renderMobileLayout({ leftToggleVisibility: "all" }));
     });
 
     const toggle = getRequiredElement(

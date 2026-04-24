@@ -58,6 +58,15 @@ type WorkspaceLayoutV2ResizeHandleConfig = {
   positionPx: number;
   side: "left" | "right";
 };
+type WorkspaceLayoutV2LeftToggleVisibility = "all" | "desktop" | "hidden";
+
+const LEFT_TOGGLE_BUTTON_CLASS_NAMES = {
+  all: "h-8 w-8 rounded-none",
+  desktop: "hidden h-8 w-8 md:inline-flex",
+} as const satisfies Record<
+  Exclude<WorkspaceLayoutV2LeftToggleVisibility, "hidden">,
+  string
+>;
 
 function clampNumber(value: number, minValue: number, maxValue: number) {
   return Math.max(minValue, Math.min(value, maxValue));
@@ -423,39 +432,32 @@ function WorkspaceLayoutV2MobileViewport({
 
 function WorkspaceLayoutV2MainPaneHeader({
   children,
-  showLeftToggle = true,
-  showMobileLeftToggle = false,
+  leftToggleVisibility = "desktop",
   showRightToggle = true,
 }: {
   children: ReactNode;
-  showLeftToggle?: boolean;
-  showMobileLeftToggle?: boolean;
+  leftToggleVisibility?: WorkspaceLayoutV2LeftToggleVisibility;
   showRightToggle?: boolean;
 }) {
   const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
+  const leftToggleButtonClassName =
+    leftToggleVisibility === "hidden"
+      ? null
+      : LEFT_TOGGLE_BUTTON_CLASS_NAMES[leftToggleVisibility];
 
   return (
     <div className="flex h-full items-center gap-2">
-      {showMobileLeftToggle ? (
+      {leftToggleButtonClassName !== null ? (
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          aria-label="Toggle sidebar"
-          className="h-8 w-8 rounded-none md:hidden"
-          onClick={toggleLeftSidebar}
-        >
-          <PanelLeft className="h-4 w-4" />
-        </Button>
-      ) : null}
-
-      {showLeftToggle ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Toggle Left Sidebar"
-          className="hidden h-8 w-8 md:inline-flex"
+          aria-label={
+            leftToggleVisibility === "desktop"
+              ? "Toggle Left Sidebar"
+              : "Toggle sidebar"
+          }
+          className={leftToggleButtonClassName}
           onClick={toggleLeftSidebar}
         >
           <PanelLeft className="h-4 w-4" />
@@ -488,8 +490,7 @@ export function WorkspaceLayoutV2FullPage({
   main,
   panel,
   right,
-  showLeftToggle = true,
-  showMobileLeftToggle = false,
+  leftToggleVisibility = "desktop",
   showMobileResizeGripDots,
 }: {
   dataTestId?: string;
@@ -497,19 +498,20 @@ export function WorkspaceLayoutV2FullPage({
   main: WorkspaceLayoutV2PaneFrameProps;
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: WorkspaceLayoutV2PaneFrameProps;
-  showLeftToggle?: boolean;
-  showMobileLeftToggle?: boolean;
+  leftToggleVisibility?: WorkspaceLayoutV2LeftToggleVisibility;
   showMobileResizeGripDots?: boolean;
 }) {
   const hasRightPane = right !== undefined;
   const isMobile = useIsMobile();
-  // Desktop keeps the shared shell for sidebar toggles; only mobile routes
-  // with no main-header content collapse the row entirely.
+  // A mobile left toggle is always also a desktop toggle. Routes opt into
+  // `all` only when their main pane can swallow the drag-to-reopen gesture.
   const hasMainHeaderContent =
     main.header !== undefined && main.header !== null;
-  const hasDesktopHeaderToggle = showLeftToggle || hasRightPane;
+  const hasDesktopHeaderToggle =
+    leftToggleVisibility !== "hidden" || hasRightPane;
+  const hasMobileHeaderToggle = leftToggleVisibility === "all";
   const shouldHideMainHeader = isMobile
-    ? !hasMainHeaderContent && !showMobileLeftToggle
+    ? !hasMainHeaderContent && !hasMobileHeaderToggle
     : !hasMainHeaderContent && !hasDesktopHeaderToggle;
 
   return (
@@ -522,8 +524,7 @@ export function WorkspaceLayoutV2FullPage({
             header={
               shouldHideMainHeader ? undefined : (
                 <WorkspaceLayoutV2MainPaneHeader
-                  showLeftToggle={showLeftToggle}
-                  showMobileLeftToggle={showMobileLeftToggle}
+                  leftToggleVisibility={leftToggleVisibility}
                   showRightToggle={hasRightPane}
                 >
                   {main.header}

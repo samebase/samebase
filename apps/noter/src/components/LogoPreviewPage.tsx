@@ -1403,7 +1403,7 @@ export function LogoPreviewPage({
             content: sceneContent,
             headerTestId: "logo-preview-main-header",
           }}
-          showMobileLeftToggle
+          leftToggleVisibility="all"
         />
       </SidebarProvider>
     </Layout>

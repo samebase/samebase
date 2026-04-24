@@ -10,10 +10,10 @@ import {
 
 export function PublicLayoutShell({
   children,
-  showMobileLeftToggle = false,
+  showLeftToggle = false,
 }: {
   children: ReactNode;
-  showMobileLeftToggle?: boolean;
+  showLeftToggle?: boolean;
 }) {
   return (
     <PublicLandingLogoLinkProvider>
@@ -37,8 +37,7 @@ export function PublicLayoutShell({
               <div className="flex h-full min-h-0 flex-col">{children}</div>
             ),
           }}
-          showLeftToggle={false}
-          showMobileLeftToggle={showMobileLeftToggle}
+          leftToggleVisibility={showLeftToggle ? "all" : "hidden"}
         />
       </SidebarProvider>
     </PublicLandingLogoLinkProvider>

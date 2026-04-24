@@ -846,6 +846,38 @@ test("public landing keeps legal links in the sidebar rail", async ({
   });
 });
 
+test("public landing header button collapses the sidebar on desktop", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/", { waitUntil: "networkidle" });
+
+  const workspace = page.locator('[data-workspace-layout-v2="desktop"]');
+  const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
+  const sidebarToggle = page.getByRole("button", {
+    name: "Toggle sidebar",
+  });
+
+  await expect(workspace).toBeVisible();
+  await expect(sidebarToggle).toBeVisible();
+  await expect
+    .poll(async () =>
+      leftPane.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().width),
+      ),
+    )
+    .toBeGreaterThan(0);
+
+  await sidebarToggle.click();
+  await expect
+    .poll(async () =>
+      leftPane.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().width),
+      ),
+    )
+    .toBe(0);
+});
+
 test("mcp consent sign-in keeps legal links in the sidebar rail", async ({
   page,
 }) => {
