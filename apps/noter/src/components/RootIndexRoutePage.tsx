@@ -1,4 +1,4 @@
-import { Layout, PublicLayoutShell } from "@/Layout";
+import { Layout } from "@/Layout";
 import { SignInForm } from "@/SignInForm";
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { useLocation } from "@tanstack/react-router";
@@ -7,7 +7,7 @@ import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAut
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
-import { useConvexAuth, Authenticated, Unauthenticated } from "convex/react";
+import { useConvexAuth, Authenticated } from "convex/react";
 import { lazy, Suspense, useMemo } from "react";
 
 const VaultDashboard = lazy(async () => {
@@ -18,13 +18,16 @@ const VaultDashboard = lazy(async () => {
 export function RootIndexRoutePage() {
   const location = useLocation();
   const rootRouteSearch = useRootRouteSearch();
-  const { isAuthenticated } = useConvexAuth();
-  const showPublicLandingWithoutAuthGate =
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const shouldSkipAuthGate =
     !isAuthenticated &&
     shouldRenderPublicLandingWithoutAuthGate(
       location.pathname,
       rootRouteSearch,
     );
+  const shouldRenderPublicLanding =
+    !isAuthenticated &&
+    (shouldSkipAuthGate || (!isLoading && location.pathname === "/"));
 
   useAppAuthRuntimeEffects(location.pathname, rootRouteSearch);
   usePageMetadata(
@@ -38,30 +41,25 @@ export function RootIndexRoutePage() {
     ),
   );
 
+  const publicLandingContent = (
+    <Suspense fallback={null}>
+      <SignInForm />
+    </Suspense>
+  );
+
+  if (shouldRenderPublicLanding) {
+    return publicLandingContent;
+  }
+
   return (
     <Layout>
-      {showPublicLandingWithoutAuthGate ? (
-        <PublicLayoutShell showLeftToggle>
-          <SignInForm />
-        </PublicLayoutShell>
-      ) : (
-        <>
-          <Authenticated>
-            <ApprovalGate>
-              <Suspense fallback={null}>
-                <VaultDashboard />
-              </Suspense>
-            </ApprovalGate>
-          </Authenticated>
-          <Unauthenticated>
-            <PublicLayoutShell showLeftToggle>
-              <Suspense fallback={null}>
-                <SignInForm />
-              </Suspense>
-            </PublicLayoutShell>
-          </Unauthenticated>
-        </>
-      )}
+      <Authenticated>
+        <ApprovalGate>
+          <Suspense fallback={null}>
+            <VaultDashboard />
+          </Suspense>
+        </ApprovalGate>
+      </Authenticated>
     </Layout>
   );
 }

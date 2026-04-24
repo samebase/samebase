@@ -71,6 +71,13 @@ async function captureLandingReloadFrames(
   });
 }
 
+async function expectPathname(
+  page: Parameters<typeof test>[0]["page"],
+  pathname: string,
+) {
+  await expect.poll(() => new URL(page.url()).pathname).toBe(pathname);
+}
+
 test("local landing reload keeps the password auth slot stable on the dev server", async ({
   page,
 }) => {
@@ -102,6 +109,35 @@ test("local landing reload keeps the password auth slot stable on the dev server
   expect(
     Math.max(...copyHeightValues) - Math.min(...copyHeightValues),
   ).toBeLessThanOrEqual(1);
+});
+
+test("public sidebar links keep the mobile pane open while swapping route content", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "chromium-mobile",
+    "Mobile carousel state is only visible in the mobile project.",
+  );
+
+  await page.goto("/", { waitUntil: "networkidle" });
+  const shell = page.locator('[data-workspace-layout-v2="mobile"]');
+
+  await page.getByRole("button", { name: "Toggle sidebar" }).click();
+  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
+
+  await page.getByRole("link", { name: "/terms", exact: true }).click();
+  await expectPathname(page, "/terms");
+  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
+  await expect(page.locator("body")).toContainText("Terms of Service");
+
+  await page.getByRole("link", { name: "/privacy", exact: true }).click();
+  await expectPathname(page, "/privacy");
+  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
+  await expect(page.locator("body")).toContainText("Privacy Policy");
+
+  await page.getByRole("link", { name: "/home", exact: true }).click();
+  await expectPathname(page, "/");
+  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
 });
 
 test("landing dev mode reload keeps the editable copy stable on the dev server", async ({

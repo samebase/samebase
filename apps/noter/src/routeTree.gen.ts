@@ -10,15 +10,12 @@
 
 import { Route as rootRouteImport } from "./routes/root";
 import { Route as testRouteImport } from "./routes/test";
-import { Route as termsRouteImport } from "./routes/terms";
-import { Route as privacyRouteImport } from "./routes/privacy";
 import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as pitchRouteImport } from "./routes/pitch";
 import { Route as machinesRouteImport } from "./routes/machines";
 import { Route as logoRouteImport } from "./routes/logo";
-import { Route as homeRouteImport } from "./routes/home";
 import { Route as addRepositoryRouteImport } from "./routes/add-repository";
-import { Route as indexRouteImport } from "./routes/index";
+import { Route as publicLayoutRouteImport } from "./routes/public-layout";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
 import { Route as codexResearchRouteImport } from "./routes/codex-research";
 import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
@@ -27,6 +24,10 @@ import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-
 import { Route as logoSvgRouteImport } from "./routes/logo-svg";
 import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
 import { Route as logoIsoRouteImport } from "./routes/logo-iso";
+import { Route as termsRouteImport } from "./routes/terms";
+import { Route as privacyRouteImport } from "./routes/privacy";
+import { Route as homeRouteImport } from "./routes/home";
+import { Route as indexRouteImport } from "./routes/index";
 import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-thread-browser-research";
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
@@ -36,16 +37,6 @@ import { Route as codespaceChatRouteImport } from "./routes/codespace-chat";
 const testRoute = testRouteImport.update({
   id: "/test",
   path: "/test",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const termsRoute = termsRouteImport.update({
-  id: "/terms",
-  path: "/terms",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const privacyRoute = privacyRouteImport.update({
-  id: "/privacy",
-  path: "/privacy",
   getParentRoute: () => rootRouteImport,
 } as any);
 const pricingRoute = pricingRouteImport.update({
@@ -68,19 +59,13 @@ const logoRoute = logoRouteImport.update({
   path: "/logo",
   getParentRoute: () => rootRouteImport,
 } as any);
-const homeRoute = homeRouteImport.update({
-  id: "/home",
-  path: "/home",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const addRepositoryRoute = addRepositoryRouteImport.update({
   id: "/add",
   path: "/add",
   getParentRoute: () => rootRouteImport,
 } as any);
-const indexRoute = indexRouteImport.update({
-  id: "/",
-  path: "/",
+const publicLayoutRoute = publicLayoutRouteImport.update({
+  id: "/_public",
   getParentRoute: () => rootRouteImport,
 } as any);
 const vaultFileRoute = vaultFileRouteImport.update({
@@ -123,6 +108,26 @@ const logoIsoRoute = logoIsoRouteImport.update({
   path: "/logo/iso",
   getParentRoute: () => rootRouteImport,
 } as any);
+const termsRoute = termsRouteImport.update({
+  id: "/terms",
+  path: "/terms",
+  getParentRoute: () => publicLayoutRoute,
+} as any);
+const privacyRoute = privacyRouteImport.update({
+  id: "/privacy",
+  path: "/privacy",
+  getParentRoute: () => publicLayoutRoute,
+} as any);
+const homeRoute = homeRouteImport.update({
+  id: "/home",
+  path: "/home",
+  getParentRoute: () => publicLayoutRoute,
+} as any);
+const indexRoute = indexRouteImport.update({
+  id: "/",
+  path: "/",
+  getParentRoute: () => publicLayoutRoute,
+} as any);
 const codexThreadBrowserResearchRoute =
   codexThreadBrowserResearchRouteImport.update({
     id: "/research/codex-app-server/browser",
@@ -154,14 +159,14 @@ const codespaceChatRoute = codespaceChatRouteImport.update({
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
-  "/home": typeof homeRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
+  "/test": typeof testRoute;
+  "/home": typeof homeRoute;
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
-  "/test": typeof testRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
@@ -177,16 +182,16 @@ export interface FileRoutesByFullPath {
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
 }
 export interface FileRoutesByTo {
-  "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
-  "/home": typeof homeRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
+  "/test": typeof testRoute;
+  "/": typeof indexRoute;
+  "/home": typeof homeRoute;
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
-  "/test": typeof testRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
@@ -203,16 +208,17 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
-  "/": typeof indexRoute;
+  "/_public": typeof publicLayoutRouteWithChildren;
   "/add": typeof addRepositoryRoute;
-  "/home": typeof homeRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
-  "/privacy": typeof privacyRoute;
-  "/terms": typeof termsRoute;
   "/test": typeof testRoute;
+  "/_public/": typeof indexRoute;
+  "/_public/home": typeof homeRoute;
+  "/_public/privacy": typeof privacyRoute;
+  "/_public/terms": typeof termsRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
@@ -232,14 +238,14 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/add"
-    | "/home"
     | "/logo"
     | "/machines"
     | "/pitch"
     | "/pricing"
+    | "/test"
+    | "/home"
     | "/privacy"
     | "/terms"
-    | "/test"
     | "/logo/iso"
     | "/logo/single-cube"
     | "/logo/svg"
@@ -255,16 +261,16 @@ export interface FileRouteTypes {
     | "/vault/$owner/$repo/codespace/$branch/chat";
   fileRoutesByTo: FileRoutesByTo;
   to:
-    | "/"
     | "/add"
-    | "/home"
     | "/logo"
     | "/machines"
     | "/pitch"
     | "/pricing"
+    | "/test"
+    | "/"
+    | "/home"
     | "/privacy"
     | "/terms"
-    | "/test"
     | "/logo/iso"
     | "/logo/single-cube"
     | "/logo/svg"
@@ -280,16 +286,17 @@ export interface FileRouteTypes {
     | "/vault/$owner/$repo/codespace/$branch/chat";
   id:
     | "__root__"
-    | "/"
+    | "/_public"
     | "/add"
-    | "/home"
     | "/logo"
     | "/machines"
     | "/pitch"
     | "/pricing"
-    | "/privacy"
-    | "/terms"
     | "/test"
+    | "/_public/"
+    | "/_public/home"
+    | "/_public/privacy"
+    | "/_public/terms"
     | "/logo/iso"
     | "/logo/single-cube"
     | "/logo/svg"
@@ -306,15 +313,12 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  indexRoute: typeof indexRoute;
+  publicLayoutRoute: typeof publicLayoutRouteWithChildren;
   addRepositoryRoute: typeof addRepositoryRoute;
-  homeRoute: typeof homeRoute;
   logoRoute: typeof logoRoute;
   machinesRoute: typeof machinesRoute;
   pitchRoute: typeof pitchRoute;
   pricingRoute: typeof pricingRoute;
-  privacyRoute: typeof privacyRoute;
-  termsRoute: typeof termsRoute;
   testRoute: typeof testRoute;
   logoIsoRoute: typeof logoIsoRoute;
   logoIsoStudyRoute: typeof logoIsoStudyRoute;
@@ -338,20 +342,6 @@ declare module "@tanstack/react-router" {
       path: "/test";
       fullPath: "/test";
       preLoaderRoute: typeof testRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/terms": {
-      id: "/terms";
-      path: "/terms";
-      fullPath: "/terms";
-      preLoaderRoute: typeof termsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/privacy": {
-      id: "/privacy";
-      path: "/privacy";
-      fullPath: "/privacy";
-      preLoaderRoute: typeof privacyRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/pricing": {
@@ -382,13 +372,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/home": {
-      id: "/home";
-      path: "/home";
-      fullPath: "/home";
-      preLoaderRoute: typeof homeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/add": {
       id: "/add";
       path: "/add";
@@ -396,11 +379,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof addRepositoryRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/": {
-      id: "/";
-      path: "/";
+    "/_public": {
+      id: "/_public";
+      path: "";
       fullPath: "/";
-      preLoaderRoute: typeof indexRouteImport;
+      preLoaderRoute: typeof publicLayoutRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/vault/$": {
@@ -459,6 +442,34 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoIsoRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/_public/terms": {
+      id: "/_public/terms";
+      path: "/terms";
+      fullPath: "/terms";
+      preLoaderRoute: typeof termsRouteImport;
+      parentRoute: typeof publicLayoutRoute;
+    };
+    "/_public/privacy": {
+      id: "/_public/privacy";
+      path: "/privacy";
+      fullPath: "/privacy";
+      preLoaderRoute: typeof privacyRouteImport;
+      parentRoute: typeof publicLayoutRoute;
+    };
+    "/_public/home": {
+      id: "/_public/home";
+      path: "/home";
+      fullPath: "/home";
+      preLoaderRoute: typeof homeRouteImport;
+      parentRoute: typeof publicLayoutRoute;
+    };
+    "/_public/": {
+      id: "/_public/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof indexRouteImport;
+      parentRoute: typeof publicLayoutRoute;
+    };
     "/research/codex-app-server/browser": {
       id: "/research/codex-app-server/browser";
       path: "/research/codex-app-server/browser";
@@ -497,16 +508,31 @@ declare module "@tanstack/react-router" {
   }
 }
 
-const rootRouteChildren: RootRouteChildren = {
+interface publicLayoutRouteChildren {
+  indexRoute: typeof indexRoute;
+  homeRoute: typeof homeRoute;
+  privacyRoute: typeof privacyRoute;
+  termsRoute: typeof termsRoute;
+}
+
+const publicLayoutRouteChildren: publicLayoutRouteChildren = {
   indexRoute: indexRoute,
-  addRepositoryRoute: addRepositoryRoute,
   homeRoute: homeRoute,
+  privacyRoute: privacyRoute,
+  termsRoute: termsRoute,
+};
+
+const publicLayoutRouteWithChildren = publicLayoutRoute._addFileChildren(
+  publicLayoutRouteChildren,
+);
+
+const rootRouteChildren: RootRouteChildren = {
+  publicLayoutRoute: publicLayoutRouteWithChildren,
+  addRepositoryRoute: addRepositoryRoute,
   logoRoute: logoRoute,
   machinesRoute: machinesRoute,
   pitchRoute: pitchRoute,
   pricingRoute: pricingRoute,
-  privacyRoute: privacyRoute,
-  termsRoute: termsRoute,
   testRoute: testRoute,
   logoIsoRoute: logoIsoRoute,
   logoIsoStudyRoute: logoIsoStudyRoute,

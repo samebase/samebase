@@ -4,12 +4,12 @@ import { RoutedPage } from "./-publicRouteComponents";
 
 function PrivacyRouteComponent() {
   return (
-    <RoutedPage pathname="/privacy" withLayout>
+    <RoutedPage pathname="/privacy">
       <PrivacyPolicyPage />
     </RoutedPage>
   );
 }
 
-export const Route = createFileRoute("/privacy")({
+export const Route = createFileRoute("/_public/privacy")({
   component: PrivacyRouteComponent,
 });

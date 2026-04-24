@@ -4,12 +4,12 @@ import { RoutedPage } from "./-publicRouteComponents";
 
 function TermsRouteComponent() {
   return (
-    <RoutedPage pathname="/terms" withLayout>
+    <RoutedPage pathname="/terms">
       <TermsOfServicePage />
     </RoutedPage>
   );
 }
 
-export const Route = createFileRoute("/terms")({
+export const Route = createFileRoute("/_public/terms")({
   component: TermsRouteComponent,
 });
