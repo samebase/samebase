@@ -92,13 +92,17 @@ async function scrollMainEditorToApproximateOffset(
     }, scrollTop);
 }
 
-async function getHorizontalBorderWidths(locator: Locator) {
+async function getHorizontalSeparatorWidths(locator: Locator) {
   return locator.evaluate((element) => {
-    const styles = window.getComputedStyle(element);
+    const readSeparatorWidth = (pseudoElement: "::before" | "::after") => {
+      const styles = window.getComputedStyle(element, pseudoElement);
+
+      return styles.content === "none" ? "0px" : styles.width;
+    };
 
     return {
-      left: styles.borderLeftWidth,
-      right: styles.borderRightWidth,
+      left: readSeparatorWidth("::before"),
+      right: readSeparatorWidth("::after"),
     };
   });
 }
@@ -264,13 +268,13 @@ test("mobile v2 fixture keeps the visible pane borderless while adjacent panes o
 
   await scrollWorkspaceCarouselToPane(page, "left");
   await expect
-    .poll(async () => getHorizontalBorderWidths(leftPane))
+    .poll(async () => getHorizontalSeparatorWidths(leftPane))
     .toEqual({
       left: "0px",
       right: "0px",
     });
   await expect
-    .poll(async () => getHorizontalBorderWidths(mainPane))
+    .poll(async () => getHorizontalSeparatorWidths(mainPane))
     .toEqual({
       left: "1px",
       right: "1px",
@@ -278,19 +282,19 @@ test("mobile v2 fixture keeps the visible pane borderless while adjacent panes o
 
   await scrollWorkspaceCarouselToPane(page, "main");
   await expect
-    .poll(async () => getHorizontalBorderWidths(leftPane))
+    .poll(async () => getHorizontalSeparatorWidths(leftPane))
     .toEqual({
       left: "1px",
       right: "1px",
     });
   await expect
-    .poll(async () => getHorizontalBorderWidths(mainPane))
+    .poll(async () => getHorizontalSeparatorWidths(mainPane))
     .toEqual({
       left: "0px",
       right: "0px",
     });
   await expect
-    .poll(async () => getHorizontalBorderWidths(rightPane))
+    .poll(async () => getHorizontalSeparatorWidths(rightPane))
     .toEqual({
       left: "1px",
       right: "1px",
@@ -298,13 +302,13 @@ test("mobile v2 fixture keeps the visible pane borderless while adjacent panes o
 
   await scrollWorkspaceCarouselToPane(page, "right");
   await expect
-    .poll(async () => getHorizontalBorderWidths(mainPane))
+    .poll(async () => getHorizontalSeparatorWidths(mainPane))
     .toEqual({
       left: "1px",
       right: "1px",
     });
   await expect
-    .poll(async () => getHorizontalBorderWidths(rightPane))
+    .poll(async () => getHorizontalSeparatorWidths(rightPane))
     .toEqual({
       left: "0px",
       right: "0px",
