@@ -1,10 +1,10 @@
 # Terms of Service
 
-Last updated: March 23, 2026
+Last updated: April 25, 2026
 
 These Terms of Service govern your use of noter and the noter.md website. In
-these Terms, "noter", "we", "us", and "our" refer to the service operated by
-Flux Byte SRL. By using noter, you agree to these Terms.
+these Terms, "noter", "we", "us", and "our" refer to the operator of the noter
+service. By using noter, you agree to these Terms.
 
 These Terms are intended to describe the current rules and legal conditions for
 using noter without overclaiming features or promises that are not in the
@@ -12,8 +12,7 @@ product today.
 
 ## 1. Operator
 
-noter is operated by Flux Byte SRL, a company organized in the Republic of
-Moldova.
+noter is operated by the noter team.
 
 ## 2. What noter is
 
@@ -66,9 +65,8 @@ You may not use noter to:
 ## 7. Your content
 
 - You retain your rights in the content you submit or connect to noter.
-- You give Flux Byte SRL the limited rights needed to host, process, copy,
-  transform, cache, and transmit that content to operate noter and its
-  integrations.
+- You give noter the limited rights needed to host, process, copy, transform,
+  cache, and transmit that content to operate noter and its integrations.
 - If you connect third-party repositories or services, you represent that you
   are authorized to do so and to let noter process that content for the features
   you enable.
@@ -82,14 +80,14 @@ You may not use noter to:
 
 ## 9. Third-party services
 
-- noter depends on third-party services and infrastructure that Flux Byte SRL
-  does not control.
-- Flux Byte SRL is not responsible for outages, data loss, policy changes,
-  account suspensions, or other actions taken by those third-party services.
+- noter depends on third-party services and infrastructure that we do not
+  control.
+- noter is not responsible for outages, data loss, policy changes, account
+  suspensions, or other actions taken by those third-party services.
 
 ## 10. Suspension and termination
 
-Flux Byte SRL may suspend or terminate access to noter if:
+noter may suspend or terminate access to noter if:
 
 - you violate these Terms
 - your use creates security, legal, or operational risk
@@ -104,27 +102,26 @@ statutory.
 
 ## 12. Limitation of liability
 
-To the maximum extent permitted by law, Flux Byte SRL will not be liable for
-indirect, incidental, special, consequential, exemplary, or punitive damages, or
-for loss of profits, revenues, goodwill, data, or business opportunity, arising
-out of or related to your use of noter.
+To the maximum extent permitted by law, noter will not be liable for indirect,
+incidental, special, consequential, exemplary, or punitive damages, or for loss
+of profits, revenues, goodwill, data, or business opportunity, arising out of or
+related to your use of noter.
 
 If the law does not allow some of these limits, they apply only to the maximum
 extent the law permits.
 
 ## 13. Governing law and disputes
 
-Unless mandatory law requires otherwise, these Terms are governed by the laws of
-the Republic of Moldova. Unless a different agreement between you and Flux Byte
-SRL says otherwise, disputes related to these Terms or your use of noter will be
-resolved by the competent courts of the Republic of Moldova.
+Unless mandatory law requires otherwise, these Terms are governed by the laws
+that apply to the noter service operator. Unless a different agreement between
+you and noter says otherwise, disputes related to these Terms or your use of
+noter will be resolved by a court with competent jurisdiction.
 
 ## 14. Changes to these Terms
 
-Flux Byte SRL may update these Terms from time to time. If that happens, the
-updated version will be posted on this page with a new effective date. Your
-continued use of noter after the update takes effect means you accept the
-updated Terms.
+noter may update these Terms from time to time. If that happens, the updated
+version will be posted on this page with a new effective date. Your continued
+use of noter after the update takes effect means you accept the updated Terms.
 
 ## 15. Contact
 

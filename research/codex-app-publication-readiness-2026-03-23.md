@@ -59,7 +59,7 @@ So the practical recommendation is:
 
 ## Revalidation Required Before Submission
 
-Owner: noter publisher / Flux Byte SRL operator
+Owner: noter publisher / service operator
 
 SLA: Re-check the live OpenAI submission UI and official docs within 7 days
 before any actual submission.
