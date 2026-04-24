@@ -103,7 +103,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
       data-testid={PUBLIC_LANDING_SCROLL_SHELL_TEST_ID}
       className="flex min-h-0 flex-1 flex-col"
     >
-      <div className="container my-auto">
+      <div className="container my-auto px-1">
         <div
           data-testid="public-landing-content"
           className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8"
