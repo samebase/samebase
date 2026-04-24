@@ -149,6 +149,42 @@ test("logo view button groups wrap to one per row in the default rail", async ({
   expect(verticalBox.y).toBeGreaterThan(cubeAxisBox.y);
 });
 
+test("logo view color selection applies Tailwind colors to the Three scene", async ({
+  page,
+}) => {
+  const unsupportedColorWarnings: string[] = [];
+  page.on("console", (message) => {
+    const text = message.text();
+    if (text.includes("THREE.Color: Unknown color model")) {
+      unsupportedColorWarnings.push(text);
+    }
+  });
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  await controlsSidebar.getByLabel("Left family").click();
+  await page.getByRole("option", { name: "Red", exact: true }).click();
+  await expect(page).toHaveURL(/leftColor=red-500/);
+
+  await controlsSidebar.getByLabel("Left shade").click();
+  await page.getByRole("option", { name: "600", exact: true }).click();
+  await expect(page).toHaveURL(/leftColor=red-600/);
+
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+  });
+
+  expect(unsupportedColorWarnings).toEqual([]);
+});
+
 test("logo view desktop header toggle collapses and reopens the sidebar", async ({
   page,
 }) => {
