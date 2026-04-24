@@ -53,8 +53,12 @@ export function AppSidebarMetaSection() {
   );
 
   const isLandingPage = location.pathname === "/";
+  const shouldReserveLogoLink = isLandingPage;
   const showLogoLink =
     isLandingPage && publicLandingLogoLink?.isLogoLinkVisible === true;
+  const logoLinkClassName = showLogoLink
+    ? "animate-underline-color"
+    : "pointer-events-none select-none text-background no-underline";
 
   const buildVersionLabel = formatAppBuildVersionLabel(appCommitNumber);
   const commitLabel = formatAppBuildCommitLabel(appCommit);
@@ -76,13 +80,19 @@ export function AppSidebarMetaSection() {
       {/* Keep query-param shortcuts visually separate so path links stay put. */}
       <div aria-hidden="true" className="h-3" />
 
-      {/* `/home` routes through `/` to avoid a first-paint logo flash. */}
-      <Link to="/">/home</Link>
-      {showLogoLink ? (
-        <Link to="/logo" className="animate-underline-color">
+      {/* Reserve the easter-egg row so revealing it does not move path links. */}
+      {shouldReserveLogoLink ? (
+        <Link
+          to="/logo"
+          aria-hidden={showLogoLink ? undefined : true}
+          className={logoLinkClassName}
+          tabIndex={showLogoLink ? undefined : -1}
+        >
           /logo
         </Link>
       ) : null}
+      {/* `/home` routes through `/` to avoid a first-paint logo flash. */}
+      <Link to="/">/home</Link>
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
 
