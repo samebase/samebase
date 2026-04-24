@@ -802,8 +802,12 @@ export function WorkspaceLayoutV2JustPanes({
           (resizeHandle): resizeHandle is WorkspaceLayoutV2ResizeHandleConfig =>
             resizeHandle !== null,
         );
+  // A hidden mobile grip must not leave an invisible touch target over pane
+  // content, so prod omits the grip handles entirely.
   const mobileResizeHandles: WorkspaceLayoutV2ResizeHandleConfig[] =
-    viewportSize.widthPx <= 0 || !isMobilePaneSettled
+    viewportSize.widthPx <= 0 ||
+    !isMobilePaneSettled ||
+    !shouldShowMobileResizeGripDots
       ? []
       : [
           mobilePane === "left"
@@ -958,9 +962,6 @@ export function WorkspaceLayoutV2JustPanes({
             : undefined
         }
         onSizeChange={resizeHandle.onWidthChange}
-        showGripDots={
-          pointerTarget === "grip" ? shouldShowMobileResizeGripDots : true
-        }
       />
     );
   }

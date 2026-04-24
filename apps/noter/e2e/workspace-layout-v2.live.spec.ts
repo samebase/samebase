@@ -174,7 +174,7 @@ test("mobile v2 fixture uses the carousel to move between panes", async ({
 
   await scrollWorkspaceCarouselToPane(page, "left");
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
-    1,
+    0,
   );
 
   await scrollWorkspaceCarouselToPane(page, "main");
@@ -185,7 +185,7 @@ test("mobile v2 fixture uses the carousel to move between panes", async ({
   await scrollWorkspaceCarouselToPane(page, "right");
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
-  ).toHaveCount(1);
+  ).toHaveCount(0);
 });
 
 test("mobile v2 fixture keeps grip targets centered while rendering dots outside the active sidebar", async ({
@@ -227,7 +227,7 @@ test("mobile v2 fixture keeps grip targets centered while rendering dots outside
   );
 });
 
-test("mobile v2 fixture shows sidebar grip dots only with the dev flag", async ({
+test("mobile v2 fixture renders sidebar grip targets only with the dev flag", async ({
   page,
 }) => {
   const viewport = page.viewportSize();
@@ -235,11 +235,9 @@ test("mobile v2 fixture shows sidebar grip dots only with the dev flag", async (
 
   await openWorkspaceLayoutV2Fixture(page);
   await scrollWorkspaceCarouselToPane(page, "left");
-  await expect(
-    page
-      .getByTestId("workspace-layout-v2-left-resize")
-      .locator("[data-workspace-layout-v2-resize-grip-dots]"),
-  ).toHaveCount(0);
+  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
+    0,
+  );
 
   await openWorkspaceLayoutV2Fixture(page, { dev: true });
   await scrollWorkspaceCarouselToPane(page, "left");

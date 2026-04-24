@@ -188,25 +188,6 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).not.toContain("bg-background");
   });
 
-  it("can hide mobile sidebar grip dots while preserving the resize target", () => {
-    const markup = renderToStaticMarkup(
-      <WorkspaceLayoutV2ResizeHandle
-        currentSizePx={280}
-        dataTestId="workspace-layout-v2-left-resize"
-        maxSizePx={480}
-        minSizePx={160}
-        onSizeChange={() => {}}
-        pointerTarget="grip"
-        positionPx={280}
-        resizeFrom="left"
-        showGripDots={false}
-      />,
-    );
-
-    expect(markup).toContain('data-testid="workspace-layout-v2-left-resize"');
-    expect(markup).not.toContain("data-workspace-layout-v2-resize-grip-dots");
-  });
-
   it("keeps mobile sidebar grip tracks centered while offsetting dots", () => {
     const leftMarkup = renderToStaticMarkup(
       <WorkspaceLayoutV2ResizeHandle
