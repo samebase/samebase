@@ -9,9 +9,11 @@ import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
 const OMIT_HEADER = Symbol("omit-header");
 
 function renderFullPageMarkup({
+  includeLeftPane = true,
   includeRightPane = true,
   mainHeader = OMIT_HEADER,
 }: {
+  includeLeftPane?: boolean;
   includeRightPane?: boolean;
   mainHeader?: ReactNode | typeof OMIT_HEADER;
 }) {
@@ -30,9 +32,13 @@ function renderFullPageMarkup({
   return renderToStaticMarkup(
     <SidebarProvider defaultRightOpen>
       <WorkspaceLayoutV2FullPage
-        left={{
-          content: <div>left pane</div>,
-        }}
+        left={
+          includeLeftPane
+            ? {
+                content: <div>left pane</div>,
+              }
+            : undefined
+        }
         main={mainProps}
         right={
           includeRightPane
@@ -95,6 +101,17 @@ describe("WorkspaceLayoutV2FullPage", () => {
     );
   });
 
+  it("omits the left pane and left toggle when a route does not provide a left pane", () => {
+    const markup = renderFullPageMarkup({ includeLeftPane: false });
+
+    expect(markup).toContain("main pane");
+    expect(markup).toContain("right pane");
+    expect(markup).not.toContain("left pane");
+    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
+    expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
+    expect(markup).toContain('aria-label="Toggle Right Sidebar"');
+  });
+
   it("keeps the desktop header shell even when a route omits main header content", () => {
     const markup = renderFullPageMarkup({});
 
@@ -121,6 +138,31 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
     expect(markup).toContain("main pane");
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
+    expect(markup).not.toContain('class="h-8 shrink-0"');
+  });
+
+  it("can hide the right toggle and collapse an otherwise empty header row", () => {
+    const markup = renderToStaticMarkup(
+      <SidebarProvider defaultRightOpen>
+        <WorkspaceLayoutV2FullPage
+          left={{
+            content: <div>left pane</div>,
+          }}
+          main={{
+            content: <div>main pane</div>,
+          }}
+          right={{
+            content: <div>right pane</div>,
+          }}
+          leftToggleVisibility="hidden"
+          rightToggleVisibility="hidden"
+        />
+      </SidebarProvider>,
+    );
+
+    expect(markup).toContain("right pane");
+    expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
+    expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
     expect(markup).not.toContain('class="h-8 shrink-0"');
   });
 

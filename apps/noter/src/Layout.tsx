@@ -8,6 +8,9 @@ import {
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
 
+const PUBLIC_LAYOUT_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
+const PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 288;
+
 export function PublicLayoutShell({ children }: { children: ReactNode }) {
   return (
     <PublicLandingLogoLinkProvider>
@@ -15,23 +18,30 @@ export function PublicLayoutShell({ children }: { children: ReactNode }) {
         defaultLeftDesktopWidthPx={
           WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX
         }
+        defaultRightDesktopWidthPx={
+          PUBLIC_LAYOUT_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX
+        }
         defaultLeftMobileWidthPx={
           WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX
         }
-        defaultOpen={true}
-        defaultRightOpen={false}
-        shortcutSidebarSide="left"
+        defaultRightMobileWidthPx={
+          PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX
+        }
+        defaultOpen={false}
+        defaultRightOpen={true}
+        shortcutSidebarSide="right"
       >
         <WorkspaceLayoutV2FullPage
-          left={{
-            footer: <AppSidebarMetaSection />,
-          }}
           main={{
             content: (
               <div className="flex h-full min-h-0 flex-col">{children}</div>
             ),
           }}
+          right={{
+            footer: <AppSidebarMetaSection side="right" />,
+          }}
           leftToggleVisibility="hidden"
+          rightToggleVisibility="hidden"
         />
       </SidebarProvider>
     </PublicLandingLogoLinkProvider>

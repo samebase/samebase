@@ -19,6 +19,7 @@ import {
   LANDING_DEV_MODE_DISABLE_LINK_LABEL,
   LANDING_DEV_MODE_LINK_LABEL,
 } from "../src/lib/landingDevMode";
+import { FORCE_PROD_UI_MODE_LINK_LABEL } from "../src/lib/prodUiMode";
 import { PUBLIC_LANDING_SCROLL_SHELL_TEST_ID } from "../src/lib/publicLanding";
 import {
   PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
@@ -185,13 +186,13 @@ async function readLandingToggleLayout(
   });
 }
 
-async function readLandingSidebarCopyMetrics(page: Page): Promise<{
+async function readLandingRightSidebarCopyMetrics(page: Page): Promise<{
   carouselWidth: number;
   contentWidth: number;
-  leftPaneClientWidth: number;
-  leftPaneWidth: number;
   mainPaneWidth: number;
   mainPaneClientWidth: number;
+  rightPaneClientWidth: number;
+  rightPaneWidth: number;
   shellWidth: number;
   teamTextHeight: number;
 }> {
@@ -200,8 +201,8 @@ async function readLandingSidebarCopyMetrics(page: Page): Promise<{
     const carousel = document.querySelector(
       '[data-testid="workspace-layout-v2-pane-main"]',
     );
-    const leftPane = document.querySelector(
-      '[data-testid="workspace-layout-v2-pane-left"]',
+    const rightPane = document.querySelector(
+      '[data-testid="workspace-layout-v2-pane-right"]',
     );
     const mainPane = carousel?.querySelector(".snap-center > div");
     const content = document.querySelector(
@@ -217,8 +218,8 @@ async function readLandingSidebarCopyMetrics(page: Page): Promise<{
     if (!(carousel instanceof HTMLElement)) {
       throw new Error("Expected landing carousel");
     }
-    if (!(leftPane instanceof HTMLElement)) {
-      throw new Error("Expected landing left pane");
+    if (!(rightPane instanceof HTMLElement)) {
+      throw new Error("Expected landing right pane");
     }
     if (!(mainPane instanceof HTMLElement)) {
       throw new Error("Expected landing main pane");
@@ -233,10 +234,10 @@ async function readLandingSidebarCopyMetrics(page: Page): Promise<{
     return {
       carouselWidth: Math.round(carousel.getBoundingClientRect().width),
       contentWidth: Math.round(content.getBoundingClientRect().width),
-      leftPaneClientWidth: leftPane.clientWidth,
-      leftPaneWidth: Math.round(leftPane.getBoundingClientRect().width),
       mainPaneWidth: Math.round(mainPane.getBoundingClientRect().width),
       mainPaneClientWidth: mainPane.clientWidth,
+      rightPaneClientWidth: rightPane.clientWidth,
+      rightPaneWidth: Math.round(rightPane.getBoundingClientRect().width),
       shellWidth: Math.round(shell.getBoundingClientRect().width),
       teamTextHeight: Math.round(teamText.getBoundingClientRect().height),
     };
@@ -264,7 +265,7 @@ function getPixelColorDistance(first: RgbaPixel, second: RgbaPixel): number {
   );
 }
 
-async function readLandingSidebarSeparatorPaint(page: Page): Promise<{
+async function readLandingRightSidebarSeparatorPaint(page: Page): Promise<{
   backgroundPixel: RgbaPixel;
   colorDistance: number;
   sampleY: number;
@@ -288,9 +289,9 @@ async function readLandingSidebarSeparatorPaint(page: Page): Promise<{
     const shellRect = shell.getBoundingClientRect();
     const mainPaneRect = mainPane.getBoundingClientRect();
     return {
-      backgroundX: Math.round(mainPaneRect.left) - 4,
+      backgroundX: Math.round(mainPaneRect.right) - 4,
       sampleY: Math.round(shellRect.top + 48),
-      separatorX: Math.round(mainPaneRect.left),
+      separatorX: Math.round(mainPaneRect.right) - 1,
     };
   });
   const screenshot = await page.screenshot({
@@ -510,7 +511,7 @@ async function expectAppBuildCommitLink(commitLabel: Locator) {
   return href;
 }
 
-async function expectLegalLinksUseLeftSidebarInnerEdge(statusBar: Locator) {
+async function expectLegalLinksUseRightSidebarInnerEdge(statusBar: Locator) {
   const termsLink = statusBar.getByRole("link", { name: "/terms" });
   const privacyLink = statusBar.getByRole("link", { name: "/privacy" });
   const versionLabel = statusBar.getByTestId(APP_BUILD_VERSION_TEST_ID);
@@ -536,41 +537,38 @@ async function expectLegalLinksUseLeftSidebarInnerEdge(statusBar: Locator) {
     return;
   }
 
-  const rightPaddingPx = await statusBar.evaluate((element) => {
-    const value = Number.parseFloat(getComputedStyle(element).paddingRight);
+  const leftPaddingPx = await statusBar.evaluate((element) => {
+    const value = Number.parseFloat(getComputedStyle(element).paddingLeft);
     return Number.isFinite(value) ? value : 0;
   });
-  const expectedRightEdge =
-    statusBarBox.x + statusBarBox.width - rightPaddingPx;
+  const expectedLeftEdge = statusBarBox.x + leftPaddingPx;
   for (const childBox of [termsBox, privacyBox, versionBox]) {
-    expect(
-      Math.abs(childBox.x + childBox.width - expectedRightEdge),
-    ).toBeLessThanOrEqual(1);
+    expect(Math.abs(childBox.x - expectedLeftEdge)).toBeLessThanOrEqual(1);
   }
 }
 
-async function expectStatusBarInLeftSidebar(
+async function expectStatusBarInRightSidebar(
   page: Parameters<typeof test>[0]["page"],
   statusBar: Locator,
 ) {
-  const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
-  const leftPaneBox = await leftPane.boundingBox();
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  const rightPaneBox = await rightPane.boundingBox();
   const statusBarBox = await statusBar.boundingBox();
 
-  expect(leftPaneBox).not.toBeNull();
+  expect(rightPaneBox).not.toBeNull();
   expect(statusBarBox).not.toBeNull();
-  if (leftPaneBox === null || statusBarBox === null) {
+  if (rightPaneBox === null || statusBarBox === null) {
     return;
   }
 
   const epsilonPx = 1;
-  expect(statusBarBox.x).toBeGreaterThanOrEqual(leftPaneBox.x - epsilonPx);
-  expect(statusBarBox.y).toBeGreaterThanOrEqual(leftPaneBox.y - epsilonPx);
+  expect(statusBarBox.x).toBeGreaterThanOrEqual(rightPaneBox.x - epsilonPx);
+  expect(statusBarBox.y).toBeGreaterThanOrEqual(rightPaneBox.y - epsilonPx);
   expect(statusBarBox.x + statusBarBox.width).toBeLessThanOrEqual(
-    leftPaneBox.x + leftPaneBox.width + epsilonPx,
+    rightPaneBox.x + rightPaneBox.width + epsilonPx,
   );
   expect(statusBarBox.y + statusBarBox.height).toBeLessThanOrEqual(
-    leftPaneBox.y + leftPaneBox.height + epsilonPx,
+    rightPaneBox.y + rightPaneBox.height + epsilonPx,
   );
 }
 
@@ -830,8 +828,11 @@ test("public landing keeps legal links in the sidebar rail", async ({
   const landingContent = page.getByTestId("public-landing-content");
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
-  await expectLegalLinksUseLeftSidebarInnerEdge(statusBar);
-  await expectStatusBarInLeftSidebar(page, statusBar);
+  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(
+    0,
+  );
+  await expectLegalLinksUseRightSidebarInnerEdge(statusBar);
+  await expectStatusBarInRightSidebar(page, statusBar);
   await expect(
     landingContent.getByRole("link", { name: "/terms" }),
   ).toHaveCount(0);
@@ -853,19 +854,22 @@ test("public landing omits the sidebar header button on desktop", async ({
   await page.goto("/", { waitUntil: "networkidle" });
 
   const workspace = page.locator('[data-workspace-layout-v2="desktop"]');
-  const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
 
   await expect(workspace).toBeVisible();
+  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(
+    0,
+  );
   await expect(
     page.getByRole("button", { name: "Toggle sidebar" }),
   ).toHaveCount(0);
   await expect
     .poll(async () =>
-      leftPane.evaluate((element) =>
+      rightPane.evaluate((element) =>
         Math.round(element.getBoundingClientRect().width),
       ),
     )
-    .toBeGreaterThan(0);
+    .toBe(288);
 });
 
 test("mcp consent sign-in keeps legal links in the sidebar rail", async ({
@@ -878,8 +882,8 @@ test("mcp consent sign-in keeps legal links in the sidebar rail", async ({
 
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
-  await expectLegalLinksUseLeftSidebarInnerEdge(statusBar);
-  await expectStatusBarInLeftSidebar(page, statusBar);
+  await expectLegalLinksUseRightSidebarInnerEdge(statusBar);
+  await expectStatusBarInRightSidebar(page, statusBar);
   await expect(statusBar.getByRole("link", { name: "/home" })).toBeVisible();
   await expect(page.getByText("Temporary MCP sign-in note")).toBeVisible();
 });
@@ -948,6 +952,9 @@ test.describe("mobile landing dev toggle", () => {
 
     const mobileShell = page.locator('[data-workspace-layout-v2="mobile"]');
     await expect(mobileShell).toHaveAttribute("data-mobile-pane", "main");
+    await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(
+      0,
+    );
     await expect(
       page.getByRole("button", { name: "Toggle sidebar" }),
     ).toHaveCount(0);
@@ -1009,10 +1016,8 @@ test.describe("mobile landing dev toggle", () => {
     expect(scrollTop.shellScrollTop).toBe(0);
   });
 
-  test("landing keeps the left mobile sidebar resizable without a right pane", async ({
-    page,
-  }) => {
-    await page.goto("/", { waitUntil: "networkidle" });
+  test("landing keeps the right mobile sidebar resizable", async ({ page }) => {
+    await page.goto("/?dev", { waitUntil: "networkidle" });
 
     const paneGeometry = await page.evaluate(() => {
       const shell = document.querySelector(
@@ -1020,6 +1025,9 @@ test.describe("mobile landing dev toggle", () => {
       );
       const mainPane = document.querySelector(
         '[data-testid="workspace-layout-v2-pane-main"]',
+      );
+      const leftPane = document.querySelector(
+        '[data-testid="workspace-layout-v2-pane-left"]',
       );
       const rightPane = document.querySelector(
         '[data-testid="workspace-layout-v2-pane-right"]',
@@ -1033,6 +1041,7 @@ test.describe("mobile landing dev toggle", () => {
       }
 
       return {
+        leftPaneCount: leftPane === null ? 0 : 1,
         mainRightPx: mainPane.getBoundingClientRect().right,
         rightPaneCount: rightPane === null ? 0 : 1,
         shellRightPx: shell.getBoundingClientRect().right,
@@ -1042,24 +1051,50 @@ test.describe("mobile landing dev toggle", () => {
     expect(Math.round(paneGeometry.mainRightPx)).toBe(
       Math.round(paneGeometry.shellRightPx),
     );
-    expect(paneGeometry.rightPaneCount).toBe(0);
+    expect(paneGeometry.leftPaneCount).toBe(0);
+    expect(paneGeometry.rightPaneCount).toBe(1);
+
+    const mobileShell = page.locator('[data-workspace-layout-v2="mobile"]');
+    await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(
+      0,
+    );
+    await expect(
+      page.getByTestId("workspace-layout-v2-left-resize"),
+    ).toHaveCount(0);
 
     await page
       .getByTestId("workspace-layout-v2-pane-main")
       .evaluate((element) => {
+        element.scrollLeft = 0;
+        element.dispatchEvent(new Event("scroll", { bubbles: true }));
+      });
+
+    await expect(mobileShell).toHaveAttribute("data-mobile-pane", "main");
+
+    await page
+      .getByTestId("workspace-layout-v2-pane-main")
+      .evaluate((element) => {
+        const rightPane = document.querySelector(
+          '[data-testid="workspace-layout-v2-pane-right"]',
+        );
+        if (!(rightPane instanceof HTMLElement)) {
+          throw new Error("Expected landing right pane");
+        }
+
         element.style.scrollSnapType = "none";
-        element.scrollLeft = 24;
+        element.scrollLeft +=
+          rightPane.getBoundingClientRect().right -
+          element.getBoundingClientRect().right;
         element.dispatchEvent(new Event("scroll", { bubbles: true }));
       });
 
     await expect(
       page.locator('[data-workspace-layout-v2="mobile"]'),
-    ).toHaveAttribute("data-mobile-pane", "left");
+    ).toHaveAttribute("data-mobile-pane", "right");
     await expect(
-      page.getByTestId("workspace-layout-v2-left-resize"),
+      page.getByTestId("workspace-layout-v2-right-resize"),
     ).toHaveCount(1);
 
-    const mobileShell = page.locator('[data-workspace-layout-v2="mobile"]');
     const mobileShellBox = await mobileShell.boundingBox();
     expect(mobileShellBox).not.toBeNull();
     if (mobileShellBox === null) {
@@ -1067,15 +1102,32 @@ test.describe("mobile landing dev toggle", () => {
     }
 
     const handleBox = await page
-      .getByTestId("workspace-layout-v2-left-resize")
+      .getByTestId("workspace-layout-v2-right-resize")
       .boundingBox();
     expect(handleBox).not.toBeNull();
     if (handleBox === null) {
-      throw new Error("Expected landing left resize handle box");
+      throw new Error("Expected landing right resize handle box");
     }
 
+    const handleValues = await page
+      .getByTestId("workspace-layout-v2-right-resize")
+      .evaluate((element) => {
+        const currentWidthPx = Number.parseFloat(
+          element.getAttribute("aria-valuenow") ?? "NaN",
+        );
+        const minWidthPx = Number.parseFloat(
+          element.getAttribute("aria-valuemin") ?? "NaN",
+        );
+
+        if (!Number.isFinite(currentWidthPx) || !Number.isFinite(minWidthPx)) {
+          throw new Error("Expected numeric right resize handle values");
+        }
+
+        return { currentWidthPx, minWidthPx };
+      });
     // Drag past the min-clamp threshold so resizing hands off into a main-pane slide.
-    const dragDistancePx = 220;
+    const dragDistancePx =
+      handleValues.currentWidthPx - handleValues.minWidthPx + 40;
     const dragSteps = 4;
     const dragFrameMs = 16;
     await dispatchHumanTouchSwipe(page, mobileShell, {
@@ -1086,7 +1138,7 @@ test.describe("mobile landing dev toggle", () => {
 
         return {
           delayMs: dragFrameMs,
-          xOffset: -(dragDistancePx * step) / dragSteps,
+          xOffset: (dragDistancePx * step) / dragSteps,
           yOffset: 0,
         };
       }),
@@ -1096,7 +1148,7 @@ test.describe("mobile landing dev toggle", () => {
       page.locator('[data-workspace-layout-v2="mobile"]'),
     ).toHaveAttribute("data-mobile-pane", "main");
     await expect(
-      page.getByTestId("workspace-layout-v2-left-resize"),
+      page.getByTestId("workspace-layout-v2-right-resize"),
     ).toHaveCount(0);
   });
 
@@ -1127,27 +1179,40 @@ test.describe("mobile landing dev toggle", () => {
 test.describe("iPhone SE landing sidebar", () => {
   test.use(iphoneSeLandingDevice);
 
-  test("keeps mobile pane dimensions exact while sliding to the left sidebar", async ({
+  test("keeps mobile pane dimensions exact while sliding to the right sidebar", async ({
     page,
   }) => {
     await page.goto("/", { waitUntil: "networkidle" });
 
-    const beforeSlideMetrics = await readLandingSidebarCopyMetrics(page);
+    await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(
+      0,
+    );
+
+    const beforeSlideMetrics = await readLandingRightSidebarCopyMetrics(page);
 
     await page
       .getByTestId("workspace-layout-v2-pane-main")
       .evaluate((element) => {
         // The regression happened when pane ownership changed mid-gesture.
+        const rightPane = document.querySelector(
+          '[data-testid="workspace-layout-v2-pane-right"]',
+        );
+        if (!(rightPane instanceof HTMLElement)) {
+          throw new Error("Expected landing right pane");
+        }
+
         element.style.scrollSnapType = "none";
-        element.scrollLeft = 24;
+        element.scrollLeft +=
+          rightPane.getBoundingClientRect().right -
+          element.getBoundingClientRect().right;
         element.dispatchEvent(new Event("scroll", { bubbles: true }));
       });
 
     await expect(
       page.locator('[data-workspace-layout-v2="mobile"]'),
-    ).toHaveAttribute("data-mobile-pane", "left");
+    ).toHaveAttribute("data-mobile-pane", "right");
 
-    const afterSlideMetrics = await readLandingSidebarCopyMetrics(page);
+    const afterSlideMetrics = await readLandingRightSidebarCopyMetrics(page);
 
     // This invariant intentionally has no pixel tolerance: a 1px pane or
     // content-box change can rewrap text and means the shell geometry shifted.
@@ -1155,11 +1220,11 @@ test.describe("iPhone SE landing sidebar", () => {
     expect(afterSlideMetrics.carouselWidth).toBe(
       beforeSlideMetrics.carouselWidth,
     );
-    expect(afterSlideMetrics.leftPaneWidth).toBe(
-      beforeSlideMetrics.leftPaneWidth,
+    expect(afterSlideMetrics.rightPaneWidth).toBe(
+      beforeSlideMetrics.rightPaneWidth,
     );
-    expect(afterSlideMetrics.leftPaneClientWidth).toBe(
-      beforeSlideMetrics.leftPaneClientWidth,
+    expect(afterSlideMetrics.rightPaneClientWidth).toBe(
+      beforeSlideMetrics.rightPaneClientWidth,
     );
     expect(afterSlideMetrics.mainPaneWidth).toBe(
       beforeSlideMetrics.mainPaneWidth,
@@ -1174,7 +1239,7 @@ test.describe("iPhone SE landing sidebar", () => {
       beforeSlideMetrics.teamTextHeight,
     );
 
-    const separatorPaint = await readLandingSidebarSeparatorPaint(page);
+    const separatorPaint = await readLandingRightSidebarSeparatorPaint(page);
     expect(separatorPaint.separatorPixel.alpha).toBe(255);
     expect(separatorPaint.colorDistance).toBeGreaterThan(10);
   });
@@ -1562,6 +1627,90 @@ test("landing dev toggle preserves unrelated query params", async ({
     exact: true,
   });
   await expect(appToggleLink).toHaveAttribute("href", "/?prod-ui");
+});
+
+test("prod-ui shortcut disappears after entering prod-ui mode", async ({
+  page,
+}) => {
+  await page.goto("/?dev", { waitUntil: "domcontentloaded" });
+
+  const devToggleLink = page.getByRole("link", {
+    name: LANDING_DEV_MODE_DISABLE_LINK_LABEL,
+    exact: true,
+  });
+  const homeLink = page.getByRole("link", { name: "/home", exact: true });
+  const devToggleBoxBefore = await devToggleLink.boundingBox();
+  expect(devToggleBoxBefore).not.toBeNull();
+  if (devToggleBoxBefore === null) {
+    return;
+  }
+
+  const shellToggleLink = page.getByRole("link", {
+    name: FORCE_PROD_UI_MODE_LINK_LABEL,
+  });
+  const prodUiToggleBox = await shellToggleLink.boundingBox();
+  expect(prodUiToggleBox).not.toBeNull();
+  if (prodUiToggleBox === null) {
+    return;
+  }
+
+  expect(prodUiToggleBox.y).toBeLessThan(devToggleBoxBefore.y);
+  await expect(shellToggleLink).toHaveAttribute("href", "/?dev&prod-ui");
+
+  await shellToggleLink.click();
+  await expect(page).toHaveURL(/\/\?dev&prod-ui$/);
+
+  await expect(
+    page.getByRole("link", {
+      name: FORCE_PROD_UI_MODE_LINK_LABEL,
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(devToggleLink).toBeVisible();
+  await expect(devToggleLink).toHaveAttribute("href", "/?prod-ui");
+  await expect(homeLink).toBeVisible();
+  await expect(homeLink).toHaveAttribute("href", "/?dev");
+});
+
+test("prod-ui mode omits the prod-ui shortcut", async ({ page }) => {
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+  await expect(
+    page.getByRole("link", {
+      name: FORCE_PROD_UI_MODE_LINK_LABEL,
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("link", {
+      name: LANDING_DEV_MODE_LINK_LABEL,
+      exact: true,
+    }),
+  ).toBeVisible();
+});
+
+test("prod-ui shortcut does not render below dev before entry", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const prodUiToggleLink = page.getByRole("link", {
+    name: FORCE_PROD_UI_MODE_LINK_LABEL,
+    exact: true,
+  });
+  const devToggleLink = page.getByRole("link", {
+    name: LANDING_DEV_MODE_LINK_LABEL,
+    exact: true,
+  });
+  const prodUiToggleBox = await prodUiToggleLink.boundingBox();
+  const devToggleBox = await devToggleLink.boundingBox();
+  expect(prodUiToggleBox).not.toBeNull();
+  expect(devToggleBox).not.toBeNull();
+  if (prodUiToggleBox === null || devToggleBox === null) {
+    return;
+  }
+
+  expect(prodUiToggleBox.y).toBeLessThan(devToggleBox.y);
 });
 
 test("landing dev edits stay visible after toggling back to the plain landing view", async ({
