@@ -120,7 +120,7 @@ test("local landing reload keeps the password auth slot stable on the dev server
   ).toBeLessThanOrEqual(1);
 });
 
-test("public sidebar links keep the mobile pane open while swapping route content", async ({
+test("public landing keeps the mobile sidebar header hidden", async ({
   page,
 }, testInfo) => {
   test.skip(
@@ -131,26 +131,25 @@ test("public sidebar links keep the mobile pane open while swapping route conten
   await page.goto("/?dev", { waitUntil: "networkidle" });
   const shell = page.locator('[data-workspace-layout-v2="mobile"]');
 
-  await page.getByRole("button", { name: "Toggle sidebar" }).click();
-  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
+  await expect(
+    page.getByRole("button", { name: "Toggle sidebar" }),
+  ).toHaveCount(0);
+  await expect(shell).toHaveAttribute("data-mobile-pane", "main");
   await expectSearchFlag(page, "dev");
 
-  await page.getByRole("link", { name: "/terms", exact: true }).click();
+  await page.goto("/terms?dev", { waitUntil: "networkidle" });
   await expectPathname(page, "/terms");
   await expectSearchFlag(page, "dev");
-  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
   await expect(page.locator("body")).toContainText("Terms of Service");
 
-  await page.getByRole("link", { name: "/privacy", exact: true }).click();
+  await page.goto("/privacy?dev", { waitUntil: "networkidle" });
   await expectPathname(page, "/privacy");
   await expectSearchFlag(page, "dev");
-  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
   await expect(page.locator("body")).toContainText("Privacy Policy");
 
-  await page.getByRole("link", { name: "/home", exact: true }).click();
+  await page.goto("/?dev", { waitUntil: "networkidle" });
   await expectPathname(page, "/");
   await expectSearchFlag(page, "dev");
-  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
 });
 
 test("landing dev mode reload keeps the editable copy stable on the dev server", async ({

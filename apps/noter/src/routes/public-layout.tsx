@@ -52,7 +52,7 @@ function PublicLayoutRoute() {
 
   return (
     <Layout>
-      <PublicLayoutShell showLeftToggle={pathname === "/"}>
+      <PublicLayoutShell>
         <Outlet />
       </PublicLayoutShell>
     </Layout>
