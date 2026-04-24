@@ -424,16 +424,31 @@ function WorkspaceLayoutV2MobileViewport({
 function WorkspaceLayoutV2MainPaneHeader({
   children,
   showLeftToggle = true,
+  showMobileLeftToggle = false,
   showRightToggle = true,
 }: {
   children: ReactNode;
   showLeftToggle?: boolean;
+  showMobileLeftToggle?: boolean;
   showRightToggle?: boolean;
 }) {
   const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
 
   return (
     <div className="flex h-full items-center gap-2">
+      {showMobileLeftToggle ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Toggle sidebar"
+          className="h-8 w-8 rounded-none md:hidden"
+          onClick={toggleLeftSidebar}
+        >
+          <PanelLeft className="h-4 w-4" />
+        </Button>
+      ) : null}
+
       {showLeftToggle ? (
         <Button
           type="button"
@@ -474,6 +489,7 @@ export function WorkspaceLayoutV2FullPage({
   panel,
   right,
   showLeftToggle = true,
+  showMobileLeftToggle = false,
   showMobileResizeGripDots,
 }: {
   dataTestId?: string;
@@ -482,6 +498,7 @@ export function WorkspaceLayoutV2FullPage({
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: WorkspaceLayoutV2PaneFrameProps;
   showLeftToggle?: boolean;
+  showMobileLeftToggle?: boolean;
   showMobileResizeGripDots?: boolean;
 }) {
   const hasRightPane = right !== undefined;
@@ -491,8 +508,9 @@ export function WorkspaceLayoutV2FullPage({
   const hasMainHeaderContent =
     main.header !== undefined && main.header !== null;
   const hasDesktopHeaderToggle = showLeftToggle || hasRightPane;
-  const shouldHideMainHeader =
-    !hasMainHeaderContent && (isMobile || !hasDesktopHeaderToggle);
+  const shouldHideMainHeader = isMobile
+    ? !hasMainHeaderContent && !showMobileLeftToggle
+    : !hasMainHeaderContent && !hasDesktopHeaderToggle;
 
   return (
     <WorkspaceLayoutV2ViewportFrame dataTestId={dataTestId}>
@@ -505,6 +523,7 @@ export function WorkspaceLayoutV2FullPage({
               shouldHideMainHeader ? undefined : (
                 <WorkspaceLayoutV2MainPaneHeader
                   showLeftToggle={showLeftToggle}
+                  showMobileLeftToggle={showMobileLeftToggle}
                   showRightToggle={hasRightPane}
                 >
                   {main.header}

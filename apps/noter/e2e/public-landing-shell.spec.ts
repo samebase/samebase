@@ -919,6 +919,28 @@ test("landing footer links keep browser link styling", async ({
 test.describe("mobile landing dev toggle", () => {
   test.use(mobileLandingDevice);
 
+  test("landing header button reopens the sidebar on mobile", async ({
+    page,
+  }) => {
+    await page.goto("/", { waitUntil: "networkidle" });
+
+    const mobileShell = page.locator('[data-workspace-layout-v2="mobile"]');
+    const sidebarToggle = page.getByRole("button", {
+      name: "Toggle sidebar",
+    });
+
+    await expect(mobileShell).toHaveAttribute("data-mobile-pane", "main");
+    await expect(sidebarToggle).toBeVisible();
+
+    await expect(sidebarToggle).toHaveScreenshot(
+      "public-landing-mobile-sidebar-toggle.png",
+      strictScreenshotOptions,
+    );
+
+    await sidebarToggle.click();
+    await expect(mobileShell).toHaveAttribute("data-mobile-pane", "left");
+  });
+
   test("landing uses document scroll on mobile instead of an inner scroll shell", async ({
     page,
   }) => {

@@ -41,7 +41,7 @@ export function RootIndexRoutePage() {
   return (
     <Layout>
       {showPublicLandingWithoutAuthGate ? (
-        <PublicLayoutShell>
+        <PublicLayoutShell showMobileLeftToggle>
           <SignInForm />
         </PublicLayoutShell>
       ) : (
@@ -54,7 +54,7 @@ export function RootIndexRoutePage() {
             </ApprovalGate>
           </Authenticated>
           <Unauthenticated>
-            <PublicLayoutShell>
+            <PublicLayoutShell showMobileLeftToggle>
               <Suspense fallback={null}>
                 <SignInForm />
               </Suspense>

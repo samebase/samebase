@@ -76,6 +76,7 @@ function renderMobileLayout({
   mainHeader = OMIT_HEADER,
   mobilePane,
   rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  showMobileLeftToggle,
   showMobileResizeGripDots,
 }: {
   includeRightPane?: boolean;
@@ -83,6 +84,7 @@ function renderMobileLayout({
   mainHeader?: React.ReactNode | typeof OMIT_HEADER;
   mobilePane?: "left" | "main" | "right";
   rightMobileWidthPx?: number;
+  showMobileLeftToggle?: boolean;
   showMobileResizeGripDots?: boolean;
 }) {
   const mainProps =
@@ -115,6 +117,7 @@ function renderMobileLayout({
               }
             : undefined
         }
+        showMobileLeftToggle={showMobileLeftToggle}
         showMobileResizeGripDots={showMobileResizeGripDots}
       />
     </SidebarProvider>
@@ -255,6 +258,45 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         .querySelector("[data-workspace-layout-v2]")
         ?.getAttribute("data-mobile-pane"),
     ).toBe("right");
+  });
+
+  it("keeps the mobile sidebar toggle opt-in", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(renderMobileLayout({}));
+    });
+
+    expect(
+      rootElement.querySelector('button[aria-label="Toggle sidebar"]'),
+    ).toBeNull();
+
+    act(() => {
+      mountedRoot.render(renderMobileLayout({ showMobileLeftToggle: true }));
+    });
+
+    const toggle = getRequiredElement(
+      rootElement,
+      'button[aria-label="Toggle sidebar"]',
+    );
+    expect(
+      rootElement
+        .querySelector("[data-workspace-layout-v2]")
+        ?.getAttribute("data-mobile-pane"),
+    ).toBe("main");
+
+    act(() => {
+      toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(
+      rootElement
+        .querySelector("[data-workspace-layout-v2]")
+        ?.getAttribute("data-mobile-pane"),
+    ).toBe("left");
   });
 
   it("scrolls the carousel when code recenters the mobile pane after mount", () => {
