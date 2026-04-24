@@ -70,8 +70,10 @@ describe("Layout", () => {
     expect(markup).toContain("/home");
     expect(markup).toContain(LANDING_DEV_MODE_LINK_LABEL);
     expect(markup).not.toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
-    expect(markup).toContain('style="width:160px"');
+    expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
+    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
+    expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
   });
 
   it("keeps the public shell sidebar toggle hidden", () => {
@@ -92,7 +94,7 @@ describe("Layout", () => {
     expect(markup).not.toContain('aria-label="Toggle sidebar"');
   });
 
-  it("places public rail links on the mobile carousel peek edge", () => {
+  it("places left public rail links on the mobile carousel peek edge", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
@@ -110,6 +112,27 @@ describe("Layout", () => {
     expect(leftRailMarkup).toContain("items-end");
     expect(leftRailMarkup).toContain("text-right");
     expect(leftRailMarkup).toContain("flex-row-reverse");
+  });
+
+  it("places right public rail links on the mobile carousel peek edge", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: true,
+    });
+
+    const rightRailMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/"]}>
+        <AppSidebarMetaSection side="right" />
+      </TestRouterProvider>,
+    );
+
+    expect(rightRailMarkup).toContain("items-start");
+    expect(rightRailMarkup).toContain("text-left");
+    expect(rightRailMarkup).toContain("flex-row");
+    expect(rightRailMarkup).not.toContain("flex-row-reverse");
   });
 
   it("keeps search-param shortcuts above a stable path list", () => {
@@ -225,6 +248,8 @@ describe("Layout", () => {
     expect(markup).toContain("/logo");
     expect(markup).toContain('aria-hidden="true"');
     expect(markup).toContain('tabindex="-1"');
+    expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
+    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
   });
 
   it("keeps legal links and shows /home away from the plain root landing route", () => {

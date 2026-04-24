@@ -18,11 +18,28 @@ function normalizeRepoUrl(repoUrl: string): string {
   return repoUrl.endsWith(".git") ? repoUrl.slice(0, -4) : repoUrl;
 }
 
+type AppSidebarMetaSectionSide = "left" | "right";
+
+const APP_SIDEBAR_META_SECTION_CLASS_NAMES = {
+  left: "flex flex-col items-end gap-3 px-2 pt-3 pb-8 text-right text-xs text-muted-foreground",
+  right:
+    "flex flex-col items-start gap-3 px-2 pt-3 pb-8 text-left text-xs text-muted-foreground",
+} as const satisfies Record<AppSidebarMetaSectionSide, string>;
+
+const APP_SIDEBAR_META_VERSION_CLASS_NAMES = {
+  left: "flex flex-row-reverse items-center gap-2 font-mono",
+  right: "flex flex-row items-center gap-2 font-mono",
+} as const satisfies Record<AppSidebarMetaSectionSide, string>;
+
 /**
  * Keep build metadata and public-route escape hatches on the rail edge that
  * peeks beside the main pane in the mobile workspace carousel.
  */
-export function AppSidebarMetaSection() {
+export function AppSidebarMetaSection({
+  side = "left",
+}: {
+  side?: AppSidebarMetaSectionSide;
+}) {
   const appCommit = __APP_COMMIT__ || "unknown";
   const appCommitNumber = __APP_COMMIT_NUMBER__;
   const repoUrl = __APP_REPO_URL__ || "";
@@ -54,7 +71,7 @@ export function AppSidebarMetaSection() {
   return (
     <div
       data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
-      className="flex flex-col items-end gap-3 px-2 pt-3 pb-8 text-right text-xs text-muted-foreground"
+      className={APP_SIDEBAR_META_SECTION_CLASS_NAMES[side]}
     >
       <Link
         id="public-landing-dev-toggle"
@@ -85,7 +102,7 @@ export function AppSidebarMetaSection() {
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
 
-      <div className="flex flex-row-reverse items-center gap-2 font-mono">
+      <div className={APP_SIDEBAR_META_VERSION_CLASS_NAMES[side]}>
         <span data-testid={APP_BUILD_VERSION_TEST_ID}>{buildVersionLabel}</span>
 
         <a

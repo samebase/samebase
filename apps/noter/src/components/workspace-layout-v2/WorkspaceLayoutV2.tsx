@@ -29,11 +29,13 @@ const MOBILE_PANE_PEEK_PX = 24;
 const MOBILE_PANE_SETTLED_TOLERANCE_PX = 1;
 const MOBILE_PANE_ORDER = ["left", "main", "right"] as const;
 const MOBILE_PANE_ORDER_WITHOUT_RIGHT = ["left", "main"] as const;
+const MOBILE_PANE_ORDER_WITHOUT_LEFT = ["main", "right"] as const;
+const MOBILE_PANE_ORDER_MAIN_ONLY = ["main"] as const;
 type MobilePane = (typeof MOBILE_PANE_ORDER)[number];
 
 type WorkspaceLayoutV2Props = {
   dataTestId?: string;
-  left: ReactNode;
+  left?: ReactNode;
   main: ReactNode;
   right: ReactNode;
 };
@@ -59,6 +61,7 @@ type WorkspaceLayoutV2ResizeHandleConfig = {
   side: "left" | "right";
 };
 type WorkspaceLayoutV2LeftToggleVisibility = "all" | "desktop" | "hidden";
+type WorkspaceLayoutV2RightToggleVisibility = "desktop" | "hidden";
 
 const LEFT_TOGGLE_BUTTON_CLASS_NAMES = {
   all: "h-8 w-8 rounded-none",
@@ -171,18 +174,40 @@ function getDesktopSidebarWidthPx(args: {
   );
 }
 
-function getMobilePaneOrder(hasRightPane: boolean): readonly MobilePane[] {
-  return hasRightPane ? MOBILE_PANE_ORDER : MOBILE_PANE_ORDER_WITHOUT_RIGHT;
+function getMobilePaneOrder({
+  hasLeftPane,
+  hasRightPane,
+}: {
+  hasLeftPane: boolean;
+  hasRightPane: boolean;
+}): readonly MobilePane[] {
+  if (hasLeftPane && hasRightPane) {
+    return MOBILE_PANE_ORDER;
+  }
+
+  if (hasLeftPane) {
+    return MOBILE_PANE_ORDER_WITHOUT_RIGHT;
+  }
+
+  if (hasRightPane) {
+    return MOBILE_PANE_ORDER_WITHOUT_LEFT;
+  }
+
+  return MOBILE_PANE_ORDER_MAIN_ONLY;
 }
 
 function getMobilePaneScrollOffsets(args: {
+  hasLeftPane: boolean;
   hasRightPane: boolean;
   leftWidthPx: number;
   mainWidthPx: number;
   rightWidthPx: number;
   viewportWidthPx: number;
 }) {
-  const paneOrder = getMobilePaneOrder(args.hasRightPane);
+  const paneOrder = getMobilePaneOrder({
+    hasLeftPane: args.hasLeftPane,
+    hasRightPane: args.hasRightPane,
+  });
 
   return paneOrder.map((pane) => {
     if (pane === "left") {
@@ -195,7 +220,7 @@ function getMobilePaneScrollOffsets(args: {
     if (pane === "main") {
       return {
         pane,
-        scrollLeftPx: args.leftWidthPx,
+        scrollLeftPx: args.hasLeftPane ? args.leftWidthPx : 0,
       };
     }
 
@@ -205,7 +230,7 @@ function getMobilePaneScrollOffsets(args: {
       // main pane instead of leaving blank track after the sidebar.
       scrollLeftPx: Math.max(
         0,
-        args.leftWidthPx +
+        (args.hasLeftPane ? args.leftWidthPx : 0) +
           args.mainWidthPx +
           args.rightWidthPx +
           MOBILE_PANE_PEEK_PX -
@@ -227,6 +252,7 @@ function getMobilePaneScrollLeftPx(
 }
 
 function getMobilePaneFromScrollLeft(args: {
+  hasLeftPane: boolean;
   hasRightPane: boolean;
   leftWidthPx: number;
   mainWidthPx: number;
@@ -258,6 +284,7 @@ function isMobilePaneScrollSettled(
       args.scrollLeftPx -
         getMobilePaneScrollLeftPx(args.pane, {
           hasRightPane: args.hasRightPane,
+          hasLeftPane: args.hasLeftPane,
           leftWidthPx: args.leftWidthPx,
           mainWidthPx: args.mainWidthPx,
           rightWidthPx: args.rightWidthPx,
@@ -269,8 +296,8 @@ function isMobilePaneScrollSettled(
 
 function renderPaneContent(content: ReactNode) {
   return (
-    // The shell contract always keeps all three panes mounted. A null slot is
-    // still a real pane so resize and carousel behavior stay consistent.
+    // A provided null slot is still a real pane so resize and carousel behavior
+    // stay consistent, while an omitted optional pane does not render at all.
     content ?? (
       <div aria-hidden="true" className="min-h-0 flex-1 bg-background" />
     )
@@ -292,6 +319,7 @@ type WorkspaceLayoutV2DesktopViewportProps =
     activeResizeSide: "left" | "right" | "top" | null;
     desktopLeftWidthPx: number;
     desktopRightWidthPx: number;
+    showLeftPane: boolean;
   };
 
 function WorkspaceLayoutV2DesktopViewport({
@@ -301,28 +329,31 @@ function WorkspaceLayoutV2DesktopViewport({
   leftContent,
   mainContent,
   rightContent,
+  showLeftPane,
 }: WorkspaceLayoutV2DesktopViewportProps) {
   return (
     <div className="absolute inset-0 flex min-h-0 overflow-hidden bg-background">
-      <div
-        className="h-full min-h-0 shrink-0"
-        style={{ width: `${desktopLeftWidthPx}px` }}
-      >
+      {showLeftPane ? (
         <div
-          data-testid="workspace-layout-v2-pane-left"
-          className={cn(
-            "flex h-full min-h-0 flex-col overflow-hidden",
-            desktopLeftWidthPx > 0
-              ? activeResizeSide === "left"
-                ? "border-r border-primary"
-                : "border-r border-border"
-              : "border-r-0",
-          )}
+          className="h-full min-h-0 shrink-0"
           style={{ width: `${desktopLeftWidthPx}px` }}
         >
-          {leftContent}
+          <div
+            data-testid="workspace-layout-v2-pane-left"
+            className={cn(
+              "flex h-full min-h-0 flex-col overflow-hidden",
+              desktopLeftWidthPx > 0
+                ? activeResizeSide === "left"
+                  ? "border-r border-primary"
+                  : "border-r border-border"
+                : "border-r-0",
+            )}
+            style={{ width: `${desktopLeftWidthPx}px` }}
+          >
+            {leftContent}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div
         data-testid="workspace-layout-v2-pane-main"
@@ -361,6 +392,7 @@ type WorkspaceLayoutV2MobileViewportProps =
     mobilePane: MobilePane;
     paneWidthPx: number;
     rightWidthPx: number;
+    showLeftPane: boolean;
     showRightPane: boolean;
   };
 
@@ -373,6 +405,7 @@ function WorkspaceLayoutV2MobileViewport({
   paneWidthPx,
   rightContent,
   rightWidthPx,
+  showLeftPane,
   showRightPane,
 }: WorkspaceLayoutV2MobileViewportProps) {
   return (
@@ -385,18 +418,20 @@ function WorkspaceLayoutV2MobileViewport({
         paddingRight: `${MOBILE_PANE_PEEK_PX}px`,
       }}
     >
-      <div
-        data-testid="workspace-layout-v2-pane-left"
-        className={cn(
-          "relative flex h-full min-h-0 shrink-0 snap-start snap-always flex-col overflow-hidden bg-background",
-          getMobilePaneSeparatorClass("left", mobilePane),
-        )}
-        style={{
-          width: `${leftWidthPx}px`,
-        }}
-      >
-        {leftContent}
-      </div>
+      {showLeftPane ? (
+        <div
+          data-testid="workspace-layout-v2-pane-left"
+          className={cn(
+            "relative flex h-full min-h-0 shrink-0 snap-start snap-always flex-col overflow-hidden bg-background",
+            getMobilePaneSeparatorClass("left", mobilePane),
+          )}
+          style={{
+            width: `${leftWidthPx}px`,
+          }}
+        >
+          {leftContent}
+        </div>
+      ) : null}
 
       <div
         className="h-full min-h-0 shrink-0 snap-center snap-always"
@@ -433,11 +468,11 @@ function WorkspaceLayoutV2MobileViewport({
 function WorkspaceLayoutV2MainPaneHeader({
   children,
   leftToggleVisibility = "desktop",
-  showRightToggle = true,
+  rightToggleVisibility = "desktop",
 }: {
   children: ReactNode;
   leftToggleVisibility?: WorkspaceLayoutV2LeftToggleVisibility;
-  showRightToggle?: boolean;
+  rightToggleVisibility?: WorkspaceLayoutV2RightToggleVisibility;
 }) {
   const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
   const leftToggleButtonClassName =
@@ -468,7 +503,7 @@ function WorkspaceLayoutV2MainPaneHeader({
           toggles stay desktop-only in the v2 main pane shell. */}
       <div className="min-w-0 flex-1">{children}</div>
 
-      {showRightToggle ? (
+      {rightToggleVisibility === "desktop" ? (
         <Button
           type="button"
           variant="ghost"
@@ -491,16 +526,19 @@ export function WorkspaceLayoutV2FullPage({
   panel,
   right,
   leftToggleVisibility = "desktop",
+  rightToggleVisibility = "desktop",
   showMobileResizeGripDots,
 }: {
   dataTestId?: string;
-  left: WorkspaceLayoutV2PaneFrameProps;
+  left?: WorkspaceLayoutV2PaneFrameProps;
   main: WorkspaceLayoutV2PaneFrameProps;
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: WorkspaceLayoutV2PaneFrameProps;
   leftToggleVisibility?: WorkspaceLayoutV2LeftToggleVisibility;
+  rightToggleVisibility?: WorkspaceLayoutV2RightToggleVisibility;
   showMobileResizeGripDots?: boolean;
 }) {
+  const hasLeftPane = left !== undefined;
   const hasRightPane = right !== undefined;
   const isMobile = useIsMobile();
   // A mobile left toggle is always also a desktop toggle. Routes opt into
@@ -508,8 +546,9 @@ export function WorkspaceLayoutV2FullPage({
   const hasMainHeaderContent =
     main.header !== undefined && main.header !== null;
   const hasDesktopHeaderToggle =
-    leftToggleVisibility !== "hidden" || hasRightPane;
-  const hasMobileHeaderToggle = leftToggleVisibility === "all";
+    (hasLeftPane && leftToggleVisibility !== "hidden") ||
+    (hasRightPane && rightToggleVisibility !== "hidden");
+  const hasMobileHeaderToggle = hasLeftPane && leftToggleVisibility === "all";
   const shouldHideMainHeader = isMobile
     ? !hasMainHeaderContent && !hasMobileHeaderToggle
     : !hasMainHeaderContent && !hasDesktopHeaderToggle;
@@ -517,15 +556,21 @@ export function WorkspaceLayoutV2FullPage({
   return (
     <WorkspaceLayoutV2ViewportFrame dataTestId={dataTestId}>
       <WorkspaceLayoutV2JustPanes
-        left={<WorkspaceLayoutV2PaneFrame {...left} />}
+        left={
+          hasLeftPane ? <WorkspaceLayoutV2PaneFrame {...left} /> : undefined
+        }
         main={
           <WorkspaceLayoutV2PaneFrame
             {...main}
             header={
               shouldHideMainHeader ? undefined : (
                 <WorkspaceLayoutV2MainPaneHeader
-                  leftToggleVisibility={leftToggleVisibility}
-                  showRightToggle={hasRightPane}
+                  leftToggleVisibility={
+                    hasLeftPane ? leftToggleVisibility : "hidden"
+                  }
+                  rightToggleVisibility={
+                    hasRightPane ? rightToggleVisibility : "hidden"
+                  }
                 >
                   {main.header}
                 </WorkspaceLayoutV2MainPaneHeader>
@@ -592,18 +637,24 @@ export function WorkspaceLayoutV2JustPanes({
     setRightDesktopWidthPx,
     setRightMobileWidthPx,
   } = useSidebar();
+  const hasLeftPane = left !== undefined;
   const hasRightPane = right !== null && right !== undefined;
   const shouldShowMobileResizeGripDots =
     showMobileResizeGripDots ?? shouldShowMobileResizeGripDotsByDefault();
   const mobilePane =
-    !hasRightPane && rawMobilePane === "right" ? "main" : rawMobilePane;
+    (!hasLeftPane && rawMobilePane === "left") ||
+    (!hasRightPane && rawMobilePane === "right")
+      ? "main"
+      : rawMobilePane;
   const setMobilePaneRef = useRef(setMobilePane);
 
-  const desktopLeftWidthPx = getDesktopSidebarWidthPx({
-    isOpen: leftDesktopOpen,
-    storedWidthPx: leftDesktopWidthPx,
-    viewportWidthPx: viewportSize.widthPx,
-  });
+  const desktopLeftWidthPx = hasLeftPane
+    ? getDesktopSidebarWidthPx({
+        isOpen: leftDesktopOpen,
+        storedWidthPx: leftDesktopWidthPx,
+        viewportWidthPx: viewportSize.widthPx,
+      })
+    : 0;
   const desktopRightWidthPx = hasRightPane
     ? getDesktopSidebarWidthPx({
         isOpen: rightDesktopOpen,
@@ -625,11 +676,13 @@ export function WorkspaceLayoutV2JustPanes({
     1,
     viewportSize.widthPx - MOBILE_PANE_PEEK_PX * 2,
   );
-  const mobileLeftWidthPx = getMobileSidebarWidthPx({
-    maxWidthPx: mobileSidebarMaxWidthPx,
-    minWidthPx: mobileSidebarMinWidthPx,
-    storedWidthPx: leftMobileWidthPx,
-  });
+  const mobileLeftWidthPx = hasLeftPane
+    ? getMobileSidebarWidthPx({
+        maxWidthPx: mobileSidebarMaxWidthPx,
+        minWidthPx: mobileSidebarMinWidthPx,
+        storedWidthPx: leftMobileWidthPx,
+      })
+    : 0;
   const mobileRightWidthPx = hasRightPane
     ? getMobileSidebarWidthPx({
         maxWidthPx: mobileSidebarMaxWidthPx,
@@ -666,11 +719,18 @@ export function WorkspaceLayoutV2JustPanes({
     if (!isMobile || carouselNode === null || mobilePaneWidthPx <= 0) {
       return;
     }
+    if (!hasLeftPane && scrollDerivedMobilePaneRef.current === "left") {
+      scrollDerivedMobilePaneRef.current = null;
+    }
+    if (!hasRightPane && scrollDerivedMobilePaneRef.current === "right") {
+      scrollDerivedMobilePaneRef.current = null;
+    }
     if (activeMobileGripResizeSideRef.current !== null) {
       return;
     }
 
     const nextScrollLeftPx = getMobilePaneScrollLeftPx(mobilePane, {
+      hasLeftPane,
       hasRightPane,
       leftWidthPx: mobileLeftWidthPx,
       mainWidthPx: mobilePaneWidthPx,
@@ -699,6 +759,7 @@ export function WorkspaceLayoutV2JustPanes({
     setIsMobilePaneSettled(true);
   }, [
     hasRightPane,
+    hasLeftPane,
     isMobile,
     mobileLeftWidthPx,
     mobilePane,
@@ -720,6 +781,7 @@ export function WorkspaceLayoutV2JustPanes({
       }
 
       const nextPane = getMobilePaneFromScrollLeft({
+        hasLeftPane,
         hasRightPane,
         leftWidthPx: mobileLeftWidthPx,
         mainWidthPx: mobilePaneWidthPx,
@@ -730,6 +792,7 @@ export function WorkspaceLayoutV2JustPanes({
       setIsMobilePaneSettled(
         isMobilePaneScrollSettled({
           hasRightPane,
+          hasLeftPane,
           leftWidthPx: mobileLeftWidthPx,
           mainWidthPx: mobilePaneWidthPx,
           pane: nextPane,
@@ -769,6 +832,7 @@ export function WorkspaceLayoutV2JustPanes({
     };
   }, [
     hasRightPane,
+    hasLeftPane,
     isMobile,
     mobileLeftWidthPx,
     mobilePaneWidthPx,
@@ -780,7 +844,7 @@ export function WorkspaceLayoutV2JustPanes({
     viewportSize.widthPx <= 0
       ? []
       : [
-          leftDesktopOpen
+          hasLeftPane && leftDesktopOpen
             ? {
                 currentWidthPx: desktopLeftWidthPx,
                 dataTestId: "workspace-layout-v2-left-resize",
@@ -830,7 +894,7 @@ export function WorkspaceLayoutV2JustPanes({
     !shouldShowMobileResizeGripDots
       ? []
       : [
-          mobilePane === "left"
+          hasLeftPane && mobilePane === "left"
             ? {
                 currentWidthPx: mobileLeftWidthPx,
                 dataTestId: "workspace-layout-v2-left-resize",
@@ -939,6 +1003,7 @@ export function WorkspaceLayoutV2JustPanes({
                   resizeHandle.maxWidthPx,
                 );
                 const scrollOffsetArgs = {
+                  hasLeftPane,
                   hasRightPane,
                   leftWidthPx:
                     resizeHandle.side === "left"
@@ -1021,6 +1086,7 @@ export function WorkspaceLayoutV2JustPanes({
             paneWidthPx={mobilePaneWidthPx}
             rightContent={resolvedRightContent}
             rightWidthPx={mobileRightWidthPx}
+            showLeftPane={hasLeftPane}
             showRightPane={hasRightPane}
           />
           {mobileResizeHandles.map((resizeHandle) =>
@@ -1036,6 +1102,7 @@ export function WorkspaceLayoutV2JustPanes({
             leftContent={resolvedLeftContent}
             mainContent={mainViewportContent}
             rightContent={resolvedRightContent}
+            showLeftPane={hasLeftPane}
           />
           {desktopResizeHandles.map((resizeHandle) =>
             renderResizeHandle(resizeHandle, "edge"),
