@@ -166,21 +166,32 @@ test("logo view color selection applies Tailwind colors to the Three scene", asy
   });
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
-  await controlsSidebar.getByLabel("Left picker").fill("#ff00cc");
+  const colorsSection = page.getByTestId("logo-preview-colors-section");
+  const leftColorPicker = controlsSidebar.getByRole("button", {
+    name: "Left color picker",
+  });
+
+  await leftColorPicker.click();
+  const leftColorPopover = page.getByTestId("logo-color-picker-left");
+  await expect(leftColorPopover).toBeVisible();
+
+  await leftColorPopover.getByLabel("Left custom color").fill("#ff00cc");
   await expect(page).toHaveURL(/leftColor=%23ff00cc/);
-  await expect(controlsSidebar.getByLabel("Left color")).toHaveValue("#ff00cc");
-  await expect(controlsSidebar.getByLabel("Left shade")).toBeDisabled();
+  await expect(leftColorPicker).toContainText("#ff00cc");
 
-  await controlsSidebar.getByLabel("Left color").fill("sky-500");
+  await leftColorPopover
+    .getByRole("button", { name: "Sky family", exact: true })
+    .click();
   await expect(page).toHaveURL(/leftColor=sky-500/);
-  await expect(controlsSidebar.getByLabel("Left shade")).toBeEnabled();
 
-  await controlsSidebar.getByLabel("Left family").click();
-  await page.getByRole("option", { name: "Red", exact: true }).click();
+  await leftColorPopover
+    .getByRole("button", { name: "Red family", exact: true })
+    .click();
   await expect(page).toHaveURL(/leftColor=red-500/);
 
-  await controlsSidebar.getByLabel("Left shade").click();
-  await page.getByRole("option", { name: "600", exact: true }).click();
+  await leftColorPopover
+    .getByRole("button", { name: "Red 600", exact: true })
+    .click();
   await expect(page).toHaveURL(/leftColor=red-600/);
 
   await page.evaluate(async () => {
@@ -191,9 +202,19 @@ test("logo view color selection applies Tailwind colors to the Three scene", asy
     });
   });
 
-  await expect(
-    page.getByTestId("logo-preview-colors-section"),
-  ).toHaveScreenshot("logo-color-controls.png", {
+  await expect(leftColorPopover).toHaveScreenshot(
+    "logo-color-picker-popover.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+    },
+  );
+
+  await page.keyboard.press("Escape");
+  await expect(leftColorPopover).toBeHidden();
+  await expect(colorsSection).toHaveScreenshot("logo-color-controls.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.01,

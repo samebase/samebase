@@ -46,6 +46,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
 import { Label } from "@/components/ui/label";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -79,6 +84,7 @@ import { shouldSyncLogoPreviewQueryState } from "@/lib/logoPreviewQuerySync";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
+import { PaletteIcon } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -112,8 +118,6 @@ const LOGO_CONTROL_BUTTON_CLASS_NAME = "min-w-0 flex-[1_0_10rem] rounded-none";
 const LOGO_CONTROL_BUTTON_ROW_CLASS_NAME = "flex flex-wrap gap-2";
 const LOGO_CONTROL_NUMBER_INPUT_CLASS_NAME =
   "h-9 w-full max-w-32 rounded-none border-border bg-background px-2 font-mono text-sm";
-const CUSTOM_COLOR_FAMILY_VALUE = "Custom";
-const CUSTOM_COLOR_SHADE_VALUE = "Hex";
 
 type LogoPreviewRenderMode = "three" | "iso";
 type LogoPreviewPageProps = {
@@ -162,23 +166,6 @@ function expandHexColorToken(token: string): string {
   return `#${red}${red}${green}${green}${blue}${blue}`.toLowerCase();
 }
 
-function normalizeColorValueInput(value: string): string | null {
-  const trimmedValue = value.trim();
-  if (isTailwindColorToken(trimmedValue)) {
-    return trimmedValue;
-  }
-
-  if (/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmedValue)) {
-    return expandHexColorToken(trimmedValue);
-  }
-
-  if (/^[0-9a-f]{6}$/i.test(trimmedValue)) {
-    return `#${trimmedValue.toLowerCase()}`;
-  }
-
-  return null;
-}
-
 function readColorInputValue(token: string): string {
   return expandHexColorToken(getTailwindColorHex(token));
 }
@@ -202,24 +189,170 @@ function ColorSwatch({
   );
 }
 
-function ColorOptionContent({
-  color,
-  label,
+function FaceColorPicker({
+  currentToken,
+  faceColorKey,
+  onCustomColorChange,
+  onFamilyChange,
+  onShadeChange,
 }: {
-  color: string;
-  label: string;
+  currentToken: string;
+  faceColorKey: FaceColorKey;
+  onCustomColorChange: (faceColorKey: FaceColorKey, nextColor: string) => void;
+  onFamilyChange: (faceColorKey: FaceColorKey, nextFamily: string) => void;
+  onShadeChange: (faceColorKey: FaceColorKey, nextShade: string) => void;
 }) {
+  const currentColorHex = getTailwindColorHex(currentToken);
+  const colorInputValue = readColorInputValue(currentToken);
+  const isTailwindToken = isTailwindColorToken(currentToken);
+  const currentFamily = isTailwindToken
+    ? getTailwindColorFamily(currentToken)
+    : null;
+  const currentShade = isTailwindToken
+    ? getTailwindColorShade(currentToken)
+    : null;
+  const currentLabel = isTailwindToken ? currentToken : colorInputValue;
+  const availableShades =
+    currentFamily === null ? [] : getTailwindColorShades(currentFamily);
+  const faceColorLabel = FACE_COLOR_LABELS[faceColorKey];
+
   return (
-    <div
-      className="flex items-center gap-2 border px-2 py-1"
-      style={{
-        backgroundColor: `${color}18`,
-        borderColor: `${color}40`,
-      }}
-    >
-      <ColorSwatch color={color} />
-      <span className="font-medium text-foreground">{label}</span>
-    </div>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          aria-label={`${faceColorLabel} color picker`}
+          className="h-auto w-full justify-between gap-3 rounded-none border-border bg-background px-2 py-2 text-left shadow-none"
+          type="button"
+          variant="outline"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <ColorSwatch color={currentColorHex} />
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                {faceColorLabel}
+              </span>
+              <span className="truncate font-mono text-xs text-foreground">
+                {currentLabel}
+              </span>
+            </span>
+          </span>
+          <PaletteIcon className="size-4 shrink-0 text-muted-foreground" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="max-h-[min(32rem,calc(100vh-4rem))] w-72 gap-3 overflow-y-auto rounded-none border-border p-3 shadow-md"
+        data-testid={`logo-color-picker-${faceColorKey}`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <ColorSwatch color={currentColorHex} />
+            <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              {faceColorLabel}
+            </span>
+          </div>
+          <span className="truncate font-mono text-xs text-muted-foreground">
+            {currentLabel}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 border border-border bg-background p-2">
+          <Input
+            aria-label={`${faceColorLabel} custom color`}
+            className="h-10 w-14 shrink-0 cursor-pointer rounded-none border-border bg-background p-1 shadow-none"
+            type="color"
+            value={colorInputValue}
+            onChange={(event) =>
+              onCustomColorChange(faceColorKey, event.target.value)
+            }
+          />
+          <div className="min-w-0">
+            <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Custom
+            </div>
+            <div className="truncate font-mono text-xs text-foreground">
+              {colorInputValue}
+            </div>
+          </div>
+        </div>
+
+        {currentFamily !== null ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              <span>Tailwind shade</span>
+              <span>{currentFamily}</span>
+            </div>
+            <div className="grid grid-cols-4 gap-1">
+              {availableShades.map((shade) => {
+                const shadeToken = getTailwindColorTokenForSelection(
+                  currentFamily,
+                  shade,
+                  currentToken,
+                );
+                const shadeHex = getTailwindColorHex(shadeToken);
+                const isSelected = shade === currentShade;
+
+                return (
+                  <button
+                    key={shade}
+                    aria-label={`${currentFamily} ${shade}`}
+                    aria-pressed={isSelected}
+                    className={cn(
+                      "flex h-10 min-w-0 flex-col gap-1 border bg-background p-1 text-[10px] text-muted-foreground",
+                      isSelected
+                        ? "border-foreground"
+                        : "border-border hover:border-foreground/60",
+                    )}
+                    type="button"
+                    onClick={() => onShadeChange(faceColorKey, shade)}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="block h-3 w-full border border-border"
+                      style={{ backgroundColor: shadeHex }}
+                    />
+                    <span className="truncate">{shade}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="flex flex-col gap-2">
+          <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Tailwind family
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            {TAILWIND_COLOR_FAMILIES.map((family) => {
+              const isSelected = family === currentFamily;
+
+              return (
+                <button
+                  key={family}
+                  aria-label={`${family} family`}
+                  aria-pressed={isSelected}
+                  className={cn(
+                    "flex h-8 min-w-0 items-center gap-2 border bg-background px-2 text-left text-xs text-foreground",
+                    isSelected
+                      ? "border-foreground"
+                      : "border-border hover:border-foreground/60",
+                  )}
+                  type="button"
+                  onClick={() => onFamilyChange(faceColorKey, family)}
+                >
+                  <ColorSwatch
+                    color={getTailwindColorFamilyHex(family)}
+                    size="compact"
+                  />
+                  <span className="truncate">{family}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -495,9 +628,6 @@ export function LogoPreviewPage({
   const [faceColors, setFaceColors] = useState<FaceColors>(() =>
     readFaceColors(routeSearch),
   );
-  const [faceColorDrafts, setFaceColorDrafts] = useState<FaceColors>(() =>
-    readFaceColors(routeSearch),
-  );
   const [logoOpacity, setLogoOpacity] = useState(DEFAULT_LOGO_OPACITY);
   const [isFaceColorAnimationEnabled, setIsFaceColorAnimationEnabled] =
     useState(false);
@@ -520,10 +650,6 @@ export function LogoPreviewPage({
   useEffect(() => {
     isAutoRotatingRef.current = isAutoRotating;
   }, [isAutoRotating]);
-
-  useEffect(() => {
-    setFaceColorDrafts(faceColors);
-  }, [faceColors]);
 
   useEffect(() => {
     if (
@@ -785,45 +911,10 @@ export function LogoPreviewPage({
     faceColorKey: FaceColorKey,
     nextColor: string,
   ) => {
-    const normalizedColor = normalizeColorValueInput(nextColor);
-    if (normalizedColor === null) {
-      return;
-    }
-
-    setFaceColorDrafts((currentDrafts) => ({
-      ...currentDrafts,
-      [faceColorKey]: normalizedColor,
-    }));
+    const normalizedColor = expandHexColorToken(nextColor);
     setFaceColors((currentFaceColors) => ({
       ...currentFaceColors,
       [faceColorKey]: normalizedColor,
-    }));
-  };
-
-  const handleFaceColorValueChange = (
-    faceColorKey: FaceColorKey,
-    nextValue: string,
-  ) => {
-    setFaceColorDrafts((currentDrafts) => ({
-      ...currentDrafts,
-      [faceColorKey]: nextValue,
-    }));
-
-    const normalizedValue = normalizeColorValueInput(nextValue);
-    if (normalizedValue === null) {
-      return;
-    }
-
-    setFaceColors((currentFaceColors) => ({
-      ...currentFaceColors,
-      [faceColorKey]: normalizedValue,
-    }));
-  };
-
-  const resetFaceColorDraft = (faceColorKey: FaceColorKey) => {
-    setFaceColorDrafts((currentDrafts) => ({
-      ...currentDrafts,
-      [faceColorKey]: faceColors[faceColorKey],
     }));
   };
 
@@ -1384,123 +1475,16 @@ export function LogoPreviewPage({
 
         {FACE_COLOR_KEYS.map((faceColorKey) => {
           const currentToken = faceColors[faceColorKey];
-          const isTailwindToken = isTailwindColorToken(currentToken);
-          const currentFamily = isTailwindToken
-            ? getTailwindColorFamily(currentToken)
-            : CUSTOM_COLOR_FAMILY_VALUE;
-          const currentShade = isTailwindToken
-            ? getTailwindColorShade(currentToken)
-            : CUSTOM_COLOR_SHADE_VALUE;
-          const availableShades = getTailwindColorShades(currentFamily);
-          const currentColorHex = getTailwindColorHex(currentToken);
-          const currentFamilyHex = isTailwindToken
-            ? getTailwindColorFamilyHex(currentFamily)
-            : currentColorHex;
 
           return (
-            <div key={faceColorKey} className="flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                <ColorSwatch color={currentColorHex} size="compact" />
-                <Label className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                  {FACE_COLOR_LABELS[faceColorKey]}
-                </Label>
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <Input
-                    aria-label={`${FACE_COLOR_LABELS[faceColorKey]} picker`}
-                    className="h-9 w-12 shrink-0 rounded-none border-border bg-background p-1 shadow-none"
-                    type="color"
-                    value={readColorInputValue(currentToken)}
-                    onChange={(event) =>
-                      handleFaceColorPickerChange(
-                        faceColorKey,
-                        event.target.value,
-                      )
-                    }
-                  />
-                  <Input
-                    aria-label={`${FACE_COLOR_LABELS[faceColorKey]} color`}
-                    className="h-9 min-w-0 rounded-none border-border bg-background px-2 font-mono text-xs shadow-none"
-                    value={faceColorDrafts[faceColorKey]}
-                    onBlur={() => resetFaceColorDraft(faceColorKey)}
-                    onChange={(event) =>
-                      handleFaceColorValueChange(
-                        faceColorKey,
-                        event.target.value,
-                      )
-                    }
-                  />
-                </div>
-                <Select
-                  value={currentFamily}
-                  onValueChange={(value) =>
-                    handleFaceColorFamilyChange(faceColorKey, value)
-                  }
-                >
-                  <SelectTrigger
-                    aria-label={`${FACE_COLOR_LABELS[faceColorKey]} family`}
-                    className="h-9 rounded-none border-border bg-background px-2 text-sm shadow-none"
-                  >
-                    <ColorOptionContent
-                      color={currentFamilyHex}
-                      label={currentFamily}
-                    />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-none border-border">
-                    {TAILWIND_COLOR_FAMILIES.map((family) => (
-                      <SelectItem
-                        key={family}
-                        value={family}
-                        className="rounded-none"
-                      >
-                        <ColorOptionContent
-                          color={getTailwindColorFamilyHex(family)}
-                          label={family}
-                        />
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={currentShade}
-                  onValueChange={(value) =>
-                    handleFaceColorShadeChange(faceColorKey, value)
-                  }
-                >
-                  <SelectTrigger
-                    aria-label={`${FACE_COLOR_LABELS[faceColorKey]} shade`}
-                    className="h-9 rounded-none border-border bg-background px-2 text-sm shadow-none"
-                    disabled={!isTailwindToken}
-                  >
-                    <ColorOptionContent
-                      color={currentColorHex}
-                      label={currentShade}
-                    />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-none border-border">
-                    {availableShades.map((shade) => {
-                      const shadeToken = getTailwindColorTokenForSelection(
-                        currentFamily,
-                        shade,
-                        currentToken,
-                      );
-                      const shadeHex = getTailwindColorHex(shadeToken);
-
-                      return (
-                        <SelectItem
-                          key={shade}
-                          value={shade}
-                          className="rounded-none"
-                        >
-                          <ColorOptionContent color={shadeHex} label={shade} />
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            <FaceColorPicker
+              key={faceColorKey}
+              currentToken={currentToken}
+              faceColorKey={faceColorKey}
+              onCustomColorChange={handleFaceColorPickerChange}
+              onFamilyChange={handleFaceColorFamilyChange}
+              onShadeChange={handleFaceColorShadeChange}
+            />
           );
         })}
       </LogoPreviewSection>
