@@ -12,6 +12,13 @@ import {
   vi,
 } from "vite-plus/test";
 
+const { publicLayoutMountMock, publicLayoutUnmountMock, useConvexAuthMock } =
+  vi.hoisted(() => ({
+    publicLayoutMountMock: vi.fn(),
+    publicLayoutUnmountMock: vi.fn(),
+    useConvexAuthMock: vi.fn(),
+  }));
+
 vi.mock("@/components/RootIndexRoutePage", () => ({
   RootIndexRoutePage: () => (
     <div data-testid="root-index-route">Root index route</div>
@@ -24,14 +31,34 @@ vi.mock("@/components/NotFoundRoutePage", () => ({
   ),
 }));
 
-vi.mock("@/Layout", () => ({
-  Layout: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="layout">{children}</div>
-  ),
-  PublicLayoutShell: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
-}));
+vi.mock("@/Layout", async () => {
+  const ReactModule = await import("react");
+
+  return {
+    Layout: ({ children }: { children: React.ReactNode }) => (
+      <div data-testid="layout">{children}</div>
+    ),
+    PublicLayoutShell: ({ children }: { children: React.ReactNode }) => {
+      ReactModule.useEffect(() => {
+        publicLayoutMountMock();
+        return () => {
+          publicLayoutUnmountMock();
+        };
+      }, []);
+
+      return <div data-testid="public-layout-shell">{children}</div>;
+    },
+  };
+});
+
+vi.mock("convex/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("convex/react")>();
+
+  return {
+    ...actual,
+    useConvexAuth: useConvexAuthMock,
+  };
+});
 
 vi.mock("@/lib/usePageMetadata", () => ({
   usePageMetadata: vi.fn(),
@@ -166,7 +193,13 @@ describe("appRouter", () => {
   let root: Root | null = null;
 
   beforeEach(() => {
+    publicLayoutMountMock.mockClear();
+    publicLayoutUnmountMock.mockClear();
     scrollToMock.mockClear();
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+    });
   });
 
   afterEach(() => {
@@ -180,6 +213,7 @@ describe("appRouter", () => {
 
     rootElement?.remove();
     rootElement = null;
+    useConvexAuthMock.mockReset();
   });
 
   async function renderRoute(initialEntry: string) {
@@ -211,6 +245,35 @@ describe("appRouter", () => {
     expect(
       rootElement?.querySelector('[data-testid="not-found-route"]'),
     ).toBeNull();
+  });
+
+  it("keeps the public layout mounted while legal route content changes", async () => {
+    const router = await renderRoute("/terms");
+
+    expect(publicLayoutMountMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await router.navigate({ to: "/privacy" });
+      await settleRouterRender();
+    });
+
+    expect(publicLayoutMountMock).toHaveBeenCalledTimes(1);
+    expect(publicLayoutUnmountMock).not.toHaveBeenCalled();
+    expect(
+      rootElement?.querySelector('[data-testid="privacy-page"]')?.textContent,
+    ).toBe("Privacy policy page");
+
+    await act(async () => {
+      await router.navigate({ to: "/" });
+      await settleRouterRender();
+    });
+
+    expect(publicLayoutMountMock).toHaveBeenCalledTimes(1);
+    expect(publicLayoutUnmountMock).not.toHaveBeenCalled();
+    expect(
+      rootElement?.querySelector('[data-testid="root-index-route"]')
+        ?.textContent,
+    ).toBe("Root index route");
   });
 
   it("renders / through the explicit routed root index page", async () => {
@@ -272,6 +335,31 @@ describe("appRouter", () => {
       buildSearchString(
         updateQueryParams(undefined, (searchParams) => {
           setQueryParam(searchParams, "devtools", true);
+        }),
+      ),
+    );
+  });
+
+  it("retains the root dev flag across public route navigation", async () => {
+    const router = await renderRoute(
+      buildPathWithUpdatedQuery({ pathname: "/" }, (searchParams) => {
+        setQueryParam(searchParams, "dev", true);
+      }),
+    );
+
+    await act(async () => {
+      await router.navigate({
+        search: {},
+        to: "/terms",
+      });
+      await settleRouterRender();
+    });
+
+    expect(router.state.location.pathname).toBe("/terms");
+    expect(router.state.location.searchStr).toBe(
+      buildSearchString(
+        updateQueryParams(undefined, (searchParams) => {
+          setQueryParam(searchParams, "dev", true);
         }),
       ),
     );

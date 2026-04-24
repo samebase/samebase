@@ -73,6 +73,7 @@ HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
 function renderMobileLayout({
   includeRightPane = true,
   leftMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  leftToggleVisibility,
   mainHeader = OMIT_HEADER,
   mobilePane,
   rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
@@ -80,6 +81,7 @@ function renderMobileLayout({
 }: {
   includeRightPane?: boolean;
   leftMobileWidthPx?: number;
+  leftToggleVisibility?: "all" | "desktop" | "hidden";
   mainHeader?: React.ReactNode | typeof OMIT_HEADER;
   mobilePane?: "left" | "main" | "right";
   rightMobileWidthPx?: number;
@@ -115,6 +117,7 @@ function renderMobileLayout({
               }
             : undefined
         }
+        leftToggleVisibility={leftToggleVisibility}
         showMobileResizeGripDots={showMobileResizeGripDots}
       />
     </SidebarProvider>
@@ -255,6 +258,45 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         .querySelector("[data-workspace-layout-v2]")
         ?.getAttribute("data-mobile-pane"),
     ).toBe("right");
+  });
+
+  it("keeps the all-viewport sidebar toggle opt-in", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(renderMobileLayout({}));
+    });
+
+    expect(
+      rootElement.querySelector('button[aria-label="Toggle sidebar"]'),
+    ).toBeNull();
+
+    act(() => {
+      mountedRoot.render(renderMobileLayout({ leftToggleVisibility: "all" }));
+    });
+
+    const toggle = getRequiredElement(
+      rootElement,
+      'button[aria-label="Toggle sidebar"]',
+    );
+    expect(
+      rootElement
+        .querySelector("[data-workspace-layout-v2]")
+        ?.getAttribute("data-mobile-pane"),
+    ).toBe("main");
+
+    act(() => {
+      toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(
+      rootElement
+        .querySelector("[data-workspace-layout-v2]")
+        ?.getAttribute("data-mobile-pane"),
+    ).toBe("left");
   });
 
   it("scrolls the carousel when code recenters the mobile pane after mount", () => {

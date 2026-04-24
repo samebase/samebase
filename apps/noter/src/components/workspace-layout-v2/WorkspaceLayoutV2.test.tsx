@@ -104,7 +104,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain('data-testid="main-header-row"');
   });
 
-  it("can hide the left desktop toggle and collapse an otherwise empty header row", () => {
+  it("can hide the left toggle and collapse an otherwise empty header row", () => {
     const markup = renderToStaticMarkup(
       <SidebarProvider>
         <WorkspaceLayoutV2FullPage
@@ -114,7 +114,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
           main={{
             content: <div>main pane</div>,
           }}
-          showLeftToggle={false}
+          leftToggleVisibility="hidden"
         />
       </SidebarProvider>,
     );

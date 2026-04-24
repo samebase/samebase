@@ -19,6 +19,6 @@ function HomeRouteRedirect() {
   return null;
 }
 
-export const Route = createFileRoute("/home")({
+export const Route = createFileRoute("/_public/home")({
   component: HomeRouteRedirect,
 });

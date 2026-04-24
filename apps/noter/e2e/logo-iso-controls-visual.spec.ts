@@ -159,7 +159,7 @@ test("logo view desktop header toggle collapses and reopens the sidebar", async 
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const leftToggle = page.getByRole("button", {
-    name: "Toggle Left Sidebar",
+    name: "Toggle sidebar",
   });
 
   await expect(leftToggle).toBeVisible();

@@ -51,7 +51,7 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
-import { useSidebar, type MobileSidebarPane } from "@/hooks/use-sidebar";
+import { type MobileSidebarPane } from "@/hooks/use-sidebar";
 import { Layout } from "@/Layout";
 import {
   DEFAULT_ELEVATION_DEGREES,
@@ -78,7 +78,6 @@ import { shouldSyncLogoPreviewQueryState } from "@/lib/logoPreviewQuerySync";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
-import { PanelLeft } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -420,23 +419,6 @@ function LogoRangeControl({
         </div>
       </div>
     </div>
-  );
-}
-
-function LogoPreviewMainHeader() {
-  const { toggleLeftSidebar } = useSidebar();
-
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      aria-label="Toggle sidebar"
-      className="h-8 w-8 rounded-none md:hidden"
-      onClick={toggleLeftSidebar}
-    >
-      <PanelLeft className="h-4 w-4" />
-    </Button>
   );
 }
 
@@ -1420,8 +1402,8 @@ export function LogoPreviewPage({
           main={{
             content: sceneContent,
             headerTestId: "logo-preview-main-header",
-            header: <LogoPreviewMainHeader />,
           }}
+          leftToggleVisibility="all"
         />
       </SidebarProvider>
     </Layout>

@@ -8,7 +8,13 @@ import {
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
 
-export function PublicLayoutShell({ children }: { children: ReactNode }) {
+export function PublicLayoutShell({
+  children,
+  showLeftToggle = false,
+}: {
+  children: ReactNode;
+  showLeftToggle?: boolean;
+}) {
   return (
     <PublicLandingLogoLinkProvider>
       <SidebarProvider
@@ -31,7 +37,7 @@ export function PublicLayoutShell({ children }: { children: ReactNode }) {
               <div className="flex h-full min-h-0 flex-col">{children}</div>
             ),
           }}
-          showLeftToggle={false}
+          leftToggleVisibility={showLeftToggle ? "all" : "hidden"}
         />
       </SidebarProvider>
     </PublicLandingLogoLinkProvider>

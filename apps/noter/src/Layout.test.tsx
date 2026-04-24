@@ -74,6 +74,35 @@ describe("Layout", () => {
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
   });
 
+  it("shows the public shell sidebar toggle across viewports only when opted in", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+
+    const hiddenMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/"]}>
+        <Layout>
+          <PublicLayoutShell>
+            <div>landing</div>
+          </PublicLayoutShell>
+        </Layout>
+      </TestRouterProvider>,
+    );
+    const visibleMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/"]}>
+        <Layout>
+          <PublicLayoutShell showLeftToggle>
+            <div>landing</div>
+          </PublicLayoutShell>
+        </Layout>
+      </TestRouterProvider>,
+    );
+
+    expect(hiddenMarkup).not.toContain('aria-label="Toggle sidebar"');
+    expect(visibleMarkup).toContain('aria-label="Toggle sidebar"');
+    expect(visibleMarkup).not.toContain("md:hidden");
+  });
+
   it("places public rail links on the mobile carousel peek edge", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
@@ -178,7 +207,7 @@ describe("Layout", () => {
     );
 
     expect(markup).toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
-    expect(markup).not.toContain(LANDING_DEV_MODE_LINK_LABEL);
+    expect(markup).not.toContain(`>${LANDING_DEV_MODE_LINK_LABEL}<`);
     expect(markup).toContain(`href="${encodeStaticHref(logoWithoutDevPath)}"`);
   });
 
@@ -204,7 +233,9 @@ describe("Layout", () => {
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
     expect(markup).toContain("/home");
-    expect(markup).not.toContain("/logo");
+    expect(markup).toContain("/logo");
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).toContain('tabindex="-1"');
   });
 
   it("keeps legal links and shows /home away from the plain root landing route", () => {
@@ -225,7 +256,9 @@ describe("Layout", () => {
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
     expect(markup).toContain("/home");
-    expect(markup).not.toContain("/logo");
+    expect(markup).toContain("/logo");
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).toContain('tabindex="-1"');
   });
 
   it("keeps legal links visible on the legal pages themselves", () => {
@@ -245,7 +278,9 @@ describe("Layout", () => {
 
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
-    expect(markup).not.toContain("/logo");
+    expect(markup).toContain("/logo");
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).toContain('tabindex="-1"');
   });
 
   it("renders children directly without auth-specific shell branching", () => {
