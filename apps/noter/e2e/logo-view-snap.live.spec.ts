@@ -70,6 +70,42 @@ function computeExpectedDraggedView(args: {
 }
 
 test.describe("logo view snapping parity", () => {
+  test("logo canvas leaves vertical mobile drag lanes outside its square", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "chromium-mobile",
+      "The blank vertical drag lanes are a mobile pane concern.",
+    );
+
+    await page.goto("/logo", { waitUntil: "domcontentloaded" });
+    const workspace = page.locator('[data-workspace-layout-v2="mobile"]');
+    const carousel = page.getByTestId("workspace-layout-v2-pane-main");
+    const scene = page.locator("[data-logo-elevation-degrees]").first();
+
+    await carousel.evaluate((element) => {
+      element.scrollLeft = 256;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
+    await expect(scene).toBeVisible();
+
+    const sceneBox = await scene.boundingBox();
+    const viewportSize = page.viewportSize();
+    expect(sceneBox).not.toBeNull();
+    expect(viewportSize).not.toBeNull();
+
+    if (sceneBox === null || viewportSize === null) {
+      throw new Error("Expected a visible logo scene and viewport.");
+    }
+
+    expect(Math.abs(sceneBox.width - sceneBox.height)).toBeLessThanOrEqual(1);
+    expect(sceneBox.y).toBeGreaterThan(80);
+    expect(viewportSize.height - sceneBox.y - sceneBox.height).toBeGreaterThan(
+      80,
+    );
+  });
+
   test("logo route follows the shared landing drag config", async ({
     page,
   }) => {
