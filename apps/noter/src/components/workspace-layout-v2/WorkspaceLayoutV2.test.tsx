@@ -183,7 +183,60 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
     expect(markup).toContain('data-testid="workspace-layout-v2-left-resize"');
     expect(markup).toContain("h-16 w-8");
+    expect(markup).toContain("data-workspace-layout-v2-resize-grip-dots");
     expect(markup).not.toContain("border-border");
     expect(markup).not.toContain("bg-background");
+  });
+
+  it("can hide mobile sidebar grip dots while preserving the resize target", () => {
+    const markup = renderToStaticMarkup(
+      <WorkspaceLayoutV2ResizeHandle
+        currentSizePx={280}
+        dataTestId="workspace-layout-v2-left-resize"
+        maxSizePx={480}
+        minSizePx={160}
+        onSizeChange={() => {}}
+        pointerTarget="grip"
+        positionPx={280}
+        resizeFrom="left"
+        showGripDots={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="workspace-layout-v2-left-resize"');
+    expect(markup).not.toContain("data-workspace-layout-v2-resize-grip-dots");
+  });
+
+  it("keeps mobile sidebar grip tracks centered while offsetting dots", () => {
+    const leftMarkup = renderToStaticMarkup(
+      <WorkspaceLayoutV2ResizeHandle
+        currentSizePx={280}
+        dataTestId="workspace-layout-v2-left-resize"
+        maxSizePx={480}
+        minSizePx={160}
+        onSizeChange={() => {}}
+        pointerTarget="grip"
+        positionPx={280}
+        resizeFrom="left"
+      />,
+    );
+    const rightMarkup = renderToStaticMarkup(
+      <WorkspaceLayoutV2ResizeHandle
+        currentSizePx={280}
+        dataTestId="workspace-layout-v2-right-resize"
+        maxSizePx={480}
+        minSizePx={160}
+        onSizeChange={() => {}}
+        pointerTarget="grip"
+        positionPx={120}
+        resizeFrom="right"
+      />,
+    );
+
+    expect(leftMarkup).toContain("inset-y-0 w-8 -translate-x-1/2");
+    expect(leftMarkup).toContain("translate-x-0.5");
+    expect(leftMarkup).not.toContain("-translate-x-0.5");
+    expect(rightMarkup).toContain("inset-y-0 w-8 -translate-x-1/2");
+    expect(rightMarkup).toContain("-translate-x-0.5");
   });
 });

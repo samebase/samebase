@@ -107,6 +107,7 @@ type WorkspaceLayoutV2ResizeHandleProps = {
   pointerTarget?: "edge" | "grip";
   positionPx: number;
   resizeFrom: "left" | "right" | "top";
+  showGripDots?: boolean;
 };
 
 /**
@@ -129,6 +130,7 @@ export function WorkspaceLayoutV2ResizeHandle({
   pointerTarget = "edge",
   positionPx,
   resizeFrom,
+  showGripDots = true,
 }: WorkspaceLayoutV2ResizeHandleProps) {
   const dragStateRef = useRef<{
     startClientPx: number;
@@ -266,6 +268,13 @@ export function WorkspaceLayoutV2ResizeHandle({
     ? "inset-x-0 h-8 -translate-y-1/2"
     : "inset-y-0 w-8 -translate-x-1/2";
   const gripSizeClassName = isHorizontalHandle ? "h-8 w-16" : "h-16 w-8";
+  // Keep the touch target centered on the edge; only the visible dot column
+  // moves onto the adjacent pane side.
+  const gripDotsClassName = isHorizontalHandle
+    ? "rotate-90"
+    : resizeFrom === "left"
+      ? "translate-x-0.5"
+      : "-translate-x-0.5";
 
   const interactiveProps = {
     "aria-label": getResizeHandleLabel(resizeFrom, ariaLabel),
@@ -312,21 +321,29 @@ export function WorkspaceLayoutV2ResizeHandle({
               "flex items-center justify-center",
               // Keep the idle mobile grip visually light so it does not mask
               // pane content sitting directly under the edge affordance.
-              isResizing && "border border-border bg-background",
+              isResizing &&
+                showGripDots &&
+                "border border-border bg-background",
               gripSizeClassName,
             )}
           >
-            <div
-              aria-hidden="true"
-              className={cn(
-                "relative z-10 flex flex-col items-center gap-1 text-foreground/70",
-                isHorizontalHandle && "rotate-90",
-              )}
-            >
-              {Array.from({ length: 3 }, (_, index) => (
-                <span key={index} className="h-1 w-1 rounded-full bg-current" />
-              ))}
-            </div>
+            {showGripDots ? (
+              <div
+                aria-hidden="true"
+                data-workspace-layout-v2-resize-grip-dots
+                className={cn(
+                  "relative z-10 flex flex-col items-center gap-1 text-foreground/70",
+                  gripDotsClassName,
+                )}
+              >
+                {Array.from({ length: 3 }, (_, index) => (
+                  <span
+                    key={index}
+                    className="h-1 w-1 rounded-full bg-current"
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

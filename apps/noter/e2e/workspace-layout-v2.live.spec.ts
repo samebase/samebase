@@ -3,10 +3,16 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 const WORKSPACE_LAYOUT_V2_STATUS_BAR_FIXTURE_URL =
   "/visual-fixture.html?mode=workspace-layout-v2-status-bar";
 
-async function openWorkspaceLayoutV2Fixture(page: Page): Promise<void> {
-  await page.goto(WORKSPACE_LAYOUT_V2_STATUS_BAR_FIXTURE_URL, {
-    waitUntil: "domcontentloaded",
-  });
+async function openWorkspaceLayoutV2Fixture(
+  page: Page,
+  options?: { dev?: boolean },
+): Promise<void> {
+  await page.goto(
+    `${WORKSPACE_LAYOUT_V2_STATUS_BAR_FIXTURE_URL}${options?.dev ? "&dev" : ""}`,
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
   await expect(
     page.getByTestId("workspace-layout-v2-visual-fixture"),
   ).toBeVisible();
@@ -179,6 +185,68 @@ test("mobile v2 fixture uses the carousel to move between panes", async ({
   await scrollWorkspaceCarouselToPane(page, "right");
   await expect(
     page.getByTestId("workspace-layout-v2-right-resize"),
+  ).toHaveCount(1);
+});
+
+test("mobile v2 fixture keeps grip targets centered while rendering dots outside the active sidebar", async ({
+  page,
+}) => {
+  const viewport = page.viewportSize();
+  test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
+
+  await openWorkspaceLayoutV2Fixture(page, { dev: true });
+
+  const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+
+  await scrollWorkspaceCarouselToPane(page, "left");
+  const leftGrip = page.getByTestId("workspace-layout-v2-left-resize");
+  await expect(leftGrip).toBeVisible();
+  const leftPaneBox = await getRoundedBoundingBox(leftPane);
+  const leftGripBox = await getRoundedBoundingBox(leftGrip);
+  const leftDotsBox = await getRoundedBoundingBox(
+    leftGrip.locator("[data-workspace-layout-v2-resize-grip-dots]"),
+  );
+  const leftPaneRightEdge = leftPaneBox.x + leftPaneBox.width;
+  expect(leftGripBox.x).toBeLessThan(leftPaneRightEdge);
+  expect(leftGripBox.x + leftGripBox.width).toBeGreaterThan(leftPaneRightEdge);
+  expect(leftDotsBox.x).toBeGreaterThanOrEqual(leftPaneRightEdge);
+
+  await scrollWorkspaceCarouselToPane(page, "right");
+  const rightGrip = page.getByTestId("workspace-layout-v2-right-resize");
+  await expect(rightGrip).toBeVisible();
+  const rightPaneBox = await getRoundedBoundingBox(rightPane);
+  const rightGripBox = await getRoundedBoundingBox(rightGrip);
+  const rightDotsBox = await getRoundedBoundingBox(
+    rightGrip.locator("[data-workspace-layout-v2-resize-grip-dots]"),
+  );
+  expect(rightGripBox.x).toBeLessThan(rightPaneBox.x);
+  expect(rightGripBox.x + rightGripBox.width).toBeGreaterThan(rightPaneBox.x);
+  expect(rightDotsBox.x + rightDotsBox.width).toBeLessThanOrEqual(
+    rightPaneBox.x,
+  );
+});
+
+test("mobile v2 fixture shows sidebar grip dots only with the dev flag", async ({
+  page,
+}) => {
+  const viewport = page.viewportSize();
+  test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
+
+  await openWorkspaceLayoutV2Fixture(page);
+  await scrollWorkspaceCarouselToPane(page, "left");
+  await expect(
+    page
+      .getByTestId("workspace-layout-v2-left-resize")
+      .locator("[data-workspace-layout-v2-resize-grip-dots]"),
+  ).toHaveCount(0);
+
+  await openWorkspaceLayoutV2Fixture(page, { dev: true });
+  await scrollWorkspaceCarouselToPane(page, "left");
+  await expect(
+    page
+      .getByTestId("workspace-layout-v2-left-resize")
+      .locator("[data-workspace-layout-v2-resize-grip-dots]"),
   ).toHaveCount(1);
 });
 
