@@ -152,7 +152,7 @@ test("public landing keeps the mobile sidebar header hidden", async ({
   await expectSearchFlag(page, "dev");
 });
 
-test("landing dev mode reload keeps the read-only copy stable on the dev server", async ({
+test("landing dev mode reload keeps the editable copy stable on the dev server", async ({
   page,
 }) => {
   const reloadFrames = await captureLandingReloadFrames(page, "/?dev");

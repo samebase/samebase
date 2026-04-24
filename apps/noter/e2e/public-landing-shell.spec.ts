@@ -447,6 +447,21 @@ async function expectLandingToggleFocusTarget(
     .toMatch(/^(body|public-landing-dev-toggle)$/);
 }
 
+async function insertLandingHeadingMarker(
+  page: Parameters<typeof test>[0]["page"],
+  marker: string,
+) {
+  const editor = page
+    .getByTestId(PUBLIC_LANDING_COPY_TEST_ID)
+    .locator(".cm-content");
+  const headingLine = editor.locator(".cm-line").first();
+
+  await expect(headingLine).toBeVisible();
+  await headingLine.click();
+  await editor.pressSequentially(` ${marker}`);
+  await expect(editor).toContainText(marker);
+}
+
 async function expectLandingLogoReady(image: Locator) {
   await expect(image).toBeVisible();
   await expect
@@ -1618,9 +1633,11 @@ test("landing dev toggle preserves unrelated query params", async ({
   await expect(appToggleLink).toHaveAttribute("href", "/?prod-ui");
 });
 
-test("landing dev mode keeps the landing copy read-only after toggling", async ({
+test("landing dev edits stay visible after toggling back to the plain landing view", async ({
   page,
 }) => {
+  const headingMarker = "codex-marker";
+
   await page.goto("/?dev", { waitUntil: "domcontentloaded" });
 
   const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
@@ -1628,7 +1645,9 @@ test("landing dev mode keeps the landing copy read-only after toggling", async (
   await expect(landingCopy).toContainText(
     "your notes and code live in a real repository",
   );
-  await expect(landingCopy.locator('[contenteditable="true"]')).toHaveCount(0);
+  await expect(landingCopy.locator('[contenteditable="true"]')).toHaveCount(1);
+
+  await insertLandingHeadingMarker(page, headingMarker);
 
   const appToggleLink = page.getByRole("link", {
     name: LANDING_DEV_MODE_DISABLE_LINK_LABEL,
@@ -1644,6 +1663,6 @@ test("landing dev mode keeps the landing copy read-only after toggling", async (
     ),
   ).toHaveCount(0);
   await expect(page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID)).toContainText(
-    "your notes and code live in a real repository",
+    headingMarker,
   );
 });

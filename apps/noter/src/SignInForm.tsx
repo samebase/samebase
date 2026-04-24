@@ -4,6 +4,7 @@ import { PublicLandingLogo } from "@/components/PublicLandingLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
+import { landingPageMarkdown } from "@/lib/landingCopy";
 import {
   PUBLIC_LANDING_COPY_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
@@ -61,8 +62,9 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
     passwordAuthMode,
     prodUiModeEnabled,
   });
-  const landingDevPresentationEnabled =
-    !prodUiModeEnabled && landingDevModeEnabled;
+  const isLandingCopyEditable = !prodUiModeEnabled && landingDevModeEnabled;
+  const [landingMarkdownDraft, setLandingMarkdownDraft] =
+    useState(landingPageMarkdown);
 
   useEffect(() => {
     const nextPasswordAuthMode = deploymentAuthPolicy?.passwordAuthMode;
@@ -87,7 +89,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
         >
           {topNotice}
           <PublicLandingLogo
-            autoRotate={landingDevPresentationEnabled}
+            autoRotate={isLandingCopyEditable}
             enableViewSnapping={!landingDevModeEnabled}
           />
           {showGoogleSignupClosedState ? (
@@ -95,7 +97,12 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
           ) : (
             <>
               <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
-                <LandingCopy className="text-sm" />
+                <LandingCopy
+                  className="text-sm"
+                  editable={isLandingCopyEditable}
+                  markdown={landingMarkdownDraft}
+                  onChange={setLandingMarkdownDraft}
+                />
               </div>
               <div className="flex flex-col gap-2">
                 <SignInWithGoogle
