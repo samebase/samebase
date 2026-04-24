@@ -7,6 +7,10 @@ import {
   LANDING_DEV_MODE_LINK_LABEL,
   LANDING_DEV_MODE_QUERY_PARAM,
 } from "@/lib/landingDevMode";
+import {
+  FORCE_PROD_UI_MODE_LINK_LABEL,
+  FORCE_PROD_UI_QUERY_PARAM,
+} from "@/lib/prodUiMode";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { Layout, PublicLayoutShell } from "./Layout";
 
@@ -70,6 +74,7 @@ describe("Layout", () => {
     expect(markup).toContain("/home");
     expect(markup).toContain(LANDING_DEV_MODE_LINK_LABEL);
     expect(markup).not.toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
+    expect(markup).toContain(FORCE_PROD_UI_MODE_LINK_LABEL);
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
     expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
@@ -155,12 +160,15 @@ describe("Layout", () => {
     const devShortcutIndex = markup.indexOf(
       LANDING_DEV_MODE_DISABLE_LINK_LABEL,
     );
+    const prodUiShortcutIndex = markup.indexOf(FORCE_PROD_UI_MODE_LINK_LABEL);
     const logoLinkIndex = markup.indexOf("/logo");
     const homeLinkIndex = markup.indexOf("/home");
     const termsLinkIndex = markup.indexOf("/terms");
     const privacyLinkIndex = markup.indexOf("/privacy");
 
+    expect(prodUiShortcutIndex).toBeGreaterThanOrEqual(0);
     expect(devShortcutIndex).toBeGreaterThanOrEqual(0);
+    expect(prodUiShortcutIndex).toBeLessThan(devShortcutIndex);
     expect(devShortcutIndex).toBeLessThan(logoLinkIndex);
     expect(logoLinkIndex).toBeLessThan(homeLinkIndex);
     expect(homeLinkIndex).toBeLessThan(termsLinkIndex);
@@ -221,6 +229,55 @@ describe("Layout", () => {
     expect(markup).toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
     expect(markup).not.toContain(`>${LANDING_DEV_MODE_LINK_LABEL}<`);
     expect(markup).toContain(`href="${encodeStaticHref(logoWithoutDevPath)}"`);
+  });
+
+  it("adds prod-ui to the current URL without dropping other URL parts", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    const logoPath = buildPathWithUpdatedQuery(
+      { pathname: "/logo", search: "dev", hash: "top" },
+      (searchParams) => {
+        setQueryParam(searchParams, FORCE_PROD_UI_QUERY_PARAM, false);
+      },
+    );
+    const logoWithProdUiPath = buildPathWithUpdatedQuery(
+      { pathname: "/logo", search: "dev", hash: "top" },
+      (searchParams) => {
+        setQueryParam(searchParams, FORCE_PROD_UI_QUERY_PARAM, true);
+      },
+    );
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[logoPath]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(FORCE_PROD_UI_MODE_LINK_LABEL);
+    expect(markup).toContain(`href="${encodeStaticHref(logoWithProdUiPath)}"`);
+  });
+
+  it("hides the prod-ui shortcut from the prod-like surface", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    const logoProdUiPath = buildPathWithUpdatedQuery(
+      { pathname: "/logo", search: "prod-ui&dev", hash: "top" },
+      (searchParams) => {
+        setQueryParam(searchParams, FORCE_PROD_UI_QUERY_PARAM, true);
+      },
+    );
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[logoProdUiPath]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).not.toContain(`id="public-landing-prod-ui-toggle"`);
+    expect(markup).not.toContain(`>${FORCE_PROD_UI_MODE_LINK_LABEL}<`);
+    expect(markup).toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
   });
 
   it("keeps legal links visible on non-root sign-in routes", () => {
