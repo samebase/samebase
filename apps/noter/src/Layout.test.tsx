@@ -207,7 +207,7 @@ describe("Layout", () => {
     );
 
     expect(markup).toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
-    expect(markup).not.toContain(LANDING_DEV_MODE_LINK_LABEL);
+    expect(markup).not.toContain(`>${LANDING_DEV_MODE_LINK_LABEL}<`);
     expect(markup).toContain(`href="${encodeStaticHref(logoWithoutDevPath)}"`);
   });
 
@@ -233,7 +233,9 @@ describe("Layout", () => {
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
     expect(markup).toContain("/home");
-    expect(markup).not.toContain("/logo");
+    expect(markup).toContain("/logo");
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).toContain('tabindex="-1"');
   });
 
   it("keeps legal links and shows /home away from the plain root landing route", () => {
@@ -254,7 +256,9 @@ describe("Layout", () => {
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
     expect(markup).toContain("/home");
-    expect(markup).not.toContain("/logo");
+    expect(markup).toContain("/logo");
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).toContain('tabindex="-1"');
   });
 
   it("keeps legal links visible on the legal pages themselves", () => {
@@ -274,7 +278,9 @@ describe("Layout", () => {
 
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
-    expect(markup).not.toContain("/logo");
+    expect(markup).toContain("/logo");
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).toContain('tabindex="-1"');
   });
 
   it("renders children directly without auth-specific shell branching", () => {

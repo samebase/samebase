@@ -340,6 +340,31 @@ describe("appRouter", () => {
     );
   });
 
+  it("retains the root dev flag across public route navigation", async () => {
+    const router = await renderRoute(
+      buildPathWithUpdatedQuery({ pathname: "/" }, (searchParams) => {
+        setQueryParam(searchParams, "dev", true);
+      }),
+    );
+
+    await act(async () => {
+      await router.navigate({
+        search: {},
+        to: "/terms",
+      });
+      await settleRouterRender();
+    });
+
+    expect(router.state.location.pathname).toBe("/terms");
+    expect(router.state.location.searchStr).toBe(
+      buildSearchString(
+        updateQueryParams(undefined, (searchParams) => {
+          setQueryParam(searchParams, "dev", true);
+        }),
+      ),
+    );
+  });
+
   it("renders MCP consent through an explicit TanStack route instead of the App fallback", async () => {
     await renderRoute("/oauth/mcp/consent?mcp_consent_request=mcpar_test");
 

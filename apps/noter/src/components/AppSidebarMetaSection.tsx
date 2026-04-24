@@ -9,11 +9,9 @@ import {
 import {
   LANDING_DEV_MODE_DISABLE_LINK_LABEL,
   LANDING_DEV_MODE_LINK_LABEL,
-  LANDING_DEV_MODE_QUERY_PARAM,
   isLandingDevModeEnabled,
 } from "@/lib/landingDevMode";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
-import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { Link, useLocation } from "@tanstack/react-router";
 
 function normalizeRepoUrl(repoUrl: string): string {
@@ -37,23 +35,8 @@ export function AppSidebarMetaSection() {
   const landingDevLabel = landingDevEnabled
     ? LANDING_DEV_MODE_DISABLE_LINK_LABEL
     : LANDING_DEV_MODE_LINK_LABEL;
-  const landingDevPath = buildPathWithUpdatedQuery(
-    {
-      pathname: location.pathname,
-      search: location.searchStr,
-      hash: location.hash,
-    },
-    (searchParams) => {
-      setQueryParam(
-        searchParams,
-        LANDING_DEV_MODE_QUERY_PARAM,
-        !landingDevEnabled,
-      );
-    },
-  );
 
   const isLandingPage = location.pathname === "/";
-  const shouldReserveLogoLink = isLandingPage;
   const showLogoLink =
     isLandingPage && publicLandingLogoLink?.isLogoLinkVisible === true;
   const logoLinkClassName = showLogoLink
@@ -73,24 +56,30 @@ export function AppSidebarMetaSection() {
       data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
       className="flex flex-col items-end gap-3 px-1 pt-3 pb-8 text-right text-xs text-muted-foreground"
     >
-      <Link id="public-landing-dev-toggle" to={landingDevPath}>
+      <Link
+        id="public-landing-dev-toggle"
+        to={location.pathname}
+        hash={location.hash}
+        search={(currentSearch) => ({
+          ...currentSearch,
+          dev: landingDevEnabled ? undefined : true,
+        })}
+      >
         {landingDevLabel}
       </Link>
 
       {/* Keep query-param shortcuts visually separate so path links stay put. */}
       <div aria-hidden="true" className="h-3" />
 
-      {/* Reserve the easter-egg row so revealing it does not move path links. */}
-      {shouldReserveLogoLink ? (
-        <Link
-          to="/logo"
-          aria-hidden={showLogoLink ? undefined : true}
-          className={logoLinkClassName}
-          tabIndex={showLogoLink ? undefined : -1}
-        >
-          /logo
-        </Link>
-      ) : null}
+      {/* Reserve the easter-egg row across routes so path links never reflow. */}
+      <Link
+        to="/logo"
+        aria-hidden={showLogoLink ? undefined : true}
+        className={logoLinkClassName}
+        tabIndex={showLogoLink ? undefined : -1}
+      >
+        /logo
+      </Link>
       {/* `/home` routes through `/` to avoid a first-paint logo flash. */}
       <Link to="/">/home</Link>
       <Link to="/terms">/terms</Link>
