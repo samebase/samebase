@@ -77,7 +77,6 @@ function renderMobileLayout({
   mainHeader = OMIT_HEADER,
   mobilePane,
   rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  showMobileLeftToggle,
   showMobileResizeGripDots,
 }: {
   includeRightPane?: boolean;
@@ -86,7 +85,6 @@ function renderMobileLayout({
   mainHeader?: React.ReactNode | typeof OMIT_HEADER;
   mobilePane?: "left" | "main" | "right";
   rightMobileWidthPx?: number;
-  showMobileLeftToggle?: boolean;
   showMobileResizeGripDots?: boolean;
 }) {
   const mainProps =
