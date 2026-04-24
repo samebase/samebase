@@ -11,6 +11,11 @@ import {
   LANDING_DEV_MODE_LINK_LABEL,
   isLandingDevModeEnabled,
 } from "@/lib/landingDevMode";
+import {
+  FORCE_PROD_UI_MODE_LINK_LABEL,
+  FORCE_PROD_UI_QUERY_PARAM,
+  isProdUiModeEnabled,
+} from "@/lib/prodUiMode";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { Link, useLocation } from "@tanstack/react-router";
 
@@ -52,6 +57,9 @@ export function AppSidebarMetaSection({
   const landingDevLabel = landingDevEnabled
     ? LANDING_DEV_MODE_DISABLE_LINK_LABEL
     : LANDING_DEV_MODE_LINK_LABEL;
+  const prodUiEnabled = isProdUiModeEnabled(
+    new URLSearchParams(location.searchStr),
+  );
 
   const isLandingPage = location.pathname === "/";
   const showLogoLink =
@@ -73,6 +81,19 @@ export function AppSidebarMetaSection({
       data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
       className={APP_SIDEBAR_META_SECTION_CLASS_NAMES[side]}
     >
+      {prodUiEnabled ? null : (
+        <Link
+          id="public-landing-prod-ui-toggle"
+          to={location.pathname}
+          hash={location.hash}
+          search={(currentSearch) => ({
+            ...currentSearch,
+            [FORCE_PROD_UI_QUERY_PARAM]: true,
+          })}
+        >
+          {FORCE_PROD_UI_MODE_LINK_LABEL}
+        </Link>
+      )}
       <Link
         id="public-landing-dev-toggle"
         to={location.pathname}

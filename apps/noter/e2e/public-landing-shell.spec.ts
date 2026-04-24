@@ -19,6 +19,7 @@ import {
   LANDING_DEV_MODE_DISABLE_LINK_LABEL,
   LANDING_DEV_MODE_LINK_LABEL,
 } from "../src/lib/landingDevMode";
+import { FORCE_PROD_UI_MODE_LINK_LABEL } from "../src/lib/prodUiMode";
 import {
   PUBLIC_LANDING_COPY_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
@@ -1631,6 +1632,90 @@ test("landing dev toggle preserves unrelated query params", async ({
     exact: true,
   });
   await expect(appToggleLink).toHaveAttribute("href", "/?prod-ui");
+});
+
+test("prod-ui shortcut disappears after entering prod-ui mode", async ({
+  page,
+}) => {
+  await page.goto("/?dev", { waitUntil: "domcontentloaded" });
+
+  const devToggleLink = page.getByRole("link", {
+    name: LANDING_DEV_MODE_DISABLE_LINK_LABEL,
+    exact: true,
+  });
+  const homeLink = page.getByRole("link", { name: "/home", exact: true });
+  const devToggleBoxBefore = await devToggleLink.boundingBox();
+  expect(devToggleBoxBefore).not.toBeNull();
+  if (devToggleBoxBefore === null) {
+    return;
+  }
+
+  const shellToggleLink = page.getByRole("link", {
+    name: FORCE_PROD_UI_MODE_LINK_LABEL,
+  });
+  const prodUiToggleBox = await shellToggleLink.boundingBox();
+  expect(prodUiToggleBox).not.toBeNull();
+  if (prodUiToggleBox === null) {
+    return;
+  }
+
+  expect(prodUiToggleBox.y).toBeLessThan(devToggleBoxBefore.y);
+  await expect(shellToggleLink).toHaveAttribute("href", "/?dev&prod-ui");
+
+  await shellToggleLink.click();
+  await expect(page).toHaveURL(/\/\?dev&prod-ui$/);
+
+  await expect(
+    page.getByRole("link", {
+      name: FORCE_PROD_UI_MODE_LINK_LABEL,
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(devToggleLink).toBeVisible();
+  await expect(devToggleLink).toHaveAttribute("href", "/?prod-ui");
+  await expect(homeLink).toBeVisible();
+  await expect(homeLink).toHaveAttribute("href", "/?dev");
+});
+
+test("prod-ui mode omits the prod-ui shortcut", async ({ page }) => {
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+  await expect(
+    page.getByRole("link", {
+      name: FORCE_PROD_UI_MODE_LINK_LABEL,
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("link", {
+      name: LANDING_DEV_MODE_LINK_LABEL,
+      exact: true,
+    }),
+  ).toBeVisible();
+});
+
+test("prod-ui shortcut does not render below dev before entry", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const prodUiToggleLink = page.getByRole("link", {
+    name: FORCE_PROD_UI_MODE_LINK_LABEL,
+    exact: true,
+  });
+  const devToggleLink = page.getByRole("link", {
+    name: LANDING_DEV_MODE_LINK_LABEL,
+    exact: true,
+  });
+  const prodUiToggleBox = await prodUiToggleLink.boundingBox();
+  const devToggleBox = await devToggleLink.boundingBox();
+  expect(prodUiToggleBox).not.toBeNull();
+  expect(devToggleBox).not.toBeNull();
+  if (prodUiToggleBox === null || devToggleBox === null) {
+    return;
+  }
+
+  expect(prodUiToggleBox.y).toBeLessThan(devToggleBox.y);
 });
 
 test("landing dev edits stay visible after toggling back to the plain landing view", async ({
