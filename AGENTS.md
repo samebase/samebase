@@ -317,6 +317,7 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   in the user-facing response; otherwise say that no preview is running.
 - When sharing a localhost app preview URL in the user-facing response, also
   include the active Cloudflare tunnel URL for that same app when one exists.
+- For preview deploy URLs, use the `?prod-ui` query param.
 - When screenshot or visual regression work changes images, show the relevant
   before/after or diff images in the user-facing response.
 - When a response relates to an existing PR, mention the PR number as a
