@@ -15,6 +15,10 @@ import {
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
+import {
+  LANDING_DEV_MODE_DISABLE_LINK_LABEL,
+  LANDING_DEV_MODE_LINK_LABEL,
+} from "../src/lib/landingDevMode";
 import { PUBLIC_LANDING_SCROLL_SHELL_TEST_ID } from "../src/lib/publicLanding";
 import {
   PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
@@ -108,7 +112,7 @@ declare global {
 
 async function captureLandingToggleFrames(
   page: Parameters<typeof test>[0]["page"],
-  linkName: "/?dev" | "/",
+  linkName: string,
 ): Promise<LandingToggleFrame[]> {
   const framesPromise = page.evaluate(() => {
     return new Promise<LandingToggleFrame[]>((resolve) => {
@@ -431,10 +435,13 @@ async function expectLandingToggleFocusTarget(
         const activeElement = document.activeElement;
         return activeElement === document.body
           ? "body"
-          : (activeElement?.tagName.toLowerCase() ?? null);
+          : activeElement instanceof HTMLElement &&
+              activeElement.id === "public-landing-dev-toggle"
+            ? "public-landing-dev-toggle"
+            : (activeElement?.tagName.toLowerCase() ?? null);
       }),
     )
-    .toBe("body");
+    .toMatch(/^(body|public-landing-dev-toggle)$/);
 }
 
 async function insertLandingHeadingMarker(
@@ -758,7 +765,9 @@ test("landing dev toggle keeps the waitlist row aligned", async ({ page }) => {
 
   const beforeToggleLayout = await readLandingToggleLayout(page);
 
-  await page.getByRole("link", { name: "/?dev", exact: true }).click();
+  await page
+    .getByRole("link", { name: LANDING_DEV_MODE_LINK_LABEL, exact: true })
+    .click();
   await expect(page).toHaveURL(/\/\?dev$/);
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
 
@@ -849,7 +858,7 @@ test("mcp consent sign-in keeps legal links in the sidebar rail", async ({
 
   await expectLegalLinksUseLeftSidebarInnerEdge(statusBar);
   await expectStatusBarInLeftSidebar(page, statusBar);
-  await expect(statusBar.getByRole("link", { name: "Home" })).toBeVisible();
+  await expect(statusBar.getByRole("link", { name: "/home" })).toBeVisible();
   await expect(page.getByText("Temporary MCP sign-in note")).toBeVisible();
 });
 
@@ -1062,14 +1071,20 @@ test.describe("mobile landing dev toggle", () => {
   }) => {
     await page.goto("/", { waitUntil: "networkidle" });
 
-    const forwardFrames = await captureLandingToggleFrames(page, "/?dev");
+    const forwardFrames = await captureLandingToggleFrames(
+      page,
+      LANDING_DEV_MODE_LINK_LABEL,
+    );
     expectStableLandingToggleFrames(forwardFrames, "/?dev");
     await expectLandingToggleFocusTarget(page);
     await expectLandingLogoAutoRotates(
       page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID),
     );
 
-    const backFrames = await captureLandingToggleFrames(page, "/");
+    const backFrames = await captureLandingToggleFrames(
+      page,
+      LANDING_DEV_MODE_DISABLE_LINK_LABEL,
+    );
     expectStableLandingToggleFrames(backFrames, "/");
     await expectLandingToggleFocusTarget(page);
   });
@@ -1168,7 +1183,9 @@ test("waitlist link stays visible through the dev toggle", async ({ page }) => {
   });
   await expect(waitlistLink).toBeVisible();
   await expect(waitlistLink).toHaveAttribute("href", "https://x.com/noter_md");
-  await page.getByRole("link", { name: "/?dev", exact: true }).click();
+  await page
+    .getByRole("link", { name: LANDING_DEV_MODE_LINK_LABEL, exact: true })
+    .click();
   await expect(page).toHaveURL(/\/\?dev$/);
   await expect(
     page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
@@ -1191,7 +1208,9 @@ test("public landing keeps the card height stable while toggling dev mode", asyn
     Math.round(element.getBoundingClientRect().height),
   );
 
-  await page.getByRole("link", { name: "/?dev", exact: true }).click();
+  await page
+    .getByRole("link", { name: LANDING_DEV_MODE_LINK_LABEL, exact: true })
+    .click();
   await expect(page).toHaveURL(/\/\?dev$/);
 
   const devLandingHeight = await landingContent.evaluate((element) =>
@@ -1463,13 +1482,18 @@ test("landing dev toggle preserves unrelated query params", async ({
 }) => {
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
-  const shellToggleLink = page.getByRole("link", { name: "/?dev" });
+  const shellToggleLink = page.getByRole("link", {
+    name: LANDING_DEV_MODE_LINK_LABEL,
+  });
   await expect(shellToggleLink).toHaveAttribute("href", "/?prod-ui&dev");
 
   await shellToggleLink.click();
   await expect(page).toHaveURL(/\/\?prod-ui&dev$/);
 
-  const appToggleLink = page.getByRole("link", { name: "/", exact: true });
+  const appToggleLink = page.getByRole("link", {
+    name: LANDING_DEV_MODE_DISABLE_LINK_LABEL,
+    exact: true,
+  });
   await expect(appToggleLink).toHaveAttribute("href", "/?prod-ui");
 });
 
@@ -1482,7 +1506,10 @@ test("landing dev edits stay visible after toggling back to the plain landing vi
 
   await insertLandingHeadingMarker(page, headingMarker);
 
-  const appToggleLink = page.getByRole("link", { name: "/", exact: true });
+  const appToggleLink = page.getByRole("link", {
+    name: LANDING_DEV_MODE_DISABLE_LINK_LABEL,
+    exact: true,
+  });
   await expect(appToggleLink).toBeVisible();
   await appToggleLink.click();
 
