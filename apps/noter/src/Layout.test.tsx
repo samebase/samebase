@@ -63,7 +63,10 @@ describe("Layout", () => {
 
     expect(markup).toContain("/terms");
     expect(markup).toContain("/privacy");
-    expect(markup).not.toContain("/logo");
+    expect(markup).toContain("/logo");
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).toContain('tabindex="-1"');
+    expect(markup).toContain("text-background");
     expect(markup).toContain("/home");
     expect(markup).toContain(LANDING_DEV_MODE_LINK_LABEL);
     expect(markup).not.toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
@@ -111,12 +114,14 @@ describe("Layout", () => {
     const devShortcutIndex = markup.indexOf(
       LANDING_DEV_MODE_DISABLE_LINK_LABEL,
     );
+    const logoLinkIndex = markup.indexOf("/logo");
     const homeLinkIndex = markup.indexOf("/home");
     const termsLinkIndex = markup.indexOf("/terms");
     const privacyLinkIndex = markup.indexOf("/privacy");
 
     expect(devShortcutIndex).toBeGreaterThanOrEqual(0);
-    expect(devShortcutIndex).toBeLessThan(homeLinkIndex);
+    expect(devShortcutIndex).toBeLessThan(logoLinkIndex);
+    expect(logoLinkIndex).toBeLessThan(homeLinkIndex);
     expect(homeLinkIndex).toBeLessThan(termsLinkIndex);
     expect(termsLinkIndex).toBeLessThan(privacyLinkIndex);
   });

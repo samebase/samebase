@@ -1315,9 +1315,40 @@ test("prod-ui landing reveals /logo only for the darker straight-on logo face", 
 
   await expectLandingLogoReady(landingLogo);
   await expectLandingLogoSceneReady(landingLogoScene);
+
+  const hiddenLogoLink = statusBar.locator('a[href="/logo"]');
+  const homeLink = statusBar.getByRole("link", {
+    name: "/home",
+    exact: true,
+  });
+  const termsLink = statusBar.getByRole("link", {
+    name: "/terms",
+    exact: true,
+  });
+
+  await expect(hiddenLogoLink).toHaveAttribute("aria-hidden", "true");
+  await expect(hiddenLogoLink).toHaveClass(/text-background/);
   await expect(
     statusBar.getByRole("link", { name: "/logo", exact: true }),
   ).toHaveCount(0);
+  await expect(homeLink).toBeVisible();
+  await expect(termsLink).toBeVisible();
+
+  const hiddenLogoBox = await hiddenLogoLink.boundingBox();
+  const homeBoxBefore = await homeLink.boundingBox();
+  const termsBoxBefore = await termsLink.boundingBox();
+  expect(hiddenLogoBox).not.toBeNull();
+  expect(homeBoxBefore).not.toBeNull();
+  expect(termsBoxBefore).not.toBeNull();
+  if (
+    hiddenLogoBox === null ||
+    homeBoxBefore === null ||
+    termsBoxBefore === null
+  ) {
+    return;
+  }
+
+  expect(hiddenLogoBox.y).toBeLessThan(homeBoxBefore.y);
 
   await dragLandingLogoSceneToView(landingLogoScene, {
     elevationDegrees: PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
@@ -1335,23 +1366,25 @@ test("prod-ui landing reveals /logo only for the darker straight-on logo face", 
     name: "/logo",
     exact: true,
   });
-  const termsLink = statusBar.getByRole("link", {
-    name: "/terms",
-    exact: true,
-  });
 
   await expect(logoLink).toBeVisible();
+  await expect(hiddenLogoLink).not.toHaveAttribute("aria-hidden", "true");
   await expect(logoLink).toHaveCSS("animation-name", "underline-color-cycle");
 
   const logoBox = await logoLink.boundingBox();
+  const homeBoxAfter = await homeLink.boundingBox();
   const termsBox = await termsLink.boundingBox();
   expect(logoBox).not.toBeNull();
+  expect(homeBoxAfter).not.toBeNull();
   expect(termsBox).not.toBeNull();
-  if (logoBox === null || termsBox === null) {
+  if (logoBox === null || homeBoxAfter === null || termsBox === null) {
     return;
   }
 
-  expect(logoBox.y).toBeLessThan(termsBox.y);
+  expect(logoBox.y).toBeLessThan(homeBoxAfter.y);
+  expect(Math.abs(logoBox.y - hiddenLogoBox.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(homeBoxAfter.y - homeBoxBefore.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(termsBox.y - termsBoxBefore.y)).toBeLessThanOrEqual(1);
 
   await expect(statusBar).toHaveScreenshot(
     "public-landing-status-bar-logo-link.png",
