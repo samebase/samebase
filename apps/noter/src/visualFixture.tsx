@@ -38,10 +38,6 @@ import {
   LogoThreeVisualFixture,
   type LogoThreeVisualMode,
 } from "@/components/LogoThreeVisualFixture";
-import {
-  LandingCopyVisualFixture,
-  type LandingCopyVisualMode,
-} from "@/components/LandingCopyVisualFixture";
 import { CornerNotchDetailVisualFixture } from "@/components/CornerNotchDetailVisualFixture";
 import {
   LogoSnapAnglesVisualFixture,
@@ -136,7 +132,6 @@ type VisualFixtureMode =
   | RepositoryRouteConnectStateVisualMode
   | FileViewLayoutVisualMode
   | FileViewPushActionsVisualMode
-  | LandingCopyVisualMode
   | LogoSnapAnglesVisualMode
   | LogoThreeVisualMode
   | AddRepositoryVisualMode
@@ -204,13 +199,6 @@ const ADD_REPOSITORY_VISUAL_MODES = [
   "add-repository-retrying",
   "add-repository-empty-final",
 ] as const satisfies readonly AddRepositoryVisualMode[];
-
-const LANDING_COPY_VISUAL_MODES = [
-  "landing-copy-parity",
-  "landing-copy-editable-parity-single-line",
-  "landing-copy-editable-parity-two-line",
-  "landing-copy-editable-parity-three-line",
-] as const satisfies readonly LandingCopyVisualMode[];
 
 const LOGO_VISUAL_MODES = [
   "logo-three-reference",
@@ -325,10 +313,6 @@ const VISUAL_FIXTURE_GROUPS = [
     modes: ADD_REPOSITORY_VISUAL_MODES,
   },
   {
-    label: "Landing Copy",
-    modes: LANDING_COPY_VISUAL_MODES,
-  },
-  {
     label: "Logo",
     modes: LOGO_VISUAL_MODES,
   },
@@ -414,15 +398,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
   if (mode === "sidebar-media-upload") {
     return <SidebarMediaUploadVisualFixture />;
   }
-  if (
-    mode === "landing-copy-parity" ||
-    mode === "landing-copy-editable-parity-single-line" ||
-    mode === "landing-copy-editable-parity-two-line" ||
-    mode === "landing-copy-editable-parity-three-line"
-  ) {
-    return <LandingCopyVisualFixture mode={mode} />;
-  }
-
   if (mode === "logo-three-reference") {
     return <LogoThreeVisualFixture />;
   }

@@ -1,42 +1,23 @@
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
-import {
-  landingPageBullets,
-  landingPageMarkdown,
-  landingPageSlogan,
-  parseLandingCopyMarkdown,
-} from "@/lib/landingCopy";
+import { landingPageMarkdown } from "@/lib/landingCopy";
 
 export function LandingCopy({
   className,
+  editable = false,
   markdown = landingPageMarkdown,
+  onChange,
 }: {
   className?: string;
+  editable?: boolean;
   markdown?: string;
+  onChange?: (value: string) => void;
 }) {
-  const { bullets, slogan } =
-    markdown === landingPageMarkdown
-      ? { bullets: [...landingPageBullets], slogan: landingPageSlogan }
-      : parseLandingCopyMarkdown(markdown);
-
   return (
-    <div className="relative">
-      <div className="sr-only">
-        {slogan.length > 0 ? <h1>{slogan}</h1> : null}
-        {bullets.length > 0 ? (
-          <ul>
-            {bullets.map((bullet, index) => (
-              <li key={`${index}:${bullet}`}>{bullet}</li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
-      <div aria-hidden="true">
-        <ProsemarkReadOnly
-          value={markdown}
-          className={className}
-          styleVariant="landingCopy"
-        />
-      </div>
-    </div>
+    <ProsemarkReadOnly
+      value={markdown}
+      className={className}
+      editable={editable}
+      onChange={onChange}
+    />
   );
 }

@@ -50,7 +50,6 @@ export function DaytonaPreviewErrorState({
       <ProsemarkReadOnly
         value={buildDaytonaPreviewErrorMarkdown(message)}
         className="text-sm leading-6"
-        styleVariant="landingCopy"
       />
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button

@@ -268,20 +268,6 @@ export const prosemarkHiddenCursorTheme = EditorView.theme({
   },
 });
 
-// The landing copy intentionally uses the exact secondary token instead of the
-// shared translucent blend so the public selection highlight matches the design
-// color precisely in dark mode.
-export const prosemarkLandingCopyDarkSelectionTheme = EditorView.theme(
-  {
-    "&.cm-landing-copy .cm-content::selection, &.cm-landing-copy .cm-content ::selection":
-      {
-        backgroundColor: "hsl(var(--secondary)) !important",
-        color: "hsl(var(--secondary-foreground)) !important",
-      },
-  },
-  { dark: true },
-);
-
 export function getProsemarkFileThemeExtensions(args: {
   isDark: boolean;
   languageKind: CodeMirrorFileLanguageKind;

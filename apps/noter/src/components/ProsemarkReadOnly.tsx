@@ -29,7 +29,6 @@ import {
   findInitialSafeSelectionAnchor,
   getProsemarkFileThemeExtensions,
   prosemarkHiddenCursorTheme,
-  prosemarkLandingCopyDarkSelectionTheme,
   prosemarkSurfaceTheme,
 } from "@/components/prosemarkSurface";
 import { useWorkspaceLayoutV2DragSurface } from "@/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface";
@@ -48,7 +47,6 @@ type ProsemarkReadOnlyProps = {
   highlightedLineNumbers?: number[];
   lineHighlightTone?: "add" | "remove";
   mobilePaneDragEnabled?: boolean;
-  styleVariant?: "default" | "landingCopy";
   onChange?: (value: string) => void;
 };
 
@@ -119,60 +117,6 @@ function createLineHighlightExtension(
   );
 }
 
-function buildLandingCopyLineDecorations(
-  doc: EditorState["doc"],
-): DecorationSet {
-  const builder = new RangeSetBuilder<Decoration>();
-  let firstListLineFound = false;
-
-  for (let lineNumber = 1; lineNumber <= doc.lines; lineNumber += 1) {
-    const line = doc.line(lineNumber);
-    const trimmed = line.text.trim();
-    const classNames: string[] = [];
-
-    if (/^#{1,6}\s+/.test(line.text.trimStart())) {
-      classNames.push("cm-landing-copy-heading");
-    } else if (trimmed.length === 0) {
-      classNames.push("cm-landing-copy-gap");
-    } else if (/^(- |\* |\d+\.\s+)/.test(trimmed)) {
-      classNames.push("cm-landing-copy-list");
-      if (!firstListLineFound) {
-        classNames.push("cm-landing-copy-list-first");
-        firstListLineFound = true;
-      }
-    }
-
-    if (classNames.length === 0) continue;
-    builder.add(
-      line.from,
-      line.from,
-      Decoration.line({ class: classNames.join(" ") }),
-    );
-  }
-
-  return builder.finish();
-}
-
-function createLandingCopyStyleVariantExtension(): Extension {
-  return ViewPlugin.fromClass(
-    class {
-      decorations: DecorationSet;
-
-      constructor(view: EditorView) {
-        this.decorations = buildLandingCopyLineDecorations(view.state.doc);
-      }
-
-      update(update: ViewUpdate) {
-        if (!update.docChanged) return;
-        this.decorations = buildLandingCopyLineDecorations(update.state.doc);
-      }
-    },
-    {
-      decorations: (plugin) => plugin.decorations,
-    },
-  );
-}
-
 const prosemarkReadOnlyTheme = EditorView.theme({
   ".cm-line.cm-line-highlight-add": {
     backgroundColor: "rgba(16, 185, 129, 0.1)",
@@ -184,27 +128,6 @@ const prosemarkReadOnlyTheme = EditorView.theme({
 
 const externalValueSyncAnnotation = Annotation.define<boolean>();
 
-function getStyleVariantExtension(
-  styleVariant: ProsemarkReadOnlyProps["styleVariant"],
-  editable: boolean,
-): Extension {
-  if (styleVariant !== "landingCopy") {
-    return [];
-  }
-
-  return [
-    createLandingCopyStyleVariantExtension(),
-    // The landing page needed an exact-token selection color instead of the
-    // shared blended ProseMark dark selection.
-    prosemarkLandingCopyDarkSelectionTheme,
-    EditorView.editorAttributes.of({
-      class: editable
-        ? "cm-landing-copy cm-landing-copy-editable"
-        : "cm-landing-copy",
-    }),
-  ];
-}
-
 export function ProsemarkReadOnly({
   value,
   className,
@@ -213,7 +136,6 @@ export function ProsemarkReadOnly({
   highlightedLineNumbers = [],
   lineHighlightTone = "add",
   mobilePaneDragEnabled = false,
-  styleVariant = "default",
   onChange,
 }: ProsemarkReadOnlyProps) {
   const { theme, systemTheme } = useTheme();
@@ -228,7 +150,6 @@ export function ProsemarkReadOnly({
   const editableRef = useRef(editable);
   const isDarkRef = useRef(isDark);
   const filePathRef = useRef(filePath);
-  const styleVariantRef = useRef(styleVariant);
   const languageKindRef = useRef<CodeMirrorFileLanguageKind>(
     getCodeMirrorFileLanguageKind(filePath),
   );
@@ -237,7 +158,6 @@ export function ProsemarkReadOnly({
   const interactionCompartmentRef = useRef(new Compartment());
   const cursorCompartmentRef = useRef(new Compartment());
   const decorationsCompartmentRef = useRef(new Compartment());
-  const styleVariantCompartmentRef = useRef(new Compartment());
   const lineHighlightToneRef = useRef(lineHighlightTone);
   const lastWidthRef = useRef<number | null>(null);
   const onChangeRef = useRef(onChange);
@@ -280,10 +200,6 @@ export function ProsemarkReadOnly({
     filePathRef.current = filePath;
     languageKindRef.current = getCodeMirrorFileLanguageKind(filePath);
   }, [filePath]);
-
-  useEffect(() => {
-    styleVariantRef.current = styleVariant;
-  }, [styleVariant]);
 
   useEffect(() => {
     lineHighlightToneRef.current = lineHighlightTone;
@@ -329,12 +245,6 @@ export function ProsemarkReadOnly({
           createLineHighlightExtension(
             normalizedHighlightedLineNumbersRef.current,
             lineHighlightToneRef.current,
-          ),
-        ),
-        styleVariantCompartmentRef.current.of(
-          getStyleVariantExtension(
-            styleVariantRef.current,
-            editableRef.current,
           ),
         ),
         EditorView.updateListener.of((update) => {
@@ -471,17 +381,6 @@ export function ProsemarkReadOnly({
     });
     resizeToContent();
   }, [lineHighlightTone, normalizedHighlightedLineNumbers, resizeToContent]);
-
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view) return;
-    view.dispatch({
-      effects: styleVariantCompartmentRef.current.reconfigure(
-        getStyleVariantExtension(styleVariant, editable),
-      ),
-    });
-    resizeToContent();
-  }, [editable, resizeToContent, styleVariant]);
 
   useEffect(() => {
     const container = containerRef.current;
