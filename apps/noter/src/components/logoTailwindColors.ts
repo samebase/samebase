@@ -10,6 +10,102 @@ type ThemeColorSource = {
 };
 type ColorSource = string | ThemeColorSource;
 
+const OKLCH_COLOR_PATTERN =
+  /^oklch\(\s*([^\s]+)\s+([^\s]+)\s+([^\s/]+)(?:\s*\/\s*[^)]+)?\s*\)$/i;
+
+function readOklchComponent(component: string): number | null {
+  const parsedValue = Number.parseFloat(component);
+  if (!Number.isFinite(parsedValue)) {
+    return null;
+  }
+
+  return component.endsWith("%") ? parsedValue / 100 : parsedValue;
+}
+
+function readOklchColor(color: string): {
+  chroma: number;
+  hueDegrees: number;
+  lightness: number;
+} | null {
+  const match = color.match(OKLCH_COLOR_PATTERN);
+  if (!match) {
+    return null;
+  }
+
+  const lightness = readOklchComponent(match[1]);
+  const chroma = readOklchComponent(match[2]);
+  const hueDegrees =
+    match[3] === "none" ? 0 : Number.parseFloat(match[3].replace("deg", ""));
+  if (lightness === null || chroma === null || !Number.isFinite(hueDegrees)) {
+    return null;
+  }
+
+  return { chroma, hueDegrees, lightness };
+}
+
+function clampUnitInterval(value: number): number {
+  return Math.min(Math.max(value, 0), 1);
+}
+
+function encodeSrgbChannel(linearChannel: number): number {
+  const clampedChannel = clampUnitInterval(linearChannel);
+  return clampedChannel <= 0.0031308
+    ? 12.92 * clampedChannel
+    : 1.055 * clampedChannel ** (1 / 2.4) - 0.055;
+}
+
+function srgbChannelToHex(linearChannel: number): string {
+  return Math.round(encodeSrgbChannel(linearChannel) * 255)
+    .toString(16)
+    .padStart(2, "0");
+}
+
+function oklchToHex(color: {
+  chroma: number;
+  hueDegrees: number;
+  lightness: number;
+}): string {
+  const hueRadians = (color.hueDegrees * Math.PI) / 180;
+  const oklabA = color.chroma * Math.cos(hueRadians);
+  const oklabB = color.chroma * Math.sin(hueRadians);
+
+  const long = color.lightness + 0.3963377774 * oklabA + 0.2158037573 * oklabB;
+  const medium =
+    color.lightness - 0.1055613458 * oklabA - 0.0638541728 * oklabB;
+  const short = color.lightness - 0.0894841775 * oklabA - 1.291485548 * oklabB;
+
+  const longCube = long ** 3;
+  const mediumCube = medium ** 3;
+  const shortCube = short ** 3;
+
+  const red =
+    4.0767416621 * longCube -
+    3.3077115913 * mediumCube +
+    0.2309699292 * shortCube;
+  const green =
+    -1.2684380046 * longCube +
+    2.6097574011 * mediumCube -
+    0.3413193965 * shortCube;
+  const blue =
+    -0.0041960863 * longCube -
+    0.7034186147 * mediumCube +
+    1.707614701 * shortCube;
+
+  return `#${srgbChannelToHex(red)}${srgbChannelToHex(
+    green,
+  )}${srgbChannelToHex(blue)}`;
+}
+
+function normalizeRenderableColor(color: string): string {
+  const oklchColor = readOklchColor(color);
+  if (oklchColor === null) {
+    return color;
+  }
+
+  // Three.js cannot parse Tailwind v4's OKLCH strings, so hand it sRGB hex.
+  return oklchToHex(oklchColor);
+}
+
 function readThemeColor(cssVariable: `--${string}`): string | null {
   if (typeof document === "undefined") {
     return null;
@@ -75,7 +171,7 @@ function readThemeColor(cssVariable: `--${string}`): string | null {
 
 function resolveColorSource(source: ColorSource): string {
   if (typeof source === "string") {
-    return source;
+    return normalizeRenderableColor(source);
   }
 
   return readThemeColor(source.cssVariable) ?? source.fallbackHex;
@@ -263,6 +359,10 @@ function getTailwindColorOption(
   return tailwindColorOptionMap.get(token);
 }
 
+export function isTailwindColorToken(token: string): boolean {
+  return getTailwindColorOption(token) !== undefined;
+}
+
 export function getTailwindColorHex(token: string): string {
   if (/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(token)) {
     return token;
@@ -329,6 +429,13 @@ export function getTailwindColorTokenForSelection(
     }
 
     return nearestToken;
+  }
+
+  const defaultShadeMatch = familyOptions.find(
+    (option) => option.shade === "500",
+  );
+  if (defaultShadeMatch) {
+    return defaultShadeMatch.token;
   }
 
   return familyOptions[0].token;
