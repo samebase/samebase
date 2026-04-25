@@ -75,7 +75,8 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
     passwordAuthMode,
     prodUiModeEnabled,
   });
-  const isLandingCopyEditable = !prodUiModeEnabled && landingDevModeEnabled;
+  // `?dev` owns copy editability; prod-ui mode only controls the public chrome.
+  const isLandingCopyEditable = landingDevModeEnabled;
   const [landingMarkdownDraft, setLandingMarkdownDraft] =
     useState(landingPageMarkdown);
 
