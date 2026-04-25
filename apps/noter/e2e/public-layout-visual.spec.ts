@@ -23,7 +23,7 @@ test("public landing route uses the right sidebar shell", async ({ page }) => {
   );
 });
 
-test("public landing dev rail exposes the route URL editor", async ({
+test("public landing dev rail exposes the route URL display", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -35,8 +35,9 @@ test("public landing dev rail exposes the route URL editor", async ({
   });
   await page.waitForLoadState("networkidle");
 
-  const routeUrlEditor = page.getByTestId("route-url-editor");
-  await expect(routeUrlEditor).toHaveValue("/?dev");
+  const routeUrlDisplay = page.getByTestId("route-url-display");
+  await expect(routeUrlDisplay).toHaveValue("/?dev");
+  await expect(routeUrlDisplay).toHaveAttribute("readonly", "");
   await expect(page).toHaveScreenshot(
     `public-layout-landing-dev-${publicLayoutSnapshotSuffix}.png`,
     {
@@ -47,8 +48,7 @@ test("public landing dev rail exposes the route URL editor", async ({
     },
   );
 
-  await routeUrlEditor.fill("/terms?dev");
-  await routeUrlEditor.press("Enter");
+  await page.getByRole("link", { name: "/terms", exact: true }).click();
   await expect(page).toHaveURL(/\/terms\?dev$/);
-  await expect(page.getByTestId("route-url-editor")).toHaveValue("/terms?dev");
+  await expect(page.getByTestId("route-url-display")).toHaveValue("/terms?dev");
 });

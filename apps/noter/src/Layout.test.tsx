@@ -200,7 +200,7 @@ describe("Layout", () => {
     expect(markup).toContain(
       `data-testid="${PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID}"`,
     );
-    expect(markup).toContain('data-testid="route-url-editor"');
+    expect(markup).toContain('data-testid="route-url-display"');
     expect(markup).toContain('value="/?dev"');
   });
 
@@ -222,7 +222,7 @@ describe("Layout", () => {
     expect(markup).not.toContain(
       `data-testid="${PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID}"`,
     );
-    expect(markup).not.toContain('data-testid="route-url-editor"');
+    expect(markup).not.toContain('data-testid="route-url-display"');
   });
 
   it("opens the logo shortcut in dev mode without dropping root flags", () => {

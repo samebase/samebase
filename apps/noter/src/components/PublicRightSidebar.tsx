@@ -1,5 +1,5 @@
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { RouteUrlEditor } from "@/components/RouteUrlEditor";
+import { RouteUrlDisplay } from "@/components/RouteUrlDisplay";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { useLocation } from "@tanstack/react-router";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
@@ -20,7 +20,7 @@ export function usePublicRightSidebarPane(): WorkspaceLayoutV2PaneFrameProps {
   return {
     header: landingDevEnabled ? (
       <div className="flex h-full min-w-0 items-center px-2">
-        <RouteUrlEditor />
+        <RouteUrlDisplay />
       </div>
     ) : undefined,
     headerTestId: PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID,
