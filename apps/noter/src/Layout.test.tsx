@@ -20,7 +20,8 @@ import {
 import {
   PUBLIC_LAYOUT_SIDEBAR_RESET_LINK_LABEL,
   PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM,
-  PUBLIC_LAYOUT_SIDEBAR_SOURCE_LABELS,
+  PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY,
+  PUBLIC_LAYOUT_SIDEBAR_STORAGE_VALUE_LABELS,
 } from "@/lib/publicLayoutSidebarPreferences";
 import {
   SEARCH_RESET_LINK_LABEL,
@@ -119,7 +120,11 @@ describe("Layout", () => {
     expect(markup).not.toContain("/pricing");
     expect(markup).toContain(LANDING_DEV_MODE_LINK_LABEL);
     expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_RESET_LINK_LABEL);
-    expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_SOURCE_LABELS.default);
+    expect(markup).toContain("sidebar-reset");
+    expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY);
+    expect(markup).toContain(
+      PUBLIC_LAYOUT_SIDEBAR_STORAGE_VALUE_LABELS.default,
+    );
     expect(markup).not.toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
     expect(markup).toContain(FORCE_PROD_UI_MODE_LINK_LABEL);
     expect(markup).toContain(ROOT_THEME_LIGHT_MODE_LINK_LABEL);
@@ -170,7 +175,10 @@ describe("Layout", () => {
     );
 
     expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_RESET_LINK_LABEL);
-    expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_SOURCE_LABELS.reset);
+    expect(markup).toContain("sidebar-reset");
+    expect(markup).toContain("true");
+    expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY);
+    expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_STORAGE_VALUE_LABELS.reset);
   });
 
   it("places left public rail links on the mobile carousel peek edge", () => {

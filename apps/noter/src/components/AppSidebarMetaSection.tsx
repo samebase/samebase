@@ -26,7 +26,9 @@ import {
 import {
   PUBLIC_LAYOUT_SIDEBAR_RESET_LINK_LABEL,
   PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM,
-  PUBLIC_LAYOUT_SIDEBAR_SOURCE_LABELS,
+  PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY,
+  PUBLIC_LAYOUT_SIDEBAR_STORAGE_VALUE_LABELS,
+  isPublicLayoutSidebarResetRequested,
   type PublicLayoutSidebarPreferenceSource,
 } from "@/lib/publicLayoutSidebarPreferences";
 import {
@@ -96,6 +98,8 @@ export function AppSidebarMetaSection({
     productionPublicOrigin: isBrowserProductionPublicOrigin(),
     search: rootRouteSearch,
   });
+  const sidebarResetRequested =
+    isPublicLayoutSidebarResetRequested(rootRouteSearch);
   const themeMode = readRootThemeMode(rootRouteSearch);
   const showSearchResetLink = location.searchStr.length > 0;
   const lightModeLabel =
@@ -205,9 +209,23 @@ export function AppSidebarMetaSection({
           >
             {PUBLIC_LAYOUT_SIDEBAR_RESET_LINK_LABEL}
           </Link>
-          <span data-testid="public-layout-sidebar-preference-source">
-            {PUBLIC_LAYOUT_SIDEBAR_SOURCE_LABELS[publicSidebarPreferenceSource]}
-          </span>
+          <div
+            data-testid="public-layout-sidebar-preference-source"
+            className="grid w-full max-w-full grid-cols-[minmax(0,1fr)_max-content] gap-x-3 gap-y-1 font-mono text-[11px] leading-tight"
+          >
+            <span className="break-all">sidebar-reset</span>
+            <span>{sidebarResetRequested ? "true" : "false"}</span>
+            <span className="break-all">
+              {PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY}
+            </span>
+            <span>
+              {
+                PUBLIC_LAYOUT_SIDEBAR_STORAGE_VALUE_LABELS[
+                  publicSidebarPreferenceSource
+                ]
+              }
+            </span>
+          </div>
         </>
       ) : null}
       {showLandingPreviewLanguageLink ? (
