@@ -91,6 +91,7 @@ export function PublicLandingLogo({
   useEffect(() => {
     if (!loadInteractiveScene) {
       setLogoScene(null);
+      setDidSceneFail(false);
       setIsSceneReady(false);
       setIsSvgVisible(true);
       return;
@@ -100,6 +101,7 @@ export function PublicLandingLogo({
       setDidSceneFail(true);
       return;
     }
+    setDidSceneFail(false);
 
     if (cachedLandingLogoScene !== null) {
       setLogoScene(() => cachedLandingLogoScene);
@@ -120,6 +122,7 @@ export function PublicLandingLogo({
 
           cachedLandingLogoScene = module.NLogoScene;
           setLogoScene(() => module.NLogoScene);
+          setDidSceneFail(false);
         })
         .catch((error: unknown) => {
           console.error("Failed to load landing logo scene", error);

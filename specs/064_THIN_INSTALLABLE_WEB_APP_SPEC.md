@@ -45,10 +45,12 @@ browser refresh model.
 - [#281](https://github.com/noter-md/noter/pull/281) made the generated
   `logo-static.svg` path the current public logo source of truth for install
   icon exports.
-- `/privacy` and `/terms` currently resolve through the canonical SPA route
-  tree. Dedicated legal-page prerendering must use the standard React layout
-  path from `specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
-  before it becomes a public HTML surface again.
+- `/privacy` and `/terms` were previously generated as separate static HTML
+  files. They currently resolve through the canonical SPA route tree and inherit
+  the shared app HTML metadata. If dedicated legal-page prerendering is
+  reintroduced, it must use the standard React layout path from
+  `specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md` rather
+  than separate static HTML generation.
 - Result: browser tabs can still show a correct favicon while Add to Home Screen
   can create a plain shortcut and choose an unexpected icon or stale fallback.
 
@@ -234,8 +236,10 @@ contract now lives in `specs/085_DEPLOY_SAFE_APP_BOOT_AND_RECOVERY_SPEC.md`.
 ### Automated
 
 - `apps/noter/index.html` contains manifest and Apple touch icon links.
-- generated public legal HTML contains the same manifest and Apple touch icon
-  links.
+- `/privacy` and `/terms` inherit the same manifest and Apple touch icon links
+  from `apps/noter/index.html` while served through the SPA route tree.
+- any future prerendered public legal HTML contains the same manifest and Apple
+  touch icon links inherited from the app HTML shell.
 - `manifest.webmanifest` is committed and parseable.
 - Local preview and production serve `/manifest.webmanifest` as a manifest JSON
   asset, not HTML.
