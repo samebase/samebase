@@ -11,15 +11,6 @@ import { formatWithVpFmt } from "../../scripts/format-with-vp-fmt.ts";
 import { readPackageVersion } from "../../scripts/readPackageVersion.ts";
 import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
 import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
-import {
-  type PageMetadata,
-  PRIVACY_PAGE_METADATA,
-  TERMS_PAGE_METADATA,
-} from "./src/lib/pageMetadata";
-import {
-  renderStaticLegalRouteRootHtml,
-  renderStaticPublicRouteShellHtml,
-} from "./src/lib/staticPublicRouteShell";
 import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import {
   readEnvFileValue,
@@ -135,16 +126,6 @@ const runtimeNoterConnectConfigPath = path.resolve(
   currentDir,
   `dist${noterConnectConfigPathname}`,
 );
-const privacyPolicyMarkdownPath = path.resolve(
-  currentDir,
-  "src/content/privacy-policy.md",
-);
-const termsOfServiceMarkdownPath = path.resolve(
-  currentDir,
-  "src/content/terms-of-service.md",
-);
-const appHtmlPath = path.resolve(currentDir, "dist/index.html");
-
 function isLoopbackHostname(hostname: string): boolean {
   return (
     hostname === "localhost" ||
@@ -328,40 +309,6 @@ async function formatGeneratedFileContents(args: {
   return formatWithVpFmt(args.filepath, args.content);
 }
 
-async function writeStaticPublicRouteShell(args: {
-  markdownPath: string;
-  routePath: string;
-  metadata: PageMetadata;
-}) {
-  const appHtml = readFileSync(appHtmlPath, "utf8");
-  const markdown = readFileSync(args.markdownPath, "utf8");
-  const nextHtml = await formatGeneratedFileContents({
-    filepath: path.resolve(currentDir, `dist${args.routePath}/index.html`),
-    content: renderStaticPublicRouteShellHtml({
-      appHtml,
-      metadata: args.metadata,
-      rootHtml: renderStaticLegalRouteRootHtml(markdown),
-    }),
-  });
-
-  const htmlPath = path.resolve(currentDir, `dist${args.routePath}/index.html`);
-  mkdirSync(path.dirname(htmlPath), { recursive: true });
-  writeFileSync(htmlPath, nextHtml, "utf8");
-}
-
-async function writeStaticPublicRouteShells() {
-  await writeStaticPublicRouteShell({
-    markdownPath: privacyPolicyMarkdownPath,
-    routePath: "/privacy",
-    metadata: PRIVACY_PAGE_METADATA,
-  });
-  await writeStaticPublicRouteShell({
-    markdownPath: termsOfServiceMarkdownPath,
-    routePath: "/terms",
-    metadata: TERMS_PAGE_METADATA,
-  });
-}
-
 function syncStaticLogoSvgAssetPlugin() {
   let hasSyncedStaticLogoSvgAsset = false;
 
@@ -532,15 +479,6 @@ function syncRuntimeNoterConnectConfigAssetPlugin() {
   };
 }
 
-function staticPublicRouteShellsPlugin() {
-  return {
-    name: "static-public-route-shells",
-    async closeBundle() {
-      await writeStaticPublicRouteShells();
-    },
-  };
-}
-
 function stripDaytonaConvexProxyPrefix(requestPath: string): string {
   if (
     requestPath !== DAYTONA_CONVEX_PROXY_PATH &&
@@ -609,7 +547,6 @@ export default defineConfig({
     syncStaticInstallIconSvgAssetPlugin(),
     syncStaticNoterSyncScriptAssetPlugin(),
     syncRuntimeNoterConnectConfigAssetPlugin(),
-    staticPublicRouteShellsPlugin(),
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,
     }),
