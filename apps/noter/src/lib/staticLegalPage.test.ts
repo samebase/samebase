@@ -2,13 +2,33 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
 
 import { PRIVACY_PAGE_METADATA, TERMS_PAGE_METADATA } from "./pageMetadata";
-import { renderStaticLegalPageHtml } from "./staticLegalPage";
-
-function collapseWhitespace(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
-}
+import {
+  extractStaticLegalPageAppShellHtml,
+  renderStaticLegalPageHtml,
+} from "./staticLegalPage";
 
 describe("renderStaticLegalPageHtml", () => {
+  it("extracts the built app boot tags for runtime legal pages", () => {
+    const appShellHtml = extractStaticLegalPageAppShellHtml(`<!doctype html>
+<html>
+  <head>
+    <link rel="modulepreload" crossorigin href="/assets/chunk.js">
+    <link rel="stylesheet" crossorigin href="/assets/app.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" crossorigin src="/assets/app.js"></script>
+  </body>
+</html>`);
+
+    expect(appShellHtml).toEqual({
+      bodyHtml:
+        '<script type="module" crossorigin src="/assets/app.js"></script>',
+      headHtml:
+        '<link rel="modulepreload" crossorigin href="/assets/chunk.js">\n<link rel="stylesheet" crossorigin href="/assets/app.css">',
+    });
+  });
+
   it("renders the terms page into a crawlable static html document", () => {
     const termsMarkdown = readFileSync(
       new URL("../content/terms-of-service.md", import.meta.url),
@@ -30,6 +50,9 @@ describe("renderStaticLegalPageHtml", () => {
     expect(html).toContain(
       '<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />',
     );
+    expect(html).toContain('<div id="root">');
+    expect(html).toContain('<main class="static-legal-fallback">');
+    expect(html).not.toContain("--background:");
     expect(html).toContain('<article class="legal-shell legal-document">');
     expect(html).toContain("<h1>Terms of Service</h1>");
     expect(html).toContain(
@@ -37,7 +60,24 @@ describe("renderStaticLegalPageHtml", () => {
     );
   });
 
-  it("keeps the checked-in public html shells crawlable", () => {
+  it("can include app assets while preserving the crawlable fallback", () => {
+    const html = renderStaticLegalPageHtml({
+      appBodyHtml:
+        '<script type="module" crossorigin src="/assets/app.js"></script>',
+      appHeadHtml: '<link rel="stylesheet" href="/assets/app.css">',
+      metadata: TERMS_PAGE_METADATA,
+      markdown: "# Terms of Service",
+    });
+
+    expect(html).toContain('<div id="root">');
+    expect(html).toContain("<h1>Terms of Service</h1>");
+    expect(html).toContain('<link rel="stylesheet" href="/assets/app.css">');
+    expect(html).toContain(
+      '<script type="module" crossorigin src="/assets/app.js"></script>',
+    );
+  });
+
+  it("renders both legal pages from markdown without checked-in html shells", () => {
     const privacyMarkdown = readFileSync(
       new URL("../content/privacy-policy.md", import.meta.url),
       "utf8",
@@ -56,50 +96,32 @@ describe("renderStaticLegalPageHtml", () => {
       markdown: termsMarkdown,
     });
 
-    const checkedInPrivacyHtml = readFileSync(
-      new URL("../../public/privacy/index.html", import.meta.url),
-      "utf8",
-    );
-    const checkedInTermsHtml = readFileSync(
-      new URL("../../public/terms/index.html", import.meta.url),
-      "utf8",
-    );
-
-    expect(checkedInPrivacyHtml).toContain(
+    expect(generatedPrivacyHtml).toContain(
       '<link rel="canonical" href="https://noter.md/privacy" />',
     );
-    expect(checkedInPrivacyHtml).toContain(
+    expect(generatedPrivacyHtml).toContain(
       '<link rel="manifest" href="/manifest.webmanifest" />',
     );
-    expect(checkedInPrivacyHtml).toContain(
+    expect(generatedPrivacyHtml).toContain(
       '<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />',
     );
-    expect(checkedInPrivacyHtml).toContain("<h1>Privacy Policy</h1>");
-    expect(checkedInPrivacyHtml).toContain(
+    expect(generatedPrivacyHtml).toContain("<h1>Privacy Policy</h1>");
+    expect(generatedPrivacyHtml).toContain(
       '<article class="legal-shell legal-document">',
     );
-    expect(collapseWhitespace(checkedInPrivacyHtml)).toContain(
-      "Generated from the noter markdown source for a crawlable public legal page.",
-    );
 
-    expect(checkedInTermsHtml).toContain(
+    expect(generatedTermsHtml).toContain(
       '<link rel="canonical" href="https://noter.md/terms" />',
     );
-    expect(checkedInTermsHtml).toContain(
+    expect(generatedTermsHtml).toContain(
       '<link rel="manifest" href="/manifest.webmanifest" />',
     );
-    expect(checkedInTermsHtml).toContain(
+    expect(generatedTermsHtml).toContain(
       '<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />',
     );
-    expect(checkedInTermsHtml).toContain("<h1>Terms of Service</h1>");
-    expect(checkedInTermsHtml).toContain(
+    expect(generatedTermsHtml).toContain("<h1>Terms of Service</h1>");
+    expect(generatedTermsHtml).toContain(
       '<article class="legal-shell legal-document">',
     );
-    expect(collapseWhitespace(checkedInTermsHtml)).toContain(
-      "Generated from the noter markdown source for a crawlable public legal page.",
-    );
-
-    expect(generatedPrivacyHtml).toContain("<h1>Privacy Policy</h1>");
-    expect(generatedTermsHtml).toContain("<h1>Terms of Service</h1>");
   });
 });

@@ -12,105 +12,147 @@ const SOCIAL_IMAGE_URL = new URL(
 ).toString();
 
 const STATIC_LEGAL_PAGE_STYLES = `
-:root {
-  color-scheme: light;
-  --background: #f7f2e8;
-  --surface: #fffdf8;
-  --border: #dfd5c2;
-  --text: #17120a;
-  --muted: #645b4b;
-  --code-background: #efe5d1;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html {
-  font-size: 16px;
-}
-
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at top, #fbf6ed 0%, #f7f2e8 45%, #efe7da 100%);
-  color: var(--text);
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino,
-    "Times New Roman", serif;
-  line-height: 1.65;
 }
 
-main {
+.static-legal-fallback {
+  box-sizing: border-box;
+  min-height: 100vh;
+  color-scheme: light;
+  --static-legal-background: #f7f2e8;
+  --static-legal-surface: #fffdf8;
+  --static-legal-border: #dfd5c2;
+  --static-legal-text: #17120a;
+  --static-legal-muted: #645b4b;
+  --static-legal-code-background: #efe5d1;
+  background:
+    radial-gradient(circle at top, #fbf6ed 0%, #f7f2e8 45%, #efe7da 100%);
+  color: var(--static-legal-text);
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino,
+    "Times New Roman", serif;
+  font-size: 16px;
+  line-height: 1.65;
   padding: 48px 20px 72px;
 }
 
-.legal-shell {
+.static-legal-fallback * {
+  box-sizing: inherit;
+}
+
+.static-legal-fallback .legal-shell {
   margin: 0 auto;
   max-width: 760px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border: 1px solid var(--static-legal-border);
+  background: var(--static-legal-surface);
   padding: 32px 28px 40px;
 }
 
-.legal-document h1,
-.legal-document h2,
-.legal-document h3,
-.legal-document h4,
-.legal-document h5,
-.legal-document h6 {
+.static-legal-fallback .legal-document h1,
+.static-legal-fallback .legal-document h2,
+.static-legal-fallback .legal-document h3,
+.static-legal-fallback .legal-document h4,
+.static-legal-fallback .legal-document h5,
+.static-legal-fallback .legal-document h6 {
   margin: 0 0 16px;
   line-height: 1.2;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
-.legal-document h1 {
+.static-legal-fallback .legal-document h1 {
   font-size: 2.5rem;
 }
 
-.legal-document h2 {
+.static-legal-fallback .legal-document h2 {
   margin-top: 32px;
   font-size: 1.5rem;
 }
 
-.legal-document h3 {
+.static-legal-fallback .legal-document h3 {
   margin-top: 24px;
   font-size: 1.125rem;
 }
 
-.legal-document p,
-.legal-document ul {
+.static-legal-fallback .legal-document p,
+.static-legal-fallback .legal-document ul {
   margin: 0 0 16px;
 }
 
-.legal-document ul {
+.static-legal-fallback .legal-document ul {
   padding-left: 20px;
 }
 
-.legal-document li + li {
+.static-legal-fallback .legal-document li + li {
   margin-top: 10px;
 }
 
-.legal-document code {
+.static-legal-fallback .legal-document code {
   border-radius: 0;
-  background: var(--code-background);
+  background: var(--static-legal-code-background);
   padding: 0.1rem 0.35rem;
   font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
   font-size: 0.92em;
 }
 
-.legal-document a {
+.static-legal-fallback .legal-document a {
   color: inherit;
 }
 
-.legal-footer {
+.static-legal-fallback .legal-footer {
   margin: 24px auto 0;
   max-width: 760px;
-  color: var(--muted);
+  color: var(--static-legal-muted);
   font-size: 0.9rem;
 }
 `;
+
+function collectHtmlTags(html: string, pattern: RegExp): string[] {
+  const tags: string[] = [];
+  for (const match of html.matchAll(pattern)) {
+    const tag = match[0];
+    if (tag.length > 0) {
+      tags.push(tag);
+    }
+  }
+  return tags;
+}
+
+/**
+ * Extract only the built Vite app assets from `dist/index.html` so the
+ * crawlable legal fallback can be replaced by the routed app in real browsers.
+ */
+export function extractStaticLegalPageAppShellHtml(indexHtml: string): {
+  bodyHtml: string;
+  headHtml: string;
+} {
+  const headTags = [
+    ...collectHtmlTags(
+      indexHtml,
+      /<link\b(?=[^>]*\brel="modulepreload")(?=[^>]*\bhref="\/assets\/)[^>]*>/g,
+    ),
+    ...collectHtmlTags(
+      indexHtml,
+      /<link\b(?=[^>]*\brel="stylesheet")(?=[^>]*\bhref="\/assets\/)[^>]*>/g,
+    ),
+  ];
+  const bodyTags = collectHtmlTags(
+    indexHtml,
+    /<script\b(?=[^>]*\btype="module")(?=[^>]*\bsrc="\/assets\/)[^>]*><\/script>/g,
+  );
+
+  if (bodyTags.length === 0) {
+    throw new Error(
+      "Expected built app index.html to include a module script.",
+    );
+  }
+
+  return {
+    bodyHtml: bodyTags.join("\n"),
+    headHtml: headTags.join("\n"),
+  };
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -166,6 +208,8 @@ export function renderStaticMarkdownHtml(markdown: string): string {
  * executed by crawlers or app reviewers.
  */
 export function renderStaticLegalPageHtml(args: {
+  appBodyHtml?: string;
+  appHeadHtml?: string;
   metadata: PageMetadata;
   markdown: string;
 }): string {
@@ -200,18 +244,20 @@ export function renderStaticLegalPageHtml(args: {
     <meta name="twitter:description" content="${escapeHtml(args.metadata.description)}" />
     <meta name="twitter:image" content="${escapeHtml(SOCIAL_IMAGE_URL)}" />
     <meta name="theme-color" content="#17120a" />
-    <style>
+${args.appHeadHtml ? `${args.appHeadHtml}\n` : ""}    <style>
 ${STATIC_LEGAL_PAGE_STYLES}
     </style>
   </head>
   <body>
-    <main>
-      <article class="legal-shell legal-document">
+    <div id="root">
+      <main class="static-legal-fallback">
+        <article class="legal-shell legal-document">
 ${contentHtml}
-      </article>
-      <p class="legal-footer">Generated from the noter markdown source for a crawlable public legal page.</p>
-    </main>
-  </body>
+        </article>
+        <p class="legal-footer">Generated from the noter markdown source for a crawlable public legal page.</p>
+      </main>
+    </div>
+${args.appBodyHtml ? `${args.appBodyHtml}\n` : ""}  </body>
 </html>
 `;
 }

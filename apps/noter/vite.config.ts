@@ -16,7 +16,10 @@ import {
   PRIVACY_PAGE_METADATA,
   TERMS_PAGE_METADATA,
 } from "./src/lib/pageMetadata";
-import { renderStaticLegalPageHtml } from "./src/lib/staticLegalPage";
+import {
+  extractStaticLegalPageAppShellHtml,
+  renderStaticLegalPageHtml,
+} from "./src/lib/staticLegalPage";
 import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import {
   readEnvFileValue,
@@ -140,11 +143,15 @@ const termsOfServiceMarkdownPath = path.resolve(
   currentDir,
   "src/content/terms-of-service.md",
 );
-const staticPrivacyHtmlPath = path.resolve(
+const runtimeIndexHtmlPath = path.resolve(currentDir, "dist/index.html");
+const runtimeStaticPrivacyHtmlPath = path.resolve(
   currentDir,
-  "public/privacy/index.html",
+  "dist/privacy/index.html",
 );
-const staticTermsHtmlPath = path.resolve(currentDir, "public/terms/index.html");
+const runtimeStaticTermsHtmlPath = path.resolve(
+  currentDir,
+  "dist/terms/index.html",
+);
 
 function isLoopbackHostname(hostname: string): boolean {
   return (
@@ -329,44 +336,48 @@ async function formatGeneratedFileContents(args: {
   return formatWithVpFmt(args.filepath, args.content);
 }
 
-async function syncStaticLegalPageAsset(args: {
-  markdownPath: string;
+async function writeRuntimeStaticLegalPageAsset(args: {
+  appBodyHtml: string;
+  appHeadHtml: string;
   htmlPath: string;
+  markdownPath: string;
   metadata: PageMetadata;
 }) {
   const markdown = readFileSync(args.markdownPath, "utf8");
   const nextHtml = await formatGeneratedFileContents({
     filepath: args.htmlPath,
     content: renderStaticLegalPageHtml({
+      appBodyHtml: args.appBodyHtml,
+      appHeadHtml: args.appHeadHtml,
       metadata: args.metadata,
       markdown,
     }),
   });
-  const currentHtml = (() => {
-    try {
-      return readFileSync(args.htmlPath, "utf8");
-    } catch {
-      return null;
-    }
-  })();
-
-  if (currentHtml === nextHtml) {
-    return;
-  }
 
   mkdirSync(path.dirname(args.htmlPath), { recursive: true });
   writeFileSync(args.htmlPath, nextHtml, "utf8");
 }
 
-async function syncStaticLegalPageAssets() {
-  await syncStaticLegalPageAsset({
+/**
+ * Cloudflare rewrites `/privacy` and `/terms` to these build-generated files.
+ * Include the built app assets so browser reloads land on the routed UI.
+ */
+async function writeRuntimeStaticLegalPageAssets() {
+  const appShellHtml = extractStaticLegalPageAppShellHtml(
+    readFileSync(runtimeIndexHtmlPath, "utf8"),
+  );
+  await writeRuntimeStaticLegalPageAsset({
+    appBodyHtml: appShellHtml.bodyHtml,
+    appHeadHtml: appShellHtml.headHtml,
     markdownPath: privacyPolicyMarkdownPath,
-    htmlPath: staticPrivacyHtmlPath,
+    htmlPath: runtimeStaticPrivacyHtmlPath,
     metadata: PRIVACY_PAGE_METADATA,
   });
-  await syncStaticLegalPageAsset({
+  await writeRuntimeStaticLegalPageAsset({
+    appBodyHtml: appShellHtml.bodyHtml,
+    appHeadHtml: appShellHtml.headHtml,
     markdownPath: termsOfServiceMarkdownPath,
-    htmlPath: staticTermsHtmlPath,
+    htmlPath: runtimeStaticTermsHtmlPath,
     metadata: TERMS_PAGE_METADATA,
   });
 }
@@ -541,25 +552,11 @@ function syncRuntimeNoterConnectConfigAssetPlugin() {
   };
 }
 
-function syncStaticLegalPageAssetsPlugin() {
-  let hasSyncedStaticLegalPageAssets = false;
-
-  const syncOnce = async () => {
-    if (hasSyncedStaticLegalPageAssets) {
-      return;
-    }
-
-    hasSyncedStaticLegalPageAssets = true;
-    await syncStaticLegalPageAssets();
-  };
-
+function writeRuntimeStaticLegalPageAssetsPlugin() {
   return {
-    name: "sync-static-legal-page-assets",
-    buildStart() {
-      return syncOnce();
-    },
-    configureServer() {
-      return syncOnce();
+    name: "write-runtime-static-legal-page-assets",
+    writeBundle() {
+      return writeRuntimeStaticLegalPageAssets();
     },
   };
 }
@@ -632,7 +629,7 @@ export default defineConfig({
     syncStaticInstallIconSvgAssetPlugin(),
     syncStaticNoterSyncScriptAssetPlugin(),
     syncRuntimeNoterConnectConfigAssetPlugin(),
-    syncStaticLegalPageAssetsPlugin(),
+    writeRuntimeStaticLegalPageAssetsPlugin(),
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,
     }),

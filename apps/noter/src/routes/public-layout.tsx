@@ -8,7 +8,12 @@ import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
 
 function isLegalPublicPath(pathname: string) {
-  return pathname === "/privacy" || pathname === "/terms";
+  const normalizedPathname =
+    pathname.length > 1 && pathname.endsWith("/")
+      ? pathname.slice(0, -1)
+      : pathname;
+
+  return normalizedPathname === "/privacy" || normalizedPathname === "/terms";
 }
 
 function shouldUsePublicLayoutShell(args: {

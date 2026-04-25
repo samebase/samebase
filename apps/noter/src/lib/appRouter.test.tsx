@@ -247,6 +247,18 @@ describe("appRouter", () => {
     ).toBeNull();
   });
 
+  it("keeps the public layout on trailing-slash legal route reloads", async () => {
+    await renderRoute("/terms/");
+
+    expect(rootElement?.querySelector('[data-testid="layout"]')).not.toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="public-layout-shell"]'),
+    ).not.toBeNull();
+    expect(
+      rootElement?.querySelector('[data-testid="terms-page"]')?.textContent,
+    ).toBe("Terms page");
+  });
+
   it("keeps the public layout mounted while legal route content changes", async () => {
     const router = await renderRoute("/terms");
 
