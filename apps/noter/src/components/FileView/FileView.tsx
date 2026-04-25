@@ -1,7 +1,6 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery as useLiveQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { MagnifyingGlassIcon } from "@/lib/radixIcons";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { CodeEditorWrapper } from "@/components/CodeEditor";
 import {
@@ -30,6 +29,7 @@ import {
   FileViewSidebarContent,
   FileViewSidebarFooter,
 } from "@/components/FileView/FileViewSidebar";
+import { FileViewMainHeader } from "@/components/FileView/FileViewMainHeader";
 import { useFileViewInlinePreview } from "@/components/FileView/useFileViewInlinePreview";
 import { useFileViewMediaUpload } from "@/components/FileView/useFileViewMediaUpload";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -2601,28 +2601,11 @@ function FileViewInner({
     />
   ) : null;
   const fileViewMainHeader = (
-    <div className="flex h-full min-w-0 items-center gap-2">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label="Quick Open"
-        title="Quick Open (Cmd+P)"
-        className="h-8 w-8 shrink-0"
-        onClick={() => setIsCommandPaletteOpen(true)}
-      >
-        <MagnifyingGlassIcon className="h-4 w-4" />
-      </Button>
-      {headerTitle ? (
-        <div className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">
-            {headerTitle}
-          </span>
-        </div>
-      ) : (
-        <div className="min-w-0 flex-1" />
-      )}
-    </div>
+    <FileViewMainHeader
+      currentUrl={location.href}
+      headerTitle={headerTitle}
+      onQuickOpen={() => setIsCommandPaletteOpen(true)}
+    />
   );
   useEffect(() => {
     if (dashboardEditorChatOpen === undefined) {

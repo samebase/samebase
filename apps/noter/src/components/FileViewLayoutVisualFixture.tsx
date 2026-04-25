@@ -1,6 +1,6 @@
-import { MagnifyingGlassIcon } from "@/lib/radixIcons";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { FileViewMainHeader } from "@/components/FileView/FileViewMainHeader";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { Button } from "@/components/ui/button";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
@@ -115,23 +115,14 @@ export function FileViewLayoutVisualFixture({
           header: (
             <div
               data-testid="fileview-layout-header"
-              className="flex h-full items-center gap-2"
+              className="h-full"
               style={{ scrollSnapStop: "always" }}
             >
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                onClick={() => {}}
-                title="Quick Open (Cmd+P)"
-                aria-label="Quick Open"
-              >
-                <MagnifyingGlassIcon className="h-4 w-4" />
-              </Button>
-
-              <div className="min-w-0 flex-1 overflow-hidden">
-                <span className="block truncate text-sm font-medium">/</span>
-              </div>
+              <FileViewMainHeader
+                currentUrl="/vault/noter-md/noter/main/README.md"
+                headerTitle="/"
+                onQuickOpen={() => {}}
+              />
             </div>
           ),
           content: (
