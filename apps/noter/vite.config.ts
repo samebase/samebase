@@ -16,7 +16,10 @@ import {
   PRIVACY_PAGE_METADATA,
   TERMS_PAGE_METADATA,
 } from "./src/lib/pageMetadata";
-import { renderStaticLegalPageHtml } from "./src/lib/staticLegalPage";
+import {
+  renderStaticLegalRouteRootHtml,
+  renderStaticPublicRouteShellHtml,
+} from "./src/lib/staticPublicRouteShell";
 import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import {
   readEnvFileValue,
@@ -140,11 +143,7 @@ const termsOfServiceMarkdownPath = path.resolve(
   currentDir,
   "src/content/terms-of-service.md",
 );
-const staticPrivacyHtmlPath = path.resolve(
-  currentDir,
-  "public/privacy/index.html",
-);
-const staticTermsHtmlPath = path.resolve(currentDir, "public/terms/index.html");
+const appHtmlPath = path.resolve(currentDir, "dist/index.html");
 
 function isLoopbackHostname(hostname: string): boolean {
   return (
@@ -329,44 +328,36 @@ async function formatGeneratedFileContents(args: {
   return formatWithVpFmt(args.filepath, args.content);
 }
 
-async function syncStaticLegalPageAsset(args: {
+async function writeStaticPublicRouteShell(args: {
   markdownPath: string;
-  htmlPath: string;
+  routePath: string;
   metadata: PageMetadata;
 }) {
+  const appHtml = readFileSync(appHtmlPath, "utf8");
   const markdown = readFileSync(args.markdownPath, "utf8");
   const nextHtml = await formatGeneratedFileContents({
-    filepath: args.htmlPath,
-    content: renderStaticLegalPageHtml({
+    filepath: path.resolve(currentDir, `dist${args.routePath}/index.html`),
+    content: renderStaticPublicRouteShellHtml({
+      appHtml,
       metadata: args.metadata,
-      markdown,
+      rootHtml: renderStaticLegalRouteRootHtml(markdown),
     }),
   });
-  const currentHtml = (() => {
-    try {
-      return readFileSync(args.htmlPath, "utf8");
-    } catch {
-      return null;
-    }
-  })();
 
-  if (currentHtml === nextHtml) {
-    return;
-  }
-
-  mkdirSync(path.dirname(args.htmlPath), { recursive: true });
-  writeFileSync(args.htmlPath, nextHtml, "utf8");
+  const htmlPath = path.resolve(currentDir, `dist${args.routePath}/index.html`);
+  mkdirSync(path.dirname(htmlPath), { recursive: true });
+  writeFileSync(htmlPath, nextHtml, "utf8");
 }
 
-async function syncStaticLegalPageAssets() {
-  await syncStaticLegalPageAsset({
+async function writeStaticPublicRouteShells() {
+  await writeStaticPublicRouteShell({
     markdownPath: privacyPolicyMarkdownPath,
-    htmlPath: staticPrivacyHtmlPath,
+    routePath: "/privacy",
     metadata: PRIVACY_PAGE_METADATA,
   });
-  await syncStaticLegalPageAsset({
+  await writeStaticPublicRouteShell({
     markdownPath: termsOfServiceMarkdownPath,
-    htmlPath: staticTermsHtmlPath,
+    routePath: "/terms",
     metadata: TERMS_PAGE_METADATA,
   });
 }
@@ -541,25 +532,11 @@ function syncRuntimeNoterConnectConfigAssetPlugin() {
   };
 }
 
-function syncStaticLegalPageAssetsPlugin() {
-  let hasSyncedStaticLegalPageAssets = false;
-
-  const syncOnce = async () => {
-    if (hasSyncedStaticLegalPageAssets) {
-      return;
-    }
-
-    hasSyncedStaticLegalPageAssets = true;
-    await syncStaticLegalPageAssets();
-  };
-
+function staticPublicRouteShellsPlugin() {
   return {
-    name: "sync-static-legal-page-assets",
-    buildStart() {
-      return syncOnce();
-    },
-    configureServer() {
-      return syncOnce();
+    name: "static-public-route-shells",
+    async closeBundle() {
+      await writeStaticPublicRouteShells();
     },
   };
 }
@@ -632,7 +609,7 @@ export default defineConfig({
     syncStaticInstallIconSvgAssetPlugin(),
     syncStaticNoterSyncScriptAssetPlugin(),
     syncRuntimeNoterConnectConfigAssetPlugin(),
-    syncStaticLegalPageAssetsPlugin(),
+    staticPublicRouteShellsPlugin(),
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,
     }),

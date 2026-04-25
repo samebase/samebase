@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   isLikelyStaleAssetError,
   readBootFailureMessage,
@@ -62,37 +60,24 @@ export function AppBootFailureState({ error }: AppBootFailureStateProps) {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Button
+          <button
+            type="button"
             onClick={handleReload}
             disabled={pendingAction !== null}
-            className="rounded-none"
+            className="inline-flex h-9 items-center justify-center bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           >
-            {pendingAction === "reload" ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Reloading...
-              </>
-            ) : (
-              "Reload app"
-            )}
-          </Button>
-          <Button
-            variant="outline"
+            {pendingAction === "reload" ? "Reloading..." : "Reload app"}
+          </button>
+          <button
+            type="button"
             onClick={() => {
               void handleReset();
             }}
             disabled={pendingAction !== null}
-            className="rounded-none"
+            className="inline-flex h-9 items-center justify-center border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
           >
-            {pendingAction === "reset" ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Resetting...
-              </>
-            ) : (
-              "Reset local data"
-            )}
-          </Button>
+            {pendingAction === "reset" ? "Resetting..." : "Reset local data"}
+          </button>
         </div>
 
         <div className="space-y-2 border px-4 py-3 text-sm leading-6">

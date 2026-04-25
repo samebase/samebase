@@ -1,9 +1,9 @@
 import {
   Outlet,
   createRootRoute,
+  lazyRouteComponent,
   retainSearchParams,
 } from "@tanstack/react-router";
-import { NotFoundRoutePage } from "@/components/NotFoundRoutePage";
 import { RouterGestureDebugOverlay } from "@/components/RouterGestureDebugOverlay";
 import { validateRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useEffect } from "react";
@@ -64,7 +64,10 @@ function AppRouterRoot() {
 
 export const Route = createRootRoute({
   component: AppRouterRoot,
-  notFoundComponent: NotFoundRoutePage,
+  notFoundComponent: lazyRouteComponent(
+    () => import("@/components/NotFoundRoutePage"),
+    "NotFoundRoutePage",
+  ),
   search: {
     middlewares: [retainSearchParams(["dev", "devtools"])],
   },
