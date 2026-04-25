@@ -44,6 +44,7 @@ const NAVIGATION_BUDGET_MS = {
 } as const;
 const COPY_SHORTCUT_KEY =
   process.platform === "darwin" ? "Meta+C" : "Control+C";
+const PRODUCTION_PUBLIC_HOSTNAME = "noter.md";
 const strictScreenshotOptions = {
   animations: "disabled",
   caret: "hide",
@@ -60,6 +61,24 @@ const iphoneSeLandingDevice = {
   ...mobileLandingDevice,
   viewport: { width: 375, height: 667 },
 } as const;
+const productionPublicHostLaunchOptions = {
+  args: [
+    "--disable-session-crashed-bubble",
+    "--use-angle=swiftshader",
+    "--enable-unsafe-swiftshader",
+    "--ignore-gpu-blocklist",
+    `--host-resolver-rules=MAP ${PRODUCTION_PUBLIC_HOSTNAME} 127.0.0.1`,
+  ],
+};
+
+test.use({
+  launchOptions: productionPublicHostLaunchOptions,
+});
+
+function buildProductionPublicLandingUrl(search: string): string {
+  const playwrightVitePort = process.env.PLAYWRIGHT_VITE_PORT ?? "4173";
+  return `http://${PRODUCTION_PUBLIC_HOSTNAME}:${playwrightVitePort}/${search}`;
+}
 
 async function readNavigationTiming(page: Parameters<typeof test>[0]["page"]) {
   return page.evaluate(() => {
@@ -1599,7 +1618,9 @@ test("prod-ui mode hides developer password auth controls", async ({
   await expect(page.getByPlaceholder("you@example.com")).toHaveCount(0);
 });
 
-test("prod-ui mode keeps landing copy read-only", async ({ page }) => {
+test("prod-ui mode does not override landing dev editing", async ({ page }) => {
+  const headingMarker = "prod-ui-dev-marker";
+
   await page.goto("/?prod-ui&dev", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
@@ -1607,11 +1628,30 @@ test("prod-ui mode keeps landing copy read-only", async ({ page }) => {
     page.getByRole("link", { name: "https://x.com/noter_md", exact: true }),
   ).toBeVisible();
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
-  await expect(
-    page.locator(
-      '[data-testid="public-landing-copy"] [contenteditable="true"]',
-    ),
-  ).toHaveCount(0);
+  const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
+  await expect(landingCopy.locator('[contenteditable="true"]')).toHaveCount(1);
+
+  await insertLandingHeadingMarker(page, headingMarker);
+  await expect(landingCopy).toContainText(headingMarker);
+});
+
+test.describe("production public host landing dev mode", () => {
+  test("keeps ?dev landing copy editable", async ({ page }) => {
+    const headingMarker = "prod-host-marker";
+
+    await page.goto(buildProductionPublicLandingUrl("?dev"), {
+      waitUntil: "domcontentloaded",
+    });
+
+    const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
+    await landingCopy.waitFor({ state: "visible" });
+    await expect(landingCopy.locator('[contenteditable="true"]')).toHaveCount(
+      1,
+    );
+
+    await insertLandingHeadingMarker(page, headingMarker);
+    await expect(landingCopy).toContainText(headingMarker);
+  });
 });
 
 test("landing dev toggle preserves unrelated query params", async ({
