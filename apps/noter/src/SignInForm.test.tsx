@@ -17,7 +17,7 @@ const { isInIframeMock, openAuthPopupMock, signInWithGoogleMock } = vi.hoisted(
 vi.mock("@/authClient", () => ({
   isInIframe: isInIframeMock,
   openAuthPopup: openAuthPopupMock,
-  useNoterAuthActions: () => ({
+  useNoterSignInActions: () => ({
     signInWithGoogle: signInWithGoogleMock,
   }),
 }));

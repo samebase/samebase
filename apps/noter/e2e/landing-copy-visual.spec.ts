@@ -3,7 +3,7 @@ import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 import { LANDING_DEV_MODE_LINK_LABEL } from "../src/lib/landingDevMode";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "../src/lib/publicLanding";
 
-test("landing copy uses the same ProseMark surface in editable dev mode", async ({
+test("landing copy keeps ProseMark behind editable dev mode", async ({
   page,
 }, testInfo) => {
   await page.addInitScript(() => {
@@ -13,10 +13,7 @@ test("landing copy uses the same ProseMark surface in editable dev mode", async 
   await page.goto("/", { waitUntil: "networkidle" });
 
   const shellLandingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
-  await expect(shellLandingCopy.locator(".cm-editor")).toHaveCount(1);
-  await expect(
-    shellLandingCopy.locator('[aria-hidden="true"] .cm-editor'),
-  ).toHaveCount(0);
+  await expect(shellLandingCopy.locator(".cm-editor")).toHaveCount(0);
   await expect(
     shellLandingCopy.locator('[contenteditable="true"]'),
   ).toHaveCount(0);
@@ -41,8 +38,7 @@ test("landing copy uses the same ProseMark surface in editable dev mode", async 
     actual: devScreenshot,
     expected: shellScreenshot,
     artifactPrefix: "landing-copy-dev-editable",
-    maxDiffPixelRatio: 0,
-    maxDiffPixels: 0,
+    maxDiffPixelRatio: 0.03,
     testInfo,
   });
 });

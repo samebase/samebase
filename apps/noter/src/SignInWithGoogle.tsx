@@ -1,4 +1,4 @@
-import { isInIframe, openAuthPopup, useNoterAuthActions } from "@/authClient";
+import { isInIframe, openAuthPopup, useNoterSignInActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
 import { Chrome } from "lucide-react";
 import { buildCurrentGoogleRedirectTo } from "./lib/googleAuthRedirect";
@@ -10,7 +10,7 @@ export function SignInWithGoogle({
   visible?: boolean;
   markPublicSignupReturn?: boolean;
 } = {}) {
-  const { signInWithGoogle } = useNoterAuthActions();
+  const { signInWithGoogle } = useNoterSignInActions();
   return (
     <Button
       aria-hidden={!visible}

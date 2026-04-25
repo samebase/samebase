@@ -59,12 +59,14 @@ function easeOutCubic(value: number) {
 export function PublicLandingLogo({
   autoRotate = false,
   enableViewSnapping = true,
+  loadInteractiveScene = true,
 }: {
   autoRotate?: boolean;
   enableViewSnapping?: boolean;
+  loadInteractiveScene?: boolean;
 }) {
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(
-    () => cachedLandingLogoScene,
+    () => (loadInteractiveScene ? cachedLandingLogoScene : null),
   );
   const [didSceneFail, setDidSceneFail] = useState(
     () => didLandingLogoSceneRenderFail,
@@ -87,6 +89,13 @@ export function PublicLandingLogo({
   const isSceneInteractive = isSceneReady && !isSvgVisible;
 
   useEffect(() => {
+    if (!loadInteractiveScene) {
+      setLogoScene(null);
+      setIsSceneReady(false);
+      setIsSvgVisible(true);
+      return;
+    }
+
     if (didLandingLogoSceneRenderFail) {
       setDidSceneFail(true);
       return;
@@ -139,7 +148,7 @@ export function PublicLandingLogo({
       window.cancelAnimationFrame(frameId);
       window.cancelAnimationFrame(frameId2);
     };
-  }, []);
+  }, [loadInteractiveScene]);
 
   useEffect(() => {
     if (!isSceneReady || !isSvgVisible) {

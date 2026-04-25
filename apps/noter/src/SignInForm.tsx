@@ -1,4 +1,4 @@
-import { useNoterAuthActions } from "@/authClient";
+import { useNoterSignInActions } from "@/authClient";
 import { LandingCopy } from "@/components/LandingCopy";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
 import { Button } from "@/components/ui/button";
@@ -77,6 +77,10 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
   });
   // `?dev` owns copy editability; prod-ui mode only controls the public chrome.
   const isLandingCopyEditable = landingDevModeEnabled;
+  // The production landing keeps the static SVG as its stable LCP target; the
+  // WebGL scene is reserved for dev editing and local prod-ui comparisons.
+  const shouldLoadLandingLogoScene =
+    isLandingCopyEditable || (prodUiQueryEnabled && !productionPublicOrigin);
   const [landingMarkdownDraft, setLandingMarkdownDraft] =
     useState(landingPageMarkdown);
 
@@ -124,6 +128,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
           <PublicLandingLogo
             autoRotate={isLandingCopyEditable}
             enableViewSnapping={!landingDevModeEnabled}
+            loadInteractiveScene={shouldLoadLandingLogoScene}
           />
           {showGoogleSignupClosedState ? (
             <GoogleSignupClosedNotice />
@@ -194,7 +199,7 @@ export function PasswordAuthForm({
 }: {
   surface: Exclude<PasswordAuthSurface, "hidden">;
 }) {
-  const { signInWithPassword } = useNoterAuthActions();
+  const { signInWithPassword } = useNoterSignInActions();
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

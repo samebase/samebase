@@ -3,7 +3,6 @@ import { useEffect } from "react";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { buildCurrentGoogleRedirectTo } from "@/lib/googleAuthRedirect";
 import { type RootRouteSearch } from "@/lib/rootRouteSearch";
-import { usePostHog } from "posthog-js/react";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const AUTH_PROVIDER_KEY = "noter_auth_provider";
@@ -14,7 +13,9 @@ const POPUP_WATCH_TIMEOUT_MS = 120_000;
 type AuthActions = ReturnType<typeof useAuthActions>;
 type SignInAction = AuthActions["signIn"];
 type SignOutAction = AuthActions["signOut"];
-type PostHogClient = ReturnType<typeof usePostHog>;
+type PostHogResetClient = {
+  reset: () => void;
+};
 type PasswordSignInArgs = {
   flow: "signIn" | "signUp";
   email: string;
@@ -89,7 +90,7 @@ export function signInWithPasswordAction(
  */
 export function signOutWithAnalytics(args: {
   signOut: SignOutAction;
-  posthog: Pick<PostHogClient, "reset">;
+  posthog: PostHogResetClient;
 }) {
   clearAuthFlag();
   try {
@@ -100,16 +101,38 @@ export function signOutWithAnalytics(args: {
   return args.signOut();
 }
 
-export function useNoterAuthActions() {
-  const { signIn, signOut } = useAuthActions();
-  const posthog = usePostHog();
+function resetDeferredPostHogClient() {
+  void import("posthog-js")
+    .then((module) => {
+      module.default.reset();
+    })
+    .catch(() => {});
+}
+
+const deferredPostHogResetClient: PostHogResetClient = {
+  reset: resetDeferredPostHogClient,
+};
+
+export function useNoterSignInActions() {
+  const { signIn } = useAuthActions();
 
   return {
     signInWithGoogle: (redirectTo: string) =>
       signInWithGoogleAction({ signIn, redirectTo }),
     signInWithPassword: (args: PasswordSignInArgs) =>
       signInWithPasswordAction({ signIn, ...args }),
-    signOut: () => signOutWithAnalytics({ signOut, posthog }),
+  };
+}
+
+export function useNoterAuthActions() {
+  const { signOut } = useAuthActions();
+
+  return {
+    signOut: () =>
+      signOutWithAnalytics({
+        posthog: deferredPostHogResetClient,
+        signOut,
+      }),
   };
 }
 
