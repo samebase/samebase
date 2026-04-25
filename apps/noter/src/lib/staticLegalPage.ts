@@ -1,143 +1,10 @@
 import type { PageMetadata } from "./pageMetadata";
-import {
-  parseStaticMarkdown,
-  type StaticMarkdownBlock,
-  type StaticMarkdownInlineSegment,
-} from "./staticMarkdown";
 
 const SITE_ORIGIN = "https://noter.md";
 const SOCIAL_IMAGE_URL = new URL(
   "/noter-social-card.png",
   SITE_ORIGIN,
 ).toString();
-
-const STATIC_LEGAL_PAGE_STYLES = `
-body {
-  margin: 0;
-}
-
-.static-legal-fallback {
-  box-sizing: border-box;
-  display: flex;
-  min-height: 100vh;
-  color-scheme: light;
-  --static-legal-background: hsl(var(--background, 0 0% 100%));
-  --static-legal-border: hsl(var(--border, 214.3 31.8% 91.4%));
-  --static-legal-text: hsl(var(--foreground, 222.2 84% 4.9%));
-  --static-legal-muted: hsl(var(--muted-foreground, 215.4 16.3% 46.9%));
-  --static-legal-code-background: hsl(var(--muted, 210 40% 96.1%));
-  background: var(--static-legal-background);
-  color: var(--static-legal-text);
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.static-legal-fallback * {
-  box-sizing: inherit;
-}
-
-.static-legal-fallback .legal-main-pane {
-  min-width: 0;
-  flex: 1;
-  overflow: auto;
-}
-
-.static-legal-fallback .legal-shell {
-  margin: 0 auto;
-  max-width: 48rem;
-  padding: 32px 8px 64px;
-}
-
-.static-legal-fallback .legal-document h1,
-.static-legal-fallback .legal-document h2,
-.static-legal-fallback .legal-document h3,
-.static-legal-fallback .legal-document h4,
-.static-legal-fallback .legal-document h5,
-.static-legal-fallback .legal-document h6 {
-  margin: 0 0 16px;
-  line-height: 1.2;
-  font-weight: 600;
-  letter-spacing: 0;
-}
-
-.static-legal-fallback .legal-document h1 {
-  font-size: 1.5rem;
-}
-
-.static-legal-fallback .legal-document h2 {
-  margin-top: 32px;
-  font-size: 1.5rem;
-}
-
-.static-legal-fallback .legal-document h3 {
-  margin-top: 24px;
-  font-size: 1.125rem;
-}
-
-.static-legal-fallback .legal-document p,
-.static-legal-fallback .legal-document ul {
-  margin: 0 0 16px;
-}
-
-.static-legal-fallback .legal-document ul {
-  padding-left: 20px;
-}
-
-.static-legal-fallback .legal-document li + li {
-  margin-top: 10px;
-}
-
-.static-legal-fallback .legal-document code {
-  border-radius: 0;
-  background: var(--static-legal-code-background);
-  padding: 0.1rem 0.35rem;
-  font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
-  font-size: 0.92em;
-}
-
-.static-legal-fallback .legal-document a {
-  color: inherit;
-}
-
-.static-legal-fallback .legal-sidebar-pane {
-  display: flex;
-  width: 288px;
-  min-height: 100vh;
-  flex-shrink: 0;
-  flex-direction: column;
-  justify-content: flex-end;
-  border-left: 1px solid var(--static-legal-border);
-  background: var(--static-legal-background);
-}
-
-.static-legal-fallback .legal-sidebar-footer {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 8px 32px;
-  color: var(--static-legal-muted);
-  font-size: 12px;
-}
-
-.static-legal-fallback .legal-sidebar-spacer {
-  height: 12px;
-}
-
-.static-legal-fallback .legal-sidebar-footer a {
-  color: inherit;
-}
-
-@media (max-width: 767px) {
-  .static-legal-fallback .legal-sidebar-pane {
-    display: none;
-  }
-}
-`;
 
 function collectHtmlTags(html: string, pattern: RegExp): string[] {
   const tags: string[] = [];
@@ -194,61 +61,21 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function renderInlineSegmentsHtml(
-  segments: StaticMarkdownInlineSegment[],
-): string {
-  return segments
-    .map((segment) => {
-      if (segment.type === "text") {
-        return escapeHtml(segment.value);
-      }
-
-      return `<code>${escapeHtml(segment.value)}</code>`;
-    })
-    .join("");
-}
-
-function renderBlockHtml(block: StaticMarkdownBlock): string {
-  if (block.type === "heading") {
-    return `<h${block.level}>${renderInlineSegmentsHtml(block.content)}</h${block.level}>`;
-  }
-
-  if (block.type === "paragraph") {
-    return `<p>${renderInlineSegmentsHtml(block.content)}</p>`;
-  }
-
-  const itemsHtml = block.items
-    .map((item) => `<li>${renderInlineSegmentsHtml(item)}</li>`)
-    .join("");
-  return `<ul>${itemsHtml}</ul>`;
-}
-
-/**
- * Renders the supported markdown subset used by public legal docs into escaped
- * HTML fragments. The parser intentionally supports only the repo-controlled
- * heading, paragraph, list, and inline-code syntax used by these pages.
- */
-export function renderStaticMarkdownHtml(markdown: string): string {
-  return parseStaticMarkdown(markdown).map(renderBlockHtml).join("\n");
-}
-
 /**
  * Builds a complete crawlable HTML document for a public legal page. The
- * output includes canonical/social metadata, inline styles, and the rendered
- * markdown body so `/privacy` and `/terms` work even when JavaScript is not
- * executed by crawlers or app reviewers.
+ * output includes canonical/social metadata and the server-rendered public app
+ * shell so `/privacy` and `/terms` first paint like the hydrated SPA.
  */
 export function renderStaticLegalPageHtml(args: {
   appBodyHtml?: string;
   appHeadHtml?: string;
+  appRootHtml: string;
   metadata: PageMetadata;
-  markdown: string;
 }): string {
   const canonicalUrl = new URL(
     args.metadata.canonicalPath,
     SITE_ORIGIN,
   ).toString();
-  const contentHtml = renderStaticMarkdownHtml(args.markdown);
 
   return `<!doctype html>
 <html lang="en" translate="no">
@@ -275,28 +102,10 @@ export function renderStaticLegalPageHtml(args: {
     <meta name="twitter:description" content="${escapeHtml(args.metadata.description)}" />
     <meta name="twitter:image" content="${escapeHtml(SOCIAL_IMAGE_URL)}" />
     <meta name="theme-color" content="#17120a" />
-${args.appHeadHtml ? `${args.appHeadHtml}\n` : ""}    <style>
-${STATIC_LEGAL_PAGE_STYLES}
-    </style>
+${args.appHeadHtml ? `${args.appHeadHtml}\n` : ""}
   </head>
   <body>
-    <div id="root">
-      <div class="static-legal-fallback">
-        <main class="legal-main-pane" data-testid="workspace-layout-v2-pane-main">
-        <article class="legal-shell legal-document">
-${contentHtml}
-        </article>
-        </main>
-        <aside class="legal-sidebar-pane" data-testid="workspace-layout-v2-pane-right" aria-label="Public links">
-          <nav class="legal-sidebar-footer">
-            <span class="legal-sidebar-spacer" aria-hidden="true"></span>
-            <a href="/">/home</a>
-            <a href="/terms">/terms</a>
-            <a href="/privacy">/privacy</a>
-          </nav>
-        </aside>
-      </div>
-    </div>
+    <div id="root">${args.appRootHtml}</div>
 ${args.appBodyHtml ? `${args.appBodyHtml}\n` : ""}  </body>
 </html>
 `;

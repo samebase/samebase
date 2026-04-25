@@ -1,4 +1,4 @@
-import { defineConfig, type ViteDevServer } from "vite";
+import { createServer, defineConfig, type ViteDevServer } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
@@ -135,14 +135,6 @@ const runtimeNoterConnectConfigPath = path.resolve(
   currentDir,
   `dist${noterConnectConfigPathname}`,
 );
-const privacyPolicyMarkdownPath = path.resolve(
-  currentDir,
-  "src/content/privacy-policy.md",
-);
-const termsOfServiceMarkdownPath = path.resolve(
-  currentDir,
-  "src/content/terms-of-service.md",
-);
 const runtimeIndexHtmlPath = path.resolve(currentDir, "dist/index.html");
 const runtimeStaticPrivacyHtmlPath = path.resolve(
   currentDir,
@@ -151,6 +143,14 @@ const runtimeStaticPrivacyHtmlPath = path.resolve(
 const runtimeStaticTermsHtmlPath = path.resolve(
   currentDir,
   "dist/terms/index.html",
+);
+const privacyPolicyMarkdownPath = path.resolve(
+  currentDir,
+  "src/content/privacy-policy.md",
+);
+const termsOfServiceMarkdownPath = path.resolve(
+  currentDir,
+  "src/content/terms-of-service.md",
 );
 
 function isLoopbackHostname(hostname: string): boolean {
@@ -336,12 +336,76 @@ async function formatGeneratedFileContents(args: {
   return formatWithVpFmt(args.filepath, args.content);
 }
 
+type RenderStaticLegalPageAppHtml = (args: {
+  appCommit: string;
+  appCommitNumber: number | null;
+  appRepoUrl: string;
+  markdown: string;
+  pathname: string;
+}) => string;
+
+type StaticLegalPageAppRenderer = {
+  renderStaticLegalPageAppHtml: RenderStaticLegalPageAppHtml;
+};
+
+function isStaticLegalPageAppRenderer(
+  value: unknown,
+): value is StaticLegalPageAppRenderer {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof Reflect.get(value, "renderStaticLegalPageAppHtml") === "function"
+  );
+}
+
+async function withStaticLegalPageAppRenderer<T>(
+  render: (renderAppHtml: RenderStaticLegalPageAppHtml) => Promise<T>,
+): Promise<T> {
+  const server = await createServer({
+    appType: "custom",
+    configFile: false,
+    define: {
+      __APP_COMMIT__: JSON.stringify(appCommit),
+      __APP_COMMIT_NUMBER__: JSON.stringify(appCommitNumber),
+      __APP_REPO_URL__: JSON.stringify(appRepoUrl),
+    },
+    logLevel: "error",
+    mode: "production",
+    plugins: [react()],
+    resolve: {
+      alias: {
+        "@": path.resolve(currentDir, "./src"),
+      },
+    },
+    root: currentDir,
+    server: {
+      middlewareMode: true,
+    },
+  });
+
+  try {
+    const rendererModule = await server.ssrLoadModule(
+      "/src/lib/staticLegalPageApp.tsx",
+    );
+    if (!isStaticLegalPageAppRenderer(rendererModule)) {
+      throw new Error(
+        "Expected static legal page app renderer module to export renderStaticLegalPageAppHtml.",
+      );
+    }
+
+    return await render(rendererModule.renderStaticLegalPageAppHtml);
+  } finally {
+    await server.close();
+  }
+}
+
 async function writeRuntimeStaticLegalPageAsset(args: {
   appBodyHtml: string;
   appHeadHtml: string;
   htmlPath: string;
   markdownPath: string;
   metadata: PageMetadata;
+  renderAppHtml: RenderStaticLegalPageAppHtml;
 }) {
   const markdown = readFileSync(args.markdownPath, "utf8");
   const nextHtml = await formatGeneratedFileContents({
@@ -349,8 +413,14 @@ async function writeRuntimeStaticLegalPageAsset(args: {
     content: renderStaticLegalPageHtml({
       appBodyHtml: args.appBodyHtml,
       appHeadHtml: args.appHeadHtml,
+      appRootHtml: args.renderAppHtml({
+        appCommit,
+        appCommitNumber,
+        appRepoUrl,
+        markdown,
+        pathname: args.metadata.canonicalPath,
+      }),
       metadata: args.metadata,
-      markdown,
     }),
   });
 
@@ -366,19 +436,23 @@ async function writeRuntimeStaticLegalPageAssets() {
   const appShellHtml = extractStaticLegalPageAppShellHtml(
     readFileSync(runtimeIndexHtmlPath, "utf8"),
   );
-  await writeRuntimeStaticLegalPageAsset({
-    appBodyHtml: appShellHtml.bodyHtml,
-    appHeadHtml: appShellHtml.headHtml,
-    markdownPath: privacyPolicyMarkdownPath,
-    htmlPath: runtimeStaticPrivacyHtmlPath,
-    metadata: PRIVACY_PAGE_METADATA,
-  });
-  await writeRuntimeStaticLegalPageAsset({
-    appBodyHtml: appShellHtml.bodyHtml,
-    appHeadHtml: appShellHtml.headHtml,
-    markdownPath: termsOfServiceMarkdownPath,
-    htmlPath: runtimeStaticTermsHtmlPath,
-    metadata: TERMS_PAGE_METADATA,
+  await withStaticLegalPageAppRenderer(async (renderAppHtml) => {
+    await writeRuntimeStaticLegalPageAsset({
+      appBodyHtml: appShellHtml.bodyHtml,
+      appHeadHtml: appShellHtml.headHtml,
+      htmlPath: runtimeStaticPrivacyHtmlPath,
+      markdownPath: privacyPolicyMarkdownPath,
+      metadata: PRIVACY_PAGE_METADATA,
+      renderAppHtml,
+    });
+    await writeRuntimeStaticLegalPageAsset({
+      appBodyHtml: appShellHtml.bodyHtml,
+      appHeadHtml: appShellHtml.headHtml,
+      htmlPath: runtimeStaticTermsHtmlPath,
+      markdownPath: termsOfServiceMarkdownPath,
+      metadata: TERMS_PAGE_METADATA,
+      renderAppHtml,
+    });
   });
 }
 

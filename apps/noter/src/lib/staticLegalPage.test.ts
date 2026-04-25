@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
 
 import { PRIVACY_PAGE_METADATA, TERMS_PAGE_METADATA } from "./pageMetadata";
@@ -6,8 +5,26 @@ import {
   extractStaticLegalPageAppShellHtml,
   renderStaticLegalPageHtml,
 } from "./staticLegalPage";
+import { renderStaticLegalPageAppHtml } from "./staticLegalPageApp";
+
+const PRIVACY_MARKDOWN = `# Privacy Policy
+
+This Privacy Policy explains how noter handles privacy.`;
+const TERMS_MARKDOWN = `# Terms of Service
+
+These Terms of Service govern your use of noter and the noter.md website.`;
 
 describe("renderStaticLegalPageHtml", () => {
+  function renderTermsAppRootHtml() {
+    return renderStaticLegalPageAppHtml({
+      appCommit: "0123456789abcdef",
+      appCommitNumber: 463,
+      appRepoUrl: "https://github.com/noter-md/noter",
+      markdown: TERMS_MARKDOWN,
+      pathname: "/terms",
+    });
+  }
+
   it("extracts the built app boot tags for runtime legal pages", () => {
     const appShellHtml = extractStaticLegalPageAppShellHtml(`<!doctype html>
 <html>
@@ -30,14 +47,9 @@ describe("renderStaticLegalPageHtml", () => {
   });
 
   it("renders the terms page into a crawlable static html document", () => {
-    const termsMarkdown = readFileSync(
-      new URL("../content/terms-of-service.md", import.meta.url),
-      "utf8",
-    );
-
     const html = renderStaticLegalPageHtml({
+      appRootHtml: renderTermsAppRootHtml(),
       metadata: TERMS_PAGE_METADATA,
-      markdown: termsMarkdown,
     });
 
     expect(html).toContain("<title>Terms of Service | noter</title>");
@@ -51,23 +63,17 @@ describe("renderStaticLegalPageHtml", () => {
       '<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />',
     );
     expect(html).toContain('<div id="root">');
-    expect(html).toContain('<div class="static-legal-fallback">');
-    expect(html).toContain(
-      '<main class="legal-main-pane" data-testid="workspace-layout-v2-pane-main">',
-    );
-    expect(html).toContain(
-      '<aside class="legal-sidebar-pane" data-testid="workspace-layout-v2-pane-right" aria-label="Public links">',
-    );
-    expect(html).toContain('<a href="/terms">/terms</a>');
-    expect(html).toContain('<a href="/privacy">/privacy</a>');
+    expect(html).toContain('data-testid="workspace-layout-v2-pane-main"');
+    expect(html).toContain('data-testid="workspace-layout-v2-pane-right"');
+    expect(html).toContain('href="/terms"');
+    expect(html).toContain('href="/privacy"');
     expect(html).not.toContain("--background:");
     expect(html).not.toContain(
       "Generated from the noter markdown source for a crawlable public legal page.",
     );
-    expect(html).toContain('<article class="legal-shell legal-document">');
-    expect(html).toContain("<h1>Terms of Service</h1>");
+    expect(html).toContain(">Terms of Service</h1>");
     expect(html).toContain(
-      "<p>These Terms of Service govern your use of noter and the noter.md website.",
+      "These Terms of Service govern your use of noter and the noter.md website.",
     );
   });
 
@@ -76,35 +82,32 @@ describe("renderStaticLegalPageHtml", () => {
       appBodyHtml:
         '<script type="module" crossorigin src="/assets/app.js"></script>',
       appHeadHtml: '<link rel="stylesheet" href="/assets/app.css">',
+      appRootHtml: renderTermsAppRootHtml(),
       metadata: TERMS_PAGE_METADATA,
-      markdown: "# Terms of Service",
     });
 
     expect(html).toContain('<div id="root">');
-    expect(html).toContain("<h1>Terms of Service</h1>");
+    expect(html).toContain(">Terms of Service</h1>");
     expect(html).toContain('<link rel="stylesheet" href="/assets/app.css">');
     expect(html).toContain(
       '<script type="module" crossorigin src="/assets/app.js"></script>',
     );
   });
 
-  it("renders both legal pages from markdown without checked-in html shells", () => {
-    const privacyMarkdown = readFileSync(
-      new URL("../content/privacy-policy.md", import.meta.url),
-      "utf8",
-    );
-    const termsMarkdown = readFileSync(
-      new URL("../content/terms-of-service.md", import.meta.url),
-      "utf8",
-    );
-
+  it("renders both legal pages from app components without checked-in html shells", () => {
     const generatedPrivacyHtml = renderStaticLegalPageHtml({
+      appRootHtml: renderStaticLegalPageAppHtml({
+        appCommit: "0123456789abcdef",
+        appCommitNumber: 463,
+        appRepoUrl: "https://github.com/noter-md/noter",
+        markdown: PRIVACY_MARKDOWN,
+        pathname: "/privacy",
+      }),
       metadata: PRIVACY_PAGE_METADATA,
-      markdown: privacyMarkdown,
     });
     const generatedTermsHtml = renderStaticLegalPageHtml({
+      appRootHtml: renderTermsAppRootHtml(),
       metadata: TERMS_PAGE_METADATA,
-      markdown: termsMarkdown,
     });
 
     expect(generatedPrivacyHtml).toContain(
@@ -116,9 +119,9 @@ describe("renderStaticLegalPageHtml", () => {
     expect(generatedPrivacyHtml).toContain(
       '<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />',
     );
-    expect(generatedPrivacyHtml).toContain("<h1>Privacy Policy</h1>");
+    expect(generatedPrivacyHtml).toContain(">Privacy Policy</h1>");
     expect(generatedPrivacyHtml).toContain(
-      '<article class="legal-shell legal-document">',
+      'data-testid="workspace-layout-v2-pane-right"',
     );
 
     expect(generatedTermsHtml).toContain(
@@ -130,9 +133,26 @@ describe("renderStaticLegalPageHtml", () => {
     expect(generatedTermsHtml).toContain(
       '<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />',
     );
-    expect(generatedTermsHtml).toContain("<h1>Terms of Service</h1>");
+    expect(generatedTermsHtml).toContain(">Terms of Service</h1>");
     expect(generatedTermsHtml).toContain(
-      '<article class="legal-shell legal-document">',
+      'data-testid="workspace-layout-v2-pane-right"',
     );
+  });
+
+  it("server-renders trailing-slash legal paths through the public app shell", () => {
+    const html = renderStaticLegalPageAppHtml({
+      appCommit: "0123456789abcdef",
+      appCommitNumber: 463,
+      appRepoUrl: "https://github.com/noter-md/noter",
+      markdown: TERMS_MARKDOWN,
+      pathname: "/terms/",
+    });
+
+    expect(html).toContain('data-testid="workspace-layout-v2-pane-main"');
+    expect(html).toContain('data-testid="workspace-layout-v2-pane-right"');
+    expect(html).toContain("<h1");
+    expect(html).toContain("Terms of Service");
+    expect(html).toContain('href="/terms"');
+    expect(html).toContain('href="/privacy"');
   });
 });
