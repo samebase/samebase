@@ -68,6 +68,22 @@
     <link rel="stylesheet" href="/src/index.css" />
     <script>
       (() => {
+        const productionHostnames = new Set(["noter.md", "www.noter.md"]);
+        if (!productionHostnames.has(window.location.hostname)) return;
+
+        const url = new URL(window.location.href);
+        if (!url.searchParams.has("prod-ui")) return;
+
+        url.searchParams.delete("prod-ui");
+        window.history.replaceState(
+          window.history.state,
+          "",
+          `${url.pathname}${url.search}${url.hash}`,
+        );
+      })();
+    </script>
+    <script>
+      (() => {
         const prefersDarkTheme = window.matchMedia(
           "(prefers-color-scheme: dark)",
         ).matches;

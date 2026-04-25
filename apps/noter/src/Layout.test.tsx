@@ -306,6 +306,26 @@ describe("Layout", () => {
     expect(markup).toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
   });
 
+  it("hides the prod-ui shortcut on the production public host", () => {
+    vi.stubGlobal("window", {
+      location: {
+        hostname: "noter.md",
+      },
+    });
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/"]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).not.toContain(`id="public-landing-prod-ui-toggle"`);
+    expect(markup).not.toContain(`>${FORCE_PROD_UI_MODE_LINK_LABEL}<`);
+  });
+
   it("keeps legal links visible on non-root sign-in routes", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);

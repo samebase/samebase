@@ -18,7 +18,13 @@ import {
   shouldRenderPublicLandingWithoutAuthGate,
   shouldShowGoogleAuthForPathname,
 } from "@/lib/publicLandingAuthState";
-import { isProdUiModeEnabled } from "@/lib/prodUiMode";
+import {
+  buildPathWithoutProdUiQuery,
+  isBrowserProductionPublicOrigin,
+  isProdUiModeActive,
+  isProdUiModeEnabled,
+  shouldStripVisibleProdUiQuery,
+} from "@/lib/prodUiMode";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
@@ -39,7 +45,8 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
   });
   const rootRouteSearch = useRootRouteSearch();
   const landingDevModeEnabled = isLandingDevModeEnabled(rootRouteSearch);
-  const prodUiModeEnabled = isProdUiModeEnabled(rootRouteSearch);
+  const prodUiQueryEnabled = isProdUiModeEnabled(rootRouteSearch);
+  const productionPublicOrigin = isBrowserProductionPublicOrigin();
   const showGoogleAuth = shouldShowGoogleAuthForPathname(
     pathname,
     rootRouteSearch,
@@ -55,6 +62,12 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
   const deploymentAuthPolicy = useQuery(
     api.deploymentProfile.getPublicDeploymentAuthPolicy,
   );
+  const deploymentProfile = deploymentAuthPolicy?.deploymentProfile;
+  const prodUiModeEnabled = isProdUiModeActive({
+    deploymentProfile,
+    productionPublicOrigin,
+    search: rootRouteSearch,
+  });
   const passwordAuthMode = resolvePublicLandingPasswordAuthMode(
     deploymentAuthPolicy?.passwordAuthMode,
   );
@@ -76,6 +89,25 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
     // the same landing-card height while Convex reconnects.
     rememberPublicLandingPasswordAuthMode(nextPasswordAuthMode);
   }, [deploymentAuthPolicy?.passwordAuthMode]);
+
+  useEffect(() => {
+    if (
+      !shouldStripVisibleProdUiQuery({
+        deploymentProfile,
+        productionPublicOrigin,
+        search: window.location.search,
+      })
+    ) {
+      return;
+    }
+
+    const nextPath = buildPathWithoutProdUiQuery({
+      pathname: window.location.pathname,
+      search: window.location.search,
+      hash: window.location.hash,
+    });
+    window.history.replaceState(window.history.state, "", nextPath);
+  }, [deploymentProfile, prodUiQueryEnabled, productionPublicOrigin]);
 
   return (
     <div

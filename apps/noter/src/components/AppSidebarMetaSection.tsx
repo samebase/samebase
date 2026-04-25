@@ -15,7 +15,8 @@ import {
 import {
   FORCE_PROD_UI_MODE_LINK_LABEL,
   FORCE_PROD_UI_QUERY_PARAM,
-  isProdUiModeEnabled,
+  isBrowserProductionPublicOrigin,
+  isProdUiModeActive,
 } from "@/lib/prodUiMode";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { Link, useLocation } from "@tanstack/react-router";
@@ -58,9 +59,11 @@ export function AppSidebarMetaSection({
   const landingDevLabel = landingDevEnabled
     ? LANDING_DEV_MODE_DISABLE_LINK_LABEL
     : LANDING_DEV_MODE_LINK_LABEL;
-  const prodUiEnabled = isProdUiModeEnabled(
-    new URLSearchParams(location.searchStr),
-  );
+  const prodUiEnabled = isProdUiModeActive({
+    deploymentProfile: undefined,
+    productionPublicOrigin: isBrowserProductionPublicOrigin(),
+    search: new URLSearchParams(location.searchStr),
+  });
 
   const isLandingPage = location.pathname === "/";
   const showLogoLink =
