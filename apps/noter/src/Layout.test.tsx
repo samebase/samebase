@@ -175,6 +175,32 @@ describe("Layout", () => {
     expect(termsLinkIndex).toBeLessThan(privacyLinkIndex);
   });
 
+  it("opens the logo shortcut in dev mode without dropping root flags", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    const landingProdUiPath = buildPathWithUpdatedQuery(
+      { pathname: "/" },
+      (searchParams) => {
+        setQueryParam(searchParams, FORCE_PROD_UI_QUERY_PARAM, true);
+      },
+    );
+    const logoDevPath = buildPathWithUpdatedQuery(
+      { pathname: "/logo", search: FORCE_PROD_UI_QUERY_PARAM },
+      (searchParams) => {
+        setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, true);
+      },
+    );
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[landingProdUiPath]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(`href="${encodeStaticHref(logoDevPath)}"`);
+  });
+
   it("adds dev to the current URL without dropping other URL parts", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);

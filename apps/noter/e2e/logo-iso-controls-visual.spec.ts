@@ -149,6 +149,81 @@ test("logo view button groups wrap to one per row in the default rail", async ({
   expect(verticalBox.y).toBeGreaterThan(cubeAxisBox.y);
 });
 
+test("logo view color selection applies Tailwind colors to the Three scene", async ({
+  page,
+}) => {
+  const unsupportedColorWarnings: string[] = [];
+  page.on("console", (message) => {
+    const text = message.text();
+    if (text.includes("THREE.Color: Unknown color model")) {
+      unsupportedColorWarnings.push(text);
+    }
+  });
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const colorsSection = page.getByTestId("logo-preview-colors-section");
+  const leftColorPicker = controlsSidebar.getByRole("button", {
+    name: "Left color picker",
+  });
+
+  await leftColorPicker.click();
+  const leftColorPopover = page.getByTestId("logo-color-picker-left");
+  await expect(leftColorPopover).toBeVisible();
+
+  await leftColorPopover.getByLabel("Left custom color").fill("#ff00cc");
+  await expect(page).toHaveURL(/leftColor=%23ff00cc/);
+  await expect(leftColorPicker).toContainText("#ff00cc");
+
+  await leftColorPopover
+    .getByRole("button", { name: "Sky family", exact: true })
+    .click();
+  await expect(page).toHaveURL(/leftColor=sky-500/);
+
+  await leftColorPopover
+    .getByRole("button", { name: "Red family", exact: true })
+    .click();
+  await expect(page).toHaveURL(/leftColor=red-500/);
+
+  await leftColorPopover
+    .getByRole("button", { name: "Red 600", exact: true })
+    .click();
+  await expect(page).toHaveURL(/leftColor=red-600/);
+
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+  });
+
+  await expect(leftColorPopover).toHaveScreenshot(
+    "logo-color-picker-popover.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+    },
+  );
+
+  await page.keyboard.press("Escape");
+  await expect(leftColorPopover).toBeHidden();
+  await expect(colorsSection).toHaveScreenshot("logo-color-controls.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
+
+  expect(unsupportedColorWarnings).toEqual([]);
+});
+
 test("logo view desktop header toggle collapses and reopens the sidebar", async ({
   page,
 }) => {
