@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 
 test("logo iso controls sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -26,6 +27,41 @@ test("logo iso controls sidebar", async ({ page }) => {
     // metrics between macOS and Linux. Keep a bounded tolerance for that copy.
     maxDiffPixelRatio: 0.06,
   });
+});
+
+test("logo right sidebar keeps public links visible", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const linksSidebar = page.getByTestId("workspace-layout-v2-pane-right");
+  const publicLinks = linksSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+
+  await expect(controlsSidebar).toBeVisible();
+  await expect(
+    controlsSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID),
+  ).toHaveCount(0);
+  await expect(linksSidebar).toBeVisible();
+  await expect(
+    publicLinks.getByRole("link", { name: "/home", exact: true }),
+  ).toHaveAttribute("href", "/?dev");
+  await expect(
+    publicLinks.getByRole("link", { name: "/terms", exact: true }),
+  ).toHaveAttribute("href", "/terms?dev");
+  await expect(
+    publicLinks.getByRole("link", { name: "/privacy", exact: true }),
+  ).toHaveAttribute("href", "/privacy?dev");
+  await expect(publicLinks).toHaveScreenshot(
+    "logo-right-sidebar-meta-section.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.03,
+      scale: "css",
+    },
+  );
 });
 
 test("logo iso controls mobile boot", async ({ page }) => {
