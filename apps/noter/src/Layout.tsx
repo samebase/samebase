@@ -1,7 +1,10 @@
 import { ReactNode } from "react";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
+import { RouteUrlEditor } from "@/components/RouteUrlEditor";
 import { SidebarProvider } from "@/components/sidebar";
+import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
+import { useLocation } from "@tanstack/react-router";
 import {
   WorkspaceLayoutV2FullPage,
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
@@ -12,6 +15,11 @@ const PUBLIC_LAYOUT_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 
 export function PublicLayoutShell({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const landingDevEnabled = isLandingDevModeEnabled(
+    new URLSearchParams(location.searchStr),
+  );
+
   return (
     <PublicLandingLogoLinkProvider>
       <SidebarProvider
@@ -38,6 +46,12 @@ export function PublicLayoutShell({ children }: { children: ReactNode }) {
             ),
           }}
           right={{
+            header: landingDevEnabled ? (
+              <div className="flex h-full min-w-0 items-center px-2">
+                <RouteUrlEditor />
+              </div>
+            ) : undefined,
+            headerTestId: "public-layout-sidebar-route-url-header",
             footer: <AppSidebarMetaSection side="right" />,
           }}
           leftToggleVisibility="hidden"

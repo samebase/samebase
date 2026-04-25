@@ -175,7 +175,7 @@ describe("Layout", () => {
     expect(termsLinkIndex).toBeLessThan(privacyLinkIndex);
   });
 
-  it("shows a route URL editor in the public dev rail", () => {
+  it("shows a route URL editor in the public sidebar header", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
@@ -188,25 +188,39 @@ describe("Layout", () => {
 
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={[landingDevPath]}>
-        <AppSidebarMetaSection side="right" />
+        <Layout>
+          <PublicLayoutShell>
+            <div>landing</div>
+          </PublicLayoutShell>
+        </Layout>
       </TestRouterProvider>,
     );
 
+    expect(markup).toContain(
+      'data-testid="public-layout-sidebar-route-url-header"',
+    );
     expect(markup).toContain('data-testid="route-url-editor"');
     expect(markup).toContain('value="/?dev"');
   });
 
-  it("keeps the route URL editor out of the normal public rail", () => {
+  it("keeps the route URL editor out of the normal public sidebar", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
 
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/"]}>
-        <AppSidebarMetaSection side="right" />
+        <Layout>
+          <PublicLayoutShell>
+            <div>landing</div>
+          </PublicLayoutShell>
+        </Layout>
       </TestRouterProvider>,
     );
 
+    expect(markup).not.toContain(
+      'data-testid="public-layout-sidebar-route-url-header"',
+    );
     expect(markup).not.toContain('data-testid="route-url-editor"');
   });
 

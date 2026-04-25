@@ -20,7 +20,6 @@ import {
 } from "@/lib/prodUiMode";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { Link, useLocation } from "@tanstack/react-router";
-import { RouteUrlEditor } from "@/components/RouteUrlEditor";
 
 function normalizeRepoUrl(repoUrl: string): string {
   return repoUrl.endsWith(".git") ? repoUrl.slice(0, -4) : repoUrl;
@@ -69,7 +68,6 @@ export function AppSidebarMetaSection({
   const isLandingPage = location.pathname === "/";
   const showLogoLink =
     isLandingPage && publicLandingLogoLink?.isLogoLinkVisible === true;
-  const showRouteUrlEditor = side === "right" && landingDevEnabled;
   const logoLinkClassName = showLogoLink
     ? "animate-underline-color"
     : "pointer-events-none select-none text-background no-underline";
@@ -111,7 +109,6 @@ export function AppSidebarMetaSection({
       >
         {landingDevLabel}
       </Link>
-      {showRouteUrlEditor ? <RouteUrlEditor /> : null}
 
       {/* Keep query-param shortcuts visually separate so path links stay put. */}
       <div aria-hidden="true" className="h-3" />
