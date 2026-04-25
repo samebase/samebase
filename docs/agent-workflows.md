@@ -133,18 +133,18 @@ Rules:
 ### Main Build Version Labels
 
 The public app build label uses the one-based repository commit count rendered
-as `v<N>`. PR titles and agent-created commit subjects should carry the current
-projected label, and the final `main` commit should recompute that label
-immediately before merge.
+as `v<N>`. PR titles should carry the current projected label, and the final
+`main` squash commit should recompute that label immediately before merge.
+Branch commit subjects do not need provisional build labels.
 
 Rules:
 
 - Prefix every PR title with the projected app build label, for example
   `v1146: Tighten legal page padding`.
-- Prefix every agent-created commit subject on the PR branch with that same
-  projected label.
-- Treat PR title and commit labels as provisional. Overlapping PRs can share the
-  same projected label until one lands and the others are refreshed.
+- Do not amend or rewrite branch commit subjects only to add or refresh the
+  projected app build label. The squash commit subject owns the final label.
+- Treat PR title labels as provisional. Overlapping PRs can share the same
+  projected label until one lands and the others are refreshed.
 - Do not put `v<N>` in branch names.
 - When creating, updating, rebasing, marking a PR ready, running `ship`, or
   preparing `squash`, fetch latest `origin/main` and compute the projected label
@@ -156,15 +156,12 @@ next_version="v$((main_count + 1))"
 ```
 
 - Strip any existing leading `v<number>:` from the PR title and replace it with
-  the freshly computed label. Do the same for agent-created commit subjects
-  before pushing:
+  the freshly computed label:
 
 ```bash
 gh pr edit <pr-number> --title "${next_version}: <current title without old version>"
 ```
 
-- If a PR branch contains commits created by someone else, ask before rewriting
-  those commit subjects.
 - Immediately before squash merge, after fetching and rebasing on latest
   `origin/main`, recompute the label again. Prefix the squash commit subject
   with that final label, for example:
