@@ -4,17 +4,17 @@
 
 - Status: Accepted and implemented
 - Owner: Noter frontend
-- Last updated: 2026-03-25
-- Related files: `specs/061_FAST_PUBLIC_LANDING_BOOT_SPEC.md`,
-  `specs/085_DEPLOY_SAFE_APP_BOOT_AND_RECOVERY_SPEC.md`,
+- Last updated: 2026-04-26
+- Related files: `specs/085_DEPLOY_SAFE_APP_BOOT_AND_RECOVERY_SPEC.md`,
   `specs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`, `apps/noter/index.html`,
   `apps/noter/public/_redirects`, `apps/noter/public/favicon.png`,
   `apps/noter/public/favicon-32.png`, `apps/noter/public/install-icon.svg`,
   `apps/noter/public/logo-static.svg`,
   `apps/noter/scripts/generate-install-icon-assets.ts`,
-  `apps/noter/src/bootstrap.ts`, `apps/noter/src/main.tsx`,
+  `apps/noter/src/entry.tsx`, `apps/noter/src/main.tsx`,
   `apps/noter/src/components/logoStaticSvgAsset.ts`,
-  `apps/noter/src/lib/staticLegalPage.ts`, `apps/noter/vite.config.ts`
+  `specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`,
+  `apps/noter/vite.config.ts`
 
 ## Summary
 
@@ -32,10 +32,8 @@ browser refresh model.
 
 ## Problem Context
 
-- `apps/noter/index.html` and the generated public legal HTML pages currently
-  link only `16x16` and `32x32` favicons.
-- The public site currently exposes no manifest link and no Apple touch icon on
-  `/`, `/privacy`, or `/terms`.
+- `apps/noter/index.html` links the shared favicon, manifest, and Apple touch
+  icon metadata used by SPA public entry points.
 - Production `/manifest.webmanifest` still resolves to the SPA HTML fallback
   instead of a real manifest asset.
 - [#245](https://github.com/noter-md/noter/pull/245) removed `vite-plugin-pwa`
@@ -47,9 +45,10 @@ browser refresh model.
 - [#281](https://github.com/noter-md/noter/pull/281) made the generated
   `logo-static.svg` path the current public logo source of truth for install
   icon exports.
-- [#310](https://github.com/noter-md/noter/pull/310) added crawlable public
-  `/privacy` and `/terms` pages, so the public HTML surface is no longer just
-  `index.html`.
+- `/privacy` and `/terms` currently resolve through the canonical SPA route
+  tree. Dedicated legal-page prerendering must use the standard React layout
+  path from `specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
+  before it becomes a public HTML surface again.
 - Result: browser tabs can still show a correct favicon while Add to Home Screen
   can create a plain shortcut and choose an unexpected icon or stale fallback.
 
@@ -172,11 +171,10 @@ Initial default:
 - an Apple touch icon link
 - the existing theme-color meta
 
-Generated public HTML pages that are real unauthenticated entry points
-(`apps/noter/src/lib/staticLegalPage.ts`, currently `/privacy` and `/terms`)
-shall mirror the same manifest and Apple touch icon links so installability does
-not depend on which public page is open when the user reaches browser install
-UI.
+Any future prerendered public HTML document must be produced from the canonical
+React route tree and must inherit the same manifest and Apple touch icon links
+from the app HTML shell. Do not reintroduce a separate legal-page metadata
+renderer.
 
 The manifest `start_url` remains `/` even when install is triggered from a legal
 page, so installed launches enter the main app surface instead of a document

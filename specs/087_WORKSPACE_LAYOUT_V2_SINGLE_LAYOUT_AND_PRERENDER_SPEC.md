@@ -12,7 +12,6 @@
   - `apps/noter/src/routes/public-layout.tsx`
   - `apps/noter/src/routes/-publicRouteComponents.tsx`
   - `apps/noter/vite.config.ts`
-  - `specs/061_FAST_PUBLIC_LANDING_BOOT_SPEC.md`
   - `specs/080_WORKSPACE_LAYOUT_V2_ROUTE_MIGRATION_AND_FRAMEWORK_READINESS_SPEC.md`
   - `specs/083_TANSTACK_ROUTER_FILE_BASED_MIGRATION_SPEC.md`
 
@@ -109,7 +108,7 @@ Public route validation should assert:
 - landing reloads do not jump between initial render and settled layout
 - production `/` does not preload editor, WebGL, analytics, private workspace,
   or route-not-found chunks before they are needed
-- no test depends on a bespoke `.legal-shell` or other legacy static shell
+- no test depends on markers from a removed static legal shell
 
 ## Operator Reminder
 
