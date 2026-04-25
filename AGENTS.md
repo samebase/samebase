@@ -256,10 +256,14 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - When a PR originates from research or automation work, include `First Message`
   and `Requested Codex Runtime`.
 - Keep the PR title and description updated as scope changes.
-- Prefix every PR title and every agent-created commit subject with the
-  projected landing-page build label, such as `v1146:`, and refresh it after
-  creating, updating, rebasing, marking ready, or whenever `origin/main`
-  advances. Treat the label as provisional until merge.
+- Prefix every PR title with the projected landing-page build label, such as
+  `v1146:`, and refresh it after creating, updating, rebasing, marking ready, or
+  whenever `origin/main` advances. Treat the label as provisional until merge.
+- Do not amend or rewrite branch commit subjects only to add or refresh
+  provisional build labels during normal PR updates. GitHub's squash UI uses the
+  lone commit subject as the default squash title for one-commit PRs, and the PR
+  title for PRs with two or more commits; handle that only during final merge
+  prep.
 - Do not put app build version labels in branch names.
 - Treat actionable Greptile, CodeRabbit, and Codex review comments as required
   fixes while shipping.
@@ -267,8 +271,9 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - Rebase on the latest `origin/main` immediately before merge.
 - When creating the final `main` commit through `squash` or `ship`, compute the
   landing-page build number from the latest `origin/main` immediately before
-  merge, add 1, refresh the PR title and local commit subjects if needed, and
-  prefix the squash commit subject with `v<N>:`.
+  merge, add 1, refresh the PR title if needed, and prefix the squash commit
+  subject with `v<N>:`. Prefer an explicit CLI squash subject over relying on
+  the GitHub UI default.
 - Prefer squash merge by default.
 
 ## Worktree Rules
