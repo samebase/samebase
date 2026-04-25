@@ -1,7 +1,8 @@
 import { redirect } from "@tanstack/react-router";
-import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
-import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
-import { type RootRouteSearch } from "@/lib/rootRouteSearch";
+import {
+  isLandingDevModeEnabled,
+  LANDING_DEV_MODE_QUERY_PARAM,
+} from "@/lib/landingDevMode";
 
 type LogoDevRoutePathname =
   | "/logo"
@@ -9,7 +10,7 @@ type LogoDevRoutePathname =
   | "/logo/single-cube"
   | "/logo/svg";
 
-type LogoRouteSearchWithRootFlags = LogoRouteSearch & Partial<RootRouteSearch>;
+type LogoRouteSearchWithRootFlags = Readonly<Record<string, unknown>>;
 
 /**
  * Logo preview routes rely on landing dev mode to expose mobile sidebar resize
@@ -24,7 +25,7 @@ export function ensureLogoRouteDevModeSearch({
   pathname: LogoDevRoutePathname;
   search: LogoRouteSearchWithRootFlags;
 }): void {
-  if (search.dev === true) {
+  if (isLandingDevModeEnabled(search)) {
     return;
   }
 

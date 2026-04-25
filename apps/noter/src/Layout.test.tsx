@@ -2,6 +2,7 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+import { PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID } from "@/components/PublicRightSidebar";
 import {
   LANDING_DEV_MODE_DISABLE_LINK_LABEL,
   LANDING_DEV_MODE_LINK_LABEL,
@@ -197,7 +198,7 @@ describe("Layout", () => {
     );
 
     expect(markup).toContain(
-      'data-testid="public-layout-sidebar-route-url-header"',
+      `data-testid="${PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID}"`,
     );
     expect(markup).toContain('data-testid="route-url-editor"');
     expect(markup).toContain('value="/?dev"');
@@ -219,7 +220,7 @@ describe("Layout", () => {
     );
 
     expect(markup).not.toContain(
-      'data-testid="public-layout-sidebar-route-url-header"',
+      `data-testid="${PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID}"`,
     );
     expect(markup).not.toContain('data-testid="route-url-editor"');
   });
