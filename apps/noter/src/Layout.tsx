@@ -10,9 +10,14 @@ import {
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { useLocalStorageWorkspaceSidebarState } from "@/hooks/useLocalStorageWorkspaceSidebarState";
 import type { MobileSidebarPane } from "@/hooks/use-sidebar";
+import {
+  PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY,
+  isPublicLayoutSidebarResetRequested,
+} from "@/lib/publicLayoutSidebarPreferences";
+import { readRootRouteSearch } from "@/lib/rootRouteSearch";
+import { useLocation } from "@tanstack/react-router";
 import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
 
-const PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY = "noter_public_layout_sidebar_state";
 const PUBLIC_LAYOUT_LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const PUBLIC_LAYOUT_LEFT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const PUBLIC_LAYOUT_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
@@ -30,7 +35,10 @@ export function PublicLayoutShell({
   left?: WorkspaceLayoutV2PaneFrameProps;
 }) {
   const hasLeftPane = left !== undefined;
-  const publicRightSidebarPane = usePublicRightSidebarPane();
+  const location = useLocation();
+  const rootRouteSearch = readRootRouteSearch(location.searchStr);
+  const sidebarResetRequested =
+    isPublicLayoutSidebarResetRequested(rootRouteSearch);
   const defaultSidebarState = useMemo(
     () =>
       ({
@@ -50,7 +58,11 @@ export function PublicLayoutShell({
   );
   const sidebarState = useLocalStorageWorkspaceSidebarState({
     defaults: defaultSidebarState,
+    reset: sidebarResetRequested,
     storageKey: PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY,
+  });
+  const publicRightSidebarPane = usePublicRightSidebarPane({
+    publicSidebarPreferenceSource: sidebarState.preferenceSource,
   });
 
   return (

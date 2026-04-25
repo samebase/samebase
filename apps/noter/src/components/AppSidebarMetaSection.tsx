@@ -24,6 +24,12 @@ import {
   isProdUiModeActive,
 } from "@/lib/prodUiMode";
 import {
+  PUBLIC_LAYOUT_SIDEBAR_RESET_LINK_LABEL,
+  PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM,
+  PUBLIC_LAYOUT_SIDEBAR_SOURCE_LABELS,
+  type PublicLayoutSidebarPreferenceSource,
+} from "@/lib/publicLayoutSidebarPreferences";
+import {
   SEARCH_RESET_LINK_LABEL,
   SEARCH_RESET_QUERY_PARAM,
 } from "@/lib/searchReset";
@@ -64,10 +70,12 @@ const APP_SIDEBAR_META_VERSION_CLASS_NAMES = {
  * peeks beside the main pane in the mobile workspace carousel.
  */
 export function AppSidebarMetaSection({
+  publicSidebarPreferenceSource,
   showLandingPreviewLink = false,
   showMachineLinks = false,
   side = "left",
 }: {
+  publicSidebarPreferenceSource?: PublicLayoutSidebarPreferenceSource;
   showLandingPreviewLink?: boolean;
   showMachineLinks?: boolean;
   side?: AppSidebarMetaSectionSide;
@@ -184,6 +192,24 @@ export function AppSidebarMetaSection({
       >
         {landingDevLabel}
       </Link>
+      {publicSidebarPreferenceSource ? (
+        <>
+          <Link
+            id="public-layout-sidebar-reset"
+            to={location.pathname}
+            hash={location.hash}
+            search={(currentSearch) => ({
+              ...currentSearch,
+              [PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM]: true,
+            })}
+          >
+            {PUBLIC_LAYOUT_SIDEBAR_RESET_LINK_LABEL}
+          </Link>
+          <span data-testid="public-layout-sidebar-preference-source">
+            {PUBLIC_LAYOUT_SIDEBAR_SOURCE_LABELS[publicSidebarPreferenceSource]}
+          </span>
+        </>
+      ) : null}
       {showLandingPreviewLanguageLink ? (
         <Link
           id="landing-preview-romanian-toggle"
