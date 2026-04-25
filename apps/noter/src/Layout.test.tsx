@@ -201,7 +201,8 @@ describe("Layout", () => {
       `data-testid="${PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID}"`,
     );
     expect(markup).toContain('data-testid="route-url-display"');
-    expect(markup).toContain('value="/?dev"');
+    expect(markup).toContain('title="/?dev"');
+    expect(markup).toContain(">/?dev</p>");
   });
 
   it("keeps the route URL editor out of the normal public sidebar", () => {

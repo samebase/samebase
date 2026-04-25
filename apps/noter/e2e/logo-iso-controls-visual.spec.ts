@@ -48,12 +48,12 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
     controlsSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID),
   ).toHaveCount(0);
   await expect(linksSidebar).toBeVisible();
-  await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveValue(
+  await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveAttribute(
+    "title",
     "/logo?dev",
   );
-  await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveAttribute(
-    "readonly",
-    "",
+  await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveText(
+    "/logo?dev",
   );
   await expect(
     publicLinks.getByRole("link", { name: "/home", exact: true }),

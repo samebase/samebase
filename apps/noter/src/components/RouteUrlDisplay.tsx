@@ -5,18 +5,12 @@ export function RouteUrlDisplay() {
   const currentHref = location.href;
 
   return (
-    <input
-      aria-label="Route URL"
-      className="w-full font-mono text-sm"
+    <p
+      className="line-clamp-2 break-all font-mono text-sm leading-4 select-all"
       data-testid="route-url-display"
-      onFocus={(event) => {
-        event.currentTarget.select();
-      }}
-      readOnly
-      spellCheck={false}
       title={currentHref}
-      type="text"
-      value={currentHref}
-    />
+    >
+      {currentHref}
+    </p>
   );
 }
