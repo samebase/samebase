@@ -28,9 +28,9 @@ function normalizeRepoUrl(repoUrl: string): string {
 type AppSidebarMetaSectionSide = "left" | "right";
 
 const APP_SIDEBAR_META_SECTION_CLASS_NAMES = {
-  left: "flex flex-col items-end gap-3 px-2 pt-3 pb-8 text-right text-xs text-muted-foreground",
+  left: "flex flex-col items-end gap-3 px-2 pt-3 pb-8 text-right text-sm text-muted-foreground",
   right:
-    "flex flex-col items-start gap-3 px-2 pt-3 pb-8 text-left text-xs text-muted-foreground",
+    "flex flex-col items-start gap-3 px-2 pt-3 pb-8 text-left text-sm text-muted-foreground",
 } as const satisfies Record<AppSidebarMetaSectionSide, string>;
 
 const APP_SIDEBAR_META_VERSION_CLASS_NAMES = {

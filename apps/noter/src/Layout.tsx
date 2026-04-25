@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
 import { SidebarProvider } from "@/components/sidebar";
 import {
@@ -12,6 +12,8 @@ const PUBLIC_LAYOUT_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 
 export function PublicLayoutShell({ children }: { children: ReactNode }) {
+  const publicRightSidebarPane = usePublicRightSidebarPane();
+
   return (
     <PublicLandingLogoLinkProvider>
       <SidebarProvider
@@ -37,9 +39,7 @@ export function PublicLayoutShell({ children }: { children: ReactNode }) {
               <div className="flex h-full min-h-0 flex-col">{children}</div>
             ),
           }}
-          right={{
-            footer: <AppSidebarMetaSection side="right" />,
-          }}
+          right={publicRightSidebarPane}
           leftToggleVisibility="hidden"
           rightToggleVisibility="hidden"
         />

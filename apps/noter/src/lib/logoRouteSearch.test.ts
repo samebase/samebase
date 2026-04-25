@@ -11,6 +11,7 @@ import {
 } from "@/components/logoVoxelState";
 import {
   buildLogoRouteSearch,
+  preserveLogoRouteDevModeSearch,
   validateLogoRouteSearch,
 } from "@/lib/logoRouteSearch";
 
@@ -19,6 +20,7 @@ describe("logoRouteSearch", () => {
     expect(
       validateLogoRouteSearch({
         axis: "screen-vertical",
+        dev: "",
         elev: "32.4",
         freeView: "",
         isoSide: "52",
@@ -31,6 +33,7 @@ describe("logoRouteSearch", () => {
       }),
     ).toEqual({
       axis: "screen-vertical",
+      dev: true,
       elev: 32.4,
       freeView: true,
       isoSide: 40,
@@ -56,6 +59,21 @@ describe("logoRouteSearch", () => {
         voxelState: DEFAULT_VOXEL_STATE,
       }),
     ).toEqual({});
+  });
+
+  it("preserves the public dev flag across logo query-state sync", () => {
+    expect(
+      preserveLogoRouteDevModeSearch({ leftColor: "red-600" }, { dev: true }),
+    ).toEqual({
+      dev: true,
+      leftColor: "red-600",
+    });
+
+    expect(
+      preserveLogoRouteDevModeSearch({ leftColor: "red-600" }, {}),
+    ).toEqual({
+      leftColor: "red-600",
+    });
   });
 
   it("drops malformed logo route search values instead of throwing", () => {

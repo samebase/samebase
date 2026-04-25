@@ -20,6 +20,7 @@ import {
   parseVoxelState,
   serializeVoxelState,
 } from "@/components/logoVoxelState";
+import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
 import { z } from "zod";
 
 const LOGO_ROTATION_AXIS_MODE_VALUES = [
@@ -61,7 +62,7 @@ function readOptionalNumber(value: unknown): number | undefined {
   return Number.isFinite(parsedValue) ? parsedValue : undefined;
 }
 
-function readOptionalFlag(value: unknown): boolean | undefined {
+function readOptionalFlag(value: unknown): true | undefined {
   if (value === true) {
     return true;
   }
@@ -114,6 +115,10 @@ const logoRouteSearchFieldSchema = z.object({
     readOptionalRotationAxisMode,
     z.enum(LOGO_ROTATION_AXIS_MODE_VALUES).optional(),
   ),
+  [LANDING_DEV_MODE_QUERY_PARAM]: z.preprocess(
+    readOptionalFlag,
+    z.literal(true).optional(),
+  ),
   elev: z.preprocess(readOptionalNumber, z.number().finite().optional()),
   freeView: z.preprocess(readOptionalFlag, z.literal(true).optional()),
   isoSide: z.preprocess(readOptionalNumber, z.number().finite().optional()),
@@ -138,6 +143,7 @@ export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform(
 
     return {
       ...(typeof search.axis === "string" ? { axis: search.axis } : {}),
+      ...(search.dev === true ? { dev: true as const } : {}),
       ...(typeof search.elev === "number"
         ? { elev: normalizeElevationDegrees(search.elev) }
         : {}),
@@ -212,5 +218,23 @@ export function buildLogoRouteSearch(args: {
     ...(args.voxelState !== DEFAULT_VOXEL_STATE
       ? { vox: args.voxelState }
       : {}),
+  };
+}
+
+/**
+ * Logo routes force the public dev shell on direct loads; query-state sync must
+ * carry that route-shell flag forward instead of fighting the route redirect.
+ */
+export function preserveLogoRouteDevModeSearch(
+  nextSearch: LogoRouteSearch,
+  currentSearch: LogoRouteSearch,
+): LogoRouteSearch {
+  if (currentSearch.dev !== true) {
+    return nextSearch;
+  }
+
+  return {
+    ...nextSearch,
+    dev: true as const,
   };
 }

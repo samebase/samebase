@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID } from "../src/components/PublicRightSidebar";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 
 test("logo iso controls sidebar", async ({ page }) => {
@@ -37,6 +38,9 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const linksSidebar = page.getByTestId("workspace-layout-v2-pane-right");
+  const routeUrlHeader = linksSidebar.getByTestId(
+    PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID,
+  );
   const publicLinks = linksSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
   await expect(controlsSidebar).toBeVisible();
@@ -44,6 +48,13 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
     controlsSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID),
   ).toHaveCount(0);
   await expect(linksSidebar).toBeVisible();
+  await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveAttribute(
+    "title",
+    "/logo?dev",
+  );
+  await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveText(
+    "/logo?dev",
+  );
   await expect(
     publicLinks.getByRole("link", { name: "/home", exact: true }),
   ).toHaveAttribute("href", "/?dev");

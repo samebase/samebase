@@ -3,7 +3,7 @@ import {
   NLogoScene,
   type LogoShuffleParallelMoves,
 } from "@/components/NLogoScene";
-import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
 import { type LogoRotationAxisMode } from "@/components/logoRotationMath";
 import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/NLogoIsoScene";
 import {
@@ -83,6 +83,7 @@ import {
 } from "@/components/logoViewDrag";
 import {
   buildLogoRouteSearch,
+  preserveLogoRouteDevModeSearch,
   type LogoRouteSearch,
 } from "@/lib/logoRouteSearch";
 import { shouldSyncLogoPreviewQueryState } from "@/lib/logoPreviewQuerySync";
@@ -471,20 +472,24 @@ function isLogoPresetId(value: string): value is LogoPresetId {
 function readCanonicalLogoRouteSearch(
   routeSearch: LogoRouteSearch,
 ): LogoRouteSearch {
-  return buildLogoRouteSearch({
-    elevationDegrees: readElevationDegrees(routeSearch),
-    faceColors: readFaceColors(routeSearch),
-    isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
-    isoStyleId: readIsoStyleId(routeSearch),
-    rotationAxisMode: readRotationAxisMode(routeSearch),
-    rotationDegrees: readRotationDegrees(routeSearch),
-    viewSnapEnabled: readViewSnapEnabled(routeSearch),
-    voxelState: readVoxelState(routeSearch),
-  });
+  return preserveLogoRouteDevModeSearch(
+    buildLogoRouteSearch({
+      elevationDegrees: readElevationDegrees(routeSearch),
+      faceColors: readFaceColors(routeSearch),
+      isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
+      isoStyleId: readIsoStyleId(routeSearch),
+      rotationAxisMode: readRotationAxisMode(routeSearch),
+      rotationDegrees: readRotationDegrees(routeSearch),
+      viewSnapEnabled: readViewSnapEnabled(routeSearch),
+      voxelState: readVoxelState(routeSearch),
+    }),
+    routeSearch,
+  );
 }
 
 const LOGO_ROUTE_SEARCH_KEYS = [
   "axis",
+  "dev",
   "elev",
   "freeView",
   "isoSide",
@@ -601,6 +606,7 @@ export function LogoPreviewPage({
   replaceRouteSearch,
   routeSearch,
 }: LogoPreviewPageProps) {
+  const publicRightSidebarPane = usePublicRightSidebarPane();
   const isIsometricMode = renderMode === "iso";
   const backgroundColor = getTailwindColorHex("background-base");
   const currentRouteSearch = readCanonicalLogoRouteSearch(routeSearch);
@@ -696,16 +702,19 @@ export function LogoPreviewPage({
       isViewSnapEnabled,
     );
 
-    const nextSearch = buildLogoRouteSearch({
-      elevationDegrees: resolvedView.elevationDegrees,
-      faceColors,
-      isoCubeSidePixels,
-      isoStyleId,
-      rotationAxisMode,
-      rotationDegrees: resolvedView.rotationDegrees,
-      viewSnapEnabled: isViewSnapEnabled,
-      voxelState,
-    });
+    const nextSearch = preserveLogoRouteDevModeSearch(
+      buildLogoRouteSearch({
+        elevationDegrees: resolvedView.elevationDegrees,
+        faceColors,
+        isoCubeSidePixels,
+        isoStyleId,
+        rotationAxisMode,
+        rotationDegrees: resolvedView.rotationDegrees,
+        viewSnapEnabled: isViewSnapEnabled,
+        voxelState,
+      }),
+      routeSearch,
+    );
 
     if (!areLogoRouteSearchesEqual(nextSearch, currentRouteSearch)) {
       replaceRouteSearch(nextSearch);
@@ -923,16 +932,19 @@ export function LogoPreviewPage({
     }));
   };
 
-  const modeSearch = buildLogoRouteSearch({
-    elevationDegrees,
-    faceColors,
-    isoCubeSidePixels,
-    isoStyleId,
-    rotationAxisMode,
-    rotationDegrees,
-    viewSnapEnabled: isViewSnapEnabled,
-    voxelState,
-  });
+  const modeSearch = preserveLogoRouteDevModeSearch(
+    buildLogoRouteSearch({
+      elevationDegrees,
+      faceColors,
+      isoCubeSidePixels,
+      isoStyleId,
+      rotationAxisMode,
+      rotationDegrees,
+      viewSnapEnabled: isViewSnapEnabled,
+      voxelState,
+    }),
+    routeSearch,
+  );
 
   const resetView = () => {
     setIsAutoRotating(false);
@@ -1527,9 +1539,7 @@ export function LogoPreviewPage({
             content: sceneContent,
             headerTestId: "logo-preview-main-header",
           }}
-          right={{
-            footer: <AppSidebarMetaSection side="right" />,
-          }}
+          right={publicRightSidebarPane}
           leftToggleVisibility="all"
         />
       </SidebarProvider>
