@@ -125,6 +125,9 @@ export function PublicLandingLogo({
           setDidSceneFail(false);
         })
         .catch((error: unknown) => {
+          if (cancelled) {
+            return;
+          }
           console.error("Failed to load landing logo scene", error);
           setDidSceneFail(true);
         });

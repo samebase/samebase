@@ -4,7 +4,7 @@
 
 - Status: Accepted and implemented
 - Owner: Noter frontend
-- Last updated: 2026-04-26
+- Last updated: 2026-04-25
 - Related files: `specs/085_DEPLOY_SAFE_APP_BOOT_AND_RECOVERY_SPEC.md`,
   `specs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`, `apps/noter/index.html`,
   `apps/noter/public/_redirects`, `apps/noter/public/favicon.png`,
