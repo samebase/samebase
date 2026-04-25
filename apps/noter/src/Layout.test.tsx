@@ -125,6 +125,10 @@ describe("Layout", () => {
     expect(markup).toContain(
       PUBLIC_LAYOUT_SIDEBAR_STORAGE_VALUE_LABELS.default,
     );
+    expect(markup.indexOf(PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY)).toBeLessThan(
+      markup.indexOf(FORCE_PROD_UI_MODE_LINK_LABEL),
+    );
+    expect(markup).toContain('class="h-6"');
     expect(markup).not.toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
     expect(markup).toContain(FORCE_PROD_UI_MODE_LINK_LABEL);
     expect(markup).toContain(ROOT_THEME_LIGHT_MODE_LINK_LABEL);

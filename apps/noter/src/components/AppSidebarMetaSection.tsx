@@ -133,6 +133,29 @@ export function AppSidebarMetaSection({
       data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
       className={APP_SIDEBAR_META_SECTION_CLASS_NAMES[side]}
     >
+      {publicSidebarPreferenceSource ? (
+        <>
+          <div
+            data-testid="public-layout-sidebar-preference-source"
+            className="grid w-full max-w-full grid-cols-[minmax(0,1fr)_max-content] gap-x-3 gap-y-1 font-mono text-[11px] leading-tight"
+          >
+            <span className="break-all">sidebar-reset</span>
+            <span>{sidebarResetRequested ? "true" : "false"}</span>
+            <span className="break-all">
+              {PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY}
+            </span>
+            <span>
+              {
+                PUBLIC_LAYOUT_SIDEBAR_STORAGE_VALUE_LABELS[
+                  publicSidebarPreferenceSource
+                ]
+              }
+            </span>
+          </div>
+          {/* Keep the storage readout visually separate from query controls. */}
+          <div aria-hidden="true" className="h-6" />
+        </>
+      ) : null}
       {showSearchResetLink ? (
         <Link
           id="public-landing-search-reset"
@@ -197,36 +220,17 @@ export function AppSidebarMetaSection({
         {landingDevLabel}
       </Link>
       {publicSidebarPreferenceSource ? (
-        <>
-          <Link
-            id="public-layout-sidebar-reset"
-            to={location.pathname}
-            hash={location.hash}
-            search={(currentSearch) => ({
-              ...currentSearch,
-              [PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM]: true,
-            })}
-          >
-            {PUBLIC_LAYOUT_SIDEBAR_RESET_LINK_LABEL}
-          </Link>
-          <div
-            data-testid="public-layout-sidebar-preference-source"
-            className="grid w-full max-w-full grid-cols-[minmax(0,1fr)_max-content] gap-x-3 gap-y-1 font-mono text-[11px] leading-tight"
-          >
-            <span className="break-all">sidebar-reset</span>
-            <span>{sidebarResetRequested ? "true" : "false"}</span>
-            <span className="break-all">
-              {PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY}
-            </span>
-            <span>
-              {
-                PUBLIC_LAYOUT_SIDEBAR_STORAGE_VALUE_LABELS[
-                  publicSidebarPreferenceSource
-                ]
-              }
-            </span>
-          </div>
-        </>
+        <Link
+          id="public-layout-sidebar-reset"
+          to={location.pathname}
+          hash={location.hash}
+          search={(currentSearch) => ({
+            ...currentSearch,
+            [PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM]: true,
+          })}
+        >
+          {PUBLIC_LAYOUT_SIDEBAR_RESET_LINK_LABEL}
+        </Link>
       ) : null}
       {showLandingPreviewLanguageLink ? (
         <Link
