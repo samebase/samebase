@@ -3,6 +3,7 @@ import {
   NLogoScene,
   type LogoShuffleParallelMoves,
 } from "@/components/NLogoScene";
+import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { type LogoRotationAxisMode } from "@/components/logoRotationMath";
 import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/NLogoIsoScene";
 import {
@@ -56,7 +57,11 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
+import {
+  WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+  WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
+  WorkspaceLayoutV2FullPage,
+} from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
 import { type MobileSidebarPane } from "@/hooks/use-sidebar";
 import { Layout } from "@/Layout";
 import {
@@ -1503,7 +1508,13 @@ export function LogoPreviewPage({
         defaultOpen={true}
         defaultLeftDesktopWidthPx={LOGO_PREVIEW_SIDEBAR_WIDTH_PX}
         defaultLeftMobileWidthPx={LOGO_PREVIEW_SIDEBAR_WIDTH_PX}
-        defaultRightOpen={false}
+        defaultRightOpen={true}
+        defaultRightDesktopWidthPx={
+          WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX
+        }
+        defaultRightMobileWidthPx={
+          WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX
+        }
         mobilePane={mobilePane}
         onMobilePaneChange={setMobilePane}
         shortcutSidebarSide="left"
@@ -1515,6 +1526,9 @@ export function LogoPreviewPage({
           main={{
             content: sceneContent,
             headerTestId: "logo-preview-main-header",
+          }}
+          right={{
+            footer: <AppSidebarMetaSection side="right" />,
           }}
           leftToggleVisibility="all"
         />
