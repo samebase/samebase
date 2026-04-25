@@ -175,6 +175,41 @@ describe("Layout", () => {
     expect(termsLinkIndex).toBeLessThan(privacyLinkIndex);
   });
 
+  it("shows a route URL editor in the public dev rail", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    const landingDevPath = buildPathWithUpdatedQuery(
+      { pathname: "/" },
+      (searchParams) => {
+        setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, true);
+      },
+    );
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[landingDevPath]}>
+        <AppSidebarMetaSection side="right" />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('data-testid="route-url-editor"');
+    expect(markup).toContain('value="/?dev"');
+  });
+
+  it("keeps the route URL editor out of the normal public rail", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/"]}>
+        <AppSidebarMetaSection side="right" />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).not.toContain('data-testid="route-url-editor"');
+  });
+
   it("opens the logo shortcut in dev mode without dropping root flags", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
