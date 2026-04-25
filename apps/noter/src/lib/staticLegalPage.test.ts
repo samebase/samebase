@@ -51,8 +51,19 @@ describe("renderStaticLegalPageHtml", () => {
       '<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />',
     );
     expect(html).toContain('<div id="root">');
-    expect(html).toContain('<main class="static-legal-fallback">');
+    expect(html).toContain('<div class="static-legal-fallback">');
+    expect(html).toContain(
+      '<main class="legal-main-pane" data-testid="workspace-layout-v2-pane-main">',
+    );
+    expect(html).toContain(
+      '<aside class="legal-sidebar-pane" data-testid="workspace-layout-v2-pane-right" aria-label="Public links">',
+    );
+    expect(html).toContain('<a href="/terms">/terms</a>');
+    expect(html).toContain('<a href="/privacy">/privacy</a>');
     expect(html).not.toContain("--background:");
+    expect(html).not.toContain(
+      "Generated from the noter markdown source for a crawlable public legal page.",
+    );
     expect(html).toContain('<article class="legal-shell legal-document">');
     expect(html).toContain("<h1>Terms of Service</h1>");
     expect(html).toContain(

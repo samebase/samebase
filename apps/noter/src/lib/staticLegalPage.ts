@@ -18,34 +18,37 @@ body {
 
 .static-legal-fallback {
   box-sizing: border-box;
+  display: flex;
   min-height: 100vh;
   color-scheme: light;
-  --static-legal-background: #f7f2e8;
-  --static-legal-surface: #fffdf8;
-  --static-legal-border: #dfd5c2;
-  --static-legal-text: #17120a;
-  --static-legal-muted: #645b4b;
-  --static-legal-code-background: #efe5d1;
-  background:
-    radial-gradient(circle at top, #fbf6ed 0%, #f7f2e8 45%, #efe7da 100%);
+  --static-legal-background: hsl(var(--background, 0 0% 100%));
+  --static-legal-border: hsl(var(--border, 214.3 31.8% 91.4%));
+  --static-legal-text: hsl(var(--foreground, 222.2 84% 4.9%));
+  --static-legal-muted: hsl(var(--muted-foreground, 215.4 16.3% 46.9%));
+  --static-legal-code-background: hsl(var(--muted, 210 40% 96.1%));
+  background: var(--static-legal-background);
   color: var(--static-legal-text);
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino,
-    "Times New Roman", serif;
-  font-size: 16px;
-  line-height: 1.65;
-  padding: 48px 20px 72px;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .static-legal-fallback * {
   box-sizing: inherit;
 }
 
+.static-legal-fallback .legal-main-pane {
+  min-width: 0;
+  flex: 1;
+  overflow: auto;
+}
+
 .static-legal-fallback .legal-shell {
   margin: 0 auto;
-  max-width: 760px;
-  border: 1px solid var(--static-legal-border);
-  background: var(--static-legal-surface);
-  padding: 32px 28px 40px;
+  max-width: 48rem;
+  padding: 32px 8px 64px;
 }
 
 .static-legal-fallback .legal-document h1,
@@ -61,7 +64,7 @@ body {
 }
 
 .static-legal-fallback .legal-document h1 {
-  font-size: 2.5rem;
+  font-size: 1.5rem;
 }
 
 .static-legal-fallback .legal-document h2 {
@@ -100,11 +103,39 @@ body {
   color: inherit;
 }
 
-.static-legal-fallback .legal-footer {
-  margin: 24px auto 0;
-  max-width: 760px;
+.static-legal-fallback .legal-sidebar-pane {
+  display: flex;
+  width: 288px;
+  min-height: 100vh;
+  flex-shrink: 0;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-left: 1px solid var(--static-legal-border);
+  background: var(--static-legal-background);
+}
+
+.static-legal-fallback .legal-sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 8px 32px;
   color: var(--static-legal-muted);
-  font-size: 0.9rem;
+  font-size: 12px;
+}
+
+.static-legal-fallback .legal-sidebar-spacer {
+  height: 12px;
+}
+
+.static-legal-fallback .legal-sidebar-footer a {
+  color: inherit;
+}
+
+@media (max-width: 767px) {
+  .static-legal-fallback .legal-sidebar-pane {
+    display: none;
+  }
 }
 `;
 
@@ -250,12 +281,21 @@ ${STATIC_LEGAL_PAGE_STYLES}
   </head>
   <body>
     <div id="root">
-      <main class="static-legal-fallback">
+      <div class="static-legal-fallback">
+        <main class="legal-main-pane" data-testid="workspace-layout-v2-pane-main">
         <article class="legal-shell legal-document">
 ${contentHtml}
         </article>
-        <p class="legal-footer">Generated from the noter markdown source for a crawlable public legal page.</p>
-      </main>
+        </main>
+        <aside class="legal-sidebar-pane" data-testid="workspace-layout-v2-pane-right" aria-label="Public links">
+          <nav class="legal-sidebar-footer">
+            <span class="legal-sidebar-spacer" aria-hidden="true"></span>
+            <a href="/">/home</a>
+            <a href="/terms">/terms</a>
+            <a href="/privacy">/privacy</a>
+          </nav>
+        </aside>
+      </div>
     </div>
 ${args.appBodyHtml ? `${args.appBodyHtml}\n` : ""}  </body>
 </html>
