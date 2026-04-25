@@ -7,7 +7,7 @@ export function RouteUrlDisplay() {
   return (
     <input
       aria-label="Route URL"
-      className="w-full min-w-0 cursor-text select-all bg-transparent p-0 font-mono text-xs text-muted-foreground outline-none focus:text-foreground"
+      className="min-w-0 flex-1 bg-transparent font-mono text-xs"
       data-testid="route-url-display"
       onFocus={(event) => {
         event.currentTarget.select();
