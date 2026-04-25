@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LogoSingleCubeStudyPage } from "@/components/LogoSingleCubeStudyPage";
+import { ensureLogoRouteDevModeSearch } from "@/lib/logoRouteDevMode";
 import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
 import { RoutedPage } from "./-publicRouteComponents";
 
@@ -16,6 +17,13 @@ function LogoIsoStudyRouteComponent() {
 }
 
 export const Route = createFileRoute(pathname)({
+  beforeLoad: ({ location, search }) => {
+    ensureLogoRouteDevModeSearch({
+      hash: location.hash,
+      pathname,
+      search,
+    });
+  },
   component: LogoIsoStudyRouteComponent,
   validateSearch: validateLogoRouteSearch,
 });

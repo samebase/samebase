@@ -302,15 +302,37 @@ describe("appRouter", () => {
   });
 
   it("renders logo routes through explicit public routes without the layout shell", async () => {
-    await renderRoute("/logo");
+    const router = await renderRoute("/logo");
 
     expect(
       rootElement?.querySelector('[data-testid="logo-page"]')?.textContent,
     ).toBe("three");
+    expect(
+      new URLSearchParams(router.state.location.searchStr).has("dev"),
+    ).toBe(true);
     expect(rootElement?.querySelector('[data-testid="layout"]')).toBeNull();
     expect(
       rootElement?.querySelector('[data-testid="not-found-route"]'),
     ).toBeNull();
+  });
+
+  it("adds dev to direct logo loads without dropping route search or hash", async () => {
+    const router = await renderRoute(
+      buildPathWithUpdatedQuery(
+        { pathname: "/logo", hash: "top" },
+        (searchParams) => {
+          setQueryParam(searchParams, "devtools", true);
+          setQueryParam(searchParams, "rot", "10");
+        },
+      ),
+    );
+    const searchParams = new URLSearchParams(router.state.location.searchStr);
+
+    expect(router.state.location.pathname).toBe("/logo");
+    expect(searchParams.has("dev")).toBe(true);
+    expect(searchParams.has("devtools")).toBe(true);
+    expect(searchParams.get("rot")).toBe("10");
+    expect(router.state.location.hash).toBe("top");
   });
 
   it("retains the root devtools flag across logo route search updates", async () => {
@@ -330,14 +352,11 @@ describe("appRouter", () => {
       await settleRouterRender();
     });
 
+    const searchParams = new URLSearchParams(router.state.location.searchStr);
+
     expect(router.state.location.pathname).toBe("/logo/iso");
-    expect(router.state.location.searchStr).toBe(
-      buildSearchString(
-        updateQueryParams(undefined, (searchParams) => {
-          setQueryParam(searchParams, "devtools", true);
-        }),
-      ),
-    );
+    expect(searchParams.has("dev")).toBe(true);
+    expect(searchParams.has("devtools")).toBe(true);
   });
 
   it("retains the root dev flag across public route navigation", async () => {

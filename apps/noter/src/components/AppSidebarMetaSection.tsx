@@ -9,6 +9,7 @@ import {
 import {
   LANDING_DEV_MODE_DISABLE_LINK_LABEL,
   LANDING_DEV_MODE_LINK_LABEL,
+  LANDING_DEV_MODE_QUERY_PARAM,
   isLandingDevModeEnabled,
 } from "@/lib/landingDevMode";
 import {
@@ -114,6 +115,10 @@ export function AppSidebarMetaSection({
         to="/logo"
         aria-hidden={showLogoLink ? undefined : true}
         className={logoLinkClassName}
+        search={(currentSearch) => ({
+          ...currentSearch,
+          [LANDING_DEV_MODE_QUERY_PARAM]: true,
+        })}
         tabIndex={showLogoLink ? undefined : -1}
       >
         /logo
