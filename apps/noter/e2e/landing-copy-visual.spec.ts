@@ -3,14 +3,20 @@ import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 import { LANDING_DEV_MODE_LINK_LABEL } from "../src/lib/landingDevMode";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "../src/lib/publicLanding";
 
-async function readStaticHeadingFontSize(landingCopy: Locator) {
+async function readStaticHeadingStyle(landingCopy: Locator) {
   return await landingCopy
     .locator("h2")
     .first()
-    .evaluate((node) => getComputedStyle(node).fontSize);
+    .evaluate((node) => {
+      const style = getComputedStyle(node);
+      return {
+        fontSize: style.fontSize,
+        fontWeight: style.fontWeight,
+      };
+    });
 }
 
-async function readProsemarkHeadingFontSize(landingCopy: Locator) {
+async function readProsemarkHeadingStyle(landingCopy: Locator) {
   return await landingCopy
     .locator(".cm-line")
     .first()
@@ -18,11 +24,19 @@ async function readProsemarkHeadingFontSize(landingCopy: Locator) {
       for (const span of line.querySelectorAll("span")) {
         const rect = span.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0 && span.textContent?.trim()) {
-          return getComputedStyle(span).fontSize;
+          const style = getComputedStyle(span);
+          return {
+            fontSize: style.fontSize,
+            fontWeight: style.fontWeight,
+          };
         }
       }
 
-      return getComputedStyle(line).fontSize;
+      const style = getComputedStyle(line);
+      return {
+        fontSize: style.fontSize,
+        fontWeight: style.fontWeight,
+      };
     });
 }
 
@@ -40,8 +54,7 @@ test("landing copy keeps ProseMark behind editable dev mode", async ({
   await expect(
     shellLandingCopy.locator('[contenteditable="true"]'),
   ).toHaveCount(0);
-  const shellHeadingFontSize =
-    await readStaticHeadingFontSize(shellLandingCopy);
+  const shellHeadingStyle = await readStaticHeadingStyle(shellLandingCopy);
   const shellScreenshot = await takeStableScreenshot(shellLandingCopy);
 
   await page
@@ -58,8 +71,8 @@ test("landing copy keeps ProseMark behind editable dev mode", async ({
     1,
   );
   await expect
-    .poll(() => readProsemarkHeadingFontSize(devLandingCopy))
-    .toBe(shellHeadingFontSize);
+    .poll(() => readProsemarkHeadingStyle(devLandingCopy))
+    .toEqual(shellHeadingStyle);
   const devScreenshot = await takeStableScreenshot(devLandingCopy);
 
   await expectScreenshotsToMatch({

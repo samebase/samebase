@@ -87,7 +87,7 @@ function StaticLandingCopy({
           case "heading":
             return (
               <div key={`heading-${index}`}>
-                <h2 className="m-0 text-[20.16px] font-semibold leading-[28.8px]">
+                <h2 className="m-0 text-[20.16px] font-bold leading-[28.8px]">
                   {block.text}
                 </h2>
                 <div aria-hidden="true" className="h-[20.578px]" />
