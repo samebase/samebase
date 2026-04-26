@@ -13,6 +13,7 @@ import {
   FORCE_PROD_UI_QUERY_PARAM,
 } from "@/lib/prodUiMode";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
+import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
 import { Layout, PublicLayoutShell } from "./Layout";
 
 const { useConvexAuthMock } = vi.hoisted(() => ({
@@ -427,6 +428,38 @@ describe("Layout", () => {
     expect(markup).toContain("/logo");
     expect(markup).toContain('aria-hidden="true"');
     expect(markup).toContain('tabindex="-1"');
+  });
+
+  it("lets dashboard opt into machine route links in the plain path list", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    });
+
+    const defaultMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/"]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+    const dashboardMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/"]}>
+        <AppSidebarMetaSection showMachineLinks />
+      </TestRouterProvider>,
+    );
+
+    expect(defaultMarkup).not.toContain(MACHINES_ROUTE);
+    expect(defaultMarkup).not.toContain(MACHINE_CONNECT_ROUTE);
+    expect(dashboardMarkup).toContain(MACHINES_ROUTE);
+    expect(dashboardMarkup).toContain(MACHINE_CONNECT_ROUTE);
+    expect(dashboardMarkup.indexOf("/home")).toBeLessThan(
+      dashboardMarkup.indexOf(MACHINES_ROUTE),
+    );
+    expect(dashboardMarkup.indexOf(MACHINE_CONNECT_ROUTE)).toBeLessThan(
+      dashboardMarkup.indexOf("/terms"),
+    );
   });
 
   it("keeps legal links visible on the legal pages themselves", () => {

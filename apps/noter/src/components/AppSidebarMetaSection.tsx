@@ -19,6 +19,7 @@ import {
   isProdUiModeActive,
 } from "@/lib/prodUiMode";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
+import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
 import { Link, useLocation } from "@tanstack/react-router";
 
 function normalizeRepoUrl(repoUrl: string): string {
@@ -43,8 +44,10 @@ const APP_SIDEBAR_META_VERSION_CLASS_NAMES = {
  * peeks beside the main pane in the mobile workspace carousel.
  */
 export function AppSidebarMetaSection({
+  showMachineLinks = false,
   side = "left",
 }: {
+  showMachineLinks?: boolean;
   side?: AppSidebarMetaSectionSide;
 }) {
   const appCommit = __APP_COMMIT__ || "unknown";
@@ -128,6 +131,12 @@ export function AppSidebarMetaSection({
       </Link>
       {/* `/home` routes through `/` to avoid a first-paint logo flash. */}
       <Link to="/">/home</Link>
+      {showMachineLinks ? (
+        <>
+          <Link to={MACHINES_ROUTE}>{MACHINES_ROUTE}</Link>
+          <Link to={MACHINE_CONNECT_ROUTE}>{MACHINE_CONNECT_ROUTE}</Link>
+        </>
+      ) : null}
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
 

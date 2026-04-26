@@ -220,6 +220,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-branch-filters",
   "vault-branch-pr-labels",
   "vault-branch-mobile-alignment",
+  "vault-sidebar-machine-links",
 ] as const satisfies readonly VaultDashboardVisualMode[];
 
 const VAULT_BRANCH_PREVIEW_VISUAL_MODES = [
@@ -426,7 +427,8 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-last-updated-status" ||
     mode === "vault-branch-filters" ||
     mode === "vault-branch-pr-labels" ||
-    mode === "vault-branch-mobile-alignment"
+    mode === "vault-branch-mobile-alignment" ||
+    mode === "vault-sidebar-machine-links"
   ) {
     return <VaultDashboardVisualFixture mode={mode} />;
   }

@@ -98,7 +98,6 @@ import {
   normalizeVaultBranchFilters,
   type VaultBranchFilters as VaultBranchFiltersState,
 } from "@/lib/vaultBranchFilters";
-import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
 import { toast } from "@/components/ui/use-toast";
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 import { WorkspaceLayoutV2FullPage } from "./workspace-layout-v2/WorkspaceLayoutV2";
@@ -2255,19 +2254,6 @@ export function VaultDashboard() {
       {createControl}
     </div>
   );
-  const rightSidebarContent = (
-    <div className="flex min-h-0 flex-1 flex-col gap-1 px-2 py-2">
-      <div className="flex flex-col items-start gap-1">
-        <Button variant="link" size="sm" className="h-6 px-2" asChild>
-          <Link to={MACHINES_ROUTE}>{MACHINES_ROUTE}</Link>
-        </Button>
-        <Button variant="link" size="sm" className="h-6 px-2" asChild>
-          <Link to={MACHINE_CONNECT_ROUTE}>{MACHINE_CONNECT_ROUTE}</Link>
-        </Button>
-      </div>
-    </div>
-  );
-
   const dashboardBody = (
     <VaultDashboardBody
       branchToDelete={branchToDelete}
@@ -2299,7 +2285,7 @@ export function VaultDashboard() {
           left={{
             header: <UserMenu>{userDisplayName || "unknown"}</UserMenu>,
             content: sidebarContent,
-            footer: <AppSidebarMetaSection />,
+            footer: <AppSidebarMetaSection showMachineLinks />,
           }}
           main={{
             header: null,
@@ -2321,9 +2307,6 @@ export function VaultDashboard() {
                 }
               : undefined
           }
-          right={{
-            content: rightSidebarContent,
-          }}
         />
       </PersistedSidebarProvider>
 
