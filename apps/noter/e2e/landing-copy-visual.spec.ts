@@ -1,7 +1,44 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 import { LANDING_DEV_MODE_LINK_LABEL } from "../src/lib/landingDevMode";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "../src/lib/publicLanding";
+
+async function readStaticHeadingStyle(landingCopy: Locator) {
+  return await landingCopy
+    .locator("h2")
+    .first()
+    .evaluate((node) => {
+      const style = getComputedStyle(node);
+      return {
+        fontSize: style.fontSize,
+        fontWeight: style.fontWeight,
+      };
+    });
+}
+
+async function readProsemarkHeadingStyle(landingCopy: Locator) {
+  return await landingCopy
+    .locator(".cm-line")
+    .first()
+    .evaluate((line) => {
+      for (const span of line.querySelectorAll("span")) {
+        const rect = span.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0 && span.textContent?.trim()) {
+          const style = getComputedStyle(span);
+          return {
+            fontSize: style.fontSize,
+            fontWeight: style.fontWeight,
+          };
+        }
+      }
+
+      const style = getComputedStyle(line);
+      return {
+        fontSize: style.fontSize,
+        fontWeight: style.fontWeight,
+      };
+    });
+}
 
 test("landing copy keeps ProseMark behind editable dev mode", async ({
   page,
@@ -17,6 +54,7 @@ test("landing copy keeps ProseMark behind editable dev mode", async ({
   await expect(
     shellLandingCopy.locator('[contenteditable="true"]'),
   ).toHaveCount(0);
+  const shellHeadingStyle = await readStaticHeadingStyle(shellLandingCopy);
   const shellScreenshot = await takeStableScreenshot(shellLandingCopy);
 
   await page
@@ -32,6 +70,9 @@ test("landing copy keeps ProseMark behind editable dev mode", async ({
   await expect(devLandingCopy.locator('[contenteditable="true"]')).toHaveCount(
     1,
   );
+  await expect
+    .poll(() => readProsemarkHeadingStyle(devLandingCopy))
+    .toEqual(shellHeadingStyle);
   const devScreenshot = await takeStableScreenshot(devLandingCopy);
 
   await expectScreenshotsToMatch({
