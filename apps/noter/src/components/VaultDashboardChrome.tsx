@@ -129,7 +129,7 @@ export function VaultDashboardRepositoryList({
   children: ReactNode;
 }) {
   return (
-    <div className="w-full">
+    <div className="mx-auto w-full max-w-[1000px]">
       <div className="space-y-2">{children}</div>
     </div>
   );

@@ -48,6 +48,25 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   });
 });
 
+test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 360 });
+  await page.goto("/visual-fixture.html?mode=vault-dashboard-list-spacing", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture).toHaveScreenshot(
+    "vault-dashboard-list-spacing-desktop.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
+});
+
 test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 560 });
   await page.goto("/visual-fixture.html?mode=vault-branch-filters", {

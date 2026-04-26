@@ -124,7 +124,7 @@ export function VaultDashboardVisualFixture({
       <div
         data-testid="vault-dashboard-visual-fixture"
         data-mode={mode}
-        className="w-[390px] bg-background text-foreground"
+        className="w-full bg-background text-foreground"
       >
         <TestRouterProvider>
           <VaultDashboardRepositoryList>
