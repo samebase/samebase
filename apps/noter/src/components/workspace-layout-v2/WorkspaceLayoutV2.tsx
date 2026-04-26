@@ -167,6 +167,13 @@ function getDesktopSidebarWidthPx(args: {
     return 0;
   }
 
+  if (args.viewportWidthPx <= 0) {
+    return Math.max(
+      WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+      Math.round(args.storedWidthPx),
+    );
+  }
+
   return clampNumber(
     Math.round(args.storedWidthPx),
     WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,

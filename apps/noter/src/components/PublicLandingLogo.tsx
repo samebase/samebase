@@ -59,12 +59,14 @@ function easeOutCubic(value: number) {
 export function PublicLandingLogo({
   autoRotate = false,
   enableViewSnapping = true,
+  loadInteractiveScene = true,
 }: {
   autoRotate?: boolean;
   enableViewSnapping?: boolean;
+  loadInteractiveScene?: boolean;
 }) {
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(
-    () => cachedLandingLogoScene,
+    () => (loadInteractiveScene ? cachedLandingLogoScene : null),
   );
   const [didSceneFail, setDidSceneFail] = useState(
     () => didLandingLogoSceneRenderFail,
@@ -87,10 +89,19 @@ export function PublicLandingLogo({
   const isSceneInteractive = isSceneReady && !isSvgVisible;
 
   useEffect(() => {
+    if (!loadInteractiveScene) {
+      setLogoScene(null);
+      setDidSceneFail(false);
+      setIsSceneReady(false);
+      setIsSvgVisible(true);
+      return;
+    }
+
     if (didLandingLogoSceneRenderFail) {
       setDidSceneFail(true);
       return;
     }
+    setDidSceneFail(false);
 
     if (cachedLandingLogoScene !== null) {
       setLogoScene(() => cachedLandingLogoScene);
@@ -111,8 +122,12 @@ export function PublicLandingLogo({
 
           cachedLandingLogoScene = module.NLogoScene;
           setLogoScene(() => module.NLogoScene);
+          setDidSceneFail(false);
         })
         .catch((error: unknown) => {
+          if (cancelled) {
+            return;
+          }
           console.error("Failed to load landing logo scene", error);
           setDidSceneFail(true);
         });
@@ -139,7 +154,7 @@ export function PublicLandingLogo({
       window.cancelAnimationFrame(frameId);
       window.cancelAnimationFrame(frameId2);
     };
-  }, []);
+  }, [loadInteractiveScene]);
 
   useEffect(() => {
     if (!isSceneReady || !isSvgVisible) {
@@ -240,7 +255,7 @@ export function PublicLandingLogo({
           loading="eager"
           decoding="async"
           fetchPriority="high"
-          className={`${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 transition-opacity duration-500 ease-out motion-reduce:transition-none ${isSvgVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
+          className={`${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 transition-opacity duration-150 ease-out motion-reduce:transition-none ${isSvgVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
         />
         {LogoScene && !didSceneFail ? (
           <div

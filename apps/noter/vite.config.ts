@@ -11,12 +11,6 @@ import { formatWithVpFmt } from "../../scripts/format-with-vp-fmt.ts";
 import { readPackageVersion } from "../../scripts/readPackageVersion.ts";
 import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
 import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
-import {
-  type PageMetadata,
-  PRIVACY_PAGE_METADATA,
-  TERMS_PAGE_METADATA,
-} from "./src/lib/pageMetadata";
-import { renderStaticLegalPageHtml } from "./src/lib/staticLegalPage";
 import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import {
   readEnvFileValue,
@@ -132,20 +126,6 @@ const runtimeNoterConnectConfigPath = path.resolve(
   currentDir,
   `dist${noterConnectConfigPathname}`,
 );
-const privacyPolicyMarkdownPath = path.resolve(
-  currentDir,
-  "src/content/privacy-policy.md",
-);
-const termsOfServiceMarkdownPath = path.resolve(
-  currentDir,
-  "src/content/terms-of-service.md",
-);
-const staticPrivacyHtmlPath = path.resolve(
-  currentDir,
-  "public/privacy/index.html",
-);
-const staticTermsHtmlPath = path.resolve(currentDir, "public/terms/index.html");
-
 function isLoopbackHostname(hostname: string): boolean {
   return (
     hostname === "localhost" ||
@@ -329,48 +309,6 @@ async function formatGeneratedFileContents(args: {
   return formatWithVpFmt(args.filepath, args.content);
 }
 
-async function syncStaticLegalPageAsset(args: {
-  markdownPath: string;
-  htmlPath: string;
-  metadata: PageMetadata;
-}) {
-  const markdown = readFileSync(args.markdownPath, "utf8");
-  const nextHtml = await formatGeneratedFileContents({
-    filepath: args.htmlPath,
-    content: renderStaticLegalPageHtml({
-      metadata: args.metadata,
-      markdown,
-    }),
-  });
-  const currentHtml = (() => {
-    try {
-      return readFileSync(args.htmlPath, "utf8");
-    } catch {
-      return null;
-    }
-  })();
-
-  if (currentHtml === nextHtml) {
-    return;
-  }
-
-  mkdirSync(path.dirname(args.htmlPath), { recursive: true });
-  writeFileSync(args.htmlPath, nextHtml, "utf8");
-}
-
-async function syncStaticLegalPageAssets() {
-  await syncStaticLegalPageAsset({
-    markdownPath: privacyPolicyMarkdownPath,
-    htmlPath: staticPrivacyHtmlPath,
-    metadata: PRIVACY_PAGE_METADATA,
-  });
-  await syncStaticLegalPageAsset({
-    markdownPath: termsOfServiceMarkdownPath,
-    htmlPath: staticTermsHtmlPath,
-    metadata: TERMS_PAGE_METADATA,
-  });
-}
-
 function syncStaticLogoSvgAssetPlugin() {
   let hasSyncedStaticLogoSvgAsset = false;
 
@@ -541,29 +479,6 @@ function syncRuntimeNoterConnectConfigAssetPlugin() {
   };
 }
 
-function syncStaticLegalPageAssetsPlugin() {
-  let hasSyncedStaticLegalPageAssets = false;
-
-  const syncOnce = async () => {
-    if (hasSyncedStaticLegalPageAssets) {
-      return;
-    }
-
-    hasSyncedStaticLegalPageAssets = true;
-    await syncStaticLegalPageAssets();
-  };
-
-  return {
-    name: "sync-static-legal-page-assets",
-    buildStart() {
-      return syncOnce();
-    },
-    configureServer() {
-      return syncOnce();
-    },
-  };
-}
-
 function stripDaytonaConvexProxyPrefix(requestPath: string): string {
   if (
     requestPath !== DAYTONA_CONVEX_PROXY_PATH &&
@@ -632,7 +547,6 @@ export default defineConfig({
     syncStaticInstallIconSvgAssetPlugin(),
     syncStaticNoterSyncScriptAssetPlugin(),
     syncRuntimeNoterConnectConfigAssetPlugin(),
-    syncStaticLegalPageAssetsPlugin(),
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,
     }),

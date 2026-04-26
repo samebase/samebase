@@ -2,9 +2,9 @@
 
 ## Document Control
 
-- Status: Implemented
+- Status: Superseded
 - Owner: Noter frontend
-- Last updated: 2026-04-16
+- Last updated: 2026-04-26
 - Related files: `apps/noter/index.html`, `apps/noter/src/bootstrap.ts`,
   `apps/noter/src/main.tsx`, `apps/noter/src/App.tsx`,
   `apps/noter/src/SignInForm.tsx`, `apps/noter/src/authClient.ts`,
@@ -14,6 +14,11 @@
   `apps/noter/src/components/ProsemarkReadOnly.tsx`,
   `apps/noter/src/lib/publicLandingAuthState.ts`,
   `apps/noter/e2e/public-landing-shell.spec.ts`
+
+This spec records the former shell-first `bootstrap.ts` implementation. It is
+not the current landing architecture. Current public-route work should use
+`specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md` and the
+TanStack route tree as the source of truth.
 
 ## Summary
 

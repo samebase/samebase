@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { PasswordAuthForm } from "./SignInForm";
 
 vi.mock("@/authClient", () => ({
-  useNoterAuthActions: () => ({
+  useNoterSignInActions: () => ({
     signInWithPassword: vi.fn(),
   }),
 }));
