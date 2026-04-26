@@ -138,7 +138,7 @@ export function VaultDashboardVisualFixture({
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
                     Branches
                   </p>
-                  <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
+                  <div className="-mx-4 overflow-hidden bg-muted/20 sm:mx-0">
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"

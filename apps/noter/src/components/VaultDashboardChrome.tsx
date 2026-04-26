@@ -171,12 +171,7 @@ export function VaultDashboardRepositoryCard({
   topRightAction?: ReactNode;
 }) {
   return (
-    <div
-      className={clsx(
-        "relative corner-notch-1 border p-4",
-        !isReady && "bg-muted/30 opacity-75",
-      )}
-    >
+    <div className={clsx("relative p-4", !isReady && "bg-muted/30 opacity-75")}>
       {topRightAction}
 
       <div className="space-y-3">
