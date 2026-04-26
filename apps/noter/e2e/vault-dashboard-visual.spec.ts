@@ -32,6 +32,22 @@ test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
   });
 });
 
+test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 520 });
+  await page.goto("/visual-fixture.html?mode=vault-dashboard-list-spacing", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 560 });
   await page.goto("/visual-fixture.html?mode=vault-branch-filters", {

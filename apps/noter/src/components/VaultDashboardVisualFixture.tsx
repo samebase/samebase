@@ -8,11 +8,14 @@ import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
 import {
   VaultDashboardEmptyState,
   VaultDashboardProvidersSection,
+  VaultDashboardRepositoryCard,
+  VaultDashboardRepositoryList,
 } from "@/components/VaultDashboardChrome";
 import { VaultBranchLinkRow } from "@/components/VaultDashboard";
 
 export type VaultDashboardVisualMode =
   | "vault-create-control"
+  | "vault-dashboard-list-spacing"
   | "vault-last-updated-status"
   | "vault-branch-filters"
   | "vault-branch-pr-labels"
@@ -112,6 +115,65 @@ export function VaultDashboardVisualFixture({
     return (
       <div className="min-h-screen bg-stone-100 p-4 text-foreground">
         <FixtureVaultLastUpdatedStatusCard />
+      </div>
+    );
+  }
+
+  if (mode === "vault-dashboard-list-spacing") {
+    return (
+      <div
+        data-testid="vault-dashboard-visual-fixture"
+        data-mode={mode}
+        className="w-[390px] bg-background text-foreground"
+      >
+        <TestRouterProvider>
+          <VaultDashboardRepositoryList>
+            <VaultDashboardRepositoryCard
+              isReady={true}
+              repositoryOwner="noter-md"
+              repositoryName="noter"
+              titleHref="https://github.com/noter-md/noter"
+              branchSection={
+                <div className="space-y-1.5">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                    Branches
+                  </p>
+                  <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
+                    <VaultBranchLinkRow
+                      vaultId={fakeVaultId()}
+                      repositoryFullName="noter-md/noter"
+                      branchName="main"
+                      headCommitSha="1234567890abcdef1234567890abcdef12345678"
+                      isDefault={true}
+                      isDeletedUpstream={false}
+                      aheadBy={0}
+                      behindBy={0}
+                      canDeleteBranch={false}
+                      isDeletingBranch={false}
+                      onDeleteBranch={() => {}}
+                    />
+                    <VaultBranchLinkRow
+                      vaultId={fakeVaultId()}
+                      repositoryFullName="noter-md/noter"
+                      branchName="codex/dashboard-main-pane-spacing"
+                      headCommitSha="abcdef1234567890abcdef1234567890abcdef12"
+                      isDefault={false}
+                      isDeletedUpstream={false}
+                      aheadBy={1}
+                      behindBy={0}
+                      pullRequestUrl="https://github.com/noter-md/noter/pull/321"
+                      pullRequestNumber={321}
+                      pullRequestTitle="Use the full dashboard main pane"
+                      canDeleteBranch={true}
+                      isDeletingBranch={false}
+                      onDeleteBranch={() => {}}
+                    />
+                  </div>
+                </div>
+              }
+            />
+          </VaultDashboardRepositoryList>
+        </TestRouterProvider>
       </div>
     );
   }

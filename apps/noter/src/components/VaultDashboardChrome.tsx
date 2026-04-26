@@ -129,7 +129,7 @@ export function VaultDashboardRepositoryList({
   children: ReactNode;
 }) {
   return (
-    <div className="container py-6">
+    <div className="w-full">
       <div className="space-y-2">{children}</div>
     </div>
   );
