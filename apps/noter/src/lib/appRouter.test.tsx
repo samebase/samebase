@@ -124,6 +124,14 @@ vi.mock("@/components/MachineConnectPage", () => ({
   ),
 }));
 
+vi.mock("@/components/LandingMarkdownPreviewPage", () => ({
+  LandingMarkdownPreviewPage: () => (
+    <div data-testid="landing-markdown-preview-page">
+      Landing markdown preview page
+    </div>
+  ),
+}));
+
 vi.mock("@/components/CodespaceChatOnlyView", () => ({
   CodespaceChatOnlyView: () => (
     <div data-testid="codespace-chat-page">Codespace chat page</div>
@@ -460,6 +468,19 @@ describe("appRouter", () => {
       rootElement?.querySelector('[data-testid="machine-connect-page"]')
         ?.textContent,
     ).toBe("Machine connect page");
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
+  });
+
+  it("renders landing preview through an authenticated explicit route", async () => {
+    await renderRoute("/landing-preview");
+
+    expect(
+      rootElement?.querySelector(
+        '[data-testid="landing-markdown-preview-page"]',
+      )?.textContent,
+    ).toContain("Landing markdown preview page");
     expect(
       rootElement?.querySelector('[data-testid="not-found-route"]'),
     ).toBeNull();

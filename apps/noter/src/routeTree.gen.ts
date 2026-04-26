@@ -14,6 +14,7 @@ import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as pitchRouteImport } from "./routes/pitch";
 import { Route as machinesRouteImport } from "./routes/machines";
 import { Route as logoRouteImport } from "./routes/logo";
+import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
 import { Route as addRepositoryRouteImport } from "./routes/add-repository";
 import { Route as publicLayoutRouteImport } from "./routes/public-layout";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
@@ -57,6 +58,11 @@ const machinesRoute = machinesRouteImport.update({
 const logoRoute = logoRouteImport.update({
   id: "/logo",
   path: "/logo",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const landingPreviewRoute = landingPreviewRouteImport.update({
+  id: "/landing-preview",
+  path: "/landing-preview",
   getParentRoute: () => rootRouteImport,
 } as any);
 const addRepositoryRoute = addRepositoryRouteImport.update({
@@ -159,6 +165,7 @@ const codespaceChatRoute = codespaceChatRouteImport.update({
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
+  "/landing-preview": typeof landingPreviewRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
   "/pitch": typeof pitchRoute;
@@ -183,6 +190,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   "/add": typeof addRepositoryRoute;
+  "/landing-preview": typeof landingPreviewRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
   "/pitch": typeof pitchRoute;
@@ -210,6 +218,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/_public": typeof publicLayoutRouteWithChildren;
   "/add": typeof addRepositoryRoute;
+  "/landing-preview": typeof landingPreviewRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
   "/pitch": typeof pitchRoute;
@@ -238,6 +247,7 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/add"
+    | "/landing-preview"
     | "/logo"
     | "/machines"
     | "/pitch"
@@ -262,6 +272,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/add"
+    | "/landing-preview"
     | "/logo"
     | "/machines"
     | "/pitch"
@@ -288,6 +299,7 @@ export interface FileRouteTypes {
     | "__root__"
     | "/_public"
     | "/add"
+    | "/landing-preview"
     | "/logo"
     | "/machines"
     | "/pitch"
@@ -315,6 +327,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   publicLayoutRoute: typeof publicLayoutRouteWithChildren;
   addRepositoryRoute: typeof addRepositoryRoute;
+  landingPreviewRoute: typeof landingPreviewRoute;
   logoRoute: typeof logoRoute;
   machinesRoute: typeof machinesRoute;
   pitchRoute: typeof pitchRoute;
@@ -370,6 +383,13 @@ declare module "@tanstack/react-router" {
       path: "/logo";
       fullPath: "/logo";
       preLoaderRoute: typeof logoRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/landing-preview": {
+      id: "/landing-preview";
+      path: "/landing-preview";
+      fullPath: "/landing-preview";
+      preLoaderRoute: typeof landingPreviewRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/add": {
@@ -529,6 +549,7 @@ const publicLayoutRouteWithChildren = publicLayoutRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   publicLayoutRoute: publicLayoutRouteWithChildren,
   addRepositoryRoute: addRepositoryRoute,
+  landingPreviewRoute: landingPreviewRoute,
   logoRoute: logoRoute,
   machinesRoute: machinesRoute,
   pitchRoute: pitchRoute,

@@ -2,6 +2,7 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "./codexAppServerResearch";
+import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "./landingMarkdownPreview";
 import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "./noterSync";
 
 export type PageMetadata = {
@@ -103,6 +104,14 @@ export const MACHINES_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const LANDING_MARKDOWN_PREVIEW_PAGE_METADATA: PageMetadata = {
+  title: "Landing Preview | noter",
+  description: "Private markdown landing preview for noter.",
+  canonicalPath: LANDING_MARKDOWN_PREVIEW_ROUTE,
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
 export function resolveAppPageTitle(pathname: string): string {
   if (pathname === "/") {
     return "Vaults | noter";
@@ -148,6 +157,10 @@ export function resolveAppPageTitle(pathname: string): string {
     return MACHINES_PAGE_METADATA.title;
   }
 
+  if (pathname === LANDING_MARKDOWN_PREVIEW_ROUTE) {
+    return LANDING_MARKDOWN_PREVIEW_PAGE_METADATA.title;
+  }
+
   if (pathname.startsWith("/vault/")) {
     return "Workspace | noter";
   }
@@ -185,6 +198,10 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === MACHINES_ROUTE) {
     return MACHINES_PAGE_METADATA;
+  }
+
+  if (args.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE) {
+    return LANDING_MARKDOWN_PREVIEW_PAGE_METADATA;
   }
 
   if (!args.isAuthenticated && args.pathname === "/") {
