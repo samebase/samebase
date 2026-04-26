@@ -75,10 +75,6 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
     passwordAuthMode,
     prodUiModeEnabled,
   });
-  // The production landing keeps the static SVG as its stable LCP target; the
-  // WebGL scene is reserved for dev editing and local prod-ui comparisons.
-  const shouldLoadLandingLogoScene =
-    landingDevModeEnabled || (prodUiQueryEnabled && !productionPublicOrigin);
   const [landingMarkdownDraft, setLandingMarkdownDraft] =
     useState(landingPageMarkdown);
 
@@ -126,7 +122,6 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
           <PublicLandingLogo
             autoRotate={landingDevModeEnabled}
             enableViewSnapping={!landingDevModeEnabled}
-            loadInteractiveScene={shouldLoadLandingLogoScene}
           />
           {showGoogleSignupClosedState ? (
             <GoogleSignupClosedNotice />

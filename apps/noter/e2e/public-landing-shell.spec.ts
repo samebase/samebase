@@ -707,6 +707,58 @@ async function dragLandingLogoSceneToView(
   await scene.page().mouse.up();
 }
 
+async function expectLandingLogoCanBeDragged(page: Page) {
+  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
+  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
+  const landingLogoCanvas = landingLogoScene.locator("canvas");
+
+  await expectLandingLogoReady(landingLogo);
+  await expectLandingLogoSceneReady(landingLogoScene);
+  await expect(landingLogo).toHaveClass(/pointer-events-none opacity-0/);
+  await expect(landingLogoScene).toHaveClass(/pointer-events-auto touch-none/);
+
+  await expect
+    .poll(async () =>
+      landingLogoScene.evaluate((element) => {
+        const sceneRoot = element.firstElementChild;
+        if (!(sceneRoot instanceof HTMLElement)) {
+          return null;
+        }
+
+        return window.getComputedStyle(sceneRoot).cursor;
+      }),
+    )
+    .toBe("grab");
+
+  const viewBeforeDrag = await readLandingLogoSceneView(landingLogoScene);
+  expect(viewBeforeDrag).toEqual({
+    elevationDegrees: "35.264",
+    rotationDegrees: "45.000",
+  });
+
+  const canvasBounds = await landingLogoCanvas.boundingBox();
+  expect(canvasBounds).not.toBeNull();
+  if (!canvasBounds) {
+    return;
+  }
+
+  await page.mouse.move(
+    canvasBounds.x + canvasBounds.width / 2,
+    canvasBounds.y + canvasBounds.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    canvasBounds.x + canvasBounds.width / 2 + 48,
+    canvasBounds.y + canvasBounds.height / 2 + 16,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => readLandingLogoSceneView(landingLogoScene))
+    .not.toEqual(viewBeforeDrag);
+}
+
 test("public landing renders the routed landing UI directly", async ({
   page,
 }) => {
@@ -1376,55 +1428,15 @@ test("prod-ui landing logo becomes draggable after the SVG fallback is removed",
 }) => {
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
-  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
-  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
-  const landingLogoCanvas = landingLogoScene.locator("canvas");
+  await expectLandingLogoCanBeDragged(page);
+});
 
-  await expectLandingLogoReady(landingLogo);
-  await expectLandingLogoSceneReady(landingLogoScene);
-  await expect(landingLogo).toHaveClass(/pointer-events-none opacity-0/);
-  await expect(landingLogoScene).toHaveClass(/pointer-events-auto touch-none/);
+test("public landing logo becomes draggable after the SVG fallback is removed", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
 
-  await expect
-    .poll(async () =>
-      landingLogoScene.evaluate((element) => {
-        const sceneRoot = element.firstElementChild;
-        if (!(sceneRoot instanceof HTMLElement)) {
-          return null;
-        }
-
-        return window.getComputedStyle(sceneRoot).cursor;
-      }),
-    )
-    .toBe("grab");
-
-  const viewBeforeDrag = await readLandingLogoSceneView(landingLogoScene);
-  expect(viewBeforeDrag).toEqual({
-    elevationDegrees: "35.264",
-    rotationDegrees: "45.000",
-  });
-
-  const canvasBounds = await landingLogoCanvas.boundingBox();
-  expect(canvasBounds).not.toBeNull();
-  if (!canvasBounds) {
-    return;
-  }
-
-  await page.mouse.move(
-    canvasBounds.x + canvasBounds.width / 2,
-    canvasBounds.y + canvasBounds.height / 2,
-  );
-  await page.mouse.down();
-  await page.mouse.move(
-    canvasBounds.x + canvasBounds.width / 2 + 48,
-    canvasBounds.y + canvasBounds.height / 2 + 16,
-    { steps: 8 },
-  );
-  await page.mouse.up();
-
-  await expect
-    .poll(async () => readLandingLogoSceneView(landingLogoScene))
-    .not.toEqual(viewBeforeDrag);
+  await expectLandingLogoCanBeDragged(page);
 });
 
 test("prod-ui landing reveals /logo only for the darker straight-on logo face", async ({
@@ -1635,7 +1647,17 @@ test("prod-ui mode does not override landing dev editing", async ({ page }) => {
   await expect(landingCopy).toContainText(headingMarker);
 });
 
-test.describe("production public host landing dev mode", () => {
+test.describe("production public host landing", () => {
+  test("keeps the logo draggable after the SVG fallback is removed", async ({
+    page,
+  }) => {
+    await page.goto(buildProductionPublicLandingUrl(""), {
+      waitUntil: "domcontentloaded",
+    });
+
+    await expectLandingLogoCanBeDragged(page);
+  });
+
   test("keeps ?dev landing copy editable", async ({ page }) => {
     const headingMarker = "prod-host-marker";
 
