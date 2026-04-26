@@ -75,12 +75,10 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
     passwordAuthMode,
     prodUiModeEnabled,
   });
-  // `?dev` owns copy editability; prod-ui mode only controls the public chrome.
-  const isLandingCopyEditable = landingDevModeEnabled;
   // The production landing keeps the static SVG as its stable LCP target; the
   // WebGL scene is reserved for dev editing and local prod-ui comparisons.
   const shouldLoadLandingLogoScene =
-    isLandingCopyEditable || (prodUiQueryEnabled && !productionPublicOrigin);
+    landingDevModeEnabled || (prodUiQueryEnabled && !productionPublicOrigin);
   const [landingMarkdownDraft, setLandingMarkdownDraft] =
     useState(landingPageMarkdown);
 
@@ -126,7 +124,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
         >
           {topNotice}
           <PublicLandingLogo
-            autoRotate={isLandingCopyEditable}
+            autoRotate={landingDevModeEnabled}
             enableViewSnapping={!landingDevModeEnabled}
             loadInteractiveScene={shouldLoadLandingLogoScene}
           />
@@ -137,7 +135,7 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
               <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
                 <LandingCopy
                   className="text-sm"
-                  editable={isLandingCopyEditable}
+                  editable={landingDevModeEnabled}
                   markdown={landingMarkdownDraft}
                   onChange={setLandingMarkdownDraft}
                 />
