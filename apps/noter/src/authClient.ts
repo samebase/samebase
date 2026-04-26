@@ -101,6 +101,12 @@ export function signOutWithAnalytics(args: {
   return args.signOut();
 }
 
+/**
+ * Reset PostHog on sign-out without importing analytics into the initial auth
+ * client chunk. A top-level `posthog-js` import here would make the public
+ * landing path preload analytics again; sign-out is the only path that needs
+ * this cleanup, so load it lazily and keep failures best-effort.
+ */
 function resetDeferredPostHogClient() {
   void import("posthog-js")
     .then((module) => {
