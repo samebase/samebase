@@ -23,10 +23,14 @@ test("landing markdown preview fixture renders markdown in workspace chrome", as
   const article = page.getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID);
 
   await expect(preview).toBeVisible();
-  await expect(article.getByRole("heading", { name: "Noter" })).toBeVisible();
-  await expect(article.locator("img")).toHaveAttribute(
+  await expect(
+    article.getByRole("heading", {
+      name: /Deploy a production-ready, real-time web-app/,
+    }),
+  ).toBeVisible();
+  await expect(article.locator("video source")).toHaveAttribute(
     "src",
-    "/noter-social-card.png",
+    "/landing-preview/step-1-phone-screenrecording.mp4",
   );
 
   await expect(page).toHaveScreenshot(

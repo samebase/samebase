@@ -90,7 +90,7 @@ function MarkdownVideo({
 
   return (
     <video
-      className="w-full max-w-full border bg-background"
+      className="mx-auto max-h-[72svh] w-auto max-w-full border bg-background sm:max-h-[720px]"
       controls
       height={height}
       loop={loop}
