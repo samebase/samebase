@@ -1,7 +1,30 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 import { LANDING_DEV_MODE_LINK_LABEL } from "../src/lib/landingDevMode";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "../src/lib/publicLanding";
+
+async function readStaticHeadingFontSize(landingCopy: Locator) {
+  return await landingCopy
+    .locator("h2")
+    .first()
+    .evaluate((node) => getComputedStyle(node).fontSize);
+}
+
+async function readProsemarkHeadingFontSize(landingCopy: Locator) {
+  return await landingCopy
+    .locator(".cm-line")
+    .first()
+    .evaluate((line) => {
+      for (const span of line.querySelectorAll("span")) {
+        const rect = span.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0 && span.textContent?.trim()) {
+          return getComputedStyle(span).fontSize;
+        }
+      }
+
+      return getComputedStyle(line).fontSize;
+    });
+}
 
 test("landing copy keeps ProseMark behind editable dev mode", async ({
   page,
@@ -17,6 +40,8 @@ test("landing copy keeps ProseMark behind editable dev mode", async ({
   await expect(
     shellLandingCopy.locator('[contenteditable="true"]'),
   ).toHaveCount(0);
+  const shellHeadingFontSize =
+    await readStaticHeadingFontSize(shellLandingCopy);
   const shellScreenshot = await takeStableScreenshot(shellLandingCopy);
 
   await page
@@ -32,6 +57,9 @@ test("landing copy keeps ProseMark behind editable dev mode", async ({
   await expect(devLandingCopy.locator('[contenteditable="true"]')).toHaveCount(
     1,
   );
+  await expect
+    .poll(() => readProsemarkHeadingFontSize(devLandingCopy))
+    .toBe(shellHeadingFontSize);
   const devScreenshot = await takeStableScreenshot(devLandingCopy);
 
   await expectScreenshotsToMatch({
