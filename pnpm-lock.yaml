@@ -123,8 +123,8 @@ importers:
         specifier: ^0.46.0
         version: 0.46.0
       '@prosemark/core':
-        specifier: ^0.0.4
-        version: 0.0.4(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.10.2)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.12.1)(@codemirror/lint@6.9.3)(@codemirror/search@6.6.0)(@codemirror/state@6.5.4)(@codemirror/view@6.39.12)(@lezer/highlight@1.2.3)
+        specifier: ^0.0.7
+        version: 0.0.7(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.10.2)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.12.1)(@codemirror/lint@6.9.3)(@codemirror/search@6.6.0)(@codemirror/state@6.5.4)(@codemirror/view@6.39.12)
       '@robolex/sure':
         specifier: ^0.12.0
         version: 0.12.0
@@ -362,8 +362,8 @@ importers:
         specifier: ^6.28.4
         version: 6.39.12
       '@prosemark/core':
-        specifier: ^0.0.4
-        version: 0.0.4(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.10.2)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.12.1)(@codemirror/lint@6.9.3)(@codemirror/search@6.6.0)(@codemirror/state@6.5.4)(@codemirror/view@6.39.12)(@lezer/highlight@1.2.3)
+        specifier: ^0.0.7
+        version: 0.0.7(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.10.2)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.12.1)(@codemirror/lint@6.9.3)(@codemirror/search@6.6.0)(@codemirror/state@6.5.4)(@codemirror/view@6.39.12)
       '@tanstack/solid-router':
         specifier: ^1.168.20
         version: 1.168.20(solid-js@1.9.12)
@@ -1988,19 +1988,18 @@ packages:
   '@posthog/types@1.367.0':
     resolution: {integrity: sha512-FUcTEAeKhuHKyCcTQPx/sTN3s8S+PusPsiP8T/LrG/T7pDkwMfNZG0/P630JX6fT6qiW0moVvVSsaXgZDJF7wg==}
 
-  '@prosemark/core@0.0.4':
-    resolution: {integrity: sha512-0YQ+Ri2cBIiZYLFyMwWA7xE63gHPgYP313uxdQ21GwG9adGM26jUaDm9RBwwmuE0M2K1UNJX4+dmL3RiF6UkHA==}
+  '@prosemark/core@0.0.7':
+    resolution: {integrity: sha512-cBhjYpA4b3BuvIqCoLTPPFPXXPL0xWPcVi0UK7xOTwaHMSJhSHgFdFutpzR+BVeHw+IIY9QR00KFFGEIb4Tv/Q==}
     peerDependencies:
-      '@codemirror/autocomplete': ^6.19.1
-      '@codemirror/commands': ^6.8.1
-      '@codemirror/lang-markdown': ^6.3.4
+      '@codemirror/autocomplete': ^6.20.0
+      '@codemirror/commands': ^6.10.1
+      '@codemirror/lang-markdown': ^6.5.0
       '@codemirror/language': ^6.11.3
-      '@codemirror/language-data': ^6.5.1
-      '@codemirror/lint': ^6.9.1
+      '@codemirror/language-data': ^6.5.2
+      '@codemirror/lint': ^6.9.2
       '@codemirror/search': ^6.5.11
       '@codemirror/state': ^6.5.2
-      '@codemirror/view': ^6.38.6
-      '@lezer/highlight': ^1.2.0
+      '@codemirror/view': ^6.39.4
 
   '@protobufjs/aspromise@1.1.2':
     resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
@@ -8079,7 +8078,7 @@ snapshots:
 
   '@posthog/types@1.367.0': {}
 
-  '@prosemark/core@0.0.4(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.10.2)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.12.1)(@codemirror/lint@6.9.3)(@codemirror/search@6.6.0)(@codemirror/state@6.5.4)(@codemirror/view@6.39.12)(@lezer/highlight@1.2.3)':
+  '@prosemark/core@0.0.7(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.10.2)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.12.1)(@codemirror/lint@6.9.3)(@codemirror/search@6.6.0)(@codemirror/state@6.5.4)(@codemirror/view@6.39.12)':
     dependencies:
       '@codemirror/autocomplete': 6.20.0
       '@codemirror/commands': 6.10.2
@@ -8093,6 +8092,7 @@ snapshots:
       '@lezer/common': 1.5.1
       '@lezer/highlight': 1.2.3
       '@lezer/markdown': 1.6.3
+      '@lezer/yaml': 1.0.4
       ajv: 8.17.1
       node-emoji: 2.2.0
 
