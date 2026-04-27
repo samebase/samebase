@@ -6,7 +6,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/collapsible";
-import { ChevronDownIcon } from "@/lib/radixIcons";
+import { ChevronDownIcon, PersonIcon } from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -26,6 +26,90 @@ export type VaultDashboardProviderRowViewModel = {
   label: string;
   status: string;
 };
+
+export type VaultDashboardAccountSectionProps = {
+  displayName: string;
+  email: string;
+  isSignOutPending: boolean;
+  onOpenChange: (isOpen: boolean) => void;
+  onSignOut: () => void;
+  open: boolean;
+  providerLabel: string | null;
+  signOutDisabled?: boolean;
+};
+
+/**
+ * The account controls use the same section and row geometry as providers so
+ * the right rail reads as one accordion stack.
+ */
+export function VaultDashboardAccountSection({
+  displayName,
+  email,
+  isSignOutPending,
+  onOpenChange,
+  onSignOut,
+  open,
+  providerLabel,
+  signOutDisabled,
+}: VaultDashboardAccountSectionProps) {
+  return (
+    <div className="border-b border-border/50 p-3">
+      <Collapsible
+        className="space-y-3"
+        open={open}
+        onOpenChange={onOpenChange}
+      >
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-auto w-full justify-between px-0 text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180"
+          >
+            <span className="min-w-0 truncate text-left">{displayName}</span>
+            <ChevronDownIcon className="h-4 w-4 shrink-0 transition-transform" />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="flex flex-wrap items-start gap-3">
+            <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-3">
+              <div className="flex h-5 w-11 shrink-0 items-center justify-center">
+                <PersonIcon className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 text-left">
+                <div className="break-words text-sm font-medium">{email}</div>
+                {providerLabel ? (
+                  <div className="break-words text-xs leading-5 text-muted-foreground">
+                    Signed in with {providerLabel}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onSignOut}
+                className="h-auto max-w-full whitespace-normal py-2 text-left"
+                disabled={signOutDisabled || isSignOutPending}
+              >
+                {isSignOutPending ? (
+                  <>
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                    Signing out...
+                  </>
+                ) : (
+                  "Sign out"
+                )}
+              </Button>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
+}
 
 export function VaultDashboardProvidersSection({
   footer,

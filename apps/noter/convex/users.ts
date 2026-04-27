@@ -42,6 +42,12 @@ const authProviderSummaryValidator = object({
 });
 type AuthProviderSummary = Infer<typeof authProviderSummaryValidator>;
 
+type AuthProviderAccountSummary = {
+  _creationTime: number;
+  _id: string;
+  provider: string;
+};
+
 const providerAuthMethodValidator = union(
   literal("oauth"),
   literal("mcp_oauth"),
@@ -432,12 +438,14 @@ export const getViewerAuthProviders = query({
     const accounts = await ctx.db
       .query("authAccounts")
       .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
-      .order("desc")
       .collect();
+    const orderedAccounts = [...accounts].sort((first, second) =>
+      compareAuthProviderAccountSummary(first, second),
+    );
 
     const providers: string[] = [];
     const seen = new Set<string>();
-    for (const account of accounts) {
+    for (const account of orderedAccounts) {
       if (seen.has(account.provider)) {
         continue;
       }
@@ -445,13 +453,28 @@ export const getViewerAuthProviders = query({
       providers.push(account.provider);
     }
 
-    const primaryProvider = accounts[0]?.provider;
+    const primaryProvider = orderedAccounts[0]?.provider;
     if (primaryProvider) {
       return { providers, primaryProvider };
     }
     return { providers };
   },
 });
+
+/**
+ * Sort auth provider accounts newest-first with `_id` as a deterministic
+ * tie-breaker so the displayed primary provider cannot drift between reads.
+ */
+function compareAuthProviderAccountSummary(
+  first: AuthProviderAccountSummary,
+  second: AuthProviderAccountSummary,
+) {
+  const creationTimeOrder = second._creationTime - first._creationTime;
+  if (creationTimeOrder !== 0) {
+    return creationTimeOrder;
+  }
+  return second._id.localeCompare(first._id);
+}
 
 export const isCurrentUserApproved = query({
   args: {},

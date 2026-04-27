@@ -16,8 +16,16 @@ import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
 import { Layout, PublicLayoutShell } from "./Layout";
 
-const { useConvexAuthMock } = vi.hoisted(() => ({
+const {
+  signInWithGoogleMock,
+  signInWithPasswordMock,
+  useConvexAuthMock,
+  useQueryMock,
+} = vi.hoisted(() => ({
+  signInWithGoogleMock: vi.fn(),
+  signInWithPasswordMock: vi.fn(),
   useConvexAuthMock: vi.fn(),
+  useQueryMock: vi.fn(),
 }));
 
 function encodeStaticHref(path: string): string {
@@ -30,8 +38,20 @@ vi.mock("convex/react", async (importOriginal) => {
   return {
     ...actual,
     useConvexAuth: useConvexAuthMock,
+    useQuery: useQueryMock,
   };
 });
+
+// Keep the public shell tests on the normal browser auth path while stubbing
+// the sign-in actions that the sidebar buttons expose.
+vi.mock("@/authClient", () => ({
+  isInIframe: () => false,
+  openAuthPopup: vi.fn(),
+  useNoterSignInActions: () => ({
+    signInWithGoogle: signInWithGoogleMock,
+    signInWithPassword: signInWithPasswordMock,
+  }),
+}));
 
 vi.mock("@/lib/rootRouteSearch", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/rootRouteSearch")>();
@@ -44,7 +64,10 @@ vi.mock("@/lib/rootRouteSearch", async (importOriginal) => {
 
 describe("Layout", () => {
   afterEach(() => {
+    signInWithGoogleMock.mockReset();
+    signInWithPasswordMock.mockReset();
     useConvexAuthMock.mockReset();
+    useQueryMock.mockReset();
     vi.unstubAllGlobals();
   });
 

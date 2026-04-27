@@ -348,6 +348,7 @@ export default defineSchema({
 
   dashboardSettings: defineTable({
     userId: v.id("users"),
+    accountPanelOpen: v.optional(v.boolean()),
     providersPanelOpen: v.boolean(),
     // TODO: remove this
     pricingBillingCycle: PricingBillingCycle,

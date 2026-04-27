@@ -43,7 +43,7 @@ export function RootIndexRoutePage() {
 
   const publicLandingContent = (
     <Suspense fallback={null}>
-      <SignInForm />
+      <SignInForm authPlacement="sidebar" />
     </Suspense>
   );
 
