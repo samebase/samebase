@@ -142,6 +142,11 @@ type LandingFontStableFrame = {
   >;
 };
 
+type LandingFontStableCapture = {
+  frames: LandingFontStableFrame[];
+  webfontRequestCount: number;
+};
+
 type RgbaPixel = {
   alpha: number;
   blue: number;
@@ -419,10 +424,13 @@ async function captureLandingReloadFrames(
   });
 }
 
-async function captureDelayedLandingFontFrames(
+async function captureLandingFontStableFrames(
   page: Parameters<typeof test>[0]["page"],
-): Promise<LandingFontStableFrame[]> {
+): Promise<LandingFontStableCapture> {
+  let webfontRequestCount = 0;
+
   await page.route("**/*.woff2", async (route) => {
+    webfontRequestCount += 1;
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 1_500);
     });
@@ -493,7 +501,10 @@ async function captureDelayedLandingFontFrames(
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(1_000);
 
-  return await page.evaluate(() => window.__landingFontStableFrames ?? []);
+  return {
+    frames: await page.evaluate(() => window.__landingFontStableFrames ?? []),
+    webfontRequestCount,
+  };
 }
 
 function expectStableLandingReloadFrames(frames: LandingReloadFrame[]) {
@@ -521,9 +532,7 @@ function expectStableLandingReloadFrames(frames: LandingReloadFrame[]) {
   ).toBeLessThanOrEqual(1);
 }
 
-function expectStableDelayedLandingFontFrames(
-  frames: LandingFontStableFrame[],
-) {
+function expectStableLandingFontFrames(frames: LandingFontStableFrame[]) {
   const visibleFrames = frames.flatMap((frame) => {
     if (frame.copy === null) {
       return [];
@@ -538,13 +547,33 @@ function expectStableDelayedLandingFontFrames(
   expect(visibleFrames.length).toBeGreaterThanOrEqual(10);
 
   const copyHeightValues = visibleFrames.map((frame) => frame.copy!.height);
+  const copyLeftValues = visibleFrames.map((frame) => frame.copy!.left);
+  const copyTopValues = visibleFrames.map((frame) => frame.copy!.top);
   expect(
     Math.max(...copyHeightValues) - Math.min(...copyHeightValues),
   ).toBeLessThanOrEqual(1);
+  expect(
+    Math.max(...copyLeftValues) - Math.min(...copyLeftValues),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.max(...copyTopValues) - Math.min(...copyTopValues),
+  ).toBeLessThanOrEqual(1);
 
   for (const label of LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS) {
+    const leftValues = visibleFrames.map(
+      (frame) => frame.sidebarLinks[label]!.left,
+    );
+    const topValues = visibleFrames.map(
+      (frame) => frame.sidebarLinks[label]!.top,
+    );
     const widthValues = visibleFrames.map(
       (frame) => frame.sidebarLinks[label]!.width,
+    );
+    expect(
+      Math.max(...leftValues) - Math.min(...leftValues),
+    ).toBeLessThanOrEqual(1);
+    expect(Math.max(...topValues) - Math.min(...topValues)).toBeLessThanOrEqual(
+      1,
     );
     expect(
       Math.max(...widthValues) - Math.min(...widthValues),
@@ -1014,12 +1043,16 @@ test("public landing stays vertically stable while the page reloads", async ({
   expectStableLandingReloadFrames(reloadFrames);
 });
 
-test("public landing keeps copy and sidebar links stable while webfonts load late", async ({
+test("public landing keeps copy and sidebar links stable without webfont requests", async ({
   page,
 }) => {
-  const frames = await captureDelayedLandingFontFrames(page);
+  const capture = await captureLandingFontStableFrames(page);
 
-  expectStableDelayedLandingFontFrames(frames);
+  // The shipped landing shell should not fetch webfonts; keeping the route hook
+  // here makes future webfont regressions fail before they can reintroduce
+  // late reflow.
+  expect(capture.webfontRequestCount).toBe(0);
+  expectStableLandingFontFrames(capture.frames);
 });
 
 test("local landing keeps the remembered password auth slot stable on reload", async ({
