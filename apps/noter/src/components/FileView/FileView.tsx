@@ -73,6 +73,7 @@ import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader"
 import { DAYTONA_PAUSED } from "../../../shared/daytonaPause";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
+import { hasUserPermission } from "../../../shared/userPermissions";
 import { CHAT_ENABLED } from "@/lib/featureFlags";
 import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
 import { isInIframe } from "@/authClient";
@@ -729,6 +730,11 @@ function FileViewInner({
 
   // Get current user for sidebar
   const user = useQuery(api.users.viewer);
+  const currentUserAccess = useLiveQuery(api.permissions.currentUserAccess, {});
+  const canViewDeveloperTools = hasUserPermission(
+    currentUserAccess?.permissions,
+    "developerTools.view",
+  );
   const remoteBranches = useQuery(api.vault.getVaultRemoteBranches, {
     vaultId: vault._id,
   });
@@ -1065,6 +1071,17 @@ function FileViewInner({
       setViewMode("editor");
     }
   }, [commitReviewMode, setViewMode, viewMode]);
+
+  /** Hide graph mode with the rest of the developer tooling surface. */
+  useEffect(() => {
+    if (
+      currentUserAccess !== undefined &&
+      !canViewDeveloperTools &&
+      viewMode === "graph"
+    ) {
+      setViewMode("editor");
+    }
+  }, [canViewDeveloperTools, currentUserAccess, setViewMode, viewMode]);
 
   /**
    * Load `.noter.md` from the repository only when staging has not already
@@ -2580,7 +2597,8 @@ function FileViewInner({
   const [shouldAutoFocusChatInput, setShouldAutoFocusChatInput] =
     useState(false);
   const editorChatPendingRef = useRef<boolean | null>(null);
-  const developerToolsVisible = viewMode === "graph" || developerToolsOpen;
+  const developerToolsVisible =
+    canViewDeveloperTools && (viewMode === "graph" || developerToolsOpen);
   const showEditorOverrideControl =
     viewMode === "editor" &&
     commitReviewMode === "editor" &&
@@ -2750,40 +2768,42 @@ function FileViewInner({
               {isResettingToGitHub ? "Resetting..." : "Reset to GitHub"}
             </Button>
           </div>
-          <FileViewDeveloperTools
-            open={developerToolsVisible}
-            onOpenChange={(isOpen) => {
-              if (viewMode === "graph" && !isOpen) {
-                return;
+          {canViewDeveloperTools ? (
+            <FileViewDeveloperTools
+              open={developerToolsVisible}
+              onOpenChange={(isOpen) => {
+                if (viewMode === "graph" && !isOpen) {
+                  return;
+                }
+                setDeveloperToolsOpen(isOpen);
+              }}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              editorOverride={
+                showEditorOverrideControl ? editorOverride : undefined
               }
-              setDeveloperToolsOpen(isOpen);
-            }}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            editorOverride={
-              showEditorOverrideControl ? editorOverride : undefined
-            }
-            onEditorOverrideChange={
-              showEditorOverrideControl ? setEditorOverride : undefined
-            }
-          >
-            {!DAYTONA_PAUSED ? (
-              <>
-                <DaytonaWorkspaceButton
-                  vaultId={vault._id}
-                  branch={branch}
-                  sandboxId={vault.daytonaSandboxId}
-                  sandboxName={vault.daytonaSandboxName}
-                  commitSha={vault.commitSHA}
-                  snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                  snapshotName={vault.daytonaCurrentSnapshotName}
-                  snapshotError={vault.daytonaCurrentSnapshotLastError}
-                  className="text-xs"
-                />
-                <DaytonaSnapshotList vaultId={vault._id} />
-              </>
-            ) : null}
-          </FileViewDeveloperTools>
+              onEditorOverrideChange={
+                showEditorOverrideControl ? setEditorOverride : undefined
+              }
+            >
+              {!DAYTONA_PAUSED ? (
+                <>
+                  <DaytonaWorkspaceButton
+                    vaultId={vault._id}
+                    branch={branch}
+                    sandboxId={vault.daytonaSandboxId}
+                    sandboxName={vault.daytonaSandboxName}
+                    commitSha={vault.commitSHA}
+                    snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                    snapshotName={vault.daytonaCurrentSnapshotName}
+                    snapshotError={vault.daytonaCurrentSnapshotLastError}
+                    className="text-xs"
+                  />
+                  <DaytonaSnapshotList vaultId={vault._id} />
+                </>
+              ) : null}
+            </FileViewDeveloperTools>
+          ) : null}
         </div>
       </div>
       {commitError ? (

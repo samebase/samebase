@@ -4,10 +4,14 @@
 
 Noter has a broad authenticated app gate today, but it does not yet distinguish
 between approved starter users and operator-only or advanced product surfaces.
-The immediate example is that `/machines` and `/machines/connect` should be
-admin-only. The broader direction is to hide or deny high-complexity surfaces
-such as dashboard Developer tools and FileView paths for people who are just
-starting out.
+The immediate examples are:
+
+- `/machines` and `/machines/connect` should be operator-only.
+- FileView paths should not be available to starter users.
+- Dashboard Developer tools and FileView Developer tools should be hidden unless
+  explicitly granted.
+- Dashboard monitoring should be separately gated because it hydrates project,
+  branch, PR, and Cloudflare preview state.
 
 The permission system needs to protect both UX entrypoints and Convex backend
 functions. Hiding links is useful, but it is not an authorization boundary.
@@ -16,8 +20,8 @@ functions. Hiding links is useful, but it is not an authorization boundary.
 
 - Convex authentication docs say deployment endpoints are internet-facing and
   authorization should be checked in backend code before serving each public
-  request. They explicitly frame Convex apps as a three-tier architecture where
-  requests can be checked in server functions: https://docs.convex.dev/auth
+  request. They frame Convex apps as a three-tier architecture where requests
+  can be checked in server functions: https://docs.convex.dev/auth
 - Convex Auth already stores user documents in the Convex database, so this app
   does not need a parallel user table just to add authorization metadata:
   https://docs.convex.dev/auth/database-auth
@@ -44,32 +48,21 @@ functions. Hiding links is useful, but it is not an authorization boundary.
 
 ## Current App State
 
-- `apps/noter/convex/schema.ts:297` defines the Convex Auth `users` table with
-  `isApproved` as the only product access field.
-- `apps/noter/convex/users.ts:29` has hardcoded admin identities, and
-  `apps/noter/convex/users.ts:154` exposes `isAdminUser`.
-- `apps/noter/convex/users.ts:171` treats `users.isApproved` or admin identity
-  as broad app access via `hasAppAccess`.
-- `apps/noter/convex/users.ts:456` exposes `isCurrentUserApproved`.
-- `apps/noter/src/components/ApprovalGate.tsx:7` uses that query to block the
+- `apps/noter/convex/schema.ts` defines the Convex Auth `users` table with
+  `isApproved` as the base product access field.
+- `apps/noter/convex/users.ts` exposes `isCurrentUserApproved`, and
+  `apps/noter/src/components/ApprovalGate.tsx` uses it to block the
   authenticated app with the waitlist page.
-- `apps/noter/src/components/AuthenticatedAppRoutePage.tsx:12` wraps routes in
-  the authenticated shell and approval gate, but it has no permission parameter.
-- `/machines` and `/machines/connect` are explicit TanStack routes at
-  `apps/noter/src/routes/machines.tsx:17` and
-  `apps/noter/src/routes/machine-connect.tsx:17`. They require authentication
-  and approval, but not admin status.
-- The machine backend functions protect authentication and ownership, but not
-  admin-only access. Examples: `apps/noter/convex/connectedMachines.ts:117`,
-  `apps/noter/convex/connectedMachines.ts:139`,
-  `apps/noter/convex/connectedMachines.ts:177`, and
-  `apps/noter/convex/connectedMachineControl.ts:19`.
-- FileView is already lazily loaded at `apps/noter/src/routes/vault-file.tsx:6`,
-  which is good. A permission gate around that route can prevent the heavy
-  editor bundle from loading for denied users.
-- Dashboard Developer tools are rendered by ready vault cards at
-  `apps/noter/src/components/VaultDashboard.tsx:1045`, and FileView Developer
-  tools are rendered at `apps/noter/src/components/FileView/FileView.tsx:2753`.
+- `apps/noter/src/components/AuthenticatedAppRoutePage.tsx` is the shared app
+  route wrapper, so it is the smallest place to add route-level permission
+  checks.
+- `/machines`, `/machines/connect`, and `/vault/$` are explicit TanStack routes
+  and can be gated before their heavy page modules render.
+- Dashboard monitoring reads and refreshes vault, branch, PR, staging summary,
+  and Cloudflare preview state. It needs its own permission separate from
+  FileView.
+- Dashboard Developer tools and FileView Developer tools are UI surfaces that
+  can be hidden with a shared current-user access query.
 
 One source conflict: `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
 describes pre-login allowlist enforcement, but the current code still has a
@@ -84,12 +77,11 @@ membership, role editing, delegated admin, or per-resource ACLs. It is a small
 set of app-owned capabilities:
 
 ```ts
-const userPermissionValidator = union(
-  literal("machines.access"),
-  literal("developerTools.view"),
-  literal("fileView.access"),
-);
-type UserPermission = Infer<typeof userPermissionValidator>;
+type UserPermission =
+  | "dashboard.monitoring.view"
+  | "fileView.access"
+  | "developerTools.view"
+  | "machines.access";
 ```
 
 Store explicit grants on the existing user row:
@@ -102,116 +94,98 @@ users: defineTable({
 })
 ```
 
-Then derive effective access in one backend module:
+Derive effective access in one backend module:
 
-- Admin users, using the existing `isAdminUser` logic, receive every permission.
-- `isApproved` continues to mean base app access only.
-- `permissionGrants` opt a non-admin user into specific advanced surfaces.
-- Missing `permissionGrants` means starter access, so no data migration or
-  backfill is required for the schema change itself.
+- Admin users, using the existing admin identity logic, receive every
+  permission.
+- `isApproved` continues to mean base app access.
+- Non-admin users only receive explicit permission grants after they are
+  approved.
+- Missing `permissionGrants` means starter access, so no backfill is required
+  for the schema change itself.
 
-This gives us a clear path:
+## Permission Surfaces
 
-- Admin-only route: require `machines.access`.
-- Dashboard/FileView Developer tools: show only with `developerTools.view`.
-- FileView paths: require `fileView.access` before rendering the lazy editor
-  stack and before serving the key FileView backend operations.
+### `dashboard.monitoring.view`
 
-The operator's cost concern is product context for choosing which surfaces stay
-starter-friendly. It should not become a generic permission named after cost.
-When a surface costs real money to run, gate the concrete product surface that
-contains it.
+Allows the dashboard to list vaults/projects with monitoring state: branch
+filters, staged branch summaries, PR metadata, manual dashboard refresh, auto
+dashboard refresh, and Cloudflare preview hydration.
 
-## Implementation Sketch
+The add/create app path should remain outside this gate and use a lightweight
+connected-repository-name query instead of the full dashboard vault query.
 
-### 1. Backend Permission Model
+### `fileView.access`
+
+Allows `/vault/$` routes and the FileView-owned backend path: loading vault file
+state, GitHub file/media reads, staging changes, uploads, commits, draft PRs,
+compare previews, and rebase/conflict previews.
+
+### `developerTools.view`
+
+Shows dashboard Developer tools and FileView Developer tools. This should not
+grant FileView or dashboard monitoring by itself.
+
+### `machines.access`
+
+Allows `/machines`, `/machines/connect`, machine registration approval, machine
+registration request lookup, connected machine listing, and browser control
+token issuance.
+
+## Implementation Shape
+
+### 1. Shared Permission Model
+
+Create a shared ordered permission list and derive the TypeScript union from it.
+Convex validators should use the same list, so route props, UI helpers, schema
+validators, and backend checks stay in sync.
+
+### 2. Backend Permission Helpers
 
 Create `apps/noter/convex/permissions.ts`:
 
-- Define the permission validator and derived `UserPermission` type.
-- Define a deterministic permission order for returned lists.
-- Add `readUserAccess(ctx, userId)` for query/mutation contexts. It should load
-  the user row, optionally load the GitHub connection for the existing admin
-  username fallback, and return `{ isApproved, isAdmin, permissions }`.
-- Add `requireUserPermission(ctx, permission)` for queries and mutations.
-- Add an internal query like `getUserAccessById` so actions can call
-  `getAuthUserId(ctx)` first, then
-  `ctx.runQuery(internal.permissions.getUserAccessById, { userId })`.
+- `readUserAccess(ctx, userId)` for query/mutation contexts.
+- `currentUserAccess` public query for UI gates.
+- `requireCurrentUserPermission(ctx, permission)` for queries and mutations.
+- `requireCurrentUserPermissionForAction(ctx, permission)` for actions.
+- Internal `getUserAccessByUserId` so actions can authorize after
+  `getAuthUserId(ctx)`.
 
 Actions cannot directly read `ctx.db`, so they need the internal-query shape. Do
 not trust a client-supplied user id for public functions.
 
-### 2. Frontend Permission Gate
+### 3. Frontend Permission Gate
 
-Create a small route/content gate, either:
+Extend `AuthenticatedAppRoutePage` with `requiredPermission?: UserPermission`.
 
-- Extend `AuthenticatedAppRoutePage` with `requiredPermission?: UserPermission`,
-  or
-- Add `PermissionGate` inside authenticated route components.
+The gate should:
 
-The gate should call one Convex query, return `null` while loading, and render a
-not-found or unavailable route state when permission is missing. It must not
-render children before the permission is known.
+- call `api.permissions.currentUserAccess`
+- return `null` while loading
+- render a not-found state when the permission is missing
+- render children only after the permission is confirmed
 
-For `/machines` and `/machines/connect`, also lazy-load the page components so
-non-admin users do not load the machine workspace bundle.
+For `/machines`, `/machines/connect`, and `/vault/$`, lazy-load the page modules
+inside the gate so denied users do not load those route surfaces.
 
-### 3. First Backend Enforcement Target
+### 4. Backend Enforcement Targets
 
-For the immediate admin-only machine routes, add `machines.access` checks to:
+Protect representative backend functions with matching permissions:
 
-- `connectedMachines.listConnectedMachines`
-- `connectedMachines.getMachineRegistrationRequestForBrowser`
-- `connectedMachines.approveMachineRegistrationRequest`
-- `connectedMachineControl.issueMachineControlToken`
+- `machines.access`: human-facing machine list, registration request, approval,
+  and browser control token functions.
+- `dashboard.monitoring.view`: dashboard vault list, branch filters, branch
+  staging summaries, dashboard-triggered repository tree refreshes.
+- `fileView.access`: FileView vault reads, remote branch reads, GitHub file and
+  media reads, file staging mutations, file staging actions, commit/PR actions,
+  compare previews, and rebase/conflict previews.
+- `developerTools.view`: backend developer tool reads such as vault
+  infrastructure details.
 
 For read-style functions that can reveal whether a request id exists, prefer
-returning the existing not-found/sign-in style result over exposing "you are not
-admin" details. For mutations that perform actions, throw `Unauthorized`.
-
-The connector heartbeat/introspection path can remain credential-based in the
-first slice, because registration and browser control are the human surfaces. If
-permissions are later revocable at runtime, token introspection should also fail
-closed when the owner no longer has `machines.access`.
-
-### 4. Developer Tools And Product Scope
-
-Use the same permission query to hide:
-
-- Dashboard `developerToolsSection`.
-- FileView `FileViewDeveloperTools`.
-- Sidebar machine links in `AppSidebarMetaSection`.
-
-Keep "create new app" and similarly efficient onboarding/provisioning paths
-available while they are cheap enough to offer. The cost concern is not a
-standalone permission model; it is the reason not every advanced product surface
-should be free to every new user.
-
-For the current app, FileView is the concrete surface that appears to contain
-the expensive pattern: downloading GitHub file contents, keeping editable state
-around, and persisting staged operations. Gate that with `fileView.access`
-rather than adding a separate cost-shaped permission. If a different expensive
-surface appears later, add a permission named after that product surface, not
-after the bill.
-
-### 5. FileView Paths
-
-For a starter-focused rollout, guard `/vault/$` with `fileView.access` before
-the lazy `FileView` element renders.
-
-This should eventually be backed by server checks on the FileView-owned Convex
-functions too. Route gating prevents accidental use and avoids loading the heavy
-editor path, but direct Convex calls still need backend denial. Prioritize:
-
-- file staging mutations and actions
-- commit/PR actions
-- operations that download GitHub file contents into editable state
-- vault file/tree queries that are exclusive to FileView
-
-If existing approved users should keep FileView while brand-new users do not,
-grant `fileView.access` to current approved rows before turning the route gate
-on. If only the operator should keep it initially, leave grants empty and rely
-on implicit admin access.
+returning the existing not-found/sign-in style result over exposing missing
+permission details. For mutations and actions that perform work, throw
+`Unauthorized`.
 
 ## Rejected Options
 
@@ -228,32 +202,15 @@ on implicit admin access.
   not enough for per-user product capabilities because grants need to be
   observable by subscribed UI and editable without redeploying.
 
-## Phased Rollout
-
-1. Add the schema field, permission validator/helpers, and frontend permission
-   query. Keep behavior unchanged except admins resolving all permissions.
-2. Gate `/machines` and `/machines/connect` with `machines.access`, lazy-load
-   both pages, and protect the machine browser/control Convex functions.
-3. Hide dashboard/FileView Developer tools for users without
-   `developerTools.view`.
-4. Decide the FileView default policy:
-   - Admin-only first: no data migration.
-   - Existing approved users keep access: backfill approved rows with
-     `fileView.access`, then make new users starter-only.
-5. Gate `/vault/$` and the FileView backend functions with `fileView.access`.
-6. Revisit full RBAC only when Noter needs teams, org-owned vaults, delegated
-   admins, or user-manageable roles.
-
 ## Validation Plan
 
 - Unit tests for the permission resolver: admin by email, admin by GitHub
-  username, approved starter, explicitly granted non-admin, duplicate grants,
-  and stable returned order.
-- Convex tests for machine functions: non-admin approved user is denied, admin
-  is allowed, signed-out behavior stays compatible with current UI.
-- Router/component tests: `/machines` and `/machines/connect` do not render
-  their pages for unauthorized users, and the lazy page modules are not loaded
-  before the gate passes.
-- UI tests for hiding Developer tools in dashboard and FileView.
-- FileView rollout tests once enabled: denied users do not load the editor route
-  and cannot call representative file download/staging/save functions directly.
+  username, unapproved non-admin, explicitly granted approved non-admin,
+  duplicate grants, and stable returned order.
+- Router/component tests: gated routes carry the required permission, and the
+  permission gate returns a not-found state for users without that permission.
+- Typecheck/codegen coverage for Convex schema, generated APIs, route props, and
+  action helper typing.
+- Follow-up route-level or backend tests can cover individual dashboard,
+  FileView, and machine Convex functions as those surfaces get more granular
+  test harnesses.

@@ -2,6 +2,10 @@
 
 import { action, internalAction } from "./_generated/server";
 import { getUserId } from "./common";
+import {
+  requireCurrentUserAnyPermissionForAction,
+  requireCurrentUserPermissionForAction,
+} from "./permissions";
 import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
@@ -1939,7 +1943,10 @@ export const getRepositoryFileContent = action({
   returns: repositoryFileContentResult,
   handler: async (ctx, args): Promise<RepositoryFileContent> => {
     const requestedBranch = args.branch?.trim() || undefined;
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermissionForAction(
+      ctx,
+      "fileView.access",
+    );
 
     const currentUser = await ctx.runQuery(internal.users.getById, {
       userId,
@@ -2042,7 +2049,10 @@ export const getRepositoryMediaAsset = action({
     }
 
     const requestedBranch = args.branch?.trim() || undefined;
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermissionForAction(
+      ctx,
+      "fileView.access",
+    );
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
@@ -2242,7 +2252,10 @@ export const refreshRepositoryTree = action({
   },
   returns: refreshRepositoryTreeResult,
   handler: async (ctx, args): Promise<RefreshRepositoryTreeResult> => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserAnyPermissionForAction(ctx, [
+      "dashboard.monitoring.view",
+      "fileView.access",
+    ]);
     const trigger = args.trigger ?? "manual";
     const requestedBranch =
       typeof args.branch === "string" && args.branch.trim().length > 0

@@ -10,7 +10,7 @@ import {
 } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
-import { useState, type ReactElement } from "react";
+import { useMemo, useState, type ReactElement } from "react";
 import { linkStyle } from "./styles";
 import type { FunctionReturnType } from "convex/server";
 import { isInIframe } from "@/authClient";
@@ -33,7 +33,9 @@ const GITHUB_OAUTH_MEMBER_REQUEST_DOCS_URL =
 export function AddRepository() {
   const location = useLocation();
   const navigate = useNavigate();
-  const vaults = useQuery(api.vault.getUserVaults);
+  const connectedRepositoryFullNames = useQuery(
+    api.vault.getUserConnectedRepositoryFullNames,
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [retryingFullRepositories, setRetryingFullRepositories] =
     useState(false);
@@ -175,14 +177,13 @@ export function AddRepository() {
     return <span>{elements}</span>;
   };
 
-  const connectedVaults = vaults || [];
+  const connectedRepositoryFullNameSet = useMemo(
+    () => new Set(connectedRepositoryFullNames ?? []),
+    [connectedRepositoryFullNames],
+  );
 
   const filteredRepositories = repositories.flatMap((repo: Repository) => {
-    const isConnected = connectedVaults.some(
-      (vault: (typeof connectedVaults)[number]) =>
-        vault.repositoryFullName === repo.full_name,
-    );
-    if (isConnected) {
+    if (connectedRepositoryFullNameSet.has(repo.full_name)) {
       return [];
     }
 

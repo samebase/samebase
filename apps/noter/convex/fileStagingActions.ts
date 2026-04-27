@@ -6,7 +6,7 @@ import { v, type Infer } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import { createTwoFilesPatch, diffLines } from "diff";
-import { getUserId } from "./common";
+import { requireCurrentUserPermissionForAction } from "./permissions";
 import type { Id } from "./_generated/dataModel";
 import type { GithubTreeType } from "./schema";
 import {
@@ -1965,7 +1965,7 @@ export const renameFileInStaging = action({
   ): Promise<{
     content: string;
   }> => {
-    await getUserId(ctx);
+    await requireCurrentUserPermissionForAction(ctx, "fileView.access");
     const branch =
       args.branch ??
       (() => {
@@ -2013,7 +2013,10 @@ export const getFileForEditing = action({
   },
 
   handler: async (ctx, args): Promise<EditableFileState> => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermissionForAction(
+      ctx,
+      "fileView.access",
+    );
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
@@ -2226,7 +2229,10 @@ export const stageUploadedMedia = action({
       throw new Error("Only image uploads are supported right now.");
     }
 
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermissionForAction(
+      ctx,
+      "fileView.access",
+    );
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
@@ -2286,7 +2292,10 @@ export const commitStaging = action({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermissionForAction(
+      ctx,
+      "fileView.access",
+    );
 
     // Get the vault information while we have auth context
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
@@ -2318,7 +2327,10 @@ export const createDraftPullRequest = action({
   },
   returns: draftPullRequestResult,
   handler: async (ctx, args): Promise<DraftPullRequestResult> => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermissionForAction(
+      ctx,
+      "fileView.access",
+    );
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
@@ -2480,7 +2492,10 @@ export const createDraftPullRequestFromDefaultBranch = action({
   },
   returns: defaultBranchDraftPullRequestResult,
   handler: async (ctx, args): Promise<DefaultBranchDraftPullRequestResult> => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermissionForAction(
+      ctx,
+      "fileView.access",
+    );
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
@@ -2690,7 +2705,10 @@ export const pullFromGitHub = action({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermissionForAction(
+      ctx,
+      "fileView.access",
+    );
 
     const vault = await ctx.runQuery(internal.vault.getById, {
       id: args.vaultId,
@@ -3014,7 +3032,10 @@ export const batchReadFiles = action({
   },
   returns: v.array(v.object({ path: v.string(), content: v.string() })),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermissionForAction(
+      ctx,
+      "fileView.access",
+    );
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
     const vault = await ctx.runQuery(internal.vault.getById, {
@@ -3191,7 +3212,10 @@ export const getCommitPreview = action({
   },
   returns: commitPreviewResult,
   handler: async (ctx, args): Promise<CommitPreviewResult> => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermissionForAction(
+      ctx,
+      "fileView.access",
+    );
     const includePatch = args.includePatch ?? true;
 
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
@@ -3260,7 +3284,10 @@ export const getBranchComparePreview = action({
   },
   returns: branchComparePreviewResult,
   handler: async (ctx, args): Promise<BranchComparePreviewResult> => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermissionForAction(
+      ctx,
+      "fileView.access",
+    );
     const includePatch = args.includePatch ?? true;
 
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
@@ -3426,7 +3453,10 @@ export const restoreComparedDeletedFileToStaging = action({
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermissionForAction(
+      ctx,
+      "fileView.access",
+    );
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
@@ -3521,7 +3551,10 @@ export const getRebaseConflictPreview = action({
   },
   returns: rebaseConflictPreviewResult,
   handler: async (ctx, args): Promise<RebaseConflictPreviewResult> => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermissionForAction(
+      ctx,
+      "fileView.access",
+    );
 
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
@@ -3588,7 +3621,10 @@ export const getRebaseConflictBundle = action({
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermissionForAction(
+      ctx,
+      "fileView.access",
+    );
 
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,

@@ -5,9 +5,14 @@ import {
   mutation,
   query,
   type MutationCtx,
+  type QueryCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
+import {
+  hasCurrentUserAnyPermission,
+  requireCurrentUserPermission,
+} from "./permissions";
 import type { GithubTreeType } from "./schema";
 import {
   hasStagedFileChanges,
@@ -245,6 +250,23 @@ export function canAccessVaultStaging(args: {
   return args.vaultOwnerId === args.requesterUserId;
 }
 
+async function requireFileViewVaultAccess(
+  ctx: QueryCtx | MutationCtx,
+  vaultId: Infer<typeof vaultIdValidator>,
+) {
+  const userId = await requireCurrentUserPermission(ctx, "fileView.access");
+  const vault = await ctx.db.get(vaultId);
+  if (
+    !canAccessVaultStaging({
+      vaultOwnerId: vault?.userId,
+      requesterUserId: userId,
+    })
+  ) {
+    throw new Error("Unauthorized");
+  }
+  return userId;
+}
+
 export function selectRepositoryTreeForBranch(args: {
   requestedBranch: string;
   defaultBranch?: string;
@@ -459,16 +481,7 @@ export const generateUploadUrl = mutation({
   },
   returns: uploadUrlResultValidator,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
-    const vault = await ctx.db.get(args.vaultId);
-    if (
-      !canAccessVaultStaging({
-        vaultOwnerId: vault?.userId,
-        requesterUserId: userId,
-      })
-    ) {
-      throw new Error("Unauthorized");
-    }
+    await requireFileViewVaultAccess(ctx, args.vaultId);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -480,16 +493,7 @@ export const deletePendingUploadBlob = mutation({
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
-    const vault = await ctx.db.get(args.vaultId);
-    if (
-      !canAccessVaultStaging({
-        vaultOwnerId: vault?.userId,
-        requesterUserId: userId,
-      })
-    ) {
-      throw new Error("Unauthorized");
-    }
+    await requireFileViewVaultAccess(ctx, args.vaultId);
 
     const stagedFiles = await ctx.db
       .query("fileStaging")
@@ -520,6 +524,12 @@ export const getByNewPath = query({
   args: getByNewPathArgsValidator,
   returns: stagedFileOrNullValidator,
   handler: async (ctx, args) => {
+    try {
+      await requireFileViewVaultAccess(ctx, args.vaultId);
+    } catch {
+      return null;
+    }
+
     const staging = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault_and_branch_and_path", (q) =>
@@ -555,6 +565,12 @@ export const listStagedFiles = query({
   args: listStagedFilesArgsValidator,
   returns: stagedFileListValidator,
   handler: async (ctx, args) => {
+    try {
+      await requireFileViewVaultAccess(ctx, args.vaultId);
+    } catch {
+      return [];
+    }
+
     const files = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault_and_branch", (q) =>
@@ -573,6 +589,14 @@ export const listStagedFilesBranchSummaries = query({
   returns: stagedFilesBranchSummaryListValidator,
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
+    if (
+      !(await hasCurrentUserAnyPermission(ctx, [
+        "dashboard.monitoring.view",
+        "fileView.access",
+      ]))
+    ) {
+      return [];
+    }
     const vault = await ctx.db.get(args.vaultId);
     if (
       !canAccessVaultStaging({
@@ -923,7 +947,10 @@ export const clearAllStaging = mutation({
     skipTreeUpdate: optional(boolean()),
   },
   returns: nullResultValidator,
-  handler: clearAllStagingImpl,
+  handler: async (ctx, args) => {
+    await requireFileViewVaultAccess(ctx, args.vaultId);
+    return await clearAllStagingImpl(ctx, args);
+  },
 });
 
 // Delete collaborative updates in batches to stay under the 4096 read limit.
@@ -1043,7 +1070,7 @@ export const markFileForDeletion = mutation({
   args: deletionArgsValidator,
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = await requireFileViewVaultAccess(ctx, args.vaultId);
 
     const existingStaging = await ctx.db
       .query("fileStaging")
@@ -1102,7 +1129,7 @@ export const createFileInStaging = mutation({
   args: createFileArgsValidator,
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = await requireFileViewVaultAccess(ctx, args.vaultId);
 
     const vault = await ctx.runQuery(internal.vault.getById, {
       id: args.vaultId,
@@ -1180,7 +1207,7 @@ export const revertDeletedFileInStaging = mutation({
   args: revertDeletedFileArgsValidator,
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermission(ctx, "fileView.access");
 
     const existingStaging = await ctx.db
       .query("fileStaging")
@@ -1224,7 +1251,7 @@ export const updateStagedFileContent = mutation({
   args: updateStagedFileContentArgsValidator,
   returns: stagedFileValidator,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermission(ctx, "fileView.access");
     const existingStaging = await ctx.db.get(args.stagingId);
 
     if (!existingStaging) {

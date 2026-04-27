@@ -105,6 +105,7 @@ import { WorkspaceLayoutV2FullPage } from "./workspace-layout-v2/WorkspaceLayout
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { CHAT_ENABLED } from "@/lib/featureFlags";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+import { hasUserPermission } from "../../shared/userPermissions";
 
 const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   leftDesktopOpen: false,
@@ -817,6 +818,7 @@ function VaultBranchSection({
 
 type VaultDashboardBodyProps = {
   branchToDelete: VaultBranchDeleteIntent | null;
+  canViewDeveloperTools: boolean;
   isDeletingBranch: boolean;
   now: number;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
@@ -839,6 +841,7 @@ type VaultDashboardBodyProps = {
 
 function VaultDashboardBody({
   branchToDelete,
+  canViewDeveloperTools,
   isDeletingBranch,
   now,
   openDeveloperToolsByVaultId,
@@ -1044,7 +1047,7 @@ function VaultDashboardBody({
               ) : undefined
             }
             developerToolsSection={
-              isReady
+              canViewDeveloperTools && isReady
                 ? {
                     open: developerToolsOpen,
                     onOpenChange: (isOpen: boolean) => {
@@ -1133,7 +1136,23 @@ function VaultDashboardBody({
 
 export function VaultDashboard() {
   const location = useLocation();
-  const vaults = useQuery(api.vault.getUserVaults);
+  const currentUserAccess = useConvexQuery(api.permissions.currentUserAccess);
+  const canViewDashboardMonitoring = hasUserPermission(
+    currentUserAccess?.permissions,
+    "dashboard.monitoring.view",
+  );
+  const canViewDeveloperTools = hasUserPermission(
+    currentUserAccess?.permissions,
+    "developerTools.view",
+  );
+  const canAccessMachines = hasUserPermission(
+    currentUserAccess?.permissions,
+    "machines.access",
+  );
+  const vaults = useQuery(
+    api.vault.getUserVaults,
+    canViewDashboardMonitoring ? {} : "skip",
+  );
   const now = useNow();
   const deleteVault = useAction(api.vaultActions.deleteVault);
   const createRepository = useAction(api.vaultActions.createRepository);
@@ -1172,6 +1191,7 @@ export function VaultDashboard() {
   );
   const userVaultBranchFilters = useConvexQuery(
     api.vault.getUserVaultBranchFilters,
+    canViewDashboardMonitoring ? {} : "skip",
   );
   const user = useConvexQuery(api.users.viewer);
   const authProviders = useConvexQuery(api.users.getViewerAuthProviders);
@@ -2211,9 +2231,15 @@ export function VaultDashboard() {
     });
   }, [userVaultBranchFilters]);
 
-  if (!vaults) {
+  if (
+    currentUserAccess === undefined ||
+    (canViewDashboardMonitoring && !vaults)
+  ) {
     return null;
   }
+  const dashboardVaults: VaultDashboardVault[] = canViewDashboardMonitoring
+    ? (vaults ?? [])
+    : [];
 
   const persistedVaultBranchFiltersByVaultId = new Map<
     string,
@@ -2328,13 +2354,17 @@ export function VaultDashboard() {
       />
       {createControl}
       <div className="mt-auto">
-        <AppSidebarMetaSection showMachineLinks side="right" />
+        <AppSidebarMetaSection
+          showMachineLinks={canAccessMachines}
+          side="right"
+        />
       </div>
     </div>
   );
-  const dashboardBody = (
+  const dashboardBody = canViewDashboardMonitoring ? (
     <VaultDashboardBody
       branchToDelete={branchToDelete}
+      canViewDeveloperTools={canViewDeveloperTools}
       isDeletingBranch={isDeletingBranch}
       now={now}
       openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
@@ -2343,7 +2373,7 @@ export function VaultDashboard() {
         persistedVaultBranchFiltersByVaultId
       }
       retryingVaultId={retryingVaultId}
-      vaults={vaults}
+      vaults={dashboardVaults}
       onDeleteBranch={handleVaultBranchDeleteIntent}
       onDeleteVault={handleVaultDeleteIntent}
       onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
@@ -2351,7 +2381,7 @@ export function VaultDashboard() {
       onRetryInfrastructure={handleVaultRetryInfrastructure}
       onSaveVaultBranchFilters={handleVaultBranchFiltersChange}
     />
-  );
+  ) : null;
 
   return (
     <>

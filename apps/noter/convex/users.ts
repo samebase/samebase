@@ -23,15 +23,10 @@ import {
   CLOUDFLARE_TOKEN_REFRESH_RETRY_MAX_MS,
   CLOUDFLARE_TOKEN_REFRESH_UNKNOWN_EXPIRY_RECHECK_MS,
 } from "../shared/cloudflareTokenRefresh";
+import { hasAppAccess, isAdminUser } from "./permissionsModel";
 
 const { array, boolean, literal, number, object, optional, string, union } = v;
 
-const ADMIN_USERNAMES = ["nicu-chiciuc"];
-const ADMIN_EMAILS = new Set([
-  "nicu.dev@gmail.com",
-  "nicuchiciuc@gmail.com",
-  "nicu@noter.md",
-]);
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 const GITHUB_API_BASE = "https://api.github.com";
 const CONVEX_TOKEN_DETAILS_URL = "https://api.convex.dev/v1/token_details";
@@ -157,33 +152,7 @@ async function fetchWithTimeout(
   }
 }
 
-export function isAdminUser(
-  githubUsername: string | null | undefined,
-  email?: string | null,
-): boolean {
-  if (githubUsername && ADMIN_USERNAMES.includes(githubUsername)) {
-    return true;
-  }
-  if (!email) {
-    return false;
-  }
-  return ADMIN_EMAILS.has(email.toLowerCase());
-}
-
-/**
- * Keep invite approval in persisted user data so operators can flip one
- * `users.isApproved` field instead of editing a code-side email allowlist.
- */
-export function hasAppAccess(args: {
-  githubUsername: string | null | undefined;
-  email?: string | null;
-  isApproved?: boolean | null | undefined;
-}): boolean {
-  if (args.isApproved === true) {
-    return true;
-  }
-  return isAdminUser(args.githubUsername, args.email);
-}
+export { hasAppAccess, isAdminUser } from "./permissionsModel";
 
 function normalizeApiToken(token: string): string {
   const normalized = token.trim();

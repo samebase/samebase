@@ -1,14 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { lazy } from "react";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
-import { MachineConnectPage } from "@/components/MachineConnectPage";
 import { validateMachineConnectRouteSearch } from "@/lib/authenticatedRouteSearch";
 
+const MachineConnectPage = lazy(async () => {
+  const module = await import("@/components/MachineConnectPage");
+  return { default: module.MachineConnectPage };
+});
+
 /**
- * Preserve the authenticated route shell while this page stays route-owned.
+ * Keep the machine approval page lazy so unauthorized users stop at the route gate.
  */
 function MachineConnectRouteComponent() {
   return (
-    <AuthenticatedAppRoutePage>
+    <AuthenticatedAppRoutePage requiredPermission="machines.access">
       <MachineConnectPage />
     </AuthenticatedAppRoutePage>
   );

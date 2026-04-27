@@ -1,14 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { lazy } from "react";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
-import { MachinesWorkspacePage } from "@/components/MachinesWorkspacePage";
 import { validateMachinesRouteSearch } from "@/lib/authenticatedRouteSearch";
 
+const MachinesWorkspacePage = lazy(async () => {
+  const module = await import("@/components/MachinesWorkspacePage");
+  return { default: module.MachinesWorkspacePage };
+});
+
 /**
- * Preserve the authenticated route shell while this page stays route-owned.
+ * Keep the machine workspace lazy so unauthorized users stop at the route gate.
  */
 function MachinesRouteComponent() {
   return (
-    <AuthenticatedAppRoutePage>
+    <AuthenticatedAppRoutePage requiredPermission="machines.access">
       <MachinesWorkspacePage />
     </AuthenticatedAppRoutePage>
   );

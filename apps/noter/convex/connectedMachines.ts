@@ -23,7 +23,10 @@ import {
   type ValidateMachineCredentialResult,
   validateMachineCredentialResultValidator,
 } from "./connectedMachineModel";
-import { getUserId } from "./common";
+import {
+  hasCurrentUserPermission,
+  requireCurrentUserPermission,
+} from "./permissions";
 
 const { array, null: vNull, object, string } = v;
 type ConnectedMachineStoredRow = Doc<"connectedMachines">;
@@ -122,6 +125,9 @@ export const listConnectedMachines = query({
     if (!userId) {
       return [];
     }
+    if (!(await hasCurrentUserPermission(ctx, "machines.access"))) {
+      return [];
+    }
 
     const rows = await ctx.db
       .query("connectedMachines")
@@ -148,6 +154,11 @@ export const getMachineRegistrationRequestForBrowser = query({
     if (!userId) {
       return {
         kind: "sign_in_required",
+      };
+    }
+    if (!(await hasCurrentUserPermission(ctx, "machines.access"))) {
+      return {
+        kind: "not_found",
       };
     }
 
@@ -178,7 +189,7 @@ export const approveMachineRegistrationRequest = mutation({
   args: approveMachineRegistrationRequestArgs,
   returns: approveMachineRegistrationRequestReturns,
   handler: async (ctx, args: ApproveMachineRegistrationRequestArgs) => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermission(ctx, "machines.access");
     const now = Date.now();
     const request = await ctx.db
       .query("machineRegistrationRequests")

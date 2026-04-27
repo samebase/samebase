@@ -18,6 +18,7 @@ import {
   machineRegistrationRequestRowValidator,
 } from "./connectedMachineModel";
 import { workspaceSidebarStateRowValidator } from "./workspaceSidebarStateModel";
+import { userPermissionListValidator } from "./permissionsModel";
 
 const { array, boolean, id, literal, number, object, optional, string, union } =
   v;
@@ -303,6 +304,7 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
     isApproved: v.optional(v.boolean()),
+    permissionGrants: v.optional(userPermissionListValidator),
 
     // Billing (Polar-backed for now).
     billingProvider: BillingProvider,

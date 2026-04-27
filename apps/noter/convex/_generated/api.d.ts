@@ -79,6 +79,8 @@ import type * as mcp_tools from "../mcp/tools.js";
 import type * as mcpTokenHealth from "../mcpTokenHealth.js";
 import type * as oauthState from "../oauthState.js";
 import type * as oauthUtils from "../oauthUtils.js";
+import type * as permissions from "../permissions.js";
+import type * as permissionsModel from "../permissionsModel.js";
 import type * as polarWebhooks from "../polarWebhooks.js";
 import type * as providerConnections from "../providerConnections.js";
 import type * as repoName from "../repoName.js";
@@ -180,6 +182,8 @@ declare const fullApi: ApiFromModules<{
   mcpTokenHealth: typeof mcpTokenHealth;
   oauthState: typeof oauthState;
   oauthUtils: typeof oauthUtils;
+  permissions: typeof permissions;
+  permissionsModel: typeof permissionsModel;
   polarWebhooks: typeof polarWebhooks;
   providerConnections: typeof providerConnections;
   repoName: typeof repoName;

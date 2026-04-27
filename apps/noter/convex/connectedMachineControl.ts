@@ -1,5 +1,5 @@
 import { internalMutation, mutation } from "./_generated/server";
-import { getUserId } from "./common";
+import { requireCurrentUserPermission } from "./permissions";
 import {
   introspectMachineControlTokenArgsValidator,
   issueMachineControlTokenArgsValidator,
@@ -20,7 +20,7 @@ export const issueMachineControlToken = mutation({
   args: issueMachineControlTokenArgsValidator,
   returns: issueMachineControlTokenReturns,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermission(ctx, "machines.access");
     const machine = await ctx.db
       .query("connectedMachines")
       .withIndex("by_user_machine_id", (q) =>

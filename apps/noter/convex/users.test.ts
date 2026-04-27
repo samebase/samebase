@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { hasAppAccess, isAdminUser } from "./users";
+import {
+  hasAppAccess,
+  isAdminUser,
+  resolveUserPermissions,
+} from "./permissionsModel";
 
 describe("isAdminUser", () => {
   it("matches admin emails case-insensitively", () => {
@@ -39,5 +43,46 @@ describe("hasAppAccess", () => {
         email: "noter.guest@gmail.com",
       }),
     ).toBe(false);
+  });
+});
+
+describe("resolveUserPermissions", () => {
+  it("grants every permission to admins", () => {
+    expect(
+      resolveUserPermissions({
+        email: "nicu@noter.md",
+        githubUsername: undefined,
+      }),
+    ).toEqual([
+      "dashboard.monitoring.view",
+      "fileView.access",
+      "developerTools.view",
+      "machines.access",
+    ]);
+  });
+
+  it("keeps explicit non-admin grants in deterministic order", () => {
+    expect(
+      resolveUserPermissions({
+        email: "noter.guest@gmail.com",
+        githubUsername: undefined,
+        isApproved: true,
+        permissionGrants: [
+          "machines.access",
+          "dashboard.monitoring.view",
+          "machines.access",
+        ],
+      }),
+    ).toEqual(["dashboard.monitoring.view", "machines.access"]);
+  });
+
+  it("does not activate explicit grants for unapproved non-admin users", () => {
+    expect(
+      resolveUserPermissions({
+        email: "noter.guest@gmail.com",
+        githubUsername: undefined,
+        permissionGrants: ["fileView.access"],
+      }),
+    ).toEqual([]);
   });
 });

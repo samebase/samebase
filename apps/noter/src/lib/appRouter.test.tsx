@@ -75,8 +75,19 @@ vi.mock("@/components/PrivacyPolicyPage", () => ({
 }));
 
 vi.mock("@/components/AuthenticatedAppRoutePage", () => ({
-  AuthenticatedAppRoutePage: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
+  AuthenticatedAppRoutePage: ({
+    children,
+    requiredPermission,
+  }: {
+    children: React.ReactNode;
+    requiredPermission?: string;
+  }) => (
+    <div
+      data-required-permission={requiredPermission ?? ""}
+      data-testid="authenticated-app-route-page"
+    >
+      {children}
+    </div>
   ),
 }));
 
@@ -446,6 +457,11 @@ describe("appRouter", () => {
     await renderRoute("/machines?machineId=machine-123");
 
     expect(
+      rootElement
+        ?.querySelector('[data-testid="authenticated-app-route-page"]')
+        ?.getAttribute("data-required-permission"),
+    ).toBe("machines.access");
+    expect(
       rootElement?.querySelector('[data-testid="machines-page"]')?.textContent,
     ).toBe("Machines page");
     expect(
@@ -456,6 +472,11 @@ describe("appRouter", () => {
   it("renders machine connect through an explicit TanStack route instead of the App fallback", async () => {
     await renderRoute("/machines/connect?requestId=req_123");
 
+    expect(
+      rootElement
+        ?.querySelector('[data-testid="authenticated-app-route-page"]')
+        ?.getAttribute("data-required-permission"),
+    ).toBe("machines.access");
     expect(
       rootElement?.querySelector('[data-testid="machine-connect-page"]')
         ?.textContent,
@@ -509,6 +530,11 @@ describe("appRouter", () => {
   it("renders the generic vault route through an explicit TanStack route instead of the App fallback", async () => {
     await renderRoute("/vault/noter-md/noter/main/README.md");
 
+    expect(
+      rootElement
+        ?.querySelector('[data-testid="authenticated-app-route-page"]')
+        ?.getAttribute("data-required-permission"),
+    ).toBe("fileView.access");
     expect(
       rootElement?.querySelector('[data-testid="file-view-page"]')?.textContent,
     ).toBe("File view page");

@@ -20,6 +20,11 @@ import {
 } from "./stagingChanges";
 import { Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
+import {
+  hasCurrentUserAnyPermission,
+  hasCurrentUserPermission,
+  requireCurrentUserPermission,
+} from "./permissions";
 import { enqueueSnapshotBuild } from "./daytona/snapshotRecords";
 import { DAYTONA_COMMIT_PINNED_BRANCH } from "./daytona/snapshotPolicy";
 import {
@@ -310,6 +315,9 @@ export const getUserVaultBranchFilters = query({
   returns: array(vaultBranchFiltersValidator),
   handler: async (ctx) => {
     const userId = await getUserId(ctx);
+    if (!(await hasCurrentUserPermission(ctx, "dashboard.monitoring.view"))) {
+      return [];
+    }
     return (
       await ctx.db
         .query("vaultBranchFilters")
@@ -329,7 +337,10 @@ export const setVaultBranchFilters = mutation({
   args: vaultBranchFiltersValidator,
   returns: nullValidator,
   handler: async (ctx, args: VaultBranchFilters) => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermission(
+      ctx,
+      "dashboard.monitoring.view",
+    );
     const vault = await ctx.db.get(args.vaultId);
     if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
@@ -383,7 +394,7 @@ export const getVaultByRepository = query({
     branch: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermission(ctx, "fileView.access");
 
     return await getVaultByRepositoryHelper(ctx, {
       userId,
@@ -859,12 +870,43 @@ const getUserVaultsResult = array(
 
 type UserVaultResult = Infer<typeof getUserVaultsResult>[number];
 
+export const getUserConnectedRepositoryFullNames = query({
+  args: {},
+  returns: array(string()),
+  handler: async (ctx): Promise<string[]> => {
+    const userId = await getUserId(ctx);
+    const vaults = await ctx.db
+      .query("vaults")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect();
+
+    const repositoryRows = vaults.map((vault) => ({
+      id: vault._id,
+      repositoryFullName: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+    }));
+
+    return repositoryRows
+      .sort((left, right) => {
+        const byRepositoryFullName = left.repositoryFullName.localeCompare(
+          right.repositoryFullName,
+        );
+        return byRepositoryFullName === 0
+          ? left.id.localeCompare(right.id)
+          : byRepositoryFullName;
+      })
+      .map((repositoryRow) => repositoryRow.repositoryFullName);
+  },
+});
+
 // Get user's vaults with optional file staging stats
 export const getUserVaults = query({
   args: {},
   returns: getUserVaultsResult,
   handler: async (ctx, _args) => {
     const userId = await getUserId(ctx);
+    if (!(await hasCurrentUserPermission(ctx, "dashboard.monitoring.view"))) {
+      return [];
+    }
 
     // Get user's vaults
     const vaults = await ctx.db
@@ -1041,6 +1083,14 @@ export const getVaultRemoteBranches = query({
     const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
     if (!vault || vault.userId !== userId) {
+      return [];
+    }
+    if (
+      !(await hasCurrentUserAnyPermission(ctx, [
+        "dashboard.monitoring.view",
+        "fileView.access",
+      ]))
+    ) {
       return [];
     }
 
@@ -1652,7 +1702,10 @@ export const getVaultInfrastructure = query({
     v.null(),
   ),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = await requireCurrentUserPermission(
+      ctx,
+      "developerTools.view",
+    );
     const vault = await ctx.db.get(args.vaultId);
     if (!vault || vault.userId !== userId) {
       return null;

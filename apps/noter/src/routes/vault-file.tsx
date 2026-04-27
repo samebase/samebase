@@ -14,7 +14,7 @@ const FileView = lazy(async () => {
  */
 function FileViewRouteComponent() {
   return (
-    <AuthenticatedAppRoutePage>
+    <AuthenticatedAppRoutePage requiredPermission="fileView.access">
       <FileView />
     </AuthenticatedAppRoutePage>
   );
