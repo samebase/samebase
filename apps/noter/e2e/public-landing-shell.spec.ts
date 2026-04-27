@@ -45,6 +45,11 @@ const NAVIGATION_BUDGET_MS = {
 const COPY_SHORTCUT_KEY =
   process.platform === "darwin" ? "Meta+C" : "Control+C";
 const PRODUCTION_PUBLIC_HOSTNAME = "noter.md";
+const LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS = [
+  "/home",
+  "/terms",
+  "/privacy",
+] as const;
 const strictScreenshotOptions = {
   animations: "disabled",
   caret: "hide",
@@ -120,6 +125,28 @@ type LandingReloadFrame = {
   } | null;
 };
 
+type LandingFontStableSidebarLinkLabel =
+  (typeof LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS)[number];
+
+type LandingFontStableRect = {
+  height: number;
+  left: number;
+  top: number;
+  width: number;
+};
+
+type LandingFontStableFrame = {
+  copy: LandingFontStableRect | null;
+  sidebarLinks: Partial<
+    Record<LandingFontStableSidebarLinkLabel, LandingFontStableRect>
+  >;
+};
+
+type LandingFontStableCapture = {
+  frames: LandingFontStableFrame[];
+  webfontRequestCount: number;
+};
+
 type RgbaPixel = {
   alpha: number;
   blue: number;
@@ -129,6 +156,7 @@ type RgbaPixel = {
 
 declare global {
   interface Window {
+    __landingFontStableFrames?: LandingFontStableFrame[];
     __landingReloadFrames?: LandingReloadFrame[];
   }
 }
@@ -396,6 +424,89 @@ async function captureLandingReloadFrames(
   });
 }
 
+async function captureLandingFontStableFrames(
+  page: Parameters<typeof test>[0]["page"],
+): Promise<LandingFontStableCapture> {
+  let webfontRequestCount = 0;
+
+  await page.route("**/*.woff2", async (route) => {
+    webfontRequestCount += 1;
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 1_500);
+    });
+    await route.continue();
+  });
+
+  await page.addInitScript(
+    ({ statusBarTestId }) => {
+      Math.random = () => 0.57;
+
+      const linkLabels = [
+        "/home",
+        "/terms",
+        "/privacy",
+      ] as const satisfies readonly LandingFontStableSidebarLinkLabel[];
+      const sampleCount = 180;
+      const frameStore: LandingFontStableFrame[] = [];
+      window.__landingFontStableFrames = frameStore;
+
+      const readRect = (node: Element | null): LandingFontStableRect | null => {
+        if (!(node instanceof HTMLElement)) {
+          return null;
+        }
+
+        const rect = node.getBoundingClientRect();
+        return {
+          height: Number(rect.height.toFixed(3)),
+          left: Number(rect.left.toFixed(3)),
+          top: Number(rect.top.toFixed(3)),
+          width: Number(rect.width.toFixed(3)),
+        };
+      };
+
+      const capture = () => {
+        const sidebar = document.querySelector(
+          `[data-testid="${statusBarTestId}"]`,
+        );
+        const sidebarAnchors = Array.from(sidebar?.querySelectorAll("a") ?? []);
+        const sidebarLinks: Partial<
+          Record<LandingFontStableSidebarLinkLabel, LandingFontStableRect>
+        > = {};
+
+        for (const label of linkLabels) {
+          const anchor = sidebarAnchors.find(
+            (candidate) => candidate.textContent?.trim() === label,
+          );
+          sidebarLinks[label] = readRect(anchor ?? null) ?? undefined;
+        }
+
+        frameStore.push({
+          copy: readRect(
+            document.querySelector('[data-testid="public-landing-copy"]'),
+          ),
+          sidebarLinks,
+        });
+
+        if (frameStore.length < sampleCount) {
+          requestAnimationFrame(capture);
+        }
+      };
+
+      requestAnimationFrame(capture);
+    },
+    { statusBarTestId: APP_BUILD_STATUS_BAR_TEST_ID },
+  );
+
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(1_000);
+
+  return {
+    frames: await page.evaluate(() => window.__landingFontStableFrames ?? []),
+    webfontRequestCount,
+  };
+}
+
 function expectStableLandingReloadFrames(frames: LandingReloadFrame[]) {
   const visibleFrames = frames.flatMap((frame) => {
     if (frame.content === null || frame.copy === null) {
@@ -419,6 +530,55 @@ function expectStableLandingReloadFrames(frames: LandingReloadFrame[]) {
   expect(
     Math.max(...copyHeightValues) - Math.min(...copyHeightValues),
   ).toBeLessThanOrEqual(1);
+}
+
+function expectStableLandingFontFrames(frames: LandingFontStableFrame[]) {
+  const visibleFrames = frames.flatMap((frame) => {
+    if (frame.copy === null) {
+      return [];
+    }
+
+    const hasAllSidebarLinks = LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS.every(
+      (label) => frame.sidebarLinks[label] !== undefined,
+    );
+    return hasAllSidebarLinks ? [frame] : [];
+  });
+
+  expect(visibleFrames.length).toBeGreaterThanOrEqual(10);
+
+  const copyHeightValues = visibleFrames.map((frame) => frame.copy!.height);
+  const copyLeftValues = visibleFrames.map((frame) => frame.copy!.left);
+  const copyTopValues = visibleFrames.map((frame) => frame.copy!.top);
+  expect(
+    Math.max(...copyHeightValues) - Math.min(...copyHeightValues),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.max(...copyLeftValues) - Math.min(...copyLeftValues),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.max(...copyTopValues) - Math.min(...copyTopValues),
+  ).toBeLessThanOrEqual(1);
+
+  for (const label of LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS) {
+    const leftValues = visibleFrames.map(
+      (frame) => frame.sidebarLinks[label]!.left,
+    );
+    const topValues = visibleFrames.map(
+      (frame) => frame.sidebarLinks[label]!.top,
+    );
+    const widthValues = visibleFrames.map(
+      (frame) => frame.sidebarLinks[label]!.width,
+    );
+    expect(
+      Math.max(...leftValues) - Math.min(...leftValues),
+    ).toBeLessThanOrEqual(1);
+    expect(Math.max(...topValues) - Math.min(...topValues)).toBeLessThanOrEqual(
+      1,
+    );
+    expect(
+      Math.max(...widthValues) - Math.min(...widthValues),
+    ).toBeLessThanOrEqual(1);
+  }
 }
 
 /**
@@ -881,6 +1041,18 @@ test("public landing stays vertically stable while the page reloads", async ({
   const reloadFrames = await captureLandingReloadFrames(page, "/?prod-ui");
 
   expectStableLandingReloadFrames(reloadFrames);
+});
+
+test("public landing keeps copy and sidebar links stable without webfont requests", async ({
+  page,
+}) => {
+  const capture = await captureLandingFontStableFrames(page);
+
+  // The shipped landing shell should not fetch webfonts; keeping the route hook
+  // here makes future webfont regressions fail before they can reintroduce
+  // late reflow.
+  expect(capture.webfontRequestCount).toBe(0);
+  expectStableLandingFontFrames(capture.frames);
 });
 
 test("local landing keeps the remembered password auth slot stable on reload", async ({
