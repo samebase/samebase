@@ -491,6 +491,7 @@ async function captureDelayedLandingFontFrames(
 
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(1_000);
 
   return await page.evaluate(() => window.__landingFontStableFrames ?? []);
 }
@@ -1013,7 +1014,7 @@ test("public landing stays vertically stable while the page reloads", async ({
   expectStableLandingReloadFrames(reloadFrames);
 });
 
-test("public landing keeps copy and sidebar links stable while Inter loads late", async ({
+test("public landing keeps copy and sidebar links stable while webfonts load late", async ({
   page,
 }) => {
   const frames = await captureDelayedLandingFontFrames(page);
