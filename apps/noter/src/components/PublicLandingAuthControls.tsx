@@ -75,6 +75,8 @@ export function PublicLandingAuthControls() {
   }, [deploymentAuthPolicy?.passwordAuthMode]);
 
   useEffect(() => {
+    // Router search state intentionally drives this effect even though the URL
+    // helpers read window.location.search while deciding whether to strip it.
     if (
       !shouldStripVisibleProdUiQuery({
         deploymentProfile,

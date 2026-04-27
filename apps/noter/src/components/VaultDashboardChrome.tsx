@@ -47,7 +47,7 @@ export function VaultDashboardAccountSection({
   onOpenChange: (isOpen: boolean) => void;
   onSignOut: () => void;
   open: boolean;
-  providerLabel: string;
+  providerLabel: string | null;
   signOutDisabled?: boolean;
 }) {
   return (
@@ -76,9 +76,11 @@ export function VaultDashboardAccountSection({
               </div>
               <div className="min-w-0 text-left">
                 <div className="break-words text-sm font-medium">{email}</div>
-                <div className="break-words text-xs leading-5 text-muted-foreground">
-                  Signed in with {providerLabel}
-                </div>
+                {providerLabel ? (
+                  <div className="break-words text-xs leading-5 text-muted-foreground">
+                    Signed in with {providerLabel}
+                  </div>
+                ) : null}
               </div>
             </div>
             <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">

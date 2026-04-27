@@ -1156,6 +1156,9 @@ export function VaultDashboard() {
   const disconnectGithub = useMutation(api.users.disconnectGithub);
   const disconnectConvex = useMutation(api.users.disconnectConvex);
   const disconnectCloudflare = useMutation(api.users.disconnectCloudflare);
+  const persistAccountPanelOpen = useMutation(
+    api.dashboardSettings.setAccountPanelOpen,
+  );
   const setProvidersPanelOpen = useMutation(
     api.dashboardSettings.setProvidersPanelOpen,
   );
@@ -1176,6 +1179,7 @@ export function VaultDashboard() {
     api.dashboardSettings.getDashboardSettings,
   );
   const { signOut } = useNoterAuthActions();
+  const dashboardAccountPanelOpen = dashboardSettings?.accountPanelOpen;
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
   const setVaultBranchFilters = useMutation(api.vault.setVaultBranchFilters);
@@ -1250,7 +1254,9 @@ export function VaultDashboard() {
   const [providersPanelOpen, setProvidersPanelOpenState] = useState<
     boolean | null
   >(null);
-  const [accountPanelOpen, setAccountPanelOpen] = useState(false);
+  const [accountPanelOpen, setAccountPanelOpenState] = useState<boolean | null>(
+    null,
+  );
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [globalChatOpen, setGlobalChatOpenState] = useState<boolean | null>(
     null,
@@ -1259,12 +1265,28 @@ export function VaultDashboard() {
   const [shouldAutoFocusChatInput, setShouldAutoFocusChatInput] =
     useState(false);
   const globalChatPendingRef = useRef<boolean | null>(null);
+  const accountPanelPendingRef = useRef<boolean | null>(null);
   const providersPanelPendingRef = useRef<boolean | null>(null);
   const cloudflareAutoCheckInFlightRef = useRef(false);
   const initialDashboardPageLoadSentRef = useRef(false);
   const initialCloudflareMcpTokenCheckedAtRef = useRef<
     number | undefined | null
   >(null);
+
+  useEffect(() => {
+    if (dashboardAccountPanelOpen === undefined) {
+      return;
+    }
+    const serverValue = dashboardAccountPanelOpen;
+    if (accountPanelPendingRef.current !== null) {
+      if (accountPanelPendingRef.current === serverValue) {
+        accountPanelPendingRef.current = null;
+      } else {
+        return;
+      }
+    }
+    setAccountPanelOpenState(serverValue);
+  }, [dashboardAccountPanelOpen]);
 
   useEffect(() => {
     if (dashboardProvidersPanelOpen === undefined) {
@@ -1941,10 +1963,12 @@ export function VaultDashboard() {
     },
   };
   const userDisplayName = user?.name ?? user?.email ?? user?.githubUsername;
-  const accountEmail = user?.email ?? "Unknown";
-  const accountProviderLabel = formatAuthProviderLabel(
-    authProviders?.primaryProvider ?? authProviders?.providers[0],
-  );
+  const accountEmail =
+    user?.email ?? user?.githubUsername ?? user?.name ?? null;
+  const accountDisplayName = userDisplayName ?? accountEmail;
+  const accountProviderLabel = authProviders?.primaryProvider
+    ? formatAuthProviderLabel(authProviders.primaryProvider)
+    : null;
   const createPlaceholder = "New App name";
   const createButtonLabel = isCreating ? "Creating app..." : "New App";
   const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
@@ -2006,8 +2030,20 @@ export function VaultDashboard() {
 
   const resolvedProvidersPanelOpen =
     providersPanelOpen ?? dashboardSettings?.providersPanelOpen ?? false;
+  const resolvedAccountPanelOpen =
+    accountPanelOpen ?? dashboardSettings?.accountPanelOpen ?? false;
   const resolvedGlobalChatOpen =
     globalChatOpen ?? dashboardGlobalChatOpen ?? false;
+
+  const handleAccountPanelOpenChange = (isOpen: boolean) => {
+    setAccountPanelOpenState(isOpen);
+    accountPanelPendingRef.current = isOpen;
+    void persistAccountPanelOpen({ isOpen }).catch((error: unknown) => {
+      console.error("Failed to persist account panel state:", error);
+      accountPanelPendingRef.current = null;
+      setAccountPanelOpenState(dashboardSettings?.accountPanelOpen ?? false);
+    });
+  };
 
   const handleProvidersPanelOpenChange = (isOpen: boolean) => {
     setProvidersPanelOpenState(isOpen);
@@ -2272,16 +2308,18 @@ export function VaultDashboard() {
 
   const sidebarContent = (
     <div className="flex min-h-full flex-col">
-      <VaultDashboardAccountSection
-        open={accountPanelOpen}
-        onOpenChange={setAccountPanelOpen}
-        displayName={userDisplayName || "unknown"}
-        email={accountEmail}
-        providerLabel={accountProviderLabel}
-        onSignOut={handleSignOut}
-        isSignOutPending={isSigningOut}
-        signOutDisabled={!user}
-      />
+      {user && accountEmail && accountDisplayName ? (
+        <VaultDashboardAccountSection
+          open={resolvedAccountPanelOpen}
+          onOpenChange={handleAccountPanelOpenChange}
+          displayName={accountDisplayName}
+          email={accountEmail}
+          providerLabel={accountProviderLabel}
+          onSignOut={handleSignOut}
+          isSignOutPending={isSigningOut}
+          signOutDisabled={false}
+        />
+      ) : null}
       <VaultDashboardProvidersSection
         open={resolvedProvidersPanelOpen}
         onOpenChange={handleProvidersPanelOpenChange}

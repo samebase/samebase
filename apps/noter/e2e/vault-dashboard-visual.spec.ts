@@ -1,6 +1,8 @@
 import { devices, expect, test } from "@playwright/test";
 
 test("vault dashboard fixture (create control)", async ({ page }) => {
+  // Keep the shared dashboard shell and right-rail framing aligned with the
+  // visual baselines; changing this viewport changes snapshot cropping.
   await page.setViewportSize({ width: 960, height: 760 });
   await page.goto("/visual-fixture.html?mode=vault-create-control", {
     waitUntil: "domcontentloaded",
@@ -17,6 +19,8 @@ test("vault dashboard fixture (create control)", async ({ page }) => {
 });
 
 test("vault dashboard fixture (sidebar machine links)", async ({ page }) => {
+  // Keep the shared dashboard shell and right-rail framing aligned with the
+  // visual baselines; changing this viewport changes snapshot cropping.
   await page.setViewportSize({ width: 960, height: 760 });
   await page.goto("/visual-fixture.html?mode=vault-sidebar-machine-links", {
     waitUntil: "domcontentloaded",
