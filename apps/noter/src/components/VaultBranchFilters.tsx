@@ -88,6 +88,7 @@ function VaultBranchFiltersPanel({
                 hiddenLabels: [],
                 includeDrafts: false,
                 includeNoLabel: true,
+                branchesExpanded: value.branchesExpanded,
               })
             }
           >

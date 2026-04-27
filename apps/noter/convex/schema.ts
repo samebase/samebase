@@ -368,6 +368,9 @@ export default defineSchema({
     // Keep this optional so rows saved before unlabeled-branch support remain
     // readable until each user re-saves their filters.
     includeNoLabel: optional(boolean()),
+    // Keep this optional so rows saved before branch-list expansion support
+    // remain readable until each user re-saves their filters.
+    branchesExpanded: optional(boolean()),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_vault", ["userId", "vaultId"]),

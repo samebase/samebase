@@ -67,6 +67,20 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   );
 });
 
+test("vault dashboard fixture (list spacing expansion)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 620 });
+  await page.goto("/visual-fixture.html?mode=vault-dashboard-list-spacing", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  await expect(page.getByText("codex/quiet-mobile-frame")).toHaveCount(0);
+  await page.getByRole("button", { name: "Show 2 more" }).click();
+
+  await expect(page.getByText("codex/quiet-mobile-frame")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show less" })).toBeVisible();
+});
+
 test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 560 });
   await page.goto("/visual-fixture.html?mode=vault-branch-filters", {

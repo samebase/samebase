@@ -71,6 +71,7 @@ const vaultBranchFiltersValidator = object({
   hiddenLabels: array(string()),
   includeDrafts: boolean(),
   includeNoLabel: optional(boolean()),
+  branchesExpanded: optional(boolean()),
 });
 type VaultBranchFilters = Infer<typeof vaultBranchFiltersValidator>;
 
@@ -319,6 +320,7 @@ export const getUserVaultBranchFilters = query({
       hiddenLabels: vaultBranchFilter.hiddenLabels,
       includeDrafts: vaultBranchFilter.includeDrafts,
       includeNoLabel: vaultBranchFilter.includeNoLabel !== false,
+      branchesExpanded: vaultBranchFilter.branchesExpanded === true,
     }));
   },
 });
@@ -342,7 +344,8 @@ export const setVaultBranchFilters = mutation({
     const shouldPersist =
       args.hiddenLabels.length > 0 ||
       args.includeDrafts === true ||
-      args.includeNoLabel === false;
+      args.includeNoLabel === false ||
+      args.branchesExpanded === true;
 
     if (!shouldPersist) {
       if (existing) {
@@ -356,6 +359,7 @@ export const setVaultBranchFilters = mutation({
         hiddenLabels: args.hiddenLabels,
         includeDrafts: args.includeDrafts,
         includeNoLabel: args.includeNoLabel !== false,
+        branchesExpanded: args.branchesExpanded === true,
       });
     } else {
       await ctx.db.insert("vaultBranchFilters", {
@@ -364,6 +368,7 @@ export const setVaultBranchFilters = mutation({
         hiddenLabels: args.hiddenLabels,
         includeDrafts: args.includeDrafts,
         includeNoLabel: args.includeNoLabel !== false,
+        branchesExpanded: args.branchesExpanded === true,
       });
     }
 

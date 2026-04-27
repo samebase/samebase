@@ -4,7 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/input";
 import { VaultLastUpdatedStatus } from "@/components/VaultLastUpdatedStatus";
-import { GitHubLogoIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
+import {
+  ChevronDownIcon,
+  GitHubLogoIcon,
+  TrashIcon,
+  UpdateIcon,
+} from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { linkStyle } from "./styles";
@@ -45,6 +50,7 @@ import {
   useState,
   type ComponentType,
   type MutableRefObject,
+  type ReactNode,
 } from "react";
 import { isInIframe } from "@/authClient";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
@@ -110,6 +116,7 @@ const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
 } satisfies WorkspaceSidebarState;
+const COLLAPSED_BRANCH_LIMIT = 3;
 
 const formatInfraState = (
   infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
@@ -598,6 +605,7 @@ interface VaultBranchListProps {
   remoteBranches: VaultRemoteBranchListItem[];
   activeDeletingBranchName: string | null;
   onDeleteBranch: (branchName: string) => void;
+  footer?: ReactNode;
 }
 
 interface VaultBranchListRowProps {
@@ -659,6 +667,7 @@ function VaultBranchList({
   remoteBranches,
   activeDeletingBranchName,
   onDeleteBranch,
+  footer,
 }: VaultBranchListProps) {
   const stagedSummaries =
     useQuery(api.fileStaging.listStagedFilesBranchSummaries, {
@@ -683,6 +692,7 @@ function VaultBranchList({
           onDeleteBranch={onDeleteBranch}
         />
       ))}
+      {footer}
     </div>
   );
 }
@@ -708,6 +718,15 @@ function VaultBranchSection({
     remoteBranches,
     filters,
   );
+  const hasBranchListOverflow =
+    filteredRemoteBranches.length > COLLAPSED_BRANCH_LIMIT;
+  const branchesExpanded = filters.branchesExpanded;
+  const visibleRemoteBranches =
+    hasBranchListOverflow && !branchesExpanded
+      ? filteredRemoteBranches.slice(0, COLLAPSED_BRANCH_LIMIT)
+      : filteredRemoteBranches;
+  const collapsedBranchCount =
+    filteredRemoteBranches.length - COLLAPSED_BRANCH_LIMIT;
   const hiddenBranchCount =
     remoteBranches.length - filteredRemoteBranches.length;
   const filterOptions = buildVaultBranchFilterOptions({
@@ -739,9 +758,40 @@ function VaultBranchSection({
         <VaultBranchList
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
-          remoteBranches={filteredRemoteBranches}
+          remoteBranches={visibleRemoteBranches}
           activeDeletingBranchName={activeDeletingBranchName}
           onDeleteBranch={onDeleteBranch}
+          footer={
+            hasBranchListOverflow ? (
+              <div className="px-3 py-1.5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-full gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  aria-expanded={branchesExpanded}
+                  onClick={() => {
+                    onChangeFilters({
+                      ...filters,
+                      branchesExpanded: !branchesExpanded,
+                    });
+                  }}
+                >
+                  <span>
+                    {branchesExpanded
+                      ? "Show less"
+                      : `Show ${collapsedBranchCount} more`}
+                  </span>
+                  <ChevronDownIcon
+                    className={clsx(
+                      "h-3.5 w-3.5 transition-transform",
+                      branchesExpanded && "rotate-180",
+                    )}
+                  />
+                </Button>
+              </div>
+            ) : undefined
+          }
         />
       ) : null}
     </div>
@@ -2114,6 +2164,7 @@ export function VaultDashboard() {
         hiddenLabels: normalizedVaultBranchFilters.hiddenLabels,
         includeDrafts: normalizedVaultBranchFilters.includeDrafts,
         includeNoLabel: normalizedVaultBranchFilters.includeNoLabel,
+        branchesExpanded: normalizedVaultBranchFilters.branchesExpanded,
       });
     } catch (error: unknown) {
       setPendingVaultBranchFiltersByVaultId((previous) => {

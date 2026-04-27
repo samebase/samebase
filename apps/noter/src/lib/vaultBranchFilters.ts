@@ -7,6 +7,7 @@ export type VaultBranchFilters = {
   hiddenLabels: string[];
   includeDrafts: boolean;
   includeNoLabel: boolean;
+  branchesExpanded: boolean;
 };
 
 export type VaultBranchFilterable = {
@@ -40,6 +41,7 @@ export function getDefaultVaultBranchFilters(): VaultBranchFilters {
     hiddenLabels: [],
     includeDrafts: false,
     includeNoLabel: true,
+    branchesExpanded: false,
   };
 }
 
@@ -71,6 +73,7 @@ export function normalizeVaultBranchFilters(
     ),
     includeDrafts: filters.includeDrafts === true,
     includeNoLabel: filters.includeNoLabel !== false,
+    branchesExpanded: filters.branchesExpanded === true,
   };
 }
 
@@ -84,6 +87,7 @@ export function areVaultBranchFiltersEqual(
   return (
     normalizedA.includeNoLabel === normalizedB.includeNoLabel &&
     normalizedA.includeDrafts === normalizedB.includeDrafts &&
+    normalizedA.branchesExpanded === normalizedB.branchesExpanded &&
     normalizedA.hiddenLabels.length === normalizedB.hiddenLabels.length &&
     normalizedA.hiddenLabels.every(
       (labelName, index) => labelName === normalizedB.hiddenLabels[index],
