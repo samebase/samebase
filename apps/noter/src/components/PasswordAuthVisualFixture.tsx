@@ -1,4 +1,4 @@
-import { PasswordAuthForm } from "@/SignInForm";
+import { PasswordAuthForm } from "@/components/PublicLandingAuthControls";
 
 export function PasswordAuthVisualFixture() {
   return (

@@ -1,8 +1,9 @@
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControls";
 import { RouteUrlDisplay } from "@/components/RouteUrlDisplay";
+import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { useLocation } from "@tanstack/react-router";
-import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 
 export const PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID =
   "public-layout-sidebar-route-url-header";
@@ -16,6 +17,7 @@ export function usePublicRightSidebarPane(): WorkspaceLayoutV2PaneFrameProps {
   const landingDevEnabled = isLandingDevModeEnabled(
     new URLSearchParams(location.searchStr),
   );
+  const isPublicLandingRoute = location.pathname === "/";
 
   return {
     header: landingDevEnabled ? (
@@ -24,6 +26,17 @@ export function usePublicRightSidebarPane(): WorkspaceLayoutV2PaneFrameProps {
       </div>
     ) : undefined,
     headerTestId: PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID,
-    footer: <AppSidebarMetaSection side="right" />,
+    content: (
+      <div className="flex min-h-full flex-col">
+        {isPublicLandingRoute ? (
+          <div className="p-2">
+            <PublicLandingAuthControls />
+          </div>
+        ) : null}
+        <div className="mt-auto">
+          <AppSidebarMetaSection side="right" />
+        </div>
+      </div>
+    ),
   };
 }
