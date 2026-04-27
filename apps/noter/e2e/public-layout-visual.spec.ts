@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 const publicLayoutSnapshotSuffix = process.platform;
+const selectAllShortcut =
+  process.platform === "darwin" ? "Meta+A" : "Control+A";
 
 test("public landing route uses the right sidebar shell", async ({ page }) => {
   await page.addInitScript(() => {
@@ -87,4 +89,30 @@ test("public route URL display clamps long URLs to two lines", async ({
   expect(metrics.lineClamp).toBe("2");
   expect(metrics.overflow).toBe("hidden");
   expect(metrics.height).toBeLessThanOrEqual(metrics.lineHeight * 2 + 1);
+});
+
+test("public landing ProseMark copy survives full selection deletion", async ({
+  page,
+}) => {
+  const errorMessages: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") {
+      errorMessages.push(message.text());
+    }
+  });
+  page.on("pageerror", (error) => {
+    errorMessages.push(error.message);
+  });
+
+  await page.goto("/?dev", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.getByRole("textbox").click();
+  await page.keyboard.press(selectAllShortcut);
+  await page.keyboard.press("Backspace");
+
+  // ProseMark decoration plugins used to keep stale measured ranges after
+  // destructive edits, crashing CodeMirror during the next view update.
+  await expect(page.getByText("Something went wrong!")).toHaveCount(0);
+  expect(errorMessages).toEqual([]);
 });
