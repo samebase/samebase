@@ -449,16 +449,20 @@ describe("Layout", () => {
         <AppSidebarMetaSection showMachineLinks />
       </TestRouterProvider>,
     );
+    const homeHref = 'href="/"';
+    const machinesHref = `href="${MACHINES_ROUTE}"`;
+    const machineConnectHref = `href="${MACHINE_CONNECT_ROUTE}"`;
+    const termsHref = 'href="/terms"';
 
-    expect(defaultMarkup).not.toContain(MACHINES_ROUTE);
-    expect(defaultMarkup).not.toContain(MACHINE_CONNECT_ROUTE);
-    expect(dashboardMarkup).toContain(MACHINES_ROUTE);
-    expect(dashboardMarkup).toContain(MACHINE_CONNECT_ROUTE);
-    expect(dashboardMarkup.indexOf("/home")).toBeLessThan(
-      dashboardMarkup.indexOf(MACHINES_ROUTE),
+    expect(defaultMarkup).not.toContain(machinesHref);
+    expect(defaultMarkup).not.toContain(machineConnectHref);
+    expect(dashboardMarkup).toContain(machinesHref);
+    expect(dashboardMarkup).toContain(machineConnectHref);
+    expect(dashboardMarkup.indexOf(homeHref)).toBeLessThan(
+      dashboardMarkup.indexOf(machinesHref),
     );
-    expect(dashboardMarkup.indexOf(MACHINE_CONNECT_ROUTE)).toBeLessThan(
-      dashboardMarkup.indexOf("/terms"),
+    expect(dashboardMarkup.indexOf(machineConnectHref)).toBeLessThan(
+      dashboardMarkup.indexOf(termsHref),
     );
   });
 

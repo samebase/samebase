@@ -264,6 +264,7 @@ export function VaultDashboardVisualFixture({
   if (mode === "vault-sidebar-machine-links") {
     return (
       <div className="min-h-screen bg-stone-100 p-4 text-foreground">
+        {/* Fixed rail dimensions keep this footer-link snapshot stable. */}
         <div
           data-testid="vault-dashboard-visual-fixture"
           data-mode={mode}
