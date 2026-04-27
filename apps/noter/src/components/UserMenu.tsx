@@ -16,18 +16,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/dropdown-menu";
 import { PersonIcon } from "@/lib/radixIcons";
+import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import { api } from "../../convex/_generated/api";
 import { useQuery } from "convex/react";
 import { ReactNode, useMemo, useState } from "react";
 import { useNoterAuthActions } from "@/authClient";
-import { Link } from "@tanstack/react-router";
-
-function formatProviderLabel(provider: string | undefined): string {
-  if (!provider) return "Unknown";
-  if (provider === "google") return "Google";
-  if (provider === "github") return "GitHub";
-  return provider.charAt(0).toUpperCase() + provider.slice(1);
-}
 
 export function UserMenu({
   children,
@@ -42,7 +35,7 @@ export function UserMenu({
   const providerLabel = useMemo(() => {
     const provider =
       authProviders?.primaryProvider ?? authProviders?.providers[0];
-    return formatProviderLabel(provider);
+    return formatAuthProviderLabel(provider);
   }, [authProviders?.primaryProvider, authProviders?.providers]);
   const emailLabel = viewer?.email ?? "Unknown";
 
@@ -89,9 +82,6 @@ export function UserMenu({
             <DropdownMenuLabel>{menuLabel ?? children}</DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link to="/pricing">Pricing</Link>
-          </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() => setAccountOpen(true)}
             disabled={!viewer}

@@ -8,6 +8,7 @@ import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
 import { ChevronDownIcon } from "@/lib/radixIcons";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import {
+  VaultDashboardAccountSection,
   VaultDashboardEmptyState,
   VaultDashboardProvidersSection,
   VaultDashboardRepositoryCard,
@@ -223,6 +224,15 @@ export function VaultDashboardVisualFixture({
           <TestRouterProvider>
             <div className="grid gap-6 md:grid-cols-[320px_1fr]">
               <div className="border-r border-border bg-background">
+                <VaultDashboardAccountSection
+                  open={true}
+                  onOpenChange={() => {}}
+                  displayName="Nicu"
+                  email="nicu@noter.md"
+                  providerLabel="Google"
+                  isSignOutPending={false}
+                  onSignOut={() => {}}
+                />
                 <VaultDashboardProvidersSection
                   open={true}
                   onOpenChange={() => {}}

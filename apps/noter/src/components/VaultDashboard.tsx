@@ -51,10 +51,9 @@ import {
   type ComponentType,
   type MutableRefObject,
 } from "react";
-import { isInIframe } from "@/authClient";
+import { isInIframe, useNoterAuthActions } from "@/authClient";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { UserMenu } from "@/components/UserMenu";
 import {
   Dialog,
   DialogContent,
@@ -73,12 +72,14 @@ import { CodexProviderRow } from "@/components/CodexProviderRow";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
 import { EditorChatPanel } from "@/components/EditorChatPanel";
 import {
+  VaultDashboardAccountSection,
   VaultDashboardEmptyState,
   VaultDashboardProvidersSection,
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
   type VaultDashboardProviderRowViewModel,
 } from "@/components/VaultDashboardChrome";
+import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import {
   useApiKeyConnectDialog,
   type ApiKeyProvider,
@@ -1170,9 +1171,11 @@ export function VaultDashboard() {
     api.vault.getUserVaultBranchFilters,
   );
   const user = useConvexQuery(api.users.viewer);
+  const authProviders = useConvexQuery(api.users.getViewerAuthProviders);
   const dashboardSettings = useConvexQuery(
     api.dashboardSettings.getDashboardSettings,
   );
+  const { signOut } = useNoterAuthActions();
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
   const setVaultBranchFilters = useMutation(api.vault.setVaultBranchFilters);
@@ -1247,6 +1250,8 @@ export function VaultDashboard() {
   const [providersPanelOpen, setProvidersPanelOpenState] = useState<
     boolean | null
   >(null);
+  const [accountPanelOpen, setAccountPanelOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [globalChatOpen, setGlobalChatOpenState] = useState<boolean | null>(
     null,
   );
@@ -1936,6 +1941,10 @@ export function VaultDashboard() {
     },
   };
   const userDisplayName = user?.name ?? user?.email ?? user?.githubUsername;
+  const accountEmail = user?.email ?? "Unknown";
+  const accountProviderLabel = formatAuthProviderLabel(
+    authProviders?.primaryProvider ?? authProviders?.providers[0],
+  );
   const createPlaceholder = "New App name";
   const createButtonLabel = isCreating ? "Creating app..." : "New App";
   const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
@@ -2010,6 +2019,24 @@ export function VaultDashboard() {
         dashboardSettings?.providersPanelOpen ?? false,
       );
     });
+  };
+  const handleSignOut = () => {
+    if (isSigningOut) {
+      return;
+    }
+    setIsSigningOut(true);
+    void signOut()
+      .catch((error: unknown) => {
+        toast({
+          title: "Could not sign out",
+          description:
+            error instanceof Error ? error.message : "Please try again.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        setIsSigningOut(false);
+      });
   };
 
   const handleGlobalChatOpenChange = (isOpen: boolean) => {
@@ -2245,6 +2272,16 @@ export function VaultDashboard() {
 
   const sidebarContent = (
     <div className="flex min-h-0 flex-1 flex-col">
+      <VaultDashboardAccountSection
+        open={accountPanelOpen}
+        onOpenChange={setAccountPanelOpen}
+        displayName={userDisplayName || "unknown"}
+        email={accountEmail}
+        providerLabel={accountProviderLabel}
+        onSignOut={handleSignOut}
+        isSignOutPending={isSigningOut}
+        signOutDisabled={!user}
+      />
       <VaultDashboardProvidersSection
         open={resolvedProvidersPanelOpen}
         onOpenChange={handleProvidersPanelOpenChange}
@@ -2284,7 +2321,7 @@ export function VaultDashboard() {
       >
         <WorkspaceLayoutV2FullPage
           right={{
-            header: <UserMenu>{userDisplayName || "unknown"}</UserMenu>,
+            header: null,
             content: sidebarContent,
             footer: <AppSidebarMetaSection showMachineLinks side="right" />,
           }}
