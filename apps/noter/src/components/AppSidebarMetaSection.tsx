@@ -131,7 +131,6 @@ export function AppSidebarMetaSection({
       </Link>
       {/* `/home` routes through `/` to avoid a first-paint logo flash. */}
       <Link to="/">/home</Link>
-      <Link to="/pricing">/pricing</Link>
       {showMachineLinks ? (
         <>
           <Link to={MACHINES_ROUTE}>{MACHINES_ROUTE}</Link>
