@@ -212,11 +212,9 @@ function VaultDashboardListSpacingFixture({
 function FixtureDashboardShell({
   mainContent,
   rightContent,
-  rightFooter,
 }: {
   mainContent?: ReactNode;
   rightContent?: ReactNode;
-  rightFooter?: ReactNode;
 }) {
   return (
     <TestRouterProvider>
@@ -227,7 +225,6 @@ function FixtureDashboardShell({
         shortcutSidebarSide="right"
         right={{
           content: rightContent,
-          footer: rightFooter,
         }}
         main={{
           content: mainContent,
@@ -241,7 +238,7 @@ function FixtureDashboardCreateControl() {
   return (
     <FixtureDashboardShell
       rightContent={
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-full flex-col">
           <VaultDashboardAccountSection
             open={true}
             onOpenChange={() => {}}
@@ -268,9 +265,11 @@ function FixtureDashboardCreateControl() {
               <Link to="/add">Connect existing repo</Link>
             </Button>
           </div>
+          <div className="mt-auto">
+            <AppSidebarMetaSection showMachineLinks side="right" />
+          </div>
         </div>
       }
-      rightFooter={<AppSidebarMetaSection showMachineLinks side="right" />}
       mainContent={<VaultDashboardEmptyState />}
     />
   );
@@ -300,7 +299,13 @@ export function VaultDashboardVisualFixture({
   if (mode === "vault-sidebar-machine-links") {
     return (
       <FixtureDashboardShell
-        rightFooter={<AppSidebarMetaSection showMachineLinks side="right" />}
+        rightContent={
+          <div className="flex min-h-full flex-col">
+            <div className="mt-auto">
+              <AppSidebarMetaSection showMachineLinks side="right" />
+            </div>
+          </div>
+        }
       />
     );
   }
