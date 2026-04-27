@@ -183,7 +183,7 @@ Protect representative backend functions with matching permissions:
   infrastructure details.
 
 For read-style functions that can reveal whether a request id exists, prefer
-returning the existing not-found/sign-in style result over exposing missing
+returning the existing not-found/sign-in-style result over exposing missing
 permission details. For mutations and actions that perform work, throw
 `Unauthorized`.
 
