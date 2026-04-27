@@ -3,11 +3,11 @@
 ## Problem Statement
 
 Noter has a broad authenticated app gate today, but it does not yet distinguish
-between approved starter users and operator-only or compute-heavy surfaces. The
-immediate example is that `/machines` and `/machines/connect` should be
-admin-only. The broader direction is to hide or deny high-complexity surfaces
-such as dashboard Developer tools and FileView paths for people who are just
-starting out.
+between approved starter users and operator-only or abuse-prone file-operation
+surfaces. The immediate example is that `/machines` and `/machines/connect`
+should be admin-only. The broader direction is to hide or deny high-complexity
+surfaces such as dashboard Developer tools and FileView paths for people who are
+just starting out.
 
 The permission system needs to protect both UX entrypoints and Convex backend
 functions. Hiding links is useful, but it is not an authorization boundary.
@@ -88,7 +88,7 @@ const userPermissionValidator = union(
   literal("machines.access"),
   literal("developerTools.view"),
   literal("fileView.access"),
-  literal("compute.use"),
+  literal("fileOperations.use"),
 );
 type UserPermission = Infer<typeof userPermissionValidator>;
 ```
@@ -114,10 +114,12 @@ Then derive effective access in one backend module:
 This gives us a clear path:
 
 - Admin-only route: require `machines.access`.
-- Dashboard/FileView Developer tools: show only with `developerTools.view`; any
-  underlying Codespaces/Daytona operation should require `compute.use`.
+- Dashboard/FileView Developer tools: show only with `developerTools.view`.
 - FileView paths: require `fileView.access` before rendering the lazy editor
   stack and before serving the key FileView backend operations.
+- Expensive GitHub-backed file operations: require `fileOperations.use` before
+  downloading repository files, holding editable content in memory, or saving
+  staged operations back to Convex/GitHub.
 
 ## Implementation Sketch
 
@@ -171,7 +173,7 @@ first slice, because registration and browser control are the human surfaces. If
 permissions are later revocable at runtime, token introspection should also fail
 closed when the owner no longer has `machines.access`.
 
-### 4. Developer Tools And Compute
+### 4. Developer Tools And File Operations
 
 Use the same permission query to hide:
 
@@ -179,10 +181,16 @@ Use the same permission query to hide:
 - FileView `FileViewDeveloperTools`.
 - Sidebar machine links in `AppSidebarMetaSection`.
 
-Backend compute operations must still require `compute.use`. The likely target
-families are Codespaces and Daytona functions, especially any action that starts
-or provisions external runtime work. This can be rolled out after the machine
-route gate because it touches more callsites.
+Keep "create new app" and similarly efficient onboarding/provisioning paths out
+of this paid/advanced bucket. The product concern here is not generic compute;
+it is specifically the expensive and abusable path where Noter downloads GitHub
+file contents, keeps editable state around, and persists file operations.
+
+Backend file operations should require `fileOperations.use`. The likely target
+families are FileView file staging queries, mutations, and actions that fetch
+repository file contents, persist staged blobs/content, or save file-operation
+state. This can be rolled out after the machine route gate because it touches
+more callsites.
 
 ### 5. FileView Paths
 
@@ -190,12 +198,12 @@ For a starter-focused rollout, guard `/vault/$` with `fileView.access` before
 the lazy `FileView` element renders.
 
 This should eventually be backed by server checks on the FileView-owned Convex
-functions too. Route gating prevents accidental use and saves bundle/compute,
-but direct Convex calls still need backend denial. Prioritize:
+functions too. Route gating prevents accidental use and avoids loading the heavy
+editor path, but direct Convex calls still need backend denial. Prioritize:
 
 - file staging mutations and actions
 - commit/PR actions
-- Daytona preview/workspace actions
+- operations that download GitHub file contents into editable state
 - vault file/tree queries that are exclusive to FileView
 
 If existing approved users should keep FileView while brand-new users do not,
@@ -225,8 +233,8 @@ on implicit admin access.
 2. Gate `/machines` and `/machines/connect` with `machines.access`, lazy-load
    both pages, and protect the machine browser/control Convex functions.
 3. Hide dashboard/FileView Developer tools for users without
-   `developerTools.view`, then add `compute.use` checks to Codespaces/Daytona
-   entrypoints.
+   `developerTools.view`, then add `fileOperations.use` checks to expensive
+   GitHub file download, staging, and save paths.
 4. Decide the FileView default policy:
    - Admin-only first: no data migration.
    - Existing approved users keep access: backfill approved rows with
@@ -247,4 +255,4 @@ on implicit admin access.
   before the gate passes.
 - UI tests for hiding Developer tools in dashboard and FileView.
 - FileView rollout tests once enabled: denied users do not load the editor route
-  and cannot call representative staging/compute functions directly.
+  and cannot call representative file download/staging/save functions directly.
