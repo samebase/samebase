@@ -6,6 +6,7 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultLastUpdatedStatus } from "@/components/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
 import { ChevronDownIcon } from "@/lib/radixIcons";
+import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import {
   VaultDashboardEmptyState,
   VaultDashboardProvidersSection,
@@ -20,7 +21,8 @@ export type VaultDashboardVisualMode =
   | "vault-last-updated-status"
   | "vault-branch-filters"
   | "vault-branch-pr-labels"
-  | "vault-branch-mobile-alignment";
+  | "vault-branch-mobile-alignment"
+  | "vault-sidebar-machine-links";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
 
@@ -257,6 +259,23 @@ export function VaultDashboardVisualFixture({
 
   if (mode === "vault-dashboard-list-spacing") {
     return <VaultDashboardListSpacingFixture mode={mode} />;
+  }
+
+  if (mode === "vault-sidebar-machine-links") {
+    return (
+      <div className="min-h-screen bg-stone-100 p-4 text-foreground">
+        {/* Fixed rail dimensions keep this footer-link snapshot stable. */}
+        <div
+          data-testid="vault-dashboard-visual-fixture"
+          data-mode={mode}
+          className="mx-auto flex h-[360px] w-[288px] flex-col justify-end border-l border-border bg-background"
+        >
+          <TestRouterProvider>
+            <AppSidebarMetaSection showMachineLinks side="right" />
+          </TestRouterProvider>
+        </div>
+      </div>
+    );
   }
 
   if (mode === "vault-branch-mobile-alignment") {
