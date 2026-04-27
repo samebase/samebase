@@ -267,10 +267,10 @@ export function VaultDashboardVisualFixture({
         <div
           data-testid="vault-dashboard-visual-fixture"
           data-mode={mode}
-          className="mx-auto flex h-[360px] w-[288px] flex-col justify-end border-r border-border bg-background"
+          className="mx-auto flex h-[360px] w-[288px] flex-col justify-end border-l border-border bg-background"
         >
           <TestRouterProvider>
-            <AppSidebarMetaSection showMachineLinks />
+            <AppSidebarMetaSection showMachineLinks side="right" />
           </TestRouterProvider>
         </div>
       </div>

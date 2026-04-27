@@ -106,7 +106,7 @@ import { CHAT_ENABLED } from "@/lib/featureFlags";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
 const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
-  leftDesktopOpen: true,
+  leftDesktopOpen: false,
   leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   leftMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   mobilePane: "main",
@@ -2279,13 +2279,14 @@ export function VaultDashboard() {
     <>
       <PersistedSidebarProvider
         defaultState={DASHBOARD_SIDEBAR_DEFAULT_STATE}
+        shortcutSidebarSide="right"
         workspaceKey="dashboard"
       >
         <WorkspaceLayoutV2FullPage
-          left={{
+          right={{
             header: <UserMenu>{userDisplayName || "unknown"}</UserMenu>,
             content: sidebarContent,
-            footer: <AppSidebarMetaSection showMachineLinks />,
+            footer: <AppSidebarMetaSection showMachineLinks side="right" />,
           }}
           main={{
             header: null,
