@@ -42,6 +42,8 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
+// Keep the public shell tests on the normal browser auth path while stubbing
+// the sign-in actions that the sidebar buttons expose.
 vi.mock("@/authClient", () => ({
   isInIframe: () => false,
   openAuthPopup: vi.fn(),

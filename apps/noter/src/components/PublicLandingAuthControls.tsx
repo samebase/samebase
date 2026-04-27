@@ -24,8 +24,20 @@ import { useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 
-const LOCAL_WORKTREE_PASSWORD_EMAIL = "nicu@noter.md";
-const LOCAL_WORKTREE_PASSWORD_VALUE = "pass1234";
+function readLocalWorktreePasswordCredentials(): {
+  email: string;
+  password: string;
+} | null {
+  if (!import.meta.env.DEV) {
+    return null;
+  }
+  const email = import.meta.env.VITE_LOCAL_WORKTREE_PASSWORD_EMAIL?.trim();
+  const password = import.meta.env.VITE_LOCAL_WORKTREE_PASSWORD_VALUE;
+  if (!email || !password) {
+    return null;
+  }
+  return { email, password };
+}
 
 export function PublicLandingAuthControls() {
   const pathname = useLocation({
@@ -222,9 +234,14 @@ export function PasswordAuthForm({
               variant="outline"
               className="shrink-0"
               onClick={() => {
+                const credentials = readLocalWorktreePasswordCredentials();
+                if (!credentials) {
+                  setError("Local worktree password auth is not configured");
+                  return;
+                }
                 const nextFlow = "signIn";
-                const nextEmail = LOCAL_WORKTREE_PASSWORD_EMAIL;
-                const nextPassword = LOCAL_WORKTREE_PASSWORD_VALUE;
+                const nextEmail = credentials.email;
+                const nextPassword = credentials.password;
                 setFlow(nextFlow);
                 setError(null);
                 setEmail(nextEmail);

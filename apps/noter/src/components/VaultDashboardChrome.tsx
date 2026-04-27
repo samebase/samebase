@@ -27,6 +27,17 @@ export type VaultDashboardProviderRowViewModel = {
   status: string;
 };
 
+export type VaultDashboardAccountSectionProps = {
+  displayName: string;
+  email: string;
+  isSignOutPending: boolean;
+  onOpenChange: (isOpen: boolean) => void;
+  onSignOut: () => void;
+  open: boolean;
+  providerLabel: string | null;
+  signOutDisabled?: boolean;
+};
+
 /**
  * The account controls use the same section and row geometry as providers so
  * the right rail reads as one accordion stack.
@@ -40,16 +51,7 @@ export function VaultDashboardAccountSection({
   open,
   providerLabel,
   signOutDisabled,
-}: {
-  displayName: string;
-  email: string;
-  isSignOutPending: boolean;
-  onOpenChange: (isOpen: boolean) => void;
-  onSignOut: () => void;
-  open: boolean;
-  providerLabel: string | null;
-  signOutDisabled?: boolean;
-}) {
+}: VaultDashboardAccountSectionProps) {
   return (
     <div className="border-b border-border/50 p-3">
       <Collapsible

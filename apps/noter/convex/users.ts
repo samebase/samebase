@@ -461,6 +461,10 @@ export const getViewerAuthProviders = query({
   },
 });
 
+/**
+ * Sort auth provider accounts newest-first with `_id` as a deterministic
+ * tie-breaker so the displayed primary provider cannot drift between reads.
+ */
 function compareAuthProviderAccountSummary(
   first: AuthProviderAccountSummary,
   second: AuthProviderAccountSummary,

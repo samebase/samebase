@@ -1,6 +1,7 @@
 import { Infer, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import type { Id } from "./_generated/dataModel";
 
 const { boolean, literal, null: vNull, object, union } = v;
 
@@ -69,6 +70,28 @@ function getChatOpenPatch(scope: ChatOpenScope, isOpen: boolean) {
     : { globalChatOpen: isOpen };
 }
 
+async function upsertDashboardSettings(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  patch: Partial<DashboardSettings>,
+) {
+  const existing = await ctx.db
+    .query("dashboardSettings")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .first();
+
+  if (existing) {
+    await ctx.db.patch(existing._id, patch);
+    return;
+  }
+
+  await ctx.db.insert("dashboardSettings", {
+    userId,
+    ...getDefaultDashboardSettings(),
+    ...patch,
+  });
+}
+
 export const getDashboardSettings = query({
   args: getDashboardSettingsArgs,
   returns: getDashboardSettingsReturns,
@@ -111,22 +134,9 @@ export const setAccountPanelOpen = mutation({
       throw new Error("User not authenticated");
     }
 
-    const existing = await ctx.db
-      .query("dashboardSettings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .first();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        accountPanelOpen: args.isOpen,
-      });
-    } else {
-      await ctx.db.insert("dashboardSettings", {
-        userId,
-        ...getDefaultDashboardSettings(),
-        accountPanelOpen: args.isOpen,
-      });
-    }
+    await upsertDashboardSettings(ctx, userId, {
+      accountPanelOpen: args.isOpen,
+    });
 
     return null;
   },
@@ -141,22 +151,9 @@ export const setProvidersPanelOpen = mutation({
       throw new Error("User not authenticated");
     }
 
-    const existing = await ctx.db
-      .query("dashboardSettings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .first();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        providersPanelOpen: args.isOpen,
-      });
-    } else {
-      await ctx.db.insert("dashboardSettings", {
-        userId,
-        ...getDefaultDashboardSettings(),
-        providersPanelOpen: args.isOpen,
-      });
-    }
+    await upsertDashboardSettings(ctx, userId, {
+      providersPanelOpen: args.isOpen,
+    });
 
     return null;
   },
@@ -171,22 +168,9 @@ export const setPricingBillingCycle = mutation({
       throw new Error("User not authenticated");
     }
 
-    const existing = await ctx.db
-      .query("dashboardSettings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .first();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        pricingBillingCycle: args.billingCycle,
-      });
-    } else {
-      await ctx.db.insert("dashboardSettings", {
-        userId,
-        ...getDefaultDashboardSettings(),
-        pricingBillingCycle: args.billingCycle,
-      });
-    }
+    await upsertDashboardSettings(ctx, userId, {
+      pricingBillingCycle: args.billingCycle,
+    });
 
     return null;
   },
@@ -201,23 +185,11 @@ export const setEditorChatOpen = mutation({
       throw new Error("User not authenticated");
     }
 
-    const existing = await ctx.db
-      .query("dashboardSettings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .first();
-
-    if (existing) {
-      await ctx.db.patch(
-        existing._id,
-        getChatOpenPatch(args.scope, args.isOpen),
-      );
-    } else {
-      await ctx.db.insert("dashboardSettings", {
-        userId,
-        ...getDefaultDashboardSettings(),
-        ...getChatOpenPatch(args.scope, args.isOpen),
-      });
-    }
+    await upsertDashboardSettings(
+      ctx,
+      userId,
+      getChatOpenPatch(args.scope, args.isOpen),
+    );
 
     return null;
   },
