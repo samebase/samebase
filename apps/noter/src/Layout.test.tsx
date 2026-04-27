@@ -97,6 +97,7 @@ describe("Layout", () => {
     expect(markup).toContain('tabindex="-1"');
     expect(markup).toContain("text-background");
     expect(markup).toContain("/home");
+    expect(markup).not.toContain("/pricing");
     expect(markup).toContain(LANDING_DEV_MODE_LINK_LABEL);
     expect(markup).not.toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
     expect(markup).toContain(FORCE_PROD_UI_MODE_LINK_LABEL);
