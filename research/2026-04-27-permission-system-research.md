@@ -3,7 +3,7 @@
 ## Problem Statement
 
 Noter has a broad authenticated app gate today, but it does not yet distinguish
-between approved starter users and operator-only or abuse-prone file-operation
+between approved starter users and operator-only or cost-bearing product
 surfaces. The immediate example is that `/machines` and `/machines/connect`
 should be admin-only. The broader direction is to hide or deny high-complexity
 surfaces such as dashboard Developer tools and FileView paths for people who are
@@ -88,7 +88,7 @@ const userPermissionValidator = union(
   literal("machines.access"),
   literal("developerTools.view"),
   literal("fileView.access"),
-  literal("fileOperations.use"),
+  literal("costlyOperations.use"),
 );
 type UserPermission = Infer<typeof userPermissionValidator>;
 ```
@@ -117,9 +117,10 @@ This gives us a clear path:
 - Dashboard/FileView Developer tools: show only with `developerTools.view`.
 - FileView paths: require `fileView.access` before rendering the lazy editor
   stack and before serving the key FileView backend operations.
-- Expensive GitHub-backed file operations: require `fileOperations.use` before
-  downloading repository files, holding editable content in memory, or saving
-  staged operations back to Convex/GitHub.
+- Cost-bearing operations: require `costlyOperations.use` before any action that
+  creates meaningful marginal cost for Noter. GitHub-backed file download,
+  editable in-memory state, staged operation persistence, third-party runtime
+  work, external API usage, and durable storage are examples, not the boundary.
 
 ## Implementation Sketch
 
@@ -173,7 +174,7 @@ first slice, because registration and browser control are the human surfaces. If
 permissions are later revocable at runtime, token introspection should also fail
 closed when the owner no longer has `machines.access`.
 
-### 4. Developer Tools And File Operations
+### 4. Developer Tools And Costly Operations
 
 Use the same permission query to hide:
 
@@ -182,15 +183,16 @@ Use the same permission query to hide:
 - Sidebar machine links in `AppSidebarMetaSection`.
 
 Keep "create new app" and similarly efficient onboarding/provisioning paths out
-of this paid/advanced bucket. The product concern here is not generic compute;
-it is specifically the expensive and abusable path where Noter downloads GitHub
-file contents, keeps editable state around, and persists file operations.
+of this paid/advanced bucket while they have negligible marginal cost. The
+product concern is any operation that costs Noter real money if a starter user
+or abusive client repeats it.
 
-Backend file operations should require `fileOperations.use`. The likely target
-families are FileView file staging queries, mutations, and actions that fetch
-repository file contents, persist staged blobs/content, or save file-operation
-state. This can be rolled out after the machine route gate because it touches
-more callsites.
+Backend operations with meaningful marginal cost should require
+`costlyOperations.use`. GitHub file download/edit/staging is the clearest
+current example, but the permission should also cover future runtime,
+third-party API, storage, memory, or other cost-bearing operations as they
+become product surfaces. This can be rolled out after the machine route gate
+because it touches more callsites.
 
 ### 5. FileView Paths
 
@@ -233,8 +235,9 @@ on implicit admin access.
 2. Gate `/machines` and `/machines/connect` with `machines.access`, lazy-load
    both pages, and protect the machine browser/control Convex functions.
 3. Hide dashboard/FileView Developer tools for users without
-   `developerTools.view`, then add `fileOperations.use` checks to expensive
-   GitHub file download, staging, and save paths.
+   `developerTools.view`, then add `costlyOperations.use` checks to expensive
+   GitHub file download, staging, and save paths as the first concrete
+   cost-bearing backend targets.
 4. Decide the FileView default policy:
    - Admin-only first: no data migration.
    - Existing approved users keep access: backfill approved rows with
