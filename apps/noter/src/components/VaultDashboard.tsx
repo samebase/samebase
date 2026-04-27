@@ -50,7 +50,6 @@ import {
   useState,
   type ComponentType,
   type MutableRefObject,
-  type ReactNode,
 } from "react";
 import { isInIframe } from "@/authClient";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
@@ -605,7 +604,7 @@ interface VaultBranchListProps {
   remoteBranches: VaultRemoteBranchListItem[];
   activeDeletingBranchName: string | null;
   onDeleteBranch: (branchName: string) => void;
-  footer?: ReactNode;
+  expansion?: VaultBranchListExpansionProps;
 }
 
 interface VaultBranchListRowProps {
@@ -615,6 +614,12 @@ interface VaultBranchListRowProps {
   stagedSummary?: StagedSummary;
   activeDeletingBranchName: string | null;
   onDeleteBranch: (branchName: string) => void;
+}
+
+interface VaultBranchListExpansionProps {
+  hiddenBranchCount: number;
+  isExpanded: boolean;
+  onToggle: () => void;
 }
 
 function VaultBranchListRow({
@@ -661,13 +666,42 @@ function VaultBranchListRow({
   );
 }
 
+function VaultBranchListExpansionControl({
+  hiddenBranchCount,
+  isExpanded,
+  onToggle,
+}: VaultBranchListExpansionProps) {
+  return (
+    <div className="px-3 py-1.5">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-7 w-full gap-1 text-xs text-muted-foreground hover:text-foreground"
+        aria-expanded={isExpanded}
+        onClick={onToggle}
+      >
+        <span>
+          {isExpanded ? "Show less" : `Show ${hiddenBranchCount} more`}
+        </span>
+        <ChevronDownIcon
+          className={clsx(
+            "h-3.5 w-3.5 transition-transform",
+            isExpanded && "rotate-180",
+          )}
+        />
+      </Button>
+    </div>
+  );
+}
+
 function VaultBranchList({
   vaultId,
   repositoryFullName,
   remoteBranches,
   activeDeletingBranchName,
   onDeleteBranch,
-  footer,
+  expansion,
 }: VaultBranchListProps) {
   const stagedSummaries =
     useQuery(api.fileStaging.listStagedFilesBranchSummaries, {
@@ -692,7 +726,7 @@ function VaultBranchList({
           onDeleteBranch={onDeleteBranch}
         />
       ))}
-      {footer}
+      {expansion ? <VaultBranchListExpansionControl {...expansion} /> : null}
     </div>
   );
 }
@@ -761,36 +795,19 @@ function VaultBranchSection({
           remoteBranches={visibleRemoteBranches}
           activeDeletingBranchName={activeDeletingBranchName}
           onDeleteBranch={onDeleteBranch}
-          footer={
-            hasBranchListOverflow ? (
-              <div className="px-3 py-1.5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-full gap-1 text-xs text-muted-foreground hover:text-foreground"
-                  aria-expanded={branchesExpanded}
-                  onClick={() => {
+          expansion={
+            hasBranchListOverflow
+              ? {
+                  hiddenBranchCount: collapsedBranchCount,
+                  isExpanded: branchesExpanded,
+                  onToggle: () => {
                     onChangeFilters({
                       ...filters,
                       branchesExpanded: !branchesExpanded,
                     });
-                  }}
-                >
-                  <span>
-                    {branchesExpanded
-                      ? "Show less"
-                      : `Show ${collapsedBranchCount} more`}
-                  </span>
-                  <ChevronDownIcon
-                    className={clsx(
-                      "h-3.5 w-3.5 transition-transform",
-                      branchesExpanded && "rotate-180",
-                    )}
-                  />
-                </Button>
-              </div>
-            ) : undefined
+                  },
+                }
+              : undefined
           }
         />
       ) : null}
