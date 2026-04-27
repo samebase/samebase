@@ -3,11 +3,11 @@
 ## Problem Statement
 
 Noter has a broad authenticated app gate today, but it does not yet distinguish
-between approved starter users and operator-only or cost-bearing product
-surfaces. The immediate example is that `/machines` and `/machines/connect`
-should be admin-only. The broader direction is to hide or deny high-complexity
-surfaces such as dashboard Developer tools and FileView paths for people who are
-just starting out.
+between approved starter users and operator-only or advanced product surfaces.
+The immediate example is that `/machines` and `/machines/connect` should be
+admin-only. The broader direction is to hide or deny high-complexity surfaces
+such as dashboard Developer tools and FileView paths for people who are just
+starting out.
 
 The permission system needs to protect both UX entrypoints and Convex backend
 functions. Hiding links is useful, but it is not an authorization boundary.
@@ -88,7 +88,6 @@ const userPermissionValidator = union(
   literal("machines.access"),
   literal("developerTools.view"),
   literal("fileView.access"),
-  literal("costlyOperations.use"),
 );
 type UserPermission = Infer<typeof userPermissionValidator>;
 ```
@@ -117,10 +116,11 @@ This gives us a clear path:
 - Dashboard/FileView Developer tools: show only with `developerTools.view`.
 - FileView paths: require `fileView.access` before rendering the lazy editor
   stack and before serving the key FileView backend operations.
-- Cost-bearing operations: require `costlyOperations.use` before any action that
-  creates meaningful marginal cost for Noter. GitHub-backed file download,
-  editable in-memory state, staged operation persistence, third-party runtime
-  work, external API usage, and durable storage are examples, not the boundary.
+
+The operator's cost concern is product context for choosing which surfaces stay
+starter-friendly. It should not become a generic permission named after cost.
+When a surface costs real money to run, gate the concrete product surface that
+contains it.
 
 ## Implementation Sketch
 
@@ -174,7 +174,7 @@ first slice, because registration and browser control are the human surfaces. If
 permissions are later revocable at runtime, token introspection should also fail
 closed when the owner no longer has `machines.access`.
 
-### 4. Developer Tools And Costly Operations
+### 4. Developer Tools And Product Scope
 
 Use the same permission query to hide:
 
@@ -182,17 +182,17 @@ Use the same permission query to hide:
 - FileView `FileViewDeveloperTools`.
 - Sidebar machine links in `AppSidebarMetaSection`.
 
-Keep "create new app" and similarly efficient onboarding/provisioning paths out
-of this paid/advanced bucket while they have negligible marginal cost. The
-product concern is any operation that costs Noter real money if a starter user
-or abusive client repeats it.
+Keep "create new app" and similarly efficient onboarding/provisioning paths
+available while they are cheap enough to offer. The cost concern is not a
+standalone permission model; it is the reason not every advanced product surface
+should be free to every new user.
 
-Backend operations with meaningful marginal cost should require
-`costlyOperations.use`. GitHub file download/edit/staging is the clearest
-current example, but the permission should also cover future runtime,
-third-party API, storage, memory, or other cost-bearing operations as they
-become product surfaces. This can be rolled out after the machine route gate
-because it touches more callsites.
+For the current app, FileView is the concrete surface that appears to contain
+the expensive pattern: downloading GitHub file contents, keeping editable state
+around, and persisting staged operations. Gate that with `fileView.access`
+rather than adding a separate cost-shaped permission. If a different expensive
+surface appears later, add a permission named after that product surface, not
+after the bill.
 
 ### 5. FileView Paths
 
@@ -235,9 +235,7 @@ on implicit admin access.
 2. Gate `/machines` and `/machines/connect` with `machines.access`, lazy-load
    both pages, and protect the machine browser/control Convex functions.
 3. Hide dashboard/FileView Developer tools for users without
-   `developerTools.view`, then add `costlyOperations.use` checks to expensive
-   GitHub file download, staging, and save paths as the first concrete
-   cost-bearing backend targets.
+   `developerTools.view`.
 4. Decide the FileView default policy:
    - Admin-only first: no data migration.
    - Existing approved users keep access: backfill approved rows with
