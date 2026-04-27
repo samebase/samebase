@@ -129,7 +129,7 @@ export function VaultDashboardRepositoryList({
   children: ReactNode;
 }) {
   return (
-    <div className="container py-6">
+    <div className="mx-auto w-full max-w-[1000px]">
       <div className="space-y-2">{children}</div>
     </div>
   );
@@ -171,12 +171,7 @@ export function VaultDashboardRepositoryCard({
   topRightAction?: ReactNode;
 }) {
   return (
-    <div
-      className={clsx(
-        "relative corner-notch-1 border p-4",
-        !isReady && "bg-muted/30 opacity-75",
-      )}
-    >
+    <div className={clsx("relative p-4", !isReady && "bg-muted/30 opacity-75")}>
       {topRightAction}
 
       <div className="space-y-3">

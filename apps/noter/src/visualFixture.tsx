@@ -215,6 +215,7 @@ const SIMPLE_VIEW_VISUAL_MODES = [
 
 const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-create-control",
+  "vault-dashboard-list-spacing",
   "vault-last-updated-status",
   "vault-branch-filters",
   "vault-branch-pr-labels",
@@ -421,6 +422,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (
     mode === "vault-create-control" ||
+    mode === "vault-dashboard-list-spacing" ||
     mode === "vault-last-updated-status" ||
     mode === "vault-branch-filters" ||
     mode === "vault-branch-pr-labels" ||
