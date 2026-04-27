@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
@@ -15,6 +15,7 @@ import {
   VaultDashboardRepositoryList,
 } from "@/components/VaultDashboardChrome";
 import { VaultBranchLinkRow } from "@/components/VaultDashboard";
+import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 
 export type VaultDashboardVisualMode =
   | "vault-create-control"
@@ -208,55 +209,80 @@ function VaultDashboardListSpacingFixture({
   );
 }
 
+function FixtureDashboardShell({
+  mainContent,
+  rightContent,
+  rightFooter,
+}: {
+  mainContent?: ReactNode;
+  rightContent?: ReactNode;
+  rightFooter?: ReactNode;
+}) {
+  return (
+    <TestRouterProvider>
+      <WorkspaceLayoutV2FixtureFrame
+        dataTestId="vault-dashboard-visual-fixture"
+        defaultOpen={false}
+        defaultRightOpen={true}
+        shortcutSidebarSide="right"
+        right={{
+          content: rightContent,
+          footer: rightFooter,
+        }}
+        main={{
+          content: mainContent,
+        }}
+      />
+    </TestRouterProvider>
+  );
+}
+
+function FixtureDashboardCreateControl() {
+  return (
+    <FixtureDashboardShell
+      rightContent={
+        <div className="flex min-h-0 flex-1 flex-col">
+          <VaultDashboardAccountSection
+            open={true}
+            onOpenChange={() => {}}
+            displayName="Nicu"
+            email="nicu@noter.md"
+            providerLabel="Google"
+            isSignOutPending={false}
+            onSignOut={() => {}}
+          />
+          <VaultDashboardProvidersSection
+            open={true}
+            onOpenChange={() => {}}
+            providerRows={[]}
+          />
+          <div className="flex w-full flex-col items-stretch gap-2 p-3">
+            <Input
+              className="w-full"
+              placeholder="New App name"
+              value=""
+              onChange={() => {}}
+            />
+            <Button className="w-full">New App</Button>
+            <Button variant="outline" className="w-full" asChild>
+              <Link to="/add">Connect existing repo</Link>
+            </Button>
+          </div>
+        </div>
+      }
+      rightFooter={<AppSidebarMetaSection showMachineLinks side="right" />}
+      mainContent={<VaultDashboardEmptyState />}
+    />
+  );
+}
+
 export function VaultDashboardVisualFixture({
   mode,
 }: {
   mode: VaultDashboardVisualMode;
 }) {
   if (mode === "vault-create-control") {
-    return (
-      <div className="min-h-screen bg-stone-100 p-4 text-foreground">
-        <div
-          data-testid="vault-dashboard-visual-fixture"
-          data-mode={mode}
-          className="mx-auto w-full max-w-[960px]"
-        >
-          <TestRouterProvider>
-            <div className="grid gap-6 md:grid-cols-[320px_1fr]">
-              <div className="border-r border-border bg-background">
-                <VaultDashboardAccountSection
-                  open={true}
-                  onOpenChange={() => {}}
-                  displayName="Nicu"
-                  email="nicu@noter.md"
-                  providerLabel="Google"
-                  isSignOutPending={false}
-                  onSignOut={() => {}}
-                />
-                <VaultDashboardProvidersSection
-                  open={true}
-                  onOpenChange={() => {}}
-                  providerRows={[]}
-                />
-                <div className="flex w-full flex-col items-stretch gap-2 p-3">
-                  <Input
-                    className="w-full"
-                    placeholder="New App name"
-                    value=""
-                    onChange={() => {}}
-                  />
-                  <Button className="w-full">New App</Button>
-                  <Button variant="outline" className="w-full" asChild>
-                    <Link to="/add">Connect existing repo</Link>
-                  </Button>
-                </div>
-              </div>
-              <VaultDashboardEmptyState />
-            </div>
-          </TestRouterProvider>
-        </div>
-      </div>
-    );
+    return <FixtureDashboardCreateControl />;
   }
 
   if (mode === "vault-last-updated-status") {
@@ -273,18 +299,9 @@ export function VaultDashboardVisualFixture({
 
   if (mode === "vault-sidebar-machine-links") {
     return (
-      <div className="min-h-screen bg-stone-100 p-4 text-foreground">
-        {/* Fixed rail dimensions keep this footer-link snapshot stable. */}
-        <div
-          data-testid="vault-dashboard-visual-fixture"
-          data-mode={mode}
-          className="mx-auto flex h-[360px] w-[288px] flex-col justify-end border-l border-border bg-background"
-        >
-          <TestRouterProvider>
-            <AppSidebarMetaSection showMachineLinks side="right" />
-          </TestRouterProvider>
-        </div>
-      </div>
+      <FixtureDashboardShell
+        rightFooter={<AppSidebarMetaSection showMachineLinks side="right" />}
+      />
     );
   }
 

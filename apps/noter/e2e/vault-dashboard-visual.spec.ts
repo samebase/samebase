@@ -1,7 +1,7 @@
 import { devices, expect, test } from "@playwright/test";
 
 test("vault dashboard fixture (create control)", async ({ page }) => {
-  await page.setViewportSize({ width: 960, height: 420 });
+  await page.setViewportSize({ width: 960, height: 760 });
   await page.goto("/visual-fixture.html?mode=vault-create-control", {
     waitUntil: "domcontentloaded",
   });
@@ -17,7 +17,7 @@ test("vault dashboard fixture (create control)", async ({ page }) => {
 });
 
 test("vault dashboard fixture (sidebar machine links)", async ({ page }) => {
-  await page.setViewportSize({ width: 360, height: 420 });
+  await page.setViewportSize({ width: 960, height: 760 });
   await page.goto("/visual-fixture.html?mode=vault-sidebar-machine-links", {
     waitUntil: "domcontentloaded",
   });
