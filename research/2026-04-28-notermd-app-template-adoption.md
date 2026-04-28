@@ -30,8 +30,6 @@ The runtime path today is:
 3. `apps/noter/convex/vaultActions.ts` creates the GitHub repository, calls the
    starter seeder, then records the vault and schedules Cloudflare/Convex
    provisioning.
-4. `apps/noter/convex/codespacesExecutor.ts` also reads `.codespace-agent`
-   assets from the same generated manifest.
 
 The good part of this contract is that user repository creation does not depend
 on live GitHub reads. The weak part is that the export script currently collects
@@ -52,8 +50,7 @@ The repo is materially different from the monorepo starter:
 - includes `pnpm-lock.yaml`,
 - uses `pnpm@10.33.0` and newer Vite+ packages,
 - includes Convex AI `.agents` skills,
-- includes a QR share block and an `/about` route,
-- does not include Noter's `.codespace-agent` or `.devcontainer` runtime assets.
+- includes a QR share block and an `/about` route.
 
 The upstream README still references
 `https://github.com/noter-md/convex-cloudflare-pages-stack`, so the public setup
@@ -104,23 +101,19 @@ Observed result:
 - anonymous dev smoke returned `HTTP/1.1 200 OK`,
 - Convex warned that AI files are out of date.
 
-## Local Starter Testing Gap
+## Current Exporter Mismatch
 
 Running the local starter dev command generated:
 
 - untracked `apps/noter-starter-template/convex/tsconfig.json`,
 - ignored `apps/noter-starter-template/convex/_generated/`.
 
-That is fine as local runtime state, but it is dangerous for template export.
-`export-template-manifest.ts` currently excludes only a few hard-coded top-level
-directories and filenames. It does not honor `.gitignore`, `git ls-files`, or an
-explicit allowlist. If a developer runs `pnpm dev:starter` and then exports, the
-generated manifest can accidentally include local Convex generated state.
-
-This should be fixed before adopting `notermd/app`, because the external app
-intentionally contains generated Convex files. The exporter needs to know
-whether generated files are part of the source contract instead of discovering
-them by accident.
+That matters only as evidence that the current local-directory exporter is the
+wrong abstraction for the next template source. Adoption should not ask the
+local starter exporter to infer which generated files are legitimate. The
+standard should simply be the tracked `notermd/app` tree. If
+`convex/_generated/**` is tracked there, it is part of the template. If a file
+is not tracked in `notermd/app`, it is not part of the template.
 
 ## Options
 
@@ -135,11 +128,9 @@ contract.
 
 ### GitHub template API as the creation path
 
-This would preserve more of the external repo's template identity, but it does
-not solve Noter-specific overlays such as `.codespace-agent` and `.devcontainer`
-assets. It also changes the current one-root-commit seeding behavior and would
-need a separate decision about whether generated repos should preserve upstream
-commit history.
+This would preserve more of the external repo's template identity. It also
+changes the current one-root-commit seeding behavior and would need a separate
+decision about whether generated repos should preserve upstream commit history.
 
 This is a product decision, not the best first implementation step.
 
@@ -156,15 +147,12 @@ Recommended.
 Keep `notermd/app` as the canonical authored app, but keep Noter's runtime seed
 path pinned and local:
 
-1. Store source metadata in the monorepo: repository URL, source commit, and the
-   intended include/exclude contract.
+1. Store source metadata in the monorepo: repository URL and source commit.
 2. Add a refresh script that clones/fetches `notermd/app` at the pinned commit
    into a temporary directory.
-3. Copy or materialize the exact source snapshot into the starter snapshot.
-4. Overlay Noter-owned runtime assets that are required by the product but not
-   owned by the starter app, currently `.codespace-agent` and `.devcontainer`.
-5. Export the generated Convex manifest from that deterministic snapshot.
-6. Include source metadata and a content hash in the generated manifest.
+3. Materialize exactly the tracked source tree from that commit.
+4. Export the generated Convex manifest from that deterministic snapshot.
+5. Include source metadata and a content hash in the generated manifest.
 
 This keeps vault creation fast and reliable while making the source-of-truth
 relationship explicit and reviewable.
@@ -176,9 +164,7 @@ Add a source metadata file, for example:
 ```json
 {
   "sourceRepo": "https://github.com/notermd/app.git",
-  "sourceCommit": "1284e8dc6b41e9316fbe37292caf2316354d7041",
-  "overlayPaths": [".codespace-agent", ".devcontainer"],
-  "excludePaths": [".git", "node_modules", "dist", ".convex"]
+  "sourceCommit": "1284e8dc6b41e9316fbe37292caf2316354d7041"
 }
 ```
 
@@ -191,7 +177,9 @@ pnpm --filter noter-starter-template run template:export
 
 `template:refresh-from-source` should be the only command that imports from
 GitHub. `template:export` should consume a local deterministic snapshot and
-never depend on the network.
+never depend on the network. The refresh command should use the source repo's
+tracked files, for example via `git archive` or `git ls-tree`, so ignored local
+runtime output cannot enter the manifest.
 
 The manifest type should grow source metadata:
 
@@ -206,14 +194,9 @@ type StarterTemplateManifest = {
 };
 ```
 
-The source snapshot should make an explicit choice about Convex generated files:
-
-- If using `notermd/app` as-is, include `convex/_generated/**` because the app
-  imports the typed `api`.
-- If Noter wants generated files excluded, the refresh command must run Convex
-  codegen during validation and rewrite the app to avoid depending on generated
-  imports. The current local template's `anyApi` approach is one possible model,
-  but it would mean diverging from `notermd/app`.
+The source snapshot should include `notermd/app` tracked files as-is. That means
+`convex/_generated/**` is included because the source app tracks it and imports
+the typed `api`.
 
 ## Recommended Test Contract
 
@@ -241,34 +224,31 @@ Product validation before shipping the migration:
 
 1. Create a temporary Noter-managed repository with a name like
    `tmp-<worktree-id>-starter-source`.
-2. Confirm the seeded repository contains the pinned `notermd/app` files plus
-   required Noter runtime overlays.
+2. Confirm the seeded repository contains the pinned `notermd/app` tracked files
+   and no local starter-only additions.
 3. Confirm the first commit is still exactly one seed commit unless product
    explicitly decides to preserve upstream history.
 4. Confirm Cloudflare/Convex provisioning reaches ready state.
-5. Confirm Codespace/Daytona startup uses explicit bootstrap assets and the
-   preview returns 200.
+5. Confirm the seeded app preview returns 200.
 
 ## Follow-Up Decisions
 
 1. Should created user repositories preserve the pedagogical upstream commit
    history from `notermd/app`, or keep the current one-commit seed contract?
-2. Should `.codespace-agent` and `.devcontainer` move upstream into
-   `notermd/app`, or remain Noter-owned overlays?
-3. Should `notermd/app` be updated to remove stale README references before
+2. Should `notermd/app` be updated to remove stale README references before
    Noter adopts it?
-4. Should `notermd/app` update Convex AI files before becoming the pinned
+3. Should `notermd/app` update Convex AI files before becoming the pinned
    source?
-5. Should the monorepo stay on `pnpm@9` while the starter uses `pnpm@10`, or
+4. Should the monorepo stay on `pnpm@9` while the starter uses `pnpm@10`, or
    should the snapshot be validated with its own package-manager version only?
 
 ## Recommendation
 
 Use `notermd/app` as the canonical authored starter, but do not fetch it during
-vault creation. Import it through a pinned, auditable refresh command, overlay
-Noter runtime assets, and keep the generated manifest as the only runtime input
-for repository seeding.
+vault creation. Import its tracked tree through a pinned, auditable refresh
+command and keep the generated manifest as the only runtime input for repository
+seeding.
 
 The first implementation PR should fix export determinism, add source metadata,
-and update manifest tests to assert both upstream app files and Noter runtime
-overlay files are present.
+and update manifest tests to assert the seeded files match the pinned
+`notermd/app` source tree.
