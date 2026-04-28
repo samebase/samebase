@@ -52,6 +52,11 @@ The repo is materially different from the monorepo starter:
 - includes Convex AI `.agents` skills,
 - includes a QR share block and an `/about` route.
 
+Its `main` history is also part of the authored template. The repository has 14
+small, intentionally staged commits, plus `REPO_HISTORY.md`, so preserving that
+history gives generated apps a readable build-up narrative instead of a single
+opaque seed commit.
+
 The upstream README still references
 `https://github.com/noter-md/convex-cloudflare-pages-stack`, so the public setup
 copy should be refreshed before this repo is treated as the canonical Noter
@@ -101,6 +106,25 @@ Observed result:
 - anonymous dev smoke returned `HTTP/1.1 200 OK`,
 - Convex warned that AI files are out of date.
 
+History preservation rehearsal:
+
+```bash
+rm -rf /tmp/notermd-history-target.git
+git init --bare /tmp/notermd-history-target.git
+git -C /tmp/notermd-app.JyaFxK/app push /tmp/notermd-history-target.git main:refs/heads/main
+git --git-dir=/tmp/notermd-history-target.git symbolic-ref HEAD refs/heads/main
+git -C /tmp/notermd-app.JyaFxK/app rev-parse main
+git --git-dir=/tmp/notermd-history-target.git rev-parse main
+git -C /tmp/notermd-app.JyaFxK/app rev-list --count main
+git --git-dir=/tmp/notermd-history-target.git rev-list --count main
+```
+
+Observed result:
+
+- source HEAD and target HEAD both resolved to
+  `1284e8dc6b41e9316fbe37292caf2316354d7041`,
+- source and target `main` both had 14 commits.
+
 ## Current Exporter Mismatch
 
 Running the local starter dev command generated:
@@ -117,22 +141,40 @@ is not tracked in `notermd/app`, it is not part of the template.
 
 ## Options
 
-### Runtime fetch from GitHub during vault creation
+### Live fetch from a moving GitHub branch during vault creation
 
 Do not do this.
 
-It makes repository creation depend on GitHub availability, branch drift,
-network latency, and auth/rate-limit behavior at the exact moment a user creates
-a project. It also conflicts with the current reliability-first single-manifest
-contract.
+Fetching whatever happens to be on `notermd/app/main` at creation time makes
+repository creation depend on branch drift, network latency, and auth/rate-limit
+behavior at the exact moment a user creates a project. The generated app should
+come from a pinned source commit. The implementation can still use git transport
+to copy that pinned history, but the source identity must be explicit before the
+user starts creation.
 
 ### GitHub template API as the creation path
 
-This would preserve more of the external repo's template identity. It also
-changes the current one-root-commit seeding behavior and would need a separate
-decision about whether generated repos should preserve upstream commit history.
+This preserves GitHub's template-repository identity, but it does not preserve
+the authored `main` commit history. GitHub's template docs say branches created
+from templates have unrelated histories, and the REST API's
+`include_all_branches` option includes files and directory structure from other
+branches rather than preserving the source commit graph.
 
-This is a product decision, not the best first implementation step.
+That makes the template API a poor fit if the crafted history is part of the
+starter experience.
+
+### Forking `notermd/app`
+
+Forking preserves source history and keeps an upstream relationship, and it may
+remain the right fit for the GitHub-only/no-Noter-account flow. It is less
+appropriate as the forced Noter-managed app generation path because the user is
+asking Noter to generate an app, not necessarily to create a repository that
+GitHub labels and treats as a fork.
+
+GitHub's fork API also behaves like a fork operation: it is asynchronous,
+accepts fork-specific options such as `default_branch_only`, and creates a fork
+under the destination account. That is a different product contract from a
+standalone generated repository.
 
 ### Vendored copy only
 
@@ -140,22 +182,25 @@ Replacing `apps/noter-starter-template` with a manually copied version of
 `notermd/app` is simple, but it recreates the current drift problem under a new
 source. The next update would again be manual and hard to audit.
 
-### Pinned external source with generated local manifest
+### Generated repository with copied source history
 
 Recommended.
 
-Keep `notermd/app` as the canonical authored app, but keep Noter's runtime seed
-path pinned and local:
+Keep `notermd/app` as the canonical authored app, preserve its `main` history in
+generated repositories, and avoid GitHub fork semantics by creating an empty
+target repository and pushing the pinned source history into it.
 
 1. Store source metadata in the monorepo: repository URL and source commit.
-2. Add a refresh script that clones/fetches `notermd/app` at the pinned commit
-   into a temporary directory.
-3. Materialize exactly the tracked source tree from that commit.
-4. Export the generated Convex manifest from that deterministic snapshot.
-5. Include source metadata and a content hash in the generated manifest.
+2. Create the user repository empty, as Noter does today.
+3. In a git-capable worker/runtime, fetch the pinned `notermd/app` history and
+   push its `main` ref into the empty target repository.
+4. Verify the target repository HEAD equals the pinned source commit before
+   recording the vault as ready.
+5. Keep any generated manifest as a validation artifact or fallback, not as the
+   source of truth for app generation.
 
-This keeps vault creation fast and reliable while making the source-of-truth
-relationship explicit and reviewable.
+This keeps the generated app standalone while preserving the crafted history
+that makes `notermd/app` useful as a template.
 
 ## Recommended Implementation Shape
 
@@ -171,32 +216,27 @@ Add a source metadata file, for example:
 Then split starter maintenance into two explicit commands:
 
 ```bash
-pnpm --filter noter-starter-template run template:refresh-from-source
-pnpm --filter noter-starter-template run template:export
+pnpm --filter noter-starter-template run template:fetch-source
+pnpm --filter noter-starter-template run template:check-source
 ```
 
-`template:refresh-from-source` should be the only command that imports from
-GitHub. `template:export` should consume a local deterministic snapshot and
-never depend on the network. The refresh command should use the source repo's
-tracked files, for example via `git archive` or `git ls-tree`, so ignored local
-runtime output cannot enter the manifest.
+`template:fetch-source` should be the only command that imports from GitHub.
+`template:check-source` should validate the pinned source app without changing
+the source tree.
 
-The manifest type should grow source metadata:
+For generation, replace the current single-commit tree seeding with a
+history-preserving push:
 
-```ts
-type StarterTemplateManifest = {
-  version: string;
-  sourceRepo: string;
-  sourceCommit: string;
-  contentHash: string;
-  commitMessage: string;
-  files: Record<string, string>;
-};
+```bash
+git init --bare <source-cache>
+git --git-dir=<source-cache> fetch https://github.com/notermd/app.git main
+git --git-dir=<source-cache> push <target-repo-url> FETCH_HEAD:refs/heads/main
 ```
 
-The source snapshot should include `notermd/app` tracked files as-is. That means
-`convex/_generated/**` is included because the source app tracks it and imports
-the typed `api`.
+The exact implementation can use a normal or bare clone, but the invariant is
+the same: the target `main` commit must equal the pinned `sourceCommit`. The
+generated app should not be a GitHub fork unless the product explicitly chooses
+the fork flow.
 
 ## Recommended Test Contract
 
@@ -210,31 +250,34 @@ CONVEX_AGENT_MODE=anonymous vp run dev
 curl -I http://localhost:<vite-port>/
 ```
 
-Noter snapshot/manifest validation:
+History-copy validation:
 
 ```bash
-pnpm --filter noter-starter-template run template:refresh-from-source
-pnpm --filter noter-starter-template run template:export
-pnpm --filter noter exec vp test run convex/starterSeed.test.ts convex/starterSeedManifest.test.ts
-pnpm check:starter
-pnpm build:starter
+pnpm --filter noter-starter-template run template:fetch-source
+pnpm --filter noter-starter-template run template:check-source
+git -C <generated-repo> rev-parse main
+git -C <source-cache> rev-parse main
+git -C <generated-repo> rev-list --count main
+git -C <source-cache> rev-list --count main
 ```
 
 Product validation before shipping the migration:
 
 1. Create a temporary Noter-managed repository with a name like
    `tmp-<worktree-id>-starter-source`.
-2. Confirm the seeded repository contains the pinned `notermd/app` tracked files
+2. Confirm the generated repository is not a GitHub fork.
+3. Confirm generated `main` HEAD equals the pinned `notermd/app` source commit.
+4. Confirm generated `main` commit count matches the pinned source `main`
+   history.
+5. Confirm the seeded repository contains the pinned `notermd/app` tracked files
    and no local starter-only additions.
-3. Confirm the first commit is still exactly one seed commit unless product
-   explicitly decides to preserve upstream history.
-4. Confirm Cloudflare/Convex provisioning reaches ready state.
-5. Confirm the seeded app preview returns 200.
+6. Confirm Cloudflare/Convex provisioning reaches ready state.
+7. Confirm the seeded app preview returns 200.
 
 ## Follow-Up Decisions
 
-1. Should created user repositories preserve the pedagogical upstream commit
-   history from `notermd/app`, or keep the current one-commit seed contract?
+1. Should Noter copy only `main`, or also tags such as
+   `v2-monorepo-react-tanstack-router`?
 2. Should `notermd/app` be updated to remove stale README references before
    Noter adopts it?
 3. Should `notermd/app` update Convex AI files before becoming the pinned
@@ -244,11 +287,19 @@ Product validation before shipping the migration:
 
 ## Recommendation
 
-Use `notermd/app` as the canonical authored starter, but do not fetch it during
-vault creation. Import its tracked tree through a pinned, auditable refresh
-command and keep the generated manifest as the only runtime input for repository
-seeding.
+Use `notermd/app` as the canonical authored starter and preserve its crafted
+`main` commit history in generated repositories. Do not force the Noter-managed
+generation flow to be a GitHub fork. Instead, create an empty target repository,
+push the pinned `notermd/app` `main` history into it, and verify the target HEAD
+equals the pinned source commit before continuing provisioning.
 
-The first implementation PR should fix export determinism, add source metadata,
-and update manifest tests to assert the seeded files match the pinned
-`notermd/app` source tree.
+The first implementation PR should add source metadata, replace single-commit
+manifest seeding with history-preserving git transport, and add tests/validation
+that prove generated repositories preserve the pinned `notermd/app` history
+without becoming GitHub forks.
+
+## References
+
+- [GitHub template repository docs](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-template-repository?apiVersion=2022-11-28)
+- [GitHub create repository from template REST API](https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#create-a-repository-using-a-template)
+- [GitHub create fork REST API](https://docs.github.com/en/rest/repos/forks?apiVersion=2022-11-28#create-a-fork)
