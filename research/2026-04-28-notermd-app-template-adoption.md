@@ -57,11 +57,6 @@ small, intentionally staged commits, plus `REPO_HISTORY.md`, so preserving that
 history gives generated apps a readable build-up narrative instead of a single
 opaque seed commit.
 
-The upstream README still references
-`https://github.com/noter-md/convex-cloudflare-pages-stack`, so the public setup
-copy should be refreshed before this repo is treated as the canonical Noter
-starter.
-
 ## Local Validation Performed
 
 Before testing in this worktree:
@@ -279,15 +274,6 @@ Product validation before shipping the migration:
    and no local starter-only additions.
 7. Confirm Cloudflare/Convex provisioning reaches ready state.
 8. Confirm the seeded app preview returns 200.
-
-## Follow-Up Decisions
-
-1. Should `notermd/app` be updated to remove stale README references before
-   Noter adopts it?
-2. Should `notermd/app` update Convex AI files before becoming the pinned
-   source?
-3. Should the monorepo stay on `pnpm@9` while the starter uses `pnpm@10`, or
-   should the snapshot be validated with its own package-manager version only?
 
 ## Recommendation
 
