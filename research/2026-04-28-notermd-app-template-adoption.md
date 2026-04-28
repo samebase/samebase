@@ -194,9 +194,11 @@ target repository and pushing the pinned source history into it.
 2. Create the user repository empty, as Noter does today.
 3. In a git-capable worker/runtime, fetch the pinned `notermd/app` history and
    push its `main` ref into the empty target repository.
-4. Verify the target repository HEAD equals the pinned source commit before
+4. Do not copy source tags or non-main branches into the generated repository by
+   default.
+5. Verify the target repository HEAD equals the pinned source commit before
    recording the vault as ready.
-5. Keep any generated manifest as a validation artifact or fallback, not as the
+6. Keep any generated manifest as a validation artifact or fallback, not as the
    source of truth for app generation.
 
 This keeps the generated app standalone while preserving the crafted history
@@ -236,7 +238,9 @@ git --git-dir=<source-cache> push <target-repo-url> FETCH_HEAD:refs/heads/main
 The exact implementation can use a normal or bare clone, but the invariant is
 the same: the target `main` commit must equal the pinned `sourceCommit`. The
 generated app should not be a GitHub fork unless the product explicitly chooses
-the fork flow.
+the fork flow. It should also not inherit `notermd/app` tags or extra branches:
+those describe the template's release/version namespace, not the generated app's
+own future release history.
 
 ## Recommended Test Contract
 
@@ -269,20 +273,20 @@ Product validation before shipping the migration:
 3. Confirm generated `main` HEAD equals the pinned `notermd/app` source commit.
 4. Confirm generated `main` commit count matches the pinned source `main`
    history.
-5. Confirm the seeded repository contains the pinned `notermd/app` tracked files
+5. Confirm the generated repository has no copied `notermd/app` tags or non-main
+   branches.
+6. Confirm the seeded repository contains the pinned `notermd/app` tracked files
    and no local starter-only additions.
-6. Confirm Cloudflare/Convex provisioning reaches ready state.
-7. Confirm the seeded app preview returns 200.
+7. Confirm Cloudflare/Convex provisioning reaches ready state.
+8. Confirm the seeded app preview returns 200.
 
 ## Follow-Up Decisions
 
-1. Should Noter copy only `main`, or also tags such as
-   `v2-monorepo-react-tanstack-router`?
-2. Should `notermd/app` be updated to remove stale README references before
+1. Should `notermd/app` be updated to remove stale README references before
    Noter adopts it?
-3. Should `notermd/app` update Convex AI files before becoming the pinned
+2. Should `notermd/app` update Convex AI files before becoming the pinned
    source?
-4. Should the monorepo stay on `pnpm@9` while the starter uses `pnpm@10`, or
+3. Should the monorepo stay on `pnpm@9` while the starter uses `pnpm@10`, or
    should the snapshot be validated with its own package-manager version only?
 
 ## Recommendation
@@ -290,8 +294,9 @@ Product validation before shipping the migration:
 Use `notermd/app` as the canonical authored starter and preserve its crafted
 `main` commit history in generated repositories. Do not force the Noter-managed
 generation flow to be a GitHub fork. Instead, create an empty target repository,
-push the pinned `notermd/app` `main` history into it, and verify the target HEAD
-equals the pinned source commit before continuing provisioning.
+push only the pinned `notermd/app` `main` history into it, and verify the target
+HEAD equals the pinned source commit before continuing provisioning. Do not copy
+the source repo's tags or non-main branches by default.
 
 The first implementation PR should add source metadata, replace single-commit
 manifest seeding with history-preserving git transport, and add tests/validation
