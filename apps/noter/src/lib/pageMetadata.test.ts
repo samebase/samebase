@@ -269,6 +269,10 @@ describe("page metadata", () => {
     expect(html).toContain('name="twitter:image"');
     expect(html).toContain('<link rel="manifest" href="/manifest.webmanifest"');
     expect(html).toContain(
+      'window.addEventListener("beforeinstallprompt", (event) => {',
+    );
+    expect(html).toContain("event.preventDefault();");
+    expect(html).toContain(
       '<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />',
     );
   });

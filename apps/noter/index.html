@@ -44,6 +44,12 @@
       content="https://noter.md/noter-social-card.png"
     />
     <meta name="theme-color" content="#000000" />
+    <script>
+      window.addEventListener("beforeinstallprompt", (event) => {
+        // Chrome on Android can show install UI on first open; keep install user-initiated.
+        event.preventDefault();
+      });
+    </script>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
