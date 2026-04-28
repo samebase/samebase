@@ -52,10 +52,8 @@ The repo is materially different from the monorepo starter:
 - includes Convex AI `.agents` skills,
 - includes a QR share block and an `/about` route.
 
-Its `main` history is also part of the authored template. The repository has 14
-small, intentionally staged commits, plus `REPO_HISTORY.md`, so preserving that
-history gives generated apps a readable build-up narrative instead of a single
-opaque seed commit.
+The source repo has authored history, but v1 can intentionally squash the pinned
+source tree into one generated commit to match Noter's current starter behavior.
 
 ## Local Validation Performed
 
@@ -98,27 +96,27 @@ Observed result:
 - install passed with `pnpm v10.33.0`,
 - `vp check` passed,
 - `vp run build` passed,
-- anonymous dev smoke returned `HTTP/1.1 200 OK`,
-- Convex warned that AI files are out of date.
+- anonymous dev smoke returned `HTTP/1.1 200 OK`.
 
-History preservation rehearsal:
+Pinned archive fetch rehearsal:
 
 ```bash
-rm -rf /tmp/notermd-history-target.git
-git init --bare /tmp/notermd-history-target.git
-git -C /tmp/notermd-app.JyaFxK/app push /tmp/notermd-history-target.git main:refs/heads/main
-git --git-dir=/tmp/notermd-history-target.git symbolic-ref HEAD refs/heads/main
-git -C /tmp/notermd-app.JyaFxK/app rev-parse main
-git --git-dir=/tmp/notermd-history-target.git rev-parse main
-git -C /tmp/notermd-app.JyaFxK/app rev-list --count main
-git --git-dir=/tmp/notermd-history-target.git rev-list --count main
+rm -rf /tmp/notermd-app-archive-v1
+mkdir -p /tmp/notermd-app-archive-v1/extracted
+gh api /repos/notermd/app/tarball/1284e8dc6b41e9316fbe37292caf2316354d7041 > /tmp/notermd-app-archive-v1/source.tar.gz
+tar -xzf /tmp/notermd-app-archive-v1/source.tar.gz -C /tmp/notermd-app-archive-v1/extracted --strip-components=1
+find /tmp/notermd-app-archive-v1/extracted -type f | sort
 ```
 
 Observed result:
 
-- source HEAD and target HEAD both resolved to
-  `1284e8dc6b41e9316fbe37292caf2316354d7041`,
-- source and target `main` both had 14 commits.
+- the GitHub archive endpoint worked for the private source repo when using an
+  authenticated token,
+- the archive contained the same 68 tracked files as
+  `git ls-tree -r --name-only 1284e8dc6b41e9316fbe37292caf2316354d7041`,
+- all files in this pinned source commit are UTF-8 or ASCII text, so the current
+  `content: string` manifest representation can support this exact v1 source
+  snapshot.
 
 ## Current Exporter Mismatch
 
@@ -134,70 +132,46 @@ standard should simply be the tracked `notermd/app` tree. If
 `convex/_generated/**` is tracked there, it is part of the template. If a file
 is not tracked in `notermd/app`, it is not part of the template.
 
-## Options
+## V1 Options
 
-### Live fetch from a moving GitHub branch during vault creation
+### Live fetch from GitHub during app creation
 
 Do not do this.
 
-Fetching whatever happens to be on `notermd/app/main` at creation time makes
-repository creation depend on branch drift, network latency, and auth/rate-limit
-behavior at the exact moment a user creates a project. The generated app should
-come from a pinned source commit. The implementation can still use git transport
-to copy that pinned history, but the source identity must be explicit before the
-user starts creation.
-
-### GitHub template API as the creation path
-
-This preserves GitHub's template-repository identity, but it does not preserve
-the authored `main` commit history. GitHub's template docs say branches created
-from templates have unrelated histories, and the REST API's
-`include_all_branches` option includes files and directory structure from other
-branches rather than preserving the source commit graph.
-
-That makes the template API a poor fit if the crafted history is part of the
-starter experience.
-
-### Forking `notermd/app`
-
-Forking preserves source history and keeps an upstream relationship, and it may
-remain the right fit for the GitHub-only/no-Noter-account flow. It is less
-appropriate as the forced Noter-managed app generation path because the user is
-asking Noter to generate an app, not necessarily to create a repository that
-GitHub labels and treats as a fork.
-
-GitHub's fork API also behaves like a fork operation: it is asynchronous,
-accepts fork-specific options such as `default_branch_only`, and creates a fork
-under the destination account. That is a different product contract from a
-standalone generated repository.
+Fetching `notermd/app` while the user is waiting on app creation would make
+creation depend on source-repo availability, token availability, archive
+redirects, and rate limits. It also reintroduces the Convex runtime problem:
+creation should not require a git-capable job or a source-repo read.
 
 ### Vendored copy only
 
-Replacing `apps/noter-starter-template` with a manually copied version of
-`notermd/app` is simple, but it recreates the current drift problem under a new
-source. The next update would again be manual and hard to audit.
+Replacing `apps/noter-starter-template` with a manually copied version of the
+source app is simple, but it makes refreshes hard to audit and easy to drift.
 
-### Generated repository with copied source history
+### Build-time archive refresh plus existing single-commit seeder
 
 Recommended.
 
-Keep `notermd/app` as the canonical authored app, preserve its `main` history in
-generated repositories, and avoid GitHub fork semantics by creating an empty
-target repository and pushing the pinned source history into it.
+Use `notermd/app` as the canonical source, but consume it before deployment:
 
 1. Store source metadata in the monorepo: repository URL and source commit.
-2. Create the user repository empty, as Noter does today.
-3. In a git-capable worker/runtime, fetch the pinned `notermd/app` history and
-   push its `main` ref into the empty target repository.
-4. Do not copy source tags or non-main branches into the generated repository by
-   default.
-5. Verify the target repository HEAD equals the pinned source commit before
-   recording the vault as ready.
-6. Keep any generated manifest as a validation artifact or fallback, not as the
-   source of truth for app generation.
+2. At template-refresh/export time, download the GitHub tar archive for that
+   exact commit.
+3. Extract the archive, strip GitHub's top-level archive directory, and collect
+   tracked files.
+4. Generate `apps/noter/convex/starterSeedManifest.generated.ts` from those
+   files.
+5. Commit the generated manifest in this repo.
+6. At click time, keep using the existing GitHub REST `createTree` +
+   `createCommit` + `createRef` flow to create exactly one seed commit in the
+   user's generated app.
 
-This keeps the generated app standalone while preserving the crafted history
-that makes `notermd/app` useful as a template.
+This keeps Convex app creation simple and deterministic. Runtime does not fetch
+`notermd/app`; it only reads the already-bundled manifest.
+
+Treat this as template maintenance/export time, not every production build or
+Convex deploy. The generated manifest should be committed so normal app creation
+does not need a source-repo token.
 
 ## Recommended Implementation Shape
 
@@ -210,32 +184,57 @@ Add a source metadata file, for example:
 }
 ```
 
-Then split starter maintenance into two explicit commands:
+Then make the template export command source from GitHub's archive endpoint
+instead of walking local starter files:
 
 ```bash
-pnpm --filter noter-starter-template run template:fetch-source
-pnpm --filter noter-starter-template run template:check-source
+pnpm --filter noter-starter-template run template:export
 ```
 
-`template:fetch-source` should be the only command that imports from GitHub.
-`template:check-source` should validate the pinned source app without changing
-the source tree.
+`template:export` should:
 
-For generation, replace the current single-commit tree seeding with a
-history-preserving push:
+1. read source metadata,
+2. require a GitHub token when the source repo is private,
+3. call `GET /repos/notermd/app/tarball/<sourceCommit>`,
+4. follow the redirect and download the temporary archive URL,
+5. extract files to a temporary directory,
+6. fail closed if the archive is empty, truncated, or contains non-file entries
+   the manifest cannot represent,
+7. fail closed if files are not UTF-8/ASCII text until the manifest format grows
+   binary support,
+8. write `starterSeedManifest.generated.ts` with the source repo, source commit,
+   content hash, commit message, and file map.
+
+The content hash should be derived from the sorted manifest path/content pairs
+so tests can compare the generated manifest against a freshly downloaded archive
+without relying on GitHub's tarball byte layout.
+
+The v1 manifest can extend the current type like this:
+
+```ts
+type StarterTemplateManifest = {
+  version: string;
+  sourceRepo: string;
+  sourceCommit: string;
+  contentHash: string;
+  commitMessage: string;
+  files: Record<string, string>;
+};
+```
+
+The app creation path can remain the current single-commit seeder:
 
 ```bash
-git init --bare <source-cache>
-git --git-dir=<source-cache> fetch https://github.com/notermd/app.git main
-git --git-dir=<source-cache> push <target-repo-url> FETCH_HEAD:refs/heads/main
+create repo with auto_init: false
+create GitHub tree from manifest files
+create one root commit from that tree
+create refs/heads/main at that commit
+read tree and branch HEAD
+record vault and start provisioning
 ```
 
-The exact implementation can use a normal or bare clone, but the invariant is
-the same: the target `main` commit must equal the pinned `sourceCommit`. The
-generated app should not be a GitHub fork unless the product explicitly chooses
-the fork flow. It should also not inherit `notermd/app` tags or extra branches:
-those describe the template's release/version namespace, not the generated app's
-own future release history.
+No per-source-commit GitHub REST calls are required because v1 intentionally
+squashes the source tree into one generated commit.
 
 ## Recommended Test Contract
 
@@ -249,48 +248,40 @@ CONVEX_AGENT_MODE=anonymous vp run dev
 curl -I http://localhost:<vite-port>/
 ```
 
-History-copy validation:
+Archive/manifest validation:
 
 ```bash
-pnpm --filter noter-starter-template run template:fetch-source
-pnpm --filter noter-starter-template run template:check-source
-git -C <generated-repo> rev-parse main
-git -C <source-cache> rev-parse main
-git -C <generated-repo> rev-list --count main
-git -C <source-cache> rev-list --count main
+pnpm --filter noter-starter-template run template:export
+pnpm --filter noter exec vp test run convex/starterSeed.test.ts convex/starterSeedManifest.test.ts
+pnpm --filter noter exec vp test run convex/starterSeedSource.test.ts
 ```
 
 Product validation before shipping the migration:
 
 1. Create a temporary Noter-managed repository with a name like
    `tmp-<worktree-id>-starter-source`.
-2. Confirm the generated repository is not a GitHub fork.
-3. Confirm generated `main` HEAD equals the pinned `notermd/app` source commit.
-4. Confirm generated `main` commit count matches the pinned source `main`
-   history.
-5. Confirm the generated repository has no copied `notermd/app` tags or non-main
-   branches.
-6. Confirm the seeded repository contains the pinned `notermd/app` tracked files
-   and no local starter-only additions.
-7. Confirm Cloudflare/Convex provisioning reaches ready state.
-8. Confirm the seeded app preview returns 200.
+2. Confirm the generated repository has exactly one seed commit.
+3. Confirm the generated tree matches the pinned `notermd/app` archive file
+   list/content hash.
+4. Confirm the generated repository is not a GitHub fork and has no copied
+   `notermd/app` tags or non-main branches.
+5. Confirm Cloudflare/Convex provisioning reaches ready state.
+6. Confirm the seeded app preview returns 200.
 
 ## Recommendation
 
-Use `notermd/app` as the canonical authored starter and preserve its crafted
-`main` commit history in generated repositories. Do not force the Noter-managed
-generation flow to be a GitHub fork. Instead, create an empty target repository,
-push only the pinned `notermd/app` `main` history into it, and verify the target
-HEAD equals the pinned source commit before continuing provisioning. Do not copy
-the source repo's tags or non-main branches by default.
+Use `notermd/app` as the canonical authored starter source, but for v1 squash
+the pinned source tree into the same single generated commit Noter already uses
+for starters. Fetch the pinned GitHub archive at template-refresh/export time,
+generate and commit the Convex manifest, and keep the button-click app creation
+path free of source-repo network calls or git-capable runtime requirements.
 
-The first implementation PR should add source metadata, replace single-commit
-manifest seeding with history-preserving git transport, and add tests/validation
-that prove generated repositories preserve the pinned `notermd/app` history
-without becoming GitHub forks.
+The first implementation PR should add source metadata, teach `template:export`
+to build the manifest from the pinned `notermd/app` archive, and add
+tests/validation that prove the generated manifest and generated app match that
+pinned source tree.
 
 ## References
 
-- [GitHub template repository docs](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-template-repository?apiVersion=2022-11-28)
-- [GitHub create repository from template REST API](https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#create-a-repository-using-a-template)
-- [GitHub create fork REST API](https://docs.github.com/en/rest/repos/forks?apiVersion=2022-11-28#create-a-fork)
+- [GitHub download repository archive REST API](https://docs.github.com/en/rest/repos/contents?apiversion=2022-11-28#download-a-repository-archive-tar)
+- [GitHub Git trees REST API](https://docs.github.com/en/rest/git/trees)
