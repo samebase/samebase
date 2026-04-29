@@ -364,6 +364,83 @@ function formatAheadBehindCounts(
   return `↑${aheadBy} ↓${behindBy}`;
 }
 
+type VaultDashboardRepositoryExternalLink = {
+  href: string;
+  key: "cloudflare" | "convex" | "github";
+  label: string;
+  title: string;
+};
+
+function buildVaultDashboardRepositoryExternalLinks(args: {
+  cloudflareProjectDashboardUrl?: string;
+  convexDeploymentDashboardUrl?: string;
+  githubRepositoryUrl: string;
+}): VaultDashboardRepositoryExternalLink[] {
+  const links: VaultDashboardRepositoryExternalLink[] = [
+    {
+      href: args.githubRepositoryUrl,
+      key: "github",
+      label: "GitHub",
+      title: "Open GitHub repository",
+    },
+  ];
+
+  if (typeof args.cloudflareProjectDashboardUrl === "string") {
+    links.push({
+      href: args.cloudflareProjectDashboardUrl,
+      key: "cloudflare",
+      label: "Cloudflare",
+      title: "Open Cloudflare Pages project",
+    });
+  }
+
+  if (typeof args.convexDeploymentDashboardUrl === "string") {
+    links.push({
+      href: args.convexDeploymentDashboardUrl,
+      key: "convex",
+      label: "Convex",
+      title: "Open Convex deployment dashboard",
+    });
+  }
+
+  return links.length > 1 ? links : [];
+}
+
+export function VaultDashboardRepositoryExternalLinks({
+  links,
+  repositoryFullName,
+}: {
+  links: VaultDashboardRepositoryExternalLink[];
+  repositoryFullName: string;
+}) {
+  if (links.length === 0) {
+    return null;
+  }
+
+  return (
+    <nav
+      aria-label={`Repository links for ${repositoryFullName}`}
+      className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-base leading-6 text-muted-foreground"
+    >
+      {links.map((link) => (
+        <a
+          key={link.key}
+          href={link.href}
+          target="_blank"
+          rel="noreferrer noopener"
+          className={clsx(
+            "-mx-1.5 -my-1 inline-flex min-h-8 items-center rounded-sm px-1.5 py-1 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+            linkStyle,
+          )}
+          title={link.title}
+        >
+          {link.label}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
 export function VaultBranchLinkContent({
   repositoryFullName,
   branchName,
@@ -905,6 +982,12 @@ function VaultDashboardBody({
         const infraActionLabel = vault.isNoterManaged
           ? getInfraActionLabel(vault.infraState)
           : null;
+        const repositoryExternalLinks =
+          buildVaultDashboardRepositoryExternalLinks({
+            cloudflareProjectDashboardUrl: vault.cloudflareProjectDashboardUrl,
+            convexDeploymentDashboardUrl: vault.convexDeploymentDashboardUrl,
+            githubRepositoryUrl,
+          });
         const sharedLastSyncedAt = vault.lastTreeRefreshAt;
         const treeRefreshUiState = getTreeRefreshUiState({
           now,
@@ -926,6 +1009,14 @@ function VaultDashboardBody({
             titleTarget="_blank"
             titleTitle={`Open ${vault.repositoryFullName} on GitHub`}
             titleClassName={linkStyle}
+            repositoryLinks={
+              repositoryExternalLinks.length > 0 ? (
+                <VaultDashboardRepositoryExternalLinks
+                  links={repositoryExternalLinks}
+                  repositoryFullName={vault.repositoryFullName}
+                />
+              ) : undefined
+            }
             titleSuffix={
               !isReady ? (
                 <>

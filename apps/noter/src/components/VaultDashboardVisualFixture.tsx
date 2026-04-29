@@ -16,7 +16,10 @@ import {
   VaultDashboardRepositoryList,
   VaultDashboardSidebarContent,
 } from "@/components/VaultDashboardChrome";
-import { VaultBranchLinkRow } from "@/components/VaultDashboard";
+import {
+  VaultBranchLinkRow,
+  VaultDashboardRepositoryExternalLinks,
+} from "@/components/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 
 export type VaultDashboardVisualMode =
@@ -36,6 +39,34 @@ function fakeVaultId(): Parameters<typeof VaultBranchLinkRow>[0]["vaultId"] {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
+function FixtureRepositoryLinks() {
+  return (
+    <VaultDashboardRepositoryExternalLinks
+      repositoryFullName="noter-md/noter"
+      links={[
+        {
+          href: "https://github.com/noter-md/noter",
+          key: "github",
+          label: "GitHub",
+          title: "Open GitHub repository",
+        },
+        {
+          href: "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/pages/view/noter",
+          key: "cloudflare",
+          label: "Cloudflare",
+          title: "Open Cloudflare Pages project",
+        },
+        {
+          href: "https://dashboard.convex.dev/d/calm-swan-123",
+          key: "convex",
+          label: "Convex",
+          title: "Open Convex deployment dashboard",
+        },
+      ]}
+    />
+  );
 }
 
 function FixtureVaultLastUpdatedStatusCard() {
@@ -162,6 +193,7 @@ function VaultDashboardListSpacingFixture({
             repositoryOwner="noter-md"
             repositoryName="noter"
             titleHref="https://github.com/noter-md/noter"
+            repositoryLinks={<FixtureRepositoryLinks />}
             branchSection={
               <div className="space-y-1.5">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">

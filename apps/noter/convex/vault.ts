@@ -30,7 +30,10 @@ import {
   hostingProviderValidator,
   hostingStateValidator,
 } from "./hostingState";
-import { resolveHostingMainUrl } from "./hostingStateHelpers";
+import {
+  resolveCloudflareHostingState,
+  resolveHostingMainUrl,
+} from "./hostingStateHelpers";
 import {
   doesTreeRefreshClaimMatch,
   getLastRepositoryMetadataRefreshAt,
@@ -74,6 +77,34 @@ const vaultBranchFiltersValidator = object({
   branchesExpanded: optional(boolean()),
 });
 type VaultBranchFilters = Infer<typeof vaultBranchFiltersValidator>;
+
+function buildCloudflareProjectDashboardUrl(
+  infra: { hosting?: Infer<typeof hostingStateValidator> } | null | undefined,
+): string | undefined {
+  const hosting = resolveCloudflareHostingState(infra);
+  if (!hosting) {
+    return undefined;
+  }
+
+  const accountId = hosting.accountId.trim();
+  const projectName = hosting.projectName.trim();
+  if (accountId.length === 0 || projectName.length === 0) {
+    return undefined;
+  }
+
+  return `https://dash.cloudflare.com/?to=/${encodeURIComponent(accountId)}/pages/view/${encodeURIComponent(projectName)}`;
+}
+
+function buildConvexDeploymentDashboardUrl(
+  deploymentName: string | undefined,
+): string | undefined {
+  const normalizedDeploymentName = deploymentName?.trim();
+  if (!normalizedDeploymentName) {
+    return undefined;
+  }
+
+  return `https://dashboard.convex.dev/d/${encodeURIComponent(normalizedDeploymentName)}`;
+}
 
 /**
  * Cloudflare can edit or partially reformat its PR comment without removing the
@@ -854,6 +885,8 @@ const getUserVaultsResult = array(
       literal("partial"),
     ),
     infraProductionUrl: optional(string()),
+    cloudflareProjectDashboardUrl: optional(string()),
+    convexDeploymentDashboardUrl: optional(string()),
   }),
 );
 
@@ -979,6 +1012,11 @@ export const getUserVaults = query({
             })),
           infraState: vault.infraState ?? "not_started",
           infraProductionUrl: resolveHostingMainUrl(infra),
+          cloudflareProjectDashboardUrl:
+            buildCloudflareProjectDashboardUrl(infra),
+          convexDeploymentDashboardUrl: buildConvexDeploymentDashboardUrl(
+            infra?.convexDeploymentName,
+          ),
         };
       }),
     );

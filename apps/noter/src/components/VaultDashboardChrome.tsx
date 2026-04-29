@@ -291,6 +291,7 @@ export function VaultDashboardRepositoryCard({
   footerActions,
   isReady,
   repositoryName,
+  repositoryLinks,
   repositoryOwner,
   repositoryStatus,
   titleClassName,
@@ -310,6 +311,7 @@ export function VaultDashboardRepositoryCard({
   footerActions?: ReactNode;
   isReady: boolean;
   repositoryName: string;
+  repositoryLinks?: ReactNode;
   repositoryOwner: string;
   repositoryStatus?: ReactNode;
   titleClassName?: string;
@@ -347,6 +349,7 @@ export function VaultDashboardRepositoryCard({
               </span>
             </h3>
           </a>
+          {repositoryLinks}
           {repositoryStatus ? (
             <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
               {repositoryStatus}
