@@ -50,9 +50,9 @@ For the current `main` export, `sourceCommit` is:
 49d0faa1ba17b73138d0a1c4f709c750720b0e9d
 ```
 
-Because `notermd/app` is private, the exporter needs
-`NOTER_TEMPLATE_GITHUB_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN`, or an authenticated
-`gh` CLI session.
+Because `notermd/app` is private, the exporter requires
+`NOTER_TEMPLATE_GITHUB_TOKEN` in the shell or CI environment that runs
+`pnpm run template:export`.
 
 ## Runtime After This Change
 

@@ -99,29 +99,14 @@ function parseArgs(argv: readonly string[]): ExportOptions {
   return { sourceBranch };
 }
 
-async function readToken(): Promise<string> {
-  const envToken =
-    process.env.NOTER_TEMPLATE_GITHUB_TOKEN ??
-    process.env.GITHUB_TOKEN ??
-    process.env.GH_TOKEN;
+function readToken(): string {
+  const envToken = process.env.NOTER_TEMPLATE_GITHUB_TOKEN;
   if (envToken?.trim()) {
     return envToken.trim();
   }
 
-  try {
-    const { stdout } = await execFileAsync("gh", ["auth", "token"], {
-      encoding: "utf8",
-    });
-    const token = stdout.trim();
-    if (token) {
-      return token;
-    }
-  } catch {
-    // Fall through to the explicit error below.
-  }
-
   throw new Error(
-    "Set NOTER_TEMPLATE_GITHUB_TOKEN, GITHUB_TOKEN, GH_TOKEN, or run gh auth login before exporting notermd/app.",
+    "Set NOTER_TEMPLATE_GITHUB_TOKEN before exporting notermd/app.",
   );
 }
 
@@ -363,7 +348,7 @@ const outputPath = path.resolve(
 );
 
 const { sourceBranch } = parseArgs(process.argv.slice(2));
-const token = await readToken();
+const token = readToken();
 const sourceCommit = await resolveSourceCommit({ token, sourceBranch });
 const tempDir = await mkdtemp(path.join(os.tmpdir(), "notermd-app-template-"));
 const archivePath = path.join(tempDir, "source.tar.gz");
