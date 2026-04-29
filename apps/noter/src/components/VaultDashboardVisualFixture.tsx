@@ -59,10 +59,10 @@ function FixtureRepositoryLinks() {
           title: "Open Cloudflare Pages project",
         },
         {
-          href: "https://dashboard.convex.dev/d/calm-swan-123",
+          href: "https://dashboard.convex.dev/d/calm-swan-123/deployment",
           key: "convex",
-          label: "Convex",
-          title: "Open Convex deployment dashboard",
+          label: "Convex deploy",
+          title: "Open specific Convex deployment dashboard",
         },
       ]}
     />

@@ -103,7 +103,7 @@ function buildConvexDeploymentDashboardUrl(
     return undefined;
   }
 
-  return `https://dashboard.convex.dev/d/${encodeURIComponent(normalizedDeploymentName)}`;
+  return `https://dashboard.convex.dev/d/${encodeURIComponent(normalizedDeploymentName)}/deployment`;
 }
 
 /**
