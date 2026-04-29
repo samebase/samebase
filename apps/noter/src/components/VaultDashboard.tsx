@@ -66,7 +66,6 @@ import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
-import { PullRequestLink } from "@/components/PullRequestLink";
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
 import { CodexProviderRow } from "@/components/CodexProviderRow";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
@@ -398,28 +397,39 @@ export function VaultBranchLinkContent({
 }) {
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
   const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
+  const hasPullRequestTitle =
+    typeof pullRequestTitle === "string" && pullRequestTitle.length > 0;
   const normalizedPullRequestLabels =
     normalizePullRequestLabels(pullRequestLabels);
   const metadataLinkClassName = clsx(
-    "inline-flex min-h-6 items-center rounded-sm px-1.5 py-0.5 -mx-1.5 -my-0.5 touch-manipulation",
+    "-mx-2 -my-1 inline-flex min-h-9 items-center rounded-sm px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
     "font-mono",
     linkStyle,
   );
+  const branchLinkClassName = clsx(
+    "-mx-1.5 -my-1 block min-h-9 max-w-full break-words rounded-sm px-1.5 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current",
+    hasPullRequestTitle
+      ? "font-mono text-muted-foreground"
+      : "text-muted-foreground",
+    !hasPullRequestTitle && isDefault && "font-medium text-foreground",
+  );
   const branchPath = encodeURIComponent(branchName);
   const branchRoute = `/vault/${repositoryFullName}/${branchPath}`;
-  const hasPullRequestTitle =
-    typeof pullRequestTitle === "string" && pullRequestTitle.length > 0;
   const hasCurrentPreviewLink = hasCurrentCloudflareBranchPreview({
     pullRequestNumber,
     cloudflareBranchPreviewUrl,
     cloudflarePreviewPullRequestNumber,
   });
+  const pullRequestLabel =
+    typeof pullRequestNumber === "number"
+      ? `PR #${pullRequestNumber}`
+      : "Pull request";
 
   return (
     <>
       {isDeletedUpstream ? (
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground/70 line-through">
+          <span className="min-w-0 flex-1 break-words text-base leading-6 text-muted-foreground/70 line-through">
             {branchName}
           </span>
           <span className="shrink-0 corner-notch-1 border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground/80">
@@ -427,27 +437,31 @@ export function VaultBranchLinkContent({
           </span>
         </div>
       ) : (
-        <div className="min-w-0 flex-1 space-y-1">
+        <div className="min-w-0 flex-1 space-y-1.5">
           {hasPullRequestTitle ? (
-            <div className="truncate text-sm font-medium text-foreground">
-              {pullRequestTitle}
-            </div>
+            typeof pullRequestUrl === "string" && pullRequestUrl.length > 0 ? (
+              <a
+                href={pullRequestUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={clsx(
+                  "-mx-1.5 -my-1 block min-h-9 max-w-full break-words rounded-sm px-1.5 py-1 text-base font-medium leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+                  linkStyle,
+                )}
+                title="Open pull request"
+              >
+                {pullRequestTitle}
+              </a>
+            ) : (
+              <div className="break-words text-base font-medium leading-6 text-foreground">
+                {pullRequestTitle}
+              </div>
+            )
           ) : null}
-          <Link
-            to={branchRoute}
-            className={clsx(
-              "block truncate underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current",
-              hasPullRequestTitle
-                ? "font-mono text-[11px] text-muted-foreground/70"
-                : "text-sm text-muted-foreground",
-              !hasPullRequestTitle &&
-                isDefault &&
-                "font-medium text-foreground",
-            )}
-          >
+          <Link to={branchRoute} className={branchLinkClassName}>
             {branchName}
           </Link>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground/80">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-base leading-6 text-muted-foreground/80">
             <a
               href={commitUrl}
               target="_blank"
@@ -455,20 +469,23 @@ export function VaultBranchLinkContent({
               className={metadataLinkClassName}
               title="View commit on GitHub"
             >
-              {headCommitSha.slice(0, 7)}
+              commit {headCommitSha.slice(0, 7)}
             </a>
             {typeof pullRequestUrl === "string" && pullRequestUrl.length > 0 ? (
               <>
-                <span aria-hidden="true">·</span>
-                <PullRequestLink
-                  pullRequestNumber={pullRequestNumber}
-                  pullRequestUrl={pullRequestUrl}
+                <a
+                  href={pullRequestUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
                   className={metadataLinkClassName}
-                />
+                  title="Open pull request"
+                >
+                  {pullRequestLabel}
+                </a>
                 {pullRequestIsDraft ? (
                   <Badge
                     variant="outline"
-                    className="h-5 px-1.5 py-0 text-[10px] font-medium uppercase tracking-wide"
+                    className="h-6 px-1.5 py-0 text-xs font-medium uppercase tracking-wide"
                   >
                     draft
                   </Badge>
@@ -480,7 +497,7 @@ export function VaultBranchLinkContent({
                   <Badge
                     key={label.name}
                     variant="outline"
-                    className="h-5 max-w-48 px-1.5 py-0 text-[10px] font-medium"
+                    className="h-6 max-w-48 px-1.5 py-0 text-xs font-medium"
                     style={buildPullRequestLabelStyle(label.color)}
                     title={label.name}
                   >
@@ -490,7 +507,6 @@ export function VaultBranchLinkContent({
               : null}
             {hasCurrentPreviewLink ? (
               <>
-                <span aria-hidden="true">·</span>
                 <a
                   href={cloudflareBranchPreviewUrl}
                   target="_blank"
@@ -504,7 +520,6 @@ export function VaultBranchLinkContent({
             ) : null}
             {aheadBehindLabel ? (
               <>
-                <span aria-hidden="true">·</span>
                 <span
                   className="font-mono tabular-nums"
                   title="Ahead/behind versus the default branch"
@@ -544,7 +559,7 @@ export function VaultBranchLinkRow({
   const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
 
   return (
-    <div className="flex items-start gap-3 border-b border-border/40 px-4 py-2.5 last:border-b-0 sm:px-3">
+    <div className="flex items-start gap-3 border-b border-border/40 px-4 py-3.5 last:border-b-0 sm:px-3">
       <VaultBranchLinkContent
         repositoryFullName={repositoryFullName}
         branchName={branchName}
@@ -581,16 +596,16 @@ export function VaultBranchLinkRow({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-6 w-6 text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
+            className="h-8 w-8 text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
             onClick={onDeleteBranch}
             disabled={isDeletingBranch}
             aria-label={`Delete branch ${branchName}`}
             title="Delete branch on GitHub"
           >
             {isDeletingBranch ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <TrashIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              <TrashIcon className="h-4 w-4" aria-hidden="true" />
             )}
           </Button>
         ) : null}

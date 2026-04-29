@@ -329,12 +329,15 @@ export function VaultDashboardRepositoryCard({
             href={titleHref}
             target={titleTarget}
             rel={titleTarget === "_blank" ? "noopener noreferrer" : undefined}
-            className={clsx("flex min-w-0 items-start", titleClassName)}
+            className={clsx(
+              "-mx-2 -my-1 inline-flex min-h-9 max-w-full items-center rounded-sm px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+              titleClassName,
+            )}
             title={titleTitle}
           >
-            <h3 className="min-w-0 font-semibold">
+            <h3 className="min-w-0 font-semibold leading-6">
               <span className="flex min-w-0 items-center gap-2">
-                <span className="min-w-0 truncate">
+                <span className="min-w-0 break-words">
                   <span className="font-normal text-muted-foreground">
                     {repositoryOwner}/
                   </span>
