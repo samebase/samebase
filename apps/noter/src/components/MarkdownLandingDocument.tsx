@@ -112,7 +112,7 @@ function MarkdownVideo({
 
   return (
     <video
-      className="mx-auto max-h-[72svh] w-auto max-w-full border bg-background sm:max-h-[720px]"
+      className="mx-auto max-h-[72svh] w-auto max-w-full bg-background shadow-xl sm:max-h-[720px]"
       controls
       height={height}
       loop={loop}
@@ -293,7 +293,10 @@ const markdownComponents = {
   },
   details({ children, open }) {
     return (
-      <details className="border bg-background px-3 py-2 open:pb-3" open={open}>
+      <details
+        className="bg-background px-3 py-2 shadow-md open:pb-3"
+        open={open}
+      >
         {children}
       </details>
     );
