@@ -20,6 +20,7 @@ import {
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
 import {
+  hasCurrentCloudflareBuildFailureLogs,
   getCloudflareBranchPreviewHydrationTargets,
   hasCurrentCloudflareBranchPreview,
 } from "@/lib/cloudflarePreviewLinks";
@@ -209,6 +210,8 @@ type DashboardManualRefreshVault = {
     remoteState: "active" | "deleted_upstream";
     cloudflareBranchPreviewUrl?: string;
     cloudflarePreviewPullRequestNumber?: number;
+    cloudflarePreviewLogsUrl?: string;
+    cloudflarePreviewStatus?: string;
     pullRequestNumber?: number;
   }>;
   repositoryFullName: string;
@@ -330,6 +333,8 @@ interface VaultRemoteBranchListItem {
   pullRequestIsDraft?: boolean;
   cloudflareBranchPreviewUrl?: string;
   cloudflarePreviewPullRequestNumber?: number;
+  cloudflarePreviewLogsUrl?: string;
+  cloudflarePreviewStatus?: string;
 }
 
 interface VaultBranchLinkRowProps {
@@ -348,6 +353,8 @@ interface VaultBranchLinkRowProps {
   pullRequestIsDraft?: boolean;
   cloudflareBranchPreviewUrl?: string;
   cloudflarePreviewPullRequestNumber?: number;
+  cloudflarePreviewLogsUrl?: string;
+  cloudflarePreviewStatus?: string;
   stagedSummary?: StagedSummary;
   canDeleteBranch: boolean;
   isDeletingBranch: boolean;
@@ -470,6 +477,8 @@ export function VaultBranchLinkContent({
   pullRequestIsDraft,
   cloudflareBranchPreviewUrl,
   cloudflarePreviewPullRequestNumber,
+  cloudflarePreviewLogsUrl,
+  cloudflarePreviewStatus,
 }: {
   repositoryFullName: string;
   branchName: string;
@@ -485,6 +494,8 @@ export function VaultBranchLinkContent({
   pullRequestIsDraft?: boolean;
   cloudflareBranchPreviewUrl?: string;
   cloudflarePreviewPullRequestNumber?: number;
+  cloudflarePreviewLogsUrl?: string;
+  cloudflarePreviewStatus?: string;
 }) {
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
   const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
@@ -516,6 +527,12 @@ export function VaultBranchLinkContent({
     pullRequestNumber,
     cloudflareBranchPreviewUrl,
     cloudflarePreviewPullRequestNumber,
+  });
+  const hasBuildFailureLogsLink = hasCurrentCloudflareBuildFailureLogs({
+    pullRequestNumber,
+    cloudflarePreviewLogsUrl,
+    cloudflarePreviewPullRequestNumber,
+    cloudflarePreviewStatus,
   });
   const pullRequestLabel =
     typeof pullRequestNumber === "number"
@@ -615,7 +632,23 @@ export function VaultBranchLinkContent({
                   : null}
               </div>
             ) : null}
-            {hasCurrentPreviewLink ? (
+            {hasBuildFailureLogsLink ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                <a
+                  href={cloudflarePreviewLogsUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={clsx(
+                    metadataLinkClassName,
+                    "gap-1.5 text-destructive hover:text-destructive",
+                  )}
+                  title="Open Cloudflare build logs"
+                >
+                  <CloudflareProviderLogo className="shrink-0" />
+                  <span>Build failed logs</span>
+                </a>
+              </div>
+            ) : hasCurrentPreviewLink ? (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <a
                   href={cloudflareBranchPreviewUrl}
@@ -652,6 +685,8 @@ export function VaultBranchLinkRow({
   pullRequestIsDraft,
   cloudflareBranchPreviewUrl,
   cloudflarePreviewPullRequestNumber,
+  cloudflarePreviewLogsUrl,
+  cloudflarePreviewStatus,
   stagedSummary,
   canDeleteBranch,
   isDeletingBranch,
@@ -678,6 +713,8 @@ export function VaultBranchLinkRow({
         pullRequestIsDraft={pullRequestIsDraft}
         cloudflareBranchPreviewUrl={cloudflareBranchPreviewUrl}
         cloudflarePreviewPullRequestNumber={cloudflarePreviewPullRequestNumber}
+        cloudflarePreviewLogsUrl={cloudflarePreviewLogsUrl}
+        cloudflarePreviewStatus={cloudflarePreviewStatus}
       />
       {showRowActions ? (
         <div className="flex shrink-0 items-start gap-2">
@@ -775,6 +812,8 @@ function VaultBranchListRow({
       cloudflarePreviewPullRequestNumber={
         branch.cloudflarePreviewPullRequestNumber
       }
+      cloudflarePreviewLogsUrl={branch.cloudflarePreviewLogsUrl}
+      cloudflarePreviewStatus={branch.cloudflarePreviewStatus}
       stagedSummary={stagedSummary}
       canDeleteBranch={deleteEligibility.canDelete}
       isDeletingBranch={activeDeletingBranchName === branch.name}

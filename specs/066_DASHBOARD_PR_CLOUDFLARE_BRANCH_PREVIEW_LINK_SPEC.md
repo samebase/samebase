@@ -106,6 +106,7 @@ Example fields:
 
 - `Preview URL`: immutable deployment URL for one deploy
 - `Branch Preview URL`: mutable branch alias URL
+- `View logs`: Cloudflare deployment log URL
 
 The parser should treat the comment body as semi-structured provider output:
 
@@ -113,6 +114,11 @@ The parser should treat the comment body as semi-structured provider output:
 2. Parse the latest Cloudflare deploy comment for the PR.
 3. Extract recognized fields if present.
 4. Fail open when a field is missing or the comment format changes.
+
+Dashboard branch rows should render the current PR's `View logs` URL as a
+mobile-friendly Cloudflare link when the parsed `Status` is `Build failed`. This
+failure link replaces the normal branch preview link for that row because the
+latest deploy did not produce a usable branch preview.
 
 ## Proposed Changes
 
@@ -270,6 +276,7 @@ That separation is intentional:
 
 1. Parse a Cloudflare Pages PR comment body into:
    - branch preview URL
+   - failed build status and logs URL
 2. Verify the parser tolerates:
    - missing `View logs`
    - missing `Status`
