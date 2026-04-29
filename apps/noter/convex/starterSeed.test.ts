@@ -19,6 +19,8 @@ function makeGitClient(options?: {
 }) {
   const createTreeCalls: Parameters<StarterSeedGitClient["createTree"]>[0][] =
     [];
+  const createBlobCalls: Parameters<StarterSeedGitClient["createBlob"]>[0][] =
+    [];
   const createCommitCalls: Parameters<
     StarterSeedGitClient["createCommit"]
   >[0][] = [];
@@ -29,6 +31,7 @@ function makeGitClient(options?: {
   >[0][] = [];
 
   let treeCounter = 0;
+  let blobCounter = 0;
   let commitCounter = 0;
   let bootstrapCounter = 0;
   let didFailCreateTree = false;
@@ -61,6 +64,11 @@ function makeGitClient(options?: {
       treeCounter += 1;
       return { sha: `tree-${treeCounter}` };
     },
+    createBlob: async (args) => {
+      createBlobCalls.push(args);
+      blobCounter += 1;
+      return { sha: `blob-${blobCounter}` };
+    },
     createCommit: async (args) => {
       createCommitCalls.push(args);
       commitCounter += 1;
@@ -87,6 +95,7 @@ function makeGitClient(options?: {
   return {
     client,
     createTreeCalls,
+    createBlobCalls,
     createCommitCalls,
     createRefCalls,
     updateRefCalls,
@@ -96,28 +105,56 @@ function makeGitClient(options?: {
 
 describe("buildTreeEntriesForManifest", () => {
   it("sorts entries by path for deterministic GitHub trees", () => {
-    const entries = buildTreeEntriesForManifest({
-      "src/main.tsx": "main",
-      "README.md": "readme",
-      "convex/schema.ts": "schema",
-    });
+    const entries = buildTreeEntriesForManifest(
+      {
+        "src/main.tsx": "main",
+        "README.md": "readme",
+        "convex/schema.ts": "schema",
+      },
+      {
+        "docs/logo.jpg": "blob-logo",
+      },
+      {
+        "docs/logo.jpg": "100755",
+        "src/main.tsx": "100755",
+      },
+    );
 
     expect(entries.map((entry) => entry.path)).toEqual([
       "convex/schema.ts",
+      "docs/logo.jpg",
       "README.md",
       "src/main.tsx",
     ]);
+    expect(entries[1]).toEqual({
+      path: "docs/logo.jpg",
+      mode: "100755",
+      type: "blob",
+      sha: "blob-logo",
+    });
+    expect(entries[3]).toEqual({
+      path: "src/main.tsx",
+      mode: "100755",
+      type: "blob",
+      content: "main",
+    });
   });
 });
 
 describe("seedRepositoryWithStarter", () => {
   const manifest: StarterTemplateManifest = {
     version: "starter-template-test",
+    sourceRepo: "https://github.com/notermd/app.git",
+    sourceBranch: "main",
+    sourceCommit: "starter-template-test",
+    contentHash: "starter-template-test",
     commitMessage: "chore: seed starter template",
     files: {
       "README.md": "starter",
       "src/App.tsx": "export default function App() { return null; }",
     },
+    binaryFiles: {},
+    fileModes: {},
   };
 
   it("creates one root commit and one branch ref", async () => {
@@ -132,6 +169,7 @@ describe("seedRepositoryWithStarter", () => {
     });
 
     expect(mock.createTreeCalls).toHaveLength(1);
+    expect(mock.createBlobCalls).toHaveLength(0);
     expect(mock.createCommitCalls).toHaveLength(1);
     expect(mock.createCommitCalls[0].parents).toEqual([]);
     expect(mock.createRefCalls).toHaveLength(1);
@@ -146,6 +184,40 @@ describe("seedRepositoryWithStarter", () => {
     expect(result).toEqual({
       defaultBranch: "main",
       headCommitSha: "commit-1",
+    });
+  });
+
+  it("creates Git blobs for binary manifest files before creating the tree", async () => {
+    const mock = makeGitClient();
+
+    await seedRepositoryWithStarter({
+      client: mock.client,
+      owner: "owner",
+      repo: "repo",
+      defaultBranch: "main",
+      manifest: {
+        ...manifest,
+        binaryFiles: {
+          "docs/logo.jpg": Buffer.from("binary", "utf8").toString("base64"),
+        },
+        fileModes: {
+          "docs/logo.jpg": "100755",
+        },
+      },
+    });
+
+    expect(mock.createBlobCalls).toEqual([
+      {
+        owner: "owner",
+        repo: "repo",
+        contentBase64: Buffer.from("binary", "utf8").toString("base64"),
+      },
+    ]);
+    expect(mock.createTreeCalls[0].tree).toContainEqual({
+      path: "docs/logo.jpg",
+      mode: "100755",
+      type: "blob",
+      sha: "blob-1",
     });
   });
 

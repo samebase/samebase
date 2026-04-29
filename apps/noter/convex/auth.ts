@@ -158,7 +158,10 @@ async function applyAutoSeedProviderKeys(
   userId: Id<"users">,
 ) {
   const deploymentProfile = resolveDeploymentProfile();
-  if (deploymentProfile.kind !== "local_worktree") {
+  if (
+    deploymentProfile.kind !== "local_worktree" &&
+    deploymentProfile.kind !== "preview"
+  ) {
     return;
   }
   await upsertSeedGithubConnection(db, userId);

@@ -16,7 +16,6 @@ const INPUT_FILES: readonly string[] = [
   "pnpm-workspace.yaml",
   "eslint-rules/package.json",
   "apps/noter/package.json",
-  "apps/noter-starter-template/package.json",
 ];
 
 function sha256(contents: import("node:crypto").BinaryLike): string {

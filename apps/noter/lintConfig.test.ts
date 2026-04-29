@@ -316,9 +316,6 @@ describe("lint config", () => {
     const stagedConfig = readRootStagedConfig();
     const rootPackage = readPackageSurface("package.json");
     const appPackage = readPackageSurface("apps/noter/package.json");
-    const starterPackage = readPackageSurface(
-      "apps/noter-starter-template/package.json",
-    );
 
     expect(rootPackage.devDependencies).toMatchObject({
       "@convex-dev/eslint-plugin": "0.0.1-alpha.4",
@@ -347,24 +344,11 @@ describe("lint config", () => {
     expect(appPackage.scripts?.lint).toContain("pnpm run check");
     expect(appPackage.scripts?.["lint:vp"]).toContain("exec vp lint");
     expect(appPackage.scripts?.["lint:vp"]).not.toContain("--config");
-    expect(starterPackage.scripts?.check).toContain("exec vp lint");
-    expect(starterPackage.scripts?.check).not.toContain("--config");
-    expect(starterPackage.scripts?.lint).toContain("pnpm run check");
-    expect(starterPackage.scripts?.prepare).toBe(
-      "vp config --hooks-dir .vite-hooks",
-    );
     expect(appPackage.scripts?.lint).not.toContain("eslint");
-    expect(starterPackage.scripts?.lint).not.toContain("eslint");
     expect(rootPackage.devDependencies?.husky).toBeUndefined();
     expect(appPackage.devDependencies?.eslint).toBeUndefined();
     expect(
       appPackage.devDependencies?.["@typescript-eslint/parser"],
     ).toBeUndefined();
-    expect(starterPackage.devDependencies?.husky).toBeUndefined();
-    expect(starterPackage.devDependencies?.eslint).toBeUndefined();
-    expect(
-      starterPackage.devDependencies?.["@typescript-eslint/parser"],
-    ).toBeUndefined();
-    expect(starterPackage.devDependencies?.vitest).toBeUndefined();
   });
 });

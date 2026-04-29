@@ -300,7 +300,6 @@ ${installFishToolingRunCommand}
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY eslint-rules/package.json eslint-rules/package.json
 COPY apps/noter/package.json apps/noter/package.json
-COPY apps/noter-starter-template/package.json apps/noter-starter-template/package.json
 
 ${corepackPnpmRunCommand}
 ${codexInstallRunCommand}

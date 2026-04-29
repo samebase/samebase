@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Draft for implementation.
+- Status: Accepted, amended 2026-04-29.
 - Owner: Noter backend/frontend
 - Date: 2026-02-13
 - Related specs:
@@ -10,22 +10,25 @@
 - Related files:
   - `apps/noter/convex/vaultActions.ts`
   - `apps/noter/convex/starterSeed.ts` (or replacement)
-  - `apps/noter-starter-template/AGENTS.md`
-  - `apps/noter-starter-template/scripts/sync-codespace-assets.ts`
-  - `apps/noter-starter-template/.devcontainer/devcontainer.json`
-  - `apps/noter-starter-template/.codespace-agent/server.ts`
+  - `scripts/export-notermd-app-manifest.ts`
+  - `apps/noter/convex/starterSeedManifest.generated.ts`
 
 ## Summary
 
 This spec captures the open questions and tradeoffs discussed while introducing
 starter seeding for new noter-managed vaults.
 
-For Iteration 1, the decision is:
+For Iteration 1, the original decision was:
 
-- Keep starter source in monorepo at `apps/noter-starter-template`
+- Keep starter source in a monorepo-local app package
 - Do not use layered seed-step source folders
 - Seed newly created vault/agent repositories as a single commit
 - Preserve a future path to evaluate a separate dedicated template repository
+
+The 2026-04-29 amendment adopts `notermd/app` as the starter source instead of
+the monorepo-local starter app. Noter still seeds generated user repositories as
+one commit from a generated manifest, but the manifest is refreshed at
+maintenance/build time by exporting a selected `notermd/app` branch.
 
 ## Problem Statement
 
@@ -91,7 +94,7 @@ Operational cost:
 
 - Low
 
-### Option C: Separate template repo (deferred)
+### Option C: Separate template repo (adopted 2026-04-29)
 
 Pros:
 
@@ -108,6 +111,14 @@ Operational cost:
 
 - Medium
 
+Current resolution:
+
+- `notermd/app` is the source of truth.
+- Runtime app creation does not fetch from GitHub or require a git-capable
+  Convex job.
+- `scripts/export-notermd-app-manifest.ts` downloads the selected branch archive
+  and writes `apps/noter/convex/starterSeedManifest.generated.ts`.
+
 ### Option D: Separate repo plus staged replay/pinning (deferred)
 
 Pros:
@@ -123,9 +134,9 @@ Operational cost:
 
 - High
 
-## Iteration 1 Decision (Final)
+## Iteration 1 Decision (Final, Superseded)
 
-- Keep starter template in monorepo at `apps/noter-starter-template`.
+- Keep starter template in a monorepo-local app package.
 - Remove/avoid `seed-commits/*` layered source model.
 - New vault creation seeds starter content as exactly one commit.
 - Starter template package manager is pnpm to align with monorepo tooling and
@@ -133,22 +144,45 @@ Operational cost:
 - Codespace runtime assets are part of the starter contract:
   - `.devcontainer/devcontainer.json`
   - `.codespace-agent/**`
-- `apps/noter-starter-template/AGENTS.md` must include:
+- The starter app `AGENTS.md` must include:
   - exact initialization sequence used to build the template,
   - exact commands run (Vite, Convex, Tailwind, shadcn setup),
   - regeneration guidance for future updates.
 
-## Sync Contract (Added 2026-02-14)
+## Current Decision (Amended 2026-04-29)
 
-- Canonical sources live at monorepo root:
+- Use `notermd/app` as the starter source of truth.
+- Remove the monorepo-local starter app package.
+- Keep the single-commit seeding behavior.
+- Refresh the generated manifest with:
+
+```bash
+pnpm run template:export
+pnpm run template:export -- --branch dev
+```
+
+- Store source provenance in the manifest:
+  - `sourceRepo`
+  - `sourceBranch`
+  - `sourceCommit`
+  - `contentHash`
+- Do not overlay Noter-owned `.devcontainer` or `.codespace-agent` assets onto
+  `notermd/app`. If generated apps need an asset, it belongs in `notermd/app`.
+
+## Sync Contract (Added 2026-02-14, Superseded 2026-04-29)
+
+- The superseded contract treated canonical sources as living at monorepo root:
   - `.devcontainer/devcontainer.json`
   - `.codespace-agent/**`
-- Starter template copies are synchronized by:
-  - `pnpm --filter noter-starter-template run template:sync-codespace`
-- `template:export` must run sync first so manifest output cannot drift from
+- Starter template copies were synchronized by:
+  - the starter package's codespace sync command
+- The old export command ran sync first so manifest output could not drift from
   canonical runtime assets.
-- Sync excludes runtime-only artifacts (for example
+- Sync excluded runtime-only artifacts (for example
   `.codespace-agent/node_modules`, `.codespace-agent/.agent-token`).
+
+This sync contract no longer applies. The generated starter content is exactly
+the selected `notermd/app` snapshot.
 
 ## Public API / Behavior Changes
 
@@ -167,7 +201,7 @@ Behavioral contract for Iteration 1:
 
 ## Technical Contract for Iteration 1
 
-- Source of seeded content: monorepo starter template.
+- Source of seeded content: generated manifest exported from `notermd/app`.
 - Seeding outcome in target repository:
   - one commit containing full runnable starter app content.
 - Reliability-first requirement:
@@ -181,8 +215,14 @@ representation:
 ```ts
 type StarterTemplateManifest = {
   version: string;
+  sourceRepo: string;
+  sourceBranch: string;
+  sourceCommit: string;
+  contentHash: string;
   commitMessage: string;
   files: Record<string, string>;
+  binaryFiles: Record<string, string>;
+  fileModes: Record<string, "100644" | "100755">;
 };
 ```
 
@@ -195,30 +235,30 @@ Out of scope for Iteration 1:
 - Spec clearly records the discussion questions/problems and rationale.
 - Spec explicitly defines Iteration 1 scope and deferred topics.
 - Spec states exact single-commit seeding rule.
-- Spec requires command-level setup history in template `AGENTS.md`.
-- Starter template export always includes up-to-date `.devcontainer` +
-  `.codespace-agent` assets from canonical root sources.
+- Spec requires `notermd/app` provenance in the generated manifest.
+- Starter template export includes exactly the selected `notermd/app` snapshot.
 
 ## Test Cases and Scenarios
 
 1. Creating a new noter-managed vault yields exactly one starter-seeding commit.
-2. Seeded repository builds and runs with React + Vite + Convex + Tailwind +
-   shadcn baseline.
+2. Seeded repository builds and runs with the current `notermd/app` stack.
 3. Infra provisioning still triggers and reaches ready state.
-4. `apps/noter-starter-template/AGENTS.md` includes reproducible setup commands.
+4. `pnpm run template:export -- --branch <branch>` refreshes the manifest from
+   the requested `notermd/app` branch.
 
 ## Assumptions and Defaults
 
 - Default branch is `main`.
 - Reliability is prioritized over runtime freshness for Iteration 1.
 - Manual template refresh process is acceptable in this iteration.
-- Exploring a separate template repo is deferred, not rejected.
+- `notermd/app` is the separate template repo.
 
 ## Deferred / Future Iterations
 
-- Evaluate moving source of truth to a separate template repository.
+- Consider preserving more of `notermd/app` history if generated repos need it
+  after the v1 single-commit flow.
 - Evaluate preserving staged pedagogical commit history in generated repos.
-- Evaluate sync automation strategy between monorepo and template repo.
+- Investigate automating the `notermd/app` manifest refresh.
 - Experiment with reading starter template code directly as runtime text
   (instead of generated manifest) if Convex deployment/bundling guarantees
   deterministic access to template files.

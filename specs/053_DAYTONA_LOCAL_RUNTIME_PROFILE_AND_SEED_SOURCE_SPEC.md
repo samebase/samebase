@@ -380,14 +380,15 @@ Rules:
 3. it must not be blindly rewritten to a long-lived global `CONVEX_DEPLOY_KEY`
 4. it must not be written into `<app-root>/.env.local`
 
-### 9. Noter-Managed Starter Repos Must Expose An Explicit Daytona Entry Point
+### 9. Noter-Managed Generated Repos Must Expose An Explicit Daytona Entry Point
 
-The seeded repo created from `apps/noter-starter-template` must expose an
-explicit Daytona-local bootstrap entrypoint at the repo root.
+The seeded repo created from the exported `notermd/app` snapshot must expose an
+explicit Daytona-local bootstrap entrypoint at the repo root when Daytona
+support is enabled for generated apps.
 
 Preferred first rollout:
 
-1. add a repo-root `Makefile` to the starter template
+1. add a repo-root `Makefile` to `notermd/app`
 2. expose `daytona-local` and `daytona-local-once`
 3. keep `pnpm run dev` as the inner dev command started after bootstrap
 4. do not treat raw `pnpm run dev` as a sufficient Daytona bootstrap contract
@@ -624,21 +625,22 @@ Keep the simpler contract:
 2. Daytona source selection is handled outside
    `apps/noter/scripts/convex-dev.ts`
 
-### `apps/noter-starter-template`
+### Generated `notermd/app` Repositories
 
-The seeded starter repo must carry its own explicit Daytona bootstrap contract.
+The seeded generated repo must carry its own explicit Daytona bootstrap
+contract.
 
 Required first-rollout changes:
 
-1. add a repo-root bootstrap entrypoint to the template
+1. add a repo-root bootstrap entrypoint to `notermd/app`
 2. preferred initial implementation: repo-root `Makefile` exposing
    `daytona-local` and `daytona-local-once`
 3. use repo-root env files (`.env.local`, `.env.anon-seed.local`,
    `.env.daytona-source.local`) instead of `apps/noter/...`
 4. keep `pnpm run dev` as the inner app runtime, not the outer Daytona bootstrap
    command
-5. ensure the starter export/manifest flow includes any new root bootstrap
-   assets so seeded repos receive them
+5. ensure `pnpm run template:export` includes any new root bootstrap assets so
+   seeded repos receive them
 
 ### Daytona Launcher Resolution
 
@@ -648,8 +650,8 @@ bootstrap entrypoints and fail closed when they are missing.
 Rules:
 
 1. prefer explicit Daytona-local wrapper entrypoints over raw dev commands
-2. do not silently fall back to raw `pnpm run dev` for
-   `apps/noter-starter-template`-derived repos
+2. do not silently fall back to raw `pnpm run dev` for generated
+   `notermd/app`-derived repos
 3. if a Noter-managed repo lacks the required explicit Daytona-local entrypoint,
    return an actionable error instead of starting a partially bootstrapped dev
    server
@@ -703,9 +705,9 @@ That is a separate follow-up and not part of the default flow in this spec.
 10. The dashboard remains the operator control surface for both provisioning
     modes; reproducing bootstrap failures must not require vault-route-only or
     CLI-only steps in the product path.
-11. In a fresh Daytona workspace sandbox seeded from
-    `apps/noter-starter-template`, `Open Dev Server` uses an explicit
-    Daytona-local bootstrap entrypoint instead of raw `pnpm run dev`.
+11. In a fresh Daytona workspace sandbox seeded from `notermd/app`,
+    `Open Dev Server` uses an explicit Daytona-local bootstrap entrypoint
+    instead of raw `pnpm run dev`.
 12. Multiple Daytona sandboxes can run concurrently without relying on internal
     git worktrees.
 13. Any future switch to shared dev runtime is explicit and not the default.
@@ -764,16 +766,15 @@ That is a separate follow-up and not part of the default flow in this spec.
       provisioning modes converge on the same runtime manifest and a working
       preview.
 
-### Follow-On Work For The Starter Repo Shape
+### Follow-On Work For The Generated Repo Shape
 
 - [ ] Generalize the Daytona env-file contract to app-root-relative paths so
       seeded starter repos use repo-root `.env*` files.
-- [ ] Add repo-root Daytona bootstrap entrypoints to
-      `apps/noter-starter-template`.
-- [ ] Ensure the starter-template Daytona launcher uses the explicit bootstrap
+- [ ] Add repo-root Daytona bootstrap entrypoints to `notermd/app`.
+- [ ] Ensure the generated repo Daytona launcher uses the explicit bootstrap
       path and does not fall back to raw `pnpm run dev`.
-- [ ] Regenerate/export starter template assets so seeded repos receive the new
-      bootstrap files.
+- [ ] Regenerate/export the `notermd/app` manifest so seeded repos receive the
+      new bootstrap files.
 - [ ] Re-run Playwright on a fresh Noter-managed starter repo and confirm no
       Convex login prompt, no `Missing VITE_CONVEX_URL` preview failure, and the
       same runtime-manifest contract as the main repo shape.

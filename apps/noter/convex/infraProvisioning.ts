@@ -417,7 +417,7 @@ function resolveCloudflareBuildConfig(vault: {
   }
   return {
     rootDir: "/",
-    buildCommand: "pnpm exec convex deploy --cmd 'pnpm run build:frontend'",
+    buildCommand: "pnpm run build:cloudflare",
     destinationDir: "dist",
   };
 }

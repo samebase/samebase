@@ -5,6 +5,7 @@
 - Status: Revised proposal with MVP hardening updates
 - Owner: Noter frontend/backend
 - Last Updated: 2026-02-14
+- Amended: 2026-04-29 to remove monorepo starter-template asset sync.
 - Previous revision date: 2026-02-14 (iframe-first draft)
 - Related specs:
   - `specs/001_CODESPACE_CONNECTION_SPEC.md`
@@ -23,9 +24,6 @@
   - `apps/noter/convex/schema.ts`
   - `.devcontainer/devcontainer.json`
   - `.codespace-agent/server.ts`
-  - `apps/noter-starter-template/.devcontainer/devcontainer.json`
-  - `apps/noter-starter-template/.codespace-agent/server.ts`
-  - `apps/noter-starter-template/scripts/sync-codespace-assets.ts`
 
 ## Summary
 
@@ -344,11 +342,9 @@ Mitigation:
 
 Mitigation:
 
-1. Root `.devcontainer` + `.codespace-agent` treated as canonical runtime
-   sources.
-2. `apps/noter-starter-template/scripts/sync-codespace-assets.ts` syncs those
-   assets into starter template.
-3. `template:export` runs sync automatically before manifest generation.
+1. Generated app runtime assets are owned by `notermd/app`.
+2. Noter exports exactly the selected `notermd/app` snapshot and does not
+   overlay root `.devcontainer` or `.codespace-agent` assets.
 
 ### Risk 5: Scope creep (trying to fully replicate VS Code UI)
 
