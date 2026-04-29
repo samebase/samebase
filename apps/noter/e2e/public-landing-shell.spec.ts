@@ -1016,8 +1016,14 @@ test("public landing renders the closed Google signup return state", async ({
 test("landing dev toggle keeps the auth and waitlist rows aligned", async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("noter_auth_provider", "google");
+  });
   await page.goto("/", { waitUntil: "networkidle" });
 
+  await expect(
+    page.getByRole("button", { name: "Google", includeHidden: true }),
+  ).toBeHidden();
   await expect(page).toHaveScreenshot(
     "public-landing-right-sidebar-auth-closed.png",
     {

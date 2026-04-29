@@ -111,10 +111,10 @@ export function shouldShowGoogleAuthForPathname(
   if (shouldRenderGoogleSignupClosedState(pathname, routeSearch)) {
     return false;
   }
-  return (
-    !shouldRenderPublicLandingWithoutAuthGate(pathname, routeSearch) ||
-    isLandingDevModeEnabled(routeSearch)
-  );
+  if (pathname === "/") {
+    return isLandingDevModeEnabled(routeSearch);
+  }
+  return true;
 }
 
 export function getPasswordAuthSurface(
