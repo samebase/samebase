@@ -9,6 +9,7 @@ const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const convexBootstrapLogPath = path.join(tmpdir(), "convex-bootstrap.log");
 const envLocalPath = path.join("apps", "noter", ".env.local");
 const convexInstanceUrl = "http://127.0.0.1:3210/instance_name";
+const convexEnvSetMaxAttempts = 4;
 
 await main();
 
@@ -69,16 +70,7 @@ async function main(): Promise<void> {
         "https://example.com/oauth/github/callback",
       ],
     ] as const) {
-      run(PNPM_COMMAND, [
-        "--filter",
-        "noter",
-        "exec",
-        "convex",
-        "env",
-        "set",
-        key,
-        value,
-      ]);
+      await runConvexEnvSet(key, value);
     }
 
     await waitFor(
@@ -106,10 +98,59 @@ async function main(): Promise<void> {
   await printLogTail();
 }
 
-function run(command: string, args: string[]): void {
-  const result = spawnSync(command, args, { stdio: "inherit" });
-  if (result.status !== 0) {
+async function runConvexEnvSet(key: string, value: string): Promise<void> {
+  const args = [
+    "--filter",
+    "noter",
+    "exec",
+    "convex",
+    "env",
+    "set",
+    key,
+    value,
+  ];
+
+  for (let attempt = 1; attempt <= convexEnvSetMaxAttempts; attempt += 1) {
+    const result = spawnSync(PNPM_COMMAND, args, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    if (result.status === 0) {
+      writeProcessOutput(result.stdout, result.stderr);
+      return;
+    }
+
+    const output = `${result.stdout}\n${result.stderr}`;
+    if (
+      attempt < convexEnvSetMaxAttempts &&
+      isTransientConvexEnvSetFailure(output)
+    ) {
+      console.warn(
+        `Retrying convex env set for ${key} after transient local backend conflict (${attempt}/${convexEnvSetMaxAttempts}).`,
+      );
+      await sleep(attempt * 1_000);
+      continue;
+    }
+
+    writeProcessOutput(result.stdout, result.stderr);
     process.exit(result.status ?? 1);
+  }
+}
+
+function isTransientConvexEnvSetFailure(output: string): boolean {
+  return (
+    output.includes("OptimisticConcurrencyControlFailure") ||
+    output.includes("503 Service Unavailable")
+  );
+}
+
+function writeProcessOutput(stdout: string, stderr: string): void {
+  if (stdout.length > 0) {
+    process.stdout.write(stdout);
+  }
+  if (stderr.length > 0) {
+    process.stderr.write(stderr);
   }
 }
 
