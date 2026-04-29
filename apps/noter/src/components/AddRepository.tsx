@@ -20,6 +20,7 @@ import {
   splitRepositoryFullNameMatch,
 } from "@/lib/repositorySearch";
 import { resolveDisplayedRepositories } from "@/lib/addRepositoryPicker";
+import { Loader2 } from "lucide-react";
 
 type Repository = FunctionReturnType<
   typeof api.github.listRepositories
@@ -290,11 +291,17 @@ export function AddRepository() {
             </p>
 
             {loadingMore && (
-              <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
-                Showing the {repositoryPreview.repositories.length} most
-                recently updated repositories while we load the rest. Search
-                results stay partial until loading finishes.
-              </p>
+              <div
+                role="status"
+                className="mt-2 flex max-w-2xl items-center gap-2 text-xs text-muted-foreground"
+              >
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                <span>
+                  Showing the {repositoryPreview.repositories.length} most
+                  recently updated repositories while we load the rest. Search
+                  results stay partial until loading finishes.
+                </span>
+              </div>
             )}
 
             {showBackgroundError && (
@@ -428,7 +435,13 @@ export function AddRepository() {
           emptyRepositoryMessage !== null &&
           githubConnected && (
             <div className="text-center py-8">
-              <div className="text-muted-foreground">
+              <div
+                role={loadingMore ? "status" : undefined}
+                className="inline-flex items-center justify-center gap-2 text-muted-foreground"
+              >
+                {loadingMore && (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                )}
                 {emptyRepositoryMessage}
               </div>
             </div>
