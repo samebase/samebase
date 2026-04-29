@@ -21,6 +21,7 @@ const sourceRepoName = "app";
 const defaultSourceBranch = "main";
 const sourceRepo = `https://github.com/${sourceOwner}/${sourceRepoName}.git`;
 const githubApiBase = "https://api.github.com";
+const githubRequestTimeoutMs = 30_000;
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 // rawContent is the source of truth for hashing; content is only the
@@ -117,13 +118,32 @@ async function readToken(): Promise<string> {
 }
 
 async function githubFetch(token: string, url: string): Promise<Response> {
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, githubRequestTimeoutMs);
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(
+        `GitHub request timed out after ${githubRequestTimeoutMs}ms for ${url}`,
+        { cause: error },
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const body = await response.text();
@@ -312,6 +332,10 @@ function computeContentHash(files: CollectedFile[]): string {
   return hash.digest("hex");
 }
 
+function compareUtf8PathBytes(left: string, right: string): number {
+  return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
@@ -334,7 +358,7 @@ try {
 
   const files = await collectFiles(extractDir, extractDir);
   files.sort((left, right) =>
-    left.relativePath.localeCompare(right.relativePath, "en"),
+    compareUtf8PathBytes(left.relativePath, right.relativePath),
   );
 
   if (files.length === 0) {
