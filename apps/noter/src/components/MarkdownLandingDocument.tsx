@@ -1,4 +1,9 @@
-import { type ComponentPropsWithoutRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+} from "react";
 import ReactMarkdown, {
   defaultUrlTransform,
   type Components,
@@ -154,6 +159,27 @@ function MarkdownImage({
       style={authoredSizeStyle}
       title={title}
       width={width}
+    />
+  );
+}
+
+function MarkdownTaskCheckbox({
+  checked,
+}: Pick<ComponentPropsWithoutRef<"input">, "checked">) {
+  const [isChecked, setIsChecked] = useState(Boolean(checked));
+
+  useEffect(() => {
+    setIsChecked(Boolean(checked));
+  }, [checked]);
+
+  return (
+    <input
+      checked={isChecked}
+      className="mr-2 align-middle"
+      onChange={(event) => {
+        setIsChecked(event.currentTarget.checked);
+      }}
+      type="checkbox"
     />
   );
 }
@@ -317,15 +343,7 @@ const markdownComponents = {
       return <input checked={checked} disabled={disabled} type={type} />;
     }
 
-    return (
-      <input
-        checked={checked}
-        className="mr-2 align-middle"
-        disabled={disabled}
-        readOnly
-        type="checkbox"
-      />
-    );
+    return <MarkdownTaskCheckbox checked={checked} />;
   },
   li({ children }) {
     return <li className="pl-1 leading-7">{children}</li>;

@@ -44,4 +44,9 @@ test("landing markdown preview fixture renders markdown in workspace chrome", as
       scale: "css",
     },
   );
+
+  const firstTaskCheckbox = article.locator('input[type="checkbox"]').first();
+  await expect(firstTaskCheckbox).toBeEnabled();
+  await firstTaskCheckbox.check();
+  await expect(firstTaskCheckbox).toBeChecked();
 });

@@ -98,12 +98,20 @@ describe("MarkdownLandingDocument", () => {
     expect(video?.getAttribute("preload")).toBe("metadata");
   });
 
-  it("renders README task checkboxes as disabled controls", () => {
+  it("renders README task checkboxes as local interactive controls", () => {
     const element = renderMarkdown("- [ ] Create account");
 
-    const checkbox = element.querySelector('input[type="checkbox"]');
-    expect(checkbox?.hasAttribute("disabled")).toBe(true);
-    expect(checkbox?.hasAttribute("checked")).toBe(false);
+    const checkbox = element.querySelector<HTMLInputElement>(
+      'input[type="checkbox"]',
+    );
+    expect(checkbox?.hasAttribute("disabled")).toBe(false);
+    expect(checkbox?.checked).toBe(false);
+
+    act(() => {
+      checkbox?.click();
+    });
+
+    expect(checkbox?.checked).toBe(true);
   });
 
   it("detects common video file URLs", () => {

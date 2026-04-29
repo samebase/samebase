@@ -51,6 +51,10 @@ The supported authoring subset is:
 - raw `<details><summary>...</summary>...</details>` disclosure sections
 - raw `<video controls src="..."></video>` embeds
 
+Task-list checkboxes render as clickable local-only controls. Toggling them must
+not attempt to edit the Markdown source or persist state until a later product
+flow explicitly adds persistence.
+
 When the README needs behavior outside this subset, either simplify the README
 source first or extend the renderer with a focused test. Do not switch the route
 to a broad remote renderer just to cover one new construct.
