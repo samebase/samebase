@@ -4,10 +4,12 @@ const SCENARIOS = [
   {
     mode: "vault-branch-preview-link",
     snapshotName: "vault-branch-preview-link.png",
+    shouldShowPreview: true,
   },
   {
     mode: "vault-branch-preview-missing",
     snapshotName: "vault-branch-preview-missing.png",
+    shouldShowPreview: false,
   },
 ] as const;
 
@@ -20,6 +22,15 @@ for (const scenario of SCENARIOS) {
     await page.waitForLoadState("networkidle");
 
     const fixture = page.getByTestId("vault-branch-preview-visual-fixture");
+    const previewLink = fixture.getByRole("link", {
+      name: "Cloudflare preview",
+    });
+    if (scenario.shouldShowPreview) {
+      await expect(previewLink).toBeVisible();
+    } else {
+      await expect(previewLink).toHaveCount(0);
+    }
+
     await expect(fixture).toHaveScreenshot(scenario.snapshotName, {
       animations: "disabled",
       caret: "hide",

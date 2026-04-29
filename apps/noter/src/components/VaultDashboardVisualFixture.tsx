@@ -134,6 +134,9 @@ const LIST_SPACING_BRANCHES: Array<
     pullRequestUrl: "https://github.com/noter-md/noter/pull/321",
     pullRequestNumber: 321,
     pullRequestTitle: "Use the full dashboard main pane",
+    cloudflareBranchPreviewUrl:
+      "https://codex-dashboard-main-pane-spacing.noter.pages.dev",
+    cloudflarePreviewPullRequestNumber: 321,
     canDeleteBranch: true,
   },
   {
