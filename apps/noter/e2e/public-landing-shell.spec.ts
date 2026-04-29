@@ -107,6 +107,7 @@ type LandingToggleFrame = {
 };
 
 type LandingToggleLayout = {
+  authRowTop: number;
   contentTop: number;
   contentHeight: number;
   authRowHeight: number;
@@ -225,6 +226,7 @@ async function readLandingToggleLayout(
     const googleRect = googleButton.getBoundingClientRect();
 
     return {
+      authRowTop: Number(googleRect.top.toFixed(3)),
       contentTop: Number(contentRect.top.toFixed(3)),
       contentHeight: Number(contentRect.height.toFixed(3)),
       authRowHeight: Number(googleRect.height.toFixed(3)),
@@ -504,6 +506,23 @@ async function captureLandingFontStableFrames(
   return {
     frames: await page.evaluate(() => window.__landingFontStableFrames ?? []),
     webfontRequestCount,
+  };
+}
+
+async function readLandingRightSidebarAuthClip(page: Page) {
+  const rightPaneBox = await page
+    .getByTestId("workspace-layout-v2-pane-right")
+    .boundingBox();
+  expect(rightPaneBox).not.toBeNull();
+  if (rightPaneBox === null) {
+    throw new Error("Expected landing right pane bounds");
+  }
+
+  return {
+    height: 320,
+    width: rightPaneBox.width,
+    x: rightPaneBox.x,
+    y: rightPaneBox.y,
   };
 }
 
@@ -994,8 +1013,18 @@ test("public landing renders the closed Google signup return state", async ({
   );
 });
 
-test("landing dev toggle keeps the waitlist row aligned", async ({ page }) => {
+test("landing dev toggle keeps the auth and waitlist rows aligned", async ({
+  page,
+}) => {
   await page.goto("/", { waitUntil: "networkidle" });
+
+  await expect(page).toHaveScreenshot(
+    "public-landing-right-sidebar-auth-closed.png",
+    {
+      ...strictScreenshotOptions,
+      clip: await readLandingRightSidebarAuthClip(page),
+    },
+  );
 
   const beforeToggleLayout = await readLandingToggleLayout(page);
 
@@ -1007,6 +1036,9 @@ test("landing dev toggle keeps the waitlist row aligned", async ({ page }) => {
 
   const afterToggleLayout = await readLandingToggleLayout(page);
 
+  expect(
+    Math.abs(afterToggleLayout.authRowTop - beforeToggleLayout.authRowTop),
+  ).toBeLessThanOrEqual(1);
   expect(
     Math.abs(
       afterToggleLayout.authRowHeight - beforeToggleLayout.authRowHeight,
@@ -1021,6 +1053,29 @@ test("landing dev toggle keeps the waitlist row aligned", async ({ page }) => {
   expect(
     Math.abs(
       afterToggleLayout.contentHeight - beforeToggleLayout.contentHeight,
+    ),
+  ).toBeLessThanOrEqual(1);
+
+  await page
+    .getByRole("link", {
+      name: LANDING_DEV_MODE_DISABLE_LINK_LABEL,
+      exact: true,
+    })
+    .click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(
+    page.getByRole("button", { name: "Google", includeHidden: true }),
+  ).toBeHidden();
+
+  const afterDisableLayout = await readLandingToggleLayout(page);
+
+  expect(
+    Math.abs(afterDisableLayout.authRowTop - afterToggleLayout.authRowTop),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(
+      afterDisableLayout.waitlistLinkOffset -
+        afterToggleLayout.waitlistLinkOffset,
     ),
   ).toBeLessThanOrEqual(1);
 });
