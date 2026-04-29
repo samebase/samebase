@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
 import { ClockIcon, GitHubLogoIcon } from "@/lib/radixIcons";
-import { Loader2 } from "lucide-react";
 
 export type AddRepositoryVisualMode =
   | "add-repository-loading-more"
@@ -118,19 +117,6 @@ export function AddRepositoryVisualFixture({
             {OWNER_GUIDANCE_COPY}
           </p>
 
-          {fixture.loadingMore && (
-            <div
-              role="status"
-              className="mt-2 flex max-w-2xl items-center gap-2 text-xs text-muted-foreground"
-            >
-              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-              <span>
-                Showing the 10 most recently updated repositories while we load
-                the rest. Search results stay partial until loading finishes.
-              </span>
-            </div>
-          )}
-
           {fixture.backgroundError && (
             <div className="mt-3 flex max-w-2xl items-center justify-between gap-3 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 corner-notch-1">
               <div>
@@ -151,13 +137,7 @@ export function AddRepositoryVisualFixture({
 
         <div className="flex-1 overflow-y-auto">
           {fixture.repositories.length === 0 ? (
-            <div
-              role={fixture.loadingMore ? "status" : undefined}
-              className="py-8 text-center text-muted-foreground"
-            >
-              {fixture.loadingMore && (
-                <Loader2 className="mr-2 inline h-4 w-4 shrink-0 animate-spin align-text-bottom" />
-              )}
+            <div className="py-8 text-center text-muted-foreground">
               {fixture.emptyMessage}
             </div>
           ) : (
@@ -191,6 +171,14 @@ export function AddRepositoryVisualFixture({
                   </div>
                 </div>
               ))}
+
+              {fixture.loadingMore && (
+                <div className="py-4 text-center text-sm text-muted-foreground">
+                  Showing the 10 most recently updated repositories while we
+                  load the rest. Search results stay partial until loading
+                  finishes.
+                </div>
+              )}
             </div>
           )}
         </div>

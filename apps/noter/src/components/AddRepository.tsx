@@ -20,7 +20,6 @@ import {
   splitRepositoryFullNameMatch,
 } from "@/lib/repositorySearch";
 import { resolveDisplayedRepositories } from "@/lib/addRepositoryPicker";
-import { Loader2 } from "lucide-react";
 
 type Repository = FunctionReturnType<
   typeof api.github.listRepositories
@@ -290,20 +289,6 @@ export function AddRepository() {
               </a>
             </p>
 
-            {loadingMore && (
-              <div
-                role="status"
-                className="mt-2 flex max-w-2xl items-center gap-2 text-xs text-muted-foreground"
-              >
-                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                <span>
-                  Showing the {repositoryPreview.repositories.length} most
-                  recently updated repositories while we load the rest. Search
-                  results stay partial until loading finishes.
-                </span>
-              </div>
-            )}
-
             {showBackgroundError && (
               <div className="mt-3 flex max-w-2xl items-center justify-between gap-3 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 corner-notch-1">
                 <div>
@@ -425,6 +410,14 @@ export function AddRepository() {
                 </div>
               );
             })}
+
+            {loadingMore && filteredRepositories.length > 0 && (
+              <div className="py-4 text-center text-sm text-muted-foreground">
+                Showing the {repositoryPreview.repositories.length} most
+                recently updated repositories while we load the rest. Search
+                results stay partial until loading finishes.
+              </div>
+            )}
           </div>
         )}
 
@@ -435,13 +428,7 @@ export function AddRepository() {
           emptyRepositoryMessage !== null &&
           githubConnected && (
             <div className="text-center py-8">
-              <div
-                role={loadingMore ? "status" : undefined}
-                className="inline-flex items-center justify-center gap-2 text-muted-foreground"
-              >
-                {loadingMore && (
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-                )}
+              <div className="text-muted-foreground">
                 {emptyRepositoryMessage}
               </div>
             </div>
