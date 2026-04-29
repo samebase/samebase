@@ -492,6 +492,12 @@ export function VaultBranchLinkContent({
     typeof pullRequestTitle === "string" && pullRequestTitle.length > 0;
   const normalizedPullRequestLabels =
     normalizePullRequestLabels(pullRequestLabels);
+  const hasPullRequestLink =
+    typeof pullRequestUrl === "string" && pullRequestUrl.length > 0;
+  const hasPullRequestMetadata =
+    hasPullRequestLink ||
+    pullRequestIsDraft === true ||
+    normalizedPullRequestLabels.length > 0;
   const metadataLinkClassName = clsx(
     "-mx-2 -my-1 inline-flex min-h-9 items-center rounded-sm px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
     "font-mono",
@@ -530,7 +536,7 @@ export function VaultBranchLinkContent({
       ) : (
         <div className="min-w-0 flex-1 space-y-1.5">
           {hasPullRequestTitle ? (
-            typeof pullRequestUrl === "string" && pullRequestUrl.length > 0 ? (
+            hasPullRequestLink ? (
               <a
                 href={pullRequestUrl}
                 target="_blank"
@@ -552,27 +558,40 @@ export function VaultBranchLinkContent({
           <Link to={branchRoute} className={branchLinkClassName}>
             {branchName}
           </Link>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-base leading-6 text-muted-foreground/80">
-            <a
-              href={commitUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className={metadataLinkClassName}
-              title="View commit on GitHub"
-            >
-              commit {headCommitSha.slice(0, 7)}
-            </a>
-            {typeof pullRequestUrl === "string" && pullRequestUrl.length > 0 ? (
-              <>
-                <a
-                  href={pullRequestUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className={metadataLinkClassName}
-                  title="Open pull request"
+          <div className="space-y-1 text-base leading-6 text-muted-foreground/80">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              <a
+                href={commitUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={metadataLinkClassName}
+                title="View commit on GitHub"
+              >
+                commit {headCommitSha.slice(0, 7)}
+              </a>
+              {aheadBehindLabel ? (
+                <span
+                  className="font-mono tabular-nums"
+                  title="Ahead/behind versus the default branch"
                 >
-                  {pullRequestLabel}
-                </a>
+                  {aheadBehindLabel}
+                </span>
+              ) : null}
+            </div>
+            {hasPullRequestMetadata ? (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                {hasPullRequestLink ? (
+                  <a
+                    href={pullRequestUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className={clsx(metadataLinkClassName, "gap-1.5")}
+                    title="Open pull request"
+                  >
+                    <GitHubProviderLogo className="shrink-0" />
+                    <span>{pullRequestLabel}</span>
+                  </a>
+                ) : null}
                 {pullRequestIsDraft ? (
                   <Badge
                     variant="outline"
@@ -581,23 +600,23 @@ export function VaultBranchLinkContent({
                     draft
                   </Badge>
                 ) : null}
-              </>
+                {normalizedPullRequestLabels.length > 0
+                  ? normalizedPullRequestLabels.map((label) => (
+                      <Badge
+                        key={label.name}
+                        variant="outline"
+                        className="h-6 max-w-48 px-1.5 py-0 text-xs font-medium"
+                        style={buildPullRequestLabelStyle(label.color)}
+                        title={label.name}
+                      >
+                        <span className="truncate">{label.name}</span>
+                      </Badge>
+                    ))
+                  : null}
+              </div>
             ) : null}
-            {normalizedPullRequestLabels.length > 0
-              ? normalizedPullRequestLabels.map((label) => (
-                  <Badge
-                    key={label.name}
-                    variant="outline"
-                    className="h-6 max-w-48 px-1.5 py-0 text-xs font-medium"
-                    style={buildPullRequestLabelStyle(label.color)}
-                    title={label.name}
-                  >
-                    <span className="truncate">{label.name}</span>
-                  </Badge>
-                ))
-              : null}
             {hasCurrentPreviewLink ? (
-              <>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <a
                   href={cloudflareBranchPreviewUrl}
                   target="_blank"
@@ -608,17 +627,7 @@ export function VaultBranchLinkContent({
                   <CloudflareProviderLogo className="shrink-0" />
                   <span>Cloudflare preview</span>
                 </a>
-              </>
-            ) : null}
-            {aheadBehindLabel ? (
-              <>
-                <span
-                  className="font-mono tabular-nums"
-                  title="Ahead/behind versus the default branch"
-                >
-                  {aheadBehindLabel}
-                </span>
-              </>
+              </div>
             ) : null}
           </div>
         </div>
