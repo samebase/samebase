@@ -7,6 +7,7 @@ import { VaultLastUpdatedStatus } from "@/components/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
 import { ChevronDownIcon, GitHubLogoIcon } from "@/lib/radixIcons";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+import { type MobileSidebarPane } from "@/hooks/use-sidebar";
 import {
   VaultDashboardAccountSection,
   VaultDashboardEmptyState,
@@ -26,6 +27,7 @@ export type VaultDashboardVisualMode =
   | "vault-branch-pr-labels"
   | "vault-branch-mobile-alignment"
   | "vault-sidebar-account-clamp"
+  | "vault-sidebar-account-mobile-min"
   | "vault-sidebar-machine-links";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
@@ -214,11 +216,15 @@ function VaultDashboardListSpacingFixture({
 function FixtureDashboardShell({
   desktopSidebarWidthPx,
   mainContent,
+  mobilePane,
   rightContent,
+  rightMobileWidthPx,
 }: {
   desktopSidebarWidthPx?: number;
   mainContent?: ReactNode;
+  mobilePane?: MobileSidebarPane;
   rightContent?: ReactNode;
+  rightMobileWidthPx?: number;
 }) {
   return (
     <TestRouterProvider>
@@ -227,6 +233,8 @@ function FixtureDashboardShell({
         defaultOpen={false}
         defaultRightOpen={true}
         desktopSidebarWidthPx={desktopSidebarWidthPx}
+        mobilePane={mobilePane}
+        rightMobileWidthPx={rightMobileWidthPx}
         shortcutSidebarSide="right"
         right={{
           content: rightContent,
@@ -239,10 +247,18 @@ function FixtureDashboardShell({
   );
 }
 
-function FixtureDashboardSidebarAccountClamp() {
+function FixtureDashboardSidebarAccountClamp({
+  mobilePane,
+  rightMobileWidthPx,
+}: {
+  mobilePane?: MobileSidebarPane;
+  rightMobileWidthPx?: number;
+} = {}) {
   return (
     <FixtureDashboardShell
       desktopSidebarWidthPx={160}
+      mobilePane={mobilePane}
+      rightMobileWidthPx={rightMobileWidthPx}
       rightContent={
         <VaultDashboardSidebarContent>
           <VaultDashboardAccountSection
@@ -342,6 +358,15 @@ export function VaultDashboardVisualFixture({
 
   if (mode === "vault-sidebar-account-clamp") {
     return <FixtureDashboardSidebarAccountClamp />;
+  }
+
+  if (mode === "vault-sidebar-account-mobile-min") {
+    return (
+      <FixtureDashboardSidebarAccountClamp
+        mobilePane="right"
+        rightMobileWidthPx={1}
+      />
+    );
   }
 
   if (mode === "vault-sidebar-machine-links") {

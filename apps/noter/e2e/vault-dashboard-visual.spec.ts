@@ -52,7 +52,7 @@ test("vault dashboard fixture (sidebar account clamp)", async ({ page }) => {
   });
 });
 
-test("vault dashboard fixture (mobile sidebar peek)", async ({
+test("vault dashboard fixture (mobile sidebar min width)", async ({
   browser,
 }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
@@ -66,12 +66,24 @@ test("vault dashboard fixture (mobile sidebar peek)", async ({
   });
   const page = await context.newPage();
 
-  await page.goto("/visual-fixture.html?mode=vault-sidebar-account-clamp", {
-    waitUntil: "domcontentloaded",
-  });
+  await page.goto(
+    "/visual-fixture.html?mode=vault-sidebar-account-mobile-min",
+    { waitUntil: "domcontentloaded" },
+  );
   await page.waitForLoadState("networkidle");
 
-  await expect(page).toHaveScreenshot("vault-sidebar-account-mobile-peek.png", {
+  await expect(
+    page.locator("[data-workspace-layout-v2='mobile']"),
+  ).toHaveAttribute("data-mobile-pane", "right");
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  await expect(rightPane).toHaveCSS("width", "96px");
+  await expect
+    .poll(() =>
+      rightPane.evaluate((pane) => pane.scrollWidth <= pane.clientWidth),
+    )
+    .toBe(true);
+
+  await expect(page).toHaveScreenshot("vault-sidebar-account-mobile-min.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
