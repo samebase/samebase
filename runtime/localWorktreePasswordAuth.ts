@@ -1,0 +1,2 @@
+export const LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL = "nicu@noter.md";
+export const LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD = "pass1234";

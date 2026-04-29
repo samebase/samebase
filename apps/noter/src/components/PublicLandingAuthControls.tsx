@@ -236,7 +236,9 @@ export function PasswordAuthForm({
               onClick={() => {
                 const credentials = readLocalWorktreePasswordCredentials();
                 if (!credentials) {
-                  setError("Local worktree password auth is not configured");
+                  setError(
+                    "Autofill is only available from the worktree anon dev server. Restart with pnpm anon and reload.",
+                  );
                   return;
                 }
                 const nextFlow = "signIn";
