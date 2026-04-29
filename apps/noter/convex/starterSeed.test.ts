@@ -114,6 +114,10 @@ describe("buildTreeEntriesForManifest", () => {
       {
         "docs/logo.jpg": "blob-logo",
       },
+      {
+        "docs/logo.jpg": "100755",
+        "src/main.tsx": "100755",
+      },
     );
 
     expect(entries.map((entry) => entry.path)).toEqual([
@@ -124,9 +128,15 @@ describe("buildTreeEntriesForManifest", () => {
     ]);
     expect(entries[1]).toEqual({
       path: "docs/logo.jpg",
-      mode: "100644",
+      mode: "100755",
       type: "blob",
       sha: "blob-logo",
+    });
+    expect(entries[3]).toEqual({
+      path: "src/main.tsx",
+      mode: "100755",
+      type: "blob",
+      content: "main",
     });
   });
 });
@@ -144,6 +154,7 @@ describe("seedRepositoryWithStarter", () => {
       "src/App.tsx": "export default function App() { return null; }",
     },
     binaryFiles: {},
+    fileModes: {},
   };
 
   it("creates one root commit and one branch ref", async () => {
@@ -189,6 +200,9 @@ describe("seedRepositoryWithStarter", () => {
         binaryFiles: {
           "docs/logo.jpg": Buffer.from("binary", "utf8").toString("base64"),
         },
+        fileModes: {
+          "docs/logo.jpg": "100755",
+        },
       },
     });
 
@@ -201,7 +215,7 @@ describe("seedRepositoryWithStarter", () => {
     ]);
     expect(mock.createTreeCalls[0].tree).toContainEqual({
       path: "docs/logo.jpg",
-      mode: "100644",
+      mode: "100755",
       type: "blob",
       sha: "blob-1",
     });

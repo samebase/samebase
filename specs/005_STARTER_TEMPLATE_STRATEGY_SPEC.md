@@ -222,6 +222,7 @@ type StarterTemplateManifest = {
   commitMessage: string;
   files: Record<string, string>;
   binaryFiles: Record<string, string>;
+  fileModes: Record<string, "100644" | "100755">;
 };
 ```
 

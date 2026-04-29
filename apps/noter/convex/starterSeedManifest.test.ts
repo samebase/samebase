@@ -28,6 +28,9 @@ describe("starterSeedManifest", () => {
     expect(filePaths).toContain("convex/schema.ts");
     expect(filePaths).toContain("convex/_generated/api.d.ts");
     expect(filePaths).toContain("AGENTS.md");
+    expect(starterTemplateManifest.fileModes[".vite-hooks/pre-commit"]).toBe(
+      "100755",
+    );
     expect(new Set(allFilePaths).size).toBe(allFilePaths.length);
     expect(allFilePaths.length).toBeGreaterThan(10);
   });

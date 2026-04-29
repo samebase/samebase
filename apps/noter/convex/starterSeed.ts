@@ -10,9 +10,11 @@ export type { StarterTemplateManifest } from "./starterSeedManifest.generated";
 
 type StarterTemplateTreeEntry = {
   path: string;
-  mode: "100644";
+  mode: StarterTemplateFileMode;
   type: "blob";
 } & ({ content: string } | { sha: string });
+
+type StarterTemplateFileMode = StarterTemplateManifest["fileModes"][string];
 
 export type StarterSeedGitClient = {
   createTree(args: {
@@ -266,16 +268,32 @@ function validateManifest(manifest: StarterTemplateManifest): void {
       `starter template manifest has duplicate file paths: ${duplicatePaths.join(", ")}`,
     );
   }
+
+  const manifestPaths = new Set([
+    ...Object.keys(manifest.files),
+    ...Object.keys(binaryFiles),
+  ]);
+  const invalidModeEntries = Object.keys(manifest.fileModes).filter(
+    (filePath) => !manifestPaths.has(filePath),
+  );
+  if (invalidModeEntries.length > 0) {
+    throw new Error(
+      `starter template manifest has invalid file modes: ${invalidModeEntries.join(", ")}`,
+    );
+  }
 }
 
 export function buildTreeEntriesForManifest(
   files: Record<string, string>,
   binaryFileShas: Record<string, string> = {},
+  fileModes: StarterTemplateManifest["fileModes"] = {},
 ): StarterTemplateTreeEntry[] {
+  const resolveMode = (filePath: string): StarterTemplateFileMode =>
+    fileModes[filePath] ?? "100644";
   const entries: StarterTemplateTreeEntry[] = Object.entries(files).map(
     ([filePath, content]) => ({
       path: filePath,
-      mode: "100644",
+      mode: resolveMode(filePath),
       type: "blob",
       content,
     }),
@@ -284,7 +302,7 @@ export function buildTreeEntriesForManifest(
   entries.push(
     ...Object.entries(binaryFileShas).map(([filePath, sha]) => ({
       path: filePath,
-      mode: "100644" as const,
+      mode: resolveMode(filePath),
       type: "blob" as const,
       sha,
     })),
@@ -348,6 +366,7 @@ export async function seedRepositoryWithStarter(args: {
     const treeEntries = buildTreeEntriesForManifest(
       manifest.files,
       binaryFileShas,
+      manifest.fileModes,
     );
 
     return await retryOperation({
