@@ -28,11 +28,11 @@ That is already the right runtime shape for v1.
 
 ## New Export Path
 
-`pnpm --filter noter-starter-template run template:export` defaults to `main`.
-Pass `--branch <branch>` to export another branch:
+`pnpm run template:export` defaults to `main`. Pass `--branch <branch>` to
+export another branch:
 
 ```bash
-pnpm --filter noter-starter-template run template:export -- --branch dev
+pnpm run template:export -- --branch dev
 ```
 
 The command:
@@ -44,10 +44,10 @@ The command:
 5. stores `sourceRepo`, `sourceBranch`, `sourceCommit`, and `contentHash`,
 6. writes and formats `apps/noter/convex/starterSeedManifest.generated.ts`.
 
-For the current `dev` export, `sourceCommit` is:
+For the current `main` export, `sourceCommit` is:
 
 ```text
-0b0d55f7784232c1410995d6f65039eae317ecf6
+49d0faa1ba17b73138d0a1c4f709c750720b0e9d
 ```
 
 Because `notermd/app` is private, the exporter needs
@@ -58,7 +58,9 @@ Because `notermd/app` is private, the exporter needs
 
 The button click remains the same single-commit seeding flow. The only
 difference is that the manifest contents now come from the latest
-selected-branch `notermd/app` export instead of `apps/noter-starter-template`.
+selected-branch `notermd/app` export. The old monorepo-local starter app was
+removed after the PR preview proved the generated `notermd/app` snapshot creates
+and deploys successfully.
 
 No source-repo GitHub calls happen during user repo creation. No fork is
 created. No tags or extra branches are copied. Text files go straight into the
@@ -70,8 +72,8 @@ squashed seed commit.
 Run:
 
 ```bash
-pnpm --filter noter-starter-template run template:export -- --branch dev
+pnpm run template:export -- --branch dev
 pnpm --filter noter exec vp test run convex/starterSeed.test.ts convex/starterSeedManifest.test.ts
 pnpm run typecheck:scripts
-pnpm exec vp lint --tsconfig tsconfig.scripts.json apps/noter-starter-template/scripts/export-notermd-app-manifest.ts
+pnpm exec vp lint --tsconfig tsconfig.scripts.json scripts/export-notermd-app-manifest.ts
 ```

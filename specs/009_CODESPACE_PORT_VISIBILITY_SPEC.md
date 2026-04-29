@@ -5,6 +5,7 @@
 - Status: Proposal
 - Owner: Noter backend
 - Last Updated: 2026-02-26
+- Amended: 2026-04-29 to remove monorepo starter-template asset sync.
 - Related specs:
   - `specs/001_CODESPACE_CONNECTION_SPEC.md`
   - `specs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
@@ -15,9 +16,7 @@
   - `apps/noter/convex/codespacesExecutor.ts`
   - `apps/noter/convex/schema.ts`
   - `.devcontainer/devcontainer.json`
-  - `apps/noter-starter-template/.devcontainer/devcontainer.json`
   - `.codespace-agent/server.ts`
-  - `apps/noter-starter-template/.codespace-agent/server.ts`
 
 ## Summary
 
@@ -314,4 +313,6 @@ internal/tunnels flow.
 3. If public ports are disallowed, Noter records a clear error and does not loop
    indefinitely.
 4. No new long-lived secrets are introduced into repo files or starter template
-   snapshots.
+   snapshots. Generated starter repositories now receive Codespaces/devcontainer
+   assets only from `notermd/app`. Noter no longer syncs root runtime assets
+   into an internal starter app.

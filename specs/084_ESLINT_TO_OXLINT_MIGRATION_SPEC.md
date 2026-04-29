@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter linting/tooling
-- Last updated: 2026-04-23
+- Last updated: 2026-04-29
 - Depends on:
   - `vite.config.ts`
   - `package.json`
@@ -14,8 +14,6 @@
   - `apps/noter/convex/jsonUtils.ts`
   - `apps/noter/convex/jsonUtils.test.ts`
   - `apps/noter/lintConfig.test.ts`
-  - `apps/noter-starter-template/package.json`
-  - `apps/noter-starter-template/tsconfig.app.json`
   - `eslint-rules/index.ts`
   - `eslint-rules/use-query-param-helpers.ts`
 
@@ -76,8 +74,8 @@ tooling incompatibility, or rollout decision appears.
   `eslint-plugin-react-refresh` through Oxlint's JS-plugin bridge.
 - Convex-specific rules such as `@convex-dev/no-old-registered-function-syntax`
   and `@convex-dev/no-args-without-validator` inside `**/convex/**/*.ts`.
-- The app/frontend lint entrypoints in `apps/noter/package.json` and
-  `apps/noter-starter-template/package.json` now run Oxlint directly.
+- The app/frontend lint entrypoints in `apps/noter/package.json` now run Oxlint
+  directly.
 - Root `package.json` also runs Oxlint for `runtime/**/*.ts`, `scripts/**/*.ts`,
   and `apps/noter/scripts/**/*.ts` using `tsconfig.scripts.json`.
 - `baseUrl` has been removed from the app tsconfigs so the repo aligns with the
@@ -232,16 +230,15 @@ When a rule cannot move cleanly, this document must record:
   the lint scripts.
 
 - Problem: Oxlint and ESLint do not lint exactly the same default file surface.
-  Tried: ran Oxlint directly against `apps/noter-starter-template`. Result:
-  Oxlint picked up the hidden `.codespace-agent` folder that ESLint had skipped
-  by default, so the accepted standardization pass explicitly ignores that
-  directory to preserve the old intended lint surface.
+  Earlier starter-template-specific hidden-folder handling is obsolete because
+  the monorepo-local starter app was removed in favor of exporting
+  `notermd/app`.
 
 - Problem: standardization mattered more than perfect historical parity for this
-  migration. Tried: removed `baseUrl` from both app tsconfigs, moved the app and
-  starter-template scripts onto Oxlint-only flows, and deleted the repo's
-  `.eslintrc` files. Result: the repo now has one linter entrypoint, one root
-  config, and one place to maintain type-aware rule coverage.
+  migration. Tried: removed `baseUrl` from app tsconfigs, moved app scripts onto
+  Oxlint-only flows, and deleted the repo's `.eslintrc` files. Result: the repo
+  now has one linter entrypoint, one root config, and one place to maintain
+  type-aware rule coverage.
 
 - Problem: removing `baseUrl` exposed a real dependency on it in app imports.
   Tried: ran `pnpm --filter noter lint:ci` after the tsconfig cleanup. Result: a

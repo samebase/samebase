@@ -93,7 +93,6 @@ const DAYTONA_DEPS_HASH_INPUT_FILES = [
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
   "apps/noter/package.json",
-  "apps/noter-starter-template/package.json",
 ];
 const PNPM_INSTALL_LOG = "/tmp/noter-pnpm-install.log";
 const PNPM_INSTALL_STATUS = "/tmp/noter-pnpm-install.status";
@@ -1922,8 +1921,7 @@ function buildDaytonaSafeDevServerCommand(args: {
   `;
   const installFallback = stripIndent`
     if [ ! -d "node_modules" ] \\
-      && [ ! -d "apps/noter/node_modules" ] \\
-      && [ ! -d "apps/noter-starter-template/node_modules" ]; then
+      && [ ! -d "apps/noter/node_modules" ]; then
       echo "node_modules missing; running pnpm install";
       NPM_CONFIG_ENGINE_STRICT=false pnpm install --prod=false --force --node-linker=hoisted;
     fi
@@ -3749,8 +3747,7 @@ async function refreshDaytonaRepoForLiveDebug(args: {
     git reset --hard "$commit_sha"
     git clean -ffd \
       -e node_modules \
-      -e apps/noter/node_modules \
-      -e apps/noter-starter-template/node_modules
+      -e apps/noter/node_modules
 
     rm -f ${quoteForBash(PNPM_INSTALL_LOG)} ${quoteForBash(DAYTONA_DEV_LOG)} ${quoteForBash(PNPM_INSTALL_STATUS)}
     rm -f apps/noter/.env.local apps/noter/.env.daytona-source.local apps/noter/.env.anon-seed.local

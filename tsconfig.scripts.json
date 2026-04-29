@@ -16,12 +16,8 @@
     "runtime/**/*.ts",
     ".devcontainer/postcreate.ts",
     "apps/noter/scripts/**/*.ts",
-    "apps/noter-starter-template/.devcontainer/postcreate.ts",
-    "apps/noter-starter-template/scripts/**/*.ts",
     "apps/noter/postcss.config.ts",
-    "apps/noter/tailwind.config.ts",
-    "apps/noter-starter-template/postcss.config.ts",
-    "apps/noter-starter-template/tailwind.config.ts"
+    "apps/noter/tailwind.config.ts"
   ],
   "exclude": ["node_modules"]
 }

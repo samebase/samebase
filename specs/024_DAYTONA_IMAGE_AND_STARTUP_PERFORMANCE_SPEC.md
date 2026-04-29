@@ -50,7 +50,6 @@ Hash must include every effective input to `Dockerfile.daytona-deps`:
 - `package.json`
 - `pnpm-workspace.yaml`
 - `apps/noter/package.json`
-- `apps/noter-starter-template/package.json`
 - build args affecting output (`PNPM_VERSION`, etc.)
 - `DAYTONA_BASE_IMAGE` reference string
 
