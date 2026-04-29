@@ -86,6 +86,24 @@ describe("publicLandingAuthState", () => {
     ).toBe(false);
   });
 
+  it("keeps Google auth hidden on the normal public landing with remembered auth state", () => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createMockStorage(),
+    });
+    window.localStorage.setItem("noter_auth_provider", "google");
+
+    expect(
+      shouldShowGoogleAuthForPathname("/", validateRootRouteSearch({})),
+    ).toBe(false);
+    expect(
+      shouldShowGoogleAuthForPathname(
+        "/",
+        validateRootRouteSearch({ dev: true }),
+      ),
+    ).toBe(true);
+  });
+
   it("forces the public landing closed-signup state for marked Google returns", () => {
     Object.defineProperty(window, "localStorage", {
       configurable: true,

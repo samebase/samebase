@@ -107,7 +107,7 @@ test("public landing ProseMark copy survives full selection deletion", async ({
   await page.goto("/?dev", {
     waitUntil: "domcontentloaded",
   });
-  await page.getByRole("textbox").click();
+  await page.getByTestId("public-landing-copy").getByRole("textbox").click();
   await page.keyboard.press(selectAllShortcut);
   await page.keyboard.press("Backspace");
 

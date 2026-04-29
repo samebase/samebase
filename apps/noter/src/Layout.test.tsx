@@ -230,7 +230,7 @@ describe("Layout", () => {
     expect(markup).toContain(">/?dev</p>");
   });
 
-  it("keeps the route URL editor out of the normal public sidebar", () => {
+  it("reserves the route URL header slot in the normal public sidebar", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
@@ -245,10 +245,11 @@ describe("Layout", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).not.toContain(
+    expect(markup).toContain(
       `data-testid="${PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID}"`,
     );
-    expect(markup).not.toContain('data-testid="route-url-display"');
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).toContain('data-testid="route-url-display"');
   });
 
   it("opens the logo shortcut in dev mode without dropping root flags", () => {

@@ -107,11 +107,19 @@ type LandingToggleFrame = {
 };
 
 type LandingToggleLayout = {
+  authRowTop: number;
   contentTop: number;
   contentHeight: number;
   authRowHeight: number;
   waitlistLinkTop: number;
   waitlistLinkOffset: number;
+};
+
+type LandingDevToggleTransitionMetrics = {
+  googleButtonDuration: string;
+  googleButtonProperty: string;
+  routeUrlDuration: string;
+  routeUrlProperty: string;
 };
 
 type LandingReloadFrame = {
@@ -225,6 +233,7 @@ async function readLandingToggleLayout(
     const googleRect = googleButton.getBoundingClientRect();
 
     return {
+      authRowTop: Number(googleRect.top.toFixed(3)),
       contentTop: Number(contentRect.top.toFixed(3)),
       contentHeight: Number(contentRect.height.toFixed(3)),
       authRowHeight: Number(googleRect.height.toFixed(3)),
@@ -232,6 +241,37 @@ async function readLandingToggleLayout(
       waitlistLinkOffset: Number(
         (waitlistLinkRect.top - contentRect.top).toFixed(3),
       ),
+    };
+  });
+}
+
+async function readLandingDevToggleTransitionMetrics(
+  page: Page,
+): Promise<LandingDevToggleTransitionMetrics> {
+  return await page.evaluate(() => {
+    const googleButton = Array.from(document.querySelectorAll("button")).find(
+      (button) => button.textContent?.includes("Google") ?? false,
+    );
+    const routeUrlDisplay = document.querySelector(
+      '[data-testid="route-url-display"]',
+    );
+    const routeUrlShell = routeUrlDisplay?.parentElement;
+
+    if (!(googleButton instanceof HTMLElement)) {
+      throw new Error("Expected landing Google button element");
+    }
+    if (!(routeUrlShell instanceof HTMLElement)) {
+      throw new Error("Expected landing route URL shell element");
+    }
+
+    const googleButtonStyle = getComputedStyle(googleButton);
+    const routeUrlStyle = getComputedStyle(routeUrlShell);
+
+    return {
+      googleButtonDuration: googleButtonStyle.transitionDuration,
+      googleButtonProperty: googleButtonStyle.transitionProperty,
+      routeUrlDuration: routeUrlStyle.transitionDuration,
+      routeUrlProperty: routeUrlStyle.transitionProperty,
     };
   });
 }
@@ -504,6 +544,23 @@ async function captureLandingFontStableFrames(
   return {
     frames: await page.evaluate(() => window.__landingFontStableFrames ?? []),
     webfontRequestCount,
+  };
+}
+
+async function readLandingRightSidebarAuthClip(page: Page) {
+  const rightPaneBox = await page
+    .getByTestId("workspace-layout-v2-pane-right")
+    .boundingBox();
+  expect(rightPaneBox).not.toBeNull();
+  if (rightPaneBox === null) {
+    throw new Error("Expected landing right pane bounds");
+  }
+
+  return {
+    height: 320,
+    width: rightPaneBox.width,
+    x: rightPaneBox.x,
+    y: rightPaneBox.y,
   };
 }
 
@@ -994,8 +1051,32 @@ test("public landing renders the closed Google signup return state", async ({
   );
 });
 
-test("landing dev toggle keeps the waitlist row aligned", async ({ page }) => {
+test("landing dev toggle keeps the auth and waitlist rows aligned", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("noter_auth_provider", "google");
+  });
   await page.goto("/", { waitUntil: "networkidle" });
+
+  await expect(
+    page.getByRole("button", { name: "Google", includeHidden: true }),
+  ).toBeHidden();
+  const transitionMetrics = await readLandingDevToggleTransitionMetrics(page);
+  expect(transitionMetrics.googleButtonDuration).toBe(
+    transitionMetrics.routeUrlDuration,
+  );
+  expect(transitionMetrics.googleButtonProperty).toBe(
+    transitionMetrics.routeUrlProperty,
+  );
+  expect(transitionMetrics.googleButtonDuration).toBe("0.15s");
+  await expect(page).toHaveScreenshot(
+    "public-landing-right-sidebar-auth-closed.png",
+    {
+      ...strictScreenshotOptions,
+      clip: await readLandingRightSidebarAuthClip(page),
+    },
+  );
 
   const beforeToggleLayout = await readLandingToggleLayout(page);
 
@@ -1007,6 +1088,9 @@ test("landing dev toggle keeps the waitlist row aligned", async ({ page }) => {
 
   const afterToggleLayout = await readLandingToggleLayout(page);
 
+  expect(
+    Math.abs(afterToggleLayout.authRowTop - beforeToggleLayout.authRowTop),
+  ).toBeLessThanOrEqual(1);
   expect(
     Math.abs(
       afterToggleLayout.authRowHeight - beforeToggleLayout.authRowHeight,
@@ -1021,6 +1105,29 @@ test("landing dev toggle keeps the waitlist row aligned", async ({ page }) => {
   expect(
     Math.abs(
       afterToggleLayout.contentHeight - beforeToggleLayout.contentHeight,
+    ),
+  ).toBeLessThanOrEqual(1);
+
+  await page
+    .getByRole("link", {
+      name: LANDING_DEV_MODE_DISABLE_LINK_LABEL,
+      exact: true,
+    })
+    .click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(
+    page.getByRole("button", { name: "Google", includeHidden: true }),
+  ).toBeHidden();
+
+  const afterDisableLayout = await readLandingToggleLayout(page);
+
+  expect(
+    Math.abs(afterDisableLayout.authRowTop - afterToggleLayout.authRowTop),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(
+      afterDisableLayout.waitlistLinkOffset -
+        afterToggleLayout.waitlistLinkOffset,
     ),
   ).toBeLessThanOrEqual(1);
 });
