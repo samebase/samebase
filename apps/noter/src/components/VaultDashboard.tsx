@@ -77,6 +77,7 @@ import {
   VaultDashboardProvidersSection,
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
+  VaultDashboardSidebarContent,
   type VaultDashboardProviderRowViewModel,
 } from "@/components/VaultDashboardChrome";
 import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
@@ -2307,7 +2308,7 @@ export function VaultDashboard() {
   };
 
   const sidebarContent = (
-    <div className="flex min-h-full flex-col">
+    <VaultDashboardSidebarContent>
       {user && accountEmail && accountDisplayName ? (
         <VaultDashboardAccountSection
           open={resolvedAccountPanelOpen}
@@ -2330,7 +2331,7 @@ export function VaultDashboard() {
       <div className="mt-auto">
         <AppSidebarMetaSection showMachineLinks side="right" />
       </div>
-    </div>
+    </VaultDashboardSidebarContent>
   );
   const dashboardBody = (
     <VaultDashboardBody

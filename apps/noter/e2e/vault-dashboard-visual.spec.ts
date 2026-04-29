@@ -52,6 +52,35 @@ test("vault dashboard fixture (sidebar account clamp)", async ({ page }) => {
   });
 });
 
+test("vault dashboard fixture (mobile sidebar peek)", async ({
+  browser,
+}, testInfo) => {
+  const baseURL = testInfo.project.use.baseURL;
+  if (typeof baseURL !== "string") {
+    throw new Error("Playwright baseURL is required for mobile fixture tests.");
+  }
+
+  const context = await browser.newContext({
+    ...devices["iPhone 13"],
+    baseURL,
+  });
+  const page = await context.newPage();
+
+  await page.goto("/visual-fixture.html?mode=vault-sidebar-account-clamp", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  await expect(page).toHaveScreenshot("vault-sidebar-account-mobile-peek.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+
+  await context.close();
+});
+
 test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
   await page.setViewportSize({ width: 640, height: 180 });
   await page.goto("/visual-fixture.html?mode=vault-branch-pr-labels", {

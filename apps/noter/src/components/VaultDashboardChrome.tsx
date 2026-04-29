@@ -244,6 +244,18 @@ export function VaultDashboardRepositoryList({
   );
 }
 
+export function VaultDashboardSidebarContent({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    // Match the mobile right-pane peek so inactive dashboard chrome shows an
+    // edge instead of cropped text from the sidebar contents.
+    <div className="flex min-h-full flex-col pl-6 md:pl-0">{children}</div>
+  );
+}
+
 export function VaultDashboardRepositoryCard({
   branchSection,
   daytonaBanner,

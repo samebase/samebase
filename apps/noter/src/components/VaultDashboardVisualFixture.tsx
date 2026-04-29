@@ -13,6 +13,7 @@ import {
   VaultDashboardProvidersSection,
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
+  VaultDashboardSidebarContent,
 } from "@/components/VaultDashboardChrome";
 import { VaultBranchLinkRow } from "@/components/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
@@ -243,7 +244,7 @@ function FixtureDashboardSidebarAccountClamp() {
     <FixtureDashboardShell
       desktopSidebarWidthPx={160}
       rightContent={
-        <div className="flex min-h-full flex-col">
+        <VaultDashboardSidebarContent>
           <VaultDashboardAccountSection
             open={true}
             onOpenChange={() => {}}
@@ -270,7 +271,7 @@ function FixtureDashboardSidebarAccountClamp() {
           <div className="mt-auto">
             <AppSidebarMetaSection showMachineLinks side="right" />
           </div>
-        </div>
+        </VaultDashboardSidebarContent>
       }
       mainContent={<VaultDashboardEmptyState />}
     />
@@ -281,7 +282,7 @@ function FixtureDashboardCreateControl() {
   return (
     <FixtureDashboardShell
       rightContent={
-        <div className="flex min-h-full flex-col">
+        <VaultDashboardSidebarContent>
           <VaultDashboardAccountSection
             open={true}
             onOpenChange={() => {}}
@@ -311,7 +312,7 @@ function FixtureDashboardCreateControl() {
           <div className="mt-auto">
             <AppSidebarMetaSection showMachineLinks side="right" />
           </div>
-        </div>
+        </VaultDashboardSidebarContent>
       }
       mainContent={<VaultDashboardEmptyState />}
     />
@@ -347,11 +348,11 @@ export function VaultDashboardVisualFixture({
     return (
       <FixtureDashboardShell
         rightContent={
-          <div className="flex min-h-full flex-col">
+          <VaultDashboardSidebarContent>
             <div className="mt-auto">
               <AppSidebarMetaSection showMachineLinks side="right" />
             </div>
-          </div>
+          </VaultDashboardSidebarContent>
         }
       />
     );
