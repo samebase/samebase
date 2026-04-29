@@ -1,12 +1,18 @@
-# Deploy a production-ready, real-time web-app in ~10 min with no account 0$/month
+# Deploy a production-ready, real-time web-app for 0$/month & no account
 
 <details>
 <summary>
-**0: TLDR**
+## TLDR
 </summary>
 
 The web-app is deployed Cloudflare Pages and uses Convex as database. Stack:
 Vite+, Tanstack Router, Tailwind, ShadCN (BaseUI)
+
+For the fastest Codex Cloud startup, add this environment setup script:
+
+```bash
+curl -fsSL https://vite.plus | bash
+```
 
 "notermd" organization name was choose with "-" because default Android keyboard
 makes it hard typing a "-".
@@ -29,19 +35,31 @@ Convex through Vite so no need for 2 ports).
 
 Start with **a Google or an Apple** account on a **phone or desktop**
 
-![Phone walkthrough for creating the required accounts](/landing-preview/step-1-phone-screenrecording.mp4)
-
-- [ ] **1: Create Github using Google/Apple** GitHub by Microsoft is the place
-      where engineers store their code.
-- [ ] **2: Create Convex using Github** Convex is the best database I have
-      personally used. The simplicity of my stack proves how good it is.
-- [ ] **3: Create CloudFlare using Github** Ensures the safety of your app and
-      users
-- [ ] **4: Create an OpenAI using Google/Apple** We'll rely on Codex Cloud to
-      make changes to the code.
+- [ ] **1: Create Github using Google/Apple :** https://github.com/<br>
+      <img src="/landing-preview/logos/github.svg" alt="GitHub" height="32"><br>
+      GitHub by Microsoft is the place where engineers store their code.
+- [ ] **2: Create Convex using Github :** https://www.convex.dev/<br>
+      <img src="/landing-preview/logos/convex.svg" alt="Convex" height="32"><br>
+      Convex is the best database I have personally used. The simplicity of my
+      stack proves how good it is. It also has its own Node server.
+- [ ] **3: Create CloudFlare using Github :** https://www.cloudflare.com/<br>
+      <img src="/landing-preview/logos/cloudflare.jpg" alt="Cloudflare" height="32"><br>
+      Your frontend code is deployed as static files. Ensures the safety of your
+      app and users
+- [ ] **4: Create an OpenAI using Google/Apple :** https://openai.com/<br>
+      <img src="/landing-preview/logos/openai.svg" alt="OpenAI" height="32"><br>
+      We'll rely on Codex Cloud to make changes to the code. But i usually use
+      Codex locally (there are later instructions for that)
 
 It's fine if you signed up differently, as long as you have these 4 accounts you
 can deploy an app.
+
+<details>
+      <summary>Step 1: Android Video recording</summary>
+
+<video controls preload="metadata" src="/landing-preview/step-1-create-accounts.mp4"></video>
+
+</details>
 
 ## 2: Copy the app code to your GitHub account
 
@@ -49,6 +67,13 @@ Visit https://github.com/notermd/app
 
 - [ ] click big green "Use this template"
 - [ ] make it private or leave it public
+
+<details>
+<summary>Phone recording of using the template</summary>
+
+<video controls preload="metadata" src="/landing-preview/step-2-use-template.mp4"></video>
+
+</details>
 
 <details>
 <summary>"Fork" if you want to preserver the git history</summary>
@@ -66,14 +91,25 @@ understand it.
 ## 3: Connect Cloudflare Pages to Github
 
 Cloudflare Pages will automatically deploy your app whenever the code changes on
-GitHub
+GitHub.
+
+You need to do this only once and afterwards you'll be able to create as many
+apps as you want.
+
+But it's a bit tricky since the Cloudflare side sometimes has issues.
 
 - [ ] Access _Cloudflare Pages_ from the sidebar "Compute > Workers & Pages"
 - [ ] Click "Create Application"
 - [ ] Click "Connect to GitHub" to
-      `Install & Authorize Cloudflare Workers & Pages` you'll have to do this
-      connection step just once at the beginning
-- [ ]
+      `Install & Authorize Cloudflare Workers & Pages`
+
+It's not clear what the issue is, but very often, Cloudflare doesn't notice that
+the connection already exists.
+
+Try opening Cloudflare Pages from a Desktop instead of Mobile, this usually
+helps.
+
+<video controls preload="metadata" src="/landing-preview/step-3-connect-cloudflare-pages.mp4"></video>
 
 <details>
 <summary>Connecting CloudFlare Pages to Github issues</summary>
@@ -83,48 +119,102 @@ bit. You can also go to github "Settings > Applications > Authorized GitHub
 Apps" to remove or revoke the installed apps, and try doing it again from
 Cloudflare.
 
+You can check all your installed GitHub apps here:
+https://github.com/settings/installations
+
 </details>
-## 3: Create Convex Project
+
+## 4: Create a Convex project and a CONVEX_DEPLOY_KEY
 
 - [ ] Visit https://dashboard.convex.dev/
-- [ ] Click "+ Create Project"
-- [ ] Click the colored "pill" at the top to switch to "Production" from
-      "Development". You might need to click it twice since convex has some
-      issues.
+- [ ] Click "+ Create Project" and give whatever name
+- [ ] Click the pill on the top to view your Production deployment (you may need
+      to click twice)
+- [ ] Click "+ Create Deploy Key", you'll need it to connect to Cloudflare, so
+      don't press "Done" yet
 
-## 4: Connect Cloudflare to GitHub and start creating the Pages project
+If you press "Done" you won't be able to see the deploy key again, but it's
+fine, you can delete it and create a new deploy key.
 
-Cloudflare needs permission to read your GitHub repository and deploy it every
-time you push code. The dashboard does this by installing the **Cloudflare
-Workers and Pages** GitHub App.
+<details>
+<summary>### What are CONVEX_DEPLOY_KEY?</summary>
 
-You might see GitHub say "Authorize" or "Install". For this guide, think of it
-as: **GitHub lets Cloudflare see your repositories, and Cloudflare builds the
-one you choose into a website.**
+They are a sort of password used between servers. In our case it is used by
+Cloudflare to update the database on each change.
 
-```mermaid
-flowchart LR
-    github["GitHub repository"]
-    cloudflare["Cloudflare Pages"]
-    preview["Preview website for each PR"]
-    production["Production website"]
+</details>
 
-    github -->|"Cloudflare Workers and Pages GitHub App"| cloudflare
-    cloudflare -->|"pull request builds"| preview
-    cloudflare -->|"production branch builds"| production
-```
+<details>
+<summary>Step 4: Video Android</summary>
 
-- [ ] Visit https://dash.cloudflare.com/
-- [ ] Open **Workers & Pages**
-- [ ] Click **Create application**
-- [ ] Choose **Pages**
-- [ ] Choose **Connect to Git**
-- [ ] Choose **GitHub**
-- [ ] If Cloudflare asks for access, click **Install & Authorize**
-- [ ] Allow access to **All repositories**
-- [ ] Back in Cloudflare, select that repository and click **Begin setup**
+<video controls preload="metadata" src="/landing-preview/step-4-create-convex-project.mp4"></video>
 
-After this connection exists, you do not need to upload files manually. GitHub
-is the source of truth, and Cloudflare watches the selected repository for
-changes. If you prefer stricter permissions, you can choose **Only select
-repositories** instead and pick just this app's repository.
+</details>
+
+## 5: Create a Cloudflare Pages Deploy
+
+- [ ] Access _Cloudflare Pages_ from the sidebar "Compute > Workers & Pages"
+- [ ] Click "Create Application"
+- [ ] **Make sure you click "Get Started" at the bottom** so you create "Pages"
+      and not "Workers"!
+- [ ] Set `Build Command` to `pnpm build:cloudflare`
+- [ ] Set `Build output directory` to `dist`
+- [ ] Add Environment Variable `CONVEX_DEPLOY_KEY` and use the Production deploy
+      key from the previous step
+
+<details>
+<summary>Step 5: Video Android</summary>
+
+<video controls preload="metadata" src="/landing-preview/step-5-create-cloudflare-pages-deploy.mp4"></video>
+
+</details>
+
+---
+
+🚀🚀 Congrats, you shipped your first app 🚀🚀
+
+Any change that you make to the `main` branch in your github repo, will be
+deployed automatically.
+
+## 6: Connect Codex to GitHub
+
+OpenAI Codex uses the same connection method as Cloudflare so you might
+encounter some issues, but need to do it just once.
+
+## 7: Get a separate deployment for each change
+
+You were seeing errors in the Pull Requests because the cloudflare deploys a
+preview and it cannot connect to your production database. To solve this, you
+can create a "Preview Deploy Key" from Convex and set it to Cloudflare, that way
+each Pull Requests will have it's own database.
+
+- [ ]
+
+## 8: Deleting the app
+
+To delete an app you deployed you'll have to
+
+- [ ] Delete Cloudflare Pages app
+- [ ] Delete Convex project
+- [ ] Delete GitHub repository
+
+## 9: Create an app in a single step using noter.md
+
+noter.md connects with Github, Cloudflare & Convex once, then allows you to
+create an app with a single click of a button It also allows you to completely
+removed as easily.
+
+So apps become disposable, you can create an app and to create a game and use it
+for night-out with your friends
+
+- OR -
+
+you can decide to continue maintaining it and based your business on it since
+it's
+
+### Why is noter.md free?
+
+I already have this functionality and much more for my own apps, it doesn't cost
+me much to share it with everybody. If you want more things, like editing files
+on the go, monitoring multiple apps or multiple branches of the same app, then
+it starts costing me more so that's not released yet.

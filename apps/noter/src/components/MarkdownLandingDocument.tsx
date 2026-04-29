@@ -27,12 +27,22 @@ const SANITIZED_VIDEO_ATTRIBUTES: string[] = [
   "width",
 ];
 
+const SANITIZED_DETAILS_ATTRIBUTES: string[] = ["open"];
+const SANITIZED_IMAGE_ATTRIBUTES: string[] = [
+  "alt",
+  "height",
+  "src",
+  "title",
+  "width",
+];
 const SANITIZED_SOURCE_ATTRIBUTES: string[] = ["src", "type"];
 
 const markdownSanitizeSchema = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
+    details: SANITIZED_DETAILS_ATTRIBUTES,
+    img: SANITIZED_IMAGE_ATTRIBUTES,
     source: SANITIZED_SOURCE_ATTRIBUTES,
     video: SANITIZED_VIDEO_ATTRIBUTES,
   },
@@ -41,7 +51,14 @@ const markdownSanitizeSchema = {
     poster: ["http", "https"],
     src: ["http", "https"],
   },
-  tagNames: [...(defaultSchema.tagNames ?? []), "source", "video"],
+  tagNames: [
+    ...(defaultSchema.tagNames ?? []),
+    "br",
+    "details",
+    "source",
+    "summary",
+    "video",
+  ],
 } satisfies RehypeSanitizeOptions;
 
 const markdownRehypePlugins: ReactMarkdownOptions["rehypePlugins"] = [
@@ -98,19 +115,25 @@ function MarkdownVideo({
       playsInline
       poster={poster}
       preload={preload ?? "metadata"}
+      src={src}
       title={title}
       width={width}
     >
-      {children === undefined && src ? <source src={src} /> : children}
+      {children}
     </video>
   );
 }
 
 function MarkdownImage({
   alt,
+  height,
   src,
   title,
-}: Pick<ComponentPropsWithoutRef<"img">, "alt" | "src" | "title">) {
+  width,
+}: Pick<
+  ComponentPropsWithoutRef<"img">,
+  "alt" | "height" | "src" | "title" | "width"
+>) {
   if (!src) {
     return null;
   }
@@ -119,15 +142,62 @@ function MarkdownImage({
     return <MarkdownVideo src={src} title={title ?? alt} />;
   }
 
+  const authoredSizeStyle = buildImageAuthoredSizeStyle({ height, width });
+
   return (
     <img
       alt={alt ?? ""}
-      className="w-full max-w-full border bg-background object-contain"
+      className="max-w-full object-contain"
+      height={height}
       loading="lazy"
       src={src}
+      style={authoredSizeStyle}
       title={title}
+      width={width}
     />
   );
+}
+
+function parseHtmlDimension(
+  value: ComponentPropsWithoutRef<"img">["height"],
+): number | string | undefined {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmedValue = value.trim();
+  if (/^\d+$/.test(trimmedValue)) {
+    return Number.parseInt(trimmedValue, 10);
+  }
+
+  if (/^\d+(?:\.\d+)?(?:px|rem|em|%)$/.test(trimmedValue)) {
+    return trimmedValue;
+  }
+
+  return undefined;
+}
+
+function buildImageAuthoredSizeStyle({
+  height,
+  width,
+}: Pick<ComponentPropsWithoutRef<"img">, "height" | "width">):
+  | ComponentPropsWithoutRef<"img">["style"]
+  | undefined {
+  const parsedHeight = parseHtmlDimension(height);
+  const parsedWidth = parseHtmlDimension(width);
+
+  if (parsedHeight === undefined && parsedWidth === undefined) {
+    return undefined;
+  }
+
+  return {
+    height: parsedHeight,
+    width: parsedWidth ?? "auto",
+  };
 }
 
 function renderHeading(level: 1 | 2 | 3 | 4, children: ReactNode) {
@@ -185,11 +255,21 @@ const markdownComponents = {
       </blockquote>
     );
   },
+  br() {
+    return <br />;
+  },
   code({ children }) {
     return (
       <code className="border bg-accent px-1 py-0.5 font-mono text-[0.8125rem] leading-5 text-accent-foreground">
         {children}
       </code>
+    );
+  },
+  details({ children, open }) {
+    return (
+      <details className="border bg-background px-3 py-2 open:pb-3" open={open}>
+        {children}
+      </details>
     );
   },
   h1({ children }) {
@@ -221,8 +301,31 @@ const markdownComponents = {
   hr() {
     return <hr className="border-border" />;
   },
-  img({ alt, src, title }) {
-    return <MarkdownImage alt={alt} src={src} title={title} />;
+  img({ alt, height, src, title, width }) {
+    return (
+      <MarkdownImage
+        alt={alt}
+        height={height}
+        src={src}
+        title={title}
+        width={width}
+      />
+    );
+  },
+  input({ checked, disabled, type }) {
+    if (type !== "checkbox") {
+      return <input checked={checked} disabled={disabled} type={type} />;
+    }
+
+    return (
+      <input
+        checked={checked}
+        className="mr-2 align-middle"
+        disabled={disabled}
+        readOnly
+        type="checkbox"
+      />
+    );
   },
   li({ children }) {
     return <li className="pl-1 leading-7">{children}</li>;
@@ -246,6 +349,13 @@ const markdownComponents = {
     }
 
     return <source src={src} type={type} />;
+  },
+  summary({ children }) {
+    return (
+      <summary className="cursor-pointer select-none text-sm font-medium leading-6">
+        {children}
+      </summary>
+    );
   },
   table({ children }) {
     return (

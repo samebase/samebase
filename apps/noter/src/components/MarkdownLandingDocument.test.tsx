@@ -46,15 +46,25 @@ describe("MarkdownLandingDocument", () => {
     expect(image?.getAttribute("alt")).toBe("Looping demo");
   });
 
+  it("keeps authored image dimensions for README logos", () => {
+    const element = renderMarkdown(
+      '<img src="/landing-preview/logos/github.svg" alt="GitHub" height="32">',
+    );
+
+    const image = element.querySelector("img");
+    expect(image?.getAttribute("height")).toBe("32");
+    expect(image?.style.height).toBe("32px");
+    expect(image?.style.width).toBe("auto");
+  });
+
   it("renders video image markdown as a playable video", () => {
     const element = renderMarkdown("![Demo video](/demo.mp4)");
 
     const video = element.querySelector("video");
-    const source = element.querySelector("source");
     expect(video?.controls).toBe(true);
     expect(video?.playsInline).toBe(true);
     expect(video?.getAttribute("preload")).toBe("metadata");
-    expect(source?.getAttribute("src")).toBe("/demo.mp4");
+    expect(video?.getAttribute("src")).toBe("/demo.mp4");
   });
 
   it("keeps sanitized raw video tags for README-compatible embeds", () => {
@@ -63,11 +73,37 @@ describe("MarkdownLandingDocument", () => {
     );
 
     const video = element.querySelector("video");
-    expect(video?.getAttribute("src")).toBeNull();
+    expect(video?.getAttribute("src")).toBe("https://example.com/demo.webm");
     expect(video?.getAttribute("onclick")).toBeNull();
-    expect(video?.querySelector("source")?.getAttribute("src")).toBe(
-      "https://example.com/demo.webm",
-    );
+  });
+
+  it("renders README disclosure blocks with local videos", () => {
+    const element = renderMarkdown(`
+<details onclick="alert(1)">
+<summary>Step 1 video</summary>
+
+<video controls preload="metadata" src="/landing-preview/step-1.mp4"></video>
+
+</details>
+`);
+
+    const details = element.querySelector("details");
+    const summary = element.querySelector("summary");
+    const video = element.querySelector("video");
+
+    expect(details).not.toBeNull();
+    expect(details?.getAttribute("onclick")).toBeNull();
+    expect(summary?.textContent).toBe("Step 1 video");
+    expect(video?.getAttribute("src")).toBe("/landing-preview/step-1.mp4");
+    expect(video?.getAttribute("preload")).toBe("metadata");
+  });
+
+  it("renders README task checkboxes as disabled controls", () => {
+    const element = renderMarkdown("- [ ] Create account");
+
+    const checkbox = element.querySelector('input[type="checkbox"]');
+    expect(checkbox?.hasAttribute("disabled")).toBe(true);
+    expect(checkbox?.hasAttribute("checked")).toBe(false);
   });
 
   it("detects common video file URLs", () => {

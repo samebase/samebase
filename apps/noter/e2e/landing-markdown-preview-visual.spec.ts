@@ -28,9 +28,11 @@ test("landing markdown preview fixture renders markdown in workspace chrome", as
       name: /Deploy a production-ready, real-time web-app/,
     }),
   ).toBeVisible();
-  await expect(article.locator("video source")).toHaveAttribute(
+  await expect(article.locator("details")).toHaveCount(8);
+  await expect(article.locator("video")).toHaveCount(5);
+  await expect(article.locator("video").first()).toHaveAttribute(
     "src",
-    "/landing-preview/step-1-phone-screenrecording.mp4",
+    "/landing-preview/step-1-create-accounts.mp4",
   );
 
   await expect(page).toHaveScreenshot(
