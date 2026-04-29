@@ -9,13 +9,16 @@ export const PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID =
   "public-layout-sidebar-route-url-header";
 
 function renderPublicRouteUrlHeader(visible: boolean) {
-  if (!visible) {
-    // Reserve the dev URL row so toggling `?dev` does not move sidebar auth.
-    return <div aria-hidden="true" />;
-  }
+  const visibilityClassName = visible
+    ? "visible opacity-100"
+    : "invisible pointer-events-none opacity-0";
 
+  // Reserve the dev URL row so toggling `?dev` does not move sidebar auth.
   return (
-    <div className="flex h-full min-w-0 items-center px-2">
+    <div
+      aria-hidden={visible ? undefined : true}
+      className={`flex h-full min-w-0 items-center px-2 transition-[opacity,visibility] duration-150 ease-out motion-reduce:transition-none ${visibilityClassName}`}
+    >
       <RouteUrlDisplay />
     </div>
   );

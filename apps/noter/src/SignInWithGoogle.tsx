@@ -16,8 +16,8 @@ export function SignInWithGoogle({
       aria-hidden={!visible}
       className={
         visible
-          ? "h-auto flex-1 py-2.5"
-          : "h-auto flex-1 invisible pointer-events-none py-2.5"
+          ? "visible h-auto flex-1 opacity-100 py-2.5 transition-[opacity,visibility] duration-150 ease-out motion-reduce:transition-none"
+          : "invisible h-auto flex-1 pointer-events-none opacity-0 py-2.5 transition-[opacity,visibility] duration-150 ease-out disabled:opacity-0 motion-reduce:transition-none"
       }
       disabled={!visible}
       variant="outline"

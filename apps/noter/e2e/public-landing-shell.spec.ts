@@ -115,6 +115,13 @@ type LandingToggleLayout = {
   waitlistLinkOffset: number;
 };
 
+type LandingDevToggleTransitionMetrics = {
+  googleButtonDuration: string;
+  googleButtonProperty: string;
+  routeUrlDuration: string;
+  routeUrlProperty: string;
+};
+
 type LandingReloadFrame = {
   content: {
     top: number;
@@ -234,6 +241,37 @@ async function readLandingToggleLayout(
       waitlistLinkOffset: Number(
         (waitlistLinkRect.top - contentRect.top).toFixed(3),
       ),
+    };
+  });
+}
+
+async function readLandingDevToggleTransitionMetrics(
+  page: Page,
+): Promise<LandingDevToggleTransitionMetrics> {
+  return await page.evaluate(() => {
+    const googleButton = Array.from(document.querySelectorAll("button")).find(
+      (button) => button.textContent?.includes("Google") ?? false,
+    );
+    const routeUrlDisplay = document.querySelector(
+      '[data-testid="route-url-display"]',
+    );
+    const routeUrlShell = routeUrlDisplay?.parentElement;
+
+    if (!(googleButton instanceof HTMLElement)) {
+      throw new Error("Expected landing Google button element");
+    }
+    if (!(routeUrlShell instanceof HTMLElement)) {
+      throw new Error("Expected landing route URL shell element");
+    }
+
+    const googleButtonStyle = getComputedStyle(googleButton);
+    const routeUrlStyle = getComputedStyle(routeUrlShell);
+
+    return {
+      googleButtonDuration: googleButtonStyle.transitionDuration,
+      googleButtonProperty: googleButtonStyle.transitionProperty,
+      routeUrlDuration: routeUrlStyle.transitionDuration,
+      routeUrlProperty: routeUrlStyle.transitionProperty,
     };
   });
 }
@@ -1024,6 +1062,14 @@ test("landing dev toggle keeps the auth and waitlist rows aligned", async ({
   await expect(
     page.getByRole("button", { name: "Google", includeHidden: true }),
   ).toBeHidden();
+  const transitionMetrics = await readLandingDevToggleTransitionMetrics(page);
+  expect(transitionMetrics.googleButtonDuration).toBe(
+    transitionMetrics.routeUrlDuration,
+  );
+  expect(transitionMetrics.googleButtonProperty).toBe(
+    transitionMetrics.routeUrlProperty,
+  );
+  expect(transitionMetrics.googleButtonDuration).toBe("0.15s");
   await expect(page).toHaveScreenshot(
     "public-landing-right-sidebar-auth-closed.png",
     {
