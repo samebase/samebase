@@ -12,6 +12,7 @@ type WorkspaceLayoutV2FixtureFrameProps = ComponentProps<
   dataTestId: string;
   defaultOpen?: boolean;
   defaultRightOpen?: boolean;
+  desktopSidebarWidthPx?: number;
   shortcutSidebarSide?: SidebarSide;
 };
 
@@ -23,6 +24,7 @@ export function WorkspaceLayoutV2FixtureFrame({
   dataTestId,
   defaultOpen = true,
   defaultRightOpen = true,
+  desktopSidebarWidthPx = WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX,
   shortcutSidebarSide,
   left,
   main,
@@ -33,12 +35,10 @@ export function WorkspaceLayoutV2FixtureFrame({
     <Layout>
       <SidebarProvider
         defaultOpen={defaultOpen}
-        defaultLeftDesktopWidthPx={WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX}
+        defaultLeftDesktopWidthPx={desktopSidebarWidthPx}
         defaultLeftMobileWidthPx={WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX}
         defaultRightOpen={defaultRightOpen}
-        defaultRightDesktopWidthPx={
-          WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX
-        }
+        defaultRightDesktopWidthPx={desktopSidebarWidthPx}
         defaultRightMobileWidthPx={WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX}
         shortcutSidebarSide={shortcutSidebarSide}
       >

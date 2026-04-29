@@ -36,6 +36,22 @@ test("vault dashboard fixture (sidebar machine links)", async ({ page }) => {
   });
 });
 
+test("vault dashboard fixture (sidebar account clamp)", async ({ page }) => {
+  await page.setViewportSize({ width: 960, height: 760 });
+  await page.goto("/visual-fixture.html?mode=vault-sidebar-account-clamp", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture).toHaveScreenshot("vault-sidebar-account-clamp.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
   await page.setViewportSize({ width: 640, height: 180 });
   await page.goto("/visual-fixture.html?mode=vault-branch-pr-labels", {

@@ -5,7 +5,7 @@ import { Input } from "@/components/input";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultLastUpdatedStatus } from "@/components/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
-import { ChevronDownIcon } from "@/lib/radixIcons";
+import { ChevronDownIcon, GitHubLogoIcon } from "@/lib/radixIcons";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import {
   VaultDashboardAccountSection,
@@ -24,6 +24,7 @@ export type VaultDashboardVisualMode =
   | "vault-branch-filters"
   | "vault-branch-pr-labels"
   | "vault-branch-mobile-alignment"
+  | "vault-sidebar-account-clamp"
   | "vault-sidebar-machine-links";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
@@ -210,9 +211,11 @@ function VaultDashboardListSpacingFixture({
 }
 
 function FixtureDashboardShell({
+  desktopSidebarWidthPx,
   mainContent,
   rightContent,
 }: {
+  desktopSidebarWidthPx?: number;
   mainContent?: ReactNode;
   rightContent?: ReactNode;
 }) {
@@ -222,6 +225,7 @@ function FixtureDashboardShell({
         dataTestId="vault-dashboard-visual-fixture"
         defaultOpen={false}
         defaultRightOpen={true}
+        desktopSidebarWidthPx={desktopSidebarWidthPx}
         shortcutSidebarSide="right"
         right={{
           content: rightContent,
@@ -231,6 +235,45 @@ function FixtureDashboardShell({
         }}
       />
     </TestRouterProvider>
+  );
+}
+
+function FixtureDashboardSidebarAccountClamp() {
+  return (
+    <FixtureDashboardShell
+      desktopSidebarWidthPx={160}
+      rightContent={
+        <div className="flex min-h-full flex-col">
+          <VaultDashboardAccountSection
+            open={true}
+            onOpenChange={() => {}}
+            displayName="Alexandria Example"
+            email="alexandria.very.long.operator.email-address@noter-example-workspace.dev"
+            providerLabel="Google Workspace Enterprise"
+            isSignOutPending={false}
+            onSignOut={() => {}}
+          />
+          <VaultDashboardProvidersSection
+            open={true}
+            onOpenChange={() => {}}
+            providerRows={[
+              {
+                key: "github",
+                icon: <GitHubLogoIcon className="h-4 w-4" />,
+                label: "GitHub",
+                status:
+                  "Connected as alexandria-super-long-github-operator (OAuth)",
+                actions: [],
+              },
+            ]}
+          />
+          <div className="mt-auto">
+            <AppSidebarMetaSection showMachineLinks side="right" />
+          </div>
+        </div>
+      }
+      mainContent={<VaultDashboardEmptyState />}
+    />
   );
 }
 
@@ -294,6 +337,10 @@ export function VaultDashboardVisualFixture({
 
   if (mode === "vault-dashboard-list-spacing") {
     return <VaultDashboardListSpacingFixture mode={mode} />;
+  }
+
+  if (mode === "vault-sidebar-account-clamp") {
+    return <FixtureDashboardSidebarAccountClamp />;
   }
 
   if (mode === "vault-sidebar-machine-links") {

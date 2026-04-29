@@ -10,6 +10,11 @@ import { ChevronDownIcon, PersonIcon } from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 
+const SIDEBAR_METADATA_TEXT_CLASS =
+  "min-w-0 line-clamp-2 [overflow-wrap:anywhere]";
+const SIDEBAR_ROW_ICON_CLASS =
+  "flex h-5 w-5 shrink-0 items-center justify-center";
+
 export type VaultDashboardProviderActionViewModel = {
   disabled?: boolean;
   isPending?: boolean;
@@ -72,14 +77,28 @@ export function VaultDashboardAccountSection({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="flex flex-wrap items-start gap-3">
-            <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-3">
-              <div className="flex h-5 w-11 shrink-0 items-center justify-center">
+            <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-2">
+              <div className={SIDEBAR_ROW_ICON_CLASS}>
                 <PersonIcon className="h-4 w-4" />
               </div>
               <div className="min-w-0 text-left">
-                <div className="break-words text-sm font-medium">{email}</div>
+                <div
+                  className={clsx(
+                    SIDEBAR_METADATA_TEXT_CLASS,
+                    "text-sm font-medium",
+                  )}
+                  title={email}
+                >
+                  {email}
+                </div>
                 {providerLabel ? (
-                  <div className="break-words text-xs leading-5 text-muted-foreground">
+                  <div
+                    className={clsx(
+                      SIDEBAR_METADATA_TEXT_CLASS,
+                      "text-xs leading-5 text-muted-foreground",
+                    )}
+                    title={`Signed in with ${providerLabel}`}
+                  >
                     Signed in with {providerLabel}
                   </div>
                 ) : null}
@@ -149,15 +168,21 @@ export function VaultDashboardProvidersSection({
                 key={providerRow.key}
                 className="flex flex-wrap items-start gap-3"
               >
-                <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-3">
-                  <div className="flex h-5 w-11 shrink-0 items-center justify-center">
+                <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-2">
+                  <div className={SIDEBAR_ROW_ICON_CLASS}>
                     {providerRow.icon}
                   </div>
                   <div className="min-w-0 text-left">
                     <div className="text-sm font-medium">
                       {providerRow.label}
                     </div>
-                    <div className="break-words text-xs leading-5 text-muted-foreground">
+                    <div
+                      className={clsx(
+                        SIDEBAR_METADATA_TEXT_CLASS,
+                        "text-xs leading-5 text-muted-foreground",
+                      )}
+                      title={providerRow.status}
+                    >
                       {providerRow.status}
                     </div>
                   </div>
