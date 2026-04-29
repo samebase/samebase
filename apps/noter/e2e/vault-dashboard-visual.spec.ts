@@ -1,4 +1,50 @@
-import { devices, expect, test } from "@playwright/test";
+import { devices, expect, test, type Locator } from "@playwright/test";
+
+async function expectSidebarTextOwnsWrappedLine({
+  iconTestId,
+  row,
+  textTestId,
+}: {
+  iconTestId: string;
+  row: Locator;
+  textTestId: string;
+}) {
+  await expect
+    .poll(() =>
+      row.evaluate(
+        (rowElement, testIds) => {
+          if (!(rowElement instanceof HTMLElement)) {
+            return false;
+          }
+
+          const iconElement = rowElement.querySelector(
+            `[data-testid="${testIds.iconTestId}"]`,
+          );
+          const textElement = rowElement.querySelector(
+            `[data-testid="${testIds.textTestId}"]`,
+          );
+          if (
+            !(iconElement instanceof HTMLElement) ||
+            !(textElement instanceof HTMLElement)
+          ) {
+            return false;
+          }
+
+          const rowRect = rowElement.getBoundingClientRect();
+          const iconRect = iconElement.getBoundingClientRect();
+          const textRect = textElement.getBoundingClientRect();
+
+          return (
+            textRect.top >= iconRect.bottom - 1 &&
+            Math.abs(textRect.left - rowRect.left) <= 1 &&
+            Math.abs(textRect.width - rowRect.width) <= 1
+          );
+        },
+        { iconTestId, textTestId },
+      ),
+    )
+    .toBe(true);
+}
 
 test("vault dashboard fixture (create control)", async ({ page }) => {
   // Keep the shared dashboard shell and right-rail framing aligned with the
@@ -82,6 +128,18 @@ test("vault dashboard fixture (mobile sidebar min width)", async ({
       rightPane.evaluate((pane) => pane.scrollWidth <= pane.clientWidth),
     )
     .toBe(true);
+  await expectSidebarTextOwnsWrappedLine({
+    iconTestId: "dashboard-sidebar-account-icon",
+    row: page.getByTestId("dashboard-sidebar-account-row"),
+    textTestId: "dashboard-sidebar-account-text",
+  });
+  await expectSidebarTextOwnsWrappedLine({
+    iconTestId: "dashboard-sidebar-provider-icon",
+    row: page
+      .getByTestId("dashboard-sidebar-provider-row")
+      .filter({ hasText: "GitHub" }),
+    textTestId: "dashboard-sidebar-provider-text",
+  });
 
   await expect(page).toHaveScreenshot("vault-sidebar-account-mobile-min.png", {
     animations: "disabled",

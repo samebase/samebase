@@ -14,6 +14,9 @@ const SIDEBAR_METADATA_TEXT_CLASS =
   "min-w-0 line-clamp-2 [overflow-wrap:anywhere]";
 const SIDEBAR_ROW_ICON_CLASS =
   "flex h-5 w-5 shrink-0 items-center justify-center";
+const SIDEBAR_ROW_CONTENT_CLASS =
+  "flex min-w-0 shrink grow basis-[11rem] flex-wrap items-start gap-x-2 gap-y-1";
+const SIDEBAR_ROW_TEXT_CLASS = "min-w-0 shrink grow basis-24 text-left";
 
 export type VaultDashboardProviderActionViewModel = {
   disabled?: boolean;
@@ -77,11 +80,20 @@ export function VaultDashboardAccountSection({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="flex flex-wrap items-start gap-3">
-            <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-2">
-              <div className={SIDEBAR_ROW_ICON_CLASS}>
+            <div
+              data-testid="dashboard-sidebar-account-row"
+              className={SIDEBAR_ROW_CONTENT_CLASS}
+            >
+              <div
+                data-testid="dashboard-sidebar-account-icon"
+                className={SIDEBAR_ROW_ICON_CLASS}
+              >
                 <PersonIcon className="h-4 w-4" />
               </div>
-              <div className="min-w-0 text-left">
+              <div
+                data-testid="dashboard-sidebar-account-text"
+                className={SIDEBAR_ROW_TEXT_CLASS}
+              >
                 <div
                   className={clsx(
                     SIDEBAR_METADATA_TEXT_CLASS,
@@ -168,11 +180,21 @@ export function VaultDashboardProvidersSection({
                 key={providerRow.key}
                 className="flex flex-wrap items-start gap-3"
               >
-                <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-2">
-                  <div className={SIDEBAR_ROW_ICON_CLASS}>
+                <div
+                  data-provider-key={providerRow.key}
+                  data-testid="dashboard-sidebar-provider-row"
+                  className={SIDEBAR_ROW_CONTENT_CLASS}
+                >
+                  <div
+                    data-testid="dashboard-sidebar-provider-icon"
+                    className={SIDEBAR_ROW_ICON_CLASS}
+                  >
                     {providerRow.icon}
                   </div>
-                  <div className="min-w-0 text-left">
+                  <div
+                    data-testid="dashboard-sidebar-provider-text"
+                    className={SIDEBAR_ROW_TEXT_CLASS}
+                  >
                     <div className="text-sm font-medium">
                       {providerRow.label}
                     </div>
