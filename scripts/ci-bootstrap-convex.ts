@@ -138,8 +138,12 @@ async function runConvexEnvSet(key: string, value: string): Promise<void> {
     }
 
     writeProcessOutput(result.stdout, result.stderr);
-    process.exit(result.status ?? 1);
+    throw new Error(
+      `convex env set ${key} failed with exit code ${result.status ?? "unknown"}.`,
+    );
   }
+
+  throw new Error(`convex env set ${key} retry loop ended unexpectedly.`);
 }
 
 function isTransientConvexEnvSetFailure(output: string): boolean {

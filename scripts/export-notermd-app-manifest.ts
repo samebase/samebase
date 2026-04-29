@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   mkdir,
@@ -21,11 +21,13 @@ const sourceRepoName = "app";
 const defaultSourceBranch = "main";
 const sourceRepo = `https://github.com/${sourceOwner}/${sourceRepoName}.git`;
 const githubApiBase = "https://api.github.com";
+const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 type CollectedFile = {
   relativePath: string;
   content: string;
   encoding: "utf-8" | "base64";
+  rawContent: Buffer;
 };
 
 type ExportOptions = {
@@ -186,11 +188,52 @@ async function extractArchive(args: {
   }
 }
 
+async function runPnpm(args: readonly string[], cwd: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const childProcess = spawn(PNPM_COMMAND, args, {
+      cwd,
+      stdio: "inherit",
+    });
+
+    childProcess.on("error", reject);
+    childProcess.on("exit", (code, signal) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+
+      reject(
+        new Error(
+          signal === null
+            ? `pnpm ${args.join(" ")} failed with exit code ${code ?? "unknown"}`
+            : `pnpm ${args.join(" ")} exited with signal ${signal}`,
+        ),
+      );
+    });
+  });
+}
+
 async function formatGeneratedFile(
   filePath: string,
   cwd: string,
 ): Promise<void> {
-  await execFileAsync("pnpm", ["exec", "vp", "fmt", filePath], { cwd });
+  await runPnpm(["exec", "vp", "fmt", filePath], cwd);
+}
+
+function containsBinaryControlByte(buffer: Buffer): boolean {
+  for (const byte of buffer) {
+    if (byte === 0) {
+      return true;
+    }
+
+    const isAllowedTextControlByte =
+      byte === 9 || byte === 10 || byte === 12 || byte === 13;
+    if (byte < 32 && !isAllowedTextControlByte) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 async function collectFiles(
@@ -218,11 +261,22 @@ async function collectFiles(
     }
 
     const buffer = await readFile(absolutePath);
+    if (containsBinaryControlByte(buffer)) {
+      files.push({
+        relativePath,
+        content: buffer.toString("base64"),
+        encoding: "base64",
+        rawContent: buffer,
+      });
+      continue;
+    }
+
     try {
       files.push({
         relativePath,
         content: decoder.decode(buffer),
         encoding: "utf-8",
+        rawContent: buffer,
       });
     } catch (error) {
       if (!(error instanceof TypeError)) {
@@ -232,6 +286,7 @@ async function collectFiles(
         relativePath,
         content: buffer.toString("base64"),
         encoding: "base64",
+        rawContent: buffer,
       });
     }
   }
@@ -242,14 +297,13 @@ async function collectFiles(
 function computeContentHash(files: CollectedFile[]): string {
   const hash = createHash("sha256");
   for (const file of files) {
-    const content = Buffer.from(file.content, "utf8");
     hash.update(file.relativePath);
     hash.update("\0");
     hash.update(file.encoding);
     hash.update("\0");
-    hash.update(String(content.length));
+    hash.update(String(file.rawContent.length));
     hash.update("\0");
-    hash.update(content);
+    hash.update(file.rawContent);
     hash.update("\0");
   }
   return hash.digest("hex");

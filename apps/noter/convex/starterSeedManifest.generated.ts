@@ -17,7 +17,7 @@ export const starterTemplateManifest: StarterTemplateManifest = {
   sourceBranch: "main",
   sourceCommit: "49d0faa1ba17b73138d0a1c4f709c750720b0e9d",
   contentHash:
-    "6750f6d35c825faa5fe2b08218b0e82c854dadf56ccc3e47801afd6dba3cad97",
+    "eabe2416328b07a8d1831fe1d655de2e18eeabfb8e05394cb1b2854d2f67e12d",
   commitMessage: "chore: seed starter template",
   files: {
     ".agents/skills/convex-create-component/agents/openai.yaml":
