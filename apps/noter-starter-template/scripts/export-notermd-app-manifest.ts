@@ -18,14 +18,73 @@ const execFileAsync = promisify(execFile);
 
 const sourceOwner = "notermd";
 const sourceRepoName = "app";
-const sourceBranch = "main";
+const defaultSourceBranch = "main";
 const sourceRepo = `https://github.com/${sourceOwner}/${sourceRepoName}.git`;
 const githubApiBase = "https://api.github.com";
 
 type CollectedFile = {
   relativePath: string;
   content: string;
+  encoding: "utf-8" | "base64";
 };
+
+type ExportOptions = {
+  sourceBranch: string;
+};
+
+function normalizeBranch(branch: string): string {
+  const trimmed = branch.trim();
+  if (trimmed.length === 0) {
+    throw new Error("Template source branch cannot be empty");
+  }
+  return trimmed;
+}
+
+function printUsage(): void {
+  console.log(`Usage: pnpm --filter noter-starter-template run template:export -- [--branch <branch>]
+
+Exports the notermd/app starter snapshot into starterSeedManifest.generated.ts.
+
+Options:
+  --branch <branch>  notermd/app branch to export. Defaults to ${defaultSourceBranch}.`);
+}
+
+function parseArgs(argv: readonly string[]): ExportOptions {
+  let sourceBranch = defaultSourceBranch;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+
+    if (arg === "--") {
+      continue;
+    }
+
+    if (arg === "--help" || arg === "-h") {
+      printUsage();
+      process.exit(0);
+    }
+
+    if (arg === "--branch") {
+      const value = argv.at(index + 1);
+      if (value === undefined || value.startsWith("--")) {
+        throw new Error("--branch requires a branch name");
+      }
+      sourceBranch = normalizeBranch(value);
+      index += 1;
+      continue;
+    }
+
+    const branchPrefix = "--branch=";
+    if (arg.startsWith(branchPrefix)) {
+      sourceBranch = normalizeBranch(arg.slice(branchPrefix.length));
+      continue;
+    }
+
+    throw new Error(`Unknown option: ${arg}`);
+  }
+
+  return { sourceBranch };
+}
 
 async function readToken(): Promise<string> {
   const envToken =
@@ -72,10 +131,13 @@ async function githubFetch(token: string, url: string): Promise<Response> {
   return response;
 }
 
-async function resolveSourceCommit(token: string): Promise<string> {
+async function resolveSourceCommit(args: {
+  token: string;
+  sourceBranch: string;
+}): Promise<string> {
   const response = await githubFetch(
-    token,
-    `${githubApiBase}/repos/${sourceOwner}/${sourceRepoName}/commits/${sourceBranch}`,
+    args.token,
+    `${githubApiBase}/repos/${sourceOwner}/${sourceRepoName}/commits/${encodeURIComponent(args.sourceBranch)}`,
   );
   const json: unknown = await response.json();
   if (typeof json !== "object" || json === null) {
@@ -136,17 +198,22 @@ async function collectFiles(
     }
 
     const buffer = await readFile(absolutePath);
-    let content: string;
     try {
-      content = decoder.decode(buffer);
+      files.push({
+        relativePath,
+        content: decoder.decode(buffer),
+        encoding: "utf-8",
+      });
     } catch (error) {
-      throw new Error(
-        `Starter archive file is not UTF-8 text: ${relativePath}`,
-        { cause: error },
-      );
+      if (!(error instanceof TypeError)) {
+        throw error;
+      }
+      files.push({
+        relativePath,
+        content: buffer.toString("base64"),
+        encoding: "base64",
+      });
     }
-
-    files.push({ relativePath, content });
   }
 
   return files;
@@ -157,6 +224,8 @@ function computeContentHash(files: CollectedFile[]): string {
   for (const file of files) {
     const content = Buffer.from(file.content, "utf8");
     hash.update(file.relativePath);
+    hash.update("\0");
+    hash.update(file.encoding);
     hash.update("\0");
     hash.update(String(content.length));
     hash.update("\0");
@@ -174,8 +243,9 @@ const outputPath = path.resolve(
   "../noter/convex/starterSeedManifest.generated.ts",
 );
 
+const { sourceBranch } = parseArgs(process.argv.slice(2));
 const token = await readToken();
-const sourceCommit = await resolveSourceCommit(token);
+const sourceCommit = await resolveSourceCommit({ token, sourceBranch });
 const tempDir = await mkdtemp(path.join(os.tmpdir(), "notermd-app-template-"));
 const archivePath = path.join(tempDir, "source.tar.gz");
 const extractDir = path.join(tempDir, "source");
@@ -201,6 +271,16 @@ try {
   }
 
   const contentHash = computeContentHash(files);
+  const textFiles = Object.fromEntries(
+    files
+      .filter((file) => file.encoding === "utf-8")
+      .map((file): [string, string] => [file.relativePath, file.content]),
+  );
+  const binaryFiles = Object.fromEntries(
+    files
+      .filter((file) => file.encoding === "base64")
+      .map((file): [string, string] => [file.relativePath, file.content]),
+  );
   const manifest = {
     version: `notermd-app-${sourceCommit.slice(0, 12)}`,
     sourceRepo,
@@ -208,12 +288,11 @@ try {
     sourceCommit,
     contentHash,
     commitMessage: "chore: seed starter template",
-    files: Object.fromEntries(
-      files.map((file): [string, string] => [file.relativePath, file.content]),
-    ),
+    files: textFiles,
+    binaryFiles,
   };
 
-  const generated = `// @generated by apps/noter-starter-template/scripts/export-notermd-app-manifest.ts\n\nexport type StarterTemplateManifest = {\n  version: string;\n  sourceRepo: string;\n  sourceBranch: string;\n  sourceCommit: string;\n  contentHash: string;\n  commitMessage: string;\n  files: Record<string, string>;\n};\n\nexport const starterTemplateManifest: StarterTemplateManifest = ${JSON.stringify(
+  const generated = `// @generated by apps/noter-starter-template/scripts/export-notermd-app-manifest.ts\n\nexport type StarterTemplateManifest = {\n  version: string;\n  sourceRepo: string;\n  sourceBranch: string;\n  sourceCommit: string;\n  contentHash: string;\n  commitMessage: string;\n  files: Record<string, string>;\n  binaryFiles: Record<string, string>;\n};\n\nexport const starterTemplateManifest: StarterTemplateManifest = ${JSON.stringify(
     manifest,
     null,
     2,
@@ -222,7 +301,7 @@ try {
   await writeFile(outputPath, generated, "utf8");
   await formatGeneratedFile(outputPath, baseDir);
   console.log(
-    `wrote ${outputPath} from ${sourceRepo}#${sourceCommit} (${files.length} files)`,
+    `wrote ${outputPath} from ${sourceRepo} ${sourceBranch}@${sourceCommit} (${files.length} files)`,
   );
 } finally {
   await rm(tempDir, { force: true, recursive: true });

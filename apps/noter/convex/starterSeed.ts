@@ -12,14 +12,18 @@ type StarterTemplateTreeEntry = {
   path: string;
   mode: "100644";
   type: "blob";
-  content: string;
-};
+} & ({ content: string } | { sha: string });
 
 export type StarterSeedGitClient = {
   createTree(args: {
     owner: string;
     repo: string;
     tree: StarterTemplateTreeEntry[];
+  }): Promise<{ sha: string }>;
+  createBlob(args: {
+    owner: string;
+    repo: string;
+    contentBase64: string;
   }): Promise<{ sha: string }>;
   createCommit(args: {
     owner: string;
@@ -157,6 +161,18 @@ export function createStarterSeedGitClient(
         sha: response.data.sha,
       };
     },
+    createBlob: async (args) => {
+      const response = await octokit.rest.git.createBlob({
+        owner: args.owner,
+        repo: args.repo,
+        content: args.contentBase64,
+        encoding: "base64",
+      });
+
+      return {
+        sha: response.data.sha,
+      };
+    },
     createCommit: async (args) => {
       const response = await octokit.rest.git.createCommit({
         owner: args.owner,
@@ -235,22 +251,75 @@ function validateManifest(manifest: StarterTemplateManifest): void {
     throw new Error("starter template manifest commitMessage is required");
   }
 
-  if (Object.keys(manifest.files).length === 0) {
+  const binaryFiles = manifest.binaryFiles;
+  const fileCount =
+    Object.keys(manifest.files).length + Object.keys(binaryFiles).length;
+  if (fileCount === 0) {
     throw new Error("starter template manifest has no files");
+  }
+
+  const duplicatePaths = Object.keys(manifest.files).filter((path) =>
+    Object.prototype.hasOwnProperty.call(binaryFiles, path),
+  );
+  if (duplicatePaths.length > 0) {
+    throw new Error(
+      `starter template manifest has duplicate file paths: ${duplicatePaths.join(", ")}`,
+    );
   }
 }
 
 export function buildTreeEntriesForManifest(
   files: Record<string, string>,
+  binaryFileShas: Record<string, string> = {},
 ): StarterTemplateTreeEntry[] {
-  return Object.entries(files)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([filePath, content]) => ({
+  const entries: StarterTemplateTreeEntry[] = Object.entries(files).map(
+    ([filePath, content]) => ({
       path: filePath,
       mode: "100644",
       type: "blob",
       content,
-    }));
+    }),
+  );
+
+  entries.push(
+    ...Object.entries(binaryFileShas).map(([filePath, sha]) => ({
+      path: filePath,
+      mode: "100644" as const,
+      type: "blob" as const,
+      sha,
+    })),
+  );
+
+  return entries.sort((left, right) => left.path.localeCompare(right.path));
+}
+
+async function createBinaryFileBlobs(args: {
+  client: StarterSeedGitClient;
+  owner: string;
+  repo: string;
+  binaryFiles: Record<string, string>;
+}): Promise<Record<string, string>> {
+  const binaryFileShas: Record<string, string> = {};
+  const entries = Object.entries(args.binaryFiles).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+
+  for (const [filePath, contentBase64] of entries) {
+    const blob = await retryOperation({
+      operation: "seed:createBlob",
+      shouldRetry: (error) =>
+        isRetryableError(error) && !isEmptyRepositoryError(error),
+      run: async () =>
+        await args.client.createBlob({
+          owner: args.owner,
+          repo: args.repo,
+          contentBase64,
+        }),
+    });
+    binaryFileShas[filePath] = blob.sha;
+  }
+
+  return binaryFileShas;
 }
 
 export async function seedRepositoryWithStarter(args: {
@@ -269,10 +338,19 @@ export async function seedRepositoryWithStarter(args: {
     manifestVersion: manifest.version,
   });
 
-  const treeEntries = buildTreeEntriesForManifest(manifest.files);
+  const createManifestTree = async (): Promise<{ sha: string }> => {
+    const binaryFileShas = await createBinaryFileBlobs({
+      client: args.client,
+      owner: args.owner,
+      repo: args.repo,
+      binaryFiles: manifest.binaryFiles,
+    });
+    const treeEntries = buildTreeEntriesForManifest(
+      manifest.files,
+      binaryFileShas,
+    );
 
-  const createManifestTree = async (): Promise<{ sha: string }> =>
-    await retryOperation({
+    return await retryOperation({
       operation: "seed:createTree",
       shouldRetry: (error) =>
         isRetryableError(error) && !isEmptyRepositoryError(error),
@@ -283,6 +361,7 @@ export async function seedRepositoryWithStarter(args: {
           tree: treeEntries,
         }),
     });
+  };
 
   const bootstrapPath = ".noter-seed-bootstrap";
   const bootstrapMessage = "chore: bootstrap branch for starter seeding";

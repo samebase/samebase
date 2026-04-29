@@ -5,7 +5,7 @@ Date: 2026-04-28
 ## Decision
 
 Use `notermd/app` as the starter source. For v1, do not copy Git history,
-branches, or tags into generated user repos. Export the latest `main` tree at
+branches, or tags into generated user repos. Export a selected source branch at
 maintenance/build time into Noter's existing generated starter manifest, then
 let the current seeder create one root commit in the user's repo.
 
@@ -28,19 +28,26 @@ That is already the right runtime shape for v1.
 
 ## New Export Path
 
-`pnpm --filter noter-starter-template run template:export` now:
+`pnpm --filter noter-starter-template run template:export` defaults to `main`.
+Pass `--branch <branch>` to export another branch:
 
-1. resolves `notermd/app@main` through GitHub REST,
+```bash
+pnpm --filter noter-starter-template run template:export -- --branch dev
+```
+
+The command:
+
+1. resolves the selected `notermd/app` branch through GitHub REST,
 2. downloads the tar archive for that exact commit,
 3. extracts the tracked tree to a temporary directory,
-4. collects UTF-8 text files into the manifest,
+4. stores UTF-8 text files directly and binary files as base64 blobs,
 5. stores `sourceRepo`, `sourceBranch`, `sourceCommit`, and `contentHash`,
 6. writes and formats `apps/noter/convex/starterSeedManifest.generated.ts`.
 
-For the current export, `sourceCommit` is:
+For the current `dev` export, `sourceCommit` is:
 
 ```text
-1284e8dc6b41e9316fbe37292caf2316354d7041
+0b0d55f7784232c1410995d6f65039eae317ecf6
 ```
 
 Because `notermd/app` is private, the exporter needs
@@ -51,10 +58,11 @@ Because `notermd/app` is private, the exporter needs
 
 The button click remains the same single-commit seeding flow. The only
 difference is that the manifest contents now come from the latest
-`notermd/app@main` export instead of `apps/noter-starter-template`.
+selected-branch `notermd/app` export instead of `apps/noter-starter-template`.
 
-No per-source-commit GitHub calls happen during user repo creation. No fork is
-created. No tags or extra branches are copied. The generated app gets one
+No source-repo GitHub calls happen during user repo creation. No fork is
+created. No tags or extra branches are copied. Text files go straight into the
+tree request; binary files use GitHub blob creation and are included in the same
 squashed seed commit.
 
 ## Validation
@@ -62,7 +70,7 @@ squashed seed commit.
 Run:
 
 ```bash
-pnpm --filter noter-starter-template run template:export
+pnpm --filter noter-starter-template run template:export -- --branch dev
 pnpm --filter noter exec vp test run convex/starterSeed.test.ts convex/starterSeedManifest.test.ts
 pnpm run typecheck:scripts
 pnpm exec vp lint --tsconfig tsconfig.scripts.json apps/noter-starter-template/scripts/export-notermd-app-manifest.ts

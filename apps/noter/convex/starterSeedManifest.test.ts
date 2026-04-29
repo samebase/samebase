@@ -9,7 +9,7 @@ describe("starterSeedManifest", () => {
     expect(starterTemplateManifest.sourceRepo).toBe(
       "https://github.com/notermd/app.git",
     );
-    expect(starterTemplateManifest.sourceBranch).toBe("main");
+    expect(starterTemplateManifest.sourceBranch.length).toBeGreaterThan(0);
     expect(starterTemplateManifest.sourceCommit).toMatch(/^[0-9a-f]{40}$/);
     expect(starterTemplateManifest.contentHash).toMatch(/^[0-9a-f]{64}$/);
     expect(starterTemplateManifest.commitMessage).toBe(
@@ -19,6 +19,8 @@ describe("starterSeedManifest", () => {
 
   it("includes required runnable starter files", () => {
     const filePaths = Object.keys(starterTemplateManifest.files);
+    const binaryFilePaths = Object.keys(starterTemplateManifest.binaryFiles);
+    const allFilePaths = [...filePaths, ...binaryFilePaths];
 
     expect(filePaths).toContain("package.json");
     expect(filePaths).toContain("src/routes/index.tsx");
@@ -26,6 +28,7 @@ describe("starterSeedManifest", () => {
     expect(filePaths).toContain("convex/schema.ts");
     expect(filePaths).toContain("convex/_generated/api.d.ts");
     expect(filePaths).toContain("AGENTS.md");
-    expect(filePaths.length).toBeGreaterThan(10);
+    expect(new Set(allFilePaths).size).toBe(allFilePaths.length);
+    expect(allFilePaths.length).toBeGreaterThan(10);
   });
 });
