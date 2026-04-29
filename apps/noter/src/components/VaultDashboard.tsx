@@ -371,6 +371,15 @@ type VaultDashboardRepositoryExternalLink = {
   title: string;
 };
 
+const REPOSITORY_EXTERNAL_LINK_ICONS: Record<
+  VaultDashboardRepositoryExternalLink["key"],
+  ComponentType<{ className?: string }>
+> = {
+  cloudflare: CloudflareProviderLogo,
+  convex: ConvexProviderLogo,
+  github: GitHubProviderLogo,
+};
+
 function buildVaultDashboardRepositoryExternalLinks(args: {
   cloudflareProjectDashboardUrl?: string;
   convexDeploymentDashboardUrl?: string;
@@ -422,21 +431,26 @@ export function VaultDashboardRepositoryExternalLinks({
       aria-label={`Repository links for ${repositoryFullName}`}
       className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-base leading-6 text-muted-foreground"
     >
-      {links.map((link) => (
-        <a
-          key={link.key}
-          href={link.href}
-          target="_blank"
-          rel="noreferrer noopener"
-          className={clsx(
-            "-mx-1.5 -my-1 inline-flex min-h-8 items-center rounded-sm px-1.5 py-1 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
-            linkStyle,
-          )}
-          title={link.title}
-        >
-          {link.label}
-        </a>
-      ))}
+      {links.map((link) => {
+        const Icon = REPOSITORY_EXTERNAL_LINK_ICONS[link.key];
+
+        return (
+          <a
+            key={link.key}
+            href={link.href}
+            target="_blank"
+            rel="noreferrer noopener"
+            className={clsx(
+              "-mx-1.5 -my-1 inline-flex min-h-8 items-center gap-1.5 rounded-sm px-1.5 py-1 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+              linkStyle,
+            )}
+            title={link.title}
+          >
+            <Icon className="shrink-0" />
+            <span>{link.label}</span>
+          </a>
+        );
+      })}
     </nav>
   );
 }
@@ -588,10 +602,11 @@ export function VaultBranchLinkContent({
                   href={cloudflareBranchPreviewUrl}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className={metadataLinkClassName}
+                  className={clsx(metadataLinkClassName, "gap-1.5")}
                   title="Open Cloudflare branch preview"
                 >
-                  preview
+                  <CloudflareProviderLogo className="shrink-0" />
+                  <span>Cloudflare preview</span>
                 </a>
               </>
             ) : null}
