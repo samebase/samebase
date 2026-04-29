@@ -1,4 +1,10 @@
 import { devices, expect, test, type Locator } from "@playwright/test";
+import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
+
+async function expectInlinePadding(locator: Locator, expectedPx: string) {
+  await expect(locator).toHaveCSS("padding-left", expectedPx);
+  await expect(locator).toHaveCSS("padding-right", expectedPx);
+}
 
 async function expectSidebarTextOwnsWrappedLine({
   iconTestId,
@@ -90,6 +96,18 @@ test("vault dashboard fixture (sidebar account clamp)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expectInlinePadding(
+    page.getByTestId("dashboard-sidebar-account-section"),
+    "4px",
+  );
+  await expectInlinePadding(
+    page.getByTestId("dashboard-sidebar-providers-section"),
+    "4px",
+  );
+  await expectInlinePadding(
+    page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID),
+    "4px",
+  );
   await expectSidebarTextOwnsWrappedLine({
     iconTestId: "dashboard-sidebar-account-icon",
     row: page.getByTestId("dashboard-sidebar-account-row"),
@@ -135,6 +153,18 @@ test("vault dashboard fixture (mobile sidebar min width)", async ({
   ).toHaveAttribute("data-mobile-pane", "right");
   const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
   await expect(rightPane).toHaveCSS("width", "96px");
+  await expectInlinePadding(
+    page.getByTestId("dashboard-sidebar-account-section"),
+    "4px",
+  );
+  await expectInlinePadding(
+    page.getByTestId("dashboard-sidebar-providers-section"),
+    "4px",
+  );
+  await expectInlinePadding(
+    page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID),
+    "4px",
+  );
   await expect
     .poll(() =>
       rightPane.evaluate((pane) => pane.scrollWidth <= pane.clientWidth),

@@ -61,7 +61,10 @@ export function VaultDashboardAccountSection({
   signOutDisabled,
 }: VaultDashboardAccountSectionProps) {
   return (
-    <div className="border-b border-border/50 p-3">
+    <div
+      data-testid="dashboard-sidebar-account-section"
+      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
+    >
       <Collapsible
         className="space-y-3"
         open={open}
@@ -154,7 +157,10 @@ export function VaultDashboardProvidersSection({
   providerRows: readonly VaultDashboardProviderRowViewModel[];
 }) {
   return (
-    <div className="border-b border-border/50 p-3">
+    <div
+      data-testid="dashboard-sidebar-providers-section"
+      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
+    >
       <Collapsible
         className="space-y-3"
         open={open}
@@ -271,7 +277,11 @@ export function VaultDashboardSidebarContent({
 }: {
   children: ReactNode;
 }) {
-  return <div className="flex min-h-full min-w-0 flex-col">{children}</div>;
+  return (
+    <div className="vault-dashboard-sidebar-content flex min-h-full min-w-0 flex-col">
+      {children}
+    </div>
+  );
 }
 
 export function VaultDashboardRepositoryCard({

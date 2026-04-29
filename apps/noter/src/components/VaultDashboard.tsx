@@ -1977,7 +1977,7 @@ export function VaultDashboard() {
     connectConvexWithApiKey,
   });
   const createControl = (
-    <div className="flex w-full flex-col items-stretch gap-2 p-3">
+    <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
       <Input
         placeholder={createPlaceholder}
         value={newRepositoryName}
