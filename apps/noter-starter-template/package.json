@@ -20,7 +20,8 @@
     "test": "vp test run --passWithNoTests",
     "prepare": "vp config --hooks-dir .vite-hooks",
     "template:sync-codespace": "node scripts/sync-codespace-assets.ts",
-    "template:export": "node scripts/export-template-manifest.ts"
+    "template:export": "node scripts/export-notermd-app-manifest.ts",
+    "template:export:local": "node scripts/export-template-manifest.ts"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",

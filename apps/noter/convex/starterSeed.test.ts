@@ -113,6 +113,10 @@ describe("buildTreeEntriesForManifest", () => {
 describe("seedRepositoryWithStarter", () => {
   const manifest: StarterTemplateManifest = {
     version: "starter-template-test",
+    sourceRepo: "https://github.com/notermd/app.git",
+    sourceBranch: "main",
+    sourceCommit: "starter-template-test",
+    contentHash: "starter-template-test",
     commitMessage: "chore: seed starter template",
     files: {
       "README.md": "starter",
