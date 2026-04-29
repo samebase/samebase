@@ -557,6 +557,8 @@ export function VaultBranchLinkRow({
   onDeleteBranch,
 }: VaultBranchLinkRowProps) {
   const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
+  const showRowActions =
+    Boolean(hasStagedChanges && vaultId) || canDeleteBranch;
 
   return (
     <div className="flex items-start gap-3 border-b border-border/40 px-4 py-3.5 last:border-b-0 sm:px-3">
@@ -576,40 +578,38 @@ export function VaultBranchLinkRow({
         cloudflareBranchPreviewUrl={cloudflareBranchPreviewUrl}
         cloudflarePreviewPullRequestNumber={cloudflarePreviewPullRequestNumber}
       />
-      <div className="flex shrink-0 items-start gap-2">
-        {hasStagedChanges && vaultId ? (
-          <div className="pt-0.5">
-            <EditedFilesCategoriesPopover
-              vaultId={vaultId}
-              repositoryFullName={repositoryFullName}
-              branch={branchName}
-              summaryCounts={stagedSummary}
-            />
-          </div>
-        ) : (
-          <span className="w-4 pt-1 text-right font-mono text-[11px] tabular-nums text-muted-foreground/70">
-            0
-          </span>
-        )}
-        {canDeleteBranch ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
-            onClick={onDeleteBranch}
-            disabled={isDeletingBranch}
-            aria-label={`Delete branch ${branchName}`}
-            title="Delete branch on GitHub"
-          >
-            {isDeletingBranch ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <TrashIcon className="h-4 w-4" aria-hidden="true" />
-            )}
-          </Button>
-        ) : null}
-      </div>
+      {showRowActions ? (
+        <div className="flex shrink-0 items-start gap-2">
+          {hasStagedChanges && vaultId ? (
+            <div className="pt-0.5">
+              <EditedFilesCategoriesPopover
+                vaultId={vaultId}
+                repositoryFullName={repositoryFullName}
+                branch={branchName}
+                summaryCounts={stagedSummary}
+              />
+            </div>
+          ) : null}
+          {canDeleteBranch ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
+              onClick={onDeleteBranch}
+              disabled={isDeletingBranch}
+              aria-label={`Delete branch ${branchName}`}
+              title="Delete branch on GitHub"
+            >
+              {isDeletingBranch ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <TrashIcon className="h-4 w-4" aria-hidden="true" />
+              )}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
