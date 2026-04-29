@@ -23,6 +23,8 @@ const sourceRepo = `https://github.com/${sourceOwner}/${sourceRepoName}.git`;
 const githubApiBase = "https://api.github.com";
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
+// rawContent is the source of truth for hashing; content is only the
+// deterministic UTF-8/base64 manifest representation derived from those bytes.
 type CollectedFile = {
   relativePath: string;
   content: string;
@@ -192,6 +194,7 @@ async function runPnpm(args: readonly string[], cwd: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const childProcess = spawn(PNPM_COMMAND, args, {
       cwd,
+      shell: process.platform === "win32",
       stdio: "inherit",
     });
 
