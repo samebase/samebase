@@ -20,6 +20,10 @@ import {
   resolveRepoRoot,
   runMain,
 } from "./lib/scriptRuntime.ts";
+import {
+  LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
+  LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
+} from "../runtime/localWorktreePasswordAuth.ts";
 
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const DEFAULT_ANON_VITE_PORT = 5174;
@@ -58,6 +62,11 @@ type CommandSpec = {
   env?: NodeJS.ProcessEnv;
   longRunning?: boolean;
 };
+
+const LOCAL_WORKTREE_PASSWORD_AUTH_VITE_ENV = {
+  VITE_LOCAL_WORKTREE_PASSWORD_EMAIL: LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
+  VITE_LOCAL_WORKTREE_PASSWORD_VALUE: LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
+} as const;
 
 function readDefaultVitePort(env: NodeJS.ProcessEnv): number {
   return (
@@ -269,6 +278,7 @@ export function buildAnonCommandPlan(
       args: ["dev"],
       env: {
         ...anonymousEnv,
+        ...LOCAL_WORKTREE_PASSWORD_AUTH_VITE_ENV,
         VITE_PORT: String(options.vitePort),
       },
       longRunning: true,

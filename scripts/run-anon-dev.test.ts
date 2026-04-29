@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { buildAnonCommandPlan, parseAnonArgs } from "./run-anon-dev.ts";
+import {
+  LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
+  LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
+} from "../runtime/localWorktreePasswordAuth.ts";
 
 describe("run-anon-dev", () => {
   it("defaults to the long-running anonymous dev flow on port 5174", () => {
@@ -95,6 +99,9 @@ describe("run-anon-dev", () => {
       args: ["dev"],
       env: {
         CONVEX_AGENT_MODE: "anonymous",
+        VITE_LOCAL_WORKTREE_PASSWORD_EMAIL: LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
+        VITE_LOCAL_WORKTREE_PASSWORD_VALUE:
+          LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
         VITE_PORT: "6001",
       },
       longRunning: true,

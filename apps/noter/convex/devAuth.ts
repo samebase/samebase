@@ -3,6 +3,10 @@ import {
   modifyAccountCredentials,
 } from "@convex-dev/auth/server";
 import { Infer, v } from "convex/values";
+import {
+  LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
+  LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
+} from "../../../runtime/localWorktreePasswordAuth";
 import { internal } from "./_generated/api";
 import {
   resolveDeploymentProfile,
@@ -17,8 +21,6 @@ import type { Id } from "./_generated/dataModel";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
 
-const DEV_SEED_EMAIL = "nicu@noter.md";
-const DEV_SEED_PASSWORD = "pass1234";
 const { boolean, null: vNull, object, optional, string } = v;
 
 function normalizeEmail(email: string): string {
@@ -78,8 +80,8 @@ function readSeedPasswordAccountConfig(): {
   switch (passwordAuthMode) {
     case "local_worktree_seed":
       return {
-        email: normalizeEmail(DEV_SEED_EMAIL),
-        password: DEV_SEED_PASSWORD,
+        email: normalizeEmail(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL),
+        password: LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
       };
     case "preview_seed":
       return readRequiredPreviewSeedPasswordAccountConfig();
