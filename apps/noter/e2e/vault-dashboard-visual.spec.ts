@@ -90,6 +90,18 @@ test("vault dashboard fixture (sidebar account clamp)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expectSidebarTextOwnsWrappedLine({
+    iconTestId: "dashboard-sidebar-account-icon",
+    row: page.getByTestId("dashboard-sidebar-account-row"),
+    textTestId: "dashboard-sidebar-account-text",
+  });
+  await expectSidebarTextOwnsWrappedLine({
+    iconTestId: "dashboard-sidebar-provider-icon",
+    row: page
+      .getByTestId("dashboard-sidebar-provider-row")
+      .filter({ hasText: "GitHub" }),
+    textTestId: "dashboard-sidebar-provider-text",
+  });
   await expect(fixture).toHaveScreenshot("vault-sidebar-account-clamp.png", {
     animations: "disabled",
     caret: "hide",

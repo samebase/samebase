@@ -13,10 +13,10 @@ import { clsx } from "clsx";
 const SIDEBAR_METADATA_TEXT_CLASS =
   "min-w-0 line-clamp-2 [overflow-wrap:anywhere]";
 const SIDEBAR_ROW_ICON_CLASS =
-  "flex h-5 w-5 shrink-0 items-center justify-center";
+  "flex h-5 w-5 shrink-0 basis-full items-center justify-start md:basis-auto md:justify-center";
 const SIDEBAR_ROW_CONTENT_CLASS =
   "flex min-w-0 shrink grow basis-[11rem] flex-wrap items-start gap-x-2 gap-y-1";
-const SIDEBAR_ROW_TEXT_CLASS = "min-w-0 shrink grow basis-24 text-left";
+const SIDEBAR_ROW_TEXT_CLASS = "min-w-0 shrink grow basis-32 text-left";
 
 export type VaultDashboardProviderActionViewModel = {
   disabled?: boolean;
