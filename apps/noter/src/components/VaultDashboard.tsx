@@ -407,8 +407,8 @@ function buildVaultDashboardRepositoryExternalLinks(args: {
     links.push({
       href: args.convexDeploymentDashboardUrl,
       key: "convex",
-      label: "Convex deploy",
-      title: "Open specific Convex deployment dashboard",
+      label: "Production deploy",
+      title: "Open production Convex deployment dashboard",
     });
   }
 

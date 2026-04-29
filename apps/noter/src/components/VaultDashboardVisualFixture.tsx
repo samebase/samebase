@@ -61,8 +61,8 @@ function FixtureRepositoryLinks() {
         {
           href: "https://dashboard.convex.dev/d/calm-swan-123/deployment",
           key: "convex",
-          label: "Convex deploy",
-          title: "Open specific Convex deployment dashboard",
+          label: "Production deploy",
+          title: "Open production Convex deployment dashboard",
         },
       ]}
     />
