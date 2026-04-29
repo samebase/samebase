@@ -1175,6 +1175,34 @@ test("local landing keeps the remembered password auth slot stable on reload", a
   expectStableLandingReloadFrames(reloadFrames);
 });
 
+test("local landing explains missing anon-Vite autofill credentials", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "noter_public_landing_password_auth_mode",
+      "local_worktree_seed",
+    );
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const emailInput = page.getByPlaceholder("you@example.com");
+  const passwordInput = page.getByPlaceholder("Password");
+  await expect(emailInput).toHaveValue("");
+  await expect(passwordInput).toHaveValue("");
+
+  await page.getByRole("button", { name: "Autofill & sign in" }).click();
+
+  await expect(
+    page.getByText(
+      "Autofill is only available from the worktree anon dev server. Restart with pnpm anon and reload.",
+    ),
+  ).toBeVisible();
+  await expect(emailInput).toHaveValue("");
+  await expect(passwordInput).toHaveValue("");
+  await expect(page).toHaveURL("/");
+});
+
 test("public landing keeps legal links in the sidebar rail", async ({
   page,
 }, testInfo) => {
