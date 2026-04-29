@@ -4,6 +4,8 @@ import { LandingMarkdownPreviewPage } from "@/components/LandingMarkdownPreviewP
 import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "@/lib/landingMarkdownPreview";
 
 function LandingPreviewRouteComponent() {
+  // Intended as an admin-only preview. Until admin permissions exist, the
+  // authenticated app gate is the temporary access boundary.
   return (
     <AuthenticatedAppRoutePage>
       <LandingMarkdownPreviewPage />

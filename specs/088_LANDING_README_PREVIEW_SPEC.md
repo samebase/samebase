@@ -15,7 +15,7 @@
 
 ## Summary
 
-`/landing-preview` is the logged-in preview surface for the README-shaped
+`/landing-preview` is the admin-only preview surface for the README-shaped
 landing document. It lets the operator review a `notermd/app` README-style
 onboarding page in Noter's `WorkspaceLayoutV2` chrome before any content is
 promoted to the public landing route.
@@ -28,9 +28,15 @@ GitHub clone. The authoring baseline is content that renders clearly in the
 
 ### Access And Layout
 
-The route must stay behind the authenticated app route boundary until the
-operator explicitly asks to promote it. Unauthenticated users should see the
-normal sign-in flow.
+The product intent is admin-only access. The app does not yet have the
+permission primitive needed to enforce admins separately from authenticated
+users, so the current temporary implementation must stay behind the
+authenticated app route boundary and must not be linked from public or general
+user navigation. Unauthenticated users should see the normal sign-in flow.
+
+When admin permissions exist, `/landing-preview` must be narrowed to admins
+before any broader internal rollout. Do not treat logged-in access as the final
+authorization model for this route.
 
 The preview must render through `WorkspaceLayoutV2`. Do not add a separate
 landing-only page shell for this route.
