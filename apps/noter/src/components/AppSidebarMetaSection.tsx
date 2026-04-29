@@ -29,14 +29,15 @@ function normalizeRepoUrl(repoUrl: string): string {
 type AppSidebarMetaSectionSide = "left" | "right";
 
 const APP_SIDEBAR_META_SECTION_CLASS_NAMES = {
-  left: "flex flex-col items-end gap-3 px-2 pt-3 pb-8 text-right text-sm text-muted-foreground",
+  left: "vault-dashboard-sidebar-meta flex min-w-0 max-w-full flex-col items-end gap-3 overflow-hidden px-2 pt-3 pb-8 text-right text-sm text-muted-foreground [&>a]:max-w-full [&>a]:truncate",
   right:
-    "flex flex-col items-start gap-3 px-2 pt-3 pb-8 text-left text-sm text-muted-foreground",
+    "vault-dashboard-sidebar-meta flex min-w-0 max-w-full flex-col items-start gap-3 overflow-hidden px-2 pt-3 pb-8 text-left text-sm text-muted-foreground [&>a]:max-w-full [&>a]:truncate",
 } as const satisfies Record<AppSidebarMetaSectionSide, string>;
 
 const APP_SIDEBAR_META_VERSION_CLASS_NAMES = {
-  left: "flex flex-row-reverse items-center gap-2 font-mono",
-  right: "flex flex-row items-center gap-2 font-mono",
+  left: "flex max-w-full min-w-0 flex-row-reverse flex-wrap items-center justify-end gap-x-2 gap-y-1 font-mono",
+  right:
+    "flex max-w-full min-w-0 flex-row flex-wrap items-center gap-x-2 gap-y-1 font-mono",
 } as const satisfies Record<AppSidebarMetaSectionSide, string>;
 
 /**
@@ -141,11 +142,13 @@ export function AppSidebarMetaSection({
       <Link to="/privacy">/privacy</Link>
 
       <div className={APP_SIDEBAR_META_VERSION_CLASS_NAMES[side]}>
-        <span data-testid={APP_BUILD_VERSION_TEST_ID}>{buildVersionLabel}</span>
+        <span className="shrink-0" data-testid={APP_BUILD_VERSION_TEST_ID}>
+          {buildVersionLabel}
+        </span>
 
         <a
           data-testid={APP_BUILD_COMMIT_LINK_TEST_ID}
-          className="select-text"
+          className="min-w-0 max-w-full truncate select-text"
           href={commitUrl}
           target="_blank"
           rel="noreferrer noopener"

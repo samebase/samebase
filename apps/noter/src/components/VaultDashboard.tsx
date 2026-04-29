@@ -77,6 +77,7 @@ import {
   VaultDashboardProvidersSection,
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
+  VaultDashboardSidebarContent,
   type VaultDashboardProviderRowViewModel,
 } from "@/components/VaultDashboardChrome";
 import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
@@ -1976,7 +1977,7 @@ export function VaultDashboard() {
     connectConvexWithApiKey,
   });
   const createControl = (
-    <div className="flex w-full flex-col items-stretch gap-2 p-3">
+    <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
       <Input
         placeholder={createPlaceholder}
         value={newRepositoryName}
@@ -2307,7 +2308,7 @@ export function VaultDashboard() {
   };
 
   const sidebarContent = (
-    <div className="flex min-h-full flex-col">
+    <VaultDashboardSidebarContent>
       {user && accountEmail && accountDisplayName ? (
         <VaultDashboardAccountSection
           open={resolvedAccountPanelOpen}
@@ -2330,7 +2331,7 @@ export function VaultDashboard() {
       <div className="mt-auto">
         <AppSidebarMetaSection showMachineLinks side="right" />
       </div>
-    </div>
+    </VaultDashboardSidebarContent>
   );
   const dashboardBody = (
     <VaultDashboardBody

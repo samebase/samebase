@@ -5,14 +5,16 @@ import { Input } from "@/components/input";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultLastUpdatedStatus } from "@/components/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
-import { ChevronDownIcon } from "@/lib/radixIcons";
+import { ChevronDownIcon, GitHubLogoIcon } from "@/lib/radixIcons";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+import { type MobileSidebarPane } from "@/hooks/use-sidebar";
 import {
   VaultDashboardAccountSection,
   VaultDashboardEmptyState,
   VaultDashboardProvidersSection,
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
+  VaultDashboardSidebarContent,
 } from "@/components/VaultDashboardChrome";
 import { VaultBranchLinkRow } from "@/components/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
@@ -24,6 +26,8 @@ export type VaultDashboardVisualMode =
   | "vault-branch-filters"
   | "vault-branch-pr-labels"
   | "vault-branch-mobile-alignment"
+  | "vault-sidebar-account-clamp"
+  | "vault-sidebar-account-mobile-min"
   | "vault-sidebar-machine-links";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
@@ -210,11 +214,17 @@ function VaultDashboardListSpacingFixture({
 }
 
 function FixtureDashboardShell({
+  desktopSidebarWidthPx,
   mainContent,
+  mobilePane,
   rightContent,
+  rightMobileWidthPx,
 }: {
+  desktopSidebarWidthPx?: number;
   mainContent?: ReactNode;
+  mobilePane?: MobileSidebarPane;
   rightContent?: ReactNode;
+  rightMobileWidthPx?: number;
 }) {
   return (
     <TestRouterProvider>
@@ -222,6 +232,9 @@ function FixtureDashboardShell({
         dataTestId="vault-dashboard-visual-fixture"
         defaultOpen={false}
         defaultRightOpen={true}
+        desktopSidebarWidthPx={desktopSidebarWidthPx}
+        mobilePane={mobilePane}
+        rightMobileWidthPx={rightMobileWidthPx}
         shortcutSidebarSide="right"
         right={{
           content: rightContent,
@@ -234,11 +247,58 @@ function FixtureDashboardShell({
   );
 }
 
+function FixtureDashboardSidebarAccountClamp({
+  mobilePane,
+  rightMobileWidthPx,
+}: {
+  mobilePane?: MobileSidebarPane;
+  rightMobileWidthPx?: number;
+} = {}) {
+  return (
+    <FixtureDashboardShell
+      desktopSidebarWidthPx={160}
+      mobilePane={mobilePane}
+      rightMobileWidthPx={rightMobileWidthPx}
+      rightContent={
+        <VaultDashboardSidebarContent>
+          <VaultDashboardAccountSection
+            open={true}
+            onOpenChange={() => {}}
+            displayName="Alexandria Example"
+            email="alexandria.very.long.operator.email-address@noter-example-workspace.dev"
+            providerLabel="Google Workspace Enterprise"
+            isSignOutPending={false}
+            onSignOut={() => {}}
+          />
+          <VaultDashboardProvidersSection
+            open={true}
+            onOpenChange={() => {}}
+            providerRows={[
+              {
+                key: "github",
+                icon: <GitHubLogoIcon className="h-4 w-4" />,
+                label: "GitHub",
+                status:
+                  "Connected as alexandria-super-long-github-operator (OAuth)",
+                actions: [],
+              },
+            ]}
+          />
+          <div className="mt-auto">
+            <AppSidebarMetaSection showMachineLinks side="right" />
+          </div>
+        </VaultDashboardSidebarContent>
+      }
+      mainContent={<VaultDashboardEmptyState />}
+    />
+  );
+}
+
 function FixtureDashboardCreateControl() {
   return (
     <FixtureDashboardShell
       rightContent={
-        <div className="flex min-h-full flex-col">
+        <VaultDashboardSidebarContent>
           <VaultDashboardAccountSection
             open={true}
             onOpenChange={() => {}}
@@ -253,7 +313,7 @@ function FixtureDashboardCreateControl() {
             onOpenChange={() => {}}
             providerRows={[]}
           />
-          <div className="flex w-full flex-col items-stretch gap-2 p-3">
+          <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
             <Input
               className="w-full"
               placeholder="New App name"
@@ -268,7 +328,7 @@ function FixtureDashboardCreateControl() {
           <div className="mt-auto">
             <AppSidebarMetaSection showMachineLinks side="right" />
           </div>
-        </div>
+        </VaultDashboardSidebarContent>
       }
       mainContent={<VaultDashboardEmptyState />}
     />
@@ -296,15 +356,28 @@ export function VaultDashboardVisualFixture({
     return <VaultDashboardListSpacingFixture mode={mode} />;
   }
 
+  if (mode === "vault-sidebar-account-clamp") {
+    return <FixtureDashboardSidebarAccountClamp />;
+  }
+
+  if (mode === "vault-sidebar-account-mobile-min") {
+    return (
+      <FixtureDashboardSidebarAccountClamp
+        mobilePane="right"
+        rightMobileWidthPx={1}
+      />
+    );
+  }
+
   if (mode === "vault-sidebar-machine-links") {
     return (
       <FixtureDashboardShell
         rightContent={
-          <div className="flex min-h-full flex-col">
+          <VaultDashboardSidebarContent>
             <div className="mt-auto">
               <AppSidebarMetaSection showMachineLinks side="right" />
             </div>
-          </div>
+          </VaultDashboardSidebarContent>
         }
       />
     );

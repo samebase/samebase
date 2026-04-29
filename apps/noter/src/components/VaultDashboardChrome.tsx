@@ -10,6 +10,14 @@ import { ChevronDownIcon, PersonIcon } from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 
+const SIDEBAR_METADATA_TEXT_CLASS =
+  "min-w-0 line-clamp-2 [overflow-wrap:anywhere]";
+const SIDEBAR_ROW_ICON_CLASS =
+  "flex h-5 w-5 shrink-0 basis-full items-center justify-start md:basis-auto md:justify-center";
+const SIDEBAR_ROW_CONTENT_CLASS =
+  "flex min-w-0 shrink grow basis-[11rem] flex-wrap items-start gap-x-2 gap-y-1";
+const SIDEBAR_ROW_TEXT_CLASS = "min-w-0 shrink grow basis-32 text-left";
+
 export type VaultDashboardProviderActionViewModel = {
   disabled?: boolean;
   isPending?: boolean;
@@ -53,7 +61,10 @@ export function VaultDashboardAccountSection({
   signOutDisabled,
 }: VaultDashboardAccountSectionProps) {
   return (
-    <div className="border-b border-border/50 p-3">
+    <div
+      data-testid="dashboard-sidebar-account-section"
+      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
+    >
       <Collapsible
         className="space-y-3"
         open={open}
@@ -72,14 +83,37 @@ export function VaultDashboardAccountSection({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="flex flex-wrap items-start gap-3">
-            <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-3">
-              <div className="flex h-5 w-11 shrink-0 items-center justify-center">
+            <div
+              data-testid="dashboard-sidebar-account-row"
+              className={SIDEBAR_ROW_CONTENT_CLASS}
+            >
+              <div
+                data-testid="dashboard-sidebar-account-icon"
+                className={SIDEBAR_ROW_ICON_CLASS}
+              >
                 <PersonIcon className="h-4 w-4" />
               </div>
-              <div className="min-w-0 text-left">
-                <div className="break-words text-sm font-medium">{email}</div>
+              <div
+                data-testid="dashboard-sidebar-account-text"
+                className={SIDEBAR_ROW_TEXT_CLASS}
+              >
+                <div
+                  className={clsx(
+                    SIDEBAR_METADATA_TEXT_CLASS,
+                    "text-sm font-medium",
+                  )}
+                  title={email}
+                >
+                  {email}
+                </div>
                 {providerLabel ? (
-                  <div className="break-words text-xs leading-5 text-muted-foreground">
+                  <div
+                    className={clsx(
+                      SIDEBAR_METADATA_TEXT_CLASS,
+                      "text-xs leading-5 text-muted-foreground",
+                    )}
+                    title={`Signed in with ${providerLabel}`}
+                  >
                     Signed in with {providerLabel}
                   </div>
                 ) : null}
@@ -123,7 +157,10 @@ export function VaultDashboardProvidersSection({
   providerRows: readonly VaultDashboardProviderRowViewModel[];
 }) {
   return (
-    <div className="border-b border-border/50 p-3">
+    <div
+      data-testid="dashboard-sidebar-providers-section"
+      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
+    >
       <Collapsible
         className="space-y-3"
         open={open}
@@ -149,15 +186,31 @@ export function VaultDashboardProvidersSection({
                 key={providerRow.key}
                 className="flex flex-wrap items-start gap-3"
               >
-                <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-3">
-                  <div className="flex h-5 w-11 shrink-0 items-center justify-center">
+                <div
+                  data-provider-key={providerRow.key}
+                  data-testid="dashboard-sidebar-provider-row"
+                  className={SIDEBAR_ROW_CONTENT_CLASS}
+                >
+                  <div
+                    data-testid="dashboard-sidebar-provider-icon"
+                    className={SIDEBAR_ROW_ICON_CLASS}
+                  >
                     {providerRow.icon}
                   </div>
-                  <div className="min-w-0 text-left">
+                  <div
+                    data-testid="dashboard-sidebar-provider-text"
+                    className={SIDEBAR_ROW_TEXT_CLASS}
+                  >
                     <div className="text-sm font-medium">
                       {providerRow.label}
                     </div>
-                    <div className="break-words text-xs leading-5 text-muted-foreground">
+                    <div
+                      className={clsx(
+                        SIDEBAR_METADATA_TEXT_CLASS,
+                        "text-xs leading-5 text-muted-foreground",
+                      )}
+                      title={providerRow.status}
+                    >
                       {providerRow.status}
                     </div>
                   </div>
@@ -215,6 +268,18 @@ export function VaultDashboardRepositoryList({
   return (
     <div className="mx-auto w-full max-w-[1000px]">
       <div className="space-y-2">{children}</div>
+    </div>
+  );
+}
+
+export function VaultDashboardSidebarContent({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <div className="vault-dashboard-sidebar-content flex min-h-full min-w-0 flex-col">
+      {children}
     </div>
   );
 }

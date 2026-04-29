@@ -1,5 +1,5 @@
 import { type ComponentProps } from "react";
-import { type SidebarSide } from "@/hooks/use-sidebar";
+import { type MobileSidebarPane, type SidebarSide } from "@/hooks/use-sidebar";
 import { Layout } from "@/Layout";
 import { SidebarProvider } from "@/components/sidebar";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
@@ -12,6 +12,9 @@ type WorkspaceLayoutV2FixtureFrameProps = ComponentProps<
   dataTestId: string;
   defaultOpen?: boolean;
   defaultRightOpen?: boolean;
+  desktopSidebarWidthPx?: number;
+  mobilePane?: MobileSidebarPane;
+  rightMobileWidthPx?: number;
   shortcutSidebarSide?: SidebarSide;
 };
 
@@ -23,6 +26,9 @@ export function WorkspaceLayoutV2FixtureFrame({
   dataTestId,
   defaultOpen = true,
   defaultRightOpen = true,
+  desktopSidebarWidthPx = WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX,
+  mobilePane,
+  rightMobileWidthPx,
   shortcutSidebarSide,
   left,
   main,
@@ -33,13 +39,13 @@ export function WorkspaceLayoutV2FixtureFrame({
     <Layout>
       <SidebarProvider
         defaultOpen={defaultOpen}
-        defaultLeftDesktopWidthPx={WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX}
+        defaultLeftDesktopWidthPx={desktopSidebarWidthPx}
         defaultLeftMobileWidthPx={WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX}
         defaultRightOpen={defaultRightOpen}
-        defaultRightDesktopWidthPx={
-          WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX
-        }
+        defaultRightDesktopWidthPx={desktopSidebarWidthPx}
         defaultRightMobileWidthPx={WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX}
+        mobilePane={mobilePane}
+        rightMobileWidthPx={rightMobileWidthPx}
         shortcutSidebarSide={shortcutSidebarSide}
       >
         <WorkspaceLayoutV2FullPage

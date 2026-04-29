@@ -1,4 +1,56 @@
-import { devices, expect, test } from "@playwright/test";
+import { devices, expect, test, type Locator } from "@playwright/test";
+import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
+
+async function expectInlinePadding(locator: Locator, expectedPx: string) {
+  await expect(locator).toHaveCSS("padding-left", expectedPx);
+  await expect(locator).toHaveCSS("padding-right", expectedPx);
+}
+
+async function expectSidebarTextOwnsWrappedLine({
+  iconTestId,
+  row,
+  textTestId,
+}: {
+  iconTestId: string;
+  row: Locator;
+  textTestId: string;
+}) {
+  await expect
+    .poll(() =>
+      row.evaluate(
+        (rowElement, testIds) => {
+          if (!(rowElement instanceof HTMLElement)) {
+            return false;
+          }
+
+          const iconElement = rowElement.querySelector(
+            `[data-testid="${testIds.iconTestId}"]`,
+          );
+          const textElement = rowElement.querySelector(
+            `[data-testid="${testIds.textTestId}"]`,
+          );
+          if (
+            !(iconElement instanceof HTMLElement) ||
+            !(textElement instanceof HTMLElement)
+          ) {
+            return false;
+          }
+
+          const rowRect = rowElement.getBoundingClientRect();
+          const iconRect = iconElement.getBoundingClientRect();
+          const textRect = textElement.getBoundingClientRect();
+
+          return (
+            textRect.top >= iconRect.bottom - 1 &&
+            Math.abs(textRect.left - rowRect.left) <= 1 &&
+            Math.abs(textRect.width - rowRect.width) <= 1
+          );
+        },
+        { iconTestId, textTestId },
+      ),
+    )
+    .toBe(true);
+}
 
 test("vault dashboard fixture (create control)", async ({ page }) => {
   // Keep the shared dashboard shell and right-rail framing aligned with the
@@ -34,6 +86,111 @@ test("vault dashboard fixture (sidebar machine links)", async ({ page }) => {
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
+});
+
+test("vault dashboard fixture (sidebar account clamp)", async ({ page }) => {
+  await page.setViewportSize({ width: 960, height: 760 });
+  await page.goto("/visual-fixture.html?mode=vault-sidebar-account-clamp", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expectInlinePadding(
+    page.getByTestId("dashboard-sidebar-account-section"),
+    "4px",
+  );
+  await expectInlinePadding(
+    page.getByTestId("dashboard-sidebar-providers-section"),
+    "4px",
+  );
+  await expectInlinePadding(
+    page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID),
+    "4px",
+  );
+  await expectSidebarTextOwnsWrappedLine({
+    iconTestId: "dashboard-sidebar-account-icon",
+    row: page.getByTestId("dashboard-sidebar-account-row"),
+    textTestId: "dashboard-sidebar-account-text",
+  });
+  await expectSidebarTextOwnsWrappedLine({
+    iconTestId: "dashboard-sidebar-provider-icon",
+    row: page
+      .getByTestId("dashboard-sidebar-provider-row")
+      .filter({ hasText: "GitHub" }),
+    textTestId: "dashboard-sidebar-provider-text",
+  });
+  await expect(fixture).toHaveScreenshot("vault-sidebar-account-clamp.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
+test("vault dashboard fixture (mobile sidebar min width)", async ({
+  browser,
+}, testInfo) => {
+  const baseURL = testInfo.project.use.baseURL;
+  if (typeof baseURL !== "string") {
+    throw new Error("Playwright baseURL is required for mobile fixture tests.");
+  }
+
+  const context = await browser.newContext({
+    ...devices["iPhone 13"],
+    baseURL,
+  });
+  const page = await context.newPage();
+
+  await page.goto(
+    "/visual-fixture.html?mode=vault-sidebar-account-mobile-min",
+    { waitUntil: "domcontentloaded" },
+  );
+  await page.waitForLoadState("networkidle");
+
+  await expect(
+    page.locator("[data-workspace-layout-v2='mobile']"),
+  ).toHaveAttribute("data-mobile-pane", "right");
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  await expect(rightPane).toHaveCSS("width", "96px");
+  await expectInlinePadding(
+    page.getByTestId("dashboard-sidebar-account-section"),
+    "4px",
+  );
+  await expectInlinePadding(
+    page.getByTestId("dashboard-sidebar-providers-section"),
+    "4px",
+  );
+  await expectInlinePadding(
+    page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID),
+    "4px",
+  );
+  await expect
+    .poll(() =>
+      rightPane.evaluate((pane) => pane.scrollWidth <= pane.clientWidth),
+    )
+    .toBe(true);
+  await expectSidebarTextOwnsWrappedLine({
+    iconTestId: "dashboard-sidebar-account-icon",
+    row: page.getByTestId("dashboard-sidebar-account-row"),
+    textTestId: "dashboard-sidebar-account-text",
+  });
+  await expectSidebarTextOwnsWrappedLine({
+    iconTestId: "dashboard-sidebar-provider-icon",
+    row: page
+      .getByTestId("dashboard-sidebar-provider-row")
+      .filter({ hasText: "GitHub" }),
+    textTestId: "dashboard-sidebar-provider-text",
+  });
+
+  await expect(page).toHaveScreenshot("vault-sidebar-account-mobile-min.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+
+  await context.close();
 });
 
 test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
