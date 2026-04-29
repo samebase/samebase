@@ -57,7 +57,7 @@
     "daytona:runtime:check": "node scripts/render-daytona-runtime.ts --check",
     "fixtures:update": "node ./scripts/update-simple-view-fixtures.ts",
     "killport": "node ./scripts/killport.ts",
-    "lint:scripts": "pnpm exec vp lint --tsconfig tsconfig.scripts.json --report-unused-disable-directives runtime scripts .devcontainer/postcreate.ts apps/noter/scripts apps/noter/tailwind.config.ts",
+    "lint:scripts": "pnpm exec vp lint --tsconfig tsconfig.scripts.json --report-unused-disable-directives runtime scripts .devcontainer/postcreate.ts apps/noter/scripts apps/noter/postcss.config.ts apps/noter/tailwind.config.ts",
     "playwright:open": "node ./scripts/playwright-session.ts open",
     "playwright:record:start": "node ./scripts/playwright-session.ts record-start",
     "playwright:record:stop": "node ./scripts/playwright-session.ts record-stop",

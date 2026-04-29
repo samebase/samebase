@@ -254,10 +254,10 @@ Out of scope for Iteration 1:
 
 ## Deferred / Future Iterations
 
-- Evaluate preserving more of `notermd/app` history if generated repos need it
+- Consider preserving more of `notermd/app` history if generated repos need it
   after the v1 single-commit flow.
 - Evaluate preserving staged pedagogical commit history in generated repos.
-- Evaluate automating the `notermd/app` manifest refresh.
+- Investigate automating the `notermd/app` manifest refresh.
 - Experiment with reading starter template code directly as runtime text
   (instead of generated manifest) if Convex deployment/bundling guarantees
   deterministic access to template files.
