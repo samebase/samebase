@@ -98,6 +98,10 @@ async function main(): Promise<void> {
   await printLogTail();
 }
 
+/**
+ * Retries transient Convex env-set failures only, preserving fail-fast behavior
+ * for fatal errors and the idempotent single-key write contract.
+ */
 async function runConvexEnvSet(key: string, value: string): Promise<void> {
   const args = [
     "--filter",

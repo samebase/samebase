@@ -166,6 +166,26 @@ async function downloadArchive(args: {
   await writeFile(args.outputPath, buffer);
 }
 
+async function extractArchive(args: {
+  archivePath: string;
+  extractDir: string;
+}): Promise<void> {
+  try {
+    await execFileAsync("tar", [
+      "-xzf",
+      args.archivePath,
+      "-C",
+      args.extractDir,
+      "--strip-components=1",
+    ]);
+  } catch (error) {
+    throw new Error(
+      "Template export requires a tar executable that can extract gzip archives. Install tar or run the export from macOS, Linux, WSL, or Git Bash.",
+      { cause: error },
+    );
+  }
+}
+
 async function formatGeneratedFile(
   filePath: string,
   cwd: string,
@@ -253,13 +273,7 @@ const extractDir = path.join(tempDir, "source");
 try {
   await downloadArchive({ token, sourceCommit, outputPath: archivePath });
   await mkdir(extractDir, { recursive: true });
-  await execFileAsync("tar", [
-    "-xzf",
-    archivePath,
-    "-C",
-    extractDir,
-    "--strip-components=1",
-  ]);
+  await extractArchive({ archivePath, extractDir });
 
   const files = await collectFiles(extractDir, extractDir);
   files.sort((left, right) =>
