@@ -331,7 +331,7 @@ try {
 
   const files = await collectFiles(extractDir, extractDir);
   files.sort((left, right) =>
-    left.relativePath.localeCompare(right.relativePath),
+    left.relativePath.localeCompare(right.relativePath, "en"),
   );
 
   if (files.length === 0) {
