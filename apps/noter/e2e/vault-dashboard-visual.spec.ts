@@ -328,6 +328,7 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
     .nth(1);
   const header = page.getByTestId("vault-dashboard-repository-header");
 
+  await page.getByRole("button", { name: "Show 29 more" }).click();
   await scrollport.evaluate((element) => {
     element.scrollTop = 560;
   });
@@ -351,6 +352,7 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
   await expect(
     page.getByText("codex/sticky-dashboard-branch-05"),
   ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show less" })).toBeVisible();
   await expect(page).toHaveScreenshot("vault-dashboard-sticky-header.png", {
     animations: "disabled",
     caret: "hide",

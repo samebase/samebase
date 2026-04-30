@@ -291,6 +291,7 @@ export function VaultDashboardRepositoryCard({
   daytonaBanner,
   developerToolsSection,
   footerActions,
+  headerControls,
   isReady,
   repositoryName,
   repositoryLinks,
@@ -311,6 +312,7 @@ export function VaultDashboardRepositoryCard({
     open: boolean;
   };
   footerActions?: ReactNode;
+  headerControls?: ReactNode;
   isReady: boolean;
   repositoryName: string;
   repositoryLinks?: ReactNode;
@@ -370,6 +372,11 @@ export function VaultDashboardRepositoryCard({
             {repositoryStatus ? (
               <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                 {repositoryStatus}
+              </div>
+            ) : null}
+            {headerControls ? (
+              <div className="mt-2 flex max-w-full flex-wrap items-center gap-2 pr-10">
+                {headerControls}
               </div>
             ) : null}
           </div>

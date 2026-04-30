@@ -239,6 +239,38 @@ const STICKY_HEADER_BRANCHES: Array<
   canDeleteBranch: index !== 0,
 }));
 
+function FixtureBranchExpansionButton({
+  branchesExpanded,
+  hiddenBranchCount,
+  onToggle,
+}: {
+  branchesExpanded: boolean;
+  hiddenBranchCount: number;
+  onToggle: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="h-7 shrink-0 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+      aria-expanded={branchesExpanded}
+      onClick={onToggle}
+    >
+      <span>
+        {branchesExpanded ? "Show less" : `Show ${hiddenBranchCount} more`}
+      </span>
+      <ChevronDownIcon
+        className={
+          branchesExpanded
+            ? "h-3.5 w-3.5 rotate-180 transition-transform"
+            : "h-3.5 w-3.5 transition-transform"
+        }
+      />
+    </Button>
+  );
+}
+
 function VaultDashboardListSpacingFixture({
   mode,
 }: {
@@ -265,6 +297,13 @@ function VaultDashboardListSpacingFixture({
             repositoryName="noter"
             titleHref="https://github.com/noter-md/noter"
             repositoryLinks={<FixtureRepositoryLinks />}
+            headerControls={
+              <FixtureBranchExpansionButton
+                branchesExpanded={branchesExpanded}
+                hiddenBranchCount={hiddenBranchCount}
+                onToggle={() => setBranchesExpanded((expanded) => !expanded)}
+              />
+            }
             branchSection={
               <div className="space-y-1.5">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
@@ -281,31 +320,6 @@ function VaultDashboardListSpacingFixture({
                       onDeleteBranch={() => {}}
                     />
                   ))}
-                  <div className="px-3 py-1.5">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-full gap-1 text-xs text-muted-foreground hover:text-foreground"
-                      aria-expanded={branchesExpanded}
-                      onClick={() =>
-                        setBranchesExpanded((expanded) => !expanded)
-                      }
-                    >
-                      <span>
-                        {branchesExpanded
-                          ? "Show less"
-                          : `Show ${hiddenBranchCount} more`}
-                      </span>
-                      <ChevronDownIcon
-                        className={
-                          branchesExpanded
-                            ? "h-3.5 w-3.5 rotate-180 transition-transform"
-                            : "h-3.5 w-3.5 transition-transform"
-                        }
-                      />
-                    </Button>
-                  </div>
                 </div>
               </div>
             }
@@ -317,6 +331,13 @@ function VaultDashboardListSpacingFixture({
 }
 
 function VaultDashboardStickyHeaderFixture() {
+  const [branchesExpanded, setBranchesExpanded] = useState(false);
+  const visibleBranches = branchesExpanded
+    ? STICKY_HEADER_BRANCHES
+    : STICKY_HEADER_BRANCHES.slice(0, 3);
+  const hiddenBranchCount =
+    STICKY_HEADER_BRANCHES.length - visibleBranches.length;
+
   return (
     <FixtureDashboardShell
       rightContent={
@@ -342,6 +363,13 @@ function VaultDashboardStickyHeaderFixture() {
               repositoryStatus={
                 <span data-testid="sticky-header-status">Updated 12s ago</span>
               }
+              headerControls={
+                <FixtureBranchExpansionButton
+                  branchesExpanded={branchesExpanded}
+                  hiddenBranchCount={hiddenBranchCount}
+                  onToggle={() => setBranchesExpanded((expanded) => !expanded)}
+                />
+              }
               branchSection={
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-3">
@@ -353,7 +381,7 @@ function VaultDashboardStickyHeaderFixture() {
                     </span>
                   </div>
                   <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
-                    {STICKY_HEADER_BRANCHES.map((branch) => (
+                    {visibleBranches.map((branch) => (
                       <VaultBranchLinkRow
                         key={branch.branchName}
                         {...branch}

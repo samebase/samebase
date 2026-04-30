@@ -827,6 +827,7 @@ interface VaultBranchListExpansionProps {
   hiddenBranchCount: number;
   isExpanded: boolean;
   onToggle: () => void;
+  placement?: "header" | "list";
 }
 
 function VaultBranchListRow({
@@ -886,29 +887,36 @@ function VaultBranchListExpansionControl({
   hiddenBranchCount,
   isExpanded,
   onToggle,
+  placement = "list",
 }: VaultBranchListExpansionProps) {
-  return (
-    <div className="px-3 py-1.5">
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="h-7 w-full gap-1 text-xs text-muted-foreground hover:text-foreground"
-        aria-expanded={isExpanded}
-        onClick={onToggle}
-      >
-        <span>
-          {isExpanded ? "Show less" : `Show ${hiddenBranchCount} more`}
-        </span>
-        <ChevronDownIcon
-          className={clsx(
-            "h-3.5 w-3.5 transition-transform",
-            isExpanded && "rotate-180",
-          )}
-        />
-      </Button>
-    </div>
+  const button = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className={
+        placement === "header"
+          ? "h-7 shrink-0 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+          : "h-7 w-full gap-1 text-xs text-muted-foreground hover:text-foreground"
+      }
+      aria-expanded={isExpanded}
+      onClick={onToggle}
+    >
+      <span>{isExpanded ? "Show less" : `Show ${hiddenBranchCount} more`}</span>
+      <ChevronDownIcon
+        className={clsx(
+          "h-3.5 w-3.5 transition-transform",
+          isExpanded && "rotate-180",
+        )}
+      />
+    </Button>
   );
+
+  if (placement === "header") {
+    return button;
+  }
+
+  return <div className="px-3 py-1.5">{button}</div>;
 }
 
 function VaultBranchList({
@@ -958,6 +966,7 @@ function VaultBranchSection({
   filters,
   onChangeFilters,
   onDeleteBranch,
+  showListExpansionControl = true,
 }: {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
@@ -967,6 +976,7 @@ function VaultBranchSection({
   filters: VaultBranchFiltersState;
   onChangeFilters: (nextFilters: VaultBranchFiltersState) => void;
   onDeleteBranch: (branchName: string) => void;
+  showListExpansionControl?: boolean;
 }) {
   const filteredRemoteBranches = filterVaultRemoteBranches(
     remoteBranches,
@@ -1017,7 +1027,7 @@ function VaultBranchSection({
           activeDeletingBranchName={activeDeletingBranchName}
           onDeleteBranch={onDeleteBranch}
           expansion={
-            hasBranchListOverflow
+            showListExpansionControl && hasBranchListOverflow
               ? {
                   hiddenBranchCount: collapsedBranchCount,
                   isExpanded: branchesExpanded,
@@ -1127,6 +1137,15 @@ function VaultDashboardBody({
           treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
         });
         const isVaultSyncing = treeRefreshUiState.kind === "syncing";
+        const filteredRemoteBranches = filterVaultRemoteBranches(
+          remoteBranches,
+          vaultBranchFilters,
+        );
+        const hasBranchListOverflow =
+          filteredRemoteBranches.length > COLLAPSED_BRANCH_LIMIT;
+        const branchesExpanded = vaultBranchFilters.branchesExpanded;
+        const collapsedBranchCount =
+          filteredRemoteBranches.length - COLLAPSED_BRANCH_LIMIT;
 
         return (
           <VaultDashboardRepositoryCard
@@ -1243,6 +1262,21 @@ function VaultDashboardBody({
                 </>
               ) : undefined
             }
+            headerControls={
+              isReady && hasBranchListOverflow ? (
+                <VaultBranchListExpansionControl
+                  hiddenBranchCount={collapsedBranchCount}
+                  isExpanded={branchesExpanded}
+                  onToggle={() => {
+                    onSaveVaultBranchFilters(vault._id, {
+                      ...vaultBranchFilters,
+                      branchesExpanded: !branchesExpanded,
+                    });
+                  }}
+                  placement="header"
+                />
+              ) : undefined
+            }
             branchSection={
               isReady && remoteBranches.length > 0 ? (
                 <VaultBranchSection
@@ -1268,6 +1302,7 @@ function VaultDashboardBody({
                       branchName,
                     });
                   }}
+                  showListExpansionControl={false}
                 />
               ) : undefined
             }
