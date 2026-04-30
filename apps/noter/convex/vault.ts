@@ -127,6 +127,25 @@ export function buildConvexProjectSettingsDashboardUrl(args: {
   return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/${encodeURIComponent(normalizedProjectSlug)}/settings`;
 }
 
+function encodeConvexDashboardPath(value: string): string {
+  return value.split("/").map(encodeURIComponent).join("/");
+}
+
+export function buildConvexPreviewDeploymentDashboardUrl(args: {
+  branchName: string | undefined;
+  projectSlug: string | undefined;
+  teamSlug: string | undefined;
+}): string | undefined {
+  const normalizedTeamSlug = args.teamSlug?.trim();
+  const normalizedProjectSlug = args.projectSlug?.trim();
+  const normalizedBranchName = args.branchName?.trim();
+  if (!normalizedTeamSlug || !normalizedProjectSlug || !normalizedBranchName) {
+    return undefined;
+  }
+
+  return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/${encodeURIComponent(normalizedProjectSlug)}/preview/${encodeConvexDashboardPath(normalizedBranchName)}`;
+}
+
 /**
  * Cloudflare can edit or partially reformat its PR comment without removing the
  * underlying branch alias. Preserve existing cached fields when the latest
@@ -896,6 +915,7 @@ const getUserVaultsResult = array(
         remoteState: union(literal("active"), literal("deleted_upstream")),
         lastSyncedAt: number(),
         ...cloudflarePreviewMetadataFields,
+        convexPreviewDeploymentDashboardUrl: optional(string()),
       }),
     ),
     infraState: union(
@@ -1041,6 +1061,18 @@ export const getUserVaults = query({
               cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
               cloudflarePreviewCommentCreatedAt:
                 branch.cloudflarePreviewCommentCreatedAt,
+              convexPreviewDeploymentDashboardUrl:
+                !branch.isDefault &&
+                branch.remoteState === "active" &&
+                typeof branch.cloudflareBranchPreviewUrl === "string" &&
+                branch.pullRequestNumber ===
+                  branch.cloudflarePreviewPullRequestNumber
+                  ? buildConvexPreviewDeploymentDashboardUrl({
+                      branchName: branch.name,
+                      projectSlug: infra?.convexProjectSlug,
+                      teamSlug: convexTeamDashboardSlug,
+                    })
+                  : undefined,
             })),
           infraState: vault.infraState ?? "not_started",
           infraProductionUrl: resolveHostingMainUrl(infra),

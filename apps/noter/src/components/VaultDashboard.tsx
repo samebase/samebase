@@ -335,6 +335,7 @@ interface VaultRemoteBranchListItem {
   cloudflarePreviewPullRequestNumber?: number;
   cloudflarePreviewLogsUrl?: string;
   cloudflarePreviewStatus?: string;
+  convexPreviewDeploymentDashboardUrl?: string;
 }
 
 interface VaultBranchLinkRowProps {
@@ -355,6 +356,7 @@ interface VaultBranchLinkRowProps {
   cloudflarePreviewPullRequestNumber?: number;
   cloudflarePreviewLogsUrl?: string;
   cloudflarePreviewStatus?: string;
+  convexPreviewDeploymentDashboardUrl?: string;
   productionDeploymentDashboardUrl?: string;
   stagedSummary?: StagedSummary;
   canDeleteBranch: boolean;
@@ -480,6 +482,7 @@ export function VaultBranchLinkContent({
   cloudflarePreviewPullRequestNumber,
   cloudflarePreviewLogsUrl,
   cloudflarePreviewStatus,
+  convexPreviewDeploymentDashboardUrl,
   productionDeploymentDashboardUrl,
 }: {
   repositoryFullName: string;
@@ -498,6 +501,7 @@ export function VaultBranchLinkContent({
   cloudflarePreviewPullRequestNumber?: number;
   cloudflarePreviewLogsUrl?: string;
   cloudflarePreviewStatus?: string;
+  convexPreviewDeploymentDashboardUrl?: string;
   productionDeploymentDashboardUrl?: string;
 }) {
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
@@ -539,6 +543,10 @@ export function VaultBranchLinkContent({
   });
   const hasProductionDeploymentLink =
     isDefault && typeof productionDeploymentDashboardUrl === "string";
+  const hasPreviewDeploymentLink =
+    !isDefault &&
+    hasCurrentPreviewLink &&
+    typeof convexPreviewDeploymentDashboardUrl === "string";
   const pullRequestLabel =
     typeof pullRequestNumber === "number"
       ? `PR #${pullRequestNumber}`
@@ -667,6 +675,20 @@ export function VaultBranchLinkContent({
                 </a>
               </div>
             ) : null}
+            {hasPreviewDeploymentLink ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                <a
+                  href={convexPreviewDeploymentDashboardUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={clsx(metadataLinkClassName, "gap-1.5")}
+                  title="Open Convex preview deployment dashboard"
+                >
+                  <ConvexProviderLogo className="shrink-0" />
+                  <span>Preview deploy</span>
+                </a>
+              </div>
+            ) : null}
             {hasProductionDeploymentLink ? (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <a
@@ -706,6 +728,7 @@ export function VaultBranchLinkRow({
   cloudflarePreviewPullRequestNumber,
   cloudflarePreviewLogsUrl,
   cloudflarePreviewStatus,
+  convexPreviewDeploymentDashboardUrl,
   productionDeploymentDashboardUrl,
   stagedSummary,
   canDeleteBranch,
@@ -735,6 +758,9 @@ export function VaultBranchLinkRow({
         cloudflarePreviewPullRequestNumber={cloudflarePreviewPullRequestNumber}
         cloudflarePreviewLogsUrl={cloudflarePreviewLogsUrl}
         cloudflarePreviewStatus={cloudflarePreviewStatus}
+        convexPreviewDeploymentDashboardUrl={
+          convexPreviewDeploymentDashboardUrl
+        }
         productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
       />
       {showRowActions ? (
@@ -838,6 +864,9 @@ function VaultBranchListRow({
       }
       cloudflarePreviewLogsUrl={branch.cloudflarePreviewLogsUrl}
       cloudflarePreviewStatus={branch.cloudflarePreviewStatus}
+      convexPreviewDeploymentDashboardUrl={
+        branch.convexPreviewDeploymentDashboardUrl
+      }
       productionDeploymentDashboardUrl={
         branch.isDefault ? productionDeploymentDashboardUrl : undefined
       }

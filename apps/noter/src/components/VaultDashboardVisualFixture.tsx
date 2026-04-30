@@ -139,6 +139,8 @@ const LIST_SPACING_BRANCHES: Array<
     cloudflareBranchPreviewUrl:
       "https://codex-dashboard-main-pane-spacing.noter.pages.dev",
     cloudflarePreviewPullRequestNumber: 321,
+    convexPreviewDeploymentDashboardUrl:
+      "https://dashboard.convex.dev/t/nicu/noter/preview/codex/dashboard-main-pane-spacing",
     canDeleteBranch: true,
   },
   {
