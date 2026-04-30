@@ -422,6 +422,8 @@ function buildVaultDashboardRepositoryExternalLinks(args: {
     });
   }
 
+  // buildVaultDashboardRepositoryExternalLinks always includes GitHub, but the
+  // title already links there; render this row only for additional dashboards.
   return links.length > 1 ? links : [];
 }
 
@@ -736,6 +738,8 @@ export function VaultBranchLinkRow({
   onDeleteBranch,
 }: VaultBranchLinkRowProps) {
   const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
+  // Preserve space for links by rendering actions only when staged files or
+  // branch deletion give the row a real control.
   const showRowActions =
     Boolean(hasStagedChanges && vaultId) || canDeleteBranch;
 

@@ -78,6 +78,10 @@ const vaultBranchFiltersValidator = object({
 });
 type VaultBranchFilters = Infer<typeof vaultBranchFiltersValidator>;
 
+/**
+ * Dashboard URLs fail closed when provider metadata is partial. Trim before
+ * checking presence and encode every segment before handing it to the browser.
+ */
 function buildCloudflareProjectDashboardUrl(
   infra: { hosting?: Infer<typeof hostingStateValidator> } | null | undefined,
 ): string | undefined {
@@ -95,6 +99,10 @@ function buildCloudflareProjectDashboardUrl(
   return `https://dash.cloudflare.com/?to=/${encodeURIComponent(accountId)}/pages/view/${encodeURIComponent(projectName)}`;
 }
 
+/**
+ * Convex dashboard URLs are only useful with real team/project/deploy slugs.
+ * Return nothing for blank metadata so the dashboard never renders fake links.
+ */
 export function buildConvexDeploymentDashboardUrl(args: {
   deploymentName: string | undefined;
   projectSlug: string | undefined;
@@ -114,6 +122,10 @@ export function buildConvexDeploymentDashboardUrl(args: {
   return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/${encodeURIComponent(normalizedProjectSlug)}/${encodeURIComponent(normalizedDeploymentName)}`;
 }
 
+/**
+ * Project settings use the project scope, not a deployment scope. Keep the link
+ * hidden until both dashboard slugs are known.
+ */
 export function buildConvexProjectSettingsDashboardUrl(args: {
   projectSlug: string | undefined;
   teamSlug: string | undefined;
@@ -131,6 +143,10 @@ function encodeConvexDashboardPath(value: string): string {
   return value.split("/").map(encodeURIComponent).join("/");
 }
 
+/**
+ * Preview deployment dashboards are branch-scoped. Preserve branch slash
+ * separators while still encoding each path segment.
+ */
 export function buildConvexPreviewDeploymentDashboardUrl(args: {
   branchName: string | undefined;
   projectSlug: string | undefined;

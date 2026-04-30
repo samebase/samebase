@@ -334,7 +334,7 @@ export function VaultDashboardRepositoryCard({
             target={titleTarget}
             rel={titleTarget === "_blank" ? "noopener noreferrer" : undefined}
             className={clsx(
-              "-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start rounded-sm px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+              "-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
               titleClassName,
             )}
             title={titleTitle}
