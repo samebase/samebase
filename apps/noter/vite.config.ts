@@ -198,13 +198,26 @@ function syncStaticLogoSvgAsset() {
 }
 
 function syncLogoIdentitySvgAssets() {
+  const publicRoot = path.resolve(currentDir, "public");
   for (const asset of createLogoIdentitySvgAssets()) {
+    if (!asset.assetPath.startsWith("/")) {
+      throw new Error(
+        `Logo identity asset path must be root-relative: ${asset.assetPath}`,
+      );
+    }
+
     const relativeAssetPath = asset.assetPath.replace(/^\//, "");
-    const targetAssetPath = path.resolve(
-      currentDir,
-      "public",
-      relativeAssetPath,
-    );
+    const targetAssetPath = path.resolve(publicRoot, relativeAssetPath);
+    const relativeToPublicRoot = path.relative(publicRoot, targetAssetPath);
+    if (
+      relativeToPublicRoot.startsWith("..") ||
+      path.isAbsolute(relativeToPublicRoot)
+    ) {
+      throw new Error(
+        `Logo identity asset path escapes public/: ${asset.assetPath}`,
+      );
+    }
+
     const nextAssetMarkup = asset.markup.trim();
     const currentAssetMarkup = (() => {
       try {
