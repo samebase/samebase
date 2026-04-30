@@ -59,10 +59,12 @@ function VaultBranchFiltersPanel({
   value,
   options,
   onChange,
+  reservesSheetCloseSpace = false,
 }: {
   value: VaultBranchFilters;
   options: VaultBranchFilterOption[];
   onChange: (nextValue: VaultBranchFilters) => void;
+  reservesSheetCloseSpace?: boolean;
 }) {
   const [labelSearch, setLabelSearch] = useState("");
   const hasCustomFilters =
@@ -75,7 +77,13 @@ function VaultBranchFiltersPanel({
 
   return (
     <div className="space-y-4 p-4">
-      <div className="flex items-start justify-between gap-3">
+      <div
+        className={
+          reservesSheetCloseSpace
+            ? "flex items-start justify-between gap-3 pr-10"
+            : "flex items-start justify-between gap-3"
+        }
+      >
         <p className="text-sm font-medium">Filters</p>
         {hasCustomFilters ? (
           <Button
@@ -196,6 +204,7 @@ export function VaultBranchFiltersControl({
             value={value}
             options={options}
             onChange={onChange}
+            reservesSheetCloseSpace
           />
         </SheetContent>
       </Sheet>
