@@ -1,4 +1,4 @@
-# Noter
+# noter.md
 
 Noter is a collaborative, GitHub-connected code editor built as a PNPM workspace
 with React + Vite on the frontend and Convex on the backend.
