@@ -323,71 +323,89 @@ export function VaultDashboardRepositoryCard({
   titleTitle?: string;
   topRightAction?: ReactNode;
 }) {
+  const hasBodyContent = Boolean(
+    branchSection || daytonaBanner || developerToolsSection || footerActions,
+  );
+  // Keep long branch lists anchored to their repository without taking over
+  // unrelated card content.
+  const shouldStickHeader = Boolean(branchSection);
+
   return (
     <div className={clsx("relative p-4", !isReady && "bg-muted/30 opacity-75")}>
-      {topRightAction}
+      <div>
+        <div
+          data-testid="vault-dashboard-repository-header"
+          className={clsx(
+            "relative -mx-4 -mt-4 px-4 pt-4",
+            hasBodyContent && "pb-3",
+            shouldStickHeader && "sticky top-0 z-10 bg-background",
+          )}
+        >
+          {topRightAction}
 
-      <div className="space-y-3">
-        <div className="flex flex-col items-start pr-10">
-          <a
-            href={titleHref}
-            target={titleTarget}
-            rel={titleTarget === "_blank" ? "noopener noreferrer" : undefined}
-            className={clsx(
-              "-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
-              titleClassName,
-            )}
-            title={titleTitle}
-          >
-            <h3 className="min-w-0 font-semibold leading-6">
-              <span className="flex min-w-0 items-start gap-2">
-                <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
-                  <span className="font-normal text-muted-foreground">
-                    {repositoryOwner}/
+          <div className="flex flex-col items-start pr-10">
+            <a
+              href={titleHref}
+              target={titleTarget}
+              rel={titleTarget === "_blank" ? "noopener noreferrer" : undefined}
+              className={clsx(
+                "-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+                titleClassName,
+              )}
+              title={titleTitle}
+            >
+              <h3 className="min-w-0 font-semibold leading-6">
+                <span className="flex min-w-0 items-start gap-2">
+                  <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+                    <span className="font-normal text-muted-foreground">
+                      {repositoryOwner}/
+                    </span>
+                    <span>{repositoryName}</span>
                   </span>
-                  <span>{repositoryName}</span>
+                  {titleSuffix}
                 </span>
-                {titleSuffix}
-              </span>
-            </h3>
-          </a>
-          {repositoryLinks}
-          {repositoryStatus ? (
-            <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-              {repositoryStatus}
-            </div>
-          ) : null}
+              </h3>
+            </a>
+            {repositoryLinks}
+            {repositoryStatus ? (
+              <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                {repositoryStatus}
+              </div>
+            ) : null}
+          </div>
         </div>
 
-        {branchSection}
-        {daytonaBanner}
+        <div className="space-y-3">
+          {branchSection}
+          {daytonaBanner}
 
-        {developerToolsSection ? (
-          <Collapsible
-            className="space-y-1.5"
-            open={developerToolsSection.open}
-            onOpenChange={developerToolsSection.onOpenChange}
-          >
-            <CollapsibleTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180"
-              >
-                Developer tools
-                <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent
-              forceMount
-              className="space-y-1.5 data-[state=closed]:hidden"
+          {developerToolsSection ? (
+            <Collapsible
+              className="space-y-1.5"
+              open={developerToolsSection.open}
+              onOpenChange={developerToolsSection.onOpenChange}
             >
-              {developerToolsSection.content}
-            </CollapsibleContent>
-          </Collapsible>
-        ) : null}
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180"
+                >
+                  Developer tools
+                  <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent
+                forceMount
+                className="space-y-1.5 data-[state=closed]:hidden"
+              >
+                {developerToolsSection.content}
+              </CollapsibleContent>
+            </Collapsible>
+          ) : null}
 
-        {footerActions}
+          {footerActions}
+        </div>
       </div>
     </div>
   );

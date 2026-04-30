@@ -24,6 +24,7 @@ import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2Fix
 
 export type VaultDashboardVisualMode =
   | "vault-create-control"
+  | "vault-dashboard-sticky-header"
   | "vault-dashboard-list-spacing"
   | "vault-last-updated-status"
   | "vault-branch-filters"
@@ -220,6 +221,24 @@ const LIST_SPACING_BRANCHES: Array<
   },
 ];
 
+const STICKY_HEADER_BRANCHES: Array<
+  Omit<
+    Parameters<typeof VaultBranchLinkRow>[0],
+    "vaultId" | "repositoryFullName" | "isDeletingBranch" | "onDeleteBranch"
+  >
+> = Array.from({ length: 32 }, (_, index) => ({
+  branchName:
+    index === 0
+      ? "main"
+      : `codex/sticky-dashboard-branch-${String(index).padStart(2, "0")}`,
+  headCommitSha: "1234567890abcdef1234567890abcdef12345678",
+  isDefault: index === 0,
+  isDeletedUpstream: false,
+  aheadBy: index === 0 ? 0 : index % 4,
+  behindBy: index === 0 ? 0 : index % 3,
+  canDeleteBranch: index !== 0,
+}));
+
 function VaultDashboardListSpacingFixture({
   mode,
 }: {
@@ -294,6 +313,64 @@ function VaultDashboardListSpacingFixture({
         </VaultDashboardRepositoryList>
       </TestRouterProvider>
     </div>
+  );
+}
+
+function VaultDashboardStickyHeaderFixture() {
+  return (
+    <FixtureDashboardShell
+      rightContent={
+        <VaultDashboardSidebarContent>
+          <div className="mt-auto">
+            <AppSidebarMetaSection
+              showLandingPreviewLink
+              showMachineLinks
+              side="right"
+            />
+          </div>
+        </VaultDashboardSidebarContent>
+      }
+      mainContent={
+        <div className="py-8">
+          <VaultDashboardRepositoryList>
+            <VaultDashboardRepositoryCard
+              isReady={true}
+              repositoryOwner="noter-md"
+              repositoryName="noter"
+              titleHref="https://github.com/noter-md/noter"
+              repositoryLinks={<FixtureRepositoryLinks />}
+              repositoryStatus={
+                <span data-testid="sticky-header-status">Updated 12s ago</span>
+              }
+              branchSection={
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                      Branches
+                    </p>
+                    <span className="text-[11px] text-muted-foreground/80">
+                      {STICKY_HEADER_BRANCHES.length} branches
+                    </span>
+                  </div>
+                  <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
+                    {STICKY_HEADER_BRANCHES.map((branch) => (
+                      <VaultBranchLinkRow
+                        key={branch.branchName}
+                        {...branch}
+                        vaultId={fakeVaultId()}
+                        repositoryFullName="noter-md/noter"
+                        isDeletingBranch={false}
+                        onDeleteBranch={() => {}}
+                      />
+                    ))}
+                  </div>
+                </div>
+              }
+            />
+          </VaultDashboardRepositoryList>
+        </div>
+      }
+    />
   );
 }
 
@@ -454,6 +531,10 @@ export function VaultDashboardVisualFixture({
 
   if (mode === "vault-dashboard-list-spacing") {
     return <VaultDashboardListSpacingFixture mode={mode} />;
+  }
+
+  if (mode === "vault-dashboard-sticky-header") {
+    return <VaultDashboardStickyHeaderFixture />;
   }
 
   if (mode === "vault-sidebar-account-clamp") {
