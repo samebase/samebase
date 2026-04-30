@@ -81,6 +81,10 @@ paths such as `/landing-preview/step-1-create-accounts.mp4`. Relative README
 logo paths should also be mirrored under
 `apps/noter/public/landing-preview/logos/`.
 
+Landing preview videos should be authored as inline raw `<video>` embeds rather
+than hidden inside `<details>` disclosures. Non-video notes may still use
+`<details>` when the README needs collapsible supporting context.
+
 This manual mirror is acceptable until a non-LLM sync command exists. A future
 automation should fetch `notermd/app@main`, copy referenced media to a stable
 Noter-owned public location, and rewrite the preview Markdown deterministically.
