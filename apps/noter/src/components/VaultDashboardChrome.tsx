@@ -17,6 +17,10 @@ const SIDEBAR_ROW_ICON_CLASS =
 const SIDEBAR_ROW_CONTENT_CLASS =
   "flex min-w-0 shrink grow basis-[11rem] flex-wrap items-start gap-x-2 gap-y-1";
 const SIDEBAR_ROW_TEXT_CLASS = "min-w-0 shrink grow basis-32 text-left";
+const DEVELOPER_TOOLS_TRIGGER_CLASS_NAME =
+  "h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180";
+const DEVELOPER_TOOLS_PLACEHOLDER_TRIGGER_CLASS_NAME =
+  "invisible pointer-events-none h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180";
 
 export type VaultDashboardProviderActionViewModel = {
   disabled?: boolean;
@@ -310,6 +314,7 @@ export function VaultDashboardRepositoryCard({
     content: ReactNode;
     onOpenChange: (isOpen: boolean) => void;
     open: boolean;
+    visible: boolean;
   };
   footerActions?: ReactNode;
   headerControls?: ReactNode;
@@ -387,28 +392,55 @@ export function VaultDashboardRepositoryCard({
           {daytonaBanner}
 
           {developerToolsSection ? (
-            <Collapsible
-              className="space-y-1.5"
-              open={developerToolsSection.open}
-              onOpenChange={developerToolsSection.onOpenChange}
-            >
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180"
-                >
-                  Developer tools
-                  <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent
-                forceMount
-                className="space-y-1.5 data-[state=closed]:hidden"
+            developerToolsSection.visible ? (
+              <Collapsible
+                className="space-y-1.5"
+                open={developerToolsSection.open}
+                onOpenChange={developerToolsSection.onOpenChange}
               >
-                {developerToolsSection.content}
-              </CollapsibleContent>
-            </Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={DEVELOPER_TOOLS_TRIGGER_CLASS_NAME}
+                  >
+                    Developer tools
+                    <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent
+                  forceMount
+                  className="space-y-1.5 data-[state=closed]:hidden"
+                >
+                  {developerToolsSection.content}
+                </CollapsibleContent>
+              </Collapsible>
+            ) : (
+              // Reserve the closed trigger box so toggling ?dev does not reflow
+              // the visible dashboard card layout.
+              <Collapsible
+                className="space-y-1.5"
+                open={false}
+                aria-hidden={true}
+              >
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={DEVELOPER_TOOLS_PLACEHOLDER_TRIGGER_CLASS_NAME}
+                    disabled
+                    tabIndex={-1}
+                  >
+                    Developer tools
+                    <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent
+                  forceMount
+                  className="space-y-1.5 data-[state=closed]:hidden"
+                />
+              </Collapsible>
+            )
           ) : null}
 
           {footerActions}
