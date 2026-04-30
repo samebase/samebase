@@ -230,6 +230,9 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await expect(
     fixture.getByRole("link", { name: "Cloudflare preview" }),
   ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "Production deploy" }),
+  ).toBeVisible();
   await expect(fixture.getByRole("link", { name: "PR #321" })).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing.png", {
     animations: "disabled",
@@ -249,6 +252,9 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   await expect(
     fixture.getByRole("link", { name: "Cloudflare preview" }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "Production deploy" }),
   ).toBeVisible();
   await expect(fixture.getByRole("link", { name: "PR #321" })).toBeVisible();
   await expect(fixture).toHaveScreenshot(

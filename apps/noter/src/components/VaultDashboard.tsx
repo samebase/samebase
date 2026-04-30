@@ -355,6 +355,7 @@ interface VaultBranchLinkRowProps {
   cloudflarePreviewPullRequestNumber?: number;
   cloudflarePreviewLogsUrl?: string;
   cloudflarePreviewStatus?: string;
+  productionDeploymentDashboardUrl?: string;
   stagedSummary?: StagedSummary;
   canDeleteBranch: boolean;
   isDeletingBranch: boolean;
@@ -373,7 +374,7 @@ function formatAheadBehindCounts(
 
 type VaultDashboardRepositoryExternalLink = {
   href: string;
-  key: "cloudflare" | "convex" | "github";
+  key: "cloudflare" | "github";
   label: string;
   title: string;
 };
@@ -383,13 +384,11 @@ const REPOSITORY_EXTERNAL_LINK_ICONS: Record<
   ComponentType<{ className?: string }>
 > = {
   cloudflare: CloudflareProviderLogo,
-  convex: ConvexProviderLogo,
   github: GitHubProviderLogo,
 };
 
 function buildVaultDashboardRepositoryExternalLinks(args: {
   cloudflareProjectDashboardUrl?: string;
-  convexDeploymentDashboardUrl?: string;
   githubRepositoryUrl: string;
 }): VaultDashboardRepositoryExternalLink[] {
   const links: VaultDashboardRepositoryExternalLink[] = [
@@ -407,15 +406,6 @@ function buildVaultDashboardRepositoryExternalLinks(args: {
       key: "cloudflare",
       label: "Cloudflare",
       title: "Open Cloudflare Pages project",
-    });
-  }
-
-  if (typeof args.convexDeploymentDashboardUrl === "string") {
-    links.push({
-      href: args.convexDeploymentDashboardUrl,
-      key: "convex",
-      label: "Production deploy",
-      title: "Open production Convex deployment dashboard",
     });
   }
 
@@ -479,6 +469,7 @@ export function VaultBranchLinkContent({
   cloudflarePreviewPullRequestNumber,
   cloudflarePreviewLogsUrl,
   cloudflarePreviewStatus,
+  productionDeploymentDashboardUrl,
 }: {
   repositoryFullName: string;
   branchName: string;
@@ -496,6 +487,7 @@ export function VaultBranchLinkContent({
   cloudflarePreviewPullRequestNumber?: number;
   cloudflarePreviewLogsUrl?: string;
   cloudflarePreviewStatus?: string;
+  productionDeploymentDashboardUrl?: string;
 }) {
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
   const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
@@ -534,6 +526,8 @@ export function VaultBranchLinkContent({
     cloudflarePreviewPullRequestNumber,
     cloudflarePreviewStatus,
   });
+  const hasProductionDeploymentLink =
+    isDefault && typeof productionDeploymentDashboardUrl === "string";
   const pullRequestLabel =
     typeof pullRequestNumber === "number"
       ? `PR #${pullRequestNumber}`
@@ -662,6 +656,20 @@ export function VaultBranchLinkContent({
                 </a>
               </div>
             ) : null}
+            {hasProductionDeploymentLink ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                <a
+                  href={productionDeploymentDashboardUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={clsx(metadataLinkClassName, "gap-1.5")}
+                  title="Open production Convex deployment dashboard"
+                >
+                  <ConvexProviderLogo className="shrink-0" />
+                  <span>Production deploy</span>
+                </a>
+              </div>
+            ) : null}
           </div>
         </div>
       )}
@@ -687,6 +695,7 @@ export function VaultBranchLinkRow({
   cloudflarePreviewPullRequestNumber,
   cloudflarePreviewLogsUrl,
   cloudflarePreviewStatus,
+  productionDeploymentDashboardUrl,
   stagedSummary,
   canDeleteBranch,
   isDeletingBranch,
@@ -715,6 +724,7 @@ export function VaultBranchLinkRow({
         cloudflarePreviewPullRequestNumber={cloudflarePreviewPullRequestNumber}
         cloudflarePreviewLogsUrl={cloudflarePreviewLogsUrl}
         cloudflarePreviewStatus={cloudflarePreviewStatus}
+        productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
       />
       {showRowActions ? (
         <div className="flex shrink-0 items-start gap-2">
@@ -756,6 +766,7 @@ interface VaultBranchListProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   remoteBranches: VaultRemoteBranchListItem[];
+  productionDeploymentDashboardUrl?: string;
   activeDeletingBranchName: string | null;
   onDeleteBranch: (branchName: string) => void;
   expansion?: VaultBranchListExpansionProps;
@@ -766,6 +777,7 @@ interface VaultBranchListRowProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   stagedSummary?: StagedSummary;
+  productionDeploymentDashboardUrl?: string;
   activeDeletingBranchName: string | null;
   onDeleteBranch: (branchName: string) => void;
 }
@@ -781,6 +793,7 @@ function VaultBranchListRow({
   vaultId,
   repositoryFullName,
   stagedSummary,
+  productionDeploymentDashboardUrl,
   activeDeletingBranchName,
   onDeleteBranch,
 }: VaultBranchListRowProps) {
@@ -814,6 +827,9 @@ function VaultBranchListRow({
       }
       cloudflarePreviewLogsUrl={branch.cloudflarePreviewLogsUrl}
       cloudflarePreviewStatus={branch.cloudflarePreviewStatus}
+      productionDeploymentDashboardUrl={
+        branch.isDefault ? productionDeploymentDashboardUrl : undefined
+      }
       stagedSummary={stagedSummary}
       canDeleteBranch={deleteEligibility.canDelete}
       isDeletingBranch={activeDeletingBranchName === branch.name}
@@ -855,6 +871,7 @@ function VaultBranchList({
   vaultId,
   repositoryFullName,
   remoteBranches,
+  productionDeploymentDashboardUrl,
   activeDeletingBranchName,
   onDeleteBranch,
   expansion,
@@ -878,6 +895,7 @@ function VaultBranchList({
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           stagedSummary={summaryByBranch.get(branch.name)}
+          productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
           activeDeletingBranchName={activeDeletingBranchName}
           onDeleteBranch={onDeleteBranch}
         />
@@ -891,6 +909,7 @@ function VaultBranchSection({
   vaultId,
   repositoryFullName,
   remoteBranches,
+  productionDeploymentDashboardUrl,
   activeDeletingBranchName,
   filters,
   onChangeFilters,
@@ -899,6 +918,7 @@ function VaultBranchSection({
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   remoteBranches: VaultRemoteBranchListItem[];
+  productionDeploymentDashboardUrl?: string;
   activeDeletingBranchName: string | null;
   filters: VaultBranchFiltersState;
   onChangeFilters: (nextFilters: VaultBranchFiltersState) => void;
@@ -949,6 +969,7 @@ function VaultBranchSection({
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           remoteBranches={visibleRemoteBranches}
+          productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
           activeDeletingBranchName={activeDeletingBranchName}
           onDeleteBranch={onDeleteBranch}
           expansion={
@@ -1048,7 +1069,6 @@ function VaultDashboardBody({
         const repositoryExternalLinks =
           buildVaultDashboardRepositoryExternalLinks({
             cloudflareProjectDashboardUrl: vault.cloudflareProjectDashboardUrl,
-            convexDeploymentDashboardUrl: vault.convexDeploymentDashboardUrl,
             githubRepositoryUrl,
           });
         const sharedLastSyncedAt = vault.lastTreeRefreshAt;
@@ -1183,6 +1203,9 @@ function VaultDashboardBody({
                   vaultId={vault._id}
                   repositoryFullName={vault.repositoryFullName}
                   remoteBranches={remoteBranches}
+                  productionDeploymentDashboardUrl={
+                    vault.convexDeploymentDashboardUrl
+                  }
                   activeDeletingBranchName={
                     isDeletingBranch && branchToDelete?.vaultId === vault._id
                       ? branchToDelete.branchName

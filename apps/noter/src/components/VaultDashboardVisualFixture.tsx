@@ -58,12 +58,6 @@ function FixtureRepositoryLinks() {
           label: "Cloudflare",
           title: "Open Cloudflare Pages project",
         },
-        {
-          href: "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
-          key: "convex",
-          label: "Production deploy",
-          title: "Open production Convex deployment dashboard",
-        },
       ]}
     />
   );
@@ -122,6 +116,8 @@ const LIST_SPACING_BRANCHES: Array<
     isDeletedUpstream: false,
     aheadBy: 0,
     behindBy: 0,
+    productionDeploymentDashboardUrl:
+      "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
     canDeleteBranch: false,
   },
   {
@@ -486,6 +482,7 @@ export function VaultDashboardVisualFixture({
                       isDeletedUpstream={false}
                       aheadBy={0}
                       behindBy={0}
+                      productionDeploymentDashboardUrl="https://dashboard.convex.dev/t/nicu/noter/calm-swan-123"
                       canDeleteBranch={false}
                       isDeletingBranch={false}
                       onDeleteBranch={() => {}}

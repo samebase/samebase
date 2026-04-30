@@ -152,7 +152,7 @@ In `VaultDashboard`:
 - `Provision infra` (not started)
 - `Retry infra` (failed/partial)
 
-Repository-card external links:
+Dashboard external links:
 
 - Noter-managed vaults with infrastructure metadata render a compact
   service-link row near the repository title.
@@ -160,12 +160,15 @@ Repository-card external links:
   managed-infra link is available.
 - The Cloudflare link targets the specific Pages project:
   `https://dash.cloudflare.com/?to=/<accountId>/pages/view/<projectName>`.
-- The Convex link targets the production deployment dashboard from the connected
+- The production Convex link renders on the default branch row, not in the
+  repository-title service row, because the production deployment follows that
+  branch.
+- The production Convex link targets the deployment dashboard from the connected
   team slug, managed project slug, and deployment name:
   `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/<deploymentName>`.
 - Service links are mobile-friendly text links with service icons. Labels should
-  stay concise; the top-level Convex deployment link uses `Production deploy`
-  because branch preview deploys belong on branch rows.
+  stay concise; the default-branch Convex deployment link uses
+  `Production deploy`.
 
 ## MVP Notes
 
