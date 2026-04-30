@@ -50,16 +50,21 @@ part of the accepted behavior:
 
 1. Commit metadata renders on its own line with the commit link and any
    ahead/behind counts.
-2. Pull request metadata renders on its own line when a current PR URL exists.
-   The PR link shows a GitHub icon before the `PR #<number>` label.
-3. Pull request labels and the draft badge belong with the PR metadata row, not
-   the commit row.
-4. A current Cloudflare branch preview remains a separate visible affordance on
+2. When a pull request title is available, the top pull request link
+   consolidates the GitHub icon, `PR #<number>`, and the PR title.
+3. When no pull request title is available, PR metadata may render as its own
+   row. Pull request labels and the draft badge belong with PR metadata, not the
+   commit row.
+4. The branch name remains visible with a branch icon, but is not itself the
+   edit navigation target.
+5. A Noter `Edit` link renders below the Cloudflare preview/logs affordance and
+   opens the branch file view.
+6. A current Cloudflare branch preview remains a separate visible affordance on
    the branch row. It must not disappear when PR metadata is moved or restyled.
-5. The Cloudflare branch preview affordance uses the label `Cloudflare preview`
+7. The Cloudflare branch preview affordance uses the label `Cloudflare preview`
    and shows the Cloudflare icon before the label.
-6. The preview affordance target is still the parsed `Branch Preview URL`.
-7. The preview affordance renders only when the cached preview belongs to the
+8. The preview affordance target is still the parsed `Branch Preview URL`.
+9. The preview affordance renders only when the cached preview belongs to the
    branch's current PR, according to the freshness rules below.
 
 ## Why This Is The Right Scope
@@ -187,8 +192,9 @@ For each active branch row:
    visible `Cloudflare preview` affordance in the branch row metadata.
 2. Otherwise render nothing.
 3. The displayed link should be the branch preview URL.
-4. The PR link and Cloudflare preview link are independent targets. A row with
-   both a PR and a current Cloudflare preview must render both.
+4. The consolidated PR link, Cloudflare preview link, and Noter `Edit` link are
+   independent targets. A row with a PR and a current Cloudflare preview must
+   render all applicable links.
 
 ## Freshness Rules
 
