@@ -173,6 +173,51 @@ const LIST_SPACING_BRANCHES: Array<
     behindBy: 2,
     canDeleteBranch: true,
   },
+  {
+    branchName: "codex/mobile-keyboard-lift",
+    headCommitSha: "f1234567890abcdef1234567890abcdef1234567",
+    isDefault: false,
+    isDeletedUpstream: false,
+    aheadBy: 1,
+    behindBy: 0,
+    canDeleteBranch: true,
+  },
+  {
+    branchName: "codex/preview-status-refresh",
+    headCommitSha: "a234567890abcdef1234567890abcdef12345678",
+    isDefault: false,
+    isDeletedUpstream: false,
+    aheadBy: 0,
+    behindBy: 1,
+    canDeleteBranch: true,
+  },
+  {
+    branchName: "codex/delete-branch-guard",
+    headCommitSha: "b34567890abcdef1234567890abcdef123456789",
+    isDefault: false,
+    isDeletedUpstream: false,
+    aheadBy: 2,
+    behindBy: 0,
+    canDeleteBranch: false,
+  },
+  {
+    branchName: "codex/archive-doc-taxonomy",
+    headCommitSha: "c4567890abcdef1234567890abcdef1234567890",
+    isDefault: false,
+    isDeletedUpstream: false,
+    aheadBy: 1,
+    behindBy: 3,
+    canDeleteBranch: true,
+  },
+  {
+    branchName: "codex/vault-filter-polish",
+    headCommitSha: "d567890abcdef1234567890abcdef12345678901",
+    isDefault: false,
+    isDeletedUpstream: false,
+    aheadBy: 0,
+    behindBy: 2,
+    canDeleteBranch: true,
+  },
 ];
 
 function VaultDashboardListSpacingFixture({
@@ -183,7 +228,7 @@ function VaultDashboardListSpacingFixture({
   const [branchesExpanded, setBranchesExpanded] = useState(false);
   const visibleBranches = branchesExpanded
     ? LIST_SPACING_BRANCHES
-    : LIST_SPACING_BRANCHES.slice(0, 3);
+    : LIST_SPACING_BRANCHES.slice(0, 8);
   const hiddenBranchCount =
     LIST_SPACING_BRANCHES.length - visibleBranches.length;
 

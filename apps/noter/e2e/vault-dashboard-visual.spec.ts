@@ -299,10 +299,10 @@ test("vault dashboard fixture (list spacing expansion)", async ({ page }) => {
   });
   await page.waitForLoadState("networkidle");
 
-  await expect(page.getByText("codex/quiet-mobile-frame")).toHaveCount(0);
+  await expect(page.getByText("codex/archive-doc-taxonomy")).toHaveCount(0);
   await page.getByRole("button", { name: "Show 2 more" }).click();
 
-  await expect(page.getByText("codex/quiet-mobile-frame")).toBeVisible();
+  await expect(page.getByText("codex/archive-doc-taxonomy")).toBeVisible();
   await expect(page.getByRole("button", { name: "Show less" })).toBeVisible();
 });
 
