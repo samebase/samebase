@@ -94,6 +94,10 @@ import {
   type WorkspaceLayoutV2VisualMode,
 } from "@/components/WorkspaceLayoutV2VisualFixture";
 import {
+  LandingMarkdownPreviewVisualFixture,
+  type LandingMarkdownPreviewVisualMode,
+} from "@/components/LandingMarkdownPreviewVisualFixture";
+import {
   CodexThreadHistoryVisualFixture,
   type CodexThreadHistoryVisualMode,
 } from "@/components/CodexThreadHistoryVisualFixture";
@@ -144,6 +148,7 @@ type VisualFixtureMode =
   | VaultBranchPreviewVisualMode
   | VaultSyncStatusVisualMode
   | WorkspaceLayoutV2VisualMode
+  | LandingMarkdownPreviewVisualMode
   | CodexAppServerResearchVisualMode
   | CodexThreadBrowserVisualMode
   | CodexThreadHistoryVisualMode
@@ -274,12 +279,16 @@ const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
 const WORKSPACE_LAYOUT_V2_VISUAL_MODES = [
   "workspace-layout-v2-status-bar",
 ] as const satisfies readonly WorkspaceLayoutV2VisualMode[];
+const LANDING_MARKDOWN_PREVIEW_VISUAL_MODES = [
+  "landing-markdown-preview",
+] as const satisfies readonly LandingMarkdownPreviewVisualMode[];
 
 const MISC_VISUAL_MODES = [
   "codex-app-server-research",
   "codex-thread-browser",
   "codex-thread-history",
   "machines-workspace",
+  ...LANDING_MARKDOWN_PREVIEW_VISUAL_MODES,
   ...WORKSPACE_LAYOUT_V2_VISUAL_MODES,
   "machine-connect",
   "password-auth",
@@ -527,6 +536,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "workspace-layout-v2-status-bar") {
     return <WorkspaceLayoutV2VisualFixture />;
+  }
+
+  if (mode === "landing-markdown-preview") {
+    return <LandingMarkdownPreviewVisualFixture />;
   }
 
   if (mode === "button") {

@@ -3,6 +3,7 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "./lib/codexAppServerResearch";
+import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "./lib/landingMarkdownPreview";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "./lib/noterSync";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 
@@ -34,6 +35,7 @@ export const routes = rootRoute("root.tsx", [
     "codex-thread-browser-research.tsx",
   ),
   route(MCP_CONSENT_APP_PATH, "mcp-consent.tsx"),
+  route(LANDING_MARKDOWN_PREVIEW_ROUTE, "landing-preview.tsx"),
   route("/pricing", "pricing.tsx"),
   route("/add", "add-repository.tsx"),
   route(MACHINES_ROUTE, "machines.tsx"),
