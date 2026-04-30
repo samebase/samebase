@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { LandingMarkdownPreviewPage } from "@/components/LandingMarkdownPreviewPage";
+import { LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL } from "@/lib/landingMarkdownPreview";
 
 vi.mock("@/Layout", () => ({
   PublicLayoutShell: ({ children }: { children: ReactNode }) => (
@@ -20,6 +21,10 @@ describe("LandingMarkdownPreviewPage", () => {
     const markup = renderToStaticMarkup(<LandingMarkdownPreviewPage />);
 
     expect(markup).toContain("Deploy a production-ready");
+    expect(markup).toContain("Language: English");
+    expect(markup).toContain(
+      LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
+    );
   });
 
   it("renders the Romanian preview when selected", () => {

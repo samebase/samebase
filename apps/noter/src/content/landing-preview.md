@@ -1,5 +1,7 @@
 # Deploy a production-ready, real-time web-app for 0$/month & no account
 
+Language: English | [Română](?lang=ro)
+
 <details>
 <summary>
 ## TLDR

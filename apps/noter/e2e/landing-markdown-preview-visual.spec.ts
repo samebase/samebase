@@ -97,6 +97,11 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
       name: LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
     }),
   ).toHaveAttribute("href", expectedRomanianPreviewHref);
+  await expect(
+    article.getByRole("link", {
+      name: "Română",
+    }),
+  ).toHaveAttribute("href", LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL);
   await expect(article.locator("details")).toHaveCount(4);
   await expect(article.locator("details video")).toHaveCount(0);
   const videos = article.locator("video");
