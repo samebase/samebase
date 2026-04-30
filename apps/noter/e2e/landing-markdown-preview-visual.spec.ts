@@ -5,7 +5,7 @@ import { getLandingMarkdownHeadings } from "../src/lib/landingMarkdownHeadings";
 import {
   LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
-  LANDING_MARKDOWN_PREVIEW_ROMANIAN_LINK_LABEL,
+  LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
   LANDING_MARKDOWN_PREVIEW_ROUTE,
   LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_TEST_ID,
@@ -85,7 +85,7 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
   await expectSidebarLinksToMatchMarkdown(sidebar);
   await expect(rightSidebar).toBeVisible();
   await expect(
-  article.getByRole("heading", {
+    article.getByRole("heading", {
       name: /Deploy a production-ready, real-time web-app/,
     }),
   ).toBeVisible();
@@ -94,7 +94,7 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
   ).toContainText("1: Create Github, Convex, Cloudflare & OpenAI accounts");
   await expect(
     page.getByRole("link", {
-      name: LANDING_MARKDOWN_PREVIEW_ROMANIAN_LINK_LABEL,
+      name: LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
     }),
   ).toHaveAttribute("href", expectedRomanianPreviewHref);
   await expect(article.locator("details")).toHaveCount(4);

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 
 export const LANDING_MARKDOWN_PREVIEW_ROUTE = "/landing-preview";
 
@@ -16,19 +15,7 @@ export type LandingMarkdownPreviewLanguage =
   (typeof LANDING_MARKDOWN_PREVIEW_LANGUAGES)[number];
 
 export const LANDING_MARKDOWN_PREVIEW_DEFAULT_LANGUAGE = "en";
-export const LANDING_MARKDOWN_PREVIEW_ROMANIAN_LINK_LABEL =
-  buildPathWithUpdatedQuery(
-    {
-      pathname: LANDING_MARKDOWN_PREVIEW_ROUTE,
-    },
-    (searchParams) => {
-      setQueryParam(
-        searchParams,
-        LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
-        "ro",
-      );
-    },
-  );
+export const LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL = `?${LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM}=ro`;
 
 function readOptionalLandingMarkdownPreviewLanguage(
   value: unknown,

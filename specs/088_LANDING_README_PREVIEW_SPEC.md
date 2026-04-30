@@ -47,9 +47,11 @@ right public sidebar, so the preview should not create its own separate
 `WorkspaceLayoutV2` provider or landing-only page shell.
 
 The English README is the default preview. Localized README previews may use the
-`lang` query parameter, starting with `?lang=ro` for Romanian. The authenticated
-sidebar path list should expose the localized preview link next to
-`/landing-preview`; public unauthenticated navigation must not expose it.
+`lang` query parameter, starting with `?lang=ro` for Romanian. While the current
+route is `/landing-preview`, the sidebar query-param shortcuts should expose a
+compact `?lang=ro` link. The authenticated dashboard path list should expose
+`/landing-preview` only; public unauthenticated navigation must not expose
+preview links.
 
 ### Supported Markdown Subset
 

@@ -9,7 +9,8 @@ import {
   LANDING_DEV_MODE_QUERY_PARAM,
 } from "@/lib/landingDevMode";
 import {
-  LANDING_MARKDOWN_PREVIEW_ROMANIAN_LINK_LABEL,
+  LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
+  LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
   LANDING_MARKDOWN_PREVIEW_ROUTE,
 } from "@/lib/landingMarkdownPreview";
 import {
@@ -609,17 +610,14 @@ describe("Layout", () => {
     const machinesHref = `href="${MACHINES_ROUTE}"`;
     const machineConnectHref = `href="${MACHINE_CONNECT_ROUTE}"`;
     const landingPreviewHref = `href="${LANDING_MARKDOWN_PREVIEW_ROUTE}"`;
-    const landingPreviewRomanianHref = `href="${LANDING_MARKDOWN_PREVIEW_ROMANIAN_LINK_LABEL}"`;
     const termsHref = 'href="/terms"';
 
     expect(defaultMarkup).not.toContain(machinesHref);
     expect(defaultMarkup).not.toContain(machineConnectHref);
     expect(defaultMarkup).not.toContain(landingPreviewHref);
-    expect(defaultMarkup).not.toContain(landingPreviewRomanianHref);
     expect(dashboardMarkup).toContain(machinesHref);
     expect(dashboardMarkup).toContain(machineConnectHref);
     expect(dashboardMarkup).toContain(landingPreviewHref);
-    expect(dashboardMarkup).toContain(landingPreviewRomanianHref);
     expect(dashboardMarkup.indexOf(homeHref)).toBeLessThan(
       dashboardMarkup.indexOf(machinesHref),
     );
@@ -627,11 +625,49 @@ describe("Layout", () => {
       dashboardMarkup.indexOf(landingPreviewHref),
     );
     expect(dashboardMarkup.indexOf(landingPreviewHref)).toBeLessThan(
-      dashboardMarkup.indexOf(landingPreviewRomanianHref),
-    );
-    expect(dashboardMarkup.indexOf(landingPreviewRomanianHref)).toBeLessThan(
       dashboardMarkup.indexOf(termsHref),
     );
+  });
+
+  it("shows the Romanian language shortcut only on the landing preview route", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    });
+
+    const homeMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/"]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+    const landingPreviewMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[LANDING_MARKDOWN_PREVIEW_ROUTE]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+    const landingPreviewRomanianHref = `href="${buildPathWithUpdatedQuery(
+      {
+        pathname: LANDING_MARKDOWN_PREVIEW_ROUTE,
+      },
+      (searchParams) => {
+        setQueryParam(
+          searchParams,
+          LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
+          "ro",
+        );
+      },
+    )}"`;
+
+    expect(homeMarkup).not.toContain(
+      LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
+    );
+    expect(landingPreviewMarkup).toContain(
+      LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
+    );
+    expect(landingPreviewMarkup).toContain(landingPreviewRomanianHref);
   });
 
   it("keeps legal links visible on the legal pages themselves", () => {

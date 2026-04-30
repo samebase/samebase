@@ -14,7 +14,7 @@ import {
 } from "@/lib/landingDevMode";
 import {
   LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
-  LANDING_MARKDOWN_PREVIEW_ROMANIAN_LINK_LABEL,
+  LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
   LANDING_MARKDOWN_PREVIEW_ROUTE,
 } from "@/lib/landingMarkdownPreview";
 import {
@@ -96,6 +96,8 @@ export function AppSidebarMetaSection({
       : ROOT_THEME_DARK_MODE_LINK_LABEL;
 
   const isLandingPage = location.pathname === "/";
+  const showLandingPreviewLanguageLink =
+    location.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE;
   const showLogoLink =
     isLandingPage && publicLandingLogoLink?.isLogoLinkVisible === true;
   const logoLinkClassName = showLogoLink
@@ -161,6 +163,19 @@ export function AppSidebarMetaSection({
       >
         {landingDevLabel}
       </Link>
+      {showLandingPreviewLanguageLink ? (
+        <Link
+          id="landing-preview-romanian-toggle"
+          to={location.pathname}
+          hash={location.hash}
+          search={(currentSearch) => ({
+            ...currentSearch,
+            [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: "ro",
+          })}
+        >
+          {LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL}
+        </Link>
+      ) : null}
 
       {/* Keep query-param shortcuts visually separate so path links stay put. */}
       <div aria-hidden="true" className="h-3" />
@@ -187,26 +202,9 @@ export function AppSidebarMetaSection({
         </>
       ) : null}
       {showLandingPreviewLink ? (
-        <>
-          <Link
-            to={LANDING_MARKDOWN_PREVIEW_ROUTE}
-            search={(currentSearch) => ({
-              ...currentSearch,
-              [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: undefined,
-            })}
-          >
-            {LANDING_MARKDOWN_PREVIEW_ROUTE}
-          </Link>
-          <Link
-            to={LANDING_MARKDOWN_PREVIEW_ROUTE}
-            search={(currentSearch) => ({
-              ...currentSearch,
-              [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: "ro",
-            })}
-          >
-            {LANDING_MARKDOWN_PREVIEW_ROMANIAN_LINK_LABEL}
-          </Link>
-        </>
+        <Link to={LANDING_MARKDOWN_PREVIEW_ROUTE}>
+          {LANDING_MARKDOWN_PREVIEW_ROUTE}
+        </Link>
       ) : null}
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
