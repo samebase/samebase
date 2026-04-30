@@ -200,6 +200,7 @@ function syncStaticLogoSvgAsset() {
 function syncLogoIdentitySvgAssets() {
   const publicRoot = path.resolve(currentDir, "public");
   for (const asset of createLogoIdentitySvgAssets()) {
+    // Fail closed: logo asset paths must be URL-rooted and resolve within public/.
     if (!asset.assetPath.startsWith("/")) {
       throw new Error(
         `Logo identity asset path must be root-relative: ${asset.assetPath}`,
