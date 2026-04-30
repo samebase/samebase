@@ -51,14 +51,14 @@ part of the accepted behavior:
 1. Commit metadata renders on its own line with the commit link and any
    ahead/behind counts.
 2. When a pull request title is available, the top pull request link
-   consolidates the GitHub icon, `PR #<number>`, and the PR title.
+   consolidates the pull request state icon, `PR #<number>`, and the PR title.
 3. When no pull request title is available, PR metadata may render as its own
    row. Pull request labels and the draft badge belong with PR metadata, not the
    commit row.
 4. The branch name remains visible with a branch icon, but is not itself the
    edit navigation target.
-5. A Noter `Edit` link renders below the Cloudflare preview/logs affordance and
-   opens the branch file view.
+5. A Noter `Edit` link renders below the Cloudflare preview/logs affordance,
+   uses the favicon-style square-in-square mark, and opens the branch file view.
 6. A current Cloudflare branch preview remains a separate visible affordance on
    the branch row. It must not disappear when PR metadata is moved or restyled.
 7. The Cloudflare branch preview affordance uses the label `Cloudflare preview`
@@ -66,6 +66,8 @@ part of the accepted behavior:
 8. The preview affordance target is still the parsed `Branch Preview URL`.
 9. The preview affordance renders only when the cached preview belongs to the
    branch's current PR, according to the freshness rules below.
+10. Branch-row icons use a fixed-width slot so PR, branch, Cloudflare, Convex,
+    and Edit labels share a stable text rail.
 
 ## Why This Is The Right Scope
 
@@ -310,7 +312,7 @@ That separation is intentional:
    - link does not render when absent
    - link does not render when the cached preview belongs to a different PR
    - existing commit/PR metadata still renders
-   - PR links stay on their own row with a GitHub icon
+   - PR links stay on their own row with a pull request state icon
    - valid Cloudflare preview links stay visible as `Cloudflare preview` with a
      Cloudflare icon
 
