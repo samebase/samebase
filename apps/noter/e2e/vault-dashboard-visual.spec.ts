@@ -8,6 +8,29 @@ async function expectInlinePadding(locator: Locator, expectedPx: string) {
   await expect(locator).toHaveCSS("padding-right", expectedPx);
 }
 
+async function expectElementsDoNotOverlap(first: Locator, second: Locator) {
+  await expect
+    .poll(async () => {
+      const [firstBox, secondBox] = await Promise.all([
+        first.boundingBox(),
+        second.boundingBox(),
+      ]);
+      if (firstBox === null || secondBox === null) {
+        return false;
+      }
+
+      const horizontalOverlap =
+        Math.min(firstBox.x + firstBox.width, secondBox.x + secondBox.width) -
+        Math.max(firstBox.x, secondBox.x);
+      const verticalOverlap =
+        Math.min(firstBox.y + firstBox.height, secondBox.y + secondBox.height) -
+        Math.max(firstBox.y, secondBox.y);
+
+      return horizontalOverlap <= 0 || verticalOverlap <= 0;
+    })
+    .toBe(true);
+}
+
 async function expectSidebarTextOwnsWrappedLine({
   iconTestId,
   row,
@@ -342,6 +365,11 @@ test("vault dashboard fixture (branch filters mobile sheet)", async ({
   await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Filters", exact: true }).click();
 
+  const sheet = page.locator("[data-slot='sheet-content']");
+  await expectElementsDoNotOverlap(
+    sheet.getByRole("button", { name: "Reset all" }),
+    sheet.getByRole("button", { name: "Close" }),
+  );
   await expect(page).toHaveScreenshot("vault-branch-filters-mobile.png", {
     animations: "disabled",
     caret: "hide",
