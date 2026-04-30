@@ -5,7 +5,7 @@ import { Input } from "@/components/input";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultLastUpdatedStatus } from "@/components/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
-import { ChevronDownIcon, GitHubLogoIcon } from "@/lib/radixIcons";
+import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { type MobileSidebarPane } from "@/hooks/use-sidebar";
 import {
@@ -18,6 +18,7 @@ import {
 } from "@/components/VaultDashboardChrome";
 import {
   VaultBranchLinkRow,
+  VaultBranchListExpansionControl,
   VaultDashboardRepositoryExternalLinks,
 } from "@/components/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
@@ -239,38 +240,6 @@ const STICKY_HEADER_BRANCHES: Array<
   canDeleteBranch: index !== 0,
 }));
 
-function FixtureBranchExpansionButton({
-  branchesExpanded,
-  hiddenBranchCount,
-  onToggle,
-}: {
-  branchesExpanded: boolean;
-  hiddenBranchCount: number;
-  onToggle: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      className="h-7 shrink-0 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
-      aria-expanded={branchesExpanded}
-      onClick={onToggle}
-    >
-      <span>
-        {branchesExpanded ? "Show less" : `Show ${hiddenBranchCount} more`}
-      </span>
-      <ChevronDownIcon
-        className={
-          branchesExpanded
-            ? "h-3.5 w-3.5 rotate-180 transition-transform"
-            : "h-3.5 w-3.5 transition-transform"
-        }
-      />
-    </Button>
-  );
-}
-
 function VaultDashboardListSpacingFixture({
   mode,
 }: {
@@ -298,10 +267,11 @@ function VaultDashboardListSpacingFixture({
             titleHref="https://github.com/noter-md/noter"
             repositoryLinks={<FixtureRepositoryLinks />}
             headerControls={
-              <FixtureBranchExpansionButton
-                branchesExpanded={branchesExpanded}
+              <VaultBranchListExpansionControl
+                isExpanded={branchesExpanded}
                 hiddenBranchCount={hiddenBranchCount}
                 onToggle={() => setBranchesExpanded((expanded) => !expanded)}
+                placement="header"
               />
             }
             branchSection={
@@ -364,10 +334,11 @@ function VaultDashboardStickyHeaderFixture() {
                 <span data-testid="sticky-header-status">Updated 12s ago</span>
               }
               headerControls={
-                <FixtureBranchExpansionButton
-                  branchesExpanded={branchesExpanded}
+                <VaultBranchListExpansionControl
+                  isExpanded={branchesExpanded}
                   hiddenBranchCount={hiddenBranchCount}
                   onToggle={() => setBranchesExpanded((expanded) => !expanded)}
+                  placement="header"
                 />
               }
               branchSection={

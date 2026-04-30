@@ -883,7 +883,7 @@ function VaultBranchListRow({
   );
 }
 
-function VaultBranchListExpansionControl({
+export function VaultBranchListExpansionControl({
   hiddenBranchCount,
   isExpanded,
   onToggle,
@@ -893,21 +893,15 @@ function VaultBranchListExpansionControl({
     <Button
       type="button"
       variant="ghost"
-      size="sm"
-      className={
-        placement === "header"
-          ? "h-7 shrink-0 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
-          : "h-7 w-full gap-1 text-xs text-muted-foreground hover:text-foreground"
-      }
+      size="xs"
+      className={placement === "list" ? "w-full" : undefined}
       aria-expanded={isExpanded}
       onClick={onToggle}
     >
       <span>{isExpanded ? "Show less" : `Show ${hiddenBranchCount} more`}</span>
       <ChevronDownIcon
-        className={clsx(
-          "h-3.5 w-3.5 transition-transform",
-          isExpanded && "rotate-180",
-        )}
+        className={isExpanded ? "rotate-180" : undefined}
+        aria-hidden="true"
       />
     </Button>
   );
