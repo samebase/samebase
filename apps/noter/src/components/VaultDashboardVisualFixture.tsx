@@ -116,7 +116,7 @@ function FixtureVaultLastUpdatedStatusCard() {
 const LIST_SPACING_BRANCHES: Array<
   Omit<
     Parameters<typeof VaultBranchLinkRow>[0],
-    "vaultId" | "repositoryFullName" | "isDeletingBranch" | "onDeleteBranch"
+    "vaultId" | "repositoryFullName"
   >
 > = [
   {
@@ -128,7 +128,6 @@ const LIST_SPACING_BRANCHES: Array<
     behindBy: 0,
     productionDeploymentDashboardUrl:
       "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
-    canDeleteBranch: false,
   },
   {
     branchName: "codex/dashboard-main-pane-spacing",
@@ -145,7 +144,6 @@ const LIST_SPACING_BRANCHES: Array<
     cloudflarePreviewPullRequestNumber: 321,
     convexPreviewDeploymentDashboardUrl:
       "https://dashboard.convex.dev/t/nicu/noter/preview/codex/dashboard-main-pane-spacing",
-    canDeleteBranch: true,
   },
   {
     branchName: "codex/branch-expansion-state",
@@ -157,7 +155,6 @@ const LIST_SPACING_BRANCHES: Array<
     pullRequestUrl: "https://github.com/noter-md/noter/pull/322",
     pullRequestNumber: 322,
     pullRequestTitle: "Persist branch list expansion",
-    canDeleteBranch: true,
   },
   {
     branchName: "codex/quiet-mobile-frame",
@@ -166,7 +163,6 @@ const LIST_SPACING_BRANCHES: Array<
     isDeletedUpstream: false,
     aheadBy: 1,
     behindBy: 1,
-    canDeleteBranch: true,
   },
   {
     branchName: "codex/research-branch-collapse",
@@ -175,7 +171,6 @@ const LIST_SPACING_BRANCHES: Array<
     isDeletedUpstream: false,
     aheadBy: 0,
     behindBy: 2,
-    canDeleteBranch: true,
   },
   {
     branchName: "codex/mobile-keyboard-lift",
@@ -184,7 +179,6 @@ const LIST_SPACING_BRANCHES: Array<
     isDeletedUpstream: false,
     aheadBy: 1,
     behindBy: 0,
-    canDeleteBranch: true,
   },
   {
     branchName: "codex/preview-status-refresh",
@@ -193,7 +187,6 @@ const LIST_SPACING_BRANCHES: Array<
     isDeletedUpstream: false,
     aheadBy: 0,
     behindBy: 1,
-    canDeleteBranch: true,
   },
   {
     branchName: "codex/delete-branch-guard",
@@ -202,7 +195,6 @@ const LIST_SPACING_BRANCHES: Array<
     isDeletedUpstream: false,
     aheadBy: 2,
     behindBy: 0,
-    canDeleteBranch: false,
   },
   {
     branchName: "codex/archive-doc-taxonomy",
@@ -211,7 +203,6 @@ const LIST_SPACING_BRANCHES: Array<
     isDeletedUpstream: false,
     aheadBy: 1,
     behindBy: 3,
-    canDeleteBranch: true,
   },
   {
     branchName: "codex/vault-filter-polish",
@@ -220,14 +211,13 @@ const LIST_SPACING_BRANCHES: Array<
     isDeletedUpstream: false,
     aheadBy: 0,
     behindBy: 2,
-    canDeleteBranch: true,
   },
 ];
 
 const STICKY_HEADER_BRANCHES: Array<
   Omit<
     Parameters<typeof VaultBranchLinkRow>[0],
-    "vaultId" | "repositoryFullName" | "isDeletingBranch" | "onDeleteBranch"
+    "vaultId" | "repositoryFullName"
   >
 > = Array.from({ length: 32 }, (_, index) => ({
   branchName:
@@ -239,7 +229,6 @@ const STICKY_HEADER_BRANCHES: Array<
   isDeletedUpstream: false,
   aheadBy: index === 0 ? 0 : index % 4,
   behindBy: index === 0 ? 0 : index % 3,
-  canDeleteBranch: index !== 0,
 }));
 
 function VaultDashboardListSpacingFixture({
@@ -288,8 +277,6 @@ function VaultDashboardListSpacingFixture({
                       {...branch}
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
-                      isDeletingBranch={false}
-                      onDeleteBranch={() => {}}
                     />
                   ))}
                 </div>
@@ -412,8 +399,6 @@ function VaultDashboardStickyHeaderFixture() {
                         {...branch}
                         vaultId={fakeVaultId()}
                         repositoryFullName="noter-md/noter"
-                        isDeletingBranch={false}
-                        onDeleteBranch={() => {}}
                       />
                     ))}
                   </div>
@@ -667,9 +652,6 @@ export function VaultDashboardVisualFixture({
                       aheadBy={0}
                       behindBy={0}
                       productionDeploymentDashboardUrl="https://dashboard.convex.dev/t/nicu/noter/calm-swan-123"
-                      canDeleteBranch={false}
-                      isDeletingBranch={false}
-                      onDeleteBranch={() => {}}
                     />
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
@@ -683,9 +665,6 @@ export function VaultDashboardVisualFixture({
                       pullRequestUrl="https://github.com/noter-md/noter/pull/321"
                       pullRequestNumber={321}
                       pullRequestTitle="Align mobile branch rows with vault cards"
-                      canDeleteBranch={true}
-                      isDeletingBranch={false}
-                      onDeleteBranch={() => {}}
                     />
                   </TestRouterProvider>
                 </div>
@@ -790,9 +769,6 @@ export function VaultDashboardVisualFixture({
                         { name: "needs review", color: "bf8700" },
                         { name: "customer", color: "1a7f37" },
                       ]}
-                      canDeleteBranch={true}
-                      isDeletingBranch={false}
-                      onDeleteBranch={() => {}}
                     />
                   </TestRouterProvider>
                 </div>
@@ -827,9 +803,6 @@ export function VaultDashboardVisualFixture({
               { name: "needs review", color: "fbca04" },
               { name: "bug", color: "d73a4a" },
             ]}
-            canDeleteBranch={false}
-            isDeletingBranch={false}
-            onDeleteBranch={() => {}}
           />
         </TestRouterProvider>
       </div>
