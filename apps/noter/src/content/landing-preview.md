@@ -54,12 +54,7 @@ Start with **a Google or an Apple** account on a **phone or desktop**
 It's fine if you signed up differently, as long as you have these 4 accounts you
 can deploy an app.
 
-<details>
-      <summary>Step 1: Android Video recording</summary>
-
 <video controls preload="metadata" src="/landing-preview/step-1-create-accounts.mp4"></video>
-
-</details>
 
 ## 2: Copy the app code to your GitHub account
 
@@ -68,12 +63,7 @@ Visit https://github.com/notermd/app
 - [ ] click big green "Use this template"
 - [ ] make it private or leave it public
 
-<details>
-<summary>Phone recording of using the template</summary>
-
 <video controls preload="metadata" src="/landing-preview/step-2-use-template.mp4"></video>
-
-</details>
 
 <details>
 <summary>"Fork" if you want to preserver the git history</summary>
@@ -136,18 +126,13 @@ https://github.com/settings/installations
 If you press "Done" you won't be able to see the deploy key again, but it's
 fine, you can delete it and create a new deploy key.
 
+<video controls preload="metadata" src="/landing-preview/step-4-create-convex-project.mp4"></video>
+
 <details>
 <summary>### What are CONVEX_DEPLOY_KEY?</summary>
 
 They are a sort of password used between servers. In our case it is used by
 Cloudflare to update the database on each change.
-
-</details>
-
-<details>
-<summary>Step 4: Video Android</summary>
-
-<video controls preload="metadata" src="/landing-preview/step-4-create-convex-project.mp4"></video>
 
 </details>
 
@@ -162,12 +147,7 @@ Cloudflare to update the database on each change.
 - [ ] Add Environment Variable `CONVEX_DEPLOY_KEY` and use the Production deploy
       key from the previous step
 
-<details>
-<summary>Step 5: Video Android</summary>
-
 <video controls preload="metadata" src="/landing-preview/step-5-create-cloudflare-pages-deploy.mp4"></video>
-
-</details>
 
 ---
 

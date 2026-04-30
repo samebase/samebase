@@ -6,6 +6,13 @@ import {
 
 const landingMarkdownPreviewSnapshotSuffix =
   process.platform === "linux" ? "linux" : "darwin";
+const expectedLandingPreviewVideoSrcs = [
+  "/landing-preview/step-1-create-accounts.mp4",
+  "/landing-preview/step-2-use-template.mp4",
+  "/landing-preview/step-3-connect-cloudflare-pages.mp4",
+  "/landing-preview/step-4-create-convex-project.mp4",
+  "/landing-preview/step-5-create-cloudflare-pages-deploy.mp4",
+] as const;
 
 test("landing markdown preview fixture renders markdown in workspace chrome", async ({
   page,
@@ -30,12 +37,18 @@ test("landing markdown preview fixture renders markdown in workspace chrome", as
       name: /Deploy a production-ready, real-time web-app/,
     }),
   ).toBeVisible();
-  await expect(article.locator("details")).toHaveCount(8);
-  await expect(article.locator("video")).toHaveCount(5);
-  await expect(article.locator("video").first()).toHaveAttribute(
-    "src",
-    "/landing-preview/step-1-create-accounts.mp4",
-  );
+  await expect(article.locator("details")).toHaveCount(4);
+  await expect(article.locator("details video")).toHaveCount(0);
+  const videos = article.locator("video");
+  await expect(videos).toHaveCount(expectedLandingPreviewVideoSrcs.length);
+  for (const [
+    index,
+    expectedVideoSrc,
+  ] of expectedLandingPreviewVideoSrcs.entries()) {
+    const video = videos.nth(index);
+    await expect(video).toBeVisible();
+    await expect(video).toHaveAttribute("src", expectedVideoSrc);
+  }
 
   await expect(page).toHaveScreenshot(
     `landing-markdown-preview-${landingMarkdownPreviewSnapshotSuffix}.png`,
