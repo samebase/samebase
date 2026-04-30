@@ -12,6 +12,7 @@ import {
   LANDING_DEV_MODE_QUERY_PARAM,
   isLandingDevModeEnabled,
 } from "@/lib/landingDevMode";
+import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "@/lib/landingMarkdownPreview";
 import {
   FORCE_PROD_UI_MODE_LINK_LABEL,
   FORCE_PROD_UI_QUERY_PARAM,
@@ -45,9 +46,11 @@ const APP_SIDEBAR_META_VERSION_CLASS_NAMES = {
  * peeks beside the main pane in the mobile workspace carousel.
  */
 export function AppSidebarMetaSection({
+  showLandingPreviewLink = false,
   showMachineLinks = false,
   side = "left",
 }: {
+  showLandingPreviewLink?: boolean;
   showMachineLinks?: boolean;
   side?: AppSidebarMetaSectionSide;
 }) {
@@ -137,6 +140,11 @@ export function AppSidebarMetaSection({
           <Link to={MACHINES_ROUTE}>{MACHINES_ROUTE}</Link>
           <Link to={MACHINE_CONNECT_ROUTE}>{MACHINE_CONNECT_ROUTE}</Link>
         </>
+      ) : null}
+      {showLandingPreviewLink ? (
+        <Link to={LANDING_MARKDOWN_PREVIEW_ROUTE}>
+          {LANDING_MARKDOWN_PREVIEW_ROUTE}
+        </Link>
       ) : null}
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>

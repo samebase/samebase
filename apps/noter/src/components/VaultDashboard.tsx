@@ -2329,7 +2329,11 @@ export function VaultDashboard() {
       />
       {createControl}
       <div className="mt-auto">
-        <AppSidebarMetaSection showMachineLinks side="right" />
+        <AppSidebarMetaSection
+          showLandingPreviewLink
+          showMachineLinks
+          side="right"
+        />
       </div>
     </VaultDashboardSidebarContent>
   );

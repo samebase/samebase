@@ -1,5 +1,6 @@
 import { devices, expect, test, type Locator } from "@playwright/test";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
+import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "../src/lib/landingMarkdownPreview";
 
 async function expectInlinePadding(locator: Locator, expectedPx: string) {
   await expect(locator).toHaveCSS("padding-left", expectedPx);
@@ -80,6 +81,9 @@ test("vault dashboard fixture (sidebar machine links)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(
+    fixture.getByRole("link", { name: LANDING_MARKDOWN_PREVIEW_ROUTE }),
+  ).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-sidebar-machine-links.png", {
     animations: "disabled",
     caret: "hide",

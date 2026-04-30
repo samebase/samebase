@@ -8,6 +8,7 @@ import {
   LANDING_DEV_MODE_LINK_LABEL,
   LANDING_DEV_MODE_QUERY_PARAM,
 } from "@/lib/landingDevMode";
+import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "@/lib/landingMarkdownPreview";
 import {
   FORCE_PROD_UI_MODE_LINK_LABEL,
   FORCE_PROD_UI_QUERY_PARAM,
@@ -455,7 +456,7 @@ describe("Layout", () => {
     expect(markup).toContain('tabindex="-1"');
   });
 
-  it("lets dashboard opt into machine route links in the plain path list", () => {
+  it("lets dashboard opt into app-only route links in the plain path list", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
@@ -471,22 +472,28 @@ describe("Layout", () => {
     );
     const dashboardMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/"]}>
-        <AppSidebarMetaSection showMachineLinks />
+        <AppSidebarMetaSection showLandingPreviewLink showMachineLinks />
       </TestRouterProvider>,
     );
     const homeHref = 'href="/"';
     const machinesHref = `href="${MACHINES_ROUTE}"`;
     const machineConnectHref = `href="${MACHINE_CONNECT_ROUTE}"`;
+    const landingPreviewHref = `href="${LANDING_MARKDOWN_PREVIEW_ROUTE}"`;
     const termsHref = 'href="/terms"';
 
     expect(defaultMarkup).not.toContain(machinesHref);
     expect(defaultMarkup).not.toContain(machineConnectHref);
+    expect(defaultMarkup).not.toContain(landingPreviewHref);
     expect(dashboardMarkup).toContain(machinesHref);
     expect(dashboardMarkup).toContain(machineConnectHref);
+    expect(dashboardMarkup).toContain(landingPreviewHref);
     expect(dashboardMarkup.indexOf(homeHref)).toBeLessThan(
       dashboardMarkup.indexOf(machinesHref),
     );
     expect(dashboardMarkup.indexOf(machineConnectHref)).toBeLessThan(
+      dashboardMarkup.indexOf(landingPreviewHref),
+    );
+    expect(dashboardMarkup.indexOf(landingPreviewHref)).toBeLessThan(
       dashboardMarkup.indexOf(termsHref),
     );
   });
