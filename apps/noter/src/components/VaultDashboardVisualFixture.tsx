@@ -345,7 +345,7 @@ function FixtureDashboardCreateControl() {
           <VaultDashboardAccountSection
             open={true}
             onOpenChange={() => {}}
-            displayName="Nicu"
+            displayName="Nicu Example With A Very Long Pane Account Name"
             email="nicu@noter.md"
             providerLabel="Google"
             isSignOutPending={false}

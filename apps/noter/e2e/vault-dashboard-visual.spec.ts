@@ -1,6 +1,7 @@
 import { devices, expect, test, type Locator } from "@playwright/test";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "../src/lib/landingMarkdownPreview";
+import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "../src/lib/noterSync";
 
 async function expectInlinePadding(locator: Locator, expectedPx: string) {
   await expect(locator).toHaveCSS("padding-left", expectedPx);
@@ -53,6 +54,11 @@ async function expectSidebarTextOwnsWrappedLine({
     .toBe(true);
 }
 
+async function expectTwoLineSidebarMetaLink(locator: Locator) {
+  await expect(locator).toHaveCSS("-webkit-line-clamp", "2");
+  await expect(locator).toHaveCSS("overflow-wrap", "anywhere");
+}
+
 test("vault dashboard fixture (create control)", async ({ page }) => {
   // Keep the shared dashboard shell and right-rail framing aligned with the
   // visual baselines; changing this viewport changes snapshot cropping.
@@ -84,6 +90,15 @@ test("vault dashboard fixture (sidebar machine links)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expectTwoLineSidebarMetaLink(
+    fixture.getByRole("link", { name: MACHINES_ROUTE, exact: true }),
+  );
+  await expectTwoLineSidebarMetaLink(
+    fixture.getByRole("link", { name: MACHINE_CONNECT_ROUTE }),
+  );
+  await expectTwoLineSidebarMetaLink(
+    fixture.getByRole("link", { name: LANDING_MARKDOWN_PREVIEW_ROUTE }),
+  );
   await expect(
     fixture.getByRole("link", { name: LANDING_MARKDOWN_PREVIEW_ROUTE }),
   ).toBeVisible();
