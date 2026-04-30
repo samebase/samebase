@@ -887,7 +887,7 @@ export function VaultBranchLinkRow({
     Boolean(hasStagedChanges && vaultId) || canDeleteBranch;
 
   return (
-    <div className="flex items-start gap-3 border-b border-border/40 px-4 py-3.5 last:border-b-0 sm:px-3">
+    <div className="flex items-start gap-2 border-b border-border/40 px-2 py-3.5 last:border-b-0">
       <VaultBranchLinkContent
         repositoryFullName={repositoryFullName}
         branchName={branchName}
