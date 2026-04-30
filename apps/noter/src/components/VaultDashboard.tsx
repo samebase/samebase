@@ -12,6 +12,7 @@ import {
 } from "@/lib/radixIcons";
 import {
   GitBranch,
+  GitCommitHorizontal,
   GitPullRequestCreateArrow,
   GitPullRequestDraft,
   Loader2,
@@ -322,7 +323,7 @@ const CloudflareProviderLogo = ({ className }: { className?: string }) => (
     <svg
       aria-hidden="true"
       viewBox="0 0 64 32"
-      className="h-2.5 w-5"
+      className="h-2 w-4"
       xmlns="http://www.w3.org/2000/svg"
     >
       <path
@@ -704,10 +705,17 @@ export function VaultBranchLinkContent({
                 href={commitUrl}
                 target="_blank"
                 rel="noreferrer noopener"
-                className={metadataLinkClassName}
+                className={clsx(metadataLinkClassName, "gap-1.5")}
                 title="View commit on GitHub"
               >
-                commit {headCommitSha.slice(0, 7)}
+                <DashboardLinkIconSlot>
+                  <GitCommitHorizontal
+                    aria-hidden="true"
+                    className="h-4 w-4"
+                    strokeWidth={1.75}
+                  />
+                </DashboardLinkIconSlot>
+                <span>Last commit {headCommitSha.slice(0, 7)}</span>
               </a>
               {aheadBehindLabel ? (
                 <span

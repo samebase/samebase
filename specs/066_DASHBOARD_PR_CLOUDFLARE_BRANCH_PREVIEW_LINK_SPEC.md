@@ -48,8 +48,8 @@ This spec deliberately narrows the feature:
 The dashboard branch row may evolve visually, but these interaction targets are
 part of the accepted behavior:
 
-1. Commit metadata renders on its own line with the commit link and any
-   ahead/behind counts.
+1. Commit metadata renders on its own line as `Last commit <short-sha>` with a
+   commit icon, the commit link, and any ahead/behind counts.
 2. When a pull request title is available, the top pull request link
    consolidates the pull request state icon, `PR #<number>`, and the PR title.
 3. When no pull request title is available, PR metadata may render as its own
@@ -66,8 +66,8 @@ part of the accepted behavior:
 8. The preview affordance target is still the parsed `Branch Preview URL`.
 9. The preview affordance renders only when the cached preview belongs to the
    branch's current PR, according to the freshness rules below.
-10. Branch-row icons use a fixed-width slot so PR, branch, Cloudflare, Convex,
-    and Edit labels share a stable text rail.
+10. Branch-row icons use a fixed-width slot so PR, branch, commit, Cloudflare,
+    Convex, and Edit labels share a stable text rail.
 
 ## Why This Is The Right Scope
 
