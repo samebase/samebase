@@ -95,15 +95,23 @@ function buildCloudflareProjectDashboardUrl(
   return `https://dash.cloudflare.com/?to=/${encodeURIComponent(accountId)}/pages/view/${encodeURIComponent(projectName)}`;
 }
 
-function buildConvexDeploymentDashboardUrl(
-  deploymentName: string | undefined,
-): string | undefined {
-  const normalizedDeploymentName = deploymentName?.trim();
-  if (!normalizedDeploymentName) {
+export function buildConvexDeploymentDashboardUrl(args: {
+  deploymentName: string | undefined;
+  projectSlug: string | undefined;
+  teamSlug: string | undefined;
+}): string | undefined {
+  const normalizedTeamSlug = args.teamSlug?.trim();
+  const normalizedProjectSlug = args.projectSlug?.trim();
+  const normalizedDeploymentName = args.deploymentName?.trim();
+  if (
+    !normalizedTeamSlug ||
+    !normalizedProjectSlug ||
+    !normalizedDeploymentName
+  ) {
     return undefined;
   }
 
-  return `https://dashboard.convex.dev/d/${encodeURIComponent(normalizedDeploymentName)}/deployment`;
+  return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/${encodeURIComponent(normalizedProjectSlug)}/${encodeURIComponent(normalizedDeploymentName)}`;
 }
 
 /**
@@ -904,6 +912,16 @@ export const getUserVaults = query({
       .query("vaults")
       .filter((q) => q.eq(q.field("userId"), userId))
       .collect();
+    const convexConnection = await ctx.db
+      .query("providerConnections")
+      .withIndex("by_user_kind", (q) =>
+        q.eq("userId", userId).eq("kind", "convex"),
+      )
+      .first();
+    const convexTeamDashboardSlug =
+      convexConnection?.kind === "convex"
+        ? convexConnection.teamSlug
+        : undefined;
 
     // Get staging stats for each vault
     const vaultResults: UserVaultResult[] = await Promise.all(
@@ -1014,9 +1032,11 @@ export const getUserVaults = query({
           infraProductionUrl: resolveHostingMainUrl(infra),
           cloudflareProjectDashboardUrl:
             buildCloudflareProjectDashboardUrl(infra),
-          convexDeploymentDashboardUrl: buildConvexDeploymentDashboardUrl(
-            infra?.convexDeploymentName,
-          ),
+          convexDeploymentDashboardUrl: buildConvexDeploymentDashboardUrl({
+            deploymentName: infra?.convexDeploymentName,
+            projectSlug: infra?.convexProjectSlug,
+            teamSlug: convexTeamDashboardSlug,
+          }),
         };
       }),
     );

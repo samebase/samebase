@@ -129,6 +129,7 @@ async function upsertConvexApiKey(
   userId: Id<"users">,
   credential: string,
   teamId: string,
+  teamSlug: string | undefined,
 ): Promise<void> {
   const existing = await getConnectionByUserAndKind(db, userId, "convex");
   const now = Date.now();
@@ -139,12 +140,12 @@ async function upsertConvexApiKey(
         credential,
       },
       teamId,
-      teamSlug: undefined,
+      teamSlug,
       updatedAt: now,
     });
     return;
   }
-  await db.insert("providerConnections", {
+  const connection = {
     kind: "convex",
     userId,
     auth: {
@@ -152,9 +153,11 @@ async function upsertConvexApiKey(
       credential,
     },
     teamId,
+    ...(teamSlug !== undefined ? { teamSlug } : {}),
     createdAt: now,
     updatedAt: now,
-  });
+  } as const;
+  await db.insert("providerConnections", connection);
 }
 
 async function upsertCloudflareApiKey(
@@ -194,6 +197,7 @@ const seedProviderConnectionsArgs = object({
   githubApiKey: optional(string()),
   convexManagementApiKey: optional(string()),
   convexTeamId: optional(string()),
+  convexTeamSlug: optional(string()),
   cloudflareApiKey: optional(string()),
   cloudflareAccountId: optional(string()),
 });
@@ -222,7 +226,11 @@ export const seedProviderConnectionsForEmail = internalMutation({
       await upsertGithubApiKey(ctx.db, user._id, args.githubApiKey);
     }
 
-    if (args.convexManagementApiKey || args.convexTeamId) {
+    if (
+      args.convexManagementApiKey ||
+      args.convexTeamId ||
+      args.convexTeamSlug
+    ) {
       if (!args.convexManagementApiKey || !args.convexTeamId) {
         throw new Error(
           "Both DEV_SEED_CONVEX_MANAGEMENT_API_KEY and DEV_SEED_CONVEX_TEAM_ID are required",
@@ -233,6 +241,7 @@ export const seedProviderConnectionsForEmail = internalMutation({
         user._id,
         args.convexManagementApiKey,
         args.convexTeamId,
+        args.convexTeamSlug,
       );
     }
 
@@ -267,6 +276,7 @@ export const seedPasswordAccount = internalAction({
       "DEV_SEED_CONVEX_MANAGEMENT_API_KEY",
     );
     const convexTeamId = readSeedValue("DEV_SEED_CONVEX_TEAM_ID");
+    const convexTeamSlug = readSeedValue("DEV_SEED_CONVEX_TEAM_SLUG");
     const cloudflareApiKey = readSeedValue("DEV_SEED_CLOUDFLARE_API_KEY");
     const cloudflareAccountId = readSeedValue("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
     const seedArgs: SeedProviderConnectionsArgs = { email };
@@ -278,6 +288,9 @@ export const seedPasswordAccount = internalAction({
     }
     if (convexTeamId !== undefined) {
       seedArgs.convexTeamId = convexTeamId;
+    }
+    if (convexTeamSlug !== undefined) {
+      seedArgs.convexTeamSlug = convexTeamSlug;
     }
     if (cloudflareApiKey !== undefined) {
       seedArgs.cloudflareApiKey = cloudflareApiKey;

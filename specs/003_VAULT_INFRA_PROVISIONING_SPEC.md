@@ -160,8 +160,9 @@ Repository-card external links:
   managed-infra link is available.
 - The Cloudflare link targets the specific Pages project:
   `https://dash.cloudflare.com/?to=/<accountId>/pages/view/<projectName>`.
-- The Convex link targets the production deployment dashboard:
-  `https://dashboard.convex.dev/d/<deploymentName>/deployment`.
+- The Convex link targets the production deployment dashboard from the connected
+  team slug, managed project slug, and deployment name:
+  `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/<deploymentName>`.
 - Service links are mobile-friendly text links with service icons. Labels should
   stay concise; the top-level Convex deployment link uses `Production deploy`
   because branch preview deploys belong on branch rows.

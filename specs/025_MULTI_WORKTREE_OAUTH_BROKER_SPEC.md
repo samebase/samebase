@@ -117,8 +117,9 @@ Only these env vars are used:
 1. `DEV_SEED_GITHUB_API_KEY`
 2. `DEV_SEED_CONVEX_MANAGEMENT_API_KEY`
 3. `DEV_SEED_CONVEX_TEAM_ID`
-4. `DEV_SEED_CLOUDFLARE_API_KEY` for seed-only local Cloudflare bootstrap
-5. `DEV_SEED_CLOUDFLARE_ACCOUNT_ID` for seed-only local Cloudflare bootstrap
+4. `DEV_SEED_CONVEX_TEAM_SLUG`
+5. `DEV_SEED_CLOUDFLARE_API_KEY` for seed-only local Cloudflare bootstrap
+6. `DEV_SEED_CLOUDFLARE_ACCOUNT_ID` for seed-only local Cloudflare bootstrap
 
 ## Notes
 
