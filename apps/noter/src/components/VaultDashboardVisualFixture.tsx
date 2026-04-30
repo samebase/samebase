@@ -25,6 +25,8 @@ import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2Fix
 
 export type VaultDashboardVisualMode =
   | "vault-create-control"
+  | "vault-dashboard-dev-tools-hidden"
+  | "vault-dashboard-dev-tools-visible"
   | "vault-dashboard-sticky-header"
   | "vault-dashboard-list-spacing"
   | "vault-last-updated-status"
@@ -300,6 +302,58 @@ function VaultDashboardListSpacingFixture({
   );
 }
 
+function VaultDashboardDeveloperToolsFixture({
+  visible,
+}: {
+  visible: boolean;
+}) {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode={
+        visible
+          ? "vault-dashboard-dev-tools-visible"
+          : "vault-dashboard-dev-tools-hidden"
+      }
+      className="w-full bg-background text-foreground"
+    >
+      <TestRouterProvider>
+        <VaultDashboardRepositoryList>
+          <div data-testid="vault-dashboard-dev-tools-card">
+            <VaultDashboardRepositoryCard
+              isReady={true}
+              repositoryOwner="noter-md"
+              repositoryName="noter"
+              titleHref="https://github.com/noter-md/noter"
+              repositoryLinks={<FixtureRepositoryLinks />}
+              branchSection={
+                <div className="space-y-1.5">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                    Branches
+                  </p>
+                  <div className="-mx-4 border-y border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground sm:mx-0 sm:corner-notch-1 sm:border">
+                    main
+                  </div>
+                </div>
+              }
+              developerToolsSection={{
+                visible,
+                open: false,
+                onOpenChange: () => {},
+                content: (
+                  <div className="text-xs text-muted-foreground">
+                    Codespace ready
+                  </div>
+                ),
+              }}
+            />
+          </div>
+        </VaultDashboardRepositoryList>
+      </TestRouterProvider>
+    </div>
+  );
+}
+
 function VaultDashboardStickyHeaderFixture() {
   const [branchesExpanded, setBranchesExpanded] = useState(false);
   const visibleBranches = branchesExpanded
@@ -518,6 +572,14 @@ export function VaultDashboardVisualFixture({
 }) {
   if (mode === "vault-create-control") {
     return <FixtureDashboardCreateControl />;
+  }
+
+  if (mode === "vault-dashboard-dev-tools-hidden") {
+    return <VaultDashboardDeveloperToolsFixture visible={false} />;
+  }
+
+  if (mode === "vault-dashboard-dev-tools-visible") {
+    return <VaultDashboardDeveloperToolsFixture visible={true} />;
   }
 
   if (mode === "vault-last-updated-status") {

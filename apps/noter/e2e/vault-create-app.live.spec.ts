@@ -103,7 +103,7 @@ test.describe("vault create app live flow", () => {
     });
 
     try {
-      await page.goto("/", { waitUntil: "domcontentloaded" });
+      await page.goto("/?dev", { waitUntil: "domcontentloaded" });
       await signInIfNeeded(page);
       await createAppIfAvailable(page, repositoryName);
       createdRepository = true;
@@ -127,7 +127,7 @@ test.describe("vault create app live flow", () => {
       // Exercise the same dashboard removal path operators use so the temporary
       // repo does not linger after the live test completes.
       if (createdRepository) {
-        await page.goto("/", { waitUntil: "domcontentloaded" });
+        await page.goto("/?dev", { waitUntil: "domcontentloaded" });
         await signInIfNeeded(page);
         await removeTemporaryVault(page, repositoryName);
       }

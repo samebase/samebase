@@ -88,6 +88,7 @@ import {
 import { DAYTONA_PAUSED } from "../../shared/daytonaPause";
 import type { Id } from "../../convex/_generated/dataModel";
 import { buildVaultCodespaceChatRoute } from "@/lib/vaultRoutes";
+import { hasQueryParam } from "@/lib/queryParams";
 import {
   buildPullRequestLabelStyle,
   normalizePullRequestLabels,
@@ -116,6 +117,7 @@ const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
 } satisfies WorkspaceSidebarState;
+const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 const COLLAPSED_BRANCH_LIMIT = 8;
 
 const formatInfraState = (
@@ -1042,6 +1044,7 @@ function VaultBranchSection({
 
 type VaultDashboardBodyProps = {
   branchToDelete: VaultBranchDeleteIntent | null;
+  developerToolsVisible: boolean;
   isDeletingBranch: boolean;
   now: number;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
@@ -1064,6 +1067,7 @@ type VaultDashboardBodyProps = {
 
 function VaultDashboardBody({
   branchToDelete,
+  developerToolsVisible,
   isDeletingBranch,
   now,
   openDeveloperToolsByVaultId,
@@ -1110,7 +1114,8 @@ function VaultDashboardBody({
             : null;
         const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
         const developerToolsOpen =
-          openDeveloperToolsByVaultId[vault._id] ?? false;
+          developerToolsVisible &&
+          (openDeveloperToolsByVaultId[vault._id] ?? false);
         const infraActionLabel = vault.isNoterManaged
           ? getInfraActionLabel(vault.infraState)
           : null;
@@ -1315,6 +1320,7 @@ function VaultDashboardBody({
               isReady
                 ? {
                     open: developerToolsOpen,
+                    visible: developerToolsVisible,
                     onOpenChange: (isOpen: boolean) => {
                       onOpenDeveloperToolsChange(vault._id, isOpen);
                     },
@@ -1363,13 +1369,19 @@ function VaultDashboardBody({
             }
             footerActions={
               infraActionLabel ||
-              (CHAT_ENABLED && developerToolsOpen && chatRoute) ? (
+              (CHAT_ENABLED &&
+                developerToolsVisible &&
+                developerToolsOpen &&
+                chatRoute) ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  {CHAT_ENABLED && developerToolsOpen && chatRoute && (
-                    <Button asChild variant="outline" size="sm">
-                      <Link to={chatRoute}>Chat</Link>
-                    </Button>
-                  )}
+                  {CHAT_ENABLED &&
+                    developerToolsVisible &&
+                    developerToolsOpen &&
+                    chatRoute && (
+                      <Button asChild variant="outline" size="sm">
+                        <Link to={chatRoute}>Chat</Link>
+                      </Button>
+                    )}
                   {infraActionLabel && (
                     <Button
                       variant="outline"
@@ -1401,6 +1413,10 @@ function VaultDashboardBody({
 
 export function VaultDashboard() {
   const location = useLocation();
+  const developerToolsVisible = hasQueryParam(
+    location.searchStr,
+    DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM,
+  );
   const vaults = useQuery(api.vault.getUserVaults);
   const now = useNow();
   const deleteVault = useAction(api.vaultActions.deleteVault);
@@ -1540,6 +1556,16 @@ export function VaultDashboard() {
   const initialCloudflareMcpTokenCheckedAtRef = useRef<
     number | undefined | null
   >(null);
+
+  useEffect(() => {
+    if (developerToolsVisible) {
+      return;
+    }
+
+    setOpenDeveloperToolsByVaultId((currentOpenState) =>
+      Object.keys(currentOpenState).length === 0 ? currentOpenState : {},
+    );
+  }, [developerToolsVisible]);
 
   useEffect(() => {
     if (dashboardAccountPanelOpen === undefined) {
@@ -2621,6 +2647,7 @@ export function VaultDashboard() {
   const dashboardBody = (
     <VaultDashboardBody
       branchToDelete={branchToDelete}
+      developerToolsVisible={developerToolsVisible}
       isDeletingBranch={isDeletingBranch}
       now={now}
       openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}

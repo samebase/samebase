@@ -254,6 +254,62 @@ test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
   });
 });
 
+test("vault dashboard fixture (developer tools query spacing)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 640, height: 260 });
+  await page.goto(
+    "/visual-fixture.html?mode=vault-dashboard-dev-tools-hidden",
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
+  await page.waitForLoadState("networkidle");
+
+  const hiddenFixture = page.getByTestId("vault-dashboard-visual-fixture");
+  const hiddenCard = page.getByTestId("vault-dashboard-dev-tools-card");
+  await expect(
+    hiddenFixture.getByRole("button", { name: "Developer tools" }),
+  ).toHaveCount(0);
+
+  const hiddenBox = await hiddenCard.boundingBox();
+  expect(hiddenBox).not.toBeNull();
+  if (hiddenBox === null) {
+    throw new Error("Expected hidden developer tools fixture card bounds");
+  }
+
+  await expect(hiddenFixture).toHaveScreenshot(
+    "vault-dashboard-dev-tools-hidden.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
+
+  await page.goto(
+    "/visual-fixture.html?mode=vault-dashboard-dev-tools-visible",
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
+  await page.waitForLoadState("networkidle");
+
+  const visibleFixture = page.getByTestId("vault-dashboard-visual-fixture");
+  const visibleCard = page.getByTestId("vault-dashboard-dev-tools-card");
+  await expect(
+    visibleFixture.getByRole("button", { name: "Developer tools" }),
+  ).toBeVisible();
+
+  const visibleBox = await visibleCard.boundingBox();
+  expect(visibleBox).not.toBeNull();
+  if (visibleBox === null) {
+    throw new Error("Expected visible developer tools fixture card bounds");
+  }
+  expect(Math.round(visibleBox.height)).toBe(Math.round(hiddenBox.height));
+});
+
 test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 520 });
   await page.goto("/visual-fixture.html?mode=vault-dashboard-list-spacing", {
