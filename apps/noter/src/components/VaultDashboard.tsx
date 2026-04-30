@@ -323,7 +323,7 @@ const CloudflareProviderLogo = ({ className }: { className?: string }) => (
     <svg
       aria-hidden="true"
       viewBox="0 0 64 32"
-      className="h-2 w-4"
+      className="h-2.5 w-5"
       xmlns="http://www.w3.org/2000/svg"
     >
       <path
@@ -711,8 +711,8 @@ export function VaultBranchLinkContent({
                 <DashboardLinkIconSlot>
                   <GitCommitHorizontal
                     aria-hidden="true"
-                    className="h-4 w-4"
-                    strokeWidth={1.75}
+                    className="h-5 w-5"
+                    strokeWidth={2}
                   />
                 </DashboardLinkIconSlot>
                 <span>Last commit {headCommitSha.slice(0, 7)}</span>
