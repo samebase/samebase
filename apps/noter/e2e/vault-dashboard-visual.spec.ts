@@ -66,9 +66,6 @@ test("vault dashboard fixture (create control)", async ({ page }) => {
   await expect(
     fixture.getByRole("button", { name: "Connect existing app" }),
   ).toHaveAttribute("href", "/add");
-  await expect(
-    fixture.getByRole("button", { name: "Connect machine" }),
-  ).toHaveAttribute("href", "/machines/connect");
   await expect(fixture).toHaveScreenshot("vault-create-control.png", {
     animations: "disabled",
     caret: "hide",

@@ -2221,17 +2221,6 @@ export function VaultDashboard() {
           </span>
         </Button>
       )}
-      <Button
-        variant="outline"
-        className="h-auto min-h-8 w-full whitespace-normal py-2"
-        asChild
-      >
-        <Link to="/machines/connect">
-          <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
-            Connect machine
-          </span>
-        </Link>
-      </Button>
       {createError && <div className="text-sm text-red-600">{createError}</div>}
       {!canCreateRepo && (
         <div className="text-xs text-muted-foreground">

@@ -367,17 +367,6 @@ function FixtureDashboardCreateControl() {
                 </span>
               </Link>
             </Button>
-            <Button
-              variant="outline"
-              className="h-auto min-h-8 w-full whitespace-normal py-2"
-              asChild
-            >
-              <Link to="/machines/connect">
-                <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
-                  Connect machine
-                </span>
-              </Link>
-            </Button>
           </div>
           <div className="mt-auto">
             <AppSidebarMetaSection
