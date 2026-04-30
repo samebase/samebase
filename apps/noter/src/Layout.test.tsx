@@ -8,7 +8,10 @@ import {
   LANDING_DEV_MODE_LINK_LABEL,
   LANDING_DEV_MODE_QUERY_PARAM,
 } from "@/lib/landingDevMode";
-import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "@/lib/landingMarkdownPreview";
+import {
+  LANDING_MARKDOWN_PREVIEW_ROMANIAN_LINK_LABEL,
+  LANDING_MARKDOWN_PREVIEW_ROUTE,
+} from "@/lib/landingMarkdownPreview";
 import {
   FORCE_PROD_UI_MODE_LINK_LABEL,
   FORCE_PROD_UI_QUERY_PARAM,
@@ -606,14 +609,17 @@ describe("Layout", () => {
     const machinesHref = `href="${MACHINES_ROUTE}"`;
     const machineConnectHref = `href="${MACHINE_CONNECT_ROUTE}"`;
     const landingPreviewHref = `href="${LANDING_MARKDOWN_PREVIEW_ROUTE}"`;
+    const landingPreviewRomanianHref = `href="${LANDING_MARKDOWN_PREVIEW_ROMANIAN_LINK_LABEL}"`;
     const termsHref = 'href="/terms"';
 
     expect(defaultMarkup).not.toContain(machinesHref);
     expect(defaultMarkup).not.toContain(machineConnectHref);
     expect(defaultMarkup).not.toContain(landingPreviewHref);
+    expect(defaultMarkup).not.toContain(landingPreviewRomanianHref);
     expect(dashboardMarkup).toContain(machinesHref);
     expect(dashboardMarkup).toContain(machineConnectHref);
     expect(dashboardMarkup).toContain(landingPreviewHref);
+    expect(dashboardMarkup).toContain(landingPreviewRomanianHref);
     expect(dashboardMarkup.indexOf(homeHref)).toBeLessThan(
       dashboardMarkup.indexOf(machinesHref),
     );
@@ -621,6 +627,9 @@ describe("Layout", () => {
       dashboardMarkup.indexOf(landingPreviewHref),
     );
     expect(dashboardMarkup.indexOf(landingPreviewHref)).toBeLessThan(
+      dashboardMarkup.indexOf(landingPreviewRomanianHref),
+    );
+    expect(dashboardMarkup.indexOf(landingPreviewRomanianHref)).toBeLessThan(
       dashboardMarkup.indexOf(termsHref),
     );
   });

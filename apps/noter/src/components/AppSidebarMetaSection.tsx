@@ -12,7 +12,11 @@ import {
   LANDING_DEV_MODE_QUERY_PARAM,
   isLandingDevModeEnabled,
 } from "@/lib/landingDevMode";
-import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "@/lib/landingMarkdownPreview";
+import {
+  LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
+  LANDING_MARKDOWN_PREVIEW_ROMANIAN_LINK_LABEL,
+  LANDING_MARKDOWN_PREVIEW_ROUTE,
+} from "@/lib/landingMarkdownPreview";
 import {
   FORCE_PROD_UI_MODE_LINK_LABEL,
   FORCE_PROD_UI_QUERY_PARAM,
@@ -183,9 +187,26 @@ export function AppSidebarMetaSection({
         </>
       ) : null}
       {showLandingPreviewLink ? (
-        <Link to={LANDING_MARKDOWN_PREVIEW_ROUTE}>
-          {LANDING_MARKDOWN_PREVIEW_ROUTE}
-        </Link>
+        <>
+          <Link
+            to={LANDING_MARKDOWN_PREVIEW_ROUTE}
+            search={(currentSearch) => ({
+              ...currentSearch,
+              [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: undefined,
+            })}
+          >
+            {LANDING_MARKDOWN_PREVIEW_ROUTE}
+          </Link>
+          <Link
+            to={LANDING_MARKDOWN_PREVIEW_ROUTE}
+            search={(currentSearch) => ({
+              ...currentSearch,
+              [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: "ro",
+            })}
+          >
+            {LANDING_MARKDOWN_PREVIEW_ROMANIAN_LINK_LABEL}
+          </Link>
+        </>
       ) : null}
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>

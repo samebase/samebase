@@ -1,11 +1,19 @@
 import { readFileSync } from "node:fs";
 import { expect, test, type Locator } from "@playwright/test";
+import { LANDING_DEV_MODE_QUERY_PARAM } from "../src/lib/landingDevMode";
 import { getLandingMarkdownHeadings } from "../src/lib/landingMarkdownHeadings";
 import {
   LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID,
+  LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
+  LANDING_MARKDOWN_PREVIEW_ROMANIAN_LINK_LABEL,
+  LANDING_MARKDOWN_PREVIEW_ROUTE,
   LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_TEST_ID,
 } from "../src/lib/landingMarkdownPreview";
+import {
+  buildPathWithUpdatedQuery,
+  setQueryParam,
+} from "../src/lib/queryParams";
 
 const landingPreviewMarkdown = readFileSync(
   new URL("../src/content/landing-preview.md", import.meta.url),
@@ -26,6 +34,19 @@ const expectedLandingPreviewVideoSrcs = [
   "/landing-preview/step-4-create-convex-project.mp4",
   "/landing-preview/step-5-create-cloudflare-pages-deploy.mp4",
 ] as const;
+const expectedRomanianPreviewHref = buildPathWithUpdatedQuery(
+  {
+    pathname: LANDING_MARKDOWN_PREVIEW_ROUTE,
+  },
+  (searchParams) => {
+    setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, true);
+    setQueryParam(
+      searchParams,
+      LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
+      "ro",
+    );
+  },
+);
 
 async function expectSidebarLinksToMatchMarkdown(sidebar: Locator) {
   const sidebarLinks = sidebar.getByRole("link");
@@ -48,6 +69,7 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
   await page.goto("/landing-preview?dev", {
     waitUntil: "domcontentloaded",
   });
+  await page.waitForLoadState("networkidle");
 
   await page.evaluate(async () => {
     await document.fonts.ready;
@@ -63,13 +85,18 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
   await expectSidebarLinksToMatchMarkdown(sidebar);
   await expect(rightSidebar).toBeVisible();
   await expect(
-    article.getByRole("heading", {
+  article.getByRole("heading", {
       name: /Deploy a production-ready, real-time web-app/,
     }),
   ).toBeVisible();
   await expect(
     article.locator('[id="1-create-github-convex-cloudflare-openai-accounts"]'),
   ).toContainText("1: Create Github, Convex, Cloudflare & OpenAI accounts");
+  await expect(
+    page.getByRole("link", {
+      name: LANDING_MARKDOWN_PREVIEW_ROMANIAN_LINK_LABEL,
+    }),
+  ).toHaveAttribute("href", expectedRomanianPreviewHref);
   await expect(article.locator("details")).toHaveCount(4);
   await expect(article.locator("details video")).toHaveCount(0);
   const videos = article.locator("video");

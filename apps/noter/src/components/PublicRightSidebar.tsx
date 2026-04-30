@@ -3,6 +3,7 @@ import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControl
 import { RouteUrlDisplay } from "@/components/RouteUrlDisplay";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
+import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "@/lib/landingMarkdownPreview";
 import { useLocation } from "@tanstack/react-router";
 
 export const PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID =
@@ -34,6 +35,8 @@ export function usePublicRightSidebarPane(): WorkspaceLayoutV2PaneFrameProps {
     new URLSearchParams(location.searchStr),
   );
   const isPublicLandingRoute = location.pathname === "/";
+  const isLandingPreviewRoute =
+    location.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE;
 
   return {
     header: renderPublicRouteUrlHeader(landingDevEnabled),
@@ -46,7 +49,10 @@ export function usePublicRightSidebarPane(): WorkspaceLayoutV2PaneFrameProps {
           </div>
         ) : null}
         <div className="mt-auto">
-          <AppSidebarMetaSection side="right" />
+          <AppSidebarMetaSection
+            showLandingPreviewLink={isLandingPreviewRoute}
+            side="right"
+          />
         </div>
       </div>
     ),
