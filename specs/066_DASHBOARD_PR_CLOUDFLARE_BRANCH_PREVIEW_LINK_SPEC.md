@@ -58,7 +58,8 @@ part of the accepted behavior:
 4. The branch name remains visible with a branch icon, but is not itself the
    edit navigation target.
 5. A Noter `Edit` link renders below the Cloudflare preview/logs affordance,
-   uses the favicon-style square-in-square mark, and opens the branch file view.
+   uses the version 2 side-diagonal identity mark, and opens the branch file
+   view.
 6. A current Cloudflare branch preview remains a separate visible affordance on
    the branch row. It must not disappear when PR metadata is moved or restyled.
 7. The Cloudflare branch preview affordance uses the label `Cloudflare preview`

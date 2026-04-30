@@ -6,7 +6,8 @@
 - Owner: Noter frontend
 - Last updated: 2026-03-18
 - Related files: `specs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md`,
-  `apps/noter/src/App.tsx`, `apps/noter/src/components/LogoPreviewPage.tsx`,
+  `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`, `apps/noter/src/App.tsx`,
+  `apps/noter/src/components/LogoPreviewPage.tsx`,
   `apps/noter/src/components/NLogoScene.tsx`,
   `apps/noter/src/components/NLogoIsoScene.tsx`,
   `apps/noter/src/components/logoIsometricRenderer.ts`,
@@ -28,6 +29,11 @@ The canonical geometry for that smooth SVG should come from the fixed
 orthographic Three camera projection, not from the pixel-art isometric helper.
 The pixel-art isometric renderer remains useful, but as a separate artistic
 representation rather than the primary logo contract.
+
+The brand identity sequence itself is defined in
+`specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`: version 1 is the straight-on
+primary side, version 2 is the flat 45-degree two-color side, and version 3 is
+the tilted spatial static mark.
 
 The existing `/logo`, `/logo-iso`, and `/logo-iso-study` routes should remain as
 dev-only exploration tools. `/logo` remains the interactive reference for the

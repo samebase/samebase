@@ -103,6 +103,7 @@ import {
   buildPullRequestLabelStyle,
   normalizePullRequestLabels,
 } from "@/lib/pullRequestLabels";
+import { LOGO_IDENTITY_EDIT_MARK_SVG_URL } from "@/components/logoStaticSvgContract";
 import {
   areVaultBranchFiltersEqual,
   buildVaultBranchFilterOptions,
@@ -241,7 +242,7 @@ type VaultBranchDeleteIntent = {
   branchName: string;
 };
 
-const NOTER_LOGO_ICON_SRC = "/favicon-32.png";
+const NOTER_LOGO_ICON_SRC = LOGO_IDENTITY_EDIT_MARK_SVG_URL;
 const dashboardLinkIconSlotClassName =
   "inline-flex h-4 w-5 shrink-0 items-center justify-center";
 
