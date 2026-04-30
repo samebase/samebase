@@ -189,7 +189,7 @@ const LIST_SPACING_BRANCHES: Array<
     behindBy: 1,
   },
   {
-    branchName: "codex/delete-branch-guard",
+    branchName: "codex/branch-cleanup-guard",
     headCommitSha: "b34567890abcdef1234567890abcdef123456789",
     isDefault: false,
     isDeletedUpstream: false,
