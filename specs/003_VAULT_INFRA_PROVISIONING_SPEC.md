@@ -160,6 +160,8 @@ Dashboard external links:
   managed-infra link is available.
 - The Cloudflare link targets the specific Pages project:
   `https://dash.cloudflare.com/?to=/<accountId>/pages/view/<projectName>`.
+- The `Project settings` Convex link targets the project-scoped settings page:
+  `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/settings`.
 - The production Convex link renders on the default branch row, not in the
   repository-title service row, because the production deployment follows that
   branch.

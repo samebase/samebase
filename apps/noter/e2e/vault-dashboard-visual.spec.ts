@@ -225,6 +225,9 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   await expect(
+    fixture.getByRole("link", { name: "Project settings" }),
+  ).toBeVisible();
+  await expect(
     fixture.getByRole("link", { name: "Cloudflare preview" }),
   ).toBeVisible();
   await expect(
@@ -247,6 +250,9 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(
+    fixture.getByRole("link", { name: "Project settings" }),
+  ).toBeVisible();
   await expect(
     fixture.getByRole("link", { name: "Cloudflare preview" }),
   ).toBeVisible();

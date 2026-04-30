@@ -114,6 +114,19 @@ export function buildConvexDeploymentDashboardUrl(args: {
   return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/${encodeURIComponent(normalizedProjectSlug)}/${encodeURIComponent(normalizedDeploymentName)}`;
 }
 
+export function buildConvexProjectSettingsDashboardUrl(args: {
+  projectSlug: string | undefined;
+  teamSlug: string | undefined;
+}): string | undefined {
+  const normalizedTeamSlug = args.teamSlug?.trim();
+  const normalizedProjectSlug = args.projectSlug?.trim();
+  if (!normalizedTeamSlug || !normalizedProjectSlug) {
+    return undefined;
+  }
+
+  return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/${encodeURIComponent(normalizedProjectSlug)}/settings`;
+}
+
 /**
  * Cloudflare can edit or partially reformat its PR comment without removing the
  * underlying branch alias. Preserve existing cached fields when the latest
@@ -894,6 +907,7 @@ const getUserVaultsResult = array(
     ),
     infraProductionUrl: optional(string()),
     cloudflareProjectDashboardUrl: optional(string()),
+    convexProjectSettingsDashboardUrl: optional(string()),
     convexDeploymentDashboardUrl: optional(string()),
   }),
 );
@@ -1032,6 +1046,11 @@ export const getUserVaults = query({
           infraProductionUrl: resolveHostingMainUrl(infra),
           cloudflareProjectDashboardUrl:
             buildCloudflareProjectDashboardUrl(infra),
+          convexProjectSettingsDashboardUrl:
+            buildConvexProjectSettingsDashboardUrl({
+              projectSlug: infra?.convexProjectSlug,
+              teamSlug: convexTeamDashboardSlug,
+            }),
           convexDeploymentDashboardUrl: buildConvexDeploymentDashboardUrl({
             deploymentName: infra?.convexDeploymentName,
             projectSlug: infra?.convexProjectSlug,

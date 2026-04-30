@@ -374,7 +374,7 @@ function formatAheadBehindCounts(
 
 type VaultDashboardRepositoryExternalLink = {
   href: string;
-  key: "cloudflare" | "github";
+  key: "cloudflare" | "convexProjectSettings" | "github";
   label: string;
   title: string;
 };
@@ -384,11 +384,13 @@ const REPOSITORY_EXTERNAL_LINK_ICONS: Record<
   ComponentType<{ className?: string }>
 > = {
   cloudflare: CloudflareProviderLogo,
+  convexProjectSettings: ConvexProviderLogo,
   github: GitHubProviderLogo,
 };
 
 function buildVaultDashboardRepositoryExternalLinks(args: {
   cloudflareProjectDashboardUrl?: string;
+  convexProjectSettingsDashboardUrl?: string;
   githubRepositoryUrl: string;
 }): VaultDashboardRepositoryExternalLink[] {
   const links: VaultDashboardRepositoryExternalLink[] = [
@@ -406,6 +408,15 @@ function buildVaultDashboardRepositoryExternalLinks(args: {
       key: "cloudflare",
       label: "Cloudflare",
       title: "Open Cloudflare Pages project",
+    });
+  }
+
+  if (typeof args.convexProjectSettingsDashboardUrl === "string") {
+    links.push({
+      href: args.convexProjectSettingsDashboardUrl,
+      key: "convexProjectSettings",
+      label: "Project settings",
+      title: "Open Convex project settings",
     });
   }
 
@@ -1069,6 +1080,8 @@ function VaultDashboardBody({
         const repositoryExternalLinks =
           buildVaultDashboardRepositoryExternalLinks({
             cloudflareProjectDashboardUrl: vault.cloudflareProjectDashboardUrl,
+            convexProjectSettingsDashboardUrl:
+              vault.convexProjectSettingsDashboardUrl,
             githubRepositoryUrl,
           });
         const sharedLastSyncedAt = vault.lastTreeRefreshAt;

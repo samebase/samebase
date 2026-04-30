@@ -58,6 +58,12 @@ function FixtureRepositoryLinks() {
           label: "Cloudflare",
           title: "Open Cloudflare Pages project",
         },
+        {
+          href: "https://dashboard.convex.dev/t/nicu/noter/settings",
+          key: "convexProjectSettings",
+          label: "Project settings",
+          title: "Open Convex project settings",
+        },
       ]}
     />
   );
