@@ -340,6 +340,9 @@ importers:
       vite-plugin-solid:
         specifier: ^2.11.12
         version: 2.11.12(solid-js@1.9.12)(vite@8.0.8(@types/node@20.19.32)(esbuild@0.27.0)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))
+      vite-plus:
+        specifier: 0.1.16
+        version: 0.1.16(@opentelemetry/api@1.9.0)(@types/node@20.19.32)(jiti@2.6.1)(jsdom@29.0.1(@noble/hashes@1.8.0))(terser@5.46.0)(tsx@4.21.0)(typescript@5.9.2)(vite@8.0.8(@types/node@20.19.32)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))(yaml@2.8.3)
 
   packages/dependent: {}
 
