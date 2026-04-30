@@ -10,7 +10,13 @@ import {
   TrashIcon,
   UpdateIcon,
 } from "@/lib/radixIcons";
-import { Loader2 } from "lucide-react";
+import {
+  GitBranch,
+  GitCommitHorizontal,
+  GitPullRequestCreateArrow,
+  GitPullRequestDraft,
+  Loader2,
+} from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
@@ -51,6 +57,7 @@ import {
   useState,
   type ComponentType,
   type MutableRefObject,
+  type ReactNode,
 } from "react";
 import { isInIframe, useNoterAuthActions } from "@/authClient";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
@@ -87,12 +94,16 @@ import {
 } from "@/components/ApiKeyConnectDialog";
 import { DAYTONA_PAUSED } from "../../shared/daytonaPause";
 import type { Id } from "../../convex/_generated/dataModel";
-import { buildVaultCodespaceChatRoute } from "@/lib/vaultRoutes";
+import {
+  buildVaultCodespaceChatRoute,
+  buildVaultFileRoute,
+} from "@/lib/vaultRoutes";
 import { hasQueryParam } from "@/lib/queryParams";
 import {
   buildPullRequestLabelStyle,
   normalizePullRequestLabels,
 } from "@/lib/pullRequestLabels";
+import { LOGO_IDENTITY_EDIT_MARK_SVG_URL } from "@/components/logoStaticSvgContract";
 import {
   areVaultBranchFiltersEqual,
   buildVaultBranchFilterOptions,
@@ -231,9 +242,58 @@ type VaultBranchDeleteIntent = {
   branchName: string;
 };
 
+const NOTER_LOGO_ICON_SRC = LOGO_IDENTITY_EDIT_MARK_SVG_URL;
+const dashboardLinkIconSlotClassName =
+  "inline-flex h-4 w-5 shrink-0 items-center justify-center";
+
+const DashboardLinkIconSlot = ({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) => (
+  <span
+    aria-hidden="true"
+    className={clsx(dashboardLinkIconSlotClassName, className)}
+  >
+    {children}
+  </span>
+);
+
 const GitHubProviderLogo = ({ className }: { className?: string }) => (
   <GitHubLogoIcon className={clsx("h-4 w-4", className)} />
 );
+
+const NoterLogoMark = ({ className }: { className?: string }) => (
+  <span className={clsx("inline-flex items-center justify-center", className)}>
+    <img
+      src={NOTER_LOGO_ICON_SRC}
+      alt=""
+      aria-hidden="true"
+      className="h-4 w-4"
+      draggable={false}
+    />
+  </span>
+);
+
+const PullRequestStateLogo = ({
+  className,
+  isDraft,
+}: {
+  className?: string;
+  isDraft: boolean;
+}) => {
+  const Icon = isDraft ? GitPullRequestDraft : GitPullRequestCreateArrow;
+
+  return (
+    <Icon
+      aria-hidden="true"
+      className={clsx("h-4 w-4", className)}
+      strokeWidth={2}
+    />
+  );
+};
 
 const ConvexProviderLogo = ({ className }: { className?: string }) => (
   <span className={clsx("inline-flex items-center justify-center", className)}>
@@ -264,7 +324,7 @@ const CloudflareProviderLogo = ({ className }: { className?: string }) => (
     <svg
       aria-hidden="true"
       viewBox="0 0 64 32"
-      className="h-4 w-auto"
+      className="h-2.5 w-5"
       xmlns="http://www.w3.org/2000/svg"
     >
       <path
@@ -429,6 +489,29 @@ function buildVaultDashboardRepositoryExternalLinks(args: {
   return links.length > 1 ? links : [];
 }
 
+function buildVaultDashboardBranchEditRoute(args: {
+  repositoryFullName: string;
+  branchName: string;
+}): string | null {
+  const [owner, repoName, extraSegment] = args.repositoryFullName.split("/");
+
+  if (
+    !owner ||
+    !repoName ||
+    typeof extraSegment === "string" ||
+    owner.length === 0 ||
+    repoName.length === 0
+  ) {
+    return null;
+  }
+
+  return buildVaultFileRoute({
+    owner,
+    repoName,
+    branch: args.branchName,
+  });
+}
+
 export function VaultDashboardRepositoryExternalLinks({
   links,
   repositoryFullName,
@@ -460,7 +543,9 @@ export function VaultDashboardRepositoryExternalLinks({
             )}
             title={link.title}
           >
-            <Icon className="shrink-0" />
+            <DashboardLinkIconSlot>
+              <Icon />
+            </DashboardLinkIconSlot>
             <span>{link.label}</span>
           </a>
         );
@@ -516,8 +601,16 @@ export function VaultBranchLinkContent({
     normalizePullRequestLabels(pullRequestLabels);
   const hasPullRequestLink =
     typeof pullRequestUrl === "string" && pullRequestUrl.length > 0;
+  const pullRequestLabel =
+    typeof pullRequestNumber === "number"
+      ? `PR #${pullRequestNumber}`
+      : "Pull request";
+  const hasConsolidatedPullRequestLink =
+    hasPullRequestTitle && hasPullRequestLink;
+  const hasStandalonePullRequestLink =
+    hasPullRequestLink && !hasConsolidatedPullRequestLink;
   const hasPullRequestMetadata =
-    hasPullRequestLink ||
+    hasStandalonePullRequestLink ||
     pullRequestIsDraft === true ||
     normalizedPullRequestLabels.length > 0;
   const metadataLinkClassName = clsx(
@@ -525,15 +618,17 @@ export function VaultBranchLinkContent({
     "font-mono",
     linkStyle,
   );
-  const branchLinkClassName = clsx(
-    "-mx-1.5 -my-1 block min-h-9 max-w-full break-words rounded-sm px-1.5 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current",
+  const branchLabelClassName = clsx(
+    "-mx-1.5 -my-1 flex min-h-9 max-w-full items-start gap-1.5 rounded-sm px-1.5 py-1 text-base leading-6",
     hasPullRequestTitle
       ? "font-mono text-muted-foreground"
       : "text-muted-foreground",
     !hasPullRequestTitle && isDefault && "font-medium text-foreground",
   );
-  const branchPath = encodeURIComponent(branchName);
-  const branchRoute = `/vault/${repositoryFullName}/${branchPath}`;
+  const branchEditRoute = buildVaultDashboardBranchEditRoute({
+    repositoryFullName,
+    branchName,
+  });
   const hasCurrentPreviewLink = hasCurrentCloudflareBranchPreview({
     pullRequestNumber,
     cloudflareBranchPreviewUrl,
@@ -551,10 +646,6 @@ export function VaultBranchLinkContent({
     !isDefault &&
     hasCurrentPreviewLink &&
     typeof convexPreviewDeploymentDashboardUrl === "string";
-  const pullRequestLabel =
-    typeof pullRequestNumber === "number"
-      ? `PR #${pullRequestNumber}`
-      : "Pull request";
 
   return (
     <>
@@ -576,32 +667,56 @@ export function VaultBranchLinkContent({
                 target="_blank"
                 rel="noreferrer noopener"
                 className={clsx(
-                  "-mx-1.5 -my-1 block min-h-9 max-w-full break-words rounded-sm px-1.5 py-1 text-base font-medium leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+                  "-mx-1.5 -my-1 flex min-h-9 max-w-full items-start gap-1.5 rounded-sm px-1.5 py-1 text-base font-medium leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
                   linkStyle,
                 )}
                 title="Open pull request"
               >
-                {pullRequestTitle}
+                <DashboardLinkIconSlot className="mt-1">
+                  <PullRequestStateLogo isDraft={pullRequestIsDraft === true} />
+                </DashboardLinkIconSlot>
+                <span className="min-w-0 break-words">
+                  {pullRequestLabel} {pullRequestTitle}
+                </span>
               </a>
             ) : (
-              <div className="break-words text-base font-medium leading-6 text-foreground">
-                {pullRequestTitle}
+              <div className="flex min-h-9 max-w-full items-start gap-1.5 text-base font-medium leading-6 text-foreground">
+                <DashboardLinkIconSlot className="mt-1">
+                  <PullRequestStateLogo isDraft={pullRequestIsDraft === true} />
+                </DashboardLinkIconSlot>
+                <span className="min-w-0 break-words">
+                  {pullRequestLabel} {pullRequestTitle}
+                </span>
               </div>
             )
           ) : null}
-          <Link to={branchRoute} className={branchLinkClassName}>
-            {branchName}
-          </Link>
+          <div className={branchLabelClassName}>
+            <DashboardLinkIconSlot className="mt-1">
+              <GitBranch
+                aria-hidden="true"
+                className="h-4 w-4"
+                strokeWidth={1.75}
+              />
+            </DashboardLinkIconSlot>
+            <span className="min-w-0 break-words">{branchName}</span>
+          </div>
           <div className="space-y-1 text-base leading-6 text-muted-foreground/80">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
               <a
                 href={commitUrl}
                 target="_blank"
                 rel="noreferrer noopener"
-                className={metadataLinkClassName}
+                className={clsx(metadataLinkClassName, "gap-1.5")}
                 title="View commit on GitHub"
               >
-                commit {headCommitSha.slice(0, 7)}
+                <DashboardLinkIconSlot>
+                  <GitCommitHorizontal
+                    aria-hidden="true"
+                    className="h-5 w-5"
+                    strokeWidth={2}
+                  />
+                </DashboardLinkIconSlot>
+                <span>Last commit {headCommitSha.slice(0, 7)}</span>
               </a>
               {aheadBehindLabel ? (
                 <span
@@ -614,7 +729,7 @@ export function VaultBranchLinkContent({
             </div>
             {hasPullRequestMetadata ? (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                {hasPullRequestLink ? (
+                {hasStandalonePullRequestLink ? (
                   <a
                     href={pullRequestUrl}
                     target="_blank"
@@ -622,7 +737,11 @@ export function VaultBranchLinkContent({
                     className={clsx(metadataLinkClassName, "gap-1.5")}
                     title="Open pull request"
                   >
-                    <GitHubProviderLogo className="shrink-0" />
+                    <DashboardLinkIconSlot>
+                      <PullRequestStateLogo
+                        isDraft={pullRequestIsDraft === true}
+                      />
+                    </DashboardLinkIconSlot>
                     <span>{pullRequestLabel}</span>
                   </a>
                 ) : null}
@@ -661,7 +780,9 @@ export function VaultBranchLinkContent({
                   )}
                   title="Open Cloudflare build logs"
                 >
-                  <CloudflareProviderLogo className="shrink-0" />
+                  <DashboardLinkIconSlot>
+                    <CloudflareProviderLogo />
+                  </DashboardLinkIconSlot>
                   <span>Build failed logs</span>
                 </a>
               </div>
@@ -674,9 +795,25 @@ export function VaultBranchLinkContent({
                   className={clsx(metadataLinkClassName, "gap-1.5")}
                   title="Open Cloudflare branch preview"
                 >
-                  <CloudflareProviderLogo className="shrink-0" />
+                  <DashboardLinkIconSlot>
+                    <CloudflareProviderLogo />
+                  </DashboardLinkIconSlot>
                   <span>Cloudflare preview</span>
                 </a>
+              </div>
+            ) : null}
+            {branchEditRoute ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                <Link
+                  to={branchEditRoute}
+                  className={clsx(metadataLinkClassName, "gap-1.5")}
+                  title="Open branch in Noter"
+                >
+                  <DashboardLinkIconSlot>
+                    <NoterLogoMark />
+                  </DashboardLinkIconSlot>
+                  <span>Edit</span>
+                </Link>
               </div>
             ) : null}
             {hasPreviewDeploymentLink ? (
@@ -688,7 +825,9 @@ export function VaultBranchLinkContent({
                   className={clsx(metadataLinkClassName, "gap-1.5")}
                   title="Open Convex preview deployment dashboard"
                 >
-                  <ConvexProviderLogo className="shrink-0" />
+                  <DashboardLinkIconSlot>
+                    <ConvexProviderLogo />
+                  </DashboardLinkIconSlot>
                   <span>Preview deploy</span>
                 </a>
               </div>
@@ -702,7 +841,9 @@ export function VaultBranchLinkContent({
                   className={clsx(metadataLinkClassName, "gap-1.5")}
                   title="Open production Convex deployment dashboard"
                 >
-                  <ConvexProviderLogo className="shrink-0" />
+                  <DashboardLinkIconSlot>
+                    <ConvexProviderLogo />
+                  </DashboardLinkIconSlot>
                   <span>Production deploy</span>
                 </a>
               </div>

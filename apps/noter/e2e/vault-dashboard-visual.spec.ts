@@ -330,7 +330,19 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await expect(
     fixture.getByRole("link", { name: "Production deploy" }),
   ).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "PR #321" })).toBeVisible();
+  await expect(
+    fixture.getByRole("link", {
+      name: "PR #321 Use the full dashboard main pane",
+    }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "Edit" }).first(),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", {
+      name: "codex/dashboard-main-pane-spacing",
+    }),
+  ).toHaveCount(0);
   await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing.png", {
     animations: "disabled",
     caret: "hide",
@@ -359,7 +371,19 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   await expect(
     fixture.getByRole("link", { name: "Production deploy" }),
   ).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "PR #321" })).toBeVisible();
+  await expect(
+    fixture.getByRole("link", {
+      name: "PR #321 Use the full dashboard main pane",
+    }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "Edit" }).first(),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", {
+      name: "codex/dashboard-main-pane-spacing",
+    }),
+  ).toHaveCount(0);
   await expect(fixture).toHaveScreenshot(
     "vault-dashboard-list-spacing-desktop.png",
     {

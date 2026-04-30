@@ -10,7 +10,10 @@ import { fileURLToPath } from "node:url";
 import { formatWithVpFmt } from "../../scripts/format-with-vp-fmt.ts";
 import { readPackageVersion } from "../../scripts/readPackageVersion.ts";
 import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
-import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
+import {
+  createLogoIdentitySvgAssets,
+  createStaticLogoSvgMarkup,
+} from "./src/components/logoStaticSvgAsset";
 import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import {
   readEnvFileValue,
@@ -194,6 +197,32 @@ function syncStaticLogoSvgAsset() {
   writeFileSync(staticLogoSvgAssetPath, `${nextStaticLogoSvgMarkup}\n`, "utf8");
 }
 
+function syncLogoIdentitySvgAssets() {
+  for (const asset of createLogoIdentitySvgAssets()) {
+    const relativeAssetPath = asset.assetPath.replace(/^\//, "");
+    const targetAssetPath = path.resolve(
+      currentDir,
+      "public",
+      relativeAssetPath,
+    );
+    const nextAssetMarkup = asset.markup.trim();
+    const currentAssetMarkup = (() => {
+      try {
+        return readFileSync(targetAssetPath, "utf8").trim();
+      } catch {
+        return null;
+      }
+    })();
+
+    if (currentAssetMarkup === nextAssetMarkup) {
+      continue;
+    }
+
+    mkdirSync(path.dirname(targetAssetPath), { recursive: true });
+    writeFileSync(targetAssetPath, `${nextAssetMarkup}\n`, "utf8");
+  }
+}
+
 /**
  * Keep the checked-in install icon SVG stable by comparing trimmed markup and
  * only rewriting when the canonical source output has semantically changed.
@@ -319,6 +348,7 @@ function syncStaticLogoSvgAssetPlugin() {
 
     hasSyncedStaticLogoSvgAsset = true;
     syncStaticLogoSvgAsset();
+    syncLogoIdentitySvgAssets();
   };
 
   return {
