@@ -333,13 +333,13 @@ export function VaultDashboardRepositoryCard({
   const shouldStickHeader = Boolean(branchSection);
 
   return (
-    <div className={clsx("relative p-4", !isReady && "bg-muted/30 opacity-75")}>
+    <div className={clsx("relative", !isReady && "bg-muted/30 opacity-75")}>
       <div>
         <div
           data-testid="vault-dashboard-repository-header"
           className={clsx(
-            "relative -mx-4 -mt-4 px-4 pt-4",
-            hasBodyContent && "pb-3",
+            "relative px-4 pt-4",
+            hasBodyContent ? "pb-3" : "pb-4",
             shouldStickHeader && "sticky top-0 z-10 bg-background",
           )}
         >
@@ -382,37 +382,39 @@ export function VaultDashboardRepositoryCard({
           </div>
         </div>
 
-        <div className="space-y-3">
-          {branchSection}
-          {daytonaBanner}
+        {hasBodyContent ? (
+          <div className="space-y-3 px-4 pb-4">
+            {branchSection}
+            {daytonaBanner}
 
-          {developerToolsSection ? (
-            <Collapsible
-              className="space-y-1.5"
-              open={developerToolsSection.open}
-              onOpenChange={developerToolsSection.onOpenChange}
-            >
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180"
-                >
-                  Developer tools
-                  <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent
-                forceMount
-                className="space-y-1.5 data-[state=closed]:hidden"
+            {developerToolsSection ? (
+              <Collapsible
+                className="space-y-1.5"
+                open={developerToolsSection.open}
+                onOpenChange={developerToolsSection.onOpenChange}
               >
-                {developerToolsSection.content}
-              </CollapsibleContent>
-            </Collapsible>
-          ) : null}
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180"
+                  >
+                    Developer tools
+                    <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent
+                  forceMount
+                  className="space-y-1.5 data-[state=closed]:hidden"
+                >
+                  {developerToolsSection.content}
+                </CollapsibleContent>
+              </Collapsible>
+            ) : null}
 
-          {footerActions}
-        </div>
+            {footerActions}
+          </div>
+        ) : null}
       </div>
     </div>
   );
