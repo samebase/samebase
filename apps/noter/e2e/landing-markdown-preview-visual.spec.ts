@@ -21,8 +21,10 @@ test("landing markdown preview fixture renders markdown in workspace chrome", as
 
   const preview = page.getByTestId(LANDING_MARKDOWN_PREVIEW_TEST_ID);
   const article = page.getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID);
+  const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
 
   await expect(preview).toBeVisible();
+  await expect(rightSidebar).toBeVisible();
   await expect(
     article.getByRole("heading", {
       name: /Deploy a production-ready, real-time web-app/,

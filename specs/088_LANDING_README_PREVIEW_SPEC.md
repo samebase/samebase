@@ -38,8 +38,10 @@ When admin permissions exist, `/landing-preview` must be narrowed to admins
 before any broader internal rollout. Do not treat logged-in access as the final
 authorization model for this route.
 
-The preview must render through `WorkspaceLayoutV2`. Do not add a separate
-landing-only page shell for this route.
+The preview must render through the same `PublicLayoutShell` sidebar chrome as
+the public landing page. That shell owns the `WorkspaceLayoutV2` frame and the
+right public sidebar, so the preview should not create its own separate
+`WorkspaceLayoutV2` provider or landing-only page shell.
 
 ### Supported Markdown Subset
 
