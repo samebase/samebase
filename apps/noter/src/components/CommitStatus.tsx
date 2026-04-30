@@ -47,6 +47,8 @@ interface CommitStatusProps {
   repo: string;
   commitSha?: string;
   className?: string;
+  displayMode?: "full" | "badgesOnly";
+  retryEmptyResults?: boolean;
 }
 
 type StatusKind = "success" | "failure" | "running" | "neutral";
@@ -263,6 +265,8 @@ export function CommitStatus({
   repo,
   commitSha,
   className = "",
+  displayMode = "full",
+  retryEmptyResults = true,
 }: CommitStatusProps) {
   const [checkRuns, setCheckRuns] = useState<GitHubCheckRun[] | null>(null);
   const [commitStatuses, setCommitStatuses] = useState<
@@ -404,6 +408,11 @@ export function CommitStatus({
         setCommitStatuses(result.statuses);
 
         if (result.check_runs.length === 0 && result.statuses.length === 0) {
+          if (!retryEmptyResults) {
+            clearScheduledFetch();
+            return;
+          }
+
           const delayMs = getDelayForAttempt(
             EMPTY_RESULT_RETRY_DELAYS_MS,
             emptyAttemptRef.current,
@@ -453,9 +462,15 @@ export function CommitStatus({
       emptyAttemptRef.current = 0;
       lastFetchAtRef.current = null;
     };
-  }, [commitSha, owner, repo, getCommitStatus]);
+  }, [commitSha, owner, repo, getCommitStatus, retryEmptyResults]);
+
+  const showUnavailableStates = displayMode === "full";
 
   if (!commitSha) {
+    if (!showUnavailableStates) {
+      return null;
+    }
+
     return (
       <InlineState
         label="Missing commit SHA"
@@ -465,6 +480,10 @@ export function CommitStatus({
   }
 
   if (loading) {
+    if (!showUnavailableStates) {
+      return null;
+    }
+
     return (
       <InlineState
         label="Loading checks..."
@@ -474,6 +493,10 @@ export function CommitStatus({
   }
 
   if (checksPaused) {
+    if (!showUnavailableStates) {
+      return null;
+    }
+
     return (
       <InlineState
         label="Checks paused"
@@ -484,6 +507,10 @@ export function CommitStatus({
   }
 
   if (error) {
+    if (!showUnavailableStates) {
+      return null;
+    }
+
     const errorMessage = `Checks error: ${error}`;
     return (
       <InlineState
@@ -512,6 +539,10 @@ export function CommitStatus({
     : null;
 
   if (!checkSummary && !statusSummary) {
+    if (!showUnavailableStates) {
+      return null;
+    }
+
     return (
       <InlineState
         label="No checks/statuses"

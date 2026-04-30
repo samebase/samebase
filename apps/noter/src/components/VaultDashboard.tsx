@@ -64,6 +64,7 @@ import {
   DialogTitle,
 } from "@/components/dialog";
 import { CodespaceStatus } from "@/components/CodespaceStatus";
+import { CommitStatus } from "@/components/CommitStatus";
 import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
@@ -359,6 +360,7 @@ interface VaultBranchLinkRowProps {
   convexPreviewDeploymentDashboardUrl?: string;
   productionDeploymentDashboardUrl?: string;
   stagedSummary?: StagedSummary;
+  showCommitChecks?: boolean;
   canDeleteBranch: boolean;
   isDeletingBranch: boolean;
   onDeleteBranch: () => void;
@@ -372,6 +374,22 @@ function formatAheadBehindCounts(
     return null;
   }
   return `↑${aheadBy} ↓${behindBy}`;
+}
+
+function parseRepositoryFullName(
+  repositoryFullName: string,
+): { owner: string; repoName: string } | null {
+  const parts = repositoryFullName.split("/");
+  if (parts.length !== 2) {
+    return null;
+  }
+
+  const [owner, repoName] = parts;
+  if (owner.length === 0 || repoName.length === 0) {
+    return null;
+  }
+
+  return { owner, repoName };
 }
 
 type VaultDashboardRepositoryExternalLink = {
@@ -486,6 +504,7 @@ export function VaultBranchLinkContent({
   cloudflarePreviewStatus,
   convexPreviewDeploymentDashboardUrl,
   productionDeploymentDashboardUrl,
+  showCommitChecks = false,
 }: {
   repositoryFullName: string;
   branchName: string;
@@ -505,6 +524,7 @@ export function VaultBranchLinkContent({
   cloudflarePreviewStatus?: string;
   convexPreviewDeploymentDashboardUrl?: string;
   productionDeploymentDashboardUrl?: string;
+  showCommitChecks?: boolean;
 }) {
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
   const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
@@ -553,6 +573,10 @@ export function VaultBranchLinkContent({
     typeof pullRequestNumber === "number"
       ? `PR #${pullRequestNumber}`
       : "Pull request";
+  const commitChecksRepository =
+    showCommitChecks && !isDeletedUpstream && headCommitSha.length > 0
+      ? parseRepositoryFullName(repositoryFullName)
+      : null;
 
   return (
     <>
@@ -601,6 +625,15 @@ export function VaultBranchLinkContent({
               >
                 commit {headCommitSha.slice(0, 7)}
               </a>
+              {commitChecksRepository ? (
+                <CommitStatus
+                  owner={commitChecksRepository.owner}
+                  repo={commitChecksRepository.repoName}
+                  commitSha={headCommitSha}
+                  displayMode="badgesOnly"
+                  retryEmptyResults={false}
+                />
+              ) : null}
               {aheadBehindLabel ? (
                 <span
                   className="font-mono tabular-nums"
@@ -733,6 +766,7 @@ export function VaultBranchLinkRow({
   convexPreviewDeploymentDashboardUrl,
   productionDeploymentDashboardUrl,
   stagedSummary,
+  showCommitChecks,
   canDeleteBranch,
   isDeletingBranch,
   onDeleteBranch,
@@ -766,6 +800,7 @@ export function VaultBranchLinkRow({
           convexPreviewDeploymentDashboardUrl
         }
         productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
+        showCommitChecks={showCommitChecks}
       />
       {showRowActions ? (
         <div className="flex shrink-0 items-start gap-2">
@@ -875,6 +910,7 @@ function VaultBranchListRow({
         branch.isDefault ? productionDeploymentDashboardUrl : undefined
       }
       stagedSummary={stagedSummary}
+      showCommitChecks={branch.remoteState === "active"}
       canDeleteBranch={deleteEligibility.canDelete}
       isDeletingBranch={activeDeletingBranchName === branch.name}
       onDeleteBranch={() => onDeleteBranch(branch.name)}
