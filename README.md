@@ -1,6 +1,6 @@
 # noter.md
 
-Noter is a collaborative, GitHub-connected code editor built as a PNPM workspace
+noter is a collaborative, GitHub-connected code editor built as a PNPM workspace
 with React + Vite on the frontend and Convex on the backend.
 
 ## Current Product Capabilities (2026-02-13)
@@ -102,7 +102,7 @@ pnpm dev
 
 6. Open the URL Vite prints in the terminal. The usual default is
    [http://127.0.0.1:5173/](http://127.0.0.1:5173/), and if that port is busy
-   Noter now picks the next free local port before startup so the frontend and
+   noter now picks the next free local port before startup so the frontend and
    `SITE_URL` stay aligned.
 
 Notes:
@@ -115,7 +115,7 @@ Notes:
   signed-in browser. This keeps the flow consistent across native Windows and
   Linux sandbox environments.
 - Windows `noter.ts` resolution also supports Codex installed through Volta, as
-  long as the `codex` and `volta` commands are available on `PATH`. Noter
+  long as the `codex` and `volta` commands are available on `PATH`. noter
   resolves that shim from the current workspace so project-scoped Volta setups
   launch the same Codex binary that the later runtime command would use.
 - On a brand-new machine, the first `pnpm dev` run may pause for an interactive
