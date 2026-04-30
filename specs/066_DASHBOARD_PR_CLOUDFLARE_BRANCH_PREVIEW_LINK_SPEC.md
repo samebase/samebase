@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Vault dashboard + GitHub/Cloudflare integration
-- Last updated: 2026-04-20
+- Last updated: 2026-04-30
 - Related specs:
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `specs/048_DASHBOARD_REMOTE_BRANCH_DELETE_SPEC.md`
@@ -42,6 +42,25 @@ This spec deliberately narrows the feature:
 6. This feature does not use `vaultDomains` as its storage surface.
 7. Each PR should require at most one Cloudflare comment scan unless the cache
    is missing, cleared, or the PR identity changes.
+
+## Dashboard Row UI Invariants
+
+The dashboard branch row may evolve visually, but these interaction targets are
+part of the accepted behavior:
+
+1. Commit metadata renders on its own line with the commit link and any
+   ahead/behind counts.
+2. Pull request metadata renders on its own line when a current PR URL exists.
+   The PR link shows a GitHub icon before the `PR #<number>` label.
+3. Pull request labels and the draft badge belong with the PR metadata row, not
+   the commit row.
+4. A current Cloudflare branch preview remains a separate visible affordance on
+   the branch row. It must not disappear when PR metadata is moved or restyled.
+5. The Cloudflare branch preview affordance uses the label `Cloudflare preview`
+   and shows the Cloudflare icon before the label.
+6. The preview affordance target is still the parsed `Branch Preview URL`.
+7. The preview affordance renders only when the cached preview belongs to the
+   branch's current PR, according to the freshness rules below.
 
 ## Why This Is The Right Scope
 
@@ -87,6 +106,7 @@ Example fields:
 
 - `Preview URL`: immutable deployment URL for one deploy
 - `Branch Preview URL`: mutable branch alias URL
+- `View logs`: Cloudflare deployment log URL
 
 The parser should treat the comment body as semi-structured provider output:
 
@@ -94,6 +114,11 @@ The parser should treat the comment body as semi-structured provider output:
 2. Parse the latest Cloudflare deploy comment for the PR.
 3. Extract recognized fields if present.
 4. Fail open when a field is missing or the comment format changes.
+
+Dashboard branch rows should render the current PR's `View logs` URL as a
+mobile-friendly Cloudflare link when the parsed `Status` is `Build failed`. This
+failure link replaces the normal branch preview link for that row because the
+latest deploy did not produce a usable branch preview.
 
 ## Proposed Changes
 
@@ -158,10 +183,12 @@ dashboard row.
 For each active branch row:
 
 1. If `cloudflareBranchPreviewUrl` exists and
-   `cloudflarePreviewPullRequestNumber === pullRequestNumber`, render it in the
-   metadata cluster.
+   `cloudflarePreviewPullRequestNumber === pullRequestNumber`, render it as a
+   visible `Cloudflare preview` affordance in the branch row metadata.
 2. Otherwise render nothing.
 3. The displayed link should be the branch preview URL.
+4. The PR link and Cloudflare preview link are independent targets. A row with
+   both a PR and a current Cloudflare preview must render both.
 
 ## Freshness Rules
 
@@ -249,6 +276,7 @@ That separation is intentional:
 
 1. Parse a Cloudflare Pages PR comment body into:
    - branch preview URL
+   - failed build status and logs URL
 2. Verify the parser tolerates:
    - missing `View logs`
    - missing `Status`
@@ -276,6 +304,9 @@ That separation is intentional:
    - link does not render when absent
    - link does not render when the cached preview belongs to a different PR
    - existing commit/PR metadata still renders
+   - PR links stay on their own row with a GitHub icon
+   - valid Cloudflare preview links stay visible as `Cloudflare preview` with a
+     Cloudflare icon
 
 ### Manual coverage
 
@@ -292,6 +323,10 @@ That separation is intentional:
 - [ ] Branches with PRs but no Cloudflare comment never show preview links.
 - [ ] Branches with a valid Cloudflare Pages comment show exactly one link.
 - [ ] The displayed link target is the parsed `Branch Preview URL`.
+- [ ] Branches with both a PR and a valid Cloudflare preview render both the
+      GitHub PR link and the Cloudflare preview link.
+- [ ] Moving or restyling PR metadata does not remove the Cloudflare preview
+      affordance.
 - [ ] The same PR does not trigger repeated Cloudflare comment scans once the
       preview link is cached.
 - [ ] A PR-number mismatch hides the stale cached branch preview link.

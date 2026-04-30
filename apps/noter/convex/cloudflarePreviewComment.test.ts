@@ -77,6 +77,29 @@ describe("parseCloudflarePreviewComment", () => {
     });
   });
 
+  it("extracts failed build status and logs without preview URLs", () => {
+    const parsed = parseCloudflarePreviewComment(
+      `## Deploying noter with Cloudflare Pages
+
+<table><tr><td><strong>Latest commit:</strong> </td><td>
+<code>aa16371</code>
+</td></tr>
+<tr><td><strong>Status:</strong></td><td>&nbsp;🚫&nbsp; Build failed.</td></tr>
+</table>
+
+[View logs](https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/pages/view/noter/failed-build-id)`,
+    );
+
+    expect(parsed).toEqual({
+      branchPreviewUrl: undefined,
+      previewUrl: undefined,
+      previewCommitSha: "aa16371",
+      previewStatus: "🚫 Build failed.",
+      previewLogsUrl:
+        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/pages/view/noter/failed-build-id",
+    });
+  });
+
   it("ignores extra text around the Cloudflare Pages deploy table", () => {
     const parsed = parseCloudflarePreviewComment(
       `Preflight note before the bot payload.\n\n${VALID_COMMENT}\n\nFooter text after the deploy table.`,

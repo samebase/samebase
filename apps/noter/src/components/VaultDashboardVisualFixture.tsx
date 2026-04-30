@@ -16,7 +16,10 @@ import {
   VaultDashboardRepositoryList,
   VaultDashboardSidebarContent,
 } from "@/components/VaultDashboardChrome";
-import { VaultBranchLinkRow } from "@/components/VaultDashboard";
+import {
+  VaultBranchLinkRow,
+  VaultDashboardRepositoryExternalLinks,
+} from "@/components/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 
 export type VaultDashboardVisualMode =
@@ -36,6 +39,34 @@ function fakeVaultId(): Parameters<typeof VaultBranchLinkRow>[0]["vaultId"] {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
+function FixtureRepositoryLinks() {
+  return (
+    <VaultDashboardRepositoryExternalLinks
+      repositoryFullName="noter-md/noter"
+      links={[
+        {
+          href: "https://github.com/noter-md/noter",
+          key: "github",
+          label: "GitHub",
+          title: "Open GitHub repository",
+        },
+        {
+          href: "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/pages/view/noter",
+          key: "cloudflare",
+          label: "Cloudflare",
+          title: "Open Cloudflare Pages project",
+        },
+        {
+          href: "https://dashboard.convex.dev/t/nicu/noter/settings",
+          key: "convexProjectSettings",
+          label: "Project settings",
+          title: "Open Convex project settings",
+        },
+      ]}
+    />
+  );
 }
 
 function FixtureVaultLastUpdatedStatusCard() {
@@ -91,6 +122,8 @@ const LIST_SPACING_BRANCHES: Array<
     isDeletedUpstream: false,
     aheadBy: 0,
     behindBy: 0,
+    productionDeploymentDashboardUrl:
+      "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
     canDeleteBranch: false,
   },
   {
@@ -103,6 +136,11 @@ const LIST_SPACING_BRANCHES: Array<
     pullRequestUrl: "https://github.com/noter-md/noter/pull/321",
     pullRequestNumber: 321,
     pullRequestTitle: "Use the full dashboard main pane",
+    cloudflareBranchPreviewUrl:
+      "https://codex-dashboard-main-pane-spacing.noter.pages.dev",
+    cloudflarePreviewPullRequestNumber: 321,
+    convexPreviewDeploymentDashboardUrl:
+      "https://dashboard.convex.dev/t/nicu/noter/preview/codex/dashboard-main-pane-spacing",
     canDeleteBranch: true,
   },
   {
@@ -162,6 +200,7 @@ function VaultDashboardListSpacingFixture({
             repositoryOwner="noter-md"
             repositoryName="noter"
             titleHref="https://github.com/noter-md/noter"
+            repositoryLinks={<FixtureRepositoryLinks />}
             branchSection={
               <div className="space-y-1.5">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
@@ -264,7 +303,7 @@ function FixtureDashboardSidebarAccountClamp({
           <VaultDashboardAccountSection
             open={true}
             onOpenChange={() => {}}
-            displayName="Alexandria Example"
+            displayName="Alexandria Example With A Very Long Pane Account Name"
             email="alexandria.very.long.operator.email-address@noter-example-workspace.dev"
             providerLabel="Google Workspace Enterprise"
             isSignOutPending={false}
@@ -325,8 +364,16 @@ function FixtureDashboardCreateControl() {
               onChange={() => {}}
             />
             <Button className="w-full">New App</Button>
-            <Button variant="outline" className="w-full" asChild>
-              <Link to="/add">Connect existing repo</Link>
+            <Button
+              variant="outline"
+              className="h-auto min-h-8 w-full whitespace-normal py-2"
+              asChild
+            >
+              <Link to="/add">
+                <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+                  Connect existing app
+                </span>
+              </Link>
             </Button>
           </div>
           <div className="mt-auto">
@@ -432,6 +479,7 @@ export function VaultDashboardVisualFixture({
                       isDeletedUpstream={false}
                       aheadBy={0}
                       behindBy={0}
+                      productionDeploymentDashboardUrl="https://dashboard.convex.dev/t/nicu/noter/calm-swan-123"
                       canDeleteBranch={false}
                       isDeletingBranch={false}
                       onDeleteBranch={() => {}}

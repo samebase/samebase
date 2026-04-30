@@ -30,7 +30,10 @@ import {
   hostingProviderValidator,
   hostingStateValidator,
 } from "./hostingState";
-import { resolveHostingMainUrl } from "./hostingStateHelpers";
+import {
+  resolveCloudflareHostingState,
+  resolveHostingMainUrl,
+} from "./hostingStateHelpers";
 import {
   doesTreeRefreshClaimMatch,
   getLastRepositoryMetadataRefreshAt,
@@ -74,6 +77,90 @@ const vaultBranchFiltersValidator = object({
   branchesExpanded: optional(boolean()),
 });
 type VaultBranchFilters = Infer<typeof vaultBranchFiltersValidator>;
+
+/**
+ * Dashboard URLs fail closed when provider metadata is partial. Trim before
+ * checking presence and encode every segment before handing it to the browser.
+ */
+function buildCloudflareProjectDashboardUrl(
+  infra: { hosting?: Infer<typeof hostingStateValidator> } | null | undefined,
+): string | undefined {
+  const hosting = resolveCloudflareHostingState(infra);
+  if (!hosting) {
+    return undefined;
+  }
+
+  const accountId = hosting.accountId.trim();
+  const projectName = hosting.projectName.trim();
+  if (accountId.length === 0 || projectName.length === 0) {
+    return undefined;
+  }
+
+  return `https://dash.cloudflare.com/?to=/${encodeURIComponent(accountId)}/pages/view/${encodeURIComponent(projectName)}`;
+}
+
+/**
+ * Convex dashboard URLs are only useful with real team/project/deploy slugs.
+ * Return nothing for blank metadata so the dashboard never renders fake links.
+ */
+export function buildConvexDeploymentDashboardUrl(args: {
+  deploymentName: string | undefined;
+  projectSlug: string | undefined;
+  teamSlug: string | undefined;
+}): string | undefined {
+  const normalizedTeamSlug = args.teamSlug?.trim();
+  const normalizedProjectSlug = args.projectSlug?.trim();
+  const normalizedDeploymentName = args.deploymentName?.trim();
+  if (
+    !normalizedTeamSlug ||
+    !normalizedProjectSlug ||
+    !normalizedDeploymentName
+  ) {
+    return undefined;
+  }
+
+  return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/${encodeURIComponent(normalizedProjectSlug)}/${encodeURIComponent(normalizedDeploymentName)}`;
+}
+
+/**
+ * Project settings use the project scope, not a deployment scope. Keep the link
+ * hidden until both dashboard slugs are known.
+ */
+export function buildConvexProjectSettingsDashboardUrl(args: {
+  projectSlug: string | undefined;
+  teamSlug: string | undefined;
+}): string | undefined {
+  const normalizedTeamSlug = args.teamSlug?.trim();
+  const normalizedProjectSlug = args.projectSlug?.trim();
+  if (!normalizedTeamSlug || !normalizedProjectSlug) {
+    return undefined;
+  }
+
+  return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/${encodeURIComponent(normalizedProjectSlug)}/settings`;
+}
+
+function encodeConvexDashboardPath(value: string): string {
+  return value.split("/").map(encodeURIComponent).join("/");
+}
+
+/**
+ * Preview deployment dashboards are branch-scoped. Preserve branch slash
+ * separators while still encoding each path segment.
+ */
+export function buildConvexPreviewDeploymentDashboardUrl(args: {
+  branchName: string | undefined;
+  projectSlug: string | undefined;
+  teamSlug: string | undefined;
+}): string | undefined {
+  const normalizedTeamSlug = args.teamSlug?.trim();
+  const normalizedProjectSlug = args.projectSlug?.trim();
+  const normalizedBranchName = args.branchName?.trim();
+  if (!normalizedTeamSlug || !normalizedProjectSlug || !normalizedBranchName) {
+    return undefined;
+  }
+
+  return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/${encodeURIComponent(normalizedProjectSlug)}/preview/${encodeConvexDashboardPath(normalizedBranchName)}`;
+}
 
 /**
  * Cloudflare can edit or partially reformat its PR comment without removing the
@@ -844,6 +931,7 @@ const getUserVaultsResult = array(
         remoteState: union(literal("active"), literal("deleted_upstream")),
         lastSyncedAt: number(),
         ...cloudflarePreviewMetadataFields,
+        convexPreviewDeploymentDashboardUrl: optional(string()),
       }),
     ),
     infraState: union(
@@ -854,6 +942,9 @@ const getUserVaultsResult = array(
       literal("partial"),
     ),
     infraProductionUrl: optional(string()),
+    cloudflareProjectDashboardUrl: optional(string()),
+    convexProjectSettingsDashboardUrl: optional(string()),
+    convexDeploymentDashboardUrl: optional(string()),
   }),
 );
 
@@ -871,6 +962,16 @@ export const getUserVaults = query({
       .query("vaults")
       .filter((q) => q.eq(q.field("userId"), userId))
       .collect();
+    const convexConnection = await ctx.db
+      .query("providerConnections")
+      .withIndex("by_user_kind", (q) =>
+        q.eq("userId", userId).eq("kind", "convex"),
+      )
+      .first();
+    const convexTeamDashboardSlug =
+      convexConnection?.kind === "convex"
+        ? convexConnection.teamSlug
+        : undefined;
 
     // Get staging stats for each vault
     const vaultResults: UserVaultResult[] = await Promise.all(
@@ -976,9 +1077,33 @@ export const getUserVaults = query({
               cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
               cloudflarePreviewCommentCreatedAt:
                 branch.cloudflarePreviewCommentCreatedAt,
+              convexPreviewDeploymentDashboardUrl:
+                !branch.isDefault &&
+                branch.remoteState === "active" &&
+                typeof branch.cloudflareBranchPreviewUrl === "string" &&
+                branch.pullRequestNumber ===
+                  branch.cloudflarePreviewPullRequestNumber
+                  ? buildConvexPreviewDeploymentDashboardUrl({
+                      branchName: branch.name,
+                      projectSlug: infra?.convexProjectSlug,
+                      teamSlug: convexTeamDashboardSlug,
+                    })
+                  : undefined,
             })),
           infraState: vault.infraState ?? "not_started",
           infraProductionUrl: resolveHostingMainUrl(infra),
+          cloudflareProjectDashboardUrl:
+            buildCloudflareProjectDashboardUrl(infra),
+          convexProjectSettingsDashboardUrl:
+            buildConvexProjectSettingsDashboardUrl({
+              projectSlug: infra?.convexProjectSlug,
+              teamSlug: convexTeamDashboardSlug,
+            }),
+          convexDeploymentDashboardUrl: buildConvexDeploymentDashboardUrl({
+            deploymentName: infra?.convexDeploymentName,
+            projectSlug: infra?.convexProjectSlug,
+            teamSlug: convexTeamDashboardSlug,
+          }),
         };
       }),
     );

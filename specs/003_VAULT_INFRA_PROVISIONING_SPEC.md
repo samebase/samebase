@@ -4,7 +4,7 @@
 
 - Status: Implemented for MVP
 - Owner: Noter backend/frontend
-- Last updated: 2026-02-18
+- Last updated: 2026-04-30
 - Related plan:
   `specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 
@@ -152,6 +152,30 @@ In `VaultDashboard`:
 - `Provision infra` (not started)
 - `Retry infra` (failed/partial)
 
+Dashboard external links:
+
+- Noter-managed vaults with infrastructure metadata render a compact
+  service-link row near the repository title.
+- The row includes the GitHub repository link and only renders when at least one
+  managed-infra link is available.
+- The Cloudflare link targets the specific Pages project:
+  `https://dash.cloudflare.com/?to=/<accountId>/pages/view/<projectName>`.
+- The `Project settings` Convex link targets the project-scoped settings page:
+  `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/settings`.
+- The production Convex link renders on the default branch row, not in the
+  repository-title service row, because the production deployment follows that
+  branch.
+- The production Convex link targets the deployment dashboard from the connected
+  team slug, managed project slug, and deployment name:
+  `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/<deploymentName>`.
+- Non-default branch rows with a current Cloudflare branch preview render a
+  `Preview deploy` Convex link for the matching preview deployment reference:
+  `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/preview/<branchName>`.
+- Service links are mobile-friendly text links with service icons. Labels should
+  stay concise; the default-branch Convex deployment link uses
+  `Production deploy`, and branch preview Convex deployment links use
+  `Preview deploy`.
+
 ## MVP Notes
 
 - Uses user-scoped provider connections for Convex and Cloudflare (no operator
@@ -172,3 +196,5 @@ In `VaultDashboard`:
 - [x] Existing-repo connect flow does not auto-provision infra.
 - [x] Retry path exists and is guarded to noter-managed vaults.
 - [x] Infra status + URL are visible in dashboard query/UI surfaces.
+- [x] Managed vault dashboard cards expose direct Cloudflare project and Convex
+      deployment links when the stored infrastructure metadata is available.

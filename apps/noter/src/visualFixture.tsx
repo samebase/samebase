@@ -232,6 +232,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
 
 const VAULT_BRANCH_PREVIEW_VISUAL_MODES = [
   "vault-branch-preview-link",
+  "vault-branch-preview-failed",
   "vault-branch-preview-missing",
 ] as const satisfies readonly VaultBranchPreviewVisualMode[];
 
@@ -448,6 +449,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (
     mode === "vault-branch-preview-link" ||
+    mode === "vault-branch-preview-failed" ||
     mode === "vault-branch-preview-missing"
   ) {
     return <VaultBranchPreviewVisualFixture mode={mode} />;

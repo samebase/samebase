@@ -166,7 +166,8 @@ When running anonymous/local worktree seed path:
 1. `DEV_SEED_GITHUB_API_KEY`
 2. `DEV_SEED_CONVEX_MANAGEMENT_API_KEY`
 3. `DEV_SEED_CONVEX_TEAM_ID`
-4. `DEV_SEED_CLOUDFLARE_API_KEY`
+4. `DEV_SEED_CONVEX_TEAM_SLUG`
+5. `DEV_SEED_CLOUDFLARE_API_KEY`
 
 Seed transport contract:
 

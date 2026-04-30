@@ -88,6 +88,7 @@ async function upsertSeedConvexConnection(
 ): Promise<void> {
   const credential = readOptionalEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY");
   const teamId = readOptionalEnv("DEV_SEED_CONVEX_TEAM_ID");
+  const teamSlug = readOptionalEnv("DEV_SEED_CONVEX_TEAM_SLUG");
   if (credential === null || teamId === null) {
     return;
   }
@@ -100,12 +101,12 @@ async function upsertSeedConvexConnection(
         credential,
       },
       teamId,
-      teamSlug: undefined,
+      teamSlug: teamSlug ?? undefined,
       updatedAt: now,
     });
     return;
   }
-  await db.insert("providerConnections", {
+  const connection = {
     kind: "convex",
     userId,
     auth: {
@@ -113,9 +114,11 @@ async function upsertSeedConvexConnection(
       credential,
     },
     teamId,
+    ...(teamSlug !== null ? { teamSlug } : {}),
     createdAt: now,
     updatedAt: now,
-  });
+  } as const;
+  await db.insert("providerConnections", connection);
 }
 
 async function upsertSeedCloudflareConnection(

@@ -21,14 +21,31 @@ const CLOUDFLARE_COMMENT_BODY = `## Deploying noter with &nbsp;<a href="https://
 const NON_CLOUDFLARE_COMMENT_BODY =
   "CI passed and the PR is ready for review, but there is no Cloudflare Pages comment yet.";
 
+const FAILED_CLOUDFLARE_COMMENT_BODY = `## Deploying noter with &nbsp;<a href="https://pages.dev"><img alt="Cloudflare Pages" src="https://user-images.githubusercontent.com/23264/106598434-9e719e00-654f-11eb-9e59-6167043cfa01.png" width="16"></a> &nbsp;Cloudflare Pages
+
+<table><tr><td><strong>Latest commit:</strong> </td><td>
+<code>aa16371</code>
+</td></tr>
+<tr><td><strong>Status:</strong></td><td>&nbsp;🚫&nbsp; Build failed.</td></tr>
+</table>
+
+[View logs](https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/pages/view/noter/failed-build-id)`;
+
 export type VaultBranchPreviewVisualMode =
   | "vault-branch-preview-link"
+  | "vault-branch-preview-failed"
   | "vault-branch-preview-missing";
 
 function resolveCommentBody(mode: VaultBranchPreviewVisualMode): string {
-  return mode === "vault-branch-preview-link"
-    ? CLOUDFLARE_COMMENT_BODY
-    : NON_CLOUDFLARE_COMMENT_BODY;
+  if (mode === "vault-branch-preview-link") {
+    return CLOUDFLARE_COMMENT_BODY;
+  }
+
+  if (mode === "vault-branch-preview-failed") {
+    return FAILED_CLOUDFLARE_COMMENT_BODY;
+  }
+
+  return NON_CLOUDFLARE_COMMENT_BODY;
 }
 
 export function VaultBranchPreviewVisualFixture({
@@ -63,6 +80,8 @@ export function VaultBranchPreviewVisualFixture({
             ]}
             cloudflareBranchPreviewUrl={preview?.branchPreviewUrl}
             cloudflarePreviewPullRequestNumber={290}
+            cloudflarePreviewLogsUrl={preview?.previewLogsUrl}
+            cloudflarePreviewStatus={preview?.previewStatus}
             canDeleteBranch={false}
             isDeletingBranch={false}
             onDeleteBranch={() => {}}

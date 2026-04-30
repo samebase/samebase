@@ -63,6 +63,9 @@ test("vault dashboard fixture (create control)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(
+    fixture.getByRole("button", { name: "Connect existing app" }),
+  ).toHaveAttribute("href", "/add");
   await expect(fixture).toHaveScreenshot("vault-create-control.png", {
     animations: "disabled",
     caret: "hide",
@@ -221,6 +224,19 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(
+    fixture.getByRole("link", { name: "Project settings" }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "Cloudflare preview" }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "Preview deploy" }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "Production deploy" }),
+  ).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "PR #321" })).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing.png", {
     animations: "disabled",
     caret: "hide",
@@ -237,6 +253,19 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(
+    fixture.getByRole("link", { name: "Project settings" }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "Cloudflare preview" }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "Preview deploy" }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "Production deploy" }),
+  ).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "PR #321" })).toBeVisible();
   await expect(fixture).toHaveScreenshot(
     "vault-dashboard-list-spacing-desktop.png",
     {

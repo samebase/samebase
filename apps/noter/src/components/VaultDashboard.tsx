@@ -20,6 +20,7 @@ import {
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
 import {
+  hasCurrentCloudflareBuildFailureLogs,
   getCloudflareBranchPreviewHydrationTargets,
   hasCurrentCloudflareBranchPreview,
 } from "@/lib/cloudflarePreviewLinks";
@@ -66,7 +67,6 @@ import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
-import { PullRequestLink } from "@/components/PullRequestLink";
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
 import { CodexProviderRow } from "@/components/CodexProviderRow";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
@@ -210,6 +210,8 @@ type DashboardManualRefreshVault = {
     remoteState: "active" | "deleted_upstream";
     cloudflareBranchPreviewUrl?: string;
     cloudflarePreviewPullRequestNumber?: number;
+    cloudflarePreviewLogsUrl?: string;
+    cloudflarePreviewStatus?: string;
     pullRequestNumber?: number;
   }>;
   repositoryFullName: string;
@@ -331,6 +333,9 @@ interface VaultRemoteBranchListItem {
   pullRequestIsDraft?: boolean;
   cloudflareBranchPreviewUrl?: string;
   cloudflarePreviewPullRequestNumber?: number;
+  cloudflarePreviewLogsUrl?: string;
+  cloudflarePreviewStatus?: string;
+  convexPreviewDeploymentDashboardUrl?: string;
 }
 
 interface VaultBranchLinkRowProps {
@@ -349,6 +354,10 @@ interface VaultBranchLinkRowProps {
   pullRequestIsDraft?: boolean;
   cloudflareBranchPreviewUrl?: string;
   cloudflarePreviewPullRequestNumber?: number;
+  cloudflarePreviewLogsUrl?: string;
+  cloudflarePreviewStatus?: string;
+  convexPreviewDeploymentDashboardUrl?: string;
+  productionDeploymentDashboardUrl?: string;
   stagedSummary?: StagedSummary;
   canDeleteBranch: boolean;
   isDeletingBranch: boolean;
@@ -363,6 +372,99 @@ function formatAheadBehindCounts(
     return null;
   }
   return `↑${aheadBy} ↓${behindBy}`;
+}
+
+type VaultDashboardRepositoryExternalLink = {
+  href: string;
+  key: "cloudflare" | "convexProjectSettings" | "github";
+  label: string;
+  title: string;
+};
+
+const REPOSITORY_EXTERNAL_LINK_ICONS: Record<
+  VaultDashboardRepositoryExternalLink["key"],
+  ComponentType<{ className?: string }>
+> = {
+  cloudflare: CloudflareProviderLogo,
+  convexProjectSettings: ConvexProviderLogo,
+  github: GitHubProviderLogo,
+};
+
+function buildVaultDashboardRepositoryExternalLinks(args: {
+  cloudflareProjectDashboardUrl?: string;
+  convexProjectSettingsDashboardUrl?: string;
+  githubRepositoryUrl: string;
+}): VaultDashboardRepositoryExternalLink[] {
+  const links: VaultDashboardRepositoryExternalLink[] = [
+    {
+      href: args.githubRepositoryUrl,
+      key: "github",
+      label: "GitHub",
+      title: "Open GitHub repository",
+    },
+  ];
+
+  if (typeof args.cloudflareProjectDashboardUrl === "string") {
+    links.push({
+      href: args.cloudflareProjectDashboardUrl,
+      key: "cloudflare",
+      label: "Cloudflare",
+      title: "Open Cloudflare Pages project",
+    });
+  }
+
+  if (typeof args.convexProjectSettingsDashboardUrl === "string") {
+    links.push({
+      href: args.convexProjectSettingsDashboardUrl,
+      key: "convexProjectSettings",
+      label: "Project settings",
+      title: "Open Convex project settings",
+    });
+  }
+
+  // buildVaultDashboardRepositoryExternalLinks always includes GitHub, but the
+  // title already links there; render this row only for additional dashboards.
+  return links.length > 1 ? links : [];
+}
+
+export function VaultDashboardRepositoryExternalLinks({
+  links,
+  repositoryFullName,
+}: {
+  links: VaultDashboardRepositoryExternalLink[];
+  repositoryFullName: string;
+}) {
+  if (links.length === 0) {
+    return null;
+  }
+
+  return (
+    <nav
+      aria-label={`Repository links for ${repositoryFullName}`}
+      className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-base leading-6 text-muted-foreground"
+    >
+      {links.map((link) => {
+        const Icon = REPOSITORY_EXTERNAL_LINK_ICONS[link.key];
+
+        return (
+          <a
+            key={link.key}
+            href={link.href}
+            target="_blank"
+            rel="noreferrer noopener"
+            className={clsx(
+              "-mx-1.5 -my-1 inline-flex min-h-8 items-center gap-1.5 rounded-sm px-1.5 py-1 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+              linkStyle,
+            )}
+            title={link.title}
+          >
+            <Icon className="shrink-0" />
+            <span>{link.label}</span>
+          </a>
+        );
+      })}
+    </nav>
+  );
 }
 
 export function VaultBranchLinkContent({
@@ -380,6 +482,10 @@ export function VaultBranchLinkContent({
   pullRequestIsDraft,
   cloudflareBranchPreviewUrl,
   cloudflarePreviewPullRequestNumber,
+  cloudflarePreviewLogsUrl,
+  cloudflarePreviewStatus,
+  convexPreviewDeploymentDashboardUrl,
+  productionDeploymentDashboardUrl,
 }: {
   repositoryFullName: string;
   branchName: string;
@@ -395,31 +501,64 @@ export function VaultBranchLinkContent({
   pullRequestIsDraft?: boolean;
   cloudflareBranchPreviewUrl?: string;
   cloudflarePreviewPullRequestNumber?: number;
+  cloudflarePreviewLogsUrl?: string;
+  cloudflarePreviewStatus?: string;
+  convexPreviewDeploymentDashboardUrl?: string;
+  productionDeploymentDashboardUrl?: string;
 }) {
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
   const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
+  const hasPullRequestTitle =
+    typeof pullRequestTitle === "string" && pullRequestTitle.length > 0;
   const normalizedPullRequestLabels =
     normalizePullRequestLabels(pullRequestLabels);
+  const hasPullRequestLink =
+    typeof pullRequestUrl === "string" && pullRequestUrl.length > 0;
+  const hasPullRequestMetadata =
+    hasPullRequestLink ||
+    pullRequestIsDraft === true ||
+    normalizedPullRequestLabels.length > 0;
   const metadataLinkClassName = clsx(
-    "inline-flex min-h-6 items-center rounded-sm px-1.5 py-0.5 -mx-1.5 -my-0.5 touch-manipulation",
+    "-mx-2 -my-1 inline-flex min-h-9 items-center rounded-sm px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
     "font-mono",
     linkStyle,
   );
+  const branchLinkClassName = clsx(
+    "-mx-1.5 -my-1 block min-h-9 max-w-full break-words rounded-sm px-1.5 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current",
+    hasPullRequestTitle
+      ? "font-mono text-muted-foreground"
+      : "text-muted-foreground",
+    !hasPullRequestTitle && isDefault && "font-medium text-foreground",
+  );
   const branchPath = encodeURIComponent(branchName);
   const branchRoute = `/vault/${repositoryFullName}/${branchPath}`;
-  const hasPullRequestTitle =
-    typeof pullRequestTitle === "string" && pullRequestTitle.length > 0;
   const hasCurrentPreviewLink = hasCurrentCloudflareBranchPreview({
     pullRequestNumber,
     cloudflareBranchPreviewUrl,
     cloudflarePreviewPullRequestNumber,
   });
+  const hasBuildFailureLogsLink = hasCurrentCloudflareBuildFailureLogs({
+    pullRequestNumber,
+    cloudflarePreviewLogsUrl,
+    cloudflarePreviewPullRequestNumber,
+    cloudflarePreviewStatus,
+  });
+  const hasProductionDeploymentLink =
+    isDefault && typeof productionDeploymentDashboardUrl === "string";
+  const hasPreviewDeploymentLink =
+    !isDefault &&
+    hasCurrentPreviewLink &&
+    typeof convexPreviewDeploymentDashboardUrl === "string";
+  const pullRequestLabel =
+    typeof pullRequestNumber === "number"
+      ? `PR #${pullRequestNumber}`
+      : "Pull request";
 
   return (
     <>
       {isDeletedUpstream ? (
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground/70 line-through">
+          <span className="min-w-0 flex-1 break-words text-base leading-6 text-muted-foreground/70 line-through">
             {branchName}
           </span>
           <span className="shrink-0 corner-notch-1 border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground/80">
@@ -427,91 +566,144 @@ export function VaultBranchLinkContent({
           </span>
         </div>
       ) : (
-        <div className="min-w-0 flex-1 space-y-1">
+        <div className="min-w-0 flex-1 space-y-1.5">
           {hasPullRequestTitle ? (
-            <div className="truncate text-sm font-medium text-foreground">
-              {pullRequestTitle}
-            </div>
+            hasPullRequestLink ? (
+              <a
+                href={pullRequestUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={clsx(
+                  "-mx-1.5 -my-1 block min-h-9 max-w-full break-words rounded-sm px-1.5 py-1 text-base font-medium leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+                  linkStyle,
+                )}
+                title="Open pull request"
+              >
+                {pullRequestTitle}
+              </a>
+            ) : (
+              <div className="break-words text-base font-medium leading-6 text-foreground">
+                {pullRequestTitle}
+              </div>
+            )
           ) : null}
-          <Link
-            to={branchRoute}
-            className={clsx(
-              "block truncate underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current",
-              hasPullRequestTitle
-                ? "font-mono text-[11px] text-muted-foreground/70"
-                : "text-sm text-muted-foreground",
-              !hasPullRequestTitle &&
-                isDefault &&
-                "font-medium text-foreground",
-            )}
-          >
+          <Link to={branchRoute} className={branchLinkClassName}>
             {branchName}
           </Link>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground/80">
-            <a
-              href={commitUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className={metadataLinkClassName}
-              title="View commit on GitHub"
-            >
-              {headCommitSha.slice(0, 7)}
-            </a>
-            {typeof pullRequestUrl === "string" && pullRequestUrl.length > 0 ? (
-              <>
-                <span aria-hidden="true">·</span>
-                <PullRequestLink
-                  pullRequestNumber={pullRequestNumber}
-                  pullRequestUrl={pullRequestUrl}
-                  className={metadataLinkClassName}
-                />
-                {pullRequestIsDraft ? (
-                  <Badge
-                    variant="outline"
-                    className="h-5 px-1.5 py-0 text-[10px] font-medium uppercase tracking-wide"
-                  >
-                    draft
-                  </Badge>
-                ) : null}
-              </>
-            ) : null}
-            {normalizedPullRequestLabels.length > 0
-              ? normalizedPullRequestLabels.map((label) => (
-                  <Badge
-                    key={label.name}
-                    variant="outline"
-                    className="h-5 max-w-48 px-1.5 py-0 text-[10px] font-medium"
-                    style={buildPullRequestLabelStyle(label.color)}
-                    title={label.name}
-                  >
-                    <span className="truncate">{label.name}</span>
-                  </Badge>
-                ))
-              : null}
-            {hasCurrentPreviewLink ? (
-              <>
-                <span aria-hidden="true">·</span>
-                <a
-                  href={cloudflareBranchPreviewUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className={metadataLinkClassName}
-                  title="Open Cloudflare branch preview"
-                >
-                  preview
-                </a>
-              </>
-            ) : null}
-            {aheadBehindLabel ? (
-              <>
-                <span aria-hidden="true">·</span>
+          <div className="space-y-1 text-base leading-6 text-muted-foreground/80">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              <a
+                href={commitUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={metadataLinkClassName}
+                title="View commit on GitHub"
+              >
+                commit {headCommitSha.slice(0, 7)}
+              </a>
+              {aheadBehindLabel ? (
                 <span
                   className="font-mono tabular-nums"
                   title="Ahead/behind versus the default branch"
                 >
                   {aheadBehindLabel}
                 </span>
-              </>
+              ) : null}
+            </div>
+            {hasPullRequestMetadata ? (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                {hasPullRequestLink ? (
+                  <a
+                    href={pullRequestUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className={clsx(metadataLinkClassName, "gap-1.5")}
+                    title="Open pull request"
+                  >
+                    <GitHubProviderLogo className="shrink-0" />
+                    <span>{pullRequestLabel}</span>
+                  </a>
+                ) : null}
+                {pullRequestIsDraft ? (
+                  <Badge
+                    variant="outline"
+                    className="h-6 px-1.5 py-0 text-xs font-medium uppercase tracking-wide"
+                  >
+                    draft
+                  </Badge>
+                ) : null}
+                {normalizedPullRequestLabels.length > 0
+                  ? normalizedPullRequestLabels.map((label) => (
+                      <Badge
+                        key={label.name}
+                        variant="outline"
+                        className="h-6 max-w-48 px-1.5 py-0 text-xs font-medium"
+                        style={buildPullRequestLabelStyle(label.color)}
+                        title={label.name}
+                      >
+                        <span className="truncate">{label.name}</span>
+                      </Badge>
+                    ))
+                  : null}
+              </div>
+            ) : null}
+            {hasBuildFailureLogsLink ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                <a
+                  href={cloudflarePreviewLogsUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={clsx(
+                    metadataLinkClassName,
+                    "gap-1.5 text-destructive hover:text-destructive",
+                  )}
+                  title="Open Cloudflare build logs"
+                >
+                  <CloudflareProviderLogo className="shrink-0" />
+                  <span>Build failed logs</span>
+                </a>
+              </div>
+            ) : hasCurrentPreviewLink ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                <a
+                  href={cloudflareBranchPreviewUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={clsx(metadataLinkClassName, "gap-1.5")}
+                  title="Open Cloudflare branch preview"
+                >
+                  <CloudflareProviderLogo className="shrink-0" />
+                  <span>Cloudflare preview</span>
+                </a>
+              </div>
+            ) : null}
+            {hasPreviewDeploymentLink ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                <a
+                  href={convexPreviewDeploymentDashboardUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={clsx(metadataLinkClassName, "gap-1.5")}
+                  title="Open Convex preview deployment dashboard"
+                >
+                  <ConvexProviderLogo className="shrink-0" />
+                  <span>Preview deploy</span>
+                </a>
+              </div>
+            ) : null}
+            {hasProductionDeploymentLink ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                <a
+                  href={productionDeploymentDashboardUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={clsx(metadataLinkClassName, "gap-1.5")}
+                  title="Open production Convex deployment dashboard"
+                >
+                  <ConvexProviderLogo className="shrink-0" />
+                  <span>Production deploy</span>
+                </a>
+              </div>
             ) : null}
           </div>
         </div>
@@ -536,15 +728,23 @@ export function VaultBranchLinkRow({
   pullRequestIsDraft,
   cloudflareBranchPreviewUrl,
   cloudflarePreviewPullRequestNumber,
+  cloudflarePreviewLogsUrl,
+  cloudflarePreviewStatus,
+  convexPreviewDeploymentDashboardUrl,
+  productionDeploymentDashboardUrl,
   stagedSummary,
   canDeleteBranch,
   isDeletingBranch,
   onDeleteBranch,
 }: VaultBranchLinkRowProps) {
   const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
+  // Preserve space for links by rendering actions only when staged files or
+  // branch deletion give the row a real control.
+  const showRowActions =
+    Boolean(hasStagedChanges && vaultId) || canDeleteBranch;
 
   return (
-    <div className="flex items-start gap-3 border-b border-border/40 px-4 py-2.5 last:border-b-0 sm:px-3">
+    <div className="flex items-start gap-3 border-b border-border/40 px-4 py-3.5 last:border-b-0 sm:px-3">
       <VaultBranchLinkContent
         repositoryFullName={repositoryFullName}
         branchName={branchName}
@@ -560,41 +760,45 @@ export function VaultBranchLinkRow({
         pullRequestIsDraft={pullRequestIsDraft}
         cloudflareBranchPreviewUrl={cloudflareBranchPreviewUrl}
         cloudflarePreviewPullRequestNumber={cloudflarePreviewPullRequestNumber}
+        cloudflarePreviewLogsUrl={cloudflarePreviewLogsUrl}
+        cloudflarePreviewStatus={cloudflarePreviewStatus}
+        convexPreviewDeploymentDashboardUrl={
+          convexPreviewDeploymentDashboardUrl
+        }
+        productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
       />
-      <div className="flex shrink-0 items-start gap-2">
-        {hasStagedChanges && vaultId ? (
-          <div className="pt-0.5">
-            <EditedFilesCategoriesPopover
-              vaultId={vaultId}
-              repositoryFullName={repositoryFullName}
-              branch={branchName}
-              summaryCounts={stagedSummary}
-            />
-          </div>
-        ) : (
-          <span className="w-4 pt-1 text-right font-mono text-[11px] tabular-nums text-muted-foreground/70">
-            0
-          </span>
-        )}
-        {canDeleteBranch ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
-            onClick={onDeleteBranch}
-            disabled={isDeletingBranch}
-            aria-label={`Delete branch ${branchName}`}
-            title="Delete branch on GitHub"
-          >
-            {isDeletingBranch ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <TrashIcon className="h-3.5 w-3.5" aria-hidden="true" />
-            )}
-          </Button>
-        ) : null}
-      </div>
+      {showRowActions ? (
+        <div className="flex shrink-0 items-start gap-2">
+          {hasStagedChanges && vaultId ? (
+            <div className="pt-0.5">
+              <EditedFilesCategoriesPopover
+                vaultId={vaultId}
+                repositoryFullName={repositoryFullName}
+                branch={branchName}
+                summaryCounts={stagedSummary}
+              />
+            </div>
+          ) : null}
+          {canDeleteBranch ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
+              onClick={onDeleteBranch}
+              disabled={isDeletingBranch}
+              aria-label={`Delete branch ${branchName}`}
+              title="Delete branch on GitHub"
+            >
+              {isDeletingBranch ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <TrashIcon className="h-4 w-4" aria-hidden="true" />
+              )}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -603,6 +807,7 @@ interface VaultBranchListProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   remoteBranches: VaultRemoteBranchListItem[];
+  productionDeploymentDashboardUrl?: string;
   activeDeletingBranchName: string | null;
   onDeleteBranch: (branchName: string) => void;
   expansion?: VaultBranchListExpansionProps;
@@ -613,6 +818,7 @@ interface VaultBranchListRowProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   stagedSummary?: StagedSummary;
+  productionDeploymentDashboardUrl?: string;
   activeDeletingBranchName: string | null;
   onDeleteBranch: (branchName: string) => void;
 }
@@ -628,6 +834,7 @@ function VaultBranchListRow({
   vaultId,
   repositoryFullName,
   stagedSummary,
+  productionDeploymentDashboardUrl,
   activeDeletingBranchName,
   onDeleteBranch,
 }: VaultBranchListRowProps) {
@@ -658,6 +865,14 @@ function VaultBranchListRow({
       cloudflareBranchPreviewUrl={branch.cloudflareBranchPreviewUrl}
       cloudflarePreviewPullRequestNumber={
         branch.cloudflarePreviewPullRequestNumber
+      }
+      cloudflarePreviewLogsUrl={branch.cloudflarePreviewLogsUrl}
+      cloudflarePreviewStatus={branch.cloudflarePreviewStatus}
+      convexPreviewDeploymentDashboardUrl={
+        branch.convexPreviewDeploymentDashboardUrl
+      }
+      productionDeploymentDashboardUrl={
+        branch.isDefault ? productionDeploymentDashboardUrl : undefined
       }
       stagedSummary={stagedSummary}
       canDeleteBranch={deleteEligibility.canDelete}
@@ -700,6 +915,7 @@ function VaultBranchList({
   vaultId,
   repositoryFullName,
   remoteBranches,
+  productionDeploymentDashboardUrl,
   activeDeletingBranchName,
   onDeleteBranch,
   expansion,
@@ -723,6 +939,7 @@ function VaultBranchList({
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           stagedSummary={summaryByBranch.get(branch.name)}
+          productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
           activeDeletingBranchName={activeDeletingBranchName}
           onDeleteBranch={onDeleteBranch}
         />
@@ -736,6 +953,7 @@ function VaultBranchSection({
   vaultId,
   repositoryFullName,
   remoteBranches,
+  productionDeploymentDashboardUrl,
   activeDeletingBranchName,
   filters,
   onChangeFilters,
@@ -744,6 +962,7 @@ function VaultBranchSection({
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   remoteBranches: VaultRemoteBranchListItem[];
+  productionDeploymentDashboardUrl?: string;
   activeDeletingBranchName: string | null;
   filters: VaultBranchFiltersState;
   onChangeFilters: (nextFilters: VaultBranchFiltersState) => void;
@@ -794,6 +1013,7 @@ function VaultBranchSection({
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           remoteBranches={visibleRemoteBranches}
+          productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
           activeDeletingBranchName={activeDeletingBranchName}
           onDeleteBranch={onDeleteBranch}
           expansion={
@@ -890,6 +1110,13 @@ function VaultDashboardBody({
         const infraActionLabel = vault.isNoterManaged
           ? getInfraActionLabel(vault.infraState)
           : null;
+        const repositoryExternalLinks =
+          buildVaultDashboardRepositoryExternalLinks({
+            cloudflareProjectDashboardUrl: vault.cloudflareProjectDashboardUrl,
+            convexProjectSettingsDashboardUrl:
+              vault.convexProjectSettingsDashboardUrl,
+            githubRepositoryUrl,
+          });
         const sharedLastSyncedAt = vault.lastTreeRefreshAt;
         const treeRefreshUiState = getTreeRefreshUiState({
           now,
@@ -911,6 +1138,14 @@ function VaultDashboardBody({
             titleTarget="_blank"
             titleTitle={`Open ${vault.repositoryFullName} on GitHub`}
             titleClassName={linkStyle}
+            repositoryLinks={
+              repositoryExternalLinks.length > 0 ? (
+                <VaultDashboardRepositoryExternalLinks
+                  links={repositoryExternalLinks}
+                  repositoryFullName={vault.repositoryFullName}
+                />
+              ) : undefined
+            }
             titleSuffix={
               !isReady ? (
                 <>
@@ -1014,6 +1249,9 @@ function VaultDashboardBody({
                   vaultId={vault._id}
                   repositoryFullName={vault.repositoryFullName}
                   remoteBranches={remoteBranches}
+                  productionDeploymentDashboardUrl={
+                    vault.convexDeploymentDashboardUrl
+                  }
                   activeDeletingBranchName={
                     isDeletingBranch && branchToDelete?.vaultId === vault._id
                       ? branchToDelete.branchName
@@ -2007,12 +2245,26 @@ export function VaultDashboard() {
         {createButtonLabel}
       </Button>
       {githubConnected ? (
-        <Button variant="outline" className="w-full" asChild>
-          <Link to="/add">Connect existing repo</Link>
+        <Button
+          variant="outline"
+          className="h-auto min-h-8 w-full whitespace-normal py-2"
+          asChild
+        >
+          <Link to="/add">
+            <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+              Connect existing app
+            </span>
+          </Link>
         </Button>
       ) : (
-        <Button variant="outline" className="w-full" disabled>
-          Connect existing repo
+        <Button
+          variant="outline"
+          className="h-auto min-h-8 w-full whitespace-normal py-2"
+          disabled
+        >
+          <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+            Connect existing app
+          </span>
         </Button>
       )}
       {createError && <div className="text-sm text-red-600">{createError}</div>}

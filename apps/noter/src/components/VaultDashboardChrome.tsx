@@ -75,10 +75,12 @@ export function VaultDashboardAccountSection({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-auto w-full justify-between px-0 text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180"
+            className="h-auto w-full items-start justify-between gap-2 whitespace-normal px-0 text-left text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180"
           >
-            <span className="min-w-0 truncate text-left">{displayName}</span>
-            <ChevronDownIcon className="h-4 w-4 shrink-0 transition-transform" />
+            <span className="min-w-0 flex-1 line-clamp-2 text-left [overflow-wrap:anywhere]">
+              {displayName}
+            </span>
+            <ChevronDownIcon className="mt-0.5 h-4 w-4 shrink-0 transition-transform" />
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent>
@@ -291,6 +293,7 @@ export function VaultDashboardRepositoryCard({
   footerActions,
   isReady,
   repositoryName,
+  repositoryLinks,
   repositoryOwner,
   repositoryStatus,
   titleClassName,
@@ -310,6 +313,7 @@ export function VaultDashboardRepositoryCard({
   footerActions?: ReactNode;
   isReady: boolean;
   repositoryName: string;
+  repositoryLinks?: ReactNode;
   repositoryOwner: string;
   repositoryStatus?: ReactNode;
   titleClassName?: string;
@@ -329,12 +333,15 @@ export function VaultDashboardRepositoryCard({
             href={titleHref}
             target={titleTarget}
             rel={titleTarget === "_blank" ? "noopener noreferrer" : undefined}
-            className={clsx("flex min-w-0 items-start", titleClassName)}
+            className={clsx(
+              "-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+              titleClassName,
+            )}
             title={titleTitle}
           >
-            <h3 className="min-w-0 font-semibold">
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="min-w-0 truncate">
+            <h3 className="min-w-0 font-semibold leading-6">
+              <span className="flex min-w-0 items-start gap-2">
+                <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
                   <span className="font-normal text-muted-foreground">
                     {repositoryOwner}/
                   </span>
@@ -344,6 +351,7 @@ export function VaultDashboardRepositoryCard({
               </span>
             </h3>
           </a>
+          {repositoryLinks}
           {repositoryStatus ? (
             <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
               {repositoryStatus}
