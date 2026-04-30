@@ -315,6 +315,52 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   );
 });
 
+test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
+  await page.setViewportSize({ width: 960, height: 520 });
+  await page.goto("/visual-fixture.html?mode=vault-dashboard-sticky-header", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const scrollport = page
+    .getByTestId("workspace-layout-v2-main-viewport")
+    .locator("section > div")
+    .nth(1);
+  const header = page.getByTestId("vault-dashboard-repository-header");
+
+  await page.getByRole("button", { name: "Show 29 more" }).click();
+  await scrollport.evaluate((element) => {
+    element.scrollTop = 560;
+  });
+
+  await expect
+    .poll(async () => {
+      const [headerBox, scrollportBox] = await Promise.all([
+        header.boundingBox(),
+        scrollport.boundingBox(),
+      ]);
+      if (headerBox === null || scrollportBox === null) {
+        return Number.POSITIVE_INFINITY;
+      }
+
+      return Math.abs(headerBox.y - scrollportBox.y);
+    })
+    .toBeLessThanOrEqual(1);
+  await expect(
+    page.getByRole("link", { name: "noter-md/noter" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("codex/sticky-dashboard-branch-05"),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show less" })).toBeVisible();
+  await expect(page).toHaveScreenshot("vault-dashboard-sticky-header.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (list spacing expansion)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 620 });
   await page.goto("/visual-fixture.html?mode=vault-dashboard-list-spacing", {
