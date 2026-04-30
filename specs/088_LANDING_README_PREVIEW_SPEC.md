@@ -31,8 +31,10 @@ GitHub clone. The authoring baseline is content that renders clearly in the
 The product intent is admin-only access. The app does not yet have the
 permission primitive needed to enforce admins separately from authenticated
 users, so the current temporary implementation must stay behind the
-authenticated app route boundary and must not be linked from public or general
-user navigation. Unauthenticated users should see the normal sign-in flow.
+authenticated app route boundary. It may be linked from authenticated app chrome
+so the operator can reach the preview easily, but it must not be linked from
+public unauthenticated navigation. Unauthenticated users should see the normal
+sign-in flow.
 
 When admin permissions exist, `/landing-preview` must be narrowed to admins
 before any broader internal rollout. Do not treat logged-in access as the final

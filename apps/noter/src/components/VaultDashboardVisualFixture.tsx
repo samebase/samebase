@@ -285,7 +285,11 @@ function FixtureDashboardSidebarAccountClamp({
             ]}
           />
           <div className="mt-auto">
-            <AppSidebarMetaSection showMachineLinks side="right" />
+            <AppSidebarMetaSection
+              showLandingPreviewLink
+              showMachineLinks
+              side="right"
+            />
           </div>
         </VaultDashboardSidebarContent>
       }
@@ -326,7 +330,11 @@ function FixtureDashboardCreateControl() {
             </Button>
           </div>
           <div className="mt-auto">
-            <AppSidebarMetaSection showMachineLinks side="right" />
+            <AppSidebarMetaSection
+              showLandingPreviewLink
+              showMachineLinks
+              side="right"
+            />
           </div>
         </VaultDashboardSidebarContent>
       }
@@ -375,7 +383,11 @@ export function VaultDashboardVisualFixture({
         rightContent={
           <VaultDashboardSidebarContent>
             <div className="mt-auto">
-              <AppSidebarMetaSection showMachineLinks side="right" />
+              <AppSidebarMetaSection
+                showLandingPreviewLink
+                showMachineLinks
+                side="right"
+              />
             </div>
           </VaultDashboardSidebarContent>
         }
