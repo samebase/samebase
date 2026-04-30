@@ -648,18 +648,12 @@ describe("Layout", () => {
         <AppSidebarMetaSection />
       </TestRouterProvider>,
     );
-    const landingPreviewRomanianHref = `href="${buildPathWithUpdatedQuery(
-      {
-        pathname: LANDING_MARKDOWN_PREVIEW_ROUTE,
+    const landingPreviewRomanianHref = `href="${buildPathWithTanStackSearch({
+      pathname: LANDING_MARKDOWN_PREVIEW_ROUTE,
+      search: {
+        [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: "ro",
       },
-      (searchParams) => {
-        setQueryParam(
-          searchParams,
-          LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
-          "ro",
-        );
-      },
-    )}"`;
+    })}"`;
 
     expect(homeMarkup).not.toContain(
       LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,

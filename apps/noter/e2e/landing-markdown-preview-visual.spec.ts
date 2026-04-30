@@ -10,10 +10,7 @@ import {
   LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_TEST_ID,
 } from "../src/lib/landingMarkdownPreview";
-import {
-  buildPathWithUpdatedQuery,
-  setQueryParam,
-} from "../src/lib/queryParams";
+import { buildPathWithTanStackSearch } from "../src/lib/tanstackSearchParams";
 
 const landingPreviewMarkdown = readFileSync(
   new URL("../src/content/landing-preview.md", import.meta.url),
@@ -34,19 +31,13 @@ const expectedLandingPreviewVideoSrcs = [
   "/landing-preview/step-4-create-convex-project.mp4",
   "/landing-preview/step-5-create-cloudflare-pages-deploy.mp4",
 ] as const;
-const expectedRomanianPreviewHref = buildPathWithUpdatedQuery(
-  {
-    pathname: LANDING_MARKDOWN_PREVIEW_ROUTE,
+const expectedRomanianPreviewHref = buildPathWithTanStackSearch({
+  pathname: LANDING_MARKDOWN_PREVIEW_ROUTE,
+  search: {
+    [LANDING_DEV_MODE_QUERY_PARAM]: true,
+    [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: "ro",
   },
-  (searchParams) => {
-    setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, true);
-    setQueryParam(
-      searchParams,
-      LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
-      "ro",
-    );
-  },
-);
+});
 
 async function expectSidebarLinksToMatchMarkdown(sidebar: Locator) {
   const sidebarLinks = sidebar.getByRole("link");
@@ -97,11 +88,21 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
       name: LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
     }),
   ).toHaveAttribute("href", expectedRomanianPreviewHref);
-  await expect(
-    article.getByRole("link", {
+  const markdownRomanianHref = await article
+    .getByRole("link", {
       name: "Română",
-    }),
-  ).toHaveAttribute("href", LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL);
+    })
+    .getAttribute("href");
+  expect(markdownRomanianHref?.startsWith(LANDING_MARKDOWN_PREVIEW_ROUTE)).toBe(
+    true,
+  );
+  const markdownRomanianSearch = new URLSearchParams(
+    markdownRomanianHref?.split("?").at(1) ?? "",
+  );
+  expect(
+    markdownRomanianSearch.get(LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM),
+  ).toBe("ro");
+  expect(markdownRomanianSearch.has(LANDING_DEV_MODE_QUERY_PARAM)).toBe(true);
   await expect(article.locator("details")).toHaveCount(4);
   await expect(article.locator("details video")).toHaveCount(0);
   const videos = article.locator("video");
