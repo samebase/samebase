@@ -299,7 +299,7 @@ function FixtureDashboardSidebarAccountClamp({
           <VaultDashboardAccountSection
             open={true}
             onOpenChange={() => {}}
-            displayName="Alexandria Example"
+            displayName="Alexandria Example With A Very Long Pane Account Name"
             email="alexandria.very.long.operator.email-address@noter-example-workspace.dev"
             providerLabel="Google Workspace Enterprise"
             isSignOutPending={false}
@@ -360,8 +360,27 @@ function FixtureDashboardCreateControl() {
               onChange={() => {}}
             />
             <Button className="w-full">New App</Button>
-            <Button variant="outline" className="w-full" asChild>
-              <Link to="/add">Connect existing repo</Link>
+            <Button
+              variant="outline"
+              className="h-auto min-h-8 w-full whitespace-normal py-2"
+              asChild
+            >
+              <Link to="/add">
+                <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+                  Connect existing app
+                </span>
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto min-h-8 w-full whitespace-normal py-2"
+              asChild
+            >
+              <Link to="/machines/connect">
+                <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+                  Connect machine
+                </span>
+              </Link>
             </Button>
           </div>
           <div className="mt-auto">

@@ -2176,14 +2176,39 @@ export function VaultDashboard() {
         {createButtonLabel}
       </Button>
       {githubConnected ? (
-        <Button variant="outline" className="w-full" asChild>
-          <Link to="/add">Connect existing repo</Link>
+        <Button
+          variant="outline"
+          className="h-auto min-h-8 w-full whitespace-normal py-2"
+          asChild
+        >
+          <Link to="/add">
+            <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+              Connect existing app
+            </span>
+          </Link>
         </Button>
       ) : (
-        <Button variant="outline" className="w-full" disabled>
-          Connect existing repo
+        <Button
+          variant="outline"
+          className="h-auto min-h-8 w-full whitespace-normal py-2"
+          disabled
+        >
+          <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+            Connect existing app
+          </span>
         </Button>
       )}
+      <Button
+        variant="outline"
+        className="h-auto min-h-8 w-full whitespace-normal py-2"
+        asChild
+      >
+        <Link to="/machines/connect">
+          <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+            Connect machine
+          </span>
+        </Link>
+      </Button>
       {createError && <div className="text-sm text-red-600">{createError}</div>}
       {!canCreateRepo && (
         <div className="text-xs text-muted-foreground">
