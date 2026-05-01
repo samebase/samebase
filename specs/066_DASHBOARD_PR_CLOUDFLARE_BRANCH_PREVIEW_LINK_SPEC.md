@@ -54,8 +54,8 @@ part of the accepted behavior:
 3. When no pull request title is available, PR metadata may render as its own
    row. Pull request labels and the draft badge belong with PR metadata, not the
    commit row.
-4. The branch name remains visible with a branch icon, but is not itself the
-   edit navigation target.
+4. The branch name remains visible with a branch icon and links to the GitHub
+   branch tree, but is not itself the Noter edit navigation target.
 5. A Noter `Edit` link renders below the Cloudflare preview/logs affordance,
    uses the version 2 side-diagonal identity mark, and opens the branch file
    view.

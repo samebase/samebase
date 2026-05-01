@@ -82,6 +82,7 @@ import {
   buildVaultCodespaceChatRoute,
   buildVaultFileRoute,
 } from "@/lib/vaultRoutes";
+import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { hasQueryParam } from "@/lib/queryParams";
 import {
   buildPullRequestLabelStyle,
@@ -551,6 +552,10 @@ export function VaultBranchLinkContent({
   productionDeploymentDashboardUrl?: string;
 }) {
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
+  const branchGithubUrl = buildGitHubBranchTreeUrl({
+    repositoryFullName,
+    branchName,
+  });
   const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
   const hasPullRequestTitle =
     typeof pullRequestTitle === "string" && pullRequestTitle.length > 0;
@@ -647,7 +652,18 @@ export function VaultBranchLinkContent({
               </div>
             )
           ) : null}
-          <div className={branchLabelClassName}>
+          <a
+            href={branchGithubUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className={clsx(
+              branchLabelClassName,
+              "underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+              linkStyle,
+            )}
+            title="Open branch on GitHub"
+            aria-label={`Open ${branchName} branch on GitHub`}
+          >
             <DashboardLinkIconSlot className="mt-1">
               <GitBranch
                 aria-hidden="true"
@@ -656,7 +672,7 @@ export function VaultBranchLinkContent({
               />
             </DashboardLinkIconSlot>
             <span className="min-w-0 break-words">{branchName}</span>
-          </div>
+          </a>
           <div className="space-y-1 text-base leading-6 text-muted-foreground/80">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
               <a

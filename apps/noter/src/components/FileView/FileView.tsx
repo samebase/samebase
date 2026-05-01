@@ -95,12 +95,12 @@ import {
   mergeFileViewRouteSearch,
   useFileViewRouteSearch,
 } from "@/lib/fileViewRouteSearch";
+import { encodeGitHubPath } from "@/lib/githubUrls";
 import {
   type BranchComparePreview,
   BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS,
   type CommitPreview,
   type CommitReviewMode,
-  encodeGitHubPath,
   type EffectiveSidebarMode,
   FILE_VIEW_SIDEBAR_DEFAULT_STATE,
   findBestInitialFile,
