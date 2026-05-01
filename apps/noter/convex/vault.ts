@@ -1218,37 +1218,6 @@ export const getVaultRemoteBranch = internalQuery({
   },
 });
 
-export const pruneVaultRemoteBranchCache = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    branchName: string(),
-  },
-  returns: nullValidator,
-  handler: async (ctx, args) => {
-    const remoteBranch = await ctx.db
-      .query("vaultRemoteBranches")
-      .withIndex("by_vault_and_name", (q) =>
-        q.eq("vaultId", args.vaultId).eq("name", args.branchName),
-      )
-      .first();
-    if (remoteBranch) {
-      await ctx.db.delete(remoteBranch._id);
-    }
-
-    const branchTree = await ctx.db
-      .query("vaultBranchTrees")
-      .withIndex("by_vault_and_branch", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branchName),
-      )
-      .first();
-    if (branchTree) {
-      await ctx.db.delete(branchTree._id);
-    }
-
-    return null;
-  },
-});
-
 export const syncVaultRemoteBranches = internalMutation({
   args: {
     vaultId: id("vaults"),

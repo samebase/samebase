@@ -590,23 +590,6 @@ export const listStagedFilesBranchSummaries = query({
   },
 });
 
-export const hasStagedFilesForBranch = internalQuery({
-  args: {
-    vaultId: vaultIdValidator,
-    branch: branchValidator,
-  },
-  returns: boolean(),
-  handler: async (ctx, args) => {
-    const files = await ctx.db
-      .query("fileStaging")
-      .withIndex("by_vault_and_branch", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch),
-      )
-      .collect();
-    return files.some(hasStagedFileChanges);
-  },
-});
-
 export const listAllStagedFiles = internalQuery({
   args: listAllStagedFilesArgsValidator,
   returns: stagedFileListValidator,
