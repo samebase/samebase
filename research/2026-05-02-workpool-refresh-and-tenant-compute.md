@@ -21,10 +21,17 @@ instance.
 
 ## Current Finding
 
-Use Workpool for bounded backend-owned refresh execution, but do not make the
-first patch a packaged tenant component. The immediate architecture should move
-client-side auto-refresh decisions into Convex, enqueue durable refresh jobs,
-and leave React surfaces as subscribers plus explicit user-intent dispatchers.
+Use a durable backend request model first, then choose Workpool or Workflow
+based on the shape of the work:
+
+1. use Workpool for bounded single-step refresh execution
+2. use Workflow when the refresh or compute flow becomes a durable multi-step
+   process with waits, sleeps, external events, restarts, or nested workflows
+
+Do not make the first patch a packaged tenant component. The immediate
+architecture should move client-side auto-refresh decisions into Convex, enqueue
+durable refresh jobs, and leave React surfaces as subscribers plus explicit
+user-intent dispatchers.
 
 The tenant-installed component idea is promising, but it is a product and trust
 boundary change. It should start as a narrow remote worker/component research
@@ -98,6 +105,73 @@ Sources:
 - [Convex component docs](https://docs.convex.dev/components)
 - [Convex component authoring docs](https://docs.convex.dev/components/authoring)
 
+## Workflow Notes
+
+Workflow is not a competing queue primitive so much as a higher-level durable
+orchestration primitive built on Workpool. It lets application code define
+durable functions with typed arguments and return values, whose steps are
+regular Convex queries, mutations, actions, or nested workflows.
+
+Registry check from this worktree:
+
+- `@convex-dev/workflow` latest: `0.3.12`
+- description: `Convex component for durably executing workflows.`
+- license: `Apache-2.0`
+- repository: `get-convex/workflow`
+- peer dependencies include `@convex-dev/workpool` `^0.3.0 || ^0.4.0`
+
+Capabilities that matter for Noter:
+
+1. workflow status can be observed reactively by many users
+2. workflow steps can run in sequence or in parallel
+3. action step retries are configurable per step
+4. workflows can sleep or wait for external events without consuming resources
+5. workflows can be canceled and restarted from a failed step
+6. the overall workflow has an `onComplete` handler
+7. Workpool is used underneath to bound step parallelism
+
+Workflow constraints that matter for Noter:
+
+1. workflow handlers must be deterministic
+2. side effects like `fetch`, env reads, and cryptographic randomness belong in
+   step functions, not in the workflow definition
+3. step input/output history is journaled, so large payloads should be stored in
+   tables or file storage and passed by ID
+4. changing workflow step order or structure while old workflows are active can
+   cause determinism violations
+5. completed workflow storage needs cleanup
+
+Sources:
+
+- [Convex Workflow component](https://www.convex.dev/components/workflow)
+- [get-convex/workflow README](https://github.com/get-convex/workflow)
+- [Convex agent workflow docs](https://docs.convex.dev/agents/workflows)
+
+## Workpool Versus Workflow
+
+For the current refresh mess, the first backend queue should still look closer
+to Workpool than Workflow:
+
+1. most automatic refresh jobs are one-shot read/update jobs
+2. the existing `refreshRepositoryTree` action already computes skip,
+   metadata-sync, and tree-refresh decisions
+3. current UI needs durable request status more than durable step replay
+4. Workpool has less API surface and fewer determinism/versioning concerns
+
+Workflow becomes a better fit when the unit of work has a real lifecycle:
+
+1. create or refresh repository metadata
+2. wait for GitHub, Cloudflare, or remote worker callback
+3. run a follow-up branch tree refresh
+4. notify or update UI when preview/build state completes
+5. recover from a specific failed step after code or provider outage fixes
+
+So the decision rule is:
+
+1. Workpool for bounded execution of independent refresh tasks.
+2. Workflow for long-lived orchestration where the order, delays, events, and
+   restart point matter.
+
 ## Proposed Hosted Architecture
 
 Noter already installs a Convex component in
@@ -114,8 +188,8 @@ app.use(agent);
 export default app;
 ```
 
-Workpool would extend that same component installation seam with one or two
-named pools rather than introducing a new backend framework.
+Workpool or Workflow would extend that same component installation seam rather
+than introducing a new backend framework.
 
 ### 1. Keep Client Surfaces Dumb
 
@@ -265,7 +339,15 @@ component that accepts signed refresh jobs, performs GitHub/compute-heavy work,
 and reports results back to hosted Noter through a narrow callback/API.
 
 This is the most realistic BYO compute path. It keeps Noter's product shell and
-account model centralized while moving selected expensive jobs.
+account model centralized while moving selected expensive jobs. Workflow is more
+interesting here than for the initial hosted queue because the control plane may
+need to:
+
+1. enqueue remote work
+2. wait for an external callback or polling signal
+3. retry only the callback/polling step after transient outages
+4. cancel or restart a failed remote execution without duplicating completed
+   work
 
 Open design questions:
 
@@ -290,7 +372,8 @@ Implement this in three research-to-delivery tracks:
 
 1. Hosted refresh queue
    - add durable refresh request state
-   - enqueue backend-owned jobs with Workpool
+   - start execution with scheduler or Workpool
+   - reserve Workflow for multi-step refresh/provisioning flows
    - move dashboard/file-view automatic refreshes to cheap request mutations
    - keep existing GitHub internals, claim/cooldown state, and UI status
 2. Tenant budget model
@@ -336,6 +419,22 @@ After the request table is proven:
 The Workpool PR should not change BYO compute boundaries. Its success criterion
 is that multiple tabs and dashboard fanout converge on durable backend work.
 
+## Concrete Workflow Follow-Up Slice
+
+Use Workflow after Workpool only if a real multi-step lifecycle appears. A good
+candidate would be Cloudflare preview hydration or BYO worker execution:
+
+1. define `refreshRepositoryWorkflow`
+2. run metadata sync as one step
+3. run branch tree refresh as a second step only if metadata says it is needed
+4. sleep or wait for preview/remote-worker completion when applicable
+5. use `onComplete` to update the same `refreshRequests` row
+6. add cleanup for completed workflow records
+
+Avoid Workflow for the first dashboard/file-view refresh patch. The durable
+request table can give the UI one observable status record without inheriting
+workflow determinism and migration constraints too early.
+
 ## Risks
 
 1. Queueing can hide freshness bugs if the UI only sees "queued" and not why the
@@ -345,6 +444,8 @@ is that multiple tabs and dashboard fanout converge on durable backend work.
 4. Tenant-owned compute creates a new trust boundary and a support surface.
 5. A packaged component can become a compatibility promise before the API is
    stable.
+6. Workflow handlers can break old in-flight work if the step structure changes
+   before those workflows finish.
 
 ## Open Questions
 
