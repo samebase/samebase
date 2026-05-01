@@ -172,15 +172,22 @@ Example:
 
 ## Document Side Effects
 
-Every `useEffect` should explain why the side effect exists and how the code
-could eventually stop needing it.
+Before adding or keeping a `useEffect`, first prove that render-time derivation,
+event handlers, keys, or component boundaries cannot express the behavior.
+
+React treats Effects as an escape hatch for synchronizing with external systems,
+not as a general way to keep React state in sync with other React state. See
+[React: You Might Not Need an Effect](https://react.dev/learn/you-might-not-need-an-effect).
 
 Effects often hide synchronization between React state, browser events, external
-windows, and persisted data. A short JSDoc-style comment above the effect should
-make that dependency explicit and name the removal path.
+windows, and persisted data. If an effect is still needed, a short JSDoc-style
+comment above it should make that dependency explicit and name the removal path.
 
 General rule:
 
+- Avoid a new effect whenever the result can be calculated during render.
+- Do not reset state in an effect just because another render condition hides
+  that state; hidden is not the same thing as cleared.
 - Explain the external system or lifecycle the effect synchronizes with.
 - Mention why render-time derivation is not enough today.
 - Include a concrete removal path, such as moving work to a backend scheduler, a
@@ -190,6 +197,8 @@ General rule:
 
 Example:
 
+- Dashboard developer tools can derive visibility from `developerToolsVisible`
+  while preserving remembered open state; this does not need an effect.
 - A dashboard `useEffect` that listens for OAuth popup messages should say that
   it exists for popup completion and that removing it would require replacing
   the message bridge with redirect flow or provider connection invalidation.

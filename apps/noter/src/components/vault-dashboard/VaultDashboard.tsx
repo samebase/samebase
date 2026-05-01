@@ -1659,22 +1659,6 @@ export function VaultDashboard() {
   >(null);
 
   /**
-   * Clears per-vault developer-tool open state when the dashboard tools are no
-   * longer visible. Remove this by moving the open state inside the visible
-   * developer-tools subtree, or by making the feature visibility toggle own the
-   * reset at the same place it hides the controls.
-   */
-  useEffect(() => {
-    if (developerToolsVisible) {
-      return;
-    }
-
-    setOpenDeveloperToolsByVaultId((currentOpenState) =>
-      Object.keys(currentOpenState).length === 0 ? currentOpenState : {},
-    );
-  }, [developerToolsVisible]);
-
-  /**
    * Mirrors the persisted account panel setting into local optimistic state once
    * the Convex value arrives or catches up with a pending mutation. Remove this
    * by using one source of truth for the panel, such as a shared optimistic
