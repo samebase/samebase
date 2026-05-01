@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID,
+  LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_TEST_ID,
 } from "../src/lib/landingMarkdownPreview";
 
@@ -62,15 +63,24 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
 
   const preview = page.getByTestId(LANDING_MARKDOWN_PREVIEW_TEST_ID);
   const article = page.getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID);
+  const sidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
 
   await expect(preview).toBeVisible();
+  await expect(sidebar).toBeVisible();
+  await expect(sidebar.getByRole("link", { name: "Accounts" })).toHaveAttribute(
+    "href",
+    "#accounts",
+  );
   await expect(rightSidebar).toBeVisible();
   await expect(
     article.getByRole("heading", {
       name: /Deploy a production-ready, real-time web-app/,
     }),
   ).toBeVisible();
+  await expect(article.locator("#accounts")).toContainText(
+    "1: Create Github, Convex, Cloudflare & OpenAI accounts",
+  );
   await expect(article.locator("details")).toHaveCount(4);
   await expect(article.locator("details video")).toHaveCount(0);
   const videos = article.locator("video");
@@ -93,6 +103,10 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
       scale: "css",
     },
   );
+
+  await sidebar.getByRole("link", { name: "Convex project" }).click();
+  await expect(page).toHaveURL(/#convex-project$/);
+  await expect(article.locator("#convex-project")).toBeInViewport();
 
   const firstTaskCheckbox = article.locator('input[type="checkbox"]').first();
   await expect(firstTaskCheckbox).toBeEnabled();

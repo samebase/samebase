@@ -114,6 +114,14 @@ describe("MarkdownLandingDocument", () => {
     expect(checkbox?.checked).toBe(true);
   });
 
+  it("uses explicit heading markers as hash anchors", () => {
+    const element = renderMarkdown("## Accounts {#accounts}");
+
+    const heading = element.querySelector("h2");
+    expect(heading?.id).toBe("accounts");
+    expect(heading?.textContent).toBe("Accounts");
+  });
+
   it("detects common video file URLs", () => {
     expect(isMarkdownVideoUrl("https://example.com/demo.MP4?download=1")).toBe(
       true,

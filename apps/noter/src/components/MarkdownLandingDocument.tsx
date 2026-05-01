@@ -1,4 +1,5 @@
 import {
+  isValidElement,
   useEffect,
   useState,
   type ComponentPropsWithoutRef,
@@ -41,6 +42,7 @@ const SANITIZED_IMAGE_ATTRIBUTES: string[] = [
   "width",
 ];
 const SANITIZED_SOURCE_ATTRIBUTES: string[] = ["src", "type"];
+const HEADING_ID_MARKER_PATTERN = /\s*\{#([a-z][a-z0-9-]*)\}\s*$/i;
 
 const markdownSanitizeSchema = {
   ...defaultSchema,
@@ -226,30 +228,110 @@ function buildImageAuthoredSizeStyle({
   };
 }
 
+type HeadingTextElementProps = {
+  children?: ReactNode;
+};
+
+function getReactNodeText(value: ReactNode): string {
+  if (value === null || value === undefined || typeof value === "boolean") {
+    return "";
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(getReactNodeText).join("");
+  }
+
+  if (isValidElement<HeadingTextElementProps>(value)) {
+    return getReactNodeText(value.props.children);
+  }
+
+  return "";
+}
+
+function stripHeadingIdMarker(children: ReactNode): ReactNode {
+  if (typeof children === "string") {
+    return children.replace(HEADING_ID_MARKER_PATTERN, "");
+  }
+
+  if (!Array.isArray(children)) {
+    return children;
+  }
+
+  for (let index = children.length - 1; index >= 0; index -= 1) {
+    const child = children[index];
+    if (typeof child !== "string") {
+      continue;
+    }
+
+    const strippedChild = child.replace(HEADING_ID_MARKER_PATTERN, "");
+    if (strippedChild === child) {
+      continue;
+    }
+
+    const strippedChildren = [...children];
+    strippedChildren[index] = strippedChild;
+    return strippedChildren;
+  }
+
+  return children;
+}
+
+function parseHeadingContent(children: ReactNode) {
+  const headingText = getReactNodeText(children);
+  const idMatch = headingText.match(HEADING_ID_MARKER_PATTERN);
+
+  if (idMatch === null) {
+    return { children };
+  }
+
+  return {
+    children: stripHeadingIdMarker(children),
+    id: idMatch[1].toLowerCase(),
+  };
+}
+
 function renderHeading(level: 1 | 2 | 3 | 4, children: ReactNode) {
+  const headingContent = parseHeadingContent(children);
+
   switch (level) {
     case 1:
       return (
-        <h1 className="text-3xl font-semibold leading-tight tracking-normal sm:text-4xl">
-          {children}
+        <h1
+          id={headingContent.id}
+          className="scroll-mt-4 text-3xl font-semibold leading-tight tracking-normal sm:text-4xl"
+        >
+          {headingContent.children}
         </h1>
       );
     case 2:
       return (
-        <h2 className="text-2xl font-semibold leading-tight tracking-normal">
-          {children}
+        <h2
+          id={headingContent.id}
+          className="scroll-mt-4 text-2xl font-semibold leading-tight tracking-normal"
+        >
+          {headingContent.children}
         </h2>
       );
     case 3:
       return (
-        <h3 className="text-xl font-semibold leading-snug tracking-normal">
-          {children}
+        <h3
+          id={headingContent.id}
+          className="scroll-mt-4 text-xl font-semibold leading-snug tracking-normal"
+        >
+          {headingContent.children}
         </h3>
       );
     case 4:
       return (
-        <h4 className="text-base font-semibold leading-6 tracking-normal">
-          {children}
+        <h4
+          id={headingContent.id}
+          className="scroll-mt-4 text-base font-semibold leading-6 tracking-normal"
+        >
+          {headingContent.children}
         </h4>
       );
   }
