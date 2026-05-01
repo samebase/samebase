@@ -183,7 +183,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-create-control",
   "vault-dashboard-dev-tools-hidden",
   "vault-dashboard-dev-tools-visible",
-  "vault-dashboard-settings-open",
+  "vault-dashboard-delete-open",
   "vault-dashboard-sticky-header",
   "vault-dashboard-list-spacing",
   "vault-last-updated-status",
@@ -364,7 +364,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-create-control" ||
     mode === "vault-dashboard-dev-tools-hidden" ||
     mode === "vault-dashboard-dev-tools-visible" ||
-    mode === "vault-dashboard-settings-open" ||
+    mode === "vault-dashboard-delete-open" ||
     mode === "vault-dashboard-sticky-header" ||
     mode === "vault-dashboard-list-spacing" ||
     mode === "vault-last-updated-status" ||

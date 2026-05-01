@@ -25,7 +25,7 @@ function readOptionalGoogleSignupReturn(value: unknown): "google" | undefined {
   return value === "google" ? "google" : undefined;
 }
 
-function readOptionalSettingsRepository(value: unknown): string | undefined {
+function readOptionalDeleteRepository(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;
   }
@@ -46,12 +46,12 @@ const rootRouteSearchSchema = z.object({
   ),
   dev: z.preprocess(readOptionalFlag, z.literal(true).optional()),
   devtools: z.preprocess(readOptionalFlag, z.literal(true).optional()),
+  delete: z.preprocess(readOptionalDeleteRepository, z.string().optional()),
   "prod-ui": z.preprocess(readOptionalFlag, z.literal(true).optional()),
   signup: z.preprocess(
     readOptionalGoogleSignupReturn,
     z.literal("google").optional(),
   ),
-  settings: z.preprocess(readOptionalSettingsRepository, z.string().optional()),
 });
 
 export type RootRouteSearch = z.infer<typeof rootRouteSearchSchema>;

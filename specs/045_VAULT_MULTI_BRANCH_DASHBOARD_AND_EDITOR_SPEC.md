@@ -52,19 +52,18 @@ Current workflow direction for Noter:
 5. Legacy fallback still exists in a few read paths and is the primary cleanup
    target for the next PR
 
-## Vault Dashboard Settings Surface
+## Vault Dashboard Delete Surface
 
-Each dashboard vault card exposes a `Settings` link that writes
-`?settings=<owner>/<repo>` through TanStack Router search state. The root search
+Each dashboard vault card exposes a single remove-vault link that writes
+`?delete=<owner>/<repo>` through TanStack Router search state. The root search
 contract validates the value as a single GitHub repository full name so the same
-URL works for SPA navigation and direct page loads.
+URL works for SPA navigation, direct page loads, and shared links.
 
-When the dashboard loads with a matching `settings` value, the matching vault
-card scrolls into view after vault data arrives. Desktop renders the settings
-surface as an anchored popover; touch-first devices render the same internal
-settings content inside a bottom sheet. The current settings content owns the
-vault removal action and opens the existing confirmation dialog rather than
-putting a destructive icon directly on the card.
+When the dashboard loads with a matching `delete` value, the matching vault card
+scrolls into view after vault data arrives. Desktop renders the delete surface
+as an anchored popover; touch-first devices render the same internal delete
+content inside a bottom sheet. The delete surface opens the existing
+confirmation dialog so destructive cleanup options stay centralized.
 
 ## Pre-Implementation Baseline (Historical)
 

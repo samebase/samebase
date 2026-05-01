@@ -9,19 +9,19 @@ describe("rootRouteSearch", () => {
     expect(
       validateRootRouteSearch({
         auth: "google",
+        delete: "noter-md/noter",
         dev: "",
         devtools: "true",
         "prod-ui": "",
         signup: "google",
-        settings: "noter-md/noter",
       }),
     ).toEqual({
       auth: "google",
+      delete: "noter-md/noter",
       dev: true,
       devtools: true,
       "prod-ui": true,
       signup: "google",
-      settings: "noter-md/noter",
     });
   });
 
@@ -29,11 +29,11 @@ describe("rootRouteSearch", () => {
     expect(
       validateRootRouteSearch({
         auth: "github",
+        delete: "missing-repo-separator",
         dev: "1",
         devtools: "false",
         "prod-ui": false,
         signup: "github",
-        settings: "missing-repo-separator",
       }),
     ).toEqual({});
   });
@@ -41,14 +41,14 @@ describe("rootRouteSearch", () => {
   it("parses the root search contract from a search string", () => {
     expect(
       readRootRouteSearch(
-        "?prod-ui&dev&auth=google&signup=google&settings=noter-md%2Fnoter",
+        "?prod-ui&dev&auth=google&signup=google&delete=noter-md%2Fnoter",
       ),
     ).toEqual({
       auth: "google",
+      delete: "noter-md/noter",
       dev: true,
       "prod-ui": true,
       signup: "google",
-      settings: "noter-md/noter",
     });
   });
 });

@@ -7,7 +7,6 @@ import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUp
 import {
   ChevronDownIcon,
   GitHubLogoIcon,
-  SettingsIcon,
   TrashIcon,
   UpdateIcon,
 } from "@/lib/radixIcons";
@@ -350,27 +349,15 @@ const CloudflareProviderLogo = ({ className }: { className?: string }) => (
   </span>
 );
 
-function VaultDashboardSettingsContent({
+function VaultDashboardDeleteContent({
   isRemovingVault = false,
   onRemoveVault,
-  reservesSheetCloseSpace = false,
 }: {
   isRemovingVault?: boolean;
   onRemoveVault: () => void;
-  reservesSheetCloseSpace?: boolean;
 }) {
   return (
-    <div className="space-y-4 p-4">
-      <div
-        className={
-          reservesSheetCloseSpace
-            ? "flex items-start justify-between gap-3 pr-10"
-            : "flex items-start justify-between gap-3"
-        }
-      >
-        <p className="text-sm font-medium">Settings</p>
-      </div>
-
+    <div className="p-4">
       <Button
         type="button"
         variant="destructive"
@@ -390,7 +377,7 @@ function VaultDashboardSettingsContent({
   );
 }
 
-export function VaultDashboardSettingsControl({
+export function VaultDashboardDeleteControl({
   isOpen,
   isRemovingVault = false,
   onOpenChange,
@@ -409,15 +396,17 @@ export function VaultDashboardSettingsControl({
       onOpenChange(false);
     }
   };
-  const settingsTriggerAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const deleteTriggerAnchorRef = useRef<HTMLSpanElement | null>(null);
   const trigger = (
-    <span ref={settingsTriggerAnchorRef} className="absolute right-4 top-4">
+    <span ref={deleteTriggerAnchorRef} className="absolute right-4 top-4">
       <Link
         to="/"
         search={(currentSearch) => ({
           ...currentSearch,
-          settings: repositoryFullName,
+          delete: repositoryFullName,
         })}
+        aria-label={`Remove vault ${repositoryFullName}`}
+        title="Remove vault"
         onClick={(event) => {
           if (!isOpen) {
             return;
@@ -426,10 +415,12 @@ export function VaultDashboardSettingsControl({
           event.preventDefault();
           onOpenChange(false);
         }}
-        className={clsx(buttonVariants({ variant: "outline", size: "sm" }))}
+        className={clsx(
+          buttonVariants({ variant: "ghost", size: "icon-sm" }),
+          "text-destructive hover:bg-destructive/10 hover:text-destructive",
+        )}
       >
-        <SettingsIcon className="h-4 w-4" aria-hidden="true" />
-        <span>Settings</span>
+        <TrashIcon className="h-4 w-4" aria-hidden="true" />
       </Link>
     </span>
   );
@@ -440,11 +431,10 @@ export function VaultDashboardSettingsControl({
         {trigger}
         <Sheet open={isOpen} onOpenChange={handleOpenChange}>
           <SheetContent side="bottom" className="max-h-[85vh] overflow-hidden">
-            <SheetTitle className="sr-only">Settings</SheetTitle>
-            <VaultDashboardSettingsContent
+            <SheetTitle className="sr-only">Remove vault</SheetTitle>
+            <VaultDashboardDeleteContent
               isRemovingVault={isRemovingVault}
               onRemoveVault={onRemoveVault}
-              reservesSheetCloseSpace
             />
           </SheetContent>
         </Sheet>
@@ -457,10 +447,10 @@ export function VaultDashboardSettingsControl({
       {trigger}
       <AnchoredPopoverContent
         align="end"
-        anchor={settingsTriggerAnchorRef}
+        anchor={deleteTriggerAnchorRef}
         className="w-64 max-w-[calc(100vw-1rem)] p-0"
       >
-        <VaultDashboardSettingsContent
+        <VaultDashboardDeleteContent
           isRemovingVault={isRemovingVault}
           onRemoveVault={onRemoveVault}
         />
@@ -1282,10 +1272,10 @@ type VaultDashboardBodyProps = {
   >;
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
   retryingVaultId: Id<"vaults"> | null;
-  settingsRepositoryFullName?: string;
+  deleteRepositoryFullName?: string;
   vaults: VaultDashboardVault[];
   onDeleteVault: (vault: VaultDashboardVault) => void;
-  onSettingsOpenChange: (isOpen: boolean) => void;
+  onDeleteOpenChange: (isOpen: boolean) => void;
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onRefreshVaultTree: (vault: DashboardManualRefreshVault) => void;
   onRetryInfrastructure: (vaultId: Id<"vaults">) => void;
@@ -1303,45 +1293,43 @@ function VaultDashboardBody({
   pendingVaultBranchFiltersByVaultId,
   persistedVaultBranchFiltersByVaultId,
   retryingVaultId,
-  settingsRepositoryFullName,
+  deleteRepositoryFullName,
   vaults,
   onDeleteVault,
-  onSettingsOpenChange,
+  onDeleteOpenChange,
   onOpenDeveloperToolsChange,
   onRefreshVaultTree,
   onRetryInfrastructure,
   onSaveVaultBranchFilters,
 }: VaultDashboardBodyProps) {
-  const settingsCardElementsRef = useRef(new Map<string, HTMLDivElement>());
-  const lastScrolledSettingsRepositoryRef = useRef<string | null>(null);
+  const deleteCardElementsRef = useRef(new Map<string, HTMLDivElement>());
+  const lastScrolledDeleteRepositoryRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!settingsRepositoryFullName) {
-      lastScrolledSettingsRepositoryRef.current = null;
+    if (!deleteRepositoryFullName) {
+      lastScrolledDeleteRepositoryRef.current = null;
       return;
     }
 
-    if (
-      lastScrolledSettingsRepositoryRef.current === settingsRepositoryFullName
-    ) {
+    if (lastScrolledDeleteRepositoryRef.current === deleteRepositoryFullName) {
       return;
     }
 
-    const settingsCardElement = settingsCardElementsRef.current.get(
-      settingsRepositoryFullName,
+    const deleteCardElement = deleteCardElementsRef.current.get(
+      deleteRepositoryFullName,
     );
-    if (!settingsCardElement) {
+    if (!deleteCardElement) {
       return;
     }
 
-    // Direct ?settings= loads resolve after vault data arrives, so anchor the
+    // Direct ?delete= loads resolve after vault data arrives, so anchor the
     // selected card once the target element exists.
-    settingsCardElement.scrollIntoView({
+    deleteCardElement.scrollIntoView({
       block: "start",
       inline: "nearest",
     });
-    lastScrolledSettingsRepositoryRef.current = settingsRepositoryFullName;
-  }, [settingsRepositoryFullName, vaults]);
+    lastScrolledDeleteRepositoryRef.current = deleteRepositoryFullName;
+  }, [deleteRepositoryFullName, vaults]);
 
   if (vaults.length === 0) {
     return <VaultDashboardEmptyState />;
@@ -1406,22 +1394,22 @@ function VaultDashboardBody({
         const branchesExpanded = vaultBranchFilters.branchesExpanded;
         const collapsedBranchCount =
           filteredRemoteBranches.length - COLLAPSED_BRANCH_LIMIT;
-        const isSettingsOpen =
-          settingsRepositoryFullName === vault.repositoryFullName;
+        const isDeleteOpen =
+          deleteRepositoryFullName === vault.repositoryFullName;
 
         return (
           <div
             key={vault._id}
             ref={(element) => {
               if (element) {
-                settingsCardElementsRef.current.set(
+                deleteCardElementsRef.current.set(
                   vault.repositoryFullName,
                   element,
                 );
                 return;
               }
 
-              settingsCardElementsRef.current.delete(vault.repositoryFullName);
+              deleteCardElementsRef.current.delete(vault.repositoryFullName);
             }}
           >
             <VaultDashboardRepositoryCard
@@ -1451,15 +1439,15 @@ function VaultDashboardBody({
                 ) : undefined
               }
               topRightAction={
-                <VaultDashboardSettingsControl
+                <VaultDashboardDeleteControl
                   repositoryFullName={vault.repositoryFullName}
-                  isOpen={isSettingsOpen}
+                  isOpen={isDeleteOpen}
                   isRemovingVault={isRemovingVault}
-                  onOpenChange={onSettingsOpenChange}
+                  onOpenChange={onDeleteOpenChange}
                   onRemoveVault={() => {
                     if (!isRemovingVault) {
                       onDeleteVault(vault);
-                      onSettingsOpenChange(false);
+                      onDeleteOpenChange(false);
                     }
                   }}
                 />
@@ -1738,7 +1726,7 @@ export function VaultDashboard() {
   const dashboardAccountPanelOpen = dashboardSettings?.accountPanelOpen;
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
-  const settingsRepositoryFullName = rootRouteSearch.settings;
+  const deleteRepositoryFullName = rootRouteSearch.delete;
   const setVaultBranchFilters = useMutation(api.vault.setVaultBranchFilters);
   const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
@@ -2845,7 +2833,7 @@ export function VaultDashboard() {
     setDidAttemptCommit(false);
   };
 
-  const handleSettingsOpenChange = (isOpen: boolean) => {
+  const handleDeleteOpenChange = (isOpen: boolean) => {
     if (isOpen) {
       return;
     }
@@ -2854,7 +2842,7 @@ export function VaultDashboard() {
       replace: true,
       search: (currentSearch) => ({
         ...currentSearch,
-        settings: undefined,
+        delete: undefined,
       }),
       to: "/",
     });
@@ -2901,10 +2889,10 @@ export function VaultDashboard() {
         persistedVaultBranchFiltersByVaultId
       }
       retryingVaultId={retryingVaultId}
-      settingsRepositoryFullName={settingsRepositoryFullName}
+      deleteRepositoryFullName={deleteRepositoryFullName}
       vaults={vaults}
       onDeleteVault={handleVaultDeleteIntent}
-      onSettingsOpenChange={handleSettingsOpenChange}
+      onDeleteOpenChange={handleDeleteOpenChange}
       onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
       onRefreshVaultTree={refreshVaultTreeFromStatusClick}
       onRetryInfrastructure={handleVaultRetryInfrastructure}
