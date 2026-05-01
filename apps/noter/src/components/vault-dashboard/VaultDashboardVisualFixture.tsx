@@ -19,6 +19,7 @@ import {
 import {
   VaultBranchLinkRow,
   VaultBranchListExpansionControl,
+  VaultDashboardRemoveVaultButton,
   VaultDashboardRepositoryExternalLinks,
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
@@ -69,6 +70,15 @@ function FixtureRepositoryLinks() {
           title: "Open Convex project settings",
         },
       ]}
+    />
+  );
+}
+
+function FixtureRemoveVaultButton() {
+  return (
+    <VaultDashboardRemoveVaultButton
+      repositoryFullName="noter-md/noter"
+      onClick={() => {}}
     />
   );
 }
@@ -257,6 +267,7 @@ function VaultDashboardListSpacingFixture({
             repositoryName="noter"
             titleHref="https://github.com/noter-md/noter"
             repositoryLinks={<FixtureRepositoryLinks />}
+            topRightAction={<FixtureRemoveVaultButton />}
             headerControls={
               <VaultBranchListExpansionControl
                 isExpanded={branchesExpanded}
@@ -313,6 +324,7 @@ function VaultDashboardDeveloperToolsFixture({
               repositoryName="noter"
               titleHref="https://github.com/noter-md/noter"
               repositoryLinks={<FixtureRepositoryLinks />}
+              topRightAction={<FixtureRemoveVaultButton />}
               branchSection={
                 <div className="space-y-1.5">
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
@@ -371,6 +383,7 @@ function VaultDashboardStickyHeaderFixture() {
               repositoryName="noter"
               titleHref="https://github.com/noter-md/noter"
               repositoryLinks={<FixtureRepositoryLinks />}
+              topRightAction={<FixtureRemoveVaultButton />}
               repositoryStatus={
                 <span data-testid="sticky-header-status">Updated 12s ago</span>
               }
