@@ -68,9 +68,13 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
 
   await expect(preview).toBeVisible();
   await expect(sidebar).toBeVisible();
-  await expect(sidebar.getByRole("link", { name: "Accounts" })).toHaveAttribute(
+  await expect(
+    sidebar.getByRole("link", {
+      name: "1: Create Github, Convex, Cloudflare & OpenAI accounts",
+    }),
+  ).toHaveAttribute(
     "href",
-    "#accounts",
+    "#1-create-github-convex-cloudflare-openai-accounts",
   );
   await expect(rightSidebar).toBeVisible();
   await expect(
@@ -78,9 +82,9 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
       name: /Deploy a production-ready, real-time web-app/,
     }),
   ).toBeVisible();
-  await expect(article.locator("#accounts")).toContainText(
-    "1: Create Github, Convex, Cloudflare & OpenAI accounts",
-  );
+  await expect(
+    article.locator('[id="1-create-github-convex-cloudflare-openai-accounts"]'),
+  ).toContainText("1: Create Github, Convex, Cloudflare & OpenAI accounts");
   await expect(article.locator("details")).toHaveCount(4);
   await expect(article.locator("details video")).toHaveCount(0);
   const videos = article.locator("video");
@@ -104,9 +108,17 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
     },
   );
 
-  await sidebar.getByRole("link", { name: "Convex project" }).click();
-  await expect(page).toHaveURL(/#convex-project$/);
-  await expect(article.locator("#convex-project")).toBeInViewport();
+  await sidebar
+    .getByRole("link", {
+      name: "4: Create a Convex project and a CONVEX_DEPLOY_KEY",
+    })
+    .click();
+  await expect(page).toHaveURL(
+    /#4-create-a-convex-project-and-a-convex-deploy-key$/,
+  );
+  await expect(
+    article.locator('[id="4-create-a-convex-project-and-a-convex-deploy-key"]'),
+  ).toBeInViewport();
 
   const firstTaskCheckbox = article.locator('input[type="checkbox"]').first();
   await expect(firstTaskCheckbox).toBeEnabled();

@@ -16,6 +16,7 @@ import rehypeSanitize, {
   type Options as RehypeSanitizeOptions,
 } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
+import { createLandingMarkdownHeadingIdAllocator } from "@/lib/landingMarkdownHeadings";
 import { isMarkdownVideoUrl } from "@/lib/landingMarkdownMedia";
 import { cn } from "@/lib/utils";
 
@@ -42,7 +43,6 @@ const SANITIZED_IMAGE_ATTRIBUTES: string[] = [
   "width",
 ];
 const SANITIZED_SOURCE_ATTRIBUTES: string[] = ["src", "type"];
-const HEADING_ID_MARKER_PATTERN = /\s*\{#([a-z][a-z0-9-]*)\}\s*$/i;
 
 const markdownSanitizeSchema = {
   ...defaultSchema,
@@ -252,261 +252,244 @@ function getReactNodeText(value: ReactNode): string {
   return "";
 }
 
-function stripHeadingIdMarker(children: ReactNode): ReactNode {
-  if (typeof children === "string") {
-    return children.replace(HEADING_ID_MARKER_PATTERN, "");
-  }
-
-  if (!Array.isArray(children)) {
-    return children;
-  }
-
-  for (let index = children.length - 1; index >= 0; index -= 1) {
-    const child = children[index];
-    if (typeof child !== "string") {
-      continue;
-    }
-
-    const strippedChild = child.replace(HEADING_ID_MARKER_PATTERN, "");
-    if (strippedChild === child) {
-      continue;
-    }
-
-    const strippedChildren = [...children];
-    strippedChildren[index] = strippedChild;
-    return strippedChildren;
-  }
-
-  return children;
-}
-
-function parseHeadingContent(children: ReactNode) {
-  const headingText = getReactNodeText(children);
-  const idMatch = headingText.match(HEADING_ID_MARKER_PATTERN);
-
-  if (idMatch === null) {
-    return { children };
-  }
-
-  return {
-    children: stripHeadingIdMarker(children),
-    id: idMatch[1].toLowerCase(),
-  };
-}
-
-function renderHeading(level: 1 | 2 | 3 | 4, children: ReactNode) {
-  const headingContent = parseHeadingContent(children);
-
+function renderHeading(
+  level: 1 | 2 | 3 | 4,
+  children: ReactNode,
+  allocateHeadingId: (text: string) => string,
+) {
+  const headingId = allocateHeadingId(getReactNodeText(children));
   switch (level) {
     case 1:
       return (
         <h1
-          id={headingContent.id}
+          id={headingId}
           className="scroll-mt-4 text-3xl font-semibold leading-tight tracking-normal sm:text-4xl"
         >
-          {headingContent.children}
+          {children}
         </h1>
       );
     case 2:
       return (
         <h2
-          id={headingContent.id}
+          id={headingId}
           className="scroll-mt-4 text-2xl font-semibold leading-tight tracking-normal"
         >
-          {headingContent.children}
+          {children}
         </h2>
       );
     case 3:
       return (
         <h3
-          id={headingContent.id}
+          id={headingId}
           className="scroll-mt-4 text-xl font-semibold leading-snug tracking-normal"
         >
-          {headingContent.children}
+          {children}
         </h3>
       );
     case 4:
       return (
         <h4
-          id={headingContent.id}
+          id={headingId}
           className="scroll-mt-4 text-base font-semibold leading-6 tracking-normal"
         >
-          {headingContent.children}
+          {children}
         </h4>
       );
   }
 }
 
-const markdownComponents = {
-  a({ children, href, title }) {
-    if (isMarkdownVideoUrl(href)) {
-      return <MarkdownVideo src={href} title={title} />;
-    }
+function getMarkdownComponents(
+  allocateHeadingId: (text: string) => string,
+): Components {
+  return {
+    a({ children, href, title }) {
+      if (isMarkdownVideoUrl(href)) {
+        return <MarkdownVideo src={href} title={title} />;
+      }
 
-    const isExternal = isExternalUrl(href);
-    return (
-      <a
-        className="font-medium text-foreground underline underline-offset-4"
-        href={href}
-        rel={isExternal ? "noopener noreferrer" : undefined}
-        target={isExternal ? "_blank" : undefined}
-        title={title}
-      >
-        {children}
-      </a>
-    );
-  },
-  blockquote({ children }) {
-    return (
-      <blockquote className="border-l pl-4 text-muted-foreground">
-        {children}
-      </blockquote>
-    );
-  },
-  br() {
-    return <br />;
-  },
-  code({ children }) {
-    return (
-      <code className="border bg-accent px-1 py-0.5 font-mono text-[0.8125rem] leading-5 text-accent-foreground">
-        {children}
-      </code>
-    );
-  },
-  details({ children, open }) {
-    return (
-      <details className="open:pb-3" open={open}>
-        {children}
-      </details>
-    );
-  },
-  h1({ children }) {
-    return renderHeading(1, children);
-  },
-  h2({ children }) {
-    return renderHeading(2, children);
-  },
-  h3({ children }) {
-    return renderHeading(3, children);
-  },
-  h4({ children }) {
-    return renderHeading(4, children);
-  },
-  h5({ children }) {
-    return (
-      <h5 className="text-sm font-semibold uppercase leading-6 tracking-normal">
-        {children}
-      </h5>
-    );
-  },
-  h6({ children }) {
-    return (
-      <h6 className="text-xs font-semibold uppercase leading-5 tracking-normal text-muted-foreground">
-        {children}
-      </h6>
-    );
-  },
-  hr() {
-    return <hr className="border-border" />;
-  },
-  img({ alt, height, src, title, width }) {
-    return (
-      <MarkdownImage
-        alt={alt}
-        height={height}
-        src={src}
-        title={title}
-        width={width}
-      />
-    );
-  },
-  input({ checked, disabled, type }) {
-    if (type !== "checkbox") {
-      return <input checked={checked} disabled={disabled} type={type} />;
-    }
+      const isExternal = isExternalUrl(href);
+      return (
+        <a
+          className="font-medium text-foreground underline underline-offset-4"
+          href={href}
+          rel={isExternal ? "noopener noreferrer" : undefined}
+          target={isExternal ? "_blank" : undefined}
+          title={title}
+        >
+          {children}
+        </a>
+      );
+    },
+    blockquote({ children }) {
+      return (
+        <blockquote className="border-l pl-4 text-muted-foreground">
+          {children}
+        </blockquote>
+      );
+    },
+    br() {
+      return <br />;
+    },
+    code({ children }) {
+      return (
+        <code className="border bg-accent px-1 py-0.5 font-mono text-[0.8125rem] leading-5 text-accent-foreground">
+          {children}
+        </code>
+      );
+    },
+    details({ children, open }) {
+      return (
+        <details className="open:pb-3" open={open}>
+          {children}
+        </details>
+      );
+    },
+    h1({ children }) {
+      return renderHeading(1, children, allocateHeadingId);
+    },
+    h2({ children }) {
+      return renderHeading(2, children, allocateHeadingId);
+    },
+    h3({ children }) {
+      return renderHeading(3, children, allocateHeadingId);
+    },
+    h4({ children }) {
+      return renderHeading(4, children, allocateHeadingId);
+    },
+    h5({ children }) {
+      const headingId = allocateHeadingId(getReactNodeText(children));
+      return (
+        <h5
+          id={headingId}
+          className="scroll-mt-4 text-sm font-semibold uppercase leading-6 tracking-normal"
+        >
+          {children}
+        </h5>
+      );
+    },
+    h6({ children }) {
+      const headingId = allocateHeadingId(getReactNodeText(children));
+      return (
+        <h6
+          id={headingId}
+          className="scroll-mt-4 text-xs font-semibold uppercase leading-5 tracking-normal text-muted-foreground"
+        >
+          {children}
+        </h6>
+      );
+    },
+    hr() {
+      return <hr className="border-border" />;
+    },
+    img({ alt, height, src, title, width }) {
+      return (
+        <MarkdownImage
+          alt={alt}
+          height={height}
+          src={src}
+          title={title}
+          width={width}
+        />
+      );
+    },
+    input({ checked, disabled, type }) {
+      if (type !== "checkbox") {
+        return <input checked={checked} disabled={disabled} type={type} />;
+      }
 
-    return <MarkdownTaskCheckbox checked={checked} />;
-  },
-  li({ children }) {
-    return <li className="pl-1 leading-7">{children}</li>;
-  },
-  ol({ children }) {
-    return <ol className="list-decimal space-y-1 pl-6">{children}</ol>;
-  },
-  p({ children }) {
-    return <p className="leading-7 text-foreground">{children}</p>;
-  },
-  pre({ children }) {
-    return (
-      <pre className="overflow-x-auto border bg-accent p-4 text-sm leading-6">
-        {children}
-      </pre>
-    );
-  },
-  source({ src, type }) {
-    if (!src) {
-      return null;
-    }
+      return <MarkdownTaskCheckbox checked={checked} />;
+    },
+    li({ children }) {
+      return <li className="pl-1 leading-7">{children}</li>;
+    },
+    ol({ children }) {
+      return <ol className="list-decimal space-y-1 pl-6">{children}</ol>;
+    },
+    p({ children }) {
+      return <p className="leading-7 text-foreground">{children}</p>;
+    },
+    pre({ children }) {
+      return (
+        <pre className="overflow-x-auto border bg-accent p-4 text-sm leading-6">
+          {children}
+        </pre>
+      );
+    },
+    source({ src, type }) {
+      if (!src) {
+        return null;
+      }
 
-    return <source src={src} type={type} />;
-  },
-  summary({ children }) {
-    return (
-      <summary className="cursor-pointer select-none text-sm font-medium leading-6">
-        {children}
-      </summary>
-    );
-  },
-  table({ children }) {
-    return (
-      <div className="overflow-x-auto border">
-        <table className="w-full border-collapse text-sm">{children}</table>
-      </div>
-    );
-  },
-  tbody({ children }) {
-    return <tbody className="divide-y">{children}</tbody>;
-  },
-  td({ children }) {
-    return (
-      <td className="border-r px-3 py-2 align-top last:border-r-0">
-        {children}
-      </td>
-    );
-  },
-  th({ children }) {
-    return (
-      <th className="border-r bg-accent px-3 py-2 text-left font-medium last:border-r-0">
-        {children}
-      </th>
-    );
-  },
-  thead({ children }) {
-    return <thead className="border-b">{children}</thead>;
-  },
-  tr({ children }) {
-    return <tr>{children}</tr>;
-  },
-  ul({ children }) {
-    return <ul className="list-disc space-y-1 pl-6">{children}</ul>;
-  },
-  video({ children, height, loop, muted, poster, preload, src, title, width }) {
-    return (
-      <MarkdownVideo
-        height={height}
-        loop={loop}
-        muted={muted}
-        poster={poster}
-        preload={preload}
-        src={src}
-        title={title}
-        width={width}
-      >
-        {children}
-      </MarkdownVideo>
-    );
-  },
-} satisfies Components;
+      return <source src={src} type={type} />;
+    },
+    summary({ children }) {
+      return (
+        <summary className="cursor-pointer select-none text-sm font-medium leading-6">
+          {children}
+        </summary>
+      );
+    },
+    table({ children }) {
+      return (
+        <div className="overflow-x-auto border">
+          <table className="w-full border-collapse text-sm">{children}</table>
+        </div>
+      );
+    },
+    tbody({ children }) {
+      return <tbody className="divide-y">{children}</tbody>;
+    },
+    td({ children }) {
+      return (
+        <td className="border-r px-3 py-2 align-top last:border-r-0">
+          {children}
+        </td>
+      );
+    },
+    th({ children }) {
+      return (
+        <th className="border-r bg-accent px-3 py-2 text-left font-medium last:border-r-0">
+          {children}
+        </th>
+      );
+    },
+    thead({ children }) {
+      return <thead className="border-b">{children}</thead>;
+    },
+    tr({ children }) {
+      return <tr>{children}</tr>;
+    },
+    ul({ children }) {
+      return <ul className="list-disc space-y-1 pl-6">{children}</ul>;
+    },
+    video({
+      children,
+      height,
+      loop,
+      muted,
+      poster,
+      preload,
+      src,
+      title,
+      width,
+    }) {
+      return (
+        <MarkdownVideo
+          height={height}
+          loop={loop}
+          muted={muted}
+          poster={poster}
+          preload={preload}
+          src={src}
+          title={title}
+          width={width}
+        >
+          {children}
+        </MarkdownVideo>
+      );
+    },
+  };
+}
 
 export function MarkdownLandingDocument({
   className,
@@ -517,6 +500,10 @@ export function MarkdownLandingDocument({
   dataTestId?: string;
   markdown: string;
 }) {
+  const markdownComponents = getMarkdownComponents(
+    createLandingMarkdownHeadingIdAllocator(),
+  );
+
   return (
     <article
       data-testid={dataTestId}

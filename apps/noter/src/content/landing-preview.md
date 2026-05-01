@@ -1,4 +1,4 @@
-# Deploy a production-ready, real-time web-app for 0$/month & no account {#overview}
+# Deploy a production-ready, real-time web-app for 0$/month & no account
 
 <details>
 <summary>
@@ -31,7 +31,7 @@ Convex through Vite so no need for 2 ports).
 
 </details>
 
-## 1: Create Github, Convex, Cloudflare & OpenAI accounts {#accounts}
+## 1: Create Github, Convex, Cloudflare & OpenAI accounts
 
 Start with **a Google or an Apple** account on a **phone or desktop**
 
@@ -56,7 +56,7 @@ can deploy an app.
 
 <video controls preload="metadata" src="/landing-preview/step-1-create-accounts.mp4"></video>
 
-## 2: Copy the app code to your GitHub account {#copy-app-code}
+## 2: Copy the app code to your GitHub account
 
 Visit https://github.com/notermd/app
 
@@ -78,7 +78,7 @@ understand it.
 
 </details>
 
-## 3: Connect Cloudflare Pages to Github {#cloudflare-pages}
+## 3: Connect Cloudflare Pages to Github
 
 Cloudflare Pages will automatically deploy your app whenever the code changes on
 GitHub.
@@ -114,7 +114,7 @@ https://github.com/settings/installations
 
 </details>
 
-## 4: Create a Convex project and a CONVEX_DEPLOY_KEY {#convex-project}
+## 4: Create a Convex project and a CONVEX_DEPLOY_KEY
 
 - [ ] Visit https://dashboard.convex.dev/
 - [ ] Click "+ Create Project" and give whatever name
@@ -136,7 +136,7 @@ Cloudflare to update the database on each change.
 
 </details>
 
-## 5: Create a Cloudflare Pages Deploy {#pages-deploy}
+## 5: Create a Cloudflare Pages Deploy
 
 - [ ] Access _Cloudflare Pages_ from the sidebar "Compute > Workers & Pages"
 - [ ] Click "Create Application"
@@ -156,12 +156,12 @@ Cloudflare to update the database on each change.
 Any change that you make to the `main` branch in your github repo, will be
 deployed automatically.
 
-## 6: Connect Codex to GitHub {#codex-github}
+## 6: Connect Codex to GitHub
 
 OpenAI Codex uses the same connection method as Cloudflare so you might
 encounter some issues, but need to do it just once.
 
-## 7: Get a separate deployment for each change {#preview-deployments}
+## 7: Get a separate deployment for each change
 
 You were seeing errors in the Pull Requests because the cloudflare deploys a
 preview and it cannot connect to your production database. To solve this, you
@@ -170,7 +170,7 @@ each Pull Requests will have it's own database.
 
 - [ ]
 
-## 8: Deleting the app {#delete-app}
+## 8: Deleting the app
 
 To delete an app you deployed you'll have to
 
@@ -178,7 +178,7 @@ To delete an app you deployed you'll have to
 - [ ] Delete Convex project
 - [ ] Delete GitHub repository
 
-## 9: Create an app in a single step using noter.md {#noter-md}
+## 9: Create an app in a single step using noter.md
 
 noter.md connects with Github, Cloudflare & Convex once, then allows you to
 create an app with a single click of a button It also allows you to completely

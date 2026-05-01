@@ -114,12 +114,20 @@ describe("MarkdownLandingDocument", () => {
     expect(checkbox?.checked).toBe(true);
   });
 
-  it("uses explicit heading markers as hash anchors", () => {
-    const element = renderMarkdown("## Accounts {#accounts}");
+  it("adds generated hash anchors to headings", () => {
+    const element = renderMarkdown("## Create accounts");
 
     const heading = element.querySelector("h2");
-    expect(heading?.id).toBe("accounts");
-    expect(heading?.textContent).toBe("Accounts");
+    expect(heading?.id).toBe("create-accounts");
+    expect(heading?.textContent).toBe("Create accounts");
+  });
+
+  it("keeps duplicate generated heading anchors unique", () => {
+    const element = renderMarkdown("## Repeat\n\n## Repeat");
+
+    const headings = element.querySelectorAll("h2");
+    expect(headings[0]?.id).toBe("repeat");
+    expect(headings[1]?.id).toBe("repeat-2");
   });
 
   it("detects common video file URLs", () => {
