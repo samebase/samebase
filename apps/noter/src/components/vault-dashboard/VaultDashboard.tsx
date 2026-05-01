@@ -113,7 +113,7 @@ const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
 } satisfies WorkspaceSidebarState;
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
-const COLLAPSED_BRANCH_LIMIT = 8;
+const COLLAPSED_BRANCH_LIMIT = 5;
 
 const formatInfraState = (
   infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
