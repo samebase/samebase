@@ -172,6 +172,134 @@ So the decision rule is:
 2. Workflow for long-lived orchestration where the order, delays, events, and
    restart point matter.
 
+## Create App Provisioning Is Workflow-Shaped
+
+The clearest Workflow candidate is not the first refresh queue. It is the
+new-app experience.
+
+Current source-of-truth behavior:
+
+1. `vaultActions.createRepository` validates GitHub, Convex, and Cloudflare
+   provider connections.
+2. It creates a GitHub repository, seeds the starter app, reads the initial
+   tree, creates the vault row, then schedules
+   `internal.infraProvisioning.provisionVaultInfrastructure`.
+3. `infraProvisioning.provisionVaultInfrastructure` claims provisioning, ensures
+   Convex resources, ensures preview Convex resources, ensures Cloudflare Pages
+   resources/env/deploy setup, writes infrastructure/domain rows, and marks the
+   vault `ready`, `partial`, or `failed`.
+4. `VaultDashboard` mostly exposes this as coarse `infraState` text and a retry
+   action.
+
+That shape is hard to explain in UI because the product is doing several
+provider operations, but the user sees only "creating", "provisioning", or
+"failed". Workflow would let Noter model the operation the way users understand
+it:
+
+1. check required provider connections
+2. create GitHub repository
+3. seed starter app
+4. create vault record
+5. create Convex project/deployments/deploy keys
+6. create Cloudflare Pages project
+7. set Cloudflare/Convex environment and deploy settings
+8. record production URL and dashboard links
+9. mark app ready
+
+The UI should subscribe to an app-owned `appProvisioningRuns` or
+`vaultProvisioningRuns` record rather than infer progress from scattered vault
+fields. A compact timeline can show the single actionable state:
+
+1. `Blocked`: connect GitHub, Convex, or Cloudflare
+2. `Running`: current step and last successful step
+3. `Needs input`: select Cloudflare account, reconnect expired provider token,
+   or approve provider access
+4. `Retryable`: failed step with a retry button that restarts from the failed
+   step
+5. `Ready`: production URL and provider dashboard links
+
+Workflow is useful here because the run has step order, durable status, restart
+points, and possible waits for external provider state. A plain Workpool job can
+run the provisioning action, but it does not by itself create a user-readable
+step model.
+
+### Provisioning Workflow Sketch
+
+Keep secrets in provider connection rows and pass only IDs or redacted metadata
+through the workflow journal.
+
+```ts
+const createAppWorkflow = workflow.define({
+  args: {
+    userId: v.id("users"),
+    repoName: v.string(),
+    private: v.boolean(),
+    runId: v.id("appProvisioningRuns"),
+  },
+  handler: async (step, args) => {
+    const repo = await step.runAction(
+      internal.appProvisioning.createGitHubRepo,
+      {
+        userId: args.userId,
+        repoName: args.repoName,
+        private: args.private,
+        runId: args.runId,
+      },
+    );
+
+    const vault = await step.runMutation(
+      internal.appProvisioning.createVaultFromRepo,
+      {
+        userId: args.userId,
+        repo,
+        runId: args.runId,
+      },
+    );
+
+    const convex = await step.runAction(
+      internal.appProvisioning.ensureConvexResources,
+      {
+        vaultId: vault.vaultId,
+        runId: args.runId,
+      },
+    );
+
+    const hosting = await step.runAction(
+      internal.appProvisioning.ensureCloudflareResources,
+      {
+        vaultId: vault.vaultId,
+        convex,
+        runId: args.runId,
+      },
+    );
+
+    await step.runMutation(internal.appProvisioning.finishAppProvisioning, {
+      vaultId: vault.vaultId,
+      hosting,
+      runId: args.runId,
+    });
+  },
+});
+```
+
+This is intentionally illustrative, not final API shape. The implementation
+should version the workflow name or args because active workflows are sensitive
+to step-structure changes.
+
+### Create App Recommendation
+
+Do this as its own product track, separate from refresh:
+
+1. Add an app-owned provisioning-run table with stable step names and
+   user-facing status.
+2. Keep the current provider helpers and infra idempotency, but update each step
+   through the run record.
+3. Convert infra provisioning to Workflow first, after vault creation.
+4. Once that UI is solid, consider moving GitHub repo creation and starter
+   seeding into the same workflow.
+5. Keep retry scoped to the failed or blocked step; do not make users restart
+   the whole app creation when Convex or Cloudflare is the only failing segment.
+
 ## Proposed Hosted Architecture
 
 Noter already installs a Convex component in
