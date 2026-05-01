@@ -39,7 +39,7 @@ export function VaultDashboardBranchVisualFixture() {
                 }}
               />
             </TestRouterProvider>
-            <span className="w-4 pt-1 text-right font-mono text-[11px] tabular-nums text-muted-foreground/70">
+            <span className="w-4 pt-1 text-right font-mono text-xs tabular-nums text-muted-foreground/70">
               0
             </span>
           </div>

@@ -660,7 +660,7 @@ export function VaultBranchLinkContent({
           <span className="min-w-0 flex-1 break-words text-base leading-6 text-muted-foreground/70 line-through">
             {branch.name}
           </span>
-          <span className="shrink-0 corner-notch-1 border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground/80">
+          <span className="shrink-0 corner-notch-1 border border-border/60 px-1.5 py-0.5 text-xs uppercase tracking-wide text-muted-foreground/80">
             deleted upstream
           </span>
         </div>
@@ -1035,12 +1035,12 @@ function VaultBranchSection({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
           Branches
         </p>
         <div className="flex items-center gap-2">
           {hiddenBranchCount > 0 ? (
-            <span className="text-[11px] text-muted-foreground/80">
+            <span className="text-xs text-muted-foreground/80">
               {filteredRemoteBranches.length} of {remoteBranches.length}
             </span>
           ) : null}

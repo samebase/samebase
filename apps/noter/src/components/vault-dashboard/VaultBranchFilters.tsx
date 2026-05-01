@@ -114,14 +114,14 @@ function VaultBranchFiltersPanel({
                 <div className="min-w-0 flex-1">
                   <Badge
                     variant="outline"
-                    className="h-5 max-w-full px-1.5 py-0 text-[10px] font-medium"
+                    className="h-5 max-w-full px-1.5 py-0 text-xs font-medium"
                     style={buildPullRequestLabelStyle(option.color)}
                     title={option.name}
                   >
                     <span className="truncate">{option.name}</span>
                   </Badge>
                 </div>
-                <span className="font-mono text-[11px] tabular-nums text-muted-foreground/80">
+                <span className="font-mono text-xs tabular-nums text-muted-foreground/80">
                   {option.count}
                 </span>
               </label>

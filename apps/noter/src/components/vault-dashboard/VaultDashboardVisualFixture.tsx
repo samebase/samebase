@@ -308,7 +308,7 @@ function VaultDashboardListSpacingFixture({
             }
             branchSection={
               <div className="space-y-1.5">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
                   Branches
                 </p>
                 <div className="-mx-4 overflow-hidden border bg-muted">
@@ -360,7 +360,7 @@ function VaultDashboardDeveloperToolsFixture({
               topRightAction={<FixtureDeleteControl />}
               branchSection={
                 <div className="space-y-1.5">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
                     Branches
                   </p>
                   <div className="-mx-4 border bg-muted px-3 py-2 text-xs text-muted-foreground">
@@ -455,10 +455,10 @@ function VaultDashboardStickyHeaderFixture() {
               branchSection={
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
                       Branches
                     </p>
-                    <span className="text-[11px] text-muted-foreground/80">
+                    <span className="text-xs text-muted-foreground/80">
                       {STICKY_HEADER_BRANCHES.length} branches
                     </span>
                   </div>
@@ -709,7 +709,7 @@ export function VaultDashboardVisualFixture({
               repositoryStatus={<span>Updated 12s ago</span>}
               branchSection={
                 <div className="space-y-1.5">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
                     Branches
                   </p>
                 <div className="-mx-4 overflow-hidden border bg-muted">
@@ -777,11 +777,11 @@ export function VaultDashboardVisualFixture({
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
                     Branches
                   </p>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-muted-foreground/80">
+                    <span className="text-xs text-muted-foreground/80">
                       1 of 4
                     </span>
                     <VaultBranchFiltersControl

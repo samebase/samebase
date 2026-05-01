@@ -133,6 +133,8 @@ only when the reason is concrete.
 
 General rule:
 
+- Prefer Tailwind's standard font-size tokens such as `text-xs` and `text-sm`
+  over arbitrary sizes such as `text-[11px]`.
 - Prefer `border` over `border-border/60` unless the softened border is a real
   standard in that surface.
 - Prefer `bg-muted` over `bg-muted/20` unless the lower contrast is necessary.
