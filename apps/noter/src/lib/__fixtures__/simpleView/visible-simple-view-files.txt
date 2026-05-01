@@ -49,12 +49,6 @@ apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-svg.pn
 apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-vox.png
 apps/noter/e2e/sidebar-media-upload-visual.spec.ts-snapshots/sidebar-media-upload-desktop.png
 apps/noter/e2e/sidebar-media-upload-visual.spec.ts-snapshots/sidebar-media-upload-mobile.png
-apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-missing-config.png
-apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-repository-config.png
-apps/noter/e2e/thread-browser-visual.spec.ts-snapshots/thread-browser-darwin.png
-apps/noter/e2e/thread-browser-visual.spec.ts-snapshots/thread-browser-linux.png
-apps/noter/e2e/thread-history-visual.spec.ts-snapshots/thread-history-darwin.png
-apps/noter/e2e/thread-history-visual.spec.ts-snapshots/thread-history-linux.png
 apps/noter/e2e/vault-branch-preview-visual.spec.ts-snapshots/vault-branch-preview-link.png
 apps/noter/e2e/vault-branch-preview-visual.spec.ts-snapshots/vault-branch-preview-missing.png
 apps/noter/e2e/vault-dashboard-branch-visual.spec.ts-snapshots/vault-dashboard-branch-pr-title.png
