@@ -23,24 +23,28 @@ describe("getLandingMarkdownHeadings", () => {
       {
         href: "#overview",
         id: "overview",
+        line: 1,
         level: 1,
         text: "Overview",
       },
       {
         href: "#first-step",
         id: "first-step",
+        line: 7,
         level: 2,
         text: "First Step",
       },
       {
         href: "#first-step-2",
         id: "first-step-2",
+        line: 13,
         level: 2,
         text: "First Step",
       },
       {
         href: "#deep-link",
         id: "deep-link",
+        line: 14,
         level: 3,
         text: "Deep link",
       },

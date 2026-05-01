@@ -3,6 +3,7 @@ export type LandingMarkdownHeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
 export type LandingMarkdownHeading = {
   href: string;
   id: string;
+  line: number;
   level: LandingMarkdownHeadingLevel;
   text: string;
 };
@@ -70,7 +71,8 @@ export function getLandingMarkdownHeadings(
   let openFenceMarker: string | null = null;
   let summaryDepth = 0;
 
-  for (const line of markdown.split("\n")) {
+  const lines = markdown.split("\n");
+  for (const [lineIndex, line] of lines.entries()) {
     const fenceMatch = line.match(FENCED_CODE_BLOCK_PATTERN);
     if (fenceMatch !== null) {
       const fenceMarker = fenceMatch[1].startsWith("`") ? "`" : "~";
@@ -109,6 +111,7 @@ export function getLandingMarkdownHeadings(
     headings.push({
       href: `#${id}`,
       id,
+      line: lineIndex + 1,
       level: getHeadingLevel(headingMatch[1]),
       text,
     });

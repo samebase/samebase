@@ -124,4 +124,13 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
   await expect(firstTaskCheckbox).toBeEnabled();
   await firstTaskCheckbox.check();
   await expect(firstTaskCheckbox).toBeChecked();
+
+  await page.goto("/landing-preview?dev#6-connect-codex-to-github", {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(
+    page
+      .getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID)
+      .locator('[id="6-connect-codex-to-github"]'),
+  ).toBeInViewport();
 });

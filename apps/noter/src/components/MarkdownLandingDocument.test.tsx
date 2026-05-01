@@ -26,13 +26,20 @@ describe("MarkdownLandingDocument", () => {
     rootElement = null;
   });
 
-  function renderMarkdown(markdown: string) {
+  function renderMarkdown(markdown: string, options?: { strict?: boolean }) {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     root = createRoot(rootElement);
+    const documentElement = <MarkdownLandingDocument markdown={markdown} />;
 
     act(() => {
-      root?.render(<MarkdownLandingDocument markdown={markdown} />);
+      root?.render(
+        options?.strict ? (
+          <React.StrictMode>{documentElement}</React.StrictMode>
+        ) : (
+          documentElement
+        ),
+      );
     });
 
     return rootElement;
@@ -124,6 +131,16 @@ describe("MarkdownLandingDocument", () => {
 
   it("keeps duplicate generated heading anchors unique", () => {
     const element = renderMarkdown("## Repeat\n\n## Repeat");
+
+    const headings = element.querySelectorAll("h2");
+    expect(headings[0]?.id).toBe("repeat");
+    expect(headings[1]?.id).toBe("repeat-2");
+  });
+
+  it("keeps generated heading anchors stable under StrictMode", () => {
+    const element = renderMarkdown("## Repeat\n\n## Repeat", {
+      strict: true,
+    });
 
     const headings = element.querySelectorAll("h2");
     expect(headings[0]?.id).toBe("repeat");

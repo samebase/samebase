@@ -1,5 +1,4 @@
 import {
-  isValidElement,
   useEffect,
   useState,
   type ComponentPropsWithoutRef,
@@ -16,7 +15,7 @@ import rehypeSanitize, {
   type Options as RehypeSanitizeOptions,
 } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
-import { createLandingMarkdownHeadingIdAllocator } from "@/lib/landingMarkdownHeadings";
+import { getLandingMarkdownHeadings } from "@/lib/landingMarkdownHeadings";
 import { isMarkdownVideoUrl } from "@/lib/landingMarkdownMedia";
 import { cn } from "@/lib/utils";
 
@@ -228,36 +227,19 @@ function buildImageAuthoredSizeStyle({
   };
 }
 
-type HeadingTextElementProps = {
-  children?: ReactNode;
+type MarkdownHeadingNode = {
+  position?: {
+    start?: {
+      line?: number;
+    };
+  };
 };
-
-function getReactNodeText(value: ReactNode): string {
-  if (value === null || value === undefined || typeof value === "boolean") {
-    return "";
-  }
-
-  if (typeof value === "string" || typeof value === "number") {
-    return String(value);
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(getReactNodeText).join("");
-  }
-
-  if (isValidElement<HeadingTextElementProps>(value)) {
-    return getReactNodeText(value.props.children);
-  }
-
-  return "";
-}
 
 function renderHeading(
   level: 1 | 2 | 3 | 4,
   children: ReactNode,
-  allocateHeadingId: (text: string) => string,
+  headingId: string | undefined,
 ) {
-  const headingId = allocateHeadingId(getReactNodeText(children));
   switch (level) {
     case 1:
       return (
@@ -298,9 +280,19 @@ function renderHeading(
   }
 }
 
-function getMarkdownComponents(
-  allocateHeadingId: (text: string) => string,
-): Components {
+function getHeadingId(
+  node: MarkdownHeadingNode | undefined,
+  headingIdsByLine: ReadonlyMap<number, string>,
+) {
+  const line = node?.position?.start?.line;
+  if (line === undefined) {
+    return undefined;
+  }
+
+  return headingIdsByLine.get(line);
+}
+
+function getMarkdownComponents(headingIdsByLine: ReadonlyMap<number, string>) {
   return {
     a({ children, href, title }) {
       if (isMarkdownVideoUrl(href)) {
@@ -344,20 +336,20 @@ function getMarkdownComponents(
         </details>
       );
     },
-    h1({ children }) {
-      return renderHeading(1, children, allocateHeadingId);
+    h1({ children, node }) {
+      return renderHeading(1, children, getHeadingId(node, headingIdsByLine));
     },
-    h2({ children }) {
-      return renderHeading(2, children, allocateHeadingId);
+    h2({ children, node }) {
+      return renderHeading(2, children, getHeadingId(node, headingIdsByLine));
     },
-    h3({ children }) {
-      return renderHeading(3, children, allocateHeadingId);
+    h3({ children, node }) {
+      return renderHeading(3, children, getHeadingId(node, headingIdsByLine));
     },
-    h4({ children }) {
-      return renderHeading(4, children, allocateHeadingId);
+    h4({ children, node }) {
+      return renderHeading(4, children, getHeadingId(node, headingIdsByLine));
     },
-    h5({ children }) {
-      const headingId = allocateHeadingId(getReactNodeText(children));
+    h5({ children, node }) {
+      const headingId = getHeadingId(node, headingIdsByLine);
       return (
         <h5
           id={headingId}
@@ -367,8 +359,8 @@ function getMarkdownComponents(
         </h5>
       );
     },
-    h6({ children }) {
-      const headingId = allocateHeadingId(getReactNodeText(children));
+    h6({ children, node }) {
+      const headingId = getHeadingId(node, headingIdsByLine);
       return (
         <h6
           id={headingId}
@@ -488,7 +480,7 @@ function getMarkdownComponents(
         </MarkdownVideo>
       );
     },
-  };
+  } satisfies Components;
 }
 
 export function MarkdownLandingDocument({
@@ -500,9 +492,13 @@ export function MarkdownLandingDocument({
   dataTestId?: string;
   markdown: string;
 }) {
-  const markdownComponents = getMarkdownComponents(
-    createLandingMarkdownHeadingIdAllocator(),
+  const headingIdsByLine = new Map(
+    getLandingMarkdownHeadings(markdown).map((heading) => [
+      heading.line,
+      heading.id,
+    ]),
   );
+  const markdownComponents = getMarkdownComponents(headingIdsByLine);
 
   return (
     <article
