@@ -203,6 +203,8 @@ Example:
   while preserving remembered open state; this does not need an effect.
 - Dashboard panel state persisted in Convex should use mutation-level optimistic
   updates instead of local state that a later effect reconciles with the query.
+- Page-load warning suppression can compare query timestamps to a mount-time
+  value instead of copying the initial query value into a ref from an effect.
 - A dashboard `useEffect` that listens for OAuth popup messages should say that
   it exists for popup completion and that removing it would require replacing
   the message bridge with redirect flow or provider connection invalidation.

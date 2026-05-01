@@ -1721,33 +1721,7 @@ export function VaultDashboard() {
     useState(false);
   const cloudflareAutoCheckInFlightRef = useRef(false);
   const initialDashboardPageLoadSentRef = useRef(false);
-  const initialCloudflareMcpTokenCheckedAtRef = useRef<
-    number | undefined | null
-  >(null);
-
-  /**
-   * Captures the Cloudflare MCP token check timestamp seen at page load so the
-   * dashboard can suppress stale token warnings until an auto-check runs. Remove
-   * this by returning an explicit token-health freshness state from the backend
-   * or query result, rather than inferring initial freshness from a client ref.
-   */
-  useEffect(() => {
-    const isCloudflareMcpConnected =
-      cloudflareConnection?.connected === true &&
-      cloudflareConnection.authMethod === "mcp_oauth";
-    if (!isCloudflareMcpConnected) {
-      initialCloudflareMcpTokenCheckedAtRef.current = null;
-      return;
-    }
-    if (initialCloudflareMcpTokenCheckedAtRef.current === null) {
-      initialCloudflareMcpTokenCheckedAtRef.current =
-        cloudflareConnection.mcpTokenCheckedAt;
-    }
-  }, [
-    cloudflareConnection?.authMethod,
-    cloudflareConnection?.connected,
-    cloudflareConnection?.mcpTokenCheckedAt,
-  ]);
+  const [dashboardMountedAt] = useState(() => Date.now());
 
   /**
    * Listens for OAuth popup completion messages from provider callback pages and
@@ -2273,9 +2247,8 @@ export function VaultDashboard() {
   const isAwaitingInitialCloudflareTokenCheck =
     cloudflareConnection?.connected === true &&
     cloudflareConnection.authMethod === "mcp_oauth" &&
-    initialCloudflareMcpTokenCheckedAtRef.current !== null &&
-    cloudflareMcpTokenCheckedAt ===
-      initialCloudflareMcpTokenCheckedAtRef.current;
+    (typeof cloudflareMcpTokenCheckedAt !== "number" ||
+      cloudflareMcpTokenCheckedAt < dashboardMountedAt);
   const showCloudflareCreateWarning =
     cloudflareConnected &&
     !isAwaitingInitialCloudflareTokenCheck &&
