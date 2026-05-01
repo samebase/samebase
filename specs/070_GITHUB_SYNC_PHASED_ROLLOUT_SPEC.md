@@ -321,7 +321,7 @@ Phase advancement rule:
 - `apps/noter/convex/githubChecks.ts`
 - `apps/noter/convex/fileStagingActions.ts`
 - `apps/noter/src/components/FileView.tsx`
-- `apps/noter/src/components/VaultDashboard.tsx`
+- `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
 - `apps/noter/src/components/VaultSyncStatus.tsx`
 - `apps/noter/src/components/CommitStatus.tsx`
 

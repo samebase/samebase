@@ -37,7 +37,7 @@ downstream provisioning partially fails.
 - `apps/noter/convex/infraProviders.ts`
 - `apps/noter/convex/vault.ts`
 - `apps/noter/convex/schema.ts`
-- `apps/noter/src/components/VaultDashboard.tsx`
+- `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
 
 ## Data Model
 

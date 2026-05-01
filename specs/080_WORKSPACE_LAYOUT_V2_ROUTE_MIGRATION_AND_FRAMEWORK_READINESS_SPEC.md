@@ -19,7 +19,7 @@
   - `apps/noter/src/components/FileView.tsx`
   - `apps/noter/src/components/LandingCopyVisualFixture.tsx`
   - `apps/noter/src/components/RepositoryRouteConnectState.tsx`
-  - `apps/noter/src/components/VaultDashboard.tsx`
+  - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
   - `apps/noter/src/components/workspace-layout/RepositoryWorkspaceFrame.tsx`
   - `apps/noter/src/components/workspace-layout/DashboardWorkspaceLayout.tsx`
   - `apps/noter/src/components/workspace-layout/VaultDashboardWorkspaceScene.tsx`

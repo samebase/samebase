@@ -49,7 +49,7 @@ state.
    - `getCloudflareConnectionStatus` is metadata-only and does not trigger
      refresh.
    - `checkCloudflareMcpTokenHealth` forces refresh (`forceRefresh: true`).
-3. `apps/noter/src/components/VaultDashboard.tsx`:
+3. `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`:
    - Cloudflare has a manual `Check token` button.
    - no automatic background token check on focus/page load.
 
@@ -57,7 +57,7 @@ state.
 
 1. Frontend triggers on focus and page-load:
    - `apps/noter/src/components/FileView.tsx`
-   - `apps/noter/src/components/VaultDashboard.tsx`
+   - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
 2. Frontend debounce:
    - `apps/noter/src/lib/treeRefreshDebounce.ts`
 3. Backend lock/debounce/stale lock:
@@ -226,7 +226,7 @@ manual and automatic flows share one lock/debounce path.
 
 ### 7) Frontend automatic triggers in VaultDashboard
 
-In `apps/noter/src/components/VaultDashboard.tsx`:
+In `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`:
 
 1. Add `refreshCloudflareMcpTokenIfNeeded` action hook.
 2. Trigger background check when:

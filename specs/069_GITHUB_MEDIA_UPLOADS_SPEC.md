@@ -8,7 +8,7 @@
 - Depends on:
   - `apps/noter/src/components/FileView.tsx`
   - `apps/noter/src/components/RepositoryMediaViewer.tsx`
-  - `apps/noter/src/components/VaultDashboard.tsx`
+  - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
   - `apps/noter/src/components/AddRepository.tsx`
   - `apps/noter/shared/repositoryMedia.ts`
   - `apps/noter/convex/fileStaging.ts`

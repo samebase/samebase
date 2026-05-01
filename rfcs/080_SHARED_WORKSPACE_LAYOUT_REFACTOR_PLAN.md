@@ -18,7 +18,7 @@
   - `apps/noter/src/components/useProsemarkMobilePaneDrag.ts`
   - `apps/noter/src/components/EditorChatDock.tsx`
   - `apps/noter/src/components/FileView.tsx`
-  - `apps/noter/src/components/VaultDashboard.tsx`
+  - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
   - `apps/noter/src/lib/workspaceSidebar.ts`
   - `apps/noter/src/lib/fileViewSidebarLayout.ts`
   - `rfcs/067_DASHBOARD_SHARED_SIDEBAR_SPEC.md`

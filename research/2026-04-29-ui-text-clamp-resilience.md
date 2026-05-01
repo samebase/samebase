@@ -6,11 +6,12 @@ Date: 2026-04-29
 
 Dashboard sidebar account text currently keeps wrapping as the sidebar is
 resized into very narrow widths. In
-`apps/noter/src/components/VaultDashboardChrome.tsx:80`, the account email uses
-`break-words`, and the provider line at
-`apps/noter/src/components/VaultDashboardChrome.tsx:82` does the same for
-`Signed in with {providerLabel}`. Provider status rows have the same unbounded
-wrapping pattern at `apps/noter/src/components/VaultDashboardChrome.tsx:160`.
+`apps/noter/src/components/vault-dashboard/VaultDashboardChrome.tsx:80`, the
+account email uses `break-words`, and the provider line at
+`apps/noter/src/components/vault-dashboard/VaultDashboardChrome.tsx:82` does the
+same for `Signed in with {providerLabel}`. Provider status rows have the same
+unbounded wrapping pattern at
+`apps/noter/src/components/vault-dashboard/VaultDashboardChrome.tsx:160`.
 
 That behavior is technically responsive, but at the supported resize floor it
 can turn compact sidebar rows into tall text columns. The intended constraint is

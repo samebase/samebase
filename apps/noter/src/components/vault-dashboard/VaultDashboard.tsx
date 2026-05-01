@@ -1,8 +1,8 @@
-import { api } from "../../convex/_generated/api";
+import { api } from "../../../convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
-import { VaultLastUpdatedStatus } from "@/components/VaultLastUpdatedStatus";
+import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { ChevronDownIcon, GitHubLogoIcon, UpdateIcon } from "@/lib/radixIcons";
 import {
   GitBranch,
@@ -12,7 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { linkStyle } from "./styles";
+import { linkStyle } from "../styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import {
@@ -31,7 +31,7 @@ import {
 import {
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
   CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
-} from "../../shared/cloudflareTokenRefresh";
+} from "../../../shared/cloudflareTokenRefresh";
 import {
   claimRefreshDebounce,
   releaseRefreshDebounce,
@@ -58,7 +58,7 @@ import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
-import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
+import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
 import { CodexProviderRow } from "@/components/CodexProviderRow";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
 import { EditorChatPanel } from "@/components/EditorChatPanel";
@@ -70,14 +70,14 @@ import {
   VaultDashboardRepositoryList,
   VaultDashboardSidebarContent,
   type VaultDashboardProviderRowViewModel,
-} from "@/components/VaultDashboardChrome";
+} from "@/components/vault-dashboard/VaultDashboardChrome";
 import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import {
   useApiKeyConnectDialog,
   type ApiKeyProvider,
 } from "@/components/ApiKeyConnectDialog";
-import { DAYTONA_PAUSED } from "../../shared/daytonaPause";
-import type { Id } from "../../convex/_generated/dataModel";
+import { DAYTONA_PAUSED } from "../../../shared/daytonaPause";
+import type { Id } from "../../../convex/_generated/dataModel";
 import {
   buildVaultCodespaceChatRoute,
   buildVaultFileRoute,
@@ -95,13 +95,13 @@ import {
   getDefaultVaultBranchFilters,
   normalizeVaultBranchFilters,
   type VaultBranchFilters as VaultBranchFiltersState,
-} from "@/lib/vaultBranchFilters";
+} from "@/components/vault-dashboard/vaultDashboardBranchFilters";
 import { toast } from "@/components/ui/use-toast";
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
-import { WorkspaceLayoutV2FullPage } from "./workspace-layout-v2/WorkspaceLayoutV2";
+import { WorkspaceLayoutV2FullPage } from "../workspace-layout-v2/WorkspaceLayoutV2";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { CHAT_ENABLED } from "@/lib/featureFlags";
-import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 
 const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   leftDesktopOpen: false,

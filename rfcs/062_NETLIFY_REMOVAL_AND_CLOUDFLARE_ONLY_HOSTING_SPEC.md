@@ -141,7 +141,7 @@ Netlify-specific runtime branches exist in:
 Netlify-specific UI remains in:
 
 - `apps/noter/src/App.tsx`
-- `apps/noter/src/components/VaultDashboard.tsx`
+- `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
 - `apps/noter/src/components/ApiKeyConnectDialog.tsx`
 - `apps/noter/src/components/NetlifyOAuthCallback.tsx`
 - `apps/noter/src/components/PricingPage.tsx`

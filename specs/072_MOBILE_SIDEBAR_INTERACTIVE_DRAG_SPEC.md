@@ -9,7 +9,7 @@
   - `apps/noter/src/components/DashboardWorkspaceLayout.tsx`
   - `apps/noter/src/components/RepositoryWorkspaceFrame.tsx`
   - `apps/noter/src/components/FileView.tsx`
-  - `apps/noter/src/components/VaultDashboard.tsx`
+  - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
   - `apps/noter/src/components/WorkspaceSidebarShell.tsx`
   - `rfcs/067_DASHBOARD_SHARED_SIDEBAR_SPEC.md`
 

@@ -6,7 +6,7 @@
 - Owner: Noter frontend
 - Last updated: 2026-03-23
 - Depends on:
-  - `apps/noter/src/components/VaultDashboard.tsx`
+  - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
   - `apps/noter/src/components/FileView.tsx`
   - `apps/noter/src/components/RepositoryWorkspaceFrame.tsx`
   - `apps/noter/src/components/UserMenu.tsx`
