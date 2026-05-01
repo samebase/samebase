@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter frontend/app shell
-- Last updated: 2026-04-10
+- Last updated: 2026-05-01
 - Depends on:
   - `apps/noter/src/lib/appRouter.ts`
   - `apps/noter/src/components/NotFoundRoutePage.tsx`
@@ -100,6 +100,12 @@ Already completed in this step:
     the shell-only scroll store in
     `apps/noter/src/lib/publicLandingScrollState.ts`, and the dedicated
     `apps/noter/e2e/public-landing-shell.spec.ts` handoff assertions
+16. the generic query-param helper in `apps/noter/src/lib/queryParams.ts`
+17. the local ESLint plugin that only existed to enforce the generic query-param
+    helper
+18. the Google auth redirect search updates in
+    `apps/noter/src/lib/googleAuthRedirect.ts`, which now return typed root
+    search updates for router-owned URL construction
 
 Important non-targets for this step:
 
@@ -107,19 +113,22 @@ Important non-targets for this step:
    do not need conversion just because they use string literals.
 2. Existing `getRouteApi("/...")` callsites are already route-typed and should
    stay as they are unless a more local route API becomes clearer.
-3. Generic string builders in `apps/noter/src/lib/queryParams.ts` should remain
-   low-level until all route-owned callers have moved off them; they still serve
-   non-navigation and non-router use cases such as absolute callback URLs and
-   script-facing URLs.
-4. `apps/noter/src/lib/googleAuthRedirect.ts` still intentionally preserves the
-   current non-root route during sign-in flows like MCP consent, so it remains a
-   generic helper until those auth redirects can be modeled as route-owned typed
-   navigation without losing route preservation.
-5. `apps/noter/src/lib/tanstackSearchParams.ts` is no longer tracked as cleanup
+3. `apps/noter/src/lib/tanstackSearchParams.ts` is no longer tracked as cleanup
    debt while Noter intentionally preserves key-only query params such as
    `/?dev`.
 
 ## Working Log
+
+### 2026-05-01
+
+- Problem: the remaining generic query-param helper and local lint rule were now
+  preserving a pre-router abstraction. Tried: moved route-owned URL updates onto
+  TanStack search objects and `router.buildLocation`, while using native `URL`
+  APIs for external URLs and internal API request paths. Result:
+  `apps/noter/src/lib/queryParams.ts` and the `eslint-rules` workspace package
+  are deleted; the only app-wide search codec left is
+  `apps/noter/src/lib/tanstackSearchParams.ts`, which preserves the shipped
+  key-only query string contract.
 
 ### 2026-04-08
 

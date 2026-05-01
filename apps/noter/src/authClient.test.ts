@@ -1,12 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
-  buildPathWithQuery,
-  buildSearchString,
-  cloneQueryParams,
-  setQueryParam,
-} from "./lib/queryParams";
+  buildPathWithTanStackSearch,
+  stringifyTanStackSearch,
+} from "./lib/tanstackSearchParams";
 
 const {
+  buildLocationMock,
   localStorageRemoveItemMock,
   localStorageSetItemMock,
   replaceStateMock,
@@ -14,6 +13,7 @@ const {
   signInMock,
   signOutMock,
 } = vi.hoisted(() => ({
+  buildLocationMock: vi.fn(),
   localStorageRemoveItemMock: vi.fn(),
   localStorageSetItemMock: vi.fn(),
   replaceStateMock: vi.fn(),
@@ -39,6 +39,12 @@ vi.mock("@convex-dev/auth/react", () => ({
   }),
 }));
 
+vi.mock("@tanstack/react-router", () => ({
+  useRouter: () => ({
+    buildLocation: buildLocationMock,
+  }),
+}));
+
 import {
   signInWithPasswordAction,
   signOutWithAnalytics,
@@ -50,6 +56,7 @@ describe("useAutoSignIn", () => {
   const originalLocalStorage = globalThis.localStorage;
 
   afterEach(() => {
+    buildLocationMock.mockReset();
     signInMock.mockReset();
     signOutMock.mockReset();
     resetMock.mockReset();
@@ -66,17 +73,44 @@ describe("useAutoSignIn", () => {
     });
   });
 
+  function mockCurrentRouteLocationBuilder() {
+    buildLocationMock.mockImplementation(
+      (options: {
+        hash?: true;
+        search?: (
+          currentSearch: Record<string, unknown>,
+        ) => Record<string, unknown>;
+      }) => {
+        const currentSearch = Object.fromEntries(
+          new URLSearchParams(window.location.search).entries(),
+        );
+        const nextSearch =
+          typeof options.search === "function"
+            ? options.search(currentSearch)
+            : currentSearch;
+        return {
+          href: buildPathWithTanStackSearch({
+            pathname: window.location.pathname,
+            search: nextSearch,
+            hash: options.hash === true ? window.location.hash : undefined,
+          }),
+        };
+      },
+    );
+  }
+
   it("passes redirectTo when auto-starting Google auth from the popup or shell route", () => {
-    const popupSearchParams = cloneQueryParams();
-    setQueryParam(popupSearchParams, "mcp_consent_request", "mcpar_test");
-    setQueryParam(popupSearchParams, "mcp_login_required", "1");
-    setQueryParam(popupSearchParams, "auth", "google");
-    const popupSearch = buildSearchString(popupSearchParams);
-    const expectedSearchParams = cloneQueryParams(popupSearch);
-    setQueryParam(expectedSearchParams, "auth", false);
-    const expectedRedirectTo = buildPathWithQuery({
+    const popupSearch = stringifyTanStackSearch({
+      mcp_consent_request: "mcpar_test",
+      mcp_login_required: "1",
+      auth: "google",
+    });
+    const expectedRedirectTo = buildPathWithTanStackSearch({
       pathname: "/",
-      search: buildSearchString(expectedSearchParams),
+      search: {
+        mcp_consent_request: "mcpar_test",
+        mcp_login_required: "1",
+      },
     });
 
     Object.defineProperty(globalThis, "window", {
@@ -101,8 +135,9 @@ describe("useAutoSignIn", () => {
       },
       configurable: true,
     });
+    mockCurrentRouteLocationBuilder();
 
-    useAutoSignIn("google");
+    useAutoSignIn({ auth: "google" });
 
     expect(localStorageSetItemMock).toHaveBeenCalledWith(
       "noter_auth_provider",
@@ -119,15 +154,15 @@ describe("useAutoSignIn", () => {
   });
 
   it("preserves the public signup marker when popup Google auth auto-starts", () => {
-    const popupSearchParams = cloneQueryParams();
-    setQueryParam(popupSearchParams, "auth", "google");
-    setQueryParam(popupSearchParams, "signup", "google");
-    const popupSearch = buildSearchString(popupSearchParams);
-    const expectedSearchParams = cloneQueryParams(popupSearch);
-    setQueryParam(expectedSearchParams, "auth", false);
-    const expectedRedirectTo = buildPathWithQuery({
+    const popupSearch = stringifyTanStackSearch({
+      auth: "google",
+      signup: "google",
+    });
+    const expectedRedirectTo = buildPathWithTanStackSearch({
       pathname: "/",
-      search: buildSearchString(expectedSearchParams),
+      search: {
+        signup: "google",
+      },
     });
 
     Object.defineProperty(globalThis, "window", {
@@ -152,8 +187,9 @@ describe("useAutoSignIn", () => {
       },
       configurable: true,
     });
+    mockCurrentRouteLocationBuilder();
 
-    useAutoSignIn("google");
+    useAutoSignIn({ auth: "google", signup: "google" });
 
     expect(replaceStateMock).toHaveBeenCalledWith(
       { __TSR_index: 8, __TSR_key: "signup-route" },
@@ -188,7 +224,7 @@ describe("useAutoSignIn", () => {
       configurable: true,
     });
 
-    useAutoSignIn(undefined);
+    useAutoSignIn({});
 
     expect(localStorageSetItemMock).not.toHaveBeenCalled();
     expect(replaceStateMock).not.toHaveBeenCalled();

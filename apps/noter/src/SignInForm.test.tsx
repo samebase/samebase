@@ -1,18 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
-  buildPathWithQuery,
-  buildSearchString,
-  cloneQueryParams,
-  setQueryParam,
-} from "./lib/queryParams";
+  buildPathWithTanStackSearch,
+  stringifyTanStackSearch,
+} from "./lib/tanstackSearchParams";
 
-const { isInIframeMock, openAuthPopupMock, signInWithGoogleMock } = vi.hoisted(
-  () => ({
-    isInIframeMock: vi.fn(() => false),
-    openAuthPopupMock: vi.fn(),
-    signInWithGoogleMock: vi.fn(),
-  }),
-);
+const {
+  buildLocationMock,
+  isInIframeMock,
+  openAuthPopupMock,
+  signInWithGoogleMock,
+} = vi.hoisted(() => ({
+  buildLocationMock: vi.fn(),
+  isInIframeMock: vi.fn(() => false),
+  openAuthPopupMock: vi.fn(),
+  signInWithGoogleMock: vi.fn(),
+}));
 
 vi.mock("@/authClient", () => ({
   isInIframe: isInIframeMock,
@@ -22,12 +24,19 @@ vi.mock("@/authClient", () => ({
   }),
 }));
 
+vi.mock("@tanstack/react-router", () => ({
+  useRouter: () => ({
+    buildLocation: buildLocationMock,
+  }),
+}));
+
 import { SignInWithGoogle } from "./SignInWithGoogle";
 
 describe("SignInWithGoogle", () => {
   const originalWindow = globalThis.window;
 
   afterEach(() => {
+    buildLocationMock.mockReset();
     signInWithGoogleMock.mockReset();
     openAuthPopupMock.mockReset();
     isInIframeMock.mockReset();
@@ -38,14 +47,39 @@ describe("SignInWithGoogle", () => {
     });
   });
 
+  function mockCurrentRouteLocationBuilder() {
+    buildLocationMock.mockImplementation(
+      (options: {
+        hash?: true;
+        search?: (
+          currentSearch: Record<string, unknown>,
+        ) => Record<string, unknown>;
+        to?: string;
+      }) => {
+        const currentSearch = Object.fromEntries(
+          new URLSearchParams(window.location.search).entries(),
+        );
+        const nextSearch =
+          typeof options.search === "function"
+            ? options.search(currentSearch)
+            : currentSearch;
+        return {
+          href: buildPathWithTanStackSearch({
+            pathname: options.to === "/" ? "/" : window.location.pathname,
+            search: nextSearch,
+            hash: options.hash === true ? window.location.hash : undefined,
+          }),
+        };
+      },
+    );
+  }
+
   it("preserves the MCP consent route when starting top-level Google auth", () => {
-    const consentSearchParams = cloneQueryParams();
-    setQueryParam(consentSearchParams, "mcp_consent_request", "mcpar_test");
-    setQueryParam(consentSearchParams, "mcp_login_required", "1");
-    setQueryParam(consentSearchParams, "auth", "google");
-    const consentSearch = buildSearchString(consentSearchParams);
-    const expectedSearchParams = cloneQueryParams(consentSearch);
-    setQueryParam(expectedSearchParams, "auth", false);
+    const consentSearch = stringifyTanStackSearch({
+      mcp_consent_request: "mcpar_test",
+      mcp_login_required: "1",
+      auth: "google",
+    });
 
     Object.defineProperty(globalThis, "window", {
       value: {
@@ -58,11 +92,15 @@ describe("SignInWithGoogle", () => {
       },
       configurable: true,
     });
+    mockCurrentRouteLocationBuilder();
 
     const element = SignInWithGoogle();
-    const expectedRedirectTo = buildPathWithQuery({
+    const expectedRedirectTo = buildPathWithTanStackSearch({
       pathname: "/oauth/mcp/consent",
-      search: buildSearchString(expectedSearchParams),
+      search: {
+        mcp_consent_request: "mcpar_test",
+        mcp_login_required: "1",
+      },
     });
 
     element.props.onClick();
@@ -73,9 +111,9 @@ describe("SignInWithGoogle", () => {
   });
 
   it("adds the public signup return marker when requested", () => {
-    const publicLandingSearchParams = cloneQueryParams();
-    setQueryParam(publicLandingSearchParams, "prod-ui", true);
-    const publicLandingSearch = buildSearchString(publicLandingSearchParams);
+    const publicLandingSearch = stringifyTanStackSearch({
+      "prod-ui": true,
+    });
 
     Object.defineProperty(globalThis, "window", {
       value: {
@@ -88,13 +126,15 @@ describe("SignInWithGoogle", () => {
       },
       configurable: true,
     });
+    mockCurrentRouteLocationBuilder();
 
     const element = SignInWithGoogle({ markPublicSignupReturn: true });
-    const expectedSearchParams = cloneQueryParams(publicLandingSearch);
-    setQueryParam(expectedSearchParams, "signup", "google");
-    const expectedRedirectTo = buildPathWithQuery({
+    const expectedRedirectTo = buildPathWithTanStackSearch({
       pathname: "/",
-      search: buildSearchString(expectedSearchParams),
+      search: {
+        "prod-ui": "",
+        signup: "google",
+      },
     });
 
     element.props.onClick();
@@ -104,13 +144,25 @@ describe("SignInWithGoogle", () => {
 
   it("propagates the public signup marker through iframe Google auth", () => {
     isInIframeMock.mockReturnValue(true);
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          origin: "https://noter.md",
+          pathname: "/",
+          search: "",
+          hash: "",
+        },
+      },
+      configurable: true,
+    });
+    mockCurrentRouteLocationBuilder();
 
     const element = SignInWithGoogle({ markPublicSignupReturn: true });
 
     element.props.onClick();
 
     expect(openAuthPopupMock).toHaveBeenCalledWith("google", {
-      markPublicSignupReturn: true,
+      popupPath: "/?auth=google&signup=google",
     });
     expect(signInWithGoogleMock).not.toHaveBeenCalled();
   });

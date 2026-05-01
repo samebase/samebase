@@ -1,7 +1,11 @@
 import { isInIframe, openAuthPopup, useNoterSignInActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
 import { Chrome } from "lucide-react";
-import { buildCurrentGoogleRedirectTo } from "./lib/googleAuthRedirect";
+import { useRouter } from "@tanstack/react-router";
+import {
+  buildGoogleAuthPopupSearch,
+  buildGoogleRedirectSearch,
+} from "./lib/googleAuthRedirect";
 
 export function SignInWithGoogle({
   visible = true,
@@ -11,6 +15,24 @@ export function SignInWithGoogle({
   markPublicSignupReturn?: boolean;
 } = {}) {
   const { signInWithGoogle } = useNoterSignInActions();
+  const router = useRouter();
+  const buildCurrentGoogleRedirectTo = () =>
+    router.buildLocation({
+      hash: true,
+      search: (currentSearch) =>
+        buildGoogleRedirectSearch(currentSearch, { markPublicSignupReturn }),
+      state: true,
+      to: ".",
+    }).href;
+  const buildGooglePopupPath = () =>
+    router.buildLocation({
+      search: (currentSearch) =>
+        buildGoogleAuthPopupSearch(currentSearch, "google", {
+          markPublicSignupReturn,
+        }),
+      to: "/",
+    }).href;
+
   return (
     <Button
       aria-hidden={!visible}
@@ -25,16 +47,9 @@ export function SignInWithGoogle({
       tabIndex={visible ? undefined : -1}
       onClick={() => {
         if (isInIframe()) {
-          openAuthPopup("google", { markPublicSignupReturn });
+          openAuthPopup("google", { popupPath: buildGooglePopupPath() });
         } else {
-          void signInWithGoogle(
-            buildCurrentGoogleRedirectTo(
-              window.location.pathname,
-              window.location.search,
-              window.location.hash,
-              { markPublicSignupReturn },
-            ),
-          );
+          void signInWithGoogle(buildCurrentGoogleRedirectTo());
         }
       }}
     >

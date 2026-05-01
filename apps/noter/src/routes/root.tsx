@@ -20,7 +20,6 @@ import {
   readRootThemeMode,
   syncDocumentRootThemeMode,
 } from "@/lib/rootThemeModeSearch";
-import { setQueryParam } from "@/lib/queryParams";
 import { useEffect, useLayoutEffect } from "react";
 
 const posthogApiHost =
@@ -122,8 +121,8 @@ function readClearedRootThemeModeSearch(
   search: string,
 ): Record<string, string | true> {
   const searchParams = new URLSearchParams(search);
-  setQueryParam(searchParams, "dark", false);
-  setQueryParam(searchParams, "light", false);
+  searchParams.delete("dark");
+  searchParams.delete("light");
 
   const nextSearch: Record<string, string | true> = {};
   for (const [key, value] of searchParams.entries()) {

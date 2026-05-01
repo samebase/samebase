@@ -1,5 +1,4 @@
 import { CONVEX_QUERY_CACHE_DB_NAME } from "@/lib/convexQueryCacheStorage";
-import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { ensureWindowStorageAccess } from "@/lib/storageAccess";
 
 const RECOVERY_QUERY_PARAM = "__noter-reload";
@@ -41,17 +40,13 @@ export function readBootFailureMessage(error: unknown): string | null {
 }
 
 function updateRecoveryReloadUrl(url: URL, value: string | undefined): string {
-  const nextPath = buildPathWithUpdatedQuery(
-    {
-      pathname: url.pathname,
-      search: url.search,
-      hash: url.hash,
-    },
-    (nextSearchParams) => {
-      setQueryParam(nextSearchParams, RECOVERY_QUERY_PARAM, value);
-    },
-  );
-  return new URL(nextPath, url.origin).toString();
+  const nextUrl = new URL(url);
+  if (typeof value === "string") {
+    nextUrl.searchParams.set(RECOVERY_QUERY_PARAM, value);
+  } else {
+    nextUrl.searchParams.delete(RECOVERY_QUERY_PARAM);
+  }
+  return nextUrl.toString();
 }
 
 function hasRecoveryReloadParam(url: URL): boolean {

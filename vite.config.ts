@@ -35,10 +35,6 @@ export default defineConfig({
     ],
     jsPlugins: [
       {
-        name: "noter-local",
-        specifier: "eslint-plugin-noter-local",
-      },
-      {
         name: "@convex-dev",
         specifier: "@convex-dev/eslint-plugin",
       },
@@ -109,7 +105,6 @@ export default defineConfig({
           "apps/noter/convex/**/*.{ts,tsx}",
           "apps/noter-starter-template/convex/**/*.{ts,tsx}",
           "apps/noter/scripts/**/*.ts",
-          "eslint-rules/**/*.ts",
         ],
         env: {
           node: true,
@@ -123,22 +118,6 @@ export default defineConfig({
         ],
         rules: {
           "@typescript-eslint/no-unnecessary-condition": "off",
-        },
-      },
-      {
-        files: ["apps/noter/src/**/*.{ts,tsx}"],
-        rules: {
-          "noter-local/use-query-param-helpers": "error",
-        },
-      },
-      {
-        files: [
-          "apps/noter/src/lib/queryParams.ts",
-          "apps/noter/src/lib/landingDevMode.ts",
-          "apps/noter/src/**/*.test.ts",
-        ],
-        rules: {
-          "noter-local/use-query-param-helpers": "off",
         },
       },
       {

@@ -102,7 +102,10 @@ import {
 } from "@/components/SidebarMediaUploadVisualFixture";
 import { GlobalGestureDebugOverlay } from "@/components/GlobalGestureDebugOverlay";
 import { isMobileSidebarDebugEnabled } from "@/lib/mobileSidebarGestureDebug";
-import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
+import {
+  buildPathWithTanStackSearch,
+  parseTanStackSearch,
+} from "@/lib/tanstackSearchParams";
 import "./index.css";
 
 type VisualFixtureMode =
@@ -487,8 +490,13 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 }
 
 function buildFixtureModeHref(mode: VisualFixtureMode) {
-  return buildPathWithUpdatedQuery(window.location, (nextSearchParams) => {
-    setQueryParam(nextSearchParams, "mode", mode);
+  return buildPathWithTanStackSearch({
+    pathname: window.location.pathname,
+    search: {
+      ...parseTanStackSearch(window.location.search),
+      mode,
+    },
+    hash: window.location.hash,
   });
 }
 

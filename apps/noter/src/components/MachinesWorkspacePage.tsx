@@ -12,11 +12,6 @@ import {
   type CodexAppServerThreadsResponse,
 } from "@/lib/codexAppServerResearch";
 import {
-  buildSearchString,
-  setQueryParam,
-  updateQueryParams,
-} from "@/lib/queryParams";
-import {
   startedDraftConversationThreadMatches,
   type MachinesWorkspaceProjectConversationSelection,
 } from "@/lib/machinesWorkspaceConversation";
@@ -98,13 +93,11 @@ const machinesRouteApi = getRouteApi(MACHINES_ROUTE);
 
 /** Keep the thread list request aligned with the existing Codex sidebar sort order. */
 function buildThreadsPath(): string {
-  const search = updateQueryParams(undefined, (nextSearchParams) => {
-    setQueryParam(nextSearchParams, "archived", "false");
-    setQueryParam(nextSearchParams, "limit", `${THREAD_LIST_LIMIT}`);
-    setQueryParam(nextSearchParams, "sortKey", "updated_at");
-  });
-
-  return `/threads${buildSearchString(search)}`;
+  const searchParams = new URLSearchParams();
+  searchParams.set("archived", "false");
+  searchParams.set("limit", `${THREAD_LIST_LIMIT}`);
+  searchParams.set("sortKey", "updated_at");
+  return `/threads?${searchParams.toString()}`;
 }
 
 /** Explain why a connected machine still cannot be used as an interactive Codex host. */

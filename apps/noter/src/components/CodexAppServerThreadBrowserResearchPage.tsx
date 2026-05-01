@@ -17,11 +17,6 @@ import {
   type CodexAppServerThreadsResponse,
 } from "@/lib/codexAppServerResearch";
 import { buildCodexResearchRouteSearch } from "@/lib/codexResearchRouteSearch";
-import {
-  buildPathWithQuery,
-  setQueryParam,
-  updateQueryParams,
-} from "@/lib/queryParams";
 import { dedupeCodexThreadsById } from "@/lib/codexThreadSidebar";
 import { useCodexThreadSidebarViewModel } from "@/hooks/useCodexThreadSidebarViewModel";
 import { getRouteApi, linkOptions, useRouter } from "@tanstack/react-router";
@@ -42,25 +37,15 @@ function buildThreadsPath(args: {
   mode: CodexThreadBrowserMode;
   searchTerm: string;
 }): string {
-  const search = updateQueryParams(undefined, (nextSearchParams) => {
-    setQueryParam(
-      nextSearchParams,
-      "archived",
-      args.mode === "archived" ? "true" : "false",
-    );
-    setQueryParam(nextSearchParams, "limit", `${THREAD_LIST_LIMIT}`);
-    setQueryParam(nextSearchParams, "sortKey", "updated_at");
-    setQueryParam(
-      nextSearchParams,
-      "searchTerm",
-      args.searchTerm.trim().length > 0 ? args.searchTerm.trim() : null,
-    );
-  });
-
-  return buildPathWithQuery({
-    pathname: "/threads",
-    search,
-  });
+  const searchParams = new URLSearchParams();
+  const trimmedSearchTerm = args.searchTerm.trim();
+  searchParams.set("archived", args.mode === "archived" ? "true" : "false");
+  searchParams.set("limit", `${THREAD_LIST_LIMIT}`);
+  searchParams.set("sortKey", "updated_at");
+  if (trimmedSearchTerm.length > 0) {
+    searchParams.set("searchTerm", trimmedSearchTerm);
+  }
+  return `/threads?${searchParams.toString()}`;
 }
 
 function buildCodexResearchLinkOptions(selectedThreadId: string | null) {

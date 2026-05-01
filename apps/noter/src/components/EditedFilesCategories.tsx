@@ -5,12 +5,12 @@ import { useCallback, useMemo, useState } from "react";
 import { linkStyle } from "./styles";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { buildPathWithQuery } from "@/lib/queryParams";
 import {
   buildFileViewRouteSearch,
   mergeFileViewRouteSearch,
   validateFileViewRouteSearch,
 } from "@/lib/fileViewRouteSearch";
+import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { buildVaultFileRoute } from "@/lib/vaultRoutes";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -146,11 +146,8 @@ export function EditedFilesCategories({
   const navigate = useNavigate();
   const location = useLocation();
   const currentFileViewSearch = useMemo(
-    () =>
-      validateFileViewRouteSearch(
-        Object.fromEntries(new URLSearchParams(location.searchStr).entries()),
-      ),
-    [location.searchStr],
+    () => validateFileViewRouteSearch(location.search),
+    [location.search],
   );
   const navigateToStagedFile = useCallback(
     (file: StagedFile) => {
@@ -169,9 +166,9 @@ export function EditedFilesCategories({
       // vault-route navigation once the catch-all `/vault/$` path no longer
       // depends on manually encoded branch/file segments.
       void navigate({
-        href: buildPathWithQuery({
+        href: buildPathWithTanStackSearch({
           pathname: nextPath,
-          search: mergeFileViewRouteSearch(location.searchStr, {
+          search: mergeFileViewRouteSearch(location.search, {
             ...buildFileViewRouteSearch({
               diff: file.fileDeleted,
               review: !file.fileDeleted,
@@ -183,7 +180,7 @@ export function EditedFilesCategories({
     },
     [
       branch,
-      location.searchStr,
+      location.search,
       navigate,
       onFileSelected,
       repositoryFullName,
