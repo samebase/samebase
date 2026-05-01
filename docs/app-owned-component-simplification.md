@@ -121,3 +121,25 @@ Example:
 - A dashboard `primaryBranch` should remain `string | undefined` when no active
   branch exists, and callsites should check `primaryBranch` before building
   branch-specific routes or controls.
+
+## Prefer Named Branching Helpers
+
+Avoid long nested ternaries for rendering multiple similar states.
+
+Nested ternaries make it hard to see the priority order and the shared shape of
+each branch. In app-owned rendering code, a small named helper with early `if`
+returns is usually clearer and easier to change.
+
+General rule:
+
+- Use a named helper when JSX branches past one or two simple cases.
+- Prefer plain `if` returns when the states are ordered by priority.
+- Keep the helper local until more than one real callsite needs it.
+- Extract tiny shared fragments only when they remove real duplication without
+  hiding the state being rendered.
+
+Example:
+
+- Dashboard repository refresh status should be rendered by a helper that checks
+  `syncing`, `rate_limited`, `cooldown`, `failed`, then `lastSyncedAt`, rather
+  than by a nested ternary inside the card props.

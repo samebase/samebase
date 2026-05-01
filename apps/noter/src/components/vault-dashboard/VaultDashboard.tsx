@@ -1188,6 +1188,112 @@ function VaultBranchSection({
   );
 }
 
+function renderVaultDashboardCooldownStatus({
+  cooldownUntil,
+  label,
+  now,
+  title,
+}: {
+  cooldownUntil: number;
+  label: string;
+  now: number;
+  title: string;
+}) {
+  return (
+    <>
+      <span className="text-amber-700" title={title}>
+        {label}
+      </span>
+      <span>·</span>
+      <span className="font-mono tabular-nums">
+        {formatRelativeTimeUntil(cooldownUntil, now)}
+      </span>
+    </>
+  );
+}
+
+function renderVaultDashboardRepositoryStatus({
+  isReady,
+  now,
+  onRefreshVaultTree,
+  sharedLastSyncedAt,
+  treeRefreshUiState,
+  vault,
+}: {
+  isReady: boolean;
+  now: number;
+  onRefreshVaultTree: (vault: DashboardManualRefreshVault) => void;
+  sharedLastSyncedAt: number | undefined;
+  treeRefreshUiState: ReturnType<typeof getTreeRefreshUiState>;
+  vault: DashboardManualRefreshVault & {
+    treeRefreshFailureMessage?: string;
+  };
+}) {
+  if (!isReady) {
+    return undefined;
+  }
+
+  if (treeRefreshUiState.kind === "syncing") {
+    return (
+      <>
+        <UpdateIcon className="h-3 w-3 animate-spin" />
+        <span>Syncing...</span>
+      </>
+    );
+  }
+
+  if (treeRefreshUiState.kind === "rate_limited") {
+    return renderVaultDashboardCooldownStatus({
+      cooldownUntil: treeRefreshUiState.cooldownUntil,
+      label: "GitHub rate limited",
+      now,
+      title:
+        vault.treeRefreshFailureMessage ??
+        "GitHub API rate limited. Auto-refresh paused.",
+    });
+  }
+
+  if (treeRefreshUiState.kind === "cooldown") {
+    return renderVaultDashboardCooldownStatus({
+      cooldownUntil: treeRefreshUiState.cooldownUntil,
+      label: "Paused",
+      now,
+      title:
+        vault.treeRefreshFailureMessage ??
+        "Auto-refresh paused after a failed sync.",
+    });
+  }
+
+  if (treeRefreshUiState.kind === "failed") {
+    return (
+      <span
+        className="text-amber-700"
+        title={
+          vault.treeRefreshFailureMessage ??
+          "Last sync failed. Showing cached state."
+        }
+      >
+        Last sync failed
+      </span>
+    );
+  }
+
+  if (typeof sharedLastSyncedAt === "number") {
+    return (
+      <VaultLastUpdatedStatus
+        lastSyncedAt={sharedLastSyncedAt}
+        now={now}
+        onRefresh={() => {
+          onRefreshVaultTree(vault);
+        }}
+        repositoryFullName={vault.repositoryFullName}
+      />
+    );
+  }
+
+  return undefined;
+}
+
 type VaultDashboardBodyProps = {
   developerToolsVisible: boolean;
   isRemovingVault: boolean;
@@ -1308,7 +1414,6 @@ function VaultDashboardBody({
           treeRefreshFailureKind: vault.treeRefreshFailureKind,
           treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
         });
-        const isVaultSyncing = treeRefreshUiState.kind === "syncing";
         const filteredRemoteBranches = filterVaultRemoteBranches(
           remoteBranches,
           vaultBranchFilters,
@@ -1376,80 +1481,14 @@ function VaultDashboardBody({
                   }}
                 />
               }
-              repositoryStatus={
-                isReady &&
-                (isVaultSyncing ||
-                  sharedLastSyncedAt ||
-                  treeRefreshUiState.kind === "rate_limited" ||
-                  treeRefreshUiState.kind === "cooldown" ||
-                  treeRefreshUiState.kind === "failed") ? (
-                  <>
-                    {isVaultSyncing ? (
-                      <>
-                        <UpdateIcon className="h-3 w-3 animate-spin" />
-                        <span>Syncing...</span>
-                      </>
-                    ) : treeRefreshUiState.kind === "rate_limited" ? (
-                      <>
-                        <span
-                          className="text-amber-700"
-                          title={
-                            vault.treeRefreshFailureMessage ??
-                            "GitHub API rate limited. Auto-refresh paused."
-                          }
-                        >
-                          GitHub rate limited
-                        </span>
-                        <span>·</span>
-                        <span className="font-mono tabular-nums">
-                          {formatRelativeTimeUntil(
-                            treeRefreshUiState.cooldownUntil,
-                            now,
-                          )}
-                        </span>
-                      </>
-                    ) : treeRefreshUiState.kind === "cooldown" ? (
-                      <>
-                        <span
-                          className="text-amber-700"
-                          title={
-                            vault.treeRefreshFailureMessage ??
-                            "Auto-refresh paused after a failed sync."
-                          }
-                        >
-                          Paused
-                        </span>
-                        <span>·</span>
-                        <span className="font-mono tabular-nums">
-                          {formatRelativeTimeUntil(
-                            treeRefreshUiState.cooldownUntil,
-                            now,
-                          )}
-                        </span>
-                      </>
-                    ) : treeRefreshUiState.kind === "failed" ? (
-                      <span
-                        className="text-amber-700"
-                        title={
-                          vault.treeRefreshFailureMessage ??
-                          "Last sync failed. Showing cached state."
-                        }
-                      >
-                        Last sync failed
-                      </span>
-                    ) : typeof sharedLastSyncedAt === "number" ? (
-                      <VaultLastUpdatedStatus
-                        lastSyncedAt={sharedLastSyncedAt}
-                        now={now}
-                        onRefresh={() => {
-                          onRefreshVaultTree(vault);
-                        }}
-                        repositoryFullName={vault.repositoryFullName}
-                      />
-                    ) : null}
-                  </>
-                ) : undefined
-              }
+              repositoryStatus={renderVaultDashboardRepositoryStatus({
+                isReady,
+                now,
+                onRefreshVaultTree,
+                sharedLastSyncedAt,
+                treeRefreshUiState,
+                vault,
+              })}
               headerControls={
                 isReady && hasBranchListOverflow ? (
                   <VaultBranchListExpansionControl
