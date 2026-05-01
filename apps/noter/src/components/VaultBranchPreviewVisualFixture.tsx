@@ -82,9 +82,6 @@ export function VaultBranchPreviewVisualFixture({
             cloudflarePreviewPullRequestNumber={290}
             cloudflarePreviewLogsUrl={preview?.previewLogsUrl}
             cloudflarePreviewStatus={preview?.previewStatus}
-            canDeleteBranch={false}
-            isDeletingBranch={false}
-            onDeleteBranch={() => {}}
           />
         </div>
       </TestRouterProvider>
