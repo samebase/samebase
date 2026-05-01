@@ -3,8 +3,8 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { VaultLastUpdatedStatus } from "@/components/VaultLastUpdatedStatus";
-import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
+import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
+import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
 import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { type MobileSidebarPane } from "@/hooks/use-sidebar";
@@ -15,12 +15,12 @@ import {
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
   VaultDashboardSidebarContent,
-} from "@/components/VaultDashboardChrome";
+} from "@/components/vault-dashboard/VaultDashboardChrome";
 import {
   VaultBranchLinkRow,
   VaultBranchListExpansionControl,
   VaultDashboardRepositoryExternalLinks,
-} from "@/components/VaultDashboard";
+} from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 
 export type VaultDashboardVisualMode =

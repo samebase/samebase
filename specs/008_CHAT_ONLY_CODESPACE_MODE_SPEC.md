@@ -15,7 +15,7 @@
   - `apps/noter/src/components/CodespaceIframe.tsx`
   - `apps/noter/src/components/CodespaceChatOnlyView.tsx`
   - `apps/noter/src/components/CodespaceStatus.tsx`
-  - `apps/noter/src/components/VaultDashboard.tsx`
+  - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
   - `apps/noter/src/App.tsx`
   - `apps/noter/convex/codespaces.ts`
   - `apps/noter/convex/codespacesMutations.ts`
@@ -261,7 +261,7 @@ Bridge behavior:
 2. Maintain CSP/login-block detection and deterministic fallback actions.
 3. Not part of primary success path.
 
-### `apps/noter/src/components/VaultDashboard.tsx` / `CodespaceStatus.tsx`
+### `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx` / `CodespaceStatus.tsx`
 
 1. Keep "Chat" launch action.
 2. Surface runtime/auth status for operator visibility.

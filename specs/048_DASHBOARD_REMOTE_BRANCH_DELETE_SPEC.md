@@ -35,7 +35,7 @@ Most of the required state already exists:
 2. `VaultDashboard` already loads branch-scoped staged-file summaries via
    `fileStaging.listStagedFilesBranchSummaries`.
 3. The dashboard already renders each remote branch row in one place:
-   `apps/noter/src/components/VaultDashboard.tsx`.
+   `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`.
 
 The main missing pieces are:
 
@@ -50,7 +50,7 @@ The main missing pieces are:
 
 Touch points:
 
-1. `apps/noter/src/components/VaultDashboard.tsx`
+1. `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
 2. `apps/noter/convex/vault.ts` result shape for `getUserVaults`
 
 Changes:

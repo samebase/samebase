@@ -36,7 +36,7 @@ changed upstream.
   `apps/noter/convex/github.ts#syncRepositoryMetadata`, which calls
   `listRemoteBranches()` and then `internal.vault.syncVaultRemoteBranches`.
 - Confirmed the dashboard auto-refresh path in
-  `apps/noter/src/components/VaultDashboard.tsx` calls
+  `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx` calls
   `api.github.refreshRepositoryTree` on `page_load` and `visibility`.
 - Confirmed `refreshRepositoryTree()` can refresh branch tree data without
   syncing repo metadata. That means the dashboard can show a fresh default tree

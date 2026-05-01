@@ -6,7 +6,7 @@
 - Owner: Noter product/frontend
 - Last updated: 2026-03-23
 - Depends on:
-  - `apps/noter/src/components/VaultDashboard.tsx`
+  - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
   - `apps/noter/convex/vault.ts`
   - `apps/noter/convex/github.ts`
 
@@ -42,7 +42,8 @@ Each row can show:
 - staged file status
 - branch deletion affordance when eligible
 
-That surface is implemented in `apps/noter/src/components/VaultDashboard.tsx`.
+That surface is implemented in
+`apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`.
 `VaultBranchLinkContent` already treats PR title as the primary line and branch
 name as the lighter secondary line when a PR exists.
 
@@ -393,7 +394,7 @@ metadata, not a GitHub label, so it should not compete with actual labels.
 
 ### Current code
 
-1. [apps/noter/src/components/VaultDashboard.tsx](https://github.com/noter-md/noter/blob/main/apps/noter/src/components/VaultDashboard.tsx)
+1. [apps/noter/src/components/vault-dashboard/VaultDashboard.tsx](https://github.com/noter-md/noter/blob/main/apps/noter/src/components/vault-dashboard/VaultDashboard.tsx)
 2. [apps/noter/convex/vault.ts](https://github.com/noter-md/noter/blob/main/apps/noter/convex/vault.ts)
 3. [apps/noter/convex/github.ts](https://github.com/noter-md/noter/blob/main/apps/noter/convex/github.ts)
 

@@ -34,7 +34,7 @@ The shared sidebar shell currently keeps its state only in React memory:
   - also keeps `openProjectIds` only in component state
 - `apps/noter/src/components/FileView.tsx`
   - mounts its own `SidebarProvider`
-- `apps/noter/src/components/VaultDashboard.tsx`
+- `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
   - mounts its own `SidebarProvider`
 
 That means a full refresh recreates the provider and drops every sidebar state
@@ -198,7 +198,7 @@ Examples:
 - `apps/noter/src/components/FileView.tsx`
   - the file-tree scroll container is route-owned and already has separate
     folder-expansion persistence
-- `apps/noter/src/components/VaultDashboard.tsx`
+- `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
   - sidebar content is different again and already has its own
     `providersPanelOpen` state
 

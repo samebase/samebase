@@ -40,7 +40,7 @@ open/closed state in Convex so it syncs across devices.
 
 **Frontend**
 
-- File: `apps/noter/src/components/VaultDashboard.tsx`
+- File: `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
   - Rename panel heading to "Providers".
   - Wrap the providers list in a `Collapsible`:
     - `CollapsibleTrigger` styled like the Developer tools trigger

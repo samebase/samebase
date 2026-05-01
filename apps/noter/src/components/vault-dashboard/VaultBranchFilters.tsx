@@ -15,7 +15,7 @@ import {
   setVaultBranchFilterLabelIncluded,
   type VaultBranchFilterOption,
   type VaultBranchFilters,
-} from "@/lib/vaultBranchFilters";
+} from "@/components/vault-dashboard/vaultDashboardBranchFilters";
 
 function matchesOptionSearch(option: VaultBranchFilterOption, search: string) {
   if (search.length === 0) {

@@ -31,7 +31,7 @@ import {
 import {
   VaultDashboardVisualFixture,
   type VaultDashboardVisualMode,
-} from "@/components/VaultDashboardVisualFixture";
+} from "@/components/vault-dashboard/VaultDashboardVisualFixture";
 import { MachineConnectVisualFixture } from "@/components/MachineConnectVisualFixture";
 import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture";
 import {
@@ -73,7 +73,7 @@ import {
   isFileViewPushActionsVisualMode,
   type FileViewPushActionsVisualMode,
 } from "@/components/fileViewPushActionsVisualModes";
-import { VaultDashboardBranchVisualFixture } from "@/components/VaultDashboardBranchVisualFixture";
+import { VaultDashboardBranchVisualFixture } from "@/components/vault-dashboard/VaultDashboardBranchVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
 import { PasswordAuthVisualFixture } from "@/components/PasswordAuthVisualFixture";
 import {
@@ -104,7 +104,7 @@ import {
 import {
   VaultBranchPreviewVisualFixture,
   type VaultBranchPreviewVisualMode,
-} from "@/components/VaultBranchPreviewVisualFixture";
+} from "@/components/vault-dashboard/VaultBranchPreviewVisualFixture";
 import {
   VaultSyncStatusVisualFixture,
   type VaultSyncStatusVisualMode,

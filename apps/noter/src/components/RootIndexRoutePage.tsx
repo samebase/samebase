@@ -11,7 +11,7 @@ import { useConvexAuth, Authenticated } from "convex/react";
 import { lazy, Suspense, useMemo } from "react";
 
 const VaultDashboard = lazy(async () => {
-  const module = await import("@/components/VaultDashboard");
+  const module = await import("@/components/vault-dashboard/VaultDashboard");
   return { default: module.VaultDashboard };
 });
 

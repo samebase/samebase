@@ -36,7 +36,7 @@ Local product references reviewed:
 - `apps/noter/src/bootstrap.ts`
 - `apps/noter/src/SignInForm.tsx`
 - `apps/noter/src/App.tsx`
-- `apps/noter/src/components/VaultDashboard.tsx`
+- `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
 - `apps/noter/src/components/ChatFab.tsx`
 - `slogans.md`
 
