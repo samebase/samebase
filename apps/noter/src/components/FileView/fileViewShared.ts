@@ -209,13 +209,6 @@ export function getStagedFileStatus(
   return getSharedStagedFileStatus(file);
 }
 
-export function encodeGitHubPath(path: string): string {
-  return path
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-}
-
 export function getDefaultUploadFolderPath(filePath: string): string {
   const pathSegments = filePath.split("/");
   pathSegments.pop();
