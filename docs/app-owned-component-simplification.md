@@ -181,7 +181,8 @@ not as a general way to keep React state in sync with other React state. See
 
 Effects often hide synchronization between React state, browser events, external
 windows, and persisted data. If an effect is still needed, a short JSDoc-style
-comment above it should make that dependency explicit and name the removal path.
+comment above it or above its named hook should make that dependency explicit
+and name the removal path.
 
 General rule:
 
@@ -190,6 +191,8 @@ General rule:
   that state; hidden is not the same thing as cleared.
 - Prefer source-owned optimistic updates over local shadow state plus an effect
   that waits for the server value to catch up.
+- Prefer extracting a remaining effect into a named hook when the hook name can
+  describe the external synchronization at the callsite.
 - Explain the external system or lifecycle the effect synchronizes with.
 - Mention why render-time derivation is not enough today.
 - Include a concrete removal path, such as moving work to a backend scheduler, a
@@ -205,6 +208,5 @@ Example:
   updates instead of local state that a later effect reconciles with the query.
 - Page-load warning suppression can compare query timestamps to a mount-time
   value instead of copying the initial query value into a ref from an effect.
-- A dashboard `useEffect` that listens for OAuth popup messages should say that
-  it exists for popup completion and that removing it would require replacing
-  the message bridge with redirect flow or provider connection invalidation.
+- A dashboard hook named `useProviderOAuthPopupCompletionReload` can make the
+  popup message bridge clearer than leaving the `useEffect` inline.

@@ -411,6 +411,266 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
   },
 };
 
+/**
+ * Bridges provider OAuth popup callbacks back into the dashboard shell. Remove
+ * this hook by replacing popup OAuth with redirect flow, or by routing callback
+ * completion through provider connection invalidation instead of window
+ * messages.
+ */
+function useProviderOAuthPopupCompletionReload({
+  cloudflarePopupOriginRef,
+  cloudflarePopupRef,
+  convexPopupOriginRef,
+  convexPopupRef,
+  githubPopupOriginRef,
+  githubPopupRef,
+}: {
+  cloudflarePopupOriginRef: MutableRefObject<string | null>;
+  cloudflarePopupRef: MutableRefObject<Window | null>;
+  convexPopupOriginRef: MutableRefObject<string | null>;
+  convexPopupRef: MutableRefObject<Window | null>;
+  githubPopupOriginRef: MutableRefObject<string | null>;
+  githubPopupRef: MutableRefObject<Window | null>;
+}) {
+  useEffect(() => {
+    const expectedOrigin = window.location.origin;
+    const providerPopupConfig: Record<
+      ProviderKey,
+      {
+        completionEventType: string;
+        popupRef: MutableRefObject<Window | null>;
+        popupOriginRef: MutableRefObject<string | null>;
+      }
+    > = {
+      github: {
+        completionEventType: PROVIDER_METADATA.github.completionEventType,
+        popupRef: githubPopupRef,
+        popupOriginRef: githubPopupOriginRef,
+      },
+      convex: {
+        completionEventType: PROVIDER_METADATA.convex.completionEventType,
+        popupRef: convexPopupRef,
+        popupOriginRef: convexPopupOriginRef,
+      },
+      cloudflare: {
+        completionEventType: PROVIDER_METADATA.cloudflare.completionEventType,
+        popupRef: cloudflarePopupRef,
+        popupOriginRef: cloudflarePopupOriginRef,
+      },
+    };
+    const handler = (event: MessageEvent) => {
+      if (!isRecord(event.data) || typeof event.data.type !== "string") {
+        return;
+      }
+
+      for (const provider of PROVIDER_KEYS) {
+        const popupConfig = providerPopupConfig[provider];
+        if (event.data.type !== popupConfig.completionEventType) {
+          continue;
+        }
+        if (event.source !== popupConfig.popupRef.current) {
+          return;
+        }
+        if (
+          event.origin !==
+          (popupConfig.popupOriginRef.current ?? expectedOrigin)
+        ) {
+          return;
+        }
+        window.location.reload();
+        return;
+      }
+    };
+
+    window.addEventListener("message", handler);
+    return () => {
+      window.removeEventListener("message", handler);
+    };
+  }, [
+    cloudflarePopupOriginRef,
+    cloudflarePopupRef,
+    convexPopupOriginRef,
+    convexPopupRef,
+    githubPopupOriginRef,
+    githubPopupRef,
+  ]);
+}
+
+/**
+ * Schedules dashboard repository tree refreshes for visible page load and tab
+ * resume. Remove this hook by moving refresh scheduling to backend work or a
+ * route-level data invalidation layer.
+ */
+function useVisibleDashboardRepositoryTreeRefresh({
+  refreshVaultTreesIfNeeded,
+  vaults,
+}: {
+  refreshVaultTreesIfNeeded: (trigger?: RefreshTrigger) => void;
+  vaults: VaultDashboardVault[] | undefined;
+}) {
+  const initialDashboardPageLoadSentRef = useRef(false);
+
+  useEffect(() => {
+    if (!vaults || vaults.length === 0) {
+      return;
+    }
+
+    const triggerInitialPageLoad = () => {
+      if (initialDashboardPageLoadSentRef.current) {
+        return;
+      }
+      initialDashboardPageLoadSentRef.current = true;
+      refreshVaultTreesIfNeeded("page_load");
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      if (!initialDashboardPageLoadSentRef.current) {
+        triggerInitialPageLoad();
+        return;
+      }
+
+      refreshVaultTreesIfNeeded("visibility");
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    if (document.visibilityState === "visible") {
+      triggerInitialPageLoad();
+    }
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [refreshVaultTreesIfNeeded, vaults]);
+}
+
+type DashboardCloudflareConnection =
+  (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
+type CloudflareTokenAutoCheckTrigger =
+  | "focus"
+  | "visibility"
+  | "page_load"
+  | "poll";
+
+/**
+ * Keeps Cloudflare MCP token health fresh while the dashboard is active. Remove
+ * this hook by making token refresh a server-owned scheduler or connection
+ * maintenance job and subscribing only to the resulting status.
+ */
+function useCloudflareMcpTokenAutoCheck({
+  cloudflareConnection,
+  refreshCloudflareMcpTokenIfNeeded,
+  setCloudflarePollingPaused,
+  setIsAutoCheckingCloudflareToken,
+  userId,
+}: {
+  cloudflareConnection: DashboardCloudflareConnection | undefined;
+  refreshCloudflareMcpTokenIfNeeded: (args: {
+    force: false;
+    trigger: CloudflareTokenAutoCheckTrigger;
+  }) => Promise<unknown>;
+  setCloudflarePollingPaused: (isPaused: boolean) => void;
+  setIsAutoCheckingCloudflareToken: (isChecking: boolean) => void;
+  userId: Id<"users"> | undefined;
+}) {
+  const cloudflareAutoCheckInFlightRef = useRef(false);
+
+  useEffect(() => {
+    const isCloudflareMcpConnected =
+      cloudflareConnection?.connected === true &&
+      cloudflareConnection.authMethod === "mcp_oauth";
+    if (!isCloudflareMcpConnected) {
+      setCloudflarePollingPaused(false);
+      return;
+    }
+
+    const debounceKey = userId ?? "cloudflare-dashboard";
+    const runAutoCheck = (trigger: CloudflareTokenAutoCheckTrigger) => {
+      if (cloudflareAutoCheckInFlightRef.current) {
+        return;
+      }
+      if (
+        !claimRefreshDebounce(
+          "cloudflare_token",
+          debounceKey,
+          CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
+        )
+      ) {
+        return;
+      }
+
+      cloudflareAutoCheckInFlightRef.current = true;
+      setIsAutoCheckingCloudflareToken(true);
+      void refreshCloudflareMcpTokenIfNeeded({ trigger, force: false })
+        .catch((error: unknown) => {
+          console.error("Failed to auto-check Cloudflare token:", error);
+        })
+        .finally(() => {
+          releaseRefreshDebounce("cloudflare_token", debounceKey);
+          cloudflareAutoCheckInFlightRef.current = false;
+          setIsAutoCheckingCloudflareToken(false);
+        });
+    };
+
+    const handleFocus = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      setCloudflarePollingPaused(false);
+      runAutoCheck("focus");
+    };
+
+    const handleVisibilityChange = () => {
+      const isVisible = document.visibilityState === "visible";
+      setCloudflarePollingPaused(!isVisible);
+      if (isVisible) {
+        runAutoCheck("visibility");
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    const isVisible = document.visibilityState === "visible";
+    setCloudflarePollingPaused(!isVisible);
+    if (isVisible) {
+      runAutoCheck("page_load");
+    }
+
+    const pollId = window.setInterval(() => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      if (
+        typeof cloudflareConnection.mcpTokenNextAutoCheckAt === "number" &&
+        Date.now() < cloudflareConnection.mcpTokenNextAutoCheckAt
+      ) {
+        return;
+      }
+      runAutoCheck("poll");
+    }, CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.clearInterval(pollId);
+      cloudflareAutoCheckInFlightRef.current = false;
+    };
+  }, [
+    cloudflareConnection?.authMethod,
+    cloudflareConnection?.connected,
+    cloudflareConnection?.mcpTokenNextAutoCheckAt,
+    refreshCloudflareMcpTokenIfNeeded,
+    setCloudflarePollingPaused,
+    setIsAutoCheckingCloudflareToken,
+    userId,
+  ]);
+}
+
 interface StagedSummary {
   modified: number;
   deleted: number;
@@ -1719,72 +1979,16 @@ export function VaultDashboard() {
   const [isGlobalChatBusy, setIsGlobalChatBusy] = useState(false);
   const [shouldAutoFocusChatInput, setShouldAutoFocusChatInput] =
     useState(false);
-  const cloudflareAutoCheckInFlightRef = useRef(false);
-  const initialDashboardPageLoadSentRef = useRef(false);
   const [dashboardMountedAt] = useState(() => Date.now());
 
-  /**
-   * Listens for OAuth popup completion messages from provider callback pages and
-   * reloads the dashboard once the popup flow finishes. Remove this by routing
-   * popup completion through app state, such as a provider-connection mutation
-   * plus query invalidation, or by replacing popup OAuth with a normal redirect
-   * flow that does not need a window message bridge.
-   */
-  useEffect(() => {
-    const expectedOrigin = window.location.origin;
-    const providerPopupConfig: Record<
-      ProviderKey,
-      {
-        completionEventType: string;
-        popupRef: MutableRefObject<Window | null>;
-        popupOriginRef: MutableRefObject<string | null>;
-      }
-    > = {
-      github: {
-        completionEventType: PROVIDER_METADATA.github.completionEventType,
-        popupRef: githubPopupRef,
-        popupOriginRef: githubPopupOriginRef,
-      },
-      convex: {
-        completionEventType: PROVIDER_METADATA.convex.completionEventType,
-        popupRef: convexPopupRef,
-        popupOriginRef: convexPopupOriginRef,
-      },
-      cloudflare: {
-        completionEventType: PROVIDER_METADATA.cloudflare.completionEventType,
-        popupRef: cloudflarePopupRef,
-        popupOriginRef: cloudflarePopupOriginRef,
-      },
-    };
-    const handler = (event: MessageEvent) => {
-      if (!isRecord(event.data) || typeof event.data.type !== "string") {
-        return;
-      }
-
-      for (const provider of PROVIDER_KEYS) {
-        const popupConfig = providerPopupConfig[provider];
-        if (event.data.type !== popupConfig.completionEventType) {
-          continue;
-        }
-        if (event.source !== popupConfig.popupRef.current) {
-          return;
-        }
-        if (
-          event.origin !==
-          (popupConfig.popupOriginRef.current ?? expectedOrigin)
-        ) {
-          return;
-        }
-        window.location.reload();
-        return;
-      }
-    };
-
-    window.addEventListener("message", handler);
-    return () => {
-      window.removeEventListener("message", handler);
-    };
-  }, []);
+  useProviderOAuthPopupCompletionReload({
+    cloudflarePopupOriginRef,
+    cloudflarePopupRef,
+    convexPopupOriginRef,
+    convexPopupRef,
+    githubPopupOriginRef,
+    githubPopupRef,
+  });
 
   const refreshVaultTreesIfNeeded = useCallback(
     (trigger: RefreshTrigger = "visibility") => {
@@ -1881,148 +2085,18 @@ export function VaultDashboard() {
     [refreshTree],
   );
 
-  /**
-   * Refreshes repository trees on the initial visible page load and when the tab
-   * becomes visible again, while respecting dashboard refresh debounce rules.
-   * Remove this by moving refresh scheduling to a backend/worker-owned process
-   * or to a route-level data invalidation layer that is not coupled to this
-   * component's visibility listener.
-   */
-  useEffect(() => {
-    if (!vaults || vaults.length === 0) {
-      return;
-    }
+  useVisibleDashboardRepositoryTreeRefresh({
+    refreshVaultTreesIfNeeded,
+    vaults,
+  });
 
-    // Emit the dashboard "page_load" refresh exactly once, then fall back to
-    // plain "visibility" refreshes on later resumes.
-    const triggerInitialPageLoad = () => {
-      if (initialDashboardPageLoadSentRef.current) {
-        return;
-      }
-      initialDashboardPageLoadSentRef.current = true;
-      refreshVaultTreesIfNeeded("page_load");
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-
-      if (!initialDashboardPageLoadSentRef.current) {
-        triggerInitialPageLoad();
-        return;
-      }
-
-      refreshVaultTreesIfNeeded("visibility");
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    if (document.visibilityState === "visible") {
-      triggerInitialPageLoad();
-    }
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [refreshVaultTreesIfNeeded, vaults]);
-
-  /**
-   * Auto-checks Cloudflare MCP token health on page load, focus, visibility
-   * resume, and a guarded polling interval while the connection uses MCP OAuth.
-   * Remove this by making token refresh a server-owned scheduler or connection
-   * maintenance job, then subscribing only to the resulting token status here.
-   */
-  useEffect(() => {
-    const isCloudflareMcpConnected =
-      cloudflareConnection?.connected === true &&
-      cloudflareConnection.authMethod === "mcp_oauth";
-    if (!isCloudflareMcpConnected) {
-      setCloudflarePollingPaused(false);
-      return;
-    }
-
-    const debounceKey = user?._id ?? "cloudflare-dashboard";
-    const runAutoCheck = (
-      trigger: "focus" | "visibility" | "page_load" | "poll",
-    ) => {
-      if (cloudflareAutoCheckInFlightRef.current) {
-        return;
-      }
-      if (
-        !claimRefreshDebounce(
-          "cloudflare_token",
-          debounceKey,
-          CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
-        )
-      ) {
-        return;
-      }
-
-      cloudflareAutoCheckInFlightRef.current = true;
-      setIsAutoCheckingCloudflareToken(true);
-      void refreshCloudflareMcpTokenIfNeeded({ trigger, force: false })
-        .catch((error: unknown) => {
-          console.error("Failed to auto-check Cloudflare token:", error);
-        })
-        .finally(() => {
-          releaseRefreshDebounce("cloudflare_token", debounceKey);
-          cloudflareAutoCheckInFlightRef.current = false;
-          setIsAutoCheckingCloudflareToken(false);
-        });
-    };
-
-    const handleFocus = () => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-      setCloudflarePollingPaused(false);
-      runAutoCheck("focus");
-    };
-
-    const handleVisibilityChange = () => {
-      const isVisible = document.visibilityState === "visible";
-      setCloudflarePollingPaused(!isVisible);
-      if (isVisible) {
-        runAutoCheck("visibility");
-      }
-    };
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    const isVisible = document.visibilityState === "visible";
-    setCloudflarePollingPaused(!isVisible);
-    if (isVisible) {
-      runAutoCheck("page_load");
-    }
-
-    const pollId = window.setInterval(() => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-      if (
-        typeof cloudflareConnection.mcpTokenNextAutoCheckAt === "number" &&
-        Date.now() < cloudflareConnection.mcpTokenNextAutoCheckAt
-      ) {
-        return;
-      }
-      runAutoCheck("poll");
-    }, CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS);
-
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.clearInterval(pollId);
-      cloudflareAutoCheckInFlightRef.current = false;
-    };
-  }, [
-    cloudflareConnection?.authMethod,
-    cloudflareConnection?.connected,
-    cloudflareConnection?.mcpTokenNextAutoCheckAt,
+  useCloudflareMcpTokenAutoCheck({
+    cloudflareConnection,
     refreshCloudflareMcpTokenIfNeeded,
-    user?._id,
-  ]);
+    setCloudflarePollingPaused,
+    setIsAutoCheckingCloudflareToken,
+    userId: user?._id,
+  });
 
   const selectedVault =
     vaultToDelete && vaults
