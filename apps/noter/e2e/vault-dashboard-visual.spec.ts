@@ -310,6 +310,64 @@ test("vault dashboard fixture (developer tools query spacing)", async ({
   expect(Math.round(visibleBox.height)).toBe(Math.round(hiddenBox.height));
 });
 
+test("vault dashboard fixture (settings popover)", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 360 });
+  await page.goto("/visual-fixture.html?mode=vault-dashboard-settings-open", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const settingsLink = page.getByRole("link", {
+    name: "Settings",
+    exact: true,
+  });
+  await expect(settingsLink).toHaveAttribute(
+    "href",
+    "/?settings=noter-md%2Fnoter",
+  );
+  await expect(
+    page.getByRole("button", { name: "Remove vault" }),
+  ).toBeVisible();
+  await expect(page).toHaveScreenshot("vault-dashboard-settings-popover.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
+test("vault dashboard fixture (settings mobile sheet)", async ({
+  browser,
+}, testInfo) => {
+  const baseURL = testInfo.project.use.baseURL;
+  if (typeof baseURL !== "string") {
+    throw new Error("Playwright baseURL is required for mobile fixture tests.");
+  }
+
+  const context = await browser.newContext({
+    ...devices["iPhone 13"],
+    baseURL,
+  });
+  const page = await context.newPage();
+
+  await page.goto("/visual-fixture.html?mode=vault-dashboard-settings-open", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  await expect(
+    page.getByRole("button", { name: "Remove vault" }),
+  ).toBeVisible();
+  await expect(page).toHaveScreenshot("vault-dashboard-settings-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+
+  await context.close();
+});
+
 test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 520 });
   await page.goto("/visual-fixture.html?mode=vault-dashboard-list-spacing", {
@@ -318,9 +376,15 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
-  await expect(
-    fixture.getByRole("button", { name: "Remove vault noter-md/noter" }),
-  ).toBeVisible();
+  const settingsLink = fixture.getByRole("link", {
+    name: "Settings",
+    exact: true,
+  });
+  await expect(settingsLink).toBeVisible();
+  await expect(settingsLink).toHaveAttribute(
+    "href",
+    "/?settings=noter-md%2Fnoter",
+  );
   await expect(
     fixture.getByRole("link", { name: "Project settings" }),
   ).toBeVisible();
@@ -362,9 +426,15 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
-  await expect(
-    fixture.getByRole("button", { name: "Remove vault noter-md/noter" }),
-  ).toBeVisible();
+  const settingsLink = fixture.getByRole("link", {
+    name: "Settings",
+    exact: true,
+  });
+  await expect(settingsLink).toBeVisible();
+  await expect(settingsLink).toHaveAttribute(
+    "href",
+    "/?settings=noter-md%2Fnoter",
+  );
   await expect(
     fixture.getByRole("link", { name: "Project settings" }),
   ).toBeVisible();

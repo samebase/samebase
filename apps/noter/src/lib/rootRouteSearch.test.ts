@@ -13,6 +13,7 @@ describe("rootRouteSearch", () => {
         devtools: "true",
         "prod-ui": "",
         signup: "google",
+        settings: "noter-md/noter",
       }),
     ).toEqual({
       auth: "google",
@@ -20,6 +21,7 @@ describe("rootRouteSearch", () => {
       devtools: true,
       "prod-ui": true,
       signup: "google",
+      settings: "noter-md/noter",
     });
   });
 
@@ -31,18 +33,22 @@ describe("rootRouteSearch", () => {
         devtools: "false",
         "prod-ui": false,
         signup: "github",
+        settings: "missing-repo-separator",
       }),
     ).toEqual({});
   });
 
   it("parses the root search contract from a search string", () => {
     expect(
-      readRootRouteSearch("?prod-ui&dev&auth=google&signup=google"),
+      readRootRouteSearch(
+        "?prod-ui&dev&auth=google&signup=google&settings=noter-md%2Fnoter",
+      ),
     ).toEqual({
       auth: "google",
       dev: true,
       "prod-ui": true,
       signup: "google",
+      settings: "noter-md/noter",
     });
   });
 });

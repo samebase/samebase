@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,6 +16,7 @@ import {
   type VaultBranchFilterOption,
   type VaultBranchFilters,
 } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
+import { useUsesTouchSheet } from "@/hooks/useUsesTouchSheet";
 
 function matchesOptionSearch(option: VaultBranchFilterOption, search: string) {
   if (search.length === 0) {
@@ -23,36 +24,6 @@ function matchesOptionSearch(option: VaultBranchFilterOption, search: string) {
   }
 
   return option.name.toLowerCase().includes(search.toLowerCase());
-}
-
-/**
- * Keep the narrow-sheet treatment for touch-first devices only so desktop
- * browsers still get the lighter popover, even in smaller windows.
- */
-function useUsesTouchSheet() {
-  const [usesTouchSheet, setUsesTouchSheet] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-
-    return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
-  });
-
-  useEffect(() => {
-    const touchDeviceQuery = window.matchMedia(
-      "(hover: none) and (pointer: coarse)",
-    );
-    const updateUsesTouchSheet = () => {
-      setUsesTouchSheet(touchDeviceQuery.matches);
-    };
-
-    updateUsesTouchSheet();
-    touchDeviceQuery.addEventListener("change", updateUsesTouchSheet);
-    return () =>
-      touchDeviceQuery.removeEventListener("change", updateUsesTouchSheet);
-  }, []);
-
-  return usesTouchSheet;
 }
 
 function VaultBranchFiltersPanel({

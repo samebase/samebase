@@ -19,7 +19,7 @@ import {
 import {
   VaultBranchLinkRow,
   VaultBranchListExpansionControl,
-  VaultDashboardRemoveVaultButton,
+  VaultDashboardSettingsControl,
   VaultDashboardRepositoryExternalLinks,
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
@@ -28,6 +28,7 @@ export type VaultDashboardVisualMode =
   | "vault-create-control"
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
+  | "vault-dashboard-settings-open"
   | "vault-dashboard-sticky-header"
   | "vault-dashboard-list-spacing"
   | "vault-last-updated-status"
@@ -74,11 +75,13 @@ function FixtureRepositoryLinks() {
   );
 }
 
-function FixtureRemoveVaultButton() {
+function FixtureSettingsControl({ isOpen = false }: { isOpen?: boolean }) {
   return (
-    <VaultDashboardRemoveVaultButton
+    <VaultDashboardSettingsControl
       repositoryFullName="noter-md/noter"
-      onClick={() => {}}
+      isOpen={isOpen}
+      onOpenChange={() => {}}
+      onRemoveVault={() => {}}
     />
   );
 }
@@ -267,7 +270,7 @@ function VaultDashboardListSpacingFixture({
             repositoryName="noter"
             titleHref="https://github.com/noter-md/noter"
             repositoryLinks={<FixtureRepositoryLinks />}
-            topRightAction={<FixtureRemoveVaultButton />}
+            topRightAction={<FixtureSettingsControl />}
             headerControls={
               <VaultBranchListExpansionControl
                 isExpanded={branchesExpanded}
@@ -324,7 +327,7 @@ function VaultDashboardDeveloperToolsFixture({
               repositoryName="noter"
               titleHref="https://github.com/noter-md/noter"
               repositoryLinks={<FixtureRepositoryLinks />}
-              topRightAction={<FixtureRemoveVaultButton />}
+              topRightAction={<FixtureSettingsControl />}
               branchSection={
                 <div className="space-y-1.5">
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
@@ -347,6 +350,30 @@ function VaultDashboardDeveloperToolsFixture({
               }}
             />
           </div>
+        </VaultDashboardRepositoryList>
+      </TestRouterProvider>
+    </div>
+  );
+}
+
+function VaultDashboardSettingsOpenFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-dashboard-settings-open"
+      className="w-full bg-background p-4 text-foreground"
+    >
+      <TestRouterProvider>
+        <VaultDashboardRepositoryList>
+          <VaultDashboardRepositoryCard
+            isReady={true}
+            repositoryOwner="noter-md"
+            repositoryName="noter"
+            titleHref="https://github.com/noter-md/noter"
+            repositoryLinks={<FixtureRepositoryLinks />}
+            topRightAction={<FixtureSettingsControl isOpen />}
+            repositoryStatus={<span>Updated 12s ago</span>}
+          />
         </VaultDashboardRepositoryList>
       </TestRouterProvider>
     </div>
@@ -383,7 +410,7 @@ function VaultDashboardStickyHeaderFixture() {
               repositoryName="noter"
               titleHref="https://github.com/noter-md/noter"
               repositoryLinks={<FixtureRepositoryLinks />}
-              topRightAction={<FixtureRemoveVaultButton />}
+              topRightAction={<FixtureSettingsControl />}
               repositoryStatus={
                 <span data-testid="sticky-header-status">Updated 12s ago</span>
               }
@@ -578,6 +605,10 @@ export function VaultDashboardVisualFixture({
 
   if (mode === "vault-dashboard-dev-tools-visible") {
     return <VaultDashboardDeveloperToolsFixture visible={true} />;
+  }
+
+  if (mode === "vault-dashboard-settings-open") {
+    return <VaultDashboardSettingsOpenFixture />;
   }
 
   if (mode === "vault-last-updated-status") {

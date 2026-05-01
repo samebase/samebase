@@ -25,6 +25,20 @@ function readOptionalGoogleSignupReturn(value: unknown): "google" | undefined {
   return value === "google" ? "google" : undefined;
 }
 
+function readOptionalSettingsRepository(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalizedValue = value.trim();
+  const parts = normalizedValue.split("/");
+  if (parts.length !== 2 || parts[0].length === 0 || parts[1].length === 0) {
+    return undefined;
+  }
+
+  return normalizedValue;
+}
+
 const rootRouteSearchSchema = z.object({
   auth: z.preprocess(
     readOptionalGoogleAuthProvider,
@@ -37,6 +51,7 @@ const rootRouteSearchSchema = z.object({
     readOptionalGoogleSignupReturn,
     z.literal("google").optional(),
   ),
+  settings: z.preprocess(readOptionalSettingsRepository, z.string().optional()),
 });
 
 export type RootRouteSearch = z.infer<typeof rootRouteSearchSchema>;

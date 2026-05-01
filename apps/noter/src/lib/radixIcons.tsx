@@ -16,6 +16,7 @@ export {
   PlayIcon,
   PlusIcon,
   RefreshCwIcon as UpdateIcon,
+  SettingsIcon,
   Layers3Icon as StackIcon,
   SunIcon,
   Trash2Icon as TrashIcon,

@@ -52,6 +52,20 @@ Current workflow direction for Noter:
 5. Legacy fallback still exists in a few read paths and is the primary cleanup
    target for the next PR
 
+## Vault Dashboard Settings Surface
+
+Each dashboard vault card exposes a `Settings` link that writes
+`?settings=<owner>/<repo>` through TanStack Router search state. The root search
+contract validates the value as a single GitHub repository full name so the same
+URL works for SPA navigation and direct page loads.
+
+When the dashboard loads with a matching `settings` value, the matching vault
+card scrolls into view after vault data arrives. Desktop renders the settings
+surface as an anchored popover; touch-first devices render the same internal
+settings content inside a bottom sheet. The current settings content owns the
+vault removal action and opens the existing confirmation dialog rather than
+putting a destructive icon directly on the card.
+
 ## Pre-Implementation Baseline (Historical)
 
 The sections below describe the state before PR #174 and are kept for context.
