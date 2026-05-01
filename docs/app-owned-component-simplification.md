@@ -95,3 +95,29 @@ Example:
 - `vault.remoteBranches` comes from the `getUserVaults` Convex return validator
   as an array, so the dashboard should use `vault.remoteBranches` directly
   rather than falling back to `[]`.
+
+## Preserve Absence
+
+Do not hide missing values behind sentinel defaults such as `""` when
+`undefined` or `null` already represents the absence honestly.
+
+Defaulting to an empty string often forces downstream code to ask indirect
+questions like `value.length > 0` instead of the clearer question: is the value
+present?
+
+General rule:
+
+- Let optional values stay optional unless a real API requires a concrete
+  fallback.
+- Use truthiness or explicit nullish checks for optional values before passing
+  them to APIs that require a string.
+- Do not add plan-B defaults that make missing data look like present-but-empty
+  data.
+- If absence is a meaningful state, preserve it in the type and branch on it
+  directly.
+
+Example:
+
+- A dashboard `primaryBranch` should remain `string | undefined` when no active
+  branch exists, and callsites should check `primaryBranch` before building
+  branch-specific routes or controls.

@@ -1278,15 +1278,13 @@ function VaultDashboardBody({
         const defaultBranch = activeRemoteBranches.find(
           (branch) => branch.isDefault,
         )?.name;
-        const primaryBranch =
-          defaultBranch || activeRemoteBranches[0]?.name || "";
-        const chatRoute =
-          primaryBranch.length > 0
-            ? buildVaultCodespaceChatRoute({
-                repositoryFullName: vault.repositoryFullName,
-                branch: primaryBranch,
-              })
-            : null;
+        const primaryBranch = defaultBranch || activeRemoteBranches[0]?.name;
+        const chatRoute = primaryBranch
+          ? buildVaultCodespaceChatRoute({
+              repositoryFullName: vault.repositoryFullName,
+              branch: primaryBranch,
+            })
+          : null;
         const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
         const developerToolsOpen =
           developerToolsVisible &&
@@ -1488,7 +1486,7 @@ function VaultDashboardBody({
                 ) : undefined
               }
               daytonaBanner={
-                !DAYTONA_PAUSED && isReady && primaryBranch.length > 0 ? (
+                !DAYTONA_PAUSED && isReady && primaryBranch ? (
                   <DaytonaSnapshotBanner
                     branch={primaryBranch}
                     commitSha={vault.commitSHA}
@@ -1512,7 +1510,7 @@ function VaultDashboardBody({
                             vaultId={vault._id}
                             repositoryFullName={vault.repositoryFullName}
                           />
-                          {!DAYTONA_PAUSED && primaryBranch.length > 0 ? (
+                          {!DAYTONA_PAUSED && primaryBranch ? (
                             <DaytonaWorkspaceButton
                               vaultId={vault._id}
                               branch={primaryBranch}
