@@ -116,7 +116,6 @@ manual-tests/TEMPLATE.md
 manual-tests/UI-001-landing-copy-hides-markdown.md
 manual-tests/UI-002-vault-branch-list-and-navigation.md
 manual-tests/UI-003-slash-branch-routing.md
-manual-tests/UI-004-vault-branch-delete.md
 manual-tests/UI-005-daytona-codex-auth-permissions.md
 manual-tests/UI-006-daytona-codex-end-to-end.md
 manual-tests/worktree/WT-001-anon-worktree-isolation.md
@@ -213,7 +212,6 @@ specs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md
 specs/044_CLOUDFLARE_MCP_AUTO_TOKEN_REFRESH_SPEC.md
 specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md
 specs/047_UNIFIED_TOOL_RUNTIME_AND_SURFACE_ADAPTERS_SPEC.md
-specs/048_DASHBOARD_REMOTE_BRANCH_DELETE_SPEC.md
 specs/048_INLINE_MARKDOWN_DIFF_RETHINK_SPEC.md
 specs/049_DAYTONA_CODEX_DEVICE_AUTH_PERSISTENCE_SPEC.md
 specs/050_T3_CODE_REFERENCE_ARCHITECTURE_SPEC.md
