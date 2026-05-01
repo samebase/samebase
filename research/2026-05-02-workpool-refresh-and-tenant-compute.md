@@ -74,6 +74,13 @@ rollout because it provides:
 4. reactive job status stored in Convex
 5. cancellation APIs for queued or retrying work
 
+Registry check from this worktree:
+
+- `@convex-dev/workpool` latest: `0.4.6`
+- description: `A Convex component for managing async work.`
+- license: `Apache-2.0`
+- repository: `get-convex/workpool`
+
 Important constraints from the Workpool docs:
 
 1. Workpool behaves like scheduled async functions with a concurrency limit; it
@@ -92,6 +99,23 @@ Sources:
 - [Convex component authoring docs](https://docs.convex.dev/components/authoring)
 
 ## Proposed Hosted Architecture
+
+Noter already installs a Convex component in
+`apps/noter/convex/convex.config.ts`:
+
+```ts
+import { defineApp } from "convex/server";
+import agent from "@convex-dev/agent/convex.config";
+
+const app = defineApp();
+
+app.use(agent);
+
+export default app;
+```
+
+Workpool would extend that same component installation seam with one or two
+named pools rather than introducing a new backend framework.
 
 ### 1. Keep Client Surfaces Dumb
 
@@ -155,6 +179,17 @@ Each enqueued action should:
 3. mark skipped when another job already made the cache fresh
 4. use the existing `refreshBranchTree` and `syncRepositoryMetadata` internals
 5. always finish through an `onComplete` mutation that records status
+
+The runner should reuse the current internal split points instead of moving
+GitHub logic into the queue module:
+
+1. `computeRepositoryRefreshPlan`
+2. `computeRepositoryTreeMetadataSyncPlan`
+3. `internal.github.syncRepositoryMetadata`
+4. `internal.github.refreshBranchTree`
+5. `internal.vault.claimTreeRefresh`
+6. `internal.vault.releaseTreeRefresh`
+7. `internal.vault.recordTreeRefreshFailure`
 
 Workpool retries should only wrap actions whose external side effects are safe
 to repeat. Read-only GitHub fetches plus Convex cache updates are mostly
@@ -279,11 +314,27 @@ The first real PR should be small enough to review:
 5. update dashboard auto-refresh to call the request mutation and subscribe to
    request status
 
+The first execution path can use `ctx.scheduler.runAfter(0, ...)` so request
+dedupe, status reads, and UI shape can land before the component dependency.
 After that lands, swap request execution from direct scheduling to Workpool.
 
 The reason to avoid Workpool in the very first code patch is to separate data
 model semantics from queue mechanics. If the request table is wrong, Workpool
 will make the wrong thing durable.
+
+## Concrete Workpool Follow-Up Slice
+
+After the request table is proven:
+
+1. install `@convex-dev/workpool`
+2. add named Workpool components in `apps/noter/convex/convex.config.ts`
+3. create a small `convex/refreshQueue.ts` app wrapper
+4. enqueue only the existing runner action, not arbitrary GitHub functions
+5. use `onComplete` to update `refreshRequests`
+6. expose request status through existing vault/dashboard queries
+
+The Workpool PR should not change BYO compute boundaries. Its success criterion
+is that multiple tabs and dashboard fanout converge on durable backend work.
 
 ## Risks
 
