@@ -122,6 +122,30 @@ Example:
   branch exists, and callsites should check `primaryBranch` before building
   branch-specific routes or controls.
 
+## Prefer Readable Styling
+
+Optimize utility classes for understanding before visual micro-adjustment.
+
+Subtle opacity modifiers, breakpoint-only shape changes, and ornamental frame
+classes make a component harder to reason about unless they protect a current
+layout or product invariant. Prefer the obvious token first, then add nuance
+only when the reason is concrete.
+
+General rule:
+
+- Prefer `border` over `border-border/60` unless the softened border is a real
+  standard in that surface.
+- Prefer `bg-muted` over `bg-muted/20` unless the lower contrast is necessary.
+- Avoid breakpoint-only frame changes such as `sm:border`, `sm:mx-0`, or
+  `sm:corner-notch-1` when the UI does not need a different structure across
+  sizes.
+- If a class does not protect a named invariant, remove it.
+
+Example:
+
+- Dashboard branch list containers should use the simplest border and muted
+  background that communicate the grouping.
+
 ## Prefer Named Branching Helpers
 
 Avoid long nested ternaries for rendering multiple similar states.

@@ -18,7 +18,7 @@ export function VaultDashboardBranchVisualFixture() {
           </p>
         </div>
 
-        <div className="overflow-hidden corner-notch-1 border border-border/60 bg-muted/20">
+        <div className="overflow-hidden border bg-muted">
           <div className="flex items-start gap-3 border-b border-border/40 px-3 py-3.5">
             <TestRouterProvider>
               <VaultBranchLinkContent

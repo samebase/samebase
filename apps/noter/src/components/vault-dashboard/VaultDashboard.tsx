@@ -974,9 +974,9 @@ function VaultBranchList({
   );
 
   return (
-    // Let mobile branch rows align with the vault card edge instead of nesting
-    // a second inset panel inside the already padded card.
-    <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
+    // Let branch rows align with the vault card edge instead of nesting a
+    // second inset panel inside the already padded card.
+    <div className="-mx-4 overflow-hidden border bg-muted">
       {remoteBranches.map((branch) => (
         <VaultBranchLinkRow
           key={branch.name}

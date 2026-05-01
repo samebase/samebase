@@ -311,7 +311,7 @@ function VaultDashboardListSpacingFixture({
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
                   Branches
                 </p>
-                <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
+                <div className="-mx-4 overflow-hidden border bg-muted">
                   {visibleBranches.map((branchRow) => (
                     <VaultBranchLinkRow
                       key={branchRow.branch.name}
@@ -363,7 +363,7 @@ function VaultDashboardDeveloperToolsFixture({
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
                     Branches
                   </p>
-                  <div className="-mx-4 border-y border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground sm:mx-0 sm:corner-notch-1 sm:border">
+                  <div className="-mx-4 border bg-muted px-3 py-2 text-xs text-muted-foreground">
                     main
                   </div>
                 </div>
@@ -462,7 +462,7 @@ function VaultDashboardStickyHeaderFixture() {
                       {STICKY_HEADER_BRANCHES.length} branches
                     </span>
                   </div>
-                  <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
+                  <div className="-mx-4 overflow-hidden border bg-muted">
                     {visibleBranches.map((branchRow) => (
                       <VaultBranchLinkRow
                         key={branchRow.branch.name}
@@ -712,7 +712,7 @@ export function VaultDashboardVisualFixture({
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
                     Branches
                   </p>
-                  <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
+                <div className="-mx-4 overflow-hidden border bg-muted">
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
@@ -828,7 +828,7 @@ export function VaultDashboardVisualFixture({
                     />
                   </div>
                 </div>
-                <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
+                <div className="-mx-4 overflow-hidden border bg-muted">
                   <TestRouterProvider>
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
