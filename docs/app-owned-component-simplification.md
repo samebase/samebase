@@ -170,6 +170,34 @@ Example:
   `syncing`, `rate_limited`, `cooldown`, `failed`, then `lastSyncedAt`, rather
   than by a nested ternary inside the card props.
 
+## Extract Named Workflows
+
+Avoid leaving large `useCallback` blocks inside a page component when the
+callback owns a workflow instead of a tiny local event.
+
+`useCallback` can make a function reference stable, but it does not make the
+surrounding component easier to read. If the callback coordinates domain data,
+external actions, debounce state, browser lifecycle, or batching, give that
+workflow a named hook or helper and keep the page component focused on wiring.
+
+General rule:
+
+- Keep inline callbacks for small, local handlers whose behavior is obvious at
+  the callsite.
+- Extract callbacks that own a domain workflow, especially when multiple
+  callbacks share the same data, action, or debounce rules.
+- Prefer one named hook for a cohesive workflow over several tiny wrappers that
+  only hide one line each.
+- Return only the callback or value the current callsite needs; do not make the
+  hook generic for imagined future callers.
+
+Example:
+
+- Dashboard repository-tree auto refresh and manual status-click refresh share
+  the same `refreshTree` action, branch preview hydration, and debounce rules,
+  so they should live in a named dashboard refresh hook instead of as separate
+  inline `useCallback` blocks in `VaultDashboard`.
+
 ## Document Side Effects
 
 Before adding or keeping a `useEffect`, first prove that render-time derivation,

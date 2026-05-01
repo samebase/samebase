@@ -22,13 +22,9 @@ import {
 } from "@/lib/formatRelativeTime";
 import {
   hasCurrentCloudflareBuildFailureLogs,
-  getCloudflareBranchPreviewHydrationTargets,
   hasCurrentCloudflareBranchPreview,
 } from "@/lib/cloudflarePreviewLinks";
-import {
-  getTreeRefreshUiState,
-  shouldAutoRefreshVault,
-} from "@/lib/treeRefreshStatus";
+import { getTreeRefreshUiState } from "@/lib/treeRefreshStatus";
 import {
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
   CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
@@ -44,7 +40,6 @@ import {
   useQuery as useConvexQuery,
 } from "convex/react";
 import {
-  useCallback,
   useEffect,
   useRef,
   useState,
@@ -121,6 +116,11 @@ import {
   NoterLogoMark,
   PullRequestStateLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
+import {
+  useDashboardRepositoryTreeRefresh,
+  type DashboardManualRefreshVault,
+  type VaultDashboardVault,
+} from "@/components/vault-dashboard/VaultDashboardRepositoryRefresh";
 
 const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   leftDesktopOpen: false,
@@ -200,8 +200,6 @@ const hasDaytonaResourcesForVault = (
     vault?.daytonaCurrentSnapshotName,
   );
 
-const DASHBOARD_REFRESH_CONCURRENCY = 3;
-type RefreshTrigger = "visibility" | "page_load";
 const PROVIDER_KEYS = ["github", "convex", "cloudflare"] as const;
 type ProviderKey = (typeof PROVIDER_KEYS)[number];
 type ProviderMetadata = {
@@ -218,26 +216,6 @@ type ProviderRuntimeConfig = {
   popupRef: MutableRefObject<Window | null>;
   popupOriginRef: MutableRefObject<string | null>;
 };
-type DashboardManualRefreshVault = {
-  ghRepoName: string;
-  ghRepoOwner: string;
-  remoteBranches: Array<{
-    name: string;
-    remoteState: "active" | "deleted_upstream";
-    cloudflareBranchPreviewUrl?: string;
-    cloudflarePreviewPullRequestNumber?: number;
-    cloudflarePreviewLogsUrl?: string;
-    cloudflarePreviewStatus?: string;
-    pullRequestNumber?: number;
-  }>;
-  repositoryFullName: string;
-  state: string;
-  treeRefreshCooldownUntil?: number;
-};
-
-type VaultDashboardVault = NonNullable<
-  (typeof api.vault.getUserVaults)["_returnType"]
->[number];
 type VaultDashboardLogoComponent = () => ReactNode;
 
 type VaultDeleteIntent = {
@@ -494,58 +472,6 @@ function useProviderOAuthPopupCompletionReload({
     githubPopupOriginRef,
     githubPopupRef,
   ]);
-}
-
-/**
- * Schedules dashboard repository tree refreshes for visible page load and tab
- * resume. Remove this hook by moving refresh scheduling to backend work or a
- * route-level data invalidation layer.
- */
-function useVisibleDashboardRepositoryTreeRefresh({
-  refreshVaultTreesIfNeeded,
-  vaults,
-}: {
-  refreshVaultTreesIfNeeded: (trigger?: RefreshTrigger) => void;
-  vaults: VaultDashboardVault[] | undefined;
-}) {
-  const initialDashboardPageLoadSentRef = useRef(false);
-
-  useEffect(() => {
-    if (!vaults || vaults.length === 0) {
-      return;
-    }
-
-    const triggerInitialPageLoad = () => {
-      if (initialDashboardPageLoadSentRef.current) {
-        return;
-      }
-      initialDashboardPageLoadSentRef.current = true;
-      refreshVaultTreesIfNeeded("page_load");
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-
-      if (!initialDashboardPageLoadSentRef.current) {
-        triggerInitialPageLoad();
-        return;
-      }
-
-      refreshVaultTreesIfNeeded("visibility");
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    if (document.visibilityState === "visible") {
-      triggerInitialPageLoad();
-    }
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [refreshVaultTreesIfNeeded, vaults]);
 }
 
 type DashboardCloudflareConnection =
@@ -1990,105 +1916,12 @@ export function VaultDashboard() {
     githubPopupRef,
   });
 
-  const refreshVaultTreesIfNeeded = useCallback(
-    (trigger: RefreshTrigger = "visibility") => {
-      if (!vaults || vaults.length === 0) {
-        return;
-      }
-
-      const now = Date.now();
-      const readyVaults = vaults.filter((vault) => vault.state === "ready");
-      const vaultsToRefresh = readyVaults.filter((vault) =>
-        typeof vault.treeRefreshCooldownUntil !== "number" ||
-        vault.treeRefreshCooldownUntil <= now
-          ? shouldAutoRefreshVault({
-              lastTreeRefreshAt: vault.lastTreeRefreshAt,
-              remoteBranches: vault.remoteBranches,
-              trigger,
-              now,
-            }) && claimRefreshDebounce("dashboard", vault.repositoryFullName)
-          : false,
-      );
-
-      if (vaultsToRefresh.length === 0) {
-        return;
-      }
-
-      void (async () => {
-        for (
-          let index = 0;
-          index < vaultsToRefresh.length;
-          index += DASHBOARD_REFRESH_CONCURRENCY
-        ) {
-          const batch = vaultsToRefresh.slice(
-            index,
-            index + DASHBOARD_REFRESH_CONCURRENCY,
-          );
-
-          await Promise.all(
-            batch.map(async (vault) => {
-              const cloudflarePreviewBranchNames =
-                getCloudflareBranchPreviewHydrationTargets(
-                  vault.remoteBranches,
-                );
-              await refreshTree({
-                owner: vault.ghRepoOwner,
-                repo: vault.ghRepoName,
-                // Preview-comment scans are expensive compared to the default
-                // branch tree refresh itself, so only re-run them for the
-                // current PR branches that still lack cached preview metadata.
-                includeCloudflarePreviewLinks:
-                  cloudflarePreviewBranchNames.length > 0,
-                cloudflarePreviewBranchNames,
-                trigger,
-              }).catch((error: unknown) => {
-                console.error(
-                  "Failed to refresh repository tree from dashboard:",
-                  error,
-                );
-              });
-            }),
-          );
-        }
-      })();
+  const { refreshVaultTreeFromStatusClick } = useDashboardRepositoryTreeRefresh(
+    {
+      refreshTree,
+      vaults,
     },
-    [refreshTree, vaults],
   );
-
-  const refreshVaultTreeFromStatusClick = useCallback(
-    (vault: DashboardManualRefreshVault) => {
-      if (
-        vault.state !== "ready" ||
-        (typeof vault.treeRefreshCooldownUntil === "number" &&
-          vault.treeRefreshCooldownUntil > Date.now()) ||
-        !claimRefreshDebounce("dashboard", vault.repositoryFullName)
-      ) {
-        return;
-      }
-
-      const cloudflarePreviewBranchNames =
-        getCloudflareBranchPreviewHydrationTargets(vault.remoteBranches);
-
-      void refreshTree({
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
-        includeCloudflarePreviewLinks: cloudflarePreviewBranchNames.length > 0,
-        cloudflarePreviewBranchNames,
-        trigger: "manual",
-      }).catch((error: unknown) => {
-        console.error(
-          "Failed to refresh repository tree from dashboard status click:",
-          error,
-        );
-      });
-    },
-    [refreshTree],
-  );
-
-  useVisibleDashboardRepositoryTreeRefresh({
-    refreshVaultTreesIfNeeded,
-    vaults,
-  });
 
   useCloudflareMcpTokenAutoCheck({
     cloudflareConnection,
