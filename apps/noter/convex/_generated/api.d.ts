@@ -15,6 +15,7 @@ import type * as agent_toolCatalog from "../agent/toolCatalog.js";
 import type * as agent_tools from "../agent/tools.js";
 import type * as agentGraphActions from "../agentGraphActions.js";
 import type * as agentGraphLayout from "../agentGraphLayout.js";
+import type * as appProvisioningEvents from "../appProvisioningEvents.js";
 import type * as auth from "../auth.js";
 import type * as billing from "../billing.js";
 import type * as chat_actions from "../chat/actions.js";
@@ -116,6 +117,7 @@ declare const fullApi: ApiFromModules<{
   "agent/tools": typeof agent_tools;
   agentGraphActions: typeof agentGraphActions;
   agentGraphLayout: typeof agentGraphLayout;
+  appProvisioningEvents: typeof appProvisioningEvents;
   auth: typeof auth;
   billing: typeof billing;
   "chat/actions": typeof chat_actions;

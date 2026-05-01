@@ -24,12 +24,14 @@ import {
   VaultDashboardRepositoryExternalLinks,
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
+import { formatProvisioningLogText } from "@/lib/provisioningLog";
 
 export type VaultDashboardVisualMode =
   | "vault-create-control"
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
   | "vault-dashboard-delete-open"
+  | "vault-dashboard-provisioning-log"
   | "vault-dashboard-sticky-header"
   | "vault-dashboard-list-spacing"
   | "vault-last-updated-status"
@@ -461,6 +463,69 @@ function VaultDashboardDeleteOpenFixture() {
   );
 }
 
+function VaultDashboardProvisioningLogFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-dashboard-provisioning-log"
+      className="w-full bg-background text-foreground"
+    >
+      <TestRouterProvider>
+        <VaultDashboardRepositoryList>
+          <VaultDashboardRepositoryCard
+            isReady={true}
+            repositoryOwner="noter-md"
+            repositoryName="noter-app"
+            titleHref="https://github.com/noter-md/noter-app"
+            repositoryLinks={<FixtureRepositoryLinks />}
+            developerToolsSection={{
+              visible: true,
+              open: true,
+              onOpenChange: () => {},
+              content: (
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground">
+                    Infra: Provisioning
+                  </div>
+                  <textarea
+                    aria-label="Provisioning log for noter-md/noter-app"
+                    readOnly
+                    rows={6}
+                    className="max-h-52 min-h-20 w-full resize-y overflow-auto whitespace-pre-wrap corner-notch-1 border bg-background/70 p-2 font-mono text-xs text-muted-foreground"
+                    value={formatProvisioningLogText([
+                      {
+                        createdAt: Date.parse("2026-05-02T12:30:01Z"),
+                        level: "info",
+                        step: "create_github_repo",
+                        message:
+                          "Created GitHub repository noter-md/noter-app.",
+                      },
+                      {
+                        createdAt: Date.parse("2026-05-02T12:30:04Z"),
+                        level: "info",
+                        step: "ensure_convex",
+                        message:
+                          "Ensuring Convex project and production deployment.",
+                      },
+                      {
+                        createdAt: Date.parse("2026-05-02T12:30:08Z"),
+                        level: "info",
+                        step: "ensure_cloudflare",
+                        message:
+                          "Ensuring Cloudflare Pages project and deploy settings.",
+                      },
+                    ])}
+                  />
+                </div>
+              ),
+            }}
+          />
+        </VaultDashboardRepositoryList>
+      </TestRouterProvider>
+    </div>
+  );
+}
+
 function VaultDashboardStickyHeaderFixture() {
   const branchExpansionStore = useFixtureBranchExpansionStore();
   const branchesExpanded = useSelector(
@@ -698,6 +763,10 @@ export function VaultDashboardVisualFixture({
 
   if (mode === "vault-dashboard-delete-open") {
     return <VaultDashboardDeleteOpenFixture />;
+  }
+
+  if (mode === "vault-dashboard-provisioning-log") {
+    return <VaultDashboardProvisioningLogFixture />;
   }
 
   if (mode === "vault-last-updated-status") {

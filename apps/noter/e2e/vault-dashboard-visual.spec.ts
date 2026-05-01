@@ -361,6 +361,33 @@ test("vault dashboard fixture (delete mobile sheet)", async ({
   await context.close();
 });
 
+test("vault dashboard fixture (provisioning log)", async ({ page }) => {
+  await page.setViewportSize({ width: 640, height: 300 });
+  await page.goto(
+    "/visual-fixture.html?mode=vault-dashboard-provisioning-log",
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(
+    fixture.getByRole("textbox", {
+      name: "Provisioning log for noter-md/noter-app",
+    }),
+  ).toBeVisible();
+  await expect(fixture).toHaveScreenshot(
+    "vault-dashboard-provisioning-log.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
+});
+
 test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 520 });
   await page.goto("/visual-fixture.html?mode=vault-dashboard-list-spacing", {

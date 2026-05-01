@@ -87,6 +87,27 @@ export const InfraState = v.union(
   v.literal("partial"),
 );
 
+export const AppProvisioningEventLevel = union(
+  literal("info"),
+  literal("warn"),
+  literal("error"),
+);
+export type AppProvisioningEventLevel = Infer<typeof AppProvisioningEventLevel>;
+
+export const AppProvisioningStep = union(
+  literal("validate_connections"),
+  literal("create_github_repo"),
+  literal("seed_starter"),
+  literal("create_vault"),
+  literal("claim_infra"),
+  literal("ensure_convex"),
+  literal("ensure_convex_preview"),
+  literal("ensure_cloudflare"),
+  literal("record_domains"),
+  literal("finish"),
+);
+export type AppProvisioningStep = Infer<typeof AppProvisioningStep>;
+
 export const DaytonaSnapshotBuildStatus = union(
   literal("queued"),
   literal("building"),
@@ -498,6 +519,19 @@ export default defineSchema({
   })
     .index("by_vault", ["vaultId"])
     .index("by_status", ["status"]),
+
+  /**
+   * User-visible provisioning events for Noter-managed app creation.
+   */
+  appProvisioningEvents: defineTable({
+    userId: v.id("users"),
+    vaultId: v.id("vaults"),
+    repositoryFullName: v.string(),
+    step: AppProvisioningStep,
+    level: AppProvisioningEventLevel,
+    message: v.string(),
+    createdAt: v.number(),
+  }).index("by_vault_and_created_at", ["vaultId", "createdAt"]),
 
   daytonaSnapshots: defineTable({
     ghRepoOwner: string(),

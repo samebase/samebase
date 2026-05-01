@@ -21,6 +21,7 @@ import {
   readStringOrNumber,
   toErrorMessage,
 } from "./jsonUtils";
+import type { AppProvisioningStep } from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 
@@ -178,6 +179,34 @@ type ConvexProvisionResult = {
   convexDeployKeyId: string;
   deployKey: string;
 };
+
+function formatProvisioningStepLabel(step: AppProvisioningStep): string {
+  switch (step) {
+    case "validate_connections":
+      return "provider connection validation";
+    case "create_github_repo":
+      return "GitHub repository creation";
+    case "seed_starter":
+      return "starter app seeding";
+    case "create_vault":
+      return "vault creation";
+    case "claim_infra":
+      return "infrastructure claim";
+    case "ensure_convex":
+      return "Convex provisioning";
+    case "ensure_convex_preview":
+      return "Convex preview provisioning";
+    case "ensure_cloudflare":
+      return "Cloudflare provisioning";
+    case "record_domains":
+      return "domain recording";
+    case "finish":
+      return "finalization";
+    default:
+      step satisfies never;
+      return "provisioning";
+  }
+}
 
 async function ensureConvexResources(args: {
   teamId: string;
@@ -591,6 +620,30 @@ export const provisionVaultInfrastructure = internalAction({
       return null;
     }
 
+    const repositoryFullName = `${vault.ghRepoOwner}/${vault.ghRepoName}`;
+    let currentStep: AppProvisioningStep = "claim_infra";
+    const appendProvisioningEvent = async (event: {
+      step: AppProvisioningStep;
+      level: "info" | "warn" | "error";
+      message: string;
+    }) => {
+      try {
+        await ctx.runMutation(internal.appProvisioningEvents.append, {
+          userId: vault.userId,
+          vaultId: args.vaultId,
+          repositoryFullName,
+          step: event.step,
+          level: event.level,
+          message: event.message,
+        });
+      } catch {
+        console.warn("infra:provision:event_append_failed", {
+          vaultId: args.vaultId,
+          step: event.step,
+        });
+      }
+    };
+
     const { claimed } = await ctx.runMutation(
       internal.infraProvisioning.claimProvisioning,
       {
@@ -600,8 +653,18 @@ export const provisionVaultInfrastructure = internalAction({
     );
 
     if (!claimed) {
+      await appendProvisioningEvent({
+        step: "claim_infra",
+        level: "warn",
+        message: "Infrastructure provisioning is already running.",
+      });
       return null;
     }
+    await appendProvisioningEvent({
+      step: "claim_infra",
+      level: "info",
+      message: "Started infrastructure provisioning.",
+    });
 
     const existing = await ctx.runQuery(
       internal.infraProvisioning.getInfrastructureByVault,
@@ -637,6 +700,12 @@ export const provisionVaultInfrastructure = internalAction({
     let hostingSuccess = false;
 
     try {
+      currentStep = "validate_connections";
+      await appendProvisioningEvent({
+        step: currentStep,
+        level: "info",
+        message: "Checking provider connections.",
+      });
       const defaultBranch = process.env.INFRA_DEFAULT_BRANCH ?? "main";
       const [githubConnection, convexConnection, resolvedCloudflareConnection] =
         await Promise.all([
@@ -737,6 +806,12 @@ export const provisionVaultInfrastructure = internalAction({
         convexToken,
       });
 
+      currentStep = "ensure_convex";
+      await appendProvisioningEvent({
+        step: currentStep,
+        level: "info",
+        message: "Ensuring Convex project and production deployment.",
+      });
       const convex = await ensureConvexResources({
         teamId: convexTeamId,
         convexProvider: providers.convex,
@@ -753,6 +828,11 @@ export const provisionVaultInfrastructure = internalAction({
       });
 
       convexSuccess = true;
+      await appendProvisioningEvent({
+        step: currentStep,
+        level: "info",
+        message: `Convex deployment ready: ${convex.convexDeploymentName}.`,
+      });
 
       await ctx.runMutation(
         internal.infraProvisioning.upsertInfrastructureRecord,
@@ -773,10 +853,21 @@ export const provisionVaultInfrastructure = internalAction({
         },
       );
 
+      currentStep = "ensure_convex_preview";
+      await appendProvisioningEvent({
+        step: currentStep,
+        level: "info",
+        message: "Ensuring Convex preview deployment.",
+      });
       const previewConvex = await ensureConvexPreviewResources({
         convexProvider: providers.convex,
         projectId: convex.convexProjectId,
         vaultId: args.vaultId,
+      });
+      await appendProvisioningEvent({
+        step: currentStep,
+        level: "info",
+        message: "Convex preview deployment ready.",
       });
 
       const repoIdentity = await fetchGitHubRepoIdentity({
@@ -785,6 +876,12 @@ export const provisionVaultInfrastructure = internalAction({
         repo: vault.ghRepoName,
       });
       const cloudflareExisting = resolveCloudflareHostingState(existing);
+      currentStep = "ensure_cloudflare";
+      await appendProvisioningEvent({
+        step: currentStep,
+        level: "info",
+        message: "Ensuring Cloudflare Pages project and deploy settings.",
+      });
       const provisionedHosting = await ensureHostingResources({
         provider: "cloudflare",
         owner: vault.ghRepoOwner,
@@ -816,6 +913,11 @@ export const provisionVaultInfrastructure = internalAction({
       });
 
       hostingSuccess = true;
+      await appendProvisioningEvent({
+        step: currentStep,
+        level: "info",
+        message: `Cloudflare Pages project ready: ${provisionedHosting.projectName}.`,
+      });
 
       await ctx.runMutation(
         internal.infraProvisioning.upsertInfrastructureRecord,
@@ -833,6 +935,7 @@ export const provisionVaultInfrastructure = internalAction({
 
       const mainUrl = getProvisionedMainUrl(provisionedHosting);
       if (mainUrl) {
+        currentStep = "record_domains";
         await ctx.runMutation(internal.infraProvisioning.upsertDomainRecord, {
           vaultId: args.vaultId,
           branch: defaultBranch,
@@ -840,6 +943,11 @@ export const provisionVaultInfrastructure = internalAction({
           url: mainUrl,
           source: "cloudflare_pages_default",
           active: true,
+        });
+        await appendProvisioningEvent({
+          step: currentStep,
+          level: "info",
+          message: `Recorded production URL: ${mainUrl}.`,
         });
       }
 
@@ -855,6 +963,12 @@ export const provisionVaultInfrastructure = internalAction({
       await ctx.runMutation(internal.infraProvisioning.setProvisioningState, {
         vaultId: args.vaultId,
         infraState: "ready",
+      });
+      currentStep = "finish";
+      await appendProvisioningEvent({
+        step: currentStep,
+        level: "info",
+        message: "App infrastructure is ready.",
       });
 
       return null;
@@ -883,6 +997,11 @@ export const provisionVaultInfrastructure = internalAction({
           },
         },
       );
+      await appendProvisioningEvent({
+        step: currentStep,
+        level: "error",
+        message: `Provisioning failed during ${formatProvisioningStepLabel(currentStep)}.`,
+      });
 
       await ctx.runMutation(internal.infraProvisioning.setProvisioningState, {
         vaultId: args.vaultId,
