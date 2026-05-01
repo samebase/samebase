@@ -99,7 +99,6 @@ import {
   normalizePullRequestLabels,
 } from "@/lib/pullRequestLabels";
 import {
-  areVaultBranchFiltersEqual,
   buildVaultBranchFilterOptions,
   filterVaultRemoteBranches,
   getDefaultVaultBranchFilters,
@@ -1189,9 +1188,6 @@ type VaultDashboardBodyProps = {
   now: number;
   themeColorSearch: AppThemeColorSearch;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
-  pendingVaultBranchFiltersByVaultId: Partial<
-    Record<string, VaultBranchFiltersState>
-  >;
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
   retryingVaultId: Id<"vaults"> | null;
   deleteRepositoryFullName?: string;
@@ -1213,7 +1209,6 @@ function VaultDashboardBody({
   now,
   themeColorSearch,
   openDeveloperToolsByVaultId,
-  pendingVaultBranchFiltersByVaultId,
   persistedVaultBranchFiltersByVaultId,
   retryingVaultId,
   deleteRepositoryFullName,
@@ -1264,7 +1259,6 @@ function VaultDashboardBody({
         const isReady = vault.state === "ready";
         const remoteBranches = vault.remoteBranches;
         const vaultBranchFilters =
-          pendingVaultBranchFiltersByVaultId[vault._id] ??
           persistedVaultBranchFiltersByVaultId.get(vault._id) ??
           getDefaultVaultBranchFilters();
         const activeRemoteBranches = remoteBranches.filter(
@@ -1552,13 +1546,66 @@ export function VaultDashboard() {
   const disconnectCloudflare = useMutation(api.users.disconnectCloudflare);
   const persistAccountPanelOpen = useMutation(
     api.dashboardSettings.setAccountPanelOpen,
-  );
+  ).withOptimisticUpdate((localStore, args) => {
+    const currentSettings = localStore.getQuery(
+      api.dashboardSettings.getDashboardSettings,
+      {},
+    );
+    if (!currentSettings) {
+      return;
+    }
+    localStore.setQuery(
+      api.dashboardSettings.getDashboardSettings,
+      {},
+      {
+        ...currentSettings,
+        accountPanelOpen: args.isOpen,
+      },
+    );
+  });
   const setProvidersPanelOpen = useMutation(
     api.dashboardSettings.setProvidersPanelOpen,
-  );
+  ).withOptimisticUpdate((localStore, args) => {
+    const currentSettings = localStore.getQuery(
+      api.dashboardSettings.getDashboardSettings,
+      {},
+    );
+    if (!currentSettings) {
+      return;
+    }
+    localStore.setQuery(
+      api.dashboardSettings.getDashboardSettings,
+      {},
+      {
+        ...currentSettings,
+        providersPanelOpen: args.isOpen,
+      },
+    );
+  });
   const setEditorChatOpen = useMutation(
     api.dashboardSettings.setEditorChatOpen,
-  );
+  ).withOptimisticUpdate((localStore, args) => {
+    const currentSettings = localStore.getQuery(
+      api.dashboardSettings.getDashboardSettings,
+      {},
+    );
+    if (!currentSettings) {
+      return;
+    }
+    localStore.setQuery(
+      api.dashboardSettings.getDashboardSettings,
+      {},
+      args.scope === "vault"
+        ? {
+            ...currentSettings,
+            editorChatOpen: args.isOpen,
+          }
+        : {
+            ...currentSettings,
+            globalChatOpen: args.isOpen,
+          },
+    );
+  });
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
   const cloudflareConnection = useConvexQuery(
@@ -1577,7 +1624,39 @@ export function VaultDashboard() {
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
   const deleteRepositoryFullName = rootRouteSearch.delete;
-  const setVaultBranchFilters = useMutation(api.vault.setVaultBranchFilters);
+  const setVaultBranchFilters = useMutation(
+    api.vault.setVaultBranchFilters,
+  ).withOptimisticUpdate((localStore, args) => {
+    const currentFilters = localStore.getQuery(
+      api.vault.getUserVaultBranchFilters,
+      {},
+    );
+    if (!currentFilters) {
+      return;
+    }
+
+    const normalizedFilters = normalizeVaultBranchFilters(args);
+    const nextFilters = currentFilters.filter(
+      (vaultBranchFilter) => vaultBranchFilter.vaultId !== args.vaultId,
+    );
+    const shouldPersist =
+      normalizedFilters.hiddenLabels.length > 0 ||
+      normalizedFilters.includeDrafts ||
+      !normalizedFilters.includeNoLabel ||
+      normalizedFilters.branchesExpanded;
+
+    if (shouldPersist) {
+      nextFilters.push({
+        vaultId: args.vaultId,
+        hiddenLabels: normalizedFilters.hiddenLabels,
+        includeDrafts: normalizedFilters.includeDrafts,
+        includeNoLabel: normalizedFilters.includeNoLabel,
+        branchesExpanded: normalizedFilters.branchesExpanded,
+      });
+    }
+
+    localStore.setQuery(api.vault.getUserVaultBranchFilters, {}, nextFilters);
+  });
   const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
   const cloudflarePopupRef = useRef<Window | null>(null);
@@ -1636,90 +1715,15 @@ export function VaultDashboard() {
   );
   const [openDeveloperToolsByVaultId, setOpenDeveloperToolsByVaultId] =
     useState<Partial<Record<Id<"vaults">, boolean>>>({});
-  const [providersPanelOpen, setProvidersPanelOpenState] = useState<
-    boolean | null
-  >(null);
-  const [accountPanelOpen, setAccountPanelOpenState] = useState<boolean | null>(
-    null,
-  );
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [globalChatOpen, setGlobalChatOpenState] = useState<boolean | null>(
-    null,
-  );
   const [isGlobalChatBusy, setIsGlobalChatBusy] = useState(false);
   const [shouldAutoFocusChatInput, setShouldAutoFocusChatInput] =
     useState(false);
-  const globalChatPendingRef = useRef<boolean | null>(null);
-  const accountPanelPendingRef = useRef<boolean | null>(null);
-  const providersPanelPendingRef = useRef<boolean | null>(null);
   const cloudflareAutoCheckInFlightRef = useRef(false);
   const initialDashboardPageLoadSentRef = useRef(false);
   const initialCloudflareMcpTokenCheckedAtRef = useRef<
     number | undefined | null
   >(null);
-
-  /**
-   * Mirrors the persisted account panel setting into local optimistic state once
-   * the Convex value arrives or catches up with a pending mutation. Remove this
-   * by using one source of truth for the panel, such as a shared optimistic
-   * settings helper that can expose the server value plus the pending override.
-   */
-  useEffect(() => {
-    if (dashboardAccountPanelOpen === undefined) {
-      return;
-    }
-    const serverValue = dashboardAccountPanelOpen;
-    if (accountPanelPendingRef.current !== null) {
-      if (accountPanelPendingRef.current === serverValue) {
-        accountPanelPendingRef.current = null;
-      } else {
-        return;
-      }
-    }
-    setAccountPanelOpenState(serverValue);
-  }, [dashboardAccountPanelOpen]);
-
-  /**
-   * Mirrors the persisted providers panel setting into local optimistic state
-   * without overwriting an in-flight local toggle. Remove this by consolidating
-   * dashboard setting persistence behind a reusable optimistic settings model
-   * instead of manually reconciling pending refs in the component.
-   */
-  useEffect(() => {
-    if (dashboardProvidersPanelOpen === undefined) {
-      return;
-    }
-    const serverValue = dashboardProvidersPanelOpen;
-    if (providersPanelPendingRef.current !== null) {
-      if (providersPanelPendingRef.current === serverValue) {
-        providersPanelPendingRef.current = null;
-      } else {
-        return;
-      }
-    }
-    setProvidersPanelOpenState(serverValue);
-  }, [dashboardProvidersPanelOpen]);
-
-  /**
-   * Mirrors the persisted global chat setting into local optimistic state while
-   * preserving a user toggle until the server confirms it. Remove this by giving
-   * global chat state a dedicated optimistic store/hook that owns persistence,
-   * rollback, and server catch-up outside the dashboard render tree.
-   */
-  useEffect(() => {
-    if (dashboardGlobalChatOpen === undefined) {
-      return;
-    }
-    const serverValue = dashboardGlobalChatOpen;
-    if (globalChatPendingRef.current !== null) {
-      if (globalChatPendingRef.current === serverValue) {
-        globalChatPendingRef.current = null;
-      } else {
-        return;
-      }
-    }
-    setGlobalChatOpenState(serverValue);
-  }, [dashboardGlobalChatOpen]);
 
   /**
    * Captures the Cloudflare MCP token check timestamp seen at page load so the
@@ -2444,32 +2448,19 @@ export function VaultDashboard() {
     </div>
   );
 
-  const resolvedProvidersPanelOpen =
-    providersPanelOpen ?? dashboardSettings?.providersPanelOpen ?? false;
-  const resolvedAccountPanelOpen =
-    accountPanelOpen ?? dashboardSettings?.accountPanelOpen ?? false;
-  const resolvedGlobalChatOpen =
-    globalChatOpen ?? dashboardGlobalChatOpen ?? false;
+  const resolvedProvidersPanelOpen = dashboardProvidersPanelOpen ?? false;
+  const resolvedAccountPanelOpen = dashboardAccountPanelOpen ?? false;
+  const resolvedGlobalChatOpen = dashboardGlobalChatOpen ?? false;
 
   const handleAccountPanelOpenChange = (isOpen: boolean) => {
-    setAccountPanelOpenState(isOpen);
-    accountPanelPendingRef.current = isOpen;
     void persistAccountPanelOpen({ isOpen }).catch((error: unknown) => {
       console.error("Failed to persist account panel state:", error);
-      accountPanelPendingRef.current = null;
-      setAccountPanelOpenState(dashboardSettings?.accountPanelOpen ?? false);
     });
   };
 
   const handleProvidersPanelOpenChange = (isOpen: boolean) => {
-    setProvidersPanelOpenState(isOpen);
-    providersPanelPendingRef.current = isOpen;
     void setProvidersPanelOpen({ isOpen }).catch((error: unknown) => {
       console.error("Failed to persist providers panel state:", error);
-      providersPanelPendingRef.current = null;
-      setProvidersPanelOpenState(
-        dashboardSettings?.providersPanelOpen ?? false,
-      );
     });
   };
   const handleSignOut = () => {
@@ -2493,14 +2484,10 @@ export function VaultDashboard() {
 
   const handleGlobalChatOpenChange = (isOpen: boolean) => {
     setShouldAutoFocusChatInput(isOpen);
-    setGlobalChatOpenState(isOpen);
-    globalChatPendingRef.current = isOpen;
     void setEditorChatOpen({ isOpen, scope: "global" }).catch(
       (error: unknown) => {
         console.error("Failed to persist global chat state:", error);
-        globalChatPendingRef.current = null;
         setShouldAutoFocusChatInput(false);
-        setGlobalChatOpenState(dashboardGlobalChatOpen ?? false);
       },
     );
   };
@@ -2581,57 +2568,6 @@ export function VaultDashboard() {
     } satisfies VaultDashboardProviderRowViewModel;
   });
 
-  const [
-    pendingVaultBranchFiltersByVaultId,
-    setPendingVaultBranchFiltersByVaultId,
-  ] = useState<Partial<Record<string, VaultBranchFiltersState>>>({});
-
-  /**
-   * Prunes optimistic branch-filter overrides after the persisted server
-   * filters catch up, so the UI stops shadowing Convex state. Remove this by
-   * moving branch-filter mutations to a shared optimistic state helper that can
-   * retire pending overrides when the query result matches them.
-   */
-  useEffect(() => {
-    if (!userVaultBranchFilters) {
-      return;
-    }
-
-    const serverVaultBranchFiltersByVaultId = new Map<
-      string,
-      VaultBranchFiltersState
-    >(
-      userVaultBranchFilters.map((vaultBranchFilter) => [
-        vaultBranchFilter.vaultId,
-        normalizeVaultBranchFilters(vaultBranchFilter),
-      ]),
-    );
-
-    setPendingVaultBranchFiltersByVaultId((previous) => {
-      let hasChanges = false;
-      const next = { ...previous };
-
-      for (const [vaultId, pendingVaultBranchFilters] of Object.entries(
-        previous,
-      )) {
-        const serverVaultBranchFilters =
-          serverVaultBranchFiltersByVaultId.get(vaultId) ??
-          getDefaultVaultBranchFilters();
-        if (
-          areVaultBranchFiltersEqual(
-            pendingVaultBranchFilters,
-            serverVaultBranchFilters,
-          )
-        ) {
-          delete next[vaultId];
-          hasChanges = true;
-        }
-      }
-
-      return hasChanges ? next : previous;
-    });
-  }, [userVaultBranchFilters]);
-
   if (!vaults) {
     return null;
   }
@@ -2653,10 +2589,6 @@ export function VaultDashboard() {
     const normalizedVaultBranchFilters = normalizeVaultBranchFilters(
       nextVaultBranchFilters,
     );
-    setPendingVaultBranchFiltersByVaultId((previous) => ({
-      ...previous,
-      [vaultId]: normalizedVaultBranchFilters,
-    }));
 
     try {
       await setVaultBranchFilters({
@@ -2667,11 +2599,6 @@ export function VaultDashboard() {
         branchesExpanded: normalizedVaultBranchFilters.branchesExpanded,
       });
     } catch (error: unknown) {
-      setPendingVaultBranchFiltersByVaultId((previous) => {
-        const next = { ...previous };
-        delete next[vaultId];
-        return next;
-      });
       toast({
         title: "Could not save filters",
         description:
@@ -2774,7 +2701,6 @@ export function VaultDashboard() {
       now={now}
       themeColorSearch={rootRouteSearch}
       openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
-      pendingVaultBranchFiltersByVaultId={pendingVaultBranchFiltersByVaultId}
       persistedVaultBranchFiltersByVaultId={
         persistedVaultBranchFiltersByVaultId
       }

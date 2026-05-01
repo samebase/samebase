@@ -188,6 +188,8 @@ General rule:
 - Avoid a new effect whenever the result can be calculated during render.
 - Do not reset state in an effect just because another render condition hides
   that state; hidden is not the same thing as cleared.
+- Prefer source-owned optimistic updates over local shadow state plus an effect
+  that waits for the server value to catch up.
 - Explain the external system or lifecycle the effect synchronizes with.
 - Mention why render-time derivation is not enough today.
 - Include a concrete removal path, such as moving work to a backend scheduler, a
@@ -199,6 +201,8 @@ Example:
 
 - Dashboard developer tools can derive visibility from `developerToolsVisible`
   while preserving remembered open state; this does not need an effect.
+- Dashboard panel state persisted in Convex should use mutation-level optimistic
+  updates instead of local state that a later effect reconciles with the query.
 - A dashboard `useEffect` that listens for OAuth popup messages should say that
   it exists for popup completion and that removing it would require replacing
   the message bridge with redirect flow or provider connection invalidation.
