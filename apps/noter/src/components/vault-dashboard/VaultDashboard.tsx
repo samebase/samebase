@@ -1267,9 +1267,7 @@ function VaultDashboardBody({
     <VaultDashboardRepositoryList>
       {vaults.map((vault) => {
         const isReady = vault.state === "ready";
-        const remoteBranches = Array.isArray(vault.remoteBranches)
-          ? vault.remoteBranches
-          : [];
+        const remoteBranches = vault.remoteBranches;
         const vaultBranchFilters =
           pendingVaultBranchFiltersByVaultId[vault._id] ??
           persistedVaultBranchFiltersByVaultId.get(vault._id) ??

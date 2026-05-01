@@ -70,3 +70,28 @@ Example:
 
 - If `VaultBranchListRow` only maps `branch` fields into `VaultBranchLinkRow`,
   consider rendering `VaultBranchLinkRow` directly from the branch list.
+
+## Trust Typed Boundaries
+
+Avoid runtime guards such as `Array.isArray(value)` once a value has crossed a
+typed, validated app boundary and downstream code already has an exact type.
+
+Repeated shape checks inside typed React code usually mean the component is no
+longer trusting its own data contract. That makes the code noisier and hides
+real contract drift behind fallback behavior.
+
+General rule:
+
+- Validate unknown external data at the boundary where it enters the app.
+- After Convex validators, generated API types, schema parsers, or equivalent
+  boundary checks establish a field as an array, use it as an array.
+- Do not add `Array.isArray` fallbacks for non-nullable typed arrays in app
+  components.
+- If a value truly can be malformed or nullable, fix the boundary type or parser
+  instead of adding scattered local fallbacks.
+
+Example:
+
+- `vault.remoteBranches` comes from the `getUserVaults` Convex return validator
+  as an array, so the dashboard should use `vault.remoteBranches` directly
+  rather than falling back to `[]`.
