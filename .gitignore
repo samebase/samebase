@@ -67,3 +67,6 @@ yarn.lock
 
 # Local notes
 todo.md
+
+# Local agent settings
+.claude/settings.local.json
