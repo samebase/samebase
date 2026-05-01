@@ -23,15 +23,20 @@ export function VaultDashboardBranchVisualFixture() {
             <TestRouterProvider>
               <VaultBranchLinkContent
                 repositoryFullName="noter-md/noter"
-                branchName="codex/draft-pr-button"
-                headCommitSha="5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123"
-                isDefault={false}
-                isDeletedUpstream={false}
-                aheadBy={3}
-                behindBy={0}
-                pullRequestUrl="https://github.com/noter-md/noter/pull/999"
-                pullRequestNumber={999}
-                pullRequestTitle="Show PR titles above lighter branch labels"
+                branch={{
+                  name: "codex/draft-pr-button",
+                  headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
+                  isDefault: false,
+                  isProtected: false,
+                  remoteState: "active",
+                  lastSyncedAt: 0,
+                  aheadBy: 3,
+                  behindBy: 0,
+                  pullRequestUrl: "https://github.com/noter-md/noter/pull/999",
+                  pullRequestNumber: 999,
+                  pullRequestTitle:
+                    "Show PR titles above lighter branch labels",
+                }}
               />
             </TestRouterProvider>
             <span className="w-4 pt-1 text-right font-mono text-[11px] tabular-nums text-muted-foreground/70">

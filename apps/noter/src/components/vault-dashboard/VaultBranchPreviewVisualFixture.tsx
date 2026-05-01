@@ -65,23 +65,28 @@ export function VaultBranchPreviewVisualFixture({
         <div className="w-[560px] overflow-hidden corner-notch-1 border border-border bg-background">
           <VaultBranchLinkRow
             repositoryFullName="noter-md/noter"
-            branchName="codex-preserve-logo-transfor"
-            headCommitSha="aa16371b72fc1c2fd3c1f3af9c6f4d2d905ef10"
-            isDefault={false}
-            isDeletedUpstream={false}
-            aheadBy={1}
-            behindBy={0}
-            pullRequestUrl="https://github.com/noter-md/noter/pull/290"
-            pullRequestNumber={290}
-            pullRequestTitle="Show PR names and labels above branch metadata"
-            pullRequestLabels={[
-              { name: "needs review", color: "fbca04" },
-              { name: "dashboard", color: "0e8a16" },
-            ]}
-            cloudflareBranchPreviewUrl={preview?.branchPreviewUrl}
-            cloudflarePreviewPullRequestNumber={290}
-            cloudflarePreviewLogsUrl={preview?.previewLogsUrl}
-            cloudflarePreviewStatus={preview?.previewStatus}
+            branch={{
+              name: "codex-preserve-logo-transfor",
+              headCommitSha: "aa16371b72fc1c2fd3c1f3af9c6f4d2d905ef10",
+              isDefault: false,
+              isProtected: false,
+              remoteState: "active",
+              lastSyncedAt: 0,
+              aheadBy: 1,
+              behindBy: 0,
+              pullRequestUrl: "https://github.com/noter-md/noter/pull/290",
+              pullRequestNumber: 290,
+              pullRequestTitle:
+                "Show PR names and labels above branch metadata",
+              pullRequestLabels: [
+                { name: "needs review", color: "fbca04" },
+                { name: "dashboard", color: "0e8a16" },
+              ],
+              cloudflareBranchPreviewUrl: preview?.branchPreviewUrl,
+              cloudflarePreviewPullRequestNumber: 290,
+              cloudflarePreviewLogsUrl: preview?.previewLogsUrl,
+              cloudflarePreviewStatus: preview?.previewStatus,
+            }}
           />
         </div>
       </TestRouterProvider>

@@ -445,22 +445,7 @@ interface VaultRemoteBranchListItem {
 interface VaultBranchLinkRowProps {
   vaultId?: Id<"vaults">;
   repositoryFullName: string;
-  branchName: string;
-  headCommitSha: string;
-  isDefault: boolean;
-  isDeletedUpstream: boolean;
-  aheadBy?: number;
-  behindBy?: number;
-  pullRequestUrl?: string;
-  pullRequestNumber?: number;
-  pullRequestLabels?: Array<string | { name: string; color?: string }>;
-  pullRequestTitle?: string;
-  pullRequestIsDraft?: boolean;
-  cloudflareBranchPreviewUrl?: string;
-  cloudflarePreviewPullRequestNumber?: number;
-  cloudflarePreviewLogsUrl?: string;
-  cloudflarePreviewStatus?: string;
-  convexPreviewDeploymentDashboardUrl?: string;
+  branch: VaultRemoteBranchListItem;
   productionDeploymentDashboardUrl?: string;
   stagedSummary?: StagedSummary;
 }
@@ -595,58 +580,34 @@ export function VaultDashboardRepositoryExternalLinks({
 
 export function VaultBranchLinkContent({
   repositoryFullName,
-  branchName,
-  headCommitSha,
-  isDefault,
-  isDeletedUpstream,
-  aheadBy,
-  behindBy,
-  pullRequestUrl,
-  pullRequestNumber,
-  pullRequestLabels,
-  pullRequestTitle,
-  pullRequestIsDraft,
-  cloudflareBranchPreviewUrl,
-  cloudflarePreviewPullRequestNumber,
-  cloudflarePreviewLogsUrl,
-  cloudflarePreviewStatus,
-  convexPreviewDeploymentDashboardUrl,
+  branch,
   productionDeploymentDashboardUrl,
 }: {
   repositoryFullName: string;
-  branchName: string;
-  headCommitSha: string;
-  isDefault: boolean;
-  isDeletedUpstream: boolean;
-  aheadBy?: number;
-  behindBy?: number;
-  pullRequestUrl?: string;
-  pullRequestNumber?: number;
-  pullRequestLabels?: VaultBranchLinkRowProps["pullRequestLabels"];
-  pullRequestTitle?: string;
-  pullRequestIsDraft?: boolean;
-  cloudflareBranchPreviewUrl?: string;
-  cloudflarePreviewPullRequestNumber?: number;
-  cloudflarePreviewLogsUrl?: string;
-  cloudflarePreviewStatus?: string;
-  convexPreviewDeploymentDashboardUrl?: string;
+  branch: VaultRemoteBranchListItem;
   productionDeploymentDashboardUrl?: string;
 }) {
-  const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
+  const commitUrl = `https://github.com/${repositoryFullName}/commit/${branch.headCommitSha}`;
   const branchGithubUrl = buildGitHubBranchTreeUrl({
     repositoryFullName,
-    branchName,
+    branchName: branch.name,
   });
-  const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
+  const aheadBehindLabel = formatAheadBehindCounts(
+    branch.aheadBy,
+    branch.behindBy,
+  );
   const hasPullRequestTitle =
-    typeof pullRequestTitle === "string" && pullRequestTitle.length > 0;
-  const normalizedPullRequestLabels =
-    normalizePullRequestLabels(pullRequestLabels);
+    typeof branch.pullRequestTitle === "string" &&
+    branch.pullRequestTitle.length > 0;
+  const normalizedPullRequestLabels = normalizePullRequestLabels(
+    branch.pullRequestLabels,
+  );
   const hasPullRequestLink =
-    typeof pullRequestUrl === "string" && pullRequestUrl.length > 0;
+    typeof branch.pullRequestUrl === "string" &&
+    branch.pullRequestUrl.length > 0;
   const pullRequestLabel =
-    typeof pullRequestNumber === "number"
-      ? `PR #${pullRequestNumber}`
+    typeof branch.pullRequestNumber === "number"
+      ? `PR #${branch.pullRequestNumber}`
       : "Pull request";
   const hasConsolidatedPullRequestLink =
     hasPullRequestTitle && hasPullRequestLink;
@@ -654,7 +615,7 @@ export function VaultBranchLinkContent({
     hasPullRequestLink && !hasConsolidatedPullRequestLink;
   const hasPullRequestMetadata =
     hasStandalonePullRequestLink ||
-    pullRequestIsDraft === true ||
+    branch.pullRequestIsDraft === true ||
     normalizedPullRequestLabels.length > 0;
   const metadataLinkClassName = clsx(
     "-mx-2 -my-1 inline-flex min-h-9 items-center rounded-sm px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
@@ -666,36 +627,38 @@ export function VaultBranchLinkContent({
     hasPullRequestTitle
       ? "font-mono text-muted-foreground"
       : "text-muted-foreground",
-    !hasPullRequestTitle && isDefault && "font-medium text-foreground",
+    !hasPullRequestTitle && branch.isDefault && "font-medium text-foreground",
   );
   const branchEditRoute = buildVaultDashboardBranchEditRoute({
     repositoryFullName,
-    branchName,
+    branchName: branch.name,
   });
   const hasCurrentPreviewLink = hasCurrentCloudflareBranchPreview({
-    pullRequestNumber,
-    cloudflareBranchPreviewUrl,
-    cloudflarePreviewPullRequestNumber,
+    pullRequestNumber: branch.pullRequestNumber,
+    cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
+    cloudflarePreviewPullRequestNumber:
+      branch.cloudflarePreviewPullRequestNumber,
   });
   const hasBuildFailureLogsLink = hasCurrentCloudflareBuildFailureLogs({
-    pullRequestNumber,
-    cloudflarePreviewLogsUrl,
-    cloudflarePreviewPullRequestNumber,
-    cloudflarePreviewStatus,
+    pullRequestNumber: branch.pullRequestNumber,
+    cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
+    cloudflarePreviewPullRequestNumber:
+      branch.cloudflarePreviewPullRequestNumber,
+    cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
   });
   const hasProductionDeploymentLink =
-    isDefault && typeof productionDeploymentDashboardUrl === "string";
+    branch.isDefault && typeof productionDeploymentDashboardUrl === "string";
   const hasPreviewDeploymentLink =
-    !isDefault &&
+    !branch.isDefault &&
     hasCurrentPreviewLink &&
-    typeof convexPreviewDeploymentDashboardUrl === "string";
+    typeof branch.convexPreviewDeploymentDashboardUrl === "string";
 
   return (
     <>
-      {isDeletedUpstream ? (
+      {branch.remoteState === "deleted_upstream" ? (
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className="min-w-0 flex-1 break-words text-base leading-6 text-muted-foreground/70 line-through">
-            {branchName}
+            {branch.name}
           </span>
           <span className="shrink-0 corner-notch-1 border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground/80">
             deleted upstream
@@ -706,7 +669,7 @@ export function VaultBranchLinkContent({
           {hasPullRequestTitle ? (
             hasPullRequestLink ? (
               <a
-                href={pullRequestUrl}
+                href={branch.pullRequestUrl}
                 target="_blank"
                 rel="noreferrer noopener"
                 className={clsx(
@@ -716,19 +679,23 @@ export function VaultBranchLinkContent({
                 title="Open pull request"
               >
                 <DashboardLinkIconSlot className="mt-1">
-                  <PullRequestStateLogo isDraft={pullRequestIsDraft === true} />
+                  <PullRequestStateLogo
+                    isDraft={branch.pullRequestIsDraft === true}
+                  />
                 </DashboardLinkIconSlot>
                 <span className="min-w-0 break-words">
-                  {pullRequestLabel} {pullRequestTitle}
+                  {pullRequestLabel} {branch.pullRequestTitle}
                 </span>
               </a>
             ) : (
               <div className="flex min-h-9 max-w-full items-start gap-1.5 text-base font-medium leading-6 text-foreground">
                 <DashboardLinkIconSlot className="mt-1">
-                  <PullRequestStateLogo isDraft={pullRequestIsDraft === true} />
+                  <PullRequestStateLogo
+                    isDraft={branch.pullRequestIsDraft === true}
+                  />
                 </DashboardLinkIconSlot>
                 <span className="min-w-0 break-words">
-                  {pullRequestLabel} {pullRequestTitle}
+                  {pullRequestLabel} {branch.pullRequestTitle}
                 </span>
               </div>
             )
@@ -743,7 +710,7 @@ export function VaultBranchLinkContent({
               linkStyle,
             )}
             title="Open branch on GitHub"
-            aria-label={`Open ${branchName} branch on GitHub`}
+            aria-label={`Open ${branch.name} branch on GitHub`}
           >
             <DashboardLinkIconSlot className="mt-1">
               <GitBranch
@@ -752,7 +719,7 @@ export function VaultBranchLinkContent({
                 strokeWidth={1.75}
               />
             </DashboardLinkIconSlot>
-            <span className="min-w-0 break-words">{branchName}</span>
+            <span className="min-w-0 break-words">{branch.name}</span>
           </a>
           <div className="space-y-1 text-base leading-6 text-muted-foreground/80">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
@@ -770,7 +737,7 @@ export function VaultBranchLinkContent({
                     strokeWidth={2}
                   />
                 </DashboardLinkIconSlot>
-                <span>Last commit {headCommitSha.slice(0, 7)}</span>
+                <span>Last commit {branch.headCommitSha.slice(0, 7)}</span>
               </a>
               {aheadBehindLabel ? (
                 <span
@@ -785,7 +752,7 @@ export function VaultBranchLinkContent({
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                 {hasStandalonePullRequestLink ? (
                   <a
-                    href={pullRequestUrl}
+                    href={branch.pullRequestUrl}
                     target="_blank"
                     rel="noreferrer noopener"
                     className={clsx(metadataLinkClassName, "gap-1.5")}
@@ -793,13 +760,13 @@ export function VaultBranchLinkContent({
                   >
                     <DashboardLinkIconSlot>
                       <PullRequestStateLogo
-                        isDraft={pullRequestIsDraft === true}
+                        isDraft={branch.pullRequestIsDraft === true}
                       />
                     </DashboardLinkIconSlot>
                     <span>{pullRequestLabel}</span>
                   </a>
                 ) : null}
-                {pullRequestIsDraft ? (
+                {branch.pullRequestIsDraft ? (
                   <Badge
                     variant="outline"
                     className="h-6 px-1.5 py-0 text-xs font-medium uppercase tracking-wide"
@@ -825,7 +792,7 @@ export function VaultBranchLinkContent({
             {hasBuildFailureLogsLink ? (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <a
-                  href={cloudflarePreviewLogsUrl}
+                  href={branch.cloudflarePreviewLogsUrl}
                   target="_blank"
                   rel="noreferrer noopener"
                   className={clsx(
@@ -843,7 +810,7 @@ export function VaultBranchLinkContent({
             ) : hasCurrentPreviewLink ? (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <a
-                  href={cloudflareBranchPreviewUrl}
+                  href={branch.cloudflareBranchPreviewUrl}
                   target="_blank"
                   rel="noreferrer noopener"
                   className={clsx(metadataLinkClassName, "gap-1.5")}
@@ -873,7 +840,7 @@ export function VaultBranchLinkContent({
             {hasPreviewDeploymentLink ? (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <a
-                  href={convexPreviewDeploymentDashboardUrl}
+                  href={branch.convexPreviewDeploymentDashboardUrl}
                   target="_blank"
                   rel="noreferrer noopener"
                   className={clsx(metadataLinkClassName, "gap-1.5")}
@@ -912,22 +879,7 @@ export function VaultBranchLinkContent({
 export function VaultBranchLinkRow({
   vaultId,
   repositoryFullName,
-  branchName,
-  headCommitSha,
-  isDefault,
-  isDeletedUpstream,
-  aheadBy,
-  behindBy,
-  pullRequestUrl,
-  pullRequestNumber,
-  pullRequestLabels,
-  pullRequestTitle,
-  pullRequestIsDraft,
-  cloudflareBranchPreviewUrl,
-  cloudflarePreviewPullRequestNumber,
-  cloudflarePreviewLogsUrl,
-  cloudflarePreviewStatus,
-  convexPreviewDeploymentDashboardUrl,
+  branch,
   productionDeploymentDashboardUrl,
   stagedSummary,
 }: VaultBranchLinkRowProps) {
@@ -940,24 +892,7 @@ export function VaultBranchLinkRow({
     <div className="flex items-start gap-2 border-b border-border/40 px-2 py-3.5 last:border-b-0">
       <VaultBranchLinkContent
         repositoryFullName={repositoryFullName}
-        branchName={branchName}
-        headCommitSha={headCommitSha}
-        isDefault={isDefault}
-        isDeletedUpstream={isDeletedUpstream}
-        aheadBy={aheadBy}
-        behindBy={behindBy}
-        pullRequestUrl={pullRequestUrl}
-        pullRequestNumber={pullRequestNumber}
-        pullRequestLabels={pullRequestLabels}
-        pullRequestTitle={pullRequestTitle}
-        pullRequestIsDraft={pullRequestIsDraft}
-        cloudflareBranchPreviewUrl={cloudflareBranchPreviewUrl}
-        cloudflarePreviewPullRequestNumber={cloudflarePreviewPullRequestNumber}
-        cloudflarePreviewLogsUrl={cloudflarePreviewLogsUrl}
-        cloudflarePreviewStatus={cloudflarePreviewStatus}
-        convexPreviewDeploymentDashboardUrl={
-          convexPreviewDeploymentDashboardUrl
-        }
+        branch={branch}
         productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
       />
       {showRowActions ? (
@@ -967,7 +902,7 @@ export function VaultBranchLinkRow({
               <EditedFilesCategoriesPopover
                 vaultId={vaultId}
                 repositoryFullName={repositoryFullName}
-                branch={branchName}
+                branch={branch.name}
                 summaryCounts={stagedSummary}
               />
             </div>
@@ -986,59 +921,11 @@ interface VaultBranchListProps {
   expansion?: VaultBranchListExpansionProps;
 }
 
-interface VaultBranchListRowProps {
-  branch: VaultRemoteBranchListItem;
-  vaultId: Id<"vaults">;
-  repositoryFullName: string;
-  stagedSummary?: StagedSummary;
-  productionDeploymentDashboardUrl?: string;
-}
-
 interface VaultBranchListExpansionProps {
   hiddenBranchCount: number;
   isExpanded: boolean;
   onToggle: () => void;
   placement?: "header" | "list";
-}
-
-function VaultBranchListRow({
-  branch,
-  vaultId,
-  repositoryFullName,
-  stagedSummary,
-  productionDeploymentDashboardUrl,
-}: VaultBranchListRowProps) {
-  return (
-    <VaultBranchLinkRow
-      key={branch.name}
-      vaultId={vaultId}
-      repositoryFullName={repositoryFullName}
-      branchName={branch.name}
-      headCommitSha={branch.headCommitSha}
-      isDefault={branch.isDefault}
-      isDeletedUpstream={branch.remoteState === "deleted_upstream"}
-      aheadBy={branch.aheadBy}
-      behindBy={branch.behindBy}
-      pullRequestUrl={branch.pullRequestUrl}
-      pullRequestNumber={branch.pullRequestNumber}
-      pullRequestLabels={branch.pullRequestLabels}
-      pullRequestTitle={branch.pullRequestTitle}
-      pullRequestIsDraft={branch.pullRequestIsDraft}
-      cloudflareBranchPreviewUrl={branch.cloudflareBranchPreviewUrl}
-      cloudflarePreviewPullRequestNumber={
-        branch.cloudflarePreviewPullRequestNumber
-      }
-      cloudflarePreviewLogsUrl={branch.cloudflarePreviewLogsUrl}
-      cloudflarePreviewStatus={branch.cloudflarePreviewStatus}
-      convexPreviewDeploymentDashboardUrl={
-        branch.convexPreviewDeploymentDashboardUrl
-      }
-      productionDeploymentDashboardUrl={
-        branch.isDefault ? productionDeploymentDashboardUrl : undefined
-      }
-      stagedSummary={stagedSummary}
-    />
-  );
 }
 
 export function VaultBranchListExpansionControl({
@@ -1091,13 +978,15 @@ function VaultBranchList({
     // a second inset panel inside the already padded card.
     <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
       {remoteBranches.map((branch) => (
-        <VaultBranchListRow
+        <VaultBranchLinkRow
           key={branch.name}
           branch={branch}
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           stagedSummary={summaryByBranch.get(branch.name)}
-          productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
+          productionDeploymentDashboardUrl={
+            branch.isDefault ? productionDeploymentDashboardUrl : undefined
+          }
         />
       ))}
       {expansion ? <VaultBranchListExpansionControl {...expansion} /> : null}

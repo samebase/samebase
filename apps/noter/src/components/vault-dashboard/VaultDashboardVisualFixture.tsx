@@ -47,6 +47,29 @@ function fakeVaultId(): Parameters<typeof VaultBranchLinkRow>[0]["vaultId"] {
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
+type FixtureVaultBranch = Parameters<typeof VaultBranchLinkRow>[0]["branch"];
+
+interface FixtureVaultBranchRow {
+  branch: FixtureVaultBranch;
+  productionDeploymentDashboardUrl?: string;
+}
+
+function fixtureVaultBranch(
+  branch: Omit<
+    FixtureVaultBranch,
+    "isProtected" | "lastSyncedAt" | "remoteState"
+  > & {
+    remoteState?: FixtureVaultBranch["remoteState"];
+  },
+): FixtureVaultBranch {
+  return {
+    isProtected: false,
+    lastSyncedAt: FIXTURE_NOW,
+    remoteState: "active",
+    ...branch,
+  };
+}
+
 function FixtureRepositoryLinks() {
   return (
     <VaultDashboardRepositoryExternalLinks
@@ -126,123 +149,127 @@ function FixtureVaultLastUpdatedStatusCard() {
   );
 }
 
-const LIST_SPACING_BRANCHES: Array<
-  Omit<
-    Parameters<typeof VaultBranchLinkRow>[0],
-    "vaultId" | "repositoryFullName"
-  >
-> = [
+const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
   {
-    branchName: "main",
-    headCommitSha: "1234567890abcdef1234567890abcdef12345678",
-    isDefault: true,
-    isDeletedUpstream: false,
-    aheadBy: 0,
-    behindBy: 0,
+    branch: fixtureVaultBranch({
+      name: "main",
+      headCommitSha: "1234567890abcdef1234567890abcdef12345678",
+      isDefault: true,
+      aheadBy: 0,
+      behindBy: 0,
+    }),
     productionDeploymentDashboardUrl:
       "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
   },
   {
-    branchName: "codex/dashboard-main-pane-spacing",
-    headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
-    isDefault: false,
-    isDeletedUpstream: false,
-    aheadBy: 1,
-    behindBy: 0,
-    pullRequestUrl: "https://github.com/noter-md/noter/pull/321",
-    pullRequestNumber: 321,
-    pullRequestTitle: "Use the full dashboard main pane",
-    cloudflareBranchPreviewUrl:
-      "https://codex-dashboard-main-pane-spacing.noter.pages.dev",
-    cloudflarePreviewPullRequestNumber: 321,
-    convexPreviewDeploymentDashboardUrl:
-      "https://dashboard.convex.dev/t/nicu/noter/preview/codex/dashboard-main-pane-spacing",
+    branch: fixtureVaultBranch({
+      name: "codex/dashboard-main-pane-spacing",
+      headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
+      isDefault: false,
+      aheadBy: 1,
+      behindBy: 0,
+      pullRequestUrl: "https://github.com/noter-md/noter/pull/321",
+      pullRequestNumber: 321,
+      pullRequestTitle: "Use the full dashboard main pane",
+      cloudflareBranchPreviewUrl:
+        "https://codex-dashboard-main-pane-spacing.noter.pages.dev",
+      cloudflarePreviewPullRequestNumber: 321,
+      convexPreviewDeploymentDashboardUrl:
+        "https://dashboard.convex.dev/t/nicu/noter/preview/codex/dashboard-main-pane-spacing",
+    }),
   },
   {
-    branchName: "codex/branch-expansion-state",
-    headCommitSha: "456789abcdef1234567890abcdef1234567890ab",
-    isDefault: false,
-    isDeletedUpstream: false,
-    aheadBy: 2,
-    behindBy: 0,
-    pullRequestUrl: "https://github.com/noter-md/noter/pull/322",
-    pullRequestNumber: 322,
-    pullRequestTitle: "Persist branch list expansion",
+    branch: fixtureVaultBranch({
+      name: "codex/branch-expansion-state",
+      headCommitSha: "456789abcdef1234567890abcdef1234567890ab",
+      isDefault: false,
+      aheadBy: 2,
+      behindBy: 0,
+      pullRequestUrl: "https://github.com/noter-md/noter/pull/322",
+      pullRequestNumber: 322,
+      pullRequestTitle: "Persist branch list expansion",
+    }),
   },
   {
-    branchName: "codex/quiet-mobile-frame",
-    headCommitSha: "789abcdef1234567890abcdef1234567890abcd",
-    isDefault: false,
-    isDeletedUpstream: false,
-    aheadBy: 1,
-    behindBy: 1,
+    branch: fixtureVaultBranch({
+      name: "codex/quiet-mobile-frame",
+      headCommitSha: "789abcdef1234567890abcdef1234567890abcd",
+      isDefault: false,
+      aheadBy: 1,
+      behindBy: 1,
+    }),
   },
   {
-    branchName: "codex/research-branch-collapse",
-    headCommitSha: "def1234567890abcdef1234567890abcdef12345",
-    isDefault: false,
-    isDeletedUpstream: false,
-    aheadBy: 0,
-    behindBy: 2,
+    branch: fixtureVaultBranch({
+      name: "codex/research-branch-collapse",
+      headCommitSha: "def1234567890abcdef1234567890abcdef12345",
+      isDefault: false,
+      aheadBy: 0,
+      behindBy: 2,
+    }),
   },
   {
-    branchName: "codex/mobile-keyboard-lift",
-    headCommitSha: "f1234567890abcdef1234567890abcdef1234567",
-    isDefault: false,
-    isDeletedUpstream: false,
-    aheadBy: 1,
-    behindBy: 0,
+    branch: fixtureVaultBranch({
+      name: "codex/mobile-keyboard-lift",
+      headCommitSha: "f1234567890abcdef1234567890abcdef1234567",
+      isDefault: false,
+      aheadBy: 1,
+      behindBy: 0,
+    }),
   },
   {
-    branchName: "codex/preview-status-refresh",
-    headCommitSha: "a234567890abcdef1234567890abcdef12345678",
-    isDefault: false,
-    isDeletedUpstream: false,
-    aheadBy: 0,
-    behindBy: 1,
+    branch: fixtureVaultBranch({
+      name: "codex/preview-status-refresh",
+      headCommitSha: "a234567890abcdef1234567890abcdef12345678",
+      isDefault: false,
+      aheadBy: 0,
+      behindBy: 1,
+    }),
   },
   {
-    branchName: "codex/branch-cleanup-guard",
-    headCommitSha: "b34567890abcdef1234567890abcdef123456789",
-    isDefault: false,
-    isDeletedUpstream: false,
-    aheadBy: 2,
-    behindBy: 0,
+    branch: fixtureVaultBranch({
+      name: "codex/branch-cleanup-guard",
+      headCommitSha: "b34567890abcdef1234567890abcdef123456789",
+      isDefault: false,
+      aheadBy: 2,
+      behindBy: 0,
+    }),
   },
   {
-    branchName: "codex/archive-doc-taxonomy",
-    headCommitSha: "c4567890abcdef1234567890abcdef1234567890",
-    isDefault: false,
-    isDeletedUpstream: false,
-    aheadBy: 1,
-    behindBy: 3,
+    branch: fixtureVaultBranch({
+      name: "codex/archive-doc-taxonomy",
+      headCommitSha: "c4567890abcdef1234567890abcdef1234567890",
+      isDefault: false,
+      aheadBy: 1,
+      behindBy: 3,
+    }),
   },
   {
-    branchName: "codex/vault-filter-polish",
-    headCommitSha: "d567890abcdef1234567890abcdef12345678901",
-    isDefault: false,
-    isDeletedUpstream: false,
-    aheadBy: 0,
-    behindBy: 2,
+    branch: fixtureVaultBranch({
+      name: "codex/vault-filter-polish",
+      headCommitSha: "d567890abcdef1234567890abcdef12345678901",
+      isDefault: false,
+      aheadBy: 0,
+      behindBy: 2,
+    }),
   },
 ];
 
-const STICKY_HEADER_BRANCHES: Array<
-  Omit<
-    Parameters<typeof VaultBranchLinkRow>[0],
-    "vaultId" | "repositoryFullName"
-  >
-> = Array.from({ length: 32 }, (_, index) => ({
-  branchName:
-    index === 0
-      ? "main"
-      : `codex/sticky-dashboard-branch-${String(index).padStart(2, "0")}`,
-  headCommitSha: "1234567890abcdef1234567890abcdef12345678",
-  isDefault: index === 0,
-  isDeletedUpstream: false,
-  aheadBy: index === 0 ? 0 : index % 4,
-  behindBy: index === 0 ? 0 : index % 3,
-}));
+const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from(
+  { length: 32 },
+  (_, index) => ({
+    branch: fixtureVaultBranch({
+      name:
+        index === 0
+          ? "main"
+          : `codex/sticky-dashboard-branch-${String(index).padStart(2, "0")}`,
+      headCommitSha: "1234567890abcdef1234567890abcdef12345678",
+      isDefault: index === 0,
+      aheadBy: index === 0 ? 0 : index % 4,
+      behindBy: index === 0 ? 0 : index % 3,
+    }),
+  }),
+);
 
 function VaultDashboardListSpacingFixture({
   mode,
@@ -285,12 +312,15 @@ function VaultDashboardListSpacingFixture({
                   Branches
                 </p>
                 <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
-                  {visibleBranches.map((branch) => (
+                  {visibleBranches.map((branchRow) => (
                     <VaultBranchLinkRow
-                      key={branch.branchName}
-                      {...branch}
+                      key={branchRow.branch.name}
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
+                      branch={branchRow.branch}
+                      productionDeploymentDashboardUrl={
+                        branchRow.productionDeploymentDashboardUrl
+                      }
                     />
                   ))}
                 </div>
@@ -433,12 +463,15 @@ function VaultDashboardStickyHeaderFixture() {
                     </span>
                   </div>
                   <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
-                    {visibleBranches.map((branch) => (
+                    {visibleBranches.map((branchRow) => (
                       <VaultBranchLinkRow
-                        key={branch.branchName}
-                        {...branch}
+                        key={branchRow.branch.name}
                         vaultId={fakeVaultId()}
                         repositoryFullName="noter-md/noter"
+                        branch={branchRow.branch}
+                        productionDeploymentDashboardUrl={
+                          branchRow.productionDeploymentDashboardUrl
+                        }
                       />
                     ))}
                   </div>
@@ -683,26 +716,32 @@ export function VaultDashboardVisualFixture({
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
-                      branchName="main"
-                      headCommitSha="1234567890abcdef1234567890abcdef12345678"
-                      isDefault={true}
-                      isDeletedUpstream={false}
-                      aheadBy={0}
-                      behindBy={0}
+                      branch={fixtureVaultBranch({
+                        name: "main",
+                        headCommitSha:
+                          "1234567890abcdef1234567890abcdef12345678",
+                        isDefault: true,
+                        aheadBy: 0,
+                        behindBy: 0,
+                      })}
                       productionDeploymentDashboardUrl="https://dashboard.convex.dev/t/nicu/noter/calm-swan-123"
                     />
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
-                      branchName="codex/mobile-branch-card-spacing"
-                      headCommitSha="abcdef1234567890abcdef1234567890abcdef12"
-                      isDefault={false}
-                      isDeletedUpstream={false}
-                      aheadBy={2}
-                      behindBy={0}
-                      pullRequestUrl="https://github.com/noter-md/noter/pull/321"
-                      pullRequestNumber={321}
-                      pullRequestTitle="Align mobile branch rows with vault cards"
+                      branch={fixtureVaultBranch({
+                        name: "codex/mobile-branch-card-spacing",
+                        headCommitSha:
+                          "abcdef1234567890abcdef1234567890abcdef12",
+                        isDefault: false,
+                        aheadBy: 2,
+                        behindBy: 0,
+                        pullRequestUrl:
+                          "https://github.com/noter-md/noter/pull/321",
+                        pullRequestNumber: 321,
+                        pullRequestTitle:
+                          "Align mobile branch rows with vault cards",
+                      })}
                     />
                   </div>
                 </div>
@@ -794,19 +833,22 @@ export function VaultDashboardVisualFixture({
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
-                      branchName="codex/branch-filters"
-                      headCommitSha="abcdef1234567890abcdef1234567890abcdef12"
-                      isDefault={false}
-                      isDeletedUpstream={false}
-                      aheadBy={1}
-                      behindBy={0}
-                      pullRequestUrl="https://github.com/noter-md/noter/pull/321"
-                      pullRequestNumber={321}
-                      pullRequestTitle="Ship saved branch filters per vault"
-                      pullRequestLabels={[
-                        { name: "needs review", color: "bf8700" },
-                        { name: "customer", color: "1a7f37" },
-                      ]}
+                      branch={fixtureVaultBranch({
+                        name: "codex/branch-filters",
+                        headCommitSha:
+                          "abcdef1234567890abcdef1234567890abcdef12",
+                        isDefault: false,
+                        aheadBy: 1,
+                        behindBy: 0,
+                        pullRequestUrl:
+                          "https://github.com/noter-md/noter/pull/321",
+                        pullRequestNumber: 321,
+                        pullRequestTitle: "Ship saved branch filters per vault",
+                        pullRequestLabels: [
+                          { name: "needs review", color: "bf8700" },
+                          { name: "customer", color: "1a7f37" },
+                        ],
+                      })}
                     />
                   </TestRouterProvider>
                 </div>
@@ -829,18 +871,19 @@ export function VaultDashboardVisualFixture({
           <VaultBranchLinkRow
             vaultId={fakeVaultId()}
             repositoryFullName="octo/repo"
-            branchName="feature/pr-labels"
-            headCommitSha="1234567890abcdef1234567890abcdef12345678"
-            isDefault={false}
-            isDeletedUpstream={false}
-            aheadBy={3}
-            behindBy={1}
-            pullRequestUrl="https://github.com/octo/repo/pull/42"
-            pullRequestNumber={42}
-            pullRequestLabels={[
-              { name: "needs review", color: "fbca04" },
-              { name: "bug", color: "d73a4a" },
-            ]}
+            branch={fixtureVaultBranch({
+              name: "feature/pr-labels",
+              headCommitSha: "1234567890abcdef1234567890abcdef12345678",
+              isDefault: false,
+              aheadBy: 3,
+              behindBy: 1,
+              pullRequestUrl: "https://github.com/octo/repo/pull/42",
+              pullRequestNumber: 42,
+              pullRequestLabels: [
+                { name: "needs review", color: "fbca04" },
+                { name: "bug", color: "d73a4a" },
+              ],
+            })}
           />
         </TestRouterProvider>
       </div>
