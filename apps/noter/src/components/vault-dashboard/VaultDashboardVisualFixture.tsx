@@ -239,7 +239,7 @@ function VaultDashboardListSpacingFixture({
   const [branchesExpanded, setBranchesExpanded] = useState(false);
   const visibleBranches = branchesExpanded
     ? LIST_SPACING_BRANCHES
-    : LIST_SPACING_BRANCHES.slice(0, 8);
+    : LIST_SPACING_BRANCHES.slice(0, 5);
   const hiddenBranchCount =
     LIST_SPACING_BRANCHES.length - visibleBranches.length;
 
