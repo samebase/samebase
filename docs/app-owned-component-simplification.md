@@ -169,3 +169,27 @@ Example:
 - Dashboard repository refresh status should be rendered by a helper that checks
   `syncing`, `rate_limited`, `cooldown`, `failed`, then `lastSyncedAt`, rather
   than by a nested ternary inside the card props.
+
+## Document Side Effects
+
+Every `useEffect` should explain why the side effect exists and how the code
+could eventually stop needing it.
+
+Effects often hide synchronization between React state, browser events, external
+windows, and persisted data. A short JSDoc-style comment above the effect should
+make that dependency explicit and name the removal path.
+
+General rule:
+
+- Explain the external system or lifecycle the effect synchronizes with.
+- Mention why render-time derivation is not enough today.
+- Include a concrete removal path, such as moving work to a backend scheduler, a
+  route-level data layer, or a shared optimistic state helper.
+- If no removal path can be named, re-check whether the effect is carrying too
+  much responsibility.
+
+Example:
+
+- A dashboard `useEffect` that listens for OAuth popup messages should say that
+  it exists for popup completion and that removing it would require replacing
+  the message bridge with redirect flow or provider connection invalidation.

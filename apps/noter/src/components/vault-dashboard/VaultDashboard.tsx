@@ -1658,6 +1658,12 @@ export function VaultDashboard() {
     number | undefined | null
   >(null);
 
+  /**
+   * Clears per-vault developer-tool open state when the dashboard tools are no
+   * longer visible. Remove this by moving the open state inside the visible
+   * developer-tools subtree, or by making the feature visibility toggle own the
+   * reset at the same place it hides the controls.
+   */
   useEffect(() => {
     if (developerToolsVisible) {
       return;
@@ -1668,6 +1674,12 @@ export function VaultDashboard() {
     );
   }, [developerToolsVisible]);
 
+  /**
+   * Mirrors the persisted account panel setting into local optimistic state once
+   * the Convex value arrives or catches up with a pending mutation. Remove this
+   * by using one source of truth for the panel, such as a shared optimistic
+   * settings helper that can expose the server value plus the pending override.
+   */
   useEffect(() => {
     if (dashboardAccountPanelOpen === undefined) {
       return;
@@ -1683,6 +1695,12 @@ export function VaultDashboard() {
     setAccountPanelOpenState(serverValue);
   }, [dashboardAccountPanelOpen]);
 
+  /**
+   * Mirrors the persisted providers panel setting into local optimistic state
+   * without overwriting an in-flight local toggle. Remove this by consolidating
+   * dashboard setting persistence behind a reusable optimistic settings model
+   * instead of manually reconciling pending refs in the component.
+   */
   useEffect(() => {
     if (dashboardProvidersPanelOpen === undefined) {
       return;
@@ -1698,6 +1716,12 @@ export function VaultDashboard() {
     setProvidersPanelOpenState(serverValue);
   }, [dashboardProvidersPanelOpen]);
 
+  /**
+   * Mirrors the persisted global chat setting into local optimistic state while
+   * preserving a user toggle until the server confirms it. Remove this by giving
+   * global chat state a dedicated optimistic store/hook that owns persistence,
+   * rollback, and server catch-up outside the dashboard render tree.
+   */
   useEffect(() => {
     if (dashboardGlobalChatOpen === undefined) {
       return;
@@ -1713,6 +1737,12 @@ export function VaultDashboard() {
     setGlobalChatOpenState(serverValue);
   }, [dashboardGlobalChatOpen]);
 
+  /**
+   * Captures the Cloudflare MCP token check timestamp seen at page load so the
+   * dashboard can suppress stale token warnings until an auto-check runs. Remove
+   * this by returning an explicit token-health freshness state from the backend
+   * or query result, rather than inferring initial freshness from a client ref.
+   */
   useEffect(() => {
     const isCloudflareMcpConnected =
       cloudflareConnection?.connected === true &&
@@ -1731,6 +1761,13 @@ export function VaultDashboard() {
     cloudflareConnection?.mcpTokenCheckedAt,
   ]);
 
+  /**
+   * Listens for OAuth popup completion messages from provider callback pages and
+   * reloads the dashboard once the popup flow finishes. Remove this by routing
+   * popup completion through app state, such as a provider-connection mutation
+   * plus query invalidation, or by replacing popup OAuth with a normal redirect
+   * flow that does not need a window message bridge.
+   */
   useEffect(() => {
     const expectedOrigin = window.location.origin;
     const providerPopupConfig: Record<
@@ -1882,6 +1919,13 @@ export function VaultDashboard() {
     [refreshTree],
   );
 
+  /**
+   * Refreshes repository trees on the initial visible page load and when the tab
+   * becomes visible again, while respecting dashboard refresh debounce rules.
+   * Remove this by moving refresh scheduling to a backend/worker-owned process
+   * or to a route-level data invalidation layer that is not coupled to this
+   * component's visibility listener.
+   */
   useEffect(() => {
     if (!vaults || vaults.length === 0) {
       return;
@@ -1921,6 +1965,12 @@ export function VaultDashboard() {
     };
   }, [refreshVaultTreesIfNeeded, vaults]);
 
+  /**
+   * Auto-checks Cloudflare MCP token health on page load, focus, visibility
+   * resume, and a guarded polling interval while the connection uses MCP OAuth.
+   * Remove this by making token refresh a server-owned scheduler or connection
+   * maintenance job, then subscribing only to the resulting token status here.
+   */
   useEffect(() => {
     const isCloudflareMcpConnected =
       cloudflareConnection?.connected === true &&
@@ -2552,6 +2602,12 @@ export function VaultDashboard() {
     setPendingVaultBranchFiltersByVaultId,
   ] = useState<Partial<Record<string, VaultBranchFiltersState>>>({});
 
+  /**
+   * Prunes optimistic branch-filter overrides after the persisted server
+   * filters catch up, so the UI stops shadowing Convex state. Remove this by
+   * moving branch-filter mutations to a shared optimistic state helper that can
+   * retire pending overrides when the query result matches them.
+   */
   useEffect(() => {
     if (!userVaultBranchFilters) {
       return;
