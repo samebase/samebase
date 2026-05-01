@@ -17,10 +17,6 @@ import {
   type RepositoryMediaVisualMode,
 } from "@/components/RepositoryMediaVisualFixture";
 import {
-  AddRepositoryVisualFixture,
-  type AddRepositoryVisualMode,
-} from "@/components/AddRepositoryVisualFixture";
-import {
   FileViewLayoutVisualFixture,
   type FileViewLayoutVisualMode,
 } from "@/components/FileViewLayoutVisualFixture";
@@ -71,7 +67,6 @@ import {
 } from "@/components/fileViewPushActionsVisualModes";
 import { VaultDashboardBranchVisualFixture } from "@/components/vault-dashboard/VaultDashboardBranchVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
-import { PasswordAuthVisualFixture } from "@/components/PasswordAuthVisualFixture";
 import {
   AppBootFailureStateVisualFixture,
   type AppBootFailureStateVisualMode,
@@ -122,7 +117,6 @@ type VisualFixtureMode =
   | FileViewPushActionsVisualMode
   | LogoSnapAnglesVisualMode
   | LogoThreeVisualMode
-  | AddRepositoryVisualMode
   | RepositoryMediaVisualMode
   | SidebarMediaUploadVisualMode
   | VaultDashboardVisualMode
@@ -134,7 +128,6 @@ type VisualFixtureMode =
   | CodexThreadHistoryVisualMode
   | "machines-workspace"
   | "machine-connect"
-  | "password-auth"
   | "vault-dashboard-branch-pr-title"
   | "button"
   | AppBootFailureStateVisualMode
@@ -177,13 +170,6 @@ const FILE_VIEW_LAYOUT_VISUAL_MODES = [
   "fileview-layout",
   "fileview-layout-persistence",
 ] as const satisfies readonly FileViewLayoutVisualMode[];
-
-const ADD_REPOSITORY_VISUAL_MODES = [
-  "add-repository-loading-more",
-  "add-repository-background-error",
-  "add-repository-retrying",
-  "add-repository-empty-final",
-] as const satisfies readonly AddRepositoryVisualMode[];
 
 const LOGO_VISUAL_MODES = [
   "logo-three-reference",
@@ -258,7 +244,6 @@ const MISC_VISUAL_MODES = [
   "machines-workspace",
   ...WORKSPACE_LAYOUT_V2_VISUAL_MODES,
   "machine-connect",
-  "password-auth",
   "vault-dashboard-branch-pr-title",
   "button",
   "app-boot-failure-stale",
@@ -287,10 +272,6 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "File View Layout",
     modes: FILE_VIEW_LAYOUT_VISUAL_MODES,
-  },
-  {
-    label: "Add Repository",
-    modes: ADD_REPOSITORY_VISUAL_MODES,
   },
   {
     label: "Logo",
@@ -376,15 +357,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "logo-snap-angles") {
     return <LogoSnapAnglesVisualFixture />;
-  }
-
-  if (
-    mode === "add-repository-loading-more" ||
-    mode === "add-repository-background-error" ||
-    mode === "add-repository-retrying" ||
-    mode === "add-repository-empty-final"
-  ) {
-    return <AddRepositoryVisualFixture mode={mode} />;
   }
 
   if (
@@ -479,10 +451,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "machines-workspace") {
     return <MachinesWorkspaceVisualFixture />;
-  }
-
-  if (mode === "password-auth") {
-    return <PasswordAuthVisualFixture />;
   }
 
   if (mode === "workspace-layout-v2-status-bar") {
