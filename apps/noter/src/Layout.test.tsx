@@ -378,8 +378,8 @@ describe("Layout", () => {
     const logoWithLightPath = buildPathWithTanStackSearch({
       pathname: "/logo",
       search: {
-        [FORCE_PROD_UI_QUERY_PARAM]: true,
         [LANDING_DEV_MODE_QUERY_PARAM]: true,
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
         light: true,
       },
       hash: "top",
@@ -412,8 +412,8 @@ describe("Layout", () => {
     const logoWithoutLightPath = buildPathWithTanStackSearch({
       pathname: "/logo",
       search: {
-        [FORCE_PROD_UI_QUERY_PARAM]: true,
         [LANDING_DEV_MODE_QUERY_PARAM]: true,
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
       },
       hash: "top",
     });
@@ -448,8 +448,8 @@ describe("Layout", () => {
     const logoDarkPath = buildPathWithTanStackSearch({
       pathname: "/logo",
       search: {
-        [FORCE_PROD_UI_QUERY_PARAM]: true,
         [LANDING_DEV_MODE_QUERY_PARAM]: true,
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
         dark: true,
       },
       hash: "top",
