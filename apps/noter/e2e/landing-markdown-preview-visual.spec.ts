@@ -148,7 +148,10 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
     await document.fonts.ready;
   });
 
-  await expect(page).toHaveScreenshot(
+  const sidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
+  await expect(sidebar).toBeVisible();
+  await expectSidebarLinksToMatchMarkdown(sidebar);
+  await expect(sidebar).toHaveScreenshot(
     `landing-markdown-preview-${landingMarkdownPreviewSnapshotSuffix}.png`,
     {
       animations: "disabled",
@@ -164,13 +167,15 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
 
   const layout = page.locator('[data-workspace-layout-v2="mobile"]');
   const carousel = page.getByTestId("workspace-layout-v2-pane-main");
-  const sidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
+  const mobileSidebar = page.getByTestId(
+    LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
+  );
 
   await expect(layout).toHaveAttribute("data-mobile-pane", "left");
-  await expect(sidebar).toBeVisible();
-  await expectSidebarLinksToMatchMarkdown(sidebar);
+  await expect(mobileSidebar).toBeVisible();
+  await expectSidebarLinksToMatchMarkdown(mobileSidebar);
 
-  await sidebar
+  await mobileSidebar
     .getByRole("link", {
       name: "6: Connect Codex to GitHub",
     })
