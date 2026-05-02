@@ -1,16 +1,7 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "allowImportingTsExtensions": true,
-    "lib": ["ES2022", "DOM"],
-    "types": ["node"],
-    "typeRoots": ["../../apps/noter/node_modules/@types"],
-    "strict": true,
-    "noEmit": true,
-    "skipLibCheck": true,
-    "noUncheckedIndexedAccess": false
+    "types": []
   },
   "include": ["src/**/*.ts", "test/**/*.ts"],
   "exclude": ["../../node_modules"]

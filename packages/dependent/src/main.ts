@@ -143,23 +143,42 @@ export function notEmpty<Value>(
 
 export function atMod<Value>(arr: Array1<Value>, indexMod: number): Value {
   const len = arr.length;
-  const elem = arr[((indexMod % len) + len) % len];
+  const targetIndex = ((indexMod % len) + len) % len;
+  let currentIndex = 0;
 
-  return elem;
+  for (const elem of arr) {
+    if (currentIndex === targetIndex) {
+      return elem;
+    }
+
+    currentIndex += 1;
+  }
+
+  return arr[0];
 }
 
 export function zip<Left, Right>(
   arrLeft: Array1<Left>,
   arrRight: Array1<Right>,
 ): Array1<[Left, Right]> {
-  const zippedLength = Math.min(arrLeft.length, arrRight.length);
-  const ret: Array1<[Left, Right]> = [[arrLeft[0], arrRight[0]]];
+  const rightIterator = arrRight[Symbol.iterator]();
+  const ret: Array<[Left, Right]> = [];
 
-  for (let index = 1; index < zippedLength; index += 1) {
-    ret.push([arrLeft[index], arrRight[index]]);
+  for (const left of arrLeft) {
+    const nextRight = rightIterator.next();
+
+    if (nextRight.done === true) {
+      break;
+    }
+
+    ret.push([left, nextRight.value]);
   }
 
-  return ret;
+  if (atLeast(1, ret)) {
+    return ret;
+  }
+
+  return [[arrLeft[0], arrRight[0]]];
 }
 
 export function last<Value>(arr: Array1<Value>): Value;

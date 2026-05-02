@@ -132,5 +132,11 @@ describe("dependent type helpers", () => {
 });
 
 function lastValue<Value>(values: Array1<Value>): Value {
-  return values[values.length - 1];
+  let last = values[0];
+
+  for (const value of values) {
+    last = value;
+  }
+
+  return last;
 }
