@@ -239,14 +239,13 @@ function renderHeading(
   level: 1 | 2 | 3 | 4,
   children: ReactNode,
   headingId: string | undefined,
-  headingAnchorsEnabled: boolean,
 ) {
   switch (level) {
     case 1:
       return (
         <h1
           data-landing-heading-id={headingId}
-          id={headingAnchorsEnabled ? headingId : undefined}
+          id={headingId}
           className="scroll-mt-4 text-3xl font-semibold leading-tight tracking-normal sm:text-4xl"
         >
           {children}
@@ -256,7 +255,7 @@ function renderHeading(
       return (
         <h2
           data-landing-heading-id={headingId}
-          id={headingAnchorsEnabled ? headingId : undefined}
+          id={headingId}
           className="scroll-mt-4 text-2xl font-semibold leading-tight tracking-normal"
         >
           {children}
@@ -266,7 +265,7 @@ function renderHeading(
       return (
         <h3
           data-landing-heading-id={headingId}
-          id={headingAnchorsEnabled ? headingId : undefined}
+          id={headingId}
           className="scroll-mt-4 text-xl font-semibold leading-snug tracking-normal"
         >
           {children}
@@ -276,7 +275,7 @@ function renderHeading(
       return (
         <h4
           data-landing-heading-id={headingId}
-          id={headingAnchorsEnabled ? headingId : undefined}
+          id={headingId}
           className="scroll-mt-4 text-base font-semibold leading-6 tracking-normal"
         >
           {children}
@@ -297,10 +296,7 @@ function getHeadingId(
   return headingIdsByLine.get(line);
 }
 
-function getMarkdownComponents(
-  headingIdsByLine: ReadonlyMap<number, string>,
-  headingAnchorsEnabled: boolean,
-) {
+function getMarkdownComponents(headingIdsByLine: ReadonlyMap<number, string>) {
   return {
     a({ children, href, title }) {
       if (isMarkdownVideoUrl(href)) {
@@ -345,43 +341,23 @@ function getMarkdownComponents(
       );
     },
     h1({ children, node }) {
-      return renderHeading(
-        1,
-        children,
-        getHeadingId(node, headingIdsByLine),
-        headingAnchorsEnabled,
-      );
+      return renderHeading(1, children, getHeadingId(node, headingIdsByLine));
     },
     h2({ children, node }) {
-      return renderHeading(
-        2,
-        children,
-        getHeadingId(node, headingIdsByLine),
-        headingAnchorsEnabled,
-      );
+      return renderHeading(2, children, getHeadingId(node, headingIdsByLine));
     },
     h3({ children, node }) {
-      return renderHeading(
-        3,
-        children,
-        getHeadingId(node, headingIdsByLine),
-        headingAnchorsEnabled,
-      );
+      return renderHeading(3, children, getHeadingId(node, headingIdsByLine));
     },
     h4({ children, node }) {
-      return renderHeading(
-        4,
-        children,
-        getHeadingId(node, headingIdsByLine),
-        headingAnchorsEnabled,
-      );
+      return renderHeading(4, children, getHeadingId(node, headingIdsByLine));
     },
     h5({ children, node }) {
       const headingId = getHeadingId(node, headingIdsByLine);
       return (
         <h5
           data-landing-heading-id={headingId}
-          id={headingAnchorsEnabled ? headingId : undefined}
+          id={headingId}
           className="scroll-mt-4 text-sm font-semibold uppercase leading-6 tracking-normal"
         >
           {children}
@@ -393,7 +369,7 @@ function getMarkdownComponents(
       return (
         <h6
           data-landing-heading-id={headingId}
-          id={headingAnchorsEnabled ? headingId : undefined}
+          id={headingId}
           className="scroll-mt-4 text-xs font-semibold uppercase leading-5 tracking-normal text-muted-foreground"
         >
           {children}
@@ -516,12 +492,10 @@ function getMarkdownComponents(
 export function MarkdownLandingDocument({
   className,
   dataTestId,
-  headingAnchorsEnabled = true,
   markdown,
 }: {
   className?: string;
   dataTestId?: string;
-  headingAnchorsEnabled?: boolean;
   markdown: string;
 }) {
   const headingIdsByLine = new Map(
@@ -530,10 +504,7 @@ export function MarkdownLandingDocument({
       heading.id,
     ]),
   );
-  const markdownComponents = getMarkdownComponents(
-    headingIdsByLine,
-    headingAnchorsEnabled,
-  );
+  const markdownComponents = getMarkdownComponents(headingIdsByLine);
 
   return (
     <article

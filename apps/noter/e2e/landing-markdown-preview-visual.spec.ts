@@ -15,43 +15,10 @@ const expectedLandingPreviewVideoSrcs = [
   "/landing-preview/step-5-create-cloudflare-pages-deploy.mp4",
 ] as const;
 
-async function signInThroughLocalLanding(
-  page: Parameters<typeof test>[0]["page"],
-) {
-  await page.goto("/?dev", {
-    waitUntil: "domcontentloaded",
-  });
-
-  const accountButton = page.getByRole("button", { name: /@/ }).first();
-  try {
-    await accountButton.waitFor({ state: "visible", timeout: 5_000 });
-    return;
-  } catch {
-    // The account menu is absent before the local autofill flow completes.
-  }
-
-  const autofillButton = page.getByRole("button", {
-    name: "Autofill & sign in",
-  });
-  await autofillButton.waitFor({ state: "visible", timeout: 5_000 });
-  await autofillButton.click();
-
-  const vaultsLabel = page.getByText("Your Vaults", { exact: true }).first();
-  const emptyStateHeading = page.getByRole("heading", {
-    name: "Create your first project",
-  });
-  await Promise.any([
-    accountButton.waitFor({ state: "visible", timeout: 30_000 }),
-    vaultsLabel.waitFor({ state: "visible", timeout: 30_000 }),
-    emptyStateHeading.waitFor({ state: "visible", timeout: 30_000 }),
-  ]);
-}
-
 test("landing markdown preview route renders markdown in workspace chrome", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signInThroughLocalLanding(page);
 
   await page.goto("/landing-preview?dev", {
     waitUntil: "domcontentloaded",
@@ -175,10 +142,14 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
     .poll(() => carousel.evaluate((element) => element.scrollLeft))
     .toBeLessThan(80);
 
-  const targetTop = await page
+  const articleHeading = page
     .getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID)
-    .locator('[data-landing-heading-id="6-connect-codex-to-github"]')
-    .evaluate((element) => element.getBoundingClientRect().top);
+    .locator('[id="6-connect-codex-to-github"]');
+  await expect(articleHeading).toHaveCount(1);
+
+  const targetTop = await articleHeading.evaluate(
+    (element) => element.getBoundingClientRect().top,
+  );
   expect(targetTop).toBeGreaterThan(0);
   expect(targetTop).toBeLessThan(80);
 });

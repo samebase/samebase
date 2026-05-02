@@ -35,19 +35,24 @@ function shouldUseNativeLinkClick(event: ReactMouseEvent<HTMLAnchorElement>) {
   );
 }
 
-function replaceLandingPreviewPaneSearch(mobilePane: MobileSidebarPane) {
+function buildLandingPreviewPaneHashPath({
+  hash,
+  mobilePane,
+}: {
+  hash: string;
+  mobilePane: MobileSidebarPane | null;
+}) {
   const searchParams = new URLSearchParams(window.location.search);
-  setQueryParam(searchParams, "left", mobilePane === "left");
-  setQueryParam(searchParams, "right", mobilePane === "right");
+  if (mobilePane !== null) {
+    setQueryParam(searchParams, "left", mobilePane === "left");
+    setQueryParam(searchParams, "right", mobilePane === "right");
+  }
 
-  window.history.replaceState(
-    window.history.state,
-    "",
-    buildPathWithQuery({
-      pathname: window.location.pathname,
-      search: searchParams,
-    }),
-  );
+  return buildPathWithQuery({
+    hash,
+    pathname: window.location.pathname,
+    search: searchParams,
+  });
 }
 
 function getLandingPreviewDefaultMobilePane(): MobileSidebarPane {
@@ -74,6 +79,12 @@ function getLandingPreviewArticleHeading(headingId: string) {
     article?.querySelector<HTMLElement>(
       `[data-landing-heading-id="${CSS.escape(headingId)}"]`,
     ) ?? null
+  );
+}
+
+function getLandingPreviewMobileCarousel() {
+  return document.querySelector<HTMLElement>(
+    '[data-workspace-layout-v2="mobile"] [data-testid="workspace-layout-v2-pane-main"]',
   );
 }
 
@@ -124,7 +135,9 @@ function LandingMarkdownPreviewSidebar() {
           key={heading.id}
           className={landingPreviewSidebarLinkClassNames[heading.level]}
           href={heading.href}
-          id={isMobile && mobilePane === "left" ? heading.id : undefined}
+          // Mobile hash updates should resolve in the sidebar so the carousel
+          // does not reveal the article pane while the user is using the TOC.
+          id={isMobile ? heading.id : undefined}
           onClick={(event) => {
             if (shouldUseNativeLinkClick(event)) {
               return;
@@ -135,8 +148,21 @@ function LandingMarkdownPreviewSidebar() {
               return;
             }
 
-            if (isMobile) {
-              replaceLandingPreviewPaneSearch(mobilePane);
+            event.preventDefault();
+            const mobileCarousel = isMobile
+              ? getLandingPreviewMobileCarousel()
+              : null;
+            const mobileCarouselScrollLeft = mobileCarousel?.scrollLeft ?? 0;
+            window.history.pushState(
+              window.history.state,
+              "",
+              buildLandingPreviewPaneHashPath({
+                hash: heading.href,
+                mobilePane: isMobile ? mobilePane : null,
+              }),
+            );
+            if (mobileCarousel !== null) {
+              mobileCarousel.scrollLeft = mobileCarouselScrollLeft;
             }
             scrollHeadingWithinCurrentPane(target);
           }}
@@ -149,13 +175,10 @@ function LandingMarkdownPreviewSidebar() {
 }
 
 function LandingMarkdownPreviewDocument() {
-  const { isMobile, mobilePane } = useSidebar();
-
   return (
     <MarkdownLandingDocument
       className="min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]"
       dataTestId={LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID}
-      headingAnchorsEnabled={!(isMobile && mobilePane === "left")}
       markdown={landingPreviewMarkdown}
     />
   );
