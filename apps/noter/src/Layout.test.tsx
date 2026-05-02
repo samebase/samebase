@@ -203,6 +203,7 @@ describe("Layout", () => {
       LANDING_DEV_MODE_DISABLE_LINK_LABEL,
     );
     const prodUiShortcutIndex = markup.indexOf(FORCE_PROD_UI_MODE_LINK_LABEL);
+    const resetShortcutIndex = markup.indexOf(SEARCH_RESET_LINK_LABEL);
     const lightShortcutIndex = markup.indexOf(ROOT_THEME_LIGHT_MODE_LINK_LABEL);
     const darkShortcutIndex = markup.indexOf(ROOT_THEME_DARK_MODE_LINK_LABEL);
     const logoLinkIndex = markup.indexOf("/logo");
@@ -212,8 +213,10 @@ describe("Layout", () => {
 
     expect(prodUiShortcutIndex).toBeGreaterThanOrEqual(0);
     expect(devShortcutIndex).toBeGreaterThanOrEqual(0);
+    expect(resetShortcutIndex).toBeGreaterThanOrEqual(0);
     expect(lightShortcutIndex).toBeGreaterThanOrEqual(0);
     expect(darkShortcutIndex).toBeGreaterThanOrEqual(0);
+    expect(resetShortcutIndex).toBeLessThan(lightShortcutIndex);
     expect(lightShortcutIndex).toBeLessThan(darkShortcutIndex);
     expect(darkShortcutIndex).toBeLessThan(prodUiShortcutIndex);
     expect(prodUiShortcutIndex).toBeLessThan(devShortcutIndex);
@@ -524,6 +527,21 @@ describe("Layout", () => {
     expect(markup).toContain(`id="public-landing-search-reset"`);
     expect(markup).toContain(`>${SEARCH_RESET_LINK_LABEL}<`);
     expect(markup).toContain(`href="${encodeStaticHref(logoResetPath)}"`);
+  });
+
+  it("hides the reset shortcut when the current URL has no search params", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/logo#top"]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).not.toContain(`id="public-landing-search-reset"`);
+    expect(markup).not.toContain(`>${SEARCH_RESET_LINK_LABEL}<`);
   });
 
   it("hides the prod-ui shortcut from the prod-like surface", () => {

@@ -88,6 +88,7 @@ export function AppSidebarMetaSection({
     search: rootRouteSearch,
   });
   const themeMode = readRootThemeMode(rootRouteSearch);
+  const showSearchResetLink = location.searchStr.length > 0;
   const lightModeLabel =
     themeMode === "light"
       ? ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL
@@ -119,6 +120,18 @@ export function AppSidebarMetaSection({
       data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
       className={APP_SIDEBAR_META_SECTION_CLASS_NAMES[side]}
     >
+      {showSearchResetLink ? (
+        <Link
+          id="public-landing-search-reset"
+          to={location.pathname}
+          hash={location.hash}
+          search={() => ({
+            [SEARCH_RESET_QUERY_PARAM]: true as const,
+          })}
+        >
+          {SEARCH_RESET_LINK_LABEL}
+        </Link>
+      ) : null}
       <Link
         id="public-landing-theme-light-toggle"
         to={location.pathname}
@@ -140,16 +153,6 @@ export function AppSidebarMetaSection({
         })}
       >
         {darkModeLabel}
-      </Link>
-      <Link
-        id="public-landing-search-reset"
-        to={location.pathname}
-        hash={location.hash}
-        search={() => ({
-          [SEARCH_RESET_QUERY_PARAM]: true as const,
-        })}
-      >
-        {SEARCH_RESET_LINK_LABEL}
       </Link>
       {prodUiEnabled ? null : (
         <Link
