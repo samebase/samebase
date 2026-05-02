@@ -110,6 +110,9 @@ importers:
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@noter-md/dependent':
+        specifier: workspace:*
+        version: link:../../packages/dependent
       '@octokit/rest':
         specifier: ^22.0.0
         version: 22.0.1
@@ -337,6 +340,8 @@ importers:
       vite-plugin-solid:
         specifier: ^2.11.12
         version: 2.11.12(solid-js@1.9.12)(vite@8.0.8(@types/node@20.19.32)(esbuild@0.27.0)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))
+
+  packages/dependent: {}
 
   packages/onboarding-video-tools:
     dependencies:
