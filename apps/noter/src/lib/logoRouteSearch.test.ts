@@ -3,7 +3,7 @@ import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 } from "@/components/logoIsometricRenderer";
-import { DEFAULT_FACE_COLORS } from "@/components/logoTailwindColors";
+import { DEFAULT_APP_THEME_COLORS } from "@/components/logoTailwindColors";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
@@ -25,23 +25,23 @@ describe("logoRouteSearch", () => {
         freeView: "",
         isoSide: "52",
         isoStyle: "flat",
-        leftColor: "amber-500",
-        rightColor: "emerald-500",
+        base: "sky-500",
+        primary: "emerald-500",
         rot: "721",
-        topColor: "sky-500",
+        secondary: "amber-500",
         vox: DEFAULT_VOXEL_STATE,
       }),
     ).toEqual({
       axis: "screen-vertical",
+      base: "sky-500",
       dev: true,
       elev: 32.4,
       freeView: true,
       isoSide: 40,
       isoStyle: "flat",
-      leftColor: "amber-500",
-      rightColor: "emerald-500",
+      primary: "emerald-500",
       rot: 1,
-      topColor: "sky-500",
+      secondary: "amber-500",
       vox: DEFAULT_VOXEL_STATE,
     });
   });
@@ -50,11 +50,11 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
-        faceColors: DEFAULT_FACE_COLORS,
         isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         rotationAxisMode: "cube-y",
         rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        themeColors: DEFAULT_APP_THEME_COLORS,
         viewSnapEnabled: true,
         voxelState: DEFAULT_VOXEL_STATE,
       }),
@@ -63,16 +63,14 @@ describe("logoRouteSearch", () => {
 
   it("preserves the public dev flag across logo query-state sync", () => {
     expect(
-      preserveLogoRouteDevModeSearch({ leftColor: "red-600" }, { dev: true }),
+      preserveLogoRouteDevModeSearch({ primary: "red-600" }, { dev: true }),
     ).toEqual({
       dev: true,
-      leftColor: "red-600",
+      primary: "red-600",
     });
 
-    expect(
-      preserveLogoRouteDevModeSearch({ leftColor: "red-600" }, {}),
-    ).toEqual({
-      leftColor: "red-600",
+    expect(preserveLogoRouteDevModeSearch({ primary: "red-600" }, {})).toEqual({
+      primary: "red-600",
     });
   });
 
@@ -84,10 +82,10 @@ describe("logoRouteSearch", () => {
         freeView: "false",
         isoSide: Number.NaN,
         isoStyle: "wireframe",
-        leftColor: "   ",
-        rightColor: 4,
+        base: null,
+        primary: "not-a-color",
         rot: "not-a-number",
-        topColor: null,
+        secondary: 4,
         vox: "bad-voxel-state",
       }),
     ).toEqual({});

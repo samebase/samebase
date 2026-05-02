@@ -6,11 +6,12 @@ import {
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
 } from "@/components/logoIsometricRenderer";
+import { type AppThemeColors } from "@/components/logoTailwindColors";
 import {
-  DEFAULT_FACE_COLORS,
-  type FaceColorKey,
-  type FaceColors,
-} from "@/components/logoTailwindColors";
+  appThemeColorSearchFieldSchema,
+  buildAppThemeColorSearch,
+  readAppThemeColorSearch,
+} from "@/lib/appThemeColorSearch";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
@@ -110,38 +111,32 @@ function readCanonicalVoxelState(value: unknown): string | undefined {
     : serializeVoxelState(parsedVoxelState);
 }
 
-const logoRouteSearchFieldSchema = z.object({
-  axis: z.preprocess(
-    readOptionalRotationAxisMode,
-    z.enum(LOGO_ROTATION_AXIS_MODE_VALUES).optional(),
-  ),
-  [LANDING_DEV_MODE_QUERY_PARAM]: z.preprocess(
-    readOptionalFlag,
-    z.literal(true).optional(),
-  ),
-  elev: z.preprocess(readOptionalNumber, z.number().finite().optional()),
-  freeView: z.preprocess(readOptionalFlag, z.literal(true).optional()),
-  isoSide: z.preprocess(readOptionalNumber, z.number().finite().optional()),
-  isoStyle: z.preprocess(
-    readOptionalIsoStyleId,
-    z.enum(LOGO_ISOMETRIC_STYLE_VALUES).optional(),
-  ),
-  leftColor: z.preprocess(readOptionalString, z.string().optional()),
-  rightColor: z.preprocess(readOptionalString, z.string().optional()),
-  rot: z.preprocess(readOptionalNumber, z.number().finite().optional()),
-  topColor: z.preprocess(readOptionalString, z.string().optional()),
-  vox: z.preprocess(readCanonicalVoxelState, z.string().optional()),
-});
+const logoRouteSearchFieldSchema = z
+  .object({
+    axis: z.preprocess(
+      readOptionalRotationAxisMode,
+      z.enum(LOGO_ROTATION_AXIS_MODE_VALUES).optional(),
+    ),
+    [LANDING_DEV_MODE_QUERY_PARAM]: z.preprocess(
+      readOptionalFlag,
+      z.literal(true).optional(),
+    ),
+    elev: z.preprocess(readOptionalNumber, z.number().finite().optional()),
+    freeView: z.preprocess(readOptionalFlag, z.literal(true).optional()),
+    isoSide: z.preprocess(readOptionalNumber, z.number().finite().optional()),
+    isoStyle: z.preprocess(
+      readOptionalIsoStyleId,
+      z.enum(LOGO_ISOMETRIC_STYLE_VALUES).optional(),
+    ),
+    rot: z.preprocess(readOptionalNumber, z.number().finite().optional()),
+    vox: z.preprocess(readCanonicalVoxelState, z.string().optional()),
+  })
+  .merge(appThemeColorSearchFieldSchema);
 
 export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform(
   (search) => {
-    const faceColors = {
-      left: search.leftColor,
-      right: search.rightColor,
-      top: search.topColor,
-    } satisfies Record<FaceColorKey, string | undefined>;
-
     return {
+      ...readAppThemeColorSearch(search),
       ...(typeof search.axis === "string" ? { axis: search.axis } : {}),
       ...(search.dev === true ? { dev: true as const } : {}),
       ...(typeof search.elev === "number"
@@ -154,17 +149,8 @@ export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform(
       ...(typeof search.isoStyle === "string"
         ? { isoStyle: search.isoStyle }
         : {}),
-      ...(typeof faceColors.left === "string"
-        ? { leftColor: faceColors.left }
-        : {}),
-      ...(typeof faceColors.right === "string"
-        ? { rightColor: faceColors.right }
-        : {}),
       ...(typeof search.rot === "number"
         ? { rot: normalizeRotationDegrees(search.rot) }
-        : {}),
-      ...(typeof faceColors.top === "string"
-        ? { topColor: faceColors.top }
         : {}),
       ...(typeof search.vox === "string" ? { vox: search.vox } : {}),
     };
@@ -181,15 +167,16 @@ export function validateLogoRouteSearch(
 
 export function buildLogoRouteSearch(args: {
   elevationDegrees: number;
-  faceColors: FaceColors;
   isoCubeSidePixels: number;
   isoStyleId: LogoIsometricStyleId;
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
+  themeColors: AppThemeColors;
   viewSnapEnabled: boolean;
   voxelState: string;
 }): LogoRouteSearch {
   return {
+    ...buildAppThemeColorSearch(args.themeColors),
     ...(args.rotationAxisMode !== "cube-y"
       ? { axis: args.rotationAxisMode }
       : {}),
@@ -203,17 +190,8 @@ export function buildLogoRouteSearch(args: {
     ...(args.isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID
       ? { isoStyle: args.isoStyleId }
       : {}),
-    ...(args.faceColors.left !== DEFAULT_FACE_COLORS.left
-      ? { leftColor: args.faceColors.left }
-      : {}),
-    ...(args.faceColors.right !== DEFAULT_FACE_COLORS.right
-      ? { rightColor: args.faceColors.right }
-      : {}),
     ...(args.rotationDegrees !== DEFAULT_ROTATION_DEGREES
       ? { rot: Number(args.rotationDegrees.toFixed(1)) }
-      : {}),
-    ...(args.faceColors.top !== DEFAULT_FACE_COLORS.top
-      ? { topColor: args.faceColors.top }
       : {}),
     ...(args.voxelState !== DEFAULT_VOXEL_STATE
       ? { vox: args.voxelState }
