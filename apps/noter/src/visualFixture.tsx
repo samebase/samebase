@@ -240,7 +240,6 @@ const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
 const WORKSPACE_LAYOUT_V2_VISUAL_MODES = [
   "workspace-layout-v2-status-bar",
 ] as const satisfies readonly WorkspaceLayoutV2VisualMode[];
-
 const MISC_VISUAL_MODES = [
   "codex-app-server-research",
   "codex-thread-browser",

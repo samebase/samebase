@@ -106,7 +106,7 @@ export const MACHINES_PAGE_METADATA: PageMetadata = {
 
 export const LANDING_MARKDOWN_PREVIEW_PAGE_METADATA: PageMetadata = {
   title: "Landing Preview | noter",
-  description: "Private markdown landing preview for noter.",
+  description: "Markdown landing preview for noter.",
   canonicalPath: LANDING_MARKDOWN_PREVIEW_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",

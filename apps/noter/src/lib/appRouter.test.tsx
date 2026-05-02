@@ -534,7 +534,7 @@ describe("appRouter", () => {
     ).toBeNull();
   });
 
-  it("renders landing preview through an authenticated explicit route", async () => {
+  it("renders landing preview through an explicit route", async () => {
     await renderRoute("/landing-preview");
 
     expect(

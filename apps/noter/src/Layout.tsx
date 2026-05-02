@@ -7,33 +7,53 @@ import {
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
+import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
+import type { MobileSidebarPane } from "@/hooks/use-sidebar";
 
+const PUBLIC_LAYOUT_LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 240;
+const PUBLIC_LAYOUT_LEFT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const PUBLIC_LAYOUT_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 
-export function PublicLayoutShell({ children }: { children: ReactNode }) {
+export function PublicLayoutShell({
+  children,
+  defaultLeftOpen = false,
+  defaultMobilePane = "main",
+  left,
+}: {
+  children: ReactNode;
+  defaultLeftOpen?: boolean;
+  defaultMobilePane?: MobileSidebarPane;
+  left?: WorkspaceLayoutV2PaneFrameProps;
+}) {
   const publicRightSidebarPane = usePublicRightSidebarPane();
 
   return (
     <PublicLandingLogoLinkProvider>
       <SidebarProvider
         defaultLeftDesktopWidthPx={
-          WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX
+          left === undefined
+            ? WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX
+            : PUBLIC_LAYOUT_LEFT_SIDEBAR_DEFAULT_WIDTH_PX
         }
         defaultRightDesktopWidthPx={
           PUBLIC_LAYOUT_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX
         }
         defaultLeftMobileWidthPx={
-          WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX
+          left === undefined
+            ? WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX
+            : PUBLIC_LAYOUT_LEFT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX
         }
         defaultRightMobileWidthPx={
           PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX
         }
-        defaultOpen={false}
+        defaultMobilePane={defaultMobilePane}
+        defaultOpen={left !== undefined && defaultLeftOpen}
         defaultRightOpen={true}
         shortcutSidebarSide="right"
       >
         <WorkspaceLayoutV2FullPage
+          left={left}
           main={{
             content: (
               <div className="flex h-full min-h-0 flex-col">{children}</div>
