@@ -22,12 +22,28 @@ async function signInThroughLocalLanding(
   });
 
   const accountButton = page.getByRole("button", { name: /@/ }).first();
-  if (await accountButton.isVisible()) {
+  try {
+    await accountButton.waitFor({ state: "visible", timeout: 5_000 });
     return;
+  } catch {
+    // The account menu is absent before the local autofill flow completes.
   }
 
-  await page.getByRole("button", { name: "Autofill & sign in" }).click();
-  await expect(accountButton).toBeVisible({ timeout: 30_000 });
+  const autofillButton = page.getByRole("button", {
+    name: "Autofill & sign in",
+  });
+  await autofillButton.waitFor({ state: "visible", timeout: 5_000 });
+  await autofillButton.click();
+
+  const vaultsLabel = page.getByText("Your Vaults", { exact: true }).first();
+  const emptyStateHeading = page.getByRole("heading", {
+    name: "Create your first project",
+  });
+  await Promise.any([
+    accountButton.waitFor({ state: "visible", timeout: 30_000 }),
+    vaultsLabel.waitFor({ state: "visible", timeout: 30_000 }),
+    emptyStateHeading.waitFor({ state: "visible", timeout: 30_000 }),
+  ]);
 }
 
 test("landing markdown preview route renders markdown in workspace chrome", async ({

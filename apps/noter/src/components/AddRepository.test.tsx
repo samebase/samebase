@@ -59,6 +59,7 @@ function renderAddRepositoryContent(
   overrides: Partial<AddRepositoryPageContentProps>,
 ) {
   const props: AddRepositoryPageContentProps = {
+    connectingRepositoryFullName: null,
     emptyRepositoryMessage: null,
     error: null,
     githubConnected: true,
@@ -129,6 +130,19 @@ describe("AddRepositoryPageContent", () => {
     expect(markup).toContain("starter-kit");
   });
 
+  it("renders an in-button pending state for the connecting repository", () => {
+    const repository = buildRepository(1, "noter-md/noter");
+
+    const markup = renderAddRepositoryContent({
+      connectingRepositoryFullName: repository.full_name,
+      repositoryRows: [buildRepositoryRow(repository, "")],
+      repositoryTotalCount: 1,
+    });
+
+    expect(markup).toContain("Connecting...");
+    expect(markup).toContain("disabled");
+  });
+
   it("renders the search-empty background failure message", () => {
     const markup = renderAddRepositoryContent({
       emptyRepositoryMessage:
@@ -145,7 +159,7 @@ describe("AddRepositoryPageContent", () => {
     );
   });
 
-  it("keeps the loading and empty states in the production content", () => {
+  it("keeps the loading state and stays silent for default empty content", () => {
     const loadingMarkup = renderAddRepositoryContent({
       githubConnected: true,
       loading: true,
@@ -159,6 +173,6 @@ describe("AddRepositoryPageContent", () => {
     });
 
     expect(loadingMarkup).toContain("Loading repositories...");
-    expect(emptyMarkup).toContain("No repositories found");
+    expect(emptyMarkup).not.toContain("No repositories found");
   });
 });

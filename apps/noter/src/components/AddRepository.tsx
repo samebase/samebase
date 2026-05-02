@@ -34,6 +34,7 @@ type AddRepositoryRow = {
 };
 
 type AddRepositoryPageContentProps = {
+  connectingRepositoryFullName: string | null;
   emptyRepositoryMessage: string | null;
   error: string | null;
   githubConnected: boolean;
@@ -126,6 +127,8 @@ export function AddRepository() {
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const githubConnected = githubConnection?.connected === true;
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [connectingRepositoryFullName, setConnectingRepositoryFullName] =
+    useState<string | null>(null);
 
   const {
     data: repositoryPreview,
@@ -249,18 +252,31 @@ export function AddRepository() {
   };
 
   const connectSelectedRepository = (repositoryFullName: string) => {
-    void connectRepository({ repositoryFullName })
-      .then((val) => {
-        console.log(val);
-        void navigate({ to: "/" });
-      })
-      .catch((err) => {
-        console.error(err);
-      });
+    if (connectingRepositoryFullName !== null) {
+      return;
+    }
+
+    void (async () => {
+      setConnectError(null);
+      setConnectingRepositoryFullName(repositoryFullName);
+      try {
+        await connectRepository({ repositoryFullName });
+        await navigate({ to: "/" });
+      } catch (connectRepositoryError) {
+        setConnectError(
+          connectRepositoryError instanceof Error
+            ? connectRepositoryError.message
+            : "Failed to connect repository",
+        );
+      } finally {
+        setConnectingRepositoryFullName(null);
+      }
+    })();
   };
 
   return (
     <AddRepositoryPageContent
+      connectingRepositoryFullName={connectingRepositoryFullName}
       emptyRepositoryMessage={emptyRepositoryMessage}
       error={error}
       githubConnected={githubConnected}
@@ -281,6 +297,7 @@ export function AddRepository() {
 }
 
 export function AddRepositoryPageContent({
+  connectingRepositoryFullName,
   emptyRepositoryMessage,
   error,
   githubConnected,
@@ -472,8 +489,11 @@ export function AddRepositoryPageContent({
                         size="sm"
                         className="mt-2"
                         onClick={() => onConnectRepository(repo.full_name)}
+                        disabled={connectingRepositoryFullName !== null}
                       >
-                        Connect
+                        {connectingRepositoryFullName === repo.full_name
+                          ? "Connecting..."
+                          : "Connect"}
                       </Button>
                     </div>
                   </div>
@@ -493,15 +513,6 @@ export function AddRepositoryPageContent({
               <div className="text-muted-foreground">
                 {emptyRepositoryMessage}
               </div>
-            </div>
-          )}
-
-        {repositoryTotalCount === 0 &&
-          !loading &&
-          !error &&
-          githubConnected && (
-            <div className="text-center py-8">
-              <div className="text-muted-foreground">No repositories found</div>
             </div>
           )}
       </div>
