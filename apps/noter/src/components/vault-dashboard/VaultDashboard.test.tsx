@@ -10,10 +10,14 @@ describe("VaultBranchLinkContent", () => {
       <TestRouterProvider>
         <VaultBranchLinkContent
           repositoryFullName="noter-md/noter"
-          branchName="codex/dashboard branch-link"
-          headCommitSha="5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123"
-          isDefault={false}
-          isDeletedUpstream={false}
+          branch={{
+            name: "codex/dashboard branch-link",
+            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
+            isDefault: false,
+            isProtected: false,
+            lastSyncedAt: 0,
+            remoteState: "active",
+          }}
         />
       </TestRouterProvider>,
     );

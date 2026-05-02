@@ -4,19 +4,8 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/input";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
-import {
-  ChevronDownIcon,
-  GitHubLogoIcon,
-  TrashIcon,
-  UpdateIcon,
-} from "@/lib/radixIcons";
-import {
-  GitBranch,
-  GitCommitHorizontal,
-  GitPullRequestCreateArrow,
-  GitPullRequestDraft,
-  Loader2,
-} from "lucide-react";
+import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
+import { GitBranch, GitCommitHorizontal, Loader2 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { AnchoredPopoverContent, Popover } from "@/components/popover";
 import { Sheet, SheetContent, SheetTitle } from "@/components/sheet";
@@ -29,13 +18,9 @@ import {
 } from "@/lib/formatRelativeTime";
 import {
   hasCurrentCloudflareBuildFailureLogs,
-  getCloudflareBranchPreviewHydrationTargets,
   hasCurrentCloudflareBranchPreview,
 } from "@/lib/cloudflarePreviewLinks";
-import {
-  getTreeRefreshUiState,
-  shouldAutoRefreshVault,
-} from "@/lib/treeRefreshStatus";
+import { getTreeRefreshUiState } from "@/lib/treeRefreshStatus";
 import {
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
   CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
@@ -51,12 +36,11 @@ import {
   useQuery as useConvexQuery,
 } from "convex/react";
 import {
-  useCallback,
   useEffect,
   useRef,
   useState,
-  type ComponentType,
   type MutableRefObject,
+  type ReactElement,
   type ReactNode,
 } from "react";
 import { isInIframe, useNoterAuthActions } from "@/authClient";
@@ -105,9 +89,7 @@ import {
   buildPullRequestLabelStyle,
   normalizePullRequestLabels,
 } from "@/lib/pullRequestLabels";
-import { LOGO_IDENTITY_EDIT_MARK_SVG_URL } from "@/components/logoStaticSvgContract";
 import {
-  areVaultBranchFiltersEqual,
   buildVaultBranchFilterOptions,
   filterVaultRemoteBranches,
   getDefaultVaultBranchFilters,
@@ -123,6 +105,18 @@ import { CHAT_ENABLED } from "@/lib/featureFlags";
 import type { DaytonaSnapshotStatus } from "@/lib/daytonaSnapshot";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import { useUsesTouchSheet } from "@/hooks/useUsesTouchSheet";
+import {
+  CloudflareProviderLogo,
+  ConvexProviderLogo,
+  GitHubProviderLogo,
+  NoterLogoMark,
+  PullRequestStateLogo,
+} from "@/components/vault-dashboard/VaultDashboardLogos";
+import {
+  useDashboardRepositoryTreeRefresh,
+  type DashboardManualRefreshVault,
+  type VaultDashboardVault,
+} from "@/components/vault-dashboard/VaultDashboardRepositoryRefresh";
 
 const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
   leftDesktopOpen: false,
@@ -202,8 +196,6 @@ const hasDaytonaResourcesForVault = (
     vault?.daytonaCurrentSnapshotName,
   );
 
-const DASHBOARD_REFRESH_CONCURRENCY = 3;
-type RefreshTrigger = "visibility" | "page_load";
 const PROVIDER_KEYS = ["github", "convex", "cloudflare"] as const;
 type ProviderKey = (typeof PROVIDER_KEYS)[number];
 type ProviderMetadata = {
@@ -211,7 +203,7 @@ type ProviderMetadata = {
   oauthButtonLabel: string;
   popupName: string;
   completionEventType: string;
-  icon: ComponentType<{ className?: string }>;
+  icon: ReactElement;
   apiKeyProvider: ApiKeyProvider | null;
 };
 type ProviderRuntimeConfig = {
@@ -220,26 +212,7 @@ type ProviderRuntimeConfig = {
   popupRef: MutableRefObject<Window | null>;
   popupOriginRef: MutableRefObject<string | null>;
 };
-type DashboardManualRefreshVault = {
-  ghRepoName: string;
-  ghRepoOwner: string;
-  remoteBranches: Array<{
-    name: string;
-    remoteState: "active" | "deleted_upstream";
-    cloudflareBranchPreviewUrl?: string;
-    cloudflarePreviewPullRequestNumber?: number;
-    cloudflarePreviewLogsUrl?: string;
-    cloudflarePreviewStatus?: string;
-    pullRequestNumber?: number;
-  }>;
-  repositoryFullName: string;
-  state: string;
-  treeRefreshCooldownUntil?: number;
-};
-
-type VaultDashboardVault = NonNullable<
-  (typeof api.vault.getUserVaults)["_returnType"]
->[number];
+type VaultDashboardLogoComponent = () => ReactNode;
 
 type VaultDeleteIntent = {
   id: Id<"vaults">;
@@ -249,7 +222,6 @@ type VaultDeleteIntent = {
   hasHostingProvision: boolean;
 };
 
-const NOTER_LOGO_ICON_SRC = LOGO_IDENTITY_EDIT_MARK_SVG_URL;
 const dashboardLinkIconSlotClassName =
   "inline-flex h-4 w-5 shrink-0 items-center justify-center";
 
@@ -265,88 +237,6 @@ const DashboardLinkIconSlot = ({
     className={clsx(dashboardLinkIconSlotClassName, className)}
   >
     {children}
-  </span>
-);
-
-const GitHubProviderLogo = ({ className }: { className?: string }) => (
-  <GitHubLogoIcon className={clsx("h-4 w-4", className)} />
-);
-
-const NoterLogoMark = ({ className }: { className?: string }) => (
-  <span className={clsx("inline-flex items-center justify-center", className)}>
-    <img
-      src={NOTER_LOGO_ICON_SRC}
-      alt=""
-      aria-hidden="true"
-      className="h-4 w-4"
-      draggable={false}
-    />
-  </span>
-);
-
-const PullRequestStateLogo = ({
-  className,
-  isDraft,
-}: {
-  className?: string;
-  isDraft: boolean;
-}) => {
-  const Icon = isDraft ? GitPullRequestDraft : GitPullRequestCreateArrow;
-
-  return (
-    <Icon
-      aria-hidden="true"
-      className={clsx("h-4 w-4", className)}
-      strokeWidth={2}
-    />
-  );
-};
-
-const ConvexProviderLogo = ({ className }: { className?: string }) => (
-  <span className={clsx("inline-flex items-center justify-center", className)}>
-    <svg
-      aria-hidden="true"
-      viewBox="47 43 54 60"
-      className="h-4 w-4"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M82.2808 87.6516C89.652 86.8381 96.6012 82.9352 100.427 76.421C98.6156 92.533 80.8853 102.717 66.413 96.4643C65.0795 95.8897 63.9316 94.9339 63.1438 93.705C59.8915 88.6302 58.8224 82.1729 60.3585 76.3129C64.7475 83.8398 73.6717 88.4538 82.2808 87.6516Z"
-        fill="#F3B01C"
-      />
-      <path
-        d="M60.0895 71.5852C57.1016 78.4465 56.9722 86.4797 60.6353 93.0906C47.7442 83.453 47.8848 62.8294 60.4778 53.2885C61.6425 52.4067 63.0267 51.8833 64.4785 51.8036C70.4486 51.4907 76.5144 53.7835 80.7683 58.0561C72.1254 58.1415 63.7076 63.643 60.0895 71.5852Z"
-        fill="#8D2676"
-      />
-      <path
-        d="M84.9366 60.1673C80.5757 54.1253 73.7503 50.0119 66.2722 49.8868C80.7277 43.3669 98.5086 53.9375 100.444 69.5659C100.624 71.0167 100.388 72.4959 99.7409 73.8044C97.04 79.2547 92.032 83.4819 86.1801 85.0464C90.4678 77.144 89.9388 67.4893 84.9366 60.1673Z"
-        fill="#EE342F"
-      />
-    </svg>
-  </span>
-);
-
-const CloudflareProviderLogo = ({ className }: { className?: string }) => (
-  <span className={clsx("inline-flex items-center justify-center", className)}>
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 64 32"
-      className="h-2.5 w-5"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        fill="#FAAE40"
-        d="M14.2 25.3a4.8 4.8 0 0 1 4.8-4.8c.4 0 .8 0 1.2.1a7.4 7.4 0 0 1 7.1-5.4c3 0 5.8 1.8 7 4.5.4-.1.9-.2 1.4-.2 2.2 0 4.1 1.6 4.5 3.8H14.2Z"
-      />
-      <path
-        fill="#F38020"
-        d="M9.2 25.3a7 7 0 0 1 7-7c.6 0 1.3.1 1.9.2A11.6 11.6 0 0 1 29.2 9c5.2 0 9.8 3.2 11.7 8a7.5 7.5 0 0 1 1.3-.1c3.8 0 7 2.9 7.4 6.6l.1 1.8H9.2v-.1Z"
-      />
-      <path
-        fill="#F38020"
-        d="M43.5 22.7a5.3 5.3 0 0 1 5.2-4.6c2.8 0 5.1 2.1 5.4 4.8l.2 2.4h-10l-.8-2.6Z"
-      />
-    </svg>
   </span>
 );
 
@@ -474,7 +364,7 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
     oauthButtonLabel: "GitHub OAuth",
     popupName: "github-oauth",
     completionEventType: "github-oauth-complete",
-    icon: GitHubProviderLogo,
+    icon: <GitHubProviderLogo />,
     apiKeyProvider: "github",
   },
   convex: {
@@ -482,7 +372,7 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
     oauthButtonLabel: "Convex OAuth",
     popupName: "convex-oauth",
     completionEventType: "convex-oauth-complete",
-    icon: ConvexProviderLogo,
+    icon: <ConvexProviderLogo />,
     apiKeyProvider: "convex",
   },
   cloudflare: {
@@ -490,10 +380,218 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
     oauthButtonLabel: "Cloudflare MCP OAuth",
     popupName: "cloudflare-mcp-oauth",
     completionEventType: "cloudflare-mcp-oauth-complete",
-    icon: CloudflareProviderLogo,
+    icon: <CloudflareProviderLogo />,
     apiKeyProvider: null,
   },
 };
+
+/**
+ * Bridges provider OAuth popup callbacks back into the dashboard shell. Remove
+ * this hook by replacing popup OAuth with redirect flow, or by routing callback
+ * completion through provider connection invalidation instead of window
+ * messages.
+ */
+function useProviderOAuthPopupCompletionReload({
+  cloudflarePopupOriginRef,
+  cloudflarePopupRef,
+  convexPopupOriginRef,
+  convexPopupRef,
+  githubPopupOriginRef,
+  githubPopupRef,
+}: {
+  cloudflarePopupOriginRef: MutableRefObject<string | null>;
+  cloudflarePopupRef: MutableRefObject<Window | null>;
+  convexPopupOriginRef: MutableRefObject<string | null>;
+  convexPopupRef: MutableRefObject<Window | null>;
+  githubPopupOriginRef: MutableRefObject<string | null>;
+  githubPopupRef: MutableRefObject<Window | null>;
+}) {
+  useEffect(() => {
+    const expectedOrigin = window.location.origin;
+    const providerPopupConfig: Record<
+      ProviderKey,
+      {
+        completionEventType: string;
+        popupRef: MutableRefObject<Window | null>;
+        popupOriginRef: MutableRefObject<string | null>;
+      }
+    > = {
+      github: {
+        completionEventType: PROVIDER_METADATA.github.completionEventType,
+        popupRef: githubPopupRef,
+        popupOriginRef: githubPopupOriginRef,
+      },
+      convex: {
+        completionEventType: PROVIDER_METADATA.convex.completionEventType,
+        popupRef: convexPopupRef,
+        popupOriginRef: convexPopupOriginRef,
+      },
+      cloudflare: {
+        completionEventType: PROVIDER_METADATA.cloudflare.completionEventType,
+        popupRef: cloudflarePopupRef,
+        popupOriginRef: cloudflarePopupOriginRef,
+      },
+    };
+    const handler = (event: MessageEvent) => {
+      if (!isRecord(event.data) || typeof event.data.type !== "string") {
+        return;
+      }
+
+      for (const provider of PROVIDER_KEYS) {
+        const popupConfig = providerPopupConfig[provider];
+        if (event.data.type !== popupConfig.completionEventType) {
+          continue;
+        }
+        if (event.source !== popupConfig.popupRef.current) {
+          return;
+        }
+        if (
+          event.origin !==
+          (popupConfig.popupOriginRef.current ?? expectedOrigin)
+        ) {
+          return;
+        }
+        window.location.reload();
+        return;
+      }
+    };
+
+    window.addEventListener("message", handler);
+    return () => {
+      window.removeEventListener("message", handler);
+    };
+  }, [
+    cloudflarePopupOriginRef,
+    cloudflarePopupRef,
+    convexPopupOriginRef,
+    convexPopupRef,
+    githubPopupOriginRef,
+    githubPopupRef,
+  ]);
+}
+
+type DashboardCloudflareConnection =
+  (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
+type CloudflareTokenAutoCheckTrigger =
+  | "focus"
+  | "visibility"
+  | "page_load"
+  | "poll";
+
+/**
+ * Keeps Cloudflare MCP token health fresh while the dashboard is active. Remove
+ * this hook by making token refresh a server-owned scheduler or connection
+ * maintenance job and subscribing only to the resulting status.
+ */
+function useCloudflareMcpTokenAutoCheck({
+  cloudflareConnection,
+  refreshCloudflareMcpTokenIfNeeded,
+  setCloudflarePollingPaused,
+  setIsAutoCheckingCloudflareToken,
+  userId,
+}: {
+  cloudflareConnection: DashboardCloudflareConnection | undefined;
+  refreshCloudflareMcpTokenIfNeeded: (args: {
+    force: false;
+    trigger: CloudflareTokenAutoCheckTrigger;
+  }) => Promise<unknown>;
+  setCloudflarePollingPaused: (isPaused: boolean) => void;
+  setIsAutoCheckingCloudflareToken: (isChecking: boolean) => void;
+  userId: Id<"users"> | undefined;
+}) {
+  const cloudflareAutoCheckInFlightRef = useRef(false);
+
+  useEffect(() => {
+    const isCloudflareMcpConnected =
+      cloudflareConnection?.connected === true &&
+      cloudflareConnection.authMethod === "mcp_oauth";
+    if (!isCloudflareMcpConnected) {
+      setCloudflarePollingPaused(false);
+      return;
+    }
+
+    const debounceKey = userId ?? "cloudflare-dashboard";
+    const runAutoCheck = (trigger: CloudflareTokenAutoCheckTrigger) => {
+      if (cloudflareAutoCheckInFlightRef.current) {
+        return;
+      }
+      if (
+        !claimRefreshDebounce(
+          "cloudflare_token",
+          debounceKey,
+          CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
+        )
+      ) {
+        return;
+      }
+
+      cloudflareAutoCheckInFlightRef.current = true;
+      setIsAutoCheckingCloudflareToken(true);
+      void refreshCloudflareMcpTokenIfNeeded({ trigger, force: false })
+        .catch((error: unknown) => {
+          console.error("Failed to auto-check Cloudflare token:", error);
+        })
+        .finally(() => {
+          releaseRefreshDebounce("cloudflare_token", debounceKey);
+          cloudflareAutoCheckInFlightRef.current = false;
+          setIsAutoCheckingCloudflareToken(false);
+        });
+    };
+
+    const handleFocus = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      setCloudflarePollingPaused(false);
+      runAutoCheck("focus");
+    };
+
+    const handleVisibilityChange = () => {
+      const isVisible = document.visibilityState === "visible";
+      setCloudflarePollingPaused(!isVisible);
+      if (isVisible) {
+        runAutoCheck("visibility");
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    const isVisible = document.visibilityState === "visible";
+    setCloudflarePollingPaused(!isVisible);
+    if (isVisible) {
+      runAutoCheck("page_load");
+    }
+
+    const pollId = window.setInterval(() => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      if (
+        typeof cloudflareConnection.mcpTokenNextAutoCheckAt === "number" &&
+        Date.now() < cloudflareConnection.mcpTokenNextAutoCheckAt
+      ) {
+        return;
+      }
+      runAutoCheck("poll");
+    }, CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.clearInterval(pollId);
+      cloudflareAutoCheckInFlightRef.current = false;
+    };
+  }, [
+    cloudflareConnection?.authMethod,
+    cloudflareConnection?.connected,
+    cloudflareConnection?.mcpTokenNextAutoCheckAt,
+    refreshCloudflareMcpTokenIfNeeded,
+    setCloudflarePollingPaused,
+    setIsAutoCheckingCloudflareToken,
+    userId,
+  ]);
+}
 
 interface StagedSummary {
   modified: number;
@@ -528,22 +626,7 @@ interface VaultRemoteBranchListItem {
 interface VaultBranchLinkRowProps {
   vaultId?: Id<"vaults">;
   repositoryFullName: string;
-  branchName: string;
-  headCommitSha: string;
-  isDefault: boolean;
-  isDeletedUpstream: boolean;
-  aheadBy?: number;
-  behindBy?: number;
-  pullRequestUrl?: string;
-  pullRequestNumber?: number;
-  pullRequestLabels?: Array<string | { name: string; color?: string }>;
-  pullRequestTitle?: string;
-  pullRequestIsDraft?: boolean;
-  cloudflareBranchPreviewUrl?: string;
-  cloudflarePreviewPullRequestNumber?: number;
-  cloudflarePreviewLogsUrl?: string;
-  cloudflarePreviewStatus?: string;
-  convexPreviewDeploymentDashboardUrl?: string;
+  branch: VaultRemoteBranchListItem;
   productionDeploymentDashboardUrl?: string;
   stagedSummary?: StagedSummary;
 }
@@ -567,7 +650,7 @@ type VaultDashboardRepositoryExternalLink = {
 
 const REPOSITORY_EXTERNAL_LINK_ICONS: Record<
   VaultDashboardRepositoryExternalLink["key"],
-  ComponentType<{ className?: string }>
+  VaultDashboardLogoComponent
 > = {
   cloudflare: CloudflareProviderLogo,
   convexProjectSettings: ConvexProviderLogo,
@@ -678,58 +761,34 @@ export function VaultDashboardRepositoryExternalLinks({
 
 export function VaultBranchLinkContent({
   repositoryFullName,
-  branchName,
-  headCommitSha,
-  isDefault,
-  isDeletedUpstream,
-  aheadBy,
-  behindBy,
-  pullRequestUrl,
-  pullRequestNumber,
-  pullRequestLabels,
-  pullRequestTitle,
-  pullRequestIsDraft,
-  cloudflareBranchPreviewUrl,
-  cloudflarePreviewPullRequestNumber,
-  cloudflarePreviewLogsUrl,
-  cloudflarePreviewStatus,
-  convexPreviewDeploymentDashboardUrl,
+  branch,
   productionDeploymentDashboardUrl,
 }: {
   repositoryFullName: string;
-  branchName: string;
-  headCommitSha: string;
-  isDefault: boolean;
-  isDeletedUpstream: boolean;
-  aheadBy?: number;
-  behindBy?: number;
-  pullRequestUrl?: string;
-  pullRequestNumber?: number;
-  pullRequestLabels?: VaultBranchLinkRowProps["pullRequestLabels"];
-  pullRequestTitle?: string;
-  pullRequestIsDraft?: boolean;
-  cloudflareBranchPreviewUrl?: string;
-  cloudflarePreviewPullRequestNumber?: number;
-  cloudflarePreviewLogsUrl?: string;
-  cloudflarePreviewStatus?: string;
-  convexPreviewDeploymentDashboardUrl?: string;
+  branch: VaultRemoteBranchListItem;
   productionDeploymentDashboardUrl?: string;
 }) {
-  const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
+  const commitUrl = `https://github.com/${repositoryFullName}/commit/${branch.headCommitSha}`;
   const branchGithubUrl = buildGitHubBranchTreeUrl({
     repositoryFullName,
-    branchName,
+    branchName: branch.name,
   });
-  const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
+  const aheadBehindLabel = formatAheadBehindCounts(
+    branch.aheadBy,
+    branch.behindBy,
+  );
   const hasPullRequestTitle =
-    typeof pullRequestTitle === "string" && pullRequestTitle.length > 0;
-  const normalizedPullRequestLabels =
-    normalizePullRequestLabels(pullRequestLabels);
+    typeof branch.pullRequestTitle === "string" &&
+    branch.pullRequestTitle.length > 0;
+  const normalizedPullRequestLabels = normalizePullRequestLabels(
+    branch.pullRequestLabels,
+  );
   const hasPullRequestLink =
-    typeof pullRequestUrl === "string" && pullRequestUrl.length > 0;
+    typeof branch.pullRequestUrl === "string" &&
+    branch.pullRequestUrl.length > 0;
   const pullRequestLabel =
-    typeof pullRequestNumber === "number"
-      ? `PR #${pullRequestNumber}`
+    typeof branch.pullRequestNumber === "number"
+      ? `PR #${branch.pullRequestNumber}`
       : "Pull request";
   const hasConsolidatedPullRequestLink =
     hasPullRequestTitle && hasPullRequestLink;
@@ -737,7 +796,7 @@ export function VaultBranchLinkContent({
     hasPullRequestLink && !hasConsolidatedPullRequestLink;
   const hasPullRequestMetadata =
     hasStandalonePullRequestLink ||
-    pullRequestIsDraft === true ||
+    branch.pullRequestIsDraft === true ||
     normalizedPullRequestLabels.length > 0;
   const metadataLinkClassName = clsx(
     "-mx-2 -my-1 inline-flex min-h-9 items-center rounded-sm px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
@@ -749,38 +808,40 @@ export function VaultBranchLinkContent({
     hasPullRequestTitle
       ? "font-mono text-muted-foreground"
       : "text-muted-foreground",
-    !hasPullRequestTitle && isDefault && "font-medium text-foreground",
+    !hasPullRequestTitle && branch.isDefault && "font-medium text-foreground",
   );
   const branchEditRoute = buildVaultDashboardBranchEditRoute({
     repositoryFullName,
-    branchName,
+    branchName: branch.name,
   });
   const hasCurrentPreviewLink = hasCurrentCloudflareBranchPreview({
-    pullRequestNumber,
-    cloudflareBranchPreviewUrl,
-    cloudflarePreviewPullRequestNumber,
+    pullRequestNumber: branch.pullRequestNumber,
+    cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
+    cloudflarePreviewPullRequestNumber:
+      branch.cloudflarePreviewPullRequestNumber,
   });
   const hasBuildFailureLogsLink = hasCurrentCloudflareBuildFailureLogs({
-    pullRequestNumber,
-    cloudflarePreviewLogsUrl,
-    cloudflarePreviewPullRequestNumber,
-    cloudflarePreviewStatus,
+    pullRequestNumber: branch.pullRequestNumber,
+    cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
+    cloudflarePreviewPullRequestNumber:
+      branch.cloudflarePreviewPullRequestNumber,
+    cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
   });
   const hasProductionDeploymentLink =
-    isDefault && typeof productionDeploymentDashboardUrl === "string";
+    branch.isDefault && typeof productionDeploymentDashboardUrl === "string";
   const hasPreviewDeploymentLink =
-    !isDefault &&
+    !branch.isDefault &&
     hasCurrentPreviewLink &&
-    typeof convexPreviewDeploymentDashboardUrl === "string";
+    typeof branch.convexPreviewDeploymentDashboardUrl === "string";
 
   return (
     <>
-      {isDeletedUpstream ? (
+      {branch.remoteState === "deleted_upstream" ? (
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className="min-w-0 flex-1 break-words text-base leading-6 text-muted-foreground/70 line-through">
-            {branchName}
+            {branch.name}
           </span>
-          <span className="shrink-0 corner-notch-1 border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground/80">
+          <span className="shrink-0 corner-notch-1 border border-border/60 px-1.5 py-0.5 text-xs uppercase tracking-wide text-muted-foreground/80">
             deleted upstream
           </span>
         </div>
@@ -789,7 +850,7 @@ export function VaultBranchLinkContent({
           {hasPullRequestTitle ? (
             hasPullRequestLink ? (
               <a
-                href={pullRequestUrl}
+                href={branch.pullRequestUrl}
                 target="_blank"
                 rel="noreferrer noopener"
                 className={clsx(
@@ -799,19 +860,23 @@ export function VaultBranchLinkContent({
                 title="Open pull request"
               >
                 <DashboardLinkIconSlot className="mt-1">
-                  <PullRequestStateLogo isDraft={pullRequestIsDraft === true} />
+                  <PullRequestStateLogo
+                    isDraft={branch.pullRequestIsDraft === true}
+                  />
                 </DashboardLinkIconSlot>
                 <span className="min-w-0 break-words">
-                  {pullRequestLabel} {pullRequestTitle}
+                  {pullRequestLabel} {branch.pullRequestTitle}
                 </span>
               </a>
             ) : (
               <div className="flex min-h-9 max-w-full items-start gap-1.5 text-base font-medium leading-6 text-foreground">
                 <DashboardLinkIconSlot className="mt-1">
-                  <PullRequestStateLogo isDraft={pullRequestIsDraft === true} />
+                  <PullRequestStateLogo
+                    isDraft={branch.pullRequestIsDraft === true}
+                  />
                 </DashboardLinkIconSlot>
                 <span className="min-w-0 break-words">
-                  {pullRequestLabel} {pullRequestTitle}
+                  {pullRequestLabel} {branch.pullRequestTitle}
                 </span>
               </div>
             )
@@ -826,7 +891,7 @@ export function VaultBranchLinkContent({
               linkStyle,
             )}
             title="Open branch on GitHub"
-            aria-label={`Open ${branchName} branch on GitHub`}
+            aria-label={`Open ${branch.name} branch on GitHub`}
           >
             <DashboardLinkIconSlot className="mt-1">
               <GitBranch
@@ -835,7 +900,7 @@ export function VaultBranchLinkContent({
                 strokeWidth={1.75}
               />
             </DashboardLinkIconSlot>
-            <span className="min-w-0 break-words">{branchName}</span>
+            <span className="min-w-0 break-words">{branch.name}</span>
           </a>
           <div className="space-y-1 text-base leading-6 text-muted-foreground/80">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
@@ -853,7 +918,7 @@ export function VaultBranchLinkContent({
                     strokeWidth={2}
                   />
                 </DashboardLinkIconSlot>
-                <span>Last commit {headCommitSha.slice(0, 7)}</span>
+                <span>Last commit {branch.headCommitSha.slice(0, 7)}</span>
               </a>
               {aheadBehindLabel ? (
                 <span
@@ -868,7 +933,7 @@ export function VaultBranchLinkContent({
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                 {hasStandalonePullRequestLink ? (
                   <a
-                    href={pullRequestUrl}
+                    href={branch.pullRequestUrl}
                     target="_blank"
                     rel="noreferrer noopener"
                     className={clsx(metadataLinkClassName, "gap-1.5")}
@@ -876,13 +941,13 @@ export function VaultBranchLinkContent({
                   >
                     <DashboardLinkIconSlot>
                       <PullRequestStateLogo
-                        isDraft={pullRequestIsDraft === true}
+                        isDraft={branch.pullRequestIsDraft === true}
                       />
                     </DashboardLinkIconSlot>
                     <span>{pullRequestLabel}</span>
                   </a>
                 ) : null}
-                {pullRequestIsDraft ? (
+                {branch.pullRequestIsDraft ? (
                   <Badge
                     variant="outline"
                     className="h-6 px-1.5 py-0 text-xs font-medium uppercase tracking-wide"
@@ -908,7 +973,7 @@ export function VaultBranchLinkContent({
             {hasBuildFailureLogsLink ? (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <a
-                  href={cloudflarePreviewLogsUrl}
+                  href={branch.cloudflarePreviewLogsUrl}
                   target="_blank"
                   rel="noreferrer noopener"
                   className={clsx(
@@ -926,7 +991,7 @@ export function VaultBranchLinkContent({
             ) : hasCurrentPreviewLink ? (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <a
-                  href={cloudflareBranchPreviewUrl}
+                  href={branch.cloudflareBranchPreviewUrl}
                   target="_blank"
                   rel="noreferrer noopener"
                   className={clsx(metadataLinkClassName, "gap-1.5")}
@@ -956,7 +1021,7 @@ export function VaultBranchLinkContent({
             {hasPreviewDeploymentLink ? (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <a
-                  href={convexPreviewDeploymentDashboardUrl}
+                  href={branch.convexPreviewDeploymentDashboardUrl}
                   target="_blank"
                   rel="noreferrer noopener"
                   className={clsx(metadataLinkClassName, "gap-1.5")}
@@ -995,22 +1060,7 @@ export function VaultBranchLinkContent({
 export function VaultBranchLinkRow({
   vaultId,
   repositoryFullName,
-  branchName,
-  headCommitSha,
-  isDefault,
-  isDeletedUpstream,
-  aheadBy,
-  behindBy,
-  pullRequestUrl,
-  pullRequestNumber,
-  pullRequestLabels,
-  pullRequestTitle,
-  pullRequestIsDraft,
-  cloudflareBranchPreviewUrl,
-  cloudflarePreviewPullRequestNumber,
-  cloudflarePreviewLogsUrl,
-  cloudflarePreviewStatus,
-  convexPreviewDeploymentDashboardUrl,
+  branch,
   productionDeploymentDashboardUrl,
   stagedSummary,
 }: VaultBranchLinkRowProps) {
@@ -1023,24 +1073,7 @@ export function VaultBranchLinkRow({
     <div className="flex items-start gap-2 border-b border-border/40 px-2 py-3.5 last:border-b-0">
       <VaultBranchLinkContent
         repositoryFullName={repositoryFullName}
-        branchName={branchName}
-        headCommitSha={headCommitSha}
-        isDefault={isDefault}
-        isDeletedUpstream={isDeletedUpstream}
-        aheadBy={aheadBy}
-        behindBy={behindBy}
-        pullRequestUrl={pullRequestUrl}
-        pullRequestNumber={pullRequestNumber}
-        pullRequestLabels={pullRequestLabels}
-        pullRequestTitle={pullRequestTitle}
-        pullRequestIsDraft={pullRequestIsDraft}
-        cloudflareBranchPreviewUrl={cloudflareBranchPreviewUrl}
-        cloudflarePreviewPullRequestNumber={cloudflarePreviewPullRequestNumber}
-        cloudflarePreviewLogsUrl={cloudflarePreviewLogsUrl}
-        cloudflarePreviewStatus={cloudflarePreviewStatus}
-        convexPreviewDeploymentDashboardUrl={
-          convexPreviewDeploymentDashboardUrl
-        }
+        branch={branch}
         productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
       />
       {showRowActions ? (
@@ -1050,7 +1083,7 @@ export function VaultBranchLinkRow({
               <EditedFilesCategoriesPopover
                 vaultId={vaultId}
                 repositoryFullName={repositoryFullName}
-                branch={branchName}
+                branch={branch.name}
                 summaryCounts={stagedSummary}
               />
             </div>
@@ -1069,59 +1102,11 @@ interface VaultBranchListProps {
   expansion?: VaultBranchListExpansionProps;
 }
 
-interface VaultBranchListRowProps {
-  branch: VaultRemoteBranchListItem;
-  vaultId: Id<"vaults">;
-  repositoryFullName: string;
-  stagedSummary?: StagedSummary;
-  productionDeploymentDashboardUrl?: string;
-}
-
 interface VaultBranchListExpansionProps {
   hiddenBranchCount: number;
   isExpanded: boolean;
   onToggle: () => void;
   placement?: "header" | "list";
-}
-
-function VaultBranchListRow({
-  branch,
-  vaultId,
-  repositoryFullName,
-  stagedSummary,
-  productionDeploymentDashboardUrl,
-}: VaultBranchListRowProps) {
-  return (
-    <VaultBranchLinkRow
-      key={branch.name}
-      vaultId={vaultId}
-      repositoryFullName={repositoryFullName}
-      branchName={branch.name}
-      headCommitSha={branch.headCommitSha}
-      isDefault={branch.isDefault}
-      isDeletedUpstream={branch.remoteState === "deleted_upstream"}
-      aheadBy={branch.aheadBy}
-      behindBy={branch.behindBy}
-      pullRequestUrl={branch.pullRequestUrl}
-      pullRequestNumber={branch.pullRequestNumber}
-      pullRequestLabels={branch.pullRequestLabels}
-      pullRequestTitle={branch.pullRequestTitle}
-      pullRequestIsDraft={branch.pullRequestIsDraft}
-      cloudflareBranchPreviewUrl={branch.cloudflareBranchPreviewUrl}
-      cloudflarePreviewPullRequestNumber={
-        branch.cloudflarePreviewPullRequestNumber
-      }
-      cloudflarePreviewLogsUrl={branch.cloudflarePreviewLogsUrl}
-      cloudflarePreviewStatus={branch.cloudflarePreviewStatus}
-      convexPreviewDeploymentDashboardUrl={
-        branch.convexPreviewDeploymentDashboardUrl
-      }
-      productionDeploymentDashboardUrl={
-        branch.isDefault ? productionDeploymentDashboardUrl : undefined
-      }
-      stagedSummary={stagedSummary}
-    />
-  );
 }
 
 export function VaultBranchListExpansionControl({
@@ -1170,17 +1155,19 @@ function VaultBranchList({
   );
 
   return (
-    // Let mobile branch rows align with the vault card edge instead of nesting
-    // a second inset panel inside the already padded card.
-    <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
+    // Let branch rows align with the vault card edge instead of nesting a
+    // second inset panel inside the already padded card.
+    <div className="-mx-4 overflow-hidden border bg-muted">
       {remoteBranches.map((branch) => (
-        <VaultBranchListRow
+        <VaultBranchLinkRow
           key={branch.name}
           branch={branch}
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           stagedSummary={summaryByBranch.get(branch.name)}
-          productionDeploymentDashboardUrl={productionDeploymentDashboardUrl}
+          productionDeploymentDashboardUrl={
+            branch.isDefault ? productionDeploymentDashboardUrl : undefined
+          }
         />
       ))}
       {expansion ? <VaultBranchListExpansionControl {...expansion} /> : null}
@@ -1229,12 +1216,12 @@ function VaultBranchSection({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
           Branches
         </p>
         <div className="flex items-center gap-2">
           {hiddenBranchCount > 0 ? (
-            <span className="text-[11px] text-muted-foreground/80">
+            <span className="text-xs text-muted-foreground/80">
               {filteredRemoteBranches.length} of {remoteBranches.length}
             </span>
           ) : null}
@@ -1271,15 +1258,118 @@ function VaultBranchSection({
   );
 }
 
+function renderVaultDashboardCooldownStatus({
+  cooldownUntil,
+  label,
+  now,
+  title,
+}: {
+  cooldownUntil: number;
+  label: string;
+  now: number;
+  title: string;
+}) {
+  return (
+    <>
+      <span className="text-amber-700" title={title}>
+        {label}
+      </span>
+      <span>·</span>
+      <span className="font-mono tabular-nums">
+        {formatRelativeTimeUntil(cooldownUntil, now)}
+      </span>
+    </>
+  );
+}
+
+function renderVaultDashboardRepositoryStatus({
+  isReady,
+  now,
+  onRefreshVaultTree,
+  sharedLastSyncedAt,
+  treeRefreshUiState,
+  vault,
+}: {
+  isReady: boolean;
+  now: number;
+  onRefreshVaultTree: (vault: DashboardManualRefreshVault) => void;
+  sharedLastSyncedAt: number | undefined;
+  treeRefreshUiState: ReturnType<typeof getTreeRefreshUiState>;
+  vault: DashboardManualRefreshVault & {
+    treeRefreshFailureMessage?: string;
+  };
+}) {
+  if (!isReady) {
+    return undefined;
+  }
+
+  if (treeRefreshUiState.kind === "syncing") {
+    return (
+      <>
+        <UpdateIcon className="h-3 w-3 animate-spin" />
+        <span>Syncing...</span>
+      </>
+    );
+  }
+
+  if (treeRefreshUiState.kind === "rate_limited") {
+    return renderVaultDashboardCooldownStatus({
+      cooldownUntil: treeRefreshUiState.cooldownUntil,
+      label: "GitHub rate limited",
+      now,
+      title:
+        vault.treeRefreshFailureMessage ??
+        "GitHub API rate limited. Auto-refresh paused.",
+    });
+  }
+
+  if (treeRefreshUiState.kind === "cooldown") {
+    return renderVaultDashboardCooldownStatus({
+      cooldownUntil: treeRefreshUiState.cooldownUntil,
+      label: "Paused",
+      now,
+      title:
+        vault.treeRefreshFailureMessage ??
+        "Auto-refresh paused after a failed sync.",
+    });
+  }
+
+  if (treeRefreshUiState.kind === "failed") {
+    return (
+      <span
+        className="text-amber-700"
+        title={
+          vault.treeRefreshFailureMessage ??
+          "Last sync failed. Showing cached state."
+        }
+      >
+        Last sync failed
+      </span>
+    );
+  }
+
+  if (typeof sharedLastSyncedAt === "number") {
+    return (
+      <VaultLastUpdatedStatus
+        lastSyncedAt={sharedLastSyncedAt}
+        now={now}
+        onRefresh={() => {
+          onRefreshVaultTree(vault);
+        }}
+        repositoryFullName={vault.repositoryFullName}
+      />
+    );
+  }
+
+  return undefined;
+}
+
 type VaultDashboardBodyProps = {
   developerToolsVisible: boolean;
   isRemovingVault: boolean;
   now: number;
   themeColorSearch: AppThemeColorSearch;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
-  pendingVaultBranchFiltersByVaultId: Partial<
-    Record<string, VaultBranchFiltersState>
-  >;
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
   retryingVaultId: Id<"vaults"> | null;
   deleteRepositoryFullName?: string;
@@ -1301,7 +1391,6 @@ function VaultDashboardBody({
   now,
   themeColorSearch,
   openDeveloperToolsByVaultId,
-  pendingVaultBranchFiltersByVaultId,
   persistedVaultBranchFiltersByVaultId,
   retryingVaultId,
   deleteRepositoryFullName,
@@ -1350,11 +1439,8 @@ function VaultDashboardBody({
     <VaultDashboardRepositoryList>
       {vaults.map((vault) => {
         const isReady = vault.state === "ready";
-        const remoteBranches = Array.isArray(vault.remoteBranches)
-          ? vault.remoteBranches
-          : [];
+        const remoteBranches = vault.remoteBranches;
         const vaultBranchFilters =
-          pendingVaultBranchFiltersByVaultId[vault._id] ??
           persistedVaultBranchFiltersByVaultId.get(vault._id) ??
           getDefaultVaultBranchFilters();
         const activeRemoteBranches = remoteBranches.filter(
@@ -1363,15 +1449,13 @@ function VaultDashboardBody({
         const defaultBranch = activeRemoteBranches.find(
           (branch) => branch.isDefault,
         )?.name;
-        const primaryBranch =
-          defaultBranch || activeRemoteBranches[0]?.name || "";
-        const chatRoute =
-          primaryBranch.length > 0
-            ? buildVaultCodespaceChatRoute({
-                repositoryFullName: vault.repositoryFullName,
-                branch: primaryBranch,
-              })
-            : null;
+        const primaryBranch = defaultBranch || activeRemoteBranches[0]?.name;
+        const chatRoute = primaryBranch
+          ? buildVaultCodespaceChatRoute({
+              repositoryFullName: vault.repositoryFullName,
+              branch: primaryBranch,
+            })
+          : null;
         const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
         const developerToolsOpen =
           developerToolsVisible &&
@@ -1395,7 +1479,6 @@ function VaultDashboardBody({
           treeRefreshFailureKind: vault.treeRefreshFailureKind,
           treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
         });
-        const isVaultSyncing = treeRefreshUiState.kind === "syncing";
         const filteredRemoteBranches = filterVaultRemoteBranches(
           remoteBranches,
           vaultBranchFilters,
@@ -1463,80 +1546,14 @@ function VaultDashboardBody({
                   }}
                 />
               }
-              repositoryStatus={
-                isReady &&
-                (isVaultSyncing ||
-                  sharedLastSyncedAt ||
-                  treeRefreshUiState.kind === "rate_limited" ||
-                  treeRefreshUiState.kind === "cooldown" ||
-                  treeRefreshUiState.kind === "failed") ? (
-                  <>
-                    {isVaultSyncing ? (
-                      <>
-                        <UpdateIcon className="h-3 w-3 animate-spin" />
-                        <span>Syncing...</span>
-                      </>
-                    ) : treeRefreshUiState.kind === "rate_limited" ? (
-                      <>
-                        <span
-                          className="text-amber-700"
-                          title={
-                            vault.treeRefreshFailureMessage ??
-                            "GitHub API rate limited. Auto-refresh paused."
-                          }
-                        >
-                          GitHub rate limited
-                        </span>
-                        <span>·</span>
-                        <span className="font-mono tabular-nums">
-                          {formatRelativeTimeUntil(
-                            treeRefreshUiState.cooldownUntil,
-                            now,
-                          )}
-                        </span>
-                      </>
-                    ) : treeRefreshUiState.kind === "cooldown" ? (
-                      <>
-                        <span
-                          className="text-amber-700"
-                          title={
-                            vault.treeRefreshFailureMessage ??
-                            "Auto-refresh paused after a failed sync."
-                          }
-                        >
-                          Paused
-                        </span>
-                        <span>·</span>
-                        <span className="font-mono tabular-nums">
-                          {formatRelativeTimeUntil(
-                            treeRefreshUiState.cooldownUntil,
-                            now,
-                          )}
-                        </span>
-                      </>
-                    ) : treeRefreshUiState.kind === "failed" ? (
-                      <span
-                        className="text-amber-700"
-                        title={
-                          vault.treeRefreshFailureMessage ??
-                          "Last sync failed. Showing cached state."
-                        }
-                      >
-                        Last sync failed
-                      </span>
-                    ) : typeof sharedLastSyncedAt === "number" ? (
-                      <VaultLastUpdatedStatus
-                        lastSyncedAt={sharedLastSyncedAt}
-                        now={now}
-                        onRefresh={() => {
-                          onRefreshVaultTree(vault);
-                        }}
-                        repositoryFullName={vault.repositoryFullName}
-                      />
-                    ) : null}
-                  </>
-                ) : undefined
-              }
+              repositoryStatus={renderVaultDashboardRepositoryStatus({
+                isReady,
+                now,
+                onRefreshVaultTree,
+                sharedLastSyncedAt,
+                treeRefreshUiState,
+                vault,
+              })}
               headerControls={
                 isReady && hasBranchListOverflow ? (
                   <VaultBranchListExpansionControl
@@ -1573,7 +1590,7 @@ function VaultDashboardBody({
                 ) : undefined
               }
               daytonaBanner={
-                !DAYTONA_PAUSED && isReady && primaryBranch.length > 0 ? (
+                !DAYTONA_PAUSED && isReady && primaryBranch ? (
                   <DaytonaSnapshotBanner
                     branch={primaryBranch}
                     commitSha={vault.commitSHA}
@@ -1597,7 +1614,7 @@ function VaultDashboardBody({
                             vaultId={vault._id}
                             repositoryFullName={vault.repositoryFullName}
                           />
-                          {!DAYTONA_PAUSED && primaryBranch.length > 0 ? (
+                          {!DAYTONA_PAUSED && primaryBranch ? (
                             <DaytonaWorkspaceButton
                               vaultId={vault._id}
                               branch={primaryBranch}
@@ -1711,13 +1728,66 @@ export function VaultDashboard() {
   const disconnectCloudflare = useMutation(api.users.disconnectCloudflare);
   const persistAccountPanelOpen = useMutation(
     api.dashboardSettings.setAccountPanelOpen,
-  );
+  ).withOptimisticUpdate((localStore, args) => {
+    const currentSettings = localStore.getQuery(
+      api.dashboardSettings.getDashboardSettings,
+      {},
+    );
+    if (!currentSettings) {
+      return;
+    }
+    localStore.setQuery(
+      api.dashboardSettings.getDashboardSettings,
+      {},
+      {
+        ...currentSettings,
+        accountPanelOpen: args.isOpen,
+      },
+    );
+  });
   const setProvidersPanelOpen = useMutation(
     api.dashboardSettings.setProvidersPanelOpen,
-  );
+  ).withOptimisticUpdate((localStore, args) => {
+    const currentSettings = localStore.getQuery(
+      api.dashboardSettings.getDashboardSettings,
+      {},
+    );
+    if (!currentSettings) {
+      return;
+    }
+    localStore.setQuery(
+      api.dashboardSettings.getDashboardSettings,
+      {},
+      {
+        ...currentSettings,
+        providersPanelOpen: args.isOpen,
+      },
+    );
+  });
   const setEditorChatOpen = useMutation(
     api.dashboardSettings.setEditorChatOpen,
-  );
+  ).withOptimisticUpdate((localStore, args) => {
+    const currentSettings = localStore.getQuery(
+      api.dashboardSettings.getDashboardSettings,
+      {},
+    );
+    if (!currentSettings) {
+      return;
+    }
+    localStore.setQuery(
+      api.dashboardSettings.getDashboardSettings,
+      {},
+      args.scope === "vault"
+        ? {
+            ...currentSettings,
+            editorChatOpen: args.isOpen,
+          }
+        : {
+            ...currentSettings,
+            globalChatOpen: args.isOpen,
+          },
+    );
+  });
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
   const cloudflareConnection = useConvexQuery(
@@ -1736,7 +1806,39 @@ export function VaultDashboard() {
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
   const deleteRepositoryFullName = rootRouteSearch.delete;
-  const setVaultBranchFilters = useMutation(api.vault.setVaultBranchFilters);
+  const setVaultBranchFilters = useMutation(
+    api.vault.setVaultBranchFilters,
+  ).withOptimisticUpdate((localStore, args) => {
+    const currentFilters = localStore.getQuery(
+      api.vault.getUserVaultBranchFilters,
+      {},
+    );
+    if (!currentFilters) {
+      return;
+    }
+
+    const normalizedFilters = normalizeVaultBranchFilters(args);
+    const nextFilters = currentFilters.filter(
+      (vaultBranchFilter) => vaultBranchFilter.vaultId !== args.vaultId,
+    );
+    const shouldPersist =
+      normalizedFilters.hiddenLabels.length > 0 ||
+      normalizedFilters.includeDrafts ||
+      !normalizedFilters.includeNoLabel ||
+      normalizedFilters.branchesExpanded;
+
+    if (shouldPersist) {
+      nextFilters.push({
+        vaultId: args.vaultId,
+        hiddenLabels: normalizedFilters.hiddenLabels,
+        includeDrafts: normalizedFilters.includeDrafts,
+        includeNoLabel: normalizedFilters.includeNoLabel,
+        branchesExpanded: normalizedFilters.branchesExpanded,
+      });
+    }
+
+    localStore.setQuery(api.vault.getUserVaultBranchFilters, {}, nextFilters);
+  });
   const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
   const cloudflarePopupRef = useRef<Window | null>(null);
@@ -1795,381 +1897,35 @@ export function VaultDashboard() {
   );
   const [openDeveloperToolsByVaultId, setOpenDeveloperToolsByVaultId] =
     useState<Partial<Record<Id<"vaults">, boolean>>>({});
-  const [providersPanelOpen, setProvidersPanelOpenState] = useState<
-    boolean | null
-  >(null);
-  const [accountPanelOpen, setAccountPanelOpenState] = useState<boolean | null>(
-    null,
-  );
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [globalChatOpen, setGlobalChatOpenState] = useState<boolean | null>(
-    null,
-  );
   const [isGlobalChatBusy, setIsGlobalChatBusy] = useState(false);
   const [shouldAutoFocusChatInput, setShouldAutoFocusChatInput] =
     useState(false);
-  const globalChatPendingRef = useRef<boolean | null>(null);
-  const accountPanelPendingRef = useRef<boolean | null>(null);
-  const providersPanelPendingRef = useRef<boolean | null>(null);
-  const cloudflareAutoCheckInFlightRef = useRef(false);
-  const initialDashboardPageLoadSentRef = useRef(false);
-  const initialCloudflareMcpTokenCheckedAtRef = useRef<
-    number | undefined | null
-  >(null);
+  const [dashboardMountedAt] = useState(() => Date.now());
 
-  useEffect(() => {
-    if (developerToolsVisible) {
-      return;
-    }
+  useProviderOAuthPopupCompletionReload({
+    cloudflarePopupOriginRef,
+    cloudflarePopupRef,
+    convexPopupOriginRef,
+    convexPopupRef,
+    githubPopupOriginRef,
+    githubPopupRef,
+  });
 
-    setOpenDeveloperToolsByVaultId((currentOpenState) =>
-      Object.keys(currentOpenState).length === 0 ? currentOpenState : {},
-    );
-  }, [developerToolsVisible]);
-
-  useEffect(() => {
-    if (dashboardAccountPanelOpen === undefined) {
-      return;
-    }
-    const serverValue = dashboardAccountPanelOpen;
-    if (accountPanelPendingRef.current !== null) {
-      if (accountPanelPendingRef.current === serverValue) {
-        accountPanelPendingRef.current = null;
-      } else {
-        return;
-      }
-    }
-    setAccountPanelOpenState(serverValue);
-  }, [dashboardAccountPanelOpen]);
-
-  useEffect(() => {
-    if (dashboardProvidersPanelOpen === undefined) {
-      return;
-    }
-    const serverValue = dashboardProvidersPanelOpen;
-    if (providersPanelPendingRef.current !== null) {
-      if (providersPanelPendingRef.current === serverValue) {
-        providersPanelPendingRef.current = null;
-      } else {
-        return;
-      }
-    }
-    setProvidersPanelOpenState(serverValue);
-  }, [dashboardProvidersPanelOpen]);
-
-  useEffect(() => {
-    if (dashboardGlobalChatOpen === undefined) {
-      return;
-    }
-    const serverValue = dashboardGlobalChatOpen;
-    if (globalChatPendingRef.current !== null) {
-      if (globalChatPendingRef.current === serverValue) {
-        globalChatPendingRef.current = null;
-      } else {
-        return;
-      }
-    }
-    setGlobalChatOpenState(serverValue);
-  }, [dashboardGlobalChatOpen]);
-
-  useEffect(() => {
-    const isCloudflareMcpConnected =
-      cloudflareConnection?.connected === true &&
-      cloudflareConnection.authMethod === "mcp_oauth";
-    if (!isCloudflareMcpConnected) {
-      initialCloudflareMcpTokenCheckedAtRef.current = null;
-      return;
-    }
-    if (initialCloudflareMcpTokenCheckedAtRef.current === null) {
-      initialCloudflareMcpTokenCheckedAtRef.current =
-        cloudflareConnection.mcpTokenCheckedAt;
-    }
-  }, [
-    cloudflareConnection?.authMethod,
-    cloudflareConnection?.connected,
-    cloudflareConnection?.mcpTokenCheckedAt,
-  ]);
-
-  useEffect(() => {
-    const expectedOrigin = window.location.origin;
-    const providerPopupConfig: Record<
-      ProviderKey,
-      {
-        completionEventType: string;
-        popupRef: MutableRefObject<Window | null>;
-        popupOriginRef: MutableRefObject<string | null>;
-      }
-    > = {
-      github: {
-        completionEventType: PROVIDER_METADATA.github.completionEventType,
-        popupRef: githubPopupRef,
-        popupOriginRef: githubPopupOriginRef,
-      },
-      convex: {
-        completionEventType: PROVIDER_METADATA.convex.completionEventType,
-        popupRef: convexPopupRef,
-        popupOriginRef: convexPopupOriginRef,
-      },
-      cloudflare: {
-        completionEventType: PROVIDER_METADATA.cloudflare.completionEventType,
-        popupRef: cloudflarePopupRef,
-        popupOriginRef: cloudflarePopupOriginRef,
-      },
-    };
-    const handler = (event: MessageEvent) => {
-      if (!isRecord(event.data) || typeof event.data.type !== "string") {
-        return;
-      }
-
-      for (const provider of PROVIDER_KEYS) {
-        const popupConfig = providerPopupConfig[provider];
-        if (event.data.type !== popupConfig.completionEventType) {
-          continue;
-        }
-        if (event.source !== popupConfig.popupRef.current) {
-          return;
-        }
-        if (
-          event.origin !==
-          (popupConfig.popupOriginRef.current ?? expectedOrigin)
-        ) {
-          return;
-        }
-        window.location.reload();
-        return;
-      }
-    };
-
-    window.addEventListener("message", handler);
-    return () => {
-      window.removeEventListener("message", handler);
-    };
-  }, []);
-
-  const refreshVaultTreesIfNeeded = useCallback(
-    (trigger: RefreshTrigger = "visibility") => {
-      if (!vaults || vaults.length === 0) {
-        return;
-      }
-
-      const now = Date.now();
-      const readyVaults = vaults.filter((vault) => vault.state === "ready");
-      const vaultsToRefresh = readyVaults.filter((vault) =>
-        typeof vault.treeRefreshCooldownUntil !== "number" ||
-        vault.treeRefreshCooldownUntil <= now
-          ? shouldAutoRefreshVault({
-              lastTreeRefreshAt: vault.lastTreeRefreshAt,
-              remoteBranches: vault.remoteBranches,
-              trigger,
-              now,
-            }) && claimRefreshDebounce("dashboard", vault.repositoryFullName)
-          : false,
-      );
-
-      if (vaultsToRefresh.length === 0) {
-        return;
-      }
-
-      void (async () => {
-        for (
-          let index = 0;
-          index < vaultsToRefresh.length;
-          index += DASHBOARD_REFRESH_CONCURRENCY
-        ) {
-          const batch = vaultsToRefresh.slice(
-            index,
-            index + DASHBOARD_REFRESH_CONCURRENCY,
-          );
-
-          await Promise.all(
-            batch.map(async (vault) => {
-              const cloudflarePreviewBranchNames =
-                getCloudflareBranchPreviewHydrationTargets(
-                  vault.remoteBranches,
-                );
-              await refreshTree({
-                owner: vault.ghRepoOwner,
-                repo: vault.ghRepoName,
-                // Preview-comment scans are expensive compared to the default
-                // branch tree refresh itself, so only re-run them for the
-                // current PR branches that still lack cached preview metadata.
-                includeCloudflarePreviewLinks:
-                  cloudflarePreviewBranchNames.length > 0,
-                cloudflarePreviewBranchNames,
-                trigger,
-              }).catch((error: unknown) => {
-                console.error(
-                  "Failed to refresh repository tree from dashboard:",
-                  error,
-                );
-              });
-            }),
-          );
-        }
-      })();
+  const { refreshVaultTreeFromStatusClick } = useDashboardRepositoryTreeRefresh(
+    {
+      refreshTree,
+      vaults,
     },
-    [refreshTree, vaults],
   );
 
-  const refreshVaultTreeFromStatusClick = useCallback(
-    (vault: DashboardManualRefreshVault) => {
-      if (
-        vault.state !== "ready" ||
-        (typeof vault.treeRefreshCooldownUntil === "number" &&
-          vault.treeRefreshCooldownUntil > Date.now()) ||
-        !claimRefreshDebounce("dashboard", vault.repositoryFullName)
-      ) {
-        return;
-      }
-
-      const cloudflarePreviewBranchNames =
-        getCloudflareBranchPreviewHydrationTargets(vault.remoteBranches);
-
-      void refreshTree({
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
-        includeCloudflarePreviewLinks: cloudflarePreviewBranchNames.length > 0,
-        cloudflarePreviewBranchNames,
-        trigger: "manual",
-      }).catch((error: unknown) => {
-        console.error(
-          "Failed to refresh repository tree from dashboard status click:",
-          error,
-        );
-      });
-    },
-    [refreshTree],
-  );
-
-  useEffect(() => {
-    if (!vaults || vaults.length === 0) {
-      return;
-    }
-
-    // Emit the dashboard "page_load" refresh exactly once, then fall back to
-    // plain "visibility" refreshes on later resumes.
-    const triggerInitialPageLoad = () => {
-      if (initialDashboardPageLoadSentRef.current) {
-        return;
-      }
-      initialDashboardPageLoadSentRef.current = true;
-      refreshVaultTreesIfNeeded("page_load");
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-
-      if (!initialDashboardPageLoadSentRef.current) {
-        triggerInitialPageLoad();
-        return;
-      }
-
-      refreshVaultTreesIfNeeded("visibility");
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    if (document.visibilityState === "visible") {
-      triggerInitialPageLoad();
-    }
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [refreshVaultTreesIfNeeded, vaults]);
-
-  useEffect(() => {
-    const isCloudflareMcpConnected =
-      cloudflareConnection?.connected === true &&
-      cloudflareConnection.authMethod === "mcp_oauth";
-    if (!isCloudflareMcpConnected) {
-      setCloudflarePollingPaused(false);
-      return;
-    }
-
-    const debounceKey = user?._id ?? "cloudflare-dashboard";
-    const runAutoCheck = (
-      trigger: "focus" | "visibility" | "page_load" | "poll",
-    ) => {
-      if (cloudflareAutoCheckInFlightRef.current) {
-        return;
-      }
-      if (
-        !claimRefreshDebounce(
-          "cloudflare_token",
-          debounceKey,
-          CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
-        )
-      ) {
-        return;
-      }
-
-      cloudflareAutoCheckInFlightRef.current = true;
-      setIsAutoCheckingCloudflareToken(true);
-      void refreshCloudflareMcpTokenIfNeeded({ trigger, force: false })
-        .catch((error: unknown) => {
-          console.error("Failed to auto-check Cloudflare token:", error);
-        })
-        .finally(() => {
-          releaseRefreshDebounce("cloudflare_token", debounceKey);
-          cloudflareAutoCheckInFlightRef.current = false;
-          setIsAutoCheckingCloudflareToken(false);
-        });
-    };
-
-    const handleFocus = () => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-      setCloudflarePollingPaused(false);
-      runAutoCheck("focus");
-    };
-
-    const handleVisibilityChange = () => {
-      const isVisible = document.visibilityState === "visible";
-      setCloudflarePollingPaused(!isVisible);
-      if (isVisible) {
-        runAutoCheck("visibility");
-      }
-    };
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    const isVisible = document.visibilityState === "visible";
-    setCloudflarePollingPaused(!isVisible);
-    if (isVisible) {
-      runAutoCheck("page_load");
-    }
-
-    const pollId = window.setInterval(() => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-      if (
-        typeof cloudflareConnection.mcpTokenNextAutoCheckAt === "number" &&
-        Date.now() < cloudflareConnection.mcpTokenNextAutoCheckAt
-      ) {
-        return;
-      }
-      runAutoCheck("poll");
-    }, CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS);
-
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.clearInterval(pollId);
-      cloudflareAutoCheckInFlightRef.current = false;
-    };
-  }, [
-    cloudflareConnection?.authMethod,
-    cloudflareConnection?.connected,
-    cloudflareConnection?.mcpTokenNextAutoCheckAt,
+  useCloudflareMcpTokenAutoCheck({
+    cloudflareConnection,
     refreshCloudflareMcpTokenIfNeeded,
-    user?._id,
-  ]);
+    setCloudflarePollingPaused,
+    setIsAutoCheckingCloudflareToken,
+    userId: user?._id,
+  });
 
   const selectedVault =
     vaultToDelete && vaults
@@ -2394,9 +2150,8 @@ export function VaultDashboard() {
   const isAwaitingInitialCloudflareTokenCheck =
     cloudflareConnection?.connected === true &&
     cloudflareConnection.authMethod === "mcp_oauth" &&
-    initialCloudflareMcpTokenCheckedAtRef.current !== null &&
-    cloudflareMcpTokenCheckedAt ===
-      initialCloudflareMcpTokenCheckedAtRef.current;
+    (typeof cloudflareMcpTokenCheckedAt !== "number" ||
+      cloudflareMcpTokenCheckedAt < dashboardMountedAt);
   const showCloudflareCreateWarning =
     cloudflareConnected &&
     !isAwaitingInitialCloudflareTokenCheck &&
@@ -2569,32 +2324,19 @@ export function VaultDashboard() {
     </div>
   );
 
-  const resolvedProvidersPanelOpen =
-    providersPanelOpen ?? dashboardSettings?.providersPanelOpen ?? false;
-  const resolvedAccountPanelOpen =
-    accountPanelOpen ?? dashboardSettings?.accountPanelOpen ?? false;
-  const resolvedGlobalChatOpen =
-    globalChatOpen ?? dashboardGlobalChatOpen ?? false;
+  const resolvedProvidersPanelOpen = dashboardProvidersPanelOpen ?? false;
+  const resolvedAccountPanelOpen = dashboardAccountPanelOpen ?? false;
+  const resolvedGlobalChatOpen = dashboardGlobalChatOpen ?? false;
 
   const handleAccountPanelOpenChange = (isOpen: boolean) => {
-    setAccountPanelOpenState(isOpen);
-    accountPanelPendingRef.current = isOpen;
     void persistAccountPanelOpen({ isOpen }).catch((error: unknown) => {
       console.error("Failed to persist account panel state:", error);
-      accountPanelPendingRef.current = null;
-      setAccountPanelOpenState(dashboardSettings?.accountPanelOpen ?? false);
     });
   };
 
   const handleProvidersPanelOpenChange = (isOpen: boolean) => {
-    setProvidersPanelOpenState(isOpen);
-    providersPanelPendingRef.current = isOpen;
     void setProvidersPanelOpen({ isOpen }).catch((error: unknown) => {
       console.error("Failed to persist providers panel state:", error);
-      providersPanelPendingRef.current = null;
-      setProvidersPanelOpenState(
-        dashboardSettings?.providersPanelOpen ?? false,
-      );
     });
   };
   const handleSignOut = () => {
@@ -2618,14 +2360,10 @@ export function VaultDashboard() {
 
   const handleGlobalChatOpenChange = (isOpen: boolean) => {
     setShouldAutoFocusChatInput(isOpen);
-    setGlobalChatOpenState(isOpen);
-    globalChatPendingRef.current = isOpen;
     void setEditorChatOpen({ isOpen, scope: "global" }).catch(
       (error: unknown) => {
         console.error("Failed to persist global chat state:", error);
-        globalChatPendingRef.current = null;
         setShouldAutoFocusChatInput(false);
-        setGlobalChatOpenState(dashboardGlobalChatOpen ?? false);
       },
     );
   };
@@ -2633,7 +2371,6 @@ export function VaultDashboard() {
   const providerRows = PROVIDER_KEYS.map((provider) => {
     const providerMetadata = PROVIDER_METADATA[provider];
     const providerState = providerConnectionState[provider];
-    const Icon = providerMetadata.icon;
     const apiKeyProvider = providerMetadata.apiKeyProvider;
     const actions = providerState.connected
       ? providerState.showTokenCheck
@@ -2700,57 +2437,12 @@ export function VaultDashboard() {
 
     return {
       key: provider,
-      icon: <Icon className="max-h-full max-w-full" />,
+      icon: providerMetadata.icon,
       label: providerMetadata.label,
       status: providerState.status,
       actions,
     } satisfies VaultDashboardProviderRowViewModel;
   });
-
-  const [
-    pendingVaultBranchFiltersByVaultId,
-    setPendingVaultBranchFiltersByVaultId,
-  ] = useState<Partial<Record<string, VaultBranchFiltersState>>>({});
-
-  useEffect(() => {
-    if (!userVaultBranchFilters) {
-      return;
-    }
-
-    const serverVaultBranchFiltersByVaultId = new Map<
-      string,
-      VaultBranchFiltersState
-    >(
-      userVaultBranchFilters.map((vaultBranchFilter) => [
-        vaultBranchFilter.vaultId,
-        normalizeVaultBranchFilters(vaultBranchFilter),
-      ]),
-    );
-
-    setPendingVaultBranchFiltersByVaultId((previous) => {
-      let hasChanges = false;
-      const next = { ...previous };
-
-      for (const [vaultId, pendingVaultBranchFilters] of Object.entries(
-        previous,
-      )) {
-        const serverVaultBranchFilters =
-          serverVaultBranchFiltersByVaultId.get(vaultId) ??
-          getDefaultVaultBranchFilters();
-        if (
-          areVaultBranchFiltersEqual(
-            pendingVaultBranchFilters,
-            serverVaultBranchFilters,
-          )
-        ) {
-          delete next[vaultId];
-          hasChanges = true;
-        }
-      }
-
-      return hasChanges ? next : previous;
-    });
-  }, [userVaultBranchFilters]);
 
   if (!vaults) {
     return null;
@@ -2773,10 +2465,6 @@ export function VaultDashboard() {
     const normalizedVaultBranchFilters = normalizeVaultBranchFilters(
       nextVaultBranchFilters,
     );
-    setPendingVaultBranchFiltersByVaultId((previous) => ({
-      ...previous,
-      [vaultId]: normalizedVaultBranchFilters,
-    }));
 
     try {
       await setVaultBranchFilters({
@@ -2787,11 +2475,6 @@ export function VaultDashboard() {
         branchesExpanded: normalizedVaultBranchFilters.branchesExpanded,
       });
     } catch (error: unknown) {
-      setPendingVaultBranchFiltersByVaultId((previous) => {
-        const next = { ...previous };
-        delete next[vaultId];
-        return next;
-      });
       toast({
         title: "Could not save filters",
         description:
@@ -2894,7 +2577,6 @@ export function VaultDashboard() {
       now={now}
       themeColorSearch={rootRouteSearch}
       openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
-      pendingVaultBranchFiltersByVaultId={pendingVaultBranchFiltersByVaultId}
       persistedVaultBranchFiltersByVaultId={
         persistedVaultBranchFiltersByVaultId
       }
