@@ -102,10 +102,19 @@ Key domain entities:
   state, or CSS. Collapse duplicate effects that share the same trigger/concern.
 - Prefer inference from already-typed initializers and callbacks. Do not restate
   local variable types when the expression is already strongly typed unless the
-  annotation changes the contract or prevents a real widening problem.
+  annotation changes the contract, clarifies object-spread shape composition, or
+  prevents a real widening problem.
 - Prefer truthiness checks for typed flags whose domain is already
   `true | undefined`. Use `=== true` only when the distinction from other truthy
   values is part of the current logic.
+- When business logic is tangled with generic mechanics such as picking object
+  keys, mapping entries, or reshaping values, step back and separate the two.
+  Prefer a small typed utility in the right shared module when it lets the
+  business code read directly, then delete any one-off wrapper that no longer
+  earns its place.
+- Let focused module paths carry generic utility context. Prefer names like
+  `pick` from an object module over prefixing every export, and avoid broad
+  barrel exports that erase that context.
 - Do not add speculative helpers, flags, env vars, allowlist entries,
   compatibility paths, or config surface that the current patch does not use end
   to end.
