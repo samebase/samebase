@@ -23,8 +23,17 @@ import {
   PUBLIC_LANDING_LOGO_WIDTH,
   shouldRevealPublicLandingLogoLink,
 } from "@/lib/publicLandingLogo";
+import {
+  cacheRotatedLogoViewState,
+  persistRotatedLogoViewState,
+  PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,
+  readRotatedLogoViewState,
+  type RotatedLogoViewState,
+  type RotatedLogoViewStateKey,
+  type RotatedLogoViewStatePersistence,
+} from "@/lib/rotatedLogoViewState";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type LandingLogoSceneComponent =
   typeof import("@/components/NLogoScene").NLogoScene;
@@ -33,20 +42,11 @@ const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const AUTO_ROTATE_RESUME_DURATION_MS = 220;
 const AUTO_ROTATE_RESUME_MIN_SPEED_MULTIPLIER = 0.4;
 
-type LandingLogoView = {
-  elevationDegrees: number;
-  rotationDegrees: number;
-};
-
-const DEFAULT_LANDING_LOGO_VIEW: LandingLogoView = {
+const DEFAULT_LANDING_LOGO_VIEW: RotatedLogoViewState = {
   elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
   rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
 };
-const STATIC_LOGO_SVG_SRC = createStaticLogoSvgDataUrl();
 
-let persistedLandingLogoView: LandingLogoView = {
-  ...DEFAULT_LANDING_LOGO_VIEW,
-};
 let cachedLandingLogoScene: LandingLogoSceneComponent | null = null;
 // Unsupported renderer paths can loop on remount, so keep that failure sticky
 // for the session while still allowing later chunk loads to retry.
@@ -60,10 +60,14 @@ export function PublicLandingLogo({
   autoRotate = false,
   enableViewSnapping = true,
   loadInteractiveScene = true,
+  viewStatePersistence = "visit",
+  viewStateKey = PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,
 }: {
   autoRotate?: boolean;
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
+  viewStatePersistence?: RotatedLogoViewStatePersistence;
+  viewStateKey?: RotatedLogoViewStateKey;
 }) {
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(
     () => (loadInteractiveScene ? cachedLandingLogoScene : null),
@@ -71,13 +75,23 @@ export function PublicLandingLogo({
   const [didSceneFail, setDidSceneFail] = useState(
     () => didLandingLogoSceneRenderFail,
   );
+  const [initialView] = useState<RotatedLogoViewState>(() =>
+    readRotatedLogoViewState({
+      defaultView: DEFAULT_LANDING_LOGO_VIEW,
+      key: viewStateKey,
+      persistence: viewStatePersistence,
+    }),
+  );
+  const staticLogoSvgSrc = useMemo(
+    () => createStaticLogoSvgDataUrl({ view: initialView }),
+    [initialView],
+  );
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
-  const [view, setView] = useState<LandingLogoView>(() => ({
-    ...persistedLandingLogoView,
-  }));
+  const [view, setView] = useState<RotatedLogoViewState>(() => initialView);
   const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
+  const latestViewRef = useRef(view);
   const lastFrameTimeRef = useRef<number | null>(null);
   const autoRotateResumeStartedAtRef = useRef<number | null>(null);
   const backgroundColor = getTailwindColorHex("background-base");
@@ -87,6 +101,13 @@ export function PublicLandingLogo({
     top: DEFAULT_FACE_COLORS.top,
   };
   const isSceneInteractive = isSceneReady && !isSvgVisible;
+  const persistLatestLogoView = useCallback(() => {
+    persistRotatedLogoViewState({
+      key: viewStateKey,
+      persistence: viewStatePersistence,
+      view: latestViewRef.current,
+    });
+  }, [viewStateKey, viewStatePersistence]);
 
   useEffect(() => {
     if (!loadInteractiveScene) {
@@ -170,8 +191,25 @@ export function PublicLandingLogo({
   }, [autoRotate]);
 
   useEffect(() => {
-    persistedLandingLogoView = view;
-  }, [view]);
+    latestViewRef.current = view;
+    cacheRotatedLogoViewState(viewStateKey, view);
+  }, [view, viewStateKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handlePageHide = () => {
+      persistLatestLogoView();
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+      persistLatestLogoView();
+    };
+  }, [persistLatestLogoView]);
 
   useEffect(() => {
     if (publicLandingLogoLink === null) {
@@ -220,13 +258,17 @@ export function PublicLandingLogo({
             autoRotateResumeStartedAtRef.current = null;
           }
         }
-        setView((currentView) => ({
-          ...currentView,
-          rotationDegrees: normalizeRotationDegrees(
-            currentView.rotationDegrees +
-              deltaSeconds * AUTO_ROTATE_DEGREES_PER_SECOND * speedMultiplier,
-          ),
-        }));
+        setView((currentView) => {
+          const nextView = {
+            ...currentView,
+            rotationDegrees: normalizeRotationDegrees(
+              currentView.rotationDegrees +
+                deltaSeconds * AUTO_ROTATE_DEGREES_PER_SECOND * speedMultiplier,
+            ),
+          };
+          latestViewRef.current = nextView;
+          return nextView;
+        });
       }
       lastFrameTimeRef.current = timestamp;
       animationFrameId = window.requestAnimationFrame(step);
@@ -248,7 +290,7 @@ export function PublicLandingLogo({
       >
         <img
           data-testid={PUBLIC_LANDING_LOGO_TEST_ID}
-          src={STATIC_LOGO_SVG_SRC}
+          src={staticLogoSvgSrc}
           alt={PUBLIC_LANDING_LOGO_ALT}
           width={PUBLIC_LANDING_LOGO_WIDTH}
           height={PUBLIC_LANDING_LOGO_HEIGHT}
@@ -278,6 +320,7 @@ export function PublicLandingLogo({
                 setIsAutoRotating(false);
               }}
               onInteractionEnd={() => {
+                persistLatestLogoView();
                 if (!autoRotate) {
                   return;
                 }
@@ -293,6 +336,7 @@ export function PublicLandingLogo({
                 setDidSceneFail(true);
               }}
               onViewChange={(nextView) => {
+                latestViewRef.current = nextView;
                 setView(nextView);
               }}
               onVoxelEdit={() => {}}
