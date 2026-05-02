@@ -26,6 +26,22 @@ function readOptionalGoogleSignupReturn(value: unknown): "google" | undefined {
   return value === "google" ? "google" : undefined;
 }
 
+// Keep the delete route scoped to one trimmed owner/repo pair; invalid shapes
+// fail closed so extra slashes or empty segments cannot retarget the surface.
+function readOptionalDeleteRepository(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalizedValue = value.trim();
+  const parts = normalizedValue.split("/");
+  if (parts.length !== 2 || parts[0].length === 0 || parts[1].length === 0) {
+    return undefined;
+  }
+
+  return normalizedValue;
+}
+
 const rootRouteSearchSchema = z
   .object({
     auth: z.preprocess(
@@ -34,6 +50,7 @@ const rootRouteSearchSchema = z
     ),
     dev: z.preprocess(readOptionalFlag, z.literal(true).optional()),
     devtools: z.preprocess(readOptionalFlag, z.literal(true).optional()),
+    delete: z.preprocess(readOptionalDeleteRepository, z.string().optional()),
     "prod-ui": z.preprocess(readOptionalFlag, z.literal(true).optional()),
     signup: z.preprocess(
       readOptionalGoogleSignupReturn,

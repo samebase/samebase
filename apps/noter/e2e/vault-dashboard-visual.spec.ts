@@ -310,6 +310,60 @@ test("vault dashboard fixture (developer tools query spacing)", async ({
   expect(Math.round(visibleBox.height)).toBe(Math.round(hiddenBox.height));
 });
 
+test("vault dashboard fixture (delete popover)", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 360 });
+  await page.goto("/visual-fixture.html?mode=vault-dashboard-delete-open", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const deleteLink = page.getByRole("link", {
+    name: "Remove vault noter-md/noter",
+  });
+  await expect(deleteLink).toHaveAttribute("href", "/?delete=noter-md%2Fnoter");
+  await expect(
+    page.getByRole("button", { name: "Remove vault" }),
+  ).toBeVisible();
+  await expect(page).toHaveScreenshot("vault-dashboard-delete-popover.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
+test("vault dashboard fixture (delete mobile sheet)", async ({
+  browser,
+}, testInfo) => {
+  const baseURL = testInfo.project.use.baseURL;
+  if (typeof baseURL !== "string") {
+    throw new Error("Playwright baseURL is required for mobile fixture tests.");
+  }
+
+  const context = await browser.newContext({
+    ...devices["iPhone 13"],
+    baseURL,
+  });
+  const page = await context.newPage();
+
+  await page.goto("/visual-fixture.html?mode=vault-dashboard-delete-open", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  await expect(
+    page.getByRole("button", { name: "Remove vault" }),
+  ).toBeVisible();
+  await expect(page).toHaveScreenshot("vault-dashboard-delete-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+
+  await context.close();
+});
+
 test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 520 });
   await page.goto("/visual-fixture.html?mode=vault-dashboard-list-spacing", {
@@ -318,6 +372,11 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  const deleteLink = fixture.getByRole("link", {
+    name: "Remove vault noter-md/noter",
+  });
+  await expect(deleteLink).toBeVisible();
+  await expect(deleteLink).toHaveAttribute("href", "/?delete=noter-md%2Fnoter");
   await expect(
     fixture.getByRole("link", { name: "Project settings" }),
   ).toBeVisible();
@@ -342,7 +401,7 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
     fixture.getByRole("link", {
       name: "codex/dashboard-main-pane-spacing",
     }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing.png", {
     animations: "disabled",
     caret: "hide",
@@ -359,6 +418,11 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  const deleteLink = fixture.getByRole("link", {
+    name: "Remove vault noter-md/noter",
+  });
+  await expect(deleteLink).toBeVisible();
+  await expect(deleteLink).toHaveAttribute("href", "/?delete=noter-md%2Fnoter");
   await expect(
     fixture.getByRole("link", { name: "Project settings" }),
   ).toBeVisible();
@@ -383,7 +447,7 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
     fixture.getByRole("link", {
       name: "codex/dashboard-main-pane-spacing",
     }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await expect(fixture).toHaveScreenshot(
     "vault-dashboard-list-spacing-desktop.png",
     {
@@ -427,7 +491,7 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
     })
     .toBeLessThanOrEqual(1);
   await expect(
-    page.getByRole("link", { name: "noter-md/noter" }),
+    page.getByRole("link", { name: "noter-md/noter", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByText("codex/sticky-dashboard-branch-05"),
@@ -514,6 +578,11 @@ test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  const deleteLink = fixture.getByRole("link", {
+    name: "Remove vault noter-md/noter",
+  });
+  await expect(deleteLink).toBeVisible();
+  await expect(deleteLink).toHaveAttribute("href", "/?delete=noter-md%2Fnoter");
   await expect(fixture).toHaveScreenshot("vault-branch-mobile-alignment.png", {
     animations: "disabled",
     caret: "hide",

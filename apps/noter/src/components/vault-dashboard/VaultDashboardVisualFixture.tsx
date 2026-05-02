@@ -19,6 +19,7 @@ import {
 import {
   VaultBranchLinkRow,
   VaultBranchListExpansionControl,
+  VaultDashboardDeleteControl,
   VaultDashboardRepositoryExternalLinks,
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
@@ -27,6 +28,7 @@ export type VaultDashboardVisualMode =
   | "vault-create-control"
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
+  | "vault-dashboard-delete-open"
   | "vault-dashboard-sticky-header"
   | "vault-dashboard-list-spacing"
   | "vault-last-updated-status"
@@ -69,6 +71,17 @@ function FixtureRepositoryLinks() {
           title: "Open Convex project settings",
         },
       ]}
+    />
+  );
+}
+
+function FixtureDeleteControl({ isOpen = false }: { isOpen?: boolean }) {
+  return (
+    <VaultDashboardDeleteControl
+      repositoryFullName="noter-md/noter"
+      isOpen={isOpen}
+      onOpenChange={() => {}}
+      onRemoveVault={() => {}}
     />
   );
 }
@@ -257,6 +270,7 @@ function VaultDashboardListSpacingFixture({
             repositoryName="noter"
             titleHref="https://github.com/noter-md/noter"
             repositoryLinks={<FixtureRepositoryLinks />}
+            topRightAction={<FixtureDeleteControl />}
             headerControls={
               <VaultBranchListExpansionControl
                 isExpanded={branchesExpanded}
@@ -313,6 +327,7 @@ function VaultDashboardDeveloperToolsFixture({
               repositoryName="noter"
               titleHref="https://github.com/noter-md/noter"
               repositoryLinks={<FixtureRepositoryLinks />}
+              topRightAction={<FixtureDeleteControl />}
               branchSection={
                 <div className="space-y-1.5">
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
@@ -335,6 +350,30 @@ function VaultDashboardDeveloperToolsFixture({
               }}
             />
           </div>
+        </VaultDashboardRepositoryList>
+      </TestRouterProvider>
+    </div>
+  );
+}
+
+function VaultDashboardDeleteOpenFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-dashboard-delete-open"
+      className="w-full bg-background p-4 text-foreground"
+    >
+      <TestRouterProvider>
+        <VaultDashboardRepositoryList>
+          <VaultDashboardRepositoryCard
+            isReady={true}
+            repositoryOwner="noter-md"
+            repositoryName="noter"
+            titleHref="https://github.com/noter-md/noter"
+            repositoryLinks={<FixtureRepositoryLinks />}
+            topRightAction={<FixtureDeleteControl isOpen />}
+            repositoryStatus={<span>Updated 12s ago</span>}
+          />
         </VaultDashboardRepositoryList>
       </TestRouterProvider>
     </div>
@@ -371,6 +410,7 @@ function VaultDashboardStickyHeaderFixture() {
               repositoryName="noter"
               titleHref="https://github.com/noter-md/noter"
               repositoryLinks={<FixtureRepositoryLinks />}
+              topRightAction={<FixtureDeleteControl />}
               repositoryStatus={
                 <span data-testid="sticky-header-status">Updated 12s ago</span>
               }
@@ -567,6 +607,10 @@ export function VaultDashboardVisualFixture({
     return <VaultDashboardDeveloperToolsFixture visible={true} />;
   }
 
+  if (mode === "vault-dashboard-delete-open") {
+    return <VaultDashboardDeleteOpenFixture />;
+  }
+
   if (mode === "vault-last-updated-status") {
     return (
       <div className="min-h-screen bg-stone-100 p-4 text-foreground">
@@ -621,27 +665,21 @@ export function VaultDashboardVisualFixture({
         data-mode={mode}
         className="flex w-full justify-center bg-stone-100 p-4 text-foreground"
       >
-        <div className="mx-auto max-w-[390px]">
-          <div className="corner-notch-1 border border-border bg-background p-4">
-            <div className="space-y-3">
-              <div>
-                <div className="text-lg font-semibold">
-                  <span className="font-normal text-muted-foreground">
-                    noter-md/
-                  </span>
-                  <span>noter</span>
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  Updated 12s ago
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
-                  Branches
-                </p>
-                <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
-                  <TestRouterProvider>
+        <div className="mx-auto w-full max-w-[390px] corner-notch-1 border border-border bg-background">
+          <TestRouterProvider>
+            <VaultDashboardRepositoryCard
+              isReady={true}
+              repositoryOwner="noter-md"
+              repositoryName="noter"
+              titleHref="https://github.com/noter-md/noter"
+              topRightAction={<FixtureDeleteControl />}
+              repositoryStatus={<span>Updated 12s ago</span>}
+              branchSection={
+                <div className="space-y-1.5">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                    Branches
+                  </p>
+                  <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
@@ -666,11 +704,11 @@ export function VaultDashboardVisualFixture({
                       pullRequestNumber={321}
                       pullRequestTitle="Align mobile branch rows with vault cards"
                     />
-                  </TestRouterProvider>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
+              }
+            />
+          </TestRouterProvider>
         </div>
       </div>
     );
