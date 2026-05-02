@@ -2,15 +2,51 @@ import {
   Outlet,
   createRootRoute,
   lazyRouteComponent,
-  retainSearchParams,
 } from "@tanstack/react-router";
 import { RouterGestureDebugOverlay } from "@/components/RouterGestureDebugOverlay";
-import { validateRootRouteSearch } from "@/lib/rootRouteSearch";
-import { useEffect } from "react";
+import {
+  APP_THEME_COLOR_SEARCH_KEYS,
+  syncDocumentThemeColorSearch,
+} from "@/lib/appThemeColorSearch";
+import {
+  type RootRouteSearch,
+  useRootRouteSearch,
+  validateRootRouteSearch,
+} from "@/lib/rootRouteSearch";
+import { useEffect, useLayoutEffect } from "react";
 
 const posthogApiHost =
   import.meta.env.VITE_PUBLIC_POSTHOG_HOST || "https://eu.i.posthog.com";
 const POSTHOG_INIT_DELAY_MS = 10_000;
+const RETAINED_ROOT_SEARCH_KEYS = [
+  "dev",
+  "devtools",
+  ...APP_THEME_COLOR_SEARCH_KEYS,
+] as const satisfies readonly (keyof RootRouteSearch)[];
+
+type RootSearchMiddlewareArgs = {
+  next: (search: RootRouteSearch) => RootRouteSearch;
+  search: RootRouteSearch;
+};
+
+function retainDefinedRootSearchParams(keys: typeof RETAINED_ROOT_SEARCH_KEYS) {
+  return ({ next, search }: RootSearchMiddlewareArgs): RootRouteSearch => {
+    let nextSearch: RootRouteSearch = { ...next(search) };
+
+    for (const key of keys) {
+      if (key in nextSearch || typeof search[key] === "undefined") {
+        continue;
+      }
+
+      nextSearch = {
+        ...nextSearch,
+        [key]: search[key],
+      };
+    }
+
+    return nextSearch;
+  };
+}
 
 function useDeferredPostHogInit() {
   useEffect(() => {
@@ -52,7 +88,12 @@ function useDeferredPostHogInit() {
 }
 
 function AppRouterRoot() {
+  const { base, primary, secondary } = useRootRouteSearch();
   useDeferredPostHogInit();
+
+  useLayoutEffect(() => {
+    syncDocumentThemeColorSearch({ base, primary, secondary });
+  }, [base, primary, secondary]);
 
   return (
     <>
@@ -69,7 +110,7 @@ export const Route = createRootRoute({
     "NotFoundRoutePage",
   ),
   search: {
-    middlewares: [retainSearchParams(["dev", "devtools"])],
+    middlewares: [retainDefinedRootSearchParams(RETAINED_ROOT_SEARCH_KEYS)],
   },
   validateSearch: validateRootRouteSearch,
 });

@@ -20,7 +20,7 @@ describe("logoRouteDevMode", () => {
         hash: "",
         pathname: "/logo",
         search: {
-          leftColor: "red-600",
+          primary: "red-600",
         },
       }),
     ).toThrow();

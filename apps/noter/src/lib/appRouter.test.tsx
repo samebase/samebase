@@ -347,6 +347,7 @@ describe("appRouter", () => {
     const router = await renderRoute(
       buildPathWithUpdatedQuery({ pathname: "/logo" }, (searchParams) => {
         setQueryParam(searchParams, "devtools", true);
+        setQueryParam(searchParams, "primary", "red-600");
         setQueryParam(searchParams, "rot", "10");
       }),
     );
@@ -365,6 +366,29 @@ describe("appRouter", () => {
     expect(router.state.location.pathname).toBe("/logo/iso");
     expect(searchParams.has("dev")).toBe(true);
     expect(searchParams.has("devtools")).toBe(true);
+    expect(searchParams.get("primary")).toBe("red-600");
+  });
+
+  it("clears retained theme colors when search owns an undefined color key", async () => {
+    const router = await renderRoute(
+      buildPathWithUpdatedQuery({ pathname: "/logo" }, (searchParams) => {
+        setQueryParam(searchParams, "primary", "red-600");
+      }),
+    );
+
+    await act(async () => {
+      await router.navigate({
+        replace: true,
+        search: { primary: undefined },
+        to: "/logo/iso",
+      });
+      await settleRouterRender();
+    });
+
+    const searchParams = new URLSearchParams(router.state.location.searchStr);
+
+    expect(router.state.location.pathname).toBe("/logo/iso");
+    expect(searchParams.has("primary")).toBe(false);
   });
 
   it("retains the root dev flag across public route navigation", async () => {

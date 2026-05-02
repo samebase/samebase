@@ -214,32 +214,32 @@ test("logo view color selection applies Tailwind colors to the Three scene", asy
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const colorsSection = page.getByTestId("logo-preview-colors-section");
-  const leftColorPicker = controlsSidebar.getByRole("button", {
-    name: "Left color picker",
+  const primaryColorPicker = controlsSidebar.getByRole("button", {
+    name: "Primary color picker",
   });
 
-  await leftColorPicker.click();
-  const leftColorPopover = page.getByTestId("logo-color-picker-left");
-  await expect(leftColorPopover).toBeVisible();
+  await primaryColorPicker.click();
+  const primaryColorPopover = page.getByTestId("logo-color-picker-primary");
+  await expect(primaryColorPopover).toBeVisible();
 
-  await leftColorPopover.getByLabel("Left custom color").fill("#ff00cc");
-  await expect(page).toHaveURL(/leftColor=%23ff00cc/);
-  await expect(leftColorPicker).toContainText("#ff00cc");
+  await primaryColorPopover.getByLabel("Primary custom color").fill("#ff00cc");
+  await expect(page).toHaveURL(/primary=%23ff00cc/);
+  await expect(primaryColorPicker).toContainText("#ff00cc");
 
-  await leftColorPopover
+  await primaryColorPopover
     .getByRole("button", { name: "Sky family", exact: true })
     .click();
-  await expect(page).toHaveURL(/leftColor=sky-500/);
+  await expect(page).toHaveURL(/primary=sky-500/);
 
-  await leftColorPopover
+  await primaryColorPopover
     .getByRole("button", { name: "Red family", exact: true })
     .click();
-  await expect(page).toHaveURL(/leftColor=red-500/);
+  await expect(page).toHaveURL(/primary=red-500/);
 
-  await leftColorPopover
+  await primaryColorPopover
     .getByRole("button", { name: "Red 600", exact: true })
     .click();
-  await expect(page).toHaveURL(/leftColor=red-600/);
+  await expect(page).toHaveURL(/primary=red-600/);
 
   await page.evaluate(async () => {
     await new Promise<void>((resolve) => {
@@ -249,7 +249,7 @@ test("logo view color selection applies Tailwind colors to the Three scene", asy
     });
   });
 
-  await expect(leftColorPopover).toHaveScreenshot(
+  await expect(primaryColorPopover).toHaveScreenshot(
     "logo-color-picker-popover.png",
     {
       animations: "disabled",
@@ -260,7 +260,7 @@ test("logo view color selection applies Tailwind colors to the Three scene", asy
   );
 
   await page.keyboard.press("Escape");
-  await expect(leftColorPopover).toBeHidden();
+  await expect(primaryColorPopover).toBeHidden();
   await expect(colorsSection).toHaveScreenshot("logo-color-controls.png", {
     animations: "disabled",
     caret: "hide",

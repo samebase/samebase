@@ -19,18 +19,21 @@ import {
   type LogoIsometricStyleId,
 } from "@/components/logoIsometricRenderer";
 import {
-  DEFAULT_FACE_COLORS,
-  FACE_COLOR_KEYS,
+  APP_THEME_COLOR_KEYS,
+  DEFAULT_APP_THEME_COLORS,
   TAILWIND_COLOR_FAMILIES,
+  getFaceColorsFromAppThemeColors,
   getTailwindColorHex,
   getTailwindColorFamily,
   getTailwindColorFamilyHex,
   getTailwindColorShade,
   getTailwindColorShades,
   getTailwindColorTokenForSelection,
+  isLogoColorToken,
   isTailwindColorToken,
-  type FaceColorKey,
-  type FaceColors,
+  type AppThemeColorKey,
+  type AppThemeColors,
+  type LogoColorToken,
 } from "@/components/logoTailwindColors";
 import {
   CUSTOM_LOGO_PRESET_ID,
@@ -81,6 +84,7 @@ import {
   resolveLogoViewState,
   type LogoViewState,
 } from "@/components/logoViewDrag";
+import { readAppThemeColors } from "@/lib/appThemeColorSearch";
 import {
   buildLogoRouteSearch,
   preserveLogoRouteDevModeSearch,
@@ -132,15 +136,15 @@ type LogoPreviewPageProps = {
   routeSearch: LogoRouteSearch;
 };
 
-const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
-  left: "Left",
-  right: "Right",
-  top: "Top",
+const THEME_COLOR_LABELS: Record<AppThemeColorKey, string> = {
+  base: "Base",
+  primary: "Primary",
+  secondary: "Secondary",
 };
-const RGB_FACE_COLORS: FaceColors = {
-  left: "red-500",
-  right: "green-500",
-  top: "blue-500",
+const RGB_THEME_COLORS: AppThemeColors = {
+  base: "blue-500",
+  primary: "green-500",
+  secondary: "red-500",
 };
 const COLOR_SWATCH_SIZE_CLASS_NAMES = {
   default: "h-4 w-4",
@@ -172,7 +176,7 @@ function expandHexColorToken(token: string): string {
   return `#${red}${red}${green}${green}${blue}${blue}`.toLowerCase();
 }
 
-function readColorInputValue(token: string): string {
+function readColorInputValue(token: LogoColorToken): string {
   return expandHexColorToken(getTailwindColorHex(token));
 }
 
@@ -195,18 +199,21 @@ function ColorSwatch({
   );
 }
 
-function FaceColorPicker({
+function ThemeColorPicker({
   currentToken,
-  faceColorKey,
+  themeColorKey,
   onCustomColorChange,
   onFamilyChange,
   onShadeChange,
 }: {
-  currentToken: string;
-  faceColorKey: FaceColorKey;
-  onCustomColorChange: (faceColorKey: FaceColorKey, nextColor: string) => void;
-  onFamilyChange: (faceColorKey: FaceColorKey, nextFamily: string) => void;
-  onShadeChange: (faceColorKey: FaceColorKey, nextShade: string) => void;
+  currentToken: LogoColorToken;
+  themeColorKey: AppThemeColorKey;
+  onCustomColorChange: (
+    themeColorKey: AppThemeColorKey,
+    nextColor: string,
+  ) => void;
+  onFamilyChange: (themeColorKey: AppThemeColorKey, nextFamily: string) => void;
+  onShadeChange: (themeColorKey: AppThemeColorKey, nextShade: string) => void;
 }) {
   const currentColorHex = getTailwindColorHex(currentToken);
   const colorInputValue = readColorInputValue(currentToken);
@@ -220,13 +227,13 @@ function FaceColorPicker({
   const currentLabel = isTailwindToken ? currentToken : colorInputValue;
   const availableShades =
     currentFamily === null ? [] : getTailwindColorShades(currentFamily);
-  const faceColorLabel = FACE_COLOR_LABELS[faceColorKey];
+  const themeColorLabel = THEME_COLOR_LABELS[themeColorKey];
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
+      <PopoverTrigger asChild nativeButton>
         <Button
-          aria-label={`${faceColorLabel} color picker`}
+          aria-label={`${themeColorLabel} color picker`}
           className="h-auto w-full justify-between gap-3 rounded-none border-border bg-background px-2 py-2 text-left shadow-none"
           type="button"
           variant="outline"
@@ -235,7 +242,7 @@ function FaceColorPicker({
             <ColorSwatch color={currentColorHex} />
             <span className="flex min-w-0 flex-col gap-0.5">
               <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                {faceColorLabel}
+                {themeColorLabel}
               </span>
               <span className="truncate font-mono text-xs text-foreground">
                 {currentLabel}
@@ -248,13 +255,13 @@ function FaceColorPicker({
       <PopoverContent
         align="start"
         className="max-h-[min(32rem,calc(100vh-4rem))] w-72 gap-3 overflow-y-auto rounded-none border-border p-3 shadow-md"
-        data-testid={`logo-color-picker-${faceColorKey}`}
+        data-testid={`logo-color-picker-${themeColorKey}`}
       >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <ColorSwatch color={currentColorHex} />
             <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              {faceColorLabel}
+              {themeColorLabel}
             </span>
           </div>
           <span className="truncate font-mono text-xs text-muted-foreground">
@@ -264,12 +271,12 @@ function FaceColorPicker({
 
         <div className="flex items-center gap-2 border border-border bg-background p-2">
           <Input
-            aria-label={`${faceColorLabel} custom color`}
+            aria-label={`${themeColorLabel} custom color`}
             className="h-10 w-14 shrink-0 cursor-pointer rounded-none border-border bg-background p-1 shadow-none"
             type="color"
             value={colorInputValue}
             onChange={(event) =>
-              onCustomColorChange(faceColorKey, event.target.value)
+              onCustomColorChange(themeColorKey, event.target.value)
             }
           />
           <div className="min-w-0">
@@ -310,7 +317,7 @@ function FaceColorPicker({
                         : "border-border hover:border-foreground/60",
                     )}
                     type="button"
-                    onClick={() => onShadeChange(faceColorKey, shade)}
+                    onClick={() => onShadeChange(themeColorKey, shade)}
                   >
                     <span
                       aria-hidden="true"
@@ -345,7 +352,7 @@ function FaceColorPicker({
                       : "border-border hover:border-foreground/60",
                   )}
                   type="button"
-                  onClick={() => onFamilyChange(faceColorKey, family)}
+                  onClick={() => onFamilyChange(themeColorKey, family)}
                 >
                   <ColorSwatch
                     color={getTailwindColorFamilyHex(family)}
@@ -457,14 +464,6 @@ function readElevationDegrees(routeSearch: LogoRouteSearch): number {
   return normalizeElevationDegrees(routeSearch.elev);
 }
 
-function readFaceColors(routeSearch: LogoRouteSearch): FaceColors {
-  return {
-    left: routeSearch.leftColor ?? DEFAULT_FACE_COLORS.left,
-    right: routeSearch.rightColor ?? DEFAULT_FACE_COLORS.right,
-    top: routeSearch.topColor ?? DEFAULT_FACE_COLORS.top,
-  };
-}
-
 function isLogoPresetId(value: string): value is LogoPresetId {
   return LOGO_PRESETS.some((preset) => preset.id === value);
 }
@@ -475,11 +474,11 @@ function readCanonicalLogoRouteSearch(
   return preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
       elevationDegrees: readElevationDegrees(routeSearch),
-      faceColors: readFaceColors(routeSearch),
       isoCubeSidePixels: readIsoCubeSidePixels(routeSearch),
       isoStyleId: readIsoStyleId(routeSearch),
       rotationAxisMode: readRotationAxisMode(routeSearch),
       rotationDegrees: readRotationDegrees(routeSearch),
+      themeColors: readAppThemeColors(routeSearch),
       viewSnapEnabled: readViewSnapEnabled(routeSearch),
       voxelState: readVoxelState(routeSearch),
     }),
@@ -489,15 +488,15 @@ function readCanonicalLogoRouteSearch(
 
 const LOGO_ROUTE_SEARCH_KEYS = [
   "axis",
+  "base",
   "dev",
   "elev",
   "freeView",
   "isoSide",
   "isoStyle",
-  "leftColor",
-  "rightColor",
+  "primary",
+  "secondary",
   "rot",
-  "topColor",
   "vox",
 ] as const satisfies readonly (keyof LogoRouteSearch)[];
 
@@ -505,11 +504,14 @@ function areLogoRouteSearchesEqual(
   left: LogoRouteSearch,
   right: LogoRouteSearch,
 ): boolean {
-  if (Object.keys(left).length !== Object.keys(right).length) {
-    return false;
-  }
-
   return LOGO_ROUTE_SEARCH_KEYS.every((key) => left[key] === right[key]);
+}
+
+function areAppThemeColorsEqual(
+  left: AppThemeColors,
+  right: AppThemeColors,
+): boolean {
+  return APP_THEME_COLOR_KEYS.every((key) => left[key] === right[key]);
 }
 
 function LogoPreviewSection({
@@ -608,8 +610,6 @@ export function LogoPreviewPage({
 }: LogoPreviewPageProps) {
   const publicRightSidebarPane = usePublicRightSidebarPane();
   const isIsometricMode = renderMode === "iso";
-  const backgroundColor = getTailwindColorHex("background-base");
-  const currentRouteSearch = readCanonicalLogoRouteSearch(routeSearch);
   const [mobilePane, setMobilePane] = useState<MobileSidebarPane>("left");
   const [isViewSnapEnabled, setIsViewSnapEnabled] = useState(() =>
     readViewSnapEnabled(routeSearch),
@@ -636,9 +636,11 @@ export function LogoPreviewPage({
   const [isoStyleId, setIsoStyleId] = useState<LogoIsometricStyleId>(() =>
     readIsoStyleId(routeSearch),
   );
-  const [faceColors, setFaceColors] = useState<FaceColors>(() =>
-    readFaceColors(routeSearch),
+  const [themeColors, setThemeColors] = useState<AppThemeColors>(() =>
+    readAppThemeColors(routeSearch),
   );
+  const faceColors = getFaceColorsFromAppThemeColors(themeColors);
+  const backgroundColor = getTailwindColorHex(themeColors.base);
   const [logoOpacity, setLogoOpacity] = useState(DEFAULT_LOGO_OPACITY);
   const [isFaceColorAnimationEnabled, setIsFaceColorAnimationEnabled] =
     useState(false);
@@ -681,7 +683,12 @@ export function LogoPreviewPage({
     setSelectedPresetId(readLogoPresetSelection(routeSearch));
     setIsoCubeSidePixels(readIsoCubeSidePixels(routeSearch));
     setIsoStyleId(readIsoStyleId(routeSearch));
-    setFaceColors(readFaceColors(routeSearch));
+    const nextThemeColors = readAppThemeColors(routeSearch);
+    setThemeColors((currentThemeColors) =>
+      areAppThemeColorsEqual(currentThemeColors, nextThemeColors)
+        ? currentThemeColors
+        : nextThemeColors,
+    );
   }, [routeSearch]);
 
   useEffect(() => {
@@ -705,24 +712,27 @@ export function LogoPreviewPage({
     const nextSearch = preserveLogoRouteDevModeSearch(
       buildLogoRouteSearch({
         elevationDegrees: resolvedView.elevationDegrees,
-        faceColors,
         isoCubeSidePixels,
         isoStyleId,
         rotationAxisMode,
         rotationDegrees: resolvedView.rotationDegrees,
+        themeColors,
         viewSnapEnabled: isViewSnapEnabled,
         voxelState,
       }),
       routeSearch,
     );
 
-    if (!areLogoRouteSearchesEqual(nextSearch, currentRouteSearch)) {
+    if (
+      !areLogoRouteSearchesEqual(
+        nextSearch,
+        readCanonicalLogoRouteSearch(routeSearch),
+      )
+    ) {
       replaceRouteSearch(nextSearch);
     }
   }, [
-    currentRouteSearch,
     elevationDegrees,
-    faceColors,
     isAutoRotating,
     isSceneInteracting,
     isViewSnapEnabled,
@@ -732,6 +742,7 @@ export function LogoPreviewPage({
     rotationAxisMode,
     rotationDegrees,
     routeSearch,
+    themeColors,
     voxelState,
   ]);
 
@@ -893,53 +904,57 @@ export function LogoPreviewPage({
     setVoxelState(preset.voxelState);
   };
 
-  const handleFaceColorFamilyChange = (
-    faceColorKey: FaceColorKey,
+  const handleThemeColorFamilyChange = (
+    themeColorKey: AppThemeColorKey,
     nextFamily: string,
   ) => {
-    setFaceColors((currentFaceColors) => ({
-      ...currentFaceColors,
-      [faceColorKey]: getTailwindColorTokenForSelection(
+    setThemeColors((currentThemeColors) => ({
+      ...currentThemeColors,
+      [themeColorKey]: getTailwindColorTokenForSelection(
         nextFamily,
-        getTailwindColorShade(currentFaceColors[faceColorKey]),
-        currentFaceColors[faceColorKey],
+        getTailwindColorShade(currentThemeColors[themeColorKey]),
+        currentThemeColors[themeColorKey],
       ),
     }));
   };
 
-  const handleFaceColorShadeChange = (
-    faceColorKey: FaceColorKey,
+  const handleThemeColorShadeChange = (
+    themeColorKey: AppThemeColorKey,
     nextShade: string,
   ) => {
-    setFaceColors((currentFaceColors) => ({
-      ...currentFaceColors,
-      [faceColorKey]: getTailwindColorTokenForSelection(
-        getTailwindColorFamily(currentFaceColors[faceColorKey]),
+    setThemeColors((currentThemeColors) => ({
+      ...currentThemeColors,
+      [themeColorKey]: getTailwindColorTokenForSelection(
+        getTailwindColorFamily(currentThemeColors[themeColorKey]),
         nextShade,
-        currentFaceColors[faceColorKey],
+        currentThemeColors[themeColorKey],
       ),
     }));
   };
 
-  const handleFaceColorPickerChange = (
-    faceColorKey: FaceColorKey,
+  const handleThemeColorPickerChange = (
+    themeColorKey: AppThemeColorKey,
     nextColor: string,
   ) => {
     const normalizedColor = expandHexColorToken(nextColor);
-    setFaceColors((currentFaceColors) => ({
-      ...currentFaceColors,
-      [faceColorKey]: normalizedColor,
+    if (!isLogoColorToken(normalizedColor)) {
+      return;
+    }
+
+    setThemeColors((currentThemeColors) => ({
+      ...currentThemeColors,
+      [themeColorKey]: normalizedColor,
     }));
   };
 
   const modeSearch = preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
       elevationDegrees,
-      faceColors,
       isoCubeSidePixels,
       isoStyleId,
       rotationAxisMode,
       rotationDegrees,
+      themeColors,
       viewSnapEnabled: isViewSnapEnabled,
       voxelState,
     }),
@@ -1147,7 +1162,7 @@ export function LogoPreviewPage({
             variant="outline"
             className="w-full rounded-none"
             onClick={() => {
-              setFaceColors(DEFAULT_FACE_COLORS);
+              setThemeColors(DEFAULT_APP_THEME_COLORS);
             }}
           >
             Default colors
@@ -1158,7 +1173,7 @@ export function LogoPreviewPage({
             variant="outline"
             className="w-full rounded-none"
             onClick={() => {
-              setFaceColors(RGB_FACE_COLORS);
+              setThemeColors(RGB_THEME_COLORS);
             }}
           >
             RGB colors
@@ -1481,26 +1496,26 @@ export function LogoPreviewPage({
 
       <LogoPreviewSection title="Colors" testId="logo-preview-colors-section">
         <div className="flex items-center gap-1">
-          {FACE_COLOR_KEYS.map((faceColorKey) => (
+          {APP_THEME_COLOR_KEYS.map((themeColorKey) => (
             <ColorSwatch
-              key={faceColorKey}
-              color={getTailwindColorHex(faceColors[faceColorKey])}
+              key={themeColorKey}
+              color={getTailwindColorHex(themeColors[themeColorKey])}
               size="compact"
             />
           ))}
         </div>
 
-        {FACE_COLOR_KEYS.map((faceColorKey) => {
-          const currentToken = faceColors[faceColorKey];
+        {APP_THEME_COLOR_KEYS.map((themeColorKey) => {
+          const currentToken = themeColors[themeColorKey];
 
           return (
-            <FaceColorPicker
-              key={faceColorKey}
+            <ThemeColorPicker
+              key={themeColorKey}
               currentToken={currentToken}
-              faceColorKey={faceColorKey}
-              onCustomColorChange={handleFaceColorPickerChange}
-              onFamilyChange={handleFaceColorFamilyChange}
-              onShadeChange={handleFaceColorShadeChange}
+              themeColorKey={themeColorKey}
+              onCustomColorChange={handleThemeColorPickerChange}
+              onFamilyChange={handleThemeColorFamilyChange}
+              onShadeChange={handleThemeColorShadeChange}
             />
           );
         })}

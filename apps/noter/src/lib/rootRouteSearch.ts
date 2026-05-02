@@ -1,4 +1,5 @@
 import { getRouteApi } from "@tanstack/react-router";
+import { appThemeColorSearchFieldSchema } from "@/lib/appThemeColorSearch";
 import { z } from "zod";
 
 // TanStack Router's root route id is the stable "__root__" literal, and using
@@ -25,19 +26,21 @@ function readOptionalGoogleSignupReturn(value: unknown): "google" | undefined {
   return value === "google" ? "google" : undefined;
 }
 
-const rootRouteSearchSchema = z.object({
-  auth: z.preprocess(
-    readOptionalGoogleAuthProvider,
-    z.literal("google").optional(),
-  ),
-  dev: z.preprocess(readOptionalFlag, z.literal(true).optional()),
-  devtools: z.preprocess(readOptionalFlag, z.literal(true).optional()),
-  "prod-ui": z.preprocess(readOptionalFlag, z.literal(true).optional()),
-  signup: z.preprocess(
-    readOptionalGoogleSignupReturn,
-    z.literal("google").optional(),
-  ),
-});
+const rootRouteSearchSchema = z
+  .object({
+    auth: z.preprocess(
+      readOptionalGoogleAuthProvider,
+      z.literal("google").optional(),
+    ),
+    dev: z.preprocess(readOptionalFlag, z.literal(true).optional()),
+    devtools: z.preprocess(readOptionalFlag, z.literal(true).optional()),
+    "prod-ui": z.preprocess(readOptionalFlag, z.literal(true).optional()),
+    signup: z.preprocess(
+      readOptionalGoogleSignupReturn,
+      z.literal("google").optional(),
+    ),
+  })
+  .merge(appThemeColorSearchFieldSchema);
 
 export type RootRouteSearch = z.infer<typeof rootRouteSearchSchema>;
 

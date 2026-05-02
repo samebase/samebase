@@ -1,14 +1,25 @@
 import tailwindColors from "tailwindcss/colors";
 
 export type FaceColorKey = "left" | "right" | "top";
-export type FaceColors = Record<FaceColorKey, string>;
 export type TailwindColorFamily = string;
 export type TailwindColorShade = string;
+export type HexColorToken = `#${string}`;
+export type LogoColorThemeMode = "dark" | "light";
 type ThemeColorSource = {
   cssVariable: `--${string}`;
   fallbackHex: string;
+  fallbackHexByTheme?: Record<LogoColorThemeMode, string>;
 };
 type ColorSource = string | ThemeColorSource;
+type RgbColor = {
+  blue: number;
+  green: number;
+  red: number;
+};
+type ForegroundColorCandidate = {
+  cssHsl: string;
+  rgb: RgbColor;
+};
 
 const OKLCH_COLOR_PATTERN =
   /^oklch\(\s*([^\s]+)\s+([^\s]+)\s+([^\s/]+)(?:\s*\/\s*[^)]+)?\s*\)$/i;
@@ -177,23 +188,152 @@ function resolveColorSource(source: ColorSource): string {
   return readThemeColor(source.cssVariable) ?? source.fallbackHex;
 }
 
+function resolveStaticColorSource(
+  source: ColorSource,
+  themeMode: LogoColorThemeMode,
+): string {
+  if (typeof source === "string") {
+    return normalizeRenderableColor(source);
+  }
+
+  return source.fallbackHexByTheme?.[themeMode] ?? source.fallbackHex;
+}
+
+function isHexColorToken(token: string): token is HexColorToken {
+  return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(token);
+}
+
+function readHexColor(color: string): RgbColor | null {
+  if (!isHexColorToken(color)) {
+    return null;
+  }
+
+  const hex =
+    color.length === 4
+      ? `${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`
+      : color.slice(1);
+  const parsedValue = Number.parseInt(hex, 16);
+  if (!Number.isFinite(parsedValue)) {
+    return null;
+  }
+
+  return {
+    blue: parsedValue & 255,
+    green: (parsedValue >> 8) & 255,
+    red: (parsedValue >> 16) & 255,
+  };
+}
+
+function formatCssNumber(value: number): string {
+  const roundedValue = Math.round(value * 10) / 10;
+  return Number.isInteger(roundedValue)
+    ? `${roundedValue}`
+    : roundedValue.toFixed(1);
+}
+
+function rgbToHslTriplet(color: RgbColor): string {
+  const red = color.red / 255;
+  const green = color.green / 255;
+  const blue = color.blue / 255;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const lightness = (max + min) / 2;
+  const delta = max - min;
+
+  if (delta === 0) {
+    return `0 0% ${formatCssNumber(lightness * 100)}%`;
+  }
+
+  const saturation = delta / (1 - Math.abs(2 * lightness - 1));
+  let hue = 0;
+
+  if (max === red) {
+    hue = ((green - blue) / delta) % 6;
+  } else if (max === green) {
+    hue = (blue - red) / delta + 2;
+  } else {
+    hue = (red - green) / delta + 4;
+  }
+
+  const normalizedHue = (hue * 60 + 360) % 360;
+
+  return `${formatCssNumber(normalizedHue)} ${formatCssNumber(
+    saturation * 100,
+  )}% ${formatCssNumber(lightness * 100)}%`;
+}
+
+function getRelativeLuminance(color: RgbColor): number {
+  const readChannel = (channel: number) => {
+    const normalizedChannel = channel / 255;
+    return normalizedChannel <= 0.03928
+      ? normalizedChannel / 12.92
+      : ((normalizedChannel + 0.055) / 1.055) ** 2.4;
+  };
+
+  return (
+    readChannel(color.red) * 0.2126 +
+    readChannel(color.green) * 0.7152 +
+    readChannel(color.blue) * 0.0722
+  );
+}
+
+function getContrastRatio(left: RgbColor, right: RgbColor): number {
+  const leftLuminance = getRelativeLuminance(left);
+  const rightLuminance = getRelativeLuminance(right);
+  const lighterLuminance = Math.max(leftLuminance, rightLuminance);
+  const darkerLuminance = Math.min(leftLuminance, rightLuminance);
+
+  return (lighterLuminance + 0.05) / (darkerLuminance + 0.05);
+}
+
+const foregroundColorCandidates = [
+  {
+    cssHsl: "24 9.8% 10%",
+    rgb: {
+      blue: 23,
+      green: 25,
+      red: 28,
+    },
+  },
+  {
+    cssHsl: "0 0% 100%",
+    rgb: {
+      blue: 255,
+      green: 255,
+      red: 255,
+    },
+  },
+] as const satisfies readonly ForegroundColorCandidate[];
+
 const themeTailwindColorScales = {
   primary: {
     base: {
       cssVariable: "--primary",
       fallbackHex: "#394447",
+      fallbackHexByTheme: {
+        dark: "#ffffff",
+        light: "#394447",
+      },
     },
   },
   background: {
     base: {
       cssVariable: "--background",
       fallbackHex: "#ffffff",
+      fallbackHexByTheme: {
+        dark: "#394447",
+        light: "#ffffff",
+      },
     },
   },
   secondary: {
     base: {
       cssVariable: "--secondary",
       fallbackHex: "#ecfccb",
+      fallbackHexByTheme: {
+        dark: "#ecfccb",
+        light: "#ecfccb",
+      },
     },
   },
 } as const satisfies Record<string, Record<string, ThemeColorSource>>;
@@ -306,14 +446,26 @@ const tailwindColorFamilies = [
 ] as const;
 
 type TailwindColorFamilyKey = (typeof tailwindColorFamilies)[number]["key"];
+export type TailwindColorToken = `${TailwindColorFamilyKey}-${string}`;
+export type LogoColorToken = TailwindColorToken | HexColorToken;
+export type FaceColors = Record<FaceColorKey, LogoColorToken>;
+export type AppThemeColorKey = "primary" | "secondary" | "base";
+export type AppThemeColors = Record<AppThemeColorKey, LogoColorToken>;
 
 type TailwindColorOption = {
   family: TailwindColorFamily;
   familyKey: TailwindColorFamilyKey;
   source: ColorSource;
   shade: TailwindColorShade;
-  token: string;
+  token: TailwindColorToken;
 };
+
+function createTailwindColorToken(
+  familyKey: TailwindColorFamilyKey,
+  shade: string,
+): TailwindColorToken {
+  return `${familyKey}-${shade}`;
+}
 
 const tailwindColorOptions: TailwindColorOption[] =
   tailwindColorFamilies.flatMap(({ key, label, scale }) =>
@@ -322,7 +474,7 @@ const tailwindColorOptions: TailwindColorOption[] =
       familyKey: key,
       source,
       shade,
-      token: `${key}-${shade}`,
+      token: createTailwindColorToken(key, shade),
     })),
   );
 
@@ -342,11 +494,22 @@ for (const option of tailwindColorOptions) {
 }
 
 export const FACE_COLOR_KEYS = ["left", "right", "top"] as const;
+export const APP_THEME_COLOR_KEYS = [
+  "primary",
+  "secondary",
+  "base",
+] as const satisfies readonly AppThemeColorKey[];
 
 export const DEFAULT_FACE_COLORS: FaceColors = {
   left: "secondary-base",
   right: "primary-base",
   top: "background-base",
+};
+
+export const DEFAULT_APP_THEME_COLORS: AppThemeColors = {
+  base: "background-base",
+  primary: "primary-base",
+  secondary: "secondary-base",
 };
 
 export const TAILWIND_COLOR_FAMILIES = tailwindColorFamilies.map(
@@ -359,19 +522,82 @@ function getTailwindColorOption(
   return tailwindColorOptionMap.get(token);
 }
 
-export function isTailwindColorToken(token: string): boolean {
+export function isTailwindColorToken(
+  token: string,
+): token is TailwindColorToken {
   return getTailwindColorOption(token) !== undefined;
 }
 
-export function getTailwindColorHex(token: string): string {
-  if (/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(token)) {
+export function isLogoColorToken(token: string): token is LogoColorToken {
+  return isHexColorToken(token) || isTailwindColorToken(token);
+}
+
+function getStaticTailwindColorHex(
+  token: LogoColorToken,
+  themeMode: LogoColorThemeMode,
+): string {
+  if (isHexColorToken(token)) {
+    return token;
+  }
+
+  return resolveStaticColorSource(
+    getTailwindColorOption(token)?.source ?? "#000000",
+    themeMode,
+  );
+}
+
+export function getTailwindColorHex(token: LogoColorToken): string {
+  if (isHexColorToken(token)) {
     return token;
   }
 
   return resolveColorSource(getTailwindColorOption(token)?.source ?? "#000000");
 }
 
-export function getTailwindColorFamily(token: string): TailwindColorFamily {
+export function getLogoColorCssHsl(
+  token: LogoColorToken,
+  themeMode: LogoColorThemeMode = "light",
+): string | null {
+  const rgbColor = readHexColor(getStaticTailwindColorHex(token, themeMode));
+  return rgbColor === null ? null : rgbToHslTriplet(rgbColor);
+}
+
+export function getLogoColorForegroundCssHsl(
+  token: LogoColorToken,
+  themeMode: LogoColorThemeMode = "light",
+): string | null {
+  const rgbColor = readHexColor(getStaticTailwindColorHex(token, themeMode));
+  if (rgbColor === null) {
+    return null;
+  }
+
+  let bestCandidate: ForegroundColorCandidate = foregroundColorCandidates[0];
+  let bestContrastRatio = getContrastRatio(rgbColor, bestCandidate.rgb);
+
+  for (const candidate of foregroundColorCandidates.slice(1)) {
+    const contrastRatio = getContrastRatio(rgbColor, candidate.rgb);
+    if (contrastRatio > bestContrastRatio) {
+      bestCandidate = candidate;
+      bestContrastRatio = contrastRatio;
+    }
+  }
+
+  return bestCandidate.cssHsl;
+}
+
+export function getFaceColorsFromAppThemeColors(
+  themeColors: AppThemeColors,
+): FaceColors {
+  return {
+    left: themeColors.secondary,
+    right: themeColors.primary,
+    top: themeColors.base,
+  };
+}
+
+export function getTailwindColorFamily(
+  token: LogoColorToken,
+): TailwindColorFamily {
   return (
     getTailwindColorOption(token)?.family ??
     getTailwindColorOption(DEFAULT_FACE_COLORS.left)?.family ??
@@ -379,7 +605,9 @@ export function getTailwindColorFamily(token: string): TailwindColorFamily {
   );
 }
 
-export function getTailwindColorShade(token: string): TailwindColorShade {
+export function getTailwindColorShade(
+  token: LogoColorToken,
+): TailwindColorShade {
   return (
     getTailwindColorOption(token)?.shade ??
     getTailwindColorOption(DEFAULT_FACE_COLORS.left)?.shade ??
@@ -398,8 +626,8 @@ export function getTailwindColorShades(
 export function getTailwindColorTokenForSelection(
   family: TailwindColorFamily,
   shade: TailwindColorShade,
-  fallbackToken: string,
-): string {
+  fallbackToken: LogoColorToken,
+): LogoColorToken {
   const familyOptions = tailwindColorOptionsByFamily.get(family);
   if (!familyOptions || familyOptions.length === 0) {
     return fallbackToken;
