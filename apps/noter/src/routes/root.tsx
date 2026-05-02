@@ -47,14 +47,9 @@ function retainDefinedRootSearchParams({
   next,
   search,
 }: RootSearchMiddlewareArgs): RootRouteSearch {
-  let nextSearch: RootRouteSearch = { ...next(search) };
-  const hasThemeModeConflict = search.light === true && search.dark === true;
+  let nextSearch: RootRouteSearch = next(search);
 
   for (const key of RETAINED_ROOT_SEARCH_KEYS) {
-    if (hasThemeModeConflict && (key === "light" || key === "dark")) {
-      continue;
-    }
-
     if (key in nextSearch || typeof search[key] === "undefined") {
       continue;
     }
