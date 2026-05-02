@@ -26,6 +26,8 @@ function readOptionalGoogleSignupReturn(value: unknown): "google" | undefined {
   return value === "google" ? "google" : undefined;
 }
 
+// Keep the delete route scoped to one trimmed owner/repo pair; invalid shapes
+// fail closed so extra slashes or empty segments cannot retarget the surface.
 function readOptionalDeleteRepository(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;

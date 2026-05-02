@@ -391,6 +391,7 @@ export function VaultDashboardDeleteControl({
   repositoryFullName: string;
 }) {
   const usesTouchSheet = useUsesTouchSheet();
+  const deleteTriggerDisabled = isRemovingVault;
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
       onOpenChange(false);
@@ -407,7 +408,14 @@ export function VaultDashboardDeleteControl({
         })}
         aria-label={`Remove vault ${repositoryFullName}`}
         title="Remove vault"
+        aria-disabled={deleteTriggerDisabled ? true : undefined}
+        tabIndex={deleteTriggerDisabled ? -1 : undefined}
         onClick={(event) => {
+          if (deleteTriggerDisabled) {
+            event.preventDefault();
+            return;
+          }
+
           if (!isOpen) {
             return;
           }
@@ -418,6 +426,7 @@ export function VaultDashboardDeleteControl({
         className={clsx(
           buttonVariants({ variant: "ghost", size: "icon-sm" }),
           "text-destructive hover:bg-destructive/10 hover:text-destructive",
+          deleteTriggerDisabled && "pointer-events-none opacity-50",
         )}
       >
         <TrashIcon className="h-4 w-4" aria-hidden="true" />
