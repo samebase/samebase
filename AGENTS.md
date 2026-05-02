@@ -120,6 +120,10 @@ Key domain entities:
 - Avoid parameterized local helper factories when a helper has one current
   callsite and can read the needed local constants directly. Keep the direct
   function until multiple shipped callsites prove configurability is useful.
+- Remove property-presence checks such as `key in object` when they only exist
+  to appease TypeScript. Keep them only when own-key presence is real runtime
+  state, such as distinguishing an explicit `undefined` clear from a missing
+  key.
 - Fail closed rather than inventing placeholder fallbacks unless the patch is
   implementing a real migration.
 - Do not keep test-only production abstractions, incomplete extractions, or dead

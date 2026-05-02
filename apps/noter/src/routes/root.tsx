@@ -55,7 +55,11 @@ function retainDefinedRootSearchParams({
       continue;
     }
 
-    if (key in nextSearch || typeof search[key] === "undefined") {
+    const nextSearchOwnsKey = Object.prototype.hasOwnProperty.call(
+      nextSearch,
+      key,
+    );
+    if (nextSearchOwnsKey || typeof search[key] === "undefined") {
       continue;
     }
 
