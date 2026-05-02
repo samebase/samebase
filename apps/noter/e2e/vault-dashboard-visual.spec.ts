@@ -578,6 +578,11 @@ test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  const deleteLink = fixture.getByRole("link", {
+    name: "Remove vault noter-md/noter",
+  });
+  await expect(deleteLink).toBeVisible();
+  await expect(deleteLink).toHaveAttribute("href", "/?delete=noter-md%2Fnoter");
   await expect(fixture).toHaveScreenshot("vault-branch-mobile-alignment.png", {
     animations: "disabled",
     caret: "hide",

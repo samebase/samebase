@@ -424,8 +424,7 @@ export function VaultDashboardDeleteControl({
           onOpenChange(false);
         }}
         className={clsx(
-          buttonVariants({ variant: "ghost", size: "icon-sm" }),
-          "text-destructive hover:bg-destructive/10 hover:text-destructive",
+          buttonVariants({ variant: "destructive", size: "icon-sm" }),
           deleteTriggerDisabled && "pointer-events-none opacity-50",
         )}
       >

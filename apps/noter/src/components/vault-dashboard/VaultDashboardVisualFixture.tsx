@@ -665,27 +665,21 @@ export function VaultDashboardVisualFixture({
         data-mode={mode}
         className="flex w-full justify-center bg-stone-100 p-4 text-foreground"
       >
-        <div className="mx-auto max-w-[390px]">
-          <div className="corner-notch-1 border border-border bg-background p-4">
-            <div className="space-y-3">
-              <div>
-                <div className="text-lg font-semibold">
-                  <span className="font-normal text-muted-foreground">
-                    noter-md/
-                  </span>
-                  <span>noter</span>
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  Updated 12s ago
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
-                  Branches
-                </p>
-                <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
-                  <TestRouterProvider>
+        <div className="mx-auto w-full max-w-[390px] corner-notch-1 border border-border bg-background">
+          <TestRouterProvider>
+            <VaultDashboardRepositoryCard
+              isReady={true}
+              repositoryOwner="noter-md"
+              repositoryName="noter"
+              titleHref="https://github.com/noter-md/noter"
+              topRightAction={<FixtureDeleteControl />}
+              repositoryStatus={<span>Updated 12s ago</span>}
+              branchSection={
+                <div className="space-y-1.5">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                    Branches
+                  </p>
+                  <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
                       repositoryFullName="noter-md/noter"
@@ -710,11 +704,11 @@ export function VaultDashboardVisualFixture({
                       pullRequestNumber={321}
                       pullRequestTitle="Align mobile branch rows with vault cards"
                     />
-                  </TestRouterProvider>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
+              }
+            />
+          </TestRouterProvider>
         </div>
       </div>
     );
