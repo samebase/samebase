@@ -10,6 +10,7 @@ describe("rootRouteSearch", () => {
       validateRootRouteSearch({
         auth: "google",
         base: "#ffffff",
+        delete: "noter-md/noter",
         dev: "",
         devtools: "true",
         primary: "red-600",
@@ -20,6 +21,7 @@ describe("rootRouteSearch", () => {
     ).toEqual({
       auth: "google",
       base: "#ffffff",
+      delete: "noter-md/noter",
       dev: true,
       devtools: true,
       primary: "red-600",
@@ -34,6 +36,7 @@ describe("rootRouteSearch", () => {
       validateRootRouteSearch({
         auth: "github",
         base: "bad",
+        delete: "missing-repo-separator",
         dev: "1",
         devtools: "false",
         primary: "nope-500",
@@ -47,10 +50,11 @@ describe("rootRouteSearch", () => {
   it("parses the root search contract from a search string", () => {
     expect(
       readRootRouteSearch(
-        "?prod-ui&dev&auth=google&signup=google&primary=red-600",
+        "?prod-ui&dev&auth=google&signup=google&primary=red-600&delete=noter-md%2Fnoter",
       ),
     ).toEqual({
       auth: "google",
+      delete: "noter-md/noter",
       dev: true,
       primary: "red-600",
       "prod-ui": true,
