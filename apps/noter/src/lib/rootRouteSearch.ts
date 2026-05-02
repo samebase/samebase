@@ -1,5 +1,9 @@
 import { getRouteApi } from "@tanstack/react-router";
 import { appThemeColorSearchFieldSchema } from "@/lib/appThemeColorSearch";
+import {
+  readRootThemeModeSearch,
+  rootThemeModeSearchFieldSchema,
+} from "@/lib/rootThemeModeSearch";
 import { z } from "zod";
 
 // TanStack Router's root route id is the stable "__root__" literal, and using
@@ -57,7 +61,12 @@ const rootRouteSearchSchema = z
       z.literal("google").optional(),
     ),
   })
-  .merge(appThemeColorSearchFieldSchema);
+  .merge(appThemeColorSearchFieldSchema)
+  .merge(rootThemeModeSearchFieldSchema)
+  .transform(({ dark, light, ...search }) => ({
+    ...search,
+    ...readRootThemeModeSearch({ dark, light }),
+  }));
 
 export type RootRouteSearch = z.infer<typeof rootRouteSearchSchema>;
 

@@ -208,6 +208,11 @@ describe("appRouter", () => {
       isAuthenticated: false,
       isLoading: false,
     });
+    document.documentElement.className = "";
+    const removeStoredTheme = Reflect.get(window.localStorage, "removeItem");
+    if (typeof removeStoredTheme === "function") {
+      removeStoredTheme.call(window.localStorage, "theme");
+    }
   });
 
   afterEach(() => {
@@ -389,6 +394,31 @@ describe("appRouter", () => {
 
     expect(router.state.location.pathname).toBe("/logo/iso");
     expect(searchParams.has("primary")).toBe(false);
+  });
+
+  it("retains the root theme mode across logo route search updates", async () => {
+    const router = await renderRoute(
+      buildPathWithUpdatedQuery({ pathname: "/logo" }, (searchParams) => {
+        setQueryParam(searchParams, "light", true);
+        setQueryParam(searchParams, "rot", "10");
+      }),
+    );
+
+    await act(async () => {
+      await router.navigate({
+        replace: true,
+        search: {},
+        to: "/logo/iso",
+      });
+      await settleRouterRender();
+    });
+
+    const searchParams = new URLSearchParams(router.state.location.searchStr);
+
+    expect(router.state.location.pathname).toBe("/logo/iso");
+    expect(searchParams.has("dev")).toBe(true);
+    expect(searchParams.has("light")).toBe(true);
+    expect(searchParams.has("dark")).toBe(false);
   });
 
   it("retains the root dev flag across public route navigation", async () => {

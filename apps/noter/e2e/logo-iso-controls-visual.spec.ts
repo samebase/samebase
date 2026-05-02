@@ -64,6 +64,12 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   await expect(
     publicLinks.getByRole("link", { name: "/privacy", exact: true }),
   ).toHaveAttribute("href", "/privacy?dev");
+  await expect(
+    publicLinks.getByRole("link", { name: "?light", exact: true }),
+  ).toHaveAttribute("href", "/logo?dev&light");
+  await expect(
+    publicLinks.getByRole("link", { name: "?dark", exact: true }),
+  ).toHaveAttribute("href", "/logo?dev&dark");
   await expect(publicLinks).toHaveScreenshot(
     "logo-right-sidebar-meta-section.png",
     {
@@ -73,6 +79,60 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
       scale: "css",
     },
   );
+});
+
+test("logo public query links toggle root theme mode", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?dev", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const linksSidebar = page.getByTestId("workspace-layout-v2-pane-right");
+  const publicLinks = linksSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+
+  await publicLinks.getByRole("link", { name: "?light", exact: true }).click();
+  await expect(page).toHaveURL(/\/logo\?dev&light$/);
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
+  await expect(
+    publicLinks.getByRole("link", { name: "?-light", exact: true }),
+  ).toBeVisible();
+
+  await publicLinks.getByRole("link", { name: "?dark", exact: true }).click();
+  await expect(page).toHaveURL(/\/logo\?dev&dark$/);
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect(
+    publicLinks.getByRole("link", { name: "?-dark", exact: true }),
+  ).toBeVisible();
+
+  await publicLinks.getByRole("link", { name: "?-dark", exact: true }).click();
+  await expect(page).toHaveURL(/\/logo\?dev$/);
+  await expect(
+    publicLinks.getByRole("link", { name: "?light", exact: true }),
+  ).toBeVisible();
+  await expect(
+    publicLinks.getByRole("link", { name: "?dark", exact: true }),
+  ).toBeVisible();
+});
+
+test("logo public query links cancel conflicting root theme modes", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?dev&light&dark", {
+    waitUntil: "domcontentloaded",
+  });
+
+  await expect(page).toHaveURL(/\/logo\?dev$/);
+  await expect(
+    page
+      .getByTestId("workspace-layout-v2-pane-right")
+      .getByRole("link", { name: "?light", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByTestId("workspace-layout-v2-pane-right")
+      .getByRole("link", { name: "?dark", exact: true }),
+  ).toBeVisible();
 });
 
 test("logo iso controls mobile boot", async ({ page }) => {

@@ -13,6 +13,11 @@ import {
   readAppThemeColorSearch,
 } from "@/lib/appThemeColorSearch";
 import {
+  readRootThemeModeSearch,
+  rootThemeModeSearchFieldSchema,
+  type RootThemeModeSearch,
+} from "@/lib/rootThemeModeSearch";
+import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
   DEFAULT_VOXEL_STATE,
@@ -131,11 +136,15 @@ const logoRouteSearchFieldSchema = z
     rot: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     vox: z.preprocess(readCanonicalVoxelState, z.string().optional()),
   })
-  .merge(appThemeColorSearchFieldSchema);
+  .merge(appThemeColorSearchFieldSchema)
+  .merge(rootThemeModeSearchFieldSchema);
 
 export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform(
   (search) => {
+    const themeModeSearch = readRootThemeModeSearch(search);
     return {
+      ...(themeModeSearch.dark === true ? { dark: true as const } : {}),
+      ...(themeModeSearch.light === true ? { light: true as const } : {}),
       ...readAppThemeColorSearch(search),
       ...(typeof search.axis === "string" ? { axis: search.axis } : {}),
       ...(search.dev === true ? { dev: true as const } : {}),
@@ -171,11 +180,13 @@ export function buildLogoRouteSearch(args: {
   isoStyleId: LogoIsometricStyleId;
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
+  themeModeSearch?: RootThemeModeSearch;
   themeColors: AppThemeColors;
   viewSnapEnabled: boolean;
   voxelState: string;
 }): LogoRouteSearch {
   return {
+    ...readRootThemeModeSearch(args.themeModeSearch ?? {}),
     ...buildAppThemeColorSearch(args.themeColors),
     ...(args.rotationAxisMode !== "cube-y"
       ? { axis: args.rotationAxisMode }
