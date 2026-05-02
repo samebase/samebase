@@ -2,8 +2,7 @@ import {
   Outlet,
   createRootRoute,
   lazyRouteComponent,
-  useLocation,
-  useNavigate,
+  redirect,
 } from "@tanstack/react-router";
 import { RouterGestureDebugOverlay } from "@/components/RouterGestureDebugOverlay";
 import {
@@ -20,6 +19,7 @@ import {
   readRootThemeMode,
   syncDocumentRootThemeMode,
 } from "@/lib/rootThemeModeSearch";
+import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { useEffect, useLayoutEffect } from "react";
 
 const posthogApiHost =
@@ -132,63 +132,15 @@ function readClearedRootThemeModeSearch(
   return nextSearch;
 }
 
-function readClearedRootSearch(): RootRouteSearch {
-  return {
-    auth: undefined,
-    base: undefined,
-    dark: undefined,
-    delete: undefined,
-    dev: undefined,
-    devtools: undefined,
-    light: undefined,
-    primary: undefined,
-    "prod-ui": undefined,
-    reset: undefined,
-    secondary: undefined,
-    signup: undefined,
-  };
-}
-
 function AppRouterRoot() {
-  const { base, dark, light, primary, reset, secondary } = useRootRouteSearch();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const { base, dark, light, primary, secondary } = useRootRouteSearch();
   const themeMode = readRootThemeMode({ dark, light });
   useDeferredPostHogInit();
 
   useLayoutEffect(() => {
-    if (reset) {
-      return;
-    }
-
     syncDocumentThemeColorSearch({ base, primary, secondary });
     syncDocumentRootThemeMode(themeMode);
-  }, [base, primary, reset, secondary, themeMode]);
-
-  useEffect(() => {
-    if (reset) {
-      void navigate({
-        hash: location.hash,
-        replace: true,
-        search: readClearedRootSearch(),
-        state: true,
-        to: location.pathname,
-      });
-      return;
-    }
-
-    if (!hasConflictingRootThemeModeSearch(location.searchStr)) {
-      return;
-    }
-
-    void navigate({
-      hash: location.hash,
-      replace: true,
-      search: readClearedRootThemeModeSearch(location.searchStr),
-      state: true,
-      to: location.pathname,
-    });
-  }, [location.hash, location.pathname, location.searchStr, navigate, reset]);
+  }, [base, primary, secondary, themeMode]);
 
   return (
     <>
@@ -199,6 +151,28 @@ function AppRouterRoot() {
 }
 
 export const Route = createRootRoute({
+  beforeLoad: ({ location, search }) => {
+    if (search.reset === true) {
+      throw redirect({
+        href: buildPathWithTanStackSearch({
+          pathname: location.pathname,
+          hash: location.hash,
+        }),
+        replace: true,
+      });
+    }
+
+    if (hasConflictingRootThemeModeSearch(location.searchStr)) {
+      throw redirect({
+        href: buildPathWithTanStackSearch({
+          pathname: location.pathname,
+          search: readClearedRootThemeModeSearch(location.searchStr),
+          hash: location.hash,
+        }),
+        replace: true,
+      });
+    }
+  },
   component: AppRouterRoot,
   notFoundComponent: lazyRouteComponent(
     () => import("@/components/NotFoundRoutePage"),
