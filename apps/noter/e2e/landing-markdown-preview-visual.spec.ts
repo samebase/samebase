@@ -133,4 +133,17 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
       .getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID)
       .locator('[id="6-connect-codex-to-github"]'),
   ).toBeInViewport();
+
+  await page.goto("/landing-preview?dev#why-is-noter-md-free", {
+    waitUntil: "domcontentloaded",
+  });
+  const finalHeading = page
+    .getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID)
+    .locator('[id="why-is-noter-md-free"]');
+  await expect(finalHeading).toBeInViewport();
+  await expect
+    .poll(() =>
+      finalHeading.evaluate((element) => element.getBoundingClientRect().top),
+    )
+    .toBeLessThan(80);
 });

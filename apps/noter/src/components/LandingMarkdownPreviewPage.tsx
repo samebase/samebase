@@ -52,7 +52,7 @@ export function LandingMarkdownPreviewPage() {
         className="flex min-h-0 flex-1 flex-col"
       >
         <MarkdownLandingDocument
-          className="min-h-full"
+          className="min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]"
           dataTestId={LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID}
           markdown={landingPreviewMarkdown}
         />
