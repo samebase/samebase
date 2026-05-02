@@ -1,9 +1,8 @@
 import { getRouteApi } from "@tanstack/react-router";
 import { appThemeColorSearchFieldSchema } from "@/lib/appThemeColorSearch";
-import {
-  readRootThemeModeSearch,
-  rootThemeModeSearchFieldSchema,
-} from "@/lib/rootThemeModeSearch";
+import { rootThemeModeSearchFieldSchema } from "@/lib/rootThemeModeSearch";
+import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
+import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { z } from "zod";
 
 // TanStack Router's root route id is the stable "__root__" literal, and using
@@ -56,22 +55,29 @@ const rootRouteSearchSchema = z
     devtools: z.preprocess(readOptionalFlag, z.literal(true).optional()),
     delete: z.preprocess(readOptionalDeleteRepository, z.string().optional()),
     "prod-ui": z.preprocess(readOptionalFlag, z.literal(true).optional()),
+    [SEARCH_RESET_QUERY_PARAM]: z.preprocess(
+      (value) => (value === true || value === "" ? true : undefined),
+      z.literal(true).optional(),
+    ),
     signup: z.preprocess(
       readOptionalGoogleSignupReturn,
       z.literal("google").optional(),
     ),
   })
   .merge(appThemeColorSearchFieldSchema)
-  .merge(rootThemeModeSearchFieldSchema)
-  .transform(({ dark, light, ...search }) => ({
-    ...search,
-    ...readRootThemeModeSearch({ dark, light }),
-  }));
+  .merge(rootThemeModeSearchFieldSchema);
 
 export type RootRouteSearch = z.infer<typeof rootRouteSearchSchema>;
 
 function parseRootRouteSearch(search: unknown): RootRouteSearch {
-  return rootRouteSearchSchema.parse(search);
+  const parsedSearch = rootRouteSearchSchema.parse(search);
+  if (parsedSearch[SEARCH_RESET_QUERY_PARAM] !== true) {
+    return parsedSearch;
+  }
+
+  // Reset is a sentinel, so do not let stale or malformed params influence app
+  // state while the root route removes the visible query string.
+  return { [SEARCH_RESET_QUERY_PARAM]: true as const };
 }
 
 export function validateRootRouteSearch(
@@ -82,16 +88,15 @@ export function validateRootRouteSearch(
 
 /**
  * `readRootRouteSearch` accepts browser-style string/URLSearchParams input and
- * normalizes it through `URLSearchParams` before schema validation.
+ * normalizes it through the app's TanStack search parser before schema
+ * validation.
  */
 export function readRootRouteSearch(
   search: string | URLSearchParams | undefined,
 ): RootRouteSearch {
   return parseRootRouteSearch(
-    Object.fromEntries(
-      new URLSearchParams(
-        typeof search === "string" ? search : (search?.toString() ?? ""),
-      ).entries(),
+    parseTanStackSearch(
+      typeof search === "string" ? search : (search?.toString() ?? ""),
     ),
   );
 }

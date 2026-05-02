@@ -96,6 +96,25 @@ Key domain entities:
   the constraint or invariant being preserved. Prefer JSDoc above functions when
   a function-level explanation is needed.
 - Avoid `"use node"` unless the module truly requires it.
+- Treat every `useEffect` and `useLayoutEffect` as something to justify. Before
+  adding or keeping one, check whether the behavior belongs in a route lifecycle
+  such as `beforeLoad`, a data/cache API, an event handler, derived render
+  state, or CSS. Collapse duplicate effects that share the same trigger/concern.
+- Prefer inference from already-typed initializers and callbacks. Do not restate
+  local variable types when the expression is already strongly typed unless the
+  annotation changes the contract, clarifies object-spread shape composition, or
+  prevents a real widening problem.
+- Prefer truthiness checks for typed flags whose domain is already
+  `true | undefined`. Use `=== true` only when the distinction from other truthy
+  values is part of the current logic.
+- When business logic is tangled with generic mechanics such as picking object
+  keys, mapping entries, or reshaping values, step back and separate the two.
+  Prefer a small typed utility in the right shared module when it lets the
+  business code read directly, then delete any one-off wrapper that no longer
+  earns its place.
+- Let focused module paths carry generic utility context. Prefer names like
+  `pick` from an object module over prefixing every export, and avoid broad
+  barrel exports that erase that context.
 - Do not add speculative helpers, flags, env vars, allowlist entries,
   compatibility paths, or config surface that the current patch does not use end
   to end.
@@ -113,6 +132,14 @@ Key domain entities:
   tests, delete it instead of preserving it "just in case". Do not keep dead
   migration scaffolding, test-only production helpers, or simplified wrappers
   that no longer pull their weight.
+- Avoid parameterized local helper factories when a helper has one current
+  callsite and can read the needed local constants directly. Keep the direct
+  function until multiple shipped callsites prove configurability is useful.
+- Remove property-presence checks such as `key in object` when they only exist
+  to appease TypeScript. Keep them only when own-key presence is real runtime
+  state, such as distinguishing an explicit `undefined` clear from a missing
+  key. Prefer the simple `key in object` form unless prototype safety is a
+  proven issue for that object.
 - Fail closed rather than inventing placeholder fallbacks unless the patch is
   implementing a real migration.
 - Do not keep test-only production abstractions, incomplete extractions, or dead
@@ -123,6 +150,10 @@ Key domain entities:
   delete these wrappers when you find them. They pollute the tree and break
   editor cmd-click/navigation when tracing real implementations and usages.
 - Keep config surfaces minimal and current.
+- `URLSearchParams` is globally warned by lint so app search defaults to typed
+  route objects and route-specific helpers. Intentional protocol boundaries such
+  as OAuth, external URLs, parser/serializer helpers, fixtures, and tests can
+  stay native while warning output keeps those callsites visible.
 - For app-owned components, default to closed styling APIs. Do not add
   pass-through styling props such as `className`, `bodyClassName`, or
   `headerClassName` unless a current shipped callsite truly needs them.

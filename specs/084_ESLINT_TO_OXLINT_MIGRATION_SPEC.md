@@ -68,6 +68,10 @@ tooling incompatibility, or rollout decision appears.
 - The config enables Oxlint type-aware mode and carries the repo's explicit
   semantic rule choices directly.
 - The former `eslint-plugin-noter-local` workspace plugin has been removed.
+- `URLSearchParams` is globally warned by `no-restricted-globals` so app search
+  defaults to TanStack Router search-schema contracts. Intentional protocol
+  boundaries stay visible in lint output instead of being hidden behind file
+  globs.
 - The repo loads `@convex-dev/eslint-plugin` and `eslint-plugin-react-refresh`
   through Oxlint's JS-plugin bridge.
 - Convex-specific rules such as `@convex-dev/no-old-registered-function-syntax`
@@ -108,6 +112,15 @@ Current app-route URL behavior should be expressed through:
 
 Do not add a replacement generic query-param lint rule unless a new accepted
 spec defines a concrete invariant that TanStack Router cannot express.
+
+The accepted invariant is: app search code should not parse the visible URL
+string directly by default. Use route `validateSearch`, `Route.useSearch`,
+`Link`/navigate search callbacks, `router.buildLocation`, or route-specific
+search builders instead. Native `URL`/`URLSearchParams` remains appropriate for
+external URLs, internal API request paths, fixtures, tests, and the small
+parser/serializer boundaries that intentionally bridge browser strings into
+typed route search. The current lint posture is warning-only while the repo
+burns down existing native callsites.
 
 ### 3. Type-aware coverage stays explicit
 

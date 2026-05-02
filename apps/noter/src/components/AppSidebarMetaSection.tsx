@@ -24,6 +24,10 @@ import {
   isProdUiModeActive,
 } from "@/lib/prodUiMode";
 import {
+  SEARCH_RESET_LINK_LABEL,
+  SEARCH_RESET_QUERY_PARAM,
+} from "@/lib/searchReset";
+import {
   ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL,
   ROOT_THEME_DARK_MODE_LINK_LABEL,
   ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL,
@@ -74,18 +78,17 @@ export function AppSidebarMetaSection({
   const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
 
-  const landingDevEnabled = isLandingDevModeEnabled(
-    new URLSearchParams(location.searchStr),
-  );
+  const landingDevEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const landingDevLabel = landingDevEnabled
     ? LANDING_DEV_MODE_DISABLE_LINK_LABEL
     : LANDING_DEV_MODE_LINK_LABEL;
   const prodUiEnabled = isProdUiModeActive({
     deploymentProfile: undefined,
     productionPublicOrigin: isBrowserProductionPublicOrigin(),
-    search: new URLSearchParams(location.searchStr),
+    search: rootRouteSearch,
   });
   const themeMode = readRootThemeMode(rootRouteSearch);
+  const showSearchResetLink = location.searchStr.length > 0;
   const lightModeLabel =
     themeMode === "light"
       ? ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL
@@ -117,6 +120,18 @@ export function AppSidebarMetaSection({
       data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
       className={APP_SIDEBAR_META_SECTION_CLASS_NAMES[side]}
     >
+      {showSearchResetLink ? (
+        <Link
+          id="public-landing-search-reset"
+          to={location.pathname}
+          hash={location.hash}
+          search={() => ({
+            [SEARCH_RESET_QUERY_PARAM]: true as const,
+          })}
+        >
+          {SEARCH_RESET_LINK_LABEL}
+        </Link>
+      ) : null}
       <Link
         id="public-landing-theme-light-toggle"
         to={location.pathname}

@@ -2,9 +2,9 @@ import {
   Outlet,
   createRootRoute,
   lazyRouteComponent,
-  useLocation,
-  useNavigate,
+  redirect,
 } from "@tanstack/react-router";
+import { pick } from "@noter-md/dependent/object";
 import { RouterGestureDebugOverlay } from "@/components/RouterGestureDebugOverlay";
 import {
   APP_THEME_COLOR_SEARCH_KEYS,
@@ -17,14 +17,21 @@ import {
 } from "@/lib/rootRouteSearch";
 import {
   ROOT_THEME_MODE_SEARCH_KEYS,
+  buildRootThemeModeSearch,
   readRootThemeMode,
   syncDocumentRootThemeMode,
 } from "@/lib/rootThemeModeSearch";
+import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { useEffect, useLayoutEffect } from "react";
 
 const posthogApiHost =
   import.meta.env.VITE_PUBLIC_POSTHOG_HOST || "https://eu.i.posthog.com";
 const POSTHOG_INIT_DELAY_MS = 10_000;
+
+/**
+ * Root-level preview/debug/theme controls should follow public-route
+ * navigation until a caller explicitly clears the key with `undefined`.
+ */
 const RETAINED_ROOT_SEARCH_KEYS = [
   "dev",
   "devtools",
@@ -37,36 +44,24 @@ type RootSearchMiddlewareArgs = {
   search: RootRouteSearch;
 };
 
-function retainDefinedRootSearchParams(keys: typeof RETAINED_ROOT_SEARCH_KEYS) {
-  return ({ next, search }: RootSearchMiddlewareArgs): RootRouteSearch => {
-    let nextSearch: RootRouteSearch = { ...next(search) };
-    const hasThemeModeConflict = search.light === true && search.dark === true;
-
-    for (const key of keys) {
-      if (hasThemeModeConflict && (key === "light" || key === "dark")) {
-        continue;
-      }
-
-      if (key in nextSearch || typeof search[key] === "undefined") {
-        continue;
-      }
-
-      nextSearch = {
-        ...nextSearch,
-        [key]: search[key],
-      };
-    }
-
-    if (nextSearch.light === true && nextSearch.dark === true) {
-      nextSearch = {
-        ...nextSearch,
-        dark: undefined,
-        light: undefined,
-      };
-    }
-
-    return nextSearch;
+function retainDefinedRootSearchParams({
+  next,
+  search,
+}: RootSearchMiddlewareArgs): RootRouteSearch {
+  let nextSearch: RootRouteSearch = {
+    ...pick(search, RETAINED_ROOT_SEARCH_KEYS),
+    ...next(search),
   };
+
+  if (nextSearch.light && nextSearch.dark) {
+    nextSearch = {
+      ...nextSearch,
+      dark: undefined,
+      light: undefined,
+    };
+  }
+
+  return nextSearch;
 }
 
 function useDeferredPostHogInit() {
@@ -108,58 +103,15 @@ function useDeferredPostHogInit() {
   }, []);
 }
 
-function hasConflictingRootThemeModeSearch(search: string): boolean {
-  const searchParams = new URLSearchParams(search);
-  const hasLightTheme =
-    searchParams.get("light") === "" || searchParams.get("light") === "true";
-  const hasDarkTheme =
-    searchParams.get("dark") === "" || searchParams.get("dark") === "true";
-  return hasLightTheme && hasDarkTheme;
-}
-
-function readClearedRootThemeModeSearch(
-  search: string,
-): Record<string, string | true> {
-  const searchParams = new URLSearchParams(search);
-  searchParams.delete("dark");
-  searchParams.delete("light");
-
-  const nextSearch: Record<string, string | true> = {};
-  for (const [key, value] of searchParams.entries()) {
-    nextSearch[key] = value.length === 0 ? true : value;
-  }
-
-  return nextSearch;
-}
-
 function AppRouterRoot() {
   const { base, dark, light, primary, secondary } = useRootRouteSearch();
-  const navigate = useNavigate();
-  const location = useLocation();
   const themeMode = readRootThemeMode({ dark, light });
   useDeferredPostHogInit();
 
   useLayoutEffect(() => {
     syncDocumentThemeColorSearch({ base, primary, secondary });
-  }, [base, primary, secondary]);
-
-  useLayoutEffect(() => {
     syncDocumentRootThemeMode(themeMode);
-  }, [themeMode]);
-
-  useEffect(() => {
-    if (!hasConflictingRootThemeModeSearch(location.searchStr)) {
-      return;
-    }
-
-    void navigate({
-      hash: location.hash,
-      replace: true,
-      search: readClearedRootThemeModeSearch(location.searchStr),
-      state: true,
-      to: location.pathname,
-    });
-  }, [location.hash, location.pathname, location.searchStr, navigate]);
+  }, [base, primary, secondary, themeMode]);
 
   return (
     <>
@@ -170,13 +122,38 @@ function AppRouterRoot() {
 }
 
 export const Route = createRootRoute({
+  beforeLoad: ({ location, search }) => {
+    if (search.reset) {
+      throw redirect({
+        href: buildPathWithTanStackSearch({
+          pathname: location.pathname,
+          hash: location.hash,
+        }),
+        replace: true,
+      });
+    }
+
+    if (search.light && search.dark) {
+      throw redirect({
+        href: buildPathWithTanStackSearch({
+          pathname: location.pathname,
+          search: {
+            ...search,
+            ...buildRootThemeModeSearch("system"),
+          },
+          hash: location.hash,
+        }),
+        replace: true,
+      });
+    }
+  },
   component: AppRouterRoot,
   notFoundComponent: lazyRouteComponent(
     () => import("@/components/NotFoundRoutePage"),
     "NotFoundRoutePage",
   ),
   search: {
-    middlewares: [retainDefinedRootSearchParams(RETAINED_ROOT_SEARCH_KEYS)],
+    middlewares: [retainDefinedRootSearchParams],
   },
   validateSearch: validateRootRouteSearch,
 });

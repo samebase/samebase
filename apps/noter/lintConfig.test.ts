@@ -270,6 +270,13 @@ describe("lint config", () => {
       "@typescript-eslint/no-unnecessary-condition": "error",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/restrict-template-expressions": "error",
+      "no-restricted-globals": [
+        "warn",
+        {
+          name: "URLSearchParams",
+          message: expect.stringContaining("route search"),
+        },
+      ],
     });
   });
 

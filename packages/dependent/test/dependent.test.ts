@@ -9,10 +9,6 @@ import {
   includes,
   map,
   notEmpty,
-  objEntries,
-  objFromEntries,
-  objKeys,
-  objMapEntries,
   promiseAll,
   reverse,
   split,
@@ -22,6 +18,7 @@ import {
   type SafeOmit,
   type UnionToIntersection,
 } from "../src/index.ts";
+import { entries, fromEntries, keys, mapEntries, pick } from "../src/object.ts";
 
 describe("dependent array helpers", () => {
   it("keeps tuple guarantees for map, reverse, and promiseAll", async () => {
@@ -90,31 +87,44 @@ describe("dependent object helpers", () => {
   it("returns typed keys and entries", () => {
     const obj = { a: 1, b: "two" } as const;
 
-    const keys = objKeys(obj);
-    const entries = objEntries(obj);
+    const resultKeys = keys(obj);
+    const resultEntries = entries(obj);
 
-    expectType<Array<"a" | "b">>()(keys, true);
-    expectType<Array<["a" | "b", 1 | "two"]>>()(entries, true);
-    expect(keys).toEqual(["a", "b"]);
-    expect(entries).toEqual([
+    expectType<Array<"a" | "b">>()(resultKeys, true);
+    expectType<Array<["a" | "b", 1 | "two"]>>()(resultEntries, true);
+    expect(resultKeys).toEqual(["a", "b"]);
+    expect(resultEntries).toEqual([
       ["a", 1],
       ["b", "two"],
     ]);
   });
 
   it("creates and maps typed objects from entries", () => {
-    const obj = objFromEntries([
+    const obj = fromEntries([
       ["a", 1],
       ["b", 2],
     ] as const);
 
-    const mapped = objMapEntries(obj, ([key, value]) => [
+    const mapped = mapEntries(obj, ([key, value]) => [
       `${key}-next`,
       value * 2,
     ]);
 
     expectType<Record<"a" | "b", 1 | 2>>()(obj, true);
     expect(mapped).toEqual({ "a-next": 2, "b-next": 4 });
+  });
+
+  it("picks typed object keys", () => {
+    const obj: {
+      readonly a: 1;
+      readonly b: "two";
+      readonly c?: true;
+    } = { a: 1, b: "two" };
+
+    const picked = pick(obj, ["a", "c"] as const);
+
+    expectType<{ readonly a: 1; readonly c?: true }>()(picked, true);
+    expect(picked).toEqual({ a: 1 });
   });
 });
 

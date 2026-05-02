@@ -18,6 +18,10 @@ import {
   FORCE_PROD_UI_QUERY_PARAM,
 } from "@/lib/prodUiMode";
 import {
+  SEARCH_RESET_LINK_LABEL,
+  SEARCH_RESET_QUERY_PARAM,
+} from "@/lib/searchReset";
+import {
   ROOT_THEME_DARK_MODE_LINK_LABEL,
   ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL,
   ROOT_THEME_LIGHT_MODE_LINK_LABEL,
@@ -199,6 +203,7 @@ describe("Layout", () => {
       LANDING_DEV_MODE_DISABLE_LINK_LABEL,
     );
     const prodUiShortcutIndex = markup.indexOf(FORCE_PROD_UI_MODE_LINK_LABEL);
+    const resetShortcutIndex = markup.indexOf(SEARCH_RESET_LINK_LABEL);
     const lightShortcutIndex = markup.indexOf(ROOT_THEME_LIGHT_MODE_LINK_LABEL);
     const darkShortcutIndex = markup.indexOf(ROOT_THEME_DARK_MODE_LINK_LABEL);
     const logoLinkIndex = markup.indexOf("/logo");
@@ -208,8 +213,10 @@ describe("Layout", () => {
 
     expect(prodUiShortcutIndex).toBeGreaterThanOrEqual(0);
     expect(devShortcutIndex).toBeGreaterThanOrEqual(0);
+    expect(resetShortcutIndex).toBeGreaterThanOrEqual(0);
     expect(lightShortcutIndex).toBeGreaterThanOrEqual(0);
     expect(darkShortcutIndex).toBeGreaterThanOrEqual(0);
+    expect(resetShortcutIndex).toBeLessThan(lightShortcutIndex);
     expect(lightShortcutIndex).toBeLessThan(darkShortcutIndex);
     expect(darkShortcutIndex).toBeLessThan(prodUiShortcutIndex);
     expect(prodUiShortcutIndex).toBeLessThan(devShortcutIndex);
@@ -374,8 +381,8 @@ describe("Layout", () => {
     const logoWithLightPath = buildPathWithTanStackSearch({
       pathname: "/logo",
       search: {
-        [FORCE_PROD_UI_QUERY_PARAM]: true,
         [LANDING_DEV_MODE_QUERY_PARAM]: true,
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
         light: true,
       },
       hash: "top",
@@ -408,8 +415,8 @@ describe("Layout", () => {
     const logoWithoutLightPath = buildPathWithTanStackSearch({
       pathname: "/logo",
       search: {
-        [FORCE_PROD_UI_QUERY_PARAM]: true,
         [LANDING_DEV_MODE_QUERY_PARAM]: true,
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
       },
       hash: "top",
     });
@@ -444,8 +451,8 @@ describe("Layout", () => {
     const logoDarkPath = buildPathWithTanStackSearch({
       pathname: "/logo",
       search: {
-        [FORCE_PROD_UI_QUERY_PARAM]: true,
         [LANDING_DEV_MODE_QUERY_PARAM]: true,
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
         dark: true,
       },
       hash: "top",
@@ -489,6 +496,52 @@ describe("Layout", () => {
 
     expect(markup).toContain(FORCE_PROD_UI_MODE_LINK_LABEL);
     expect(markup).toContain(`href="${encodeStaticHref(logoWithProdUiPath)}"`);
+  });
+
+  it("adds a reset shortcut that owns the visible query string", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    const logoPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
+        primary: "red-600",
+      },
+      hash: "top",
+    });
+    const logoResetPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [SEARCH_RESET_QUERY_PARAM]: true,
+      },
+      hash: "top",
+    });
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[logoPath]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(`id="public-landing-search-reset"`);
+    expect(markup).toContain(`>${SEARCH_RESET_LINK_LABEL}<`);
+    expect(markup).toContain(`href="${encodeStaticHref(logoResetPath)}"`);
+  });
+
+  it("hides the reset shortcut when the current URL has no search params", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/logo#top"]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).not.toContain(`id="public-landing-search-reset"`);
+    expect(markup).not.toContain(`>${SEARCH_RESET_LINK_LABEL}<`);
   });
 
   it("hides the prod-ui shortcut from the prod-like surface", () => {

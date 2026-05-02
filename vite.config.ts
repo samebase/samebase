@@ -87,6 +87,14 @@ export default defineConfig({
       "@typescript-eslint/restrict-plus-operands": "error",
       "@typescript-eslint/restrict-template-expressions": "error",
       "@typescript-eslint/unbound-method": "error",
+      "no-restricted-globals": [
+        "warn",
+        {
+          name: "URLSearchParams",
+          message:
+            "Prefer typed route search objects or route-specific helpers for app search; native URL/query APIs should stay at explicit protocol boundaries.",
+        },
+      ],
       "@typescript-eslint/require-await": "off",
       "require-await": "off",
     },
