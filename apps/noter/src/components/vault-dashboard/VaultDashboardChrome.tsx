@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
+import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -259,7 +260,9 @@ export function VaultDashboardEmptyState() {
     <div className="container mx-auto max-w-2xl py-6">
       <div className="text-center">
         <div className="mx-auto w-full max-w-[8rem]">
-          <PublicLandingLogo />
+          <PublicLandingLogo
+            viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY}
+          />
         </div>
       </div>
     </div>
