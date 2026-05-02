@@ -103,6 +103,9 @@ Key domain entities:
 - Prefer inference from already-typed initializers and callbacks. Do not restate
   local variable types when the expression is already strongly typed unless the
   annotation changes the contract or prevents a real widening problem.
+- Prefer truthiness checks for typed flags whose domain is already
+  `true | undefined`. Use `=== true` only when the distinction from other truthy
+  values is part of the current logic.
 - Do not add speculative helpers, flags, env vars, allowlist entries,
   compatibility paths, or config surface that the current patch does not use end
   to end.

@@ -60,7 +60,7 @@ function retainDefinedRootSearchParams({
     };
   }
 
-  if (nextSearch.light === true && nextSearch.dark === true) {
+  if (nextSearch.light && nextSearch.dark) {
     nextSearch = {
       ...nextSearch,
       dark: undefined,
@@ -110,10 +110,6 @@ function useDeferredPostHogInit() {
   }, []);
 }
 
-function hasConflictingRootThemeModeSearch(search: RootRouteSearch): boolean {
-  return search.light === true && search.dark === true;
-}
-
 function AppRouterRoot() {
   const { base, dark, light, primary, secondary } = useRootRouteSearch();
   const themeMode = readRootThemeMode({ dark, light });
@@ -134,7 +130,7 @@ function AppRouterRoot() {
 
 export const Route = createRootRoute({
   beforeLoad: ({ location, search }) => {
-    if (search.reset === true) {
+    if (search.reset) {
       throw redirect({
         href: buildPathWithTanStackSearch({
           pathname: location.pathname,
@@ -144,7 +140,7 @@ export const Route = createRootRoute({
       });
     }
 
-    if (hasConflictingRootThemeModeSearch(search)) {
+    if (search.light && search.dark) {
       throw redirect({
         href: buildPathWithTanStackSearch({
           pathname: location.pathname,
