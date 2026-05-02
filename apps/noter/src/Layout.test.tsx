@@ -521,7 +521,8 @@ describe("Layout", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain(SEARCH_RESET_LINK_LABEL);
+    expect(markup).toContain(`id="public-landing-search-reset"`);
+    expect(markup).toContain(`>${SEARCH_RESET_LINK_LABEL}<`);
     expect(markup).toContain(`href="${encodeStaticHref(logoResetPath)}"`);
   });
 

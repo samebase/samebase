@@ -40,7 +40,7 @@ describe("tanstackSearchParams", () => {
   });
 
   it("treats reset as a visible one-param sentinel", () => {
-    expect(parseTanStackSearch("?reset&primary=red-600&rot=10")).toEqual({
+    expect(parseTanStackSearch("?reset=false&primary=red-600&rot=10")).toEqual({
       reset: "",
     });
 
@@ -51,5 +51,12 @@ describe("tanstackSearchParams", () => {
         rot: 10,
       }),
     ).toBe("?reset");
+
+    expect(
+      stringifyTanStackSearch({
+        primary: "red-600",
+        reset: "false",
+      }),
+    ).toBe("?primary=red-600");
   });
 });
