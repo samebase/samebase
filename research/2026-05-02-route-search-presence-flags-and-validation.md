@@ -184,12 +184,18 @@ function applySearchPatch<Search extends object>(
 
   for (const [key, value] of Object.entries(patch)) {
     if (value === null) {
-      delete next[key as keyof Search];
+      // @ts-expect-error Generic Object.entries loses the key/value
+      // relationship. Keep this escape localized in the helper instead of
+      // spreading broad type assertions through route code.
+      delete next[key];
       continue;
     }
 
     if (typeof value !== "undefined") {
-      next[key as keyof Search] = value as Search[keyof Search];
+      // @ts-expect-error Generic Object.entries loses the key/value
+      // relationship. The SearchPatch type guarantees that non-null values
+      // belong to their matching key.
+      next[key] = value;
     }
   }
 
@@ -197,8 +203,10 @@ function applySearchPatch<Search extends object>(
 }
 ```
 
-The production implementation should avoid broad assertions if a narrower typed
-utility can own this once.
+The production implementation should follow the `packages/dependent` pattern:
+keep TypeScript's insufficient `Object.entries`/indexed-assignment proof inside
+one generic helper with a precise `@ts-expect-error`, rather than spreading
+assertions through route code.
 
 ## `@robolex/sure` Versus Zod
 
@@ -244,16 +252,35 @@ plain functions, but then Zod provides less value for this particular layer.
 - error values are typed first-class outputs, which fits fail-closed route
   parsing without throwing as the primary control path.
 
-It is not magic by itself. The plain `object` helper still validates field
-values, so key-presence flags should be handled by a route-search-specific
-object-level helper or a wrapper around `@robolex/sure`, not by repeating
-per-field value validators.
+It is not magic by itself. The current plain `object` helper still validates
+field values, so key-presence flags need object-level awareness. Because
+`@robolex/sure` is controlled by the Noter operator and has very little external
+adoption pressure, that does not have to mean a Noter-only wrapper forever. A
+good generic direction is to improve `@robolex/sure` itself with object-level
+helpers that can distinguish missing keys from present keys, while preserving
+exact optional output types.
+
+This route-search problem also points at a broader `@robolex/sure` improvement:
+returning a flat or path-addressed list of issues instead of a deeply shaped
+error object. That would align better with Standard Schema's issue-list model
+and with ecosystem validation tools that expect standardized validation issues.
 
 ### Recommendation
 
 Do not replace Zod globally. Use a focused spike to replace app route-search
 validators with a small route-search validation layer, likely powered by
-`@robolex/sure`.
+`@robolex/sure`. Treat the spike as permission to update `@robolex/sure` with
+generic capabilities when that is cleaner than adding Noter-only adapter code.
+
+The most useful `@robolex/sure` improvements to evaluate are:
+
+- object-level validators that can reason about own key presence;
+- exact optional inference that remains compatible with
+  `exactOptionalPropertyTypes`;
+- issue-list output with paths and messages instead of nested error objects;
+- optional Standard Schema v1 compatibility through a `~standard` property, so
+  `@robolex/sure` can interoperate with tools that accept Standard Schema
+  validators.
 
 Keep Zod for Convex/tool-runtime surfaces where integrations already expect Zod
 or JSON-Schema conversion from Zod.
@@ -275,6 +302,10 @@ A route-search validation spike should prove all of this before migration:
    `mobileLineNumbers=1`, and `threadId=...` keep strict value validation.
 8. Existing reset behavior remains route-level: if `reset` is present, the root
    route clears visible search while preserving path and hash.
+9. If the spike changes `@robolex/sure`, the changes stay generic enough for
+   other validation use cases and are not route-search-only APIs.
+10. If `@robolex/sure` adds issue-list output or Standard Schema compatibility,
+    the shape is documented and covered by focused tests in that package.
 
 ## Suggested Migration Order
 
@@ -301,5 +332,8 @@ A route-search validation spike should prove all of this before migration:
 - local `@robolex/sure@0.12.0` package README and type declarations
 - `npm view @robolex/sure --json`
 - [`@robolex/sure` npm package](https://www.npmjs.com/package/@robolex/sure)
+- [Standard Schema specification](https://standardschema.dev/schema)
+- [Standard Schema GitHub repository](https://github.com/standard-schema/standard-schema)
+- [`@standard-schema/spec` npm package](https://www.npmjs.com/package/@standard-schema/spec)
 - [Zod GitHub repository](https://github.com/colinhacks/zod)
 - [Zod package docs](https://zod.dev/packages/zod)
