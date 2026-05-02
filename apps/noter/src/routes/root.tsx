@@ -38,36 +38,37 @@ type RootSearchMiddlewareArgs = {
   search: RootRouteSearch;
 };
 
-function retainDefinedRootSearchParams(keys: typeof RETAINED_ROOT_SEARCH_KEYS) {
-  return ({ next, search }: RootSearchMiddlewareArgs): RootRouteSearch => {
-    let nextSearch: RootRouteSearch = { ...next(search) };
-    const hasThemeModeConflict = search.light === true && search.dark === true;
+function retainDefinedRootSearchParams({
+  next,
+  search,
+}: RootSearchMiddlewareArgs): RootRouteSearch {
+  let nextSearch: RootRouteSearch = { ...next(search) };
+  const hasThemeModeConflict = search.light === true && search.dark === true;
 
-    for (const key of keys) {
-      if (hasThemeModeConflict && (key === "light" || key === "dark")) {
-        continue;
-      }
-
-      if (key in nextSearch || typeof search[key] === "undefined") {
-        continue;
-      }
-
-      nextSearch = {
-        ...nextSearch,
-        [key]: search[key],
-      };
+  for (const key of RETAINED_ROOT_SEARCH_KEYS) {
+    if (hasThemeModeConflict && (key === "light" || key === "dark")) {
+      continue;
     }
 
-    if (nextSearch.light === true && nextSearch.dark === true) {
-      nextSearch = {
-        ...nextSearch,
-        dark: undefined,
-        light: undefined,
-      };
+    if (key in nextSearch || typeof search[key] === "undefined") {
+      continue;
     }
 
-    return nextSearch;
-  };
+    nextSearch = {
+      ...nextSearch,
+      [key]: search[key],
+    };
+  }
+
+  if (nextSearch.light === true && nextSearch.dark === true) {
+    nextSearch = {
+      ...nextSearch,
+      dark: undefined,
+      light: undefined,
+    };
+  }
+
+  return nextSearch;
 }
 
 function useDeferredPostHogInit() {
@@ -163,7 +164,7 @@ export const Route = createRootRoute({
     "NotFoundRoutePage",
   ),
   search: {
-    middlewares: [retainDefinedRootSearchParams(RETAINED_ROOT_SEARCH_KEYS)],
+    middlewares: [retainDefinedRootSearchParams],
   },
   validateSearch: validateRootRouteSearch,
 });

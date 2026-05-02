@@ -117,6 +117,9 @@ Key domain entities:
   tests, delete it instead of preserving it "just in case". Do not keep dead
   migration scaffolding, test-only production helpers, or simplified wrappers
   that no longer pull their weight.
+- Avoid parameterized local helper factories when a helper has one current
+  callsite and can read the needed local constants directly. Keep the direct
+  function until multiple shipped callsites prove configurability is useful.
 - Fail closed rather than inventing placeholder fallbacks unless the patch is
   implementing a real migration.
 - Do not keep test-only production abstractions, incomplete extractions, or dead
