@@ -154,41 +154,26 @@ function AppRouterRoot() {
   const navigate = useNavigate();
   const location = useLocation();
   const themeMode = readRootThemeMode({ dark, light });
-  const shouldResetSearch = reset === true;
   useDeferredPostHogInit();
 
   useLayoutEffect(() => {
-    if (shouldResetSearch) {
+    if (reset) {
       return;
     }
 
     syncDocumentThemeColorSearch({ base, primary, secondary });
-  }, [base, primary, secondary, shouldResetSearch]);
-
-  useLayoutEffect(() => {
-    if (shouldResetSearch) {
-      return;
-    }
-
     syncDocumentRootThemeMode(themeMode);
-  }, [shouldResetSearch, themeMode]);
+  }, [base, primary, reset, secondary, themeMode]);
 
   useEffect(() => {
-    if (!shouldResetSearch) {
-      return;
-    }
-
-    void navigate({
-      hash: location.hash,
-      replace: true,
-      search: readClearedRootSearch(),
-      state: true,
-      to: location.pathname,
-    });
-  }, [location.hash, location.pathname, navigate, shouldResetSearch]);
-
-  useEffect(() => {
-    if (shouldResetSearch) {
+    if (reset) {
+      void navigate({
+        hash: location.hash,
+        replace: true,
+        search: readClearedRootSearch(),
+        state: true,
+        to: location.pathname,
+      });
       return;
     }
 
@@ -203,13 +188,7 @@ function AppRouterRoot() {
       state: true,
       to: location.pathname,
     });
-  }, [
-    location.hash,
-    location.pathname,
-    location.searchStr,
-    navigate,
-    shouldResetSearch,
-  ]);
+  }, [location.hash, location.pathname, location.searchStr, navigate, reset]);
 
   return (
     <>
