@@ -44,6 +44,7 @@ type Props = {
   defaultRightMobileWidthPx?: number;
   rightMobileWidthPx?: number;
   onRightMobileWidthPxChange?: (widthPx: number) => void;
+  defaultMobilePane?: MobileSidebarPane;
   mobilePane?: MobileSidebarPane;
   onMobilePaneChange?: (pane: MobileSidebarPane) => void;
   shortcutSidebarSide?: SidebarSide;
@@ -70,6 +71,7 @@ export function SidebarProvider({
   defaultRightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   rightMobileWidthPx: rightMobileWidthPxProp,
   onRightMobileWidthPxChange: setRightMobileWidthPxProp,
+  defaultMobilePane = "main",
   mobilePane: mobilePaneProp,
   onMobilePaneChange: setMobilePaneProp,
   shortcutSidebarSide = "left",
@@ -77,7 +79,7 @@ export function SidebarProvider({
 }: Props) {
   const isMobile = useIsMobile();
   const [internalMobilePane, setInternalMobilePane] =
-    useState<MobileSidebarPane>("main");
+    useState<MobileSidebarPane>(defaultMobilePane);
   const [internalLeftDesktopOpen, setInternalLeftDesktopOpen] =
     useState(defaultOpen);
   const [internalRightDesktopOpen, setInternalRightDesktopOpen] =

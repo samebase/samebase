@@ -147,3 +147,37 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
     )
     .toBeLessThan(80);
 });
+
+test("landing markdown preview sidebar hash links keep the mobile sidebar open", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/landing-preview?dev&left", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const layout = page.locator('[data-workspace-layout-v2="mobile"]');
+  const carousel = page.getByTestId("workspace-layout-v2-pane-main");
+  const sidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
+
+  await expect(layout).toHaveAttribute("data-mobile-pane", "left");
+  await expect(sidebar).toBeVisible();
+
+  await sidebar
+    .getByRole("link", {
+      name: "6: Connect Codex to GitHub",
+    })
+    .click();
+
+  await expect(page).toHaveURL(/\?dev&left#6-connect-codex-to-github$/);
+  await expect(layout).toHaveAttribute("data-mobile-pane", "left");
+  await expect
+    .poll(() => carousel.evaluate((element) => element.scrollLeft))
+    .toBeLessThan(80);
+
+  const targetTop = await page
+    .locator('[id="6-connect-codex-to-github"]')
+    .evaluate((element) => element.getBoundingClientRect().top);
+  expect(targetTop).toBeGreaterThan(0);
+  expect(targetTop).toBeLessThan(80);
+});

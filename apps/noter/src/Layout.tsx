@@ -8,6 +8,7 @@ import {
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
+import type { MobileSidebarPane } from "@/hooks/use-sidebar";
 
 const PUBLIC_LAYOUT_LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const PUBLIC_LAYOUT_LEFT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 240;
@@ -17,10 +18,12 @@ const PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 export function PublicLayoutShell({
   children,
   defaultLeftOpen = false,
+  defaultMobilePane = "main",
   left,
 }: {
   children: ReactNode;
   defaultLeftOpen?: boolean;
+  defaultMobilePane?: MobileSidebarPane;
   left?: WorkspaceLayoutV2PaneFrameProps;
 }) {
   const publicRightSidebarPane = usePublicRightSidebarPane();
@@ -44,6 +47,7 @@ export function PublicLayoutShell({
         defaultRightMobileWidthPx={
           PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX
         }
+        defaultMobilePane={defaultMobilePane}
         defaultOpen={left !== undefined && defaultLeftOpen}
         defaultRightOpen={true}
         shortcutSidebarSide="right"
