@@ -12,7 +12,11 @@ import {
   LANDING_DEV_MODE_QUERY_PARAM,
   isLandingDevModeEnabled,
 } from "@/lib/landingDevMode";
-import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "@/lib/landingMarkdownPreview";
+import {
+  LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
+  LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
+  LANDING_MARKDOWN_PREVIEW_ROUTE,
+} from "@/lib/landingMarkdownPreview";
 import {
   FORCE_PROD_UI_MODE_LINK_LABEL,
   FORCE_PROD_UI_QUERY_PARAM,
@@ -92,6 +96,8 @@ export function AppSidebarMetaSection({
       : ROOT_THEME_DARK_MODE_LINK_LABEL;
 
   const isLandingPage = location.pathname === "/";
+  const showLandingPreviewLanguageLink =
+    location.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE;
   const showLogoLink =
     isLandingPage && publicLandingLogoLink?.isLogoLinkVisible === true;
   const logoLinkClassName = showLogoLink
@@ -157,6 +163,19 @@ export function AppSidebarMetaSection({
       >
         {landingDevLabel}
       </Link>
+      {showLandingPreviewLanguageLink ? (
+        <Link
+          id="landing-preview-romanian-toggle"
+          to={location.pathname}
+          hash={location.hash}
+          search={(currentSearch) => ({
+            ...currentSearch,
+            [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: "ro",
+          })}
+        >
+          {LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL}
+        </Link>
+      ) : null}
 
       {/* Keep query-param shortcuts visually separate so path links stay put. */}
       <div aria-hidden="true" className="h-3" />

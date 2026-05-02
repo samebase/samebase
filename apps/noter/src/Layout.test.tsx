@@ -8,7 +8,11 @@ import {
   LANDING_DEV_MODE_LINK_LABEL,
   LANDING_DEV_MODE_QUERY_PARAM,
 } from "@/lib/landingDevMode";
-import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "@/lib/landingMarkdownPreview";
+import {
+  LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
+  LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
+  LANDING_MARKDOWN_PREVIEW_ROUTE,
+} from "@/lib/landingMarkdownPreview";
 import {
   FORCE_PROD_UI_MODE_LINK_LABEL,
   FORCE_PROD_UI_QUERY_PARAM,
@@ -623,6 +627,41 @@ describe("Layout", () => {
     expect(dashboardMarkup.indexOf(landingPreviewHref)).toBeLessThan(
       dashboardMarkup.indexOf(termsHref),
     );
+  });
+
+  it("shows the Romanian language shortcut only on the landing preview route", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    });
+
+    const homeMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/"]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+    const landingPreviewMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[LANDING_MARKDOWN_PREVIEW_ROUTE]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+    const landingPreviewRomanianHref = `href="${buildPathWithTanStackSearch({
+      pathname: LANDING_MARKDOWN_PREVIEW_ROUTE,
+      search: {
+        [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: "ro",
+      },
+    })}"`;
+
+    expect(homeMarkup).not.toContain(
+      LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
+    );
+    expect(landingPreviewMarkup).toContain(
+      LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
+    );
+    expect(landingPreviewMarkup).toContain(landingPreviewRomanianHref);
   });
 
   it("keeps legal links visible on the legal pages themselves", () => {

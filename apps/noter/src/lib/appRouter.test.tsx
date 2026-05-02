@@ -547,6 +547,19 @@ describe("appRouter", () => {
     ).toBeNull();
   });
 
+  it("accepts the Romanian landing preview query on the explicit route", async () => {
+    await renderRoute("/landing-preview?lang=ro");
+
+    expect(
+      rootElement?.querySelector(
+        '[data-testid="landing-markdown-preview-page"]',
+      )?.textContent,
+    ).toContain("Landing markdown preview page");
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
+  });
+
   it("accepts a trailing slash on the promoted machines route", async () => {
     await renderRoute("/machines/");
 

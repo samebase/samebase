@@ -9,6 +9,7 @@ import ReactMarkdown, {
   type Components,
   type Options as ReactMarkdownOptions,
 } from "react-markdown";
+import { Link, useLocation } from "@tanstack/react-router";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, {
   defaultSchema,
@@ -71,6 +72,14 @@ const markdownRehypePlugins: ReactMarkdownOptions["rehypePlugins"] = [
   rehypeRaw,
   [rehypeSanitize, markdownSanitizeSchema],
 ];
+const MARKDOWN_LINK_CLASS_NAME =
+  "font-medium text-foreground underline underline-offset-4";
+
+type MarkdownInternalLinkTarget = {
+  hash: string | undefined;
+  search: Record<string, string> | undefined;
+  to: string;
+};
 
 function isExternalUrl(value: string | undefined): boolean {
   if (!value) {
@@ -83,6 +92,73 @@ function isExternalUrl(value: string | undefined): boolean {
   } catch {
     return false;
   }
+}
+
+function isInternalRouteHref(value: string | undefined): value is string {
+  if (!value) {
+    return false;
+  }
+
+  return (
+    value.startsWith("?") || (value.startsWith("/") && !value.startsWith("//"))
+  );
+}
+
+function buildInternalLinkTarget({
+  href,
+  locationHash,
+  pathname,
+  searchStr,
+}: {
+  href: string;
+  locationHash: string;
+  pathname: string;
+  searchStr: string;
+}): MarkdownInternalLinkTarget {
+  const baseUrl = new URL(
+    `${pathname}${searchStr}${locationHash}`,
+    "https://noter.local",
+  );
+  const targetUrl = new URL(href, baseUrl);
+  const search: Record<string, string> = {};
+
+  for (const [name, value] of targetUrl.searchParams.entries()) {
+    search[name] = value;
+  }
+
+  return {
+    hash: targetUrl.hash || undefined,
+    search: targetUrl.searchParams.size > 0 ? search : undefined,
+    to: targetUrl.pathname,
+  };
+}
+
+function MarkdownInternalLink({
+  children,
+  href,
+  title,
+}: Pick<ComponentPropsWithoutRef<"a">, "children" | "href" | "title"> & {
+  href: string;
+}) {
+  const location = useLocation();
+  const target = buildInternalLinkTarget({
+    href,
+    locationHash: location.hash,
+    pathname: location.pathname,
+    searchStr: location.searchStr,
+  });
+
+  return (
+    <Link
+      className={MARKDOWN_LINK_CLASS_NAME}
+      hash={target.hash}
+      search={target.search}
+      title={title}
+      to={target.to}
+    >
+      {children}
+    </Link>
+  );
 }
 
 function MarkdownVideo({
@@ -303,10 +379,18 @@ function getMarkdownComponents(headingIdsByLine: ReadonlyMap<number, string>) {
         return <MarkdownVideo src={href} title={title} />;
       }
 
+      if (isInternalRouteHref(href)) {
+        return (
+          <MarkdownInternalLink href={href} title={title}>
+            {children}
+          </MarkdownInternalLink>
+        );
+      }
+
       const isExternal = isExternalUrl(href);
       return (
         <a
-          className="font-medium text-foreground underline underline-offset-4"
+          className={MARKDOWN_LINK_CLASS_NAME}
           href={href}
           rel={isExternal ? "noopener noreferrer" : undefined}
           target={isExternal ? "_blank" : undefined}

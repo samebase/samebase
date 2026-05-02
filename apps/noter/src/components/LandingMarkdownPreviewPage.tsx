@@ -1,19 +1,34 @@
 import { PublicLayoutShell } from "@/Layout";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { useSidebar, type MobileSidebarPane } from "@/hooks/use-sidebar";
-import { getLandingMarkdownHeadings } from "@/lib/landingMarkdownHeadings";
+import {
+  getLandingMarkdownHeadings,
+  type LandingMarkdownHeadingLevel,
+} from "@/lib/landingMarkdownHeadings";
 import {
   LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID,
+  LANDING_MARKDOWN_PREVIEW_DEFAULT_LANGUAGE,
   LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_TEST_ID,
+  type LandingMarkdownPreviewLanguage,
 } from "@/lib/landingMarkdownPreview";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import landingPreviewMarkdown from "@/content/landing-preview.md?raw";
+import landingPreviewRomanianMarkdown from "@/content/landing-preview.ro.md?raw";
 import type { MouseEvent as ReactMouseEvent } from "react";
 
-const landingPreviewHeadings = getLandingMarkdownHeadings(
-  landingPreviewMarkdown,
-);
+const LANDING_MARKDOWN_BY_LANGUAGE = {
+  en: landingPreviewMarkdown,
+  ro: landingPreviewRomanianMarkdown,
+} satisfies Record<LandingMarkdownPreviewLanguage, string>;
+
+const LANDING_MARKDOWN_HEADINGS_BY_LANGUAGE = {
+  en: getLandingMarkdownHeadings(landingPreviewMarkdown),
+  ro: getLandingMarkdownHeadings(landingPreviewRomanianMarkdown),
+} satisfies Record<
+  LandingMarkdownPreviewLanguage,
+  ReturnType<typeof getLandingMarkdownHeadings>
+>;
 
 const landingPreviewSidebarLinkClassNames = {
   1: "block px-2 py-1.5 text-sm font-medium leading-5 text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -22,7 +37,7 @@ const landingPreviewSidebarLinkClassNames = {
   4: "block px-7 py-1 text-xs font-medium leading-5 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
   5: "block px-8 py-1 text-xs font-medium leading-5 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
   6: "block px-8 py-1 text-xs font-medium leading-5 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-} satisfies Record<(typeof landingPreviewHeadings)[number]["level"], string>;
+} satisfies Record<LandingMarkdownHeadingLevel, string>;
 
 function shouldUseNativeLinkClick(event: ReactMouseEvent<HTMLAnchorElement>) {
   return (
@@ -130,8 +145,13 @@ function scrollHeadingWithinCurrentPane(target: HTMLElement) {
     targetBounds.top - containerBounds.top - scrollMarginTop;
 }
 
-function LandingMarkdownPreviewSidebar() {
+function LandingMarkdownPreviewSidebar({
+  language,
+}: {
+  language: LandingMarkdownPreviewLanguage;
+}) {
   const { isMobile, mobilePane } = useSidebar();
+  const landingPreviewHeadings = LANDING_MARKDOWN_HEADINGS_BY_LANGUAGE[language];
 
   return (
     <nav
@@ -183,28 +203,36 @@ function LandingMarkdownPreviewSidebar() {
   );
 }
 
-function LandingMarkdownPreviewDocument() {
+function LandingMarkdownPreviewDocument({
+  language,
+}: {
+  language: LandingMarkdownPreviewLanguage;
+}) {
   return (
     <MarkdownLandingDocument
       className="min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]"
       dataTestId={LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID}
-      markdown={landingPreviewMarkdown}
+      markdown={LANDING_MARKDOWN_BY_LANGUAGE[language]}
     />
   );
 }
 
-export function LandingMarkdownPreviewPage() {
+export function LandingMarkdownPreviewPage({
+  language = LANDING_MARKDOWN_PREVIEW_DEFAULT_LANGUAGE,
+}: {
+  language?: LandingMarkdownPreviewLanguage;
+}) {
   return (
     <PublicLayoutShell
       defaultLeftOpen
       defaultMobilePane={getLandingPreviewDefaultMobilePane()}
-      left={{ content: <LandingMarkdownPreviewSidebar /> }}
+      left={{ content: <LandingMarkdownPreviewSidebar language={language} /> }}
     >
       <div
         data-testid={LANDING_MARKDOWN_PREVIEW_TEST_ID}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <LandingMarkdownPreviewDocument />
+        <LandingMarkdownPreviewDocument language={language} />
       </div>
     </PublicLayoutShell>
   );

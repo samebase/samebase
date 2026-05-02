@@ -10,14 +10,15 @@
   - `apps/noter/src/components/LandingMarkdownPreviewPage.tsx`
   - `apps/noter/src/components/MarkdownLandingDocument.tsx`
   - `apps/noter/src/content/landing-preview.md`
+  - `apps/noter/src/content/landing-preview.ro.md`
   - `apps/noter/public/landing-preview/`
   - `apps/noter/e2e/landing-markdown-preview-visual.spec.ts`
 
 ## Summary
 
 `/landing-preview` is the admin-only preview surface for the README-shaped
-landing document. It lets the operator review a `notermd/app` README-style
-onboarding page in Noter's `WorkspaceLayoutV2` chrome before any content is
+landing document. It lets the operator review `notermd/app` README-style
+onboarding pages in Noter's `WorkspaceLayoutV2` chrome before any content is
 promoted to the public landing route.
 
 The preview is intentionally a constrained Markdown renderer, not a general
@@ -44,6 +45,13 @@ The preview must render through the same `PublicLayoutShell` sidebar chrome as
 the public landing page. That shell owns the `WorkspaceLayoutV2` frame and the
 right public sidebar, so the preview should not create its own separate
 `WorkspaceLayoutV2` provider or landing-only page shell.
+
+The English README is the default preview. Localized README previews may use the
+`lang` query parameter, starting with `?lang=ro` for Romanian. While the current
+route is `/landing-preview`, the sidebar query-param shortcuts should expose a
+compact `?lang=ro` link. The authenticated dashboard path list should expose
+`/landing-preview` only; public unauthenticated navigation must not expose
+preview links.
 
 ### Supported Markdown Subset
 

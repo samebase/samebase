@@ -1,11 +1,16 @@
 import { readFileSync } from "node:fs";
 import { expect, test, type Locator } from "@playwright/test";
+import { LANDING_DEV_MODE_QUERY_PARAM } from "../src/lib/landingDevMode";
 import { getLandingMarkdownHeadings } from "../src/lib/landingMarkdownHeadings";
 import {
   LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID,
+  LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
+  LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
+  LANDING_MARKDOWN_PREVIEW_ROUTE,
   LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_TEST_ID,
 } from "../src/lib/landingMarkdownPreview";
+import { buildPathWithTanStackSearch } from "../src/lib/tanstackSearchParams";
 
 const landingPreviewMarkdown = readFileSync(
   new URL("../src/content/landing-preview.md", import.meta.url),
@@ -26,6 +31,13 @@ const expectedLandingPreviewVideoSrcs = [
   "/landing-preview/step-4-create-convex-project.mp4",
   "/landing-preview/step-5-create-cloudflare-pages-deploy.mp4",
 ] as const;
+const expectedRomanianPreviewHref = buildPathWithTanStackSearch({
+  pathname: LANDING_MARKDOWN_PREVIEW_ROUTE,
+  search: {
+    [LANDING_DEV_MODE_QUERY_PARAM]: true,
+    [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: "ro",
+  },
+});
 
 async function expectSidebarLinksToMatchMarkdown(sidebar: Locator) {
   const sidebarLinks = sidebar.getByRole("link");
@@ -48,6 +60,7 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
   await page.goto("/landing-preview?dev", {
     waitUntil: "domcontentloaded",
   });
+  await page.waitForLoadState("networkidle");
 
   await page.evaluate(async () => {
     await document.fonts.ready;
@@ -70,6 +83,26 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
   await expect(
     article.locator('[id="1-create-github-convex-cloudflare-openai-accounts"]'),
   ).toContainText("1: Create Github, Convex, Cloudflare & OpenAI accounts");
+  await expect(
+    page.getByRole("link", {
+      name: LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
+    }),
+  ).toHaveAttribute("href", expectedRomanianPreviewHref);
+  const markdownRomanianHref = await article
+    .getByRole("link", {
+      name: "Română",
+    })
+    .getAttribute("href");
+  expect(markdownRomanianHref?.startsWith(LANDING_MARKDOWN_PREVIEW_ROUTE)).toBe(
+    true,
+  );
+  const markdownRomanianSearch = new URLSearchParams(
+    markdownRomanianHref?.split("?").at(1) ?? "",
+  );
+  expect(
+    markdownRomanianSearch.get(LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM),
+  ).toBe("ro");
+  expect(markdownRomanianSearch.has(LANDING_DEV_MODE_QUERY_PARAM)).toBe(true);
   await expect(article.locator("details")).toHaveCount(4);
   await expect(article.locator("details video")).toHaveCount(0);
   const videos = article.locator("video");

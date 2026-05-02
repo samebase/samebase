@@ -122,9 +122,6 @@ test("vault dashboard fixture (sidebar machine links)", async ({ page }) => {
   await expectTwoLineSidebarMetaLink(
     fixture.getByRole("link", { name: LANDING_MARKDOWN_PREVIEW_ROUTE }),
   );
-  await expect(
-    fixture.getByRole("link", { name: LANDING_MARKDOWN_PREVIEW_ROUTE }),
-  ).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-sidebar-machine-links.png", {
     animations: "disabled",
     caret: "hide",

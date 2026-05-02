@@ -2,9 +2,12 @@
 
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { useLocation } from "@tanstack/react-router";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { isMarkdownVideoUrl } from "@/lib/landingMarkdownMedia";
+import { LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL } from "@/lib/landingMarkdownPreview";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
@@ -39,6 +42,34 @@ describe("MarkdownLandingDocument", () => {
         ) : (
           documentElement
         ),
+      );
+    });
+
+    return rootElement;
+  }
+
+  function LocationProbe() {
+    const location = useLocation();
+
+    return (
+      <output data-testid="router-location">
+        {location.pathname}
+        {location.searchStr}
+      </output>
+    );
+  }
+
+  async function renderRouterMarkdown(markdown: string) {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+
+    await act(async () => {
+      root?.render(
+        <TestRouterProvider initialEntries={["/landing-preview"]}>
+          <MarkdownLandingDocument markdown={markdown} />
+          <LocationProbe />
+        </TestRouterProvider>,
       );
     });
 
@@ -145,6 +176,29 @@ describe("MarkdownLandingDocument", () => {
     const headings = element.querySelectorAll("h2");
     expect(headings[0]?.id).toBe("repeat");
     expect(headings[1]?.id).toBe("repeat-2");
+  });
+
+  it("routes local markdown links through TanStack Router", async () => {
+    const element = await renderRouterMarkdown(
+      `[Română](${LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL})`,
+    );
+
+    const link = element.querySelector<HTMLAnchorElement>("a");
+    expect(link?.getAttribute("href")).toBe("/landing-preview?lang=ro");
+
+    await act(async () => {
+      link?.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          button: 0,
+          cancelable: true,
+        }),
+      );
+    });
+
+    expect(
+      element.querySelector('[data-testid="router-location"]')?.textContent,
+    ).toBe("/landing-preview?lang=ro");
   });
 
   it("detects common video file URLs", () => {
