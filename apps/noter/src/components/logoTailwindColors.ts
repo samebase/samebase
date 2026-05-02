@@ -7,8 +7,8 @@ export type HexColorToken = `#${string}`;
 export type LogoColorThemeMode = "dark" | "light";
 type ThemeColorSource = {
   cssVariable: `--${string}`;
-  fallbackHex: string;
-  fallbackHexByTheme?: Record<LogoColorThemeMode, string>;
+  fallbackHex: HexColorToken;
+  fallbackHexByTheme?: Record<LogoColorThemeMode, HexColorToken>;
 };
 type ColorSource = string | ThemeColorSource;
 type RgbColor = {
@@ -75,7 +75,7 @@ function oklchToHex(color: {
   chroma: number;
   hueDegrees: number;
   lightness: number;
-}): string {
+}): HexColorToken {
   const hueRadians = (color.hueDegrees * Math.PI) / 180;
   const oklabA = color.chroma * Math.cos(hueRadians);
   const oklabB = color.chroma * Math.sin(hueRadians);
@@ -107,17 +107,17 @@ function oklchToHex(color: {
   )}${srgbChannelToHex(blue)}`;
 }
 
-function normalizeRenderableColor(color: string): string {
+function normalizeRenderableColor(color: string): HexColorToken {
   const oklchColor = readOklchColor(color);
   if (oklchColor === null) {
-    return color;
+    return isHexColorToken(color) ? color : "#000000";
   }
 
   // Three.js cannot parse Tailwind v4's OKLCH strings, so hand it sRGB hex.
   return oklchToHex(oklchColor);
 }
 
-function readThemeColor(cssVariable: `--${string}`): string | null {
+function readThemeColor(cssVariable: `--${string}`): HexColorToken | null {
   if (typeof document === "undefined") {
     return null;
   }
@@ -180,7 +180,7 @@ function readThemeColor(cssVariable: `--${string}`): string | null {
   return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
 }
 
-function resolveColorSource(source: ColorSource): string {
+function resolveColorSource(source: ColorSource): HexColorToken {
   if (typeof source === "string") {
     return normalizeRenderableColor(source);
   }
@@ -191,7 +191,7 @@ function resolveColorSource(source: ColorSource): string {
 function resolveStaticColorSource(
   source: ColorSource,
   themeMode: LogoColorThemeMode,
-): string {
+): HexColorToken {
   if (typeof source === "string") {
     return normalizeRenderableColor(source);
   }
@@ -535,7 +535,7 @@ export function isLogoColorToken(token: string): token is LogoColorToken {
 function getStaticTailwindColorHex(
   token: LogoColorToken,
   themeMode: LogoColorThemeMode,
-): string {
+): HexColorToken {
   if (isHexColorToken(token)) {
     return token;
   }
@@ -546,7 +546,7 @@ function getStaticTailwindColorHex(
   );
 }
 
-export function getTailwindColorHex(token: LogoColorToken): string {
+export function getTailwindColorHex(token: LogoColorToken): HexColorToken {
   if (isHexColorToken(token)) {
     return token;
   }

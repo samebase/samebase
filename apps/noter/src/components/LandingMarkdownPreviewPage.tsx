@@ -7,7 +7,7 @@ import {
   LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_TEST_ID,
 } from "@/lib/landingMarkdownPreview";
-import { buildPathWithQuery, setQueryParam } from "@/lib/queryParams";
+import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import landingPreviewMarkdown from "@/content/landing-preview.md?raw";
 import type { MouseEvent as ReactMouseEvent } from "react";
 
@@ -44,14 +44,23 @@ function buildLandingPreviewPaneHashPath({
 }) {
   const searchParams = new URLSearchParams(window.location.search);
   if (mobilePane !== null) {
-    setQueryParam(searchParams, "left", mobilePane === "left");
-    setQueryParam(searchParams, "right", mobilePane === "right");
+    if (mobilePane === "left") {
+      searchParams.set("left", "");
+    } else {
+      searchParams.delete("left");
+    }
+
+    if (mobilePane === "right") {
+      searchParams.set("right", "");
+    } else {
+      searchParams.delete("right");
+    }
   }
 
-  return buildPathWithQuery({
+  return buildPathWithTanStackSearch({
     hash,
     pathname: window.location.pathname,
-    search: searchParams,
+    search: Object.fromEntries(searchParams.entries()),
   });
 }
 

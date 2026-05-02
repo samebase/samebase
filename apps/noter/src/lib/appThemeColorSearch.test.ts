@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   buildAppThemeColorSearch,
   readAppThemeColors,
+  resolveAppThemeColorState,
   syncDocumentThemeColorSearch,
 } from "@/lib/appThemeColorSearch";
 import { DEFAULT_APP_THEME_COLORS } from "@/components/logoTailwindColors";
@@ -30,6 +31,38 @@ describe("appThemeColorSearch", () => {
     expect(readAppThemeColors({ base: "#ffffff" })).toEqual({
       ...DEFAULT_APP_THEME_COLORS,
       base: "#ffffff",
+    });
+  });
+
+  it("resolves final app theme colors from route search in one place", () => {
+    expect(
+      resolveAppThemeColorState({
+        search: {
+          base: "#112233",
+          primary: "#445566",
+          secondary: "#778899",
+        },
+        themeMode: "light",
+      }),
+    ).toEqual({
+      backgroundColor: "#112233",
+      cacheKey: "light:112233:445566:778899",
+      faceColors: {
+        left: "#778899",
+        right: "#445566",
+        top: "#112233",
+      },
+      resolvedThemeColors: {
+        base: "#112233",
+        primary: "#445566",
+        secondary: "#778899",
+      },
+      themeColors: {
+        base: "#112233",
+        primary: "#445566",
+        secondary: "#778899",
+      },
+      themeMode: "light",
     });
   });
 

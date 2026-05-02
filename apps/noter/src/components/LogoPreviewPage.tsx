@@ -22,7 +22,6 @@ import {
   APP_THEME_COLOR_KEYS,
   DEFAULT_APP_THEME_COLORS,
   TAILWIND_COLOR_FAMILIES,
-  getFaceColorsFromAppThemeColors,
   getTailwindColorHex,
   getTailwindColorFamily,
   getTailwindColorFamilyHex,
@@ -84,7 +83,10 @@ import {
   resolveLogoViewState,
   type LogoViewState,
 } from "@/components/logoViewDrag";
-import { readAppThemeColors } from "@/lib/appThemeColorSearch";
+import {
+  readAppThemeColors,
+  useResolvedAppThemeColorState,
+} from "@/lib/appThemeColorSearch";
 import {
   buildLogoRouteSearch,
   preserveLogoRouteDevModeSearch,
@@ -642,8 +644,8 @@ export function LogoPreviewPage({
   const [themeColors, setThemeColors] = useState<AppThemeColors>(() =>
     readAppThemeColors(routeSearch),
   );
-  const faceColors = getFaceColorsFromAppThemeColors(themeColors);
-  const backgroundColor = getTailwindColorHex(themeColors.base);
+  const { backgroundColor, faceColors } =
+    useResolvedAppThemeColorState(themeColors);
   const [logoOpacity, setLogoOpacity] = useState(DEFAULT_LOGO_OPACITY);
   const [isFaceColorAnimationEnabled, setIsFaceColorAnimationEnabled] =
     useState(false);

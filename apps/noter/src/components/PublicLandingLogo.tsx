@@ -1,8 +1,3 @@
-import {
-  DEFAULT_FACE_COLORS,
-  type FaceColors,
-  getTailwindColorHex,
-} from "@/components/logoTailwindColors";
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import {
   STATIC_LOGO_ELEVATION_DEGREES,
@@ -32,8 +27,12 @@ import {
   type RotatedLogoViewStateKey,
   type RotatedLogoViewStatePersistence,
 } from "@/lib/rotatedLogoViewState";
+import {
+  useResolvedAppThemeColorState,
+  type AppThemeColorSearch,
+} from "@/lib/appThemeColorSearch";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type LandingLogoSceneComponent =
   typeof import("@/components/NLogoScene").NLogoScene;
@@ -60,12 +59,14 @@ export function PublicLandingLogo({
   autoRotate = false,
   enableViewSnapping = true,
   loadInteractiveScene = true,
+  themeColorSearch = {},
   viewStatePersistence = "visit",
   viewStateKey = PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,
 }: {
   autoRotate?: boolean;
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
+  themeColorSearch?: AppThemeColorSearch;
   viewStatePersistence?: RotatedLogoViewStatePersistence;
   viewStateKey?: RotatedLogoViewStateKey;
 }) {
@@ -82,10 +83,12 @@ export function PublicLandingLogo({
       persistence: viewStatePersistence,
     }),
   );
-  const staticLogoSvgSrc = useMemo(
-    () => createStaticLogoSvgDataUrl({ view: initialView }),
-    [initialView],
-  );
+  const logoTheme = useResolvedAppThemeColorState(themeColorSearch);
+  const { backgroundColor, faceColors } = logoTheme;
+  const staticLogoSvgSrc = `${createStaticLogoSvgDataUrl({
+    faceColors,
+    view: initialView,
+  })}#${logoTheme.cacheKey}`;
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
@@ -94,12 +97,6 @@ export function PublicLandingLogo({
   const latestViewRef = useRef(view);
   const lastFrameTimeRef = useRef<number | null>(null);
   const autoRotateResumeStartedAtRef = useRef<number | null>(null);
-  const backgroundColor = getTailwindColorHex("background-base");
-  const faceColors: FaceColors = {
-    left: DEFAULT_FACE_COLORS.left,
-    right: DEFAULT_FACE_COLORS.right,
-    top: DEFAULT_FACE_COLORS.top,
-  };
   const isSceneInteractive = isSceneReady && !isSvgVisible;
   const persistLatestLogoView = useCallback(() => {
     persistRotatedLogoViewState({

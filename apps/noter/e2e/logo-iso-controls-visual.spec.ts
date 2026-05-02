@@ -1,6 +1,37 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { PNG } from "pngjs";
 import { PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID } from "../src/components/PublicRightSidebar";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
+
+async function waitForPaint(page: Page) {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+  });
+}
+
+async function sampleLogoCanvasCorner(page: Page) {
+  const buffer = await page.locator("canvas").first().screenshot({
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+  });
+  const png = PNG.sync.read(buffer);
+  const x = Math.min(8, png.width - 1);
+  const y = Math.min(8, png.height - 1);
+  const index = (y * png.width + x) * 4;
+
+  return [
+    png.data[index],
+    png.data[index + 1],
+    png.data[index + 2],
+    png.data[index + 3],
+  ] as const;
+}
 
 test("logo iso controls sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -112,6 +143,46 @@ test("logo public query links toggle root theme mode", async ({ page }) => {
   await expect(
     publicLinks.getByRole("link", { name: "?dark", exact: true }),
   ).toBeVisible();
+});
+
+test("logo public query links repaint the three scene theme colors", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?dev&light", {
+    waitUntil: "domcontentloaded",
+  });
+
+  await expect(page.locator("canvas").first()).toBeVisible();
+  await waitForPaint(page);
+
+  const lightPixel = await sampleLogoCanvasCorner(page);
+  const publicLinks = page
+    .getByTestId("workspace-layout-v2-pane-right")
+    .getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+
+  await publicLinks.getByRole("link", { name: "?dark", exact: true }).click();
+  await expect(page).toHaveURL(/\/logo\?dev&dark$/);
+  await waitForPaint(page);
+
+  const darkPixel = await sampleLogoCanvasCorner(page);
+
+  expect(lightPixel).toEqual([255, 255, 255, 255]);
+  expect(darkPixel).toEqual([57, 68, 71, 255]);
+});
+
+test("logo public query color overrides repaint the three scene base color", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?dev&light&base=%23112233", {
+    waitUntil: "domcontentloaded",
+  });
+
+  await expect(page.locator("canvas").first()).toBeVisible();
+  await waitForPaint(page);
+
+  expect(await sampleLogoCanvasCorner(page)).toEqual([17, 34, 51, 255]);
 });
 
 test("logo public query links cancel conflicting root theme modes", async ({
