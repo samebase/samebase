@@ -35,19 +35,19 @@ function shouldUseNativeLinkClick(event: ReactMouseEvent<HTMLAnchorElement>) {
   );
 }
 
-function getLandingPreviewSidebarUrl(
-  headingId: string,
-  mobilePane: MobileSidebarPane,
-) {
+function replaceLandingPreviewPaneSearch(mobilePane: MobileSidebarPane) {
   const searchParams = new URLSearchParams(window.location.search);
   setQueryParam(searchParams, "left", mobilePane === "left");
   setQueryParam(searchParams, "right", mobilePane === "right");
 
-  return buildPathWithQuery({
-    hash: headingId,
-    pathname: window.location.pathname,
-    search: searchParams,
-  });
+  window.history.replaceState(
+    window.history.state,
+    "",
+    buildPathWithQuery({
+      pathname: window.location.pathname,
+      search: searchParams,
+    }),
+  );
 }
 
 function getLandingPreviewDefaultMobilePane(): MobileSidebarPane {
@@ -64,6 +64,17 @@ function getLandingPreviewDefaultMobilePane(): MobileSidebarPane {
   }
 
   return "main";
+}
+
+function getLandingPreviewArticleHeading(headingId: string) {
+  const article = document.querySelector<HTMLElement>(
+    `[data-testid="${LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID}"]`,
+  );
+  return (
+    article?.querySelector<HTMLElement>(
+      `[data-landing-heading-id="${CSS.escape(headingId)}"]`,
+    ) ?? null
+  );
 }
 
 function getVerticalScrollContainer(target: HTMLElement) {
@@ -85,69 +96,7 @@ function getVerticalScrollContainer(target: HTMLElement) {
     : document.documentElement;
 }
 
-function getHorizontalScrollContainer(target: HTMLElement) {
-  let node = target.parentElement;
-  while (node !== null) {
-    const style = window.getComputedStyle(node);
-    if (
-      (style.overflowX === "auto" || style.overflowX === "scroll") &&
-      node.scrollWidth > node.clientWidth
-    ) {
-      return node;
-    }
-
-    node = node.parentElement;
-  }
-
-  return null;
-}
-
-type PreservedHorizontalScroll = {
-  scrollContainer: HTMLElement;
-  scrollLeft: number;
-};
-
-function preserveHorizontalScroll(
-  position: PreservedHorizontalScroll | null,
-  afterRestore?: () => void,
-) {
-  if (position === null) {
-    return;
-  }
-
-  const restore = () => {
-    position.scrollContainer.scrollLeft = position.scrollLeft;
-    afterRestore?.();
-  };
-
-  // Hash URL updates can trigger late horizontal anchor scrolling in the
-  // mobile pane carousel, so restore once more after the snap-settle window.
-  restore();
-  window.requestAnimationFrame(() => {
-    restore();
-  });
-  window.setTimeout(restore, 0);
-  window.setTimeout(restore, 120);
-}
-
-function getPreservedHorizontalScroll(
-  target: HTMLElement,
-): PreservedHorizontalScroll | null {
-  const scrollContainer = getHorizontalScrollContainer(target);
-  if (scrollContainer === null) {
-    return null;
-  }
-
-  return {
-    scrollContainer,
-    scrollLeft: scrollContainer.scrollLeft,
-  };
-}
-
-function scrollHeadingWithinCurrentPane(
-  target: HTMLElement,
-  preservedHorizontalScroll: PreservedHorizontalScroll | null,
-) {
+function scrollHeadingWithinCurrentPane(target: HTMLElement) {
   const scrollContainer = getVerticalScrollContainer(target);
   const targetBounds = target.getBoundingClientRect();
   const containerBounds =
@@ -157,19 +106,12 @@ function scrollHeadingWithinCurrentPane(
   const scrollMarginTop =
     Number.parseFloat(window.getComputedStyle(target).scrollMarginTop) || 0;
 
-  scrollContainer.scrollTo({
-    top:
-      scrollContainer.scrollTop +
-      targetBounds.top -
-      containerBounds.top -
-      scrollMarginTop,
-  });
-
-  preserveHorizontalScroll(preservedHorizontalScroll);
+  scrollContainer.scrollTop +=
+    targetBounds.top - containerBounds.top - scrollMarginTop;
 }
 
 function LandingMarkdownPreviewSidebar() {
-  const { isMobile, mobilePane, setMobilePane } = useSidebar();
+  const { isMobile, mobilePane } = useSidebar();
 
   return (
     <nav
@@ -182,44 +124,40 @@ function LandingMarkdownPreviewSidebar() {
           key={heading.id}
           className={landingPreviewSidebarLinkClassNames[heading.level]}
           href={heading.href}
+          id={isMobile && mobilePane === "left" ? heading.id : undefined}
           onClick={(event) => {
             if (shouldUseNativeLinkClick(event)) {
               return;
             }
 
-            const target = document.getElementById(heading.id);
+            const target = getLandingPreviewArticleHeading(heading.id);
             if (target === null) {
               return;
             }
 
-            event.preventDefault();
-            const preservedHorizontalScroll =
-              getPreservedHorizontalScroll(target);
-            window.history.pushState(
-              window.history.state,
-              "",
-              getLandingPreviewSidebarUrl(
-                heading.id,
-                isMobile ? mobilePane : "main",
-              ),
-            );
-            const restoreMobilePane = () => {
-              if (isMobile) {
-                setMobilePane(mobilePane);
-              }
-            };
-            preserveHorizontalScroll(
-              preservedHorizontalScroll,
-              restoreMobilePane,
-            );
-            scrollHeadingWithinCurrentPane(target, preservedHorizontalScroll);
-            restoreMobilePane();
+            if (isMobile) {
+              replaceLandingPreviewPaneSearch(mobilePane);
+            }
+            scrollHeadingWithinCurrentPane(target);
           }}
         >
           {heading.text}
         </a>
       ))}
     </nav>
+  );
+}
+
+function LandingMarkdownPreviewDocument() {
+  const { isMobile, mobilePane } = useSidebar();
+
+  return (
+    <MarkdownLandingDocument
+      className="min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]"
+      dataTestId={LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID}
+      headingAnchorsEnabled={!(isMobile && mobilePane === "left")}
+      markdown={landingPreviewMarkdown}
+    />
   );
 }
 
@@ -234,11 +172,7 @@ export function LandingMarkdownPreviewPage() {
         data-testid={LANDING_MARKDOWN_PREVIEW_TEST_ID}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <MarkdownLandingDocument
-          className="min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]"
-          dataTestId={LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID}
-          markdown={landingPreviewMarkdown}
-        />
+        <LandingMarkdownPreviewDocument />
       </div>
     </PublicLayoutShell>
   );

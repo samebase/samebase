@@ -176,7 +176,8 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
     .toBeLessThan(80);
 
   const targetTop = await page
-    .locator('[id="6-connect-codex-to-github"]')
+    .getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID)
+    .locator('[data-landing-heading-id="6-connect-codex-to-github"]')
     .evaluate((element) => element.getBoundingClientRect().top);
   expect(targetTop).toBeGreaterThan(0);
   expect(targetTop).toBeLessThan(80);
