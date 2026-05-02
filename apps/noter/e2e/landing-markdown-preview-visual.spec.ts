@@ -1,12 +1,24 @@
-import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { expect, test, type Locator } from "@playwright/test";
+import { getLandingMarkdownHeadings } from "../src/lib/landingMarkdownHeadings";
 import {
   LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_TEST_ID,
 } from "../src/lib/landingMarkdownPreview";
 
+const landingPreviewMarkdown = readFileSync(
+  new URL("../src/content/landing-preview.md", import.meta.url),
+  "utf8",
+);
 const landingMarkdownPreviewSnapshotSuffix =
   process.platform === "linux" ? "linux" : "darwin";
+const expectedLandingPreviewSidebarLinks = getLandingMarkdownHeadings(
+  landingPreviewMarkdown,
+).map((heading) => ({
+  href: heading.href,
+  text: heading.text,
+}));
 const expectedLandingPreviewVideoSrcs = [
   "/landing-preview/step-1-create-accounts.mp4",
   "/landing-preview/step-2-use-template.mp4",
@@ -14,6 +26,19 @@ const expectedLandingPreviewVideoSrcs = [
   "/landing-preview/step-4-create-convex-project.mp4",
   "/landing-preview/step-5-create-cloudflare-pages-deploy.mp4",
 ] as const;
+
+async function expectSidebarLinksToMatchMarkdown(sidebar: Locator) {
+  const sidebarLinks = sidebar.getByRole("link");
+  await expect(sidebarLinks).toHaveCount(
+    expectedLandingPreviewSidebarLinks.length,
+  );
+  await expect(sidebarLinks).toHaveText(
+    expectedLandingPreviewSidebarLinks.map((link) => link.text),
+  );
+  for (const [index, link] of expectedLandingPreviewSidebarLinks.entries()) {
+    await expect(sidebarLinks.nth(index)).toHaveAttribute("href", link.href);
+  }
+}
 
 test("landing markdown preview route renders markdown in workspace chrome", async ({
   page,
@@ -35,14 +60,7 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
 
   await expect(preview).toBeVisible();
   await expect(sidebar).toBeVisible();
-  await expect(
-    sidebar.getByRole("link", {
-      name: "1: Create Github, Convex, Cloudflare & OpenAI accounts",
-    }),
-  ).toHaveAttribute(
-    "href",
-    "#1-create-github-convex-cloudflare-openai-accounts",
-  );
+  await expectSidebarLinksToMatchMarkdown(sidebar);
   await expect(rightSidebar).toBeVisible();
   await expect(
     article.getByRole("heading", {
@@ -150,6 +168,7 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
 
   await expect(layout).toHaveAttribute("data-mobile-pane", "left");
   await expect(sidebar).toBeVisible();
+  await expectSidebarLinksToMatchMarkdown(sidebar);
 
   await sidebar
     .getByRole("link", {
