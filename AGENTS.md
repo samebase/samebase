@@ -96,6 +96,10 @@ Key domain entities:
   the constraint or invariant being preserved. Prefer JSDoc above functions when
   a function-level explanation is needed.
 - Avoid `"use node"` unless the module truly requires it.
+- Treat every `useEffect` and `useLayoutEffect` as something to justify. Before
+  adding or keeping one, check whether the behavior belongs in a route lifecycle
+  such as `beforeLoad`, a data/cache API, an event handler, derived render
+  state, or CSS. Collapse duplicate effects that share the same trigger/concern.
 - Do not add speculative helpers, flags, env vars, allowlist entries,
   compatibility paths, or config surface that the current patch does not use end
   to end.
