@@ -20,7 +20,6 @@ import {
   readRootThemeMode,
   syncDocumentRootThemeMode,
 } from "@/lib/rootThemeModeSearch";
-import { hasSearchResetParam } from "@/lib/searchReset";
 import { useEffect, useLayoutEffect } from "react";
 
 const posthogApiHost =
@@ -155,8 +154,7 @@ function AppRouterRoot() {
   const navigate = useNavigate();
   const location = useLocation();
   const themeMode = readRootThemeMode({ dark, light });
-  const shouldResetSearch =
-    reset === true || hasSearchResetParam(location.searchStr);
+  const shouldResetSearch = reset === true;
   useDeferredPostHogInit();
 
   useLayoutEffect(() => {
