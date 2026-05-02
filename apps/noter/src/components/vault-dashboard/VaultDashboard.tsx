@@ -4,11 +4,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/input";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
-import {
-  ChevronDownIcon,
-  TrashIcon,
-  UpdateIcon,
-} from "@/lib/radixIcons";
+import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import { GitBranch, GitCommitHorizontal, Loader2 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { AnchoredPopoverContent, Popover } from "@/components/popover";
