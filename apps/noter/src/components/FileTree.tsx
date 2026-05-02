@@ -1,4 +1,12 @@
-import { useMemo, useState, useRef, useCallback, useEffect } from "react";
+import {
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useContext,
+  type MouseEvent,
+} from "react";
 import {
   ChevronRightIcon,
   ChevronDownIcon,
@@ -16,7 +24,7 @@ import {
   TooltipTrigger,
 } from "@/components/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useDialog } from "@/hooks/useDialog";
+import { DialogContext } from "@/contexts/dialog-context-state";
 import {
   getCommitStatusTextClassName,
   type CommitReviewFileStatus,
@@ -30,10 +38,23 @@ import {
   getRestoreDeletionLabel,
 } from "@/lib/fileTreeLabels";
 
-interface FileTreeItem {
+type FileTreeFileSelectEvent =
+  | MouseEvent<HTMLAnchorElement>
+  | MouseEvent<HTMLDivElement>;
+
+type FileTreeFileSelectHandler = (
+  path: string,
+  status?: CommitReviewFileStatus,
+  event?: FileTreeFileSelectEvent,
+) => void;
+
+export interface FileTreeItem {
   path: string;
   originalPath: string;
   type: "tree" | "blob";
+  label?: string;
+  href?: string;
+  elementId?: string;
   size?: number;
   deleted?: boolean;
   status?: CommitReviewFileStatus;
@@ -44,6 +65,9 @@ interface TreeNode {
   path: string;
   originalPath: string;
   type: "tree" | "blob";
+  label?: string;
+  href?: string;
+  elementId?: string;
   children?: TreeNode[];
   size?: number;
   deleted?: boolean;
@@ -52,7 +76,7 @@ interface TreeNode {
 
 interface FileTreeProps {
   items: FileTreeItem[];
-  onFileSelect?: (path: string, status?: CommitReviewFileStatus) => void;
+  onFileSelect?: FileTreeFileSelectHandler;
   onFileRename?: (oldPath: string, newPath: string) => void;
   onFileCreate?: (folderPath: string, fileName: string) => void;
   onMediaUploadRequest?: (folderPath: string) => void;
@@ -93,6 +117,9 @@ function buildTree(items: FileTreeItem[]): TreeNode[] {
           path,
           originalPath: item.originalPath,
           type: index === parts.length - 1 ? item.type : "tree",
+          label: index === parts.length - 1 ? item.label : undefined,
+          href: index === parts.length - 1 ? item.href : undefined,
+          elementId: index === parts.length - 1 ? item.elementId : undefined,
           children:
             index === parts.length - 1 && item.type === "blob" ? undefined : [],
           size: index === parts.length - 1 ? item.size : undefined,
@@ -111,6 +138,9 @@ function buildTree(items: FileTreeItem[]): TreeNode[] {
         });
       }
       if (index === parts.length - 1) {
+        existingNode.label = item.label;
+        existingNode.href = item.href;
+        existingNode.elementId = item.elementId;
         existingNode.deleted = item.deleted;
         existingNode.status = item.status;
       }
@@ -141,7 +171,7 @@ function TreeNodeComponent({
 }: {
   node: TreeNode;
   level?: number;
-  onFileSelect?: (path: string, status?: CommitReviewFileStatus) => void;
+  onFileSelect?: FileTreeFileSelectHandler;
   onFileRename?: (originalPath: string, newPath: string) => void;
   onFileCreate?: (folderPath: string, fileName: string) => void;
   onMediaUploadRequest?: (folderPath: string) => void;
@@ -153,7 +183,7 @@ function TreeNodeComponent({
   onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
   autoExpandedPaths: Set<string>;
 }) {
-  const { openFileCreation, openFolderCreation } = useDialog();
+  const dialog = useContext(DialogContext);
 
   const expansionState = folderExpansionStates.find(
     (state) => state.folderPath === node.path,
@@ -180,6 +210,23 @@ function TreeNodeComponent({
   const fileStatus = node.type === "blob" ? node.status : undefined;
   const isDeletedFile = fileStatus === "deleted" || node.deleted === true;
   const isRestorePending = restoringFilePath === node.path;
+  const canCreateFile =
+    isFolder && dialog !== undefined && onFileCreate !== undefined;
+  const canUploadImage = isFolder && onMediaUploadRequest !== undefined;
+  const canCreateFolder = isFolder && dialog !== undefined;
+  const canRenameFile =
+    node.type === "blob" && !isDeletedFile && onFileRename !== undefined;
+  const canDeleteFile =
+    node.type === "blob" && !isDeletedFile && onFileDelete !== undefined;
+  const canRestoreFile =
+    node.type === "blob" && isDeletedFile && onFileRestore !== undefined;
+  const canOpenContextMenu =
+    canCreateFile ||
+    canUploadImage ||
+    canCreateFolder ||
+    canRenameFile ||
+    canDeleteFile ||
+    canRestoreFile;
   const fileStatusClassName = fileStatus
     ? getCommitStatusTextClassName(fileStatus)
     : undefined;
@@ -187,7 +234,7 @@ function TreeNodeComponent({
     setContextMenu({ x, y });
   }, []);
 
-  const handleClick = () => {
+  const handleClick = (event: FileTreeFileSelectEvent) => {
     if (didTriggerLongPressRef.current) {
       didTriggerLongPressRef.current = false;
       return;
@@ -197,11 +244,15 @@ function TreeNodeComponent({
       const newIsOpen = !isOpen;
       onFolderToggle?.(node.path, newIsOpen);
     } else {
-      onFileSelect?.(node.path, fileStatus);
+      onFileSelect?.(node.path, fileStatus, event);
     }
   };
 
   const handleRightClick = (e: React.MouseEvent) => {
+    if (!canOpenContextMenu) {
+      return;
+    }
+
     e.preventDefault();
     openContextMenu(e.clientX, e.clientY);
   };
@@ -209,7 +260,7 @@ function TreeNodeComponent({
   // Long press handlers for mobile
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      if (!isMobile) return;
+      if (!isMobile || !canOpenContextMenu) return;
       const touch = e.touches[0];
 
       didTriggerLongPressRef.current = false;
@@ -220,7 +271,7 @@ function TreeNodeComponent({
         openContextMenu(touchX, touchY);
       }, 500); // 500ms long press threshold
     },
-    [isMobile, openContextMenu],
+    [canOpenContextMenu, isMobile, openContextMenu],
   );
 
   const handleTouchEnd = useCallback(() => {
@@ -244,17 +295,29 @@ function TreeNodeComponent({
   };
 
   const handleCreateFile = () => {
-    openFileCreation(node.path);
+    if (dialog === undefined || onFileCreate === undefined) {
+      return;
+    }
+
+    dialog.openFileCreation(node.path);
     setContextMenu(null);
   };
 
   const handleCreateFolder = () => {
-    openFolderCreation(node.path);
+    if (dialog === undefined) {
+      return;
+    }
+
+    dialog.openFolderCreation(node.path);
     setContextMenu(null);
   };
 
   const handleUploadImage = () => {
-    onMediaUploadRequest?.(node.path);
+    if (!canUploadImage) {
+      return;
+    }
+
+    onMediaUploadRequest(node.path);
     setContextMenu(null);
   };
 
@@ -281,82 +344,107 @@ function TreeNodeComponent({
     }
   };
 
+  const nodeLabel = node.label ?? node.name;
+  const nodeRowClassName = cn(
+    "flex items-center gap-2 py-3 px-3 md:py-1 md:px-2 text-base md:text-sm cursor-pointer hover:bg-muted/30 corner-notch-1",
+    isSelected &&
+      "bg-primary/15 hover:bg-primary/20 ring-1 ring-inset ring-primary/40",
+    "transition-colors",
+    "min-h-[44px] md:min-h-[auto]", // Touch-friendly height on mobile
+  );
+  const nodeRowStyle = { paddingLeft: `${level * 16 + 12}px` };
+  const nodeRowContent = (
+    <>
+      {hasChildren ? (
+        isOpen ? (
+          <ChevronDownIcon className="h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0" />
+        ) : (
+          <ChevronRightIcon className="h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0" />
+        )
+      ) : (
+        <div className="w-4 md:w-3" />
+      )}
+
+      {node.type === "tree" ? (
+        <div className="h-4 w-4 md:h-3 md:w-3 flex items-center justify-center">
+          <div className="h-3 w-3 md:h-2 md:w-2 bg-muted-foreground/30 corner-notch-1" />
+        </div>
+      ) : (
+        <FileIcon
+          className={cn(
+            "h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0",
+            fileStatusClassName,
+            !fileStatus && isSelected && "text-primary",
+          )}
+        />
+      )}
+
+      {isRenaming ? (
+        <input
+          type="text"
+          value={renamingValue}
+          onChange={(e) => setRenamingValue(e.target.value)}
+          onBlur={handleRenameSubmit}
+          onKeyDown={handleRenameKeyDown}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="flex-1 bg-background border border-border corner-notch-1 px-1 text-xs"
+          autoFocus
+        />
+      ) : (
+        <span
+          className={cn(
+            "truncate text-muted-foreground text-sm md:text-xs",
+            fileStatusClassName,
+            !fileStatus && isSelected && "text-foreground font-medium",
+            isSelected && "font-medium",
+            isDeletedFile && "line-through decoration-current",
+          )}
+        >
+          {nodeLabel}
+        </span>
+      )}
+    </>
+  );
+
   return (
     <>
       <div>
         <TooltipProvider>
           <Tooltip delayDuration={1000}>
             <TooltipTrigger asChild>
-              <div
-                className={cn(
-                  "flex items-center gap-2 py-3 px-3 md:py-1 md:px-2 text-base md:text-sm cursor-pointer hover:bg-muted/30 corner-notch-1",
-                  isSelected &&
-                    "bg-primary/15 hover:bg-primary/20 ring-1 ring-inset ring-primary/40",
-                  "transition-colors",
-                  "min-h-[44px] md:min-h-[auto]", // Touch-friendly height on mobile
-                )}
-                style={{ paddingLeft: `${level * 16 + 12}px` }}
-                onClick={handleClick}
-                onContextMenu={handleRightClick}
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
-                onTouchMove={handleTouchMove}
-              >
-                {hasChildren ? (
-                  isOpen ? (
-                    <ChevronDownIcon className="h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0" />
-                  ) : (
-                    <ChevronRightIcon className="h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0" />
-                  )
-                ) : (
-                  <div className="w-4 md:w-3" />
-                )}
-
-                {node.type === "tree" ? (
-                  <div className="h-4 w-4 md:h-3 md:w-3 flex items-center justify-center">
-                    <div className="h-3 w-3 md:h-2 md:w-2 bg-muted-foreground/30 corner-notch-1" />
-                  </div>
-                ) : (
-                  <FileIcon
-                    className={cn(
-                      "h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0",
-                      fileStatusClassName,
-                      !fileStatus && isSelected && "text-primary",
-                    )}
-                  />
-                )}
-
-                {isRenaming ? (
-                  <input
-                    type="text"
-                    value={renamingValue}
-                    onChange={(e) => setRenamingValue(e.target.value)}
-                    onBlur={handleRenameSubmit}
-                    onKeyDown={handleRenameKeyDown}
-                    onClick={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    className="flex-1 bg-background border border-border corner-notch-1 px-1 text-xs"
-                    autoFocus
-                  />
-                ) : (
-                  <span
-                    className={cn(
-                      "truncate text-muted-foreground text-sm md:text-xs",
-                      fileStatusClassName,
-                      !fileStatus &&
-                        isSelected &&
-                        "text-foreground font-medium",
-                      isSelected && "font-medium",
-                      isDeletedFile && "line-through decoration-current",
-                    )}
-                  >
-                    {node.name}
-                  </span>
-                )}
-              </div>
+              {node.href ? (
+                <a
+                  id={node.elementId}
+                  className={nodeRowClassName}
+                  style={nodeRowStyle}
+                  href={node.href}
+                  onClick={handleClick}
+                  onContextMenu={handleRightClick}
+                  onTouchStart={handleTouchStart}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchMove={handleTouchMove}
+                >
+                  {nodeRowContent}
+                </a>
+              ) : (
+                <div
+                  id={node.elementId}
+                  className={nodeRowClassName}
+                  style={nodeRowStyle}
+                  onClick={handleClick}
+                  onContextMenu={handleRightClick}
+                  onTouchStart={handleTouchStart}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchMove={handleTouchMove}
+                >
+                  {nodeRowContent}
+                </div>
+              )}
             </TooltipTrigger>
             <TooltipContent side="right" className="text-xs">
               {getFileTreeTooltipText({
+                hasContextMenuActions: canOpenContextMenu,
                 isFolder,
                 isDeletedFile,
                 isMobile,
@@ -403,50 +491,56 @@ function TreeNodeComponent({
           >
             {isFolder && (
               <>
-                <button
-                  className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 flex items-center gap-2"
-                  onClick={handleCreateFile}
-                >
-                  <PlusIcon className="h-3 w-3" />
-                  Create File
-                </button>
-                <button
-                  className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 flex items-center gap-2"
-                  onClick={handleUploadImage}
-                >
-                  <PlusIcon className="h-3 w-3" />
-                  Upload Image
-                </button>
-                <button
-                  className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 flex items-center gap-2"
-                  onClick={handleCreateFolder}
-                >
-                  <FilePlusIcon className="h-3 w-3" />
-                  Create Folder
-                </button>
+                {canCreateFile ? (
+                  <button
+                    className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 flex items-center gap-2"
+                    onClick={handleCreateFile}
+                  >
+                    <PlusIcon className="h-3 w-3" />
+                    Create File
+                  </button>
+                ) : null}
+                {canUploadImage ? (
+                  <button
+                    className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 flex items-center gap-2"
+                    onClick={handleUploadImage}
+                  >
+                    <PlusIcon className="h-3 w-3" />
+                    Upload Image
+                  </button>
+                ) : null}
+                {canCreateFolder ? (
+                  <button
+                    className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 flex items-center gap-2"
+                    onClick={handleCreateFolder}
+                  >
+                    <FilePlusIcon className="h-3 w-3" />
+                    Create Folder
+                  </button>
+                ) : null}
               </>
             )}
-            {node.type === "blob" && !isDeletedFile && (
-              <>
-                <button
-                  className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50"
-                  onClick={handleRename}
-                >
-                  Rename
-                </button>
-                <button
-                  className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 text-destructive flex items-center gap-2"
-                  onClick={() => {
-                    onFileDelete?.(node.path, node.originalPath);
-                    setContextMenu(null);
-                  }}
-                >
-                  <TrashIcon className="h-3 w-3" />
-                  Delete
-                </button>
-              </>
-            )}
-            {node.type === "blob" && isDeletedFile && (
+            {canRenameFile ? (
+              <button
+                className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50"
+                onClick={handleRename}
+              >
+                Rename
+              </button>
+            ) : null}
+            {canDeleteFile ? (
+              <button
+                className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 text-destructive flex items-center gap-2"
+                onClick={() => {
+                  onFileDelete(node.path, node.originalPath);
+                  setContextMenu(null);
+                }}
+              >
+                <TrashIcon className="h-3 w-3" />
+                Delete
+              </button>
+            ) : null}
+            {canRestoreFile ? (
               <button
                 className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isRestorePending}
@@ -454,14 +548,14 @@ function TreeNodeComponent({
                   if (isRestorePending) {
                     return;
                   }
-                  onFileRestore?.(node.path, node.originalPath);
+                  onFileRestore(node.path, node.originalPath);
                   setContextMenu(null);
                 }}
               >
                 <UpdateIcon className="h-3 w-3" />
                 {getRestoreDeletionLabel(isRestorePending)}
               </button>
-            )}
+            ) : null}
           </div>
         </>
       )}

@@ -1,4 +1,5 @@
 interface FileTreeTooltipTextArgs {
+  hasContextMenuActions?: boolean;
   isFolder: boolean;
   isDeletedFile: boolean;
   isMobile: boolean;
@@ -6,6 +7,14 @@ interface FileTreeTooltipTextArgs {
 }
 
 export function getFileTreeTooltipText(args: FileTreeTooltipTextArgs): string {
+  if (args.hasContextMenuActions === false) {
+    if (args.isFolder) {
+      return args.isMobile ? "Tap to expand folder" : "Click to expand folder";
+    }
+
+    return args.isMobile ? "Tap to open" : "Click to open";
+  }
+
   if (args.isFolder) {
     return args.isMobile ? "Long press for actions" : "Right-click for actions";
   }

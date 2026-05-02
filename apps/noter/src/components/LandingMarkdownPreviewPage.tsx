@@ -1,9 +1,11 @@
 import { PublicLayoutShell } from "@/Layout";
+import { FileTree, type FileTreeItem } from "@/components/FileTree";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { useSidebar, type MobileSidebarPane } from "@/hooks/use-sidebar";
+import type { FolderExpansionState } from "@/lib/fileTreeState";
 import {
   getLandingMarkdownHeadings,
-  type LandingMarkdownHeadingLevel,
+  type LandingMarkdownHeading,
 } from "@/lib/landingMarkdownHeadings";
 import {
   LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID,
@@ -15,7 +17,7 @@ import {
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import landingPreviewMarkdown from "@/content/landing-preview.md?raw";
 import landingPreviewRomanianMarkdown from "@/content/landing-preview.ro.md?raw";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import { useState, type MouseEvent as ReactMouseEvent } from "react";
 
 const LANDING_MARKDOWN_BY_LANGUAGE = {
   en: landingPreviewMarkdown,
@@ -30,16 +32,45 @@ const LANDING_MARKDOWN_HEADINGS_BY_LANGUAGE = {
   ReturnType<typeof getLandingMarkdownHeadings>
 >;
 
-const landingPreviewSidebarLinkClassNames = {
-  1: "block px-2 py-1.5 text-sm font-medium leading-5 text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-  2: "block px-2 py-1.5 text-sm font-medium leading-5 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-  3: "block px-5 py-1 text-xs font-medium leading-5 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-  4: "block px-7 py-1 text-xs font-medium leading-5 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-  5: "block px-8 py-1 text-xs font-medium leading-5 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-  6: "block px-8 py-1 text-xs font-medium leading-5 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-} satisfies Record<LandingMarkdownHeadingLevel, string>;
+const LANDING_PREVIEW_HELP_CENTER_START_FOLDER = {
+  label: "Start here",
+  path: "01 Start here",
+} as const;
+const LANDING_PREVIEW_HELP_CENTER_DEPLOY_FOLDER = {
+  label: "Deploy",
+  path: "02 Deploy",
+} as const;
+const LANDING_PREVIEW_HELP_CENTER_AFTER_LAUNCH_FOLDER = {
+  label: "After launch",
+  path: "03 After launch",
+} as const;
+const LANDING_PREVIEW_HELP_CENTER_NOTER_FOLDER = {
+  label: "noter.md",
+  path: "04 noter.md",
+} as const;
+const LANDING_PREVIEW_HELP_CENTER_FOLDERS = [
+  LANDING_PREVIEW_HELP_CENTER_START_FOLDER,
+  LANDING_PREVIEW_HELP_CENTER_DEPLOY_FOLDER,
+  LANDING_PREVIEW_HELP_CENTER_AFTER_LAUNCH_FOLDER,
+  LANDING_PREVIEW_HELP_CENTER_NOTER_FOLDER,
+] as const;
 
-function shouldUseNativeLinkClick(event: ReactMouseEvent<HTMLAnchorElement>) {
+type LandingPreviewHelpCenterFolder =
+  (typeof LANDING_PREVIEW_HELP_CENTER_FOLDERS)[number];
+
+type LandingPreviewHelpCenter = {
+  items: FileTreeItem[];
+  folderExpansionStates: FolderExpansionState[];
+  pathByHeadingId: Partial<Record<string, string>>;
+  headingByPath: Partial<Record<string, LandingMarkdownHeading>>;
+};
+
+type LandingPreviewClickEvent = Pick<
+  ReactMouseEvent<HTMLElement>,
+  "altKey" | "button" | "ctrlKey" | "defaultPrevented" | "metaKey" | "shiftKey"
+>;
+
+function shouldUseNativeLinkClick(event: LandingPreviewClickEvent) {
   return (
     event.defaultPrevented ||
     event.button !== 0 ||
@@ -48,6 +79,101 @@ function shouldUseNativeLinkClick(event: ReactMouseEvent<HTMLAnchorElement>) {
     event.ctrlKey ||
     event.shiftKey
   );
+}
+
+function getLandingPreviewStepNumber(heading: LandingMarkdownHeading) {
+  const stepMatch = heading.text.match(/^(\d+):/);
+  return stepMatch === null ? null : Number(stepMatch[1]);
+}
+
+function getLandingPreviewHelpCenterFolder(
+  heading: LandingMarkdownHeading,
+): LandingPreviewHelpCenterFolder {
+  if (heading.level === 1) {
+    return LANDING_PREVIEW_HELP_CENTER_START_FOLDER;
+  }
+
+  const stepNumber = getLandingPreviewStepNumber(heading);
+  if (stepNumber !== null && stepNumber <= 5) {
+    return LANDING_PREVIEW_HELP_CENTER_DEPLOY_FOLDER;
+  }
+
+  if (stepNumber !== null && stepNumber <= 8) {
+    return LANDING_PREVIEW_HELP_CENTER_AFTER_LAUNCH_FOLDER;
+  }
+
+  return LANDING_PREVIEW_HELP_CENTER_NOTER_FOLDER;
+}
+
+function getLandingPreviewHelpCenterFileName(heading: LandingMarkdownHeading) {
+  if (heading.level === 1) {
+    return "README.md";
+  }
+
+  const stepNumber = getLandingPreviewStepNumber(heading);
+  const order = String(stepNumber ?? heading.line).padStart(2, "0");
+  const safeHeadingText = heading.text.replace(/\//g, "-");
+  return `${order} ${safeHeadingText}.md`;
+}
+
+function getLandingPreviewHelpCenter({
+  headings,
+  includeElementIds,
+}: {
+  headings: LandingMarkdownHeading[];
+  includeElementIds: boolean;
+}): LandingPreviewHelpCenter {
+  const items: FileTreeItem[] = LANDING_PREVIEW_HELP_CENTER_FOLDERS.map(
+    (folder) => ({
+      label: folder.label,
+      originalPath: folder.path,
+      path: folder.path,
+      type: "tree",
+    }),
+  );
+  const pathByHeadingId: Partial<Record<string, string>> = {};
+  const headingByPath: Partial<Record<string, LandingMarkdownHeading>> = {};
+
+  for (const heading of headings) {
+    const folder = getLandingPreviewHelpCenterFolder(heading);
+    const path = `${folder.path}/${getLandingPreviewHelpCenterFileName(
+      heading,
+    )}`;
+
+    pathByHeadingId[heading.id] = path;
+    headingByPath[path] = heading;
+    items.push({
+      elementId: includeElementIds ? heading.id : undefined,
+      href: heading.href,
+      label: heading.text,
+      originalPath: path,
+      path,
+      type: "blob",
+    });
+  }
+
+  return {
+    folderExpansionStates: LANDING_PREVIEW_HELP_CENTER_FOLDERS.map(
+      (folder) => ({
+        folderPath: folder.path,
+        isExpanded: true,
+      }),
+    ),
+    headingByPath,
+    items,
+    pathByHeadingId,
+  };
+}
+
+function getLandingPreviewSelectedHelpCenterPath(
+  pathByHeadingId: Partial<Record<string, string>>,
+) {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+
+  const headingId = window.location.hash.replace(/^#/, "");
+  return pathByHeadingId[headingId];
 }
 
 function buildLandingPreviewPaneHashPath({
@@ -151,54 +277,92 @@ function LandingMarkdownPreviewSidebar({
   language: LandingMarkdownPreviewLanguage;
 }) {
   const { isMobile, mobilePane } = useSidebar();
-  const landingPreviewHeadings = LANDING_MARKDOWN_HEADINGS_BY_LANGUAGE[language];
+  const landingPreviewHeadings =
+    LANDING_MARKDOWN_HEADINGS_BY_LANGUAGE[language];
+  const landingPreviewHelpCenter = getLandingPreviewHelpCenter({
+    headings: landingPreviewHeadings,
+    includeElementIds: isMobile,
+  });
+  const [folderExpansionStates, setFolderExpansionStates] = useState(
+    () => landingPreviewHelpCenter.folderExpansionStates,
+  );
+  const [selectedFile, setSelectedFile] = useState(() =>
+    getLandingPreviewSelectedHelpCenterPath(
+      landingPreviewHelpCenter.pathByHeadingId,
+    ),
+  );
 
   return (
     <nav
       aria-label="Landing preview sections"
       data-testid={LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID}
-      className="flex min-h-full flex-col gap-1 px-1 py-2 text-sm"
+      className="flex min-h-full flex-col px-1 py-2 text-sm"
     >
-      {landingPreviewHeadings.map((heading) => (
-        <a
-          key={heading.id}
-          className={landingPreviewSidebarLinkClassNames[heading.level]}
-          href={heading.href}
-          // Mobile hash updates should resolve in the sidebar so the carousel
-          // does not reveal the article pane while the user is using the TOC.
-          id={isMobile ? heading.id : undefined}
-          onClick={(event) => {
-            if (shouldUseNativeLinkClick(event)) {
-              return;
-            }
-
-            const target = getLandingPreviewArticleHeading(heading.id);
-            if (target === null) {
-              return;
-            }
-
-            event.preventDefault();
-            const mobileCarousel = isMobile
-              ? getLandingPreviewMobileCarousel()
-              : null;
-            const mobileCarouselScrollLeft = mobileCarousel?.scrollLeft ?? 0;
-            window.history.pushState(
-              window.history.state,
-              "",
-              buildLandingPreviewPaneHashPath({
-                hash: heading.href,
-                mobilePane: isMobile ? mobilePane : null,
-              }),
+      <FileTree
+        items={landingPreviewHelpCenter.items}
+        selectedFile={selectedFile}
+        folderExpansionStates={folderExpansionStates}
+        onFolderToggle={(folderPath, isExpanded) => {
+          setFolderExpansionStates((currentStates) => {
+            const existingStateIndex = currentStates.findIndex(
+              (state) => state.folderPath === folderPath,
             );
-            if (mobileCarousel !== null) {
-              mobileCarousel.scrollLeft = mobileCarouselScrollLeft;
+
+            if (existingStateIndex === -1) {
+              return [
+                ...currentStates,
+                {
+                  folderPath,
+                  isExpanded,
+                },
+              ];
             }
-            scrollHeadingWithinCurrentPane(target);
-          }}
-        >
-          {heading.text}
-        </a>
-      ))}
+
+            return currentStates.map((state, index) =>
+              index === existingStateIndex
+                ? {
+                    folderPath,
+                    isExpanded,
+                  }
+                : state,
+            );
+          });
+        }}
+        onFileSelect={(path, _status, event) => {
+          const heading = landingPreviewHelpCenter.headingByPath[path];
+          if (
+            heading === undefined ||
+            event === undefined ||
+            shouldUseNativeLinkClick(event)
+          ) {
+            return;
+          }
+
+          const target = getLandingPreviewArticleHeading(heading.id);
+          if (target === null) {
+            return;
+          }
+
+          event.preventDefault();
+          setSelectedFile(path);
+          const mobileCarousel = isMobile
+            ? getLandingPreviewMobileCarousel()
+            : null;
+          const mobileCarouselScrollLeft = mobileCarousel?.scrollLeft ?? 0;
+          window.history.pushState(
+            window.history.state,
+            "",
+            buildLandingPreviewPaneHashPath({
+              hash: heading.href,
+              mobilePane: isMobile ? mobilePane : null,
+            }),
+          );
+          if (mobileCarousel !== null) {
+            mobileCarousel.scrollLeft = mobileCarouselScrollLeft;
+          }
+          scrollHeadingWithinCurrentPane(target);
+        }}
+      />
     </nav>
   );
 }
