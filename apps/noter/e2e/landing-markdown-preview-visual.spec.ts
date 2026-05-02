@@ -14,11 +14,45 @@ const expectedLandingPreviewVideoSrcs = [
   "/landing-preview/step-5-create-cloudflare-pages-deploy.mp4",
 ] as const;
 
-test("landing markdown preview fixture renders markdown in workspace chrome", async ({
+async function signInThroughLocalLanding(
+  page: Parameters<typeof test>[0]["page"],
+) {
+  await page.goto("/?dev", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const accountButton = page.getByRole("button", { name: /@/ }).first();
+  try {
+    await accountButton.waitFor({ state: "visible", timeout: 5_000 });
+    return;
+  } catch {
+    // The account menu is absent before the local autofill flow completes.
+  }
+
+  const autofillButton = page.getByRole("button", {
+    name: "Autofill & sign in",
+  });
+  await autofillButton.waitFor({ state: "visible", timeout: 5_000 });
+  await autofillButton.click();
+
+  const vaultsLabel = page.getByText("Your Vaults", { exact: true }).first();
+  const emptyStateHeading = page.getByRole("heading", {
+    name: "Create your first project",
+  });
+  await Promise.any([
+    accountButton.waitFor({ state: "visible", timeout: 30_000 }),
+    vaultsLabel.waitFor({ state: "visible", timeout: 30_000 }),
+    emptyStateHeading.waitFor({ state: "visible", timeout: 30_000 }),
+  ]);
+}
+
+test("landing markdown preview route renders markdown in workspace chrome", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/visual-fixture.html?mode=landing-markdown-preview", {
+  await signInThroughLocalLanding(page);
+
+  await page.goto("/landing-preview?dev", {
     waitUntil: "domcontentloaded",
   });
 

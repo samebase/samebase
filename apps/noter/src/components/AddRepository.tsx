@@ -18,6 +18,7 @@ import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import {
   findRepositorySearchMatch,
   splitRepositoryFullNameMatch,
+  type RepositorySearchMatch,
 } from "@/lib/repositorySearch";
 import { resolveDisplayedRepositories } from "@/lib/addRepositoryPicker";
 
@@ -25,10 +26,92 @@ type Repository = FunctionReturnType<
   typeof api.github.listRepositories
 >[number];
 
+export type AddRepositoryRepository = Repository;
+
+type AddRepositoryRow = {
+  repo: Repository;
+  searchMatch: RepositorySearchMatch;
+};
+
+type AddRepositoryPageContentProps = {
+  connectingRepositoryFullName: string | null;
+  emptyRepositoryMessage: string | null;
+  error: string | null;
+  githubConnected: boolean;
+  loading: boolean;
+  loadingMore: boolean;
+  repositoryPreviewCount: number;
+  repositoryRows: AddRepositoryRow[];
+  repositoryTotalCount: number;
+  retryingFullRepositories: boolean;
+  searchQuery: string;
+  showBackgroundError: boolean;
+  onConnectGithub: () => void;
+  onConnectRepository: (repositoryFullName: string) => void;
+  onRetryFullRepositories: () => void;
+  onSearchQueryChange: (value: string) => void;
+};
+
 const GITHUB_OAUTH_ORG_APPROVAL_DOCS_URL =
   "https://docs.github.com/en/organizations/managing-oauth-access-to-your-organizations-data/approving-oauth-apps-for-your-organization";
 const GITHUB_OAUTH_MEMBER_REQUEST_DOCS_URL =
   "https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-your-membership-in-organizations/requesting-organization-approval-for-oauth-apps";
+
+function formatTimeAgo(timestamp: number) {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minutes = Math.floor(diff / (1000 * 60));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  return `${days}d ago`;
+}
+
+function renderHighlightedText(
+  target: string,
+  matchedIndices: number[],
+): ReactElement {
+  if (matchedIndices.length === 0) {
+    return <span>{target}</span>;
+  }
+  const targetOriginal = target.split("");
+  const elements: ReactElement[] = [];
+  let lastIndex = 0;
+
+  matchedIndices.forEach((index, i) => {
+    if (index > lastIndex) {
+      elements.push(
+        <span key={`text-${i}`}>
+          {targetOriginal.slice(lastIndex, index).join("")}
+        </span>,
+      );
+    }
+
+    elements.push(
+      <mark key={`mark-${i}`} className="bg-yellow-200">
+        {targetOriginal[index]}
+      </mark>,
+    );
+
+    lastIndex = index + 1;
+  });
+
+  if (lastIndex < targetOriginal.length) {
+    elements.push(
+      <span key="text-end">{targetOriginal.slice(lastIndex).join("")}</span>,
+    );
+  }
+
+  return <span>{elements}</span>;
+}
 
 export function AddRepository() {
   const location = useLocation();
@@ -44,6 +127,8 @@ export function AddRepository() {
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const githubConnected = githubConnection?.connected === true;
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [connectingRepositoryFullName, setConnectingRepositoryFullName] =
+    useState<string | null>(null);
 
   const {
     data: repositoryPreview,
@@ -116,65 +201,6 @@ export function AddRepository() {
         : "Failed to fetch repositories"
       : null);
 
-  const formatTimeAgo = (timestamp: number) => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (minutes < 60) {
-      return `${minutes}m ago`;
-    } else if (hours < 24) {
-      return `${hours}h ago`;
-    } else {
-      return `${days}d ago`;
-    }
-  };
-
-  const renderHighlightedText = (
-    target: string,
-    matchedIndices: number[],
-  ): ReactElement => {
-    if (matchedIndices.length === 0) {
-      return <span>{target}</span>;
-    }
-    const targetOriginal = target.split("");
-
-    // Build highlighted JSX
-    const elements: ReactElement[] = [];
-    let lastIndex = 0;
-
-    matchedIndices.forEach((index, i) => {
-      // Add non-highlighted text before this match
-      if (index > lastIndex) {
-        elements.push(
-          <span key={`text-${i}`}>
-            {targetOriginal.slice(lastIndex, index).join("")}
-          </span>,
-        );
-      }
-
-      // Add highlighted character
-      elements.push(
-        <mark key={`mark-${i}`} className="bg-yellow-200">
-          {targetOriginal[index]}
-        </mark>,
-      );
-
-      lastIndex = index + 1;
-    });
-
-    // Add remaining text
-    if (lastIndex < targetOriginal.length) {
-      elements.push(
-        <span key="text-end">{targetOriginal.slice(lastIndex).join("")}</span>,
-      );
-    }
-
-    return <span>{elements}</span>;
-  };
-
   const connectedVaults = vaults || [];
 
   const filteredRepositories = repositories.flatMap((repo: Repository) => {
@@ -194,6 +220,100 @@ export function AddRepository() {
     return [{ repo, searchMatch }];
   });
 
+  const connectGithub = () => {
+    void (async () => {
+      setConnectError(null);
+      try {
+        const oauthUrl = await getGithubOAuthUrl({
+          returnToPath: location.href,
+        });
+        if (isInIframe()) {
+          const popup = openGithubOAuthPopup(oauthUrl);
+          if (popup) {
+            return;
+          }
+        }
+        window.location.assign(oauthUrl);
+      } catch (connectGithubError) {
+        setConnectError(
+          connectGithubError instanceof Error
+            ? connectGithubError.message
+            : "Failed to start GitHub OAuth",
+        );
+      }
+    })();
+  };
+
+  const retryFullRepositories = () => {
+    setRetryingFullRepositories(true);
+    void refetchFullRepositories().finally(() => {
+      setRetryingFullRepositories(false);
+    });
+  };
+
+  const connectSelectedRepository = (repositoryFullName: string) => {
+    if (connectingRepositoryFullName !== null) {
+      return;
+    }
+
+    void (async () => {
+      setConnectError(null);
+      setConnectingRepositoryFullName(repositoryFullName);
+      try {
+        await connectRepository({ repositoryFullName });
+        await navigate({ to: "/" });
+      } catch (connectRepositoryError) {
+        setConnectError(
+          connectRepositoryError instanceof Error
+            ? connectRepositoryError.message
+            : "Failed to connect repository",
+        );
+      } finally {
+        setConnectingRepositoryFullName(null);
+      }
+    })();
+  };
+
+  return (
+    <AddRepositoryPageContent
+      connectingRepositoryFullName={connectingRepositoryFullName}
+      emptyRepositoryMessage={emptyRepositoryMessage}
+      error={error}
+      githubConnected={githubConnected}
+      loading={loading}
+      loadingMore={loadingMore}
+      repositoryPreviewCount={repositoryPreview?.repositories.length ?? 0}
+      repositoryRows={filteredRepositories}
+      repositoryTotalCount={repositories.length}
+      retryingFullRepositories={retryingFullRepositories}
+      searchQuery={searchQuery}
+      showBackgroundError={showBackgroundError}
+      onConnectGithub={connectGithub}
+      onConnectRepository={connectSelectedRepository}
+      onRetryFullRepositories={retryFullRepositories}
+      onSearchQueryChange={setSearchQuery}
+    />
+  );
+}
+
+export function AddRepositoryPageContent({
+  connectingRepositoryFullName,
+  emptyRepositoryMessage,
+  error,
+  githubConnected,
+  loading,
+  loadingMore,
+  repositoryPreviewCount,
+  repositoryRows,
+  repositoryTotalCount,
+  retryingFullRepositories,
+  searchQuery,
+  showBackgroundError,
+  onConnectGithub,
+  onConnectRepository,
+  onRetryFullRepositories,
+  onSearchQueryChange,
+}: AddRepositoryPageContentProps) {
   return (
     <div className="container flex min-h-0 flex-1 flex-col py-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 flex-shrink-0">
@@ -223,32 +343,7 @@ export function AddRepository() {
           <p className="mt-1 text-sm text-muted-foreground">
             Connect GitHub to list your repositories.
           </p>
-          <Button
-            className="mt-3"
-            onClick={() => {
-              void (async () => {
-                setConnectError(null);
-                try {
-                  const oauthUrl = await getGithubOAuthUrl({
-                    returnToPath: location.href,
-                  });
-                  if (isInIframe()) {
-                    const popup = openGithubOAuthPopup(oauthUrl);
-                    if (popup) {
-                      return;
-                    }
-                  }
-                  window.location.assign(oauthUrl);
-                } catch (connectGithubError) {
-                  setConnectError(
-                    connectGithubError instanceof Error
-                      ? connectGithubError.message
-                      : "Failed to start GitHub OAuth",
-                  );
-                }
-              })();
-            }}
-          >
+          <Button className="mt-3" onClick={onConnectGithub}>
             Connect GitHub
           </Button>
         </div>
@@ -258,7 +353,7 @@ export function AddRepository() {
         <Input
           placeholder="Search repositories..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => onSearchQueryChange(e.target.value)}
           className="max-w-md"
           disabled={!githubConnected}
         />
@@ -291,9 +386,9 @@ export function AddRepository() {
 
             {loadingMore && (
               <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
-                Showing the {repositoryPreview.repositories.length} most
-                recently updated repositories while we load the rest. Search
-                results stay partial until loading finishes.
+                Showing the {repositoryPreviewCount} most recently updated
+                repositories while we load the rest. Search results stay partial
+                until loading finishes.
               </p>
             )}
 
@@ -307,12 +402,7 @@ export function AddRepository() {
                   variant="outline"
                   size="sm"
                   className="border-amber-300 bg-transparent"
-                  onClick={() => {
-                    setRetryingFullRepositories(true);
-                    void refetchFullRepositories().finally(() => {
-                      setRetryingFullRepositories(false);
-                    });
-                  }}
+                  onClick={onRetryFullRepositories}
                   disabled={retryingFullRepositories}
                 >
                   {retryingFullRepositories ? "Retrying..." : "Retry"}
@@ -324,13 +414,13 @@ export function AddRepository() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {githubConnected && loading && repositories.length === 0 ? (
+        {githubConnected && loading && repositoryTotalCount === 0 ? (
           <div className="flex items-center justify-center py-8">
             <div className="text-muted-foreground">Loading repositories...</div>
           </div>
         ) : (
           <div className="space-y-2">
-            {filteredRepositories.map(({ repo, searchMatch }) => {
+            {repositoryRows.map(({ repo, searchMatch }) => {
               const ownerName = repo.full_name.split("/")[0];
               const repoName = repo.name;
               let ownerHighlight = <span>{ownerName}</span>;
@@ -398,20 +488,12 @@ export function AddRepository() {
                         variant="outline"
                         size="sm"
                         className="mt-2"
-                        onClick={() => {
-                          void connectRepository({
-                            repositoryFullName: repo.full_name,
-                          })
-                            .then((val) => {
-                              console.log(val);
-                              void navigate({ to: "/" });
-                            })
-                            .catch((err) => {
-                              console.error(err);
-                            });
-                        }}
+                        onClick={() => onConnectRepository(repo.full_name)}
+                        disabled={connectingRepositoryFullName !== null}
                       >
-                        Connect
+                        {connectingRepositoryFullName === repo.full_name
+                          ? "Connecting..."
+                          : "Connect"}
                       </Button>
                     </div>
                   </div>
@@ -421,10 +503,10 @@ export function AddRepository() {
           </div>
         )}
 
-        {filteredRepositories.length === 0 &&
+        {repositoryRows.length === 0 &&
           !loading &&
           !error &&
-          repositories.length > 0 &&
+          repositoryTotalCount > 0 &&
           emptyRepositoryMessage !== null &&
           githubConnected && (
             <div className="text-center py-8">
@@ -433,12 +515,6 @@ export function AddRepository() {
               </div>
             </div>
           )}
-
-        {repositories.length === 0 && !loading && !error && githubConnected && (
-          <div className="text-center py-8">
-            <div className="text-muted-foreground">No repositories found</div>
-          </div>
-        )}
       </div>
     </div>
   );

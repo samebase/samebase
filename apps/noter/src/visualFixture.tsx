@@ -17,17 +17,9 @@ import {
   type RepositoryMediaVisualMode,
 } from "@/components/RepositoryMediaVisualFixture";
 import {
-  AddRepositoryVisualFixture,
-  type AddRepositoryVisualMode,
-} from "@/components/AddRepositoryVisualFixture";
-import {
   FileViewLayoutVisualFixture,
   type FileViewLayoutVisualMode,
 } from "@/components/FileViewLayoutVisualFixture";
-import {
-  SimpleViewVisualFixture,
-  type SimpleViewVisualMode,
-} from "@/components/SimpleViewVisualFixture";
 import {
   VaultDashboardVisualFixture,
   type VaultDashboardVisualMode,
@@ -75,7 +67,6 @@ import {
 } from "@/components/fileViewPushActionsVisualModes";
 import { VaultDashboardBranchVisualFixture } from "@/components/vault-dashboard/VaultDashboardBranchVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
-import { PasswordAuthVisualFixture } from "@/components/PasswordAuthVisualFixture";
 import {
   AppBootFailureStateVisualFixture,
   type AppBootFailureStateVisualMode,
@@ -94,10 +85,6 @@ import {
   type WorkspaceLayoutV2VisualMode,
 } from "@/components/WorkspaceLayoutV2VisualFixture";
 import {
-  LandingMarkdownPreviewVisualFixture,
-  type LandingMarkdownPreviewVisualMode,
-} from "@/components/LandingMarkdownPreviewVisualFixture";
-import {
   CodexThreadHistoryVisualFixture,
   type CodexThreadHistoryVisualMode,
 } from "@/components/CodexThreadHistoryVisualFixture";
@@ -113,14 +100,6 @@ import {
   SidebarMediaUploadVisualFixture,
   type SidebarMediaUploadVisualMode,
 } from "@/components/SidebarMediaUploadVisualFixture";
-import {
-  ThreadBrowserVisualFixture,
-  type ThreadBrowserVisualMode,
-} from "@/components/ThreadBrowserVisualFixture";
-import {
-  ThreadHistoryVisualFixture,
-  type ThreadHistoryVisualMode,
-} from "@/components/ThreadHistoryVisualFixture";
 import { GlobalGestureDebugOverlay } from "@/components/GlobalGestureDebugOverlay";
 import { isMobileSidebarDebugEnabled } from "@/lib/mobileSidebarGestureDebug";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
@@ -138,23 +117,17 @@ type VisualFixtureMode =
   | FileViewPushActionsVisualMode
   | LogoSnapAnglesVisualMode
   | LogoThreeVisualMode
-  | AddRepositoryVisualMode
   | RepositoryMediaVisualMode
   | SidebarMediaUploadVisualMode
-  | SimpleViewVisualMode
-  | ThreadBrowserVisualMode
-  | ThreadHistoryVisualMode
   | VaultDashboardVisualMode
   | VaultBranchPreviewVisualMode
   | VaultSyncStatusVisualMode
   | WorkspaceLayoutV2VisualMode
-  | LandingMarkdownPreviewVisualMode
   | CodexAppServerResearchVisualMode
   | CodexThreadBrowserVisualMode
   | CodexThreadHistoryVisualMode
   | "machines-workspace"
   | "machine-connect"
-  | "password-auth"
   | "vault-dashboard-branch-pr-title"
   | "button"
   | AppBootFailureStateVisualMode
@@ -198,13 +171,6 @@ const FILE_VIEW_LAYOUT_VISUAL_MODES = [
   "fileview-layout-persistence",
 ] as const satisfies readonly FileViewLayoutVisualMode[];
 
-const ADD_REPOSITORY_VISUAL_MODES = [
-  "add-repository-loading-more",
-  "add-repository-background-error",
-  "add-repository-retrying",
-  "add-repository-empty-final",
-] as const satisfies readonly AddRepositoryVisualMode[];
-
 const LOGO_VISUAL_MODES = [
   "logo-three-reference",
   "logo-snap-angles",
@@ -212,11 +178,6 @@ const LOGO_VISUAL_MODES = [
   | LogoThreeVisualMode
   | LogoSnapAnglesVisualMode
 )[];
-
-const SIMPLE_VIEW_VISUAL_MODES = [
-  "simple-repository-config",
-  "simple-missing-config",
-] as const satisfies readonly SimpleViewVisualMode[];
 
 const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-create-control",
@@ -242,14 +203,6 @@ const VAULT_BRANCH_PREVIEW_VISUAL_MODES = [
 const VAULT_SYNC_STATUS_VISUAL_MODES = [
   "vault-sync-status-states",
 ] as const satisfies readonly VaultSyncStatusVisualMode[];
-
-const THREAD_VISUAL_MODES = [
-  "thread-browser",
-  "thread-history",
-] as const satisfies readonly (
-  | ThreadBrowserVisualMode
-  | ThreadHistoryVisualMode
-)[];
 
 const FILE_VIEW_COMPARE_VISUAL_MODES = [
   "file-view-compare-sidebar",
@@ -283,19 +236,14 @@ const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
 const WORKSPACE_LAYOUT_V2_VISUAL_MODES = [
   "workspace-layout-v2-status-bar",
 ] as const satisfies readonly WorkspaceLayoutV2VisualMode[];
-const LANDING_MARKDOWN_PREVIEW_VISUAL_MODES = [
-  "landing-markdown-preview",
-] as const satisfies readonly LandingMarkdownPreviewVisualMode[];
 
 const MISC_VISUAL_MODES = [
   "codex-app-server-research",
   "codex-thread-browser",
   "codex-thread-history",
   "machines-workspace",
-  ...LANDING_MARKDOWN_PREVIEW_VISUAL_MODES,
   ...WORKSPACE_LAYOUT_V2_VISUAL_MODES,
   "machine-connect",
-  "password-auth",
   "vault-dashboard-branch-pr-title",
   "button",
   "app-boot-failure-stale",
@@ -326,10 +274,6 @@ const VISUAL_FIXTURE_GROUPS = [
     modes: FILE_VIEW_LAYOUT_VISUAL_MODES,
   },
   {
-    label: "Add Repository",
-    modes: ADD_REPOSITORY_VISUAL_MODES,
-  },
-  {
     label: "Logo",
     modes: LOGO_VISUAL_MODES,
   },
@@ -342,10 +286,6 @@ const VISUAL_FIXTURE_GROUPS = [
     modes: SIDEBAR_MEDIA_UPLOAD_VISUAL_MODES,
   },
   {
-    label: "Simple View",
-    modes: SIMPLE_VIEW_VISUAL_MODES,
-  },
-  {
     label: "Vault Dashboard",
     modes: VAULT_DASHBOARD_VISUAL_MODES,
   },
@@ -356,10 +296,6 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "Vault Sync Status",
     modes: VAULT_SYNC_STATUS_VISUAL_MODES,
-  },
-  {
-    label: "Thread Browser",
-    modes: THREAD_VISUAL_MODES,
   },
   {
     label: "Misc",
@@ -424,19 +360,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
   }
 
   if (
-    mode === "add-repository-loading-more" ||
-    mode === "add-repository-background-error" ||
-    mode === "add-repository-retrying" ||
-    mode === "add-repository-empty-final"
-  ) {
-    return <AddRepositoryVisualFixture mode={mode} />;
-  }
-
-  if (mode === "simple-repository-config" || mode === "simple-missing-config") {
-    return <SimpleViewVisualFixture mode={mode} />;
-  }
-
-  if (
     mode === "vault-create-control" ||
     mode === "vault-dashboard-dev-tools-hidden" ||
     mode === "vault-dashboard-dev-tools-visible" ||
@@ -463,14 +386,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "vault-sync-status-states") {
     return <VaultSyncStatusVisualFixture mode={mode} />;
-  }
-
-  if (mode === "thread-browser") {
-    return <ThreadBrowserVisualFixture mode={mode} />;
-  }
-
-  if (mode === "thread-history") {
-    return <ThreadHistoryVisualFixture mode={mode} />;
   }
 
   if (isFileViewPushActionsVisualMode(mode)) {
@@ -538,16 +453,8 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <MachinesWorkspaceVisualFixture />;
   }
 
-  if (mode === "password-auth") {
-    return <PasswordAuthVisualFixture />;
-  }
-
   if (mode === "workspace-layout-v2-status-bar") {
     return <WorkspaceLayoutV2VisualFixture />;
-  }
-
-  if (mode === "landing-markdown-preview") {
-    return <LandingMarkdownPreviewVisualFixture />;
   }
 
   if (mode === "button") {
