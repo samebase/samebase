@@ -4,6 +4,7 @@ import {
   lazyRouteComponent,
   redirect,
 } from "@tanstack/react-router";
+import { pick } from "@noter-md/dependent/object";
 import { RouterGestureDebugOverlay } from "@/components/RouterGestureDebugOverlay";
 import {
   APP_THEME_COLOR_SEARCH_KEYS,
@@ -47,18 +48,10 @@ function retainDefinedRootSearchParams({
   next,
   search,
 }: RootSearchMiddlewareArgs): RootRouteSearch {
-  let nextSearch = next(search);
-
-  for (const key of RETAINED_ROOT_SEARCH_KEYS) {
-    if (key in nextSearch || typeof search[key] === "undefined") {
-      continue;
-    }
-
-    nextSearch = {
-      ...nextSearch,
-      [key]: search[key],
-    };
-  }
+  let nextSearch: RootRouteSearch = {
+    ...pick(search, RETAINED_ROOT_SEARCH_KEYS),
+    ...next(search),
+  };
 
   if (nextSearch.light && nextSearch.dark) {
     nextSearch = {
