@@ -2,6 +2,8 @@ import {
   Outlet,
   createRootRoute,
   lazyRouteComponent,
+  useLocation,
+  useNavigate,
 } from "@tanstack/react-router";
 import { RouterGestureDebugOverlay } from "@/components/RouterGestureDebugOverlay";
 import {
@@ -13,6 +15,12 @@ import {
   useRootRouteSearch,
   validateRootRouteSearch,
 } from "@/lib/rootRouteSearch";
+import {
+  ROOT_THEME_MODE_SEARCH_KEYS,
+  readRootThemeMode,
+  syncDocumentRootThemeMode,
+} from "@/lib/rootThemeModeSearch";
+import { setQueryParam } from "@/lib/queryParams";
 import { useEffect, useLayoutEffect } from "react";
 
 const posthogApiHost =
@@ -21,6 +29,7 @@ const POSTHOG_INIT_DELAY_MS = 10_000;
 const RETAINED_ROOT_SEARCH_KEYS = [
   "dev",
   "devtools",
+  ...ROOT_THEME_MODE_SEARCH_KEYS,
   ...APP_THEME_COLOR_SEARCH_KEYS,
 ] as const satisfies readonly (keyof RootRouteSearch)[];
 
@@ -32,8 +41,13 @@ type RootSearchMiddlewareArgs = {
 function retainDefinedRootSearchParams(keys: typeof RETAINED_ROOT_SEARCH_KEYS) {
   return ({ next, search }: RootSearchMiddlewareArgs): RootRouteSearch => {
     let nextSearch: RootRouteSearch = { ...next(search) };
+    const hasThemeModeConflict = search.light === true && search.dark === true;
 
     for (const key of keys) {
+      if (hasThemeModeConflict && (key === "light" || key === "dark")) {
+        continue;
+      }
+
       if (key in nextSearch || typeof search[key] === "undefined") {
         continue;
       }
@@ -41,6 +55,14 @@ function retainDefinedRootSearchParams(keys: typeof RETAINED_ROOT_SEARCH_KEYS) {
       nextSearch = {
         ...nextSearch,
         [key]: search[key],
+      };
+    }
+
+    if (nextSearch.light === true && nextSearch.dark === true) {
+      nextSearch = {
+        ...nextSearch,
+        dark: undefined,
+        light: undefined,
       };
     }
 
@@ -87,13 +109,58 @@ function useDeferredPostHogInit() {
   }, []);
 }
 
+function hasConflictingRootThemeModeSearch(search: string): boolean {
+  const searchParams = new URLSearchParams(search);
+  const hasLightTheme =
+    searchParams.get("light") === "" || searchParams.get("light") === "true";
+  const hasDarkTheme =
+    searchParams.get("dark") === "" || searchParams.get("dark") === "true";
+  return hasLightTheme && hasDarkTheme;
+}
+
+function readClearedRootThemeModeSearch(
+  search: string,
+): Record<string, string | true> {
+  const searchParams = new URLSearchParams(search);
+  setQueryParam(searchParams, "dark", false);
+  setQueryParam(searchParams, "light", false);
+
+  const nextSearch: Record<string, string | true> = {};
+  for (const [key, value] of searchParams.entries()) {
+    nextSearch[key] = value.length === 0 ? true : value;
+  }
+
+  return nextSearch;
+}
+
 function AppRouterRoot() {
-  const { base, primary, secondary } = useRootRouteSearch();
+  const { base, dark, light, primary, secondary } = useRootRouteSearch();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const themeMode = readRootThemeMode({ dark, light });
   useDeferredPostHogInit();
 
   useLayoutEffect(() => {
     syncDocumentThemeColorSearch({ base, primary, secondary });
   }, [base, primary, secondary]);
+
+  useLayoutEffect(() => {
+    syncDocumentRootThemeMode(themeMode);
+  }, [themeMode]);
+
+  useEffect(() => {
+    if (!hasConflictingRootThemeModeSearch(location.searchStr)) {
+      return;
+    }
+
+    void navigate({
+      hash: location.hash,
+      replace: true,
+      search: readClearedRootThemeModeSearch(location.searchStr),
+      state: true,
+      to: location.pathname,
+    });
+  }, [location.hash, location.pathname, location.searchStr, navigate]);
 
   return (
     <>

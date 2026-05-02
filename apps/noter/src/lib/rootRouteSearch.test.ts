@@ -11,6 +11,7 @@ describe("rootRouteSearch", () => {
         auth: "google",
         base: "#ffffff",
         delete: "noter-md/noter",
+        dark: "",
         dev: "",
         devtools: "true",
         primary: "red-600",
@@ -22,6 +23,7 @@ describe("rootRouteSearch", () => {
       auth: "google",
       base: "#ffffff",
       delete: "noter-md/noter",
+      dark: true,
       dev: true,
       devtools: true,
       primary: "red-600",
@@ -59,6 +61,12 @@ describe("rootRouteSearch", () => {
       primary: "red-600",
       "prod-ui": true,
       signup: "google",
+    });
+  });
+
+  it("normalizes conflicting light and dark flags back to system", () => {
+    expect(readRootRouteSearch("?dev&light&dark")).toEqual({
+      dev: true,
     });
   });
 });

@@ -13,6 +13,11 @@ import {
   FORCE_PROD_UI_MODE_LINK_LABEL,
   FORCE_PROD_UI_QUERY_PARAM,
 } from "@/lib/prodUiMode";
+import {
+  ROOT_THEME_DARK_MODE_LINK_LABEL,
+  ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL,
+  ROOT_THEME_LIGHT_MODE_LINK_LABEL,
+} from "@/lib/rootThemeModeSearch";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
 import { Layout, PublicLayoutShell } from "./Layout";
@@ -102,6 +107,8 @@ describe("Layout", () => {
     expect(markup).toContain(LANDING_DEV_MODE_LINK_LABEL);
     expect(markup).not.toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
     expect(markup).toContain(FORCE_PROD_UI_MODE_LINK_LABEL);
+    expect(markup).toContain(ROOT_THEME_LIGHT_MODE_LINK_LABEL);
+    expect(markup).toContain(ROOT_THEME_DARK_MODE_LINK_LABEL);
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
     expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
@@ -188,6 +195,8 @@ describe("Layout", () => {
       LANDING_DEV_MODE_DISABLE_LINK_LABEL,
     );
     const prodUiShortcutIndex = markup.indexOf(FORCE_PROD_UI_MODE_LINK_LABEL);
+    const lightShortcutIndex = markup.indexOf(ROOT_THEME_LIGHT_MODE_LINK_LABEL);
+    const darkShortcutIndex = markup.indexOf(ROOT_THEME_DARK_MODE_LINK_LABEL);
     const logoLinkIndex = markup.indexOf("/logo");
     const homeLinkIndex = markup.indexOf("/home");
     const termsLinkIndex = markup.indexOf("/terms");
@@ -195,6 +204,10 @@ describe("Layout", () => {
 
     expect(prodUiShortcutIndex).toBeGreaterThanOrEqual(0);
     expect(devShortcutIndex).toBeGreaterThanOrEqual(0);
+    expect(lightShortcutIndex).toBeGreaterThanOrEqual(0);
+    expect(darkShortcutIndex).toBeGreaterThanOrEqual(0);
+    expect(lightShortcutIndex).toBeLessThan(darkShortcutIndex);
+    expect(darkShortcutIndex).toBeLessThan(prodUiShortcutIndex);
     expect(prodUiShortcutIndex).toBeLessThan(devShortcutIndex);
     expect(devShortcutIndex).toBeLessThan(logoLinkIndex);
     expect(logoLinkIndex).toBeLessThan(homeLinkIndex);
@@ -333,6 +346,95 @@ describe("Layout", () => {
     expect(markup).toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
     expect(markup).not.toContain(`>${LANDING_DEV_MODE_LINK_LABEL}<`);
     expect(markup).toContain(`href="${encodeStaticHref(logoWithoutDevPath)}"`);
+  });
+
+  it("adds light mode to the current URL without dropping other URL parts", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    const logoPath = buildPathWithUpdatedQuery(
+      { pathname: "/logo", search: "prod-ui&dev", hash: "top" },
+      (searchParams) => {
+        setQueryParam(searchParams, "light", false);
+        setQueryParam(searchParams, "dark", false);
+      },
+    );
+    const logoWithLightPath = buildPathWithUpdatedQuery(
+      { pathname: "/logo", search: "prod-ui&dev", hash: "top" },
+      (searchParams) => {
+        setQueryParam(searchParams, "light", true);
+        setQueryParam(searchParams, "dark", false);
+      },
+    );
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[logoPath]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(ROOT_THEME_LIGHT_MODE_LINK_LABEL);
+    expect(markup).toContain(ROOT_THEME_DARK_MODE_LINK_LABEL);
+    expect(markup).toContain(`href="${encodeStaticHref(logoWithLightPath)}"`);
+  });
+
+  it("removes active light mode from the current URL", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    const logoLightPath = buildPathWithUpdatedQuery(
+      { pathname: "/logo", search: "prod-ui&dev", hash: "top" },
+      (searchParams) => {
+        setQueryParam(searchParams, "light", true);
+      },
+    );
+    const logoWithoutLightPath = buildPathWithUpdatedQuery(
+      { pathname: "/logo", search: "prod-ui&dev&light", hash: "top" },
+      (searchParams) => {
+        setQueryParam(searchParams, "light", false);
+      },
+    );
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[logoLightPath]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL);
+    expect(markup).not.toContain(`>${ROOT_THEME_LIGHT_MODE_LINK_LABEL}<`);
+    expect(markup).toContain(ROOT_THEME_DARK_MODE_LINK_LABEL);
+    expect(markup).toContain(
+      `href="${encodeStaticHref(logoWithoutLightPath)}"`,
+    );
+  });
+
+  it("replaces active light mode with dark mode in the current URL", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    const logoLightPath = buildPathWithUpdatedQuery(
+      { pathname: "/logo", search: "prod-ui&dev", hash: "top" },
+      (searchParams) => {
+        setQueryParam(searchParams, "light", true);
+      },
+    );
+    const logoDarkPath = buildPathWithUpdatedQuery(
+      { pathname: "/logo", search: "prod-ui&dev&light", hash: "top" },
+      (searchParams) => {
+        setQueryParam(searchParams, "light", false);
+        setQueryParam(searchParams, "dark", true);
+      },
+    );
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[logoLightPath]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(ROOT_THEME_DARK_MODE_LINK_LABEL);
+    expect(markup).toContain(`href="${encodeStaticHref(logoDarkPath)}"`);
   });
 
   it("adds prod-ui to the current URL without dropping other URL parts", () => {

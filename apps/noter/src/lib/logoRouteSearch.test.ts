@@ -26,6 +26,7 @@ describe("logoRouteSearch", () => {
         isoSide: "52",
         isoStyle: "flat",
         base: "sky-500",
+        dark: "",
         primary: "emerald-500",
         rot: "721",
         secondary: "amber-500",
@@ -34,6 +35,7 @@ describe("logoRouteSearch", () => {
     ).toEqual({
       axis: "screen-vertical",
       base: "sky-500",
+      dark: true,
       dev: true,
       elev: 32.4,
       freeView: true,
@@ -55,6 +57,36 @@ describe("logoRouteSearch", () => {
         rotationAxisMode: "cube-y",
         rotationDegrees: DEFAULT_ROTATION_DEGREES,
         themeColors: DEFAULT_APP_THEME_COLORS,
+        viewSnapEnabled: true,
+        voxelState: DEFAULT_VOXEL_STATE,
+      }),
+    ).toEqual({});
+  });
+
+  it("preserves canonical theme mode flags when building route search", () => {
+    expect(
+      buildLogoRouteSearch({
+        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        rotationAxisMode: "cube-y",
+        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        themeColors: DEFAULT_APP_THEME_COLORS,
+        themeModeSearch: { light: true },
+        viewSnapEnabled: true,
+        voxelState: DEFAULT_VOXEL_STATE,
+      }),
+    ).toEqual({ light: true });
+
+    expect(
+      buildLogoRouteSearch({
+        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        rotationAxisMode: "cube-y",
+        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        themeColors: DEFAULT_APP_THEME_COLORS,
+        themeModeSearch: { dark: true, light: true },
         viewSnapEnabled: true,
         voxelState: DEFAULT_VOXEL_STATE,
       }),

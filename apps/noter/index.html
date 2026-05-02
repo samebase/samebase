@@ -90,6 +90,39 @@
     </script>
     <script>
       (() => {
+        const url = new URL(window.location.href);
+        const readThemeModeFlag = (value) => value === "" || value === "true";
+        const hasLightTheme = readThemeModeFlag(url.searchParams.get("light"));
+        const hasDarkTheme = readThemeModeFlag(url.searchParams.get("dark"));
+
+        if (hasLightTheme && hasDarkTheme) {
+          const serializeSearchParams = (searchParams) => {
+            const parts = [];
+            for (const [key, value] of searchParams.entries()) {
+              const encodedKey = encodeURIComponent(key);
+              parts.push(
+                value.length === 0
+                  ? encodedKey
+                  : `${encodedKey}=${encodeURIComponent(value)}`,
+              );
+            }
+            return parts.length > 0 ? `?${parts.join("&")}` : "";
+          };
+          url.searchParams.delete("light");
+          url.searchParams.delete("dark");
+          window.history.replaceState(
+            window.history.state,
+            "",
+            `${url.pathname}${serializeSearchParams(url.searchParams)}${url.hash}`,
+          );
+        }
+
+        const forcedTheme =
+          hasLightTheme === hasDarkTheme
+            ? null
+            : hasLightTheme
+              ? "light"
+              : "dark";
         const prefersDarkTheme = window.matchMedia(
           "(prefers-color-scheme: dark)",
         ).matches;
@@ -100,8 +133,10 @@
         } catch {}
 
         const useDarkTheme =
-          storedTheme === "dark" ||
-          (storedTheme !== "light" && prefersDarkTheme);
+          forcedTheme === "dark" ||
+          (forcedTheme === null &&
+            (storedTheme === "dark" ||
+              (storedTheme !== "light" && prefersDarkTheme)));
         document.documentElement.classList.toggle("dark", useDarkTheme);
       })();
     </script>

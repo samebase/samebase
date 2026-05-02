@@ -19,6 +19,15 @@ import {
   isBrowserProductionPublicOrigin,
   isProdUiModeActive,
 } from "@/lib/prodUiMode";
+import {
+  ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL,
+  ROOT_THEME_DARK_MODE_LINK_LABEL,
+  ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL,
+  ROOT_THEME_LIGHT_MODE_LINK_LABEL,
+  buildToggledRootThemeModeSearch,
+  readRootThemeMode,
+} from "@/lib/rootThemeModeSearch";
+import { readRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
 import { Link, useLocation } from "@tanstack/react-router";
@@ -59,6 +68,7 @@ export function AppSidebarMetaSection({
   const repoUrl = __APP_REPO_URL__ || "";
   const location = useLocation();
   const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
+  const rootRouteSearch = readRootRouteSearch(location.searchStr);
 
   const landingDevEnabled = isLandingDevModeEnabled(
     new URLSearchParams(location.searchStr),
@@ -71,6 +81,15 @@ export function AppSidebarMetaSection({
     productionPublicOrigin: isBrowserProductionPublicOrigin(),
     search: new URLSearchParams(location.searchStr),
   });
+  const themeMode = readRootThemeMode(rootRouteSearch);
+  const lightModeLabel =
+    themeMode === "light"
+      ? ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL
+      : ROOT_THEME_LIGHT_MODE_LINK_LABEL;
+  const darkModeLabel =
+    themeMode === "dark"
+      ? ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL
+      : ROOT_THEME_DARK_MODE_LINK_LABEL;
 
   const isLandingPage = location.pathname === "/";
   const showLogoLink =
@@ -92,6 +111,28 @@ export function AppSidebarMetaSection({
       data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
       className={APP_SIDEBAR_META_SECTION_CLASS_NAMES[side]}
     >
+      <Link
+        id="public-landing-theme-light-toggle"
+        to={location.pathname}
+        hash={location.hash}
+        search={(currentSearch) => ({
+          ...currentSearch,
+          ...buildToggledRootThemeModeSearch(currentSearch, "light"),
+        })}
+      >
+        {lightModeLabel}
+      </Link>
+      <Link
+        id="public-landing-theme-dark-toggle"
+        to={location.pathname}
+        hash={location.hash}
+        search={(currentSearch) => ({
+          ...currentSearch,
+          ...buildToggledRootThemeModeSearch(currentSearch, "dark"),
+        })}
+      >
+        {darkModeLabel}
+      </Link>
       {prodUiEnabled ? null : (
         <Link
           id="public-landing-prod-ui-toggle"
