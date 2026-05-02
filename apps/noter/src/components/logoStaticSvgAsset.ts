@@ -13,18 +13,26 @@ import { createFilledVoxelSet } from "./logoVoxelState";
 type StaticLogoSvgOptions = {
   faceColors?: FaceColors;
   filledVoxels?: ReadonlySet<string>;
+  view?: {
+    elevationDegrees: number;
+    rotationDegrees: number;
+  };
 };
 
 export function createStaticLogoSvgMarkup(options: StaticLogoSvgOptions = {}) {
   const filledVoxels =
     options.filledVoxels ?? createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
+  const view = options.view ?? {
+    elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
+    rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
+  };
 
   return createLogoThreeSvgMarkup({
     backgroundColor: STATIC_LOGO_BACKGROUND_COLOR,
-    elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
+    elevationDegrees: view.elevationDegrees,
     faceColors: options.faceColors ?? DEFAULT_FACE_COLORS,
     filledVoxels,
-    rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
+    rotationDegrees: view.rotationDegrees,
   });
 }
 

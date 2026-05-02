@@ -12,9 +12,13 @@ import {
 } from "vite-plus/test";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
+import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
-import { PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES } from "@/lib/publicLandingLogo";
+import {
+  PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
+  PUBLIC_LANDING_LOGO_TEST_ID,
+} from "@/lib/publicLandingLogo";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const { act } = React;
@@ -115,5 +119,45 @@ describe("PublicLandingLogo", () => {
     expect(logoLink.getAttribute("aria-hidden")).toBeNull();
     expect(logoLink.getAttribute("tabindex")).toBeNull();
     expect(logoLink.className).toContain("animate-underline-color");
+  });
+
+  it("renders the initial static fallback from persisted device view state", async () => {
+    const persistedView = {
+      elevationDegrees: PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
+      rotationDegrees: 180,
+    };
+    window.localStorage.setItem(
+      "noter:logo-view:dashboard-empty",
+      JSON.stringify(persistedView),
+    );
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(
+        <PublicLandingLogo
+          loadInteractiveScene={false}
+          viewStatePersistence="device"
+          viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY}
+        />,
+      );
+    });
+
+    const logoImage = rootElement.querySelector(
+      `[data-testid="${PUBLIC_LANDING_LOGO_TEST_ID}"]`,
+    );
+    if (!(logoImage instanceof HTMLImageElement)) {
+      throw new Error("Expected logo image");
+    }
+
+    expect(logoImage.getAttribute("src")).toBe(
+      createStaticLogoSvgDataUrl({ view: persistedView }),
+    );
+    expect(logoImage.getAttribute("src")).not.toBe(
+      createStaticLogoSvgDataUrl(),
+    );
   });
 });

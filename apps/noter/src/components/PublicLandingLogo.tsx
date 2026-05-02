@@ -33,7 +33,7 @@ import {
   type RotatedLogoViewStatePersistence,
 } from "@/lib/rotatedLogoViewState";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type LandingLogoSceneComponent =
   typeof import("@/components/NLogoScene").NLogoScene;
@@ -46,7 +46,6 @@ const DEFAULT_LANDING_LOGO_VIEW: RotatedLogoViewState = {
   elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
   rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
 };
-const STATIC_LOGO_SVG_SRC = createStaticLogoSvgDataUrl();
 
 let cachedLandingLogoScene: LandingLogoSceneComponent | null = null;
 // Unsupported renderer paths can loop on remount, so keep that failure sticky
@@ -76,16 +75,21 @@ export function PublicLandingLogo({
   const [didSceneFail, setDidSceneFail] = useState(
     () => didLandingLogoSceneRenderFail,
   );
-  const [isSceneReady, setIsSceneReady] = useState(false);
-  const [isSvgVisible, setIsSvgVisible] = useState(true);
-  const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
-  const [view, setView] = useState<RotatedLogoViewState>(() =>
+  const [initialView] = useState<RotatedLogoViewState>(() =>
     readRotatedLogoViewState({
       defaultView: DEFAULT_LANDING_LOGO_VIEW,
       key: viewStateKey,
       persistence: viewStatePersistence,
     }),
   );
+  const staticLogoSvgSrc = useMemo(
+    () => createStaticLogoSvgDataUrl({ view: initialView }),
+    [initialView],
+  );
+  const [isSceneReady, setIsSceneReady] = useState(false);
+  const [isSvgVisible, setIsSvgVisible] = useState(true);
+  const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
+  const [view, setView] = useState<RotatedLogoViewState>(() => initialView);
   const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
   const latestViewRef = useRef(view);
   const lastFrameTimeRef = useRef<number | null>(null);
@@ -286,7 +290,7 @@ export function PublicLandingLogo({
       >
         <img
           data-testid={PUBLIC_LANDING_LOGO_TEST_ID}
-          src={STATIC_LOGO_SVG_SRC}
+          src={staticLogoSvgSrc}
           alt={PUBLIC_LANDING_LOGO_ALT}
           width={PUBLIC_LANDING_LOGO_WIDTH}
           height={PUBLIC_LANDING_LOGO_HEIGHT}
