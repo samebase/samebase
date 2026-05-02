@@ -1,30 +1,21 @@
 import { getRouteApi } from "@tanstack/react-router";
+import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import { z } from "zod";
 
-function readOptionalFlag(value: unknown): true | undefined {
-  if (value === true) {
-    return true;
-  }
-
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  return value.length === 0 || value === "true" ? true : undefined;
-}
+const FILE_VIEW_PRESENCE_SEARCH_KEYS = ["compare", "diff", "review"] as const;
 
 function readOptionalMobileLineNumbers(value: unknown): "1" | undefined {
   return value === "1" ? "1" : undefined;
 }
 
 const fileViewRouteSearchSchema = z.object({
-  compare: z.preprocess(readOptionalFlag, z.literal(true).optional()),
-  diff: z.preprocess(readOptionalFlag, z.literal(true).optional()),
+  compare: z.literal(true).optional(),
+  diff: z.literal(true).optional(),
   mobileLineNumbers: z.preprocess(
     readOptionalMobileLineNumbers,
     z.literal("1").optional(),
   ),
-  review: z.preprocess(readOptionalFlag, z.literal(true).optional()),
+  review: z.literal(true).optional(),
 });
 
 export type FileViewRouteSearch = z.infer<typeof fileViewRouteSearchSchema>;
@@ -32,7 +23,9 @@ export type FileViewRouteSearch = z.infer<typeof fileViewRouteSearchSchema>;
 export function validateFileViewRouteSearch(
   search: Record<string, unknown>,
 ): FileViewRouteSearch {
-  return fileViewRouteSearchSchema.parse(search);
+  return fileViewRouteSearchSchema.parse(
+    normalizeRouteSearchPresenceFlags(search, FILE_VIEW_PRESENCE_SEARCH_KEYS),
+  );
 }
 
 export function buildFileViewRouteSearch(args?: {

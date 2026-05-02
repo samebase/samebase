@@ -1,3 +1,4 @@
+import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import { z } from "zod";
 
 export const ROOT_THEME_MODE_SEARCH_KEYS = ["light", "dark"] as const;
@@ -15,22 +16,18 @@ export type RootThemeModeSearch = Partial<
   Record<RootThemeModeSearchKey, true | undefined>
 >;
 
-function readOptionalFlag(value: unknown): true | undefined {
-  if (value === true) {
-    return true;
-  }
-
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  return value.length === 0 || value === "true" ? true : undefined;
-}
-
 export const rootThemeModeSearchFieldSchema = z.object({
-  dark: z.preprocess(readOptionalFlag, z.literal(true).optional()),
-  light: z.preprocess(readOptionalFlag, z.literal(true).optional()),
+  dark: z.literal(true).optional(),
+  light: z.literal(true).optional(),
 });
+
+export function validateRootThemeModeSearch(
+  search: Record<string, unknown>,
+): RootThemeModeSearch {
+  return rootThemeModeSearchFieldSchema.parse(
+    normalizeRouteSearchPresenceFlags(search, ROOT_THEME_MODE_SEARCH_KEYS),
+  );
+}
 
 export function readRootThemeMode(search: RootThemeModeSearch): RootThemeMode {
   if (search.light === true && search.dark !== true) {

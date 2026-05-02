@@ -36,7 +36,7 @@ describe("authenticatedRouteSearch", () => {
     expect(buildPricingRouteSearch(null)).toEqual({});
   });
 
-  it("normalizes the machine connect bootstrap flags", () => {
+  it("normalizes the machine connect bootstrap flag by presence", () => {
     expect(
       validateMachineConnectRouteSearch({
         openedByCli: "",
@@ -50,6 +50,13 @@ describe("authenticatedRouteSearch", () => {
       validateMachineConnectRouteSearch({
         openedByCli: "false",
         requestId: "   ",
+      }),
+    ).toEqual({
+      openedByCli: true,
+    });
+    expect(
+      validateMachineConnectRouteSearch({
+        openedByCli: undefined,
       }),
     ).toEqual({});
   });

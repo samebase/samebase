@@ -2,6 +2,7 @@ import {
   buildPathWithTanStackSearch,
   parseTanStackSearch,
 } from "./tanstackSearchParams";
+import { hasRouteSearchPresenceFlag } from "@/lib/routeSearchFlags";
 import { type DeploymentProfile } from "../../convex/deploymentProfile";
 
 export const FORCE_PROD_UI_QUERY_PARAM = "prod-ui";
@@ -16,8 +17,7 @@ export function isProdUiModeEnabled(search: SearchFlagReader): boolean {
     return search.has(FORCE_PROD_UI_QUERY_PARAM);
   }
 
-  const value = search[FORCE_PROD_UI_QUERY_PARAM];
-  return value === true || value === "" || value === "true";
+  return hasRouteSearchPresenceFlag(search, FORCE_PROD_UI_QUERY_PARAM);
 }
 
 export function isProductionPublicHostname(hostname: string): boolean {

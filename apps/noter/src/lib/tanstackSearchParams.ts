@@ -1,3 +1,4 @@
+import { isRouteSearchPresenceFlagKey } from "@/lib/routeSearchFlags";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 
 type PlainSearchRecord = Record<string, unknown>;
@@ -97,8 +98,11 @@ export function parseTanStackSearch(search: string): Record<string, string> {
 // TODO(tanstack-router-cleanup): remove this stringifier once the router and
 // generic script-facing helpers can adopt TanStack's default search semantics.
 export function stringifyTanStackSearch(search: PlainSearchRecord): string {
-  const resetValue = search[SEARCH_RESET_QUERY_PARAM];
-  if (resetValue === true || resetValue === "") {
+  if (
+    SEARCH_RESET_QUERY_PARAM in search &&
+    search[SEARCH_RESET_QUERY_PARAM] !== null &&
+    typeof search[SEARCH_RESET_QUERY_PARAM] !== "undefined"
+  ) {
     return `?${encodeURIComponent(SEARCH_RESET_QUERY_PARAM)}`;
   }
 
@@ -106,6 +110,15 @@ export function stringifyTanStackSearch(search: PlainSearchRecord): string {
 
   for (const [key, value] of Object.entries(search)) {
     if (key === SEARCH_RESET_QUERY_PARAM) {
+      continue;
+    }
+
+    if (
+      isRouteSearchPresenceFlagKey(key) &&
+      value !== null &&
+      typeof value !== "undefined"
+    ) {
+      setPlainSearchParam(searchParams, key, true);
       continue;
     }
 

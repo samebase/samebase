@@ -1,3 +1,4 @@
+import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import { z } from "zod";
 
 function readOptionalString(value: unknown): string | undefined {
@@ -9,19 +10,8 @@ function readOptionalString(value: unknown): string | undefined {
   return trimmedValue.length > 0 ? trimmedValue : undefined;
 }
 
-function readOptionalFlag(value: unknown): true | undefined {
-  if (value === true) {
-    return true;
-  }
-
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  return value.length === 0 || value === "true" ? true : undefined;
-}
-
 const pricingCheckoutValues = ["success", "cancel"] as const;
+const MACHINE_CONNECT_PRESENCE_SEARCH_KEYS = ["openedByCli"] as const;
 
 function readOptionalPricingCheckoutState(
   value: unknown,
@@ -67,7 +57,7 @@ export function buildPricingRouteSearch(
 }
 
 const machineConnectRouteSearchSchema = z.object({
-  openedByCli: z.preprocess(readOptionalFlag, z.literal(true).optional()),
+  openedByCli: z.literal(true).optional(),
   requestId: z.preprocess(readOptionalString, z.string().optional()),
 });
 
@@ -78,7 +68,12 @@ export type MachineConnectRouteSearch = z.infer<
 export function validateMachineConnectRouteSearch(
   search: Record<string, unknown>,
 ): MachineConnectRouteSearch {
-  return machineConnectRouteSearchSchema.parse(search);
+  return machineConnectRouteSearchSchema.parse(
+    normalizeRouteSearchPresenceFlags(
+      search,
+      MACHINE_CONNECT_PRESENCE_SEARCH_KEYS,
+    ),
+  );
 }
 
 const machinesRouteSearchSchema = z.object({

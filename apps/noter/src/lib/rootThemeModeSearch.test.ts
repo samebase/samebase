@@ -6,8 +6,8 @@ import {
   buildToggledRootThemeModeSearch,
   readRootThemeMode,
   readRootThemeModeSearch,
-  rootThemeModeSearchFieldSchema,
   syncDocumentRootThemeMode,
+  validateRootThemeModeSearch,
 } from "@/lib/rootThemeModeSearch";
 
 describe("rootThemeModeSearch", () => {
@@ -44,11 +44,17 @@ describe("rootThemeModeSearch", () => {
 
   it("parses key-only URL flags", () => {
     expect(
-      rootThemeModeSearchFieldSchema.parse({
+      validateRootThemeModeSearch({
         dark: "false",
         light: "",
       }),
-    ).toEqual({ light: true });
+    ).toEqual({ dark: true, light: true });
+    expect(
+      validateRootThemeModeSearch({
+        dark: undefined,
+        light: null,
+      }),
+    ).toEqual({});
   });
 
   it("syncs forced root theme modes to the document class", () => {

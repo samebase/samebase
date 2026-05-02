@@ -1,6 +1,10 @@
 import { getRouteApi } from "@tanstack/react-router";
 import { appThemeColorSearchFieldSchema } from "@/lib/appThemeColorSearch";
-import { rootThemeModeSearchFieldSchema } from "@/lib/rootThemeModeSearch";
+import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
+import {
+  ROOT_THEME_MODE_SEARCH_KEYS,
+  rootThemeModeSearchFieldSchema,
+} from "@/lib/rootThemeModeSearch";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { z } from "zod";
@@ -9,17 +13,13 @@ import { z } from "zod";
 // it directly keeps this helper on the app package boundary.
 const ROOT_ROUTE_ID = "__root__";
 
-function readOptionalFlag(value: unknown): true | undefined {
-  if (value === true) {
-    return true;
-  }
-
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  return value.length === 0 || value === "true" ? true : undefined;
-}
+const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = [
+  "dev",
+  "devtools",
+  "prod-ui",
+  SEARCH_RESET_QUERY_PARAM,
+  ...ROOT_THEME_MODE_SEARCH_KEYS,
+] as const;
 
 function readOptionalGoogleAuthProvider(value: unknown): "google" | undefined {
   return value === "google" ? "google" : undefined;
@@ -51,14 +51,11 @@ const rootRouteSearchSchema = z
       readOptionalGoogleAuthProvider,
       z.literal("google").optional(),
     ),
-    dev: z.preprocess(readOptionalFlag, z.literal(true).optional()),
-    devtools: z.preprocess(readOptionalFlag, z.literal(true).optional()),
+    dev: z.literal(true).optional(),
+    devtools: z.literal(true).optional(),
     delete: z.preprocess(readOptionalDeleteRepository, z.string().optional()),
-    "prod-ui": z.preprocess(readOptionalFlag, z.literal(true).optional()),
-    [SEARCH_RESET_QUERY_PARAM]: z.preprocess(
-      (value) => (value === true || value === "" ? true : undefined),
-      z.literal(true).optional(),
-    ),
+    "prod-ui": z.literal(true).optional(),
+    [SEARCH_RESET_QUERY_PARAM]: z.literal(true).optional(),
     signup: z.preprocess(
       readOptionalGoogleSignupReturn,
       z.literal("google").optional(),
@@ -70,7 +67,9 @@ const rootRouteSearchSchema = z
 export type RootRouteSearch = z.infer<typeof rootRouteSearchSchema>;
 
 function parseRootRouteSearch(search: unknown): RootRouteSearch {
-  const parsedSearch = rootRouteSearchSchema.parse(search);
+  const parsedSearch = rootRouteSearchSchema.parse(
+    normalizeRouteSearchPresenceFlags(search, ROOT_ROUTE_PRESENCE_SEARCH_KEYS),
+  );
   if (parsedSearch[SEARCH_RESET_QUERY_PARAM] !== true) {
     return parsedSearch;
   }

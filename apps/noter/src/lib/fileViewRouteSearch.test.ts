@@ -26,13 +26,23 @@ describe("fileViewRouteSearch", () => {
     });
   });
 
-  it("drops malformed file-view search values instead of preserving junk", () => {
+  it("treats present file-view flags as enabled regardless of value", () => {
     expect(
       validateFileViewRouteSearch({
         compare: "1",
         diff: "false",
         mobileLineNumbers: true,
         review: false,
+      }),
+    ).toEqual({
+      compare: true,
+      diff: true,
+      review: true,
+    });
+    expect(
+      validateFileViewRouteSearch({
+        compare: undefined,
+        diff: null,
       }),
     ).toEqual({});
   });

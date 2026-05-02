@@ -120,6 +120,8 @@ describe("logoRouteSearch", () => {
         secondary: 4,
         vox: "bad-voxel-state",
       }),
-    ).toEqual({});
+    ).toEqual({
+      freeView: true,
+    });
   });
 });

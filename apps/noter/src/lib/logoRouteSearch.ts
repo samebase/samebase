@@ -13,6 +13,7 @@ import {
   readAppThemeColorSearch,
 } from "@/lib/appThemeColorSearch";
 import {
+  ROOT_THEME_MODE_SEARCH_KEYS,
   readRootThemeModeSearch,
   rootThemeModeSearchFieldSchema,
   type RootThemeModeSearch,
@@ -27,6 +28,7 @@ import {
   serializeVoxelState,
 } from "@/components/logoVoxelState";
 import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
+import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import { z } from "zod";
 
 const LOGO_ROTATION_AXIS_MODE_VALUES = [
@@ -68,17 +70,11 @@ function readOptionalNumber(value: unknown): number | undefined {
   return Number.isFinite(parsedValue) ? parsedValue : undefined;
 }
 
-function readOptionalFlag(value: unknown): true | undefined {
-  if (value === true) {
-    return true;
-  }
-
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  return value.length === 0 || value === "true" ? true : undefined;
-}
+const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = [
+  LANDING_DEV_MODE_QUERY_PARAM,
+  "freeView",
+  ...ROOT_THEME_MODE_SEARCH_KEYS,
+] as const;
 
 function isLogoRotationAxisMode(
   value: string | undefined,
@@ -122,12 +118,9 @@ const logoRouteSearchFieldSchema = z
       readOptionalRotationAxisMode,
       z.enum(LOGO_ROTATION_AXIS_MODE_VALUES).optional(),
     ),
-    [LANDING_DEV_MODE_QUERY_PARAM]: z.preprocess(
-      readOptionalFlag,
-      z.literal(true).optional(),
-    ),
+    [LANDING_DEV_MODE_QUERY_PARAM]: z.literal(true).optional(),
     elev: z.preprocess(readOptionalNumber, z.number().finite().optional()),
-    freeView: z.preprocess(readOptionalFlag, z.literal(true).optional()),
+    freeView: z.literal(true).optional(),
     isoSide: z.preprocess(readOptionalNumber, z.number().finite().optional()),
     isoStyle: z.preprocess(
       readOptionalIsoStyleId,
@@ -171,7 +164,9 @@ export type LogoRouteSearch = z.infer<typeof logoRouteSearchSchema>;
 export function validateLogoRouteSearch(
   search: Record<string, unknown>,
 ): LogoRouteSearch {
-  return logoRouteSearchSchema.parse(search);
+  return logoRouteSearchSchema.parse(
+    normalizeRouteSearchPresenceFlags(search, LOGO_ROUTE_PRESENCE_SEARCH_KEYS),
+  );
 }
 
 export function buildLogoRouteSearch(args: {
