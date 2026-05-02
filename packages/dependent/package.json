@@ -1,0 +1,25 @@
+{
+  "name": "@noter-md/dependent",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "src"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./array": "./src/array.ts",
+    "./main": "./src/main.ts",
+    "./object": "./src/object.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "scripts": {
+    "typecheck": "pnpm --dir ../.. exec tsgo -p packages/dependent/tsconfig.json --pretty false",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/dependent/tsconfig.json --report-unused-disable-directives packages/dependent/src packages/dependent/test",
+    "test": "pnpm --dir ../.. exec vp test packages/dependent/test",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

@@ -1,6 +1,3 @@
-// Localized from the small dependent-ts utility surface that Noter relies on
-// for tuple-aware array helpers and reusable type predicates.
-
 // https://stackoverflow.com/a/50375286/2659549
 export type UnionToIntersection<Union> = (
   Union extends unknown ? (value: Union) => void : never
@@ -269,63 +266,3 @@ export function includes<ArrayValue extends readonly unknown[]>(
 }
 
 export type SafeOmit<Value, Key extends keyof Value> = Omit<Value, Key>;
-
-export function arrayOf<Value>(length: number, values: Value): Value[] {
-  return new Array<Value>(length).fill(values);
-}
-
-export function objKeys<Obj extends object>(
-  value: Obj,
-): Array<keyof Obj & string> {
-  return Object.keys(value) as Array<keyof Obj & string>;
-}
-
-type PropKey = string | number | symbol;
-
-export function objEntries<Obj extends Record<PropKey, unknown>>(
-  value: Obj,
-): Array<[keyof Obj & string, Obj[keyof Obj]]> {
-  return objKeys(value).map((key) => [key, value[key]]);
-}
-
-export function objFromEntries<Key extends PropKey, Value>(
-  entries: readonly (readonly [Key, Value])[],
-): Record<Key, Value> {
-  const ret: Partial<Record<Key, Value>> = {};
-
-  for (const [key, value] of entries) {
-    ret[key] = value;
-  }
-
-  return ret as Record<Key, Value>;
-}
-
-export function objMapEntries<
-  Obj extends Record<PropKey, unknown>,
-  ResultKey extends PropKey,
-  ResultValue,
->(
-  value: Obj,
-  callback: (
-    entry: [key: keyof Obj, value: Obj[keyof Obj]],
-  ) => readonly [ResultKey, ResultValue],
-): Record<ResultKey, ResultValue> {
-  return objFromEntries(objEntries(value).map(callback));
-}
-
-/**
- * Compile-time type assertion helper. It intentionally does nothing at runtime.
- */
-export const expectType =
-  <Expected>() =>
-  <Actual>(
-    value: Actual,
-    input: Expected extends Actual
-      ? Actual extends Expected
-        ? true
-        : never
-      : never,
-  ) => {
-    void value;
-    void input;
-  };

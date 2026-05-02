@@ -21,7 +21,7 @@ import {
   type Array2,
   type SafeOmit,
   type UnionToIntersection,
-} from "./dependent";
+} from "../src/index.ts";
 
 describe("dependent array helpers", () => {
   it("keeps tuple guarantees for map, reverse, and promiseAll", async () => {
