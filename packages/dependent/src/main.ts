@@ -143,42 +143,30 @@ export function notEmpty<Value>(
 
 export function atMod<Value>(arr: Array1<Value>, indexMod: number): Value {
   const len = arr.length;
-  const targetIndex = ((indexMod % len) + len) % len;
-  let currentIndex = 0;
+  const elem = arr[(indexMod + len) % len];
 
-  for (const elem of arr) {
-    if (currentIndex === targetIndex) {
-      return elem;
-    }
-
-    currentIndex += 1;
-  }
-
-  return arr[0];
+  return elem ?? arr[0];
 }
 
 export function zip<Left, Right>(
   arrLeft: Array1<Left>,
   arrRight: Array1<Right>,
 ): Array1<[Left, Right]> {
-  const rightIterator = arrRight[Symbol.iterator]();
-  const ret: Array<[Left, Right]> = [];
+  const first: [Left, Right] = [arrLeft[0], arrRight[0]];
 
-  for (const left of arrLeft) {
-    const nextRight = rightIterator.next();
+  const rest = map(arrLeft, (left, index) => {
+    if (index === 0) return null;
 
-    if (nextRight.done === true) {
-      break;
-    }
+    const right = arrRight[index];
 
-    ret.push([left, nextRight.value]);
-  }
+    if (!right) return null;
 
-  if (atLeast(1, ret)) {
-    return ret;
-  }
+    const tuple: [Left, Right] = [left, right];
 
-  return [[arrLeft[0], arrRight[0]]];
+    return tuple;
+  }).filter(notEmpty);
+
+  return [first, ...rest];
 }
 
 export function last<Value>(arr: Array1<Value>): Value;
@@ -269,10 +257,6 @@ export function promiseTimeout(millis: number): Promise<undefined> {
   });
 }
 
-function sameValueZero(left: unknown, right: unknown): boolean {
-  return left === right || (left !== left && right !== right);
-}
-
 /**
  * Wrapper around Array.includes() that is also a type guard and accepts values
  * that are not already known to belong to the array.
@@ -281,7 +265,7 @@ export function includes<ArrayValue extends readonly unknown[]>(
   arr: ArrayValue,
   value: unknown,
 ): value is ArrayValue[number] {
-  return arr.some((item) => sameValueZero(item, value));
+  return arr.includes(value);
 }
 
 export type SafeOmit<Value, Key extends keyof Value> = Omit<Value, Key>;

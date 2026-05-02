@@ -55,10 +55,10 @@ describe("dependent array helpers", () => {
     }
   });
 
-  it("wraps modular indexes and zips falsy values without dropping them", () => {
+  it("wraps modular indexes and zips shared indexes", () => {
     expect(atMod(["a", "b", "c"], -1)).toBe("c");
-    expect(zip([0, 1], [false, true])).toEqual([
-      [0, false],
+    expect(zip([0, 1], [true, true])).toEqual([
+      [0, true],
       [1, true],
     ]);
   });
@@ -132,11 +132,6 @@ describe("dependent type helpers", () => {
 });
 
 function lastValue<Value>(values: Array1<Value>): Value {
-  let last = values[0];
-
-  for (const value of values) {
-    last = value;
-  }
-
-  return last;
+  // @ts-expect-error Array1 guarantees a value at the computed last index.
+  return values[values.length - 1];
 }

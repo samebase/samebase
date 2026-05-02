@@ -1,13 +1,8 @@
 export function objKeys<Obj extends object>(
   value: Obj,
 ): Array<keyof Obj & string> {
-  const keys: Array<keyof Obj & string> = [];
-
-  for (const key in value) {
-    keys.push(key);
-  }
-
-  return keys;
+  // @ts-expect-error Object.keys returns the own enumerable string keys at runtime.
+  return Object.keys(value);
 }
 
 type PropKey = string | number | symbol;
@@ -15,20 +10,15 @@ type PropKey = string | number | symbol;
 export function objEntries<Obj extends Record<PropKey, unknown>>(
   value: Obj,
 ): Array<[keyof Obj & string, Obj[keyof Obj]]> {
-  return objKeys(value).map((key) => [key, value[key]]);
+  // @ts-expect-error Object.entries returns the same entries with weaker types.
+  return Object.entries(value);
 }
 
 export function objFromEntries<Key extends PropKey, Value>(
   entries: readonly (readonly [Key, Value])[],
 ): Record<Key, Value> {
-  const ret: Partial<Record<Key, Value>> = {};
-
-  for (const [key, value] of entries) {
-    ret[key] = value;
-  }
-
-  // @ts-expect-error The record is complete for the key set provided by entries.
-  return ret;
+  // @ts-expect-error Object.fromEntries preserves the runtime key/value pairs.
+  return Object.fromEntries(entries);
 }
 
 export function objMapEntries<
