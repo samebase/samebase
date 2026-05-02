@@ -17,8 +17,8 @@ a mediului:
 curl -fsSL https://vite.plus | bash
 ```
 
-Numele organizației "notermd" a fost ales fără "-" deoarece tastatura Android
-implicită face dificilă tastarea unui "-".
+Numele organizației „notermd” a fost ales fără „-” deoarece tastatura Android
+implicită face dificilă tastarea unui „-”.
 
 Avem nevoie doar de 1 `CONVEX_DEPLOY_KEY` pentru **Production** și unul pentru
 **Preview**, în felul acesta fiecare PR are propriul link și propria bază de
@@ -65,19 +65,19 @@ poți publica o aplicație.
 
 Vizitează https://github.com/notermd/app
 
-- [ ] apasă butonul verde mare "Use this template"
+- [ ] apasă butonul verde mare „Use this template”
 - [ ] fă-l privat sau lasă-l public
 
 <video controls preload="metadata" src="/landing-preview/step-2-use-template.mp4"></video>
 
 <details>
-<summary>"Fork" dacă vrei să păstrezi istoricul git</summary>
+<summary>„Fork” dacă vrei să păstrezi istoricul git</summary>
 
 Vezi istoricul git complet aici: https://github.com/notermd/app/commits/main/
 
 Este făcut manual ca să fie cât mai mic, clar și simplu posibil.
 
-"Use this template" este mai frumos pentru că butonul este verde, dar comprimă
+„Use this template” este mai frumos pentru că butonul este verde, dar comprimă
 tot istoricul într-un singur commit, deci devine puțin mai greu pentru AI să îl
 înțeleagă.
 
@@ -93,9 +93,9 @@ aplicații vrei.
 
 Dar este puțin complicat deoarece partea de Cloudflare are uneori probleme.
 
-- [ ] Accesează _Cloudflare Pages_ din sidebar: "Compute > Workers & Pages"
-- [ ] Apasă "Create Application"
-- [ ] Apasă "Connect to GitHub" pentru
+- [ ] Accesează _Cloudflare Pages_ din sidebar: „Compute > Workers & Pages”
+- [ ] Apasă „Create Application”
+- [ ] Apasă „Connect to GitHub” pentru
       `Install & Authorize Cloudflare Workers & Pages`
 
 Nu este clar care este problema, dar foarte des Cloudflare nu observă că această
@@ -110,8 +110,8 @@ ajută.
 <summary>Probleme la conectarea Cloudflare Pages la GitHub</summary>
 
 Cloudflare Workers & Pages are uneori probleme după instalare, poți aștepta
-puțin. Poți merge și în GitHub "Settings > Applications > Authorized GitHub
-Apps" ca să elimini sau să revoci aplicațiile instalate, apoi să încerci din nou
+puțin. Poți merge și în GitHub „Settings > Applications > Authorized GitHub
+Apps” ca să elimini sau să revoci aplicațiile instalate, apoi să încerci din nou
 din Cloudflare.
 
 Poți verifica toate aplicațiile GitHub instalate aici:
@@ -122,13 +122,13 @@ https://github.com/settings/installations
 ## 4: Creează un proiect Convex și un CONVEX_DEPLOY_KEY
 
 - [ ] Vizitează https://dashboard.convex.dev/
-- [ ] Apasă "+ Create Project" și dă-i orice nume
+- [ ] Apasă „+ Create Project” și dă-i orice nume
 - [ ] Apasă pill-ul de sus ca să vezi deployment-ul Production (poate trebuie să
       apeși de două ori)
-- [ ] Apasă "+ Create Deploy Key", vei avea nevoie de el ca să conectezi
-      Cloudflare, deci nu apăsa încă "Done"
+- [ ] Apasă „+ Create Deploy Key”, vei avea nevoie de el ca să conectezi
+      Cloudflare, deci nu apăsa încă „Done”
 
-Dacă apeși "Done", nu vei mai putea vedea deploy key-ul din nou, dar este în
+Dacă apeși „Done”, nu vei mai putea vedea deploy key-ul din nou, dar este în
 regulă, îl poți șterge și poți crea un deploy key nou.
 
 <video controls preload="metadata" src="/landing-preview/step-4-create-convex-project.mp4"></video>
@@ -143,10 +143,10 @@ Cloudflare ca să actualizeze baza de date la fiecare modificare.
 
 ## 5: Creează un deploy Cloudflare Pages
 
-- [ ] Accesează _Cloudflare Pages_ din sidebar: "Compute > Workers & Pages"
-- [ ] Apasă "Create Application"
-- [ ] **Asigură-te că apeși "Get Started" în partea de jos** ca să creezi
-      "Pages" și nu "Workers"!
+- [ ] Accesează _Cloudflare Pages_ din sidebar: „Compute > Workers & Pages”
+- [ ] Apasă „Create Application”
+- [ ] **Asigură-te că apeși „Get Started” în partea de jos** ca să creezi
+      „Pages” și nu „Workers”!
 - [ ] Setează `Build Command` la `pnpm build:cloudflare`
 - [ ] Setează `Build output directory` la `dist`
 - [ ] Adaugă variabila de mediu `CONVEX_DEPLOY_KEY` și folosește deploy key-ul
@@ -170,10 +170,8 @@ OpenAI Codex folosește aceeași metodă de conectare ca Cloudflare, deci poți
 
 Vedeai erori în Pull Requests deoarece Cloudflare publică un preview și acesta
 nu se poate conecta la baza ta de date de production. Ca să rezolvi asta, poți
-crea un "Preview Deploy Key" din Convex și să îl setezi în Cloudflare, în felul
+crea un „Preview Deploy Key” din Convex și să îl setezi în Cloudflare, în felul
 acesta fiecare Pull Request va avea propria bază de date.
-
-- [ ]
 
 ## 8: Ștergerea aplicației
 

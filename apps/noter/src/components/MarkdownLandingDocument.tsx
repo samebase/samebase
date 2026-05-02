@@ -18,6 +18,7 @@ import rehypeSanitize, {
 import remarkGfm from "remark-gfm";
 import { getLandingMarkdownHeadings } from "@/lib/landingMarkdownHeadings";
 import { isMarkdownVideoUrl } from "@/lib/landingMarkdownMedia";
+import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "@/lib/landingMarkdownPreview";
 import { cn } from "@/lib/utils";
 
 const SANITIZED_VIDEO_ATTRIBUTES: string[] = [
@@ -99,8 +100,18 @@ function isInternalRouteHref(value: string | undefined): value is string {
     return false;
   }
 
+  if (value.startsWith("?")) {
+    return true;
+  }
+
+  if (!value.startsWith("/") || value.startsWith("//")) {
+    return false;
+  }
+
   return (
-    value.startsWith("?") || (value.startsWith("/") && !value.startsWith("//"))
+    value === LANDING_MARKDOWN_PREVIEW_ROUTE ||
+    value.startsWith(`${LANDING_MARKDOWN_PREVIEW_ROUTE}?`) ||
+    value.startsWith(`${LANDING_MARKDOWN_PREVIEW_ROUTE}#`)
   );
 }
 

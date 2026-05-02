@@ -201,6 +201,13 @@ describe("MarkdownLandingDocument", () => {
     ).toBe("/landing-preview?lang=ro");
   });
 
+  it("keeps root-relative file links as normal anchors", () => {
+    const element = renderMarkdown("[Report](/files/report.pdf)");
+
+    const link = element.querySelector<HTMLAnchorElement>("a");
+    expect(link?.getAttribute("href")).toBe("/files/report.pdf");
+  });
+
   it("detects common video file URLs", () => {
     expect(isMarkdownVideoUrl("https://example.com/demo.MP4?download=1")).toBe(
       true,

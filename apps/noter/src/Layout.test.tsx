@@ -648,12 +648,28 @@ describe("Layout", () => {
         <AppSidebarMetaSection />
       </TestRouterProvider>,
     );
+    const landingPreviewWithSearchMarkup = renderToStaticMarkup(
+      <TestRouterProvider
+        initialEntries={[`${LANDING_MARKDOWN_PREVIEW_ROUTE}?foo=bar`]}
+      >
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
     const landingPreviewRomanianHref = `href="${buildPathWithTanStackSearch({
       pathname: LANDING_MARKDOWN_PREVIEW_ROUTE,
       search: {
         [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: "ro",
       },
     })}"`;
+    const landingPreviewWithSearchRomanianHref = `href="${encodeStaticHref(
+      buildPathWithTanStackSearch({
+        pathname: LANDING_MARKDOWN_PREVIEW_ROUTE,
+        search: {
+          foo: "bar",
+          [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: "ro",
+        },
+      }),
+    )}"`;
 
     expect(homeMarkup).not.toContain(
       LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
@@ -662,6 +678,9 @@ describe("Layout", () => {
       LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
     );
     expect(landingPreviewMarkup).toContain(landingPreviewRomanianHref);
+    expect(landingPreviewWithSearchMarkup).toContain(
+      landingPreviewWithSearchRomanianHref,
+    );
   });
 
   it("keeps legal links visible on the legal pages themselves", () => {
