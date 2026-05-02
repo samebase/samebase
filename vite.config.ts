@@ -87,6 +87,14 @@ export default defineConfig({
       "@typescript-eslint/restrict-plus-operands": "error",
       "@typescript-eslint/restrict-template-expressions": "error",
       "@typescript-eslint/unbound-method": "error",
+      "no-restricted-globals": [
+        "warn",
+        {
+          name: "URLSearchParams",
+          message:
+            "Prefer typed route search objects or route-specific helpers for app search; native URL/query APIs should stay at explicit protocol boundaries.",
+        },
+      ],
       "@typescript-eslint/require-await": "off",
       "require-await": "off",
     },
@@ -118,23 +126,6 @@ export default defineConfig({
         ],
         rules: {
           "@typescript-eslint/no-unnecessary-condition": "off",
-        },
-      },
-      {
-        files: [
-          "apps/noter/src/routes/**/*.{ts,tsx}",
-          "apps/noter/src/components/AppSidebarMetaSection.tsx",
-          "apps/noter/src/components/PublicRightSidebar.tsx",
-        ],
-        rules: {
-          "no-restricted-globals": [
-            "error",
-            {
-              name: "URLSearchParams",
-              message:
-                "Use TanStack Router's validated search object or route-owned search helpers for app route search.",
-            },
-          ],
         },
       },
       {

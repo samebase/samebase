@@ -127,9 +127,10 @@ Key domain entities:
   delete these wrappers when you find them. They pollute the tree and break
   editor cmd-click/navigation when tracing real implementations and usages.
 - Keep config surfaces minimal and current.
-- In TanStack Router route files and route-owned chrome, read app search state
-  from validated route search objects and route-specific helpers. Do not parse
-  `location.searchStr` with `URLSearchParams` there.
+- `URLSearchParams` is globally warned by lint so app search defaults to typed
+  route objects and route-specific helpers. Intentional protocol boundaries such
+  as OAuth, external URLs, parser/serializer helpers, fixtures, and tests can
+  stay native while warning output keeps those callsites visible.
 - For app-owned components, default to closed styling APIs. Do not add
   pass-through styling props such as `className`, `bodyClassName`, or
   `headerClassName` unless a current shipped callsite truly needs them.
