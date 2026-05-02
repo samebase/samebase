@@ -123,7 +123,8 @@ Key domain entities:
 - Remove property-presence checks such as `key in object` when they only exist
   to appease TypeScript. Keep them only when own-key presence is real runtime
   state, such as distinguishing an explicit `undefined` clear from a missing
-  key.
+  key. Prefer the simple `key in object` form unless prototype safety is a
+  proven issue for that object.
 - Fail closed rather than inventing placeholder fallbacks unless the patch is
   implementing a real migration.
 - Do not keep test-only production abstractions, incomplete extractions, or dead
