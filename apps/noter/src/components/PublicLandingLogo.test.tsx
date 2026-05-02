@@ -102,6 +102,7 @@ describe("PublicLandingLogo", () => {
           <PublicLandingLogoLinkProvider>
             <PublicLandingLogo
               loadInteractiveScene={false}
+              viewStatePersistence="device"
               viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY}
             />
             <AppSidebarMetaSection showLandingPreviewLink side="right" />

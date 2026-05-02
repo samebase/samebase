@@ -30,6 +30,7 @@ import {
   readRotatedLogoViewState,
   type RotatedLogoViewState,
   type RotatedLogoViewStateKey,
+  type RotatedLogoViewStatePersistence,
 } from "@/lib/rotatedLogoViewState";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -60,11 +61,13 @@ export function PublicLandingLogo({
   autoRotate = false,
   enableViewSnapping = true,
   loadInteractiveScene = true,
+  viewStatePersistence = "visit",
   viewStateKey = PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,
 }: {
   autoRotate?: boolean;
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
+  viewStatePersistence?: RotatedLogoViewStatePersistence;
   viewStateKey?: RotatedLogoViewStateKey;
 }) {
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(
@@ -77,7 +80,11 @@ export function PublicLandingLogo({
   const [isSvgVisible, setIsSvgVisible] = useState(true);
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
   const [view, setView] = useState<RotatedLogoViewState>(() =>
-    readRotatedLogoViewState(viewStateKey, DEFAULT_LANDING_LOGO_VIEW),
+    readRotatedLogoViewState({
+      defaultView: DEFAULT_LANDING_LOGO_VIEW,
+      key: viewStateKey,
+      persistence: viewStatePersistence,
+    }),
   );
   const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
   const latestViewRef = useRef(view);
@@ -91,8 +98,12 @@ export function PublicLandingLogo({
   };
   const isSceneInteractive = isSceneReady && !isSvgVisible;
   const persistLatestLogoView = useCallback(() => {
-    persistRotatedLogoViewState(viewStateKey, latestViewRef.current);
-  }, [viewStateKey]);
+    persistRotatedLogoViewState({
+      key: viewStateKey,
+      persistence: viewStatePersistence,
+      view: latestViewRef.current,
+    });
+  }, [viewStateKey, viewStatePersistence]);
 
   useEffect(() => {
     if (!loadInteractiveScene) {

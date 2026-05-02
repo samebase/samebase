@@ -70,10 +70,11 @@ describe("rotatedLogoViewState", () => {
     });
 
     expect(
-      readRotatedLogoViewState(
-        DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY,
-        DEFAULT_VIEW,
-      ),
+      readRotatedLogoViewState({
+        defaultView: DEFAULT_VIEW,
+        key: DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY,
+        persistence: "visit",
+      }),
     ).toEqual({
       elevationDegrees: 0,
       rotationDegrees: 270,
@@ -85,20 +86,49 @@ describe("rotatedLogoViewState", () => {
     const { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY, persistRotatedLogoViewState } =
       initialModule;
 
-    persistRotatedLogoViewState(DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY, {
-      elevationDegrees: 0,
-      rotationDegrees: 180,
+    persistRotatedLogoViewState({
+      key: DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY,
+      persistence: "device",
+      view: {
+        elevationDegrees: 0,
+        rotationDegrees: 180,
+      },
     });
     const { readRotatedLogoViewState } = await importRotatedLogoViewState();
 
     expect(
-      readRotatedLogoViewState(
-        DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY,
-        DEFAULT_VIEW,
-      ),
+      readRotatedLogoViewState({
+        defaultView: DEFAULT_VIEW,
+        key: DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY,
+        persistence: "device",
+      }),
     ).toEqual({
       elevationDegrees: 0,
       rotationDegrees: 180,
     });
+  });
+
+  it("keeps visit-persisted logo view state out of localStorage", async () => {
+    const initialModule = await importRotatedLogoViewState();
+    const { PUBLIC_LANDING_LOGO_VIEW_STATE_KEY, persistRotatedLogoViewState } =
+      initialModule;
+
+    persistRotatedLogoViewState({
+      key: PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,
+      persistence: "visit",
+      view: {
+        elevationDegrees: 0,
+        rotationDegrees: 180,
+      },
+    });
+    const { readRotatedLogoViewState } = await importRotatedLogoViewState();
+
+    expect(
+      readRotatedLogoViewState({
+        defaultView: DEFAULT_VIEW,
+        key: PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,
+        persistence: "visit",
+      }),
+    ).toEqual(DEFAULT_VIEW);
   });
 });

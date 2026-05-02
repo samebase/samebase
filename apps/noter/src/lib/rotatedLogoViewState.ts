@@ -12,6 +12,20 @@ export type RotatedLogoViewState = {
   rotationDegrees: number;
 };
 
+export type RotatedLogoViewStatePersistence = "visit" | "device";
+
+type ReadRotatedLogoViewStateArgs = {
+  defaultView: RotatedLogoViewState;
+  key: RotatedLogoViewStateKey;
+  persistence: RotatedLogoViewStatePersistence;
+};
+
+type WriteRotatedLogoViewStateArgs = {
+  key: RotatedLogoViewStateKey;
+  persistence: RotatedLogoViewStatePersistence;
+  view: RotatedLogoViewState;
+};
+
 const STORAGE_KEY_BY_ROTATED_LOGO_VIEW_STATE_KEY = {
   [PUBLIC_LANDING_LOGO_VIEW_STATE_KEY]: "noter:logo-view:public-landing",
   [DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY]: "noter:logo-view:dashboard-empty",
@@ -84,19 +98,18 @@ export function cacheRotatedLogoViewState(
 }
 
 export function persistRotatedLogoViewState(
-  key: RotatedLogoViewStateKey,
-  view: RotatedLogoViewState,
+  args: WriteRotatedLogoViewStateArgs,
 ) {
-  const normalizedView = normalizeRotatedLogoViewState(view);
-  cachedRotatedLogoViewStateByKey[key] = normalizedView;
+  const normalizedView = normalizeRotatedLogoViewState(args.view);
+  cachedRotatedLogoViewStateByKey[args.key] = normalizedView;
 
-  if (typeof window === "undefined") {
+  if (args.persistence === "visit" || typeof window === "undefined") {
     return;
   }
 
   try {
     window.localStorage.setItem(
-      STORAGE_KEY_BY_ROTATED_LOGO_VIEW_STATE_KEY[key],
+      STORAGE_KEY_BY_ROTATED_LOGO_VIEW_STATE_KEY[args.key],
       JSON.stringify(normalizedView),
     );
   } catch {
@@ -104,16 +117,18 @@ export function persistRotatedLogoViewState(
   }
 }
 
-export function readRotatedLogoViewState(
-  key: RotatedLogoViewStateKey,
-  defaultView: RotatedLogoViewState,
-): RotatedLogoViewState {
+export function readRotatedLogoViewState({
+  defaultView,
+  key,
+  persistence,
+}: ReadRotatedLogoViewStateArgs): RotatedLogoViewState {
   const cachedView = cachedRotatedLogoViewStateByKey[key];
   if (cachedView !== undefined) {
     return { ...cachedView };
   }
 
-  const storedView = readStoredRotatedLogoViewState(key);
+  const storedView =
+    persistence === "device" ? readStoredRotatedLogoViewState(key) : null;
   if (storedView !== null) {
     cachedRotatedLogoViewStateByKey[key] = storedView;
     return { ...storedView };
