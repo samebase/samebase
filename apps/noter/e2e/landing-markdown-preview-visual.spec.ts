@@ -66,7 +66,7 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
   }
 
   await expect(page).toHaveScreenshot(
-    `landing-markdown-preview-${landingMarkdownPreviewSnapshotSuffix}.png`,
+    `landing-markdown-preview-desktop-${landingMarkdownPreviewSnapshotSuffix}.png`,
     {
       animations: "disabled",
       caret: "hide",
@@ -118,8 +118,29 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
 test("landing markdown preview sidebar hash links keep the mobile sidebar open", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/landing-preview?dev&left", {
+  await page.setViewportSize({ width: 744, height: 1200 });
+  await page.goto(
+    "/landing-preview?dev&left&dark#9-create-an-app-in-a-single-step-using-noter-md",
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
+
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+
+  await expect(page).toHaveScreenshot(
+    `landing-markdown-preview-${landingMarkdownPreviewSnapshotSuffix}.png`,
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    },
+  );
+
+  await page.goto("/landing-preview?dev&left&dark", {
     waitUntil: "domcontentloaded",
   });
 
@@ -136,7 +157,7 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
     })
     .click();
 
-  await expect(page).toHaveURL(/\?dev&left#6-connect-codex-to-github$/);
+  await expect(page).toHaveURL(/\?dev&left&dark#6-connect-codex-to-github$/);
   await expect(layout).toHaveAttribute("data-mobile-pane", "left");
   await expect
     .poll(() => carousel.evaluate((element) => element.scrollLeft))
