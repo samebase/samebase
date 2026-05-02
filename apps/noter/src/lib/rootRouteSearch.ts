@@ -4,6 +4,7 @@ import {
   readRootThemeModeSearch,
   rootThemeModeSearchFieldSchema,
 } from "@/lib/rootThemeModeSearch";
+import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { z } from "zod";
 
 // TanStack Router's root route id is the stable "__root__" literal, and using
@@ -20,6 +21,10 @@ function readOptionalFlag(value: unknown): true | undefined {
   }
 
   return value.length === 0 || value === "true" ? true : undefined;
+}
+
+function readPresentFlag(value: unknown): true | undefined {
+  return typeof value === "undefined" ? undefined : true;
 }
 
 function readOptionalGoogleAuthProvider(value: unknown): "google" | undefined {
@@ -56,6 +61,10 @@ const rootRouteSearchSchema = z
     devtools: z.preprocess(readOptionalFlag, z.literal(true).optional()),
     delete: z.preprocess(readOptionalDeleteRepository, z.string().optional()),
     "prod-ui": z.preprocess(readOptionalFlag, z.literal(true).optional()),
+    [SEARCH_RESET_QUERY_PARAM]: z.preprocess(
+      readPresentFlag,
+      z.literal(true).optional(),
+    ),
     signup: z.preprocess(
       readOptionalGoogleSignupReturn,
       z.literal("google").optional(),
@@ -71,7 +80,14 @@ const rootRouteSearchSchema = z
 export type RootRouteSearch = z.infer<typeof rootRouteSearchSchema>;
 
 function parseRootRouteSearch(search: unknown): RootRouteSearch {
-  return rootRouteSearchSchema.parse(search);
+  const parsedSearch = rootRouteSearchSchema.parse(search);
+  if (parsedSearch[SEARCH_RESET_QUERY_PARAM] !== true) {
+    return parsedSearch;
+  }
+
+  // Reset is a sentinel, so do not let stale or malformed params influence app
+  // state while the root route removes the visible query string.
+  return { [SEARCH_RESET_QUERY_PARAM]: true as const };
 }
 
 export function validateRootRouteSearch(

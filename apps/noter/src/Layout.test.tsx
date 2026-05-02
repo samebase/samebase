@@ -18,6 +18,10 @@ import {
   FORCE_PROD_UI_QUERY_PARAM,
 } from "@/lib/prodUiMode";
 import {
+  SEARCH_RESET_LINK_LABEL,
+  SEARCH_RESET_QUERY_PARAM,
+} from "@/lib/searchReset";
+import {
   ROOT_THEME_DARK_MODE_LINK_LABEL,
   ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL,
   ROOT_THEME_LIGHT_MODE_LINK_LABEL,
@@ -489,6 +493,36 @@ describe("Layout", () => {
 
     expect(markup).toContain(FORCE_PROD_UI_MODE_LINK_LABEL);
     expect(markup).toContain(`href="${encodeStaticHref(logoWithProdUiPath)}"`);
+  });
+
+  it("adds a reset shortcut that owns the visible query string", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    const logoPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
+        primary: "red-600",
+      },
+      hash: "top",
+    });
+    const logoResetPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [SEARCH_RESET_QUERY_PARAM]: true,
+      },
+      hash: "top",
+    });
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[logoPath]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(SEARCH_RESET_LINK_LABEL);
+    expect(markup).toContain(`href="${encodeStaticHref(logoResetPath)}"`);
   });
 
   it("hides the prod-ui shortcut from the prod-like surface", () => {

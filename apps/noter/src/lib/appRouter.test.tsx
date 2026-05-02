@@ -299,6 +299,16 @@ describe("appRouter", () => {
     ).toBeNull();
   });
 
+  it("removes all visible search params when reset is present", async () => {
+    const router = await renderRoute(
+      "/terms?reset&devtools&primary=red-600#top",
+    );
+
+    expect(router.state.location.pathname).toBe("/terms");
+    expect(router.state.location.searchStr).toBe("");
+    expect(router.state.location.hash).toBe("top");
+  });
+
   it("redirects /home to the routed root index page", async () => {
     const router = await renderRoute("/home?devtools=true");
 

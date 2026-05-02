@@ -20,6 +20,7 @@ import {
   readRootThemeMode,
   syncDocumentRootThemeMode,
 } from "@/lib/rootThemeModeSearch";
+import { hasSearchResetParam } from "@/lib/searchReset";
 import { useEffect, useLayoutEffect } from "react";
 
 const posthogApiHost =
@@ -132,22 +133,67 @@ function readClearedRootThemeModeSearch(
   return nextSearch;
 }
 
+function readClearedRootSearch(): RootRouteSearch {
+  return {
+    auth: undefined,
+    base: undefined,
+    dark: undefined,
+    delete: undefined,
+    dev: undefined,
+    devtools: undefined,
+    light: undefined,
+    primary: undefined,
+    "prod-ui": undefined,
+    reset: undefined,
+    secondary: undefined,
+    signup: undefined,
+  };
+}
+
 function AppRouterRoot() {
-  const { base, dark, light, primary, secondary } = useRootRouteSearch();
+  const { base, dark, light, primary, reset, secondary } = useRootRouteSearch();
   const navigate = useNavigate();
   const location = useLocation();
   const themeMode = readRootThemeMode({ dark, light });
+  const shouldResetSearch =
+    reset === true || hasSearchResetParam(location.searchStr);
   useDeferredPostHogInit();
 
   useLayoutEffect(() => {
+    if (shouldResetSearch) {
+      return;
+    }
+
     syncDocumentThemeColorSearch({ base, primary, secondary });
-  }, [base, primary, secondary]);
+  }, [base, primary, secondary, shouldResetSearch]);
 
   useLayoutEffect(() => {
+    if (shouldResetSearch) {
+      return;
+    }
+
     syncDocumentRootThemeMode(themeMode);
-  }, [themeMode]);
+  }, [shouldResetSearch, themeMode]);
 
   useEffect(() => {
+    if (!shouldResetSearch) {
+      return;
+    }
+
+    void navigate({
+      hash: location.hash,
+      replace: true,
+      search: readClearedRootSearch(),
+      state: true,
+      to: location.pathname,
+    });
+  }, [location.hash, location.pathname, navigate, shouldResetSearch]);
+
+  useEffect(() => {
+    if (shouldResetSearch) {
+      return;
+    }
+
     if (!hasConflictingRootThemeModeSearch(location.searchStr)) {
       return;
     }
@@ -159,7 +205,13 @@ function AppRouterRoot() {
       state: true,
       to: location.pathname,
     });
-  }, [location.hash, location.pathname, location.searchStr, navigate]);
+  }, [
+    location.hash,
+    location.pathname,
+    location.searchStr,
+    navigate,
+    shouldResetSearch,
+  ]);
 
   return (
     <>

@@ -38,4 +38,18 @@ describe("tanstackSearchParams", () => {
       }),
     ).toBe("/logo?dev&rot=10#top");
   });
+
+  it("treats reset as a visible one-param sentinel", () => {
+    expect(parseTanStackSearch("?reset&primary=red-600&rot=10")).toEqual({
+      reset: "",
+    });
+
+    expect(
+      stringifyTanStackSearch({
+        primary: "red-600",
+        reset: true,
+        rot: 10,
+      }),
+    ).toBe("?reset");
+  });
 });

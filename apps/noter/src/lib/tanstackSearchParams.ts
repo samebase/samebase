@@ -1,3 +1,8 @@
+import {
+  SEARCH_RESET_QUERY_PARAM,
+  isSearchResetValue,
+} from "@/lib/searchReset";
+
 type PlainSearchRecord = Record<string, unknown>;
 type PathSearchInput = {
   pathname: string;
@@ -78,6 +83,11 @@ export function parseTanStackSearch(search: string): Record<string, string> {
   const searchParams = new URLSearchParams(
     search.startsWith("?") ? search.slice(1) : search,
   );
+
+  if (searchParams.has(SEARCH_RESET_QUERY_PARAM)) {
+    return { [SEARCH_RESET_QUERY_PARAM]: "" };
+  }
+
   const parsedSearch: Record<string, string> = {};
 
   for (const [key, value] of searchParams.entries()) {
@@ -90,6 +100,10 @@ export function parseTanStackSearch(search: string): Record<string, string> {
 // TODO(tanstack-router-cleanup): remove this stringifier once the router and
 // generic script-facing helpers can adopt TanStack's default search semantics.
 export function stringifyTanStackSearch(search: PlainSearchRecord): string {
+  if (isSearchResetValue(search[SEARCH_RESET_QUERY_PARAM])) {
+    return `?${encodeURIComponent(SEARCH_RESET_QUERY_PARAM)}`;
+  }
+
   const searchParams = new URLSearchParams();
 
   for (const [key, value] of Object.entries(search)) {

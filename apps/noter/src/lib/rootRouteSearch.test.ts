@@ -64,6 +64,14 @@ describe("rootRouteSearch", () => {
     });
   });
 
+  it("ignores all other parsed root params while reset is present", () => {
+    expect(
+      readRootRouteSearch("?reset=false&primary=red-600&devtools"),
+    ).toEqual({
+      reset: true,
+    });
+  });
+
   it("normalizes conflicting light and dark flags back to system", () => {
     expect(readRootRouteSearch("?dev&light&dark")).toEqual({
       dev: true,

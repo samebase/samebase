@@ -24,6 +24,10 @@ import {
   isProdUiModeActive,
 } from "@/lib/prodUiMode";
 import {
+  SEARCH_RESET_LINK_LABEL,
+  SEARCH_RESET_QUERY_PARAM,
+} from "@/lib/searchReset";
+import {
   ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL,
   ROOT_THEME_DARK_MODE_LINK_LABEL,
   ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL,
@@ -138,6 +142,16 @@ export function AppSidebarMetaSection({
         })}
       >
         {darkModeLabel}
+      </Link>
+      <Link
+        id="public-landing-search-reset"
+        to={location.pathname}
+        hash={location.hash}
+        search={() => ({
+          [SEARCH_RESET_QUERY_PARAM]: true as const,
+        })}
+      >
+        {SEARCH_RESET_LINK_LABEL}
       </Link>
       {prodUiEnabled ? null : (
         <Link
