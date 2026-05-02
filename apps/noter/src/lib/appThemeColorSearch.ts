@@ -17,6 +17,7 @@ import {
   useDocumentThemeMode,
   type DocumentThemeMode,
 } from "@/hooks/useDocumentThemeMode";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 
 export const APP_THEME_COLOR_SEARCH_KEYS = [
@@ -43,6 +44,9 @@ export type ResolvedAppThemeColorState = {
 };
 
 const APP_THEME_COLOR_STYLE_ELEMENT_ID = "noter-app-theme-color-search";
+// Logo renderers read computed CSS variables, so reset/style syncs must
+// invalidate color state even when route search props are already clean.
+const APP_THEME_COLOR_SEARCH_SYNC_EVENT = "noter:app-theme-color-search-sync";
 const LOGO_COLOR_THEME_MODES = [
   "light",
   "dark",
@@ -171,10 +175,37 @@ export function resolveAppThemeColorState({
   };
 }
 
+function dispatchAppThemeColorSearchSyncEvent() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(new Event(APP_THEME_COLOR_SEARCH_SYNC_EVENT));
+}
+
 export function useResolvedAppThemeColorState(
   search: AppThemeColorSearch,
 ): ResolvedAppThemeColorState {
   const themeMode = useDocumentThemeMode();
+  const [, setThemeColorSearchRevision] = useState(0);
+
+  useEffect(() => {
+    const handleThemeColorSearchSync = () => {
+      setThemeColorSearchRevision((currentRevision) => currentRevision + 1);
+    };
+
+    window.addEventListener(
+      APP_THEME_COLOR_SEARCH_SYNC_EVENT,
+      handleThemeColorSearchSync,
+    );
+    return () => {
+      window.removeEventListener(
+        APP_THEME_COLOR_SEARCH_SYNC_EVENT,
+        handleThemeColorSearchSync,
+      );
+    };
+  }, []);
+
   return resolveAppThemeColorState({
     search,
     themeMode,
@@ -284,6 +315,7 @@ export function syncDocumentThemeColorSearch(search: AppThemeColorSearch) {
     !APP_THEME_COLOR_SEARCH_KEYS.some((key) => typeof search[key] === "string")
   ) {
     document.getElementById(APP_THEME_COLOR_STYLE_ELEMENT_ID)?.remove();
+    dispatchAppThemeColorSearchSyncEvent();
     return;
   }
 
@@ -296,4 +328,5 @@ export function syncDocumentThemeColorSearch(search: AppThemeColorSearch) {
   )
     .filter((ruleSet) => ruleSet.length > 0)
     .join("\n\n");
+  dispatchAppThemeColorSearchSyncEvent();
 }

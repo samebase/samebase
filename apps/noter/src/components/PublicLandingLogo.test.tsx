@@ -14,6 +14,7 @@ import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
+import { syncDocumentThemeColorSearch } from "@/lib/appThemeColorSearch";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import {
   PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
@@ -115,6 +116,7 @@ describe("PublicLandingLogo", () => {
       .forEach((element) => {
         element.remove();
       });
+    syncDocumentThemeColorSearch({});
     window.localStorage.clear();
     vi.unstubAllGlobals();
   });
@@ -249,5 +251,59 @@ describe("PublicLandingLogo", () => {
     expect(source).toContain("#112233");
     expect(source).toContain("#445566");
     expect(source).toContain("#778899");
+  });
+
+  it("refreshes default static fallback colors after reset clears stale document overrides", async () => {
+    syncDocumentThemeColorSearch({
+      base: "blue-500",
+      primary: "green-500",
+      secondary: "red-500",
+    });
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(
+        <PublicLandingLogo
+          loadInteractiveScene={false}
+          themeColorSearch={{
+            base: "blue-500",
+            primary: "green-500",
+            secondary: "red-500",
+          }}
+        />,
+      );
+    });
+
+    expect(
+      decodeURIComponent(getLogoImage(rootElement).getAttribute("src") ?? ""),
+    ).toContain("#00c950");
+
+    await act(async () => {
+      localRoot.render(
+        <PublicLandingLogo
+          loadInteractiveScene={false}
+          themeColorSearch={{}}
+        />,
+      );
+      syncDocumentThemeColorSearch({});
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, 0);
+      });
+    });
+
+    const source = decodeURIComponent(
+      getLogoImage(rootElement).getAttribute("src") ?? "",
+    );
+
+    expect(source).toContain("#ffffff");
+    expect(source).toContain("#394447");
+    expect(source).toContain("#ecfccb");
+    expect(source).not.toContain("#2b7fff");
+    expect(source).not.toContain("#00c950");
+    expect(source).not.toContain("#fb2c36");
   });
 });
