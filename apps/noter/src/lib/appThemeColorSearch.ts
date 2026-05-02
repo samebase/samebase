@@ -1,14 +1,22 @@
 import {
   APP_THEME_COLOR_KEYS,
   DEFAULT_APP_THEME_COLORS,
+  getFaceColorsFromAppThemeColors,
+  getTailwindColorHex,
   getLogoColorCssHsl,
   getLogoColorForegroundCssHsl,
   isLogoColorToken,
   type AppThemeColorKey,
   type AppThemeColors,
+  type FaceColors,
+  type HexColorToken,
   type LogoColorToken,
   type LogoColorThemeMode,
 } from "@/components/logoTailwindColors";
+import {
+  useDocumentThemeMode,
+  type DocumentThemeMode,
+} from "@/hooks/useDocumentThemeMode";
 import { z } from "zod";
 
 export const APP_THEME_COLOR_SEARCH_KEYS = [
@@ -24,6 +32,15 @@ export type AppThemeColorSearch = Partial<
 >;
 type CssVariableName = `--${string}`;
 type ThemeColorRuleSet = Record<CssVariableName, string>;
+export type ResolvedAppThemeColors = Record<AppThemeColorKey, HexColorToken>;
+export type ResolvedAppThemeColorState = {
+  backgroundColor: HexColorToken;
+  cacheKey: string;
+  faceColors: FaceColors;
+  resolvedThemeColors: ResolvedAppThemeColors;
+  themeColors: AppThemeColors;
+  themeMode: DocumentThemeMode;
+};
 
 const APP_THEME_COLOR_STYLE_ELEMENT_ID = "noter-app-theme-color-search";
 const LOGO_COLOR_THEME_MODES = [
@@ -121,6 +138,47 @@ export function readAppThemeColors(
     primary: search.primary ?? DEFAULT_APP_THEME_COLORS.primary,
     secondary: search.secondary ?? DEFAULT_APP_THEME_COLORS.secondary,
   };
+}
+
+function resolveAppThemeColorHexes(
+  themeColors: AppThemeColors,
+): ResolvedAppThemeColors {
+  return {
+    base: getTailwindColorHex(themeColors.base),
+    primary: getTailwindColorHex(themeColors.primary),
+    secondary: getTailwindColorHex(themeColors.secondary),
+  };
+}
+
+export function resolveAppThemeColorState({
+  search,
+  themeMode,
+}: {
+  search: AppThemeColorSearch;
+  themeMode: DocumentThemeMode;
+}): ResolvedAppThemeColorState {
+  const themeColors = readAppThemeColors(search);
+  const resolvedThemeColors = resolveAppThemeColorHexes(themeColors);
+  const faceColors = getFaceColorsFromAppThemeColors(resolvedThemeColors);
+
+  return {
+    backgroundColor: resolvedThemeColors.base,
+    cacheKey: `${themeMode}:${resolvedThemeColors.base.slice(1)}:${resolvedThemeColors.primary.slice(1)}:${resolvedThemeColors.secondary.slice(1)}`,
+    faceColors,
+    resolvedThemeColors,
+    themeColors,
+    themeMode,
+  };
+}
+
+export function useResolvedAppThemeColorState(
+  search: AppThemeColorSearch,
+): ResolvedAppThemeColorState {
+  const themeMode = useDocumentThemeMode();
+  return resolveAppThemeColorState({
+    search,
+    themeMode,
+  });
 }
 
 export function buildAppThemeColorSearch(

@@ -4,16 +4,11 @@ import {
 } from "@/components/logoStaticSvgContract";
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import {
-  getFaceColorsFromAppThemeColors,
-  getTailwindColorHex,
-} from "@/components/logoTailwindColors";
-import {
   createFilledVoxelSet,
   parseVoxelState,
 } from "@/components/logoVoxelState";
 import { Button } from "@/components/ui/button";
-import { useDocumentThemeMode } from "@/hooks/useDocumentThemeMode";
-import { readAppThemeColors } from "@/lib/appThemeColorSearch";
+import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
 import { Link } from "@tanstack/react-router";
 
@@ -22,24 +17,19 @@ export function LogoStaticSvgPage({
 }: {
   routeSearch: LogoRouteSearch;
 }) {
-  const documentThemeMode = useDocumentThemeMode();
-  const isDarkTheme = documentThemeMode === "dark";
-  const themeColors = readAppThemeColors(routeSearch);
-  const faceColors = getFaceColorsFromAppThemeColors(themeColors);
-  const backgroundColor = getTailwindColorHex(themeColors.base);
+  const logoTheme = useResolvedAppThemeColorState(routeSearch);
   const filledVoxels =
     parseVoxelState(routeSearch.vox ?? null) ??
     createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
-  const themeFragment = isDarkTheme ? "dark" : "light";
   const staticSvgSrc = `${createStaticLogoSvgDataUrl({
-    faceColors,
+    faceColors: logoTheme.faceColors,
     filledVoxels,
-  })}#${themeFragment}-${documentThemeMode}`;
+  })}#${logoTheme.cacheKey}`;
 
   return (
     <div
       className="relative flex min-h-screen items-center justify-center overflow-hidden p-6 sm:p-10"
-      style={{ backgroundColor }}
+      style={{ backgroundColor: logoTheme.backgroundColor }}
     >
       <div className="absolute left-3 top-3 flex items-center gap-2 border border-black/10 bg-white/84 p-2 backdrop-blur-sm sm:left-4 sm:top-4">
         <Button asChild size="sm" variant="outline" className="rounded-none">

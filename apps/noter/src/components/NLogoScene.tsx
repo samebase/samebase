@@ -886,27 +886,6 @@ export function NLogoScene({
   }, [onVoxelEdit]);
 
   useEffect(() => {
-    animateFaceColorsRef.current = animateFaceColors;
-
-    const sceneState = sceneStateRef.current;
-    if (!sceneState) {
-      return;
-    }
-
-    if (animateFaceColors) {
-      faceColorAnimationStartedAtRef.current = performance.now();
-      syncAnimationLoopRef.current();
-      renderSceneRef.current(performance.now());
-      return;
-    }
-
-    faceColorAnimationStartedAtRef.current = null;
-    applyFaceColors(sceneState.cubeMaterials, faceColorsRef.current);
-    syncAnimationLoopRef.current();
-    renderSceneRef.current(performance.now());
-  }, [animateFaceColors]);
-
-  useEffect(() => {
     const wasEnabled = shuffleAnimationRef.current.enabled;
     shuffleAnimationRef.current = shuffleAnimation;
 
@@ -1180,6 +1159,7 @@ export function NLogoScene({
   }, [voxelState]);
 
   useEffect(() => {
+    animateFaceColorsRef.current = animateFaceColors;
     faceColorsRef.current = faceColors;
 
     const sceneState = sceneStateRef.current;
@@ -1211,17 +1191,8 @@ export function NLogoScene({
     }
 
     applyMaterialOpacity(sceneState.cubeMaterials, opacity);
+    renderSceneRef.current(performance.now());
   }, [opacity]);
-
-  useEffect(() => {
-    const sceneState = sceneStateRef.current;
-    if (!sceneState) {
-      return;
-    }
-
-    sceneState.scene.background = new THREE.Color(backgroundColor);
-    sceneState.renderer.render(sceneState.scene, sceneState.camera);
-  }, [backgroundColor]);
   const pickVoxelEdit = (
     clientX: number,
     clientY: number,

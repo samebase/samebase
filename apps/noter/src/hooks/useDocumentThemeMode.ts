@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-type DocumentThemeMode = "dark" | "light";
+export type DocumentThemeMode = "dark" | "light";
 
 function readDocumentThemeMode(): DocumentThemeMode {
   if (typeof document === "undefined") {

@@ -47,6 +47,7 @@ export function SignInForm({
           <PublicLandingLogo
             autoRotate={landingDevModeEnabled}
             enableViewSnapping={!landingDevModeEnabled}
+            themeColorSearch={rootRouteSearch}
           />
           {showGoogleSignupClosedState ? (
             <GoogleSignupClosedNotice />

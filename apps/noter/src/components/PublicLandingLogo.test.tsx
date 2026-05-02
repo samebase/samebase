@@ -63,6 +63,36 @@ function getLogoLink(rootElement: HTMLElement) {
   return link;
 }
 
+function getLogoImage(rootElement: HTMLElement) {
+  const logoImage = rootElement.querySelector(
+    `[data-testid="${PUBLIC_LANDING_LOGO_TEST_ID}"]`,
+  );
+  if (!(logoImage instanceof HTMLImageElement)) {
+    throw new Error("Expected logo image");
+  }
+
+  return logoImage;
+}
+
+function installLogoThemeStyle() {
+  const styleElement = document.createElement("style");
+  styleElement.setAttribute("data-public-logo-theme-test-style", "true");
+  styleElement.textContent = `
+:root {
+  --background: 0 0% 100%;
+  --primary: 0 0% 10%;
+  --secondary: 120 100% 40%;
+}
+
+.dark {
+  --background: 0 0% 0%;
+  --primary: 0 0% 90%;
+  --secondary: 240 100% 60%;
+}
+`;
+  document.head.append(styleElement);
+}
+
 describe("PublicLandingLogo", () => {
   let root: Root | null = null;
 
@@ -79,6 +109,12 @@ describe("PublicLandingLogo", () => {
       root = null;
     }
     document.body.replaceChildren();
+    document.documentElement.className = "";
+    document
+      .querySelectorAll("[data-public-logo-theme-test-style]")
+      .forEach((element) => {
+        element.remove();
+      });
     window.localStorage.clear();
     vi.unstubAllGlobals();
   });
@@ -146,18 +182,72 @@ describe("PublicLandingLogo", () => {
       );
     });
 
-    const logoImage = rootElement.querySelector(
-      `[data-testid="${PUBLIC_LANDING_LOGO_TEST_ID}"]`,
-    );
-    if (!(logoImage instanceof HTMLImageElement)) {
-      throw new Error("Expected logo image");
-    }
+    const logoImage = getLogoImage(rootElement);
 
     expect(logoImage.getAttribute("src")).toBe(
-      createStaticLogoSvgDataUrl({ view: persistedView }),
+      `${createStaticLogoSvgDataUrl({
+        view: persistedView,
+      })}#light:ffffff:394447:ecfccb`,
     );
     expect(logoImage.getAttribute("src")).not.toBe(
-      createStaticLogoSvgDataUrl(),
+      `${createStaticLogoSvgDataUrl()}#light:ffffff:394447:ecfccb`,
     );
+  });
+
+  it("refreshes the static fallback when the document theme changes", async () => {
+    installLogoThemeStyle();
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(<PublicLandingLogo loadInteractiveScene={false} />);
+    });
+
+    const logoImage = getLogoImage(rootElement);
+    const lightSource = logoImage.getAttribute("src");
+
+    expect(decodeURIComponent(lightSource ?? "")).toContain("#1a1a1a");
+
+    await act(async () => {
+      document.documentElement.classList.add("dark");
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, 0);
+      });
+    });
+
+    const darkSource = logoImage.getAttribute("src");
+
+    expect(darkSource).not.toBe(lightSource);
+    expect(decodeURIComponent(darkSource ?? "")).toContain("#e6e6e6");
+  });
+
+  it("renders static fallback colors from explicit app theme overrides", async () => {
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(
+        <PublicLandingLogo
+          loadInteractiveScene={false}
+          themeColorSearch={{
+            base: "#112233",
+            primary: "#445566",
+            secondary: "#778899",
+          }}
+        />,
+      );
+    });
+
+    const logoImage = getLogoImage(rootElement);
+    const source = decodeURIComponent(logoImage.getAttribute("src") ?? "");
+
+    expect(source).toContain("#112233");
+    expect(source).toContain("#445566");
+    expect(source).toContain("#778899");
   });
 });

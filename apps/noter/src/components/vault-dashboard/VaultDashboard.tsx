@@ -99,6 +99,7 @@ import {
   buildVaultFileRoute,
 } from "@/lib/vaultRoutes";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
+import { type AppThemeColorSearch } from "@/lib/appThemeColorSearch";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import {
   buildPullRequestLabelStyle,
@@ -1274,6 +1275,7 @@ type VaultDashboardBodyProps = {
   developerToolsVisible: boolean;
   isRemovingVault: boolean;
   now: number;
+  themeColorSearch: AppThemeColorSearch;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   pendingVaultBranchFiltersByVaultId: Partial<
     Record<string, VaultBranchFiltersState>
@@ -1297,6 +1299,7 @@ function VaultDashboardBody({
   developerToolsVisible,
   isRemovingVault,
   now,
+  themeColorSearch,
   openDeveloperToolsByVaultId,
   pendingVaultBranchFiltersByVaultId,
   persistedVaultBranchFiltersByVaultId,
@@ -1340,7 +1343,7 @@ function VaultDashboardBody({
   }, [deleteRepositoryFullName, vaults]);
 
   if (vaults.length === 0) {
-    return <VaultDashboardEmptyState />;
+    return <VaultDashboardEmptyState themeColorSearch={themeColorSearch} />;
   }
 
   return (
@@ -2889,6 +2892,7 @@ export function VaultDashboard() {
       developerToolsVisible={developerToolsVisible}
       isRemovingVault={isDeleting || isCommitting}
       now={now}
+      themeColorSearch={rootRouteSearch}
       openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
       pendingVaultBranchFiltersByVaultId={pendingVaultBranchFiltersByVaultId}
       persistedVaultBranchFiltersByVaultId={
