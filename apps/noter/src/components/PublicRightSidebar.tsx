@@ -3,6 +3,7 @@ import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControl
 import { RouteUrlDisplay } from "@/components/RouteUrlDisplay";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
+import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useLocation } from "@tanstack/react-router";
 
 export const PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID =
@@ -30,9 +31,8 @@ function renderPublicRouteUrlHeader(visible: boolean) {
  */
 export function usePublicRightSidebarPane(): WorkspaceLayoutV2PaneFrameProps {
   const location = useLocation();
-  const landingDevEnabled = isLandingDevModeEnabled(
-    new URLSearchParams(location.searchStr),
-  );
+  const rootRouteSearch = useRootRouteSearch();
+  const landingDevEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const isPublicLandingRoute = location.pathname === "/";
 
   return {

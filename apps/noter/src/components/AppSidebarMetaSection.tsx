@@ -78,16 +78,14 @@ export function AppSidebarMetaSection({
   const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
 
-  const landingDevEnabled = isLandingDevModeEnabled(
-    new URLSearchParams(location.searchStr),
-  );
+  const landingDevEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const landingDevLabel = landingDevEnabled
     ? LANDING_DEV_MODE_DISABLE_LINK_LABEL
     : LANDING_DEV_MODE_LINK_LABEL;
   const prodUiEnabled = isProdUiModeActive({
     deploymentProfile: undefined,
     productionPublicOrigin: isBrowserProductionPublicOrigin(),
-    search: new URLSearchParams(location.searchStr),
+    search: rootRouteSearch,
   });
   const themeMode = readRootThemeMode(rootRouteSearch);
   const lightModeLabel =

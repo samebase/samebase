@@ -16,6 +16,7 @@ import {
 } from "@/lib/rootRouteSearch";
 import {
   ROOT_THEME_MODE_SEARCH_KEYS,
+  buildRootThemeModeSearch,
   readRootThemeMode,
   syncDocumentRootThemeMode,
 } from "@/lib/rootThemeModeSearch";
@@ -108,28 +109,8 @@ function useDeferredPostHogInit() {
   }, []);
 }
 
-function hasConflictingRootThemeModeSearch(search: string): boolean {
-  const searchParams = new URLSearchParams(search);
-  const hasLightTheme =
-    searchParams.get("light") === "" || searchParams.get("light") === "true";
-  const hasDarkTheme =
-    searchParams.get("dark") === "" || searchParams.get("dark") === "true";
-  return hasLightTheme && hasDarkTheme;
-}
-
-function readClearedRootThemeModeSearch(
-  search: string,
-): Record<string, string | true> {
-  const searchParams = new URLSearchParams(search);
-  searchParams.delete("dark");
-  searchParams.delete("light");
-
-  const nextSearch: Record<string, string | true> = {};
-  for (const [key, value] of searchParams.entries()) {
-    nextSearch[key] = value.length === 0 ? true : value;
-  }
-
-  return nextSearch;
+function hasConflictingRootThemeModeSearch(search: RootRouteSearch): boolean {
+  return search.light === true && search.dark === true;
 }
 
 function AppRouterRoot() {
@@ -162,11 +143,14 @@ export const Route = createRootRoute({
       });
     }
 
-    if (hasConflictingRootThemeModeSearch(location.searchStr)) {
+    if (hasConflictingRootThemeModeSearch(search)) {
       throw redirect({
         href: buildPathWithTanStackSearch({
           pathname: location.pathname,
-          search: readClearedRootThemeModeSearch(location.searchStr),
+          search: {
+            ...search,
+            ...buildRootThemeModeSearch("system"),
+          },
           hash: location.hash,
         }),
         replace: true,

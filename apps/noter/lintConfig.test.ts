@@ -234,6 +234,9 @@ describe("lint config", () => {
     const appWideOverride = oxlintConfig.overrides?.find((override) =>
       override.files?.includes("apps/noter/**/*.{ts,tsx}"),
     );
+    const routeSearchOverride = oxlintConfig.overrides?.find((override) =>
+      override.files?.includes("apps/noter/src/routes/**/*.{ts,tsx}"),
+    );
 
     expect(oxlintConfig.options).toMatchObject({ typeAware: true });
     expect(oxlintConfig.ignorePatterns).toContain("**/.codespace-agent/**");
@@ -270,6 +273,15 @@ describe("lint config", () => {
       "@typescript-eslint/no-unnecessary-condition": "error",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/restrict-template-expressions": "error",
+    });
+    expect(routeSearchOverride?.rules).toMatchObject({
+      "no-restricted-globals": [
+        "error",
+        {
+          name: "URLSearchParams",
+          message: expect.stringContaining("TanStack Router"),
+        },
+      ],
     });
   });
 

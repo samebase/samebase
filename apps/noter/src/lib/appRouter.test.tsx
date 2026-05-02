@@ -309,6 +309,20 @@ describe("appRouter", () => {
     expect(router.state.location.hash).toBe("top");
   });
 
+  it("removes conflicting visible theme mode flags through typed root search", async () => {
+    const router = await renderRoute(
+      "/terms?devtools&light&dark&primary=red-600#top",
+    );
+    const searchParams = new URLSearchParams(router.state.location.searchStr);
+
+    expect(router.state.location.pathname).toBe("/terms");
+    expect(searchParams.has("light")).toBe(false);
+    expect(searchParams.has("dark")).toBe(false);
+    expect(searchParams.has("devtools")).toBe(true);
+    expect(searchParams.get("primary")).toBe("red-600");
+    expect(router.state.location.hash).toBe("top");
+  });
+
   it("redirects /home to the routed root index page", async () => {
     const router = await renderRoute("/home?devtools=true");
 

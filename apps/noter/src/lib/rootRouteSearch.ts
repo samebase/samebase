@@ -1,9 +1,6 @@
 import { getRouteApi } from "@tanstack/react-router";
 import { appThemeColorSearchFieldSchema } from "@/lib/appThemeColorSearch";
-import {
-  readRootThemeModeSearch,
-  rootThemeModeSearchFieldSchema,
-} from "@/lib/rootThemeModeSearch";
+import { rootThemeModeSearchFieldSchema } from "@/lib/rootThemeModeSearch";
 import {
   SEARCH_RESET_QUERY_PARAM,
   isSearchResetValue,
@@ -74,11 +71,7 @@ const rootRouteSearchSchema = z
     ),
   })
   .merge(appThemeColorSearchFieldSchema)
-  .merge(rootThemeModeSearchFieldSchema)
-  .transform(({ dark, light, ...search }) => ({
-    ...search,
-    ...readRootThemeModeSearch({ dark, light }),
-  }));
+  .merge(rootThemeModeSearchFieldSchema);
 
 export type RootRouteSearch = z.infer<typeof rootRouteSearchSchema>;
 

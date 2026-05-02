@@ -122,6 +122,23 @@ export default defineConfig({
       },
       {
         files: [
+          "apps/noter/src/routes/**/*.{ts,tsx}",
+          "apps/noter/src/components/AppSidebarMetaSection.tsx",
+          "apps/noter/src/components/PublicRightSidebar.tsx",
+        ],
+        rules: {
+          "no-restricted-globals": [
+            "error",
+            {
+              name: "URLSearchParams",
+              message:
+                "Use TanStack Router's validated search object or route-owned search helpers for app route search.",
+            },
+          ],
+        },
+      },
+      {
+        files: [
           "apps/noter/convex/**/*.ts",
           "apps/noter-starter-template/convex/**/*.ts",
         ],

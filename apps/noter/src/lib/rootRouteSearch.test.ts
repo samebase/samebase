@@ -83,9 +83,11 @@ describe("rootRouteSearch", () => {
     expect(validateRootRouteSearch({ reset: 0 })).toEqual({});
   });
 
-  it("normalizes conflicting light and dark flags back to system", () => {
+  it("preserves conflicting light and dark flags for root route canonicalization", () => {
     expect(readRootRouteSearch("?dev&light&dark")).toEqual({
+      dark: true,
       dev: true,
+      light: true,
     });
   });
 });
