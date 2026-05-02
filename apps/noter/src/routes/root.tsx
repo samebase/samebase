@@ -47,7 +47,7 @@ function retainDefinedRootSearchParams({
   next,
   search,
 }: RootSearchMiddlewareArgs): RootRouteSearch {
-  let nextSearch: RootRouteSearch = next(search);
+  let nextSearch = next(search);
 
   for (const key of RETAINED_ROOT_SEARCH_KEYS) {
     if (key in nextSearch || typeof search[key] === "undefined") {

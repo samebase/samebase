@@ -100,6 +100,9 @@ Key domain entities:
   adding or keeping one, check whether the behavior belongs in a route lifecycle
   such as `beforeLoad`, a data/cache API, an event handler, derived render
   state, or CSS. Collapse duplicate effects that share the same trigger/concern.
+- Prefer inference from already-typed initializers and callbacks. Do not restate
+  local variable types when the expression is already strongly typed unless the
+  annotation changes the contract or prevents a real widening problem.
 - Do not add speculative helpers, flags, env vars, allowlist entries,
   compatibility paths, or config surface that the current patch does not use end
   to end.
