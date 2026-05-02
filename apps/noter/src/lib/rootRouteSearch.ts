@@ -1,10 +1,8 @@
 import { getRouteApi } from "@tanstack/react-router";
 import { appThemeColorSearchFieldSchema } from "@/lib/appThemeColorSearch";
 import { rootThemeModeSearchFieldSchema } from "@/lib/rootThemeModeSearch";
-import {
-  SEARCH_RESET_QUERY_PARAM,
-  isSearchResetValue,
-} from "@/lib/searchReset";
+import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
+import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { z } from "zod";
 
 // TanStack Router's root route id is the stable "__root__" literal, and using
@@ -21,10 +19,6 @@ function readOptionalFlag(value: unknown): true | undefined {
   }
 
   return value.length === 0 || value === "true" ? true : undefined;
-}
-
-function readOptionalSearchResetFlag(value: unknown): true | undefined {
-  return isSearchResetValue(value) ? true : undefined;
 }
 
 function readOptionalGoogleAuthProvider(value: unknown): "google" | undefined {
@@ -62,7 +56,7 @@ const rootRouteSearchSchema = z
     delete: z.preprocess(readOptionalDeleteRepository, z.string().optional()),
     "prod-ui": z.preprocess(readOptionalFlag, z.literal(true).optional()),
     [SEARCH_RESET_QUERY_PARAM]: z.preprocess(
-      readOptionalSearchResetFlag,
+      (value) => (value === true || value === "" ? true : undefined),
       z.literal(true).optional(),
     ),
     signup: z.preprocess(
@@ -94,16 +88,15 @@ export function validateRootRouteSearch(
 
 /**
  * `readRootRouteSearch` accepts browser-style string/URLSearchParams input and
- * normalizes it through `URLSearchParams` before schema validation.
+ * normalizes it through the app's TanStack search parser before schema
+ * validation.
  */
 export function readRootRouteSearch(
   search: string | URLSearchParams | undefined,
 ): RootRouteSearch {
   return parseRootRouteSearch(
-    Object.fromEntries(
-      new URLSearchParams(
-        typeof search === "string" ? search : (search?.toString() ?? ""),
-      ).entries(),
+    parseTanStackSearch(
+      typeof search === "string" ? search : (search?.toString() ?? ""),
     ),
   );
 }

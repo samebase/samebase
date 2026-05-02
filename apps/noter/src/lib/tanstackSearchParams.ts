@@ -1,7 +1,4 @@
-import {
-  SEARCH_RESET_QUERY_PARAM,
-  isSearchResetValue,
-} from "@/lib/searchReset";
+import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 
 type PlainSearchRecord = Record<string, unknown>;
 type PathSearchInput = {
@@ -40,12 +37,6 @@ function serializePlainSearchParams(searchParams: URLSearchParams): string {
   }
 
   return parts.join("&");
-}
-
-function hasPlainSearchResetValue(value: unknown): boolean {
-  return Array.isArray(value)
-    ? value.some((item) => isSearchResetValue(item))
-    : isSearchResetValue(value);
 }
 
 // TODO(tanstack-router-cleanup): delete this serializer helper once the app can
@@ -106,7 +97,8 @@ export function parseTanStackSearch(search: string): Record<string, string> {
 // TODO(tanstack-router-cleanup): remove this stringifier once the router and
 // generic script-facing helpers can adopt TanStack's default search semantics.
 export function stringifyTanStackSearch(search: PlainSearchRecord): string {
-  if (hasPlainSearchResetValue(search[SEARCH_RESET_QUERY_PARAM])) {
+  const resetValue = search[SEARCH_RESET_QUERY_PARAM];
+  if (resetValue === true || resetValue === "") {
     return `?${encodeURIComponent(SEARCH_RESET_QUERY_PARAM)}`;
   }
 

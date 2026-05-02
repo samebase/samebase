@@ -52,6 +52,8 @@ describe("tanstackSearchParams", () => {
       }),
     ).toBe("?reset");
 
+    expect(stringifyTanStackSearch({ reset: "" })).toBe("?reset");
+
     expect(
       stringifyTanStackSearch({
         primary: "red-600",

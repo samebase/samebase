@@ -65,9 +65,9 @@ describe("rootRouteSearch", () => {
   });
 
   it("ignores all other parsed root params while reset is present", () => {
-    expect(readRootRouteSearch("?reset&primary=red-600&devtools")).toEqual({
-      reset: true,
-    });
+    expect(readRootRouteSearch("?reset=true&primary=red-600&devtools")).toEqual(
+      { reset: true },
+    );
   });
 
   it("does not activate reset from invalid typed values", () => {
@@ -80,6 +80,7 @@ describe("rootRouteSearch", () => {
       primary: "red-600",
     });
 
+    expect(validateRootRouteSearch({ reset: "true" })).toEqual({});
     expect(validateRootRouteSearch({ reset: 0 })).toEqual({});
   });
 
