@@ -14,7 +14,6 @@ const INPUT_FILES: readonly string[] = [
   "package.json",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
-  "eslint-rules/package.json",
   "apps/noter/package.json",
 ];
 

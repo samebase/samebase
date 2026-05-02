@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  buildPathWithTanStackSearch,
   parseTanStackSearch,
   stringifyTanStackSearch,
 } from "@/lib/tanstackSearchParams";
@@ -23,5 +24,18 @@ describe("tanstackSearchParams", () => {
         threadId: "thread_123",
       }),
     ).toBe("?freeView&rot=10&threadId=thread_123");
+  });
+
+  it("builds paths with normalized app search and hash strings", () => {
+    expect(
+      buildPathWithTanStackSearch({
+        pathname: "/logo",
+        search: {
+          dev: true,
+          rot: "10",
+        },
+        hash: "top",
+      }),
+    ).toBe("/logo?dev&rot=10#top");
   });
 });

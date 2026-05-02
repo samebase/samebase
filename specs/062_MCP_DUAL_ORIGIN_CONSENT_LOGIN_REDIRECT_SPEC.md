@@ -189,15 +189,15 @@ Implemented validation, 2026-03-19:
    in place, and passes the same relative route as `redirectTo`.
 5. After the runtime fix, both tests pass and assert the exact consent route is
    preserved.
-6. Re-ran `apps/noter/src/lib/queryParams.test.ts` alongside the new tests
-   because the fix depends on the shared query-param helpers.
+6. The redirect URL code later moved to TanStack Router search builders; keep
+   auth redirect validation paired with router search serialization tests.
 
 ## Implementation Notes
 
 1. Prefer a minimal helper for “current relative auth return path” only if it is
    used directly by runtime code in this patch.
-2. Reuse existing query/path helpers in `apps/noter/src/lib/queryParams.ts`
-   rather than hand-building query strings.
+2. Use TanStack Router search builders and `router.buildLocation()` for
+   app-route redirect URLs rather than hand-building query strings.
 3. Do not introduce absolute cross-origin redirect targets into the frontend.
 
 ## Acceptance Criteria
@@ -228,5 +228,4 @@ Implemented validation, 2026-03-19:
     avoided
   - popup launch and popup-close behavior are unchanged in this patch
 - Validation in this patch:
-  - `pnpm exec vitest --run apps/noter/src/SignInForm.test.tsx apps/noter/src/authClient.test.ts apps/noter/src/lib/queryParams.test.ts`
-  - `pnpm exec eslint apps/noter/src/SignInForm.tsx apps/noter/src/SignInWithGoogle.tsx apps/noter/src/authClient.ts apps/noter/src/authClient.test.ts apps/noter/src/SignInForm.test.tsx --config .eslintrc.cjs --rulesdir eslint-rules`
+  - `pnpm exec vp test run apps/noter/src/SignInForm.test.tsx apps/noter/src/authClient.test.ts apps/noter/src/lib/useAppAuthRuntimeEffects.test.ts apps/noter/src/lib/tanstackSearchParams.test.ts`

@@ -1,8 +1,7 @@
 import {
-  buildPathWithUpdatedQuery,
-  hasQueryParam,
-  setQueryParam,
-} from "./queryParams";
+  buildPathWithTanStackSearch,
+  parseTanStackSearch,
+} from "./tanstackSearchParams";
 import { type DeploymentProfile } from "../../convex/deploymentProfile";
 
 export const FORCE_PROD_UI_QUERY_PARAM = "prod-ui";
@@ -58,10 +57,11 @@ export function shouldStripVisibleProdUiQuery(args: {
   productionPublicOrigin: boolean;
   search: string | URLSearchParams | undefined;
 }): boolean {
+  const searchParams = new URLSearchParams(args.search);
   return (
     (args.productionPublicOrigin ||
       isProductionDeploymentProfile(args.deploymentProfile)) &&
-    hasQueryParam(args.search, FORCE_PROD_UI_QUERY_PARAM)
+    searchParams.has(FORCE_PROD_UI_QUERY_PARAM)
   );
 }
 
@@ -74,7 +74,16 @@ export function buildPathWithoutProdUiQuery(args: {
   search: string | URLSearchParams | undefined;
   hash?: string;
 }): string {
-  return buildPathWithUpdatedQuery(args, (searchParams) => {
-    setQueryParam(searchParams, FORCE_PROD_UI_QUERY_PARAM, false);
+  const search =
+    args.search instanceof URLSearchParams
+      ? Object.fromEntries(args.search.entries())
+      : parseTanStackSearch(args.search ?? "");
+  return buildPathWithTanStackSearch({
+    pathname: args.pathname,
+    search: {
+      ...search,
+      [FORCE_PROD_UI_QUERY_PARAM]: undefined,
+    },
+    hash: args.hash,
   });
 }

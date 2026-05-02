@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter linting/tooling
-- Last updated: 2026-04-29
+- Last updated: 2026-05-01
 - Depends on:
   - `vite.config.ts`
   - `package.json`
@@ -14,8 +14,6 @@
   - `apps/noter/convex/jsonUtils.ts`
   - `apps/noter/convex/jsonUtils.test.ts`
   - `apps/noter/lintConfig.test.ts`
-  - `eslint-rules/index.ts`
-  - `eslint-rules/use-query-param-helpers.ts`
 
 ## Summary
 
@@ -29,7 +27,9 @@ The accepted target is:
 
 - Oxlint becomes the primary lint runner for repo JavaScript and TypeScript
   surfaces.
-- The local `use-query-param-helpers` rule stays enforced.
+- The former local `use-query-param-helpers` plugin is retired; app route search
+  params should use TanStack Router search schemas and link/navigate APIs
+  instead of a generic query-param helper layer.
 - Convex-specific lint rules stay enforced.
 - Type-aware lint coverage that depends on TypeScript semantic analysis stays as
   close as possible to current behavior without preserving deprecated tsconfig
@@ -43,7 +43,8 @@ tooling incompatibility, or rollout decision appears.
 ## Goals
 
 1. Make Oxlint the primary lint entrypoint for Noter.
-2. Preserve the repo-local query-param helper rule.
+2. Retire the repo-local query-param helper rule once route-owned search params
+   move to TanStack Router search schemas.
 3. Preserve Convex-specific lint coverage.
 4. Keep TypeScript-aware lint coverage for the current high-signal rules inside
    the Oxlint config.
@@ -66,12 +67,9 @@ tooling incompatibility, or rollout decision appears.
 - The root `vite.config.ts` `lint` block is the repo's active lint contract.
 - The config enables Oxlint type-aware mode and carries the repo's explicit
   semantic rule choices directly.
-- The repo adds one local plugin, `eslint-plugin-noter-local`, whose
-  `use-query-param-helpers` rule prevents direct mutation of URL query params
-  and hardcoded root query strings outside the helper layer in
-  `apps/noter/src/lib/queryParams.ts`.
-- The repo also loads `@convex-dev/eslint-plugin` and
-  `eslint-plugin-react-refresh` through Oxlint's JS-plugin bridge.
+- The former `eslint-plugin-noter-local` workspace plugin has been removed.
+- The repo loads `@convex-dev/eslint-plugin` and `eslint-plugin-react-refresh`
+  through Oxlint's JS-plugin bridge.
 - Convex-specific rules such as `@convex-dev/no-old-registered-function-syntax`
   and `@convex-dev/no-args-without-validator` inside `**/convex/**/*.ts`.
 - The app/frontend lint entrypoints in `apps/noter/package.json` now run Oxlint
@@ -94,21 +92,22 @@ The repo should keep one root Oxlint config inside `vite.config.ts` and move
 primary lint scripts onto Oxlint where that can be done without dropping
 accepted protections.
 
-### 2. The custom query-param rule must survive
+### 2. The custom query-param rule is retired
 
-The rule in `eslint-rules/use-query-param-helpers.ts` is accepted behavior, not
-optional cleanup.
+The old rule in `eslint-rules/use-query-param-helpers.ts` was temporary
+scaffolding around `apps/noter/src/lib/queryParams.ts`.
 
-Its current contract is:
+Current app-route URL behavior should be expressed through:
 
-- reject direct mutation calls on likely query-param objects: `append`,
-  `delete`, `set`
-- reject hardcoded root query strings such as `/?...` and `?...`
-- allow tagged CSS template literals to avoid false positives in styles
-- apply to `apps/noter/src/**/*.{ts,tsx}` except the helper module, one dev-mode
-  utility, and tests
+- route-local `validateSearch` schemas
+- `Link`, route `useNavigate`, or `router.buildLocation`
+- small route-specific search builders when code needs typed search objects
+  outside component render
+- native `URL`/`URLSearchParams` for external URLs or internal API request paths
+  that are not app routes
 
-The migration must keep an equivalent rule enabled.
+Do not add a replacement generic query-param lint rule unless a new accepted
+spec defines a concrete invariant that TanStack Router cannot express.
 
 ### 3. Type-aware coverage stays explicit
 
@@ -147,6 +146,15 @@ When a rule cannot move cleanly, this document must record:
 - the accepted temporary behavior
 
 ## Working Log
+
+### 2026-05-01
+
+- Problem: the local query-param rule now points contributors toward a helper
+  layer that predates the app's TanStack Router search schemas. Tried: converted
+  current app-route search callsites to typed route search objects and left
+  non-route URLs on native `URL`/`URLSearchParams`. Result: the `eslint-rules`
+  workspace package and `apps/noter/src/lib/queryParams.ts` helper are retired
+  instead of being preserved as a second URL abstraction.
 
 ### 2026-04-10
 

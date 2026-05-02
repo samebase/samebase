@@ -31,11 +31,6 @@ import {
   type CodexAppServerResearchEvent,
 } from "@/lib/codexAppServerResearch";
 import { buildCodexResearchRouteSearch } from "@/lib/codexResearchRouteSearch";
-import {
-  buildPathWithQuery,
-  setQueryParam,
-  updateQueryParams,
-} from "@/lib/queryParams";
 import { useConnectedMachineHeartbeatLog } from "@/lib/connectedMachineHeartbeatLog";
 import { useNow } from "@/hooks/useNow";
 import { getRouteApi, linkOptions, useRouter } from "@tanstack/react-router";
@@ -147,14 +142,15 @@ function readProtocolRequestPath(args: {
   mode: ProtocolMode;
   experimental: boolean;
 }): string {
-  const searchParams = updateQueryParams(undefined, (nextSearchParams) => {
-    setQueryParam(nextSearchParams, "experimental", args.experimental);
-  });
-  return buildPathWithQuery({
-    pathname:
-      args.mode === "json-schema" ? "/protocol/json-schema" : "/protocol/ts",
-    search: searchParams,
-  });
+  const pathname =
+    args.mode === "json-schema" ? "/protocol/json-schema" : "/protocol/ts";
+  if (!args.experimental) {
+    return pathname;
+  }
+
+  const searchParams = new URLSearchParams();
+  searchParams.set("experimental", "true");
+  return `${pathname}?${searchParams.toString()}`;
 }
 
 function buildCodexThreadBrowserLinkOptions(selectedThreadId: string | null) {
@@ -593,16 +589,14 @@ export function CodexAppServerResearchPage() {
   };
 
   function buildThreadsPath(query: ThreadListQueryState): string {
-    const searchParams = updateQueryParams(undefined, (nextSearchParams) => {
-      setQueryParam(nextSearchParams, "limit", `${THREAD_LIST_LIMIT}`);
-      setQueryParam(nextSearchParams, "sortKey", query.sortKey);
-      setQueryParam(nextSearchParams, "searchTerm", query.searchTerm.trim());
-    });
-
-    return buildPathWithQuery({
-      pathname: "/threads",
-      search: searchParams,
-    });
+    const searchParams = new URLSearchParams();
+    const trimmedSearchTerm = query.searchTerm.trim();
+    searchParams.set("limit", `${THREAD_LIST_LIMIT}`);
+    searchParams.set("sortKey", query.sortKey);
+    if (trimmedSearchTerm.length > 0) {
+      searchParams.set("searchTerm", trimmedSearchTerm);
+    }
+    return `/threads?${searchParams.toString()}`;
   }
 
   const refreshThreads = async (

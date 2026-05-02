@@ -1,7 +1,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
-import { buildCurrentGoogleRedirectTo } from "@/lib/googleAuthRedirect";
+import { buildGoogleRedirectSearch } from "@/lib/googleAuthRedirect";
 import { type RootRouteSearch } from "@/lib/rootRouteSearch";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
@@ -153,8 +153,8 @@ export function isInIframe() {
 export function openAuthPopup(
   provider: "google",
   options: {
-    markPublicSignupReturn?: boolean;
-  } = {},
+    popupPath: string;
+  },
 ) {
   // Don't call signIn directly — the library would try window.location.href
   // which breaks in iframes. Instead open a popup that will auto-trigger sign-in.
@@ -195,24 +195,8 @@ export function openAuthPopup(
   };
   window.addEventListener("message", handler);
 
-  const popupPath = buildPathWithUpdatedQuery(
-    {
-      pathname: "/",
-      search: window.location.search,
-    },
-    (searchParams) => {
-      setQueryParam(searchParams, "auth", provider);
-      // Keep iframe-based Google auth aligned with the top-level button so
-      // failed public signup returns land on the same waitlist state.
-      setQueryParam(
-        searchParams,
-        "signup",
-        options.markPublicSignupReturn ? "google" : false,
-      );
-    },
-  );
   popup = window.open(
-    `${window.location.origin}${popupPath}`,
+    `${window.location.origin}${options.popupPath}`,
     `${provider}-oauth`,
     "width=600,height=700,popup=true",
   );
@@ -237,22 +221,24 @@ export function openAuthPopup(
  * since it's a top-level window). After auth completes, the popup
  * auto-closes and the token syncs to the parent via localStorage.
  */
-export function useAutoSignIn(auth: RootRouteSearch["auth"]) {
+export function useAutoSignIn(rootRouteSearch: RootRouteSearch) {
   const { signIn } = useAuthActions();
+  const router = useRouter();
   useEffect(() => {
-    if (auth === "google") {
-      const markPublicSignupReturn =
-        new URLSearchParams(window.location.search).get("signup") === "google";
-      const redirectTo = buildCurrentGoogleRedirectTo(
-        window.location.pathname,
-        window.location.search,
-        window.location.hash,
-        { markPublicSignupReturn },
-      );
+    if (rootRouteSearch.auth === "google") {
+      const redirectTo = router.buildLocation({
+        hash: true,
+        search: (currentSearch) =>
+          buildGoogleRedirectSearch(currentSearch, {
+            markPublicSignupReturn: rootRouteSearch.signup === "google",
+          }),
+        state: true,
+        to: ".",
+      }).href;
       // Preserve TanStack Router history metadata while stripping auth params
       // from the popup/bootstrap URL before the provider redirect begins.
       window.history.replaceState(window.history.state, "", redirectTo);
       void signInWithGoogleAction({ signIn, redirectTo });
     }
-  }, [auth, signIn]);
+  }, [rootRouteSearch.auth, rootRouteSearch.signup, router, signIn]);
 }

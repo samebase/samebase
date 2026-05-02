@@ -317,9 +317,12 @@ migration with concrete problems, attempted fixes, and outcomes.
   `tanstackSearchParams.ts` inside `noterSync.ts`, which is imported by
   `pageMetadata.ts` and therefore by `vite.config.ts`. Tried: centralizing the
   URL stringification there. Result: Vite config load failed under raw Node
-  because `tanstackSearchParams.ts` still depends on app alias imports, so the
-  fix was to keep config-path modules on alias-free `queryParams.ts` helpers and
-  reserve the TanStack serializer for routed runtime code.
+  because `tanstackSearchParams.ts` depended on app alias imports at the time,
+  so the short-term fix was to keep config-path modules on alias-free
+  `queryParams.ts` helpers and reserve the TanStack serializer for routed
+  runtime code. Superseded 2026-05-01: the generic `queryParams.ts` helper was
+  deleted after `tanstackSearchParams.ts` became self-contained and route-owned
+  callers moved to TanStack search objects.
 
 - Follow-up reviews worth considering after merge, but intentionally not folded
   into this PR's core scope: replace the dev-only research surface `href`

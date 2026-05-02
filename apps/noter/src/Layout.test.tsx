@@ -18,7 +18,7 @@ import {
   ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL,
   ROOT_THEME_LIGHT_MODE_LINK_LABEL,
 } from "@/lib/rootThemeModeSearch";
-import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
+import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
 import { Layout, PublicLayoutShell } from "./Layout";
 
@@ -178,12 +178,12 @@ describe("Layout", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-    const landingDevPath = buildPathWithUpdatedQuery(
-      { pathname: "/" },
-      (searchParams) => {
-        setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, true);
+    const landingDevPath = buildPathWithTanStackSearch({
+      pathname: "/",
+      search: {
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
       },
-    );
+    });
 
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={[landingDevPath]}>
@@ -219,12 +219,12 @@ describe("Layout", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-    const landingDevPath = buildPathWithUpdatedQuery(
-      { pathname: "/" },
-      (searchParams) => {
-        setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, true);
+    const landingDevPath = buildPathWithTanStackSearch({
+      pathname: "/",
+      search: {
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
       },
-    );
+    });
 
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={[landingDevPath]}>
@@ -270,18 +270,19 @@ describe("Layout", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-    const landingProdUiPath = buildPathWithUpdatedQuery(
-      { pathname: "/" },
-      (searchParams) => {
-        setQueryParam(searchParams, FORCE_PROD_UI_QUERY_PARAM, true);
+    const landingProdUiPath = buildPathWithTanStackSearch({
+      pathname: "/",
+      search: {
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
       },
-    );
-    const logoDevPath = buildPathWithUpdatedQuery(
-      { pathname: "/logo", search: FORCE_PROD_UI_QUERY_PARAM },
-      (searchParams) => {
-        setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, true);
+    });
+    const logoDevPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
       },
-    );
+    });
 
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={[landingProdUiPath]}>
@@ -296,18 +297,21 @@ describe("Layout", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-    const logoPath = buildPathWithUpdatedQuery(
-      { pathname: "/logo", search: "prod-ui", hash: "top" },
-      (searchParams) => {
-        setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, false);
+    const logoPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
       },
-    );
-    const logoWithDevPath = buildPathWithUpdatedQuery(
-      { pathname: "/logo", search: "prod-ui", hash: "top" },
-      (searchParams) => {
-        setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, true);
+      hash: "top",
+    });
+    const logoWithDevPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
       },
-    );
+      hash: "top",
+    });
 
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={[logoPath]}>
@@ -324,18 +328,21 @@ describe("Layout", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-    const logoDevPath = buildPathWithUpdatedQuery(
-      { pathname: "/logo", search: "prod-ui&dev", hash: "top" },
-      (searchParams) => {
-        setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, true);
+    const logoDevPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
       },
-    );
-    const logoWithoutDevPath = buildPathWithUpdatedQuery(
-      { pathname: "/logo", search: "prod-ui&dev", hash: "top" },
-      (searchParams) => {
-        setQueryParam(searchParams, LANDING_DEV_MODE_QUERY_PARAM, false);
+      hash: "top",
+    });
+    const logoWithoutDevPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
       },
-    );
+      hash: "top",
+    });
 
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={[logoDevPath]}>
@@ -352,20 +359,23 @@ describe("Layout", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-    const logoPath = buildPathWithUpdatedQuery(
-      { pathname: "/logo", search: "prod-ui&dev", hash: "top" },
-      (searchParams) => {
-        setQueryParam(searchParams, "light", false);
-        setQueryParam(searchParams, "dark", false);
+    const logoPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
       },
-    );
-    const logoWithLightPath = buildPathWithUpdatedQuery(
-      { pathname: "/logo", search: "prod-ui&dev", hash: "top" },
-      (searchParams) => {
-        setQueryParam(searchParams, "light", true);
-        setQueryParam(searchParams, "dark", false);
+      hash: "top",
+    });
+    const logoWithLightPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
+        light: true,
       },
-    );
+      hash: "top",
+    });
 
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={[logoPath]}>
@@ -382,18 +392,23 @@ describe("Layout", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-    const logoLightPath = buildPathWithUpdatedQuery(
-      { pathname: "/logo", search: "prod-ui&dev", hash: "top" },
-      (searchParams) => {
-        setQueryParam(searchParams, "light", true);
+    const logoLightPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
+        light: true,
       },
-    );
-    const logoWithoutLightPath = buildPathWithUpdatedQuery(
-      { pathname: "/logo", search: "prod-ui&dev&light", hash: "top" },
-      (searchParams) => {
-        setQueryParam(searchParams, "light", false);
+      hash: "top",
+    });
+    const logoWithoutLightPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
       },
-    );
+      hash: "top",
+    });
 
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={[logoLightPath]}>
@@ -413,19 +428,24 @@ describe("Layout", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-    const logoLightPath = buildPathWithUpdatedQuery(
-      { pathname: "/logo", search: "prod-ui&dev", hash: "top" },
-      (searchParams) => {
-        setQueryParam(searchParams, "light", true);
+    const logoLightPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
+        light: true,
       },
-    );
-    const logoDarkPath = buildPathWithUpdatedQuery(
-      { pathname: "/logo", search: "prod-ui&dev&light", hash: "top" },
-      (searchParams) => {
-        setQueryParam(searchParams, "light", false);
-        setQueryParam(searchParams, "dark", true);
+      hash: "top",
+    });
+    const logoDarkPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
+        dark: true,
       },
-    );
+      hash: "top",
+    });
 
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={[logoLightPath]}>
@@ -441,18 +461,21 @@ describe("Layout", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-    const logoPath = buildPathWithUpdatedQuery(
-      { pathname: "/logo", search: "dev", hash: "top" },
-      (searchParams) => {
-        setQueryParam(searchParams, FORCE_PROD_UI_QUERY_PARAM, false);
+    const logoPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
       },
-    );
-    const logoWithProdUiPath = buildPathWithUpdatedQuery(
-      { pathname: "/logo", search: "dev", hash: "top" },
-      (searchParams) => {
-        setQueryParam(searchParams, FORCE_PROD_UI_QUERY_PARAM, true);
+      hash: "top",
+    });
+    const logoWithProdUiPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
       },
-    );
+      hash: "top",
+    });
 
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={[logoPath]}>
@@ -468,12 +491,14 @@ describe("Layout", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-    const logoProdUiPath = buildPathWithUpdatedQuery(
-      { pathname: "/logo", search: "prod-ui&dev", hash: "top" },
-      (searchParams) => {
-        setQueryParam(searchParams, FORCE_PROD_UI_QUERY_PARAM, true);
+    const logoProdUiPath = buildPathWithTanStackSearch({
+      pathname: "/logo",
+      search: {
+        [FORCE_PROD_UI_QUERY_PARAM]: true,
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
       },
-    );
+      hash: "top",
+    });
 
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={[logoProdUiPath]}>

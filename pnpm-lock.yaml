@@ -20,9 +20,6 @@ importers:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260413.1
         version: 7.0.0-dev.20260413.1
-      eslint-plugin-noter-local:
-        specifier: workspace:*
-        version: link:eslint-rules
       eslint-plugin-react-refresh:
         specifier: ^0.4.7
         version: 0.4.26(eslint@8.57.1)
@@ -340,12 +337,6 @@ importers:
       vite-plugin-solid:
         specifier: ^2.11.12
         version: 2.11.12(solid-js@1.9.12)(vite@8.0.8(@types/node@20.19.32)(esbuild@0.27.0)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))
-
-  eslint-rules:
-    dependencies:
-      eslint:
-        specifier: ^8.57.0
-        version: 8.57.1
 
   packages/onboarding-video-tools:
     dependencies:

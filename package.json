@@ -72,7 +72,6 @@
     "@playwright/test": "1.58.2",
     "@robolex/sure": "^0.12.0",
     "@typescript/native-preview": "7.0.0-dev.20260413.1",
-    "eslint-plugin-noter-local": "workspace:*",
     "eslint-plugin-react-refresh": "^0.4.7",
     "typescript": "5.9.2",
     "vite-plus": "0.1.16"

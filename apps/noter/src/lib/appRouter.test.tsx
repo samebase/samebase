@@ -176,11 +176,9 @@ vi.mock("@/components/CodexAppServerThreadBrowserResearchPage", () => ({
 
 import { createAppRouter } from "./appRouter";
 import {
-  buildPathWithUpdatedQuery,
-  buildSearchString,
-  setQueryParam,
-  updateQueryParams,
-} from "./queryParams";
+  buildPathWithTanStackSearch,
+  stringifyTanStackSearch,
+} from "./tanstackSearchParams";
 
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
@@ -331,13 +329,14 @@ describe("appRouter", () => {
 
   it("adds dev to direct logo loads without dropping route search or hash", async () => {
     const router = await renderRoute(
-      buildPathWithUpdatedQuery(
-        { pathname: "/logo", hash: "top" },
-        (searchParams) => {
-          setQueryParam(searchParams, "devtools", true);
-          setQueryParam(searchParams, "rot", "10");
+      buildPathWithTanStackSearch({
+        pathname: "/logo",
+        search: {
+          devtools: true,
+          rot: "10",
         },
-      ),
+        hash: "top",
+      }),
     );
     const searchParams = new URLSearchParams(router.state.location.searchStr);
 
@@ -350,10 +349,13 @@ describe("appRouter", () => {
 
   it("retains the root devtools flag across logo route search updates", async () => {
     const router = await renderRoute(
-      buildPathWithUpdatedQuery({ pathname: "/logo" }, (searchParams) => {
-        setQueryParam(searchParams, "devtools", true);
-        setQueryParam(searchParams, "primary", "red-600");
-        setQueryParam(searchParams, "rot", "10");
+      buildPathWithTanStackSearch({
+        pathname: "/logo",
+        search: {
+          devtools: true,
+          primary: "red-600",
+          rot: "10",
+        },
       }),
     );
 
@@ -376,8 +378,11 @@ describe("appRouter", () => {
 
   it("clears retained theme colors when search owns an undefined color key", async () => {
     const router = await renderRoute(
-      buildPathWithUpdatedQuery({ pathname: "/logo" }, (searchParams) => {
-        setQueryParam(searchParams, "primary", "red-600");
+      buildPathWithTanStackSearch({
+        pathname: "/logo",
+        search: {
+          primary: "red-600",
+        },
       }),
     );
 
@@ -398,9 +403,12 @@ describe("appRouter", () => {
 
   it("retains the root theme mode across logo route search updates", async () => {
     const router = await renderRoute(
-      buildPathWithUpdatedQuery({ pathname: "/logo" }, (searchParams) => {
-        setQueryParam(searchParams, "light", true);
-        setQueryParam(searchParams, "rot", "10");
+      buildPathWithTanStackSearch({
+        pathname: "/logo",
+        search: {
+          light: true,
+          rot: "10",
+        },
       }),
     );
 
@@ -423,8 +431,11 @@ describe("appRouter", () => {
 
   it("retains the root dev flag across public route navigation", async () => {
     const router = await renderRoute(
-      buildPathWithUpdatedQuery({ pathname: "/" }, (searchParams) => {
-        setQueryParam(searchParams, "dev", true);
+      buildPathWithTanStackSearch({
+        pathname: "/",
+        search: {
+          dev: true,
+        },
       }),
     );
 
@@ -438,11 +449,7 @@ describe("appRouter", () => {
 
     expect(router.state.location.pathname).toBe("/terms");
     expect(router.state.location.searchStr).toBe(
-      buildSearchString(
-        updateQueryParams(undefined, (searchParams) => {
-          setQueryParam(searchParams, "dev", true);
-        }),
-      ),
+      stringifyTanStackSearch({ dev: true }),
     );
   });
 

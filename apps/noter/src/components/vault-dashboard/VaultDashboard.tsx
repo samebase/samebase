@@ -99,7 +99,7 @@ import {
   buildVaultFileRoute,
 } from "@/lib/vaultRoutes";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
-import { hasQueryParam } from "@/lib/queryParams";
+import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import {
   buildPullRequestLabelStyle,
   normalizePullRequestLabels,
@@ -121,7 +121,6 @@ import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { CHAT_ENABLED } from "@/lib/featureFlags";
 import type { DaytonaSnapshotStatus } from "@/lib/daytonaSnapshot";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useUsesTouchSheet } from "@/hooks/useUsesTouchSheet";
 
 const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
@@ -1683,10 +1682,8 @@ export function VaultDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const rootRouteSearch = useRootRouteSearch();
-  const developerToolsVisible = hasQueryParam(
-    location.searchStr,
-    DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM,
-  );
+  const developerToolsVisible =
+    rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
   const vaults = useQuery(api.vault.getUserVaults);
   const now = useNow();
   const deleteVault = useAction(api.vaultActions.deleteVault);

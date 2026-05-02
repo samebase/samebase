@@ -22,7 +22,6 @@ import {
   type FileViewEditorOverride,
 } from "@/components/FileViewDeveloperTools";
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
-import { buildPathWithQuery } from "@/lib/queryParams";
 import { CommandPalette } from "@/components/CommandPalette";
 import { EditorChatPanel } from "@/components/EditorChatPanel";
 import {
@@ -81,6 +80,7 @@ import {
   resolveLegacyBranchlessFilePath,
 } from "@/lib/legacyBranchlessRoute";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
+import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
   buildStagingPreviewRefreshKey,
   getBranchComparePreviewReloadMode,
@@ -120,7 +120,6 @@ function FileViewWrapper() {
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
   const { href, pathname } = location;
-  const currentSearch = location.searchStr;
   const isCompareRequested = routeSearch.compare === true;
   const {
     owner,
@@ -176,11 +175,11 @@ function FileViewWrapper() {
   >({});
   const appendCurrentSearch = useCallback(
     (path: string) =>
-      buildPathWithQuery({
+      buildPathWithTanStackSearch({
         pathname: path,
-        search: currentSearch,
+        search: location.search,
       }),
-    [currentSearch],
+    [location.search],
   );
   const navigateByHref = useCallback(
     (href: string, options?: { replace?: boolean }) => {
@@ -696,13 +695,9 @@ function FileViewInner({
   const setEditorChatOpen = useMutation(
     api.dashboardSettings.setEditorChatOpen,
   );
-  const currentRawSearch = useMemo(
-    () => Object.fromEntries(new URLSearchParams(location.searchStr).entries()),
-    [location.searchStr],
-  );
   const buildNextFileViewSearch = useCallback(
     (overrides?: { compare?: boolean; diff?: boolean; review?: boolean }) => ({
-      ...currentRawSearch,
+      ...location.search,
       ...buildFileViewRouteSearch({
         compare: overrides?.compare ?? routeSearch.compare === true,
         diff: overrides?.diff ?? routeSearch.diff === true,
@@ -710,7 +705,7 @@ function FileViewInner({
       }),
       mobileLineNumbers: routeSearch.mobileLineNumbers,
     }),
-    [currentRawSearch, routeSearch],
+    [location.search, routeSearch],
   );
   const navigateByHref = useCallback(
     (href: string, options?: { replace?: boolean }) => {
@@ -1209,17 +1204,14 @@ function FileViewInner({
         }),
         mobileLineNumbers: routeSearch.mobileLineNumbers,
       };
-      return buildPathWithQuery({
+      return buildPathWithTanStackSearch({
         pathname,
-        search: mergeFileViewRouteSearch(
-          location.searchStr,
-          nextFileViewSearch,
-        ),
+        search: mergeFileViewRouteSearch(location.search, nextFileViewSearch),
       });
     },
     [
       branch,
-      location.searchStr,
+      location.search,
       owner,
       repoName,
       routeSearch.mobileLineNumbers,

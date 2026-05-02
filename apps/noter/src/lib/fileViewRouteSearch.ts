@@ -1,6 +1,5 @@
 import { getRouteApi } from "@tanstack/react-router";
 import { z } from "zod";
-import { setQueryParam, updateQueryParams } from "./queryParams";
 
 function readOptionalFlag(value: unknown): true | undefined {
   if (value === true) {
@@ -49,23 +48,20 @@ export function buildFileViewRouteSearch(args?: {
 }
 
 /**
- * Preserve unrelated query params while updating only the file-view-owned
- * search keys on the raw `/vault/$` route boundary.
+ * Preserve unrelated route search while updating only the file-view-owned keys
+ * on raw `/vault/$` hrefs that still need manually encoded path segments.
  */
 export function mergeFileViewRouteSearch(
-  search: string | URLSearchParams | undefined,
+  search: Record<string, unknown>,
   fileViewSearch: FileViewRouteSearch,
-): URLSearchParams {
-  return updateQueryParams(search, (nextSearchParams) => {
-    setQueryParam(nextSearchParams, "compare", fileViewSearch.compare);
-    setQueryParam(nextSearchParams, "diff", fileViewSearch.diff);
-    setQueryParam(
-      nextSearchParams,
-      "mobileLineNumbers",
-      fileViewSearch.mobileLineNumbers,
-    );
-    setQueryParam(nextSearchParams, "review", fileViewSearch.review);
-  });
+) {
+  return {
+    ...search,
+    compare: fileViewSearch.compare,
+    diff: fileViewSearch.diff,
+    mobileLineNumbers: fileViewSearch.mobileLineNumbers,
+    review: fileViewSearch.review,
+  };
 }
 
 const vaultFileRouteApi = getRouteApi("/vault/$");

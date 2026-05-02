@@ -1,10 +1,41 @@
-import {
-  buildSearchString,
-  cloneQueryParams,
-  setQueryParam,
-} from "./queryParams";
-
 type PlainSearchRecord = Record<string, unknown>;
+type PathSearchInput = {
+  pathname: string;
+  search?: PlainSearchRecord;
+  hash?: string;
+};
+
+function normalizeHashInput(hash?: string): string {
+  if (typeof hash === "undefined" || hash.length === 0) {
+    return "";
+  }
+
+  const rawHash = hash.replace(/^#+/, "");
+  return rawHash.length === 0 ? "" : `#${rawHash}`;
+}
+
+function setPlainSearchParam(
+  searchParams: URLSearchParams,
+  key: string,
+  value: string | true,
+) {
+  searchParams.set(key, value === true ? "" : value);
+}
+
+function serializePlainSearchParams(searchParams: URLSearchParams): string {
+  const parts: string[] = [];
+
+  for (const [key, value] of searchParams.entries()) {
+    const encodedKey = encodeURIComponent(key);
+    if (value.length === 0) {
+      parts.push(encodedKey);
+      continue;
+    }
+    parts.push(`${encodedKey}=${encodeURIComponent(value)}`);
+  }
+
+  return parts.join("&");
+}
 
 // TODO(tanstack-router-cleanup): delete this serializer helper once the app can
 // rely on TanStack's standard search serialization without changing the shipped
@@ -19,7 +50,7 @@ function appendSearchParamValue(
   }
 
   if (value === true) {
-    setQueryParam(searchParams, key, true);
+    setPlainSearchParam(searchParams, key, true);
     return;
   }
 
@@ -28,12 +59,12 @@ function appendSearchParamValue(
       return;
     }
 
-    setQueryParam(searchParams, key, `${value}`);
+    setPlainSearchParam(searchParams, key, `${value}`);
     return;
   }
 
   if (typeof value === "string") {
-    setQueryParam(searchParams, key, value);
+    setPlainSearchParam(searchParams, key, value);
     return;
   }
 
@@ -44,7 +75,9 @@ function appendSearchParamValue(
 // TanStack's default search semantics without changing the shipped URL
 // contract.
 export function parseTanStackSearch(search: string): Record<string, string> {
-  const searchParams = cloneQueryParams(search);
+  const searchParams = new URLSearchParams(
+    search.startsWith("?") ? search.slice(1) : search,
+  );
   const parsedSearch: Record<string, string> = {};
 
   for (const [key, value] of searchParams.entries()) {
@@ -57,7 +90,7 @@ export function parseTanStackSearch(search: string): Record<string, string> {
 // TODO(tanstack-router-cleanup): remove this stringifier once the router and
 // generic script-facing helpers can adopt TanStack's default search semantics.
 export function stringifyTanStackSearch(search: PlainSearchRecord): string {
-  const searchParams = cloneQueryParams();
+  const searchParams = new URLSearchParams();
 
   for (const [key, value] of Object.entries(search)) {
     if (Array.isArray(value)) {
@@ -70,5 +103,10 @@ export function stringifyTanStackSearch(search: PlainSearchRecord): string {
     appendSearchParamValue(searchParams, key, value);
   }
 
-  return buildSearchString(searchParams);
+  const queryString = serializePlainSearchParams(searchParams);
+  return queryString.length > 0 ? `?${queryString}` : "";
+}
+
+export function buildPathWithTanStackSearch(args: PathSearchInput): string {
+  return `${args.pathname}${stringifyTanStackSearch(args.search ?? {})}${normalizeHashInput(args.hash)}`;
 }

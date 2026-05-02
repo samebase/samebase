@@ -1,5 +1,4 @@
 import { linkOptions } from "@tanstack/react-router";
-import { buildPathWithQuery } from "./queryParams";
 import { buildMachinesRouteSearch } from "./authenticatedRouteSearch";
 import { stringifyTanStackSearch } from "./tanstackSearchParams";
 
@@ -29,10 +28,7 @@ export function buildMachinesWorkspacePath(args?: {
   threadId?: string | null;
 }): string {
   const options = buildMachinesWorkspaceLinkOptions(args);
-  return buildPathWithQuery({
-    pathname: options.to,
-    search: stringifyTanStackSearch(options.search),
-  });
+  return `${options.to}${stringifyTanStackSearch(options.search)}`;
 }
 
 export function buildMachinesWorkspaceLinkOptions(args?: {

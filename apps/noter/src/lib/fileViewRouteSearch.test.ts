@@ -4,7 +4,10 @@ import {
   mergeFileViewRouteSearch,
   validateFileViewRouteSearch,
 } from "@/lib/fileViewRouteSearch";
-import { buildSearchString } from "@/lib/queryParams";
+import {
+  parseTanStackSearch,
+  stringifyTanStackSearch,
+} from "@/lib/tanstackSearchParams";
 
 describe("fileViewRouteSearch", () => {
   it("accepts routed file-view flags and mobile line numbers", () => {
@@ -63,12 +66,15 @@ describe("fileViewRouteSearch", () => {
 
   it("updates file-view keys while preserving unrelated query params", () => {
     expect(
-      buildSearchString(
-        mergeFileViewRouteSearch("?devtools&mobileLineNumbers=1&compare", {
-          diff: true,
-          mobileLineNumbers: "1",
-          review: true,
-        }),
+      stringifyTanStackSearch(
+        mergeFileViewRouteSearch(
+          parseTanStackSearch("?devtools&mobileLineNumbers=1&compare"),
+          {
+            diff: true,
+            mobileLineNumbers: "1",
+            review: true,
+          },
+        ),
       ),
     ).toBe("?devtools&mobileLineNumbers=1&diff&review");
   });
