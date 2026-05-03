@@ -21,9 +21,7 @@ const legacyDaytonaVaultPatch = {
 const inspectResult = object({
   complete: boolean(),
   vaultsWithLegacyDaytonaDataFound: boolean(),
-  daytonaSnapshotsFound: boolean(),
   sampledVaultIds: array(id("vaults")),
-  sampledDaytonaSnapshotIds: array(id("daytonaSnapshots")),
 });
 
 const migrations = new Migrations<DataModel>(components.migrations, {
@@ -57,17 +55,9 @@ export const clearVaultDaytonaFields = migrations.define({
   },
 });
 
-export const deleteDaytonaSnapshots = migrations.define({
-  table: "daytonaSnapshots",
-  migrateOne: async (ctx, snapshot) => {
-    await ctx.db.delete(snapshot._id);
-  },
-});
-
-export const runAll = migrations.runner([
+export const runAll = migrations.runner(
   internal.legacyDaytonaDataCleanup.clearVaultDaytonaFields,
-  internal.legacyDaytonaDataCleanup.deleteDaytonaSnapshots,
-]);
+);
 
 export const inspect = internalQuery({
   args: {},
@@ -90,21 +80,11 @@ export const inspect = internalQuery({
       )
       .order("asc")
       .take(20);
-    const daytonaSnapshots = await ctx.db
-      .query("daytonaSnapshots")
-      .order("asc")
-      .take(20);
 
     return {
-      complete:
-        vaultsWithLegacyDaytonaData.length === 0 &&
-        daytonaSnapshots.length === 0,
+      complete: vaultsWithLegacyDaytonaData.length === 0,
       vaultsWithLegacyDaytonaDataFound: vaultsWithLegacyDaytonaData.length > 0,
-      daytonaSnapshotsFound: daytonaSnapshots.length > 0,
       sampledVaultIds: vaultsWithLegacyDaytonaData.map((vault) => vault._id),
-      sampledDaytonaSnapshotIds: daytonaSnapshots.map(
-        (snapshot) => snapshot._id,
-      ),
     };
   },
 });

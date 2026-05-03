@@ -137,13 +137,14 @@ If a neutralized path is not used end to end by the current app, delete it.
 Use a widen-migrate-narrow sequence for schema cleanup.
 
 1. First deploy code that no longer reads or writes Daytona fields/tables.
-2. Run an explicit migration that unsets Daytona fields on `vaults` and deletes
-   or archives `daytonaSnapshots` documents.
-3. Verify no documents retain removed fields and no code references
-   `daytonaSnapshots`.
-4. Only then remove Daytona fields and the `daytonaSnapshots` table from
-   `apps/noter/convex/schema.ts`.
-5. Remove migration scaffolding after the narrow deploy is stable.
+2. Run an explicit migration that unsets Daytona fields on `vaults`.
+3. Do not automate deletion of external Daytona sandboxes or snapshots; the
+   operator can remove those manually in Daytona.
+4. Verify no documents retain removed fields.
+5. Only then remove Daytona fields from `apps/noter/convex/schema.ts`.
+6. Treat any remaining `daytonaSnapshots` table cleanup as a separate manual or
+   doc-retirement task, not part of the automated Phase 4 migration.
+7. Remove migration scaffolding after the narrow deploy is stable.
 
 Do not remove schema fields while production data can still contain them.
 
@@ -195,11 +196,12 @@ Retire docs in the same branch that removes the corresponding implementation:
   PTY scaffolding.
 - Phase 4 started by adding explicit Convex migration scaffolding for legacy
   Daytona data cleanup.
-- The cleanup migration unsets Daytona fields on `vaults`, deletes
-  `daytonaSnapshots` rows, and exposes an internal verification query plus
-  operator runbook.
-- Daytona schema fields and the `daytonaSnapshots` table intentionally remain
-  until the cleanup migration has run and verification reports completion.
+- The cleanup migration unsets Daytona fields on `vaults` and exposes an
+  internal verification query plus operator runbook.
+- Daytona schema fields intentionally remain until the cleanup migration has run
+  and verification reports completion.
+- Daytona sandboxes, external Daytona snapshots, and Noter's legacy
+  `daytonaSnapshots` rows are not deleted by the automated migration.
 
 ## Validation
 
