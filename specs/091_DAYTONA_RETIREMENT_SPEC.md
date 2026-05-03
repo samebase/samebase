@@ -146,14 +146,6 @@ Use a widen-migrate-narrow sequence for schema cleanup.
    doc-retirement task, not part of the automated Phase 4 migration.
 7. Remove migration scaffolding after the narrow deploy is stable.
 
-Operator data policy: Noter currently has one real operator. Legacy internal
-Daytona documents, including old `providerConnections.kind === "codex"` rows and
-`daytonaSnapshots` rows, do not need compatibility preservation once the current
-app no longer reads or writes them. Prefer deleting those rows and then removing
-the schema surface over keeping dormant Daytona data shapes. External Daytona
-sandboxes and snapshots remain manual operator cleanup, not automated app
-behavior.
-
 Do not remove schema fields while production data can still contain them.
 
 ### Phase 5: Retire Docs And Tests
@@ -216,12 +208,6 @@ Retire docs in the same branch that removes the corresponding implementation:
   removed from active code.
 - The `daytonaSnapshots` table remains until its internal rows are handled by a
   separate manual or doc-retirement task.
-- The operator clarified that Noter has one real operator, so stale internal
-  Daytona rows do not require compatibility preservation after active code stops
-  reading or writing them.
-- Follow-up cleanup removed the legacy Codex-in-Daytona provider connection
-  shape, the unused Codex provider status/upsert paths, the `daytonaSnapshots`
-  table, and active privacy-policy copy that described legacy Daytona metadata.
 
 ## Validation
 
@@ -233,6 +219,20 @@ Each cleanup PR should verify the part it changes:
    generalized.
 4. Migration dry run before mutating production data.
 5. Schema validation after the narrow deploy.
+6. Route-level smoke tests for vault dashboard, file view, provider settings,
+   connected-machine, and local-worktree flows.
+
+## Exit Criteria
+
+Daytona retirement is complete when:
+
+1. No active UI, Convex action, script, workflow, env allowlist, dependency, or
+   generated API surface mentions Daytona.
+2. `vaults` no longer stores Daytona fields.
+3. `daytonaSnapshots` no longer exists in active schema.
+4. Current specs no longer describe Daytona as an available product direction.
+5. Local-machine Codex and connected-machine docs remain the only current
+   development-environment path.
 6. Route-level smoke tests for vault dashboard, file view, provider settings,
    connected-machine, and local-worktree flows.
 
