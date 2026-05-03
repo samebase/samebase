@@ -216,6 +216,12 @@ Retire docs in the same branch that removes the corresponding implementation:
   removed from active code.
 - The `daytonaSnapshots` table remains until its internal rows are handled by a
   separate manual or doc-retirement task.
+- The operator clarified that Noter has one real operator, so stale internal
+  Daytona rows do not require compatibility preservation after active code stops
+  reading or writing them.
+- Follow-up cleanup removed the legacy Codex-in-Daytona provider connection
+  shape, the unused Codex provider status/upsert paths, the `daytonaSnapshots`
+  table, and active privacy-policy copy that described legacy Daytona metadata.
 
 ## Validation
 
