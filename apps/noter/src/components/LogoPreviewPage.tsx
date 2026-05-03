@@ -1078,9 +1078,9 @@ function LogoRangeControl({
           step={step}
           value={value}
           onChange={handleSliderChange}
-          className="h-2 min-w-[10rem] flex-[999_1_10rem] cursor-pointer accent-[#8a88ac]"
+          className="h-2 min-w-40 flex-[999_1_10rem] cursor-pointer accent-[#8a88ac]"
         />
-        <div className="ml-auto flex min-w-[7rem] flex-[1_0_7rem] justify-end">
+        <div className="ml-auto flex min-w-28 flex-[1_0_7rem] justify-end">
           <Input
             aria-label={valueAriaLabel}
             type="number"
@@ -1193,7 +1193,7 @@ export function LogoPreviewPage({
 
   const sceneContent = (
     <div
-      className="flex h-full min-h-0 items-center justify-center [container-type:size]"
+      className="flex h-full min-h-0 items-center justify-center @container-[size]"
       style={{ backgroundColor }}
     >
       {/* Keep touch capture square so mobile top/bottom drag lanes stay free. */}
