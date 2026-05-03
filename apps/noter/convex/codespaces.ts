@@ -6,7 +6,7 @@ import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 import { Id } from "./_generated/dataModel";
-import { getDaytonaEnvLabel } from "./daytona/env";
+import { resolveDeploymentProfile } from "./deploymentProfile";
 
 async function getGithubAccessToken(
   ctx: ActionCtx,
@@ -26,13 +26,7 @@ async function getGithubAccessToken(
 }
 
 function inferCodespaceDisplayEnvLabel(): "prod" | "dev" {
-  try {
-    return getDaytonaEnvLabel();
-  } catch {
-    const deploymentPrefix =
-      process.env.CONVEX_DEPLOYMENT?.split(":")[0]?.trim().toLowerCase() ?? "";
-    return deploymentPrefix === "prod" ? "prod" : "dev";
-  }
+  return resolveDeploymentProfile().kind === "production" ? "prod" : "dev";
 }
 
 /**

@@ -2197,7 +2197,6 @@ export function VaultDashboard() {
           vaultToDelete.isNoterManaged && vaultToDelete.hasHostingProvision
             ? removeHostingProvision
             : false,
-        removeDaytonaResources: false,
       });
       resetDeleteDialogState();
     } catch (error) {
