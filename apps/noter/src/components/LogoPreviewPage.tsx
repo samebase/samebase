@@ -94,18 +94,13 @@ import {
 } from "@/lib/logoRouteSearch";
 import { shouldSyncLogoPreviewQueryState } from "@/lib/logoPreviewQuerySync";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
+import { useAnimationFrameLoop } from "@/lib/useAnimationFrameLoop";
 import { cn } from "@/lib/utils";
 import { useDebouncer } from "@tanstack/react-pacer/debouncer";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link } from "@tanstack/react-router";
 import { PaletteIcon } from "lucide-react";
-import {
-  useEffect,
-  useId,
-  useRef,
-  type ChangeEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useId, type ChangeEvent, type ReactNode } from "react";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const DEFAULT_LOGO_OPACITY = 1;
@@ -1225,39 +1220,15 @@ export function LogoPreviewPage({
   const { backgroundColor, faceColors } = useResolvedAppThemeColorState(
     state.themeColors,
   );
-  const lastFrameTimeRef = useRef<number | null>(null);
   const viewSnapCheckboxId = useId();
   const faceColorAnimationCheckboxId = useId();
 
-  /**
-   * Drives 3D auto-rotation with frame deltas and resets timing whenever
-   * auto-rotation stops or the renderer switches away from 3D.
-   */
-  useEffect(() => {
-    if (isIsometricMode || !state.isAutoRotating) {
-      lastFrameTimeRef.current = null;
-      return;
-    }
-
-    let animationFrameId = 0;
-
-    const step = (timestamp: number) => {
-      const lastFrameTime = lastFrameTimeRef.current;
-      if (lastFrameTime !== null) {
-        const deltaSeconds = (timestamp - lastFrameTime) / 1000;
-        advanceAutoRotation(deltaSeconds);
-      }
-      lastFrameTimeRef.current = timestamp;
-      animationFrameId = window.requestAnimationFrame(step);
-    };
-
-    animationFrameId = window.requestAnimationFrame(step);
-
-    return () => {
-      window.cancelAnimationFrame(animationFrameId);
-      lastFrameTimeRef.current = null;
-    };
-  }, [advanceAutoRotation, state.isAutoRotating, isIsometricMode]);
+  useAnimationFrameLoop({
+    isRunning: state.isAutoRotating && !isIsometricMode,
+    onFrame: (deltaSeconds) => {
+      advanceAutoRotation(deltaSeconds);
+    },
+  });
 
   const selectedPreset =
     state.selectedPresetId === CUSTOM_LOGO_PRESET_ID
