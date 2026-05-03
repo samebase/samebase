@@ -99,7 +99,13 @@ import { cn } from "@/lib/utils";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link } from "@tanstack/react-router";
 import { PaletteIcon } from "lucide-react";
-import { useId, useMemo, type ChangeEvent, type ReactNode } from "react";
+import {
+  useId,
+  useMemo,
+  useRef,
+  type ChangeEvent,
+  type ReactNode,
+} from "react";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const DEFAULT_LOGO_OPACITY = 1;
@@ -656,6 +662,16 @@ function useLogoPreviewStore() {
   }));
 }
 
+/**
+ * Merges immediate local logo controls with route-owned logo state.
+ *
+ * `routeSearch` is the committed source for shareable view, shape, and color
+ * state; `replaceRouteSearch` writes those changes back to TanStack Router.
+ * The TanStack Store created here owns local-only controls such as edit mode,
+ * animation toggles, opacity, and pane selection. Route writes go through
+ * `usePacedCommittedState` so sliders, dragging, and auto-rotation can update
+ * the UI immediately while noisy URL commits are debounced or flushed on end.
+ */
 function useLogoPreviewState({
   replaceRouteSearch,
   routeSearch,
@@ -676,12 +692,15 @@ function useLogoPreviewState({
     () => readLogoPreviewRouteState(routeSearch),
     [routeSearch],
   );
+  const routeSearchRef = useRef(routeSearch);
+  routeSearchRef.current = routeSearch;
   const pacedRouteState = usePacedCommittedState({
     committed: routeState,
     commit: (nextRouteState) => {
+      const latestRouteSearch = routeSearchRef.current;
       replaceLogoPreviewRouteSearch({
         replaceRouteSearch,
-        routeSearch,
+        routeSearch: latestRouteSearch,
         routeState: nextRouteState,
       });
     },

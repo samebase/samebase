@@ -1,5 +1,14 @@
 import { useEffect, useEffectEvent, useRef } from "react";
 
+/**
+ * Runs a `requestAnimationFrame` loop while `isRunning` is true and reports the
+ * elapsed seconds to `onFrame` after each completed frame interval.
+ *
+ * The first `requestAnimationFrame` callback establishes the baseline timestamp,
+ * so `onFrame` starts on the second callback. `useEffectEvent` keeps the loop on
+ * the latest `onFrame` implementation without resubscribing the browser frame
+ * loop when the caller re-renders.
+ */
 export function useAnimationFrameLoop({
   isRunning,
   onFrame,

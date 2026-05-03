@@ -15,6 +15,9 @@ type PacedCommittedStateDraft<TState> = {
  * animates. The draft remembers the committed value it was based on so external
  * navigation or another commit can cancel stale pending writes instead of
  * being overwritten by an old debounce.
+ *
+ * Pass a stable `equals` function, usually a module-level comparator. The hook
+ * uses it to decide whether drafts still belong to the current committed value.
  */
 export function usePacedCommittedState<TState>({
   committed,
