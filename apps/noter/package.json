@@ -49,6 +49,7 @@
     "@convex-dev/agent": "^0.3.2",
     "@convex-dev/auth": "^0.0.88",
     "@convex-dev/eslint-plugin": "0.0.1-alpha.4",
+    "@convex-dev/migrations": "^0.3.4",
     "@fontsource/ibm-plex-sans": "^5.2.8",
     "@lezer-unofficial/printer": "^1.0.1",
     "@lezer/markdown": "^1.4.0",

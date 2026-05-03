@@ -193,6 +193,13 @@ Retire docs in the same branch that removes the corresponding implementation:
   because no current app flow sets it end to end after Phase 2.
 - An unused Codex config runtime helper was deleted rather than kept as dormant
   PTY scaffolding.
+- Phase 4 started by adding explicit Convex migration scaffolding for legacy
+  Daytona data cleanup.
+- The cleanup migration unsets Daytona fields on `vaults`, deletes
+  `daytonaSnapshots` rows, and exposes an internal verification query plus
+  operator runbook.
+- Daytona schema fields and the `daytonaSnapshots` table intentionally remain
+  until the cleanup migration has run and verification reports completion.
 
 ## Validation
 
