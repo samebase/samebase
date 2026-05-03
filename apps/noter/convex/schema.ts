@@ -51,40 +51,40 @@ export const PullRequestLabel = union(
 );
 export type PullRequestLabel = Infer<typeof PullRequestLabel>;
 
-export const GithubTree = v.object({
-  path: v.string(),
-  mode: v.string(),
-  type: v.string(),
-  sha: v.string(),
-  size: v.optional(v.number()),
-  url: v.optional(v.string()),
+export const GithubTree = object({
+  path: string(),
+  mode: string(),
+  type: string(),
+  sha: string(),
+  size: optional(number()),
+  url: optional(string()),
 });
 export type GithubTreeType = Infer<typeof GithubTree>;
 
-export const GithubTreeData = v.object({
-  sha: v.string(),
-  url: v.optional(v.string()),
-  truncated: v.boolean(),
-  tree: v.array(GithubTree),
+export const GithubTreeData = object({
+  sha: string(),
+  url: optional(string()),
+  truncated: boolean(),
+  tree: array(GithubTree),
 });
 
-export const CodespaceState = v.union(
-  v.literal("creating"),
-  v.literal("starting"),
-  v.literal("running"),
-  v.literal("stopping"),
-  v.literal("stopped"),
-  v.literal("deleting"),
-  v.literal("deleted"),
-  v.literal("failed"),
+export const CodespaceState = union(
+  literal("creating"),
+  literal("starting"),
+  literal("running"),
+  literal("stopping"),
+  literal("stopped"),
+  literal("deleting"),
+  literal("deleted"),
+  literal("failed"),
 );
 
-export const InfraState = v.union(
-  v.literal("not_started"),
-  v.literal("provisioning"),
-  v.literal("ready"),
-  v.literal("failed"),
-  v.literal("partial"),
+export const InfraState = union(
+  literal("not_started"),
+  literal("provisioning"),
+  literal("ready"),
+  literal("failed"),
+  literal("partial"),
 );
 
 export const AppProvisioningEventLevel = union(
@@ -119,19 +119,19 @@ export type DaytonaSnapshotBuildStatus = Infer<
   typeof DaytonaSnapshotBuildStatus
 >;
 
-export const VaultDomainKind = v.union(
-  v.literal("main"),
-  v.literal("branch_preview"),
+export const VaultDomainKind = union(
+  literal("main"),
+  literal("branch_preview"),
 );
 
-export const VaultDomainSource = v.union(
-  v.literal("cloudflare_pages_default"),
-  v.literal("cloudflare_pages_custom"),
+export const VaultDomainSource = union(
+  literal("cloudflare_pages_default"),
+  literal("cloudflare_pages_custom"),
 );
 
-export const VaultRemoteBranchState = v.union(
-  v.literal("active"),
-  v.literal("deleted_upstream"),
+export const VaultRemoteBranchState = union(
+  literal("active"),
+  literal("deleted_upstream"),
 );
 
 export const TreeRefreshFailureKind = union(
@@ -140,51 +140,51 @@ export const TreeRefreshFailureKind = union(
 );
 export type TreeRefreshFailureKind = Infer<typeof TreeRefreshFailureKind>;
 
-export const ProdAccessScope = v.union(v.literal("vault"), v.literal("global"));
+export const ProdAccessScope = union(literal("vault"), literal("global"));
 
-export const ProdAccessProvider = v.union(
-  v.literal("convex"),
-  v.literal("cloudflare"),
+export const ProdAccessProvider = union(
+  literal("convex"),
+  literal("cloudflare"),
 );
 
-export const ProdAccessResourceKind = v.union(
-  v.literal("deployment_status"),
-  v.literal("logs"),
-  v.literal("data_query"),
-  v.literal("project_inventory"),
-  v.literal("account_inventory"),
-  v.literal("pages_project_inventory"),
+export const ProdAccessResourceKind = union(
+  literal("deployment_status"),
+  literal("logs"),
+  literal("data_query"),
+  literal("project_inventory"),
+  literal("account_inventory"),
+  literal("pages_project_inventory"),
 );
 
-export const ProdAccessStatus = v.union(
-  v.literal("proposed"),
-  v.literal("approved"),
-  v.literal("rejected"),
-  v.literal("executed"),
-  v.literal("failed"),
-  v.literal("expired"),
+export const ProdAccessStatus = union(
+  literal("proposed"),
+  literal("approved"),
+  literal("rejected"),
+  literal("executed"),
+  literal("failed"),
+  literal("expired"),
 );
 
-export const ProdAccessRedactionLevel = v.union(
-  v.literal("default"),
-  v.literal("strict"),
-  v.literal("raw_fallback"),
+export const ProdAccessRedactionLevel = union(
+  literal("default"),
+  literal("strict"),
+  literal("raw_fallback"),
 );
 
-export const ProdAccessAuditAction = v.union(
-  v.literal("proposed"),
-  v.literal("approved"),
-  v.literal("rejected"),
-  v.literal("executed"),
-  v.literal("failed"),
-  v.literal("expired"),
+export const ProdAccessAuditAction = union(
+  literal("proposed"),
+  literal("approved"),
+  literal("rejected"),
+  literal("executed"),
+  literal("failed"),
+  literal("expired"),
 );
 
-export const ProviderKind = v.union(
-  v.literal("github"),
-  v.literal("convex"),
-  v.literal("cloudflare"),
-  v.literal("codex"),
+export const ProviderKind = union(
+  literal("github"),
+  literal("convex"),
+  literal("cloudflare"),
+  literal("codex"),
 );
 export type ProviderKind = Infer<typeof ProviderKind>;
 
@@ -212,24 +212,24 @@ export const McpRefreshTokenStatus = union(
   literal("expired"),
 );
 
-export const OAuthAuth = v.object({
-  method: v.literal("oauth"),
-  credential: v.string(),
-  refreshCredential: v.optional(v.string()),
-  credentialExpiresAt: v.optional(v.number()),
+export const OAuthAuth = object({
+  method: literal("oauth"),
+  credential: string(),
+  refreshCredential: optional(string()),
+  credentialExpiresAt: optional(number()),
 });
-export const McpOAuthAuth = v.object({
-  method: v.literal("mcp_oauth"),
-  credential: v.string(),
-  refreshCredential: v.optional(v.string()),
-  credentialExpiresAt: v.optional(v.number()),
+export const McpOAuthAuth = object({
+  method: literal("mcp_oauth"),
+  credential: string(),
+  refreshCredential: optional(string()),
+  credentialExpiresAt: optional(number()),
   clientId: optional(string()),
-  mcpServerUrl: v.string(),
+  mcpServerUrl: string(),
 });
-export const ApiKeyAuth = v.object({
-  method: v.literal("api_key"),
-  credential: v.string(),
-  credentialExpiresAt: v.optional(v.number()),
+export const ApiKeyAuth = object({
+  method: literal("api_key"),
+  credential: string(),
+  credentialExpiresAt: optional(number()),
 });
 export const CodexDeviceAuth = object({
   method: literal("device_auth"),
@@ -245,11 +245,11 @@ export const CodexDeviceAuth = object({
   ),
   lastError: optional(string()),
 });
-export const StandardProviderAuth = v.union(OAuthAuth, ApiKeyAuth);
+export const StandardProviderAuth = union(OAuthAuth, ApiKeyAuth);
 export type StandardProviderAuth = Infer<typeof StandardProviderAuth>;
-export const CloudflareProviderAuth = v.union(McpOAuthAuth, ApiKeyAuth);
+export const CloudflareProviderAuth = union(McpOAuthAuth, ApiKeyAuth);
 export type CloudflareProviderAuth = Infer<typeof CloudflareProviderAuth>;
-export const ProviderAuth = v.union(
+export const ProviderAuth = union(
   OAuthAuth,
   McpOAuthAuth,
   ApiKeyAuth,
@@ -263,33 +263,33 @@ export type McpTokenHealthSource = Infer<typeof McpTokenHealthSource>;
 export const McpTokenHealth = mcpTokenHealthValidator;
 export type McpTokenHealth = Infer<typeof McpTokenHealth>;
 
-export const GithubProviderConnection = v.object({
-  kind: v.literal("github"),
-  userId: v.id("users"),
+export const GithubProviderConnection = object({
+  kind: literal("github"),
+  userId: id("users"),
   auth: StandardProviderAuth,
-  username: v.optional(v.string()),
-  createdAt: v.number(),
-  updatedAt: v.number(),
+  username: optional(string()),
+  createdAt: number(),
+  updatedAt: number(),
 });
-export const ConvexProviderConnection = v.object({
-  kind: v.literal("convex"),
-  userId: v.id("users"),
+export const ConvexProviderConnection = object({
+  kind: literal("convex"),
+  userId: id("users"),
   auth: StandardProviderAuth,
-  teamId: v.string(),
-  teamSlug: v.optional(v.string()),
-  createdAt: v.number(),
-  updatedAt: v.number(),
+  teamId: string(),
+  teamSlug: optional(string()),
+  createdAt: number(),
+  updatedAt: number(),
 });
-export const CloudflareProviderConnection = v.object({
-  kind: v.literal("cloudflare"),
-  userId: v.id("users"),
+export const CloudflareProviderConnection = object({
+  kind: literal("cloudflare"),
+  userId: id("users"),
   auth: CloudflareProviderAuth,
-  accountId: v.optional(v.string()),
+  accountId: optional(string()),
   tokenHealth: optional(McpTokenHealth),
-  tokenRefreshStartedAt: v.optional(v.number()),
-  lastTokenRefreshAt: v.optional(v.number()),
-  createdAt: v.number(),
-  updatedAt: v.number(),
+  tokenRefreshStartedAt: optional(number()),
+  lastTokenRefreshAt: optional(number()),
+  createdAt: number(),
+  updatedAt: number(),
 });
 export const CodexProviderConnection = object({
   kind: literal("codex"),
@@ -298,7 +298,7 @@ export const CodexProviderConnection = object({
   createdAt: number(),
   updatedAt: number(),
 });
-export const ProviderConnection = v.union(
+export const ProviderConnection = union(
   GithubProviderConnection,
   ConvexProviderConnection,
   CloudflareProviderConnection,
@@ -316,14 +316,14 @@ export default defineSchema({
    * Users.
    */
   users: defineTable({
-    name: v.optional(v.string()),
-    image: v.optional(v.string()),
-    email: v.optional(v.string()),
-    emailVerificationTime: v.optional(v.number()),
-    phone: v.optional(v.string()),
-    phoneVerificationTime: v.optional(v.number()),
-    isAnonymous: v.optional(v.boolean()),
-    isApproved: v.optional(v.boolean()),
+    name: optional(string()),
+    image: optional(string()),
+    email: optional(string()),
+    emailVerificationTime: optional(number()),
+    phone: optional(string()),
+    phoneVerificationTime: optional(number()),
+    isAnonymous: optional(boolean()),
+    isApproved: optional(boolean()),
 
     // Billing (Polar-backed for now).
     billingProvider: BillingProvider,
@@ -368,13 +368,13 @@ export default defineSchema({
     .index("by_expires_at", ["expiresAt"]),
 
   dashboardSettings: defineTable({
-    userId: v.id("users"),
-    accountPanelOpen: v.optional(v.boolean()),
-    providersPanelOpen: v.boolean(),
+    userId: id("users"),
+    accountPanelOpen: optional(boolean()),
+    providersPanelOpen: boolean(),
     // TODO: remove this
     pricingBillingCycle: PricingBillingCycle,
-    editorChatOpen: v.optional(v.boolean()),
-    globalChatOpen: v.optional(v.boolean()),
+    editorChatOpen: optional(boolean()),
+    globalChatOpen: optional(boolean()),
   }).index("by_user", ["userId"]),
 
   workspaceSidebarState: defineTable(workspaceSidebarStateRowValidator).index(
@@ -383,10 +383,10 @@ export default defineSchema({
   ),
 
   vaultBranchFilters: defineTable({
-    userId: v.id("users"),
-    vaultId: v.id("vaults"),
-    hiddenLabels: v.array(v.string()),
-    includeDrafts: v.boolean(),
+    userId: id("users"),
+    vaultId: id("vaults"),
+    hiddenLabels: array(string()),
+    includeDrafts: boolean(),
     // Keep this optional so rows saved before unlabeled-branch support remain
     // readable until each user re-saves their filters.
     includeNoLabel: optional(boolean()),
@@ -401,48 +401,48 @@ export default defineSchema({
    * Vault contains a connected github repository.
    */
   vaults: defineTable({
-    userId: v.id("users"),
-    ghRepoId: v.string(),
-    ghRepoOwner: v.string(),
-    ghRepoName: v.string(),
-    treeSHA: v.string(),
-    commitSHA: v.optional(v.string()),
+    userId: id("users"),
+    ghRepoId: string(),
+    ghRepoOwner: string(),
+    ghRepoName: string(),
+    treeSHA: string(),
+    commitSHA: optional(string()),
     treeData: GithubTreeData,
 
-    state: v.union(v.literal("copying_files"), v.literal("ready")),
-    isNoterManaged: v.optional(v.boolean()),
-    hostingProvider: v.optional(hostingProviderValidator),
+    state: union(literal("copying_files"), literal("ready")),
+    isNoterManaged: optional(boolean()),
+    hostingProvider: optional(hostingProviderValidator),
 
     // Tree refresh mutex: prevents concurrent/redundant GitHub API calls
-    lastTreeRefreshAt: v.optional(v.number()),
-    treeRefreshStartedAt: v.optional(v.number()),
-    lastTreeRefreshFailedAt: v.optional(v.number()),
-    treeRefreshFailureKind: v.optional(TreeRefreshFailureKind),
-    treeRefreshFailureMessage: v.optional(v.string()),
-    treeRefreshCooldownUntil: v.optional(v.number()),
+    lastTreeRefreshAt: optional(number()),
+    treeRefreshStartedAt: optional(number()),
+    lastTreeRefreshFailedAt: optional(number()),
+    treeRefreshFailureKind: optional(TreeRefreshFailureKind),
+    treeRefreshFailureMessage: optional(string()),
+    treeRefreshCooldownUntil: optional(number()),
 
     // Codespace integration
-    activeCodespaceId: v.optional(v.id("codespaces")),
-    devcontainerConfig: v.optional(v.string()), // JSON string of .devcontainer/devcontainer.json
+    activeCodespaceId: optional(id("codespaces")),
+    devcontainerConfig: optional(string()), // JSON string of .devcontainer/devcontainer.json
 
     // Daytona sandbox integration
-    daytonaSandboxId: v.optional(v.string()),
-    daytonaSandboxName: v.optional(v.string()),
-    daytonaSandboxCreatedAt: v.optional(v.number()),
+    daytonaSandboxId: optional(string()),
+    daytonaSandboxName: optional(string()),
+    daytonaSandboxCreatedAt: optional(number()),
     daytonaSandboxProvisioningMode: optional(
       union(literal("snapshot_backed"), literal("live_debug")),
     ),
-    daytonaSnapshotName: v.optional(v.string()),
-    daytonaPrebuildLogs: v.optional(v.string()),
-    daytonaPrebuildLogsUpdatedAt: v.optional(v.number()),
-    daytonaPrebuildLogsBranch: v.optional(v.string()),
-    daytonaPrebuildLogsSnapshot: v.optional(v.string()),
+    daytonaSnapshotName: optional(string()),
+    daytonaPrebuildLogs: optional(string()),
+    daytonaPrebuildLogsUpdatedAt: optional(number()),
+    daytonaPrebuildLogsBranch: optional(string()),
+    daytonaPrebuildLogsSnapshot: optional(string()),
 
     // Infrastructure provisioning lifecycle
-    infraState: v.optional(InfraState),
-    infraLastError: v.optional(v.string()),
-    infraLastProvisionedAt: v.optional(v.number()),
-    infraProvisioningStartedAt: v.optional(v.number()),
+    infraState: optional(InfraState),
+    infraLastError: optional(string()),
+    infraLastProvisionedAt: optional(number()),
+    infraProvisioningStartedAt: optional(number()),
   })
     .index("by_userId", ["userId"])
     .index("by_ghRepoOwner_and_ghRepoName", ["ghRepoOwner", "ghRepoName"]),
@@ -451,29 +451,29 @@ export default defineSchema({
    * Remote Git branches mirrored from GitHub for a vault repository.
    */
   vaultRemoteBranches: defineTable({
-    vaultId: v.id("vaults"),
-    name: v.string(),
-    headCommitSha: v.string(),
-    lastCommitAt: v.optional(v.number()),
-    aheadBy: v.optional(v.number()),
-    behindBy: v.optional(v.number()),
-    pullRequestUrl: v.optional(v.string()),
-    pullRequestNumber: v.optional(v.number()),
+    vaultId: id("vaults"),
+    name: string(),
+    headCommitSha: string(),
+    lastCommitAt: optional(number()),
+    aheadBy: optional(number()),
+    behindBy: optional(number()),
+    pullRequestUrl: optional(string()),
+    pullRequestNumber: optional(number()),
     pullRequestLabels: optional(array(PullRequestLabel)),
-    pullRequestTitle: v.optional(v.string()),
-    pullRequestIsDraft: v.optional(v.boolean()),
-    cloudflareBranchPreviewUrl: v.optional(v.string()),
-    cloudflarePreviewPullRequestNumber: v.optional(v.number()),
-    cloudflarePreviewUrl: v.optional(v.string()),
-    cloudflarePreviewCommitSha: v.optional(v.string()),
-    cloudflarePreviewStatus: v.optional(v.string()),
-    cloudflarePreviewLogsUrl: v.optional(v.string()),
-    cloudflarePreviewCommentCreatedAt: v.optional(v.number()),
-    isDefault: v.boolean(),
-    isProtected: v.boolean(),
+    pullRequestTitle: optional(string()),
+    pullRequestIsDraft: optional(boolean()),
+    cloudflareBranchPreviewUrl: optional(string()),
+    cloudflarePreviewPullRequestNumber: optional(number()),
+    cloudflarePreviewUrl: optional(string()),
+    cloudflarePreviewCommitSha: optional(string()),
+    cloudflarePreviewStatus: optional(string()),
+    cloudflarePreviewLogsUrl: optional(string()),
+    cloudflarePreviewCommentCreatedAt: optional(number()),
+    isDefault: boolean(),
+    isProtected: boolean(),
     remoteState: VaultRemoteBranchState,
-    deletedUpstreamAt: v.optional(v.number()),
-    lastSyncedAt: v.number(),
+    deletedUpstreamAt: optional(number()),
+    lastSyncedAt: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_vault_and_name", ["vaultId", "name"])
@@ -483,39 +483,37 @@ export default defineSchema({
    * Branch-scoped Git trees for each vault.
    */
   vaultBranchTrees: defineTable({
-    vaultId: v.id("vaults"),
-    branch: v.string(),
-    treeSHA: v.string(),
-    commitSHA: v.optional(v.string()),
+    vaultId: id("vaults"),
+    branch: string(),
+    treeSHA: string(),
+    commitSHA: optional(string()),
     treeData: GithubTreeData,
-    lastTreeRefreshAt: v.number(),
-    treeRefreshStartedAt: v.optional(v.number()),
+    lastTreeRefreshAt: number(),
+    treeRefreshStartedAt: optional(number()),
   }).index("by_vault_and_branch", ["vaultId", "branch"]),
 
   /**
    * External infrastructure identifiers and status for a vault.
    */
   vaultInfrastructure: defineTable({
-    vaultId: v.id("vaults"),
+    vaultId: id("vaults"),
 
     status: InfraState,
-    lastError: v.optional(v.string()),
-    provisioningVersion: v.number(),
-    lastProvisionedAt: v.optional(v.number()),
+    lastError: optional(string()),
+    provisioningVersion: number(),
+    lastProvisionedAt: optional(number()),
 
     // Convex
-    convexProjectId: v.optional(v.string()),
-    convexProjectSlug: v.optional(v.string()),
-    convexDeploymentName: v.optional(v.string()),
-    convexDeploymentType: v.optional(
-      v.union(v.literal("prod"), v.literal("dev")),
-    ),
-    convexCloudUrl: v.optional(v.string()),
-    convexSiteUrl: v.optional(v.string()),
-    convexDeployKeyId: v.optional(v.string()),
+    convexProjectId: optional(string()),
+    convexProjectSlug: optional(string()),
+    convexDeploymentName: optional(string()),
+    convexDeploymentType: optional(union(literal("prod"), literal("dev"))),
+    convexCloudUrl: optional(string()),
+    convexSiteUrl: optional(string()),
+    convexDeployKeyId: optional(string()),
 
     // Provider-aware hosting state (phase 2+)
-    hosting: v.optional(hostingStateValidator),
+    hosting: optional(hostingStateValidator),
   })
     .index("by_vault", ["vaultId"])
     .index("by_status", ["status"]),
@@ -524,13 +522,13 @@ export default defineSchema({
    * User-visible provisioning events for Noter-managed app creation.
    */
   appProvisioningEvents: defineTable({
-    userId: v.id("users"),
-    vaultId: v.id("vaults"),
-    repositoryFullName: v.string(),
+    userId: id("users"),
+    vaultId: id("vaults"),
+    repositoryFullName: string(),
     step: AppProvisioningStep,
     level: AppProvisioningEventLevel,
-    message: v.string(),
-    createdAt: v.number(),
+    message: string(),
+    createdAt: number(),
   }).index("by_vault_and_created_at", ["vaultId", "createdAt"]),
 
   daytonaSnapshots: defineTable({
@@ -566,13 +564,13 @@ export default defineSchema({
    * Branch to domain mapping.
    */
   vaultDomains: defineTable({
-    vaultId: v.id("vaults"),
-    branch: v.string(),
+    vaultId: id("vaults"),
+    branch: string(),
     kind: VaultDomainKind,
-    url: v.string(),
+    url: string(),
     source: VaultDomainSource,
-    active: v.boolean(),
-    lastSyncedAt: v.number(),
+    active: boolean(),
+    lastSyncedAt: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_vault_and_branch", ["vaultId", "branch"]),
@@ -582,37 +580,37 @@ export default defineSchema({
    * Each vault can have multiple codespaces over time, but only one active.
    */
   codespaces: defineTable({
-    vaultId: v.id("vaults"),
-    userId: v.id("users"),
+    vaultId: id("vaults"),
+    userId: id("users"),
 
     // GitHub Codespace identifiers
-    ghCodespaceId: v.string(),
-    ghCodespaceName: v.string(),
+    ghCodespaceId: string(),
+    ghCodespaceName: string(),
 
     // State management
     state: CodespaceState,
 
     // Connection details (when running)
-    webUrl: v.optional(v.string()),
+    webUrl: optional(string()),
 
     // HTTP Agent details
-    agentUrl: v.optional(v.string()), // https://<codespace>-3000.app.github.dev
-    agentToken: v.optional(v.string()), // Random token for authentication
-    agentHealthy: v.optional(v.boolean()), // Last health check status
-    portsVisibilityEnsured: v.optional(v.boolean()),
-    portsVisibilityEnsuredAt: v.optional(v.number()),
-    portsVisibilityLastError: v.optional(v.string()),
+    agentUrl: optional(string()), // https://<codespace>-3000.app.github.dev
+    agentToken: optional(string()), // Random token for authentication
+    agentHealthy: optional(boolean()), // Last health check status
+    portsVisibilityEnsured: optional(boolean()),
+    portsVisibilityEnsuredAt: optional(number()),
+    portsVisibilityLastError: optional(string()),
 
     // Lifecycle tracking
-    createdAt: v.number(),
-    lastStartedAt: v.optional(v.number()),
-    lastStoppedAt: v.optional(v.number()),
-    deletedAt: v.optional(v.number()),
-    lastHealthCheckAt: v.optional(v.number()),
+    createdAt: number(),
+    lastStartedAt: optional(number()),
+    lastStoppedAt: optional(number()),
+    deletedAt: optional(number()),
+    lastHealthCheckAt: optional(number()),
 
     // Commit tracking for reproducibility
-    commitSha: v.string(),
-    branch: v.string(),
+    commitSha: string(),
+    branch: string(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
@@ -624,31 +622,31 @@ export default defineSchema({
    * Stores unsaved changes before they're committed to GitHub.
    */
   fileStaging: defineTable({
-    ownerId: v.id("users"),
-    vaultId: v.id("vaults"),
+    ownerId: id("users"),
+    vaultId: id("vaults"),
 
-    fileDeleted: v.boolean(),
+    fileDeleted: boolean(),
     kind: optional(union(literal("text"), literal("binary"))),
 
-    filePath: v.string(),
-    initialFilePath: v.string(),
+    filePath: string(),
+    initialFilePath: string(),
 
-    content: v.string(),
+    content: string(),
     // TODO: Maybe remove and rely on blobs table instead?
-    initialContent: v.string(),
-    storageId: optional(v.id("_storage")),
-    mime: optional(v.string()),
-    size: optional(v.number()),
-    stagedBlobSha: optional(v.string()),
+    initialContent: string(),
+    storageId: optional(id("_storage")),
+    mime: optional(string()),
+    size: optional(number()),
+    stagedBlobSha: optional(string()),
 
-    parentCommitSha: v.union(v.string(), v.null()), // SHA of the GitHub commit this edit is based on
+    parentCommitSha: union(string(), v.null()), // SHA of the GitHub commit this edit is based on
 
-    lastEditTime: v.number(),
-    lastEditUserId: v.id("users"),
-    branch: v.string(),
+    lastEditTime: number(),
+    lastEditUserId: id("users"),
+    branch: string(),
 
     // Collaborative editing fields
-    version: v.number(), // Current version for collaborative editing (defaults to 0)
+    version: number(), // Current version for collaborative editing (defaults to 0)
   })
     .index("by_vault_and_path", ["vaultId", "filePath"])
     .index("by_vault_and_branch_and_path", ["vaultId", "branch", "filePath"])
@@ -665,15 +663,15 @@ export default defineSchema({
   // Unique content (dedup by sha)
   blobs: defineTable({
     // Even though it's not necessary. It can be used to easily cleanup files and unreferenced blobs.
-    vaultId: v.id("vaults"),
-    sha: v.string(), // unique index
-    size: v.number(),
+    vaultId: id("vaults"),
+    sha: string(), // unique index
+    size: number(),
     // Inline small text for fast reads
-    text: v.optional(v.string()),
+    text: optional(string()),
     // Everything else goes to storage
-    storageId: v.optional(v.id("_storage")),
-    mime: v.optional(v.string()),
-    ext: v.optional(v.string()),
+    storageId: optional(id("_storage")),
+    mime: optional(string()),
+    ext: optional(string()),
   }).index("by_sha", ["sha"]),
 
   /**
@@ -681,10 +679,10 @@ export default defineSchema({
    * Stores which folders are expanded/collapsed per user per vault.
    */
   folderExpansionState: defineTable({
-    userId: v.id("users"),
-    vaultId: v.id("vaults"),
-    folderPath: v.string(), // path to the folder
-    isExpanded: v.boolean(),
+    userId: id("users"),
+    vaultId: id("vaults"),
+    folderPath: string(), // path to the folder
+    isExpanded: boolean(),
   })
     .index("by_user_and_vault", ["userId", "vaultId"])
     .index("by_user_vault_and_path", ["userId", "vaultId", "folderPath"]),
@@ -694,12 +692,12 @@ export default defineSchema({
    * Stores per-user, per-vault node dimensions.
    */
   agentGraphNodeLayout: defineTable({
-    userId: v.id("users"),
-    vaultId: v.id("vaults"),
-    nodeId: v.string(),
-    width: v.number(),
-    height: v.number(),
-    updatedAt: v.number(),
+    userId: id("users"),
+    vaultId: id("vaults"),
+    nodeId: string(),
+    width: number(),
+    height: number(),
+    updatedAt: number(),
   })
     .index("by_user_and_vault", ["userId", "vaultId"])
     .index("by_user_vault_and_node", ["userId", "vaultId", "nodeId"]),
@@ -714,16 +712,16 @@ export default defineSchema({
    * Stores per-thread context not modeled by the Agent component.
    */
   agentThreadContext: defineTable({
-    threadId: v.string(),
-    userId: v.id("users"),
-    vaultId: v.optional(v.id("vaults")),
-    repositoryFullName: v.optional(v.string()),
-    branch: v.optional(v.string()),
-    filePath: v.optional(v.string()),
-    systemPrompt: v.optional(v.string()),
-    draftMessage: v.optional(v.string()),
-    draftUpdatedAt: v.optional(v.number()),
-    createdAt: v.number(),
+    threadId: string(),
+    userId: id("users"),
+    vaultId: optional(id("vaults")),
+    repositoryFullName: optional(string()),
+    branch: optional(string()),
+    filePath: optional(string()),
+    systemPrompt: optional(string()),
+    draftMessage: optional(string()),
+    draftUpdatedAt: optional(number()),
+    createdAt: number(),
   })
     .index("by_threadId", ["threadId"])
     .index("by_userId", ["userId"])
@@ -733,16 +731,16 @@ export default defineSchema({
    * Chat message metadata for AI Fab (commit proposals, prod-read proposals, tool activity).
    */
   chatMessageMetadata: defineTable({
-    messageId: v.string(),
-    threadId: v.string(),
-    type: v.union(
-      v.literal("tool_activity"),
-      v.literal("commit_proposal"),
-      v.literal("prod_read_proposal"),
-      v.literal("prod_read_result"),
+    messageId: string(),
+    threadId: string(),
+    type: union(
+      literal("tool_activity"),
+      literal("commit_proposal"),
+      literal("prod_read_proposal"),
+      literal("prod_read_result"),
     ),
-    payloadJson: v.string(),
-    createdAt: v.number(),
+    payloadJson: string(),
+    createdAt: number(),
   })
     .index("by_messageId", ["messageId"])
     .index("by_threadId", ["threadId"]),
@@ -751,32 +749,32 @@ export default defineSchema({
    * Waitlist for invite-only access.
    */
   waitlist: defineTable({
-    email: v.string(),
-    createdAt: v.number(),
+    email: string(),
+    createdAt: number(),
   }).index("by_email", ["email"]),
 
   /**
    * Approval-first requests for AI reads against production infrastructure/data.
    */
   aiProdAccessRequests: defineTable({
-    threadId: v.string(),
-    requesterUserId: v.id("users"),
-    vaultId: v.optional(v.id("vaults")),
+    threadId: string(),
+    requesterUserId: id("users"),
+    vaultId: optional(id("vaults")),
 
     scope: ProdAccessScope,
     provider: ProdAccessProvider,
     resourceKind: ProdAccessResourceKind,
-    toolName: v.string(),
-    paramsJson: v.string(),
+    toolName: string(),
+    paramsJson: string(),
 
     status: ProdAccessStatus,
     redactionLevel: ProdAccessRedactionLevel,
 
-    approvedBy: v.optional(v.id("users")),
-    approvedAt: v.optional(v.number()),
-    executedAt: v.optional(v.number()),
-    expiresAt: v.optional(v.number()),
-    error: v.optional(v.string()),
+    approvedBy: optional(id("users")),
+    approvedAt: optional(number()),
+    executedAt: optional(number()),
+    expiresAt: optional(number()),
+    error: optional(string()),
   })
     .index("by_threadId", ["threadId"])
     .index("by_requester", ["requesterUserId"])
@@ -787,16 +785,16 @@ export default defineSchema({
    * Immutable audit events for prod-access request lifecycle.
    */
   aiProdAccessAudit: defineTable({
-    requestId: v.id("aiProdAccessRequests"),
-    actorUserId: v.id("users"),
+    requestId: id("aiProdAccessRequests"),
+    actorUserId: id("users"),
     action: ProdAccessAuditAction,
-    toolName: v.string(),
-    endpoint: v.string(),
-    argumentHash: v.string(),
-    rowCount: v.optional(v.number()),
-    logLineCount: v.optional(v.number()),
-    createdAt: v.number(),
-    error: v.optional(v.string()),
+    toolName: string(),
+    endpoint: string(),
+    argumentHash: string(),
+    rowCount: optional(number()),
+    logLineCount: optional(number()),
+    createdAt: number(),
+    error: optional(string()),
   })
     .index("by_request", ["requestId"])
     .index("by_actor", ["actorUserId"])
@@ -806,19 +804,19 @@ export default defineSchema({
    * OAuth state records for provider integrations.
    */
   oauthStates: defineTable({
-    provider: v.union(
-      v.literal("github"),
-      v.literal("convex"),
-      v.literal("cloudflare_mcp"),
+    provider: union(
+      literal("github"),
+      literal("convex"),
+      literal("cloudflare_mcp"),
     ),
-    userId: v.id("users"),
-    state: v.string(),
-    returnToPath: v.optional(v.string()),
-    codeVerifier: v.optional(v.string()),
-    clientId: v.optional(v.string()),
-    clientSecret: v.optional(v.string()),
-    createdAt: v.number(),
-    expiresAt: v.number(),
+    userId: id("users"),
+    state: string(),
+    returnToPath: optional(string()),
+    codeVerifier: optional(string()),
+    clientId: optional(string()),
+    clientSecret: optional(string()),
+    createdAt: number(),
+    expiresAt: number(),
   })
     .index("by_state", ["state"])
     .index("by_user", ["userId"]),
@@ -829,9 +827,9 @@ export default defineSchema({
   mcpOauthClients: defineTable({
     clientId: string(),
     clientName: optional(string()),
-    redirectUris: v.array(string()),
-    grantTypes: v.array(string()),
-    responseTypes: v.array(string()),
+    redirectUris: array(string()),
+    grantTypes: array(string()),
+    responseTypes: array(string()),
     tokenEndpointAuthMethod: literal("none"),
     createdAt: number(),
     updatedAt: number(),
@@ -857,7 +855,7 @@ export default defineSchema({
     state: optional(string()),
     codeChallenge: string(),
     codeChallengeMethod: literal("S256"),
-    userId: optional(v.id("users")),
+    userId: optional(id("users")),
     status: McpAuthRequestStatus,
     createdAt: number(),
     expiresAt: number(),
@@ -875,7 +873,7 @@ export default defineSchema({
     requestId: string(),
     grantId: string(),
     clientId: string(),
-    userId: v.id("users"),
+    userId: id("users"),
     redirectUri: string(),
     resource: string(),
     scope: string(),
@@ -892,7 +890,7 @@ export default defineSchema({
    */
   mcpGrants: defineTable({
     grantId: string(),
-    userId: v.id("users"),
+    userId: id("users"),
     clientId: string(),
     resource: string(),
     scope: string(),
@@ -914,7 +912,7 @@ export default defineSchema({
     tokenHash: string(),
     grantId: string(),
     clientId: string(),
-    userId: v.id("users"),
+    userId: id("users"),
     resource: string(),
     scope: string(),
     createdAt: number(),
@@ -933,7 +931,7 @@ export default defineSchema({
   mcpRefreshTokens: defineTable({
     grantId: string(),
     clientId: string(),
-    userId: v.id("users"),
+    userId: id("users"),
     tokenHash: string(),
     status: McpRefreshTokenStatus,
     createdAt: number(),
@@ -953,7 +951,7 @@ export default defineSchema({
   mcpAccessAudit: defineTable({
     grantId: optional(string()),
     clientId: optional(string()),
-    userId: optional(v.id("users")),
+    userId: optional(id("users")),
     action: string(),
     createdAt: number(),
     detailsJson: optional(string()),
@@ -964,14 +962,14 @@ export default defineSchema({
     .index("by_action", ["action"]),
 
   collaborativeUpdates: defineTable({
-    vaultId: v.id("vaults"),
-    branch: v.optional(v.string()),
-    filePath: v.string(),
-    version: v.number(), // Version number when this update was applied
-    clientId: v.string(), // Client identifier
-    changes: v.string(), // Serialized ChangeSet from CodeMirror
-    userId: v.id("users"), // User who made the change
-    timestamp: v.number(),
+    vaultId: id("vaults"),
+    branch: optional(string()),
+    filePath: string(),
+    version: number(), // Version number when this update was applied
+    clientId: string(), // Client identifier
+    changes: string(), // Serialized ChangeSet from CodeMirror
+    userId: id("users"), // User who made the change
+    timestamp: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_vault_and_timestamp", ["vaultId", "timestamp"])
