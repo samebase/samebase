@@ -483,6 +483,58 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   );
 });
 
+test("vault dashboard fixture (bottom target can align at top)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 360 });
+  await page.goto(
+    "/visual-fixture.html?mode=vault-dashboard-bottom-target-scroll",
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
+  await page.waitForLoadState("networkidle");
+
+  const scrollport = page
+    .getByTestId("workspace-layout-v2-main-viewport")
+    .locator("section > div")
+    .nth(1);
+  const target = page.getByTestId("vault-dashboard-bottom-target-card");
+
+  await target.evaluate((element) => {
+    element.scrollIntoView({ block: "start", inline: "nearest" });
+  });
+
+  await expect
+    .poll(async () => {
+      const [targetBox, scrollportBox] = await Promise.all([
+        target.boundingBox(),
+        scrollport.boundingBox(),
+      ]);
+      if (targetBox === null || scrollportBox === null) {
+        return Number.POSITIVE_INFINITY;
+      }
+
+      return Math.abs(targetBox.y - scrollportBox.y);
+    })
+    .toBeLessThanOrEqual(1);
+  await expect(
+    page.getByRole("link", {
+      name: "noter-md/noter-bottom-target",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page).toHaveScreenshot(
+    "vault-dashboard-bottom-target-scroll.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
+});
+
 test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
   await page.setViewportSize({ width: 960, height: 520 });
   await page.goto("/visual-fixture.html?mode=vault-dashboard-sticky-header", {

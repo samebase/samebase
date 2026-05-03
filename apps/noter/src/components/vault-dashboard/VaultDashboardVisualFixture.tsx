@@ -15,6 +15,7 @@ import {
   VaultDashboardProvidersSection,
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
+  VaultDashboardScrollTargetEndPadding,
   VaultDashboardSidebarContent,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
 import {
@@ -32,6 +33,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-dev-tools-visible"
   | "vault-dashboard-delete-open"
   | "vault-dashboard-provisioning-log"
+  | "vault-dashboard-bottom-target-scroll"
   | "vault-dashboard-sticky-header"
   | "vault-dashboard-list-spacing"
   | "vault-last-updated-status"
@@ -526,6 +528,48 @@ function VaultDashboardProvisioningLogFixture() {
   );
 }
 
+function VaultDashboardBottomTargetScrollFixture() {
+  const repositoryNames = [
+    "noter-alpha",
+    "noter-beta",
+    "noter-gamma",
+    "noter-delta",
+    "noter-bottom-target",
+  ];
+
+  return (
+    <FixtureDashboardShell
+      mainContent={
+        <div className="py-8">
+          <VaultDashboardRepositoryList>
+            {repositoryNames.map((repositoryName) => (
+              <div
+                key={repositoryName}
+                data-testid={
+                  repositoryName === "noter-bottom-target"
+                    ? "vault-dashboard-bottom-target-card"
+                    : undefined
+                }
+              >
+                <VaultDashboardRepositoryCard
+                  isReady={true}
+                  repositoryOwner="noter-md"
+                  repositoryName={repositoryName}
+                  titleHref={`https://github.com/noter-md/${repositoryName}`}
+                  repositoryLinks={<FixtureRepositoryLinks />}
+                  repositoryStatus={<span>Updated 12s ago</span>}
+                  topRightAction={<FixtureDeleteControl />}
+                />
+              </div>
+            ))}
+            <VaultDashboardScrollTargetEndPadding />
+          </VaultDashboardRepositoryList>
+        </div>
+      }
+    />
+  );
+}
+
 function VaultDashboardStickyHeaderFixture() {
   const branchExpansionStore = useFixtureBranchExpansionStore();
   const branchesExpanded = useSelector(
@@ -767,6 +811,10 @@ export function VaultDashboardVisualFixture({
 
   if (mode === "vault-dashboard-provisioning-log") {
     return <VaultDashboardProvisioningLogFixture />;
+  }
+
+  if (mode === "vault-dashboard-bottom-target-scroll") {
+    return <VaultDashboardBottomTargetScrollFixture />;
   }
 
   if (mode === "vault-last-updated-status") {

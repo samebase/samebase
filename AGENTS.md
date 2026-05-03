@@ -207,6 +207,9 @@ Key domain entities:
   sizing such as `flex min-h-0 flex-1 flex-col`, and place any intentional local
   scroller lower in the tree so browser pull-to-refresh and edge-swipe gestures
   keep working.
+- When headings, cards, or selected rows can be opened through a link, query
+  param, or programmatic scroll, preserve enough scroll-end space for the last
+  target to align at the top of its scrollport.
 - Temporary ProseMark workaround: when authoring a Markdown link whose label
   would exactly equal its URL, prefix the label with `link` plus a leading space
   so the rendered link stays visible until that ProseMark bug is fixed.

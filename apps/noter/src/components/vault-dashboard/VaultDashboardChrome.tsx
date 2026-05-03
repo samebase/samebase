@@ -288,6 +288,10 @@ export function VaultDashboardRepositoryList({
   );
 }
 
+export function VaultDashboardScrollTargetEndPadding() {
+  return <div aria-hidden="true" className="h-svh" />;
+}
+
 export function VaultDashboardSidebarContent({
   children,
 }: {

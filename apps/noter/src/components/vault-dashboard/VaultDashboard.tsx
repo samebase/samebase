@@ -69,6 +69,7 @@ import {
   VaultDashboardProvidersSection,
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
+  VaultDashboardScrollTargetEndPadding,
   VaultDashboardSidebarContent,
   type VaultDashboardProviderRowViewModel,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
@@ -1899,6 +1900,7 @@ function VaultDashboardBody({
           </div>
         );
       })}
+      <VaultDashboardScrollTargetEndPadding />
     </VaultDashboardRepositoryList>
   );
 }
