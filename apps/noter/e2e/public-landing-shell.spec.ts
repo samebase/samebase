@@ -1561,6 +1561,37 @@ test.describe("mobile landing dev toggle", () => {
         ),
       )
       .toBe(handleValues.minWidthPx);
+
+    const mergedCarouselScrollLeftPx = await page
+      .getByTestId("workspace-layout-v2-pane-main")
+      .evaluate((element) => element.scrollLeft);
+    await dispatchHumanTouchSwipe(page, mobileShell, {
+      startX: mobileShellBox.width / 2,
+      startY: mobileShellBox.height / 2,
+      steps: [
+        {
+          delayMs: 16,
+          xOffset: carouselWidthPx / 2,
+          yOffset: 0,
+        },
+      ],
+    });
+
+    await expect(
+      page.locator('[data-workspace-layout-v2="mobile"]'),
+    ).toHaveAttribute("data-mobile-pane", "right");
+    await expect(
+      page.getByTestId("workspace-layout-v2-right-resize"),
+    ).toHaveCount(1);
+    await expect
+      .poll(async () =>
+        Math.round(
+          await page
+            .getByTestId("workspace-layout-v2-pane-main")
+            .evaluate((element) => element.scrollLeft),
+        ),
+      )
+      .toBe(Math.round(mergedCarouselScrollLeftPx));
   });
 
   test("landing dev toggle keeps the landing card stable frame by frame", async ({

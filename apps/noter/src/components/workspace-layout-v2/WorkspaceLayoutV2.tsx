@@ -440,6 +440,7 @@ type WorkspaceLayoutV2MobileViewportProps =
   WorkspaceLayoutV2ResolvedPaneContent & {
     carouselRef: RefObject<HTMLDivElement | null>;
     leftWidthPx: number;
+    lockCarouselScroll: boolean;
     mobilePane: MobilePane;
     paneWidthPx: number;
     rightWidthPx: number;
@@ -451,6 +452,7 @@ function WorkspaceLayoutV2MobileViewport({
   carouselRef,
   leftContent,
   leftWidthPx,
+  lockCarouselScroll,
   mainContent,
   mobilePane,
   paneWidthPx,
@@ -463,7 +465,10 @@ function WorkspaceLayoutV2MobileViewport({
     <div
       ref={carouselRef}
       data-testid="workspace-layout-v2-pane-main"
-      className="absolute inset-0 flex min-h-0 snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className={cn(
+        "absolute inset-0 flex min-h-0 snap-x snap-mandatory overflow-y-hidden overscroll-x-contain bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        lockCarouselScroll ? "overflow-x-hidden" : "overflow-x-auto",
+      )}
       style={{
         paddingLeft: `${MOBILE_PANE_PEEK_PX}px`,
         paddingRight: `${MOBILE_PANE_PEEK_PX}px`,
@@ -756,6 +761,10 @@ export function WorkspaceLayoutV2JustPanes({
   >(null);
   const mobileMergedMainWidthPxRef = useRef<number | null>(null);
   const mobileMainWidthPx = mobileMergedMainWidthPx ?? mobileDefaultPaneWidthPx;
+  const lockMobileCarouselScroll =
+    mobileMinResizeBehavior === "min_resize_to_merge" &&
+    mobileMergedMainWidthPx !== null &&
+    mobilePane !== "main";
 
   useEffect(() => {
     if (isMobile) {
@@ -1238,6 +1247,7 @@ export function WorkspaceLayoutV2JustPanes({
             carouselRef={mobileCarouselRef}
             leftContent={resolvedLeftContent}
             leftWidthPx={mobileLeftWidthPx}
+            lockCarouselScroll={lockMobileCarouselScroll}
             mainContent={mainViewportContent}
             mobilePane={mobilePane}
             paneWidthPx={mobileMainWidthPx}
