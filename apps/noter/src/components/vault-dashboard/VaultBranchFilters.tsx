@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,6 +26,22 @@ function matchesOptionSearch(option: VaultBranchFilterOption, search: string) {
   return option.name.toLowerCase().includes(search.toLowerCase());
 }
 
+function useVaultBranchFiltersPanelStore() {
+  return useCreateStore({ labelSearch: "" }, ({ setState }) => ({
+    setLabelSearch: (labelSearch: string) => {
+      setState((state) => ({ ...state, labelSearch }));
+    },
+  }));
+}
+
+function useVaultBranchFiltersControlStore() {
+  return useCreateStore({ isOpen: false }, ({ setState }) => ({
+    setOpen: (isOpen: boolean) => {
+      setState((state) => ({ ...state, isOpen }));
+    },
+  }));
+}
+
 function VaultBranchFiltersPanel({
   value,
   options,
@@ -37,7 +53,9 @@ function VaultBranchFiltersPanel({
   onChange: (nextValue: VaultBranchFilters) => void;
   reservesSheetCloseSpace?: boolean;
 }) {
-  const [labelSearch, setLabelSearch] = useState("");
+  const panelStore = useVaultBranchFiltersPanelStore();
+  const labelSearch = useSelector(panelStore, (state) => state.labelSearch);
+  const { setLabelSearch } = panelStore.actions;
   const hasCustomFilters =
     value.hiddenLabels.length > 0 ||
     value.includeDrafts === true ||
@@ -158,7 +176,9 @@ export function VaultBranchFiltersControl({
   onChange: (nextValue: VaultBranchFilters) => void;
 }) {
   const usesTouchSheet = useUsesTouchSheet();
-  const [isOpen, setIsOpen] = useState(false);
+  const controlStore = useVaultBranchFiltersControlStore();
+  const isOpen = useSelector(controlStore, (state) => state.isOpen);
+  const { setOpen } = controlStore.actions;
   const trigger = (
     <Button type="button" variant="outline" size="sm" className="h-7 px-2.5">
       Filters
@@ -167,7 +187,7 @@ export function VaultBranchFiltersControl({
 
   if (usesTouchSheet) {
     return (
-      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <Sheet open={isOpen} onOpenChange={setOpen}>
         <SheetTrigger asChild>{trigger}</SheetTrigger>
         <SheetContent side="bottom" className="max-h-[85vh] overflow-hidden">
           <SheetTitle className="sr-only">Filters</SheetTitle>
@@ -183,7 +203,7 @@ export function VaultBranchFiltersControl({
   }
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent
         align="end"

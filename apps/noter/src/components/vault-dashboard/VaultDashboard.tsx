@@ -6,6 +6,7 @@ import { Input } from "@/components/input";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import { GitBranch, GitCommitHorizontal, Loader2 } from "lucide-react";
+import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { AnchoredPopoverContent, Popover } from "@/components/popover";
 import { Sheet, SheetContent, SheetTitle } from "@/components/sheet";
@@ -38,7 +39,6 @@ import {
 import {
   useEffect,
   useRef,
-  useState,
   type MutableRefObject,
   type ReactElement,
   type ReactNode,
@@ -221,6 +221,204 @@ type VaultDeleteIntent = {
   hasConvexProvision: boolean;
   hasHostingProvision: boolean;
 };
+type VaultDeleteOptionKey =
+  | "removeCodespaces"
+  | "removeConvexProvision"
+  | "removeDaytonaResources"
+  | "removeGithubRepo"
+  | "removeHostingProvision";
+type VaultDashboardLocalState = {
+  cloudflarePollingPaused: boolean;
+  commitError: string | null;
+  createError: string | null;
+  dashboardMountedAt: number;
+  deleteError: string | null;
+  didAttemptCommit: boolean;
+  disconnectingProvider: ProviderKey | null;
+  isAutoCheckingCloudflareToken: boolean;
+  isCheckingCloudflareToken: boolean;
+  isCommitting: boolean;
+  isCreating: boolean;
+  isDeleting: boolean;
+  isGlobalChatBusy: boolean;
+  isSigningOut: boolean;
+  newRepositoryName: string;
+  openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
+  removeCodespaces: boolean;
+  removeConvexProvision: boolean;
+  removeDaytonaResources: boolean;
+  removeGithubRepo: boolean;
+  removeHostingProvision: boolean;
+  retryingVaultId: Id<"vaults"> | null;
+  shouldAutoFocusChatInput: boolean;
+  vaultToDelete: VaultDeleteIntent | null;
+};
+
+function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
+  return {
+    cloudflarePollingPaused:
+      typeof document !== "undefined"
+        ? document.visibilityState !== "visible"
+        : false,
+    commitError: null,
+    createError: null,
+    dashboardMountedAt: Date.now(),
+    deleteError: null,
+    didAttemptCommit: false,
+    disconnectingProvider: null,
+    isAutoCheckingCloudflareToken: false,
+    isCheckingCloudflareToken: false,
+    isCommitting: false,
+    isCreating: false,
+    isDeleting: false,
+    isGlobalChatBusy: false,
+    isSigningOut: false,
+    newRepositoryName: "",
+    openDeveloperToolsByVaultId: {},
+    removeCodespaces: false,
+    removeConvexProvision: false,
+    removeDaytonaResources: false,
+    removeGithubRepo: false,
+    removeHostingProvision: false,
+    retryingVaultId: null,
+    shouldAutoFocusChatInput: false,
+    vaultToDelete: null,
+  };
+}
+
+function useVaultDashboardLocalStore() {
+  return useCreateStore(
+    readVaultDashboardInitialLocalState(),
+    ({ setState }) => ({
+      clearCreateError: () => {
+        setState((state) =>
+          state.createError === null ? state : { ...state, createError: null },
+        );
+      },
+      openDeleteDialog: ({
+        intent,
+        removeDaytonaResources,
+      }: {
+        intent: VaultDeleteIntent;
+        removeDaytonaResources: boolean;
+      }) => {
+        setState((state) => ({
+          ...state,
+          commitError: null,
+          deleteError: null,
+          didAttemptCommit: false,
+          removeCodespaces: true,
+          removeConvexProvision:
+            intent.isNoterManaged && intent.hasConvexProvision,
+          removeDaytonaResources,
+          removeGithubRepo: intent.isNoterManaged,
+          removeHostingProvision:
+            intent.isNoterManaged && intent.hasHostingProvision,
+          vaultToDelete: intent,
+        }));
+      },
+      markCommitAttempted: () => {
+        setState((state) => ({ ...state, didAttemptCommit: true }));
+      },
+      resetCreateRepositoryName: () => {
+        setState((state) => ({ ...state, newRepositoryName: "" }));
+      },
+      resetDeleteDialogState: () => {
+        setState((state) => ({
+          ...state,
+          commitError: null,
+          deleteError: null,
+          didAttemptCommit: false,
+          removeCodespaces: false,
+          removeConvexProvision: false,
+          removeDaytonaResources: false,
+          removeGithubRepo: false,
+          removeHostingProvision: false,
+          vaultToDelete: null,
+        }));
+      },
+      setCloudflarePollingPaused: (cloudflarePollingPaused: boolean) => {
+        setState((state) => ({ ...state, cloudflarePollingPaused }));
+      },
+      setCommitError: (commitError: string | null) => {
+        setState((state) => ({ ...state, commitError }));
+      },
+      setCreateError: (createError: string | null) => {
+        setState((state) => ({ ...state, createError }));
+      },
+      setDeleteError: (deleteError: string | null) => {
+        setState((state) => ({ ...state, deleteError }));
+      },
+      setDeleteOption: (option: VaultDeleteOptionKey, value: boolean) => {
+        setState((state) => {
+          switch (option) {
+            case "removeCodespaces":
+              return { ...state, removeCodespaces: value };
+            case "removeConvexProvision":
+              return { ...state, removeConvexProvision: value };
+            case "removeDaytonaResources":
+              return { ...state, removeDaytonaResources: value };
+            case "removeGithubRepo":
+              return { ...state, removeGithubRepo: value };
+            case "removeHostingProvision":
+              return { ...state, removeHostingProvision: value };
+          }
+
+          option satisfies never;
+          return state;
+        });
+      },
+      setDeveloperToolsOpen: (vaultId: Id<"vaults">, isOpen: boolean) => {
+        setState((state) => ({
+          ...state,
+          openDeveloperToolsByVaultId: {
+            ...state.openDeveloperToolsByVaultId,
+            [vaultId]: isOpen,
+          },
+        }));
+      },
+      setDisconnectingProvider: (disconnectingProvider: ProviderKey | null) => {
+        setState((state) => ({ ...state, disconnectingProvider }));
+      },
+      setGlobalChatAutoFocus: (shouldAutoFocusChatInput: boolean) => {
+        setState((state) => ({ ...state, shouldAutoFocusChatInput }));
+      },
+      setGlobalChatBusy: (isGlobalChatBusy: boolean) => {
+        setState((state) => ({ ...state, isGlobalChatBusy }));
+      },
+      setIsAutoCheckingCloudflareToken: (
+        isAutoCheckingCloudflareToken: boolean,
+      ) => {
+        setState((state) => ({ ...state, isAutoCheckingCloudflareToken }));
+      },
+      setIsCheckingCloudflareToken: (isCheckingCloudflareToken: boolean) => {
+        setState((state) => ({ ...state, isCheckingCloudflareToken }));
+      },
+      setIsCommitting: (isCommitting: boolean) => {
+        setState((state) => ({ ...state, isCommitting }));
+      },
+      setIsCreating: (isCreating: boolean) => {
+        setState((state) => ({ ...state, isCreating }));
+      },
+      setIsDeleting: (isDeleting: boolean) => {
+        setState((state) => ({ ...state, isDeleting }));
+      },
+      setIsSigningOut: (isSigningOut: boolean) => {
+        setState((state) => ({ ...state, isSigningOut }));
+      },
+      setNewRepositoryName: (newRepositoryName: string) => {
+        setState((state) => ({
+          ...state,
+          createError: null,
+          newRepositoryName,
+        }));
+      },
+      setRetryingVaultId: (retryingVaultId: Id<"vaults"> | null) => {
+        setState((state) => ({ ...state, retryingVaultId }));
+      },
+    }),
+  );
+}
 
 const dashboardLinkIconSlotClassName =
   "inline-flex h-4 w-5 shrink-0 items-center justify-center";
@@ -1865,43 +2063,57 @@ export function VaultDashboard() {
       popupOriginRef: cloudflarePopupOriginRef,
     },
   };
-  const [vaultToDelete, setVaultToDelete] = useState<VaultDeleteIntent | null>(
-    null,
-  );
-  const [removeGithubRepo, setRemoveGithubRepo] = useState(false);
-  const [removeCodespaces, setRemoveCodespaces] = useState(false);
-  const [removeConvexProvision, setRemoveConvexProvision] = useState(false);
-  const [removeHostingProvision, setRemoveHostingProvision] = useState(false);
-  const [removeDaytonaResources, setRemoveDaytonaResources] = useState(false);
-  const [newRepositoryName, setNewRepositoryName] = useState("");
-  const [disconnectingProvider, setDisconnectingProvider] =
-    useState<ProviderKey | null>(null);
-  const [isCheckingCloudflareToken, setIsCheckingCloudflareToken] =
-    useState(false);
-  const [isAutoCheckingCloudflareToken, setIsAutoCheckingCloudflareToken] =
-    useState(false);
-  const [cloudflarePollingPaused, setCloudflarePollingPaused] = useState(
-    typeof document !== "undefined"
-      ? document.visibilityState !== "visible"
-      : false,
-  );
-  const [isCreating, setIsCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isCommitting, setIsCommitting] = useState(false);
-  const [commitError, setCommitError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [didAttemptCommit, setDidAttemptCommit] = useState(false);
-  const [retryingVaultId, setRetryingVaultId] = useState<Id<"vaults"> | null>(
-    null,
-  );
-  const [openDeveloperToolsByVaultId, setOpenDeveloperToolsByVaultId] =
-    useState<Partial<Record<Id<"vaults">, boolean>>>({});
-  const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isGlobalChatBusy, setIsGlobalChatBusy] = useState(false);
-  const [shouldAutoFocusChatInput, setShouldAutoFocusChatInput] =
-    useState(false);
-  const [dashboardMountedAt] = useState(() => Date.now());
+  const dashboardLocalStore = useVaultDashboardLocalStore();
+  const {
+    cloudflarePollingPaused,
+    commitError,
+    createError,
+    dashboardMountedAt,
+    deleteError,
+    didAttemptCommit,
+    disconnectingProvider,
+    isAutoCheckingCloudflareToken,
+    isCheckingCloudflareToken,
+    isCommitting,
+    isCreating,
+    isDeleting,
+    isGlobalChatBusy,
+    isSigningOut,
+    newRepositoryName,
+    openDeveloperToolsByVaultId,
+    removeCodespaces,
+    removeConvexProvision,
+    removeDaytonaResources,
+    removeGithubRepo,
+    removeHostingProvision,
+    retryingVaultId,
+    shouldAutoFocusChatInput,
+    vaultToDelete,
+  } = useSelector(dashboardLocalStore);
+  const {
+    clearCreateError,
+    markCommitAttempted,
+    openDeleteDialog,
+    resetCreateRepositoryName,
+    resetDeleteDialogState,
+    setCloudflarePollingPaused,
+    setCommitError,
+    setCreateError,
+    setDeleteError,
+    setDeleteOption,
+    setDeveloperToolsOpen,
+    setDisconnectingProvider,
+    setGlobalChatAutoFocus,
+    setGlobalChatBusy,
+    setIsAutoCheckingCloudflareToken,
+    setIsCheckingCloudflareToken,
+    setIsCommitting,
+    setIsCreating,
+    setIsDeleting,
+    setIsSigningOut,
+    setNewRepositoryName,
+    setRetryingVaultId,
+  } = dashboardLocalStore.actions;
 
   useProviderOAuthPopupCompletionReload({
     cloudflarePopupOriginRef,
@@ -1940,23 +2152,12 @@ export function VaultDashboard() {
     api.codespacesMutations.getConnectedCodespacesCount,
     vaultToDelete ? { vaultId: vaultToDelete.id } : "skip",
   );
-  const resetDeleteDialogState = () => {
-    setVaultToDelete(null);
-    setRemoveGithubRepo(false);
-    setRemoveCodespaces(false);
-    setRemoveConvexProvision(false);
-    setRemoveHostingProvision(false);
-    setRemoveDaytonaResources(false);
-    setCommitError(null);
-    setDeleteError(null);
-    setDidAttemptCommit(false);
-  };
 
   const handleConnect = async (provider: ProviderKey) => {
     const providerConfig = providerRuntimeConfig[provider];
     const providerMetadata = PROVIDER_METADATA[provider];
     if (createError) {
-      setCreateError(null);
+      clearCreateError();
     }
     try {
       const oauthUrl =
@@ -1996,7 +2197,7 @@ export function VaultDashboard() {
     if (disconnectingProvider) return;
     setDisconnectingProvider(provider);
     if (createError) {
-      setCreateError(null);
+      clearCreateError();
     }
     try {
       await providerConfig.disconnect();
@@ -2017,7 +2218,7 @@ export function VaultDashboard() {
     }
     setIsCheckingCloudflareToken(true);
     if (createError) {
-      setCreateError(null);
+      clearCreateError();
     }
     try {
       await refreshCloudflareMcpTokenIfNeeded({
@@ -2084,7 +2285,7 @@ export function VaultDashboard() {
         error instanceof Error ? error.message : "Failed to commit changes",
       );
     } finally {
-      setDidAttemptCommit(true);
+      markCommitAttempted();
       setIsCommitting(false);
     }
   };
@@ -2107,7 +2308,7 @@ export function VaultDashboard() {
         name: repoName,
         private: true,
       });
-      setNewRepositoryName("");
+      resetCreateRepositoryName();
     } catch (error) {
       setCreateError(
         error instanceof Error ? error.message : "Failed to create app",
@@ -2264,9 +2465,6 @@ export function VaultDashboard() {
         value={newRepositoryName}
         onChange={(e) => {
           setNewRepositoryName(e.target.value);
-          if (createError) {
-            setCreateError(null);
-          }
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
@@ -2359,11 +2557,11 @@ export function VaultDashboard() {
   };
 
   const handleGlobalChatOpenChange = (isOpen: boolean) => {
-    setShouldAutoFocusChatInput(isOpen);
+    setGlobalChatAutoFocus(isOpen);
     void setEditorChatOpen({ isOpen, scope: "global" }).catch(
       (error: unknown) => {
         console.error("Failed to persist global chat state:", error);
-        setShouldAutoFocusChatInput(false);
+        setGlobalChatAutoFocus(false);
       },
     );
   };
@@ -2488,10 +2686,7 @@ export function VaultDashboard() {
     vaultId: Id<"vaults">,
     isOpen: boolean,
   ) => {
-    setOpenDeveloperToolsByVaultId((prev) => ({
-      ...prev,
-      [vaultId]: isOpen,
-    }));
+    setDeveloperToolsOpen(vaultId, isOpen);
   };
 
   const handleVaultBranchFiltersChange = (
@@ -2506,23 +2701,16 @@ export function VaultDashboard() {
   };
 
   const handleVaultDeleteIntent = (vault: VaultDashboardVault) => {
-    setVaultToDelete({
-      id: vault._id,
-      repositoryFullName: vault.repositoryFullName,
-      isNoterManaged: vault.isNoterManaged,
-      hasConvexProvision: vault.hasConvexProvision,
-      hasHostingProvision: vault.hasHostingProvision,
+    openDeleteDialog({
+      intent: {
+        id: vault._id,
+        repositoryFullName: vault.repositoryFullName,
+        isNoterManaged: vault.isNoterManaged,
+        hasConvexProvision: vault.hasConvexProvision,
+        hasHostingProvision: vault.hasHostingProvision,
+      },
+      removeDaytonaResources: hasDaytonaResourcesForVault(vault),
     });
-    setRemoveGithubRepo(vault.isNoterManaged);
-    setRemoveCodespaces(true);
-    setRemoveConvexProvision(vault.isNoterManaged && vault.hasConvexProvision);
-    setRemoveHostingProvision(
-      vault.isNoterManaged && vault.hasHostingProvision,
-    );
-    setRemoveDaytonaResources(hasDaytonaResourcesForVault(vault));
-    setCommitError(null);
-    setDeleteError(null);
-    setDidAttemptCommit(false);
   };
 
   const handleDeleteOpenChange = (isOpen: boolean) => {
@@ -2614,7 +2802,7 @@ export function VaultDashboard() {
                   content: (
                     <EditorChatPanel
                       autoFocusInput={shouldAutoFocusChatInput}
-                      onBusyStateChange={setIsGlobalChatBusy}
+                      onBusyStateChange={setGlobalChatBusy}
                       shellMode="embedded"
                     />
                   ),
@@ -2654,7 +2842,7 @@ export function VaultDashboard() {
                   id="remove-github-repo"
                   checked={removeGithubRepo}
                   onCheckedChange={(checked) =>
-                    setRemoveGithubRepo(checked === true)
+                    setDeleteOption("removeGithubRepo", checked === true)
                   }
                   disabled={
                     !vaultToDelete.isNoterManaged || isDeleting || isCommitting
@@ -2680,7 +2868,7 @@ export function VaultDashboard() {
                     connectedCodespacesCount === 0 ? true : removeCodespaces
                   }
                   onCheckedChange={(checked) =>
-                    setRemoveCodespaces(checked === true)
+                    setDeleteOption("removeCodespaces", checked === true)
                   }
                   disabled={
                     connectedCodespacesCount === 0 || isDeleting || isCommitting
@@ -2702,7 +2890,7 @@ export function VaultDashboard() {
                   id="remove-daytona-resources"
                   checked={removeDaytonaResources}
                   onCheckedChange={(checked) =>
-                    setRemoveDaytonaResources(checked === true)
+                    setDeleteOption("removeDaytonaResources", checked === true)
                   }
                   disabled={isDeleting || isCommitting}
                   className="mt-0.5"
@@ -2726,7 +2914,7 @@ export function VaultDashboard() {
                     id="remove-convex-provision"
                     checked={removeConvexProvision}
                     onCheckedChange={(checked) =>
-                      setRemoveConvexProvision(checked === true)
+                      setDeleteOption("removeConvexProvision", checked === true)
                     }
                     disabled={
                       !vaultToDelete.isNoterManaged ||
@@ -2754,7 +2942,10 @@ export function VaultDashboard() {
                     id={removeHostingCheckboxId}
                     checked={removeHostingProvision}
                     onCheckedChange={(checked) =>
-                      setRemoveHostingProvision(checked === true)
+                      setDeleteOption(
+                        "removeHostingProvision",
+                        checked === true,
+                      )
                     }
                     disabled={
                       !vaultToDelete.isNoterManaged ||
