@@ -995,46 +995,30 @@ export function LogoPreviewPage({
   const { backgroundColor, faceColors } = useResolvedAppThemeColorState(
     state.themeColors,
   );
-  const isAutoRotatingRef = useRef(state.isAutoRotating);
   const lastFrameTimeRef = useRef<number | null>(null);
   const viewSnapCheckboxId = useId();
   const faceColorAnimationCheckboxId = useId();
-  const isSceneInteractingRef = useRef(state.isSceneInteracting);
-
-  /**
-   * Mirrors store flags needed by async callbacks so route-sync guards can read
-   * the latest interaction state without waiting for a React render.
-   */
-  useEffect(() => {
-    const syncLatestStateRefs = (latestState: LogoPreviewStoreState) => {
-      isAutoRotatingRef.current = latestState.isAutoRotating;
-      isSceneInteractingRef.current = latestState.isSceneInteracting;
-    };
-
-    syncLatestStateRefs(store.state);
-    const subscription = store.subscribe(syncLatestStateRefs);
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [store]);
 
   /**
    * Pulls URL-owned logo state into the local store after navigation while
-   * preserving local-only controls such as pane, motion, and edit mode.
+   * preserving local-only controls such as pane, motion, and edit mode. The
+   * direct store read keeps this effect driven by URL changes rather than by
+   * every transient scene interaction.
    */
   useEffect(() => {
+    const latestState = store.state;
+
     if (
       !shouldSyncLogoPreviewQueryState({
-        isAutoRotating: isAutoRotatingRef.current,
-        isSceneInteracting: isSceneInteractingRef.current,
+        isAutoRotating: latestState.isAutoRotating,
+        isSceneInteracting: latestState.isSceneInteracting,
       })
     ) {
       return;
     }
 
     actions.syncRouteStoreState(readLogoPreviewRouteStoreState(routeSearch));
-  }, [actions, routeSearch]);
+  }, [actions, routeSearch, store]);
 
   /**
    * Writes canonical shareable logo state back to route search once scene
