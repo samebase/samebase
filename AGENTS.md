@@ -191,8 +191,12 @@ Key domain entities:
 - Do not pre-populate new layout components with invented content structure or
   helper APIs. Leave them mostly empty by default and add the next layer only
   when a current shipped use case proves it is necessary.
-- For app-owned layout shells, every utility class should protect a current
-  invariant. If you cannot name the invariant a class preserves, leave it out.
+- For app-owned UI, use as few Tailwind utilities as possible. Every utility
+  class should protect a current invariant; if you cannot name the invariant a
+  class preserves, leave it out. Start from native element behavior for
+  diagnostic/operator surfaces and avoid decorative backgrounds, borders,
+  radius/notch classes, opacity tweaks, and height caps unless the current UI
+  truly needs them.
 - For pane rails that should feel nearly flush, prefer `px-1` over `px-0` so the
   content keeps a small nonzero inset without reading as padded.
 - Browser-owned page scroll is the default for route surfaces. Do not use
@@ -203,6 +207,9 @@ Key domain entities:
   sizing such as `flex min-h-0 flex-1 flex-col`, and place any intentional local
   scroller lower in the tree so browser pull-to-refresh and edge-swipe gestures
   keep working.
+- When headings, cards, or selected rows can be opened through a link, query
+  param, or programmatic scroll, preserve enough scroll-end space for the last
+  target to align at the top of its scrollport.
 - Temporary ProseMark workaround: when authoring a Markdown link whose label
   would exactly equal its URL, prefix the label with `link` plus a leading space
   so the rendered link stays visible until that ProseMark bug is fixed.

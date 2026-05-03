@@ -4,6 +4,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/input";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
+import { VaultProvisioningLogTextarea } from "@/components/vault-dashboard/VaultProvisioningLogTextarea";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import { GitBranch, GitCommitHorizontal, Loader2 } from "lucide-react";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
@@ -68,6 +69,7 @@ import {
   VaultDashboardProvidersSection,
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
+  VaultDashboardScrollTargetEndPadding,
   VaultDashboardSidebarContent,
   type VaultDashboardProviderRowViewModel,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
@@ -1832,18 +1834,24 @@ function VaultDashboardBody({
                             <DaytonaSnapshotList vaultId={vault._id} />
                           ) : null}
                           {vault.isNoterManaged && (
-                            <div className="text-xs text-muted-foreground">
-                              Infra: {formatInfraState(vault.infraState)}
-                              {vault.infraProductionUrl && (
-                                <a
-                                  href={vault.infraProductionUrl}
-                                  target="_blank"
-                                  rel="noreferrer noopener"
-                                  className={`ml-2 font-mono break-all ${linkStyle}`}
-                                >
-                                  {vault.infraProductionUrl}
-                                </a>
-                              )}
+                            <div className="space-y-2">
+                              <div className="text-xs text-muted-foreground">
+                                Infra: {formatInfraState(vault.infraState)}
+                                {vault.infraProductionUrl && (
+                                  <a
+                                    href={vault.infraProductionUrl}
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    className={`ml-2 font-mono break-all ${linkStyle}`}
+                                  >
+                                    {vault.infraProductionUrl}
+                                  </a>
+                                )}
+                              </div>
+                              <VaultProvisioningLogTextarea
+                                repositoryFullName={vault.repositoryFullName}
+                                vaultId={vault._id}
+                              />
                             </div>
                           )}
                         </>
@@ -1892,6 +1900,7 @@ function VaultDashboardBody({
           </div>
         );
       })}
+      <VaultDashboardScrollTargetEndPadding />
     </VaultDashboardRepositoryList>
   );
 }
