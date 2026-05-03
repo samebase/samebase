@@ -425,19 +425,6 @@ export default defineSchema({
     activeCodespaceId: optional(id("codespaces")),
     devcontainerConfig: optional(string()), // JSON string of .devcontainer/devcontainer.json
 
-    // Daytona sandbox integration
-    daytonaSandboxId: optional(string()),
-    daytonaSandboxName: optional(string()),
-    daytonaSandboxCreatedAt: optional(number()),
-    daytonaSandboxProvisioningMode: optional(
-      union(literal("snapshot_backed"), literal("live_debug")),
-    ),
-    daytonaSnapshotName: optional(string()),
-    daytonaPrebuildLogs: optional(string()),
-    daytonaPrebuildLogsUpdatedAt: optional(number()),
-    daytonaPrebuildLogsBranch: optional(string()),
-    daytonaPrebuildLogsSnapshot: optional(string()),
-
     // Infrastructure provisioning lifecycle
     infraState: optional(InfraState),
     infraLastError: optional(string()),

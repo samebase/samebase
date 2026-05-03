@@ -202,6 +202,12 @@ Retire docs in the same branch that removes the corresponding implementation:
   and verification reports completion.
 - Daytona sandboxes, external Daytona snapshots, and Noter's legacy
   `daytonaSnapshots` rows are not deleted by the automated migration.
+- Phase 4 narrow schema cleanup continued after production verification returned
+  `complete: true` with no sampled vault ids.
+- The Daytona fields on `vaults` and the completed migration scaffolding were
+  removed from active code.
+- The `daytonaSnapshots` table remains until its internal rows are handled by a
+  separate manual or doc-retirement task.
 
 ## Validation
 
