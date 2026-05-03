@@ -172,6 +172,16 @@ Retire docs in the same branch that removes the corresponding implementation:
 6. Keep deletion batches small enough that review can distinguish UI removal,
    runtime removal, data migration, and doc retirement.
 
+## Implementation Log
+
+### 2026-05-04
+
+- Phase 1 started in PR #689 by removing active Daytona dashboard, file-view,
+  preview, snapshot, and Codex-in-Daytona provider UI entrypoints.
+- Frontend Daytona UI support components and their focused tests were deleted.
+- Backend Convex modules, schema fields, Vite proxy naming, env contracts, and
+  legacy data cleanup intentionally remain for later phases.
+
 ## Validation
 
 Each cleanup PR should verify the part it changes:

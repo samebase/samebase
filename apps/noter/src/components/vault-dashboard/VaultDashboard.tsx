@@ -56,11 +56,7 @@ import {
   DialogTitle,
 } from "@/components/dialog";
 import { CodespaceStatus } from "@/components/CodespaceStatus";
-import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
-import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
-import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
-import { CodexProviderRow } from "@/components/CodexProviderRow";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
 import { EditorChatPanel } from "@/components/EditorChatPanel";
 import {
@@ -78,7 +74,6 @@ import {
   useApiKeyConnectDialog,
   type ApiKeyProvider,
 } from "@/components/ApiKeyConnectDialog";
-import { DAYTONA_PAUSED } from "../../../shared/daytonaPause";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
   buildVaultCodespaceChatRoute,
@@ -104,7 +99,6 @@ import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkC
 import { WorkspaceLayoutV2FullPage } from "../workspace-layout-v2/WorkspaceLayoutV2";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { CHAT_ENABLED } from "@/lib/featureFlags";
-import type { DaytonaSnapshotStatus } from "@/lib/daytonaSnapshot";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import { useUsesTouchSheet } from "@/hooks/useUsesTouchSheet";
 import {
@@ -180,24 +174,6 @@ const getInfraActionLabel = (
   return null;
 };
 
-type DaytonaResourceFlags = {
-  daytonaSandboxId?: string | null;
-  daytonaSnapshotName?: string | null;
-  daytonaPrebuildLogsSnapshot?: string | null;
-  daytonaCurrentSnapshotName?: string | null;
-  daytonaCurrentSnapshotStatus?: DaytonaSnapshotStatus | null;
-};
-
-const hasDaytonaResourcesForVault = (
-  vault: DaytonaResourceFlags | null | undefined,
-) =>
-  Boolean(
-    vault?.daytonaSandboxId ||
-    vault?.daytonaSnapshotName ||
-    vault?.daytonaPrebuildLogsSnapshot ||
-    vault?.daytonaCurrentSnapshotName,
-  );
-
 const PROVIDER_KEYS = ["github", "convex", "cloudflare"] as const;
 type ProviderKey = (typeof PROVIDER_KEYS)[number];
 type ProviderMetadata = {
@@ -226,7 +202,6 @@ type VaultDeleteIntent = {
 type VaultDeleteOptionKey =
   | "removeCodespaces"
   | "removeConvexProvision"
-  | "removeDaytonaResources"
   | "removeGithubRepo"
   | "removeHostingProvision";
 type VaultDashboardLocalState = {
@@ -248,7 +223,6 @@ type VaultDashboardLocalState = {
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   removeCodespaces: boolean;
   removeConvexProvision: boolean;
-  removeDaytonaResources: boolean;
   removeGithubRepo: boolean;
   removeHostingProvision: boolean;
   retryingVaultId: Id<"vaults"> | null;
@@ -279,7 +253,6 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
     openDeveloperToolsByVaultId: {},
     removeCodespaces: false,
     removeConvexProvision: false,
-    removeDaytonaResources: false,
     removeGithubRepo: false,
     removeHostingProvision: false,
     retryingVaultId: null,
@@ -297,13 +270,7 @@ function useVaultDashboardLocalStore() {
           state.createError === null ? state : { ...state, createError: null },
         );
       },
-      openDeleteDialog: ({
-        intent,
-        removeDaytonaResources,
-      }: {
-        intent: VaultDeleteIntent;
-        removeDaytonaResources: boolean;
-      }) => {
+      openDeleteDialog: ({ intent }: { intent: VaultDeleteIntent }) => {
         setState((state) => ({
           ...state,
           commitError: null,
@@ -312,7 +279,6 @@ function useVaultDashboardLocalStore() {
           removeCodespaces: true,
           removeConvexProvision:
             intent.isNoterManaged && intent.hasConvexProvision,
-          removeDaytonaResources,
           removeGithubRepo: intent.isNoterManaged,
           removeHostingProvision:
             intent.isNoterManaged && intent.hasHostingProvision,
@@ -333,7 +299,6 @@ function useVaultDashboardLocalStore() {
           didAttemptCommit: false,
           removeCodespaces: false,
           removeConvexProvision: false,
-          removeDaytonaResources: false,
           removeGithubRepo: false,
           removeHostingProvision: false,
           vaultToDelete: null,
@@ -358,8 +323,6 @@ function useVaultDashboardLocalStore() {
               return { ...state, removeCodespaces: value };
             case "removeConvexProvision":
               return { ...state, removeConvexProvision: value };
-            case "removeDaytonaResources":
-              return { ...state, removeDaytonaResources: value };
             case "removeGithubRepo":
               return { ...state, removeGithubRepo: value };
             case "removeHostingProvision":
@@ -1789,17 +1752,6 @@ function VaultDashboardBody({
                   />
                 ) : undefined
               }
-              daytonaBanner={
-                !DAYTONA_PAUSED && isReady && primaryBranch ? (
-                  <DaytonaSnapshotBanner
-                    branch={primaryBranch}
-                    commitSha={vault.commitSHA}
-                    snapshotName={vault.daytonaCurrentSnapshotName}
-                    snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                    lastError={vault.daytonaCurrentSnapshotLastError}
-                  />
-                ) : undefined
-              }
               developerToolsSection={
                 isReady
                   ? {
@@ -1814,25 +1766,6 @@ function VaultDashboardBody({
                             vaultId={vault._id}
                             repositoryFullName={vault.repositoryFullName}
                           />
-                          {!DAYTONA_PAUSED && primaryBranch ? (
-                            <DaytonaWorkspaceButton
-                              vaultId={vault._id}
-                              branch={primaryBranch}
-                              sandboxId={vault.daytonaSandboxId}
-                              sandboxName={vault.daytonaSandboxName}
-                              commitSha={vault.commitSHA}
-                              snapshotStatus={
-                                vault.daytonaCurrentSnapshotStatus
-                              }
-                              snapshotName={vault.daytonaCurrentSnapshotName}
-                              snapshotError={
-                                vault.daytonaCurrentSnapshotLastError
-                              }
-                            />
-                          ) : null}
-                          {!DAYTONA_PAUSED ? (
-                            <DaytonaSnapshotList vaultId={vault._id} />
-                          ) : null}
                           {vault.isNoterManaged && (
                             <div className="space-y-2">
                               <div className="text-xs text-muted-foreground">
@@ -2092,7 +2025,6 @@ export function VaultDashboard() {
     openDeveloperToolsByVaultId,
     removeCodespaces,
     removeConvexProvision,
-    removeDaytonaResources,
     removeGithubRepo,
     removeHostingProvision,
     retryingVaultId,
@@ -2154,7 +2086,6 @@ export function VaultDashboard() {
       : null;
   const stagedChangesCount = selectedVault?.fileCount ?? 0;
   const hasStagedChanges = stagedChangesCount > 0;
-  const hasDaytonaResources = hasDaytonaResourcesForVault(selectedVault);
   const removeHostingCheckboxId = "remove-cloudflare-provision";
   const removeHostingLabel = "Also remove Cloudflare Pages project";
   const connectedCodespacesCount = useConvexQuery(
@@ -2266,7 +2197,7 @@ export function VaultDashboard() {
           vaultToDelete.isNoterManaged && vaultToDelete.hasHostingProvision
             ? removeHostingProvision
             : false,
-        removeDaytonaResources,
+        removeDaytonaResources: false,
       });
       resetDeleteDialogState();
     } catch (error) {
@@ -2718,7 +2649,6 @@ export function VaultDashboard() {
         hasConvexProvision: vault.hasConvexProvision,
         hasHostingProvision: vault.hasHostingProvision,
       },
-      removeDaytonaResources: hasDaytonaResourcesForVault(vault),
     });
   };
 
@@ -2755,7 +2685,6 @@ export function VaultDashboard() {
         open={resolvedProvidersPanelOpen}
         onOpenChange={handleProvidersPanelOpenChange}
         providerRows={providerRows}
-        footer={<CodexProviderRow />}
       />
       {createControl}
       <div className="mt-auto">
@@ -2892,29 +2821,6 @@ export function VaultDashboard() {
                   {connectedCodespacesCount === undefined
                     ? null
                     : ` (${connectedCodespacesCount} connected)`}
-                </label>
-              </div>
-              <div className="flex items-start gap-2">
-                <Checkbox
-                  id="remove-daytona-resources"
-                  checked={removeDaytonaResources}
-                  onCheckedChange={(checked) =>
-                    setDeleteOption("removeDaytonaResources", checked === true)
-                  }
-                  disabled={isDeleting || isCommitting}
-                  className="mt-0.5"
-                />
-                <label
-                  htmlFor="remove-daytona-resources"
-                  className="text-sm text-muted-foreground"
-                >
-                  Also remove Daytona sandboxes and snapshots
-                  {!hasDaytonaResources ? (
-                    <div className="text-xs text-muted-foreground">
-                      We will try to remove any Daytona resources tied to this
-                      vault.
-                    </div>
-                  ) : null}
                 </label>
               </div>
               {vaultToDelete.hasConvexProvision ? (

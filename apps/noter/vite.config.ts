@@ -8,7 +8,6 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
 import { formatWithVpFmt } from "../../scripts/format-with-vp-fmt.ts";
-import { readPackageVersion } from "../../scripts/readPackageVersion.ts";
 import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
 import {
   createLogoIdentitySvgAssets,
@@ -100,7 +99,6 @@ const appCommitNumber = resolveAppCommitNumber({
 });
 
 const appRepoUrl = "https://github.com/noter-md/noter";
-const daytonaSdkVersion = readPackageVersion("@daytonaio/sdk", import.meta.url);
 const daytonaLocalEnvPath = path.resolve(currentDir, ".env.local");
 const daytonaConvexProxyTarget = resolveDaytonaConvexProxyTarget({
   devOrigin: process.env.DEV_ENV_ORIGIN,
@@ -583,7 +581,6 @@ export default defineConfig({
     __APP_COMMIT__: JSON.stringify(appCommit),
     __APP_COMMIT_NUMBER__: JSON.stringify(appCommitNumber),
     __APP_REPO_URL__: JSON.stringify(appRepoUrl),
-    __DAYTONA_SDK_VERSION__: JSON.stringify(daytonaSdkVersion),
     __DAYTONA_CONVEX_PROXY_PATH__: JSON.stringify(daytonaConvexProxyPath),
   },
   plugins: [

@@ -306,7 +306,6 @@ export function VaultDashboardSidebarContent({
 
 export function VaultDashboardRepositoryCard({
   branchSection,
-  daytonaBanner,
   developerToolsSection,
   footerActions,
   headerControls,
@@ -323,7 +322,6 @@ export function VaultDashboardRepositoryCard({
   topRightAction,
 }: {
   branchSection?: ReactNode;
-  daytonaBanner?: ReactNode;
   developerToolsSection?: {
     content: ReactNode;
     onOpenChange: (isOpen: boolean) => void;
@@ -345,7 +343,7 @@ export function VaultDashboardRepositoryCard({
   topRightAction?: ReactNode;
 }) {
   const hasBodyContent = Boolean(
-    branchSection || daytonaBanner || developerToolsSection || footerActions,
+    branchSection || developerToolsSection || footerActions,
   );
   // Keep long branch lists anchored to their repository without taking over
   // unrelated card content.
@@ -403,7 +401,6 @@ export function VaultDashboardRepositoryCard({
 
         <div className="space-y-3">
           {branchSection}
-          {daytonaBanner}
 
           {developerToolsSection ? (
             developerToolsSection.visible ? (

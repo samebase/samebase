@@ -25,15 +25,14 @@ type FileViewDeveloperToolsProps = {
   onViewModeChange: (viewMode: FileViewMode) => void;
   editorOverride?: FileViewEditorOverride;
   onEditorOverrideChange?: (editorOverride: FileViewEditorOverride) => void;
-  children: ReactNode;
+  children?: ReactNode;
   contentTestId?: string;
 };
 
 /**
  * FileView keeps graph mode behind the developer tools section by default, but
  * still needs a stable way back to editor mode when that advanced surface is
- * active. The section also survives Daytona pauses because graph mode is still
- * a FileView-owned developer surface.
+ * active.
  */
 export function FileViewDeveloperTools({
   open,

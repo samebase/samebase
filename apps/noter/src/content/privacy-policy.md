@@ -1,9 +1,9 @@
 # Privacy Policy
 
-Last updated: April 12, 2026
+Last updated: May 4, 2026
 
-Reviewed and updated by Codex (GPT-5.4 Extra High) on April 12, 2026, based on
-the current Noter source code.
+Reviewed and updated by Codex (GPT-5) on May 4, 2026, based on the current Noter
+source code.
 
 This Privacy Policy describes how Noter handles information in the current app
 code. It is intentionally narrow: it covers the data flows, integrations,
@@ -22,12 +22,12 @@ claiming features or controls that are not in the product yet.
 - Connected provider credentials and related identifiers. If you connect GitHub,
   Convex, Cloudflare, or Codex, Noter stores the credentials and metadata needed
   to operate that integration, such as OAuth access tokens, refresh tokens, API
-  keys, expiry times, usernames, team IDs, account IDs, and Codex volume or
-  sandbox identifiers.
+  keys, expiry times, usernames, team IDs, account IDs, and provider-specific
+  identifiers.
 - Repository and workspace metadata. Noter stores repository owner and name,
   repository IDs, Git trees, commit SHAs, branch metadata, infrastructure
-  status, domain mappings, Codespaces metadata, Daytona sandbox and snapshot
-  metadata, and related operational fields.
+  status, domain mappings, Codespaces metadata, legacy Daytona sandbox and
+  snapshot metadata, and related operational fields.
 - Workspace content. Noter stores staged file content, initial file content,
   file paths, deduplicated blobs, collaborative editing updates, and other state
   needed to sync and restore your work.
@@ -78,9 +78,8 @@ authentication.
 - To generate AI responses, tool activity, and approval proposals using the
   configured model provider and the repository or file context for the active
   thread.
-- To create and manage hosted resources, previews, Codespaces, Daytona
-  sandboxes, and related operational infrastructure when you enable those
-  features.
+- To create and manage hosted resources, previews, Codespaces, and related
+  operational infrastructure when you enable those features.
 - To create checkout or customer-portal sessions with Polar and keep
   subscription status in sync.
 - To understand product usage, monitor stability, and capture client-side errors
@@ -104,8 +103,8 @@ integrations described on this page.
 - With GitHub when you connect repositories, read repository data, create
   commits or repositories, manage deploy keys or webhooks, or use GitHub
   Codespaces.
-- With Convex, Cloudflare, and Daytona when you connect those providers or ask
-  Noter to provision or operate related infrastructure.
+- With Convex and Cloudflare when you connect those providers or ask Noter to
+  provision or operate related infrastructure.
 - With Polar when you start checkout or open the billing portal, and when
   subscription state is synchronized by webhook.
 - With PostHog when the app sends product analytics, browser error, and related
@@ -128,8 +127,8 @@ as part of that workflow.
 - You can disconnect connected providers, which removes the corresponding
   provider-connection record stored by Noter.
 - You can delete vaults from the dashboard, and that deletion flow can also
-  remove related GitHub, Codespaces, Convex, hosting, and Daytona resources when
-  those options are selected.
+  remove related GitHub, Codespaces, Convex, and hosting resources when those
+  options are selected.
 - A self-serve account deletion flow is not currently implemented in the app
   code.
 
