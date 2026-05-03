@@ -13,7 +13,10 @@ import {
 } from "vite-plus/test";
 import { SidebarProvider } from "@/components/sidebar";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
-import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2";
+import {
+  WorkspaceLayoutV2FullPage,
+  type WorkspaceLayoutV2MobileMinResizeBehavior,
+} from "./WorkspaceLayoutV2";
 
 const { act } = React;
 
@@ -22,6 +25,7 @@ Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
 const VIEWPORT_WIDTH_PX = 390;
 const VIEWPORT_HEIGHT_PX = 844;
 const MOBILE_PANE_PEEK_PX = 24;
+const MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
 const OMIT_HEADER = Symbol("omit-header");
 const MOBILE_PANE_SEPARATOR_CLASSES = [
   "workspace-mobile-pane-separators",
@@ -76,6 +80,7 @@ function renderMobileLayout({
   leftMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   leftToggleVisibility,
   mainHeader = OMIT_HEADER,
+  mobileMinResizeBehavior,
   mobilePane,
   rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   showMobileResizeGripDots,
@@ -85,6 +90,7 @@ function renderMobileLayout({
   leftMobileWidthPx?: number;
   leftToggleVisibility?: "all" | "desktop" | "hidden";
   mainHeader?: React.ReactNode | typeof OMIT_HEADER;
+  mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
   mobilePane?: "left" | "main" | "right";
   rightMobileWidthPx?: number;
   showMobileResizeGripDots?: boolean;
@@ -116,6 +122,7 @@ function renderMobileLayout({
             : undefined
         }
         main={mainProps}
+        mobileMinResizeBehavior={mobileMinResizeBehavior}
         right={
           includeRightPane
             ? {
@@ -603,7 +610,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBeNull();
   });
 
-  it("clamps mobile sidebar widths to double the leftover width outside max width", () => {
+  it("clamps mobile sidebar widths to the configured mobile minimum", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -629,10 +636,16 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       '[data-testid="workspace-layout-v2-left-resize"]',
     );
 
-    expect(leftPane.style.width).toBe("96px");
-    expect(leftHandle.getAttribute("aria-valuemin")).toBe("96");
-    expect(leftHandle.getAttribute("aria-valuenow")).toBe("96");
-    expect(leftHandle.parentElement?.style.left).toBe("96px");
+    expect(leftPane.style.width).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
+    expect(leftHandle.getAttribute("aria-valuemin")).toBe(
+      `${MOBILE_SIDEBAR_MIN_WIDTH_PX}`,
+    );
+    expect(leftHandle.getAttribute("aria-valuenow")).toBe(
+      `${MOBILE_SIDEBAR_MIN_WIDTH_PX}`,
+    );
+    expect(leftHandle.parentElement?.style.left).toBe(
+      `${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`,
+    );
 
     act(() => {
       mountedRoot.render(
@@ -654,10 +667,75 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       '[data-testid="workspace-layout-v2-right-resize"]',
     );
 
-    expect(rightPane.style.width).toBe("96px");
-    expect(rightHandle.getAttribute("aria-valuemin")).toBe("96");
-    expect(rightHandle.getAttribute("aria-valuenow")).toBe("96");
+    expect(rightPane.style.width).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
+    expect(rightHandle.getAttribute("aria-valuemin")).toBe(
+      `${MOBILE_SIDEBAR_MIN_WIDTH_PX}`,
+    );
+    expect(rightHandle.getAttribute("aria-valuenow")).toBe(
+      `${MOBILE_SIDEBAR_MIN_WIDTH_PX}`,
+    );
     expect(rightHandle.parentElement?.style.left).toBe("294px");
+  });
+
+  it("lets merge mode finish a below-min left resize into a fitted main pane", () => {
+    vi.useFakeTimers();
+    try {
+      const mountedRoot = root;
+      if (mountedRoot === null || rootElement === null) {
+        throw new Error("Expected mounted root");
+      }
+
+      act(() => {
+        mountedRoot.render(
+          renderMobileLayout({
+            leftMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
+            mobileMinResizeBehavior: "min_resize_to_merge",
+            mobilePane: "left",
+            showMobileResizeGripDots: true,
+          }),
+        );
+      });
+
+      const leftHandle = getRequiredElement(
+        rootElement,
+        '[data-testid="workspace-layout-v2-left-resize"]',
+      );
+      const mainPane = getRequiredElement(rootElement, ".snap-center");
+
+      expect(mainPane.style.width).toBe("342px");
+
+      act(() => {
+        leftHandle.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "ArrowLeft",
+          }),
+        );
+      });
+
+      expect(mainPane.style.width).toBe("318px");
+      expect(
+        rootElement
+          .querySelector("[data-workspace-layout-v2]")
+          ?.getAttribute("data-mobile-pane"),
+      ).toBe("left");
+
+      act(() => {
+        vi.advanceTimersByTime(121);
+      });
+
+      expect(mainPane.style.width).toBe("294px");
+      expect(leftHandle.getAttribute("aria-valuenow")).toBe(
+        `${MOBILE_SIDEBAR_MIN_WIDTH_PX}`,
+      );
+      expect(
+        rootElement
+          .querySelector("[data-workspace-layout-v2]")
+          ?.getAttribute("data-mobile-pane"),
+      ).toBe("left");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("hides the shared header row on mobile when the route omits main header content", () => {

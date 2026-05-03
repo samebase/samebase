@@ -32,8 +32,10 @@ export function WorkspaceLayoutV2FixtureFrame({
   shortcutSidebarSide,
   left,
   main,
+  mobileMinResizeBehavior,
   panel,
   right,
+  showMobileResizeGripDots,
 }: WorkspaceLayoutV2FixtureFrameProps) {
   return (
     <Layout>
@@ -52,8 +54,10 @@ export function WorkspaceLayoutV2FixtureFrame({
           dataTestId={dataTestId}
           left={left}
           main={main}
+          mobileMinResizeBehavior={mobileMinResizeBehavior}
           panel={panel}
           right={right}
+          showMobileResizeGripDots={showMobileResizeGripDots}
         />
       </SidebarProvider>
     </Layout>
