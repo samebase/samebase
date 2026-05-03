@@ -38,6 +38,9 @@ import {
   getRestoreDeletionLabel,
 } from "@/lib/fileTreeLabels";
 
+const FILE_TREE_BASE_PADDING_PX = 8;
+const FILE_TREE_LEVEL_INDENT_PX = 8;
+
 type FileTreeFileSelectEvent =
   | MouseEvent<HTMLAnchorElement>
   | MouseEvent<HTMLDivElement>;
@@ -346,13 +349,15 @@ function TreeNodeComponent({
 
   const nodeLabel = node.label ?? node.name;
   const nodeRowClassName = cn(
-    "flex items-center gap-2 py-3 px-3 md:py-1 md:px-2 text-base md:text-sm cursor-pointer hover:bg-muted/30 corner-notch-1",
+    "flex items-center gap-1.5 px-2 py-2 text-sm cursor-pointer hover:bg-muted/30 corner-notch-1 md:px-1 md:py-1",
     isSelected &&
       "bg-primary/15 hover:bg-primary/20 ring-1 ring-inset ring-primary/40",
     "transition-colors",
-    "min-h-[44px] md:min-h-[auto]", // Touch-friendly height on mobile
+    "min-h-10 md:min-h-[auto]", // Touch-friendly height on mobile
   );
-  const nodeRowStyle = { paddingLeft: `${level * 16 + 12}px` };
+  const nodeRowStyle = {
+    paddingLeft: `${level * FILE_TREE_LEVEL_INDENT_PX + FILE_TREE_BASE_PADDING_PX}px`,
+  };
   const nodeRowContent = (
     <>
       {hasChildren ? (
