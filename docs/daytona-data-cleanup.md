@@ -24,7 +24,7 @@ From the repo root with production Convex credentials available:
 
 ```bash
 pnpm --filter noter exec convex run legacyDaytonaDataCleanup:inspect --prod
-pnpm --filter noter exec convex run legacyDaytonaDataCleanup:clearVaultDaytonaFields '{"dryRun": true}' --prod
+pnpm --filter noter exec convex run legacyDaytonaDataCleanup:runAll '{"dryRun": true}' --prod
 pnpm --filter noter exec convex run legacyDaytonaDataCleanup:runAll --prod
 pnpm --filter noter exec convex run --component migrations lib:getStatus --prod --watch
 pnpm --filter noter exec convex run legacyDaytonaDataCleanup:inspect --prod
