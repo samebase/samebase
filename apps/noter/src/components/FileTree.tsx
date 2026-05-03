@@ -362,11 +362,11 @@ function TreeNodeComponent({
           <ChevronRightIcon className="h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0" />
         )
       ) : (
-        <div className="w-4 md:w-3" />
+        <div className="h-4 w-4 flex-shrink-0 md:h-3 md:w-3" />
       )}
 
       {node.type === "tree" ? (
-        <div className="h-4 w-4 md:h-3 md:w-3 flex items-center justify-center">
+        <div className="flex h-4 w-4 flex-shrink-0 items-center justify-center md:h-3 md:w-3">
           <div className="h-3 w-3 md:h-2 md:w-2 bg-muted-foreground/30 corner-notch-1" />
         </div>
       ) : (
@@ -394,7 +394,7 @@ function TreeNodeComponent({
       ) : (
         <span
           className={cn(
-            "truncate text-muted-foreground text-sm md:text-xs",
+            "min-w-0 flex-1 line-clamp-2 text-muted-foreground text-sm md:text-xs",
             fileStatusClassName,
             !fileStatus && isSelected && "text-foreground font-medium",
             isSelected && "font-medium",

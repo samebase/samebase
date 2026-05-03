@@ -106,6 +106,7 @@ describe("FileTree", () => {
     );
 
     expect(markup).toContain('href="#intro"');
+    expect(markup).toContain("line-clamp-2");
     expect(markup).toContain(">Guide<");
     expect(markup).toContain(">Intro<");
   });
