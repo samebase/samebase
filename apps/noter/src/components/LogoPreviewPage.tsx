@@ -663,7 +663,8 @@ function useLogoPreviewStore() {
 }
 
 /**
- * Merges immediate local logo controls with route-owned logo state.
+ * Builds the React controller that combines local store actions with
+ * route-owned logo state.
  *
  * `routeSearch` is the committed source for shareable view, shape, and color
  * state; `replaceRouteSearch` writes those changes back to TanStack Router.
@@ -671,23 +672,15 @@ function useLogoPreviewStore() {
  * animation toggles, opacity, and pane selection. Route writes go through
  * `usePacedCommittedState` so sliders, dragging, and auto-rotation can update
  * the UI immediately while noisy URL commits are debounced or flushed on end.
+ * The returned `controls` are React-bound controller callbacks, not pure
+ * TanStack Store actions.
  */
-function useLogoPreviewState({
+function useLogoPreviewController({
   replaceRouteSearch,
   routeSearch,
 }: Pick<LogoPreviewPageProps, "replaceRouteSearch" | "routeSearch">) {
   const store = useLogoPreviewStore();
   const localState = useSelector(store);
-  const {
-    setAutoRotating,
-    setEditMode,
-    setFaceColorAnimationEnabled,
-    setLogoOpacity,
-    setMobilePane,
-    setSceneInteracting,
-    setShuffleEnabled,
-    setShuffleParallelMoves,
-  } = store.actions;
   const routeState = useMemo(
     () => readLogoPreviewRouteState(routeSearch),
     [routeSearch],
@@ -731,7 +724,7 @@ function useLogoPreviewState({
   };
 
   return {
-    actions: {
+    controls: {
       advanceAutoRotation: (deltaSeconds: number) => {
         setRouteStateDraft((currentState) => ({
           ...currentState,
@@ -743,8 +736,8 @@ function useLogoPreviewState({
       },
       applyPreset: (presetId: Exclude<LogoPresetSelection, "custom">) => {
         const preset = getLogoPreset(presetId);
-        setAutoRotating(false);
-        setShuffleEnabled(false);
+        store.actions.setAutoRotating(false);
+        store.actions.setShuffleEnabled(false);
         commitRouteState((currentState) => ({
           ...currentState,
           selectedPresetId: presetId,
@@ -760,7 +753,7 @@ function useLogoPreviewState({
         );
       },
       editVoxel: (edit: VoxelEdit) => {
-        setShuffleEnabled(false);
+        store.actions.setShuffleEnabled(false);
         commitRouteState((currentState) => {
           const voxelState = applyVoxelEdit(currentState.voxelState, edit);
 
@@ -772,11 +765,11 @@ function useLogoPreviewState({
         });
       },
       endSceneInteraction: () => {
-        setSceneInteracting(false);
+        store.actions.setSceneInteracting(false);
         pacedRouteState.commitCurrent();
       },
       resetView: () => {
-        setAutoRotating(false);
+        store.actions.setAutoRotating(false);
         commitRouteState((currentState) => ({
           ...applyLogoPreviewViewState(currentState, {
             elevationDegrees: DEFAULT_ELEVATION_DEGREES,
@@ -786,8 +779,8 @@ function useLogoPreviewState({
         }));
       },
       resetShape: () => {
-        setAutoRotating(false);
-        setShuffleEnabled(false);
+        store.actions.setAutoRotating(false);
+        store.actions.setShuffleEnabled(false);
         commitRouteState((currentState) => {
           const presetId =
             currentState.selectedPresetId === CUSTOM_LOGO_PRESET_ID
@@ -813,7 +806,7 @@ function useLogoPreviewState({
         );
       },
       setAutoRotating: (isAutoRotating: boolean) => {
-        setAutoRotating(isAutoRotating);
+        store.actions.setAutoRotating(isAutoRotating);
         if (isAutoRotating) {
           pacedRouteState.cancelCommit();
           return;
@@ -821,9 +814,9 @@ function useLogoPreviewState({
 
         pacedRouteState.commitCurrent();
       },
-      setEditMode,
+      setEditMode: store.actions.setEditMode,
       setElevationDegrees: (elevationDegrees: number) => {
-        setAutoRotating(false);
+        store.actions.setAutoRotating(false);
         debounceRouteState((currentState) =>
           applyLogoPreviewViewState(currentState, {
             elevationDegrees: normalizeElevationDegrees(elevationDegrees),
@@ -831,7 +824,7 @@ function useLogoPreviewState({
           }),
         );
       },
-      setFaceColorAnimationEnabled,
+      setFaceColorAnimationEnabled: store.actions.setFaceColorAnimationEnabled,
       setIsoCubeSidePixels: (isoCubeSidePixels: number) => {
         debounceRouteState((currentState) => ({
           ...currentState,
@@ -845,8 +838,8 @@ function useLogoPreviewState({
           isoStyleId,
         }));
       },
-      setLogoOpacity,
-      setMobilePane,
+      setLogoOpacity: store.actions.setLogoOpacity,
+      setMobilePane: store.actions.setMobilePane,
       setPresetToCustom: () => {
         setRouteStateDraft((currentState) => ({
           ...currentState,
@@ -860,7 +853,7 @@ function useLogoPreviewState({
         }));
       },
       setRotationDegrees: (rotationDegrees: number) => {
-        setAutoRotating(false);
+        store.actions.setAutoRotating(false);
         debounceRouteState((currentState) =>
           applyLogoPreviewViewState(currentState, {
             elevationDegrees: currentState.elevationDegrees,
@@ -868,8 +861,8 @@ function useLogoPreviewState({
           }),
         );
       },
-      setShuffleEnabled,
-      setShuffleParallelMoves,
+      setShuffleEnabled: store.actions.setShuffleEnabled,
+      setShuffleParallelMoves: store.actions.setShuffleParallelMoves,
       setThemeColorFamily: (
         themeColorKey: AppThemeColorKey,
         nextFamily: string,
@@ -949,8 +942,8 @@ function useLogoPreviewState({
       },
       startSceneInteraction: () => {
         pacedRouteState.cancelCommit();
-        setAutoRotating(false);
-        setSceneInteracting(true);
+        store.actions.setAutoRotating(false);
+        store.actions.setSceneInteracting(true);
       },
     },
     state,
@@ -1123,7 +1116,7 @@ export function LogoPreviewPage({
   routeSearch,
 }: LogoPreviewPageProps) {
   const publicRightSidebarPane = usePublicRightSidebarPane();
-  const { actions, state } = useLogoPreviewState({
+  const { controls, state } = useLogoPreviewController({
     replaceRouteSearch,
     routeSearch,
   });
@@ -1136,7 +1129,7 @@ export function LogoPreviewPage({
   useAnimationFrameLoop({
     isRunning: state.isAutoRotating && renderMode === "three",
     onFrame: (deltaSeconds) => {
-      actions.advanceAutoRotation(deltaSeconds);
+      controls.advanceAutoRotation(deltaSeconds);
     },
   });
 
@@ -1171,7 +1164,7 @@ export function LogoPreviewPage({
         cubeSidePixels={state.isoCubeSidePixels}
         editMode={state.editMode}
         faceColors={faceColors}
-        onVoxelEdit={actions.editVoxel}
+        onVoxelEdit={controls.editVoxel}
         shuffleAnimation={{
           enabled: state.isShuffleEnabled,
           parallelMoves: state.shuffleParallelMoves,
@@ -1190,10 +1183,10 @@ export function LogoPreviewPage({
         elevationDegrees={state.elevationDegrees}
         faceColors={faceColors}
         opacity={state.logoOpacity}
-        onInteractionStart={actions.startSceneInteraction}
-        onInteractionEnd={actions.endSceneInteraction}
-        onViewChange={actions.applyViewState}
-        onVoxelEdit={actions.editVoxel}
+        onInteractionStart={controls.startSceneInteraction}
+        onInteractionEnd={controls.endSceneInteraction}
+        onViewChange={controls.applyViewState}
+        onVoxelEdit={controls.editVoxel}
         rotationAxisMode={state.rotationAxisMode}
         rotationDegrees={state.rotationDegrees}
         shuffleAnimation={{
@@ -1277,12 +1270,12 @@ export function LogoPreviewPage({
           value={state.selectedPresetId}
           onValueChange={(value) => {
             if (value === CUSTOM_LOGO_PRESET_ID) {
-              actions.setPresetToCustom();
+              controls.setPresetToCustom();
               return;
             }
 
             if (isLogoPresetId(value)) {
-              actions.applyPreset(value);
+              controls.applyPreset(value);
             }
           }}
         >
@@ -1318,7 +1311,7 @@ export function LogoPreviewPage({
             className={LOGO_CONTROL_BUTTON_CLASS_NAME}
             aria-pressed={state.editMode === "add"}
             onClick={() => {
-              actions.setEditMode("add");
+              controls.setEditMode("add");
             }}
           >
             Add
@@ -1330,7 +1323,7 @@ export function LogoPreviewPage({
             className={LOGO_CONTROL_BUTTON_CLASS_NAME}
             aria-pressed={state.editMode === "remove"}
             onClick={() => {
-              actions.setEditMode("remove");
+              controls.setEditMode("remove");
             }}
           >
             Remove
@@ -1344,7 +1337,7 @@ export function LogoPreviewPage({
             variant="outline"
             className="w-full rounded-none"
             onClick={() => {
-              actions.setThemeColors(DEFAULT_APP_THEME_COLORS);
+              controls.setThemeColors(DEFAULT_APP_THEME_COLORS);
             }}
           >
             Default colors
@@ -1355,7 +1348,7 @@ export function LogoPreviewPage({
             variant="outline"
             className="w-full rounded-none"
             onClick={() => {
-              actions.setThemeColors(RGB_THEME_COLORS);
+              controls.setThemeColors(RGB_THEME_COLORS);
             }}
           >
             RGB colors
@@ -1365,7 +1358,7 @@ export function LogoPreviewPage({
             size="sm"
             variant="outline"
             className="w-full rounded-none"
-            onClick={actions.resetShape}
+            onClick={controls.resetShape}
           >
             Reset shape
           </Button>
@@ -1379,8 +1372,8 @@ export function LogoPreviewPage({
               label="Cube side"
               max={MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX}
               min={MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX}
-              onSliderChange={actions.setIsoCubeSidePixels}
-              onValueChange={actions.setIsoCubeSidePixels}
+              onSliderChange={controls.setIsoCubeSidePixels}
+              onValueChange={controls.setIsoCubeSidePixels}
               sliderAriaLabel="Cube side"
               step={LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX}
               value={state.isoCubeSidePixels}
@@ -1399,7 +1392,7 @@ export function LogoPreviewPage({
               variant="outline"
               className="w-full rounded-none"
               onClick={() => {
-                actions.setIsoCubeSidePixels(
+                controls.setIsoCubeSidePixels(
                   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
                 );
               }}
@@ -1416,7 +1409,7 @@ export function LogoPreviewPage({
               value={state.isoStyleId}
               onValueChange={(value) => {
                 if (isLogoIsometricStyleId(value)) {
-                  actions.setIsoStyleId(value);
+                  controls.setIsoStyleId(value);
                 }
               }}
             >
@@ -1470,7 +1463,7 @@ export function LogoPreviewPage({
               id={viewSnapCheckboxId}
               checked={state.isViewSnapEnabled}
               onCheckedChange={(checked) => {
-                actions.setViewSnapEnabled(checked === true);
+                controls.setViewSnapEnabled(checked === true);
               }}
               className="mt-0.5 border-border"
             />
@@ -1504,7 +1497,7 @@ export function LogoPreviewPage({
                   }
                   className={LOGO_CONTROL_BUTTON_CLASS_NAME}
                   onClick={() => {
-                    actions.setRotationAxisMode(mode);
+                    controls.setRotationAxisMode(mode);
                   }}
                 >
                   {ROTATION_AXIS_MODE_LABELS[mode]}
@@ -1523,8 +1516,8 @@ export function LogoPreviewPage({
             label={rotationAngleControlLabel}
             max="360"
             min="0"
-            onSliderChange={actions.setRotationDegrees}
-            onValueChange={actions.setRotationDegrees}
+            onSliderChange={controls.setRotationDegrees}
+            onValueChange={controls.setRotationDegrees}
             sliderAriaLabel={`${rotationAngleControlLabel} slider`}
             step="0.1"
             value={state.rotationDegrees}
@@ -1537,8 +1530,8 @@ export function LogoPreviewPage({
             label="Elevation"
             max={MAX_ELEVATION_DEGREES}
             min={MIN_ELEVATION_DEGREES}
-            onSliderChange={actions.setElevationDegrees}
-            onValueChange={actions.setElevationDegrees}
+            onSliderChange={controls.setElevationDegrees}
+            onValueChange={controls.setElevationDegrees}
             sliderAriaLabel="Elevation slider"
             step="0.1"
             value={state.elevationDegrees}
@@ -1551,8 +1544,8 @@ export function LogoPreviewPage({
             label="Opacity"
             max={MAX_LOGO_OPACITY}
             min={MIN_LOGO_OPACITY}
-            onSliderChange={actions.setLogoOpacity}
-            onValueChange={actions.setLogoOpacity}
+            onSliderChange={controls.setLogoOpacity}
+            onValueChange={controls.setLogoOpacity}
             sliderAriaLabel="Opacity slider"
             step={LOGO_OPACITY_STEP}
             value={state.logoOpacity}
@@ -1567,7 +1560,7 @@ export function LogoPreviewPage({
               size="sm"
               variant="outline"
               className={LOGO_CONTROL_BUTTON_CLASS_NAME}
-              onClick={actions.resetView}
+              onClick={controls.resetView}
             >
               Reset view
             </Button>
@@ -1577,7 +1570,7 @@ export function LogoPreviewPage({
               variant="outline"
               className={LOGO_CONTROL_BUTTON_CLASS_NAME}
               onClick={() => {
-                actions.rotateByDegrees(45);
+                controls.rotateByDegrees(45);
               }}
             >
               +45°
@@ -1595,7 +1588,7 @@ export function LogoPreviewPage({
               variant={state.isAutoRotating ? "default" : "outline"}
               className="w-full rounded-none"
               onClick={() => {
-                actions.setAutoRotating(!state.isAutoRotating);
+                controls.setAutoRotating(!state.isAutoRotating);
               }}
             >
               {state.isAutoRotating ? "Stop auto rotate" : "Start auto rotate"}
@@ -1607,7 +1600,7 @@ export function LogoPreviewPage({
             variant={state.isShuffleEnabled ? "default" : "outline"}
             className="w-full rounded-none"
             onClick={() => {
-              actions.setShuffleEnabled(!state.isShuffleEnabled);
+              controls.setShuffleEnabled(!state.isShuffleEnabled);
             }}
           >
             {state.isShuffleEnabled ? "Stop shuffle" : "Start shuffle"}
@@ -1621,7 +1614,9 @@ export function LogoPreviewPage({
           <Select
             value={`${state.shuffleParallelMoves}`}
             onValueChange={(value) => {
-              actions.setShuffleParallelMoves(parseShuffleParallelMoves(value));
+              controls.setShuffleParallelMoves(
+                parseShuffleParallelMoves(value),
+              );
             }}
           >
             <SelectTrigger className="h-9 rounded-none border-border bg-background px-2 text-sm shadow-none">
@@ -1648,7 +1643,7 @@ export function LogoPreviewPage({
               id={faceColorAnimationCheckboxId}
               checked={state.isFaceColorAnimationEnabled}
               onCheckedChange={(checked) =>
-                actions.setFaceColorAnimationEnabled(checked === true)
+                controls.setFaceColorAnimationEnabled(checked === true)
               }
               className="mt-0.5 border-border"
             />
@@ -1684,9 +1679,9 @@ export function LogoPreviewPage({
               key={themeColorKey}
               currentToken={currentToken}
               themeColorKey={themeColorKey}
-              onCustomColorChange={actions.setThemeCustomColor}
-              onFamilyChange={actions.setThemeColorFamily}
-              onShadeChange={actions.setThemeColorShade}
+              onCustomColorChange={controls.setThemeCustomColor}
+              onFamilyChange={controls.setThemeColorFamily}
+              onShadeChange={controls.setThemeColorShade}
             />
           );
         })}
@@ -1714,7 +1709,7 @@ export function LogoPreviewPage({
           WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX
         }
         mobilePane={state.mobilePane}
-        onMobilePaneChange={actions.setMobilePane}
+        onMobilePaneChange={controls.setMobilePane}
         shortcutSidebarSide="left"
       >
         <WorkspaceLayoutV2FullPage
