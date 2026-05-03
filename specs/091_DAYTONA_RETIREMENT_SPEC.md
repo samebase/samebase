@@ -146,6 +146,14 @@ Use a widen-migrate-narrow sequence for schema cleanup.
    doc-retirement task, not part of the automated Phase 4 migration.
 7. Remove migration scaffolding after the narrow deploy is stable.
 
+Operator data policy: Noter currently has one real operator. Legacy internal
+Daytona documents, including old `providerConnections.kind === "codex"` rows and
+`daytonaSnapshots` rows, do not need compatibility preservation once the current
+app no longer reads or writes them. Prefer deleting those rows and then removing
+the schema surface over keeping dormant Daytona data shapes. External Daytona
+sandboxes and snapshots remain manual operator cleanup, not automated app
+behavior.
+
 Do not remove schema fields while production data can still contain them.
 
 ### Phase 5: Retire Docs And Tests
