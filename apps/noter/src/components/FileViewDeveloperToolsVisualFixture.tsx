@@ -142,9 +142,7 @@ export function FileViewDeveloperToolsVisualFixture({
                     onViewModeChange={() => {}}
                     editorOverride={editorOverride}
                     onEditorOverrideChange={() => {}}
-                  >
-                    {null}
-                  </FileViewDeveloperTools>
+                  />
                 </div>
               </div>
 
@@ -159,7 +157,7 @@ export function FileViewDeveloperToolsVisualFixture({
                         export function FileViewInner() {"{"}
                       </div>
                       <div className="rounded-ui bg-muted/40 px-3 py-2">
-                        {"  "}const daytonaPaused = true;
+                        {"  "}const graphMode = false;
                       </div>
                       <div className="rounded-ui bg-muted/40 px-3 py-2">
                         {"  "}return {"<RepositoryEditor />"};
