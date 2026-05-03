@@ -187,6 +187,12 @@ Retire docs in the same branch that removes the corresponding implementation:
   state, or enqueue Daytona snapshot builds.
 - Convex schema fields/tables, Vite proxy naming, and deploy-key fallback
   intentionally remain for the migration and neutralization phases.
+- Phase 3 started by renaming the browser Convex proxy away from Daytona-owned
+  filenames, env contracts, compile-time defines, and proxy paths.
+- The deployment-profile deploy-key fallback was removed instead of renamed
+  because no current app flow sets it end to end after Phase 2.
+- An unused Codex config runtime helper was deleted rather than kept as dormant
+  PTY scaffolding.
 
 ## Validation
 

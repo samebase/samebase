@@ -36,7 +36,6 @@ type DeploymentProfileEnv = {
   CONVEX_CLOUD_URL?: string;
   CONVEX_DEPLOYMENT?: string;
   CONVEX_SITE_URL?: string;
-  DAYTONA_CONVEX_DEPLOY_KEY?: string;
   PREVIEW_SEED_AUTH_EMAIL?: string;
   PREVIEW_SEED_AUTH_PASSWORD?: string;
   SITE_URL?: string;
@@ -77,20 +76,8 @@ function hasPreviewSeedPasswordAuth(env: DeploymentProfileEnv): boolean {
   );
 }
 
-function readDaytonaDeployKeySpecifier(
-  env: DeploymentProfileEnv,
-): string | null {
-  const rawKey = readTrimmedValue(env.DAYTONA_CONVEX_DEPLOY_KEY);
-  if (rawKey === null) {
-    return null;
-  }
-  const [deploymentSpecifier] = rawKey.split("|", 1);
-  return readTrimmedValue(deploymentSpecifier);
-}
-
 function readDeploymentSpecifier(env: DeploymentProfileEnv): string | null {
-  const rawDeployment = readTrimmedValue(env.CONVEX_DEPLOYMENT);
-  return rawDeployment ?? readDaytonaDeployKeySpecifier(env);
+  return readTrimmedValue(env.CONVEX_DEPLOYMENT);
 }
 
 function parseDeploymentSpecifier(rawSpecifier: string): {
@@ -179,8 +166,6 @@ export function resolveDeploymentProfile(): DeploymentProfile {
     CONVEX_CLOUD_URL: readOptionalEnv("CONVEX_CLOUD_URL") ?? undefined,
     CONVEX_DEPLOYMENT: readOptionalEnv("CONVEX_DEPLOYMENT") ?? undefined,
     CONVEX_SITE_URL: readOptionalEnv("CONVEX_SITE_URL") ?? undefined,
-    DAYTONA_CONVEX_DEPLOY_KEY:
-      readOptionalEnv("DAYTONA_CONVEX_DEPLOY_KEY") ?? undefined,
     PREVIEW_SEED_AUTH_EMAIL:
       readOptionalEnv("PREVIEW_SEED_AUTH_EMAIL") ?? undefined,
     PREVIEW_SEED_AUTH_PASSWORD:

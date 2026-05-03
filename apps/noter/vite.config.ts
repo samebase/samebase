@@ -16,14 +16,14 @@ import {
 import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import {
   readEnvFileValue,
-  resolveDaytonaConvexProxyTarget,
-} from "./daytonaConvexProxy";
+  resolveBrowserConvexProxyTarget,
+} from "./browserConvexProxy";
 import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
 import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearchBridge";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const gitRoot = path.resolve(currentDir, "..", "..");
-const DAYTONA_CONVEX_PROXY_PATH = "/__noter_daytona_convex";
+const BROWSER_CONVEX_PROXY_PATH = "/__noter_convex_proxy";
 const devPortRaw = process.env.NOTER_DEV_PORT?.trim();
 const devPort = devPortRaw ? Number(devPortRaw) : undefined;
 const devStrictPort = readBooleanEnv(process.env.NOTER_DEV_STRICT_PORT);
@@ -99,14 +99,14 @@ const appCommitNumber = resolveAppCommitNumber({
 });
 
 const appRepoUrl = "https://github.com/noter-md/noter";
-const daytonaLocalEnvPath = path.resolve(currentDir, ".env.local");
-const daytonaConvexProxyTarget = resolveDaytonaConvexProxyTarget({
+const localEnvPath = path.resolve(currentDir, ".env.local");
+const browserConvexProxyTarget = resolveBrowserConvexProxyTarget({
   devOrigin: process.env.DEV_ENV_ORIGIN,
-  envProxyTarget: process.env.NOTER_DAYTONA_BROWSER_CONVEX_PROXY_TARGET,
-  localEnvConvexUrl: readEnvFileValue(daytonaLocalEnvPath, "VITE_CONVEX_URL"),
+  envProxyTarget: process.env.NOTER_BROWSER_CONVEX_PROXY_TARGET,
+  localEnvConvexUrl: readEnvFileValue(localEnvPath, "VITE_CONVEX_URL"),
 });
-const daytonaConvexProxyPath = daytonaConvexProxyTarget
-  ? DAYTONA_CONVEX_PROXY_PATH
+const browserConvexProxyPath = browserConvexProxyTarget
+  ? BROWSER_CONVEX_PROXY_PATH
   : null;
 const shouldIncludeVisualFixture = process.env.PLAYWRIGHT === "1";
 const staticLogoSvgAssetPath = path.resolve(
@@ -314,7 +314,7 @@ function readNoterConnectConvexSiteUrl(): string {
   }
 
   const localEnvSiteUrl = readEnvFileValue(
-    daytonaLocalEnvPath,
+    localEnvPath,
     "VITE_CONVEX_SITE_URL",
   );
   if (
@@ -521,18 +521,18 @@ function syncRuntimeNoterConnectConfigAssetPlugin() {
   };
 }
 
-function stripDaytonaConvexProxyPrefix(requestPath: string): string {
+function stripBrowserConvexProxyPrefix(requestPath: string): string {
   if (
-    requestPath !== DAYTONA_CONVEX_PROXY_PATH &&
-    !requestPath.startsWith(`${DAYTONA_CONVEX_PROXY_PATH}/`)
+    requestPath !== BROWSER_CONVEX_PROXY_PATH &&
+    !requestPath.startsWith(`${BROWSER_CONVEX_PROXY_PATH}/`)
   ) {
     return requestPath;
   }
-  const strippedPath = requestPath.slice(DAYTONA_CONVEX_PROXY_PATH.length);
+  const strippedPath = requestPath.slice(BROWSER_CONVEX_PROXY_PATH.length);
   return strippedPath.length > 0 ? strippedPath : "/";
 }
 
-const daytonaConvexProxyServerConfig = (() => {
+const browserConvexProxyServerConfig = (() => {
   const server: {
     port?: number;
     strictPort?: boolean;
@@ -559,15 +559,15 @@ const daytonaConvexProxyServerConfig = (() => {
     // needs an explicit allowlist instead of rejecting the public Host header.
     server.allowedHosts = devAllowedHosts;
   }
-  if (daytonaConvexProxyTarget) {
+  if (browserConvexProxyTarget) {
     // The browser proxy path keeps the anonymous Convex backend private even
     // when the frontend is being shared from a public tunnel origin.
     server.proxy = {
-      [DAYTONA_CONVEX_PROXY_PATH]: {
-        target: daytonaConvexProxyTarget,
+      [BROWSER_CONVEX_PROXY_PATH]: {
+        target: browserConvexProxyTarget,
         changeOrigin: true,
         ws: true,
-        rewrite: stripDaytonaConvexProxyPrefix,
+        rewrite: stripBrowserConvexProxyPrefix,
       },
     };
   }
@@ -581,7 +581,7 @@ export default defineConfig({
     __APP_COMMIT__: JSON.stringify(appCommit),
     __APP_COMMIT_NUMBER__: JSON.stringify(appCommitNumber),
     __APP_REPO_URL__: JSON.stringify(appRepoUrl),
-    __DAYTONA_CONVEX_PROXY_PATH__: JSON.stringify(daytonaConvexProxyPath),
+    __BROWSER_CONVEX_PROXY_PATH__: JSON.stringify(browserConvexProxyPath),
   },
   plugins: [
     syncStaticLogoSvgAssetPlugin(),
@@ -609,7 +609,7 @@ export default defineConfig({
   esbuild: {
     logOverride: { "this-is-undefined-in-esm": "silent" },
   },
-  server: daytonaConvexProxyServerConfig,
+  server: browserConvexProxyServerConfig,
   build: {
     rollupOptions: {
       input: {
