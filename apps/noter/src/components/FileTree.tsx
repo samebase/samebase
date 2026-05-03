@@ -38,8 +38,8 @@ import {
   getRestoreDeletionLabel,
 } from "@/lib/fileTreeLabels";
 
-const FILE_TREE_BASE_PADDING_PX = 8;
-const FILE_TREE_LEVEL_INDENT_PX = 8;
+const FILE_TREE_BASE_PADDING_PX = 4;
+const FILE_TREE_LEVEL_INDENT_PX = 6;
 
 type FileTreeFileSelectEvent =
   | MouseEvent<HTMLAnchorElement>
@@ -349,11 +349,11 @@ function TreeNodeComponent({
 
   const nodeLabel = node.label ?? node.name;
   const nodeRowClassName = cn(
-    "flex items-center gap-1.5 px-2 py-2 text-sm cursor-pointer hover:bg-muted/30 corner-notch-1 md:px-1 md:py-1",
+    "flex items-center gap-0.5 px-1 py-1.5 text-sm cursor-pointer hover:bg-muted/30 corner-notch-1 md:py-0.5",
     isSelected &&
       "bg-primary/15 hover:bg-primary/20 ring-1 ring-inset ring-primary/40",
     "transition-colors",
-    "min-h-10 md:min-h-[auto]", // Touch-friendly height on mobile
+    "min-h-9 md:min-h-[auto]", // Touch-friendly height on mobile
   );
   const nodeRowStyle = {
     paddingLeft: `${level * FILE_TREE_LEVEL_INDENT_PX + FILE_TREE_BASE_PADDING_PX}px`,
@@ -362,22 +362,22 @@ function TreeNodeComponent({
     <>
       {hasChildren ? (
         isOpen ? (
-          <ChevronDownIcon className="h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0" />
+          <ChevronDownIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
         ) : (
-          <ChevronRightIcon className="h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0" />
+          <ChevronRightIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
         )
       ) : (
-        <div className="h-4 w-4 flex-shrink-0 md:h-3 md:w-3" />
+        <div className="h-4 w-1 flex-shrink-0 md:h-3" />
       )}
 
       {node.type === "tree" ? (
-        <div className="flex h-4 w-4 flex-shrink-0 items-center justify-center md:h-3 md:w-3">
-          <div className="h-3 w-3 md:h-2 md:w-2 bg-muted-foreground/30 corner-notch-1" />
+        <div className="flex h-3 w-3 flex-shrink-0 items-center justify-center">
+          <div className="h-2 w-2 bg-muted-foreground/30 corner-notch-1" />
         </div>
       ) : (
         <FileIcon
           className={cn(
-            "h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0",
+            "h-3 w-3 text-muted-foreground flex-shrink-0",
             fileStatusClassName,
             !fileStatus && isSelected && "text-primary",
           )}
