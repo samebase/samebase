@@ -10,7 +10,6 @@ describe("deploymentProfile", () => {
     expect(
       resolveDeploymentProfileFromEnv({
         CONVEX_DEPLOYMENT: "anonymous:anonymous-agent",
-        DAYTONA_CONVEX_DEPLOY_KEY: "dev:quiet-robin-508|secret",
       }),
     ).toEqual({ kind: "local_worktree" });
   });
@@ -54,14 +53,6 @@ describe("deploymentProfile", () => {
         CONVEX_DEPLOYMENT: "prod:noter",
       }),
     ).toEqual({ kind: "production" });
-  });
-
-  it("falls back to the Daytona deploy key when the deployment env is absent", () => {
-    expect(
-      resolveDeploymentProfileFromEnv({
-        DAYTONA_CONVEX_DEPLOY_KEY: "preview:nicu:noter|secret",
-      }),
-    ).toEqual({ kind: "preview" });
   });
 
   it("falls back to localhost runtime URLs for local development", () => {

@@ -21,7 +21,7 @@ export function readEnvFileValue(
   return undefined;
 }
 
-export function resolveDaytonaConvexProxyTarget(args: {
+export function resolveBrowserConvexProxyTarget(args: {
   devOrigin: string | undefined;
   envProxyTarget: string | undefined;
   localEnvConvexUrl: string | undefined;
