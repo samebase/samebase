@@ -181,6 +181,12 @@ Retire docs in the same branch that removes the corresponding implementation:
 - Frontend Daytona UI support components and their focused tests were deleted.
 - Backend Convex modules, schema fields, Vite proxy naming, env contracts, and
   legacy data cleanup intentionally remain for later phases.
+- Phase 2 started by deleting Daytona Convex actions, runtime renderings, root
+  scripts, deps-image workflow, and package dependencies.
+- Vault actions and queries no longer call Daytona APIs, expose Daytona runtime
+  state, or enqueue Daytona snapshot builds.
+- Convex schema fields/tables, Vite proxy naming, and deploy-key fallback
+  intentionally remain for the migration and neutralization phases.
 
 ## Validation
 
