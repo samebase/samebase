@@ -3,7 +3,6 @@ import { internalMutation, query } from "./_generated/server";
 import { AppProvisioningEventLevel, AppProvisioningStep } from "./schema";
 import { getUserId } from "./common";
 
-const nullValidator = v.null();
 const { array, id, number, object, optional, string } = v;
 const MAX_PROVISIONING_EVENTS = 80;
 const MAX_PROVISIONING_MESSAGE_LENGTH = 800;
@@ -14,6 +13,7 @@ const provisioningEventResult = object({
   level: AppProvisioningEventLevel,
   message: string(),
   repositoryFullName: string(),
+  runId: optional(id("appProvisioningRuns")),
   step: AppProvisioningStep,
 });
 type ProvisioningEventResult = Infer<typeof provisioningEventResult>;
@@ -29,17 +29,19 @@ export const append = internalMutation({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
+    runId: optional(id("appProvisioningRuns")),
     step: AppProvisioningStep,
     level: AppProvisioningEventLevel,
     message: string(),
     createdAt: optional(number()),
   },
-  returns: nullValidator,
+  returns: v.null(),
   handler: async (ctx, args) => {
     await ctx.db.insert("appProvisioningEvents", {
       userId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName: args.repositoryFullName,
+      runId: args.runId,
       step: args.step,
       level: args.level,
       message: normalizeProvisioningMessage(args.message),
@@ -87,6 +89,7 @@ export const listForVault = query({
         level: event.level,
         message: event.message,
         repositoryFullName: event.repositoryFullName,
+        runId: event.runId,
         step: event.step,
       }));
   },

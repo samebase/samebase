@@ -92,6 +92,12 @@ importers:
       '@convex-dev/eslint-plugin':
         specifier: 0.0.1-alpha.4
         version: 0.0.1-alpha.4(eslint@8.57.1)(typescript@5.9.2)
+      '@convex-dev/workflow':
+        specifier: ^0.3.12
+        version: 0.3.12(@convex-dev/workpool@0.4.6(convex-helpers@0.1.111(@standard-schema/spec@1.1.0)(convex@1.36.1(react@19.2.4))(hono@4.12.14)(react@19.2.4)(typescript@5.9.2)(zod@4.3.6))(convex@1.36.1(react@19.2.4)))(convex-helpers@0.1.111(@standard-schema/spec@1.1.0)(convex@1.36.1(react@19.2.4))(hono@4.12.14)(react@19.2.4)(typescript@5.9.2)(zod@4.3.6))(convex@1.36.1(react@19.2.4))
+      '@convex-dev/workpool':
+        specifier: ^0.4.6
+        version: 0.4.6(convex-helpers@0.1.111(@standard-schema/spec@1.1.0)(convex@1.36.1(react@19.2.4))(hono@4.12.14)(react@19.2.4)(typescript@5.9.2)(zod@4.3.6))(convex@1.36.1(react@19.2.4))
       '@fontsource/ibm-plex-sans':
         specifier: ^5.2.8
         version: 5.2.8
@@ -695,6 +701,19 @@ packages:
 
   '@convex-dev/eslint-plugin@0.0.1-alpha.4':
     resolution: {integrity: sha512-no/F96kJOgqK3g5zVkJrXYhw+QhiqVv+l7u/ID17AisI+I/Dr43MLij780tE0UbXUIwTAe5cRa9VQ0AEZQiDYQ==}
+
+  '@convex-dev/workflow@0.3.12':
+    resolution: {integrity: sha512-4c4eSe2sXnhxE6Td4benRg6OMJahWkOHdLv++FxpjZVZUANFmJqYKZxx8Bxqs0SB4ECGd2j0MZalNppLPKxQ7Q==}
+    peerDependencies:
+      '@convex-dev/workpool': ^0.3.0 || ^0.4.0
+      convex: ^1.31.7
+      convex-helpers: ^0.1.99
+
+  '@convex-dev/workpool@0.4.6':
+    resolution: {integrity: sha512-e+cIgQePx5rrGizvzaYocWQCsDFbFlYqR1ZbtFPLa909izwc5GvoasPJPANeFhHRWaA5NBipNVqNtfHySi7Ldw==}
+    peerDependencies:
+      convex: ^1.31.7
+      convex-helpers: ^0.1.94
 
   '@csstools/color-helpers@6.0.2':
     resolution: {integrity: sha512-LMGQLS9EuADloEFkcTBR3BwV/CGHV7zyDxVRtVDTwdI2Ca4it0CCVTT9wCkxSgokjE5Ho41hEPgb8OEUwoXr6Q==}
@@ -2481,6 +2500,9 @@ packages:
   ast-types@0.16.1:
     resolution: {integrity: sha512-6t10qk83GOG8p0vKmaCr8eiilZwO171AvbROMtvvNiwrTly62t+7XkA8RdIIVbpMhCASAsxgAzdRSwh6nw/5Dg==}
     engines: {node: '>=4'}
+
+  async-channel@0.2.0:
+    resolution: {integrity: sha512-BJyjI/sfKlyijaBt2hbOSxT28xGNtLR0QLzAKO1Hlnv5BULY7sAoYoTPW3lfr1ZIC7y+FxabxO9T8GXpyoofGg==}
 
   async-function@1.0.0:
     resolution: {integrity: sha512-hsU18Ae8CDTR6Kgu9DYf0EbCr/a5iGL0rytQDobUcdpYOKokk8LEjVphnXkDkgpi0wYVsqrXuP0bZxJaTqdgoA==}
@@ -6038,6 +6060,18 @@ snapshots:
       - supports-color
       - typescript
 
+  '@convex-dev/workflow@0.3.12(@convex-dev/workpool@0.4.6(convex-helpers@0.1.111(@standard-schema/spec@1.1.0)(convex@1.36.1(react@19.2.4))(hono@4.12.14)(react@19.2.4)(typescript@5.9.2)(zod@4.3.6))(convex@1.36.1(react@19.2.4)))(convex-helpers@0.1.111(@standard-schema/spec@1.1.0)(convex@1.36.1(react@19.2.4))(hono@4.12.14)(react@19.2.4)(typescript@5.9.2)(zod@4.3.6))(convex@1.36.1(react@19.2.4))':
+    dependencies:
+      '@convex-dev/workpool': 0.4.6(convex-helpers@0.1.111(@standard-schema/spec@1.1.0)(convex@1.36.1(react@19.2.4))(hono@4.12.14)(react@19.2.4)(typescript@5.9.2)(zod@4.3.6))(convex@1.36.1(react@19.2.4))
+      async-channel: 0.2.0
+      convex: 1.36.1(react@19.2.4)
+      convex-helpers: 0.1.111(@standard-schema/spec@1.1.0)(convex@1.36.1(react@19.2.4))(hono@4.12.14)(react@19.2.4)(typescript@5.9.2)(zod@4.3.6)
+
+  '@convex-dev/workpool@0.4.6(convex-helpers@0.1.111(@standard-schema/spec@1.1.0)(convex@1.36.1(react@19.2.4))(hono@4.12.14)(react@19.2.4)(typescript@5.9.2)(zod@4.3.6))(convex@1.36.1(react@19.2.4))':
+    dependencies:
+      convex: 1.36.1(react@19.2.4)
+      convex-helpers: 0.1.111(@standard-schema/spec@1.1.0)(convex@1.36.1(react@19.2.4))(hono@4.12.14)(react@19.2.4)(typescript@5.9.2)(zod@4.3.6)
+
   '@csstools/color-helpers@6.0.2': {}
 
   '@csstools/css-calc@3.1.1(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)':
@@ -7625,6 +7659,8 @@ snapshots:
   ast-types@0.16.1:
     dependencies:
       tslib: 2.8.1
+
+  async-channel@0.2.0: {}
 
   async-function@1.0.0: {}
 

@@ -108,6 +108,21 @@ export const AppProvisioningStep = union(
 );
 export type AppProvisioningStep = Infer<typeof AppProvisioningStep>;
 
+export const AppProvisioningRunTrigger = union(
+  literal("create"),
+  literal("retry"),
+);
+export type AppProvisioningRunTrigger = Infer<typeof AppProvisioningRunTrigger>;
+
+export const AppProvisioningRunState = union(
+  literal("queued"),
+  literal("running"),
+  literal("succeeded"),
+  literal("failed"),
+  literal("canceled"),
+);
+export type AppProvisioningRunState = Infer<typeof AppProvisioningRunState>;
+
 export const VaultDomainKind = union(
   literal("main"),
   literal("branch_preview"),
@@ -467,12 +482,33 @@ export default defineSchema({
     .index("by_status", ["status"]),
 
   /**
+   * App-owned Workflow run identity for Noter-managed provisioning.
+   */
+  appProvisioningRuns: defineTable({
+    userId: id("users"),
+    vaultId: id("vaults"),
+    repositoryFullName: string(),
+    workflowId: optional(string()),
+    trigger: AppProvisioningRunTrigger,
+    state: AppProvisioningRunState,
+    currentStep: optional(AppProvisioningStep),
+    lastError: optional(string()),
+    createdAt: number(),
+    updatedAt: number(),
+    completedAt: optional(number()),
+  })
+    .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
+    .index("by_user_and_updated_at", ["userId", "updatedAt"])
+    .index("by_workflow_id", ["workflowId"]),
+
+  /**
    * User-visible provisioning events for Noter-managed app creation.
    */
   appProvisioningEvents: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
+    runId: optional(id("appProvisioningRuns")),
     step: AppProvisioningStep,
     level: AppProvisioningEventLevel,
     message: string(),
