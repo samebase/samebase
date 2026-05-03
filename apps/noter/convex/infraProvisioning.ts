@@ -180,34 +180,6 @@ type ConvexProvisionResult = {
   deployKey: string;
 };
 
-function formatProvisioningStepLabel(step: AppProvisioningStep): string {
-  switch (step) {
-    case "validate_connections":
-      return "provider connection validation";
-    case "create_github_repo":
-      return "GitHub repository creation";
-    case "seed_starter":
-      return "starter app seeding";
-    case "create_vault":
-      return "vault creation";
-    case "claim_infra":
-      return "infrastructure claim";
-    case "ensure_convex":
-      return "Convex provisioning";
-    case "ensure_convex_preview":
-      return "Convex preview provisioning";
-    case "ensure_cloudflare":
-      return "Cloudflare provisioning";
-    case "record_domains":
-      return "domain recording";
-    case "finish":
-      return "finalization";
-    default:
-      step satisfies never;
-      return "provisioning";
-  }
-}
-
 async function ensureConvexResources(args: {
   teamId: string;
   convexProvider: ConvexManagementProvider;
@@ -1000,7 +972,7 @@ export const provisionVaultInfrastructure = internalAction({
       await appendProvisioningEvent({
         step: currentStep,
         level: "error",
-        message: `Provisioning failed during ${formatProvisioningStepLabel(currentStep)}.`,
+        message: `Provisioning failed during ${currentStep}.`,
       });
 
       await ctx.runMutation(internal.infraProvisioning.setProvisioningState, {
