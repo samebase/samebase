@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from "react";
+import { useCreateStore, useSelector } from "@tanstack/react-store";
+import { type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
@@ -40,6 +41,48 @@ export type VaultDashboardVisualMode =
   | "vault-sidebar-machine-links";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
+
+type FixtureRefreshCountState = {
+  refreshCount: number;
+};
+type FixtureBranchExpansionState = {
+  branchesExpanded: boolean;
+};
+
+const FIXTURE_REFRESH_COUNT_INITIAL_STATE: FixtureRefreshCountState = {
+  refreshCount: 0,
+};
+const FIXTURE_BRANCH_EXPANSION_INITIAL_STATE: FixtureBranchExpansionState = {
+  branchesExpanded: false,
+};
+
+function useFixtureRefreshCountStore() {
+  return useCreateStore(
+    FIXTURE_REFRESH_COUNT_INITIAL_STATE,
+    ({ setState }) => ({
+      incrementRefreshCount: () => {
+        setState((state) => ({
+          ...state,
+          refreshCount: state.refreshCount + 1,
+        }));
+      },
+    }),
+  );
+}
+
+function useFixtureBranchExpansionStore() {
+  return useCreateStore(
+    FIXTURE_BRANCH_EXPANSION_INITIAL_STATE,
+    ({ setState }) => ({
+      toggleBranchesExpanded: () => {
+        setState((state) => ({
+          ...state,
+          branchesExpanded: !state.branchesExpanded,
+        }));
+      },
+    }),
+  );
+}
 
 function fakeVaultId(): Parameters<typeof VaultBranchLinkRow>[0]["vaultId"] {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
@@ -110,7 +153,12 @@ function FixtureDeleteControl({ isOpen = false }: { isOpen?: boolean }) {
 }
 
 function FixtureVaultLastUpdatedStatusCard() {
-  const [refreshCount, setRefreshCount] = useState(0);
+  const refreshCountStore = useFixtureRefreshCountStore();
+  const refreshCount = useSelector(
+    refreshCountStore,
+    (state) => state.refreshCount,
+  );
+  const { incrementRefreshCount } = refreshCountStore.actions;
 
   return (
     <div
@@ -136,9 +184,7 @@ function FixtureVaultLastUpdatedStatusCard() {
               <VaultLastUpdatedStatus
                 lastSyncedAt={FIXTURE_NOW - 12_000}
                 now={FIXTURE_NOW}
-                onRefresh={() => {
-                  setRefreshCount((count) => count + 1);
-                }}
+                onRefresh={incrementRefreshCount}
                 repositoryFullName="noter-md/noter"
               />
             </div>
@@ -276,7 +322,12 @@ function VaultDashboardListSpacingFixture({
 }: {
   mode: VaultDashboardVisualMode;
 }) {
-  const [branchesExpanded, setBranchesExpanded] = useState(false);
+  const branchExpansionStore = useFixtureBranchExpansionStore();
+  const branchesExpanded = useSelector(
+    branchExpansionStore,
+    (state) => state.branchesExpanded,
+  );
+  const { toggleBranchesExpanded } = branchExpansionStore.actions;
   const visibleBranches = branchesExpanded
     ? LIST_SPACING_BRANCHES
     : LIST_SPACING_BRANCHES.slice(0, 5);
@@ -302,7 +353,7 @@ function VaultDashboardListSpacingFixture({
               <VaultBranchListExpansionControl
                 isExpanded={branchesExpanded}
                 hiddenBranchCount={hiddenBranchCount}
-                onToggle={() => setBranchesExpanded((expanded) => !expanded)}
+                onToggle={toggleBranchesExpanded}
                 placement="header"
               />
             }
@@ -411,7 +462,12 @@ function VaultDashboardDeleteOpenFixture() {
 }
 
 function VaultDashboardStickyHeaderFixture() {
-  const [branchesExpanded, setBranchesExpanded] = useState(false);
+  const branchExpansionStore = useFixtureBranchExpansionStore();
+  const branchesExpanded = useSelector(
+    branchExpansionStore,
+    (state) => state.branchesExpanded,
+  );
+  const { toggleBranchesExpanded } = branchExpansionStore.actions;
   const visibleBranches = branchesExpanded
     ? STICKY_HEADER_BRANCHES
     : STICKY_HEADER_BRANCHES.slice(0, 3);
@@ -448,7 +504,7 @@ function VaultDashboardStickyHeaderFixture() {
                 <VaultBranchListExpansionControl
                   isExpanded={branchesExpanded}
                   hiddenBranchCount={hiddenBranchCount}
-                  onToggle={() => setBranchesExpanded((expanded) => !expanded)}
+                  onToggle={toggleBranchesExpanded}
                   placement="header"
                 />
               }

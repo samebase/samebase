@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCreateStore, useSelector } from "@tanstack/react-store";
+import { useEffect, useRef } from "react";
 import { formatRelativeTimeAgoWithSeconds } from "@/lib/formatRelativeTime";
 
 const hasActiveTextSelection = () => {
@@ -11,6 +12,34 @@ const hasActiveTextSelection = () => {
 };
 
 const getCurrentSecondTimestamp = () => Math.floor(Date.now() / 1000) * 1000;
+
+type VaultLastUpdatedStatusState = {
+  frozenNow: number | null;
+};
+
+const VAULT_LAST_UPDATED_STATUS_INITIAL_STATE: VaultLastUpdatedStatusState = {
+  frozenNow: null,
+};
+
+function useVaultLastUpdatedStatusStore() {
+  return useCreateStore(
+    VAULT_LAST_UPDATED_STATUS_INITIAL_STATE,
+    ({ setState }) => ({
+      clearFrozenNow: () => {
+        setState((state) =>
+          state.frozenNow === null ? state : { ...state, frozenNow: null },
+        );
+      },
+      freezeNow: () => {
+        setState((state) =>
+          state.frozenNow === null
+            ? { ...state, frozenNow: getCurrentSecondTimestamp() }
+            : state,
+        );
+      },
+    }),
+  );
+}
 
 /**
  * Keeps the ticking relative-time label stable while the user is selecting it,
@@ -27,25 +56,27 @@ export function VaultLastUpdatedStatus({
   onRefresh: () => void;
   repositoryFullName: string;
 }) {
-  const [frozenNow, setFrozenNow] = useState<number | null>(null);
+  const statusStore = useVaultLastUpdatedStatusStore();
+  const frozenNow = useSelector(statusStore, (state) => state.frozenNow);
+  const { clearFrozenNow, freezeNow } = statusStore.actions;
   const isPointerDownRef = useRef(false);
 
   useEffect(() => {
     const handleSelectionChange = () => {
       if (hasActiveTextSelection()) {
-        setFrozenNow((current) => current ?? getCurrentSecondTimestamp());
+        freezeNow();
         return;
       }
 
       if (!isPointerDownRef.current) {
-        setFrozenNow(null);
+        clearFrozenNow();
       }
     };
 
     const handlePointerUp = () => {
       isPointerDownRef.current = false;
       if (!hasActiveTextSelection()) {
-        setFrozenNow(null);
+        clearFrozenNow();
       }
     };
 
@@ -56,7 +87,7 @@ export function VaultLastUpdatedStatus({
       document.removeEventListener("selectionchange", handleSelectionChange);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, []);
+  }, [clearFrozenNow, freezeNow]);
 
   return (
     <button
@@ -66,7 +97,7 @@ export function VaultLastUpdatedStatus({
       aria-label={`Refresh ${repositoryFullName} now`}
       onPointerDown={() => {
         isPointerDownRef.current = true;
-        setFrozenNow((current) => current ?? getCurrentSecondTimestamp());
+        freezeNow();
       }}
       onClick={(event) => {
         if (hasActiveTextSelection()) {
