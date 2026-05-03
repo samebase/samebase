@@ -95,6 +95,9 @@ Key domain entities:
 - New or materially changed code should include concise comments that explain
   the constraint or invariant being preserved. Prefer JSDoc above functions when
   a function-level explanation is needed.
+- Specific app hooks and utilities with non-obvious ownership, timing, or
+  synchronization behavior should have function-level JSDoc explaining what they
+  do and why the indirection exists.
 - Avoid `"use node"` unless the module truly requires it.
 - Treat every `useEffect` and `useLayoutEffect` as something to justify. Before
   adding or keeping one, check whether the behavior belongs in a route lifecycle

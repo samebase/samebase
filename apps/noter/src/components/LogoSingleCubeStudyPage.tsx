@@ -5,8 +5,57 @@ import {
   SINGLE_CUBE_STUDY_SAMPLE_ANGLES,
   drawSingleCubeStudy,
 } from "@/components/logoSingleCubeStudyRenderer";
+import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+
+type LogoSingleCubeStudyState = {
+  angleDegrees: number;
+  showEdges: boolean;
+  showGrid: boolean;
+  vividColors: boolean;
+};
+
+const LOGO_SINGLE_CUBE_STUDY_INITIAL_STATE: LogoSingleCubeStudyState = {
+  angleDegrees: 45,
+  showEdges: false,
+  showGrid: false,
+  vividColors: true,
+};
+
+function useLogoSingleCubeStudyStore() {
+  // Keep this store scoped to the route; the single-cube lab has no shareable
+  // state beyond the surrounding dev-shell query params.
+  return useCreateStore(
+    LOGO_SINGLE_CUBE_STUDY_INITIAL_STATE,
+    ({ setState }) => ({
+      setAngleDegrees: (angleDegrees: number) => {
+        setState((state) => ({
+          ...state,
+          angleDegrees,
+        }));
+      },
+      toggleShowEdges: () => {
+        setState((state) => ({
+          ...state,
+          showEdges: !state.showEdges,
+        }));
+      },
+      toggleShowGrid: () => {
+        setState((state) => ({
+          ...state,
+          showGrid: !state.showGrid,
+        }));
+      },
+      toggleVividColors: () => {
+        setState((state) => ({
+          ...state,
+          vividColors: !state.vividColors,
+        }));
+      },
+    }),
+  );
+}
 
 function CubeStudyCanvas({
   angleDegrees,
@@ -23,6 +72,10 @@ function CubeStudyCanvas({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  /**
+   * Redraws the pixel canvas when cube-study controls change because the canvas
+   * bitmap is imperative output rather than React-managed DOM.
+   */
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) {
@@ -62,10 +115,14 @@ export function LogoSingleCubeStudyPage({
 }: {
   routeSearch: LogoRouteSearch;
 }) {
-  const [angleDegrees, setAngleDegrees] = useState(45);
-  const [showEdges, setShowEdges] = useState(false);
-  const [showGrid, setShowGrid] = useState(false);
-  const [vividColors, setVividColors] = useState(true);
+  const store = useLogoSingleCubeStudyStore();
+  const { angleDegrees, showEdges, showGrid, vividColors } = useSelector(store);
+  const {
+    setAngleDegrees,
+    toggleShowEdges,
+    toggleShowGrid,
+    toggleVividColors,
+  } = store.actions;
 
   return (
     <div className="min-h-screen bg-[#f5f4ef] text-black">
@@ -149,9 +206,7 @@ export function LogoSingleCubeStudyPage({
                   size="sm"
                   variant={showEdges ? "default" : "outline"}
                   className="justify-start rounded-none"
-                  onClick={() => {
-                    setShowEdges((currentValue) => !currentValue);
-                  }}
+                  onClick={toggleShowEdges}
                 >
                   {showEdges ? "Hide edges" : "Show edges"}
                 </Button>
@@ -160,9 +215,7 @@ export function LogoSingleCubeStudyPage({
                   size="sm"
                   variant={vividColors ? "default" : "outline"}
                   className="justify-start rounded-none"
-                  onClick={() => {
-                    setVividColors((currentValue) => !currentValue);
-                  }}
+                  onClick={toggleVividColors}
                 >
                   {vividColors ? "Use standard colors" : "Use vivid colors"}
                 </Button>
@@ -171,9 +224,7 @@ export function LogoSingleCubeStudyPage({
                   size="sm"
                   variant={showGrid ? "default" : "outline"}
                   className="justify-start rounded-none"
-                  onClick={() => {
-                    setShowGrid((currentValue) => !currentValue);
-                  }}
+                  onClick={toggleShowGrid}
                 >
                   {showGrid ? "Hide pixel grid" : "Show pixel grid"}
                 </Button>
@@ -233,11 +284,8 @@ export function LogoSingleCubeStudyPage({
                   <button
                     key={sampleAngle}
                     type="button"
-                    className={`grid gap-2 border p-2 text-left transition-colors ${
-                      angleDegrees === sampleAngle
-                        ? "border-black bg-[#fcfbf7]"
-                        : "border-black/10 bg-white hover:border-black/30"
-                    }`}
+                    aria-pressed={angleDegrees === sampleAngle}
+                    className="grid gap-2 border border-black/10 p-2 text-left aria-pressed:border-black"
                     onClick={() => {
                       setAngleDegrees(sampleAngle);
                     }}
