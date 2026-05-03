@@ -613,63 +613,6 @@ export const getInfrastructureByVault = internalQuery({
   },
 });
 
-export const claimProvisioning = internalMutation({
-  args: {
-    vaultId: v.id("vaults"),
-    force: v.optional(v.boolean()),
-  },
-  returns: v.object({ claimed: v.boolean() }),
-  handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault) {
-      return { claimed: false };
-    }
-
-    const now = Date.now();
-    if (!args.force) {
-      if (
-        vault.infraState === "provisioning" &&
-        vault.infraProvisioningStartedAt &&
-        now - vault.infraProvisioningStartedAt < PROVISIONING_STALE_MS
-      ) {
-        return { claimed: false };
-      }
-    }
-
-    await ctx.db.patch(args.vaultId, {
-      infraState: "provisioning",
-      infraLastError: undefined,
-      infraProvisioningStartedAt: now,
-    });
-
-    return { claimed: true };
-  },
-});
-
-export const setProvisioningState = internalMutation({
-  args: {
-    vaultId: v.id("vaults"),
-    infraState: v.union(
-      v.literal("not_started"),
-      v.literal("provisioning"),
-      v.literal("ready"),
-      v.literal("failed"),
-      v.literal("partial"),
-    ),
-    infraLastError: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.vaultId, {
-      infraState: args.infraState,
-      infraLastError: args.infraLastError,
-      infraLastProvisionedAt: Date.now(),
-      infraProvisioningStartedAt: undefined,
-    });
-    return null;
-  },
-});
-
 export const upsertInfrastructureRecord = internalMutation({
   args: {
     vaultId: v.id("vaults"),

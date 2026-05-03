@@ -111,9 +111,7 @@ Optional:
 
 - `appProvisioningWorkflow.startVaultInfrastructureProvisioning({ vaultId, runId, force? })`
 - `appProvisioningWorkflow.provisionVaultInfrastructure({ vaultId, runId, force? })`
-- `infraProvisioning.claimProvisioning({ vaultId, force? })`
 - `infraProvisioning.claimWorkflowProvisioning({ vaultId, runId, force? })`
-- `infraProvisioning.setProvisioningState(...)`
 - `infraProvisioning.upsertInfrastructureRecord(...)`
 - `infraProvisioning.upsertDomainRecord(...)`
 
