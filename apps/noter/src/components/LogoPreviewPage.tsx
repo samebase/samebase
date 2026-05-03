@@ -989,52 +989,35 @@ export function LogoPreviewPage({
 }: LogoPreviewPageProps) {
   const publicRightSidebarPane = usePublicRightSidebarPane();
   const isIsometricMode = renderMode === "iso";
-  const logoPreviewStore = useLogoPreviewStore(routeSearch);
-  const actions = logoPreviewStore.actions;
-  const {
-    editMode,
-    elevationDegrees,
-    isAutoRotating,
-    isFaceColorAnimationEnabled,
-    isSceneInteracting,
-    isShuffleEnabled,
-    isViewSnapEnabled,
-    isoCubeSidePixels,
-    isoStyleId,
-    logoOpacity,
-    mobilePane,
-    rotationAxisMode,
-    rotationDegrees,
-    selectedPresetId,
-    themeColors,
-    voxelState,
-    shuffleParallelMoves,
-  } = useSelector(logoPreviewStore);
-  const { backgroundColor, faceColors } =
-    useResolvedAppThemeColorState(themeColors);
-  const isAutoRotatingRef = useRef(isAutoRotating);
+  const store = useLogoPreviewStore(routeSearch);
+  const state = useSelector(store);
+  const { actions } = store;
+  const { backgroundColor, faceColors } = useResolvedAppThemeColorState(
+    state.themeColors,
+  );
+  const isAutoRotatingRef = useRef(state.isAutoRotating);
   const lastFrameTimeRef = useRef<number | null>(null);
   const viewSnapCheckboxId = useId();
   const faceColorAnimationCheckboxId = useId();
-  const isSceneInteractingRef = useRef(isSceneInteracting);
+  const isSceneInteractingRef = useRef(state.isSceneInteracting);
 
   /**
    * Mirrors store flags needed by async callbacks so route-sync guards can read
    * the latest interaction state without waiting for a React render.
    */
   useEffect(() => {
-    const syncLatestStateRefs = (state: LogoPreviewStoreState) => {
-      isAutoRotatingRef.current = state.isAutoRotating;
-      isSceneInteractingRef.current = state.isSceneInteracting;
+    const syncLatestStateRefs = (latestState: LogoPreviewStoreState) => {
+      isAutoRotatingRef.current = latestState.isAutoRotating;
+      isSceneInteractingRef.current = latestState.isSceneInteracting;
     };
 
-    syncLatestStateRefs(logoPreviewStore.state);
-    const subscription = logoPreviewStore.subscribe(syncLatestStateRefs);
+    syncLatestStateRefs(store.state);
+    const subscription = store.subscribe(syncLatestStateRefs);
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [logoPreviewStore]);
+  }, [store]);
 
   /**
    * Pulls URL-owned logo state into the local store after navigation while
@@ -1060,8 +1043,8 @@ export function LogoPreviewPage({
   useEffect(() => {
     if (
       !shouldSyncLogoPreviewQueryState({
-        isAutoRotating,
-        isSceneInteracting,
+        isAutoRotating: state.isAutoRotating,
+        isSceneInteracting: state.isSceneInteracting,
       })
     ) {
       return;
@@ -1069,23 +1052,23 @@ export function LogoPreviewPage({
 
     const resolvedView = resolveLogoPreviewViewState(
       {
-        elevationDegrees,
-        rotationDegrees,
+        elevationDegrees: state.elevationDegrees,
+        rotationDegrees: state.rotationDegrees,
       },
-      isViewSnapEnabled,
+      state.isViewSnapEnabled,
     );
 
     const nextSearch = preserveLogoRouteDevModeSearch(
       buildLogoRouteSearch({
         elevationDegrees: resolvedView.elevationDegrees,
-        isoCubeSidePixels,
-        isoStyleId,
-        rotationAxisMode,
+        isoCubeSidePixels: state.isoCubeSidePixels,
+        isoStyleId: state.isoStyleId,
+        rotationAxisMode: state.rotationAxisMode,
         rotationDegrees: resolvedView.rotationDegrees,
         themeModeSearch: routeSearch,
-        themeColors,
-        viewSnapEnabled: isViewSnapEnabled,
-        voxelState,
+        themeColors: state.themeColors,
+        viewSnapEnabled: state.isViewSnapEnabled,
+        voxelState: state.voxelState,
       }),
       routeSearch,
     );
@@ -1099,18 +1082,18 @@ export function LogoPreviewPage({
       replaceRouteSearch(nextSearch);
     }
   }, [
-    elevationDegrees,
-    isAutoRotating,
-    isSceneInteracting,
-    isViewSnapEnabled,
-    isoCubeSidePixels,
-    isoStyleId,
+    state.elevationDegrees,
+    state.isAutoRotating,
+    state.isSceneInteracting,
+    state.isViewSnapEnabled,
+    state.isoCubeSidePixels,
+    state.isoStyleId,
+    state.rotationAxisMode,
+    state.rotationDegrees,
+    state.themeColors,
+    state.voxelState,
     replaceRouteSearch,
-    rotationAxisMode,
-    rotationDegrees,
     routeSearch,
-    themeColors,
-    voxelState,
   ]);
 
   /**
@@ -1118,7 +1101,7 @@ export function LogoPreviewPage({
    * auto-rotation stops or the renderer switches away from 3D.
    */
   useEffect(() => {
-    if (isIsometricMode || !isAutoRotating) {
+    if (isIsometricMode || !state.isAutoRotating) {
       lastFrameTimeRef.current = null;
       return;
     }
@@ -1141,27 +1124,27 @@ export function LogoPreviewPage({
       window.cancelAnimationFrame(animationFrameId);
       lastFrameTimeRef.current = null;
     };
-  }, [actions, isAutoRotating, isIsometricMode]);
+  }, [actions, state.isAutoRotating, isIsometricMode]);
 
   const selectedPreset =
-    selectedPresetId === CUSTOM_LOGO_PRESET_ID
+    state.selectedPresetId === CUSTOM_LOGO_PRESET_ID
       ? null
-      : getLogoPreset(selectedPresetId);
-  const selectedIsoStyle = getLogoIsometricStyle(isoStyleId);
+      : getLogoPreset(state.selectedPresetId);
+  const selectedIsoStyle = getLogoIsometricStyle(state.isoStyleId);
   const rotationAngleControlLabel =
-    ROTATION_ANGLE_CONTROL_LABELS[rotationAxisMode];
+    ROTATION_ANGLE_CONTROL_LABELS[state.rotationAxisMode];
 
   const modeSearch = preserveLogoRouteDevModeSearch(
     buildLogoRouteSearch({
-      elevationDegrees,
-      isoCubeSidePixels,
-      isoStyleId,
-      rotationAxisMode,
-      rotationDegrees,
+      elevationDegrees: state.elevationDegrees,
+      isoCubeSidePixels: state.isoCubeSidePixels,
+      isoStyleId: state.isoStyleId,
+      rotationAxisMode: state.rotationAxisMode,
+      rotationDegrees: state.rotationDegrees,
       themeModeSearch: routeSearch,
-      themeColors,
-      viewSnapEnabled: isViewSnapEnabled,
-      voxelState,
+      themeColors: state.themeColors,
+      viewSnapEnabled: state.isViewSnapEnabled,
+      voxelState: state.voxelState,
     }),
     routeSearch,
   );
@@ -1170,28 +1153,28 @@ export function LogoPreviewPage({
     <NLogoIsoScene
       backgroundColor={backgroundColor}
       className="absolute inset-0 h-full w-full touch-none select-none"
-      cubeSidePixels={isoCubeSidePixels}
-      editMode={editMode}
+      cubeSidePixels={state.isoCubeSidePixels}
+      editMode={state.editMode}
       faceColors={faceColors}
       onVoxelEdit={actions.editVoxel}
       shuffleAnimation={{
-        enabled: isShuffleEnabled,
-        parallelMoves: shuffleParallelMoves,
+        enabled: state.isShuffleEnabled,
+        parallelMoves: state.shuffleParallelMoves,
       }}
-      styleId={isoStyleId}
-      voxelState={voxelState}
+      styleId={state.isoStyleId}
+      voxelState={state.voxelState}
     />
   ) : (
     <NLogoScene
       backgroundColor={backgroundColor}
       className={cn(
         "absolute inset-0 h-full w-full touch-none select-none",
-        isSceneInteracting ? "cursor-grabbing" : "cursor-grab",
+        state.isSceneInteracting ? "cursor-grabbing" : "cursor-grab",
       )}
-      editMode={editMode}
-      elevationDegrees={elevationDegrees}
+      editMode={state.editMode}
+      elevationDegrees={state.elevationDegrees}
       faceColors={faceColors}
-      opacity={logoOpacity}
+      opacity={state.logoOpacity}
       onInteractionStart={() => {
         actions.setAutoRotating(false);
         actions.setSceneInteracting(true);
@@ -1201,17 +1184,19 @@ export function LogoPreviewPage({
       }}
       onViewChange={actions.applyViewState}
       onVoxelEdit={actions.editVoxel}
-      rotationAxisMode={rotationAxisMode}
-      rotationDegrees={rotationDegrees}
+      rotationAxisMode={state.rotationAxisMode}
+      rotationDegrees={state.rotationDegrees}
       shuffleAnimation={{
-        enabled: isShuffleEnabled,
-        parallelMoves: shuffleParallelMoves,
+        enabled: state.isShuffleEnabled,
+        parallelMoves: state.shuffleParallelMoves,
       }}
-      animateFaceColors={isFaceColorAnimationEnabled}
+      animateFaceColors={state.isFaceColorAnimationEnabled}
       viewDragConfig={
-        isViewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined
+        state.isViewSnapEnabled
+          ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG
+          : undefined
       }
-      voxelState={voxelState}
+      voxelState={state.voxelState}
     />
   );
 
@@ -1279,7 +1264,7 @@ export function LogoPreviewPage({
 
       <LogoPreviewSection title="Shape">
         <Select
-          value={selectedPresetId}
+          value={state.selectedPresetId}
           onValueChange={(value) => {
             if (value === CUSTOM_LOGO_PRESET_ID) {
               actions.setPresetToCustom();
@@ -1319,9 +1304,9 @@ export function LogoPreviewPage({
           <Button
             type="button"
             size="sm"
-            variant={editMode === "add" ? "default" : "outline"}
+            variant={state.editMode === "add" ? "default" : "outline"}
             className={LOGO_CONTROL_BUTTON_CLASS_NAME}
-            aria-pressed={editMode === "add"}
+            aria-pressed={state.editMode === "add"}
             onClick={() => {
               actions.setEditMode("add");
             }}
@@ -1331,9 +1316,9 @@ export function LogoPreviewPage({
           <Button
             type="button"
             size="sm"
-            variant={editMode === "remove" ? "default" : "outline"}
+            variant={state.editMode === "remove" ? "default" : "outline"}
             className={LOGO_CONTROL_BUTTON_CLASS_NAME}
-            aria-pressed={editMode === "remove"}
+            aria-pressed={state.editMode === "remove"}
             onClick={() => {
               actions.setEditMode("remove");
             }}
@@ -1388,14 +1373,15 @@ export function LogoPreviewPage({
               onValueChange={actions.setIsoCubeSidePixels}
               sliderAriaLabel="Cube side"
               step={LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX}
-              value={isoCubeSidePixels}
+              value={state.isoCubeSidePixels}
               valueAriaLabel="Cube side pixels"
               valueInputMode="numeric"
-              valueLabel={isoCubeSidePixels}
-              valueText={`${isoCubeSidePixels}px`}
+              valueLabel={state.isoCubeSidePixels}
+              valueText={`${state.isoCubeSidePixels}px`}
             />
             <div className="text-xs text-muted-foreground">
-              {isoCubeSidePixels}px edge / {isoCubeSidePixels / 2}px rise
+              {state.isoCubeSidePixels}px edge / {state.isoCubeSidePixels / 2}px
+              rise
             </div>
             <Button
               type="button"
@@ -1417,7 +1403,7 @@ export function LogoPreviewPage({
               Style
             </Label>
             <Select
-              value={isoStyleId}
+              value={state.isoStyleId}
               onValueChange={(value) => {
                 if (isLogoIsometricStyleId(value)) {
                   actions.setIsoStyleId(value);
@@ -1453,11 +1439,11 @@ export function LogoPreviewPage({
                 <div className="flex min-h-16 min-w-16 items-center justify-center border border-border bg-background p-2">
                   <LogoIsoThumbnail
                     backgroundColor={backgroundColor}
-                    cubeSidePixels={isoCubeSidePixels}
+                    cubeSidePixels={state.isoCubeSidePixels}
                     faceColors={faceColors}
                     size={size}
-                    styleId={isoStyleId}
-                    voxelState={voxelState}
+                    styleId={state.isoStyleId}
+                    voxelState={state.voxelState}
                   />
                 </div>
                 <span className="font-mono text-[10px] text-muted-foreground">
@@ -1472,7 +1458,7 @@ export function LogoPreviewPage({
           <div className="flex items-start gap-3">
             <Checkbox
               id={viewSnapCheckboxId}
-              checked={isViewSnapEnabled}
+              checked={state.isViewSnapEnabled}
               onCheckedChange={(checked) => {
                 actions.setViewSnapEnabled(checked === true);
               }}
@@ -1495,7 +1481,7 @@ export function LogoPreviewPage({
           <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
             <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
               <span>Rotation axis</span>
-              <span>{ROTATION_AXIS_MODE_LABELS[rotationAxisMode]}</span>
+              <span>{ROTATION_AXIS_MODE_LABELS[state.rotationAxisMode]}</span>
             </div>
             <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
               {ROTATION_AXIS_MODE_OPTIONS.map((mode) => (
@@ -1503,7 +1489,9 @@ export function LogoPreviewPage({
                   key={mode}
                   type="button"
                   size="sm"
-                  variant={rotationAxisMode === mode ? "default" : "outline"}
+                  variant={
+                    state.rotationAxisMode === mode ? "default" : "outline"
+                  }
                   className={LOGO_CONTROL_BUTTON_CLASS_NAME}
                   onClick={() => {
                     actions.setRotationAxisMode(mode);
@@ -1513,7 +1501,7 @@ export function LogoPreviewPage({
                 </Button>
               ))}
             </div>
-            {rotationAxisMode === "screen-vertical" ? (
+            {state.rotationAxisMode === "screen-vertical" ? (
               <div className="text-xs text-muted-foreground">
                 Vertical mode rotates around the current screen-up axis, so
                 changing elevation changes the resulting pose.
@@ -1529,10 +1517,10 @@ export function LogoPreviewPage({
             onValueChange={actions.setRotationDegrees}
             sliderAriaLabel={`${rotationAngleControlLabel} slider`}
             step="0.1"
-            value={rotationDegrees}
+            value={state.rotationDegrees}
             valueAriaLabel={`${rotationAngleControlLabel} value`}
-            valueLabel={rotationDegrees.toFixed(1)}
-            valueText={`${rotationDegrees.toFixed(1)}°`}
+            valueLabel={state.rotationDegrees.toFixed(1)}
+            valueText={`${state.rotationDegrees.toFixed(1)}°`}
           />
 
           <LogoRangeControl
@@ -1543,10 +1531,10 @@ export function LogoPreviewPage({
             onValueChange={actions.setElevationDegrees}
             sliderAriaLabel="Elevation slider"
             step="0.1"
-            value={elevationDegrees}
+            value={state.elevationDegrees}
             valueAriaLabel="Elevation value"
-            valueLabel={elevationDegrees.toFixed(1)}
-            valueText={`${elevationDegrees.toFixed(1)}°`}
+            valueLabel={state.elevationDegrees.toFixed(1)}
+            valueText={`${state.elevationDegrees.toFixed(1)}°`}
           />
 
           <LogoRangeControl
@@ -1557,10 +1545,10 @@ export function LogoPreviewPage({
             onValueChange={actions.setLogoOpacity}
             sliderAriaLabel="Opacity slider"
             step={LOGO_OPACITY_STEP}
-            value={logoOpacity}
+            value={state.logoOpacity}
             valueAriaLabel="Opacity value"
-            valueLabel={logoOpacity.toFixed(2)}
-            valueText={logoOpacity.toFixed(2)}
+            valueLabel={state.logoOpacity.toFixed(2)}
+            valueText={state.logoOpacity.toFixed(2)}
           />
 
           <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
@@ -1594,25 +1582,25 @@ export function LogoPreviewPage({
             <Button
               type="button"
               size="sm"
-              variant={isAutoRotating ? "default" : "outline"}
+              variant={state.isAutoRotating ? "default" : "outline"}
               className="w-full rounded-none"
               onClick={() => {
-                actions.setAutoRotating(!isAutoRotating);
+                actions.setAutoRotating(!state.isAutoRotating);
               }}
             >
-              {isAutoRotating ? "Stop auto rotate" : "Start auto rotate"}
+              {state.isAutoRotating ? "Stop auto rotate" : "Start auto rotate"}
             </Button>
           ) : null}
           <Button
             type="button"
             size="sm"
-            variant={isShuffleEnabled ? "default" : "outline"}
+            variant={state.isShuffleEnabled ? "default" : "outline"}
             className="w-full rounded-none"
             onClick={() => {
-              actions.setShuffleEnabled(!isShuffleEnabled);
+              actions.setShuffleEnabled(!state.isShuffleEnabled);
             }}
           >
-            {isShuffleEnabled ? "Stop shuffle" : "Start shuffle"}
+            {state.isShuffleEnabled ? "Stop shuffle" : "Start shuffle"}
           </Button>
         </div>
 
@@ -1621,14 +1609,14 @@ export function LogoPreviewPage({
             Parallel cubes
           </Label>
           <Select
-            value={`${shuffleParallelMoves}`}
+            value={`${state.shuffleParallelMoves}`}
             onValueChange={(value) => {
               actions.setShuffleParallelMoves(parseShuffleParallelMoves(value));
             }}
           >
             <SelectTrigger className="h-9 rounded-none border-border bg-background px-2 text-sm shadow-none">
-              {shuffleParallelMoves}{" "}
-              {shuffleParallelMoves === 1 ? "cube" : "cubes"}
+              {state.shuffleParallelMoves}{" "}
+              {state.shuffleParallelMoves === 1 ? "cube" : "cubes"}
             </SelectTrigger>
             <SelectContent className="rounded-none border-border">
               {LOGO_SHUFFLE_PARALLEL_OPTIONS.map((option) => (
@@ -1648,7 +1636,7 @@ export function LogoPreviewPage({
           <div className="flex items-start gap-3">
             <Checkbox
               id={faceColorAnimationCheckboxId}
-              checked={isFaceColorAnimationEnabled}
+              checked={state.isFaceColorAnimationEnabled}
               onCheckedChange={(checked) =>
                 actions.setFaceColorAnimationEnabled(checked === true)
               }
@@ -1672,14 +1660,14 @@ export function LogoPreviewPage({
           {APP_THEME_COLOR_KEYS.map((themeColorKey) => (
             <ColorSwatch
               key={themeColorKey}
-              color={getTailwindColorHex(themeColors[themeColorKey])}
+              color={getTailwindColorHex(state.themeColors[themeColorKey])}
               size="compact"
             />
           ))}
         </div>
 
         {APP_THEME_COLOR_KEYS.map((themeColorKey) => {
-          const currentToken = themeColors[themeColorKey];
+          const currentToken = state.themeColors[themeColorKey];
 
           return (
             <ThemeColorPicker
@@ -1696,7 +1684,7 @@ export function LogoPreviewPage({
 
       <LogoPreviewSection title="Voxel Map">
         <pre className="overflow-x-auto border border-border bg-background p-2 font-mono text-[11px] text-muted-foreground">
-          {voxelState}
+          {state.voxelState}
         </pre>
       </LogoPreviewSection>
     </div>
@@ -1715,7 +1703,7 @@ export function LogoPreviewPage({
         defaultRightMobileWidthPx={
           WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX
         }
-        mobilePane={mobilePane}
+        mobilePane={state.mobilePane}
         onMobilePaneChange={actions.setMobilePane}
         shortcutSidebarSide="left"
       >
