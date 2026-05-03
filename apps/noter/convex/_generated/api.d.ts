@@ -60,6 +60,7 @@ import type * as infraRead from "../infraRead.js";
 import type * as infraReadPolicy from "../infraReadPolicy.js";
 import type * as infraReadQueries from "../infraReadQueries.js";
 import type * as jsonUtils from "../jsonUtils.js";
+import type * as legacyDaytonaDataCleanup from "../legacyDaytonaDataCleanup.js";
 import type * as mcp_http from "../mcp/http.js";
 import type * as mcp_oauth from "../mcp/oauth.js";
 import type * as mcp_protocol from "../mcp/protocol.js";
@@ -150,6 +151,7 @@ declare const fullApi: ApiFromModules<{
   infraReadPolicy: typeof infraReadPolicy;
   infraReadQueries: typeof infraReadQueries;
   jsonUtils: typeof jsonUtils;
+  legacyDaytonaDataCleanup: typeof legacyDaytonaDataCleanup;
   "mcp/http": typeof mcp_http;
   "mcp/oauth": typeof mcp_oauth;
   "mcp/protocol": typeof mcp_protocol;
@@ -210,4 +212,5 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   agent: import("@convex-dev/agent/_generated/component.js").ComponentApi<"agent">;
+  migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
 };

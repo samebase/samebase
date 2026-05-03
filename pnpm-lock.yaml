@@ -92,6 +92,9 @@ importers:
       '@convex-dev/eslint-plugin':
         specifier: 0.0.1-alpha.4
         version: 0.0.1-alpha.4(eslint@8.57.1)(typescript@5.9.2)
+      '@convex-dev/migrations':
+        specifier: ^0.3.4
+        version: 0.3.4(convex@1.36.1(react@19.2.4))
       '@fontsource/ibm-plex-sans':
         specifier: ^5.2.8
         version: 5.2.8
@@ -692,6 +695,11 @@ packages:
 
   '@convex-dev/eslint-plugin@0.0.1-alpha.4':
     resolution: {integrity: sha512-no/F96kJOgqK3g5zVkJrXYhw+QhiqVv+l7u/ID17AisI+I/Dr43MLij780tE0UbXUIwTAe5cRa9VQ0AEZQiDYQ==}
+
+  '@convex-dev/migrations@0.3.4':
+    resolution: {integrity: sha512-fCUkc4hDzkZTgxicjV1WN4QfUdDDPPrMtvC7VgSLTGssg1B8pm+XlPC6NbZ2Aes38Xf5iiodX+y8VnU96narKQ==}
+    peerDependencies:
+      convex: ^1.24.8
 
   '@csstools/color-helpers@6.0.2':
     resolution: {integrity: sha512-LMGQLS9EuADloEFkcTBR3BwV/CGHV7zyDxVRtVDTwdI2Ca4it0CCVTT9wCkxSgokjE5Ho41hEPgb8OEUwoXr6Q==}
@@ -6034,6 +6042,10 @@ snapshots:
       - eslint
       - supports-color
       - typescript
+
+  '@convex-dev/migrations@0.3.4(convex@1.36.1(react@19.2.4))':
+    dependencies:
+      convex: 1.36.1(react@19.2.4)
 
   '@csstools/color-helpers@6.0.2': {}
 
