@@ -491,7 +491,7 @@ function VaultDashboardProvisioningLogFixture() {
                     aria-label="Provisioning log for noter-md/noter-app"
                     readOnly
                     rows={6}
-                    className="max-h-52 min-h-20 w-full resize-y overflow-auto whitespace-pre-wrap corner-notch-1 border bg-background/70 p-2 font-mono text-xs text-muted-foreground"
+                    className="w-full font-mono text-xs"
                     value={formatProvisioningLogText([
                       {
                         createdAt: Date.parse("2026-05-02T12:30:01Z"),

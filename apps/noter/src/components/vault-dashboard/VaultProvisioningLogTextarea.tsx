@@ -18,8 +18,8 @@ export function VaultProvisioningLogTextarea(props: {
     <textarea
       aria-label={`Provisioning log for ${props.repositoryFullName}`}
       readOnly
-      rows={Math.min(8, Math.max(4, events.length + 1))}
-      className="max-h-52 min-h-20 w-full resize-y overflow-auto whitespace-pre-wrap corner-notch-1 border bg-background/70 p-2 font-mono text-xs text-muted-foreground"
+      rows={Math.max(4, events.length + 1)}
+      className="w-full font-mono text-xs"
       value={formatProvisioningLogText(events)}
     />
   );

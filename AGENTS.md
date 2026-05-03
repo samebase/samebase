@@ -191,8 +191,12 @@ Key domain entities:
 - Do not pre-populate new layout components with invented content structure or
   helper APIs. Leave them mostly empty by default and add the next layer only
   when a current shipped use case proves it is necessary.
-- For app-owned layout shells, every utility class should protect a current
-  invariant. If you cannot name the invariant a class preserves, leave it out.
+- For app-owned UI, use as few Tailwind utilities as possible. Every utility
+  class should protect a current invariant; if you cannot name the invariant a
+  class preserves, leave it out. Start from native element behavior for
+  diagnostic/operator surfaces and avoid decorative backgrounds, borders,
+  radius/notch classes, opacity tweaks, and height caps unless the current UI
+  truly needs them.
 - For pane rails that should feel nearly flush, prefer `px-1` over `px-0` so the
   content keeps a small nonzero inset without reading as padded.
 - Browser-owned page scroll is the default for route surfaces. Do not use
