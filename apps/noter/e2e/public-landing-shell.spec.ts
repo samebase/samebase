@@ -1943,7 +1943,15 @@ test("prod-ui landing reveals /logo only for the darker straight-on logo face", 
 
   await expect(statusBar).toHaveScreenshot(
     "public-landing-status-bar-logo-link.png",
-    strictScreenshotOptions,
+    {
+      ...strictScreenshotOptions,
+      // Build metadata changes on every main commit; this screenshot protects
+      // the logo reveal/link stack without pinning the current release label.
+      mask: [
+        statusBar.getByTestId(APP_BUILD_VERSION_TEST_ID).locator("xpath=.."),
+      ],
+      maskColor: "#ffffff",
+    },
   );
 });
 

@@ -7,6 +7,34 @@ on:
     branches: [main, quantum-den]
 
 jobs:
+  main-commit-subject:
+    name: main commit subject
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 5
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Assert main commit subject carries build label
+        run: |
+          # The app renders v<N> from the full git commit count, so main's
+          # squash subject must be checked against that same source of truth.
+          expected="v$(git rev-list --count HEAD)"
+          subject="$(git show -s --format=%s HEAD)"
+
+          case "$subject" in
+            "$expected: "*) ;;
+            *)
+              echo "Expected main commit subject to start with $expected:"
+              echo "Actual subject: $subject"
+              exit 1
+              ;;
+          esac
+
   checks:
     name: checks
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -164,7 +192,7 @@ jobs:
   ci:
     name: ci (24.x)
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    needs: [checks, playwright, sync-windows]
+    needs: [checks, main-commit-subject, playwright, sync-windows]
     if: ${{ always() }}
 
     steps:
@@ -178,6 +206,11 @@ jobs:
           fi
 
           if [ "${{ github.event_name }}" = "push" ]; then
+            if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ needs.main-commit-subject.result }}" != "success" ]; then
+              echo "main-commit-subject: ${{ needs.main-commit-subject.result }}"
+              exit 1
+            fi
+
             if [ "${{ needs.playwright.result }}" != "success" ] || [ "${{ needs.sync-windows.result }}" != "success" ]; then
               echo "playwright: ${{ needs.playwright.result }}"
               echo "sync-windows: ${{ needs.sync-windows.result }}"
