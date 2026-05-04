@@ -2,13 +2,23 @@ import { devices, expect, test, type Page } from "@playwright/test";
 
 const { defaultBrowserType: _pixel7BrowserType, ...pixel7Device } =
   devices["Pixel 7"];
+const MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
 
 test.use({
   ...pixel7Device,
 });
 
-async function gotoFileViewFixture(page: Page) {
-  await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
+async function gotoFileViewFixture(
+  page: Page,
+  options?: { minResizeBehavior?: "merge" | "slide" },
+) {
+  const mode =
+    options?.minResizeBehavior === "merge"
+      ? "fileview-layout-merge"
+      : options?.minResizeBehavior === "slide"
+        ? "fileview-layout-slide"
+        : "fileview-layout-persistence";
+  await page.goto(`/visual-fixture.html?mode=${mode}`, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -97,14 +107,9 @@ async function getMobileSidebarMaxWidthPx(page: Page) {
 }
 
 async function getMobileSidebarMinWidthPx(page: Page) {
-  return page
-    .getByTestId("workspace-layout-v2-pane-main")
-    .evaluate((element) => {
-      const maxWidthPx = Math.max(1, element.clientWidth - 48);
-      const leftoverWidthPx = element.clientWidth - maxWidthPx;
+  const maxWidthPx = await getMobileSidebarMaxWidthPx(page);
 
-      return Math.max(1, Math.min(Math.round(leftoverWidthPx * 2), maxWidthPx));
-    });
+  return Math.max(1, Math.min(MOBILE_SIDEBAR_MIN_WIDTH_PX, maxWidthPx));
 }
 
 function getFileViewLayoutShell(page: Page) {
@@ -263,17 +268,13 @@ test("fileview mobile left sidebar exposes fixture links", async ({ page }) => {
   await expect(leftLinks.getByRole("link", { name: "Pricing" })).toBeVisible();
 });
 
-test("fileview mobile sidebar minimum doubles viewport leftover after max width", async ({
+test("fileview mobile sidebar minimum uses the configured mobile pane width", async ({
   page,
 }) => {
   await gotoFileViewFixture(page);
 
-  const viewportWidthPx = await page
-    .getByTestId("workspace-layout-v2-pane-main")
-    .evaluate((element) => element.clientWidth);
   const minWidthPx = await getMobileSidebarMinWidthPx(page);
-  const maxWidthPx = await getMobileSidebarMaxWidthPx(page);
-  expect(minWidthPx).toBe((viewportWidthPx - maxWidthPx) * 2);
+  expect(minWidthPx).toBe(MOBILE_SIDEBAR_MIN_WIDTH_PX);
 
   await scrollFileViewCarouselToPane(page, "left");
   await expect(
@@ -320,10 +321,59 @@ test("fileview mobile sidebar minimum doubles viewport leftover after max width"
     .toBe(minWidthPx);
 });
 
+test("fileview mobile merge resize keeps the sidebar beside a complete main pane", async ({
+  page,
+}) => {
+  await gotoFileViewFixture(page, { minResizeBehavior: "merge" });
+
+  await scrollFileViewCarouselToPane(page, "left");
+
+  const viewportWidthPx = await page
+    .getByTestId("workspace-layout-v2-pane-main")
+    .evaluate((element) => element.clientWidth);
+  const minWidthPx = await getMobileSidebarMinWidthPx(page);
+  const leftPaneWidthBefore = (
+    await getBox(page, "workspace-layout-v2-pane-left")
+  ).width;
+
+  await touchDragHandleByPx(
+    page,
+    "workspace-layout-v2-left-resize",
+    minWidthPx - leftPaneWidthBefore - minWidthPx,
+  );
+
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute(
+    "data-mobile-pane",
+    "left",
+  );
+  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
+    1,
+  );
+
+  await expect
+    .poll(async () =>
+      Math.round((await getBox(page, "workspace-layout-v2-pane-left")).width),
+    )
+    .toBe(minWidthPx);
+  await expect
+    .poll(async () =>
+      Math.round(
+        (
+          await page
+            .locator(
+              '[data-testid="workspace-layout-v2-pane-main"] > .snap-center',
+            )
+            .boundingBox()
+        )?.width ?? 0,
+      ),
+    )
+    .toBe(viewportWidthPx - minWidthPx);
+});
+
 test("fileview mobile sidebar grips recenter when dragged past the minimum", async ({
   page,
 }) => {
-  await gotoFileViewFixture(page);
+  await gotoFileViewFixture(page, { minResizeBehavior: "slide" });
 
   const minWidthPx = await getMobileSidebarMinWidthPx(page);
   const slidePastMinimumPx = minWidthPx;

@@ -1508,7 +1508,11 @@ test.describe("mobile landing dev toggle", () => {
 
         return { currentWidthPx, minWidthPx };
       });
-    // Drag past the min-clamp threshold so resizing hands off into a main-pane slide.
+    const carouselWidthPx = await page
+      .getByTestId("workspace-layout-v2-pane-main")
+      .evaluate((element) => element.clientWidth);
+    // Drag past the min-clamp threshold so the landing shell settles into a
+    // narrow sidebar beside the complete main pane.
     const dragDistancePx =
       handleValues.currentWidthPx - handleValues.minWidthPx + 40;
     const dragSteps = 4;
@@ -1529,10 +1533,111 @@ test.describe("mobile landing dev toggle", () => {
 
     await expect(
       page.locator('[data-workspace-layout-v2="mobile"]'),
-    ).toHaveAttribute("data-mobile-pane", "main");
+    ).toHaveAttribute("data-mobile-pane", "right");
     await expect(
       page.getByTestId("workspace-layout-v2-right-resize"),
-    ).toHaveCount(0);
+    ).toHaveCount(1);
+    await expect
+      .poll(async () =>
+        Math.round(
+          (
+            await page
+              .locator(
+                '[data-testid="workspace-layout-v2-pane-main"] > .snap-center',
+              )
+              .boundingBox()
+          )?.width ?? 0,
+        ),
+      )
+      .toBe(carouselWidthPx - handleValues.minWidthPx);
+    await expect
+      .poll(async () =>
+        Math.round(
+          (
+            await page
+              .getByTestId("workspace-layout-v2-pane-right")
+              .boundingBox()
+          )?.width ?? 0,
+        ),
+      )
+      .toBe(handleValues.minWidthPx);
+
+    const mergedCarouselScrollLeftPx = await page
+      .getByTestId("workspace-layout-v2-pane-main")
+      .evaluate((element) => element.scrollLeft);
+    await dispatchHumanTouchSwipe(page, mobileShell, {
+      startX: mobileShellBox.width / 2,
+      startY: mobileShellBox.height / 2,
+      steps: [
+        {
+          delayMs: 16,
+          xOffset: carouselWidthPx / 2,
+          yOffset: 0,
+        },
+      ],
+    });
+
+    await expect(
+      page.locator('[data-workspace-layout-v2="mobile"]'),
+    ).toHaveAttribute("data-mobile-pane", "right");
+    await expect(
+      page.getByTestId("workspace-layout-v2-right-resize"),
+    ).toHaveCount(1);
+    await expect
+      .poll(async () =>
+        Math.round(
+          await page
+            .getByTestId("workspace-layout-v2-pane-main")
+            .evaluate((element) => element.scrollLeft),
+        ),
+      )
+      .toBe(Math.round(mergedCarouselScrollLeftPx));
+
+    const mergedHandleBox = await page
+      .getByTestId("workspace-layout-v2-right-resize")
+      .boundingBox();
+    expect(mergedHandleBox).not.toBeNull();
+    if (mergedHandleBox === null) {
+      throw new Error("Expected merged landing right resize handle box");
+    }
+
+    const mainGrowPx = 24;
+    await dispatchHumanTouchSwipe(page, mobileShell, {
+      startX: mergedHandleBox.x - mobileShellBox.x + mergedHandleBox.width / 2,
+      startY: mergedHandleBox.y - mobileShellBox.y + mergedHandleBox.height / 2,
+      steps: [
+        {
+          delayMs: 16,
+          xOffset: -mainGrowPx,
+          yOffset: 0,
+        },
+      ],
+    });
+
+    await expect
+      .poll(async () =>
+        Math.round(
+          (
+            await page
+              .locator(
+                '[data-testid="workspace-layout-v2-pane-main"] > .snap-center',
+              )
+              .boundingBox()
+          )?.width ?? 0,
+        ),
+      )
+      .toBe(carouselWidthPx - handleValues.minWidthPx + mainGrowPx);
+    await expect
+      .poll(async () =>
+        Math.round(
+          (
+            await page
+              .getByTestId("workspace-layout-v2-pane-right")
+              .boundingBox()
+          )?.width ?? 0,
+        ),
+      )
+      .toBe(handleValues.minWidthPx + mainGrowPx);
   });
 
   test("landing dev toggle keeps the landing card stable frame by frame", async ({

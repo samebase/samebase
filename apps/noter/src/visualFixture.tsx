@@ -171,7 +171,9 @@ const SIDEBAR_MEDIA_UPLOAD_VISUAL_MODES = [
 
 const FILE_VIEW_LAYOUT_VISUAL_MODES = [
   "fileview-layout",
+  "fileview-layout-merge",
   "fileview-layout-persistence",
+  "fileview-layout-slide",
 ] as const satisfies readonly FileViewLayoutVisualMode[];
 
 const LOGO_VISUAL_MODES = [
@@ -350,7 +352,12 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <RepositoryMediaVisualFixture mode={mode} />;
   }
 
-  if (mode === "fileview-layout" || mode === "fileview-layout-persistence") {
+  if (
+    mode === "fileview-layout" ||
+    mode === "fileview-layout-merge" ||
+    mode === "fileview-layout-persistence" ||
+    mode === "fileview-layout-slide"
+  ) {
     return <FileViewLayoutVisualFixture mode={mode} />;
   }
   if (mode === "sidebar-media-upload") {

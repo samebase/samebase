@@ -10,7 +10,9 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 export type FileViewLayoutVisualMode =
   | "fileview-layout"
-  | "fileview-layout-persistence";
+  | "fileview-layout-merge"
+  | "fileview-layout-persistence"
+  | "fileview-layout-slide";
 
 export function FileViewLayoutVisualFixture({
   mode,
@@ -93,7 +95,11 @@ export function FileViewLayoutVisualFixture({
         dataTestId="fileview-layout-visual-fixture"
         defaultOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "left"}
         defaultRightOpen={true}
+        mobileMinResizeBehavior={
+          mode === "fileview-layout-slide" ? "min_resize_to_slide" : undefined
+        }
         shortcutSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
+        showMobileResizeGripDots={true}
         left={
           FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
             ? activeSidebar
