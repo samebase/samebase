@@ -7,13 +7,22 @@ const localStorageRouteScreenshotOptions = {
   maxDiffPixelRatio: 0.03,
 } as const;
 
-test("localStorage route shows exact raw values in the workspace shell", async ({
+test("localStorage route shows raw strings and formatted JSON values", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.addInitScript(() => {
     window.localStorage.clear();
     window.localStorage.setItem("noter.alpha", "plain value");
+    window.localStorage.setItem(
+      "noter.json",
+      JSON.stringify({
+        enabled: true,
+        nested: {
+          count: 2,
+        },
+      }),
+    );
     window.localStorage.setItem(
       "noter.multiline",
       "line one\nline two\nline three",
@@ -29,6 +38,11 @@ test("localStorage route shows exact raw values in the workspace shell", async (
   await expect(
     page.getByTestId("local-storage-entry-key").filter({
       hasText: "noter.multiline",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("local-storage-entry-value").filter({
+      hasText: `"nested": {\n    "count": 2\n  }`,
     }),
   ).toBeVisible();
   await expect(

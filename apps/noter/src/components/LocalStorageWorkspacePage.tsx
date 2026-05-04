@@ -23,6 +23,14 @@ function LocalStorageSidebarContent() {
   );
 }
 
+function formatLocalStorageValue(value: string): string {
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2);
+  } catch {
+    return value;
+  }
+}
+
 function LocalStorageUnavailableState({
   errorMessage,
 }: {
@@ -81,7 +89,7 @@ function LocalStorageEntriesTable({
                   data-testid="local-storage-entry-value"
                   className="whitespace-pre-wrap break-words font-mono text-xs leading-5"
                 >
-                  {entry.value}
+                  {formatLocalStorageValue(entry.value)}
                 </pre>
               </td>
             </tr>
