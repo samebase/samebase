@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import * as React from "react";
+import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -33,10 +34,10 @@ vi.mock("@/components/NotFoundRoutePage", () => ({
 
 vi.mock("@/Layout", async () => {
   const ReactModule = await import("react");
-  type MockPaneProps = {
-    content?: React.ReactNode;
-    header?: React.ReactNode;
-  };
+  type MockPaneProps = Pick<
+    WorkspaceLayoutV2PaneFrameProps,
+    "content" | "footer" | "header"
+  >;
 
   return {
     Layout: ({ children }: { children: React.ReactNode }) => (
@@ -60,9 +61,12 @@ vi.mock("@/Layout", async () => {
 
       return (
         <div data-testid="public-layout-shell">
+          {left?.header}
           {left?.content}
+          {left?.footer}
           {main?.header}
           {main?.content ?? children}
+          {main?.footer}
         </div>
       );
     },
