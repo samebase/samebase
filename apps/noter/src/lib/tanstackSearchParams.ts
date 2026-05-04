@@ -1,4 +1,5 @@
-import { isRouteSearchPresenceFlagKey } from "@/lib/routeSearchFlags";
+import { includes } from "@noter-md/dependent";
+import { ROUTE_SEARCH_PRESENCE_FLAG_KEYS } from "@/lib/routeSearchFlags";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 
 type PlainSearchRecord = Record<string, unknown>;
@@ -99,7 +100,7 @@ export function parseTanStackSearch(search: string): Record<string, string> {
 // generic script-facing helpers can adopt TanStack's default search semantics.
 export function stringifyTanStackSearch(search: PlainSearchRecord): string {
   if (
-    SEARCH_RESET_QUERY_PARAM in search &&
+    Object.prototype.hasOwnProperty.call(search, SEARCH_RESET_QUERY_PARAM) &&
     search[SEARCH_RESET_QUERY_PARAM] !== null &&
     typeof search[SEARCH_RESET_QUERY_PARAM] !== "undefined"
   ) {
@@ -114,7 +115,7 @@ export function stringifyTanStackSearch(search: PlainSearchRecord): string {
     }
 
     if (
-      isRouteSearchPresenceFlagKey(key) &&
+      includes(ROUTE_SEARCH_PRESENCE_FLAG_KEYS, key) &&
       value !== null &&
       typeof value !== "undefined"
     ) {

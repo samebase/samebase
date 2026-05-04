@@ -66,8 +66,10 @@ describe("prodUiMode", () => {
 
   it("reads prod-ui mode by key presence", () => {
     expect(isProdUiModeEnabled({ "prod-ui": false })).toBe(true);
+    expect(isProdUiModeEnabled({ "prod-ui": "0" })).toBe(true);
     expect(isProdUiModeEnabled({ "prod-ui": undefined })).toBe(false);
-    expect(isProdUiModeEnabled(new URLSearchParams("?prod-ui=0"))).toBe(true);
+    expect(isProdUiModeEnabled({ "prod-ui": null })).toBe(false);
+    expect(isProdUiModeEnabled({})).toBe(false);
   });
 
   it("removes prod-ui without dropping other URL parts", () => {

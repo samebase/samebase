@@ -136,15 +136,15 @@ export const logoRouteSearchSchema = logoRouteSearchFieldSchema.transform(
   (search) => {
     const themeModeSearch = readRootThemeModeSearch(search);
     return {
-      ...(themeModeSearch.dark === true ? { dark: true as const } : {}),
-      ...(themeModeSearch.light === true ? { light: true as const } : {}),
+      ...(themeModeSearch.dark ? { dark: true as const } : {}),
+      ...(themeModeSearch.light ? { light: true as const } : {}),
       ...readAppThemeColorSearch(search),
       ...(typeof search.axis === "string" ? { axis: search.axis } : {}),
-      ...(search.dev === true ? { dev: true as const } : {}),
+      ...(search.dev ? { dev: true as const } : {}),
       ...(typeof search.elev === "number"
         ? { elev: normalizeElevationDegrees(search.elev) }
         : {}),
-      ...(search.freeView === true ? { freeView: true } : {}),
+      ...(search.freeView ? { freeView: true } : {}),
       ...(typeof search.isoSide === "number"
         ? { isoSide: normalizeLogoIsometricCubeSidePixels(search.isoSide) }
         : {}),
@@ -213,7 +213,7 @@ export function preserveLogoRouteDevModeSearch(
   nextSearch: LogoRouteSearch,
   currentSearch: LogoRouteSearch,
 ): LogoRouteSearch {
-  if (currentSearch.dev !== true) {
+  if (!currentSearch.dev) {
     return nextSearch;
   }
 

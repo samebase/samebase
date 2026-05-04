@@ -85,7 +85,7 @@ describe("rootRouteSearch", () => {
     );
   });
 
-  it("activates reset from any present non-nullish value", () => {
+  it("activates reset from any present value", () => {
     expect(
       validateRootRouteSearch({
         primary: "red-600",

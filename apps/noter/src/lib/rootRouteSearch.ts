@@ -70,7 +70,7 @@ function parseRootRouteSearch(search: unknown): RootRouteSearch {
   const parsedSearch = rootRouteSearchSchema.parse(
     normalizeRouteSearchPresenceFlags(search, ROOT_ROUTE_PRESENCE_SEARCH_KEYS),
   );
-  if (parsedSearch[SEARCH_RESET_QUERY_PARAM] !== true) {
+  if (!parsedSearch[SEARCH_RESET_QUERY_PARAM]) {
     return parsedSearch;
   }
 

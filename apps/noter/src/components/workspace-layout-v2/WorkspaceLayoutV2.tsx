@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
+import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
   WorkspaceLayoutV2PaneFrame,
   type WorkspaceLayoutV2PaneFrameProps,
@@ -90,7 +91,7 @@ function shouldShowMobileResizeGripDotsByDefault() {
     return false;
   }
 
-  return isLandingDevModeEnabled(new URLSearchParams(window.location.search));
+  return isLandingDevModeEnabled(parseTanStackSearch(window.location.search));
 }
 
 /**

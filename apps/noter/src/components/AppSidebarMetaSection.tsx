@@ -35,6 +35,7 @@ import {
   buildToggledRootThemeModeSearch,
   readRootThemeMode,
 } from "@/lib/rootThemeModeSearch";
+import { applySearchPatch } from "@/lib/routeSearchFlags";
 import { readRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
@@ -136,10 +137,12 @@ export function AppSidebarMetaSection({
         id="public-landing-theme-light-toggle"
         to={location.pathname}
         hash={location.hash}
-        search={(currentSearch) => ({
-          ...currentSearch,
-          ...buildToggledRootThemeModeSearch(currentSearch, "light"),
-        })}
+        search={(currentSearch) =>
+          applySearchPatch(
+            currentSearch,
+            buildToggledRootThemeModeSearch(currentSearch, "light"),
+          )
+        }
       >
         {lightModeLabel}
       </Link>
@@ -147,10 +150,12 @@ export function AppSidebarMetaSection({
         id="public-landing-theme-dark-toggle"
         to={location.pathname}
         hash={location.hash}
-        search={(currentSearch) => ({
-          ...currentSearch,
-          ...buildToggledRootThemeModeSearch(currentSearch, "dark"),
-        })}
+        search={(currentSearch) =>
+          applySearchPatch(
+            currentSearch,
+            buildToggledRootThemeModeSearch(currentSearch, "dark"),
+          )
+        }
       >
         {darkModeLabel}
       </Link>
@@ -171,10 +176,11 @@ export function AppSidebarMetaSection({
         id="public-landing-dev-toggle"
         to={location.pathname}
         hash={location.hash}
-        search={(currentSearch) => ({
-          ...currentSearch,
-          dev: landingDevEnabled ? undefined : true,
-        })}
+        search={(currentSearch) =>
+          applySearchPatch(currentSearch, {
+            dev: landingDevEnabled ? null : true,
+          })
+        }
       >
         {landingDevLabel}
       </Link>

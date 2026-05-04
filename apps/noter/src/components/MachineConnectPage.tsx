@@ -609,7 +609,7 @@ export function MachineConnectPage() {
       serverNowAtSync: number;
     } | null>(null);
   const bootstrapSearch = {
-    openedByCli: routeSearch.openedByCli === true,
+    openedByCli: routeSearch.openedByCli ?? false,
     requestId: routeSearch.requestId ?? null,
   } satisfies {
     openedByCli: boolean;

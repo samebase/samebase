@@ -61,7 +61,7 @@ describe("fileViewRouteSearch", () => {
     });
   });
 
-  it("builds sparse file-view search objects", () => {
+  it("builds file-view search patches", () => {
     expect(
       buildFileViewRouteSearch({
         compare: true,
@@ -70,6 +70,7 @@ describe("fileViewRouteSearch", () => {
       }),
     ).toEqual({
       compare: true,
+      diff: null,
       review: true,
     });
   });

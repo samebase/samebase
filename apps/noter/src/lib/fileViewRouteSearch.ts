@@ -1,5 +1,9 @@
 import { getRouteApi } from "@tanstack/react-router";
-import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
+import {
+  applySearchPatch,
+  normalizeRouteSearchPresenceFlags,
+  type SearchPatch,
+} from "@/lib/routeSearchFlags";
 import { z } from "zod";
 
 const FILE_VIEW_PRESENCE_SEARCH_KEYS = ["compare", "diff", "review"] as const;
@@ -19,6 +23,7 @@ const fileViewRouteSearchSchema = z.object({
 });
 
 export type FileViewRouteSearch = z.infer<typeof fileViewRouteSearchSchema>;
+export type FileViewRouteSearchPatch = SearchPatch<FileViewRouteSearch>;
 
 export function validateFileViewRouteSearch(
   search: Record<string, unknown>,
@@ -32,11 +37,17 @@ export function buildFileViewRouteSearch(args?: {
   compare?: boolean;
   diff?: boolean;
   review?: boolean;
-}): FileViewRouteSearch {
+}): FileViewRouteSearchPatch {
   return {
-    compare: args?.compare ? true : undefined,
-    diff: args?.diff ? true : undefined,
-    review: args?.review ? true : undefined,
+    ...(typeof args?.compare === "boolean"
+      ? { compare: args.compare ? true : null }
+      : {}),
+    ...(typeof args?.diff === "boolean"
+      ? { diff: args.diff ? true : null }
+      : {}),
+    ...(typeof args?.review === "boolean"
+      ? { review: args.review ? true : null }
+      : {}),
   };
 }
 
@@ -46,15 +57,15 @@ export function buildFileViewRouteSearch(args?: {
  */
 export function mergeFileViewRouteSearch(
   search: Record<string, unknown>,
-  fileViewSearch: FileViewRouteSearch,
+  fileViewSearch: FileViewRouteSearchPatch,
 ) {
-  return {
-    ...search,
-    compare: fileViewSearch.compare,
-    diff: fileViewSearch.diff,
-    mobileLineNumbers: fileViewSearch.mobileLineNumbers,
-    review: fileViewSearch.review,
-  };
+  return applySearchPatch(search, {
+    compare: null,
+    diff: null,
+    mobileLineNumbers: null,
+    review: null,
+    ...fileViewSearch,
+  });
 }
 
 const vaultFileRouteApi = getRouteApi("/vault/$");

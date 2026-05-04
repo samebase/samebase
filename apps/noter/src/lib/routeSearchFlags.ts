@@ -1,3 +1,5 @@
+import { keys } from "@noter-md/dependent/object";
+
 export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
   "compare",
   "dark",
@@ -12,29 +14,41 @@ export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
   "review",
 ] as const;
 
-type SearchFlagReader = URLSearchParams | Readonly<Record<string, unknown>>;
+export type SearchPatch<Search extends object> = {
+  [Key in keyof Search]?: Search[Key] | null;
+};
 
 function isSearchRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function isRouteSearchPresenceFlagKey(key: string): boolean {
-  return ROUTE_SEARCH_PRESENCE_FLAG_KEYS.some(
-    (presenceFlagKey) => presenceFlagKey === key,
-  );
-}
+/**
+ * Applies route-search patch semantics for TanStack navigation objects:
+ * `undefined` means no opinion, and `null` means remove this search key.
+ */
+export function applySearchPatch<Search extends object>(
+  current: Search,
+  patch: SearchPatch<Search>,
+): Search {
+  const next = { ...current };
 
-export function hasRouteSearchPresenceFlag(
-  search: SearchFlagReader,
-  key: string,
-): boolean {
-  if (search instanceof URLSearchParams) {
-    return search.has(key);
+  for (const key of keys(patch)) {
+    const value = patch[key];
+
+    if (value === null) {
+      // TanStack retained-search middleware only knows key presence, so a
+      // removal must stay as an own key until stringifyTanStackSearch omits it.
+      // @ts-expect-error Generic patch tombstones become that clear marker.
+      next[key] = undefined;
+      continue;
+    }
+
+    if (typeof value !== "undefined") {
+      next[key] = value;
+    }
   }
 
-  return (
-    key in search && search[key] !== null && typeof search[key] !== "undefined"
-  );
+  return next;
 }
 
 export function normalizeRouteSearchPresenceFlags(
@@ -55,7 +69,11 @@ export function normalizeRouteSearchPresenceFlags(
   const normalizedSearch = { ...search };
 
   for (const key of keys) {
-    if (hasRouteSearchPresenceFlag(search, key)) {
+    if (
+      Object.prototype.hasOwnProperty.call(search, key) &&
+      search[key] !== null &&
+      typeof search[key] !== "undefined"
+    ) {
       normalizedSearch[key] = true;
       continue;
     }

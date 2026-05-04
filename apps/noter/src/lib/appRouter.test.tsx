@@ -181,6 +181,7 @@ vi.mock("@/components/CodexAppServerThreadBrowserResearchPage", () => ({
 }));
 
 import { createAppRouter } from "./appRouter";
+import { applySearchPatch } from "./routeSearchFlags";
 import {
   buildPathWithTanStackSearch,
   stringifyTanStackSearch,
@@ -406,7 +407,7 @@ describe("appRouter", () => {
     expect(searchParams.get("primary")).toBe("red-600");
   });
 
-  it("clears retained theme colors when search owns an undefined color key", async () => {
+  it("clears retained theme colors with null tombstones", async () => {
     const router = await renderRoute(
       buildPathWithTanStackSearch({
         pathname: "/logo",
@@ -419,7 +420,8 @@ describe("appRouter", () => {
     await act(async () => {
       await router.navigate({
         replace: true,
-        search: { primary: undefined },
+        search: (currentSearch) =>
+          applySearchPatch(currentSearch, { primary: null }),
         to: "/logo/iso",
       });
       await settleRouterRender();

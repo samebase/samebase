@@ -10,6 +10,7 @@ import {
   APP_THEME_COLOR_SEARCH_KEYS,
   syncDocumentThemeColorSearch,
 } from "@/lib/appThemeColorSearch";
+import { applySearchPatch } from "@/lib/routeSearchFlags";
 import {
   type RootRouteSearch,
   useRootRouteSearch,
@@ -17,7 +18,6 @@ import {
 } from "@/lib/rootRouteSearch";
 import {
   ROOT_THEME_MODE_SEARCH_KEYS,
-  buildRootThemeModeSearch,
   readRootThemeMode,
   syncDocumentRootThemeMode,
 } from "@/lib/rootThemeModeSearch";
@@ -30,7 +30,7 @@ const POSTHOG_INIT_DELAY_MS = 10_000;
 
 /**
  * Root-level preview/debug/theme controls should follow public-route
- * navigation until a caller explicitly clears the key with `undefined`.
+ * navigation until a caller clears the key with a route-search patch tombstone.
  */
 const RETAINED_ROOT_SEARCH_KEYS = [
   "dev",
@@ -44,7 +44,7 @@ type RootSearchMiddlewareArgs = {
   search: RootRouteSearch;
 };
 
-function retainDefinedRootSearchParams({
+function retainRootSearchParams({
   next,
   search,
 }: RootSearchMiddlewareArgs): RootRouteSearch {
@@ -54,11 +54,10 @@ function retainDefinedRootSearchParams({
   };
 
   if (nextSearch.light && nextSearch.dark) {
-    nextSearch = {
-      ...nextSearch,
-      dark: undefined,
-      light: undefined,
-    };
+    nextSearch = applySearchPatch(nextSearch, {
+      dark: null,
+      light: null,
+    });
   }
 
   return nextSearch;
@@ -139,7 +138,8 @@ export const Route = createRootRoute({
           pathname: location.pathname,
           search: {
             ...search,
-            ...buildRootThemeModeSearch("system"),
+            dark: null,
+            light: null,
           },
           hash: location.hash,
         }),
@@ -153,7 +153,7 @@ export const Route = createRootRoute({
     "NotFoundRoutePage",
   ),
   search: {
-    middlewares: [retainDefinedRootSearchParams],
+    middlewares: [retainRootSearchParams],
   },
   validateSearch: validateRootRouteSearch,
 });

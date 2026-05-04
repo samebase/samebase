@@ -79,4 +79,11 @@ describe("tanstackSearchParams", () => {
       }),
     ).toBe("?primary=red-600");
   });
+
+  it("ignores inherited reset sentinels", () => {
+    const search = { primary: "red-600" };
+    Object.setPrototypeOf(search, { reset: true });
+
+    expect(stringifyTanStackSearch(search)).toBe("?primary=red-600");
+  });
 });
