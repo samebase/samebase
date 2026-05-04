@@ -139,7 +139,9 @@ export function AppSidebarMetaSection({
             data-testid="public-layout-sidebar-preference-source"
             className="grid w-full max-w-full grid-cols-[minmax(0,1fr)_max-content] gap-x-3 gap-y-1 font-mono text-[11px] leading-tight"
           >
-            <span className="break-all">sidebar-reset</span>
+            <span className="break-all">
+              {PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM}
+            </span>
             <span>{sidebarResetRequested ? "true" : "false"}</span>
             <span className="break-all">
               {PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY}

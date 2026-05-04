@@ -120,7 +120,9 @@ describe("Layout", () => {
     expect(markup).not.toContain("/pricing");
     expect(markup).toContain(LANDING_DEV_MODE_LINK_LABEL);
     expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_RESET_LINK_LABEL);
-    expect(markup).toContain("sidebar-reset");
+    expect(markup).toContain(
+      `<span class="break-all">${PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM}</span><span>false</span>`,
+    );
     expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY);
     expect(markup).toContain(
       PUBLIC_LAYOUT_SIDEBAR_STORAGE_VALUE_LABELS.default,
@@ -179,8 +181,9 @@ describe("Layout", () => {
     );
 
     expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_RESET_LINK_LABEL);
-    expect(markup).toContain("sidebar-reset");
-    expect(markup).toContain("true");
+    expect(markup).toContain(
+      `<span class="break-all">${PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM}</span><span>true</span>`,
+    );
     expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY);
     expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_STORAGE_VALUE_LABELS.reset);
   });

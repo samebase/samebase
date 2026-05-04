@@ -1,4 +1,7 @@
-type SearchFlagReader = URLSearchParams | Readonly<Record<string, unknown>>;
+type SearchParamReader = {
+  get: (key: string) => string | null;
+};
+type SearchFlagReader = SearchParamReader | Readonly<Record<string, unknown>>;
 
 export const PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY =
   "noter_public_layout_sidebar_state";
@@ -13,13 +16,19 @@ export const PUBLIC_LAYOUT_SIDEBAR_STORAGE_VALUE_LABELS = {
   reset: "cleared",
 } as const satisfies Record<PublicLayoutSidebarPreferenceSource, string>;
 
-function hasSearchFlag(search: SearchFlagReader, key: string): boolean {
-  if (search instanceof URLSearchParams) {
-    return search.has(key);
-  }
-
-  const value = search[key];
+function isSearchFlagEnabled(value: unknown): boolean {
   return value === true || value === "" || value === "true";
+}
+
+function hasSearchParamReader(
+  search: SearchFlagReader,
+): search is SearchParamReader {
+  return typeof search.get === "function";
+}
+
+function hasSearchFlag(search: SearchFlagReader, key: string): boolean {
+  const value = hasSearchParamReader(search) ? search.get(key) : search[key];
+  return isSearchFlagEnabled(value);
 }
 
 export function isPublicLayoutSidebarResetRequested(
