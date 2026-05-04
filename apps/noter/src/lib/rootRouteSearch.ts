@@ -1,5 +1,6 @@
 import { getRouteApi } from "@tanstack/react-router";
 import { appThemeColorSearchFieldSchema } from "@/lib/appThemeColorSearch";
+import { PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM } from "@/lib/publicLayoutSidebarPreferences";
 import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import {
   ROOT_THEME_MODE_SEARCH_KEYS,
@@ -20,6 +21,10 @@ const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = [
   SEARCH_RESET_QUERY_PARAM,
   ...ROOT_THEME_MODE_SEARCH_KEYS,
 ] as const;
+
+function readOptionalSidebarResetFlag(value: unknown): true | undefined {
+  return value === true || value === "" || value === "true" ? true : undefined;
+}
 
 function readOptionalGoogleAuthProvider(value: unknown): "google" | undefined {
   return value === "google" ? "google" : undefined;
@@ -56,6 +61,10 @@ const rootRouteSearchSchema = z
     delete: z.preprocess(readOptionalDeleteRepository, z.string().optional()),
     "prod-ui": z.literal(true).optional(),
     [SEARCH_RESET_QUERY_PARAM]: z.literal(true).optional(),
+    [PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM]: z.preprocess(
+      readOptionalSidebarResetFlag,
+      z.literal(true).optional(),
+    ),
     signup: z.preprocess(
       readOptionalGoogleSignupReturn,
       z.literal("google").optional(),

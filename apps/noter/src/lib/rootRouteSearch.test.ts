@@ -18,6 +18,7 @@ describe("rootRouteSearch", () => {
         primary: "red-600",
         "prod-ui": "",
         secondary: "lime-100",
+        "sidebar-reset": "",
         signup: "google",
       }),
     ).toEqual({
@@ -31,6 +32,7 @@ describe("rootRouteSearch", () => {
       primary: "red-600",
       "prod-ui": true,
       secondary: "lime-100",
+      "sidebar-reset": true,
       signup: "google",
     });
   });
@@ -44,6 +46,7 @@ describe("rootRouteSearch", () => {
         delete: "missing-repo-separator",
         primary: "nope-500",
         secondary: 3,
+        "sidebar-reset": "false",
         signup: "github",
       }),
     ).toEqual({});
@@ -70,7 +73,7 @@ describe("rootRouteSearch", () => {
   it("parses the root search contract from a search string", () => {
     expect(
       readRootRouteSearch(
-        "?prod-ui&dev&auth=google&signup=google&primary=red-600&delete=noter-md%2Fnoter",
+        "?prod-ui&dev&sidebar-reset&auth=google&signup=google&primary=red-600&delete=noter-md%2Fnoter",
       ),
     ).toEqual({
       auth: "google",
@@ -78,6 +81,7 @@ describe("rootRouteSearch", () => {
       dev: true,
       primary: "red-600",
       "prod-ui": true,
+      "sidebar-reset": true,
       signup: "google",
     });
   });

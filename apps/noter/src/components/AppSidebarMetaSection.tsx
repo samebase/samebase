@@ -17,6 +17,7 @@ import {
   LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
   LANDING_MARKDOWN_PREVIEW_ROUTE,
 } from "@/lib/landingMarkdownPreview";
+import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
 import {
   FORCE_PROD_UI_MODE_LINK_LABEL,
   FORCE_PROD_UI_QUERY_PARAM,
@@ -58,6 +59,8 @@ const APP_SIDEBAR_META_VERSION_CLASS_NAMES = {
   right:
     "flex max-w-full min-w-0 flex-row flex-wrap items-center gap-x-2 gap-y-1 font-mono",
 } as const satisfies Record<AppSidebarMetaSectionSide, string>;
+const HIDDEN_PUBLIC_LINK_PLACEHOLDER_CLASS_NAME =
+  "pointer-events-none select-none text-background no-underline";
 
 /**
  * Keep build metadata and public-route escape hatches on the rail edge that
@@ -216,6 +219,21 @@ export function AppSidebarMetaSection({
       </Link>
       {/* `/home` routes through `/` to avoid a first-paint logo flash. */}
       <Link to="/">/home</Link>
+      {side === "right" ? (
+        <Link
+          id="public-local-storage-route-link"
+          to={LOCAL_STORAGE_ROUTE}
+          aria-hidden={landingDevEnabled ? undefined : true}
+          className={
+            landingDevEnabled
+              ? undefined
+              : HIDDEN_PUBLIC_LINK_PLACEHOLDER_CLASS_NAME
+          }
+          tabIndex={landingDevEnabled ? undefined : -1}
+        >
+          {LOCAL_STORAGE_ROUTE}
+        </Link>
+      ) : null}
       {showMachineLinks ? (
         <>
           <Link to={MACHINES_ROUTE}>{MACHINES_ROUTE}</Link>

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import * as React from "react";
+import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -33,12 +34,24 @@ vi.mock("@/components/NotFoundRoutePage", () => ({
 
 vi.mock("@/Layout", async () => {
   const ReactModule = await import("react");
+  type MockPaneProps = Pick<
+    WorkspaceLayoutV2PaneFrameProps,
+    "content" | "footer" | "header"
+  >;
 
   return {
     Layout: ({ children }: { children: React.ReactNode }) => (
       <div data-testid="layout">{children}</div>
     ),
-    PublicLayoutShell: ({ children }: { children: React.ReactNode }) => {
+    PublicLayoutShell: ({
+      children,
+      left,
+      main,
+    }: {
+      children?: React.ReactNode;
+      left?: MockPaneProps;
+      main?: MockPaneProps;
+    }) => {
       ReactModule.useEffect(() => {
         publicLayoutMountMock();
         return () => {
@@ -46,7 +59,16 @@ vi.mock("@/Layout", async () => {
         };
       }, []);
 
-      return <div data-testid="public-layout-shell">{children}</div>;
+      return (
+        <div data-testid="public-layout-shell">
+          {left?.header}
+          {left?.content}
+          {left?.footer}
+          {main?.header}
+          {main?.content ?? children}
+          {main?.footer}
+        </div>
+      );
     },
   };
 });
@@ -129,12 +151,6 @@ vi.mock("@/components/LandingMarkdownPreviewPage", () => ({
     <div data-testid="landing-markdown-preview-page">
       Landing markdown preview page
     </div>
-  ),
-}));
-
-vi.mock("@/components/LocalStorageWorkspacePage", () => ({
-  LocalStorageWorkspacePage: () => (
-    <div data-testid="local-storage-page">Local storage page</div>
   ),
 }));
 
@@ -343,7 +359,7 @@ describe("appRouter", () => {
     ).toBeNull();
   });
 
-  it("renders logo routes through explicit public routes without the layout shell", async () => {
+  it("renders logo routes through explicit public routes", async () => {
     const router = await renderRoute("/logo");
 
     expect(
@@ -352,7 +368,6 @@ describe("appRouter", () => {
     expect(
       new URLSearchParams(router.state.location.searchStr).has("dev"),
     ).toBe(true);
-    expect(rootElement?.querySelector('[data-testid="layout"]')).toBeNull();
     expect(
       rootElement?.querySelector('[data-testid="not-found-route"]'),
     ).toBeNull();
@@ -579,15 +594,15 @@ describe("appRouter", () => {
     ).toBeNull();
   });
 
-  it("renders localStorage through an explicit public route without the landing shell", async () => {
+  it("renders localStorage through an explicit public route with the shared public shell", async () => {
     await renderRoute("/localStorage");
 
     expect(
-      rootElement?.querySelector('[data-testid="local-storage-page"]')
+      rootElement?.querySelector('[data-testid="local-storage-sidebar-file"]')
         ?.textContent,
-    ).toBe("Local storage page");
+    ).toBe("localStorage");
     expect(rootElement?.querySelector('[data-testid="layout"]')).not.toBeNull();
-    expect(publicLayoutMountMock).not.toHaveBeenCalled();
+    expect(publicLayoutMountMock).toHaveBeenCalledTimes(1);
     expect(
       rootElement?.querySelector('[data-testid="not-found-route"]'),
     ).toBeNull();

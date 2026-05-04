@@ -3,7 +3,6 @@ import {
   NLogoScene,
   type LogoShuffleParallelMoves,
 } from "@/components/NLogoScene";
-import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
 import { type LogoRotationAxisMode } from "@/components/logoRotationMath";
 import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/NLogoIsoScene";
 import {
@@ -43,7 +42,6 @@ import {
   type LogoPresetId,
   type LogoPresetSelection,
 } from "@/components/logoPresets";
-import { SidebarProvider } from "@/components/sidebar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
@@ -59,13 +57,7 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
-import {
-  WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-  WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
-  WorkspaceLayoutV2FullPage,
-} from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
-import { type MobileSidebarPane } from "@/hooks/use-sidebar";
-import { Layout } from "@/Layout";
+import { Layout, PublicLayoutShell } from "@/Layout";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
@@ -111,7 +103,6 @@ const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const DEFAULT_LOGO_OPACITY = 1;
 const DEFAULT_ROTATION_AXIS_MODE: LogoRotationAxisMode = "cube-y";
 const LOGO_PREVIEW_ROUTE_COMMIT_DEBOUNCE_MS = 150;
-const LOGO_PREVIEW_SIDEBAR_WIDTH_PX = 256;
 const MIN_LOGO_OPACITY = 0;
 const MAX_LOGO_OPACITY = 1;
 const LOGO_OPACITY_STEP = 0.01;
@@ -489,7 +480,6 @@ type LogoPreviewLocalStoreState = {
   isSceneInteracting: boolean;
   isShuffleEnabled: boolean;
   logoOpacity: number;
-  mobilePane: MobileSidebarPane;
   shuffleParallelMoves: LogoShuffleParallelMoves;
 };
 
@@ -521,7 +511,6 @@ function readLogoPreviewLocalStoreState(): LogoPreviewLocalStoreState {
     isSceneInteracting: false,
     isShuffleEnabled: false,
     logoOpacity: DEFAULT_LOGO_OPACITY,
-    mobilePane: "left",
     shuffleParallelMoves: 3,
   };
 }
@@ -633,12 +622,6 @@ function useLogoPreviewStore() {
       setState((state) => ({
         ...state,
         logoOpacity: clampLogoOpacity(logoOpacity),
-      }));
-    },
-    setMobilePane: (mobilePane: MobileSidebarPane) => {
-      setState((state) => ({
-        ...state,
-        mobilePane,
       }));
     },
     setSceneInteracting: (isSceneInteracting: boolean) => {
@@ -841,7 +824,6 @@ function useLogoPreviewController({
         }));
       },
       setLogoOpacity: store.actions.setLogoOpacity,
-      setMobilePane: store.actions.setMobilePane,
       setPresetToCustom: () => {
         setRouteStateDraft((currentState) => ({
           ...currentState,
@@ -1115,7 +1097,6 @@ export function LogoPreviewPage({
   replaceRouteSearch,
   routeSearch,
 }: LogoPreviewPageProps) {
-  const publicRightSidebarPane = usePublicRightSidebarPane();
   const { controls, state } = useLogoPreviewController({
     replaceRouteSearch,
     routeSearch,
@@ -1697,33 +1678,18 @@ export function LogoPreviewPage({
 
   return (
     <Layout>
-      <SidebarProvider
-        defaultOpen={true}
-        defaultLeftDesktopWidthPx={LOGO_PREVIEW_SIDEBAR_WIDTH_PX}
-        defaultLeftMobileWidthPx={LOGO_PREVIEW_SIDEBAR_WIDTH_PX}
-        defaultRightOpen={true}
-        defaultRightDesktopWidthPx={
-          WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX
-        }
-        defaultRightMobileWidthPx={
-          WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX
-        }
-        mobilePane={state.mobilePane}
-        onMobilePaneChange={controls.setMobilePane}
-        shortcutSidebarSide="left"
-      >
-        <WorkspaceLayoutV2FullPage
-          left={{
-            content: controlsContent,
-          }}
-          main={{
-            content: sceneContent,
-            headerTestId: "logo-preview-main-header",
-          }}
-          right={publicRightSidebarPane}
-          leftToggleVisibility="all"
-        />
-      </SidebarProvider>
+      <PublicLayoutShell
+        defaultLeftOpen
+        defaultMobilePane="left"
+        left={{
+          content: controlsContent,
+        }}
+        leftToggleVisibility="all"
+        main={{
+          content: sceneContent,
+          headerTestId: "logo-preview-main-header",
+        }}
+      />
     </Layout>
   );
 }

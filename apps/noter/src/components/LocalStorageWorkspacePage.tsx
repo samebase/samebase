@@ -1,15 +1,8 @@
-import { FileText, RefreshCw } from "lucide-react";
-import { useEffect, useEffectEvent, useState } from "react";
-import { SidebarProvider } from "@/components/sidebar";
-import { Button } from "@/components/ui/button";
+import { FileText } from "lucide-react";
+import { PublicLayoutShell } from "@/Layout";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
-import {
-  readBrowserLocalStorageSnapshot,
-  type LocalStorageSnapshot,
-} from "@/lib/localStorageSnapshot";
-
-const LOCAL_STORAGE_SIDEBAR_WIDTH_PX = 240;
+import { useBrowserLocalStorageSnapshot } from "@/hooks/useBrowserLocalStorageSnapshot";
+import { type LocalStorageSnapshot } from "@/lib/localStorageSnapshot";
 
 function LocalStorageSidebarContent() {
   return (
@@ -24,6 +17,14 @@ function LocalStorageSidebarContent() {
       </div>
     </nav>
   );
+}
+
+function formatLocalStorageValue(value: string): string {
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2);
+  } catch {
+    return value;
+  }
 }
 
 function LocalStorageUnavailableState({
@@ -84,7 +85,7 @@ function LocalStorageEntriesTable({
                   data-testid="local-storage-entry-value"
                   className="whitespace-pre-wrap break-words font-mono text-xs leading-5"
                 >
-                  {entry.value}
+                  {formatLocalStorageValue(entry.value)}
                 </pre>
               </td>
             </tr>
@@ -96,60 +97,20 @@ function LocalStorageEntriesTable({
 }
 
 export function LocalStorageWorkspacePage() {
-  const [snapshot, setSnapshot] = useState(readBrowserLocalStorageSnapshot);
-  const refreshSnapshot = () => {
-    setSnapshot(readBrowserLocalStorageSnapshot());
-  };
-  const refreshSnapshotFromStorageEvent = useEffectEvent(() => {
-    refreshSnapshot();
-  });
-
-  /**
-   * Keep cross-tab storage changes visible without reinstalling the browser
-   * listener when this route re-renders.
-   */
-  useEffect(() => {
-    window.addEventListener("storage", refreshSnapshotFromStorageEvent);
-    return () => {
-      window.removeEventListener("storage", refreshSnapshotFromStorageEvent);
-    };
-  }, []);
+  const snapshot = useBrowserLocalStorageSnapshot();
 
   return (
-    <SidebarProvider
-      defaultOpen={true}
-      defaultLeftDesktopWidthPx={LOCAL_STORAGE_SIDEBAR_WIDTH_PX}
-      defaultLeftMobileWidthPx={LOCAL_STORAGE_SIDEBAR_WIDTH_PX}
-      defaultMobilePane="main"
-    >
-      <WorkspaceLayoutV2FullPage
-        dataTestId="local-storage-workspace"
-        left={{
-          content: <LocalStorageSidebarContent />,
-        }}
-        main={{
-          header: (
-            <RepositoryWorkspacePaneHeader
-              title="localStorage"
-              right={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Refresh localStorage"
-                  title="Refresh localStorage"
-                  className="h-8 w-8"
-                  onClick={refreshSnapshot}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              }
-            />
-          ),
-          content: <LocalStorageEntriesTable snapshot={snapshot} />,
-        }}
-        leftToggleVisibility="all"
-      />
-    </SidebarProvider>
+    <PublicLayoutShell
+      dataTestId="local-storage-workspace"
+      defaultLeftOpen
+      left={{
+        content: <LocalStorageSidebarContent />,
+      }}
+      leftToggleVisibility="all"
+      main={{
+        header: <RepositoryWorkspacePaneHeader title="localStorage" />,
+        content: <LocalStorageEntriesTable snapshot={snapshot} />,
+      }}
+    />
   );
 }

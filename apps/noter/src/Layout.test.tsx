@@ -13,6 +13,7 @@ import {
   LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
   LANDING_MARKDOWN_PREVIEW_ROUTE,
 } from "@/lib/landingMarkdownPreview";
+import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
 import {
   FORCE_PROD_UI_MODE_LINK_LABEL,
   FORCE_PROD_UI_QUERY_PARAM,
@@ -28,6 +29,8 @@ import {
 } from "@/lib/rootThemeModeSearch";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
+import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
+import { sanitizePublicLayoutSidebarState } from "@/lib/publicLayoutSidebarState";
 import { Layout, PublicLayoutShell } from "./Layout";
 
 const {
@@ -111,6 +114,8 @@ describe("Layout", () => {
     expect(markup).toContain('tabindex="-1"');
     expect(markup).toContain("text-background");
     expect(markup).toContain("/home");
+    expect(markup).toContain(`id="public-local-storage-route-link"`);
+    expect(markup).toContain(LOCAL_STORAGE_ROUTE);
     expect(markup).not.toContain("/pricing");
     expect(markup).toContain(LANDING_DEV_MODE_LINK_LABEL);
     expect(markup).not.toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
@@ -139,6 +144,77 @@ describe("Layout", () => {
     );
 
     expect(markup).not.toContain('aria-label="Toggle sidebar"');
+  });
+
+  it("ignores stored left pane values when the public route has no left pane", () => {
+    const defaultSidebarState = {
+      leftDesktopOpen: false,
+      leftDesktopWidthPx: 48,
+      leftMobileWidthPx: 288,
+      mobilePane: "main",
+      rightDesktopOpen: true,
+      rightDesktopWidthPx: 288,
+      rightMobileWidthPx: 288,
+    } satisfies WorkspaceSidebarState;
+    const storedSidebarState = {
+      leftDesktopOpen: true,
+      leftDesktopWidthPx: 420,
+      leftMobileWidthPx: 410,
+      mobilePane: "left",
+      rightDesktopOpen: true,
+      rightDesktopWidthPx: 360,
+      rightMobileWidthPx: 340,
+    } satisfies WorkspaceSidebarState;
+
+    expect(
+      sanitizePublicLayoutSidebarState({
+        defaultSidebarState,
+        hasLeftPane: false,
+        sidebarState: storedSidebarState,
+      }),
+    ).toEqual({
+      ...storedSidebarState,
+      leftDesktopOpen: false,
+      leftDesktopWidthPx: defaultSidebarState.leftDesktopWidthPx,
+      leftMobileWidthPx: defaultSidebarState.leftMobileWidthPx,
+      mobilePane: "main",
+    });
+  });
+
+  it("keeps standard right rail links around public workspace panes", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/localStorage"]}>
+        <Layout>
+          <PublicLayoutShell
+            dataTestId="local-storage-workspace"
+            defaultLeftOpen
+            left={{
+              content: (
+                <div data-testid="local-storage-left-pane">localStorage</div>
+              ),
+            }}
+            leftToggleVisibility="all"
+            main={{
+              header: <div>Storage header</div>,
+              content: <div>Storage values</div>,
+            }}
+          />
+        </Layout>
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('data-testid="local-storage-workspace"');
+    expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
+    expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
+    expect(markup).toContain('aria-label="Toggle sidebar"');
+    expect(markup).toContain("/logo");
+    expect(markup).toContain("/home");
+    expect(markup).toContain("/terms");
+    expect(markup).toContain("/privacy");
   });
 
   it("places left public rail links on the mobile carousel peek edge", () => {
@@ -180,6 +256,47 @@ describe("Layout", () => {
     expect(rightRailMarkup).toContain("text-left");
     expect(rightRailMarkup).toContain("flex-row");
     expect(rightRailMarkup).not.toContain("flex-row-reverse");
+    expect(rightRailMarkup).toContain(`id="public-local-storage-route-link"`);
+    expect(rightRailMarkup).toContain(LOCAL_STORAGE_ROUTE);
+    expect(rightRailMarkup).toContain(`aria-hidden="true"`);
+    expect(rightRailMarkup).toContain(`tabindex="-1"`);
+    expect(rightRailMarkup).toContain("text-background");
+  });
+
+  it("shows the localStorage link only in the right dev sidebar", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    const landingDevPath = buildPathWithTanStackSearch({
+      pathname: "/",
+      search: {
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
+      },
+    });
+
+    const leftRailMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[landingDevPath]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+    const rightRailMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[landingDevPath]}>
+        <AppSidebarMetaSection side="right" />
+      </TestRouterProvider>,
+    );
+
+    expect(leftRailMarkup).not.toContain(LOCAL_STORAGE_ROUTE);
+    expect(rightRailMarkup).toContain(`id="public-local-storage-route-link"`);
+    expect(rightRailMarkup).toContain(
+      `href="${encodeStaticHref(
+        buildPathWithTanStackSearch({
+          pathname: LOCAL_STORAGE_ROUTE,
+          search: {
+            [LANDING_DEV_MODE_QUERY_PARAM]: true,
+          },
+        }),
+      )}"`,
+    );
   });
 
   it("keeps search-param shortcuts above a stable path list", () => {
