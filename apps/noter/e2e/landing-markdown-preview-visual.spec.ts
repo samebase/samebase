@@ -184,8 +184,8 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
   const sidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
   await expect(sidebar).toBeVisible();
   await expectSidebarLinksToMatchMarkdown(sidebar);
-  await expect(sidebar).toHaveScreenshot(
-    `landing-markdown-preview-${landingMarkdownPreviewSnapshotSuffix}.png`,
+  await expect(page).toHaveScreenshot(
+    `landing-markdown-preview-mobile-${landingMarkdownPreviewSnapshotSuffix}.png`,
     {
       animations: "disabled",
       caret: "hide",

@@ -1,5 +1,8 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
+import { FileTree } from "@/components/FileTree";
 import {
   getFileTreeTooltipText,
   getRestoreDeletionLabel,
@@ -74,6 +77,53 @@ describe("buildEffectiveFolderExpansionStates", () => {
   });
 });
 
+describe("FileTree", () => {
+  it("renders nothing for an empty tree", () => {
+    const markup = renderToStaticMarkup(
+      createElement(FileTree, {
+        folderExpansionStates: [],
+        items: [],
+      }),
+    );
+
+    expect(markup).toBe("");
+  });
+
+  it("renders read-only labeled links without a dialog provider", () => {
+    const markup = renderToStaticMarkup(
+      createElement(FileTree, {
+        folderExpansionStates: [
+          {
+            folderPath: "01 Guide",
+            isExpanded: true,
+          },
+        ],
+        items: [
+          {
+            label: "Guide",
+            originalPath: "01 Guide",
+            path: "01 Guide",
+            type: "tree",
+          },
+          {
+            href: "#intro",
+            label: "Intro",
+            originalPath: "01 Guide/README.md",
+            path: "01 Guide/README.md",
+            type: "blob",
+          },
+        ],
+      }),
+    );
+
+    expect(markup).toContain('href="#intro"');
+    expect(markup).toContain("gap-0.5");
+    expect(markup).toContain("line-clamp-2");
+    expect(markup).toContain(">Guide<");
+    expect(markup).toContain(">Intro<");
+  });
+});
+
 describe("getAncestorFolderPaths", () => {
   it("returns each parent folder for a nested file", () => {
     expect(getAncestorFolderPaths("src/features/editor/FileView.tsx")).toEqual([
@@ -109,6 +159,18 @@ describe("getFileTreeTooltipText", () => {
         type: "blob",
       }),
     ).toBe("Tap to review deleted file, long press for actions");
+  });
+
+  it("uses open copy when no context actions are available", () => {
+    expect(
+      getFileTreeTooltipText({
+        hasContextMenuActions: false,
+        isFolder: false,
+        isDeletedFile: false,
+        isMobile: false,
+        type: "blob",
+      }),
+    ).toBe("Click to open");
   });
 });
 
