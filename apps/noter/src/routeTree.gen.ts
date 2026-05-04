@@ -27,6 +27,7 @@ import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
 import { Route as logoIsoRouteImport } from "./routes/logo-iso";
 import { Route as termsRouteImport } from "./routes/terms";
 import { Route as privacyRouteImport } from "./routes/privacy";
+import { Route as localStorageRouteImport } from "./routes/local-storage";
 import { Route as homeRouteImport } from "./routes/home";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-thread-browser-research";
@@ -124,6 +125,11 @@ const privacyRoute = privacyRouteImport.update({
   path: "/privacy",
   getParentRoute: () => publicLayoutRoute,
 } as any);
+const localStorageRoute = localStorageRouteImport.update({
+  id: "/localStorage",
+  path: "/localStorage",
+  getParentRoute: () => publicLayoutRoute,
+} as any);
 const homeRoute = homeRouteImport.update({
   id: "/home",
   path: "/home",
@@ -172,6 +178,7 @@ export interface FileRoutesByFullPath {
   "/pricing": typeof pricingRoute;
   "/test": typeof testRoute;
   "/home": typeof homeRoute;
+  "/localStorage": typeof localStorageRoute;
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
   "/logo/iso": typeof logoIsoRoute;
@@ -198,6 +205,7 @@ export interface FileRoutesByTo {
   "/test": typeof testRoute;
   "/": typeof indexRoute;
   "/home": typeof homeRoute;
+  "/localStorage": typeof localStorageRoute;
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
   "/logo/iso": typeof logoIsoRoute;
@@ -226,6 +234,7 @@ export interface FileRoutesById {
   "/test": typeof testRoute;
   "/_public/": typeof indexRoute;
   "/_public/home": typeof homeRoute;
+  "/_public/localStorage": typeof localStorageRoute;
   "/_public/privacy": typeof privacyRoute;
   "/_public/terms": typeof termsRoute;
   "/logo/iso": typeof logoIsoRoute;
@@ -254,6 +263,7 @@ export interface FileRouteTypes {
     | "/pricing"
     | "/test"
     | "/home"
+    | "/localStorage"
     | "/privacy"
     | "/terms"
     | "/logo/iso"
@@ -280,6 +290,7 @@ export interface FileRouteTypes {
     | "/test"
     | "/"
     | "/home"
+    | "/localStorage"
     | "/privacy"
     | "/terms"
     | "/logo/iso"
@@ -307,6 +318,7 @@ export interface FileRouteTypes {
     | "/test"
     | "/_public/"
     | "/_public/home"
+    | "/_public/localStorage"
     | "/_public/privacy"
     | "/_public/terms"
     | "/logo/iso"
@@ -476,6 +488,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof privacyRouteImport;
       parentRoute: typeof publicLayoutRoute;
     };
+    "/_public/localStorage": {
+      id: "/_public/localStorage";
+      path: "/localStorage";
+      fullPath: "/localStorage";
+      preLoaderRoute: typeof localStorageRouteImport;
+      parentRoute: typeof publicLayoutRoute;
+    };
     "/_public/home": {
       id: "/_public/home";
       path: "/home";
@@ -531,6 +550,7 @@ declare module "@tanstack/react-router" {
 interface publicLayoutRouteChildren {
   indexRoute: typeof indexRoute;
   homeRoute: typeof homeRoute;
+  localStorageRoute: typeof localStorageRoute;
   privacyRoute: typeof privacyRoute;
   termsRoute: typeof termsRoute;
 }
@@ -538,6 +558,7 @@ interface publicLayoutRouteChildren {
 const publicLayoutRouteChildren: publicLayoutRouteChildren = {
   indexRoute: indexRoute,
   homeRoute: homeRoute,
+  localStorageRoute: localStorageRoute,
   privacyRoute: privacyRoute,
   termsRoute: termsRoute,
 };

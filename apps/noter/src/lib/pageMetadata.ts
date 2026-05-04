@@ -3,6 +3,7 @@ import {
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "./codexAppServerResearch";
 import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "./landingMarkdownPreview";
+import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
 import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "./noterSync";
 
 export type PageMetadata = {
@@ -104,6 +105,14 @@ export const MACHINES_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const LOCAL_STORAGE_PAGE_METADATA: PageMetadata = {
+  title: "localStorage | noter",
+  description: "Browser localStorage diagnostic route for noter.",
+  canonicalPath: LOCAL_STORAGE_ROUTE,
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
 export const LANDING_MARKDOWN_PREVIEW_PAGE_METADATA: PageMetadata = {
   title: "Landing Preview | noter",
   description: "Markdown landing preview for noter.",
@@ -161,6 +170,10 @@ export function resolveAppPageTitle(pathname: string): string {
     return LANDING_MARKDOWN_PREVIEW_PAGE_METADATA.title;
   }
 
+  if (pathname === LOCAL_STORAGE_ROUTE) {
+    return LOCAL_STORAGE_PAGE_METADATA.title;
+  }
+
   if (pathname.startsWith("/vault/")) {
     return "Workspace | noter";
   }
@@ -202,6 +215,10 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE) {
     return LANDING_MARKDOWN_PREVIEW_PAGE_METADATA;
+  }
+
+  if (args.pathname === LOCAL_STORAGE_ROUTE) {
+    return LOCAL_STORAGE_PAGE_METADATA;
   }
 
   if (!args.isAuthenticated && args.pathname === "/") {
