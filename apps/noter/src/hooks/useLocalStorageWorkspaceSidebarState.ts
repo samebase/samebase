@@ -200,15 +200,30 @@ export function useLocalStorageWorkspaceSidebarState({
   );
   const latestSidebarStateRef = React.useRef(sidebarState);
   const pendingWidthPersistTimeoutRef = React.useRef<number | null>(null);
+  const pendingWidthPersistStateRef =
+    React.useRef<WorkspaceSidebarState | null>(null);
 
   const clearPendingWidthPersist = React.useCallback(() => {
-    if (pendingWidthPersistTimeoutRef.current === null) {
+    if (pendingWidthPersistTimeoutRef.current !== null) {
+      window.clearTimeout(pendingWidthPersistTimeoutRef.current);
+    }
+
+    pendingWidthPersistTimeoutRef.current = null;
+    pendingWidthPersistStateRef.current = null;
+  }, []);
+
+  const flushPendingWidthPersist = React.useCallback(() => {
+    const pendingState = pendingWidthPersistStateRef.current;
+    clearPendingWidthPersist();
+    if (pendingState === null) {
       return;
     }
 
-    window.clearTimeout(pendingWidthPersistTimeoutRef.current);
-    pendingWidthPersistTimeoutRef.current = null;
-  }, []);
+    writeLocalStorageWorkspaceSidebarState({
+      state: pendingState,
+      storageKey,
+    });
+  }, [clearPendingWidthPersist, storageKey]);
 
   const persistSidebarState = React.useCallback(
     (nextState: WorkspaceSidebarState) => {
@@ -224,8 +239,10 @@ export function useLocalStorageWorkspaceSidebarState({
   const scheduleWidthPersist = React.useCallback(
     (nextState: WorkspaceSidebarState) => {
       clearPendingWidthPersist();
+      pendingWidthPersistStateRef.current = nextState;
       pendingWidthPersistTimeoutRef.current = window.setTimeout(() => {
         pendingWidthPersistTimeoutRef.current = null;
+        pendingWidthPersistStateRef.current = null;
         writeLocalStorageWorkspaceSidebarState({
           state: nextState,
           storageKey,
@@ -260,7 +277,10 @@ export function useLocalStorageWorkspaceSidebarState({
 
   React.useEffect(() => {
     if (reset) {
+      clearPendingWidthPersist();
       removeLocalStorageWorkspaceSidebarState(storageKey);
+    } else {
+      flushPendingWidthPersist();
     }
 
     const nextSidebarState = readLocalStorageWorkspaceSidebarState({
@@ -270,14 +290,19 @@ export function useLocalStorageWorkspaceSidebarState({
     });
     latestSidebarStateRef.current = nextSidebarState;
     setSidebarState(nextSidebarState);
-    clearPendingWidthPersist();
-  }, [clearPendingWidthPersist, defaults, reset, storageKey]);
+  }, [
+    clearPendingWidthPersist,
+    defaults,
+    flushPendingWidthPersist,
+    reset,
+    storageKey,
+  ]);
 
   React.useEffect(() => {
     return () => {
-      clearPendingWidthPersist();
+      flushPendingWidthPersist();
     };
-  }, [clearPendingWidthPersist]);
+  }, [flushPendingWidthPersist]);
 
   const setLeftDesktopOpen = React.useCallback<
     React.Dispatch<React.SetStateAction<boolean>>

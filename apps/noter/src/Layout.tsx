@@ -14,6 +14,7 @@ import {
   PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY,
   isPublicLayoutSidebarResetRequested,
 } from "@/lib/publicLayoutSidebarPreferences";
+import { sanitizePublicLayoutSidebarState } from "@/lib/publicLayoutSidebarState";
 import { readRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useLocation } from "@tanstack/react-router";
 import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
@@ -73,6 +74,11 @@ export function PublicLayoutShell({
     reset: sidebarResetRequested,
     storageKey: PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY,
   });
+  const layoutSidebarState = sanitizePublicLayoutSidebarState({
+    defaultSidebarState,
+    hasLeftPane,
+    sidebarState,
+  });
   const publicRightSidebarPane = usePublicRightSidebarPane();
   const mainPane =
     main ??
@@ -83,19 +89,19 @@ export function PublicLayoutShell({
   return (
     <PublicLandingLogoLinkProvider>
       <SidebarProvider
-        leftOpen={sidebarState.leftDesktopOpen}
+        leftOpen={layoutSidebarState.leftDesktopOpen}
         onLeftOpenChange={sidebarState.setLeftDesktopOpen}
-        rightOpen={sidebarState.rightDesktopOpen}
+        rightOpen={layoutSidebarState.rightDesktopOpen}
         onRightOpenChange={sidebarState.setRightDesktopOpen}
-        leftDesktopWidthPx={sidebarState.leftDesktopWidthPx}
+        leftDesktopWidthPx={layoutSidebarState.leftDesktopWidthPx}
         onLeftDesktopWidthPxChange={sidebarState.setLeftDesktopWidthPx}
-        rightDesktopWidthPx={sidebarState.rightDesktopWidthPx}
+        rightDesktopWidthPx={layoutSidebarState.rightDesktopWidthPx}
         onRightDesktopWidthPxChange={sidebarState.setRightDesktopWidthPx}
-        leftMobileWidthPx={sidebarState.leftMobileWidthPx}
+        leftMobileWidthPx={layoutSidebarState.leftMobileWidthPx}
         onLeftMobileWidthPxChange={sidebarState.setLeftMobileWidthPx}
-        rightMobileWidthPx={sidebarState.rightMobileWidthPx}
+        rightMobileWidthPx={layoutSidebarState.rightMobileWidthPx}
         onRightMobileWidthPxChange={sidebarState.setRightMobileWidthPx}
-        mobilePane={sidebarState.mobilePane}
+        mobilePane={layoutSidebarState.mobilePane}
         onMobilePaneChange={sidebarState.setMobilePane}
         shortcutSidebarSide="right"
       >

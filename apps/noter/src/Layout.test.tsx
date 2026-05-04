@@ -29,6 +29,8 @@ import {
 } from "@/lib/rootThemeModeSearch";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
+import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
+import { sanitizePublicLayoutSidebarState } from "@/lib/publicLayoutSidebarState";
 import { Layout, PublicLayoutShell } from "./Layout";
 
 const {
@@ -141,6 +143,41 @@ describe("Layout", () => {
     );
 
     expect(markup).not.toContain('aria-label="Toggle sidebar"');
+  });
+
+  it("ignores stored left pane values when the public route has no left pane", () => {
+    const defaultSidebarState = {
+      leftDesktopOpen: false,
+      leftDesktopWidthPx: 48,
+      leftMobileWidthPx: 288,
+      mobilePane: "main",
+      rightDesktopOpen: true,
+      rightDesktopWidthPx: 288,
+      rightMobileWidthPx: 288,
+    } satisfies WorkspaceSidebarState;
+    const storedSidebarState = {
+      leftDesktopOpen: true,
+      leftDesktopWidthPx: 420,
+      leftMobileWidthPx: 410,
+      mobilePane: "left",
+      rightDesktopOpen: true,
+      rightDesktopWidthPx: 360,
+      rightMobileWidthPx: 340,
+    } satisfies WorkspaceSidebarState;
+
+    expect(
+      sanitizePublicLayoutSidebarState({
+        defaultSidebarState,
+        hasLeftPane: false,
+        sidebarState: storedSidebarState,
+      }),
+    ).toEqual({
+      ...storedSidebarState,
+      leftDesktopOpen: false,
+      leftDesktopWidthPx: defaultSidebarState.leftDesktopWidthPx,
+      leftMobileWidthPx: defaultSidebarState.leftMobileWidthPx,
+      mobilePane: "main",
+    });
   });
 
   it("keeps standard right rail links around public workspace panes", () => {

@@ -242,4 +242,37 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
       version: 1,
     });
   });
+
+  it("flushes deferred width writes on unmount", () => {
+    vi.useFakeTimers();
+    renderProbe();
+
+    act(() => {
+      latestSetRightDesktopWidthPx?.(340);
+    });
+
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
+    if (root === null) {
+      throw new Error("Expected mounted sidebar state probe");
+    }
+
+    const mountedRoot = root;
+    act(() => {
+      mountedRoot.unmount();
+    });
+    root = null;
+
+    const storedValue = window.localStorage.getItem(STORAGE_KEY);
+    expect(storedValue).not.toBeNull();
+    if (storedValue === null) {
+      return;
+    }
+
+    expect(JSON.parse(storedValue)).toMatchObject({
+      state: {
+        rightDesktopWidthPx: 340,
+      },
+      version: 1,
+    });
+  });
 });
