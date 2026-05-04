@@ -8,7 +8,6 @@
 - Related specs:
   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
   - `specs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
-  - `specs/011_DAYTONA_DEV_SERVER_STATUS_AND_LOGS_SPEC.md`
 
 ## Summary
 

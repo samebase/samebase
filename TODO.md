@@ -45,9 +45,8 @@ https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-conne
       the branch as child nodes, and activity/unread state should stay visible
       without opening each branch
 
-- [ ] let users provide their own compute! instead of forccing to use Daytona,
-      make it work on their actual machines; but it's much safer alternative to
-      openclaw!!!!!!
+- [ ] let users provide their own compute on actual machines; make connected
+      machine setup feel much safer than openclaw!!!!!!
 
 - [ ] something
 
@@ -123,7 +122,7 @@ https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-conne
       https://observablehq.com/documentation/notebooks/
 - [ ] if given enough instruction and context, it's good at categorizing, even
       on small models
-- [ ] preview deploys should be created in the pr. But locally in Daytona use
+- [ ] preview deploys should be created in the pr; local worktrees should use
       local convex
 - [ ] add a Make target to stop any running local dev environments (at least
       processes bound to common dev ports like `5173`, `3000`, and `3210`)
@@ -163,7 +162,7 @@ https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-conne
 - [ ] pricing: inactive accounts should stay close to $0 cost for us because
       they mostly sit on Codex + Cloudflare; if someone signs up, tries it once,
       then disappears for a month or a year, we are not paying bandwidth or
-      Daytona until they actively start developing again
+      remote compute until they actively start developing again
 - [ ] pricing model idea: charge more by released features / shipped output than
       by per-user seats; active development can then map to small usage-based
       costs (for example ~$5 once someone is actually building)
@@ -209,9 +208,9 @@ https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-conne
       inside chat)
 - [ ] the dev container template, should automatically login with convex so the
       dev server can be started immediately
-- [ ] Daytona prebuild alternative: use GitHub Actions to build devcontainer
-      image and push to GHCR, with a manual UI button to trigger the workflow
-      (auto-trigger later)
+- [ ] devcontainer prebuild alternative: use GitHub Actions to build a
+      devcontainer image and push to GHCR, with a manual UI button to trigger
+      the workflow (auto-trigger later)
 - [ ] security: remove first-request token bootstrap in
       `.codespace-agent/server.ts`; require preconfigured secret for auth before
       exposing agent APIs
@@ -244,14 +243,11 @@ https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-conne
 - [ ] check all commits created from noter if we didn't lose anything due to the
       way it doesn't update it's own tree correctly
 
-- [ ] cannot click on daytona allow button inside preview if it's rendered
-      inside noter.md
-
 - [ ] sidebar UX: when opening the sidebar, auto-scroll to show the currently
       selected/highlighted file instead of requiring manual scrolling
       (especially important on mobile where file list may be long)
-- [ ] use vscode terminal embedded in web; it's pretty powerful; it's better
-      than what daytona provides by default
+- [ ] use vscode terminal embedded in web; it's pretty powerful and may be a
+      better terminal baseline for mobile web
 - [ ] left to easily press enter
 - [ ] coding on vscode on mobile web is very good, we can try simplifying it for
       focus only on chat,

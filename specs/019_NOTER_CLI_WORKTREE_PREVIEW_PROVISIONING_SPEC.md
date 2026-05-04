@@ -134,18 +134,6 @@ Helper script responsibilities:
 - discover main worktree
 - bootstrap `.env.local` if missing
 
-## Daytona Considerations
-
-For this MVP, Daytona uses the same logic because it already runs `make`.
-
-Expected behavior:
-
-- if Daytona instance has valid `gh` + `convex` auth and main worktree env
-  source is available, flow is identical.
-- if not, fail fast with explicit remediation.
-
-Machine-scoped provisioning is deferred to follow-up work.
-
 ## Security Notes
 
 - Do not print secrets from `.env.local`.

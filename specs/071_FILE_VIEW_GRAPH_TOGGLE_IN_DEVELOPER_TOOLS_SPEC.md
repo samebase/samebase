@@ -8,7 +8,6 @@
 - Related specs:
   - `specs/022_AGENT_GRAPH_VIEW_SPEC.md`
   - `specs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md`
-  - `specs/040_DAYTONA_USAGE_AND_FLOW_SPEC.md`
 - Source of truth files:
   - `apps/noter/src/components/FileView.tsx`
   - `apps/noter/src/components/FileViewDeveloperTools.tsx`
@@ -40,7 +39,7 @@ That creates two UX issues:
    default editor chrome
 2. it adds one more always-visible control row to a header that already carries
    branch context, sync state, preview/review actions, PR actions, reset, and
-   Daytona developer controls
+   developer controls
 
 The current placement made sense while validating the Graph View MVP, but it is
 not a good long-term default if the graph entry point is meant to stay more
@@ -56,9 +55,7 @@ Current implementation in `apps/noter/src/components/FileView.tsx`:
 2. `viewMode` is stored in localStorage under `noter:graph-view:${vaultId}`.
 3. The `Editor`/`Graph` tabs render in their own row above the main content.
 4. `Developer tools` is a separate collapsible below the main action row.
-5. `Developer tools` defaults closed via local React state and currently holds:
-   - `DaytonaWorkspaceButton`
-   - `DaytonaSnapshotList`
+5. `Developer tools` defaults closed via local React state.
 
 ### Related specs
 
@@ -69,8 +66,6 @@ header:
    header area.
 2. `specs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md` formalizes only the
    persistence contract, not the toggle placement.
-3. `specs/040_DAYTONA_USAGE_AND_FLOW_SPEC.md` already frames `Developer tools`
-   as the place for advanced Daytona controls in adjacent vault surfaces.
 
 ## Goals
 
@@ -102,7 +97,7 @@ surface.
 ### 2. `Developer tools` stays hidden by default in normal editor mode
 
 When FileView opens in the normal `editor` mode, `Developer tools` should remain
-closed by default, matching the current Daytona-tool behavior.
+closed by default, matching the current advanced-tool behavior.
 
 This is the primary user-visible outcome of the change: the graph switch is no
 longer visible by default.
@@ -135,14 +130,6 @@ This behavior intentionally does not change the current graph contract:
 3. entering `graph` still closes the preview panel
 4. review mode still forces FileView back to `editor`
 5. clicking a graph node still opens the file and switches back to `editor`
-
-### 5. Keep Daytona tools in the same section
-
-`DaytonaWorkspaceButton` and `DaytonaSnapshotList` stay inside
-`Developer tools`.
-
-The graph toggle should sit above them in the same collapsible so the section
-becomes the single home for advanced FileView controls.
 
 ## Product Decisions
 
@@ -179,8 +166,7 @@ Reasons:
 
 1. Opening FileView in normal editor mode does not show the `Editor`/`Graph`
    switch until `Developer tools` is expanded.
-2. Expanding `Developer tools` reveals the `Editor`/`Graph` switch above the
-   Daytona controls.
+2. Expanding `Developer tools` reveals the `Editor`/`Graph` switch.
 3. Switching to `graph` mode makes `Developer tools` visible immediately.
 4. Reloading a vault whose persisted mode is `graph` restores graph mode and
    shows the toggle inside an open `Developer tools` section.

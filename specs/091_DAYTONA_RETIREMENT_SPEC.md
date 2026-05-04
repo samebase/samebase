@@ -41,9 +41,10 @@ recovery mechanism if Daytona or a similar provider becomes relevant again.
    code they describe.
 5. Treat Convex data removal as a migration, not a same-deploy schema deletion.
 
-## Current State
+## Initial Retirement State
 
-Daytona is currently blocked by `apps/noter/shared/daytonaPause.ts`:
+At the start of this retirement plan, Daytona was blocked by
+`apps/noter/shared/daytonaPause.ts`:
 
 1. `DAYTONA_PAUSED` resolves to `true`.
 2. Vault dashboard and file view Daytona UI are not rendered.
@@ -52,7 +53,7 @@ Daytona is currently blocked by `apps/noter/shared/daytonaPause.ts`:
    message.
 5. Snapshot queueing is skipped while refreshing vault trees.
 
-Even paused, Daytona remains active codebase context:
+Even paused, Daytona remained active codebase context:
 
 1. Frontend imports include `DaytonaWorkspaceButton`, `DaytonaPreviewPanel`,
    `DaytonaSnapshotList`, `DaytonaSnapshotBanner`, and PTY helpers.
@@ -206,8 +207,13 @@ Retire docs in the same branch that removes the corresponding implementation:
   `complete: true` with no sampled vault ids.
 - The Daytona fields on `vaults` and the completed migration scaffolding were
   removed from active code.
-- The `daytonaSnapshots` table remains until its internal rows are handled by a
-  separate manual or doc-retirement task.
+- The legacy `daytonaSnapshots` schema surface was removed from active code
+  before the doc-retirement pass.
+- Phase 5 removed superseded Daytona specs, manual tests, RFC notes, idea notes,
+  stale TODO wording, and the old license report that still listed removed
+  `@daytonaio/*` packages.
+- Current Daytona references are intentionally limited to this retirement spec
+  and generated fixture entries that point at it.
 
 ## Validation
 
@@ -219,20 +225,6 @@ Each cleanup PR should verify the part it changes:
    generalized.
 4. Migration dry run before mutating production data.
 5. Schema validation after the narrow deploy.
-6. Route-level smoke tests for vault dashboard, file view, provider settings,
-   connected-machine, and local-worktree flows.
-
-## Exit Criteria
-
-Daytona retirement is complete when:
-
-1. No active UI, Convex action, script, workflow, env allowlist, dependency, or
-   generated API surface mentions Daytona.
-2. `vaults` no longer stores Daytona fields.
-3. `daytonaSnapshots` no longer exists in active schema.
-4. Current specs no longer describe Daytona as an available product direction.
-5. Local-machine Codex and connected-machine docs remain the only current
-   development-environment path.
 6. Route-level smoke tests for vault dashboard, file view, provider settings,
    connected-machine, and local-worktree flows.
 

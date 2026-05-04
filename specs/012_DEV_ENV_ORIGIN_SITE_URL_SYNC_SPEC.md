@@ -2,38 +2,38 @@
 
 ## Summary
 
-Introduce a provider-agnostic `DEV_ENV_ORIGIN` environment variable that drives
-`SITE_URL` updates for Convex Auth in development. Replace the current
-provider-specific `FUSION_ENV_ORIGIN` usage and compute `DEV_ENV_ORIGIN` at
-dev-server startup for Daytona (and future sandbox providers).
+Introduce a `DEV_ENV_ORIGIN` environment variable that drives `SITE_URL` updates
+for Convex Auth in development. Development launchers set it when they already
+know the browser-facing origin, and local dev falls back to the selected
+localhost frontend origin.
 
 ## Motivation
 
 - Convex Auth uses `SITE_URL` for OAuth redirects.
-- In ephemeral sandboxes (Daytona, others), the public origin changes per
-  sandbox instance.
-- Today the logic is tied to `FUSION_ENV_ORIGIN`, which is provider-specific.
-- We need a single, generic mechanism for all sandbox providers.
+- In shared, tunneled, or anonymous development flows, the public origin can
+  differ from the local process origin.
+- The origin handoff needs one stable contract across local worktrees and tunnel
+  wrappers.
 
 ## Goals
 
 - Use a provider-agnostic env var `DEV_ENV_ORIGIN`.
-- Ensure `SITE_URL` is updated correctly when starting the dev server in a
-  sandbox.
+- Ensure `SITE_URL` is updated correctly when starting the dev server from a
+  local or tunneled launcher.
 - Keep local dev behavior unchanged when the Convex deployment points at
   localhost.
 
 ## Non-Goals
 
 - No provider selection UI.
-- No refactor/rename of existing Daytona actions or UI labels.
 - No per-branch Convex dev deployments (still shared).
 
 ## Design
 
 ### 1) Source of truth for origin
 
-`DEV_ENV_ORIGIN` is the preferred input for sandbox environments.
+`DEV_ENV_ORIGIN` is the preferred input when a launcher has already selected the
+browser-facing origin.
 
 **Precedence in `scripts/sync-site-url.ts`:**
 
@@ -43,21 +43,21 @@ DEV_ENV_ORIGIN -> resolved local dev origin for localhost Convex deployments -> 
 
 Remove `FUSION_ENV_ORIGIN` entirely.
 
-### 2) Compute DEV_ENV_ORIGIN in Daytona startup
+### 2) Set DEV_ENV_ORIGIN in development launchers
 
-When starting the dev server in a Daytona sandbox:
+When a launcher knows the browser-facing origin before Vite starts, it exports
+that origin for the dev process:
 
-1. Fetch a signed preview URL from the sandbox:
-   - `sandbox.getSignedPreviewUrl(DAYTONA_PREVIEW_PORT, DAYTONA_PREVIEW_TTL_SECONDS)`
-2. Parse the origin:
-   - `new URL(preview.url).origin`
-3. Export `DEV_ENV_ORIGIN` for the dev server process:
-   - `DEV_ENV_ORIGIN=<origin> pnpm run dev`
+```text
+DEV_ENV_ORIGIN=<origin> pnpm run dev
+```
 
-If preview URL generation fails, continue without `DEV_ENV_ORIGIN`. The
-follow-up sync only falls back to the resolved local dev origin when the Convex
-deployment points at localhost; otherwise it fails closed instead of writing a
-localhost URL into a shared deployment.
+The anonymous and primary local launchers set this from the selected frontend
+origin. Tunnel wrappers should set it from the public tunnel origin. If a
+launcher cannot determine a public origin, the follow-up sync only falls back to
+the resolved local dev origin when the Convex deployment points at localhost;
+otherwise it fails closed instead of writing a localhost URL into a shared
+deployment.
 
 ### 3) Where the origin is used
 
@@ -72,11 +72,8 @@ This runs in `predev` (already wired).
 
 ## Implementation Notes
 
-- `DEV_ENV_ORIGIN` should be derived at dev server start time from the
-  provider's preview URL.
-- For Daytona, use the existing preview port and TTL constants.
-- The preview URL origin is stable even if the signed URL token expires (the
-  origin is just scheme + host).
+- `DEV_ENV_ORIGIN` should be derived at dev server start time by the launcher
+  that owns the public or local frontend origin.
 - Keep logging minimal but add a diagnostic log for the chosen origin if
   helpful.
 
@@ -88,23 +85,23 @@ This runs in `predev` (already wired).
 
 ## User Experience
 
-- User starts dev server from UI.
-- `SITE_URL` is automatically set to the sandbox preview origin.
-- OAuth redirects work inside the sandbox preview without manual configuration.
+- User starts dev server from a local, anonymous, or tunneled launcher.
+- `SITE_URL` is automatically set to the selected browser origin.
+- OAuth redirects work inside the selected browser origin without manual
+  configuration.
 
 ## Acceptance Criteria
 
-1. Running `pnpm dev` inside Daytona results in:
-   - `scripts/sync-site-url.ts` setting `SITE_URL` to the sandbox preview
-     origin.
+1. Running through a launcher that sets `DEV_ENV_ORIGIN` results in
+   `scripts/sync-site-url.ts` setting `SITE_URL` to that origin.
 2. Local dev with a localhost Convex deployment and no `DEV_ENV_ORIGIN` sets
    `SITE_URL` to the resolved local dev origin, starting from
    `http://localhost:5173`.
-3. OAuth redirects work from the sandbox preview without manual edits.
+3. OAuth redirects work from the selected browser origin without manual edits.
 
 ## Risks / Edge Cases
 
-- Preview URL fetch fails: localhost Convex deployments still sync to the
+- Public origin discovery fails: localhost Convex deployments still sync to the
   resolved local dev origin, while shared deployments fail closed instead of
   writing a localhost URL.
 - Shared Convex dev deployment: last writer wins (existing limitation).
