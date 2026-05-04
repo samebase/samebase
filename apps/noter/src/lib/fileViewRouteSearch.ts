@@ -1,49 +1,53 @@
 import { getRouteApi } from "@tanstack/react-router";
+import {
+  applySearchPatch,
+  normalizeRouteSearchPresenceFlags,
+  type SearchPatch,
+} from "@/lib/routeSearchFlags";
 import { z } from "zod";
 
-function readOptionalFlag(value: unknown): true | undefined {
-  if (value === true) {
-    return true;
-  }
-
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  return value.length === 0 || value === "true" ? true : undefined;
-}
+const FILE_VIEW_PRESENCE_SEARCH_KEYS = ["compare", "diff", "review"] as const;
 
 function readOptionalMobileLineNumbers(value: unknown): "1" | undefined {
   return value === "1" ? "1" : undefined;
 }
 
 const fileViewRouteSearchSchema = z.object({
-  compare: z.preprocess(readOptionalFlag, z.literal(true).optional()),
-  diff: z.preprocess(readOptionalFlag, z.literal(true).optional()),
+  compare: z.literal(true).optional(),
+  diff: z.literal(true).optional(),
   mobileLineNumbers: z.preprocess(
     readOptionalMobileLineNumbers,
     z.literal("1").optional(),
   ),
-  review: z.preprocess(readOptionalFlag, z.literal(true).optional()),
+  review: z.literal(true).optional(),
 });
 
 export type FileViewRouteSearch = z.infer<typeof fileViewRouteSearchSchema>;
+export type FileViewRouteSearchPatch = SearchPatch<FileViewRouteSearch>;
 
 export function validateFileViewRouteSearch(
   search: Record<string, unknown>,
 ): FileViewRouteSearch {
-  return fileViewRouteSearchSchema.parse(search);
+  return fileViewRouteSearchSchema.parse(
+    normalizeRouteSearchPresenceFlags(search, FILE_VIEW_PRESENCE_SEARCH_KEYS),
+  );
 }
 
 export function buildFileViewRouteSearch(args?: {
   compare?: boolean;
   diff?: boolean;
   review?: boolean;
-}): FileViewRouteSearch {
+}): FileViewRouteSearchPatch {
   return {
-    compare: args?.compare ? true : undefined,
-    diff: args?.diff ? true : undefined,
-    review: args?.review ? true : undefined,
+    ...(typeof args?.compare === "boolean"
+      ? { compare: args.compare ? true : null }
+      : {}),
+    ...(typeof args?.diff === "boolean"
+      ? { diff: args.diff ? true : null }
+      : {}),
+    ...(typeof args?.review === "boolean"
+      ? { review: args.review ? true : null }
+      : {}),
   };
 }
 
@@ -53,15 +57,15 @@ export function buildFileViewRouteSearch(args?: {
  */
 export function mergeFileViewRouteSearch(
   search: Record<string, unknown>,
-  fileViewSearch: FileViewRouteSearch,
+  fileViewSearch: FileViewRouteSearchPatch,
 ) {
-  return {
-    ...search,
-    compare: fileViewSearch.compare,
-    diff: fileViewSearch.diff,
-    mobileLineNumbers: fileViewSearch.mobileLineNumbers,
-    review: fileViewSearch.review,
-  };
+  return applySearchPatch(search, {
+    compare: null,
+    diff: null,
+    mobileLineNumbers: null,
+    review: null,
+    ...fileViewSearch,
+  });
 }
 
 const vaultFileRouteApi = getRouteApi("/vault/$");

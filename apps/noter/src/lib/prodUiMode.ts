@@ -2,6 +2,7 @@ import {
   buildPathWithTanStackSearch,
   parseTanStackSearch,
 } from "./tanstackSearchParams";
+import { applySearchPatch } from "@/lib/routeSearchFlags";
 import { type DeploymentProfile } from "../../convex/deploymentProfile";
 
 export const FORCE_PROD_UI_QUERY_PARAM = "prod-ui";
@@ -9,15 +10,15 @@ const QUERY_PARAM_LINK_LABEL_PREFIX = "?";
 export const FORCE_PROD_UI_MODE_LINK_LABEL = `${QUERY_PARAM_LINK_LABEL_PREFIX}${FORCE_PROD_UI_QUERY_PARAM}`;
 const PRODUCTION_PUBLIC_HOSTNAMES = ["noter.md", "www.noter.md"] as const;
 
-type SearchFlagReader = URLSearchParams | Readonly<Record<string, unknown>>;
-
-export function isProdUiModeEnabled(search: SearchFlagReader): boolean {
-  if (search instanceof URLSearchParams) {
-    return search.has(FORCE_PROD_UI_QUERY_PARAM);
-  }
-
+export function isProdUiModeEnabled(
+  search: Readonly<Record<string, unknown>>,
+): boolean {
   const value = search[FORCE_PROD_UI_QUERY_PARAM];
-  return value === true || value === "" || value === "true";
+  return (
+    Object.prototype.hasOwnProperty.call(search, FORCE_PROD_UI_QUERY_PARAM) &&
+    value !== null &&
+    typeof value !== "undefined"
+  );
 }
 
 export function isProductionPublicHostname(hostname: string): boolean {
@@ -43,7 +44,7 @@ export function isProductionDeploymentProfile(
 export function isProdUiModeActive(args: {
   deploymentProfile: DeploymentProfile | undefined;
   productionPublicOrigin: boolean;
-  search: SearchFlagReader;
+  search: Readonly<Record<string, unknown>>;
 }): boolean {
   return (
     args.productionPublicOrigin ||
@@ -78,12 +79,10 @@ export function buildPathWithoutProdUiQuery(args: {
     args.search instanceof URLSearchParams
       ? Object.fromEntries(args.search.entries())
       : parseTanStackSearch(args.search ?? "");
+
   return buildPathWithTanStackSearch({
     pathname: args.pathname,
-    search: {
-      ...search,
-      [FORCE_PROD_UI_QUERY_PARAM]: undefined,
-    },
+    search: applySearchPatch(search, { [FORCE_PROD_UI_QUERY_PARAM]: null }),
     hash: args.hash,
   });
 }

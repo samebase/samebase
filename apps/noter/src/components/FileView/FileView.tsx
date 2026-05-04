@@ -115,7 +115,7 @@ function FileViewWrapper() {
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
   const { href, pathname } = location;
-  const isCompareRequested = routeSearch.compare === true;
+  const isCompareRequested = routeSearch.compare ?? false;
   const {
     owner,
     repoName,
@@ -691,15 +691,15 @@ function FileViewInner({
     api.dashboardSettings.setEditorChatOpen,
   );
   const buildNextFileViewSearch = useCallback(
-    (overrides?: { compare?: boolean; diff?: boolean; review?: boolean }) => ({
-      ...location.search,
-      ...buildFileViewRouteSearch({
-        compare: overrides?.compare ?? routeSearch.compare === true,
-        diff: overrides?.diff ?? routeSearch.diff === true,
-        review: overrides?.review ?? routeSearch.review === true,
+    (overrides?: { compare?: boolean; diff?: boolean; review?: boolean }) =>
+      mergeFileViewRouteSearch(location.search, {
+        ...buildFileViewRouteSearch({
+          compare: overrides?.compare ?? routeSearch.compare,
+          diff: overrides?.diff ?? routeSearch.diff,
+          review: overrides?.review ?? routeSearch.review,
+        }),
+        mobileLineNumbers: routeSearch.mobileLineNumbers,
       }),
-      mobileLineNumbers: routeSearch.mobileLineNumbers,
-    }),
     [location.search, routeSearch],
   );
   const navigateByHref = useCallback(
@@ -714,8 +714,8 @@ function FileViewInner({
     },
     [router],
   );
-  const reviewOnMountRequested = routeSearch.review === true;
-  const isCompareRequested = routeSearch.compare === true;
+  const reviewOnMountRequested = routeSearch.review ?? false;
+  const isCompareRequested = routeSearch.compare ?? false;
 
   // Get current user for sidebar
   const user = useQuery(api.users.viewer);
@@ -880,7 +880,7 @@ function FileViewInner({
   const [stageUploadedMedia] = useConvexAction(
     api.fileStagingActions.stageUploadedMedia,
   );
-  const isDiffRequested = routeSearch.diff === true;
+  const isDiffRequested = routeSearch.diff ?? false;
 
   // Get count of staged files for this vault
   const stagedFiles = useQuery(
@@ -1168,15 +1168,13 @@ function FileViewInner({
       const preserveCurrentReviewMode = options?.reviewMode === undefined;
       const preserveCurrentCompareMode = options?.compare === undefined;
       const preserveReviewOnMount =
-        preserveCurrentReviewMode &&
-        routeSearch.review === true &&
-        routeSearch.diff !== true;
+        preserveCurrentReviewMode && routeSearch.review && !routeSearch.diff;
       const includeDiff =
         options?.reviewMode === "review" ||
-        (preserveCurrentReviewMode && routeSearch.diff === true);
+        (preserveCurrentReviewMode && routeSearch.diff);
       const includeCompare =
         options?.compare === true ||
-        (preserveCurrentCompareMode && routeSearch.compare === true);
+        (preserveCurrentCompareMode && routeSearch.compare);
       const pathname = buildVaultFileRoute({
         owner,
         repoName,
@@ -1243,7 +1241,7 @@ function FileViewInner({
         ...buildNextFileViewSearch({
           review: false,
           diff: mode === "review",
-          compare: options?.compare ?? routeSearch.compare === true,
+          compare: options?.compare ?? routeSearch.compare,
         }),
       };
       void router.navigate({

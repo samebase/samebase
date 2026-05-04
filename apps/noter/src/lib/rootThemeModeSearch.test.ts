@@ -6,8 +6,8 @@ import {
   buildToggledRootThemeModeSearch,
   readRootThemeMode,
   readRootThemeModeSearch,
-  rootThemeModeSearchFieldSchema,
   syncDocumentRootThemeMode,
+  validateRootThemeModeSearch,
 } from "@/lib/rootThemeModeSearch";
 
 describe("rootThemeModeSearch", () => {
@@ -20,35 +20,41 @@ describe("rootThemeModeSearch", () => {
     expect(readRootThemeModeSearch({ dark: true, light: true })).toEqual({});
   });
 
-  it("builds explicit undefined clear markers for system mode", () => {
+  it("builds null tombstones for system mode", () => {
     expect(buildRootThemeModeSearch("system")).toEqual({
-      dark: undefined,
-      light: undefined,
+      dark: null,
+      light: null,
     });
   });
 
   it("toggles active modes off and replaces the opposite mode", () => {
     expect(buildToggledRootThemeModeSearch({}, "light")).toEqual({
-      dark: undefined,
+      dark: null,
       light: true,
     });
     expect(buildToggledRootThemeModeSearch({ light: true }, "light")).toEqual({
-      dark: undefined,
-      light: undefined,
+      dark: null,
+      light: null,
     });
     expect(buildToggledRootThemeModeSearch({ light: true }, "dark")).toEqual({
       dark: true,
-      light: undefined,
+      light: null,
     });
   });
 
   it("parses key-only URL flags", () => {
     expect(
-      rootThemeModeSearchFieldSchema.parse({
+      validateRootThemeModeSearch({
         dark: "false",
         light: "",
       }),
-    ).toEqual({ light: true });
+    ).toEqual({ dark: true, light: true });
+    expect(
+      validateRootThemeModeSearch({
+        dark: undefined,
+        light: null,
+      }),
+    ).toEqual({});
   });
 
   it("syncs forced root theme modes to the document class", () => {

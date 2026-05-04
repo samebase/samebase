@@ -3,6 +3,7 @@ import { type DeploymentProfile } from "../../convex/deploymentProfile";
 import {
   buildPathWithoutProdUiQuery,
   isProdUiModeActive,
+  isProdUiModeEnabled,
   isProductionPublicHostname,
   shouldStripVisibleProdUiQuery,
 } from "./prodUiMode";
@@ -61,6 +62,14 @@ describe("prodUiMode", () => {
         search: "?prod-ui&dev",
       }),
     ).toBe(false);
+  });
+
+  it("reads prod-ui mode by key presence", () => {
+    expect(isProdUiModeEnabled({ "prod-ui": false })).toBe(true);
+    expect(isProdUiModeEnabled({ "prod-ui": "0" })).toBe(true);
+    expect(isProdUiModeEnabled({ "prod-ui": undefined })).toBe(false);
+    expect(isProdUiModeEnabled({ "prod-ui": null })).toBe(false);
+    expect(isProdUiModeEnabled({})).toBe(false);
   });
 
   it("removes prod-ui without dropping other URL parts", () => {

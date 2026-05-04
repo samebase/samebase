@@ -42,14 +42,29 @@ describe("rootRouteSearch", () => {
         base: "bad",
         border: "nope-500",
         delete: "missing-repo-separator",
-        dev: "1",
-        devtools: "false",
         primary: "nope-500",
-        "prod-ui": false,
         secondary: 3,
         signup: "github",
       }),
     ).toEqual({});
+  });
+
+  it("treats present root flags as enabled regardless of value", () => {
+    expect(
+      validateRootRouteSearch({
+        dark: "false",
+        dev: "1",
+        devtools: "false",
+        light: 0,
+        "prod-ui": false,
+      }),
+    ).toEqual({
+      dark: true,
+      dev: true,
+      devtools: true,
+      light: true,
+      "prod-ui": true,
+    });
   });
 
   it("parses the root search contract from a search string", () => {
@@ -73,18 +88,20 @@ describe("rootRouteSearch", () => {
     );
   });
 
-  it("does not activate reset from invalid typed values", () => {
+  it("activates reset from any present value", () => {
     expect(
       validateRootRouteSearch({
         primary: "red-600",
         reset: false,
       }),
-    ).toEqual({
-      primary: "red-600",
-    });
+    ).toEqual({ reset: true });
 
-    expect(validateRootRouteSearch({ reset: "true" })).toEqual({});
-    expect(validateRootRouteSearch({ reset: 0 })).toEqual({});
+    expect(validateRootRouteSearch({ reset: "true" })).toEqual({
+      reset: true,
+    });
+    expect(validateRootRouteSearch({ reset: 0 })).toEqual({ reset: true });
+    expect(validateRootRouteSearch({ reset: undefined })).toEqual({});
+    expect(validateRootRouteSearch({ reset: null })).toEqual({});
   });
 
   it("preserves conflicting light and dark flags for root route canonicalization", () => {

@@ -433,7 +433,7 @@ function readRotationAxisMode(
 }
 
 function readViewSnapEnabled(routeSearch: LogoRouteSearch): boolean {
-  return routeSearch.freeView !== true;
+  return !routeSearch.freeView;
 }
 
 function resolveLogoPreviewViewState(

@@ -26,6 +26,17 @@ describe("tanstackSearchParams", () => {
     ).toBe("?freeView&rot=10&threadId=thread_123");
   });
 
+  it("serializes known presence flags by key presence", () => {
+    expect(
+      stringifyTanStackSearch({
+        dev: false,
+        diff: 0,
+        freeView: "false",
+        openedByCli: null,
+      }),
+    ).toBe("?dev&diff&freeView");
+  });
+
   it("builds paths with normalized app search and hash strings", () => {
     expect(
       buildPathWithTanStackSearch({
@@ -59,6 +70,20 @@ describe("tanstackSearchParams", () => {
         primary: "red-600",
         reset: "false",
       }),
+    ).toBe("?reset");
+
+    expect(
+      stringifyTanStackSearch({
+        primary: "red-600",
+        reset: null,
+      }),
     ).toBe("?primary=red-600");
+  });
+
+  it("ignores inherited reset sentinels", () => {
+    const search = { primary: "red-600" };
+    Object.setPrototypeOf(search, { reset: true });
+
+    expect(stringifyTanStackSearch(search)).toBe("?primary=red-600");
   });
 });
