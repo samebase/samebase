@@ -305,6 +305,7 @@ export const createRepository = action({
         level: "info",
         message: `Created GitHub repository ${repositoryFullName}.`,
         createdAt: eventBaseTime,
+        state: "unchanged",
       });
       await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
         runId,
@@ -312,6 +313,7 @@ export const createRepository = action({
         level: "info",
         message: "Seeded the starter app.",
         createdAt: eventBaseTime + 1,
+        state: "unchanged",
       });
       await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
         runId,
@@ -319,6 +321,7 @@ export const createRepository = action({
         level: "info",
         message: "Created the Noter vault.",
         createdAt: eventBaseTime + 2,
+        state: "unchanged",
       });
     } catch {
       console.warn("vault:create:provisioning_event_append_failed", {

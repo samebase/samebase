@@ -104,6 +104,10 @@ appProvisioningRuns: {
 exists, but no provisioning step event has advanced it yet. New writes must not
 use missing `currentStep` as an implicit state.
 
+Run event helpers must also make state transitions explicit. Use
+`state: "unchanged"` for log-only events instead of omitting the run state
+update.
+
 Indexes:
 
 1. `by_vault_and_updated_at`

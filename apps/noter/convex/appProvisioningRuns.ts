@@ -8,7 +8,7 @@ import {
   AppProvisioningStep,
 } from "./schema";
 
-const { id, number, optional, string } = v;
+const { id, literal, number, optional, string, union } = v;
 
 export const createForVault = internalMutation({
   args: {
@@ -46,7 +46,7 @@ export const appendRunEvent = internalMutation({
     level: AppProvisioningEventLevel,
     message: string(),
     createdAt: optional(number()),
-    state: optional(AppProvisioningRunState),
+    state: union(literal("unchanged"), AppProvisioningRunState),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -74,7 +74,7 @@ export const appendRunEvent = internalMutation({
       createdAt: now,
     });
 
-    const nextState = args.state ?? run.state;
+    const nextState = args.state === "unchanged" ? run.state : args.state;
     const isTerminal =
       nextState === "succeeded" ||
       nextState === "failed" ||

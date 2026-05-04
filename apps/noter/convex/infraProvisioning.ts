@@ -432,7 +432,13 @@ async function appendProvisioningRunEvent(
     step: AppProvisioningStep;
     level: "info" | "warn" | "error";
     message: string;
-    state?: "queued" | "running" | "succeeded" | "failed" | "canceled";
+    state:
+      | "unchanged"
+      | "queued"
+      | "running"
+      | "succeeded"
+      | "failed"
+      | "canceled";
   },
 ): Promise<void> {
   try {

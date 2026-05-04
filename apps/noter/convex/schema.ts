@@ -503,6 +503,8 @@ export default defineSchema({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
+    // Assigned after the Workflow component start call returns; run identity
+    // exists first so early events can still be linked deterministically.
     workflowId: optional(string()),
     trigger: AppProvisioningRunTrigger,
     state: AppProvisioningRunState,
