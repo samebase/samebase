@@ -243,6 +243,19 @@ fail on real app crash surfaces and `pageerror`.
 
 ## Recommended Recovery Plan
 
+### Phase 0: Preserve The Decision
+
+Keep this research document and the test policy in the branch before starting
+the larger cleanup. The important durable decisions are:
+
+- Linux CI is the canonical visual baseline.
+- macOS/Darwin visual compatibility is not a goal.
+- Human review decides whether changed screenshots are good product UI.
+- Test infrastructure can decide Linux/macOS duplication, stale platform
+  suffixes, and missing canonical baselines without human visual judgment.
+- Workspace-like visual coverage should use `WorkspaceLayoutV2` or the closest
+  production wrapper, not a bespoke shell.
+
 ### Phase 1: Restore Signal
 
 1. Keep Playwright artifact report access easy while triaging. The existing CI
@@ -253,9 +266,62 @@ fail on real app crash surfaces and `pageerror`.
    contract changes.
 4. Do not add new platform-specific snapshots during this phase.
 
-### Phase 2: Canonicalize Visual Baselines
+Agent-owned work in this phase:
 
-1. Use a CI-equivalent Linux environment for screenshot updates.
+- classify failures
+- fix stale assertions and harness noise
+- delete tests that only preserve obsolete behavior
+- keep report URLs/screenshots easy for the user to review
+
+User-owned work in this phase:
+
+- approve or reject changed screenshots as desired product UI
+
+### Phase 2: Make A Local Linux Loop
+
+Use a Linux container as the primary local reproduction path for visual
+snapshots. `act` is useful for checking workflow wiring, but it is not the best
+source of screenshot truth because it simulates GitHub Actions through Docker
+and still needs runner-label image mapping for Blacksmith labels. A pinned
+Playwright Docker image is a clearer visual loop.
+
+Current repo facts:
+
+- Playwright version: `1.58.2`
+- CI runner: `blacksmith-4vcpu-ubuntu-2404`
+- Blacksmith documents the Ubuntu runners as drop-in runner-image replacements
+  for GitHub-hosted runner images.
+- Playwright documents that Docker image versions should match the project
+  Playwright version, and recommends `--ipc=host` for Chromium.
+
+Preferred command shape:
+
+```bash
+docker run --rm --init --ipc=host \
+  -v "$PWD":/work \
+  -w /work \
+  -e CI=1 \
+  -e PLAYWRIGHT_SKIP_BUILD=1 \
+  -e PLAYWRIGHT_VITE_PORT=43121 \
+  mcr.microsoft.com/playwright:v1.58.2-noble \
+  bash -lc 'corepack enable && pnpm install --frozen-lockfile && PLAYWRIGHT_SKIP_BUILD=1 PLAYWRIGHT_VITE_PORT=43121 pnpm --filter noter exec playwright test -c playwright.config.ts --shard=1/3'
+```
+
+Keep an `act` path only as a workflow smoke tool. For this workflow it would
+need explicit platform mapping such as:
+
+```bash
+act push \
+  -j playwright \
+  -P blacksmith-4vcpu-ubuntu-2404=mcr.microsoft.com/playwright:v1.58.2-noble
+```
+
+That can validate step ordering, environment variables, artifact upload shape,
+and shell behavior. It should not decide whether a screenshot is canonical.
+
+### Phase 3: Canonicalize Visual Baselines
+
+1. Use the Linux container or Blacksmith CI to update screenshot baselines.
 2. Rename required visual snapshots to platform-neutral names.
 3. Remove `process.platform` snapshot name branching from the required suite.
 4. Delete obsolete Darwin and Windows screenshot baselines unless the product
@@ -263,7 +329,11 @@ fail on real app crash surfaces and `pageerror`.
 5. Keep a narrow local macOS smoke path only if it asserts semantics, layout
    metrics, or accessibility contracts instead of screenshots.
 
-### Phase 3: Fix Font Root Cause
+This is mostly agent-owned. The user does not need to review Linux-vs-macOS
+mechanics; the suite should have one required baseline. The user only needs to
+review the resulting visual diffs when the actual UI changes.
+
+### Phase 4: Fix Font Root Cause
 
 1. Decide whether the app should use IBM Plex Sans globally or another bundled
    brand font.
@@ -273,7 +343,21 @@ fail on real app crash surfaces and `pageerror`.
 4. Keep editor text rasterization tests tolerant or replace them with geometry
    assertions when glyph pixels are not the contract.
 
-### Phase 4: Make Playwright Part Of Development Again
+### Phase 5: Move Fixtures Toward Production Trees
+
+1. Audit visual fixtures by product surface.
+2. Move workspace-like fixtures to `WorkspaceLayoutV2` before refreshing those
+   snapshots.
+3. Where production components cannot yet be reused directly, feed deterministic
+   view models into the closest production wrapper and document the gap.
+4. Delete invented visual-only shells once production component seams make them
+   unnecessary.
+
+This does not have to block the first green-state PR for every fixture. It
+should block any snapshot refresh where the current fixture is clearly testing a
+mock layout instead of the shipped surface.
+
+### Phase 6: Make Playwright Part Of Development Again
 
 1. Re-enable a smaller PR Playwright gate after `main` is green.
 2. Keep the full visual matrix on `main` if budget requires it, but require at
