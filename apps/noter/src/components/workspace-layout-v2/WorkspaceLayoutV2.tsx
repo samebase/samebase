@@ -101,6 +101,10 @@ function shouldShowMobileResizeGripDotsByDefault() {
 function useElementSize(measureRef: RefObject<HTMLElement | null>) {
   const [size, setSize] = useState({ heightPx: 0, widthPx: 0 });
 
+  /**
+   * Subscribes to the measured element's rendered box so pane geometry follows
+   * the actual workspace viewport instead of assuming browser viewport size.
+   */
   useLayoutEffect(() => {
     const node = measureRef.current;
     if (!node) {
@@ -454,6 +458,10 @@ function useWorkspaceLayoutV2MobileGripResizeController({
   const lockCarouselScroll =
     mobileMinResizeBehavior === "min_resize_to_merge" && isMobileMergedFit;
 
+  /**
+   * Clears active mobile grip drag state when the desktop layout takes over, so
+   * transient mobile widths and snap overrides cannot leak across breakpoints.
+   */
   useEffect(() => {
     if (isMobile) {
       return;
@@ -466,6 +474,10 @@ function useWorkspaceLayoutV2MobileGripResizeController({
     setMobileMergedMainWidthPx(null);
   }, [activeGripResizeSideRef, isMobile]);
 
+  /**
+   * Drops merged main-pane geometry whenever the mobile pane, viewport-derived
+   * default width, or resize behavior changes the meaning of that transient fit.
+   */
   useEffect(() => {
     mobileMergedMainWidthPxRef.current = null;
     setMobileMergedMainWidthPx(null);
@@ -760,6 +772,10 @@ function useWorkspaceLayoutV2MobileCarouselController({
     });
   });
 
+  /**
+   * Resets mobile carousel bookkeeping when leaving mobile mode so the next
+   * mobile mount performs a fresh first-paint alignment.
+   */
   useEffect(() => {
     if (isMobile) {
       return;
@@ -770,6 +786,10 @@ function useWorkspaceLayoutV2MobileCarouselController({
     setIsMobilePaneSettled(true);
   }, [isMobile]);
 
+  /**
+   * Aligns the native carousel scroll position to the selected mobile pane
+   * before paint, while ignoring scroll positions produced by active grip drags.
+   */
   useLayoutEffect(() => {
     const carouselNode = carouselRef.current;
     if (!isMobile || carouselNode === null || mainWidthPx <= 0) {
@@ -828,6 +848,10 @@ function useWorkspaceLayoutV2MobileCarouselController({
     viewportWidthPx,
   ]);
 
+  /**
+   * Owns the browser scroll listener while the carousel is active and converts
+   * native scroll movement into selected-pane and settled-state updates.
+   */
   useEffect(() => {
     if (!canSyncScroll) {
       return;
@@ -863,6 +887,10 @@ function useWorkspaceLayoutV2MobileCarouselController({
     };
   }, [canSyncScroll, carouselRef]);
 
+  /**
+   * Re-evaluates the current scroll position after pane geometry changes that
+   * do not require rebuilding the underlying browser scroll listener.
+   */
   useEffect(() => {
     const carouselNode = carouselRef.current;
     if (!canSyncScroll || carouselNode === null) {
