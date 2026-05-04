@@ -1,12 +1,8 @@
-import { FileText, RefreshCw } from "lucide-react";
-import { useEffect, useEffectEvent, useState } from "react";
+import { FileText } from "lucide-react";
 import { PublicLayoutShell } from "@/Layout";
-import { Button } from "@/components/ui/button";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import {
-  readBrowserLocalStorageSnapshot,
-  type LocalStorageSnapshot,
-} from "@/lib/localStorageSnapshot";
+import { useBrowserLocalStorageSnapshot } from "@/hooks/useBrowserLocalStorageSnapshot";
+import { type LocalStorageSnapshot } from "@/lib/localStorageSnapshot";
 
 function LocalStorageSidebarContent() {
   return (
@@ -101,24 +97,7 @@ function LocalStorageEntriesTable({
 }
 
 export function LocalStorageWorkspacePage() {
-  const [snapshot, setSnapshot] = useState(readBrowserLocalStorageSnapshot);
-  const refreshSnapshot = () => {
-    setSnapshot(readBrowserLocalStorageSnapshot());
-  };
-  const refreshSnapshotFromStorageEvent = useEffectEvent(() => {
-    refreshSnapshot();
-  });
-
-  /**
-   * Keep cross-tab storage changes visible without reinstalling the browser
-   * listener when this route re-renders.
-   */
-  useEffect(() => {
-    window.addEventListener("storage", refreshSnapshotFromStorageEvent);
-    return () => {
-      window.removeEventListener("storage", refreshSnapshotFromStorageEvent);
-    };
-  }, []);
+  const snapshot = useBrowserLocalStorageSnapshot();
 
   return (
     <PublicLayoutShell
@@ -129,24 +108,7 @@ export function LocalStorageWorkspacePage() {
       }}
       leftToggleVisibility="all"
       main={{
-        header: (
-          <RepositoryWorkspacePaneHeader
-            title="localStorage"
-            right={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Refresh localStorage"
-                title="Refresh localStorage"
-                className="h-8 w-8"
-                onClick={refreshSnapshot}
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            }
-          />
-        ),
+        header: <RepositoryWorkspacePaneHeader title="localStorage" />,
         content: <LocalStorageEntriesTable snapshot={snapshot} />,
       }}
     />

@@ -1,5 +1,6 @@
 import * as React from "react";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+import { notifyBrowserLocalStorageChanged } from "@/lib/localStorageSnapshot";
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
 const STORED_WORKSPACE_SIDEBAR_STATE_VERSION = 1;
@@ -166,6 +167,7 @@ function writeLocalStorageWorkspaceSidebarState({
         version: STORED_WORKSPACE_SIDEBAR_STATE_VERSION,
       }),
     );
+    notifyBrowserLocalStorageChanged();
   } catch (error: unknown) {
     console.warn("Failed to write local workspace sidebar state:", error);
   }
@@ -178,6 +180,7 @@ function removeLocalStorageWorkspaceSidebarState(storageKey: string) {
 
   try {
     window.localStorage.removeItem(storageKey);
+    notifyBrowserLocalStorageChanged();
   } catch (error: unknown) {
     console.warn("Failed to reset local workspace sidebar state:", error);
   }

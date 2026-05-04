@@ -1,5 +1,11 @@
-import { describe, expect, it, beforeEach } from "vite-plus/test";
-import { readLocalStorageSnapshot } from "./localStorageSnapshot";
+// @vitest-environment jsdom
+
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import {
+  notifyBrowserLocalStorageChanged,
+  readLocalStorageSnapshot,
+  subscribeBrowserLocalStorageSnapshot,
+} from "./localStorageSnapshot";
 
 class FakeLocalStorage {
   private readonly values = new Map<string, string>();
@@ -63,5 +69,17 @@ describe("readLocalStorageSnapshot", () => {
         },
       ],
     });
+  });
+
+  it("subscribes to native and app-owned browser localStorage changes", () => {
+    const onStoreChange = vi.fn();
+    const unsubscribe = subscribeBrowserLocalStorageSnapshot(onStoreChange);
+
+    window.dispatchEvent(new Event("storage"));
+    notifyBrowserLocalStorageChanged();
+    unsubscribe();
+    notifyBrowserLocalStorageChanged();
+
+    expect(onStoreChange).toHaveBeenCalledTimes(2);
   });
 });

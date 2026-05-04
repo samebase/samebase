@@ -15,6 +15,8 @@ export type LocalStorageSnapshot =
 
 type ReadableLocalStorage = Pick<Storage, "getItem" | "key" | "length">;
 
+const BROWSER_LOCAL_STORAGE_CHANGE_EVENT = "noter:local-storage-change";
+
 function compareStorageKeys(left: string, right: string): number {
   if (left < right) {
     return -1;
@@ -85,4 +87,30 @@ export function readBrowserLocalStorageSnapshot(): LocalStorageSnapshot {
       errorMessage: readStorageErrorMessage(error),
     };
   }
+}
+
+export function notifyBrowserLocalStorageChanged(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(new Event(BROWSER_LOCAL_STORAGE_CHANGE_EVENT));
+}
+
+export function subscribeBrowserLocalStorageSnapshot(
+  onStoreChange: () => void,
+): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(BROWSER_LOCAL_STORAGE_CHANGE_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(
+      BROWSER_LOCAL_STORAGE_CHANGE_EVENT,
+      onStoreChange,
+    );
+  };
 }

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY } from "../src/lib/publicLayoutSidebarPreferences";
 
 const localStorageRouteScreenshotOptions = {
   animations: "disabled",
@@ -54,4 +55,40 @@ test("localStorage route shows raw strings and formatted JSON values", async ({
     "local-storage-workspace.png",
     localStorageRouteScreenshotOptions,
   );
+});
+
+test("localStorage route reflects sidebar persistence without manual refresh", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.addInitScript(() => {
+    window.localStorage.clear();
+  });
+
+  await page.goto("/localStorage?dev", { waitUntil: "networkidle" });
+
+  const leftResizeHandle = page.getByTestId("workspace-layout-v2-left-resize");
+  await expect(leftResizeHandle).toBeVisible();
+
+  const initialWidthText = await leftResizeHandle.getAttribute("aria-valuenow");
+  if (initialWidthText === null) {
+    throw new Error("Expected left resize handle width");
+  }
+
+  const initialWidthPx = Number(initialWidthText);
+  expect(Number.isFinite(initialWidthPx)).toBe(true);
+
+  await leftResizeHandle.focus();
+  await page.keyboard.press("ArrowRight");
+
+  await expect(
+    page.getByTestId("local-storage-entry-key").filter({
+      hasText: PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("local-storage-entry-value").filter({
+      hasText: `"leftDesktopWidthPx": ${initialWidthPx + 24}`,
+    }),
+  ).toBeVisible();
 });
