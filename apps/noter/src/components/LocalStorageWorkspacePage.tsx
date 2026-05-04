@@ -1,5 +1,5 @@
 import { FileText, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
@@ -97,16 +97,23 @@ function LocalStorageEntriesTable({
 
 export function LocalStorageWorkspacePage() {
   const [snapshot, setSnapshot] = useState(readBrowserLocalStorageSnapshot);
-  const refreshSnapshot = useCallback(() => {
+  const refreshSnapshot = () => {
     setSnapshot(readBrowserLocalStorageSnapshot());
-  }, []);
+  };
+  const refreshSnapshotFromStorageEvent = useEffectEvent(() => {
+    refreshSnapshot();
+  });
 
+  /**
+   * Keep cross-tab storage changes visible without reinstalling the browser
+   * listener when this route re-renders.
+   */
   useEffect(() => {
-    window.addEventListener("storage", refreshSnapshot);
+    window.addEventListener("storage", refreshSnapshotFromStorageEvent);
     return () => {
-      window.removeEventListener("storage", refreshSnapshot);
+      window.removeEventListener("storage", refreshSnapshotFromStorageEvent);
     };
-  }, [refreshSnapshot]);
+  }, []);
 
   return (
     <SidebarProvider
