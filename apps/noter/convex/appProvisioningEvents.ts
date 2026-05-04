@@ -13,6 +13,8 @@ const provisioningEventResult = object({
   level: AppProvisioningEventLevel,
   message: string(),
   repositoryFullName: string(),
+  // TODO(app-provisioning-runs): Remove optionality after legacy phase-1
+  // events are backfilled with run ids and the schema is narrowed.
   runId: optional(id("appProvisioningRuns")),
   step: AppProvisioningStep,
 });
@@ -29,7 +31,7 @@ export const append = internalMutation({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
-    runId: optional(id("appProvisioningRuns")),
+    runId: id("appProvisioningRuns"),
     step: AppProvisioningStep,
     level: AppProvisioningEventLevel,
     message: string(),

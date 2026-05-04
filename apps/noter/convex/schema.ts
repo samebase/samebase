@@ -508,6 +508,8 @@ export default defineSchema({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
+    // TODO(app-provisioning-runs): Backfill legacy phase-1 events, then make
+    // this required so every stored provisioning event belongs to a run.
     runId: optional(id("appProvisioningRuns")),
     step: AppProvisioningStep,
     level: AppProvisioningEventLevel,

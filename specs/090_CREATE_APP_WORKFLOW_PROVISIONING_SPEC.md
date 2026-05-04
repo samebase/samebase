@@ -162,9 +162,10 @@ Logging rules:
 4. Query results must be explicitly sorted by `createdAt`, with `_creationTime`
    or document ID as a stable tie-breaker.
 
-Phase 1 shipped the event table without `runId`. Phase 2 should add `runId` as
-optional, link new Workflow-backed events to the active run, and keep old events
-readable.
+Phase 1 shipped the event table without `runId`. Phase 2 keeps the stored
+`runId` field optional only for legacy event compatibility, requires new writes
+to include the active run, and leaves TODO comments at the temporary optional
+read/schema boundaries until a backfill lets the schema narrow.
 
 ### 3. Starter Dashboard Log Textarea
 
@@ -227,8 +228,8 @@ Phase 2: Workflow component install and post-vault infra workflow.
 
 1. Add `@convex-dev/workflow`.
 2. Install the Workflow component in `convex.config.ts`.
-3. Add `appProvisioningRuns` and optional `runId` links on new provisioning
-   events.
+3. Add `appProvisioningRuns`; keep stored event `runId` temporarily optional for
+   old rows, but require it for new provisioning event writes.
 4. Create `appProvisioningWorkflow.ts`.
 5. Split the current infra action into a deterministic workflow handler plus
    narrow idempotent step functions. Provider side effects, env reads, and
