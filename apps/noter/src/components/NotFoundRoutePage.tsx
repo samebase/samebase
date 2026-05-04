@@ -1,6 +1,6 @@
 import { Layout, PublicLayoutShell } from "@/Layout";
 import { ApprovalGate } from "@/components/ApprovalGate";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { resolveNotFoundPageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
@@ -24,9 +24,9 @@ function NotFoundContent(props: {
         <code className="max-w-full overflow-x-auto text-xs text-muted-foreground">
           {props.pathname}
         </code>
-        <Button asChild variant="outline">
-          <Link to="/">{props.primaryActionLabel}</Link>
-        </Button>
+        <Link className={buttonVariants({ variant: "outline" })} to="/">
+          {props.primaryActionLabel}
+        </Link>
       </div>
     </div>
   );

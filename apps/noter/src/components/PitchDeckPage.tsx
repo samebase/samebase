@@ -1,4 +1,5 @@
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export type PitchDeckMode = "interactive" | "print" | "printMobile";
 
@@ -405,15 +406,14 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
           {showPdfDownloads ? (
             <div className="flex flex-wrap gap-3">
               {pdfDownloads.map((pdfDownload) => (
-                <Button
+                <a
                   key={pdfDownload.href}
-                  asChild
-                  className="min-w-[11rem]"
+                  className={cn(buttonVariants(), "min-w-[11rem]")}
+                  download={pdfDownload.download}
+                  href={pdfDownload.href}
                 >
-                  <a download={pdfDownload.download} href={pdfDownload.href}>
-                    Download {pdfDownload.label}
-                  </a>
-                </Button>
+                  Download {pdfDownload.label}
+                </a>
               ))}
             </div>
           ) : null}

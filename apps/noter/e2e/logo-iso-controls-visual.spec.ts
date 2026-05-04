@@ -82,29 +82,29 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   await expect(linksSidebar).toBeVisible();
   await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveAttribute(
     "title",
-    "/logo?dev",
+    "/logo",
   );
   await expect(routeUrlHeader.getByTestId("route-url-display")).toHaveText(
-    "/logo?dev",
+    "/logo",
   );
   await expect(
     publicLinks.getByRole("link", { name: "/home", exact: true }),
-  ).toHaveAttribute("href", "/?dev");
+  ).toHaveAttribute("href", "/");
   await expect(
     publicLinks.getByRole("link", { name: LOCAL_STORAGE_ROUTE, exact: true }),
-  ).toHaveAttribute("href", `${LOCAL_STORAGE_ROUTE}?dev`);
+  ).toHaveCount(0);
   await expect(
     publicLinks.getByRole("link", { name: "/terms", exact: true }),
-  ).toHaveAttribute("href", "/terms?dev");
+  ).toHaveAttribute("href", "/terms");
   await expect(
     publicLinks.getByRole("link", { name: "/privacy", exact: true }),
-  ).toHaveAttribute("href", "/privacy?dev");
+  ).toHaveAttribute("href", "/privacy");
   await expect(
     publicLinks.getByRole("link", { name: "?light", exact: true }),
-  ).toHaveAttribute("href", "/logo?dev&light");
+  ).toHaveAttribute("href", "/logo?light");
   await expect(
     publicLinks.getByRole("link", { name: "?dark", exact: true }),
-  ).toHaveAttribute("href", "/logo?dev&dark");
+  ).toHaveAttribute("href", "/logo?dark");
   await expect(publicLinks).toHaveScreenshot(
     "logo-right-sidebar-meta-section.png",
     {

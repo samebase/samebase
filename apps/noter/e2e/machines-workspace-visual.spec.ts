@@ -6,7 +6,6 @@ import {
   type Page,
 } from "@playwright/test";
 
-const machinesWorkspaceSnapshotSuffix = process.platform;
 const { defaultBrowserType: _defaultBrowserType, ...iPhone13 } =
   devices["iPhone 13"];
 
@@ -41,26 +40,20 @@ test("machines workspace fixture", async ({ page }) => {
   await openMachinesWorkspaceFixture(page);
 
   const header = page.getByTestId("machines-workspace-visual-fixture-header");
-  await expect(header).toHaveScreenshot(
-    `machines-workspace-header-${machinesWorkspaceSnapshotSuffix}.png`,
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
+  await expect(header).toHaveScreenshot("machines-workspace-header.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 
   const workspace = page.getByTestId("machines-workspace-visual-fixture-page");
-  await expect(workspace).toHaveScreenshot(
-    `machines-workspace-page-${machinesWorkspaceSnapshotSuffix}.png`,
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
+  await expect(workspace).toHaveScreenshot("machines-workspace-page.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
 test("machines workspace header expands the selected title on click", async ({
@@ -71,7 +64,7 @@ test("machines workspace header expands the selected title on click", async ({
 
   const header = page.getByTestId("machines-workspace-visual-fixture-header");
   await expect(header).toHaveScreenshot(
-    `machines-workspace-header-expanded-${machinesWorkspaceSnapshotSuffix}.png`,
+    "machines-workspace-header-expanded.png",
     {
       animations: "disabled",
       caret: "hide",
@@ -89,15 +82,12 @@ test("machines workspace narrow sidebar keeps thread titles clamped", async ({
   await narrowLeftSidebar(page);
 
   const sidebar = page.getByTestId("machines-workspace-visual-fixture-sidebar");
-  await expect(sidebar).toHaveScreenshot(
-    `machines-workspace-page-narrow-${machinesWorkspaceSnapshotSuffix}.png`,
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
+  await expect(sidebar).toHaveScreenshot("machines-workspace-page-narrow.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
 test("machines workspace project collapse stays closed", async ({ page }) => {
@@ -131,15 +121,12 @@ test("machines workspace desktop hover reveals the pin affordance", async ({
     .hover({ force: true });
 
   const sidebar = page.getByTestId("machines-workspace-visual-fixture-sidebar");
-  await expect(sidebar).toHaveScreenshot(
-    `machines-workspace-pin-hover-${machinesWorkspaceSnapshotSuffix}.png`,
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
+  await expect(sidebar).toHaveScreenshot("machines-workspace-pin-hover.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
 test("machines workspace machine collapse stays closed", async ({ page }) => {
@@ -208,7 +195,7 @@ test.describe("mobile", () => {
 
     const header = page.getByTestId("machines-workspace-visual-fixture-header");
     await expect(header).toHaveScreenshot(
-      `machines-workspace-header-mobile-${machinesWorkspaceSnapshotSuffix}.png`,
+      "machines-workspace-header-mobile.png",
       {
         animations: "disabled",
         caret: "hide",
@@ -221,7 +208,7 @@ test.describe("mobile", () => {
       "machines-workspace-visual-fixture-page",
     );
     await expect(workspace).toHaveScreenshot(
-      `machines-workspace-page-mobile-${machinesWorkspaceSnapshotSuffix}.png`,
+      "machines-workspace-page-mobile.png",
       {
         animations: "disabled",
         caret: "hide",
@@ -239,7 +226,7 @@ test.describe("mobile", () => {
 
     const header = page.getByTestId("machines-workspace-visual-fixture-header");
     await expect(header).toHaveScreenshot(
-      `machines-workspace-header-expanded-mobile-${machinesWorkspaceSnapshotSuffix}.png`,
+      "machines-workspace-header-expanded-mobile.png",
       {
         animations: "disabled",
         caret: "hide",
@@ -264,7 +251,7 @@ test.describe("mobile", () => {
       "machines-workspace-visual-fixture-sidebar",
     );
     await expect(sidebar).toHaveScreenshot(
-      `machines-workspace-pin-selected-mobile-${machinesWorkspaceSnapshotSuffix}.png`,
+      "machines-workspace-pin-selected-mobile.png",
       {
         animations: "disabled",
         caret: "hide",
