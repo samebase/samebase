@@ -14,7 +14,10 @@ import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
-import { syncDocumentThemeColorSearch } from "@/lib/appThemeColorSearch";
+import {
+  resolveAppThemeColorState,
+  syncDocumentThemeColorSearch,
+} from "@/lib/appThemeColorSearch";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import {
   PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
@@ -185,14 +188,21 @@ describe("PublicLandingLogo", () => {
     });
 
     const logoImage = getLogoImage(rootElement);
+    const defaultLogoTheme = resolveAppThemeColorState({
+      search: {},
+      themeMode: "light",
+    });
 
     expect(logoImage.getAttribute("src")).toBe(
       `${createStaticLogoSvgDataUrl({
+        faceColors: defaultLogoTheme.faceColors,
         view: persistedView,
-      })}#light:ffffff:394447:ecfccb`,
+      })}#${defaultLogoTheme.cacheKey}`,
     );
     expect(logoImage.getAttribute("src")).not.toBe(
-      `${createStaticLogoSvgDataUrl()}#light:ffffff:394447:ecfccb`,
+      `${createStaticLogoSvgDataUrl({
+        faceColors: defaultLogoTheme.faceColors,
+      })}#${defaultLogoTheme.cacheKey}`,
     );
   });
 

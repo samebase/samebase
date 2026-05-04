@@ -24,6 +24,7 @@ export const APP_THEME_COLOR_SEARCH_KEYS = [
   "primary",
   "secondary",
   "base",
+  "border",
 ] as const;
 
 export type AppThemeColorSearchKey =
@@ -54,6 +55,7 @@ const LOGO_COLOR_THEME_MODES = [
 
 const appThemeColorSearchKeyByColorKey = {
   base: "base",
+  border: "border",
   primary: "primary",
   secondary: "secondary",
 } as const satisfies Record<AppThemeColorKey, AppThemeColorSearchKey>;
@@ -84,6 +86,11 @@ const colorVariableSpecs = {
     colorVariables: ["--secondary"],
     foregroundVariables: ["--secondary-foreground"],
   },
+  // Border follows shared theme URLs alongside base and brand colors.
+  border: {
+    colorVariables: ["--border", "--input", "--sidebar-border"],
+    foregroundVariables: [],
+  },
 } as const satisfies Record<
   AppThemeColorSearchKey,
   {
@@ -106,32 +113,31 @@ function readOptionalLogoColorToken(
 const logoColorTokenSchema = z.custom<LogoColorToken>(
   (value) => typeof value === "string" && isLogoColorToken(value),
 );
+const optionalLogoColorTokenSchema = z.preprocess(
+  readOptionalLogoColorToken,
+  logoColorTokenSchema.optional(),
+);
 
 export const appThemeColorSearchFieldSchema = z.object({
-  base: z.preprocess(
-    readOptionalLogoColorToken,
-    logoColorTokenSchema.optional(),
-  ),
-  primary: z.preprocess(
-    readOptionalLogoColorToken,
-    logoColorTokenSchema.optional(),
-  ),
-  secondary: z.preprocess(
-    readOptionalLogoColorToken,
-    logoColorTokenSchema.optional(),
-  ),
+  base: optionalLogoColorTokenSchema,
+  border: optionalLogoColorTokenSchema,
+  primary: optionalLogoColorTokenSchema,
+  secondary: optionalLogoColorTokenSchema,
 });
 
 export function readAppThemeColorSearch(
   search: AppThemeColorSearch,
 ): AppThemeColorSearch {
-  return {
-    ...(typeof search.base === "string" ? { base: search.base } : {}),
-    ...(typeof search.primary === "string" ? { primary: search.primary } : {}),
-    ...(typeof search.secondary === "string"
-      ? { secondary: search.secondary }
-      : {}),
-  };
+  return APP_THEME_COLOR_SEARCH_KEYS.reduce<AppThemeColorSearch>(
+    (result, searchKey) => {
+      const colorToken = search[searchKey];
+      if (typeof colorToken === "string") {
+        result[searchKey] = colorToken;
+      }
+      return result;
+    },
+    {},
+  );
 }
 
 export function readAppThemeColors(
@@ -139,6 +145,7 @@ export function readAppThemeColors(
 ): AppThemeColors {
   return {
     base: search.base ?? DEFAULT_APP_THEME_COLORS.base,
+    border: search.border ?? DEFAULT_APP_THEME_COLORS.border,
     primary: search.primary ?? DEFAULT_APP_THEME_COLORS.primary,
     secondary: search.secondary ?? DEFAULT_APP_THEME_COLORS.secondary,
   };
@@ -149,6 +156,7 @@ function resolveAppThemeColorHexes(
 ): ResolvedAppThemeColors {
   return {
     base: getTailwindColorHex(themeColors.base),
+    border: getTailwindColorHex(themeColors.border),
     primary: getTailwindColorHex(themeColors.primary),
     secondary: getTailwindColorHex(themeColors.secondary),
   };
@@ -167,7 +175,10 @@ export function resolveAppThemeColorState({
 
   return {
     backgroundColor: resolvedThemeColors.base,
-    cacheKey: `${themeMode}:${resolvedThemeColors.base.slice(1)}:${resolvedThemeColors.primary.slice(1)}:${resolvedThemeColors.secondary.slice(1)}`,
+    cacheKey: [
+      themeMode,
+      ...APP_THEME_COLOR_KEYS.map((key) => resolvedThemeColors[key].slice(1)),
+    ].join(":"),
     faceColors,
     resolvedThemeColors,
     themeColors,

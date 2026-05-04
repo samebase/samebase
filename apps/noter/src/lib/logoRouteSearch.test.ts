@@ -26,6 +26,7 @@ describe("logoRouteSearch", () => {
         isoSide: "52",
         isoStyle: "flat",
         base: "sky-500",
+        border: "stone-300",
         dark: "",
         primary: "emerald-500",
         rot: "721",
@@ -35,6 +36,7 @@ describe("logoRouteSearch", () => {
     ).toEqual({
       axis: "screen-vertical",
       base: "sky-500",
+      border: "stone-300",
       dark: true,
       dev: true,
       elev: 32.4,
@@ -115,6 +117,7 @@ describe("logoRouteSearch", () => {
         isoSide: Number.NaN,
         isoStyle: "wireframe",
         base: null,
+        border: 2,
         primary: "not-a-color",
         rot: "not-a-number",
         secondary: 4,

@@ -142,10 +142,12 @@ type LogoPreviewPageProps = {
 
 const THEME_COLOR_LABELS: Record<AppThemeColorKey, string> = {
   base: "Base",
+  border: "Border",
   primary: "Primary",
   secondary: "Secondary",
 };
 const RGB_THEME_COLORS: AppThemeColors = {
+  ...DEFAULT_APP_THEME_COLORS,
   base: "blue-500",
   primary: "green-500",
   secondary: "red-500",
@@ -975,7 +977,7 @@ function readCanonicalLogoRouteSearch(
 
 const LOGO_ROUTE_SEARCH_KEYS = [
   "axis",
-  "base",
+  ...APP_THEME_COLOR_KEYS,
   "dev",
   "elev",
   "freeView",
@@ -983,8 +985,6 @@ const LOGO_ROUTE_SEARCH_KEYS = [
   "isoStyle",
   "dark",
   "light",
-  "primary",
-  "secondary",
   "rot",
   "vox",
 ] as const satisfies readonly (keyof LogoRouteSearch)[];

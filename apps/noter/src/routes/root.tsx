@@ -104,14 +104,20 @@ function useDeferredPostHogInit() {
 }
 
 function AppRouterRoot() {
-  const { base, dark, light, primary, secondary } = useRootRouteSearch();
+  const { base, border, dark, light, primary, secondary } =
+    useRootRouteSearch();
   const themeMode = readRootThemeMode({ dark, light });
   useDeferredPostHogInit();
 
   useLayoutEffect(() => {
-    syncDocumentThemeColorSearch({ base, primary, secondary });
+    syncDocumentThemeColorSearch({
+      base,
+      border,
+      primary,
+      secondary,
+    });
     syncDocumentRootThemeMode(themeMode);
-  }, [base, primary, secondary, themeMode]);
+  }, [base, border, primary, secondary, themeMode]);
 
   return (
     <>

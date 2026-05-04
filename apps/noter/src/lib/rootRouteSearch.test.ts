@@ -10,6 +10,7 @@ describe("rootRouteSearch", () => {
       validateRootRouteSearch({
         auth: "google",
         base: "#ffffff",
+        border: "stone-300",
         delete: "noter-md/noter",
         dark: "",
         dev: "",
@@ -22,6 +23,7 @@ describe("rootRouteSearch", () => {
     ).toEqual({
       auth: "google",
       base: "#ffffff",
+      border: "stone-300",
       delete: "noter-md/noter",
       dark: true,
       dev: true,
@@ -38,6 +40,7 @@ describe("rootRouteSearch", () => {
       validateRootRouteSearch({
         auth: "github",
         base: "bad",
+        border: "nope-500",
         delete: "missing-repo-separator",
         dev: "1",
         devtools: "false",
