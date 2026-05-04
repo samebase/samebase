@@ -300,6 +300,32 @@ This preserves the current product behavior while making the implementation more
 aligned with the future pane model: generic pane geometry remains pure, while
 React hooks own the browser and gesture lifecycle details.
 
+## Peek Width And Opposite Pane Access Follow-Up
+
+The mobile carousel currently keeps a small visual peek of neighboring panes.
+That peek is useful as a discovery hint, but it is also confusing when a side
+pane has merged with the main pane. In a merged fit, the user has already made
+the main pane visible beside a narrow side pane, so spending additional width on
+peek affordances makes both working panes thinner.
+
+The first phase should expose `mobilePanePeekWidthPx` on the workspace layout
+shell and keep the existing `24px` default. Routes that want pane-style behavior
+can set it to `0` so the future merged-pane work does not have to preserve
+unused peek gutters.
+
+The next phase should address the main product gap: when both side panes exist,
+a merged side pane plus visible main pane should still allow travel through the
+main pane to the opposite side pane. For example, after merging the left pane
+with the main pane, the user should be able to slide from the visible main pane
+toward the right pane. The transient merged geometry should survive that bridge
+instead of immediately restoring the main pane to full carousel width.
+
+That future behavior likely needs a transient "merged side" layout concept that
+is separate from the selected `mobilePane` value. Persisted mobile pane state
+can stay as `"left" | "main" | "right"`, while the controller remembers whether
+one side is merged and clears that transient state only when the viewport,
+behavior, or resize gesture invalidates it.
+
 ## Recommendation
 
 Use the prop as a compatibility bridge. The accepted spec now makes merge the

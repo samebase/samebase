@@ -30,7 +30,7 @@ const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
 export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 160;
 const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
 const WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX = 240;
-const MOBILE_PANE_PEEK_PX = 24;
+const DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX = 24;
 const MOBILE_PANE_SETTLED_TOLERANCE_PX = 1;
 const MOBILE_PANE_ORDER = ["left", "main", "right"] as const;
 const MOBILE_PANE_ORDER_WITHOUT_RIGHT = ["left", "main"] as const;
@@ -50,6 +50,7 @@ type WorkspaceLayoutV2Props = {
 
 type WorkspaceLayoutV2JustPanesProps = WorkspaceLayoutV2Props & {
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
+  mobilePanePeekWidthPx?: number;
   panel?: WorkspaceLayoutV2BottomPanelProps;
   showMobileResizeGripDots?: boolean;
 };
@@ -142,8 +143,15 @@ function getDesktopSidebarMaxWidthPx(viewportWidthPx: number) {
   );
 }
 
-function getMobileSidebarMaxWidthPx(viewportWidthPx: number) {
-  return Math.max(1, Math.floor(viewportWidthPx - MOBILE_PANE_PEEK_PX * 2));
+function getMobilePanePeekWidthPx(configuredPeekWidthPx: number) {
+  return Math.max(0, Math.round(configuredPeekWidthPx));
+}
+
+function getMobileSidebarMaxWidthPx(args: {
+  peekWidthPx: number;
+  viewportWidthPx: number;
+}) {
+  return Math.max(1, Math.floor(args.viewportWidthPx - args.peekWidthPx * 2));
 }
 
 function getMobileSidebarMinWidthPx(args: {
@@ -153,8 +161,11 @@ function getMobileSidebarMinWidthPx(args: {
   return clampNumber(Math.round(args.configuredMinWidthPx), 1, args.maxWidthPx);
 }
 
-function getMobilePaneWidthPx(viewportWidthPx: number) {
-  return Math.max(1, viewportWidthPx - MOBILE_PANE_PEEK_PX * 2);
+function getMobilePaneWidthPx(args: {
+  peekWidthPx: number;
+  viewportWidthPx: number;
+}) {
+  return Math.max(1, args.viewportWidthPx - args.peekWidthPx * 2);
 }
 
 function getMergedMobileMainWidthPx(args: {
@@ -267,6 +278,7 @@ function getMobilePaneScrollOffsets(args: {
   hasRightPane: boolean;
   leftWidthPx: number;
   mainWidthPx: number;
+  peekWidthPx: number;
   rightWidthPx: number;
   viewportWidthPx: number;
 }) {
@@ -279,7 +291,7 @@ function getMobilePaneScrollOffsets(args: {
     if (pane === "left") {
       return {
         pane,
-        scrollLeftPx: MOBILE_PANE_PEEK_PX,
+        scrollLeftPx: args.peekWidthPx,
       };
     }
 
@@ -299,7 +311,7 @@ function getMobilePaneScrollOffsets(args: {
         (args.hasLeftPane ? args.leftWidthPx : 0) +
           args.mainWidthPx +
           args.rightWidthPx +
-          MOBILE_PANE_PEEK_PX -
+          args.peekWidthPx -
           args.viewportWidthPx,
       ),
     };
@@ -322,6 +334,7 @@ function getMobilePaneFromScrollLeft(args: {
   hasRightPane: boolean;
   leftWidthPx: number;
   mainWidthPx: number;
+  peekWidthPx: number;
   rightWidthPx: number;
   scrollLeftPx: number;
   viewportWidthPx: number;
@@ -353,6 +366,7 @@ function isMobilePaneScrollSettled(
           hasLeftPane: args.hasLeftPane,
           leftWidthPx: args.leftWidthPx,
           mainWidthPx: args.mainWidthPx,
+          peekWidthPx: args.peekWidthPx,
           rightWidthPx: args.rightWidthPx,
           viewportWidthPx: args.viewportWidthPx,
         }),
@@ -393,6 +407,7 @@ function useWorkspaceLayoutV2MobileGripResizeController({
   leftWidthPx,
   mobileMinResizeBehavior,
   mobilePane,
+  peekWidthPx,
   rightWidthPx,
   viewportWidthPx,
 }: {
@@ -404,6 +419,7 @@ function useWorkspaceLayoutV2MobileGripResizeController({
   leftWidthPx: number;
   mobileMinResizeBehavior: WorkspaceLayoutV2MobileMinResizeBehavior;
   mobilePane: MobilePane;
+  peekWidthPx: number;
   rightWidthPx: number;
   viewportWidthPx: number;
 }) {
@@ -419,7 +435,10 @@ function useWorkspaceLayoutV2MobileGripResizeController({
     number | null
   >(null);
   const mobileMergedMainWidthPxRef = useRef<number | null>(null);
-  const mobileDefaultPaneWidthPx = getMobilePaneWidthPx(viewportWidthPx);
+  const mobileDefaultPaneWidthPx = getMobilePaneWidthPx({
+    peekWidthPx,
+    viewportWidthPx,
+  });
   const mobileMainWidthPx = mobileMergedMainWidthPx ?? mobileDefaultPaneWidthPx;
   const mobileActiveSideWidthPx =
     mobilePane === "left"
@@ -462,7 +481,7 @@ function useWorkspaceLayoutV2MobileGripResizeController({
     if (resizeHandle.side === "left") {
       return clampNumber(
         resizeHandle.positionPx - mobileGripSlideOffsetPx,
-        MOBILE_PANE_PEEK_PX,
+        peekWidthPx,
         resizeHandle.positionPx,
       );
     }
@@ -470,7 +489,7 @@ function useWorkspaceLayoutV2MobileGripResizeController({
     return clampNumber(
       resizeHandle.positionPx + mobileGripSlideOffsetPx,
       resizeHandle.positionPx,
-      Math.max(MOBILE_PANE_PEEK_PX, viewportWidthPx) - MOBILE_PANE_PEEK_PX,
+      Math.max(peekWidthPx, viewportWidthPx) - peekWidthPx,
     );
   }
 
@@ -522,6 +541,7 @@ function useWorkspaceLayoutV2MobileGripResizeController({
                   ? resizeHandle.minWidthPx
                   : leftWidthPx,
               mainWidthPx: settledMainWidthPx,
+              peekWidthPx,
               rightWidthPx:
                 resizeHandle.side === "right"
                   ? resizeHandle.minWidthPx
@@ -592,6 +612,7 @@ function useWorkspaceLayoutV2MobileGripResizeController({
               ? mergeResizeWidths.sideWidthPx
               : leftWidthPx,
           mainWidthPx: mergeResizeWidths.mainWidthPx,
+          peekWidthPx,
           rightWidthPx:
             resizeHandle.side === "right"
               ? mergeResizeWidths.sideWidthPx
@@ -624,6 +645,7 @@ function useWorkspaceLayoutV2MobileGripResizeController({
       leftWidthPx:
         resizeHandle.side === "left" ? clampedRawWidthPx : leftWidthPx,
       mainWidthPx: mobileDefaultPaneWidthPx,
+      peekWidthPx,
       rightWidthPx:
         resizeHandle.side === "right" ? clampedRawWidthPx : rightWidthPx,
       viewportWidthPx,
@@ -675,6 +697,7 @@ function useWorkspaceLayoutV2MobileCarouselController({
   mainWidthPx,
   mobileMergedMainWidthPxRef,
   mobilePane,
+  peekWidthPx,
   rightWidthPx,
   setMobilePane,
   viewportWidthPx,
@@ -688,6 +711,7 @@ function useWorkspaceLayoutV2MobileCarouselController({
   mainWidthPx: number;
   mobileMergedMainWidthPxRef: RefObject<number | null>;
   mobilePane: MobilePane;
+  peekWidthPx: number;
   rightWidthPx: number;
   setMobilePane: Dispatch<SetStateAction<MobilePane>>;
   viewportWidthPx: number;
@@ -708,6 +732,7 @@ function useWorkspaceLayoutV2MobileCarouselController({
       hasRightPane,
       leftWidthPx,
       mainWidthPx: currentMobileMainWidthPx,
+      peekWidthPx,
       rightWidthPx,
       scrollLeftPx: carouselNode.scrollLeft,
       viewportWidthPx,
@@ -719,6 +744,7 @@ function useWorkspaceLayoutV2MobileCarouselController({
         leftWidthPx,
         mainWidthPx: currentMobileMainWidthPx,
         pane: nextPane,
+        peekWidthPx,
         rightWidthPx,
         scrollLeftPx: carouselNode.scrollLeft,
         viewportWidthPx,
@@ -764,6 +790,7 @@ function useWorkspaceLayoutV2MobileCarouselController({
       hasRightPane,
       leftWidthPx,
       mainWidthPx,
+      peekWidthPx,
       rightWidthPx,
       viewportWidthPx,
     });
@@ -796,6 +823,7 @@ function useWorkspaceLayoutV2MobileCarouselController({
     leftWidthPx,
     mobilePane,
     mainWidthPx,
+    peekWidthPx,
     rightWidthPx,
     viewportWidthPx,
   ]);
@@ -849,6 +877,7 @@ function useWorkspaceLayoutV2MobileCarouselController({
     hasLeftPane,
     leftWidthPx,
     mainWidthPx,
+    peekWidthPx,
     rightWidthPx,
     viewportWidthPx,
   ]);
@@ -936,6 +965,7 @@ type WorkspaceLayoutV2MobileViewportProps =
     lockCarouselScroll: boolean;
     mobilePane: MobilePane;
     paneWidthPx: number;
+    peekWidthPx: number;
     rightWidthPx: number;
     showLeftPane: boolean;
     showRightPane: boolean;
@@ -949,6 +979,7 @@ function WorkspaceLayoutV2MobileViewport({
   mainContent,
   mobilePane,
   paneWidthPx,
+  peekWidthPx,
   rightContent,
   rightWidthPx,
   showLeftPane,
@@ -963,8 +994,8 @@ function WorkspaceLayoutV2MobileViewport({
         lockCarouselScroll ? "overflow-x-hidden" : "overflow-x-auto",
       )}
       style={{
-        paddingLeft: `${MOBILE_PANE_PEEK_PX}px`,
-        paddingRight: `${MOBILE_PANE_PEEK_PX}px`,
+        paddingLeft: `${peekWidthPx}px`,
+        paddingRight: `${peekWidthPx}px`,
       }}
     >
       {showLeftPane ? (
@@ -1073,6 +1104,7 @@ export function WorkspaceLayoutV2FullPage({
   left,
   main,
   mobileMinResizeBehavior = "min_resize_to_merge",
+  mobilePanePeekWidthPx = DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX,
   panel,
   right,
   leftToggleVisibility = "desktop",
@@ -1083,6 +1115,7 @@ export function WorkspaceLayoutV2FullPage({
   left?: WorkspaceLayoutV2PaneFrameProps;
   main: WorkspaceLayoutV2PaneFrameProps;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
+  mobilePanePeekWidthPx?: number;
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: WorkspaceLayoutV2PaneFrameProps;
   leftToggleVisibility?: WorkspaceLayoutV2LeftToggleVisibility;
@@ -1130,6 +1163,7 @@ export function WorkspaceLayoutV2FullPage({
           />
         }
         mobileMinResizeBehavior={mobileMinResizeBehavior}
+        mobilePanePeekWidthPx={mobilePanePeekWidthPx}
         panel={panel}
         right={hasRightPane ? <WorkspaceLayoutV2PaneFrame {...right} /> : null}
         showMobileResizeGripDots={showMobileResizeGripDots}
@@ -1164,6 +1198,8 @@ export function WorkspaceLayoutV2JustPanes({
   left,
   main,
   mobileMinResizeBehavior = "min_resize_to_merge",
+  mobilePanePeekWidthPx:
+    configuredMobilePanePeekWidthPx = DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX,
   panel,
   right,
   showMobileResizeGripDots,
@@ -1193,6 +1229,9 @@ export function WorkspaceLayoutV2JustPanes({
   const hasRightPane = right !== null && right !== undefined;
   const shouldShowMobileResizeGripDots =
     showMobileResizeGripDots ?? shouldShowMobileResizeGripDotsByDefault();
+  const mobilePanePeekWidthPx = getMobilePanePeekWidthPx(
+    configuredMobilePanePeekWidthPx,
+  );
   const mobilePane =
     (!hasLeftPane && rawMobilePane === "left") ||
     (!hasRightPane && rawMobilePane === "right")
@@ -1216,9 +1255,10 @@ export function WorkspaceLayoutV2JustPanes({
   const desktopSidebarMaxWidthPx = getDesktopSidebarMaxWidthPx(
     viewportSize.widthPx,
   );
-  const mobileSidebarMaxWidthPx = getMobileSidebarMaxWidthPx(
-    viewportSize.widthPx,
-  );
+  const mobileSidebarMaxWidthPx = getMobileSidebarMaxWidthPx({
+    peekWidthPx: mobilePanePeekWidthPx,
+    viewportWidthPx: viewportSize.widthPx,
+  });
   const mobileSidebarMinWidthPx = getMobileSidebarMinWidthPx({
     configuredMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
     maxWidthPx: mobileSidebarMaxWidthPx,
@@ -1250,6 +1290,7 @@ export function WorkspaceLayoutV2JustPanes({
     leftWidthPx: mobileLeftWidthPx,
     mobileMinResizeBehavior,
     mobilePane,
+    peekWidthPx: mobilePanePeekWidthPx,
     rightWidthPx: mobileRightWidthPx,
     viewportWidthPx: viewportSize.widthPx,
   });
@@ -1263,6 +1304,7 @@ export function WorkspaceLayoutV2JustPanes({
     mainWidthPx: mobileGripResize.mobileMainWidthPx,
     mobileMergedMainWidthPxRef: mobileGripResize.mobileMergedMainWidthPxRef,
     mobilePane,
+    peekWidthPx: mobilePanePeekWidthPx,
     rightWidthPx: mobileRightWidthPx,
     setMobilePane,
     viewportWidthPx: viewportSize.widthPx,
@@ -1451,6 +1493,7 @@ export function WorkspaceLayoutV2JustPanes({
             mainContent={mainViewportContent}
             mobilePane={mobilePane}
             paneWidthPx={mobileGripResize.mobileMainWidthPx}
+            peekWidthPx={mobilePanePeekWidthPx}
             rightContent={resolvedRightContent}
             rightWidthPx={mobileRightWidthPx}
             showLeftPane={hasLeftPane}
