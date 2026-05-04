@@ -4,6 +4,7 @@ import {
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "./lib/codexAppServerResearch";
 import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "./lib/landingMarkdownPreview";
+import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "./lib/noterSync";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 
@@ -16,6 +17,7 @@ export const routes = rootRoute("root.tsx", [
   layout("public", "public-layout.tsx", [
     index("index.tsx"),
     route("/home", "home.tsx"),
+    route(LOCAL_STORAGE_ROUTE, "localStorage.tsx"),
     route("/privacy", "privacy.tsx"),
     route("/terms", "terms.tsx"),
   ]),

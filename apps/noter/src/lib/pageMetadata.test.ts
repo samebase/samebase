@@ -234,6 +234,25 @@ describe("page metadata", () => {
     expect(resolveAppPageTitle("/machines")).toBe("Machines | noter");
   });
 
+  it("keeps the localStorage diagnostic route public but non-indexed", () => {
+    withFakeDocument((document) => {
+      applyPageMetadata(
+        resolvePageMetadata({
+          pathname: "/localStorage",
+          isAuthenticated: false,
+        }),
+      );
+
+      expect(document.title).toBe("localStorage | noter");
+      expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
+        "https://noter.md/localStorage",
+      );
+      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe(
+        "noindex,nofollow",
+      );
+    });
+  });
+
   it("builds dedicated not-found metadata without indexing the missing path", () => {
     expect(resolveNotFoundPageMetadata("/missing")).toEqual({
       canonicalPath: "/missing",

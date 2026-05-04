@@ -1,0 +1,88 @@
+export type LocalStorageEntry = {
+  key: string;
+  value: string;
+};
+
+export type LocalStorageSnapshot =
+  | {
+      kind: "available";
+      entries: LocalStorageEntry[];
+    }
+  | {
+      kind: "unavailable";
+      errorMessage: string;
+    };
+
+type ReadableLocalStorage = Pick<Storage, "getItem" | "key" | "length">;
+
+function compareStorageKeys(left: string, right: string): number {
+  if (left < right) {
+    return -1;
+  }
+
+  if (left > right) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function readStorageErrorMessage(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : "localStorage could not be read.";
+}
+
+/**
+ * Captures raw localStorage strings in a stable order without parsing,
+ * truncating, or normalizing the stored values.
+ */
+export function readLocalStorageSnapshot(
+  storage: ReadableLocalStorage,
+): LocalStorageSnapshot {
+  try {
+    const keys: string[] = [];
+
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key !== null) {
+        keys.push(key);
+      }
+    }
+
+    keys.sort(compareStorageKeys);
+
+    const entries: LocalStorageEntry[] = [];
+    for (const key of keys) {
+      const value = storage.getItem(key);
+      if (value !== null) {
+        entries.push({ key, value });
+      }
+    }
+
+    return { kind: "available", entries };
+  } catch (error) {
+    return {
+      kind: "unavailable",
+      errorMessage: readStorageErrorMessage(error),
+    };
+  }
+}
+
+export function readBrowserLocalStorageSnapshot(): LocalStorageSnapshot {
+  if (typeof window === "undefined") {
+    return {
+      kind: "unavailable",
+      errorMessage: "localStorage is only available in a browser.",
+    };
+  }
+
+  try {
+    return readLocalStorageSnapshot(window.localStorage);
+  } catch (error) {
+    return {
+      kind: "unavailable",
+      errorMessage: readStorageErrorMessage(error),
+    };
+  }
+}

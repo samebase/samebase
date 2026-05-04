@@ -132,6 +132,12 @@ vi.mock("@/components/LandingMarkdownPreviewPage", () => ({
   ),
 }));
 
+vi.mock("@/components/LocalStorageWorkspacePage", () => ({
+  LocalStorageWorkspacePage: () => (
+    <div data-testid="local-storage-page">Local storage page</div>
+  ),
+}));
+
 vi.mock("@/components/CodespaceChatOnlyView", () => ({
   CodespaceChatOnlyView: () => (
     <div data-testid="codespace-chat-page">Codespace chat page</div>
@@ -566,6 +572,20 @@ describe("appRouter", () => {
         '[data-testid="landing-markdown-preview-page"]',
       )?.textContent,
     ).toContain("Landing markdown preview page");
+    expect(
+      rootElement?.querySelector('[data-testid="not-found-route"]'),
+    ).toBeNull();
+  });
+
+  it("renders localStorage through an explicit public route without the landing shell", async () => {
+    await renderRoute("/localStorage");
+
+    expect(
+      rootElement?.querySelector('[data-testid="local-storage-page"]')
+        ?.textContent,
+    ).toBe("Local storage page");
+    expect(rootElement?.querySelector('[data-testid="layout"]')).not.toBeNull();
+    expect(publicLayoutMountMock).not.toHaveBeenCalled();
     expect(
       rootElement?.querySelector('[data-testid="not-found-route"]'),
     ).toBeNull();
