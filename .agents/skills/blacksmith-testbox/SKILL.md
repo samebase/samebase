@@ -27,6 +27,10 @@ blacksmith testbox warmup blacksmith-testbox.yml \
   --job playwright
 ```
 
+The workflow file must already exist on GitHub's default branch before warmup
+can dispatch it. If `warmup` returns a GitHub workflow-dispatch `404`, land the
+Testbox setup PR first, then retry from the implementation branch.
+
 Save the returned `tbx_...` id for later commands. The remote warmup prepares
 the same setup steps as the generated Playwright workflow: checkout, pnpm, Node,
 dependencies, Convex bootstrap, preview build, and Chromium install.
