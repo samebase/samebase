@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { PNG } from "pngjs";
 import { PUBLIC_RIGHT_SIDEBAR_ROUTE_URL_HEADER_TEST_ID } from "../src/components/PublicRightSidebar";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
+import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
 
 async function waitForPaint(page: Page) {
   await page.evaluate(async () => {
@@ -89,6 +90,9 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   await expect(
     publicLinks.getByRole("link", { name: "/home", exact: true }),
   ).toHaveAttribute("href", "/?dev");
+  await expect(
+    publicLinks.getByRole("link", { name: LOCAL_STORAGE_ROUTE, exact: true }),
+  ).toHaveAttribute("href", `${LOCAL_STORAGE_ROUTE}?dev`);
   await expect(
     publicLinks.getByRole("link", { name: "/terms", exact: true }),
   ).toHaveAttribute("href", "/terms?dev");

@@ -13,6 +13,7 @@ import {
   LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
   LANDING_MARKDOWN_PREVIEW_ROUTE,
 } from "@/lib/landingMarkdownPreview";
+import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
 import {
   FORCE_PROD_UI_MODE_LINK_LABEL,
   FORCE_PROD_UI_QUERY_PARAM,
@@ -111,6 +112,7 @@ describe("Layout", () => {
     expect(markup).toContain('tabindex="-1"');
     expect(markup).toContain("text-background");
     expect(markup).toContain("/home");
+    expect(markup).not.toContain(LOCAL_STORAGE_ROUTE);
     expect(markup).not.toContain("/pricing");
     expect(markup).toContain(LANDING_DEV_MODE_LINK_LABEL);
     expect(markup).not.toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
@@ -216,6 +218,42 @@ describe("Layout", () => {
     expect(rightRailMarkup).toContain("text-left");
     expect(rightRailMarkup).toContain("flex-row");
     expect(rightRailMarkup).not.toContain("flex-row-reverse");
+    expect(rightRailMarkup).not.toContain(LOCAL_STORAGE_ROUTE);
+  });
+
+  it("shows the localStorage link only in the right dev sidebar", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    const landingDevPath = buildPathWithTanStackSearch({
+      pathname: "/",
+      search: {
+        [LANDING_DEV_MODE_QUERY_PARAM]: true,
+      },
+    });
+
+    const leftRailMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[landingDevPath]}>
+        <AppSidebarMetaSection />
+      </TestRouterProvider>,
+    );
+    const rightRailMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[landingDevPath]}>
+        <AppSidebarMetaSection side="right" />
+      </TestRouterProvider>,
+    );
+
+    expect(leftRailMarkup).not.toContain(LOCAL_STORAGE_ROUTE);
+    expect(rightRailMarkup).toContain(
+      `href="${encodeStaticHref(
+        buildPathWithTanStackSearch({
+          pathname: LOCAL_STORAGE_ROUTE,
+          search: {
+            [LANDING_DEV_MODE_QUERY_PARAM]: true,
+          },
+        }),
+      )}"`,
+    );
   });
 
   it("keeps search-param shortcuts above a stable path list", () => {

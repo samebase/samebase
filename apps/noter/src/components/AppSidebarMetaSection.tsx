@@ -17,6 +17,7 @@ import {
   LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
   LANDING_MARKDOWN_PREVIEW_ROUTE,
 } from "@/lib/landingMarkdownPreview";
+import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
 import {
   FORCE_PROD_UI_MODE_LINK_LABEL,
   FORCE_PROD_UI_QUERY_PARAM,
@@ -216,6 +217,9 @@ export function AppSidebarMetaSection({
       </Link>
       {/* `/home` routes through `/` to avoid a first-paint logo flash. */}
       <Link to="/">/home</Link>
+      {side === "right" && landingDevEnabled ? (
+        <Link to={LOCAL_STORAGE_ROUTE}>{LOCAL_STORAGE_ROUTE}</Link>
+      ) : null}
       {showMachineLinks ? (
         <>
           <Link to={MACHINES_ROUTE}>{MACHINES_ROUTE}</Link>
