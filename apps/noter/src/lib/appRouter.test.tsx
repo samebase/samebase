@@ -367,13 +367,13 @@ describe("appRouter", () => {
     ).toBe("three");
     expect(
       new URLSearchParams(router.state.location.searchStr).has("dev"),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       rootElement?.querySelector('[data-testid="not-found-route"]'),
     ).toBeNull();
   });
 
-  it("adds dev to direct logo loads without dropping route search or hash", async () => {
+  it("keeps direct logo loads from adding dev or dropping route search and hash", async () => {
     const router = await renderRoute(
       buildPathWithTanStackSearch({
         pathname: "/logo",
@@ -387,7 +387,7 @@ describe("appRouter", () => {
     const searchParams = new URLSearchParams(router.state.location.searchStr);
 
     expect(router.state.location.pathname).toBe("/logo");
-    expect(searchParams.has("dev")).toBe(true);
+    expect(searchParams.has("dev")).toBe(false);
     expect(searchParams.has("devtools")).toBe(true);
     expect(searchParams.get("rot")).toBe("10");
     expect(router.state.location.hash).toBe("top");
@@ -417,7 +417,7 @@ describe("appRouter", () => {
     const searchParams = new URLSearchParams(router.state.location.searchStr);
 
     expect(router.state.location.pathname).toBe("/logo/iso");
-    expect(searchParams.has("dev")).toBe(true);
+    expect(searchParams.has("dev")).toBe(false);
     expect(searchParams.has("devtools")).toBe(true);
     expect(searchParams.get("primary")).toBe("red-600");
   });
@@ -471,7 +471,7 @@ describe("appRouter", () => {
     const searchParams = new URLSearchParams(router.state.location.searchStr);
 
     expect(router.state.location.pathname).toBe("/logo/iso");
-    expect(searchParams.has("dev")).toBe(true);
+    expect(searchParams.has("dev")).toBe(false);
     expect(searchParams.has("light")).toBe(true);
     expect(searchParams.has("dark")).toBe(false);
   });

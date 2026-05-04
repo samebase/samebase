@@ -206,8 +206,8 @@ export function buildLogoRouteSearch(args: {
 }
 
 /**
- * Logo routes force the public dev shell on direct loads; query-state sync must
- * carry that route-shell flag forward instead of fighting the route redirect.
+ * Logo control updates rebuild route state; keep the public dev flag only while
+ * the operator has that root shell mode enabled.
  */
 export function preserveLogoRouteDevModeSearch(
   nextSearch: LogoRouteSearch,

@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LogoPreviewPage } from "@/components/LogoPreviewPage";
-import { ensureLogoRouteDevModeSearch } from "@/lib/logoRouteDevMode";
 import { validateLogoRouteSearch } from "@/lib/logoRouteSearch";
 import { RoutedPage } from "./-publicRouteComponents";
 
@@ -27,13 +26,6 @@ function LogoThreeRouteComponent() {
 }
 
 export const Route = createFileRoute(pathname)({
-  beforeLoad: ({ location, search }) => {
-    ensureLogoRouteDevModeSearch({
-      hash: location.hash,
-      pathname,
-      search,
-    });
-  },
   component: LogoThreeRouteComponent,
   validateSearch: validateLogoRouteSearch,
 });
