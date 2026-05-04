@@ -261,6 +261,45 @@ contract when `main` and `sidebar` are no longer distinct layout roles.
   pane, including the current main pane. This research does not solve that full
   model.
 
+## WorkspaceLayoutV2 Simplification Follow-Up
+
+After the first merge-mode implementation, `WorkspaceLayoutV2JustPanes` still
+owns several concerns in one render body:
+
+- pane geometry and min/max resolution
+- carousel DOM synchronization
+- scroll-derived mobile pane selection
+- active resize state for desktop handles, panel handles, and mobile grips
+- mobile grip session mechanics for slide and merge behaviors
+
+The local TanStack Store usage in `LogoPreviewPage` and the vault dashboard
+shows a useful pattern for route-local controls, but swapping `useState` for a
+store inside the same monolithic component would not by itself simplify this
+layout. The hard part is not the storage primitive; it is that browser
+subscriptions, gesture sessions, and pane geometry are interleaved.
+
+The better simplification path is to split controller ownership first:
+
+1. Extract carousel synchronization into a hook that owns the mobile carousel
+   ref, first-paint alignment, scroll-derived pane writes, and settled-state
+   tracking.
+2. Use React's `useEffectEvent` for scroll synchronization callbacks that need
+   fresh pane geometry without resubscribing the browser scroll listener on
+   every render. The existing `useAnimationFrameLoop` hook is the local pattern
+   for this style.
+3. Extract mobile grip resize mechanics into a hook or small controller that
+   owns the transient merge width, grip slide offset, and resize-session refs.
+4. Keep pane math as pure helpers. Geometry helpers are already easier to test
+   and reason about than React stateful code.
+5. Consider TanStack Store only after the component has smaller children that
+   would benefit from slice subscriptions. A store is likely useful for a future
+   pane controller shared across panes, but it is not the first simplification
+   lever for the current shell.
+
+This preserves the current product behavior while making the implementation more
+aligned with the future pane model: generic pane geometry remains pure, while
+React hooks own the browser and gesture lifecycle details.
+
 ## Recommendation
 
 Use the prop as a compatibility bridge. The accepted spec now makes merge the
