@@ -15,7 +15,9 @@ async function gotoFileViewFixture(
   const mode =
     options?.minResizeBehavior === "merge"
       ? "fileview-layout-merge"
-      : "fileview-layout-persistence";
+      : options?.minResizeBehavior === "slide"
+        ? "fileview-layout-slide"
+        : "fileview-layout-persistence";
   await page.goto(`/visual-fixture.html?mode=${mode}`, {
     waitUntil: "domcontentloaded",
   });
@@ -371,7 +373,7 @@ test("fileview mobile merge resize keeps the sidebar beside a complete main pane
 test("fileview mobile sidebar grips recenter when dragged past the minimum", async ({
   page,
 }) => {
-  await gotoFileViewFixture(page);
+  await gotoFileViewFixture(page, { minResizeBehavior: "slide" });
 
   const minWidthPx = await getMobileSidebarMinWidthPx(page);
   const slidePastMinimumPx = minWidthPx;

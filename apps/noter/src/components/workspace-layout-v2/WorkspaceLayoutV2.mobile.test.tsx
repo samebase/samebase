@@ -681,7 +681,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(rightHandle.parentElement?.style.left).toBe("294px");
   });
 
-  it("lets merge mode finish a below-min left resize into a fitted main pane", () => {
+  it("lets default merge mode finish a below-min left resize into a fitted main pane", () => {
     vi.useFakeTimers();
     try {
       const mountedRoot = root;
@@ -694,7 +694,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           renderMobileLayout({
             controlMobileWidths: false,
             leftMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
-            mobileMinResizeBehavior: "min_resize_to_merge",
             mobilePane: "left",
             showMobileResizeGripDots: true,
           }),

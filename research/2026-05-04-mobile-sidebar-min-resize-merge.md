@@ -263,11 +263,13 @@ contract when `main` and `sidebar` are no longer distinct layout roles.
 
 ## Recommendation
 
-Use the prop as a narrow compatibility bridge:
+Use the prop as a compatibility bridge. The accepted spec now makes merge the
+WorkspaceLayoutV2 default while keeping slide available for explicit fixture or
+route callsites:
 
-- keep current slide behavior by default
-- add merge behavior only where the route wants a narrow adjacent pane beside a
-  complete main pane
+- use merge behavior by default where the route wants a narrow adjacent pane
+  beside a complete main pane
+- keep current slide behavior only for explicit compatibility callsites
 - decouple side-pane minimum width from `MOBILE_PANE_PEEK_PX`
 - in merge mode, transform below-min drag into adjacent main-pane resizing
   instead of carousel scroll

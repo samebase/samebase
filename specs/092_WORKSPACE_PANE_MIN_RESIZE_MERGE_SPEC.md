@@ -108,8 +108,9 @@ not as derivations from the peek constant.
 type MobileMinResizeBehavior = "min_resize_to_slide" | "min_resize_to_merge";
 ```
 
-The default behavior is `"min_resize_to_slide"` so existing shipped routes keep
-their current motion and tests.
+The default behavior is `"min_resize_to_merge"` so V2 workspace surfaces get the
+pane-style two-pane fit unless a fixture or route explicitly requests legacy
+slide behavior.
 
 In `"min_resize_to_slide"` mode:
 
@@ -189,7 +190,7 @@ it should be passed through `WorkspaceLayoutV2FullPage` /
 Add a `mobileMinResizeBehavior` prop to `WorkspaceLayoutV2FullPage` and
 `WorkspaceLayoutV2JustPanes`.
 
-Default it to `"min_resize_to_slide"`.
+Default it to `"min_resize_to_merge"`.
 
 ### Step 2. Split Pane Constraints From Peek
 
@@ -202,16 +203,15 @@ unless the caller explicitly asks for the same value.
 
 ### Step 3. Preserve Slide Mode
 
-Keep the current raw-size-to-scroll handoff for `"min_resize_to_slide"`.
-
-Existing tests that expect resize past minimum to recenter on main should remain
-valid for this default mode.
+Keep the current raw-size-to-scroll handoff for explicit `"min_resize_to_slide"`
+callsites.
 
 ### Step 4. Add Merge Mode
 
-For `"min_resize_to_merge"`, reuse the same raw-size overflow signal that slide
-mode already uses. Instead of writing that overflow into carousel scroll, write
-it into a transient main-pane width.
+For `"min_resize_to_merge"`, resolve the side pane and adjacent main pane from
+the same raw resize delta. Instead of switching from resize math into carousel
+scroll, keep the active side pane selected and write the paired result into the
+side width plus a transient main-pane width.
 
 The active side pane should remain the selected `mobilePane` while the grip is
 dragging. The user should see the main pane expand beside the minimized side
@@ -236,7 +236,7 @@ Add focused unit coverage for the sizing math:
 
 Add route-level or honest production-component coverage for interaction:
 
-- default slide mode still recenters to main after dragging past side min
+- explicit slide mode still recenters to main after dragging past side min
 - merge mode keeps `data-mobile-pane` on the active side pane after dragging
   past side min
 - merge mode changes the rendered main-pane width during or after the drag
@@ -249,10 +249,10 @@ update screenshot coverage for that shipped route or fixture.
 
 - The spec and research agree that pane min/max constraints are independent from
   visual peek width.
-- Current slide behavior remains the default.
-- Merge behavior is available as an explicit shell prop.
-- Merge behavior converts below-min side-pane resize into adjacent main-pane
+- Merge behavior remains the default for V2 workspace layout surfaces.
+- Current slide behavior remains available through an explicit shell prop.
+- Merge behavior converts minimum-boundary resize into paired side/main-pane
   resize, not carousel scroll.
 - No persisted workspace sidebar state migration is required.
-- Focused tests cover both the default slide mode and opt-in merge mode before
+- Focused tests cover both the default merge mode and explicit slide mode before
   the feature is used in shipped UI.
