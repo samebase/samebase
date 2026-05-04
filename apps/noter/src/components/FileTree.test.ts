@@ -78,6 +78,17 @@ describe("buildEffectiveFolderExpansionStates", () => {
 });
 
 describe("FileTree", () => {
+  it("renders nothing for an empty tree", () => {
+    const markup = renderToStaticMarkup(
+      createElement(FileTree, {
+        folderExpansionStates: [],
+        items: [],
+      }),
+    );
+
+    expect(markup).toBe("");
+  });
+
   it("renders read-only labeled links without a dialog provider", () => {
     const markup = renderToStaticMarkup(
       createElement(FileTree, {

@@ -17,7 +17,12 @@ import {
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import landingPreviewMarkdown from "@/content/landing-preview.md?raw";
 import landingPreviewRomanianMarkdown from "@/content/landing-preview.ro.md?raw";
-import { useState, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 
 const LANDING_MARKDOWN_BY_LANGUAGE = {
   en: landingPreviewMarkdown,
@@ -279,10 +284,14 @@ function LandingMarkdownPreviewSidebar({
   const { isMobile, mobilePane } = useSidebar();
   const landingPreviewHeadings =
     LANDING_MARKDOWN_HEADINGS_BY_LANGUAGE[language];
-  const landingPreviewHelpCenter = getLandingPreviewHelpCenter({
-    headings: landingPreviewHeadings,
-    includeElementIds: isMobile,
-  });
+  const landingPreviewHelpCenter = useMemo(
+    () =>
+      getLandingPreviewHelpCenter({
+        headings: landingPreviewHeadings,
+        includeElementIds: isMobile,
+      }),
+    [isMobile, landingPreviewHeadings],
+  );
   const [folderExpansionStates, setFolderExpansionStates] = useState(
     () => landingPreviewHelpCenter.folderExpansionStates,
   );
@@ -291,6 +300,25 @@ function LandingMarkdownPreviewSidebar({
       landingPreviewHelpCenter.pathByHeadingId,
     ),
   );
+
+  useEffect(() => {
+    function syncSelectedFileWithLocation() {
+      setSelectedFile(
+        getLandingPreviewSelectedHelpCenterPath(
+          landingPreviewHelpCenter.pathByHeadingId,
+        ),
+      );
+    }
+
+    window.addEventListener("hashchange", syncSelectedFileWithLocation);
+    window.addEventListener("popstate", syncSelectedFileWithLocation);
+    syncSelectedFileWithLocation();
+
+    return () => {
+      window.removeEventListener("hashchange", syncSelectedFileWithLocation);
+      window.removeEventListener("popstate", syncSelectedFileWithLocation);
+    };
+  }, [landingPreviewHelpCenter.pathByHeadingId]);
 
   return (
     <nav

@@ -625,11 +625,7 @@ export function FileTree({
   );
 
   if (items.length === 0) {
-    return (
-      <div className="p-4 text-sm md:text-xs text-muted-foreground">
-        No files found
-      </div>
-    );
+    return null;
   }
 
   return (
