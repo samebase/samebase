@@ -35,6 +35,13 @@ async function gotoVisualFixtureDirectory(
   await page.waitForLoadState("networkidle");
 }
 
+async function gotoLogoPage(page: Page) {
+  await page.goto("/logo?dev", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+}
+
 async function dispatchViewportTouchSwipe(
   page: Page,
   args: {
@@ -116,6 +123,18 @@ function getFileViewLayoutShell(page: Page) {
   return page.locator("[data-mobile-pane]").first();
 }
 
+async function getMobileMainPaneWidthPx(page: Page) {
+  return Math.round(
+    (
+      await page
+        .locator(
+          '[data-testid="workspace-layout-v2-pane-main"] [data-workspace-layout-v2-mobile-main-pane]',
+        )
+        .boundingBox()
+    )?.width ?? 0,
+  );
+}
+
 async function scrollFileViewCarouselToPane(
   page: Page,
   pane: "left" | "main" | "right",
@@ -123,7 +142,9 @@ async function scrollFileViewCarouselToPane(
   await page
     .getByTestId("workspace-layout-v2-pane-main")
     .evaluate((element, nextPane) => {
-      const mainPane = element.querySelector(".snap-center");
+      const mainPane = element.querySelector(
+        "[data-workspace-layout-v2-mobile-main-pane]",
+      );
       if (!(mainPane instanceof HTMLElement)) {
         throw new Error("Expected mobile carousel main pane.");
       }
@@ -131,7 +152,8 @@ async function scrollFileViewCarouselToPane(
         window.getComputedStyle(element).paddingLeft,
       );
 
-      element.style.scrollSnapType = "";
+      const previousScrollSnapType = element.style.scrollSnapType;
+      element.style.scrollSnapType = "none";
       element.scrollLeft =
         nextPane === "left"
           ? panePeekPx
@@ -139,6 +161,9 @@ async function scrollFileViewCarouselToPane(
             ? mainPane.offsetLeft - panePeekPx
             : element.scrollWidth - element.clientWidth;
       element.dispatchEvent(new Event("scroll", { bubbles: true }));
+      window.setTimeout(() => {
+        element.style.scrollSnapType = previousScrollSnapType;
+      }, 0);
     }, pane);
 
   await expect(getFileViewLayoutShell(page)).toHaveAttribute(
@@ -159,6 +184,19 @@ async function dragHandleByPx(page: Page, testId: string, deltaX: number) {
 }
 
 async function touchDragHandleByPx(page: Page, testId: string, deltaX: number) {
+  await touchDragHandleThroughDeltas(page, testId, [
+    deltaX / 4,
+    deltaX / 2,
+    (deltaX * 3) / 4,
+    deltaX,
+  ]);
+}
+
+async function touchDragHandleThroughDeltas(
+  page: Page,
+  testId: string,
+  deltaXs: ReadonlyArray<number>,
+) {
   const handleBox = await getBox(page, testId);
   const startX = handleBox.x + handleBox.width / 2;
   const startY = handleBox.y + handleBox.height / 2;
@@ -179,25 +217,35 @@ async function touchDragHandleByPx(page: Page, testId: string, deltaX: number) {
     touchPoints: [touchPoint],
   });
 
-  for (const step of [1, 2, 3, 4]) {
+  for (const [stepIndex, deltaX] of deltaXs.entries()) {
     await page.waitForTimeout(16);
     await session.send("Input.dispatchTouchEvent", {
-      timestamp: (gestureStartTimeMs + step * 16) / 1000,
+      timestamp: (gestureStartTimeMs + (stepIndex + 1) * 16) / 1000,
       type: "touchMove",
       touchPoints: [
         {
           ...touchPoint,
-          x: startX + (deltaX * step) / 4,
+          x: startX + deltaX,
         },
       ],
     });
   }
 
   await session.send("Input.dispatchTouchEvent", {
-    timestamp: (gestureStartTimeMs + 80) / 1000,
+    timestamp: (gestureStartTimeMs + (deltaXs.length + 1) * 16) / 1000,
     type: "touchEnd",
     touchPoints: [],
   });
+}
+
+async function scrollMobileCarouselByPx(page: Page, deltaPx: number) {
+  await page
+    .getByTestId("workspace-layout-v2-pane-main")
+    .evaluate((element, deltaPx) => {
+      element.style.scrollSnapType = "none";
+      element.scrollLeft += deltaPx;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    }, deltaPx);
 }
 
 test("fileview mobile carousel moves between left, main, and right panes", async ({
@@ -361,13 +409,215 @@ test("fileview mobile merge resize keeps the sidebar beside a complete main pane
         (
           await page
             .locator(
-              '[data-testid="workspace-layout-v2-pane-main"] > .snap-center',
+              '[data-testid="workspace-layout-v2-pane-main"] [data-workspace-layout-v2-mobile-main-pane]',
             )
             .boundingBox()
         )?.width ?? 0,
       ),
     )
     .toBe(viewportWidthPx - minWidthPx);
+
+  await scrollFileViewCarouselToPane(page, "right");
+  await expect(
+    page.getByTestId("workspace-layout-v2-right-resize"),
+  ).toHaveCount(1);
+  await expect
+    .poll(async () =>
+      Math.round(
+        (
+          await page
+            .locator(
+              '[data-testid="workspace-layout-v2-pane-main"] [data-workspace-layout-v2-mobile-main-pane]',
+            )
+            .boundingBox()
+        )?.width ?? 0,
+      ),
+    )
+    .toBe(viewportWidthPx - minWidthPx);
+
+  await scrollFileViewCarouselToPane(page, "left");
+  await expect
+    .poll(async () =>
+      Math.round(
+        (
+          await page
+            .locator(
+              '[data-testid="workspace-layout-v2-pane-main"] [data-workspace-layout-v2-mobile-main-pane]',
+            )
+            .boundingBox()
+        )?.width ?? 0,
+      ),
+    )
+    .toBe(viewportWidthPx - minWidthPx);
+  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(
+    1,
+  );
+  await expect(
+    page.getByTestId("workspace-layout-v2-right-resize"),
+  ).toHaveCount(0);
+});
+
+test("logo mobile merge resize keeps main width while opening the right sidebar", async ({
+  page,
+}) => {
+  await gotoLogoPage(page);
+
+  await scrollFileViewCarouselToPane(page, "left");
+
+  const viewportWidthPx = await page
+    .getByTestId("workspace-layout-v2-pane-main")
+    .evaluate((element) => element.clientWidth);
+  const minWidthPx = await getMobileSidebarMinWidthPx(page);
+  const leftPaneWidthBefore = (
+    await getBox(page, "workspace-layout-v2-pane-left")
+  ).width;
+
+  await touchDragHandleByPx(
+    page,
+    "workspace-layout-v2-left-resize",
+    minWidthPx - leftPaneWidthBefore - minWidthPx,
+  );
+
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute(
+    "data-mobile-pane",
+    "left",
+  );
+  await expect
+    .poll(async () => getMobileMainPaneWidthPx(page))
+    .toBe(viewportWidthPx - minWidthPx);
+
+  await scrollFileViewCarouselToPane(page, "right");
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute(
+    "data-mobile-pane",
+    "right",
+  );
+  await expect
+    .poll(async () => getMobileMainPaneWidthPx(page))
+    .toBe(viewportWidthPx - minWidthPx);
+
+  await scrollMobileCarouselByPx(page, -14);
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute(
+    "data-mobile-pane",
+    "right",
+  );
+  await expect
+    .poll(async () => getMobileMainPaneWidthPx(page))
+    .toBe(viewportWidthPx - minWidthPx);
+});
+
+test("logo mobile merge resize settles after a back-and-forth grip drag", async ({
+  page,
+}) => {
+  await gotoLogoPage(page);
+
+  await scrollFileViewCarouselToPane(page, "left");
+
+  const viewportWidthPx = await page
+    .getByTestId("workspace-layout-v2-pane-main")
+    .evaluate((element) => element.clientWidth);
+  const minWidthPx = await getMobileSidebarMinWidthPx(page);
+  const leftPaneWidthBefore = (
+    await getBox(page, "workspace-layout-v2-pane-left")
+  ).width;
+
+  await touchDragHandleThroughDeltas(page, "workspace-layout-v2-left-resize", [
+    minWidthPx - leftPaneWidthBefore - minWidthPx,
+    minWidthPx - leftPaneWidthBefore + 16,
+  ]);
+
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute(
+    "data-mobile-pane",
+    "left",
+  );
+  await expect
+    .poll(async () =>
+      Math.round((await getBox(page, "workspace-layout-v2-pane-left")).width),
+    )
+    .toBe(minWidthPx);
+  await expect
+    .poll(async () => getMobileMainPaneWidthPx(page))
+    .toBe(viewportWidthPx - minWidthPx);
+
+  await scrollFileViewCarouselToPane(page, "right");
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute(
+    "data-mobile-pane",
+    "right",
+  );
+  await expect
+    .poll(async () => getMobileMainPaneWidthPx(page))
+    .toBe(viewportWidthPx - minWidthPx);
+});
+
+test("logo mobile keeps left merge while resizing the right sidebar", async ({
+  page,
+}) => {
+  await gotoLogoPage(page);
+
+  await scrollFileViewCarouselToPane(page, "left");
+
+  const viewportWidthPx = await page
+    .getByTestId("workspace-layout-v2-pane-main")
+    .evaluate((element) => element.clientWidth);
+  const minWidthPx = await getMobileSidebarMinWidthPx(page);
+  const leftPaneWidthBefore = (
+    await getBox(page, "workspace-layout-v2-pane-left")
+  ).width;
+
+  await touchDragHandleByPx(
+    page,
+    "workspace-layout-v2-left-resize",
+    minWidthPx - leftPaneWidthBefore - minWidthPx,
+  );
+
+  await scrollFileViewCarouselToPane(page, "right");
+  await expect(
+    page.locator('[data-workspace-layout-v2-mobile-merged-pane="left"]'),
+  ).toHaveCount(1);
+
+  const rightPaneWidthBefore = (
+    await getBox(page, "workspace-layout-v2-pane-right")
+  ).width;
+  await touchDragHandleByPx(
+    page,
+    "workspace-layout-v2-right-resize",
+    rightPaneWidthBefore - minWidthPx + minWidthPx,
+  );
+
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute(
+    "data-mobile-pane",
+    "right",
+  );
+  await expect(
+    page.locator('[data-workspace-layout-v2-mobile-merged-pane="left"]'),
+  ).toHaveCount(1);
+  await expect(
+    page.locator('[data-workspace-layout-v2-mobile-merged-pane="right"]'),
+  ).toHaveCount(0);
+  await expect
+    .poll(async () => getMobileMainPaneWidthPx(page))
+    .toBe(viewportWidthPx - minWidthPx);
+  await expect
+    .poll(async () =>
+      Math.round((await getBox(page, "workspace-layout-v2-pane-right")).width),
+    )
+    .toBe(minWidthPx);
+
+  await touchDragHandleByPx(page, "workspace-layout-v2-right-resize", -96);
+
+  await expect(
+    page.locator('[data-workspace-layout-v2-mobile-merged-pane="left"]'),
+  ).toHaveCount(1);
+  await expect(
+    page.locator('[data-workspace-layout-v2-mobile-merged-pane="right"]'),
+  ).toHaveCount(0);
+  await expect
+    .poll(async () => getMobileMainPaneWidthPx(page))
+    .toBe(viewportWidthPx - minWidthPx);
+  await expect
+    .poll(async () =>
+      Math.round((await getBox(page, "workspace-layout-v2-pane-right")).width),
+    )
+    .toBeGreaterThan(minWidthPx + 40);
 });
 
 test("fileview mobile sidebar grips recenter when dragged past the minimum", async ({
@@ -416,13 +666,13 @@ test("fileview mobile sidebar grips recenter when dragged past the minimum", asy
 test("fileview mobile sidebar grips resize the active sidebars", async ({
   page,
 }) => {
-  await gotoFileViewFixture(page);
+  await gotoFileViewFixture(page, { minResizeBehavior: "slide" });
 
   await scrollFileViewCarouselToPane(page, "left");
   const leftPaneWidthBefore = (
     await getBox(page, "workspace-layout-v2-pane-left")
   ).width;
-  await dragHandleByPx(page, "workspace-layout-v2-left-resize", -72);
+  await dragHandleByPx(page, "workspace-layout-v2-left-resize", -48);
   await expect
     .poll(
       async () => (await getBox(page, "workspace-layout-v2-pane-left")).width,
@@ -444,7 +694,7 @@ test("fileview mobile sidebar grips resize the active sidebars", async ({
   const rightPaneWidthBefore = (
     await getBox(page, "workspace-layout-v2-pane-right")
   ).width;
-  await dragHandleByPx(page, "workspace-layout-v2-right-resize", 72);
+  await dragHandleByPx(page, "workspace-layout-v2-right-resize", 48);
   await expect
     .poll(
       async () => (await getBox(page, "workspace-layout-v2-pane-right")).width,
