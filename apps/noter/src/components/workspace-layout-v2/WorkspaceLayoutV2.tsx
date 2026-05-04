@@ -171,57 +171,35 @@ function getMergedMobileMainWidthPx(args: {
   );
 }
 
-function getMergingMobileMainWidthPx(args: {
+function getMobileMinResizeMergeWidthsPx(args: {
   mainMaxWidthPx: number;
   mainMinWidthPx: number;
-  pastSideMinimumPx: number;
+  rawSideWidthPx: number;
+  sideMaxWidthPx: number;
   sideMinWidthPx: number;
+  startMainWidthPx: number;
+  startSideWidthPx: number;
   viewportWidthPx: number;
 }) {
   const mergedMainWidthPx = getMergedMobileMainWidthPx(args);
   if (mergedMainWidthPx === null) {
     return null;
   }
+  const resizeDeltaPx =
+    Math.round(args.rawSideWidthPx) - Math.round(args.startSideWidthPx);
 
-  return clampNumber(
-    args.mainMaxWidthPx - Math.round(args.pastSideMinimumPx),
-    mergedMainWidthPx,
-    args.mainMaxWidthPx,
-  );
-}
-
-function getUnmergingMobileMainWidthPx(args: {
-  mainMaxWidthPx: number;
-  mergedMainWidthPx: number;
-  rawSideWidthPx: number;
-  sideMinWidthPx: number;
-}) {
-  const resizeTravelPx = Math.abs(
-    Math.round(args.rawSideWidthPx) - args.sideMinWidthPx,
-  );
-
-  return clampNumber(
-    args.mergedMainWidthPx + resizeTravelPx,
-    args.mergedMainWidthPx,
-    args.mainMaxWidthPx,
-  );
-}
-
-function getUnmergingMobileSidebarWidthPx(args: {
-  mainMaxWidthPx: number;
-  mergedMainWidthPx: number;
-  rawSideWidthPx: number;
-  sideMinWidthPx: number;
-}) {
-  const mainResizeDistancePx = args.mainMaxWidthPx - args.mergedMainWidthPx;
-  const sideResizeDistancePx = Math.max(
-    0,
-    Math.round(args.rawSideWidthPx) -
-      args.sideMinWidthPx -
-      mainResizeDistancePx,
-  );
-
-  return args.sideMinWidthPx + sideResizeDistancePx;
+  return {
+    mainWidthPx: clampNumber(
+      Math.round(args.startMainWidthPx) + resizeDeltaPx,
+      mergedMainWidthPx,
+      args.mainMaxWidthPx,
+    ),
+    sideWidthPx: clampNumber(
+      Math.round(args.rawSideWidthPx),
+      args.sideMinWidthPx,
+      args.sideMaxWidthPx,
+    ),
+  };
 }
 
 function getMobileSidebarWidthPx(args: {
@@ -788,7 +766,9 @@ export function WorkspaceLayoutV2JustPanes({
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
   const activeMobileGripResizeSideRef = useRef<"left" | "right" | null>(null);
   const activeMobileGripResizeSessionRef = useRef<{
-    startedMergedMainWidthPx: number | null;
+    shouldSettleMergedOnEnd: boolean;
+    startMainWidthPx: number;
+    startSideWidthPx: number;
   } | null>(null);
   const [mobileGripSlideOffsetPx, setMobileGripSlideOffsetPx] = useState(0);
   // Merge mode keeps the active side pane selected while narrowing the main
@@ -798,10 +778,19 @@ export function WorkspaceLayoutV2JustPanes({
   >(null);
   const mobileMergedMainWidthPxRef = useRef<number | null>(null);
   const mobileMainWidthPx = mobileMergedMainWidthPx ?? mobileDefaultPaneWidthPx;
-  const lockMobileCarouselScroll =
-    mobileMinResizeBehavior === "min_resize_to_merge" &&
+  const mobileActiveSideWidthPx =
+    mobilePane === "left"
+      ? mobileLeftWidthPx
+      : mobilePane === "right"
+        ? mobileRightWidthPx
+        : 0;
+  const isMobileMergedFit =
     mobileMergedMainWidthPx !== null &&
-    mobilePane !== "main";
+    mobilePane !== "main" &&
+    mobileActiveSideWidthPx + mobileMergedMainWidthPx <=
+      viewportSize.widthPx + MOBILE_PANE_SETTLED_TOLERANCE_PX;
+  const lockMobileCarouselScroll =
+    mobileMinResizeBehavior === "min_resize_to_merge" && isMobileMergedFit;
 
   useEffect(() => {
     if (isMobile) {
@@ -1087,7 +1076,10 @@ export function WorkspaceLayoutV2JustPanes({
           if (pointerTarget === "grip") {
             activeMobileGripResizeSideRef.current = resizeHandle.side;
             activeMobileGripResizeSessionRef.current = {
-              startedMergedMainWidthPx: mobileMergedMainWidthPxRef.current,
+              shouldSettleMergedOnEnd: false,
+              startMainWidthPx:
+                mobileMergedMainWidthPxRef.current ?? mobileDefaultPaneWidthPx,
+              startSideWidthPx: resizeHandle.currentWidthPx,
             };
             setMobileGripSlideOffsetPx(0);
             mobileCarouselRef.current?.style.setProperty(
@@ -1108,23 +1100,9 @@ export function WorkspaceLayoutV2JustPanes({
             setMobileGripSlideOffsetPx(0);
             if (
               mobileMinResizeBehavior === "min_resize_to_merge" &&
-              mergedMainWidthPx !== null
+              mergedMainWidthPx !== null &&
+              resizeSession !== null
             ) {
-              if (
-                resizeSession?.startedMergedMainWidthPx !== null &&
-                resizeSession?.startedMergedMainWidthPx !== undefined
-              ) {
-                if (mergedMainWidthPx >= mobileDefaultPaneWidthPx) {
-                  mobileMergedMainWidthPxRef.current = null;
-                  setMobileMergedMainWidthPx(null);
-                } else {
-                  didSettleMergedMainPane = true;
-                }
-                carouselNode?.style.removeProperty("scroll-snap-type");
-                setActiveResizeSide(null);
-                return;
-              }
-
               const settledMainWidthPx = getMergedMobileMainWidthPx({
                 mainMaxWidthPx: mobileDefaultPaneWidthPx,
                 mainMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
@@ -1133,26 +1111,34 @@ export function WorkspaceLayoutV2JustPanes({
               });
 
               if (settledMainWidthPx !== null && carouselNode !== null) {
-                mobileMergedMainWidthPxRef.current = settledMainWidthPx;
-                setMobileMergedMainWidthPx(settledMainWidthPx);
-                carouselNode.scrollLeft = getMobilePaneScrollLeftPx(
-                  resizeHandle.side,
-                  {
-                    hasLeftPane,
-                    hasRightPane,
-                    leftWidthPx:
-                      resizeHandle.side === "left"
-                        ? resizeHandle.minWidthPx
-                        : mobileLeftWidthPx,
-                    mainWidthPx: settledMainWidthPx,
-                    rightWidthPx:
-                      resizeHandle.side === "right"
-                        ? resizeHandle.minWidthPx
-                        : mobileRightWidthPx,
-                    viewportWidthPx: viewportSize.widthPx,
-                  },
-                );
-                didSettleMergedMainPane = true;
+                if (resizeSession.shouldSettleMergedOnEnd) {
+                  resizeHandle.onWidthChange(resizeHandle.minWidthPx);
+                  mobileMergedMainWidthPxRef.current = settledMainWidthPx;
+                  setMobileMergedMainWidthPx(settledMainWidthPx);
+                  carouselNode.scrollLeft = getMobilePaneScrollLeftPx(
+                    resizeHandle.side,
+                    {
+                      hasLeftPane,
+                      hasRightPane,
+                      leftWidthPx:
+                        resizeHandle.side === "left"
+                          ? resizeHandle.minWidthPx
+                          : mobileLeftWidthPx,
+                      mainWidthPx: settledMainWidthPx,
+                      rightWidthPx:
+                        resizeHandle.side === "right"
+                          ? resizeHandle.minWidthPx
+                          : mobileRightWidthPx,
+                      viewportWidthPx: viewportSize.widthPx,
+                    },
+                  );
+                  didSettleMergedMainPane = true;
+                } else if (mergedMainWidthPx >= mobileDefaultPaneWidthPx) {
+                  mobileMergedMainWidthPxRef.current = null;
+                  setMobileMergedMainWidthPx(null);
+                } else {
+                  didSettleMergedMainPane = true;
+                }
               } else {
                 mobileMergedMainWidthPxRef.current = null;
                 setMobileMergedMainWidthPx(null);
@@ -1182,107 +1168,58 @@ export function WorkspaceLayoutV2JustPanes({
                   0,
                   resizeHandle.minWidthPx - rawWidthPx,
                 );
-                const startedMergedMainWidthPx =
-                  activeMobileGripResizeSessionRef.current
-                    ?.startedMergedMainWidthPx;
+                const resizeSession = activeMobileGripResizeSessionRef.current;
 
                 if (
                   mobileMinResizeBehavior === "min_resize_to_merge" &&
-                  startedMergedMainWidthPx !== null &&
-                  startedMergedMainWidthPx !== undefined
+                  resizeSession !== null
                 ) {
-                  const unmergingMainWidthPx = getUnmergingMobileMainWidthPx({
-                    mainMaxWidthPx: mobileDefaultPaneWidthPx,
-                    mergedMainWidthPx: startedMergedMainWidthPx,
-                    rawSideWidthPx: rawWidthPx,
-                    sideMinWidthPx: resizeHandle.minWidthPx,
-                  });
-                  const unmergingSidebarWidthPx =
-                    getUnmergingMobileSidebarWidthPx({
-                      mainMaxWidthPx: mobileDefaultPaneWidthPx,
-                      mergedMainWidthPx: startedMergedMainWidthPx,
-                      rawSideWidthPx: rawWidthPx,
-                      sideMinWidthPx: resizeHandle.minWidthPx,
-                    });
-                  const scrollOffsetArgs = {
-                    hasLeftPane,
-                    hasRightPane,
-                    leftWidthPx:
-                      resizeHandle.side === "left"
-                        ? unmergingSidebarWidthPx
-                        : mobileLeftWidthPx,
-                    mainWidthPx: unmergingMainWidthPx,
-                    rightWidthPx:
-                      resizeHandle.side === "right"
-                        ? unmergingSidebarWidthPx
-                        : mobileRightWidthPx,
-                    viewportWidthPx: viewportSize.widthPx,
-                  };
-
-                  resizeHandle.onWidthChange(unmergingSidebarWidthPx);
-                  if (unmergingMainWidthPx >= mobileDefaultPaneWidthPx) {
-                    mobileMergedMainWidthPxRef.current = null;
-                    setMobileMergedMainWidthPx(null);
-                  } else {
-                    mobileMergedMainWidthPxRef.current = unmergingMainWidthPx;
-                    setMobileMergedMainWidthPx(unmergingMainWidthPx);
-                  }
-                  carouselNode.scrollLeft = getMobilePaneScrollLeftPx(
-                    resizeHandle.side,
-                    scrollOffsetArgs,
-                  );
-                  setMobileGripSlideOffsetPx(
-                    rawWidthPx < resizeHandle.minWidthPx
-                      ? Math.max(
-                          0,
-                          unmergingMainWidthPx - startedMergedMainWidthPx,
-                        )
-                      : 0,
-                  );
-                  return;
-                }
-
-                if (
-                  mobileMinResizeBehavior === "min_resize_to_merge" &&
-                  pastMinimumPx > 0
-                ) {
-                  const mergingMainWidthPx = getMergingMobileMainWidthPx({
+                  const mergeResizeWidths = getMobileMinResizeMergeWidthsPx({
                     mainMaxWidthPx: mobileDefaultPaneWidthPx,
                     mainMinWidthPx:
                       WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
-                    pastSideMinimumPx: pastMinimumPx,
+                    rawSideWidthPx: rawWidthPx,
+                    sideMaxWidthPx: resizeHandle.maxWidthPx,
                     sideMinWidthPx: resizeHandle.minWidthPx,
+                    startMainWidthPx: resizeSession.startMainWidthPx,
+                    startSideWidthPx: resizeSession.startSideWidthPx,
                     viewportWidthPx: viewportSize.widthPx,
                   });
 
-                  if (mergingMainWidthPx !== null) {
+                  if (mergeResizeWidths !== null) {
+                    resizeSession.shouldSettleMergedOnEnd =
+                      rawWidthPx <= resizeHandle.minWidthPx;
                     const scrollOffsetArgs = {
                       hasLeftPane,
                       hasRightPane,
                       leftWidthPx:
                         resizeHandle.side === "left"
-                          ? resizeHandle.minWidthPx
+                          ? mergeResizeWidths.sideWidthPx
                           : mobileLeftWidthPx,
-                      mainWidthPx: mergingMainWidthPx,
+                      mainWidthPx: mergeResizeWidths.mainWidthPx,
                       rightWidthPx:
                         resizeHandle.side === "right"
-                          ? resizeHandle.minWidthPx
+                          ? mergeResizeWidths.sideWidthPx
                           : mobileRightWidthPx,
                       viewportWidthPx: viewportSize.widthPx,
                     };
 
-                    mobileMergedMainWidthPxRef.current = mergingMainWidthPx;
-                    setMobileMergedMainWidthPx(mergingMainWidthPx);
+                    resizeHandle.onWidthChange(mergeResizeWidths.sideWidthPx);
+                    if (
+                      mergeResizeWidths.mainWidthPx >= mobileDefaultPaneWidthPx
+                    ) {
+                      mobileMergedMainWidthPxRef.current = null;
+                      setMobileMergedMainWidthPx(null);
+                    } else {
+                      mobileMergedMainWidthPxRef.current =
+                        mergeResizeWidths.mainWidthPx;
+                      setMobileMergedMainWidthPx(mergeResizeWidths.mainWidthPx);
+                    }
                     carouselNode.scrollLeft = getMobilePaneScrollLeftPx(
                       resizeHandle.side,
                       scrollOffsetArgs,
                     );
-                    setMobileGripSlideOffsetPx(
-                      Math.max(
-                        0,
-                        mobileDefaultPaneWidthPx - mergingMainWidthPx,
-                      ),
-                    );
+                    setMobileGripSlideOffsetPx(0);
                     return;
                   }
                 }

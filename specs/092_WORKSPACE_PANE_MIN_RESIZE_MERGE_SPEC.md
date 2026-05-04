@@ -119,17 +119,20 @@ In `"min_resize_to_slide"` mode:
 
 In `"min_resize_to_merge"` mode:
 
-- side-pane width clamps at its minimum
-- raw drag beyond the minimum resizes the adjacent main pane
+- side-pane width follows the resize gesture until it reaches its minimum
+- the adjacent main pane follows the same resize delta within its own
+  constraints
 - the active side pane stays visible while the main pane grows into the viewport
 - release settles to the nearest valid merged fit using pane constraints
 
 The merge behavior should preserve the existing continuous handoff feel. The
-handoff changes target; it does not disappear.
+handoff changes target; it does not disappear. Creating and removing a merged
+fit should use the same paired-resize resolver so the dragger remains attached
+to the pane edge instead of switching between separate slide and resize models.
 
 ```txt
 slide mode: raw side width below min -> carousel scroll changes
-merge mode: raw side width below min -> adjacent main width changes
+merge mode: raw side width changes -> side and adjacent main widths resolve together
 ```
 
 ### Merged Fit

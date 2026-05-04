@@ -75,6 +75,7 @@ HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
 };
 
 function renderMobileLayout({
+  controlMobileWidths = true,
   includeLeftPane = true,
   includeRightPane = true,
   leftMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
@@ -85,6 +86,7 @@ function renderMobileLayout({
   rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   showMobileResizeGripDots,
 }: {
+  controlMobileWidths?: boolean;
   includeLeftPane?: boolean;
   includeRightPane?: boolean;
   leftMobileWidthPx?: number;
@@ -109,9 +111,11 @@ function renderMobileLayout({
 
   return (
     <SidebarProvider
-      leftMobileWidthPx={leftMobileWidthPx}
+      defaultLeftMobileWidthPx={leftMobileWidthPx}
+      defaultRightMobileWidthPx={rightMobileWidthPx}
+      leftMobileWidthPx={controlMobileWidths ? leftMobileWidthPx : undefined}
       mobilePane={mobilePane}
-      rightMobileWidthPx={rightMobileWidthPx}
+      rightMobileWidthPx={controlMobileWidths ? rightMobileWidthPx : undefined}
     >
       <WorkspaceLayoutV2FullPage
         left={
@@ -688,6 +692,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       act(() => {
         mountedRoot.render(
           renderMobileLayout({
+            controlMobileWidths: false,
             leftMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
             mobileMinResizeBehavior: "min_resize_to_merge",
             mobilePane: "left",
@@ -749,7 +754,10 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           rootElement,
           '[data-testid="workspace-layout-v2-pane-left"]',
         ).style.width,
-      ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
+      ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX + 24}px`);
+      expect(leftHandle.parentElement?.style.left).toBe(
+        `${MOBILE_SIDEBAR_MIN_WIDTH_PX + 24}px`,
+      );
 
       act(() => {
         vi.advanceTimersByTime(121);
