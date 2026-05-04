@@ -1,0 +1,40 @@
+name: Blacksmith Testbox
+on:
+  workflow_dispatch:
+    inputs:
+      testbox_id:
+        type: string
+        description: "Testbox session ID"
+        required: true
+jobs:
+  playwright:
+    name: playwright
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - name: Begin Testbox
+        uses: useblacksmith/begin-testbox@v2
+        with:
+          testbox_id: ${{ inputs.testbox_id }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9.15.0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: "pnpm"
+      - name: Install dependencies
+        run: pnpm install
+      - name: Bootstrap Convex for CI
+        run: node ./scripts/ci-bootstrap-convex.ts
+      - name: Build noter preview
+        run: PLAYWRIGHT=1 pnpm --filter noter build:ci
+      - name: Install Playwright browser
+        run: pnpm --filter noter exec playwright install --with-deps chromium
+      - name: Run Testbox
+        uses: useblacksmith/run-testbox@v2
+        if: always()
