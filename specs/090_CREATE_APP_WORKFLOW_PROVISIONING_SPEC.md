@@ -92,13 +92,17 @@ appProvisioningRuns: {
   workflowId?: string;
   trigger: "create" | "retry";
   state: "queued" | "running" | "succeeded" | "failed" | "canceled";
-  currentStep?: AppProvisioningStep;
+  currentStep: "run_created" | AppProvisioningStep;
   lastError?: string;
   createdAt: number;
   updatedAt: number;
   completedAt?: number;
 }
 ```
+
+`run_created` is the explicit initial `currentStep` value. It means the run row
+exists, but no provisioning step event has advanced it yet. New writes must not
+use missing `currentStep` as an implicit state.
 
 Indexes:
 

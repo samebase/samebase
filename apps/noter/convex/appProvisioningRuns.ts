@@ -32,6 +32,7 @@ export const createForVault = internalMutation({
       repositoryFullName: args.repositoryFullName,
       trigger: args.trigger,
       state: "queued",
+      currentStep: "run_created",
       createdAt: now,
       updatedAt: now,
     });

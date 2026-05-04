@@ -108,6 +108,21 @@ export const AppProvisioningStep = union(
 );
 export type AppProvisioningStep = Infer<typeof AppProvisioningStep>;
 
+export const AppProvisioningRunStep = union(
+  literal("run_created"),
+  literal("validate_connections"),
+  literal("create_github_repo"),
+  literal("seed_starter"),
+  literal("create_vault"),
+  literal("claim_infra"),
+  literal("ensure_convex"),
+  literal("ensure_convex_preview"),
+  literal("ensure_cloudflare"),
+  literal("record_domains"),
+  literal("finish"),
+);
+export type AppProvisioningRunStep = Infer<typeof AppProvisioningRunStep>;
+
 export const AppProvisioningRunTrigger = union(
   literal("create"),
   literal("retry"),
@@ -491,7 +506,7 @@ export default defineSchema({
     workflowId: optional(string()),
     trigger: AppProvisioningRunTrigger,
     state: AppProvisioningRunState,
-    currentStep: optional(AppProvisioningStep),
+    currentStep: AppProvisioningRunStep,
     lastError: optional(string()),
     createdAt: number(),
     updatedAt: number(),

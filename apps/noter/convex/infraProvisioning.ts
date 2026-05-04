@@ -1155,8 +1155,12 @@ export const markWorkflowProvisioningFailed = internalMutation({
       convexProjectId: infrastructure?.convexProjectId,
       hosting: infrastructure?.hosting,
     });
-    const step = run.currentStep ?? "finish";
-    const safeRunError = `Provisioning failed during ${step}.`;
+    const eventStep =
+      run.currentStep === "run_created" ? "claim_infra" : run.currentStep;
+    const safeRunError =
+      run.currentStep === "run_created"
+        ? "Provisioning failed before the first step."
+        : `Provisioning failed during ${run.currentStep}.`;
 
     if (infrastructure) {
       await ctx.db.patch(infrastructure._id, {
@@ -1191,7 +1195,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
       vaultId: run.vaultId,
       repositoryFullName: run.repositoryFullName,
       runId: args.runId,
-      step,
+      step: eventStep,
       level: "error",
       message: safeRunError,
       createdAt: now,
@@ -1201,7 +1205,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
       vaultId: args.vaultId,
       repo: run.repositoryFullName,
       infraState,
-      step,
+      step: run.currentStep,
       message: args.message,
     });
 
