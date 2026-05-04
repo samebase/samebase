@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vp dev",
     "typecheck": "tsc -b --pretty false",
-    "build": "pnpm run typecheck && vite build",
-    "preview": "vite preview"
+    "build": "vp run typecheck:cached && vp build",
+    "preview": "vp preview"
   },
   "dependencies": {
     "@codemirror/commands": "^6.8.0",
@@ -27,6 +27,7 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "5.9.2",
     "vite": "^8.0.8",
-    "vite-plugin-solid": "^2.11.12"
+    "vite-plugin-solid": "^2.11.12",
+    "vite-plus": "0.1.16"
   }
 }
