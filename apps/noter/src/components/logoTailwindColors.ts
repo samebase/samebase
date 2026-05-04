@@ -306,16 +306,6 @@ const foregroundColorCandidates = [
 ] as const satisfies readonly ForegroundColorCandidate[];
 
 const themeTailwindColorScales = {
-  accent: {
-    base: {
-      cssVariable: "--accent",
-      fallbackHex: "#f5f5f4",
-      fallbackHexByTheme: {
-        dark: "#292524",
-        light: "#f5f5f4",
-      },
-    },
-  },
   border: {
     base: {
       cssVariable: "--border",
@@ -323,16 +313,6 @@ const themeTailwindColorScales = {
       fallbackHexByTheme: {
         dark: "#292524",
         light: "#e7e5e4",
-      },
-    },
-  },
-  muted: {
-    base: {
-      cssVariable: "--muted",
-      fallbackHex: "#f5f5f4",
-      fallbackHexByTheme: {
-        dark: "#292524",
-        light: "#f5f5f4",
       },
     },
   },
@@ -450,16 +430,6 @@ const tailwindColorFamilies = [
     label: "Border",
     scale: themeTailwindColorScales.border,
   },
-  {
-    key: "muted",
-    label: "Muted",
-    scale: themeTailwindColorScales.muted,
-  },
-  {
-    key: "accent",
-    label: "Accent",
-    scale: themeTailwindColorScales.accent,
-  },
   { key: "slate", label: "Slate", scale: tailwindColors.slate },
   { key: "gray", label: "Gray", scale: tailwindColors.gray },
   { key: "zinc", label: "Zinc", scale: tailwindColors.zinc },
@@ -494,13 +464,7 @@ type TailwindColorFamilyKey = (typeof tailwindColorFamilies)[number]["key"];
 export type TailwindColorToken = `${TailwindColorFamilyKey}-${string}`;
 export type LogoColorToken = TailwindColorToken | HexColorToken;
 export type FaceColors = Record<FaceColorKey, LogoColorToken>;
-export type AppThemeColorKey =
-  | "accent"
-  | "base"
-  | "border"
-  | "muted"
-  | "primary"
-  | "secondary";
+export type AppThemeColorKey = "base" | "border" | "primary" | "secondary";
 export type AppThemeColors = Record<AppThemeColorKey, LogoColorToken>;
 
 type TailwindColorOption = {
@@ -550,8 +514,6 @@ export const APP_THEME_COLOR_KEYS = [
   "secondary",
   "base",
   "border",
-  "muted",
-  "accent",
 ] as const satisfies readonly AppThemeColorKey[];
 
 export const DEFAULT_FACE_COLORS: FaceColors = {
@@ -561,10 +523,8 @@ export const DEFAULT_FACE_COLORS: FaceColors = {
 };
 
 export const DEFAULT_APP_THEME_COLORS: AppThemeColors = {
-  accent: "accent-base",
   base: "background-base",
   border: "border-base",
-  muted: "muted-base",
   primary: "primary-base",
   secondary: "secondary-base",
 };

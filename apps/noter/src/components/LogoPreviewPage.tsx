@@ -141,10 +141,8 @@ type LogoPreviewPageProps = {
 };
 
 const THEME_COLOR_LABELS: Record<AppThemeColorKey, string> = {
-  accent: "Accent",
   base: "Base",
   border: "Border",
-  muted: "Muted",
   primary: "Primary",
   secondary: "Secondary",
 };

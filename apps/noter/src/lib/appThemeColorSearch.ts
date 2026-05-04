@@ -25,8 +25,6 @@ export const APP_THEME_COLOR_SEARCH_KEYS = [
   "secondary",
   "base",
   "border",
-  "muted",
-  "accent",
 ] as const;
 
 export type AppThemeColorSearchKey =
@@ -56,10 +54,8 @@ const LOGO_COLOR_THEME_MODES = [
 ] as const satisfies readonly LogoColorThemeMode[];
 
 const appThemeColorSearchKeyByColorKey = {
-  accent: "accent",
   base: "base",
   border: "border",
-  muted: "muted",
   primary: "primary",
   secondary: "secondary",
 } as const satisfies Record<AppThemeColorKey, AppThemeColorSearchKey>;
@@ -90,19 +86,10 @@ const colorVariableSpecs = {
     colorVariables: ["--secondary"],
     foregroundVariables: ["--secondary-foreground"],
   },
-  // Theme search owns only the variables whose visual role should travel with
-  // shared URLs; low-emphasis text stays independent of the muted surface.
+  // Border follows shared theme URLs alongside base and brand colors.
   border: {
     colorVariables: ["--border", "--input", "--sidebar-border"],
     foregroundVariables: [],
-  },
-  muted: {
-    colorVariables: ["--muted"],
-    foregroundVariables: [],
-  },
-  accent: {
-    colorVariables: ["--accent", "--sidebar-accent"],
-    foregroundVariables: ["--accent-foreground", "--sidebar-accent-foreground"],
   },
 } as const satisfies Record<
   AppThemeColorSearchKey,
@@ -132,10 +119,8 @@ const optionalLogoColorTokenSchema = z.preprocess(
 );
 
 export const appThemeColorSearchFieldSchema = z.object({
-  accent: optionalLogoColorTokenSchema,
   base: optionalLogoColorTokenSchema,
   border: optionalLogoColorTokenSchema,
-  muted: optionalLogoColorTokenSchema,
   primary: optionalLogoColorTokenSchema,
   secondary: optionalLogoColorTokenSchema,
 });
@@ -159,10 +144,8 @@ export function readAppThemeColors(
   search: AppThemeColorSearch,
 ): AppThemeColors {
   return {
-    accent: search.accent ?? DEFAULT_APP_THEME_COLORS.accent,
     base: search.base ?? DEFAULT_APP_THEME_COLORS.base,
     border: search.border ?? DEFAULT_APP_THEME_COLORS.border,
-    muted: search.muted ?? DEFAULT_APP_THEME_COLORS.muted,
     primary: search.primary ?? DEFAULT_APP_THEME_COLORS.primary,
     secondary: search.secondary ?? DEFAULT_APP_THEME_COLORS.secondary,
   };
@@ -172,10 +155,8 @@ function resolveAppThemeColorHexes(
   themeColors: AppThemeColors,
 ): ResolvedAppThemeColors {
   return {
-    accent: getTailwindColorHex(themeColors.accent),
     base: getTailwindColorHex(themeColors.base),
     border: getTailwindColorHex(themeColors.border),
-    muted: getTailwindColorHex(themeColors.muted),
     primary: getTailwindColorHex(themeColors.primary),
     secondary: getTailwindColorHex(themeColors.secondary),
   };
