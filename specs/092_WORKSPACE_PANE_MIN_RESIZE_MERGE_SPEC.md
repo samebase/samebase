@@ -100,6 +100,31 @@ resolved main width = clamp(raw main width, main min, main max)
 
 not as derivations from the peek constant.
 
+### Explicit Mobile Peek Width
+
+Mobile carousel peek width is a visual affordance, not a pane sizing invariant.
+`WorkspaceLayoutV2` should expose an explicit shell prop:
+
+```ts
+mobilePanePeekWidthPx?: number;
+```
+
+The default remains `24px` to preserve current routes. Routes that need maximum
+usable pane width, especially pane-heavy routes with both left and right side
+panes, may pass `0` to remove the visible peek.
+
+The resolved peek width should feed only visual carousel geometry:
+
+- the mobile main pane width in unmerged carousel mode
+- mobile side-pane maximum width
+- carousel padding
+- scroll snap offsets
+- mobile resize grip bounds while a grip is dragged past the side-pane edge
+
+It must remain independent from side-pane minimum width, main-pane minimum
+width, and merged-pane release width. A zero peek must be a supported normal
+configuration, not a special case.
+
 ### Resize Behaviors
 
 `WorkspaceLayoutV2` should support two minimum-resize behaviors:

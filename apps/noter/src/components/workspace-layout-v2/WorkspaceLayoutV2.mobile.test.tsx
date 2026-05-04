@@ -82,6 +82,7 @@ function renderMobileLayout({
   leftToggleVisibility,
   mainHeader = OMIT_HEADER,
   mobileMinResizeBehavior,
+  mobilePanePeekWidthPx,
   mobilePane,
   rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   showMobileResizeGripDots,
@@ -93,6 +94,7 @@ function renderMobileLayout({
   leftToggleVisibility?: "all" | "desktop" | "hidden";
   mainHeader?: React.ReactNode | typeof OMIT_HEADER;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
+  mobilePanePeekWidthPx?: number;
   mobilePane?: "left" | "main" | "right";
   rightMobileWidthPx?: number;
   showMobileResizeGripDots?: boolean;
@@ -127,6 +129,7 @@ function renderMobileLayout({
         }
         main={mainProps}
         mobileMinResizeBehavior={mobileMinResizeBehavior}
+        mobilePanePeekWidthPx={mobilePanePeekWidthPx}
         right={
           includeRightPane
             ? {
@@ -363,6 +366,43 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         .querySelector("[data-workspace-layout-v2]")
         ?.getAttribute("data-mobile-pane"),
     ).toBe("main");
+  });
+
+  it("lets routes remove the mobile pane peek from carousel geometry", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(
+        renderMobileLayout({
+          mobilePane: "right",
+          mobilePanePeekWidthPx: 0,
+          showMobileResizeGripDots: true,
+        }),
+      );
+    });
+
+    const carouselNode = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-pane-main"]',
+    );
+    const mainPane = getRequiredElement(rootElement, ".snap-center");
+    const rightHandle = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-right-resize"]',
+    );
+
+    expect(carouselNode.style.paddingLeft).toBe("0px");
+    expect(carouselNode.style.paddingRight).toBe("0px");
+    expect(carouselNode.scrollLeft).toBe(
+      DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2,
+    );
+    expect(mainPane.style.width).toBe(`${VIEWPORT_WIDTH_PX}px`);
+    expect(rightHandle.getAttribute("aria-valuemax")).toBe(
+      `${VIEWPORT_WIDTH_PX}`,
+    );
   });
 
   it("lets the left sidebar stay borderless while the main pane owns the separator", () => {

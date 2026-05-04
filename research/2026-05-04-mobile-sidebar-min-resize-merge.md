@@ -261,6 +261,71 @@ contract when `main` and `sidebar` are no longer distinct layout roles.
   pane, including the current main pane. This research does not solve that full
   model.
 
+## WorkspaceLayoutV2 Simplification Follow-Up
+
+After the first merge-mode implementation, `WorkspaceLayoutV2JustPanes` still
+owns several concerns in one render body:
+
+- pane geometry and min/max resolution
+- carousel DOM synchronization
+- scroll-derived mobile pane selection
+- active resize state for desktop handles, panel handles, and mobile grips
+- mobile grip session mechanics for slide and merge behaviors
+
+The local TanStack Store usage in `LogoPreviewPage` and the vault dashboard
+shows a useful pattern for route-local controls, but swapping `useState` for a
+store inside the same monolithic component would not by itself simplify this
+layout. The hard part is not the storage primitive; it is that browser
+subscriptions, gesture sessions, and pane geometry are interleaved.
+
+The better simplification path is to split controller ownership first:
+
+1. Extract carousel synchronization into a hook that owns the mobile carousel
+   ref, first-paint alignment, scroll-derived pane writes, and settled-state
+   tracking.
+2. Use React's `useEffectEvent` for scroll synchronization callbacks that need
+   fresh pane geometry without resubscribing the browser scroll listener on
+   every render. The existing `useAnimationFrameLoop` hook is the local pattern
+   for this style.
+3. Extract mobile grip resize mechanics into a hook or small controller that
+   owns the transient merge width, grip slide offset, and resize-session refs.
+4. Keep pane math as pure helpers. Geometry helpers are already easier to test
+   and reason about than React stateful code.
+5. Consider TanStack Store only after the component has smaller children that
+   would benefit from slice subscriptions. A store is likely useful for a future
+   pane controller shared across panes, but it is not the first simplification
+   lever for the current shell.
+
+This preserves the current product behavior while making the implementation more
+aligned with the future pane model: generic pane geometry remains pure, while
+React hooks own the browser and gesture lifecycle details.
+
+## Peek Width And Opposite Pane Access Follow-Up
+
+The mobile carousel currently keeps a small visual peek of neighboring panes.
+That peek is useful as a discovery hint, but it is also confusing when a side
+pane has merged with the main pane. In a merged fit, the user has already made
+the main pane visible beside a narrow side pane, so spending additional width on
+peek affordances makes both working panes thinner.
+
+The first phase should expose `mobilePanePeekWidthPx` on the workspace layout
+shell and keep the existing `24px` default. Routes that want pane-style behavior
+can set it to `0` so the future merged-pane work does not have to preserve
+unused peek gutters.
+
+The next phase should address the main product gap: when both side panes exist,
+a merged side pane plus visible main pane should still allow travel through the
+main pane to the opposite side pane. For example, after merging the left pane
+with the main pane, the user should be able to slide from the visible main pane
+toward the right pane. The transient merged geometry should survive that bridge
+instead of immediately restoring the main pane to full carousel width.
+
+That future behavior likely needs a transient "merged side" layout concept that
+is separate from the selected `mobilePane` value. Persisted mobile pane state
+can stay as `"left" | "main" | "right"`, while the controller remembers whether
+one side is merged and clears that transient state only when the viewport,
+behavior, or resize gesture invalidates it.
+
 ## Recommendation
 
 Use the prop as a compatibility bridge. The accepted spec now makes merge the
