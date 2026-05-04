@@ -27,7 +27,7 @@ import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
 import { Route as logoIsoRouteImport } from "./routes/logo-iso";
 import { Route as termsRouteImport } from "./routes/terms";
 import { Route as privacyRouteImport } from "./routes/privacy";
-import { Route as localStorageRouteImport } from "./routes/local-storage";
+import { Route as localStorageRouteImport } from "./routes/localStorage";
 import { Route as homeRouteImport } from "./routes/home";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-thread-browser-research";

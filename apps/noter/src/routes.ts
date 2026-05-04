@@ -17,7 +17,7 @@ export const routes = rootRoute("root.tsx", [
   layout("public", "public-layout.tsx", [
     index("index.tsx"),
     route("/home", "home.tsx"),
-    route(LOCAL_STORAGE_ROUTE, "local-storage.tsx"),
+    route(LOCAL_STORAGE_ROUTE, "localStorage.tsx"),
     route("/privacy", "privacy.tsx"),
     route("/terms", "terms.tsx"),
   ]),
