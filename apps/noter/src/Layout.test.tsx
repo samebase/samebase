@@ -394,7 +394,7 @@ describe("Layout", () => {
     expect(markup).toContain('data-testid="route-url-display"');
   });
 
-  it("opens the logo shortcut in dev mode without dropping root flags", () => {
+  it("opens the logo shortcut without changing root flags", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
     vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
@@ -404,11 +404,10 @@ describe("Layout", () => {
         [FORCE_PROD_UI_QUERY_PARAM]: true,
       },
     });
-    const logoDevPath = buildPathWithTanStackSearch({
+    const logoPath = buildPathWithTanStackSearch({
       pathname: "/logo",
       search: {
         [FORCE_PROD_UI_QUERY_PARAM]: true,
-        [LANDING_DEV_MODE_QUERY_PARAM]: true,
       },
     });
 
@@ -418,7 +417,7 @@ describe("Layout", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain(`href="${encodeStaticHref(logoDevPath)}"`);
+    expect(markup).toContain(`href="${encodeStaticHref(logoPath)}"`);
   });
 
   it("adds dev to the current URL without dropping other URL parts", () => {

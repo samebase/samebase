@@ -181,7 +181,7 @@ export function AppSidebarMetaSection({
         hash={location.hash}
         search={(currentSearch) =>
           applySearchPatch(currentSearch, {
-            dev: landingDevEnabled ? null : true,
+            [LANDING_DEV_MODE_QUERY_PARAM]: landingDevEnabled ? null : true,
           })
         }
       >
@@ -209,10 +209,7 @@ export function AppSidebarMetaSection({
         to="/logo"
         aria-hidden={showLogoLink ? undefined : true}
         className={logoLinkClassName}
-        search={(currentSearch) => ({
-          ...currentSearch,
-          [LANDING_DEV_MODE_QUERY_PARAM]: true,
-        })}
+        search={(currentSearch) => currentSearch}
         tabIndex={showLogoLink ? undefined : -1}
       >
         /logo
