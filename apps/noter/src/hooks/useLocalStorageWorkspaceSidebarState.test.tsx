@@ -81,7 +81,6 @@ function SidebarStateProbe({ reset = false }: { reset?: boolean }) {
   return (
     <div
       data-mobile-pane={sidebarState.mobilePane}
-      data-preference-source={sidebarState.preferenceSource}
       data-right-width={`${sidebarState.rightDesktopWidthPx}`}
     />
   );
@@ -151,9 +150,6 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
     expect(
       rootElement?.firstElementChild?.getAttribute("data-right-width"),
     ).toBe("360");
-    expect(
-      rootElement?.firstElementChild?.getAttribute("data-preference-source"),
-    ).toBe("local");
   });
 
   it("falls back to defaults for malformed localStorage payloads", () => {
@@ -176,12 +172,9 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
     expect(
       rootElement?.firstElementChild?.getAttribute("data-right-width"),
     ).toBe("288");
-    expect(
-      rootElement?.firstElementChild?.getAttribute("data-preference-source"),
-    ).toBe("default");
   });
 
-  it("clears localStorage and reports reset when the reset flag is active", () => {
+  it("clears localStorage when the reset flag is active", () => {
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -196,9 +189,6 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
     expect(
       rootElement?.firstElementChild?.getAttribute("data-mobile-pane"),
     ).toBe("main");
-    expect(
-      rootElement?.firstElementChild?.getAttribute("data-preference-source"),
-    ).toBe("reset");
   });
 
   it("persists immediate pane changes to localStorage", () => {
@@ -220,9 +210,6 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
       },
       version: 1,
     });
-    expect(
-      rootElement?.firstElementChild?.getAttribute("data-preference-source"),
-    ).toBe("local");
   });
 
   it("defers width writes while preserving the latest local value", () => {

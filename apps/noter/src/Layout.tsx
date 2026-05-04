@@ -61,9 +61,7 @@ export function PublicLayoutShell({
     reset: sidebarResetRequested,
     storageKey: PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY,
   });
-  const publicRightSidebarPane = usePublicRightSidebarPane({
-    publicSidebarPreferenceSource: sidebarState.preferenceSource,
-  });
+  const publicRightSidebarPane = usePublicRightSidebarPane();
 
   return (
     <PublicLandingLogoLinkProvider>

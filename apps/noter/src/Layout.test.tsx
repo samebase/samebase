@@ -18,12 +18,6 @@ import {
   FORCE_PROD_UI_QUERY_PARAM,
 } from "@/lib/prodUiMode";
 import {
-  PUBLIC_LAYOUT_SIDEBAR_RESET_LINK_LABEL,
-  PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM,
-  PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY,
-  PUBLIC_LAYOUT_SIDEBAR_STORAGE_VALUE_LABELS,
-} from "@/lib/publicLayoutSidebarPreferences";
-import {
   SEARCH_RESET_LINK_LABEL,
   SEARCH_RESET_QUERY_PARAM,
 } from "@/lib/searchReset";
@@ -119,18 +113,6 @@ describe("Layout", () => {
     expect(markup).toContain("/home");
     expect(markup).not.toContain("/pricing");
     expect(markup).toContain(LANDING_DEV_MODE_LINK_LABEL);
-    expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_RESET_LINK_LABEL);
-    expect(markup).toContain(
-      `<span class="break-all">${PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM}</span><span>false</span>`,
-    );
-    expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY);
-    expect(markup).toContain(
-      PUBLIC_LAYOUT_SIDEBAR_STORAGE_VALUE_LABELS.default,
-    );
-    expect(markup.indexOf(PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY)).toBeLessThan(
-      markup.indexOf(FORCE_PROD_UI_MODE_LINK_LABEL),
-    );
-    expect(markup).toContain('class="h-6"');
     expect(markup).not.toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
     expect(markup).toContain(FORCE_PROD_UI_MODE_LINK_LABEL);
     expect(markup).toContain(ROOT_THEME_LIGHT_MODE_LINK_LABEL);
@@ -157,35 +139,6 @@ describe("Layout", () => {
     );
 
     expect(markup).not.toContain('aria-label="Toggle sidebar"');
-  });
-
-  it("displays the reset source when the public sidebar reset flag is present", () => {
-    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
-    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
-    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-    const landingSidebarResetPath = buildPathWithTanStackSearch({
-      pathname: "/",
-      search: {
-        [PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM]: true,
-      },
-    });
-
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={[landingSidebarResetPath]}>
-        <Layout>
-          <PublicLayoutShell>
-            <div>landing</div>
-          </PublicLayoutShell>
-        </Layout>
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_RESET_LINK_LABEL);
-    expect(markup).toContain(
-      `<span class="break-all">${PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM}</span><span>true</span>`,
-    );
-    expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY);
-    expect(markup).toContain(PUBLIC_LAYOUT_SIDEBAR_STORAGE_VALUE_LABELS.reset);
   });
 
   it("places left public rail links on the mobile carousel peek edge", () => {

@@ -3,7 +3,6 @@ import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControl
 import { RouteUrlDisplay } from "@/components/RouteUrlDisplay";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
-import type { PublicLayoutSidebarPreferenceSource } from "@/lib/publicLayoutSidebarPreferences";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useLocation } from "@tanstack/react-router";
 
@@ -30,11 +29,7 @@ function renderPublicRouteUrlHeader(visible: boolean) {
  * Keep public route sidebar chrome together so landing and logo dev routes do
  * not drift as small URL/debug affordances are added.
  */
-export function usePublicRightSidebarPane({
-  publicSidebarPreferenceSource,
-}: {
-  publicSidebarPreferenceSource?: PublicLayoutSidebarPreferenceSource;
-} = {}): WorkspaceLayoutV2PaneFrameProps {
+export function usePublicRightSidebarPane(): WorkspaceLayoutV2PaneFrameProps {
   const location = useLocation();
   const rootRouteSearch = useRootRouteSearch();
   const landingDevEnabled = isLandingDevModeEnabled(rootRouteSearch);
@@ -51,10 +46,7 @@ export function usePublicRightSidebarPane({
           </div>
         ) : null}
         <div className="mt-auto">
-          <AppSidebarMetaSection
-            publicSidebarPreferenceSource={publicSidebarPreferenceSource}
-            side="right"
-          />
+          <AppSidebarMetaSection side="right" />
         </div>
       </div>
     ),

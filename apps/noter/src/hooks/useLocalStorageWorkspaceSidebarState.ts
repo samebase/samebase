@@ -1,5 +1,4 @@
 import * as React from "react";
-import type { PublicLayoutSidebarPreferenceSource } from "@/lib/publicLayoutSidebarPreferences";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
@@ -12,7 +11,6 @@ type UseLocalStorageWorkspaceSidebarStateArgs = {
 };
 
 type UseLocalStorageWorkspaceSidebarStateResult = WorkspaceSidebarState & {
-  preferenceSource: PublicLayoutSidebarPreferenceSource;
   setLeftDesktopOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setLeftDesktopWidthPx: React.Dispatch<React.SetStateAction<number>>;
   setLeftMobileWidthPx: React.Dispatch<React.SetStateAction<number>>;
@@ -120,36 +118,32 @@ function readLocalStorageWorkspaceSidebarState({
   defaults,
   reset,
   storageKey,
-}: UseLocalStorageWorkspaceSidebarStateArgs): {
-  source: PublicLayoutSidebarPreferenceSource;
-  state: WorkspaceSidebarState;
-} {
+}: UseLocalStorageWorkspaceSidebarStateArgs): WorkspaceSidebarState {
   if (typeof window === "undefined") {
-    return { source: reset ? "reset" : "default", state: defaults };
+    return defaults;
   }
 
   if (reset) {
-    removeLocalStorageWorkspaceSidebarState(storageKey);
-    return { source: "reset", state: defaults };
+    return defaults;
   }
 
   try {
     const storedValue = window.localStorage.getItem(storageKey);
     if (storedValue === null) {
-      return { source: "default", state: defaults };
+      return defaults;
     }
 
     const storedState = parseStoredWorkspaceSidebarState(
       JSON.parse(storedValue),
     );
     if (storedState === null) {
-      return { source: "default", state: defaults };
+      return defaults;
     }
 
-    return { source: "local", state: storedState };
+    return storedState;
   } catch (error: unknown) {
     console.warn("Failed to read local workspace sidebar state:", error);
-    return { source: "default", state: defaults };
+    return defaults;
   }
 }
 
@@ -198,16 +192,9 @@ export function useLocalStorageWorkspaceSidebarState({
   reset,
   storageKey,
 }: UseLocalStorageWorkspaceSidebarStateArgs): UseLocalStorageWorkspaceSidebarStateResult {
-  const [initialSidebarState] = React.useState(() =>
+  const [sidebarState, setSidebarState] = React.useState(() =>
     readLocalStorageWorkspaceSidebarState({ defaults, reset, storageKey }),
   );
-  const [sidebarState, setSidebarState] = React.useState(
-    initialSidebarState.state,
-  );
-  const [preferenceSource, setPreferenceSource] =
-    React.useState<PublicLayoutSidebarPreferenceSource>(
-      initialSidebarState.source,
-    );
   const latestSidebarStateRef = React.useRef(sidebarState);
   const pendingWidthPersistTimeoutRef = React.useRef<number | null>(null);
 
@@ -258,7 +245,6 @@ export function useLocalStorageWorkspaceSidebarState({
 
       latestSidebarStateRef.current = nextState;
       setSidebarState(nextState);
-      setPreferenceSource("local");
       if (persistenceMode === "immediate") {
         persistSidebarState(nextState);
         return;
@@ -270,14 +256,17 @@ export function useLocalStorageWorkspaceSidebarState({
   );
 
   React.useEffect(() => {
+    if (reset) {
+      removeLocalStorageWorkspaceSidebarState(storageKey);
+    }
+
     const nextSidebarState = readLocalStorageWorkspaceSidebarState({
       defaults,
       reset,
       storageKey,
     });
-    latestSidebarStateRef.current = nextSidebarState.state;
-    setSidebarState(nextSidebarState.state);
-    setPreferenceSource(nextSidebarState.source);
+    latestSidebarStateRef.current = nextSidebarState;
+    setSidebarState(nextSidebarState);
     clearPendingWidthPersist();
   }, [clearPendingWidthPersist, defaults, reset, storageKey]);
 
@@ -402,7 +391,6 @@ export function useLocalStorageWorkspaceSidebarState({
 
   return {
     ...sidebarState,
-    preferenceSource,
     setLeftDesktopOpen,
     setLeftDesktopWidthPx,
     setLeftMobileWidthPx,
