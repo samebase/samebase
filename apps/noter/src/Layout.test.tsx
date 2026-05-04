@@ -141,6 +141,42 @@ describe("Layout", () => {
     expect(markup).not.toContain('aria-label="Toggle sidebar"');
   });
 
+  it("keeps standard right rail links around public workspace panes", () => {
+    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
+    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/localStorage"]}>
+        <Layout>
+          <PublicLayoutShell
+            dataTestId="local-storage-workspace"
+            defaultLeftOpen
+            left={{
+              content: (
+                <div data-testid="local-storage-left-pane">localStorage</div>
+              ),
+            }}
+            leftToggleVisibility="all"
+            main={{
+              header: <div>Storage header</div>,
+              content: <div>Storage values</div>,
+            }}
+          />
+        </Layout>
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('data-testid="local-storage-workspace"');
+    expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
+    expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
+    expect(markup).toContain('aria-label="Toggle sidebar"');
+    expect(markup).toContain("/logo");
+    expect(markup).toContain("/home");
+    expect(markup).toContain("/terms");
+    expect(markup).toContain("/privacy");
+  });
+
   it("places left public rail links on the mobile carousel peek edge", () => {
     vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
     vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);

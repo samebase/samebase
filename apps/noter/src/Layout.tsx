@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, type ComponentProps, type ReactNode } from "react";
 import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
 import { SidebarProvider } from "@/components/sidebar";
@@ -23,16 +23,28 @@ const PUBLIC_LAYOUT_LEFT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const PUBLIC_LAYOUT_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 
+type WorkspaceLayoutV2FullPageProps = ComponentProps<
+  typeof WorkspaceLayoutV2FullPage
+>;
+
 export function PublicLayoutShell({
   children,
+  dataTestId,
   defaultLeftOpen = false,
   defaultMobilePane = "main",
   left,
+  leftToggleVisibility = "hidden",
+  main,
+  rightToggleVisibility = "hidden",
 }: {
-  children: ReactNode;
+  children?: ReactNode;
+  dataTestId?: WorkspaceLayoutV2FullPageProps["dataTestId"];
   defaultLeftOpen?: boolean;
   defaultMobilePane?: MobileSidebarPane;
   left?: WorkspaceLayoutV2PaneFrameProps;
+  leftToggleVisibility?: WorkspaceLayoutV2FullPageProps["leftToggleVisibility"];
+  main?: WorkspaceLayoutV2PaneFrameProps;
+  rightToggleVisibility?: WorkspaceLayoutV2FullPageProps["rightToggleVisibility"];
 }) {
   const hasLeftPane = left !== undefined;
   const location = useLocation();
@@ -62,6 +74,11 @@ export function PublicLayoutShell({
     storageKey: PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY,
   });
   const publicRightSidebarPane = usePublicRightSidebarPane();
+  const mainPane =
+    main ??
+    ({
+      content: <div className="flex h-full min-h-0 flex-col">{children}</div>,
+    } satisfies WorkspaceLayoutV2PaneFrameProps);
 
   return (
     <PublicLandingLogoLinkProvider>
@@ -83,15 +100,12 @@ export function PublicLayoutShell({
         shortcutSidebarSide="right"
       >
         <WorkspaceLayoutV2FullPage
+          dataTestId={dataTestId}
           left={left}
-          main={{
-            content: (
-              <div className="flex h-full min-h-0 flex-col">{children}</div>
-            ),
-          }}
+          main={mainPane}
           right={publicRightSidebarPane}
-          leftToggleVisibility="hidden"
-          rightToggleVisibility="hidden"
+          leftToggleVisibility={leftToggleVisibility}
+          rightToggleVisibility={rightToggleVisibility}
         />
       </SidebarProvider>
     </PublicLandingLogoLinkProvider>

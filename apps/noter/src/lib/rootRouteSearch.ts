@@ -19,9 +19,12 @@ const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = [
   "devtools",
   "prod-ui",
   SEARCH_RESET_QUERY_PARAM,
-  PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM,
   ...ROOT_THEME_MODE_SEARCH_KEYS,
 ] as const;
+
+function readOptionalSidebarResetFlag(value: unknown): true | undefined {
+  return value === true || value === "" || value === "true" ? true : undefined;
+}
 
 function readOptionalGoogleAuthProvider(value: unknown): "google" | undefined {
   return value === "google" ? "google" : undefined;
@@ -58,7 +61,10 @@ const rootRouteSearchSchema = z
     delete: z.preprocess(readOptionalDeleteRepository, z.string().optional()),
     "prod-ui": z.literal(true).optional(),
     [SEARCH_RESET_QUERY_PARAM]: z.literal(true).optional(),
-    [PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM]: z.literal(true).optional(),
+    [PUBLIC_LAYOUT_SIDEBAR_RESET_QUERY_PARAM]: z.preprocess(
+      readOptionalSidebarResetFlag,
+      z.literal(true).optional(),
+    ),
     signup: z.preprocess(
       readOptionalGoogleSignupReturn,
       z.literal("google").optional(),

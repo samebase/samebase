@@ -1,15 +1,12 @@
 import { FileText, RefreshCw } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
-import { SidebarProvider } from "@/components/sidebar";
+import { PublicLayoutShell } from "@/Layout";
 import { Button } from "@/components/ui/button";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
 import {
   readBrowserLocalStorageSnapshot,
   type LocalStorageSnapshot,
 } from "@/lib/localStorageSnapshot";
-
-const LOCAL_STORAGE_SIDEBAR_WIDTH_PX = 240;
 
 function LocalStorageSidebarContent() {
   return (
@@ -116,40 +113,34 @@ export function LocalStorageWorkspacePage() {
   }, []);
 
   return (
-    <SidebarProvider
-      defaultOpen={true}
-      defaultLeftDesktopWidthPx={LOCAL_STORAGE_SIDEBAR_WIDTH_PX}
-      defaultLeftMobileWidthPx={LOCAL_STORAGE_SIDEBAR_WIDTH_PX}
-      defaultMobilePane="main"
-    >
-      <WorkspaceLayoutV2FullPage
-        dataTestId="local-storage-workspace"
-        left={{
-          content: <LocalStorageSidebarContent />,
-        }}
-        main={{
-          header: (
-            <RepositoryWorkspacePaneHeader
-              title="localStorage"
-              right={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Refresh localStorage"
-                  title="Refresh localStorage"
-                  className="h-8 w-8"
-                  onClick={refreshSnapshot}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              }
-            />
-          ),
-          content: <LocalStorageEntriesTable snapshot={snapshot} />,
-        }}
-        leftToggleVisibility="all"
-      />
-    </SidebarProvider>
+    <PublicLayoutShell
+      dataTestId="local-storage-workspace"
+      defaultLeftOpen
+      left={{
+        content: <LocalStorageSidebarContent />,
+      }}
+      leftToggleVisibility="all"
+      main={{
+        header: (
+          <RepositoryWorkspacePaneHeader
+            title="localStorage"
+            right={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Refresh localStorage"
+                title="Refresh localStorage"
+                className="h-8 w-8"
+                onClick={refreshSnapshot}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            }
+          />
+        ),
+        content: <LocalStorageEntriesTable snapshot={snapshot} />,
+      }}
+    />
   );
 }
