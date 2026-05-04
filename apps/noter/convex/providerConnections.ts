@@ -29,7 +29,6 @@ const providerKindValidator = union(
   literal("github"),
   literal("convex"),
   literal("cloudflare"),
-  literal("codex"),
 );
 export type ProviderKind = Infer<typeof providerKindValidator>;
 
@@ -52,25 +51,10 @@ const apiKeyAuthValidator = object({
   credential: string(),
   credentialExpiresAt: optional(number()),
 });
-const codexDeviceAuthValidator = object({
-  method: literal("device_auth"),
-  storage: literal("daytona_volume"),
-  volumeId: string(),
-  volumeName: string(),
-  codexHome: string(),
-  authSandboxId: optional(string()),
-  authSandboxName: optional(string()),
-  lastCheckAt: optional(number()),
-  lastCheckStatus: optional(
-    union(literal("ready"), literal("needs_reauth"), literal("error")),
-  ),
-  lastError: optional(string()),
-});
 const providerAuthValidator = union(
   oauthAuthValidator,
   mcpOauthAuthValidator,
   apiKeyAuthValidator,
-  codexDeviceAuthValidator,
 );
 export type ProviderAuth = Infer<typeof providerAuthValidator>;
 
@@ -101,10 +85,6 @@ const cloudflareConnectionUpsertValidator = object({
   tokenHealth: optional(mcpTokenHealthValidator),
   tokenRefreshStartedAt: optional(number()),
   lastTokenRefreshAt: optional(number()),
-});
-const codexConnectionUpsertValidator = object({
-  userId: id("users"),
-  auth: codexDeviceAuthValidator,
 });
 
 const githubConnectionResultValidator = object({
@@ -141,20 +121,10 @@ const cloudflareConnectionResultValidator = object({
   createdAt: number(),
   updatedAt: number(),
 });
-const codexConnectionResultValidator = object({
-  _id: id("providerConnections"),
-  _creationTime: number(),
-  kind: literal("codex"),
-  userId: id("users"),
-  auth: codexDeviceAuthValidator,
-  createdAt: number(),
-  updatedAt: number(),
-});
 const providerConnectionResultValidator = union(
   githubConnectionResultValidator,
   convexConnectionResultValidator,
   cloudflareConnectionResultValidator,
-  codexConnectionResultValidator,
 );
 
 export async function getConnectionByUserAndKind(
@@ -278,28 +248,6 @@ async function upsertCloudflareConnection(
   await db.insert("providerConnections", doc);
 }
 
-async function upsertCodexConnection(
-  db: DatabaseWriter,
-  args: Infer<typeof codexConnectionUpsertValidator>,
-): Promise<void> {
-  const now = Date.now();
-  const existing = await getConnectionByUserAndKind(db, args.userId, "codex");
-  if (existing) {
-    await db.patch(existing._id, {
-      auth: args.auth,
-      updatedAt: now,
-    });
-    return;
-  }
-  await db.insert("providerConnections", {
-    kind: "codex",
-    userId: args.userId,
-    auth: args.auth,
-    createdAt: now,
-    updatedAt: now,
-  });
-}
-
 export const getByUserAndKind = internalQuery({
   args: {
     userId: id("users"),
@@ -347,15 +295,6 @@ export const upsertCloudflare = internalMutation({
   returns: vNull(),
   handler: async (ctx, args) => {
     await upsertCloudflareConnection(ctx.db, args);
-    return null;
-  },
-});
-
-export const upsertCodex = internalMutation({
-  args: codexConnectionUpsertValidator,
-  returns: vNull(),
-  handler: async (ctx, args) => {
-    await upsertCodexConnection(ctx.db, args);
     return null;
   },
 });

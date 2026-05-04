@@ -108,17 +108,6 @@ export const AppProvisioningStep = union(
 );
 export type AppProvisioningStep = Infer<typeof AppProvisioningStep>;
 
-export const DaytonaSnapshotBuildStatus = union(
-  literal("queued"),
-  literal("building"),
-  literal("active"),
-  literal("failed"),
-  literal("removing"),
-);
-export type DaytonaSnapshotBuildStatus = Infer<
-  typeof DaytonaSnapshotBuildStatus
->;
-
 export const VaultDomainKind = union(
   literal("main"),
   literal("branch_preview"),
@@ -184,7 +173,6 @@ export const ProviderKind = union(
   literal("github"),
   literal("convex"),
   literal("cloudflare"),
-  literal("codex"),
 );
 export type ProviderKind = Infer<typeof ProviderKind>;
 
@@ -231,30 +219,11 @@ export const ApiKeyAuth = object({
   credential: string(),
   credentialExpiresAt: optional(number()),
 });
-export const CodexDeviceAuth = object({
-  method: literal("device_auth"),
-  storage: literal("daytona_volume"),
-  volumeId: string(),
-  volumeName: string(),
-  codexHome: string(),
-  authSandboxId: optional(string()),
-  authSandboxName: optional(string()),
-  lastCheckAt: optional(number()),
-  lastCheckStatus: optional(
-    union(literal("ready"), literal("needs_reauth"), literal("error")),
-  ),
-  lastError: optional(string()),
-});
 export const StandardProviderAuth = union(OAuthAuth, ApiKeyAuth);
 export type StandardProviderAuth = Infer<typeof StandardProviderAuth>;
 export const CloudflareProviderAuth = union(McpOAuthAuth, ApiKeyAuth);
 export type CloudflareProviderAuth = Infer<typeof CloudflareProviderAuth>;
-export const ProviderAuth = union(
-  OAuthAuth,
-  McpOAuthAuth,
-  ApiKeyAuth,
-  CodexDeviceAuth,
-);
+export const ProviderAuth = union(OAuthAuth, McpOAuthAuth, ApiKeyAuth);
 export type ProviderAuth = Infer<typeof ProviderAuth>;
 export const McpTokenHealthStatus = mcpTokenHealthStatusValidator;
 export type McpTokenHealthStatus = Infer<typeof McpTokenHealthStatus>;
@@ -291,18 +260,10 @@ export const CloudflareProviderConnection = object({
   createdAt: number(),
   updatedAt: number(),
 });
-export const CodexProviderConnection = object({
-  kind: literal("codex"),
-  userId: id("users"),
-  auth: CodexDeviceAuth,
-  createdAt: number(),
-  updatedAt: number(),
-});
 export const ProviderConnection = union(
   GithubProviderConnection,
   ConvexProviderConnection,
   CloudflareProviderConnection,
-  CodexProviderConnection,
 );
 export type ProviderConnection = Infer<typeof ProviderConnection>;
 
@@ -517,35 +478,6 @@ export default defineSchema({
     message: string(),
     createdAt: number(),
   }).index("by_vault_and_created_at", ["vaultId", "createdAt"]),
-
-  daytonaSnapshots: defineTable({
-    ghRepoOwner: string(),
-    ghRepoName: string(),
-    branch: string(),
-    commitSha: string(),
-    snapshotName: optional(string()),
-    snapshotId: optional(string()),
-    status: DaytonaSnapshotBuildStatus,
-    attemptCount: number(),
-    lastError: optional(string()),
-    logs: optional(string()),
-    logsUpdatedAt: optional(number()),
-    nextRetryAt: optional(number()),
-    createdAt: number(),
-    updatedAt: number(),
-  })
-    .index("by_ghRepoOwner_and_ghRepoName_and_branch", [
-      "ghRepoOwner",
-      "ghRepoName",
-      "branch",
-    ])
-    .index("by_ghRepoOwner_and_ghRepoName_and_branch_and_commitSha", [
-      "ghRepoOwner",
-      "ghRepoName",
-      "branch",
-      "commitSha",
-    ])
-    .index("by_snapshot_name", ["snapshotName"]),
 
   /**
    * Branch to domain mapping.

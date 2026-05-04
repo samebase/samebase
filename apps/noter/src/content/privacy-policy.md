@@ -26,8 +26,7 @@ claiming features or controls that are not in the product yet.
   identifiers.
 - Repository and workspace metadata. Noter stores repository owner and name,
   repository IDs, Git trees, commit SHAs, branch metadata, infrastructure
-  status, domain mappings, Codespaces metadata, legacy Daytona sandbox and
-  snapshot metadata, and related operational fields.
+  status, domain mappings, Codespaces metadata, and related operational fields.
 - Workspace content. Noter stores staged file content, initial file content,
   file paths, deduplicated blobs, collaborative editing updates, and other state
   needed to sync and restore your work.

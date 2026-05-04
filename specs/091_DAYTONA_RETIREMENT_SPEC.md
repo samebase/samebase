@@ -233,3 +233,17 @@ Daytona retirement is complete when:
 4. Current specs no longer describe Daytona as an available product direction.
 5. Local-machine Codex and connected-machine docs remain the only current
    development-environment path.
+6. Route-level smoke tests for vault dashboard, file view, provider settings,
+   connected-machine, and local-worktree flows.
+
+## Exit Criteria
+
+Daytona retirement is complete when:
+
+1. No active UI, Convex action, script, workflow, env allowlist, dependency, or
+   generated API surface mentions Daytona.
+2. `vaults` no longer stores Daytona fields.
+3. `daytonaSnapshots` no longer exists in active schema.
+4. Current specs no longer describe Daytona as an available product direction.
+5. Local-machine Codex and connected-machine docs remain the only current
+   development-environment path.
