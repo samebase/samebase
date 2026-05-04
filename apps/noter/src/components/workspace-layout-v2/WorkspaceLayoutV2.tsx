@@ -238,6 +238,48 @@ function shouldCommitMobileMergedSurface(args: {
   );
 }
 
+function getOppositeMobileMergedSide(side: WorkspaceLayoutV2MobileMergedSide) {
+  return side === "left" ? "right" : "left";
+}
+
+/**
+ * Keeps main owned by exactly one merged surface. If the current owner releases
+ * main while the opposite sidebar is already minimum-sized, ownership transfers
+ * across instead of briefly returning to the three-pane model.
+ */
+function getMobileMergeHandoffSide(args: {
+  currentMergedSide: WorkspaceLayoutV2MobileMergedSide | null;
+  hasLeftPane: boolean;
+  hasRightPane: boolean;
+  leftWidthPx: number;
+  resizeSide: WorkspaceLayoutV2MobileMergedSide;
+  rightWidthPx: number;
+  shouldKeepCurrentMerge: boolean;
+  sidebarMinWidthPx: number;
+}) {
+  if (
+    args.shouldKeepCurrentMerge ||
+    args.currentMergedSide !== args.resizeSide
+  ) {
+    return null;
+  }
+
+  const oppositeSide = getOppositeMobileMergedSide(args.resizeSide);
+  const hasOppositePane =
+    (oppositeSide === "left" && args.hasLeftPane) ||
+    (oppositeSide === "right" && args.hasRightPane);
+  if (!hasOppositePane) {
+    return null;
+  }
+
+  const oppositeWidthPx =
+    oppositeSide === "left" ? args.leftWidthPx : args.rightWidthPx;
+  return Math.abs(oppositeWidthPx - args.sidebarMinWidthPx) <=
+    MOBILE_PANE_SETTLED_TOLERANCE_PX
+    ? oppositeSide
+    : null;
+}
+
 function getMobileSidebarWidthPx(args: {
   maxWidthPx: number;
   minWidthPx: number;
@@ -472,8 +514,11 @@ function useWorkspaceLayoutV2MobileGripResizeController({
     number | null
   >(null);
   const mobileMergedMainWidthPxRef = useRef<number | null>(null);
-  const [mobileMergedSide, setMobileMergedSide] =
+  const [mobileMergedSide, setMobileMergedSideState] =
     useState<WorkspaceLayoutV2MobileMergedSide | null>(null);
+  const mobileMergedSideRef = useRef<WorkspaceLayoutV2MobileMergedSide | null>(
+    null,
+  );
   const mobileDefaultPaneWidthPx = getMobilePaneWidthPx({
     peekWidthPx,
     viewportWidthPx,
@@ -499,8 +544,19 @@ function useWorkspaceLayoutV2MobileGripResizeController({
 
   function clearMobileMergedSurface() {
     mobileMergedMainWidthPxRef.current = null;
+    mobileMergedSideRef.current = null;
     setMobileMergedMainWidthPx(null);
-    setMobileMergedSide(null);
+    setMobileMergedSideState(null);
+  }
+
+  function setMobileMergedSurface(
+    side: WorkspaceLayoutV2MobileMergedSide,
+    mainWidthPx: number,
+  ) {
+    mobileMergedMainWidthPxRef.current = mainWidthPx;
+    mobileMergedSideRef.current = side;
+    setMobileMergedMainWidthPx(mainWidthPx);
+    setMobileMergedSideState(side);
   }
 
   /**
@@ -568,9 +624,10 @@ function useWorkspaceLayoutV2MobileGripResizeController({
   }
 
   function startResize(resizeHandle: WorkspaceLayoutV2ResizeHandleConfig) {
+    const currentMergedSide = mobileMergedSideRef.current;
     const mergeTargetSide =
       mobileMinResizeBehavior === "min_resize_to_merge" &&
-      (mobileMergedSide === null || mobileMergedSide === resizeHandle.side)
+      (currentMergedSide === null || currentMergedSide === resizeHandle.side)
         ? resizeHandle.side
         : null;
 
@@ -610,9 +667,7 @@ function useWorkspaceLayoutV2MobileGripResizeController({
       if (settledMainWidthPx !== null && carouselNode !== null) {
         if (resizeSession.shouldSettleMergedOnEnd) {
           resizeHandle.onWidthChange(resizeHandle.minWidthPx);
-          mobileMergedMainWidthPxRef.current = settledMainWidthPx;
-          setMobileMergedMainWidthPx(settledMainWidthPx);
-          setMobileMergedSide(resizeHandle.side);
+          setMobileMergedSurface(resizeHandle.side, settledMainWidthPx);
           carouselNode.scrollLeft = getMobilePaneScrollLeftPx(
             resizeHandle.side,
             {
@@ -664,6 +719,7 @@ function useWorkspaceLayoutV2MobileGripResizeController({
     );
     const pastMinimumPx = Math.max(0, resizeHandle.minWidthPx - rawWidthPx);
     const resizeSession = resizeSessionRef.current;
+    const currentMergedSide = mobileMergedSideRef.current;
 
     if (
       mobileMinResizeBehavior === "min_resize_to_merge" &&
@@ -681,13 +737,22 @@ function useWorkspaceLayoutV2MobileGripResizeController({
       });
 
       if (mergeResizeWidths !== null) {
-        resizeSession.shouldSettleMergedOnEnd = shouldCommitMobileMergedSurface(
-          {
-            mainDefaultWidthPx: mobileDefaultPaneWidthPx,
-            mainWidthPx: mergeResizeWidths.mainWidthPx,
-            settledMainWidthPx: mergeResizeWidths.settledMainWidthPx,
-          },
-        );
+        const shouldSettleMergedOnEnd = shouldCommitMobileMergedSurface({
+          mainDefaultWidthPx: mobileDefaultPaneWidthPx,
+          mainWidthPx: mergeResizeWidths.mainWidthPx,
+          settledMainWidthPx: mergeResizeWidths.settledMainWidthPx,
+        });
+        resizeSession.shouldSettleMergedOnEnd = shouldSettleMergedOnEnd;
+        const handoffSide = getMobileMergeHandoffSide({
+          currentMergedSide,
+          hasLeftPane,
+          hasRightPane,
+          leftWidthPx,
+          resizeSide: resizeHandle.side,
+          rightWidthPx,
+          shouldKeepCurrentMerge: shouldSettleMergedOnEnd,
+          sidebarMinWidthPx: resizeHandle.minWidthPx,
+        });
         const scrollOffsetArgs = {
           hasLeftPane,
           hasRightPane,
@@ -705,13 +770,42 @@ function useWorkspaceLayoutV2MobileGripResizeController({
           viewportWidthPx,
         };
 
+        if (handoffSide !== null) {
+          const handoffSideWidthPx =
+            handoffSide === "left" ? leftWidthPx : rightWidthPx;
+          const handoffMainWidthPx = getMergedMobileMainWidthPx({
+            mainMaxWidthPx: mobileDefaultPaneWidthPx,
+            mainMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
+            sideMinWidthPx: handoffSideWidthPx,
+            viewportWidthPx,
+          });
+
+          if (handoffMainWidthPx !== null) {
+            resizeSession.mergeTargetSide = null;
+            resizeSession.shouldSettleMergedOnEnd = false;
+            resizeHandle.onWidthChange(mergeResizeWidths.sideWidthPx);
+            setMobileMergedSurface(handoffSide, handoffMainWidthPx);
+            carouselNode.scrollLeft = getMobilePaneScrollLeftPx(
+              resizeHandle.side,
+              {
+                ...scrollOffsetArgs,
+                mainWidthPx: handoffMainWidthPx,
+                mergedSurfaceSide: handoffSide,
+              },
+            );
+            setMobileGripSlideOffsetPx(0);
+            return;
+          }
+        }
+
         resizeHandle.onWidthChange(mergeResizeWidths.sideWidthPx);
         if (mergeResizeWidths.mainWidthPx >= mobileDefaultPaneWidthPx) {
           clearMobileMergedSurface();
         } else {
-          mobileMergedMainWidthPxRef.current = mergeResizeWidths.mainWidthPx;
-          setMobileMergedMainWidthPx(mergeResizeWidths.mainWidthPx);
-          setMobileMergedSide(resizeHandle.side);
+          setMobileMergedSurface(
+            resizeHandle.side,
+            mergeResizeWidths.mainWidthPx,
+          );
         }
         carouselNode.scrollLeft = getMobilePaneScrollLeftPx(
           resizeHandle.side,
@@ -725,8 +819,8 @@ function useWorkspaceLayoutV2MobileGripResizeController({
     if (
       mobileMinResizeBehavior === "min_resize_to_merge" &&
       resizeSession?.mergeTargetSide === null &&
-      mobileMergedSide !== null &&
-      mobileMergedSide !== resizeHandle.side &&
+      currentMergedSide !== null &&
+      currentMergedSide !== resizeHandle.side &&
       mobileMergedMainWidthPxRef.current !== null
     ) {
       const nextSideWidthPx = clampedRawWidthPx;
@@ -740,7 +834,7 @@ function useWorkspaceLayoutV2MobileGripResizeController({
         hasRightPane,
         leftWidthPx: nextLeftWidthPx,
         mainWidthPx: mobileMergedMainWidthPxRef.current,
-        mergedSurfaceSide: mobileMergedSide,
+        mergedSurfaceSide: currentMergedSide,
         peekWidthPx,
         rightWidthPx: nextRightWidthPx,
         viewportWidthPx,
@@ -833,7 +927,7 @@ function useWorkspaceLayoutV2MobileCarouselController({
   const hasAlignedInitialMobilePaneRef = useRef(false);
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
   const [isMobilePaneSettled, setIsMobilePaneSettled] = useState(true);
-  const canSyncScroll = isMobile && mainWidthPx > 0;
+  const canSyncScroll = isMobile && viewportWidthPx > 0 && mainWidthPx > 0;
   const syncPaneFromScroll = useEffectEvent((carouselNode: HTMLDivElement) => {
     if (activeGripResizeSideRef.current !== null) {
       return;

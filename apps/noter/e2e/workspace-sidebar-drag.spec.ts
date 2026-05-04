@@ -620,6 +620,67 @@ test("logo mobile keeps left merge while resizing the right sidebar", async ({
     .toBeGreaterThan(minWidthPx + 40);
 });
 
+test("logo mobile hands main to right when left releases and right is minimum", async ({
+  page,
+}) => {
+  await gotoLogoPage(page);
+
+  await scrollFileViewCarouselToPane(page, "left");
+
+  const viewportWidthPx = await page
+    .getByTestId("workspace-layout-v2-pane-main")
+    .evaluate((element) => element.clientWidth);
+  const minWidthPx = await getMobileSidebarMinWidthPx(page);
+  const leftPaneWidthBefore = (
+    await getBox(page, "workspace-layout-v2-pane-left")
+  ).width;
+
+  await touchDragHandleByPx(
+    page,
+    "workspace-layout-v2-left-resize",
+    minWidthPx - leftPaneWidthBefore - minWidthPx,
+  );
+
+  await scrollFileViewCarouselToPane(page, "right");
+
+  const rightPaneWidthBefore = (
+    await getBox(page, "workspace-layout-v2-pane-right")
+  ).width;
+  await touchDragHandleByPx(
+    page,
+    "workspace-layout-v2-right-resize",
+    rightPaneWidthBefore - minWidthPx + minWidthPx,
+  );
+
+  await scrollFileViewCarouselToPane(page, "left");
+
+  await touchDragHandleByPx(page, "workspace-layout-v2-left-resize", 96);
+
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute(
+    "data-mobile-pane",
+    "left",
+  );
+  await expect(
+    page.locator('[data-workspace-layout-v2-mobile-merged-pane="left"]'),
+  ).toHaveCount(0);
+  await expect(
+    page.locator('[data-workspace-layout-v2-mobile-merged-pane="right"]'),
+  ).toHaveCount(1);
+  await expect
+    .poll(async () => getMobileMainPaneWidthPx(page))
+    .toBe(viewportWidthPx - minWidthPx);
+  await expect
+    .poll(async () =>
+      Math.round((await getBox(page, "workspace-layout-v2-pane-right")).width),
+    )
+    .toBe(minWidthPx);
+  await expect
+    .poll(async () =>
+      Math.round((await getBox(page, "workspace-layout-v2-pane-left")).width),
+    )
+    .toBeGreaterThan(minWidthPx + 40);
+});
+
 test("fileview mobile sidebar grips recenter when dragged past the minimum", async ({
   page,
 }) => {

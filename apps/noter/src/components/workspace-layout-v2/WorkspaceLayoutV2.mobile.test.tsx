@@ -82,7 +82,7 @@ function renderMobileLayout({
   leftToggleVisibility,
   mainHeader = OMIT_HEADER,
   mobileMinResizeBehavior,
-  mobilePanePeekWidthPx,
+  mobilePanePeekWidthPx = MOBILE_PANE_PEEK_PX,
   mobilePane,
   rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   showMobileResizeGripDots,
