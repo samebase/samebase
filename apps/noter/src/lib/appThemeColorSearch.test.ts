@@ -21,7 +21,10 @@ describe("appThemeColorSearch", () => {
         primary: "red-600",
       }),
     ).toEqual({
+      accent: undefined,
       base: undefined,
+      border: undefined,
+      muted: undefined,
       primary: "red-600",
       secondary: undefined,
     });
@@ -38,7 +41,10 @@ describe("appThemeColorSearch", () => {
     expect(
       resolveAppThemeColorState({
         search: {
+          accent: "#aabbcc",
           base: "#112233",
+          border: "#334455",
+          muted: "#ddeeff",
           primary: "#445566",
           secondary: "#778899",
         },
@@ -46,19 +52,25 @@ describe("appThemeColorSearch", () => {
       }),
     ).toEqual({
       backgroundColor: "#112233",
-      cacheKey: "light:112233:445566:778899",
+      cacheKey: "light:445566:778899:112233:334455:ddeeff:aabbcc",
       faceColors: {
         left: "#778899",
         right: "#445566",
         top: "#112233",
       },
       resolvedThemeColors: {
+        accent: "#aabbcc",
         base: "#112233",
+        border: "#334455",
+        muted: "#ddeeff",
         primary: "#445566",
         secondary: "#778899",
       },
       themeColors: {
+        accent: "#aabbcc",
         base: "#112233",
+        border: "#334455",
+        muted: "#ddeeff",
         primary: "#445566",
         secondary: "#778899",
       },
@@ -68,7 +80,10 @@ describe("appThemeColorSearch", () => {
 
   it("syncs typed search colors into theme-aware document CSS variables", () => {
     syncDocumentThemeColorSearch({
+      accent: "#555555",
       base: "#000000",
+      border: "#333333",
+      muted: "#444444",
       primary: "primary-base",
       secondary: "lime-100",
     });
@@ -80,6 +95,13 @@ describe("appThemeColorSearch", () => {
     expect(styleElement?.textContent).toContain(".dark");
     expect(styleElement?.textContent).toContain("--background: 0 0% 0%;");
     expect(styleElement?.textContent).toContain("--foreground: 0 0% 100%;");
+    expect(styleElement?.textContent).toContain("--border: 0 0% 20%;");
+    expect(styleElement?.textContent).toContain("--input: 0 0% 20%;");
+    expect(styleElement?.textContent).toContain("--muted: 0 0% 26.7%;");
+    expect(styleElement?.textContent).toContain("--accent: 0 0% 33.3%;");
+    expect(styleElement?.textContent).toContain(
+      "--accent-foreground: 0 0% 100%;",
+    );
     expect(styleElement?.textContent).toContain(
       "--primary: 192.9 10.9% 25.1%;",
     );

@@ -8,24 +8,30 @@ describe("rootRouteSearch", () => {
   it("accepts the routed root landing flags and auth provider", () => {
     expect(
       validateRootRouteSearch({
+        accent: "violet-500",
         auth: "google",
         base: "#ffffff",
+        border: "stone-300",
         delete: "noter-md/noter",
         dark: "",
         dev: "",
         devtools: "true",
+        muted: "zinc-100",
         primary: "red-600",
         "prod-ui": "",
         secondary: "lime-100",
         signup: "google",
       }),
     ).toEqual({
+      accent: "violet-500",
       auth: "google",
       base: "#ffffff",
+      border: "stone-300",
       delete: "noter-md/noter",
       dark: true,
       dev: true,
       devtools: true,
+      muted: "zinc-100",
       primary: "red-600",
       "prod-ui": true,
       secondary: "lime-100",
@@ -36,11 +42,14 @@ describe("rootRouteSearch", () => {
   it("drops malformed root landing search values instead of preserving junk", () => {
     expect(
       validateRootRouteSearch({
+        accent: [],
         auth: "github",
         base: "bad",
+        border: "nope-500",
         delete: "missing-repo-separator",
         dev: "1",
         devtools: "false",
+        muted: 1,
         primary: "nope-500",
         "prod-ui": false,
         secondary: 3,
