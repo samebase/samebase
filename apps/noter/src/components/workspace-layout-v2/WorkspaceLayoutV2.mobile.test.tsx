@@ -733,6 +733,29 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           .querySelector("[data-workspace-layout-v2]")
           ?.getAttribute("data-mobile-pane"),
       ).toBe("left");
+
+      act(() => {
+        leftHandle.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "ArrowRight",
+          }),
+        );
+      });
+
+      expect(mainPane.style.width).toBe("318px");
+      expect(
+        getRequiredElement(
+          rootElement,
+          '[data-testid="workspace-layout-v2-pane-left"]',
+        ).style.width,
+      ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
+
+      act(() => {
+        vi.advanceTimersByTime(121);
+      });
+
+      expect(mainPane.style.width).toBe("318px");
     } finally {
       vi.useRealTimers();
     }

@@ -190,6 +190,40 @@ function getMergingMobileMainWidthPx(args: {
   );
 }
 
+function getUnmergingMobileMainWidthPx(args: {
+  mainMaxWidthPx: number;
+  mergedMainWidthPx: number;
+  rawSideWidthPx: number;
+  sideMinWidthPx: number;
+}) {
+  const resizeTravelPx = Math.abs(
+    Math.round(args.rawSideWidthPx) - args.sideMinWidthPx,
+  );
+
+  return clampNumber(
+    args.mergedMainWidthPx + resizeTravelPx,
+    args.mergedMainWidthPx,
+    args.mainMaxWidthPx,
+  );
+}
+
+function getUnmergingMobileSidebarWidthPx(args: {
+  mainMaxWidthPx: number;
+  mergedMainWidthPx: number;
+  rawSideWidthPx: number;
+  sideMinWidthPx: number;
+}) {
+  const mainResizeDistancePx = args.mainMaxWidthPx - args.mergedMainWidthPx;
+  const sideResizeDistancePx = Math.max(
+    0,
+    Math.round(args.rawSideWidthPx) -
+      args.sideMinWidthPx -
+      mainResizeDistancePx,
+  );
+
+  return args.sideMinWidthPx + sideResizeDistancePx;
+}
+
 function getMobileSidebarWidthPx(args: {
   maxWidthPx: number;
   minWidthPx: number;
@@ -753,6 +787,9 @@ export function WorkspaceLayoutV2JustPanes({
   const hasAlignedInitialMobilePaneRef = useRef(false);
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
   const activeMobileGripResizeSideRef = useRef<"left" | "right" | null>(null);
+  const activeMobileGripResizeSessionRef = useRef<{
+    startedMergedMainWidthPx: number | null;
+  } | null>(null);
   const [mobileGripSlideOffsetPx, setMobileGripSlideOffsetPx] = useState(0);
   // Merge mode keeps the active side pane selected while narrowing the main
   // pane enough for both panes to share the mobile viewport.
@@ -774,6 +811,7 @@ export function WorkspaceLayoutV2JustPanes({
     hasAlignedInitialMobilePaneRef.current = false;
     scrollDerivedMobilePaneRef.current = null;
     activeMobileGripResizeSideRef.current = null;
+    activeMobileGripResizeSessionRef.current = null;
     mobileMergedMainWidthPxRef.current = null;
     setMobileGripSlideOffsetPx(0);
     setMobileMergedMainWidthPx(null);
@@ -1048,6 +1086,9 @@ export function WorkspaceLayoutV2JustPanes({
         onResizeStart={() => {
           if (pointerTarget === "grip") {
             activeMobileGripResizeSideRef.current = resizeHandle.side;
+            activeMobileGripResizeSessionRef.current = {
+              startedMergedMainWidthPx: mobileMergedMainWidthPxRef.current,
+            };
             setMobileGripSlideOffsetPx(0);
             mobileCarouselRef.current?.style.setProperty(
               "scroll-snap-type",
@@ -1061,12 +1102,29 @@ export function WorkspaceLayoutV2JustPanes({
           let didSettleMergedMainPane = false;
           if (pointerTarget === "grip") {
             const mergedMainWidthPx = mobileMergedMainWidthPxRef.current;
+            const resizeSession = activeMobileGripResizeSessionRef.current;
             activeMobileGripResizeSideRef.current = null;
+            activeMobileGripResizeSessionRef.current = null;
             setMobileGripSlideOffsetPx(0);
             if (
               mobileMinResizeBehavior === "min_resize_to_merge" &&
               mergedMainWidthPx !== null
             ) {
+              if (
+                resizeSession?.startedMergedMainWidthPx !== null &&
+                resizeSession?.startedMergedMainWidthPx !== undefined
+              ) {
+                if (mergedMainWidthPx >= mobileDefaultPaneWidthPx) {
+                  mobileMergedMainWidthPxRef.current = null;
+                  setMobileMergedMainWidthPx(null);
+                } else {
+                  didSettleMergedMainPane = true;
+                }
+                carouselNode?.style.removeProperty("scroll-snap-type");
+                setActiveResizeSide(null);
+                return;
+              }
+
               const settledMainWidthPx = getMergedMobileMainWidthPx({
                 mainMaxWidthPx: mobileDefaultPaneWidthPx,
                 mainMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
@@ -1124,6 +1182,65 @@ export function WorkspaceLayoutV2JustPanes({
                   0,
                   resizeHandle.minWidthPx - rawWidthPx,
                 );
+                const startedMergedMainWidthPx =
+                  activeMobileGripResizeSessionRef.current
+                    ?.startedMergedMainWidthPx;
+
+                if (
+                  mobileMinResizeBehavior === "min_resize_to_merge" &&
+                  startedMergedMainWidthPx !== null &&
+                  startedMergedMainWidthPx !== undefined
+                ) {
+                  const unmergingMainWidthPx = getUnmergingMobileMainWidthPx({
+                    mainMaxWidthPx: mobileDefaultPaneWidthPx,
+                    mergedMainWidthPx: startedMergedMainWidthPx,
+                    rawSideWidthPx: rawWidthPx,
+                    sideMinWidthPx: resizeHandle.minWidthPx,
+                  });
+                  const unmergingSidebarWidthPx =
+                    getUnmergingMobileSidebarWidthPx({
+                      mainMaxWidthPx: mobileDefaultPaneWidthPx,
+                      mergedMainWidthPx: startedMergedMainWidthPx,
+                      rawSideWidthPx: rawWidthPx,
+                      sideMinWidthPx: resizeHandle.minWidthPx,
+                    });
+                  const scrollOffsetArgs = {
+                    hasLeftPane,
+                    hasRightPane,
+                    leftWidthPx:
+                      resizeHandle.side === "left"
+                        ? unmergingSidebarWidthPx
+                        : mobileLeftWidthPx,
+                    mainWidthPx: unmergingMainWidthPx,
+                    rightWidthPx:
+                      resizeHandle.side === "right"
+                        ? unmergingSidebarWidthPx
+                        : mobileRightWidthPx,
+                    viewportWidthPx: viewportSize.widthPx,
+                  };
+
+                  resizeHandle.onWidthChange(unmergingSidebarWidthPx);
+                  if (unmergingMainWidthPx >= mobileDefaultPaneWidthPx) {
+                    mobileMergedMainWidthPxRef.current = null;
+                    setMobileMergedMainWidthPx(null);
+                  } else {
+                    mobileMergedMainWidthPxRef.current = unmergingMainWidthPx;
+                    setMobileMergedMainWidthPx(unmergingMainWidthPx);
+                  }
+                  carouselNode.scrollLeft = getMobilePaneScrollLeftPx(
+                    resizeHandle.side,
+                    scrollOffsetArgs,
+                  );
+                  setMobileGripSlideOffsetPx(
+                    rawWidthPx < resizeHandle.minWidthPx
+                      ? Math.max(
+                          0,
+                          unmergingMainWidthPx - startedMergedMainWidthPx,
+                        )
+                      : 0,
+                  );
+                  return;
+                }
 
                 if (
                   mobileMinResizeBehavior === "min_resize_to_merge" &&

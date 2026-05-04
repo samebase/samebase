@@ -1562,6 +1562,52 @@ test.describe("mobile landing dev toggle", () => {
       )
       .toBe(handleValues.minWidthPx);
 
+    const mergedHandleBox = await page
+      .getByTestId("workspace-layout-v2-right-resize")
+      .boundingBox();
+    expect(mergedHandleBox).not.toBeNull();
+    if (mergedHandleBox === null) {
+      throw new Error("Expected merged landing right resize handle box");
+    }
+
+    const mainGrowPx = 24;
+    await dispatchHumanTouchSwipe(page, mobileShell, {
+      startX: mergedHandleBox.x - mobileShellBox.x + mergedHandleBox.width / 2,
+      startY: mergedHandleBox.y - mobileShellBox.y + mergedHandleBox.height / 2,
+      steps: [
+        {
+          delayMs: 16,
+          xOffset: -mainGrowPx,
+          yOffset: 0,
+        },
+      ],
+    });
+
+    await expect
+      .poll(async () =>
+        Math.round(
+          (
+            await page
+              .locator(
+                '[data-testid="workspace-layout-v2-pane-main"] > .snap-center',
+              )
+              .boundingBox()
+          )?.width ?? 0,
+        ),
+      )
+      .toBe(carouselWidthPx - handleValues.minWidthPx + mainGrowPx);
+    await expect
+      .poll(async () =>
+        Math.round(
+          (
+            await page
+              .getByTestId("workspace-layout-v2-pane-right")
+              .boundingBox()
+          )?.width ?? 0,
+        ),
+      )
+      .toBe(handleValues.minWidthPx);
+
     const mergedCarouselScrollLeftPx = await page
       .getByTestId("workspace-layout-v2-pane-main")
       .evaluate((element) => element.scrollLeft);
