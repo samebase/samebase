@@ -114,7 +114,8 @@ describe("Layout", () => {
     expect(markup).toContain('tabindex="-1"');
     expect(markup).toContain("text-background");
     expect(markup).toContain("/home");
-    expect(markup).not.toContain(LOCAL_STORAGE_ROUTE);
+    expect(markup).toContain(`id="public-local-storage-route-link"`);
+    expect(markup).toContain(LOCAL_STORAGE_ROUTE);
     expect(markup).not.toContain("/pricing");
     expect(markup).toContain(LANDING_DEV_MODE_LINK_LABEL);
     expect(markup).not.toContain(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
@@ -255,7 +256,11 @@ describe("Layout", () => {
     expect(rightRailMarkup).toContain("text-left");
     expect(rightRailMarkup).toContain("flex-row");
     expect(rightRailMarkup).not.toContain("flex-row-reverse");
-    expect(rightRailMarkup).not.toContain(LOCAL_STORAGE_ROUTE);
+    expect(rightRailMarkup).toContain(`id="public-local-storage-route-link"`);
+    expect(rightRailMarkup).toContain(LOCAL_STORAGE_ROUTE);
+    expect(rightRailMarkup).toContain(`aria-hidden="true"`);
+    expect(rightRailMarkup).toContain(`tabindex="-1"`);
+    expect(rightRailMarkup).toContain("text-background");
   });
 
   it("shows the localStorage link only in the right dev sidebar", () => {
@@ -281,6 +286,7 @@ describe("Layout", () => {
     );
 
     expect(leftRailMarkup).not.toContain(LOCAL_STORAGE_ROUTE);
+    expect(rightRailMarkup).toContain(`id="public-local-storage-route-link"`);
     expect(rightRailMarkup).toContain(
       `href="${encodeStaticHref(
         buildPathWithTanStackSearch({
