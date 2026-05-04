@@ -23,16 +23,18 @@ export function RepositoryRouteConnectStateVisualFixture({
           defaultRightOpen={true}
           shortcutSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
         >
-          <RepositoryRouteConnectState
-            dataTestId="file-view-connect-route-visual-fixture"
-            repositoryFullName="facebook/react"
-            githubConnected={githubConnected}
-            isConnectingGithub={false}
-            isConnectingRepository={false}
-            errorMessage={null}
-            onConnectGithub={() => {}}
-            onConnectRepository={() => {}}
-          />
+          <div className="flex h-screen flex-col">
+            <RepositoryRouteConnectState
+              dataTestId="file-view-connect-route-visual-fixture"
+              repositoryFullName="facebook/react"
+              githubConnected={githubConnected}
+              isConnectingGithub={false}
+              isConnectingRepository={false}
+              errorMessage={null}
+              onConnectGithub={() => {}}
+              onConnectRepository={() => {}}
+            />
+          </div>
         </SidebarProvider>
       </DialogProvider>
     </TestRouterProvider>

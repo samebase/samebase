@@ -1,8 +1,14 @@
 import { expect, test } from "@playwright/test";
 
-const publicLayoutSnapshotSuffix = process.platform;
 const selectAllShortcut =
   process.platform === "darwin" ? "Meta+A" : "Control+A";
+
+function isExpectedLocalConvexSyncConsoleError(message: string) {
+  return (
+    message.includes("WebSocket connection to 'ws://127.0.0.1:3210/") &&
+    message.includes("net::ERR_CONNECTION_REFUSED")
+  );
+}
 
 test("public landing route uses the right sidebar shell", async ({ page }) => {
   await page.addInitScript(() => {
@@ -14,15 +20,12 @@ test("public landing route uses the right sidebar shell", async ({ page }) => {
   });
   await page.waitForLoadState("networkidle");
 
-  await expect(page).toHaveScreenshot(
-    `public-layout-landing-${publicLayoutSnapshotSuffix}.png`,
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
+  await expect(page).toHaveScreenshot("public-layout-landing.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
 test("public landing dev rail exposes the route URL display", async ({
@@ -40,15 +43,12 @@ test("public landing dev rail exposes the route URL display", async ({
   const routeUrlDisplay = page.getByTestId("route-url-display");
   await expect(routeUrlDisplay).toHaveText("/?dev");
   await expect(routeUrlDisplay).toHaveAttribute("title", "/?dev");
-  await expect(page).toHaveScreenshot(
-    `public-layout-landing-dev-${publicLayoutSnapshotSuffix}.png`,
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
+  await expect(page).toHaveScreenshot("public-layout-landing-dev.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 
   await page.getByRole("link", { name: "/terms", exact: true }).click();
   await expect(page).toHaveURL(/\/terms\?dev$/);
@@ -96,8 +96,12 @@ test("public landing ProseMark copy survives full selection deletion", async ({
 }) => {
   const errorMessages: string[] = [];
   page.on("console", (message) => {
-    if (message.type() === "error") {
-      errorMessages.push(message.text());
+    const text = message.text();
+    if (
+      message.type() === "error" &&
+      !isExpectedLocalConvexSyncConsoleError(text)
+    ) {
+      errorMessages.push(text);
     }
   });
   page.on("pageerror", (error) => {

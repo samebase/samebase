@@ -16,8 +16,6 @@ const landingPreviewMarkdown = readFileSync(
   new URL("../src/content/landing-preview.md", import.meta.url),
   "utf8",
 );
-const landingMarkdownPreviewSnapshotSuffix =
-  process.platform === "linux" ? "linux" : "darwin";
 const expectedLandingPreviewSidebarLinks = getLandingMarkdownHeadings(
   landingPreviewMarkdown,
 ).map((heading) => ({
@@ -116,15 +114,12 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
     await expect(video).toHaveAttribute("src", expectedVideoSrc);
   }
 
-  await expect(page).toHaveScreenshot(
-    `landing-markdown-preview-desktop-${landingMarkdownPreviewSnapshotSuffix}.png`,
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    },
-  );
+  await expect(page).toHaveScreenshot("landing-markdown-preview-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
 
   await sidebar
     .getByRole("link", {
@@ -184,15 +179,12 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
   const sidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
   await expect(sidebar).toBeVisible();
   await expectSidebarLinksToMatchMarkdown(sidebar);
-  await expect(page).toHaveScreenshot(
-    `landing-markdown-preview-mobile-${landingMarkdownPreviewSnapshotSuffix}.png`,
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    },
-  );
+  await expect(page).toHaveScreenshot("landing-markdown-preview-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
 
   await page.goto("/landing-preview?dev&left&dark", {
     waitUntil: "domcontentloaded",

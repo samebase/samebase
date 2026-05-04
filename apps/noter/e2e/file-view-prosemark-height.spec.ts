@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { dispatchHumanTouchSwipe } from "./touchGestures";
 
 type ScrollMetrics = {
   clientHeight: number;
@@ -213,62 +214,65 @@ async function swipeSurfaceHorizontallyToLeftPane(
     return;
   }
 
-  const startPoint = await page.evaluate(
-    ({ dataTestId, startX, startY }) => {
-      const surface = document.querySelector<HTMLElement>(
-        `[data-testid="${dataTestId}"]`,
-      );
-      if (surface === null) {
-        return null;
-      }
-
-      for (let y = startY; y <= startY + 120; y += 20) {
-        const hit = document.elementFromPoint(startX, y);
-        if (!(hit instanceof HTMLElement)) {
-          continue;
-        }
-        if (!surface.contains(hit)) {
-          continue;
-        }
-        if (hit.closest(".cm-line") === null) {
-          continue;
-        }
-
-        return {
-          startX,
-          startY: y,
-        };
-      }
-
+  const startPoint = await surface.evaluate((surfaceNode) => {
+    if (!(surfaceNode instanceof HTMLElement)) {
       return null;
-    },
-    {
-      dataTestId: "fileview-prosemark-height-surface",
-      startX: Math.round(surfaceBounds.x + surfaceBounds.width / 2),
-      startY: Math.round(surfaceBounds.y + 48),
-    },
-  );
+    }
+
+    const surfaceRect = surfaceNode.getBoundingClientRect();
+    const viewportBottomLimit = window.innerHeight - 96;
+    const visibleBottom = Math.min(
+      surfaceRect.bottom - 24,
+      viewportBottomLimit,
+    );
+
+    for (const line of surfaceNode.querySelectorAll<HTMLElement>(".cm-line")) {
+      for (const rect of line.getClientRects()) {
+        if (rect.width <= 0 || rect.height <= 0) {
+          continue;
+        }
+
+        const startY = rect.top + Math.min(rect.height / 2, 12);
+        if (startY < surfaceRect.top + 48 || startY > visibleBottom) {
+          continue;
+        }
+
+        const desiredStartX =
+          rect.left + Math.min(Math.max(rect.width / 3, 24), 80);
+        const startX = Math.min(
+          Math.max(desiredStartX, surfaceRect.left + 24),
+          surfaceRect.right - 96,
+        );
+        const hit = document.elementFromPoint(startX, startY);
+        if (
+          hit instanceof HTMLElement &&
+          surfaceNode.contains(hit) &&
+          hit.closest(".cm-line") !== null
+        ) {
+          return {
+            startX: startX - surfaceRect.left,
+            startY: startY - surfaceRect.top,
+          };
+        }
+      }
+    }
+
+    return null;
+  });
   expect(startPoint).not.toBeNull();
   if (startPoint === null) {
     return;
   }
 
-  const session = await page.context().newCDPSession(page);
-
-  try {
-    await session.send("Input.synthesizeScrollGesture", {
-      gestureSourceType: "touch",
-      repeatCount: 1,
-      repeatDelayMs: 0,
-      speed: SWIPE_SCROLL_SPEED_PX_PER_SECOND,
-      x: Math.round(startPoint.startX),
-      xDistance: 220,
-      y: Math.round(startPoint.startY),
-      yDistance: 0,
-    });
-  } finally {
-    await session.detach().catch(() => undefined);
-  }
+  await dispatchHumanTouchSwipe(page, surface, {
+    startX: startPoint.startX,
+    startY: startPoint.startY,
+    steps: [
+      { delayMs: 16, xOffset: 80, yOffset: 0 },
+      { delayMs: 16, xOffset: 160, yOffset: 0 },
+      { delayMs: 16, xOffset: 240, yOffset: 0 },
+    ],
+  });
 }
 
 async function openFixture(page: Page) {

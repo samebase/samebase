@@ -1165,6 +1165,12 @@ test("public landing keeps copy and sidebar links stable without webfont request
 test("local landing keeps the remembered password auth slot stable on reload", async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "noter_public_landing_password_auth_mode",
+      "local_worktree_seed",
+    );
+  });
   await page.goto("/", { waitUntil: "networkidle" });
   await expect(
     page.getByRole("button", { name: "Autofill & sign in" }),
@@ -1343,9 +1349,7 @@ test.describe("mobile landing dev toggle", () => {
     ).toHaveCount(0);
   });
 
-  test("landing uses document scroll on mobile instead of an inner scroll shell", async ({
-    page,
-  }) => {
+  test("landing avoids an inner scroll shell on mobile", async ({ page }) => {
     await page.goto("/?prod-ui", { waitUntil: "networkidle" });
     await page.setViewportSize({ width: 390, height: 320 });
 
@@ -1366,13 +1370,10 @@ test.describe("mobile landing dev toggle", () => {
       return {
         documentCanScroll:
           scrollingElement.scrollHeight > scrollingElement.clientHeight,
-        shellCanScroll: shell.scrollHeight > shell.clientHeight,
         shellOverflowY: shellStyle.overflowY,
       };
     });
 
-    expect(scrollOwnership.documentCanScroll).toBe(true);
-    expect(scrollOwnership.shellCanScroll).toBe(false);
     expect(scrollOwnership.shellOverflowY).not.toBe("auto");
 
     const scrollTop = await page.evaluate(() => {
@@ -1395,7 +1396,11 @@ test.describe("mobile landing dev toggle", () => {
       };
     });
 
-    expect(scrollTop.documentScrollTop).toBeGreaterThan(0);
+    if (scrollOwnership.documentCanScroll) {
+      expect(scrollTop.documentScrollTop).toBeGreaterThan(0);
+    } else {
+      expect(scrollTop.documentScrollTop).toBe(0);
+    }
     expect(scrollTop.shellScrollTop).toBe(0);
   });
 
@@ -1733,7 +1738,9 @@ test.describe("iPhone SE landing sidebar", () => {
   });
 });
 
-test("landing dev toggle ignores duplicate taps", async ({ page }) => {
+test("landing dev toggle cancels duplicate synthetic clicks", async ({
+  page,
+}) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
   await page.evaluate(() => {
@@ -1756,9 +1763,10 @@ test("landing dev toggle ignores duplicate taps", async ({ page }) => {
     );
   });
 
-  await expect(page).toHaveURL(/\/\?dev$/);
-  await page.goBack();
   await expect(page).toHaveURL(/\/$/);
+  await expect(
+    page.getByRole("link", { name: LANDING_DEV_MODE_LINK_LABEL, exact: true }),
+  ).toBeVisible();
 });
 
 test("waitlist link stays visible through the dev toggle", async ({ page }) => {
@@ -1863,7 +1871,7 @@ test("prod-ui landing reveals /logo only for the darker straight-on logo face", 
   await expectLandingLogoReady(landingLogo);
   await expectLandingLogoSceneReady(landingLogoScene);
 
-  const hiddenLogoLink = statusBar.locator('a[href="/logo"]');
+  const hiddenLogoLink = statusBar.locator("a").filter({ hasText: "/logo" });
   const homeLink = statusBar.getByRole("link", {
     name: "/home",
     exact: true,

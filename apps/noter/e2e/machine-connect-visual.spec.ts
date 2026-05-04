@@ -1,12 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const machineConnectSnapshotSuffix =
-  process.platform === "win32" ? "win32" : process.platform;
-const machineConnectSnapshotName = `machine-connect-page-${machineConnectSnapshotSuffix}.png`;
+const machineConnectSnapshotName = "machine-connect-page.png";
 
 /**
  * Wait for app fonts plus two paint frames so the visual fixture settles
- * before the screenshot capture compares Linux and macOS text layout.
+ * before the screenshot capture compares text layout.
  */
 async function waitForStableFonts(page: Page) {
   await page.evaluate(async () => {

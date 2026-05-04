@@ -420,6 +420,7 @@ export function CommitReviewVisualFixture({
               selectedFile={selectedFile}
               folderExpansionStates={[]}
               autoExpandedPaths={["docs", "src"]}
+              onFileRestore={() => {}}
             />
           </div>
         </aside>
