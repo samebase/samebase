@@ -12,7 +12,6 @@ simpleView:
     - "**/*.{json,ts,tsx,js,jsx,cjs,mjs,css,html,yaml,patch,sh}" # Source file extensions
     - tsconfig.base.json
     - Makefile
-    - Dockerfile.daytona-deps
     - "**/pre-commit" # Git hooks like .vite-hooks/pre-commit
     - "**/.*" # Dotfiles and dotfolders
     - "**/.*/**" # Files inside dotfolders

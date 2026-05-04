@@ -8,7 +8,6 @@
 - Related specs:
   - `rfcs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md`
   - `specs/037_EDITOR_COMMIT_DIFF_RELIABILITY_SPEC.md`
-  - `specs/041_DAYTONA_COMMIT_PINNED_SNAPSHOT_SPEC.md`
   - `specs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
 
@@ -37,7 +36,8 @@ Current rollout note (PR #174):
 Current workflow direction for Noter:
 
 1. Work against remote branches only
-2. Local branch state in Daytona/Codex sandboxes is implementation detail
+2. Local branch state in connected-machine or Codex worktrees is implementation
+   detail
 3. Commit in Noter implies push to the selected remote branch
 
 ## Current Runtime State (Post-PR #174)
@@ -106,7 +106,7 @@ Current `/vault/:owner/:repoName/*` parsing splits wildcard into
 
 1. Local branch creation/checkout semantics in sandboxes
 2. Branch create/delete/rename UI
-3. Multi-branch Daytona rollout (still main-only per spec 041)
+3. Multi-branch connected-machine launch UX
 4. Per-branch infra/hosting lifecycle changes
 5. Git merge/rebase UX in Noter
 
@@ -290,8 +290,8 @@ Constraints:
 
 1. Keep existing no-placeholder UX style
 2. Avoid noisy loading states; show branch list when available
-3. Keep infra/daytona summary aligned to default branch until multi-branch
-   Daytona spec is implemented
+3. Keep infra summary aligned to default branch until branch-scoped preview
+   surfaces ship
 
 ## Editor Behavior Changes
 
@@ -451,7 +451,7 @@ Pending:
 ## Deferred Follow-Ups
 
 1. Branch create/delete/switch shortcuts from UI
-2. Branch-specific Daytona snapshots and launch UX (spec 041 follow-up)
+2. Branch-specific connected-machine launch UX
 3. Branch-scoped infra preview domain surfacing in dashboard
 4. Branch-scoped thread model (optional UX improvement)
 5. Agent-owned sandbox model for branch presence: prefer one sandbox per agent,

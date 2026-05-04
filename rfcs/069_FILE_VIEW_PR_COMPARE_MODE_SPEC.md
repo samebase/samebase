@@ -30,7 +30,7 @@ PR-like "merge base" workflow, but Noter v1 should stay narrower:
 1. no arbitrary base picker
 2. no "full vs merge" diff mode toggle
 3. no new dashboard surface
-4. no Daytona git working-tree integration
+4. no hosted workspace git working-tree integration
 
 ## Problem
 
@@ -104,8 +104,8 @@ For this surface, Noter currently has:
 1. branch commits visible through GitHub branch/tree state
 2. uncommitted local Noter changes visible through `fileStaging`
 
-It does not currently have a separate file-view model for sandbox-only dirty
-files from Daytona/Codespaces `git status`.
+It does not currently have a separate file-view model for hosted-workspace dirty
+files from `git status`.
 
 This means the requested "staged and unstaged" behavior should be interpreted in
 v1 as:
@@ -170,7 +170,7 @@ for very large diffs.
 2. "Full vs merge" compare-mode selection.
 3. A dashboard-level PR-files surface.
 4. A full remote diff-review UI for every compare file in v1.
-5. Daytona/Codespaces git working-tree integration.
+5. Hosted workspace git working-tree integration.
 6. Fork-head PR browsing outside the current vault's repository branch model.
 
 ## Product Decisions
@@ -475,7 +475,7 @@ Rejected for v1.
 The user's request is narrower than Git Tree Compare's full feature set. Noter
 should ship the PR/default-base workflow first.
 
-### 4. Integrate Daytona/Codespaces `git status`
+### 4. Integrate Hosted Workspace `git status`
 
 Rejected for v1.
 

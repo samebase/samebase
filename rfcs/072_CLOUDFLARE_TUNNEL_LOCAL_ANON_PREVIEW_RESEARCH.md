@@ -7,7 +7,6 @@
 - Last updated: 2026-03-31
 - Related docs:
   - `specs/012_DEV_ENV_ORIGIN_SITE_URL_SYNC_SPEC.md`
-  - `specs/054_DAYTONA_BROWSER_CONVEX_TRANSPORT_SPEC.md`
   - `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`
 
 ## Purpose

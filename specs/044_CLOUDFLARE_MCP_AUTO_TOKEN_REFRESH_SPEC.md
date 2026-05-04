@@ -368,6 +368,7 @@ Reuse existing refresh success/failure events from `cloudflareMcpOAuth.ts`.
 3. Should `invalid` token state become a hard block for Cloudflare create flow
    in a follow-up phase?
 4. Should we standardize one polling countdown component and apply it to all
-   other polling UIs (CommitStatus, Daytona panels) in a follow-up spec?
+   other polling UIs, such as commit status and developer-tool panels, in a
+   follow-up spec?
 5. Should the early-refresh window remain 30 minutes, or be configurable to 10
    minutes for lower token churn?

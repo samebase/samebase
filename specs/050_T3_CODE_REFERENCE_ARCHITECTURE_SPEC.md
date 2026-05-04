@@ -8,7 +8,7 @@
 ## Purpose
 
 Capture how T3 Code actually works so Noter can borrow the right ideas without
-mixing them into the Daytona Codex auth spec.
+mixing them into retired hosted-sandbox auth work.
 
 This is a reference study, not an implementation commitment.
 
@@ -108,8 +108,8 @@ Noter is deciding between two different product directions:
 
 These are not the same thing.
 
-The Daytona volume auth spec is about keeping Codex credentials alive in the
-sandbox. That is compatible with either direction.
+The credential persistence question is separate from the main interaction model.
+That separation still matters for local and connected-machine flows.
 
 ## What Noter Should Reuse
 
@@ -133,17 +133,18 @@ sandbox. That is compatible with either direction.
 1. Local desktop server as the primary deployment model.
 2. Local sqlite as the system of record.
 3. Local shell/editor integration assumptions.
-4. `node-pty` as the main backend terminal primitive when Daytona PTY already
-   exists.
+4. `node-pty` as the main backend terminal primitive before a concrete terminal
+   owner exists.
 
 ## Web-First Translation For Noter
 
 If Noter wants the T3-style Codex experience but stays web-first, the clean
 translation is:
 
-1. Codex auth persists in Daytona volume at `CODEX_HOME`.
-2. Noter launches a Daytona sandbox with that volume mounted.
-3. Inside that sandbox, Noter starts `codex app-server`.
+1. Codex auth persists on the operator's local or connected machine at
+   `CODEX_HOME`.
+2. Noter reaches a machine-local control service for the selected repo worktree.
+3. That control service starts `codex app-server`.
 4. Noter proxies app-server events into a web-safe runtime surface.
 5. Convex stores user-visible session/thread state and durable metadata.
 6. The main Noter UI renders Codex output without exposing a raw terminal.
@@ -153,8 +154,8 @@ translation is:
 
 For Noter, the clean sequence is:
 
-1. ship Daytona volume-backed Codex auth persistence first
-2. keep terminal login as the shortest path to a working system
+1. ship the connected-machine auth/control boundary first
+2. keep terminal access as a secondary diagnostic path
 3. separately design a web-first Codex provider runtime around
    `codex app-server`
 

@@ -8,7 +8,6 @@
 ## Related Specs
 
 - `specs/013_WORKTREE_AUTO_PROVISIONING_SPEC.md`
-- `specs/053_DAYTONA_LOCAL_RUNTIME_PROFILE_AND_SEED_SOURCE_SPEC.md`
 
 ## Summary
 
