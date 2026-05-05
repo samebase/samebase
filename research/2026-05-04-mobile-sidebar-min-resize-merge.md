@@ -326,6 +326,46 @@ can stay as `"left" | "main" | "right"`, while the controller remembers whether
 one side is merged and clears that transient state only when the viewport,
 behavior, or resize gesture invalidates it.
 
+## Surface Ownership And Handoff Follow-Up
+
+The clearest model is that the mobile carousel snaps to surfaces, not always to
+individual panes:
+
+- ordinary: `left`, `main`, `right`
+- left merged: `left+main`, `right`
+- right merged: `left`, `main+right`
+
+`main` must have exactly one owner in a merged state. The surface list
+`left+main`, `main+right` is invalid because two surfaces would both claim the
+same logical pane. In practice, that invalid state appears when one side is
+already merged with `main`, the user slides to the opposite side, and then the
+opposite side is resized to its own minimum. The UI can appear to work for a
+moment, but resizing back out becomes ambiguous because the layout no longer
+knows which surface owns `main`.
+
+The next model improvement is a controlled ownership handoff:
+
+```txt
+left+main, right-at-min -> resize left wider -> left, main+right
+```
+
+and symmetrically:
+
+```txt
+left-at-min, main+right -> resize right wider -> left+main, right
+```
+
+This keeps the motion understandable when the opposite sidebar is already at
+minimum. `main` does not need to resize during the handoff because it was
+`viewport - leftMin` before and becomes `viewport - rightMin` after. With equal
+side minimums, the main-pane width is stable throughout.
+
+The handoff should be explicit and atomic in layout state: `main` remains owned
+by one side during the gesture, then can transfer to the opposite side on
+release if that opposite side is already at minimum. If the opposite side is not
+at minimum, releasing the current merge should dissolve to the ordinary `left`,
+`main`, `right` surface list instead of implicitly creating a new merge.
+
 ## Recommendation
 
 Use the prop as a compatibility bridge. The accepted spec now makes merge the

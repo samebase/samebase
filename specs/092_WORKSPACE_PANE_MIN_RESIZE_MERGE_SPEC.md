@@ -180,6 +180,101 @@ fail closed into the existing slide behavior for that route or viewport. It
 should not invent placeholder widths or produce an unusable negative/zero-width
 pane.
 
+When a route has both side panes, a fitted side/main merge must still allow
+carousel travel to the opposite side pane. For example, after the left side pane
+fits beside the main pane, the visible left/main pair should behave as one
+mobile carousel surface rather than as separate `left` and `main` snap targets.
+A single horizontal slide should be able to travel from that merged surface to
+the right side pane.
+
+Only a fitted side/main pair becomes a merged carousel surface. Partial
+side/main resizing can shrink the main pane, but until the two widths fit in the
+viewport the normal main snap target remains available. This keeps ordinary
+partial sidebar resizing from trapping the user on a side surface.
+
+Partial paired geometry is drag state, not a committed post-release layout. On
+release, the shell should settle to the fitted side/main pair when the final
+main width is closer to the fitted width than to the default main width;
+otherwise it should clear the transient main width and keep the ordinary
+carousel layout.
+
+Once the opposite side pane is selected, the carousel should keep the same
+virtual surface list. A left merge produces `left+main` and `right` surfaces; a
+right merge produces `left` and `main+right` surfaces. Sliding to the opposite
+side and back should therefore use the same carousel mechanics as any other
+two-surface mobile layout, without a temporary standalone `main` snap target
+appearing in the middle of the gesture.
+
+### Surface Ownership
+
+The mobile carousel should think in terms of **surfaces**. A surface is the
+thing the carousel snaps to. A logical pane can be part of a surface, but not
+every logical pane is always its own snap target.
+
+Valid surface lists for this slice are:
+
+- no merge: `left`, `main`, `right`
+- left merge: `left+main`, `right`
+- right merge: `left`, `main+right`
+
+`main` can belong to at most one merged surface at a time. The state
+`left+main`, `main+right` is invalid because it gives two surfaces ownership of
+the same logical pane. That ambiguity is exactly what causes unclear resize
+behavior: when the right sidebar grows, the shell no longer has a single answer
+for whether `main` belongs with the left surface, the right surface, or neither.
+
+For the current implementation, a settled merge owns `main` until that same
+merged side releases it. If `left+main` is active and the user slides to the
+right sidebar, resizing the right sidebar must not create `main+right`. Dragging
+the right sidebar to its minimum may resize the right pane itself, but it should
+leave the surface list as `left+main`, `right`. Growing the right sidebar back
+out should also leave `left+main` stable.
+
+To create `main+right`, the user must either start from the ordinary unmerged
+surface list or intentionally hand off ownership from `left+main`. The handoff
+case is valid only when the opposite sidebar is already at its minimum and can
+therefore pair with `main` without changing `main`'s width.
+
+### Merge Handoff
+
+The smooth handoff case is:
+
+```txt
+start:  left+main, right-at-min
+action: resize left wider so left releases main
+end:    left, main+right
+```
+
+The symmetric case is:
+
+```txt
+start:  left-at-min, main+right
+action: resize right wider so right releases main
+end:    left+main, right
+```
+
+This preserves the motion model because the visible main pane does not need to
+grow or shrink during the handoff. Before the handoff, `main` is paired with the
+old side at `viewport - oldSideMin`. After the handoff, `main` is paired with
+the opposite side at `viewport - oppositeSideMin`. If both side minimums match,
+`main` can keep the same width throughout the transfer.
+
+The handoff should be explicit in the layout state even if it feels continuous
+in the UI. The invalid intermediate state `left+main`, `main+right` must still
+never exist. During the gesture, `main` has one owner; on release, ownership can
+move from one side to the other if the opposite side is already at its minimum.
+If the opposite side is not at its minimum, releasing the current merge should
+fall back to the ordinary unmerged surface list instead of creating a second
+merge implicitly.
+
+This rule keeps the "main can belong to only one surface" invariant while
+allowing the common practical workflow: merge left, use right at minimum, then
+grow left and end in `main+right` without a jerky standalone-main resize.
+
+Routes with only one side pane may lock carousel travel while a valid merged fit
+is settled, because there is no opposite side pane to reach and sliding away
+would undo the purpose of keeping the narrow side pane beside the main pane.
+
 ### State Shape
 
 Do not add a persisted `"merged"` mobile pane state in this slice.
@@ -188,6 +283,14 @@ The committed mobile pane may remain `"left"`, `"main"`, or `"right"`. Merged
 geometry is a transient or resolved layout mode within the active side-pane
 state. This keeps persisted workspace sidebar state stable and avoids binding
 the future pane model to today's sidebar names.
+
+The transient state should separately remember the merged side and the merged
+main width. The selected mobile pane can still update from scroll as `"left"`,
+`"main"`, or `"right"` for compatibility with `SidebarProvider`, but the
+rendered carousel should derive its snap surfaces from the merged geometry. In
+practice, `"left"` means the `left+main` surface when left is merged, `"right"`
+means the opposite side surface, and an explicit `"main"` selection leaves the
+merged surface model and restores the ordinary carousel.
 
 ### API Placement
 
@@ -207,6 +310,7 @@ it should be passed through `WorkspaceLayoutV2FullPage` /
 - Changing default mobile sidebar behavior for existing routes.
 - Tying side-pane min/max values to `MOBILE_PANE_PEEK_PX`.
 - Adding route-specific gesture engines outside the shared shell.
+- Allowing `main` to be owned by both side surfaces at once.
 
 ## Implementation Direction
 
@@ -266,6 +370,10 @@ Add route-level or honest production-component coverage for interaction:
   past side min
 - merge mode changes the rendered main-pane width during or after the drag
 - merge mode keeps side-pane plus main-pane width within the viewport
+- resizing the opposite sidebar while a side/main merge is active does not
+  create a second merged surface that also owns `main`
+- releasing a side/main merge while the opposite sidebar is already at minimum
+  transfers `main` to the opposite side without changing the main-pane width
 
 If shipped UI changes where the mobile resize grip appears or how panes overlap,
 update screenshot coverage for that shipped route or fixture.
@@ -278,6 +386,9 @@ update screenshot coverage for that shipped route or fixture.
 - Current slide behavior remains available through an explicit shell prop.
 - Merge behavior converts minimum-boundary resize into paired side/main-pane
   resize, not carousel scroll.
+- A settled side/main merge keeps exclusive ownership of `main` until that
+  merged side releases it or explicitly hands it to the opposite minimum-width
+  side.
 - No persisted workspace sidebar state migration is required.
 - Focused tests cover both the default merge mode and explicit slide mode before
   the feature is used in shipped UI.

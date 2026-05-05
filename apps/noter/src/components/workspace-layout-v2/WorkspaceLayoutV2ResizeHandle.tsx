@@ -137,9 +137,12 @@ export function WorkspaceLayoutV2ResizeHandle({
   const keyboardResizeTimeoutRef = useRef<number | null>(null);
   const [isResizing, setIsResizing] = useState(false);
 
+  /**
+   * Applies page-level cursor and selection locks only while a pointer resize is
+   * active, because the handle is small but the drag feedback belongs to the
+   * whole document.
+   */
   useEffect(() => {
-    // The handle visually lives in the shell, but the cursor and selection lock
-    // need to apply to the whole page while dragging.
     if (!isResizing || dragStateRef.current === null) {
       document.body.style.removeProperty("cursor");
       document.body.style.removeProperty("user-select");
@@ -157,6 +160,10 @@ export function WorkspaceLayoutV2ResizeHandle({
     };
   }, [isResizing, resizeFrom]);
 
+  /**
+   * Clears the deferred keyboard-resize end callback on unmount so a removed
+   * handle cannot finish an old keyboard session against stale shell state.
+   */
   useEffect(() => {
     return () => {
       if (keyboardResizeTimeoutRef.current !== null) {
