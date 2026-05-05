@@ -13,7 +13,7 @@ import {
 } from "vite-plus/test";
 import { SidebarProvider } from "@/components/sidebar";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
-import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2";
+import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
 import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "./WorkspaceLayoutV2Geometry";
 
 const { act } = React;

@@ -1,10 +1,10 @@
 import { useEffect, useEffectEvent, useRef, type RefObject } from "react";
+import { clampNumber } from "@/lib/clampNumber";
 import {
   MOBILE_PANE_SETTLED_TOLERANCE_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,
   WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE,
-  clampNumber,
   getMergedMobileMainWidthPx,
   getMobileMergeHandoffSide,
   getMobileMinResizeMergeWidthsPx,
@@ -17,16 +17,11 @@ import {
   type WorkspaceLayoutV2MobileMinResizeBehavior,
   type WorkspaceLayoutV2MobileSurface,
 } from "./WorkspaceLayoutV2Geometry";
-
-export type WorkspaceLayoutV2ResizeHandleConfig = {
-  currentWidthPx: number;
-  dataTestId: string;
-  maxWidthPx: number;
-  minWidthPx: number;
-  onWidthChange: (nextWidthPx: number) => void;
-  positionPx: number;
-  side: "left" | "right";
-};
+import {
+  useWorkspaceLayoutV2Actions,
+  useWorkspaceLayoutV2Selector,
+} from "./WorkspaceLayoutV2Context";
+import { type WorkspaceLayoutV2ResizeHandleConfig } from "./WorkspaceLayoutV2ResizeHandleConfigs";
 
 /**
  * Owns the transient mobile grip session that can resolve either to legacy
@@ -39,14 +34,10 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
   hasRightPane,
   isMobile,
   leftWidthPx,
-  mobileGrip,
   mobileMinResizeBehavior,
   mobilePane,
-  mobileSurface,
   peekWidthPx,
   rightWidthPx,
-  setMobileGrip,
-  setMobileSurface,
   viewportWidthPx,
 }: {
   activeGripResizeSideRef: RefObject<"left" | "right" | null>;
@@ -55,16 +46,17 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
   hasRightPane: boolean;
   isMobile: boolean;
   leftWidthPx: number;
-  mobileGrip: WorkspaceLayoutV2MobileGrip;
   mobileMinResizeBehavior: WorkspaceLayoutV2MobileMinResizeBehavior;
   mobilePane: MobilePane;
-  mobileSurface: WorkspaceLayoutV2MobileSurface;
   peekWidthPx: number;
   rightWidthPx: number;
-  setMobileGrip: (mobileGrip: WorkspaceLayoutV2MobileGrip) => void;
-  setMobileSurface: (mobileSurface: WorkspaceLayoutV2MobileSurface) => void;
   viewportWidthPx: number;
 }) {
+  const mobileGrip = useWorkspaceLayoutV2Selector((state) => state.mobile.grip);
+  const mobileSurface = useWorkspaceLayoutV2Selector(
+    (state) => state.mobile.surface,
+  );
+  const { setMobileGrip, setMobileSurface } = useWorkspaceLayoutV2Actions();
   const mobileGripRef = useRef<WorkspaceLayoutV2MobileGrip>(mobileGrip);
   const mobileSurfaceRef =
     useRef<WorkspaceLayoutV2MobileSurface>(mobileSurface);

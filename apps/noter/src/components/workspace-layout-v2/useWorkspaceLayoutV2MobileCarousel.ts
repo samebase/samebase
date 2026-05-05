@@ -14,6 +14,7 @@ import {
   type MobilePane,
   type WorkspaceLayoutV2MobileMergedSide,
 } from "./WorkspaceLayoutV2Geometry";
+import { useWorkspaceLayoutV2Actions } from "./WorkspaceLayoutV2Context";
 
 /**
  * Owns the browser scroll lifecycle for the mobile pane carousel.
@@ -28,14 +29,12 @@ export function useWorkspaceLayoutV2MobileCarouselController({
   hasLeftPane,
   hasRightPane,
   isMobile,
-  isMobilePaneSettled,
   leftWidthPx,
   mainWidthPx,
   mergedSurfaceSide,
   mobilePane,
   peekWidthPx,
   rightWidthPx,
-  setIsMobilePaneSettled,
   setMobilePane,
   viewportWidthPx,
 }: {
@@ -44,19 +43,18 @@ export function useWorkspaceLayoutV2MobileCarouselController({
   hasLeftPane: boolean;
   hasRightPane: boolean;
   isMobile: boolean;
-  isMobilePaneSettled: boolean;
   leftWidthPx: number;
   mainWidthPx: number;
   mergedSurfaceSide: WorkspaceLayoutV2MobileMergedSide | null;
   mobilePane: MobilePane;
   peekWidthPx: number;
   rightWidthPx: number;
-  setIsMobilePaneSettled: (isMobilePaneSettled: boolean) => void;
   setMobilePane: Dispatch<SetStateAction<MobilePane>>;
   viewportWidthPx: number;
 }) {
   const hasAlignedInitialMobilePaneRef = useRef(false);
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
+  const { setIsMobilePaneSettled } = useWorkspaceLayoutV2Actions();
   const setIsMobilePaneSettledEffect = useEffectEvent((isSettled: boolean) => {
     setIsMobilePaneSettled(isSettled);
   });
@@ -246,8 +244,4 @@ export function useWorkspaceLayoutV2MobileCarouselController({
     rightWidthPx,
     viewportWidthPx,
   ]);
-
-  return {
-    isMobilePaneSettled,
-  };
 }

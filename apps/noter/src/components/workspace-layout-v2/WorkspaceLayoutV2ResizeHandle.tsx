@@ -6,13 +6,10 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
+import { clampNumber } from "@/lib/clampNumber";
 import { cn } from "@/lib/utils";
 
 const KEYBOARD_RESIZE_TIMEOUT_MS = 120;
-
-function clampSizePx(sizePx: number, minSizePx: number, maxSizePx: number) {
-  return Math.max(minSizePx, Math.min(sizePx, maxSizePx));
-}
 
 function getKeyboardResizeDeltaPx(
   event: KeyboardEvent<HTMLDivElement>,
@@ -174,7 +171,7 @@ export function WorkspaceLayoutV2ResizeHandle({
 
   const commitSizeChange = useCallback(
     (nextSizePx: number) => {
-      onSizeChange(clampSizePx(nextSizePx, minSizePx, maxSizePx));
+      onSizeChange(clampNumber(nextSizePx, minSizePx, maxSizePx));
       onRawSizeChange?.(nextSizePx);
     },
     [maxSizePx, minSizePx, onRawSizeChange, onSizeChange],

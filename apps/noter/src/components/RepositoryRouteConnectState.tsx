@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { Button } from "@/components/ui/button";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
+import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import type { ReactNode } from "react";
 
 export function RepositoryRouteConnectState({

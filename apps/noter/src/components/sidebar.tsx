@@ -1,9 +1,9 @@
+import { useCreateStore, useSelector } from "@tanstack/react-store";
 import {
-  ReactNode,
   useCallback,
   useEffect,
   useMemo,
-  useState,
+  type ReactNode,
   type SetStateAction,
 } from "react";
 import {
@@ -17,8 +17,51 @@ import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
+type SidebarProviderStoreState = {
+  leftDesktopOpen: boolean;
+  leftDesktopWidthPx: number;
+  leftMobileWidthPx: number;
+  mobilePane: MobileSidebarPane;
+  rightDesktopOpen: boolean;
+  rightDesktopWidthPx: number;
+  rightMobileWidthPx: number;
+};
+
 function resolveNextState<T>(currentValue: T, nextValue: SetStateAction<T>) {
   return nextValue instanceof Function ? nextValue(currentValue) : nextValue;
+}
+
+function setSidebarProviderStoreValue<
+  Key extends keyof SidebarProviderStoreState,
+>(
+  state: SidebarProviderStoreState,
+  key: Key,
+  value: SidebarProviderStoreState[Key],
+): SidebarProviderStoreState {
+  if (state[key] === value) {
+    return state;
+  }
+
+  const nextState = { ...state };
+  nextState[key] = value;
+  return nextState;
+}
+
+/**
+ * Owns the provider's uncontrolled fallback values. Controlled props still win
+ * at render time; the store only replaces the previous local `useState` group.
+ */
+function useCreateSidebarProviderStore(
+  initialState: SidebarProviderStoreState,
+) {
+  return useCreateStore(initialState, ({ setState }) => ({
+    setValue: <Key extends keyof SidebarProviderStoreState>(
+      key: Key,
+      value: SidebarProviderStoreState[Key],
+    ) => {
+      setState((state) => setSidebarProviderStoreValue(state, key, value));
+    },
+  }));
 }
 
 type Props = {
@@ -78,23 +121,17 @@ export function SidebarProvider({
   children,
 }: Props) {
   const isMobile = useIsMobile();
-  const [internalMobilePane, setInternalMobilePane] =
-    useState<MobileSidebarPane>(defaultMobilePane);
-  const [internalLeftDesktopOpen, setInternalLeftDesktopOpen] =
-    useState(defaultOpen);
-  const [internalRightDesktopOpen, setInternalRightDesktopOpen] =
-    useState(defaultRightOpen);
-  const [internalLeftDesktopWidthPx, setInternalLeftDesktopWidthPx] = useState(
-    defaultLeftDesktopWidthPx,
-  );
-  const [internalRightDesktopWidthPx, setInternalRightDesktopWidthPx] =
-    useState(defaultRightDesktopWidthPx);
-  const [internalLeftMobileWidthPx, setInternalLeftMobileWidthPx] = useState(
-    defaultLeftMobileWidthPx,
-  );
-  const [internalRightMobileWidthPx, setInternalRightMobileWidthPx] = useState(
-    defaultRightMobileWidthPx,
-  );
+  const store = useCreateSidebarProviderStore({
+    leftDesktopOpen: defaultOpen,
+    leftDesktopWidthPx: defaultLeftDesktopWidthPx,
+    leftMobileWidthPx: defaultLeftMobileWidthPx,
+    mobilePane: defaultMobilePane,
+    rightDesktopOpen: defaultRightOpen,
+    rightDesktopWidthPx: defaultRightDesktopWidthPx,
+    rightMobileWidthPx: defaultRightMobileWidthPx,
+  });
+  const internalState = useSelector(store, (state) => state);
+  const internalActions = store.actions;
   // `open`/`onOpenChange` only alias the shortcut side. Explicit left/right
   // props always win, and the matching setter prefers side-specific control
   // before falling back to the shortcut alias or internal state.
@@ -102,16 +139,18 @@ export function SidebarProvider({
     leftOpenProp ?? (shortcutSidebarSide === "left" ? openProp : undefined);
   const controlledRightOpen =
     rightOpenProp ?? (shortcutSidebarSide === "right" ? openProp : undefined);
-  const leftDesktopOpen = controlledLeftOpen ?? internalLeftDesktopOpen;
-  const rightDesktopOpen = controlledRightOpen ?? internalRightDesktopOpen;
+  const leftDesktopOpen = controlledLeftOpen ?? internalState.leftDesktopOpen;
+  const rightDesktopOpen =
+    controlledRightOpen ?? internalState.rightDesktopOpen;
   const leftDesktopWidthPx =
-    leftDesktopWidthPxProp ?? internalLeftDesktopWidthPx;
+    leftDesktopWidthPxProp ?? internalState.leftDesktopWidthPx;
   const rightDesktopWidthPx =
-    rightDesktopWidthPxProp ?? internalRightDesktopWidthPx;
-  const leftMobileWidthPx = leftMobileWidthPxProp ?? internalLeftMobileWidthPx;
+    rightDesktopWidthPxProp ?? internalState.rightDesktopWidthPx;
+  const leftMobileWidthPx =
+    leftMobileWidthPxProp ?? internalState.leftMobileWidthPx;
   const rightMobileWidthPx =
-    rightMobileWidthPxProp ?? internalRightMobileWidthPx;
-  const mobilePane = mobilePaneProp ?? internalMobilePane;
+    rightMobileWidthPxProp ?? internalState.rightMobileWidthPx;
+  const mobilePane = mobilePaneProp ?? internalState.mobilePane;
 
   const setLeftDesktopOpen = useCallback(
     (value: SetStateAction<boolean>) => {
@@ -124,9 +163,15 @@ export function SidebarProvider({
         setOpenProp(nextValue);
         return;
       }
-      setInternalLeftDesktopOpen(nextValue);
+      internalActions.setValue("leftDesktopOpen", nextValue);
     },
-    [leftDesktopOpen, setLeftOpenProp, setOpenProp, shortcutSidebarSide],
+    [
+      internalActions,
+      leftDesktopOpen,
+      setLeftOpenProp,
+      setOpenProp,
+      shortcutSidebarSide,
+    ],
   );
 
   const setRightDesktopOpen = useCallback(
@@ -140,9 +185,15 @@ export function SidebarProvider({
         setOpenProp(nextValue);
         return;
       }
-      setInternalRightDesktopOpen(nextValue);
+      internalActions.setValue("rightDesktopOpen", nextValue);
     },
-    [rightDesktopOpen, setOpenProp, setRightOpenProp, shortcutSidebarSide],
+    [
+      internalActions,
+      rightDesktopOpen,
+      setOpenProp,
+      setRightOpenProp,
+      shortcutSidebarSide,
+    ],
   );
 
   const setLeftDesktopWidthPx = useCallback(
@@ -152,9 +203,9 @@ export function SidebarProvider({
         setLeftDesktopWidthPxProp(nextValue);
         return;
       }
-      setInternalLeftDesktopWidthPx(nextValue);
+      internalActions.setValue("leftDesktopWidthPx", nextValue);
     },
-    [leftDesktopWidthPx, setLeftDesktopWidthPxProp],
+    [internalActions, leftDesktopWidthPx, setLeftDesktopWidthPxProp],
   );
 
   const setRightDesktopWidthPx = useCallback(
@@ -164,9 +215,9 @@ export function SidebarProvider({
         setRightDesktopWidthPxProp(nextValue);
         return;
       }
-      setInternalRightDesktopWidthPx(nextValue);
+      internalActions.setValue("rightDesktopWidthPx", nextValue);
     },
-    [rightDesktopWidthPx, setRightDesktopWidthPxProp],
+    [internalActions, rightDesktopWidthPx, setRightDesktopWidthPxProp],
   );
 
   const setLeftMobileWidthPx = useCallback(
@@ -176,9 +227,9 @@ export function SidebarProvider({
         setLeftMobileWidthPxProp(nextValue);
         return;
       }
-      setInternalLeftMobileWidthPx(nextValue);
+      internalActions.setValue("leftMobileWidthPx", nextValue);
     },
-    [leftMobileWidthPx, setLeftMobileWidthPxProp],
+    [internalActions, leftMobileWidthPx, setLeftMobileWidthPxProp],
   );
 
   const setRightMobileWidthPx = useCallback(
@@ -188,9 +239,9 @@ export function SidebarProvider({
         setRightMobileWidthPxProp(nextValue);
         return;
       }
-      setInternalRightMobileWidthPx(nextValue);
+      internalActions.setValue("rightMobileWidthPx", nextValue);
     },
-    [rightMobileWidthPx, setRightMobileWidthPxProp],
+    [internalActions, rightMobileWidthPx, setRightMobileWidthPxProp],
   );
 
   const setMobilePane = useCallback(
@@ -200,9 +251,9 @@ export function SidebarProvider({
         setMobilePaneProp(nextValue);
         return;
       }
-      setInternalMobilePane(nextValue);
+      internalActions.setValue("mobilePane", nextValue);
     },
-    [mobilePane, setMobilePaneProp],
+    [internalActions, mobilePane, setMobilePaneProp],
   );
 
   const toggleLeftSidebar = useCallback(() => {
@@ -227,6 +278,10 @@ export function SidebarProvider({
     setRightDesktopOpen((currentOpen) => !currentOpen);
   }, [isMobile, setMobilePane, setRightDesktopOpen]);
 
+  /**
+   * Registers the global sidebar shortcut at the provider boundary so route
+   * content can keep using `useSidebar` without owning keyboard listeners.
+   */
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (

@@ -1,8 +1,8 @@
 import { useMemo, type ComponentProps, type ReactNode } from "react";
 import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
-import { SidebarProvider } from "@/components/sidebar";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
+import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
+import { WorkspaceLayoutSidebarProvider } from "@/components/workspace-layout-v2/WorkspaceLayoutSidebarProvider";
 import {
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
@@ -74,7 +74,7 @@ export function PublicLayoutShell({
     reset: sidebarResetRequested,
     storageKey: PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY,
   });
-  const layoutSidebarState = sanitizePublicLayoutSidebarState({
+  const layoutSidebarStateController = sanitizePublicLayoutSidebarState({
     defaultSidebarState,
     hasLeftPane,
     sidebarState,
@@ -88,21 +88,8 @@ export function PublicLayoutShell({
 
   return (
     <PublicLandingLogoLinkProvider>
-      <SidebarProvider
-        leftOpen={layoutSidebarState.leftDesktopOpen}
-        onLeftOpenChange={sidebarState.setLeftDesktopOpen}
-        rightOpen={layoutSidebarState.rightDesktopOpen}
-        onRightOpenChange={sidebarState.setRightDesktopOpen}
-        leftDesktopWidthPx={layoutSidebarState.leftDesktopWidthPx}
-        onLeftDesktopWidthPxChange={sidebarState.setLeftDesktopWidthPx}
-        rightDesktopWidthPx={layoutSidebarState.rightDesktopWidthPx}
-        onRightDesktopWidthPxChange={sidebarState.setRightDesktopWidthPx}
-        leftMobileWidthPx={layoutSidebarState.leftMobileWidthPx}
-        onLeftMobileWidthPxChange={sidebarState.setLeftMobileWidthPx}
-        rightMobileWidthPx={layoutSidebarState.rightMobileWidthPx}
-        onRightMobileWidthPxChange={sidebarState.setRightMobileWidthPx}
-        mobilePane={layoutSidebarState.mobilePane}
-        onMobilePaneChange={sidebarState.setMobilePane}
+      <WorkspaceLayoutSidebarProvider
+        state={layoutSidebarStateController}
         shortcutSidebarSide="right"
       >
         <WorkspaceLayoutV2FullPage
@@ -113,7 +100,7 @@ export function PublicLayoutShell({
           leftToggleVisibility={leftToggleVisibility}
           rightToggleVisibility={rightToggleVisibility}
         />
-      </SidebarProvider>
+      </WorkspaceLayoutSidebarProvider>
     </PublicLandingLogoLinkProvider>
   );
 }

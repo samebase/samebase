@@ -2,7 +2,7 @@ import { type ReactNode } from "react";
 import { SidebarProvider } from "@/components/sidebar";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
-import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2";
+import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
 import { WorkspaceLayoutV2PaneFrame } from "./WorkspaceLayoutV2PaneFrame";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
 

@@ -96,7 +96,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
-import { WorkspaceLayoutV2FullPage } from "../workspace-layout-v2/WorkspaceLayoutV2";
+import { WorkspaceLayoutV2FullPage } from "../workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { CHAT_ENABLED } from "@/lib/featureFlags";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";

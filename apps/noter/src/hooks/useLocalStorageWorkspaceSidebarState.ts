@@ -1,6 +1,7 @@
 import * as React from "react";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 import { notifyBrowserLocalStorageChanged } from "@/lib/localStorageSnapshot";
+import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
 const STORED_WORKSPACE_SIDEBAR_STATE_VERSION = 1;
@@ -9,18 +10,6 @@ type UseLocalStorageWorkspaceSidebarStateArgs = {
   defaults: WorkspaceSidebarState;
   reset: boolean;
   storageKey: string;
-};
-
-type UseLocalStorageWorkspaceSidebarStateResult = WorkspaceSidebarState & {
-  setLeftDesktopOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setLeftDesktopWidthPx: React.Dispatch<React.SetStateAction<number>>;
-  setLeftMobileWidthPx: React.Dispatch<React.SetStateAction<number>>;
-  setMobilePane: React.Dispatch<
-    React.SetStateAction<WorkspaceSidebarState["mobilePane"]>
-  >;
-  setRightDesktopOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setRightDesktopWidthPx: React.Dispatch<React.SetStateAction<number>>;
-  setRightMobileWidthPx: React.Dispatch<React.SetStateAction<number>>;
 };
 
 function resolveNextState<T>(
@@ -194,7 +183,7 @@ export function useLocalStorageWorkspaceSidebarState({
   defaults,
   reset,
   storageKey,
-}: UseLocalStorageWorkspaceSidebarStateArgs): UseLocalStorageWorkspaceSidebarStateResult {
+}: UseLocalStorageWorkspaceSidebarStateArgs): WorkspaceSidebarStateController {
   const [sidebarState, setSidebarState] = React.useState(() =>
     readLocalStorageWorkspaceSidebarState({ defaults, reset, storageKey }),
   );
@@ -419,6 +408,7 @@ export function useLocalStorageWorkspaceSidebarState({
 
   return {
     ...sidebarState,
+    isHydrated: true,
     setLeftDesktopOpen,
     setLeftDesktopWidthPx,
     setLeftMobileWidthPx,
