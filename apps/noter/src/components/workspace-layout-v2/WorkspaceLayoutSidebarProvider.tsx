@@ -17,6 +17,10 @@ import type {
   WorkspaceSidebarStatePersistenceMode,
 } from "@/lib/workspaceSidebarStateController";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
+import {
+  useCreateWorkspaceLayoutV2Store,
+  WorkspaceLayoutV2Context,
+} from "./WorkspaceLayoutV2Context";
 
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
@@ -38,9 +42,10 @@ function resolveNextUseSidebarValue<T>(
 }
 
 /**
- * Owns the sidebar context for workspace layout consumers. Storage adapters
- * choose how durable state is persisted; this provider translates that state
- * into the stable `useSidebar()` API while pane state convergence continues.
+ * Owns the workspace layout provider boundary. Storage adapters choose how
+ * durable state is persisted; this provider translates that state into the
+ * stable `useSidebar()` API and hosts transient pane interaction state while
+ * pane state convergence continues.
  */
 export function WorkspaceLayoutSidebarProvider({
   children,
@@ -48,6 +53,7 @@ export function WorkspaceLayoutSidebarProvider({
   shortcutSidebarSide = "left",
 }: WorkspaceLayoutSidebarProviderProps) {
   const isMobile = useIsMobile();
+  const workspaceLayoutStore = useCreateWorkspaceLayoutV2Store();
   const updateSidebarState = useCallback(
     <Key extends keyof WorkspaceSidebarState>(
       key: Key,
@@ -244,8 +250,10 @@ export function WorkspaceLayoutSidebarProvider({
   }
 
   return (
-    <SidebarContext.Provider value={contextValue}>
-      {children}
-    </SidebarContext.Provider>
+    <WorkspaceLayoutV2Context.Provider value={workspaceLayoutStore}>
+      <SidebarContext.Provider value={contextValue}>
+        {children}
+      </SidebarContext.Provider>
+    </WorkspaceLayoutV2Context.Provider>
   );
 }
