@@ -15,6 +15,7 @@ import {
   getMobileSidebarMaxWidthPx,
   getMobileSidebarMinWidthPx,
   getMobileSidebarWidthPx,
+  type MobilePane,
   type WorkspaceLayoutV2MobileMinResizeBehavior,
 } from "./WorkspaceLayoutV2Geometry";
 import {
@@ -71,6 +72,32 @@ function renderPaneContent(content: ReactNode) {
       <div aria-hidden="true" className="min-h-0 flex-1 bg-background" />
     )
   );
+}
+
+/**
+ * Resolves the selected mobile pane to one this layout instance actually has.
+ * Public layouts share one persisted pane record, so a route without a left or
+ * right pane can inherit that selection from another route. In that case we
+ * render main here and leave persistence untouched for routes where it exists.
+ */
+function getRenderableMobilePane({
+  hasLeftPane,
+  hasRightPane,
+  mobilePane,
+}: {
+  hasLeftPane: boolean;
+  hasRightPane: boolean;
+  mobilePane: MobilePane;
+}) {
+  if (mobilePane === "left" && !hasLeftPane) {
+    return "main";
+  }
+
+  if (mobilePane === "right" && !hasRightPane) {
+    return "main";
+  }
+
+  return mobilePane;
 }
 
 /**
@@ -135,13 +162,11 @@ function WorkspaceLayoutV2JustPanesContent({
   const mobilePanePeekWidthPx = getMobilePanePeekWidthPx(
     configuredMobilePanePeekWidthPx,
   );
-  // Shared durable pane state can point at a pane this route did not render.
-  // Treat that as main locally without erasing the preference for other routes.
-  const mobilePane =
-    (!hasLeftPane && rawMobilePane === "left") ||
-    (!hasRightPane && rawMobilePane === "right")
-      ? "main"
-      : rawMobilePane;
+  const mobilePane = getRenderableMobilePane({
+    hasLeftPane,
+    hasRightPane,
+    mobilePane: rawMobilePane,
+  });
 
   const desktopLeftWidthPx = hasLeftPane
     ? getDesktopSidebarWidthPx({
