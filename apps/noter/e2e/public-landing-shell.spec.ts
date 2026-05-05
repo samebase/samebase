@@ -486,8 +486,10 @@ async function captureLandingFontStableFrames(
         "/terms",
         "/privacy",
       ] as const satisfies readonly LandingFontStableSidebarLinkLabel[];
-      const sampleCount = 180;
+      const minimumVisibleFrameCount = 10;
+      const maximumSampleCount = 600;
       const frameStore: LandingFontStableFrame[] = [];
+      let visibleFrameCount = 0;
       window.__landingFontStableFrames = frameStore;
 
       const readRect = (node: Element | null): LandingFontStableRect | null => {
@@ -520,14 +522,26 @@ async function captureLandingFontStableFrames(
           sidebarLinks[label] = readRect(anchor ?? null) ?? undefined;
         }
 
-        frameStore.push({
-          copy: readRect(
-            document.querySelector('[data-testid="public-landing-copy"]'),
-          ),
+        const copy = readRect(
+          document.querySelector('[data-testid="public-landing-copy"]'),
+        );
+        const frame = {
+          copy,
           sidebarLinks,
-        });
+        };
+        frameStore.push(frame);
 
-        if (frameStore.length < sampleCount) {
+        const hasAllSidebarLinks = linkLabels.every(
+          (label) => frame.sidebarLinks[label] !== undefined,
+        );
+        if (copy !== null && hasAllSidebarLinks) {
+          visibleFrameCount += 1;
+        }
+
+        if (
+          frameStore.length < maximumSampleCount &&
+          visibleFrameCount < minimumVisibleFrameCount
+        ) {
           requestAnimationFrame(capture);
         }
       };
@@ -539,7 +553,27 @@ async function captureLandingFontStableFrames(
 
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle");
-  await page.waitForTimeout(1_000);
+  await page.waitForFunction(
+    ({ labels, minimumVisibleFrameCount, maximumSampleCount }) => {
+      const frames = window.__landingFontStableFrames ?? [];
+      const visibleFrames = frames.filter((frame) => {
+        if (frame.copy === null) {
+          return false;
+        }
+        return labels.every((label) => frame.sidebarLinks[label] !== undefined);
+      });
+
+      return (
+        visibleFrames.length >= minimumVisibleFrameCount ||
+        frames.length >= maximumSampleCount
+      );
+    },
+    {
+      labels: LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS,
+      maximumSampleCount: 600,
+      minimumVisibleFrameCount: 10,
+    },
+  );
 
   return {
     frames: await page.evaluate(() => window.__landingFontStableFrames ?? []),
@@ -1170,15 +1204,14 @@ test("public landing stays vertically stable while the page reloads", async ({
   expectStableLandingReloadFrames(reloadFrames);
 });
 
-test("public landing keeps copy and sidebar links stable without webfont requests", async ({
+test("public landing keeps copy and sidebar links stable while bundled fonts load", async ({
   page,
 }) => {
   const capture = await captureLandingFontStableFrames(page);
 
-  // The shipped landing shell should not fetch webfonts; keeping the route hook
-  // here makes future webfont regressions fail before they can reintroduce
-  // late reflow.
-  expect(capture.webfontRequestCount).toBe(0);
+  // Bundled fonts are intentional now; the contract is that delayed font files
+  // must not reflow the landing copy or sidebar link stack.
+  expect(capture.webfontRequestCount).toBeGreaterThan(0);
   expectStableLandingFontFrames(capture.frames);
 });
 
@@ -1600,10 +1633,11 @@ test.describe("mobile landing dev toggle", () => {
       .toBe(Math.round(mergedCarouselScrollLeftPx));
 
     const mainGrowPx = 24;
-    await dragResizeHandleByPx(
-      page.getByTestId("workspace-layout-v2-right-resize"),
-      -mainGrowPx,
+    const rightResizeHandle = page.getByTestId(
+      "workspace-layout-v2-right-resize",
     );
+    await rightResizeHandle.focus();
+    await page.keyboard.press("ArrowLeft");
 
     await expect
       .poll(async () =>

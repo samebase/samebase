@@ -41,6 +41,7 @@
     "clean": "rm -rf .turbo .vite coverage test-results apps/noter/dist apps/noter/dev-dist apps/noter/e2e/test-results apps/noter/e2e/live-test-results",
     "test": "vp test",
     "test:ci": "pnpm test && PLAYWRIGHT_VITE_PORT=43121 pnpm --filter noter test:visual",
+    "test:visual:linux": "node ./scripts/playwright-linux-docker.ts",
     "test:watch": "vp test watch",
     "dev:noter": "node ./scripts/run-primary-dev.ts",
     "build:noter": "vp run --filter noter build",

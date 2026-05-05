@@ -6,7 +6,7 @@
 - Owner: Noter frontend/test infrastructure
 - Created: 2026-05-04
 - Current main CI run:
-  [25321219066](https://github.com/noter-md/noter/actions/runs/25321219066)
+  [25351238018](https://github.com/noter-md/noter/actions/runs/25351238018)
 - Related files:
   - `.github/workflows/ci.yml`
   - `apps/noter/playwright.config.ts`
@@ -65,7 +65,7 @@ same standard shell instead of a custom substitute.
 
 ## Current CI Shape
 
-Latest inspected `main` push:
+Initial failing `main` push inspected during this research:
 
 - Run: `25321219066`
 - Commit: `d33c30fcadcd7581ada808d159cfd6253cbe081c`
@@ -80,11 +80,26 @@ The Playwright workflow is currently push-only:
 if: ${{ github.event_name == 'push' }}
 ```
 
-That means PRs can merge without browser coverage, and failures then accumulate
-on `main`. This made the suite drift long enough that it now needs a holistic
-reset rather than a one-test patch.
+That means PRs can merge without browser coverage, and failures can accumulate
+on `main`. This made the suite drift long enough that it needed a holistic reset
+rather than a one-test patch.
 
-The current run reported:
+This push-only shape is intentional for now because the full Playwright shard
+matrix is too expensive to run on every PR. Do not re-enable the full PR matrix
+as a default stabilization fix unless the cost tradeoff changes. Prefer local
+Linux/Testbox reproduction, targeted PR smoke coverage, or narrower changed-area
+browser checks when looking for pre-merge signal.
+
+As of 2026-05-05, after [`#705`](https://github.com/noter-md/noter/pull/705),
+the next `main` CI push was green:
+
+- Run:
+  [`25351238018`](https://github.com/noter-md/noter/actions/runs/25351238018)
+- Commit: `96765c067301391cbc84c288ac582d5cfe249c99`
+- Playwright: green on shards `1/3`, `2/3`, and `3/3`
+- Failure artifacts: none
+
+That failing run reported:
 
 - shard 1: 12 failed, 40 passed, 1 skipped
 - shard 2: 25 failed
@@ -144,7 +159,7 @@ Several current failures are exactly this class:
 Font drift is still the most plausible original reason for Linux/macOS snapshot
 splits.
 
-Current evidence:
+Original evidence:
 
 - `apps/noter/src/visualFixture.tsx` imports IBM Plex Sans weights from
   `@fontsource/ibm-plex-sans`.
@@ -156,6 +171,51 @@ Current evidence:
 - Inline code and editor surfaces intentionally use platform-dependent monospace
   stacks in places, which can be acceptable for semantic/editor tests but is
   risky for strict screenshot assertions.
+
+Implementation status on 2026-05-05:
+
+- `apps/noter/src/index.css` now imports the latin IBM Plex Sans weights used by
+  the app and makes Tailwind `font-sans` resolve to IBM Plex Sans before the
+  system fallback stack.
+- `apps/noter/src/visualFixture.tsx` no longer carries fixture-only IBM Plex
+  imports; visual fixtures inherit the same app CSS as production routes.
+- `apps/noter/src/main.tsx` waits briefly for the bundled app font weights
+  before the first React mount so delayed font files do not reflow landing or
+  workspace chrome after first paint.
+- A Blacksmith Testbox full run against the refreshed Linux baselines passed
+  with 158 passed and 1 skipped.
+- A local macOS full run against the Linux baselines still fails screenshot
+  comparisons because Chromium text rasterization is not pixel-identical across
+  operating systems. This supports Linux-only visual truth for required
+  screenshots while keeping macOS useful for semantic/targeted checks.
+- A focused machines-workspace header experiment confirmed that the remaining
+  macOS/Linux visual difference is not a font-loading failure. A Blacksmith
+  Testbox browser probe and a local macOS browser probe both requested the same
+  bundled IBM Plex Sans WOFF2 assets with matching SHA-256 hashes:
+  `3b646991d30055a93a4ecc499713d4347953a74a947ecab435ab72070cbdab0e` for
+  `ibm-plex-sans-latin-400-normal`,
+  `0717336fb31fcdcde4b8deb3675bb4a0f7f6d484864afcd6751ac29975962203` for `500`,
+  and `8960851d691c054ed38e259bdcf1a6190d157b4203ed5bb32c632a863fb8ec2f` for
+  `600`. On both platforms, CDP `CSS.getPlatformFontsForNode` reported the
+  target text as `IBM Plex Sans SemiBold` with `isCustomFont: true`; both had
+  `document.fonts` loaded and matching computed `font-family`, `font-size`,
+  `font-weight`, `line-height`, and text box dimensions. The macOS capture still
+  paints a denser glyph mask: 2,534 dark pixels in the header versus 1,683 in
+  the Linux/Testbox baseline, while the dark-pixel y-range is effectively the
+  same. Chromium flags such as `--disable-font-subpixel-positioning`,
+  `--font-render-hinting=none`, and `--disable-lcd-text` did not change the
+  macOS output; forcing `-webkit-font-smoothing: antialiased` reduced macOS
+  glyph density slightly but did not make the screenshot match Linux. Treat this
+  as platform text rendering behavior, not a missing app font.
+- A local OrbStack Docker experiment on Apple Silicon ran the Playwright
+  `v1.58.2-noble` Linux image as `linux/arm64`, served the already-built Noter
+  app from inside the container, and captured the same machines-workspace
+  header. That ARM64 Linux capture was pixel-identical to the committed Linux
+  x86_64/Testbox baseline for the header: 672x32 dimensions, 0 differing pixels,
+  and 1,683 dark pixels in both images. The container fetched the same bundled
+  IBM Plex Sans WOFF2 hashes and CDP reported `IBM Plex Sans SemiBold` with
+  `isCustomFont: true`. For this sample, CPU architecture is not the source of
+  the visual drift; macOS versus Linux rendering is.
 
 The root-cause direction should be:
 
