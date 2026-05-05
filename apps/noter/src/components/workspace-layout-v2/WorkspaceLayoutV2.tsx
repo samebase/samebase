@@ -3,12 +3,12 @@ import {
   useEffectEvent,
   useLayoutEffect,
   useRef,
-  useState,
   type Dispatch,
   type ReactNode,
   type RefObject,
   type SetStateAction,
 } from "react";
+import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Button } from "../ui/button";
 import { PanelLeft, PanelRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,7 +31,7 @@ const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
 export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 160;
 const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
 const WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX = 240;
-const DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX = 24;
+const DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX = 0;
 const MOBILE_PANE_SETTLED_TOLERANCE_PX = 1;
 const MOBILE_PANE_ORDER = ["left", "main", "right"] as const;
 const MOBILE_PANE_ORDER_WITHOUT_MAIN = ["left", "right"] as const;
@@ -73,8 +73,43 @@ type WorkspaceLayoutV2ResizeHandleConfig = {
   side: "left" | "right";
 };
 type WorkspaceLayoutV2MobileMergedSide = "left" | "right";
+type WorkspaceLayoutV2ActiveResizeSide = "left" | "right" | "top" | null;
+type WorkspaceLayoutV2ElementSize = {
+  heightPx: number;
+  widthPx: number;
+};
+type WorkspaceLayoutV2MobileGripResizeStoreState = {
+  mobileGripSlideOffsetPx: number;
+  mobileMergedMainWidthPx: number | null;
+  mobileMergedSide: WorkspaceLayoutV2MobileMergedSide | null;
+};
+type WorkspaceLayoutV2MobileCarouselStoreState = {
+  isMobilePaneSettled: boolean;
+};
+type WorkspaceLayoutV2ShellStoreState = {
+  activeResizeSide: WorkspaceLayoutV2ActiveResizeSide;
+};
 type WorkspaceLayoutV2LeftToggleVisibility = "all" | "desktop" | "hidden";
 type WorkspaceLayoutV2RightToggleVisibility = "desktop" | "hidden";
+
+const WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE: WorkspaceLayoutV2ElementSize = {
+  heightPx: 0,
+  widthPx: 0,
+};
+const WORKSPACE_LAYOUT_V2_MOBILE_GRIP_RESIZE_INITIAL_STATE: WorkspaceLayoutV2MobileGripResizeStoreState =
+  {
+    mobileGripSlideOffsetPx: 0,
+    mobileMergedMainWidthPx: null,
+    mobileMergedSide: null,
+  };
+const WORKSPACE_LAYOUT_V2_MOBILE_CAROUSEL_INITIAL_STATE: WorkspaceLayoutV2MobileCarouselStoreState =
+  {
+    isMobilePaneSettled: true,
+  };
+const WORKSPACE_LAYOUT_V2_SHELL_INITIAL_STATE: WorkspaceLayoutV2ShellStoreState =
+  {
+    activeResizeSide: null,
+  };
 
 const LEFT_TOGGLE_BUTTON_CLASS_NAMES = {
   all: "h-8 w-8 rounded-none",
@@ -97,12 +132,41 @@ function shouldShowMobileResizeGripDotsByDefault() {
 }
 
 /**
+ * Keeps viewport measurement in a local store so resize observer callbacks can
+ * publish DOM geometry without adding React state to the layout shell.
+ */
+function useWorkspaceLayoutV2ElementSizeStore() {
+  return useCreateStore(
+    WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE,
+    ({ setState }) => ({
+      setSize: (nextSize: WorkspaceLayoutV2ElementSize) => {
+        setState((currentSize) =>
+          currentSize.heightPx === nextSize.heightPx &&
+          currentSize.widthPx === nextSize.widthPx
+            ? currentSize
+            : nextSize,
+        );
+      },
+    }),
+  );
+}
+
+/**
  * The shell math is driven by the rendered viewport box, not viewport media
  * queries, so resizes and mobile browser chrome changes update pane geometry
  * from the actual DOM box we are drawing into.
  */
 function useElementSize(measureRef: RefObject<HTMLElement | null>) {
-  const [size, setSize] = useState({ heightPx: 0, widthPx: 0 });
+  const store = useWorkspaceLayoutV2ElementSizeStore();
+  const size = useSelector(store);
+  const setSize = store.actions.setSize;
+  const publishElementSize = useEffectEvent((node: HTMLElement) => {
+    const bounds = node.getBoundingClientRect();
+    setSize({
+      heightPx: Math.max(0, Math.round(bounds.height)),
+      widthPx: Math.max(0, Math.round(bounds.width)),
+    });
+  });
 
   /**
    * Subscribes to the measured element's rendered box so pane geometry follows
@@ -115,11 +179,7 @@ function useElementSize(measureRef: RefObject<HTMLElement | null>) {
     }
 
     const updateWidth = () => {
-      const bounds = node.getBoundingClientRect();
-      setSize({
-        heightPx: Math.max(0, Math.round(bounds.height)),
-        widthPx: Math.max(0, Math.round(bounds.width)),
-      });
+      publishElementSize(node);
     };
 
     updateWidth();
@@ -473,6 +533,42 @@ function getMobilePaneSeparatorClass(pane: MobilePane, activePane: MobilePane) {
 }
 
 /**
+ * Stores the render-visible portion of a mobile grip session. Imperative drag
+ * bookkeeping stays in refs, while pane widths that must re-render live here.
+ */
+function useWorkspaceLayoutV2MobileGripResizeStore() {
+  return useCreateStore(
+    WORKSPACE_LAYOUT_V2_MOBILE_GRIP_RESIZE_INITIAL_STATE,
+    ({ setState }) => ({
+      clearMobileMergedSurface: () => {
+        setState((state) => ({
+          ...state,
+          mobileMergedMainWidthPx: null,
+          mobileMergedSide: null,
+        }));
+      },
+      setMobileGripSlideOffsetPx: (mobileGripSlideOffsetPx: number) => {
+        setState((state) =>
+          state.mobileGripSlideOffsetPx === mobileGripSlideOffsetPx
+            ? state
+            : { ...state, mobileGripSlideOffsetPx },
+        );
+      },
+      setMobileMergedSurface: (
+        mobileMergedSide: WorkspaceLayoutV2MobileMergedSide,
+        mobileMergedMainWidthPx: number,
+      ) => {
+        setState((state) => ({
+          ...state,
+          mobileMergedMainWidthPx,
+          mobileMergedSide,
+        }));
+      },
+    }),
+  );
+}
+
+/**
  * Owns the transient mobile grip session that can resolve either to legacy
  * resize-to-slide or to paired side/main pane resizing.
  */
@@ -507,15 +603,13 @@ function useWorkspaceLayoutV2MobileGripResizeController({
     startMainWidthPx: number;
     startSideWidthPx: number;
   } | null>(null);
-  const [mobileGripSlideOffsetPx, setMobileGripSlideOffsetPx] = useState(0);
-  // Merge mode keeps the active side pane selected while narrowing the main
-  // pane enough for both panes to share the mobile viewport.
-  const [mobileMergedMainWidthPx, setMobileMergedMainWidthPx] = useState<
-    number | null
-  >(null);
+  const store = useWorkspaceLayoutV2MobileGripResizeStore();
+  const { mobileGripSlideOffsetPx, mobileMergedMainWidthPx, mobileMergedSide } =
+    useSelector(store);
+  const clearMobileMergedSurfaceState = store.actions.clearMobileMergedSurface;
+  const setMobileGripSlideOffsetPx = store.actions.setMobileGripSlideOffsetPx;
+  const setMobileMergedSurfaceState = store.actions.setMobileMergedSurface;
   const mobileMergedMainWidthPxRef = useRef<number | null>(null);
-  const [mobileMergedSide, setMobileMergedSideState] =
-    useState<WorkspaceLayoutV2MobileMergedSide | null>(null);
   const mobileMergedSideRef = useRef<WorkspaceLayoutV2MobileMergedSide | null>(
     null,
   );
@@ -545,8 +639,7 @@ function useWorkspaceLayoutV2MobileGripResizeController({
   function clearMobileMergedSurface() {
     mobileMergedMainWidthPxRef.current = null;
     mobileMergedSideRef.current = null;
-    setMobileMergedMainWidthPx(null);
-    setMobileMergedSideState(null);
+    clearMobileMergedSurfaceState();
   }
 
   function setMobileMergedSurface(
@@ -555,9 +648,18 @@ function useWorkspaceLayoutV2MobileGripResizeController({
   ) {
     mobileMergedMainWidthPxRef.current = mainWidthPx;
     mobileMergedSideRef.current = side;
-    setMobileMergedMainWidthPx(mainWidthPx);
-    setMobileMergedSideState(side);
+    setMobileMergedSurfaceState(side, mainWidthPx);
   }
+
+  const clearMobileMergedSurfaceEffect = useEffectEvent(() => {
+    clearMobileMergedSurface();
+  });
+  const resetMobileGripResizeEffect = useEffectEvent(() => {
+    activeGripResizeSideRef.current = null;
+    resizeSessionRef.current = null;
+    setMobileGripSlideOffsetPx(0);
+    clearMobileMergedSurface();
+  });
 
   /**
    * Clears active mobile grip drag state when the desktop layout takes over, so
@@ -568,18 +670,15 @@ function useWorkspaceLayoutV2MobileGripResizeController({
       return;
     }
 
-    activeGripResizeSideRef.current = null;
-    resizeSessionRef.current = null;
-    setMobileGripSlideOffsetPx(0);
-    clearMobileMergedSurface();
-  }, [activeGripResizeSideRef, isMobile]);
+    resetMobileGripResizeEffect();
+  }, [isMobile]);
 
   /**
    * Drops merged pane geometry when viewport constraints or resize behavior
    * change the meaning of that transient fit.
    */
   useEffect(() => {
-    clearMobileMergedSurface();
+    clearMobileMergedSurfaceEffect();
   }, [
     hasLeftPane,
     hasRightPane,
@@ -598,7 +697,7 @@ function useWorkspaceLayoutV2MobileGripResizeController({
       return;
     }
 
-    clearMobileMergedSurface();
+    clearMobileMergedSurfaceEffect();
   }, [mobilePane]);
 
   function getGripPositionPx(
@@ -889,6 +988,25 @@ function useWorkspaceLayoutV2MobileGripResizeController({
 }
 
 /**
+ * Keeps carousel settled state in the same local-store style as the grip
+ * session, while the browser scroll position itself remains DOM-owned.
+ */
+function useWorkspaceLayoutV2MobileCarouselStore() {
+  return useCreateStore(
+    WORKSPACE_LAYOUT_V2_MOBILE_CAROUSEL_INITIAL_STATE,
+    ({ setState }) => ({
+      setIsMobilePaneSettled: (isMobilePaneSettled: boolean) => {
+        setState((state) =>
+          state.isMobilePaneSettled === isMobilePaneSettled
+            ? state
+            : { ...state, isMobilePaneSettled },
+        );
+      },
+    }),
+  );
+}
+
+/**
  * Owns the browser scroll lifecycle for the mobile pane carousel.
  *
  * Pane geometry can change while the carousel node and scroll subscription stay
@@ -926,7 +1044,15 @@ function useWorkspaceLayoutV2MobileCarouselController({
 }) {
   const hasAlignedInitialMobilePaneRef = useRef(false);
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
-  const [isMobilePaneSettled, setIsMobilePaneSettled] = useState(true);
+  const store = useWorkspaceLayoutV2MobileCarouselStore();
+  const isMobilePaneSettled = useSelector(
+    store,
+    (state) => state.isMobilePaneSettled,
+  );
+  const setIsMobilePaneSettled = store.actions.setIsMobilePaneSettled;
+  const setIsMobilePaneSettledEffect = useEffectEvent((isSettled: boolean) => {
+    setIsMobilePaneSettled(isSettled);
+  });
   const canSyncScroll = isMobile && viewportWidthPx > 0 && mainWidthPx > 0;
   const syncPaneFromScroll = useEffectEvent((carouselNode: HTMLDivElement) => {
     if (activeGripResizeSideRef.current !== null) {
@@ -984,7 +1110,7 @@ function useWorkspaceLayoutV2MobileCarouselController({
 
     hasAlignedInitialMobilePaneRef.current = false;
     scrollDerivedMobilePaneRef.current = null;
-    setIsMobilePaneSettled(true);
+    setIsMobilePaneSettledEffect(true);
   }, [isMobile]);
 
   /**
@@ -1022,7 +1148,7 @@ function useWorkspaceLayoutV2MobileCarouselController({
       // keep the intended pane instead of booting at scrollLeft=0 and
       // immediately persisting "left".
       carouselNode.scrollLeft = nextScrollLeftPx;
-      setIsMobilePaneSettled(true);
+      setIsMobilePaneSettledEffect(true);
       hasAlignedInitialMobilePaneRef.current = true;
       return;
     }
@@ -1035,7 +1161,7 @@ function useWorkspaceLayoutV2MobileCarouselController({
     // Keep programmatic pane changes, such as file selection recentering, in
     // lockstep with the native carousel position after the initial boot.
     carouselNode.scrollLeft = nextScrollLeftPx;
-    setIsMobilePaneSettled(true);
+    setIsMobilePaneSettledEffect(true);
   }, [
     activeGripResizeSideRef,
     carouselRef,
@@ -1121,7 +1247,7 @@ function useWorkspaceLayoutV2MobileCarouselController({
 
 type WorkspaceLayoutV2DesktopViewportProps =
   WorkspaceLayoutV2ResolvedPaneContent & {
-    activeResizeSide: "left" | "right" | "top" | null;
+    activeResizeSide: WorkspaceLayoutV2ActiveResizeSide;
     desktopLeftWidthPx: number;
     desktopRightWidthPx: number;
     showLeftPane: boolean;
@@ -1487,6 +1613,27 @@ export function WorkspaceLayoutV2ViewportFrame({
   );
 }
 
+/**
+ * Owns the resize highlight state for the rendered shell. The resize mechanics
+ * remain event-driven, while the active edge highlight is plain local UI state.
+ */
+function useWorkspaceLayoutV2ShellStore() {
+  return useCreateStore(
+    WORKSPACE_LAYOUT_V2_SHELL_INITIAL_STATE,
+    ({ setState }) => ({
+      setActiveResizeSide: (
+        activeResizeSide: WorkspaceLayoutV2ActiveResizeSide,
+      ) => {
+        setState((state) =>
+          state.activeResizeSide === activeResizeSide
+            ? state
+            : { ...state, activeResizeSide },
+        );
+      },
+    }),
+  );
+}
+
 export function WorkspaceLayoutV2JustPanes({
   dataTestId,
   left,
@@ -1501,9 +1648,12 @@ export function WorkspaceLayoutV2JustPanes({
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
   const viewportSize = useElementSize(viewportRef);
-  const [activeResizeSide, setActiveResizeSide] = useState<
-    "left" | "right" | "top" | null
-  >(null);
+  const shellStore = useWorkspaceLayoutV2ShellStore();
+  const activeResizeSide = useSelector(
+    shellStore,
+    (state) => state.activeResizeSide,
+  );
+  const setActiveResizeSide = shellStore.actions.setActiveResizeSide;
   const {
     isMobile,
     leftDesktopOpen,
