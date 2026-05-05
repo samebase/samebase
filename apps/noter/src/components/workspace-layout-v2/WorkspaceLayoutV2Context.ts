@@ -1,6 +1,12 @@
-import { createContext, useContext } from "react";
+import {
+  createContext,
+  useContext,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import type { ElementSize } from "@/hooks/useElementSize";
+import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import {
   WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,
   WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE,
@@ -17,6 +23,25 @@ export type WorkspaceLayoutV2LocalStoreState = {
     surface: WorkspaceLayoutV2MobileSurface;
   };
   viewportSize: ElementSize;
+};
+
+export type WorkspaceLayoutV2PaneState = WorkspaceSidebarState & {
+  isMobile: boolean;
+};
+
+export type WorkspaceLayoutV2PaneActions = {
+  setLeftDesktopWidthPx: Dispatch<SetStateAction<number>>;
+  setLeftMobileWidthPx: Dispatch<SetStateAction<number>>;
+  setMobilePane: Dispatch<SetStateAction<WorkspaceSidebarState["mobilePane"]>>;
+  setRightDesktopWidthPx: Dispatch<SetStateAction<number>>;
+  setRightMobileWidthPx: Dispatch<SetStateAction<number>>;
+  toggleLeftPane: () => void;
+  toggleRightPane: () => void;
+};
+
+export type WorkspaceLayoutV2PaneContextValue = {
+  actions: WorkspaceLayoutV2PaneActions;
+  state: WorkspaceLayoutV2PaneState;
 };
 
 const WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE: ElementSize = {
@@ -99,6 +124,8 @@ export type WorkspaceLayoutV2Store = ReturnType<
 
 export const WorkspaceLayoutV2Context =
   createContext<WorkspaceLayoutV2Store | null>(null);
+export const WorkspaceLayoutV2PaneContext =
+  createContext<WorkspaceLayoutV2PaneContextValue | null>(null);
 
 /**
  * Returns actions from the layout-local WorkspaceLayoutV2Context store. This
@@ -121,6 +148,24 @@ export function useWorkspaceLayoutV2Selector<T>(
   return useSelector(useWorkspaceLayoutV2Store(), selector);
 }
 
+/**
+ * Returns durable pane actions from the workspace layout provider. Layout
+ * internals use this instead of the compatibility `useSidebar()` hook so their
+ * dependency points at the pane model.
+ */
+export function useWorkspaceLayoutV2PaneActions() {
+  return useWorkspaceLayoutV2PaneContext().actions;
+}
+
+/**
+ * Returns durable pane state from the workspace layout provider. The persisted
+ * field names stay sidebar-shaped for now, but this hook keeps v2 layout code
+ * attached to the workspace pane boundary.
+ */
+export function useWorkspaceLayoutV2PaneState() {
+  return useWorkspaceLayoutV2PaneContext().state;
+}
+
 function useWorkspaceLayoutV2Store() {
   const store = useContext(WorkspaceLayoutV2Context);
   if (store === null) {
@@ -128,4 +173,13 @@ function useWorkspaceLayoutV2Store() {
   }
 
   return store;
+}
+
+function useWorkspaceLayoutV2PaneContext() {
+  const context = useContext(WorkspaceLayoutV2PaneContext);
+  if (context === null) {
+    throw new Error("WorkspaceLayoutV2 pane context is missing.");
+  }
+
+  return context;
 }

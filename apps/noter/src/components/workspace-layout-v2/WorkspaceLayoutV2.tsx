@@ -1,6 +1,5 @@
 import { useRef, type ReactNode } from "react";
 import { useElementSize } from "@/hooks/useElementSize";
-import { useSidebar } from "@/hooks/use-sidebar";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
@@ -20,6 +19,8 @@ import {
 } from "./WorkspaceLayoutV2Geometry";
 import {
   useWorkspaceLayoutV2Actions,
+  useWorkspaceLayoutV2PaneActions,
+  useWorkspaceLayoutV2PaneState,
   useWorkspaceLayoutV2Selector,
 } from "./WorkspaceLayoutV2Context";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
@@ -119,12 +120,14 @@ function WorkspaceLayoutV2JustPanesContent({
     rightDesktopOpen,
     rightDesktopWidthPx,
     rightMobileWidthPx,
+  } = useWorkspaceLayoutV2PaneState();
+  const {
     setLeftDesktopWidthPx,
     setLeftMobileWidthPx,
     setMobilePane,
     setRightDesktopWidthPx,
     setRightMobileWidthPx,
-  } = useSidebar();
+  } = useWorkspaceLayoutV2PaneActions();
   const hasLeftPane = left !== undefined;
   const hasRightPane = right !== null && right !== undefined;
   const shouldShowMobileResizeGripDots =

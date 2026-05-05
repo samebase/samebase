@@ -20,6 +20,10 @@ import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStat
 import {
   useCreateWorkspaceLayoutV2Store,
   WorkspaceLayoutV2Context,
+  WorkspaceLayoutV2PaneContext,
+  type WorkspaceLayoutV2PaneActions,
+  type WorkspaceLayoutV2PaneContextValue,
+  type WorkspaceLayoutV2PaneState,
 } from "./WorkspaceLayoutV2Context";
 
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
@@ -154,6 +158,55 @@ export function WorkspaceLayoutSidebarProvider({
 
     setRightDesktopOpen((currentOpen) => !currentOpen);
   }, [isMobile, setMobilePane, setRightDesktopOpen]);
+  const workspacePaneState = useMemo<WorkspaceLayoutV2PaneState>(
+    () => ({
+      isMobile,
+      leftDesktopOpen,
+      leftDesktopWidthPx,
+      leftMobileWidthPx,
+      mobilePane,
+      rightDesktopOpen,
+      rightDesktopWidthPx,
+      rightMobileWidthPx,
+    }),
+    [
+      isMobile,
+      leftDesktopOpen,
+      leftDesktopWidthPx,
+      leftMobileWidthPx,
+      mobilePane,
+      rightDesktopOpen,
+      rightDesktopWidthPx,
+      rightMobileWidthPx,
+    ],
+  );
+  const workspacePaneActions = useMemo<WorkspaceLayoutV2PaneActions>(
+    () => ({
+      setLeftDesktopWidthPx,
+      setLeftMobileWidthPx,
+      setMobilePane,
+      setRightDesktopWidthPx,
+      setRightMobileWidthPx,
+      toggleLeftPane: toggleLeftSidebar,
+      toggleRightPane: toggleRightSidebar,
+    }),
+    [
+      setLeftDesktopWidthPx,
+      setLeftMobileWidthPx,
+      setMobilePane,
+      setRightDesktopWidthPx,
+      setRightMobileWidthPx,
+      toggleLeftSidebar,
+      toggleRightSidebar,
+    ],
+  );
+  const workspacePaneContextValue = useMemo<WorkspaceLayoutV2PaneContextValue>(
+    () => ({
+      actions: workspacePaneActions,
+      state: workspacePaneState,
+    }),
+    [workspacePaneActions, workspacePaneState],
+  );
 
   /**
    * Registers the global sidebar shortcut at the workspace layout boundary so
@@ -251,9 +304,11 @@ export function WorkspaceLayoutSidebarProvider({
 
   return (
     <WorkspaceLayoutV2Context.Provider value={workspaceLayoutStore}>
-      <SidebarContext.Provider value={contextValue}>
-        {children}
-      </SidebarContext.Provider>
+      <WorkspaceLayoutV2PaneContext.Provider value={workspacePaneContextValue}>
+        <SidebarContext.Provider value={contextValue}>
+          {children}
+        </SidebarContext.Provider>
+      </WorkspaceLayoutV2PaneContext.Provider>
     </WorkspaceLayoutV2Context.Provider>
   );
 }

@@ -1,7 +1,6 @@
 import { type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useSidebar } from "@/hooks/use-sidebar";
 import { PanelLeft, PanelRight } from "lucide-react";
 import {
   WorkspaceLayoutV2PaneFrame,
@@ -13,6 +12,7 @@ import {
   type WorkspaceLayoutV2MobileMinResizeBehavior,
 } from "./WorkspaceLayoutV2Geometry";
 import { WorkspaceLayoutV2JustPanes } from "./WorkspaceLayoutV2";
+import { useWorkspaceLayoutV2PaneActions } from "./WorkspaceLayoutV2Context";
 
 type WorkspaceLayoutV2LeftToggleVisibility = "all" | "desktop" | "hidden";
 type WorkspaceLayoutV2RightToggleVisibility = "desktop" | "hidden";
@@ -34,7 +34,7 @@ function WorkspaceLayoutV2MainPaneHeader({
   leftToggleVisibility?: WorkspaceLayoutV2LeftToggleVisibility;
   rightToggleVisibility?: WorkspaceLayoutV2RightToggleVisibility;
 }) {
-  const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
+  const { toggleLeftPane, toggleRightPane } = useWorkspaceLayoutV2PaneActions();
   const leftToggleButtonClassName =
     leftToggleVisibility === "hidden"
       ? null
@@ -53,7 +53,7 @@ function WorkspaceLayoutV2MainPaneHeader({
               : "Toggle sidebar"
           }
           className={leftToggleButtonClassName}
-          onClick={toggleLeftSidebar}
+          onClick={toggleLeftPane}
         >
           <PanelLeft className="h-4 w-4" />
         </Button>
@@ -70,7 +70,7 @@ function WorkspaceLayoutV2MainPaneHeader({
           size="icon"
           aria-label="Toggle Right Sidebar"
           className="hidden h-8 w-8 md:inline-flex"
-          onClick={toggleRightSidebar}
+          onClick={toggleRightPane}
         >
           <PanelRight className="h-4 w-4 rotate-180" />
         </Button>
