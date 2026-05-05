@@ -220,17 +220,14 @@ fixtures to use workspace-layout-owned providers/controllers.
 Current status: direct fixture and component-test `SidebarProvider` mounts have
 been replaced with `WorkspaceLayoutV2MemorySidebarProvider`, which uses the same
 `WorkspaceSidebarStateController` contract as the persisted adapters while
-staying in memory. `SidebarProvider` is now only mounted by
-`WorkspaceLayoutSidebarProvider`. That means `SidebarProvider` no longer needs a
-general controlled/uncontrolled component API, default prop state, or an
-internal fallback store. It is now only a private compatibility shell that
-constructs the `useSidebar()` context from workspace sidebar state.
+staying in memory.
 
-Next implementation slice: move the current `SidebarProvider` context-value
-construction directly into `WorkspaceLayoutSidebarProvider`, keep the
-`useSidebar()` hook path and context shape stable for existing consumers, and
-delete the now-dead provider prop bridge. Renaming `useSidebar` to a pane-owned
-hook should wait until the provider ownership move is stable.
+Current implementation: `WorkspaceLayoutSidebarProvider` now constructs
+`SidebarContext` directly from `WorkspaceSidebarStateController`, and the old
+`SidebarProvider` component has been deleted. The `useSidebar()` hook path and
+context shape remain stable for existing consumers while the runtime model moves
+toward panes. Renaming `useSidebar` to a pane-owned hook should wait until the
+provider ownership move is stable.
 
 Implementation slices:
 
