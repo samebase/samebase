@@ -31,6 +31,10 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: "pnpm"
 
+      - name: Validate main build label
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: node ./scripts/validate-main-build-label.ts
+
       - name: Install dependencies
         run: pnpm install
 
