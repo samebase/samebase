@@ -30,6 +30,7 @@ import {
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "@/lib/noterSync";
 import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
 import { sanitizePublicLayoutSidebarState } from "@/lib/publicLayoutSidebarState";
 import { Layout, PublicLayoutShell } from "./Layout";
 
@@ -165,20 +166,27 @@ describe("Layout", () => {
       rightDesktopWidthPx: 360,
       rightMobileWidthPx: 340,
     } satisfies WorkspaceSidebarState;
+    const setState: WorkspaceSidebarStateController["setState"] = () => {};
+    const storedSidebarStateController = {
+      isHydrated: true,
+      state: storedSidebarState,
+      setState,
+    } satisfies WorkspaceSidebarStateController;
 
-    expect(
-      sanitizePublicLayoutSidebarState({
-        defaultSidebarState,
-        hasLeftPane: false,
-        sidebarState: storedSidebarState,
-      }),
-    ).toEqual({
+    const sanitizedSidebarStateController = sanitizePublicLayoutSidebarState({
+      defaultSidebarState,
+      hasLeftPane: false,
+      sidebarState: storedSidebarStateController,
+    });
+
+    expect(sanitizedSidebarStateController.state).toEqual({
       ...storedSidebarState,
       leftDesktopOpen: false,
       leftDesktopWidthPx: defaultSidebarState.leftDesktopWidthPx,
       leftMobileWidthPx: defaultSidebarState.leftMobileWidthPx,
       mobilePane: "main",
     });
+    expect(sanitizedSidebarStateController.setState).toBe(setState);
   });
 
   it("keeps standard right rail links around public workspace panes", () => {
