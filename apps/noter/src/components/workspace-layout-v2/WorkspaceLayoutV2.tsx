@@ -135,6 +135,8 @@ function WorkspaceLayoutV2JustPanesContent({
   const mobilePanePeekWidthPx = getMobilePanePeekWidthPx(
     configuredMobilePanePeekWidthPx,
   );
+  // Shared durable pane state can point at a pane this route did not render.
+  // Treat that as main locally without erasing the preference for other routes.
   const mobilePane =
     (!hasLeftPane && rawMobilePane === "left") ||
     (!hasRightPane && rawMobilePane === "right")
