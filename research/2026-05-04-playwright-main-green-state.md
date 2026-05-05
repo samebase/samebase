@@ -188,6 +188,18 @@ Implementation status on 2026-05-05:
   comparisons because Chromium text rasterization is not pixel-identical across
   operating systems. This supports Linux-only visual truth for required
   screenshots while keeping macOS useful for semantic/targeted checks.
+- A focused machines-workspace header experiment confirmed that the remaining
+  macOS/Linux visual difference is not a font-loading failure. The same bundled
+  IBM Plex Sans WOFF is used, `document.fonts` reports loaded, computed
+  `font-family`, `font-size`, `font-weight`, `line-height`, and the header
+  screenshot dimensions match. The macOS capture still paints a denser glyph
+  mask: 2,534 dark pixels in the header versus 1,683 in the Linux/Testbox
+  baseline, while the dark-pixel y-range is effectively the same. Chromium flags
+  such as `--disable-font-subpixel-positioning`, `--font-render-hinting=none`,
+  and `--disable-lcd-text` did not change the macOS output; forcing
+  `-webkit-font-smoothing: antialiased` reduced macOS glyph density slightly but
+  did not make the screenshot match Linux. Treat this as platform text rendering
+  behavior, not a missing app font.
 
 The root-cause direction should be:
 
