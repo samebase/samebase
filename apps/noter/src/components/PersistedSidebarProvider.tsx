@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { SidebarProvider } from "@/components/sidebar";
+import { WorkspaceLayoutSidebarProvider } from "@/components/workspace-layout-v2/WorkspaceLayoutSidebarProvider";
 import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
 import type {
   WorkspaceSidebarState,
@@ -7,29 +7,8 @@ import type {
 } from "../../convex/workspaceSidebarStateModel";
 
 type PersistedSidebarProviderProps = Omit<
-  ComponentProps<typeof SidebarProvider>,
-  | "defaultLeftDesktopWidthPx"
-  | "defaultLeftMobileWidthPx"
-  | "defaultOpen"
-  | "defaultRightDesktopWidthPx"
-  | "defaultRightMobileWidthPx"
-  | "defaultRightOpen"
-  | "leftDesktopWidthPx"
-  | "leftOpen"
-  | "leftMobileWidthPx"
-  | "mobilePane"
-  | "onLeftDesktopWidthPxChange"
-  | "onLeftOpenChange"
-  | "onLeftMobileWidthPxChange"
-  | "onMobilePaneChange"
-  | "onOpenChange"
-  | "onRightDesktopWidthPxChange"
-  | "onRightMobileWidthPxChange"
-  | "onRightOpenChange"
-  | "open"
-  | "rightDesktopWidthPx"
-  | "rightOpen"
-  | "rightMobileWidthPx"
+  ComponentProps<typeof WorkspaceLayoutSidebarProvider>,
+  "state"
 > & {
   defaultState: WorkspaceSidebarState;
   workspaceKey: WorkspaceSidebarStateKey;
@@ -40,32 +19,10 @@ export function PersistedSidebarProvider({
   workspaceKey,
   ...props
 }: PersistedSidebarProviderProps) {
-  const { isHydrated, ...sidebarState } = usePersistedWorkspaceSidebarState({
+  const sidebarState = usePersistedWorkspaceSidebarState({
     defaults: defaultState,
     workspaceKey,
   });
 
-  if (!isHydrated) {
-    return null;
-  }
-
-  return (
-    <SidebarProvider
-      {...props}
-      leftOpen={sidebarState.leftDesktopOpen}
-      onLeftOpenChange={sidebarState.setLeftDesktopOpen}
-      rightOpen={sidebarState.rightDesktopOpen}
-      onRightOpenChange={sidebarState.setRightDesktopOpen}
-      leftDesktopWidthPx={sidebarState.leftDesktopWidthPx}
-      onLeftDesktopWidthPxChange={sidebarState.setLeftDesktopWidthPx}
-      rightDesktopWidthPx={sidebarState.rightDesktopWidthPx}
-      onRightDesktopWidthPxChange={sidebarState.setRightDesktopWidthPx}
-      leftMobileWidthPx={sidebarState.leftMobileWidthPx}
-      onLeftMobileWidthPxChange={sidebarState.setLeftMobileWidthPx}
-      rightMobileWidthPx={sidebarState.rightMobileWidthPx}
-      onRightMobileWidthPxChange={sidebarState.setRightMobileWidthPx}
-      mobilePane={sidebarState.mobilePane}
-      onMobilePaneChange={sidebarState.setMobilePane}
-    />
-  );
+  return <WorkspaceLayoutSidebarProvider {...props} state={sidebarState} />;
 }

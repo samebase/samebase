@@ -100,6 +100,13 @@ This removes repeated route-level bridging while preserving existing behavior.
 It also makes the dependency explicit: workspace layout consumes sidebar pane
 state, while storage adapters remain outside the layout.
 
+Implementation: `WorkspaceLayoutSidebarProvider` lives in
+`apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutSidebarProvider.tsx`.
+`PersistedSidebarProvider` now chooses the Convex-backed controller and
+delegates the controller bridge to that provider. `PublicLayoutShell` chooses
+the local-storage controller, applies public-route visibility sanitation, then
+delegates to the same provider.
+
 ### Phase 3: Convert `SidebarProvider` Internals To TanStack Store
 
 Replace `SidebarProvider`'s internal `useState` cluster with a TanStack Store.
