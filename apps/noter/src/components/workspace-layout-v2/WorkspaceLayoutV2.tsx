@@ -15,7 +15,6 @@ import {
   getMobileSidebarMaxWidthPx,
   getMobileSidebarMinWidthPx,
   getMobileSidebarWidthPx,
-  type MobilePane,
   type WorkspaceLayoutV2MobileMinResizeBehavior,
 } from "./WorkspaceLayoutV2Geometry";
 import {
@@ -23,6 +22,7 @@ import {
   useWorkspaceLayoutV2PaneActions,
   useWorkspaceLayoutV2PaneState,
   useWorkspaceLayoutV2Selector,
+  type WorkspaceLayoutV2PaneState,
 } from "./WorkspaceLayoutV2Context";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
 import {
@@ -86,7 +86,7 @@ function getAvailableMobilePane({
 }: {
   hasLeftPane: boolean;
   hasRightPane: boolean;
-  mobilePane: MobilePane;
+  mobilePane: WorkspaceLayoutV2PaneState["mobilePane"];
 }) {
   if (mobilePane === "left" && !hasLeftPane) {
     return "main";
