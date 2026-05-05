@@ -6,7 +6,7 @@
 - Owner: Noter frontend/test infrastructure
 - Created: 2026-05-04
 - Current main CI run:
-  [25321219066](https://github.com/noter-md/noter/actions/runs/25321219066)
+  [25351238018](https://github.com/noter-md/noter/actions/runs/25351238018)
 - Related files:
   - `.github/workflows/ci.yml`
   - `apps/noter/playwright.config.ts`
@@ -65,7 +65,7 @@ same standard shell instead of a custom substitute.
 
 ## Current CI Shape
 
-Latest inspected `main` push:
+Initial failing `main` push inspected during this research:
 
 - Run: `25321219066`
 - Commit: `d33c30fcadcd7581ada808d159cfd6253cbe081c`
@@ -80,11 +80,26 @@ The Playwright workflow is currently push-only:
 if: ${{ github.event_name == 'push' }}
 ```
 
-That means PRs can merge without browser coverage, and failures then accumulate
-on `main`. This made the suite drift long enough that it now needs a holistic
-reset rather than a one-test patch.
+That means PRs can merge without browser coverage, and failures can accumulate
+on `main`. This made the suite drift long enough that it needed a holistic reset
+rather than a one-test patch.
 
-The current run reported:
+This push-only shape is intentional for now because the full Playwright shard
+matrix is too expensive to run on every PR. Do not re-enable the full PR matrix
+as a default stabilization fix unless the cost tradeoff changes. Prefer local
+Linux/Testbox reproduction, targeted PR smoke coverage, or narrower changed-area
+browser checks when looking for pre-merge signal.
+
+As of 2026-05-05, after [`#705`](https://github.com/noter-md/noter/pull/705),
+the next `main` CI push was green:
+
+- Run:
+  [`25351238018`](https://github.com/noter-md/noter/actions/runs/25351238018)
+- Commit: `96765c067301391cbc84c288ac582d5cfe249c99`
+- Playwright: green on shards `1/3`, `2/3`, and `3/3`
+- Failure artifacts: none
+
+That failing run reported:
 
 - shard 1: 12 failed, 40 passed, 1 skipped
 - shard 2: 25 failed
