@@ -2,11 +2,11 @@ import { useMemo, type ComponentProps, type ReactNode } from "react";
 import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
 import { SidebarProvider } from "@/components/sidebar";
+import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
 import {
-  WorkspaceLayoutV2FullPage,
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
-} from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
+} from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { useLocalStorageWorkspaceSidebarState } from "@/hooks/useLocalStorageWorkspaceSidebarState";
 import type { MobileSidebarPane } from "@/hooks/use-sidebar";
