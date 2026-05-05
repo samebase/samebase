@@ -75,10 +75,9 @@ function renderPaneContent(content: ReactNode) {
 }
 
 /**
- * Resolves the selected mobile pane to one this layout instance actually has.
- * Public layouts share one persisted pane record, so a route without a left or
- * right pane can inherit that selection from another route. In that case we
- * render main here and leave persistence untouched for routes where it exists.
+ * If durable state says "left" but this layout has no left pane, render
+ * "main"; same for "right". Leave persistence untouched so routes that do have
+ * that pane can keep using the saved selection.
  */
 function getRenderableMobilePane({
   hasLeftPane,
