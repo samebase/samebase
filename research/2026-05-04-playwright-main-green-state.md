@@ -189,17 +189,24 @@ Implementation status on 2026-05-05:
   operating systems. This supports Linux-only visual truth for required
   screenshots while keeping macOS useful for semantic/targeted checks.
 - A focused machines-workspace header experiment confirmed that the remaining
-  macOS/Linux visual difference is not a font-loading failure. The same bundled
-  IBM Plex Sans WOFF is used, `document.fonts` reports loaded, computed
-  `font-family`, `font-size`, `font-weight`, `line-height`, and the header
-  screenshot dimensions match. The macOS capture still paints a denser glyph
-  mask: 2,534 dark pixels in the header versus 1,683 in the Linux/Testbox
-  baseline, while the dark-pixel y-range is effectively the same. Chromium flags
-  such as `--disable-font-subpixel-positioning`, `--font-render-hinting=none`,
-  and `--disable-lcd-text` did not change the macOS output; forcing
-  `-webkit-font-smoothing: antialiased` reduced macOS glyph density slightly but
-  did not make the screenshot match Linux. Treat this as platform text rendering
-  behavior, not a missing app font.
+  macOS/Linux visual difference is not a font-loading failure. A Blacksmith
+  Testbox browser probe and a local macOS browser probe both requested the same
+  bundled IBM Plex Sans WOFF2 assets with matching SHA-256 hashes:
+  `3b646991d30055a93a4ecc499713d4347953a74a947ecab435ab72070cbdab0e` for
+  `ibm-plex-sans-latin-400-normal`,
+  `0717336fb31fcdcde4b8deb3675bb4a0f7f6d484864afcd6751ac29975962203` for `500`,
+  and `8960851d691c054ed38e259bdcf1a6190d157b4203ed5bb32c632a863fb8ec2f` for
+  `600`. On both platforms, CDP `CSS.getPlatformFontsForNode` reported the
+  target text as `IBM Plex Sans SemiBold` with `isCustomFont: true`; both had
+  `document.fonts` loaded and matching computed `font-family`, `font-size`,
+  `font-weight`, `line-height`, and text box dimensions. The macOS capture still
+  paints a denser glyph mask: 2,534 dark pixels in the header versus 1,683 in
+  the Linux/Testbox baseline, while the dark-pixel y-range is effectively the
+  same. Chromium flags such as `--disable-font-subpixel-positioning`,
+  `--font-render-hinting=none`, and `--disable-lcd-text` did not change the
+  macOS output; forcing `-webkit-font-smoothing: antialiased` reduced macOS
+  glyph density slightly but did not make the screenshot match Linux. Treat this
+  as platform text rendering behavior, not a missing app font.
 
 The root-cause direction should be:
 
