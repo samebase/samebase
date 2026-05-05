@@ -14,10 +14,7 @@ import {
   type MobilePane,
   type WorkspaceLayoutV2MobileMergedSide,
 } from "./WorkspaceLayoutV2Geometry";
-import {
-  useWorkspaceLayoutV2Actions,
-  useWorkspaceLayoutV2Selector,
-} from "./WorkspaceLayoutV2Context";
+import { useWorkspaceLayoutV2Actions } from "./WorkspaceLayoutV2Context";
 
 /**
  * Owns the browser scroll lifecycle for the mobile pane carousel.
@@ -57,9 +54,6 @@ export function useWorkspaceLayoutV2MobileCarouselController({
 }) {
   const hasAlignedInitialMobilePaneRef = useRef(false);
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
-  const isMobilePaneSettled = useWorkspaceLayoutV2Selector(
-    (state) => state.mobile.isPaneSettled,
-  );
   const { setIsMobilePaneSettled } = useWorkspaceLayoutV2Actions();
   const setIsMobilePaneSettledEffect = useEffectEvent((isSettled: boolean) => {
     setIsMobilePaneSettled(isSettled);
@@ -250,8 +244,4 @@ export function useWorkspaceLayoutV2MobileCarouselController({
     rightWidthPx,
     viewportWidthPx,
   ]);
-
-  return {
-    isMobilePaneSettled,
-  };
 }
