@@ -1,12 +1,37 @@
 import { type ReactNode } from "react";
-import { SidebarProvider } from "@/components/sidebar";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
+import { WorkspaceLayoutV2MemorySidebarProvider } from "./WorkspaceLayoutV2MemorySidebarProvider";
 import { WorkspaceLayoutV2PaneFrame } from "./WorkspaceLayoutV2PaneFrame";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
 
 const OMIT_HEADER = Symbol("omit-header");
+
+function WorkspaceLayoutV2TestSidebarProvider({
+  children,
+  rightOpen = false,
+}: {
+  children: ReactNode;
+  rightOpen?: boolean;
+}) {
+  return (
+    <WorkspaceLayoutV2MemorySidebarProvider
+      initialState={{
+        leftDesktopOpen: true,
+        leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+        leftMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+        mobilePane: "main",
+        rightDesktopOpen: rightOpen,
+        rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+        rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+      }}
+    >
+      {children}
+    </WorkspaceLayoutV2MemorySidebarProvider>
+  );
+}
 
 function renderFullPageMarkup({
   includeLeftPane = true,
@@ -30,7 +55,7 @@ function renderFullPageMarkup({
         };
 
   return renderToStaticMarkup(
-    <SidebarProvider defaultRightOpen>
+    <WorkspaceLayoutV2TestSidebarProvider rightOpen>
       <WorkspaceLayoutV2FullPage
         left={
           includeLeftPane
@@ -48,14 +73,14 @@ function renderFullPageMarkup({
             : undefined
         }
       />
-    </SidebarProvider>,
+    </WorkspaceLayoutV2TestSidebarProvider>,
   );
 }
 
 describe("WorkspaceLayoutV2FullPage", () => {
   it("keeps main header content rendered while sidebar toggles stay desktop-only", () => {
     const markup = renderToStaticMarkup(
-      <SidebarProvider>
+      <WorkspaceLayoutV2TestSidebarProvider>
         <WorkspaceLayoutV2FullPage
           left={{
             content: <div>left pane</div>,
@@ -68,7 +93,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
             content: <div>right pane</div>,
           }}
         />
-      </SidebarProvider>,
+      </WorkspaceLayoutV2TestSidebarProvider>,
     );
 
     expect(markup).toContain('data-testid="main-header-actions"');
@@ -81,7 +106,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
   it("omits the right toggle when a route does not provide a right pane", () => {
     const markup = renderToStaticMarkup(
-      <SidebarProvider>
+      <WorkspaceLayoutV2TestSidebarProvider>
         <WorkspaceLayoutV2FullPage
           left={{
             content: <div>left pane</div>,
@@ -91,7 +116,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
             content: <div>main pane</div>,
           }}
         />
-      </SidebarProvider>,
+      </WorkspaceLayoutV2TestSidebarProvider>,
     );
 
     expect(markup).toContain('aria-label="Toggle Left Sidebar"');
@@ -123,7 +148,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
   it("can hide the left toggle and collapse an otherwise empty header row", () => {
     const markup = renderToStaticMarkup(
-      <SidebarProvider>
+      <WorkspaceLayoutV2TestSidebarProvider>
         <WorkspaceLayoutV2FullPage
           left={{
             content: <div>left pane</div>,
@@ -133,7 +158,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
           }}
           leftToggleVisibility="hidden"
         />
-      </SidebarProvider>,
+      </WorkspaceLayoutV2TestSidebarProvider>,
     );
 
     expect(markup).toContain("main pane");
@@ -143,7 +168,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
   it("can hide the right toggle and collapse an otherwise empty header row", () => {
     const markup = renderToStaticMarkup(
-      <SidebarProvider defaultRightOpen>
+      <WorkspaceLayoutV2TestSidebarProvider rightOpen>
         <WorkspaceLayoutV2FullPage
           left={{
             content: <div>left pane</div>,
@@ -157,7 +182,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
           leftToggleVisibility="hidden"
           rightToggleVisibility="hidden"
         />
-      </SidebarProvider>,
+      </WorkspaceLayoutV2TestSidebarProvider>,
     );
 
     expect(markup).toContain("right pane");
@@ -175,7 +200,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
   it("disables the shared bottom-panel close button when panel closure is blocked", () => {
     const markup = renderToStaticMarkup(
-      <SidebarProvider>
+      <WorkspaceLayoutV2TestSidebarProvider>
         <WorkspaceLayoutV2FullPage
           left={{
             content: <div>left pane</div>,
@@ -193,7 +218,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
             content: <div>right pane</div>,
           }}
         />
-      </SidebarProvider>,
+      </WorkspaceLayoutV2TestSidebarProvider>,
     );
 
     expect(markup).toContain('aria-label="Close bottom panel"');

@@ -1,16 +1,18 @@
 import { useMemo, useRef, useState } from "react";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { SidebarProvider } from "@/components/sidebar";
+import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 import {
   MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
   MachinesWorkspaceView,
 } from "@/components/MachinesWorkspaceView";
 import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
+import { WorkspaceLayoutV2MemorySidebarProvider } from "@/components/workspace-layout-v2/WorkspaceLayoutV2MemorySidebarProvider";
 import {
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
 } from "@/lib/codexAppServerResearch";
 import type { MachinesWorkspaceProjectConversationSelection } from "@/lib/machinesWorkspaceConversation";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 
 const FIXTURE_RELATIVE_TIME_REFERENCE_MS = 1_775_541_762_000;
 const FIXTURE_WORKTREE_CWD = "/Users/fixture/.codex/worktrees/demo/noter";
@@ -429,12 +431,20 @@ export function MachinesWorkspaceVisualFixture() {
     setTurnDraft("");
   };
 
+  const initialSidebarState = {
+    leftDesktopOpen: true,
+    leftDesktopWidthPx: MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
+    leftMobileWidthPx: MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
+    mobilePane: "main",
+    rightDesktopOpen: false,
+    rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+    rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  } satisfies WorkspaceSidebarState;
+
   return (
     <TestRouterProvider>
-      <SidebarProvider
-        defaultOpen={true}
-        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
+      <WorkspaceLayoutV2MemorySidebarProvider
+        initialState={initialSidebarState}
       >
         <div className="bg-slate-100 p-8 text-slate-950">
           <div
@@ -504,7 +514,7 @@ export function MachinesWorkspaceVisualFixture() {
             />
           </div>
         </div>
-      </SidebarProvider>
+      </WorkspaceLayoutV2MemorySidebarProvider>
     </TestRouterProvider>
   );
 }

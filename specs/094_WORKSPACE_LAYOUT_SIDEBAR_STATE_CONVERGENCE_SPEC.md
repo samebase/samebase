@@ -217,6 +217,12 @@ behavior owner. The next phase should move its behavior into
 `WorkspaceLayoutSidebarProvider`, then update direct app-internal callsites and
 fixtures to use workspace-layout-owned providers/controllers.
 
+Current status: direct fixture and component-test `SidebarProvider` mounts have
+been replaced with `WorkspaceLayoutV2MemorySidebarProvider`, which uses the same
+`WorkspaceSidebarStateController` contract as the persisted adapters while
+staying in memory. `SidebarProvider` is now only mounted by
+`WorkspaceLayoutSidebarProvider`.
+
 Implementation slices:
 
 1. Replace `WorkspaceSidebarStateController`'s setter bag with a durable
