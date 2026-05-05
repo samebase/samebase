@@ -83,10 +83,82 @@ After these splits, `WorkspaceLayoutV2.tsx` should primarily contain:
 - viewport measurement and small shell-local store state
 - resize-handle construction and mode selection
 
+`WorkspaceLayoutV2JustPanes` is the pane-shell root. It is high enough to see
+viewport size, sidebar state, pane availability, active resize edge, mobile
+surface ownership, carousel settled state, and the selected mobile pane. It is
+therefore the right component boundary for the centralized shell-local layout
+store.
+
+`WorkspaceLayoutV2FullPage` should stay an adapter from route-facing
+`WorkspaceLayoutV2PaneFrame` props to rendered pane content. It should not own
+mobile surface state or pane gesture state.
+
 The main file can still be the entrypoint for app callsites, but it should not
 become a same-name re-export shim. If a constant or type is no longer owned by
 the main component module, current callsites should import it from the owning
 module directly.
+
+## State Model
+
+The pane mental model should be represented first as data types, then by pure
+model helpers, then by React hooks that apply those decisions to DOM and sidebar
+state.
+
+The shell-local TanStack store should be created in `WorkspaceLayoutV2JustPanes`
+and passed into the mobile controller hooks. This keeps the important layout
+state together while preserving smaller files for focused mechanics.
+
+The store should own:
+
+- viewport size
+- active resize side
+- mobile merged/unmerged surface ownership
+- mobile grip session state that affects rendering
+- mobile carousel settled state
+
+The store should not own:
+
+- persisted sidebar state from `SidebarProvider`
+- pointer bookkeeping inside `WorkspaceLayoutV2ResizeHandle`
+- browser DOM refs
+- bottom panel controlled/uncontrolled open state, unless the bottom panel later
+  becomes part of the pane model
+
+Merged surface state should use a discriminated type instead of parallel
+nullable fields:
+
+```ts
+type WorkspaceLayoutV2MobileSurface =
+  | { kind: "unmerged" }
+  | {
+      kind: "merged";
+      mainWidthPx: number;
+      side: "left" | "right";
+    };
+```
+
+This makes invalid states unrepresentable. A merged surface cannot have a side
+without a main width, and `main` cannot belong to both side surfaces at once.
+
+Drag state should follow the same rule:
+
+```ts
+type WorkspaceLayoutV2MobileGrip =
+  | { kind: "idle" }
+  | {
+      kind: "dragging";
+      mergeTargetSide: "left" | "right" | null;
+      shouldSettleMergedOnEnd: boolean;
+      side: "left" | "right";
+      slideOffsetPx: number;
+      startMainWidthPx: number;
+      startSideWidthPx: number;
+    };
+```
+
+The mobile resize hook may still keep refs for same-gesture reads that must be
+synchronous with pointer movement, but those refs should mirror the centralized
+store model rather than define a second source of truth.
 
 ## Non-Goals
 
