@@ -1,7 +1,9 @@
+import { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { SidebarProvider } from "@/components/sidebar";
+import { WorkspaceLayoutV2MemorySidebarProvider } from "@/components/workspace-layout-v2/WorkspaceLayoutV2MemorySidebarProvider";
 import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 
 vi.mock("@/components/MachinesWorkspaceThreadPane", () => ({
   MachinesWorkspaceThreadHeader: ({
@@ -59,14 +61,32 @@ const THREAD_FIXTURE: CodexAppServerThread = {
   },
 };
 
+function MachinesWorkspaceTestSidebarProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <WorkspaceLayoutV2MemorySidebarProvider
+      initialState={{
+        leftDesktopOpen: true,
+        leftDesktopWidthPx: MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
+        leftMobileWidthPx: MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX,
+        mobilePane: "main",
+        rightDesktopOpen: false,
+        rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+        rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+      }}
+    >
+      {children}
+    </WorkspaceLayoutV2MemorySidebarProvider>
+  );
+}
+
 describe("MachinesWorkspaceView", () => {
   it("renders unavailable machine thread rows as disabled while keeping the reason visible", () => {
     const markup = renderToStaticMarkup(
-      <SidebarProvider
-        defaultOpen={true}
-        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-      >
+      <MachinesWorkspaceTestSidebarProvider>
         <MachinesWorkspaceView
           hasPendingStartedThread={false}
           isSubmittingTurn={false}
@@ -97,7 +117,7 @@ describe("MachinesWorkspaceView", () => {
           onTurnDraftChange={() => {}}
           onTurnSubmit={() => {}}
         />
-      </SidebarProvider>,
+      </MachinesWorkspaceTestSidebarProvider>,
     );
 
     expect(markup).toContain(
@@ -111,11 +131,7 @@ describe("MachinesWorkspaceView", () => {
 
   it("renders a project-level start conversation button", () => {
     const markup = renderToStaticMarkup(
-      <SidebarProvider
-        defaultOpen={true}
-        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-      >
+      <MachinesWorkspaceTestSidebarProvider>
         <MachinesWorkspaceView
           hasPendingStartedThread={false}
           isSubmittingTurn={false}
@@ -146,7 +162,7 @@ describe("MachinesWorkspaceView", () => {
           onTurnDraftChange={() => {}}
           onTurnSubmit={() => {}}
         />
-      </SidebarProvider>,
+      </MachinesWorkspaceTestSidebarProvider>,
     );
 
     expect(markup).toContain("Start new conversation in noter");
@@ -154,11 +170,7 @@ describe("MachinesWorkspaceView", () => {
 
   it("renders the selected machine and thread title in the shared main header", () => {
     const markup = renderToStaticMarkup(
-      <SidebarProvider
-        defaultOpen={true}
-        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-      >
+      <MachinesWorkspaceTestSidebarProvider>
         <MachinesWorkspaceView
           hasPendingStartedThread={false}
           isSubmittingTurn={false}
@@ -188,7 +200,7 @@ describe("MachinesWorkspaceView", () => {
           onTurnDraftChange={() => {}}
           onTurnSubmit={() => {}}
         />
-      </SidebarProvider>,
+      </MachinesWorkspaceTestSidebarProvider>,
     );
 
     expect(markup).toContain('data-component="MachinesWorkspaceThreadHeader"');
@@ -198,11 +210,7 @@ describe("MachinesWorkspaceView", () => {
 
   it("disables project-level start buttons while a turn submission is pending", () => {
     const markup = renderToStaticMarkup(
-      <SidebarProvider
-        defaultOpen={true}
-        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-      >
+      <MachinesWorkspaceTestSidebarProvider>
         <MachinesWorkspaceView
           hasPendingStartedThread={false}
           isSubmittingTurn={true}
@@ -233,7 +241,7 @@ describe("MachinesWorkspaceView", () => {
           onTurnDraftChange={() => {}}
           onTurnSubmit={() => {}}
         />
-      </SidebarProvider>,
+      </MachinesWorkspaceTestSidebarProvider>,
     );
 
     expect(markup).toMatch(
@@ -243,11 +251,7 @@ describe("MachinesWorkspaceView", () => {
 
   it("shows the pending spinner only for the project row that started the conversation", () => {
     const markup = renderToStaticMarkup(
-      <SidebarProvider
-        defaultOpen={true}
-        defaultLeftDesktopWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-        defaultLeftMobileWidthPx={MACHINES_WORKSPACE_LEFT_SIDEBAR_WIDTH_PX}
-      >
+      <MachinesWorkspaceTestSidebarProvider>
         <MachinesWorkspaceView
           hasPendingStartedThread={false}
           isSubmittingTurn={true}
@@ -299,7 +303,7 @@ describe("MachinesWorkspaceView", () => {
           onTurnDraftChange={() => {}}
           onTurnSubmit={() => {}}
         />
-      </SidebarProvider>,
+      </MachinesWorkspaceTestSidebarProvider>,
     );
 
     const macSectionStart = markup.indexOf("Research MacBook Pro");

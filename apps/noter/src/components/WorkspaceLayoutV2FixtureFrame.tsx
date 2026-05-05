@@ -1,8 +1,9 @@
 import { type ComponentProps } from "react";
 import { type MobileSidebarPane, type SidebarSide } from "@/hooks/use-sidebar";
 import { Layout } from "@/Layout";
-import { SidebarProvider } from "@/components/sidebar";
+import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
+import { WorkspaceLayoutV2MemorySidebarProvider } from "@/components/workspace-layout-v2/WorkspaceLayoutV2MemorySidebarProvider";
 
 const WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX = 320;
 
@@ -37,17 +38,21 @@ export function WorkspaceLayoutV2FixtureFrame({
   right,
   showMobileResizeGripDots,
 }: WorkspaceLayoutV2FixtureFrameProps) {
+  const initialSidebarState = {
+    leftDesktopOpen: defaultOpen,
+    leftDesktopWidthPx: desktopSidebarWidthPx,
+    leftMobileWidthPx: WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX,
+    mobilePane: mobilePane ?? "main",
+    rightDesktopOpen: defaultRightOpen,
+    rightDesktopWidthPx: desktopSidebarWidthPx,
+    rightMobileWidthPx:
+      rightMobileWidthPx ?? WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX,
+  } satisfies WorkspaceSidebarState;
+
   return (
     <Layout>
-      <SidebarProvider
-        defaultOpen={defaultOpen}
-        defaultLeftDesktopWidthPx={desktopSidebarWidthPx}
-        defaultLeftMobileWidthPx={WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX}
-        defaultRightOpen={defaultRightOpen}
-        defaultRightDesktopWidthPx={desktopSidebarWidthPx}
-        defaultRightMobileWidthPx={WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX}
-        mobilePane={mobilePane}
-        rightMobileWidthPx={rightMobileWidthPx}
+      <WorkspaceLayoutV2MemorySidebarProvider
+        initialState={initialSidebarState}
         shortcutSidebarSide={shortcutSidebarSide}
       >
         <WorkspaceLayoutV2FullPage
@@ -59,7 +64,7 @@ export function WorkspaceLayoutV2FixtureFrame({
           right={right}
           showMobileResizeGripDots={showMobileResizeGripDots}
         />
-      </SidebarProvider>
+      </WorkspaceLayoutV2MemorySidebarProvider>
     </Layout>
   );
 }

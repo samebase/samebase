@@ -11,10 +11,13 @@ import {
   it,
   vi,
 } from "vite-plus/test";
-import { SidebarProvider } from "@/components/sidebar";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
+import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
 import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "./WorkspaceLayoutV2Geometry";
+import { WorkspaceLayoutSidebarProvider } from "./WorkspaceLayoutSidebarProvider";
+import { WorkspaceLayoutV2MemorySidebarProvider } from "./WorkspaceLayoutV2MemorySidebarProvider";
+import { useWorkspaceLayoutV2MemorySidebarController } from "./useWorkspaceLayoutV2MemorySidebarController";
 
 const { act } = React;
 
@@ -33,9 +36,9 @@ const originalGetBoundingClientRectDescriptor = Object.getOwnPropertyDescriptor(
   HTMLElement.prototype,
   "getBoundingClientRect",
 );
-let latestSetRenderedMobilePane: React.Dispatch<
-  React.SetStateAction<"left" | "main" | "right">
-> | null = null;
+let latestSetRenderedMobilePane:
+  | ((nextPane: WorkspaceSidebarState["mobilePane"]) => void)
+  | null = null;
 
 Object.defineProperty(window, "matchMedia", {
   configurable: true,
@@ -72,20 +75,7 @@ HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
   });
 };
 
-function renderMobileLayout({
-  controlMobileWidths = true,
-  includeLeftPane = true,
-  includeRightPane = true,
-  leftMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  leftToggleVisibility,
-  mainHeader = OMIT_HEADER,
-  mobileMinResizeBehavior,
-  mobilePanePeekWidthPx = MOBILE_PANE_PEEK_PX,
-  mobilePane,
-  rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  showMobileResizeGripDots,
-}: {
-  controlMobileWidths?: boolean;
+type RenderMobileLayoutArgs = {
   includeLeftPane?: boolean;
   includeRightPane?: boolean;
   leftMobileWidthPx?: number;
@@ -93,10 +83,42 @@ function renderMobileLayout({
   mainHeader?: React.ReactNode | typeof OMIT_HEADER;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
   mobilePanePeekWidthPx?: number;
-  mobilePane?: "left" | "main" | "right";
+  mobilePane?: WorkspaceSidebarState["mobilePane"];
   rightMobileWidthPx?: number;
   showMobileResizeGripDots?: boolean;
-}) {
+};
+
+function createMobileSidebarState({
+  leftMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  mobilePane = "main",
+  rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+}: Pick<
+  RenderMobileLayoutArgs,
+  "leftMobileWidthPx" | "mobilePane" | "rightMobileWidthPx"
+>): WorkspaceSidebarState {
+  return {
+    leftDesktopOpen: true,
+    leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+    leftMobileWidthPx,
+    mobilePane,
+    rightDesktopOpen: false,
+    rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+    rightMobileWidthPx,
+  };
+}
+
+function renderMobileLayoutContent({
+  includeLeftPane = true,
+  includeRightPane = true,
+  leftToggleVisibility,
+  mainHeader = OMIT_HEADER,
+  mobileMinResizeBehavior,
+  mobilePanePeekWidthPx = MOBILE_PANE_PEEK_PX,
+  showMobileResizeGripDots,
+}: Omit<
+  RenderMobileLayoutArgs,
+  "leftMobileWidthPx" | "mobilePane" | "rightMobileWidthPx"
+>) {
   const mainProps =
     mainHeader === OMIT_HEADER
       ? {
@@ -110,59 +132,90 @@ function renderMobileLayout({
         };
 
   return (
-    <SidebarProvider
-      defaultLeftMobileWidthPx={leftMobileWidthPx}
-      defaultRightMobileWidthPx={rightMobileWidthPx}
-      leftMobileWidthPx={controlMobileWidths ? leftMobileWidthPx : undefined}
-      mobilePane={mobilePane}
-      rightMobileWidthPx={controlMobileWidths ? rightMobileWidthPx : undefined}
+    <WorkspaceLayoutV2FullPage
+      left={
+        includeLeftPane
+          ? {
+              content: <div>left pane</div>,
+            }
+          : undefined
+      }
+      main={mainProps}
+      mobileMinResizeBehavior={mobileMinResizeBehavior}
+      mobilePanePeekWidthPx={mobilePanePeekWidthPx}
+      right={
+        includeRightPane
+          ? {
+              content: <div>right pane</div>,
+            }
+          : undefined
+      }
+      leftToggleVisibility={leftToggleVisibility}
+      showMobileResizeGripDots={showMobileResizeGripDots}
+    />
+  );
+}
+
+function renderMobileLayout({
+  leftMobileWidthPx,
+  mobilePane,
+  rightMobileWidthPx,
+  ...contentProps
+}: RenderMobileLayoutArgs) {
+  const initialState = createMobileSidebarState({
+    leftMobileWidthPx,
+    mobilePane,
+    rightMobileWidthPx,
+  });
+  const initialStateKey = `${initialState.leftMobileWidthPx}|${initialState.mobilePane}|${initialState.rightMobileWidthPx}`;
+
+  return (
+    <WorkspaceLayoutV2MemorySidebarProvider
+      key={initialStateKey}
+      initialState={initialState}
     >
-      <WorkspaceLayoutV2FullPage
-        left={
-          includeLeftPane
-            ? {
-                content: <div>left pane</div>,
-              }
-            : undefined
-        }
-        main={mainProps}
-        mobileMinResizeBehavior={mobileMinResizeBehavior}
-        mobilePanePeekWidthPx={mobilePanePeekWidthPx}
-        right={
-          includeRightPane
-            ? {
-                content: <div>right pane</div>,
-              }
-            : undefined
-        }
-        leftToggleVisibility={leftToggleVisibility}
-        showMobileResizeGripDots={showMobileResizeGripDots}
-      />
-    </SidebarProvider>
+      {renderMobileLayoutContent(contentProps)}
+    </WorkspaceLayoutV2MemorySidebarProvider>
   );
 }
 
 function ControlledMobileLayout() {
-  const [mobilePane, setMobilePane] = React.useState<"left" | "main" | "right">(
-    "main",
+  const controller = useWorkspaceLayoutV2MemorySidebarController(
+    createMobileSidebarState({ mobilePane: "main" }),
   );
-  latestSetRenderedMobilePane = setMobilePane;
+  latestSetRenderedMobilePane = (nextPane) => {
+    controller.setState(
+      (state) => ({ ...state, mobilePane: nextPane }),
+      "immediate",
+    );
+  };
 
-  return renderMobileLayout({ mobilePane });
+  return (
+    <WorkspaceLayoutSidebarProvider controller={controller}>
+      {renderMobileLayoutContent({})}
+    </WorkspaceLayoutSidebarProvider>
+  );
 }
 
 function ControlledMergedLeftMobileLayout() {
-  const [mobilePane, setMobilePane] = React.useState<"left" | "main" | "right">(
-    "left",
+  const controller = useWorkspaceLayoutV2MemorySidebarController(
+    createMobileSidebarState({
+      leftMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
+      mobilePane: "left",
+    }),
   );
-  latestSetRenderedMobilePane = setMobilePane;
+  latestSetRenderedMobilePane = (nextPane) => {
+    controller.setState(
+      (state) => ({ ...state, mobilePane: nextPane }),
+      "immediate",
+    );
+  };
 
-  return renderMobileLayout({
-    controlMobileWidths: false,
-    leftMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
-    mobilePane,
-    showMobileResizeGripDots: true,
-  });
+  return (
+    <WorkspaceLayoutSidebarProvider controller={controller}>
+      {renderMobileLayoutContent({ showMobileResizeGripDots: true })}
+    </WorkspaceLayoutSidebarProvider>
+  );
 }
 
 function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
@@ -751,7 +804,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       act(() => {
         mountedRoot.render(
           renderMobileLayout({
-            controlMobileWidths: false,
             leftMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
             mobilePane: "left",
             showMobileResizeGripDots: true,

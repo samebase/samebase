@@ -11,6 +11,7 @@ import {
   vi,
 } from "vite-plus/test";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
 import { useLocalStorageWorkspaceSidebarState } from "./useLocalStorageWorkspaceSidebarState";
 
 const { act } = React;
@@ -37,12 +38,7 @@ const STORED_SIDEBAR_STATE = {
   rightDesktopWidthPx: 360,
 } satisfies WorkspaceSidebarState;
 
-let latestSetMobilePane: React.Dispatch<
-  React.SetStateAction<WorkspaceSidebarState["mobilePane"]>
-> | null = null;
-let latestSetRightDesktopWidthPx: React.Dispatch<
-  React.SetStateAction<number>
-> | null = null;
+let latestSidebarStateController: WorkspaceSidebarStateController | null = null;
 
 function createTestStorage() {
   const entries = new Map<string, string>();
@@ -75,14 +71,52 @@ function SidebarStateProbe({ reset = false }: { reset?: boolean }) {
     reset,
     storageKey: STORAGE_KEY,
   });
-  latestSetMobilePane = sidebarState.setMobilePane;
-  latestSetRightDesktopWidthPx = sidebarState.setRightDesktopWidthPx;
+  latestSidebarStateController = sidebarState;
 
   return (
     <div
-      data-mobile-pane={sidebarState.mobilePane}
-      data-right-width={`${sidebarState.rightDesktopWidthPx}`}
+      data-mobile-pane={sidebarState.state.mobilePane}
+      data-right-width={`${sidebarState.state.rightDesktopWidthPx}`}
     />
+  );
+}
+
+function getLatestSidebarStateController() {
+  const controller = latestSidebarStateController;
+  if (controller === null) {
+    throw new Error("Expected sidebar state controller");
+  }
+
+  return controller;
+}
+
+function setLatestMobilePane(
+  nextPane: React.SetStateAction<WorkspaceSidebarState["mobilePane"]>,
+) {
+  const controller = getLatestSidebarStateController();
+  controller.setState(
+    (state) => ({
+      ...state,
+      mobilePane:
+        nextPane instanceof Function ? nextPane(state.mobilePane) : nextPane,
+    }),
+    "immediate",
+  );
+}
+
+function setLatestRightDesktopWidthPx(
+  nextWidthPx: React.SetStateAction<number>,
+) {
+  const controller = getLatestSidebarStateController();
+  controller.setState(
+    (state) => ({
+      ...state,
+      rightDesktopWidthPx:
+        nextWidthPx instanceof Function
+          ? nextWidthPx(state.rightDesktopWidthPx)
+          : nextWidthPx,
+    }),
+    "width_deferred",
   );
 }
 
@@ -98,8 +132,7 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
   });
 
   afterEach(() => {
-    latestSetMobilePane = null;
-    latestSetRightDesktopWidthPx = null;
+    latestSidebarStateController = null;
     if (root !== null) {
       const mountedRoot = root;
       act(() => {
@@ -195,7 +228,7 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
     renderProbe();
 
     act(() => {
-      latestSetMobilePane?.("left");
+      setLatestMobilePane("left");
     });
 
     const storedValue = window.localStorage.getItem(STORAGE_KEY);
@@ -217,7 +250,7 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
     renderProbe();
 
     act(() => {
-      latestSetRightDesktopWidthPx?.(340);
+      setLatestRightDesktopWidthPx(340);
     });
 
     expect(
@@ -248,7 +281,7 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
     renderProbe();
 
     act(() => {
-      latestSetRightDesktopWidthPx?.(340);
+      setLatestRightDesktopWidthPx(340);
     });
 
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();

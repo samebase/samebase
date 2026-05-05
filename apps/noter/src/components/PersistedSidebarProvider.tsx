@@ -8,7 +8,7 @@ import type {
 
 type PersistedSidebarProviderProps = Omit<
   ComponentProps<typeof WorkspaceLayoutSidebarProvider>,
-  "state"
+  "controller"
 > & {
   defaultState: WorkspaceSidebarState;
   workspaceKey: WorkspaceSidebarStateKey;
@@ -24,5 +24,7 @@ export function PersistedSidebarProvider({
     workspaceKey,
   });
 
-  return <WorkspaceLayoutSidebarProvider {...props} state={sidebarState} />;
+  return (
+    <WorkspaceLayoutSidebarProvider {...props} controller={sidebarState} />
+  );
 }

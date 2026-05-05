@@ -2,9 +2,11 @@ import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateMo
 import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
 
 /**
- * Public routes share one anonymous right-sidebar preference record. Routes
- * without a left pane ignore left-only fields while keeping right-side widths
- * shared across the public shell.
+ * Public routes share one anonymous pane preference record even though their
+ * available panes differ. For example, `/logo` can persist left-pane selection
+ * and widths, while landing-style routes may render without a left pane. This
+ * masks unavailable left-pane state for the current route without erasing it
+ * from the shared public preference record.
  */
 export function sanitizePublicLayoutSidebarState({
   defaultSidebarState,
@@ -14,39 +16,26 @@ export function sanitizePublicLayoutSidebarState({
   defaultSidebarState: WorkspaceSidebarState;
   hasLeftPane: boolean;
   sidebarState: WorkspaceSidebarStateController;
-}): WorkspaceSidebarStateController;
-export function sanitizePublicLayoutSidebarState({
-  defaultSidebarState,
-  hasLeftPane,
-  sidebarState,
-}: {
-  defaultSidebarState: WorkspaceSidebarState;
-  hasLeftPane: boolean;
-  sidebarState: WorkspaceSidebarState;
-}): WorkspaceSidebarState;
-export function sanitizePublicLayoutSidebarState({
-  defaultSidebarState,
-  hasLeftPane,
-  sidebarState,
-}: {
-  defaultSidebarState: WorkspaceSidebarState;
-  hasLeftPane: boolean;
-  sidebarState: WorkspaceSidebarState;
-}): WorkspaceSidebarState {
+}): WorkspaceSidebarStateController {
   if (hasLeftPane) {
     return sidebarState;
   }
 
+  const state = sidebarState.state;
+
   return {
     ...sidebarState,
-    leftDesktopOpen: false,
-    leftDesktopWidthPx: defaultSidebarState.leftDesktopWidthPx,
-    leftMobileWidthPx: defaultSidebarState.leftMobileWidthPx,
-    mobilePane:
-      sidebarState.mobilePane === "left"
-        ? defaultSidebarState.mobilePane === "left"
-          ? "main"
-          : defaultSidebarState.mobilePane
-        : sidebarState.mobilePane,
+    state: {
+      ...state,
+      leftDesktopOpen: false,
+      leftDesktopWidthPx: defaultSidebarState.leftDesktopWidthPx,
+      leftMobileWidthPx: defaultSidebarState.leftMobileWidthPx,
+      mobilePane:
+        state.mobilePane === "left"
+          ? defaultSidebarState.mobilePane === "left"
+            ? "main"
+            : defaultSidebarState.mobilePane
+          : state.mobilePane,
+    },
   };
 }
