@@ -150,8 +150,10 @@ export function useWorkspaceLayoutV2Selector<T>(
 
 /**
  * Returns durable pane actions from the workspace layout provider. Layout
- * internals use this instead of the compatibility `useSidebar()` hook so their
- * dependency points at the pane model.
+ * internals use this instead of importing the raw context or compatibility
+ * `useSidebar()` hook, so callers depend on the pane API rather than today's
+ * context shape. That keeps future store splits, selectors, or durable/runtime
+ * state merges localized to this module.
  */
 export function useWorkspaceLayoutV2PaneActions() {
   return useWorkspaceLayoutV2PaneContext().actions;
@@ -159,8 +161,8 @@ export function useWorkspaceLayoutV2PaneActions() {
 
 /**
  * Returns durable pane state from the workspace layout provider. The persisted
- * field names stay sidebar-shaped for now, but this hook keeps v2 layout code
- * attached to the workspace pane boundary.
+ * field names stay sidebar-shaped for now, but this hook hides the raw context
+ * shape and keeps v2 layout code attached to the workspace pane boundary.
  */
 export function useWorkspaceLayoutV2PaneState() {
   return useWorkspaceLayoutV2PaneContext().state;
