@@ -59,18 +59,19 @@ state without moving Convex/local-storage selection into the layout core.
 ## Current Stepping-Stone Shape
 
 PR #711 introduced a workspace sidebar state controller that can be produced by
-multiple storage adapters:
+multiple storage adapters. This branch normalizes that controller from a
+field-specific setter bag into one durable-state operation:
 
 ```ts
-type WorkspaceSidebarStateController = WorkspaceSidebarState & {
+type WorkspaceSidebarStateController = {
   isHydrated: boolean;
-  setLeftDesktopOpen: Dispatch<SetStateAction<boolean>>;
-  setLeftDesktopWidthPx: Dispatch<SetStateAction<number>>;
-  setLeftMobileWidthPx: Dispatch<SetStateAction<number>>;
-  setMobilePane: Dispatch<SetStateAction<WorkspaceSidebarState["mobilePane"]>>;
-  setRightDesktopOpen: Dispatch<SetStateAction<boolean>>;
-  setRightDesktopWidthPx: Dispatch<SetStateAction<number>>;
-  setRightMobileWidthPx: Dispatch<SetStateAction<number>>;
+  state: WorkspaceSidebarState;
+  setState: (
+    nextState:
+      | WorkspaceSidebarState
+      | ((currentState: WorkspaceSidebarState) => WorkspaceSidebarState),
+    persistenceMode: "immediate" | "width_deferred",
+  ) => void;
 };
 ```
 
@@ -81,15 +82,16 @@ workspace-layout-near provider:
 const sidebarState = usePersistedWorkspaceSidebarState(...);
 // or useLocalStorageWorkspaceSidebarState(...)
 
-<WorkspaceLayoutSidebarProvider state={sidebarState}>
+<WorkspaceLayoutSidebarProvider controller={sidebarState}>
   <WorkspaceLayoutV2FullPage ... />
 </WorkspaceLayoutSidebarProvider>
 ```
 
 `WorkspaceLayoutSidebarProvider` can initially wrap the existing
-`SidebarProvider`. This shape is useful because it removed route-level prop
-plumbing, but it is still a stepping stone: the setter bag mirrors old
-`SidebarProvider` props instead of modeling one durable pane state update.
+`SidebarProvider`. This shape is useful because storage adapters now own only
+durable state while the workspace-layout provider owns side-specific pane
+behavior. It is still a stepping stone because behavior is not fully moved out
+of `SidebarProvider` yet.
 
 ## Revised Target Runtime Shape
 
@@ -118,7 +120,9 @@ type WorkspacePaneDurableStateController = {
   isHydrated: boolean;
   state: WorkspaceSidebarState;
   setState: (
-    nextState: WorkspaceSidebarState,
+    nextState:
+      | WorkspaceSidebarState
+      | ((currentState: WorkspaceSidebarState) => WorkspaceSidebarState),
     persistenceMode: "immediate" | "width_deferred",
   ) => void;
 };
@@ -271,14 +275,14 @@ Start with the smallest visible improvement:
 This should not change pane behavior. It only clarifies ownership and reduces
 prop plumbing.
 
-## Next Implementation Slice
+## Current Implementation Slice
 
-The next branch should start with the durable controller normalization:
+This branch starts with durable controller normalization:
 
 1. Change `WorkspaceSidebarStateController` to hold:
    - `isHydrated`
    - `state`
-   - `setState(nextState, persistenceMode)`
+   - `setState(nextStateOrUpdate, persistenceMode)`
 2. Update `usePersistedWorkspaceSidebarState` and
    `useLocalStorageWorkspaceSidebarState` to return that controller.
 3. Move side-specific setters into `WorkspaceLayoutSidebarProvider`.

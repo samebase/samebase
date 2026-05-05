@@ -1,13 +1,18 @@
-import type { Dispatch, SetStateAction } from "react";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
-export type WorkspaceSidebarStateController = WorkspaceSidebarState & {
+export type WorkspaceSidebarStatePersistenceMode =
+  | "immediate"
+  | "width_deferred";
+
+export type WorkspaceSidebarStateUpdate =
+  | WorkspaceSidebarState
+  | ((currentState: WorkspaceSidebarState) => WorkspaceSidebarState);
+
+export type WorkspaceSidebarStateController = {
   isHydrated: boolean;
-  setLeftDesktopOpen: Dispatch<SetStateAction<boolean>>;
-  setLeftDesktopWidthPx: Dispatch<SetStateAction<number>>;
-  setLeftMobileWidthPx: Dispatch<SetStateAction<number>>;
-  setMobilePane: Dispatch<SetStateAction<WorkspaceSidebarState["mobilePane"]>>;
-  setRightDesktopOpen: Dispatch<SetStateAction<boolean>>;
-  setRightDesktopWidthPx: Dispatch<SetStateAction<number>>;
-  setRightMobileWidthPx: Dispatch<SetStateAction<number>>;
+  state: WorkspaceSidebarState;
+  setState: (
+    nextState: WorkspaceSidebarStateUpdate,
+    persistenceMode: WorkspaceSidebarStatePersistenceMode,
+  ) => void;
 };

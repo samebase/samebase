@@ -1,20 +1,17 @@
 import { useMutation, useQuery } from "convex/react";
 import * as React from "react";
 import { api } from "../../convex/_generated/api";
-import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
+import type {
+  WorkspaceSidebarStateController,
+  WorkspaceSidebarStatePersistenceMode,
+  WorkspaceSidebarStateUpdate,
+} from "@/lib/workspaceSidebarStateController";
 import type {
   WorkspaceSidebarState,
   WorkspaceSidebarStateKey,
 } from "../../convex/workspaceSidebarStateModel";
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
-
-function resolveNextState<T>(
-  currentValue: T,
-  nextValue: React.SetStateAction<T>,
-) {
-  return nextValue instanceof Function ? nextValue(currentValue) : nextValue;
-}
 
 function serializeWorkspaceSidebarState(state: WorkspaceSidebarState): string {
   return [
@@ -127,12 +124,16 @@ export function usePersistedWorkspaceSidebarState({
 
   const applySidebarState = React.useCallback(
     (
-      nextState: WorkspaceSidebarState,
-      persistenceMode: "immediate" | "width_deferred",
+      nextStateOrUpdate: WorkspaceSidebarStateUpdate,
+      persistenceMode: WorkspaceSidebarStatePersistenceMode,
     ) => {
-      if (
-        areWorkspaceSidebarStatesEqual(latestSidebarStateRef.current, nextState)
-      ) {
+      const currentState = latestSidebarStateRef.current;
+      const nextState =
+        nextStateOrUpdate instanceof Function
+          ? nextStateOrUpdate(currentState)
+          : nextStateOrUpdate;
+
+      if (areWorkspaceSidebarStatesEqual(currentState, nextState)) {
         return;
       }
 
@@ -223,128 +224,9 @@ export function usePersistedWorkspaceSidebarState({
     };
   }, [clearPendingWidthPersist]);
 
-  const setLeftDesktopOpen = React.useCallback<
-    React.Dispatch<React.SetStateAction<boolean>>
-  >(
-    (value) => {
-      const currentState = latestSidebarStateRef.current;
-      const nextState = {
-        ...currentState,
-        leftDesktopOpen: resolveNextState(currentState.leftDesktopOpen, value),
-      };
-      applySidebarState(nextState, "immediate");
-    },
-    [applySidebarState],
-  );
-
-  const setRightDesktopOpen = React.useCallback<
-    React.Dispatch<React.SetStateAction<boolean>>
-  >(
-    (value) => {
-      const currentState = latestSidebarStateRef.current;
-      const nextState = {
-        ...currentState,
-        rightDesktopOpen: resolveNextState(
-          currentState.rightDesktopOpen,
-          value,
-        ),
-      };
-      applySidebarState(nextState, "immediate");
-    },
-    [applySidebarState],
-  );
-
-  const setLeftDesktopWidthPx = React.useCallback<
-    React.Dispatch<React.SetStateAction<number>>
-  >(
-    (value) => {
-      const currentState = latestSidebarStateRef.current;
-      const nextState = {
-        ...currentState,
-        leftDesktopWidthPx: resolveNextState(
-          currentState.leftDesktopWidthPx,
-          value,
-        ),
-      };
-      applySidebarState(nextState, "width_deferred");
-    },
-    [applySidebarState],
-  );
-
-  const setRightDesktopWidthPx = React.useCallback<
-    React.Dispatch<React.SetStateAction<number>>
-  >(
-    (value) => {
-      const currentState = latestSidebarStateRef.current;
-      const nextState = {
-        ...currentState,
-        rightDesktopWidthPx: resolveNextState(
-          currentState.rightDesktopWidthPx,
-          value,
-        ),
-      };
-      applySidebarState(nextState, "width_deferred");
-    },
-    [applySidebarState],
-  );
-
-  const setLeftMobileWidthPx = React.useCallback<
-    React.Dispatch<React.SetStateAction<number>>
-  >(
-    (value) => {
-      const currentState = latestSidebarStateRef.current;
-      const nextState = {
-        ...currentState,
-        leftMobileWidthPx: resolveNextState(
-          currentState.leftMobileWidthPx,
-          value,
-        ),
-      };
-      applySidebarState(nextState, "width_deferred");
-    },
-    [applySidebarState],
-  );
-
-  const setRightMobileWidthPx = React.useCallback<
-    React.Dispatch<React.SetStateAction<number>>
-  >(
-    (value) => {
-      const currentState = latestSidebarStateRef.current;
-      const nextState = {
-        ...currentState,
-        rightMobileWidthPx: resolveNextState(
-          currentState.rightMobileWidthPx,
-          value,
-        ),
-      };
-      applySidebarState(nextState, "width_deferred");
-    },
-    [applySidebarState],
-  );
-
-  const setMobilePane = React.useCallback<
-    React.Dispatch<React.SetStateAction<WorkspaceSidebarState["mobilePane"]>>
-  >(
-    (value) => {
-      const currentState = latestSidebarStateRef.current;
-      const nextState = {
-        ...currentState,
-        mobilePane: resolveNextState(currentState.mobilePane, value),
-      };
-      applySidebarState(nextState, "immediate");
-    },
-    [applySidebarState],
-  );
-
   return {
-    ...sidebarState,
     isHydrated,
-    setLeftDesktopOpen,
-    setLeftDesktopWidthPx,
-    setLeftMobileWidthPx,
-    setMobilePane,
-    setRightDesktopOpen,
-    setRightDesktopWidthPx,
-    setRightMobileWidthPx,
+    state: sidebarState,
+    setState: applySidebarState,
   };
 }

@@ -4,6 +4,7 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { PersistedSidebarProvider } from "@/components/PersistedSidebarProvider";
+import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
 import type {
   WorkspaceSidebarState,
   WorkspaceSidebarStateKey,
@@ -11,9 +12,7 @@ import type {
 
 let mockedQueryState: WorkspaceSidebarState | null | undefined = undefined;
 const mockedMutation = vi.fn(async () => null);
-let latestSetMobilePane: React.Dispatch<
-  React.SetStateAction<WorkspaceSidebarState["mobilePane"]>
-> | null = null;
+let latestSidebarStateController: WorkspaceSidebarStateController | null = null;
 
 vi.mock("convex/react", () => ({
   useMutation: () => mockedMutation,
@@ -58,13 +57,31 @@ function SidebarStateProbe() {
     defaults: DEFAULT_SIDEBAR_STATE,
     workspaceKey: "machines",
   });
-  latestSetMobilePane = sidebarState.setMobilePane;
+  latestSidebarStateController = sidebarState;
 
   return (
     <div
       data-hydrated={sidebarState.isHydrated ? "1" : "0"}
-      data-mobile-pane={sidebarState.mobilePane}
+      data-mobile-pane={sidebarState.state.mobilePane}
     />
+  );
+}
+
+function setLatestMobilePane(
+  nextPane: React.SetStateAction<WorkspaceSidebarState["mobilePane"]>,
+) {
+  const controller = latestSidebarStateController;
+  if (controller === null) {
+    throw new Error("Expected sidebar state controller");
+  }
+
+  controller.setState(
+    (state) => ({
+      ...state,
+      mobilePane:
+        nextPane instanceof Function ? nextPane(state.mobilePane) : nextPane,
+    }),
+    "immediate",
   );
 }
 
@@ -91,7 +108,7 @@ describe("usePersistedWorkspaceSidebarState", () => {
     mockedQueryState = undefined;
     mockedMutation.mockClear();
     mockedMutation.mockImplementation(async () => null);
-    latestSetMobilePane = null;
+    latestSidebarStateController = null;
     if (root !== null) {
       const mountedRoot = root;
       act(() => {
@@ -161,7 +178,7 @@ describe("usePersistedWorkspaceSidebarState", () => {
     });
 
     act(() => {
-      latestSetMobilePane?.("left");
+      setLatestMobilePane("left");
     });
 
     expect(mockedMutation).not.toHaveBeenCalled();
@@ -193,10 +210,10 @@ describe("usePersistedWorkspaceSidebarState", () => {
     });
 
     act(() => {
-      latestSetMobilePane?.("left");
+      setLatestMobilePane("left");
     });
     act(() => {
-      latestSetMobilePane?.("right");
+      setLatestMobilePane("right");
     });
 
     await act(async () => {

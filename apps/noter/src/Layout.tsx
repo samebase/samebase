@@ -89,7 +89,7 @@ export function PublicLayoutShell({
   return (
     <PublicLandingLogoLinkProvider>
       <WorkspaceLayoutSidebarProvider
-        state={layoutSidebarStateController}
+        controller={layoutSidebarStateController}
         shortcutSidebarSide="right"
       >
         <WorkspaceLayoutV2FullPage
