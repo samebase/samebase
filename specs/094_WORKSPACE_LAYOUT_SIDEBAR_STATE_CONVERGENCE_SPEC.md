@@ -88,6 +88,9 @@ Both hooks should return the same controller type. The local-storage hook may
 return `isHydrated: true` so consumers can treat both persistence paths the same
 way.
 
+Implementation: `WorkspaceSidebarStateController` lives in
+`apps/noter/src/lib/workspaceSidebarStateController.ts`.
+
 ### Phase 2: Add A Workspace-Layout Sidebar Provider
 
 Create a provider near `workspace-layout-v2/` that accepts the controller and

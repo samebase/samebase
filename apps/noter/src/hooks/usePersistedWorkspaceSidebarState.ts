@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import * as React from "react";
 import { api } from "../../convex/_generated/api";
+import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
 import type {
   WorkspaceSidebarState,
   WorkspaceSidebarStateKey,
@@ -42,19 +43,6 @@ type UsePersistedWorkspaceSidebarStateArgs = {
   workspaceKey: WorkspaceSidebarStateKey;
 };
 
-type UsePersistedWorkspaceSidebarStateResult = WorkspaceSidebarState & {
-  isHydrated: boolean;
-  setLeftDesktopOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setLeftDesktopWidthPx: React.Dispatch<React.SetStateAction<number>>;
-  setLeftMobileWidthPx: React.Dispatch<React.SetStateAction<number>>;
-  setMobilePane: React.Dispatch<
-    React.SetStateAction<WorkspaceSidebarState["mobilePane"]>
-  >;
-  setRightDesktopOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setRightDesktopWidthPx: React.Dispatch<React.SetStateAction<number>>;
-  setRightMobileWidthPx: React.Dispatch<React.SetStateAction<number>>;
-};
-
 /**
  * Keep shared shell state responsive locally while syncing the durable source
  * of truth through Convex for real routes.
@@ -62,7 +50,7 @@ type UsePersistedWorkspaceSidebarStateResult = WorkspaceSidebarState & {
 export function usePersistedWorkspaceSidebarState({
   defaults,
   workspaceKey,
-}: UsePersistedWorkspaceSidebarStateArgs): UsePersistedWorkspaceSidebarStateResult {
+}: UsePersistedWorkspaceSidebarStateArgs): WorkspaceSidebarStateController {
   const persistedState = useQuery(
     api.workspaceSidebarState.getWorkspaceSidebarState,
     {
