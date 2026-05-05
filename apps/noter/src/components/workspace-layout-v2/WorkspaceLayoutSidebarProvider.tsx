@@ -43,14 +43,13 @@ export function WorkspaceLayoutSidebarProvider({
   controller,
   ...props
 }: WorkspaceLayoutSidebarProviderProps) {
-  const setControllerState = controller.setState;
   const updateSidebarState = useCallback(
     <Key extends keyof WorkspaceSidebarState>(
       key: Key,
       nextValue: WorkspaceSidebarState[Key],
       persistenceMode: WorkspaceSidebarStatePersistenceMode,
     ) => {
-      setControllerState((state) => {
+      controller.setState((state) => {
         if (state[key] === nextValue) {
           return state;
         }
@@ -60,7 +59,7 @@ export function WorkspaceLayoutSidebarProvider({
         return nextState;
       }, persistenceMode);
     },
-    [setControllerState],
+    [controller],
   );
   const setLeftDesktopOpen = useCallback(
     (nextOpen: boolean) => {
