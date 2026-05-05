@@ -67,9 +67,7 @@ type WorkspaceSidebarStateController = {
   isHydrated: boolean;
   state: WorkspaceSidebarState;
   setState: (
-    nextState:
-      | WorkspaceSidebarState
-      | ((currentState: WorkspaceSidebarState) => WorkspaceSidebarState),
+    updateState: (currentState: WorkspaceSidebarState) => WorkspaceSidebarState,
     persistenceMode: "immediate" | "width_deferred",
   ) => void;
 };
@@ -120,9 +118,7 @@ type WorkspacePaneDurableStateController = {
   isHydrated: boolean;
   state: WorkspaceSidebarState;
   setState: (
-    nextState:
-      | WorkspaceSidebarState
-      | ((currentState: WorkspaceSidebarState) => WorkspaceSidebarState),
+    updateState: (currentState: WorkspaceSidebarState) => WorkspaceSidebarState,
     persistenceMode: "immediate" | "width_deferred",
   ) => void;
 };
@@ -282,7 +278,7 @@ This branch starts with durable controller normalization:
 1. Change `WorkspaceSidebarStateController` to hold:
    - `isHydrated`
    - `state`
-   - `setState(nextStateOrUpdate, persistenceMode)`
+   - `setState(updateState, persistenceMode)`
 2. Update `usePersistedWorkspaceSidebarState` and
    `useLocalStorageWorkspaceSidebarState` to return that controller.
 3. Move side-specific setters into `WorkspaceLayoutSidebarProvider`.

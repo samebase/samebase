@@ -240,14 +240,11 @@ export function useLocalStorageWorkspaceSidebarState({
 
   const applySidebarState = React.useCallback(
     (
-      nextStateOrUpdate: WorkspaceSidebarStateUpdate,
+      updateState: WorkspaceSidebarStateUpdate,
       persistenceMode: WorkspaceSidebarStatePersistenceMode,
     ) => {
       const currentState = latestSidebarStateRef.current;
-      const nextState =
-        nextStateOrUpdate instanceof Function
-          ? nextStateOrUpdate(currentState)
-          : nextStateOrUpdate;
+      const nextState = updateState(currentState);
 
       if (areWorkspaceSidebarStatesEqual(currentState, nextState)) {
         return;

@@ -4,15 +4,15 @@ export type WorkspaceSidebarStatePersistenceMode =
   | "immediate"
   | "width_deferred";
 
-export type WorkspaceSidebarStateUpdate =
-  | WorkspaceSidebarState
-  | ((currentState: WorkspaceSidebarState) => WorkspaceSidebarState);
+export type WorkspaceSidebarStateUpdate = (
+  currentState: WorkspaceSidebarState,
+) => WorkspaceSidebarState;
 
 export type WorkspaceSidebarStateController = {
   isHydrated: boolean;
   state: WorkspaceSidebarState;
   setState: (
-    nextState: WorkspaceSidebarStateUpdate,
+    updateState: WorkspaceSidebarStateUpdate,
     persistenceMode: WorkspaceSidebarStatePersistenceMode,
   ) => void;
 };
