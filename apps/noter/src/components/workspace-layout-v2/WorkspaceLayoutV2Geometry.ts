@@ -18,6 +18,33 @@ export type WorkspaceLayoutV2MobileMinResizeBehavior =
   | "min_resize_to_merge";
 export type WorkspaceLayoutV2MobileMergedSide = "left" | "right";
 export type WorkspaceLayoutV2ActiveResizeSide = "left" | "right" | "top" | null;
+export type WorkspaceLayoutV2MobileSurface =
+  | { kind: "unmerged" }
+  | {
+      kind: "merged";
+      mainWidthPx: number;
+      side: WorkspaceLayoutV2MobileMergedSide;
+    };
+export type WorkspaceLayoutV2MobileGrip =
+  | { kind: "idle" }
+  | {
+      kind: "dragging";
+      mergeTargetSide: WorkspaceLayoutV2MobileMergedSide | null;
+      shouldSettleMergedOnEnd: boolean;
+      side: WorkspaceLayoutV2MobileMergedSide;
+      slideOffsetPx: number;
+      startMainWidthPx: number;
+      startSideWidthPx: number;
+    };
+
+export const WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE: WorkspaceLayoutV2MobileSurface =
+  {
+    kind: "unmerged",
+  };
+export const WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP: WorkspaceLayoutV2MobileGrip =
+  {
+    kind: "idle",
+  };
 
 export function clampNumber(value: number, minValue: number, maxValue: number) {
   return Math.max(minValue, Math.min(value, maxValue));

@@ -7,7 +7,6 @@ import {
   type RefObject,
   type SetStateAction,
 } from "react";
-import { useCreateStore, useSelector } from "@tanstack/react-store";
 import {
   getMobilePaneFromScrollLeft,
   getMobilePaneScrollLeftPx,
@@ -15,34 +14,6 @@ import {
   type MobilePane,
   type WorkspaceLayoutV2MobileMergedSide,
 } from "./WorkspaceLayoutV2Geometry";
-
-type WorkspaceLayoutV2MobileCarouselStoreState = {
-  isMobilePaneSettled: boolean;
-};
-
-const WORKSPACE_LAYOUT_V2_MOBILE_CAROUSEL_INITIAL_STATE: WorkspaceLayoutV2MobileCarouselStoreState =
-  {
-    isMobilePaneSettled: true,
-  };
-
-/**
- * Keeps carousel settled state in the same local-store style as the grip
- * session, while the browser scroll position itself remains DOM-owned.
- */
-function useWorkspaceLayoutV2MobileCarouselStore() {
-  return useCreateStore(
-    WORKSPACE_LAYOUT_V2_MOBILE_CAROUSEL_INITIAL_STATE,
-    ({ setState }) => ({
-      setIsMobilePaneSettled: (isMobilePaneSettled: boolean) => {
-        setState((state) =>
-          state.isMobilePaneSettled === isMobilePaneSettled
-            ? state
-            : { ...state, isMobilePaneSettled },
-        );
-      },
-    }),
-  );
-}
 
 /**
  * Owns the browser scroll lifecycle for the mobile pane carousel.
@@ -57,12 +28,14 @@ export function useWorkspaceLayoutV2MobileCarouselController({
   hasLeftPane,
   hasRightPane,
   isMobile,
+  isMobilePaneSettled,
   leftWidthPx,
   mainWidthPx,
   mergedSurfaceSide,
   mobilePane,
   peekWidthPx,
   rightWidthPx,
+  setIsMobilePaneSettled,
   setMobilePane,
   viewportWidthPx,
 }: {
@@ -71,23 +44,19 @@ export function useWorkspaceLayoutV2MobileCarouselController({
   hasLeftPane: boolean;
   hasRightPane: boolean;
   isMobile: boolean;
+  isMobilePaneSettled: boolean;
   leftWidthPx: number;
   mainWidthPx: number;
   mergedSurfaceSide: WorkspaceLayoutV2MobileMergedSide | null;
   mobilePane: MobilePane;
   peekWidthPx: number;
   rightWidthPx: number;
+  setIsMobilePaneSettled: (isMobilePaneSettled: boolean) => void;
   setMobilePane: Dispatch<SetStateAction<MobilePane>>;
   viewportWidthPx: number;
 }) {
   const hasAlignedInitialMobilePaneRef = useRef(false);
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
-  const store = useWorkspaceLayoutV2MobileCarouselStore();
-  const isMobilePaneSettled = useSelector(
-    store,
-    (state) => state.isMobilePaneSettled,
-  );
-  const setIsMobilePaneSettled = store.actions.setIsMobilePaneSettled;
   const setIsMobilePaneSettledEffect = useEffectEvent((isSettled: boolean) => {
     setIsMobilePaneSettled(isSettled);
   });

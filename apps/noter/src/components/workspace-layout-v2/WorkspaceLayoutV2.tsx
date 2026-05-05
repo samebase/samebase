@@ -23,7 +23,9 @@ import {
 import {
   DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+  WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+  WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE,
   clampNumber,
   getDesktopSidebarMaxWidthPx,
   getDesktopSidebarWidthPx,
@@ -32,7 +34,9 @@ import {
   getMobileSidebarMinWidthPx,
   getMobileSidebarWidthPx,
   type WorkspaceLayoutV2ActiveResizeSide,
+  type WorkspaceLayoutV2MobileGrip,
   type WorkspaceLayoutV2MobileMinResizeBehavior,
+  type WorkspaceLayoutV2MobileSurface,
 } from "./WorkspaceLayoutV2Geometry";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
 import {
@@ -63,8 +67,14 @@ type WorkspaceLayoutV2ElementSize = {
   heightPx: number;
   widthPx: number;
 };
-type WorkspaceLayoutV2ShellStoreState = {
+type WorkspaceLayoutV2LocalStoreState = {
   activeResizeSide: WorkspaceLayoutV2ActiveResizeSide;
+  mobile: {
+    grip: WorkspaceLayoutV2MobileGrip;
+    isPaneSettled: boolean;
+    surface: WorkspaceLayoutV2MobileSurface;
+  };
+  viewportSize: WorkspaceLayoutV2ElementSize;
 };
 type WorkspaceLayoutV2LeftToggleVisibility = "all" | "desktop" | "hidden";
 type WorkspaceLayoutV2RightToggleVisibility = "desktop" | "hidden";
@@ -73,9 +83,15 @@ const WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE: WorkspaceLayoutV2ElementSize = {
   heightPx: 0,
   widthPx: 0,
 };
-const WORKSPACE_LAYOUT_V2_SHELL_INITIAL_STATE: WorkspaceLayoutV2ShellStoreState =
+const WORKSPACE_LAYOUT_V2_LOCAL_STORE_INITIAL_STATE: WorkspaceLayoutV2LocalStoreState =
   {
     activeResizeSide: null,
+    mobile: {
+      grip: WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,
+      isPaneSettled: true,
+      surface: WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE,
+    },
+    viewportSize: WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE,
   };
 
 const LEFT_TOGGLE_BUTTON_CLASS_NAMES = {
@@ -95,19 +111,58 @@ function shouldShowMobileResizeGripDotsByDefault() {
 }
 
 /**
- * Keeps viewport measurement in a local store so resize observer callbacks can
- * publish DOM geometry without adding React state to the layout shell.
+ * Keeps shell-local layout state in one store so the pane surface model has one
+ * owner while focused controller hooks handle DOM mechanics.
  */
-function useWorkspaceLayoutV2ElementSizeStore() {
+function useWorkspaceLayoutV2LocalStore() {
   return useCreateStore(
-    WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE,
+    WORKSPACE_LAYOUT_V2_LOCAL_STORE_INITIAL_STATE,
     ({ setState }) => ({
-      setSize: (nextSize: WorkspaceLayoutV2ElementSize) => {
-        setState((currentSize) =>
-          currentSize.heightPx === nextSize.heightPx &&
-          currentSize.widthPx === nextSize.widthPx
-            ? currentSize
-            : nextSize,
+      setActiveResizeSide: (
+        activeResizeSide: WorkspaceLayoutV2ActiveResizeSide,
+      ) => {
+        setState((state) =>
+          state.activeResizeSide === activeResizeSide
+            ? state
+            : { ...state, activeResizeSide },
+        );
+      },
+      setIsMobilePaneSettled: (isPaneSettled: boolean) => {
+        setState((state) =>
+          state.mobile.isPaneSettled === isPaneSettled
+            ? state
+            : {
+                ...state,
+                mobile: { ...state.mobile, isPaneSettled },
+              },
+        );
+      },
+      setMobileGrip: (grip: WorkspaceLayoutV2MobileGrip) => {
+        setState((state) =>
+          state.mobile.grip === grip
+            ? state
+            : {
+                ...state,
+                mobile: { ...state.mobile, grip },
+              },
+        );
+      },
+      setMobileSurface: (surface: WorkspaceLayoutV2MobileSurface) => {
+        setState((state) =>
+          state.mobile.surface === surface
+            ? state
+            : {
+                ...state,
+                mobile: { ...state.mobile, surface },
+              },
+        );
+      },
+      setViewportSize: (viewportSize: WorkspaceLayoutV2ElementSize) => {
+        setState((state) =>
+          state.viewportSize.heightPx === viewportSize.heightPx &&
+          state.viewportSize.widthPx === viewportSize.widthPx
+            ? state
+            : { ...state, viewportSize },
         );
       },
     }),
@@ -119,13 +174,13 @@ function useWorkspaceLayoutV2ElementSizeStore() {
  * queries, so resizes and mobile browser chrome changes update pane geometry
  * from the actual DOM box we are drawing into.
  */
-function useElementSize(measureRef: RefObject<HTMLElement | null>) {
-  const store = useWorkspaceLayoutV2ElementSizeStore();
-  const size = useSelector(store);
-  const setSize = store.actions.setSize;
+function useElementSize(
+  measureRef: RefObject<HTMLElement | null>,
+  setViewportSize: (viewportSize: WorkspaceLayoutV2ElementSize) => void,
+) {
   const publishElementSize = useEffectEvent((node: HTMLElement) => {
     const bounds = node.getBoundingClientRect();
-    setSize({
+    setViewportSize({
       heightPx: Math.max(0, Math.round(bounds.height)),
       widthPx: Math.max(0, Math.round(bounds.width)),
     });
@@ -162,8 +217,6 @@ function useElementSize(measureRef: RefObject<HTMLElement | null>) {
       window.removeEventListener("resize", updateWidth);
     };
   }, [measureRef]);
-
-  return size;
 }
 
 function renderPaneContent(content: ReactNode) {
@@ -324,27 +377,6 @@ export function WorkspaceLayoutV2ViewportFrame({
   );
 }
 
-/**
- * Owns the resize highlight state for the rendered shell. The resize mechanics
- * remain event-driven, while the active edge highlight is plain local UI state.
- */
-function useWorkspaceLayoutV2ShellStore() {
-  return useCreateStore(
-    WORKSPACE_LAYOUT_V2_SHELL_INITIAL_STATE,
-    ({ setState }) => ({
-      setActiveResizeSide: (
-        activeResizeSide: WorkspaceLayoutV2ActiveResizeSide,
-      ) => {
-        setState((state) =>
-          state.activeResizeSide === activeResizeSide
-            ? state
-            : { ...state, activeResizeSide },
-        );
-      },
-    }),
-  );
-}
-
 export function WorkspaceLayoutV2JustPanes({
   dataTestId,
   left,
@@ -358,13 +390,17 @@ export function WorkspaceLayoutV2JustPanes({
 }: WorkspaceLayoutV2JustPanesProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
-  const viewportSize = useElementSize(viewportRef);
-  const shellStore = useWorkspaceLayoutV2ShellStore();
-  const activeResizeSide = useSelector(
-    shellStore,
-    (state) => state.activeResizeSide,
-  );
-  const setActiveResizeSide = shellStore.actions.setActiveResizeSide;
+  const layoutStore = useWorkspaceLayoutV2LocalStore();
+  const layoutState = useSelector(layoutStore);
+  const {
+    setActiveResizeSide,
+    setIsMobilePaneSettled,
+    setMobileGrip,
+    setMobileSurface,
+    setViewportSize,
+  } = layoutStore.actions;
+  const { activeResizeSide, mobile, viewportSize } = layoutState;
+  useElementSize(viewportRef, setViewportSize);
   const {
     isMobile,
     leftDesktopOpen,
@@ -443,22 +479,26 @@ export function WorkspaceLayoutV2JustPanes({
     hasRightPane,
     isMobile,
     leftWidthPx: mobileLeftWidthPx,
+    mobileGrip: mobile.grip,
     mobileMinResizeBehavior,
     mobilePane,
+    mobileSurface: mobile.surface,
     peekWidthPx: mobilePanePeekWidthPx,
     rightWidthPx: mobileRightWidthPx,
+    setMobileGrip,
+    setMobileSurface,
     viewportWidthPx: viewportSize.widthPx,
   });
-  const mobileMergedSide = mobileGripResize.mobileMergedSide;
-  const isMobileMergedWidthActive =
-    mobileGripResize.mobileMergedMainWidthPx !== null && mobilePane !== "main";
-  const activeMobileMergedSurfaceSide =
-    isMobileMergedWidthActive && mobileGripResize.isMobileMergedFit
-      ? mobileMergedSide
+  const activeMobileSurface =
+    mobile.surface.kind === "merged" && mobilePane !== "main"
+      ? mobile.surface
       : null;
-  const mobileMainWidthPx = isMobileMergedWidthActive
-    ? (mobileGripResize.mobileMergedMainWidthPx ??
-      mobileGripResize.mobileDefaultMainWidthPx)
+  const activeMobileMergedSurfaceSide =
+    activeMobileSurface !== null && mobileGripResize.isMobileMergedFit
+      ? activeMobileSurface.side
+      : null;
+  const mobileMainWidthPx = activeMobileSurface
+    ? activeMobileSurface.mainWidthPx
     : mobileGripResize.mobileDefaultMainWidthPx;
   const { isMobilePaneSettled } = useWorkspaceLayoutV2MobileCarouselController({
     activeGripResizeSideRef: activeMobileGripResizeSideRef,
@@ -466,12 +506,14 @@ export function WorkspaceLayoutV2JustPanes({
     hasLeftPane,
     hasRightPane,
     isMobile,
+    isMobilePaneSettled: mobile.isPaneSettled,
     leftWidthPx: mobileLeftWidthPx,
     mainWidthPx: mobileMainWidthPx,
     mergedSurfaceSide: activeMobileMergedSurfaceSide,
     mobilePane,
     peekWidthPx: mobilePanePeekWidthPx,
     rightWidthPx: mobileRightWidthPx,
+    setIsMobilePaneSettled,
     setMobilePane,
     viewportWidthPx: viewportSize.widthPx,
   });
