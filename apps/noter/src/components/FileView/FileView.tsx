@@ -86,8 +86,10 @@ import {
   shouldShowCompareBackToEditor,
 } from "@/lib/fileViewReview";
 import {
+  buildFileViewSearchHref,
   buildFileViewRouteSearch,
   mergeFileViewRouteSearch,
+  type FileViewRouteSearchPatch,
   useFileViewRouteSearch,
 } from "@/lib/fileViewRouteSearch";
 import { encodeGitHubPath } from "@/lib/githubUrls";
@@ -690,17 +692,23 @@ function FileViewInner({
   const setEditorChatOpen = useMutation(
     api.dashboardSettings.setEditorChatOpen,
   );
-  const buildNextFileViewSearch = useCallback(
-    (overrides?: { compare?: boolean; diff?: boolean; review?: boolean }) =>
-      mergeFileViewRouteSearch(location.search, {
-        ...buildFileViewRouteSearch({
-          compare: overrides?.compare ?? routeSearch.compare,
-          diff: overrides?.diff ?? routeSearch.diff,
-          review: overrides?.review ?? routeSearch.review,
-        }),
-        mobileLineNumbers: routeSearch.mobileLineNumbers,
+  const buildCurrentFileViewHref = useCallback(
+    (fileViewSearch: FileViewRouteSearchPatch) =>
+      buildFileViewSearchHref({
+        pathname: location.pathname,
+        search: location.search,
+        fileViewSearch: {
+          ...fileViewSearch,
+          mobileLineNumbers: routeSearch.mobileLineNumbers,
+        },
+        hash: location.hash,
       }),
-    [location.search, routeSearch],
+    [
+      location.hash,
+      location.pathname,
+      location.search,
+      routeSearch.mobileLineNumbers,
+    ],
   );
   const navigateByHref = useCallback(
     (href: string, options?: { replace?: boolean }) => {
@@ -1237,22 +1245,18 @@ function FileViewInner({
         compare?: boolean;
       },
     ) => {
-      const nextSearch = {
-        ...buildNextFileViewSearch({
-          review: false,
-          diff: mode === "review",
-          compare: options?.compare ?? routeSearch.compare,
-        }),
-      };
-      void router.navigate({
-        to: ".",
-        search: nextSearch,
-        hash: true,
-        replace: options?.replace,
-        state: true,
-      });
+      navigateByHref(
+        buildCurrentFileViewHref(
+          buildFileViewRouteSearch({
+            review: false,
+            diff: mode === "review",
+            compare: options?.compare ?? routeSearch.compare,
+          }),
+        ),
+        { replace: options?.replace },
+      );
     },
-    [buildNextFileViewSearch, routeSearch.compare, router],
+    [buildCurrentFileViewHref, navigateByHref, routeSearch.compare],
   );
   const setCompareModeInQuery = useCallback(
     (
@@ -1261,17 +1265,23 @@ function FileViewInner({
         replace?: boolean;
       },
     ) => {
-      void router.navigate({
-        to: ".",
-        search: buildNextFileViewSearch({
-          compare: enabled,
-        }),
-        hash: true,
-        replace: options?.replace,
-        state: true,
-      });
+      navigateByHref(
+        buildCurrentFileViewHref(
+          buildFileViewRouteSearch({
+            compare: enabled,
+            diff: routeSearch.diff,
+            review: routeSearch.review,
+          }),
+        ),
+        { replace: options?.replace },
+      );
     },
-    [buildNextFileViewSearch, router],
+    [
+      buildCurrentFileViewHref,
+      navigateByHref,
+      routeSearch.diff,
+      routeSearch.review,
+    ],
   );
   const resetRebaseConflictState = useCallback(() => {
     setRebaseConflictPreview(null);

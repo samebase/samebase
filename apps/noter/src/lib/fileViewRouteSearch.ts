@@ -4,6 +4,7 @@ import {
   normalizeRouteSearchPresenceFlags,
   type SearchPatch,
 } from "@/lib/routeSearchFlags";
+import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { z } from "zod";
 
 const FILE_VIEW_PRESENCE_SEARCH_KEYS = ["compare", "diff", "review"] as const;
@@ -65,6 +66,23 @@ export function mergeFileViewRouteSearch(
     mobileLineNumbers: null,
     review: null,
     ...fileViewSearch,
+  });
+}
+
+/**
+ * Preserve the raw encoded `/vault/$` pathname while changing file-view search
+ * flags. Relative TanStack navigation can decode branch slashes in this route.
+ */
+export function buildFileViewSearchHref(args: {
+  pathname: string;
+  search: Record<string, unknown>;
+  fileViewSearch: FileViewRouteSearchPatch;
+  hash?: string;
+}) {
+  return buildPathWithTanStackSearch({
+    pathname: args.pathname,
+    search: mergeFileViewRouteSearch(args.search, args.fileViewSearch),
+    hash: args.hash,
   });
 }
 
