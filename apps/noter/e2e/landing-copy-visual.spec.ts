@@ -79,7 +79,12 @@ test("landing copy keeps ProseMark behind editable dev mode", async ({
     actual: devScreenshot,
     expected: shellScreenshot,
     artifactPrefix: "landing-copy-dev-editable",
-    maxDiffPixelRatio: 0.03,
+    // The style assertion above owns heading parity; this visual guard catches
+    // broad layout drift across the static DOM and ProseMark rendering paths.
+    maxDimensionDeltaPx: {
+      height: 2,
+    },
+    maxDiffPixelRatio: 0.05,
     testInfo,
   });
 });

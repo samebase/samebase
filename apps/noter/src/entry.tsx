@@ -1,3 +1,3 @@
 import { mountApp } from "./main";
 
-mountApp();
+void mountApp();

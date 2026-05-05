@@ -159,7 +159,7 @@ Several current failures are exactly this class:
 Font drift is still the most plausible original reason for Linux/macOS snapshot
 splits.
 
-Current evidence:
+Original evidence:
 
 - `apps/noter/src/visualFixture.tsx` imports IBM Plex Sans weights from
   `@fontsource/ibm-plex-sans`.
@@ -171,6 +171,23 @@ Current evidence:
 - Inline code and editor surfaces intentionally use platform-dependent monospace
   stacks in places, which can be acceptable for semantic/editor tests but is
   risky for strict screenshot assertions.
+
+Implementation status on 2026-05-05:
+
+- `apps/noter/src/index.css` now imports the latin IBM Plex Sans weights used by
+  the app and makes Tailwind `font-sans` resolve to IBM Plex Sans before the
+  system fallback stack.
+- `apps/noter/src/visualFixture.tsx` no longer carries fixture-only IBM Plex
+  imports; visual fixtures inherit the same app CSS as production routes.
+- `apps/noter/src/main.tsx` waits briefly for the bundled app font weights
+  before the first React mount so delayed font files do not reflow landing or
+  workspace chrome after first paint.
+- A Blacksmith Testbox full run against the refreshed Linux baselines passed
+  with 158 passed and 1 skipped.
+- A local macOS full run against the Linux baselines still fails screenshot
+  comparisons because Chromium text rasterization is not pixel-identical across
+  operating systems. This supports Linux-only visual truth for required
+  screenshots while keeping macOS useful for semantic/targeted checks.
 
 The root-cause direction should be:
 
