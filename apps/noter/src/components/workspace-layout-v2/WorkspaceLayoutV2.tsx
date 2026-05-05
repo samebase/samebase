@@ -1,12 +1,7 @@
-import {
-  useEffectEvent,
-  useLayoutEffect,
-  useRef,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useRef, type ReactNode } from "react";
 import { Button } from "../ui/button";
 import { PanelLeft, PanelRight } from "lucide-react";
+import { useElementSize } from "@/hooks/useElementSize";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
@@ -35,7 +30,6 @@ import {
 import {
   useWorkspaceLayoutV2Actions,
   useWorkspaceLayoutV2Selector,
-  type WorkspaceLayoutV2ElementSize,
 } from "./WorkspaceLayoutV2Context";
 import { WorkspaceLayoutV2Provider } from "./WorkspaceLayoutV2Provider";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
@@ -80,56 +74,6 @@ function shouldShowMobileResizeGripDotsByDefault() {
   }
 
   return isLandingDevModeEnabled(parseTanStackSearch(window.location.search));
-}
-
-/**
- * The shell math is driven by the rendered viewport box, not viewport media
- * queries, so resizes and mobile browser chrome changes update pane geometry
- * from the actual DOM box we are drawing into.
- */
-function useElementSize(
-  measureRef: RefObject<HTMLElement | null>,
-  setViewportSize: (viewportSize: WorkspaceLayoutV2ElementSize) => void,
-) {
-  const publishElementSize = useEffectEvent((node: HTMLElement) => {
-    const bounds = node.getBoundingClientRect();
-    setViewportSize({
-      heightPx: Math.max(0, Math.round(bounds.height)),
-      widthPx: Math.max(0, Math.round(bounds.width)),
-    });
-  });
-
-  /**
-   * Subscribes to the measured element's rendered box so pane geometry follows
-   * the actual workspace viewport instead of assuming browser viewport size.
-   */
-  useLayoutEffect(() => {
-    const node = measureRef.current;
-    if (!node) {
-      return;
-    }
-
-    const updateWidth = () => {
-      publishElementSize(node);
-    };
-
-    updateWidth();
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", updateWidth);
-      return () => {
-        window.removeEventListener("resize", updateWidth);
-      };
-    }
-
-    const resizeObserver = new ResizeObserver(updateWidth);
-    resizeObserver.observe(node);
-    window.addEventListener("resize", updateWidth);
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", updateWidth);
-    };
-  }, [measureRef]);
 }
 
 function renderPaneContent(content: ReactNode) {

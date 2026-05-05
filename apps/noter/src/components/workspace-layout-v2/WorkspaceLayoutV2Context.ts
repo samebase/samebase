@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
+import type { ElementSize } from "@/hooks/useElementSize";
 import {
   WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,
   WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE,
@@ -8,11 +9,6 @@ import {
   type WorkspaceLayoutV2MobileSurface,
 } from "./WorkspaceLayoutV2Geometry";
 
-export type WorkspaceLayoutV2ElementSize = {
-  heightPx: number;
-  widthPx: number;
-};
-
 export type WorkspaceLayoutV2LocalStoreState = {
   activeResizeSide: WorkspaceLayoutV2ActiveResizeSide;
   mobile: {
@@ -20,10 +16,10 @@ export type WorkspaceLayoutV2LocalStoreState = {
     isPaneSettled: boolean;
     surface: WorkspaceLayoutV2MobileSurface;
   };
-  viewportSize: WorkspaceLayoutV2ElementSize;
+  viewportSize: ElementSize;
 };
 
-const WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE: WorkspaceLayoutV2ElementSize = {
+const WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE: ElementSize = {
   heightPx: 0,
   widthPx: 0,
 };
@@ -85,7 +81,7 @@ export function useCreateWorkspaceLayoutV2Store() {
               },
         );
       },
-      setViewportSize: (viewportSize: WorkspaceLayoutV2ElementSize) => {
+      setViewportSize: (viewportSize: ElementSize) => {
         setState((state) =>
           state.viewportSize.heightPx === viewportSize.heightPx &&
           state.viewportSize.widthPx === viewportSize.widthPx
