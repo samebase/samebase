@@ -829,6 +829,10 @@ async function selectText(locator: Locator) {
   await locator.page().mouse.up();
 }
 
+/**
+ * Resize grips are pointer controls, so drive them with a real mouse drag to
+ * keep mobile-emulated geometry updates deterministic.
+ */
 async function dragResizeHandleByPx(locator: Locator, deltaX: number) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
