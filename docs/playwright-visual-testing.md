@@ -43,6 +43,10 @@ installs dependencies there, builds the Noter preview in Linux, and runs
 Playwright against that Linux-rendered app. This keeps Linux `node_modules` and
 build output away from the macOS worktree.
 
+The host wrapper is TypeScript, so it can be invoked from macOS, Linux, or
+Windows as long as Docker can bind-mount the repo. The shell script it writes
+and executes is intentionally container-internal Linux setup.
+
 Reports are written locally after each run:
 
 ```text
