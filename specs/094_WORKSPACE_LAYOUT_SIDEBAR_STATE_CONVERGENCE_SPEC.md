@@ -115,6 +115,11 @@ Keep its public context API stable during this phase.
 This should reduce setter duplication and make later convergence with
 `WorkspaceLayoutV2Context` easier.
 
+Implementation: `SidebarProvider` now uses a private TanStack store for its
+uncontrolled fallback state. Controlled props still override store values at
+render time, and `useSidebar()` keeps the same context shape. The store exposes
+one typed field update action instead of mirroring every sidebar setter.
+
 ### Phase 4: Move Sidebar State Ownership Closer To Workspace Layout
 
 After `SidebarProvider` uses a store and route bridging is gone, evaluate
