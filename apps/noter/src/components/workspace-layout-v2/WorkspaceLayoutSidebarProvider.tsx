@@ -1,4 +1,4 @@
-import { useCallback, type ComponentProps, type SetStateAction } from "react";
+import { useCallback, type ComponentProps } from "react";
 import { SidebarProvider } from "@/components/sidebar";
 import type {
   WorkspaceSidebarStateController,
@@ -34,29 +34,6 @@ type WorkspaceLayoutSidebarProviderProps = Omit<
   controller: WorkspaceSidebarStateController;
 };
 
-function resolveNextState<T>(currentValue: T, nextValue: SetStateAction<T>) {
-  return nextValue instanceof Function ? nextValue(currentValue) : nextValue;
-}
-
-/**
- * Adapts SidebarProvider's field-level setters into the workspace controller's
- * whole-state update while preserving React-style updater functions.
- */
-function getNextWorkspaceSidebarState<Key extends keyof WorkspaceSidebarState>(
-  state: WorkspaceSidebarState,
-  key: Key,
-  nextValue: SetStateAction<WorkspaceSidebarState[Key]>,
-) {
-  const nextFieldValue = resolveNextState(state[key], nextValue);
-  if (state[key] === nextFieldValue) {
-    return state;
-  }
-
-  const nextState = { ...state };
-  nextState[key] = nextFieldValue;
-  return nextState;
-}
-
 /**
  * Bridges the workspace sidebar controller into the current SidebarProvider
  * API. Storage adapters choose where the controller is persisted; this layer
@@ -70,54 +47,59 @@ export function WorkspaceLayoutSidebarProvider({
   const updateSidebarState = useCallback(
     <Key extends keyof WorkspaceSidebarState>(
       key: Key,
-      nextValue: SetStateAction<WorkspaceSidebarState[Key]>,
+      nextValue: WorkspaceSidebarState[Key],
       persistenceMode: WorkspaceSidebarStatePersistenceMode,
     ) => {
-      setControllerState(
-        (state) => getNextWorkspaceSidebarState(state, key, nextValue),
-        persistenceMode,
-      );
+      setControllerState((state) => {
+        if (state[key] === nextValue) {
+          return state;
+        }
+
+        const nextState = { ...state };
+        nextState[key] = nextValue;
+        return nextState;
+      }, persistenceMode);
     },
     [setControllerState],
   );
   const setLeftDesktopOpen = useCallback(
-    (nextOpen: SetStateAction<boolean>) => {
+    (nextOpen: boolean) => {
       updateSidebarState("leftDesktopOpen", nextOpen, "immediate");
     },
     [updateSidebarState],
   );
   const setRightDesktopOpen = useCallback(
-    (nextOpen: SetStateAction<boolean>) => {
+    (nextOpen: boolean) => {
       updateSidebarState("rightDesktopOpen", nextOpen, "immediate");
     },
     [updateSidebarState],
   );
   const setLeftDesktopWidthPx = useCallback(
-    (nextWidthPx: SetStateAction<number>) => {
+    (nextWidthPx: number) => {
       updateSidebarState("leftDesktopWidthPx", nextWidthPx, "width_deferred");
     },
     [updateSidebarState],
   );
   const setRightDesktopWidthPx = useCallback(
-    (nextWidthPx: SetStateAction<number>) => {
+    (nextWidthPx: number) => {
       updateSidebarState("rightDesktopWidthPx", nextWidthPx, "width_deferred");
     },
     [updateSidebarState],
   );
   const setLeftMobileWidthPx = useCallback(
-    (nextWidthPx: SetStateAction<number>) => {
+    (nextWidthPx: number) => {
       updateSidebarState("leftMobileWidthPx", nextWidthPx, "width_deferred");
     },
     [updateSidebarState],
   );
   const setRightMobileWidthPx = useCallback(
-    (nextWidthPx: SetStateAction<number>) => {
+    (nextWidthPx: number) => {
       updateSidebarState("rightMobileWidthPx", nextWidthPx, "width_deferred");
     },
     [updateSidebarState],
   );
   const setMobilePane = useCallback(
-    (nextPane: SetStateAction<WorkspaceSidebarState["mobilePane"]>) => {
+    (nextPane: WorkspaceSidebarState["mobilePane"]) => {
       updateSidebarState("mobilePane", nextPane, "immediate");
     },
     [updateSidebarState],
