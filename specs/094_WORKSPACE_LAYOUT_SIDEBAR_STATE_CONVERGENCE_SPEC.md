@@ -313,7 +313,7 @@ prop plumbing.
 ## Completed Implementation Slice (#712)
 
 This controller-normalization and provider-collapse slice was completed in PR
-#712 and remains here as historical context for the runtime convergence plan.
+`#712` and remains here as historical context for the runtime convergence plan.
 
 This branch starts with durable controller normalization:
 
