@@ -8,7 +8,7 @@
 - Related files:
   - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
   - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2Context.ts`
-  - `apps/noter/src/components/sidebar.tsx`
+  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutSidebarProvider.tsx`
   - `apps/noter/src/hooks/use-sidebar.ts`
   - `apps/noter/src/components/PersistedSidebarProvider.tsx`
   - `apps/noter/src/hooks/usePersistedWorkspaceSidebarState.ts`
@@ -31,13 +31,15 @@ model. Storage selection must stay outside the layout core: Convex persistence,
 local storage, and in-memory fixture state should all provide the same state
 controller shape to the workspace shell.
 
-Post-PR #711 status: production routes already treat sidebar state as workspace
+Post-PR #712 status: production routes already treat sidebar state as workspace
 layout state. `WorkspaceLayoutSidebarProvider` receives a workspace sidebar
-controller, then adapts it into `SidebarProvider`. `WorkspaceLayoutV2Context`
-owns transient pane mechanics below that boundary. The main remaining design
-problem is not whether sidebars belong to workspace layout; they do. The design
-problem is how to combine durable pane preferences with transient interaction
-state without moving Convex/local-storage selection into the layout core.
+controller and provides `SidebarContext` directly. `WorkspaceLayoutV2Context`
+still owns transient pane mechanics, but the next convergence step is to create
+that transient store at the same provider boundary as the durable sidebar
+controller. The main remaining design problem is not whether sidebars belong to
+workspace layout; they do. The design problem is how to combine durable pane
+preferences with transient interaction state without moving Convex/local-storage
+selection into the layout core.
 
 There should be one controller type, `WorkspaceSidebarStateController`.
 Convex-backed routes, public local-storage routes, and tests/fixtures should
@@ -98,11 +100,11 @@ const sidebarState = usePersistedWorkspaceSidebarState(...);
 </WorkspaceLayoutSidebarProvider>
 ```
 
-`WorkspaceLayoutSidebarProvider` can initially wrap the existing
-`SidebarProvider`. This shape is useful because storage adapters now own only
-durable state while the workspace-layout provider owns side-specific pane
-behavior. It is still a stepping stone because behavior is not fully moved out
-of `SidebarProvider` yet.
+`WorkspaceLayoutSidebarProvider` provides the existing `SidebarContext` API
+directly. This shape is useful because storage adapters now own only durable
+state while the workspace-layout provider owns side-specific pane behavior. It
+is still a stepping stone because `useSidebar()` is a stable compatibility hook
+name while workspace-layout internals move toward pane selectors/actions.
 
 ## Revised Target Runtime Shape
 
@@ -198,10 +200,10 @@ Keep its public context API stable during this phase.
 This should reduce setter duplication and make later convergence with
 `WorkspaceLayoutV2Context` easier.
 
-Implementation: `SidebarProvider` now uses a private TanStack store for its
-uncontrolled fallback state. Controlled props still override store values at
-render time, and `useSidebar()` keeps the same context shape. The store exposes
-one typed field update action instead of mirroring every sidebar setter.
+Historical implementation: `SidebarProvider` briefly used a private TanStack
+store for its uncontrolled fallback state. That component has since been
+deleted; the durable controller now feeds `SidebarContext` directly from
+`WorkspaceLayoutSidebarProvider`.
 
 ### Phase 4: Move Sidebar State Ownership Closer To Workspace Layout
 
@@ -308,7 +310,10 @@ Start with the smallest visible improvement:
 This should not change pane behavior. It only clarifies ownership and reduces
 prop plumbing.
 
-## Current Implementation Slice
+## Completed Implementation Slice (#712)
+
+This controller-normalization and provider-collapse slice was completed in PR
+#712 and remains here as historical context for the runtime convergence plan.
 
 This branch starts with durable controller normalization:
 
@@ -326,3 +331,20 @@ This branch starts with durable controller normalization:
 This is the smallest useful step toward combining the states because it removes
 the duplicated setter API at the persistence boundary without yet moving
 transient resize mechanics or changing route behavior.
+
+## Current Implementation Slice
+
+This branch moves transient workspace layout state to the same provider boundary
+as durable sidebar state:
+
+1. `WorkspaceLayoutSidebarProvider` creates and provides
+   `WorkspaceLayoutV2Context` next to `SidebarContext`.
+2. `WorkspaceLayoutV2JustPanes` consumes the existing layout context instead of
+   creating an inner provider.
+3. Delete the pass-through `WorkspaceLayoutV2Provider` file once it has no
+   callsites.
+
+This intentionally keeps `useSidebar()` and
+`useWorkspaceLayoutV2Selector()`/`useWorkspaceLayoutV2Actions()` names stable.
+The behavior change is only ownership: durable pane state and transient pane
+mechanics now share one workspace-layout provider boundary.

@@ -22,7 +22,6 @@ import {
   useWorkspaceLayoutV2Actions,
   useWorkspaceLayoutV2Selector,
 } from "./WorkspaceLayoutV2Context";
-import { WorkspaceLayoutV2Provider } from "./WorkspaceLayoutV2Provider";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
 import {
   WorkspaceLayoutV2DesktopViewport,
@@ -76,11 +75,7 @@ function renderPaneContent(content: ReactNode) {
 export function WorkspaceLayoutV2JustPanes(
   props: WorkspaceLayoutV2JustPanesProps,
 ) {
-  return (
-    <WorkspaceLayoutV2Provider>
-      <WorkspaceLayoutV2JustPanesContent {...props} />
-    </WorkspaceLayoutV2Provider>
-  );
+  return <WorkspaceLayoutV2JustPanesContent {...props} />;
 }
 
 function WorkspaceLayoutV2JustPanesContent({
