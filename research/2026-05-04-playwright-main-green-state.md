@@ -207,6 +207,15 @@ Implementation status on 2026-05-05:
   macOS output; forcing `-webkit-font-smoothing: antialiased` reduced macOS
   glyph density slightly but did not make the screenshot match Linux. Treat this
   as platform text rendering behavior, not a missing app font.
+- A local OrbStack Docker experiment on Apple Silicon ran the Playwright
+  `v1.58.2-noble` Linux image as `linux/arm64`, served the already-built Noter
+  app from inside the container, and captured the same machines-workspace
+  header. That ARM64 Linux capture was pixel-identical to the committed Linux
+  x86_64/Testbox baseline for the header: 672x32 dimensions, 0 differing pixels,
+  and 1,683 dark pixels in both images. The container fetched the same bundled
+  IBM Plex Sans WOFF2 hashes and CDP reported `IBM Plex Sans SemiBold` with
+  `isCustomFont: true`. For this sample, CPU architecture is not the source of
+  the visual drift; macOS versus Linux rendering is.
 
 The root-cause direction should be:
 
