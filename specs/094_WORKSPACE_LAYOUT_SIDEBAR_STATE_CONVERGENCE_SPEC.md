@@ -39,6 +39,13 @@ problem is not whether sidebars belong to workspace layout; they do. The design
 problem is how to combine durable pane preferences with transient interaction
 state without moving Convex/local-storage selection into the layout core.
 
+There should be one controller type, `WorkspaceSidebarStateController`.
+Convex-backed routes, public local-storage routes, and tests/fixtures should
+produce that same controller shape through different adapters. Do not create
+separate controller types for each persistence source, and do not use
+localStorage-backed adapters for ordinary fixtures; fixtures should use a tiny
+in-memory controller so they stay deterministic and side-effect free.
+
 ## Principles
 
 - Do not put Convex or local-storage selection inside
@@ -46,6 +53,12 @@ state without moving Convex/local-storage selection into the layout core.
 - Do not make route code manually bridge every sidebar field forever.
 - Keep storage adapters responsible for durability only.
 - Keep the workspace layout responsible for pane behavior only.
+- Use one controller type with multiple producers. Convex, local storage, and
+  fixture memory state are adapters, not different mental models.
+- Treat `WorkspaceLayoutSidebarProvider` as the standard workspace layout
+  boundary for production code. Direct `SidebarProvider` usage should migrate to
+  fixtures/tests only, then disappear as its behavior moves into the workspace
+  layout provider.
 - Prefer TanStack Store for the workspace/sidebar state controller before trying
   to merge the two current state trees.
 - Make invalid pane states unrepresentable with discriminated types before
@@ -138,6 +151,10 @@ The storage adapters own only durability:
 - persist whole durable-state updates immediately or with width deferral
 - recover from persistence errors
 
+Fixtures and tests should produce the same controller shape with an in-memory
+adapter. They should not use the localStorage hook unless the behavior under
+test is localStorage persistence itself.
+
 This removes the current repeated setter bags from both persistence hooks and
 makes `WorkspaceLayoutSidebarProvider` the real workspace pane provider instead
 of a bridge into a generic `SidebarProvider`.
@@ -210,8 +227,10 @@ Implementation slices:
    `WorkspaceLayoutSidebarProvider`. Production routes should no longer render
    `SidebarProvider`.
 3. Replace direct test/fixture `SidebarProvider` usage with a small
-   workspace-layout memory controller. Do not keep a compatibility wrapper for
-   app-internal production code.
+   workspace-layout memory controller that implements the existing
+   `WorkspaceSidebarStateController` type. Do not add a fixture-specific
+   controller type, do not use localStorage for ordinary fixtures, and do not
+   keep a compatibility wrapper for app-internal production code.
 4. Move or rename `useSidebar` only after the provider ownership has moved.
    Until then, keeping the hook path stable is acceptable because the provider
    boundary is the real behavior change.
