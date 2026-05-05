@@ -221,7 +221,16 @@ Current status: direct fixture and component-test `SidebarProvider` mounts have
 been replaced with `WorkspaceLayoutV2MemorySidebarProvider`, which uses the same
 `WorkspaceSidebarStateController` contract as the persisted adapters while
 staying in memory. `SidebarProvider` is now only mounted by
-`WorkspaceLayoutSidebarProvider`.
+`WorkspaceLayoutSidebarProvider`. That means `SidebarProvider` no longer needs a
+general controlled/uncontrolled component API, default prop state, or an
+internal fallback store. It is now only a private compatibility shell that
+constructs the `useSidebar()` context from workspace sidebar state.
+
+Next implementation slice: move the current `SidebarProvider` context-value
+construction directly into `WorkspaceLayoutSidebarProvider`, keep the
+`useSidebar()` hook path and context shape stable for existing consumers, and
+delete the now-dead provider prop bridge. Renaming `useSidebar` to a pane-owned
+hook should wait until the provider ownership move is stable.
 
 Implementation slices:
 
@@ -229,15 +238,18 @@ Implementation slices:
    controller that exposes `state` and one typed
    `setState(nextState, persistenceMode)` operation. Keep the persisted schema
    and hook names stable during this slice.
-2. Move the current `SidebarProvider` context-value construction into
-   `WorkspaceLayoutSidebarProvider`. Production routes should no longer render
-   `SidebarProvider`.
-3. Replace direct test/fixture `SidebarProvider` usage with a small
+2. Replace direct test/fixture `SidebarProvider` usage with a small
    workspace-layout memory controller that implements the existing
    `WorkspaceSidebarStateController` type. Do not add a fixture-specific
    controller type, do not use localStorage for ordinary fixtures, and do not
    keep a compatibility wrapper for app-internal production code.
-4. Move or rename `useSidebar` only after the provider ownership has moved.
+3. Move the current `SidebarProvider` context-value construction into
+   `WorkspaceLayoutSidebarProvider`. Production routes, fixtures, and tests
+   should not render `SidebarProvider` directly or indirectly after this slice.
+4. Delete `SidebarProvider`'s controlled/uncontrolled prop API, default state,
+   and internal store once `WorkspaceLayoutSidebarProvider` provides
+   `SidebarContext` directly.
+5. Move or rename `useSidebar` only after the provider ownership has moved.
    Until then, keeping the hook path stable is acceptable because the provider
    boundary is the real behavior change.
 
