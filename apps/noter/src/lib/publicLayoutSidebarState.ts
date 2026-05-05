@@ -2,9 +2,11 @@ import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateMo
 import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
 
 /**
- * Public routes share one anonymous right-sidebar preference record. Routes
- * without a left pane ignore left-only fields while keeping right-side widths
- * shared across the public shell.
+ * Public routes share one anonymous pane preference record even though their
+ * available panes differ. For example, `/logo` can persist left-pane selection
+ * and widths, while landing-style routes may render without a left pane. This
+ * masks unavailable left-pane state for the current route without erasing it
+ * from the shared public preference record.
  */
 export function sanitizePublicLayoutSidebarState({
   defaultSidebarState,
