@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  buildFileViewSearchHref,
   buildFileViewRouteSearch,
   mergeFileViewRouteSearch,
   validateFileViewRouteSearch,
@@ -88,5 +89,20 @@ describe("fileViewRouteSearch", () => {
         ),
       ),
     ).toBe("?devtools&mobileLineNumbers=1&diff&review");
+  });
+
+  it("builds file-view hrefs without decoding encoded branch slashes", () => {
+    expect(
+      buildFileViewSearchHref({
+        pathname:
+          "/vault/noter-md/noter/codex%2Fintegrate-new-skill-files/README.md",
+        search: parseTanStackSearch("?dev"),
+        fileViewSearch: {
+          compare: true,
+        },
+      }),
+    ).toBe(
+      "/vault/noter-md/noter/codex%2Fintegrate-new-skill-files/README.md?dev&compare",
+    );
   });
 });
