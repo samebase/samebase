@@ -829,6 +829,22 @@ async function selectText(locator: Locator) {
   await locator.page().mouse.up();
 }
 
+async function dragResizeHandleByPx(locator: Locator, deltaX: number) {
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  if (box === null) {
+    throw new Error("Expected resize handle bounds");
+  }
+
+  const page = locator.page();
+  const startX = box.x + box.width / 2;
+  const startY = box.y + box.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + deltaX, startY, { steps: 4 });
+  await page.mouse.up();
+}
+
 async function readClipboardText(page: Parameters<typeof test>[0]["page"]) {
   return page.evaluate(async () => navigator.clipboard.readText());
 }
@@ -1489,14 +1505,6 @@ test.describe("mobile landing dev toggle", () => {
       throw new Error("Expected landing mobile shell box");
     }
 
-    const handleBox = await page
-      .getByTestId("workspace-layout-v2-right-resize")
-      .boundingBox();
-    expect(handleBox).not.toBeNull();
-    if (handleBox === null) {
-      throw new Error("Expected landing right resize handle box");
-    }
-
     const handleValues = await page
       .getByTestId("workspace-layout-v2-right-resize")
       .evaluate((element) => {
@@ -1520,21 +1528,10 @@ test.describe("mobile landing dev toggle", () => {
     // narrow sidebar beside the complete main pane.
     const dragDistancePx =
       handleValues.currentWidthPx - handleValues.minWidthPx + 40;
-    const dragSteps = 4;
-    const dragFrameMs = 16;
-    await dispatchHumanTouchSwipe(page, mobileShell, {
-      startX: handleBox.x - mobileShellBox.x + handleBox.width / 2,
-      startY: handleBox.y - mobileShellBox.y + handleBox.height / 2,
-      steps: Array.from({ length: dragSteps }, (_, index) => {
-        const step = index + 1;
-
-        return {
-          delayMs: dragFrameMs,
-          xOffset: (dragDistancePx * step) / dragSteps,
-          yOffset: 0,
-        };
-      }),
-    });
+    await dragResizeHandleByPx(
+      page.getByTestId("workspace-layout-v2-right-resize"),
+      dragDistancePx,
+    );
 
     await expect(
       page.locator('[data-workspace-layout-v2="mobile"]'),
@@ -1598,26 +1595,11 @@ test.describe("mobile landing dev toggle", () => {
       )
       .toBe(Math.round(mergedCarouselScrollLeftPx));
 
-    const mergedHandleBox = await page
-      .getByTestId("workspace-layout-v2-right-resize")
-      .boundingBox();
-    expect(mergedHandleBox).not.toBeNull();
-    if (mergedHandleBox === null) {
-      throw new Error("Expected merged landing right resize handle box");
-    }
-
     const mainGrowPx = 24;
-    await dispatchHumanTouchSwipe(page, mobileShell, {
-      startX: mergedHandleBox.x - mobileShellBox.x + mergedHandleBox.width / 2,
-      startY: mergedHandleBox.y - mobileShellBox.y + mergedHandleBox.height / 2,
-      steps: [
-        {
-          delayMs: 16,
-          xOffset: -mainGrowPx,
-          yOffset: 0,
-        },
-      ],
-    });
+    await dragResizeHandleByPx(
+      page.getByTestId("workspace-layout-v2-right-resize"),
+      -mainGrowPx,
+    );
 
     await expect
       .poll(async () =>
