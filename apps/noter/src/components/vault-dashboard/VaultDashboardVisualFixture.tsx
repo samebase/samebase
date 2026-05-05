@@ -8,7 +8,7 @@ import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUp
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
 import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { type MobileSidebarPane } from "@/hooks/use-sidebar";
+import { type WorkspaceMobileSidebarPane } from "../../../convex/workspaceSidebarStateModel";
 import {
   VaultDashboardAccountSection,
   VaultDashboardEmptyState,
@@ -659,7 +659,7 @@ function FixtureDashboardShell({
 }: {
   desktopSidebarWidthPx?: number;
   mainContent?: ReactNode;
-  mobilePane?: MobileSidebarPane;
+  mobilePane?: WorkspaceMobileSidebarPane;
   rightContent?: ReactNode;
   rightMobileWidthPx?: number;
 }) {
@@ -672,7 +672,7 @@ function FixtureDashboardShell({
         desktopSidebarWidthPx={desktopSidebarWidthPx}
         mobilePane={mobilePane}
         rightMobileWidthPx={rightMobileWidthPx}
-        shortcutSidebarSide="right"
+        shortcutPaneSide="right"
         right={{
           content: rightContent,
         }}
@@ -688,7 +688,7 @@ function FixtureDashboardSidebarAccountClamp({
   mobilePane,
   rightMobileWidthPx,
 }: {
-  mobilePane?: MobileSidebarPane;
+  mobilePane?: WorkspaceMobileSidebarPane;
   rightMobileWidthPx?: number;
 } = {}) {
   return (

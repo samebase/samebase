@@ -2721,7 +2721,7 @@ export function VaultDashboard() {
     <PublicLandingLogoLinkProvider>
       <PersistedSidebarProvider
         defaultState={DASHBOARD_SIDEBAR_DEFAULT_STATE}
-        shortcutSidebarSide="right"
+        shortcutPaneSide="right"
         workspaceKey="dashboard"
       >
         <WorkspaceLayoutV2FullPage

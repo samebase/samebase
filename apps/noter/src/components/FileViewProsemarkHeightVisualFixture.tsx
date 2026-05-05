@@ -369,7 +369,7 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
       dataTestId="fileview-prosemark-height-fixture-frame"
       defaultOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "left"}
       defaultRightOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "right"}
-      shortcutSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
+      shortcutPaneSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
       left={
         FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? activeSidebar : inactiveSidebar
       }

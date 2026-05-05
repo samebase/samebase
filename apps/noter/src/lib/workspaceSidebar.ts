@@ -1,11 +1,11 @@
-import type { MobileSidebarPane } from "@/hooks/use-sidebar";
+import type { WorkspaceMobileSidebarPane } from "../../convex/workspaceSidebarStateModel";
 
 export const MOBILE_CROSS_SWIPE_TRAVEL_THRESHOLD_RATIO = 0.85;
 export const MOBILE_CROSS_SWIPE_VELOCITY_THRESHOLD_PX_PER_MS = 1.25;
 export const MOBILE_SIDEBAR_RETURN_TRAVEL_THRESHOLD_RATIO = 0.38;
 
 type MobilePaneAnchor = {
-  pane: MobileSidebarPane;
+  pane: WorkspaceMobileSidebarPane;
   scrollLeft: number;
 };
 
@@ -22,7 +22,7 @@ function getSidebarWidths(
 }
 export type MobilePaneReleaseGesture = {
   releaseFingerVelocityXPxPerMs: number;
-  startPane: MobileSidebarPane;
+  startPane: WorkspaceMobileSidebarPane;
   totalFingerDeltaXPx: number;
 };
 function getMobilePaneAnchors(
@@ -58,7 +58,7 @@ function getMobilePaneAnchors(
 }
 
 export function getMobilePaneScrollLeft(
-  pane: MobileSidebarPane,
+  pane: WorkspaceMobileSidebarPane,
   hasLeftSidebar: boolean,
   leftSidebarWidthPx: number,
   hasRightSidebar: boolean,
@@ -115,7 +115,7 @@ function getNearestMobilePane(
  * the center pane.
  */
 export function getSettledMobilePane(
-  currentPane: MobileSidebarPane,
+  currentPane: WorkspaceMobileSidebarPane,
   scrollLeft: number,
   hasLeftSidebar: boolean,
   leftSidebarWidthPx: number,

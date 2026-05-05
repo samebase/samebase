@@ -1,7 +1,10 @@
 import { PublicLayoutShell } from "@/Layout";
 import { FileTree, type FileTreeItem } from "@/components/FileTree";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
-import { useSidebar, type MobileSidebarPane } from "@/hooks/use-sidebar";
+import {
+  useWorkspacePaneState,
+  type WorkspaceMobilePane,
+} from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import type { FolderExpansionState } from "@/lib/fileTreeState";
 import {
   getLandingMarkdownHeadings,
@@ -186,7 +189,7 @@ function buildLandingPreviewPaneHashPath({
   mobilePane,
 }: {
   hash: string;
-  mobilePane: MobileSidebarPane | null;
+  mobilePane: WorkspaceMobilePane | null;
 }) {
   const searchParams = new URLSearchParams(window.location.search);
   if (mobilePane !== null) {
@@ -210,7 +213,7 @@ function buildLandingPreviewPaneHashPath({
   });
 }
 
-function getLandingPreviewDefaultMobilePane(): MobileSidebarPane {
+function getLandingPreviewDefaultMobilePane(): WorkspaceMobilePane {
   if (typeof window === "undefined") {
     return "main";
   }
@@ -281,7 +284,7 @@ function LandingMarkdownPreviewSidebar({
 }: {
   language: LandingMarkdownPreviewLanguage;
 }) {
-  const { isMobile, mobilePane } = useSidebar();
+  const { isMobile, mobilePane } = useWorkspacePaneState();
   const landingPreviewHeadings =
     LANDING_MARKDOWN_HEADINGS_BY_LANGUAGE[language];
   const landingPreviewHelpCenter = useMemo(

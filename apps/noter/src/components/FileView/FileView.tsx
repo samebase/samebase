@@ -32,7 +32,7 @@ import { FileViewMainHeader } from "@/components/FileView/FileViewMainHeader";
 import { useFileViewInlinePreview } from "@/components/FileView/useFileViewInlinePreview";
 import { useFileViewMediaUpload } from "@/components/FileView/useFileViewMediaUpload";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { useWorkspacePaneActions } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import { linkStyle } from "@/components/styles";
 import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
@@ -681,7 +681,7 @@ function FileViewInner({
   repoName: string;
   stagedFile: (typeof api.fileStaging.getByNewPath)["_returnType"];
 }) {
-  const { setMobilePane } = useSidebar();
+  const { setMobilePane } = useWorkspacePaneActions();
   const router = useRouter();
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
@@ -3219,7 +3219,7 @@ export function FileView() {
   return (
     <DialogProvider>
       <PersistedSidebarProvider
-        shortcutSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
+        shortcutPaneSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
         defaultState={FILE_VIEW_SIDEBAR_DEFAULT_STATE}
         workspaceKey="repository"
       >
