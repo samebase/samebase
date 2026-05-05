@@ -1,24 +1,15 @@
 import { useRef, type ReactNode } from "react";
-import { Button } from "../ui/button";
-import { PanelLeft, PanelRight } from "lucide-react";
 import { useElementSize } from "@/hooks/useElementSize";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
-import {
-  WorkspaceLayoutV2PaneFrame,
-  type WorkspaceLayoutV2PaneFrameProps,
-} from "./WorkspaceLayoutV2PaneFrame";
 import {
   type WorkspaceLayoutV2BottomPanelProps,
   WorkspaceLayoutV2MainViewportWithPanel,
 } from "./WorkspaceLayoutV2BottomPanel";
 import {
   DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX,
-  WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
-  clampNumber,
   getDesktopSidebarMaxWidthPx,
   getDesktopSidebarWidthPx,
   getMobilePanePeekWidthPx,
@@ -37,11 +28,13 @@ import {
   WorkspaceLayoutV2DesktopViewport,
   WorkspaceLayoutV2MobileViewport,
 } from "./WorkspaceLayoutV2Viewports";
-import { useWorkspaceLayoutV2MobileCarouselController } from "./useWorkspaceLayoutV2MobileCarousel";
 import {
-  useWorkspaceLayoutV2MobileGripResizeController,
+  getWorkspaceLayoutV2DesktopResizeHandles,
+  getWorkspaceLayoutV2MobileResizeHandles,
   type WorkspaceLayoutV2ResizeHandleConfig,
-} from "./useWorkspaceLayoutV2MobileResize";
+} from "./WorkspaceLayoutV2ResizeHandleConfigs";
+import { useWorkspaceLayoutV2MobileCarouselController } from "./useWorkspaceLayoutV2MobileCarousel";
+import { useWorkspaceLayoutV2MobileGripResizeController } from "./useWorkspaceLayoutV2MobileResize";
 
 type WorkspaceLayoutV2Props = {
   dataTestId?: string;
@@ -56,17 +49,6 @@ type WorkspaceLayoutV2JustPanesProps = WorkspaceLayoutV2Props & {
   panel?: WorkspaceLayoutV2BottomPanelProps;
   showMobileResizeGripDots?: boolean;
 };
-
-type WorkspaceLayoutV2LeftToggleVisibility = "all" | "desktop" | "hidden";
-type WorkspaceLayoutV2RightToggleVisibility = "desktop" | "hidden";
-
-const LEFT_TOGGLE_BUTTON_CLASS_NAMES = {
-  all: "h-8 w-8 rounded-none",
-  desktop: "hidden h-8 w-8 md:inline-flex",
-} as const satisfies Record<
-  Exclude<WorkspaceLayoutV2LeftToggleVisibility, "hidden">,
-  string
->;
 
 function shouldShowMobileResizeGripDotsByDefault() {
   if (typeof window === "undefined") {
@@ -83,154 +65,6 @@ function renderPaneContent(content: ReactNode) {
     content ?? (
       <div aria-hidden="true" className="min-h-0 flex-1 bg-background" />
     )
-  );
-}
-
-function WorkspaceLayoutV2MainPaneHeader({
-  children,
-  leftToggleVisibility = "desktop",
-  rightToggleVisibility = "desktop",
-}: {
-  children: ReactNode;
-  leftToggleVisibility?: WorkspaceLayoutV2LeftToggleVisibility;
-  rightToggleVisibility?: WorkspaceLayoutV2RightToggleVisibility;
-}) {
-  const { toggleLeftSidebar, toggleRightSidebar } = useSidebar();
-  const leftToggleButtonClassName =
-    leftToggleVisibility === "hidden"
-      ? null
-      : LEFT_TOGGLE_BUTTON_CLASS_NAMES[leftToggleVisibility];
-
-  return (
-    <div className="flex h-full items-center gap-2">
-      {leftToggleButtonClassName !== null ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={
-            leftToggleVisibility === "desktop"
-              ? "Toggle Left Sidebar"
-              : "Toggle sidebar"
-          }
-          className={leftToggleButtonClassName}
-          onClick={toggleLeftSidebar}
-        >
-          <PanelLeft className="h-4 w-4" />
-        </Button>
-      ) : null}
-
-      {/* Keep route-level header actions visible on mobile; only the sidebar
-          toggles stay desktop-only in the v2 main pane shell. */}
-      <div className="min-w-0 flex-1">{children}</div>
-
-      {rightToggleVisibility === "desktop" ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Toggle Right Sidebar"
-          className="hidden h-8 w-8 md:inline-flex"
-          onClick={toggleRightSidebar}
-        >
-          <PanelRight className="h-4 w-4 rotate-180" />
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
-export function WorkspaceLayoutV2FullPage({
-  dataTestId,
-  left,
-  main,
-  mobileMinResizeBehavior = "min_resize_to_merge",
-  mobilePanePeekWidthPx = DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX,
-  panel,
-  right,
-  leftToggleVisibility = "desktop",
-  rightToggleVisibility = "desktop",
-  showMobileResizeGripDots,
-}: {
-  dataTestId?: string;
-  left?: WorkspaceLayoutV2PaneFrameProps;
-  main: WorkspaceLayoutV2PaneFrameProps;
-  mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
-  mobilePanePeekWidthPx?: number;
-  panel?: WorkspaceLayoutV2BottomPanelProps;
-  right?: WorkspaceLayoutV2PaneFrameProps;
-  leftToggleVisibility?: WorkspaceLayoutV2LeftToggleVisibility;
-  rightToggleVisibility?: WorkspaceLayoutV2RightToggleVisibility;
-  showMobileResizeGripDots?: boolean;
-}) {
-  const hasLeftPane = left !== undefined;
-  const hasRightPane = right !== undefined;
-  const isMobile = useIsMobile();
-  // A mobile left toggle is always also a desktop toggle. Routes opt into
-  // `all` only when their main pane can swallow the drag-to-reopen gesture.
-  const hasMainHeaderContent =
-    main.header !== undefined && main.header !== null;
-  const hasDesktopHeaderToggle =
-    (hasLeftPane && leftToggleVisibility !== "hidden") ||
-    (hasRightPane && rightToggleVisibility !== "hidden");
-  const hasMobileHeaderToggle = hasLeftPane && leftToggleVisibility === "all";
-  const shouldHideMainHeader = isMobile
-    ? !hasMainHeaderContent && !hasMobileHeaderToggle
-    : !hasMainHeaderContent && !hasDesktopHeaderToggle;
-
-  return (
-    <WorkspaceLayoutV2ViewportFrame dataTestId={dataTestId}>
-      <WorkspaceLayoutV2JustPanes
-        left={
-          hasLeftPane ? <WorkspaceLayoutV2PaneFrame {...left} /> : undefined
-        }
-        main={
-          <WorkspaceLayoutV2PaneFrame
-            {...main}
-            header={
-              shouldHideMainHeader ? undefined : (
-                <WorkspaceLayoutV2MainPaneHeader
-                  leftToggleVisibility={
-                    hasLeftPane ? leftToggleVisibility : "hidden"
-                  }
-                  rightToggleVisibility={
-                    hasRightPane ? rightToggleVisibility : "hidden"
-                  }
-                >
-                  {main.header}
-                </WorkspaceLayoutV2MainPaneHeader>
-              )
-            }
-          />
-        }
-        mobileMinResizeBehavior={mobileMinResizeBehavior}
-        mobilePanePeekWidthPx={mobilePanePeekWidthPx}
-        panel={panel}
-        right={hasRightPane ? <WorkspaceLayoutV2PaneFrame {...right} /> : null}
-        showMobileResizeGripDots={showMobileResizeGripDots}
-      />
-    </WorkspaceLayoutV2ViewportFrame>
-  );
-}
-
-/**
- * V2 owns one contained workspace viewport inside the normal page shell rather
- * than asking the app-level frame to lock the whole document.
- */
-export function WorkspaceLayoutV2ViewportFrame({
-  children,
-  dataTestId,
-}: {
-  children: ReactNode;
-  dataTestId?: string;
-}) {
-  return (
-    <div
-      data-testid={dataTestId}
-      className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
-    >
-      {children}
-    </div>
   );
 }
 
@@ -382,102 +216,32 @@ function WorkspaceLayoutV2JustPanesContent({
     setMobilePane,
     viewportWidthPx: viewportSize.widthPx,
   });
-  const desktopResizeHandles: WorkspaceLayoutV2ResizeHandleConfig[] =
-    viewportSize.widthPx <= 0
-      ? []
-      : [
-          hasLeftPane && leftDesktopOpen
-            ? {
-                currentWidthPx: desktopLeftWidthPx,
-                dataTestId: "workspace-layout-v2-left-resize",
-                maxWidthPx: desktopSidebarMaxWidthPx,
-                minWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-                onWidthChange: (nextWidthPx: number) => {
-                  setLeftDesktopWidthPx(
-                    clampNumber(
-                      Math.round(nextWidthPx),
-                      WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-                      desktopSidebarMaxWidthPx,
-                    ),
-                  );
-                },
-                positionPx: desktopLeftWidthPx,
-                side: "left",
-              }
-            : null,
-          hasRightPane && rightDesktopOpen
-            ? {
-                currentWidthPx: desktopRightWidthPx,
-                dataTestId: "workspace-layout-v2-right-resize",
-                maxWidthPx: desktopSidebarMaxWidthPx,
-                minWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-                onWidthChange: (nextWidthPx: number) => {
-                  setRightDesktopWidthPx(
-                    clampNumber(
-                      Math.round(nextWidthPx),
-                      WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-                      desktopSidebarMaxWidthPx,
-                    ),
-                  );
-                },
-                positionPx: viewportSize.widthPx - desktopRightWidthPx,
-                side: "right",
-              }
-            : null,
-        ].filter(
-          (resizeHandle): resizeHandle is WorkspaceLayoutV2ResizeHandleConfig =>
-            resizeHandle !== null,
-        );
-  // A hidden mobile grip must not leave an invisible touch target over pane
-  // content, so prod omits the grip handles entirely.
-  const mobileResizeHandles: WorkspaceLayoutV2ResizeHandleConfig[] =
-    viewportSize.widthPx <= 0 ||
-    !isMobilePaneSettled ||
-    !shouldShowMobileResizeGripDots
-      ? []
-      : [
-          hasLeftPane && mobilePane === "left"
-            ? {
-                currentWidthPx: mobileLeftWidthPx,
-                dataTestId: "workspace-layout-v2-left-resize",
-                maxWidthPx: mobileSidebarMaxWidthPx,
-                minWidthPx: mobileSidebarMinWidthPx,
-                onWidthChange: (nextWidthPx: number) => {
-                  setLeftMobileWidthPx(
-                    clampNumber(
-                      Math.round(nextWidthPx),
-                      mobileSidebarMinWidthPx,
-                      mobileSidebarMaxWidthPx,
-                    ),
-                  );
-                },
-                positionPx: mobileLeftWidthPx,
-                side: "left",
-              }
-            : null,
-          hasRightPane && mobilePane === "right"
-            ? {
-                currentWidthPx: mobileRightWidthPx,
-                dataTestId: "workspace-layout-v2-right-resize",
-                maxWidthPx: mobileSidebarMaxWidthPx,
-                minWidthPx: mobileSidebarMinWidthPx,
-                onWidthChange: (nextWidthPx: number) => {
-                  setRightMobileWidthPx(
-                    clampNumber(
-                      Math.round(nextWidthPx),
-                      mobileSidebarMinWidthPx,
-                      mobileSidebarMaxWidthPx,
-                    ),
-                  );
-                },
-                positionPx: viewportSize.widthPx - mobileRightWidthPx,
-                side: "right",
-              }
-            : null,
-        ].filter(
-          (resizeHandle): resizeHandle is WorkspaceLayoutV2ResizeHandleConfig =>
-            resizeHandle !== null,
-        );
+  const desktopResizeHandles = getWorkspaceLayoutV2DesktopResizeHandles({
+    desktopLeftWidthPx,
+    desktopRightWidthPx,
+    desktopSidebarMaxWidthPx,
+    hasLeftPane,
+    hasRightPane,
+    leftDesktopOpen,
+    rightDesktopOpen,
+    setLeftDesktopWidthPx,
+    setRightDesktopWidthPx,
+    viewportWidthPx: viewportSize.widthPx,
+  });
+  const mobileResizeHandles = getWorkspaceLayoutV2MobileResizeHandles({
+    hasLeftPane,
+    hasRightPane,
+    isMobilePaneSettled,
+    mobileLeftWidthPx,
+    mobilePane,
+    mobileRightWidthPx,
+    mobileSidebarMaxWidthPx,
+    mobileSidebarMinWidthPx,
+    setLeftMobileWidthPx,
+    setRightMobileWidthPx,
+    shouldShowMobileResizeGripDots,
+    viewportWidthPx: viewportSize.widthPx,
+  });
 
   function renderResizeHandle(
     resizeHandle: WorkspaceLayoutV2ResizeHandleConfig,

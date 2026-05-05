@@ -7,7 +7,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/collapsible";
 import { useSidebar } from "@/hooks/use-sidebar";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
+import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import {
   type CodexThreadSidebarProject,
   type CodexThreadSidebarThread,

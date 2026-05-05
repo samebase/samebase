@@ -1,3 +1,5 @@
+import { clampNumber } from "./clampNumber";
+
 const REM_PX = 16;
 
 export const DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX = 16 * REM_PX;
@@ -21,10 +23,6 @@ export type ResolvedWorkspaceDesktopSidebarWidths = {
   leftWidthPx: number;
   rightWidthPx: number;
 };
-
-function clampNumber(value: number, minValue: number, maxValue: number) {
-  return Math.max(minValue, Math.min(value, maxValue));
-}
 
 export function getWorkspaceDesktopSidebarPreferredWidthCapPx(
   containerWidthPx: number,

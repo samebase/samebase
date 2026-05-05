@@ -2,7 +2,7 @@ import { type ComponentProps } from "react";
 import { type MobileSidebarPane, type SidebarSide } from "@/hooks/use-sidebar";
 import { Layout } from "@/Layout";
 import { SidebarProvider } from "@/components/sidebar";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2";
+import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
 
 const WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX = 320;
 

@@ -6,11 +6,14 @@ import {
   WorkspaceLayoutV2PaneFrame,
   type WorkspaceLayoutV2PaneFrameProps,
 } from "./WorkspaceLayoutV2PaneFrame";
+import {
+  WORKSPACE_LAYOUT_V2_PANEL_DEFAULT_HEIGHT_PX,
+  WORKSPACE_LAYOUT_V2_PANEL_MIN_HEIGHT_PX,
+  clampWorkspaceLayoutV2PanelHeight,
+  getDefaultWorkspaceLayoutV2PanelHeight,
+  getWorkspaceLayoutV2PanelMaxHeightPx,
+} from "./WorkspaceLayoutV2PanelGeometry";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
-
-const WORKSPACE_LAYOUT_V2_PANEL_MIN_HEIGHT_PX = 3 * 16;
-const WORKSPACE_LAYOUT_V2_PANEL_DEFAULT_HEIGHT_PX = 18 * 16;
-const WORKSPACE_LAYOUT_V2_PANEL_MOBILE_DEFAULT_HEIGHT_RATIO = 0.35;
 
 /**
  * Optional route-owned bottom panel. The previous chat-FAB use of this panel is
@@ -23,53 +26,6 @@ export type WorkspaceLayoutV2BottomPanelProps =
     onOpenChange?: (isOpen: boolean) => void;
     open?: boolean;
   };
-
-function clampNumber(value: number, minValue: number, maxValue: number) {
-  return Math.max(minValue, Math.min(value, maxValue));
-}
-
-function getWorkspaceLayoutV2PanelMaxHeightPx(viewportHeightPx: number) {
-  if (viewportHeightPx <= 0) {
-    return WORKSPACE_LAYOUT_V2_PANEL_DEFAULT_HEIGHT_PX;
-  }
-
-  return Math.max(
-    WORKSPACE_LAYOUT_V2_PANEL_MIN_HEIGHT_PX,
-    Math.floor(viewportHeightPx),
-  );
-}
-
-function clampWorkspaceLayoutV2PanelHeight(args: {
-  heightPx: number;
-  viewportHeightPx: number;
-}) {
-  return clampNumber(
-    Math.round(args.heightPx),
-    WORKSPACE_LAYOUT_V2_PANEL_MIN_HEIGHT_PX,
-    getWorkspaceLayoutV2PanelMaxHeightPx(args.viewportHeightPx),
-  );
-}
-
-function getDefaultWorkspaceLayoutV2PanelHeight(args: {
-  isMobile: boolean;
-  viewportHeightPx: number;
-}) {
-  if (args.viewportHeightPx <= 0) {
-    return WORKSPACE_LAYOUT_V2_PANEL_DEFAULT_HEIGHT_PX;
-  }
-
-  const preferredHeight = args.isMobile
-    ? Math.floor(
-        args.viewportHeightPx *
-          WORKSPACE_LAYOUT_V2_PANEL_MOBILE_DEFAULT_HEIGHT_RATIO,
-      )
-    : WORKSPACE_LAYOUT_V2_PANEL_DEFAULT_HEIGHT_PX;
-
-  return clampWorkspaceLayoutV2PanelHeight({
-    heightPx: preferredHeight,
-    viewportHeightPx: args.viewportHeightPx,
-  });
-}
 
 function WorkspaceLayoutV2PanelToggleButton({
   onClick,

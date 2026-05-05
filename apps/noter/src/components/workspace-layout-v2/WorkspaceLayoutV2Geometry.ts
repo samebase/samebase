@@ -1,3 +1,5 @@
+import { clampNumber } from "@/lib/clampNumber";
+
 export const WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
 const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
 export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 160;
@@ -45,10 +47,6 @@ export const WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP: WorkspaceLayoutV2MobileGrip =
   {
     kind: "idle",
   };
-
-export function clampNumber(value: number, minValue: number, maxValue: number) {
-  return Math.max(minValue, Math.min(value, maxValue));
-}
 
 export function getDesktopSidebarMaxWidthPx(viewportWidthPx: number) {
   return Math.max(

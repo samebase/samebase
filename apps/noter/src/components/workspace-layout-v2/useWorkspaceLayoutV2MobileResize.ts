@@ -1,10 +1,10 @@
 import { useEffect, useEffectEvent, useRef, type RefObject } from "react";
+import { clampNumber } from "@/lib/clampNumber";
 import {
   MOBILE_PANE_SETTLED_TOLERANCE_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,
   WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE,
-  clampNumber,
   getMergedMobileMainWidthPx,
   getMobileMergeHandoffSide,
   getMobileMinResizeMergeWidthsPx,
@@ -21,16 +21,7 @@ import {
   useWorkspaceLayoutV2Actions,
   useWorkspaceLayoutV2Selector,
 } from "./WorkspaceLayoutV2Context";
-
-export type WorkspaceLayoutV2ResizeHandleConfig = {
-  currentWidthPx: number;
-  dataTestId: string;
-  maxWidthPx: number;
-  minWidthPx: number;
-  onWidthChange: (nextWidthPx: number) => void;
-  positionPx: number;
-  side: "left" | "right";
-};
+import { type WorkspaceLayoutV2ResizeHandleConfig } from "./WorkspaceLayoutV2ResizeHandleConfigs";
 
 /**
  * Owns the transient mobile grip session that can resolve either to legacy
