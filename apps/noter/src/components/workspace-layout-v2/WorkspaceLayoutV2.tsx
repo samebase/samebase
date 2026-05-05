@@ -50,6 +50,11 @@ type WorkspaceLayoutV2JustPanesProps = WorkspaceLayoutV2Props & {
   showMobileResizeGripDots?: boolean;
 };
 
+/**
+ * Keeps mobile resize grips visible on landing-page dev routes so layout work
+ * can be tested without opting every fixture into debug chrome. Shipped routes
+ * default to hidden grips unless the caller explicitly asks for them.
+ */
 function shouldShowMobileResizeGripDotsByDefault() {
   if (typeof window === "undefined") {
     return false;
