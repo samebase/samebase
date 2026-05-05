@@ -291,7 +291,10 @@ Implementation slices:
 - Keeping compatibility shims for app-internal imports.
 - Merging transient pointer refs into durable persisted state.
 
-## First Implementation Slice
+## Completed Implementation Slice (#711)
+
+This first bridge slice was completed in PR #711 and remains here as historical
+context for the controller convergence plan.
 
 Start with the smallest visible improvement:
 
