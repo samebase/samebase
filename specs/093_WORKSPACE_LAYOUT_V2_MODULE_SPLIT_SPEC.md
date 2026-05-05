@@ -104,9 +104,14 @@ The pane mental model should be represented first as data types, then by pure
 model helpers, then by React hooks that apply those decisions to DOM and sidebar
 state.
 
-The shell-local TanStack store should be created in `WorkspaceLayoutV2JustPanes`
-and passed into the mobile controller hooks. This keeps the important layout
-state together while preserving smaller files for focused mechanics.
+The shell-local TanStack store should be created at the
+`WorkspaceLayoutV2JustPanes` boundary and exposed through a folder-private
+`WorkspaceLayoutV2Context`. This keeps the important layout state together while
+preserving smaller files for focused mechanics.
+
+The context should provide the TanStack store object, not a broad plain React
+state object. Consumers inside `workspace-layout-v2/` should read through
+selectors so each module names the state it actually needs.
 
 The store should own:
 
@@ -159,6 +164,14 @@ type WorkspaceLayoutV2MobileGrip =
 The mobile resize hook may still keep refs for same-gesture reads that must be
 synchronous with pointer movement, but those refs should mirror the centralized
 store model rather than define a second source of truth.
+
+Future direction: the current split between `SidebarProvider` persisted state
+and `WorkspaceLayoutV2` ephemeral layout state is an implementation boundary,
+not a permanent product model. A later pane model may consolidate these into one
+state tree and persist it either locally for unauthenticated users or through
+the authenticated app state. The local workspace layout context should therefore
+avoid baking in assumptions that sidebar state can never move closer to the pane
+model.
 
 ## Non-Goals
 
