@@ -39,11 +39,6 @@ export type WorkspaceLayoutV2PaneActions = {
   toggleRightPane: () => void;
 };
 
-export type WorkspaceLayoutV2PaneContextValue = {
-  actions: WorkspaceLayoutV2PaneActions;
-  state: WorkspaceLayoutV2PaneState;
-};
-
 const WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE: ElementSize = {
   heightPx: 0,
   widthPx: 0,
@@ -124,8 +119,10 @@ export type WorkspaceLayoutV2Store = ReturnType<
 
 export const WorkspaceLayoutV2Context =
   createContext<WorkspaceLayoutV2Store | null>(null);
-export const WorkspaceLayoutV2PaneContext =
-  createContext<WorkspaceLayoutV2PaneContextValue | null>(null);
+export const WorkspaceLayoutV2PaneActionsContext =
+  createContext<WorkspaceLayoutV2PaneActions | null>(null);
+export const WorkspaceLayoutV2PaneStateContext =
+  createContext<WorkspaceLayoutV2PaneState | null>(null);
 
 /**
  * Returns actions from the layout-local WorkspaceLayoutV2Context store. This
@@ -149,23 +146,31 @@ export function useWorkspaceLayoutV2Selector<T>(
 }
 
 /**
- * Returns durable pane actions from the workspace layout provider. Layout
+ * Returns durable pane actions without subscribing to pane state changes. Layout
  * internals use this instead of importing the raw context or compatibility
- * `useSidebar()` hook, so callers depend on the pane API rather than today's
- * context shape. That keeps future store splits, selectors, or durable/runtime
- * state merges localized to this module.
+ * `useSidebar()` hook, so future pane state reshapes stay localized here.
  */
 export function useWorkspaceLayoutV2PaneActions() {
-  return useWorkspaceLayoutV2PaneContext().actions;
+  const actions = useContext(WorkspaceLayoutV2PaneActionsContext);
+  if (actions === null) {
+    throw new Error("WorkspaceLayoutV2 pane actions context is missing.");
+  }
+
+  return actions;
 }
 
 /**
- * Returns durable pane state from the workspace layout provider. The persisted
- * field names stay sidebar-shaped for now, but this hook hides the raw context
- * shape and keeps v2 layout code attached to the workspace pane boundary.
+ * Returns durable pane state without forcing action-only consumers to rerender
+ * during width or mobile-pane changes. The persisted fields stay sidebar-shaped
+ * for now, but v2 layout code reads them through the pane boundary.
  */
 export function useWorkspaceLayoutV2PaneState() {
-  return useWorkspaceLayoutV2PaneContext().state;
+  const state = useContext(WorkspaceLayoutV2PaneStateContext);
+  if (state === null) {
+    throw new Error("WorkspaceLayoutV2 pane state context is missing.");
+  }
+
+  return state;
 }
 
 function useWorkspaceLayoutV2Store() {
@@ -175,13 +180,4 @@ function useWorkspaceLayoutV2Store() {
   }
 
   return store;
-}
-
-function useWorkspaceLayoutV2PaneContext() {
-  const context = useContext(WorkspaceLayoutV2PaneContext);
-  if (context === null) {
-    throw new Error("WorkspaceLayoutV2 pane context is missing.");
-  }
-
-  return context;
 }

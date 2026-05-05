@@ -79,7 +79,7 @@ function renderPaneContent(content: ReactNode) {
  * "main"; same for "right". Leave persistence untouched so routes that do have
  * that pane can keep using the saved selection.
  */
-function getRenderableMobilePane({
+function getAvailableMobilePane({
   hasLeftPane,
   hasRightPane,
   mobilePane,
@@ -161,7 +161,7 @@ function WorkspaceLayoutV2JustPanesContent({
   const mobilePanePeekWidthPx = getMobilePanePeekWidthPx(
     configuredMobilePanePeekWidthPx,
   );
-  const mobilePane = getRenderableMobilePane({
+  const mobilePane = getAvailableMobilePane({
     hasLeftPane,
     hasRightPane,
     mobilePane: rawMobilePane,

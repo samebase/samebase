@@ -355,9 +355,10 @@ mechanics now share one workspace-layout provider boundary.
 This branch moves workspace-layout-v2 internals off the compatibility
 `useSidebar()` hook:
 
-1. Add a workspace-layout pane context for durable pane state/actions next to
-   the transient layout store.
-2. Have `WorkspaceLayoutSidebarProvider` provide that pane context and keep
+1. Add workspace-layout pane contexts for durable pane state and actions next to
+   the transient layout store. State and actions stay separate so action-only
+   layout consumers do not subscribe to width or selected-pane changes.
+2. Have `WorkspaceLayoutSidebarProvider` provide those pane contexts and keep
    deriving `SidebarContext` for non-layout consumers.
 3. Replace `useSidebar()` reads inside `workspace-layout-v2` with
    workspace-layout pane hooks.

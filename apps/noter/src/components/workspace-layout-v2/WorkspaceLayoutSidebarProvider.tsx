@@ -20,9 +20,9 @@ import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStat
 import {
   useCreateWorkspaceLayoutV2Store,
   WorkspaceLayoutV2Context,
-  WorkspaceLayoutV2PaneContext,
+  WorkspaceLayoutV2PaneActionsContext,
+  WorkspaceLayoutV2PaneStateContext,
   type WorkspaceLayoutV2PaneActions,
-  type WorkspaceLayoutV2PaneContextValue,
   type WorkspaceLayoutV2PaneState,
 } from "./WorkspaceLayoutV2Context";
 
@@ -200,14 +200,6 @@ export function WorkspaceLayoutSidebarProvider({
       toggleRightSidebar,
     ],
   );
-  const workspacePaneContextValue = useMemo<WorkspaceLayoutV2PaneContextValue>(
-    () => ({
-      actions: workspacePaneActions,
-      state: workspacePaneState,
-    }),
-    [workspacePaneActions, workspacePaneState],
-  );
-
   /**
    * Registers the global sidebar shortcut at the workspace layout boundary so
    * route content can keep using `useSidebar` without owning keyboard listeners.
@@ -304,11 +296,15 @@ export function WorkspaceLayoutSidebarProvider({
 
   return (
     <WorkspaceLayoutV2Context.Provider value={workspaceLayoutStore}>
-      <WorkspaceLayoutV2PaneContext.Provider value={workspacePaneContextValue}>
-        <SidebarContext.Provider value={contextValue}>
-          {children}
-        </SidebarContext.Provider>
-      </WorkspaceLayoutV2PaneContext.Provider>
+      <WorkspaceLayoutV2PaneActionsContext.Provider
+        value={workspacePaneActions}
+      >
+        <WorkspaceLayoutV2PaneStateContext.Provider value={workspacePaneState}>
+          <SidebarContext.Provider value={contextValue}>
+            {children}
+          </SidebarContext.Provider>
+        </WorkspaceLayoutV2PaneStateContext.Provider>
+      </WorkspaceLayoutV2PaneActionsContext.Provider>
     </WorkspaceLayoutV2Context.Provider>
   );
 }
