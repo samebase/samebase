@@ -95,6 +95,9 @@ Key domain entities:
 - New or materially changed code should include concise comments that explain
   the constraint or invariant being preserved. Prefer JSDoc above functions when
   a function-level explanation is needed.
+- Prefer comments that name the concrete runtime case over abstract ownership
+  language. For example:
+  `if durable state says "left" but this layout has no left pane, render "main"; same for "right".`
 - Specific app hooks and utilities with non-obvious ownership, timing, or
   synchronization behavior should have function-level JSDoc explaining what they
   do and why the indirection exists.

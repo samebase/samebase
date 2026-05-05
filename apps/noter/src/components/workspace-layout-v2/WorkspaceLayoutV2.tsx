@@ -1,6 +1,5 @@
 import { useRef, type ReactNode } from "react";
 import { useElementSize } from "@/hooks/useElementSize";
-import { useSidebar } from "@/hooks/use-sidebar";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
@@ -20,7 +19,10 @@ import {
 } from "./WorkspaceLayoutV2Geometry";
 import {
   useWorkspaceLayoutV2Actions,
+  useWorkspaceLayoutV2PaneActions,
+  useWorkspaceLayoutV2PaneState,
   useWorkspaceLayoutV2Selector,
+  type WorkspaceLayoutV2PaneState,
 } from "./WorkspaceLayoutV2Context";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
 import {
@@ -73,6 +75,31 @@ function renderPaneContent(content: ReactNode) {
 }
 
 /**
+ * If durable state says "left" but this layout has no left pane, render
+ * "main"; same for "right". Leave persistence untouched so routes that do have
+ * that pane can keep using the saved selection.
+ */
+function getAvailableMobilePane({
+  hasLeftPane,
+  hasRightPane,
+  mobilePane,
+}: {
+  hasLeftPane: boolean;
+  hasRightPane: boolean;
+  mobilePane: WorkspaceLayoutV2PaneState["mobilePane"];
+}) {
+  if (mobilePane === "left" && !hasLeftPane) {
+    return "main";
+  }
+
+  if (mobilePane === "right" && !hasRightPane) {
+    return "main";
+  }
+
+  return mobilePane;
+}
+
+/**
  * Renders pane chrome and content after the workspace layout provider has
  * supplied sidebar state and the transient layout store.
  */
@@ -119,12 +146,14 @@ function WorkspaceLayoutV2JustPanesContent({
     rightDesktopOpen,
     rightDesktopWidthPx,
     rightMobileWidthPx,
+  } = useWorkspaceLayoutV2PaneState();
+  const {
     setLeftDesktopWidthPx,
     setLeftMobileWidthPx,
     setMobilePane,
     setRightDesktopWidthPx,
     setRightMobileWidthPx,
-  } = useSidebar();
+  } = useWorkspaceLayoutV2PaneActions();
   const hasLeftPane = left !== undefined;
   const hasRightPane = right !== null && right !== undefined;
   const shouldShowMobileResizeGripDots =
@@ -132,11 +161,11 @@ function WorkspaceLayoutV2JustPanesContent({
   const mobilePanePeekWidthPx = getMobilePanePeekWidthPx(
     configuredMobilePanePeekWidthPx,
   );
-  const mobilePane =
-    (!hasLeftPane && rawMobilePane === "left") ||
-    (!hasRightPane && rawMobilePane === "right")
-      ? "main"
-      : rawMobilePane;
+  const mobilePane = getAvailableMobilePane({
+    hasLeftPane,
+    hasRightPane,
+    mobilePane: rawMobilePane,
+  });
 
   const desktopLeftWidthPx = hasLeftPane
     ? getDesktopSidebarWidthPx({
