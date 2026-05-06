@@ -16,6 +16,7 @@ import {
 const { boolean, id, object, string, union } = v;
 
 const descriptionValidator = union(string(), v.null());
+const privateValidator = union(boolean(), v.null());
 const githubRepositoryResult = object({
   ghRepoId: string(),
   ownerName: string(),
@@ -111,6 +112,14 @@ export const validateCreateAppConnections = internalAction({
   handler: async (ctx, args) => {
     await assertCreateRun(ctx, args);
 
+    await appendRunEvent(ctx, {
+      runId: args.runId,
+      step: "validate_connections",
+      level: "info",
+      message: "Checking provider connections.",
+      state: "running",
+    });
+
     const repoName = toSafeRepoName(args.repositoryName);
     if (!repoName) {
       throw new Error("Repository name is required.");
@@ -161,14 +170,6 @@ export const validateCreateAppConnections = internalAction({
       }
     }
 
-    await appendRunEvent(ctx, {
-      runId: args.runId,
-      step: "validate_connections",
-      level: "info",
-      message: "Provider connections are ready.",
-      state: "running",
-    });
-
     return null;
   },
 });
@@ -179,7 +180,7 @@ export const createGitHubRepository = internalAction({
     userId: id("users"),
     repositoryName: string(),
     description: descriptionValidator,
-    private: boolean(),
+    private: privateValidator,
   },
   returns: githubRepositoryResult,
   handler: async (ctx, args) => {
@@ -199,11 +200,12 @@ export const createGitHubRepository = internalAction({
     });
 
     const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const description = args.description?.trim();
     const repo = await octokit.rest.repos.createForAuthenticatedUser({
       name: repoName,
       auto_init: false,
-      private: args.private,
-      description: args.description ?? undefined,
+      private: args.private ?? true,
+      description: description ? description : undefined,
     });
 
     const ownerName = repo.data.owner.login;

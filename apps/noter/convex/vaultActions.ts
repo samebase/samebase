@@ -9,8 +9,6 @@ import { getUserId } from "./common";
 import { createInfraProviders } from "./infraProviders";
 import { deleteHostingResources } from "./hostingProviders";
 import { toErrorMessage } from "./jsonUtils";
-import { toSafeRepoName } from "./repoName";
-import { isAdminUser } from "./users";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 
 const { optional } = v;
@@ -83,7 +81,7 @@ async function startCreateAppProvisioningOrFail(
     userId: Id<"users">;
     repositoryName: string;
     description: string | null;
-    private: boolean;
+    private: boolean | null;
   },
 ): Promise<void> {
   try {
@@ -213,71 +211,18 @@ export const createRepository = action({
   }),
   handler: async (ctx, args): Promise<{ runId: Id<"appProvisioningRuns"> }> => {
     const userId = await getUserId(ctx);
-
-    const [
-      currentUser,
-      githubConnection,
-      convexConnection,
-      cloudflareConnection,
-    ] = await Promise.all([
-      ctx.runQuery(internal.users.getById, { userId }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "github",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "convex",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "cloudflare",
-      }),
-    ]);
-
-    if (!currentUser) {
-      throw new Error("User not found.");
-    }
-
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub is not connected");
-    }
-    if (convexConnection?.kind !== "convex") {
-      throw new Error("Convex connection is required to create a project.");
-    }
-    if (cloudflareConnection?.kind !== "cloudflare") {
-      throw new Error(
-        "Cloudflare connection is required to create a Cloudflare-hosted project.",
-      );
-    }
-
-    const isAdmin = isAdminUser(githubConnection.username, currentUser.email);
-    if (!isAdmin) {
-      const plan = currentUser.billingPlan ?? "free";
-      const status = currentUser.billingStatus ?? "inactive";
-      if (!(plan === "pro" && status === "active")) {
-        throw new Error("Upgrade to Pro to create a Noter-managed project.");
-      }
-    }
-
-    const repoName = toSafeRepoName(args.name);
-    if (!repoName) {
-      throw new Error("Repository name is required");
-    }
-
     const runId = await ctx.runMutation(
       internal.appProvisioningRuns.createForAppWorkflow,
       {
         userId,
       },
     );
-    const description = args.description?.trim();
     await startCreateAppProvisioningOrFail(ctx, {
       runId,
       userId,
-      repositoryName: repoName,
-      description: description ? description : null,
-      private: args.private ?? true,
+      repositoryName: args.name,
+      description: args.description ?? null,
+      private: args.private ?? null,
     });
 
     return { runId };
