@@ -132,8 +132,8 @@ export function WorkspaceLayoutV2({
     setRightDesktopWidthPx,
     setRightMobileWidthPx,
   } = useWorkspacePaneActions();
-  const hasLeftPane = left !== undefined;
-  const hasRightPane = right !== undefined;
+  const hasLeftPane = !!left;
+  const hasRightPane = !!right;
   const shouldShowMobileResizeGripDots =
     showMobileResizeGripDots ?? shouldShowMobileResizeGripDotsByDefault();
   const mobilePanePeekWidthPx = getMobilePanePeekWidthPx(

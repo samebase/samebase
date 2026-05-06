@@ -121,23 +121,15 @@ export function WorkspaceLayoutV2FullPage({
 
   return (
     <WorkspaceLayoutV2
-      left={
-        left !== undefined ? (
-          <WorkspaceLayoutV2PaneFrame {...left} />
-        ) : undefined
-      }
+      left={left ? <WorkspaceLayoutV2PaneFrame {...left} /> : undefined}
       main={
         <WorkspaceLayoutV2PaneFrame
           {...main}
           header={
             hideMainHeader ? undefined : (
               <WorkspaceLayoutV2MainPaneHeader
-                leftToggleVisibility={
-                  left !== undefined ? leftToggleVisibility : "hidden"
-                }
-                rightToggleVisibility={
-                  right !== undefined ? rightToggleVisibility : "hidden"
-                }
+                leftToggleVisibility={left ? leftToggleVisibility : "hidden"}
+                rightToggleVisibility={right ? rightToggleVisibility : "hidden"}
               >
                 {main.header}
               </WorkspaceLayoutV2MainPaneHeader>
@@ -148,11 +140,7 @@ export function WorkspaceLayoutV2FullPage({
       mobileMinResizeBehavior={mobileMinResizeBehavior}
       mobilePanePeekWidthPx={mobilePanePeekWidthPx}
       panel={panel}
-      right={
-        right !== undefined ? (
-          <WorkspaceLayoutV2PaneFrame {...right} />
-        ) : undefined
-      }
+      right={right ? <WorkspaceLayoutV2PaneFrame {...right} /> : undefined}
       showMobileResizeGripDots={showMobileResizeGripDots}
       dataTestId={dataTestId}
     />
