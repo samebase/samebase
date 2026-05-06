@@ -1,12 +1,12 @@
 "use node";
 
 import { Infer, v } from "convex/values";
-import { action, type ActionCtx } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { action, type ActionCtx } from "../_generated/server";
+import { api, internal } from "../_generated/api";
 import { Octokit } from "@octokit/rest";
-import { getUserId } from "./common";
-import { Id } from "./_generated/dataModel";
-import { resolveDeploymentProfile } from "./deploymentProfile";
+import { getUserId } from "../common";
+import { Id } from "../_generated/dataModel";
+import { resolveDeploymentProfile } from "../deploymentProfile";
 
 async function getGithubAccessToken(
   ctx: ActionCtx,
@@ -54,7 +54,7 @@ export const createCodespace = action({
     const userId = await getUserId(ctx);
 
     // Get vault details
-    const vault = await ctx.runQuery(internal.codespacesMutations.getVault, {
+    const vault = await ctx.runQuery(internal.codespaces.mutations.getVault, {
       vaultId: args.vaultId,
     });
 
@@ -109,7 +109,7 @@ export const createCodespace = action({
 
     // Store codespace record in database
     const codespaceId = await ctx.runMutation(
-      internal.codespacesMutations.createCodespaceRecord,
+      internal.codespaces.mutations.createCodespaceRecord,
       {
         vaultId: args.vaultId,
         userId,
@@ -157,7 +157,7 @@ export const createCodespace = action({
 
       // Update codespace with connection details
       await ctx.runMutation(
-        internal.codespacesMutations.updateCodespaceConnection,
+        internal.codespaces.mutations.updateCodespaceConnection,
         {
           codespaceId,
           webUrl: updatedCodespace.web_url,
@@ -172,7 +172,7 @@ export const createCodespace = action({
 
       try {
         const portEnsured = await ctx.runAction(
-          api.codespacesPorts.ensureCodespacePortsVisibility,
+          api.codespaces.ports.ensureCodespacePortsVisibility,
           { codespaceId },
         );
         if (!portEnsured.ensured) {
@@ -197,10 +197,13 @@ export const createCodespace = action({
         ghCodespaceName: codespace.name,
         message: formatError(error),
       });
-      await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
-        codespaceId,
-        state: "failed",
-      });
+      await ctx.runMutation(
+        internal.codespaces.mutations.updateCodespaceState,
+        {
+          codespaceId,
+          state: "failed",
+        },
+      );
       throw error;
     }
 
@@ -229,7 +232,7 @@ export const getCodespaceConnection = action({
   ): Promise<Infer<typeof getCodespaceConnectionResult>> => {
     const userId = await getUserId(ctx);
     const codespace = await ctx.runQuery(
-      internal.codespacesMutations.getCodespace,
+      internal.codespaces.mutations.getCodespace,
       {
         codespaceId: args.codespaceId,
       },
@@ -262,7 +265,7 @@ export const startCodespace = action({
     const userId = await getUserId(ctx);
 
     const codespace = await ctx.runQuery(
-      internal.codespacesMutations.getCodespace,
+      internal.codespaces.mutations.getCodespace,
       {
         codespaceId: args.codespaceId,
       },
@@ -284,7 +287,7 @@ export const startCodespace = action({
     });
 
     // Update state to starting
-    await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
+    await ctx.runMutation(internal.codespaces.mutations.updateCodespaceState, {
       codespaceId: args.codespaceId,
       state: "starting",
     });
@@ -293,7 +296,7 @@ export const startCodespace = action({
     await pollCodespaceState(octokit, codespace.ghCodespaceName, "Available");
 
     // Update state to running
-    await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
+    await ctx.runMutation(internal.codespaces.mutations.updateCodespaceState, {
       codespaceId: args.codespaceId,
       state: "running",
       lastStartedAt: Date.now(),
@@ -301,7 +304,7 @@ export const startCodespace = action({
 
     try {
       const portEnsured = await ctx.runAction(
-        api.codespacesPorts.ensureCodespacePortsVisibility,
+        api.codespaces.ports.ensureCodespacePortsVisibility,
         { codespaceId: args.codespaceId },
       );
       if (!portEnsured.ensured) {
@@ -331,7 +334,7 @@ export const stopCodespace = action({
     const userId = await getUserId(ctx);
 
     const codespace = await ctx.runQuery(
-      internal.codespacesMutations.getCodespace,
+      internal.codespaces.mutations.getCodespace,
       {
         codespaceId: args.codespaceId,
       },
@@ -353,7 +356,7 @@ export const stopCodespace = action({
     });
 
     // Update state
-    await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
+    await ctx.runMutation(internal.codespaces.mutations.updateCodespaceState, {
       codespaceId: args.codespaceId,
       state: "stopped",
       lastStoppedAt: Date.now(),
@@ -373,7 +376,7 @@ export const deleteCodespace = action({
     const userId = await getUserId(ctx);
 
     const codespace = await ctx.runQuery(
-      internal.codespacesMutations.getCodespace,
+      internal.codespaces.mutations.getCodespace,
       {
         codespaceId: args.codespaceId,
       },
@@ -389,7 +392,7 @@ export const deleteCodespace = action({
       auth: githubAccessToken,
     });
 
-    await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
+    await ctx.runMutation(internal.codespaces.mutations.updateCodespaceState, {
       codespaceId: args.codespaceId,
       state: "deleting",
     });
@@ -401,21 +404,30 @@ export const deleteCodespace = action({
       });
 
       // Mark as deleted in database
-      await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
-        codespaceId: args.codespaceId,
-        state: "deleted",
-        deletedAt: Date.now(),
-      });
+      await ctx.runMutation(
+        internal.codespaces.mutations.updateCodespaceState,
+        {
+          codespaceId: args.codespaceId,
+          state: "deleted",
+          deletedAt: Date.now(),
+        },
+      );
 
-      await ctx.runMutation(internal.codespacesMutations.clearActiveCodespace, {
-        vaultId: codespace.vaultId,
-        codespaceId: codespace._id,
-      });
+      await ctx.runMutation(
+        internal.codespaces.mutations.clearActiveCodespace,
+        {
+          vaultId: codespace.vaultId,
+          codespaceId: codespace._id,
+        },
+      );
     } catch (error) {
-      await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
-        codespaceId: args.codespaceId,
-        state: "failed",
-      });
+      await ctx.runMutation(
+        internal.codespaces.mutations.updateCodespaceState,
+        {
+          codespaceId: args.codespaceId,
+          state: "failed",
+        },
+      );
       throw error;
     }
 

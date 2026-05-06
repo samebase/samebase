@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { buildCodespaceAgentRestartCommand } from "./codespacesExecutor";
+import { buildCodespaceAgentRestartCommand } from "./executor";
 
 describe("buildCodespaceAgentRestartCommand", () => {
   it("matches both legacy and current codespace agent entrypoints", () => {

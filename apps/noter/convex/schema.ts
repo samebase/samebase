@@ -17,6 +17,7 @@ import {
   machineRegistrationBootstrapRateLimitRowValidator,
   machineRegistrationRequestRowValidator,
 } from "./connectedMachineModel";
+import { codespacesTable } from "./codespaces/model";
 import { workspaceSidebarStateRowValidator } from "./workspaceSidebarStateModel";
 
 const { array, boolean, id, literal, number, object, optional, string, union } =
@@ -67,17 +68,6 @@ export const GithubTreeData = object({
   truncated: boolean(),
   tree: array(GithubTree),
 });
-
-export const CodespaceState = union(
-  literal("creating"),
-  literal("starting"),
-  literal("running"),
-  literal("stopping"),
-  literal("stopped"),
-  literal("deleting"),
-  literal("deleted"),
-  literal("failed"),
-);
 
 export const InfraState = union(
   literal("not_started"),
@@ -571,47 +561,7 @@ export default defineSchema({
     .index("by_vault", ["vaultId"])
     .index("by_vault_and_branch", ["vaultId", "branch"]),
 
-  /**
-   * GitHub Codespaces for AI execution environment.
-   * Each vault can have multiple codespaces over time, but only one active.
-   */
-  codespaces: defineTable({
-    vaultId: id("vaults"),
-    userId: id("users"),
-
-    // GitHub Codespace identifiers
-    ghCodespaceId: string(),
-    ghCodespaceName: string(),
-
-    // State management
-    state: CodespaceState,
-
-    // Connection details (when running)
-    webUrl: optional(string()),
-
-    // HTTP Agent details
-    agentUrl: optional(string()), // https://<codespace>-3000.app.github.dev
-    agentToken: optional(string()), // Random token for authentication
-    agentHealthy: optional(boolean()), // Last health check status
-    portsVisibilityEnsured: optional(boolean()),
-    portsVisibilityEnsuredAt: optional(number()),
-    portsVisibilityLastError: optional(string()),
-
-    // Lifecycle tracking
-    createdAt: number(),
-    lastStartedAt: optional(number()),
-    lastStoppedAt: optional(number()),
-    deletedAt: optional(number()),
-    lastHealthCheckAt: optional(number()),
-
-    // Commit tracking for reproducibility
-    commitSha: string(),
-    branch: string(),
-  })
-    .index("by_vault", ["vaultId"])
-    .index("by_user", ["userId"])
-    .index("by_gh_id", ["ghCodespaceId"])
-    .index("by_state", ["state"]),
+  codespaces: codespacesTable,
 
   /**
    * File staging for real-time collaborative editing.

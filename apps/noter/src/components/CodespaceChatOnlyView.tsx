@@ -46,11 +46,11 @@ export function CodespaceChatOnlyView() {
   );
   const vaultId = vault?._id;
   const codespace = useQuery(
-    api.codespacesMutations.getActiveCodespace,
+    api.codespaces.mutations.getActiveCodespace,
     vaultId ? { vaultId } : "skip",
   );
   const ensureCodespaceReady = useAction(
-    api.vaultCodespaceIntegration.ensureCodespaceReady,
+    api.codespaces.vaultIntegration.ensureCodespaceReady,
   );
   const [isEnsuringCodespace, setIsEnsuringCodespace] = useState(false);
   const [ensureError, setEnsureError] = useState<string | null>(null);

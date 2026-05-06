@@ -1,11 +1,11 @@
 "use node";
 
-import { action, type ActionCtx } from "./_generated/server";
+import { action, type ActionCtx } from "../_generated/server";
 import { Infer, v } from "convex/values";
-import { api, internal } from "./_generated/api";
+import { api, internal } from "../_generated/api";
 import { Octokit } from "@octokit/rest";
-import { getUserId } from "./common";
-import type { Id } from "./_generated/dataModel";
+import { getUserId } from "../common";
+import type { Id } from "../_generated/dataModel";
 
 async function getGithubAccessToken(
   ctx: ActionCtx,
@@ -80,15 +80,14 @@ export const createVaultWithCodespace = action({
       },
     });
 
-    // Store devcontainer config in vault
-    await ctx.runAction(api.vaultCodespaceIntegration.updateVaultDevcontainer, {
+    await ctx.runMutation(internal.vault.updateVaultDevcontainerConfig, {
       vaultId,
       devcontainerConfig,
     });
 
     // Create Codespace
     const { codespaceId } = await ctx.runAction(
-      api.codespaces.createCodespace,
+      api.codespaces.index.createCodespace,
       {
         vaultId,
         branch,
@@ -121,16 +120,16 @@ export const rebuildCodespaceIfStale = action({
     const userId = await getUserId(ctx);
 
     // Get vault and active codespace
-    const vault = await ctx.runQuery(internal.codespacesMutations.getVault, {
+    const vault = await ctx.runQuery(internal.codespaces.mutations.getVault, {
       vaultId: args.vaultId,
     });
 
-    if (!vault) {
+    if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
     }
 
     const activeCodespace = vault.activeCodespaceId
-      ? await ctx.runQuery(internal.codespacesMutations.getCodespace, {
+      ? await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
           codespaceId: vault.activeCodespaceId,
         })
       : null;
@@ -162,14 +161,14 @@ export const rebuildCodespaceIfStale = action({
 
     // Delete old codespace if it exists
     if (activeCodespace) {
-      await ctx.runAction(api.codespaces.deleteCodespace, {
+      await ctx.runAction(api.codespaces.index.deleteCodespace, {
         codespaceId: activeCodespace._id,
       });
     }
 
     // Create new codespace with latest commit
     const { codespaceId } = await ctx.runAction(
-      api.codespaces.createCodespace,
+      api.codespaces.index.createCodespace,
       {
         vaultId: args.vaultId,
         branch,
@@ -201,17 +200,18 @@ export const ensureCodespaceReady = action({
     ctx,
     args,
   ): Promise<Infer<typeof ensureCodespaceReadyResult>> => {
-    const vault = await ctx.runQuery(internal.codespacesMutations.getVault, {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.codespaces.mutations.getVault, {
       vaultId: args.vaultId,
     });
 
-    if (!vault) {
+    if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
     }
 
     // Check if codespace needs rebuild
     const { codespaceId } = await ctx.runAction(
-      api.vaultCodespaceIntegration.rebuildCodespaceIfStale,
+      api.codespaces.vaultIntegration.rebuildCodespaceIfStale,
       { vaultId: args.vaultId },
     );
 
@@ -221,7 +221,7 @@ export const ensureCodespaceReady = action({
 
     // Get codespace state
     const codespace = await ctx.runQuery(
-      internal.codespacesMutations.getCodespace,
+      internal.codespaces.mutations.getCodespace,
       {
         codespaceId,
       },
@@ -233,7 +233,7 @@ export const ensureCodespaceReady = action({
 
     // Start if stopped
     if (codespace.state === "stopped") {
-      await ctx.runAction(api.codespaces.startCodespace, {
+      await ctx.runAction(api.codespaces.index.startCodespace, {
         codespaceId,
       });
     }
@@ -247,7 +247,7 @@ export const ensureCodespaceReady = action({
 
       while (Date.now() - startTime < maxWaitMs) {
         const currentCodespace = await ctx.runQuery(
-          internal.codespacesMutations.getCodespace,
+          internal.codespaces.mutations.getCodespace,
           { codespaceId },
         );
 
@@ -263,12 +263,12 @@ export const ensureCodespaceReady = action({
     // even when the custom agent endpoint is unavailable.
     try {
       const portEnsured = await ctx.runAction(
-        api.codespacesPorts.ensureCodespacePortsVisibility,
+        api.codespaces.ports.ensureCodespacePortsVisibility,
         { codespaceId },
       );
       if (!portEnsured.ensured) {
         console.log(
-          "vaultCodespaceIntegration:ensureCodespaceReady:ports:ensure:failed",
+          "codespaces:vaultIntegration:ensureCodespaceReady:ports:ensure:failed",
           {
             codespaceId,
             results: portEnsured.results,
@@ -277,14 +277,14 @@ export const ensureCodespaceReady = action({
       }
     } catch (error) {
       console.log(
-        "vaultCodespaceIntegration:ensureCodespaceReady:ports:ensure:error",
+        "codespaces:vaultIntegration:ensureCodespaceReady:ports:ensure:error",
         {
           codespaceId,
           message: error instanceof Error ? error.message : String(error),
         },
       );
     }
-    await ctx.runAction(api.codespacesExecutor.checkAgentHealth, {
+    await ctx.runAction(api.codespaces.executor.checkAgentHealth, {
       codespaceId,
     });
 
@@ -292,21 +292,6 @@ export const ensureCodespaceReady = action({
       codespaceId,
       ready: true,
     };
-  },
-});
-
-/**
- * Internal mutation: Update vault devcontainer config
- */
-export const updateVaultDevcontainer = action({
-  args: {
-    vaultId: v.id("vaults"),
-    devcontainerConfig: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.runMutation(internal.vault.updateVaultDevcontainerConfig, args);
-    return null;
   },
 });
 

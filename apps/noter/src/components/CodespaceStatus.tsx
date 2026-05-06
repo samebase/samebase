@@ -97,10 +97,10 @@ export function CodespaceStatus({
   const [isDeletingCodespace, setIsDeletingCodespace] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const ensureCodespaceReady = useAction(
-    api.vaultCodespaceIntegration.ensureCodespaceReady,
+    api.codespaces.vaultIntegration.ensureCodespaceReady,
   );
-  const deleteCodespace = useAction(api.codespaces.deleteCodespace);
-  const codespace = useQuery(api.codespacesMutations.getActiveCodespace, {
+  const deleteCodespace = useAction(api.codespaces.index.deleteCodespace);
+  const codespace = useQuery(api.codespaces.mutations.getActiveCodespace, {
     vaultId,
   });
 

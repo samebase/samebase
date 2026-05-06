@@ -2089,7 +2089,7 @@ export function VaultDashboard() {
   const removeHostingCheckboxId = "remove-cloudflare-provision";
   const removeHostingLabel = "Also remove Cloudflare Pages project";
   const connectedCodespacesCount = useConvexQuery(
-    api.codespacesMutations.getConnectedCodespacesCount,
+    api.codespaces.mutations.getConnectedCodespacesCount,
     vaultToDelete ? { vaultId: vaultToDelete.id } : "skip",
   );
 

@@ -4,6 +4,8 @@
     "nodeVersion": "22"
   },
   "aiFiles": {
-    "enabled": false
+    "skills": {
+      "agents": ["codex"]
+    }
   }
 }
