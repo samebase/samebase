@@ -14,6 +14,13 @@ import {
 import { WorkspaceLayoutV2 } from "./WorkspaceLayoutV2";
 import { useWorkspacePaneActions } from "./WorkspacePaneRuntime";
 
+/**
+ * all = shows sidebar toggle on mobile an desktop
+ *
+ * desktop = shows sidebar toggle on desktop only
+ *
+ * hidden = hides sidebar toggle on both desktop and mobile
+ */
 type WorkspaceLayoutV2ToggleVisibility = "all" | "desktop" | "hidden";
 
 const TOGGLE_BUTTON_CLASS_NAMES = {
