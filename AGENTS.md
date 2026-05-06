@@ -98,6 +98,20 @@ Key domain entities:
 - Prefer comments that name the concrete runtime case over abstract ownership
   language. For example:
   `if durable state says "left" but this layout has no left pane, render "main"; same for "right".`
+- For JSDoc above local types, props, and small config unions, write the app
+  contract in the simplest direct vocabulary. Prefer concrete value meanings
+  over polished prose, and preserve user-authored wording instead of rewriting
+  it. Example:
+  ```ts
+  /**
+   * all = shows sidebar toggle on mobile an desktop
+   *
+   * desktop = shows sidebar toggle on desktop only
+   *
+   * hidden = hides sidebar toggle on both desktop and mobile
+   */
+  type WorkspaceLayoutV2ToggleVisibility = "all" | "desktop" | "hidden";
+  ```
 - Specific app hooks and utilities with non-obvious ownership, timing, or
   synchronization behavior should have function-level JSDoc explaining what they
   do and why the indirection exists.
@@ -113,6 +127,10 @@ Key domain entities:
 - Prefer truthiness checks for typed flags whose domain is already
   `true | undefined`. Use `=== true` only when the distinction from other truthy
   values is part of the current logic.
+- Prefer direct conditions over intermediate variables when the expression is
+  already easy to read. Do not add `!!` coercions, named booleans, helper
+  wrappers, or provider splits just to look more engineered; add a name only
+  when it makes confusing logic clearer.
 - When business logic is tangled with generic mechanics such as picking object
   keys, mapping entries, or reshaping values, step back and separate the two.
   Prefer a small typed utility in the right shared module when it lets the

@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { WorkspaceLayoutSidebarProvider } from "@/components/workspace-layout-v2/WorkspaceLayoutSidebarProvider";
+import { WorkspacePaneRuntimeProvider } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
 import type {
   WorkspaceSidebarState,
@@ -7,7 +7,7 @@ import type {
 } from "../../convex/workspaceSidebarStateModel";
 
 type PersistedSidebarProviderProps = Omit<
-  ComponentProps<typeof WorkspaceLayoutSidebarProvider>,
+  ComponentProps<typeof WorkspacePaneRuntimeProvider>,
   "controller"
 > & {
   defaultState: WorkspaceSidebarState;
@@ -24,7 +24,5 @@ export function PersistedSidebarProvider({
     workspaceKey,
   });
 
-  return (
-    <WorkspaceLayoutSidebarProvider {...props} controller={sidebarState} />
-  );
+  return <WorkspacePaneRuntimeProvider {...props} controller={sidebarState} />;
 }

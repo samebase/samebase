@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter frontend/workspace shell
-- Last updated: 2026-05-05
+- Last updated: 2026-05-06
 - Related files:
   - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
   - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2Geometry.ts`
@@ -77,17 +77,14 @@ After these splits, `WorkspaceLayoutV2.tsx` should primarily contain:
 
 - public component props
 - `WorkspaceLayoutV2FullPage`
-- `WorkspaceLayoutV2ViewportFrame`
-- `WorkspaceLayoutV2JustPanes`
 - main-pane header wiring
-- viewport measurement and small shell-local store state
+- viewport measurement and transient layout store consumption
 - resize-handle construction and mode selection
 
-`WorkspaceLayoutV2JustPanes` is the pane-shell root. It is high enough to see
-viewport size, sidebar state, pane availability, active resize edge, mobile
-surface ownership, carousel settled state, and the selected mobile pane. It is
-therefore the right component boundary for the centralized shell-local layout
-store.
+`WorkspaceLayoutV2` is the pane-shell orchestration root. It is high enough to
+see viewport size, pane state, pane availability, active resize edge, mobile
+surface ownership, carousel settled state, and the selected mobile pane. Do not
+reintroduce wrapper components around it only to preserve old internal names.
 
 `WorkspaceLayoutV2FullPage` should stay an adapter from route-facing
 `WorkspaceLayoutV2PaneFrame` props to rendered pane content. It should not own
@@ -104,14 +101,11 @@ The pane mental model should be represented first as data types, then by pure
 model helpers, then by React hooks that apply those decisions to DOM and sidebar
 state.
 
-The shell-local TanStack store should be created at the
-`WorkspaceLayoutV2JustPanes` boundary and exposed through a folder-private
-`WorkspaceLayoutV2Context`. This keeps the important layout state together while
-preserving smaller files for focused mechanics.
-
-The context should provide the TanStack store object, not a broad plain React
-state object. Consumers inside `workspace-layout-v2/` should read through
-selectors so each module names the state it actually needs.
+The shell-local TanStack store should be created by
+`WorkspacePaneRuntimeProvider` and carried inside the single workspace pane
+runtime context. Consumers inside `workspace-layout-v2/` should read through
+selectors so each module names the state it actually needs, but the selector
+helpers must not create a second React provider or context.
 
 The store should own:
 
@@ -128,6 +122,12 @@ The store should not own:
 - browser DOM refs
 - bottom panel controlled/uncontrolled open state, unless the bottom panel later
   becomes part of the pane model
+
+Pane presence should be a direct prop-presence contract. `WorkspaceLayoutV2`
+should render a side pane only when the caller provides that side pane element.
+Callers should omit absent side panes. If a route intentionally needs an empty
+visible pane, it should pass an explicit empty element such as `<div />`; `null`
+should not be a separate pane-presence state.
 
 Merged surface state should use a discriminated type instead of parallel
 nullable fields:

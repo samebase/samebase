@@ -2,7 +2,7 @@ import { useMemo, type ComponentProps, type ReactNode } from "react";
 import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
-import { WorkspaceLayoutSidebarProvider } from "@/components/workspace-layout-v2/WorkspaceLayoutSidebarProvider";
+import { WorkspacePaneRuntimeProvider } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import {
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
@@ -90,7 +90,7 @@ export function PublicLayoutShell({
 
   return (
     <PublicLandingLogoLinkProvider>
-      <WorkspaceLayoutSidebarProvider
+      <WorkspacePaneRuntimeProvider
         controller={layoutSidebarStateController}
         shortcutPaneSide="right"
       >
@@ -102,7 +102,7 @@ export function PublicLayoutShell({
           leftToggleVisibility={leftToggleVisibility}
           rightToggleVisibility={rightToggleVisibility}
         />
-      </WorkspaceLayoutSidebarProvider>
+      </WorkspacePaneRuntimeProvider>
     </PublicLandingLogoLinkProvider>
   );
 }

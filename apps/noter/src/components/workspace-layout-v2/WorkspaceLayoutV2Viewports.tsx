@@ -1,4 +1,4 @@
-import { type ReactNode, type RefObject } from "react";
+import { type ReactElement, type RefObject } from "react";
 import { cn } from "@/lib/utils";
 import {
   type MobilePane,
@@ -7,9 +7,9 @@ import {
 } from "./WorkspaceLayoutV2Geometry";
 
 type WorkspaceLayoutV2ResolvedPaneContent = {
-  leftContent: ReactNode;
-  mainContent: ReactNode;
-  rightContent: ReactNode;
+  leftContent: ReactElement | undefined;
+  mainContent: ReactElement;
+  rightContent: ReactElement | undefined;
 };
 
 function getMobilePaneSeparatorClass(pane: MobilePane, activePane: MobilePane) {
@@ -28,6 +28,7 @@ type WorkspaceLayoutV2DesktopViewportProps =
     desktopLeftWidthPx: number;
     desktopRightWidthPx: number;
     showLeftPane: boolean;
+    showRightPane: boolean;
   };
 
 export function WorkspaceLayoutV2DesktopViewport({
@@ -38,6 +39,7 @@ export function WorkspaceLayoutV2DesktopViewport({
   mainContent,
   rightContent,
   showLeftPane,
+  showRightPane,
 }: WorkspaceLayoutV2DesktopViewportProps) {
   return (
     <div className="absolute inset-0 flex min-h-0 overflow-hidden bg-background">
@@ -70,25 +72,27 @@ export function WorkspaceLayoutV2DesktopViewport({
         {mainContent}
       </div>
 
-      <div
-        className="h-full min-h-0 shrink-0"
-        style={{ width: `${desktopRightWidthPx}px` }}
-      >
+      {showRightPane ? (
         <div
-          data-testid="workspace-layout-v2-pane-right"
-          className={cn(
-            "flex h-full min-h-0 flex-col overflow-hidden",
-            desktopRightWidthPx > 0
-              ? activeResizeSide === "right"
-                ? "border-l border-primary"
-                : "border-l border-border"
-              : "border-l-0",
-          )}
+          className="h-full min-h-0 shrink-0"
           style={{ width: `${desktopRightWidthPx}px` }}
         >
-          {rightContent}
+          <div
+            data-testid="workspace-layout-v2-pane-right"
+            className={cn(
+              "flex h-full min-h-0 flex-col overflow-hidden",
+              desktopRightWidthPx > 0
+                ? activeResizeSide === "right"
+                  ? "border-l border-primary"
+                  : "border-l border-border"
+                : "border-l-0",
+            )}
+            style={{ width: `${desktopRightWidthPx}px` }}
+          >
+            {rightContent}
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

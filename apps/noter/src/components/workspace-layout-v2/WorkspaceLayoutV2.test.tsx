@@ -104,7 +104,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     );
   });
 
-  it("omits the right toggle when a route does not provide a right pane", () => {
+  it("omits the right pane and right toggle when a route does not provide a right pane", () => {
     const markup = renderToStaticMarkup(
       <WorkspaceLayoutV2TestSidebarProvider>
         <WorkspaceLayoutV2FullPage
@@ -120,6 +120,10 @@ describe("WorkspaceLayoutV2FullPage", () => {
     );
 
     expect(markup).toContain('aria-label="Toggle Left Sidebar"');
+    expect(markup).not.toContain("right pane");
+    expect(markup).not.toContain(
+      'data-testid="workspace-layout-v2-pane-right"',
+    );
     expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
     expect((markup.match(/hidden h-8 w-8 md:inline-flex/g) ?? []).length).toBe(
       1,

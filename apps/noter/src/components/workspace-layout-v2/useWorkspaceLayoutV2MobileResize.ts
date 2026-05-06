@@ -20,7 +20,7 @@ import {
 import {
   useWorkspaceLayoutV2Actions,
   useWorkspaceLayoutV2Selector,
-} from "./WorkspaceLayoutV2Context";
+} from "./WorkspacePaneRuntime";
 import { type WorkspaceLayoutV2ResizeHandleConfig } from "./WorkspaceLayoutV2ResizeHandleConfigs";
 
 /**

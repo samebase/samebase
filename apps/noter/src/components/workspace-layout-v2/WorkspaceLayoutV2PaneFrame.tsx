@@ -4,8 +4,6 @@ export type WorkspaceLayoutV2PaneFrameProps = {
   header?: ReactNode;
   content?: ReactNode;
   footer?: ReactNode;
-
-  // TODO: Maybe pass a prefix so we can add testids for each section
   headerTestId?: string;
 };
 

@@ -1,91 +1,66 @@
-# Workspace Layout Sidebar State Convergence Spec
+# Workspace Layout Pane Runtime Spec
 
 ## Document Control
 
-- Status: Draft
+- Status: Accepted
 - Owner: Noter frontend/workspace shell
 - Last updated: 2026-05-06
 - Related files:
   - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2Context.ts`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutSidebarProvider.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspacePaneRuntime.ts`
+  - `apps/noter/src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx`
   - `apps/noter/src/components/PersistedSidebarProvider.tsx`
   - `apps/noter/src/hooks/usePersistedWorkspaceSidebarState.ts`
   - `apps/noter/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
+  - `apps/noter/src/lib/workspaceSidebarStateController.ts`
   - `apps/noter/src/Layout.tsx`
+  - `vite.config.ts`
 
 ## Summary
 
-`WorkspaceLayoutV2` local state and workspace sidebar state are conceptually
-close. The current split is practical, not a permanent product model:
+`WorkspaceLayoutV2` has several internal components that all need access to pane
+state. The provider exists so those components can read and update pane state
+without passing the same props through every layer.
 
-- `WorkspaceLayoutV2Context` owns ephemeral pane mechanics such as viewport
-  size, active resize edge, mobile merged-surface ownership, grip state, and
-  carousel settled state.
-- `SidebarProvider` owns persisted workspace pane state such as left/right open
-  state, side widths, and selected mobile pane.
+The mental model is one workspace pane runtime:
 
-The long-term direction is to make these feel like one workspace pane state
-model. Storage selection must stay outside the layout core: Convex persistence,
-local storage, and in-memory fixture state should all provide the same state
-controller shape to the workspace shell.
+1. A route chooses where durable pane preferences come from.
+2. The workspace pane runtime receives those preferences through one controller.
+3. Workspace layout components read pane state and actions from that runtime.
 
-Current branch status: production routes already treat sidebar state as
-workspace layout state. `WorkspaceLayoutSidebarProvider` receives a workspace
-sidebar controller, creates the transient `WorkspaceLayoutV2Context` store, and
-provides the durable pane state/action contexts from `WorkspacePaneRuntime` at
-the same boundary. Workspace-layout-v2 internals and route content read durable
-pane state through workspace-layout-owned hooks instead of `useSidebar()`. The
-old `SidebarContext`/`useSidebar()` compatibility layer has no remaining callers
-and should stay deleted. The main remaining design problem is not whether
-sidebars belong to workspace layout; they do. The design problem is how to
-combine durable pane preferences with transient interaction state without moving
-Convex/local-storage selection into the layout core.
+The implementation must use one React context from one provider for this
+runtime. A route should not need to reason about separate sidebar state, layout
+state, state context, actions context, or selector-provider boundaries. The
+runtime value may carry durable pane state/actions and a transient layout store,
+but the React provider and context boundary is singular.
 
-There should be one controller type, `WorkspaceSidebarStateController`.
-Convex-backed routes, public local-storage routes, and tests/fixtures should
-produce that same controller shape through different adapters. Do not create
-separate controller types for each persistence source, and do not use
-localStorage-backed adapters for ordinary fixtures; fixtures should use a tiny
-in-memory controller so they stay deterministic and side-effect free.
+## Runtime Model
 
-## Principles
+The workspace pane runtime has two kinds of state:
 
-- Do not put Convex or local-storage selection inside
-  `WorkspaceLayoutV2JustPanesContent`.
-- Do not make route code manually bridge every sidebar field forever.
-- Keep storage adapters responsible for durability only.
-- Keep the workspace layout responsible for pane behavior only.
-- Use one controller type with multiple producers. Convex, local storage, and
-  fixture memory state are adapters, not different mental models.
-- Treat `WorkspaceLayoutSidebarProvider` as the standard workspace layout
-  boundary for production code. Direct `SidebarProvider` usage should migrate to
-  fixtures/tests only, then disappear as its behavior moves into the workspace
-  layout provider.
-- Prefer TanStack Store for the workspace/sidebar state controller before trying
-  to merge the two current state trees.
-- Make invalid pane states unrepresentable with discriminated types before
-  adding more effects.
-- Prefer one workspace pane runtime context over a generic sidebar context plus
-  a separate layout context.
-- Keep persisted schema renames separate from runtime model cleanup. The
-  database can keep `WorkspaceSidebarState` field names while the runtime model
-  moves toward panes.
-- Keep `workspace-layout-v2` organized as if it could later become a package,
-  without moving it to one yet. Runtime APIs belong beside the layout boundary,
-  not in generic `hooks/` or `components/` folders based only on their React
-  implementation shape.
-- Keep pure app/domain helpers that only need pane names or persisted schema
-  fields pointed at the persisted model, not at the workspace layout runtime.
-  Import the layout runtime only when code needs layout-owned pane state or
-  actions.
+- Durable pane preferences: left/right desktop open state, desktop widths,
+  mobile widths, and selected mobile pane.
+- Ephemeral interaction state: viewport size, active resize side, mobile resize
+  grip, mobile merged-surface ownership, and carousel settled state.
 
-## Current Stepping-Stone Shape
+Durable state is still persisted as `WorkspaceSidebarState`. That schema name is
+historical and should not drive the runtime model. Runtime code should speak in
+panes. Schema renames are a separate migration and are not part of the current
+goal.
 
-PR #711 introduced a workspace sidebar state controller that can be produced by
-multiple storage adapters. This branch normalizes that controller from a
-field-specific setter bag into one durable-state operation:
+Ephemeral state is local to the mounted workspace layout. It should not be
+persisted and should not leak into route storage adapters.
+
+## Storage Boundary
+
+Routes and app shells choose storage. The workspace layout does not.
+
+Current storage producers:
+
+- Convex-backed app routes use `usePersistedWorkspaceSidebarState`.
+- Public routes use `useLocalStorageWorkspaceSidebarState`.
+- Fixtures and component tests use in-memory controllers.
+
+All storage producers expose the same `WorkspaceSidebarStateController` shape:
 
 ```ts
 type WorkspaceSidebarStateController = {
@@ -98,295 +73,121 @@ type WorkspaceSidebarStateController = {
 };
 ```
 
-Route or app-level code chooses storage and passes the controller into a
-workspace-layout-near provider:
+The runtime receives that controller and owns pane behavior such as toggling a
+pane, changing the active mobile pane, updating widths, and handling the global
+pane shortcut.
+
+## Provider Boundary
+
+The provider boundary exists to avoid prop drilling inside
+`workspace-layout-v2`. It should present one conceptual surface:
 
 ```tsx
-const sidebarState = usePersistedWorkspaceSidebarState(...);
-// or useLocalStorageWorkspaceSidebarState(...)
-
-<WorkspaceLayoutSidebarProvider controller={sidebarState}>
-  <WorkspaceLayoutV2FullPage ... />
-</WorkspaceLayoutSidebarProvider>
+<WorkspacePaneRuntimeProvider controller={controller}>
+  <WorkspaceLayoutV2FullPage />
+</WorkspacePaneRuntimeProvider>
 ```
 
-`WorkspaceLayoutSidebarProvider` provides pane state/actions directly. This
-shape is useful because storage adapters now own only durable state while the
-workspace-layout provider owns side-specific pane behavior. It is still a
-stepping stone because the persisted field names remain sidebar-shaped while
-workspace-layout internals move toward pane selectors/actions.
+The current implementation exposes this boundary as
+`WorkspacePaneRuntimeProvider` from `WorkspacePaneRuntime.tsx`. Older
+workspace-sidebar provider names should not be reintroduced as compatibility
+wrappers.
 
-## Revised Target Runtime Shape
+The runtime must keep a single React context. If transient layout interaction
+state needs TanStack Store selectors, the store object should live inside the
+same runtime context value rather than behind another provider. Do not split the
+runtime into separate state, action, layout-store, or selector contexts unless a
+measured product problem proves the split is necessary and this spec is updated
+first. Start from the simplest mental model and let unnecessary plumbing
+disappear first.
 
-The best next shape is a single workspace pane runtime store with two explicit
-slices:
+`workspace-layout-v2` is exempt from the component-only Fast Refresh lint rule.
+This folder should optimize for a readable runtime boundary over splitting
+components, hooks, and types into separate files only to satisfy refresh
+tooling.
 
-```ts
-type WorkspacePaneRuntimeState = {
-  durable: WorkspaceSidebarState;
-  interaction: {
-    activeResizeSide: WorkspaceLayoutV2ActiveResizeSide;
-    mobile: {
-      grip: WorkspaceLayoutV2MobileGrip;
-      isPaneSettled: boolean;
-      surface: WorkspaceLayoutV2MobileSurface;
-    };
-    viewportSize: ElementSize;
-  };
-};
-```
+The provider should not make callers understand:
 
-The durable slice is selected and persisted by route-level adapters:
+- whether state, actions, and the transient layout store are separate internals
+- whether transient state uses TanStack Store
+- whether durable state comes from Convex, local storage, or memory
 
-```ts
-type WorkspacePaneDurableStateController = {
-  isHydrated: boolean;
-  state: WorkspaceSidebarState;
-  setState: (
-    updateState: (currentState: WorkspaceSidebarState) => WorkspaceSidebarState,
-    persistenceMode: "immediate" | "width_deferred",
-  ) => void;
-};
-```
+Callers should only need to know that they are inside the workspace pane
+runtime.
 
-The runtime provider owns workspace pane behavior:
+## Layout Consumers
 
-- side-specific width/open/mobile-pane setters
-- shortcut-side aliases such as `open`, `setOpen`, `toggleSidebar`
-- mobile pane toggles
-- transient resize, viewport, carousel, and merged-surface actions
+Workspace layout internals should consume the runtime directly instead of
+accepting repeated pane props. Examples include:
 
-The storage adapters own only durability:
+- `WorkspaceLayoutV2`
+- `WorkspaceLayoutV2FullPage`
+- mobile resize and carousel helpers
+- header controls that toggle panes
 
-- read defaults/server/local-storage state
-- expose hydration status
-- persist whole durable-state updates immediately or with width deferral
-- recover from persistence errors
+Route content may consume workspace pane runtime hooks when it needs to
+coordinate with the layout, such as selecting the mobile main pane after a file
+selection. Pure domain helpers that only need pane names or persisted schema
+fields should import from the persisted model instead of depending on the
+runtime.
 
-Fixtures and tests should produce the same controller shape with an in-memory
-adapter. They should not use the localStorage hook unless the behavior under
-test is localStorage persistence itself.
+## Pane Presence
 
-This removes the current repeated setter bags from both persistence hooks and
-makes `WorkspaceLayoutSidebarProvider` the real workspace pane provider instead
-of a bridge into a generic `SidebarProvider`.
+Side pane presence is controlled by whether the side pane prop is provided. Omit
+`left` or `right` when the route does not have that pane. Do not use `null` as
+an empty-pane sentinel. If a route intentionally wants a visible empty pane, it
+should pass an explicit empty element such as `<div />` so the callsite owns
+that choice.
 
-## Phases
+The layout should not distinguish `null` from `undefined` to preserve pane
+geometry. Hidden pane structure, resize handles, and mobile carousel positions
+should follow the same rule: provided side pane means pane exists; omitted side
+pane means pane does not exist.
 
-### Phase 1: Name The Controller Shape
+## Design Rules
 
-Extract the shared return shape from `usePersistedWorkspaceSidebarState` and
-`useLocalStorageWorkspaceSidebarState` into a named type near the workspace
-layout or sidebar state model.
+- Prefer the simplest visible model over premature subscription optimization.
+- Keep one React provider and one React context for workspace pane behavior.
+- Keep storage selection outside `workspace-layout-v2`.
+- Keep durable persistence and ephemeral interaction state separate in behavior,
+  even if they are exposed through one runtime.
+- Keep runtime APIs near `workspace-layout-v2`, not in generic `hooks/` folders
+  based only on React implementation shape.
+- Keep the pane runtime provider, hooks, and closely related types together
+  unless moving them apart makes the workspace layout mental model simpler.
+- Do not add compatibility wrappers for app-internal imports.
+- Do not rename persisted schema fields just to match runtime vocabulary.
+- Do not add another provider or context inside `workspace-layout-v2` for
+  refresh-time, organizational, or speculative performance reasons.
+- Do not use `null` to mean "render an empty pane"; omit the pane or pass an
+  explicit empty element.
+- Do not move `workspace-layout-v2` into a package yet, but keep the folder
+  organized as if it could become one later.
 
-Both hooks should return the same controller type. The local-storage hook may
-return `isHydrated: true` so consumers can treat both persistence paths the same
-way.
+## Current State
 
-Implementation: `WorkspaceSidebarStateController` lives in
-`apps/noter/src/lib/workspaceSidebarStateController.ts`.
+The migration that removed the generic `useSidebar` runtime is complete:
 
-### Phase 2: Add A Workspace-Layout Sidebar Provider
+- PR #711 named the controller and added a provider bridge.
+- PR #712 normalized the controller into one durable state updater.
+- PR #713 moved transient layout state to the provider boundary.
+- PR #714 moved `workspace-layout-v2` internals off `useSidebar`.
+- PR #715 moved remaining app consumers off `useSidebar` and deleted the
+  compatibility hook.
+- PR #716 clarified this runtime model and made `WorkspacePaneRuntimeProvider`
+  from `WorkspacePaneRuntime.tsx` the visible provider boundary.
 
-Create a provider near `workspace-layout-v2/` that accepts the controller and
-maps it into the current `SidebarProvider` props.
-
-This removes repeated route-level bridging while preserving existing behavior.
-It also makes the dependency explicit: workspace layout consumes sidebar pane
-state, while storage adapters remain outside the layout.
-
-Implementation: `WorkspaceLayoutSidebarProvider` lives in
-`apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutSidebarProvider.tsx`.
-`PersistedSidebarProvider` now chooses the Convex-backed controller and
-delegates the controller bridge to that provider. `PublicLayoutShell` chooses
-the local-storage controller, applies public-route visibility sanitation, then
-delegates to the same provider.
-
-### Phase 3: Convert `SidebarProvider` Internals To TanStack Store
-
-Replace `SidebarProvider`'s internal `useState` cluster with a TanStack Store.
-Keep its public context API stable during this phase.
-
-This should reduce setter duplication and make later convergence with
-`WorkspaceLayoutV2Context` easier.
-
-Historical implementation: `SidebarProvider` briefly used a private TanStack
-store for its uncontrolled fallback state. That component has since been
-deleted; the durable controller now feeds `SidebarContext` directly from
-`WorkspaceLayoutSidebarProvider`.
-
-### Phase 4: Move Sidebar State Ownership Closer To Workspace Layout
-
-After `SidebarProvider` uses a store and route bridging is gone, evaluate
-whether `SidebarProvider` should remain a generic component or become a
-workspace-layout folder-private provider.
-
-At this point, `useSidebar` may become a workspace-layout selector hook or be
-renamed to match the pane state model.
-
-Decision: `SidebarProvider` is workspace layout state. It should stop being the
-behavior owner. The next phase should move its behavior into
-`WorkspaceLayoutSidebarProvider`, then update direct app-internal callsites and
-fixtures to use workspace-layout-owned providers/controllers.
-
-Current status: direct fixture and component-test `SidebarProvider` mounts have
-been replaced with `WorkspaceLayoutV2MemorySidebarProvider`, which uses the same
-`WorkspaceSidebarStateController` contract as the persisted adapters while
-staying in memory.
-
-Current implementation: `WorkspaceLayoutSidebarProvider` now exposes pane
-state/actions directly from `WorkspaceSidebarStateController`, and the old
-`SidebarProvider` component has been deleted. The later
-`SidebarContext`/`useSidebar()` compatibility layer has also been deleted after
-callers moved to the pane-owned runtime API.
-
-Implementation slices:
-
-1. Replace `WorkspaceSidebarStateController`'s setter bag with a durable
-   controller that exposes `state` and one typed
-   `setState(nextState, persistenceMode)` operation. Keep the persisted schema
-   and hook names stable during this slice.
-2. Replace direct test/fixture `SidebarProvider` usage with a small
-   workspace-layout memory controller that implements the existing
-   `WorkspaceSidebarStateController` type. Do not add a fixture-specific
-   controller type, do not use localStorage for ordinary fixtures, and do not
-   keep a compatibility wrapper for app-internal production code.
-3. Move the current `SidebarProvider` behavior into
-   `WorkspaceLayoutSidebarProvider`. Production routes, fixtures, and tests
-   should not render `SidebarProvider` directly or indirectly after this slice.
-4. Delete `SidebarProvider`'s controlled/uncontrolled prop API, default state,
-   and internal store once `WorkspaceLayoutSidebarProvider` owns durable pane
-   behavior directly.
-5. Move or rename `useSidebar` only after the provider ownership has moved. That
-   compatibility hook has now been replaced by pane-owned runtime hooks.
-
-### Phase 5: Merge Compatible State Trees
-
-Only after the prior phases are stable, evaluate merging:
-
-- selected mobile pane
-- left/right widths
-- mobile merged-surface ownership
-- active resize side
-- grip session state
-- carousel settled state
-
-The final model should describe panes/surfaces rather than treating `main` and
-sidebars as fundamentally different kinds of UI. Persistence can then store the
-durable subset of that model, while ephemeral pointer/viewport state remains
-local.
-
-Decision: merge the runtime contexts before renaming persisted fields. The
-durable slice can remain `WorkspaceSidebarState` for now; the runtime context
-can call it `durable` or `panes` and expose pane selectors/actions. Once the
-runtime state is unified, a future schema migration can decide whether persisted
-field names should become pane-oriented.
-
-Implementation slices:
-
-1. Move `WorkspaceLayoutV2Context`'s transient state into the same provider that
-   owns durable pane behavior.
-2. Move `WorkspaceLayoutV2Provider` from inside `WorkspaceLayoutV2JustPanes` to
-   the page/provider boundary so header controls and panes read one store.
-3. Replace `useSidebar` reads in workspace layout internals with direct
-   workspace pane selectors/actions. Completed in PR #714.
-4. Replace remaining app-internal `useSidebar` consumers with workspace pane
-   hooks and delete the old context once there are no callers. Completed in the
-   current slice.
+This spec should now guide simplification, not more migration churn. The next
+implementation change should only happen if it makes the runtime boundary read
+more like the one-provider mental model above.
 
 ## Non-Goals
 
-- Moving Convex or local-storage logic into `WorkspaceLayoutV2`.
-- Replacing all route persistence in one step.
-- Changing saved sidebar state schema before the controller boundary is clear.
-- Keeping compatibility shims for app-internal imports.
-- Merging transient pointer refs into durable persisted state.
-
-## Completed Implementation Slice (#711)
-
-This first bridge slice was completed in PR #711 and remains here as historical
-context for the controller convergence plan.
-
-Start with the smallest visible improvement:
-
-1. Define the controller type.
-2. Make `useLocalStorageWorkspaceSidebarState` and
-   `usePersistedWorkspaceSidebarState` return it.
-3. Add `WorkspaceLayoutSidebarProvider`.
-4. Replace `PersistedSidebarProvider`'s manual bridge and `PublicLayoutShell`'s
-   manual bridge with the new provider.
-
-This should not change pane behavior. It only clarifies ownership and reduces
-prop plumbing.
-
-## Completed Implementation Slice (#712)
-
-This controller-normalization and provider-collapse slice was completed in PR
-`#712` and remains here as historical context for the runtime convergence plan.
-
-This branch starts with durable controller normalization:
-
-1. Change `WorkspaceSidebarStateController` to hold:
-   - `isHydrated`
-   - `state`
-   - `setState(updateState, persistenceMode)`
-2. Update `usePersistedWorkspaceSidebarState` and
-   `useLocalStorageWorkspaceSidebarState` to return that controller.
-3. Move side-specific setters into `WorkspaceLayoutSidebarProvider`.
-4. Keep `WorkspaceLayoutSidebarProvider` rendering `SidebarProvider` for this
-   slice only, so behavior remains unchanged while the state contract becomes a
-   real controller instead of a prop-shaped bag.
-
-This is the smallest useful step toward combining the states because it removes
-the duplicated setter API at the persistence boundary without yet moving
-transient resize mechanics or changing route behavior.
-
-## Completed Implementation Slice (#713)
-
-This branch moves transient workspace layout state to the same provider boundary
-as durable sidebar state:
-
-1. `WorkspaceLayoutSidebarProvider` creates and provides
-   `WorkspaceLayoutV2Context` next to `SidebarContext`.
-2. `WorkspaceLayoutV2JustPanes` consumes the existing layout context instead of
-   creating an inner provider.
-3. Delete the pass-through `WorkspaceLayoutV2Provider` file once it has no
-   callsites.
-
-This intentionally keeps `useSidebar()` and
-`useWorkspaceLayoutV2Selector()`/`useWorkspaceLayoutV2Actions()` names stable.
-The behavior change is only ownership: durable pane state and transient pane
-mechanics now share one workspace-layout provider boundary.
-
-## Completed Implementation Slice (#714)
-
-This branch moves workspace-layout-v2 internals off the compatibility
-`useSidebar()` hook:
-
-1. Add workspace-layout pane contexts for durable pane state and actions next to
-   the transient layout store. State and actions stay separate so action-only
-   layout consumers do not subscribe to width or selected-pane changes.
-2. Have `WorkspaceLayoutSidebarProvider` provide those pane contexts and keep
-   deriving `SidebarContext` for non-layout consumers.
-3. Replace `useSidebar()` reads inside `workspace-layout-v2` with
-   workspace-layout pane hooks.
-
-This keeps route content compatible while making the v2 layout implementation
-depend on its own pane boundary instead of the old sidebar hook name.
-
-## Current Implementation Slice
-
-This branch makes the pane boundary the app-facing runtime API:
-
-1. Move durable pane state/actions contexts into `WorkspacePaneRuntime.ts` next
-   to the workspace-layout-v2 provider so route content and layout internals
-   depend on the same pane runtime surface. This placement is intentional:
-   whether the public surface is implemented with React hooks is an
-   implementation detail, while the owner is the workspace layout runtime.
-2. Add the open-state setters to pane actions and delete the legacy
-   `SidebarContext` once no callers remain.
-3. Replace remaining runtime `useSidebar()` consumers with `useWorkspacePane*`
-   hooks and point type-only pane imports at pane names.
-
-This should not change persisted state or route behavior. It removes the old
-sidebar-shaped runtime hook while the persisted schema remains stable.
+- Continuing refactors only because historical sidebar names still exist in the
+  persistence schema.
+- Merging all state into one store before there is a concrete readability or
+  behavior reason.
+- Splitting state/actions or transient layout state into multiple React
+  contexts.
+- Moving Convex or local-storage decisions into the workspace layout.
+- Moving `workspace-layout-v2` into a package in the current slice.
