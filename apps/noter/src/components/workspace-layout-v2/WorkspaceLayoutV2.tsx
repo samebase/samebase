@@ -1,6 +1,8 @@
 import { useRef, type ReactNode } from "react";
 import { useElementSize } from "@/hooks/useElementSize";
 import {
+  useWorkspaceLayoutV2Actions,
+  useWorkspaceLayoutV2Selector,
   useWorkspacePaneActions,
   useWorkspacePaneState,
   type WorkspacePaneState,
@@ -22,10 +24,6 @@ import {
   getMobileSidebarWidthPx,
   type WorkspaceLayoutV2MobileMinResizeBehavior,
 } from "./WorkspaceLayoutV2Geometry";
-import {
-  useWorkspaceLayoutV2Actions,
-  useWorkspaceLayoutV2Selector,
-} from "./WorkspaceLayoutV2Context";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
 import {
   WorkspaceLayoutV2DesktopViewport,

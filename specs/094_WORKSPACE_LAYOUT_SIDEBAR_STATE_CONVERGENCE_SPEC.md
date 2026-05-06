@@ -8,7 +8,6 @@
 - Related files:
   - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
   - `apps/noter/src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2Context.ts`
   - `apps/noter/src/components/PersistedSidebarProvider.tsx`
   - `apps/noter/src/hooks/usePersistedWorkspaceSidebarState.ts`
   - `apps/noter/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
@@ -28,10 +27,11 @@ The mental model is one workspace pane runtime:
 2. The workspace pane runtime receives those preferences through one controller.
 3. Workspace layout components read pane state and actions from that runtime.
 
-The implementation may use more than one React context or store internally, but
-that is an implementation detail. The product and architecture model should
-remain one runtime boundary, not separate mental models for sidebar state,
-layout state, state context, and actions context.
+The implementation must use one React context from one provider for this
+runtime. A route should not need to reason about separate sidebar state, layout
+state, state context, actions context, or selector-provider boundaries. The
+runtime value may carry durable pane state/actions and a transient layout store,
+but the React provider and context boundary is singular.
 
 ## Runtime Model
 
@@ -93,11 +93,13 @@ The current implementation exposes this boundary as
 workspace-sidebar provider names should not be reintroduced as compatibility
 wrappers.
 
-Multiple internal contexts are allowed only as an implementation detail. For
-example, the provider may keep a layout-local store context if the internal
-selector helpers need it. Do not split state/actions or add extra selector APIs
-unless a measured rerender problem proves it is needed. Start from the simplest
-mental model and let unnecessary plumbing disappear first.
+The runtime must keep a single React context. If transient layout interaction
+state needs TanStack Store selectors, the store object should live inside the
+same runtime context value rather than behind another provider. Do not split the
+runtime into separate state, action, layout-store, or selector contexts unless a
+measured product problem proves the split is necessary and this spec is updated
+first. Start from the simplest mental model and let unnecessary plumbing
+disappear first.
 
 `workspace-layout-v2` is exempt from the component-only Fast Refresh lint rule.
 This folder should optimize for a readable runtime boundary over splitting
@@ -106,10 +108,9 @@ tooling.
 
 The provider should not make callers understand:
 
-- whether state and actions are separate contexts
+- whether state, actions, and the transient layout store are separate internals
 - whether transient state uses TanStack Store
 - whether durable state comes from Convex, local storage, or memory
-- how many providers are nested internally
 
 Callers should only need to know that they are inside the workspace pane
 runtime.
@@ -133,7 +134,7 @@ runtime.
 ## Design Rules
 
 - Prefer the simplest visible model over premature subscription optimization.
-- Keep one provider boundary for workspace pane behavior.
+- Keep one React provider and one React context for workspace pane behavior.
 - Keep storage selection outside `workspace-layout-v2`.
 - Keep durable persistence and ephemeral interaction state separate in behavior,
   even if they are exposed through one runtime.
@@ -143,6 +144,8 @@ runtime.
   unless moving them apart makes the workspace layout mental model simpler.
 - Do not add compatibility wrappers for app-internal imports.
 - Do not rename persisted schema fields just to match runtime vocabulary.
+- Do not add another provider or context inside `workspace-layout-v2` for
+  refresh-time, organizational, or speculative performance reasons.
 - Do not move `workspace-layout-v2` into a package yet, but keep the folder
   organized as if it could become one later.
 
@@ -169,7 +172,7 @@ more like the one-provider mental model above.
   persistence schema.
 - Merging all state into one store before there is a concrete readability or
   behavior reason.
-- Splitting state/actions or adding selector APIs before a measured rerender
-  problem exists.
+- Splitting state/actions or transient layout state into multiple React
+  contexts.
 - Moving Convex or local-storage decisions into the workspace layout.
 - Moving `workspace-layout-v2` into a package in the current slice.

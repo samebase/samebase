@@ -14,7 +14,7 @@ import {
   type MobilePane,
   type WorkspaceLayoutV2MobileMergedSide,
 } from "./WorkspaceLayoutV2Geometry";
-import { useWorkspaceLayoutV2Actions } from "./WorkspaceLayoutV2Context";
+import { useWorkspaceLayoutV2Actions } from "./WorkspacePaneRuntime";
 
 /**
  * Owns the browser scroll lifecycle for the mobile pane carousel.

@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter frontend/workspace shell
-- Last updated: 2026-05-04
+- Last updated: 2026-05-06
 - Related files:
   - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
   - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2ResizeHandle.tsx`
@@ -297,10 +297,10 @@ merged surface model and restores the ordinary carousel.
 The behavior switch belongs on the workspace layout shell, not on
 `SidebarProvider`.
 
-`SidebarProvider` owns open state, selected mobile pane, and persisted widths.
-The minimum-resize behavior controls gesture semantics and layout resolution, so
-it should be passed through `WorkspaceLayoutV2FullPage` /
-`WorkspaceLayoutV2JustPanes`.
+`WorkspacePaneRuntimeProvider` owns open state, selected mobile pane, and
+persisted widths. The minimum-resize behavior controls gesture semantics and
+layout resolution, so it should be passed through `WorkspaceLayoutV2FullPage` to
+`WorkspaceLayoutV2`.
 
 ## Non-Goals
 
@@ -317,7 +317,7 @@ it should be passed through `WorkspaceLayoutV2FullPage` /
 ### Step 1. Name The Behavior
 
 Add a `mobileMinResizeBehavior` prop to `WorkspaceLayoutV2FullPage` and
-`WorkspaceLayoutV2JustPanes`.
+`WorkspaceLayoutV2`.
 
 Default it to `"min_resize_to_merge"`.
 
