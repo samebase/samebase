@@ -88,6 +88,12 @@ Key domain entities:
 - In Convex modules, define result validators before handlers, derive types via
   `Infer<typeof ...>`, and prefer destructuring validator builders once instead
   of repeated `v.<fn>()` call sites.
+- Default to required properties and required function/mutation/action
+  arguments. Treat every optional field or argument as another explicit state
+  that must be justified by current behavior, data migration, external input, or
+  patch semantics. Start from the simplest required shape, then make something
+  optional only after a real caller or persisted-data constraint proves it needs
+  that extra state.
 - When returning collections from queries or building user-visible lists, always
   choose an explicit deterministic sort order with stable tie-breakers. Do not
   rely on incidental storage order or live-update fields unless the product
