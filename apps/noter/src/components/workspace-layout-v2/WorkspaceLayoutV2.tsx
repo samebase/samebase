@@ -40,16 +40,12 @@ import { useWorkspaceLayoutV2MobileCarouselController } from "./useWorkspaceLayo
 import { useWorkspaceLayoutV2MobileGripResizeController } from "./useWorkspaceLayoutV2MobileResize";
 
 type WorkspaceLayoutV2Props = {
-  dataTestId?: string;
   left?: ReactNode;
   main: ReactNode;
-  right: ReactNode;
-};
-
-type WorkspaceLayoutV2JustPanesProps = WorkspaceLayoutV2Props & {
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
   mobilePanePeekWidthPx?: number;
   panel?: WorkspaceLayoutV2BottomPanelProps;
+  right?: ReactNode;
   showMobileResizeGripDots?: boolean;
 };
 
@@ -101,18 +97,7 @@ function getAvailableMobilePane({
   return mobilePane;
 }
 
-/**
- * Renders pane chrome and content after the workspace layout provider has
- * supplied sidebar state and the transient layout store.
- */
-export function WorkspaceLayoutV2JustPanes(
-  props: WorkspaceLayoutV2JustPanesProps,
-) {
-  return <WorkspaceLayoutV2JustPanesContent {...props} />;
-}
-
-function WorkspaceLayoutV2JustPanesContent({
-  dataTestId,
+export function WorkspaceLayoutV2({
   left,
   main,
   mobileMinResizeBehavior = "min_resize_to_merge",
@@ -121,7 +106,7 @@ function WorkspaceLayoutV2JustPanesContent({
   panel,
   right,
   showMobileResizeGripDots,
-}: WorkspaceLayoutV2JustPanesProps) {
+}: WorkspaceLayoutV2Props) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
   const activeResizeSide = useWorkspaceLayoutV2Selector(
@@ -157,7 +142,7 @@ function WorkspaceLayoutV2JustPanesContent({
     setRightMobileWidthPx,
   } = useWorkspacePaneActions();
   const hasLeftPane = left !== undefined;
-  const hasRightPane = right !== null && right !== undefined;
+  const hasRightPane = right !== undefined;
   const shouldShowMobileResizeGripDots =
     showMobileResizeGripDots ?? shouldShowMobileResizeGripDotsByDefault();
   const mobilePanePeekWidthPx = getMobilePanePeekWidthPx(
@@ -349,7 +334,6 @@ function WorkspaceLayoutV2JustPanesContent({
   return (
     <div
       ref={viewportRef}
-      data-testid={dataTestId}
       data-mobile-pane={isMobile ? mobilePane : undefined}
       data-workspace-layout-v2={isMobile ? "mobile" : "desktop"}
       className="relative flex min-h-0 flex-1 overflow-hidden bg-background"

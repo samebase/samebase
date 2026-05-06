@@ -11,7 +11,7 @@ import {
   DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX,
   type WorkspaceLayoutV2MobileMinResizeBehavior,
 } from "./WorkspaceLayoutV2Geometry";
-import { WorkspaceLayoutV2JustPanes } from "./WorkspaceLayoutV2";
+import { WorkspaceLayoutV2 } from "./WorkspaceLayoutV2";
 import { useWorkspacePaneActions } from "./WorkspacePaneRuntime";
 
 type WorkspaceLayoutV2LeftToggleVisibility = "all" | "desktop" | "hidden";
@@ -79,27 +79,6 @@ function WorkspaceLayoutV2MainPaneHeader({
   );
 }
 
-/**
- * V2 owns one contained workspace viewport inside the normal page shell rather
- * than asking the app-level frame to lock the whole document.
- */
-function WorkspaceLayoutV2ViewportFrame({
-  children,
-  dataTestId,
-}: {
-  children: ReactNode;
-  dataTestId?: string;
-}) {
-  return (
-    <div
-      data-testid={dataTestId}
-      className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
-    >
-      {children}
-    </div>
-  );
-}
-
 export function WorkspaceLayoutV2FullPage({
   dataTestId,
   left,
@@ -139,8 +118,11 @@ export function WorkspaceLayoutV2FullPage({
     : !hasMainHeaderContent && !hasDesktopHeaderToggle;
 
   return (
-    <WorkspaceLayoutV2ViewportFrame dataTestId={dataTestId}>
-      <WorkspaceLayoutV2JustPanes
+    <div
+      data-testid={dataTestId}
+      className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
+    >
+      <WorkspaceLayoutV2
         left={
           hasLeftPane ? <WorkspaceLayoutV2PaneFrame {...left} /> : undefined
         }
@@ -166,9 +148,11 @@ export function WorkspaceLayoutV2FullPage({
         mobileMinResizeBehavior={mobileMinResizeBehavior}
         mobilePanePeekWidthPx={mobilePanePeekWidthPx}
         panel={panel}
-        right={hasRightPane ? <WorkspaceLayoutV2PaneFrame {...right} /> : null}
+        right={
+          hasRightPane ? <WorkspaceLayoutV2PaneFrame {...right} /> : undefined
+        }
         showMobileResizeGripDots={showMobileResizeGripDots}
       />
-    </WorkspaceLayoutV2ViewportFrame>
+    </div>
   );
 }
