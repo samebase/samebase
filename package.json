@@ -41,6 +41,7 @@
     "clean": "rm -rf .turbo .vite coverage test-results apps/noter/dist apps/noter/dev-dist apps/noter/e2e/test-results apps/noter/e2e/live-test-results",
     "test": "vp test",
     "test:ci": "pnpm test && PLAYWRIGHT_VITE_PORT=43121 pnpm --filter noter test:visual",
+    "test:convex": "vp test --project convex",
     "test:visual:linux": "node ./scripts/playwright-linux-docker.ts",
     "test:watch": "vp test watch",
     "dev:noter": "node ./scripts/run-primary-dev.ts",
@@ -63,9 +64,11 @@
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "0.0.1-alpha.4",
+    "@edge-runtime/vm": "^5.0.0",
     "@playwright/test": "1.58.2",
     "@robolex/sure": "^0.12.0",
     "@typescript/native-preview": "7.0.0-dev.20260413.1",
+    "convex-test": "^0.0.51",
     "eslint-plugin-react-refresh": "^0.4.7",
     "typescript": "5.9.2",
     "vite-plus": "0.1.16"

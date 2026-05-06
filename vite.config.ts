@@ -151,14 +151,37 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: "node",
-    include: [
-      "scripts/**/*.test.ts",
-      "apps/**/*.test.ts",
-      "apps/**/*.test.tsx",
-      "packages/**/*.test.ts",
-      "packages/**/*.test.tsx",
-    ],
     exclude: ["**/node_modules/**", "dist", "dev-dist"],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          environment: "node",
+          include: [
+            "scripts/**/*.test.ts",
+            "apps/**/*.test.ts",
+            "apps/**/*.test.tsx",
+            "packages/**/*.test.ts",
+            "packages/**/*.test.tsx",
+          ],
+          exclude: [
+            "**/node_modules/**",
+            "dist",
+            "dev-dist",
+            "apps/noter/convex/**/*.convex.test.ts",
+          ],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "convex",
+          environment: "edge-runtime",
+          include: ["apps/noter/convex/**/*.convex.test.ts"],
+          exclude: ["**/node_modules/**", "dist", "dev-dist"],
+        },
+      },
+    ],
   },
 });
