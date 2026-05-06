@@ -54,8 +54,8 @@ flowchart LR
 
 ### Vault Creation Paths
 
-- `createRepository` (`vaultActions.ts`): creates a noter-managed GitHub repo,
-  creates vault, and starts the infra provisioning Workflow.
+- `createRepository` (`vaultActions.ts`): creates an app provisioning run and
+  starts the full create-app Workflow.
 - `connectRepository` (`vaultActions.ts`): connects an existing GitHub repo and
   creates vault without infra auto-provisioning.
 

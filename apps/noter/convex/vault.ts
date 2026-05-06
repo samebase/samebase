@@ -509,6 +509,65 @@ export const addVault = internalMutation({
   },
 });
 
+export const addNoterManagedVaultForUser = internalMutation({
+  args: {
+    userId: id("users"),
+    ghRepoId: string(),
+    ghRepoOwner: string(),
+    ghRepoName: string(),
+    treeSHA: string(),
+    commitSHA: optional(string()),
+    treeData: GithubTreeData,
+    hostingProvider: hostingProviderValidator,
+  },
+  returns: id("vaults"),
+  handler: async (ctx, args): Promise<Id<"vaults">> => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const existingVault = await ctx.db
+      .query("vaults")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("userId"), args.userId),
+          q.eq(q.field("ghRepoId"), args.ghRepoId),
+        ),
+      )
+      .first();
+
+    if (existingVault) {
+      if (!existingVault.commitSHA && args.commitSHA) {
+        await ctx.db.patch(existingVault._id, { commitSHA: args.commitSHA });
+      }
+      if (!existingVault.hostingProvider) {
+        await ctx.db.patch(existingVault._id, {
+          hostingProvider: args.hostingProvider,
+        });
+      }
+      return existingVault._id;
+    }
+
+    return await ctx.db.insert("vaults", {
+      userId: args.userId,
+      ghRepoId: args.ghRepoId,
+      ghRepoOwner: args.ghRepoOwner,
+      ghRepoName: args.ghRepoName,
+      treeSHA: args.treeSHA,
+      commitSHA: args.commitSHA,
+      treeData: args.treeData,
+      state: "ready",
+      isNoterManaged: true,
+      hostingProvider: args.hostingProvider,
+      infraState: "not_started",
+      infraLastError: undefined,
+      infraLastProvisionedAt: undefined,
+      infraProvisioningStartedAt: undefined,
+    });
+  },
+});
+
 export const markVaultAsReady = internalMutation({
   args: {
     vaultId: v.id("vaults"),

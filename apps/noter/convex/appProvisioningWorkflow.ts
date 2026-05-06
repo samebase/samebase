@@ -10,8 +10,8 @@ const { boolean, id, object, string } = v;
 
 const workflowCompletionContext = object({
   runId: id("appProvisioningRuns"),
-  vaultId: id("vaults"),
 });
+const createAppDescription = v.union(string(), v.null());
 
 export function resolveWorkflowCompletionError(
   result: RunResult,
@@ -92,6 +92,157 @@ export const provisionVaultInfrastructure = workflow.define({
   },
 });
 
+export const provisionApp = workflow.define({
+  args: {
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    repositoryName: string(),
+    description: createAppDescription,
+    private: boolean(),
+  },
+  returns: v.null(),
+  handler: async (step, args): Promise<null> => {
+    await step.runAction(
+      internal.appProvisioningWorkflowActions.validateCreateAppConnections,
+      {
+        runId: args.runId,
+        userId: args.userId,
+        repositoryName: args.repositoryName,
+      },
+      { name: "validate_connections", retry: false },
+    );
+    const repository = await step.runAction(
+      internal.appProvisioningWorkflowActions.createGitHubRepository,
+      {
+        runId: args.runId,
+        userId: args.userId,
+        repositoryName: args.repositoryName,
+        description: args.description,
+        private: args.private,
+      },
+      { name: "create_github_repo", retry: false },
+    );
+    await step.runAction(
+      internal.appProvisioningWorkflowActions.seedStarterRepository,
+      {
+        runId: args.runId,
+        userId: args.userId,
+        ownerName: repository.ownerName,
+        repoName: repository.repoName,
+        defaultBranch: repository.defaultBranch,
+      },
+      { name: "seed_starter", retry: false },
+    );
+    const { vaultId } = await step.runAction(
+      internal.appProvisioningWorkflowActions.createVaultForRepository,
+      {
+        runId: args.runId,
+        userId: args.userId,
+        ghRepoId: repository.ghRepoId,
+        ownerName: repository.ownerName,
+        repoName: repository.repoName,
+        defaultBranch: repository.defaultBranch,
+      },
+      { name: "create_vault", retry: false },
+    );
+    const { claimed } = await step.runMutation(
+      internal.infraProvisioning.claimWorkflowProvisioning,
+      {
+        vaultId,
+        runId: args.runId,
+        force: false,
+      },
+      { name: "claim_infra" },
+    );
+    if (!claimed) {
+      return null;
+    }
+
+    await step.runAction(
+      internal.infraProvisioning.validateProvisioningConnections,
+      {
+        vaultId,
+        runId: args.runId,
+      },
+      { name: "validate_infra_connections", retry: false },
+    );
+    await step.runAction(
+      internal.infraProvisioning.ensureConvexInfrastructure,
+      {
+        vaultId,
+        runId: args.runId,
+      },
+      { name: "ensure_convex", retry: false },
+    );
+    await step.runAction(
+      internal.infraProvisioning.ensureConvexPreviewInfrastructure,
+      {
+        vaultId,
+        runId: args.runId,
+      },
+      { name: "ensure_convex_preview", retry: false },
+    );
+    await step.runAction(
+      internal.infraProvisioning.ensureCloudflareInfrastructure,
+      {
+        vaultId,
+        runId: args.runId,
+      },
+      { name: "ensure_cloudflare", retry: false },
+    );
+    await step.runMutation(
+      internal.infraProvisioning.finishWorkflowProvisioning,
+      {
+        vaultId,
+        runId: args.runId,
+      },
+      { name: "finish" },
+    );
+
+    return null;
+  },
+});
+
+export const startCreateAppProvisioning = internalMutation({
+  args: {
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    repositoryName: string(),
+    description: createAppDescription,
+    private: boolean(),
+  },
+  returns: string(),
+  handler: async (ctx, args): Promise<string> => {
+    const workflowId: string = await workflow.start(
+      ctx,
+      internal.appProvisioningWorkflow.provisionApp,
+      args,
+      {
+        startAsync: true,
+        onComplete:
+          internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        context: {
+          runId: args.runId,
+        },
+      },
+    );
+
+    await ctx.db.patch(args.runId, {
+      workflowId,
+      updatedAt: Date.now(),
+    });
+    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      runId: args.runId,
+      step: "validate_connections",
+      level: "info",
+      message: "Queued app provisioning.",
+      state: "queued",
+    });
+
+    return workflowId;
+  },
+});
+
 export const startVaultInfrastructureProvisioning = internalMutation({
   args: {
     vaultId: id("vaults"),
@@ -114,7 +265,6 @@ export const startVaultInfrastructureProvisioning = internalMutation({
           internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
         context: {
           runId: args.runId,
-          vaultId: args.vaultId,
         },
       },
     );
@@ -170,7 +320,6 @@ export const handleProvisioningWorkflowComplete = internalMutation({
     await ctx.runMutation(
       internal.infraProvisioning.markWorkflowProvisioningFailed,
       {
-        vaultId: args.context.vaultId,
         runId: args.context.runId,
         workflowId: args.workflowId,
         message: toErrorMessage(error),

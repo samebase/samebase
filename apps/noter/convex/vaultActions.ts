@@ -12,10 +12,6 @@ import { toErrorMessage } from "./jsonUtils";
 import { toSafeRepoName } from "./repoName";
 import { isAdminUser } from "./users";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
-import {
-  createStarterSeedGitClient,
-  seedRepositoryWithStarter,
-} from "./starterSeed";
 
 const { optional } = v;
 
@@ -46,17 +42,6 @@ function isProviderNotFoundError(error: unknown): boolean {
   );
 }
 
-function readDefaultBranch(repoData: unknown): string {
-  if (typeof repoData !== "object" || repoData === null) {
-    return "main";
-  }
-  const value = Reflect.get(repoData, "default_branch");
-  if (typeof value === "string" && value.length > 0) {
-    return value;
-  }
-  return "main";
-}
-
 async function startVaultInfrastructureProvisioningOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
@@ -83,6 +68,41 @@ async function startVaultInfrastructureProvisioningOrFail(
     } catch (markError) {
       console.error("vault:provisioning_start_failure_mark_failed", {
         vaultId: args.vaultId,
+        runId: args.runId,
+        message: toErrorMessage(markError),
+      });
+    }
+    throw error;
+  }
+}
+
+async function startCreateAppProvisioningOrFail(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    repositoryName: string;
+    description: string | null;
+    private: boolean;
+  },
+): Promise<void> {
+  try {
+    await ctx.runMutation(
+      internal.appProvisioningWorkflow.startCreateAppProvisioning,
+      args,
+    );
+  } catch (error) {
+    const message = toErrorMessage(error);
+    try {
+      await ctx.runMutation(
+        internal.infraProvisioning.markWorkflowStartupFailed,
+        {
+          runId: args.runId,
+          message,
+        },
+      );
+    } catch (markError) {
+      console.error("vault:create:provisioning_start_failure_mark_failed", {
         runId: args.runId,
         message: toErrorMessage(markError),
       });
@@ -189,9 +209,9 @@ export const createRepository = action({
     private: optional(v.boolean()),
   },
   returns: v.object({
-    vaultId: v.string(),
+    runId: v.id("appProvisioningRuns"),
   }),
-  handler: async (ctx, args): Promise<{ vaultId: string }> => {
+  handler: async (ctx, args): Promise<{ runId: Id<"appProvisioningRuns"> }> => {
     const userId = await getUserId(ctx);
 
     const [
@@ -245,127 +265,22 @@ export const createRepository = action({
       throw new Error("Repository name is required");
     }
 
-    const octokit = new Octokit({
-      auth: githubConnection.auth.credential,
-    });
-
-    const repo = await octokit.rest.repos.createForAuthenticatedUser({
-      name: repoName,
-      auto_init: false,
-      private: args.private ?? true,
-      description: args.description ?? undefined,
-    });
-
-    const ownerName = repo.data.owner.login;
-    const repoFinalName = repo.data.name;
-    const defaultBranch = readDefaultBranch(repo.data);
-
-    try {
-      await seedRepositoryWithStarter({
-        client: createStarterSeedGitClient(octokit),
-        owner: ownerName,
-        repo: repoFinalName,
-        defaultBranch,
-      });
-    } catch (error) {
-      const seedErrorMessage = toErrorMessage(error);
-      let cleanupErrorMessage: string | undefined;
-
-      console.error("seed:failed", {
-        repo: `${ownerName}/${repoFinalName}`,
-        message: seedErrorMessage,
-      });
-
-      try {
-        await octokit.rest.repos.delete({
-          owner: ownerName,
-          repo: repoFinalName,
-        });
-      } catch (cleanupError) {
-        cleanupErrorMessage = toErrorMessage(cleanupError);
-        console.error("seed:cleanup_failed", {
-          repo: `${ownerName}/${repoFinalName}`,
-          message: cleanupErrorMessage,
-        });
-      }
-
-      if (cleanupErrorMessage) {
-        throw new Error(
-          `Failed to seed starter repository: ${seedErrorMessage}. Cleanup also failed: ${cleanupErrorMessage}`,
-        );
-      }
-
-      throw new Error(`Failed to seed starter repository: ${seedErrorMessage}`);
-    }
-
-    const tree = await octokit.rest.git.getTree({
-      owner: ownerName,
-      repo: repoFinalName,
-      tree_sha: defaultBranch,
-      recursive: "1",
-    });
-    const branchData = await octokit.rest.repos.getBranch({
-      owner: ownerName,
-      repo: repoFinalName,
-      branch: defaultBranch,
-    });
-
-    const vaultId = await ctx.runMutation(internal.vault.addVault, {
-      ghRepoId: repo.data.id.toString(),
-      ghRepoOwner: ownerName,
-      ghRepoName: repoFinalName,
-      treeSHA: tree.data.sha,
-      commitSHA: branchData.data.commit.sha,
-      treeData: tree.data,
-      state: "ready",
-      isNoterManaged: true,
-      hostingProvider: "cloudflare",
-    });
-    const repositoryFullName = `${ownerName}/${repoFinalName}`;
     const runId = await ctx.runMutation(
-      internal.appProvisioningRuns.createForVault,
+      internal.appProvisioningRuns.createForAppWorkflow,
       {
         userId,
-        vaultId,
-        trigger: "create",
       },
     );
-    try {
-      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
-        runId,
-        step: "create_github_repo",
-        level: "info",
-        message: `Created GitHub repository ${repositoryFullName}.`,
-        state: "unchanged",
-      });
-      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
-        runId,
-        step: "seed_starter",
-        level: "info",
-        message: "Seeded the starter app.",
-        state: "unchanged",
-      });
-      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
-        runId,
-        step: "create_vault",
-        level: "info",
-        message: "Created the Noter vault.",
-        state: "unchanged",
-      });
-    } catch {
-      console.warn("vault:create:provisioning_event_append_failed", {
-        vaultId,
-        repositoryFullName,
-      });
-    }
-
-    await startVaultInfrastructureProvisioningOrFail(ctx, {
-      vaultId,
+    const description = args.description?.trim();
+    await startCreateAppProvisioningOrFail(ctx, {
       runId,
-      force: false,
+      userId,
+      repositoryName: repoName,
+      description: description ? description : null,
+      private: args.private ?? true,
     });
 
-    return { vaultId };
+    return { runId };
   },
 });
 
