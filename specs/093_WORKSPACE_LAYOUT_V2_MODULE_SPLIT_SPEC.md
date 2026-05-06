@@ -123,6 +123,12 @@ The store should not own:
 - bottom panel controlled/uncontrolled open state, unless the bottom panel later
   becomes part of the pane model
 
+Pane presence should be a direct prop-presence contract. `WorkspaceLayoutV2`
+should render a side pane only when the caller provides that side pane element.
+Callers should omit absent side panes. If a route intentionally needs an empty
+visible pane, it should pass an explicit empty element such as `<div />`; `null`
+should not be a separate pane-presence state.
+
 Merged surface state should use a discriminated type instead of parallel
 nullable fields:
 

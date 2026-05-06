@@ -131,6 +131,19 @@ selection. Pure domain helpers that only need pane names or persisted schema
 fields should import from the persisted model instead of depending on the
 runtime.
 
+## Pane Presence
+
+Side pane presence is controlled by whether the side pane prop is provided. Omit
+`left` or `right` when the route does not have that pane. Do not use `null` as
+an empty-pane sentinel. If a route intentionally wants a visible empty pane, it
+should pass an explicit empty element such as `<div />` so the callsite owns
+that choice.
+
+The layout should not distinguish `null` from `undefined` to preserve pane
+geometry. Hidden pane structure, resize handles, and mobile carousel positions
+should follow the same rule: provided side pane means pane exists; omitted side
+pane means pane does not exist.
+
 ## Design Rules
 
 - Prefer the simplest visible model over premature subscription optimization.
@@ -146,6 +159,8 @@ runtime.
 - Do not rename persisted schema fields just to match runtime vocabulary.
 - Do not add another provider or context inside `workspace-layout-v2` for
   refresh-time, organizational, or speculative performance reasons.
+- Do not use `null` to mean "render an empty pane"; omit the pane or pass an
+  explicit empty element.
 - Do not move `workspace-layout-v2` into a package yet, but keep the folder
   organized as if it could become one later.
 

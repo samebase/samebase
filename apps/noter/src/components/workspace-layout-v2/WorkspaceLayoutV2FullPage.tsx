@@ -115,40 +115,46 @@ export function WorkspaceLayoutV2FullPage({
     (left && leftToggleVisibility === "all") ||
     (right && rightToggleVisibility === "all");
 
-  const shouldHideMainHeader = isMobile
+  const hideMainHeader = isMobile
     ? !main.header && !hasMobileHeaderToggle
     : !main.header && !hasDesktopHeaderToggle;
 
   return (
-    <div
-      data-testid={dataTestId}
-      className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
-    >
-      <WorkspaceLayoutV2
-        left={left ? <WorkspaceLayoutV2PaneFrame {...left} /> : undefined}
-        main={
-          <WorkspaceLayoutV2PaneFrame
-            {...main}
-            header={
-              shouldHideMainHeader ? undefined : (
-                <WorkspaceLayoutV2MainPaneHeader
-                  leftToggleVisibility={left ? leftToggleVisibility : "hidden"}
-                  rightToggleVisibility={
-                    right ? rightToggleVisibility : "hidden"
-                  }
-                >
-                  {main.header}
-                </WorkspaceLayoutV2MainPaneHeader>
-              )
-            }
-          />
-        }
-        mobileMinResizeBehavior={mobileMinResizeBehavior}
-        mobilePanePeekWidthPx={mobilePanePeekWidthPx}
-        panel={panel}
-        right={right ? <WorkspaceLayoutV2PaneFrame {...right} /> : undefined}
-        showMobileResizeGripDots={showMobileResizeGripDots}
-      />
-    </div>
+    <WorkspaceLayoutV2
+      left={
+        left !== undefined ? (
+          <WorkspaceLayoutV2PaneFrame {...left} />
+        ) : undefined
+      }
+      main={
+        <WorkspaceLayoutV2PaneFrame
+          {...main}
+          header={
+            hideMainHeader ? undefined : (
+              <WorkspaceLayoutV2MainPaneHeader
+                leftToggleVisibility={
+                  left !== undefined ? leftToggleVisibility : "hidden"
+                }
+                rightToggleVisibility={
+                  right !== undefined ? rightToggleVisibility : "hidden"
+                }
+              >
+                {main.header}
+              </WorkspaceLayoutV2MainPaneHeader>
+            )
+          }
+        />
+      }
+      mobileMinResizeBehavior={mobileMinResizeBehavior}
+      mobilePanePeekWidthPx={mobilePanePeekWidthPx}
+      panel={panel}
+      right={
+        right !== undefined ? (
+          <WorkspaceLayoutV2PaneFrame {...right} />
+        ) : undefined
+      }
+      showMobileResizeGripDots={showMobileResizeGripDots}
+      dataTestId={dataTestId}
+    />
   );
 }
