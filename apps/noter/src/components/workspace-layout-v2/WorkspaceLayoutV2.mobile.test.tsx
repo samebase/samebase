@@ -85,6 +85,7 @@ type RenderMobileLayoutArgs = {
   mobilePanePeekWidthPx?: number;
   mobilePane?: WorkspaceSidebarState["mobilePane"];
   rightMobileWidthPx?: number;
+  rightToggleVisibility?: "all" | "desktop" | "hidden";
   showMobileResizeGripDots?: boolean;
 };
 
@@ -114,6 +115,7 @@ function renderMobileLayoutContent({
   mainHeader = OMIT_HEADER,
   mobileMinResizeBehavior,
   mobilePanePeekWidthPx = MOBILE_PANE_PEEK_PX,
+  rightToggleVisibility,
   showMobileResizeGripDots,
 }: Omit<
   RenderMobileLayoutArgs,
@@ -151,6 +153,7 @@ function renderMobileLayoutContent({
           : undefined
       }
       leftToggleVisibility={leftToggleVisibility}
+      rightToggleVisibility={rightToggleVisibility}
       showMobileResizeGripDots={showMobileResizeGripDots}
     />
   );
@@ -361,6 +364,9 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(
       rootElement.querySelector('button[aria-label="Toggle sidebar"]'),
     ).toBeNull();
+    expect(
+      rootElement.querySelector('[aria-label="Toggle Right Sidebar"]'),
+    ).toBeNull();
 
     act(() => {
       mountedRoot.render(renderMobileLayout({ leftToggleVisibility: "all" }));
@@ -385,6 +391,37 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         .querySelector("[data-workspace-layout-v2]")
         ?.getAttribute("data-mobile-pane"),
     ).toBe("left");
+  });
+
+  it("keeps the right all-viewport sidebar toggle opt-in", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(renderMobileLayout({ rightToggleVisibility: "all" }));
+    });
+
+    const rightToggle = getRequiredElement(
+      rootElement,
+      '[aria-label="Toggle Right Sidebar"]',
+    );
+    expect(
+      rootElement
+        .querySelector("[data-workspace-layout-v2]")
+        ?.getAttribute("data-mobile-pane"),
+    ).toBe("main");
+
+    act(() => {
+      rightToggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(
+      rootElement
+        .querySelector("[data-workspace-layout-v2]")
+        ?.getAttribute("data-mobile-pane"),
+    ).toBe("right");
   });
 
   it("scrolls the carousel when code recenters the mobile pane after mount", () => {
