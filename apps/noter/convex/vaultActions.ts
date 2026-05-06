@@ -9,13 +9,7 @@ import { getUserId } from "./common";
 import { createInfraProviders } from "./infraProviders";
 import { deleteHostingResources } from "./hostingProviders";
 import { toErrorMessage } from "./jsonUtils";
-import { toSafeRepoName } from "./repoName";
-import { isAdminUser } from "./users";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
-import {
-  createStarterSeedGitClient,
-  seedRepositoryWithStarter,
-} from "./starterSeed";
 
 const { optional } = v;
 
@@ -46,17 +40,6 @@ function isProviderNotFoundError(error: unknown): boolean {
   );
 }
 
-function readDefaultBranch(repoData: unknown): string {
-  if (typeof repoData !== "object" || repoData === null) {
-    return "main";
-  }
-  const value = Reflect.get(repoData, "default_branch");
-  if (typeof value === "string" && value.length > 0) {
-    return value;
-  }
-  return "main";
-}
-
 async function startVaultInfrastructureProvisioningOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
@@ -83,6 +66,41 @@ async function startVaultInfrastructureProvisioningOrFail(
     } catch (markError) {
       console.error("vault:provisioning_start_failure_mark_failed", {
         vaultId: args.vaultId,
+        runId: args.runId,
+        message: toErrorMessage(markError),
+      });
+    }
+    throw error;
+  }
+}
+
+async function startCreateAppProvisioningOrFail(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    repositoryName: string;
+    description: string | null;
+    private: boolean;
+  },
+): Promise<void> {
+  try {
+    await ctx.runMutation(
+      internal.appProvisioningWorkflow.startCreateAppProvisioning,
+      args,
+    );
+  } catch (error) {
+    const message = toErrorMessage(error);
+    try {
+      await ctx.runMutation(
+        internal.infraProvisioning.markWorkflowStartupFailed,
+        {
+          runId: args.runId,
+          message,
+        },
+      );
+    } catch (markError) {
+      console.error("vault:create:provisioning_start_failure_mark_failed", {
         runId: args.runId,
         message: toErrorMessage(markError),
       });
@@ -189,183 +207,25 @@ export const createRepository = action({
     private: optional(v.boolean()),
   },
   returns: v.object({
-    vaultId: v.string(),
+    runId: v.id("appProvisioningRuns"),
   }),
-  handler: async (ctx, args): Promise<{ vaultId: string }> => {
+  handler: async (ctx, args): Promise<{ runId: Id<"appProvisioningRuns"> }> => {
     const userId = await getUserId(ctx);
-
-    const [
-      currentUser,
-      githubConnection,
-      convexConnection,
-      cloudflareConnection,
-    ] = await Promise.all([
-      ctx.runQuery(internal.users.getById, { userId }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "github",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "convex",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "cloudflare",
-      }),
-    ]);
-
-    if (!currentUser) {
-      throw new Error("User not found.");
-    }
-
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub is not connected");
-    }
-    if (convexConnection?.kind !== "convex") {
-      throw new Error("Convex connection is required to create a project.");
-    }
-    if (cloudflareConnection?.kind !== "cloudflare") {
-      throw new Error(
-        "Cloudflare connection is required to create a Cloudflare-hosted project.",
-      );
-    }
-
-    const isAdmin = isAdminUser(githubConnection.username, currentUser.email);
-    if (!isAdmin) {
-      const plan = currentUser.billingPlan ?? "free";
-      const status = currentUser.billingStatus ?? "inactive";
-      if (!(plan === "pro" && status === "active")) {
-        throw new Error("Upgrade to Pro to create a Noter-managed project.");
-      }
-    }
-
-    const repoName = toSafeRepoName(args.name);
-    if (!repoName) {
-      throw new Error("Repository name is required");
-    }
-
-    const octokit = new Octokit({
-      auth: githubConnection.auth.credential,
-    });
-
-    const repo = await octokit.rest.repos.createForAuthenticatedUser({
-      name: repoName,
-      auto_init: false,
-      private: args.private ?? true,
-      description: args.description ?? undefined,
-    });
-
-    const ownerName = repo.data.owner.login;
-    const repoFinalName = repo.data.name;
-    const defaultBranch = readDefaultBranch(repo.data);
-
-    try {
-      await seedRepositoryWithStarter({
-        client: createStarterSeedGitClient(octokit),
-        owner: ownerName,
-        repo: repoFinalName,
-        defaultBranch,
-      });
-    } catch (error) {
-      const seedErrorMessage = toErrorMessage(error);
-      let cleanupErrorMessage: string | undefined;
-
-      console.error("seed:failed", {
-        repo: `${ownerName}/${repoFinalName}`,
-        message: seedErrorMessage,
-      });
-
-      try {
-        await octokit.rest.repos.delete({
-          owner: ownerName,
-          repo: repoFinalName,
-        });
-      } catch (cleanupError) {
-        cleanupErrorMessage = toErrorMessage(cleanupError);
-        console.error("seed:cleanup_failed", {
-          repo: `${ownerName}/${repoFinalName}`,
-          message: cleanupErrorMessage,
-        });
-      }
-
-      if (cleanupErrorMessage) {
-        throw new Error(
-          `Failed to seed starter repository: ${seedErrorMessage}. Cleanup also failed: ${cleanupErrorMessage}`,
-        );
-      }
-
-      throw new Error(`Failed to seed starter repository: ${seedErrorMessage}`);
-    }
-
-    const tree = await octokit.rest.git.getTree({
-      owner: ownerName,
-      repo: repoFinalName,
-      tree_sha: defaultBranch,
-      recursive: "1",
-    });
-    const branchData = await octokit.rest.repos.getBranch({
-      owner: ownerName,
-      repo: repoFinalName,
-      branch: defaultBranch,
-    });
-
-    const vaultId = await ctx.runMutation(internal.vault.addVault, {
-      ghRepoId: repo.data.id.toString(),
-      ghRepoOwner: ownerName,
-      ghRepoName: repoFinalName,
-      treeSHA: tree.data.sha,
-      commitSHA: branchData.data.commit.sha,
-      treeData: tree.data,
-      state: "ready",
-      isNoterManaged: true,
-      hostingProvider: "cloudflare",
-    });
-    const repositoryFullName = `${ownerName}/${repoFinalName}`;
     const runId = await ctx.runMutation(
-      internal.appProvisioningRuns.createForVault,
+      internal.appProvisioningRuns.createForAppWorkflow,
       {
         userId,
-        vaultId,
-        trigger: "create",
       },
     );
-    try {
-      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
-        runId,
-        step: "create_github_repo",
-        level: "info",
-        message: `Created GitHub repository ${repositoryFullName}.`,
-        state: "unchanged",
-      });
-      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
-        runId,
-        step: "seed_starter",
-        level: "info",
-        message: "Seeded the starter app.",
-        state: "unchanged",
-      });
-      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
-        runId,
-        step: "create_vault",
-        level: "info",
-        message: "Created the Noter vault.",
-        state: "unchanged",
-      });
-    } catch {
-      console.warn("vault:create:provisioning_event_append_failed", {
-        vaultId,
-        repositoryFullName,
-      });
-    }
-
-    await startVaultInfrastructureProvisioningOrFail(ctx, {
-      vaultId,
+    await startCreateAppProvisioningOrFail(ctx, {
       runId,
-      force: false,
+      userId,
+      repositoryName: args.name,
+      description: args.description ?? null,
+      private: args.private ?? true,
     });
 
-    return { vaultId };
+    return { runId };
   },
 });
 

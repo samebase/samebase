@@ -18,6 +18,7 @@ import type * as agentGraphLayout from "../agentGraphLayout.js";
 import type * as appProvisioningEvents from "../appProvisioningEvents.js";
 import type * as appProvisioningRuns from "../appProvisioningRuns.js";
 import type * as appProvisioningWorkflow from "../appProvisioningWorkflow.js";
+import type * as appProvisioningWorkflowActions from "../appProvisioningWorkflowActions.js";
 import type * as auth from "../auth.js";
 import type * as billing from "../billing.js";
 import type * as chat_actions from "../chat/actions.js";
@@ -110,6 +111,7 @@ declare const fullApi: ApiFromModules<{
   appProvisioningEvents: typeof appProvisioningEvents;
   appProvisioningRuns: typeof appProvisioningRuns;
   appProvisioningWorkflow: typeof appProvisioningWorkflow;
+  appProvisioningWorkflowActions: typeof appProvisioningWorkflowActions;
   auth: typeof auth;
   billing: typeof billing;
   "chat/actions": typeof chat_actions;

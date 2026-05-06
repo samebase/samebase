@@ -16,22 +16,27 @@ Adopt Convex Workflow for the create-new-app provisioning lifecycle so Noter can
 show one durable, user-readable run instead of collapsing GitHub, Convex,
 Cloudflare, env setup, and deployment state into a coarse dashboard label.
 
-The first implementation slice should not rewrite the whole create path. It
-should add durable provisioning logs and a simple dashboard log textarea so the
-current async provisioning path becomes observable before the Workflow
-migration.
+The implementation is phased: first make the current path observable, then move
+post-vault infrastructure into Workflow, then move the full create-app path into
+Workflow once the run model is proven.
 
 ## Current Runtime State
 
 `vaultActions.createRepository` currently:
 
 1. validates GitHub, Convex, and Cloudflare provider connections
+2. creates an `appProvisioningRuns` row with explicit pre-vault target state
+3. starts `internal.appProvisioningWorkflow.provisionApp`
+
+`appProvisioningWorkflow.provisionApp` currently:
+
+1. validates provider connections
 2. creates the GitHub repository
 3. seeds the starter app
 4. fetches the initial branch tree
 5. creates a Noter vault row
-6. creates an `appProvisioningRuns` row
-7. starts `internal.appProvisioningWorkflow.provisionVaultInfrastructure`
+6. links the run and early events to the vault
+7. runs the post-vault infrastructure steps
 
 `appProvisioningWorkflow.provisionVaultInfrastructure` currently:
 
@@ -70,8 +75,8 @@ completed component records.
 
 ## Non-Goals
 
-1. Rewrite repository creation, starter seeding, Convex provisioning, and
-   Cloudflare provisioning in one PR.
+1. Replace the existing provider helper internals while moving orchestration
+   into Workflow.
 2. Store secrets, tokens, provider credentials, env var values, or raw provider
    payloads in logs.
 3. Add a polished timeline UI before the backend run model is proven.
@@ -87,8 +92,8 @@ Add an app-owned run table before moving execution into Workflow:
 ```ts
 appProvisioningRuns: {
   userId: Id<"users">;
-  vaultId: Id<"vaults">;
-  repositoryFullName: string;
+  vaultId: Id<"vaults"> | null;
+  repositoryFullName: string | null;
   workflowId?: string;
   trigger: "create" | "retry";
   state: "queued" | "running" | "succeeded" | "failed" | "canceled";
@@ -103,6 +108,11 @@ appProvisioningRuns: {
 `run_created` is the explicit initial `currentStep` value. It means the run row
 exists, but no provisioning step event has advanced it yet. New writes must not
 use missing `currentStep` as an implicit state.
+
+For create-app workflows, `vaultId: null` is the explicit state before the
+`create_vault` step creates the vault row. `repositoryFullName: null` is the
+explicit state before GitHub returns the final owner/name. These fields are not
+optional.
 
 Run event helpers must also make state transitions explicit. Use
 `state: "unchanged"` for log-only events instead of omitting the run state
@@ -162,8 +172,8 @@ Add an app-owned event table for provisioning visibility:
 ```ts
 appProvisioningEvents: {
   userId: Id<"users">;
-  vaultId?: Id<"vaults">;
-  repositoryFullName?: string;
+  vaultId: Id<"vaults"> | null;
+  repositoryFullName: string | null;
   runId?: Id<"appProvisioningRuns">;
   step:
     | "validate_connections"
@@ -283,7 +293,8 @@ Phase 3: Full create-app Workflow.
 1. Move GitHub repository creation and starter seeding into Workflow steps.
 2. Track a run before the vault exists.
 3. Link the run to `vaultId` once the vault row is created.
-4. Let retry resume from the failed step instead of re-running completed
+4. Link pre-vault events to `vaultId` once the vault row is created.
+5. Let retry resume from the failed step instead of re-running completed
    provider operations.
 
 ## UI States

@@ -1369,18 +1369,20 @@ export const markWorkflowStartupFailed = internalMutation({
 
     const now = Date.now();
     const safeRunError = "Provisioning workflow failed to start.";
-    const vault = await ctx.db.get(run.vaultId);
-    if (
-      vault &&
-      vault.isNoterManaged === true &&
-      vault.infraState !== "ready"
-    ) {
-      await ctx.db.patch(run.vaultId, {
-        infraState: "failed",
-        infraLastError: args.message,
-        infraLastProvisionedAt: now,
-        infraProvisioningStartedAt: undefined,
-      });
+    if (run.vaultId !== null) {
+      const vault = await ctx.db.get(run.vaultId);
+      if (
+        vault &&
+        vault.isNoterManaged === true &&
+        vault.infraState !== "ready"
+      ) {
+        await ctx.db.patch(run.vaultId, {
+          infraState: "failed",
+          infraLastError: args.message,
+          infraLastProvisionedAt: now,
+          infraProvisioningStartedAt: undefined,
+        });
+      }
     }
 
     await ctx.db.patch(args.runId, {
@@ -1394,7 +1396,7 @@ export const markWorkflowStartupFailed = internalMutation({
       vaultId: run.vaultId,
       repositoryFullName: run.repositoryFullName,
       runId: args.runId,
-      step: "claim_infra",
+      step: run.vaultId === null ? "validate_connections" : "claim_infra",
       level: "error",
       message: safeRunError,
       createdAt: now,
@@ -1412,7 +1414,6 @@ export const markWorkflowStartupFailed = internalMutation({
 
 export const markWorkflowProvisioningFailed = internalMutation({
   args: {
-    vaultId: v.id("vaults"),
     runId: v.id("appProvisioningRuns"),
     workflowId: v.string(),
     message: v.string(),
@@ -1423,9 +1424,6 @@ export const markWorkflowProvisioningFailed = internalMutation({
     if (!run) {
       throw new Error("Provisioning run not found.");
     }
-    if (run.vaultId !== args.vaultId) {
-      throw new Error("Workflow failure run does not belong to vault.");
-    }
     if (run.state === "succeeded" || run.state === "canceled") {
       return null;
     }
@@ -1434,13 +1432,47 @@ export const markWorkflowProvisioningFailed = internalMutation({
     }
 
     const now = Date.now();
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    const eventStep =
+      run.currentStep === "run_created" && run.vaultId === null
+        ? "validate_connections"
+        : run.currentStep === "run_created"
+          ? "claim_infra"
+          : run.currentStep;
+    if (run.vaultId === null) {
+      const safeRunError =
+        run.currentStep === "run_created"
+          ? "Provisioning failed before the first step."
+          : `Provisioning failed during ${run.currentStep}.`;
+      await ctx.db.patch(args.runId, {
+        state: "failed",
+        lastError: safeRunError,
+        updatedAt: now,
+        completedAt: now,
+      });
+      await ctx.runMutation(internal.appProvisioningEvents.append, {
+        userId: run.userId,
+        vaultId: null,
+        repositoryFullName: run.repositoryFullName,
+        runId: args.runId,
+        step: eventStep,
+        level: "error",
+        message: safeRunError,
+        createdAt: now,
+      });
+      console.error("app:provision:failed", {
+        repo: run.repositoryFullName,
+        step: run.currentStep,
+        message: args.message,
+      });
+      return null;
+    }
+
+    const vaultId = run.vaultId;
+    const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
     const ownsActiveClaim = isActiveProvisioningOwner(ownership, {
       runId: args.runId,
     });
     const failedBeforeClaim = run.currentStep === "run_created";
-    const eventStep =
-      run.currentStep === "run_created" ? "claim_infra" : run.currentStep;
     if (!ownsActiveClaim && !failedBeforeClaim) {
       await cancelSupersededProvisioningRun(ctx, {
         runId: args.runId,
@@ -1451,7 +1483,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
 
     const infrastructure = await ctx.db
       .query("vaultInfrastructure")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
       .first();
     const infraState = resolveInfraStateAfterWorkflowFailure({
       convexProjectId: infrastructure?.convexProjectId,
@@ -1471,7 +1503,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
         });
       } else {
         await ctx.db.insert("vaultInfrastructure", {
-          vaultId: args.vaultId,
+          vaultId,
           status: infraState,
           lastError: args.message,
           lastProvisionedAt: now,
@@ -1479,7 +1511,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
         });
       }
 
-      await ctx.db.patch(args.vaultId, {
+      await ctx.db.patch(vaultId, {
         infraState,
         infraLastError: args.message,
         infraLastProvisionedAt: now,
@@ -1498,7 +1530,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
     });
     await ctx.runMutation(internal.appProvisioningEvents.append, {
       userId: run.userId,
-      vaultId: run.vaultId,
+      vaultId,
       repositoryFullName: run.repositoryFullName,
       runId: args.runId,
       step: eventStep,
@@ -1508,7 +1540,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
     });
 
     console.error("infra:provision:failed", {
-      vaultId: args.vaultId,
+      vaultId,
       repo: run.repositoryFullName,
       infraState,
       step: run.currentStep,

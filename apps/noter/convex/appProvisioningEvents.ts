@@ -3,16 +3,18 @@ import { internalMutation, query } from "./_generated/server";
 import { AppProvisioningEventLevel, AppProvisioningStep } from "./schema";
 import { getUserId } from "./common";
 
-const { array, id, number, object, optional, string } = v;
+const { array, id, number, object, optional, string, union } = v;
 const MAX_PROVISIONING_EVENTS = 80;
 const MAX_PROVISIONING_MESSAGE_LENGTH = 800;
+const vaultIdOrNull = union(id("vaults"), v.null());
+const repositoryFullNameOrNull = union(string(), v.null());
 
 const provisioningEventResult = object({
   _id: id("appProvisioningEvents"),
   createdAt: number(),
   level: AppProvisioningEventLevel,
   message: string(),
-  repositoryFullName: string(),
+  repositoryFullName: repositoryFullNameOrNull,
   // TODO(app-provisioning-runs): Remove optionality after legacy phase-1
   // events are backfilled with run ids and the schema is narrowed.
   runId: optional(id("appProvisioningRuns")),
@@ -29,8 +31,8 @@ function normalizeProvisioningMessage(message: string): string {
 export const append = internalMutation({
   args: {
     userId: id("users"),
-    vaultId: id("vaults"),
-    repositoryFullName: string(),
+    vaultId: vaultIdOrNull,
+    repositoryFullName: repositoryFullNameOrNull,
     runId: id("appProvisioningRuns"),
     step: AppProvisioningStep,
     level: AppProvisioningEventLevel,
