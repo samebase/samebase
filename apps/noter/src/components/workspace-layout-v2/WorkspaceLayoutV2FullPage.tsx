@@ -12,7 +12,7 @@ import {
   type WorkspaceLayoutV2MobileMinResizeBehavior,
 } from "./WorkspaceLayoutV2Geometry";
 import { WorkspaceLayoutV2JustPanes } from "./WorkspaceLayoutV2";
-import { useWorkspaceLayoutV2PaneActions } from "./WorkspaceLayoutV2Context";
+import { useWorkspacePaneActions } from "./WorkspacePaneRuntime";
 
 type WorkspaceLayoutV2LeftToggleVisibility = "all" | "desktop" | "hidden";
 type WorkspaceLayoutV2RightToggleVisibility = "desktop" | "hidden";
@@ -34,7 +34,7 @@ function WorkspaceLayoutV2MainPaneHeader({
   leftToggleVisibility?: WorkspaceLayoutV2LeftToggleVisibility;
   rightToggleVisibility?: WorkspaceLayoutV2RightToggleVisibility;
 }) {
-  const { toggleLeftPane, toggleRightPane } = useWorkspaceLayoutV2PaneActions();
+  const { toggleLeftPane, toggleRightPane } = useWorkspacePaneActions();
   const leftToggleButtonClassName =
     leftToggleVisibility === "hidden"
       ? null

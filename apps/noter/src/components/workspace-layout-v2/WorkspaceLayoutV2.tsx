@@ -1,5 +1,10 @@
 import { useRef, type ReactNode } from "react";
 import { useElementSize } from "@/hooks/useElementSize";
+import {
+  useWorkspacePaneActions,
+  useWorkspacePaneState,
+  type WorkspacePaneState,
+} from "./WorkspacePaneRuntime";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
@@ -19,10 +24,7 @@ import {
 } from "./WorkspaceLayoutV2Geometry";
 import {
   useWorkspaceLayoutV2Actions,
-  useWorkspaceLayoutV2PaneActions,
-  useWorkspaceLayoutV2PaneState,
   useWorkspaceLayoutV2Selector,
-  type WorkspaceLayoutV2PaneState,
 } from "./WorkspaceLayoutV2Context";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
 import {
@@ -86,7 +88,7 @@ function getAvailableMobilePane({
 }: {
   hasLeftPane: boolean;
   hasRightPane: boolean;
-  mobilePane: WorkspaceLayoutV2PaneState["mobilePane"];
+  mobilePane: WorkspacePaneState["mobilePane"];
 }) {
   if (mobilePane === "left" && !hasLeftPane) {
     return "main";
@@ -146,14 +148,14 @@ function WorkspaceLayoutV2JustPanesContent({
     rightDesktopOpen,
     rightDesktopWidthPx,
     rightMobileWidthPx,
-  } = useWorkspaceLayoutV2PaneState();
+  } = useWorkspacePaneState();
   const {
     setLeftDesktopWidthPx,
     setLeftMobileWidthPx,
     setMobilePane,
     setRightDesktopWidthPx,
     setRightMobileWidthPx,
-  } = useWorkspaceLayoutV2PaneActions();
+  } = useWorkspacePaneActions();
   const hasLeftPane = left !== undefined;
   const hasRightPane = right !== null && right !== undefined;
   const shouldShowMobileResizeGripDots =

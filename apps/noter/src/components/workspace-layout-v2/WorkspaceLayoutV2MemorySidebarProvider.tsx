@@ -1,26 +1,26 @@
 import { type ReactNode } from "react";
-import type { SidebarSide } from "@/hooks/use-sidebar";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
+import type { WorkspacePaneSide } from "./WorkspacePaneRuntime";
 import { useWorkspaceLayoutV2MemorySidebarController } from "./useWorkspaceLayoutV2MemorySidebarController";
 import { WorkspaceLayoutSidebarProvider } from "./WorkspaceLayoutSidebarProvider";
 
 type WorkspaceLayoutV2MemorySidebarProviderProps = {
   children: ReactNode;
   initialState: WorkspaceSidebarState;
-  shortcutSidebarSide?: SidebarSide;
+  shortcutPaneSide?: WorkspacePaneSide;
 };
 
 export function WorkspaceLayoutV2MemorySidebarProvider({
   children,
   initialState,
-  shortcutSidebarSide,
+  shortcutPaneSide,
 }: WorkspaceLayoutV2MemorySidebarProviderProps) {
   const controller = useWorkspaceLayoutV2MemorySidebarController(initialState);
 
   return (
     <WorkspaceLayoutSidebarProvider
       controller={controller}
-      shortcutSidebarSide={shortcutSidebarSide}
+      shortcutPaneSide={shortcutPaneSide}
     >
       {children}
     </WorkspaceLayoutSidebarProvider>

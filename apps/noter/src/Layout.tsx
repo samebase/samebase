@@ -9,7 +9,6 @@ import {
 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { useLocalStorageWorkspaceSidebarState } from "@/hooks/useLocalStorageWorkspaceSidebarState";
-import type { MobileSidebarPane } from "@/hooks/use-sidebar";
 import {
   PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY,
   isPublicLayoutSidebarResetRequested,
@@ -17,7 +16,10 @@ import {
 import { sanitizePublicLayoutSidebarState } from "@/lib/publicLayoutSidebarState";
 import { readRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useLocation } from "@tanstack/react-router";
-import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
+import type {
+  WorkspaceMobileSidebarPane,
+  WorkspaceSidebarState,
+} from "../convex/workspaceSidebarStateModel";
 
 const PUBLIC_LAYOUT_LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const PUBLIC_LAYOUT_LEFT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 240;
@@ -41,7 +43,7 @@ export function PublicLayoutShell({
   children?: ReactNode;
   dataTestId?: WorkspaceLayoutV2FullPageProps["dataTestId"];
   defaultLeftOpen?: boolean;
-  defaultMobilePane?: MobileSidebarPane;
+  defaultMobilePane?: WorkspaceMobileSidebarPane;
   left?: WorkspaceLayoutV2PaneFrameProps;
   leftToggleVisibility?: WorkspaceLayoutV2FullPageProps["leftToggleVisibility"];
   main?: WorkspaceLayoutV2PaneFrameProps;
@@ -90,7 +92,7 @@ export function PublicLayoutShell({
     <PublicLandingLogoLinkProvider>
       <WorkspaceLayoutSidebarProvider
         controller={layoutSidebarStateController}
-        shortcutSidebarSide="right"
+        shortcutPaneSide="right"
       >
         <WorkspaceLayoutV2FullPage
           dataTestId={dataTestId}

@@ -1,5 +1,8 @@
 import { type ComponentProps } from "react";
-import { type MobileSidebarPane, type SidebarSide } from "@/hooks/use-sidebar";
+import {
+  type WorkspaceMobilePane,
+  type WorkspacePaneSide,
+} from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import { Layout } from "@/Layout";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
@@ -14,9 +17,9 @@ type WorkspaceLayoutV2FixtureFrameProps = ComponentProps<
   defaultOpen?: boolean;
   defaultRightOpen?: boolean;
   desktopSidebarWidthPx?: number;
-  mobilePane?: MobileSidebarPane;
+  mobilePane?: WorkspaceMobilePane;
   rightMobileWidthPx?: number;
-  shortcutSidebarSide?: SidebarSide;
+  shortcutPaneSide?: WorkspacePaneSide;
 };
 
 /**
@@ -30,7 +33,7 @@ export function WorkspaceLayoutV2FixtureFrame({
   desktopSidebarWidthPx = WORKSPACE_LAYOUT_V2_FIXTURE_SIDEBAR_WIDTH_PX,
   mobilePane,
   rightMobileWidthPx,
-  shortcutSidebarSide,
+  shortcutPaneSide,
   left,
   main,
   mobileMinResizeBehavior,
@@ -53,7 +56,7 @@ export function WorkspaceLayoutV2FixtureFrame({
     <Layout>
       <WorkspaceLayoutV2MemorySidebarProvider
         initialState={initialSidebarState}
-        shortcutSidebarSide={shortcutSidebarSide}
+        shortcutPaneSide={shortcutPaneSide}
       >
         <WorkspaceLayoutV2FullPage
           dataTestId={dataTestId}

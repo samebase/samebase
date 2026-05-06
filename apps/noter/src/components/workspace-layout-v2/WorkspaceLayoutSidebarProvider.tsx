@@ -5,12 +5,6 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
-import {
-  SidebarContext,
-  type MobileSidebarPane,
-  type SidebarContextProps,
-  type SidebarSide,
-} from "@/hooks/use-sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type {
   WorkspaceSidebarStateController,
@@ -18,27 +12,31 @@ import type {
 } from "@/lib/workspaceSidebarStateController";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import {
+  WorkspacePaneActionsContext,
+  WorkspacePaneStateContext,
+  type WorkspaceMobilePane,
+  type WorkspacePaneActions,
+  type WorkspacePaneSide,
+  type WorkspacePaneState,
+} from "./WorkspacePaneRuntime";
+import {
   useCreateWorkspaceLayoutV2Store,
   WorkspaceLayoutV2Context,
-  WorkspaceLayoutV2PaneActionsContext,
-  WorkspaceLayoutV2PaneStateContext,
-  type WorkspaceLayoutV2PaneActions,
-  type WorkspaceLayoutV2PaneState,
 } from "./WorkspaceLayoutV2Context";
 
-const SIDEBAR_KEYBOARD_SHORTCUT = "b";
+const WORKSPACE_PANE_KEYBOARD_SHORTCUT = "b";
 
 type WorkspaceLayoutSidebarProviderProps = {
   children: ReactNode;
   controller: WorkspaceSidebarStateController;
-  shortcutSidebarSide?: SidebarSide;
+  shortcutPaneSide?: WorkspacePaneSide;
 };
 
 /**
- * `useSidebar()` still exposes React dispatch setters while consumers migrate
- * to the pane model, so resolve updater functions once at the controller edge.
+ * Pane actions expose React dispatch setters so callers can update from the
+ * current persisted value without learning the controller persistence contract.
  */
-function resolveNextUseSidebarValue<T>(
+function resolveNextPaneValue<T>(
   currentValue: T,
   nextValue: SetStateAction<T>,
 ) {
@@ -47,28 +45,26 @@ function resolveNextUseSidebarValue<T>(
 
 /**
  * Owns the workspace layout provider boundary. Storage adapters choose how
- * durable state is persisted; this provider translates that state into the
- * stable `useSidebar()` API and hosts transient pane interaction state while
- * pane state convergence continues.
+ * durable state is persisted; this provider exposes pane state/actions beside
+ * the transient pane interaction store.
  */
 export function WorkspaceLayoutSidebarProvider({
   children,
   controller,
-  shortcutSidebarSide = "left",
+  shortcutPaneSide = "left",
 }: WorkspaceLayoutSidebarProviderProps) {
   const isMobile = useIsMobile();
+
   const workspaceLayoutStore = useCreateWorkspaceLayoutV2Store();
-  const updateSidebarState = useCallback(
+
+  const updatePaneState = useCallback(
     <Key extends keyof WorkspaceSidebarState>(
       key: Key,
       nextValue: SetStateAction<WorkspaceSidebarState[Key]>,
       persistenceMode: WorkspaceSidebarStatePersistenceMode,
     ) => {
       controller.setState((state) => {
-        const nextFieldValue = resolveNextUseSidebarValue(
-          state[key],
-          nextValue,
-        );
+        const nextFieldValue = resolveNextPaneValue(state[key], nextValue);
         if (state[key] === nextFieldValue) {
           return state;
         }
@@ -80,53 +76,54 @@ export function WorkspaceLayoutSidebarProvider({
     },
     [controller],
   );
+
   const setLeftDesktopOpen = useCallback(
     (nextOpen: SetStateAction<boolean>) => {
-      updateSidebarState("leftDesktopOpen", nextOpen, "immediate");
+      updatePaneState("leftDesktopOpen", nextOpen, "immediate");
     },
-    [updateSidebarState],
+    [updatePaneState],
   );
+
   const setRightDesktopOpen = useCallback(
     (nextOpen: SetStateAction<boolean>) => {
-      updateSidebarState("rightDesktopOpen", nextOpen, "immediate");
+      updatePaneState("rightDesktopOpen", nextOpen, "immediate");
     },
-    [updateSidebarState],
+    [updatePaneState],
   );
+
   const setLeftDesktopWidthPx = useCallback(
     (nextWidthPx: SetStateAction<number>) => {
-      updateSidebarState("leftDesktopWidthPx", nextWidthPx, "width_deferred");
+      updatePaneState("leftDesktopWidthPx", nextWidthPx, "width_deferred");
     },
-    [updateSidebarState],
+    [updatePaneState],
   );
+
   const setRightDesktopWidthPx = useCallback(
     (nextWidthPx: SetStateAction<number>) => {
-      updateSidebarState("rightDesktopWidthPx", nextWidthPx, "width_deferred");
+      updatePaneState("rightDesktopWidthPx", nextWidthPx, "width_deferred");
     },
-    [updateSidebarState],
+    [updatePaneState],
   );
+
   const setLeftMobileWidthPx = useCallback(
     (nextWidthPx: SetStateAction<number>) => {
-      updateSidebarState("leftMobileWidthPx", nextWidthPx, "width_deferred");
+      updatePaneState("leftMobileWidthPx", nextWidthPx, "width_deferred");
     },
-    [updateSidebarState],
+    [updatePaneState],
   );
+
   const setRightMobileWidthPx = useCallback(
     (nextWidthPx: SetStateAction<number>) => {
-      updateSidebarState("rightMobileWidthPx", nextWidthPx, "width_deferred");
+      updatePaneState("rightMobileWidthPx", nextWidthPx, "width_deferred");
     },
-    [updateSidebarState],
+    [updatePaneState],
   );
+
   const setMobilePane = useCallback(
-    (nextPane: SetStateAction<MobileSidebarPane>) => {
-      updateSidebarState("mobilePane", nextPane, "immediate");
+    (nextPane: SetStateAction<WorkspaceMobilePane>) => {
+      updatePaneState("mobilePane", nextPane, "immediate");
     },
-    [updateSidebarState],
-  );
-  const setOpenMobile = useCallback(
-    (nextOpen: boolean) => {
-      setMobilePane(nextOpen ? shortcutSidebarSide : "main");
-    },
-    [setMobilePane, shortcutSidebarSide],
+    [updatePaneState],
   );
 
   const {
@@ -138,7 +135,8 @@ export function WorkspaceLayoutSidebarProvider({
     rightDesktopWidthPx,
     rightMobileWidthPx,
   } = controller.state;
-  const toggleLeftSidebar = useCallback(() => {
+
+  const toggleLeftPane = useCallback(() => {
     if (isMobile) {
       setMobilePane((currentPane) =>
         currentPane === "left" ? "main" : "left",
@@ -148,7 +146,8 @@ export function WorkspaceLayoutSidebarProvider({
 
     setLeftDesktopOpen((currentOpen) => !currentOpen);
   }, [isMobile, setLeftDesktopOpen, setMobilePane]);
-  const toggleRightSidebar = useCallback(() => {
+
+  const toggleRightPane = useCallback(() => {
     if (isMobile) {
       setMobilePane((currentPane) =>
         currentPane === "right" ? "main" : "right",
@@ -158,7 +157,8 @@ export function WorkspaceLayoutSidebarProvider({
 
     setRightDesktopOpen((currentOpen) => !currentOpen);
   }, [isMobile, setMobilePane, setRightDesktopOpen]);
-  const workspacePaneState = useMemo<WorkspaceLayoutV2PaneState>(
+
+  const workspacePaneState = useMemo<WorkspacePaneState>(
     () => ({
       isMobile,
       leftDesktopOpen,
@@ -180,29 +180,34 @@ export function WorkspaceLayoutSidebarProvider({
       rightMobileWidthPx,
     ],
   );
-  const workspacePaneActions = useMemo<WorkspaceLayoutV2PaneActions>(
+
+  const workspacePaneActions = useMemo<WorkspacePaneActions>(
     () => ({
+      setLeftDesktopOpen,
       setLeftDesktopWidthPx,
       setLeftMobileWidthPx,
       setMobilePane,
+      setRightDesktopOpen,
       setRightDesktopWidthPx,
       setRightMobileWidthPx,
-      toggleLeftPane: toggleLeftSidebar,
-      toggleRightPane: toggleRightSidebar,
+      toggleLeftPane,
+      toggleRightPane,
     }),
     [
+      setLeftDesktopOpen,
       setLeftDesktopWidthPx,
       setLeftMobileWidthPx,
       setMobilePane,
+      setRightDesktopOpen,
       setRightDesktopWidthPx,
       setRightMobileWidthPx,
-      toggleLeftSidebar,
-      toggleRightSidebar,
+      toggleLeftPane,
+      toggleRightPane,
     ],
   );
   /**
-   * Registers the global sidebar shortcut at the workspace layout boundary so
-   * route content can keep using `useSidebar` without owning keyboard listeners.
+   * Registers the global pane shortcut at the workspace layout boundary so
+   * route content does not need to own pane keyboard listeners.
    */
   useEffect(() => {
     if (!controller.isHydrated) {
@@ -211,84 +216,21 @@ export function WorkspaceLayoutSidebarProvider({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
-        event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
+        event.key === WORKSPACE_PANE_KEYBOARD_SHORTCUT &&
         (event.metaKey || event.ctrlKey)
       ) {
         event.preventDefault();
-        if (shortcutSidebarSide === "right") {
-          toggleRightSidebar();
+        if (shortcutPaneSide === "right") {
+          workspacePaneActions.toggleRightPane();
           return;
         }
-        toggleLeftSidebar();
+        workspacePaneActions.toggleLeftPane();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    controller.isHydrated,
-    shortcutSidebarSide,
-    toggleLeftSidebar,
-    toggleRightSidebar,
-  ]);
-
-  const primaryDesktopOpen =
-    shortcutSidebarSide === "right" ? rightDesktopOpen : leftDesktopOpen;
-  const setPrimaryDesktopOpen =
-    shortcutSidebarSide === "right" ? setRightDesktopOpen : setLeftDesktopOpen;
-  const togglePrimarySidebar =
-    shortcutSidebarSide === "right" ? toggleRightSidebar : toggleLeftSidebar;
-  const contextValue = useMemo<SidebarContextProps>(
-    () => ({
-      isMobile,
-      leftDesktopOpen,
-      leftDesktopWidthPx,
-      leftMobileWidthPx,
-      setLeftDesktopOpen,
-      setLeftDesktopWidthPx,
-      setLeftMobileWidthPx,
-      rightDesktopOpen,
-      rightDesktopWidthPx,
-      rightMobileWidthPx,
-      setRightDesktopOpen,
-      setRightDesktopWidthPx,
-      setRightMobileWidthPx,
-      mobilePane,
-      setMobilePane,
-      toggleLeftSidebar,
-      toggleRightSidebar,
-      state: primaryDesktopOpen ? "expanded" : "collapsed",
-      open: primaryDesktopOpen,
-      setOpen: setPrimaryDesktopOpen,
-      openMobile: mobilePane === shortcutSidebarSide,
-      setOpenMobile,
-      toggleSidebar: togglePrimarySidebar,
-    }),
-    [
-      isMobile,
-      leftDesktopOpen,
-      leftDesktopWidthPx,
-      leftMobileWidthPx,
-      setLeftDesktopOpen,
-      setLeftDesktopWidthPx,
-      setLeftMobileWidthPx,
-      rightDesktopOpen,
-      rightDesktopWidthPx,
-      rightMobileWidthPx,
-      setRightDesktopOpen,
-      setRightDesktopWidthPx,
-      setRightMobileWidthPx,
-      mobilePane,
-      setMobilePane,
-      toggleLeftSidebar,
-      toggleRightSidebar,
-      primaryDesktopOpen,
-      setPrimaryDesktopOpen,
-      shortcutSidebarSide,
-      setOpenMobile,
-      togglePrimarySidebar,
-    ],
-  );
+  }, [controller.isHydrated, shortcutPaneSide, workspacePaneActions]);
 
   if (!controller.isHydrated) {
     return null;
@@ -296,15 +238,11 @@ export function WorkspaceLayoutSidebarProvider({
 
   return (
     <WorkspaceLayoutV2Context.Provider value={workspaceLayoutStore}>
-      <WorkspaceLayoutV2PaneActionsContext.Provider
-        value={workspacePaneActions}
-      >
-        <WorkspaceLayoutV2PaneStateContext.Provider value={workspacePaneState}>
-          <SidebarContext.Provider value={contextValue}>
-            {children}
-          </SidebarContext.Provider>
-        </WorkspaceLayoutV2PaneStateContext.Provider>
-      </WorkspaceLayoutV2PaneActionsContext.Provider>
+      <WorkspacePaneActionsContext.Provider value={workspacePaneActions}>
+        <WorkspacePaneStateContext.Provider value={workspacePaneState}>
+          {children}
+        </WorkspacePaneStateContext.Provider>
+      </WorkspacePaneActionsContext.Provider>
     </WorkspaceLayoutV2Context.Provider>
   );
 }

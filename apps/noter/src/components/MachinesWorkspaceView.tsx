@@ -6,7 +6,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/collapsible";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { useWorkspacePaneState } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import {
   type CodexThreadSidebarProject,
@@ -186,7 +186,8 @@ function ThreadRow(props: {
   onPinChange?: (threadId: string, nextPinned: boolean) => void;
   onSelect?: (threadId: string) => void;
 }) {
-  const { isMobile, leftDesktopWidthPx, leftMobileWidthPx } = useSidebar();
+  const { isMobile, leftDesktopWidthPx, leftMobileWidthPx } =
+    useWorkspacePaneState();
   const leftSidebarWidthPx = isMobile ? leftMobileWidthPx : leftDesktopWidthPx;
   // Once the rail gets very narrow, the fixed timestamp chrome can starve the
   // flex title column down to zero width, which makes line-clamp appear stuck.

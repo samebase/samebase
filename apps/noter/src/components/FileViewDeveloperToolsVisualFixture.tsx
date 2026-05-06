@@ -74,7 +74,7 @@ export function FileViewDeveloperToolsVisualFixture({
       dataTestId="file-view-developer-tools-visual-fixture"
       defaultOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "left"}
       defaultRightOpen={FILE_VIEW_TREE_SIDEBAR_SIDE === "right"}
-      shortcutSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
+      shortcutPaneSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
       left={{
         header: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null,
         content: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarContent : null,

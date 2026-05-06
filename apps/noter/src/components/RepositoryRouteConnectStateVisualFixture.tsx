@@ -31,7 +31,7 @@ export function RepositoryRouteConnectStateVisualFixture({
       <DialogProvider>
         <WorkspaceLayoutV2MemorySidebarProvider
           initialState={initialSidebarState}
-          shortcutSidebarSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
+          shortcutPaneSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
         >
           <div className="flex h-screen flex-col">
             <RepositoryRouteConnectState
