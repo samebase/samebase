@@ -1,16 +1,16 @@
 "use node";
 
-import { action, type ActionCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import { action, type ActionCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { type Infer, v } from "convex/values";
-import { internal } from "./_generated/api";
+import { internal } from "../_generated/api";
 import {
   isObjectRecord as isRecord,
   readBoolean,
   readNumber,
   readString,
-} from "./jsonUtils";
-import { starterTemplateManifest } from "./starterSeedManifest.generated";
+} from "../jsonUtils";
+import { starterTemplateManifest } from "../starterSeedManifest.generated";
 
 const executeCommandResult = v.object({
   stdout: v.string(),
@@ -78,7 +78,7 @@ export const executeCommand = action({
   handler: async (ctx, args): Promise<Infer<typeof executeCommandResult>> => {
     // Get codespace record with agentUrl and agentToken
     const codespace = await ctx.runQuery(
-      internal.codespacesMutations.getCodespace,
+      internal.codespaces.mutations.getCodespace,
       {
         codespaceId: args.codespaceId,
       },
@@ -139,7 +139,7 @@ export const writeFileToCodespace = action({
     args,
   ): Promise<Infer<typeof writeFileToCodespaceResult>> => {
     const codespace = await ctx.runQuery(
-      internal.codespacesMutations.getCodespace,
+      internal.codespaces.mutations.getCodespace,
       {
         codespaceId: args.codespaceId,
       },
@@ -198,7 +198,7 @@ export const readFileFromCodespace = action({
     args,
   ): Promise<Infer<typeof readFileFromCodespaceResult>> => {
     const codespace = await ctx.runQuery(
-      internal.codespacesMutations.getCodespace,
+      internal.codespaces.mutations.getCodespace,
       {
         codespaceId: args.codespaceId,
       },
@@ -260,7 +260,7 @@ export const listFiles = action({
   returns: listFilesResult,
   handler: async (ctx, args): Promise<Infer<typeof listFilesResult>> => {
     const codespace = await ctx.runQuery(
-      internal.codespacesMutations.getCodespace,
+      internal.codespaces.mutations.getCodespace,
       {
         codespaceId: args.codespaceId,
       },
@@ -316,7 +316,7 @@ export const deleteFile = action({
   returns: deleteFileResult,
   handler: async (ctx, args): Promise<Infer<typeof deleteFileResult>> => {
     const codespace = await ctx.runQuery(
-      internal.codespacesMutations.getCodespace,
+      internal.codespaces.mutations.getCodespace,
       {
         codespaceId: args.codespaceId,
       },
@@ -376,7 +376,7 @@ export const getFileStat = action({
   returns: getFileStatResult,
   handler: async (ctx, args): Promise<Infer<typeof getFileStatResult>> => {
     const codespace = await ctx.runQuery(
-      internal.codespacesMutations.getCodespace,
+      internal.codespaces.mutations.getCodespace,
       {
         codespaceId: args.codespaceId,
       },
@@ -432,7 +432,7 @@ export const checkAgentHealth = action({
   returns: checkAgentHealthResult,
   handler: async (ctx, args): Promise<Infer<typeof checkAgentHealthResult>> => {
     const codespace = await ctx.runQuery(
-      internal.codespacesMutations.getCodespace,
+      internal.codespaces.mutations.getCodespace,
       {
         codespaceId: args.codespaceId,
       },
@@ -461,7 +461,7 @@ export const checkAgentHealth = action({
       const data = await response.json();
 
       // Update health status in database
-      await ctx.runMutation(internal.codespacesMutations.updateAgentHealth, {
+      await ctx.runMutation(internal.codespaces.mutations.updateAgentHealth, {
         codespaceId: args.codespaceId,
         healthy: true,
         lastHealthCheckAt: Date.now(),
@@ -475,7 +475,7 @@ export const checkAgentHealth = action({
       };
     } catch {
       // Update health status in database
-      await ctx.runMutation(internal.codespacesMutations.updateAgentHealth, {
+      await ctx.runMutation(internal.codespaces.mutations.updateAgentHealth, {
         codespaceId: args.codespaceId,
         healthy: false,
         lastHealthCheckAt: Date.now(),
@@ -535,7 +535,7 @@ async function getActiveRunningCodespace(
   agentToken: string;
 }> {
   const codespace = await ctx.runQuery(
-    internal.codespacesMutations.getCodespace,
+    internal.codespaces.mutations.getCodespace,
     {
       codespaceId,
     },

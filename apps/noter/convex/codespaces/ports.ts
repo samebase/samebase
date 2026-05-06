@@ -1,11 +1,11 @@
 "use node";
 
 import { Infer, v } from "convex/values";
-import { action, type ActionCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
-import { getUserId } from "./common";
-import type { Id } from "./_generated/dataModel";
-import { isObjectRecord as isRecord, readString } from "./jsonUtils";
+import { action, type ActionCtx } from "../_generated/server";
+import { internal } from "../_generated/api";
+import { getUserId } from "../common";
+import type { Id } from "../_generated/dataModel";
+import { isObjectRecord as isRecord, readString } from "../jsonUtils";
 
 type PortVisibility = "public" | "private";
 
@@ -466,7 +466,7 @@ export const ensureCodespacePortsVisibility = action({
       userId = await getUserId(ctx);
 
       const codespace = await ctx.runQuery(
-        internal.codespacesMutations.getCodespace,
+        internal.codespaces.mutations.getCodespace,
         {
           codespaceId: args.codespaceId,
         },
@@ -542,7 +542,7 @@ export const ensureCodespacePortsVisibility = action({
 
       const ensured = results.every((entry) => entry.applied);
       await ctx.runMutation(
-        internal.codespacesMutations.updatePortsVisibilityStatus,
+        internal.codespaces.mutations.updatePortsVisibilityStatus,
         {
           codespaceId: args.codespaceId,
           ensured,
@@ -557,7 +557,7 @@ export const ensureCodespacePortsVisibility = action({
     } catch (error) {
       const message = parseErrorMessage(error);
       await ctx.runMutation(
-        internal.codespacesMutations.updatePortsVisibilityStatus,
+        internal.codespaces.mutations.updatePortsVisibilityStatus,
         {
           codespaceId: args.codespaceId,
           ensured: false,

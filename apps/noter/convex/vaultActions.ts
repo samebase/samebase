@@ -420,7 +420,7 @@ export const deleteVault = action({
 
     if (shouldRemoveCodespaces) {
       const codespaces = await ctx.runQuery(
-        internal.codespacesMutations.listConnectedCodespacesForVault,
+        internal.codespaces.mutations.listConnectedCodespacesForVault,
         { vaultId: args.vaultId, userId },
       );
 
@@ -429,7 +429,7 @@ export const deleteVault = action({
 
         for (const codespace of codespaces) {
           await ctx.runMutation(
-            internal.codespacesMutations.updateCodespaceState,
+            internal.codespaces.mutations.updateCodespaceState,
             {
               codespaceId: codespace._id,
               state: "deleting",
@@ -443,7 +443,7 @@ export const deleteVault = action({
           } catch (error) {
             if (!isProviderNotFoundError(error)) {
               await ctx.runMutation(
-                internal.codespacesMutations.updateCodespaceState,
+                internal.codespaces.mutations.updateCodespaceState,
                 {
                   codespaceId: codespace._id,
                   state: "failed",
@@ -454,7 +454,7 @@ export const deleteVault = action({
           }
 
           await ctx.runMutation(
-            internal.codespacesMutations.updateCodespaceState,
+            internal.codespaces.mutations.updateCodespaceState,
             {
               codespaceId: codespace._id,
               state: "deleted",
@@ -462,7 +462,7 @@ export const deleteVault = action({
             },
           );
           await ctx.runMutation(
-            internal.codespacesMutations.clearActiveCodespace,
+            internal.codespaces.mutations.clearActiveCodespace,
             {
               vaultId: args.vaultId,
               codespaceId: codespace._id,

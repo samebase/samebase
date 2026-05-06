@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, query } from "./_generated/server";
-import { CodespaceState } from "./schema";
-import { getUserId } from "./common";
+import { internalMutation, internalQuery, query } from "../_generated/server";
+import { CodespaceState } from "./model";
+import { getUserId } from "../common";
 
 /**
  * Internal: Get Codespace by ID

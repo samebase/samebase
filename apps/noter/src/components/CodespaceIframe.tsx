@@ -36,7 +36,7 @@ export function CodespaceIframe({
   className,
   kioskMode = false,
 }: CodespaceIframeProps) {
-  const codespace = useQuery(api.codespacesMutations.getActiveCodespace, {
+  const codespace = useQuery(api.codespaces.mutations.getActiveCodespace, {
     vaultId,
   });
   const [iframeLoaded, setIframeLoaded] = useState(false);

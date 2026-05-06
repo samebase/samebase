@@ -9,8 +9,8 @@ collaboration logic, chat orchestration, and infrastructure provisioning.
 2. `vaultActions.ts` - repository connect/create/delete + infra retry actions
 3. `infraProvisioning.ts` - async Convex/Cloudflare provisioning flow
 4. `chat/index.ts` + `chat/actions.ts` - AI Fab chat lifecycle + approvals
-5. `codespaces.ts` + `vaultCodespaceIntegration.ts` - Codespaces lifecycle
-   integration
+5. `codespaces/index.ts` + `codespaces/vaultIntegration.ts` - Codespaces
+   lifecycle integration
 
 ## AI Fab / Agent Flow
 
