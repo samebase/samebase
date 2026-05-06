@@ -113,6 +113,10 @@ Key domain entities:
 - Prefer truthiness checks for typed flags whose domain is already
   `true | undefined`. Use `=== true` only when the distinction from other truthy
   values is part of the current logic.
+- Prefer direct conditions over intermediate variables when the expression is
+  already easy to read. Do not add `!!` coercions, named booleans, helper
+  wrappers, or provider splits just to look more engineered; add a name only
+  when it makes confusing logic clearer.
 - When business logic is tangled with generic mechanics such as picking object
   keys, mapping entries, or reshaping values, step back and separate the two.
   Prefer a small typed utility in the right shared module when it lets the
