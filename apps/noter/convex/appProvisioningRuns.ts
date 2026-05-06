@@ -81,7 +81,7 @@ export const appendRunEvent = internalMutation({
       state: nextState,
       currentStep: args.step,
       updatedAt: now,
-      completedAt: isTerminal ? (run.completedAt ?? now) : run.completedAt,
+      completedAt: isTerminal ? now : undefined,
     });
 
     return null;

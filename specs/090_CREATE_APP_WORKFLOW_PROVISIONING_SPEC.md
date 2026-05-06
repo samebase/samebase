@@ -111,6 +111,9 @@ update.
 Run and event timestamps are assigned by the mutations that write those rows.
 Callers must not pass synthetic `createdAt` values to run helpers.
 
+`completedAt` is written exactly when a run enters a terminal state. Nonterminal
+runs must leave it unset instead of preserving or inventing a previous value.
+
 Indexes:
 
 1. `by_vault_and_updated_at`
