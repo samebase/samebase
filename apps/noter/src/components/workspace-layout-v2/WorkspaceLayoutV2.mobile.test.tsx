@@ -15,7 +15,7 @@ import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
 import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "./WorkspaceLayoutV2Geometry";
-import { WorkspaceLayoutSidebarProvider } from "./WorkspaceLayoutSidebarProvider";
+import { WorkspacePaneRuntimeProvider } from "./WorkspacePaneRuntime";
 import { WorkspaceLayoutV2MemorySidebarProvider } from "./WorkspaceLayoutV2MemorySidebarProvider";
 import { useWorkspaceLayoutV2MemorySidebarController } from "./useWorkspaceLayoutV2MemorySidebarController";
 
@@ -191,9 +191,9 @@ function ControlledMobileLayout() {
   };
 
   return (
-    <WorkspaceLayoutSidebarProvider controller={controller}>
+    <WorkspacePaneRuntimeProvider controller={controller}>
       {renderMobileLayoutContent({})}
-    </WorkspaceLayoutSidebarProvider>
+    </WorkspacePaneRuntimeProvider>
   );
 }
 
@@ -212,9 +212,9 @@ function ControlledMergedLeftMobileLayout() {
   };
 
   return (
-    <WorkspaceLayoutSidebarProvider controller={controller}>
+    <WorkspacePaneRuntimeProvider controller={controller}>
       {renderMobileLayoutContent({ showMobileResizeGripDots: true })}
-    </WorkspaceLayoutSidebarProvider>
+    </WorkspacePaneRuntimeProvider>
   );
 }
 

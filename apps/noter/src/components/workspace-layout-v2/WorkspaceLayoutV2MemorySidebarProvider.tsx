@@ -2,7 +2,7 @@ import { type ReactNode } from "react";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import type { WorkspacePaneSide } from "./WorkspacePaneRuntime";
 import { useWorkspaceLayoutV2MemorySidebarController } from "./useWorkspaceLayoutV2MemorySidebarController";
-import { WorkspaceLayoutSidebarProvider } from "./WorkspaceLayoutSidebarProvider";
+import { WorkspacePaneRuntimeProvider } from "./WorkspacePaneRuntime";
 
 type WorkspaceLayoutV2MemorySidebarProviderProps = {
   children: ReactNode;
@@ -18,11 +18,11 @@ export function WorkspaceLayoutV2MemorySidebarProvider({
   const controller = useWorkspaceLayoutV2MemorySidebarController(initialState);
 
   return (
-    <WorkspaceLayoutSidebarProvider
+    <WorkspacePaneRuntimeProvider
       controller={controller}
       shortcutPaneSide={shortcutPaneSide}
     >
       {children}
-    </WorkspaceLayoutSidebarProvider>
+    </WorkspacePaneRuntimeProvider>
   );
 }

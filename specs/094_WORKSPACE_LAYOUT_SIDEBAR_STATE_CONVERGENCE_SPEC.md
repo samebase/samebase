@@ -7,14 +7,14 @@
 - Last updated: 2026-05-06
 - Related files:
   - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutSidebarProvider.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspacePaneRuntime.ts`
+  - `apps/noter/src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx`
   - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2Context.ts`
   - `apps/noter/src/components/PersistedSidebarProvider.tsx`
   - `apps/noter/src/hooks/usePersistedWorkspaceSidebarState.ts`
   - `apps/noter/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
   - `apps/noter/src/lib/workspaceSidebarStateController.ts`
   - `apps/noter/src/Layout.tsx`
+  - `vite.config.ts`
 
 ## Summary
 
@@ -88,15 +88,21 @@ The provider boundary exists to avoid prop drilling inside
 </WorkspacePaneRuntimeProvider>
 ```
 
-The current implementation still uses `WorkspaceLayoutSidebarProvider` as the
-provider name because it bridges a persisted `WorkspaceSidebarStateController`.
-Future cleanup may rename that provider once it can be done as a small,
-readability-only change.
+The current implementation exposes this boundary as
+`WorkspacePaneRuntimeProvider` from `WorkspacePaneRuntime.tsx`. Older
+workspace-sidebar provider names should not be reintroduced as compatibility
+wrappers.
 
 Multiple internal contexts are allowed only as an implementation detail. For
-example, state/actions may be split if a measured rerender problem proves it is
-needed. Do not start from that optimization. Start from the simplest mental
-model and let unnecessary plumbing disappear first.
+example, the provider may keep a layout-local store context if the internal
+selector helpers need it. Do not split state/actions or add extra selector APIs
+unless a measured rerender problem proves it is needed. Start from the simplest
+mental model and let unnecessary plumbing disappear first.
+
+`workspace-layout-v2` is exempt from the component-only Fast Refresh lint rule.
+This folder should optimize for a readable runtime boundary over splitting
+components, hooks, and types into separate files only to satisfy refresh
+tooling.
 
 The provider should not make callers understand:
 
@@ -133,6 +139,8 @@ runtime.
   even if they are exposed through one runtime.
 - Keep runtime APIs near `workspace-layout-v2`, not in generic `hooks/` folders
   based only on React implementation shape.
+- Keep the pane runtime provider, hooks, and closely related types together
+  unless moving them apart makes the workspace layout mental model simpler.
 - Do not add compatibility wrappers for app-internal imports.
 - Do not rename persisted schema fields just to match runtime vocabulary.
 - Do not move `workspace-layout-v2` into a package yet, but keep the folder
@@ -148,6 +156,8 @@ The migration that removed the generic `useSidebar` runtime is complete:
 - PR #714 moved `workspace-layout-v2` internals off `useSidebar`.
 - PR #715 moved remaining app consumers off `useSidebar` and deleted the
   compatibility hook.
+- PR #716 clarified this runtime model and made `WorkspacePaneRuntimeProvider`
+  from `WorkspacePaneRuntime.tsx` the visible provider boundary.
 
 This spec should now guide simplification, not more migration churn. The next
 implementation change should only happen if it makes the runtime boundary read

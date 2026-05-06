@@ -121,6 +121,12 @@ export default defineConfig({
         },
       },
       {
+        files: ["apps/noter/src/components/workspace-layout-v2/**/*.{ts,tsx}"],
+        rules: {
+          "react-refresh/only-export-components": "off",
+        },
+      },
+      {
         files: [
           "apps/noter/convex/**/*.ts",
           "apps/noter-starter-template/convex/**/*.ts",

@@ -1,7 +1,10 @@
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
+  type Dispatch,
   type ReactNode,
   type SetStateAction,
 } from "react";
@@ -12,25 +15,57 @@ import type {
 } from "@/lib/workspaceSidebarStateController";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import {
-  WorkspacePaneActionsContext,
-  WorkspacePaneStateContext,
-  type WorkspaceMobilePane,
-  type WorkspacePaneActions,
-  type WorkspacePaneSide,
-  type WorkspacePaneState,
-} from "./WorkspacePaneRuntime";
-import {
   useCreateWorkspaceLayoutV2Store,
   WorkspaceLayoutV2Context,
 } from "./WorkspaceLayoutV2Context";
 
 const WORKSPACE_PANE_KEYBOARD_SHORTCUT = "b";
 
-type WorkspaceLayoutSidebarProviderProps = {
+export type WorkspaceMobilePane = WorkspaceSidebarState["mobilePane"];
+export type WorkspacePaneSide = Exclude<WorkspaceMobilePane, "main">;
+
+export type WorkspacePaneState = WorkspaceSidebarState & {
+  isMobile: boolean;
+};
+
+export type WorkspacePaneActions = {
+  setLeftDesktopOpen: Dispatch<SetStateAction<boolean>>;
+  setLeftDesktopWidthPx: Dispatch<SetStateAction<number>>;
+  setLeftMobileWidthPx: Dispatch<SetStateAction<number>>;
+  setMobilePane: Dispatch<SetStateAction<WorkspaceMobilePane>>;
+  setRightDesktopOpen: Dispatch<SetStateAction<boolean>>;
+  setRightDesktopWidthPx: Dispatch<SetStateAction<number>>;
+  setRightMobileWidthPx: Dispatch<SetStateAction<number>>;
+  toggleLeftPane: () => void;
+  toggleRightPane: () => void;
+};
+
+type WorkspacePaneRuntimeContextValue = {
+  actions: WorkspacePaneActions;
+  state: WorkspacePaneState;
+};
+
+type WorkspacePaneRuntimeProviderProps = {
   children: ReactNode;
   controller: WorkspaceSidebarStateController;
   shortcutPaneSide?: WorkspacePaneSide;
 };
+
+const WorkspacePaneRuntimeContext =
+  createContext<WorkspacePaneRuntimeContextValue | null>(null);
+
+/** Returns durable workspace pane actions from the runtime boundary. */
+export function useWorkspacePaneActions() {
+  return useWorkspacePaneRuntime().actions;
+}
+
+/**
+ * Returns durable workspace pane state. The persisted fields remain
+ * sidebar-shaped for now, but app code should read them through this pane hook.
+ */
+export function useWorkspacePaneState() {
+  return useWorkspacePaneRuntime().state;
+}
 
 /**
  * Pane actions expose React dispatch setters so callers can update from the
@@ -44,15 +79,15 @@ function resolveNextPaneValue<T>(
 }
 
 /**
- * Owns the workspace layout provider boundary. Storage adapters choose how
- * durable state is persisted; this provider exposes pane state/actions beside
- * the transient pane interaction store.
+ * Owns the single workspace pane runtime boundary. Storage adapters choose
+ * persistence before this point; workspace layout internals read pane state,
+ * pane actions, and transient layout interaction state from this provider.
  */
-export function WorkspaceLayoutSidebarProvider({
+export function WorkspacePaneRuntimeProvider({
   children,
   controller,
   shortcutPaneSide = "left",
-}: WorkspaceLayoutSidebarProviderProps) {
+}: WorkspacePaneRuntimeProviderProps) {
   const isMobile = useIsMobile();
 
   const workspaceLayoutStore = useCreateWorkspaceLayoutV2Store();
@@ -205,8 +240,17 @@ export function WorkspaceLayoutSidebarProvider({
       toggleRightPane,
     ],
   );
+
+  const runtime = useMemo<WorkspacePaneRuntimeContextValue>(
+    () => ({
+      actions: workspacePaneActions,
+      state: workspacePaneState,
+    }),
+    [workspacePaneActions, workspacePaneState],
+  );
+
   /**
-   * Registers the global pane shortcut at the workspace layout boundary so
+   * Registers the global pane shortcut at the workspace runtime boundary so
    * route content does not need to own pane keyboard listeners.
    */
   useEffect(() => {
@@ -238,11 +282,18 @@ export function WorkspaceLayoutSidebarProvider({
 
   return (
     <WorkspaceLayoutV2Context.Provider value={workspaceLayoutStore}>
-      <WorkspacePaneActionsContext.Provider value={workspacePaneActions}>
-        <WorkspacePaneStateContext.Provider value={workspacePaneState}>
-          {children}
-        </WorkspacePaneStateContext.Provider>
-      </WorkspacePaneActionsContext.Provider>
+      <WorkspacePaneRuntimeContext.Provider value={runtime}>
+        {children}
+      </WorkspacePaneRuntimeContext.Provider>
     </WorkspaceLayoutV2Context.Provider>
   );
+}
+
+function useWorkspacePaneRuntime() {
+  const runtime = useContext(WorkspacePaneRuntimeContext);
+  if (runtime === null) {
+    throw new Error("Workspace pane runtime context is missing.");
+  }
+
+  return runtime;
 }

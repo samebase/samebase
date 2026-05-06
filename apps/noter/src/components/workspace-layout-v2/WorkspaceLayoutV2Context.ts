@@ -102,7 +102,7 @@ export const WorkspaceLayoutV2Context =
 
 /**
  * Returns actions from the layout-local WorkspaceLayoutV2Context store. This
- * must run under WorkspaceLayoutSidebarProvider; useWorkspaceLayoutV2Store
+ * must run under WorkspacePaneRuntimeProvider; useWorkspaceLayoutV2Store
  * throws when the provider boundary is missing so layout state is not silently
  * shared.
  */
@@ -112,7 +112,7 @@ export function useWorkspaceLayoutV2Actions() {
 
 /**
  * Reads a selected slice from the layout-local WorkspaceLayoutV2Context store.
- * This must run under WorkspaceLayoutSidebarProvider so each pane shell owns
+ * This must run under WorkspacePaneRuntimeProvider so each pane shell owns
  * its own resize, viewport, and mobile interaction state.
  */
 export function useWorkspaceLayoutV2Selector<T>(
