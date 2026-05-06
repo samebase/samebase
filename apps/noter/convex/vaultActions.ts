@@ -1,8 +1,9 @@
 "use node";
 
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, type ActionCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 import { createInfraProviders } from "./infraProviders";
@@ -54,6 +55,40 @@ function readDefaultBranch(repoData: unknown): string {
     return value;
   }
   return "main";
+}
+
+async function startVaultInfrastructureProvisioningOrFail(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    force: boolean;
+  },
+): Promise<void> {
+  try {
+    await ctx.runMutation(
+      internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning,
+      args,
+    );
+  } catch (error) {
+    const message = toErrorMessage(error);
+    try {
+      await ctx.runMutation(
+        internal.infraProvisioning.markWorkflowStartupFailed,
+        {
+          runId: args.runId,
+          message,
+        },
+      );
+    } catch (markError) {
+      console.error("vault:provisioning_start_failure_mark_failed", {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        message: toErrorMessage(markError),
+      });
+    }
+    throw error;
+  }
 }
 
 export const connectRepository = action({
@@ -292,7 +327,6 @@ export const createRepository = action({
       {
         userId,
         vaultId,
-        repositoryFullName,
         trigger: "create",
       },
     );
@@ -325,14 +359,11 @@ export const createRepository = action({
       });
     }
 
-    await ctx.runMutation(
-      internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning,
-      {
-        vaultId,
-        runId,
-        force: false,
-      },
-    );
+    await startVaultInfrastructureProvisioningOrFail(ctx, {
+      vaultId,
+      runId,
+      force: false,
+    });
 
     return { vaultId };
   },
@@ -361,18 +392,14 @@ export const retryInfrastructureProvisioning = action({
       {
         userId,
         vaultId: args.vaultId,
-        repositoryFullName: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
         trigger: "retry",
       },
     );
-    await ctx.runMutation(
-      internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning,
-      {
-        vaultId: args.vaultId,
-        runId,
-        force: true,
-      },
-    );
+    await startVaultInfrastructureProvisioningOrFail(ctx, {
+      vaultId: args.vaultId,
+      runId,
+      force: true,
+    });
 
     return null;
   },

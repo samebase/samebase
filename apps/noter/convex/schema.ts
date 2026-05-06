@@ -497,6 +497,21 @@ export default defineSchema({
     .index("by_status", ["status"]),
 
   /**
+   * Latest Workflow run allowed to write provider state for a vault.
+   * Keeping the last owner after completion makes older in-flight workflows
+   * fail closed instead of regaining ownership after a newer run finishes.
+   */
+  vaultInfrastructureOwnership: defineTable({
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    provisioningVersion: number(),
+    state: union(literal("active"), literal("succeeded"), literal("failed")),
+    updatedAt: number(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_run", ["runId"]),
+
+  /**
    * App-owned Workflow run identity for Noter-managed provisioning.
    */
   appProvisioningRuns: defineTable({

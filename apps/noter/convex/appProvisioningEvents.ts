@@ -39,6 +39,18 @@ export const append = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) {
+      throw new Error("Provisioning run not found for event.");
+    }
+    if (
+      run.userId !== args.userId ||
+      run.vaultId !== args.vaultId ||
+      run.repositoryFullName !== args.repositoryFullName
+    ) {
+      throw new Error("Provisioning event does not match its run.");
+    }
+
     await ctx.db.insert("appProvisioningEvents", {
       userId: args.userId,
       vaultId: args.vaultId,

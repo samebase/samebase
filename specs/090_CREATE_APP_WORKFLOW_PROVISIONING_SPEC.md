@@ -133,6 +133,28 @@ Run rules:
 5. Completed Workflow component records need a documented cleanup path after the
    app-owned run has durable terminal state.
 
+### 1.1. Active Infrastructure Ownership
+
+Phase 2 stores the latest Workflow run allowed to write provider state for each
+vault:
+
+```ts
+vaultInfrastructureOwnership: {
+  vaultId: Id<"vaults">;
+  runId: Id<"appProvisioningRuns">;
+  provisioningVersion: number;
+  state: "active" | "succeeded" | "failed";
+  updatedAt: number;
+}
+```
+
+The ownership row is not a compatibility shim. It is the explicit fencing record
+for provider writes. Claiming a new run moves ownership to that run and cancels
+the previous active run. Every later provider step must verify that its `runId`
+still owns the vault before making external calls or writing infrastructure
+state. The row remains after completion so stale in-flight workflow callbacks
+cannot regain ownership after the newer run finishes.
+
 ### 2. Provisioning Events Foundation
 
 Add an app-owned event table for provisioning visibility:
@@ -244,14 +266,16 @@ Phase 2: Workflow component install and post-vault infra workflow.
 2. Install the Workflow component in `convex.config.ts`.
 3. Add `appProvisioningRuns`; keep stored event `runId` temporarily optional for
    old rows, but require it for new provisioning event writes.
-4. Create `appProvisioningWorkflow.ts`.
-5. Split the current infra action into a deterministic workflow handler plus
+4. Add `vaultInfrastructureOwnership` so forced retries and stale in-flight
+   steps have a durable owner to check before provider writes.
+5. Create `appProvisioningWorkflow.ts`.
+6. Split the current infra action into a deterministic workflow handler plus
    narrow idempotent step functions. Provider side effects, env reads, and
    network calls must stay inside step actions, not in the workflow handler.
-6. Move only post-vault infra provisioning into Workflow.
-7. Keep `vaultActions.createRepository` responsible for GitHub repo creation
+7. Move only post-vault infra provisioning into Workflow.
+8. Keep `vaultActions.createRepository` responsible for GitHub repo creation
    until infra Workflow behavior is proven.
-8. Keep the Phase 1 textarea as the only shipped UI change unless the run record
+9. Keep the Phase 1 textarea as the only shipped UI change unless the run record
    exposes an immediately useful, minimal status line.
 
 Phase 3: Full create-app Workflow.

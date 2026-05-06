@@ -7,7 +7,7 @@ import {
   type MutationCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import {
   createInfraProviders,
   type ConvexManagementProvider,
@@ -25,6 +25,8 @@ import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 
 const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 const GITHUB_API_VERSION = "2022-11-28";
+const activeProvisioningRunResult = v.object({ active: v.boolean() });
+const infrastructurePatchResult = v.object({ applied: v.boolean() });
 
 const infraPatchValidator = v.object({
   status: v.optional(
@@ -457,6 +459,70 @@ async function appendProvisioningRunEvent(
   }
 }
 
+type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
+type ProvisioningOwnershipCtx = Pick<MutationCtx, "db">;
+
+async function getVaultInfrastructureOwnership(
+  ctx: ProvisioningOwnershipCtx,
+  vaultId: Id<"vaults">,
+): Promise<VaultInfrastructureOwnership | null> {
+  return await ctx.db
+    .query("vaultInfrastructureOwnership")
+    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+    .first();
+}
+
+function isActiveProvisioningOwner(
+  ownership: VaultInfrastructureOwnership | null,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+  },
+): boolean {
+  return ownership?.runId === args.runId && ownership.state === "active";
+}
+
+async function cancelSupersededProvisioningRun(
+  ctx: ProvisioningEventCtx,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    step: AppProvisioningStep;
+  },
+): Promise<void> {
+  await appendProvisioningRunEvent(ctx, {
+    runId: args.runId,
+    step: args.step,
+    level: "warn",
+    message: "Infrastructure provisioning was superseded by a newer run.",
+    state: "canceled",
+  });
+}
+
+async function ensureActiveProvisioningRun(
+  ctx: ActionCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    step: AppProvisioningStep;
+  },
+): Promise<boolean> {
+  const { active } = await ctx.runQuery(
+    internal.infraProvisioning.isActiveProvisioningRun,
+    {
+      vaultId: args.vaultId,
+      runId: args.runId,
+    },
+  );
+  if (active) {
+    return true;
+  }
+
+  await cancelSupersededProvisioningRun(ctx, {
+    runId: args.runId,
+    step: args.step,
+  });
+  return false;
+}
+
 type ManagedProvisioningVault = {
   _id: Id<"vaults">;
   userId: Id<"users">;
@@ -619,13 +685,39 @@ export const getInfrastructureByVault = internalQuery({
   },
 });
 
+export const isActiveProvisioningRun = internalQuery({
+  args: {
+    vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
+  },
+  returns: activeProvisioningRunResult,
+  handler: async (ctx, args) => {
+    const ownership = await ctx.db
+      .query("vaultInfrastructureOwnership")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first();
+    return {
+      active: ownership?.runId === args.runId && ownership.state === "active",
+    };
+  },
+});
+
 export const upsertInfrastructureRecord = internalMutation({
   args: {
     vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
     patch: infraPatchValidator,
   },
-  returns: v.null(),
+  returns: infrastructurePatchResult,
   handler: async (ctx, args) => {
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (
+      !ownership ||
+      !isActiveProvisioningOwner(ownership, { runId: args.runId })
+    ) {
+      return { applied: false };
+    }
+
     const existing = await ctx.db
       .query("vaultInfrastructure")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
@@ -633,7 +725,7 @@ export const upsertInfrastructureRecord = internalMutation({
 
     if (existing) {
       await ctx.db.patch(existing._id, args.patch);
-      return null;
+      return { applied: true };
     }
 
     await ctx.db.insert("vaultInfrastructure", {
@@ -654,7 +746,7 @@ export const upsertInfrastructureRecord = internalMutation({
       hosting: args.patch.hosting,
     });
 
-    return null;
+    return { applied: true };
   },
 });
 
@@ -712,6 +804,14 @@ export const claimWorkflowProvisioning = internalMutation({
   },
   returns: v.object({ claimed: v.boolean() }),
   handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) {
+      throw new Error("Provisioning run not found.");
+    }
+    if (run.vaultId !== args.vaultId) {
+      throw new Error("Provisioning run does not belong to vault.");
+    }
+
     const vault = await ctx.db.get(args.vaultId);
     if (!vault || vault.isNoterManaged !== true) {
       await appendProvisioningRunEvent(ctx, {
@@ -722,6 +822,12 @@ export const claimWorkflowProvisioning = internalMutation({
         state: "canceled",
       });
       return { claimed: false };
+    }
+    if (
+      run.userId !== vault.userId ||
+      run.repositoryFullName !== `${vault.ghRepoOwner}/${vault.ghRepoName}`
+    ) {
+      throw new Error("Provisioning run does not match vault ownership.");
     }
 
     const now = Date.now();
@@ -768,6 +874,30 @@ export const claimWorkflowProvisioning = internalMutation({
       });
     }
 
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (ownership?.state === "active" && ownership.runId !== args.runId) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: ownership.runId,
+        step: "claim_infra",
+      });
+    }
+    if (ownership) {
+      await ctx.db.patch(ownership._id, {
+        runId: args.runId,
+        provisioningVersion: nextVersion,
+        state: "active",
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        provisioningVersion: nextVersion,
+        state: "active",
+        updatedAt: now,
+      });
+    }
+
     console.log("infra:provision:start", {
       vaultId: args.vaultId,
       repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
@@ -796,6 +926,16 @@ export const validateProvisioningConnections = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    if (
+      !(await ensureActiveProvisioningRun(ctx, {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        step: "validate_connections",
+      }))
+    ) {
+      return null;
+    }
+
     const vault = await getManagedProvisioningVault(ctx, args.vaultId);
     if (!vault) {
       throw new Error("Vault not found for infrastructure provisioning.");
@@ -826,6 +966,16 @@ export const ensureConvexInfrastructure = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    if (
+      !(await ensureActiveProvisioningRun(ctx, {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        step: "ensure_convex",
+      }))
+    ) {
+      return null;
+    }
+
     const vault = await getManagedProvisioningVault(ctx, args.vaultId);
     if (!vault) {
       throw new Error("Vault not found for infrastructure provisioning.");
@@ -865,10 +1015,11 @@ export const ensureConvexInfrastructure = internalAction({
       },
     });
 
-    await ctx.runMutation(
+    const { applied } = await ctx.runMutation(
       internal.infraProvisioning.upsertInfrastructureRecord,
       {
         vaultId: args.vaultId,
+        runId: args.runId,
         patch: {
           status: "provisioning",
           convexProjectId: convex.convexProjectId,
@@ -880,6 +1031,13 @@ export const ensureConvexInfrastructure = internalAction({
         },
       },
     );
+    if (!applied) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: "ensure_convex",
+      });
+      return null;
+    }
 
     await appendProvisioningRunEvent(ctx, {
       runId: args.runId,
@@ -900,6 +1058,16 @@ export const ensureConvexPreviewInfrastructure = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    if (
+      !(await ensureActiveProvisioningRun(ctx, {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        step: "ensure_convex_preview",
+      }))
+    ) {
+      return null;
+    }
+
     const vault = await getManagedProvisioningVault(ctx, args.vaultId);
     if (!vault) {
       throw new Error("Vault not found for infrastructure provisioning.");
@@ -957,6 +1125,16 @@ export const ensureCloudflareInfrastructure = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    if (
+      !(await ensureActiveProvisioningRun(ctx, {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        step: "ensure_cloudflare",
+      }))
+    ) {
+      return null;
+    }
+
     const vault = await getManagedProvisioningVault(ctx, args.vaultId);
     if (!vault) {
       throw new Error("Vault not found for infrastructure provisioning.");
@@ -1051,18 +1229,11 @@ export const ensureCloudflareInfrastructure = internalAction({
       },
     });
 
-    await appendProvisioningRunEvent(ctx, {
-      runId: args.runId,
-      step: "ensure_cloudflare",
-      level: "info",
-      message: `Cloudflare Pages project ready: ${provisionedHosting.projectName}.`,
-      state: "running",
-    });
-
-    await ctx.runMutation(
+    const { applied } = await ctx.runMutation(
       internal.infraProvisioning.upsertInfrastructureRecord,
       {
         vaultId: args.vaultId,
+        runId: args.runId,
         patch: {
           status: "ready",
           lastProvisionedAt: Date.now(),
@@ -1072,6 +1243,31 @@ export const ensureCloudflareInfrastructure = internalAction({
         },
       },
     );
+    if (!applied) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: "ensure_cloudflare",
+      });
+      return null;
+    }
+
+    await appendProvisioningRunEvent(ctx, {
+      runId: args.runId,
+      step: "ensure_cloudflare",
+      level: "info",
+      message: `Cloudflare Pages project ready: ${provisionedHosting.projectName}.`,
+      state: "running",
+    });
+
+    if (
+      !(await ensureActiveProvisioningRun(ctx, {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        step: "record_domains",
+      }))
+    ) {
+      return null;
+    }
 
     const mainUrl = getProvisionedMainUrl(provisionedHosting);
     if (mainUrl) {
@@ -1112,16 +1308,33 @@ export const finishWorkflowProvisioning = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (
+      !ownership ||
+      !isActiveProvisioningOwner(ownership, { runId: args.runId })
+    ) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: "finish",
+      });
+      return null;
+    }
+
     const vault = await ctx.db.get(args.vaultId);
     if (!vault || vault.isNoterManaged !== true) {
       return null;
     }
 
+    const now = Date.now();
     await ctx.db.patch(args.vaultId, {
       infraState: "ready",
       infraLastError: undefined,
-      infraLastProvisionedAt: Date.now(),
+      infraLastProvisionedAt: now,
       infraProvisioningStartedAt: undefined,
+    });
+    await ctx.db.patch(ownership._id, {
+      state: "succeeded",
+      updatedAt: now,
     });
     await appendProvisioningRunEvent(ctx, {
       runId: args.runId,
@@ -1129,6 +1342,68 @@ export const finishWorkflowProvisioning = internalMutation({
       level: "info",
       message: "App infrastructure is ready.",
       state: "succeeded",
+    });
+
+    return null;
+  },
+});
+
+export const markWorkflowStartupFailed = internalMutation({
+  args: {
+    runId: v.id("appProvisioningRuns"),
+    message: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) {
+      throw new Error("Provisioning run not found.");
+    }
+    if (
+      run.state === "succeeded" ||
+      run.state === "failed" ||
+      run.state === "canceled"
+    ) {
+      return null;
+    }
+
+    const now = Date.now();
+    const safeRunError = "Provisioning workflow failed to start.";
+    const vault = await ctx.db.get(run.vaultId);
+    if (
+      vault &&
+      vault.isNoterManaged === true &&
+      vault.infraState !== "ready"
+    ) {
+      await ctx.db.patch(run.vaultId, {
+        infraState: "failed",
+        infraLastError: args.message,
+        infraLastProvisionedAt: now,
+        infraProvisioningStartedAt: undefined,
+      });
+    }
+
+    await ctx.db.patch(args.runId, {
+      state: "failed",
+      lastError: safeRunError,
+      updatedAt: now,
+      completedAt: now,
+    });
+    await ctx.runMutation(internal.appProvisioningEvents.append, {
+      userId: run.userId,
+      vaultId: run.vaultId,
+      repositoryFullName: run.repositoryFullName,
+      runId: args.runId,
+      step: "claim_infra",
+      level: "error",
+      message: safeRunError,
+      createdAt: now,
+    });
+
+    console.error("infra:provision:start_failed", {
+      vaultId: run.vaultId,
+      repo: run.repositoryFullName,
+      message: args.message,
     });
 
     return null;
@@ -1148,6 +1423,9 @@ export const markWorkflowProvisioningFailed = internalMutation({
     if (!run) {
       throw new Error("Provisioning run not found.");
     }
+    if (run.vaultId !== args.vaultId) {
+      throw new Error("Workflow failure run does not belong to vault.");
+    }
     if (run.state === "succeeded" || run.state === "canceled") {
       return null;
     }
@@ -1156,6 +1434,21 @@ export const markWorkflowProvisioningFailed = internalMutation({
     }
 
     const now = Date.now();
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    const ownsActiveClaim = isActiveProvisioningOwner(ownership, {
+      runId: args.runId,
+    });
+    const failedBeforeClaim = run.currentStep === "run_created";
+    const eventStep =
+      run.currentStep === "run_created" ? "claim_infra" : run.currentStep;
+    if (!ownsActiveClaim && !failedBeforeClaim) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: eventStep,
+      });
+      return null;
+    }
+
     const infrastructure = await ctx.db
       .query("vaultInfrastructure")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
@@ -1164,35 +1457,39 @@ export const markWorkflowProvisioningFailed = internalMutation({
       convexProjectId: infrastructure?.convexProjectId,
       hosting: infrastructure?.hosting,
     });
-    const eventStep =
-      run.currentStep === "run_created" ? "claim_infra" : run.currentStep;
     const safeRunError =
       run.currentStep === "run_created"
         ? "Provisioning failed before the first step."
         : `Provisioning failed during ${run.currentStep}.`;
 
-    if (infrastructure) {
-      await ctx.db.patch(infrastructure._id, {
-        status: infraState,
-        lastError: args.message,
-        lastProvisionedAt: now,
+    if (ownsActiveClaim && ownership) {
+      if (infrastructure) {
+        await ctx.db.patch(infrastructure._id, {
+          status: infraState,
+          lastError: args.message,
+          lastProvisionedAt: now,
+        });
+      } else {
+        await ctx.db.insert("vaultInfrastructure", {
+          vaultId: args.vaultId,
+          status: infraState,
+          lastError: args.message,
+          lastProvisionedAt: now,
+          provisioningVersion: ownership.provisioningVersion,
+        });
+      }
+
+      await ctx.db.patch(args.vaultId, {
+        infraState,
+        infraLastError: args.message,
+        infraLastProvisionedAt: now,
+        infraProvisioningStartedAt: undefined,
       });
-    } else {
-      await ctx.db.insert("vaultInfrastructure", {
-        vaultId: args.vaultId,
-        status: infraState,
-        lastError: args.message,
-        lastProvisionedAt: now,
-        provisioningVersion: 1,
+      await ctx.db.patch(ownership._id, {
+        state: "failed",
+        updatedAt: now,
       });
     }
-
-    await ctx.db.patch(args.vaultId, {
-      infraState,
-      infraLastError: args.message,
-      infraLastProvisionedAt: now,
-      infraProvisioningStartedAt: undefined,
-    });
     await ctx.db.patch(args.runId, {
       state: "failed",
       lastError: safeRunError,

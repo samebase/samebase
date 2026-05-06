@@ -14,7 +14,6 @@ export const createForVault = internalMutation({
   args: {
     userId: id("users"),
     vaultId: id("vaults"),
-    repositoryFullName: string(),
     trigger: AppProvisioningRunTrigger,
   },
   returns: id("appProvisioningRuns"),
@@ -28,7 +27,7 @@ export const createForVault = internalMutation({
     return await ctx.db.insert("appProvisioningRuns", {
       userId: args.userId,
       vaultId: args.vaultId,
-      repositoryFullName: args.repositoryFullName,
+      repositoryFullName: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
       trigger: args.trigger,
       state: "queued",
       currentStep: "run_created",
