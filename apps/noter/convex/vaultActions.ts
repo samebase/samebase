@@ -81,7 +81,7 @@ async function startCreateAppProvisioningOrFail(
     userId: Id<"users">;
     repositoryName: string;
     description: string | null;
-    private: boolean | null;
+    private: boolean;
   },
 ): Promise<void> {
   try {
@@ -222,7 +222,7 @@ export const createRepository = action({
       userId,
       repositoryName: args.name,
       description: args.description ?? null,
-      private: args.private ?? null,
+      private: args.private ?? true,
     });
 
     return { runId };

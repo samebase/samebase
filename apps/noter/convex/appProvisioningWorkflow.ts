@@ -12,7 +12,6 @@ const workflowCompletionContext = object({
   runId: id("appProvisioningRuns"),
 });
 const createAppDescription = v.union(string(), v.null());
-const createAppPrivate = v.union(boolean(), v.null());
 
 export function resolveWorkflowCompletionError(
   result: RunResult,
@@ -99,7 +98,7 @@ export const provisionApp = workflow.define({
     userId: id("users"),
     repositoryName: string(),
     description: createAppDescription,
-    private: createAppPrivate,
+    private: boolean(),
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
@@ -210,7 +209,7 @@ export const startCreateAppProvisioning = internalMutation({
     userId: id("users"),
     repositoryName: string(),
     description: createAppDescription,
-    private: createAppPrivate,
+    private: boolean(),
   },
   returns: string(),
   handler: async (ctx, args): Promise<string> => {

@@ -16,7 +16,6 @@ import {
 const { boolean, id, object, string, union } = v;
 
 const descriptionValidator = union(string(), v.null());
-const privateValidator = union(boolean(), v.null());
 const githubRepositoryResult = object({
   ghRepoId: string(),
   ownerName: string(),
@@ -180,7 +179,7 @@ export const createGitHubRepository = internalAction({
     userId: id("users"),
     repositoryName: string(),
     description: descriptionValidator,
-    private: privateValidator,
+    private: boolean(),
   },
   returns: githubRepositoryResult,
   handler: async (ctx, args) => {
@@ -204,7 +203,7 @@ export const createGitHubRepository = internalAction({
     const repo = await octokit.rest.repos.createForAuthenticatedUser({
       name: repoName,
       auto_init: false,
-      private: args.private ?? true,
+      private: args.private,
       description: description ? description : undefined,
     });
 
