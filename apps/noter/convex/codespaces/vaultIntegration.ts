@@ -80,14 +80,10 @@ export const createVaultWithCodespace = action({
       },
     });
 
-    // Store devcontainer config in vault
-    await ctx.runAction(
-      api.codespaces.vaultIntegration.updateVaultDevcontainer,
-      {
-        vaultId,
-        devcontainerConfig,
-      },
-    );
+    await ctx.runMutation(internal.vault.updateVaultDevcontainerConfig, {
+      vaultId,
+      devcontainerConfig,
+    });
 
     // Create Codespace
     const { codespaceId } = await ctx.runAction(
@@ -128,7 +124,7 @@ export const rebuildCodespaceIfStale = action({
       vaultId: args.vaultId,
     });
 
-    if (!vault) {
+    if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
     }
 
@@ -204,11 +200,12 @@ export const ensureCodespaceReady = action({
     ctx,
     args,
   ): Promise<Infer<typeof ensureCodespaceReadyResult>> => {
+    const userId = await getUserId(ctx);
     const vault = await ctx.runQuery(internal.codespaces.mutations.getVault, {
       vaultId: args.vaultId,
     });
 
-    if (!vault) {
+    if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
     }
 
@@ -295,21 +292,6 @@ export const ensureCodespaceReady = action({
       codespaceId,
       ready: true,
     };
-  },
-});
-
-/**
- * Internal mutation: Update vault devcontainer config
- */
-export const updateVaultDevcontainer = action({
-  args: {
-    vaultId: v.id("vaults"),
-    devcontainerConfig: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.runMutation(internal.vault.updateVaultDevcontainerConfig, args);
-    return null;
   },
 });
 
