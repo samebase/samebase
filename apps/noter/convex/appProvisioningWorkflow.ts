@@ -6,7 +6,7 @@ import { internalMutation } from "./_generated/server";
 import { toErrorMessage } from "./jsonUtils";
 
 const workflow = new WorkflowManager(components.workflow);
-const { id, object, optional, string } = v;
+const { boolean, id, object, string } = v;
 
 const workflowCompletionContext = object({
   runId: id("appProvisioningRuns"),
@@ -16,20 +16,25 @@ const workflowCompletionContext = object({
 export function resolveWorkflowCompletionError(
   result: RunResult,
 ): string | null {
-  if (result.kind === "failed") {
-    return result.error;
+  switch (result.kind) {
+    case "success":
+      return null;
+    case "failed":
+      return result.error;
+    case "canceled":
+      return "Provisioning workflow was canceled.";
+    default: {
+      result satisfies never;
+      return null;
+    }
   }
-  if (result.kind === "canceled") {
-    return "Provisioning workflow was canceled.";
-  }
-  return null;
 }
 
 export const provisionVaultInfrastructure = workflow.define({
   args: {
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
-    force: optional(v.boolean()),
+    force: boolean(),
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
@@ -91,25 +96,18 @@ export const startVaultInfrastructureProvisioning = internalMutation({
   args: {
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
-    force: optional(v.boolean()),
+    force: boolean(),
   },
   returns: string(),
   handler: async (ctx, args): Promise<string> => {
-    const workflowArgs =
-      args.force === undefined
-        ? {
-            vaultId: args.vaultId,
-            runId: args.runId,
-          }
-        : {
-            vaultId: args.vaultId,
-            runId: args.runId,
-            force: args.force,
-          };
     const workflowId: string = await workflow.start(
       ctx,
       internal.appProvisioningWorkflow.provisionVaultInfrastructure,
-      workflowArgs,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        force: args.force,
+      },
       {
         startAsync: true,
         onComplete:
@@ -147,10 +145,10 @@ export const handleProvisioningWorkflowComplete = internalMutation({
   handler: async (ctx, args): Promise<null> => {
     const run = await ctx.db.get(args.context.runId);
     if (!run) {
-      return null;
+      throw new Error("Provisioning run not found.");
     }
     if (run.workflowId && run.workflowId !== args.workflowId) {
-      return null;
+      throw new Error("Workflow completion id does not match run.");
     }
     if (run.state === "succeeded" || run.state === "failed") {
       return null;
@@ -159,10 +157,11 @@ export const handleProvisioningWorkflowComplete = internalMutation({
     const error = resolveWorkflowCompletionError(args.result);
     if (!error) {
       if (run.state !== "canceled") {
+        const now = Date.now();
         await ctx.db.patch(args.context.runId, {
           state: "succeeded",
-          updatedAt: Date.now(),
-          completedAt: Date.now(),
+          updatedAt: now,
+          completedAt: now,
         });
       }
       return null;

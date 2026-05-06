@@ -708,7 +708,7 @@ export const claimWorkflowProvisioning = internalMutation({
   args: {
     vaultId: v.id("vaults"),
     runId: v.id("appProvisioningRuns"),
-    force: v.optional(v.boolean()),
+    force: v.boolean(),
   },
   returns: v.object({ claimed: v.boolean() }),
   handler: async (ctx, args) => {
@@ -725,7 +725,7 @@ export const claimWorkflowProvisioning = internalMutation({
     }
 
     const now = Date.now();
-    if (!args.force) {
+    if (args.force === false) {
       if (
         vault.infraState === "provisioning" &&
         vault.infraProvisioningStartedAt &&
@@ -773,7 +773,7 @@ export const claimWorkflowProvisioning = internalMutation({
       repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
       previousVersion: existing?.provisioningVersion ?? 0,
       nextVersion,
-      force: args.force ?? false,
+      force: args.force,
       hostingProvider: "cloudflare",
     });
 
@@ -1145,11 +1145,14 @@ export const markWorkflowProvisioningFailed = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
-    if (!run || run.state === "succeeded" || run.state === "canceled") {
+    if (!run) {
+      throw new Error("Provisioning run not found.");
+    }
+    if (run.state === "succeeded" || run.state === "canceled") {
       return null;
     }
     if (run.workflowId && run.workflowId !== args.workflowId) {
-      return null;
+      throw new Error("Workflow failure id does not match run.");
     }
 
     const now = Date.now();

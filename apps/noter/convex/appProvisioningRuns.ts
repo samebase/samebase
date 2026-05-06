@@ -50,13 +50,15 @@ export const appendRunEvent = internalMutation({
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
     if (!run) {
-      return null;
+      throw new Error("Provisioning run not found.");
     }
     if (
       run.state === "succeeded" ||
       run.state === "failed" ||
       run.state === "canceled"
     ) {
+      // Workflow cancellation and completion can leave in-flight step actions
+      // trying to report late events. Terminal state owns the final record.
       return null;
     }
 

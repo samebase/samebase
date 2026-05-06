@@ -330,6 +330,7 @@ export const createRepository = action({
       {
         vaultId,
         runId,
+        force: false,
       },
     );
 
