@@ -23,15 +23,15 @@
   // such as the `"hidden"` literal in `satisfies Record<..., "hidden">`.
   "tailwindCSS.experimental.classRegex": [
     [
-      "\\b[A-Za-z0-9_$]*(?:CLASS_NAMES?|ClassNames|classNames)\\s*=\\s*\\{([\\s\\S]*?)\\}\\s*(?:as\\s+const\\s*)?(?:satisfies\\s+[\\s\\S]*?)?;",
+      "\\b[A-Za-z0-9_$]*(?:CLASS_NAMES?|ClassNames|classNames)\\s*=\\s*\\{([\\s\\S]*?)\\}\\s*(?:as\\s+const\\s*)?(?:satisfies\\s+[\\s\\S]*?)?;?",
       "\"([^\"]*)\""
     ],
     [
-      "\\b[A-Za-z0-9_$]*(?:CLASS_NAMES?|ClassNames|classNames)\\s*=\\s*\\{([\\s\\S]*?)\\}\\s*(?:as\\s+const\\s*)?(?:satisfies\\s+[\\s\\S]*?)?;",
+      "\\b[A-Za-z0-9_$]*(?:CLASS_NAMES?|ClassNames|classNames)\\s*=\\s*\\{([\\s\\S]*?)\\}\\s*(?:as\\s+const\\s*)?(?:satisfies\\s+[\\s\\S]*?)?;?",
       "'([^']*)'"
     ],
     [
-      "\\b[A-Za-z0-9_$]*(?:CLASS_NAMES?|ClassNames|classNames)\\s*=\\s*\\{([\\s\\S]*?)\\}\\s*(?:as\\s+const\\s*)?(?:satisfies\\s+[\\s\\S]*?)?;",
+      "\\b[A-Za-z0-9_$]*(?:CLASS_NAMES?|ClassNames|classNames)\\s*=\\s*\\{([\\s\\S]*?)\\}\\s*(?:as\\s+const\\s*)?(?:satisfies\\s+[\\s\\S]*?)?;?",
       "`([^`]*)`"
     ]
   ],
