@@ -3,8 +3,11 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
+  type ActionCtx,
+  type MutationCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
 import {
   createInfraProviders,
   type ConvexManagementProvider,
@@ -15,18 +18,15 @@ import {
 } from "./hostingProviders";
 import { hostingStateValidator } from "./hostingState";
 import { resolveCloudflareHostingState } from "./hostingStateHelpers";
-import {
-  asRecord,
-  readString,
-  readStringOrNumber,
-  toErrorMessage,
-} from "./jsonUtils";
+import { asRecord, readString, readStringOrNumber } from "./jsonUtils";
 import type { AppProvisioningStep } from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 
 const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 const GITHUB_API_VERSION = "2022-11-28";
+const activeProvisioningRunResult = v.object({ active: v.boolean() });
+const infrastructurePatchResult = v.object({ applied: v.boolean() });
 
 const infraPatchValidator = v.object({
   status: v.optional(
@@ -176,6 +176,9 @@ type ConvexProvisionResult = {
   convexDeploymentType: "prod" | "dev";
   convexCloudUrl: string;
   convexSiteUrl: string;
+};
+
+type ConvexDeployKeyResult = {
   convexDeployKeyId: string;
   deployKey: string;
 };
@@ -301,19 +304,6 @@ async function ensureConvexResources(args: {
   const siteUrl =
     args.existing.siteUrl ?? `https://${deploymentName}.convex.site`;
 
-  const deployKeyRaw = await args.convexProvider.request(
-    `/deployments/${encodeURIComponent(deploymentName)}/create_deploy_key`,
-    "POST",
-    {
-      name: `noter-${suffix}`,
-    },
-  );
-  const deployKeyRecord = asRecord(deployKeyRaw);
-  const deployKey = readString(deployKeyRecord, "deployKey");
-  if (!deployKey) {
-    throw new Error("Failed to create Convex deploy key");
-  }
-
   return {
     convexProjectId: projectId,
     convexProjectSlug: projectSlug,
@@ -321,14 +311,12 @@ async function ensureConvexResources(args: {
     convexDeploymentType: "prod",
     convexCloudUrl: deploymentUrl,
     convexSiteUrl: siteUrl,
-    convexDeployKeyId: parseDeployKeyIdentifier(deployKey),
-    deployKey,
   };
 }
 
 type ConvexPreviewProvisionResult = {
+  previewDeploymentName: string;
   previewCloudUrl: string;
-  previewDeployKey: string;
 };
 
 async function ensureConvexPreviewResources(args: {
@@ -380,22 +368,35 @@ async function ensureConvexPreviewResources(args: {
     deploymentUrl = `https://${deploymentName}.convex.cloud`;
   }
 
+  return {
+    previewDeploymentName: deploymentName,
+    previewCloudUrl: deploymentUrl,
+  };
+}
+
+async function createConvexDeployKey(args: {
+  convexProvider: ConvexManagementProvider;
+  deploymentName: string;
+  name: string;
+}): Promise<ConvexDeployKeyResult> {
+  // Create deploy-key secrets inside provider steps so Workflow journals only
+  // safe app metadata, never key material.
   const deployKeyRaw = await args.convexProvider.request(
-    `/deployments/${encodeURIComponent(deploymentName)}/create_deploy_key`,
+    `/deployments/${encodeURIComponent(args.deploymentName)}/create_deploy_key`,
     "POST",
     {
-      name: `noter-preview-${vaultSuffix(args.vaultId)}`,
+      name: args.name,
     },
   );
   const deployKeyRecord = asRecord(deployKeyRaw);
-  const previewDeployKey = readString(deployKeyRecord, "deployKey");
-  if (!previewDeployKey) {
-    throw new Error("Failed to create Convex preview deploy key.");
+  const deployKey = readString(deployKeyRecord, "deployKey");
+  if (!deployKey) {
+    throw new Error("Failed to create Convex deploy key.");
   }
 
   return {
-    previewCloudUrl: deploymentUrl,
-    previewDeployKey,
+    convexDeployKeyId: parseDeployKeyIdentifier(deployKey),
+    deployKey,
   };
 }
 
@@ -423,6 +424,255 @@ function resolveCloudflareBuildConfig(vault: {
   };
 }
 
+type ProvisioningEventCtx = Pick<ActionCtx, "runMutation"> &
+  Pick<MutationCtx, "runMutation">;
+
+async function appendProvisioningRunEvent(
+  ctx: ProvisioningEventCtx,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    step: AppProvisioningStep;
+    level: "info" | "warn" | "error";
+    message: string;
+    state:
+      | "unchanged"
+      | "queued"
+      | "running"
+      | "succeeded"
+      | "failed"
+      | "canceled";
+  },
+): Promise<void> {
+  try {
+    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      runId: args.runId,
+      step: args.step,
+      level: args.level,
+      message: args.message,
+      state: args.state,
+    });
+  } catch {
+    console.warn("infra:provision:event_append_failed", {
+      runId: args.runId,
+      step: args.step,
+    });
+  }
+}
+
+type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
+type ProvisioningOwnershipCtx = Pick<MutationCtx, "db">;
+
+async function getVaultInfrastructureOwnership(
+  ctx: ProvisioningOwnershipCtx,
+  vaultId: Id<"vaults">,
+): Promise<VaultInfrastructureOwnership | null> {
+  return await ctx.db
+    .query("vaultInfrastructureOwnership")
+    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+    .first();
+}
+
+function isActiveProvisioningOwner(
+  ownership: VaultInfrastructureOwnership | null,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+  },
+): boolean {
+  return ownership?.runId === args.runId && ownership.state === "active";
+}
+
+async function cancelSupersededProvisioningRun(
+  ctx: ProvisioningEventCtx,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    step: AppProvisioningStep;
+  },
+): Promise<void> {
+  await appendProvisioningRunEvent(ctx, {
+    runId: args.runId,
+    step: args.step,
+    level: "warn",
+    message: "Infrastructure provisioning was superseded by a newer run.",
+    state: "canceled",
+  });
+}
+
+async function ensureActiveProvisioningRun(
+  ctx: ActionCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    step: AppProvisioningStep;
+  },
+): Promise<boolean> {
+  const { active } = await ctx.runQuery(
+    internal.infraProvisioning.isActiveProvisioningRun,
+    {
+      vaultId: args.vaultId,
+      runId: args.runId,
+    },
+  );
+  if (active) {
+    return true;
+  }
+
+  await cancelSupersededProvisioningRun(ctx, {
+    runId: args.runId,
+    step: args.step,
+  });
+  return false;
+}
+
+type ManagedProvisioningVault = {
+  _id: Id<"vaults">;
+  userId: Id<"users">;
+  ghRepoId: string;
+  ghRepoOwner: string;
+  ghRepoName: string;
+  isNoterManaged?: boolean;
+  treeData: { tree: Array<{ path: string }> };
+};
+
+async function getManagedProvisioningVault(
+  ctx: ActionCtx,
+  vaultId: Id<"vaults">,
+): Promise<ManagedProvisioningVault | null> {
+  const vault = await ctx.runQuery(internal.vault.getById, {
+    id: vaultId,
+  });
+  if (!vault || vault.isNoterManaged !== true) {
+    return null;
+  }
+  return vault;
+}
+
+async function resolveConvexProvisioningConnection(
+  ctx: ActionCtx,
+  userId: Id<"users">,
+): Promise<{ convexToken: string; convexTeamId: string }> {
+  const convexConnection = await ctx.runQuery(
+    internal.providerConnections.getByUserAndKind,
+    {
+      userId,
+      kind: "convex",
+    },
+  );
+  const convexToken =
+    convexConnection?.kind === "convex"
+      ? convexConnection.auth.credential.trim()
+      : "";
+  const convexTeamId =
+    convexConnection?.kind === "convex" ? convexConnection.teamId.trim() : "";
+
+  if (!convexToken || !convexTeamId) {
+    throw new Error(
+      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
+    );
+  }
+
+  return { convexToken, convexTeamId };
+}
+
+async function resolveGitHubProvisioningConnection(
+  ctx: ActionCtx,
+  userId: Id<"users">,
+): Promise<{ githubAccessToken: string }> {
+  const githubConnection = await ctx.runQuery(
+    internal.providerConnections.getByUserAndKind,
+    {
+      userId,
+      kind: "github",
+    },
+  );
+  if (githubConnection?.kind !== "github") {
+    throw new Error(
+      "GitHub connection is required to provision infrastructure.",
+    );
+  }
+  return { githubAccessToken: githubConnection.auth.credential };
+}
+
+async function resolveCloudflareProvisioningConnection(
+  ctx: ActionCtx,
+  userId: Id<"users">,
+): Promise<{
+  cloudflareToken: string;
+  cloudflareServerUrl: string;
+  cloudflareAccountId: string;
+}> {
+  const resolvedCloudflareConnection = await ctx.runAction(
+    internal.cloudflareMcpOAuth.resolveConnectionForUser,
+    {
+      userId,
+    },
+  );
+  if (!resolvedCloudflareConnection) {
+    throw new Error(
+      "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
+    );
+  }
+
+  const cloudflareToken = resolvedCloudflareConnection.auth.credential.trim();
+  const cloudflareServerUrl = resolveCloudflareMcpServerUrl(
+    resolvedCloudflareConnection,
+  );
+  let cloudflareAccountId = resolvedCloudflareConnection.accountId?.trim()
+    ? resolvedCloudflareConnection.accountId.trim()
+    : "";
+
+  if (!cloudflareToken) {
+    throw new Error(
+      "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
+    );
+  }
+
+  if (!cloudflareAccountId) {
+    const accountInventory = await ctx.runAction(
+      internal.infraRead.getCloudflareAccountInventory,
+      {
+        userId,
+        limit: 50,
+      },
+    );
+    const accounts = parseCloudflareAccountInventory(accountInventory.raw);
+    if (accounts.length === 0) {
+      throw new Error(
+        "No Cloudflare account is available for provisioning. Reconnect Cloudflare and retry.",
+      );
+    }
+    if (accounts.length > 1) {
+      throw new Error(
+        "Multiple Cloudflare accounts are available. Select an account before provisioning can continue.",
+      );
+    }
+    cloudflareAccountId = accounts[0].id;
+    await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
+      userId,
+      auth: resolvedCloudflareConnection.auth,
+      accountId: cloudflareAccountId,
+    });
+    console.log("infra:cloudflare:account:auto_selected", {
+      accountId: cloudflareAccountId,
+      accountCount: accounts.length,
+    });
+  }
+
+  if (!cloudflareAccountId) {
+    throw new Error(
+      "Cloudflare account selection is required before provisioning can continue.",
+    );
+  }
+
+  return { cloudflareToken, cloudflareServerUrl, cloudflareAccountId };
+}
+
+export function resolveInfraStateAfterWorkflowFailure(args: {
+  convexProjectId?: string;
+  hosting: unknown;
+}): "failed" | "partial" {
+  return args.convexProjectId || args.hosting ? "partial" : "failed";
+}
+
 export const getInfrastructureByVault = internalQuery({
   args: {
     vaultId: v.id("vaults"),
@@ -435,70 +685,39 @@ export const getInfrastructureByVault = internalQuery({
   },
 });
 
-export const claimProvisioning = internalMutation({
+export const isActiveProvisioningRun = internalQuery({
   args: {
     vaultId: v.id("vaults"),
-    force: v.optional(v.boolean()),
+    runId: v.id("appProvisioningRuns"),
   },
-  returns: v.object({ claimed: v.boolean() }),
+  returns: activeProvisioningRunResult,
   handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault) {
-      return { claimed: false };
-    }
-
-    const now = Date.now();
-    if (!args.force) {
-      if (
-        vault.infraState === "provisioning" &&
-        vault.infraProvisioningStartedAt &&
-        now - vault.infraProvisioningStartedAt < PROVISIONING_STALE_MS
-      ) {
-        return { claimed: false };
-      }
-    }
-
-    await ctx.db.patch(args.vaultId, {
-      infraState: "provisioning",
-      infraLastError: undefined,
-      infraProvisioningStartedAt: now,
-    });
-
-    return { claimed: true };
-  },
-});
-
-export const setProvisioningState = internalMutation({
-  args: {
-    vaultId: v.id("vaults"),
-    infraState: v.union(
-      v.literal("not_started"),
-      v.literal("provisioning"),
-      v.literal("ready"),
-      v.literal("failed"),
-      v.literal("partial"),
-    ),
-    infraLastError: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.vaultId, {
-      infraState: args.infraState,
-      infraLastError: args.infraLastError,
-      infraLastProvisionedAt: Date.now(),
-      infraProvisioningStartedAt: undefined,
-    });
-    return null;
+    const ownership = await ctx.db
+      .query("vaultInfrastructureOwnership")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first();
+    return {
+      active: ownership?.runId === args.runId && ownership.state === "active",
+    };
   },
 });
 
 export const upsertInfrastructureRecord = internalMutation({
   args: {
     vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
     patch: infraPatchValidator,
   },
-  returns: v.null(),
+  returns: infrastructurePatchResult,
   handler: async (ctx, args) => {
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (
+      !ownership ||
+      !isActiveProvisioningOwner(ownership, { runId: args.runId })
+    ) {
+      return { applied: false };
+    }
+
     const existing = await ctx.db
       .query("vaultInfrastructure")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
@@ -506,7 +725,7 @@ export const upsertInfrastructureRecord = internalMutation({
 
     if (existing) {
       await ctx.db.patch(existing._id, args.patch);
-      return null;
+      return { applied: true };
     }
 
     await ctx.db.insert("vaultInfrastructure", {
@@ -527,7 +746,7 @@ export const upsertInfrastructureRecord = internalMutation({
       hosting: args.patch.hosting,
     });
 
-    return null;
+    return { applied: true };
   },
 });
 
@@ -577,65 +796,197 @@ export const upsertDomainRecord = internalMutation({
   },
 });
 
-export const provisionVaultInfrastructure = internalAction({
+export const claimWorkflowProvisioning = internalMutation({
   args: {
     vaultId: v.id("vaults"),
-    force: v.optional(v.boolean()),
+    runId: v.id("appProvisioningRuns"),
+    force: v.boolean(),
   },
-  returns: v.null(),
+  returns: v.object({ claimed: v.boolean() }),
   handler: async (ctx, args) => {
-    const vault = await ctx.runQuery(internal.vault.getById, {
-      id: args.vaultId,
-    });
-
-    if (!vault || vault.isNoterManaged !== true) {
-      return null;
+    const run = await ctx.db.get(args.runId);
+    if (!run) {
+      throw new Error("Provisioning run not found.");
+    }
+    if (run.vaultId !== args.vaultId) {
+      throw new Error("Provisioning run does not belong to vault.");
     }
 
-    const repositoryFullName = `${vault.ghRepoOwner}/${vault.ghRepoName}`;
-    let currentStep: AppProvisioningStep = "claim_infra";
-    const appendProvisioningEvent = async (event: {
-      step: AppProvisioningStep;
-      level: "info" | "warn" | "error";
-      message: string;
-    }) => {
-      try {
-        await ctx.runMutation(internal.appProvisioningEvents.append, {
-          userId: vault.userId,
-          vaultId: args.vaultId,
-          repositoryFullName,
-          step: event.step,
-          level: event.level,
-          message: event.message,
-        });
-      } catch {
-        console.warn("infra:provision:event_append_failed", {
-          vaultId: args.vaultId,
-          step: event.step,
-        });
-      }
-    };
-
-    const { claimed } = await ctx.runMutation(
-      internal.infraProvisioning.claimProvisioning,
-      {
-        vaultId: args.vaultId,
-        force: args.force,
-      },
-    );
-
-    if (!claimed) {
-      await appendProvisioningEvent({
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.isNoterManaged !== true) {
+      await appendProvisioningRunEvent(ctx, {
+        runId: args.runId,
         step: "claim_infra",
         level: "warn",
-        message: "Infrastructure provisioning is already running.",
+        message: "Infrastructure provisioning is no longer available.",
+        state: "canceled",
       });
-      return null;
+      return { claimed: false };
     }
-    await appendProvisioningEvent({
+    if (
+      run.userId !== vault.userId ||
+      run.repositoryFullName !== `${vault.ghRepoOwner}/${vault.ghRepoName}`
+    ) {
+      throw new Error("Provisioning run does not match vault ownership.");
+    }
+
+    const now = Date.now();
+    if (args.force === false) {
+      if (
+        vault.infraState === "provisioning" &&
+        vault.infraProvisioningStartedAt &&
+        now - vault.infraProvisioningStartedAt < PROVISIONING_STALE_MS
+      ) {
+        await appendProvisioningRunEvent(ctx, {
+          runId: args.runId,
+          step: "claim_infra",
+          level: "warn",
+          message: "Infrastructure provisioning is already running.",
+          state: "canceled",
+        });
+        return { claimed: false };
+      }
+    }
+
+    await ctx.db.patch(args.vaultId, {
+      infraState: "provisioning",
+      infraLastError: undefined,
+      infraProvisioningStartedAt: now,
+    });
+
+    const existing = await ctx.db
+      .query("vaultInfrastructure")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first();
+    const nextVersion = (existing?.provisioningVersion ?? 0) + 1;
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        status: "provisioning",
+        provisioningVersion: nextVersion,
+        lastError: undefined,
+      });
+    } else {
+      await ctx.db.insert("vaultInfrastructure", {
+        vaultId: args.vaultId,
+        status: "provisioning",
+        provisioningVersion: nextVersion,
+      });
+    }
+
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (ownership?.state === "active" && ownership.runId !== args.runId) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: ownership.runId,
+        step: "claim_infra",
+      });
+    }
+    if (ownership) {
+      await ctx.db.patch(ownership._id, {
+        runId: args.runId,
+        provisioningVersion: nextVersion,
+        state: "active",
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        provisioningVersion: nextVersion,
+        state: "active",
+        updatedAt: now,
+      });
+    }
+
+    console.log("infra:provision:start", {
+      vaultId: args.vaultId,
+      repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+      previousVersion: existing?.provisioningVersion ?? 0,
+      nextVersion,
+      force: args.force,
+      hostingProvider: "cloudflare",
+    });
+
+    await appendProvisioningRunEvent(ctx, {
+      runId: args.runId,
       step: "claim_infra",
       level: "info",
       message: "Started infrastructure provisioning.",
+      state: "running",
+    });
+
+    return { claimed: true };
+  },
+});
+
+export const validateProvisioningConnections = internalAction({
+  args: {
+    vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (
+      !(await ensureActiveProvisioningRun(ctx, {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        step: "validate_connections",
+      }))
+    ) {
+      return null;
+    }
+
+    const vault = await getManagedProvisioningVault(ctx, args.vaultId);
+    if (!vault) {
+      throw new Error("Vault not found for infrastructure provisioning.");
+    }
+
+    await appendProvisioningRunEvent(ctx, {
+      runId: args.runId,
+      step: "validate_connections",
+      level: "info",
+      message: "Checking provider connections.",
+      state: "running",
+    });
+
+    await Promise.all([
+      resolveGitHubProvisioningConnection(ctx, vault.userId),
+      resolveConvexProvisioningConnection(ctx, vault.userId),
+      resolveCloudflareProvisioningConnection(ctx, vault.userId),
+    ]);
+
+    return null;
+  },
+});
+
+export const ensureConvexInfrastructure = internalAction({
+  args: {
+    vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (
+      !(await ensureActiveProvisioningRun(ctx, {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        step: "ensure_convex",
+      }))
+    ) {
+      return null;
+    }
+
+    const vault = await getManagedProvisioningVault(ctx, args.vaultId);
+    if (!vault) {
+      throw new Error("Vault not found for infrastructure provisioning.");
+    }
+
+    await appendProvisioningRunEvent(ctx, {
+      runId: args.runId,
+      step: "ensure_convex",
+      level: "info",
+      message: "Ensuring Convex project and production deployment.",
+      state: "running",
     });
 
     const existing = await ctx.runQuery(
@@ -644,344 +995,526 @@ export const provisionVaultInfrastructure = internalAction({
         vaultId: args.vaultId,
       },
     );
+    const { convexToken, convexTeamId } =
+      await resolveConvexProvisioningConnection(ctx, vault.userId);
+    const providers = createInfraProviders({
+      convexToken,
+    });
+    const convex = await ensureConvexResources({
+      teamId: convexTeamId,
+      convexProvider: providers.convex,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      vaultId: args.vaultId,
+      existing: {
+        projectId: existing?.convexProjectId,
+        projectSlug: existing?.convexProjectSlug,
+        deploymentName: existing?.convexDeploymentName,
+        cloudUrl: existing?.convexCloudUrl,
+        siteUrl: existing?.convexSiteUrl,
+      },
+    });
 
-    const nextVersion = (existing?.provisioningVersion ?? 0) + 1;
-
-    await ctx.runMutation(
+    const { applied } = await ctx.runMutation(
       internal.infraProvisioning.upsertInfrastructureRecord,
       {
         vaultId: args.vaultId,
+        runId: args.runId,
         patch: {
           status: "provisioning",
-          provisioningVersion: nextVersion,
-          lastError: undefined,
+          convexProjectId: convex.convexProjectId,
+          convexProjectSlug: convex.convexProjectSlug,
+          convexDeploymentName: convex.convexDeploymentName,
+          convexDeploymentType: convex.convexDeploymentType,
+          convexCloudUrl: convex.convexCloudUrl,
+          convexSiteUrl: convex.convexSiteUrl,
         },
       },
     );
-
-    console.log("infra:provision:start", {
-      vaultId: args.vaultId,
-      repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-      previousVersion: existing?.provisioningVersion ?? 0,
-      nextVersion,
-      force: args.force ?? false,
-      hostingProvider: "cloudflare",
-    });
-
-    let convexSuccess = false;
-    let hostingSuccess = false;
-
-    try {
-      currentStep = "validate_connections";
-      await appendProvisioningEvent({
-        step: currentStep,
-        level: "info",
-        message: "Checking provider connections.",
+    if (!applied) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: "ensure_convex",
       });
-      const defaultBranch = process.env.INFRA_DEFAULT_BRANCH ?? "main";
-      const [githubConnection, convexConnection, resolvedCloudflareConnection] =
-        await Promise.all([
-          ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-            userId: vault.userId,
-            kind: "github",
-          }),
-          ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-            userId: vault.userId,
-            kind: "convex",
-          }),
-          ctx.runAction(internal.cloudflareMcpOAuth.resolveConnectionForUser, {
-            userId: vault.userId,
-          }),
-        ]);
-
-      if (githubConnection?.kind !== "github") {
-        throw new Error(
-          "GitHub connection is required to provision infrastructure.",
-        );
-      }
-      const githubAccessToken = githubConnection.auth.credential;
-
-      const convexToken =
-        convexConnection?.kind === "convex"
-          ? convexConnection.auth.credential.trim()
-          : "";
-      const convexTeamId =
-        convexConnection?.kind === "convex"
-          ? convexConnection.teamId.trim()
-          : "";
-
-      if (!convexToken || !convexTeamId) {
-        throw new Error(
-          "Convex connection is required to provision infrastructure. Connect Convex and retry.",
-        );
-      }
-
-      if (!resolvedCloudflareConnection) {
-        throw new Error(
-          "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
-        );
-      }
-      const cloudflareToken =
-        resolvedCloudflareConnection.auth.credential.trim();
-      const cloudflareServerUrl = resolveCloudflareMcpServerUrl(
-        resolvedCloudflareConnection,
-      );
-      let cloudflareAccountId = resolvedCloudflareConnection.accountId?.trim()
-        ? resolvedCloudflareConnection.accountId.trim()
-        : "";
-
-      if (!cloudflareToken) {
-        throw new Error(
-          "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
-        );
-      }
-
-      if (!cloudflareAccountId) {
-        const accountInventory = await ctx.runAction(
-          internal.infraRead.getCloudflareAccountInventory,
-          {
-            userId: vault.userId,
-            limit: 50,
-          },
-        );
-        const accounts = parseCloudflareAccountInventory(accountInventory.raw);
-        if (accounts.length === 0) {
-          throw new Error(
-            "No Cloudflare account is available for provisioning. Reconnect Cloudflare and retry.",
-          );
-        }
-        if (accounts.length > 1) {
-          throw new Error(
-            "Multiple Cloudflare accounts are available. Select an account before provisioning can continue.",
-          );
-        }
-        cloudflareAccountId = accounts[0].id;
-        await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
-          userId: vault.userId,
-          auth: resolvedCloudflareConnection.auth,
-          accountId: cloudflareAccountId,
-        });
-        console.log("infra:cloudflare:account:auto_selected", {
-          vaultId: args.vaultId,
-          accountId: cloudflareAccountId,
-          accountCount: accounts.length,
-        });
-      }
-
-      if (!cloudflareAccountId) {
-        throw new Error(
-          "Cloudflare account selection is required before provisioning can continue.",
-        );
-      }
-
-      const providers = createInfraProviders({
-        convexToken,
-      });
-
-      currentStep = "ensure_convex";
-      await appendProvisioningEvent({
-        step: currentStep,
-        level: "info",
-        message: "Ensuring Convex project and production deployment.",
-      });
-      const convex = await ensureConvexResources({
-        teamId: convexTeamId,
-        convexProvider: providers.convex,
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
-        vaultId: args.vaultId,
-        existing: {
-          projectId: existing?.convexProjectId,
-          projectSlug: existing?.convexProjectSlug,
-          deploymentName: existing?.convexDeploymentName,
-          cloudUrl: existing?.convexCloudUrl,
-          siteUrl: existing?.convexSiteUrl,
-        },
-      });
-
-      convexSuccess = true;
-      await appendProvisioningEvent({
-        step: currentStep,
-        level: "info",
-        message: `Convex deployment ready: ${convex.convexDeploymentName}.`,
-      });
-
-      await ctx.runMutation(
-        internal.infraProvisioning.upsertInfrastructureRecord,
-        {
-          vaultId: args.vaultId,
-          patch: {
-            status: "provisioning",
-            provisioningVersion: nextVersion,
-
-            convexProjectId: convex.convexProjectId,
-            convexProjectSlug: convex.convexProjectSlug,
-            convexDeploymentName: convex.convexDeploymentName,
-            convexDeploymentType: convex.convexDeploymentType,
-            convexCloudUrl: convex.convexCloudUrl,
-            convexSiteUrl: convex.convexSiteUrl,
-            convexDeployKeyId: convex.convexDeployKeyId,
-          },
-        },
-      );
-
-      currentStep = "ensure_convex_preview";
-      await appendProvisioningEvent({
-        step: currentStep,
-        level: "info",
-        message: "Ensuring Convex preview deployment.",
-      });
-      const previewConvex = await ensureConvexPreviewResources({
-        convexProvider: providers.convex,
-        projectId: convex.convexProjectId,
-        vaultId: args.vaultId,
-      });
-      await appendProvisioningEvent({
-        step: currentStep,
-        level: "info",
-        message: "Convex preview deployment ready.",
-      });
-
-      const repoIdentity = await fetchGitHubRepoIdentity({
-        githubAccessToken,
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
-      });
-      const cloudflareExisting = resolveCloudflareHostingState(existing);
-      currentStep = "ensure_cloudflare";
-      await appendProvisioningEvent({
-        step: currentStep,
-        level: "info",
-        message: "Ensuring Cloudflare Pages project and deploy settings.",
-      });
-      const provisionedHosting = await ensureHostingResources({
-        provider: "cloudflare",
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
-        ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
-        ghRepoOwnerId: repoIdentity.ownerId,
-        defaultBranch,
-        vaultId: args.vaultId,
-        cloudflareToken,
-        cloudflareServerUrl,
-        accountId: cloudflareAccountId,
-        buildConfig: resolveCloudflareBuildConfig(vault),
-        existing: {
-          accountId: cloudflareExisting?.accountId,
-          projectName: cloudflareExisting?.projectName,
-          subdomain: cloudflareExisting?.subdomain,
-          productionUrl: cloudflareExisting?.productionUrl,
-        },
-        convex: {
-          production: {
-            cloudUrl: convex.convexCloudUrl,
-            deployKey: convex.deployKey,
-          },
-          preview: {
-            cloudUrl: previewConvex.previewCloudUrl,
-            deployKey: previewConvex.previewDeployKey,
-          },
-        },
-      });
-
-      hostingSuccess = true;
-      await appendProvisioningEvent({
-        step: currentStep,
-        level: "info",
-        message: `Cloudflare Pages project ready: ${provisionedHosting.projectName}.`,
-      });
-
-      await ctx.runMutation(
-        internal.infraProvisioning.upsertInfrastructureRecord,
-        {
-          vaultId: args.vaultId,
-          patch: {
-            status: "ready",
-            provisioningVersion: nextVersion,
-            lastProvisionedAt: Date.now(),
-            hosting: provisionedHosting,
-            lastError: undefined,
-          },
-        },
-      );
-
-      const mainUrl = getProvisionedMainUrl(provisionedHosting);
-      if (mainUrl) {
-        currentStep = "record_domains";
-        await ctx.runMutation(internal.infraProvisioning.upsertDomainRecord, {
-          vaultId: args.vaultId,
-          branch: defaultBranch,
-          kind: "main",
-          url: mainUrl,
-          source: "cloudflare_pages_default",
-          active: true,
-        });
-        await appendProvisioningEvent({
-          step: currentStep,
-          level: "info",
-          message: `Recorded production URL: ${mainUrl}.`,
-        });
-      }
-
-      console.log("infra:provision:success", {
-        vaultId: args.vaultId,
-        repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-        convexDeploymentName: convex.convexDeploymentName,
-        cloudflareAccountId: provisionedHosting.accountId,
-        cloudflareProjectName: provisionedHosting.projectName,
-        cloudflareSubdomain: provisionedHosting.subdomain,
-      });
-
-      await ctx.runMutation(internal.infraProvisioning.setProvisioningState, {
-        vaultId: args.vaultId,
-        infraState: "ready",
-      });
-      currentStep = "finish";
-      await appendProvisioningEvent({
-        step: currentStep,
-        level: "info",
-        message: "App infrastructure is ready.",
-      });
-
-      return null;
-    } catch (error) {
-      const message = toErrorMessage(error);
-      const infraState = convexSuccess || hostingSuccess ? "partial" : "failed";
-
-      console.error("infra:provision:failed", {
-        vaultId: args.vaultId,
-        repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-        infraState,
-        convexSuccess,
-        hostingSuccess,
-        message,
-      });
-
-      await ctx.runMutation(
-        internal.infraProvisioning.upsertInfrastructureRecord,
-        {
-          vaultId: args.vaultId,
-          patch: {
-            status: infraState,
-            provisioningVersion: nextVersion,
-            lastError: message,
-            lastProvisionedAt: Date.now(),
-          },
-        },
-      );
-      await appendProvisioningEvent({
-        step: currentStep,
-        level: "error",
-        message: `Provisioning failed during ${currentStep}.`,
-      });
-
-      await ctx.runMutation(internal.infraProvisioning.setProvisioningState, {
-        vaultId: args.vaultId,
-        infraState,
-        infraLastError: message,
-      });
-
       return null;
     }
+
+    await appendProvisioningRunEvent(ctx, {
+      runId: args.runId,
+      step: "ensure_convex",
+      level: "info",
+      message: `Convex deployment ready: ${convex.convexDeploymentName}.`,
+      state: "running",
+    });
+
+    return null;
+  },
+});
+
+export const ensureConvexPreviewInfrastructure = internalAction({
+  args: {
+    vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (
+      !(await ensureActiveProvisioningRun(ctx, {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        step: "ensure_convex_preview",
+      }))
+    ) {
+      return null;
+    }
+
+    const vault = await getManagedProvisioningVault(ctx, args.vaultId);
+    if (!vault) {
+      throw new Error("Vault not found for infrastructure provisioning.");
+    }
+
+    await appendProvisioningRunEvent(ctx, {
+      runId: args.runId,
+      step: "ensure_convex_preview",
+      level: "info",
+      message: "Ensuring Convex preview deployment.",
+      state: "running",
+    });
+
+    const existing = await ctx.runQuery(
+      internal.infraProvisioning.getInfrastructureByVault,
+      {
+        vaultId: args.vaultId,
+      },
+    );
+    if (!existing?.convexProjectId) {
+      throw new Error(
+        "Convex project is required before preview provisioning can continue.",
+      );
+    }
+
+    const { convexToken } = await resolveConvexProvisioningConnection(
+      ctx,
+      vault.userId,
+    );
+    const providers = createInfraProviders({
+      convexToken,
+    });
+    await ensureConvexPreviewResources({
+      convexProvider: providers.convex,
+      projectId: existing.convexProjectId,
+      vaultId: args.vaultId,
+    });
+
+    await appendProvisioningRunEvent(ctx, {
+      runId: args.runId,
+      step: "ensure_convex_preview",
+      level: "info",
+      message: "Convex preview deployment ready.",
+      state: "running",
+    });
+
+    return null;
+  },
+});
+
+export const ensureCloudflareInfrastructure = internalAction({
+  args: {
+    vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (
+      !(await ensureActiveProvisioningRun(ctx, {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        step: "ensure_cloudflare",
+      }))
+    ) {
+      return null;
+    }
+
+    const vault = await getManagedProvisioningVault(ctx, args.vaultId);
+    if (!vault) {
+      throw new Error("Vault not found for infrastructure provisioning.");
+    }
+
+    await appendProvisioningRunEvent(ctx, {
+      runId: args.runId,
+      step: "ensure_cloudflare",
+      level: "info",
+      message: "Ensuring Cloudflare Pages project and deploy settings.",
+      state: "running",
+    });
+
+    const existing = await ctx.runQuery(
+      internal.infraProvisioning.getInfrastructureByVault,
+      {
+        vaultId: args.vaultId,
+      },
+    );
+    if (
+      !existing?.convexProjectId ||
+      !existing.convexDeploymentName ||
+      !existing.convexCloudUrl
+    ) {
+      throw new Error(
+        "Convex production deployment is required before Cloudflare provisioning can continue.",
+      );
+    }
+
+    const defaultBranch = process.env.INFRA_DEFAULT_BRANCH ?? "main";
+    const { githubAccessToken } = await resolveGitHubProvisioningConnection(
+      ctx,
+      vault.userId,
+    );
+    const { convexToken } = await resolveConvexProvisioningConnection(
+      ctx,
+      vault.userId,
+    );
+    const { cloudflareToken, cloudflareServerUrl, cloudflareAccountId } =
+      await resolveCloudflareProvisioningConnection(ctx, vault.userId);
+    const providers = createInfraProviders({
+      convexToken,
+    });
+    const previewConvex = await ensureConvexPreviewResources({
+      convexProvider: providers.convex,
+      projectId: existing.convexProjectId,
+      vaultId: args.vaultId,
+    });
+    const productionDeployKey = await createConvexDeployKey({
+      convexProvider: providers.convex,
+      deploymentName: existing.convexDeploymentName,
+      name: `noter-${vaultSuffix(args.vaultId)}`,
+    });
+    const previewDeployKey = await createConvexDeployKey({
+      convexProvider: providers.convex,
+      deploymentName: previewConvex.previewDeploymentName,
+      name: `noter-preview-${vaultSuffix(args.vaultId)}`,
+    });
+    const repoIdentity = await fetchGitHubRepoIdentity({
+      githubAccessToken,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+    });
+    const cloudflareExisting = resolveCloudflareHostingState(existing);
+    const provisionedHosting = await ensureHostingResources({
+      provider: "cloudflare",
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
+      ghRepoOwnerId: repoIdentity.ownerId,
+      defaultBranch,
+      vaultId: args.vaultId,
+      cloudflareToken,
+      cloudflareServerUrl,
+      accountId: cloudflareAccountId,
+      buildConfig: resolveCloudflareBuildConfig(vault),
+      existing: {
+        accountId: cloudflareExisting?.accountId,
+        projectName: cloudflareExisting?.projectName,
+        subdomain: cloudflareExisting?.subdomain,
+        productionUrl: cloudflareExisting?.productionUrl,
+      },
+      convex: {
+        production: {
+          cloudUrl: existing.convexCloudUrl,
+          deployKey: productionDeployKey.deployKey,
+        },
+        preview: {
+          cloudUrl: previewConvex.previewCloudUrl,
+          deployKey: previewDeployKey.deployKey,
+        },
+      },
+    });
+
+    const { applied } = await ctx.runMutation(
+      internal.infraProvisioning.upsertInfrastructureRecord,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        patch: {
+          status: "ready",
+          lastProvisionedAt: Date.now(),
+          hosting: provisionedHosting,
+          lastError: undefined,
+          convexDeployKeyId: productionDeployKey.convexDeployKeyId,
+        },
+      },
+    );
+    if (!applied) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: "ensure_cloudflare",
+      });
+      return null;
+    }
+
+    await appendProvisioningRunEvent(ctx, {
+      runId: args.runId,
+      step: "ensure_cloudflare",
+      level: "info",
+      message: `Cloudflare Pages project ready: ${provisionedHosting.projectName}.`,
+      state: "running",
+    });
+
+    if (
+      !(await ensureActiveProvisioningRun(ctx, {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        step: "record_domains",
+      }))
+    ) {
+      return null;
+    }
+
+    const mainUrl = getProvisionedMainUrl(provisionedHosting);
+    if (mainUrl) {
+      await ctx.runMutation(internal.infraProvisioning.upsertDomainRecord, {
+        vaultId: args.vaultId,
+        branch: defaultBranch,
+        kind: "main",
+        url: mainUrl,
+        source: "cloudflare_pages_default",
+        active: true,
+      });
+      await appendProvisioningRunEvent(ctx, {
+        runId: args.runId,
+        step: "record_domains",
+        level: "info",
+        message: `Recorded production URL: ${mainUrl}.`,
+        state: "running",
+      });
+    }
+
+    console.log("infra:provision:success", {
+      vaultId: args.vaultId,
+      repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+      convexDeploymentName: existing.convexDeploymentName,
+      cloudflareAccountId: provisionedHosting.accountId,
+      cloudflareProjectName: provisionedHosting.projectName,
+      cloudflareSubdomain: provisionedHosting.subdomain,
+    });
+
+    return null;
+  },
+});
+
+export const finishWorkflowProvisioning = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (
+      !ownership ||
+      !isActiveProvisioningOwner(ownership, { runId: args.runId })
+    ) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: "finish",
+      });
+      return null;
+    }
+
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.isNoterManaged !== true) {
+      return null;
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(args.vaultId, {
+      infraState: "ready",
+      infraLastError: undefined,
+      infraLastProvisionedAt: now,
+      infraProvisioningStartedAt: undefined,
+    });
+    await ctx.db.patch(ownership._id, {
+      state: "succeeded",
+      updatedAt: now,
+    });
+    await appendProvisioningRunEvent(ctx, {
+      runId: args.runId,
+      step: "finish",
+      level: "info",
+      message: "App infrastructure is ready.",
+      state: "succeeded",
+    });
+
+    return null;
+  },
+});
+
+export const markWorkflowStartupFailed = internalMutation({
+  args: {
+    runId: v.id("appProvisioningRuns"),
+    message: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) {
+      throw new Error("Provisioning run not found.");
+    }
+    if (
+      run.state === "succeeded" ||
+      run.state === "failed" ||
+      run.state === "canceled"
+    ) {
+      return null;
+    }
+
+    const now = Date.now();
+    const safeRunError = "Provisioning workflow failed to start.";
+    const vault = await ctx.db.get(run.vaultId);
+    if (
+      vault &&
+      vault.isNoterManaged === true &&
+      vault.infraState !== "ready"
+    ) {
+      await ctx.db.patch(run.vaultId, {
+        infraState: "failed",
+        infraLastError: args.message,
+        infraLastProvisionedAt: now,
+        infraProvisioningStartedAt: undefined,
+      });
+    }
+
+    await ctx.db.patch(args.runId, {
+      state: "failed",
+      lastError: safeRunError,
+      updatedAt: now,
+      completedAt: now,
+    });
+    await ctx.runMutation(internal.appProvisioningEvents.append, {
+      userId: run.userId,
+      vaultId: run.vaultId,
+      repositoryFullName: run.repositoryFullName,
+      runId: args.runId,
+      step: "claim_infra",
+      level: "error",
+      message: safeRunError,
+      createdAt: now,
+    });
+
+    console.error("infra:provision:start_failed", {
+      vaultId: run.vaultId,
+      repo: run.repositoryFullName,
+      message: args.message,
+    });
+
+    return null;
+  },
+});
+
+export const markWorkflowProvisioningFailed = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
+    workflowId: v.string(),
+    message: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) {
+      throw new Error("Provisioning run not found.");
+    }
+    if (run.vaultId !== args.vaultId) {
+      throw new Error("Workflow failure run does not belong to vault.");
+    }
+    if (run.state === "succeeded" || run.state === "canceled") {
+      return null;
+    }
+    if (run.workflowId && run.workflowId !== args.workflowId) {
+      throw new Error("Workflow failure id does not match run.");
+    }
+
+    const now = Date.now();
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    const ownsActiveClaim = isActiveProvisioningOwner(ownership, {
+      runId: args.runId,
+    });
+    const failedBeforeClaim = run.currentStep === "run_created";
+    const eventStep =
+      run.currentStep === "run_created" ? "claim_infra" : run.currentStep;
+    if (!ownsActiveClaim && !failedBeforeClaim) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: eventStep,
+      });
+      return null;
+    }
+
+    const infrastructure = await ctx.db
+      .query("vaultInfrastructure")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first();
+    const infraState = resolveInfraStateAfterWorkflowFailure({
+      convexProjectId: infrastructure?.convexProjectId,
+      hosting: infrastructure?.hosting,
+    });
+    const safeRunError =
+      run.currentStep === "run_created"
+        ? "Provisioning failed before the first step."
+        : `Provisioning failed during ${run.currentStep}.`;
+
+    if (ownsActiveClaim && ownership) {
+      if (infrastructure) {
+        await ctx.db.patch(infrastructure._id, {
+          status: infraState,
+          lastError: args.message,
+          lastProvisionedAt: now,
+        });
+      } else {
+        await ctx.db.insert("vaultInfrastructure", {
+          vaultId: args.vaultId,
+          status: infraState,
+          lastError: args.message,
+          lastProvisionedAt: now,
+          provisioningVersion: ownership.provisioningVersion,
+        });
+      }
+
+      await ctx.db.patch(args.vaultId, {
+        infraState,
+        infraLastError: args.message,
+        infraLastProvisionedAt: now,
+        infraProvisioningStartedAt: undefined,
+      });
+      await ctx.db.patch(ownership._id, {
+        state: "failed",
+        updatedAt: now,
+      });
+    }
+    await ctx.db.patch(args.runId, {
+      state: "failed",
+      lastError: safeRunError,
+      updatedAt: now,
+      completedAt: now,
+    });
+    await ctx.runMutation(internal.appProvisioningEvents.append, {
+      userId: run.userId,
+      vaultId: run.vaultId,
+      repositoryFullName: run.repositoryFullName,
+      runId: args.runId,
+      step: eventStep,
+      level: "error",
+      message: safeRunError,
+      createdAt: now,
+    });
+
+    console.error("infra:provision:failed", {
+      vaultId: args.vaultId,
+      repo: run.repositoryFullName,
+      infraState,
+      step: run.currentStep,
+      message: args.message,
+    });
+
+    return null;
   },
 });

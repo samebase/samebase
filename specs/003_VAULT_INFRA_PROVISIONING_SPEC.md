@@ -23,8 +23,9 @@ downstream provisioning partially fails.
 ## Important Behavior
 
 - `vaultActions.createRepository` (new noter-managed repo) requires GitHub +
-  Convex + Cloudflare connections and schedules
-  `internal.infraProvisioning.provisionVaultInfrastructure` automatically.
+  Convex + Cloudflare connections and starts
+  `internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning`
+  automatically.
 - `vaultActions.connectRepository` (existing GitHub repo connection) does
   **not** auto-provision infra.
 - `vaultActions.retryInfrastructureProvisioning` allows manual retries for
@@ -91,13 +92,13 @@ Optional:
 1. `vaultActions.createRepository`
 
 - Returns: `{ vaultId: string }`
-- Side effect: schedules async infra provisioning
+- Side effect: starts async infra provisioning through Convex Workflow
 
 2. `vaultActions.retryInfrastructureProvisioning`
 
 - Args: `{ vaultId: Id<"vaults"> }`
 - Returns: `null`
-- Behavior: validates ownership + noter-managed, schedules forced provisioning
+- Behavior: validates ownership + noter-managed, starts a forced provisioning
   retry
 
 3. `vault.getVaultInfrastructure`
@@ -108,9 +109,9 @@ Optional:
 
 ### Internal
 
-- `infraProvisioning.provisionVaultInfrastructure({ vaultId, force? })`
-- `infraProvisioning.claimProvisioning({ vaultId, force? })`
-- `infraProvisioning.setProvisioningState(...)`
+- `appProvisioningWorkflow.startVaultInfrastructureProvisioning({ vaultId, runId, force })`
+- `appProvisioningWorkflow.provisionVaultInfrastructure({ vaultId, runId, force })`
+- `infraProvisioning.claimWorkflowProvisioning({ vaultId, runId, force })`
 - `infraProvisioning.upsertInfrastructureRecord(...)`
 - `infraProvisioning.upsertDomainRecord(...)`
 
@@ -119,17 +120,18 @@ Optional:
 ```mermaid
 sequenceDiagram
   participant VA as "vaultActions.createRepository"
-  participant SCH as "Convex Scheduler"
-  participant IP as "infraProvisioning.provisionVaultInfrastructure"
+  participant WF as "appProvisioningWorkflow"
+  participant IP as "infraProvisioning steps"
   participant CVX as "Convex Mgmt API"
   participant CFL as "Cloudflare Pages API"
   participant DB as "Convex DB"
 
   VA->>DB: addVault(isNoterManaged=true, infraState=not_started)
-  VA->>SCH: schedule provisionVaultInfrastructure(vaultId)
-  SCH->>IP: start
+  VA->>DB: create appProvisioningRun
+  VA->>WF: start provisioning workflow
+  WF->>IP: run ordered steps
   IP->>DB: claim + set infraState=provisioning
-  IP->>CVX: ensure project/deployment/deploy key
+  IP->>CVX: ensure project/deployments
   IP->>CFL: ensure Pages project/env/deploy
   IP->>DB: upsert vaultInfrastructure + vaultDomains
   IP->>DB: set infraState=ready

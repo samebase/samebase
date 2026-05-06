@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Draft implementation plan
+- Status: Accepted phased implementation plan
 - Owner: Noter app creation + infrastructure provisioning
 - Created: 2026-05-02
 - Related docs:
@@ -30,12 +30,13 @@ migration.
 3. seeds the starter app
 4. fetches the initial branch tree
 5. creates a Noter vault row
-6. schedules `internal.infraProvisioning.provisionVaultInfrastructure`
+6. creates an `appProvisioningRuns` row
+7. starts `internal.appProvisioningWorkflow.provisionVaultInfrastructure`
 
-`infraProvisioning.provisionVaultInfrastructure` currently:
+`appProvisioningWorkflow.provisionVaultInfrastructure` currently:
 
 1. claims a vault-level provisioning lock
-2. creates or reuses Convex project/deployment/deploy key resources
+2. creates or reuses Convex project/deployment resources
 3. creates preview Convex resources
 4. creates or reuses Cloudflare Pages resources
 5. configures provider env/build state
@@ -51,6 +52,11 @@ The dashboard currently surfaces this mostly through:
 
 This is operationally useful but unclear during app creation because multiple
 provider steps can succeed or fail under the same visible state.
+
+Phase 1 shipped durable `appProvisioningEvents` and a dashboard log textarea.
+Phase 2 adds app-owned run identity and stores the Workflow id so the app can
+safely expose Workflow status, restart failed work, cancel work, or clean up
+completed component records.
 
 ## Goals
 
@@ -74,7 +80,82 @@ provider steps can succeed or fail under the same visible state.
 
 ## Proposed Architecture
 
-### 1. Provisioning Events Foundation
+### 1. Provisioning Run Identity
+
+Add an app-owned run table before moving execution into Workflow:
+
+```ts
+appProvisioningRuns: {
+  userId: Id<"users">;
+  vaultId: Id<"vaults">;
+  repositoryFullName: string;
+  workflowId?: string;
+  trigger: "create" | "retry";
+  state: "queued" | "running" | "succeeded" | "failed" | "canceled";
+  currentStep: "run_created" | AppProvisioningStep;
+  lastError?: string;
+  createdAt: number;
+  updatedAt: number;
+  completedAt?: number;
+}
+```
+
+`run_created` is the explicit initial `currentStep` value. It means the run row
+exists, but no provisioning step event has advanced it yet. New writes must not
+use missing `currentStep` as an implicit state.
+
+Run event helpers must also make state transitions explicit. Use
+`state: "unchanged"` for log-only events instead of omitting the run state
+update.
+
+Run and event timestamps are assigned by the mutations that write those rows.
+Callers must not pass synthetic `createdAt` values to run helpers.
+
+`completedAt` is written exactly when a run enters a terminal state. Nonterminal
+runs must leave it unset instead of preserving or inventing a previous value.
+
+Indexes:
+
+1. `by_vault_and_updated_at`
+2. `by_user_and_updated_at`
+3. `by_workflow_id`
+
+Run rules:
+
+1. Keep `workflowId` as an opaque component id string owned by this app table.
+2. Query runs through app-owned authorization checks; do not expose component
+   internals directly to React.
+3. Store user-safe status and error text only. Secrets, tokens, env values,
+   deploy keys, request headers, and raw provider payloads remain forbidden.
+4. Legacy Phase 1 vaults may have provisioning events without a run. A retry for
+   those vaults should start a new run instead of trying to invent a historical
+   Workflow id.
+5. Completed Workflow component records need a documented cleanup path after the
+   app-owned run has durable terminal state.
+
+### 1.1. Active Infrastructure Ownership
+
+Phase 2 stores the latest Workflow run allowed to write provider state for each
+vault:
+
+```ts
+vaultInfrastructureOwnership: {
+  vaultId: Id<"vaults">;
+  runId: Id<"appProvisioningRuns">;
+  provisioningVersion: number;
+  state: "active" | "succeeded" | "failed";
+  updatedAt: number;
+}
+```
+
+The ownership row is not a compatibility shim. It is the explicit fencing record
+for provider writes. Claiming a new run moves ownership to that run and cancels
+the previous active run. Every later provider step must verify that its `runId`
+still owns the vault before making external calls or writing infrastructure
+state. The row remains after completion so stale in-flight workflow callbacks
+cannot regain ownership after the newer run finishes.
+
+### 2. Provisioning Events Foundation
 
 Add an app-owned event table for provisioning visibility:
 
@@ -83,7 +164,7 @@ appProvisioningEvents: {
   userId: Id<"users">;
   vaultId?: Id<"vaults">;
   repositoryFullName?: string;
-  runId?: string;
+  runId?: Id<"appProvisioningRuns">;
   step:
     | "validate_connections"
     | "create_github_repo"
@@ -117,7 +198,12 @@ Logging rules:
 4. Query results must be explicitly sorted by `createdAt`, with `_creationTime`
    or document ID as a stable tie-breaker.
 
-### 2. Starter Dashboard Log Textarea
+Phase 1 shipped the event table without `runId`. Phase 2 keeps the stored
+`runId` field optional only for legacy event compatibility, requires new writes
+to include the active run, and leaves TODO comments at the temporary optional
+read/schema boundaries until a backfill lets the schema narrow.
+
+### 3. Starter Dashboard Log Textarea
 
 For Noter-managed vaults, add a basic read-only textarea under the existing
 developer/infra dashboard surface.
@@ -133,7 +219,7 @@ The textarea should:
 This intentionally starts as a simple textarea, not a designed stepper, so the
 team can verify the run model before designing richer chrome.
 
-### 3. Workflow Target
+### 4. Workflow Target
 
 After event logging exists, adopt Convex Workflow for the provisioning
 lifecycle.
@@ -164,7 +250,7 @@ Workflow rules:
 5. Record user-facing status in app-owned tables instead of exposing Workflow
    component internals directly to React.
 
-### 4. Migration Sequence
+### 5. Migration Sequence
 
 Phase 1: Durable logs.
 
@@ -174,14 +260,23 @@ Phase 1: Durable logs.
 4. Instrument the current create/provision path with safe events.
 5. Show a read-only textarea on dashboard cards.
 
-Phase 2: Workflow component install.
+Phase 2: Workflow component install and post-vault infra workflow.
 
 1. Add `@convex-dev/workflow`.
 2. Install the Workflow component in `convex.config.ts`.
-3. Create `appProvisioningWorkflow.ts`.
-4. Move only post-vault infra provisioning into Workflow.
-5. Keep `vaultActions.createRepository` responsible for GitHub repo creation
+3. Add `appProvisioningRuns`; keep stored event `runId` temporarily optional for
+   old rows, but require it for new provisioning event writes.
+4. Add `vaultInfrastructureOwnership` so forced retries and stale in-flight
+   steps have a durable owner to check before provider writes.
+5. Create `appProvisioningWorkflow.ts`.
+6. Split the current infra action into a deterministic workflow handler plus
+   narrow idempotent step functions. Provider side effects, env reads, and
+   network calls must stay inside step actions, not in the workflow handler.
+7. Move only post-vault infra provisioning into Workflow.
+8. Keep `vaultActions.createRepository` responsible for GitHub repo creation
    until infra Workflow behavior is proven.
+9. Keep the Phase 1 textarea as the only shipped UI change unless the run record
+   exposes an immediately useful, minimal status line.
 
 Phase 3: Full create-app Workflow.
 

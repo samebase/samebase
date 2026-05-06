@@ -3,7 +3,6 @@ import { internalMutation, query } from "./_generated/server";
 import { AppProvisioningEventLevel, AppProvisioningStep } from "./schema";
 import { getUserId } from "./common";
 
-const nullValidator = v.null();
 const { array, id, number, object, optional, string } = v;
 const MAX_PROVISIONING_EVENTS = 80;
 const MAX_PROVISIONING_MESSAGE_LENGTH = 800;
@@ -14,6 +13,9 @@ const provisioningEventResult = object({
   level: AppProvisioningEventLevel,
   message: string(),
   repositoryFullName: string(),
+  // TODO(app-provisioning-runs): Remove optionality after legacy phase-1
+  // events are backfilled with run ids and the schema is narrowed.
+  runId: optional(id("appProvisioningRuns")),
   step: AppProvisioningStep,
 });
 type ProvisioningEventResult = Infer<typeof provisioningEventResult>;
@@ -29,21 +31,35 @@ export const append = internalMutation({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
+    runId: id("appProvisioningRuns"),
     step: AppProvisioningStep,
     level: AppProvisioningEventLevel,
     message: string(),
-    createdAt: optional(number()),
+    createdAt: number(),
   },
-  returns: nullValidator,
+  returns: v.null(),
   handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) {
+      throw new Error("Provisioning run not found for event.");
+    }
+    if (
+      run.userId !== args.userId ||
+      run.vaultId !== args.vaultId ||
+      run.repositoryFullName !== args.repositoryFullName
+    ) {
+      throw new Error("Provisioning event does not match its run.");
+    }
+
     await ctx.db.insert("appProvisioningEvents", {
       userId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName: args.repositoryFullName,
+      runId: args.runId,
       step: args.step,
       level: args.level,
       message: normalizeProvisioningMessage(args.message),
-      createdAt: args.createdAt ?? Date.now(),
+      createdAt: args.createdAt,
     });
     return null;
   },
@@ -87,6 +103,7 @@ export const listForVault = query({
         level: event.level,
         message: event.message,
         repositoryFullName: event.repositoryFullName,
+        runId: event.runId,
         step: event.step,
       }));
   },

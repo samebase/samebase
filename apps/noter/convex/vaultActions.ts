@@ -1,8 +1,9 @@
 "use node";
 
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, type ActionCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 import { createInfraProviders } from "./infraProviders";
@@ -54,6 +55,40 @@ function readDefaultBranch(repoData: unknown): string {
     return value;
   }
   return "main";
+}
+
+async function startVaultInfrastructureProvisioningOrFail(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    force: boolean;
+  },
+): Promise<void> {
+  try {
+    await ctx.runMutation(
+      internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning,
+      args,
+    );
+  } catch (error) {
+    const message = toErrorMessage(error);
+    try {
+      await ctx.runMutation(
+        internal.infraProvisioning.markWorkflowStartupFailed,
+        {
+          runId: args.runId,
+          message,
+        },
+      );
+    } catch (markError) {
+      console.error("vault:provisioning_start_failure_mark_failed", {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        message: toErrorMessage(markError),
+      });
+    }
+    throw error;
+  }
 }
 
 export const connectRepository = action({
@@ -287,43 +322,35 @@ export const createRepository = action({
       hostingProvider: "cloudflare",
     });
     const repositoryFullName = `${ownerName}/${repoFinalName}`;
-    const eventBaseTime = Date.now();
-    try {
-      await ctx.runMutation(internal.appProvisioningEvents.append, {
+    const runId = await ctx.runMutation(
+      internal.appProvisioningRuns.createForVault,
+      {
         userId,
         vaultId,
-        repositoryFullName,
+        trigger: "create",
+      },
+    );
+    try {
+      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+        runId,
         step: "create_github_repo",
         level: "info",
         message: `Created GitHub repository ${repositoryFullName}.`,
-        createdAt: eventBaseTime,
+        state: "unchanged",
       });
-      await ctx.runMutation(internal.appProvisioningEvents.append, {
-        userId,
-        vaultId,
-        repositoryFullName,
+      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+        runId,
         step: "seed_starter",
         level: "info",
         message: "Seeded the starter app.",
-        createdAt: eventBaseTime + 1,
+        state: "unchanged",
       });
-      await ctx.runMutation(internal.appProvisioningEvents.append, {
-        userId,
-        vaultId,
-        repositoryFullName,
+      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+        runId,
         step: "create_vault",
         level: "info",
         message: "Created the Noter vault.",
-        createdAt: eventBaseTime + 2,
-      });
-      await ctx.runMutation(internal.appProvisioningEvents.append, {
-        userId,
-        vaultId,
-        repositoryFullName,
-        step: "claim_infra",
-        level: "info",
-        message: "Queued infrastructure provisioning.",
-        createdAt: eventBaseTime + 3,
+        state: "unchanged",
       });
     } catch {
       console.warn("vault:create:provisioning_event_append_failed", {
@@ -332,13 +359,11 @@ export const createRepository = action({
       });
     }
 
-    await ctx.scheduler.runAfter(
-      0,
-      internal.infraProvisioning.provisionVaultInfrastructure,
-      {
-        vaultId,
-      },
-    );
+    await startVaultInfrastructureProvisioningOrFail(ctx, {
+      vaultId,
+      runId,
+      force: false,
+    });
 
     return { vaultId };
   },
@@ -362,29 +387,19 @@ export const retryInfrastructureProvisioning = action({
         "Infrastructure retry is available only for Noter-managed vaults",
       );
     }
-    try {
-      await ctx.runMutation(internal.appProvisioningEvents.append, {
+    const runId = await ctx.runMutation(
+      internal.appProvisioningRuns.createForVault,
+      {
         userId,
         vaultId: args.vaultId,
-        repositoryFullName: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-        step: "claim_infra",
-        level: "info",
-        message: "Queued infrastructure provisioning retry.",
-      });
-    } catch {
-      console.warn("vault:infra_retry:provisioning_event_append_failed", {
-        vaultId: args.vaultId,
-      });
-    }
-
-    await ctx.scheduler.runAfter(
-      0,
-      internal.infraProvisioning.provisionVaultInfrastructure,
-      {
-        vaultId: args.vaultId,
-        force: true,
+        trigger: "retry",
       },
     );
+    await startVaultInfrastructureProvisioningOrFail(ctx, {
+      vaultId: args.vaultId,
+      runId,
+      force: true,
+    });
 
     return null;
   },

@@ -88,6 +88,12 @@ Key domain entities:
 - In Convex modules, define result validators before handlers, derive types via
   `Infer<typeof ...>`, and prefer destructuring validator builders once instead
   of repeated `v.<fn>()` call sites.
+- Default to required properties and required function/mutation/action
+  arguments. Treat every optional field or argument as another explicit state
+  that must be justified by current behavior, data migration, external input, or
+  patch semantics. Start from the simplest required shape, then make something
+  optional only after a real caller or persisted-data constraint proves it needs
+  that extra state.
 - When returning collections from queries or building user-visible lists, always
   choose an explicit deterministic sort order with stable tie-breakers. Do not
   rely on incidental storage order or live-update fields unless the product
@@ -321,6 +327,10 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - Prefix every PR title with the projected landing-page build label, such as
   `v1146:`, and refresh it after creating, updating, rebasing, marking ready, or
   whenever `origin/main` advances. Treat the label as provisional until merge.
+- When work implements a named or numbered phase from a spec, RFC, rollout, or
+  accepted plan, include the phase label in the PR title after the build label,
+  such as `v1146: Phase 2: Move app provisioning to Workflow`, so the eventual
+  squash commit preserves the phase context.
 - Do not amend or rewrite branch commit subjects only to add or refresh
   provisional build labels during normal PR updates. GitHub's squash UI uses the
   lone commit subject as the default squash title for one-commit PRs, and the PR

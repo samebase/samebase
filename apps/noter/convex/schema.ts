@@ -108,6 +108,36 @@ export const AppProvisioningStep = union(
 );
 export type AppProvisioningStep = Infer<typeof AppProvisioningStep>;
 
+export const AppProvisioningRunStep = union(
+  literal("run_created"),
+  literal("validate_connections"),
+  literal("create_github_repo"),
+  literal("seed_starter"),
+  literal("create_vault"),
+  literal("claim_infra"),
+  literal("ensure_convex"),
+  literal("ensure_convex_preview"),
+  literal("ensure_cloudflare"),
+  literal("record_domains"),
+  literal("finish"),
+);
+export type AppProvisioningRunStep = Infer<typeof AppProvisioningRunStep>;
+
+export const AppProvisioningRunTrigger = union(
+  literal("create"),
+  literal("retry"),
+);
+export type AppProvisioningRunTrigger = Infer<typeof AppProvisioningRunTrigger>;
+
+export const AppProvisioningRunState = union(
+  literal("queued"),
+  literal("running"),
+  literal("succeeded"),
+  literal("failed"),
+  literal("canceled"),
+);
+export type AppProvisioningRunState = Infer<typeof AppProvisioningRunState>;
+
 export const VaultDomainKind = union(
   literal("main"),
   literal("branch_preview"),
@@ -467,12 +497,52 @@ export default defineSchema({
     .index("by_status", ["status"]),
 
   /**
+   * Latest Workflow run allowed to write provider state for a vault.
+   * Keeping the last owner after completion makes older in-flight workflows
+   * fail closed instead of regaining ownership after a newer run finishes.
+   */
+  vaultInfrastructureOwnership: defineTable({
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    provisioningVersion: number(),
+    state: union(literal("active"), literal("succeeded"), literal("failed")),
+    updatedAt: number(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_run", ["runId"]),
+
+  /**
+   * App-owned Workflow run identity for Noter-managed provisioning.
+   */
+  appProvisioningRuns: defineTable({
+    userId: id("users"),
+    vaultId: id("vaults"),
+    repositoryFullName: string(),
+    // Assigned after the Workflow component start call returns; run identity
+    // exists first so early events can still be linked deterministically.
+    workflowId: optional(string()),
+    trigger: AppProvisioningRunTrigger,
+    state: AppProvisioningRunState,
+    currentStep: AppProvisioningRunStep,
+    lastError: optional(string()),
+    createdAt: number(),
+    updatedAt: number(),
+    completedAt: optional(number()),
+  })
+    .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
+    .index("by_user_and_updated_at", ["userId", "updatedAt"])
+    .index("by_workflow_id", ["workflowId"]),
+
+  /**
    * User-visible provisioning events for Noter-managed app creation.
    */
   appProvisioningEvents: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
+    // TODO(app-provisioning-runs): Backfill legacy phase-1 events, then make
+    // this required so every stored provisioning event belongs to a run.
+    runId: optional(id("appProvisioningRuns")),
     step: AppProvisioningStep,
     level: AppProvisioningEventLevel,
     message: string(),
