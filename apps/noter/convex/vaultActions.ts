@@ -287,7 +287,6 @@ export const createRepository = action({
       hostingProvider: "cloudflare",
     });
     const repositoryFullName = `${ownerName}/${repoFinalName}`;
-    const eventBaseTime = Date.now();
     const runId = await ctx.runMutation(
       internal.appProvisioningRuns.createForVault,
       {
@@ -295,7 +294,6 @@ export const createRepository = action({
         vaultId,
         repositoryFullName,
         trigger: "create",
-        createdAt: eventBaseTime,
       },
     );
     try {
@@ -304,7 +302,6 @@ export const createRepository = action({
         step: "create_github_repo",
         level: "info",
         message: `Created GitHub repository ${repositoryFullName}.`,
-        createdAt: eventBaseTime,
         state: "unchanged",
       });
       await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
@@ -312,7 +309,6 @@ export const createRepository = action({
         step: "seed_starter",
         level: "info",
         message: "Seeded the starter app.",
-        createdAt: eventBaseTime + 1,
         state: "unchanged",
       });
       await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
@@ -320,7 +316,6 @@ export const createRepository = action({
         step: "create_vault",
         level: "info",
         message: "Created the Noter vault.",
-        createdAt: eventBaseTime + 2,
         state: "unchanged",
       });
     } catch {

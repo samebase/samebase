@@ -108,6 +108,9 @@ Run event helpers must also make state transitions explicit. Use
 `state: "unchanged"` for log-only events instead of omitting the run state
 update.
 
+Run and event timestamps are assigned by the mutations that write those rows.
+Callers must not pass synthetic `createdAt` values to run helpers.
+
 Indexes:
 
 1. `by_vault_and_updated_at`

@@ -8,7 +8,7 @@ import {
   AppProvisioningStep,
 } from "./schema";
 
-const { id, literal, number, optional, string, union } = v;
+const { id, literal, string, union } = v;
 
 export const createForVault = internalMutation({
   args: {
@@ -16,7 +16,6 @@ export const createForVault = internalMutation({
     vaultId: id("vaults"),
     repositoryFullName: string(),
     trigger: AppProvisioningRunTrigger,
-    createdAt: optional(number()),
   },
   returns: id("appProvisioningRuns"),
   handler: async (ctx, args) => {
@@ -25,7 +24,7 @@ export const createForVault = internalMutation({
       throw new Error("Vault not found for provisioning run.");
     }
 
-    const now = args.createdAt ?? Date.now();
+    const now = Date.now();
     return await ctx.db.insert("appProvisioningRuns", {
       userId: args.userId,
       vaultId: args.vaultId,
@@ -45,7 +44,6 @@ export const appendRunEvent = internalMutation({
     step: AppProvisioningStep,
     level: AppProvisioningEventLevel,
     message: string(),
-    createdAt: optional(number()),
     state: union(literal("unchanged"), AppProvisioningRunState),
   },
   returns: v.null(),
@@ -62,7 +60,7 @@ export const appendRunEvent = internalMutation({
       return null;
     }
 
-    const now = args.createdAt ?? Date.now();
+    const now = Date.now();
     await ctx.runMutation(internal.appProvisioningEvents.append, {
       userId: run.userId,
       vaultId: run.vaultId,

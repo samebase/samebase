@@ -35,7 +35,7 @@ export const append = internalMutation({
     step: AppProvisioningStep,
     level: AppProvisioningEventLevel,
     message: string(),
-    createdAt: optional(number()),
+    createdAt: number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -47,7 +47,7 @@ export const append = internalMutation({
       step: args.step,
       level: args.level,
       message: normalizeProvisioningMessage(args.message),
-      createdAt: args.createdAt ?? Date.now(),
+      createdAt: args.createdAt,
     });
     return null;
   },
