@@ -19,23 +19,29 @@ the app can observe durable provider work instead of relying on browser-driven
 refreshes and coarse dashboard state.
 
 The current question is whether the next phase should keep patching retry
-semantics onto the existing repository-first model, or step back and model a
-vault as the durable app container before GitHub, Convex, and Cloudflare are
-fully connected.
+semantics onto the existing repository-first model, or step back and let a vault
+exist as an initializing shell before GitHub, Convex, and Cloudflare are fully
+connected.
 
 ## Current Finding
 
 Vault-first provisioning is the better model for user-visible retry semantics
-and for the later dashboard refresh work. The current schema makes `vaults` mean
-"a connected GitHub repository", so create-app has an invisible gap where the
-Workflow is running and app-owned run records exist, but the dashboard has no
-vault object to show until GitHub repository creation, starter seeding, tree
-fetching, and vault insertion all succeed.
+and for the later dashboard refresh work, but "vault-first" should not mean a
+repo-less vault is a usable source workspace. It means a vault can exist in an
+explicit initializing state so the dashboard has a stable object for provider
+progress and retry before GitHub is connected.
+
+The current schema makes `vaults` mean "a connected GitHub repository", so
+create-app has an invisible gap where the Workflow is running and app-owned run
+records exist, but the dashboard has no vault object to show until GitHub
+repository creation, starter seeding, tree fetching, and vault insertion all
+succeed.
 
 The next implementation phase should not be a broad Workflow refactor. It should
-promote this research into a focused RFC/spec for "vault as app container" and
-then make create-app insert the vault first, attach provider state explicitly,
-and let the dashboard render provider lines from that stable vault identity.
+promote this research into a focused RFC/spec for "vault as initializing
+provisioning shell" and then make create-app insert the vault first, attach
+provider state explicitly, and let the dashboard render provider lines from that
+stable vault identity.
 
 ## Original Goal
 
@@ -115,8 +121,12 @@ failed", "starter seed failed", "tree fetch failed", or "still running".
 
 ## Recommended Domain Model
 
-Model the vault as the app container, and model GitHub, Convex, and hosting as
-explicit integration states owned by that vault.
+Keep `vault` as the durable dashboard object, but give it an explicit pre-GitHub
+state. A vault without GitHub is visible for provisioning, failure, and retry,
+but it is not a usable repository workspace.
+
+Model GitHub, Convex, and hosting as explicit integration states owned by that
+vault.
 
 The important rule is to use discriminated unions, not scattered optional
 fields. A provider field should be required, and its `state` should say which
@@ -217,6 +227,32 @@ For example, branch trees and remote branch metadata already have natural
 tables. A connected GitHub state should identify the default repository and
 branch; it does not need to keep every tree payload inline in `vaults` forever.
 
+## Vault Invariant
+
+Repository-backed behavior must require `github.state === "connected"`.
+
+That includes:
+
+1. file tree reads
+2. file staging
+3. collaborative edits
+4. branch metadata refresh
+5. pull request metadata
+6. GitHub Codespaces
+7. commits and media uploads
+8. infrastructure steps that need a GitHub repository identity
+
+The pre-GitHub vault exists only to make provisioning visible and retryable.
+Routes and actions that operate on source files should fail closed or stay
+hidden until GitHub is connected.
+
+GitHub repository identity should also be one-way. A vault can move from
+`not_connected` or `failed` into `provisioning`, then into `connected`. Once
+connected, changing to a different `ghRepoId` should be forbidden. If the user
+wants a different repository, the product should create a new vault or archive
+the old one instead of mutating repository identity underneath existing
+repo-bound data.
+
 ## Why This Helps Retry
 
 With vault-first creation, the create-app flow becomes:
@@ -249,13 +285,16 @@ The best representation is:
 2. required per-provider discriminated state
 3. provider-specific fields only inside the matching provider state variant
 4. large provider snapshots in provider-owned child tables
-5. no optional compatibility fields unless there is a real migration window,
+5. repo-backed actions gated on the connected GitHub variant
+6. immutable GitHub repository identity after first successful connection
+7. no optional compatibility fields unless there is a real migration window,
    with TODO comments at every temporary boundary
 
 This preserves the user's preferred default: each stored row should have fewer
 implicit states, not more. A vault without GitHub is not represented by missing
 `ghRepoOwner` or `ghRepoName`; it is represented by
-`github.state: "not_connected"` or `github.state: "provisioning"`.
+`github.state: "not_connected"` or `github.state: "provisioning"`, and those
+states explicitly mean the vault is not yet usable as a source workspace.
 
 ## Migration Shortcut
 
@@ -301,7 +340,7 @@ The next implementation should be its own phase, not a tail on Phase 3.
 
 Suggested phase title:
 
-`Phase 4: Create vaults before provider provisioning`
+`Phase 4: Create initializing vaults before GitHub provisioning`
 
 Suggested sequence:
 
@@ -313,16 +352,19 @@ Suggested sequence:
    required `vaultId`.
 5. Update the Workflow to mutate provider states as each step starts, succeeds,
    or fails.
-6. Update dashboard data to render provider lines from explicit provider states.
-7. Add provider-specific retry actions that operate on one vault and one failed
+6. Add an invariant helper or typed accessor for code paths that require a
+   connected GitHub repository.
+7. Update dashboard data to render provider lines from explicit provider states.
+8. Add provider-specific retry actions that operate on one vault and one failed
    provider state.
-8. Defer automatic Workflow restart-from-failed-step until the provider states
+9. Defer automatic Workflow restart-from-failed-step until the provider states
    make manual retry semantics clear.
 
 ## Stop Line
 
 This should stop once vault-first creation exists, the dashboard can show
-per-provider state, and retry actions have an obvious domain target.
+per-provider state, repository-backed code is gated on connected GitHub, and
+retry actions have an obvious domain target.
 
 Do not use this phase to build a generic provider framework, redesign all
 integration tables, or refactor unrelated GitHub/editor/file flows. Those flows
@@ -341,11 +383,18 @@ connected GitHub repository.
    `appProvisioningEvents` keeps the full event history?
 5. Should existing-repository onboarding use the same `github.state` path with
    `connected` first, then provision Convex and Cloudflare after that?
+6. Should `github.state: "not_connected"` exist only for future manual
+   connection flows, while Noter-managed create-app starts directly at
+   `github.state: "provisioning"`?
 
 ## Recommendation
 
-Adopt vault-first provisioning before investing more in retry/resume behavior.
-The current Workflow work is still useful, but the durable domain object should
-be the vault, not a pre-vault run. Once the vault exists first, Workflow runs,
-provider status lines, manual retries, and future dashboard refresh workflows
-all have the same stable place to write and read state.
+Adopt initializing vault creation before investing more in retry/resume
+behavior. The current Workflow work is still useful, but the durable dashboard
+object should be the vault, not a pre-vault run. Once the vault exists first,
+Workflow runs, provider status lines, manual retries, and future dashboard
+refresh workflows all have the same stable place to write and read state.
+
+Keep the repository invariant strict: a vault can exist before GitHub, but it
+cannot behave like a repository workspace until GitHub is connected, and the
+connected repository must not be replaced in place.
