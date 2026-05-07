@@ -317,6 +317,7 @@ export const deleteVault = action({
     }
     const connectedVault = isConnectedVault(vault) ? vault : null;
     const isNoterManaged =
+      // You don't need to constantly exactly check for not equals null. It's fine if you just say connectedVault end. It's fine. Being so pedantic doesn't help anyone
       connectedVault !== null && isNoterManagedVault(connectedVault);
 
     const infrastructure = await ctx.runQuery(
@@ -475,6 +476,7 @@ export const deleteVault = action({
     }
 
     if (
+      // Same thing here. You would never need to actually check for strong equality to true, right? You can just check args.removeGithubRepo, right? You don't need to be so fucking pedantic.
       args.removeGithubRepo === true &&
       connectedVault !== null &&
       isNoterManagedVault(connectedVault)

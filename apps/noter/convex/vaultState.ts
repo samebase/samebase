@@ -18,6 +18,10 @@ export function isConnectedVault(
  * closed instead of accidentally using missing repository fields.
  */
 export function assertConnectedVault(
+  // NIT: most of the time we don't check if the vault is connected, this null|undefined means that we check if the vault
+  // exists at all; I tried using `pnpm --filter noter typecheck:watch` to see what would be affected
+  // it's definitely convenient to do it like this but, idk, it's important to be truthful
+  // also same thing for the isConnectedVault
   vault: Doc<"vaults"> | null | undefined,
 ): ConnectedVault {
   if (!isConnectedVault(vault)) {

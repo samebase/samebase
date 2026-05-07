@@ -60,6 +60,7 @@ const githubRepositoryCoordinatesFields = {
 const githubRepositoryWithVisibilityFields = {
   ...githubRepositoryCoordinatesFields,
 
+  // NIT: Why do we have a separate type for this and don't just include visibility in githubRepositoryCoordinatesFields?
   /** Repository visibility, either requested intent or current GitHub metadata. */
   visibility: GitHubRepositoryVisibility,
 } as const;
@@ -102,6 +103,7 @@ export const VaultConvexState = union(
     /** Durable workflow run that recorded this failure. */
     runId: id("appProvisioningRuns"),
 
+    // NIT: It looks like you seem forced to add a comment for each and every state, even though for most of them it makes sense already what they mean, right? It's clear what fail that means. I think just putting a comment for each and every one, and a comment of the same size, basically removes the benefit that it brings. It's never clear what actually requires the comment, because it's more complex and contains a lot of thinking behind it, and what's just a date, a failed at thing?
     /** Timestamp when the latest failure was recorded. */
     failedAt: number(),
   }),
@@ -186,6 +188,7 @@ const vaultOperationalFields = {
 
 export const VaultRow = union(
   object({
+    // NIT: So, it's possible to have a vault that's not connected yet to anything, and it has all this tree refresh stuff. It's a bit confusing. I know they're optional, but I'm wondering if these vault operational fields need to be so high up inside the vault? Were they already here? I mean, what's the status with them? During our discussions, you never mentioned that we have so many cooldowns and messages, failure kinds, all of that stuff.
     ...vaultOperationalFields,
 
     /** Explicit empty state for future manual connection flows. */
@@ -261,6 +264,7 @@ export const VaultRow = union(
     /** Timestamp when the vault first became a usable source workspace. */
     connectedAt: number(),
 
+    // Again, I don't remember that we ever discussed this infra state, infra last error, infra last provision that, infra provision started at, and all of this stuff. Can we actually discuss this, because we discussed a lot when building the spec, and this was never talked about?
     /** Current infrastructure summary mirrored for existing dashboard reads. */
     infraState: InfraState,
 
