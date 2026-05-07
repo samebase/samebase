@@ -161,10 +161,16 @@ const VaultGitHubState = v.union(
     runId: v.id("appProvisioningRuns"),
 
     /**
-     * Requested repository name from user input, preserved for display/retry.
-     * This is not repository identity.
+     * Requested GitHub user or organization owner for the new repository.
+     * This is the target, not confirmed repository identity yet.
      */
-    requestedRepoName: v.string(),
+    owner: v.string(),
+
+    /**
+     * Requested repository name from user input, preserved for display/retry.
+     * This is the target, not confirmed repository identity yet.
+     */
+    name: v.string(),
 
     /** Repository visibility requested for a new Noter-managed repository. */
     visibility: v.union(v.literal("private"), v.literal("public")),
@@ -177,7 +183,7 @@ const VaultGitHubState = v.union(
     state: v.literal("provisioning"),
 
     /**
-     * Distinguishes existing-repo connection from Noter-managed creation.
+     * Distinguishes existing-repo connection from repository creation.
      * This is named for GitHub because the vault row is flattened.
      */
     githubMode: v.literal("connect_existing_repository"),
@@ -185,8 +191,11 @@ const VaultGitHubState = v.union(
     /** Durable run that owns the in-flight existing-repo connection. */
     runId: v.id("appProvisioningRuns"),
 
-    /** Existing GitHub target in owner/name form. */
-    repositoryFullName: v.string(),
+    /** Existing GitHub repository owner targeted by this connection attempt. */
+    owner: v.string(),
+
+    /** Existing GitHub repository name targeted by this connection attempt. */
+    name: v.string(),
 
     /** Timestamp when this GitHub connection attempt started. */
     startedAt: v.number(),
@@ -195,10 +204,10 @@ const VaultGitHubState = v.union(
     /** GitHub is connected; repo-backed vault behavior is now allowed. */
     state: v.literal("connected"),
 
-    /** Records whether Noter created the repo or attached an existing repo. */
-    connectionKind: v.union(
-      v.literal("noter_managed"),
-      v.literal("existing_repository"),
+    /** Records whether this vault created the repo or attached an existing repo. */
+    githubMode: v.union(
+      v.literal("create_repository"),
+      v.literal("connect_existing_repository"),
     ),
 
     /** Immutable GitHub repository id; prevents in-place repo replacement. */
@@ -223,7 +232,7 @@ const VaultGitHubState = v.union(
     connectedAt: v.number(),
   }),
   v.object({
-    /** Latest Noter-managed GitHub repository creation attempt failed. */
+    /** Latest GitHub repository creation attempt failed. */
     state: v.literal("failed"),
 
     /** Failed GitHub operation kind; selects the valid retry behavior. */
@@ -233,10 +242,16 @@ const VaultGitHubState = v.union(
     runId: v.id("appProvisioningRuns"),
 
     /**
-     * Requested repository name from user input, preserved for display/retry.
-     * This remains operation intent, not repository identity.
+     * Requested GitHub user or organization owner for the failed create.
+     * This remains operation intent, not confirmed repository identity.
      */
-    requestedRepoName: v.string(),
+    owner: v.string(),
+
+    /**
+     * Requested repository name for the failed create.
+     * This remains operation intent, not confirmed repository identity.
+     */
+    name: v.string(),
 
     /** Repository visibility requested for the failed create attempt. */
     visibility: v.union(v.literal("private"), v.literal("public")),
@@ -260,8 +275,11 @@ const VaultGitHubState = v.union(
     /** Durable run that recorded the failure. */
     runId: v.id("appProvisioningRuns"),
 
-    /** Existing GitHub target in owner/name form, preserved for display/retry. */
-    repositoryFullName: v.string(),
+    /** Existing GitHub repository owner targeted by the failed connection. */
+    owner: v.string(),
+
+    /** Existing GitHub repository name targeted by the failed connection. */
+    name: v.string(),
 
     /** User-safe latest failure message. Full history stays in events. */
     message: v.string(),
@@ -337,11 +355,13 @@ separate explicit user-intent field instead of mixing it with provisioning
 health.
 
 Root `displayName` is intentionally omitted. Its only durable utility is before
-GitHub connection, and those states already carry better operation intent:
-`requestedRepoName` for Noter-managed creation and `repositoryFullName` for
-existing-repo connection. Root `isNoterManaged` is also omitted because repo
-origin belongs to `connectionKind`, while infrastructure management is
-represented by connected-only Convex and hosting state.
+GitHub connection, and those states already carry better operation intent in
+`owner/name`. Reusing `owner` and `name` across provisioning, failed, and
+connected variants is intentional: the `state` field says whether those
+coordinates are requested/targeted or confirmed connected repository identity.
+Root `isNoterManaged` is also omitted because repo origin belongs to
+`githubMode`, while infrastructure management is represented by connected-only
+Convex and hosting state.
 
 Large or frequently refreshed provider payloads should stay in dedicated tables.
 For example, branch trees and remote branch metadata already have natural
@@ -383,7 +403,7 @@ With vault-first creation, the create-app flow becomes:
 
 1. create the vault row with required provider state
 2. create the run linked to `vaultId`
-3. set `state: "provisioning", githubMode: "create_repository"`
+3. set `state: "provisioning", githubMode: "create_repository", owner, name`
 4. create or connect the GitHub repository
 5. set `state: "connected"` or `"failed"`
 6. seed and sync tree state
@@ -415,17 +435,18 @@ should use the same required GitHub discriminated union:
 
 1. create the vault row with required provider state
 2. create a run linked to `vaultId`
-3. set `state: "provisioning", githubMode: "connect_existing_repository"`
+3. set
+   `state: "provisioning", githubMode: "connect_existing_repository", owner, name`
 4. fetch and validate the existing GitHub repository
-5. write `state: "connected", connectionKind: "existing_repository"`
+5. write `state: "connected", githubMode: "connect_existing_repository"`
 6. sync default branch/tree state into the same provider-owned tables used by
    Noter-managed repos
 7. leave Convex and hosting in `not_configured` or move them into provisioning
    when the product explicitly asks to provision them
 
 Noter-managed create-app uses the same shape but starts GitHub provisioning with
-`githubMode: "create_repository"` and writes `connectionKind: "noter_managed"`
-after the repository is created and seeded.
+`githubMode: "create_repository"` and keeps that `githubMode` after the
+repository is created and seeded.
 
 This matters for schema design because the connected GitHub variant should
 describe the repository identity, while the provisioning/failed variants should

@@ -145,10 +145,16 @@ type VaultGitHubState =
       runId: Id<"appProvisioningRuns">;
 
       /**
-       * Requested repository name from user input, preserved for display/retry.
-       * This is not repository identity; connected state stores GitHub's result.
+       * Requested GitHub user or organization owner for the new repository.
+       * This is the target, not confirmed repository identity yet.
        */
-      requestedRepoName: string;
+      owner: string;
+
+      /**
+       * Requested repository name from user input, preserved for display/retry.
+       * This is the target, not confirmed repository identity yet.
+       */
+      name: string;
 
       /** Repository visibility requested for a new Noter-managed repository. */
       visibility: "private" | "public";
@@ -161,7 +167,7 @@ type VaultGitHubState =
       state: "provisioning";
 
       /**
-       * Distinguishes existing-repo connection from Noter-managed creation.
+       * Distinguishes existing-repo connection from repository creation.
        * This is named for GitHub because the vault row is flattened.
        */
       githubMode: "connect_existing_repository";
@@ -169,8 +175,11 @@ type VaultGitHubState =
       /** Durable run that owns the in-flight existing-repo connection. */
       runId: Id<"appProvisioningRuns">;
 
-      /** Existing GitHub target in owner/name form. */
-      repositoryFullName: string;
+      /** Existing GitHub repository owner targeted by this connection attempt. */
+      owner: string;
+
+      /** Existing GitHub repository name targeted by this connection attempt. */
+      name: string;
 
       /** Timestamp when this GitHub connection attempt started. */
       startedAt: number;
@@ -179,8 +188,8 @@ type VaultGitHubState =
       /** GitHub is connected; repo-backed vault behavior is now allowed. */
       state: "connected";
 
-      /** Records whether Noter created the repo or attached an existing repo. */
-      connectionKind: "noter_managed" | "existing_repository";
+      /** Records whether this vault created the repo or attached an existing repo. */
+      githubMode: "create_repository" | "connect_existing_repository";
 
       /** Immutable GitHub repository id; prevents in-place repo replacement. */
       ghRepoId: string;
@@ -204,7 +213,7 @@ type VaultGitHubState =
       connectedAt: number;
     }
   | {
-      /** Latest Noter-managed GitHub repository creation attempt failed. */
+      /** Latest GitHub repository creation attempt failed. */
       state: "failed";
 
       /** Failed GitHub operation kind; selects the valid retry behavior. */
@@ -214,10 +223,16 @@ type VaultGitHubState =
       runId: Id<"appProvisioningRuns">;
 
       /**
-       * Requested repository name from user input, preserved for display/retry.
-       * This remains operation intent, not repository identity.
+       * Requested GitHub user or organization owner for the failed create.
+       * This remains operation intent, not confirmed repository identity.
        */
-      requestedRepoName: string;
+      owner: string;
+
+      /**
+       * Requested repository name for the failed create.
+       * This remains operation intent, not confirmed repository identity.
+       */
+      name: string;
 
       /** Repository visibility requested for the failed create attempt. */
       visibility: "private" | "public";
@@ -241,8 +256,11 @@ type VaultGitHubState =
       /** Durable run that recorded the failure. */
       runId: Id<"appProvisioningRuns">;
 
-      /** Existing GitHub target in owner/name form, preserved for display/retry. */
-      repositoryFullName: string;
+      /** Existing GitHub repository owner targeted by the failed connection. */
+      owner: string;
+
+      /** Existing GitHub repository name targeted by the failed connection. */
+      name: string;
 
       /** User-safe latest failure message. Full history stays in events. */
       message: string;
@@ -293,11 +311,14 @@ Base vault fields:
 
 Root `displayName` should not be part of this shape. Its only durable utility is
 before GitHub connection, and those states already carry better operation
-intent:
+intent. Dashboard labels should derive from `owner/name` in every state that has
+a GitHub target.
 
-1. create provisioning/failed states carry `requestedRepoName`
-2. connect-existing provisioning/failed states carry `repositoryFullName`
-3. connected state carries GitHub `owner` and `name`
+Reusing `owner` and `name` across provisioning, failed, and connected variants
+is intentional. In provisioning and failed states, they are the requested or
+targeted GitHub repository. In connected state, they are the current repository
+coordinates used for API calls and display. The `state` field makes that meaning
+explicit.
 
 The `not_connected` state deliberately has no user-supplied label. If future
 manual blank-vault creation needs a user-named placeholder, add a separate field
@@ -305,7 +326,7 @@ with a concrete product reason instead of carrying a root label now.
 
 Root `isNoterManaged` should also not be part of this shape. It is ambiguous
 between "Noter created the GitHub repository" and "Noter manages
-infrastructure." The repo-origin question is represented by `connectionKind`;
+infrastructure." The repo-origin question is represented by `githubMode`;
 infrastructure management is represented by connected-only Convex and hosting
 states.
 
@@ -314,43 +335,43 @@ GitHub state fields:
 1. `state`: the primary source-workspace discriminant for the vault. It is
    intentionally top-level because GitHub connection is what makes a vault
    usable. It is not a lifecycle summary.
-2. `githubMode`: required on provisioning and failed states because creating a
-   new repository and connecting an existing repository need different fields.
-   It is not named plain `mode` because the flattened row also contains Convex
-   and hosting fields after connection.
+2. `githubMode`: required on every repo-targeted state because creating a new
+   repository and connecting an existing repository need different fields before
+   connection and remain useful provenance after connection. It is not present
+   on `not_connected` because no GitHub operation has been selected yet.
 3. `runId`: ties the in-flight or failed provider operation to the durable run
    and event log.
-4. `requestedRepoName`: create-repository input preserved for display and retry.
-   It is not repository identity; the connected state must use the final owner
-   and name returned by GitHub.
-5. `visibility`: create-repository intent. Existing-repo connection must not
+4. `owner`: GitHub user or organization owner. In `create_repository`
+   provisioning and failed states, this is the requested owner for the new repo.
+   In `connect_existing_repository` provisioning and failed states, this is the
+   existing repo owner being targeted. In connected state, this is the current
+   owner used for API calls and display.
+5. `name`: repository name. In provisioning and failed states, this is the
+   requested or targeted repository name. In connected state, this is the
+   current GitHub repository name.
+6. `visibility`: create-repository intent. Existing-repo connection must not
    carry this field.
-6. `repositoryFullName`: existing-repo target, including owner and repo name. It
-   belongs only to `connect_existing_repository`.
-7. Failed states repeat the operation-specific target field instead of using a
-   generic `repositoryLabel`. This keeps retry inputs explicit and prevents a
-   failed create from pretending to have an existing owner/name target.
+7. Failed states preserve the same `owner` and `name` target fields used by the
+   attempt, plus any operation-specific fields such as create-only `visibility`.
+   Do not collapse them into a generic `repositoryLabel`.
 8. `message`, `retryable`, `failedAt`: the latest user-safe failure summary.
    Full event history stays in provisioning events.
 
-Create-repository `githubMode` currently has no owner field because the intended
-target is the authenticated GitHub account. That is only valid while the product
-does not let users choose an organization or alternate owner. If owner choice
-enters the product, add a required `targetOwner` field to the
-`create_repository` provisioning and failed variants. Do not infer owner from
-mutable provider connection state during retry.
+Create-repository state must store `owner` now, even if the first UI only
+defaults it to the authenticated GitHub account. The target owner can later be a
+user account or organization, and retry must not infer that target from mutable
+provider connection state.
 
 The create-repository failed variant stores only requested create intent. If a
 GitHub repository was actually created and cannot be cleaned up after a later
 step fails, that is a different state and must include explicit GitHub
 repository identity for cleanup/retry. Do not hide a retained external
-repository behind `requestedRepoName`.
+repository behind requested `owner` and `name`.
 
 Connected GitHub fields:
 
-1. `connectionKind`: records whether the repo came from Noter-managed creation
-   or existing-repo onboarding. It is connected-state provenance, while
-   `githubMode` is operation state for provisioning or failure.
+1. `githubMode`: records whether the repo came from repository creation or
+   existing-repo onboarding. It is connected-state provenance after success.
 2. `ghRepoId`: immutable repository identity. This is the field that prevents
    accidental in-place repository replacement.
 3. `owner` and `name`: current dashboard-safe repository label and API target.
@@ -371,13 +392,13 @@ For Noter-managed repository creation:
 
 1. validate local input shape
 2. insert the vault with
-   `state: "provisioning", githubMode: "create_repository"`
+   `state: "provisioning", githubMode: "create_repository", owner, name`
 3. insert the provisioning run with required `vaultId`
 4. start the create-app Workflow
 5. create the GitHub repository
 6. seed the starter app
 7. sync default branch and tree state
-8. write `state: "connected", connectionKind: "noter_managed"` with Convex and
+8. write `state: "connected", githubMode: "create_repository"` with Convex and
    hosting state initialized
 9. provision Convex and hosting state
 10. let the dashboard derive the vault summary from provider states
@@ -393,13 +414,13 @@ model:
 
 1. validate local repository name shape
 2. insert the vault with
-   `state: "provisioning", githubMode: "connect_existing_repository"`
+   `state: "provisioning", githubMode: "connect_existing_repository", owner, name`
 3. insert the provisioning run with required `vaultId`
 4. start a connect-existing Workflow
 5. fetch and validate the existing GitHub repository
 6. sync default branch and tree state
-7. write `state: "connected", connectionKind: "existing_repository"` with Convex
-   and hosting state initialized
+7. write `state: "connected", githubMode: "connect_existing_repository"` with
+   Convex and hosting state initialized
 8. leave Convex and hosting `not_configured` unless the product explicitly asks
    to provision them
 9. let the dashboard derive the vault summary from provider states
@@ -424,10 +445,9 @@ The dashboard should render the vault immediately after insert.
 
 The vault label should be derived from GitHub state:
 
-1. create provisioning or failed: `requestedRepoName`
-2. connect-existing provisioning or failed: `repositoryFullName`
-3. connected: `owner/name`
-4. not connected: generic GitHub connection prompt, unless a future feature adds
+1. provisioning or failed: targeted `owner/name`
+2. connected: current `owner/name`
+3. not connected: generic GitHub connection prompt, unless a future feature adds
    a justified user-supplied placeholder name
 
 Provider rows should read from explicit state:
@@ -502,9 +522,9 @@ The cleanup must fail closed and must not be hidden inside the product flow.
    work.
 5. Update app provisioning runs/events so new create/connect runs require
    `vaultId`.
-6. Update create-app Workflow steps to mutate `state`, `githubMode`,
-   `connectionKind`, and connected-only Convex/hosting state as steps start,
-   succeed, or fail.
+6. Update create-app Workflow steps to mutate `state`, `githubMode`, `owner`,
+   `name`, and connected-only Convex/hosting state as steps start, succeed, or
+   fail.
 7. Move existing-repository connection onto Workflow using the same GitHub state
    model.
 8. Update dashboard queries and controls to render provider states and gate
