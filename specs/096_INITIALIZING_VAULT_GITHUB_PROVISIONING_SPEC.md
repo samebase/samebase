@@ -89,8 +89,7 @@ Conceptual shape:
 ```ts
 vaults: {
   userId: Id<"users">;
-  name: string;
-  isNoterManaged: boolean;
+  displayName: string;
   github: VaultGitHubState;
   createdAt: number;
   updatedAt: number;
@@ -133,8 +132,6 @@ type VaultGitHubState =
       owner: string;
       name: string;
       defaultBranch: string;
-      treeSHA: string;
-      commitSHA: string;
       convex: VaultConvexState;
       hosting: VaultHostingState;
       connectedAt: number;
@@ -170,6 +167,81 @@ Provider payloads that are large, frequently refreshed, or branch-specific
 should live in provider-owned child tables. The connected GitHub state should
 identify the repository and default branch; it should not force every branch
 tree payload to remain inline on the vault forever.
+
+## Field Rationale
+
+Every stored field should either enforce a durable domain invariant, preserve
+user intent that cannot be derived later, or support a known query/sort path. If
+a field only mirrors another field, prefer deriving it so bad states become
+unrepresentable.
+
+Root vault fields:
+
+1. `userId`: required ownership and authorization boundary.
+2. `displayName`: intentionally denormalized user-facing label available before
+   GitHub exists. It gives the initializing vault a memorable dashboard label
+   instead of exposing only `vaultId`. It must not be used for GitHub API calls
+   or repository identity. The downside is drift from the connected repository
+   name; that is acceptable only if it is treated as a label. If the product
+   wants the vault title to always equal the repository name, remove this field
+   and derive the label from GitHub state.
+3. `github`: the primary source-workspace state for the vault. Convex and
+   hosting are nested under connected GitHub so infrastructure state cannot
+   exist before repository identity exists.
+4. `createdAt`: stable ordering and audit timestamp.
+5. `updatedAt`: useful only for explicit recency queries. It must not be treated
+   as lifecycle state, and UI lists that should not reshuffle must use a stable
+   sort instead.
+
+Root `isNoterManaged` should not be part of this shape. It is ambiguous between
+"Noter created the GitHub repository" and "Noter manages infrastructure." The
+repo-origin question is represented by `github.connectionKind`; infrastructure
+management is represented by nested Convex and hosting states.
+
+GitHub provisioning fields:
+
+1. `state`: the discriminant that makes invalid field combinations impossible.
+2. `mode`: required on provisioning and failed states because creating a new
+   repository and connecting an existing repository need different fields.
+3. `runId`: ties the in-flight or failed provider operation to the durable run
+   and event log.
+4. `requestedRepoName`: create-repository input preserved for display and retry.
+   It is not repository identity; the connected state must use the final owner
+   and name returned by GitHub.
+5. `visibility`: create-repository intent. Existing-repo connection must not
+   carry this field.
+6. `repositoryFullName`: existing-repo target, including owner and repo name. It
+   belongs only to `connect_existing_repository`.
+7. `repositoryLabel`: failed-state display label for the attempted repository.
+   It avoids optional create-only or connect-only fields in the shared failed
+   variant.
+8. `message`, `retryable`, `failedAt`: the latest user-safe failure summary.
+   Full event history stays in provisioning events.
+
+Create-repository mode currently has no owner field because the intended target
+is the authenticated GitHub account. That is only valid while the product does
+not let users choose an organization or alternate owner. If owner choice enters
+the product, add a required `targetOwner` field to the `create_repository`
+provisioning and failed variants. Do not infer owner from mutable provider
+connection state during retry.
+
+Connected GitHub fields:
+
+1. `connectionKind`: records whether the repo came from Noter-managed creation
+   or existing-repo onboarding.
+2. `ghRepoId`: immutable repository identity. This is the field that prevents
+   accidental in-place repository replacement.
+3. `owner` and `name`: current dashboard-safe repository label and API target.
+4. `defaultBranch`: repository metadata needed for default source views.
+5. `convex` and `hosting`: nested infrastructure state that is only meaningful
+   after GitHub is connected.
+6. `connectedAt`: audit timestamp for when the vault first became a usable
+   repository workspace.
+
+Branch tree state such as `treeSHA` and branch head `commitSHA` should live in
+branch/tree child tables, not in connected GitHub state, unless implementation
+finds a concrete atomicity requirement that cannot be represented otherwise.
+Those values refresh over time and would otherwise duplicate branch-cache state.
 
 ## Create New App Flow
 

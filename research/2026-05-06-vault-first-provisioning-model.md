@@ -166,8 +166,6 @@ const VaultGitHubState = v.union(
     owner: v.string(),
     name: v.string(),
     defaultBranch: v.string(),
-    treeSHA: v.string(),
-    commitSHA: v.string(),
     convex: VaultConvexState,
     hosting: VaultHostingState,
     connectedAt: v.number(),
@@ -223,8 +221,7 @@ state:
 ```ts
 vaults: {
   userId: Id<"users">;
-  name: string;
-  isNoterManaged: boolean;
+  displayName: string;
   github: VaultGitHubState;
   createdAt: number;
   updatedAt: number;
@@ -237,10 +234,19 @@ states. If the product later needs archive/hide behavior, model that as a
 separate explicit user-intent field instead of mixing it with provisioning
 health.
 
+`displayName` is intentionally denormalized because the initializing vault needs
+a human-readable label before GitHub returns repository identity. It must not be
+used for GitHub API calls. Root `isNoterManaged` is intentionally omitted
+because repo origin belongs to `github.connectionKind`, while infrastructure
+management is represented by nested Convex and hosting state.
+
 Large or frequently refreshed provider payloads should stay in dedicated tables.
 For example, branch trees and remote branch metadata already have natural
 tables. A connected GitHub state should identify the default repository and
 branch; it does not need to keep every tree payload inline in `vaults` forever.
+Branch tree state such as `treeSHA` and branch head `commitSHA` should live in
+branch/tree child tables unless implementation finds a concrete atomicity
+requirement that cannot be represented otherwise.
 
 ## Vault Invariant
 
