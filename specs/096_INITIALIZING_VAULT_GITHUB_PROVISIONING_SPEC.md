@@ -87,12 +87,6 @@ Conceptual shape:
 vaults: {
   userId: Id<"users">;
   name: string;
-  lifecycleState:
-    | "creating"
-    | "active"
-    | "degraded"
-    | "failed"
-    | "archived";
   isNoterManaged: boolean;
   github: VaultGitHubState;
   convex: VaultConvexState;
@@ -101,6 +95,13 @@ vaults: {
   updatedAt: number;
 }
 ```
+
+Do not store an overall `lifecycleState` for `creating`, `active`, `degraded`,
+or `failed`. Those are dashboard summaries derived from the provider states.
+Keeping both a top-level lifecycle and provider state would create two sources
+of truth that can drift. If the product later needs a user-controlled state such
+as archive/hide, model that as a separate explicit field instead of mixing it
+with provisioning health.
 
 GitHub state:
 
@@ -167,7 +168,7 @@ tree payload to remain inline on the vault forever.
 For Noter-managed repository creation:
 
 1. validate local input shape
-2. insert the vault with `lifecycleState: "creating"` and
+2. insert the vault with
    `github.state: "provisioning", mode: "create_repository"`
 3. insert the provisioning run with required `vaultId`
 4. start the create-app Workflow
@@ -176,7 +177,7 @@ For Noter-managed repository creation:
 7. sync default branch and tree state
 8. write `github.state: "connected", connectionKind: "noter_managed"`
 9. provision Convex and hosting provider state
-10. mark the vault `active`, `degraded`, or `failed`
+10. let the dashboard derive the vault summary from provider states
 
 External provider validation happens after the vault exists so failures have a
 visible dashboard target. Local input validation can happen before insert when
@@ -188,7 +189,7 @@ Connecting an existing repository must use the same vault/run/GitHub state
 model:
 
 1. validate local repository name shape
-2. insert the vault with `lifecycleState: "creating"` and
+2. insert the vault with
    `github.state: "provisioning", mode: "connect_existing_repository"`
 3. insert the provisioning run with required `vaultId`
 4. start a connect-existing Workflow
@@ -197,7 +198,7 @@ model:
 7. write `github.state: "connected", connectionKind: "existing_repository"`
 8. leave Convex and hosting `not_configured` unless the product explicitly asks
    to provision them
-9. mark the vault `active` or `failed`
+9. let the dashboard derive the vault summary from provider states
 
 This flow is currently an action. Moving it to Workflow is part of this model so
 existing-repo onboarding gets the same observability and retry surface as
@@ -225,6 +226,18 @@ Provider rows should read from explicit state:
 
 Repo-backed controls should stay hidden or disabled until GitHub is connected.
 Manual retry buttons should target the failed provider state on that vault.
+
+Dashboard summary labels such as creating, active, degraded, or failed should be
+derived from provider states. For example:
+
+1. `creating`: one or more required provider states are provisioning
+2. `active`: GitHub is connected and required provider states are connected or
+   intentionally not configured
+3. `degraded`: GitHub is connected, but a non-blocking provider state failed
+4. `failed`: GitHub failed before the vault became usable as a source workspace
+
+These labels are presentation logic unless a future query or product workflow
+needs a stored materialized summary.
 
 ## Migration
 
@@ -265,8 +278,8 @@ The cleanup must fail closed and must not be hidden inside the product flow.
 
 ## Implementation Sequence
 
-1. Define `VaultGitHubState`, `VaultConvexState`, `VaultHostingState`, and
-   `VaultLifecycleState` validators.
+1. Define `VaultGitHubState`, `VaultConvexState`, and `VaultHostingState`
+   validators.
 2. Add a typed helper for code paths that require connected GitHub state.
 3. Move root vault identity away from required top-level `ghRepo*` fields.
 4. Update create-app to insert the initializing vault before starting provider

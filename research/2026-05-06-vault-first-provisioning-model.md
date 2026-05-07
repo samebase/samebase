@@ -136,14 +136,6 @@ fields are valid.
 The shape should look like this conceptually:
 
 ```ts
-const VaultLifecycleState = v.union(
-  v.literal("creating"),
-  v.literal("active"),
-  v.literal("degraded"),
-  v.literal("failed"),
-  v.literal("archived"),
-);
-
 const VaultGitHubState = v.union(
   v.object({
     state: v.literal("not_connected"),
@@ -222,13 +214,13 @@ const VaultHostingState = v.union(
 
 The same pattern should apply to Convex project/deployment state.
 
-The root `vaults` row should contain stable app identity and summary state:
+The root `vaults` row should contain stable app identity and required provider
+state:
 
 ```ts
 vaults: {
   userId: Id<"users">;
   name: string;
-  lifecycleState: VaultLifecycleState;
   isNoterManaged: boolean;
   github: VaultGitHubState;
   convex: VaultConvexState;
@@ -237,6 +229,12 @@ vaults: {
   updatedAt: number;
 }
 ```
+
+Do not store a top-level `lifecycleState` for values such as creating, active,
+degraded, or failed. Those are derived dashboard summaries from the provider
+states. If the product later needs archive/hide behavior, model that as a
+separate explicit user-intent field instead of mixing it with provisioning
+health.
 
 Large or frequently refreshed provider payloads should stay in dedicated tables.
 For example, branch trees and remote branch metadata already have natural
@@ -273,7 +271,7 @@ repo-bound data.
 
 With vault-first creation, the create-app flow becomes:
 
-1. create the vault row with `lifecycleState: "creating"`
+1. create the vault row with required provider state
 2. create the run linked to `vaultId`
 3. set `github.state: "provisioning"`
 4. create or connect the GitHub repository
@@ -281,7 +279,7 @@ With vault-first creation, the create-app flow becomes:
 6. seed and sync tree state
 7. set `convex.state: "provisioning"` and provision Convex resources
 8. set `hosting.state: "provisioning"` and provision Cloudflare resources
-9. mark the vault `active`, `degraded`, or `failed`
+9. derive the dashboard summary from provider states
 
 That gives the dashboard one stable card immediately. Each provider line can
 show an explicit state and retry action:
@@ -303,7 +301,7 @@ is already connected to GitHub.
 Future connect-existing work should not introduce a separate schema path. It
 should use the same required `github` discriminated union:
 
-1. create the vault row with `lifecycleState: "creating"`
+1. create the vault row with required provider state
 2. create a run linked to `vaultId`
 3. set `github.state: "provisioning", mode: "connect_existing_repository"`
 4. fetch and validate the existing GitHub repository
