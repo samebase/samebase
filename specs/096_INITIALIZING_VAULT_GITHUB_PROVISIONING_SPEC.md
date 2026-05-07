@@ -129,12 +129,33 @@ GitHub state:
 /** GitHub visibility values currently supported by Noter's create flow. */
 type GitHubRepositoryVisibility = "private" | "public";
 
+/**
+ * GitHub repository owner/name pair.
+ * The enclosing state defines whether this is requested, targeted, or confirmed.
+ */
+type GitHubRepositoryCoordinates = {
+  /** GitHub user or organization owner. */
+  owner: string;
+
+  /** GitHub repository name. */
+  name: string;
+};
+
+/**
+ * Repository coordinates plus visibility.
+ * Used for requested create intent and connected GitHub metadata.
+ */
+type GitHubRepositoryWithVisibility = GitHubRepositoryCoordinates & {
+  /** Repository visibility, either requested intent or current GitHub metadata. */
+  visibility: GitHubRepositoryVisibility;
+};
+
 type VaultGitHubState =
   | {
       /** Explicit empty state for future manual connection flows. */
       state: "not_connected";
     }
-  | {
+  | ({
       /** GitHub repository creation is in progress for this vault. */
       state: "provisioning";
 
@@ -147,25 +168,10 @@ type VaultGitHubState =
       /** Durable run that owns the in-flight create-repository operation. */
       runId: Id<"appProvisioningRuns">;
 
-      /**
-       * Requested GitHub user or organization owner for the new repository.
-       * This is the target, not confirmed repository identity yet.
-       */
-      owner: string;
-
-      /**
-       * Requested repository name from user input, preserved for display/retry.
-       * This is the target, not confirmed repository identity yet.
-       */
-      name: string;
-
-      /** Repository visibility requested for a new Noter-managed repository. */
-      visibility: GitHubRepositoryVisibility;
-
       /** Timestamp when this GitHub provisioning attempt started. */
       startedAt: number;
-    }
-  | {
+    } & GitHubRepositoryWithVisibility)
+  | ({
       /** Existing GitHub repository connection is in progress for this vault. */
       state: "provisioning";
 
@@ -178,16 +184,10 @@ type VaultGitHubState =
       /** Durable run that owns the in-flight existing-repo connection. */
       runId: Id<"appProvisioningRuns">;
 
-      /** Existing GitHub repository owner targeted by this connection attempt. */
-      owner: string;
-
-      /** Existing GitHub repository name targeted by this connection attempt. */
-      name: string;
-
       /** Timestamp when this GitHub connection attempt started. */
       startedAt: number;
-    }
-  | {
+    } & GitHubRepositoryCoordinates)
+  | ({
       /** GitHub is connected; repo-backed vault behavior is now allowed. */
       state: "connected";
 
@@ -196,15 +196,6 @@ type VaultGitHubState =
 
       /** Immutable GitHub repository id; prevents in-place repo replacement. */
       ghRepoId: string;
-
-      /** Current GitHub repository owner used for API calls and display. */
-      owner: string;
-
-      /** Current GitHub repository name used for API calls and display. */
-      name: string;
-
-      /** Current GitHub repository visibility from GitHub metadata. */
-      visibility: GitHubRepositoryVisibility;
 
       /** Default branch for source views and initial tree sync. */
       defaultBranch: string;
@@ -217,8 +208,8 @@ type VaultGitHubState =
 
       /** Timestamp when the vault first became a usable source workspace. */
       connectedAt: number;
-    }
-  | {
+    } & GitHubRepositoryWithVisibility)
+  | ({
       /** Latest GitHub repository creation attempt failed. */
       state: "failed";
 
@@ -228,21 +219,6 @@ type VaultGitHubState =
       /** Durable run that recorded the failure. */
       runId: Id<"appProvisioningRuns">;
 
-      /**
-       * Requested GitHub user or organization owner for the failed create.
-       * This remains operation intent, not confirmed repository identity.
-       */
-      owner: string;
-
-      /**
-       * Requested repository name for the failed create.
-       * This remains operation intent, not confirmed repository identity.
-       */
-      name: string;
-
-      /** Repository visibility requested for the failed create attempt. */
-      visibility: GitHubRepositoryVisibility;
-
       /** User-safe latest failure message. Full history stays in events. */
       message: string;
 
@@ -251,8 +227,8 @@ type VaultGitHubState =
 
       /** Timestamp when the latest failure was recorded. */
       failedAt: number;
-    }
-  | {
+    } & GitHubRepositoryWithVisibility)
+  | ({
       /** Latest existing GitHub repository connection attempt failed. */
       state: "failed";
 
@@ -262,12 +238,6 @@ type VaultGitHubState =
       /** Durable run that recorded the failure. */
       runId: Id<"appProvisioningRuns">;
 
-      /** Existing GitHub repository owner targeted by the failed connection. */
-      owner: string;
-
-      /** Existing GitHub repository name targeted by the failed connection. */
-      name: string;
-
       /** User-safe latest failure message. Full history stays in events. */
       message: string;
 
@@ -276,12 +246,19 @@ type VaultGitHubState =
 
       /** Timestamp when the latest failure was recorded. */
       failedAt: number;
-    };
+    } & GitHubRepositoryCoordinates);
 ```
 
 Connected GitHub state describes repository identity. Provisioning and failed
 states describe the current operation. Existing-repo provisioning and failed
 variants must not carry fake create-only fields such as requested visibility.
+
+The extracted repository field groups are deliberately small. `owner`/`name`
+belong together because every repo-targeted state needs the same coordinates.
+`visibility` joins that group only where the state has either requested create
+visibility or confirmed GitHub visibility. State-specific fields such as
+`runId`, `message`, and `defaultBranch` stay inline on the variants that give
+them meaning.
 
 State transitions should not discard known GitHub facts. Moving from
 provisioning to connected should carry forward `owner`, `name`, and visibility,

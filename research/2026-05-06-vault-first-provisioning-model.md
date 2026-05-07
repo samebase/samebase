@@ -148,6 +148,21 @@ const GitHubRepositoryVisibility = v.union(
   v.literal("public"),
 );
 
+const githubRepositoryCoordinatesFields = {
+  /** GitHub user or organization owner. */
+  owner: v.string(),
+
+  /** GitHub repository name. */
+  name: v.string(),
+};
+
+const githubRepositoryWithVisibilityFields = {
+  ...githubRepositoryCoordinatesFields,
+
+  /** Repository visibility, either requested intent or current GitHub metadata. */
+  visibility: GitHubRepositoryVisibility,
+};
+
 const VaultGitHubState = v.union(
   v.object({
     /** Explicit empty state for future manual connection flows. */
@@ -166,20 +181,7 @@ const VaultGitHubState = v.union(
     /** Durable run that owns the in-flight create-repository operation. */
     runId: v.id("appProvisioningRuns"),
 
-    /**
-     * Requested GitHub user or organization owner for the new repository.
-     * This is the target, not confirmed repository identity yet.
-     */
-    owner: v.string(),
-
-    /**
-     * Requested repository name from user input, preserved for display/retry.
-     * This is the target, not confirmed repository identity yet.
-     */
-    name: v.string(),
-
-    /** Repository visibility requested for a new Noter-managed repository. */
-    visibility: GitHubRepositoryVisibility,
+    ...githubRepositoryWithVisibilityFields,
 
     /** Timestamp when this GitHub provisioning attempt started. */
     startedAt: v.number(),
@@ -197,11 +199,7 @@ const VaultGitHubState = v.union(
     /** Durable run that owns the in-flight existing-repo connection. */
     runId: v.id("appProvisioningRuns"),
 
-    /** Existing GitHub repository owner targeted by this connection attempt. */
-    owner: v.string(),
-
-    /** Existing GitHub repository name targeted by this connection attempt. */
-    name: v.string(),
+    ...githubRepositoryCoordinatesFields,
 
     /** Timestamp when this GitHub connection attempt started. */
     startedAt: v.number(),
@@ -219,14 +217,7 @@ const VaultGitHubState = v.union(
     /** Immutable GitHub repository id; prevents in-place repo replacement. */
     ghRepoId: v.string(),
 
-    /** Current GitHub repository owner used for API calls and display. */
-    owner: v.string(),
-
-    /** Current GitHub repository name used for API calls and display. */
-    name: v.string(),
-
-    /** Current GitHub repository visibility from GitHub metadata. */
-    visibility: GitHubRepositoryVisibility,
+    ...githubRepositoryWithVisibilityFields,
 
     /** Default branch for source views and initial tree sync. */
     defaultBranch: v.string(),
@@ -250,20 +241,7 @@ const VaultGitHubState = v.union(
     /** Durable run that recorded the failure. */
     runId: v.id("appProvisioningRuns"),
 
-    /**
-     * Requested GitHub user or organization owner for the failed create.
-     * This remains operation intent, not confirmed repository identity.
-     */
-    owner: v.string(),
-
-    /**
-     * Requested repository name for the failed create.
-     * This remains operation intent, not confirmed repository identity.
-     */
-    name: v.string(),
-
-    /** Repository visibility requested for the failed create attempt. */
-    visibility: GitHubRepositoryVisibility,
+    ...githubRepositoryWithVisibilityFields,
 
     /** User-safe latest failure message. Full history stays in events. */
     message: v.string(),
@@ -284,11 +262,7 @@ const VaultGitHubState = v.union(
     /** Durable run that recorded the failure. */
     runId: v.id("appProvisioningRuns"),
 
-    /** Existing GitHub repository owner targeted by the failed connection. */
-    owner: v.string(),
-
-    /** Existing GitHub repository name targeted by the failed connection. */
-    name: v.string(),
+    ...githubRepositoryCoordinatesFields,
 
     /** User-safe latest failure message. Full history stays in events. */
     message: v.string(),
@@ -379,6 +353,13 @@ response differs. If the workflow learns durable repository facts such as
 `ghRepoId` or confirmed visibility and then a later step fails before the normal
 connected write, use connected state or a richer explicit failure state instead
 of dropping those facts.
+
+The extracted repository field groups should stay small. `owner`/`name` belong
+together because every repo-targeted state needs the same coordinates.
+`visibility` joins that group only where the state has either requested create
+visibility or confirmed GitHub visibility. State-specific fields such as
+`runId`, `message`, and `defaultBranch` should stay inline on the variants that
+give them meaning.
 
 Large or frequently refreshed provider payloads should stay in dedicated tables.
 For example, branch trees and remote branch metadata already have natural
