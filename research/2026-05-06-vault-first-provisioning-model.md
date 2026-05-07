@@ -554,21 +554,22 @@ inside the product flow.
 
 The next implementation should be its own phase, not a tail on Phase 3.
 
-The accepted spec splits the Phase 4 umbrella into smaller PR phases:
+The accepted spec names the follow-up initiative Vault-First Provisioning and
+splits it into smaller PR phases:
 
-1. Phase 4A changes the vault state model and updates current call sites in the
-   same destructive schema-and-code PR.
-2. Phase 4B creates initializing vaults before GitHub provisioning.
-3. Phase 4C renders provider state on the dashboard.
-4. Phase 4D adds manual provider retry actions.
-5. Phase 4E moves existing-repository onboarding onto the same Workflow/state
-   model.
+1. Vault-First Phase 1 changes the vault state model and updates current call
+   sites in the same destructive schema-and-code PR.
+2. Vault-First Phase 2 creates initializing vaults before GitHub provisioning.
+3. Vault-First Phase 3 renders provider state on the dashboard.
+4. Vault-First Phase 4 adds manual provider retry actions.
+5. Vault-First Phase 5 moves existing-repository onboarding onto the same
+   Workflow/state model.
 
 The split keeps the data-model change reviewable without forcing a multi-PR
 compatibility rollout. Because the current production app has one real
-operator/user and the reset shortcut deletes old vault rows, Phase 4A can update
-the schema and all generated-type fallout together after the documented backup,
-restore, and sign-off gates are satisfied.
+operator/user and the reset shortcut deletes old vault rows, Vault-First Phase 1
+can update the schema and all generated-type fallout together after the
+documented backup, restore, and sign-off gates are satisfied.
 
 ## Stop Line
 

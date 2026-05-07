@@ -581,10 +581,12 @@ flow.
 
 ## Implementation Phases
 
-This spec is the Phase 4 umbrella. Implementation should land as smaller PRs so
-each squash commit preserves a reviewable product step.
+This spec defines the Vault-First Provisioning initiative. Implementation should
+land as smaller internal phases so each squash commit preserves a reviewable
+product step without tying the work to the historical Phase 1-3 Workflow
+migration labels.
 
-### Phase 4A: Vault State Model
+### Vault-First Phase 1: Vault State Model
 
 Goal: change the persisted vault shape and make repository-backed code explicit
 about requiring connected GitHub state.
@@ -606,7 +608,7 @@ Scope:
 
 Stop before creating initializing vaults ahead of GitHub provisioning.
 
-### Phase 4B: Initializing Vault Creation
+### Vault-First Phase 2: Initializing Vault Creation
 
 Goal: make a new Noter-managed app visible as a vault before external GitHub
 work starts.
@@ -622,7 +624,7 @@ Scope:
 
 Stop before building broad retry UX.
 
-### Phase 4C: Dashboard Provider Visibility
+### Vault-First Phase 3: Dashboard Provider Visibility
 
 Goal: show initializing and failed provider state from the vault and event data
 without making pre-GitHub vaults usable as source workspaces.
@@ -636,7 +638,7 @@ Scope:
 Stop before implementing retry mutations unless the UI needs a disabled target
 for placement.
 
-### Phase 4D: Manual Provider Retry
+### Vault-First Phase 4: Manual Provider Retry
 
 Goal: add explicit retry actions for one failed provider state on one vault.
 
@@ -649,7 +651,7 @@ Scope:
 Stop before automatic Workflow restart-from-failed-step. Revisit that only after
 manual provider retry semantics are clear.
 
-### Phase 4E: Existing Repository Onboarding
+### Vault-First Phase 5: Existing Repository Onboarding
 
 Goal: move existing-repository connection onto the same vault/run/provider-state
 model.

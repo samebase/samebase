@@ -299,7 +299,7 @@ Phase 3: Full create-app Workflow.
 5. Let retry resume from the failed step instead of re-running completed
    provider operations.
 
-Follow-up Phase 4 work moved to
+Follow-up Vault-First Provisioning work moved to
 `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`. Keep this spec
 focused on the Phase 1-3 Workflow migration that shipped the current
 repository-first runtime.
