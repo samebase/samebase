@@ -20,7 +20,9 @@ state is explicitly connected.
 
 This replaces the Phase 3 pre-vault run gap with a stable `vaultId` while
 preserving the strong invariant that repository-backed behavior requires a
-connected GitHub repository.
+connected GitHub repository. Convex and hosting states belong to connected
+GitHub state, so those integrations cannot exist while GitHub is still
+provisioning or failed.
 
 ## Current Problem
 
@@ -39,9 +41,10 @@ shape, even though both flows need the same GitHub connection lifecycle.
 2. Represent GitHub connection state as a required discriminated union.
 3. Use the same GitHub state machine for Noter-managed repository creation and
    existing-repository connection.
-4. Keep repository-backed features gated on connected GitHub state.
-5. Make manual retry target one failed provider state on one vault.
-6. Keep operation-specific fields inside the matching provisioning or failed
+4. Nest Convex and hosting state inside connected GitHub state.
+5. Keep repository-backed features gated on connected GitHub state.
+6. Make manual retry target one failed provider state on one vault.
+7. Keep operation-specific fields inside the matching provisioning or failed
    variant.
 
 ## Non-Goals
@@ -89,8 +92,6 @@ vaults: {
   name: string;
   isNoterManaged: boolean;
   github: VaultGitHubState;
-  convex: VaultConvexState;
-  hosting: VaultHostingState;
   createdAt: number;
   updatedAt: number;
 }
@@ -134,6 +135,8 @@ type VaultGitHubState =
       defaultBranch: string;
       treeSHA: string;
       commitSHA: string;
+      convex: VaultConvexState;
+      hosting: VaultHostingState;
       connectedAt: number;
     }
   | {
@@ -151,7 +154,12 @@ Connected GitHub state describes repository identity. Provisioning and failed
 states describe the current operation. Existing-repo connection must not carry
 fake create-only fields such as requested visibility.
 
-Convex and hosting should follow the same discriminated-state pattern:
+Convex and hosting states live inside the connected GitHub variant. They are
+infrastructure for a connected repository, not peer state that can exist while
+GitHub is still provisioning or failed. This encodes the vault mental model:
+GitHub is the source workspace gate, and Convex/Cloudflare depend on it.
+
+Convex and hosting should still follow the same discriminated-state pattern:
 
 1. `not_configured`
 2. `provisioning`
@@ -175,8 +183,9 @@ For Noter-managed repository creation:
 5. create the GitHub repository
 6. seed the starter app
 7. sync default branch and tree state
-8. write `github.state: "connected", connectionKind: "noter_managed"`
-9. provision Convex and hosting provider state
+8. write `github.state: "connected", connectionKind: "noter_managed"` with
+   nested Convex and hosting state initialized
+9. provision nested Convex and hosting state
 10. let the dashboard derive the vault summary from provider states
 
 External provider validation happens after the vault exists so failures have a
@@ -195,9 +204,10 @@ model:
 4. start a connect-existing Workflow
 5. fetch and validate the existing GitHub repository
 6. sync default branch and tree state
-7. write `github.state: "connected", connectionKind: "existing_repository"`
-8. leave Convex and hosting `not_configured` unless the product explicitly asks
-   to provision them
+7. write `github.state: "connected", connectionKind: "existing_repository"` with
+   nested Convex and hosting state initialized
+8. leave nested Convex and hosting `not_configured` unless the product
+   explicitly asks to provision them
 9. let the dashboard derive the vault summary from provider states
 
 This flow is currently an action. Moving it to Workflow is part of this model so
@@ -221,8 +231,10 @@ The dashboard should render the vault immediately after insert.
 Provider rows should read from explicit state:
 
 1. GitHub: not connected, provisioning, connected, failed
-2. Convex: not configured, provisioning, connected, failed
-3. Hosting: not configured, provisioning, connected, failed
+2. Convex: unavailable until GitHub is connected, then not configured,
+   provisioning, connected, or failed
+3. Hosting: unavailable until GitHub is connected, then not configured,
+   provisioning, connected, or failed
 
 Repo-backed controls should stay hidden or disabled until GitHub is connected.
 Manual retry buttons should target the failed provider state on that vault.
@@ -279,15 +291,16 @@ The cleanup must fail closed and must not be hidden inside the product flow.
 ## Implementation Sequence
 
 1. Define `VaultGitHubState`, `VaultConvexState`, and `VaultHostingState`
-   validators.
+   validators, with Convex and hosting nested under connected GitHub state.
 2. Add a typed helper for code paths that require connected GitHub state.
-3. Move root vault identity away from required top-level `ghRepo*` fields.
+3. Move root vault identity away from required top-level `ghRepo*`, `convex*`,
+   and hosting fields.
 4. Update create-app to insert the initializing vault before starting provider
    work.
 5. Update app provisioning runs/events so new create/connect runs require
    `vaultId`.
-6. Update create-app Workflow steps to mutate GitHub, Convex, and hosting state
-   as steps start, succeed, or fail.
+6. Update create-app Workflow steps to mutate GitHub state and then nested
+   Convex/hosting state as steps start, succeed, or fail.
 7. Move existing-repository connection onto Workflow using the same GitHub state
    model.
 8. Update dashboard queries and controls to render provider states and gate
@@ -305,8 +318,9 @@ Backend:
 3. create-app success writes connected Noter-managed GitHub state
 4. create-app GitHub failure writes failed GitHub state on the vault
 5. existing-repo connection writes connected existing-repository GitHub state
-6. connected GitHub identity cannot change to a different `ghRepoId`
-7. repo-backed helpers reject pre-GitHub vaults
+6. pre-GitHub vault states cannot store Convex or hosting state
+7. connected GitHub identity cannot change to a different `ghRepoId`
+8. repo-backed helpers reject pre-GitHub vaults
 
 Frontend:
 
@@ -322,5 +336,6 @@ Frontend:
    completes.
 2. Existing-repository connection uses the same GitHub state model.
 3. Repo-backed features cannot run against pre-GitHub vaults.
-4. Connected GitHub repository identity is immutable.
-5. Failed provider states are visible and retryable from the vault.
+4. Convex and hosting state cannot exist unless GitHub is connected.
+5. Connected GitHub repository identity is immutable.
+6. Failed provider states are visible and retryable from the vault.

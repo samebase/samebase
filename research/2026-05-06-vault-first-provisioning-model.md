@@ -126,8 +126,9 @@ Keep `vault` as the durable dashboard object, but give it an explicit pre-GitHub
 state. A vault without GitHub is visible for provisioning, failure, and retry,
 but it is not a usable repository workspace.
 
-Model GitHub, Convex, and hosting as explicit integration states owned by that
-vault.
+Model GitHub as the primary vault state. Convex and hosting are still explicit
+integration states, but they belong inside the connected GitHub variant because
+they cannot be meaningfully provisioned before the source repository exists.
 
 The important rule is to use discriminated unions, not scattered optional
 fields. A provider field should be required, and its `state` should say which
@@ -167,6 +168,8 @@ const VaultGitHubState = v.union(
     defaultBranch: v.string(),
     treeSHA: v.string(),
     commitSHA: v.string(),
+    convex: VaultConvexState,
+    hosting: VaultHostingState,
     connectedAt: v.number(),
   }),
   v.object({
@@ -212,7 +215,7 @@ const VaultHostingState = v.union(
 );
 ```
 
-The same pattern should apply to Convex project/deployment state.
+The same nested pattern should apply to Convex project/deployment state.
 
 The root `vaults` row should contain stable app identity and required provider
 state:
@@ -223,8 +226,6 @@ vaults: {
   name: string;
   isNoterManaged: boolean;
   github: VaultGitHubState;
-  convex: VaultConvexState;
-  hosting: VaultHostingState;
   createdAt: number;
   updatedAt: number;
 }
@@ -277,16 +278,20 @@ With vault-first creation, the create-app flow becomes:
 4. create or connect the GitHub repository
 5. set `github.state: "connected"` or `"failed"`
 6. seed and sync tree state
-7. set `convex.state: "provisioning"` and provision Convex resources
-8. set `hosting.state: "provisioning"` and provision Cloudflare resources
+7. set nested `github.convex.state: "provisioning"` and provision Convex
+   resources
+8. set nested `github.hosting.state: "provisioning"` and provision Cloudflare
+   resources
 9. derive the dashboard summary from provider states
 
 That gives the dashboard one stable card immediately. Each provider line can
 show an explicit state and retry action:
 
 1. GitHub: not connected, provisioning, connected, failed
-2. Convex: not configured, provisioning, connected, failed
-3. Cloudflare: not configured, provisioning, connected, failed
+2. Convex: unavailable until GitHub is connected, then not configured,
+   provisioning, connected, failed
+3. Cloudflare: unavailable until GitHub is connected, then not configured,
+   provisioning, connected, failed
 
 Manual retry becomes a domain action against one provider state on one vault,
 instead of a hidden operation against a pre-vault run.
@@ -308,8 +313,8 @@ should use the same required `github` discriminated union:
 5. write `github.state: "connected", connectionKind: "existing_repository"`
 6. sync default branch/tree state into the same provider-owned tables used by
    Noter-managed repos
-7. leave Convex and hosting in `not_configured` or move them into provisioning
-   when the product explicitly asks to provision them
+7. leave nested Convex and hosting in `not_configured` or move them into
+   provisioning when the product explicitly asks to provision them
 
 Noter-managed create-app uses the same shape but starts GitHub provisioning with
 `mode: "create_repository"` and writes `connectionKind: "noter_managed"` after
@@ -326,8 +331,8 @@ repo fields just to fit the Noter-managed create flow.
 
 The best representation is:
 
-1. required top-level vault lifecycle state
-2. required per-provider discriminated state
+1. required GitHub discriminated state on the vault
+2. nested Convex and hosting state only inside connected GitHub state
 3. provider-specific fields only inside the matching provider state variant
 4. large provider snapshots in provider-owned child tables
 5. repo-backed actions gated on the connected GitHub variant
