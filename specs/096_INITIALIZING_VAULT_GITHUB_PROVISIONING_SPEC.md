@@ -232,9 +232,6 @@ type VaultGitHubState =
       /** User-safe latest failure message. Full history stays in events. */
       message: string;
 
-      /** Whether the current failed operation can be retried by the user. */
-      retryable: boolean;
-
       /** Timestamp when the latest failure was recorded. */
       failedAt: number;
     } & GitHubRepositoryWithVisibility)
@@ -250,9 +247,6 @@ type VaultGitHubState =
 
       /** User-safe latest failure message. Full history stays in events. */
       message: string;
-
-      /** Whether the current failed operation can be retried by the user. */
-      retryable: boolean;
 
       /** Timestamp when the latest failure was recorded. */
       failedAt: number;
@@ -373,8 +367,18 @@ GitHub state fields:
 7. Failed states preserve the same `owner` and `name` target fields used by the
    attempt, plus any operation-specific fields such as create-only `visibility`.
    Do not collapse them into a generic `repositoryLabel`.
-8. `message`, `retryable`, `failedAt`: the latest user-safe failure summary.
-   Full event history stays in provisioning events.
+8. `message`: denormalized latest user-safe failure summary for dashboard
+   rendering. This intentionally duplicates the latest relevant event so the UI
+   does not need to scan event history for the common failed-state card.
+9. `failedAt`: timestamp when the latest failure was recorded.
+
+Do not store a `retryable` boolean on failed states. Retry availability should
+be derived from the failed state, the failed run/event step, and the retry
+action's current validation of user/provider prerequisites. A stored boolean
+would add another state that can drift when auth, billing, provider limits, or
+retry policy changes. If a future retry decision needs durable classification
+that cannot be derived, add a structured failure code with concrete meanings
+instead of a generic boolean.
 
 Create-repository state must store `owner` now, even if the first UI only
 defaults it to the authenticated GitHub account. The target owner can later be a
@@ -621,4 +625,5 @@ Frontend:
 7. Retries create new runs rather than mutating previous terminal runs.
 8. Connected GitHub state stores current repository visibility.
 9. Connected GitHub state is not replaced by top-level failed state.
-10. Failed provider states are visible and retryable from the vault.
+10. Failed provider states are visible from the vault and expose retry actions
+    derived from state plus current provider/user prerequisites.

@@ -248,9 +248,6 @@ const VaultGitHubState = union(
     /** User-safe latest failure message. Full history stays in events. */
     message: string(),
 
-    /** Whether the current failed operation can be retried by the user. */
-    retryable: boolean(),
-
     /** Timestamp when the latest failure was recorded. */
     failedAt: number(),
   }),
@@ -268,9 +265,6 @@ const VaultGitHubState = union(
 
     /** User-safe latest failure message. Full history stays in events. */
     message: string(),
-
-    /** Whether the current failed operation can be retried by the user. */
-    retryable: boolean(),
 
     /** Timestamp when the latest failure was recorded. */
     failedAt: number(),
@@ -300,7 +294,6 @@ const VaultHostingState = union(
     provider: literal("cloudflare"),
     runId: id("appProvisioningRuns"),
     message: string(),
-    retryable: boolean(),
     failedAt: number(),
   }),
 );
@@ -369,6 +362,14 @@ together because every repo-targeted state needs the same coordinates.
 visibility or confirmed GitHub visibility. State-specific fields such as
 `runId`, `message`, and `defaultBranch` should stay inline on the variants that
 give them meaning.
+
+`message` is a deliberate denormalized latest user-safe summary for dashboard
+cards; full history stays in provisioning events. Retry availability should not
+be persisted as a `retryable` boolean. The retry affordance should be derived
+from the failed state, the failed run/event classification, and the retry
+action's current validation of user/provider prerequisites. If a future retry
+decision needs durable classification that cannot be derived, add a structured
+failure code with concrete meanings instead of a generic boolean.
 
 Large or frequently refreshed provider payloads should stay in dedicated tables.
 For example, branch trees and remote branch metadata already have natural
