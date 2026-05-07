@@ -127,19 +127,20 @@ state. A vault without GitHub is visible for provisioning, failure, and retry,
 but it is not a usable repository workspace.
 
 Model GitHub as the primary vault state. Convex and hosting are still explicit
-integration states, but they belong inside the connected GitHub variant because
-they cannot be meaningfully provisioned before the source repository exists.
+integration states, but they are only present on the connected GitHub variant
+because they cannot be meaningfully provisioned before the source repository
+exists.
 
 The important rule is to use discriminated unions, not scattered optional
-fields. A provider field should be required, and its `state` should say which
-fields are valid.
+fields. When a provider belongs to a valid state variant, its field should be
+required, and its `state` should say which fields are valid.
 
 The shape should look like this conceptually:
 
 ```ts
 /**
  * GitHub is the gate for a vault becoming a usable source workspace.
- * Convex and hosting state are nested under the connected variant.
+ * These fields are flattened onto the vault row itself.
  */
 const VaultGitHubState = v.union(
   v.object({
@@ -150,8 +151,11 @@ const VaultGitHubState = v.union(
     /** GitHub repository creation is in progress for this vault. */
     state: v.literal("provisioning"),
 
-    /** Distinguishes create-repo provisioning from existing-repo connection. */
-    mode: v.literal("create_repository"),
+    /**
+     * Distinguishes create-repo provisioning from existing-repo connection.
+     * This is named for GitHub because the vault row is flattened.
+     */
+    githubMode: v.literal("create_repository"),
 
     /** Durable run that owns the in-flight create-repository operation. */
     runId: v.id("appProvisioningRuns"),
@@ -172,8 +176,11 @@ const VaultGitHubState = v.union(
     /** Existing GitHub repository connection is in progress for this vault. */
     state: v.literal("provisioning"),
 
-    /** Distinguishes existing-repo connection from Noter-managed creation. */
-    mode: v.literal("connect_existing_repository"),
+    /**
+     * Distinguishes existing-repo connection from Noter-managed creation.
+     * This is named for GitHub because the vault row is flattened.
+     */
+    githubMode: v.literal("connect_existing_repository"),
 
     /** Durable run that owns the in-flight existing-repo connection. */
     runId: v.id("appProvisioningRuns"),
@@ -220,7 +227,7 @@ const VaultGitHubState = v.union(
     state: v.literal("failed"),
 
     /** Failed GitHub operation kind; selects the valid retry behavior. */
-    mode: v.literal("create_repository"),
+    githubMode: v.literal("create_repository"),
 
     /** Durable run that recorded the failure. */
     runId: v.id("appProvisioningRuns"),
@@ -248,7 +255,7 @@ const VaultGitHubState = v.union(
     state: v.literal("failed"),
 
     /** Failed GitHub operation kind; selects the valid retry behavior. */
-    mode: v.literal("connect_existing_repository"),
+    githubMode: v.literal("connect_existing_repository"),
 
     /** Durable run that recorded the failure. */
     runId: v.id("appProvisioningRuns"),
@@ -296,26 +303,32 @@ const VaultHostingState = v.union(
 );
 ```
 
-The same nested pattern should apply to Convex project/deployment state.
+The same discriminated-state pattern should apply to Convex project/deployment
+state.
 
-The root `vaults` row should contain stable app identity and required provider
-state:
+The root `vaults` row should contain stable app identity plus the flattened
+GitHub/source-workspace state:
 
 ```ts
-vaults: {
+/** Persisted vault row: base fields plus exactly one source-workspace state. */
+type VaultRow = VaultBase & VaultGitHubState;
+
+/** Fields every vault row has regardless of GitHub connection state. */
+type VaultBase = {
   /** Ownership and authorization boundary for the vault. */
   userId: Id<"users">;
-
-  /** Primary source-workspace state for the vault. */
-  github: VaultGitHubState;
 
   /** Stable creation timestamp for audit and deterministic dashboard ordering. */
   createdAt: number;
 
   /** Explicit recency timestamp for queries that intentionally sort by update. */
   updatedAt: number;
-}
+};
 ```
+
+The TypeScript shape can use `VaultBase & VaultGitHubState`. The Convex schema
+should define this as a union of complete row validators that share the base
+fields, because the persisted validator variants are concrete objects.
 
 Do not store a top-level `lifecycleState` for values such as creating, active,
 degraded, or failed. Those are derived dashboard summaries from the provider
@@ -327,8 +340,8 @@ Root `displayName` is intentionally omitted. Its only durable utility is before
 GitHub connection, and those states already carry better operation intent:
 `requestedRepoName` for Noter-managed creation and `repositoryFullName` for
 existing-repo connection. Root `isNoterManaged` is also omitted because repo
-origin belongs to `github.connectionKind`, while infrastructure management is
-represented by nested Convex and hosting state.
+origin belongs to `connectionKind`, while infrastructure management is
+represented by connected-only Convex and hosting state.
 
 Large or frequently refreshed provider payloads should stay in dedicated tables.
 For example, branch trees and remote branch metadata already have natural
@@ -340,7 +353,7 @@ requirement that cannot be represented otherwise.
 
 ## Vault Invariant
 
-Repository-backed behavior must require `github.state === "connected"`.
+Repository-backed behavior must require `state === "connected"`.
 
 That includes:
 
@@ -370,14 +383,12 @@ With vault-first creation, the create-app flow becomes:
 
 1. create the vault row with required provider state
 2. create the run linked to `vaultId`
-3. set `github.state: "provisioning"`
+3. set `state: "provisioning", githubMode: "create_repository"`
 4. create or connect the GitHub repository
-5. set `github.state: "connected"` or `"failed"`
+5. set `state: "connected"` or `"failed"`
 6. seed and sync tree state
-7. set nested `github.convex.state: "provisioning"` and provision Convex
-   resources
-8. set nested `github.hosting.state: "provisioning"` and provision Cloudflare
-   resources
+7. set `convex.state: "provisioning"` and provision Convex resources
+8. set `hosting.state: "provisioning"` and provision Cloudflare resources
 9. derive the dashboard summary from provider states
 
 That gives the dashboard one stable card immediately. Each provider line can
@@ -400,21 +411,21 @@ it validates GitHub, fetches repo/tree metadata, then creates a vault row that
 is already connected to GitHub.
 
 Future connect-existing work should not introduce a separate schema path. It
-should use the same required `github` discriminated union:
+should use the same required GitHub discriminated union:
 
 1. create the vault row with required provider state
 2. create a run linked to `vaultId`
-3. set `github.state: "provisioning", mode: "connect_existing_repository"`
+3. set `state: "provisioning", githubMode: "connect_existing_repository"`
 4. fetch and validate the existing GitHub repository
-5. write `github.state: "connected", connectionKind: "existing_repository"`
+5. write `state: "connected", connectionKind: "existing_repository"`
 6. sync default branch/tree state into the same provider-owned tables used by
    Noter-managed repos
-7. leave nested Convex and hosting in `not_configured` or move them into
-   provisioning when the product explicitly asks to provision them
+7. leave Convex and hosting in `not_configured` or move them into provisioning
+   when the product explicitly asks to provision them
 
 Noter-managed create-app uses the same shape but starts GitHub provisioning with
-`mode: "create_repository"` and writes `connectionKind: "noter_managed"` after
-the repository is created and seeded.
+`githubMode: "create_repository"` and writes `connectionKind: "noter_managed"`
+after the repository is created and seeded.
 
 This matters for schema design because the connected GitHub variant should
 describe the repository identity, while the provisioning/failed variants should
@@ -427,8 +438,8 @@ repo fields just to fit the Noter-managed create flow.
 
 The best representation is:
 
-1. required GitHub discriminated state on the vault
-2. nested Convex and hosting state only inside connected GitHub state
+1. required flattened GitHub discriminated state on the vault
+2. Convex and hosting state only on the connected GitHub variant
 3. provider-specific fields only inside the matching provider state variant
 4. large provider snapshots in provider-owned child tables
 5. repo-backed actions gated on the connected GitHub variant
@@ -440,9 +451,9 @@ The best representation is:
 
 This preserves the user's preferred default: each stored row should have fewer
 implicit states, not more. A vault without GitHub is not represented by missing
-`ghRepoOwner` or `ghRepoName`; it is represented by
-`github.state: "not_connected"` or `github.state: "provisioning"`, and those
-states explicitly mean the vault is not yet usable as a source workspace.
+`ghRepoOwner` or `ghRepoName`; it is represented by `state: "not_connected"` or
+`state: "provisioning"`, and those states explicitly mean the vault is not yet
+usable as a source workspace.
 
 ## Migration Shortcut
 
@@ -493,9 +504,11 @@ Suggested phase title:
 Suggested sequence:
 
 1. Promote this research into an accepted spec once the model is agreed.
-2. Define the exact `VaultGitHubState`, `VaultConvexState`, and
-   `VaultHostingState` validators.
-3. Move root vault identity away from required GitHub fields.
+2. Define the exact `VaultBase`, `VaultGitHubState`, `VaultConvexState`, and
+   `VaultHostingState` validators, with `vaults` represented as full row union
+   variants that share the base fields.
+3. Replace always-required repository identity fields with connected-only GitHub
+   variant fields.
 4. Make create-app insert the vault first and create the provisioning run with a
    required `vaultId`.
 5. Update the Workflow to mutate provider states as each step starts, succeeds,
@@ -523,8 +536,8 @@ connected GitHub repository.
 
 ## Open Questions
 
-1. Should connected GitHub identity live directly in `vaults.github`, or in a
-   one-row `vaultGithubRepositories` table?
+1. Should connected GitHub identity live directly on the connected `vaults`
+   variant, or in a one-row `vaultGithubRepositories` table?
 2. Should `treeData` be removed from `vaults` during this phase and read only
    from `vaultBranchTrees`?
 3. Should a vault with failed GitHub provisioning remain visible by default, or
@@ -534,9 +547,9 @@ connected GitHub repository.
 5. Should existing-repository connection immediately create an initializing
    vault and run, or can the first Workflow version keep a short synchronous
    validation step before inserting the vault?
-6. Should `github.state: "not_connected"` exist only for future manual
-   connection flows, while Noter-managed create-app starts directly at
-   `github.state: "provisioning"`?
+6. Should `state: "not_connected"` exist only for future manual connection
+   flows, while Noter-managed create-app starts directly at
+   `state: "provisioning"`?
 
 ## Recommendation
 
