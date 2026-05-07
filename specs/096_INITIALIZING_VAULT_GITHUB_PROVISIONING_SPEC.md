@@ -529,17 +529,12 @@ Because Noter currently has one real operator/user and the operator is willing
 to remove existing production vaults, this phase may use a direct reset
 shortcut:
 
-**Warning:** this shortcut irreversibly deletes production data. Cleanup must
-not start unless all of these prerequisites are documented:
-
-1. verified backups exist for every affected vault-scoped table and the backup
-   evidence is recorded
-2. a restore or snapshot-replay test has demonstrated recoverability for the
-   affected data
-3. explicit operator sign-off records the deletion scope and accepts the data
-   loss
-
-After those prerequisites are recorded:
+The important project data is pushed to GitHub. Convex currently stores
+connections, provisioning metadata, UI state, and derived/cache-like vault data.
+For this single-user app, the reset does not need a preservation-style backup
+and restore ceremony. It does need an explicit operator-confirmed cleanup so the
+reset is scoped to the intended vault-owned rows and is not hidden inside normal
+product behavior.
 
 1. explicitly delete vault-scoped production data through an operator-approved
    cleanup
@@ -552,7 +547,7 @@ explicit state variants will affect generated Convex types across backend and
 frontend call sites. In a multi-user preservation path that type fallout would
 usually require separate widen, migrate, and narrow PRs. For this single-user
 reset path, the simpler implementation is one destructive schema-and-code PR
-after the cleanup prerequisites are satisfied.
+after the operator has confirmed the cleanup scope.
 
 The reset must include dependent vault-scoped tables, not only `vaults`. Likely
 affected tables include:
@@ -574,10 +569,10 @@ affected tables include:
 15. `aiProdAccessRequests`
 16. `collaborativeUpdates`
 
-The cleanup must fail closed: any missing backup proof, restore validation, or
-operator sign-off aborts the cleanup before deletion and reports the failure
-outside the product flow. The cleanup must not be hidden inside the product
-flow.
+The cleanup must fail closed: if the cleanup cannot prove it is targeting the
+intended vault-scoped tables and rows, it must abort before deletion and report
+the failure outside the product flow. The cleanup must not be hidden inside the
+product flow.
 
 ## Implementation Phases
 

@@ -507,17 +507,12 @@ introduce compatibility states and dual readers.
 Because the production app currently has one real operator/user and the user is
 comfortable removing existing production vaults, there is a simpler option:
 
-**Warning:** this shortcut irreversibly deletes production data. Cleanup must
-not start unless all of these prerequisites are documented:
-
-1. verified backups exist for every affected vault-scoped table and the backup
-   evidence is recorded
-2. a restore or snapshot-replay test has demonstrated recoverability for the
-   affected data
-3. explicit operator sign-off records the deletion scope and accepts the data
-   loss
-
-After those prerequisites are recorded:
+The important project data is pushed to GitHub. Convex currently stores
+connections, provisioning metadata, UI state, and derived/cache-like vault data.
+For this single-user app, the reset does not need a preservation-style backup
+and restore ceremony. It does need an explicit operator-confirmed cleanup so the
+reset is scoped to the intended vault-owned rows and is not hidden inside normal
+product behavior.
 
 1. delete existing vault-scoped production data in an operator-approved cleanup
    pass
@@ -545,10 +540,10 @@ tables, not just `vaults`. The likely affected tables include:
 15. `aiProdAccessRequests`
 16. `collaborativeUpdates`
 
-The cleanup must fail closed: any missing backup proof, restore validation, or
-operator sign-off aborts the cleanup before deletion and reports the failure
-outside the product flow. The cleanup must be explicit and must not be hidden
-inside the product flow.
+The cleanup must fail closed: if the cleanup cannot prove it is targeting the
+intended vault-scoped tables and rows, it must abort before deletion and report
+the failure outside the product flow. The cleanup must be explicit and must not
+be hidden inside the product flow.
 
 ## Implementation Direction
 
@@ -568,8 +563,8 @@ splits it into smaller PR phases:
 The split keeps the data-model change reviewable without forcing a multi-PR
 compatibility rollout. Because the current production app has one real
 operator/user and the reset shortcut deletes old vault rows, Vault-First Phase 1
-can update the schema and all generated-type fallout together after the
-documented backup, restore, and sign-off gates are satisfied.
+can update the schema and all generated-type fallout together after the operator
+confirms the cleanup scope.
 
 ## Stop Line
 
