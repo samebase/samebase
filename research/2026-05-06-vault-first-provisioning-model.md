@@ -142,18 +142,17 @@ The shape should look like this conceptually:
  * GitHub is the gate for a vault becoming a usable source workspace.
  * These fields are flattened onto the vault row itself.
  */
+const { boolean, id, literal, number, object, string, union } = v;
+
 /** GitHub visibility values currently supported by Noter's create flow. */
-const GitHubRepositoryVisibility = v.union(
-  v.literal("private"),
-  v.literal("public"),
-);
+const GitHubRepositoryVisibility = union(literal("private"), literal("public"));
 
 const githubRepositoryCoordinatesFields = {
   /** GitHub user or organization owner. */
-  owner: v.string(),
+  owner: string(),
 
   /** GitHub repository name. */
-  name: v.string(),
+  name: string(),
 };
 
 const githubRepositoryWithVisibilityFields = {
@@ -163,67 +162,67 @@ const githubRepositoryWithVisibilityFields = {
   visibility: GitHubRepositoryVisibility,
 };
 
-const VaultGitHubState = v.union(
-  v.object({
+const VaultGitHubState = union(
+  object({
     /** Explicit empty state for future manual connection flows. */
-    state: v.literal("not_connected"),
+    state: literal("not_connected"),
   }),
-  v.object({
+  object({
     /** GitHub repository creation is in progress for this vault. */
-    state: v.literal("provisioning"),
+    state: literal("provisioning"),
 
     /**
      * Distinguishes create-repo provisioning from existing-repo connection.
      * This is named for GitHub because the vault row is flattened.
      */
-    githubMode: v.literal("create_repository"),
+    githubMode: literal("create_repository"),
 
     /** Durable run that owns the in-flight create-repository operation. */
-    runId: v.id("appProvisioningRuns"),
+    runId: id("appProvisioningRuns"),
 
     ...githubRepositoryWithVisibilityFields,
 
     /** Timestamp when this GitHub provisioning attempt started. */
-    startedAt: v.number(),
+    startedAt: number(),
   }),
-  v.object({
+  object({
     /** Existing GitHub repository connection is in progress for this vault. */
-    state: v.literal("provisioning"),
+    state: literal("provisioning"),
 
     /**
      * Distinguishes existing-repo connection from repository creation.
      * This is named for GitHub because the vault row is flattened.
      */
-    githubMode: v.literal("connect_existing_repository"),
+    githubMode: literal("connect_existing_repository"),
 
     /** Durable run that owns the in-flight existing-repo connection. */
-    runId: v.id("appProvisioningRuns"),
+    runId: id("appProvisioningRuns"),
 
     ...githubRepositoryCoordinatesFields,
 
     /** Timestamp when this GitHub connection attempt started. */
-    startedAt: v.number(),
+    startedAt: number(),
   }),
-  v.object({
+  object({
     /** GitHub is connected; repo-backed vault behavior is now allowed. */
-    state: v.literal("connected"),
+    state: literal("connected"),
 
     /** Records whether this vault created the repo or attached an existing repo. */
-    githubMode: v.union(
-      v.literal("create_repository"),
-      v.literal("connect_existing_repository"),
+    githubMode: union(
+      literal("create_repository"),
+      literal("connect_existing_repository"),
     ),
 
     /** Durable run that established this GitHub connection. */
-    runId: v.id("appProvisioningRuns"),
+    runId: id("appProvisioningRuns"),
 
     /** Immutable GitHub repository id; prevents in-place repo replacement. */
-    ghRepoId: v.string(),
+    ghRepoId: string(),
 
     ...githubRepositoryWithVisibilityFields,
 
     /** Default branch for source views and initial tree sync. */
-    defaultBranch: v.string(),
+    defaultBranch: string(),
 
     /** Convex infrastructure state, only valid after GitHub is connected. */
     convex: VaultConvexState,
@@ -232,77 +231,77 @@ const VaultGitHubState = v.union(
     hosting: VaultHostingState,
 
     /** Timestamp when the vault first became a usable source workspace. */
-    connectedAt: v.number(),
+    connectedAt: number(),
   }),
-  v.object({
+  object({
     /** Latest GitHub repository creation attempt failed. */
-    state: v.literal("failed"),
+    state: literal("failed"),
 
     /** Failed GitHub operation kind; selects the valid retry behavior. */
-    githubMode: v.literal("create_repository"),
+    githubMode: literal("create_repository"),
 
     /** Durable run that recorded the failure. */
-    runId: v.id("appProvisioningRuns"),
+    runId: id("appProvisioningRuns"),
 
     ...githubRepositoryWithVisibilityFields,
 
     /** User-safe latest failure message. Full history stays in events. */
-    message: v.string(),
+    message: string(),
 
     /** Whether the current failed operation can be retried by the user. */
-    retryable: v.boolean(),
+    retryable: boolean(),
 
     /** Timestamp when the latest failure was recorded. */
-    failedAt: v.number(),
+    failedAt: number(),
   }),
-  v.object({
+  object({
     /** Latest existing GitHub repository connection attempt failed. */
-    state: v.literal("failed"),
+    state: literal("failed"),
 
     /** Failed GitHub operation kind; selects the valid retry behavior. */
-    githubMode: v.literal("connect_existing_repository"),
+    githubMode: literal("connect_existing_repository"),
 
     /** Durable run that recorded the failure. */
-    runId: v.id("appProvisioningRuns"),
+    runId: id("appProvisioningRuns"),
 
     ...githubRepositoryCoordinatesFields,
 
     /** User-safe latest failure message. Full history stays in events. */
-    message: v.string(),
+    message: string(),
 
     /** Whether the current failed operation can be retried by the user. */
-    retryable: v.boolean(),
+    retryable: boolean(),
 
     /** Timestamp when the latest failure was recorded. */
-    failedAt: v.number(),
+    failedAt: number(),
   }),
 );
 
-const VaultHostingState = v.union(
-  v.object({
-    state: v.literal("not_configured"),
+const VaultHostingState = union(
+  object({
+    state: literal("not_configured"),
   }),
-  v.object({
-    state: v.literal("provisioning"),
-    provider: v.literal("cloudflare"),
-    runId: v.id("appProvisioningRuns"),
-    startedAt: v.number(),
+  object({
+    state: literal("provisioning"),
+    provider: literal("cloudflare"),
+    runId: id("appProvisioningRuns"),
+    startedAt: number(),
   }),
-  v.object({
-    state: v.literal("connected"),
-    provider: v.literal("cloudflare"),
-    accountId: v.string(),
-    projectName: v.string(),
-    productionUrl: v.string(),
-    connectedAt: v.number(),
+  object({
+    state: literal("connected"),
+    provider: literal("cloudflare"),
+    accountId: string(),
+    projectName: string(),
+    productionUrl: string(),
+    connectedAt: number(),
   }),
-  v.object({
-    state: v.literal("failed"),
-    provider: v.literal("cloudflare"),
-    runId: v.id("appProvisioningRuns"),
-    message: v.string(),
-    retryable: v.boolean(),
-    failedAt: v.number(),
+  object({
+    state: literal("failed"),
+    provider: literal("cloudflare"),
+    runId: id("appProvisioningRuns"),
+    message: string(),
+    retryable: boolean(),
+    failedAt: number(),
   }),
 );
 ```
