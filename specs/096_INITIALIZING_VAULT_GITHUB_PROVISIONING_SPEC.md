@@ -88,10 +88,28 @@ Conceptual shape:
 
 ```ts
 vaults: {
+  /** Ownership and authorization boundary for the vault. */
   userId: Id<"users">;
+
+  /**
+   * User-facing label available before GitHub returns repository identity.
+   * This is display copy only; never use it for GitHub API calls.
+   */
   displayName: string;
+
+  /**
+   * Primary source-workspace state. Convex and hosting state can only exist
+   * inside the connected GitHub variant.
+   */
   github: VaultGitHubState;
+
+  /** Stable creation timestamp for audit and deterministic dashboard ordering. */
   createdAt: number;
+
+  /**
+   * Explicit recency timestamp for queries that intentionally sort by update.
+   * This is not lifecycle state.
+   */
   updatedAt: number;
 }
 ```
@@ -106,43 +124,102 @@ with provisioning health.
 GitHub state:
 
 ```ts
+/**
+ * GitHub is the gate for a vault becoming a usable source workspace.
+ * Convex and hosting state are nested under the connected variant so those
+ * integrations cannot exist while GitHub is provisioning or failed.
+ */
 type VaultGitHubState =
   | {
+      /** Explicit empty state for future manual connection flows. */
       state: "not_connected";
     }
   | {
+      /** GitHub repository creation is in progress for this vault. */
       state: "provisioning";
+
+      /** Distinguishes create-repo provisioning from existing-repo connection. */
       mode: "create_repository";
+
+      /** Durable run that owns the in-flight create-repository operation. */
       runId: Id<"appProvisioningRuns">;
+
+      /**
+       * Requested repository name from user input, preserved for display/retry.
+       * This is not repository identity; connected state stores GitHub's result.
+       */
       requestedRepoName: string;
+
+      /** Repository visibility requested for a new Noter-managed repository. */
       visibility: "private" | "public";
+
+      /** Timestamp when this GitHub provisioning attempt started. */
       startedAt: number;
     }
   | {
+      /** Existing GitHub repository connection is in progress for this vault. */
       state: "provisioning";
+
+      /** Distinguishes existing-repo connection from Noter-managed creation. */
       mode: "connect_existing_repository";
+
+      /** Durable run that owns the in-flight existing-repo connection. */
       runId: Id<"appProvisioningRuns">;
+
+      /** Existing GitHub target in owner/name form. */
       repositoryFullName: string;
+
+      /** Timestamp when this GitHub connection attempt started. */
       startedAt: number;
     }
   | {
+      /** GitHub is connected; repo-backed vault behavior is now allowed. */
       state: "connected";
+
+      /** Records whether Noter created the repo or attached an existing repo. */
       connectionKind: "noter_managed" | "existing_repository";
+
+      /** Immutable GitHub repository id; prevents in-place repo replacement. */
       ghRepoId: string;
+
+      /** Current GitHub repository owner used for API calls and display. */
       owner: string;
+
+      /** Current GitHub repository name used for API calls and display. */
       name: string;
+
+      /** Default branch for source views and initial tree sync. */
       defaultBranch: string;
+
+      /** Convex infrastructure state, only valid after GitHub is connected. */
       convex: VaultConvexState;
+
+      /** Hosting infrastructure state, only valid after GitHub is connected. */
       hosting: VaultHostingState;
+
+      /** Timestamp when the vault first became a usable source workspace. */
       connectedAt: number;
     }
   | {
+      /** Latest GitHub provisioning or connection attempt failed. */
       state: "failed";
+
+      /** Failed GitHub operation kind; selects the valid retry behavior. */
       mode: "create_repository" | "connect_existing_repository";
+
+      /** Durable run that recorded the failure. */
       runId: Id<"appProvisioningRuns">;
+
+      /** Display label for the attempted repository without operation-specific fields. */
       repositoryLabel: string;
+
+      /** User-safe latest failure message. Full history stays in events. */
       message: string;
+
+      /** Whether the current failed operation can be retried by the user. */
       retryable: boolean;
+
+      /** Timestamp when the latest failure was recorded. */
       failedAt: number;
     };
 ```

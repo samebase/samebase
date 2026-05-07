@@ -137,49 +137,107 @@ fields are valid.
 The shape should look like this conceptually:
 
 ```ts
+/**
+ * GitHub is the gate for a vault becoming a usable source workspace.
+ * Convex and hosting state are nested under the connected variant.
+ */
 const VaultGitHubState = v.union(
   v.object({
+    /** Explicit empty state for future manual connection flows. */
     state: v.literal("not_connected"),
   }),
   v.object({
+    /** GitHub repository creation is in progress for this vault. */
     state: v.literal("provisioning"),
+
+    /** Distinguishes create-repo provisioning from existing-repo connection. */
     mode: v.literal("create_repository"),
+
+    /** Durable run that owns the in-flight create-repository operation. */
     runId: v.id("appProvisioningRuns"),
+
+    /**
+     * Requested repository name from user input, preserved for display/retry.
+     * This is not repository identity.
+     */
     requestedRepoName: v.string(),
+
+    /** Repository visibility requested for a new Noter-managed repository. */
     visibility: v.union(v.literal("private"), v.literal("public")),
+
+    /** Timestamp when this GitHub provisioning attempt started. */
     startedAt: v.number(),
   }),
   v.object({
+    /** Existing GitHub repository connection is in progress for this vault. */
     state: v.literal("provisioning"),
+
+    /** Distinguishes existing-repo connection from Noter-managed creation. */
     mode: v.literal("connect_existing_repository"),
+
+    /** Durable run that owns the in-flight existing-repo connection. */
     runId: v.id("appProvisioningRuns"),
+
+    /** Existing GitHub target in owner/name form. */
     repositoryFullName: v.string(),
+
+    /** Timestamp when this GitHub connection attempt started. */
     startedAt: v.number(),
   }),
   v.object({
+    /** GitHub is connected; repo-backed vault behavior is now allowed. */
     state: v.literal("connected"),
+
+    /** Records whether Noter created the repo or attached an existing repo. */
     connectionKind: v.union(
       v.literal("noter_managed"),
       v.literal("existing_repository"),
     ),
+
+    /** Immutable GitHub repository id; prevents in-place repo replacement. */
     ghRepoId: v.string(),
+
+    /** Current GitHub repository owner used for API calls and display. */
     owner: v.string(),
+
+    /** Current GitHub repository name used for API calls and display. */
     name: v.string(),
+
+    /** Default branch for source views and initial tree sync. */
     defaultBranch: v.string(),
+
+    /** Convex infrastructure state, only valid after GitHub is connected. */
     convex: VaultConvexState,
+
+    /** Hosting infrastructure state, only valid after GitHub is connected. */
     hosting: VaultHostingState,
+
+    /** Timestamp when the vault first became a usable source workspace. */
     connectedAt: v.number(),
   }),
   v.object({
+    /** Latest GitHub provisioning or connection attempt failed. */
     state: v.literal("failed"),
+
+    /** Failed GitHub operation kind; selects the valid retry behavior. */
     mode: v.union(
       v.literal("create_repository"),
       v.literal("connect_existing_repository"),
     ),
+
+    /** Durable run that recorded the failure. */
     runId: v.id("appProvisioningRuns"),
+
+    /** Display label for the attempted repository. */
     repositoryLabel: v.string(),
+
+    /** User-safe latest failure message. Full history stays in events. */
     message: v.string(),
+
+    /** Whether the current failed operation can be retried by the user. */
     retryable: v.boolean(),
+
+    /** Timestamp when the latest failure was recorded. */
     failedAt: v.number(),
   }),
 );
@@ -220,10 +278,22 @@ state:
 
 ```ts
 vaults: {
+  /** Ownership and authorization boundary for the vault. */
   userId: Id<"users">;
+
+  /**
+   * User-facing label available before GitHub returns repository identity.
+   * This is display copy only; never use it for GitHub API calls.
+   */
   displayName: string;
+
+  /** Primary source-workspace state for the vault. */
   github: VaultGitHubState;
+
+  /** Stable creation timestamp for audit and deterministic dashboard ordering. */
   createdAt: number;
+
+  /** Explicit recency timestamp for queries that intentionally sort by update. */
   updatedAt: number;
 }
 ```
