@@ -216,20 +216,45 @@ const VaultGitHubState = v.union(
     connectedAt: v.number(),
   }),
   v.object({
-    /** Latest GitHub provisioning or connection attempt failed. */
+    /** Latest Noter-managed GitHub repository creation attempt failed. */
     state: v.literal("failed"),
 
     /** Failed GitHub operation kind; selects the valid retry behavior. */
-    mode: v.union(
-      v.literal("create_repository"),
-      v.literal("connect_existing_repository"),
-    ),
+    mode: v.literal("create_repository"),
 
     /** Durable run that recorded the failure. */
     runId: v.id("appProvisioningRuns"),
 
-    /** Display label for the attempted repository. */
-    repositoryLabel: v.string(),
+    /**
+     * Requested repository name from user input, preserved for display/retry.
+     * This remains operation intent, not repository identity.
+     */
+    requestedRepoName: v.string(),
+
+    /** Repository visibility requested for the failed create attempt. */
+    visibility: v.union(v.literal("private"), v.literal("public")),
+
+    /** User-safe latest failure message. Full history stays in events. */
+    message: v.string(),
+
+    /** Whether the current failed operation can be retried by the user. */
+    retryable: v.boolean(),
+
+    /** Timestamp when the latest failure was recorded. */
+    failedAt: v.number(),
+  }),
+  v.object({
+    /** Latest existing GitHub repository connection attempt failed. */
+    state: v.literal("failed"),
+
+    /** Failed GitHub operation kind; selects the valid retry behavior. */
+    mode: v.literal("connect_existing_repository"),
+
+    /** Durable run that recorded the failure. */
+    runId: v.id("appProvisioningRuns"),
+
+    /** Existing GitHub target in owner/name form, preserved for display/retry. */
+    repositoryFullName: v.string(),
 
     /** User-safe latest failure message. Full history stays in events. */
     message: v.string(),
@@ -281,12 +306,6 @@ vaults: {
   /** Ownership and authorization boundary for the vault. */
   userId: Id<"users">;
 
-  /**
-   * User-facing label available before GitHub returns repository identity.
-   * This is display copy only; never use it for GitHub API calls.
-   */
-  displayName: string;
-
   /** Primary source-workspace state for the vault. */
   github: VaultGitHubState;
 
@@ -304,11 +323,12 @@ states. If the product later needs archive/hide behavior, model that as a
 separate explicit user-intent field instead of mixing it with provisioning
 health.
 
-`displayName` is intentionally denormalized because the initializing vault needs
-a human-readable label before GitHub returns repository identity. It must not be
-used for GitHub API calls. Root `isNoterManaged` is intentionally omitted
-because repo origin belongs to `github.connectionKind`, while infrastructure
-management is represented by nested Convex and hosting state.
+Root `displayName` is intentionally omitted. Its only durable utility is before
+GitHub connection, and those states already carry better operation intent:
+`requestedRepoName` for Noter-managed creation and `repositoryFullName` for
+existing-repo connection. Root `isNoterManaged` is also omitted because repo
+origin belongs to `github.connectionKind`, while infrastructure management is
+represented by nested Convex and hosting state.
 
 Large or frequently refreshed provider payloads should stay in dedicated tables.
 For example, branch trees and remote branch metadata already have natural

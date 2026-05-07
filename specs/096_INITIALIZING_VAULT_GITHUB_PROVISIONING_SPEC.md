@@ -92,12 +92,6 @@ vaults: {
   userId: Id<"users">;
 
   /**
-   * User-facing label available before GitHub returns repository identity.
-   * This is display copy only; never use it for GitHub API calls.
-   */
-  displayName: string;
-
-  /**
    * Primary source-workspace state. Convex and hosting state can only exist
    * inside the connected GitHub variant.
    */
@@ -201,17 +195,45 @@ type VaultGitHubState =
       connectedAt: number;
     }
   | {
-      /** Latest GitHub provisioning or connection attempt failed. */
+      /** Latest Noter-managed GitHub repository creation attempt failed. */
       state: "failed";
 
       /** Failed GitHub operation kind; selects the valid retry behavior. */
-      mode: "create_repository" | "connect_existing_repository";
+      mode: "create_repository";
 
       /** Durable run that recorded the failure. */
       runId: Id<"appProvisioningRuns">;
 
-      /** Display label for the attempted repository without operation-specific fields. */
-      repositoryLabel: string;
+      /**
+       * Requested repository name from user input, preserved for display/retry.
+       * This remains operation intent, not repository identity.
+       */
+      requestedRepoName: string;
+
+      /** Repository visibility requested for the failed create attempt. */
+      visibility: "private" | "public";
+
+      /** User-safe latest failure message. Full history stays in events. */
+      message: string;
+
+      /** Whether the current failed operation can be retried by the user. */
+      retryable: boolean;
+
+      /** Timestamp when the latest failure was recorded. */
+      failedAt: number;
+    }
+  | {
+      /** Latest existing GitHub repository connection attempt failed. */
+      state: "failed";
+
+      /** Failed GitHub operation kind; selects the valid retry behavior. */
+      mode: "connect_existing_repository";
+
+      /** Durable run that recorded the failure. */
+      runId: Id<"appProvisioningRuns">;
+
+      /** Existing GitHub target in owner/name form, preserved for display/retry. */
+      repositoryFullName: string;
 
       /** User-safe latest failure message. Full history stays in events. */
       message: string;
@@ -255,25 +277,31 @@ unrepresentable.
 Root vault fields:
 
 1. `userId`: required ownership and authorization boundary.
-2. `displayName`: intentionally denormalized user-facing label available before
-   GitHub exists. It gives the initializing vault a memorable dashboard label
-   instead of exposing only `vaultId`. It must not be used for GitHub API calls
-   or repository identity. The downside is drift from the connected repository
-   name; that is acceptable only if it is treated as a label. If the product
-   wants the vault title to always equal the repository name, remove this field
-   and derive the label from GitHub state.
-3. `github`: the primary source-workspace state for the vault. Convex and
+2. `github`: the primary source-workspace state for the vault. Convex and
    hosting are nested under connected GitHub so infrastructure state cannot
    exist before repository identity exists.
-4. `createdAt`: stable ordering and audit timestamp.
-5. `updatedAt`: useful only for explicit recency queries. It must not be treated
+3. `createdAt`: stable ordering and audit timestamp.
+4. `updatedAt`: useful only for explicit recency queries. It must not be treated
    as lifecycle state, and UI lists that should not reshuffle must use a stable
    sort instead.
 
-Root `isNoterManaged` should not be part of this shape. It is ambiguous between
-"Noter created the GitHub repository" and "Noter manages infrastructure." The
-repo-origin question is represented by `github.connectionKind`; infrastructure
-management is represented by nested Convex and hosting states.
+Root `displayName` should not be part of this shape. Its only durable utility is
+before GitHub connection, and those states already carry better operation
+intent:
+
+1. create provisioning/failed states carry `requestedRepoName`
+2. connect-existing provisioning/failed states carry `repositoryFullName`
+3. connected state carries GitHub `owner` and `name`
+
+The `not_connected` state deliberately has no user-supplied label. If future
+manual blank-vault creation needs a user-named placeholder, add a separate field
+with a concrete product reason instead of carrying a root label now.
+
+Root `isNoterManaged` should also not be part of this shape. It is ambiguous
+between "Noter created the GitHub repository" and "Noter manages
+infrastructure." The repo-origin question is represented by
+`github.connectionKind`; infrastructure management is represented by nested
+Convex and hosting states.
 
 GitHub provisioning fields:
 
@@ -289,9 +317,9 @@ GitHub provisioning fields:
    carry this field.
 6. `repositoryFullName`: existing-repo target, including owner and repo name. It
    belongs only to `connect_existing_repository`.
-7. `repositoryLabel`: failed-state display label for the attempted repository.
-   It avoids optional create-only or connect-only fields in the shared failed
-   variant.
+7. Failed states repeat the operation-specific target field instead of using a
+   generic `repositoryLabel`. This keeps retry inputs explicit and prevents a
+   failed create from pretending to have an existing owner/name target.
 8. `message`, `retryable`, `failedAt`: the latest user-safe failure summary.
    Full event history stays in provisioning events.
 
@@ -301,6 +329,12 @@ not let users choose an organization or alternate owner. If owner choice enters
 the product, add a required `targetOwner` field to the `create_repository`
 provisioning and failed variants. Do not infer owner from mutable provider
 connection state during retry.
+
+The create-repository failed variant stores only requested create intent. If a
+GitHub repository was actually created and cannot be cleaned up after a later
+step fails, that is a different state and must include explicit GitHub
+repository identity for cleanup/retry. Do not hide a retained external
+repository behind `requestedRepoName`.
 
 Connected GitHub fields:
 
@@ -376,6 +410,14 @@ remain forbidden in run/event records.
 ## Dashboard Behavior
 
 The dashboard should render the vault immediately after insert.
+
+The vault label should be derived from GitHub state:
+
+1. create provisioning or failed: `requestedRepoName`
+2. connect-existing provisioning or failed: `repositoryFullName`
+3. connected: `owner/name`
+4. not connected: generic GitHub connection prompt, unless a future feature adds
+   a justified user-supplied placeholder name
 
 Provider rows should read from explicit state:
 
