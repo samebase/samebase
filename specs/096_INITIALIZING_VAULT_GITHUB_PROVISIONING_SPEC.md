@@ -262,9 +262,8 @@ variant.
 The extracted repository field groups are deliberately small. `owner`/`name`
 belong together because every repo-targeted state needs the same coordinates.
 `visibility` joins that group only where the state has either requested create
-visibility or confirmed GitHub visibility. State-specific fields such as
-`runId`, `message`, and `defaultBranch` stay inline on the variants that give
-them meaning.
+visibility or confirmed GitHub visibility. State-specific fields such as `runId`
+and `defaultBranch` stay inline on the variants that give them meaning.
 
 State transitions should not discard known GitHub facts. Moving from
 provisioning to connected should carry forward `owner`, `name`, and visibility,
@@ -530,6 +529,18 @@ Because Noter currently has one real operator/user and the operator is willing
 to remove existing production vaults, this phase may use a direct reset
 shortcut:
 
+**Warning:** this shortcut irreversibly deletes production data. Cleanup must
+not start unless all of these prerequisites are documented:
+
+1. verified backups exist for every affected vault-scoped table and the backup
+   evidence is recorded
+2. a restore or snapshot-replay test has demonstrated recoverability for the
+   affected data
+3. explicit operator sign-off records the deletion scope and accepts the data
+   loss
+
+After those prerequisites are recorded:
+
 1. explicitly delete vault-scoped production data through an operator-approved
    cleanup
 2. deploy the new required state shape
@@ -555,7 +566,10 @@ affected tables include:
 15. `aiProdAccessRequests`
 16. `collaborativeUpdates`
 
-The cleanup must fail closed and must not be hidden inside the product flow.
+The cleanup must fail closed: any missing backup proof, restore validation, or
+operator sign-off aborts the cleanup before deletion and reports the failure
+outside the product flow. The cleanup must not be hidden inside the product
+flow.
 
 ## Implementation Sequence
 

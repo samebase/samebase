@@ -507,6 +507,18 @@ introduce compatibility states and dual readers.
 Because the production app currently has one real operator/user and the user is
 comfortable removing existing production vaults, there is a simpler option:
 
+**Warning:** this shortcut irreversibly deletes production data. Cleanup must
+not start unless all of these prerequisites are documented:
+
+1. verified backups exist for every affected vault-scoped table and the backup
+   evidence is recorded
+2. a restore or snapshot-replay test has demonstrated recoverability for the
+   affected data
+3. explicit operator sign-off records the deletion scope and accepts the data
+   loss
+
+After those prerequisites are recorded:
+
 1. delete existing vault-scoped production data in an operator-approved cleanup
    pass
 2. deploy the new schema directly with required explicit provider states
@@ -533,8 +545,10 @@ tables, not just `vaults`. The likely affected tables include:
 15. `aiProdAccessRequests`
 16. `collaborativeUpdates`
 
-The cleanup should be explicit and fail closed. It should not be hidden inside
-the product flow.
+The cleanup must fail closed: any missing backup proof, restore validation, or
+operator sign-off aborts the cleanup before deletion and reports the failure
+outside the product flow. The cleanup must be explicit and must not be hidden
+inside the product flow.
 
 ## Implementation Direction
 
