@@ -356,6 +356,13 @@ response differs. If the workflow learns durable repository facts such as
 connected write, use connected state or a richer explicit failure state instead
 of dropping those facts.
 
+Connected is an absorbing GitHub identity state. Once a vault reaches
+`state: "connected"`, it should not move back to top-level `state: "failed"`.
+Top-level failed variants mean "GitHub never became connected." Later failures
+must be represented inside connected-only provider state, provider-owned child
+tables, or a future connected-only GitHub health state. Otherwise Convex and
+hosting state would become unrepresentable.
+
 The extracted repository field groups should stay small. `owner`/`name` belong
 together because every repo-targeted state needs the same coordinates.
 `visibility` joins that group only where the state has either requested create
@@ -396,6 +403,12 @@ connected, changing to a different `ghRepoId` should be forbidden. If the user
 wants a different repository, the product should create a new vault or archive
 the old one instead of mutating repository identity underneath existing
 repo-bound data.
+
+The connected state should also stay connected when later work fails. Repository
+access problems, deleted repos, permission loss, branch refresh failures, Convex
+failures, and hosting failures should be represented as connected-only provider
+state, child-table operational state, or derived dashboard summaries while
+preserving the connected GitHub identity.
 
 ## Why This Helps Retry
 
@@ -479,9 +492,10 @@ The best representation is:
 6. immutable GitHub repository identity after first successful connection
 7. known repository facts such as visibility carried forward instead of dropped
 8. connected GitHub state keeps the run that established the connection
-9. one GitHub state machine for both Noter-managed creation and existing-repo
-   connection
-10. no optional compatibility fields unless there is a real migration window,
+9. no transition from connected GitHub state back to top-level failed
+10. one GitHub state machine for both Noter-managed creation and existing-repo
+    connection
+11. no optional compatibility fields unless there is a real migration window,
     with TODO comments at every temporary boundary
 
 This preserves the user's preferred default: each stored row should have fewer

@@ -79,6 +79,13 @@ user wants to use a different repository, the product must create a new vault or
 archive the old vault instead of mutating repository identity under existing
 repo-bound data.
 
+The top-level GitHub state is also one-way after connection. Repository access
+problems, deleted repos, permission loss, branch refresh failures, Convex
+failures, and hosting failures must not transition a connected vault to
+top-level `failed`. Model those as connected-only provider state, child-table
+operational state, or derived dashboard summaries while preserving the connected
+GitHub identity.
+
 ## State Model
 
 Use required discriminated state objects instead of optional scattered provider
@@ -256,6 +263,14 @@ Connected GitHub state describes repository identity. Provisioning and failed
 states describe the current operation. Existing-repo provisioning and failed
 variants must not carry fake create-only fields such as requested visibility.
 
+Connected is an absorbing GitHub identity state. Once a vault reaches
+`state: "connected"`, it must not move back to top-level `state: "failed"`.
+Top-level failed variants mean "GitHub never became connected." Later failures
+must be represented inside connected-only provider state, provider-owned child
+tables, or a future connected-only GitHub health state. This preserves Convex
+and hosting state instead of making it unrepresentable by leaving the connected
+variant.
+
 The extracted repository field groups are deliberately small. `owner`/`name`
 belong together because every repo-targeted state needs the same coordinates.
 `visibility` joins that group only where the state has either requested create
@@ -275,7 +290,9 @@ state that preserves the learned repository identity.
 Convex and hosting fields live only on the connected GitHub variant. They are
 infrastructure for a connected repository, not peer state that can exist while
 GitHub is still provisioning or failed. This encodes the vault mental model:
-GitHub is the source workspace gate, and Convex/Cloudflare depend on it.
+GitHub is the source workspace gate, and Convex/Cloudflare depend on it. This is
+why connected-to-failed is forbidden: a top-level failed GitHub state cannot
+represent connected-only infrastructure state.
 
 Convex and hosting should still follow the same discriminated-state pattern:
 
@@ -502,6 +519,10 @@ derived from provider states. For example:
 These labels are presentation logic unless a future query or product workflow
 needs a stored materialized summary.
 
+A connected vault may render a failed or degraded dashboard summary, but its
+stored GitHub state remains `connected`. The summary describes current health;
+the state describes whether the vault has durable repository identity.
+
 ## Migration
 
 The normal Convex path is widen, migrate, and narrow because existing vault rows
@@ -576,7 +597,9 @@ Backend:
 8. connected GitHub state stores current repository visibility
 9. pre-GitHub vault states cannot store Convex or hosting state
 10. connected GitHub identity cannot change to a different `ghRepoId`
-11. repo-backed helpers reject pre-GitHub vaults
+11. connected GitHub state cannot transition to top-level failed
+12. post-connected provider failures preserve connected GitHub state
+13. repo-backed helpers reject pre-GitHub vaults
 
 Frontend:
 
@@ -597,4 +620,5 @@ Frontend:
 6. Connected GitHub state records the run that established the connection.
 7. Retries create new runs rather than mutating previous terminal runs.
 8. Connected GitHub state stores current repository visibility.
-9. Failed provider states are visible and retryable from the vault.
+9. Connected GitHub state is not replaced by top-level failed state.
+10. Failed provider states are visible and retryable from the vault.
