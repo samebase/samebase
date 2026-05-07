@@ -10,6 +10,7 @@ import { createInfraProviders } from "./infraProviders";
 import { deleteHostingResources } from "./hostingProviders";
 import { toErrorMessage } from "./jsonUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
+import { isConnectedVault, isNoterManagedVault } from "./vaultState";
 
 const { optional } = v;
 
@@ -174,11 +175,11 @@ export const connectRepository = action({
       ghRepoId: repo.data.id.toString(),
       ghRepoOwner: repo.data.owner.login,
       ghRepoName: repo.data.name,
+      defaultBranch,
+      visibility: repo.data.private ? "private" : "public",
       treeSHA: tree.data.sha,
       commitSHA: branchData.data.commit.sha,
       treeData: tree.data,
-      state: "ready",
-      isNoterManaged: false,
     });
 
     // await ctx.scheduler.runAfter(
@@ -242,7 +243,7 @@ export const retryInfrastructureProvisioning = action({
     if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
     }
-    if (vault.isNoterManaged !== true) {
+    if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
       throw new Error(
         "Infrastructure retry is available only for Noter-managed vaults",
       );
@@ -314,6 +315,9 @@ export const deleteVault = action({
     if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
     }
+    const connectedVault = isConnectedVault(vault) ? vault : null;
+    const isNoterManaged =
+      connectedVault !== null && isNoterManagedVault(connectedVault);
 
     const infrastructure = await ctx.runQuery(
       internal.vault.getInfrastructureByVaultId,
@@ -332,16 +336,14 @@ export const deleteVault = action({
         : undefined;
     const shouldRemoveHostingProvision =
       args.removeHostingProvision === true &&
-      vault.isNoterManaged === true &&
+      isNoterManaged &&
       typeof cloudflareProjectName === "string" &&
       typeof cloudflareAccountId === "string";
     const shouldRemoveConvexProvision =
       args.removeConvexProvision === true &&
-      vault.isNoterManaged === true &&
+      isNoterManaged &&
       (typeof infrastructure?.convexProjectId === "string" ||
         typeof infrastructure?.convexDeploymentName === "string");
-    const shouldRemoveRepo =
-      args.removeGithubRepo === true && vault.isNoterManaged === true;
     const shouldRemoveCodespaces = args.removeCodespaces === true;
 
     if (shouldRemoveHostingProvision || shouldRemoveConvexProvision) {
@@ -472,12 +474,16 @@ export const deleteVault = action({
       }
     }
 
-    if (shouldRemoveRepo) {
+    if (
+      args.removeGithubRepo === true &&
+      connectedVault !== null &&
+      isNoterManagedVault(connectedVault)
+    ) {
       const octokit = await getOctokit();
 
       await octokit.rest.repos.delete({
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+        owner: connectedVault.owner,
+        repo: connectedVault.name,
       });
     }
 

@@ -7,6 +7,7 @@ import { Octokit } from "@octokit/rest";
 import { getUserId } from "../common";
 import { Id } from "../_generated/dataModel";
 import { resolveDeploymentProfile } from "../deploymentProfile";
+import { assertConnectedVault } from "../vaultState";
 
 async function getGithubAccessToken(
   ctx: ActionCtx,
@@ -61,10 +62,11 @@ export const createCodespace = action({
     if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
     }
+    const connectedVault = assertConnectedVault(vault);
     console.log("codespaces:createCodespace:vault", {
-      vaultId: vault._id,
-      repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-      ghRepoId: vault.ghRepoId,
+      vaultId: connectedVault._id,
+      repo: `${connectedVault.owner}/${connectedVault.name}`,
+      ghRepoId: connectedVault.ghRepoId,
     });
 
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
@@ -76,15 +78,15 @@ export const createCodespace = action({
     // Generate random token for HTTP agent authentication
     const agentToken = crypto.randomUUID();
 
-    const repositoryId = Number.parseInt(vault.ghRepoId, 10);
+    const repositoryId = Number.parseInt(connectedVault.ghRepoId, 10);
     if (!Number.isFinite(repositoryId)) {
-      throw new Error(`Invalid repository id: ${vault.ghRepoId}`);
+      throw new Error(`Invalid repository id: ${connectedVault.ghRepoId}`);
     }
 
     const displayName = buildCodespaceDisplayName(
       inferCodespaceDisplayEnvLabel(),
-      vault.ghRepoOwner,
-      vault.ghRepoName,
+      connectedVault.owner,
+      connectedVault.name,
     );
 
     // Create Codespace via GitHub API

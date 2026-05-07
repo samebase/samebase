@@ -359,8 +359,8 @@ async function loadExistingFileSnapshot(args: {
   const githubAccessToken = requireGithubAccessToken(args.context);
   const octokit = new Octokit({ auth: githubAccessToken });
   const file = await octokit.rest.repos.getContent({
-    owner: vault.ghRepoOwner,
-    repo: vault.ghRepoName,
+    owner: vault.owner,
+    repo: vault.name,
     path: args.path,
     ref: branch,
   });
@@ -408,8 +408,8 @@ async function loadExistingFileSnapshotForReplace(args: {
   const octokit = new Octokit({ auth: githubAccessToken });
   try {
     const file = await octokit.rest.repos.getContent({
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       path: args.path,
       ref: branch,
     });
@@ -510,7 +510,7 @@ export async function executeGetVaultRemoteBranches(
   );
   const structuredContent = {
     vaultId: vault._id,
-    repositoryFullName: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+    repositoryFullName: `${vault.owner}/${vault.name}`,
     branches,
   };
   return {
@@ -554,8 +554,8 @@ export async function executeReadFile(
   const githubAccessToken = requireGithubAccessToken(context);
   const octokit = new Octokit({ auth: githubAccessToken });
   const file = await octokit.rest.repos.getContent({
-    owner: vault.ghRepoOwner,
-    repo: vault.ghRepoName,
+    owner: vault.owner,
+    repo: vault.name,
     path: input.path,
     ref: branch,
   });
@@ -585,8 +585,8 @@ export async function executeListFiles(
 
   const octokit = new Octokit({ auth: githubAccessToken });
   const tree = await octokit.rest.git.getTree({
-    owner: vault.ghRepoOwner,
-    repo: vault.ghRepoName,
+    owner: vault.owner,
+    repo: vault.name,
     tree_sha: toGitTreeRef(branch),
     recursive: "1",
   });

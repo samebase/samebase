@@ -7,6 +7,7 @@ import {
   AppProvisioningRunTrigger,
   AppProvisioningStep,
 } from "./schema";
+import { assertConnectedVault } from "./vaultState";
 
 const { id, literal, string, union } = v;
 const MAX_EVENTS_TO_LINK_TO_VAULT = 20;
@@ -57,12 +58,13 @@ export const createForVault = internalMutation({
     if (!vault || vault.userId !== args.userId) {
       throw new Error("Vault not found for provisioning run.");
     }
+    const connectedVault = assertConnectedVault(vault);
 
     const now = Date.now();
     return await ctx.db.insert("appProvisioningRuns", {
       userId: args.userId,
       vaultId: args.vaultId,
-      repositoryFullName: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+      repositoryFullName: `${connectedVault.owner}/${connectedVault.name}`,
       trigger: args.trigger,
       state: "queued",
       currentStep: "run_created",
@@ -125,8 +127,10 @@ export const linkVault = internalMutation({
     if (!vault || vault.userId !== run.userId) {
       throw new Error("Vault not found for provisioning run.");
     }
+    const connectedVault = assertConnectedVault(vault);
     if (
-      `${vault.ghRepoOwner}/${vault.ghRepoName}` !== args.repositoryFullName
+      `${connectedVault.owner}/${connectedVault.name}` !==
+      args.repositoryFullName
     ) {
       throw new Error("Vault repository does not match provisioning run.");
     }

@@ -15,6 +15,7 @@ import {
   readStagedFileKind,
   type StagedFileChangeCandidate,
 } from "./stagingChanges";
+import { assertConnectedVault, isConnectedVault } from "./vaultState";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 const {
@@ -795,8 +796,8 @@ export function buildClearAllStagingPlan<
   cleanupCutoffTimestamp: number;
   vault: {
     userId: UserId;
-    ghRepoOwner: string;
-    ghRepoName: string;
+    owner: string;
+    name: string;
   } | null;
 }): ClearAllStagingPlan<VaultId, UserId> {
   return {
@@ -819,8 +820,8 @@ export function buildClearAllStagingPlan<
     treeRefreshArgs: args.vault
       ? {
           userId: args.vault.userId,
-          owner: args.vault.ghRepoOwner,
-          repo: args.vault.ghRepoName,
+          owner: args.vault.owner,
+          repo: args.vault.name,
           branch: args.branch,
         }
       : null,
@@ -844,13 +845,14 @@ export async function clearAllStagingImpl(
     vaultId: args.vaultId,
     branch: args.branch,
     cleanupCutoffTimestamp,
-    vault: vault
-      ? {
-          userId: vault.userId,
-          ghRepoOwner: vault.ghRepoOwner,
-          ghRepoName: vault.ghRepoName,
-        }
-      : null,
+    vault:
+      vault && isConnectedVault(vault)
+        ? {
+            userId: vault.userId,
+            owner: vault.owner,
+            name: vault.name,
+          }
+        : null,
   });
 
   const stagingFiles =
@@ -1093,6 +1095,7 @@ export const createFileInStaging = mutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
+    const connectedVault = assertConnectedVault(vault);
 
     // Check if there's already a staging record for this file
     const existingStaging = await ctx.db
@@ -1126,7 +1129,7 @@ export const createFileInStaging = mutation({
       ctx,
       vaultId: args.vaultId,
       requestedBranch: args.branch,
-      legacyTree: vault.treeData.tree,
+      legacyTree: connectedVault.treeData.tree,
     });
     const existsInRepository = repositoryTree.some(
       (entry: GithubTreeType) =>
@@ -1391,6 +1394,7 @@ export const saveBinaryUploadToStaging = internalMutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
+    const connectedVault = assertConnectedVault(vault);
 
     const currentTimestamp = Date.now();
     const existingStagingByPath = await ctx.db
@@ -1435,7 +1439,7 @@ export const saveBinaryUploadToStaging = internalMutation({
       ctx,
       vaultId: args.vaultId,
       requestedBranch: args.branch,
-      legacyTree: vault.treeData.tree,
+      legacyTree: connectedVault.treeData.tree,
     });
     const existingRepositoryEntry = repositoryTree.find(
       (entry: GithubTreeType) =>
@@ -1556,6 +1560,7 @@ export const rename = internalMutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
+    const connectedVault = assertConnectedVault(vault);
 
     const file = await ctx.db
       .query("fileStaging")
@@ -1592,7 +1597,7 @@ export const rename = internalMutation({
       ctx,
       vaultId: args.vaultId,
       requestedBranch: args.branch,
-      legacyTree: vault.treeData.tree,
+      legacyTree: connectedVault.treeData.tree,
     });
     const existsInRepository = repositoryTree.some(
       (entry: GithubTreeType) =>

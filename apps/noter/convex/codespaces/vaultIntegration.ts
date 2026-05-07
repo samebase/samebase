@@ -6,6 +6,7 @@ import { api, internal } from "../_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "../common";
 import type { Id } from "../_generated/dataModel";
+import { assertConnectedVault } from "../vaultState";
 
 async function getGithubAccessToken(
   ctx: ActionCtx,
@@ -52,6 +53,11 @@ export const createVaultWithCodespace = action({
       auth: githubAccessToken,
     });
 
+    const repo = await octokit.rest.repos.get({
+      owner: args.repoOwner,
+      repo: args.repoName,
+    });
+
     // Get latest commit SHA from GitHub
     const { data: branchData } = await octokit.rest.repos.getBranch({
       owner: args.repoOwner,
@@ -66,10 +72,11 @@ export const createVaultWithCodespace = action({
 
     // Create vault record using existing addVault mutation
     const vaultId = await ctx.runMutation(internal.vault.addVault, {
-      state: "copying_files",
       ghRepoId: args.ghRepoId.toString(),
       ghRepoOwner: args.repoOwner,
       ghRepoName: args.repoName,
+      defaultBranch: repo.data.default_branch,
+      visibility: repo.data.private ? "private" : "public",
       treeSHA: branchData.commit.commit.tree.sha,
       commitSHA: commitSha,
       treeData: {
@@ -127,6 +134,7 @@ export const rebuildCodespaceIfStale = action({
     if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
     }
+    const connectedVault = assertConnectedVault(vault);
 
     const activeCodespace = vault.activeCodespaceId
       ? await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
@@ -143,8 +151,8 @@ export const rebuildCodespaceIfStale = action({
     // Get latest commit SHA from main branch
     const branch = activeCodespace?.branch || "main";
     const { data: branchData } = await octokit.rest.repos.getBranch({
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: connectedVault.owner,
+      repo: connectedVault.name,
       branch,
     });
 

@@ -1,6 +1,11 @@
 import { Infer, v } from "convex/values";
 import { internalQuery } from "../_generated/server";
 import { PullRequestLabel } from "../schema";
+import {
+  getConnectedVaultHostingProvider,
+  isConnectedVault,
+  isNoterManagedVault,
+} from "../vaultState";
 
 const {
   array,
@@ -77,8 +82,8 @@ const vaultContextForUserResultValidator = union(
   object({
     _id: id("vaults"),
     userId: id("users"),
-    ghRepoOwner: string(),
-    ghRepoName: string(),
+    owner: string(),
+    name: string(),
     state: union(literal("copying_files"), literal("ready")),
   }),
   nullValue(),
@@ -116,13 +121,13 @@ export const listVaultsForUser = internalQuery({
       .query("vaults")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .collect();
-    return vaults.map((vault) => ({
+    return vaults.filter(isConnectedVault).map((vault) => ({
       vaultId: vault._id,
-      repositoryFullName: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-      state: vault.state,
-      isNoterManaged: vault.isNoterManaged ?? false,
+      repositoryFullName: `${vault.owner}/${vault.name}`,
+      state: "ready",
+      isNoterManaged: isNoterManagedVault(vault),
       commitSha: vault.commitSHA,
-      hostingProvider: vault.hostingProvider,
+      hostingProvider: getConnectedVaultHostingProvider(vault),
     }));
   },
 });
@@ -175,15 +180,15 @@ export const getVaultContextForUser = internalQuery({
       return null;
     }
     const vault = await ctx.db.get(vaultId);
-    if (!vault || vault.userId !== args.userId) {
+    if (!vault || vault.userId !== args.userId || !isConnectedVault(vault)) {
       return null;
     }
     return {
       _id: vault._id,
       userId: vault.userId,
-      ghRepoOwner: vault.ghRepoOwner,
-      ghRepoName: vault.ghRepoName,
-      state: vault.state,
+      owner: vault.owner,
+      name: vault.name,
+      state: "ready",
     };
   },
 });

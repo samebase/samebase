@@ -101,15 +101,6 @@ type VaultRow = VaultBase & VaultGitHubState;
 type VaultBase = {
   /** Ownership and authorization boundary for the vault. */
   userId: Id<"users">;
-
-  /** Stable creation timestamp for audit and deterministic dashboard ordering. */
-  createdAt: number;
-
-  /**
-   * Explicit recency timestamp for queries that intentionally sort by update.
-   * This is not lifecycle state.
-   */
-  updatedAt: number;
 };
 ```
 
@@ -303,10 +294,13 @@ unrepresentable.
 Base vault fields:
 
 1. `userId`: required ownership and authorization boundary.
-2. `createdAt`: stable ordering and audit timestamp.
-3. `updatedAt`: useful only for explicit recency queries. It must not be treated
-   as lifecycle state, and UI lists that should not reshuffle must use a stable
-   sort instead.
+2. Convex `_creationTime`: stable creation ordering and audit timestamp. Do not
+   duplicate this as `createdAt` unless a non-Convex boundary needs that name.
+
+Do not add `updatedAt` in the first vault-state pass. It should exist only when
+there is a shipped query or workflow that intentionally sorts by explicit
+recency. It must not be treated as lifecycle state, and UI lists that should not
+reshuffle must use a stable sort instead.
 
 Root `displayName` should not be part of this shape. Its only durable utility is
 before GitHub connection, and those states already carry better operation

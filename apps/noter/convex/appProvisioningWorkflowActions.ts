@@ -13,7 +13,7 @@ import {
   seedRepositoryWithStarter,
 } from "./starterSeed";
 
-const { boolean, id, object, string, union } = v;
+const { boolean, id, literal, object, string, union } = v;
 
 const descriptionValidator = union(string(), v.null());
 const githubRepositoryResult = object({
@@ -21,6 +21,7 @@ const githubRepositoryResult = object({
   ownerName: string(),
   repoName: string(),
   defaultBranch: string(),
+  visibility: union(literal("private"), literal("public")),
 });
 const vaultCreatedResult = object({
   vaultId: id("vaults"),
@@ -224,12 +225,16 @@ export const createGitHubRepository = internalAction({
       message: `Created GitHub repository ${repositoryFullName}.`,
       state: "running",
     });
+    const visibility: "private" | "public" = repo.data.private
+      ? "private"
+      : "public";
 
     return {
       ghRepoId: repo.data.id.toString(),
       ownerName,
       repoName: repoFinalName,
       defaultBranch: readDefaultBranch(repo.data),
+      visibility,
     };
   },
 });
@@ -313,6 +318,7 @@ export const createVaultForRepository = internalAction({
     ownerName: string(),
     repoName: string(),
     defaultBranch: string(),
+    visibility: union(literal("private"), literal("public")),
   },
   returns: vaultCreatedResult,
   handler: async (ctx, args): Promise<{ vaultId: Id<"vaults"> }> => {
@@ -346,10 +352,12 @@ export const createVaultForRepository = internalAction({
         ghRepoId: args.ghRepoId,
         ghRepoOwner: args.ownerName,
         ghRepoName: args.repoName,
+        defaultBranch: args.defaultBranch,
+        visibility: args.visibility,
+        runId: args.runId,
         treeSHA: tree.data.sha,
         commitSHA: branchData.data.commit.sha,
         treeData: tree.data,
-        hostingProvider: "cloudflare",
       },
     );
     const repositoryFullName = `${args.ownerName}/${args.repoName}`;

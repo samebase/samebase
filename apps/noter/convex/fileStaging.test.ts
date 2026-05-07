@@ -37,8 +37,9 @@ function createClearAllStagingTestContext(args: {
   targetVaultId: string;
   vault: {
     userId: string;
-    ghRepoOwner: string;
-    ghRepoName: string;
+    state: "connected";
+    owner: string;
+    name: string;
   } | null;
   stagedFiles: Array<{ _id: string; vaultId: string; branch: string }>;
 }) {
@@ -394,8 +395,8 @@ describe("buildClearAllStagingPlan", () => {
         cleanupCutoffTimestamp: 123,
         vault: {
           userId: "users:owner",
-          ghRepoOwner: "octo",
-          ghRepoName: "repo",
+          owner: "octo",
+          name: "repo",
         },
       }),
     ).toEqual({
@@ -425,8 +426,8 @@ describe("buildClearAllStagingPlan", () => {
         cleanupCutoffTimestamp: 456,
         vault: {
           userId: "users:owner",
-          ghRepoOwner: "octo",
-          ghRepoName: "repo",
+          owner: "octo",
+          name: "repo",
         },
       }),
     ).toEqual({
@@ -478,8 +479,9 @@ describe("buildClearAllStagingPlan", () => {
       targetVaultId,
       vault: {
         userId: "users:owner",
-        ghRepoOwner: "octo",
-        ghRepoName: "repo",
+        state: "connected",
+        owner: "octo",
+        name: "repo",
       },
       stagedFiles: [
         { _id: "feature-1", vaultId: targetVaultId, branch: targetBranch },

@@ -1,5 +1,10 @@
 import { Infer, v } from "convex/values";
 import { internalQuery } from "../_generated/server";
+import {
+  getConnectedVaultHostingProvider,
+  isConnectedVault,
+  isNoterManagedVault,
+} from "../vaultState";
 
 const { array, boolean, id, literal, object, optional, string, union } = v;
 
@@ -32,13 +37,13 @@ export const listVaultsForUser = internalQuery({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .collect();
 
-    return vaults.map((vault) => ({
+    return vaults.filter(isConnectedVault).map((vault) => ({
       vaultId: vault._id,
-      repositoryFullName: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-      state: vault.state,
-      isNoterManaged: vault.isNoterManaged ?? false,
+      repositoryFullName: `${vault.owner}/${vault.name}`,
+      state: "ready",
+      isNoterManaged: isNoterManagedVault(vault),
       commitSha: vault.commitSHA,
-      hostingProvider: vault.hostingProvider,
+      hostingProvider: getConnectedVaultHostingProvider(vault),
     }));
   },
 });

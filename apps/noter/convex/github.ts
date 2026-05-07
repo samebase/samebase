@@ -1996,8 +1996,8 @@ export const getRepositoryFileContent = action({
 
     try {
       const file = await octokit.rest.repos.getContent({
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+        owner: vault.owner,
+        repo: vault.name,
         path: args.filePath,
         ref: requestedBranch,
       });
@@ -2139,8 +2139,8 @@ export const getRepositoryMediaAsset = action({
       if (requestedBranch) {
         targetFileSha = await getRepositoryBlobShaForBranchPath({
           octokit,
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
+          owner: vault.owner,
+          repo: vault.name,
           branch: requestedBranch,
           filePath: args.filePath,
         });
@@ -2170,8 +2170,8 @@ export const getRepositoryMediaAsset = action({
       }
 
       const blob = await octokit.rest.git.getBlob({
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+        owner: vault.owner,
+        repo: vault.name,
         file_sha: targetFileSha,
       });
       if (
