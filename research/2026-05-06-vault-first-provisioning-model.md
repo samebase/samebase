@@ -245,9 +245,6 @@ const VaultGitHubState = union(
 
     ...githubRepositoryWithVisibilityFields,
 
-    /** User-safe latest failure message. Full history stays in events. */
-    message: string(),
-
     /** Timestamp when the latest failure was recorded. */
     failedAt: number(),
   }),
@@ -262,9 +259,6 @@ const VaultGitHubState = union(
     runId: id("appProvisioningRuns"),
 
     ...githubRepositoryCoordinatesFields,
-
-    /** User-safe latest failure message. Full history stays in events. */
-    message: string(),
 
     /** Timestamp when the latest failure was recorded. */
     failedAt: number(),
@@ -293,7 +287,6 @@ const VaultHostingState = union(
     state: literal("failed"),
     provider: literal("cloudflare"),
     runId: id("appProvisioningRuns"),
-    message: string(),
     failedAt: number(),
   }),
 );
@@ -359,17 +352,17 @@ hosting state would become unrepresentable.
 The extracted repository field groups should stay small. `owner`/`name` belong
 together because every repo-targeted state needs the same coordinates.
 `visibility` joins that group only where the state has either requested create
-visibility or confirmed GitHub visibility. State-specific fields such as
-`runId`, `message`, and `defaultBranch` should stay inline on the variants that
-give them meaning.
+visibility or confirmed GitHub visibility. State-specific fields such as `runId`
+and `defaultBranch` should stay inline on the variants that give them meaning.
 
-`message` is a deliberate denormalized latest user-safe summary for dashboard
-cards; full history stays in provisioning events. Retry availability should not
-be persisted as a `retryable` boolean. The retry affordance should be derived
-from the failed state, the failed run/event classification, and the retry
-action's current validation of user/provider prerequisites. If a future retry
-decision needs durable classification that cannot be derived, add a structured
-failure code with concrete meanings instead of a generic boolean.
+Failure messages should not be duplicated on failed provider state in the first
+pass. Dashboard cards should derive the latest user-safe text from provisioning
+events for the failed `runId` and relevant step. Retry availability should not
+be persisted as a `retryable` boolean either; the retry affordance should be
+derived from the failed state, the failed run/event classification, and the
+retry action's current validation of user/provider prerequisites. If a future
+retry decision needs durable classification that cannot be derived, add a
+structured failure code with concrete meanings instead of a generic boolean.
 
 Large or frequently refreshed provider payloads should stay in dedicated tables.
 For example, branch trees and remote branch metadata already have natural
