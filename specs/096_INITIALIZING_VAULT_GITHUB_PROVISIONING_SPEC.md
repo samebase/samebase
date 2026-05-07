@@ -20,9 +20,12 @@ state is explicitly connected.
 
 This replaces the Phase 3 pre-vault run gap with a stable `vaultId` while
 preserving the strong invariant that repository-backed behavior requires a
-connected GitHub repository. Convex and hosting fields only exist on connected
-GitHub variants, so those integrations cannot exist while GitHub is still
-provisioning or failed.
+connected GitHub repository. GitHub connection means durable repository
+identity, not a fresh branch tree. Branch tree data is cache state and
+repo-backed file/tree behavior must still fail closed until the relevant branch
+snapshot exists. Convex and hosting fields only exist on connected GitHub
+variants, so those integrations cannot exist while GitHub is still provisioning
+or failed.
 
 ## Current Problem
 
@@ -398,6 +401,10 @@ Branch tree state such as `treeSHA` and branch head `commitSHA` should live in
 branch/tree child tables, not in connected GitHub state, unless implementation
 finds a concrete atomicity requirement that cannot be represented otherwise.
 Those values refresh over time and would otherwise duplicate branch-cache state.
+If a connected vault has no branch tree row yet, the vault is still connected to
+GitHub, but source-file routes, staging, branch views, and infrastructure steps
+that need tree shape must wait, refresh, or fail closed instead of treating a
+missing or stale tree cache as GitHub disconnection.
 
 The Phase 1 implementation still keeps several pre-vault-first fields on the
 vault row as compatibility mirrors because current source reads, file-view
@@ -423,7 +430,8 @@ For Noter-managed repository creation:
    `runId`, immutable repo identity, Convex and hosting state initialized, and
    confirmed repository visibility stored
 6. seed the starter app
-7. sync default branch and tree state
+7. sync default branch and tree cache state into `vaultBranchTrees` and the
+   temporary vault-row compatibility mirror
 8. provision Convex and hosting state
 9. let the dashboard derive the vault summary from provider states
 
@@ -624,8 +632,12 @@ Scope:
    before starting provider work
 2. update app provisioning runs/events so new create runs require `vaultId`
 3. update create-app Workflow steps to mutate `state`, `githubMode`, `owner`,
-   `name`, `visibility`, and connected-only Convex/hosting state as steps start,
-   succeed, or fail
+   `name`, `visibility`, connected-only Convex/hosting state, and branch-tree
+   cache state as steps start, succeed, or fail
+
+Connected GitHub state must not require a branch tree snapshot. Phase 2 may keep
+the vault-row tree fields as optional compatibility mirrors while current source
+views finish moving to `vaultBranchTrees`.
 
 Stop before building broad retry UX.
 

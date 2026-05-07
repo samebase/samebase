@@ -94,6 +94,7 @@ export const provisionVaultInfrastructure = workflow.define({
 
 export const provisionApp = workflow.define({
   args: {
+    vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
     repositoryName: string(),
@@ -105,6 +106,7 @@ export const provisionApp = workflow.define({
     await step.runAction(
       internal.appProvisioningWorkflowActions.validateCreateAppConnections,
       {
+        vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
         repositoryName: args.repositoryName,
@@ -114,6 +116,7 @@ export const provisionApp = workflow.define({
     const repository = await step.runAction(
       internal.appProvisioningWorkflowActions.createGitHubRepository,
       {
+        vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
         repositoryName: args.repositoryName,
@@ -123,19 +126,9 @@ export const provisionApp = workflow.define({
       { name: "create_github_repo", retry: false },
     );
     await step.runAction(
-      internal.appProvisioningWorkflowActions.seedStarterRepository,
-      {
-        runId: args.runId,
-        userId: args.userId,
-        ownerName: repository.ownerName,
-        repoName: repository.repoName,
-        defaultBranch: repository.defaultBranch,
-      },
-      { name: "seed_starter", retry: false },
-    );
-    const { vaultId } = await step.runAction(
       internal.appProvisioningWorkflowActions.createVaultForRepository,
       {
+        vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
         ghRepoId: repository.ghRepoId,
@@ -146,10 +139,34 @@ export const provisionApp = workflow.define({
       },
       { name: "create_vault", retry: false },
     );
+    await step.runAction(
+      internal.appProvisioningWorkflowActions.seedStarterRepository,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        ownerName: repository.ownerName,
+        repoName: repository.repoName,
+        defaultBranch: repository.defaultBranch,
+      },
+      { name: "seed_starter", retry: false },
+    );
+    await step.runAction(
+      internal.appProvisioningWorkflowActions.syncVaultTreeForRepository,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        ownerName: repository.ownerName,
+        repoName: repository.repoName,
+        defaultBranch: repository.defaultBranch,
+      },
+      { name: "sync_tree", retry: false },
+    );
     const { claimed } = await step.runMutation(
       internal.infraProvisioning.claimWorkflowProvisioning,
       {
-        vaultId,
+        vaultId: args.vaultId,
         runId: args.runId,
         force: false,
       },
@@ -162,7 +179,7 @@ export const provisionApp = workflow.define({
     await step.runAction(
       internal.infraProvisioning.validateProvisioningConnections,
       {
-        vaultId,
+        vaultId: args.vaultId,
         runId: args.runId,
       },
       { name: "validate_infra_connections", retry: false },
@@ -170,7 +187,7 @@ export const provisionApp = workflow.define({
     await step.runAction(
       internal.infraProvisioning.ensureConvexInfrastructure,
       {
-        vaultId,
+        vaultId: args.vaultId,
         runId: args.runId,
       },
       { name: "ensure_convex", retry: false },
@@ -178,7 +195,7 @@ export const provisionApp = workflow.define({
     await step.runAction(
       internal.infraProvisioning.ensureConvexPreviewInfrastructure,
       {
-        vaultId,
+        vaultId: args.vaultId,
         runId: args.runId,
       },
       { name: "ensure_convex_preview", retry: false },
@@ -186,7 +203,7 @@ export const provisionApp = workflow.define({
     await step.runAction(
       internal.infraProvisioning.ensureCloudflareInfrastructure,
       {
-        vaultId,
+        vaultId: args.vaultId,
         runId: args.runId,
       },
       { name: "ensure_cloudflare", retry: false },
@@ -194,7 +211,7 @@ export const provisionApp = workflow.define({
     await step.runMutation(
       internal.infraProvisioning.finishWorkflowProvisioning,
       {
-        vaultId,
+        vaultId: args.vaultId,
         runId: args.runId,
       },
       { name: "finish" },
@@ -206,6 +223,7 @@ export const provisionApp = workflow.define({
 
 export const startCreateAppProvisioning = internalMutation({
   args: {
+    vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
     repositoryName: string(),

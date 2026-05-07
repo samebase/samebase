@@ -1143,6 +1143,27 @@ describe("computeRepositoryTreeUpdatePlan", () => {
       shouldUpdateLegacyCommit: true,
     });
   });
+
+  it("initializes the legacy default cache when it is missing", () => {
+    const plan = computeRepositoryTreeUpdatePlan({
+      resolvedBranch: "main",
+      defaultBranch: "main",
+      fetchedTreeSHA: "tree-main",
+      fetchedCommitSHA: "commit-main",
+      cachedBranchTree: {
+        treeSHA: "tree-main",
+        commitSHA: "commit-main",
+      },
+      legacyTreeSHA: undefined,
+      legacyCommitSHA: undefined,
+    });
+
+    expect(plan).toEqual({
+      shouldUpdateBranchTree: false,
+      shouldUpdateLegacyTree: true,
+      shouldUpdateLegacyCommit: true,
+    });
+  });
 });
 
 describe("collectLatestOpenPullRequestsByBranch", () => {

@@ -21,31 +21,6 @@ export const getById = internalQuery({
   },
 });
 
-export const createForAppWorkflow = internalMutation({
-  args: {
-    userId: id("users"),
-  },
-  returns: id("appProvisioningRuns"),
-  handler: async (ctx, args) => {
-    const user = await ctx.db.get(args.userId);
-    if (!user) {
-      throw new Error("User not found for provisioning run.");
-    }
-
-    const now = Date.now();
-    return await ctx.db.insert("appProvisioningRuns", {
-      userId: args.userId,
-      vaultId: null,
-      repositoryFullName: null,
-      trigger: "create",
-      state: "queued",
-      currentStep: "run_created",
-      createdAt: now,
-      updatedAt: now,
-    });
-  },
-});
-
 export const createForVault = internalMutation({
   args: {
     userId: id("users"),
@@ -85,17 +60,24 @@ export const recordRepositoryCreated = internalMutation({
     if (!run) {
       throw new Error("Provisioning run not found.");
     }
-    if (
-      run.repositoryFullName !== null &&
-      run.repositoryFullName !== args.repositoryFullName
-    ) {
-      throw new Error("Provisioning run repository cannot be changed.");
-    }
-
     await ctx.db.patch(args.runId, {
       repositoryFullName: args.repositoryFullName,
       updatedAt: Date.now(),
     });
+    if (
+      run.repositoryFullName !== null &&
+      run.repositoryFullName !== args.repositoryFullName
+    ) {
+      const events = await ctx.db
+        .query("appProvisioningEvents")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", args.runId))
+        .take(MAX_EVENTS_TO_LINK_TO_VAULT);
+      for (const event of events) {
+        await ctx.db.patch(event._id, {
+          repositoryFullName: args.repositoryFullName,
+        });
+      }
+    }
 
     return null;
   },

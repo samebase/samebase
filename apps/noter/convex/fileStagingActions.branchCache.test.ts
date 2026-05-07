@@ -67,6 +67,16 @@ describe("selectBatchReadRepositoryTree", () => {
       }),
     ).toThrow('Branch tree is not cached for "feature/login"');
   });
+
+  it("throws when no branch is requested before the default tree is cached", () => {
+    expect(() =>
+      selectBatchReadRepositoryTree({
+        defaultBranch: "main",
+        branchTree: null,
+        legacyTree: null,
+      }),
+    ).toThrow("Default branch tree is not cached. Refresh and retry.");
+  });
 });
 
 describe("listTouchedBranchesForRefresh", () => {

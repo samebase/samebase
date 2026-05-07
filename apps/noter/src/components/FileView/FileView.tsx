@@ -147,7 +147,7 @@ function FileViewWrapper() {
   const vaultId = vault?._id;
   const selectedTreeEntry = useMemo(
     () =>
-      vault?.treeData.tree.find(
+      vault?.treeData?.tree.find(
         (item: { path: string }) => item.path === selectedFile,
       ) ?? null,
     [vault, selectedFile],
@@ -162,7 +162,7 @@ function FileViewWrapper() {
       branchSegment: routeBranch,
       selectedFile,
       selectedFileExistsInTree,
-      tree: vault.treeData.tree,
+      tree: vault.treeData?.tree ?? [],
     });
   }, [vault, routeBranch, selectedFile, selectedFileExistsInTree]);
   const selectedFileIsRenderableMedia =
@@ -490,12 +490,12 @@ function FileViewWrapper() {
       !branch ||
       !owner ||
       !repoName ||
-      (vault?.treeData.tree ?? []).length === 0
+      (vault?.treeData?.tree ?? []).length === 0
     ) {
       return;
     }
 
-    const bestFile = findBestInitialFile(vault?.treeData.tree ?? []);
+    const bestFile = findBestInitialFile(vault?.treeData?.tree ?? []);
     if (bestFile) {
       navigateByHref(
         appendCurrentSearch(
@@ -540,7 +540,9 @@ function FileViewWrapper() {
    */
   useEffect(() => {
     if (isCompareRequested) return;
-    if (!selectedFile || !vault || !owner || !repoName || !branch) return;
+    if (!selectedFile || !vault?.treeData || !owner || !repoName || !branch) {
+      return;
+    }
     // Wait until staging query resolves before deciding that the file is missing.
     if (stagedFile === undefined) return;
     if (stagedFile || selectedFileExistsInTree) return;
@@ -653,6 +655,9 @@ function FileViewWrapper() {
   if (!vault || !owner || !repoName || !branch) {
     return null;
   }
+  if (!hasFileViewVaultTree(vault)) {
+    return null;
+  }
 
   return (
     <FileViewInner
@@ -666,6 +671,23 @@ function FileViewWrapper() {
   );
 }
 
+type FileViewVault = NonNullable<
+  (typeof api.vault.getVaultByRepository)["_returnType"]
+> & {
+  treeData: NonNullable<
+    NonNullable<
+      (typeof api.vault.getVaultByRepository)["_returnType"]
+    >["treeData"]
+  >;
+  treeSHA: string;
+};
+
+function hasFileViewVaultTree(
+  vault: NonNullable<(typeof api.vault.getVaultByRepository)["_returnType"]>,
+): vault is FileViewVault {
+  return vault.treeData !== undefined && typeof vault.treeSHA === "string";
+}
+
 function FileViewInner({
   vault,
   selectedFile,
@@ -674,7 +696,7 @@ function FileViewInner({
   repoName,
   stagedFile,
 }: {
-  vault: NonNullable<(typeof api.vault.getVaultByRepository)["_returnType"]>;
+  vault: FileViewVault;
   branch: string;
   selectedFile: string;
   owner: string;

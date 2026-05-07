@@ -11,6 +11,7 @@ import { deleteHostingResources } from "./hostingProviders";
 import { toErrorMessage } from "./jsonUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import { isConnectedVault, isNoterManagedVault } from "./vaultState";
+import { toSafeRepoName } from "./repoName";
 
 const { optional } = v;
 
@@ -78,6 +79,7 @@ async function startVaultInfrastructureProvisioningOrFail(
 async function startCreateAppProvisioningOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
+    vaultId: Id<"vaults">;
     runId: Id<"appProvisioningRuns">;
     userId: Id<"users">;
     repositoryName: string;
@@ -208,25 +210,50 @@ export const createRepository = action({
     private: optional(v.boolean()),
   },
   returns: v.object({
+    vaultId: v.id("vaults"),
     runId: v.id("appProvisioningRuns"),
   }),
-  handler: async (ctx, args): Promise<{ runId: Id<"appProvisioningRuns"> }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ vaultId: Id<"vaults">; runId: Id<"appProvisioningRuns"> }> => {
     const userId = await getUserId(ctx);
-    const runId = await ctx.runMutation(
-      internal.appProvisioningRuns.createForAppWorkflow,
+    const repoName = toSafeRepoName(args.name);
+    if (!repoName) {
+      throw new Error("Repository name is required.");
+    }
+
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
       {
         userId,
+        kind: "github",
+      },
+    );
+    if (githubConnection?.kind !== "github" || !githubConnection.username) {
+      throw new Error("GitHub is not connected.");
+    }
+
+    const visibility = args.private === false ? "public" : "private";
+    const { vaultId, runId } = await ctx.runMutation(
+      internal.vault.createInitializingNoterManagedVaultForUser,
+      {
+        userId,
+        ghRepoOwner: githubConnection.username,
+        ghRepoName: repoName,
+        visibility,
       },
     );
     await startCreateAppProvisioningOrFail(ctx, {
+      vaultId,
       runId,
       userId,
-      repositoryName: args.name,
+      repositoryName: repoName,
       description: args.description ?? null,
       private: args.private ?? true,
     });
 
-    return { runId };
+    return { vaultId, runId };
   },
 });
 

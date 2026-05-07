@@ -1623,9 +1623,10 @@ function VaultDashboardBody({
         const developerToolsOpen =
           developerToolsVisible &&
           (openDeveloperToolsByVaultId[vault._id] ?? false);
-        const infraActionLabel = vault.isNoterManaged
-          ? getInfraActionLabel(vault.infraState)
-          : null;
+        const infraActionLabel =
+          isReady && vault.isNoterManaged
+            ? getInfraActionLabel(vault.infraState)
+            : null;
         const repositoryExternalLinks =
           buildVaultDashboardRepositoryExternalLinks({
             cloudflareProjectDashboardUrl: vault.cloudflareProjectDashboardUrl,
@@ -1686,7 +1687,11 @@ function VaultDashboardBody({
                 ) : undefined
               }
               titleSuffix={
-                !isReady ? (
+                vault.state === "failed" ? (
+                  <span className="shrink-0 text-xs font-normal text-destructive">
+                    (failed)
+                  </span>
+                ) : !isReady ? (
                   <>
                     <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
                     <span className="shrink-0 text-xs font-normal text-muted-foreground">

@@ -27,6 +27,7 @@ import {
 import {
   assertConnectedVault,
   getConnectedVaultHostingProvider,
+  hasConnectedVaultTreeSnapshot,
   isConnectedVault,
   isNoterManagedVault,
 } from "./vaultState";
@@ -608,6 +609,183 @@ export const addNoterManagedVaultForUser = internalMutation({
   },
 });
 
+export const createInitializingNoterManagedVaultForUser = internalMutation({
+  args: {
+    userId: id("users"),
+    ghRepoOwner: string(),
+    ghRepoName: string(),
+    visibility: GitHubRepositoryVisibility,
+  },
+  returns: object({
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+  }> => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const existingVault = await ctx.db
+      .query("vaults")
+      .withIndex("by_owner_and_name", (q) =>
+        q.eq("owner", args.ghRepoOwner).eq("name", args.ghRepoName),
+      )
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .first();
+    if (existingVault) {
+      throw new Error("Vault already exists for this repository.");
+    }
+
+    const now = Date.now();
+    const vaultId = await ctx.db.insert("vaults", {
+      userId: args.userId,
+      state: "not_connected",
+    });
+    const repositoryFullName = `${args.ghRepoOwner}/${args.ghRepoName}`;
+    const runId = await ctx.db.insert("appProvisioningRuns", {
+      userId: args.userId,
+      vaultId,
+      repositoryFullName,
+      trigger: "create",
+      state: "queued",
+      currentStep: "run_created",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // The run owns this GitHub attempt; later provider retries use their own runs.
+    await ctx.db.patch(vaultId, {
+      state: "provisioning",
+      githubMode: "create_repository",
+      runId,
+      startedAt: now,
+      owner: args.ghRepoOwner,
+      name: args.ghRepoName,
+      visibility: args.visibility,
+    });
+
+    return { vaultId, runId };
+  },
+});
+
+export const connectNoterManagedVaultGitHub = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    ghRepoId: string(),
+    ghRepoOwner: string(),
+    ghRepoName: string(),
+    defaultBranch: string(),
+    visibility: GitHubRepositoryVisibility,
+  },
+  returns: nullValidator,
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== args.userId) {
+      throw new Error("Vault not found");
+    }
+    if (isConnectedVault(vault)) {
+      if (!isNoterManagedVault(vault)) {
+        throw new Error(
+          "Connected vault repository identity cannot be changed.",
+        );
+      }
+      if (vault.ghRepoId !== args.ghRepoId || vault.runId !== args.runId) {
+        throw new Error(
+          "Connected vault repository identity cannot be changed.",
+        );
+      }
+      return null;
+    }
+    if (
+      vault.state !== "provisioning" ||
+      vault.githubMode !== "create_repository" ||
+      vault.runId !== args.runId
+    ) {
+      throw new Error("Vault is not waiting for GitHub provisioning.");
+    }
+
+    await ctx.db.replace(args.vaultId, {
+      userId: vault.userId,
+      lastTreeRefreshAt: vault.lastTreeRefreshAt,
+      treeRefreshStartedAt: vault.treeRefreshStartedAt,
+      lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
+      treeRefreshFailureKind: vault.treeRefreshFailureKind,
+      treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
+      treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
+      activeCodespaceId: vault.activeCodespaceId,
+      devcontainerConfig: vault.devcontainerConfig,
+      state: "connected",
+      githubMode: "create_repository",
+      runId: args.runId,
+      ghRepoId: args.ghRepoId,
+      owner: args.ghRepoOwner,
+      name: args.ghRepoName,
+      visibility: args.visibility,
+      defaultBranch: args.defaultBranch,
+      connectedAt: Date.now(),
+      convex: { state: "not_configured" },
+      hosting: { state: "not_configured" },
+      infraState: "not_started",
+      infraLastError: undefined,
+      infraLastProvisionedAt: undefined,
+      infraProvisioningStartedAt: undefined,
+    });
+
+    return null;
+  },
+});
+
+export const markNoterManagedGithubProvisioningFailed = internalMutation({
+  args: {
+    runId: id("appProvisioningRuns"),
+  },
+  returns: nullValidator,
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run || run.vaultId === null) {
+      return null;
+    }
+    const vault = await ctx.db.get(run.vaultId);
+    if (
+      vault?.state !== "provisioning" ||
+      vault.githubMode !== "create_repository" ||
+      vault.runId !== args.runId
+    ) {
+      return null;
+    }
+
+    await ctx.db.replace(vault._id, {
+      userId: vault.userId,
+      lastTreeRefreshAt: vault.lastTreeRefreshAt,
+      treeRefreshStartedAt: vault.treeRefreshStartedAt,
+      lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
+      treeRefreshFailureKind: vault.treeRefreshFailureKind,
+      treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
+      treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
+      activeCodespaceId: vault.activeCodespaceId,
+      devcontainerConfig: vault.devcontainerConfig,
+      state: "failed",
+      githubMode: "create_repository",
+      runId: args.runId,
+      owner: vault.owner,
+      name: vault.name,
+      visibility: vault.visibility,
+      failedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
 export const markVaultAsReady = internalMutation({
   args: {
     vaultId: v.id("vaults"),
@@ -834,7 +1012,7 @@ const getUserVaultsResult = array(
     lastTreeRefreshAt: optional(number()),
     treeRefreshStartedAt: optional(number()),
     ...treeRefreshFailureFields,
-    state: union(literal("copying_files"), literal("ready")),
+    state: union(literal("copying_files"), literal("ready"), literal("failed")),
     isNoterManaged: boolean(),
     hostingProvider: optional(hostingProviderValidator),
     hasConvexProvision: boolean(),
@@ -898,9 +1076,42 @@ export const getUserVaults = query({
         ? convexConnection.teamSlug
         : undefined;
 
-    // Phase 1 keeps the dashboard on connected repository vaults; initializing
-    // vault cards land with the later dashboard provider-state phase.
+    // Pre-GitHub vaults render as non-ready cards; repo-backed controls stay
+    // gated until a connected vault has branch data.
     const connectedVaults = vaults.filter(isConnectedVault);
+    const initializingVaultResults: UserVaultResult[] = [];
+    for (const vault of vaults) {
+      if (vault.state !== "provisioning" && vault.state !== "failed") {
+        continue;
+      }
+      initializingVaultResults.push({
+        _id: vault._id,
+        _creationTime: vault._creationTime,
+        ghRepoOwner: vault.owner,
+        ghRepoName: vault.name,
+        repositoryFullName: `${vault.owner}/${vault.name}`,
+        commitSHA: undefined,
+        fileCount: 0,
+        lastEditTime: undefined,
+        lastTreeRefreshAt: vault.lastTreeRefreshAt,
+        treeRefreshStartedAt: vault.treeRefreshStartedAt,
+        lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
+        treeRefreshFailureKind: vault.treeRefreshFailureKind,
+        treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
+        treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
+        state: vault.state === "failed" ? "failed" : "copying_files",
+        isNoterManaged: vault.githubMode === "create_repository",
+        hostingProvider: undefined,
+        hasConvexProvision: false,
+        hasHostingProvision: false,
+        remoteBranches: [],
+        infraState: "not_started",
+        infraProductionUrl: undefined,
+        cloudflareProjectDashboardUrl: undefined,
+        convexProjectSettingsDashboardUrl: undefined,
+        convexDeploymentDashboardUrl: undefined,
+      });
+    }
 
     // Get staging stats for each vault
     const vaultResults: UserVaultResult[] = await Promise.all(
@@ -1015,7 +1226,7 @@ export const getUserVaults = query({
     );
 
     // Sort by last edit time if available, otherwise by creation time
-    return vaultResults.sort((a, b) => {
+    return [...vaultResults, ...initializingVaultResults].sort((a, b) => {
       const aTime = a.lastEditTime ?? a._creationTime;
       const bTime = b.lastEditTime ?? b._creationTime;
       return bTime - aTime;
@@ -1514,6 +1725,13 @@ async function getVaultByRepositoryHelper(
       q.eq("vaultId", vault._id).eq("branch", resolvedBranch),
     )
     .first();
+  const canUseDefaultBranchSnapshot =
+    !branchNotFound &&
+    resolvedBranch === defaultBranch &&
+    hasConnectedVaultTreeSnapshot(vault);
+  const treeSHA = branchTree?.treeSHA ?? vault.treeSHA;
+  const treeData = branchTree?.treeData ?? vault.treeData;
+  const commitSHA = branchTree?.commitSHA ?? vault.commitSHA;
 
   return {
     _id: vault._id,
@@ -1523,9 +1741,21 @@ async function getVaultByRepositoryHelper(
     owner: vault.owner,
     name: vault.name,
     repositoryFullName: args.repositoryFullName,
-    treeSHA: branchTree?.treeSHA ?? vault.treeSHA,
-    commitSHA: branchTree?.commitSHA ?? vault.commitSHA,
-    treeData: branchTree?.treeData ?? vault.treeData,
+    treeSHA: branchTree
+      ? treeSHA
+      : canUseDefaultBranchSnapshot
+        ? treeSHA
+        : undefined,
+    commitSHA: branchTree
+      ? commitSHA
+      : canUseDefaultBranchSnapshot
+        ? commitSHA
+        : undefined,
+    treeData: branchTree
+      ? treeData
+      : canUseDefaultBranchSnapshot
+        ? treeData
+        : undefined,
     treeRefreshStartedAt:
       branchTree?.treeRefreshStartedAt ?? vault.treeRefreshStartedAt,
     lastTreeRefreshAt: branchTree?.lastTreeRefreshAt ?? vault.lastTreeRefreshAt,
@@ -1538,7 +1768,7 @@ async function getVaultByRepositoryHelper(
     // Budget automatic refreshes from live remote branches only; retained
     // deleted-upstream rows are local recovery state, not GitHub fan-out.
     remoteBranchCount: countActiveRemoteBranches(remoteBranches),
-    hasResolvedBranchTree: branchTree !== null,
+    hasResolvedBranchTree: branchTree !== null || canUseDefaultBranchSnapshot,
     defaultBranch,
     resolvedBranch,
     branchNotFound,
@@ -1574,8 +1804,13 @@ export function resolveVaultBranchSelection(args: {
     activeRemoteBranches.find((branch) => branch.isDefault)?.name ??
     args.defaultBranch;
   const canValidateRequestedBranch = args.remoteBranches.length > 0;
+  const requestedBranchDiffersFromDefault =
+    args.requestedBranch !== undefined &&
+    args.requestedBranch !== defaultBranch;
   const branchNotFound = Boolean(
-    args.requestedBranch && canValidateRequestedBranch && !requestedBranchMatch,
+    args.requestedBranch &&
+    ((canValidateRequestedBranch && !requestedBranchMatch) ||
+      (!canValidateRequestedBranch && requestedBranchDiffersFromDefault)),
   );
   let resolvedBranch = defaultBranch;
   if (branchNotFound) {

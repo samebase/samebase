@@ -56,6 +56,8 @@ export const createVaultWithCodespace = action({
       owner: args.repoOwner,
       repo: args.repoName,
     });
+    // TODO(Codespaces): persist authoritative repo.data owner/name/id/visibility
+    // instead of caller-supplied coordinates when this path becomes active again.
 
     const branch = args.branch ?? repo.data.default_branch;
     if (typeof branch !== "string" || branch.length === 0) {
@@ -152,7 +154,8 @@ export const rebuildCodespaceIfStale = action({
       auth: githubAccessToken,
     });
 
-    // Get latest commit SHA from main branch
+    // TODO(Codespaces): default to connectedVault.defaultBranch when this path
+    // becomes active again; hardcoded main breaks repos that use another branch.
     const branch = activeCodespace?.branch || "main";
     const { data: branchData } = await octokit.rest.repos.getBranch({
       owner: connectedVault.owner,

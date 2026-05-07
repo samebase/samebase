@@ -153,7 +153,7 @@ export const generateResponse = internalAction({
             .map((t) => t.path);
         }
       } else {
-        repoTree = vault.treeData.tree
+        repoTree = vault.treeData?.tree
           .filter((t) => t.type === "blob")
           .map((t) => t.path);
       }

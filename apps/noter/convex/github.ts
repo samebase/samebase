@@ -913,7 +913,7 @@ export function computeRepositoryTreeUpdatePlan(args: {
   fetchedTreeSHA: string;
   fetchedCommitSHA?: string;
   cachedBranchTree: CachedBranchTreeSnapshot | null;
-  legacyTreeSHA: string;
+  legacyTreeSHA?: string;
   legacyCommitSHA?: string;
 }): RepositoryTreeUpdatePlan {
   const shouldUpdateBranchTree =
@@ -1958,7 +1958,7 @@ export const getRepositoryFileContent = action({
     }
 
     if (!requestedBranch) {
-      const targetFile = vault.treeData.tree.find(
+      const targetFile = vault.treeData?.tree.find(
         (item: { path: string; type: string; sha?: string }) =>
           item.path === args.filePath && item.type === "blob",
       );
@@ -2092,7 +2092,7 @@ export const getRepositoryMediaAsset = action({
 
     let targetFileSha: string | null = null;
     if (!requestedBranch) {
-      const targetFile = vault.treeData.tree.find(
+      const targetFile = vault.treeData?.tree.find(
         (item: { path: string; type: string; sha?: string }) =>
           item.path === args.filePath && item.type === "blob",
       );
@@ -2628,7 +2628,7 @@ export const refreshBranchTree = internalAction({
       fetchedTreeSHA: tree.data.sha,
       fetchedCommitSHA: latestCommitSha,
       cachedBranchTree,
-      legacyTreeSHA: vault.treeData.sha,
+      legacyTreeSHA: vault.treeData?.sha,
       legacyCommitSHA: vault.commitSHA,
     });
 

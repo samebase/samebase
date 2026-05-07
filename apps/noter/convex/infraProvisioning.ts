@@ -23,6 +23,7 @@ import type { AppProvisioningStep } from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import {
+  assertConnectedVaultTreeSnapshot,
   isConnectedVault,
   isNoterManagedVault,
   type NoterManagedConnectedVault,
@@ -1205,7 +1206,9 @@ export const ensureCloudflareInfrastructure = internalAction({
       cloudflareToken,
       cloudflareServerUrl,
       accountId: cloudflareAccountId,
-      buildConfig: resolveCloudflareBuildConfig(vault),
+      buildConfig: resolveCloudflareBuildConfig(
+        assertConnectedVaultTreeSnapshot(vault),
+      ),
       existing: {
         accountId: cloudflareExisting?.accountId,
         projectName: cloudflareExisting?.projectName,
@@ -1364,9 +1367,26 @@ export const markWorkflowStartupFailed = internalMutation({
 
     const now = Date.now();
     const safeRunError = "Provisioning workflow failed to start.";
+    const eventStep =
+      run.currentStep === "run_created" && run.trigger === "create"
+        ? "validate_connections"
+        : run.currentStep === "run_created"
+          ? "claim_infra"
+          : run.currentStep;
     if (run.vaultId !== null) {
       const vault = await ctx.db.get(run.vaultId);
       if (
+        vault?.state === "provisioning" &&
+        vault.githubMode === "create_repository" &&
+        vault.runId === args.runId
+      ) {
+        await ctx.runMutation(
+          internal.vault.markNoterManagedGithubProvisioningFailed,
+          {
+            runId: args.runId,
+          },
+        );
+      } else if (
         isConnectedVault(vault) &&
         isNoterManagedVault(vault) &&
         vault.infraState !== "ready"
@@ -1391,7 +1411,7 @@ export const markWorkflowStartupFailed = internalMutation({
       vaultId: run.vaultId,
       repositoryFullName: run.repositoryFullName,
       runId: args.runId,
-      step: run.vaultId === null ? "validate_connections" : "claim_infra",
+      step: eventStep,
       level: "error",
       message: safeRunError,
       createdAt: now,
@@ -1406,6 +1426,17 @@ export const markWorkflowStartupFailed = internalMutation({
     return null;
   },
 });
+
+function isCreateAppPreInfrastructureStep(step: string): boolean {
+  return (
+    step === "run_created" ||
+    step === "validate_connections" ||
+    step === "create_github_repo" ||
+    step === "create_vault" ||
+    step === "seed_starter" ||
+    step === "sync_tree"
+  );
+}
 
 export const markWorkflowProvisioningFailed = internalMutation({
   args: {
@@ -1428,7 +1459,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
 
     const now = Date.now();
     const eventStep =
-      run.currentStep === "run_created" && run.vaultId === null
+      run.currentStep === "run_created" && run.trigger === "create"
         ? "validate_connections"
         : run.currentStep === "run_created"
           ? "claim_infra"
@@ -1463,6 +1494,75 @@ export const markWorkflowProvisioningFailed = internalMutation({
     }
 
     const vaultId = run.vaultId;
+    const vault = await ctx.db.get(vaultId);
+    const safeRunError =
+      run.currentStep === "run_created"
+        ? "Provisioning failed before the first step."
+        : `Provisioning failed during ${run.currentStep}.`;
+    if (
+      vault?.state === "provisioning" &&
+      vault.githubMode === "create_repository" &&
+      vault.runId === args.runId
+    ) {
+      await ctx.runMutation(
+        internal.vault.markNoterManagedGithubProvisioningFailed,
+        {
+          runId: args.runId,
+        },
+      );
+      await ctx.db.patch(args.runId, {
+        state: "failed",
+        lastError: safeRunError,
+        updatedAt: now,
+        completedAt: now,
+      });
+      await ctx.runMutation(internal.appProvisioningEvents.append, {
+        userId: run.userId,
+        vaultId,
+        repositoryFullName: run.repositoryFullName,
+        runId: args.runId,
+        step: eventStep,
+        level: "error",
+        message: safeRunError,
+        createdAt: now,
+      });
+      console.error("app:provision:failed", {
+        vaultId,
+        repo: run.repositoryFullName,
+        step: run.currentStep,
+        message: args.message,
+      });
+      return null;
+    }
+    if (
+      run.trigger === "create" &&
+      isCreateAppPreInfrastructureStep(run.currentStep)
+    ) {
+      await ctx.db.patch(args.runId, {
+        state: "failed",
+        lastError: safeRunError,
+        updatedAt: now,
+        completedAt: now,
+      });
+      await ctx.runMutation(internal.appProvisioningEvents.append, {
+        userId: run.userId,
+        vaultId,
+        repositoryFullName: run.repositoryFullName,
+        runId: args.runId,
+        step: eventStep,
+        level: "error",
+        message: safeRunError,
+        createdAt: now,
+      });
+      console.error("app:provision:failed", {
+        vaultId,
+        repo: run.repositoryFullName,
+        step: run.currentStep,
+        message: args.message,
+      });
+      return null;
+    }
+
     const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
     const ownsActiveClaim = isActiveProvisioningOwner(ownership, {
       runId: args.runId,
@@ -1484,11 +1584,6 @@ export const markWorkflowProvisioningFailed = internalMutation({
       convexProjectId: infrastructure?.convexProjectId,
       hosting: infrastructure?.hosting,
     });
-    const safeRunError =
-      run.currentStep === "run_created"
-        ? "Provisioning failed before the first step."
-        : `Provisioning failed during ${run.currentStep}.`;
-
     if (ownsActiveClaim && ownership) {
       if (infrastructure) {
         await ctx.db.patch(infrastructure._id, {
