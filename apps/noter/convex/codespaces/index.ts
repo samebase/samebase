@@ -78,8 +78,11 @@ export const createCodespace = action({
     // Generate random token for HTTP agent authentication
     const agentToken = crypto.randomUUID();
 
-    const repositoryId = Number.parseInt(connectedVault.ghRepoId, 10);
-    if (!Number.isFinite(repositoryId)) {
+    if (!/^\d+$/.test(connectedVault.ghRepoId)) {
+      throw new Error(`Invalid repository id: ${connectedVault.ghRepoId}`);
+    }
+    const repositoryId = Number(connectedVault.ghRepoId);
+    if (!Number.isSafeInteger(repositoryId)) {
       throw new Error(`Invalid repository id: ${connectedVault.ghRepoId}`);
     }
 

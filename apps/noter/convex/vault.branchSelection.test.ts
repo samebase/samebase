@@ -100,6 +100,7 @@ describe("resolveVaultBranchSelection", () => {
     expect(
       resolveVaultBranchSelection({
         requestedBranch: "feature/login",
+        defaultBranch: "main",
         remoteBranches: [
           { name: "main", isDefault: true, remoteState: "active" },
           { name: "feature/login", isDefault: false, remoteState: "active" },
@@ -116,6 +117,7 @@ describe("resolveVaultBranchSelection", () => {
     expect(
       resolveVaultBranchSelection({
         requestedBranch: "src",
+        defaultBranch: "main",
         remoteBranches: [
           { name: "main", isDefault: true, remoteState: "active" },
           { name: "feature/login", isDefault: false, remoteState: "active" },
@@ -132,10 +134,11 @@ describe("resolveVaultBranchSelection", () => {
     expect(
       resolveVaultBranchSelection({
         requestedBranch: "feature/login",
+        defaultBranch: "main",
         remoteBranches: [],
       }),
     ).toEqual({
-      defaultBranch: undefined,
+      defaultBranch: "main",
       resolvedBranch: "feature/login",
       branchNotFound: false,
     });
@@ -145,6 +148,7 @@ describe("resolveVaultBranchSelection", () => {
     expect(
       resolveVaultBranchSelection({
         requestedBranch: "feature/local-work",
+        defaultBranch: "main",
         remoteBranches: [
           { name: "main", isDefault: true, remoteState: "active" },
           {
@@ -161,15 +165,16 @@ describe("resolveVaultBranchSelection", () => {
     });
   });
 
-  it("falls back to main when nothing is specified", () => {
+  it("uses the stored default branch when remote branches are unavailable", () => {
     expect(
       resolveVaultBranchSelection({
         requestedBranch: undefined,
+        defaultBranch: "master",
         remoteBranches: [],
       }),
     ).toEqual({
-      defaultBranch: undefined,
-      resolvedBranch: "main",
+      defaultBranch: "master",
+      resolvedBranch: "master",
       branchNotFound: false,
     });
   });

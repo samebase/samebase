@@ -2304,8 +2304,6 @@ export const commitStaging = action({
     await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
       userId,
       vaultId: vault._id,
-      repoOwner: vault.owner,
-      repoName: vault.name,
       branch: args.branch,
     });
 
@@ -2355,8 +2353,6 @@ export const createDraftPullRequest = action({
       await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
         userId,
         vaultId: vault._id,
-        repoOwner: vault.owner,
-        repoName: vault.name,
         branch,
       });
     }
@@ -2564,8 +2560,6 @@ export const createDraftPullRequestFromDefaultBranch = action({
       await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
         userId,
         vaultId: vault._id,
-        repoOwner: vault.owner,
-        repoName: vault.name,
         branch: targetBranch,
       });
     } catch (error) {
@@ -3998,22 +3992,22 @@ export const commitAllStaged = internalAction({
   args: {
     userId: v.id("users"),
     vaultId: v.id("vaults"),
-    repoOwner: v.string(),
-    repoName: v.string(),
     branch: v.optional(v.string()),
     commitProposalMessageId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const fullRepo = `${args.repoOwner}/${args.repoName}`;
-
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: fullRepo,
+    const vault = await ctx.runQuery(internal.vault.getByIdForUser, {
+      vaultId: args.vaultId,
       userId: args.userId,
     });
     if (!vault) {
       throw new Error("Vault not found");
     }
+    const connectedVault = assertConnectedVault(vault);
+    const repoOwner = connectedVault.owner;
+    const repoName = connectedVault.name;
+    const fullRepo = `${repoOwner}/${repoName}`;
 
     const updateCommitProposalStatus = async (
       committed: boolean,
@@ -4072,13 +4066,13 @@ export const commitAllStaged = internalAction({
         stagedBranches.at(0) ??
         (await getRepositoryDefaultBranch({
           octokit,
-          owner: args.repoOwner,
-          repo: args.repoName,
+          owner: repoOwner,
+          repo: repoName,
         }));
       const resolvedChangedFiles = await rebaseStagedFilesOnLatestHead({
         octokit,
-        owner: args.repoOwner,
-        repo: args.repoName,
+        owner: repoOwner,
+        repo: repoName,
         branch: commitBranch,
         stagedFiles: changedFiles,
       });
@@ -4086,8 +4080,8 @@ export const commitAllStaged = internalAction({
       // Create a commit with all staged files
       await createCommitWithMultipleFiles({
         octokit,
-        owner: args.repoOwner,
-        repo: args.repoName,
+        owner: repoOwner,
+        repo: repoName,
         stagedFiles: resolvedChangedFiles,
         branch: commitBranch,
         loadStorageBlob: async (storageId) => await ctx.storage.get(storageId),
@@ -4100,16 +4094,16 @@ export const commitAllStaged = internalAction({
         refreshBranchTree: async () => {
           await ctx.runAction(internal.github.updateRepositoryTree, {
             userId: args.userId,
-            owner: args.repoOwner,
-            repo: args.repoName,
+            owner: repoOwner,
+            repo: repoName,
             branch: commitBranch,
           });
         },
         refreshLegacyTree: async () => {
           await ctx.runAction(internal.github.updateRepositoryTree, {
             userId: args.userId,
-            owner: args.repoOwner,
-            repo: args.repoName,
+            owner: repoOwner,
+            repo: repoName,
           });
         },
         loadUpdatedVault: async () =>

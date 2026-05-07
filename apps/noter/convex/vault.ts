@@ -454,6 +454,20 @@ export const getVaultByRepository = query({
 
 // MARK: Internal
 
+export const getByIdForUser = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+  },
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== args.userId) {
+      return null;
+    }
+    return vault;
+  },
+});
+
 // mutation to add new vault
 export const addVault = internalMutation({
   args: {
@@ -473,21 +487,25 @@ export const addVault = internalMutation({
       throw new Error("User not found");
     }
 
-    // Check if vault already exists for this user and repository
-    const existingVaults = await ctx.db
+    // GitHub repository id stays stable across owner/name renames.
+    const existingVault = await ctx.db
       .query("vaults")
-      .withIndex("by_owner_and_name", (q) =>
-        q.eq("owner", args.ghRepoOwner).eq("name", args.ghRepoName),
+      .withIndex("by_userId_and_ghRepoId", (q) =>
+        q.eq("userId", currentUser._id).eq("ghRepoId", args.ghRepoId),
       )
-      .filter((q) => q.eq(q.field("userId"), currentUser._id))
-      .collect();
-    const existingVault = existingVaults.find(
-      (vault) => isConnectedVault(vault) && vault.ghRepoId === args.ghRepoId,
-    );
+      .first();
 
     if (existingVault) {
       const connectedVault = assertConnectedVault(existingVault);
-      if (!connectedVault.commitSHA && args.commitSHA) {
+      await ctx.db.patch(connectedVault._id, {
+        owner: args.ghRepoOwner,
+        name: args.ghRepoName,
+        defaultBranch: args.defaultBranch,
+        visibility: args.visibility,
+        treeSHA: args.treeSHA,
+        treeData: args.treeData,
+      });
+      if (args.commitSHA !== undefined) {
         await ctx.db.patch(connectedVault._id, { commitSHA: args.commitSHA });
       }
       return connectedVault._id;
@@ -536,20 +554,25 @@ export const addNoterManagedVaultForUser = internalMutation({
       throw new Error("User not found");
     }
 
-    const existingVaults = await ctx.db
+    // GitHub repository id stays stable across owner/name renames.
+    const existingVault = await ctx.db
       .query("vaults")
-      .withIndex("by_owner_and_name", (q) =>
-        q.eq("owner", args.ghRepoOwner).eq("name", args.ghRepoName),
+      .withIndex("by_userId_and_ghRepoId", (q) =>
+        q.eq("userId", args.userId).eq("ghRepoId", args.ghRepoId),
       )
-      .filter((q) => q.eq(q.field("userId"), args.userId))
-      .collect();
-    const existingVault = existingVaults.find(
-      (vault) => isConnectedVault(vault) && vault.ghRepoId === args.ghRepoId,
-    );
+      .first();
 
     if (existingVault) {
       const connectedVault = assertConnectedVault(existingVault);
-      if (!connectedVault.commitSHA && args.commitSHA) {
+      await ctx.db.patch(connectedVault._id, {
+        owner: args.ghRepoOwner,
+        name: args.ghRepoName,
+        defaultBranch: args.defaultBranch,
+        visibility: args.visibility,
+        treeSHA: args.treeSHA,
+        treeData: args.treeData,
+      });
+      if (args.commitSHA !== undefined) {
         await ctx.db.patch(connectedVault._id, { commitSHA: args.commitSHA });
       }
       return connectedVault._id;
@@ -1475,6 +1498,7 @@ async function getVaultByRepositoryHelper(
   const { defaultBranch, resolvedBranch, branchNotFound } =
     resolveVaultBranchSelection({
       requestedBranch,
+      defaultBranch: vault.defaultBranch,
       remoteBranches,
     });
 
@@ -1520,6 +1544,7 @@ async function getVaultByRepositoryHelper(
 
 export function resolveVaultBranchSelection(args: {
   requestedBranch?: string;
+  defaultBranch: string;
   remoteBranches: Array<{
     name: string;
     isDefault: boolean;
@@ -1541,20 +1566,16 @@ export function resolveVaultBranchSelection(args: {
         );
   const defaultBranch =
     activeRemoteBranches.find((branch) => branch.isDefault)?.name ??
-    activeRemoteBranches.at(0)?.name ??
-    requestedBranchMatch?.name ??
-    args.remoteBranches.at(0)?.name;
+    args.defaultBranch;
   const canValidateRequestedBranch = args.remoteBranches.length > 0;
   const branchNotFound = Boolean(
     args.requestedBranch && canValidateRequestedBranch && !requestedBranchMatch,
   );
-  let resolvedBranch = "main";
+  let resolvedBranch = defaultBranch;
   if (branchNotFound) {
-    resolvedBranch = defaultBranch ?? "main";
+    resolvedBranch = defaultBranch;
   } else if (args.requestedBranch) {
     resolvedBranch = args.requestedBranch;
-  } else if (defaultBranch) {
-    resolvedBranch = defaultBranch;
   }
 
   return {

@@ -639,7 +639,7 @@ export const confirmCommit = mutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
-    const connectedVault = assertConnectedVault(vault);
+    assertConnectedVault(vault);
     const claimResult = await ctx.runMutation(
       internal.chat.index.claimCommitProposalExecutionInternal,
       {
@@ -663,8 +663,6 @@ export const confirmCommit = mutation({
         {
           userId,
           vaultId: vault._id,
-          repoOwner: connectedVault.owner,
-          repoName: connectedVault.name,
           branch: proposalBranch,
           commitProposalMessageId: args.messageId,
         },

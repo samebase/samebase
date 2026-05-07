@@ -45,7 +45,6 @@ export const createVaultWithCodespace = action({
     args,
   ): Promise<Infer<typeof createVaultWithCodespaceResult>> => {
     const userId = await getUserId(ctx);
-    const branch = args.branch || "main";
 
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
@@ -57,6 +56,11 @@ export const createVaultWithCodespace = action({
       owner: args.repoOwner,
       repo: args.repoName,
     });
+
+    const branch = args.branch ?? repo.data.default_branch;
+    if (typeof branch !== "string" || branch.length === 0) {
+      throw new Error("Repository branch is required");
+    }
 
     // Get latest commit SHA from GitHub
     const { data: branchData } = await octokit.rest.repos.getBranch({
