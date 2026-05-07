@@ -126,6 +126,9 @@ GitHub state:
  * These fields live on the vault row itself; `state` is top-level because
  * GitHub is the source-workspace state of the vault.
  */
+/** GitHub visibility values currently supported by Noter's create flow. */
+type GitHubRepositoryVisibility = "private" | "public";
+
 type VaultGitHubState =
   | {
       /** Explicit empty state for future manual connection flows. */
@@ -157,7 +160,7 @@ type VaultGitHubState =
       name: string;
 
       /** Repository visibility requested for a new Noter-managed repository. */
-      visibility: "private" | "public";
+      visibility: GitHubRepositoryVisibility;
 
       /** Timestamp when this GitHub provisioning attempt started. */
       startedAt: number;
@@ -200,6 +203,9 @@ type VaultGitHubState =
       /** Current GitHub repository name used for API calls and display. */
       name: string;
 
+      /** Current GitHub repository visibility from GitHub metadata. */
+      visibility: GitHubRepositoryVisibility;
+
       /** Default branch for source views and initial tree sync. */
       defaultBranch: string;
 
@@ -235,7 +241,7 @@ type VaultGitHubState =
       name: string;
 
       /** Repository visibility requested for the failed create attempt. */
-      visibility: "private" | "public";
+      visibility: GitHubRepositoryVisibility;
 
       /** User-safe latest failure message. Full history stays in events. */
       message: string;
@@ -274,8 +280,17 @@ type VaultGitHubState =
 ```
 
 Connected GitHub state describes repository identity. Provisioning and failed
-states describe the current operation. Existing-repo connection must not carry
-fake create-only fields such as requested visibility.
+states describe the current operation. Existing-repo provisioning and failed
+variants must not carry fake create-only fields such as requested visibility.
+
+State transitions should not discard known GitHub facts. Moving from
+provisioning to connected should carry forward `owner`, `name`, and visibility,
+replacing requested intent with confirmed GitHub metadata when the provider
+response differs. If the workflow learns durable repository facts such as
+`ghRepoId` or confirmed visibility and then a later step fails before the normal
+connected write, do not fall back to the basic failed variant. Either write the
+connected GitHub state before continuing to later work, or add a richer explicit
+state that preserves the learned repository identity.
 
 Convex and hosting fields live only on the connected GitHub variant. They are
 infrastructure for a connected repository, not peer state that can exist while
@@ -349,8 +364,12 @@ GitHub state fields:
 5. `name`: repository name. In provisioning and failed states, this is the
    requested or targeted repository name. In connected state, this is the
    current GitHub repository name.
-6. `visibility`: create-repository intent. Existing-repo connection must not
-   carry this field.
+6. `visibility`: in `create_repository` provisioning and failed states, this is
+   requested create intent. In connected state, this is current GitHub metadata
+   that should be refreshed when GitHub visibility changes. Existing-repo
+   provisioning and failed states must not carry visibility unless the workflow
+   has already fetched repository metadata; in that case use connected state or
+   a richer explicit failure state instead of dropping the learned fact.
 7. Failed states preserve the same `owner` and `name` target fields used by the
    attempt, plus any operation-specific fields such as create-only `visibility`.
    Do not collapse them into a generic `repositoryLabel`.
@@ -375,10 +394,11 @@ Connected GitHub fields:
 2. `ghRepoId`: immutable repository identity. This is the field that prevents
    accidental in-place repository replacement.
 3. `owner` and `name`: current dashboard-safe repository label and API target.
-4. `defaultBranch`: repository metadata needed for default source views.
-5. `convex` and `hosting`: connected-only infrastructure state that is only
+4. `visibility`: current repository visibility from GitHub metadata.
+5. `defaultBranch`: repository metadata needed for default source views.
+6. `convex` and `hosting`: connected-only infrastructure state that is only
    meaningful after GitHub is connected.
-6. `connectedAt`: audit timestamp for when the vault first became a usable
+7. `connectedAt`: audit timestamp for when the vault first became a usable
    repository workspace.
 
 Branch tree state such as `treeSHA` and branch head `commitSHA` should live in
@@ -399,7 +419,7 @@ For Noter-managed repository creation:
 6. seed the starter app
 7. sync default branch and tree state
 8. write `state: "connected", githubMode: "create_repository"` with Convex and
-   hosting state initialized
+   hosting state initialized and confirmed repository visibility stored
 9. provision Convex and hosting state
 10. let the dashboard derive the vault summary from provider states
 
@@ -418,9 +438,9 @@ model:
 3. insert the provisioning run with required `vaultId`
 4. start a connect-existing Workflow
 5. fetch and validate the existing GitHub repository
-6. sync default branch and tree state
-7. write `state: "connected", githubMode: "connect_existing_repository"` with
-   Convex and hosting state initialized
+6. write `state: "connected", githubMode: "connect_existing_repository"` with
+   Convex and hosting state initialized and fetched repository visibility stored
+7. sync default branch and tree state
 8. leave Convex and hosting `not_configured` unless the product explicitly asks
    to provision them
 9. let the dashboard derive the vault summary from provider states
@@ -523,8 +543,8 @@ The cleanup must fail closed and must not be hidden inside the product flow.
 5. Update app provisioning runs/events so new create/connect runs require
    `vaultId`.
 6. Update create-app Workflow steps to mutate `state`, `githubMode`, `owner`,
-   `name`, and connected-only Convex/hosting state as steps start, succeed, or
-   fail.
+   `name`, `visibility`, and connected-only Convex/hosting state as steps start,
+   succeed, or fail.
 7. Move existing-repository connection onto Workflow using the same GitHub state
    model.
 8. Update dashboard queries and controls to render provider states and gate
@@ -542,9 +562,10 @@ Backend:
 3. create-app success writes connected Noter-managed GitHub state
 4. create-app GitHub failure writes failed GitHub state on the vault
 5. existing-repo connection writes connected existing-repository GitHub state
-6. pre-GitHub vault states cannot store Convex or hosting state
-7. connected GitHub identity cannot change to a different `ghRepoId`
-8. repo-backed helpers reject pre-GitHub vaults
+6. connected GitHub state stores current repository visibility
+7. pre-GitHub vault states cannot store Convex or hosting state
+8. connected GitHub identity cannot change to a different `ghRepoId`
+9. repo-backed helpers reject pre-GitHub vaults
 
 Frontend:
 
@@ -562,4 +583,5 @@ Frontend:
 3. Repo-backed features cannot run against pre-GitHub vaults.
 4. Convex and hosting state cannot exist unless GitHub is connected.
 5. Connected GitHub repository identity is immutable.
-6. Failed provider states are visible and retryable from the vault.
+6. Connected GitHub state stores current repository visibility.
+7. Failed provider states are visible and retryable from the vault.

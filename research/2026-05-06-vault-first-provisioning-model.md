@@ -142,6 +142,12 @@ The shape should look like this conceptually:
  * GitHub is the gate for a vault becoming a usable source workspace.
  * These fields are flattened onto the vault row itself.
  */
+/** GitHub visibility values currently supported by Noter's create flow. */
+const GitHubRepositoryVisibility = v.union(
+  v.literal("private"),
+  v.literal("public"),
+);
+
 const VaultGitHubState = v.union(
   v.object({
     /** Explicit empty state for future manual connection flows. */
@@ -173,7 +179,7 @@ const VaultGitHubState = v.union(
     name: v.string(),
 
     /** Repository visibility requested for a new Noter-managed repository. */
-    visibility: v.union(v.literal("private"), v.literal("public")),
+    visibility: GitHubRepositoryVisibility,
 
     /** Timestamp when this GitHub provisioning attempt started. */
     startedAt: v.number(),
@@ -219,6 +225,9 @@ const VaultGitHubState = v.union(
     /** Current GitHub repository name used for API calls and display. */
     name: v.string(),
 
+    /** Current GitHub repository visibility from GitHub metadata. */
+    visibility: GitHubRepositoryVisibility,
+
     /** Default branch for source views and initial tree sync. */
     defaultBranch: v.string(),
 
@@ -254,7 +263,7 @@ const VaultGitHubState = v.union(
     name: v.string(),
 
     /** Repository visibility requested for the failed create attempt. */
-    visibility: v.union(v.literal("private"), v.literal("public")),
+    visibility: GitHubRepositoryVisibility,
 
     /** User-safe latest failure message. Full history stays in events. */
     message: v.string(),
@@ -363,6 +372,14 @@ Root `isNoterManaged` is also omitted because repo origin belongs to
 `githubMode`, while infrastructure management is represented by connected-only
 Convex and hosting state.
 
+State transitions should not discard known GitHub facts. Moving from
+provisioning to connected should carry forward `owner`, `name`, and visibility,
+replacing requested intent with confirmed GitHub metadata when the provider
+response differs. If the workflow learns durable repository facts such as
+`ghRepoId` or confirmed visibility and then a later step fails before the normal
+connected write, use connected state or a richer explicit failure state instead
+of dropping those facts.
+
 Large or frequently refreshed provider payloads should stay in dedicated tables.
 For example, branch trees and remote branch metadata already have natural
 tables. A connected GitHub state should identify the default repository and
@@ -404,9 +421,9 @@ With vault-first creation, the create-app flow becomes:
 1. create the vault row with required provider state
 2. create the run linked to `vaultId`
 3. set `state: "provisioning", githubMode: "create_repository", owner, name`
-4. create or connect the GitHub repository
-5. set `state: "connected"` or `"failed"`
-6. seed and sync tree state
+4. create the GitHub repository
+5. seed and sync tree state
+6. set `state: "connected"` with confirmed repository visibility, or `"failed"`
 7. set `convex.state: "provisioning"` and provision Convex resources
 8. set `hosting.state: "provisioning"` and provision Cloudflare resources
 9. derive the dashboard summary from provider states
@@ -438,7 +455,8 @@ should use the same required GitHub discriminated union:
 3. set
    `state: "provisioning", githubMode: "connect_existing_repository", owner, name`
 4. fetch and validate the existing GitHub repository
-5. write `state: "connected", githubMode: "connect_existing_repository"`
+5. write `state: "connected", githubMode: "connect_existing_repository"` with
+   fetched repository visibility
 6. sync default branch/tree state into the same provider-owned tables used by
    Noter-managed repos
 7. leave Convex and hosting in `not_configured` or move them into provisioning
@@ -450,10 +468,10 @@ repository is created and seeded.
 
 This matters for schema design because the connected GitHub variant should
 describe the repository identity, while the provisioning/failed variants should
-describe the current operation. Operation-specific fields such as requested
-visibility only belong to the `create_repository` variant. Existing-repo
-connection should not need fake `visibility`, fake create settings, or nullable
-repo fields just to fit the Noter-managed create flow.
+describe the current operation. Operation-specific requested fields such as
+create visibility only belong to the `create_repository` provisioning and failed
+variants. Existing-repo connection should not need fake create settings or
+nullable repo fields just to fit the Noter-managed create flow.
 
 ## Best Representation
 
@@ -465,9 +483,10 @@ The best representation is:
 4. large provider snapshots in provider-owned child tables
 5. repo-backed actions gated on the connected GitHub variant
 6. immutable GitHub repository identity after first successful connection
-7. one GitHub state machine for both Noter-managed creation and existing-repo
+7. known repository facts such as visibility carried forward instead of dropped
+8. one GitHub state machine for both Noter-managed creation and existing-repo
    connection
-8. no optional compatibility fields unless there is a real migration window,
+9. no optional compatibility fields unless there is a real migration window,
    with TODO comments at every temporary boundary
 
 This preserves the user's preferred default: each stored row should have fewer
@@ -532,8 +551,8 @@ Suggested sequence:
    variant fields.
 4. Make create-app insert the vault first and create the provisioning run with a
    required `vaultId`.
-5. Update the Workflow to mutate provider states as each step starts, succeeds,
-   or fails.
+5. Update the Workflow to mutate provider states, including connected repository
+   visibility, as each step starts, succeeds, or fails.
 6. Add an invariant helper or typed accessor for code paths that require a
    connected GitHub repository.
 7. Update dashboard data to render provider lines from explicit provider states.
