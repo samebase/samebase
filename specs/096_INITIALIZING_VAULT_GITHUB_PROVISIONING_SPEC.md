@@ -546,6 +546,14 @@ After those prerequisites are recorded:
 2. deploy the new required state shape
 3. update current call sites directly without old/new vault compatibility
 
+The schema change should land with the current code updates that are required to
+typecheck against it. Changing `vaults` from required top-level GitHub fields to
+explicit state variants will affect generated Convex types across backend and
+frontend call sites. In a multi-user preservation path that type fallout would
+usually require separate widen, migrate, and narrow PRs. For this single-user
+reset path, the simpler implementation is one destructive schema-and-code PR
+after the cleanup prerequisites are satisfied.
+
 The reset must include dependent vault-scoped tables, not only `vaults`. Likely
 affected tables include:
 
@@ -571,28 +579,89 @@ operator sign-off aborts the cleanup before deletion and reports the failure
 outside the product flow. The cleanup must not be hidden inside the product
 flow.
 
-## Implementation Sequence
+## Implementation Phases
 
-1. Define `VaultBase`, `VaultGitHubState`, `VaultConvexState`, and
-   `VaultHostingState` validators, then define `vaults` as a union of full row
-   variants that share the base fields.
-2. Add a typed helper for code paths that require connected GitHub state.
-3. Replace always-required repository identity fields with connected-only GitHub
-   variant fields.
-4. Update create-app to create the initializing vault and first run together
-   before starting provider work.
-5. Update app provisioning runs/events so new create/connect runs require
-   `vaultId`.
-6. Update create-app Workflow steps to mutate `state`, `githubMode`, `owner`,
+This spec is the Phase 4 umbrella. Implementation should land as smaller PRs so
+each squash commit preserves a reviewable product step.
+
+### Phase 4A: Vault State Model
+
+Goal: change the persisted vault shape and make repository-backed code explicit
+about requiring connected GitHub state.
+
+Scope:
+
+1. satisfy and record the destructive-reset prerequisites from the Migration
+   section
+2. define `VaultBase`, `VaultGitHubState`, `VaultConvexState`, and
+   `VaultHostingState` validators
+3. define `vaults` as a union of full row variants that share the base fields
+4. replace always-required repository identity fields with connected-only GitHub
+   variant fields
+5. update backend and frontend call sites in the same PR so the generated Convex
+   types compile against the new required shape
+6. add a typed helper for code paths that require connected GitHub state
+7. keep current create-app ordering intact for this phase; when it creates a
+   vault after GitHub succeeds, write the `connected` GitHub variant
+
+Stop before creating initializing vaults ahead of GitHub provisioning.
+
+### Phase 4B: Initializing Vault Creation
+
+Goal: make a new Noter-managed app visible as a vault before external GitHub
+work starts.
+
+Scope:
+
+1. update create-app to create the initializing vault and first run together
+   before starting provider work
+2. update app provisioning runs/events so new create runs require `vaultId`
+3. update create-app Workflow steps to mutate `state`, `githubMode`, `owner`,
    `name`, `visibility`, and connected-only Convex/hosting state as steps start,
-   succeed, or fail.
-7. Move existing-repository connection onto Workflow using the same GitHub state
-   model.
-8. Update dashboard queries and controls to render provider states and gate
-   repo-backed actions.
-9. Add provider-specific retry actions for failed provider state.
-10. Revisit Workflow restart-from-failed-step only after the manual provider
-    retry model is working.
+   succeed, or fail
+
+Stop before building broad retry UX.
+
+### Phase 4C: Dashboard Provider Visibility
+
+Goal: show initializing and failed provider state from the vault and event data
+without making pre-GitHub vaults usable as source workspaces.
+
+Scope:
+
+1. update dashboard queries and controls to render provider states
+2. derive failure messages from provisioning events for the failed `runId`
+3. gate repo-backed actions behind connected GitHub state
+
+Stop before implementing retry mutations unless the UI needs a disabled target
+for placement.
+
+### Phase 4D: Manual Provider Retry
+
+Goal: add explicit retry actions for one failed provider state on one vault.
+
+Scope:
+
+1. add provider-specific retry actions for failed provider state
+2. make each retry create a new run instead of mutating a terminal run
+3. update the current provider state to point at the new run
+
+Stop before automatic Workflow restart-from-failed-step. Revisit that only after
+manual provider retry semantics are clear.
+
+### Phase 4E: Existing Repository Onboarding
+
+Goal: move existing-repository connection onto the same vault/run/provider-state
+model.
+
+Scope:
+
+1. move existing-repository connection onto Workflow using the same GitHub state
+   model
+2. write `githubMode: "connect_existing_repository"` for provisioning, failed,
+   and connected states
+3. reuse the same dashboard and retry semantics as Noter-managed repository
+   creation
 
 ## Testing Plan
 

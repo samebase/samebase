@@ -554,31 +554,21 @@ inside the product flow.
 
 The next implementation should be its own phase, not a tail on Phase 3.
 
-Suggested phase title:
+The accepted spec splits the Phase 4 umbrella into smaller PR phases:
 
-`Phase 4: Create initializing vaults before GitHub provisioning`
+1. Phase 4A changes the vault state model and updates current call sites in the
+   same destructive schema-and-code PR.
+2. Phase 4B creates initializing vaults before GitHub provisioning.
+3. Phase 4C renders provider state on the dashboard.
+4. Phase 4D adds manual provider retry actions.
+5. Phase 4E moves existing-repository onboarding onto the same Workflow/state
+   model.
 
-Suggested sequence:
-
-1. Promote this research into an accepted spec once the model is agreed.
-2. Define the exact `VaultBase`, `VaultGitHubState`, `VaultConvexState`, and
-   `VaultHostingState` validators, with `vaults` represented as full row union
-   variants that share the base fields.
-3. Replace always-required repository identity fields with connected-only GitHub
-   variant fields.
-4. Make create-app create the initializing vault and first run together with a
-   required `vaultId`.
-5. Update the Workflow to mutate provider states, including connected repository
-   visibility, as each step starts, succeeds, or fails.
-6. Add an invariant helper or typed accessor for code paths that require a
-   connected GitHub repository.
-7. Update dashboard data to render provider lines from explicit provider states.
-8. Add provider-specific retry actions that operate on one vault and one failed
-   provider state.
-9. Move existing-repository connection onto the same vault/run/provider-state
-   model before adding a separate onboarding surface.
-10. Defer automatic Workflow restart-from-failed-step until the provider states
-    make manual retry semantics clear.
+The split keeps the data-model change reviewable without forcing a multi-PR
+compatibility rollout. Because the current production app has one real
+operator/user and the reset shortcut deletes old vault rows, Phase 4A can update
+the schema and all generated-type fallout together after the documented backup,
+restore, and sign-off gates are satisfied.
 
 ## Stop Line
 
