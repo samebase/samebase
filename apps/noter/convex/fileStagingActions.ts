@@ -26,6 +26,7 @@ import {
 } from "./stagingChanges";
 import { sanitizeSlug } from "./slugUtils";
 import { describeRepositoryTreeRefreshFailure } from "./github";
+import { assertConnectedVault } from "./vaultState";
 import { getRepositoryMediaKind } from "../shared/repositoryMedia";
 import { isStaleBaseVersionError } from "../shared/stagingErrors";
 
@@ -1979,10 +1980,11 @@ export const renameFileInStaging = action({
     if (!vault) {
       throw new Error("Vault not found");
     }
+    const connectedVault = assertConnectedVault(vault);
 
     // So that we guarantee that we have the file in staging
     await ctx.runAction(api.fileStagingActions.getFileForEditing, {
-      repositoryFullName: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+      repositoryFullName: `${connectedVault.owner}/${connectedVault.name}`,
       originalFilePath: args.originalPath,
       branch,
     });
@@ -2032,8 +2034,8 @@ export const getFileForEditing = action({
       args.branch ??
       (await getRepositoryDefaultBranch({
         octokit,
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+        owner: vault.owner,
+        repo: vault.name,
       }));
 
     // Check if there's staged content for this file
@@ -2057,8 +2059,8 @@ export const getFileForEditing = action({
 
     try {
       const file = await octokit.rest.repos.getContent({
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+        owner: vault.owner,
+        repo: vault.name,
         path: args.originalFilePath,
         ref: targetBranch,
       });
@@ -2117,8 +2119,8 @@ export const getFileForEditing = action({
       }
 
       const blobResponse = await octokit.rest.git.getBlob({
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+        owner: vault.owner,
+        repo: vault.name,
         file_sha: fileSha,
       });
       const buffer = Buffer.from(blobResponse.data.content, "base64");
@@ -2243,8 +2245,8 @@ export const stageUploadedMedia = action({
       args.branch ??
       (await getRepositoryDefaultBranch({
         octokit,
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+        owner: vault.owner,
+        repo: vault.name,
       }));
 
     const uploadedBlob = await ctx.storage.get(args.storageId);
@@ -2302,8 +2304,6 @@ export const commitStaging = action({
     await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
       userId,
       vaultId: vault._id,
-      repoOwner: vault.ghRepoOwner,
-      repoName: vault.ghRepoName,
       branch: args.branch,
     });
 
@@ -2333,8 +2333,8 @@ export const createDraftPullRequest = action({
     });
     const defaultBranch = await getRepositoryDefaultBranch({
       octokit,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
     });
     const branch = args.branch?.trim() || defaultBranch;
 
@@ -2353,16 +2353,14 @@ export const createDraftPullRequest = action({
       await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
         userId,
         vaultId: vault._id,
-        repoOwner: vault.ghRepoOwner,
-        repoName: vault.ghRepoName,
         branch,
       });
     }
 
     const existingPullRequest = await getOpenPullRequestForBranch({
       octokit,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       branch,
       baseBranch: defaultBranch,
     });
@@ -2370,8 +2368,8 @@ export const createDraftPullRequest = action({
       try {
         await ctx.runAction(internal.github.updateRepositoryTree, {
           userId,
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
+          owner: vault.owner,
+          repo: vault.name,
           includeAheadBehind: true,
           includePullRequestLinks: true,
         });
@@ -2389,8 +2387,8 @@ export const createDraftPullRequest = action({
     }
 
     const comparison = await octokit.rest.repos.compareCommitsWithBasehead({
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       basehead: `${defaultBranch}...${branch}`,
     });
     if (comparison.data.ahead_by === 0) {
@@ -2399,14 +2397,14 @@ export const createDraftPullRequest = action({
 
     try {
       const response = await octokit.rest.pulls.create({
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+        owner: vault.owner,
+        repo: vault.name,
         title: buildDraftPullRequestTitle({
           branch,
           commitMessage: await getBranchHeadCommitMessage({
             octokit,
-            owner: vault.ghRepoOwner,
-            repo: vault.ghRepoName,
+            owner: vault.owner,
+            repo: vault.name,
             branch,
           }),
         }),
@@ -2418,8 +2416,8 @@ export const createDraftPullRequest = action({
       try {
         await ctx.runAction(internal.github.updateRepositoryTree, {
           userId,
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
+          owner: vault.owner,
+          repo: vault.name,
           includeAheadBehind: true,
           includePullRequestLinks: true,
         });
@@ -2438,8 +2436,8 @@ export const createDraftPullRequest = action({
     } catch (error) {
       const currentPullRequest = await getOpenPullRequestForBranch({
         octokit,
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+        owner: vault.owner,
+        repo: vault.name,
         branch,
         baseBranch: defaultBranch,
       });
@@ -2447,8 +2445,8 @@ export const createDraftPullRequest = action({
         try {
           await ctx.runAction(internal.github.updateRepositoryTree, {
             userId,
-            owner: vault.ghRepoOwner,
-            repo: vault.ghRepoName,
+            owner: vault.owner,
+            repo: vault.name,
             includeAheadBehind: true,
             includePullRequestLinks: true,
           });
@@ -2495,8 +2493,8 @@ export const createDraftPullRequestFromDefaultBranch = action({
     });
     const defaultBranch = await getRepositoryDefaultBranch({
       octokit,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
     });
     const sourceBranch = args.branch?.trim() || defaultBranch;
     if (sourceBranch !== defaultBranch) {
@@ -2522,14 +2520,14 @@ export const createDraftPullRequestFromDefaultBranch = action({
       now: Date.now(),
     });
     const defaultRef = await octokit.rest.git.getRef({
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       ref: `heads/${defaultBranch}`,
     });
 
     await octokit.rest.git.createRef({
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       ref: `refs/heads/${targetBranch}`,
       sha: defaultRef.data.object.sha,
     });
@@ -2547,8 +2545,8 @@ export const createDraftPullRequestFromDefaultBranch = action({
         ctx,
         octokit,
         vaultId: vault._id,
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+        owner: vault.owner,
+        repo: vault.name,
         branch: targetBranch,
       });
 
@@ -2562,8 +2560,6 @@ export const createDraftPullRequestFromDefaultBranch = action({
       await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
         userId,
         vaultId: vault._id,
-        repoOwner: vault.ghRepoOwner,
-        repoName: vault.ghRepoName,
         branch: targetBranch,
       });
     } catch (error) {
@@ -2571,8 +2567,8 @@ export const createDraftPullRequestFromDefaultBranch = action({
       // re-check the head before rolling back the newly created branch.
       const currentTargetBranchSha = await getBranchHeadShaOrNull({
         octokit,
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+        owner: vault.owner,
+        repo: vault.name,
         branch: targetBranch,
       });
       if (currentTargetBranchSha === initialTargetBranchSha) {
@@ -2580,8 +2576,8 @@ export const createDraftPullRequestFromDefaultBranch = action({
           ctx,
           octokit,
           vaultId: vault._id,
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
+          owner: vault.owner,
+          repo: vault.name,
           branch: targetBranch,
         });
       }
@@ -2597,14 +2593,14 @@ export const createDraftPullRequestFromDefaultBranch = action({
       let number: number;
       try {
         const response = await octokit.rest.pulls.create({
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
+          owner: vault.owner,
+          repo: vault.name,
           title: buildDraftPullRequestTitle({
             branch: targetBranch,
             commitMessage: await getBranchHeadCommitMessage({
               octokit,
-              owner: vault.ghRepoOwner,
-              repo: vault.ghRepoName,
+              owner: vault.owner,
+              repo: vault.name,
               branch: targetBranch,
             }),
           }),
@@ -2617,8 +2613,8 @@ export const createDraftPullRequestFromDefaultBranch = action({
       } catch (error) {
         const currentPullRequest = await getOpenPullRequestForBranch({
           octokit,
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
+          owner: vault.owner,
+          repo: vault.name,
           branch: targetBranch,
           baseBranch: defaultBranch,
         });
@@ -2629,8 +2625,8 @@ export const createDraftPullRequestFromDefaultBranch = action({
             ctx,
             octokit,
             vaultId: vault._id,
-            owner: vault.ghRepoOwner,
-            repo: vault.ghRepoName,
+            owner: vault.owner,
+            repo: vault.name,
             branch: targetBranch,
           });
 
@@ -2655,8 +2651,8 @@ export const createDraftPullRequestFromDefaultBranch = action({
       try {
         await ctx.runAction(internal.github.updateRepositoryTree, {
           userId,
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
+          owner: vault.owner,
+          repo: vault.name,
           includeAheadBehind: true,
           includePullRequestLinks: true,
         });
@@ -2767,6 +2763,7 @@ export const pullFromGitHubInternal = internalAction({
     if (!vault) {
       throw new Error("Vault not found");
     }
+    const connectedVault = assertConnectedVault(vault);
 
     const octokit = new Octokit({
       auth: githubAccessToken,
@@ -2792,8 +2789,8 @@ export const pullFromGitHubInternal = internalAction({
 
       const loaded = getBranchTreeMap({
         octokit,
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+        owner: connectedVault.owner,
+        repo: connectedVault.name,
         branch,
       });
       treeMapByBranch.set(branch, loaded);
@@ -2882,8 +2879,8 @@ export const pullFromGitHubInternal = internalAction({
     for (const item of blobFetchQueue) {
       try {
         const blob = await octokit.rest.git.getBlob({
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
+          owner: connectedVault.owner,
+          repo: connectedVault.name,
           file_sha: item.sha,
         });
         const buffer = Buffer.from(blob.data.content, "base64");
@@ -2987,8 +2984,8 @@ export const pullFromGitHubInternal = internalAction({
     for (const branch of touchedBranches) {
       await ctx.runAction(internal.github.updateRepositoryTree, {
         userId: args.userId,
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+        owner: connectedVault.owner,
+        repo: connectedVault.name,
         branch,
       });
     }
@@ -2996,8 +2993,8 @@ export const pullFromGitHubInternal = internalAction({
     // Keep legacy default-branch cache current as well.
     await ctx.runAction(internal.github.updateRepositoryTree, {
       userId: args.userId,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: connectedVault.owner,
+      repo: connectedVault.name,
     });
 
     return null;
@@ -3023,6 +3020,7 @@ export const batchReadFiles = action({
     if (!vault) {
       throw new Error("Vault not found");
     }
+    const connectedVault = assertConnectedVault(vault);
 
     const requestedBranch =
       typeof args.branch === "string" && args.branch.trim().length > 0
@@ -3039,8 +3037,8 @@ export const batchReadFiles = action({
       if (!branchTree) {
         await ctx.runAction(internal.github.updateRepositoryTree, {
           userId,
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
+          owner: connectedVault.owner,
+          repo: connectedVault.name,
           branch: requestedBranch,
         });
         branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
@@ -3052,7 +3050,7 @@ export const batchReadFiles = action({
       if (branchTree) {
         branchTreeData = branchTree.treeData.tree;
       } else {
-        const repositoryFullName = `${vault.ghRepoOwner}/${vault.ghRepoName}`;
+        const repositoryFullName = `${connectedVault.owner}/${connectedVault.name}`;
         const resolvedVault = await ctx.runQuery(
           internal.vault.getByRepositoryFullName,
           {
@@ -3067,7 +3065,7 @@ export const batchReadFiles = action({
       requestedBranch,
       defaultBranch,
       branchTree: branchTreeData,
-      legacyTree: vault.treeData.tree,
+      legacyTree: connectedVault.treeData.tree,
     });
 
     // Build a map of path → tree entry for fast lookups
@@ -3128,8 +3126,8 @@ export const batchReadFiles = action({
       // 2. Fetch from GitHub (blob API by SHA – lightweight)
       try {
         const blob = await getOctokit().rest.git.getBlob({
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
+          owner: connectedVault.owner,
+          repo: connectedVault.name,
           file_sha: miss.sha,
         });
 
@@ -3225,12 +3223,7 @@ export const getCommitPreview = action({
     const branch =
       args.branch ??
       stagedBranches.at(0) ??
-      (await getVaultDefaultBranch(
-        ctx,
-        userId,
-        vault.ghRepoOwner,
-        vault.ghRepoName,
-      ));
+      (await getVaultDefaultBranch(ctx, userId, vault.owner, vault.name));
 
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
     const octokit: Octokit = new Octokit({
@@ -3238,8 +3231,8 @@ export const getCommitPreview = action({
     });
     const rebasedStagedFiles = await rebaseStagedFilesOnLatestHead({
       octokit,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       branch,
       stagedFiles,
     });
@@ -3297,21 +3290,21 @@ export const getBranchComparePreview = action({
     });
     const defaultBranch = await getRepositoryDefaultBranch({
       octokit,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
     });
     const branch = args.branch?.trim() || stagedBranches.at(0) || defaultBranch;
     const currentPullRequest = await getLatestOpenPullRequestForBranch({
       octokit,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       branch,
     });
     const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
     const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead(
       {
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+        owner: vault.owner,
+        repo: vault.name,
         basehead: `${baseBranch}...${branch}`,
       },
     );
@@ -3326,14 +3319,14 @@ export const getBranchComparePreview = action({
 
     const baseShaByPath = await getTreeMapForRef({
       octokit,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       ref: mergeBaseSha,
     });
     const headShaByPath = await getTreeMapForRef({
       octokit,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       ref: branch,
     });
     const blobBufferBySha = new Map<string, Promise<Uint8Array>>();
@@ -3345,8 +3338,8 @@ export const getBranchComparePreview = action({
 
       const loaded = octokit.rest.git
         .getBlob({
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
+          owner: vault.owner,
+          repo: vault.name,
           file_sha: sha,
         })
         .then((response) => {
@@ -3368,8 +3361,8 @@ export const getBranchComparePreview = action({
     const remoteFileCandidates = currentPullRequest
       ? await getPullRequestCompareFiles({
           octokit,
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
+          owner: vault.owner,
+          repo: vault.name,
           pullRequestNumber: currentPullRequest.number,
         })
       : (compareResponse.data.files ?? []);
@@ -3441,21 +3434,21 @@ export const restoreComparedDeletedFileToStaging = action({
     });
     const defaultBranch = await getRepositoryDefaultBranch({
       octokit,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
     });
     const branch = args.branch?.trim() || defaultBranch;
     const currentPullRequest = await getLatestOpenPullRequestForBranch({
       octokit,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       branch,
     });
     const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
     const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead(
       {
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+        owner: vault.owner,
+        repo: vault.name,
         basehead: `${baseBranch}...${branch}`,
       },
     );
@@ -3469,8 +3462,8 @@ export const restoreComparedDeletedFileToStaging = action({
           : baseBranch;
     const baseShaByPath = await getTreeMapForRef({
       octokit,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       ref: mergeBaseSha,
     });
     const basePath =
@@ -3486,8 +3479,8 @@ export const restoreComparedDeletedFileToStaging = action({
     }
 
     const blobResponse = await octokit.rest.git.getBlob({
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       file_sha: baseSha,
     });
     const buffer = new Uint8Array(
@@ -3555,12 +3548,7 @@ export const getRebaseConflictPreview = action({
     const branch =
       args.branch ??
       stagedBranches.at(0) ??
-      (await getVaultDefaultBranch(
-        ctx,
-        userId,
-        vault.ghRepoOwner,
-        vault.ghRepoName,
-      ));
+      (await getVaultDefaultBranch(ctx, userId, vault.owner, vault.name));
 
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
     const octokit: Octokit = new Octokit({
@@ -3568,8 +3556,8 @@ export const getRebaseConflictPreview = action({
     });
     const inspection = await inspectStagedFilesAgainstLatestHead({
       octokit,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       branch,
       stagedFiles,
     });
@@ -3622,12 +3610,7 @@ export const getRebaseConflictBundle = action({
     const branch =
       args.branch ??
       stagedBranches.at(0) ??
-      (await getVaultDefaultBranch(
-        ctx,
-        userId,
-        vault.ghRepoOwner,
-        vault.ghRepoName,
-      ));
+      (await getVaultDefaultBranch(ctx, userId, vault.owner, vault.name));
 
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
     const octokit: Octokit = new Octokit({
@@ -3635,8 +3618,8 @@ export const getRebaseConflictBundle = action({
     });
     const inspection = await inspectStagedFilesAgainstLatestHead({
       octokit,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       branch,
       stagedFiles,
     });
@@ -4009,22 +3992,22 @@ export const commitAllStaged = internalAction({
   args: {
     userId: v.id("users"),
     vaultId: v.id("vaults"),
-    repoOwner: v.string(),
-    repoName: v.string(),
     branch: v.optional(v.string()),
     commitProposalMessageId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const fullRepo = `${args.repoOwner}/${args.repoName}`;
-
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: fullRepo,
+    const vault = await ctx.runQuery(internal.vault.getByIdForUser, {
+      vaultId: args.vaultId,
       userId: args.userId,
     });
     if (!vault) {
       throw new Error("Vault not found");
     }
+    const connectedVault = assertConnectedVault(vault);
+    const repoOwner = connectedVault.owner;
+    const repoName = connectedVault.name;
+    const fullRepo = `${repoOwner}/${repoName}`;
 
     const updateCommitProposalStatus = async (
       committed: boolean,
@@ -4083,13 +4066,13 @@ export const commitAllStaged = internalAction({
         stagedBranches.at(0) ??
         (await getRepositoryDefaultBranch({
           octokit,
-          owner: args.repoOwner,
-          repo: args.repoName,
+          owner: repoOwner,
+          repo: repoName,
         }));
       const resolvedChangedFiles = await rebaseStagedFilesOnLatestHead({
         octokit,
-        owner: args.repoOwner,
-        repo: args.repoName,
+        owner: repoOwner,
+        repo: repoName,
         branch: commitBranch,
         stagedFiles: changedFiles,
       });
@@ -4097,8 +4080,8 @@ export const commitAllStaged = internalAction({
       // Create a commit with all staged files
       await createCommitWithMultipleFiles({
         octokit,
-        owner: args.repoOwner,
-        repo: args.repoName,
+        owner: repoOwner,
+        repo: repoName,
         stagedFiles: resolvedChangedFiles,
         branch: commitBranch,
         loadStorageBlob: async (storageId) => await ctx.storage.get(storageId),
@@ -4111,16 +4094,16 @@ export const commitAllStaged = internalAction({
         refreshBranchTree: async () => {
           await ctx.runAction(internal.github.updateRepositoryTree, {
             userId: args.userId,
-            owner: args.repoOwner,
-            repo: args.repoName,
+            owner: repoOwner,
+            repo: repoName,
             branch: commitBranch,
           });
         },
         refreshLegacyTree: async () => {
           await ctx.runAction(internal.github.updateRepositoryTree, {
             userId: args.userId,
-            owner: args.repoOwner,
-            repo: args.repoName,
+            owner: repoOwner,
+            repo: repoName,
           });
         },
         loadUpdatedVault: async () =>

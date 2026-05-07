@@ -1,11 +1,9 @@
 "use node";
 
 import { internalAction } from "../_generated/server";
-import { v, Infer } from "convex/values";
+import { v } from "convex/values";
 import { components, internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
 import { z } from "zod";
-import { GithubTreeData } from "../schema";
 import { executeReadFile } from "../agent/tools";
 import type { ToolContext } from "../agent/tools";
 import { buildSystemPrompt } from "../agent/systemPrompt";
@@ -19,6 +17,7 @@ import {
   buildProdReadResultPayload,
   buildToolActivityPayload,
 } from "./metadata";
+import { isConnectedVault, type ConnectedVault } from "../vaultState";
 
 const MODEL = "claude-sonnet-4-20250514";
 
@@ -104,20 +103,14 @@ export const generateResponse = internalAction({
     }
 
     // Load vault context if available
-    let vault: {
-      _id: Id<"vaults">;
-      ghRepoOwner: string;
-      ghRepoName: string;
-      userId: Id<"users">;
-      treeData: Infer<typeof GithubTreeData>;
-    } | null = null;
+    let vault: ConnectedVault | null = null;
     let githubAccessToken: string | null = null;
 
     if (threadContext.vaultId) {
       const v = await ctx.runQuery(internal.vault.getById, {
         id: threadContext.vaultId,
       });
-      if (v) {
+      if (isConnectedVault(v)) {
         vault = v;
         const githubConnection = await ctx.runQuery(
           internal.providerConnections.getByUserAndKind,
@@ -173,8 +166,8 @@ export const generateResponse = internalAction({
             ctx,
             threadId: args.threadId,
             vaultId: vault._id,
-            owner: vault.ghRepoOwner,
-            repo: vault.ghRepoName,
+            owner: vault.owner,
+            repo: vault.name,
             branch: toolBranch,
             userId: vault.userId,
             accessToken: githubAccessToken,
@@ -187,8 +180,8 @@ export const generateResponse = internalAction({
     }
 
     const systemPrompt = buildSystemPrompt({
-      owner: vault?.ghRepoOwner,
-      repo: vault?.ghRepoName,
+      owner: vault?.owner,
+      repo: vault?.name,
       branch: threadContext.branch,
       filePath: threadContext.filePath,
       fileContent,
@@ -207,8 +200,8 @@ export const generateResponse = internalAction({
             ctx,
             threadId: args.threadId,
             vaultId: vault._id,
-            owner: vault.ghRepoOwner,
-            repo: vault.ghRepoName,
+            owner: vault.owner,
+            repo: vault.name,
             branch: toolBranch,
             userId: vault.userId,
             accessToken: githubAccessToken,

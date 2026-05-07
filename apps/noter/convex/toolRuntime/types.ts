@@ -65,8 +65,8 @@ export interface ResolvedToolContext {
 export interface VaultToolContext {
   _id: Id<"vaults">;
   userId: Id<"users">;
-  ghRepoOwner: string;
-  ghRepoName: string;
+  owner: string;
+  name: string;
   state: "copying_files" | "ready";
 }
 

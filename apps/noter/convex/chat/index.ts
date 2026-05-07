@@ -38,6 +38,7 @@ import {
 } from "./metadata";
 import { assertProdReadAccess, hashText } from "./prodAccess";
 import { ensureThreadAccess, getThreadById } from "./threads";
+import { assertConnectedVault } from "../vaultState";
 import {
   buildClaimedCommitProposalPayload,
   canClaimCommitProposal,
@@ -638,6 +639,7 @@ export const confirmCommit = mutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
+    assertConnectedVault(vault);
     const claimResult = await ctx.runMutation(
       internal.chat.index.claimCommitProposalExecutionInternal,
       {
@@ -661,8 +663,6 @@ export const confirmCommit = mutation({
         {
           userId,
           vaultId: vault._id,
-          repoOwner: vault.ghRepoOwner,
-          repoName: vault.ghRepoName,
           branch: proposalBranch,
           commitProposalMessageId: args.messageId,
         },

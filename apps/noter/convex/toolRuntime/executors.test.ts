@@ -62,8 +62,8 @@ function makeResolvedContext(args?: {
       _id: "vault_test",
       // @ts-expect-error Synthetic id is sufficient for isolated unit tests.
       userId: "users_test",
-      ghRepoOwner: "owner",
-      ghRepoName: "repo",
+      owner: "owner",
+      name: "repo",
       state: "ready",
     },
     branch: args?.branch ?? "main",

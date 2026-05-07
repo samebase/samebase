@@ -90,6 +90,8 @@ import type * as toolRuntime_utils from "../toolRuntime/utils.js";
 import type * as users from "../users.js";
 import type * as vault from "../vault.js";
 import type * as vaultActions from "../vaultActions.js";
+import type * as vaultModel from "../vaultModel.js";
+import type * as vaultState from "../vaultState.js";
 import type * as waitlist from "../waitlist.js";
 import type * as waitlistActions from "../waitlistActions.js";
 import type * as workspaceSidebarState from "../workspaceSidebarState.js";
@@ -184,6 +186,8 @@ declare const fullApi: ApiFromModules<{
   users: typeof users;
   vault: typeof vault;
   vaultActions: typeof vaultActions;
+  vaultModel: typeof vaultModel;
+  vaultState: typeof vaultState;
   waitlist: typeof waitlist;
   waitlistActions: typeof waitlistActions;
   workspaceSidebarState: typeof workspaceSidebarState;

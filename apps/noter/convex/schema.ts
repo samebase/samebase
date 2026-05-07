@@ -1,10 +1,15 @@
 import { defineSchema, defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
+import { hostingStateValidator } from "./hostingState";
 import {
-  hostingProviderValidator,
-  hostingStateValidator,
-} from "./hostingState";
+  GithubTree as githubTreeValidator,
+  GithubTreeData as githubTreeDataValidator,
+  GitHubRepositoryVisibility as gitHubRepositoryVisibilityValidator,
+  InfraState as infraStateValidator,
+  TreeRefreshFailureKind as treeRefreshFailureKindValidator,
+  VaultRow,
+} from "./vaultModel";
 import {
   mcpTokenHealthSourceValidator,
   mcpTokenHealthStatusValidator,
@@ -52,30 +57,16 @@ export const PullRequestLabel = union(
 );
 export type PullRequestLabel = Infer<typeof PullRequestLabel>;
 
-export const GithubTree = object({
-  path: string(),
-  mode: string(),
-  type: string(),
-  sha: string(),
-  size: optional(number()),
-  url: optional(string()),
-});
+export const GithubTree = githubTreeValidator;
 export type GithubTreeType = Infer<typeof GithubTree>;
-
-export const GithubTreeData = object({
-  sha: string(),
-  url: optional(string()),
-  truncated: boolean(),
-  tree: array(GithubTree),
-});
-
-export const InfraState = union(
-  literal("not_started"),
-  literal("provisioning"),
-  literal("ready"),
-  literal("failed"),
-  literal("partial"),
-);
+export const GithubTreeData = githubTreeDataValidator;
+export type GithubTreeData = Infer<typeof GithubTreeData>;
+export const GitHubRepositoryVisibility = gitHubRepositoryVisibilityValidator;
+export type GitHubRepositoryVisibility = Infer<
+  typeof GitHubRepositoryVisibility
+>;
+export const InfraState = infraStateValidator;
+export type InfraState = Infer<typeof InfraState>;
 
 export const AppProvisioningEventLevel = union(
   literal("info"),
@@ -143,10 +134,7 @@ export const VaultRemoteBranchState = union(
   literal("deleted_upstream"),
 );
 
-export const TreeRefreshFailureKind = union(
-  literal("failed"),
-  literal("rate_limited"),
-);
+export const TreeRefreshFailureKind = treeRefreshFailureKindValidator;
 export type TreeRefreshFailureKind = Infer<typeof TreeRefreshFailureKind>;
 
 export const ProdAccessScope = union(literal("vault"), literal("global"));
@@ -379,41 +367,13 @@ export default defineSchema({
     .index("by_user_and_vault", ["userId", "vaultId"]),
 
   /**
-   * Vault contains a connected github repository.
+   * Vault is the durable app container. Repo-backed behavior must require the
+   * connected GitHub variant before reading repository identity fields.
    */
-  vaults: defineTable({
-    userId: id("users"),
-    ghRepoId: string(),
-    ghRepoOwner: string(),
-    ghRepoName: string(),
-    treeSHA: string(),
-    commitSHA: optional(string()),
-    treeData: GithubTreeData,
-
-    state: union(literal("copying_files"), literal("ready")),
-    isNoterManaged: optional(boolean()),
-    hostingProvider: optional(hostingProviderValidator),
-
-    // Tree refresh mutex: prevents concurrent/redundant GitHub API calls
-    lastTreeRefreshAt: optional(number()),
-    treeRefreshStartedAt: optional(number()),
-    lastTreeRefreshFailedAt: optional(number()),
-    treeRefreshFailureKind: optional(TreeRefreshFailureKind),
-    treeRefreshFailureMessage: optional(string()),
-    treeRefreshCooldownUntil: optional(number()),
-
-    // Codespace integration
-    activeCodespaceId: optional(id("codespaces")),
-    devcontainerConfig: optional(string()), // JSON string of .devcontainer/devcontainer.json
-
-    // Infrastructure provisioning lifecycle
-    infraState: optional(InfraState),
-    infraLastError: optional(string()),
-    infraLastProvisionedAt: optional(number()),
-    infraProvisioningStartedAt: optional(number()),
-  })
+  vaults: defineTable(VaultRow)
     .index("by_userId", ["userId"])
-    .index("by_ghRepoOwner_and_ghRepoName", ["ghRepoOwner", "ghRepoName"]),
+    .index("by_userId_and_ghRepoId", ["userId", "ghRepoId"])
+    .index("by_owner_and_name", ["owner", "name"]),
 
   /**
    * Remote Git branches mirrored from GitHub for a vault repository.

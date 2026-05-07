@@ -101,15 +101,6 @@ type VaultRow = VaultBase & VaultGitHubState;
 type VaultBase = {
   /** Ownership and authorization boundary for the vault. */
   userId: Id<"users">;
-
-  /** Stable creation timestamp for audit and deterministic dashboard ordering. */
-  createdAt: number;
-
-  /**
-   * Explicit recency timestamp for queries that intentionally sort by update.
-   * This is not lifecycle state.
-   */
-  updatedAt: number;
 };
 ```
 
@@ -303,10 +294,13 @@ unrepresentable.
 Base vault fields:
 
 1. `userId`: required ownership and authorization boundary.
-2. `createdAt`: stable ordering and audit timestamp.
-3. `updatedAt`: useful only for explicit recency queries. It must not be treated
-   as lifecycle state, and UI lists that should not reshuffle must use a stable
-   sort instead.
+2. Convex `_creationTime`: stable creation ordering and audit timestamp. Do not
+   duplicate this as `createdAt` unless a non-Convex boundary needs that name.
+
+Do not add `updatedAt` in the first vault-state pass. It should exist only when
+there is a shipped query or workflow that intentionally sorts by explicit
+recency. It must not be treated as lifecycle state, and UI lists that should not
+reshuffle must use a stable sort instead.
 
 Root `displayName` should not be part of this shape. Its only durable utility is
 before GitHub connection, and those states already carry better operation
@@ -404,6 +398,16 @@ Branch tree state such as `treeSHA` and branch head `commitSHA` should live in
 branch/tree child tables, not in connected GitHub state, unless implementation
 finds a concrete atomicity requirement that cannot be represented otherwise.
 Those values refresh over time and would otherwise duplicate branch-cache state.
+
+The Phase 1 implementation still keeps several pre-vault-first fields on the
+vault row as compatibility mirrors because current source reads, file-view
+flows, branch refresh code, Codespaces, and dashboard/provisioning reads still
+consume them directly. This includes default-branch tree snapshot fields,
+repo-refresh operational fields, Codespace/devcontainer fields, and
+infrastructure summary fields. These mirrors are accepted Phase 1 reality, not
+the target model. They should stay clearly marked in the schema and move in a
+separate cleanup project once those call sites consume connected-only state or
+vault-scoped child tables.
 
 ## Create New App Flow
 
@@ -602,6 +606,12 @@ Scope:
    vault after GitHub succeeds, write the `connected` GitHub variant
 
 Stop before creating initializing vaults ahead of GitHub provisioning.
+
+Implementation note: Phase 1 intentionally keeps old vault-row mirrors required
+by existing file-view, branch-cache, Codespaces, and dashboard/provisioning call
+sites. Those fields should remain documented as compatibility mirrors in the
+schema. Moving them to connected-only state or child tables is a separate
+cleanup project, not hidden Phase 1 scope.
 
 ### Vault-First Phase 2: Initializing Vault Creation
 

@@ -142,6 +142,7 @@ export const provisionApp = workflow.define({
         ownerName: repository.ownerName,
         repoName: repository.repoName,
         defaultBranch: repository.defaultBranch,
+        visibility: repository.visibility,
       },
       { name: "create_vault", retry: false },
     );

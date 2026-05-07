@@ -22,6 +22,11 @@ import { asRecord, readString, readStringOrNumber } from "./jsonUtils";
 import type { AppProvisioningStep } from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
+import {
+  isConnectedVault,
+  isNoterManagedVault,
+  type NoterManagedConnectedVault,
+} from "./vaultState";
 
 const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 const GITHUB_API_VERSION = "2022-11-28";
@@ -523,24 +528,14 @@ async function ensureActiveProvisioningRun(
   return false;
 }
 
-type ManagedProvisioningVault = {
-  _id: Id<"vaults">;
-  userId: Id<"users">;
-  ghRepoId: string;
-  ghRepoOwner: string;
-  ghRepoName: string;
-  isNoterManaged?: boolean;
-  treeData: { tree: Array<{ path: string }> };
-};
-
 async function getManagedProvisioningVault(
   ctx: ActionCtx,
   vaultId: Id<"vaults">,
-): Promise<ManagedProvisioningVault | null> {
+): Promise<NoterManagedConnectedVault | null> {
   const vault = await ctx.runQuery(internal.vault.getById, {
     id: vaultId,
   });
-  if (!vault || vault.isNoterManaged !== true) {
+  if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
     return null;
   }
   return vault;
@@ -813,7 +808,7 @@ export const claimWorkflowProvisioning = internalMutation({
     }
 
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.isNoterManaged !== true) {
+    if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
       await appendProvisioningRunEvent(ctx, {
         runId: args.runId,
         step: "claim_infra",
@@ -825,7 +820,7 @@ export const claimWorkflowProvisioning = internalMutation({
     }
     if (
       run.userId !== vault.userId ||
-      run.repositoryFullName !== `${vault.ghRepoOwner}/${vault.ghRepoName}`
+      run.repositoryFullName !== `${vault.owner}/${vault.name}`
     ) {
       throw new Error("Provisioning run does not match vault ownership.");
     }
@@ -900,7 +895,7 @@ export const claimWorkflowProvisioning = internalMutation({
 
     console.log("infra:provision:start", {
       vaultId: args.vaultId,
-      repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+      repo: `${vault.owner}/${vault.name}`,
       previousVersion: existing?.provisioningVersion ?? 0,
       nextVersion,
       force: args.force,
@@ -1003,8 +998,8 @@ export const ensureConvexInfrastructure = internalAction({
     const convex = await ensureConvexResources({
       teamId: convexTeamId,
       convexProvider: providers.convex,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       vaultId: args.vaultId,
       existing: {
         projectId: existing?.convexProjectId,
@@ -1195,14 +1190,14 @@ export const ensureCloudflareInfrastructure = internalAction({
     });
     const repoIdentity = await fetchGitHubRepoIdentity({
       githubAccessToken,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
     });
     const cloudflareExisting = resolveCloudflareHostingState(existing);
     const provisionedHosting = await ensureHostingResources({
       provider: "cloudflare",
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: vault.owner,
+      repo: vault.name,
       ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
       ghRepoOwnerId: repoIdentity.ownerId,
       defaultBranch,
@@ -1290,7 +1285,7 @@ export const ensureCloudflareInfrastructure = internalAction({
 
     console.log("infra:provision:success", {
       vaultId: args.vaultId,
-      repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+      repo: `${vault.owner}/${vault.name}`,
       convexDeploymentName: existing.convexDeploymentName,
       cloudflareAccountId: provisionedHosting.accountId,
       cloudflareProjectName: provisionedHosting.projectName,
@@ -1321,7 +1316,7 @@ export const finishWorkflowProvisioning = internalMutation({
     }
 
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.isNoterManaged !== true) {
+    if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
       return null;
     }
 
@@ -1372,8 +1367,8 @@ export const markWorkflowStartupFailed = internalMutation({
     if (run.vaultId !== null) {
       const vault = await ctx.db.get(run.vaultId);
       if (
-        vault &&
-        vault.isNoterManaged === true &&
+        isConnectedVault(vault) &&
+        isNoterManagedVault(vault) &&
         vault.infraState !== "ready"
       ) {
         await ctx.db.patch(run.vaultId, {

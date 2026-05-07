@@ -3,13 +3,14 @@
 import { action, type ActionCtx } from "./_generated/server";
 import { v, Infer } from "convex/values";
 import { api, components, internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
 import type { ToolContext } from "./agent/tools";
 import { runAgentGraph } from "./agent/graph";
 import { saveMessage } from "@convex-dev/agent";
 import { Octokit } from "@octokit/rest";
 import { isRecord } from "./jsonUtils";
+import { assertConnectedVault, type ConnectedVault } from "./vaultState";
 
 const { object, string, optional, id } = v;
 
@@ -57,8 +58,8 @@ async function buildToolContext(
   branch: string,
   vault: {
     _id: Id<"vaults">;
-    ghRepoOwner: string;
-    ghRepoName: string;
+    owner: string;
+    name: string;
   },
   args: { userId: Id<"users">; githubAccessToken: string },
 ): Promise<ToolContext> {
@@ -66,8 +67,8 @@ async function buildToolContext(
     ctx,
     threadId,
     vaultId: vault._id,
-    owner: vault.ghRepoOwner,
-    repo: vault.ghRepoName,
+    owner: vault.owner,
+    repo: vault.name,
     branch,
     userId: args.userId,
     accessToken: args.githubAccessToken,
@@ -98,8 +99,8 @@ function readDefaultBranch(repoData: unknown): string {
 
 async function resolveFallbackBranch(args: {
   vault: {
-    ghRepoOwner: string;
-    ghRepoName: string;
+    owner: string;
+    name: string;
   };
   githubAccessToken?: string;
 }): Promise<string> {
@@ -109,15 +110,15 @@ async function resolveFallbackBranch(args: {
 
   const octokit = new Octokit({ auth: args.githubAccessToken });
   const repo = await octokit.rest.repos.get({
-    owner: args.vault.ghRepoOwner,
-    repo: args.vault.ghRepoName,
+    owner: args.vault.owner,
+    repo: args.vault.name,
   });
   return readDefaultBranch(repo.data);
 }
 
 async function loadAgentPrompt(args: {
   ctx: ActionCtx;
-  vault: Doc<"vaults">;
+  vault: ConnectedVault;
   githubAccessToken?: string;
   agentPath: string;
   branch: string;
@@ -141,8 +142,8 @@ async function loadAgentPrompt(args: {
 
   const octokit = new Octokit({ auth: githubAccessToken });
   const file = await octokit.rest.repos.getContent({
-    owner: vault.ghRepoOwner,
-    repo: vault.ghRepoName,
+    owner: vault.owner,
+    repo: vault.name,
     path: agentPath,
     ref: branch,
   });
@@ -175,6 +176,7 @@ export const sendAgentMessage = action({
     if (vault.userId !== userId) {
       throw new Error("You do not have access to this vault");
     }
+    const connectedVault = assertConnectedVault(vault);
 
     const user = await ctx.runQuery(internal.users.getById, {
       userId,
@@ -207,7 +209,7 @@ export const sendAgentMessage = action({
     const fallbackBranch =
       threadContext?.branch ??
       (await resolveFallbackBranch({
-        vault,
+        vault: connectedVault,
         githubAccessToken,
       }));
     const threadBranch = requireThreadBranch(
@@ -221,17 +223,23 @@ export const sendAgentMessage = action({
     }
 
     const toolCtx = githubAccessToken
-      ? await buildToolContext(ctx, resolvedThreadId, threadBranch, vault, {
-          userId: user._id,
-          githubAccessToken,
-        })
+      ? await buildToolContext(
+          ctx,
+          resolvedThreadId,
+          threadBranch,
+          connectedVault,
+          {
+            userId: user._id,
+            githubAccessToken,
+          },
+        )
       : undefined;
 
     let systemPrompt: string;
     try {
       systemPrompt = await loadAgentPrompt({
         ctx,
-        vault,
+        vault: connectedVault,
         githubAccessToken,
         agentPath: args.agentPath,
         branch: threadBranch,
