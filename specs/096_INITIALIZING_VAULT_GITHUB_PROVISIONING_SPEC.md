@@ -194,6 +194,9 @@ type VaultGitHubState =
       /** Records whether this vault created the repo or attached an existing repo. */
       githubMode: "create_repository" | "connect_existing_repository";
 
+      /** Durable run that established this GitHub connection. */
+      runId: Id<"appProvisioningRuns">;
+
       /** Immutable GitHub repository id; prevents in-place repo replacement. */
       ghRepoId: string;
 
@@ -331,8 +334,11 @@ GitHub state fields:
    repository and connecting an existing repository need different fields before
    connection and remain useful provenance after connection. It is not present
    on `not_connected` because no GitHub operation has been selected yet.
-3. `runId`: ties the in-flight or failed provider operation to the durable run
-   and event log.
+3. `runId`: ties the current GitHub state to a durable run and event log. In
+   provisioning state, it owns the in-flight attempt. In failed state, it is the
+   run that recorded the latest failure. In connected state, it is the run that
+   established the GitHub connection. It must not mean "latest run for this
+   vault" because later Convex/hosting retries can have their own runs.
 4. `owner`: GitHub user or organization owner. In `create_repository`
    provisioning and failed states, this is the requested owner for the new repo.
    In `connect_existing_repository` provisioning and failed states, this is the
@@ -368,14 +374,17 @@ Connected GitHub fields:
 
 1. `githubMode`: records whether the repo came from repository creation or
    existing-repo onboarding. It is connected-state provenance after success.
-2. `ghRepoId`: immutable repository identity. This is the field that prevents
+2. `runId`: records the run that established the connected GitHub identity.
+   Later provider retries must not overwrite it unless they are retrying the
+   GitHub connection itself.
+3. `ghRepoId`: immutable repository identity. This is the field that prevents
    accidental in-place repository replacement.
-3. `owner` and `name`: current dashboard-safe repository label and API target.
-4. `visibility`: current repository visibility from GitHub metadata.
-5. `defaultBranch`: repository metadata needed for default source views.
-6. `convex` and `hosting`: connected-only infrastructure state that is only
+4. `owner` and `name`: current dashboard-safe repository label and API target.
+5. `visibility`: current repository visibility from GitHub metadata.
+6. `defaultBranch`: repository metadata needed for default source views.
+7. `convex` and `hosting`: connected-only infrastructure state that is only
    meaningful after GitHub is connected.
-7. `connectedAt`: audit timestamp for when the vault first became a usable
+8. `connectedAt`: audit timestamp for when the vault first became a usable
    repository workspace.
 
 Branch tree state such as `treeSHA` and branch head `commitSHA` should live in
@@ -388,17 +397,18 @@ Those values refresh over time and would otherwise duplicate branch-cache state.
 For Noter-managed repository creation:
 
 1. validate local input shape
-2. insert the vault with
-   `state: "provisioning", githubMode: "create_repository", owner, name`
-3. insert the provisioning run with required `vaultId`
-4. start the create-app Workflow
-5. create the GitHub repository
+2. in one mutation, insert the vault, insert the provisioning run with required
+   `vaultId`, then patch the vault to
+   `state: "provisioning", githubMode: "create_repository", runId, owner, name`
+3. start the create-app Workflow
+4. create the GitHub repository
+5. write `state: "connected", githubMode: "create_repository"` with the same
+   `runId`, immutable repo identity, Convex and hosting state initialized, and
+   confirmed repository visibility stored
 6. seed the starter app
 7. sync default branch and tree state
-8. write `state: "connected", githubMode: "create_repository"` with Convex and
-   hosting state initialized and confirmed repository visibility stored
-9. provision Convex and hosting state
-10. let the dashboard derive the vault summary from provider states
+8. provision Convex and hosting state
+9. let the dashboard derive the vault summary from provider states
 
 External provider validation happens after the vault exists so failures have a
 visible dashboard target. Local input validation can happen before insert when
@@ -410,17 +420,17 @@ Connecting an existing repository must use the same vault/run/GitHub state
 model:
 
 1. validate local repository name shape
-2. insert the vault with
-   `state: "provisioning", githubMode: "connect_existing_repository", owner, name`
-3. insert the provisioning run with required `vaultId`
-4. start a connect-existing Workflow
-5. fetch and validate the existing GitHub repository
-6. write `state: "connected", githubMode: "connect_existing_repository"` with
+2. in one mutation, insert the vault, insert the provisioning run with required
+   `vaultId`, then patch the vault to
+   `state: "provisioning", githubMode: "connect_existing_repository", runId, owner, name`
+3. start a connect-existing Workflow
+4. fetch and validate the existing GitHub repository
+5. write `state: "connected", githubMode: "connect_existing_repository"` with
    Convex and hosting state initialized and fetched repository visibility stored
-7. sync default branch and tree state
-8. leave Convex and hosting `not_configured` unless the product explicitly asks
+6. sync default branch and tree state
+7. leave Convex and hosting `not_configured` unless the product explicitly asks
    to provision them
-9. let the dashboard derive the vault summary from provider states
+8. let the dashboard derive the vault summary from provider states
 
 This flow is currently an action. Moving it to Workflow is part of this model so
 existing-repo onboarding gets the same observability and retry surface as
@@ -428,8 +438,30 @@ Noter-managed repository creation.
 
 ## Provisioning Runs
 
+Runs are workflow attempts, not one-per-vault records. A vault can have many
+historical runs over time:
+
+1. the initial create-repository attempt
+2. a retry of failed GitHub repository creation
+3. a connect-existing attempt
+4. retries for Convex or hosting provider state
+
+Each retry should create a new run instead of mutating the previous terminal
+run. When a failed GitHub state is retried, the vault moves back to
+`state: "provisioning"` with the new `runId`. If the retry succeeds, connected
+GitHub state keeps that same `runId` as the provenance for the connection. If
+the retry fails, failed GitHub state keeps that new `runId` as the latest
+failure. Older runs and events remain historical records queryable by vault.
+
+Convex and hosting retries should use their own provider-state `runId`s. They
+must not overwrite connected GitHub `runId` unless the retry is actually
+changing GitHub state.
+
 New create and connect workflows should create runs with a required `vaultId`.
-The Phase 3 `vaultId: null` run state remains historical compatibility for the
+Because provisioning state also stores `runId`, the implementation should use
+one internal mutation to insert the vault, insert the run, and patch the vault
+into provisioning state before starting the Workflow. The Phase 3
+`vaultId: null` run state remains historical compatibility for the
 repository-first runtime and should not be the target shape for this phase.
 
 Run and event helpers should continue to record user-safe status only. Secrets,
@@ -515,8 +547,8 @@ The cleanup must fail closed and must not be hidden inside the product flow.
 2. Add a typed helper for code paths that require connected GitHub state.
 3. Replace always-required repository identity fields with connected-only GitHub
    variant fields.
-4. Update create-app to insert the initializing vault before starting provider
-   work.
+4. Update create-app to create the initializing vault and first run together
+   before starting provider work.
 5. Update app provisioning runs/events so new create/connect runs require
    `vaultId`.
 6. Update create-app Workflow steps to mutate `state`, `githubMode`, `owner`,
@@ -537,12 +569,14 @@ Backend:
 1. create-app inserts a vault before external GitHub calls
 2. create-app run is created with required `vaultId`
 3. create-app success writes connected Noter-managed GitHub state
-4. create-app GitHub failure writes failed GitHub state on the vault
-5. existing-repo connection writes connected existing-repository GitHub state
-6. connected GitHub state stores current repository visibility
-7. pre-GitHub vault states cannot store Convex or hosting state
-8. connected GitHub identity cannot change to a different `ghRepoId`
-9. repo-backed helpers reject pre-GitHub vaults
+4. connected GitHub state stores the run that established the connection
+5. create-app GitHub failure writes failed GitHub state on the vault
+6. GitHub retry creates a new run and replaces the failed state's `runId`
+7. existing-repo connection writes connected existing-repository GitHub state
+8. connected GitHub state stores current repository visibility
+9. pre-GitHub vault states cannot store Convex or hosting state
+10. connected GitHub identity cannot change to a different `ghRepoId`
+11. repo-backed helpers reject pre-GitHub vaults
 
 Frontend:
 
@@ -560,5 +594,7 @@ Frontend:
 3. Repo-backed features cannot run against pre-GitHub vaults.
 4. Convex and hosting state cannot exist unless GitHub is connected.
 5. Connected GitHub repository identity is immutable.
-6. Connected GitHub state stores current repository visibility.
-7. Failed provider states are visible and retryable from the vault.
+6. Connected GitHub state records the run that established the connection.
+7. Retries create new runs rather than mutating previous terminal runs.
+8. Connected GitHub state stores current repository visibility.
+9. Failed provider states are visible and retryable from the vault.

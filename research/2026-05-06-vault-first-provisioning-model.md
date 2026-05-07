@@ -214,6 +214,9 @@ const VaultGitHubState = v.union(
       v.literal("connect_existing_repository"),
     ),
 
+    /** Durable run that established this GitHub connection. */
+    runId: v.id("appProvisioningRuns"),
+
     /** Immutable GitHub repository id; prevents in-place repo replacement. */
     ghRepoId: v.string(),
 
@@ -399,12 +402,14 @@ repo-bound data.
 
 With vault-first creation, the create-app flow becomes:
 
-1. create the vault row with required provider state
-2. create the run linked to `vaultId`
-3. set `state: "provisioning", githubMode: "create_repository", owner, name`
+1. create the vault row and run in one mutation
+2. patch the vault to
+   `state: "provisioning", githubMode: "create_repository", runId, owner, name`
+3. start the create-app Workflow
 4. create the GitHub repository
-5. seed and sync tree state
-6. set `state: "connected"` with confirmed repository visibility, or `"failed"`
+5. set `state: "connected"` with the same `runId` and confirmed repository
+   visibility, or `"failed"`
+6. seed and sync tree state
 7. set `convex.state: "provisioning"` and provision Convex resources
 8. set `hosting.state: "provisioning"` and provision Cloudflare resources
 9. derive the dashboard summary from provider states
@@ -421,6 +426,15 @@ show an explicit state and retry action:
 Manual retry becomes a domain action against one provider state on one vault,
 instead of a hidden operation against a pre-vault run.
 
+Runs are workflow attempts, not one-per-vault records. A vault can have many
+runs over time: the initial create, a GitHub retry, a connect-existing attempt,
+and Convex or hosting retries. Each retry should create a new run instead of
+mutating a previous terminal run. The current provider state stores the run that
+owns or produced that state: provisioning stores the in-flight run, failed
+stores the latest failed run, and connected GitHub stores the run that
+established the GitHub connection. Convex and hosting retries should not
+overwrite connected GitHub `runId` unless they are retrying GitHub itself.
+
 ## Existing Repository Connection
 
 The same vault/GitHub state machine must cover connecting an existing
@@ -431,10 +445,10 @@ is already connected to GitHub.
 Future connect-existing work should not introduce a separate schema path. It
 should use the same required GitHub discriminated union:
 
-1. create the vault row with required provider state
-2. create a run linked to `vaultId`
-3. set
-   `state: "provisioning", githubMode: "connect_existing_repository", owner, name`
+1. create the vault row and run in one mutation
+2. patch the vault to
+   `state: "provisioning", githubMode: "connect_existing_repository", runId, owner, name`
+3. start a connect-existing Workflow
 4. fetch and validate the existing GitHub repository
 5. write `state: "connected", githubMode: "connect_existing_repository"` with
    fetched repository visibility
@@ -465,10 +479,11 @@ The best representation is:
 5. repo-backed actions gated on the connected GitHub variant
 6. immutable GitHub repository identity after first successful connection
 7. known repository facts such as visibility carried forward instead of dropped
-8. one GitHub state machine for both Noter-managed creation and existing-repo
+8. connected GitHub state keeps the run that established the connection
+9. one GitHub state machine for both Noter-managed creation and existing-repo
    connection
-9. no optional compatibility fields unless there is a real migration window,
-   with TODO comments at every temporary boundary
+10. no optional compatibility fields unless there is a real migration window,
+    with TODO comments at every temporary boundary
 
 This preserves the user's preferred default: each stored row should have fewer
 implicit states, not more. A vault without GitHub is not represented by missing
@@ -530,7 +545,7 @@ Suggested sequence:
    variants that share the base fields.
 3. Replace always-required repository identity fields with connected-only GitHub
    variant fields.
-4. Make create-app insert the vault first and create the provisioning run with a
+4. Make create-app create the initializing vault and first run together with a
    required `vaultId`.
 5. Update the Workflow to mutate provider states, including connected repository
    visibility, as each step starts, succeeds, or fails.
