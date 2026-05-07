@@ -149,13 +149,25 @@ const VaultGitHubState = v.union(
   }),
   v.object({
     state: v.literal("provisioning"),
+    mode: v.literal("create_repository"),
     runId: v.id("appProvisioningRuns"),
     requestedRepoName: v.string(),
     visibility: v.union(v.literal("private"), v.literal("public")),
     startedAt: v.number(),
   }),
   v.object({
+    state: v.literal("provisioning"),
+    mode: v.literal("connect_existing_repository"),
+    runId: v.id("appProvisioningRuns"),
+    repositoryFullName: v.string(),
+    startedAt: v.number(),
+  }),
+  v.object({
     state: v.literal("connected"),
+    connectionKind: v.union(
+      v.literal("noter_managed"),
+      v.literal("existing_repository"),
+    ),
     ghRepoId: v.string(),
     owner: v.string(),
     name: v.string(),
@@ -166,9 +178,12 @@ const VaultGitHubState = v.union(
   }),
   v.object({
     state: v.literal("failed"),
+    mode: v.union(
+      v.literal("create_repository"),
+      v.literal("connect_existing_repository"),
+    ),
     runId: v.id("appProvisioningRuns"),
-    requestedRepoName: v.string(),
-    visibility: v.union(v.literal("private"), v.literal("public")),
+    repositoryLabel: v.string(),
     message: v.string(),
     retryable: v.boolean(),
     failedAt: v.number(),
@@ -277,6 +292,37 @@ show an explicit state and retry action:
 Manual retry becomes a domain action against one provider state on one vault,
 instead of a hidden operation against a pre-vault run.
 
+## Existing Repository Connection
+
+The same vault/GitHub state machine must cover connecting an existing
+repository. Today `vaultActions.connectRepository` is an action, not a Workflow:
+it validates GitHub, fetches repo/tree metadata, then creates a vault row that
+is already connected to GitHub.
+
+Future connect-existing work should not introduce a separate schema path. It
+should use the same required `github` discriminated union:
+
+1. create the vault row with `lifecycleState: "creating"`
+2. create a run linked to `vaultId`
+3. set `github.state: "provisioning", mode: "connect_existing_repository"`
+4. fetch and validate the existing GitHub repository
+5. write `github.state: "connected", connectionKind: "existing_repository"`
+6. sync default branch/tree state into the same provider-owned tables used by
+   Noter-managed repos
+7. leave Convex and hosting in `not_configured` or move them into provisioning
+   when the product explicitly asks to provision them
+
+Noter-managed create-app uses the same shape but starts GitHub provisioning with
+`mode: "create_repository"` and writes `connectionKind: "noter_managed"` after
+the repository is created and seeded.
+
+This matters for schema design because the connected GitHub variant should
+describe the repository identity, while the provisioning/failed variants should
+describe the current operation. Operation-specific fields such as requested
+visibility only belong to the `create_repository` variant. Existing-repo
+connection should not need fake `visibility`, fake create settings, or nullable
+repo fields just to fit the Noter-managed create flow.
+
 ## Best Representation
 
 The best representation is:
@@ -287,7 +333,9 @@ The best representation is:
 4. large provider snapshots in provider-owned child tables
 5. repo-backed actions gated on the connected GitHub variant
 6. immutable GitHub repository identity after first successful connection
-7. no optional compatibility fields unless there is a real migration window,
+7. one GitHub state machine for both Noter-managed creation and existing-repo
+   connection
+8. no optional compatibility fields unless there is a real migration window,
    with TODO comments at every temporary boundary
 
 This preserves the user's preferred default: each stored row should have fewer
@@ -357,8 +405,10 @@ Suggested sequence:
 7. Update dashboard data to render provider lines from explicit provider states.
 8. Add provider-specific retry actions that operate on one vault and one failed
    provider state.
-9. Defer automatic Workflow restart-from-failed-step until the provider states
-   make manual retry semantics clear.
+9. Move existing-repository connection onto the same vault/run/provider-state
+   model before adding a separate onboarding surface.
+10. Defer automatic Workflow restart-from-failed-step until the provider states
+    make manual retry semantics clear.
 
 ## Stop Line
 
@@ -381,8 +431,9 @@ connected GitHub repository.
    appear in a separate creating/failed section?
 4. Should failed provider state keep only the latest error, while
    `appProvisioningEvents` keeps the full event history?
-5. Should existing-repository onboarding use the same `github.state` path with
-   `connected` first, then provision Convex and Cloudflare after that?
+5. Should existing-repository connection immediately create an initializing
+   vault and run, or can the first Workflow version keep a short synchronous
+   validation step before inserting the vault?
 6. Should `github.state: "not_connected"` exist only for future manual
    connection flows, while Noter-managed create-app starts directly at
    `github.state: "provisioning"`?

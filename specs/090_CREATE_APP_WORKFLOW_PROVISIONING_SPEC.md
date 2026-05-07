@@ -318,7 +318,14 @@ Phase 4 should preserve these constraints:
 4. Once a vault reaches a connected GitHub state, changing to a different
    `ghRepoId` should be forbidden. A different repository should create a new
    vault or archive the old one.
-5. Manual retry should target one failed provider state on one vault before
+5. The same GitHub state machine should cover both Noter-managed repository
+   creation and connecting an existing repository. Use an explicit mode such as
+   `create_repository` or `connect_existing_repository` in provisioning/failed
+   states instead of adding a second onboarding schema.
+6. Connected GitHub state should describe the repository identity, while
+   operation-specific fields should stay inside the matching provisioning or
+   failed variant.
+7. Manual retry should target one failed provider state on one vault before
    automatic Workflow restart-from-failed-step is widened.
 
 ## UI States
