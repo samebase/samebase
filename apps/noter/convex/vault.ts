@@ -497,7 +497,9 @@ export const addVault = internalMutation({
 
     if (existingVault) {
       const connectedVault = assertConnectedVault(existingVault);
-      // I don't think that this is the best place or the best way to decide to update the existing vault. Maybe it is, but I would still add at least a comment mentioning this, or I don't know. The idea is that at some point we'll have a work pool that automatically updates all the data related to a repo when it changes. That's why I was thinking that I wouldn't really want at that point to have two implementations of this, but you don't necessarily have to change the current code. Just keep that in and add a comment at least.
+      // Keep reconnect idempotency limited to the fields this path just read
+      // from GitHub. Broader repository drift correction belongs in one future
+      // refresh worker, not in a second ad hoc refresh implementation here.
       await ctx.db.patch(connectedVault._id, {
         owner: args.ghRepoOwner,
         name: args.ghRepoName,
@@ -506,8 +508,7 @@ export const addVault = internalMutation({
         treeSHA: args.treeSHA,
         treeData: args.treeData,
       });
-      //Here again, you don't necessarily have to check exactly for undefined. I'm mainly pushing on this because that adds more characters inside the code, and that means it's more code instead of less code. Less code is usually easier to understand.
-      if (args.commitSHA !== undefined) {
+      if (args.commitSHA) {
         await ctx.db.patch(connectedVault._id, { commitSHA: args.commitSHA });
       }
       return connectedVault._id;
@@ -566,7 +567,9 @@ export const addNoterManagedVaultForUser = internalMutation({
 
     if (existingVault) {
       const connectedVault = assertConnectedVault(existingVault);
-      // Same comments here.
+      // Keep reconnect idempotency limited to the fields this path just read
+      // from GitHub. Broader repository drift correction belongs in one future
+      // refresh worker, not in a second ad hoc refresh implementation here.
       await ctx.db.patch(connectedVault._id, {
         owner: args.ghRepoOwner,
         name: args.ghRepoName,
@@ -575,7 +578,7 @@ export const addNoterManagedVaultForUser = internalMutation({
         treeSHA: args.treeSHA,
         treeData: args.treeData,
       });
-      if (args.commitSHA !== undefined) {
+      if (args.commitSHA) {
         await ctx.db.patch(connectedVault._id, { commitSHA: args.commitSHA });
       }
       return connectedVault._id;
