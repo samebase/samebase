@@ -8,6 +8,7 @@
 - Related docs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `research/2026-05-02-workpool-refresh-and-tenant-compute.md`
   - `research/2026-05-06-vault-first-provisioning-model.md`
 
@@ -298,35 +299,10 @@ Phase 3: Full create-app Workflow.
 5. Let retry resume from the failed step instead of re-running completed
    provider operations.
 
-Phase 4 candidate: Initializing vault before GitHub provisioning.
-
-Research in `research/2026-05-06-vault-first-provisioning-model.md` reframes the
-remaining retry problem around a stable dashboard object. The likely next model
-is to create the vault row before GitHub repository creation, but only as an
-initializing provisioning shell. Repository-backed behavior must still require
-an explicitly connected GitHub state.
-
-Phase 4 should preserve these constraints:
-
-1. A pre-GitHub vault is visible for provisioning progress, failure, and retry,
-   not as a usable source workspace.
-2. File tree reads, staging, collaborative edits, branch refreshes, PR metadata,
-   Codespaces, commits, and repo-backed infrastructure steps must fail closed or
-   stay hidden until GitHub is connected.
-3. GitHub state should be a required discriminated union rather than optional
-   scattered `ghRepo*` fields.
-4. Once a vault reaches a connected GitHub state, changing to a different
-   `ghRepoId` should be forbidden. A different repository should create a new
-   vault or archive the old one.
-5. The same GitHub state machine should cover both Noter-managed repository
-   creation and connecting an existing repository. Use an explicit mode such as
-   `create_repository` or `connect_existing_repository` in provisioning/failed
-   states instead of adding a second onboarding schema.
-6. Connected GitHub state should describe the repository identity, while
-   operation-specific fields should stay inside the matching provisioning or
-   failed variant.
-7. Manual retry should target one failed provider state on one vault before
-   automatic Workflow restart-from-failed-step is widened.
+Follow-up Phase 4 work moved to
+`specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`. Keep this spec
+focused on the Phase 1-3 Workflow migration that shipped the current
+repository-first runtime.
 
 ## UI States
 
