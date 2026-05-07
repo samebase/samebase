@@ -8,7 +8,9 @@
 - Related docs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `research/2026-05-02-workpool-refresh-and-tenant-compute.md`
+  - `research/2026-05-06-vault-first-provisioning-model.md`
 
 ## Summary
 
@@ -296,6 +298,11 @@ Phase 3: Full create-app Workflow.
 4. Link pre-vault events to `vaultId` once the vault row is created.
 5. Let retry resume from the failed step instead of re-running completed
    provider operations.
+
+Follow-up Vault-First Provisioning work moved to
+`specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`. Keep this spec
+focused on the Phase 1-3 Workflow migration that shipped the current
+repository-first runtime.
 
 ## UI States
 
