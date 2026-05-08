@@ -145,10 +145,12 @@ Key domain entities:
   discriminator is the state being modeled.
 - When filtering nullable arrays, use the shared `notEmpty` type predicate from
   `@noter-md/dependent` instead of writing inline Boolean type predicates.
-- Treat repeated optional chaining on the same value as a code smell. If later
-  logic reads the object more than once, first check whether an explicit
-  missing-value branch would make the state clearer, then use narrowed direct
-  access for the rest. Keep `?.` when a single maybe-read really is the point.
+- Treat repeated optional chaining on the same value as a correctness smell, not
+  just style. If logic reads a maybe-null object more than once, narrow it once
+  with an explicit missing-value branch, then use direct access. This prevents
+  missing required rows from silently becoming fallback/default behavior. Keep
+  `?.` only for one-off maybe-reads whose missing case is genuinely equivalent
+  to absence.
 - Prefer direct conditions over intermediate variables when the expression is
   already easy to read. Do not add `!!` coercions, named booleans, helper
   wrappers, or provider splits just to look more engineered; add a name only

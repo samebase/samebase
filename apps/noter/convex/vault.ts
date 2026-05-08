@@ -111,6 +111,8 @@ type NoterManagedConnectedVault = Extract<
   Doc<"vaults">,
   { githubMode: "create_repository"; state: "connected" }
 >;
+type VaultDomain = Doc<"vaultDomains">;
+type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
 type ConnectedCloudflareState = Extract<
   NoterManagedConnectedVault["cloudflare"],
   { state: "connected" }
@@ -198,7 +200,10 @@ async function readProviderRunSummary(
     };
   }
 
-  if (args.status === "running" && run.state !== "failed") {
+  if (
+    args.status === "running" &&
+    (run.state === "queued" || run.state === "running")
+  ) {
     return {
       status: "running",
       provider: args.provider,
@@ -220,6 +225,23 @@ async function readProviderRunSummary(
     message,
     updatedAt: run.updatedAt,
   };
+}
+
+async function readActiveVaultInfrastructureOwnership(
+  ctx: Pick<QueryCtx, "db">,
+  vaultId: Id<"vaults">,
+): Promise<VaultInfrastructureOwnership | null> {
+  const ownership = await ctx.db
+    .query("vaultInfrastructureOwnership")
+    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+    .first();
+  if (!ownership) {
+    return null;
+  }
+  if (ownership.state !== "active") {
+    return null;
+  }
+  return ownership;
 }
 
 async function resolveProviderSetupSummary(
@@ -262,24 +284,49 @@ async function resolveProviderSetupSummary(
   if (vault.convex.state === "connected" && cloudflare.state === "connected") {
     return { status: "ready" };
   }
+
+  const activeOwnership = await readActiveVaultInfrastructureOwnership(
+    ctx,
+    vault._id,
+  );
   if (vault.convex.state === "not_configured") {
+    if (!activeOwnership) {
+      return { status: "not_applicable" };
+    }
     return await readProviderRunSummary(ctx, {
       provider: "convex",
-      runId: vault.runId,
+      runId: activeOwnership.runId,
       status: "running",
-      fallbackUpdatedAt: vault.connectedAt,
+      fallbackUpdatedAt: activeOwnership.updatedAt,
     });
   }
   if (cloudflare.state === "not_configured") {
+    if (!activeOwnership) {
+      return { status: "not_applicable" };
+    }
     return await readProviderRunSummary(ctx, {
       provider: "cloudflare",
-      runId: vault.runId,
+      runId: activeOwnership.runId,
       status: "running",
-      fallbackUpdatedAt: vault.connectedAt,
+      fallbackUpdatedAt: activeOwnership.updatedAt,
     });
   }
 
   return { status: "not_applicable" };
+}
+
+function compareVaultDomainSortOrder(
+  left: VaultDomain,
+  right: VaultDomain,
+): number {
+  const leftKindOrder = left.kind === "main" ? 0 : 1;
+  const rightKindOrder = right.kind === "main" ? 0 : 1;
+  return (
+    leftKindOrder - rightKindOrder ||
+    left.branch.localeCompare(right.branch) ||
+    left.url.localeCompare(right.url) ||
+    left.source.localeCompare(right.source)
+  );
 }
 
 const vaultBranchFiltersValidator = object({
@@ -2023,7 +2070,7 @@ export const getVaultInfrastructure = query({
             cloudflare: infrastructure.cloudflare,
           }
         : undefined,
-      domains: domains.map((domain) => ({
+      domains: [...domains].sort(compareVaultDomainSortOrder).map((domain) => ({
         branch: domain.branch,
         kind: domain.kind,
         url: domain.url,

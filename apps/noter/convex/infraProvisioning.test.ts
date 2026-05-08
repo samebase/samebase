@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { internal } from "./_generated/api";
 import {
   resolveInfraStateAfterWorkflowFailure,
   resolveConnectionFailureProvider,
   selectCloudflareBuildConfigTreeData,
 } from "./infraProvisioning";
 import type { GithubTreeData } from "./schema";
+import { makeConvexTest } from "./test.setup";
 
 const branchTreeData = {
   sha: "branch-tree",
@@ -89,5 +91,163 @@ describe("resolveConnectionFailureProvider", () => {
         "GitHub connection is required to provision infrastructure.",
       ),
     ).toBe(null);
+  });
+});
+
+describe("infrastructure provisioning ownership", () => {
+  it("keeps active ownership fresh between provider state transitions", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        state: "not_connected",
+      });
+      const activeRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/fresh-ownership",
+        trigger: "create",
+        state: "running",
+        currentStep: "ensure_convex_preview",
+        createdAt: 10,
+        updatedAt: 30,
+      });
+      const nextRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/fresh-ownership",
+        trigger: "retry",
+        state: "running",
+        currentStep: "claim_infra",
+        createdAt: 40,
+        updatedAt: 40,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        state: "connected",
+        githubMode: "create_repository",
+        runId: activeRunId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "fresh-ownership",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+        convex: {
+          state: "connected",
+          projectId: "convex-project",
+          projectSlug: "fresh-ownership-project",
+          deploymentName: "fresh-ownership-prod",
+          connectedAt: 25,
+        },
+        cloudflare: { state: "not_configured" },
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId,
+        runId: activeRunId,
+        provisioningVersion: 1,
+        state: "active",
+        updatedAt: Date.now(),
+      });
+
+      return { activeRunId, nextRunId, vaultId };
+    });
+
+    const result = await t.mutation(
+      internal.infraProvisioning.claimWorkflowProvisioning,
+      {
+        vaultId: ids.vaultId,
+        runId: ids.nextRunId,
+        force: false,
+      },
+    );
+    const ownership = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("vaultInfrastructureOwnership")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .first();
+    });
+
+    expect(result).toEqual({ claimed: false });
+    expect(ownership).toMatchObject({
+      runId: ids.activeRunId,
+      state: "active",
+    });
+  });
+
+  it("leaves generic connection failures unattributed to a provider", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/generic-connection-failure",
+        workflowId: "workflow-generic",
+        trigger: "retry",
+        state: "running",
+        currentStep: "validate_connections",
+        createdAt: 10,
+        updatedAt: 30,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "generic-connection-failure",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+        convex: {
+          state: "provisioning",
+          runId,
+          startedAt: 25,
+        },
+        cloudflare: { state: "not_configured" },
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId,
+        runId,
+        provisioningVersion: 1,
+        state: "active",
+        updatedAt: 31,
+      });
+
+      return { runId, vaultId };
+    });
+
+    await t.mutation(
+      internal.infraProvisioning.markWorkflowProvisioningFailed,
+      {
+        runId: ids.runId,
+        workflowId: "workflow-generic",
+        message: "GitHub connection is required to provision infrastructure.",
+      },
+    );
+
+    const vault = await t.run(async (ctx) => await ctx.db.get(ids.vaultId));
+
+    expect(vault).toMatchObject({
+      convex: { state: "not_configured" },
+      cloudflare: { state: "not_configured" },
+    });
   });
 });

@@ -565,8 +565,20 @@ type ProviderFailureTarget = "cloudflare" | "convex";
 
 function hasFreshProviderProvisioningLock(args: {
   vault: NoterManagedConnectedVault;
+  ownership: VaultInfrastructureOwnership | null;
   now: number;
 }): boolean {
+  const ownership = args.ownership;
+  // Convex can be connected before Cloudflare marks its provider state; the
+  // active owner keeps that handoff locked against another non-forced claim.
+  if (
+    ownership &&
+    ownership.state === "active" &&
+    args.now - ownership.updatedAt < PROVISIONING_STALE_MS
+  ) {
+    return true;
+  }
+
   const cloudflare = args.vault.cloudflare;
   return (
     (args.vault.convex.state === "provisioning" &&
@@ -595,6 +607,10 @@ function buildProviderFailurePatch(args: {
       patch.cloudflare = { state: "not_configured" };
     }
   };
+  const resetUnconnectedProviders = () => {
+    resetConvex();
+    resetCloudflare();
+  };
   const failConvex = () => {
     if (args.vault.convex.state !== "connected") {
       patch.convex = {
@@ -618,8 +634,10 @@ function buildProviderFailurePatch(args: {
   switch (args.step) {
     case "run_created":
     case "claim_infra":
+      resetUnconnectedProviders();
+      break;
     case "validate_connections":
-      if (args.step === "validate_connections" && args.message) {
+      if (args.message) {
         const connectionFailureProvider = resolveConnectionFailureProvider(
           args.message,
         );
@@ -634,11 +652,7 @@ function buildProviderFailurePatch(args: {
           break;
         }
       }
-      if (args.vault.convex.state === "connected") {
-        failCloudflare();
-      } else {
-        failConvex();
-      }
+      resetUnconnectedProviders();
       break;
     case "ensure_convex":
       failConvex();
@@ -1074,8 +1088,9 @@ export const claimWorkflowProvisioning = internalMutation({
     }
 
     const now = Date.now();
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
     if (args.force === false) {
-      if (hasFreshProviderProvisioningLock({ vault, now })) {
+      if (hasFreshProviderProvisioningLock({ vault, ownership, now })) {
         await appendProvisioningRunEvent(ctx, {
           runId: args.runId,
           step: "claim_infra",
@@ -1124,14 +1139,13 @@ export const claimWorkflowProvisioning = internalMutation({
       });
     }
 
-    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (ownership?.state === "active" && ownership.runId !== args.runId) {
-      await cancelSupersededProvisioningRun(ctx, {
-        runId: ownership.runId,
-        step: "claim_infra",
-      });
-    }
     if (ownership) {
+      if (ownership.state === "active" && ownership.runId !== args.runId) {
+        await cancelSupersededProvisioningRun(ctx, {
+          runId: ownership.runId,
+          step: "claim_infra",
+        });
+      }
       await ctx.db.patch(ownership._id, {
         runId: args.runId,
         provisioningVersion: nextVersion,
