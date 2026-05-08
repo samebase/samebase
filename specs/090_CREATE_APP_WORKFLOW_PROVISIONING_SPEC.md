@@ -22,15 +22,39 @@ The implementation is phased: first make the current path observable, then move
 post-vault infrastructure into Workflow, then move the full create-app path into
 Workflow once the run model is proven.
 
-## Current Runtime State
+Vault-first follow-up work in
+`specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md` supersedes the
+repository-first runtime described below. Keep this spec as the source for the
+Workflow migration history; use `096` for the current create-app state model.
+
+## Current Runtime State After Vault-First Cleanup
 
 `vaultActions.createRepository` currently:
+
+1. validates local repo name shape, selected GitHub owner, and GitHub connection
+   presence
+2. inserts the initializing vault and app provisioning run before GitHub
+   repository creation
+3. starts `internal.appProvisioningWorkflow.provisionApp`
+
+`appProvisioningWorkflow.provisionApp` currently:
+
+1. validates provider connections
+2. creates the GitHub repository for the selected user/org owner
+3. connects the existing initializing vault to the created repository identity
+4. seeds the starter app
+5. syncs the initial branch tree into `vaultBranchTrees`
+6. runs the post-source infrastructure steps
+
+## Historical Repository-First Runtime
+
+`vaultActions.createRepository` previously:
 
 1. validates GitHub, Convex, and Cloudflare provider connections
 2. creates an `appProvisioningRuns` row with explicit pre-vault target state
 3. starts `internal.appProvisioningWorkflow.provisionApp`
 
-`appProvisioningWorkflow.provisionApp` currently:
+`appProvisioningWorkflow.provisionApp` previously:
 
 1. validates provider connections
 2. creates the GitHub repository
@@ -40,7 +64,7 @@ Workflow once the run model is proven.
 6. links the run and early events to the vault
 7. runs the post-vault infrastructure steps
 
-`appProvisioningWorkflow.provisionVaultInfrastructure` currently:
+`appProvisioningWorkflow.provisionVaultInfrastructure` previously:
 
 1. claims a vault-level provisioning lock
 2. creates or reuses Convex project/deployment resources
@@ -50,7 +74,7 @@ Workflow once the run model is proven.
 6. writes `vaultInfrastructure` and `vaultDomains`
 7. marks the vault `ready`, `partial`, or `failed`
 
-The dashboard currently surfaces this mostly through:
+The dashboard previously surfaced this mostly through:
 
 1. `vaults.infraState`
 2. `vaults.infraLastError`
@@ -301,7 +325,7 @@ Phase 3: Full create-app Workflow.
 
 Follow-up Vault-First Provisioning work moved to
 `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`. Keep this spec
-focused on the Phase 1-3 Workflow migration that shipped the current
+focused on the Phase 1-3 Workflow migration that shipped the historical
 repository-first runtime.
 
 ## UI States
