@@ -393,6 +393,29 @@ test("vault dashboard fixture (provisioning log)", async ({ page }) => {
   );
 });
 
+test("vault dashboard fixture (infra setup progress)", async ({ page }) => {
+  await page.setViewportSize({ width: 640, height: 300 });
+  await page.goto("/visual-fixture.html?mode=vault-dashboard-infra-setup", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture.getByText("Infra: provisioning")).toBeVisible();
+  await expect(
+    fixture.getByRole("button", { name: "Provision infra" }),
+  ).toHaveCount(0);
+  await expect(
+    fixture.getByRole("button", { name: "Retry infra" }),
+  ).toHaveCount(0);
+  await expect(fixture).toHaveScreenshot("vault-dashboard-infra-setup.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 520 });
   await page.goto("/visual-fixture.html?mode=vault-dashboard-list-spacing", {

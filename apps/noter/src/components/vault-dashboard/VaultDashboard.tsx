@@ -87,6 +87,10 @@ import {
   formatVaultSourceSetupStep,
   type VaultDashboardSourceSetup,
 } from "@/components/vault-dashboard/vaultSourceSetup";
+import {
+  resolveVaultInfrastructureSetupStatus,
+  type VaultDashboardInfraState,
+} from "@/components/vault-dashboard/vaultInfrastructureSetup";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { type AppThemeColorSearch } from "@/lib/appThemeColorSearch";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
@@ -174,14 +178,6 @@ const getRedirectOrigin = (oauthUrl: string): string | null => {
   }
 };
 
-const getInfraActionLabel = (
-  infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
-) => {
-  if (infraState === "not_started") return "Provision infra";
-  if (infraState === "failed" || infraState === "partial") return "Retry infra";
-  return null;
-};
-
 const PROVIDER_KEYS = ["github", "convex", "cloudflare"] as const;
 type ProviderKey = (typeof PROVIDER_KEYS)[number];
 type ProviderMetadata = {
@@ -238,7 +234,6 @@ type VaultDashboardLocalState = {
   removeConvexProvision: boolean;
   removeGithubRepo: boolean;
   removeHostingProvision: boolean;
-  retryingVaultId: Id<"vaults"> | null;
   shouldAutoFocusChatInput: boolean;
 };
 
@@ -267,7 +262,6 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
     removeConvexProvision: false,
     removeGithubRepo: false,
     removeHostingProvision: false,
-    retryingVaultId: null,
     shouldAutoFocusChatInput: false,
   };
 }
@@ -390,9 +384,6 @@ function useVaultDashboardLocalStore() {
           createError: null,
           newRepositoryName,
         }));
-      },
-      setRetryingVaultId: (retryingVaultId: Id<"vaults"> | null) => {
-        setState((state) => ({ ...state, retryingVaultId }));
       },
     }),
   );
@@ -1712,22 +1703,78 @@ export function VaultSourceSetupSection({
   const stepLabel = formatVaultSourceSetupStep(sourceSetup.step);
 
   return (
-    <div className="space-y-2 text-xs">
-      {sourceSetup.status === "failed" ? (
-        <div className="text-destructive">
-          Setup failed during {stepLabel}: {sourceSetup.message}
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <UpdateIcon className="h-3 w-3 shrink-0 animate-spin" />
-          <span>Setup: {stepLabel}</span>
-        </div>
-      )}
+    <VaultSetupProgressSection
+      status={sourceSetup.status}
+      label={`Setup: ${stepLabel}`}
+      message={
+        sourceSetup.status === "failed"
+          ? `Setup failed during ${stepLabel}: ${sourceSetup.message}`
+          : undefined
+      }
+    >
       <VaultProvisioningLogTextarea
         repositoryFullName={repositoryFullName}
         vaultId={vaultId}
       />
+    </VaultSetupProgressSection>
+  );
+}
+
+type VaultSetupProgressSectionStatus = "failed" | "running";
+
+export function VaultSetupProgressSection({
+  children,
+  label,
+  message,
+  status,
+}: {
+  children: ReactNode;
+  label: string;
+  message?: string;
+  status: VaultSetupProgressSectionStatus;
+}) {
+  return (
+    <div className="space-y-2 text-xs">
+      {status === "failed" ? (
+        <div className="text-destructive">{message ?? label}</div>
+      ) : (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <UpdateIcon className="h-3 w-3 shrink-0 animate-spin" />
+          <span>{label}</span>
+        </div>
+      )}
+      {children}
     </div>
+  );
+}
+
+export function VaultInfrastructureSetupSection({
+  infraState,
+  repositoryFullName,
+  vaultId,
+}: {
+  infraState: VaultDashboardInfraState;
+  repositoryFullName: string;
+  vaultId: Id<"vaults">;
+}) {
+  const setupStatus = resolveVaultInfrastructureSetupStatus(infraState);
+  if (!setupStatus) {
+    return null;
+  }
+
+  return (
+    <VaultSetupProgressSection
+      status={setupStatus.status}
+      label={setupStatus.label}
+      message={
+        setupStatus.status === "failed" ? setupStatus.message : undefined
+      }
+    >
+      <VaultProvisioningLogTextarea
+        repositoryFullName={repositoryFullName}
+        vaultId={vaultId}
+      />
+    </VaultSetupProgressSection>
   );
 }
 
@@ -1738,12 +1785,10 @@ type VaultDashboardBodyProps = {
   themeColorSearch: AppThemeColorSearch;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
-  retryingVaultId: Id<"vaults"> | null;
   deleteRepositoryFullName?: string;
   vaults: VaultDashboardVault[];
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onRefreshVaultTree: (vault: DashboardManualRefreshVault) => void;
-  onRetryInfrastructure: (vaultId: Id<"vaults">) => void;
   onSaveVaultBranchFilters: (
     vaultId: Id<"vaults">,
     nextVaultBranchFilters: VaultBranchFiltersState,
@@ -1757,12 +1802,10 @@ function VaultDashboardBody({
   themeColorSearch,
   openDeveloperToolsByVaultId,
   persistedVaultBranchFiltersByVaultId,
-  retryingVaultId,
   deleteRepositoryFullName,
   vaults,
   onOpenDeveloperToolsChange,
   onRefreshVaultTree,
-  onRetryInfrastructure,
   onSaveVaultBranchFilters,
 }: VaultDashboardBodyProps) {
   const deleteCardElementsRef = useRef(new Map<string, HTMLDivElement>());
@@ -1823,10 +1866,6 @@ function VaultDashboardBody({
         const developerToolsOpen =
           developerToolsVisible &&
           (openDeveloperToolsByVaultId[vault._id] ?? false);
-        const infraActionLabel =
-          isReady && vault.isNoterManaged
-            ? getInfraActionLabel(vault.infraState)
-            : null;
         const repositoryExternalLinks =
           buildVaultDashboardRepositoryExternalLinks({
             cloudflareProjectDashboardUrl: vault.cloudflareProjectDashboardUrl,
@@ -1862,6 +1901,18 @@ function VaultDashboardBody({
               vaultId={vault._id}
             />
           ) : undefined;
+        const infrastructureSetupStatus =
+          isReady && vault.isNoterManaged
+            ? resolveVaultInfrastructureSetupStatus(vault.infraState)
+            : null;
+        const infrastructureSetupSection = infrastructureSetupStatus ? (
+          <VaultInfrastructureSetupSection
+            infraState={vault.infraState}
+            repositoryFullName={vault.repositoryFullName}
+            vaultId={vault._id}
+          />
+        ) : undefined;
+        const setupSection = sourceSetupSection ?? infrastructureSetupSection;
 
         return (
           <div
@@ -1912,7 +1963,7 @@ function VaultDashboardBody({
                   </>
                 ) : undefined
               }
-              setupSection={sourceSetupSection}
+              setupSection={setupSection}
               topRightAction={
                 <VaultDashboardDeleteControl
                   repositoryFullName={vault.repositoryFullName}
@@ -2003,39 +2054,14 @@ function VaultDashboardBody({
                   : undefined
               }
               footerActions={
-                infraActionLabel ||
-                (CHAT_ENABLED &&
-                  developerToolsVisible &&
-                  developerToolsOpen &&
-                  chatRoute) ? (
+                CHAT_ENABLED &&
+                developerToolsVisible &&
+                developerToolsOpen &&
+                chatRoute ? (
                   <div className="flex flex-wrap items-center gap-2">
-                    {CHAT_ENABLED &&
-                      developerToolsVisible &&
-                      developerToolsOpen &&
-                      chatRoute && (
-                        <Button asChild variant="outline" size="sm">
-                          <Link to={chatRoute}>Chat</Link>
-                        </Button>
-                      )}
-                    {infraActionLabel && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          onRetryInfrastructure(vault._id);
-                        }}
-                        disabled={retryingVaultId === vault._id}
-                      >
-                        {retryingVaultId === vault._id ? (
-                          <>
-                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                            Retrying...
-                          </>
-                        ) : (
-                          infraActionLabel
-                        )}
-                      </Button>
-                    )}
+                    <Button asChild variant="outline" size="sm">
+                      <Link to={chatRoute}>Chat</Link>
+                    </Button>
                   </div>
                 ) : undefined
               }
@@ -2059,9 +2085,6 @@ export function VaultDashboard() {
   const now = useNow();
   const deleteVault = useAction(api.vaultActions.deleteVault);
   const createRepository = useAction(api.vaultActions.createRepository);
-  const retryInfrastructureProvisioning = useAction(
-    api.vaultActions.retryInfrastructureProvisioning,
-  );
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
   const refreshTree = useAction(api.github.refreshRepositoryTree);
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
@@ -2243,7 +2266,6 @@ export function VaultDashboard() {
     removeConvexProvision,
     removeGithubRepo,
     removeHostingProvision,
-    retryingVaultId,
     shouldAutoFocusChatInput,
   } = useSelector(dashboardLocalStore);
   const {
@@ -2268,7 +2290,6 @@ export function VaultDashboard() {
     setIsDeleting,
     setIsSigningOut,
     setNewRepositoryName,
-    setRetryingVaultId,
   } = dashboardLocalStore.actions;
 
   useProviderOAuthPopupCompletionReload({
@@ -2539,20 +2560,6 @@ export function VaultDashboard() {
       );
     } finally {
       setIsCreating(false);
-    }
-  };
-
-  const handleRetryInfrastructure = async (vaultId: Id<"vaults">) => {
-    if (retryingVaultId === vaultId) {
-      return;
-    }
-    setRetryingVaultId(vaultId);
-    try {
-      await retryInfrastructureProvisioning({ vaultId });
-    } catch (error) {
-      console.error("Failed to retry infrastructure provisioning:", error);
-    } finally {
-      setRetryingVaultId(null);
     }
   };
 
@@ -2920,10 +2927,6 @@ export function VaultDashboard() {
     void saveVaultBranchFilters(vaultId, nextVaultBranchFilters);
   };
 
-  const handleVaultRetryInfrastructure = (vaultId: Id<"vaults">) => {
-    void handleRetryInfrastructure(vaultId);
-  };
-
   const handleDeleteDialogOpenChange = (isOpen: boolean) => {
     if (isOpen || isDeleting || isCommitting) {
       return;
@@ -2971,12 +2974,10 @@ export function VaultDashboard() {
       persistedVaultBranchFiltersByVaultId={
         persistedVaultBranchFiltersByVaultId
       }
-      retryingVaultId={retryingVaultId}
       deleteRepositoryFullName={deleteRepositoryFullName}
       vaults={vaults}
       onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
       onRefreshVaultTree={refreshVaultTreeFromStatusClick}
-      onRetryInfrastructure={handleVaultRetryInfrastructure}
       onSaveVaultBranchFilters={handleVaultBranchFiltersChange}
     />
   );

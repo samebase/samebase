@@ -855,6 +855,14 @@ Scope:
    post-source-setup state; do not spend Phase 3 effort splitting visual tests
    around compatibility behavior that Phase 4 intends to remove
 
+Phase 4 starts by canonicalizing the dashboard sequence after the first usable
+source tree exists. A Noter-managed app that is still preparing or provisioning
+infrastructure should render a progress/log surface on the card, not a
+`Provision infra` or `Retry infra` button. Manual provider retry is
+intentionally kept out of this phase until the compatibility exits below are
+closed enough that a retry control proves backend durability rather than
+papering over legacy dashboard states.
+
 Stop before user-facing retry buttons. After this phase, runtime code should no
 longer depend on vault-row tree mirrors or newly-created `vaultId: null`
 provisioning records.
