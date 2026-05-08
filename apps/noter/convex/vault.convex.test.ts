@@ -1,9 +1,60 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
 describe("vault dashboard Convex contract", () => {
+  it("records initializing vault creation before external GitHub work", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+    });
+
+    const ids = await t.mutation(
+      internal.vault.createInitializingNoterManagedVaultForUser,
+      {
+        userId,
+        ghRepoOwner: "ada",
+        ghRepoName: "early-vault",
+        visibility: "private",
+      },
+    );
+    const result = await t.run(async (ctx) => {
+      const vault = await ctx.db.get(ids.vaultId);
+      const run = await ctx.db.get(ids.runId);
+      const events = await ctx.db
+        .query("appProvisioningEvents")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .collect();
+      return { events, run, vault };
+    });
+
+    expect(result.vault).toMatchObject({
+      state: "provisioning",
+      githubMode: "create_repository",
+      runId: ids.runId,
+      owner: "ada",
+      name: "early-vault",
+    });
+    expect(result.run).toMatchObject({
+      vaultId: ids.vaultId,
+      currentStep: "run_created",
+      state: "queued",
+    });
+    expect(result.events).toMatchObject([
+      {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        step: "initialize_vault",
+        message: "Created the initializing Noter vault.",
+      },
+    ]);
+  });
+
   it("exposes post-GitHub source setup failures from the current run", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
@@ -335,6 +386,80 @@ describe("vault dashboard Convex contract", () => {
         runId: ids.retryRunId,
         step: "ensure_cloudflare",
         updatedAt: 45,
+      },
+    });
+  });
+
+  it("keeps setup progress visible between tree sync and provider claim", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/provider-handoff",
+        trigger: "create",
+        state: "running",
+        currentStep: "sync_tree",
+        createdAt: 10,
+        updatedAt: 30,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "provider-handoff",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+        convex: { state: "not_configured" },
+        cloudflare: { state: "not_configured" },
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        commitSHA: "commit",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 29,
+      });
+
+      return { runId, userId, vaultId };
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.getUserVaults);
+
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      state: "ready",
+      sourceSetup: { status: "ready" },
+      providerSetup: {
+        status: "running",
+        provider: "convex",
+        runId: ids.runId,
+        step: "sync_tree",
+        updatedAt: 30,
       },
     });
   });

@@ -227,6 +227,31 @@ async function readProviderRunSummary(
   };
 }
 
+/**
+ * The create workflow can sync the first tree before infra ownership is claimed;
+ * keep the setup log visible during that handoff instead of flashing empty UI.
+ */
+async function readRunningProviderRunSummary(
+  ctx: Pick<QueryCtx, "db">,
+  args: {
+    provider: "convex" | "cloudflare";
+    runId: Id<"appProvisioningRuns">;
+  },
+): Promise<Extract<ProviderSetupSummary, { status: "running" }> | null> {
+  const run = await ctx.db.get(args.runId);
+  if (!run || (run.state !== "queued" && run.state !== "running")) {
+    return null;
+  }
+
+  return {
+    status: "running",
+    provider: args.provider,
+    runId: args.runId,
+    step: run.currentStep,
+    updatedAt: run.updatedAt,
+  };
+}
+
 async function readActiveVaultInfrastructureOwnership(
   ctx: Pick<QueryCtx, "db">,
   vaultId: Id<"vaults">,
@@ -290,26 +315,34 @@ async function resolveProviderSetupSummary(
     vault._id,
   );
   if (vault.convex.state === "not_configured") {
-    if (!activeOwnership) {
-      return { status: "not_applicable" };
+    if (activeOwnership) {
+      return await readProviderRunSummary(ctx, {
+        provider: "convex",
+        runId: activeOwnership.runId,
+        status: "running",
+        fallbackUpdatedAt: activeOwnership.updatedAt,
+      });
     }
-    return await readProviderRunSummary(ctx, {
+    const runningCreateRun = await readRunningProviderRunSummary(ctx, {
       provider: "convex",
-      runId: activeOwnership.runId,
-      status: "running",
-      fallbackUpdatedAt: activeOwnership.updatedAt,
+      runId: vault.runId,
     });
+    return runningCreateRun ?? { status: "not_applicable" };
   }
   if (cloudflare.state === "not_configured") {
-    if (!activeOwnership) {
-      return { status: "not_applicable" };
+    if (activeOwnership) {
+      return await readProviderRunSummary(ctx, {
+        provider: "cloudflare",
+        runId: activeOwnership.runId,
+        status: "running",
+        fallbackUpdatedAt: activeOwnership.updatedAt,
+      });
     }
-    return await readProviderRunSummary(ctx, {
+    const runningCreateRun = await readRunningProviderRunSummary(ctx, {
       provider: "cloudflare",
-      runId: activeOwnership.runId,
-      status: "running",
-      fallbackUpdatedAt: activeOwnership.updatedAt,
+      runId: vault.runId,
     });
+    return runningCreateRun ?? { status: "not_applicable" };
   }
 
   return { status: "not_applicable" };
@@ -845,6 +878,16 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
       owner: args.ghRepoOwner,
       name: args.ghRepoName,
       visibility: args.visibility,
+    });
+    await ctx.db.insert("appProvisioningEvents", {
+      userId: args.userId,
+      vaultId,
+      repositoryFullName,
+      runId,
+      step: "initialize_vault",
+      level: "info",
+      message: "Created the initializing Noter vault.",
+      createdAt: now,
     });
 
     return { vaultId, runId };

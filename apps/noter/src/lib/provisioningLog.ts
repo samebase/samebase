@@ -1,9 +1,11 @@
 export type ProvisioningLogLevel = "info" | "warn" | "error";
 
 export type ProvisioningLogStep =
+  | "initialize_vault"
   | "validate_connections"
   | "create_github_repo"
   | "seed_starter"
+  | "connect_github"
   | "create_vault"
   | "sync_tree"
   | "claim_infra"
@@ -21,10 +23,12 @@ export type ProvisioningLogEvent = {
 };
 
 const provisioningStepLabels = {
+  initialize_vault: "initialize vault",
   validate_connections: "validate connections",
   create_github_repo: "create GitHub repo",
   seed_starter: "seed starter",
-  create_vault: "create vault",
+  connect_github: "connect GitHub",
+  create_vault: "connect GitHub",
   sync_tree: "sync tree",
   claim_infra: "claim infra",
   ensure_convex: "ensure Convex",
