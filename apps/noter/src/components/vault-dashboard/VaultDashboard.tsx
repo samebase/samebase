@@ -95,9 +95,9 @@ import {
   type VaultDashboardSourceSetup,
 } from "@/components/vault-dashboard/vaultSourceSetup";
 import {
-  resolveVaultInfrastructureSetupStatus,
-  type VaultDashboardInfraState,
-} from "@/components/vault-dashboard/vaultInfrastructureSetup";
+  resolveVaultProviderSetupStatus,
+  type VaultDashboardProviderSetup,
+} from "@/components/vault-dashboard/vaultProviderSetup";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { type AppThemeColorSearch } from "@/lib/appThemeColorSearch";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
@@ -144,16 +144,6 @@ const DASHBOARD_SIDEBAR_DEFAULT_STATE = {
 } satisfies WorkspaceSidebarState;
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 const COLLAPSED_BRANCH_LIMIT = 5;
-
-const formatInfraState = (
-  infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
-) => {
-  if (infraState === "not_started") return "Not started";
-  if (infraState === "provisioning") return "Provisioning";
-  if (infraState === "ready") return "Ready";
-  if (infraState === "failed") return "Failed";
-  return "Partial";
-};
 
 const formatMcpTokenStatusLabel = (
   status:
@@ -218,6 +208,23 @@ export type VaultDeleteDialogTarget = {
 type VaultDeleteIntent = VaultDeleteDialogTarget & {
   id: Id<"vaults">;
 };
+
+function formatProviderSetupDeveloperLabel(
+  providerSetup: VaultDashboardProviderSetup,
+): string {
+  switch (providerSetup.status) {
+    case "not_applicable":
+      return "Providers: not applicable";
+    case "ready":
+      return "Providers: ready";
+    case "running":
+      return `${providerSetup.provider}: provisioning`;
+    case "failed":
+      return `${providerSetup.provider}: failed`;
+  }
+  providerSetup satisfies never;
+  return "Providers";
+}
 
 export type VaultDeleteOptionKey =
   | "removeCodespaces"
@@ -1871,27 +1878,33 @@ export function VaultSetupProgressSection({
   );
 }
 
-export function VaultInfrastructureSetupSection({
-  infraState,
+export function VaultProviderSetupSection({
+  providerSetup,
   repositoryFullName,
   vaultId,
 }: {
-  infraState: VaultDashboardInfraState;
+  providerSetup: Extract<
+    VaultDashboardProviderSetup,
+    { status: "failed" | "running" }
+  >;
   repositoryFullName: string;
   vaultId: Id<"vaults">;
 }) {
-  const setupStatus = resolveVaultInfrastructureSetupStatus(infraState);
+  const setupStatus = resolveVaultProviderSetupStatus(providerSetup);
   if (!setupStatus) {
     return null;
   }
+  const stepLabel = formatVaultSourceSetupStep(providerSetup.step);
+  const failureMessage =
+    setupStatus.status === "failed" && providerSetup.status === "failed"
+      ? `${setupStatus.message} Last failure: ${stepLabel}: ${providerSetup.message}`
+      : undefined;
 
   return (
     <VaultSetupProgressSection
       status={setupStatus.status}
       label={setupStatus.label}
-      message={
-        setupStatus.status === "failed" ? setupStatus.message : undefined
-      }
+      message={failureMessage}
     >
       <VaultProvisioningLogTextarea
         repositoryFullName={repositoryFullName}
@@ -2024,18 +2037,21 @@ function VaultDashboardBody({
               vaultId={vault._id}
             />
           ) : undefined;
-        const infrastructureSetupStatus =
+        const providerSetupStatus =
           isReady && vault.isNoterManaged
-            ? resolveVaultInfrastructureSetupStatus(vault.infraState)
+            ? resolveVaultProviderSetupStatus(vault.providerSetup)
             : null;
-        const infrastructureSetupSection = infrastructureSetupStatus ? (
-          <VaultInfrastructureSetupSection
-            infraState={vault.infraState}
-            repositoryFullName={vault.repositoryFullName}
-            vaultId={vault._id}
-          />
-        ) : undefined;
-        const setupSection = sourceSetupSection ?? infrastructureSetupSection;
+        const providerSetupSection =
+          providerSetupStatus &&
+          (vault.providerSetup.status === "failed" ||
+            vault.providerSetup.status === "running") ? (
+            <VaultProviderSetupSection
+              providerSetup={vault.providerSetup}
+              repositoryFullName={vault.repositoryFullName}
+              vaultId={vault._id}
+            />
+          ) : undefined;
+        const setupSection = sourceSetupSection ?? providerSetupSection;
 
         return (
           <div
@@ -2153,7 +2169,9 @@ function VaultDashboardBody({
                           {vault.isNoterManaged && (
                             <div className="space-y-2">
                               <div className="text-xs text-muted-foreground">
-                                Infra: {formatInfraState(vault.infraState)}
+                                {formatProviderSetupDeveloperLabel(
+                                  vault.providerSetup,
+                                )}
                                 {vault.infraProductionUrl && (
                                   <a
                                     href={vault.infraProductionUrl}

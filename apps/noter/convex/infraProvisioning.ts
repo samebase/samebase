@@ -16,7 +16,10 @@ import {
   ensureHostingResources,
   getProvisionedMainUrl,
 } from "./hostingProviders";
-import { hostingStateValidator } from "./hostingState";
+import {
+  hostingProviderValidator,
+  hostingStateValidator,
+} from "./hostingState";
 import { resolveCloudflareHostingState } from "./hostingStateHelpers";
 import { asRecord, readString, readStringOrNumber } from "./jsonUtils";
 import type { AppProvisioningStep, GithubTreeData } from "./schema";
@@ -176,7 +179,7 @@ function parseCloudflareAccountInventory(
 
 type ConvexProvisionResult = {
   convexProjectId: string;
-  convexProjectSlug?: string;
+  convexProjectSlug: string;
   convexDeploymentName: string;
   convexDeploymentType: "prod" | "dev";
   convexCloudUrl: string;
@@ -220,6 +223,15 @@ async function ensureConvexResources(args: {
       const name = readString(projectRecord, "name");
       if (name === projectName) {
         projectId = readStringOrNumber(projectRecord, "id");
+        projectSlug = readString(projectRecord, "slug");
+        break;
+      }
+    }
+  }
+  if (projectId && !projectSlug) {
+    for (const project of projects) {
+      const projectRecord = asRecord(project);
+      if (readStringOrNumber(projectRecord, "id") === projectId) {
         projectSlug = readString(projectRecord, "slug");
         break;
       }
@@ -297,6 +309,9 @@ async function ensureConvexResources(args: {
 
   if (!deploymentName) {
     throw new Error("Failed to resolve Convex deployment name");
+  }
+  if (!projectSlug) {
+    throw new Error("Failed to resolve Convex project slug");
   }
 
   if (!deploymentUrl) {
@@ -550,6 +565,82 @@ async function getManagedProvisioningVault(
   return vault;
 }
 
+type ProviderStatePatch = Partial<
+  Pick<NoterManagedConnectedVault, "convex" | "hosting">
+>;
+
+function hasFreshProviderProvisioningLock(args: {
+  vault: NoterManagedConnectedVault;
+  now: number;
+}): boolean {
+  return (
+    (args.vault.convex.state === "provisioning" &&
+      args.now - args.vault.convex.startedAt < PROVISIONING_STALE_MS) ||
+    (args.vault.hosting.state === "provisioning" &&
+      args.now - args.vault.hosting.startedAt < PROVISIONING_STALE_MS)
+  );
+}
+
+function buildProviderFailurePatch(args: {
+  vault: NoterManagedConnectedVault;
+  runId: Id<"appProvisioningRuns">;
+  step: AppProvisioningStep | "run_created";
+  now: number;
+}): ProviderStatePatch {
+  const patch: ProviderStatePatch = {};
+  const failConvex = () => {
+    if (args.vault.convex.state !== "connected") {
+      patch.convex = {
+        state: "failed",
+        runId: args.runId,
+        failedAt: args.now,
+      };
+    }
+  };
+  const failHosting = () => {
+    if (args.vault.hosting.state !== "connected") {
+      patch.hosting = {
+        state: "failed",
+        provider: "cloudflare",
+        runId: args.runId,
+        failedAt: args.now,
+      };
+    }
+  };
+
+  switch (args.step) {
+    case "run_created":
+    case "claim_infra":
+    case "validate_connections":
+      if (args.vault.convex.state === "connected") {
+        failHosting();
+      } else {
+        failConvex();
+      }
+      break;
+    case "ensure_convex":
+      failConvex();
+      if (args.vault.hosting.state !== "connected") {
+        patch.hosting = { state: "not_configured" };
+      }
+      break;
+    case "ensure_convex_preview":
+    case "ensure_cloudflare":
+    case "record_domains":
+      failHosting();
+      break;
+    case "finish":
+      break;
+    case "create_github_repo":
+    case "create_vault":
+    case "seed_starter":
+    case "sync_tree":
+      break;
+  }
+
+  return patch;
+}
+
 async function resolveConvexProvisioningConnection(
   ctx: ActionCtx,
   userId: Id<"users">,
@@ -754,6 +845,118 @@ export const upsertInfrastructureRecord = internalMutation({
   },
 });
 
+export const markHostingProvisioning = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
+  },
+  returns: infrastructurePatchResult,
+  handler: async (ctx, args) => {
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (
+      !ownership ||
+      !isActiveProvisioningOwner(ownership, { runId: args.runId })
+    ) {
+      return { applied: false };
+    }
+
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
+      return { applied: false };
+    }
+    if (vault.hosting.state === "connected") {
+      return { applied: true };
+    }
+
+    await ctx.db.patch(args.vaultId, {
+      hosting: {
+        state: "provisioning",
+        provider: "cloudflare",
+        runId: args.runId,
+        startedAt: Date.now(),
+      },
+    });
+
+    return { applied: true };
+  },
+});
+
+export const markConvexConnected = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
+    projectId: v.string(),
+    projectSlug: v.string(),
+    deploymentName: v.string(),
+  },
+  returns: infrastructurePatchResult,
+  handler: async (ctx, args) => {
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (
+      !ownership ||
+      !isActiveProvisioningOwner(ownership, { runId: args.runId })
+    ) {
+      return { applied: false };
+    }
+
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
+      return { applied: false };
+    }
+
+    await ctx.db.patch(args.vaultId, {
+      convex: {
+        state: "connected",
+        projectId: args.projectId,
+        projectSlug: args.projectSlug,
+        deploymentName: args.deploymentName,
+        connectedAt: Date.now(),
+      },
+    });
+
+    return { applied: true };
+  },
+});
+
+export const markHostingConnected = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
+    provider: hostingProviderValidator,
+    accountId: v.string(),
+    projectName: v.string(),
+    productionUrl: v.string(),
+  },
+  returns: infrastructurePatchResult,
+  handler: async (ctx, args) => {
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (
+      !ownership ||
+      !isActiveProvisioningOwner(ownership, { runId: args.runId })
+    ) {
+      return { applied: false };
+    }
+
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
+      return { applied: false };
+    }
+
+    await ctx.db.patch(args.vaultId, {
+      hosting: {
+        state: "connected",
+        provider: args.provider,
+        accountId: args.accountId,
+        projectName: args.projectName,
+        productionUrl: args.productionUrl,
+        connectedAt: Date.now(),
+      },
+    });
+
+    return { applied: true };
+  },
+});
+
 export const upsertDomainRecord = internalMutation({
   args: {
     vaultId: v.id("vaults"),
@@ -836,11 +1039,7 @@ export const claimWorkflowProvisioning = internalMutation({
 
     const now = Date.now();
     if (args.force === false) {
-      if (
-        vault.infraState === "provisioning" &&
-        vault.infraProvisioningStartedAt &&
-        now - vault.infraProvisioningStartedAt < PROVISIONING_STALE_MS
-      ) {
+      if (hasFreshProviderProvisioningLock({ vault, now })) {
         await appendProvisioningRunEvent(ctx, {
           runId: args.runId,
           step: "claim_infra",
@@ -853,9 +1052,18 @@ export const claimWorkflowProvisioning = internalMutation({
     }
 
     await ctx.db.patch(args.vaultId, {
-      infraState: "provisioning",
-      infraLastError: undefined,
-      infraProvisioningStartedAt: now,
+      convex:
+        vault.convex.state === "connected"
+          ? vault.convex
+          : {
+              state: "provisioning",
+              runId: args.runId,
+              startedAt: now,
+            },
+      hosting:
+        vault.hosting.state === "connected"
+          ? vault.hosting
+          : { state: "not_configured" },
     });
 
     const existing = await ctx.db
@@ -1042,6 +1250,23 @@ export const ensureConvexInfrastructure = internalAction({
       });
       return null;
     }
+    const convexState = await ctx.runMutation(
+      internal.infraProvisioning.markConvexConnected,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        projectId: convex.convexProjectId,
+        projectSlug: convex.convexProjectSlug,
+        deploymentName: convex.convexDeploymentName,
+      },
+    );
+    if (!convexState.applied) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: "ensure_convex",
+      });
+      return null;
+    }
 
     await appendProvisioningRunEvent(ctx, {
       runId: args.runId,
@@ -1151,6 +1376,20 @@ export const ensureCloudflareInfrastructure = internalAction({
       message: "Ensuring Cloudflare Pages project and deploy settings.",
       state: "running",
     });
+    const hostingState = await ctx.runMutation(
+      internal.infraProvisioning.markHostingProvisioning,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+      },
+    );
+    if (!hostingState.applied) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: "ensure_cloudflare",
+      });
+      return null;
+    }
 
     const existing = await ctx.runQuery(
       internal.infraProvisioning.getInfrastructureByVault,
@@ -1244,6 +1483,10 @@ export const ensureCloudflareInfrastructure = internalAction({
         },
       },
     });
+    const mainUrl = getProvisionedMainUrl(provisionedHosting);
+    if (!mainUrl) {
+      throw new Error("Cloudflare Pages production URL was not resolved.");
+    }
 
     const { applied } = await ctx.runMutation(
       internal.infraProvisioning.upsertInfrastructureRecord,
@@ -1260,6 +1503,24 @@ export const ensureCloudflareInfrastructure = internalAction({
       },
     );
     if (!applied) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: "ensure_cloudflare",
+      });
+      return null;
+    }
+    const connectedHostingState = await ctx.runMutation(
+      internal.infraProvisioning.markHostingConnected,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        provider: provisionedHosting.provider,
+        accountId: provisionedHosting.accountId,
+        projectName: provisionedHosting.projectName,
+        productionUrl: mainUrl,
+      },
+    );
+    if (!connectedHostingState.applied) {
       await cancelSupersededProvisioningRun(ctx, {
         runId: args.runId,
         step: "ensure_cloudflare",
@@ -1285,24 +1546,21 @@ export const ensureCloudflareInfrastructure = internalAction({
       return null;
     }
 
-    const mainUrl = getProvisionedMainUrl(provisionedHosting);
-    if (mainUrl) {
-      await ctx.runMutation(internal.infraProvisioning.upsertDomainRecord, {
-        vaultId: args.vaultId,
-        branch: defaultBranch,
-        kind: "main",
-        url: mainUrl,
-        source: "cloudflare_pages_default",
-        active: true,
-      });
-      await appendProvisioningRunEvent(ctx, {
-        runId: args.runId,
-        step: "record_domains",
-        level: "info",
-        message: `Recorded production URL: ${mainUrl}.`,
-        state: "running",
-      });
-    }
+    await ctx.runMutation(internal.infraProvisioning.upsertDomainRecord, {
+      vaultId: args.vaultId,
+      branch: defaultBranch,
+      kind: "main",
+      url: mainUrl,
+      source: "cloudflare_pages_default",
+      active: true,
+    });
+    await appendProvisioningRunEvent(ctx, {
+      runId: args.runId,
+      step: "record_domains",
+      level: "info",
+      message: `Recorded production URL: ${mainUrl}.`,
+      state: "running",
+    });
 
     console.log("infra:provision:success", {
       vaultId: args.vaultId,
@@ -1342,12 +1600,6 @@ export const finishWorkflowProvisioning = internalMutation({
     }
 
     const now = Date.now();
-    await ctx.db.patch(args.vaultId, {
-      infraState: "ready",
-      infraLastError: undefined,
-      infraLastProvisionedAt: now,
-      infraProvisioningStartedAt: undefined,
-    });
     await ctx.db.patch(ownership._id, {
       state: "succeeded",
       updatedAt: now,
@@ -1403,17 +1655,16 @@ export const markWorkflowStartupFailed = internalMutation({
           runId: args.runId,
         },
       );
-    } else if (
-      isConnectedVault(vault) &&
-      isNoterManagedVault(vault) &&
-      vault.infraState !== "ready"
-    ) {
-      await ctx.db.patch(run.vaultId, {
-        infraState: "failed",
-        infraLastError: args.message,
-        infraLastProvisionedAt: now,
-        infraProvisioningStartedAt: undefined,
+    } else if (isConnectedVault(vault) && isNoterManagedVault(vault)) {
+      const providerPatch = buildProviderFailurePatch({
+        vault,
+        runId: args.runId,
+        step: run.currentStep,
+        now,
       });
+      if (Object.keys(providerPatch).length > 0) {
+        await ctx.db.patch(run.vaultId, providerPatch);
+      }
     }
 
     await ctx.db.patch(args.runId, {
@@ -1588,12 +1839,17 @@ export const markWorkflowProvisioningFailed = internalMutation({
         });
       }
 
-      await ctx.db.patch(vaultId, {
-        infraState,
-        infraLastError: args.message,
-        infraLastProvisionedAt: now,
-        infraProvisioningStartedAt: undefined,
-      });
+      if (isConnectedVault(vault) && isNoterManagedVault(vault)) {
+        const providerPatch = buildProviderFailurePatch({
+          vault,
+          runId: args.runId,
+          step: run.currentStep,
+          now,
+        });
+        if (Object.keys(providerPatch).length > 0) {
+          await ctx.db.patch(vaultId, providerPatch);
+        }
+      }
       await ctx.db.patch(ownership._id, {
         state: "failed",
         updatedAt: now,

@@ -143,20 +143,6 @@ const connectedRepositoryIdentityFields = {
   defaultBranch: string(),
 } as const;
 
-/**
- * Compatibility mirror for existing dashboard and provisioning reads. The new
- * source of truth should be the explicit convex/hosting states.
- *
- * TODO(Vault-First cleanup): replace these mirrors with derived reads after the
- * dashboard and provisioning code consume convex/hosting directly.
- */
-const connectedInfrastructureMirrorFields = {
-  infraState: InfraState,
-  infraLastError: optional(string()),
-  infraLastProvisionedAt: optional(number()),
-  infraProvisioningStartedAt: optional(number()),
-} as const;
-
 export const VaultRow = union(
   object({
     ...vaultOperationalFields,
@@ -189,7 +175,6 @@ export const VaultRow = union(
     convex: VaultConvexState,
     hosting: VaultHostingState,
     connectedAt: number(),
-    ...connectedInfrastructureMirrorFields,
 
     ...githubRepositoryWithVisibilityFields,
   }),
@@ -205,7 +190,6 @@ export const VaultRow = union(
     convex: VaultConvexState,
     hosting: VaultHostingState,
     connectedAt: number(),
-    ...connectedInfrastructureMirrorFields,
 
     ...githubRepositoryWithVisibilityFields,
   }),

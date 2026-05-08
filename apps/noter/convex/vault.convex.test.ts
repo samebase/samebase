@@ -42,7 +42,6 @@ describe("vault dashboard Convex contract", () => {
         connectedAt: 20,
         convex: { state: "not_configured" },
         hosting: { state: "not_configured" },
-        infraState: "not_started",
       });
       await ctx.db.insert("appProvisioningEvents", {
         userId,
@@ -117,7 +116,6 @@ describe("vault dashboard Convex contract", () => {
         connectedAt: 20,
         convex: { state: "not_configured" },
         hosting: { state: "not_configured" },
-        infraState: "not_started",
       });
       await ctx.db.delete(runId);
 
@@ -143,5 +141,107 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: 20,
       },
     });
+  });
+
+  it("derives provider setup from vault provider states instead of infrastructure metadata", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/provider-state",
+        trigger: "create",
+        state: "running",
+        currentStep: "ensure_cloudflare",
+        createdAt: 10,
+        updatedAt: 30,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "provider-state",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+        convex: {
+          state: "connected",
+          projectId: "convex-project",
+          projectSlug: "provider-state-project",
+          deploymentName: "provider-state-prod",
+          connectedAt: 24,
+        },
+        hosting: {
+          state: "provisioning",
+          provider: "cloudflare",
+          runId,
+          startedAt: 25,
+        },
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        commitSHA: "commit",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 29,
+      });
+      await ctx.db.insert("vaultInfrastructure", {
+        vaultId,
+        status: "ready",
+        provisioningVersion: 1,
+        convexProjectId: "stale-convex-project",
+        convexProjectSlug: "stale-project",
+        convexDeploymentName: "stale-prod",
+        hosting: {
+          provider: "cloudflare",
+          accountId: "stale-account",
+          projectName: "stale-pages-project",
+          productionUrl: "https://stale.pages.dev",
+        },
+      });
+
+      return { runId, userId, vaultId };
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.getUserVaults);
+
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      state: "ready",
+      hasConvexProvision: true,
+      hasHostingProvision: false,
+      providerSetup: {
+        status: "running",
+        provider: "hosting",
+        runId: ids.runId,
+        step: "ensure_cloudflare",
+        updatedAt: 30,
+      },
+    });
+    expect(vaults[0]).not.toHaveProperty("infraProductionUrl");
+    expect(vaults[0]).not.toHaveProperty("cloudflareProjectDashboardUrl");
   });
 });

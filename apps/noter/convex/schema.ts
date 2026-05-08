@@ -423,7 +423,8 @@ export default defineSchema({
   }).index("by_vault_and_branch", ["vaultId", "branch"]),
 
   /**
-   * External infrastructure identifiers and status for a vault.
+   * External infrastructure identifiers and operational status for provider
+   * calls. Product readiness lives on the vault's Convex and hosting states.
    */
   vaultInfrastructure: defineTable({
     vaultId: id("vaults"),

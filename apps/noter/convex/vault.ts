@@ -85,11 +85,36 @@ const sourceSetupSummary = union(
     updatedAt: number(),
   }),
 );
+const providerSetupProvider = union(literal("convex"), literal("hosting"));
+const providerSetupSummary = union(
+  object({
+    status: literal("not_applicable"),
+  }),
+  object({
+    status: literal("ready"),
+  }),
+  object({
+    status: literal("running"),
+    provider: providerSetupProvider,
+    runId: id("appProvisioningRuns"),
+    step: AppProvisioningRunStep,
+    updatedAt: number(),
+  }),
+  object({
+    status: literal("failed"),
+    provider: providerSetupProvider,
+    runId: id("appProvisioningRuns"),
+    step: AppProvisioningRunStep,
+    message: string(),
+    updatedAt: number(),
+  }),
+);
 
 type CloudflarePreviewMetadata = Infer<
   typeof cloudflarePreviewMetadataValidator
 >;
 type SourceSetupSummary = Infer<typeof sourceSetupSummary>;
+type ProviderSetupSummary = Infer<typeof providerSetupSummary>;
 type NoterManagedConnectedVault = Extract<
   Doc<"vaults">,
   { githubMode: "create_repository"; state: "connected" }
@@ -151,6 +176,105 @@ async function resolveSourceSetupSummary(
       step: run.currentStep,
       updatedAt: run.updatedAt,
     };
+  }
+
+  return { status: "not_applicable" };
+}
+
+async function readProviderRunSummary(
+  ctx: Pick<QueryCtx, "db">,
+  args: {
+    provider: "convex" | "hosting";
+    runId: Id<"appProvisioningRuns">;
+    status: "running" | "failed";
+    fallbackUpdatedAt: number;
+  },
+): Promise<Extract<ProviderSetupSummary, { status: "running" | "failed" }>> {
+  const run = await ctx.db.get(args.runId);
+  const step = run?.currentStep ?? "run_created";
+  const updatedAt = run?.updatedAt ?? args.fallbackUpdatedAt;
+
+  if (args.status === "running" && run?.state !== "failed") {
+    return {
+      status: "running",
+      provider: args.provider,
+      runId: args.runId,
+      step,
+      updatedAt,
+    };
+  }
+
+  const message =
+    (await readLatestRunErrorMessage(ctx, args.runId)) ??
+    run?.lastError ??
+    `Provisioning failed during ${step}.`;
+  return {
+    status: "failed",
+    provider: args.provider,
+    runId: args.runId,
+    step,
+    message,
+    updatedAt,
+  };
+}
+
+async function resolveProviderSetupSummary(
+  ctx: Pick<QueryCtx, "db">,
+  vault: NoterManagedConnectedVault,
+): Promise<ProviderSetupSummary> {
+  if (vault.convex.state === "failed") {
+    return await readProviderRunSummary(ctx, {
+      provider: "convex",
+      runId: vault.convex.runId,
+      status: "failed",
+      fallbackUpdatedAt: vault.convex.failedAt,
+    });
+  }
+  if (vault.hosting.state === "failed") {
+    return await readProviderRunSummary(ctx, {
+      provider: "hosting",
+      runId: vault.hosting.runId,
+      status: "failed",
+      fallbackUpdatedAt: vault.hosting.failedAt,
+    });
+  }
+  if (vault.convex.state === "provisioning") {
+    return await readProviderRunSummary(ctx, {
+      provider: "convex",
+      runId: vault.convex.runId,
+      status: "running",
+      fallbackUpdatedAt: vault.convex.startedAt,
+    });
+  }
+  if (vault.hosting.state === "provisioning") {
+    return await readProviderRunSummary(ctx, {
+      provider: "hosting",
+      runId: vault.hosting.runId,
+      status: "running",
+      fallbackUpdatedAt: vault.hosting.startedAt,
+    });
+  }
+  if (
+    vault.convex.state === "connected" &&
+    vault.hosting.state === "connected"
+  ) {
+    return { status: "ready" };
+  }
+  if (vault.convex.state === "not_configured") {
+    return await readProviderRunSummary(ctx, {
+      provider: "convex",
+      runId: vault.runId,
+      status: "running",
+      fallbackUpdatedAt: vault.connectedAt,
+    });
+  }
+  if (vault.hosting.state === "not_configured") {
+    return await readProviderRunSummary(ctx, {
+      provider: "hosting",
+      runId: vault.runId,
+      status: "running",
+      fallbackUpdatedAt: vault.connectedAt,
+    });
   }
 
   return { status: "not_applicable" };
@@ -606,10 +730,6 @@ export const addVault = internalMutation({
       connectedAt: Date.now(),
       convex: { state: "not_configured" },
       hosting: { state: "not_configured" },
-      infraState: "not_started",
-      infraLastError: undefined,
-      infraLastProvisionedAt: undefined,
-      infraProvisioningStartedAt: undefined,
     });
   },
 });
@@ -739,10 +859,6 @@ export const connectNoterManagedVaultGitHub = internalMutation({
       connectedAt: Date.now(),
       convex: { state: "not_configured" },
       hosting: { state: "not_configured" },
-      infraState: "not_started",
-      infraLastError: undefined,
-      infraLastProvisionedAt: undefined,
-      infraProvisioningStartedAt: undefined,
     });
 
     return null;
@@ -1022,6 +1138,7 @@ const getUserVaultsResult = array(
     ...treeRefreshFailureFields,
     state: union(literal("copying_files"), literal("ready"), literal("failed")),
     sourceSetup: sourceSetupSummary,
+    providerSetup: providerSetupSummary,
     isNoterManaged: boolean(),
     hasConnectedGitHubRepository: boolean(),
     hostingProvider: optional(hostingProviderValidator),
@@ -1046,13 +1163,6 @@ const getUserVaultsResult = array(
         ...cloudflarePreviewMetadataFields,
         convexPreviewDeploymentDashboardUrl: optional(string()),
       }),
-    ),
-    infraState: union(
-      literal("not_started"),
-      literal("provisioning"),
-      literal("ready"),
-      literal("failed"),
-      literal("partial"),
     ),
     infraProductionUrl: optional(string()),
     cloudflareProjectDashboardUrl: optional(string()),
@@ -1111,13 +1221,13 @@ export const getUserVaults = query({
         treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
         state: vault.state === "failed" ? "failed" : "copying_files",
         sourceSetup: { status: "not_applicable" },
+        providerSetup: { status: "not_applicable" },
         isNoterManaged: vault.githubMode === "create_repository",
         hasConnectedGitHubRepository: false,
         hostingProvider: undefined,
         hasConvexProvision: false,
         hasHostingProvision: false,
         remoteBranches: [],
-        infraState: "not_started",
         infraProductionUrl: undefined,
         cloudflareProjectDashboardUrl: undefined,
         convexProjectSettingsDashboardUrl: undefined,
@@ -1128,7 +1238,7 @@ export const getUserVaults = query({
     // Get staging stats for each vault
     const vaultResults: UserVaultResult[] = await Promise.all(
       connectedVaults.map(async (vault) => {
-        const [stagingData, remoteBranches, infra, defaultBranchTree] =
+        const [stagingData, remoteBranches, defaultBranchTree] =
           await Promise.all([
             ctx.db
               .query("fileStaging")
@@ -1138,10 +1248,6 @@ export const getUserVaults = query({
               .query("vaultRemoteBranches")
               .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
               .collect(),
-            ctx.db
-              .query("vaultInfrastructure")
-              .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-              .first(),
             ctx.db
               .query("vaultBranchTrees")
               .withIndex("by_vault_and_branch", (q) =>
@@ -1165,16 +1271,31 @@ export const getUserVaults = query({
               vault,
             })
           : { status: "not_applicable" as const };
-        const hasConvexProvision =
-          typeof infra?.convexProjectId === "string" ||
-          typeof infra?.convexDeploymentName === "string";
-        const hasCloudflareProvision =
-          infra?.hosting?.provider === "cloudflare" &&
-          typeof infra.hosting.projectName === "string" &&
-          infra.hosting.projectName.length > 0 &&
-          typeof infra.hosting.accountId === "string" &&
-          infra.hosting.accountId.length > 0;
-        const hasHostingProvision = hasCloudflareProvision;
+        const providerSetup =
+          isNoterManagedVault(vault) && hasUsableDefaultBranchTree
+            ? await resolveProviderSetupSummary(ctx, vault)
+            : { status: "not_applicable" as const };
+        const hasConvexProvision = vault.convex.state === "connected";
+        const hasHostingProvision = vault.hosting.state === "connected";
+        const convexProjectSlug =
+          vault.convex.state === "connected"
+            ? vault.convex.projectSlug
+            : undefined;
+        const convexDeploymentName =
+          vault.convex.state === "connected"
+            ? vault.convex.deploymentName
+            : undefined;
+        const hostingMetadata =
+          vault.hosting.state === "connected"
+            ? {
+                hosting: {
+                  provider: vault.hosting.provider,
+                  accountId: vault.hosting.accountId,
+                  projectName: vault.hosting.projectName,
+                  productionUrl: vault.hosting.productionUrl,
+                },
+              }
+            : null;
 
         return {
           _id: vault._id,
@@ -1193,6 +1314,7 @@ export const getUserVaults = query({
           treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
           state: hasUsableDefaultBranchTree ? "ready" : "copying_files",
           sourceSetup,
+          providerSetup,
           isNoterManaged: isNoterManagedVault(vault),
           hasConnectedGitHubRepository: true,
           hostingProvider: getConnectedVaultHostingProvider(vault),
@@ -1232,23 +1354,22 @@ export const getUserVaults = query({
                   branch.cloudflarePreviewPullRequestNumber
                   ? buildConvexPreviewDeploymentDashboardUrl({
                       branchName: branch.name,
-                      projectSlug: infra?.convexProjectSlug,
+                      projectSlug: convexProjectSlug,
                       teamSlug: convexTeamDashboardSlug,
                     })
                   : undefined,
             })),
-          infraState: vault.infraState,
-          infraProductionUrl: resolveHostingMainUrl(infra),
+          infraProductionUrl: resolveHostingMainUrl(hostingMetadata),
           cloudflareProjectDashboardUrl:
-            buildCloudflareProjectDashboardUrl(infra),
+            buildCloudflareProjectDashboardUrl(hostingMetadata),
           convexProjectSettingsDashboardUrl:
             buildConvexProjectSettingsDashboardUrl({
-              projectSlug: infra?.convexProjectSlug,
+              projectSlug: convexProjectSlug,
               teamSlug: convexTeamDashboardSlug,
             }),
           convexDeploymentDashboardUrl: buildConvexDeploymentDashboardUrl({
-            deploymentName: infra?.convexDeploymentName,
-            projectSlug: infra?.convexProjectSlug,
+            deploymentName: convexDeploymentName,
+            projectSlug: convexProjectSlug,
             teamSlug: convexTeamDashboardSlug,
           }),
         };
@@ -1783,9 +1904,6 @@ async function getVaultByRepositoryHelper(
     defaultBranch,
     resolvedBranch,
     branchNotFound,
-    infraState: vault.infraState,
-    infraLastError: vault.infraLastError,
-    infraLastProvisionedAt: vault.infraLastProvisionedAt,
   };
 }
 
@@ -1852,24 +1970,9 @@ export const getVaultInfrastructure = query({
   },
   returns: v.union(
     v.object({
-      infraState: v.union(
-        v.literal("not_started"),
-        v.literal("provisioning"),
-        v.literal("ready"),
-        v.literal("failed"),
-        v.literal("partial"),
-      ),
-      infraLastError: v.optional(v.string()),
-      infraLastProvisionedAt: v.optional(v.number()),
+      providerSetup: providerSetupSummary,
       infrastructure: v.optional(
         v.object({
-          status: v.union(
-            v.literal("not_started"),
-            v.literal("provisioning"),
-            v.literal("ready"),
-            v.literal("failed"),
-            v.literal("partial"),
-          ),
           convexProjectId: v.optional(v.string()),
           convexProjectSlug: v.optional(v.string()),
           convexDeploymentName: v.optional(v.string()),
@@ -1914,12 +2017,11 @@ export const getVaultInfrastructure = query({
       .collect();
 
     return {
-      infraState: vault.infraState,
-      infraLastError: vault.infraLastError,
-      infraLastProvisionedAt: vault.infraLastProvisionedAt,
+      providerSetup: isNoterManagedVault(vault)
+        ? await resolveProviderSetupSummary(ctx, vault)
+        : { status: "not_applicable" as const },
       infrastructure: infrastructure
         ? {
-            status: infrastructure.status,
             convexProjectId: infrastructure.convexProjectId,
             convexProjectSlug: infrastructure.convexProjectSlug,
             convexDeploymentName: infrastructure.convexDeploymentName,
