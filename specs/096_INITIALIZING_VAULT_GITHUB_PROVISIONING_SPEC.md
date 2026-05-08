@@ -843,7 +843,7 @@ Observed Phase 3 happy path, from a local end-to-end run on 2026-05-08:
 1. after clicking New App, the dashboard creates a new card quickly with
    `setting up...` but no body content yet
 2. once GitHub identity is connected, the card shows the source setup summary
-   and provisioning textarea for `connect vault`, `seed starter`, and
+   and provisioning textarea for `connect GitHub`, `seed starter`, and
    `sync tree`
 3. when the first usable tree lands, the source setup summary disappears
 4. because the old dashboard readiness model now sees a ready Noter-managed

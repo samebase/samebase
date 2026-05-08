@@ -24,7 +24,7 @@ export function formatVaultSourceSetupStep(
     case "connect_github":
       return "connect GitHub";
     case "create_vault":
-      return "connect vault";
+      return "connect GitHub";
     case "seed_starter":
       return "seed starter";
     case "sync_tree":
