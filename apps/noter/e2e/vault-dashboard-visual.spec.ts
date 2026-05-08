@@ -307,21 +307,20 @@ test("vault dashboard fixture (developer tools query spacing)", async ({
   expect(Math.round(visibleBox.height)).toBe(Math.round(hiddenBox.height));
 });
 
-test("vault dashboard fixture (delete popover)", async ({ page }) => {
+test("vault dashboard fixture (delete dialog)", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 360 });
   await page.goto("/visual-fixture.html?mode=vault-dashboard-delete-open", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
 
-  const deleteLink = page.getByRole("link", {
-    name: "Remove vault noter-md/noter",
-  });
-  await expect(deleteLink).toHaveAttribute("href", "/?delete=noter-md%2Fnoter");
   await expect(
-    page.getByRole("button", { name: "Remove vault" }),
+    page.getByRole("dialog", { name: "Remove Vault noter-md/noter" }),
   ).toBeVisible();
-  await expect(page).toHaveScreenshot("vault-dashboard-delete-popover.png", {
+  await expect(
+    page.getByRole("button", { name: "Remove Vault" }),
+  ).toBeVisible();
+  await expect(page).toHaveScreenshot("vault-dashboard-delete-dialog.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
@@ -329,7 +328,7 @@ test("vault dashboard fixture (delete popover)", async ({ page }) => {
   });
 });
 
-test("vault dashboard fixture (delete mobile sheet)", async ({
+test("vault dashboard fixture (delete dialog mobile)", async ({
   browser,
 }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
@@ -349,14 +348,20 @@ test("vault dashboard fixture (delete mobile sheet)", async ({
   await page.waitForLoadState("networkidle");
 
   await expect(
-    page.getByRole("button", { name: "Remove vault" }),
+    page.getByRole("dialog", { name: "Remove Vault noter-md/noter" }),
   ).toBeVisible();
-  await expect(page).toHaveScreenshot("vault-dashboard-delete-mobile.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.03,
-  });
+  await expect(
+    page.getByRole("button", { name: "Remove Vault" }),
+  ).toBeVisible();
+  await expect(page).toHaveScreenshot(
+    "vault-dashboard-delete-dialog-mobile.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
 
   await context.close();
 });

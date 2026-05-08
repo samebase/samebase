@@ -79,8 +79,8 @@ apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-mobile-alig
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-pr-labels.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-create-control.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-bottom-target-scroll.png
-apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-delete-mobile.png
-apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-delete-popover.png
+apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-delete-dialog-mobile.png
+apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-delete-dialog.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-dev-tools-hidden.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-list-spacing-desktop.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-list-spacing.png

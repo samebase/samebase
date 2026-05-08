@@ -59,11 +59,15 @@ Each dashboard vault card exposes a single remove-vault link that writes
 contract validates the value as a single GitHub repository full name so the same
 URL works for SPA navigation, direct page loads, and shared links.
 
+The `delete` search value owns the confirmation modal directly. Clicking the
+card's remove-vault link writes `?delete=<owner>/<repo>` and immediately opens
+the existing confirmation dialog for that vault; there is no intermediate
+dropdown, popover, or sheet. Closing the dialog or completing deletion clears
+the `delete` search value through TanStack Router.
+
 When the dashboard loads with a matching `delete` value, the matching vault card
-scrolls into view after vault data arrives. Desktop renders the delete surface
-as an anchored popover; touch-first devices render the same internal delete
-content inside a bottom sheet. The delete surface opens the existing
-confirmation dialog so destructive cleanup options stay centralized.
+scrolls into view after vault data arrives, then the confirmation dialog opens
+for that vault. Destructive cleanup options stay centralized in the dialog.
 
 ## Pre-Implementation Baseline (Historical)
 
