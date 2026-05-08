@@ -15,23 +15,12 @@ const featureTree = [
   },
 ];
 
-const defaultTree = [
-  {
-    path: "src/main.ts",
-    mode: "100644",
-    type: "blob",
-    sha: "main-sha",
-  },
-];
-
 describe("selectBatchReadRepositoryTree", () => {
   it("uses the branch tree when available", () => {
     expect(
       selectBatchReadRepositoryTree({
         requestedBranch: "feature/login",
-        defaultBranch: "main",
         branchTree: featureTree,
-        legacyTree: defaultTree,
       }),
     ).toEqual(featureTree);
   });
@@ -39,41 +28,16 @@ describe("selectBatchReadRepositoryTree", () => {
   it("uses the default branch tree when no branch is requested", () => {
     expect(
       selectBatchReadRepositoryTree({
-        defaultBranch: "main",
         branchTree: featureTree,
-        legacyTree: defaultTree,
       }),
     ).toEqual(featureTree);
   });
 
-  it("falls back to legacy tree when no branch or branch tree is available", () => {
-    expect(
-      selectBatchReadRepositoryTree({
-        defaultBranch: "main",
-        branchTree: null,
-        legacyTree: defaultTree,
-      }),
-    ).toEqual(defaultTree);
-  });
-
-  it("allows legacy fallback only for default branch requests", () => {
-    expect(
-      selectBatchReadRepositoryTree({
-        requestedBranch: "main",
-        defaultBranch: "main",
-        branchTree: null,
-        legacyTree: defaultTree,
-      }),
-    ).toEqual(defaultTree);
-  });
-
-  it("throws when non-default branch cache is missing", () => {
+  it("throws when the requested branch cache is missing", () => {
     expect(() =>
       selectBatchReadRepositoryTree({
         requestedBranch: "feature/login",
-        defaultBranch: "main",
         branchTree: null,
-        legacyTree: defaultTree,
       }),
     ).toThrow('Branch tree is not cached for "feature/login"');
   });
@@ -81,9 +45,7 @@ describe("selectBatchReadRepositoryTree", () => {
   it("throws when no branch is requested before the default tree is cached", () => {
     expect(() =>
       selectBatchReadRepositoryTree({
-        defaultBranch: "main",
         branchTree: null,
-        legacyTree: null,
       }),
     ).toThrow("Default branch tree is not cached. Refresh and retry.");
   });
@@ -110,9 +72,6 @@ describe("runPostCommitTreeRefresh", () => {
       refreshBranchTree: async () => {
         calls.push("branch");
       },
-      refreshLegacyTree: async () => {
-        calls.push("legacy");
-      },
       loadUpdatedVault: async () => {
         calls.push("load");
         return { treeSHA: "abc" };
@@ -122,7 +81,7 @@ describe("runPostCommitTreeRefresh", () => {
       },
     });
 
-    expect(calls).toEqual(["branch", "legacy", "load"]);
+    expect(calls).toEqual(["branch", "load"]);
     expect(result).toEqual({ treeSHA: "abc" });
   });
 
@@ -132,7 +91,6 @@ describe("runPostCommitTreeRefresh", () => {
       refreshBranchTree: async () => {
         throw new Error("network");
       },
-      refreshLegacyTree: async () => undefined,
       loadUpdatedVault: async () => ({ treeSHA: "abc" }),
       onWarning: (error) => {
         warnings.push(error);

@@ -867,6 +867,28 @@ Stop before user-facing retry buttons. After this phase, runtime code should no
 longer depend on vault-row tree mirrors or newly-created `vaultId: null`
 provisioning records.
 
+Phase 4 has one migration-sensitive boundary: code should stop reading and
+writing the deprecated vault-row `treeSHA`, `treeData`, and default-branch
+`commitSHA` mirrors first, while the schema keeps those optional fields long
+enough for stored production rows. Before the final schema narrow deploy, run
+the vault mirror cleanup migration so any row that still has a default-branch
+mirror creates a `vaultBranchTrees` row if needed and clears the deprecated
+fields from the vault row. Only after that verification should the optional
+mirror fields be removed from `VaultRow`.
+
+New App owner selection is part of this phase. The create action should receive
+the selected GitHub user or organization from the UI and create the initializing
+vault/run before the Workflow makes GitHub API calls. Listing the selectable
+owners can happen in the UI because it is the explicit UX for choosing the repo
+target; the create button itself should not perform hidden owner discovery
+before inserting the vault.
+
+Provisioning runs and events follow the same staged narrowing rule. New
+supported runs are vault-owned, and newly appended events must belong to a run
+with a vault id and repository full name. The stored schema can retain nullable
+legacy fields until old records are retired, but list/append paths should stop
+surfacing or creating unowned compatibility events.
+
 This phase can land as a short cleanup series. The gate matters more than the PR
 boundary: manual retry UI should wait until these compatibility exits are closed
 or intentionally narrowed to non-blocking parked work.

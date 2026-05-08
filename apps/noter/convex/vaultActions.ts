@@ -13,7 +13,15 @@ import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import { isConnectedVault, isNoterManagedVault } from "./vaultState";
 import { toSafeRepoName } from "./repoName";
 
-const { optional } = v;
+const { array, literal, object, optional, string, union } = v;
+const githubRepositoryOwnerKind = union(
+  literal("user"),
+  literal("organization"),
+);
+const githubRepositoryOwnerOption = object({
+  login: string(),
+  kind: githubRepositoryOwnerKind,
+});
 
 function isProviderNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
@@ -83,6 +91,7 @@ async function startCreateAppProvisioningOrFail(
     runId: Id<"appProvisioningRuns">;
     userId: Id<"users">;
     repositoryName: string;
+    repositoryOwner: string;
     description: string | null;
     private: boolean;
   },
@@ -112,7 +121,7 @@ async function startCreateAppProvisioningOrFail(
   }
 }
 
-async function resolveGithubConnectionOwner(
+async function resolveGithubConnectionUsername(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
     connection: Extract<Doc<"providerConnections">, { kind: "github" }>;
@@ -140,6 +149,47 @@ async function resolveGithubConnectionOwner(
 
   return username;
 }
+
+export const listRepositoryOwners = action({
+  args: {},
+  returns: array(githubRepositoryOwnerOption),
+  handler: async (
+    ctx,
+  ): Promise<Array<{ login: string; kind: "user" | "organization" }>> => {
+    const userId = await getUserId(ctx);
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId,
+        kind: "github",
+      },
+    );
+    if (githubConnection?.kind !== "github") {
+      throw new Error("GitHub is not connected.");
+    }
+
+    const username = await resolveGithubConnectionUsername(ctx, {
+      connection: githubConnection,
+      userId,
+    });
+    const octokit = new Octokit({
+      auth: githubConnection.auth.credential,
+    });
+    const organizations = await octokit.rest.orgs.listForAuthenticatedUser({
+      per_page: 100,
+    });
+    const organizationOwners = organizations.data
+      .map((organization) => organization.login)
+      .filter((login) => login.length > 0)
+      .sort((left, right) => left.localeCompare(right))
+      .map((login) => ({
+        login,
+        kind: "organization" as const,
+      }));
+
+    return [{ login: username, kind: "user" }, ...organizationOwners];
+  },
+});
 
 export const connectRepository = action({
   args: {
@@ -208,9 +258,12 @@ export const connectRepository = action({
       ghRepoName: repo.data.name,
       defaultBranch,
       visibility: repo.data.private ? "private" : "public",
-      treeSHA: tree.data.sha,
-      commitSHA: branchData.data.commit.sha,
+    });
+    await ctx.runMutation(internal.vault.upsertVaultBranchTree, {
+      vaultId,
+      branch: defaultBranch,
       treeData: tree.data,
+      commitSHA: branchData.data.commit.sha,
     });
 
     // await ctx.scheduler.runAfter(
@@ -235,6 +288,7 @@ export const connectRepository = action({
 export const createRepository = action({
   args: {
     name: v.string(),
+    owner: string(),
     description: optional(v.string()),
     private: optional(v.boolean()),
   },
@@ -251,6 +305,10 @@ export const createRepository = action({
     if (!repoName) {
       throw new Error("Repository name is required.");
     }
+    const ghRepoOwner = args.owner.trim();
+    if (!ghRepoOwner) {
+      throw new Error("GitHub owner is required.");
+    }
 
     const githubConnection = await ctx.runQuery(
       internal.providerConnections.getByUserAndKind,
@@ -262,14 +320,6 @@ export const createRepository = action({
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected.");
     }
-    // TODO(GitHub owner selection): let New App choose the target user/org and
-    // pass it here, so the initializing vault can be created before any GitHub
-    // API request. This fallback exists only while API-key connections may lack
-    // a stored username.
-    const ghRepoOwner = await resolveGithubConnectionOwner(ctx, {
-      connection: githubConnection,
-      userId,
-    });
 
     const visibility = args.private === false ? "public" : "private";
     const { vaultId, runId } = await ctx.runMutation(
@@ -286,6 +336,7 @@ export const createRepository = action({
       runId,
       userId,
       repositoryName: repoName,
+      repositoryOwner: ghRepoOwner,
       description: args.description ?? null,
       private: args.private ?? true,
     });

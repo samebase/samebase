@@ -3,6 +3,13 @@ import { type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
@@ -841,6 +848,15 @@ function FixtureDashboardCreateControl() {
               value=""
               onChange={() => {}}
             />
+            <Select value="nicu-chiciuc" onValueChange={() => {}}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="GitHub owner" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nicu-chiciuc">nicu-chiciuc</SelectItem>
+                <SelectItem value="noter-md">noter-md</SelectItem>
+              </SelectContent>
+            </Select>
             <Button className="w-full">New App</Button>
             <Button
               variant="outline"

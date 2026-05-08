@@ -2,6 +2,13 @@ import { api } from "../../../convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/input";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultProvisioningLogTextarea } from "@/components/vault-dashboard/VaultProvisioningLogTextarea";
@@ -195,6 +202,10 @@ type ProviderRuntimeConfig = {
   popupOriginRef: MutableRefObject<string | null>;
 };
 type VaultDashboardLogoComponent = () => ReactNode;
+type GitHubRepositoryOwnerOption = {
+  login: string;
+  kind: "user" | "organization";
+};
 
 export type VaultDeleteDialogTarget = {
   repositoryFullName: string;
@@ -227,13 +238,17 @@ type VaultDashboardLocalState = {
   isCreating: boolean;
   isDeleting: boolean;
   isGlobalChatBusy: boolean;
+  isLoadingGithubRepositoryOwners: boolean;
   isSigningOut: boolean;
+  githubRepositoryOwnerOptions: GitHubRepositoryOwnerOption[];
+  githubRepositoryOwnerLoadError: string | null;
   newRepositoryName: string;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   removeCodespaces: boolean;
   removeConvexProvision: boolean;
   removeGithubRepo: boolean;
   removeHostingProvision: boolean;
+  selectedGithubRepositoryOwner: string;
   shouldAutoFocusChatInput: boolean;
 };
 
@@ -255,13 +270,17 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
     isCreating: false,
     isDeleting: false,
     isGlobalChatBusy: false,
+    isLoadingGithubRepositoryOwners: false,
     isSigningOut: false,
+    githubRepositoryOwnerOptions: [],
+    githubRepositoryOwnerLoadError: null,
     newRepositoryName: "",
     openDeveloperToolsByVaultId: {},
     removeCodespaces: false,
     removeConvexProvision: false,
     removeGithubRepo: false,
     removeHostingProvision: false,
+    selectedGithubRepositoryOwner: "",
     shouldAutoFocusChatInput: false,
   };
 }
@@ -358,6 +377,29 @@ function useVaultDashboardLocalStore() {
       setGlobalChatBusy: (isGlobalChatBusy: boolean) => {
         setState((state) => ({ ...state, isGlobalChatBusy }));
       },
+      setGithubRepositoryOwnerLoadError: (
+        githubRepositoryOwnerLoadError: string | null,
+      ) => {
+        setState((state) => ({ ...state, githubRepositoryOwnerLoadError }));
+      },
+      setGithubRepositoryOwnerOptions: (
+        githubRepositoryOwnerOptions: GitHubRepositoryOwnerOption[],
+      ) => {
+        setState((state) => {
+          const selectedOwnerStillExists = githubRepositoryOwnerOptions.some(
+            (owner) => owner.login === state.selectedGithubRepositoryOwner,
+          );
+          const selectedGithubRepositoryOwner = selectedOwnerStillExists
+            ? state.selectedGithubRepositoryOwner
+            : (githubRepositoryOwnerOptions[0]?.login ?? "");
+          return {
+            ...state,
+            githubRepositoryOwnerLoadError: null,
+            githubRepositoryOwnerOptions,
+            selectedGithubRepositoryOwner,
+          };
+        });
+      },
       setIsAutoCheckingCloudflareToken: (
         isAutoCheckingCloudflareToken: boolean,
       ) => {
@@ -375,6 +417,11 @@ function useVaultDashboardLocalStore() {
       setIsDeleting: (isDeleting: boolean) => {
         setState((state) => ({ ...state, isDeleting }));
       },
+      setIsLoadingGithubRepositoryOwners: (
+        isLoadingGithubRepositoryOwners: boolean,
+      ) => {
+        setState((state) => ({ ...state, isLoadingGithubRepositoryOwners }));
+      },
       setIsSigningOut: (isSigningOut: boolean) => {
         setState((state) => ({ ...state, isSigningOut }));
       },
@@ -383,6 +430,15 @@ function useVaultDashboardLocalStore() {
           ...state,
           createError: null,
           newRepositoryName,
+        }));
+      },
+      setSelectedGithubRepositoryOwner: (
+        selectedGithubRepositoryOwner: string,
+      ) => {
+        setState((state) => ({
+          ...state,
+          createError: null,
+          selectedGithubRepositoryOwner,
         }));
       },
     }),
@@ -2085,6 +2141,9 @@ export function VaultDashboard() {
   const now = useNow();
   const deleteVault = useAction(api.vaultActions.deleteVault);
   const createRepository = useAction(api.vaultActions.createRepository);
+  const listGithubRepositoryOwners = useAction(
+    api.vaultActions.listRepositoryOwners,
+  );
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
   const refreshTree = useAction(api.github.refreshRepositoryTree);
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
@@ -2259,13 +2318,17 @@ export function VaultDashboard() {
     isCreating,
     isDeleting,
     isGlobalChatBusy,
+    isLoadingGithubRepositoryOwners,
     isSigningOut,
+    githubRepositoryOwnerLoadError,
+    githubRepositoryOwnerOptions,
     newRepositoryName,
     openDeveloperToolsByVaultId,
     removeCodespaces,
     removeConvexProvision,
     removeGithubRepo,
     removeHostingProvision,
+    selectedGithubRepositoryOwner,
     shouldAutoFocusChatInput,
   } = useSelector(dashboardLocalStore);
   const {
@@ -2281,6 +2344,8 @@ export function VaultDashboard() {
     setDeleteOption,
     setDeveloperToolsOpen,
     setDisconnectingProvider,
+    setGithubRepositoryOwnerLoadError,
+    setGithubRepositoryOwnerOptions,
     setGlobalChatAutoFocus,
     setGlobalChatBusy,
     setIsAutoCheckingCloudflareToken,
@@ -2288,8 +2353,10 @@ export function VaultDashboard() {
     setIsCommitting,
     setIsCreating,
     setIsDeleting,
+    setIsLoadingGithubRepositoryOwners,
     setIsSigningOut,
     setNewRepositoryName,
+    setSelectedGithubRepositoryOwner,
   } = dashboardLocalStore.actions;
 
   useProviderOAuthPopupCompletionReload({
@@ -2538,10 +2605,15 @@ export function VaultDashboard() {
   const handleCreateRepository = async () => {
     const repoName = newRepositoryName.trim();
     if (!repoName || isCreating) return;
-    if (!canCreateRepo) {
+    if (!hasRequiredCreateConnections) {
       setCreateError(
         `Connect GitHub, Convex, and ${requiredHostingConnectionLabel} before creating an app.`,
       );
+      return;
+    }
+    const owner = selectedGithubRepositoryOwner.trim();
+    if (!owner) {
+      setCreateError("Choose a GitHub owner before creating an app.");
       return;
     }
 
@@ -2551,6 +2623,7 @@ export function VaultDashboard() {
     try {
       await createRepository({
         name: repoName,
+        owner,
         private: true,
       });
       resetCreateRepositoryName();
@@ -2591,9 +2664,55 @@ export function VaultDashboard() {
     !isAutoCheckingCloudflareToken &&
     (cloudflareMcpTokenStatus === "invalid" ||
       cloudflareMcpTokenStatus === "expired");
-  const canCreateRepo = Boolean(
+  const hasRequiredCreateConnections = Boolean(
     githubConnected && convexConnected && cloudflareConnected,
   );
+  const canCreateRepo = Boolean(
+    hasRequiredCreateConnections && selectedGithubRepositoryOwner.trim(),
+  );
+  useEffect(() => {
+    let shouldIgnoreResult = false;
+    if (!githubConnected) {
+      setGithubRepositoryOwnerOptions([]);
+      setGithubRepositoryOwnerLoadError(null);
+      setIsLoadingGithubRepositoryOwners(false);
+      return;
+    }
+
+    setIsLoadingGithubRepositoryOwners(true);
+    setGithubRepositoryOwnerLoadError(null);
+    void listGithubRepositoryOwners({})
+      .then((owners) => {
+        if (!shouldIgnoreResult) {
+          setGithubRepositoryOwnerOptions(owners);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!shouldIgnoreResult) {
+          setGithubRepositoryOwnerOptions([]);
+          setGithubRepositoryOwnerLoadError(
+            error instanceof Error
+              ? error.message
+              : "Failed to load GitHub owners.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!shouldIgnoreResult) {
+          setIsLoadingGithubRepositoryOwners(false);
+        }
+      });
+
+    return () => {
+      shouldIgnoreResult = true;
+    };
+  }, [
+    githubConnected,
+    listGithubRepositoryOwners,
+    setGithubRepositoryOwnerLoadError,
+    setGithubRepositoryOwnerOptions,
+    setIsLoadingGithubRepositoryOwners,
+  ]);
   const formatAuthMethod = (
     method: "oauth" | "mcp_oauth" | "api_key" | "device_auth" | undefined,
   ) => {
@@ -2685,6 +2804,9 @@ export function VaultDashboard() {
     : null;
   const createPlaceholder = "New App name";
   const createButtonLabel = isCreating ? "Creating app..." : "New App";
+  const ownerSelectPlaceholder = isLoadingGithubRepositoryOwners
+    ? "Loading GitHub owners..."
+    : "GitHub owner";
   const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
     connectGithubWithApiKey,
     connectConvexWithApiKey,
@@ -2703,8 +2825,31 @@ export function VaultDashboard() {
           }
         }}
         className="w-full"
-        disabled={!canCreateRepo}
+        disabled={!hasRequiredCreateConnections || isCreating}
       />
+      {githubConnected && (
+        <Select
+          value={selectedGithubRepositoryOwner}
+          onValueChange={setSelectedGithubRepositoryOwner}
+          disabled={
+            isCreating ||
+            !hasRequiredCreateConnections ||
+            isLoadingGithubRepositoryOwners ||
+            githubRepositoryOwnerOptions.length === 0
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder={ownerSelectPlaceholder} />
+          </SelectTrigger>
+          <SelectContent>
+            {githubRepositoryOwnerOptions.map((owner) => (
+              <SelectItem key={owner.login} value={owner.login}>
+                {owner.login}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
       <Button
         className="w-full"
         onClick={() => {
@@ -2742,7 +2887,14 @@ export function VaultDashboard() {
       {createError && <div className="text-sm text-red-600">{createError}</div>}
       {!canCreateRepo && (
         <div className="text-xs text-muted-foreground">
-          {`Connect GitHub, Convex, and ${requiredHostingConnectionLabel} to create an app.`}
+          {hasRequiredCreateConnections
+            ? "Choose a GitHub owner to create an app."
+            : `Connect GitHub, Convex, and ${requiredHostingConnectionLabel} to create an app.`}
+        </div>
+      )}
+      {githubRepositoryOwnerLoadError && (
+        <div className="text-xs text-red-600">
+          {githubRepositoryOwnerLoadError}
         </div>
       )}
       {showCloudflareCreateWarning && (

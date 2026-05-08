@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
 import {
   AppProvisioningEventLevel,
   AppProvisioningRunState,
@@ -11,6 +12,19 @@ import { assertConnectedVault } from "./vaultState";
 
 const { id, literal, string, union } = v;
 const MAX_EVENTS_TO_LINK_TO_VAULT = 20;
+
+function assertRunVaultReference(run: Doc<"appProvisioningRuns">): {
+  vaultId: Id<"vaults">;
+  repositoryFullName: string;
+} {
+  if (!run.vaultId || !run.repositoryFullName) {
+    throw new Error("Provisioning run is not linked to a vault.");
+  }
+  return {
+    vaultId: run.vaultId,
+    repositoryFullName: run.repositoryFullName,
+  };
+}
 
 export const getById = internalQuery({
   args: {
@@ -65,7 +79,7 @@ export const recordRepositoryCreated = internalMutation({
       updatedAt: Date.now(),
     });
     if (
-      run.repositoryFullName !== null &&
+      run.repositoryFullName &&
       run.repositoryFullName !== args.repositoryFullName
     ) {
       const events = await ctx.db
@@ -77,62 +91,6 @@ export const recordRepositoryCreated = internalMutation({
           repositoryFullName: args.repositoryFullName,
         });
       }
-    }
-
-    return null;
-  },
-});
-
-export const linkVault = internalMutation({
-  args: {
-    runId: id("appProvisioningRuns"),
-    vaultId: id("vaults"),
-    repositoryFullName: string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.runId);
-    if (!run) {
-      throw new Error("Provisioning run not found.");
-    }
-    if (run.vaultId !== null && run.vaultId !== args.vaultId) {
-      throw new Error("Provisioning run vault cannot be changed.");
-    }
-    if (
-      run.repositoryFullName !== null &&
-      run.repositoryFullName !== args.repositoryFullName
-    ) {
-      throw new Error("Provisioning run repository does not match vault.");
-    }
-
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== run.userId) {
-      throw new Error("Vault not found for provisioning run.");
-    }
-    const connectedVault = assertConnectedVault(vault);
-    if (
-      `${connectedVault.owner}/${connectedVault.name}` !==
-      args.repositoryFullName
-    ) {
-      throw new Error("Vault repository does not match provisioning run.");
-    }
-
-    const now = Date.now();
-    await ctx.db.patch(args.runId, {
-      vaultId: args.vaultId,
-      repositoryFullName: args.repositoryFullName,
-      updatedAt: now,
-    });
-
-    const events = await ctx.db
-      .query("appProvisioningEvents")
-      .withIndex("by_run_and_created_at", (q) => q.eq("runId", args.runId))
-      .take(MAX_EVENTS_TO_LINK_TO_VAULT);
-    for (const event of events) {
-      await ctx.db.patch(event._id, {
-        vaultId: args.vaultId,
-        repositoryFullName: args.repositoryFullName,
-      });
     }
 
     return null;
@@ -164,10 +122,11 @@ export const appendRunEvent = internalMutation({
     }
 
     const now = Date.now();
+    const runReference = assertRunVaultReference(run);
     await ctx.runMutation(internal.appProvisioningEvents.append, {
       userId: run.userId,
-      vaultId: run.vaultId,
-      repositoryFullName: run.repositoryFullName,
+      vaultId: runReference.vaultId,
+      repositoryFullName: runReference.repositoryFullName,
       runId: args.runId,
       step: args.step,
       level: args.level,

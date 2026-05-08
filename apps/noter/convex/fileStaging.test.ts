@@ -24,15 +24,6 @@ const branchTree = [
   },
 ];
 
-const defaultTree = [
-  {
-    path: "src/main.ts",
-    mode: "100644",
-    type: "blob",
-    sha: "main-sha",
-  },
-];
-
 function createClearAllStagingTestContext(args: {
   targetVaultId: string;
   vault: {
@@ -179,31 +170,16 @@ describe("selectRepositoryTreeForBranch", () => {
     expect(
       selectRepositoryTreeForBranch({
         requestedBranch: "feature/login",
-        defaultBranch: "main",
         branchTree,
-        legacyTree: defaultTree,
       }),
     ).toEqual(branchTree);
   });
 
-  it("falls back to legacy tree only for the default branch", () => {
-    expect(
-      selectRepositoryTreeForBranch({
-        requestedBranch: "main",
-        defaultBranch: "main",
-        branchTree: null,
-        legacyTree: defaultTree,
-      }),
-    ).toEqual(defaultTree);
-  });
-
-  it("throws for missing non-default branch trees", () => {
+  it("throws for missing branch trees", () => {
     expect(() =>
       selectRepositoryTreeForBranch({
         requestedBranch: "feature/login",
-        defaultBranch: "main",
         branchTree: null,
-        legacyTree: defaultTree,
       }),
     ).toThrow('Branch tree is not cached for "feature/login"');
   });
@@ -212,9 +188,7 @@ describe("selectRepositoryTreeForBranch", () => {
     expect(() =>
       selectRepositoryTreeForBranch({
         requestedBranch: "main",
-        defaultBranch: "main",
         branchTree: null,
-        legacyTree: null,
       }),
     ).toThrow('Branch tree is not cached for "main"');
   });

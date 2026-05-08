@@ -121,14 +121,24 @@ export const listVaultsForUser = internalQuery({
       .query("vaults")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .collect();
-    return vaults.filter(isConnectedVault).map((vault) => ({
-      vaultId: vault._id,
-      repositoryFullName: `${vault.owner}/${vault.name}`,
-      state: "ready",
-      isNoterManaged: isNoterManagedVault(vault),
-      commitSha: vault.commitSHA,
-      hostingProvider: getConnectedVaultHostingProvider(vault),
-    }));
+    return await Promise.all(
+      vaults.filter(isConnectedVault).map(async (vault) => {
+        const defaultBranchTree = await ctx.db
+          .query("vaultBranchTrees")
+          .withIndex("by_vault_and_branch", (q) =>
+            q.eq("vaultId", vault._id).eq("branch", vault.defaultBranch),
+          )
+          .first();
+        return {
+          vaultId: vault._id,
+          repositoryFullName: `${vault.owner}/${vault.name}`,
+          state: defaultBranchTree ? "ready" : "copying_files",
+          isNoterManaged: isNoterManagedVault(vault),
+          commitSha: defaultBranchTree?.commitSHA,
+          hostingProvider: getConnectedVaultHostingProvider(vault),
+        };
+      }),
+    );
   },
 });
 

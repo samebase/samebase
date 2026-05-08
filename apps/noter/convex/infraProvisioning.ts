@@ -431,13 +431,9 @@ function resolveCloudflareBuildConfig(vault: {
 
 export function selectCloudflareBuildConfigTreeData(args: {
   branchTreeData: GithubTreeData | null;
-  legacyTreeData: GithubTreeData | undefined;
 }): GithubTreeData {
   if (args.branchTreeData) {
     return args.branchTreeData;
-  }
-  if (args.legacyTreeData) {
-    return args.legacyTreeData;
   }
   throw new Error("Default branch tree is not synced yet.");
 }
@@ -1181,7 +1177,6 @@ export const ensureCloudflareInfrastructure = internalAction({
     );
     const buildConfigTreeData = selectCloudflareBuildConfigTreeData({
       branchTreeData: defaultBranchTree?.treeData ?? null,
-      legacyTreeData: vault.treeData,
     });
     const defaultBranch = vault.defaultBranch;
     const { githubAccessToken } = await resolveGitHubProvisioningConnection(
@@ -1396,7 +1391,7 @@ export const markWorkflowStartupFailed = internalMutation({
         : run.currentStep === "run_created"
           ? "claim_infra"
           : run.currentStep;
-    if (run.vaultId !== null) {
+    if (run.vaultId) {
       const vault = await ctx.db.get(run.vaultId);
       if (
         vault?.state === "provisioning" &&
@@ -1429,16 +1424,18 @@ export const markWorkflowStartupFailed = internalMutation({
       updatedAt: now,
       completedAt: now,
     });
-    await ctx.runMutation(internal.appProvisioningEvents.append, {
-      userId: run.userId,
-      vaultId: run.vaultId,
-      repositoryFullName: run.repositoryFullName,
-      runId: args.runId,
-      step: eventStep,
-      level: "error",
-      message: safeRunError,
-      createdAt: now,
-    });
+    if (run.vaultId && run.repositoryFullName) {
+      await ctx.runMutation(internal.appProvisioningEvents.append, {
+        userId: run.userId,
+        vaultId: run.vaultId,
+        repositoryFullName: run.repositoryFullName,
+        runId: args.runId,
+        step: eventStep,
+        level: "error",
+        message: safeRunError,
+        createdAt: now,
+      });
+    }
 
     console.error("infra:provision:start_failed", {
       vaultId: run.vaultId,
@@ -1487,7 +1484,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
         : run.currentStep === "run_created"
           ? "claim_infra"
           : run.currentStep;
-    if (run.vaultId === null) {
+    if (!run.vaultId || !run.repositoryFullName) {
       const safeRunError =
         run.currentStep === "run_created"
           ? "Provisioning failed before the first step."
@@ -1497,16 +1494,6 @@ export const markWorkflowProvisioningFailed = internalMutation({
         lastError: safeRunError,
         updatedAt: now,
         completedAt: now,
-      });
-      await ctx.runMutation(internal.appProvisioningEvents.append, {
-        userId: run.userId,
-        vaultId: null,
-        repositoryFullName: run.repositoryFullName,
-        runId: args.runId,
-        step: eventStep,
-        level: "error",
-        message: safeRunError,
-        createdAt: now,
       });
       console.error("app:provision:failed", {
         repo: run.repositoryFullName,
