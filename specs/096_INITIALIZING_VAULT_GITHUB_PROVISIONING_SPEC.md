@@ -963,6 +963,17 @@ per-request timeout. The earlier 10 second timeout was too tight for normal
 Pages project setup latency and could fail `ensure_cloudflare` before backend
 retry and reconcile behavior had a chance to make the step durable.
 
+The first `seed_starter` idempotency case to cover is GitHub's empty-repository
+consistency window after Noter's bootstrap commit creates the default branch.
+Production observed the bootstrap commit succeed, then a follow-up manifest tree
+write still failed with GitHub reporting that the repository was empty. Phase 5
+should retry `seed_starter` through this exact post-bootstrap empty-repo
+response and keep the existing force-update behavior so the final starter commit
+replaces the bootstrap-only branch. Do not enable Workflow retry for
+`seed_starter` until this case is covered by tests. Keep `create_github_repo`
+non-retried unless a retained-repository state or equivalent durable identity
+guard exists.
+
 ### Vault-First Phase 6: Manual Provider Retry As Optional Proof
 
 Goal: add explicit retry actions only after the canonical model is clean enough
