@@ -18,18 +18,22 @@ provisioning shell. The vault is the durable dashboard object for progress,
 failure, and retry. It is not a usable repository workspace until its GitHub
 state is explicitly connected.
 
-This replaces the Phase 3 pre-vault run gap with a stable `vaultId` while
-preserving the strong invariant that repository-backed behavior requires a
-connected GitHub repository. GitHub connection means durable repository
-identity, not a fresh branch tree. Branch tree data is cache state and
-repo-backed file/tree behavior must still fail closed until the relevant branch
-snapshot exists. Convex and hosting fields only exist on connected GitHub
-variants, so those integrations cannot exist while GitHub is still provisioning
-or failed.
+This replaces the pre-vault run gap with a stable `vaultId` while preserving the
+strong invariant that repository-backed behavior requires a connected GitHub
+repository. GitHub connection means durable repository identity, not a fresh
+branch tree. Branch tree data is cache state and repo-backed file/tree behavior
+must still fail closed until the relevant branch snapshot exists. Convex and
+hosting fields only exist on connected GitHub variants, so those integrations
+cannot exist while GitHub is still provisioning or failed.
+
+After the vault-first creation path is visible and understandable, remove the
+temporary compatibility layers before treating manual retry UI as proof of the
+durable model. The primary product promise is still simple: the user clicks New
+App and either gets a usable app or a clear setup failure.
 
 ## Current Problem
 
-The current Phase 3 runtime creates an `appProvisioningRuns` row before a vault
+The pre-vault-first runtime creates an `appProvisioningRuns` row before a vault
 exists, then creates the vault only after GitHub repository creation, starter
 seeding, and tree fetch succeed.
 
@@ -46,9 +50,12 @@ shape, even though both flows need the same GitHub connection lifecycle.
    existing-repository connection.
 4. Keep Convex and hosting state present only on connected GitHub variants.
 5. Keep repository-backed features gated on connected GitHub state.
-6. Make manual retry target one failed provider state on one vault.
+6. Keep failures structured enough that a later retry action can target one
+   failed provider state on one vault.
 7. Keep operation-specific fields inside the matching provisioning or failed
    variant.
+8. Give every temporary compatibility layer an explicit removal phase before
+   adding optional UI proof surfaces on top of it.
 
 ## Non-Goals
 
@@ -57,8 +64,10 @@ shape, even though both flows need the same GitHub connection lifecycle.
 3. Build a generic provider framework.
 4. Redesign unrelated editor, file staging, branch, PR, or Codespaces flows
    beyond the required connected-GitHub guard.
-5. Add automatic Workflow restart-from-failed-step before manual provider-state
-   retry semantics are clear.
+5. Add generic user-facing retry before source setup visibility and
+   compatibility cleanup are complete.
+6. Add automatic restart-from-failed-step controls. Step-local backend retries
+   for idempotent provider work are still in scope after visibility is clear.
 
 ## Vault Invariant
 
@@ -422,15 +431,41 @@ consume them directly. This includes default-branch tree snapshot fields,
 repo-refresh operational fields, Codespace/devcontainer fields, and
 infrastructure summary fields. These mirrors are accepted Phase 1 reality, not
 the target model. They should stay clearly marked in the schema and move in a
-separate cleanup project once those call sites consume connected-only state or
+named cleanup phase once those call sites consume connected-only state or
 vault-scoped child tables.
 
 Do not add new product meaning to vault-row `treeSHA` or `treeData`. During this
 project they are compatibility mirrors for legacy call sites; new or touched
 branch/tree behavior should prefer `vaultBranchTrees` and only fall back to the
-vault-row snapshot while the migration is still incomplete. After the
-vault-first work settles, remove those mirrors from the vault row in a focused
-cleanup instead of preserving two sources of tree truth.
+vault-row snapshot while the migration is still incomplete. Phase 4 removes
+those mirrors from the vault row instead of preserving two sources of tree
+truth.
+
+## Compatibility Exit Gates
+
+Temporary compatibility is allowed only when it protects a narrow rollout step
+and has a named removal gate. The vault-first work currently tolerates these
+temporary layers:
+
+1. vault-row default-branch tree mirrors such as `treeSHA`, `treeData`, and
+   default-branch `commitSHA`
+2. runtime fallback reads from vault-row tree mirrors when `vaultBranchTrees`
+   should be the canonical branch tree source
+3. app provisioning run/event schema compatibility for historical pre-vault
+   records, especially nullable run `vaultId` and optional event `runId`
+4. dashboard query compatibility that compresses source readiness into
+   `state: "copying_files" | "ready" | "failed"` instead of explicit source
+   setup and tree-availability summaries
+5. temporary New App owner discovery that calls GitHub before vault/run insert
+   because the UI does not yet collect the target user/org owner
+6. delete UI limitations around create attempts that might have created a GitHub
+   repository before connected identity was written
+
+Manual provider retry should not be the next proof point while these layers are
+still active. Retry becomes more meaningful after source reads are canonical,
+new runs always have a vault, dashboard state is explicit, and the create flow
+gets owner/name/visibility from local product intent before external provider
+calls.
 
 ## Create New App Flow
 
@@ -446,8 +481,8 @@ For Noter-managed repository creation:
    `runId`, immutable repo identity, Convex and hosting state initialized, and
    confirmed repository visibility stored
 6. seed the starter app
-7. sync default branch and tree cache state into `vaultBranchTrees` and the
-   temporary vault-row compatibility mirror
+7. sync default branch and tree cache state into `vaultBranchTrees`; during the
+   compatibility window, also update the temporary vault-row mirror
 8. provision Convex and hosting state
 9. let the dashboard derive the vault summary from provider states
 
@@ -503,9 +538,9 @@ changing GitHub state.
 New create and connect workflows should create runs with a required `vaultId`.
 Because provisioning state also stores `runId`, the implementation should use
 one internal mutation to insert the vault, insert the run, and patch the vault
-into provisioning state before starting the Workflow. The Phase 3
-`vaultId: null` run state remains historical compatibility for the
-repository-first runtime and should not be the target shape for this phase.
+into provisioning state before starting the Workflow. The historical
+`vaultId: null` run state remains compatibility for the repository-first runtime
+and should be removed once legacy records are cleaned up or no longer queried.
 
 Run and event helpers should continue to record user-safe status only. Secrets,
 tokens, env values, deploy keys, request headers, and raw provider payloads
@@ -531,7 +566,8 @@ Provider rows should read from explicit state:
    provisioning, connected, or failed
 
 Repo-backed controls should stay hidden or disabled until GitHub is connected.
-Manual retry buttons should target the failed provider state on that vault.
+If manual retry buttons later exist, they should target the failed provider
+state on that vault.
 
 Dashboard summary labels such as creating, active, degraded, or failed should be
 derived from provider states. For example:
@@ -652,9 +688,9 @@ Scope:
 3. update create-app Workflow steps to mutate `state`, `githubMode`, `owner`,
    `name`, `visibility`, connected-only Convex/hosting state, and branch-tree
    cache state as steps start, succeed, or fail
-4. replace any pre-vault GitHub owner discovery fallback with New App owner
-   selection, so the selected user/org owner is available before the vault/run
-   insert
+4. keep any remaining pre-vault GitHub owner discovery fallback narrow and
+   documented as UX debt, because the target model is New App owner selection
+   before vault/run insert
 
 Connected GitHub state must not require a branch tree snapshot. Phase 2 may keep
 the vault-row tree fields as optional compatibility mirrors while current source
@@ -729,8 +765,7 @@ Scope:
 6. make provisioning logs visible for non-ready setup/failed cards that have
    provisioning events, not only inside ready-state developer tools
 
-Stop before implementing retry mutations unless the UI needs a disabled target
-for placement.
+Stop before implementing retry controls.
 
 Implementation outline:
 
@@ -746,7 +781,7 @@ Implementation outline:
 4. Keep infra controls hidden until the default-branch tree is usable; do not
    make tree absence mean GitHub disconnection.
 5. Render the latest failure message and provisioning log on the card so the
-   user can see which provider/source step failed before Phase 4 retry exists.
+   user can see which provider/source step failed before retry UI exists.
 6. Keep the ready-vault developer-tools log unchanged, but make the log
    component usable from the non-ready card body when setup summary status is
    `running` or `failed`.
@@ -765,20 +800,73 @@ Frontend behavior:
 5. Branch lists, source workspace links, chat, and infra controls remain hidden
    until a usable default-branch tree exists.
 
-### Vault-First Phase 4: Manual Provider Retry
+### Vault-First Phase 4: Compatibility Cleanup And Canonical Source Model
 
-Goal: add explicit retry actions for one failed provider state on one vault.
+Goal: remove the temporary compatibility surfaces that would make later retry UI
+prove too little about the actual model.
+
+Scope:
+
+1. update file view, staging, branch refresh, chat, dashboard, and
+   infrastructure paths to consume `vaultBranchTrees` or explicit connected
+   state instead of vault-row tree mirrors
+2. stop writing default-branch tree mirrors once current runtime paths no longer
+   read them, then remove `treeSHA`, `treeData`, and default-branch `commitSHA`
+   mirrors from the vault row
+3. narrow app provisioning run/event schema so new and supported records always
+   have a vault-owned run and every event belongs to a run
+4. replace the New App pre-insert GitHub owner discovery fallback with explicit
+   user/org owner selection in the UI
+5. either add the retained-created-repo failure state or keep delete UI limited
+   to confirmed connected Noter-managed repositories
+6. collapse the dashboard's legacy readiness projection once `sourceSetup`,
+   connected state, and tree availability cover the shipped UI directly
+
+Stop before user-facing retry buttons. After this phase, runtime code should no
+longer depend on vault-row tree mirrors or newly-created `vaultId: null`
+provisioning records.
+
+This phase can land as a short cleanup series. The gate matters more than the PR
+boundary: manual retry UI should wait until these compatibility exits are closed
+or intentionally narrowed to non-blocking parked work.
+
+### Vault-First Phase 5: Backend Durability And Provider Retries
+
+Goal: make New App finish successfully more often, and fail clearly when it
+cannot, without requiring the user to understand provider steps.
+
+Scope:
+
+1. classify create-app steps by idempotency before enabling backend retries
+2. add step-local Workflow retry only where duplicate external writes cannot
+   create a worse state
+3. keep `create_github_repo` conservative unless repository creation is
+   protected by durable repository identity or an explicit retained-repo state
+4. make `seed_starter` and initial `sync_tree` safe to retry from the backend
+   when their idempotency checks pass
+5. keep terminal failures user-visible through `sourceSetup` summaries and
+   provisioning events
+
+Stop before adding manual retry controls. Backend retries should improve the
+"click New App and get done" path; they are not a substitute for clear terminal
+state.
+
+### Vault-First Phase 6: Manual Provider Retry As Optional Proof
+
+Goal: add explicit retry actions only after the canonical model is clean enough
+that a retry button proves real durability instead of papering over
+compatibility.
 
 Scope:
 
 1. add provider-specific retry actions for failed provider state
 2. make each retry create a new run instead of mutating a terminal run
-3. update the current provider state to point at the new run
+3. update only the current provider state to point at the new run
+4. preserve older runs and events as history
 
-Stop before automatic Workflow restart-from-failed-step. Revisit that only after
-manual provider retry semantics are clear.
+Stop before generic automatic restart-from-failed-step controls.
 
-### Vault-First Phase 5: Existing Repository Onboarding
+### Vault-First Phase 7: Existing Repository Onboarding
 
 Goal: move existing-repository connection onto the same vault/run/provider-state
 model.
@@ -789,25 +877,20 @@ Scope:
    model
 2. write `githubMode: "connect_existing_repository"` for provisioning, failed,
    and connected states
-3. reuse the same dashboard and retry semantics as Noter-managed repository
-   creation
+3. reuse the same dashboard visibility and backend durability semantics as
+   Noter-managed repository creation
 
-## Follow-Up Cleanup Projects
+After Phase 4, Phases 5, 6, and 7 can be reordered by product priority. The
+important gate is that manual retry UI should not be used as the durability
+proof until the compatibility cleanup has removed the temporary model layers.
 
-These items are intentionally not broadening the current vault-first phase, but
-future work should pick them up before adding more behavior on top of the
-temporary model:
+## Parked Follow-Up Work
 
-1. Remove vault-row `treeSHA` and `treeData` after file view, staging, branch
-   refresh, infra, and dashboard paths consume `vaultBranchTrees` directly.
-2. Add explicit New App GitHub owner/org selection so create-app receives
-   `owner`, `name`, and `visibility` as local product intent before any GitHub
-   API request.
-3. Add an explicit retained-created-repo failure state before offering GitHub
-   repo deletion for create attempts that created a repository but failed before
-   connected identity was written. Until that state exists, delete UI must only
-   promise GitHub repo deletion for confirmed connected Noter-managed repos.
-4. Revisit parked Codespaces branch defaults after Codespaces work resumes.
+These items are intentionally outside the current New App reliability path:
+
+1. Revisit parked Codespaces branch defaults after Codespaces work resumes.
+2. Consider a generic restart-from-failed-step abstraction only after manual
+   provider retry has proven the state ownership model.
 
 ## Testing Plan
 
@@ -818,33 +901,43 @@ Backend:
 3. create-app success writes connected Noter-managed GitHub state
 4. connected GitHub state stores the run that established the connection
 5. create-app GitHub failure writes failed GitHub state on the vault
-6. GitHub retry creates a new run and replaces the failed state's `runId`
-7. existing-repo connection writes connected existing-repository GitHub state
-8. connected GitHub state stores current repository visibility
-9. pre-GitHub vault states cannot store Convex or hosting state
-10. connected GitHub identity cannot change to a different `ghRepoId`
-11. connected GitHub state cannot transition to top-level failed
-12. post-connected provider failures preserve connected GitHub state
-13. repo-backed helpers reject pre-GitHub vaults
-14. connected vaults without a usable default-branch tree do not expose
+6. connected GitHub state stores current repository visibility
+7. pre-GitHub vault states cannot store Convex or hosting state
+8. connected GitHub identity cannot change to a different `ghRepoId`
+9. connected GitHub state cannot transition to top-level failed
+10. post-connected provider failures preserve connected GitHub state
+11. repo-backed helpers reject pre-GitHub vaults
+12. connected vaults without a usable default-branch tree do not expose
     tree-dependent infra provisioning controls
-15. Cloudflare build config reads `vaultBranchTrees` before the temporary
-    vault-row tree mirror and fails before provider writes when neither exists
-16. connected Noter-managed vaults whose create run failed in `seed_starter` or
+13. connected Noter-managed vaults whose create run failed in `seed_starter` or
     `sync_tree` expose a dashboard source-setup failure summary derived from the
     run/events
+14. after compatibility cleanup, source, staging, dashboard, and infra paths
+    read default-branch tree state from `vaultBranchTrees` without vault-row
+    tree mirror fallback
+15. after compatibility cleanup, supported provisioning events require `runId`
+    and supported provisioning runs require `vaultId`
+16. when backend retries ship, retried provider steps prove idempotency and keep
+    terminal failures visible through the same run/event summaries
+17. when manual retry ships, GitHub retry creates a new run and replaces the
+    failed state's `runId`
+18. when existing-repo onboarding ships, connection writes connected
+    existing-repository GitHub state
 
 Frontend:
 
 1. dashboard shows initializing vault provider state
 2. repo-backed controls are hidden or disabled before GitHub connection
-3. failed GitHub state shows a retry target on the vault
-4. existing-repo connected vault renders like other connected vaults after the
-   GitHub state is connected
-5. delete dialog only offers GitHub repository deletion for confirmed connected
+3. delete dialog only offers GitHub repository deletion for confirmed connected
    Noter-managed repositories
-6. connected-without-tree failures render as setup failed with the relevant
+4. connected-without-tree failures render as setup failed with the relevant
    provisioning message/log instead of only showing `setting up...`
+5. after compatibility cleanup, source readiness is driven by explicit setup and
+   tree availability summaries instead of the legacy readiness bucket
+6. when manual retry ships, failed provider state shows the retry target on the
+   vault
+7. when existing-repo onboarding ships, connected existing-repo vaults render
+   like other connected vaults after GitHub state is connected
 
 ## Acceptance Criteria
 
@@ -855,10 +948,13 @@ Frontend:
 4. Convex and hosting state cannot exist unless GitHub is connected.
 5. Connected GitHub repository identity is immutable.
 6. Connected GitHub state records the run that established the connection.
-7. Retries create new runs rather than mutating previous terminal runs.
-8. Connected GitHub state stores current repository visibility.
-9. Connected GitHub state is not replaced by top-level failed state.
-10. Failed provider states are visible from the vault and expose retry actions
-    derived from state plus current provider/user prerequisites.
+7. Connected GitHub state stores current repository visibility.
+8. Connected GitHub state is not replaced by top-level failed state.
+9. Post-GitHub source setup failures are visible from the vault without exposing
+   source or infra controls that need a usable tree.
+10. Temporary compatibility layers have named removal gates before manual retry
+    UI is treated as durability proof.
 11. Failure messages are read from provisioning events rather than duplicated on
     the vault row.
+12. When retries ship, they create new runs rather than mutating previous
+    terminal runs.
