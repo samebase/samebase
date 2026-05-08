@@ -2,7 +2,6 @@ import { v, type Infer } from "convex/values";
 import { internalMutation, query } from "./_generated/server";
 import { AppProvisioningEventLevel, AppProvisioningStep } from "./schema";
 import { getUserId } from "./common";
-import type { Doc, Id } from "./_generated/dataModel";
 
 const { array, id, number, object, string } = v;
 const MAX_PROVISIONING_EVENTS = 80;
@@ -23,15 +22,6 @@ function normalizeProvisioningMessage(message: string): string {
   const trimmed = message.trim();
   const normalized = trimmed.length === 0 ? "Provisioning event." : trimmed;
   return normalized.slice(0, MAX_PROVISIONING_MESSAGE_LENGTH);
-}
-
-function hasRunBackedProvisioningEvent(
-  event: Doc<"appProvisioningEvents">,
-): event is Doc<"appProvisioningEvents"> & {
-  repositoryFullName: string;
-  runId: Id<"appProvisioningRuns">;
-} {
-  return Boolean(event.runId && event.repositoryFullName);
 }
 
 export const append = internalMutation({
@@ -94,7 +84,6 @@ export const listForVault = query({
       .take(MAX_PROVISIONING_EVENTS);
 
     return events
-      .filter(hasRunBackedProvisioningEvent)
       .sort((left, right) => {
         const createdAtDiff = left.createdAt - right.createdAt;
         if (createdAtDiff !== 0) {

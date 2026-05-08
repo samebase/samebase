@@ -136,11 +136,7 @@ export const generateResponse = internalAction({
     let repoTree: string[] | undefined;
 
     if (vault) {
-      const contextBranch =
-        typeof threadContext.branch === "string" &&
-        threadContext.branch.length > 0
-          ? threadContext.branch
-          : vault.defaultBranch;
+      const contextBranch = threadContext.branch || vault.defaultBranch;
       const branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
         vaultId: vault._id,
         branch: contextBranch,

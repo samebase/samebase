@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
 import {
   AppProvisioningEventLevel,
   AppProvisioningRunState,
@@ -12,19 +11,6 @@ import { assertConnectedVault } from "./vaultState";
 
 const { id, literal, string, union } = v;
 const MAX_EVENTS_TO_LINK_TO_VAULT = 20;
-
-function assertRunVaultReference(run: Doc<"appProvisioningRuns">): {
-  vaultId: Id<"vaults">;
-  repositoryFullName: string;
-} {
-  if (!run.vaultId || !run.repositoryFullName) {
-    throw new Error("Provisioning run is not linked to a vault.");
-  }
-  return {
-    vaultId: run.vaultId,
-    repositoryFullName: run.repositoryFullName,
-  };
-}
 
 export const getById = internalQuery({
   args: {
@@ -122,11 +108,10 @@ export const appendRunEvent = internalMutation({
     }
 
     const now = Date.now();
-    const runReference = assertRunVaultReference(run);
     await ctx.runMutation(internal.appProvisioningEvents.append, {
       userId: run.userId,
-      vaultId: runReference.vaultId,
-      repositoryFullName: runReference.repositoryFullName,
+      vaultId: run.vaultId,
+      repositoryFullName: run.repositoryFullName,
       runId: args.runId,
       step: args.step,
       level: args.level,

@@ -31,8 +31,8 @@ Current rollout note:
 2. Runtime paths no longer read or write legacy
    `vault.treeData/treeSHA/commitSHA` as default-branch mirrors after the
    vault-first Phase 4 cleanup
-3. The optional vault-row mirror fields stay in schema only until the production
-   cleanup migration verifies old rows are clear
+3. The vault-row mirror fields are removed from the target schema; production
+   rows with those fields must be cleared before the narrow schema deploy
 
 ## Product Intent
 
@@ -366,8 +366,8 @@ Completed:
    `/codespace/:branch/chat`)
 3. Phase 3 shipped (branch-scoped tree cache, branch-aware refresh comparisons,
    branch-aware chat/commit propagation, tests)
-4. Phase 4 runtime cleanup shipped through the vault-first compatibility
-   cleanup; schema field removal waits for the mirror cleanup migration
+4. Phase 4 runtime and schema cleanup shipped through the vault-first
+   compatibility cleanup; production data cleanup is the pre-merge deploy gate
 
 Pending:
 
@@ -399,8 +399,8 @@ Pending:
 2. Remove legacy writes in branch refresh paths
 3. Remove remaining runtime call sites that depend on legacy single-branch
    fields
-4. Run the production cleanup migration for old vault-row mirrors
-5. Drop legacy single-branch fields from schema once no stored rows require them
+4. Clear production rows that still contain old vault-row mirrors before deploy
+5. Drop legacy single-branch fields from schema
 
 ## Failure Handling
 

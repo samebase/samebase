@@ -1391,31 +1391,29 @@ export const markWorkflowStartupFailed = internalMutation({
         : run.currentStep === "run_created"
           ? "claim_infra"
           : run.currentStep;
-    if (run.vaultId) {
-      const vault = await ctx.db.get(run.vaultId);
-      if (
-        vault?.state === "provisioning" &&
-        vault.githubMode === "create_repository" &&
-        vault.runId === args.runId
-      ) {
-        await ctx.runMutation(
-          internal.vault.markNoterManagedGithubProvisioningFailed,
-          {
-            runId: args.runId,
-          },
-        );
-      } else if (
-        isConnectedVault(vault) &&
-        isNoterManagedVault(vault) &&
-        vault.infraState !== "ready"
-      ) {
-        await ctx.db.patch(run.vaultId, {
-          infraState: "failed",
-          infraLastError: args.message,
-          infraLastProvisionedAt: now,
-          infraProvisioningStartedAt: undefined,
-        });
-      }
+    const vault = await ctx.db.get(run.vaultId);
+    if (
+      vault?.state === "provisioning" &&
+      vault.githubMode === "create_repository" &&
+      vault.runId === args.runId
+    ) {
+      await ctx.runMutation(
+        internal.vault.markNoterManagedGithubProvisioningFailed,
+        {
+          runId: args.runId,
+        },
+      );
+    } else if (
+      isConnectedVault(vault) &&
+      isNoterManagedVault(vault) &&
+      vault.infraState !== "ready"
+    ) {
+      await ctx.db.patch(run.vaultId, {
+        infraState: "failed",
+        infraLastError: args.message,
+        infraLastProvisionedAt: now,
+        infraProvisioningStartedAt: undefined,
+      });
     }
 
     await ctx.db.patch(args.runId, {
@@ -1424,18 +1422,16 @@ export const markWorkflowStartupFailed = internalMutation({
       updatedAt: now,
       completedAt: now,
     });
-    if (run.vaultId && run.repositoryFullName) {
-      await ctx.runMutation(internal.appProvisioningEvents.append, {
-        userId: run.userId,
-        vaultId: run.vaultId,
-        repositoryFullName: run.repositoryFullName,
-        runId: args.runId,
-        step: eventStep,
-        level: "error",
-        message: safeRunError,
-        createdAt: now,
-      });
-    }
+    await ctx.runMutation(internal.appProvisioningEvents.append, {
+      userId: run.userId,
+      vaultId: run.vaultId,
+      repositoryFullName: run.repositoryFullName,
+      runId: args.runId,
+      step: eventStep,
+      level: "error",
+      message: safeRunError,
+      createdAt: now,
+    });
 
     console.error("infra:provision:start_failed", {
       vaultId: run.vaultId,
@@ -1484,25 +1480,6 @@ export const markWorkflowProvisioningFailed = internalMutation({
         : run.currentStep === "run_created"
           ? "claim_infra"
           : run.currentStep;
-    if (!run.vaultId || !run.repositoryFullName) {
-      const safeRunError =
-        run.currentStep === "run_created"
-          ? "Provisioning failed before the first step."
-          : `Provisioning failed during ${run.currentStep}.`;
-      await ctx.db.patch(args.runId, {
-        state: "failed",
-        lastError: safeRunError,
-        updatedAt: now,
-        completedAt: now,
-      });
-      console.error("app:provision:failed", {
-        repo: run.repositoryFullName,
-        step: run.currentStep,
-        message: args.message,
-      });
-      return null;
-    }
-
     const vaultId = run.vaultId;
     const vault = await ctx.db.get(vaultId);
     const safeRunError =

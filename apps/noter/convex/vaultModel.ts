@@ -144,19 +144,6 @@ const connectedRepositoryIdentityFields = {
 } as const;
 
 /**
- * Deprecated default-branch mirrors from the pre-branch-tree model.
- *
- * Runtime code must not read or write these fields. They stay optional in the
- * schema until the production data migration clears old rows, then the final
- * narrow deploy can remove them entirely.
- */
-const deprecatedConnectedRepositoryTreeMirrorFields = {
-  treeSHA: optional(string()),
-  commitSHA: optional(string()),
-  treeData: optional(GithubTreeData),
-} as const;
-
-/**
  * Compatibility mirror for existing dashboard and provisioning reads. The new
  * source of truth should be the explicit convex/hosting states.
  *
@@ -199,7 +186,6 @@ export const VaultRow = union(
     githubMode: literal("create_repository"),
     runId: id("appProvisioningRuns"),
     ...connectedRepositoryIdentityFields,
-    ...deprecatedConnectedRepositoryTreeMirrorFields,
     convex: VaultConvexState,
     hosting: VaultHostingState,
     connectedAt: number(),
@@ -216,7 +202,6 @@ export const VaultRow = union(
     // onboarding moves onto provisioning runs.
 
     ...connectedRepositoryIdentityFields,
-    ...deprecatedConnectedRepositoryTreeMirrorFields,
     convex: VaultConvexState,
     hosting: VaultHostingState,
     connectedAt: number(),

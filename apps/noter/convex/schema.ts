@@ -468,11 +468,8 @@ export default defineSchema({
    */
   appProvisioningRuns: defineTable({
     userId: id("users"),
-    // Deprecated: older create-app runs could exist before a vault row. New
-    // supported runs are vault-owned; keep nullable until old rows are retired.
-    vaultId: union(id("vaults"), v.null()),
-    // Deprecated null state from pre-owner-selection create flows.
-    repositoryFullName: union(string(), v.null()),
+    vaultId: id("vaults"),
+    repositoryFullName: string(),
     // Assigned after the Workflow component start call returns; run identity
     // exists first so early events can still be linked deterministically.
     workflowId: optional(string()),
@@ -493,13 +490,9 @@ export default defineSchema({
    */
   appProvisioningEvents: defineTable({
     userId: id("users"),
-    // Deprecated nullable fields are retained only for stored legacy events.
-    // New events are appended through run-backed helpers with vault ids.
-    vaultId: union(id("vaults"), v.null()),
-    repositoryFullName: union(string(), v.null()),
-    // TODO(Vault-First Phase 4 narrow): after old events are retired, make this
-    // required in schema too.
-    runId: optional(id("appProvisioningRuns")),
+    vaultId: id("vaults"),
+    repositoryFullName: string(),
+    runId: id("appProvisioningRuns"),
     step: AppProvisioningStep,
     level: AppProvisioningEventLevel,
     message: string(),
