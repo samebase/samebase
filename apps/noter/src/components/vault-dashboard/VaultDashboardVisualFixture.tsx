@@ -22,7 +22,9 @@ import {
   VaultBranchLinkRow,
   VaultBranchListExpansionControl,
   VaultDashboardDeleteControl,
+  VaultDashboardDeleteDialog,
   VaultDashboardRepositoryExternalLinks,
+  type VaultDeleteDialogTarget,
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import { formatProvisioningLogText } from "@/lib/provisioningLog";
@@ -145,16 +147,17 @@ function FixtureRepositoryLinks() {
   );
 }
 
-function FixtureDeleteControl({ isOpen = false }: { isOpen?: boolean }) {
-  return (
-    <VaultDashboardDeleteControl
-      repositoryFullName="noter-md/noter"
-      isOpen={isOpen}
-      onOpenChange={() => {}}
-      onRemoveVault={() => {}}
-    />
-  );
+function FixtureDeleteControl() {
+  return <VaultDashboardDeleteControl repositoryFullName="noter-md/noter" />;
 }
+
+const fixtureDeleteDialogTarget = {
+  repositoryFullName: "noter-md/noter",
+  isNoterManaged: true,
+  canRemoveGithubRepo: true,
+  hasConvexProvision: true,
+  hasHostingProvision: true,
+} satisfies VaultDeleteDialogTarget;
 
 function FixtureVaultLastUpdatedStatusCard() {
   const refreshCountStore = useFixtureRefreshCountStore();
@@ -456,10 +459,29 @@ function VaultDashboardDeleteOpenFixture() {
             repositoryName="noter"
             titleHref="https://github.com/noter-md/noter"
             repositoryLinks={<FixtureRepositoryLinks />}
-            topRightAction={<FixtureDeleteControl isOpen />}
+            topRightAction={<FixtureDeleteControl />}
             repositoryStatus={<span>Updated 12s ago</span>}
           />
         </VaultDashboardRepositoryList>
+        <VaultDashboardDeleteDialog
+          commitError={null}
+          connectedCodespacesCount={2}
+          deleteError={null}
+          didAttemptCommit={false}
+          isCommitting={false}
+          isDeleting={false}
+          onCommitBeforeRemove={() => {}}
+          onDeleteOptionChange={() => {}}
+          onOpenChange={() => {}}
+          onRemoveVault={() => {}}
+          open={true}
+          removeCodespaces={true}
+          removeConvexProvision={true}
+          removeGithubRepo={true}
+          removeHostingProvision={true}
+          stagedChangesCount={3}
+          vaultToDelete={fixtureDeleteDialogTarget}
+        />
       </TestRouterProvider>
     </div>
   );

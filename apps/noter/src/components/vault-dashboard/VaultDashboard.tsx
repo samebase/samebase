@@ -9,8 +9,6 @@ import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import { GitBranch, GitCommitHorizontal, Loader2 } from "lucide-react";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { AnchoredPopoverContent, Popover } from "@/components/popover";
-import { Sheet, SheetContent, SheetTitle } from "@/components/sheet";
 import { linkStyle } from "../styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
@@ -104,7 +102,6 @@ import { WorkspaceLayoutV2FullPage } from "../workspace-layout-v2/WorkspaceLayou
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { CHAT_ENABLED } from "@/lib/featureFlags";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
-import { useUsesTouchSheet } from "@/hooks/useUsesTouchSheet";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
@@ -196,15 +193,19 @@ type ProviderRuntimeConfig = {
 };
 type VaultDashboardLogoComponent = () => ReactNode;
 
-type VaultDeleteIntent = {
-  id: Id<"vaults">;
+export type VaultDeleteDialogTarget = {
   repositoryFullName: string;
   isNoterManaged: boolean;
   canRemoveGithubRepo: boolean;
   hasConvexProvision: boolean;
   hasHostingProvision: boolean;
 };
-type VaultDeleteOptionKey =
+
+type VaultDeleteIntent = VaultDeleteDialogTarget & {
+  id: Id<"vaults">;
+};
+
+export type VaultDeleteOptionKey =
   | "removeCodespaces"
   | "removeConvexProvision"
   | "removeGithubRepo"
@@ -232,7 +233,6 @@ type VaultDashboardLocalState = {
   removeHostingProvision: boolean;
   retryingVaultId: Id<"vaults"> | null;
   shouldAutoFocusChatInput: boolean;
-  vaultToDelete: VaultDeleteIntent | null;
 };
 
 function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
@@ -262,7 +262,6 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
     removeHostingProvision: false,
     retryingVaultId: null,
     shouldAutoFocusChatInput: false,
-    vaultToDelete: null,
   };
 }
 
@@ -275,7 +274,11 @@ function useVaultDashboardLocalStore() {
           state.createError === null ? state : { ...state, createError: null },
         );
       },
-      openDeleteDialog: ({ intent }: { intent: VaultDeleteIntent }) => {
+      prepareDeleteDialog: ({
+        target,
+      }: {
+        target: VaultDeleteDialogTarget;
+      }) => {
         setState((state) => ({
           ...state,
           commitError: null,
@@ -283,11 +286,10 @@ function useVaultDashboardLocalStore() {
           didAttemptCommit: false,
           removeCodespaces: true,
           removeConvexProvision:
-            intent.isNoterManaged && intent.hasConvexProvision,
-          removeGithubRepo: intent.canRemoveGithubRepo,
+            target.isNoterManaged && target.hasConvexProvision,
+          removeGithubRepo: target.canRemoveGithubRepo,
           removeHostingProvision:
-            intent.isNoterManaged && intent.hasHostingProvision,
-          vaultToDelete: intent,
+            target.isNoterManaged && target.hasHostingProvision,
         }));
       },
       markCommitAttempted: () => {
@@ -306,7 +308,6 @@ function useVaultDashboardLocalStore() {
           removeConvexProvision: false,
           removeGithubRepo: false,
           removeHostingProvision: false,
-          vaultToDelete: null,
         }));
       },
       setCloudflarePollingPaused: (cloudflarePollingPaused: boolean) => {
@@ -390,6 +391,18 @@ function useVaultDashboardLocalStore() {
   );
 }
 
+function buildVaultDeleteIntent(vault: VaultDashboardVault): VaultDeleteIntent {
+  return {
+    id: vault._id,
+    repositoryFullName: vault.repositoryFullName,
+    isNoterManaged: vault.isNoterManaged,
+    canRemoveGithubRepo:
+      vault.isNoterManaged && vault.hasConnectedGitHubRepository,
+    hasConvexProvision: vault.hasConvexProvision,
+    hasHostingProvision: vault.hasHostingProvision,
+  };
+}
+
 const dashboardLinkIconSlotClassName =
   "inline-flex h-4 w-5 shrink-0 items-center justify-center";
 
@@ -408,57 +421,17 @@ const DashboardLinkIconSlot = ({
   </span>
 );
 
-function VaultDashboardDeleteContent({
-  isRemovingVault = false,
-  onRemoveVault,
-}: {
-  isRemovingVault?: boolean;
-  onRemoveVault: () => void;
-}) {
-  return (
-    <div className="p-4">
-      <Button
-        type="button"
-        variant="destructive"
-        size="sm"
-        className="w-full justify-start"
-        disabled={isRemovingVault}
-        onClick={onRemoveVault}
-      >
-        {isRemovingVault ? (
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        ) : (
-          <TrashIcon className="h-4 w-4" aria-hidden="true" />
-        )}
-        {isRemovingVault ? "Removing..." : "Remove vault"}
-      </Button>
-    </div>
-  );
-}
-
 export function VaultDashboardDeleteControl({
-  isOpen,
   isRemovingVault = false,
-  onOpenChange,
-  onRemoveVault,
   repositoryFullName,
 }: {
-  isOpen: boolean;
   isRemovingVault?: boolean;
-  onOpenChange: (isOpen: boolean) => void;
-  onRemoveVault: () => void;
   repositoryFullName: string;
 }) {
-  const usesTouchSheet = useUsesTouchSheet();
   const deleteTriggerDisabled = isRemovingVault;
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      onOpenChange(false);
-    }
-  };
-  const deleteTriggerAnchorRef = useRef<HTMLSpanElement | null>(null);
-  const trigger = (
-    <span ref={deleteTriggerAnchorRef} className="absolute right-4 top-4">
+
+  return (
+    <span className="absolute right-4 top-4">
       <Link
         to="/"
         search={(currentSearch) => ({
@@ -472,15 +445,7 @@ export function VaultDashboardDeleteControl({
         onClick={(event) => {
           if (deleteTriggerDisabled) {
             event.preventDefault();
-            return;
           }
-
-          if (!isOpen) {
-            return;
-          }
-
-          event.preventDefault();
-          onOpenChange(false);
         }}
         className={clsx(
           buttonVariants({ variant: "destructive", size: "icon-sm" }),
@@ -491,38 +456,231 @@ export function VaultDashboardDeleteControl({
       </Link>
     </span>
   );
+}
 
-  if (usesTouchSheet) {
-    return (
-      <>
-        {trigger}
-        <Sheet open={isOpen} onOpenChange={handleOpenChange}>
-          <SheetContent side="bottom" className="max-h-[85vh] overflow-hidden">
-            <SheetTitle className="sr-only">Remove vault</SheetTitle>
-            <VaultDashboardDeleteContent
-              isRemovingVault={isRemovingVault}
-              onRemoveVault={onRemoveVault}
-            />
-          </SheetContent>
-        </Sheet>
-      </>
-    );
-  }
+export function VaultDashboardDeleteDialog({
+  commitError,
+  connectedCodespacesCount,
+  deleteError,
+  didAttemptCommit,
+  isCommitting,
+  isDeleting,
+  onCommitBeforeRemove,
+  onDeleteOptionChange,
+  onOpenChange,
+  onRemoveVault,
+  open,
+  removeCodespaces,
+  removeConvexProvision,
+  removeGithubRepo,
+  removeHostingProvision,
+  stagedChangesCount,
+  vaultToDelete,
+}: {
+  commitError: string | null;
+  connectedCodespacesCount: number | undefined;
+  deleteError: string | null;
+  didAttemptCommit: boolean;
+  isCommitting: boolean;
+  isDeleting: boolean;
+  onCommitBeforeRemove: () => void;
+  onDeleteOptionChange: (option: VaultDeleteOptionKey, value: boolean) => void;
+  onOpenChange: (isOpen: boolean) => void;
+  onRemoveVault: () => void;
+  open: boolean;
+  removeCodespaces: boolean;
+  removeConvexProvision: boolean;
+  removeGithubRepo: boolean;
+  removeHostingProvision: boolean;
+  stagedChangesCount: number;
+  vaultToDelete: VaultDeleteDialogTarget | null;
+}) {
+  const hasStagedChanges = stagedChangesCount > 0;
+  const removeHostingCheckboxId = "remove-cloudflare-provision";
+  const removeHostingLabel = "Also remove Cloudflare Pages project";
 
   return (
-    <Popover open={isOpen} onOpenChange={handleOpenChange}>
-      {trigger}
-      <AnchoredPopoverContent
-        align="end"
-        anchor={deleteTriggerAnchorRef}
-        className="w-64 max-w-[calc(100vw-1rem)] p-0"
-      >
-        <VaultDashboardDeleteContent
-          isRemovingVault={isRemovingVault}
-          onRemoveVault={onRemoveVault}
-        />
-      </AnchoredPopoverContent>
-    </Popover>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {vaultToDelete
+              ? `Remove Vault ${vaultToDelete.repositoryFullName}`
+              : "Remove Vault"}
+          </DialogTitle>
+          <DialogDescription>
+            {hasStagedChanges
+              ? `This vault has ${stagedChangesCount} uncommitted local change${stagedChangesCount === 1 ? "" : "s"}. You can commit ${stagedChangesCount === 1 ? "it" : "them"} now.`
+              : "All local changes are already backed up on GitHub."}
+          </DialogDescription>
+        </DialogHeader>
+        {vaultToDelete ? (
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="remove-github-repo"
+                checked={removeGithubRepo}
+                onCheckedChange={(checked) =>
+                  onDeleteOptionChange("removeGithubRepo", checked === true)
+                }
+                disabled={
+                  !vaultToDelete.canRemoveGithubRepo ||
+                  isDeleting ||
+                  isCommitting
+                }
+                className="mt-0.5"
+              />
+              <label
+                htmlFor="remove-github-repo"
+                className="text-sm text-muted-foreground"
+              >
+                Also remove GitHub repository
+                {!vaultToDelete.canRemoveGithubRepo ? (
+                  <div className="text-xs text-muted-foreground">
+                    Only available for confirmed repositories created in Noter.
+                  </div>
+                ) : null}
+              </label>
+            </div>
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="remove-codespaces"
+                checked={
+                  connectedCodespacesCount === 0 ? true : removeCodespaces
+                }
+                onCheckedChange={(checked) =>
+                  onDeleteOptionChange("removeCodespaces", checked === true)
+                }
+                disabled={
+                  connectedCodespacesCount === 0 || isDeleting || isCommitting
+                }
+                className="mt-0.5"
+              />
+              <label
+                htmlFor="remove-codespaces"
+                className="text-sm text-muted-foreground"
+              >
+                Also remove all Codespaces
+                {connectedCodespacesCount === undefined
+                  ? null
+                  : ` (${connectedCodespacesCount} connected)`}
+              </label>
+            </div>
+            {vaultToDelete.hasConvexProvision ? (
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="remove-convex-provision"
+                  checked={removeConvexProvision}
+                  onCheckedChange={(checked) =>
+                    onDeleteOptionChange(
+                      "removeConvexProvision",
+                      checked === true,
+                    )
+                  }
+                  disabled={
+                    !vaultToDelete.isNoterManaged || isDeleting || isCommitting
+                  }
+                  className="mt-0.5"
+                />
+                <label
+                  htmlFor="remove-convex-provision"
+                  className="text-sm text-muted-foreground"
+                >
+                  Also remove Convex project/deployment
+                  {!vaultToDelete.isNoterManaged ? (
+                    <div className="text-xs text-muted-foreground">
+                      Only available for infrastructure provisioned by Noter.
+                    </div>
+                  ) : null}
+                </label>
+              </div>
+            ) : null}
+            {vaultToDelete.hasHostingProvision ? (
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id={removeHostingCheckboxId}
+                  checked={removeHostingProvision}
+                  onCheckedChange={(checked) =>
+                    onDeleteOptionChange(
+                      "removeHostingProvision",
+                      checked === true,
+                    )
+                  }
+                  disabled={
+                    !vaultToDelete.isNoterManaged || isDeleting || isCommitting
+                  }
+                  className="mt-0.5"
+                />
+                <label
+                  htmlFor={removeHostingCheckboxId}
+                  className="text-sm text-muted-foreground"
+                >
+                  {removeHostingLabel}
+                  {!vaultToDelete.isNoterManaged ? (
+                    <div className="text-xs text-muted-foreground">
+                      Only available for infrastructure provisioned by Noter.
+                    </div>
+                  ) : null}
+                </label>
+              </div>
+            ) : null}
+            {deleteError ? (
+              <div className="text-sm text-red-600">{deleteError}</div>
+            ) : null}
+            {commitError ? (
+              <div className="text-sm text-red-600">{commitError}</div>
+            ) : null}
+            {didAttemptCommit && hasStagedChanges ? (
+              <div className="text-sm text-muted-foreground">
+                Some local changes are still uncommitted. You can retry commit
+                or remove anyway.
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              onOpenChange(false);
+            }}
+            disabled={isDeleting || isCommitting}
+          >
+            Cancel
+          </Button>
+          {vaultToDelete && hasStagedChanges ? (
+            <Button
+              variant="outline"
+              onClick={onCommitBeforeRemove}
+              disabled={isDeleting || isCommitting}
+            >
+              {isCommitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Committing...
+                </>
+              ) : (
+                "Commit changes"
+              )}
+            </Button>
+          ) : null}
+          <Button
+            variant="destructive"
+            onClick={onRemoveVault}
+            disabled={!vaultToDelete || isDeleting || isCommitting}
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Removing...
+              </>
+            ) : (
+              "Remove Vault"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1576,8 +1734,6 @@ type VaultDashboardBodyProps = {
   retryingVaultId: Id<"vaults"> | null;
   deleteRepositoryFullName?: string;
   vaults: VaultDashboardVault[];
-  onDeleteVault: (vault: VaultDashboardVault) => void;
-  onDeleteOpenChange: (isOpen: boolean) => void;
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onRefreshVaultTree: (vault: DashboardManualRefreshVault) => void;
   onRetryInfrastructure: (vaultId: Id<"vaults">) => void;
@@ -1597,8 +1753,6 @@ function VaultDashboardBody({
   retryingVaultId,
   deleteRepositoryFullName,
   vaults,
-  onDeleteVault,
-  onDeleteOpenChange,
   onOpenDeveloperToolsChange,
   onRefreshVaultTree,
   onRetryInfrastructure,
@@ -1691,8 +1845,6 @@ function VaultDashboardBody({
         const branchesExpanded = vaultBranchFilters.branchesExpanded;
         const collapsedBranchCount =
           filteredRemoteBranches.length - COLLAPSED_BRANCH_LIMIT;
-        const isDeleteOpen =
-          deleteRepositoryFullName === vault.repositoryFullName;
         const sourceSetupSection =
           !isReady &&
           (vault.sourceSetup.status === "failed" ||
@@ -1757,15 +1909,7 @@ function VaultDashboardBody({
               topRightAction={
                 <VaultDashboardDeleteControl
                   repositoryFullName={vault.repositoryFullName}
-                  isOpen={isDeleteOpen}
                   isRemovingVault={isRemovingVault}
-                  onOpenChange={onDeleteOpenChange}
-                  onRemoveVault={() => {
-                    if (!isRemovingVault) {
-                      onDeleteVault(vault);
-                      onDeleteOpenChange(false);
-                    }
-                  }}
                 />
               }
               repositoryStatus={renderVaultDashboardRepositoryStatus({
@@ -2044,6 +2188,7 @@ export function VaultDashboard() {
   const githubPopupOriginRef = useRef<string | null>(null);
   const convexPopupOriginRef = useRef<string | null>(null);
   const cloudflarePopupOriginRef = useRef<string | null>(null);
+  const preparedDeleteRepositoryRef = useRef<string | null>(null);
   const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
     github: {
       getOAuthUrl: () => getGithubOAuthUrl({}),
@@ -2088,12 +2233,11 @@ export function VaultDashboard() {
     removeHostingProvision,
     retryingVaultId,
     shouldAutoFocusChatInput,
-    vaultToDelete,
   } = useSelector(dashboardLocalStore);
   const {
     clearCreateError,
     markCommitAttempted,
-    openDeleteDialog,
+    prepareDeleteDialog,
     resetCreateRepositoryName,
     resetDeleteDialogState,
     setCloudflarePollingPaused,
@@ -2139,18 +2283,41 @@ export function VaultDashboard() {
     userId: user?._id,
   });
 
-  const selectedVault =
-    vaultToDelete && vaults
-      ? (vaults.find((vault) => vault._id === vaultToDelete.id) ?? null)
+  const deleteDialogVault =
+    deleteRepositoryFullName && vaults
+      ? (vaults.find(
+          (vault) => vault.repositoryFullName === deleteRepositoryFullName,
+        ) ?? null)
       : null;
-  const stagedChangesCount = selectedVault?.fileCount ?? 0;
-  const hasStagedChanges = stagedChangesCount > 0;
-  const removeHostingCheckboxId = "remove-cloudflare-provision";
-  const removeHostingLabel = "Also remove Cloudflare Pages project";
+  const vaultToDelete = deleteDialogVault
+    ? buildVaultDeleteIntent(deleteDialogVault)
+    : null;
+  const stagedChangesCount = deleteDialogVault?.fileCount ?? 0;
   const connectedCodespacesCount = useConvexQuery(
     api.codespaces.mutations.getConnectedCodespacesCount,
     vaultToDelete ? { vaultId: vaultToDelete.id } : "skip",
   );
+
+  useEffect(() => {
+    if (!vaultToDelete) {
+      if (preparedDeleteRepositoryRef.current) {
+        preparedDeleteRepositoryRef.current = null;
+        resetDeleteDialogState();
+      }
+      return;
+    }
+
+    if (
+      preparedDeleteRepositoryRef.current === vaultToDelete.repositoryFullName
+    ) {
+      return;
+    }
+
+    // The URL owns which vault is targeted; local state only seeds editable
+    // cleanup options when that routed target changes.
+    prepareDeleteDialog({ target: vaultToDelete });
+    preparedDeleteRepositoryRef.current = vaultToDelete.repositoryFullName;
+  }, [prepareDeleteDialog, resetDeleteDialogState, vaultToDelete]);
 
   const handleConnect = async (provider: ProviderKey) => {
     const providerConfig = providerRuntimeConfig[provider];
@@ -2235,6 +2402,17 @@ export function VaultDashboard() {
     }
   };
 
+  const clearDeleteSearchParam = () => {
+    void navigate({
+      replace: true,
+      search: (currentSearch) => ({
+        ...currentSearch,
+        delete: undefined,
+      }),
+      to: "/",
+    });
+  };
+
   const handleRemoveVault = async () => {
     if (!vaultToDelete || isDeleting || isCommitting) return;
     setDeleteError(null);
@@ -2258,6 +2436,7 @@ export function VaultDashboard() {
             : false,
       });
       resetDeleteDialogState();
+      clearDeleteSearchParam();
     } catch (error) {
       console.error("Failed to remove vault:", error);
       setDeleteError(
@@ -2698,33 +2877,12 @@ export function VaultDashboard() {
     void handleRetryInfrastructure(vaultId);
   };
 
-  const handleVaultDeleteIntent = (vault: VaultDashboardVault) => {
-    openDeleteDialog({
-      intent: {
-        id: vault._id,
-        repositoryFullName: vault.repositoryFullName,
-        isNoterManaged: vault.isNoterManaged,
-        canRemoveGithubRepo:
-          vault.isNoterManaged && vault.hasConnectedGitHubRepository,
-        hasConvexProvision: vault.hasConvexProvision,
-        hasHostingProvision: vault.hasHostingProvision,
-      },
-    });
-  };
-
-  const handleDeleteOpenChange = (isOpen: boolean) => {
-    if (isOpen) {
+  const handleDeleteDialogOpenChange = (isOpen: boolean) => {
+    if (isOpen || isDeleting || isCommitting) {
       return;
     }
 
-    void navigate({
-      replace: true,
-      search: (currentSearch) => ({
-        ...currentSearch,
-        delete: undefined,
-      }),
-      to: "/",
-    });
+    clearDeleteSearchParam();
   };
 
   const sidebarContent = (
@@ -2769,8 +2927,6 @@ export function VaultDashboard() {
       retryingVaultId={retryingVaultId}
       deleteRepositoryFullName={deleteRepositoryFullName}
       vaults={vaults}
-      onDeleteVault={handleVaultDeleteIntent}
-      onDeleteOpenChange={handleDeleteOpenChange}
       onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
       onRefreshVaultTree={refreshVaultTreeFromStatusClick}
       onRetryInfrastructure={handleVaultRetryInfrastructure}
@@ -2813,200 +2969,29 @@ export function VaultDashboard() {
         />
       </PersistedSidebarProvider>
 
-      <Dialog
-        open={vaultToDelete !== null}
-        onOpenChange={() => {
-          if (isDeleting || isCommitting) return;
-          resetDeleteDialogState();
+      <VaultDashboardDeleteDialog
+        commitError={commitError}
+        connectedCodespacesCount={connectedCodespacesCount}
+        deleteError={deleteError}
+        didAttemptCommit={didAttemptCommit}
+        isCommitting={isCommitting}
+        isDeleting={isDeleting}
+        onCommitBeforeRemove={() => {
+          void handleCommitBeforeRemove();
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {vaultToDelete
-                ? `Remove Vault ${vaultToDelete.repositoryFullName}`
-                : "Remove Vault"}
-            </DialogTitle>
-            <DialogDescription>
-              {hasStagedChanges
-                ? `This vault has ${stagedChangesCount} uncommitted local change${stagedChangesCount === 1 ? "" : "s"}. You can commit ${stagedChangesCount === 1 ? "it" : "them"} now.`
-                : "All local changes are already backed up on GitHub."}
-            </DialogDescription>
-          </DialogHeader>
-          {vaultToDelete ? (
-            <div className="space-y-2">
-              <div className="flex items-start gap-2">
-                <Checkbox
-                  id="remove-github-repo"
-                  checked={removeGithubRepo}
-                  onCheckedChange={(checked) =>
-                    setDeleteOption("removeGithubRepo", checked === true)
-                  }
-                  disabled={
-                    !vaultToDelete.canRemoveGithubRepo ||
-                    isDeleting ||
-                    isCommitting
-                  }
-                  className="mt-0.5"
-                />
-                <label
-                  htmlFor="remove-github-repo"
-                  className="text-sm text-muted-foreground"
-                >
-                  Also remove GitHub repository
-                  {!vaultToDelete.canRemoveGithubRepo ? (
-                    <div className="text-xs text-muted-foreground">
-                      Only available for confirmed repositories created in
-                      Noter.
-                    </div>
-                  ) : null}
-                </label>
-              </div>
-              <div className="flex items-start gap-2">
-                <Checkbox
-                  id="remove-codespaces"
-                  checked={
-                    connectedCodespacesCount === 0 ? true : removeCodespaces
-                  }
-                  onCheckedChange={(checked) =>
-                    setDeleteOption("removeCodespaces", checked === true)
-                  }
-                  disabled={
-                    connectedCodespacesCount === 0 || isDeleting || isCommitting
-                  }
-                  className="mt-0.5"
-                />
-                <label
-                  htmlFor="remove-codespaces"
-                  className="text-sm text-muted-foreground"
-                >
-                  Also remove all Codespaces
-                  {connectedCodespacesCount === undefined
-                    ? null
-                    : ` (${connectedCodespacesCount} connected)`}
-                </label>
-              </div>
-              {vaultToDelete.hasConvexProvision ? (
-                <div className="flex items-start gap-2">
-                  <Checkbox
-                    id="remove-convex-provision"
-                    checked={removeConvexProvision}
-                    onCheckedChange={(checked) =>
-                      setDeleteOption("removeConvexProvision", checked === true)
-                    }
-                    disabled={
-                      !vaultToDelete.isNoterManaged ||
-                      isDeleting ||
-                      isCommitting
-                    }
-                    className="mt-0.5"
-                  />
-                  <label
-                    htmlFor="remove-convex-provision"
-                    className="text-sm text-muted-foreground"
-                  >
-                    Also remove Convex project/deployment
-                    {!vaultToDelete.isNoterManaged ? (
-                      <div className="text-xs text-muted-foreground">
-                        Only available for infrastructure provisioned by Noter.
-                      </div>
-                    ) : null}
-                  </label>
-                </div>
-              ) : null}
-              {vaultToDelete.hasHostingProvision ? (
-                <div className="flex items-start gap-2">
-                  <Checkbox
-                    id={removeHostingCheckboxId}
-                    checked={removeHostingProvision}
-                    onCheckedChange={(checked) =>
-                      setDeleteOption(
-                        "removeHostingProvision",
-                        checked === true,
-                      )
-                    }
-                    disabled={
-                      !vaultToDelete.isNoterManaged ||
-                      isDeleting ||
-                      isCommitting
-                    }
-                    className="mt-0.5"
-                  />
-                  <label
-                    htmlFor={removeHostingCheckboxId}
-                    className="text-sm text-muted-foreground"
-                  >
-                    {removeHostingLabel}
-                    {!vaultToDelete.isNoterManaged ? (
-                      <div className="text-xs text-muted-foreground">
-                        Only available for infrastructure provisioned by Noter.
-                      </div>
-                    ) : null}
-                  </label>
-                </div>
-              ) : null}
-              {deleteError ? (
-                <div className="text-sm text-red-600">{deleteError}</div>
-              ) : null}
-              {commitError ? (
-                <div className="text-sm text-red-600">{commitError}</div>
-              ) : null}
-              {didAttemptCommit && hasStagedChanges ? (
-                <div className="text-sm text-muted-foreground">
-                  Some local changes are still uncommitted. You can retry commit
-                  or remove anyway.
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (isDeleting || isCommitting) return;
-                resetDeleteDialogState();
-              }}
-              disabled={isDeleting || isCommitting}
-            >
-              Cancel
-            </Button>
-            {vaultToDelete && hasStagedChanges ? (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  void handleCommitBeforeRemove();
-                }}
-                disabled={isDeleting || isCommitting}
-              >
-                {isCommitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Committing...
-                  </>
-                ) : (
-                  "Commit changes"
-                )}
-              </Button>
-            ) : null}
-            <Button
-              variant="destructive"
-              onClick={() => {
-                void handleRemoveVault();
-              }}
-              disabled={isDeleting || isCommitting}
-            >
-              {isDeleting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Removing...
-                </>
-              ) : (
-                "Remove Vault"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onDeleteOptionChange={setDeleteOption}
+        onOpenChange={handleDeleteDialogOpenChange}
+        onRemoveVault={() => {
+          void handleRemoveVault();
+        }}
+        open={vaultToDelete !== null}
+        removeCodespaces={removeCodespaces}
+        removeConvexProvision={removeConvexProvision}
+        removeGithubRepo={removeGithubRepo}
+        removeHostingProvision={removeHostingProvision}
+        stagedChangesCount={stagedChangesCount}
+        vaultToDelete={vaultToDelete}
+      />
       {apiKeyDialog}
     </PublicLandingLogoLinkProvider>
   );

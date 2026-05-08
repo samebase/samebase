@@ -16,14 +16,14 @@ function buildTemporaryRepositoryName(): string {
   return `${TEMP_REPOSITORY_PREFIX}-${Date.now()}-${randomSuffix}`;
 }
 
-function removeVaultButton(page: Page, repoName: string): Locator {
-  return page.getByRole("button", {
+function removeVaultControl(page: Page, repoName: string): Locator {
+  return page.getByRole("link", {
     name: new RegExp(`^Remove vault .*/${escapeRegExp(repoName)}$`),
   });
 }
 
 function vaultCard(page: Page, repoName: string): Locator {
-  return removeVaultButton(page, repoName).locator(
+  return removeVaultControl(page, repoName).locator(
     "xpath=ancestor::div[contains(@class, 'corner-notch-1')][1]",
   );
 }
@@ -64,10 +64,10 @@ async function removeTemporaryVault(
   page: Page,
   repoName: string,
 ): Promise<void> {
-  const removeButton = removeVaultButton(page, repoName);
-  await expect(removeButton).toBeVisible({ timeout: 120_000 });
+  const removeControl = removeVaultControl(page, repoName);
+  await expect(removeControl).toBeVisible({ timeout: 120_000 });
 
-  await removeButton.click();
+  await removeControl.click();
 
   const removeDialog = page.getByRole("dialog");
   await expect(removeDialog).toBeVisible({ timeout: 15_000 });
@@ -81,7 +81,7 @@ async function removeTemporaryVault(
 
   await removeDialog.getByRole("button", { name: "Remove Vault" }).click();
   await expect(removeDialog).not.toBeVisible({ timeout: 120_000 });
-  await expect(removeButton).toHaveCount(0, { timeout: 120_000 });
+  await expect(removeControl).toHaveCount(0, { timeout: 120_000 });
 }
 
 test.describe("vault create app live flow", () => {
