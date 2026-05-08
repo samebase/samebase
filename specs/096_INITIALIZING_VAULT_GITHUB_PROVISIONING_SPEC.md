@@ -667,6 +667,14 @@ Stop before building broad retry UX.
 Goal: show initializing and failed provider state from the vault and event data
 without making pre-GitHub vaults usable as source workspaces.
 
+Current Phase 2 gap: if `seed_starter` or `sync_tree` fails after the vault has
+connected GitHub identity, the vault stays correctly connected and no longer
+exposes infra provisioning, but the dashboard can still read as generic
+`setting up...`. Phase 3 must surface that run failure from
+`appProvisioningRuns` and `appProvisioningEvents` instead of leaving the user to
+infer it from missing tree state. This is a visibility gap, not a reason to move
+connected vaults back to top-level failed.
+
 Scope:
 
 1. update dashboard queries and controls to render provider states
@@ -674,9 +682,30 @@ Scope:
 3. gate repo-backed actions behind connected GitHub state
 4. keep tree-dependent controls, including infra provisioning, gated on a usable
    default-branch tree from `vaultBranchTrees` or the temporary mirror
+5. show post-GitHub source setup failures, especially `seed_starter` and
+   `sync_tree`, on connected Noter-managed vault cards without replacing their
+   connected GitHub state
+6. make provisioning logs visible for non-ready setup/failed cards that have
+   provisioning events, not only inside ready-state developer tools
 
 Stop before implementing retry mutations unless the UI needs a disabled target
 for placement.
+
+Implementation outline:
+
+1. Add a small query-level dashboard summary for the current GitHub/source setup
+   run, derived from the vault's `runId`, run state/current step, and latest
+   error event.
+2. Preserve the existing legacy `state: "copying_files" | "ready" | "failed"`
+   shape only as the card's broad readiness bucket while adding explicit source
+   setup status for copy and error text.
+3. Treat connected-without-tree as setup in progress when the run is still
+   queued/running, and as setup failed when the establishing create run failed
+   during `seed_starter` or `sync_tree`.
+4. Keep infra controls hidden until the default-branch tree is usable; do not
+   make tree absence mean GitHub disconnection.
+5. Render the latest failure message and provisioning log on the card so the
+   user can see which provider/source step failed before Phase 4 retry exists.
 
 ### Vault-First Phase 4: Manual Provider Retry
 
@@ -743,6 +772,9 @@ Backend:
     tree-dependent infra provisioning controls
 15. Cloudflare build config reads `vaultBranchTrees` before the temporary
     vault-row tree mirror and fails before provider writes when neither exists
+16. connected Noter-managed vaults whose create run failed in `seed_starter` or
+    `sync_tree` expose a dashboard source-setup failure summary derived from the
+    run/events
 
 Frontend:
 
@@ -753,6 +785,8 @@ Frontend:
    GitHub state is connected
 5. delete dialog only offers GitHub repository deletion for confirmed connected
    Noter-managed repositories
+6. connected-without-tree failures render as setup failed with the relevant
+   provisioning message/log instead of only showing `setting up...`
 
 ## Acceptance Criteria
 
