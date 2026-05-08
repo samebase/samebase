@@ -1,3 +1,4 @@
+import { notEmpty } from "@noter-md/dependent/main";
 import type { CloudflareState } from "./cloudflareState";
 import {
   callCloudflareMcpTool,
@@ -133,7 +134,8 @@ export async function ensureCloudflareResources(
     58,
   );
   const projectBasePath = `/accounts/${encodeURIComponent(args.accountId)}/pages/projects`;
-  let projectName = args.existing.projectName ?? fallbackProjectName;
+  const existingProjectName = args.existing.projectName || undefined;
+  let projectName = existingProjectName ?? fallbackProjectName;
 
   console.log("infra:cloudflare:provision:start", {
     vaultId: args.vaultId,
@@ -146,10 +148,9 @@ export async function ensureCloudflareResources(
   let step = "resolve_project";
   try {
     let existingProject: JsonRecord | null = null;
-    const projectCandidates = [
-      args.existing.projectName,
-      fallbackProjectName,
-    ].filter((value): value is string => Boolean(value));
+    const projectCandidates = [existingProjectName, fallbackProjectName].filter(
+      notEmpty,
+    );
 
     for (const candidate of projectCandidates) {
       try {

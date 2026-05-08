@@ -143,6 +143,8 @@ Key domain entities:
   Avoid exact `!== undefined`, `!== null`, or `typeof value === "string"` checks
   unless the exact missing value, runtime type, empty string, or union
   discriminator is the state being modeled.
+- When filtering nullable arrays, use the shared `notEmpty` type predicate from
+  `@noter-md/dependent` instead of writing inline Boolean type predicates.
 - Treat repeated optional chaining on the same value as a code smell. If later
   logic reads the object more than once, first check whether an explicit
   missing-value branch would make the state clearer, then use narrowed direct
