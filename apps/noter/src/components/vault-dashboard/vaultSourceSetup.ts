@@ -15,10 +15,14 @@ export function formatVaultSourceSetupStep(
   switch (step) {
     case "run_created":
       return "run created";
+    case "initialize_vault":
+      return "initialize vault";
     case "validate_connections":
       return "validate connections";
     case "create_github_repo":
       return "create GitHub repo";
+    case "connect_github":
+      return "connect GitHub";
     case "create_vault":
       return "connect vault";
     case "seed_starter":

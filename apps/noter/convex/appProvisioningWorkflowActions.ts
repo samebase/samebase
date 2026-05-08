@@ -79,7 +79,7 @@ async function appendRunEvent(
       | "validate_connections"
       | "create_github_repo"
       | "seed_starter"
-      | "create_vault"
+      | "connect_github"
       | "sync_tree";
     level: "info" | "warn" | "error";
     message: string;
@@ -335,7 +335,7 @@ export const createVaultForRepository = internalAction({
 
     await appendRunEvent(ctx, {
       runId: args.runId,
-      step: "create_vault",
+      step: "connect_github",
       level: "info",
       message: "Connecting the Noter vault to GitHub.",
       state: "running",
@@ -353,7 +353,7 @@ export const createVaultForRepository = internalAction({
     });
     await appendRunEvent(ctx, {
       runId: args.runId,
-      step: "create_vault",
+      step: "connect_github",
       level: "info",
       message: "Connected the Noter vault to GitHub.",
       state: "running",

@@ -76,9 +76,11 @@ export const AppProvisioningEventLevel = union(
 export type AppProvisioningEventLevel = Infer<typeof AppProvisioningEventLevel>;
 
 export const AppProvisioningStep = union(
+  literal("initialize_vault"),
   literal("validate_connections"),
   literal("create_github_repo"),
   literal("seed_starter"),
+  literal("connect_github"),
   literal("create_vault"),
   literal("sync_tree"),
   literal("claim_infra"),
@@ -92,9 +94,11 @@ export type AppProvisioningStep = Infer<typeof AppProvisioningStep>;
 
 export const AppProvisioningRunStep = union(
   literal("run_created"),
+  literal("initialize_vault"),
   literal("validate_connections"),
   literal("create_github_repo"),
   literal("seed_starter"),
+  literal("connect_github"),
   literal("create_vault"),
   literal("sync_tree"),
   literal("claim_infra"),

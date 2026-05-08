@@ -27,8 +27,8 @@ describe("formatProvisioningLogText", () => {
         {
           createdAt: 0,
           level: "info",
-          step: "create_vault",
-          message: "Created the Noter vault.",
+          step: "initialize_vault",
+          message: "Created the initializing Noter vault.",
         },
         {
           createdAt: 1,
@@ -39,7 +39,7 @@ describe("formatProvisioningLogText", () => {
       ]),
     ).toBe(
       [
-        "1970-01-01T00:00:00.000Z INFO  create vault - Created the Noter vault.",
+        "1970-01-01T00:00:00.000Z INFO  initialize vault - Created the initializing Noter vault.",
         "1970-01-01T00:00:00.001Z ERROR ensure Convex - Provisioning failed during Convex provisioning.",
       ].join("\n"),
     );

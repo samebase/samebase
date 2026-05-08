@@ -668,7 +668,9 @@ function buildProviderFailurePatch(args: {
       break;
     case "finish":
       break;
+    case "initialize_vault":
     case "create_github_repo":
+    case "connect_github":
     case "create_vault":
     case "seed_starter":
     case "sync_tree":
@@ -1742,8 +1744,10 @@ export const markWorkflowStartupFailed = internalMutation({
 function isCreateAppPreInfrastructureStep(step: string): boolean {
   return (
     step === "run_created" ||
+    step === "initialize_vault" ||
     step === "validate_connections" ||
     step === "create_github_repo" ||
+    step === "connect_github" ||
     step === "create_vault" ||
     step === "seed_starter" ||
     step === "sync_tree"

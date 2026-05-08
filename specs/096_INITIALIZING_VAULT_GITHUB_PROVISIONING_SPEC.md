@@ -985,22 +985,7 @@ replaces the bootstrap-only branch. Do not enable Workflow retry for
 non-retried unless a retained-repository state or equivalent durable identity
 guard exists.
 
-### Vault-First Phase 6: Manual Provider Retry As Optional Proof
-
-Goal: add explicit retry actions only after the canonical model is clean enough
-that a retry button proves real durability instead of papering over
-compatibility.
-
-Scope:
-
-1. add provider-specific retry actions for failed provider state
-2. make each retry create a new run instead of mutating a terminal run
-3. update only the current provider state to point at the new run
-4. preserve older runs and events as history
-
-Stop before generic automatic restart-from-failed-step controls.
-
-### Vault-First Phase 7: Existing Repository Onboarding
+### Vault-First Phase 6: Existing Repository Onboarding
 
 Goal: move existing-repository connection onto the same vault/run/provider-state
 model.
@@ -1014,16 +999,20 @@ Scope:
 3. reuse the same dashboard visibility and backend durability semantics as
    Noter-managed repository creation
 
-After Phase 4, Phases 5, 6, and 7 can be reordered by product priority. The
-important gate is that manual retry UI should not be used as the durability
-proof until the compatibility cleanup has removed the temporary model layers.
+Manual provider retry is intentionally parked until there is a concrete product
+need and a designed UX. Existing-repository onboarding is the next named phase
+after backend durability.
 
 ## Parked Follow-Up Work
 
 These items are intentionally outside the current New App reliability path:
 
 1. Revisit parked Codespaces branch defaults after Codespaces work resumes.
-2. Consider a generic restart-from-failed-step abstraction only after manual
+2. Define explicit manual provider retry UX only when a current failure case
+   needs it. Any future retry action should target one failed provider state,
+   create a new run, update only that provider state's `runId`, and preserve
+   older runs and events as history.
+3. Consider a generic restart-from-failed-step abstraction only after manual
    provider retry has proven the state ownership model.
 
 ## Testing Plan

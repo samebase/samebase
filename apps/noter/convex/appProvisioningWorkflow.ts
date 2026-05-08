@@ -145,7 +145,7 @@ export const provisionApp = workflow.define({
         defaultBranch: repository.defaultBranch,
         visibility: repository.visibility,
       },
-      { name: "create_vault", retry: false },
+      { name: "connect_github", retry: false },
     );
     await step.runAction(
       internal.appProvisioningWorkflowActions.seedStarterRepository,
