@@ -7,7 +7,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 import { createInfraProviders } from "./infraProviders";
-import { deleteHostingResources } from "./hostingProviders";
+import { deleteCloudflareResources } from "./cloudflareResources";
 import { toErrorMessage } from "./jsonUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import { isConnectedVault, isNoterManagedVault } from "./vaultState";
@@ -387,7 +387,7 @@ export const deleteVault = action({
     removeCodespaces: v.optional(v.boolean()),
     removeGithubRepo: v.optional(v.boolean()),
     removeConvexProvision: v.optional(v.boolean()),
-    removeHostingProvision: v.optional(v.boolean()),
+    removeCloudflareProvision: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -442,27 +442,17 @@ export const deleteVault = action({
       },
     );
 
-    const cloudflareProjectName =
-      infrastructure?.hosting?.provider === "cloudflare"
-        ? infrastructure.hosting.projectName
-        : undefined;
-    const cloudflareAccountId =
-      infrastructure?.hosting?.provider === "cloudflare"
-        ? infrastructure.hosting.accountId
-        : undefined;
-    const shouldRemoveHostingProvision =
-      args.removeHostingProvision === true &&
-      isNoterManaged &&
-      typeof cloudflareProjectName === "string" &&
-      typeof cloudflareAccountId === "string";
+    const cloudflare = infrastructure?.cloudflare;
+    const shouldRemoveCloudflareProvision =
+      args.removeCloudflareProvision && isNoterManaged;
     const shouldRemoveConvexProvision =
-      args.removeConvexProvision === true &&
+      args.removeConvexProvision &&
       isNoterManaged &&
       (typeof infrastructure?.convexProjectId === "string" ||
         typeof infrastructure?.convexDeploymentName === "string");
-    const shouldRemoveCodespaces = args.removeCodespaces === true;
+    const shouldRemoveCodespaces = args.removeCodespaces;
 
-    if (shouldRemoveHostingProvision || shouldRemoveConvexProvision) {
+    if (shouldRemoveCloudflareProvision || shouldRemoveConvexProvision) {
       const convexToken = shouldRemoveConvexProvision
         ? convexConnection?.kind === "convex"
           ? convexConnection.auth.credential
@@ -471,18 +461,13 @@ export const deleteVault = action({
       if (shouldRemoveConvexProvision && !convexToken) {
         throw new Error("Convex connection is required to remove resources.");
       }
-      const cloudflareToken = shouldRemoveHostingProvision
+      const cloudflareToken = shouldRemoveCloudflareProvision
         ? cloudflareConnection?.kind === "cloudflare"
           ? cloudflareConnection.auth.credential
           : undefined
         : undefined;
-      if (shouldRemoveHostingProvision && !cloudflareToken) {
-        throw new Error(
-          "Cloudflare connection is required to remove resources.",
-        );
-      }
       const cloudflareServerUrl =
-        shouldRemoveHostingProvision &&
+        shouldRemoveCloudflareProvision &&
         cloudflareConnection?.kind === "cloudflare"
           ? resolveCloudflareMcpServerUrl(cloudflareConnection)
           : resolveCloudflareMcpServerUrl(null);
@@ -491,24 +476,25 @@ export const deleteVault = action({
         convexToken,
       });
 
-      if (shouldRemoveHostingProvision) {
-        if (
-          typeof cloudflareProjectName === "string" &&
-          typeof cloudflareAccountId === "string" &&
-          cloudflareToken
-        ) {
-          try {
-            await deleteHostingResources({
-              provider: "cloudflare",
-              accountId: cloudflareAccountId,
-              projectName: cloudflareProjectName,
-              cloudflareToken,
-              cloudflareServerUrl,
-            });
-          } catch (error) {
-            if (!isProviderNotFoundError(error)) {
-              throw error;
-            }
+      if (shouldRemoveCloudflareProvision) {
+        if (!cloudflare) {
+          throw new Error("Cloudflare resources are not recorded for vault.");
+        }
+        if (!cloudflareToken) {
+          throw new Error(
+            "Cloudflare connection is required to remove resources.",
+          );
+        }
+        try {
+          await deleteCloudflareResources({
+            accountId: cloudflare.accountId,
+            projectName: cloudflare.projectName,
+            cloudflareToken,
+            cloudflareServerUrl,
+          });
+        } catch (error) {
+          if (!isProviderNotFoundError(error)) {
+            throw error;
           }
         }
       }

@@ -1,10 +1,6 @@
 import { Infer, v } from "convex/values";
 import { internalQuery } from "../_generated/server";
-import {
-  getConnectedVaultHostingProvider,
-  isConnectedVault,
-  isNoterManagedVault,
-} from "../vaultState";
+import { isConnectedVault } from "../vaultState";
 
 const { array, boolean, id, literal, object, optional, string, union } = v;
 
@@ -20,7 +16,6 @@ const listVaultsForUserResultValidator = array(
     state: union(literal("copying_files"), literal("ready")),
     isNoterManaged: boolean(),
     commitSha: optional(string()),
-    hostingProvider: optional(string()),
   }),
 );
 type ListVaultsForUserResult = Infer<typeof listVaultsForUserResultValidator>;
@@ -49,9 +44,8 @@ export const listVaultsForUser = internalQuery({
           vaultId: vault._id,
           repositoryFullName: `${vault.owner}/${vault.name}`,
           state: defaultBranchTree ? "ready" : "copying_files",
-          isNoterManaged: isNoterManagedVault(vault),
+          isNoterManaged: vault.githubMode === "create_repository",
           commitSha: defaultBranchTree?.commitSHA,
-          hostingProvider: getConnectedVaultHostingProvider(vault),
         };
       }),
     );

@@ -16,6 +16,7 @@ function makeGitClient(options?: {
   failFirstCreateTreeStatus?: number;
   createRefAlreadyExistsOnce?: boolean;
   createTreeFailsWithEmptyRepoUntilBootstrap?: boolean;
+  emptyRepositoryCreateBlobFailuresAfterBootstrap?: number;
 }) {
   const createTreeCalls: Parameters<StarterSeedGitClient["createTree"]>[0][] =
     [];
@@ -37,6 +38,8 @@ function makeGitClient(options?: {
   let didFailCreateTree = false;
   let didThrowRefExists = false;
   let didBootstrap = false;
+  let emptyRepositoryCreateBlobFailuresAfterBootstrap =
+    options?.emptyRepositoryCreateBlobFailuresAfterBootstrap ?? 0;
 
   const client: StarterSeedGitClient = {
     createTree: async (args) => {
@@ -66,6 +69,13 @@ function makeGitClient(options?: {
     },
     createBlob: async (args) => {
       createBlobCalls.push(args);
+      if (didBootstrap && emptyRepositoryCreateBlobFailuresAfterBootstrap > 0) {
+        emptyRepositoryCreateBlobFailuresAfterBootstrap -= 1;
+        throw makeErrorWithStatus(
+          409,
+          "Git Repository is empty. - https://docs.github.com/rest/git/blobs#create-a-blob",
+        );
+      }
       blobCounter += 1;
       return { sha: `blob-${blobCounter}` };
     },
@@ -296,6 +306,42 @@ describe("seedRepositoryWithStarter", () => {
     expect(result).toEqual({
       defaultBranch: "main",
       headCommitSha: "commit-1",
+    });
+  });
+
+  it("retries manifest writes after bootstrap while GitHub still reports an empty repository", async () => {
+    const mock = makeGitClient({
+      createTreeFailsWithEmptyRepoUntilBootstrap: true,
+      emptyRepositoryCreateBlobFailuresAfterBootstrap: 2,
+    });
+
+    await seedRepositoryWithStarter({
+      client: mock.client,
+      owner: "owner",
+      repo: "repo",
+      defaultBranch: "main",
+      manifest: {
+        ...manifest,
+        binaryFiles: {
+          "docs/logo.jpg": Buffer.from("binary", "utf8").toString("base64"),
+        },
+        fileModes: {
+          "docs/logo.jpg": "100644",
+        },
+      },
+    });
+
+    expect(mock.createBootstrapCommitCalls).toHaveLength(1);
+    expect(mock.createBlobCalls).toHaveLength(4);
+    expect(mock.createTreeCalls).toHaveLength(2);
+    expect(mock.createCommitCalls).toHaveLength(1);
+    expect(mock.updateRefCalls).toHaveLength(1);
+    expect(mock.updateRefCalls[0]).toEqual({
+      owner: "owner",
+      repo: "repo",
+      ref: "heads/main",
+      sha: "commit-1",
+      force: true,
     });
   });
 });

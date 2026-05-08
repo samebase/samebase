@@ -1,5 +1,4 @@
 import { Infer, v } from "convex/values";
-import { hostingProviderValidator } from "./hostingState";
 
 const { array, boolean, id, literal, number, object, optional, string, union } =
   v;
@@ -89,19 +88,17 @@ export const VaultConvexState = union(
 );
 export type VaultConvexState = Infer<typeof VaultConvexState>;
 
-export const VaultHostingState = union(
+export const VaultCloudflareState = union(
   object({
     state: literal("not_configured"),
   }),
   object({
     state: literal("provisioning"),
-    provider: hostingProviderValidator,
     runId: id("appProvisioningRuns"),
     startedAt: number(),
   }),
   object({
     state: literal("connected"),
-    provider: hostingProviderValidator,
     accountId: string(),
     projectName: string(),
     productionUrl: string(),
@@ -109,12 +106,11 @@ export const VaultHostingState = union(
   }),
   object({
     state: literal("failed"),
-    provider: hostingProviderValidator,
     runId: id("appProvisioningRuns"),
     failedAt: number(),
   }),
 );
-export type VaultHostingState = Infer<typeof VaultHostingState>;
+export type VaultCloudflareState = Infer<typeof VaultCloudflareState>;
 
 /**
  * Compatibility fields from the pre-vault-first vault row. They stay on every
@@ -141,20 +137,6 @@ const vaultOperationalFields = {
 const connectedRepositoryIdentityFields = {
   ghRepoId: string(),
   defaultBranch: string(),
-} as const;
-
-/**
- * Compatibility mirror for existing dashboard and provisioning reads. The new
- * source of truth should be the explicit convex/hosting states.
- *
- * TODO(Vault-First cleanup): replace these mirrors with derived reads after the
- * dashboard and provisioning code consume convex/hosting directly.
- */
-const connectedInfrastructureMirrorFields = {
-  infraState: InfraState,
-  infraLastError: optional(string()),
-  infraLastProvisionedAt: optional(number()),
-  infraProvisioningStartedAt: optional(number()),
 } as const;
 
 export const VaultRow = union(
@@ -187,9 +169,8 @@ export const VaultRow = union(
     runId: id("appProvisioningRuns"),
     ...connectedRepositoryIdentityFields,
     convex: VaultConvexState,
-    hosting: VaultHostingState,
+    cloudflare: VaultCloudflareState,
     connectedAt: number(),
-    ...connectedInfrastructureMirrorFields,
 
     ...githubRepositoryWithVisibilityFields,
   }),
@@ -203,9 +184,8 @@ export const VaultRow = union(
 
     ...connectedRepositoryIdentityFields,
     convex: VaultConvexState,
-    hosting: VaultHostingState,
+    cloudflare: VaultCloudflareState,
     connectedAt: number(),
-    ...connectedInfrastructureMirrorFields,
 
     ...githubRepositoryWithVisibilityFields,
   }),

@@ -1,5 +1,4 @@
 import type { Doc } from "./_generated/dataModel";
-import type { HostingProvider } from "./hostingState";
 
 export type ConnectedVault = Extract<Doc<"vaults">, { state: "connected" }>;
 export type NoterManagedConnectedVault = Extract<
@@ -31,16 +30,4 @@ export function isNoterManagedVault(
   vault: ConnectedVault,
 ): vault is NoterManagedConnectedVault {
   return vault.githubMode === "create_repository";
-}
-
-export function getConnectedVaultHostingProvider(
-  vault: ConnectedVault,
-): HostingProvider | undefined {
-  if (vault.hosting.state !== "not_configured") {
-    return vault.hosting.provider;
-  }
-  if (isNoterManagedVault(vault)) {
-    return "cloudflare";
-  }
-  return undefined;
 }

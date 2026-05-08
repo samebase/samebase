@@ -47,13 +47,39 @@ npx convex dashboard
 npx convex env list
 ```
 
-For worktree-safe prod logs when the worktree lacks its own `.env.local`, point
-`--env-file` at the primary checkout's `apps/noter/.env.local` and replace
-`<primary-checkout>` with the actual path:
+When checking production from a worktree, do not pass `--env-file` pointing at
+the primary checkout. If that file provides `CONVEX_DEPLOY_KEY`, the Convex CLI
+will ignore `--prod` and use the deploy key's deployment instead. Run prod
+commands from the primary local checkout's `apps/noter` directory, derive a
+comment-free `CONVEX_DEPLOYMENT` value from that checkout's `.env.local`, and
+clear the deploy-key env in the same command:
 
 ```bash
-npx convex logs --prod --env-file <primary-checkout>/apps/noter/.env.local --history 50
+primary_checkout="$(
+  git worktree list --porcelain |
+    awk '$1 == "worktree" { worktree=$2 } $1 == "branch" && $2 == "refs/heads/main" { print worktree; exit }'
+)"
+cd "$primary_checkout/apps/noter"
+CONVEX_DEPLOYMENT="$(
+  node <<'NODE'
+const fs = require("fs");
+const line = fs.readFileSync(".env.local", "utf8").split(/\n/).find((entry) => entry.trimStart().startsWith("CONVEX_DEPLOYMENT="));
+if (!line) process.exit(2);
+const raw = line.split("=").slice(1).join("=");
+console.log(raw.replace(/\s+#.*$/, "").trim().replace(/^['"]|['"]$/g, ""));
+NODE
+)" CONVEX_DEPLOY_KEY= npx convex logs --prod --history 50
 ```
+
+Use that same `CONVEX_DEPLOYMENT=... CONVEX_DEPLOY_KEY= npx convex ... --prod`
+prefix for `convex run`, `convex data`, and `convex env` production reads. Do
+not manually copy the raw `.env.local` line when it contains an inline
+`# team/project` comment; strip the comment first or the CLI can target the
+wrong deployment name before the query even runs.
+
+If the CLI prints
+`Ignoring --prod ... and using deployment from CONVEX_DEPLOY_KEY`, stop and
+rerun with `CONVEX_DEPLOY_KEY=` from the primary checkout.
 
 ## Architecture
 
@@ -137,10 +163,14 @@ Key domain entities:
   Avoid exact `!== undefined`, `!== null`, or `typeof value === "string"` checks
   unless the exact missing value, runtime type, empty string, or union
   discriminator is the state being modeled.
-- Treat repeated optional chaining on the same value as a code smell. If later
-  logic reads the object more than once, first check whether an explicit
-  missing-value branch would make the state clearer, then use narrowed direct
-  access for the rest. Keep `?.` when a single maybe-read really is the point.
+- When filtering nullable arrays, use the shared `notEmpty` type predicate from
+  `@noter-md/dependent` instead of writing inline Boolean type predicates.
+- Treat repeated optional chaining on the same value as a correctness smell, not
+  just style. If logic reads a maybe-null object more than once, narrow it once
+  with an explicit missing-value branch, then use direct access. This prevents
+  missing required rows from silently becoming fallback/default behavior. Keep
+  `?.` only for one-off maybe-reads whose missing case is genuinely equivalent
+  to absence.
 - Prefer direct conditions over intermediate variables when the expression is
   already easy to read. Do not add `!!` coercions, named booleans, helper
   wrappers, or provider splits just to look more engineered; add a name only

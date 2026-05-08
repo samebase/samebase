@@ -7,6 +7,11 @@ import { toErrorMessage } from "./jsonUtils";
 
 const workflow = new WorkflowManager(components.workflow);
 const { boolean, id, object, string } = v;
+const idempotentProviderStepRetry = {
+  maxAttempts: 3,
+  initialBackoffMs: 1_000,
+  base: 2,
+} as const;
 
 const workflowCompletionContext = object({
   runId: id("appProvisioningRuns"),
@@ -61,7 +66,7 @@ export const provisionVaultInfrastructure = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
       },
-      { name: "ensure_convex", retry: false },
+      { name: "ensure_convex", retry: idempotentProviderStepRetry },
     );
     await step.runAction(
       internal.infraProvisioning.ensureConvexPreviewInfrastructure,
@@ -69,7 +74,7 @@ export const provisionVaultInfrastructure = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
       },
-      { name: "ensure_convex_preview", retry: false },
+      { name: "ensure_convex_preview", retry: idempotentProviderStepRetry },
     );
     await step.runAction(
       internal.infraProvisioning.ensureCloudflareInfrastructure,
@@ -152,7 +157,7 @@ export const provisionApp = workflow.define({
         repoName: repository.repoName,
         defaultBranch: repository.defaultBranch,
       },
-      { name: "seed_starter", retry: false },
+      { name: "seed_starter", retry: idempotentProviderStepRetry },
     );
     await step.runAction(
       internal.appProvisioningWorkflowActions.syncVaultTreeForRepository,
@@ -164,7 +169,7 @@ export const provisionApp = workflow.define({
         repoName: repository.repoName,
         defaultBranch: repository.defaultBranch,
       },
-      { name: "sync_tree", retry: false },
+      { name: "sync_tree", retry: idempotentProviderStepRetry },
     );
     const { claimed } = await step.runMutation(
       internal.infraProvisioning.claimWorkflowProvisioning,
@@ -193,7 +198,7 @@ export const provisionApp = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
       },
-      { name: "ensure_convex", retry: false },
+      { name: "ensure_convex", retry: idempotentProviderStepRetry },
     );
     await step.runAction(
       internal.infraProvisioning.ensureConvexPreviewInfrastructure,
@@ -201,7 +206,7 @@ export const provisionApp = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
       },
-      { name: "ensure_convex_preview", retry: false },
+      { name: "ensure_convex_preview", retry: idempotentProviderStepRetry },
     );
     await step.runAction(
       internal.infraProvisioning.ensureCloudflareInfrastructure,

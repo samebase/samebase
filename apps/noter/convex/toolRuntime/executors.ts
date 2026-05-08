@@ -488,7 +488,6 @@ export async function executeVaultsList(
       state: vault.state,
       isNoterManaged: vault.isNoterManaged,
       commitSha: vault.commitSha,
-      hostingProvider: vault.hostingProvider,
     })),
   };
   return {

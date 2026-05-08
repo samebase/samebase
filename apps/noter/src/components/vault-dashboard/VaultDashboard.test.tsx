@@ -6,9 +6,9 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import type { ProvisioningLogEvent } from "@/lib/provisioningLog";
 import {
   VaultBranchLinkContent,
-  VaultInfrastructureSetupSection,
+  VaultProviderSetupSection,
 } from "./VaultDashboard";
-import { resolveVaultInfrastructureSetupStatus } from "./vaultInfrastructureSetup";
+import { resolveVaultProviderSetupStatus } from "./vaultProviderSetup";
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 
 const provisioningLogMock = vi.hoisted(
@@ -31,6 +31,12 @@ function fakeVaultId(): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; this static render
   // test only needs a stable vault id for the query args.
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
+function fakeRunId(): Id<"appProvisioningRuns"> {
+  // @ts-expect-error Convex ids are strings at runtime; this static render
+  // test only needs a stable run id for component props.
+  return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
 describe("VaultBranchLinkContent", () => {
@@ -65,22 +71,26 @@ describe("formatVaultSourceSetupStep", () => {
   });
 });
 
-describe("resolveVaultInfrastructureSetupStatus", () => {
-  it("keeps infra setup states as progress, not manual actions", () => {
-    expect(resolveVaultInfrastructureSetupStatus("not_started")).toEqual({
+describe("resolveVaultProviderSetupStatus", () => {
+  it("keeps provider setup states as progress, not manual actions", () => {
+    expect(
+      resolveVaultProviderSetupStatus({
+        status: "running",
+        provider: "convex",
+        runId: fakeRunId(),
+        step: "ensure_convex",
+        updatedAt: 0,
+      }),
+    ).toEqual({
       status: "running",
-      label: "Infra: preparing",
+      label: "Convex: provisioning",
     });
-    expect(resolveVaultInfrastructureSetupStatus("provisioning")).toEqual({
-      status: "running",
-      label: "Infra: provisioning",
-    });
-    expect(resolveVaultInfrastructureSetupStatus("ready")).toBeNull();
+    expect(resolveVaultProviderSetupStatus({ status: "ready" })).toBeNull();
   });
 });
 
-describe("VaultInfrastructureSetupSection", () => {
-  it("renders infra progress with the provisioning log", () => {
+describe("VaultProviderSetupSection", () => {
+  it("renders provider progress with the provisioning log", () => {
     provisioningLogMock.events = [
       {
         createdAt: Date.parse("2026-05-08T09:15:00Z"),
@@ -91,14 +101,20 @@ describe("VaultInfrastructureSetupSection", () => {
     ];
 
     const markup = renderToStaticMarkup(
-      <VaultInfrastructureSetupSection
-        infraState="provisioning"
+      <VaultProviderSetupSection
+        providerSetup={{
+          status: "running",
+          provider: "convex",
+          runId: fakeRunId(),
+          step: "ensure_convex",
+          updatedAt: 0,
+        }}
         repositoryFullName="noter-md/noter-app"
         vaultId={fakeVaultId()}
       />,
     );
 
-    expect(markup).toContain("Infra: provisioning");
+    expect(markup).toContain("Convex: provisioning");
     expect(markup).toContain("Ensuring Convex project");
     expect(markup).not.toContain("Provision infra");
     expect(markup).not.toContain("Retry infra");

@@ -6,8 +6,10 @@ import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { allowedInfraReadTable } from "./infraReadQueries";
 import { createInfraProviders } from "./infraProviders";
-import { readHostingLogs, readHostingSiteStatus } from "./hostingProviders";
-import { resolveCloudflareHostingState } from "./hostingStateHelpers";
+import {
+  readCloudflareDeploymentLogs,
+  readCloudflareProjectStatus,
+} from "./cloudflareResources";
 import { asRecord, clamp, readString } from "./jsonUtils";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -197,8 +199,8 @@ export const getCloudflareProjectStatus = internalAction({
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
     const { infra, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
-    const hosting = resolveCloudflareHostingState(infra);
-    if (!hosting || !vaultUserId) {
+    const cloudflare = infra?.cloudflare;
+    if (!cloudflare || !vaultUserId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
@@ -209,12 +211,11 @@ export const getCloudflareProjectStatus = internalAction({
       },
     );
 
-    return await readHostingSiteStatus({
-      provider: "cloudflare",
+    return await readCloudflareProjectStatus({
       cloudflareToken: resolveCloudflareToken(cloudflareConnection),
       cloudflareServerUrl: resolveCloudflareMcpServerUrl(cloudflareConnection),
-      accountId: hosting.accountId,
-      projectName: hosting.projectName,
+      accountId: cloudflare.accountId,
+      projectName: cloudflare.projectName,
     });
   },
 });
@@ -227,8 +228,8 @@ export const getCloudflareLogs = internalAction({
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
     const { infra, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
-    const hosting = resolveCloudflareHostingState(infra);
-    if (!hosting || !vaultUserId) {
+    const cloudflare = infra?.cloudflare;
+    if (!cloudflare || !vaultUserId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
@@ -239,12 +240,11 @@ export const getCloudflareLogs = internalAction({
       },
     );
 
-    return await readHostingLogs({
-      provider: "cloudflare",
+    return await readCloudflareDeploymentLogs({
       cloudflareToken: resolveCloudflareToken(cloudflareConnection),
       cloudflareServerUrl: resolveCloudflareMcpServerUrl(cloudflareConnection),
-      accountId: hosting.accountId,
-      projectName: hosting.projectName,
+      accountId: cloudflare.accountId,
+      projectName: cloudflare.projectName,
       maxEntries: args.maxEntries ?? 10,
     });
   },

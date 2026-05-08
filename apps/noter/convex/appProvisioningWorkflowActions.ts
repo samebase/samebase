@@ -168,7 +168,7 @@ export const validateCreateAppConnections = internalAction({
     }
     if (cloudflareConnection?.kind !== "cloudflare") {
       throw new Error(
-        "Cloudflare connection is required to create a Cloudflare-hosted project.",
+        "Cloudflare connection is required to create a Cloudflare project.",
       );
     }
 

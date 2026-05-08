@@ -419,7 +419,12 @@ export async function seedRepositoryWithStarter(args: {
         }),
     });
 
-    tree = await createManifestTree();
+    tree = await retryOperation({
+      operation: "seed:createManifestTreeAfterBootstrap",
+      maxAttempts: 5,
+      shouldRetry: isEmptyRepositoryError,
+      run: createManifestTree,
+    });
   }
 
   const commit = await retryOperation({
