@@ -675,6 +675,47 @@ exposes infra provisioning, but the dashboard can still read as generic
 infer it from missing tree state. This is a visibility gap, not a reason to move
 connected vaults back to top-level failed.
 
+The existing provisioning textarea is still the right raw log surface. The
+problem is placement and summary state: today the textarea is rendered inside
+ready-vault developer tools, while the affected vault is not ready because it
+has no usable default-branch tree. Phase 3 should reuse that event log instead
+of building a second log model, but expose it on non-ready connected cards when
+the current create-app run is still running or failed during source setup.
+
+Source setup in this phase means the post-GitHub steps needed before the vault
+can safely behave as a source workspace: `seed_starter` and initial `sync_tree`.
+This is separate from tree freshness after the first successful sync. A tree
+becoming stale later is normal refresh state; a failed initial `sync_tree` means
+the app never reached the minimum usable source state.
+
+Recommended dashboard query shape:
+
+```ts
+type SourceSetupSummary =
+  | { status: "not_applicable" }
+  | { status: "ready" }
+  | {
+      status: "running";
+      runId: Id<"appProvisioningRuns">;
+      step: AppProvisioningRunStep;
+      updatedAt: number;
+    }
+  | {
+      status: "failed";
+      runId: Id<"appProvisioningRuns">;
+      step: "seed_starter" | "sync_tree";
+      message: string;
+      updatedAt: number;
+    };
+```
+
+Keep the current broad `state: "copying_files" | "ready" | "failed"` result as
+the card readiness bucket, then add a required `sourceSetup` summary with this
+shape. Use `not_applicable` for existing-repo vaults and pre-GitHub create
+attempts, because Phase 3 is only about the source setup gap after GitHub
+identity is connected. The concrete Convex validator should mirror this union
+with required fields in each status arm.
+
 Scope:
 
 1. update dashboard queries and controls to render provider states
@@ -706,6 +747,23 @@ Implementation outline:
    make tree absence mean GitHub disconnection.
 5. Render the latest failure message and provisioning log on the card so the
    user can see which provider/source step failed before Phase 4 retry exists.
+6. Keep the ready-vault developer-tools log unchanged, but make the log
+   component usable from the non-ready card body when setup summary status is
+   `running` or `failed`.
+
+Frontend behavior:
+
+1. A pre-GitHub failure still renders as a failed create attempt, because the
+   repository identity was not established.
+2. A connected Noter-managed vault without a usable tree renders as setup in
+   progress while its create-app run is queued/running.
+3. A connected Noter-managed vault whose create-app run failed in `seed_starter`
+   or `sync_tree` renders as setup failed, shows the latest failure message, and
+   shows the provisioning log.
+4. GitHub links and delete affordances continue to use the connected repository
+   identity.
+5. Branch lists, source workspace links, chat, and infra controls remain hidden
+   until a usable default-branch tree exists.
 
 ### Vault-First Phase 4: Manual Provider Retry
 
