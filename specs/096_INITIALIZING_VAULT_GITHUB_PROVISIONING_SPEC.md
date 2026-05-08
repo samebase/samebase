@@ -460,6 +460,8 @@ temporary layers:
    because the UI does not yet collect the target user/org owner
 6. delete UI limitations around create attempts that might have created a GitHub
    repository before connected identity was written
+7. top-level `vaults.infra*` aggregate fields that compress Convex and hosting
+   state into one dashboard/provisioning status
 
 Manual provider retry should not be the next proof point while these layers are
 still active. Retry becomes more meaningful after source reads are canonical,
@@ -584,6 +586,39 @@ needs a stored materialized summary.
 A connected vault may render a failed or degraded dashboard summary, but its
 stored GitHub state remains `connected`. The summary describes current health;
 the state describes whether the vault has durable repository identity.
+
+## Convex And Hosting State Direction
+
+The product model should not treat Convex and Cloudflare as one generic
+`infraState`. They are separate provider legs of the app after GitHub source
+setup succeeds, and they can progress, fail, and retry independently.
+
+The target state model is:
+
+1. GitHub/source state says whether the vault has durable repository identity
+   and enough tree data for source-backed work
+2. `vault.convex` says whether Convex is not configured, provisioning,
+   connected, or failed
+3. `vault.hosting` says whether hosting is not configured, provisioning,
+   connected, or failed
+4. dashboard labels such as creating, active, degraded, failed, or partial are
+   derived from those provider states
+5. provider retry actions target the failed provider state, not a generic
+   aggregate infra status
+
+Top-level `vaults.infraState`, `vaults.infraLastError`,
+`vaults.infraLastProvisionedAt`, and `vaults.infraProvisioningStartedAt` are the
+current compatibility shortcut for dashboard and provisioning code. They should
+not gain new product meaning. Phase 5 should replace their reads and writes with
+explicit Convex/hosting state transitions, then remove the aggregate fields from
+the vault row after production data is clean.
+
+`vaultInfrastructure` should keep the external resource metadata and operational
+details needed to call providers, such as project ids, deployment names, account
+ids, deploy-key ids, domains, provisioning version, and ownership. It should not
+become a competing user-visible source of truth for whether the app is ready. If
+a status-like field remains there during migration, dashboard and retry code
+should still derive product state from `vault.convex` and `vault.hosting`.
 
 ## Migration
 
@@ -897,19 +932,31 @@ cannot, without requiring the user to understand provider steps.
 
 Scope:
 
-1. classify create-app steps by idempotency before enabling backend retries
-2. add step-local Workflow retry only where duplicate external writes cannot
+1. make `vault.convex` and `vault.hosting` the product-facing source of truth
+   for provider setup progress, success, and failure
+2. update provisioning code to transition Convex and hosting state separately
+   while preserving connected GitHub state
+3. replace dashboard and query reads of top-level `vaults.infra*` fields with
+   summaries derived from `vault.convex` and `vault.hosting`
+4. narrow `vaultInfrastructure` toward provider resource metadata and
+   operational ownership instead of user-visible readiness
+5. remove the top-level `vaults.infraState`, `vaults.infraLastError`,
+   `vaults.infraLastProvisionedAt`, and `vaults.infraProvisioningStartedAt`
+   mirrors after production rows are clean
+6. classify create-app steps by idempotency before enabling backend retries
+7. add step-local Workflow retry only where duplicate external writes cannot
    create a worse state
-3. keep `create_github_repo` conservative unless repository creation is
+8. keep `create_github_repo` conservative unless repository creation is
    protected by durable repository identity or an explicit retained-repo state
-4. make `seed_starter` and initial `sync_tree` safe to retry from the backend
+9. make `seed_starter` and initial `sync_tree` safe to retry from the backend
    when their idempotency checks pass
-5. keep terminal failures user-visible through `sourceSetup` summaries and
-   provisioning events
+10. keep terminal failures user-visible through `sourceSetup` summaries and
+    provisioning events
 
 Stop before adding manual retry controls. Backend retries should improve the
 "click New App and get done" path; they are not a substitute for clear terminal
-state.
+state. Provider retry work should not build on the aggregate infra mirrors; it
+should first make the separate provider states trustworthy enough to retry.
 
 ### Vault-First Phase 6: Manual Provider Retry As Optional Proof
 
@@ -977,11 +1024,15 @@ Backend:
     tree mirror fallback
 15. after compatibility cleanup, supported provisioning events require `runId`
     and supported provisioning runs require `vaultId`
-16. when backend retries ship, retried provider steps prove idempotency and keep
+16. Phase 5 replaces top-level `vaults.infra*` dashboard/provisioning reads with
+    summaries derived from `vault.convex` and `vault.hosting`
+17. Phase 5 removes the top-level `vaults.infra*` mirrors after production data
+    is clean
+18. when backend retries ship, retried provider steps prove idempotency and keep
     terminal failures visible through the same run/event summaries
-17. when manual retry ships, GitHub retry creates a new run and replaces the
+19. when manual retry ships, GitHub retry creates a new run and replaces the
     failed state's `runId`
-18. when existing-repo onboarding ships, connection writes connected
+20. when existing-repo onboarding ships, connection writes connected
     existing-repository GitHub state
 
 Frontend:
@@ -994,9 +1045,11 @@ Frontend:
    provisioning message/log instead of only showing `setting up...`
 5. after compatibility cleanup, source readiness is driven by explicit setup and
    tree availability summaries instead of the legacy readiness bucket
-6. when manual retry ships, failed provider state shows the retry target on the
+6. Phase 5 dashboard summaries for Convex and hosting come from explicit
+   provider states, not a generic `infraState`
+7. when manual retry ships, failed provider state shows the retry target on the
    vault
-7. when existing-repo onboarding ships, connected existing-repo vaults render
+8. when existing-repo onboarding ships, connected existing-repo vaults render
    like other connected vaults after GitHub state is connected
 
 ## Acceptance Criteria
@@ -1016,5 +1069,9 @@ Frontend:
     UI is treated as durability proof.
 11. Failure messages are read from provisioning events rather than duplicated on
     the vault row.
-12. When retries ship, they create new runs rather than mutating previous
+12. Convex and hosting progress/failure is represented by separate provider
+    states before provider retries are treated as durable.
+13. Aggregate `vaults.infra*` mirrors are removed before manual provider retry
+    is used as proof of the state model.
+14. When retries ship, they create new runs rather than mutating previous
     terminal runs.

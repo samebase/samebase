@@ -84,6 +84,12 @@ The dashboard previously surfaced this mostly through:
 This is operationally useful but unclear during app creation because multiple
 provider steps can succeed or fail under the same visible state.
 
+The current vault-first direction in `096` keeps this history but changes the
+target model: Convex and hosting should be separate provider states on the
+connected vault, dashboard summaries should be derived from those states, and
+top-level `vaults.infra*` aggregate fields should be removed before provider
+retry UI is treated as proof of durability.
+
 Phase 1 shipped durable `appProvisioningEvents` and a dashboard log textarea.
 Phase 2 adds app-owned run identity and stores the Workflow id so the app can
 safely expose Workflow status, restart failed work, cancel work, or clean up

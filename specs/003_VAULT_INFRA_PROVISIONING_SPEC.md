@@ -53,6 +53,13 @@ downstream provisioning partially fails.
 - `infraLastProvisionedAt?: number`
 - `infraProvisioningStartedAt?: number`
 
+These fields are the implemented MVP aggregate. The vault-first follow-up in
+`096` treats them as compatibility mirrors, not the long-term product model.
+Future Convex/Cloudflare cleanup should represent provider progress through
+separate `vault.convex` and `vault.hosting` states, derive dashboard summaries
+from those states, and remove the aggregate `vaults.infra*` fields once
+production rows are clean.
+
 ### `vaultInfrastructure`
 
 - `vaultId`
