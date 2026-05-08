@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   resolveInfraStateAfterWorkflowFailure,
+  resolveConnectionFailureProvider,
   selectCloudflareBuildConfigTreeData,
 } from "./infraProvisioning";
 import type { GithubTreeData } from "./schema";
@@ -62,5 +63,31 @@ describe("resolveInfraStateAfterWorkflowFailure", () => {
         cloudflare: {},
       }),
     ).toBe("partial");
+  });
+});
+
+describe("resolveConnectionFailureProvider", () => {
+  it("detects Cloudflare connection failures", () => {
+    expect(
+      resolveConnectionFailureProvider(
+        "Cloudflare connection is required to provision infrastructure.",
+      ),
+    ).toBe("cloudflare");
+  });
+
+  it("detects Convex connection failures", () => {
+    expect(
+      resolveConnectionFailureProvider(
+        "Convex connection is required to provision infrastructure.",
+      ),
+    ).toBe("convex");
+  });
+
+  it("leaves unrelated failures unattributed", () => {
+    expect(
+      resolveConnectionFailureProvider(
+        "GitHub connection is required to provision infrastructure.",
+      ),
+    ).toBe(null);
   });
 });

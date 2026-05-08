@@ -90,7 +90,9 @@ For production Convex reads from this repo, use the primary checkout and avoid a
 deploy key:
 
 ```bash
-cd /Users/nicu/dev/my/noter/apps/noter
+repo_root="$(git rev-parse --show-toplevel)"
+primary_checkout="$(git -C "$repo_root" worktree list --porcelain | awk '$1 == "worktree" { worktree=$2 } $1 == "branch" && $2 == "refs/heads/main" { print worktree; exit }')"
+cd "$primary_checkout/apps/noter"
 CONVEX_DEPLOYMENT=<primary-checkout-CONVEX_DEPLOYMENT> CONVEX_DEPLOY_KEY= npx convex run --prod --inline-query '<query>'
 ```
 

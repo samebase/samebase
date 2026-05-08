@@ -561,6 +561,7 @@ async function getManagedProvisioningVault(
 type ProviderStatePatch = Partial<
   Pick<NoterManagedConnectedVault, "cloudflare" | "convex">
 >;
+type ProviderFailureTarget = "cloudflare" | "convex";
 
 function hasFreshProviderProvisioningLock(args: {
   vault: NoterManagedConnectedVault;
@@ -579,10 +580,21 @@ function buildProviderFailurePatch(args: {
   vault: NoterManagedConnectedVault;
   runId: Id<"appProvisioningRuns">;
   step: AppProvisioningStep | "run_created";
+  message?: string;
   now: number;
 }): ProviderStatePatch {
   const patch: ProviderStatePatch = {};
   const cloudflare = args.vault.cloudflare;
+  const resetConvex = () => {
+    if (args.vault.convex.state !== "connected") {
+      patch.convex = { state: "not_configured" };
+    }
+  };
+  const resetCloudflare = () => {
+    if (cloudflare.state !== "connected") {
+      patch.cloudflare = { state: "not_configured" };
+    }
+  };
   const failConvex = () => {
     if (args.vault.convex.state !== "connected") {
       patch.convex = {
@@ -607,6 +619,21 @@ function buildProviderFailurePatch(args: {
     case "run_created":
     case "claim_infra":
     case "validate_connections":
+      if (args.step === "validate_connections" && args.message) {
+        const connectionFailureProvider = resolveConnectionFailureProvider(
+          args.message,
+        );
+        if (connectionFailureProvider === "cloudflare") {
+          resetConvex();
+          failCloudflare();
+          break;
+        }
+        if (connectionFailureProvider === "convex") {
+          failConvex();
+          resetCloudflare();
+          break;
+        }
+      }
       if (args.vault.convex.state === "connected") {
         failCloudflare();
       } else {
@@ -635,6 +662,19 @@ function buildProviderFailurePatch(args: {
   }
 
   return patch;
+}
+
+export function resolveConnectionFailureProvider(
+  message: string,
+): ProviderFailureTarget | null {
+  const normalizedMessage = message.toLowerCase();
+  if (normalizedMessage.includes("cloudflare")) {
+    return "cloudflare";
+  }
+  if (normalizedMessage.includes("convex")) {
+    return "convex";
+  }
+  return null;
 }
 
 async function resolveConvexProvisioningConnection(
@@ -1650,6 +1690,7 @@ export const markWorkflowStartupFailed = internalMutation({
         vault,
         runId: args.runId,
         step: run.currentStep,
+        message: args.message,
         now,
       });
       if (Object.keys(providerPatch).length > 0) {
@@ -1834,6 +1875,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
           vault,
           runId: args.runId,
           step: run.currentStep,
+          message: args.message,
           now,
         });
         if (Object.keys(providerPatch).length > 0) {
