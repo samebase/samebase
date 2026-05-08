@@ -1,5 +1,7 @@
 import { Infer, v } from "convex/values";
 import { internalQuery } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";
 import { PullRequestLabel } from "../schema";
 import {
   getConnectedVaultHostingProvider,
@@ -110,6 +112,24 @@ function compareRemoteBranchSortOrder(
   return left.name.localeCompare(right.name);
 }
 
+/**
+ * A connected GitHub vault is ready only after its default branch tree is cached.
+ */
+function getDefaultBranchTree(
+  ctx: Pick<QueryCtx, "db">,
+  args: {
+    vaultId: Id<"vaults">;
+    defaultBranch: string;
+  },
+) {
+  return ctx.db
+    .query("vaultBranchTrees")
+    .withIndex("by_vault_and_branch", (q) =>
+      q.eq("vaultId", args.vaultId).eq("branch", args.defaultBranch),
+    )
+    .first();
+}
+
 export const listVaultsForUser = internalQuery({
   args: listVaultsForUserArgsValidator,
   returns: listVaultsForUserResultValidator,
@@ -123,12 +143,10 @@ export const listVaultsForUser = internalQuery({
       .collect();
     return await Promise.all(
       vaults.filter(isConnectedVault).map(async (vault) => {
-        const defaultBranchTree = await ctx.db
-          .query("vaultBranchTrees")
-          .withIndex("by_vault_and_branch", (q) =>
-            q.eq("vaultId", vault._id).eq("branch", vault.defaultBranch),
-          )
-          .first();
+        const defaultBranchTree = await getDefaultBranchTree(ctx, {
+          vaultId: vault._id,
+          defaultBranch: vault.defaultBranch,
+        });
         return {
           vaultId: vault._id,
           repositoryFullName: `${vault.owner}/${vault.name}`,
@@ -193,12 +211,16 @@ export const getVaultContextForUser = internalQuery({
     if (!vault || vault.userId !== args.userId || !isConnectedVault(vault)) {
       return null;
     }
+    const defaultBranchTree = await getDefaultBranchTree(ctx, {
+      vaultId: vault._id,
+      defaultBranch: vault.defaultBranch,
+    });
     return {
       _id: vault._id,
       userId: vault.userId,
       owner: vault.owner,
       name: vault.name,
-      state: "ready",
+      state: defaultBranchTree ? "ready" : "copying_files",
     };
   },
 });
