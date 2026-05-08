@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import { action, type ActionCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 import { createInfraProviders } from "./infraProviders";
@@ -110,6 +110,35 @@ async function startCreateAppProvisioningOrFail(
     }
     throw error;
   }
+}
+
+async function resolveGithubConnectionOwner(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    connection: Extract<Doc<"providerConnections">, { kind: "github" }>;
+    userId: Id<"users">;
+  },
+): Promise<string> {
+  if (args.connection.username) {
+    return args.connection.username;
+  }
+
+  const octokit = new Octokit({
+    auth: args.connection.auth.credential,
+  });
+  const { data } = await octokit.rest.users.getAuthenticated();
+  const username = data.login;
+  if (!username) {
+    throw new Error("GitHub connection is missing an account login.");
+  }
+
+  await ctx.runMutation(internal.providerConnections.upsertGithub, {
+    userId: args.userId,
+    auth: args.connection.auth,
+    username,
+  });
+
+  return username;
 }
 
 export const connectRepository = action({
@@ -230,16 +259,20 @@ export const createRepository = action({
         kind: "github",
       },
     );
-    if (githubConnection?.kind !== "github" || !githubConnection.username) {
+    if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected.");
     }
+    const ghRepoOwner = await resolveGithubConnectionOwner(ctx, {
+      connection: githubConnection,
+      userId,
+    });
 
     const visibility = args.private === false ? "public" : "private";
     const { vaultId, runId } = await ctx.runMutation(
       internal.vault.createInitializingNoterManagedVaultForUser,
       {
         userId,
-        ghRepoOwner: githubConnection.username,
+        ghRepoOwner,
         ghRepoName: repoName,
         visibility,
       },
