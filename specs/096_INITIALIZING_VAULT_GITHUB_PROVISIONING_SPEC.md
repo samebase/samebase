@@ -958,6 +958,11 @@ Stop before adding manual retry controls. Backend retries should improve the
 state. Provider retry work should not build on the aggregate infra mirrors; it
 should first make the separate provider states trustworthy enough to retry.
 
+Cloudflare MCP calls used by hosting provisioning should use a 30 second
+per-request timeout. The earlier 10 second timeout was too tight for normal
+Pages project setup latency and could fail `ensure_cloudflare` before backend
+retry and reconcile behavior had a chance to make the step durable.
+
 ### Vault-First Phase 6: Manual Provider Retry As Optional Proof
 
 Goal: add explicit retry actions only after the canonical model is clean enough
