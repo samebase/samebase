@@ -121,7 +121,17 @@ async function resolveSourceSetupSummary(
   }
 
   const run = await ctx.db.get(args.vault.runId);
-  if (run?.state === "failed") {
+  if (!run) {
+    return {
+      status: "failed",
+      runId: args.vault.runId,
+      step: "run_created",
+      message: "Provisioning run not found.",
+      updatedAt: args.vault.connectedAt,
+    };
+  }
+
+  if (run.state === "failed") {
     const message =
       (await readLatestRunErrorMessage(ctx, args.vault.runId)) ??
       run.lastError ??
@@ -135,16 +145,16 @@ async function resolveSourceSetupSummary(
     };
   }
 
-  if (run?.state !== "queued" && run?.state !== "running") {
-    return { status: "not_applicable" };
+  if (run.state === "queued" || run.state === "running") {
+    return {
+      status: "running",
+      runId: args.vault.runId,
+      step: run.currentStep,
+      updatedAt: run.updatedAt,
+    };
   }
 
-  return {
-    status: "running",
-    runId: args.vault.runId,
-    step: run.currentStep,
-    updatedAt: run.updatedAt,
-  };
+  return { status: "not_applicable" };
 }
 
 const vaultBranchFiltersValidator = object({
