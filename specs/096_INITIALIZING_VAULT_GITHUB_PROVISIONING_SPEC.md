@@ -965,6 +965,15 @@ per-request timeout. The earlier 10-second timeout was too tight for normal
 Pages project setup latency and could fail `ensure_cloudflare` before backend
 retry and reconcile behavior had a chance to make the step durable.
 
+Future Cloudflare durability work should also cover deploy/publish failures
+after asset upload has already succeeded. Production has observed Cloudflare
+Pages upload and asset publish succeed, then the Function publish step fail with
+`Failed to publish your Function. Got error: Unknown internal error occurred.`
+and succeed after a manual Cloudflare deployment retry. Treat that as a
+Cloudflare-transient publish/reconcile case: retry or reconcile the Cloudflare
+deployment without re-running unrelated provider setup, and preserve the
+provider-specific event/error trail when the retry budget is exhausted.
+
 The first `seed_starter` idempotency case to cover is GitHub's empty-repository
 consistency window after Noter's bootstrap commit creates the default branch.
 Production observed the bootstrap commit succeed, then a follow-up manifest tree
