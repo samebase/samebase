@@ -8,7 +8,12 @@ import { VaultProvisioningLogTextarea } from "@/components/vault-dashboard/Vault
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import { GitBranch, GitCommitHorizontal, Loader2 } from "lucide-react";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useRouter,
+} from "@tanstack/react-router";
 import { linkStyle } from "../styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
@@ -36,6 +41,7 @@ import {
   useQuery as useConvexQuery,
 } from "convex/react";
 import {
+  useCallback,
   useEffect,
   useRef,
   type MutableRefObject,
@@ -88,6 +94,7 @@ import {
   buildPullRequestLabelStyle,
   normalizePullRequestLabels,
 } from "@/lib/pullRequestLabels";
+import { applySearchPatch } from "@/lib/routeSearchFlags";
 import {
   buildVaultBranchFilterOptions,
   filterVaultRemoteBranches,
@@ -2044,6 +2051,7 @@ function VaultDashboardBody({
 export function VaultDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
+  const router = useRouter();
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible =
     rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
@@ -2189,6 +2197,10 @@ export function VaultDashboard() {
   const convexPopupOriginRef = useRef<string | null>(null);
   const cloudflarePopupOriginRef = useRef<string | null>(null);
   const preparedDeleteRepositoryRef = useRef<string | null>(null);
+  // In-app delete icon clicks should close back to the dashboard entry that
+  // existed before the modal; direct links should only replace the delete key.
+  const previousDeleteRepositoryFullNameRef = useRef(deleteRepositoryFullName);
+  const shouldPopDeleteHistoryRef = useRef(false);
   const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
     github: {
       getOAuthUrl: () => getGithubOAuthUrl({}),
@@ -2298,11 +2310,50 @@ export function VaultDashboard() {
     vaultToDelete ? { vaultId: vaultToDelete.id } : "skip",
   );
 
+  const clearDeleteSearchParam = useCallback(
+    ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
+      const shouldPopDeleteRoute =
+        preferHistoryBack &&
+        deleteRepositoryFullName &&
+        shouldPopDeleteHistoryRef.current &&
+        router.history.canGoBack();
+      shouldPopDeleteHistoryRef.current = false;
+
+      if (shouldPopDeleteRoute) {
+        router.history.back();
+        return;
+      }
+
+      void navigate({
+        hash: true,
+        replace: true,
+        search: (currentSearch) =>
+          applySearchPatch(currentSearch, { delete: null }),
+        state: true,
+        to: ".",
+      });
+    },
+    [deleteRepositoryFullName, navigate, router],
+  );
+
   useEffect(() => {
+    const previousDeleteRepositoryFullName =
+      previousDeleteRepositoryFullNameRef.current;
+    if (!previousDeleteRepositoryFullName && deleteRepositoryFullName) {
+      shouldPopDeleteHistoryRef.current = true;
+    }
+    if (!deleteRepositoryFullName) {
+      shouldPopDeleteHistoryRef.current = false;
+    }
+    previousDeleteRepositoryFullNameRef.current = deleteRepositoryFullName;
+
     if (!vaultToDelete) {
       if (preparedDeleteRepositoryRef.current) {
         preparedDeleteRepositoryRef.current = null;
         resetDeleteDialogState();
+      }
+      if (deleteRepositoryFullName && vaults) {
+        clearDeleteSearchParam({ preferHistoryBack: false });
       }
       return;
     }
@@ -2317,7 +2368,14 @@ export function VaultDashboard() {
     // cleanup options when that routed target changes.
     prepareDeleteDialog({ target: vaultToDelete });
     preparedDeleteRepositoryRef.current = vaultToDelete.repositoryFullName;
-  }, [prepareDeleteDialog, resetDeleteDialogState, vaultToDelete]);
+  }, [
+    clearDeleteSearchParam,
+    deleteRepositoryFullName,
+    prepareDeleteDialog,
+    resetDeleteDialogState,
+    vaultToDelete,
+    vaults,
+  ]);
 
   const handleConnect = async (provider: ProviderKey) => {
     const providerConfig = providerRuntimeConfig[provider];
@@ -2402,17 +2460,6 @@ export function VaultDashboard() {
     }
   };
 
-  const clearDeleteSearchParam = () => {
-    void navigate({
-      replace: true,
-      search: (currentSearch) => ({
-        ...currentSearch,
-        delete: undefined,
-      }),
-      to: "/",
-    });
-  };
-
   const handleRemoveVault = async () => {
     if (!vaultToDelete || isDeleting || isCommitting) return;
     setDeleteError(null);
@@ -2436,7 +2483,7 @@ export function VaultDashboard() {
             : false,
       });
       resetDeleteDialogState();
-      clearDeleteSearchParam();
+      clearDeleteSearchParam({ preferHistoryBack: true });
     } catch (error) {
       console.error("Failed to remove vault:", error);
       setDeleteError(
@@ -2882,7 +2929,7 @@ export function VaultDashboard() {
       return;
     }
 
-    clearDeleteSearchParam();
+    clearDeleteSearchParam({ preferHistoryBack: true });
   };
 
   const sidebarContent = (
