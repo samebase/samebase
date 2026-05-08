@@ -187,30 +187,38 @@ async function readProviderRunSummary(
   },
 ): Promise<Extract<ProviderSetupSummary, { status: "running" | "failed" }>> {
   const run = await ctx.db.get(args.runId);
-  const step = run?.currentStep ?? "run_created";
-  const updatedAt = run?.updatedAt ?? args.fallbackUpdatedAt;
+  if (!run) {
+    return {
+      status: "failed",
+      provider: args.provider,
+      runId: args.runId,
+      step: "run_created",
+      message: "Provisioning run not found.",
+      updatedAt: args.fallbackUpdatedAt,
+    };
+  }
 
-  if (args.status === "running" && run?.state !== "failed") {
+  if (args.status === "running" && run.state !== "failed") {
     return {
       status: "running",
       provider: args.provider,
       runId: args.runId,
-      step,
-      updatedAt,
+      step: run.currentStep,
+      updatedAt: run.updatedAt,
     };
   }
 
   const message =
     (await readLatestRunErrorMessage(ctx, args.runId)) ??
-    run?.lastError ??
-    `Provisioning failed during ${step}.`;
+    run.lastError ??
+    `Provisioning failed during ${run.currentStep}.`;
   return {
     status: "failed",
     provider: args.provider,
     runId: args.runId,
-    step,
+    step: run.currentStep,
     message,
-    updatedAt,
+    updatedAt: run.updatedAt,
   };
 }
 

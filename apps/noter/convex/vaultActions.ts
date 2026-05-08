@@ -444,13 +444,13 @@ export const deleteVault = action({
 
     const cloudflare = infrastructure?.cloudflare;
     const shouldRemoveCloudflareProvision =
-      args.removeCloudflareProvision === true && isNoterManaged;
+      args.removeCloudflareProvision && isNoterManaged;
     const shouldRemoveConvexProvision =
-      args.removeConvexProvision === true &&
+      args.removeConvexProvision &&
       isNoterManaged &&
       (typeof infrastructure?.convexProjectId === "string" ||
         typeof infrastructure?.convexDeploymentName === "string");
-    const shouldRemoveCodespaces = args.removeCodespaces === true;
+    const shouldRemoveCodespaces = args.removeCodespaces;
 
     if (shouldRemoveCloudflareProvision || shouldRemoveConvexProvision) {
       const convexToken = shouldRemoveConvexProvision
