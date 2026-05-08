@@ -431,13 +431,9 @@ function resolveCloudflareBuildConfig(vault: {
 
 export function selectCloudflareBuildConfigTreeData(args: {
   branchTreeData: GithubTreeData | null;
-  legacyTreeData: GithubTreeData | undefined;
 }): GithubTreeData {
   if (args.branchTreeData) {
     return args.branchTreeData;
-  }
-  if (args.legacyTreeData) {
-    return args.legacyTreeData;
   }
   throw new Error("Default branch tree is not synced yet.");
 }
@@ -1181,7 +1177,6 @@ export const ensureCloudflareInfrastructure = internalAction({
     );
     const buildConfigTreeData = selectCloudflareBuildConfigTreeData({
       branchTreeData: defaultBranchTree?.treeData ?? null,
-      legacyTreeData: vault.treeData,
     });
     const defaultBranch = vault.defaultBranch;
     const { githubAccessToken } = await resolveGitHubProvisioningConnection(
@@ -1396,31 +1391,29 @@ export const markWorkflowStartupFailed = internalMutation({
         : run.currentStep === "run_created"
           ? "claim_infra"
           : run.currentStep;
-    if (run.vaultId !== null) {
-      const vault = await ctx.db.get(run.vaultId);
-      if (
-        vault?.state === "provisioning" &&
-        vault.githubMode === "create_repository" &&
-        vault.runId === args.runId
-      ) {
-        await ctx.runMutation(
-          internal.vault.markNoterManagedGithubProvisioningFailed,
-          {
-            runId: args.runId,
-          },
-        );
-      } else if (
-        isConnectedVault(vault) &&
-        isNoterManagedVault(vault) &&
-        vault.infraState !== "ready"
-      ) {
-        await ctx.db.patch(run.vaultId, {
-          infraState: "failed",
-          infraLastError: args.message,
-          infraLastProvisionedAt: now,
-          infraProvisioningStartedAt: undefined,
-        });
-      }
+    const vault = await ctx.db.get(run.vaultId);
+    if (
+      vault?.state === "provisioning" &&
+      vault.githubMode === "create_repository" &&
+      vault.runId === args.runId
+    ) {
+      await ctx.runMutation(
+        internal.vault.markNoterManagedGithubProvisioningFailed,
+        {
+          runId: args.runId,
+        },
+      );
+    } else if (
+      isConnectedVault(vault) &&
+      isNoterManagedVault(vault) &&
+      vault.infraState !== "ready"
+    ) {
+      await ctx.db.patch(run.vaultId, {
+        infraState: "failed",
+        infraLastError: args.message,
+        infraLastProvisionedAt: now,
+        infraProvisioningStartedAt: undefined,
+      });
     }
 
     await ctx.db.patch(args.runId, {
@@ -1487,35 +1480,6 @@ export const markWorkflowProvisioningFailed = internalMutation({
         : run.currentStep === "run_created"
           ? "claim_infra"
           : run.currentStep;
-    if (run.vaultId === null) {
-      const safeRunError =
-        run.currentStep === "run_created"
-          ? "Provisioning failed before the first step."
-          : `Provisioning failed during ${run.currentStep}.`;
-      await ctx.db.patch(args.runId, {
-        state: "failed",
-        lastError: safeRunError,
-        updatedAt: now,
-        completedAt: now,
-      });
-      await ctx.runMutation(internal.appProvisioningEvents.append, {
-        userId: run.userId,
-        vaultId: null,
-        repositoryFullName: run.repositoryFullName,
-        runId: args.runId,
-        step: eventStep,
-        level: "error",
-        message: safeRunError,
-        createdAt: now,
-      });
-      console.error("app:provision:failed", {
-        repo: run.repositoryFullName,
-        step: run.currentStep,
-        message: args.message,
-      });
-      return null;
-    }
-
     const vaultId = run.vaultId;
     const vault = await ctx.db.get(vaultId);
     const safeRunError =

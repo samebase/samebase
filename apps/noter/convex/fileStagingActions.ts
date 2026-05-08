@@ -50,24 +50,17 @@ const PULL_REQUEST_COMPARE_FILE_LIST_LIMIT = 3_000;
 
 export function selectBatchReadRepositoryTree(args: {
   requestedBranch?: string;
-  defaultBranch?: string;
   branchTree: GithubTreeType[] | null;
-  legacyTree: GithubTreeType[] | null;
 }): GithubTreeType[] {
   if (args.branchTree) {
     return args.branchTree;
   }
   if (!args.requestedBranch) {
-    if (!args.legacyTree) {
-      throw new Error("Default branch tree is not cached. Refresh and retry.");
-    }
-    return args.legacyTree;
+    throw new Error("Default branch tree is not cached. Refresh and retry.");
   }
   return selectRepositoryTreeForBranch({
     requestedBranch: args.requestedBranch,
-    defaultBranch: args.defaultBranch,
     branchTree: args.branchTree,
-    legacyTree: args.legacyTree,
   });
 }
 
@@ -77,13 +70,11 @@ export function listTouchedBranchesForRefresh(branches: string[]): string[] {
 
 export async function runPostCommitTreeRefresh<T>(args: {
   refreshBranchTree: () => Promise<void>;
-  refreshLegacyTree: () => Promise<void>;
   loadUpdatedVault: () => Promise<T | null>;
   onWarning: (error: unknown) => void;
 }): Promise<T | null> {
   try {
     await args.refreshBranchTree();
-    await args.refreshLegacyTree();
     return await args.loadUpdatedVault();
   } catch (error) {
     args.onWarning(error);
@@ -3060,9 +3051,7 @@ export const batchReadFiles = action({
     }
     const repositoryTree = selectBatchReadRepositoryTree({
       requestedBranch,
-      defaultBranch,
       branchTree: branchTreeData,
-      legacyTree: connectedVault.treeData?.tree ?? null,
     });
 
     // Build a map of path → tree entry for fast lookups
@@ -4094,13 +4083,6 @@ export const commitAllStaged = internalAction({
             owner: repoOwner,
             repo: repoName,
             branch: commitBranch,
-          });
-        },
-        refreshLegacyTree: async () => {
-          await ctx.runAction(internal.github.updateRepositoryTree, {
-            userId: args.userId,
-            owner: repoOwner,
-            repo: repoName,
           });
         },
         loadUpdatedVault: async () =>

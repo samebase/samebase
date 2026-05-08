@@ -138,19 +138,9 @@ const vaultOperationalFields = {
   devcontainerConfig: optional(string()),
 } as const;
 
-/**
- * Repo identity plus the default-branch snapshot that existing source reads
- * still expect on the vault row.
- *
- * TODO(Vault-First cleanup): move branch-tree cache ownership fully to
- * vaultBranchTrees after callers no longer need the vault-row mirror.
- */
-const connectedRepositorySnapshotFields = {
+const connectedRepositoryIdentityFields = {
   ghRepoId: string(),
   defaultBranch: string(),
-  treeSHA: optional(string()),
-  commitSHA: optional(string()),
-  treeData: optional(GithubTreeData),
 } as const;
 
 /**
@@ -195,7 +185,7 @@ export const VaultRow = union(
     state: literal("connected"),
     githubMode: literal("create_repository"),
     runId: id("appProvisioningRuns"),
-    ...connectedRepositorySnapshotFields,
+    ...connectedRepositoryIdentityFields,
     convex: VaultConvexState,
     hosting: VaultHostingState,
     connectedAt: number(),
@@ -211,7 +201,7 @@ export const VaultRow = union(
     // TODO(Vault-First Phase 5): add runId when existing-repository
     // onboarding moves onto provisioning runs.
 
-    ...connectedRepositorySnapshotFields,
+    ...connectedRepositoryIdentityFields,
     convex: VaultConvexState,
     hosting: VaultHostingState,
     connectedAt: number(),

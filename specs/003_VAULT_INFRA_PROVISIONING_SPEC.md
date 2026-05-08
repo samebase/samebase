@@ -4,9 +4,11 @@
 
 - Status: Implemented for MVP
 - Owner: Noter backend/frontend
-- Last updated: 2026-04-30
+- Last updated: 2026-05-08
 - Related plan:
   `specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
+- Related vault-first cleanup:
+  `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 
 ## Summary
 
@@ -22,14 +24,16 @@ downstream provisioning partially fails.
 
 ## Important Behavior
 
-- `vaultActions.createRepository` (new noter-managed repo) requires GitHub +
-  Convex + Cloudflare connections and starts
-  `internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning`
-  automatically.
+- `vaultActions.createRepository` (new noter-managed repo) requires a selected
+  GitHub user/org owner and starts the create-app Workflow after inserting the
+  initializing vault and run. The Workflow validates provider connections and
+  starts infrastructure provisioning after source setup succeeds.
 - `vaultActions.connectRepository` (existing GitHub repo connection) does
   **not** auto-provision infra.
-- `vaultActions.retryInfrastructureProvisioning` allows manual retries for
-  noter-managed vaults.
+- `vaultActions.retryInfrastructureProvisioning` still exists as a backend
+  action, but the dashboard no longer exposes `Provision infra` or `Retry infra`
+  as the normal Noter-managed create-app path. Manual provider retry UI belongs
+  to a later vault-first phase.
 
 ## Source of Truth Files
 
@@ -48,6 +52,13 @@ downstream provisioning partially fails.
 - `infraLastError?: string`
 - `infraLastProvisionedAt?: number`
 - `infraProvisioningStartedAt?: number`
+
+These fields are the implemented MVP aggregate. The vault-first follow-up in
+`096` treats them as compatibility mirrors, not the long-term product model.
+Future Convex/Cloudflare cleanup should represent provider progress through
+separate `vault.convex` and `vault.hosting` states, derive dashboard summaries
+from those states, and remove the aggregate `vaults.infra*` fields once
+production rows are clean.
 
 ### `vaultInfrastructure`
 
@@ -153,8 +164,8 @@ In `VaultDashboard`:
 
 - Infra status label per vault
 - Production URL when available
-- `Provision infra` (not started)
-- `Retry infra` (failed/partial)
+- Infra setup progress/log surface while Noter-managed infra is preparing,
+  provisioning, failed, or partially complete
 
 Dashboard external links:
 

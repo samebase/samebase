@@ -28,7 +28,6 @@ import {
 import {
   assertConnectedVault,
   getConnectedVaultHostingProvider,
-  hasConnectedVaultTreeSnapshot,
   isConnectedVault,
   isNoterManagedVault,
 } from "./vaultState";
@@ -565,9 +564,6 @@ export const addVault = internalMutation({
     ghRepoName: v.string(),
     defaultBranch: v.string(),
     visibility: GitHubRepositoryVisibility,
-    treeSHA: v.string(),
-    commitSHA: v.optional(v.string()),
-    treeData: GithubTreeData,
   },
   handler: async (ctx, args): Promise<Id<"vaults">> => {
     const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
@@ -594,12 +590,7 @@ export const addVault = internalMutation({
         name: args.ghRepoName,
         defaultBranch: args.defaultBranch,
         visibility: args.visibility,
-        treeSHA: args.treeSHA,
-        treeData: args.treeData,
       });
-      if (args.commitSHA) {
-        await ctx.db.patch(connectedVault._id, { commitSHA: args.commitSHA });
-      }
       return connectedVault._id;
     }
 
@@ -612,80 +603,6 @@ export const addVault = internalMutation({
       name: args.ghRepoName,
       visibility: args.visibility,
       defaultBranch: args.defaultBranch,
-      treeSHA: args.treeSHA,
-      commitSHA: args.commitSHA,
-      treeData: args.treeData,
-      connectedAt: Date.now(),
-      convex: { state: "not_configured" },
-      hosting: { state: "not_configured" },
-      infraState: "not_started",
-      infraLastError: undefined,
-      infraLastProvisionedAt: undefined,
-      infraProvisioningStartedAt: undefined,
-    });
-  },
-});
-
-export const addNoterManagedVaultForUser = internalMutation({
-  args: {
-    userId: id("users"),
-    ghRepoId: string(),
-    ghRepoOwner: string(),
-    ghRepoName: string(),
-    defaultBranch: string(),
-    visibility: GitHubRepositoryVisibility,
-    runId: id("appProvisioningRuns"),
-    treeSHA: string(),
-    commitSHA: optional(string()),
-    treeData: GithubTreeData,
-  },
-  returns: id("vaults"),
-  handler: async (ctx, args): Promise<Id<"vaults">> => {
-    const user = await ctx.db.get(args.userId);
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    // GitHub repository id stays stable across owner/name renames.
-    const existingVault = await ctx.db
-      .query("vaults")
-      .withIndex("by_userId_and_ghRepoId", (q) =>
-        q.eq("userId", args.userId).eq("ghRepoId", args.ghRepoId),
-      )
-      .first();
-
-    if (existingVault) {
-      const connectedVault = assertConnectedVault(existingVault);
-      // Keep reconnect idempotency limited to the fields this path just read
-      // from GitHub. Broader repository drift correction belongs in one future
-      // refresh worker, not in a second ad hoc refresh implementation here.
-      await ctx.db.patch(connectedVault._id, {
-        owner: args.ghRepoOwner,
-        name: args.ghRepoName,
-        defaultBranch: args.defaultBranch,
-        visibility: args.visibility,
-        treeSHA: args.treeSHA,
-        treeData: args.treeData,
-      });
-      if (args.commitSHA) {
-        await ctx.db.patch(connectedVault._id, { commitSHA: args.commitSHA });
-      }
-      return connectedVault._id;
-    }
-
-    return await ctx.db.insert("vaults", {
-      userId: args.userId,
-      state: "connected",
-      githubMode: "create_repository",
-      runId: args.runId,
-      ghRepoId: args.ghRepoId,
-      owner: args.ghRepoOwner,
-      name: args.ghRepoName,
-      visibility: args.visibility,
-      defaultBranch: args.defaultBranch,
-      treeSHA: args.treeSHA,
-      commitSHA: args.commitSHA,
-      treeData: args.treeData,
       connectedAt: Date.now(),
       convex: { state: "not_configured" },
       hosting: { state: "not_configured" },
@@ -839,7 +756,10 @@ export const markNoterManagedGithubProvisioningFailed = internalMutation({
   returns: nullValidator,
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
-    if (!run || run.vaultId === null) {
+    if (!run) {
+      return null;
+    }
+    if (!run.vaultId) {
       return null;
     }
     const vault = await ctx.db.get(run.vaultId);
@@ -1238,9 +1158,7 @@ export const getUserVaults = query({
             : undefined;
 
         const repositoryFullName = `${vault.owner}/${vault.name}`;
-        const hasUsableDefaultBranchTree = Boolean(
-          defaultBranchTree || vault.treeData,
-        );
+        const hasUsableDefaultBranchTree = Boolean(defaultBranchTree);
         const sourceSetup = isNoterManagedVault(vault)
           ? await resolveSourceSetupSummary(ctx, {
               hasUsableDefaultBranchTree,
@@ -1264,7 +1182,7 @@ export const getUserVaults = query({
           ghRepoOwner: vault.owner,
           ghRepoName: vault.name,
           repositoryFullName,
-          commitSHA: vault.commitSHA,
+          commitSHA: defaultBranchTree?.commitSHA,
           fileCount,
           lastEditTime,
           lastTreeRefreshAt: vault.lastTreeRefreshAt,
@@ -1837,13 +1755,6 @@ async function getVaultByRepositoryHelper(
       q.eq("vaultId", vault._id).eq("branch", resolvedBranch),
     )
     .first();
-  const canUseDefaultBranchSnapshot =
-    !branchNotFound &&
-    resolvedBranch === defaultBranch &&
-    hasConnectedVaultTreeSnapshot(vault);
-  const treeSHA = branchTree?.treeSHA ?? vault.treeSHA;
-  const treeData = branchTree?.treeData ?? vault.treeData;
-  const commitSHA = branchTree?.commitSHA ?? vault.commitSHA;
 
   return {
     _id: vault._id,
@@ -1853,21 +1764,9 @@ async function getVaultByRepositoryHelper(
     owner: vault.owner,
     name: vault.name,
     repositoryFullName: args.repositoryFullName,
-    treeSHA: branchTree
-      ? treeSHA
-      : canUseDefaultBranchSnapshot
-        ? treeSHA
-        : undefined,
-    commitSHA: branchTree
-      ? commitSHA
-      : canUseDefaultBranchSnapshot
-        ? commitSHA
-        : undefined,
-    treeData: branchTree
-      ? treeData
-      : canUseDefaultBranchSnapshot
-        ? treeData
-        : undefined,
+    treeSHA: branchTree?.treeSHA,
+    commitSHA: branchTree?.commitSHA,
+    treeData: branchTree?.treeData,
     treeRefreshStartedAt:
       branchTree?.treeRefreshStartedAt ?? vault.treeRefreshStartedAt,
     lastTreeRefreshAt: branchTree?.lastTreeRefreshAt ?? vault.lastTreeRefreshAt,
@@ -1880,7 +1779,7 @@ async function getVaultByRepositoryHelper(
     // Budget automatic refreshes from live remote branches only; retained
     // deleted-upstream rows are local recovery state, not GitHub fan-out.
     remoteBranchCount: countActiveRemoteBranches(remoteBranches),
-    hasResolvedBranchTree: branchTree !== null || canUseDefaultBranchSnapshot,
+    hasResolvedBranchTree: Boolean(branchTree),
     defaultBranch,
     resolvedBranch,
     branchNotFound,
@@ -2265,39 +2164,6 @@ export const recordTreeRefreshFailure = internalMutation({
         args.cooldownUntil,
       ),
     });
-    return null;
-  },
-});
-
-// Update vault tree internal mutation
-export const updateVaultTree = internalMutation({
-  args: {
-    vaultId: v.id("vaults"),
-    treeData: GithubTreeData,
-    commitSHA: v.optional(v.string()),
-  },
-  returns: nullValidator,
-  handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-
-    if (!vault) {
-      throw new Error("Vault not found");
-    }
-
-    const patchData: {
-      treeSHA: string;
-      treeData: typeof args.treeData;
-      commitSHA?: string;
-    } = {
-      treeSHA: args.treeData.sha,
-      treeData: args.treeData,
-    };
-
-    if (typeof args.commitSHA === "string") {
-      patchData.commitSHA = args.commitSHA;
-    }
-    await ctx.db.patch(args.vaultId, patchData);
-
     return null;
   },
 });

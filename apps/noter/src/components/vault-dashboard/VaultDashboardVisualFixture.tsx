@@ -3,6 +3,13 @@ import { type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
@@ -25,6 +32,7 @@ import {
   VaultDashboardDeleteDialog,
   VaultDashboardRepositoryExternalLinks,
   type VaultDeleteDialogTarget,
+  VaultSetupProgressSection,
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import { formatProvisioningLogText } from "@/lib/provisioningLog";
@@ -34,6 +42,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
   | "vault-dashboard-delete-open"
+  | "vault-dashboard-infra-setup"
   | "vault-dashboard-provisioning-log"
   | "vault-dashboard-bottom-target-scroll"
   | "vault-dashboard-sticky-header"
@@ -550,6 +559,62 @@ function VaultDashboardProvisioningLogFixture() {
   );
 }
 
+function VaultDashboardInfrastructureSetupFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-dashboard-infra-setup"
+      className="w-full bg-background text-foreground"
+    >
+      <TestRouterProvider>
+        <VaultDashboardRepositoryList>
+          <VaultDashboardRepositoryCard
+            isReady={true}
+            repositoryOwner="noter-md"
+            repositoryName="noter-app"
+            titleHref="https://github.com/noter-md/noter-app"
+            repositoryLinks={<FixtureRepositoryLinks />}
+            setupSection={
+              <VaultSetupProgressSection
+                status="running"
+                label="Infra: provisioning"
+              >
+                <textarea
+                  aria-label="Provisioning log for noter-md/noter-app"
+                  readOnly
+                  rows={5}
+                  className="w-full font-mono text-xs"
+                  value={formatProvisioningLogText([
+                    {
+                      createdAt: Date.parse("2026-05-08T09:15:00Z"),
+                      level: "info",
+                      step: "sync_tree",
+                      message: "Synced the default branch tree.",
+                    },
+                    {
+                      createdAt: Date.parse("2026-05-08T09:15:02Z"),
+                      level: "info",
+                      step: "claim_infra",
+                      message: "Claiming infrastructure provisioning.",
+                    },
+                    {
+                      createdAt: Date.parse("2026-05-08T09:15:05Z"),
+                      level: "info",
+                      step: "ensure_convex",
+                      message:
+                        "Ensuring Convex project and production deployment.",
+                    },
+                  ])}
+                />
+              </VaultSetupProgressSection>
+            }
+          />
+        </VaultDashboardRepositoryList>
+      </TestRouterProvider>
+    </div>
+  );
+}
+
 function VaultDashboardBottomTargetScrollFixture() {
   const repositoryNames = [
     "noter-alpha",
@@ -783,6 +848,15 @@ function FixtureDashboardCreateControl() {
               value=""
               onChange={() => {}}
             />
+            <Select value="nicu-chiciuc" onValueChange={() => {}}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="GitHub owner" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nicu-chiciuc">nicu-chiciuc</SelectItem>
+                <SelectItem value="noter-md">noter-md</SelectItem>
+              </SelectContent>
+            </Select>
             <Button className="w-full">New App</Button>
             <Button
               variant="outline"
@@ -829,6 +903,10 @@ export function VaultDashboardVisualFixture({
 
   if (mode === "vault-dashboard-delete-open") {
     return <VaultDashboardDeleteOpenFixture />;
+  }
+
+  if (mode === "vault-dashboard-infra-setup") {
+    return <VaultDashboardInfrastructureSetupFixture />;
   }
 
   if (mode === "vault-dashboard-provisioning-log") {

@@ -186,6 +186,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-dev-tools-hidden",
   "vault-dashboard-dev-tools-visible",
   "vault-dashboard-delete-open",
+  "vault-dashboard-infra-setup",
   "vault-dashboard-provisioning-log",
   "vault-dashboard-bottom-target-scroll",
   "vault-dashboard-sticky-header",
@@ -373,6 +374,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-dev-tools-hidden" ||
     mode === "vault-dashboard-dev-tools-visible" ||
     mode === "vault-dashboard-delete-open" ||
+    mode === "vault-dashboard-infra-setup" ||
     mode === "vault-dashboard-provisioning-log" ||
     mode === "vault-dashboard-bottom-target-scroll" ||
     mode === "vault-dashboard-sticky-header" ||

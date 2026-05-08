@@ -114,6 +114,7 @@ export const validateCreateAppConnections = internalAction({
     runId: id("appProvisioningRuns"),
     userId: id("users"),
     repositoryName: string(),
+    repositoryOwner: string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -130,6 +131,9 @@ export const validateCreateAppConnections = internalAction({
     const repoName = toSafeRepoName(args.repositoryName);
     if (!repoName) {
       throw new Error("Repository name is required.");
+    }
+    if (!args.repositoryOwner.trim()) {
+      throw new Error("GitHub owner is required.");
     }
 
     const [
@@ -187,6 +191,7 @@ export const createGitHubRepository = internalAction({
     runId: id("appProvisioningRuns"),
     userId: id("users"),
     repositoryName: string(),
+    repositoryOwner: string(),
     description: descriptionValidator,
     private: boolean(),
   },
@@ -197,6 +202,10 @@ export const createGitHubRepository = internalAction({
     const repoName = toSafeRepoName(args.repositoryName);
     if (!repoName) {
       throw new Error("Repository name is required.");
+    }
+    const repositoryOwner = args.repositoryOwner.trim();
+    if (!repositoryOwner) {
+      throw new Error("GitHub owner is required.");
     }
 
     await appendRunEvent(ctx, {
@@ -209,12 +218,22 @@ export const createGitHubRepository = internalAction({
 
     const octokit = await resolveGitHubOctokit(ctx, args.userId);
     const description = args.description?.trim();
-    const repo = await octokit.rest.repos.createForAuthenticatedUser({
-      name: repoName,
-      auto_init: false,
-      private: args.private,
-      description: description ? description : undefined,
-    });
+    const viewer = await octokit.rest.users.getAuthenticated();
+    const repo =
+      viewer.data.login === repositoryOwner
+        ? await octokit.rest.repos.createForAuthenticatedUser({
+            name: repoName,
+            auto_init: false,
+            private: args.private,
+            description: description ? description : undefined,
+          })
+        : await octokit.rest.repos.createInOrg({
+            org: repositoryOwner,
+            name: repoName,
+            auto_init: false,
+            private: args.private,
+            description: description ? description : undefined,
+          });
 
     const ownerName = repo.data.owner.login;
     const repoFinalName = repo.data.name;
@@ -381,11 +400,6 @@ export const syncVaultTreeForRepository = internalAction({
     await ctx.runMutation(internal.vault.upsertVaultBranchTree, {
       vaultId: args.vaultId,
       branch: args.defaultBranch,
-      treeData: tree.data,
-      commitSHA: branchData.data.commit.sha,
-    });
-    await ctx.runMutation(internal.vault.updateVaultTree, {
-      vaultId: args.vaultId,
       treeData: tree.data,
       commitSHA: branchData.data.commit.sha,
     });

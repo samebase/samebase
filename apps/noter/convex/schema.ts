@@ -468,11 +468,8 @@ export default defineSchema({
    */
   appProvisioningRuns: defineTable({
     userId: id("users"),
-    // `null` is the explicit pre-vault state for Phase 3 create-app workflows.
-    // Keep this non-optional so every reader must handle the state directly.
-    vaultId: union(id("vaults"), v.null()),
-    // `null` means GitHub has not returned the final owner/name yet.
-    repositoryFullName: union(string(), v.null()),
+    vaultId: id("vaults"),
+    repositoryFullName: string(),
     // Assigned after the Workflow component start call returns; run identity
     // exists first so early events can still be linked deterministically.
     workflowId: optional(string()),
@@ -493,13 +490,9 @@ export default defineSchema({
    */
   appProvisioningEvents: defineTable({
     userId: id("users"),
-    // Phase 3 create-app events can exist before the vault row exists; link
-    // them to the vault once the create_vault step succeeds.
-    vaultId: union(id("vaults"), v.null()),
-    repositoryFullName: union(string(), v.null()),
-    // TODO(app-provisioning-runs): Backfill legacy phase-1 events, then make
-    // this required so every stored provisioning event belongs to a run.
-    runId: optional(id("appProvisioningRuns")),
+    vaultId: id("vaults"),
+    repositoryFullName: string(),
+    runId: id("appProvisioningRuns"),
     step: AppProvisioningStep,
     level: AppProvisioningEventLevel,
     message: string(),

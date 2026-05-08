@@ -248,34 +248,13 @@ export function canAccessVaultStaging(args: {
 
 export function selectRepositoryTreeForBranch(args: {
   requestedBranch: string;
-  defaultBranch?: string;
   branchTree: GithubTreeType[] | null;
-  legacyTree: GithubTreeType[] | null;
 }): GithubTreeType[] {
   if (args.branchTree) {
     return args.branchTree;
   }
-  if (args.defaultBranch === args.requestedBranch && args.legacyTree) {
-    return args.legacyTree;
-  }
   throw new Error(
     `Branch tree is not cached for "${args.requestedBranch}". Refresh branch and retry.`,
-  );
-}
-
-type VaultRemoteBranchForResolution = {
-  name: string;
-  isDefault: boolean;
-  remoteState: "active" | "deleted_upstream";
-};
-
-function resolveDefaultBranchFromRemoteBranches(
-  branches: VaultRemoteBranchForResolution[],
-): string | undefined {
-  return (
-    branches.find(
-      (branch) => branch.remoteState === "active" && branch.isDefault,
-    )?.name ?? branches.find((branch) => branch.remoteState === "active")?.name
   );
 }
 
@@ -283,7 +262,6 @@ async function resolveRepositoryTreeForVault(args: {
   ctx: MutationCtx;
   vaultId: Infer<typeof vaultIdValidator>;
   requestedBranch: string;
-  legacyTree: GithubTreeType[] | null;
 }): Promise<GithubTreeType[]> {
   const branchTree = await args.ctx.runQuery(
     internal.vault.getVaultBranchTree,
@@ -292,16 +270,9 @@ async function resolveRepositoryTreeForVault(args: {
       branch: args.requestedBranch,
     },
   );
-  const remoteBranches = await args.ctx.db
-    .query("vaultRemoteBranches")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .collect();
-  const defaultBranch = resolveDefaultBranchFromRemoteBranches(remoteBranches);
   return selectRepositoryTreeForBranch({
     requestedBranch: args.requestedBranch,
-    defaultBranch,
     branchTree: branchTree?.treeData.tree ?? null,
-    legacyTree: args.legacyTree,
   });
 }
 
@@ -1095,7 +1066,7 @@ export const createFileInStaging = mutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
-    const connectedVault = assertConnectedVault(vault);
+    assertConnectedVault(vault);
 
     // Check if there's already a staging record for this file
     const existingStaging = await ctx.db
@@ -1129,7 +1100,6 @@ export const createFileInStaging = mutation({
       ctx,
       vaultId: args.vaultId,
       requestedBranch: args.branch,
-      legacyTree: connectedVault.treeData?.tree ?? null,
     });
     const existsInRepository = repositoryTree.some(
       (entry: GithubTreeType) =>
@@ -1394,7 +1364,7 @@ export const saveBinaryUploadToStaging = internalMutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
-    const connectedVault = assertConnectedVault(vault);
+    assertConnectedVault(vault);
 
     const currentTimestamp = Date.now();
     const existingStagingByPath = await ctx.db
@@ -1439,7 +1409,6 @@ export const saveBinaryUploadToStaging = internalMutation({
       ctx,
       vaultId: args.vaultId,
       requestedBranch: args.branch,
-      legacyTree: connectedVault.treeData?.tree ?? null,
     });
     const existingRepositoryEntry = repositoryTree.find(
       (entry: GithubTreeType) =>
@@ -1560,7 +1529,7 @@ export const rename = internalMutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
-    const connectedVault = assertConnectedVault(vault);
+    assertConnectedVault(vault);
 
     const file = await ctx.db
       .query("fileStaging")
@@ -1597,7 +1566,6 @@ export const rename = internalMutation({
       ctx,
       vaultId: args.vaultId,
       requestedBranch: args.branch,
-      legacyTree: connectedVault.treeData?.tree ?? null,
     });
     const existsInRepository = repositoryTree.some(
       (entry: GithubTreeType) =>

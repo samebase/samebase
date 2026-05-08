@@ -378,6 +378,10 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   asking for clarification.
 - Commit meaningful checkpoints instead of letting large local diffs accumulate,
   and push after commits so work is not stranded only in the local worktree.
+- When a change touches many files or multiple concerns, consider splitting it
+  into two or three reviewable commits, such as backend model cleanup, UI
+  wiring, and spec/test updates. This is a reviewability preference, not a hard
+  requirement.
 - Default to additive minimalism in copy and visuals. Do not add decorative
   chrome, filler copy, extra buttons, or ornamental layout unless explicitly
   requested.

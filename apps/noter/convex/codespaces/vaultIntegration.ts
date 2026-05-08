@@ -83,14 +83,17 @@ export const createVaultWithCodespace = action({
       ghRepoName: args.repoName,
       defaultBranch: repo.data.default_branch,
       visibility: repo.data.private ? "private" : "public",
-      treeSHA: branchData.commit.commit.tree.sha,
-      commitSHA: commitSha,
+    });
+    await ctx.runMutation(internal.vault.upsertVaultBranchTree, {
+      vaultId,
+      branch,
       treeData: {
         sha: branchData.commit.commit.tree.sha,
         url: branchData.commit.commit.tree.url,
         truncated: false,
         tree: [],
       },
+      commitSHA: commitSha,
     });
 
     await ctx.runMutation(internal.vault.updateVaultDevcontainerConfig, {

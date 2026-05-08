@@ -903,37 +903,21 @@ interface RemoteBranchCloudflarePreviewSync {
 
 interface RepositoryTreeUpdatePlan {
   shouldUpdateBranchTree: boolean;
-  shouldUpdateLegacyTree: boolean;
-  shouldUpdateLegacyCommit: boolean;
 }
 
 export function computeRepositoryTreeUpdatePlan(args: {
   resolvedBranch: string;
-  defaultBranch?: string;
   fetchedTreeSHA: string;
   fetchedCommitSHA?: string;
   cachedBranchTree: CachedBranchTreeSnapshot | null;
-  legacyTreeSHA?: string;
-  legacyCommitSHA?: string;
 }): RepositoryTreeUpdatePlan {
   const shouldUpdateBranchTree =
     !args.cachedBranchTree ||
     args.fetchedTreeSHA !== args.cachedBranchTree.treeSHA ||
     args.fetchedCommitSHA !== args.cachedBranchTree.commitSHA;
-  const isDefaultBranch =
-    typeof args.defaultBranch === "string" &&
-    args.resolvedBranch === args.defaultBranch;
-  const shouldUpdateLegacyTree =
-    isDefaultBranch && args.fetchedTreeSHA !== args.legacyTreeSHA;
-  const shouldUpdateLegacyCommit =
-    isDefaultBranch &&
-    typeof args.fetchedCommitSHA === "string" &&
-    args.fetchedCommitSHA !== args.legacyCommitSHA;
 
   return {
     shouldUpdateBranchTree,
-    shouldUpdateLegacyTree,
-    shouldUpdateLegacyCommit,
   };
 }
 
@@ -2618,44 +2602,23 @@ export const refreshBranchTree = internalAction({
         branch: resolvedBranch,
       },
     );
-    const {
-      shouldUpdateBranchTree,
-      shouldUpdateLegacyTree,
-      shouldUpdateLegacyCommit,
-    } = computeRepositoryTreeUpdatePlan({
+    const { shouldUpdateBranchTree } = computeRepositoryTreeUpdatePlan({
       resolvedBranch,
-      defaultBranch: vault.defaultBranch,
       fetchedTreeSHA: tree.data.sha,
       fetchedCommitSHA: latestCommitSha,
       cachedBranchTree,
-      legacyTreeSHA: vault.treeData?.sha,
-      legacyCommitSHA: vault.commitSHA,
     });
 
-    if (
-      !shouldUpdateBranchTree &&
-      !shouldUpdateLegacyTree &&
-      !shouldUpdateLegacyCommit
-    ) {
+    if (!shouldUpdateBranchTree) {
       return null;
     }
 
-    if (shouldUpdateBranchTree) {
-      await ctx.runMutation(internal.vault.upsertVaultBranchTree, {
-        vaultId: vault._id,
-        branch: resolvedBranch,
-        treeData: tree.data,
-        commitSHA: latestCommitSha,
-      });
-    }
-
-    if (shouldUpdateLegacyTree || shouldUpdateLegacyCommit) {
-      await ctx.runMutation(internal.vault.updateVaultTree, {
-        vaultId: vault._id,
-        treeData: tree.data,
-        commitSHA: latestCommitSha,
-      });
-    }
+    await ctx.runMutation(internal.vault.upsertVaultBranchTree, {
+      vaultId: vault._id,
+      branch: resolvedBranch,
+      treeData: tree.data,
+      commitSHA: latestCommitSha,
+    });
 
     return null;
   },

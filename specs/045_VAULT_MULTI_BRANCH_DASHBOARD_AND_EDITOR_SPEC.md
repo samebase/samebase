@@ -4,7 +4,7 @@
 
 - Status: In progress
 - Owner: Noter frontend/editor + Convex vault/github
-- Last updated: 2026-03-08
+- Last updated: 2026-05-08
 - Related specs:
   - `rfcs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md`
   - `specs/037_EDITOR_COMMIT_DIFF_RELIABILITY_SPEC.md`
@@ -24,12 +24,15 @@ Enable working with multiple remote branches per vault by introducing:
 
 This spec focuses on GitHub remote branches as the source of truth.
 
-Current rollout note (PR #174):
+Current rollout note:
 
 1. `vaultBranchTrees` is now the branch-scoped source of truth for tree/commit
    data
-2. Legacy `vault.treeData/treeSHA/commitSHA` is still present as a temporary
-   default-branch compatibility mirror and fallback
+2. Runtime paths no longer read or write legacy
+   `vault.treeData/treeSHA/commitSHA` as default-branch mirrors after the
+   vault-first Phase 4 cleanup
+3. The vault-row mirror fields are removed from the target schema; production
+   rows with those fields must be cleared before the narrow schema deploy
 
 ## Product Intent
 
@@ -40,17 +43,15 @@ Current workflow direction for Noter:
    detail
 3. Commit in Noter implies push to the selected remote branch
 
-## Current Runtime State (Post-PR #174)
+## Current Runtime State
 
 1. Dashboard branch links are branch-aware and URL-safe for names containing `/`
 2. Vault branch resolution reads active `vaultRemoteBranches` and returns
    `defaultBranch`/`resolvedBranch` from that catalog
 3. Tree refresh writes branch-scoped cache for any refreshed branch
    (`vaultBranchTrees`)
-4. Legacy `vault.treeData/commitSHA` is updated only when refreshed branch is
-   the current default branch
-5. Legacy fallback still exists in a few read paths and is the primary cleanup
-   target for the next PR
+4. Default-branch tree reads come from `vaultBranchTrees`; missing branch tree
+   data is treated as unavailable tree cache, not as GitHub disconnection
 
 ## Vault Dashboard Delete Surface
 
@@ -352,6 +353,7 @@ Companion plan with concrete tasks and gates:
 2. Phase 2: branch-safe routing contract and branch context plumbing
 3. Phase 3: branch-scoped tree cache + branch-aware refresh/commit/chat paths
 4. Phase 4: remove runtime dependency on legacy `vault.treeData/commitSHA`
+   (completed by vault-first Phase 4)
 5. Phase 5: deleted-upstream recovery UX + tombstone cleanup
 
 ### Implementation Snapshot (PR #174)
@@ -364,13 +366,13 @@ Completed:
    `/codespace/:branch/chat`)
 3. Phase 3 shipped (branch-scoped tree cache, branch-aware refresh comparisons,
    branch-aware chat/commit propagation, tests)
+4. Phase 4 runtime and schema cleanup shipped through the vault-first
+   compatibility cleanup; production data cleanup is the pre-merge deploy gate
 
 Pending:
 
-1. Phase 4 (next PR, required): remove runtime fallback to legacy single-branch
-   cache and make branch cache mandatory
-2. Phase 5: deleted-upstream recovery UX and commit guardrails
-3. Optional follow-up: decouple branch catalog sync cadence from every tree
+1. Phase 5: deleted-upstream recovery UX and commit guardrails
+2. Optional follow-up: decouple branch catalog sync cadence from every tree
    refresh call
 
 ### Step 1: additive schema
@@ -391,14 +393,14 @@ Pending:
 1. Move FileView and dashboard branch list to new contracts
 2. Keep legacy fields as fallback only during transition
 
-### Step 4: cleanup (next PR, required)
+### Step 4: cleanup
 
 1. Remove fallback reads from `vault.treeData/commitSHA`
 2. Remove legacy writes in branch refresh paths
 3. Remove remaining runtime call sites that depend on legacy single-branch
    fields
-4. Drop legacy single-branch fields from schema once no runtime dependency
-   remains
+4. Clear production rows that still contain old vault-row mirrors before deploy
+5. Drop legacy single-branch fields from schema
 
 ## Failure Handling
 

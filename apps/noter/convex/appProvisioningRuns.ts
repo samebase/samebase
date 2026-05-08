@@ -65,7 +65,7 @@ export const recordRepositoryCreated = internalMutation({
       updatedAt: Date.now(),
     });
     if (
-      run.repositoryFullName !== null &&
+      run.repositoryFullName &&
       run.repositoryFullName !== args.repositoryFullName
     ) {
       const events = await ctx.db
@@ -77,62 +77,6 @@ export const recordRepositoryCreated = internalMutation({
           repositoryFullName: args.repositoryFullName,
         });
       }
-    }
-
-    return null;
-  },
-});
-
-export const linkVault = internalMutation({
-  args: {
-    runId: id("appProvisioningRuns"),
-    vaultId: id("vaults"),
-    repositoryFullName: string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.runId);
-    if (!run) {
-      throw new Error("Provisioning run not found.");
-    }
-    if (run.vaultId !== null && run.vaultId !== args.vaultId) {
-      throw new Error("Provisioning run vault cannot be changed.");
-    }
-    if (
-      run.repositoryFullName !== null &&
-      run.repositoryFullName !== args.repositoryFullName
-    ) {
-      throw new Error("Provisioning run repository does not match vault.");
-    }
-
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== run.userId) {
-      throw new Error("Vault not found for provisioning run.");
-    }
-    const connectedVault = assertConnectedVault(vault);
-    if (
-      `${connectedVault.owner}/${connectedVault.name}` !==
-      args.repositoryFullName
-    ) {
-      throw new Error("Vault repository does not match provisioning run.");
-    }
-
-    const now = Date.now();
-    await ctx.db.patch(args.runId, {
-      vaultId: args.vaultId,
-      repositoryFullName: args.repositoryFullName,
-      updatedAt: now,
-    });
-
-    const events = await ctx.db
-      .query("appProvisioningEvents")
-      .withIndex("by_run_and_created_at", (q) => q.eq("runId", args.runId))
-      .take(MAX_EVENTS_TO_LINK_TO_VAULT);
-    for (const event of events) {
-      await ctx.db.patch(event._id, {
-        vaultId: args.vaultId,
-        repositoryFullName: args.repositoryFullName,
-      });
     }
 
     return null;

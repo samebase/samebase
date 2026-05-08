@@ -136,24 +136,13 @@ export const generateResponse = internalAction({
     let repoTree: string[] | undefined;
 
     if (vault) {
-      if (
-        typeof threadContext.branch === "string" &&
-        threadContext.branch.length > 0
-      ) {
-        const branchTree = await ctx.runQuery(
-          internal.vault.getVaultBranchTree,
-          {
-            vaultId: vault._id,
-            branch: threadContext.branch,
-          },
-        );
-        if (branchTree) {
-          repoTree = branchTree.treeData.tree
-            .filter((t) => t.type === "blob")
-            .map((t) => t.path);
-        }
-      } else {
-        repoTree = vault.treeData?.tree
+      const contextBranch = threadContext.branch || vault.defaultBranch;
+      const branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
+        vaultId: vault._id,
+        branch: contextBranch,
+      });
+      if (branchTree) {
+        repoTree = branchTree.treeData.tree
           .filter((t) => t.type === "blob")
           .map((t) => t.path);
       }
