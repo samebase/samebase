@@ -685,7 +685,7 @@ type FileViewVault = NonNullable<
 function hasFileViewVaultTree(
   vault: NonNullable<(typeof api.vault.getVaultByRepository)["_returnType"]>,
 ): vault is FileViewVault {
-  return vault.treeData !== undefined && typeof vault.treeSHA === "string";
+  return Boolean(vault.treeSHA && vault.treeData);
 }
 
 function FileViewInner({

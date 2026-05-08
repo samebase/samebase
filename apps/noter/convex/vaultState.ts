@@ -34,7 +34,7 @@ export function assertConnectedVault(
 export function hasConnectedVaultTreeSnapshot(
   vault: ConnectedVault,
 ): vault is ConnectedVaultWithTreeSnapshot {
-  return typeof vault.treeSHA === "string" && vault.treeData !== undefined;
+  return Boolean(vault.treeSHA && vault.treeData);
 }
 
 export function assertConnectedVaultTreeSnapshot(
