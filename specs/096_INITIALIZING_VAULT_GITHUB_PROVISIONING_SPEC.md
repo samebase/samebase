@@ -801,6 +801,30 @@ Frontend behavior:
 5. Branch lists, source workspace links, chat, and infra controls remain hidden
    until a usable default-branch tree exists.
 
+Observed Phase 3 happy path, from a local end-to-end run on 2026-05-08:
+
+1. after clicking New App, the dashboard creates a new card quickly with
+   `setting up...` but no body content yet
+2. once GitHub identity is connected, the card shows the source setup summary
+   and provisioning textarea for `connect vault`, `seed starter`, and
+   `sync tree`
+3. when the first usable tree lands, the source setup summary disappears
+4. because the old dashboard readiness model now sees a ready Noter-managed
+   vault while infra is briefly `not_started`, the legacy `Provision infra`
+   action can flash
+5. once infra provisioning starts, the action disappears and the card can look
+   bare until repository links arrive
+6. branch rows still depend on the separate branch/tree refresh path and should
+   not be expected to appear as part of this phase
+
+This sequence is expected from the transitional Phase 3 implementation, but it
+is not the product sequence to preserve. Do not add screenshot or end-to-end
+tests that lock in the `Provision infra` flash, the bare ready card, or the
+current happy-path timing. Phase 3 tests should stay focused on the durable
+contract: connected source setup running/failed states render with the
+provisioning log, and tree-dependent controls remain hidden until the first
+usable tree exists.
+
 ### Vault-First Phase 4: Compatibility Cleanup And Canonical Source Model
 
 Goal: remove the temporary compatibility surfaces that would make later retry UI
@@ -822,6 +846,14 @@ Scope:
    to confirmed connected Noter-managed repositories
 6. collapse the dashboard's legacy readiness projection once `sourceSetup`,
    connected state, and tree availability cover the shipped UI directly
+7. define the canonical New App dashboard sequence after source setup succeeds:
+   the card should not expose manual infra provisioning as a transient happy
+   path artifact, and it should have a clear provider/infra progress surface
+   instead of a bare completed-looking card
+8. after the canonical Phase 4 sequence is implemented, add screenshot coverage
+   for the stable setup-running/setup-failed card states and the simplified
+   post-source-setup state; do not spend Phase 3 effort splitting visual tests
+   around compatibility behavior that Phase 4 intends to remove
 
 Stop before user-facing retry buttons. After this phase, runtime code should no
 longer depend on vault-row tree mirrors or newly-created `vaultId: null`
