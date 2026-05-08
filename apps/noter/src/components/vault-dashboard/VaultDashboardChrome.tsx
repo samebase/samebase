@@ -314,6 +314,7 @@ export function VaultDashboardRepositoryCard({
   repositoryLinks,
   repositoryOwner,
   repositoryStatus,
+  setupSection,
   titleClassName,
   titleHref,
   titleSuffix,
@@ -335,6 +336,7 @@ export function VaultDashboardRepositoryCard({
   repositoryLinks?: ReactNode;
   repositoryOwner: string;
   repositoryStatus?: ReactNode;
+  setupSection?: ReactNode;
   titleClassName?: string;
   titleHref: string;
   titleSuffix?: ReactNode;
@@ -343,7 +345,7 @@ export function VaultDashboardRepositoryCard({
   topRightAction?: ReactNode;
 }) {
   const hasBodyContent = Boolean(
-    branchSection || developerToolsSection || footerActions,
+    branchSection || developerToolsSection || footerActions || setupSection,
   );
   // Keep long branch lists anchored to their repository without taking over
   // unrelated card content.
@@ -400,6 +402,8 @@ export function VaultDashboardRepositoryCard({
         </div>
 
         <div className="space-y-3">
+          {setupSection}
+
           {branchSection}
 
           {developerToolsSection ? (

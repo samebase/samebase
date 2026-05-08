@@ -9,6 +9,7 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
+  AppProvisioningRunStep,
   GitHubRepositoryVisibility,
   GithubTreeData,
   PullRequestLabel,
@@ -18,7 +19,7 @@ import {
   hasStagedFileChanges,
   type StagedFileChangeCandidate,
 } from "./stagingChanges";
-import { Id } from "./_generated/dataModel";
+import { type Doc, Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
 import {
   hostingProviderValidator,
@@ -64,10 +65,97 @@ const treeRefreshFailureFields = {
   treeRefreshFailureMessage: optional(string()),
   treeRefreshCooldownUntil: optional(number()),
 } as const;
+const sourceSetupSummary = union(
+  object({
+    status: literal("not_applicable"),
+  }),
+  object({
+    status: literal("ready"),
+  }),
+  object({
+    status: literal("running"),
+    runId: id("appProvisioningRuns"),
+    step: AppProvisioningRunStep,
+    updatedAt: number(),
+  }),
+  object({
+    status: literal("failed"),
+    runId: id("appProvisioningRuns"),
+    step: AppProvisioningRunStep,
+    message: string(),
+    updatedAt: number(),
+  }),
+);
 
 type CloudflarePreviewMetadata = Infer<
   typeof cloudflarePreviewMetadataValidator
 >;
+type SourceSetupSummary = Infer<typeof sourceSetupSummary>;
+type NoterManagedConnectedVault = Extract<
+  Doc<"vaults">,
+  { githubMode: "create_repository"; state: "connected" }
+>;
+const SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT = 20;
+
+async function readLatestRunErrorMessage(
+  ctx: Pick<QueryCtx, "db">,
+  runId: Id<"appProvisioningRuns">,
+): Promise<string | undefined> {
+  const events = await ctx.db
+    .query("appProvisioningEvents")
+    .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
+    .order("desc")
+    .take(SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT);
+  return events.find((event) => event.level === "error")?.message;
+}
+
+async function resolveSourceSetupSummary(
+  ctx: Pick<QueryCtx, "db">,
+  args: {
+    hasUsableDefaultBranchTree: boolean;
+    vault: NoterManagedConnectedVault;
+  },
+): Promise<SourceSetupSummary> {
+  if (args.hasUsableDefaultBranchTree) {
+    return { status: "ready" };
+  }
+
+  const run = await ctx.db.get(args.vault.runId);
+  if (!run) {
+    return {
+      status: "failed",
+      runId: args.vault.runId,
+      step: "run_created",
+      message: "Provisioning run not found.",
+      updatedAt: args.vault.connectedAt,
+    };
+  }
+
+  if (run.state === "failed") {
+    const message =
+      (await readLatestRunErrorMessage(ctx, args.vault.runId)) ??
+      run.lastError ??
+      `Provisioning failed during ${run.currentStep}.`;
+    return {
+      status: "failed",
+      runId: args.vault.runId,
+      step: run.currentStep,
+      message,
+      updatedAt: run.updatedAt,
+    };
+  }
+
+  if (run.state === "queued" || run.state === "running") {
+    return {
+      status: "running",
+      runId: args.vault.runId,
+      step: run.currentStep,
+      updatedAt: run.updatedAt,
+    };
+  }
+
+  return { status: "not_applicable" };
+}
 
 const vaultBranchFiltersValidator = object({
   vaultId: id("vaults"),
@@ -1013,6 +1101,7 @@ const getUserVaultsResult = array(
     treeRefreshStartedAt: optional(number()),
     ...treeRefreshFailureFields,
     state: union(literal("copying_files"), literal("ready"), literal("failed")),
+    sourceSetup: sourceSetupSummary,
     isNoterManaged: boolean(),
     hasConnectedGitHubRepository: boolean(),
     hostingProvider: optional(hostingProviderValidator),
@@ -1101,6 +1190,7 @@ export const getUserVaults = query({
         treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
         treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
         state: vault.state === "failed" ? "failed" : "copying_files",
+        sourceSetup: { status: "not_applicable" },
         isNoterManaged: vault.githubMode === "create_repository",
         hasConnectedGitHubRepository: false,
         hostingProvider: undefined,
@@ -1151,6 +1241,12 @@ export const getUserVaults = query({
         const hasUsableDefaultBranchTree = Boolean(
           defaultBranchTree || vault.treeData,
         );
+        const sourceSetup = isNoterManagedVault(vault)
+          ? await resolveSourceSetupSummary(ctx, {
+              hasUsableDefaultBranchTree,
+              vault,
+            })
+          : { status: "not_applicable" as const };
         const hasConvexProvision =
           typeof infra?.convexProjectId === "string" ||
           typeof infra?.convexDeploymentName === "string";
@@ -1178,6 +1274,7 @@ export const getUserVaults = query({
           treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
           treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
           state: hasUsableDefaultBranchTree ? "ready" : "copying_files",
+          sourceSetup,
           isNoterManaged: isNoterManagedVault(vault),
           hasConnectedGitHubRepository: true,
           hostingProvider: getConnectedVaultHostingProvider(vault),

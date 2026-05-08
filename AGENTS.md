@@ -137,6 +137,10 @@ Key domain entities:
   Avoid exact `!== undefined`, `!== null`, or `typeof value === "string"` checks
   unless the exact missing value, runtime type, empty string, or union
   discriminator is the state being modeled.
+- Treat repeated optional chaining on the same value as a code smell. If later
+  logic reads the object more than once, first check whether an explicit
+  missing-value branch would make the state clearer, then use narrowed direct
+  access for the rest. Keep `?.` when a single maybe-read really is the point.
 - Prefer direct conditions over intermediate variables when the expression is
   already easy to read. Do not add `!!` coercions, named booleans, helper
   wrappers, or provider splits just to look more engineered; add a name only
