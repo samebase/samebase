@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultBranchLinkContent } from "./VaultDashboard";
+import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 
 describe("VaultBranchLinkContent", () => {
   it("links the visible branch label to the GitHub branch tree", () => {
@@ -26,5 +27,12 @@ describe("VaultBranchLinkContent", () => {
       'href="https://github.com/noter-md/noter/tree/codex/dashboard%20branch-link"',
     );
     expect(markup).toContain('title="Open branch on GitHub"');
+  });
+});
+
+describe("formatVaultSourceSetupStep", () => {
+  it("uses dashboard labels for create-app setup steps", () => {
+    expect(formatVaultSourceSetupStep("seed_starter")).toBe("seed starter");
+    expect(formatVaultSourceSetupStep("sync_tree")).toBe("sync tree");
   });
 });

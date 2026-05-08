@@ -739,7 +739,7 @@ type SourceSetupSummary =
   | {
       status: "failed";
       runId: Id<"appProvisioningRuns">;
-      step: "seed_starter" | "sync_tree";
+      step: AppProvisioningRunStep;
       message: string;
       updatedAt: number;
     };
@@ -777,7 +777,8 @@ Implementation outline:
    setup status for copy and error text.
 3. Treat connected-without-tree as setup in progress when the run is still
    queued/running, and as setup failed when the establishing create run failed
-   during `seed_starter` or `sync_tree`.
+   before the first usable tree, especially during `seed_starter` or
+   `sync_tree`.
 4. Keep infra controls hidden until the default-branch tree is usable; do not
    make tree absence mean GitHub disconnection.
 5. Render the latest failure message and provisioning log on the card so the

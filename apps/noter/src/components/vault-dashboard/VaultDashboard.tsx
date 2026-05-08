@@ -79,6 +79,10 @@ import {
   buildVaultCodespaceChatRoute,
   buildVaultFileRoute,
 } from "@/lib/vaultRoutes";
+import {
+  formatVaultSourceSetupStep,
+  type VaultDashboardSourceSetup,
+} from "@/components/vault-dashboard/vaultSourceSetup";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { type AppThemeColorSearch } from "@/lib/appThemeColorSearch";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
@@ -1528,6 +1532,40 @@ function renderVaultDashboardRepositoryStatus({
   return undefined;
 }
 
+export function VaultSourceSetupSection({
+  repositoryFullName,
+  sourceSetup,
+  vaultId,
+}: {
+  repositoryFullName: string;
+  sourceSetup: Extract<
+    VaultDashboardSourceSetup,
+    { status: "failed" | "running" }
+  >;
+  vaultId: Id<"vaults">;
+}) {
+  const stepLabel = formatVaultSourceSetupStep(sourceSetup.step);
+
+  return (
+    <div className="space-y-2 text-xs">
+      {sourceSetup.status === "failed" ? (
+        <div className="text-destructive">
+          Setup failed during {stepLabel}: {sourceSetup.message}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <UpdateIcon className="h-3 w-3 shrink-0 animate-spin" />
+          <span>Setup: {stepLabel}</span>
+        </div>
+      )}
+      <VaultProvisioningLogTextarea
+        repositoryFullName={repositoryFullName}
+        vaultId={vaultId}
+      />
+    </div>
+  );
+}
+
 type VaultDashboardBodyProps = {
   developerToolsVisible: boolean;
   isRemovingVault: boolean;
@@ -1655,6 +1693,16 @@ function VaultDashboardBody({
           filteredRemoteBranches.length - COLLAPSED_BRANCH_LIMIT;
         const isDeleteOpen =
           deleteRepositoryFullName === vault.repositoryFullName;
+        const sourceSetupSection =
+          !isReady &&
+          (vault.sourceSetup.status === "failed" ||
+            vault.sourceSetup.status === "running") ? (
+            <VaultSourceSetupSection
+              repositoryFullName={vault.repositoryFullName}
+              sourceSetup={vault.sourceSetup}
+              vaultId={vault._id}
+            />
+          ) : undefined;
 
         return (
           <div
@@ -1688,7 +1736,11 @@ function VaultDashboardBody({
                 ) : undefined
               }
               titleSuffix={
-                vault.state === "failed" ? (
+                vault.sourceSetup.status === "failed" ? (
+                  <span className="shrink-0 text-xs font-normal text-destructive">
+                    (setup failed)
+                  </span>
+                ) : vault.state === "failed" ? (
                   <span className="shrink-0 text-xs font-normal text-destructive">
                     (failed)
                   </span>
@@ -1701,6 +1753,7 @@ function VaultDashboardBody({
                   </>
                 ) : undefined
               }
+              setupSection={sourceSetupSection}
               topRightAction={
                 <VaultDashboardDeleteControl
                   repositoryFullName={vault.repositoryFullName}
