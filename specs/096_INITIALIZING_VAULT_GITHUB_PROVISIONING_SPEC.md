@@ -990,6 +990,11 @@ guard exists.
 Goal: move existing-repository connection onto the same vault/run/provider-state
 model.
 
+The detailed accepted implementation contract for this phase now lives in
+`specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`. Use that spec for
+the connect-existing trigger, step names, duplicate handling, direct-route UX,
+and production cleanup rules.
+
 Scope:
 
 1. move existing-repository connection onto Workflow using the same GitHub state

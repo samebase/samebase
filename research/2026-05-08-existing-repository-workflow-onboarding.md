@@ -7,6 +7,7 @@
   provisioning runs
 - Created: 2026-05-08
 - Related specs:
+  - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
@@ -29,6 +30,9 @@ failure. The question is whether that maps to one backend/UI change set.
 
 Existing repository onboarding should get a focused spec before implementation.
 It can remain one user action, but it is not one implementation step.
+
+Outcome: this research was promoted into
+`specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`.
 
 The current existing-repository path is synchronous and only creates a vault
 after GitHub repo metadata, branch metadata, and tree data have all been
