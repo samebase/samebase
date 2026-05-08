@@ -859,6 +859,73 @@ type CloudflareTokenAutoCheckTrigger =
   | "poll";
 
 /**
+ * Loads selectable GitHub repo owners once the GitHub connection exists. This is
+ * client-owned because owner listing is an authenticated action, not subscribed
+ * Convex state; remove the hook if that data moves behind a query.
+ */
+function useGithubRepositoryOwnerOptions({
+  githubConnected,
+  listGithubRepositoryOwners,
+  setGithubRepositoryOwnerLoadError,
+  setGithubRepositoryOwnerOptions,
+  setIsLoadingGithubRepositoryOwners,
+}: {
+  githubConnected: boolean;
+  listGithubRepositoryOwners: (
+    args: Record<string, never>,
+  ) => Promise<GitHubRepositoryOwnerOption[]>;
+  setGithubRepositoryOwnerLoadError: (error: string | null) => void;
+  setGithubRepositoryOwnerOptions: (
+    owners: GitHubRepositoryOwnerOption[],
+  ) => void;
+  setIsLoadingGithubRepositoryOwners: (isLoading: boolean) => void;
+}) {
+  useEffect(() => {
+    let shouldIgnoreResult = false;
+    if (!githubConnected) {
+      setGithubRepositoryOwnerOptions([]);
+      setGithubRepositoryOwnerLoadError(null);
+      setIsLoadingGithubRepositoryOwners(false);
+      return;
+    }
+
+    setIsLoadingGithubRepositoryOwners(true);
+    setGithubRepositoryOwnerLoadError(null);
+    void listGithubRepositoryOwners({})
+      .then((owners) => {
+        if (!shouldIgnoreResult) {
+          setGithubRepositoryOwnerOptions(owners);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!shouldIgnoreResult) {
+          setGithubRepositoryOwnerOptions([]);
+          setGithubRepositoryOwnerLoadError(
+            error instanceof Error
+              ? error.message
+              : "Failed to load GitHub owners.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!shouldIgnoreResult) {
+          setIsLoadingGithubRepositoryOwners(false);
+        }
+      });
+
+    return () => {
+      shouldIgnoreResult = true;
+    };
+  }, [
+    githubConnected,
+    listGithubRepositoryOwners,
+    setGithubRepositoryOwnerLoadError,
+    setGithubRepositoryOwnerOptions,
+    setIsLoadingGithubRepositoryOwners,
+  ]);
+}
+
+/**
  * Keeps Cloudflare MCP token health fresh while the dashboard is active. Remove
  * this hook by making token refresh a server-owned scheduler or connection
  * maintenance job and subscribing only to the resulting status.
@@ -2670,49 +2737,13 @@ export function VaultDashboard() {
   const canCreateRepo = Boolean(
     hasRequiredCreateConnections && selectedGithubRepositoryOwner.trim(),
   );
-  useEffect(() => {
-    let shouldIgnoreResult = false;
-    if (!githubConnected) {
-      setGithubRepositoryOwnerOptions([]);
-      setGithubRepositoryOwnerLoadError(null);
-      setIsLoadingGithubRepositoryOwners(false);
-      return;
-    }
-
-    setIsLoadingGithubRepositoryOwners(true);
-    setGithubRepositoryOwnerLoadError(null);
-    void listGithubRepositoryOwners({})
-      .then((owners) => {
-        if (!shouldIgnoreResult) {
-          setGithubRepositoryOwnerOptions(owners);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!shouldIgnoreResult) {
-          setGithubRepositoryOwnerOptions([]);
-          setGithubRepositoryOwnerLoadError(
-            error instanceof Error
-              ? error.message
-              : "Failed to load GitHub owners.",
-          );
-        }
-      })
-      .finally(() => {
-        if (!shouldIgnoreResult) {
-          setIsLoadingGithubRepositoryOwners(false);
-        }
-      });
-
-    return () => {
-      shouldIgnoreResult = true;
-    };
-  }, [
+  useGithubRepositoryOwnerOptions({
     githubConnected,
     listGithubRepositoryOwners,
     setGithubRepositoryOwnerLoadError,
     setGithubRepositoryOwnerOptions,
     setIsLoadingGithubRepositoryOwners,
-  ]);
+  });
   const formatAuthMethod = (
     method: "oauth" | "mcp_oauth" | "api_key" | "device_auth" | undefined,
   ) => {
