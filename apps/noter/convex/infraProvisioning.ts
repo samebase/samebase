@@ -19,11 +19,10 @@ import {
 import { hostingStateValidator } from "./hostingState";
 import { resolveCloudflareHostingState } from "./hostingStateHelpers";
 import { asRecord, readString, readStringOrNumber } from "./jsonUtils";
-import type { AppProvisioningStep } from "./schema";
+import type { AppProvisioningStep, GithubTreeData } from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import {
-  assertConnectedVaultTreeSnapshot,
   isConnectedVault,
   isNoterManagedVault,
   type NoterManagedConnectedVault,
@@ -428,6 +427,19 @@ function resolveCloudflareBuildConfig(vault: {
     buildCommand: "pnpm run build:cloudflare",
     destinationDir: "dist",
   };
+}
+
+export function selectCloudflareBuildConfigTreeData(args: {
+  branchTreeData: GithubTreeData | null;
+  legacyTreeData: GithubTreeData | undefined;
+}): GithubTreeData {
+  if (args.branchTreeData) {
+    return args.branchTreeData;
+  }
+  if (args.legacyTreeData) {
+    return args.legacyTreeData;
+  }
+  throw new Error("Default branch tree is not synced yet.");
 }
 
 type ProvisioningEventCtx = Pick<ActionCtx, "runMutation"> &
@@ -1160,7 +1172,18 @@ export const ensureCloudflareInfrastructure = internalAction({
       );
     }
 
-    const defaultBranch = process.env.INFRA_DEFAULT_BRANCH ?? "main";
+    const defaultBranchTree = await ctx.runQuery(
+      internal.vault.getVaultBranchTree,
+      {
+        vaultId: args.vaultId,
+        branch: vault.defaultBranch,
+      },
+    );
+    const buildConfigTreeData = selectCloudflareBuildConfigTreeData({
+      branchTreeData: defaultBranchTree?.treeData ?? null,
+      legacyTreeData: vault.treeData,
+    });
+    const defaultBranch = vault.defaultBranch;
     const { githubAccessToken } = await resolveGitHubProvisioningConnection(
       ctx,
       vault.userId,
@@ -1206,9 +1229,9 @@ export const ensureCloudflareInfrastructure = internalAction({
       cloudflareToken,
       cloudflareServerUrl,
       accountId: cloudflareAccountId,
-      buildConfig: resolveCloudflareBuildConfig(
-        assertConnectedVaultTreeSnapshot(vault),
-      ),
+      buildConfig: resolveCloudflareBuildConfig({
+        treeData: buildConfigTreeData,
+      }),
       existing: {
         accountId: cloudflareExisting?.accountId,
         projectName: cloudflareExisting?.projectName,

@@ -1014,6 +1014,7 @@ const getUserVaultsResult = array(
     ...treeRefreshFailureFields,
     state: union(literal("copying_files"), literal("ready"), literal("failed")),
     isNoterManaged: boolean(),
+    hasConnectedGitHubRepository: boolean(),
     hostingProvider: optional(hostingProviderValidator),
     hasConvexProvision: boolean(),
     hasHostingProvision: boolean(),
@@ -1101,6 +1102,7 @@ export const getUserVaults = query({
         treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
         state: vault.state === "failed" ? "failed" : "copying_files",
         isNoterManaged: vault.githubMode === "create_repository",
+        hasConnectedGitHubRepository: false,
         hostingProvider: undefined,
         hasConvexProvision: false,
         hasHostingProvision: false,
@@ -1116,10 +1118,27 @@ export const getUserVaults = query({
     // Get staging stats for each vault
     const vaultResults: UserVaultResult[] = await Promise.all(
       connectedVaults.map(async (vault) => {
-        const stagingData = await ctx.db
-          .query("fileStaging")
-          .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-          .collect();
+        const [stagingData, remoteBranches, infra, defaultBranchTree] =
+          await Promise.all([
+            ctx.db
+              .query("fileStaging")
+              .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+              .collect(),
+            ctx.db
+              .query("vaultRemoteBranches")
+              .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+              .collect(),
+            ctx.db
+              .query("vaultInfrastructure")
+              .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+              .first(),
+            ctx.db
+              .query("vaultBranchTrees")
+              .withIndex("by_vault_and_branch", (q) =>
+                q.eq("vaultId", vault._id).eq("branch", vault.defaultBranch),
+              )
+              .first(),
+          ]);
 
         const fileCount = stagingData.filter(hasBranchStagingChanges).length;
 
@@ -1129,14 +1148,9 @@ export const getUserVaults = query({
             : undefined;
 
         const repositoryFullName = `${vault.owner}/${vault.name}`;
-        const remoteBranches = await ctx.db
-          .query("vaultRemoteBranches")
-          .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-          .collect();
-        const infra = await ctx.db
-          .query("vaultInfrastructure")
-          .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-          .first();
+        const hasUsableDefaultBranchTree = Boolean(
+          defaultBranchTree || vault.treeData,
+        );
         const hasConvexProvision =
           typeof infra?.convexProjectId === "string" ||
           typeof infra?.convexDeploymentName === "string";
@@ -1163,8 +1177,9 @@ export const getUserVaults = query({
           treeRefreshFailureKind: vault.treeRefreshFailureKind,
           treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
           treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
-          state: "ready",
+          state: hasUsableDefaultBranchTree ? "ready" : "copying_files",
           isNoterManaged: isNoterManagedVault(vault),
+          hasConnectedGitHubRepository: true,
           hostingProvider: getConnectedVaultHostingProvider(vault),
           hasConvexProvision,
           hasHostingProvision,

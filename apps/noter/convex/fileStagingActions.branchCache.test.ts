@@ -36,11 +36,21 @@ describe("selectBatchReadRepositoryTree", () => {
     ).toEqual(featureTree);
   });
 
-  it("falls back to legacy tree when no branch is requested", () => {
+  it("uses the default branch tree when no branch is requested", () => {
     expect(
       selectBatchReadRepositoryTree({
         defaultBranch: "main",
         branchTree: featureTree,
+        legacyTree: defaultTree,
+      }),
+    ).toEqual(featureTree);
+  });
+
+  it("falls back to legacy tree when no branch or branch tree is available", () => {
+    expect(
+      selectBatchReadRepositoryTree({
+        defaultBranch: "main",
+        branchTree: null,
         legacyTree: defaultTree,
       }),
     ).toEqual(defaultTree);

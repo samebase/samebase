@@ -196,6 +196,7 @@ type VaultDeleteIntent = {
   id: Id<"vaults">;
   repositoryFullName: string;
   isNoterManaged: boolean;
+  canRemoveGithubRepo: boolean;
   hasConvexProvision: boolean;
   hasHostingProvision: boolean;
 };
@@ -279,7 +280,7 @@ function useVaultDashboardLocalStore() {
           removeCodespaces: true,
           removeConvexProvision:
             intent.isNoterManaged && intent.hasConvexProvision,
-          removeGithubRepo: intent.isNoterManaged,
+          removeGithubRepo: intent.canRemoveGithubRepo,
           removeHostingProvision:
             intent.isNoterManaged && intent.hasHostingProvision,
           vaultToDelete: intent,
@@ -2192,7 +2193,7 @@ export function VaultDashboard() {
         removeCodespaces:
           connectedCodespacesCount === 0 ? true : removeCodespaces,
         removeGithubRepo: vaultToDelete.isNoterManaged
-          ? removeGithubRepo
+          ? vaultToDelete.canRemoveGithubRepo && removeGithubRepo
           : false,
         removeConvexProvision:
           vaultToDelete.isNoterManaged && vaultToDelete.hasConvexProvision
@@ -2650,6 +2651,8 @@ export function VaultDashboard() {
         id: vault._id,
         repositoryFullName: vault.repositoryFullName,
         isNoterManaged: vault.isNoterManaged,
+        canRemoveGithubRepo:
+          vault.isNoterManaged && vault.hasConnectedGitHubRepository,
         hasConvexProvision: vault.hasConvexProvision,
         hasHostingProvision: vault.hasHostingProvision,
       },
@@ -2787,7 +2790,9 @@ export function VaultDashboard() {
                     setDeleteOption("removeGithubRepo", checked === true)
                   }
                   disabled={
-                    !vaultToDelete.isNoterManaged || isDeleting || isCommitting
+                    !vaultToDelete.canRemoveGithubRepo ||
+                    isDeleting ||
+                    isCommitting
                   }
                   className="mt-0.5"
                 />
@@ -2796,9 +2801,10 @@ export function VaultDashboard() {
                   className="text-sm text-muted-foreground"
                 >
                   Also remove GitHub repository
-                  {!vaultToDelete.isNoterManaged ? (
+                  {!vaultToDelete.canRemoveGithubRepo ? (
                     <div className="text-xs text-muted-foreground">
-                      Only available for repositories created in Noter.
+                      Only available for confirmed repositories created in
+                      Noter.
                     </div>
                   ) : null}
                 </label>

@@ -262,6 +262,10 @@ export const createRepository = action({
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected.");
     }
+    // TODO(GitHub owner selection): let New App choose the target user/org and
+    // pass it here, so the initializing vault can be created before any GitHub
+    // API request. This fallback exists only while API-key connections may lack
+    // a stored username.
     const ghRepoOwner = await resolveGithubConnectionOwner(ctx, {
       connection: githubConnection,
       userId,

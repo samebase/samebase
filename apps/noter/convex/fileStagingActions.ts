@@ -54,6 +54,9 @@ export function selectBatchReadRepositoryTree(args: {
   branchTree: GithubTreeType[] | null;
   legacyTree: GithubTreeType[] | null;
 }): GithubTreeType[] {
+  if (args.branchTree) {
+    return args.branchTree;
+  }
   if (!args.requestedBranch) {
     if (!args.legacyTree) {
       throw new Error("Default branch tree is not cached. Refresh and retry.");
@@ -3030,11 +3033,12 @@ export const batchReadFiles = action({
         ? args.branch.trim()
         : undefined;
     let branchTreeData: GithubTreeType[] | null = null;
-    let defaultBranch: string | undefined;
-    if (requestedBranch) {
+    const defaultBranch = connectedVault.defaultBranch;
+    const branchToLoad = requestedBranch ?? defaultBranch;
+    if (branchToLoad) {
       let branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
         vaultId: args.vaultId,
-        branch: requestedBranch,
+        branch: branchToLoad,
       });
 
       if (!branchTree) {
@@ -3042,26 +3046,16 @@ export const batchReadFiles = action({
           userId,
           owner: connectedVault.owner,
           repo: connectedVault.name,
-          branch: requestedBranch,
+          branch: branchToLoad,
         });
         branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
           vaultId: args.vaultId,
-          branch: requestedBranch,
+          branch: branchToLoad,
         });
       }
 
       if (branchTree) {
         branchTreeData = branchTree.treeData.tree;
-      } else {
-        const repositoryFullName = `${connectedVault.owner}/${connectedVault.name}`;
-        const resolvedVault = await ctx.runQuery(
-          internal.vault.getByRepositoryFullName,
-          {
-            userId,
-            repositoryFullName,
-          },
-        );
-        defaultBranch = resolvedVault?.defaultBranch;
       }
     }
     const repositoryTree = selectBatchReadRepositoryTree({
