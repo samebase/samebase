@@ -133,6 +133,10 @@ Key domain entities:
 - Prefer truthiness checks for typed flags whose domain is already
   `true | undefined`. Use `=== true` only when the distinction from other truthy
   values is part of the current logic.
+- When the runtime meaning is that a value exists, write an existence check.
+  Avoid exact `!== undefined`, `!== null`, or `typeof value === "string"` checks
+  unless the exact missing value, runtime type, empty string, or union
+  discriminator is the state being modeled.
 - Prefer direct conditions over intermediate variables when the expression is
   already easy to read. Do not add `!!` coercions, named booleans, helper
   wrappers, or provider splits just to look more engineered; add a name only
