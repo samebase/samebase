@@ -39,7 +39,7 @@ while the dashboard has a stable object to show.
 That change crosses four concerns that should be settled explicitly:
 
 1. run-backed source setup for `githubMode: "connect_existing_repository"`
-2. migration compatibility for existing connected rows that do not have `runId`
+2. direct prod cleanup before requiring `runId` on connected existing repos
 3. dashboard and provisioning-log visibility for non-Noter-managed source setup
 4. direct file-route connect UX while the repository is connected but the branch
    tree is not ready yet
@@ -98,8 +98,10 @@ created.
 }
 ```
 
-There is no `runId` on the connected existing-repo variant today. This is a real
-persisted-data constraint, not just a TypeScript gap.
+There is no `runId` on the connected existing-repo variant today. This should
+not create a compatibility path for this phase. The operator is the only
+production user and can delete incompatible production rows before deploy, so
+the future implementation should use the direct required target shape.
 
 ### Create App Contrast
 
@@ -196,19 +198,13 @@ existing-repo fetch as `create_github_repo`.
 Spec 096 says connected GitHub state should keep the run that established the
 connection. Existing connected repository rows cannot satisfy that yet.
 
-Recommended rollout:
+Recommended spec decision: require `runId` on connected
+`connect_existing_repository` rows in the target schema and remove incompatible
+production rows before deploying that requirement.
 
-1. widen the connected existing-repo schema to allow legacy rows without `runId`
-2. make all new existing-repo Workflow connections write `runId`
-3. keep dashboard/source setup code safe when a legacy connected row has no run
-4. decide whether to backfill synthetic historical runs or leave legacy rows as
-   explicitly legacy
-5. narrow the schema only if the product needs every connected existing repo to
-   have a provenance run
-
-Do not add a required `runId` directly to the connected existing-repo variant in
-one deploy. Convex schema validation would reject existing documents that lack
-the field.
+Do not add optional `runId`, synthetic historical runs, backfill machinery, or
+dual-read compatibility for old connected existing-repo rows. If production has
+old rows, delete/recreate them as part of the rollout.
 
 ### 4. Duplicate And Idempotency Rules
 
@@ -296,7 +292,7 @@ connected state unless GitHub has provided durable repo identity and visibility.
 
 ## Recommended Implementation Slices
 
-### Slice 1: Spec And Schema Widening
+### Slice 1: Spec And Direct Schema Shape
 
 Create `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`.
 
@@ -306,11 +302,12 @@ The spec should define:
 2. step names and log copy
 3. duplicate handling by `owner/name` and `ghRepoId`
 4. file-route behavior during setup
-5. legacy connected existing-repo rows without `runId`
+5. direct prod cleanup before requiring connected existing-repo `runId`
 6. acceptance tests for source setup visibility
 
-The first implementation PR can widen schema/read paths only if needed, but it
-should not try to narrow legacy data immediately.
+The first implementation PR should use the required target shape directly. Old
+production rows can be deleted before deploy instead of carried through a
+compatibility window.
 
 ### Slice 2: Backend Workflow
 
@@ -341,19 +338,6 @@ Update:
 This can be the same PR as Slice 2 only if the diff stays small. Otherwise it
 should follow as the second implementation PR.
 
-### Slice 4: Optional Migration/Narrowing
-
-If the product requires all connected existing-repo rows to have `runId`, use a
-widen-migrate-narrow plan:
-
-1. deploy code that can read old and new connected existing-repo rows
-2. backfill or intentionally classify legacy rows
-3. verify no old-shape rows remain
-4. require `runId` for the connected existing-repo variant
-
-If synthetic historical runs would be misleading, leave legacy rows without
-`runId` and make the schema comment explicit instead of inventing provenance.
-
 ## Test Plan For The Future Spec
 
 Backend:
@@ -364,7 +348,7 @@ Backend:
 4. successful fetch writes connected state with `githubMode`, `ghRepoId`,
    visibility, default branch, and `runId`
 5. tree sync failure after connected state preserves connected GitHub identity
-6. existing connected legacy rows without `runId` remain readable
+6. connected existing-repo rows require `runId` in the target schema
 7. duplicate `owner/name` and duplicate `ghRepoId` cases fail closed
 8. provider setup stays `not_applicable` for existing repos
 
@@ -383,8 +367,8 @@ Do not implement this as a single broad Phase 6 PR.
 
 First promote this research into a focused spec. Then implement backend
 Workflow/state and UI continuity as one or two reviewable PRs depending on diff
-size. Treat `runId` on legacy connected existing-repo rows as a migration
-decision, not an incidental TypeScript cleanup.
+size. Treat old connected existing-repo rows as disposable production data, not
+as a compatibility requirement.
 
 The result should still feel like one step to the user: connect an existing
 repository. Internally, it is a staged source-onboarding workflow with durable
