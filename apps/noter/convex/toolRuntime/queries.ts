@@ -3,11 +3,7 @@ import { internalQuery } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { PullRequestLabel } from "../schema";
-import {
-  getConnectedVaultHostingProvider,
-  isConnectedVault,
-  isNoterManagedVault,
-} from "../vaultState";
+import { isConnectedVault, isNoterManagedVault } from "../vaultState";
 
 const {
   array,
@@ -34,7 +30,7 @@ const listVaultsForUserResultValidator = array(
     state: union(literal("copying_files"), literal("ready")),
     isNoterManaged: boolean(),
     commitSha: optional(string()),
-    hostingProvider: optional(string()),
+    cloudflareProvider: optional(string()),
   }),
 );
 type ListVaultsForUserResult = Infer<typeof listVaultsForUserResultValidator>;
@@ -153,7 +149,9 @@ export const listVaultsForUser = internalQuery({
           state: defaultBranchTree ? "ready" : "copying_files",
           isNoterManaged: isNoterManagedVault(vault),
           commitSha: defaultBranchTree?.commitSHA,
-          hostingProvider: getConnectedVaultHostingProvider(vault),
+          cloudflareProvider: isNoterManagedVault(vault)
+            ? "cloudflare"
+            : undefined,
         };
       }),
     );

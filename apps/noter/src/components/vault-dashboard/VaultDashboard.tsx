@@ -202,7 +202,7 @@ export type VaultDeleteDialogTarget = {
   isNoterManaged: boolean;
   canRemoveGithubRepo: boolean;
   hasConvexProvision: boolean;
-  hasHostingProvision: boolean;
+  hasCloudflareProvision: boolean;
 };
 
 type VaultDeleteIntent = VaultDeleteDialogTarget & {
@@ -230,7 +230,7 @@ export type VaultDeleteOptionKey =
   | "removeCodespaces"
   | "removeConvexProvision"
   | "removeGithubRepo"
-  | "removeHostingProvision";
+  | "removeCloudflareProvision";
 type VaultDashboardLocalState = {
   cloudflarePollingPaused: boolean;
   commitError: string | null;
@@ -254,7 +254,7 @@ type VaultDashboardLocalState = {
   removeCodespaces: boolean;
   removeConvexProvision: boolean;
   removeGithubRepo: boolean;
-  removeHostingProvision: boolean;
+  removeCloudflareProvision: boolean;
   selectedGithubRepositoryOwner: string;
   shouldAutoFocusChatInput: boolean;
 };
@@ -286,7 +286,7 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
     removeCodespaces: false,
     removeConvexProvision: false,
     removeGithubRepo: false,
-    removeHostingProvision: false,
+    removeCloudflareProvision: false,
     selectedGithubRepositoryOwner: "",
     shouldAutoFocusChatInput: false,
   };
@@ -315,8 +315,8 @@ function useVaultDashboardLocalStore() {
           removeConvexProvision:
             target.isNoterManaged && target.hasConvexProvision,
           removeGithubRepo: target.canRemoveGithubRepo,
-          removeHostingProvision:
-            target.isNoterManaged && target.hasHostingProvision,
+          removeCloudflareProvision:
+            target.isNoterManaged && target.hasCloudflareProvision,
         }));
       },
       markCommitAttempted: () => {
@@ -334,7 +334,7 @@ function useVaultDashboardLocalStore() {
           removeCodespaces: false,
           removeConvexProvision: false,
           removeGithubRepo: false,
-          removeHostingProvision: false,
+          removeCloudflareProvision: false,
         }));
       },
       setCloudflarePollingPaused: (cloudflarePollingPaused: boolean) => {
@@ -358,8 +358,8 @@ function useVaultDashboardLocalStore() {
               return { ...state, removeConvexProvision: value };
             case "removeGithubRepo":
               return { ...state, removeGithubRepo: value };
-            case "removeHostingProvision":
-              return { ...state, removeHostingProvision: value };
+            case "removeCloudflareProvision":
+              return { ...state, removeCloudflareProvision: value };
           }
 
           option satisfies never;
@@ -460,7 +460,7 @@ function buildVaultDeleteIntent(vault: VaultDashboardVault): VaultDeleteIntent {
     canRemoveGithubRepo:
       vault.isNoterManaged && vault.hasConnectedGitHubRepository,
     hasConvexProvision: vault.hasConvexProvision,
-    hasHostingProvision: vault.hasHostingProvision,
+    hasCloudflareProvision: vault.hasCloudflareProvision,
   };
 }
 
@@ -534,7 +534,7 @@ export function VaultDashboardDeleteDialog({
   removeCodespaces,
   removeConvexProvision,
   removeGithubRepo,
-  removeHostingProvision,
+  removeCloudflareProvision,
   stagedChangesCount,
   vaultToDelete,
 }: {
@@ -552,13 +552,13 @@ export function VaultDashboardDeleteDialog({
   removeCodespaces: boolean;
   removeConvexProvision: boolean;
   removeGithubRepo: boolean;
-  removeHostingProvision: boolean;
+  removeCloudflareProvision: boolean;
   stagedChangesCount: number;
   vaultToDelete: VaultDeleteDialogTarget | null;
 }) {
   const hasStagedChanges = stagedChangesCount > 0;
-  const removeHostingCheckboxId = "remove-cloudflare-provision";
-  const removeHostingLabel = "Also remove Cloudflare Pages project";
+  const removeCloudflareCheckboxId = "remove-cloudflare-provision";
+  const removeCloudflareLabel = "Also remove Cloudflare Pages project";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -656,14 +656,14 @@ export function VaultDashboardDeleteDialog({
                 </label>
               </div>
             ) : null}
-            {vaultToDelete.hasHostingProvision ? (
+            {vaultToDelete.hasCloudflareProvision ? (
               <div className="flex items-start gap-2">
                 <Checkbox
-                  id={removeHostingCheckboxId}
-                  checked={removeHostingProvision}
+                  id={removeCloudflareCheckboxId}
+                  checked={removeCloudflareProvision}
                   onCheckedChange={(checked) =>
                     onDeleteOptionChange(
-                      "removeHostingProvision",
+                      "removeCloudflareProvision",
                       checked === true,
                     )
                   }
@@ -673,10 +673,10 @@ export function VaultDashboardDeleteDialog({
                   className="mt-0.5"
                 />
                 <label
-                  htmlFor={removeHostingCheckboxId}
+                  htmlFor={removeCloudflareCheckboxId}
                   className="text-sm text-muted-foreground"
                 >
-                  {removeHostingLabel}
+                  {removeCloudflareLabel}
                   {!vaultToDelete.isNoterManaged ? (
                     <div className="text-xs text-muted-foreground">
                       Only available for infrastructure provisioned by Noter.
@@ -2172,14 +2172,14 @@ function VaultDashboardBody({
                                 {formatProviderSetupDeveloperLabel(
                                   vault.providerSetup,
                                 )}
-                                {vault.infraProductionUrl && (
+                                {vault.cloudflareProductionUrl && (
                                   <a
-                                    href={vault.infraProductionUrl}
+                                    href={vault.cloudflareProductionUrl}
                                     target="_blank"
                                     rel="noreferrer noopener"
                                     className={`ml-2 font-mono break-all ${linkStyle}`}
                                   >
-                                    {vault.infraProductionUrl}
+                                    {vault.cloudflareProductionUrl}
                                   </a>
                                 )}
                               </div>
@@ -2412,7 +2412,7 @@ export function VaultDashboard() {
     removeCodespaces,
     removeConvexProvision,
     removeGithubRepo,
-    removeHostingProvision,
+    removeCloudflareProvision,
     selectedGithubRepositoryOwner,
     shouldAutoFocusChatInput,
   } = useSelector(dashboardLocalStore);
@@ -2650,9 +2650,9 @@ export function VaultDashboard() {
           vaultToDelete.isNoterManaged && vaultToDelete.hasConvexProvision
             ? removeConvexProvision
             : false,
-        removeHostingProvision:
-          vaultToDelete.isNoterManaged && vaultToDelete.hasHostingProvision
-            ? removeHostingProvision
+        removeCloudflareProvision:
+          vaultToDelete.isNoterManaged && vaultToDelete.hasCloudflareProvision
+            ? removeCloudflareProvision
             : false,
       });
       resetDeleteDialogState();
@@ -2692,7 +2692,7 @@ export function VaultDashboard() {
     if (!repoName || isCreating) return;
     if (!hasRequiredCreateConnections) {
       setCreateError(
-        `Connect GitHub, Convex, and ${requiredHostingConnectionLabel} before creating an app.`,
+        `Connect GitHub, Convex, and ${requiredCloudflareConnectionLabel} before creating an app.`,
       );
       return;
     }
@@ -2724,7 +2724,7 @@ export function VaultDashboard() {
   const githubConnected = githubConnection?.connected === true;
   const convexConnected = convexConnection?.connected === true;
   const cloudflareConnected = cloudflareConnection?.connected === true;
-  const requiredHostingConnectionLabel = "Cloudflare";
+  const requiredCloudflareConnectionLabel = "Cloudflare";
   const cloudflareMcpTokenStatus = cloudflareConnection?.mcpTokenStatus;
   const cloudflareMcpTokenExpiresAt = cloudflareConnection?.mcpTokenExpiresAt;
   const cloudflareMcpTokenCheckedAt = cloudflareConnection?.mcpTokenCheckedAt;
@@ -2938,7 +2938,7 @@ export function VaultDashboard() {
         <div className="text-xs text-muted-foreground">
           {hasRequiredCreateConnections
             ? "Choose a GitHub owner to create an app."
-            : `Connect GitHub, Convex, and ${requiredHostingConnectionLabel} to create an app.`}
+            : `Connect GitHub, Convex, and ${requiredCloudflareConnectionLabel} to create an app.`}
         </div>
       )}
       {githubRepositoryOwnerLoadError && (
@@ -3237,7 +3237,7 @@ export function VaultDashboard() {
         removeCodespaces={removeCodespaces}
         removeConvexProvision={removeConvexProvision}
         removeGithubRepo={removeGithubRepo}
-        removeHostingProvision={removeHostingProvision}
+        removeCloudflareProvision={removeCloudflareProvision}
         stagedChangesCount={stagedChangesCount}
         vaultToDelete={vaultToDelete}
       />

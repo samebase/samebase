@@ -165,7 +165,7 @@ const fixtureDeleteDialogTarget = {
   isNoterManaged: true,
   canRemoveGithubRepo: true,
   hasConvexProvision: true,
-  hasHostingProvision: true,
+  hasCloudflareProvision: true,
 } satisfies VaultDeleteDialogTarget;
 
 function FixtureVaultLastUpdatedStatusCard() {
@@ -487,7 +487,7 @@ function VaultDashboardDeleteOpenFixture() {
           removeCodespaces={true}
           removeConvexProvision={true}
           removeGithubRepo={true}
-          removeHostingProvision={true}
+          removeCloudflareProvision={true}
           stagedChangesCount={3}
           vaultToDelete={fixtureDeleteDialogTarget}
         />

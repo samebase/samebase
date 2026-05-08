@@ -41,7 +41,7 @@ describe("vault dashboard Convex contract", () => {
         defaultBranch: "main",
         connectedAt: 20,
         convex: { state: "not_configured" },
-        hosting: { state: "not_configured" },
+        cloudflare: { state: "not_configured" },
       });
       await ctx.db.insert("appProvisioningEvents", {
         userId,
@@ -115,7 +115,7 @@ describe("vault dashboard Convex contract", () => {
         defaultBranch: "main",
         connectedAt: 20,
         convex: { state: "not_configured" },
-        hosting: { state: "not_configured" },
+        cloudflare: { state: "not_configured" },
       });
       await ctx.db.delete(runId);
 
@@ -184,9 +184,8 @@ describe("vault dashboard Convex contract", () => {
           deploymentName: "provider-state-prod",
           connectedAt: 24,
         },
-        hosting: {
+        cloudflare: {
           state: "provisioning",
-          provider: "cloudflare",
           runId,
           startedAt: 25,
         },
@@ -210,7 +209,7 @@ describe("vault dashboard Convex contract", () => {
         convexProjectId: "stale-convex-project",
         convexProjectSlug: "stale-project",
         convexDeploymentName: "stale-prod",
-        hosting: {
+        cloudflare: {
           provider: "cloudflare",
           accountId: "stale-account",
           projectName: "stale-pages-project",
@@ -232,16 +231,16 @@ describe("vault dashboard Convex contract", () => {
       _id: ids.vaultId,
       state: "ready",
       hasConvexProvision: true,
-      hasHostingProvision: false,
+      hasCloudflareProvision: false,
       providerSetup: {
         status: "running",
-        provider: "hosting",
+        provider: "cloudflare",
         runId: ids.runId,
         step: "ensure_cloudflare",
         updatedAt: 30,
       },
     });
-    expect(vaults[0]).not.toHaveProperty("infraProductionUrl");
+    expect(vaults[0]).not.toHaveProperty("cloudflareProductionUrl");
     expect(vaults[0]).not.toHaveProperty("cloudflareProjectDashboardUrl");
   });
 });

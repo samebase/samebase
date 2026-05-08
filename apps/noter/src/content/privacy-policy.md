@@ -126,7 +126,7 @@ as part of that workflow.
 - You can disconnect connected providers, which removes the corresponding
   provider-connection record stored by Noter.
 - You can delete vaults from the dashboard, and that deletion flow can also
-  remove related GitHub, Codespaces, Convex, and hosting resources when those
+  remove related GitHub, Codespaces, Convex, and Cloudflare resources when those
   options are selected.
 - A self-serve account deletion flow is not currently implemented in the app
   code.

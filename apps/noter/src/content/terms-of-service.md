@@ -18,7 +18,7 @@ noter is operated by the noter team.
 
 noter is a GitHub-backed workspace for notes, code, and AI-assisted workflows.
 The service may connect to third-party providers that you authorize, including
-repository, infrastructure, hosting, and AI tooling providers.
+repository, infrastructure, Cloudflare, and AI tooling providers.
 
 ## 3. Eligibility and accounts
 

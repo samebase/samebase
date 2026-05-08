@@ -1,5 +1,4 @@
 import { Infer, v } from "convex/values";
-import { hostingProviderValidator } from "./hostingState";
 
 const { array, boolean, id, literal, number, object, optional, string, union } =
   v;
@@ -89,19 +88,17 @@ export const VaultConvexState = union(
 );
 export type VaultConvexState = Infer<typeof VaultConvexState>;
 
-export const VaultHostingState = union(
+export const VaultCloudflareState = union(
   object({
     state: literal("not_configured"),
   }),
   object({
     state: literal("provisioning"),
-    provider: hostingProviderValidator,
     runId: id("appProvisioningRuns"),
     startedAt: number(),
   }),
   object({
     state: literal("connected"),
-    provider: hostingProviderValidator,
     accountId: string(),
     projectName: string(),
     productionUrl: string(),
@@ -109,12 +106,11 @@ export const VaultHostingState = union(
   }),
   object({
     state: literal("failed"),
-    provider: hostingProviderValidator,
     runId: id("appProvisioningRuns"),
     failedAt: number(),
   }),
 );
-export type VaultHostingState = Infer<typeof VaultHostingState>;
+export type VaultCloudflareState = Infer<typeof VaultCloudflareState>;
 
 /**
  * Compatibility fields from the pre-vault-first vault row. They stay on every
@@ -173,7 +169,7 @@ export const VaultRow = union(
     runId: id("appProvisioningRuns"),
     ...connectedRepositoryIdentityFields,
     convex: VaultConvexState,
-    hosting: VaultHostingState,
+    cloudflare: VaultCloudflareState,
     connectedAt: number(),
 
     ...githubRepositoryWithVisibilityFields,
@@ -188,7 +184,7 @@ export const VaultRow = union(
 
     ...connectedRepositoryIdentityFields,
     convex: VaultConvexState,
-    hosting: VaultHostingState,
+    cloudflare: VaultCloudflareState,
     connectedAt: number(),
 
     ...githubRepositoryWithVisibilityFields,

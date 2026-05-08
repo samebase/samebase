@@ -26,8 +26,8 @@ export function formatVaultProviderSetupProvider(
   switch (provider) {
     case "convex":
       return "Convex";
-    case "hosting":
-      return "Hosting";
+    case "cloudflare":
+      return "Cloudflare";
   }
   provider satisfies never;
   return provider;

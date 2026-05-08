@@ -13,19 +13,17 @@ import {
   type ConvexManagementProvider,
 } from "./infraProviders";
 import {
-  ensureHostingResources,
+  ensureCloudflareResourcesForVault,
   getProvisionedMainUrl,
-} from "./hostingProviders";
-import {
-  hostingProviderValidator,
-  hostingStateValidator,
-} from "./hostingState";
-import { resolveCloudflareHostingState } from "./hostingStateHelpers";
+} from "./cloudflareResources";
+import { cloudflareStateValidator } from "./cloudflareState";
+import { resolveCloudflareState } from "./cloudflareStateHelpers";
 import { asRecord, readString, readStringOrNumber } from "./jsonUtils";
 import type { AppProvisioningStep, GithubTreeData } from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import {
+  getConnectedVaultCloudflareState,
   isConnectedVault,
   isNoterManagedVault,
   type NoterManagedConnectedVault,
@@ -60,7 +58,7 @@ const infraPatchValidator = v.object({
   convexSiteUrl: v.optional(v.string()),
   convexDeployKeyId: v.optional(v.string()),
 
-  hosting: v.optional(hostingStateValidator),
+  cloudflare: v.optional(cloudflareStateValidator),
 });
 
 async function readResponseTextSafe(response: Response): Promise<string> {
@@ -566,18 +564,19 @@ async function getManagedProvisioningVault(
 }
 
 type ProviderStatePatch = Partial<
-  Pick<NoterManagedConnectedVault, "convex" | "hosting">
+  Pick<NoterManagedConnectedVault, "cloudflare" | "convex">
 >;
 
 function hasFreshProviderProvisioningLock(args: {
   vault: NoterManagedConnectedVault;
   now: number;
 }): boolean {
+  const cloudflare = getConnectedVaultCloudflareState(args.vault);
   return (
     (args.vault.convex.state === "provisioning" &&
       args.now - args.vault.convex.startedAt < PROVISIONING_STALE_MS) ||
-    (args.vault.hosting.state === "provisioning" &&
-      args.now - args.vault.hosting.startedAt < PROVISIONING_STALE_MS)
+    (cloudflare.state === "provisioning" &&
+      args.now - cloudflare.startedAt < PROVISIONING_STALE_MS)
   );
 }
 
@@ -588,6 +587,7 @@ function buildProviderFailurePatch(args: {
   now: number;
 }): ProviderStatePatch {
   const patch: ProviderStatePatch = {};
+  const cloudflare = getConnectedVaultCloudflareState(args.vault);
   const failConvex = () => {
     if (args.vault.convex.state !== "connected") {
       patch.convex = {
@@ -597,14 +597,14 @@ function buildProviderFailurePatch(args: {
       };
     }
   };
-  const failHosting = () => {
-    if (args.vault.hosting.state !== "connected") {
-      patch.hosting = {
+  const failCloudflare = () => {
+    if (cloudflare.state !== "connected") {
+      const failedCloudflare = {
         state: "failed",
-        provider: "cloudflare",
         runId: args.runId,
         failedAt: args.now,
-      };
+      } as const;
+      patch.cloudflare = failedCloudflare;
     }
   };
 
@@ -613,21 +613,22 @@ function buildProviderFailurePatch(args: {
     case "claim_infra":
     case "validate_connections":
       if (args.vault.convex.state === "connected") {
-        failHosting();
+        failCloudflare();
       } else {
         failConvex();
       }
       break;
     case "ensure_convex":
       failConvex();
-      if (args.vault.hosting.state !== "connected") {
-        patch.hosting = { state: "not_configured" };
+      if (cloudflare.state !== "connected") {
+        const notConfigured = { state: "not_configured" } as const;
+        patch.cloudflare = notConfigured;
       }
       break;
     case "ensure_convex_preview":
     case "ensure_cloudflare":
     case "record_domains":
-      failHosting();
+      failCloudflare();
       break;
     case "finish":
       break;
@@ -763,9 +764,9 @@ async function resolveCloudflareProvisioningConnection(
 
 export function resolveInfraStateAfterWorkflowFailure(args: {
   convexProjectId?: string;
-  hosting: unknown;
+  cloudflare: unknown;
 }): "failed" | "partial" {
-  return args.convexProjectId || args.hosting ? "partial" : "failed";
+  return args.convexProjectId || args.cloudflare ? "partial" : "failed";
 }
 
 export const getInfrastructureByVault = internalQuery({
@@ -838,14 +839,14 @@ export const upsertInfrastructureRecord = internalMutation({
       convexSiteUrl: args.patch.convexSiteUrl,
       convexDeployKeyId: args.patch.convexDeployKeyId,
 
-      hosting: args.patch.hosting,
+      cloudflare: args.patch.cloudflare,
     });
 
     return { applied: true };
   },
 });
 
-export const markHostingProvisioning = internalMutation({
+export const markCloudflareProvisioning = internalMutation({
   args: {
     vaultId: v.id("vaults"),
     runId: v.id("appProvisioningRuns"),
@@ -864,17 +865,18 @@ export const markHostingProvisioning = internalMutation({
     if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
       return { applied: false };
     }
-    if (vault.hosting.state === "connected") {
+    const cloudflare = getConnectedVaultCloudflareState(vault);
+    if (cloudflare.state === "connected") {
       return { applied: true };
     }
 
+    const provisioningCloudflare = {
+      state: "provisioning",
+      runId: args.runId,
+      startedAt: Date.now(),
+    } as const;
     await ctx.db.patch(args.vaultId, {
-      hosting: {
-        state: "provisioning",
-        provider: "cloudflare",
-        runId: args.runId,
-        startedAt: Date.now(),
-      },
+      cloudflare: provisioningCloudflare,
     });
 
     return { applied: true };
@@ -918,11 +920,10 @@ export const markConvexConnected = internalMutation({
   },
 });
 
-export const markHostingConnected = internalMutation({
+export const markCloudflareConnected = internalMutation({
   args: {
     vaultId: v.id("vaults"),
     runId: v.id("appProvisioningRuns"),
-    provider: hostingProviderValidator,
     accountId: v.string(),
     projectName: v.string(),
     productionUrl: v.string(),
@@ -942,15 +943,15 @@ export const markHostingConnected = internalMutation({
       return { applied: false };
     }
 
+    const connectedCloudflare = {
+      state: "connected",
+      accountId: args.accountId,
+      projectName: args.projectName,
+      productionUrl: args.productionUrl,
+      connectedAt: Date.now(),
+    } as const;
     await ctx.db.patch(args.vaultId, {
-      hosting: {
-        state: "connected",
-        provider: args.provider,
-        accountId: args.accountId,
-        projectName: args.projectName,
-        productionUrl: args.productionUrl,
-        connectedAt: Date.now(),
-      },
+      cloudflare: connectedCloudflare,
     });
 
     return { applied: true };
@@ -1051,6 +1052,11 @@ export const claimWorkflowProvisioning = internalMutation({
       }
     }
 
+    const cloudflare = getConnectedVaultCloudflareState(vault);
+    const claimedCloudflare =
+      cloudflare.state === "connected"
+        ? cloudflare
+        : ({ state: "not_configured" } as const);
     await ctx.db.patch(args.vaultId, {
       convex:
         vault.convex.state === "connected"
@@ -1060,10 +1066,7 @@ export const claimWorkflowProvisioning = internalMutation({
               runId: args.runId,
               startedAt: now,
             },
-      hosting:
-        vault.hosting.state === "connected"
-          ? vault.hosting
-          : { state: "not_configured" },
+      cloudflare: claimedCloudflare,
     });
 
     const existing = await ctx.db
@@ -1116,7 +1119,7 @@ export const claimWorkflowProvisioning = internalMutation({
       previousVersion: existing?.provisioningVersion ?? 0,
       nextVersion,
       force: args.force,
-      hostingProvider: "cloudflare",
+      cloudflareProvider: "cloudflare",
     });
 
     await appendProvisioningRunEvent(ctx, {
@@ -1376,14 +1379,14 @@ export const ensureCloudflareInfrastructure = internalAction({
       message: "Ensuring Cloudflare Pages project and deploy settings.",
       state: "running",
     });
-    const hostingState = await ctx.runMutation(
-      internal.infraProvisioning.markHostingProvisioning,
+    const cloudflareState = await ctx.runMutation(
+      internal.infraProvisioning.markCloudflareProvisioning,
       {
         vaultId: args.vaultId,
         runId: args.runId,
       },
     );
-    if (!hostingState.applied) {
+    if (!cloudflareState.applied) {
       await cancelSupersededProvisioningRun(ctx, {
         runId: args.runId,
         step: "ensure_cloudflare",
@@ -1451,8 +1454,8 @@ export const ensureCloudflareInfrastructure = internalAction({
       owner: vault.owner,
       repo: vault.name,
     });
-    const cloudflareExisting = resolveCloudflareHostingState(existing);
-    const provisionedHosting = await ensureHostingResources({
+    const cloudflareExisting = resolveCloudflareState(existing);
+    const provisionedCloudflare = await ensureCloudflareResourcesForVault({
       provider: "cloudflare",
       owner: vault.owner,
       repo: vault.name,
@@ -1483,7 +1486,7 @@ export const ensureCloudflareInfrastructure = internalAction({
         },
       },
     });
-    const mainUrl = getProvisionedMainUrl(provisionedHosting);
+    const mainUrl = getProvisionedMainUrl(provisionedCloudflare);
     if (!mainUrl) {
       throw new Error("Cloudflare Pages production URL was not resolved.");
     }
@@ -1496,7 +1499,7 @@ export const ensureCloudflareInfrastructure = internalAction({
         patch: {
           status: "ready",
           lastProvisionedAt: Date.now(),
-          hosting: provisionedHosting,
+          cloudflare: provisionedCloudflare,
           lastError: undefined,
           convexDeployKeyId: productionDeployKey.convexDeployKeyId,
         },
@@ -1509,18 +1512,17 @@ export const ensureCloudflareInfrastructure = internalAction({
       });
       return null;
     }
-    const connectedHostingState = await ctx.runMutation(
-      internal.infraProvisioning.markHostingConnected,
+    const connectedCloudflareState = await ctx.runMutation(
+      internal.infraProvisioning.markCloudflareConnected,
       {
         vaultId: args.vaultId,
         runId: args.runId,
-        provider: provisionedHosting.provider,
-        accountId: provisionedHosting.accountId,
-        projectName: provisionedHosting.projectName,
+        accountId: provisionedCloudflare.accountId,
+        projectName: provisionedCloudflare.projectName,
         productionUrl: mainUrl,
       },
     );
-    if (!connectedHostingState.applied) {
+    if (!connectedCloudflareState.applied) {
       await cancelSupersededProvisioningRun(ctx, {
         runId: args.runId,
         step: "ensure_cloudflare",
@@ -1532,7 +1534,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       runId: args.runId,
       step: "ensure_cloudflare",
       level: "info",
-      message: `Cloudflare Pages project ready: ${provisionedHosting.projectName}.`,
+      message: `Cloudflare Pages project ready: ${provisionedCloudflare.projectName}.`,
       state: "running",
     });
 
@@ -1566,9 +1568,9 @@ export const ensureCloudflareInfrastructure = internalAction({
       vaultId: args.vaultId,
       repo: `${vault.owner}/${vault.name}`,
       convexDeploymentName: existing.convexDeploymentName,
-      cloudflareAccountId: provisionedHosting.accountId,
-      cloudflareProjectName: provisionedHosting.projectName,
-      cloudflareSubdomain: provisionedHosting.subdomain,
+      cloudflareAccountId: provisionedCloudflare.accountId,
+      cloudflareProjectName: provisionedCloudflare.projectName,
+      cloudflareSubdomain: provisionedCloudflare.subdomain,
     });
 
     return null;
@@ -1820,7 +1822,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
       .first();
     const infraState = resolveInfraStateAfterWorkflowFailure({
       convexProjectId: infrastructure?.convexProjectId,
-      hosting: infrastructure?.hosting,
+      cloudflare: resolveCloudflareState(infrastructure),
     });
     if (ownsActiveClaim && ownership) {
       if (infrastructure) {

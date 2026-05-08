@@ -1,7 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
-import { hostingStateValidator } from "./hostingState";
+import { cloudflareStateValidator } from "./cloudflareState";
 import {
   GithubTree as githubTreeValidator,
   GithubTreeData as githubTreeDataValidator,
@@ -424,7 +424,7 @@ export default defineSchema({
 
   /**
    * External infrastructure identifiers and operational status for provider
-   * calls. Product readiness lives on the vault's Convex and hosting states.
+   * calls. Product readiness lives on the vault's Convex and Cloudflare states.
    */
   vaultInfrastructure: defineTable({
     vaultId: id("vaults"),
@@ -443,8 +443,8 @@ export default defineSchema({
     convexSiteUrl: optional(string()),
     convexDeployKeyId: optional(string()),
 
-    // Provider-aware hosting state (phase 2+)
-    hosting: optional(hostingStateValidator),
+    // Cloudflare resource state. Pages is the current implementation detail.
+    cloudflare: optional(cloudflareStateValidator),
   })
     .index("by_vault", ["vaultId"])
     .index("by_status", ["status"]),

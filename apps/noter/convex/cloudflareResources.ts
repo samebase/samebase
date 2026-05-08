@@ -1,4 +1,4 @@
-import type { HostingState } from "./hostingState";
+import type { CloudflareState } from "./cloudflareState";
 import {
   callCloudflareMcpTool,
   CLOUDFLARE_MCP_SERVER_URL,
@@ -109,8 +109,8 @@ async function requestCloudflarePagesApi(args: {
   return parseJsonText(text);
 }
 
-export type ProvisionedByProvider = HostingState;
-export type { HostingProvider } from "./hostingState";
+export type ProvisionedCloudflareResources = CloudflareState;
+export type { CloudflareProvider } from "./cloudflareState";
 
 type EnsureCloudflareResourcesArgs = {
   provider: "cloudflare";
@@ -130,7 +130,9 @@ type EnsureCloudflareResourcesArgs = {
 
 async function ensureCloudflareResources(
   args: EnsureCloudflareResourcesArgs,
-): Promise<Extract<ProvisionedByProvider, { provider: "cloudflare" }>> {
+): Promise<
+  Extract<ProvisionedCloudflareResources, { provider: "cloudflare" }>
+> {
   const suffix = vaultSuffix(args.vaultId);
   const fallbackProjectName = sanitizeSlug(
     `${args.owner}-${args.repo}-${suffix}`,
@@ -280,7 +282,10 @@ async function ensureCloudflareResources(
       refreshedSubdomain || existingSubdomain || fallbackSubdomain;
     const productionUrl = `https://${subdomain}`;
 
-    const result: Extract<ProvisionedByProvider, { provider: "cloudflare" }> = {
+    const result: Extract<
+      ProvisionedCloudflareResources,
+      { provider: "cloudflare" }
+    > = {
       provider: "cloudflare",
       accountId: args.accountId,
       projectName,
@@ -310,14 +315,14 @@ async function ensureCloudflareResources(
   }
 }
 
-export async function ensureHostingResources(
+export async function ensureCloudflareResourcesForVault(
   args: EnsureCloudflareResourcesArgs,
-): Promise<ProvisionedByProvider> {
+): Promise<ProvisionedCloudflareResources> {
   return await ensureCloudflareResources(args);
 }
 
 export function getProvisionedMainUrl(
-  args: ProvisionedByProvider,
+  args: ProvisionedCloudflareResources,
 ): string | undefined {
   if (args.productionUrl) {
     return args.productionUrl;
@@ -328,14 +333,14 @@ export function getProvisionedMainUrl(
   return undefined;
 }
 
-export type HostingStatusReadResult = {
+export type CloudflareStatusReadResult = {
   summary: string;
   endpoint: string;
   raw: string;
   rowCount: number;
 };
 
-export type HostingLogsReadResult = {
+export type CloudflareLogsReadResult = {
   summary: string;
   endpoint: string;
   raw: string;
@@ -350,9 +355,9 @@ type ReadCloudflareProjectStatusArgs = {
   projectName: string;
 };
 
-export async function readHostingSiteStatus(
+export async function readCloudflareProjectStatus(
   args: ReadCloudflareProjectStatusArgs,
-): Promise<HostingStatusReadResult> {
+): Promise<CloudflareStatusReadResult> {
   const endpoint = `/accounts/${encodeURIComponent(args.accountId)}/pages/projects/${encodeURIComponent(args.projectName)}`;
   const payload = await requestCloudflarePagesApi({
     token: args.cloudflareToken,
@@ -378,9 +383,9 @@ type ReadCloudflareLogsArgs = {
   maxEntries: number;
 };
 
-export async function readHostingLogs(
+export async function readCloudflareDeploymentLogs(
   args: ReadCloudflareLogsArgs,
-): Promise<HostingLogsReadResult> {
+): Promise<CloudflareLogsReadResult> {
   const maxEntries = clamp(args.maxEntries, 1, 50);
   const deploymentsEndpoint = `/accounts/${encodeURIComponent(args.accountId)}/pages/projects/${encodeURIComponent(args.projectName)}/deployments`;
   const deploymentsPayload = await requestCloudflarePagesApi({
@@ -440,7 +445,7 @@ type DeleteCloudflareResourcesArgs = {
   cloudflareServerUrl?: string;
 };
 
-export async function deleteHostingResources(
+export async function deleteCloudflareResources(
   args: DeleteCloudflareResourcesArgs,
 ): Promise<void> {
   await requestCloudflarePagesApi({

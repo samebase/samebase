@@ -22,19 +22,19 @@ import {
 import { type Doc, Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
 import {
-  hostingProviderValidator,
-  hostingStateValidator,
-} from "./hostingState";
+  cloudflareProviderValidator,
+  cloudflareStateValidator,
+} from "./cloudflareState";
 import {
   assertConnectedVault,
-  getConnectedVaultHostingProvider,
+  getConnectedVaultCloudflareState,
   isConnectedVault,
   isNoterManagedVault,
 } from "./vaultState";
 import {
-  resolveCloudflareHostingState,
-  resolveHostingMainUrl,
-} from "./hostingStateHelpers";
+  resolveCloudflareMainUrl,
+  resolveCloudflareState,
+} from "./cloudflareStateHelpers";
 import {
   doesTreeRefreshClaimMatch,
   getLastRepositoryMetadataRefreshAt,
@@ -85,7 +85,7 @@ const sourceSetupSummary = union(
     updatedAt: number(),
   }),
 );
-const providerSetupProvider = union(literal("convex"), literal("hosting"));
+const providerSetupProvider = union(literal("convex"), literal("cloudflare"));
 const providerSetupSummary = union(
   object({
     status: literal("not_applicable"),
@@ -184,7 +184,7 @@ async function resolveSourceSetupSummary(
 async function readProviderRunSummary(
   ctx: Pick<QueryCtx, "db">,
   args: {
-    provider: "convex" | "hosting";
+    provider: "convex" | "cloudflare";
     runId: Id<"appProvisioningRuns">;
     status: "running" | "failed";
     fallbackUpdatedAt: number;
@@ -222,6 +222,7 @@ async function resolveProviderSetupSummary(
   ctx: Pick<QueryCtx, "db">,
   vault: NoterManagedConnectedVault,
 ): Promise<ProviderSetupSummary> {
+  const cloudflare = getConnectedVaultCloudflareState(vault);
   if (vault.convex.state === "failed") {
     return await readProviderRunSummary(ctx, {
       provider: "convex",
@@ -230,12 +231,12 @@ async function resolveProviderSetupSummary(
       fallbackUpdatedAt: vault.convex.failedAt,
     });
   }
-  if (vault.hosting.state === "failed") {
+  if (cloudflare.state === "failed") {
     return await readProviderRunSummary(ctx, {
-      provider: "hosting",
-      runId: vault.hosting.runId,
+      provider: "cloudflare",
+      runId: cloudflare.runId,
       status: "failed",
-      fallbackUpdatedAt: vault.hosting.failedAt,
+      fallbackUpdatedAt: cloudflare.failedAt,
     });
   }
   if (vault.convex.state === "provisioning") {
@@ -246,18 +247,15 @@ async function resolveProviderSetupSummary(
       fallbackUpdatedAt: vault.convex.startedAt,
     });
   }
-  if (vault.hosting.state === "provisioning") {
+  if (cloudflare.state === "provisioning") {
     return await readProviderRunSummary(ctx, {
-      provider: "hosting",
-      runId: vault.hosting.runId,
+      provider: "cloudflare",
+      runId: cloudflare.runId,
       status: "running",
-      fallbackUpdatedAt: vault.hosting.startedAt,
+      fallbackUpdatedAt: cloudflare.startedAt,
     });
   }
-  if (
-    vault.convex.state === "connected" &&
-    vault.hosting.state === "connected"
-  ) {
+  if (vault.convex.state === "connected" && cloudflare.state === "connected") {
     return { status: "ready" };
   }
   if (vault.convex.state === "not_configured") {
@@ -268,9 +266,9 @@ async function resolveProviderSetupSummary(
       fallbackUpdatedAt: vault.connectedAt,
     });
   }
-  if (vault.hosting.state === "not_configured") {
+  if (cloudflare.state === "not_configured") {
     return await readProviderRunSummary(ctx, {
-      provider: "hosting",
+      provider: "cloudflare",
       runId: vault.runId,
       status: "running",
       fallbackUpdatedAt: vault.connectedAt,
@@ -294,15 +292,18 @@ type VaultBranchFilters = Infer<typeof vaultBranchFiltersValidator>;
  * checking presence and encode every segment before handing it to the browser.
  */
 function buildCloudflareProjectDashboardUrl(
-  infra: { hosting?: Infer<typeof hostingStateValidator> } | null | undefined,
+  infra:
+    | { cloudflare?: Infer<typeof cloudflareStateValidator> }
+    | null
+    | undefined,
 ): string | undefined {
-  const hosting = resolveCloudflareHostingState(infra);
-  if (!hosting) {
+  const cloudflare = resolveCloudflareState(infra);
+  if (!cloudflare) {
     return undefined;
   }
 
-  const accountId = hosting.accountId.trim();
-  const projectName = hosting.projectName.trim();
+  const accountId = cloudflare.accountId.trim();
+  const projectName = cloudflare.projectName.trim();
   if (accountId.length === 0 || projectName.length === 0) {
     return undefined;
   }
@@ -729,7 +730,7 @@ export const addVault = internalMutation({
       defaultBranch: args.defaultBranch,
       connectedAt: Date.now(),
       convex: { state: "not_configured" },
-      hosting: { state: "not_configured" },
+      cloudflare: { state: "not_configured" },
     });
   },
 });
@@ -858,7 +859,7 @@ export const connectNoterManagedVaultGitHub = internalMutation({
       defaultBranch: args.defaultBranch,
       connectedAt: Date.now(),
       convex: { state: "not_configured" },
-      hosting: { state: "not_configured" },
+      cloudflare: { state: "not_configured" },
     });
 
     return null;
@@ -1141,9 +1142,9 @@ const getUserVaultsResult = array(
     providerSetup: providerSetupSummary,
     isNoterManaged: boolean(),
     hasConnectedGitHubRepository: boolean(),
-    hostingProvider: optional(hostingProviderValidator),
+    cloudflareProvider: optional(cloudflareProviderValidator),
     hasConvexProvision: boolean(),
-    hasHostingProvision: boolean(),
+    hasCloudflareProvision: boolean(),
     remoteBranches: array(
       object({
         name: string(),
@@ -1164,7 +1165,7 @@ const getUserVaultsResult = array(
         convexPreviewDeploymentDashboardUrl: optional(string()),
       }),
     ),
-    infraProductionUrl: optional(string()),
+    cloudflareProductionUrl: optional(string()),
     cloudflareProjectDashboardUrl: optional(string()),
     convexProjectSettingsDashboardUrl: optional(string()),
     convexDeploymentDashboardUrl: optional(string()),
@@ -1224,11 +1225,11 @@ export const getUserVaults = query({
         providerSetup: { status: "not_applicable" },
         isNoterManaged: vault.githubMode === "create_repository",
         hasConnectedGitHubRepository: false,
-        hostingProvider: undefined,
+        cloudflareProvider: undefined,
         hasConvexProvision: false,
-        hasHostingProvision: false,
+        hasCloudflareProvision: false,
         remoteBranches: [],
-        infraProductionUrl: undefined,
+        cloudflareProductionUrl: undefined,
         cloudflareProjectDashboardUrl: undefined,
         convexProjectSettingsDashboardUrl: undefined,
         convexDeploymentDashboardUrl: undefined,
@@ -1276,7 +1277,8 @@ export const getUserVaults = query({
             ? await resolveProviderSetupSummary(ctx, vault)
             : { status: "not_applicable" as const };
         const hasConvexProvision = vault.convex.state === "connected";
-        const hasHostingProvision = vault.hosting.state === "connected";
+        const cloudflare = getConnectedVaultCloudflareState(vault);
+        const hasCloudflareProvision = cloudflare.state === "connected";
         const convexProjectSlug =
           vault.convex.state === "connected"
             ? vault.convex.projectSlug
@@ -1285,14 +1287,14 @@ export const getUserVaults = query({
           vault.convex.state === "connected"
             ? vault.convex.deploymentName
             : undefined;
-        const hostingMetadata =
-          vault.hosting.state === "connected"
+        const cloudflareMetadata =
+          cloudflare.state === "connected"
             ? {
-                hosting: {
-                  provider: vault.hosting.provider,
-                  accountId: vault.hosting.accountId,
-                  projectName: vault.hosting.projectName,
-                  productionUrl: vault.hosting.productionUrl,
+                cloudflare: {
+                  provider: "cloudflare" as const,
+                  accountId: cloudflare.accountId,
+                  projectName: cloudflare.projectName,
+                  productionUrl: cloudflare.productionUrl,
                 },
               }
             : null;
@@ -1317,9 +1319,11 @@ export const getUserVaults = query({
           providerSetup,
           isNoterManaged: isNoterManagedVault(vault),
           hasConnectedGitHubRepository: true,
-          hostingProvider: getConnectedVaultHostingProvider(vault),
+          cloudflareProvider: isNoterManagedVault(vault)
+            ? "cloudflare"
+            : undefined,
           hasConvexProvision,
-          hasHostingProvision,
+          hasCloudflareProvision,
           remoteBranches: remoteBranches
             .sort(compareRemoteBranchSortOrder)
             .map((branch) => ({
@@ -1359,9 +1363,9 @@ export const getUserVaults = query({
                     })
                   : undefined,
             })),
-          infraProductionUrl: resolveHostingMainUrl(hostingMetadata),
+          cloudflareProductionUrl: resolveCloudflareMainUrl(cloudflareMetadata),
           cloudflareProjectDashboardUrl:
-            buildCloudflareProjectDashboardUrl(hostingMetadata),
+            buildCloudflareProjectDashboardUrl(cloudflareMetadata),
           convexProjectSettingsDashboardUrl:
             buildConvexProjectSettingsDashboardUrl({
               projectSlug: convexProjectSlug,
@@ -1978,7 +1982,7 @@ export const getVaultInfrastructure = query({
           convexDeploymentName: v.optional(v.string()),
           convexCloudUrl: v.optional(v.string()),
           convexSiteUrl: v.optional(v.string()),
-          hosting: v.optional(hostingStateValidator),
+          cloudflare: v.optional(cloudflareStateValidator),
         }),
       ),
       domains: v.array(
@@ -2027,7 +2031,7 @@ export const getVaultInfrastructure = query({
             convexDeploymentName: infrastructure.convexDeploymentName,
             convexCloudUrl: infrastructure.convexCloudUrl,
             convexSiteUrl: infrastructure.convexSiteUrl,
-            hosting: infrastructure.hosting,
+            cloudflare: resolveCloudflareState(infrastructure) ?? undefined,
           }
         : undefined,
       domains: domains.map((domain) => ({

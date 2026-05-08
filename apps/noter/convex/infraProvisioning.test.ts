@@ -41,7 +41,7 @@ describe("resolveInfraStateAfterWorkflowFailure", () => {
     expect(
       resolveInfraStateAfterWorkflowFailure({
         convexProjectId: undefined,
-        hosting: undefined,
+        cloudflare: undefined,
       }),
     ).toBe("failed");
   });
@@ -50,16 +50,16 @@ describe("resolveInfraStateAfterWorkflowFailure", () => {
     expect(
       resolveInfraStateAfterWorkflowFailure({
         convexProjectId: "project-123",
-        hosting: undefined,
+        cloudflare: undefined,
       }),
     ).toBe("partial");
   });
 
-  it("marks failures after hosting progress as partial", () => {
+  it("marks failures after Cloudflare progress as partial", () => {
     expect(
       resolveInfraStateAfterWorkflowFailure({
         convexProjectId: undefined,
-        hosting: { provider: "cloudflare" },
+        cloudflare: { provider: "cloudflare" },
       }),
     ).toBe("partial");
   });

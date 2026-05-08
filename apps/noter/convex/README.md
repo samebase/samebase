@@ -63,7 +63,7 @@ flowchart LR
 
 - Entrypoint:
   `internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning`
-- State tracking: `vaults.convex`, `vaults.hosting`, and provider metadata in
+- State tracking: `vaults.convex`, `vaults.cloudflare`, and provider metadata in
   the `vaultInfrastructure` table
 - Domain tracking: `vaultDomains` table
 - Retry path: `vaultActions.retryInfrastructureProvisioning`
