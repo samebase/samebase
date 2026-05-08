@@ -1,12 +1,8 @@
 import { Infer, v } from "convex/values";
 
-const { literal, object, optional, string } = v;
-
-export const cloudflareProviderValidator = literal("cloudflare");
-export type CloudflareProvider = Infer<typeof cloudflareProviderValidator>;
+const { object, optional, string } = v;
 
 export const cloudflareStateValidator = object({
-  provider: literal("cloudflare"),
   accountId: string(),
   projectName: string(),
   subdomain: optional(string()),

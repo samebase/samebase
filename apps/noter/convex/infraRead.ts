@@ -10,7 +10,6 @@ import {
   readCloudflareDeploymentLogs,
   readCloudflareProjectStatus,
 } from "./cloudflareResources";
-import { resolveCloudflareState } from "./cloudflareStateHelpers";
 import { asRecord, clamp, readString } from "./jsonUtils";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -200,7 +199,7 @@ export const getCloudflareProjectStatus = internalAction({
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
     const { infra, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
-    const cloudflare = resolveCloudflareState(infra);
+    const cloudflare = infra?.cloudflare;
     if (!cloudflare || !vaultUserId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
@@ -213,7 +212,6 @@ export const getCloudflareProjectStatus = internalAction({
     );
 
     return await readCloudflareProjectStatus({
-      provider: "cloudflare",
       cloudflareToken: resolveCloudflareToken(cloudflareConnection),
       cloudflareServerUrl: resolveCloudflareMcpServerUrl(cloudflareConnection),
       accountId: cloudflare.accountId,
@@ -230,7 +228,7 @@ export const getCloudflareLogs = internalAction({
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
     const { infra, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
-    const cloudflare = resolveCloudflareState(infra);
+    const cloudflare = infra?.cloudflare;
     if (!cloudflare || !vaultUserId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
@@ -243,7 +241,6 @@ export const getCloudflareLogs = internalAction({
     );
 
     return await readCloudflareDeploymentLogs({
-      provider: "cloudflare",
       cloudflareToken: resolveCloudflareToken(cloudflareConnection),
       cloudflareServerUrl: resolveCloudflareMcpServerUrl(cloudflareConnection),
       accountId: cloudflare.accountId,

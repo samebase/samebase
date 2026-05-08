@@ -12,18 +12,13 @@ import {
   createInfraProviders,
   type ConvexManagementProvider,
 } from "./infraProviders";
-import {
-  ensureCloudflareResourcesForVault,
-  getProvisionedMainUrl,
-} from "./cloudflareResources";
+import { ensureCloudflareResources } from "./cloudflareResources";
 import { cloudflareStateValidator } from "./cloudflareState";
-import { resolveCloudflareState } from "./cloudflareStateHelpers";
 import { asRecord, readString, readStringOrNumber } from "./jsonUtils";
 import type { AppProvisioningStep, GithubTreeData } from "./schema";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import {
-  getConnectedVaultCloudflareState,
   isConnectedVault,
   isNoterManagedVault,
   type NoterManagedConnectedVault,
@@ -571,7 +566,7 @@ function hasFreshProviderProvisioningLock(args: {
   vault: NoterManagedConnectedVault;
   now: number;
 }): boolean {
-  const cloudflare = getConnectedVaultCloudflareState(args.vault);
+  const cloudflare = args.vault.cloudflare;
   return (
     (args.vault.convex.state === "provisioning" &&
       args.now - args.vault.convex.startedAt < PROVISIONING_STALE_MS) ||
@@ -587,7 +582,7 @@ function buildProviderFailurePatch(args: {
   now: number;
 }): ProviderStatePatch {
   const patch: ProviderStatePatch = {};
-  const cloudflare = getConnectedVaultCloudflareState(args.vault);
+  const cloudflare = args.vault.cloudflare;
   const failConvex = () => {
     if (args.vault.convex.state !== "connected") {
       patch.convex = {
@@ -865,7 +860,7 @@ export const markCloudflareProvisioning = internalMutation({
     if (!isConnectedVault(vault) || !isNoterManagedVault(vault)) {
       return { applied: false };
     }
-    const cloudflare = getConnectedVaultCloudflareState(vault);
+    const cloudflare = vault.cloudflare;
     if (cloudflare.state === "connected") {
       return { applied: true };
     }
@@ -1052,7 +1047,7 @@ export const claimWorkflowProvisioning = internalMutation({
       }
     }
 
-    const cloudflare = getConnectedVaultCloudflareState(vault);
+    const cloudflare = vault.cloudflare;
     const claimedCloudflare =
       cloudflare.state === "connected"
         ? cloudflare
@@ -1119,7 +1114,6 @@ export const claimWorkflowProvisioning = internalMutation({
       previousVersion: existing?.provisioningVersion ?? 0,
       nextVersion,
       force: args.force,
-      cloudflareProvider: "cloudflare",
     });
 
     await appendProvisioningRunEvent(ctx, {
@@ -1454,9 +1448,8 @@ export const ensureCloudflareInfrastructure = internalAction({
       owner: vault.owner,
       repo: vault.name,
     });
-    const cloudflareExisting = resolveCloudflareState(existing);
-    const provisionedCloudflare = await ensureCloudflareResourcesForVault({
-      provider: "cloudflare",
+    const cloudflareExisting = existing.cloudflare;
+    const provisionedCloudflare = await ensureCloudflareResources({
       owner: vault.owner,
       repo: vault.name,
       ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
@@ -1486,11 +1479,6 @@ export const ensureCloudflareInfrastructure = internalAction({
         },
       },
     });
-    const mainUrl = getProvisionedMainUrl(provisionedCloudflare);
-    if (!mainUrl) {
-      throw new Error("Cloudflare Pages production URL was not resolved.");
-    }
-
     const { applied } = await ctx.runMutation(
       internal.infraProvisioning.upsertInfrastructureRecord,
       {
@@ -1519,7 +1507,7 @@ export const ensureCloudflareInfrastructure = internalAction({
         runId: args.runId,
         accountId: provisionedCloudflare.accountId,
         projectName: provisionedCloudflare.projectName,
-        productionUrl: mainUrl,
+        productionUrl: provisionedCloudflare.productionUrl,
       },
     );
     if (!connectedCloudflareState.applied) {
@@ -1552,7 +1540,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       vaultId: args.vaultId,
       branch: defaultBranch,
       kind: "main",
-      url: mainUrl,
+      url: provisionedCloudflare.productionUrl,
       source: "cloudflare_pages_default",
       active: true,
     });
@@ -1560,7 +1548,7 @@ export const ensureCloudflareInfrastructure = internalAction({
       runId: args.runId,
       step: "record_domains",
       level: "info",
-      message: `Recorded production URL: ${mainUrl}.`,
+      message: `Recorded production URL: ${provisionedCloudflare.productionUrl}.`,
       state: "running",
     });
 
@@ -1822,7 +1810,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
       .first();
     const infraState = resolveInfraStateAfterWorkflowFailure({
       convexProjectId: infrastructure?.convexProjectId,
-      cloudflare: resolveCloudflareState(infrastructure),
+      cloudflare: infrastructure?.cloudflare,
     });
     if (ownsActiveClaim && ownership) {
       if (infrastructure) {

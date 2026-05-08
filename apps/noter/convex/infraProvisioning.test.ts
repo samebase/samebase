@@ -59,7 +59,7 @@ describe("resolveInfraStateAfterWorkflowFailure", () => {
     expect(
       resolveInfraStateAfterWorkflowFailure({
         convexProjectId: undefined,
-        cloudflare: { provider: "cloudflare" },
+        cloudflare: {},
       }),
     ).toBe("partial");
   });

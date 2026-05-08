@@ -21,20 +21,12 @@ import {
 } from "./stagingChanges";
 import { type Doc, Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
-import {
-  cloudflareProviderValidator,
-  cloudflareStateValidator,
-} from "./cloudflareState";
+import { cloudflareStateValidator } from "./cloudflareState";
 import {
   assertConnectedVault,
-  getConnectedVaultCloudflareState,
   isConnectedVault,
   isNoterManagedVault,
 } from "./vaultState";
-import {
-  resolveCloudflareMainUrl,
-  resolveCloudflareState,
-} from "./cloudflareStateHelpers";
 import {
   doesTreeRefreshClaimMatch,
   getLastRepositoryMetadataRefreshAt,
@@ -118,6 +110,10 @@ type ProviderSetupSummary = Infer<typeof providerSetupSummary>;
 type NoterManagedConnectedVault = Extract<
   Doc<"vaults">,
   { githubMode: "create_repository"; state: "connected" }
+>;
+type ConnectedCloudflareState = Extract<
+  NoterManagedConnectedVault["cloudflare"],
+  { state: "connected" }
 >;
 const SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT = 20;
 
@@ -222,7 +218,7 @@ async function resolveProviderSetupSummary(
   ctx: Pick<QueryCtx, "db">,
   vault: NoterManagedConnectedVault,
 ): Promise<ProviderSetupSummary> {
-  const cloudflare = getConnectedVaultCloudflareState(vault);
+  const cloudflare = vault.cloudflare;
   if (vault.convex.state === "failed") {
     return await readProviderRunSummary(ctx, {
       provider: "convex",
@@ -292,12 +288,11 @@ type VaultBranchFilters = Infer<typeof vaultBranchFiltersValidator>;
  * checking presence and encode every segment before handing it to the browser.
  */
 function buildCloudflareProjectDashboardUrl(
-  infra:
-    | { cloudflare?: Infer<typeof cloudflareStateValidator> }
+  cloudflare:
+    | Pick<ConnectedCloudflareState, "accountId" | "projectName">
     | null
     | undefined,
 ): string | undefined {
-  const cloudflare = resolveCloudflareState(infra);
   if (!cloudflare) {
     return undefined;
   }
@@ -1142,7 +1137,6 @@ const getUserVaultsResult = array(
     providerSetup: providerSetupSummary,
     isNoterManaged: boolean(),
     hasConnectedGitHubRepository: boolean(),
-    cloudflareProvider: optional(cloudflareProviderValidator),
     hasConvexProvision: boolean(),
     hasCloudflareProvision: boolean(),
     remoteBranches: array(
@@ -1225,7 +1219,6 @@ export const getUserVaults = query({
         providerSetup: { status: "not_applicable" },
         isNoterManaged: vault.githubMode === "create_repository",
         hasConnectedGitHubRepository: false,
-        cloudflareProvider: undefined,
         hasConvexProvision: false,
         hasCloudflareProvision: false,
         remoteBranches: [],
@@ -1277,7 +1270,7 @@ export const getUserVaults = query({
             ? await resolveProviderSetupSummary(ctx, vault)
             : { status: "not_applicable" as const };
         const hasConvexProvision = vault.convex.state === "connected";
-        const cloudflare = getConnectedVaultCloudflareState(vault);
+        const cloudflare = vault.cloudflare;
         const hasCloudflareProvision = cloudflare.state === "connected";
         const convexProjectSlug =
           vault.convex.state === "connected"
@@ -1287,17 +1280,8 @@ export const getUserVaults = query({
           vault.convex.state === "connected"
             ? vault.convex.deploymentName
             : undefined;
-        const cloudflareMetadata =
-          cloudflare.state === "connected"
-            ? {
-                cloudflare: {
-                  provider: "cloudflare" as const,
-                  accountId: cloudflare.accountId,
-                  projectName: cloudflare.projectName,
-                  productionUrl: cloudflare.productionUrl,
-                },
-              }
-            : null;
+        const connectedCloudflare =
+          cloudflare.state === "connected" ? cloudflare : null;
 
         return {
           _id: vault._id,
@@ -1319,9 +1303,6 @@ export const getUserVaults = query({
           providerSetup,
           isNoterManaged: isNoterManagedVault(vault),
           hasConnectedGitHubRepository: true,
-          cloudflareProvider: isNoterManagedVault(vault)
-            ? "cloudflare"
-            : undefined,
           hasConvexProvision,
           hasCloudflareProvision,
           remoteBranches: remoteBranches
@@ -1363,9 +1344,9 @@ export const getUserVaults = query({
                     })
                   : undefined,
             })),
-          cloudflareProductionUrl: resolveCloudflareMainUrl(cloudflareMetadata),
+          cloudflareProductionUrl: connectedCloudflare?.productionUrl,
           cloudflareProjectDashboardUrl:
-            buildCloudflareProjectDashboardUrl(cloudflareMetadata),
+            buildCloudflareProjectDashboardUrl(connectedCloudflare),
           convexProjectSettingsDashboardUrl:
             buildConvexProjectSettingsDashboardUrl({
               projectSlug: convexProjectSlug,
@@ -2031,7 +2012,7 @@ export const getVaultInfrastructure = query({
             convexDeploymentName: infrastructure.convexDeploymentName,
             convexCloudUrl: infrastructure.convexCloudUrl,
             convexSiteUrl: infrastructure.convexSiteUrl,
-            cloudflare: resolveCloudflareState(infrastructure) ?? undefined,
+            cloudflare: infrastructure.cloudflare,
           }
         : undefined,
       domains: domains.map((domain) => ({

@@ -10,10 +10,10 @@ Production New App creation for `nicu-chiciuc/tmp-newapp-1212341234` failed in
 `seed_starter` after GitHub repository creation and vault connection succeeded.
 
 The vault is correctly preserved as a connected GitHub vault, but it has no
-default-branch tree, no infrastructure records, and no Convex or hosting
-provider state beyond `not_configured`. This is the Phase 5 backend durability
-gap: the user-visible state is clear enough to inspect, but the backend does not
-yet retry the idempotent source setup step.
+default-branch tree, no infrastructure records, and no Convex or Cloudflare
+state beyond `not_configured`. This is the Phase 5 backend durability gap: the
+user-visible state is clear enough to inspect, but the backend does not yet
+retry the idempotent source setup step.
 
 ## Production State
 
@@ -28,7 +28,7 @@ Checked from the primary checkout's `apps/noter` directory with
 - GitHub repository id: `1233131777`
 - Vault state: `connected`
 - `convex`: `{ state: "not_configured" }`
-- `hosting`: `{ state: "not_configured" }`
+- `cloudflare`: `{ state: "not_configured" }`
 - `infraState`: `not_started`
 - `vaultBranchTrees`: no default-branch tree row
 - `vaultInfrastructure`: no row

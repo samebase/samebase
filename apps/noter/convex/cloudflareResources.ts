@@ -13,12 +13,7 @@ import {
 } from "./jsonUtils";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 
-type CloudflareProvisionExistingState = {
-  accountId?: string;
-  projectName?: string;
-  subdomain?: string;
-  productionUrl?: string;
-};
+type CloudflareProvisionExistingState = Partial<CloudflareState>;
 
 type CloudflareProvisionConvexState = {
   production: {
@@ -109,11 +104,12 @@ async function requestCloudflarePagesApi(args: {
   return parseJsonText(text);
 }
 
-export type ProvisionedCloudflareResources = CloudflareState;
-export type { CloudflareProvider } from "./cloudflareState";
+export type ProvisionedCloudflareResources = CloudflareState & {
+  subdomain: string;
+  productionUrl: string;
+};
 
 type EnsureCloudflareResourcesArgs = {
-  provider: "cloudflare";
   owner: string;
   repo: string;
   ghRepoId: string;
@@ -128,11 +124,9 @@ type EnsureCloudflareResourcesArgs = {
   convex: CloudflareProvisionConvexState;
 };
 
-async function ensureCloudflareResources(
+export async function ensureCloudflareResources(
   args: EnsureCloudflareResourcesArgs,
-): Promise<
-  Extract<ProvisionedCloudflareResources, { provider: "cloudflare" }>
-> {
+): Promise<ProvisionedCloudflareResources> {
   const suffix = vaultSuffix(args.vaultId);
   const fallbackProjectName = sanitizeSlug(
     `${args.owner}-${args.repo}-${suffix}`,
@@ -155,9 +149,7 @@ async function ensureCloudflareResources(
     const projectCandidates = [
       args.existing.projectName,
       fallbackProjectName,
-    ].filter(
-      (value): value is string => typeof value === "string" && value.length > 0,
-    );
+    ].filter((value): value is string => Boolean(value));
 
     for (const candidate of projectCandidates) {
       try {
@@ -252,7 +244,7 @@ async function ensureCloudflareResources(
     }
 
     const shouldTriggerDeployment =
-      existingProject === null || args.existing.productionUrl === undefined;
+      !existingProject || !args.existing.productionUrl;
     if (shouldTriggerDeployment) {
       step = "trigger_deployment";
       await requestCloudflarePagesApi({
@@ -282,11 +274,7 @@ async function ensureCloudflareResources(
       refreshedSubdomain || existingSubdomain || fallbackSubdomain;
     const productionUrl = `https://${subdomain}`;
 
-    const result: Extract<
-      ProvisionedCloudflareResources,
-      { provider: "cloudflare" }
-    > = {
-      provider: "cloudflare",
+    const result: ProvisionedCloudflareResources = {
       accountId: args.accountId,
       projectName,
       subdomain,
@@ -315,24 +303,6 @@ async function ensureCloudflareResources(
   }
 }
 
-export async function ensureCloudflareResourcesForVault(
-  args: EnsureCloudflareResourcesArgs,
-): Promise<ProvisionedCloudflareResources> {
-  return await ensureCloudflareResources(args);
-}
-
-export function getProvisionedMainUrl(
-  args: ProvisionedCloudflareResources,
-): string | undefined {
-  if (args.productionUrl) {
-    return args.productionUrl;
-  }
-  if (args.subdomain) {
-    return `https://${args.subdomain}`;
-  }
-  return undefined;
-}
-
 export type CloudflareStatusReadResult = {
   summary: string;
   endpoint: string;
@@ -348,7 +318,6 @@ export type CloudflareLogsReadResult = {
 };
 
 type ReadCloudflareProjectStatusArgs = {
-  provider: "cloudflare";
   cloudflareToken: string;
   cloudflareServerUrl?: string;
   accountId: string;
@@ -375,7 +344,6 @@ export async function readCloudflareProjectStatus(
 }
 
 type ReadCloudflareLogsArgs = {
-  provider: "cloudflare";
   cloudflareToken: string;
   cloudflareServerUrl?: string;
   accountId: string;
@@ -438,7 +406,6 @@ export async function readCloudflareDeploymentLogs(
 }
 
 type DeleteCloudflareResourcesArgs = {
-  provider: "cloudflare";
   accountId: string;
   projectName: string;
   cloudflareToken: string;

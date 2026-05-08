@@ -33,7 +33,6 @@ import type * as cloudflareMcpOAuth from "../cloudflareMcpOAuth.js";
 import type * as cloudflarePreviewComment from "../cloudflarePreviewComment.js";
 import type * as cloudflareResources from "../cloudflareResources.js";
 import type * as cloudflareState from "../cloudflareState.js";
-import type * as cloudflareStateHelpers from "../cloudflareStateHelpers.js";
 import type * as codespaces_executor from "../codespaces/executor.js";
 import type * as codespaces_index from "../codespaces/index.js";
 import type * as codespaces_model from "../codespaces/model.js";
@@ -129,7 +128,6 @@ declare const fullApi: ApiFromModules<{
   cloudflarePreviewComment: typeof cloudflarePreviewComment;
   cloudflareResources: typeof cloudflareResources;
   cloudflareState: typeof cloudflareState;
-  cloudflareStateHelpers: typeof cloudflareStateHelpers;
   "codespaces/executor": typeof codespaces_executor;
   "codespaces/index": typeof codespaces_index;
   "codespaces/model": typeof codespaces_model;

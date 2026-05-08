@@ -210,7 +210,6 @@ describe("vault dashboard Convex contract", () => {
         convexProjectSlug: "stale-project",
         convexDeploymentName: "stale-prod",
         cloudflare: {
-          provider: "cloudflare",
           accountId: "stale-account",
           projectName: "stale-pages-project",
           productionUrl: "https://stale.pages.dev",

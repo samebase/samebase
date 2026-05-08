@@ -11,7 +11,6 @@ import { deleteCloudflareResources } from "./cloudflareResources";
 import { toErrorMessage } from "./jsonUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import { isConnectedVault, isNoterManagedVault } from "./vaultState";
-import { resolveCloudflareState } from "./cloudflareStateHelpers";
 import { toSafeRepoName } from "./repoName";
 
 const { array, literal, object, optional, string, union } = v;
@@ -443,11 +442,9 @@ export const deleteVault = action({
       },
     );
 
-    const cloudflare = resolveCloudflareState(infrastructure);
+    const cloudflare = infrastructure?.cloudflare;
     const shouldRemoveCloudflareProvision =
-      args.removeCloudflareProvision === true &&
-      isNoterManaged &&
-      cloudflare !== null;
+      args.removeCloudflareProvision === true && isNoterManaged;
     const shouldRemoveConvexProvision =
       args.removeConvexProvision === true &&
       isNoterManaged &&
@@ -480,6 +477,9 @@ export const deleteVault = action({
       });
 
       if (shouldRemoveCloudflareProvision) {
+        if (!cloudflare) {
+          throw new Error("Cloudflare resources are not recorded for vault.");
+        }
         if (!cloudflareToken) {
           throw new Error(
             "Cloudflare connection is required to remove resources.",
@@ -487,7 +487,6 @@ export const deleteVault = action({
         }
         try {
           await deleteCloudflareResources({
-            provider: "cloudflare",
             accountId: cloudflare.accountId,
             projectName: cloudflare.projectName,
             cloudflareToken,

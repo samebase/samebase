@@ -511,7 +511,8 @@ model:
 6. sync default branch and tree state
 7. leave Convex and Cloudflare `not_configured` unless the product explicitly
    asks to provision them
-8. let the dashboard derive the vault summary from provider states
+8. let the dashboard derive the vault summary from GitHub, Convex, and
+   Cloudflare states
 
 This flow is currently an action. Moving it to Workflow is part of this model so
 existing-repo onboarding gets the same observability and retry surface as
@@ -525,7 +526,7 @@ historical runs over time:
 1. the initial create-repository attempt
 2. a retry of failed GitHub repository creation
 3. a connect-existing attempt
-4. retries for Convex or Cloudflare provider state
+4. retries for Convex or Cloudflare state
 
 Each retry should create a new run instead of mutating the previous terminal
 run. When a failed GitHub state is retried, the vault moves back to
