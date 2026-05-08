@@ -6,6 +6,10 @@ export type NoterManagedConnectedVault = Extract<
   ConnectedVault,
   { githubMode: "create_repository" }
 >;
+export type ConnectedVaultWithTreeSnapshot = ConnectedVault & {
+  treeSHA: NonNullable<ConnectedVault["treeSHA"]>;
+  treeData: NonNullable<ConnectedVault["treeData"]>;
+};
 
 export function isConnectedVault(
   vault: Doc<"vaults"> | null | undefined,
@@ -23,6 +27,21 @@ export function assertConnectedVault(
 ): ConnectedVault {
   if (!isConnectedVault(vault)) {
     throw new Error("Vault is not connected to a GitHub repository.");
+  }
+  return vault;
+}
+
+export function hasConnectedVaultTreeSnapshot(
+  vault: ConnectedVault,
+): vault is ConnectedVaultWithTreeSnapshot {
+  return Boolean(vault.treeSHA && vault.treeData);
+}
+
+export function assertConnectedVaultTreeSnapshot(
+  vault: ConnectedVault,
+): ConnectedVaultWithTreeSnapshot {
+  if (!hasConnectedVaultTreeSnapshot(vault)) {
+    throw new Error("Vault tree is not synced yet.");
   }
   return vault;
 }

@@ -20,9 +20,12 @@ state is explicitly connected.
 
 This replaces the Phase 3 pre-vault run gap with a stable `vaultId` while
 preserving the strong invariant that repository-backed behavior requires a
-connected GitHub repository. Convex and hosting fields only exist on connected
-GitHub variants, so those integrations cannot exist while GitHub is still
-provisioning or failed.
+connected GitHub repository. GitHub connection means durable repository
+identity, not a fresh branch tree. Branch tree data is cache state and
+repo-backed file/tree behavior must still fail closed until the relevant branch
+snapshot exists. Convex and hosting fields only exist on connected GitHub
+variants, so those integrations cannot exist while GitHub is still provisioning
+or failed.
 
 ## Current Problem
 
@@ -371,6 +374,15 @@ defaults it to the authenticated GitHub account. The target owner can later be a
 user account or organization, and retry must not infer that target from mutable
 provider connection state.
 
+The target create owner is product input, not backend-discovered technical
+state. The New App UI should present the available GitHub user/org destinations
+and pass the selected owner into create-app. Once that exists, the backend can
+insert the initializing vault and run before any GitHub API request because
+`owner`, `name`, and `visibility` are all local request intent. Any temporary
+backend fallback that calls GitHub to recover a missing API-key username is a
+known UX gap, not the target architecture; fix it with owner selection instead
+of adding more pre-vault GitHub discovery.
+
 The create-repository failed variant stores only requested create intent. If a
 GitHub repository was actually created and cannot be cleaned up after a later
 step fails, that is a different state and must include explicit GitHub
@@ -398,6 +410,10 @@ Branch tree state such as `treeSHA` and branch head `commitSHA` should live in
 branch/tree child tables, not in connected GitHub state, unless implementation
 finds a concrete atomicity requirement that cannot be represented otherwise.
 Those values refresh over time and would otherwise duplicate branch-cache state.
+If a connected vault has no branch tree row yet, the vault is still connected to
+GitHub, but source-file routes, staging, branch views, and infrastructure steps
+that need tree shape must wait, refresh, or fail closed instead of treating a
+missing or stale tree cache as GitHub disconnection.
 
 The Phase 1 implementation still keeps several pre-vault-first fields on the
 vault row as compatibility mirrors because current source reads, file-view
@@ -409,11 +425,18 @@ the target model. They should stay clearly marked in the schema and move in a
 separate cleanup project once those call sites consume connected-only state or
 vault-scoped child tables.
 
+Do not add new product meaning to vault-row `treeSHA` or `treeData`. During this
+project they are compatibility mirrors for legacy call sites; new or touched
+branch/tree behavior should prefer `vaultBranchTrees` and only fall back to the
+vault-row snapshot while the migration is still incomplete. After the
+vault-first work settles, remove those mirrors from the vault row in a focused
+cleanup instead of preserving two sources of tree truth.
+
 ## Create New App Flow
 
 For Noter-managed repository creation:
 
-1. validate local input shape
+1. validate local input shape, including the selected GitHub user/org owner
 2. in one mutation, insert the vault, insert the provisioning run with required
    `vaultId`, then patch the vault to
    `state: "provisioning", githubMode: "create_repository", runId, owner, name`
@@ -423,13 +446,16 @@ For Noter-managed repository creation:
    `runId`, immutable repo identity, Convex and hosting state initialized, and
    confirmed repository visibility stored
 6. seed the starter app
-7. sync default branch and tree state
+7. sync default branch and tree cache state into `vaultBranchTrees` and the
+   temporary vault-row compatibility mirror
 8. provision Convex and hosting state
 9. let the dashboard derive the vault summary from provider states
 
 External provider validation happens after the vault exists so failures have a
 visible dashboard target. Local input validation can happen before insert when
-it does not require provider calls.
+it does not require provider calls. GitHub owner selection is local product
+intent by this point; the create action should not need to call GitHub only to
+decide where the repository will be created.
 
 ## Existing Repository Flow
 
@@ -624,8 +650,15 @@ Scope:
    before starting provider work
 2. update app provisioning runs/events so new create runs require `vaultId`
 3. update create-app Workflow steps to mutate `state`, `githubMode`, `owner`,
-   `name`, `visibility`, and connected-only Convex/hosting state as steps start,
-   succeed, or fail
+   `name`, `visibility`, connected-only Convex/hosting state, and branch-tree
+   cache state as steps start, succeed, or fail
+4. replace any pre-vault GitHub owner discovery fallback with New App owner
+   selection, so the selected user/org owner is available before the vault/run
+   insert
+
+Connected GitHub state must not require a branch tree snapshot. Phase 2 may keep
+the vault-row tree fields as optional compatibility mirrors while current source
+views finish moving to `vaultBranchTrees`.
 
 Stop before building broad retry UX.
 
@@ -639,6 +672,8 @@ Scope:
 1. update dashboard queries and controls to render provider states
 2. derive failure messages from provisioning events for the failed `runId`
 3. gate repo-backed actions behind connected GitHub state
+4. keep tree-dependent controls, including infra provisioning, gated on a usable
+   default-branch tree from `vaultBranchTrees` or the temporary mirror
 
 Stop before implementing retry mutations unless the UI needs a disabled target
 for placement.
@@ -670,6 +705,23 @@ Scope:
 3. reuse the same dashboard and retry semantics as Noter-managed repository
    creation
 
+## Follow-Up Cleanup Projects
+
+These items are intentionally not broadening the current vault-first phase, but
+future work should pick them up before adding more behavior on top of the
+temporary model:
+
+1. Remove vault-row `treeSHA` and `treeData` after file view, staging, branch
+   refresh, infra, and dashboard paths consume `vaultBranchTrees` directly.
+2. Add explicit New App GitHub owner/org selection so create-app receives
+   `owner`, `name`, and `visibility` as local product intent before any GitHub
+   API request.
+3. Add an explicit retained-created-repo failure state before offering GitHub
+   repo deletion for create attempts that created a repository but failed before
+   connected identity was written. Until that state exists, delete UI must only
+   promise GitHub repo deletion for confirmed connected Noter-managed repos.
+4. Revisit parked Codespaces branch defaults after Codespaces work resumes.
+
 ## Testing Plan
 
 Backend:
@@ -687,6 +739,10 @@ Backend:
 11. connected GitHub state cannot transition to top-level failed
 12. post-connected provider failures preserve connected GitHub state
 13. repo-backed helpers reject pre-GitHub vaults
+14. connected vaults without a usable default-branch tree do not expose
+    tree-dependent infra provisioning controls
+15. Cloudflare build config reads `vaultBranchTrees` before the temporary
+    vault-row tree mirror and fails before provider writes when neither exists
 
 Frontend:
 
@@ -695,6 +751,8 @@ Frontend:
 3. failed GitHub state shows a retry target on the vault
 4. existing-repo connected vault renders like other connected vaults after the
    GitHub state is connected
+5. delete dialog only offers GitHub repository deletion for confirmed connected
+   Noter-managed repositories
 
 ## Acceptance Criteria
 

@@ -81,9 +81,11 @@ Required env vars (OAuth + redirects):
 - `PROVIDER_CONVEX_OAUTH_REDIRECT_URL`
 - `PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL`
 
-Optional:
+Repository default branch:
 
-- `INFRA_DEFAULT_BRANCH` (defaults to `main`)
+- Use the connected vault's GitHub `defaultBranch` for Cloudflare production
+  branch configuration. Do not reintroduce an `INFRA_DEFAULT_BRANCH` override;
+  repositories can use `main`, `master`, or any custom default branch.
 
 ## API/Function Contracts
 

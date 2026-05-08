@@ -196,6 +196,7 @@ type VaultDeleteIntent = {
   id: Id<"vaults">;
   repositoryFullName: string;
   isNoterManaged: boolean;
+  canRemoveGithubRepo: boolean;
   hasConvexProvision: boolean;
   hasHostingProvision: boolean;
 };
@@ -279,7 +280,7 @@ function useVaultDashboardLocalStore() {
           removeCodespaces: true,
           removeConvexProvision:
             intent.isNoterManaged && intent.hasConvexProvision,
-          removeGithubRepo: intent.isNoterManaged,
+          removeGithubRepo: intent.canRemoveGithubRepo,
           removeHostingProvision:
             intent.isNoterManaged && intent.hasHostingProvision,
           vaultToDelete: intent,
@@ -1623,9 +1624,10 @@ function VaultDashboardBody({
         const developerToolsOpen =
           developerToolsVisible &&
           (openDeveloperToolsByVaultId[vault._id] ?? false);
-        const infraActionLabel = vault.isNoterManaged
-          ? getInfraActionLabel(vault.infraState)
-          : null;
+        const infraActionLabel =
+          isReady && vault.isNoterManaged
+            ? getInfraActionLabel(vault.infraState)
+            : null;
         const repositoryExternalLinks =
           buildVaultDashboardRepositoryExternalLinks({
             cloudflareProjectDashboardUrl: vault.cloudflareProjectDashboardUrl,
@@ -1686,7 +1688,11 @@ function VaultDashboardBody({
                 ) : undefined
               }
               titleSuffix={
-                !isReady ? (
+                vault.state === "failed" ? (
+                  <span className="shrink-0 text-xs font-normal text-destructive">
+                    (failed)
+                  </span>
+                ) : !isReady ? (
                   <>
                     <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
                     <span className="shrink-0 text-xs font-normal text-muted-foreground">
@@ -2187,7 +2193,7 @@ export function VaultDashboard() {
         removeCodespaces:
           connectedCodespacesCount === 0 ? true : removeCodespaces,
         removeGithubRepo: vaultToDelete.isNoterManaged
-          ? removeGithubRepo
+          ? vaultToDelete.canRemoveGithubRepo && removeGithubRepo
           : false,
         removeConvexProvision:
           vaultToDelete.isNoterManaged && vaultToDelete.hasConvexProvision
@@ -2645,6 +2651,8 @@ export function VaultDashboard() {
         id: vault._id,
         repositoryFullName: vault.repositoryFullName,
         isNoterManaged: vault.isNoterManaged,
+        canRemoveGithubRepo:
+          vault.isNoterManaged && vault.hasConnectedGitHubRepository,
         hasConvexProvision: vault.hasConvexProvision,
         hasHostingProvision: vault.hasHostingProvision,
       },
@@ -2782,7 +2790,9 @@ export function VaultDashboard() {
                     setDeleteOption("removeGithubRepo", checked === true)
                   }
                   disabled={
-                    !vaultToDelete.isNoterManaged || isDeleting || isCommitting
+                    !vaultToDelete.canRemoveGithubRepo ||
+                    isDeleting ||
+                    isCommitting
                   }
                   className="mt-0.5"
                 />
@@ -2791,9 +2801,10 @@ export function VaultDashboard() {
                   className="text-sm text-muted-foreground"
                 >
                   Also remove GitHub repository
-                  {!vaultToDelete.isNoterManaged ? (
+                  {!vaultToDelete.canRemoveGithubRepo ? (
                     <div className="text-xs text-muted-foreground">
-                      Only available for repositories created in Noter.
+                      Only available for confirmed repositories created in
+                      Noter.
                     </div>
                   ) : null}
                 </label>

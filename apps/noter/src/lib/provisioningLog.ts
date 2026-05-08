@@ -5,6 +5,7 @@ export type ProvisioningLogStep =
   | "create_github_repo"
   | "seed_starter"
   | "create_vault"
+  | "sync_tree"
   | "claim_infra"
   | "ensure_convex"
   | "ensure_convex_preview"
@@ -24,6 +25,7 @@ const provisioningStepLabels = {
   create_github_repo: "create GitHub repo",
   seed_starter: "seed starter",
   create_vault: "create vault",
+  sync_tree: "sync tree",
   claim_infra: "claim infra",
   ensure_convex: "ensure Convex",
   ensure_convex_preview: "ensure Convex preview",

@@ -52,9 +52,15 @@ export function selectBatchReadRepositoryTree(args: {
   requestedBranch?: string;
   defaultBranch?: string;
   branchTree: GithubTreeType[] | null;
-  legacyTree: GithubTreeType[];
+  legacyTree: GithubTreeType[] | null;
 }): GithubTreeType[] {
+  if (args.branchTree) {
+    return args.branchTree;
+  }
   if (!args.requestedBranch) {
+    if (!args.legacyTree) {
+      throw new Error("Default branch tree is not cached. Refresh and retry.");
+    }
     return args.legacyTree;
   }
   return selectRepositoryTreeForBranch({
@@ -3027,11 +3033,12 @@ export const batchReadFiles = action({
         ? args.branch.trim()
         : undefined;
     let branchTreeData: GithubTreeType[] | null = null;
-    let defaultBranch: string | undefined;
-    if (requestedBranch) {
+    const defaultBranch = connectedVault.defaultBranch;
+    const branchToLoad = requestedBranch ?? defaultBranch;
+    if (branchToLoad) {
       let branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
         vaultId: args.vaultId,
-        branch: requestedBranch,
+        branch: branchToLoad,
       });
 
       if (!branchTree) {
@@ -3039,33 +3046,23 @@ export const batchReadFiles = action({
           userId,
           owner: connectedVault.owner,
           repo: connectedVault.name,
-          branch: requestedBranch,
+          branch: branchToLoad,
         });
         branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
           vaultId: args.vaultId,
-          branch: requestedBranch,
+          branch: branchToLoad,
         });
       }
 
       if (branchTree) {
         branchTreeData = branchTree.treeData.tree;
-      } else {
-        const repositoryFullName = `${connectedVault.owner}/${connectedVault.name}`;
-        const resolvedVault = await ctx.runQuery(
-          internal.vault.getByRepositoryFullName,
-          {
-            userId,
-            repositoryFullName,
-          },
-        );
-        defaultBranch = resolvedVault?.defaultBranch;
       }
     }
     const repositoryTree = selectBatchReadRepositoryTree({
       requestedBranch,
       defaultBranch,
       branchTree: branchTreeData,
-      legacyTree: connectedVault.treeData.tree,
+      legacyTree: connectedVault.treeData?.tree ?? null,
     });
 
     // Build a map of path → tree entry for fast lookups
@@ -4130,7 +4127,7 @@ export const commitAllStaged = internalAction({
           )) {
             if (file.fileDeleted) continue;
 
-            const newSha = updatedVault.treeData.tree.find(
+            const newSha = updatedVault.treeData?.tree.find(
               (t: { path?: string }) => t.path === file.filePath,
             )?.sha;
 

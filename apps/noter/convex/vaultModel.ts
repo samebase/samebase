@@ -148,9 +148,9 @@ const vaultOperationalFields = {
 const connectedRepositorySnapshotFields = {
   ghRepoId: string(),
   defaultBranch: string(),
-  treeSHA: string(),
+  treeSHA: optional(string()),
   commitSHA: optional(string()),
-  treeData: GithubTreeData,
+  treeData: optional(GithubTreeData),
 } as const;
 
 /**

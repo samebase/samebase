@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import { action, type ActionCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 import { createInfraProviders } from "./infraProviders";
@@ -11,6 +11,7 @@ import { deleteHostingResources } from "./hostingProviders";
 import { toErrorMessage } from "./jsonUtils";
 import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import { isConnectedVault, isNoterManagedVault } from "./vaultState";
+import { toSafeRepoName } from "./repoName";
 
 const { optional } = v;
 
@@ -78,6 +79,7 @@ async function startVaultInfrastructureProvisioningOrFail(
 async function startCreateAppProvisioningOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
+    vaultId: Id<"vaults">;
     runId: Id<"appProvisioningRuns">;
     userId: Id<"users">;
     repositoryName: string;
@@ -108,6 +110,35 @@ async function startCreateAppProvisioningOrFail(
     }
     throw error;
   }
+}
+
+async function resolveGithubConnectionOwner(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    connection: Extract<Doc<"providerConnections">, { kind: "github" }>;
+    userId: Id<"users">;
+  },
+): Promise<string> {
+  if (args.connection.username) {
+    return args.connection.username;
+  }
+
+  const octokit = new Octokit({
+    auth: args.connection.auth.credential,
+  });
+  const { data } = await octokit.rest.users.getAuthenticated();
+  const username = data.login;
+  if (!username) {
+    throw new Error("GitHub connection is missing an account login.");
+  }
+
+  await ctx.runMutation(internal.providerConnections.upsertGithub, {
+    userId: args.userId,
+    auth: args.connection.auth,
+    username,
+  });
+
+  return username;
 }
 
 export const connectRepository = action({
@@ -208,25 +239,58 @@ export const createRepository = action({
     private: optional(v.boolean()),
   },
   returns: v.object({
+    vaultId: v.id("vaults"),
     runId: v.id("appProvisioningRuns"),
   }),
-  handler: async (ctx, args): Promise<{ runId: Id<"appProvisioningRuns"> }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ vaultId: Id<"vaults">; runId: Id<"appProvisioningRuns"> }> => {
     const userId = await getUserId(ctx);
-    const runId = await ctx.runMutation(
-      internal.appProvisioningRuns.createForAppWorkflow,
+    const repoName = toSafeRepoName(args.name);
+    if (!repoName) {
+      throw new Error("Repository name is required.");
+    }
+
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
       {
         userId,
+        kind: "github",
+      },
+    );
+    if (githubConnection?.kind !== "github") {
+      throw new Error("GitHub is not connected.");
+    }
+    // TODO(GitHub owner selection): let New App choose the target user/org and
+    // pass it here, so the initializing vault can be created before any GitHub
+    // API request. This fallback exists only while API-key connections may lack
+    // a stored username.
+    const ghRepoOwner = await resolveGithubConnectionOwner(ctx, {
+      connection: githubConnection,
+      userId,
+    });
+
+    const visibility = args.private === false ? "public" : "private";
+    const { vaultId, runId } = await ctx.runMutation(
+      internal.vault.createInitializingNoterManagedVaultForUser,
+      {
+        userId,
+        ghRepoOwner,
+        ghRepoName: repoName,
+        visibility,
       },
     );
     await startCreateAppProvisioningOrFail(ctx, {
+      vaultId,
       runId,
       userId,
-      repositoryName: args.name,
+      repositoryName: repoName,
       description: args.description ?? null,
       private: args.private ?? true,
     });
 
-    return { runId };
+    return { vaultId, runId };
   },
 });
 

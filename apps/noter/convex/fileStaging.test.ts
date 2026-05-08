@@ -207,6 +207,17 @@ describe("selectRepositoryTreeForBranch", () => {
       }),
     ).toThrow('Branch tree is not cached for "feature/login"');
   });
+
+  it("throws for default branch before the legacy tree cache is synced", () => {
+    expect(() =>
+      selectRepositoryTreeForBranch({
+        requestedBranch: "main",
+        defaultBranch: "main",
+        branchTree: null,
+        legacyTree: null,
+      }),
+    ).toThrow('Branch tree is not cached for "main"');
+  });
 });
 
 describe("summarizeStagedFilesByBranch", () => {

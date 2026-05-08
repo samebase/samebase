@@ -130,7 +130,7 @@ describe("resolveVaultBranchSelection", () => {
     });
   });
 
-  it("keeps requested branch when remote branches are unavailable", () => {
+  it("fails closed for requested non-default branches when remote branches are unavailable", () => {
     expect(
       resolveVaultBranchSelection({
         requestedBranch: "feature/login",
@@ -139,8 +139,8 @@ describe("resolveVaultBranchSelection", () => {
       }),
     ).toEqual({
       defaultBranch: "main",
-      resolvedBranch: "feature/login",
-      branchNotFound: false,
+      resolvedBranch: "main",
+      branchNotFound: true,
     });
   });
 

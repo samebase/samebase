@@ -79,7 +79,8 @@ async function appendRunEvent(
       | "validate_connections"
       | "create_github_repo"
       | "seed_starter"
-      | "create_vault";
+      | "create_vault"
+      | "sync_tree";
     level: "info" | "warn" | "error";
     message: string;
     state: "unchanged" | "queued" | "running" | "succeeded" | "failed";
@@ -91,12 +92,17 @@ async function appendRunEvent(
 async function assertCreateRun(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
+    vaultId: Id<"vaults">;
     runId: Id<"appProvisioningRuns">;
     userId: Id<"users">;
   },
 ): Promise<Doc<"appProvisioningRuns">> {
   const run = await getProvisioningRun(ctx, args.runId);
-  if (run.userId !== args.userId || run.trigger !== "create") {
+  if (
+    run.userId !== args.userId ||
+    run.trigger !== "create" ||
+    run.vaultId !== args.vaultId
+  ) {
     throw new Error("Provisioning run does not match create workflow.");
   }
   return run;
@@ -104,6 +110,7 @@ async function assertCreateRun(
 
 export const validateCreateAppConnections = internalAction({
   args: {
+    vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
     repositoryName: string(),
@@ -176,6 +183,7 @@ export const validateCreateAppConnections = internalAction({
 
 export const createGitHubRepository = internalAction({
   args: {
+    vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
     repositoryName: string(),
@@ -241,6 +249,7 @@ export const createGitHubRepository = internalAction({
 
 export const seedStarterRepository = internalAction({
   args: {
+    vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
     ownerName: string(),
@@ -269,31 +278,11 @@ export const seedStarterRepository = internalAction({
       });
     } catch (error) {
       const seedErrorMessage = toErrorMessage(error);
-      let cleanupErrorMessage: string | undefined;
 
       console.error("seed:failed", {
         repo: `${args.ownerName}/${args.repoName}`,
         message: seedErrorMessage,
       });
-
-      try {
-        await octokit.rest.repos.delete({
-          owner: args.ownerName,
-          repo: args.repoName,
-        });
-      } catch (cleanupError) {
-        cleanupErrorMessage = toErrorMessage(cleanupError);
-        console.error("seed:cleanup_failed", {
-          repo: `${args.ownerName}/${args.repoName}`,
-          message: cleanupErrorMessage,
-        });
-      }
-
-      if (cleanupErrorMessage) {
-        throw new Error(
-          `Failed to seed starter repository: ${seedErrorMessage}. Cleanup also failed: ${cleanupErrorMessage}`,
-        );
-      }
 
       throw new Error(`Failed to seed starter repository: ${seedErrorMessage}`);
     }
@@ -312,6 +301,7 @@ export const seedStarterRepository = internalAction({
 
 export const createVaultForRepository = internalAction({
   args: {
+    vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
     userId: id("users"),
     ghRepoId: string(),
@@ -328,7 +318,50 @@ export const createVaultForRepository = internalAction({
       runId: args.runId,
       step: "create_vault",
       level: "info",
-      message: "Creating the Noter vault.",
+      message: "Connecting the Noter vault to GitHub.",
+      state: "running",
+    });
+
+    await ctx.runMutation(internal.vault.connectNoterManagedVaultGitHub, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      ghRepoId: args.ghRepoId,
+      ghRepoOwner: args.ownerName,
+      ghRepoName: args.repoName,
+      defaultBranch: args.defaultBranch,
+      visibility: args.visibility,
+      runId: args.runId,
+    });
+    await appendRunEvent(ctx, {
+      runId: args.runId,
+      step: "create_vault",
+      level: "info",
+      message: "Connected the Noter vault to GitHub.",
+      state: "running",
+    });
+
+    return { vaultId: args.vaultId };
+  },
+});
+
+export const syncVaultTreeForRepository = internalAction({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    ownerName: string(),
+    repoName: string(),
+    defaultBranch: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    await assertCreateRun(ctx, args);
+
+    await appendRunEvent(ctx, {
+      runId: args.runId,
+      step: "sync_tree",
+      level: "info",
+      message: "Syncing the default branch tree.",
       state: "running",
     });
 
@@ -345,35 +378,26 @@ export const createVaultForRepository = internalAction({
       branch: args.defaultBranch,
     });
 
-    const vaultId: Id<"vaults"> = await ctx.runMutation(
-      internal.vault.addNoterManagedVaultForUser,
-      {
-        userId: args.userId,
-        ghRepoId: args.ghRepoId,
-        ghRepoOwner: args.ownerName,
-        ghRepoName: args.repoName,
-        defaultBranch: args.defaultBranch,
-        visibility: args.visibility,
-        runId: args.runId,
-        treeSHA: tree.data.sha,
-        commitSHA: branchData.data.commit.sha,
-        treeData: tree.data,
-      },
-    );
-    const repositoryFullName = `${args.ownerName}/${args.repoName}`;
-    await ctx.runMutation(internal.appProvisioningRuns.linkVault, {
-      runId: args.runId,
-      vaultId,
-      repositoryFullName,
+    await ctx.runMutation(internal.vault.upsertVaultBranchTree, {
+      vaultId: args.vaultId,
+      branch: args.defaultBranch,
+      treeData: tree.data,
+      commitSHA: branchData.data.commit.sha,
     });
+    await ctx.runMutation(internal.vault.updateVaultTree, {
+      vaultId: args.vaultId,
+      treeData: tree.data,
+      commitSHA: branchData.data.commit.sha,
+    });
+
     await appendRunEvent(ctx, {
       runId: args.runId,
-      step: "create_vault",
+      step: "sync_tree",
       level: "info",
-      message: "Created the Noter vault.",
+      message: "Synced the default branch tree.",
       state: "running",
     });
 
-    return { vaultId };
+    return null;
   },
 });

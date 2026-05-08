@@ -250,12 +250,12 @@ export function selectRepositoryTreeForBranch(args: {
   requestedBranch: string;
   defaultBranch?: string;
   branchTree: GithubTreeType[] | null;
-  legacyTree: GithubTreeType[];
+  legacyTree: GithubTreeType[] | null;
 }): GithubTreeType[] {
   if (args.branchTree) {
     return args.branchTree;
   }
-  if (args.defaultBranch === args.requestedBranch) {
+  if (args.defaultBranch === args.requestedBranch && args.legacyTree) {
     return args.legacyTree;
   }
   throw new Error(
@@ -283,7 +283,7 @@ async function resolveRepositoryTreeForVault(args: {
   ctx: MutationCtx;
   vaultId: Infer<typeof vaultIdValidator>;
   requestedBranch: string;
-  legacyTree: GithubTreeType[];
+  legacyTree: GithubTreeType[] | null;
 }): Promise<GithubTreeType[]> {
   const branchTree = await args.ctx.runQuery(
     internal.vault.getVaultBranchTree,
@@ -1129,7 +1129,7 @@ export const createFileInStaging = mutation({
       ctx,
       vaultId: args.vaultId,
       requestedBranch: args.branch,
-      legacyTree: connectedVault.treeData.tree,
+      legacyTree: connectedVault.treeData?.tree ?? null,
     });
     const existsInRepository = repositoryTree.some(
       (entry: GithubTreeType) =>
@@ -1439,7 +1439,7 @@ export const saveBinaryUploadToStaging = internalMutation({
       ctx,
       vaultId: args.vaultId,
       requestedBranch: args.branch,
-      legacyTree: connectedVault.treeData.tree,
+      legacyTree: connectedVault.treeData?.tree ?? null,
     });
     const existingRepositoryEntry = repositoryTree.find(
       (entry: GithubTreeType) =>
@@ -1597,7 +1597,7 @@ export const rename = internalMutation({
       ctx,
       vaultId: args.vaultId,
       requestedBranch: args.branch,
-      legacyTree: connectedVault.treeData.tree,
+      legacyTree: connectedVault.treeData?.tree ?? null,
     });
     const existsInRepository = repositoryTree.some(
       (entry: GithubTreeType) =>
