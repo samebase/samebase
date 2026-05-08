@@ -47,13 +47,19 @@ npx convex dashboard
 npx convex env list
 ```
 
-For worktree-safe prod logs when the worktree lacks its own `.env.local`, point
-`--env-file` at the primary checkout's `apps/noter/.env.local` and replace
-`<primary-checkout>` with the actual path:
+When checking production from a worktree, do not pass `--env-file` pointing at
+the primary checkout. If that file provides `CONVEX_DEPLOY_KEY`, the Convex CLI
+will ignore `--prod` and use the deploy key's deployment instead. Run prod
+commands from the primary local checkout's `apps/noter` directory and clear the
+deploy-key env while preserving the project deployment, for example:
 
 ```bash
-npx convex logs --prod --env-file <primary-checkout>/apps/noter/.env.local --history 50
+CONVEX_DEPLOYMENT=<primary-checkout-CONVEX_DEPLOYMENT> CONVEX_DEPLOY_KEY= npx convex logs --prod --history 50
 ```
+
+If the CLI prints
+`Ignoring --prod ... and using deployment from CONVEX_DEPLOY_KEY`, stop and
+rerun with `CONVEX_DEPLOY_KEY=` from the primary checkout.
 
 ## Architecture
 
