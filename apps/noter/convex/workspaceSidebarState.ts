@@ -34,6 +34,7 @@ function readWorkspaceSidebarState(
     leftDesktopWidthPx: storedState.leftDesktopWidthPx,
     leftMobileWidthPx: storedState.leftMobileWidthPx,
     mobilePane: storedState.mobilePane,
+    mobileSurface: storedState.mobileSurface,
     rightDesktopOpen: storedState.rightDesktopOpen,
     rightDesktopWidthPx: storedState.rightDesktopWidthPx,
     rightMobileWidthPx: storedState.rightMobileWidthPx,

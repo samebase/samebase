@@ -153,6 +153,7 @@ describe("Layout", () => {
       leftDesktopWidthPx: 48,
       leftMobileWidthPx: 288,
       mobilePane: "main",
+      mobileSurface: { kind: "unmerged" },
       rightDesktopOpen: true,
       rightDesktopWidthPx: 288,
       rightMobileWidthPx: 288,
@@ -162,6 +163,7 @@ describe("Layout", () => {
       leftDesktopWidthPx: 420,
       leftMobileWidthPx: 410,
       mobilePane: "left",
+      mobileSurface: { kind: "merged", mainWidthPx: 294, side: "left" },
       rightDesktopOpen: true,
       rightDesktopWidthPx: 360,
       rightMobileWidthPx: 340,
@@ -185,6 +187,7 @@ describe("Layout", () => {
       leftDesktopWidthPx: defaultSidebarState.leftDesktopWidthPx,
       leftMobileWidthPx: defaultSidebarState.leftMobileWidthPx,
       mobilePane: "main",
+      mobileSurface: { kind: "unmerged" },
     });
     expect(sanitizedSidebarStateController.setState).toBe(setState);
   });

@@ -1,4 +1,5 @@
 import { clampNumber } from "@/lib/clampNumber";
+import type { WorkspaceMobileSurface } from "../../../convex/workspaceSidebarStateModel";
 
 export const WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
 const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
@@ -20,18 +21,13 @@ export type WorkspaceLayoutV2MobileMinResizeBehavior =
   | "min_resize_to_merge";
 export type WorkspaceLayoutV2MobileMergedSide = "left" | "right";
 export type WorkspaceLayoutV2ActiveResizeSide = "left" | "right" | "top" | null;
-export type WorkspaceLayoutV2MobileSurface =
-  | { kind: "unmerged" }
-  | {
-      kind: "merged";
-      mainWidthPx: number;
-      side: WorkspaceLayoutV2MobileMergedSide;
-    };
+export type WorkspaceLayoutV2MobileSurface = WorkspaceMobileSurface;
 export type WorkspaceLayoutV2MobileGrip =
   | { kind: "idle" }
   | {
       kind: "dragging";
       mergeTargetSide: WorkspaceLayoutV2MobileMergedSide | null;
+      previewSurface: WorkspaceLayoutV2MobileSurface;
       shouldSettleMergedOnEnd: boolean;
       side: WorkspaceLayoutV2MobileMergedSide;
       slideOffsetPx: number;

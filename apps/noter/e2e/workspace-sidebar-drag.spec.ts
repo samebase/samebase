@@ -505,6 +505,66 @@ test("logo mobile merge resize keeps main width while opening the right sidebar"
     .toBe(viewportWidthPx - minWidthPx);
 });
 
+test("logo mobile right merge survives reload from localStorage", async ({
+  page,
+}) => {
+  await gotoLogoPage(page);
+  await page.evaluate(() => {
+    window.localStorage.clear();
+  });
+  await gotoLogoPage(page);
+
+  await scrollFileViewCarouselToPane(page, "right");
+
+  const viewportWidthPx = await page
+    .getByTestId("workspace-layout-v2-pane-main")
+    .evaluate((element) => element.clientWidth);
+  const minWidthPx = await getMobileSidebarMinWidthPx(page);
+  const rightPaneWidthBefore = (
+    await getBox(page, "workspace-layout-v2-pane-right")
+  ).width;
+
+  await touchDragHandleByPx(
+    page,
+    "workspace-layout-v2-right-resize",
+    rightPaneWidthBefore - minWidthPx + minWidthPx,
+  );
+
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute(
+    "data-mobile-pane",
+    "right",
+  );
+  await expect(
+    page.locator('[data-workspace-layout-v2-mobile-merged-pane="right"]'),
+  ).toHaveCount(1);
+  await expect
+    .poll(async () =>
+      Math.round((await getBox(page, "workspace-layout-v2-pane-right")).width),
+    )
+    .toBe(minWidthPx);
+  await expect
+    .poll(async () => getMobileMainPaneWidthPx(page))
+    .toBe(viewportWidthPx - minWidthPx);
+
+  await page.reload({ waitUntil: "networkidle" });
+
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute(
+    "data-mobile-pane",
+    "right",
+  );
+  await expect(
+    page.locator('[data-workspace-layout-v2-mobile-merged-pane="right"]'),
+  ).toHaveCount(1);
+  await expect
+    .poll(async () =>
+      Math.round((await getBox(page, "workspace-layout-v2-pane-right")).width),
+    )
+    .toBe(minWidthPx);
+  await expect
+    .poll(async () => getMobileMainPaneWidthPx(page))
+    .toBe(viewportWidthPx - minWidthPx);
+});
+
 test("logo mobile merge resize settles after a back-and-forth grip drag", async ({
   page,
 }) => {

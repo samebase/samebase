@@ -1,4 +1,4 @@
-import { useMemo, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useMemo, type ComponentProps, type ReactNode } from "react";
 import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
 import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
@@ -65,6 +65,7 @@ export function PublicLayoutShell({
           ? PUBLIC_LAYOUT_LEFT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX
           : WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
         mobilePane: defaultMobilePane,
+        mobileSurface: { kind: "unmerged" },
         rightDesktopOpen: true,
         rightDesktopWidthPx: PUBLIC_LAYOUT_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
         rightMobileWidthPx: PUBLIC_LAYOUT_RIGHT_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX,
@@ -76,6 +77,28 @@ export function PublicLayoutShell({
     reset: sidebarResetRequested,
     storageKey: PUBLIC_LAYOUT_SIDEBAR_STORAGE_KEY,
   });
+  const setSidebarState = sidebarState.setState;
+  const storedMobileSurface = sidebarState.state.mobileSurface;
+  // If a public route has no left pane, a stored left merge cannot be rendered
+  // later as a surprise when another public route does have a left pane.
+  useEffect(() => {
+    if (
+      hasLeftPane ||
+      storedMobileSurface.kind !== "merged" ||
+      storedMobileSurface.side !== "left"
+    ) {
+      return;
+    }
+
+    setSidebarState(
+      (state) =>
+        state.mobileSurface.kind === "merged" &&
+        state.mobileSurface.side === "left"
+          ? { ...state, mobileSurface: { kind: "unmerged" } }
+          : state,
+      "immediate",
+    );
+  }, [hasLeftPane, setSidebarState, storedMobileSurface]);
   const layoutSidebarStateController = sanitizePublicLayoutSidebarState({
     defaultSidebarState,
     hasLeftPane,
